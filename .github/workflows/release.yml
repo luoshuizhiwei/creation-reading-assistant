@@ -1,0 +1,102 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-release-assets:
+    name: Build Windows and Android release assets
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            mobile/package-lock.json
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Install desktop dependencies
+        run: npm ci
+
+      - name: Install mobile dependencies
+        run: npm ci --prefix mobile
+
+      - name: Verify release pipeline files
+        run: npm run verify:release-readiness
+
+      - name: Run full desktop beta gate
+        run: npm run verify:beta
+
+      - name: Build desktop package
+        run: npm run dist:beta:offline
+
+      - name: Verify packaged desktop artifact
+        run: npm run verify:beta:release
+
+      - name: Build mobile web app
+        run: npm run mobile:build
+
+      - name: Sync Capacitor Android project
+        shell: pwsh
+        run: |
+          Push-Location mobile
+          npx cap sync android
+          Pop-Location
+
+      - name: Build Android debug APK
+        shell: pwsh
+        run: |
+          Push-Location mobile\android
+          .\gradlew.bat assembleDebug
+          Pop-Location
+
+      - name: Stage release artifacts
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
+          Compress-Archive -Path release-beta\win-unpacked\* -DestinationPath release-artifacts\creation-reading-assistant-windows-win-unpacked.zip -Force
+          Copy-Item mobile\android\app\build\outputs\apk\debug\app-debug.apk release-artifacts\creation-reading-assistant-mobile-debug.apk -Force
+          Get-ChildItem release-artifacts -File |
+            Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
+            ForEach-Object {
+              $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
+              "$($hash.Hash)  $($_.Name)"
+            } |
+            Set-Content -Encoding UTF8 release-artifacts\SHA256SUMS.txt
+
+      - name: Upload workflow artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: creation-reading-assistant-release-assets
+          path: release-artifacts/*
+          if-no-files-found: error
+
+      - name: Publish GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          name: 创作阅读助手 ${{ github.ref_name }}
+          body_path: CHANGELOG.md
+          prerelease: true
+          files: |
+            release-artifacts/creation-reading-assistant-windows-win-unpacked.zip
+            release-artifacts/creation-reading-assistant-mobile-debug.apk
+            release-artifacts/SHA256SUMS.txt

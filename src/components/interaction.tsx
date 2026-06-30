@@ -1,0 +1,100 @@
+import type { ReactNode } from "react";
+import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
+import { Button } from "@/components/ui";
+import { useUIStore, type ToastTone } from "@/stores/ui-store";
+
+const toastIcon: Record<ToastTone, typeof CheckCircle2> = {
+  success: CheckCircle2,
+  info: Info,
+  warning: AlertTriangle,
+  error: XCircle
+};
+
+const toastClass: Record<ToastTone, string> = {
+  success: "border-moss/25 bg-moss-soft text-moss",
+  info: "border-copper/25 bg-paper-panel text-paper-ink",
+  warning: "border-amber-300 bg-amber-50 text-amber-800",
+  error: "border-red-200 bg-red-50 text-red-700"
+};
+
+export function ToastCenter() {
+  const toasts = useUIStore((state) => state.toasts);
+  const dismissToast = useUIStore((state) => state.dismissToast);
+
+  return (
+    <div className="pointer-events-none absolute right-5 top-5 z-[70] grid w-[min(380px,calc(100vw-40px))] gap-2">
+      {toasts.map((toast) => {
+        const Icon = toastIcon[toast.tone];
+        return (
+          <article key={toast.id} className={`motion-toast pointer-events-auto rounded-xl border p-3 shadow-paper ${toastClass[toast.tone]}`}>
+            <div className="flex items-start gap-3">
+              <Icon className="mt-0.5 shrink-0" size={17} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold">{toast.title}</div>
+                {toast.body && <div className="mt-1 text-xs leading-5 opacity-80">{toast.body}</div>}
+              </div>
+              <button className="rounded-md p-1 opacity-70 hover:bg-white/35 hover:opacity-100" onClick={() => dismissToast(toast.id)} title="关闭提示">
+                <X size={14} />
+              </button>
+            </div>
+          </article>
+        );
+      })}
+    </div>
+  );
+}
+
+export function ConfirmDialog() {
+  const request = useUIStore((state) => state.confirmRequest);
+  const resolveConfirm = useUIStore((state) => state.resolveConfirm);
+  if (!request) return null;
+
+  const danger = request.tone === "danger";
+  const warning = request.tone === "warning";
+  return (
+    <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm">
+      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper">
+        <div className={`h-1 ${danger ? "bg-red-500" : warning ? "bg-amber-500" : "bg-copper"}`} />
+        <div className="p-5">
+          <div className="flex items-start gap-3">
+            <div className={`rounded-full p-2 ${danger ? "bg-red-50 text-red-700" : warning ? "bg-amber-50 text-amber-800" : "bg-copper/10 text-copper"}`}>
+              <AlertTriangle size={18} />
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="paper-title text-lg font-semibold text-paper-ink">{request.title}</h2>
+              <p className="mt-2 text-sm leading-6 text-paper-muted">{request.body}</p>
+            </div>
+          </div>
+          <div className="mt-5 flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => resolveConfirm(false)}>
+              {request.cancelLabel}
+            </Button>
+            <Button className={danger ? "bg-red-700 hover:bg-red-800" : ""} onClick={() => resolveConfirm(true)}>
+              {request.confirmLabel}
+            </Button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+export function PageTransition({ screenKey, children }: { screenKey: string; children: ReactNode }) {
+  return (
+    <div key={screenKey} className="motion-page h-full">
+      {children}
+    </div>
+  );
+}
+
+export function AnimatedPanel({ children, className = "", delay = 0 }: { children: ReactNode; className?: string; delay?: number }) {
+  return (
+    <div className={`motion-panel ${className}`} style={{ animationDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  );
+}
+
+export function InlineNotice({ children, tone = "info", className = "" }: { children: ReactNode; tone?: ToastTone; className?: string }) {
+  return <div className={`motion-notice rounded-xl border p-3 text-sm leading-6 ${toastClass[tone]} ${className}`}>{children}</div>;
+}

@@ -1,0 +1,108 @@
+{
+  "name": "creation-reading-assistant",
+  "version": "0.1.0",
+  "private": true,
+  "author": "Creation Reading Assistant Contributors",
+  "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
+  "main": "out/main/index.js",
+  "scripts": {
+    "dev": "electron-vite dev",
+    "build": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json && tsc --noEmit -p tsconfig.node.json && electron-vite build",
+    "verify:data-integrity": "node scripts/verify-data-integrity.mjs",
+    "verify:hardening": "node scripts/verify-hardening.mjs",
+    "verify:reposition": "node scripts/verify-reposition.mjs",
+    "verify:inspiration": "node scripts/verify-inspiration.mjs",
+    "verify:ai-settings": "node scripts/verify-ai-settings.mjs",
+    "verify:search-overlay": "node scripts/verify-search-overlay.mjs",
+    "verify:ux-polish": "node scripts/verify-ux-polish.mjs",
+    "verify:visual-polish": "node scripts/verify-visual-polish.mjs",
+    "verify:stats-ui": "node scripts/verify-stats-ui.mjs",
+    "verify:epub-restore": "node scripts/verify-epub-restore.mjs",
+    "verify:reader-settings": "node scripts/verify-reader-settings.mjs",
+    "verify:portable-storage": "node scripts/verify-portable-storage.mjs",
+    "verify:reading-inspiration": "node scripts/verify-reading-inspiration.mjs",
+    "verify:reader-formats": "node scripts/verify-reader-formats.mjs",
+    "verify:interaction-polish": "node scripts/verify-interaction-polish.mjs",
+    "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
+    "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
+    "verify:sync-server": "node scripts/verify-sync-server.mjs",
+    "verify:mobile-adapter": "node scripts/verify-mobile-adapter.mjs",
+    "verify:sync-conflicts": "node scripts/verify-sync-conflicts.mjs",
+    "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
+    "verify:beta": "node scripts/beta-check.mjs",
+    "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",
+    "mobile:install": "npm install --prefix mobile",
+    "mobile:build": "npm run build --prefix mobile",
+    "mobile:android": "npm run android --prefix mobile",
+    "dist:beta": "npm run build && electron-builder --dir --config.directories.output=release-beta",
+    "dist:beta:offline": "npm run build && node scripts/dist-beta-offline.mjs",
+    "preview": "electron-vite preview",
+    "dist:dir": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "epubjs": "^0.3.93",
+    "lucide-react": "^0.468.0",
+    "markdown-it": "^14.2.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "zustand": "^4.5.5"
+  },
+  "overrides": {
+    "epubjs": {
+      "@xmldom/xmldom": "^0.9.10"
+    }
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/node": "^22.10.1",
+    "@types/qrcode": "^1.5.6",
+    "@types/react": "^18.3.12",
+    "@types/react-dom": "^18.3.1",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "electron": "^33.2.1",
+    "electron-builder": "^26.15.2",
+    "electron-vite": "^2.3.0",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.16",
+    "typescript": "^5.7.2",
+    "vite": "^5.4.11"
+  },
+  "build": {
+    "appId": "local.creationReadingAssistant.app",
+    "productName": "创作阅读助手",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "out/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "dir",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "${productName}-${version}-${os}-${arch}.${ext}"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true
+    }
+  }
+}
