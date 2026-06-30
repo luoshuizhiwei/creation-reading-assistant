@@ -36,7 +36,7 @@ git push -u origin main
 ## 每次大修改的本地流程
 
 1. 修改代码。
-2. 更新 `CHANGELOG.md` 的 `Unreleased` 区域。
+2. 更新 `CHANGELOG.md` 的“未发布”区域。
 3. 运行验证。
 
 ```powershell
@@ -56,7 +56,7 @@ git push
 
 ## 发布新版本
 
-1. 把 `CHANGELOG.md` 中的 `Unreleased` 内容移动到新版本标题下，例如 `v0.1.1 - 2026-07-01`。
+1. 把 `CHANGELOG.md` 中的“未发布”内容移动到新版本标题下，例如 `v0.1.1 - 2026-07-01`。
 2. 提交 changelog。
 
 ```powershell

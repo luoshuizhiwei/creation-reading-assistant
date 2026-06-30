@@ -2,7 +2,7 @@
 
 本项目从现在开始使用 GitHub Release 记录大版本更新。每次大改动都应更新本文件，并在 GitHub Release 中上传可下载的电脑端应用和 Android APK。
 
-## Unreleased
+## 未发布
 
 - 后续大修改会先写入这里，发布时再移动到对应版本。
 

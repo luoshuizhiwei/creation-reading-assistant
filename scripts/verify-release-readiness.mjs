@@ -41,7 +41,7 @@ assertIncludes(".github/workflows/release.yml", "npm run verify:beta", "GitHub w
 assertIncludes(".github/workflows/release.yml", "npm run verify:beta:release", "GitHub workflow must verify packaged desktop artifact.");
 assertIncludes(".github/workflows/release.yml", "gradlew.bat assembleDebug", "GitHub workflow must build Android APK.");
 
-assertIncludes("CHANGELOG.md", "## Unreleased", "Changelog must keep an Unreleased section for major updates.");
+assertIncludes("CHANGELOG.md", "## 未发布", "Changelog must keep a Chinese unpublished section for major updates.");
 assertIncludes("CHANGELOG.md", "## v0.1.0", "Changelog must document the current baseline release.");
 assertIncludes("docs/GITHUB_RELEASE_PROCESS.md", "gh repo create creation-reading-assistant --private", "Release docs must document private repository setup.");
 assertIncludes("docs/GITHUB_RELEASE_PROCESS.md", "git tag -a", "Release docs must document tag-based publishing.");

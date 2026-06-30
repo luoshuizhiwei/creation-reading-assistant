@@ -1,4 +1,4 @@
-name: Release
+name: 发布版本
 
 on:
   push:
@@ -11,14 +11,14 @@ permissions:
 
 jobs:
   build-release-assets:
-    name: Build Windows and Android release assets
+    name: 构建 Windows 和 Android 发布包
     runs-on: windows-latest
 
     steps:
-      - name: Checkout
+      - name: 拉取源码
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: 设置 Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
@@ -27,48 +27,48 @@ jobs:
             package-lock.json
             mobile/package-lock.json
 
-      - name: Setup Java
+      - name: 设置 Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: "17"
 
-      - name: Install desktop dependencies
+      - name: 安装桌面端依赖
         run: npm ci
 
-      - name: Install mobile dependencies
+      - name: 安装手机端依赖
         run: npm ci --prefix mobile
 
-      - name: Verify release pipeline files
+      - name: 检查发布流程文件
         run: npm run verify:release-readiness
 
-      - name: Run full desktop beta gate
+      - name: 运行桌面端完整 Beta 门禁
         run: npm run verify:beta
 
-      - name: Build desktop package
+      - name: 构建电脑端应用
         run: npm run dist:beta:offline
 
-      - name: Verify packaged desktop artifact
+      - name: 验证电脑端打包产物
         run: npm run verify:beta:release
 
-      - name: Build mobile web app
+      - name: 构建手机端网页资源
         run: npm run mobile:build
 
-      - name: Sync Capacitor Android project
+      - name: 同步 Capacitor Android 工程
         shell: pwsh
         run: |
           Push-Location mobile
           npx cap sync android
           Pop-Location
 
-      - name: Build Android debug APK
+      - name: 构建 Android 测试 APK
         shell: pwsh
         run: |
           Push-Location mobile\android
           .\gradlew.bat assembleDebug
           Pop-Location
 
-      - name: Stage release artifacts
+      - name: 整理发布下载文件
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
@@ -82,14 +82,14 @@ jobs:
             } |
             Set-Content -Encoding UTF8 release-artifacts\SHA256SUMS.txt
 
-      - name: Upload workflow artifacts
+      - name: 上传工作流构建产物
         uses: actions/upload-artifact@v4
         with:
           name: creation-reading-assistant-release-assets
           path: release-artifacts/*
           if-no-files-found: error
 
-      - name: Publish GitHub Release
+      - name: 发布 GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:

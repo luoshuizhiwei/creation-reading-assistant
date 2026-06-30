@@ -1,88 +1,88 @@
-# GitHub Release Pipeline Implementation Plan
+# GitHub 发布流程实现计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **给 agentic workers 的要求：** 实施本计划时必须使用 `superpowers:subagent-driven-development`（推荐）或 `superpowers:executing-plans`，并按任务逐项勾选执行。
 
-**Goal:** Put the project under Git/GitHub and make every major update publishable with changelog notes plus downloadable Windows desktop and Android APK artifacts.
+**目标：** 把项目纳入 Git/GitHub 管理，并让每次大版本更新都有中文更新说明、可追踪提交，以及可在 GitHub Release 下载的 Windows 电脑端应用和 Android APK。
 
-**Architecture:** Keep source code in Git, keep generated binaries out of Git, and let GitHub Actions build release assets from a tagged source snapshot. A `v*` tag triggers a Windows workflow that runs existing verification gates, builds the desktop unpacked app and Android debug APK, zips/copies artifacts, and uploads them to a GitHub Release.
+**架构：** 源码进入 Git，生成的二进制产物不进入 Git。每次推送 `v*` 标签时，由 GitHub Actions 在 Windows 环境中重新构建桌面端和 Android APK，生成压缩包、APK 和 SHA256 校验文件，并上传到 GitHub Release。
 
-**Tech Stack:** Git, GitHub private repository, GitHub Actions on `windows-latest`, Node.js 24, npm, Electron Builder, Capacitor Android, Gradle/JDK 17, `softprops/action-gh-release`.
+**技术栈：** Git、GitHub 私有仓库、GitHub Actions `windows-latest`、Node.js 24、npm、Electron Builder、Capacitor Android、Gradle/JDK 17、`softprops/action-gh-release`。
 
 ---
 
-### Task 1: Release documentation and ignore rules
+### 任务 1：发布说明和忽略规则
 
-**Files:**
-- Create: `CHANGELOG.md`
-- Create: `docs/GITHUB_RELEASE_PROCESS.md`
-- Modify: `.gitignore`
+**文件：**
+- 新建：`CHANGELOG.md`
+- 新建：`docs/GITHUB_RELEASE_PROCESS.md`
+- 修改：`.gitignore`
 
-- [ ] **Step 1: Add `CHANGELOG.md`**
+- [x] **步骤 1：新增中文更新日志**
 
-Create a human-facing changelog with an `Unreleased` section and the current `0.1.0` baseline. The baseline should mention the desktop app, Android companion, LAN sync, QR pairing, and the current manual download artifacts.
+创建 `CHANGELOG.md`，保留“未发布”区域，并记录当前 `v0.1.0` 基线。内容需要说明桌面端、Android 手机端、局域网同步、二维码配对和当前下载产物。
 
-- [ ] **Step 2: Add GitHub release process documentation**
+- [x] **步骤 2：新增 GitHub 发布流程说明**
 
-Create `docs/GITHUB_RELEASE_PROCESS.md` with exact commands for first-time setup, normal major-update publishing, and where users download artifacts from GitHub Releases.
+创建 `docs/GITHUB_RELEASE_PROCESS.md`，写清楚首次设置、日常大更新、打 tag 发布，以及用户从哪里下载电脑端和 APK。
 
-- [ ] **Step 3: Extend `.gitignore`**
+- [x] **步骤 3：扩展 `.gitignore`**
 
-Ignore `mobile-release/`, `.github-release/`, `.claude/`, and local generated archives so binary artifacts do not enter Git history.
+忽略 `mobile-release/`、`.github-release/`、`.claude/` 和本地生成压缩包，避免二进制产物进入 Git 历史。
 
-- [ ] **Step 4: Review docs**
+- [x] **步骤 4：检查文档**
 
-Run:
+运行：
 
 ```powershell
 rg -n "TODO|TBD|密钥|sk-" CHANGELOG.md docs/GITHUB_RELEASE_PROCESS.md .gitignore
 ```
 
-Expected: no placeholders or secrets.
+预期：不出现占位内容或密钥。
 
-### Task 2: Release readiness guard
+### 任务 2：发布 readiness 守门
 
-**Files:**
-- Create: `scripts/verify-release-readiness.mjs`
-- Modify: `package.json`
+**文件：**
+- 新建：`scripts/verify-release-readiness.mjs`
+- 修改：`package.json`
 
-- [ ] **Step 1: Add a lightweight release readiness script**
+- [x] **步骤 1：新增发布 readiness 脚本**
 
-The script should check that `.github/workflows/release.yml`, `CHANGELOG.md`, `docs/GITHUB_RELEASE_PROCESS.md`, `package-lock.json`, and `mobile/package-lock.json` exist, and that `.gitignore` ignores generated release artifacts.
+脚本检查 `.github/workflows/release.yml`、`CHANGELOG.md`、`docs/GITHUB_RELEASE_PROCESS.md`、`package-lock.json`、`mobile/package-lock.json` 是否存在，并确认 `.gitignore` 已忽略发布产物。
 
-- [ ] **Step 2: Add package script**
+- [x] **步骤 2：新增 npm script**
 
-Add:
+添加：
 
 ```json
 "verify:release-readiness": "node scripts/verify-release-readiness.mjs"
 ```
 
-- [ ] **Step 3: Run the guard**
+- [x] **步骤 3：运行守门**
 
-Run:
+运行：
 
 ```powershell
 npm run verify:release-readiness
 ```
 
-Expected: `[verify-release-readiness] GitHub release pipeline guards verified.`
+预期输出：`[verify-release-readiness] GitHub release pipeline guards verified.`
 
-### Task 3: GitHub Actions release workflow
+### 任务 3：GitHub Actions 发布工作流
 
-**Files:**
-- Create: `.github/workflows/release.yml`
+**文件：**
+- 新建：`.github/workflows/release.yml`
 
-- [ ] **Step 1: Add workflow trigger**
+- [x] **步骤 1：新增触发条件**
 
-Trigger on `push` tags matching `v*` and on manual `workflow_dispatch`.
+推送 `v*` 标签时自动发布；也允许手动 `workflow_dispatch` 构建。
 
-- [ ] **Step 2: Add build environment**
+- [x] **步骤 2：配置构建环境**
 
-Use `windows-latest`, `actions/checkout`, `actions/setup-node` with Node 24, `actions/setup-java` with Temurin 17, root `npm ci`, and `npm ci --prefix mobile`.
+使用 `windows-latest`、`actions/checkout`、`actions/setup-node` 的 Node 24、`actions/setup-java` 的 Temurin 17，并执行根目录 `npm ci` 和 `npm ci --prefix mobile`。
 
-- [ ] **Step 3: Add desktop validation and packaging**
+- [x] **步骤 3：验证并打包电脑端**
 
-Run:
+运行：
 
 ```powershell
 npm run verify:release-readiness
@@ -91,11 +91,11 @@ npm run dist:beta:offline
 npm run verify:beta:release
 ```
 
-Then compress `release-beta/win-unpacked` to `release-artifacts/creation-reading-assistant-windows-win-unpacked.zip`.
+然后把 `release-beta/win-unpacked` 压缩为 `release-artifacts/creation-reading-assistant-windows-win-unpacked.zip`。
 
-- [ ] **Step 4: Add Android validation and APK packaging**
+- [x] **步骤 4：验证并打包 Android APK**
 
-Run:
+运行：
 
 ```powershell
 npm run mobile:build
@@ -103,84 +103,86 @@ npx cap sync android
 .\gradlew.bat assembleDebug
 ```
 
-Copy `mobile/android/app/build/outputs/apk/debug/app-debug.apk` to `release-artifacts/creation-reading-assistant-mobile-debug.apk`.
+把 `mobile/android/app/build/outputs/apk/debug/app-debug.apk` 复制为 `release-artifacts/creation-reading-assistant-mobile-debug.apk`。
 
-- [ ] **Step 5: Add checksums and artifact upload**
+- [x] **步骤 5：生成校验值并上传构建产物**
 
-Generate SHA256 checksums for all release artifacts and upload them with `actions/upload-artifact`.
+为所有发布文件生成 SHA256，并通过 `actions/upload-artifact` 上传。
 
-- [ ] **Step 6: Add GitHub Release publishing**
+- [x] **步骤 6：发布 GitHub Release**
 
-Use `softprops/action-gh-release@v2` only when `github.ref` is a tag. Upload the Windows zip, APK, and checksum file. Use `CHANGELOG.md` as release body for the first iteration.
+当 `github.ref` 是 tag 时，使用 `softprops/action-gh-release@v2` 上传 Windows zip、APK 和 SHA256 文件。Release 标题使用中文，正文读取 `CHANGELOG.md`。
 
-### Task 4: Initialize Git and first local commit
+### 任务 4：初始化 Git 和首次本地提交
 
-**Files:** all intended source/config/docs files, excluding ignored generated artifacts.
+**文件：** 所有需要进入仓库的源码、配置和文档；排除被忽略的构建产物。
 
-- [ ] **Step 1: Initialize repository**
+- [x] **步骤 1：初始化仓库**
 
-Run:
+运行：
 
 ```powershell
 git init
 git status -sb
 ```
 
-- [ ] **Step 2: Stage intended files**
+- [x] **步骤 2：暂存目标文件**
 
-Run:
+运行：
 
 ```powershell
 git add .
 git status -sb
 ```
 
-Confirm generated folders such as `node_modules/`, `out/`, `release-beta/`, and `mobile-release/` are not staged.
+确认 `node_modules/`、`out/`、`release-beta/`、`mobile-release/` 等生成目录没有被暂存。
 
-- [ ] **Step 3: Commit baseline**
+- [x] **步骤 3：提交基线**
 
-Run:
+运行：
 
 ```powershell
 git commit -m "chore: prepare GitHub release pipeline"
 ```
 
-### Task 5: GitHub private repo and first release
+### 任务 5：GitHub 私有仓库和首次发布
 
-**Files:** Git remote configuration and GitHub Release.
+**文件：** Git remote 配置和 GitHub Release。
 
-- [ ] **Step 1: Install or configure GitHub CLI**
+- [x] **步骤 1：安装或配置 GitHub CLI**
 
-If `gh` is missing, install it with winget or ask the user to install GitHub CLI. Then run:
+已安装 GitHub CLI，但 `gh auth login` 因设备码/网络问题未成功。最终改用 Git Credential Manager 的 HTTPS 认证推送。
 
-```powershell
-gh auth login
-gh auth status
+- [x] **步骤 2：推送到私有 GitHub 仓库**
+
+用户创建仓库：
+
+```text
+https://github.com/luoshuizhiwei/creation-reading-assistant.git
 ```
 
-- [ ] **Step 2: Create private GitHub repository**
-
-Run:
+本地设置 remote 并推送：
 
 ```powershell
-gh repo create creation-reading-assistant --private --source . --remote origin --push
+git remote add origin https://github.com/luoshuizhiwei/creation-reading-assistant.git
+git push -u origin main
 ```
 
-- [ ] **Step 3: Create first tag**
+- [x] **步骤 3：创建第一个 tag**
 
-Run:
+运行：
 
 ```powershell
 git tag -a v0.1.0 -m "v0.1.0"
 git push origin v0.1.0
 ```
 
-- [ ] **Step 4: Confirm Release artifacts**
+- [ ] **步骤 4：确认 Release 下载产物**
 
-After GitHub Actions completes, check the Release page contains:
+GitHub Actions 完成后，Release 页面应包含：
 
 - `creation-reading-assistant-windows-win-unpacked.zip`
 - `creation-reading-assistant-mobile-debug.apk`
 - `SHA256SUMS.txt`
 
-If the workflow fails, inspect Actions logs and fix the smallest failing step.
+如果工作流失败，优先检查 Actions 日志中 `npm ci`、`npm run dist:beta:offline`、`gradlew.bat assembleDebug` 或 Release 权限相关错误。
