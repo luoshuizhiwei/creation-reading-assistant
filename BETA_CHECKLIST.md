@@ -1,7 +1,7 @@
 # Beta Readiness Checklist
 
 Test date: 2026-06-30
-Version: 0.1.0
+Version: 0.1.1
 Expected artifact: `release-beta/win-unpacked/创作阅读助手.exe`
 
 ## Maintenance update: 2026-06-30

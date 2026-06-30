@@ -1,6 +1,6 @@
 {
   "name": "creation-reading-assistant-mobile",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Android mobile companion for 创作阅读助手 with LAN sync.",
   "type": "module",
