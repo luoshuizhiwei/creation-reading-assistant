@@ -4,7 +4,19 @@
 
 ## 未发布
 
-- 后续大修改会先写入这里，发布时再移动到对应版本。
+### 新增
+
+- Android 端主界面重构为 5 栏：`首页 / 书架 / 灵感 / 统计 / 我的`，布局参考 Reeden 移动端信息架构，但保留本项目纸墨/铜色视觉体系。
+- 首页新增累计阅读、阅读时长、继续阅读横向卡片、灵感快捷入口和同步状态；按产品决策移除“阅读目标”模块。
+- 书架改为三列书封网格，支持搜索、整卡打开阅读、本地 TXT/Markdown/EPUB 导入、重复导入标签。
+- 灵感中心升级为 Android 一级入口，支持快速记录、来源摘录卡片、按书籍/标签搜索、AI 候选版本展示位。
+- 阅读器 MVP 支持 TXT/Markdown/EPUB 文本渲染、目录抽屉、字号/行距/背景设置、进度保存、选中文字“记为灵感”。
+- 移动端新增 SQLite schema、Capacitor Filesystem 文件保存、旧 localStorage 快照迁移和 WebDAV 同步骨架。
+- “我的”页新增电脑局域网同步、WebDAV 设置、标签/分类/书单/笔记/AI 设置/数据管理入口。
+
+### 验证
+
+- 新增 `verify:mobile-ui`、`verify:mobile-storage`、`verify:mobile-reader`、`verify:mobile-webdav`、`verify:mobile-inspiration`，并接入 `verify:beta`。
 
 ## v0.1.0 - 2026-06-30
 
