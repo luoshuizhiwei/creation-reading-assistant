@@ -12,6 +12,15 @@ Expected artifact: `release-beta/win-unpacked/创作阅读助手.exe`
 - Settings, library, inspiration, search, stats, and reader surfaces now share the same paper-card motion language.
 - Added interaction polish guard: `npm run verify:interaction-polish`.
 
+## Android update: 2026-06-30
+
+- Android 端改为 5 栏底部导航：首页、书架、灵感、统计、我的。
+- 首页参考 Reeden 的阅读概览结构，保留累计阅读、阅读时长、继续阅读、灵感快捷入口和同步状态；不启用阅读目标。
+- 书架改为三列书封网格，支持搜索、整卡打开、TXT/Markdown/EPUB 导入和重复导入标签。
+- 灵感成为手机端一级入口，支持快速记录、来源摘录卡片、AI 候选版本展示位和按书籍/标签搜索。
+- 移动端新增 SQLite schema、Capacitor Filesystem 文件保存、旧 localStorage 快照迁移、WebDAV 同步骨架。
+- Added Android guards: `npm run verify:mobile-ui`, `npm run verify:mobile-storage`, `npm run verify:mobile-reader`, `npm run verify:mobile-webdav`, `npm run verify:mobile-inspiration`.
+
 ## Maintenance update: 2026-06-29
 
 - Product direction changed from in-app novel drafting to local-first inspiration capture, AI polishing/expansion, local novel reading, and reading-time tracking.
@@ -30,7 +39,8 @@ Expected artifact: `release-beta/win-unpacked/创作阅读助手.exe`
 
 ## Scope Freeze
 
-- No cloud sync, mobile app, online book sources, crawling, or platform publishing.
+- No online book sources, crawling, or platform publishing.
+- Android 第一版只做本地优先、电脑局域网同步和 WebDAV 优先同步；S3/其它网盘、PDF、MOBI/AZW/AZW3、听书放到后续阶段。
 - AI is limited to user-configured OpenAI-compatible endpoints and local inspiration processing.
 - The renderer must never receive or log the raw API Key.
 - Only P0/P1 fixes are allowed before a package is accepted.
@@ -52,6 +62,11 @@ Expected artifact: `release-beta/win-unpacked/创作阅读助手.exe`
 | Reading stats UI binding check | `npm run verify:stats-ui` | Passed |
 | Visual polish guard | `npm run verify:visual-polish` | Passed |
 | UX polish guard | `npm run verify:ux-polish` | Passed |
+| Android UI guard | `npm run verify:mobile-ui` | Passed |
+| Android SQLite/Filesystem guard | `npm run verify:mobile-storage` | Passed |
+| Android reader guard | `npm run verify:mobile-reader` | Passed |
+| Android WebDAV guard | `npm run verify:mobile-webdav` | Passed |
+| Android inspiration guard | `npm run verify:mobile-inspiration` | Passed |
 | TypeScript and production build | `npm run build` | Passed |
 | Full Beta gate | `npm run verify:beta` | Passed |
 | Dependency audit | `npm audit --omit=dev` | Passed, 0 vulnerabilities |
