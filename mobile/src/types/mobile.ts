@@ -109,6 +109,8 @@ export interface MobileReaderSettings {
   lineHeight: number;
   pageMargin: number;
   readerBackground: ReaderBackground;
+  readerMode: "scroll" | "paged";
+  fontWeight: "regular" | "bold";
 }
 
 export interface ImportedMobileBook {

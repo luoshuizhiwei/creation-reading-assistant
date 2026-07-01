@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import jsQR from "jsqr";
 import type { LibraryBook } from "../../src/types/library";
 import type { SyncEnvelope, SyncPushPayload } from "../../src/types/sync";
@@ -24,12 +24,17 @@ import { downloadWebDavSnapshot, testWebDavConnection, uploadWebDavSnapshot } fr
 import type { MobileBook, MobileReaderSettings, SyncAccount } from "./types/mobile";
 
 type MainTab = "home" | "shelf" | "inspiration" | "stats" | "profile";
+type ShelfViewMode = "grid" | "list";
+type ShelfFilterMode = "all" | "reading" | "downloaded" | "pending";
+type ShelfSortMode = "recent" | "title" | "progress";
 
 const defaultReaderSettings: MobileReaderSettings = {
   fontSize: 18,
   lineHeight: 1.85,
   pageMargin: 22,
-  readerBackground: "warm"
+  readerBackground: "warm",
+  readerMode: "scroll",
+  fontWeight: "regular"
 };
 
 const emptySnapshot: MobileSnapshot = {
@@ -75,6 +80,10 @@ async function readImportFileContent(file: File): Promise<string> {
 
 function progressFor(snapshot: MobileSnapshot, bookId: string): number {
   return snapshot.progress.find((item) => item.bookId === bookId)?.progressPercent ?? 0;
+}
+
+function isBookDownloaded(book: MobileBook): boolean {
+  return Boolean(book.localFilePath || book.filePath?.startsWith("books/"));
 }
 
 function getContinueBooks(snapshot: MobileSnapshot): MobileBook[] {
@@ -158,7 +167,6 @@ export function App() {
     setSyncLogs((current) => [line, ...current].slice(0, 8));
   };
 
-  const isBookDownloaded = (book: MobileBook): boolean => Boolean(book.localFilePath || book.filePath?.startsWith("books/"));
   const pendingDownloadCount = snapshot.books.filter((book) => !isBookDownloaded(book)).length;
 
   const readMobileBookContent = async (book: MobileBook): Promise<string | undefined> => {
@@ -610,7 +618,25 @@ function ShelfPage({
   onCancelDownload: () => void;
 }) {
   const [query, setQuery] = useState("");
-  const filtered = snapshot.books.filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(query.toLowerCase()));
+  const [viewMode, setViewMode] = useState<ShelfViewMode>("grid");
+  const [filterMode, setFilterMode] = useState<ShelfFilterMode>("all");
+  const [sortMode, setSortMode] = useState<ShelfSortMode>("recent");
+  const filtered = snapshot.books
+    .filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(query.toLowerCase()))
+    .filter((book) => {
+      const progress = progressFor(snapshot, book.id);
+      if (filterMode === "reading") return progress > 0 && progress < 100;
+      if (filterMode === "downloaded") return isBookDownloaded(book);
+      if (filterMode === "pending") return !isBookDownloaded(book);
+      return true;
+    })
+    .sort((left, right) => {
+      if (sortMode === "title") return left.title.localeCompare(right.title, "zh-Hans-CN");
+      if (sortMode === "progress") return progressFor(snapshot, right.id) - progressFor(snapshot, left.id);
+      const leftProgress = snapshot.progress.find((item) => item.bookId === left.id)?.lastReadAt ?? left.updatedAt;
+      const rightProgress = snapshot.progress.find((item) => item.bookId === right.id)?.lastReadAt ?? right.updatedAt;
+      return rightProgress.localeCompare(leftProgress);
+    });
   return (
     <div className="screen-stack">
       <header className="mobile-header row-header">
@@ -629,18 +655,51 @@ function ShelfPage({
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={`搜索 ${snapshot.books.length} 本书`} />
       </label>
 
-      <section className="book-grid">
+      <section className="shelf-toolbar" aria-label="书架筛选和视图">
+        <div className="segmented-control">
+          {([
+            ["all", "全部"],
+            ["reading", "在读"],
+            ["downloaded", "已下载"],
+            ["pending", "待下载"]
+          ] as Array<[ShelfFilterMode, string]>).map(([key, label]) => (
+            <button key={key} className={filterMode === key ? "active" : ""} onClick={() => setFilterMode(key)}>
+              {label}
+            </button>
+          ))}
+        </div>
+        <div className="shelf-subtoolbar">
+          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as ShelfSortMode)} aria-label="书籍排序">
+            <option value="recent">最近阅读</option>
+            <option value="title">书名排序</option>
+            <option value="progress">进度优先</option>
+          </select>
+          <div className="view-toggle" aria-label="书架视图">
+            <button className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")}>▦</button>
+            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>☰</button>
+          </div>
+        </div>
+      </section>
+
+      <section className={`book-grid ${viewMode === "list" ? "book-list" : ""}`}>
         {filtered.map((book) => (
           <article key={book.id} className="book-tile" onClick={() => onOpenBook(book)}>
             <div className="book-cover">{book.title.slice(0, 4)}</div>
-            <h3>{book.title}</h3>
-            <p>{book.author || "作者未知"}</p>
-            <small>{progressFor(snapshot, book.id).toFixed(2)}%</small>
-            {book.localFilePath || book.filePath?.startsWith("books/") ? <em>已下载正文</em> : <em>未下载正文</em>}
-            {book.duplicateIndex && book.duplicateIndex > 1 ? <em>{book.importLabel}</em> : null}
+            <div className="book-meta">
+              <h3>{book.title}</h3>
+              <p>{book.author || "作者未知"}</p>
+              <small>{progressFor(snapshot, book.id).toFixed(2)}% · {book.format.toUpperCase()}</small>
+              <div className="book-badges">
+                <em>{isBookDownloaded(book) ? "已下载正文" : "未下载正文"}</em>
+                {book.duplicateIndex && book.duplicateIndex > 1 ? <em>{book.importLabel}</em> : null}
+              </div>
+              <div className="book-progress-line" aria-label={`阅读进度 ${progressFor(snapshot, book.id).toFixed(1)}%`}>
+                <span style={{ width: `${Math.min(100, Math.max(0, progressFor(snapshot, book.id)))}%` }} />
+              </div>
+            </div>
             <button
               className="tile-more"
-              disabled={Boolean(book.localFilePath || book.filePath?.startsWith("books/"))}
+              disabled={isBookDownloaded(book) && downloadingBookId !== book.id}
               onClick={(event) => {
                 event.stopPropagation();
                 if (downloadingBookId === book.id) {
@@ -651,7 +710,7 @@ function ShelfPage({
               }}
               aria-label={downloadingBookId === book.id ? "取消下载" : "下载正文"}
             >
-              {downloadingBookId === book.id ? "取消下载" : "↓"}
+              {downloadingBookId === book.id ? "取消" : isBookDownloaded(book) ? "✓" : "↓"}
             </button>
           </article>
         ))}
@@ -942,6 +1001,22 @@ function calculateScrollProgress(element: HTMLElement): number {
   return Math.min(100, Math.max(0, (element.scrollTop / scrollable) * 100));
 }
 
+function scrollToPercent(element: HTMLElement, progressPercent: number): void {
+  const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
+  element.scrollTo({ top: (scrollable * Math.min(100, Math.max(0, progressPercent))) / 100, behavior: "smooth" });
+}
+
+function findCurrentChapter(document: MobileReaderDocument, root?: HTMLElement | null): MobileReaderDocument["toc"][number] | undefined {
+  if (!root || !document.toc.length) return document.toc[0];
+  const markerTop = root.scrollTop + 96;
+  let current = document.toc[0];
+  for (const item of document.toc) {
+    const element = root.querySelector<HTMLElement>(`#${item.id}`);
+    if (element && element.offsetTop <= markerTop) current = item;
+  }
+  return current;
+}
+
 const emptyReaderDocument = (title: string, format: MobileBook["format"]): MobileReaderDocument => ({
   title,
   format,
@@ -982,6 +1057,7 @@ function MobileReaderView({
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
+  const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
 
   useEffect(() => {
     let cancelled = false;
@@ -998,6 +1074,7 @@ function MobileReaderView({
     if (!element || !document.html) return;
     const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
     element.scrollTop = (scrollable * currentProgress) / 100;
+    setCurrentChapter(findCurrentChapter(document, element));
   }, [document.html]);
 
   const captureSelection = () => {
@@ -1012,16 +1089,56 @@ function MobileReaderView({
     onSnapshotChange(next);
   };
 
+  const jumpToChapter = (target: MobileReaderDocument["toc"][number] | undefined) => {
+    const element = scrollRef.current;
+    if (!element || !target) return;
+    const chapterElement = element.querySelector<HTMLElement>(`#${target.id}`);
+    if (chapterElement) {
+      element.scrollTo({ top: Math.max(0, chapterElement.offsetTop - 72), behavior: "smooth" });
+      setCurrentChapter(target);
+      setReaderControlsVisible(false);
+    }
+  };
+
+  const moveChapter = (direction: -1 | 1) => {
+    const toc = document.toc;
+    if (!toc.length) {
+      const element = scrollRef.current;
+      if (element) scrollToPercent(element, currentProgress + direction * 4);
+      return;
+    }
+    const currentIndex = Math.max(0, toc.findIndex((item) => item.id === currentChapter?.id));
+    const nextIndex = Math.min(toc.length - 1, Math.max(0, currentIndex + direction));
+    jumpToChapter(toc[nextIndex]);
+  };
+
   const handleReaderScroll = () => {
     const element = scrollRef.current;
     if (!element) return;
     const nextProgress = calculateScrollProgress(element);
     setCurrentProgress(nextProgress);
+    setCurrentChapter(findCurrentChapter(document, element));
     setReaderControlsVisible(false);
     if (progressSaveTimer.current) window.clearTimeout(progressSaveTimer.current);
     progressSaveTimer.current = window.setTimeout(() => {
       void saveProgress(nextProgress);
     }, 900);
+  };
+
+  const handleReaderTap = (event: MouseEvent<HTMLElement>) => {
+    if ((window.getSelection()?.toString().trim() ?? "").length > 0) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = event.clientX - rect.left;
+    const ratio = x / rect.width;
+    if (ratio < 0.24) {
+      moveChapter(-1);
+      return;
+    }
+    if (ratio > 0.76) {
+      moveChapter(1);
+      return;
+    }
+    setReaderControlsVisible((value) => !value);
   };
 
   const addReaderInspiration = async () => {
@@ -1057,6 +1174,10 @@ function MobileReaderView({
     onBack();
   };
 
+  const progressLabel = `${currentProgress.toFixed(2)}%`;
+  const chapterIndex = document.toc.findIndex((item) => item.id === currentChapter?.id);
+  const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
+
   return (
     <main className={`reader-shell reader-bg-${settings.readerBackground} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
       <header className="reader-topbar">
@@ -1066,7 +1187,7 @@ function MobileReaderView({
         <div>
           <strong>{book.title}</strong>
           <p>
-            {book.format.toUpperCase()} · {currentProgress.toFixed(2)}%
+            {book.format.toUpperCase()} · {progressLabel}
           </p>
         </div>
         <button className="ghost-button" onClick={() => setShowToc(true)}>
@@ -1080,14 +1201,31 @@ function MobileReaderView({
             <h2>目录</h2>
             <button className="ghost-button" onClick={() => setShowToc(false)}>关闭</button>
           </div>
-          {document.toc.length ? document.toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={() => setShowToc(false)}>{item.title}</a>) : <p>这本书暂未识别到目录。</p>}
+          {document.toc.length ? document.toc.map((item) => (
+            <a
+              key={item.id}
+              href={`#${item.id}`}
+              onClick={(event) => {
+                event.preventDefault();
+                jumpToChapter(item);
+                setShowToc(false);
+              }}
+            >
+              {item.title}
+            </a>
+          )) : <p>这本书暂未识别到目录。</p>}
         </aside>
       )}
+
+      <div className="reader-progress-chip" aria-live="polite">
+        <span>{chapterLabel}</span>
+        <strong>{progressLabel}</strong>
+      </div>
 
       <section
         ref={scrollRef}
         className="reader-scroll-container"
-        onClick={() => setReaderControlsVisible((value) => !value)}
+        onClick={handleReaderTap}
         onScroll={handleReaderScroll}
         onMouseUp={captureSelection}
         onTouchEnd={captureSelection}
@@ -1097,11 +1235,20 @@ function MobileReaderView({
           style={{
             fontSize: `${settings.fontSize}px`,
             lineHeight: settings.lineHeight,
-            padding: `${settings.pageMargin}px`
+            padding: `${settings.pageMargin}px`,
+            fontWeight: settings.fontWeight === "bold" ? 650 : 400
           }}
           dangerouslySetInnerHTML={{ __html: document.html }}
         />
       </section>
+
+      {readerControlsVisible && (
+        <div className="reader-zone-guide" aria-hidden="true">
+          <span>上一章</span>
+          <span>轻触隐藏菜单</span>
+          <span>下一章</span>
+        </div>
+      )}
 
       {readerNotice && (
         <section className="reader-notice" role="status" aria-live="polite">
@@ -1142,6 +1289,9 @@ function MobileReaderView({
           <button onClick={() => void addReaderInspiration()}>
             ✦<span>记为灵感</span>
           </button>
+          <button onClick={() => setShowToc(true)}>
+            ☰<span>目录</span>
+          </button>
           <button onClick={() => void saveProgress(currentProgress)}>
             ✓<span>保存进度</span>
           </button>
@@ -1159,6 +1309,20 @@ function MobileReaderView({
           <div className="drawer-header">
             <h2>阅读设置</h2>
             <button className="ghost-button" onClick={() => setShowSettings(false)}>关闭</button>
+          </div>
+          <div className="reader-mode-grid" aria-label="阅读模式">
+            <button className={settings.readerMode === "scroll" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "scroll" })}>
+              滚动
+            </button>
+            <button className={settings.readerMode === "paged" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "paged" })}>
+              分页预留
+            </button>
+            <button className={settings.fontWeight === "bold" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, fontWeight: settings.fontWeight === "bold" ? "regular" : "bold" })}>
+              加粗
+            </button>
+            <button onClick={() => onSettingsChange(defaultReaderSettings)}>
+              重置
+            </button>
           </div>
           <label>
             字号
@@ -1179,7 +1343,7 @@ function MobileReaderView({
               </button>
             ))}
           </div>
-          <p className="subtle">滚动模式已启用；分页/仿真翻页和屏幕常亮会在后续版本继续补齐。</p>
+          <p className="subtle">当前优先优化滚动阅读。左/右侧轻触可跳到上一章/下一章，中间轻触唤起菜单；分页和仿真翻页会沿用这里的设置继续补齐。</p>
         </aside>
       )}
     </main>

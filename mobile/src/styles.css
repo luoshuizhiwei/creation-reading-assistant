@@ -451,6 +451,61 @@ textarea {
   gap: 1.3rem 0.95rem;
 }
 
+.shelf-toolbar {
+  display: grid;
+  gap: 0.62rem;
+  margin-top: -0.35rem;
+}
+
+.segmented-control,
+.view-toggle {
+  display: grid;
+  grid-auto-flow: column;
+  gap: 0.18rem;
+  border-radius: 18px;
+  background: #eee8df;
+  padding: 0.22rem;
+}
+
+.segmented-control {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.segmented-control button,
+.view-toggle button {
+  min-height: 38px;
+  border-radius: 15px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  padding: 0.34rem 0.4rem;
+  font-size: 0.86rem;
+}
+
+.segmented-control button.active,
+.view-toggle button.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 18px rgba(34, 25, 21, 0.1);
+}
+
+.shelf-subtoolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.65rem;
+  align-items: center;
+}
+
+.shelf-subtoolbar select {
+  min-height: 44px;
+  border-radius: 18px;
+  background: rgba(255, 250, 241, 0.78);
+}
+
+.view-toggle {
+  grid-template-columns: repeat(2, 42px);
+}
+
 .book-tile {
   position: relative;
   min-width: 0;
@@ -474,6 +529,10 @@ textarea {
   -webkit-line-clamp: 2;
 }
 
+.book-meta {
+  min-width: 0;
+}
+
 .book-tile p,
 .book-tile small,
 .book-tile em {
@@ -485,6 +544,60 @@ textarea {
 .book-tile em {
   color: var(--copper);
   font-size: 0.74rem;
+}
+
+.book-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem 0.38rem;
+}
+
+.book-progress-line {
+  height: 4px;
+  margin-top: 0.42rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(154, 98, 48, 0.12);
+}
+
+.book-progress-line span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #9a6230, #cda979);
+}
+
+.book-list {
+  grid-template-columns: 1fr;
+  gap: 0.8rem;
+}
+
+.book-list .book-tile {
+  display: grid;
+  grid-template-columns: 70px minmax(0, 1fr) 42px;
+  gap: 0.85rem;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 24px;
+  background: rgba(255, 250, 241, 0.72);
+  padding: 0.62rem;
+  box-shadow: 0 10px 24px rgba(34, 25, 21, 0.06);
+}
+
+.book-list .book-cover {
+  width: 70px;
+  min-height: 96px;
+  border-radius: 16px;
+}
+
+.book-list .book-tile h3 {
+  min-height: 0;
+  margin-top: 0;
+}
+
+.book-list .tile-more {
+  position: static;
+  place-self: center;
 }
 
 .tile-more {
@@ -751,6 +864,43 @@ textarea {
   text-overflow: ellipsis;
 }
 
+.reader-progress-chip {
+  position: fixed;
+  top: calc(64px + env(safe-area-inset-top));
+  left: 50%;
+  z-index: 4;
+  display: flex;
+  max-width: min(86vw, 520px);
+  transform: translateX(-50%);
+  align-items: center;
+  gap: 0.6rem;
+  border: 1px solid rgba(154, 98, 48, 0.18);
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.78);
+  padding: 0.32rem 0.7rem;
+  color: var(--muted);
+  font-size: 0.76rem;
+  box-shadow: 0 10px 26px rgba(34, 25, 21, 0.08);
+  backdrop-filter: blur(16px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.reader-progress-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-progress-chip strong {
+  flex: 0 0 auto;
+  color: var(--copper);
+}
+
+.reader-chrome-hidden .reader-progress-chip {
+  opacity: 0.16;
+  transform: translate(-50%, -10px);
+}
+
 .reader-toc-drawer,
 .reader-settings-drawer {
   position: fixed;
@@ -791,6 +941,7 @@ textarea {
   padding-top: calc(68px + env(safe-area-inset-top));
   padding-bottom: calc(116px + env(safe-area-inset-bottom));
   -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
 }
 
 .reader-content {
@@ -799,6 +950,8 @@ textarea {
   color: inherit;
   overflow-wrap: anywhere;
   user-select: text;
+  letter-spacing: 0.01em;
+  text-align: justify;
 }
 
 .reader-content p,
@@ -874,6 +1027,32 @@ textarea {
   min-height: 38px;
 }
 
+.reader-zone-guide {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: 50%;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0.4rem;
+  transform: translateY(-50%);
+  padding: 0 0.75rem;
+  pointer-events: none;
+  opacity: 0.42;
+}
+
+.reader-zone-guide span {
+  justify-self: center;
+  border-radius: 999px;
+  background: rgba(255, 250, 241, 0.72);
+  padding: 0.28rem 0.55rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+  box-shadow: 0 8px 22px rgba(34, 25, 21, 0.08);
+  backdrop-filter: blur(14px);
+}
+
 .reader-bottom-sheet {
   position: fixed;
   left: 0;
@@ -928,8 +1107,8 @@ textarea {
 
 .reader-actions {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.5rem;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.38rem;
 }
 
 .reader-actions button {
@@ -943,7 +1122,7 @@ textarea {
 }
 
 .reader-actions button span {
-  font-size: 0.78rem;
+  font-size: 0.72rem;
 }
 
 .reader-settings-drawer label {
@@ -964,14 +1143,24 @@ textarea {
   gap: 0.45rem;
 }
 
-.reader-background-grid button {
+.reader-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.reader-background-grid button,
+.reader-mode-grid button {
   border: 1px solid var(--line);
   background: rgba(255, 250, 241, 0.72);
   color: var(--muted);
   box-shadow: none;
+  min-height: 42px;
+  padding-inline: 0.3rem;
 }
 
-.reader-background-grid button.active {
+.reader-background-grid button.active,
+.reader-mode-grid button.active {
   background: var(--ink);
   color: var(--paper);
 }

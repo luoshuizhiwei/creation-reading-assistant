@@ -198,6 +198,7 @@ run("npm run verify:mobile-reader");
 run("npm run verify:mobile-scan");
 run("npm run verify:mobile-sync-stability");
 run("npm run verify:mobile-reader-layout");
+run("npm run verify:mobile-reading-experience");
 run("npm run verify:mobile-webdav");
 run("npm run verify:mobile-inspiration");
 run("npm run verify:sync-conflicts");
