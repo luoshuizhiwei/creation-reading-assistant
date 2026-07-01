@@ -6,6 +6,27 @@
 
 - 后续大修改会先写入这里，发布时再移动到对应版本。
 
+## v0.1.5 - 2026-07-02
+
+### 修复
+
+- 修复 Android 点击“扫码”后空白的问题：改为 App 内可见视频扫码弹层，使用 WebView 摄像头预览和二维码识别；失败时保留“粘贴配对 URL / 二维码载荷”备用路径。
+- 修复“立即同步”后因大书文件下载导致卡顿或退出的风险：同步只同步元数据、灵感、进度和 session，正文改为书架单本“下载正文”。
+- 新增同步日志和待下载正文数量，方便真机排查同步失败或退出前状态。
+- 修复 EPUB/TXT/Markdown 文件保存策略：TXT/Markdown 继续按 UTF-8 文本保存，EPUB 按二进制/base64 保存，不再用 `blob.text()` 破坏文件。
+- 重构手机阅读页：正文使用独立滚动容器，支持滚动进度计算、返回前保存、点击隐藏/唤起顶部栏和底部菜单。
+- 阅读设置移入底部抽屉，目录改为抽屉；阅读页默认更接近移动阅读 App，不再让控件长期挤占正文。
+
+### 验证
+
+- 新增 `verify:mobile-scan`、`verify:mobile-sync-stability`、`verify:mobile-reader-layout` 并接入 `verify:beta`。
+
+### 发布产物
+
+- Windows 安装版：`release-artifacts/creation-reading-assistant-windows-setup-v0.1.5.exe`
+- Windows 免安装版：`release-artifacts/creation-reading-assistant-windows-win-unpacked-v0.1.5.zip`
+- Android APK：`release-artifacts/creation-reading-assistant-mobile-debug-v0.1.5.apk`
+
 ## v0.1.4 - 2026-07-01
 
 ### 修复

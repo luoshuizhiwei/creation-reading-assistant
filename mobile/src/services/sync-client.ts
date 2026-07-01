@@ -120,9 +120,10 @@ export function createSyncClient(input: PairingInput) {
         body: JSON.stringify({ device, ...payload })
       });
     },
-    async downloadBookFile(bookId: string): Promise<Blob> {
+    async downloadBookFile(bookId: string, signal?: AbortSignal): Promise<Blob> {
       const response = await fetch(`${baseUrl}/sync/books/${encodeURIComponent(bookId)}/file`, {
-        headers: { "x-device-id": device.deviceId }
+        headers: { "x-device-id": device.deviceId },
+        signal
       });
       if (!response.ok) throw new Error(await response.text());
       return response.blob();

@@ -1,7 +1,7 @@
 import type { InspirationSourceSnapshot } from "../../../src/types/inspiration";
 import type { BookFormat, LibraryBook, ReadingLocation, ReadingProgress, ReadingSession } from "../../../src/types/library";
 import { openMobileDatabase } from "../storage/mobile-database";
-import { saveMobileBookFile } from "../storage/mobile-files";
+import { saveMobileBookBlob, saveMobileBookFile } from "../storage/mobile-files";
 import type {
   ImportedMobileBook,
   MobileBook,
@@ -284,6 +284,31 @@ export async function saveSyncedMobileBookFile(snapshot: MobileSnapshot, book: M
     filePath: storedFile?.localFilePath ?? book.filePath,
     localUri: storedFile?.localUri ?? book.localUri,
     localFilePath: storedFile?.localFilePath ?? book.localFilePath,
+    updatedAt: nowIso()
+  };
+  localStorage.removeItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${book.id}`);
+  const next = {
+    ...snapshot,
+    books: [nextBook, ...snapshot.books.filter((item) => item.id !== book.id)],
+    updatedAt: nowIso()
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function saveSyncedMobileBookBlob(snapshot: MobileSnapshot, book: MobileBook, blob: Blob): Promise<MobileSnapshot> {
+  const storedFile = await saveMobileBookBlob({
+    bookId: book.id,
+    originalFileName: book.originalFileName ?? `${book.id}.${book.format}`,
+    format: book.format,
+    blob
+  });
+  const nextBook: MobileBook = {
+    ...book,
+    filePath: storedFile?.localFilePath ?? book.filePath,
+    localUri: storedFile?.localUri ?? book.localUri,
+    localFilePath: storedFile?.localFilePath ?? book.localFilePath,
+    size: blob.size || book.size,
     updatedAt: nowIso()
   };
   localStorage.removeItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${book.id}`);

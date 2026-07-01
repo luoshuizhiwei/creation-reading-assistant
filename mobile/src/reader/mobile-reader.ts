@@ -1,4 +1,5 @@
 import type { BookFormat } from "../../../src/types/library";
+import JSZip from "jszip";
 
 export interface MobileReaderDocument {
   title: string;
@@ -116,6 +117,96 @@ export function extractEpubText(content: string, title = "EPUB 书籍"): MobileR
   };
 }
 
+function decodeBase64ToBytes(value: string): Uint8Array {
+  const binary = atob(value.replace(/^data:.*?;base64,/, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return bytes;
+}
+
+function dirname(path: string): string {
+  const index = path.lastIndexOf("/");
+  return index >= 0 ? path.slice(0, index + 1) : "";
+}
+
+function resolvePath(base: string, href: string): string {
+  if (!base) return href;
+  return `${base}${href}`.replace(/\/\.\//g, "/");
+}
+
+function textFromXml(xml: string, tagName: string): string | undefined {
+  return new RegExp(`<[^:>]*:?${tagName}[^>]*>([\\s\\S]*?)<\\/[^:>]*:?${tagName}>`, "i").exec(xml)?.[1]?.replace(/<[^>]+>/g, "").trim();
+}
+
+function manifestFromOpf(opf: string, opfDir: string): Map<string, { href: string; mediaType: string }> {
+  const manifest = new Map<string, { href: string; mediaType: string }>();
+  for (const match of opf.matchAll(/<item\b([^>]+)>/gi)) {
+    const attrs = match[1];
+    const id = /\bid=["']([^"']+)["']/i.exec(attrs)?.[1];
+    const href = /\bhref=["']([^"']+)["']/i.exec(attrs)?.[1];
+    const mediaType = /\bmedia-type=["']([^"']+)["']/i.exec(attrs)?.[1] ?? "";
+    if (id && href) manifest.set(id, { href: resolvePath(opfDir, href), mediaType });
+  }
+  return manifest;
+}
+
+function spineIdsFromOpf(opf: string): string[] {
+  const spine = /<spine\b[\s\S]*?<\/spine>/i.exec(opf)?.[0] ?? "";
+  return Array.from(spine.matchAll(/<itemref\b[^>]*idref=["']([^"']+)["'][^>]*>/gi)).map((match) => match[1]);
+}
+
+function xhtmlBodyToHtml(xhtml: string, fallbackTitle: string, index: number): { html: string; title: string } {
+  const title = textFromXml(xhtml, "title") || textFromXml(xhtml, "h1") || `${fallbackTitle} · ${index + 1}`;
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(xhtml)?.[1] ?? xhtml;
+  const clean = body
+    .replace(/<script[\s\S]*?<\/script>/gi, "")
+    .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/\s(on\w+|style)=["'][\s\S]*?["']/gi, "")
+    .replace(/href=["'](?!https?:|#)[^"']*["']/gi, "");
+  return {
+    title,
+    html: `<section class="epub-chapter" id="epub-chapter-${index}"><h2>${escapeHtml(title)}</h2>${clean}</section>`
+  };
+}
+
+export async function renderEpubDocument(content: string, title = "EPUB 书籍"): Promise<MobileReaderDocument> {
+  try {
+    const zip = await JSZip.loadAsync(decodeBase64ToBytes(content));
+    const containerXml = await zip.file("META-INF/container.xml")?.async("string");
+    const opfPath = /full-path=["']([^"']+)["']/i.exec(containerXml ?? "")?.[1];
+    if (!opfPath) throw new Error("EPUB 缺少 container.xml 或 OPF 路径。");
+    const opf = await zip.file(opfPath)?.async("string");
+    if (!opf) throw new Error("EPUB 缺少 OPF 文件。");
+    const opfDir = dirname(opfPath);
+    const bookTitle = textFromXml(opf, "title") || title;
+    const manifest = manifestFromOpf(opf, opfDir);
+    const spineIds = spineIdsFromOpf(opf);
+    const html: string[] = [];
+    const toc: MobileReaderDocument["toc"] = [];
+    for (const [index, id] of spineIds.entries()) {
+      const item = manifest.get(id);
+      if (!item || !/xhtml|html/i.test(item.mediaType)) continue;
+      const xhtml = await zip.file(item.href)?.async("string");
+      if (!xhtml) continue;
+      const chapter = xhtmlBodyToHtml(xhtml, bookTitle, index);
+      html.push(chapter.html);
+      toc.push({ id: `epub-chapter-${index}`, title: chapter.title, level: 1 });
+    }
+    if (!html.length) throw new Error("EPUB 没有可读取的章节正文。");
+    const plainText = html.join("\n").replace(/<[^>]+>/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
+    return {
+      title: bookTitle,
+      format: "epub",
+      html: html.join("\n"),
+      plainText,
+      toc,
+      wordCount: plainText.replace(/\s/g, "").length
+    };
+  } catch {
+    return extractEpubText(content, title);
+  }
+}
+
 export function renderPlainText(content: string, title = "TXT 书籍"): MobileReaderDocument {
   const chapters = content.match(/^第.{1,12}[章节回卷部集].*$/gm) ?? [];
   const toc = chapters.slice(0, 80).map((chapter, index) => ({
@@ -136,8 +227,8 @@ export function renderPlainText(content: string, title = "TXT 书籍"): MobileRe
   };
 }
 
-export function renderMobileDocument(format: BookFormat, content: string, title: string): MobileReaderDocument {
+export async function renderMobileDocument(format: BookFormat, content: string, title: string): Promise<MobileReaderDocument> {
   if (format === "md") return renderMarkdown(content);
-  if (format === "epub") return extractEpubText(content, title);
+  if (format === "epub") return renderEpubDocument(content, title);
   return renderPlainText(content, title);
 }

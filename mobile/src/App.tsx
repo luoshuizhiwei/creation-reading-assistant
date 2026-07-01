@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState } from "react";
-import { BarcodeFormat, BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
+import { useEffect, useMemo, useRef, useState } from "react";
+import jsQR from "jsqr";
 import type { LibraryBook } from "../../src/types/library";
 import type { SyncEnvelope, SyncPushPayload } from "../../src/types/sync";
-import { renderMobileDocument } from "./reader/mobile-reader";
+import { renderMobileDocument, type MobileReaderDocument } from "./reader/mobile-reader";
 import {
   addMobileInspiration,
   addMobileReadingSession,
@@ -13,6 +13,7 @@ import {
   saveMobileBook,
   saveMobileReadingProgress,
   saveMobileSnapshot,
+  saveSyncedMobileBookBlob,
   saveSyncedMobileBookFile,
   saveSyncAccount,
   type MobileSnapshot
@@ -51,6 +52,27 @@ function formatDuration(ms: number): string {
   return `${(minutes / 60).toFixed(1)} 小时`;
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer);
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let index = 0; index < bytes.length; index += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(index, index + chunkSize));
+  }
+  return btoa(binary);
+}
+
+function base64ToBlob(value: string, type = "application/octet-stream"): Blob {
+  const binary = atob(value.replace(/^data:.*?;base64,/, ""));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index += 1) bytes[index] = binary.charCodeAt(index);
+  return new Blob([bytes], { type });
+}
+
+async function readImportFileContent(file: File): Promise<string> {
+  return /\.epub$/i.test(file.name) ? arrayBufferToBase64(await file.arrayBuffer()) : file.text();
+}
+
 function progressFor(snapshot: MobileSnapshot, bookId: string): number {
   return snapshot.progress.find((item) => item.bookId === bookId)?.progressPercent ?? 0;
 }
@@ -63,53 +85,13 @@ function getContinueBooks(snapshot: MobileSnapshot): MobileBook[] {
   return [...byProgress, ...snapshot.books.filter((book) => !recentBookIds.has(book.id))].slice(0, 8);
 }
 
-function extractBarcodeText(result: { rawValue?: string | null; displayValue?: string | null } | undefined): string {
-  return (result?.rawValue || result?.displayValue || "").trim();
-}
-
 export function formatQrScanError(error: unknown): string {
   const detail = error instanceof Error ? error.message : String(error);
-  if (/ModuleInstall|SERVICE_INVALID|Google Barcode Scanner Module|module is not available|not available on this device/i.test(detail)) {
-    return "当前手机不支持系统扫码模块，已切换本地相机扫码；如果仍失败，请复制电脑端配对 URL 或二维码载荷连接。";
-  }
   if (/canceled|cancelled|cancel/i.test(detail)) return "已取消扫码。你也可以粘贴电脑端配对 URL 连接。";
-  if (/permission|camera/i.test(detail)) return "没有相机权限，无法扫码。请在系统设置里允许相机权限，或粘贴配对 URL。";
+  if (/permission|camera|NotAllowed/i.test(detail)) return "没有相机权限，无法扫码。请在系统设置里允许相机权限，或粘贴配对 URL。";
+  if (/NotFound|device|mediaDevices/i.test(detail)) return "没有找到可用摄像头。请改用粘贴配对 URL 或二维码载荷连接。";
+  if (/timeout|超时/i.test(detail)) return "扫码超时，请靠近二维码、提高屏幕亮度，或改用粘贴配对 URL。";
   return `扫码失败：${detail.slice(0, 80)}。你也可以粘贴电脑端配对 URL 或二维码载荷连接。`;
-}
-
-async function scanPairingQrCodeWithCameraView(): Promise<string> {
-  document.body.classList.add("barcode-scanner-active");
-  let listener: { remove: () => Promise<void> } | undefined;
-  let timer: number | undefined;
-  const cleanup = async () => {
-    if (timer) window.clearTimeout(timer);
-    document.body.classList.remove("barcode-scanner-active");
-    await listener?.remove().catch(() => undefined);
-    await BarcodeScanner.stopScan().catch(() => undefined);
-  };
-
-  return new Promise<string>((resolve, reject) => {
-    let settled = false;
-    const finish = (text?: string, error?: unknown) => {
-      if (settled) return;
-      settled = true;
-      void cleanup().finally(() => {
-        if (text) resolve(text);
-        else reject(error ?? new Error("没有识别到二维码内容。"));
-      });
-    };
-
-    timer = window.setTimeout(() => finish(undefined, new Error("扫码超时，请靠近二维码或改用粘贴配对 URL。")), 45_000);
-    void BarcodeScanner.addListener("barcodeScanned", (event) => {
-      const text = extractBarcodeText(event.barcode);
-      if (text) finish(text);
-    })
-      .then((handle) => {
-        listener = handle;
-        return BarcodeScanner.startScan({ formats: [BarcodeFormat.QrCode] });
-      })
-      .catch((error) => finish(undefined, error));
-  });
 }
 
 function toMobileSyncEnvelope<T extends { revision: number; deviceId: string; updatedAt: string; deletedAt?: string }>(
@@ -146,6 +128,10 @@ export function App() {
   const [readerContent, setReaderContent] = useState("");
   const [readerSettings, setReaderSettings] = useState<MobileReaderSettings>(defaultReaderSettings);
   const [message, setMessage] = useState("本地优先：没有网络也能阅读、记录灵感，回到同一网络后再同步。");
+  const [showQrScanner, setShowQrScanner] = useState(false);
+  const [syncLogs, setSyncLogs] = useState<string[]>([]);
+  const [downloadingBookId, setDownloadingBookId] = useState<string>();
+  const downloadAbortRef = useRef<AbortController>();
 
   useEffect(() => {
     void loadMobileSnapshot().then(setSnapshot);
@@ -167,10 +153,18 @@ export function App() {
     };
   }, [snapshot]);
 
+  const appendSyncLog = (entry: string) => {
+    const line = `${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · ${entry}`;
+    setSyncLogs((current) => [line, ...current].slice(0, 8));
+  };
+
+  const isBookDownloaded = (book: MobileBook): boolean => Boolean(book.localFilePath || book.filePath?.startsWith("books/"));
+  const pendingDownloadCount = snapshot.books.filter((book) => !isBookDownloaded(book)).length;
+
   const readMobileBookContent = async (book: MobileBook): Promise<string | undefined> => {
     const savedContent = localStorage.getItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${book.id}`);
     if (savedContent) return savedContent;
-    return readMobileBookFile(book.localFilePath ?? (book.filePath?.startsWith("books/") ? book.filePath : undefined));
+    return readMobileBookFile(book.localFilePath ?? (book.filePath?.startsWith("books/") ? book.filePath : undefined), book.format);
   };
 
   const openBook = async (book: MobileBook) => {
@@ -179,25 +173,38 @@ export function App() {
     setReaderBook(book);
   };
 
-  const downloadDesktopBookFiles = async (baseSnapshot: MobileSnapshot): Promise<{ snapshot: MobileSnapshot; downloaded: number; failed: number }> => {
-    if (!client) return { snapshot: baseSnapshot, downloaded: 0, failed: 0 };
-    let next = baseSnapshot;
-    let downloaded = 0;
-    let failed = 0;
-    for (const book of baseSnapshot.books) {
-      const existingContent = await readMobileBookContent(book);
-      if (existingContent) continue;
-      try {
-        setMessage(`正在下载《${book.title}》到手机本地……`);
-        const blob = await client.downloadBookFile(book.id);
-        const content = await blob.text();
-        next = await saveSyncedMobileBookFile(next, book, content);
-        downloaded += 1;
-      } catch {
-        failed += 1;
-      }
+  const downloadBookToMobile = async (book: MobileBook) => {
+    if (!client) {
+      setMessage("请先连接电脑端，再下载正文。");
+      return;
     }
-    return { snapshot: next, downloaded, failed };
+    setDownloadingBookId(book.id);
+    downloadAbortRef.current = new AbortController();
+    try {
+      appendSyncLog(`开始下载《${book.title}》正文`);
+      setMessage(`正在下载《${book.title}》正文到手机本地……`);
+      const blob = await client.downloadBookFile(book.id, downloadAbortRef.current.signal);
+      const next = await saveSyncedMobileBookBlob(snapshot, book, blob);
+      setSnapshot(next);
+      appendSyncLog(`已下载《${book.title}》正文`);
+      setMessage(`《${book.title}》正文已下载，可以离线阅读。`);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      if (/abort/i.test(detail)) {
+        appendSyncLog(`已取消下载《${book.title}》`);
+        setMessage(`已取消下载《${book.title}》。`);
+        return;
+      }
+      appendSyncLog(`下载《${book.title}》失败：${detail}`);
+      setMessage(`下载正文失败：${detail}`);
+    } finally {
+      downloadAbortRef.current = undefined;
+      setDownloadingBookId(undefined);
+    }
+  };
+
+  const cancelBookDownload = () => {
+    downloadAbortRef.current?.abort();
   };
 
   const uploadMobileBookFiles = async (baseSnapshot: MobileSnapshot): Promise<{ uploaded: number; failed: number }> => {
@@ -211,7 +218,11 @@ export function App() {
       if (!content) continue;
       try {
         setMessage(`正在上传《${book.title}》到电脑端书库……`);
-        await client.uploadBookFile(book.id, book.originalFileName ?? `${book.id}.${book.format}`, content);
+        await client.uploadBookFile(
+          book.id,
+          book.originalFileName ?? `${book.id}.${book.format}`,
+          book.format === "epub" ? base64ToBlob(content, "application/epub+zip") : content
+        );
         uploaded += 1;
       } catch {
         failed += 1;
@@ -236,36 +247,15 @@ export function App() {
   };
 
   const scanPairingQrCode = async () => {
-    try {
-      setMessage("正在打开摄像头扫码，请对准电脑端二维码。");
-      const support = await BarcodeScanner.isSupported();
-      if (!support.supported) throw new Error("当前设备不支持扫码。");
-      const permission = await BarcodeScanner.checkPermissions();
-      if (permission.camera !== "granted" && permission.camera !== "limited") {
-        const requested = await BarcodeScanner.requestPermissions();
-        if (requested.camera !== "granted" && requested.camera !== "limited") throw new Error("没有相机权限，无法扫码。");
-      }
-      let text = "";
-      try {
-        const module = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
-        if (module.available) {
-          const result = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
-          text = extractBarcodeText(result.barcodes[0]);
-        } else {
-          setMessage("系统扫码模块不可用，正在切换到本地相机扫码。");
-          text = await scanPairingQrCodeWithCameraView();
-        }
-      } catch (error) {
-        setMessage(formatQrScanError(error));
-        text = await scanPairingQrCodeWithCameraView();
-      }
-      if (!text) throw new Error("没有识别到二维码内容。");
-      setPairingText(text);
-      setMessage("已识别二维码，正在连接电脑。");
-      await connectLan(text);
-    } catch (error) {
-      setMessage(formatQrScanError(error));
-    }
+    setShowQrScanner(true);
+    setMessage("请把电脑端二维码放进取景框；如果相机不可用，可以粘贴配对 URL。");
+  };
+
+  const handleQrScanResult = async (text: string) => {
+    setShowQrScanner(false);
+    setPairingText(text);
+    setMessage("已识别二维码，正在连接电脑。");
+    await connectLan(text);
   };
 
   const syncFromDesktop = async () => {
@@ -286,15 +276,18 @@ export function App() {
         updatedAt: new Date().toISOString()
       };
       await saveMobileSnapshot(next);
-      const withFiles = await downloadDesktopBookFiles(next);
-      setSnapshot(withFiles.snapshot);
+      setSnapshot(next);
+      const nextPendingDownloadCount = next.books.filter((book) => !isBookDownloaded(book as MobileBook)).length;
+      appendSyncLog(`同步完成：电脑返回 ${pull.books.length} 本书，待下载正文 ${nextPendingDownloadCount} 本`);
       setMessage(
         `同步完成：已上传手机上的 ${push.applied.inspirations} 条灵感、${push.applied.books} 本书、${push.applied.progress} 条进度；` +
           `电脑返回 ${pull.inspirations.length} 条灵感、${pull.books.length} 本书；` +
-          `书籍文件上传 ${uploadSummary.uploaded} 个、下载 ${withFiles.downloaded} 个。${uploadSummary.failed || withFiles.failed ? "有少量文件失败，可再次点击立即同步。" : "现在可以回首页或书架继续阅读。"}`
+          `待下载正文 ${nextPendingDownloadCount} 本。${uploadSummary.failed ? "有少量文件上传失败，可再次点击立即同步。" : "需要阅读时在书架点“下载正文”。"}`
       );
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : String(error));
+      const detail = error instanceof Error ? error.message : String(error);
+      appendSyncLog(`同步失败：${detail}`);
+      setMessage(detail);
     }
   };
 
@@ -302,7 +295,7 @@ export function App() {
     if (!files?.length) return;
     let next = snapshot;
     for (const file of Array.from(files)) {
-      const content = await file.text();
+      const content = await readImportFileContent(file);
       const imported = await createImportedMobileBook(file.name, content, file.size);
       next = await saveMobileBook(next, imported);
     }
@@ -331,7 +324,7 @@ export function App() {
 
   if (readerBook) {
     return (
-      <ReaderView
+      <MobileReaderView
         book={readerBook}
         content={readerContent}
         snapshot={snapshot}
@@ -363,7 +356,16 @@ export function App() {
             onGo={(nextTab) => setTab(nextTab)}
           />
         )}
-        {tab === "shelf" && <ShelfPage snapshot={snapshot} onOpenBook={(book) => void openBook(book)} onImport={(files) => void importFiles(files)} />}
+        {tab === "shelf" && (
+          <ShelfPage
+            snapshot={snapshot}
+            downloadingBookId={downloadingBookId}
+            onOpenBook={(book) => void openBook(book)}
+            onImport={(files) => void importFiles(files)}
+            onDownloadBook={(book) => void downloadBookToMobile(book)}
+            onCancelDownload={cancelBookDownload}
+          />
+        )}
         {tab === "inspiration" && <InspirationPage snapshot={snapshot} onSnapshotChange={setSnapshot} />}
         {tab === "stats" && <StatsPage snapshot={snapshot} stats={stats} />}
         {tab === "profile" && (
@@ -375,11 +377,25 @@ export function App() {
             onConnectLan={() => void connectLan()}
             onScanQr={() => void scanPairingQrCode()}
             onSyncDesktop={() => void syncFromDesktop()}
+            pendingDownloadCount={pendingDownloadCount}
+            syncLogs={syncLogs}
             onSnapshotChange={setSnapshot}
             onMessage={setMessage}
           />
         )}
       </section>
+
+      {showQrScanner && (
+        <QrScanOverlay
+          onResult={(text) => void handleQrScanResult(text)}
+          onClose={() => setShowQrScanner(false)}
+          onFallbackPaste={() => {
+            setShowQrScanner(false);
+            setMessage("请粘贴电脑端配对 URL 或二维码载荷，然后点“连接电脑”。");
+          }}
+          onMessage={setMessage}
+        />
+      )}
 
       <nav className="bottom-nav" aria-label="主导航">
         {bottomTabs.map((item) => (
@@ -390,6 +406,110 @@ export function App() {
         ))}
       </nav>
     </main>
+  );
+}
+
+function QrScanOverlay({
+  onResult,
+  onClose,
+  onFallbackPaste,
+  onMessage
+}: {
+  onResult: (text: string) => void;
+  onClose: () => void;
+  onFallbackPaste: () => void;
+  onMessage: (message: string) => void;
+}) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let stream: MediaStream | undefined;
+    let stopped = false;
+    let timer: number | undefined;
+    let timeout: number | undefined;
+
+    const stop = () => {
+      stopped = true;
+      if (timer) window.clearTimeout(timer);
+      if (timeout) window.clearTimeout(timeout);
+      stream?.getTracks().forEach((track) => track.stop());
+    };
+
+    const scanFrame = () => {
+      if (stopped) return;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const context = canvas?.getContext("2d", { willReadFrequently: true });
+      if (video && canvas && context && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth && video.videoHeight) {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsQR(imageData.data, imageData.width, imageData.height);
+        if (code?.data) {
+          stop();
+          onResult(code.data);
+          return;
+        }
+      }
+      timer = window.setTimeout(scanFrame, 260);
+    };
+
+    const start = async () => {
+      try {
+        if (!navigator.mediaDevices?.getUserMedia) throw new Error("mediaDevices unavailable");
+        stream = await navigator.mediaDevices.getUserMedia({
+          audio: false,
+          video: { facingMode: { ideal: "environment" } }
+        });
+        const video = videoRef.current;
+        if (!video) return;
+        video.srcObject = stream;
+        await video.play();
+        onMessage("摄像头已打开，请把电脑端二维码放进取景框。");
+        timeout = window.setTimeout(() => {
+          setError("扫码超时。请靠近二维码、提高电脑屏幕亮度，或改用粘贴配对 URL。");
+        }, 45_000);
+        scanFrame();
+      } catch (err) {
+        const message = formatQrScanError(err);
+        setError(message);
+        onMessage(message);
+      }
+    };
+
+    void start();
+    return stop;
+  }, [onMessage, onResult]);
+
+  return (
+    <section className="qr-scan-overlay" role="dialog" aria-modal="true" aria-label="扫码连接电脑">
+      <div className="qr-scan-panel">
+        <header className="qr-scan-header">
+          <div>
+            <strong>扫码连接电脑</strong>
+            <p>把电脑端二维码放进取景框，识别后会自动连接。</p>
+          </div>
+          <button className="ghost-button" onClick={onClose}>
+            关闭
+          </button>
+        </header>
+        <div className="qr-video-frame">
+          <video ref={videoRef} className="qr-video" muted playsInline />
+          <canvas ref={canvasRef} hidden />
+          <div className="qr-corners" aria-hidden="true" />
+        </div>
+        {error && <p className="qr-scan-error">{error}</p>}
+        <div className="qr-scan-actions">
+          <button onClick={onFallbackPaste}>粘贴配对 URL</button>
+          <button className="ghost-button" onClick={onClose}>
+            稍后再扫
+          </button>
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -474,7 +594,21 @@ function HomePage({
   );
 }
 
-function ShelfPage({ snapshot, onOpenBook, onImport }: { snapshot: MobileSnapshot; onOpenBook: (book: MobileBook) => void; onImport: (files: FileList | null) => void }) {
+function ShelfPage({
+  snapshot,
+  downloadingBookId,
+  onOpenBook,
+  onImport,
+  onDownloadBook,
+  onCancelDownload
+}: {
+  snapshot: MobileSnapshot;
+  downloadingBookId?: string;
+  onOpenBook: (book: MobileBook) => void;
+  onImport: (files: FileList | null) => void;
+  onDownloadBook: (book: MobileBook) => void;
+  onCancelDownload: () => void;
+}) {
   const [query, setQuery] = useState("");
   const filtered = snapshot.books.filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(query.toLowerCase()));
   return (
@@ -502,9 +636,22 @@ function ShelfPage({ snapshot, onOpenBook, onImport }: { snapshot: MobileSnapsho
             <h3>{book.title}</h3>
             <p>{book.author || "作者未知"}</p>
             <small>{progressFor(snapshot, book.id).toFixed(2)}%</small>
+            {book.localFilePath || book.filePath?.startsWith("books/") ? <em>已下载正文</em> : <em>未下载正文</em>}
             {book.duplicateIndex && book.duplicateIndex > 1 ? <em>{book.importLabel}</em> : null}
-            <button className="tile-more" onClick={(event) => event.stopPropagation()} aria-label="更多">
-              …
+            <button
+              className="tile-more"
+              disabled={Boolean(book.localFilePath || book.filePath?.startsWith("books/"))}
+              onClick={(event) => {
+                event.stopPropagation();
+                if (downloadingBookId === book.id) {
+                  onCancelDownload();
+                  return;
+                }
+                onDownloadBook(book);
+              }}
+              aria-label={downloadingBookId === book.id ? "取消下载" : "下载正文"}
+            >
+              {downloadingBookId === book.id ? "取消下载" : "↓"}
             </button>
           </article>
         ))}
@@ -650,6 +797,8 @@ function ProfilePage({
   onConnectLan,
   onScanQr,
   onSyncDesktop,
+  pendingDownloadCount,
+  syncLogs,
   onSnapshotChange,
   onMessage
 }: {
@@ -660,6 +809,8 @@ function ProfilePage({
   onConnectLan: () => void;
   onScanQr: () => void;
   onSyncDesktop: () => void;
+  pendingDownloadCount: number;
+  syncLogs: string[];
   onSnapshotChange: (snapshot: MobileSnapshot) => void;
   onMessage: (value: string) => void;
 }) {
@@ -746,6 +897,7 @@ function ProfilePage({
       <section className="settings-card">
         <h2>扫码连接电脑</h2>
         <p className="subtle">电脑端开启同步服务后，可以直接扫码；如果相机不可用，也可以粘贴配对 URL 或二维码载荷。手机会自动尝试电脑端提供的所有备用地址。</p>
+        <p className="subtle">当前有 {pendingDownloadCount} 本书尚未下载正文；同步只更新书架和进度，阅读前可在书架点“下载正文”。</p>
         <textarea value={pairingText} onChange={(event) => onPairingTextChange(event.target.value)} placeholder="粘贴电脑端配对 URL 或二维码载荷" />
         <div className="button-row">
           <button onClick={onScanQr}>扫码</button>
@@ -754,6 +906,10 @@ function ProfilePage({
             立即同步
           </button>
         </div>
+        <details className="sync-log-panel">
+          <summary>同步日志 / 最近一次错误</summary>
+          {syncLogs.length ? syncLogs.map((item) => <p key={item}>{item}</p>) : <p>暂无同步日志。</p>}
+        </details>
       </section>
 
       <section className="settings-card">
@@ -781,7 +937,21 @@ function ProfilePage({
   );
 }
 
-function ReaderView({
+function calculateScrollProgress(element: HTMLElement): number {
+  const scrollable = Math.max(1, element.scrollHeight - element.clientHeight);
+  return Math.min(100, Math.max(0, (element.scrollTop / scrollable) * 100));
+}
+
+const emptyReaderDocument = (title: string, format: MobileBook["format"]): MobileReaderDocument => ({
+  title,
+  format,
+  html: "<p>正在打开书籍……</p>",
+  plainText: "",
+  toc: [],
+  wordCount: 0
+});
+
+function MobileReaderView({
   book,
   content,
   snapshot,
@@ -802,21 +972,56 @@ function ReaderView({
   onOpenInspiration: (inspirationId: string) => void;
   onMessage: (message: string) => void;
 }) {
+  const scrollRef = useRef<HTMLElement>(null);
+  const progressSaveTimer = useRef<number>();
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [readerControlsVisible, setReaderControlsVisible] = useState(true);
   const [readerNotice, setReaderNotice] = useState("");
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
-  const document = useMemo(() => renderMobileDocument(book.format, content, book.title), [book.format, book.title, content]);
-  const currentProgress = progressFor(snapshot, book.id);
+  const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
+  const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
+
+  useEffect(() => {
+    let cancelled = false;
+    void renderMobileDocument(book.format, content, book.title).then((nextDocument) => {
+      if (!cancelled) setDocument(nextDocument);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [book.format, book.title, content]);
+
+  useEffect(() => {
+    const element = scrollRef.current;
+    if (!element || !document.html) return;
+    const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
+    element.scrollTop = (scrollable * currentProgress) / 100;
+  }, [document.html]);
 
   const captureSelection = () => {
     const text = window.getSelection()?.toString().trim() ?? "";
     setSelectionText(text.slice(0, 800));
   };
 
-  const saveProgress = async (progressPercent: number) => {
-    const next = await saveMobileReadingProgress(snapshot, book, progressPercent);
+  const saveProgress = async (progressPercent = currentProgress) => {
+    const bounded = Math.min(100, Math.max(0, progressPercent));
+    setCurrentProgress(bounded);
+    const next = await saveMobileReadingProgress(snapshot, book, bounded);
     onSnapshotChange(next);
+  };
+
+  const handleReaderScroll = () => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const nextProgress = calculateScrollProgress(element);
+    setCurrentProgress(nextProgress);
+    setReaderControlsVisible(false);
+    if (progressSaveTimer.current) window.clearTimeout(progressSaveTimer.current);
+    progressSaveTimer.current = window.setTimeout(() => {
+      void saveProgress(nextProgress);
+    }, 900);
   };
 
   const addReaderInspiration = async () => {
@@ -846,13 +1051,14 @@ function ReaderView({
   };
 
   const closeReader = async () => {
-    const next = await addMobileReadingSession(snapshot, book as LibraryBook, 30_000, currentProgress);
+    const saved = await saveMobileReadingProgress(snapshot, book, currentProgress);
+    const next = await addMobileReadingSession(saved, book as LibraryBook, 30_000, currentProgress);
     onSnapshotChange(next);
     onBack();
   };
 
   return (
-    <main className={`reader-shell reader-bg-${settings.readerBackground}`}>
+    <main className={`reader-shell reader-bg-${settings.readerBackground} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
       <header className="reader-topbar">
         <button className="ghost-button" onClick={() => void closeReader()}>
           ← 返回书架
@@ -863,29 +1069,39 @@ function ReaderView({
             {book.format.toUpperCase()} · {currentProgress.toFixed(2)}%
           </p>
         </div>
-        <button className="ghost-button" onClick={() => setShowToc((value) => !value)}>
+        <button className="ghost-button" onClick={() => setShowToc(true)}>
           目录
         </button>
       </header>
 
       {showToc && (
-        <aside className="toc-drawer">
-          <h2>目录</h2>
-          {document.toc.length ? document.toc.map((item) => <a key={item.id} href={`#${item.id}`}>{item.title}</a>) : <p>这本书暂未识别到目录。</p>}
+        <aside className="reader-toc-drawer">
+          <div className="drawer-header">
+            <h2>目录</h2>
+            <button className="ghost-button" onClick={() => setShowToc(false)}>关闭</button>
+          </div>
+          {document.toc.length ? document.toc.map((item) => <a key={item.id} href={`#${item.id}`} onClick={() => setShowToc(false)}>{item.title}</a>) : <p>这本书暂未识别到目录。</p>}
         </aside>
       )}
 
-      <article
-        className="reader-content"
-        style={{
-          fontSize: `${settings.fontSize}px`,
-          lineHeight: settings.lineHeight,
-          padding: `${settings.pageMargin}px`
-        }}
+      <section
+        ref={scrollRef}
+        className="reader-scroll-container"
+        onClick={() => setReaderControlsVisible((value) => !value)}
+        onScroll={handleReaderScroll}
         onMouseUp={captureSelection}
         onTouchEnd={captureSelection}
-        dangerouslySetInnerHTML={{ __html: document.html }}
-      />
+      >
+        <article
+          className="reader-content"
+          style={{
+            fontSize: `${settings.fontSize}px`,
+            lineHeight: settings.lineHeight,
+            padding: `${settings.pageMargin}px`
+          }}
+          dangerouslySetInnerHTML={{ __html: document.html }}
+        />
+      </section>
 
       {readerNotice && (
         <section className="reader-notice" role="status" aria-live="polite">
@@ -926,17 +1142,24 @@ function ReaderView({
           <button onClick={() => void addReaderInspiration()}>
             ✦<span>记为灵感</span>
           </button>
-          <button onClick={() => void saveProgress(Math.min(100, currentProgress + 2))}>
+          <button onClick={() => void saveProgress(currentProgress)}>
             ✓<span>保存进度</span>
           </button>
           <button onClick={() => onSettingsChange({ ...settings, readerBackground: settings.readerBackground === "night" ? "warm" : "night" })}>
             ☾<span>夜间</span>
           </button>
-          <button onClick={() => setShowToc((value) => !value)}>
-            ☰<span>目录</span>
+          <button onClick={() => setShowSettings(true)}>
+            ⚙<span>设置</span>
           </button>
         </div>
-        <div className="reader-setting-row">
+      </footer>
+
+      {showSettings && (
+        <aside className="reader-settings-drawer">
+          <div className="drawer-header">
+            <h2>阅读设置</h2>
+            <button className="ghost-button" onClick={() => setShowSettings(false)}>关闭</button>
+          </div>
           <label>
             字号
             <input type="range" min="15" max="28" value={settings.fontSize} onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })} />
@@ -945,8 +1168,20 @@ function ReaderView({
             行距
             <input type="range" min="1.4" max="2.4" step="0.05" value={settings.lineHeight} onChange={(event) => onSettingsChange({ ...settings, lineHeight: Number(event.target.value) })} />
           </label>
-        </div>
-      </footer>
+          <label>
+            边距
+            <input type="range" min="10" max="42" value={settings.pageMargin} onChange={(event) => onSettingsChange({ ...settings, pageMargin: Number(event.target.value) })} />
+          </label>
+          <div className="reader-background-grid">
+            {(["white", "warm", "green", "night"] as const).map((background) => (
+              <button key={background} className={settings.readerBackground === background ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerBackground: background })}>
+                {background === "white" ? "白纸" : background === "warm" ? "暖纸" : background === "green" ? "护眼" : "夜间"}
+              </button>
+            ))}
+          </div>
+          <p className="subtle">滚动模式已启用；分页/仿真翻页和屏幕常亮会在后续版本继续补齐。</p>
+        </aside>
+      )}
     </main>
   );
 }
