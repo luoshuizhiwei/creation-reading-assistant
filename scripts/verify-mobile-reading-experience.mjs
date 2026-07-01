@@ -18,10 +18,18 @@ assertIncludes("mobile/src/App.tsx", "ShelfViewMode", "Shelf must support readin
 assertIncludes("mobile/src/App.tsx", "ShelfFilterMode", "Shelf must support quick filters for all/reading/downloaded/pending books.");
 assertIncludes("mobile/src/App.tsx", "ShelfSortMode", "Shelf must support reader-oriented sorting.");
 assertIncludes("mobile/src/App.tsx", "book-progress-line", "Shelf cards must expose compact reading progress instead of plain web text.");
+assertIncludes("mobile/src/App.tsx", "BookDetailSheet", "Shelf must provide a native-reader style book detail sheet.");
+assertIncludes("mobile/src/App.tsx", "下载后阅读", "Book detail sheet must guide users to download synced books before reading.");
 assertIncludes("mobile/src/App.tsx", "handleReaderTap", "Reader must use tap zones instead of only toolbar buttons.");
 assertIncludes("mobile/src/App.tsx", "moveChapter", "Reader tap zones must support previous/next chapter movement.");
 assertIncludes("mobile/src/App.tsx", "turnReaderPage", "Reader paged mode must support previous/next page movement.");
 assertIncludes("mobile/src/App.tsx", "reader-mode-", "Reader shell must expose the active reading mode to CSS.");
+assertIncludes("mobile/src/App.tsx", "tapZoneMode", "Reader must support configurable tap zones.");
+assertIncludes("mobile/src/App.tsx", "showProgressBar", "Reader must allow the progress slider to be hidden.");
+assertIncludes("mobile/src/App.tsx", "keepAwake", "Reader must expose a screen keep-awake setting.");
+assertIncludes("mobile/src/App.tsx", "wakeLock", "Reader keep-awake must use the Screen Wake Lock API where available.");
+assertIncludes("mobile/src/App.tsx", "brightness", "Reader must expose brightness control.");
+assertIncludes("mobile/src/App.tsx", "paragraphSpacing", "Reader must expose paragraph spacing customization.");
 assertIncludes("mobile/src/App.tsx", "reader-progress-chip", "Reader must expose a lightweight chapter/progress chip.");
 assertIncludes("mobile/src/App.tsx", "reader-zone-guide", "Reader must show discoverable tap-zone hints when controls are visible.");
 assertIncludes("mobile/src/App.tsx", "readerMode", "Reader settings must reserve mode switching for scroll/page style reading.");
@@ -29,6 +37,8 @@ assertIncludes("mobile/src/App.tsx", "fontWeight", "Reader settings must include
 
 assertIncludes("mobile/src/styles.css", ".segmented-control", "Shelf filters must be styled as native-like segmented controls.");
 assertIncludes("mobile/src/styles.css", ".book-list", "Shelf must provide a compact list layout.");
+assertIncludes("mobile/src/styles.css", ".book-detail-sheet", "Book detail sheet must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-dim-layer", "Reader brightness dim layer must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-progress-chip", "Reader chapter/progress chip must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-zone-guide", "Reader tap-zone hints must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-mode-paged", "Paged reading mode must have dedicated styling.");

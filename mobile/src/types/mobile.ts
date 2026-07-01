@@ -108,9 +108,14 @@ export interface MobileReaderSettings {
   fontSize: number;
   lineHeight: number;
   pageMargin: number;
+  paragraphSpacing: number;
   readerBackground: ReaderBackground;
   readerMode: "scroll" | "paged";
   fontWeight: "regular" | "bold";
+  tapZoneMode: "three-zone" | "five-zone";
+  showProgressBar: boolean;
+  keepAwake: boolean;
+  brightness: number;
 }
 
 export interface ImportedMobileBook {

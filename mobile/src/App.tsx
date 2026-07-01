@@ -32,9 +32,14 @@ const defaultReaderSettings: MobileReaderSettings = {
   fontSize: 18,
   lineHeight: 1.85,
   pageMargin: 22,
+  paragraphSpacing: 1.15,
   readerBackground: "warm",
   readerMode: "scroll",
-  fontWeight: "regular"
+  fontWeight: "regular",
+  tapZoneMode: "three-zone",
+  showProgressBar: true,
+  keepAwake: false,
+  brightness: 100
 };
 
 const emptySnapshot: MobileSnapshot = {
@@ -621,6 +626,8 @@ function ShelfPage({
   const [viewMode, setViewMode] = useState<ShelfViewMode>("grid");
   const [filterMode, setFilterMode] = useState<ShelfFilterMode>("all");
   const [sortMode, setSortMode] = useState<ShelfSortMode>("recent");
+  const [detailBookId, setDetailBookId] = useState("");
+  const detailBook = detailBookId ? snapshot.books.find((book) => book.id === detailBookId) : undefined;
   const filtered = snapshot.books
     .filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(query.toLowerCase()))
     .filter((book) => {
@@ -699,18 +706,13 @@ function ShelfPage({
             </div>
             <button
               className="tile-more"
-              disabled={isBookDownloaded(book) && downloadingBookId !== book.id}
               onClick={(event) => {
                 event.stopPropagation();
-                if (downloadingBookId === book.id) {
-                  onCancelDownload();
-                  return;
-                }
-                onDownloadBook(book);
+                setDetailBookId(book.id);
               }}
-              aria-label={downloadingBookId === book.id ? "取消下载" : "下载正文"}
+              aria-label="书籍详情"
             >
-              {downloadingBookId === book.id ? "取消" : isBookDownloaded(book) ? "✓" : "↓"}
+              ⋯
             </button>
           </article>
         ))}
@@ -718,7 +720,95 @@ function ShelfPage({
 
       {!filtered.length && <p className="empty-hint">书架还没有匹配结果。你可以点右上角导入本地书籍。</p>}
       <p className="center-foot">共 {snapshot.books.length} 本书籍</p>
+
+      {detailBook && (
+        <BookDetailSheet
+          book={detailBook}
+          snapshot={snapshot}
+          downloadingBookId={downloadingBookId}
+          onClose={() => setDetailBookId("")}
+          onOpenBook={(book) => {
+            setDetailBookId("");
+            onOpenBook(book);
+          }}
+          onDownloadBook={onDownloadBook}
+          onCancelDownload={onCancelDownload}
+        />
+      )}
     </div>
+  );
+}
+
+function BookDetailSheet({
+  book,
+  snapshot,
+  downloadingBookId,
+  onClose,
+  onOpenBook,
+  onDownloadBook,
+  onCancelDownload
+}: {
+  book: MobileBook;
+  snapshot: MobileSnapshot;
+  downloadingBookId?: string;
+  onClose: () => void;
+  onOpenBook: (book: MobileBook) => void;
+  onDownloadBook: (book: MobileBook) => void;
+  onCancelDownload: () => void;
+}) {
+  const progress = progressFor(snapshot, book.id);
+  const downloaded = isBookDownloaded(book);
+  const inspirationCount = snapshot.inspirations.filter((item) => item.source?.bookId === book.id).length;
+  const sessionCount = snapshot.sessions.filter((item) => item.bookId === book.id).length;
+  return (
+    <aside className="book-detail-sheet" role="dialog" aria-label={`${book.title} 详情`}>
+      <div className="drawer-header">
+        <h2>书籍详情</h2>
+        <button className="ghost-button" onClick={onClose}>关闭</button>
+      </div>
+      <section className="book-detail-hero">
+        <div className="book-cover detail-cover">{book.title.slice(0, 4)}</div>
+        <div>
+          <p className="mini-label">{book.format.toUpperCase()} · {downloaded ? "已下载正文" : "未下载正文"}</p>
+          <h3>{book.title}</h3>
+          <p>{book.author || "作者未知"}</p>
+          {book.importLabel && <span className="detail-badge">{book.importLabel}</span>}
+        </div>
+      </section>
+      <div className="book-detail-progress">
+        <div>
+          <strong>{progress.toFixed(2)}%</strong>
+          <span>阅读进度</span>
+        </div>
+        <div>
+          <strong>{sessionCount}</strong>
+          <span>阅读记录</span>
+        </div>
+        <div>
+          <strong>{inspirationCount}</strong>
+          <span>灵感</span>
+        </div>
+      </div>
+      <div className="book-progress-line detail-line" aria-label={`阅读进度 ${progress.toFixed(1)}%`}>
+        <span style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+      </div>
+      <div className="book-detail-actions">
+        <button onClick={() => (downloaded ? onOpenBook(book) : onDownloadBook(book))}>
+          {downloaded ? "开始阅读" : "下载后阅读"}
+        </button>
+        <button
+          className="secondary-button"
+          disabled={downloaded && downloadingBookId !== book.id}
+          onClick={() => {
+            if (downloadingBookId === book.id) onCancelDownload();
+            else onDownloadBook(book);
+          }}
+        >
+          {downloadingBookId === book.id ? "取消下载" : downloaded ? "正文已下载" : "下载正文"}
+        </button>
+      </div>
+      <p className="subtle">后续这里会继续补书籍分组、书签、批注、导出笔记等阅读 App 常用入口。</p>
+    </aside>
   );
 }
 
@@ -1049,6 +1139,7 @@ function MobileReaderView({
 }) {
   const scrollRef = useRef<HTMLElement>(null);
   const progressSaveTimer = useRef<number>();
+  const wakeLockRef = useRef<{ release: () => Promise<void> } | undefined>();
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -1076,6 +1167,42 @@ function MobileReaderView({
     element.scrollTop = (scrollable * currentProgress) / 100;
     setCurrentChapter(findCurrentChapter(document, element));
   }, [document.html]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const releaseWakeLock = async () => {
+      const lock = wakeLockRef.current;
+      wakeLockRef.current = undefined;
+      if (lock) {
+        try {
+          await lock.release();
+        } catch {
+          // Some Android WebViews reject release after the document is hidden; safe to ignore.
+        }
+      }
+    };
+    const requestWakeLock = async () => {
+      await releaseWakeLock();
+      if (!settings.keepAwake) return;
+      const wakeLockApi = (navigator as Navigator & { wakeLock?: { request: (type: "screen") => Promise<{ release: () => Promise<void> }> } }).wakeLock;
+      if (!wakeLockApi) {
+        onMessage("当前设备暂不支持屏幕常亮，阅读设置已保留。");
+        return;
+      }
+      try {
+        const lock = await wakeLockApi.request("screen");
+        if (cancelled) await lock.release();
+        else wakeLockRef.current = lock;
+      } catch {
+        onMessage("屏幕常亮开启失败，请检查系统电池或权限设置。");
+      }
+    };
+    void requestWakeLock();
+    return () => {
+      cancelled = true;
+      void releaseWakeLock();
+    };
+  }, [settings.keepAwake]);
 
   const captureSelection = () => {
     const text = window.getSelection()?.toString().trim() ?? "";
@@ -1135,17 +1262,37 @@ function MobileReaderView({
     }, 900);
   };
 
+  const runBackwardAction = () => {
+    settings.readerMode === "paged" ? turnReaderPage(-1) : moveChapter(-1);
+  };
+
+  const runForwardAction = () => {
+    settings.readerMode === "paged" ? turnReaderPage(1) : moveChapter(1);
+  };
+
   const handleReaderTap = (event: MouseEvent<HTMLElement>) => {
     if ((window.getSelection()?.toString().trim() ?? "").length > 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
+    const y = event.clientY - rect.top;
     const ratio = x / rect.width;
+    const verticalRatio = y / rect.height;
+    if (settings.tapZoneMode === "five-zone" && ratio >= 0.24 && ratio <= 0.76) {
+      if (verticalRatio < 0.26) {
+        runBackwardAction();
+        return;
+      }
+      if (verticalRatio > 0.74) {
+        runForwardAction();
+        return;
+      }
+    }
     if (ratio < 0.24) {
-      settings.readerMode === "paged" ? turnReaderPage(-1) : moveChapter(-1);
+      runBackwardAction();
       return;
     }
     if (ratio > 0.76) {
-      settings.readerMode === "paged" ? turnReaderPage(1) : moveChapter(1);
+      runForwardAction();
       return;
     }
     setReaderControlsVisible((value) => !value);
@@ -1189,7 +1336,8 @@ function MobileReaderView({
   const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
 
   return (
-    <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
+    <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
+      <div className="reader-dim-layer" style={{ opacity: Math.max(0, Math.min(0.58, (100 - settings.brightness) / 100)) }} aria-hidden="true" />
       <header className="reader-topbar">
         <button className="ghost-button" onClick={() => void closeReader()}>
           ← 返回书架
@@ -1246,6 +1394,7 @@ function MobileReaderView({
             fontSize: `${settings.fontSize}px`,
             lineHeight: settings.lineHeight,
             padding: `${settings.pageMargin}px`,
+            ["--reader-paragraph-spacing" as string]: `${settings.paragraphSpacing}em`,
             fontWeight: settings.fontWeight === "bold" ? 650 : 400
           }}
           dangerouslySetInnerHTML={{ __html: document.html }}
@@ -1255,7 +1404,7 @@ function MobileReaderView({
       {readerControlsVisible && (
         <div className="reader-zone-guide" aria-hidden="true">
           <span>{settings.readerMode === "paged" ? "上一页" : "上一章"}</span>
-          <span>轻触隐藏菜单</span>
+          <span>{settings.tapZoneMode === "five-zone" ? "上/下也可翻动" : "轻触隐藏菜单"}</span>
           <span>{settings.readerMode === "paged" ? "下一页" : "下一章"}</span>
         </div>
       )}
@@ -1294,7 +1443,9 @@ function MobileReaderView({
             灵感
           </span>
         </div>
-        <input className="reader-progress-slider" type="range" min="0" max="100" step="0.1" value={currentProgress} onChange={(event) => void saveProgress(Number(event.target.value))} />
+        {settings.showProgressBar && (
+          <input className="reader-progress-slider" type="range" min="0" max="100" step="0.1" value={currentProgress} onChange={(event) => void saveProgress(Number(event.target.value))} />
+        )}
         <div className="reader-actions">
           <button onClick={() => void addReaderInspiration()}>
             ✦<span>记为灵感</span>
@@ -1334,6 +1485,20 @@ function MobileReaderView({
               重置
             </button>
           </div>
+          <div className="reader-mode-grid" aria-label="点击区域">
+            <button className={settings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "three-zone" })}>
+              三分区
+            </button>
+            <button className={settings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "five-zone" })}>
+              五分区
+            </button>
+            <button className={settings.showProgressBar ? "active" : ""} onClick={() => onSettingsChange({ ...settings, showProgressBar: !settings.showProgressBar })}>
+              进度条
+            </button>
+            <button className={settings.keepAwake ? "active" : ""} onClick={() => onSettingsChange({ ...settings, keepAwake: !settings.keepAwake })}>
+              常亮
+            </button>
+          </div>
           <label>
             字号
             <input type="range" min="15" max="28" value={settings.fontSize} onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })} />
@@ -1346,6 +1511,14 @@ function MobileReaderView({
             边距
             <input type="range" min="10" max="42" value={settings.pageMargin} onChange={(event) => onSettingsChange({ ...settings, pageMargin: Number(event.target.value) })} />
           </label>
+          <label>
+            段距
+            <input type="range" min="0.7" max="1.8" step="0.05" value={settings.paragraphSpacing} onChange={(event) => onSettingsChange({ ...settings, paragraphSpacing: Number(event.target.value) })} />
+          </label>
+          <label>
+            亮度
+            <input type="range" min="45" max="100" value={settings.brightness} onChange={(event) => onSettingsChange({ ...settings, brightness: Number(event.target.value) })} />
+          </label>
           <div className="reader-background-grid">
             {(["white", "warm", "green", "night"] as const).map((background) => (
               <button key={background} className={settings.readerBackground === background ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerBackground: background })}>
@@ -1353,7 +1526,7 @@ function MobileReaderView({
               </button>
             ))}
           </div>
-          <p className="subtle">滚动模式下，左/右侧轻触跳上一章/下一章；分页模式下，左/右侧轻触按屏幕高度翻上一页/下一页。中间轻触唤起或隐藏菜单。</p>
+          <p className="subtle">三分区：左 / 中 / 右；五分区会额外把中间上方作为后退、中间下方作为前进。分页模式按页翻动，滚动模式按章节跳转。</p>
         </aside>
       )}
     </main>
