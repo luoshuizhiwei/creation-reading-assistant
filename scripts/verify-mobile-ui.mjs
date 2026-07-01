@@ -25,5 +25,10 @@ assertIncludes("mobile/src/App.tsx", "阅读目标不在本应用中启用", "Ho
 assertIncludes("mobile/src/styles.css", ".bottom-nav", "Mobile UI must use a bottom navigation layout.");
 assertIncludes("mobile/src/styles.css", ".book-grid", "Shelf page must use a book grid layout.");
 assertIncludes("mobile/src/styles.css", ".inspiration-fab", "Inspiration page must keep quick capture prominent.");
+assertIncludes("mobile/src/styles.css", "overflow-x: hidden", "Mobile app must prevent browser-like horizontal overflow.");
+assertIncludes("mobile/src/styles.css", "width: min(100%, 560px)", "Mobile pages must be constrained to the viewport instead of overflowing like a web page.");
+assertIncludes("mobile/src/styles.css", ".reader-bottom-sheet", "Mobile reader must use a reader-app style bottom sheet instead of a web-form toolbar.");
+assertIncludes("mobile/src/App.tsx", "reader-stat-row", "Mobile reader must expose compact reading stats like native reading apps.");
+assertIncludes("mobile/src/App.tsx", "保存进度", "Mobile reader must keep progress saving available from the reader controls.");
 
 console.log("[verify-mobile-ui] Mobile Reeden-style UI guards verified.");

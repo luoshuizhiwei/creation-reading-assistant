@@ -25,6 +25,10 @@ assertIncludes("mobile/src/storage/mobile-files.ts", "localFilePath", "Mobile fi
 assertIncludes("mobile/src/storage/mobile-files.ts", "readMobileBookFile", "Mobile app must read saved book files back from Capacitor Filesystem.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "migrateLegacySnapshot", "Storage must migrate the old localStorage snapshot.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "saveSyncedMobileBookFile", "Mobile storage must persist book files downloaded from desktop sync.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "BOOK_CONTENT_STORAGE_KEY_PREFIX", "Storage should keep old localStorage content only as migration fallback.");
+if (read("mobile/src/services/mobile-storage.ts").includes("localStorage.setItem(`creation-reading-assistant-mobile-book-content")) {
+  fail("Mobile storage must not write full book content into localStorage; use Capacitor Filesystem to avoid WebView crashes after sync.");
+}
 assertIncludes("mobile/src/types/mobile.ts", "MobileBook", "Mobile storage types must define MobileBook.");
 assertIncludes("mobile/src/types/mobile.ts", "localFilePath", "MobileBook must remember the relative local file path, not only a display URI.");
 assertIncludes("mobile/src/types/mobile.ts", "SyncAccount", "Mobile storage types must define SyncAccount.");

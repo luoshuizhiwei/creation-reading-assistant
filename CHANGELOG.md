@@ -6,6 +6,27 @@
 
 - 后续大修改会先写入这里，发布时再移动到对应版本。
 
+## v0.1.4 - 2026-07-01
+
+### 修复
+
+- 修复部分 Android 手机上扫码失败的问题：当 Google 系统扫码模块不可用时，自动切换到本地相机扫码，并把冗长英文错误改成中文排查提示。
+- 修复手机同步后可能直接退出的问题：书籍正文不再整本写入 `localStorage`，改为只通过 Capacitor Filesystem 保存，降低大书同步后的 WebView 崩溃风险。
+- 修复同步完成后反馈不明确的问题：现在会明确提示“已上传”的手机数据、电脑返回的数据和书籍文件上传/下载结果。
+- 优化移动端首页、书架和阅读器的宽度约束，避免页面像网页一样横向溢出、卡片被放大裁切、底部导航需要滑到底才看到。
+- 优化阅读页控制区：改为阅读 App 风格的底部面板，保留阅读时长、进度、速度、灵感数、保存进度、夜间模式、目录和字号/行距设置。
+
+### 工程
+
+- 新增 `release:clean-local`：本地 `release-artifacts` 只保留当前版本安装包/APK，旧版本交给 GitHub Release 保存，减少电脑磁盘占用。
+- 加强 `verify:mobile-adapter`、`verify:mobile-storage`、`verify:mobile-ui`，覆盖扫码降级、本地文件存储和移动端布局守门。
+
+### 发布产物
+
+- Windows 安装版：`release-artifacts/creation-reading-assistant-windows-setup-v0.1.4.exe`
+- Windows 免安装版：`release-artifacts/creation-reading-assistant-windows-win-unpacked-v0.1.4.zip`
+- Android APK：`release-artifacts/creation-reading-assistant-mobile-debug-v0.1.4.apk`
+
 ## v0.1.3 - 2026-07-01
 
 ### 新增

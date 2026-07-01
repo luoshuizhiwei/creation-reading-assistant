@@ -6,6 +6,7 @@ import { renderMobileDocument } from "./reader/mobile-reader";
 import {
   addMobileInspiration,
   addMobileReadingSession,
+  BOOK_CONTENT_STORAGE_KEY_PREFIX,
   createImportedMobileBook,
   getMobileDeviceId,
   loadMobileSnapshot,
@@ -60,6 +61,55 @@ function getContinueBooks(snapshot: MobileSnapshot): MobileBook[] {
     .map((bookId) => snapshot.books.find((book) => book.id === bookId))
     .filter((book): book is MobileBook => Boolean(book));
   return [...byProgress, ...snapshot.books.filter((book) => !recentBookIds.has(book.id))].slice(0, 8);
+}
+
+function extractBarcodeText(result: { rawValue?: string | null; displayValue?: string | null } | undefined): string {
+  return (result?.rawValue || result?.displayValue || "").trim();
+}
+
+export function formatQrScanError(error: unknown): string {
+  const detail = error instanceof Error ? error.message : String(error);
+  if (/ModuleInstall|SERVICE_INVALID|Google Barcode Scanner Module|module is not available|not available on this device/i.test(detail)) {
+    return "当前手机不支持系统扫码模块，已切换本地相机扫码；如果仍失败，请复制电脑端配对 URL 或二维码载荷连接。";
+  }
+  if (/canceled|cancelled|cancel/i.test(detail)) return "已取消扫码。你也可以粘贴电脑端配对 URL 连接。";
+  if (/permission|camera/i.test(detail)) return "没有相机权限，无法扫码。请在系统设置里允许相机权限，或粘贴配对 URL。";
+  return `扫码失败：${detail.slice(0, 80)}。你也可以粘贴电脑端配对 URL 或二维码载荷连接。`;
+}
+
+async function scanPairingQrCodeWithCameraView(): Promise<string> {
+  document.body.classList.add("barcode-scanner-active");
+  let listener: { remove: () => Promise<void> } | undefined;
+  let timer: number | undefined;
+  const cleanup = async () => {
+    if (timer) window.clearTimeout(timer);
+    document.body.classList.remove("barcode-scanner-active");
+    await listener?.remove().catch(() => undefined);
+    await BarcodeScanner.stopScan().catch(() => undefined);
+  };
+
+  return new Promise<string>((resolve, reject) => {
+    let settled = false;
+    const finish = (text?: string, error?: unknown) => {
+      if (settled) return;
+      settled = true;
+      void cleanup().finally(() => {
+        if (text) resolve(text);
+        else reject(error ?? new Error("没有识别到二维码内容。"));
+      });
+    };
+
+    timer = window.setTimeout(() => finish(undefined, new Error("扫码超时，请靠近二维码或改用粘贴配对 URL。")), 45_000);
+    void BarcodeScanner.addListener("barcodeScanned", (event) => {
+      const text = extractBarcodeText(event.barcode);
+      if (text) finish(text);
+    })
+      .then((handle) => {
+        listener = handle;
+        return BarcodeScanner.startScan({ formats: [BarcodeFormat.QrCode] });
+      })
+      .catch((error) => finish(undefined, error));
+  });
 }
 
 function toMobileSyncEnvelope<T extends { revision: number; deviceId: string; updatedAt: string; deletedAt?: string }>(
@@ -118,7 +168,7 @@ export function App() {
   }, [snapshot]);
 
   const readMobileBookContent = async (book: MobileBook): Promise<string | undefined> => {
-    const savedContent = localStorage.getItem(`creation-reading-assistant-mobile-book-content:${book.id}`);
+    const savedContent = localStorage.getItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${book.id}`);
     if (savedContent) return savedContent;
     return readMobileBookFile(book.localFilePath ?? (book.filePath?.startsWith("books/") ? book.filePath : undefined));
   };
@@ -195,25 +245,26 @@ export function App() {
         const requested = await BarcodeScanner.requestPermissions();
         if (requested.camera !== "granted" && requested.camera !== "limited") throw new Error("没有相机权限，无法扫码。");
       }
+      let text = "";
       try {
         const module = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
-        if (!module.available) {
-          await BarcodeScanner.installGoogleBarcodeScannerModule();
-          setMessage("扫码模块正在安装，请稍等几秒后再点一次“扫码”。也可以先粘贴配对 URL。");
-          return;
+        if (module.available) {
+          const result = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
+          text = extractBarcodeText(result.barcodes[0]);
+        } else {
+          setMessage("系统扫码模块不可用，正在切换到本地相机扫码。");
+          text = await scanPairingQrCodeWithCameraView();
         }
-      } catch {
-        // 非 Android 或旧设备可能不支持模块检查，继续尝试 scan()。
+      } catch (error) {
+        setMessage(formatQrScanError(error));
+        text = await scanPairingQrCodeWithCameraView();
       }
-      const result = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
-      const text = result.barcodes[0]?.rawValue || result.barcodes[0]?.displayValue || "";
       if (!text) throw new Error("没有识别到二维码内容。");
       setPairingText(text);
       setMessage("已识别二维码，正在连接电脑。");
       await connectLan(text);
     } catch (error) {
-      const detail = error instanceof Error ? error.message : String(error);
-      setMessage(`扫码失败：${detail}。你也可以复制电脑端“配对 URL”或“二维码载荷”到输入框后连接。`);
+      setMessage(formatQrScanError(error));
     }
   };
 
@@ -238,9 +289,9 @@ export function App() {
       const withFiles = await downloadDesktopBookFiles(next);
       setSnapshot(withFiles.snapshot);
       setMessage(
-        `同步完成：已上传 ${push.applied.inspirations} 条灵感、${push.applied.books} 本书、${push.applied.progress} 条进度；` +
-          `已上传 ${uploadSummary.uploaded} 个手机书籍文件${uploadSummary.failed ? `，${uploadSummary.failed} 个上传失败` : ""}；` +
-          `已拉取 ${pull.inspirations.length} 条灵感，${pull.books.length} 本书；已下载 ${withFiles.downloaded} 个书籍文件${withFiles.failed ? `，${withFiles.failed} 个下载失败` : ""}。`
+        `同步完成：已上传手机上的 ${push.applied.inspirations} 条灵感、${push.applied.books} 本书、${push.applied.progress} 条进度；` +
+          `电脑返回 ${pull.inspirations.length} 条灵感、${pull.books.length} 本书；` +
+          `书籍文件上传 ${uploadSummary.uploaded} 个、下载 ${withFiles.downloaded} 个。${uploadSummary.failed || withFiles.failed ? "有少量文件失败，可再次点击立即同步。" : "现在可以回首页或书架继续阅读。"}`
       );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
@@ -851,39 +902,50 @@ function ReaderView({
         </section>
       )}
 
-      <footer className="reader-toolbar">
-        <button onClick={() => void addReaderInspiration()}>记为灵感</button>
-        <button onClick={() => void saveProgress(Math.min(100, currentProgress + 2))}>保存进度</button>
-        <label>
-          字号
-          <input
-            type="range"
-            min="15"
-            max="28"
-            value={settings.fontSize}
-            onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })}
-          />
-        </label>
-        <label>
-          行距
-          <input
-            type="range"
-            min="1.4"
-            max="2.4"
-            step="0.05"
-            value={settings.lineHeight}
-            onChange={(event) => onSettingsChange({ ...settings, lineHeight: Number(event.target.value) })}
-          />
-        </label>
-        <label>
-          背景
-          <select value={settings.readerBackground} onChange={(event) => onSettingsChange({ ...settings, readerBackground: event.target.value as MobileReaderSettings["readerBackground"] })}>
-            <option value="white">白纸</option>
-            <option value="warm">暖纸</option>
-            <option value="green">护眼</option>
-            <option value="night">夜间</option>
-          </select>
-        </label>
+      <footer className="reader-bottom-sheet">
+        <div className="reader-stat-row">
+          <span>
+            <strong>{formatDuration(snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0)}</strong>
+            阅读时长
+          </span>
+          <span>
+            <strong>{currentProgress.toFixed(2)}%</strong>
+            阅读进度
+          </span>
+          <span>
+            <strong>0 字/分钟</strong>
+            阅读速度
+          </span>
+          <span>
+            <strong>{snapshot.inspirations.filter((item) => item.source?.bookId === book.id).length} 条</strong>
+            灵感
+          </span>
+        </div>
+        <input className="reader-progress-slider" type="range" min="0" max="100" step="0.1" value={currentProgress} onChange={(event) => void saveProgress(Number(event.target.value))} />
+        <div className="reader-actions">
+          <button onClick={() => void addReaderInspiration()}>
+            ✦<span>记为灵感</span>
+          </button>
+          <button onClick={() => void saveProgress(Math.min(100, currentProgress + 2))}>
+            ✓<span>保存进度</span>
+          </button>
+          <button onClick={() => onSettingsChange({ ...settings, readerBackground: settings.readerBackground === "night" ? "warm" : "night" })}>
+            ☾<span>夜间</span>
+          </button>
+          <button onClick={() => setShowToc((value) => !value)}>
+            ☰<span>目录</span>
+          </button>
+        </div>
+        <div className="reader-setting-row">
+          <label>
+            字号
+            <input type="range" min="15" max="28" value={settings.fontSize} onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })} />
+          </label>
+          <label>
+            行距
+            <input type="range" min="1.4" max="2.4" step="0.05" value={settings.lineHeight} onChange={(event) => onSettingsChange({ ...settings, lineHeight: Number(event.target.value) })} />
+          </label>
+        </div>
       </footer>
     </main>
   );

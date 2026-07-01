@@ -19,6 +19,7 @@ import type {
 const STORAGE_KEY = "creation-reading-assistant-mobile-snapshot";
 const MIGRATION_KEY = "creation-reading-assistant-mobile-sqlite-migrated";
 const DEVICE_KEY = "creation-reading-assistant-mobile-device-id";
+export const BOOK_CONTENT_STORAGE_KEY_PREFIX = "creation-reading-assistant-mobile-book-content:";
 
 export type { MobileSnapshot } from "../types/mobile";
 
@@ -267,7 +268,7 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
     updatedAt: nowIso()
   };
   await saveMobileSnapshot(next);
-  localStorage.setItem(`creation-reading-assistant-mobile-book-content:${id}`, imported.content);
+  localStorage.removeItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${id}`);
   return next;
 }
 
@@ -285,7 +286,7 @@ export async function saveSyncedMobileBookFile(snapshot: MobileSnapshot, book: M
     localFilePath: storedFile?.localFilePath ?? book.localFilePath,
     updatedAt: nowIso()
   };
-  localStorage.setItem(`creation-reading-assistant-mobile-book-content:${book.id}`, content);
+  localStorage.removeItem(`${BOOK_CONTENT_STORAGE_KEY_PREFIX}${book.id}`);
   const next = {
     ...snapshot,
     books: [nextBook, ...snapshot.books.filter((item) => item.id !== book.id)],

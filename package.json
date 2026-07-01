@@ -1,6 +1,6 @@
 {
   "name": "creation-reading-assistant",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "private": true,
   "author": "Creation Reading Assistant Contributors",
   "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
@@ -37,6 +37,7 @@
     "verify:installer-release": "node scripts/verify-installer-release.mjs",
     "verify:beta": "node scripts/beta-check.mjs",
     "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",
+    "release:clean-local": "node scripts/clean-local-release-artifacts.mjs",
     "mobile:install": "npm install --prefix mobile",
     "mobile:build": "npm run build --prefix mobile",
     "mobile:android": "npm run android --prefix mobile",

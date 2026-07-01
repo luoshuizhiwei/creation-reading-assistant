@@ -37,6 +37,10 @@ assertIncludes("mobile/src/App.tsx", "灵感中心", "Mobile app must keep inspi
 assertIncludes("mobile/src/App.tsx", "本地书库", "Mobile app must keep local library as a primary entry.");
 assertIncludes("mobile/src/App.tsx", "扫码连接电脑", "Mobile app must expose pairing flow.");
 assertIncludes("mobile/src/App.tsx", "scanPairingQrCode", "Mobile pairing flow must expose a camera QR scan action.");
+assertIncludes("mobile/src/App.tsx", "scanPairingQrCodeWithCameraView", "Mobile QR scan must fall back to local camera scanning when Google module install is unavailable.");
+assertIncludes("mobile/src/App.tsx", "barcodeScanned", "Mobile QR fallback must listen for scanned barcodes from the local camera view.");
+assertIncludes("mobile/src/App.tsx", "formatQrScanError", "Mobile QR scan errors should be shortened into user-readable Chinese guidance.");
+assertIncludes("mobile/src/styles.css", "barcode-scanner-active", "Mobile QR fallback must make the WebView transparent while native camera scanning is active.");
 assertIncludes("mobile/src/App.tsx", "正在尝试第", "Mobile LAN pairing should show which candidate address is being tried.");
 assertIncludes("mobile/src/services/sync-client.ts", "parsePairingCandidates", "Mobile sync client must parse every alternate LAN pairing URL.");
 assertIncludes("mobile/src/services/sync-client.ts", "pairingUrls", "Mobile sync client must preserve alternate pairing URLs from desktop payloads.");
