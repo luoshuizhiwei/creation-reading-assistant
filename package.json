@@ -1,6 +1,6 @@
 {
   "name": "creation-reading-assistant",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "private": true,
   "author": "Creation Reading Assistant Contributors",
   "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
@@ -34,6 +34,7 @@
     "verify:mobile-inspiration": "node scripts/verify-mobile-inspiration.mjs",
     "verify:sync-conflicts": "node scripts/verify-sync-conflicts.mjs",
     "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
+    "verify:installer-release": "node scripts/verify-installer-release.mjs",
     "verify:beta": "node scripts/beta-check.mjs",
     "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",
     "mobile:install": "npm install --prefix mobile",
@@ -41,6 +42,7 @@
     "mobile:android": "npm run android --prefix mobile",
     "dist:beta": "npm run build && electron-builder --dir --config.directories.output=release-beta",
     "dist:beta:offline": "npm run build && node scripts/dist-beta-offline.mjs",
+    "dist:beta:installer": "npm run build && node scripts/dist-beta-offline.mjs --installer",
     "preview": "electron-vite preview",
     "dist:dir": "npm run build && electron-builder --dir",
     "dist": "npm run build && electron-builder"

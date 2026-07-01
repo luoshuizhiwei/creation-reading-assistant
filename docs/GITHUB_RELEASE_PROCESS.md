@@ -76,6 +76,7 @@ git push origin v0.1.1
 
 Release 页面会提供这些下载文件：
 
+- `creation-reading-assistant-windows-setup.exe`：Windows 电脑端安装包，适合普通用户安装到开始菜单和桌面快捷方式。
 - `creation-reading-assistant-windows-win-unpacked.zip`：Windows 电脑端免安装包。
 - `creation-reading-assistant-mobile-debug.apk`：Android 手机端测试 APK。
 - `SHA256SUMS.txt`：下载文件校验值。
@@ -85,7 +86,7 @@ Release 页面会提供这些下载文件：
 如果 GitHub Actions 暂时不可用，可以在本地生成当前候选包：
 
 ```powershell
-npm run dist:beta:offline
+npm run dist:beta:installer
 npm run mobile:build
 Set-Location mobile
 npx cap sync android

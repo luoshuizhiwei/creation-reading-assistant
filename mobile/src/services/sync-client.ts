@@ -127,6 +127,19 @@ export function createSyncClient(input: PairingInput) {
       if (!response.ok) throw new Error(await response.text());
       return response.blob();
     },
+    async uploadBookFile(bookId: string, fileName: string, content: string | Blob): Promise<{ ok: boolean; bookId: string }> {
+      const response = await fetch(`${baseUrl}/sync/books/${encodeURIComponent(bookId)}/file`, {
+        method: "PUT",
+        headers: {
+          "content-type": "application/octet-stream",
+          "x-device-id": device.deviceId,
+          "X-Original-File-Name": encodeURIComponent(fileName)
+        },
+        body: content
+      });
+      if (!response.ok) throw new Error(await response.text());
+      return (await response.json()) as { ok: boolean; bookId: string };
+    },
     async downloadBookChunk(bookId: string, index: number): Promise<Blob> {
       const response = await fetch(`${baseUrl}/sync/books/${encodeURIComponent(bookId)}/chunks/${index}`, {
         headers: { "x-device-id": device.deviceId }

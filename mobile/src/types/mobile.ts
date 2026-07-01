@@ -4,6 +4,7 @@ import type { BookFormat, LibraryBook, ReaderBackground, ReadingProgress, Readin
 export type MobileSyncProvider = "local-desktop-lan" | "webdav";
 export type MobileBook = LibraryBook & {
   localUri?: string;
+  localFilePath?: string;
   coverDataUrl?: string;
   lastOpenedAt?: string;
 };

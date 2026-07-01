@@ -235,7 +235,7 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
   const duplicateCount = snapshot.books.filter((book) => book.contentHash === imported.contentHash || book.originalFileName === imported.originalFileName).length;
   const id = `mobile-book-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
   const importedAt = nowIso();
-  const fileUri = await saveMobileBookFile({
+  const storedFile = await saveMobileBookFile({
     bookId: id,
     originalFileName: imported.originalFileName,
     format: imported.format,
@@ -245,7 +245,7 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
     id,
     title: imported.title,
     author: imported.author,
-    filePath: fileUri ?? `mobile://${id}`,
+    filePath: storedFile?.localFilePath ?? `mobile://${id}`,
     originalFileName: imported.originalFileName,
     originalFilePath: imported.originalFileName,
     originalPath: imported.originalFileName,
@@ -256,7 +256,8 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
     contentHash: imported.contentHash,
     duplicateIndex: duplicateCount + 1,
     importLabel: duplicateCount ? `重复导入 #${duplicateCount + 1} · 导入于 ${new Date(importedAt).toLocaleDateString("zh-CN")}` : `导入于 ${new Date(importedAt).toLocaleDateString("zh-CN")}`,
-    localUri: fileUri,
+    localUri: storedFile?.localUri,
+    localFilePath: storedFile?.localFilePath,
     revision: 1,
     deviceId: getMobileDeviceId()
   };
@@ -267,6 +268,30 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
   };
   await saveMobileSnapshot(next);
   localStorage.setItem(`creation-reading-assistant-mobile-book-content:${id}`, imported.content);
+  return next;
+}
+
+export async function saveSyncedMobileBookFile(snapshot: MobileSnapshot, book: MobileBook, content: string): Promise<MobileSnapshot> {
+  const storedFile = await saveMobileBookFile({
+    bookId: book.id,
+    originalFileName: book.originalFileName ?? `${book.id}.${book.format}`,
+    format: book.format,
+    content
+  });
+  const nextBook: MobileBook = {
+    ...book,
+    filePath: storedFile?.localFilePath ?? book.filePath,
+    localUri: storedFile?.localUri ?? book.localUri,
+    localFilePath: storedFile?.localFilePath ?? book.localFilePath,
+    updatedAt: nowIso()
+  };
+  localStorage.setItem(`creation-reading-assistant-mobile-book-content:${book.id}`, content);
+  const next = {
+    ...snapshot,
+    books: [nextBook, ...snapshot.books.filter((item) => item.id !== book.id)],
+    updatedAt: nowIso()
+  };
+  await saveMobileSnapshot(next);
   return next;
 }
 

@@ -8,11 +8,16 @@ export interface MobileBookFileInput {
   content: string;
 }
 
+export interface SavedMobileBookFile {
+  localFilePath: string;
+  localUri?: string;
+}
+
 function safeFileName(name: string): string {
   return name.replace(/[\\/:*?"<>|]/g, "_").slice(0, 80) || "book";
 }
 
-export async function saveMobileBookFile(input: MobileBookFileInput): Promise<string | undefined> {
+export async function saveMobileBookFile(input: MobileBookFileInput): Promise<SavedMobileBookFile | undefined> {
   const path = `books/${input.bookId}-${safeFileName(input.originalFileName)}`;
   try {
     await Filesystem.mkdir({ path: "books", directory: Directory.Data, recursive: true }).catch(() => undefined);
@@ -23,13 +28,18 @@ export async function saveMobileBookFile(input: MobileBookFileInput): Promise<st
       encoding: Encoding.UTF8
     });
     const uri = await Filesystem.getUri({ path, directory: Directory.Data });
-    return uri.uri;
+    return {
+      localFilePath: path,
+      localUri: uri.uri
+    };
   } catch {
     return undefined;
   }
 }
 
-export async function readMobileBookFile(localPath: string): Promise<string | undefined> {
+export async function readMobileBookFile(localPath?: string): Promise<string | undefined> {
+  if (!localPath) return undefined;
+  if (/^[a-z]+:\/\//i.test(localPath)) return undefined;
   try {
     const result = await Filesystem.readFile({
       path: localPath,

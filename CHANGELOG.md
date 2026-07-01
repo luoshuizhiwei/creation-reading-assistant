@@ -6,6 +6,31 @@
 
 - 后续大修改会先写入这里，发布时再移动到对应版本。
 
+## v0.1.3 - 2026-07-01
+
+### 新增
+
+- 手机端局域网同步补齐“手机 → 电脑”方向：同步时会先上传手机本地新增/修改的灵感、书籍元数据、阅读进度和阅读 session，再拉取电脑端最新数据。
+- 手机端同步新增书籍文件上传：手机导入的 TXT/Markdown/EPUB 会随同步上传到电脑端书库目录，电脑端不再只看到一条无法打开的空书籍记录。
+- 电脑端新增安装版构建入口：`npm run dist:beta:installer` 会生成 Windows 安装包，同时保留免安装目录。
+- GitHub Release 发布流程新增 Windows 安装包资产：以后 Release 会同时提供安装版、免安装包和 Android APK。
+
+### 修复
+
+- 修复手机从电脑同步书籍后只能看到占位正文的问题：现在会下载电脑端书籍文件并保存到手机本地，离线也能重新打开。
+- 修复手机端同步反馈不清楚的问题：同步完成提示会区分已上传的本地数据、上传的手机书籍文件、拉取的数据和下载的电脑书籍文件。
+
+### 验证
+
+- 加强 `verify:mobile-adapter`、`verify:mobile-storage`、`verify:mobile-reader`、`verify:sync-server`，覆盖手机端双向同步、书籍文件上传/下载和真实本地文件读取。
+- 新增 `verify:installer-release`，检查安装版构建入口、GitHub Release 安装包上传和本地安装包产物。
+
+### 发布产物
+
+- Windows 安装版：`release-beta/创作阅读助手-0.1.3-win-x64.exe`
+- Windows 免安装版：`release-beta/win-unpacked/创作阅读助手.exe`
+- Android APK：`mobile/android/app/build/outputs/apk/debug/app-debug.apk`
+
 ## v0.1.2 - 2026-07-01
 
 ### 修复

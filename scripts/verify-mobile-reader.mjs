@@ -17,6 +17,9 @@ function assertIncludes(file, needle, message) {
 assertIncludes("mobile/src/reader/mobile-reader.ts", "renderMarkdown", "Mobile reader must render Markdown.");
 assertIncludes("mobile/src/reader/mobile-reader.ts", "extractEpubText", "Mobile reader must provide EPUB text extraction/rendering fallback.");
 assertIncludes("mobile/src/App.tsx", "ReaderView", "Mobile app must expose a reader view.");
+assertIncludes("mobile/src/App.tsx", "readMobileBookContent", "Opening a book must read the real saved local file before falling back to placeholders.");
+assertIncludes("mobile/src/App.tsx", "downloadDesktopBookFiles", "Desktop sync must download book files for offline mobile reading.");
+assertIncludes("mobile/src/App.tsx", "downloadBookFile", "Mobile sync must call the desktop book file download endpoint.");
 assertIncludes("mobile/src/App.tsx", "记为灵感", "Reader must support capturing selected text as inspiration.");
 assertIncludes("mobile/src/App.tsx", "readerNotice", "Reader must show local feedback after capturing an inspiration.");
 assertIncludes("mobile/src/App.tsx", "查看灵感", "Reader capture feedback must offer a direct way to inspect the saved inspiration.");

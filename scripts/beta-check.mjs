@@ -199,6 +199,7 @@ run("npm run verify:mobile-webdav");
 run("npm run verify:mobile-inspiration");
 run("npm run verify:sync-conflicts");
 run("npm run verify:release-readiness");
+run("npm run verify:installer-release");
 run("npm run verify:visual-polish");
 run("npm run verify:ux-polish");
 if (!skipBuild) run("npm run build");

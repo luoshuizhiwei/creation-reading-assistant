@@ -35,10 +35,12 @@ assertIncludes(".gitignore", ".claude/", "Claude local workspace state must stay
 
 assertIncludes(".github/workflows/release.yml", "softprops/action-gh-release", "GitHub workflow must publish release assets.");
 assertIncludes(".github/workflows/release.yml", "creation-reading-assistant-windows-win-unpacked.zip", "GitHub workflow must upload Windows desktop artifact.");
+assertIncludes(".github/workflows/release.yml", "creation-reading-assistant-windows-setup.exe", "GitHub workflow must upload Windows installer artifact.");
 assertIncludes(".github/workflows/release.yml", "creation-reading-assistant-mobile-debug.apk", "GitHub workflow must upload Android APK artifact.");
 assertIncludes(".github/workflows/release.yml", "SHA256SUMS.txt", "GitHub workflow must publish checksums.");
 assertIncludes(".github/workflows/release.yml", "npm run verify:beta", "GitHub workflow must run the beta gate.");
 assertIncludes(".github/workflows/release.yml", "npm run verify:beta:release", "GitHub workflow must verify packaged desktop artifact.");
+assertIncludes(".github/workflows/release.yml", "npm run verify:installer-release", "GitHub workflow must verify installer release wiring.");
 assertIncludes(".github/workflows/release.yml", "gradlew.bat assembleDebug", "GitHub workflow must build Android APK.");
 
 assertIncludes("CHANGELOG.md", "## 未发布", "Changelog must keep a Chinese unpublished section for major updates.");

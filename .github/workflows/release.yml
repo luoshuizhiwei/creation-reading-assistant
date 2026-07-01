@@ -45,11 +45,14 @@ jobs:
       - name: 运行桌面端完整 Beta 门禁
         run: npm run verify:beta
 
-      - name: 构建电脑端应用
-        run: npm run dist:beta:offline
+      - name: 构建电脑端安装包和免安装目录
+        run: npm run dist:beta:installer
 
       - name: 验证电脑端打包产物
         run: npm run verify:beta:release
+
+      - name: 验证电脑端安装包发布配置
+        run: npm run verify:installer-release -- --require-artifact
 
       - name: 构建手机端网页资源
         run: npm run mobile:build
@@ -73,6 +76,9 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
           Compress-Archive -Path release-beta\win-unpacked\* -DestinationPath release-artifacts\creation-reading-assistant-windows-win-unpacked.zip -Force
+          $installer = Get-ChildItem release-beta -Filter "创作阅读助手-*-win-x64.exe" | Select-Object -First 1
+          if (-not $installer) { throw "没有找到 Windows 安装包" }
+          Copy-Item $installer.FullName release-artifacts\creation-reading-assistant-windows-setup.exe -Force
           Copy-Item mobile\android\app\build\outputs\apk\debug\app-debug.apk release-artifacts\creation-reading-assistant-mobile-debug.apk -Force
           Get-ChildItem release-artifacts -File |
             Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
@@ -98,5 +104,6 @@ jobs:
           prerelease: true
           files: |
             release-artifacts/creation-reading-assistant-windows-win-unpacked.zip
+            release-artifacts/creation-reading-assistant-windows-setup.exe
             release-artifacts/creation-reading-assistant-mobile-debug.apk
             release-artifacts/SHA256SUMS.txt

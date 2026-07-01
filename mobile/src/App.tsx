@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { BarcodeFormat, BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 import type { LibraryBook } from "../../src/types/library";
+import type { SyncEnvelope, SyncPushPayload } from "../../src/types/sync";
 import { renderMobileDocument } from "./reader/mobile-reader";
 import {
   addMobileInspiration,
@@ -11,10 +12,12 @@ import {
   saveMobileBook,
   saveMobileReadingProgress,
   saveMobileSnapshot,
+  saveSyncedMobileBookFile,
   saveSyncAccount,
   type MobileSnapshot
 } from "./services/mobile-storage";
 import { createSyncClient, pairWithFirstReachable, parsePairingCandidates, type PairingInput } from "./services/sync-client";
+import { readMobileBookFile } from "./storage/mobile-files";
 import { downloadWebDavSnapshot, testWebDavConnection, uploadWebDavSnapshot } from "./sync/webdav-sync";
 import type { MobileBook, MobileReaderSettings, SyncAccount } from "./types/mobile";
 
@@ -59,6 +62,31 @@ function getContinueBooks(snapshot: MobileSnapshot): MobileBook[] {
   return [...byProgress, ...snapshot.books.filter((book) => !recentBookIds.has(book.id))].slice(0, 8);
 }
 
+function toMobileSyncEnvelope<T extends { revision: number; deviceId: string; updatedAt: string; deletedAt?: string }>(
+  type: SyncEnvelope<T>["type"],
+  id: string,
+  payload: T
+): SyncEnvelope<T> {
+  return {
+    id,
+    type,
+    revision: payload.revision,
+    deviceId: payload.deviceId,
+    updatedAt: payload.updatedAt,
+    deletedAt: payload.deletedAt,
+    payload
+  };
+}
+
+export function buildMobileSyncPushPayload(snapshot: MobileSnapshot): Omit<SyncPushPayload, "device"> {
+  return {
+    inspirations: snapshot.inspirations.map((item) => toMobileSyncEnvelope("inspiration", item.id, item)),
+    books: snapshot.books.map((item) => toMobileSyncEnvelope("book", item.id, item)),
+    progress: snapshot.progress.map((item) => toMobileSyncEnvelope("progress", item.bookId, item)),
+    sessions: snapshot.sessions.map((item) => toMobileSyncEnvelope("session", item.id, item))
+  };
+}
+
 export function App() {
   const [tab, setTab] = useState<MainTab>("home");
   const [snapshot, setSnapshot] = useState<MobileSnapshot>(emptySnapshot);
@@ -89,10 +117,57 @@ export function App() {
     };
   }, [snapshot]);
 
-  const openBook = (book: MobileBook) => {
+  const readMobileBookContent = async (book: MobileBook): Promise<string | undefined> => {
     const savedContent = localStorage.getItem(`creation-reading-assistant-mobile-book-content:${book.id}`);
-    setReaderContent(savedContent ?? `${book.title}\n\n这本书来自同步或历史数据，正文文件将在下一次完整文件同步后补齐。`);
+    if (savedContent) return savedContent;
+    return readMobileBookFile(book.localFilePath ?? (book.filePath?.startsWith("books/") ? book.filePath : undefined));
+  };
+
+  const openBook = async (book: MobileBook) => {
+    const content = await readMobileBookContent(book);
+    setReaderContent(content ?? `${book.title}\n\n这本书来自同步或历史数据，正文文件还没有下载到手机。请先在“我的 / 同步”里点“立即同步”，或在书架重新导入本地文件。`);
     setReaderBook(book);
+  };
+
+  const downloadDesktopBookFiles = async (baseSnapshot: MobileSnapshot): Promise<{ snapshot: MobileSnapshot; downloaded: number; failed: number }> => {
+    if (!client) return { snapshot: baseSnapshot, downloaded: 0, failed: 0 };
+    let next = baseSnapshot;
+    let downloaded = 0;
+    let failed = 0;
+    for (const book of baseSnapshot.books) {
+      const existingContent = await readMobileBookContent(book);
+      if (existingContent) continue;
+      try {
+        setMessage(`正在下载《${book.title}》到手机本地……`);
+        const blob = await client.downloadBookFile(book.id);
+        const content = await blob.text();
+        next = await saveSyncedMobileBookFile(next, book, content);
+        downloaded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    return { snapshot: next, downloaded, failed };
+  };
+
+  const uploadMobileBookFiles = async (baseSnapshot: MobileSnapshot): Promise<{ uploaded: number; failed: number }> => {
+    if (!client) return { uploaded: 0, failed: 0 };
+    const localDeviceId = getMobileDeviceId();
+    let uploaded = 0;
+    let failed = 0;
+    for (const book of baseSnapshot.books) {
+      if (book.deletedAt || book.deviceId !== localDeviceId) continue;
+      const content = await readMobileBookContent(book);
+      if (!content) continue;
+      try {
+        setMessage(`正在上传《${book.title}》到电脑端书库……`);
+        await client.uploadBookFile(book.id, book.originalFileName ?? `${book.id}.${book.format}`, content);
+        uploaded += 1;
+      } catch {
+        failed += 1;
+      }
+    }
+    return { uploaded, failed };
   };
 
   const connectLan = async (text = pairingText) => {
@@ -148,18 +223,25 @@ export function App() {
       return;
     }
     try {
+      const push = await client.push(buildMobileSyncPushPayload(snapshot));
+      const uploadSummary = await uploadMobileBookFiles(snapshot);
       const pull = await client.pull();
       const next: MobileSnapshot = {
         ...snapshot,
         inspirations: pull.inspirations.map((item) => item.payload),
-        books: pull.books.map((item) => item.payload),
+        books: pull.books.map((item) => item.payload as MobileBook),
         progress: pull.progress.map((item) => item.payload),
         sessions: pull.sessions.map((item) => item.payload),
         updatedAt: new Date().toISOString()
       };
       await saveMobileSnapshot(next);
-      setSnapshot(next);
-      setMessage(`同步完成：${pull.inspirations.length} 条灵感，${pull.books.length} 本书。`);
+      const withFiles = await downloadDesktopBookFiles(next);
+      setSnapshot(withFiles.snapshot);
+      setMessage(
+        `同步完成：已上传 ${push.applied.inspirations} 条灵感、${push.applied.books} 本书、${push.applied.progress} 条进度；` +
+          `已上传 ${uploadSummary.uploaded} 个手机书籍文件${uploadSummary.failed ? `，${uploadSummary.failed} 个上传失败` : ""}；` +
+          `已拉取 ${pull.inspirations.length} 条灵感，${pull.books.length} 本书；已下载 ${withFiles.downloaded} 个书籍文件${withFiles.failed ? `，${withFiles.failed} 个下载失败` : ""}。`
+      );
     } catch (error) {
       setMessage(error instanceof Error ? error.message : String(error));
     }
@@ -225,12 +307,12 @@ export function App() {
             snapshot={snapshot}
             stats={stats}
             paired={Boolean(paired)}
-            onOpenBook={openBook}
+            onOpenBook={(book) => void openBook(book)}
             onAddInspiration={() => void addQuickInspiration()}
             onGo={(nextTab) => setTab(nextTab)}
           />
         )}
-        {tab === "shelf" && <ShelfPage snapshot={snapshot} onOpenBook={openBook} onImport={(files) => void importFiles(files)} />}
+        {tab === "shelf" && <ShelfPage snapshot={snapshot} onOpenBook={(book) => void openBook(book)} onImport={(files) => void importFiles(files)} />}
         {tab === "inspiration" && <InspirationPage snapshot={snapshot} onSnapshotChange={setSnapshot} />}
         {tab === "stats" && <StatsPage snapshot={snapshot} stats={stats} />}
         {tab === "profile" && (

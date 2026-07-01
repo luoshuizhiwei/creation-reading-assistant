@@ -50,10 +50,15 @@ for (const required of [
   "pairingUrls",
   "qrPayloads",
   "downloadBookFile",
-  "downloadBookChunk"
+  "downloadBookChunk",
+  "uploadBookFile"
 ]) {
 assertIncludes("electron/main/index.ts", required, `LAN sync server missing ${required}.`);
 }
+
+assertIncludes("electron/main/index.ts", "PUT", "LAN sync server must accept a PUT upload for phone-imported book files.");
+assertIncludes("electron/main/index.ts", "writeUploadedBookFile", "LAN sync server must persist uploaded phone book files inside the desktop library directory.");
+assertIncludes("electron/main/index.ts", "X-Original-File-Name", "Book upload must preserve the original file name for library display.");
 
 assertIncludes("src/features/settings/SettingsPage.tsx", "QRCode.toDataURL", "Settings page must render a real QR code for phone pairing.");
 assertIncludes("src/features/settings/SettingsPage.tsx", "pairing.pairingUrls.map", "Settings page must expose alternate LAN pairing URLs for multi-network PCs.");

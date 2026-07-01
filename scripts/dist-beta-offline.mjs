@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 
 const root = process.cwd();
+const buildInstaller = process.argv.includes("--installer");
 const electronDist = path.join(root, "node_modules", "electron", "dist");
 const electronPackageJson = path.join(root, "node_modules", "electron", "package.json");
 const electronBuilderCli = path.join(root, "node_modules", "electron-builder", "cli.js");
@@ -18,15 +19,17 @@ if (!existsSync(electronBuilderCli)) {
 }
 
 const electronVersion = JSON.parse(readFileSync(electronPackageJson, "utf8")).version;
+const builderArgs = [
+  electronBuilderCli,
+  "--config.directories.output=release-beta",
+  `--config.electronDist=${electronDist}`,
+  `--config.electronVersion=${electronVersion}`
+];
+if (!buildInstaller) builderArgs.splice(1, 0, "--dir");
+
 const result = spawnSync(
   process.execPath,
-  [
-    electronBuilderCli,
-    "--dir",
-    "--config.directories.output=release-beta",
-    `--config.electronDist=${electronDist}`,
-    `--config.electronVersion=${electronVersion}`
-  ],
+  builderArgs,
   { cwd: root, stdio: "inherit" }
 );
 

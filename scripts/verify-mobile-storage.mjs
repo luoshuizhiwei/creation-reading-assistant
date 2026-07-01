@@ -21,8 +21,12 @@ assertIncludes("mobile/src/storage/mobile-schema.ts", "CREATE TABLE IF NOT EXIST
 assertIncludes("mobile/src/storage/mobile-schema.ts", "CREATE TABLE IF NOT EXISTS sync_accounts", "SQLite schema must define sync accounts.");
 assertIncludes("mobile/src/storage/mobile-database.ts", "SQLiteConnection", "Mobile database must initialize SQLite.");
 assertIncludes("mobile/src/storage/mobile-files.ts", "Filesystem", "Book files must use Capacitor Filesystem.");
+assertIncludes("mobile/src/storage/mobile-files.ts", "localFilePath", "Mobile file storage must return a stable local file path for reopening synced/imported books.");
+assertIncludes("mobile/src/storage/mobile-files.ts", "readMobileBookFile", "Mobile app must read saved book files back from Capacitor Filesystem.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "migrateLegacySnapshot", "Storage must migrate the old localStorage snapshot.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "saveSyncedMobileBookFile", "Mobile storage must persist book files downloaded from desktop sync.");
 assertIncludes("mobile/src/types/mobile.ts", "MobileBook", "Mobile storage types must define MobileBook.");
+assertIncludes("mobile/src/types/mobile.ts", "localFilePath", "MobileBook must remember the relative local file path, not only a display URI.");
 assertIncludes("mobile/src/types/mobile.ts", "SyncAccount", "Mobile storage types must define SyncAccount.");
 
 console.log("[verify-mobile-storage] Mobile SQLite and filesystem guards verified.");

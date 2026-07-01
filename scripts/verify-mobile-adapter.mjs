@@ -44,7 +44,12 @@ assertIncludes("mobile/src/services/sync-client.ts", "lastError", "Mobile sync c
 assertIncludes("mobile/src/services/mobile-storage.ts", "localStorage", "First mobile adapter must support offline local storage.");
 assertIncludes("mobile/src/services/sync-client.ts", "sync/manifest", "Mobile sync client must pull desktop manifest.");
 assertIncludes("mobile/src/services/sync-client.ts", "sync/push", "Mobile sync client must push local changes.");
+assertIncludes("mobile/src/App.tsx", "buildMobileSyncPushPayload", "Mobile sync must build a push payload from local inspirations, books, progress and sessions.");
+assertIncludes("mobile/src/App.tsx", "await client.push", "Mobile sync must upload local changes before pulling desktop changes.");
+assertIncludes("mobile/src/App.tsx", "已上传", "Mobile sync result should tell the user local changes were uploaded.");
 assertIncludes("mobile/src/services/sync-client.ts", "sync/books", "Mobile sync client must support book file download.");
+assertIncludes("mobile/src/services/sync-client.ts", "uploadBookFile", "Mobile sync client must support uploading locally imported book files to desktop.");
+assertIncludes("mobile/src/App.tsx", "uploadMobileBookFiles", "Mobile sync must upload local book files so desktop can open phone-imported books.");
 assertIncludes("mobile/src/services/sync-client.ts", "PairingTokenResult", "Mobile sync client must understand pairing payloads.");
 assertIncludes("mobile/android/app/src/main/AndroidManifest.xml", "usesCleartextTraffic=\"true\"", "Android app must allow LAN HTTP sync in the MVP.");
 assertIncludes("mobile/android/app/src/main/AndroidManifest.xml", "networkSecurityConfig", "Android app must opt into LAN cleartext network policy.");

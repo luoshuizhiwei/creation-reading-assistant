@@ -2701,10 +2701,22 @@ async function readRequestJson<T>(request: IncomingMessage): Promise<T> {
   return (content ? JSON.parse(content) : {}) as T;
 }
 
+async function readRequestBuffer(request: IncomingMessage, maxBytes = 256 * 1024 * 1024): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  let total = 0;
+  for await (const chunk of request) {
+    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
+    total += buffer.byteLength;
+    if (total > maxBytes) throw new Error("上传的书籍文件过大。");
+    chunks.push(buffer);
+  }
+  return Buffer.concat(chunks);
+}
+
 function sendCorsHeaders(response: ServerResponse): void {
   response.setHeader("Access-Control-Allow-Origin", "*");
-  response.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "content-type,x-device-id");
+  response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
+  response.setHeader("Access-Control-Allow-Headers", "content-type,x-device-id,x-original-file-name,X-Original-File-Name");
 }
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
@@ -2734,6 +2746,52 @@ async function downloadBookFile(bookId: string, response: ServerResponse): Promi
   response.setHeader("Content-Disposition", `attachment; filename*=UTF-8''${encodeURIComponent(book.originalFileName ?? path.basename(book.filePath))}`);
   response.setHeader("X-Content-Hash", book.contentHash ?? "");
   response.end(fileBuffer);
+}
+
+function requestHeaderString(request: IncomingMessage, headerName: string): string | undefined {
+  const value = request.headers[headerName.toLowerCase()];
+  return Array.isArray(value) ? value[0] : value;
+}
+
+async function writeUploadedBookFile(book: LibraryBook, request: IncomingMessage): Promise<LibraryBook> {
+  const rawOriginalFileName = requestHeaderString(request, "X-Original-File-Name");
+  const originalFileName = rawOriginalFileName ? decodeURIComponent(rawOriginalFileName) : book.originalFileName ?? `${book.id}.${book.format}`;
+  const format = normalizeBookFormat(book.format, originalFileName);
+  const targetPath = path.join(appLibraryFilesRoot(), `${book.id}.${format}`);
+  await ensureDir(appLibraryFilesRoot());
+  const fileBuffer = await readRequestBuffer(request);
+  await writeFile(targetPath, fileBuffer);
+  const info = await stat(targetPath);
+  const hash = crypto.createHash("sha256").update(fileBuffer).digest("hex");
+  return {
+    ...book,
+    filePath: targetPath,
+    originalFileName: book.originalFileName ?? originalFileName,
+    originalFilePath: book.originalFilePath ?? originalFileName,
+    originalPath: book.originalPath ?? originalFileName,
+    format,
+    size: info.size,
+    contentHash: hash,
+    updatedAt: now(),
+    revision: book.revision + 1,
+    deviceId: currentDeviceId()
+  };
+}
+
+async function uploadBookFile(bookId: string, request: IncomingMessage, response: ServerResponse): Promise<void> {
+  const books = await readLibraryIndex({ includeDeleted: true });
+  const book = books.find((item) => item.id === bookId);
+  if (!book) {
+    sendJson(response, 404, { ok: false, message: "请先同步书籍元数据，再上传书籍文件。" });
+    return;
+  }
+  if (book.deletedAt) {
+    sendJson(response, 410, { ok: false, message: "这本书已删除，不能继续上传文件。" });
+    return;
+  }
+  const nextBook = await writeUploadedBookFile(book, request);
+  await writeLibraryIndex([nextBook, ...books.filter((item) => item.id !== bookId)]);
+  sendJson(response, 200, { ok: true, bookId, contentHash: nextBook.contentHash, size: nextBook.size });
 }
 
 async function downloadBookChunk(bookId: string, index: number, response: ServerResponse): Promise<void> {
@@ -2809,6 +2867,10 @@ async function handleSyncRequest(request: IncomingMessage, response: ServerRespo
     const bookId = parts[3];
     if (request.method === "GET" && parts[4] === "file" && bookId) {
       await downloadBookFile(bookId, response);
+      return;
+    }
+    if (request.method === "PUT" && parts[4] === "file" && bookId) {
+      await uploadBookFile(bookId, request, response);
       return;
     }
     if (request.method === "GET" && parts[4] === "chunks" && bookId) {
