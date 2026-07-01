@@ -691,6 +691,44 @@ textarea {
   padding: 0.8rem;
 }
 
+.reader-notice {
+  position: fixed;
+  left: 0.85rem;
+  right: 0.85rem;
+  bottom: calc(max(0.7rem, env(safe-area-inset-bottom)) + 78px);
+  z-index: 8;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  max-width: 720px;
+  margin: 0 auto;
+  border: 1px solid rgba(154, 98, 48, 0.28);
+  border-radius: 24px;
+  background: rgba(255, 250, 241, 0.94);
+  padding: 0.8rem;
+  box-shadow: 0 18px 42px rgba(34, 25, 21, 0.18);
+  color: var(--ink);
+  backdrop-filter: blur(18px);
+}
+
+.reader-notice p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.reader-notice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+
+.reader-notice-actions button {
+  min-height: 38px;
+}
+
 .reader-toolbar {
   position: fixed;
   left: 0.75rem;
@@ -744,6 +782,10 @@ textarea {
   }
 
   .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reader-notice {
     grid-template-columns: 1fr;
   }
 }

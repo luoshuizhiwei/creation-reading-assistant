@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { BarcodeFormat, BarcodeScanner } from "@capacitor-mlkit/barcode-scanning";
 import type { LibraryBook } from "../../src/types/library";
 import { renderMobileDocument } from "./reader/mobile-reader";
 import {
@@ -13,7 +14,7 @@ import {
   saveSyncAccount,
   type MobileSnapshot
 } from "./services/mobile-storage";
-import { createSyncClient, parsePairingPayload, type PairingInput } from "./services/sync-client";
+import { createSyncClient, pairWithFirstReachable, parsePairingCandidates, type PairingInput } from "./services/sync-client";
 import { downloadWebDavSnapshot, testWebDavConnection, uploadWebDavSnapshot } from "./sync/webdav-sync";
 import type { MobileBook, MobileReaderSettings, SyncAccount } from "./types/mobile";
 
@@ -94,16 +95,50 @@ export function App() {
     setReaderBook(book);
   };
 
-  const connectLan = async () => {
+  const connectLan = async (text = pairingText) => {
     try {
-      const input = parsePairingPayload(pairingText);
-      const nextClient = createSyncClient(input);
-      const result = await nextClient.pair();
+      const candidates = parsePairingCandidates(text);
+      const { input, result } = await pairWithFirstReachable(candidates, ({ index, total, input: candidate }) => {
+        setMessage(`正在尝试第 ${index}/${total} 个电脑地址：${candidate.host}:${candidate.port}`);
+      });
       setPaired(input);
+      setPairingText(input.pairingUrl ?? text);
       setMessage(`已连接电脑端：${result.device.name}`);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
-      setMessage(`连接失败：${detail}。请确认电脑端“手机同步”服务仍在运行，手机和电脑在同一 Wi‑Fi。`);
+      setMessage(`连接失败：${detail}。请确认电脑端“手机同步”服务仍在运行，手机和电脑在同一 Wi‑Fi；如果仍失败，关闭防火墙或尝试电脑端显示的备用地址。`);
+    }
+  };
+
+  const scanPairingQrCode = async () => {
+    try {
+      setMessage("正在打开摄像头扫码，请对准电脑端二维码。");
+      const support = await BarcodeScanner.isSupported();
+      if (!support.supported) throw new Error("当前设备不支持扫码。");
+      const permission = await BarcodeScanner.checkPermissions();
+      if (permission.camera !== "granted" && permission.camera !== "limited") {
+        const requested = await BarcodeScanner.requestPermissions();
+        if (requested.camera !== "granted" && requested.camera !== "limited") throw new Error("没有相机权限，无法扫码。");
+      }
+      try {
+        const module = await BarcodeScanner.isGoogleBarcodeScannerModuleAvailable();
+        if (!module.available) {
+          await BarcodeScanner.installGoogleBarcodeScannerModule();
+          setMessage("扫码模块正在安装，请稍等几秒后再点一次“扫码”。也可以先粘贴配对 URL。");
+          return;
+        }
+      } catch {
+        // 非 Android 或旧设备可能不支持模块检查，继续尝试 scan()。
+      }
+      const result = await BarcodeScanner.scan({ formats: [BarcodeFormat.QrCode] });
+      const text = result.barcodes[0]?.rawValue || result.barcodes[0]?.displayValue || "";
+      if (!text) throw new Error("没有识别到二维码内容。");
+      setPairingText(text);
+      setMessage("已识别二维码，正在连接电脑。");
+      await connectLan(text);
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      setMessage(`扫码失败：${detail}。你也可以复制电脑端“配对 URL”或“二维码载荷”到输入框后连接。`);
     }
   };
 
@@ -171,6 +206,11 @@ export function App() {
         onSettingsChange={setReaderSettings}
         onSnapshotChange={setSnapshot}
         onBack={() => setReaderBook(undefined)}
+        onOpenInspiration={() => {
+          setReaderBook(undefined);
+          setTab("inspiration");
+          setMessage("已打开灵感中心，刚保存的阅读灵感在列表最上方。");
+        }}
         onMessage={setMessage}
       />
     );
@@ -200,6 +240,7 @@ export function App() {
             paired={Boolean(paired)}
             onPairingTextChange={setPairingText}
             onConnectLan={() => void connectLan()}
+            onScanQr={() => void scanPairingQrCode()}
             onSyncDesktop={() => void syncFromDesktop()}
             onSnapshotChange={setSnapshot}
             onMessage={setMessage}
@@ -474,6 +515,7 @@ function ProfilePage({
   paired,
   onPairingTextChange,
   onConnectLan,
+  onScanQr,
   onSyncDesktop,
   onSnapshotChange,
   onMessage
@@ -483,6 +525,7 @@ function ProfilePage({
   paired: boolean;
   onPairingTextChange: (value: string) => void;
   onConnectLan: () => void;
+  onScanQr: () => void;
   onSyncDesktop: () => void;
   onSnapshotChange: (snapshot: MobileSnapshot) => void;
   onMessage: (value: string) => void;
@@ -569,9 +612,10 @@ function ProfilePage({
 
       <section className="settings-card">
         <h2>扫码连接电脑</h2>
-        <p className="subtle">保留现有 local-desktop-lan 协议：电脑端开启同步服务后，把配对 URL 或二维码载荷粘贴到这里。</p>
+        <p className="subtle">电脑端开启同步服务后，可以直接扫码；如果相机不可用，也可以粘贴配对 URL 或二维码载荷。手机会自动尝试电脑端提供的所有备用地址。</p>
         <textarea value={pairingText} onChange={(event) => onPairingTextChange(event.target.value)} placeholder="粘贴电脑端配对 URL 或二维码载荷" />
         <div className="button-row">
+          <button onClick={onScanQr}>扫码</button>
           <button onClick={onConnectLan}>连接电脑</button>
           <button disabled={!paired} onClick={onSyncDesktop}>
             立即同步
@@ -612,6 +656,7 @@ function ReaderView({
   onSettingsChange,
   onSnapshotChange,
   onBack,
+  onOpenInspiration,
   onMessage
 }: {
   book: MobileBook;
@@ -621,10 +666,13 @@ function ReaderView({
   onSettingsChange: (settings: MobileReaderSettings) => void;
   onSnapshotChange: (snapshot: MobileSnapshot) => void;
   onBack: () => void;
+  onOpenInspiration: (inspirationId: string) => void;
   onMessage: (message: string) => void;
 }) {
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
+  const [readerNotice, setReaderNotice] = useState("");
+  const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
   const document = useMemo(() => renderMobileDocument(book.format, content, book.title), [book.format, book.title, content]);
   const currentProgress = progressFor(snapshot, book.id);
 
@@ -657,6 +705,9 @@ function ReaderView({
         createdAt: new Date().toISOString()
       }
     });
+    const saved = next.inspirations[0];
+    setLastSavedInspirationId(saved.id);
+    setReaderNotice(sourceExcerpt ? "已记录灵感，并把选中文字保存为来源摘录。" : "已记录灵感，并保存了当前书籍与阅读位置。");
     onSnapshotChange(next);
     onMessage(sourceExcerpt ? "已把选中文字作为来源摘录保存到灵感中心。" : "已记录来自当前书籍和阅读位置的灵感。");
   };
@@ -702,6 +753,21 @@ function ReaderView({
         onTouchEnd={captureSelection}
         dangerouslySetInnerHTML={{ __html: document.html }}
       />
+
+      {readerNotice && (
+        <section className="reader-notice" role="status" aria-live="polite">
+          <div>
+            <strong>{readerNotice}</strong>
+            <p>{selectionText ? `来源摘录：${selectionText.slice(0, 48)}${selectionText.length > 48 ? "…" : ""}` : `来源：${book.title} · ${currentProgress.toFixed(1)}%`}</p>
+          </div>
+          <div className="reader-notice-actions">
+            <button disabled={!lastSavedInspirationId} onClick={() => onOpenInspiration(lastSavedInspirationId)}>
+              查看灵感
+            </button>
+            <button onClick={() => setReaderNotice("")}>继续阅读</button>
+          </div>
+        </section>
+      )}
 
       <footer className="reader-toolbar">
         <button onClick={() => void addReaderInspiration()}>记为灵感</button>

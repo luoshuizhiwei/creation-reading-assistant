@@ -18,6 +18,9 @@ assertIncludes("mobile/src/reader/mobile-reader.ts", "renderMarkdown", "Mobile r
 assertIncludes("mobile/src/reader/mobile-reader.ts", "extractEpubText", "Mobile reader must provide EPUB text extraction/rendering fallback.");
 assertIncludes("mobile/src/App.tsx", "ReaderView", "Mobile app must expose a reader view.");
 assertIncludes("mobile/src/App.tsx", "记为灵感", "Reader must support capturing selected text as inspiration.");
+assertIncludes("mobile/src/App.tsx", "readerNotice", "Reader must show local feedback after capturing an inspiration.");
+assertIncludes("mobile/src/App.tsx", "查看灵感", "Reader capture feedback must offer a direct way to inspect the saved inspiration.");
+assertIncludes("mobile/src/App.tsx", "继续阅读", "Reader capture feedback must let the user continue reading without guessing what happened.");
 assertIncludes("mobile/src/App.tsx", "saveMobileReadingProgress", "Reader must persist reading progress.");
 assertIncludes("mobile/src/App.tsx", "fontSize", "Reader settings must include font size.");
 assertIncludes("mobile/src/App.tsx", "lineHeight", "Reader settings must include line height.");
