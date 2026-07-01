@@ -944,6 +944,14 @@ textarea {
   touch-action: pan-y;
 }
 
+.reader-mode-paged .reader-scroll-container {
+  scroll-behavior: smooth;
+}
+
+.reader-mode-paged .reader-content {
+  min-height: 100dvh;
+}
+
 .reader-content {
   width: min(100%, 720px);
   margin: 0 auto;

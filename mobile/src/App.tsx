@@ -1112,6 +1112,16 @@ function MobileReaderView({
     jumpToChapter(toc[nextIndex]);
   };
 
+  const turnReaderPage = (direction: -1 | 1) => {
+    const element = scrollRef.current;
+    if (!element) return;
+    element.scrollTo({
+      top: Math.min(element.scrollHeight, Math.max(0, element.scrollTop + direction * element.clientHeight * 0.86)),
+      behavior: "smooth"
+    });
+    setReaderControlsVisible(false);
+  };
+
   const handleReaderScroll = () => {
     const element = scrollRef.current;
     if (!element) return;
@@ -1131,11 +1141,11 @@ function MobileReaderView({
     const x = event.clientX - rect.left;
     const ratio = x / rect.width;
     if (ratio < 0.24) {
-      moveChapter(-1);
+      settings.readerMode === "paged" ? turnReaderPage(-1) : moveChapter(-1);
       return;
     }
     if (ratio > 0.76) {
-      moveChapter(1);
+      settings.readerMode === "paged" ? turnReaderPage(1) : moveChapter(1);
       return;
     }
     setReaderControlsVisible((value) => !value);
@@ -1179,7 +1189,7 @@ function MobileReaderView({
   const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
 
   return (
-    <main className={`reader-shell reader-bg-${settings.readerBackground} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
+    <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
       <header className="reader-topbar">
         <button className="ghost-button" onClick={() => void closeReader()}>
           ← 返回书架
@@ -1244,9 +1254,9 @@ function MobileReaderView({
 
       {readerControlsVisible && (
         <div className="reader-zone-guide" aria-hidden="true">
-          <span>上一章</span>
+          <span>{settings.readerMode === "paged" ? "上一页" : "上一章"}</span>
           <span>轻触隐藏菜单</span>
-          <span>下一章</span>
+          <span>{settings.readerMode === "paged" ? "下一页" : "下一章"}</span>
         </div>
       )}
 
@@ -1315,7 +1325,7 @@ function MobileReaderView({
               滚动
             </button>
             <button className={settings.readerMode === "paged" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "paged" })}>
-              分页预留
+              分页
             </button>
             <button className={settings.fontWeight === "bold" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, fontWeight: settings.fontWeight === "bold" ? "regular" : "bold" })}>
               加粗
@@ -1343,7 +1353,7 @@ function MobileReaderView({
               </button>
             ))}
           </div>
-          <p className="subtle">当前优先优化滚动阅读。左/右侧轻触可跳到上一章/下一章，中间轻触唤起菜单；分页和仿真翻页会沿用这里的设置继续补齐。</p>
+          <p className="subtle">滚动模式下，左/右侧轻触跳上一章/下一章；分页模式下，左/右侧轻触按屏幕高度翻上一页/下一页。中间轻触唤起或隐藏菜单。</p>
         </aside>
       )}
     </main>
