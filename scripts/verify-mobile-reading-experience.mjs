@@ -20,7 +20,12 @@ assertIncludes("mobile/src/App.tsx", "ShelfSortMode", "Shelf must support reader
 assertIncludes("mobile/src/App.tsx", "book-progress-line", "Shelf cards must expose compact reading progress instead of plain web text.");
 assertIncludes("mobile/src/App.tsx", "BookDetailSheet", "Shelf must provide a native-reader style book detail sheet.");
 assertIncludes("mobile/src/App.tsx", "下载后阅读", "Book detail sheet must guide users to download synced books before reading.");
+assertIncludes("mobile/src/App.tsx", "book-detail-insights", "Book detail sheet must include reading records and note insights.");
+assertIncludes("mobile/src/App.tsx", "progressFromSessionScroll", "Book detail reading timeline must derive progress from reading session locations.");
 assertIncludes("mobile/src/App.tsx", "ReaderDrawerTab", "Reader drawer must support multiple reader tabs.");
+assertIncludes("mobile/src/App.tsx", "createReaderSearchResults", "Reader must build in-book search results from the current document.");
+assertIncludes("mobile/src/App.tsx", "jumpToReaderSearchResult", "Reader search results must jump to matched text.");
+assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"search\"", "Reader drawer must expose an in-book search tab.");
 assertIncludes("mobile/src/App.tsx", "addReaderBookmark", "Reader must allow adding bookmarks at the current location.");
 assertIncludes("mobile/src/App.tsx", "addReaderNote", "Reader must allow saving reading notes.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"bookmarks\"", "Reader drawer must expose a bookmarks tab.");
@@ -43,8 +48,12 @@ assertIncludes("mobile/src/App.tsx", "fontWeight", "Reader settings must include
 assertIncludes("mobile/src/styles.css", ".segmented-control", "Shelf filters must be styled as native-like segmented controls.");
 assertIncludes("mobile/src/styles.css", ".book-list", "Shelf must provide a compact list layout.");
 assertIncludes("mobile/src/styles.css", ".book-detail-sheet", "Book detail sheet must be styled.");
+assertIncludes("mobile/src/styles.css", ".book-detail-timeline-item", "Book detail reading timeline must be styled.");
+assertIncludes("mobile/src/styles.css", ".book-detail-note-preview", "Book detail note preview must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-dim-layer", "Reader brightness dim layer must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-drawer-tabs", "Reader drawer tabs must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-search-panel", "Reader in-book search panel must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-search-results", "Reader search results must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-note-item", "Reader notes and bookmarks must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-actions::-webkit-scrollbar", "Reader action bar must be horizontally scrollable instead of cramped on small phones.");
 assertIncludes("mobile/src/styles.css", ".reader-progress-chip", "Reader chapter/progress chip must be styled.");

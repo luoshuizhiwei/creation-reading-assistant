@@ -28,7 +28,8 @@ type MainTab = "home" | "shelf" | "inspiration" | "stats" | "profile";
 type ShelfViewMode = "grid" | "list";
 type ShelfFilterMode = "all" | "reading" | "downloaded" | "pending";
 type ShelfSortMode = "recent" | "title" | "progress";
-type ReaderDrawerTab = "toc" | "bookmarks" | "notes";
+type ReaderDrawerTab = "toc" | "search" | "bookmarks" | "notes";
+type ReaderSearchResult = { id: string; occurrenceIndex: number; snippet: string; progressPercent: number };
 
 const defaultReaderSettings: MobileReaderSettings = {
   fontSize: 18,
@@ -64,6 +65,18 @@ function formatDuration(ms: number): string {
   return `${(minutes / 60).toFixed(1)} 小时`;
 }
 
+function formatCompactDateTime(value?: string): string {
+  if (!value) return "时间未知";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "时间未知";
+  return new Intl.DateTimeFormat("zh-CN", {
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
 function arrayBufferToBase64(buffer: ArrayBuffer): string {
   const bytes = new Uint8Array(buffer);
   let binary = "";
@@ -87,6 +100,13 @@ async function readImportFileContent(file: File): Promise<string> {
 
 function progressFor(snapshot: MobileSnapshot, bookId: string): number {
   return snapshot.progress.find((item) => item.bookId === bookId)?.progressPercent ?? 0;
+}
+
+function progressFromSessionScroll(session: MobileSnapshot["sessions"][number], fallback: number): number {
+  const scroll = session.endLocation?.scroll ?? session.startLocation?.scroll;
+  if (!scroll) return fallback;
+  const scrollable = Math.max(1, scroll.scrollHeight - scroll.containerHeight);
+  return Math.min(100, Math.max(0, (scroll.scrollTop / scrollable) * 100));
 }
 
 function isBookDownloaded(book: MobileBook): boolean {
@@ -761,7 +781,16 @@ function BookDetailSheet({
   const progress = progressFor(snapshot, book.id);
   const downloaded = isBookDownloaded(book);
   const inspirationCount = snapshot.inspirations.filter((item) => item.source?.bookId === book.id).length;
-  const sessionCount = snapshot.sessions.filter((item) => item.bookId === book.id).length;
+  const bookSessions = snapshot.sessions
+    .filter((item) => item.bookId === book.id)
+    .sort((left, right) => right.startAt.localeCompare(left.startAt));
+  const recentSessions = bookSessions.slice(0, 3);
+  const bookNotes = snapshot.notes
+    .filter((item) => item.bookId === book.id && !item.deletedAt)
+    .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt));
+  const bookmarkCount = bookNotes.filter((item) => item.kind === "bookmark").length;
+  const noteCount = bookNotes.filter((item) => item.kind !== "bookmark").length;
+  const recentNotes = bookNotes.slice(0, 3);
   return (
     <aside className="book-detail-sheet" role="dialog" aria-label={`${book.title} 详情`}>
       <div className="drawer-header">
@@ -783,7 +812,7 @@ function BookDetailSheet({
           <span>阅读进度</span>
         </div>
         <div>
-          <strong>{sessionCount}</strong>
+          <strong>{bookSessions.length}</strong>
           <span>阅读记录</span>
         </div>
         <div>
@@ -809,7 +838,33 @@ function BookDetailSheet({
           {downloadingBookId === book.id ? "取消下载" : downloaded ? "正文已下载" : "下载正文"}
         </button>
       </div>
-      <p className="subtle">后续这里会继续补书籍分组、书签、批注、导出笔记等阅读 App 常用入口。</p>
+      <section className="book-detail-insights">
+        <div className="book-detail-section-title">
+          <strong>阅读记录</strong>
+          <span>{formatDuration(snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0)}累计</span>
+        </div>
+        {recentSessions.length ? recentSessions.map((session) => (
+          <article key={session.id} className="book-detail-timeline-item">
+            <div>
+              <strong>{formatCompactDateTime(session.startAt)}</strong>
+              <span>{formatDuration(session.activeDurationMs || session.durationMs)} · {session.status === "recovered" ? "异常恢复" : "已记录"}</span>
+            </div>
+            <em>{progressFromSessionScroll(session, progress).toFixed(1)}%</em>
+          </article>
+        )) : <p className="empty-hint">还没有阅读记录。开始阅读后，这里会显示最近几次阅读。</p>}
+      </section>
+      <section className="book-detail-insights">
+        <div className="book-detail-section-title">
+          <strong>书签与笔记</strong>
+          <span>{bookmarkCount} 个书签 · {noteCount} 条笔记</span>
+        </div>
+        {recentNotes.length ? recentNotes.map((note) => (
+          <article key={note.id} className="book-detail-note-preview">
+            <strong>{note.kind === "bookmark" ? "书签" : "笔记"} · {(note.progressPercent ?? progress).toFixed(1)}%</strong>
+            <p>{note.excerpt || note.body || note.chapterTitle || "当前位置"}</p>
+          </article>
+        )) : <p className="empty-hint">阅读时点“书签”或“笔记”，这本书的沉淀会集中在这里。</p>}
+      </section>
     </aside>
   );
 }
@@ -1109,6 +1164,65 @@ function findCurrentChapter(document: MobileReaderDocument, root?: HTMLElement |
   return current;
 }
 
+function createReaderSearchResults(document: MobileReaderDocument, query: string): ReaderSearchResult[] {
+  const keyword = query.trim();
+  if (!keyword) return [];
+  const text = document.plainText.replace(/\s+/g, " ");
+  const lowerText = text.toLowerCase();
+  const lowerKeyword = keyword.toLowerCase();
+  const results: ReaderSearchResult[] = [];
+  let fromIndex = 0;
+  let occurrenceIndex = 0;
+  while (results.length < 80) {
+    const hitIndex = lowerText.indexOf(lowerKeyword, fromIndex);
+    if (hitIndex < 0) break;
+    const start = Math.max(0, hitIndex - 28);
+    const end = Math.min(text.length, hitIndex + keyword.length + 42);
+    results.push({
+      id: `reader-search-${hitIndex}-${occurrenceIndex}`,
+      occurrenceIndex,
+      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`,
+      progressPercent: text.length ? (hitIndex / text.length) * 100 : 0
+    });
+    occurrenceIndex += 1;
+    fromIndex = hitIndex + lowerKeyword.length;
+  }
+  return results;
+}
+
+function jumpToReaderSearchResult(root: HTMLElement, query: string, occurrenceIndex: number): boolean {
+  const keyword = query.trim();
+  if (!keyword) return false;
+  const lowerKeyword = keyword.toLowerCase();
+  const walker = window.document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+  let currentNode = walker.nextNode();
+  let seen = 0;
+  while (currentNode) {
+    const node = currentNode as Text;
+    const text = node.nodeValue ?? "";
+    const lowerText = text.toLowerCase();
+    let fromIndex = 0;
+    while (fromIndex < lowerText.length) {
+      const hitIndex = lowerText.indexOf(lowerKeyword, fromIndex);
+      if (hitIndex < 0) break;
+      if (seen === occurrenceIndex) {
+        const range = window.document.createRange();
+        range.setStart(node, hitIndex);
+        range.setEnd(node, Math.min(text.length, hitIndex + keyword.length));
+        const selection = window.getSelection();
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        node.parentElement?.scrollIntoView({ behavior: "smooth", block: "center" });
+        return true;
+      }
+      seen += 1;
+      fromIndex = hitIndex + lowerKeyword.length;
+    }
+    currentNode = walker.nextNode();
+  }
+  return false;
+}
+
 const emptyReaderDocument = (title: string, format: MobileBook["format"]): MobileReaderDocument => ({
   title,
   format,
@@ -1150,9 +1264,11 @@ function MobileReaderView({
   const [readerNotice, setReaderNotice] = useState("");
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
+  const [readerSearchQuery, setReaderSearchQuery] = useState("");
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
   const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
+  const readerSearchResults = useMemo(() => createReaderSearchResults(document, readerSearchQuery), [document, readerSearchQuery]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1229,6 +1345,17 @@ function MobileReaderView({
       setCurrentChapter(target);
       setReaderControlsVisible(false);
     }
+  };
+
+  const jumpToSearchResult = (result: ReaderSearchResult) => {
+    const element = scrollRef.current;
+    if (!element) return;
+    const jumped = jumpToReaderSearchResult(element, readerSearchQuery, result.occurrenceIndex);
+    if (!jumped) scrollToPercent(element, result.progressPercent);
+    setCurrentProgress(result.progressPercent);
+    setReaderControlsVisible(false);
+    setShowToc(false);
+    setReaderNotice(`已跳到搜索结果：${result.progressPercent.toFixed(1)}%`);
   };
 
   const openReaderDrawer = (tab: ReaderDrawerTab) => {
@@ -1396,20 +1523,26 @@ function MobileReaderView({
             {book.format.toUpperCase()} · {progressLabel}
           </p>
         </div>
-        <button className="ghost-button" onClick={() => openReaderDrawer("toc")}>
-          目录
-        </button>
+        <div className="reader-topbar-actions">
+          <button className="ghost-button" onClick={() => openReaderDrawer("search")}>
+            搜索
+          </button>
+          <button className="ghost-button" onClick={() => openReaderDrawer("toc")}>
+            目录
+          </button>
+        </div>
       </header>
 
       {showToc && (
         <aside className="reader-toc-drawer">
           <div className="drawer-header">
-            <h2>{readerDrawerTab === "toc" ? "目录" : readerDrawerTab === "bookmarks" ? "书签" : "笔记"}</h2>
+            <h2>{readerDrawerTab === "toc" ? "目录" : readerDrawerTab === "search" ? "搜索" : readerDrawerTab === "bookmarks" ? "书签" : "笔记"}</h2>
             <button className="ghost-button" onClick={() => setShowToc(false)}>关闭</button>
           </div>
           <div className="reader-drawer-tabs">
             {([
               ["toc", "目录"],
+              ["search", `搜索 ${readerSearchResults.length}`],
               ["bookmarks", `书签 ${bookBookmarks.length}`],
               ["notes", `笔记 ${bookNotes.length}`]
             ] as Array<[ReaderDrawerTab, string]>).map(([key, label]) => (
@@ -1432,6 +1565,29 @@ function MobileReaderView({
                 {item.title}
               </a>
             )) : <p>这本书暂未识别到目录。</p>
+          )}
+          {readerDrawerTab === "search" && (
+            <div className="reader-search-panel">
+              <label>
+                <span>搜索当前书籍</span>
+                <input value={readerSearchQuery} onChange={(event) => setReaderSearchQuery(event.target.value)} placeholder="输入书名、人名、设定或句子片段" autoFocus />
+              </label>
+              {readerSearchQuery.trim() ? (
+                <>
+                  <p className="search-summary">找到 {readerSearchResults.length} 处，最多显示前 80 条。</p>
+                  <div className="reader-search-results">
+                    {readerSearchResults.length ? readerSearchResults.map((result) => (
+                      <button key={result.id} onClick={() => jumpToSearchResult(result)}>
+                        <strong>{result.progressPercent.toFixed(1)}%</strong>
+                        <span>{result.snippet}</span>
+                      </button>
+                    )) : <p className="empty-hint">没有搜到。可以换一个更短的关键词。</p>}
+                  </div>
+                </>
+              ) : (
+                <p className="empty-hint">搜索会在当前 TXT / Markdown / EPUB 正文中查找，点击结果后直接跳到正文位置。</p>
+              )}
+            </div>
           )}
           {readerDrawerTab === "bookmarks" && (
             <div className="reader-note-list">
@@ -1544,6 +1700,9 @@ function MobileReaderView({
           </button>
           <button onClick={() => openReaderDrawer("toc")}>
             ☰<span>目录</span>
+          </button>
+          <button onClick={() => openReaderDrawer("search")}>
+            ⌕<span>搜索</span>
           </button>
           <button onClick={() => void addReaderBookmark()}>
             ☆<span>书签</span>

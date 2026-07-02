@@ -683,6 +683,60 @@ textarea {
   gap: 0.62rem;
 }
 
+.book-detail-insights {
+  display: grid;
+  gap: 0.55rem;
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  background: rgba(255, 250, 241, 0.66);
+  padding: 0.78rem;
+}
+
+.book-detail-section-title {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.65rem;
+}
+
+.book-detail-section-title span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.book-detail-timeline-item,
+.book-detail-note-preview {
+  display: grid;
+  gap: 0.25rem;
+  border-radius: 18px;
+  background: rgba(250, 244, 233, 0.72);
+  padding: 0.62rem;
+}
+
+.book-detail-timeline-item {
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.book-detail-timeline-item span,
+.book-detail-note-preview p {
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.book-detail-timeline-item em {
+  color: var(--copper);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.book-detail-note-preview p {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .secondary-button {
   border: 1px solid var(--line);
   background: rgba(255, 250, 241, 0.76);
@@ -963,6 +1017,17 @@ textarea {
   text-overflow: ellipsis;
 }
 
+.reader-topbar-actions {
+  display: flex;
+  gap: 0.38rem;
+  justify-content: flex-end;
+}
+
+.reader-topbar-actions .ghost-button {
+  min-height: 38px;
+  padding-inline: 0.7rem;
+}
+
 .reader-progress-chip {
   position: fixed;
   top: calc(64px + env(safe-area-inset-top));
@@ -1034,7 +1099,7 @@ textarea {
 
 .reader-drawer-tabs {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.25rem;
   border-radius: 16px;
   background: #eee8df;
@@ -1055,6 +1120,60 @@ textarea {
   background: var(--paper);
   color: var(--ink);
   box-shadow: 0 8px 18px rgba(34, 25, 21, 0.08);
+}
+
+.reader-search-panel {
+  display: grid;
+  gap: 0.62rem;
+}
+
+.reader-search-panel label {
+  display: grid;
+  gap: 0.35rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.reader-search-panel input {
+  border-radius: 18px;
+  min-height: 46px;
+  background: rgba(255, 250, 241, 0.84);
+}
+
+.search-summary {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.reader-search-results {
+  display: grid;
+  gap: 0.5rem;
+}
+
+.reader-search-results button {
+  display: grid;
+  grid-template-columns: 3.6rem minmax(0, 1fr);
+  gap: 0.55rem;
+  align-items: start;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 241, 0.74);
+  padding: 0.68rem;
+  color: var(--ink);
+  box-shadow: none;
+  text-align: left;
+}
+
+.reader-search-results button strong {
+  color: var(--copper);
+  font-size: 0.8rem;
+}
+
+.reader-search-results button span {
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.55;
 }
 
 .reader-note-list {
