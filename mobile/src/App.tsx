@@ -5,6 +5,7 @@ import type { SyncEnvelope, SyncPushPayload } from "../../src/types/sync";
 import { renderMobileDocument, type MobileReaderDocument } from "./reader/mobile-reader";
 import {
   addMobileInspiration,
+  addMobileNote,
   addMobileReadingSession,
   BOOK_CONTENT_STORAGE_KEY_PREFIX,
   createImportedMobileBook,
@@ -27,6 +28,7 @@ type MainTab = "home" | "shelf" | "inspiration" | "stats" | "profile";
 type ShelfViewMode = "grid" | "list";
 type ShelfFilterMode = "all" | "reading" | "downloaded" | "pending";
 type ShelfSortMode = "recent" | "title" | "progress";
+type ReaderDrawerTab = "toc" | "bookmarks" | "notes";
 
 const defaultReaderSettings: MobileReaderSettings = {
   fontSize: 18,
@@ -1142,10 +1144,12 @@ function MobileReaderView({
   const wakeLockRef = useRef<{ release: () => Promise<void> } | undefined>();
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
+  const [readerDrawerTab, setReaderDrawerTab] = useState<ReaderDrawerTab>("toc");
   const [showSettings, setShowSettings] = useState(false);
   const [readerControlsVisible, setReaderControlsVisible] = useState(true);
   const [readerNotice, setReaderNotice] = useState("");
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
+  const [noteDraft, setNoteDraft] = useState("");
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
   const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
@@ -1225,6 +1229,12 @@ function MobileReaderView({
       setCurrentChapter(target);
       setReaderControlsVisible(false);
     }
+  };
+
+  const openReaderDrawer = (tab: ReaderDrawerTab) => {
+    setReaderDrawerTab(tab);
+    setShowToc(true);
+    setReaderControlsVisible(false);
   };
 
   const moveChapter = (direction: -1 | 1) => {
@@ -1324,6 +1334,42 @@ function MobileReaderView({
     onMessage(sourceExcerpt ? "已把选中文字作为来源摘录保存到灵感中心。" : "已记录来自当前书籍和阅读位置的灵感。");
   };
 
+  const addReaderBookmark = async () => {
+    const next = await addMobileNote(snapshot, {
+      book,
+      title: `书签：${currentChapter?.title ?? book.title}`,
+      body: "",
+      excerpt: selectionText || undefined,
+      chapterTitle: currentChapter?.title,
+      progressPercent: currentProgress,
+      kind: "bookmark"
+    });
+    onSnapshotChange(next);
+    setReaderNotice(`已添加书签：${currentProgress.toFixed(1)}%`);
+    onMessage("已在当前阅读位置添加书签。");
+  };
+
+  const addReaderNote = async () => {
+    const content = noteDraft.trim() || selectionText.trim();
+    if (!content) {
+      setReaderNotice("先选中文字，或在笔记抽屉里写一点内容。");
+      return;
+    }
+    const next = await addMobileNote(snapshot, {
+      book,
+      title: `笔记：${currentChapter?.title ?? book.title}`,
+      body: content,
+      excerpt: selectionText || undefined,
+      chapterTitle: currentChapter?.title,
+      progressPercent: currentProgress,
+      kind: "note"
+    });
+    onSnapshotChange(next);
+    setNoteDraft("");
+    setReaderNotice("已保存阅读笔记。");
+    onMessage("已保存当前书籍的阅读笔记。");
+  };
+
   const closeReader = async () => {
     const saved = await saveMobileReadingProgress(snapshot, book, currentProgress);
     const next = await addMobileReadingSession(saved, book as LibraryBook, 30_000, currentProgress);
@@ -1334,6 +1380,8 @@ function MobileReaderView({
   const progressLabel = `${currentProgress.toFixed(2)}%`;
   const chapterIndex = document.toc.findIndex((item) => item.id === currentChapter?.id);
   const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
+  const bookNotes = snapshot.notes.filter((item) => item.bookId === book.id && item.kind !== "bookmark");
+  const bookBookmarks = snapshot.notes.filter((item) => item.bookId === book.id && item.kind === "bookmark");
 
   return (
     <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
@@ -1348,7 +1396,7 @@ function MobileReaderView({
             {book.format.toUpperCase()} · {progressLabel}
           </p>
         </div>
-        <button className="ghost-button" onClick={() => setShowToc(true)}>
+        <button className="ghost-button" onClick={() => openReaderDrawer("toc")}>
           目录
         </button>
       </header>
@@ -1356,22 +1404,66 @@ function MobileReaderView({
       {showToc && (
         <aside className="reader-toc-drawer">
           <div className="drawer-header">
-            <h2>目录</h2>
+            <h2>{readerDrawerTab === "toc" ? "目录" : readerDrawerTab === "bookmarks" ? "书签" : "笔记"}</h2>
             <button className="ghost-button" onClick={() => setShowToc(false)}>关闭</button>
           </div>
-          {document.toc.length ? document.toc.map((item) => (
-            <a
-              key={item.id}
-              href={`#${item.id}`}
-              onClick={(event) => {
-                event.preventDefault();
-                jumpToChapter(item);
-                setShowToc(false);
-              }}
-            >
-              {item.title}
-            </a>
-          )) : <p>这本书暂未识别到目录。</p>}
+          <div className="reader-drawer-tabs">
+            {([
+              ["toc", "目录"],
+              ["bookmarks", `书签 ${bookBookmarks.length}`],
+              ["notes", `笔记 ${bookNotes.length}`]
+            ] as Array<[ReaderDrawerTab, string]>).map(([key, label]) => (
+              <button key={key} className={readerDrawerTab === key ? "active" : ""} onClick={() => setReaderDrawerTab(key)}>
+                {label}
+              </button>
+            ))}
+          </div>
+          {readerDrawerTab === "toc" && (
+            document.toc.length ? document.toc.map((item) => (
+              <a
+                key={item.id}
+                href={`#${item.id}`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  jumpToChapter(item);
+                  setShowToc(false);
+                }}
+              >
+                {item.title}
+              </a>
+            )) : <p>这本书暂未识别到目录。</p>
+          )}
+          {readerDrawerTab === "bookmarks" && (
+            <div className="reader-note-list">
+              <button onClick={() => void addReaderBookmark()}>在当前位置添加书签</button>
+              {bookBookmarks.length ? bookBookmarks.map((item) => (
+                <article key={item.id} className="reader-note-item">
+                  <strong>{item.title}</strong>
+                  <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
+                  {item.excerpt && <p>{item.excerpt}</p>}
+                  <button onClick={() => {
+                    const element = scrollRef.current;
+                    if (element) scrollToPercent(element, item.progressPercent ?? 0);
+                    setShowToc(false);
+                  }}>跳转</button>
+                </article>
+              )) : <p className="empty-hint">还没有书签。阅读时点底部“书签”即可保存当前位置。</p>}
+            </div>
+          )}
+          {readerDrawerTab === "notes" && (
+            <div className="reader-note-list">
+              <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="写一条阅读笔记；如果你选中了正文，也会一起保存为摘录。" />
+              <button onClick={() => void addReaderNote()}>保存笔记</button>
+              {bookNotes.length ? bookNotes.map((item) => (
+                <article key={item.id} className="reader-note-item">
+                  <strong>{item.title}</strong>
+                  <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
+                  {item.excerpt && <blockquote>{item.excerpt}</blockquote>}
+                  <p>{item.body}</p>
+                </article>
+              )) : <p className="empty-hint">还没有笔记。可以先选中文字，再打开这里保存。</p>}
+            </div>
+          )}
         </aside>
       )}
 
@@ -1450,8 +1542,14 @@ function MobileReaderView({
           <button onClick={() => void addReaderInspiration()}>
             ✦<span>记为灵感</span>
           </button>
-          <button onClick={() => setShowToc(true)}>
+          <button onClick={() => openReaderDrawer("toc")}>
             ☰<span>目录</span>
+          </button>
+          <button onClick={() => void addReaderBookmark()}>
+            ☆<span>书签</span>
+          </button>
+          <button onClick={() => openReaderDrawer("notes")}>
+            ✎<span>笔记</span>
           </button>
           <button onClick={() => void saveProgress(currentProgress)}>
             ✓<span>保存进度</span>

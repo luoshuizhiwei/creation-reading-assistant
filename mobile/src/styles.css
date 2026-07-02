@@ -1032,6 +1032,66 @@ textarea {
   padding: 0.62rem 0;
 }
 
+.reader-drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.25rem;
+  border-radius: 16px;
+  background: #eee8df;
+  padding: 0.2rem;
+}
+
+.reader-drawer-tabs button {
+  min-height: 36px;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--muted);
+  box-shadow: none;
+  padding: 0.25rem 0.4rem;
+  font-size: 0.78rem;
+}
+
+.reader-drawer-tabs button.active {
+  background: var(--paper);
+  color: var(--ink);
+  box-shadow: 0 8px 18px rgba(34, 25, 21, 0.08);
+}
+
+.reader-note-list {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.reader-note-list textarea {
+  min-height: 92px;
+  border-radius: 18px;
+}
+
+.reader-note-item {
+  display: grid;
+  gap: 0.32rem;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: rgba(255, 250, 241, 0.72);
+  padding: 0.78rem;
+}
+
+.reader-note-item span {
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.reader-note-item p,
+.reader-note-item blockquote {
+  margin: 0;
+  color: var(--muted);
+}
+
+.reader-note-item blockquote {
+  border-left: 3px solid var(--copper);
+  padding-left: 0.55rem;
+}
+
 .reader-scroll-container {
   height: 100dvh;
   overflow-y: auto;
@@ -1213,23 +1273,30 @@ textarea {
 }
 
 .reader-actions {
-  display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 0.38rem;
+  display: flex;
+  gap: 0.4rem;
+  overflow-x: auto;
+  padding-bottom: 0.12rem;
+  scrollbar-width: none;
+}
+
+.reader-actions::-webkit-scrollbar {
+  display: none;
 }
 
 .reader-actions button {
   display: grid;
   justify-items: center;
   gap: 0.12rem;
-  min-width: 0;
+  flex: 0 0 4.3rem;
+  min-width: 4.3rem;
   border-radius: 20px;
-  padding: 0.55rem 0.35rem;
+  padding: 0.48rem 0.28rem;
   font-weight: 800;
 }
 
 .reader-actions button span {
-  font-size: 0.72rem;
+  font-size: 0.64rem;
 }
 
 .reader-settings-drawer label {

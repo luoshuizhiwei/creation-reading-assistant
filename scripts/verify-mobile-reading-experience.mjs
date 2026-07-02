@@ -20,6 +20,11 @@ assertIncludes("mobile/src/App.tsx", "ShelfSortMode", "Shelf must support reader
 assertIncludes("mobile/src/App.tsx", "book-progress-line", "Shelf cards must expose compact reading progress instead of plain web text.");
 assertIncludes("mobile/src/App.tsx", "BookDetailSheet", "Shelf must provide a native-reader style book detail sheet.");
 assertIncludes("mobile/src/App.tsx", "下载后阅读", "Book detail sheet must guide users to download synced books before reading.");
+assertIncludes("mobile/src/App.tsx", "ReaderDrawerTab", "Reader drawer must support multiple reader tabs.");
+assertIncludes("mobile/src/App.tsx", "addReaderBookmark", "Reader must allow adding bookmarks at the current location.");
+assertIncludes("mobile/src/App.tsx", "addReaderNote", "Reader must allow saving reading notes.");
+assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"bookmarks\"", "Reader drawer must expose a bookmarks tab.");
+assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"notes\"", "Reader drawer must expose a notes tab.");
 assertIncludes("mobile/src/App.tsx", "handleReaderTap", "Reader must use tap zones instead of only toolbar buttons.");
 assertIncludes("mobile/src/App.tsx", "moveChapter", "Reader tap zones must support previous/next chapter movement.");
 assertIncludes("mobile/src/App.tsx", "turnReaderPage", "Reader paged mode must support previous/next page movement.");
@@ -39,6 +44,9 @@ assertIncludes("mobile/src/styles.css", ".segmented-control", "Shelf filters mus
 assertIncludes("mobile/src/styles.css", ".book-list", "Shelf must provide a compact list layout.");
 assertIncludes("mobile/src/styles.css", ".book-detail-sheet", "Book detail sheet must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-dim-layer", "Reader brightness dim layer must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-drawer-tabs", "Reader drawer tabs must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-note-item", "Reader notes and bookmarks must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-actions::-webkit-scrollbar", "Reader action bar must be horizontally scrollable instead of cramped on small phones.");
 assertIncludes("mobile/src/styles.css", ".reader-progress-chip", "Reader chapter/progress chip must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-zone-guide", "Reader tap-zone hints must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-mode-paged", "Paged reading mode must have dedicated styling.");

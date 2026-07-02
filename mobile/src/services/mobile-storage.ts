@@ -432,6 +432,42 @@ export async function addMobileReadingSession(snapshot: MobileSnapshot, book: Li
   return next;
 }
 
+export async function addMobileNote(
+  snapshot: MobileSnapshot,
+  input: {
+    book: LibraryBook;
+    title: string;
+    body?: string;
+    excerpt?: string;
+    chapterTitle?: string;
+    progressPercent?: number;
+    kind?: MobileNote["kind"];
+  }
+): Promise<MobileSnapshot> {
+  const timestamp = nowIso();
+  const note: MobileNote = {
+    id: `mobile-note-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    bookId: input.book.id,
+    title: input.title.trim() || (input.kind === "bookmark" ? "阅读书签" : "阅读笔记"),
+    body: input.body?.trim() ?? "",
+    excerpt: input.excerpt?.trim(),
+    chapterTitle: input.chapterTitle,
+    progressPercent: input.progressPercent,
+    kind: input.kind ?? "note",
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    revision: 1,
+    deviceId: getMobileDeviceId()
+  };
+  const next = {
+    ...snapshot,
+    notes: [note, ...snapshot.notes],
+    updatedAt: timestamp
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
 export async function saveSyncAccount(snapshot: MobileSnapshot, account: Omit<SyncAccount, "id" | "createdAt" | "updatedAt" | "revision" | "deviceId">): Promise<MobileSnapshot> {
   const timestamp = nowIso();
   const nextAccount: SyncAccount = {

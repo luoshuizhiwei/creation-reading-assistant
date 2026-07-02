@@ -23,6 +23,7 @@ export interface MobileNote {
   excerpt?: string;
   chapterTitle?: string;
   progressPercent?: number;
+  kind?: "bookmark" | "note";
   createdAt: string;
   updatedAt: string;
   revision: number;
