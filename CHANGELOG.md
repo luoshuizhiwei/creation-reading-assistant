@@ -6,6 +6,18 @@
 
 - 后续大修改会先写入这里，发布时再移动到对应版本。
 
+## v0.1.13 - 2026-07-02
+
+### Android UI 修复
+
+- 修复首页 / 我的页顶部常驻黑色提示条：默认不再显示全局提示，后续操作反馈改为底部浅色 snackbar，不再遮挡顶部状态栏和标题区。
+- 将“同步状态”和“WebDAV 设置”从底部弹出框改为正常二级页面，点击后进入独立设置页，并提供“返回”按钮，更接近常见移动 App 的设置层级。
+- 保留上一版 Reeden 化 UI：紧凑首页、三列封面书架、轻量统计页、分组式“我的”页面。
+
+### 验证
+
+- 通过 `npm run verify:mobile-ui`、`npm run verify:mobile-reading-experience`、`npm run mobile:build`、`npm run verify:beta`、`npm audit --prefix mobile --omit=dev`、`npm run cap:sync --prefix mobile`、`mobile/android/gradlew.bat assembleDebug`。
+
 ## v0.1.12 - 2026-07-02
 
 ### Android 阅读体验迭代

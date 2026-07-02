@@ -1,4 +1,39 @@
-import { useEffect, useMemo, useRef, useState, type MouseEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode, type MouseEvent } from "react";
+import React from "react";
+import {
+  Home,
+  BookOpen,
+  Sparkles,
+  BarChart3,
+  User,
+  Clock,
+  Book,
+  Menu,
+  Search,
+  Star,
+  Edit3,
+  Check,
+  Moon,
+  Settings,
+  Grid,
+  List,
+  MoreHorizontal,
+  ChevronRight,
+  Cloud,
+  Tags,
+  FolderTree,
+  MessageSquare,
+  Headphones,
+  Languages,
+  Palette,
+  Database,
+  Shield,
+  Info,
+  RefreshCw,
+  Upload,
+  Download,
+  Wifi
+} from "lucide-react";
 import jsQR from "jsqr";
 import type { LibraryBook } from "../../src/types/library";
 import type { SyncEnvelope, SyncPushPayload } from "../../src/types/sync";
@@ -9,7 +44,11 @@ import {
   addMobileReadingSession,
   BOOK_CONTENT_STORAGE_KEY_PREFIX,
   createImportedMobileBook,
+  deleteMobileInspiration,
+  deleteMobileNote,
+  exportMobileSnapshot,
   getMobileDeviceId,
+  importMobileSnapshot,
   loadMobileSnapshot,
   saveMobileBook,
   saveMobileReadingProgress,
@@ -17,6 +56,7 @@ import {
   saveSyncedMobileBookBlob,
   saveSyncedMobileBookFile,
   saveSyncAccount,
+  updateMobileInspiration,
   type MobileSnapshot
 } from "./services/mobile-storage";
 import {
@@ -64,6 +104,7 @@ const emptySnapshot: MobileSnapshot = {
   categories: [],
   shelves: [],
   syncAccounts: [],
+  readingGoals: [],
   updatedAt: new Date().toISOString()
 };
 
@@ -172,7 +213,7 @@ export function App() {
   const [readerBook, setReaderBook] = useState<MobileBook>();
   const [readerContent, setReaderContent] = useState("");
   const [readerSettings, setReaderSettings] = useState<MobileReaderSettings>(defaultReaderSettings);
-  const [message, setMessage] = useState("本地优先：没有网络也能阅读、记录灵感，回到同一网络后再同步。");
+  const [message, setMessage] = useState("");
   const [showQrScanner, setShowQrScanner] = useState(false);
   const [syncLogs, setSyncLogs] = useState<string[]>([]);
   const [downloadingBookId, setDownloadingBookId] = useState<string>();
@@ -345,12 +386,12 @@ export function App() {
     setMessage("已创建一条空白灵感，可以继续补正文或交给 AI 打磨。");
   };
 
-  const bottomTabs: Array<{ key: MainTab; label: string; icon: string }> = [
-    { key: "home", label: "首页", icon: "⌂" },
-    { key: "shelf", label: "书架", icon: "▥" },
-    { key: "inspiration", label: "灵感", icon: "✦" },
-    { key: "stats", label: "统计", icon: "▤" },
-    { key: "profile", label: "我的", icon: "●" }
+  const bottomTabs: Array<{ key: MainTab; label: string; icon: ReactNode }> = [
+    { key: "home", label: "首页", icon: <Home size={24} /> },
+    { key: "shelf", label: "书架", icon: <BookOpen size={24} /> },
+    { key: "inspiration", label: "灵感", icon: <Sparkles size={24} /> },
+    { key: "stats", label: "统计", icon: <BarChart3 size={24} /> },
+    { key: "profile", label: "我的", icon: <User size={24} /> }
   ];
 
   if (readerBook) {
@@ -559,28 +600,38 @@ function HomePage({
   onAddInspiration: () => void;
   onGo: (tab: MainTab) => void;
 }) {
-  const continueBooks = getContinueBooks(snapshot);
+  const continueBooks = useMemo(() => getContinueBooks(snapshot), [snapshot.books, snapshot.progress]);
+  // 阅读目标不在本应用中启用：首页空间只留给继续阅读、书架入口和灵感记录。
   return (
     <div className="screen-stack">
-      <header className="mobile-header">
-        <p className="mini-label">创作阅读助手</p>
-        <h1>首页</h1>
+      <header className="mobile-header row-header home-header">
+        <div>
+          <p className="mini-label">创作阅读助手</p>
+          <h1>首页</h1>
+        </div>
+        <button className="round-action" onClick={() => onGo("shelf")} aria-label="搜索书籍">
+          <Search size={22} />
+        </button>
       </header>
 
-      <section className="metric-grid">
-        <article className="metric-card">
-          <span className="metric-icon">▥</span>
-          <p>累计阅读</p>
-          <strong>{snapshot.books.length} 本</strong>
-        </article>
-        <article className="metric-card">
-          <span className="metric-icon">◷</span>
-          <p>阅读时长</p>
-          <strong>{formatDuration(stats.totalReadingMs)}</strong>
-        </article>
+      <section className="home-summary-row" aria-label="阅读概览">
+        <button className="home-summary-card" onClick={() => onGo("shelf")}>
+          <span><Book size={21} /></span>
+          <div>
+            <small>累计阅读</small>
+            <strong>{snapshot.books.length} 本</strong>
+          </div>
+        </button>
+        <button className="home-summary-card" onClick={() => onGo("stats")}>
+          <span><Clock size={21} /></span>
+          <div>
+            <small>阅读时长</small>
+            <strong>{formatDuration(stats.totalReadingMs)}</strong>
+          </div>
+        </button>
       </section>
 
-      <section className="section-block">
+      <section className="section-block home-section">
         <div className="section-heading">
           <h2>继续阅读</h2>
           <button className="ghost-button" onClick={() => onGo("shelf")}>
@@ -592,38 +643,140 @@ function HomePage({
             continueBooks.map((book) => (
               <button key={book.id} className="continue-card" onClick={() => onOpenBook(book)}>
                 <div className="book-cover compact">{book.title.slice(0, 2)}</div>
-                <span>{book.title}</span>
-                <small>{progressFor(snapshot, book.id).toFixed(2)}%</small>
+                <div>
+                  <span>{book.title}</span>
+                  <small>{book.author || "作者未知"}</small>
+                </div>
+                <strong>{progressFor(snapshot, book.id).toFixed(1)}%</strong>
               </button>
             ))
           ) : (
-            <p className="empty-hint">导入一本 TXT、Markdown 或 EPUB，就能从这里继续阅读。</p>
+            <button className="continue-empty" onClick={() => onGo("shelf")}>
+              书架还空着，先导入一本 TXT、Markdown 或 EPUB。
+            </button>
           )}
         </div>
       </section>
 
-      <section className="inspiration-quick-card">
+      <section className="home-inspiration-mini">
         <div>
           <p className="mini-label">灵感中心</p>
           <h2>读到有火花的地方，就把它留下</h2>
-          <p>手机端是随手捕捉灵感的入口；AI 候选版本留在灵感里，不覆盖原文。</p>
+          <p>{snapshot.inspirations.length} 条灵感 · AI 候选保留在灵感里</p>
         </div>
-        <button className="inspiration-fab" onClick={onAddInspiration}>
-          ＋
+        <button className="inspiration-fab compact-fab" onClick={onAddInspiration} aria-label="记录灵感">
+          <Sparkles size={22} />
         </button>
-      </section>
-
-      <section className="sync-status-card">
-        <div>
-          <h2>同步状态</h2>
-          <p>{paired ? "已连接电脑局域网同步，可拉取书籍与灵感。" : "未连接电脑。也可以先离线使用，稍后再同步。"}</p>
-          <p className="subtle">阅读目标不在本应用中启用，我们把首页空间留给继续阅读和灵感记录。</p>
-        </div>
-        <button onClick={() => onGo("profile")}>去同步</button>
       </section>
     </div>
   );
 }
+
+/* === Memoized Book Tile === */
+const BookTile = React.memo(function BookTile({
+  book,
+  progress,
+  downloaded,
+  viewMode,
+  onOpenBook,
+  onShowDetail
+}: {
+  book: MobileBook;
+  progress: number;
+  downloaded: boolean;
+  viewMode: ShelfViewMode;
+  onOpenBook: (book: MobileBook) => void;
+  onShowDetail: (bookId: string) => void;
+}) {
+  const tileRef = useRef<HTMLElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const tile = tileRef.current;
+    if (!tile || !("IntersectionObserver" in window)) {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true);
+          observer.disconnect();
+        }
+      },
+      { rootMargin: "100px" }
+    );
+    observer.observe(tile);
+    return () => observer.disconnect();
+  }, []);
+
+  return (
+    <article
+      ref={tileRef}
+      className="book-tile"
+      onClick={() => onOpenBook(book)}
+      onTouchStart={(e) => {
+        const target = e.currentTarget;
+        const timeout = setTimeout(() => {
+          onShowDetail(book.id);
+        }, 500);
+        target.dataset.longPressTimeout = String(timeout);
+      }}
+      onTouchEnd={(e) => {
+        const target = e.currentTarget;
+        const timeout = target.dataset.longPressTimeout;
+        if (timeout) {
+          clearTimeout(Number(timeout));
+          delete target.dataset.longPressTimeout;
+        }
+      }}
+      onTouchMove={(e) => {
+        const target = e.currentTarget;
+        const timeout = target.dataset.longPressTimeout;
+        if (timeout) {
+          clearTimeout(Number(timeout));
+          delete target.dataset.longPressTimeout;
+        }
+      }}
+    >
+      {visible ? (
+        <>
+          <div className="book-cover">{book.title.slice(0, 4)}</div>
+          <div className="book-meta">
+            <h3>{book.title}</h3>
+            {viewMode === "list" ? (
+              <>
+                <p>{book.author || "作者未知"}</p>
+                <small>{progress.toFixed(2)}% · {book.format.toUpperCase()}</small>
+                <div className="book-badges">
+                  <em>{downloaded ? "已下载正文" : "未下载正文"}</em>
+                  {book.duplicateIndex && book.duplicateIndex > 1 ? <em>{book.importLabel}</em> : null}
+                </div>
+              </>
+            ) : (
+              <small className="grid-progress-text">{progress > 0 ? `${progress.toFixed(1)}%` : downloaded ? "未读过" : "待下载"}</small>
+            )}
+            <div className="book-progress-line" aria-label={`阅读进度 ${progress.toFixed(1)}%`}>
+              <span style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+            </div>
+          </div>
+          <button
+            className="tile-more"
+            onClick={(event) => {
+              event.stopPropagation();
+              onShowDetail(book.id);
+            }}
+            aria-label="书籍详情"
+          >
+            <MoreHorizontal size={20} />
+          </button>
+        </>
+      ) : (
+        <div className="book-cover" style={{ visibility: "hidden" }}>{book.title.slice(0, 4)}</div>
+      )}
+    </article>
+  );
+});
 
 function ShelfPage({
   snapshot,
@@ -641,27 +794,39 @@ function ShelfPage({
   onCancelDownload: () => void;
 }) {
   const [query, setQuery] = useState("");
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [viewMode, setViewMode] = useState<ShelfViewMode>("grid");
   const [filterMode, setFilterMode] = useState<ShelfFilterMode>("all");
   const [sortMode, setSortMode] = useState<ShelfSortMode>("recent");
   const [detailBookId, setDetailBookId] = useState("");
   const detailBook = detailBookId ? snapshot.books.find((book) => book.id === detailBookId) : undefined;
-  const filtered = snapshot.books
-    .filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(query.toLowerCase()))
-    .filter((book) => {
-      const progress = progressFor(snapshot, book.id);
-      if (filterMode === "reading") return progress > 0 && progress < 100;
-      if (filterMode === "downloaded") return isBookDownloaded(book);
-      if (filterMode === "pending") return !isBookDownloaded(book);
-      return true;
-    })
-    .sort((left, right) => {
-      if (sortMode === "title") return left.title.localeCompare(right.title, "zh-Hans-CN");
-      if (sortMode === "progress") return progressFor(snapshot, right.id) - progressFor(snapshot, left.id);
-      const leftProgress = snapshot.progress.find((item) => item.bookId === left.id)?.lastReadAt ?? left.updatedAt;
-      const rightProgress = snapshot.progress.find((item) => item.bookId === right.id)?.lastReadAt ?? right.updatedAt;
-      return rightProgress.localeCompare(leftProgress);
-    });
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Memoize filtered and sorted books
+  const filtered = useMemo(() => {
+    const lowerQuery = debouncedQuery.toLowerCase();
+    return snapshot.books
+      .filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(lowerQuery))
+      .filter((book) => {
+        const progress = progressFor(snapshot, book.id);
+        if (filterMode === "reading") return progress > 0 && progress < 100;
+        if (filterMode === "downloaded") return isBookDownloaded(book);
+        if (filterMode === "pending") return !isBookDownloaded(book);
+        return true;
+      })
+      .sort((left, right) => {
+        if (sortMode === "title") return left.title.localeCompare(right.title, "zh-Hans-CN");
+        if (sortMode === "progress") return progressFor(snapshot, right.id) - progressFor(snapshot, left.id);
+        const leftProgress = snapshot.progress.find((item) => item.bookId === left.id)?.lastReadAt ?? left.updatedAt;
+        const rightProgress = snapshot.progress.find((item) => item.bookId === right.id)?.lastReadAt ?? right.updatedAt;
+        return rightProgress.localeCompare(leftProgress);
+      });
+  }, [snapshot.books, snapshot.progress, debouncedQuery, filterMode, sortMode]);
   return (
     <div className="screen-stack">
       <header className="mobile-header row-header">
@@ -700,39 +865,27 @@ function ShelfPage({
             <option value="progress">进度优先</option>
           </select>
           <div className="view-toggle" aria-label="书架视图">
-            <button className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")}>▦</button>
-            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")}>☰</button>
+            <button className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")} aria-label="网格视图">
+              <Grid size={18} />
+            </button>
+            <button className={viewMode === "list" ? "active" : ""} onClick={() => setViewMode("list")} aria-label="列表视图">
+              <List size={18} />
+            </button>
           </div>
         </div>
       </section>
 
       <section className={`book-grid ${viewMode === "list" ? "book-list" : ""}`}>
         {filtered.map((book) => (
-          <article key={book.id} className="book-tile" onClick={() => onOpenBook(book)}>
-            <div className="book-cover">{book.title.slice(0, 4)}</div>
-            <div className="book-meta">
-              <h3>{book.title}</h3>
-              <p>{book.author || "作者未知"}</p>
-              <small>{progressFor(snapshot, book.id).toFixed(2)}% · {book.format.toUpperCase()}</small>
-              <div className="book-badges">
-                <em>{isBookDownloaded(book) ? "已下载正文" : "未下载正文"}</em>
-                {book.duplicateIndex && book.duplicateIndex > 1 ? <em>{book.importLabel}</em> : null}
-              </div>
-              <div className="book-progress-line" aria-label={`阅读进度 ${progressFor(snapshot, book.id).toFixed(1)}%`}>
-                <span style={{ width: `${Math.min(100, Math.max(0, progressFor(snapshot, book.id)))}%` }} />
-              </div>
-            </div>
-            <button
-              className="tile-more"
-              onClick={(event) => {
-                event.stopPropagation();
-                setDetailBookId(book.id);
-              }}
-              aria-label="书籍详情"
-            >
-              ⋯
-            </button>
-          </article>
+          <BookTile
+            key={book.id}
+            book={book}
+            progress={progressFor(snapshot, book.id)}
+            downloaded={isBookDownloaded(book)}
+            viewMode={viewMode}
+            onOpenBook={onOpenBook}
+            onShowDetail={setDetailBookId}
+          />
         ))}
       </section>
 
@@ -868,9 +1021,25 @@ function BookDetailSheet({
 function InspirationPage({ snapshot, onSnapshotChange }: { snapshot: MobileSnapshot; onSnapshotChange: (snapshot: MobileSnapshot) => void }) {
   const [draft, setDraft] = useState("");
   const [query, setQuery] = useState("");
-  const filtered = snapshot.inspirations.filter((item) =>
-    `${item.title} ${item.body} ${item.tags.join(" ")} ${item.source?.bookTitle ?? ""}`.toLowerCase().includes(query.toLowerCase())
-  );
+  const [debouncedQuery, setDebouncedQuery] = useState("");
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editBody, setEditBody] = useState("");
+
+  // Debounce search query
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 200);
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Memoize filtered inspirations
+  const filtered = useMemo(() => {
+    const lowerQuery = debouncedQuery.toLowerCase();
+    return snapshot.inspirations.filter((item) =>
+      `${item.title} ${item.body} ${item.tags.join(" ")} ${item.source?.bookTitle ?? ""}`.toLowerCase().includes(lowerQuery)
+    );
+  }, [snapshot.inspirations, debouncedQuery]);
+
   const addDraft = async () => {
     const next = await addMobileInspiration(snapshot, {
       title: draft.split("\n")[0] || "快速记录",
@@ -879,6 +1048,34 @@ function InspirationPage({ snapshot, onSnapshotChange }: { snapshot: MobileSnaps
     });
     onSnapshotChange(next);
     setDraft("");
+  };
+
+  const startEdit = (item: typeof snapshot.inspirations[0]) => {
+    setEditingId(item.id);
+    setEditTitle(item.title);
+    setEditBody(item.body);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditTitle("");
+    setEditBody("");
+  };
+
+  const saveEdit = async () => {
+    if (!editingId) return;
+    const next = await updateMobileInspiration(snapshot, editingId, {
+      title: editTitle,
+      body: editBody
+    });
+    onSnapshotChange(next);
+    cancelEdit();
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!confirm("确定要删除这条灵感吗？")) return;
+    const next = await deleteMobileInspiration(snapshot, id);
+    onSnapshotChange(next);
   };
   return (
     <div className="screen-stack">
@@ -906,25 +1103,53 @@ function InspirationPage({ snapshot, onSnapshotChange }: { snapshot: MobileSnaps
       <section className="inspiration-list">
         {filtered.map((item) => (
           <article key={item.id} className="inspiration-card">
-            <p className="mini-label">{item.status} · {item.type}</p>
-            <h2>{item.title}</h2>
-            <p>{item.body || "还没有正文。"}</p>
-            {item.source && (
-              <div className="source-card">
-                <strong>来源摘录</strong>
-                <span>{item.source.bookTitle || "未知书籍"} · {item.source.locationLabel || `${item.source.progressPercent?.toFixed(1) ?? 0}%`}</span>
-                {item.source.excerpt && <blockquote>{item.source.excerpt}</blockquote>}
-              </div>
+            {editingId === item.id ? (
+              <>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(event) => setEditTitle(event.target.value)}
+                  placeholder="灵感标题"
+                  className="inspiration-edit-title"
+                />
+                <textarea
+                  value={editBody}
+                  onChange={(event) => setEditBody(event.target.value)}
+                  placeholder="灵感内容"
+                  className="inspiration-edit-body"
+                />
+                <div className="inspiration-edit-actions">
+                  <button onClick={saveEdit}>保存</button>
+                  <button onClick={cancelEdit} className="secondary">取消</button>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="mini-label">{item.status} · {item.type}</p>
+                <h2>{item.title}</h2>
+                <p>{item.body || "还没有正文。"}</p>
+                {item.source && (
+                  <div className="source-card">
+                    <strong>来源摘录</strong>
+                    <span>{item.source.bookTitle || "未知书籍"} · {item.source.locationLabel || `${item.source.progressPercent?.toFixed(1) ?? 0}%`}</span>
+                    {item.source.excerpt && <blockquote>{item.source.excerpt}</blockquote>}
+                  </div>
+                )}
+                <div className="tag-row">
+                  {item.tags.map((tag) => (
+                    <span key={tag}>{tag}</span>
+                  ))}
+                </div>
+                <details className="ai-variants">
+                  <summary>AI 候选版本（{item.variants.length}）</summary>
+                  {item.variants.length ? item.variants.map((variant) => <p key={variant.id}>{variant.content}</p>) : <p>暂无候选。稍后可在这里展示润色、扩写、去 AI 味结果。</p>}
+                </details>
+                <div className="inspiration-actions">
+                  <button onClick={() => startEdit(item)} className="secondary">编辑</button>
+                  <button onClick={() => void handleDelete(item.id)} className="danger">删除</button>
+                </div>
+              </>
             )}
-            <div className="tag-row">
-              {item.tags.map((tag) => (
-                <span key={tag}>{tag}</span>
-              ))}
-            </div>
-            <details className="ai-variants">
-              <summary>AI 候选版本（{item.variants.length}）</summary>
-              {item.variants.length ? item.variants.map((variant) => <p key={variant.id}>{variant.content}</p>) : <p>暂无候选。稍后可在这里展示润色、扩写、去 AI 味结果。</p>}
-            </details>
           </article>
         ))}
       </section>
@@ -942,8 +1167,8 @@ function StatsPage({
   const timeline = useMemo(() => buildReadingTimeline(snapshot, statsPeriod), [snapshot, statsPeriod]);
   const ranking = useMemo(() => buildBookRanking(snapshot, statsPeriod), [snapshot, statsPeriod]);
   const insights = useMemo(() => buildNoteInsights(snapshot, statsPeriod), [snapshot, statsPeriod]);
-  const maxTimelineMs = Math.max(1, ...timeline.map((item) => item.durationMs));
-  const statItems = [
+  const maxTimelineMs = useMemo(() => Math.max(1, ...timeline.map((item) => item.durationMs)), [timeline]);
+  const statItems = useMemo(() => [
     ["阅读时间", formatDuration(periodStats.totalReadingMs)],
     ["阅读天数", `${periodStats.readingDays} 天`],
     ["累计读过", `${snapshot.books.length} 本`],
@@ -952,15 +1177,14 @@ function StatsPage({
     ["记录灵感", `${periodStats.inspirationCount} 条`],
     ["阅读字数", `${periodStats.words} 字`],
     ["阅读速度", `${periodStats.speed} 字/分钟`]
-  ];
+  ], [periodStats, snapshot.books.length]);
   return (
-    <div className="screen-stack">
-      <header className="mobile-header row-header">
-        <div>
-          <p className="mini-label">Reading stats</p>
-          <h1>阅读统计</h1>
-        </div>
-        <button className="ghost-button">沉淀 {periodStats.noteCount + periodStats.inspirationCount}</button>
+    <div className="screen-stack stats-screen">
+      <header className="mobile-header row-header stats-header">
+        <h1>阅读统计</h1>
+        <button className="round-action" aria-label="统计筛选">
+          <Menu size={21} />
+        </button>
       </header>
 
       <div className="range-tabs stats-period-tabs">
@@ -971,8 +1195,13 @@ function StatsPage({
         ))}
       </div>
 
-      <section className="stats-card">
-        <h2>{getStatsPeriodTitle(statsPeriod)}</h2>
+      <div className="stats-period-title">
+        <button className="round-action" aria-label="上一周期">‹</button>
+        <strong>{getStatsPeriodTitle(statsPeriod)}</strong>
+        <button className="round-action" aria-label="下一周期">›</button>
+      </div>
+
+      <section className="stats-card stats-overview-card">
         <div className="stats-grid">
           {statItems.map(([label, value]) => (
             <article key={label}>
@@ -983,10 +1212,10 @@ function StatsPage({
         </div>
       </section>
 
-      <section className="trend-card reading-heat-strip">
+      <section className="trend-card reading-heat-strip stats-lite-card">
         <div className="section-heading">
           <h2>阅读时间趋势</h2>
-          <span>{periodStats.sessionCount} 次</span>
+          <span>{periodStats.sessionCount ? `${periodStats.sessionCount} 次` : "暂无数据"}</span>
         </div>
         {timeline.length ? (
           <div className="heat-bars" aria-label="阅读时间热度条">
@@ -1001,11 +1230,11 @@ function StatsPage({
               ))}
           </div>
         ) : (
-          <p className="empty-hint">暂无趋势数据。打开一本书读一会儿，这里会自动长出记录。</p>
+          <p className="stats-empty">暂无数据</p>
         )}
       </section>
 
-      <section className="stats-card reading-timeline">
+      <section className="stats-card reading-timeline stats-lite-card">
         <div className="section-heading">
           <h2>阅读时间线</h2>
           <span>最近记录</span>
@@ -1026,13 +1255,13 @@ function StatsPage({
             ))}
           </div>
         ) : (
-          <p className="empty-hint">还没有阅读 session。进入阅读页并返回后，会生成可追踪的阅读记录。</p>
+          <p className="stats-empty">暂无数据</p>
         )}
       </section>
 
-      <section className="stats-card book-ranking-list">
+      <section className="stats-card book-ranking-list stats-lite-card">
         <div className="section-heading">
-          <h2>书籍排行</h2>
+          <h2>阅读时长排行榜</h2>
           <span>按阅读时长</span>
         </div>
         {ranking.length ? (
@@ -1048,11 +1277,11 @@ function StatsPage({
             ))}
           </div>
         ) : (
-          <p className="empty-hint">暂无排行。读过的书会按时长自动排在这里。</p>
+          <p className="stats-empty">暂无数据</p>
         )}
       </section>
 
-      <section className="stats-card note-insight-list">
+      <section className="stats-card note-insight-list stats-lite-card">
         <div className="section-heading">
           <h2>灵感与笔记</h2>
           <span>阅读沉淀</span>
@@ -1071,7 +1300,7 @@ function StatsPage({
             ))}
           </div>
         ) : (
-          <p className="empty-hint">还没有沉淀。阅读页选中文字后，可以直接记为灵感或笔记。</p>
+          <p className="stats-empty">暂无数据</p>
         )}
       </section>
     </div>
@@ -1104,6 +1333,7 @@ function ProfilePage({
   onMessage: (value: string) => void;
 }) {
   const [webdav, setWebdav] = useState({ endpoint: "", username: "", password: "" });
+  const [activePage, setActivePage] = useState<"sync" | "webdav" | undefined>();
   const webdavAccount: SyncAccount = snapshot.syncAccounts.find((item) => item.provider === "webdav") ?? {
     id: "webdav-preview",
     provider: "webdav",
@@ -1154,17 +1384,128 @@ function ProfilePage({
     }
   };
 
+  const showComingSoon = (label: string) => onMessage(`${label} 会作为二级页面逐步补齐，本轮先整理一级页面。`);
+  const menuGroups: Array<{
+    title: string;
+    items: Array<{ label: string; desc?: string; icon: ReactNode; action?: () => void }>;
+  }> = [
+    {
+      title: "数据管理",
+      items: [
+        { label: "同步状态", desc: paired ? "已连接电脑" : "从未同步", icon: <RefreshCw size={20} />, action: () => setActivePage("sync") },
+        { label: "WebDAV 设置", desc: webdavAccount.endpoint ? "已配置账号" : "未配置", icon: <Cloud size={20} />, action: () => setActivePage("webdav") },
+        { label: "标签管理", icon: <Tags size={20} />, action: () => showComingSoon("标签管理") },
+        { label: "分类管理", icon: <FolderTree size={20} />, action: () => showComingSoon("分类管理") },
+        { label: "书单管理", icon: <BookOpen size={20} />, action: () => showComingSoon("书单管理") },
+        { label: "我的阅读", icon: <Book size={20} />, action: () => showComingSoon("我的阅读") },
+        { label: "我的书评 / 笔记", desc: `${snapshot.notes.length} 条`, icon: <MessageSquare size={20} />, action: () => showComingSoon("我的书评 / 笔记") }
+      ]
+    },
+    {
+      title: "工具",
+      items: [
+        { label: "AI 助手", icon: <Sparkles size={20} />, action: () => showComingSoon("AI 助手") },
+        { label: "语音朗读", icon: <Headphones size={20} />, action: () => showComingSoon("语音朗读") },
+        { label: "翻译引擎", icon: <Languages size={20} />, action: () => showComingSoon("翻译引擎") }
+      ]
+    },
+    {
+      title: "外观",
+      items: [
+        { label: "应用外观", desc: "系统", icon: <Moon size={20} />, action: () => showComingSoon("应用外观") },
+        { label: "主题配色", icon: <Palette size={20} />, action: () => showComingSoon("主题配色") }
+      ]
+    },
+    {
+      title: "系统资源",
+      items: [
+        { label: "存储管理", icon: <Database size={20} />, action: () => showComingSoon("存储管理") },
+        { label: "隐私安全", icon: <Shield size={20} />, action: () => showComingSoon("隐私安全") },
+        { label: "关于", icon: <Info size={20} />, action: () => showComingSoon("关于") }
+      ]
+    }
+  ];
+
+  if (activePage === "sync") {
+    return (
+      <div className="screen-stack profile-subpage">
+        <header className="mobile-header row-header subpage-header">
+          <button className="ghost-button back-button" onClick={() => setActivePage(undefined)}>
+            ← 返回
+          </button>
+          <div>
+            <p className="mini-label">局域网同步</p>
+            <h1>同步状态</h1>
+          </div>
+        </header>
+
+        <section className="subpage-card">
+          <div className="sync-sheet-summary">
+            <article>
+              <Wifi size={18} />
+              <span>{paired ? "已连接电脑" : "未连接电脑"}</span>
+            </article>
+            <article>
+              <Download size={18} />
+              <span>{pendingDownloadCount} 本待下载正文</span>
+            </article>
+          </div>
+          <p className="subtle">电脑端开启同步服务后，可以扫码或粘贴配对 URL。同步只更新书架、灵感和进度，书籍正文可在书架按需下载。</p>
+          <textarea value={pairingText} onChange={(event) => onPairingTextChange(event.target.value)} placeholder="粘贴电脑端配对 URL 或二维码载荷" />
+          <div className="button-row sheet-actions">
+            <button onClick={onScanQr}>扫码</button>
+            <button onClick={onConnectLan}>连接电脑</button>
+            <button disabled={!paired} onClick={onSyncDesktop}>
+              立即同步
+            </button>
+          </div>
+          <details className="sync-log-panel">
+            <summary>同步日志 / 最近一次错误</summary>
+            {syncLogs.length ? syncLogs.map((item) => <p key={item}>{item}</p>) : <p>暂无同步日志。</p>}
+          </details>
+        </section>
+      </div>
+    );
+  }
+
+  if (activePage === "webdav") {
+    return (
+      <div className="screen-stack profile-subpage">
+        <header className="mobile-header row-header subpage-header">
+          <button className="ghost-button back-button" onClick={() => setActivePage(undefined)}>
+            ← 返回
+          </button>
+          <div>
+            <p className="mini-label">跨设备备份</p>
+            <h1>WebDAV 设置</h1>
+          </div>
+        </header>
+
+        <section className="subpage-card">
+          <p className="subtle">同步目录固定为 .creation-reading-assistant/，会上传 manifest、records 和 books。AI Key 不参与同步。</p>
+          <input value={webdav.endpoint} onChange={(event) => setWebdav((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://example.com/dav" />
+          <input value={webdav.username} onChange={(event) => setWebdav((current) => ({ ...current, username: event.target.value }))} placeholder="用户名" />
+          <input type="password" value={webdav.password} onChange={(event) => setWebdav((current) => ({ ...current, password: event.target.value }))} placeholder="密码或 token（仅本次使用）" />
+          <div className="button-row sheet-actions">
+            <button onClick={() => void testWebDav()}><Wifi size={17} />测试</button>
+            <button onClick={() => void uploadWebDav()}><Upload size={17} />上传</button>
+            <button onClick={() => void downloadWebDav()}><Download size={17} />下载</button>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
   return (
     <div className="screen-stack">
-      <header className="mobile-header row-header">
-        <div>
-          <p className="mini-label">本地档案</p>
-          <h1>我的</h1>
-        </div>
-        <button className="round-action">…</button>
+      <header className="mobile-header row-header profile-topbar">
+        <h1>我的</h1>
+        <button className="round-action" aria-label="更多">
+          <MoreHorizontal size={22} />
+        </button>
       </header>
 
-      <section className="profile-card">
+      <section className="profile-card compact-profile-card">
         <div className="avatar">人</div>
         <div>
           <h2>创作阅读者</h2>
@@ -1173,55 +1514,34 @@ function ProfilePage({
       </section>
 
       <section className="profile-grid">
-        <article>
+        <button onClick={() => setActivePage("sync")}>
           <strong>同步</strong>
           <span>{paired ? "local-desktop-lan 已连接" : "从未同步"}</span>
-        </article>
-        <article>
+        </button>
+        <button onClick={() => showComingSoon("笔记")}>
           <strong>笔记</strong>
           <span>{snapshot.notes.length} 条</span>
-        </article>
+        </button>
       </section>
 
-      <section className="settings-card">
-        <h2>扫码连接电脑</h2>
-        <p className="subtle">电脑端开启同步服务后，可以直接扫码；如果相机不可用，也可以粘贴配对 URL 或二维码载荷。手机会自动尝试电脑端提供的所有备用地址。</p>
-        <p className="subtle">当前有 {pendingDownloadCount} 本书尚未下载正文；同步只更新书架和进度，阅读前可在书架点“下载正文”。</p>
-        <textarea value={pairingText} onChange={(event) => onPairingTextChange(event.target.value)} placeholder="粘贴电脑端配对 URL 或二维码载荷" />
-        <div className="button-row">
-          <button onClick={onScanQr}>扫码</button>
-          <button onClick={onConnectLan}>连接电脑</button>
-          <button disabled={!paired} onClick={onSyncDesktop}>
-            立即同步
-          </button>
-        </div>
-        <details className="sync-log-panel">
-          <summary>同步日志 / 最近一次错误</summary>
-          {syncLogs.length ? syncLogs.map((item) => <p key={item}>{item}</p>) : <p>暂无同步日志。</p>}
-        </details>
-      </section>
+      {menuGroups.map((group) => (
+        <section className="profile-menu-group" key={group.title}>
+          <h2>{group.title}</h2>
+          <div className="menu-list profile-menu-list">
+            {group.items.map((item) => (
+              <button key={item.label} onClick={item.action}>
+                <span className="profile-menu-icon">{item.icon}</span>
+                <span className="profile-menu-text">
+                  <strong>{item.label}</strong>
+                  {item.desc && <small>{item.desc}</small>}
+                </span>
+                <ChevronRight size={18} />
+              </button>
+            ))}
+          </div>
+        </section>
+      ))}
 
-      <section className="settings-card">
-        <h2>WebDAV 设置</h2>
-        <p className="subtle">同步目录固定为 .creation-reading-assistant/，会上传 manifest、records 和 books。AI Key 不参与同步。</p>
-        <input value={webdav.endpoint} onChange={(event) => setWebdav((current) => ({ ...current, endpoint: event.target.value }))} placeholder="https://example.com/dav" />
-        <input value={webdav.username} onChange={(event) => setWebdav((current) => ({ ...current, username: event.target.value }))} placeholder="用户名" />
-        <input type="password" value={webdav.password} onChange={(event) => setWebdav((current) => ({ ...current, password: event.target.value }))} placeholder="密码或 token（仅本次使用）" />
-        <div className="button-row">
-          <button onClick={() => void testWebDav()}>测试连接</button>
-          <button onClick={() => void uploadWebDav()}>上传</button>
-          <button onClick={() => void downloadWebDav()}>下载</button>
-        </div>
-      </section>
-
-      <section className="menu-list">
-        {["标签管理", "分类管理", "书单管理", "我的阅读", "我的书评 / 笔记", "AI 设置", "数据导入导出"].map((item) => (
-          <button key={item}>
-            <span>{item}</span>
-            <strong>›</strong>
-          </button>
-        ))}
-      </section>
     </div>
   );
 }
@@ -1342,6 +1662,8 @@ function MobileReaderView({
   const readerSessionStartRef = useRef(Date.now());
   const readerSessionStartProgressRef = useRef(progressFor(snapshot, book.id));
   const lastReaderActivityRef = useRef(Date.now());
+  const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
+  const pinchStartRef = useRef<{ distance: number; fontSize: number } | null>(null);
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
   const [readerDrawerTab, setReaderDrawerTab] = useState<ReaderDrawerTab>("toc");
@@ -1355,6 +1677,7 @@ function MobileReaderView({
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
   const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
+  const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const readerSearchResults = useMemo(() => createReaderSearchResults(document, readerSearchQuery), [document, readerSearchQuery]);
 
   useEffect(() => {
@@ -1421,7 +1744,7 @@ function MobileReaderView({
     };
   }, [settings.keepAwake]);
 
-  const captureSelection = () => {
+  const captureSelection = (_event?: React.SyntheticEvent) => {
     lastReaderActivityRef.current = Date.now();
     const text = window.getSelection()?.toString().trim() ?? "";
     setSelectionText(text.slice(0, 800));
@@ -1506,6 +1829,68 @@ function MobileReaderView({
 
   const runForwardAction = () => {
     settings.readerMode === "paged" ? turnReaderPage(1) : moveChapter(1);
+  };
+
+  /* Gesture: swipe left/right to navigate */
+  const handleReaderTouchStart = (event: React.TouchEvent<HTMLElement>) => {
+    lastReaderActivityRef.current = Date.now();
+    const touches = event.touches;
+    if (touches.length === 2) {
+      // Pinch start
+      const distance = Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+      pinchStartRef.current = { distance, fontSize: settings.fontSize };
+      return;
+    }
+    if (touches.length === 1) {
+      swipeStartRef.current = { x: touches[0].clientX, y: touches[0].clientY, time: Date.now() };
+    }
+  };
+
+  const handleReaderTouchMove = (event: React.TouchEvent<HTMLElement>) => {
+    const touches = event.touches;
+    if (touches.length === 2 && pinchStartRef.current) {
+      // Pinch to zoom font size
+      const distance = Math.hypot(
+        touches[0].clientX - touches[1].clientX,
+        touches[0].clientY - touches[1].clientY
+      );
+      const ratio = distance / pinchStartRef.current.distance;
+      const nextFontSize = Math.round(pinchStartRef.current.fontSize * ratio);
+      const clamped = Math.max(12, Math.min(36, nextFontSize));
+      if (clamped !== settings.fontSize) {
+        onSettingsChange({ ...settings, fontSize: clamped });
+      }
+    }
+  };
+
+  const handleReaderTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
+    pinchStartRef.current = null;
+    if (!swipeStartRef.current) return;
+    const touches = event.changedTouches;
+    if (!touches.length) { swipeStartRef.current = null; return; }
+    const dx = touches[0].clientX - swipeStartRef.current.x;
+    const dy = touches[0].clientY - swipeStartRef.current.y;
+    const elapsed = Date.now() - swipeStartRef.current.time;
+    const absDx = Math.abs(dx);
+    const absDy = Math.abs(dy);
+    swipeStartRef.current = null;
+
+    // Need at least 50px horizontal, within 400ms, and more horizontal than vertical
+    if (absDx < 50 || elapsed > 400 || absDy > absDx) return;
+
+    if (dx > 0) {
+      // Swipe right → backward
+      setSwipeDirection("right");
+      runBackwardAction();
+    } else {
+      // Swipe left → forward
+      setSwipeDirection("left");
+      runForwardAction();
+    }
+    setTimeout(() => setSwipeDirection(null), 300);
   };
 
   const handleReaderTap = (event: MouseEvent<HTMLElement>) => {
@@ -1762,11 +2147,16 @@ function MobileReaderView({
 
       <section
         ref={scrollRef}
-        className="reader-scroll-container"
+        className={`reader-scroll-container ${swipeDirection ? `swipe-${swipeDirection}` : ""}`}
         onClick={handleReaderTap}
         onScroll={handleReaderScroll}
         onMouseUp={captureSelection}
-        onTouchEnd={captureSelection}
+        onTouchStart={handleReaderTouchStart}
+        onTouchMove={handleReaderTouchMove}
+        onTouchEnd={(event) => {
+          captureSelection(event);
+          handleReaderTouchEnd(event);
+        }}
       >
         <article
           className="reader-content"
@@ -1841,28 +2231,28 @@ function MobileReaderView({
         )}
         <div className="reader-actions">
           <button onClick={() => void addReaderInspiration()}>
-            ✦<span>记为灵感</span>
+            <Sparkles size={16} /><span>记为灵感</span>
           </button>
           <button onClick={() => openReaderDrawer("toc")}>
-            ☰<span>目录</span>
+            <Menu size={16} /><span>目录</span>
           </button>
           <button onClick={() => openReaderDrawer("search")}>
-            ⌕<span>搜索</span>
+            <Search size={16} /><span>搜索</span>
           </button>
           <button onClick={() => void addReaderBookmark()}>
-            ☆<span>书签</span>
+            <Star size={16} /><span>书签</span>
           </button>
           <button onClick={() => openReaderDrawer("notes")}>
-            ✎<span>笔记</span>
+            <Edit3 size={16} /><span>笔记</span>
           </button>
           <button onClick={() => void saveProgress(currentProgress)}>
-            ✓<span>保存进度</span>
+            <Check size={16} /><span>保存进度</span>
           </button>
           <button onClick={() => onSettingsChange({ ...settings, readerBackground: settings.readerBackground === "night" ? "warm" : "night" })}>
-            ☾<span>夜间</span>
+            <Moon size={16} /><span>夜间</span>
           </button>
           <button onClick={() => setShowSettings(true)}>
-            ⚙<span>设置</span>
+            <Settings size={16} /><span>设置</span>
           </button>
         </div>
       </footer>

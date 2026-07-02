@@ -102,6 +102,7 @@ export interface MobileSnapshot {
   categories: MobileCategory[];
   shelves: MobileShelf[];
   syncAccounts: SyncAccount[];
+  readingGoals: MobileReadingGoal[];
   updatedAt: string;
 }
 
@@ -117,6 +118,17 @@ export interface MobileReaderSettings {
   showProgressBar: boolean;
   keepAwake: boolean;
   brightness: number;
+}
+
+export interface MobileReadingGoal {
+  id: string;
+  type: "daily" | "weekly" | "monthly";
+  targetMinutes: number;
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+  deviceId: string;
+  deletedAt?: string;
 }
 
 export interface ImportedMobileBook {

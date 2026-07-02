@@ -8,6 +8,7 @@ import type {
   MobileCategory,
   MobileInspiration,
   MobileNote,
+  MobileReadingGoal,
   MobileReadingProgress,
   MobileReadingSession,
   MobileSnapshot,
@@ -33,6 +34,7 @@ const emptySnapshot = (): MobileSnapshot => ({
   categories: [],
   shelves: [],
   syncAccounts: [],
+  readingGoals: [],
   updatedAt: new Date().toISOString()
 });
 
@@ -60,6 +62,7 @@ export function normalizeMobileSnapshot(input?: Partial<MobileSnapshot>): Mobile
     categories: Array.isArray(input?.categories) ? input.categories : [],
     shelves: Array.isArray(input?.shelves) ? input.shelves : [],
     syncAccounts: Array.isArray(input?.syncAccounts) ? input.syncAccounts : [],
+    readingGoals: Array.isArray(input?.readingGoals) ? input.readingGoals : [],
     updatedAt: typeof input?.updatedAt === "string" ? input.updatedAt : fallback.updatedAt
   };
 }
@@ -401,6 +404,111 @@ export async function saveMobileReadingProgress(snapshot: MobileSnapshot, book: 
   return next;
 }
 
+export async function updateMobileInspiration(
+  snapshot: MobileSnapshot,
+  inspirationId: string,
+  input: {
+    title?: string;
+    body?: string;
+    tags?: string[];
+    type?: MobileInspiration["type"];
+    status?: MobileInspiration["status"];
+  }
+): Promise<MobileSnapshot> {
+  const current = snapshot.inspirations.find((item) => item.id === inspirationId);
+  if (!current) return snapshot;
+  const updatedAt = nowIso();
+  const updated: MobileInspiration = {
+    ...current,
+    title: input.title !== undefined ? (input.title.trim() || current.title) : current.title,
+    body: input.body !== undefined ? (input.body.trim() ?? current.body) : current.body,
+    tags: input.tags ?? current.tags,
+    type: input.type ?? current.type,
+    status: input.status ?? current.status,
+    updatedAt,
+    revision: (current.revision ?? 0) + 1
+  };
+  const next = {
+    ...snapshot,
+    inspirations: [updated, ...snapshot.inspirations.filter((item) => item.id !== inspirationId)],
+    updatedAt
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function deleteMobileInspiration(snapshot: MobileSnapshot, inspirationId: string): Promise<MobileSnapshot> {
+  const next = {
+    ...snapshot,
+    inspirations: snapshot.inspirations.filter((item) => item.id !== inspirationId),
+    updatedAt: nowIso()
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function deleteMobileNote(snapshot: MobileSnapshot, noteId: string): Promise<MobileSnapshot> {
+  const target = snapshot.notes.find((item) => item.id === noteId);
+  if (!target) return snapshot;
+  const updatedAt = nowIso();
+  const deleted = { ...target, deletedAt: updatedAt };
+  const next = {
+    ...snapshot,
+    notes: [deleted, ...snapshot.notes.filter((item) => item.id !== noteId)],
+    updatedAt
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function exportMobileSnapshot(snapshot: MobileSnapshot): Promise<string> {
+  return JSON.stringify(snapshot, null, 2);
+}
+
+export async function importMobileSnapshot(currentSnapshot: MobileSnapshot, json: string): Promise<MobileSnapshot> {
+  try {
+    const parsed = JSON.parse(json) as Partial<MobileSnapshot>;
+    const imported = normalizeMobileSnapshot(parsed);
+    const merged: MobileSnapshot = {
+      inspirations: [...currentSnapshot.inspirations, ...imported.inspirations].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      books: [...currentSnapshot.books, ...imported.books].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      progress: [...currentSnapshot.progress, ...imported.progress].filter(
+        (item, index, array) => array.findIndex((dup) => dup.bookId === item.bookId) === index
+      ),
+      sessions: [...currentSnapshot.sessions, ...imported.sessions].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      notes: [...currentSnapshot.notes, ...imported.notes].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      tags: [...currentSnapshot.tags, ...imported.tags].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      categories: [...currentSnapshot.categories, ...imported.categories].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      shelves: [...currentSnapshot.shelves, ...imported.shelves].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      syncAccounts: [...currentSnapshot.syncAccounts, ...imported.syncAccounts].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      readingGoals: [...currentSnapshot.readingGoals, ...imported.readingGoals].filter(
+        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
+      ),
+      updatedAt: nowIso()
+    };
+    await saveMobileSnapshot(merged);
+    return merged;
+  } catch {
+    return currentSnapshot;
+  }
+}
+
 export async function addMobileReadingSession(snapshot: MobileSnapshot, book: LibraryBook, durationMs: number, progressPercent: number): Promise<MobileSnapshot> {
   const createdAt = nowIso();
   const location = createReadingLocation(book.format, progressPercent);
@@ -481,6 +589,43 @@ export async function saveSyncAccount(snapshot: MobileSnapshot, account: Omit<Sy
   const next = {
     ...snapshot,
     syncAccounts: [nextAccount, ...snapshot.syncAccounts.filter((item) => item.provider !== account.provider)],
+    updatedAt: timestamp
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function addMobileReadingGoal(
+  snapshot: MobileSnapshot,
+  input: {
+    type: MobileReadingGoal["type"];
+    targetMinutes: number;
+  }
+): Promise<MobileSnapshot> {
+  const timestamp = nowIso();
+  const goal: MobileReadingGoal = {
+    id: `mobile-goal-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    type: input.type,
+    targetMinutes: input.targetMinutes,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+    revision: 1,
+    deviceId: getMobileDeviceId()
+  };
+  const next = {
+    ...snapshot,
+    readingGoals: [goal, ...snapshot.readingGoals],
+    updatedAt: timestamp
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function deleteMobileReadingGoal(snapshot: MobileSnapshot, goalId: string): Promise<MobileSnapshot> {
+  const timestamp = nowIso();
+  const next = {
+    ...snapshot,
+    readingGoals: snapshot.readingGoals.filter((item) => item.id !== goalId),
     updatedAt: timestamp
   };
   await saveMobileSnapshot(next);
