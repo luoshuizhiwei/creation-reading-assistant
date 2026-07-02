@@ -1497,6 +1497,30 @@ function MobileReaderView({
     onMessage("已保存当前书籍的阅读笔记。");
   };
 
+  const searchSelectedText = () => {
+    const keyword = selectionText.trim();
+    if (!keyword) return;
+    setReaderSearchQuery(keyword.slice(0, 80));
+    openReaderDrawer("search");
+  };
+
+  const copySelectedText = async () => {
+    const text = selectionText.trim();
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      setReaderNotice("已复制选中文字。");
+      onMessage("已复制选中文字。");
+    } catch {
+      setReaderNotice("复制失败，请使用系统选择菜单复制。");
+    }
+  };
+
+  const clearSelectedText = () => {
+    window.getSelection()?.removeAllRanges();
+    setSelectionText("");
+  };
+
   const closeReader = async () => {
     const saved = await saveMobileReadingProgress(snapshot, book, currentProgress);
     const next = await addMobileReadingSession(saved, book as LibraryBook, 30_000, currentProgress);
@@ -1509,6 +1533,7 @@ function MobileReaderView({
   const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
   const bookNotes = snapshot.notes.filter((item) => item.bookId === book.id && item.kind !== "bookmark");
   const bookBookmarks = snapshot.notes.filter((item) => item.bookId === book.id && item.kind === "bookmark");
+  const showSelectionToolbar = Boolean(selectionText) && !showToc && !showSettings;
 
   return (
     <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
@@ -1668,6 +1693,19 @@ function MobileReaderView({
               查看灵感
             </button>
             <button onClick={() => setReaderNotice("")}>继续阅读</button>
+          </div>
+        </section>
+      )}
+
+      {showSelectionToolbar && (
+        <section className="reader-selection-toolbar" role="toolbar" aria-label="选中文字操作">
+          <p>{selectionText.slice(0, 42)}{selectionText.length > 42 ? "…" : ""}</p>
+          <div>
+            <button onClick={() => void addReaderInspiration()}>记灵感</button>
+            <button onClick={() => void addReaderNote()}>存笔记</button>
+            <button onClick={searchSelectedText}>搜索</button>
+            <button onClick={() => void copySelectedText()}>复制</button>
+            <button className="ghost-button" onClick={clearSelectedText}>清除</button>
           </div>
         </section>
       )}

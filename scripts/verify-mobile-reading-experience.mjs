@@ -28,6 +28,9 @@ assertIncludes("mobile/src/App.tsx", "jumpToReaderSearchResult", "Reader search 
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"search\"", "Reader drawer must expose an in-book search tab.");
 assertIncludes("mobile/src/App.tsx", "addReaderBookmark", "Reader must allow adding bookmarks at the current location.");
 assertIncludes("mobile/src/App.tsx", "addReaderNote", "Reader must allow saving reading notes.");
+assertIncludes("mobile/src/App.tsx", "reader-selection-toolbar", "Reader must expose quick actions after text selection.");
+assertIncludes("mobile/src/App.tsx", "searchSelectedText", "Selected text must be reusable for in-book search.");
+assertIncludes("mobile/src/App.tsx", "copySelectedText", "Selected text quick toolbar must support copy feedback.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"bookmarks\"", "Reader drawer must expose a bookmarks tab.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"notes\"", "Reader drawer must expose a notes tab.");
 assertIncludes("mobile/src/App.tsx", "handleReaderTap", "Reader must use tap zones instead of only toolbar buttons.");
@@ -55,6 +58,7 @@ assertIncludes("mobile/src/styles.css", ".reader-drawer-tabs", "Reader drawer ta
 assertIncludes("mobile/src/styles.css", ".reader-search-panel", "Reader in-book search panel must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-search-results", "Reader search results must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-note-item", "Reader notes and bookmarks must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-selection-toolbar", "Reader selected-text quick toolbar must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-actions::-webkit-scrollbar", "Reader action bar must be horizontally scrollable instead of cramped on small phones.");
 assertIncludes("mobile/src/styles.css", ".reader-progress-chip", "Reader chapter/progress chip must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-zone-guide", "Reader tap-zone hints must be styled.");
