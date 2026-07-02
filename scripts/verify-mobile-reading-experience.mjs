@@ -31,6 +31,9 @@ assertIncludes("mobile/src/App.tsx", "addReaderNote", "Reader must allow saving 
 assertIncludes("mobile/src/App.tsx", "reader-selection-toolbar", "Reader must expose quick actions after text selection.");
 assertIncludes("mobile/src/App.tsx", "searchSelectedText", "Selected text must be reusable for in-book search.");
 assertIncludes("mobile/src/App.tsx", "copySelectedText", "Selected text quick toolbar must support copy feedback.");
+assertIncludes("mobile/src/App.tsx", "readerSessionStartRef", "Reader must track real session duration instead of writing fake fixed sessions.");
+assertIncludes("mobile/src/App.tsx", "activeReadingMs", "Reader bottom sheet must show live reading time.");
+assertIncludes("mobile/src/App.tsx", "readerSpeed", "Reader bottom sheet must estimate live reading speed from progress movement.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"bookmarks\"", "Reader drawer must expose a bookmarks tab.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"notes\"", "Reader drawer must expose a notes tab.");
 assertIncludes("mobile/src/App.tsx", "handleReaderTap", "Reader must use tap zones instead of only toolbar buttons.");

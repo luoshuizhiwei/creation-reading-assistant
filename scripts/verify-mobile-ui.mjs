@@ -30,5 +30,14 @@ assertIncludes("mobile/src/styles.css", "width: min(100%, 560px)", "Mobile pages
 assertIncludes("mobile/src/styles.css", ".reader-bottom-sheet", "Mobile reader must use a reader-app style bottom sheet instead of a web-form toolbar.");
 assertIncludes("mobile/src/App.tsx", "reader-stat-row", "Mobile reader must expose compact reading stats like native reading apps.");
 assertIncludes("mobile/src/App.tsx", "保存进度", "Mobile reader must keep progress saving available from the reader controls.");
+assertIncludes("mobile/src/services/mobile-stats.ts", "export type StatsPeriod", "Mobile stats logic must be extracted from App.tsx for maintainability.");
+assertIncludes("mobile/src/services/mobile-stats.ts", "buildReadingTimeline", "Stats page must build a real reading timeline from sessions.");
+assertIncludes("mobile/src/services/mobile-stats.ts", "buildBookRanking", "Stats page must expose book ranking instead of a placeholder trend card.");
+assertIncludes("mobile/src/App.tsx", "reading-heat-strip", "Stats page must show a compact reading heat strip.");
+assertIncludes("mobile/src/App.tsx", "reading-timeline", "Stats page must show reading timeline records.");
+assertIncludes("mobile/src/App.tsx", "book-ranking-list", "Stats page must show book ranking.");
+assertIncludes("mobile/src/App.tsx", "note-insight-list", "Stats page must show inspiration and note insights.");
+assertIncludes("mobile/src/styles.css", ".stats-period-tabs", "Stats page must keep mobile period tabs polished.");
+assertIncludes("mobile/src/styles.css", ".reading-timeline-item", "Stats timeline must use mobile list styling.");
 
 console.log("[verify-mobile-ui] Mobile Reeden-style UI guards verified.");

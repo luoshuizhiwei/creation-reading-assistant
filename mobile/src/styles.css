@@ -840,7 +840,7 @@ textarea {
   box-shadow: 0 8px 18px rgba(34, 25, 21, 0.1);
 }
 
-.stats-card h2 {
+.stats-card > h2 {
   text-align: center;
   margin-bottom: 1rem;
 }
@@ -858,6 +858,135 @@ textarea {
 .stats-grid span,
 .profile-grid span {
   color: var(--muted);
+}
+
+.stats-period-tabs {
+  position: sticky;
+  top: max(0.6rem, env(safe-area-inset-top));
+  z-index: 2;
+  box-shadow: 0 10px 24px rgba(73, 42, 22, 0.08);
+}
+
+.reading-heat-strip {
+  overflow: hidden;
+}
+
+.reading-heat-strip .section-heading span,
+.book-ranking-list .section-heading span,
+.note-insight-list .section-heading span,
+.reading-timeline .section-heading span {
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+.heat-bars {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(22px, 1fr));
+  align-items: end;
+  gap: 0.38rem;
+  min-height: 142px;
+  margin-top: 1rem;
+  border-radius: 22px;
+  background: linear-gradient(180deg, rgba(154, 98, 48, 0.08), rgba(255, 250, 241, 0.3));
+  padding: 0.78rem 0.7rem 0.55rem;
+}
+
+.heat-bar-wrap {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  justify-items: center;
+  align-items: end;
+  gap: 0.35rem;
+  min-height: 118px;
+}
+
+.heat-bar {
+  width: 100%;
+  max-width: 26px;
+  border-radius: 999px 999px 6px 6px;
+  background: linear-gradient(180deg, #b88149, #6f3f20);
+  box-shadow: 0 8px 18px rgba(154, 98, 48, 0.18);
+}
+
+.heat-bar-wrap small {
+  color: var(--muted);
+  font-size: 0.68rem;
+  writing-mode: vertical-rl;
+}
+
+.timeline-list,
+.ranking-list,
+.insight-list {
+  display: grid;
+  gap: 0.74rem;
+  margin-top: 0.9rem;
+}
+
+.reading-timeline-item,
+.book-ranking-item,
+.note-insight-item {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 0.72rem;
+  border-radius: 20px;
+  background: rgba(255, 255, 255, 0.44);
+  padding: 0.78rem;
+}
+
+.reading-timeline-item strong,
+.book-ranking-item strong,
+.note-insight-item strong {
+  display: block;
+  overflow: hidden;
+  color: var(--ink);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reading-timeline-item p,
+.book-ranking-item p,
+.note-insight-item p {
+  display: -webkit-box;
+  margin: 0.2rem 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.reading-timeline-item small,
+.note-insight-item small {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--muted);
+}
+
+.timeline-dot {
+  width: 0.82rem;
+  height: 0.82rem;
+  margin-top: 0.22rem;
+  border-radius: 50%;
+  background: var(--copper);
+  box-shadow: 0 0 0 6px rgba(154, 98, 48, 0.12);
+}
+
+.ranking-index,
+.note-insight-item > span {
+  display: grid;
+  place-items: center;
+  min-width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 14px;
+  background: rgba(154, 98, 48, 0.12);
+  color: var(--copper);
+  font-weight: 850;
+}
+
+.note-insight-item > span {
+  min-width: 2.9rem;
+  padding: 0 0.5rem;
+  font-size: 0.78rem;
 }
 
 .avatar {

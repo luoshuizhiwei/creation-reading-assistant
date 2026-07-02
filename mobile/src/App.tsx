@@ -19,6 +19,15 @@ import {
   saveSyncAccount,
   type MobileSnapshot
 } from "./services/mobile-storage";
+import {
+  buildBookRanking,
+  buildMobileStatsSummary,
+  buildNoteInsights,
+  buildReadingTimeline,
+  getStatsPeriodTitle,
+  statsPeriodLabels,
+  type StatsPeriod
+} from "./services/mobile-stats";
 import { createSyncClient, pairWithFirstReachable, parsePairingCandidates, type PairingInput } from "./services/sync-client";
 import { readMobileBookFile } from "./storage/mobile-files";
 import { downloadWebDavSnapshot, testWebDavConnection, uploadWebDavSnapshot } from "./sync/webdav-sync";
@@ -174,20 +183,7 @@ export function App() {
   }, []);
 
   const client = useMemo(() => (paired ? createSyncClient(paired) : undefined), [paired]);
-  const stats = useMemo(() => {
-    const totalReadingMs = snapshot.progress.reduce((sum, item) => sum + item.totalReadingTimeMs, 0);
-    const readingDays = new Set(snapshot.sessions.map((session) => session.dateKey)).size;
-    const completed = snapshot.progress.filter((item) => item.completionState === "completed").length;
-    const words = snapshot.books.reduce((sum, book) => sum + Math.max(0, Math.round(book.size / 2)), 0);
-    const speed = totalReadingMs > 0 ? Math.round(words / Math.max(1, totalReadingMs / 60_000)) : 0;
-    return {
-      totalReadingMs,
-      readingDays,
-      completed,
-      words,
-      speed
-    };
-  }, [snapshot]);
+  const stats = useMemo(() => buildMobileStatsSummary(snapshot, "total"), [snapshot]);
 
   const appendSyncLog = (entry: string) => {
     const line = `${new Date().toLocaleTimeString("zh-CN", { hour12: false })} · ${entry}`;
@@ -402,7 +398,7 @@ export function App() {
           />
         )}
         {tab === "inspiration" && <InspirationPage snapshot={snapshot} onSnapshotChange={setSnapshot} />}
-        {tab === "stats" && <StatsPage snapshot={snapshot} stats={stats} />}
+        {tab === "stats" && <StatsPage snapshot={snapshot} />}
         {tab === "profile" && (
           <ProfilePage
             snapshot={snapshot}
@@ -937,22 +933,25 @@ function InspirationPage({ snapshot, onSnapshotChange }: { snapshot: MobileSnaps
 }
 
 function StatsPage({
-  snapshot,
-  stats
+  snapshot
 }: {
   snapshot: MobileSnapshot;
-  stats: { totalReadingMs: number; readingDays: number; completed: number; words: number; speed: number };
 }) {
-  const [range, setRange] = useState<"日" | "周" | "月" | "年" | "总">("月");
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("month");
+  const periodStats = useMemo(() => buildMobileStatsSummary(snapshot, statsPeriod), [snapshot, statsPeriod]);
+  const timeline = useMemo(() => buildReadingTimeline(snapshot, statsPeriod), [snapshot, statsPeriod]);
+  const ranking = useMemo(() => buildBookRanking(snapshot, statsPeriod), [snapshot, statsPeriod]);
+  const insights = useMemo(() => buildNoteInsights(snapshot, statsPeriod), [snapshot, statsPeriod]);
+  const maxTimelineMs = Math.max(1, ...timeline.map((item) => item.durationMs));
   const statItems = [
-    ["阅读时间", formatDuration(stats.totalReadingMs)],
-    ["阅读天数", `${stats.readingDays} 天`],
+    ["阅读时间", formatDuration(periodStats.totalReadingMs)],
+    ["阅读天数", `${periodStats.readingDays} 天`],
     ["累计读过", `${snapshot.books.length} 本`],
-    ["读完书籍", `${stats.completed} 本`],
-    ["在读书籍", `${snapshot.progress.filter((item) => item.completionState === "reading").length} 本`],
-    ["记录灵感", `${snapshot.inspirations.length} 条`],
-    ["阅读字数", `${stats.words} 字`],
-    ["阅读速度", `${stats.speed} 字/分钟`]
+    ["读完书籍", `${periodStats.completed} 本`],
+    ["在读书籍", `${periodStats.readingBooks} 本`],
+    ["记录灵感", `${periodStats.inspirationCount} 条`],
+    ["阅读字数", `${periodStats.words} 字`],
+    ["阅读速度", `${periodStats.speed} 字/分钟`]
   ];
   return (
     <div className="screen-stack">
@@ -961,19 +960,19 @@ function StatsPage({
           <p className="mini-label">Reading stats</p>
           <h1>阅读统计</h1>
         </div>
-        <button className="ghost-button">筛选</button>
+        <button className="ghost-button">沉淀 {periodStats.noteCount + periodStats.inspirationCount}</button>
       </header>
 
-      <div className="range-tabs">
-        {(["日", "周", "月", "年", "总"] as const).map((item) => (
-          <button key={item} className={range === item ? "active" : ""} onClick={() => setRange(item)}>
-            {item}
+      <div className="range-tabs stats-period-tabs">
+        {(Object.keys(statsPeriodLabels) as StatsPeriod[]).map((item) => (
+          <button key={item} className={statsPeriod === item ? "active" : ""} onClick={() => setStatsPeriod(item)}>
+            {statsPeriodLabels[item]}
           </button>
         ))}
       </div>
 
       <section className="stats-card">
-        <h2>2026年6月 · {range}</h2>
+        <h2>{getStatsPeriodTitle(statsPeriod)}</h2>
         <div className="stats-grid">
           {statItems.map(([label, value]) => (
             <article key={label}>
@@ -984,12 +983,96 @@ function StatsPage({
         </div>
       </section>
 
-      <section className="trend-card">
+      <section className="trend-card reading-heat-strip">
         <div className="section-heading">
           <h2>阅读时间趋势</h2>
-          <span>▥</span>
+          <span>{periodStats.sessionCount} 次</span>
         </div>
-        <p className="empty-hint">暂无趋势图数据。后续会按阅读 session 绘制日/周/月曲线。</p>
+        {timeline.length ? (
+          <div className="heat-bars" aria-label="阅读时间热度条">
+            {timeline
+              .slice()
+              .reverse()
+              .map((item) => (
+                <div key={item.dateKey} className="heat-bar-wrap">
+                  <span className="heat-bar" style={{ height: `${Math.max(14, (item.durationMs / maxTimelineMs) * 86)}%` }} />
+                  <small>{item.label}</small>
+                </div>
+              ))}
+          </div>
+        ) : (
+          <p className="empty-hint">暂无趋势数据。打开一本书读一会儿，这里会自动长出记录。</p>
+        )}
+      </section>
+
+      <section className="stats-card reading-timeline">
+        <div className="section-heading">
+          <h2>阅读时间线</h2>
+          <span>最近记录</span>
+        </div>
+        {timeline.length ? (
+          <div className="timeline-list">
+            {timeline.map((item) => (
+              <article key={item.dateKey} className="reading-timeline-item">
+                <div className="timeline-dot" />
+                <div>
+                  <strong>{item.label}</strong>
+                  <p>{item.bookTitles.slice(0, 2).join("、") || "未命名书籍"}</p>
+                  <small>
+                    {formatDuration(item.durationMs)} · {item.sessionCount} 次阅读{item.noteCount ? ` · ${item.noteCount} 条笔记` : ""}
+                  </small>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-hint">还没有阅读 session。进入阅读页并返回后，会生成可追踪的阅读记录。</p>
+        )}
+      </section>
+
+      <section className="stats-card book-ranking-list">
+        <div className="section-heading">
+          <h2>书籍排行</h2>
+          <span>按阅读时长</span>
+        </div>
+        {ranking.length ? (
+          <div className="ranking-list">
+            {ranking.map((item, index) => (
+              <article key={item.bookId} className="book-ranking-item">
+                <span className="ranking-index">{index + 1}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.author || item.format} · {formatDuration(item.durationMs)} · {item.progressPercent.toFixed(2)}%</p>
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-hint">暂无排行。读过的书会按时长自动排在这里。</p>
+        )}
+      </section>
+
+      <section className="stats-card note-insight-list">
+        <div className="section-heading">
+          <h2>灵感与笔记</h2>
+          <span>阅读沉淀</span>
+        </div>
+        {insights.length ? (
+          <div className="insight-list">
+            {insights.map((item) => (
+              <article key={`${item.kind}-${item.id}`} className="note-insight-item">
+                <span>{item.kind}</span>
+                <div>
+                  <strong>{item.title}</strong>
+                  <p>{item.excerpt}</p>
+                  {item.bookTitle && <small>来自《{item.bookTitle}》</small>}
+                </div>
+              </article>
+            ))}
+          </div>
+        ) : (
+          <p className="empty-hint">还没有沉淀。阅读页选中文字后，可以直接记为灵感或笔记。</p>
+        )}
       </section>
     </div>
   );
@@ -1256,6 +1339,9 @@ function MobileReaderView({
   const scrollRef = useRef<HTMLElement>(null);
   const progressSaveTimer = useRef<number>();
   const wakeLockRef = useRef<{ release: () => Promise<void> } | undefined>();
+  const readerSessionStartRef = useRef(Date.now());
+  const readerSessionStartProgressRef = useRef(progressFor(snapshot, book.id));
+  const lastReaderActivityRef = useRef(Date.now());
   const [selectionText, setSelectionText] = useState("");
   const [showToc, setShowToc] = useState(false);
   const [readerDrawerTab, setReaderDrawerTab] = useState<ReaderDrawerTab>("toc");
@@ -1265,6 +1351,7 @@ function MobileReaderView({
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
   const [noteDraft, setNoteDraft] = useState("");
   const [readerSearchQuery, setReaderSearchQuery] = useState("");
+  const [activeReadingMs, setActiveReadingMs] = useState(0);
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
   const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
@@ -1279,6 +1366,16 @@ function MobileReaderView({
       cancelled = true;
     };
   }, [book.format, book.title, content]);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      const idleMs = Date.now() - lastReaderActivityRef.current;
+      if (idleMs < 45_000) {
+        setActiveReadingMs(Date.now() - readerSessionStartRef.current);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -1325,6 +1422,7 @@ function MobileReaderView({
   }, [settings.keepAwake]);
 
   const captureSelection = () => {
+    lastReaderActivityRef.current = Date.now();
     const text = window.getSelection()?.toString().trim() ?? "";
     setSelectionText(text.slice(0, 800));
   };
@@ -1339,6 +1437,7 @@ function MobileReaderView({
   const jumpToChapter = (target: MobileReaderDocument["toc"][number] | undefined) => {
     const element = scrollRef.current;
     if (!element || !target) return;
+    lastReaderActivityRef.current = Date.now();
     const chapterElement = element.querySelector<HTMLElement>(`#${target.id}`);
     if (chapterElement) {
       element.scrollTo({ top: Math.max(0, chapterElement.offsetTop - 72), behavior: "smooth" });
@@ -1350,6 +1449,7 @@ function MobileReaderView({
   const jumpToSearchResult = (result: ReaderSearchResult) => {
     const element = scrollRef.current;
     if (!element) return;
+    lastReaderActivityRef.current = Date.now();
     const jumped = jumpToReaderSearchResult(element, readerSearchQuery, result.occurrenceIndex);
     if (!jumped) scrollToPercent(element, result.progressPercent);
     setCurrentProgress(result.progressPercent);
@@ -1389,6 +1489,7 @@ function MobileReaderView({
   const handleReaderScroll = () => {
     const element = scrollRef.current;
     if (!element) return;
+    lastReaderActivityRef.current = Date.now();
     const nextProgress = calculateScrollProgress(element);
     setCurrentProgress(nextProgress);
     setCurrentChapter(findCurrentChapter(document, element));
@@ -1408,6 +1509,7 @@ function MobileReaderView({
   };
 
   const handleReaderTap = (event: MouseEvent<HTMLElement>) => {
+    lastReaderActivityRef.current = Date.now();
     if ((window.getSelection()?.toString().trim() ?? "").length > 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -1522,8 +1624,9 @@ function MobileReaderView({
   };
 
   const closeReader = async () => {
+    const elapsedMs = Math.max(1000, Date.now() - readerSessionStartRef.current);
     const saved = await saveMobileReadingProgress(snapshot, book, currentProgress);
-    const next = await addMobileReadingSession(saved, book as LibraryBook, 30_000, currentProgress);
+    const next = await addMobileReadingSession(saved, book as LibraryBook, elapsedMs, currentProgress);
     onSnapshotChange(next);
     onBack();
   };
@@ -1534,6 +1637,10 @@ function MobileReaderView({
   const bookNotes = snapshot.notes.filter((item) => item.bookId === book.id && item.kind !== "bookmark");
   const bookBookmarks = snapshot.notes.filter((item) => item.bookId === book.id && item.kind === "bookmark");
   const showSelectionToolbar = Boolean(selectionText) && !showToc && !showSettings;
+  const savedBookReadingMs = snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0;
+  const sessionProgressDelta = Math.max(0, currentProgress - readerSessionStartProgressRef.current);
+  const sessionWords = Math.round(document.wordCount * sessionProgressDelta / 100);
+  const readerSpeed = activeReadingMs > 0 && sessionWords > 0 ? Math.round(sessionWords / Math.max(1, activeReadingMs / 60_000)) : 0;
 
   return (
     <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
@@ -1545,7 +1652,7 @@ function MobileReaderView({
         <div>
           <strong>{book.title}</strong>
           <p>
-            {book.format.toUpperCase()} · {progressLabel}
+            {book.format.toUpperCase()} · {progressLabel} · 本次 {formatDuration(activeReadingMs)}
           </p>
         </div>
         <div className="reader-topbar-actions">
@@ -1713,7 +1820,7 @@ function MobileReaderView({
       <footer className="reader-bottom-sheet">
         <div className="reader-stat-row">
           <span>
-            <strong>{formatDuration(snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0)}</strong>
+            <strong>{formatDuration(savedBookReadingMs + activeReadingMs)}</strong>
             阅读时长
           </span>
           <span>
@@ -1721,7 +1828,7 @@ function MobileReaderView({
             阅读进度
           </span>
           <span>
-            <strong>0 字/分钟</strong>
+            <strong>{readerSpeed ? `${readerSpeed}` : "—"} 字/分钟</strong>
             阅读速度
           </span>
           <span>
