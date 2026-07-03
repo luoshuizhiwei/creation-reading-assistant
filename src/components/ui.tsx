@@ -1,11 +1,11 @@
-import type { ButtonHTMLAttributes, InputHTMLAttributes, ReactNode, TextareaHTMLAttributes } from "react";
+import { forwardRef, type ButtonHTMLAttributes, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from "react";
 
-export function Button({
+export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "quiet" }>(function Button({
   children,
   className = "",
   variant = "primary",
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: "primary" | "secondary" | "quiet" }) {
+}, ref) {
   const base =
     "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper/40";
   const variants = {
@@ -14,11 +14,11 @@ export function Button({
     quiet: "text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink"
   };
   return (
-    <button className={`${base} ${variants[variant]} ${className}`} {...props}>
+    <button ref={ref} className={`${base} ${variants[variant]} ${className}`} {...props}>
       {children}
     </button>
   );
-}
+});
 
 export function TextInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (

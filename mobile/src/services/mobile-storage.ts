@@ -8,7 +8,6 @@ import type {
   MobileCategory,
   MobileInspiration,
   MobileNote,
-  MobileReadingGoal,
   MobileReadingProgress,
   MobileReadingSession,
   MobileSnapshot,
@@ -16,6 +15,7 @@ import type {
   MobileTag,
   SyncAccount
 } from "../types/mobile";
+import type { AddInspirationVariantInput } from "../../../src/types/inspiration";
 
 const STORAGE_KEY = "creation-reading-assistant-mobile-snapshot";
 const MIGRATION_KEY = "creation-reading-assistant-mobile-sqlite-migrated";
@@ -23,6 +23,9 @@ const DEVICE_KEY = "creation-reading-assistant-mobile-device-id";
 export const BOOK_CONTENT_STORAGE_KEY_PREFIX = "creation-reading-assistant-mobile-book-content:";
 
 export type { MobileSnapshot } from "../types/mobile";
+
+const SUPPORTED_MOBILE_BOOK_EXTENSIONS = new Set(["txt", "md", "markdown", "epub"]);
+const SUPPORTED_MOBILE_BOOK_FORMATS = new Set<BookFormat>(["txt", "md", "epub"]);
 
 const emptySnapshot = (): MobileSnapshot => ({
   inspirations: [],
@@ -34,12 +37,49 @@ const emptySnapshot = (): MobileSnapshot => ({
   categories: [],
   shelves: [],
   syncAccounts: [],
-  readingGoals: [],
   updatedAt: new Date().toISOString()
 });
 
 function nowIso(): string {
   return new Date().toISOString();
+}
+
+function sanitizeSyncAccount(account: SyncAccount): SyncAccount {
+  const { passwordToken: _passwordToken, password: _password, ...safeAccount } = account as SyncAccount & {
+    passwordToken?: string;
+    password?: string;
+  };
+  return safeAccount;
+}
+
+function getBaseFileName(fileName?: string): string {
+  return (fileName ?? "").trim().split(/[\\/]/).pop() ?? "";
+}
+
+export function getMobileBookFileExtension(fileName?: string): string {
+  const baseName = getBaseFileName(fileName);
+  const dotIndex = baseName.lastIndexOf(".");
+  return dotIndex > 0 ? baseName.slice(dotIndex + 1).toLowerCase() : "";
+}
+
+export function isSupportedMobileBookFileName(fileName?: string): boolean {
+  const baseName = getBaseFileName(fileName);
+  if (!baseName || baseName.startsWith(".")) return false;
+  return SUPPORTED_MOBILE_BOOK_EXTENSIONS.has(getMobileBookFileExtension(baseName));
+}
+
+function isValidMobileBookRecord(book: MobileBook): boolean {
+  if (!SUPPORTED_MOBILE_BOOK_FORMATS.has(book.format)) return false;
+  const fileName = book.originalFileName ?? book.originalFilePath ?? book.originalPath ?? `${book.title}.${book.format}`;
+  return isSupportedMobileBookFileName(fileName);
+}
+
+function getStoredBookFileName(book: MobileBook): string {
+  return isSupportedMobileBookFileName(book.originalFileName) && book.originalFileName ? book.originalFileName : `${book.id}.${book.format}`;
+}
+
+function cleanBookScopedData<T extends { bookId?: string }>(items: T[], validBookIds: Set<string>): T[] {
+  return items.filter((item) => !item.bookId || validBookIds.has(item.bookId));
 }
 
 export function getMobileDeviceId(): string {
@@ -52,17 +92,18 @@ export function getMobileDeviceId(): string {
 
 export function normalizeMobileSnapshot(input?: Partial<MobileSnapshot>): MobileSnapshot {
   const fallback = emptySnapshot();
+  const books = Array.isArray(input?.books) ? input.books.filter((book): book is MobileBook => Boolean(book) && isValidMobileBookRecord(book)) : [];
+  const validBookIds = new Set(books.map((book) => book.id));
   return {
     inspirations: Array.isArray(input?.inspirations) ? input.inspirations : [],
-    books: Array.isArray(input?.books) ? input.books : [],
-    progress: Array.isArray(input?.progress) ? input.progress : [],
-    sessions: Array.isArray(input?.sessions) ? input.sessions : [],
-    notes: Array.isArray(input?.notes) ? input.notes : [],
+    books,
+    progress: Array.isArray(input?.progress) ? input.progress.filter((item) => validBookIds.has(item.bookId)) : [],
+    sessions: Array.isArray(input?.sessions) ? input.sessions.filter((item) => validBookIds.has(item.bookId)) : [],
+    notes: Array.isArray(input?.notes) ? cleanBookScopedData(input.notes, validBookIds) : [],
     tags: Array.isArray(input?.tags) ? input.tags : [],
     categories: Array.isArray(input?.categories) ? input.categories : [],
-    shelves: Array.isArray(input?.shelves) ? input.shelves : [],
-    syncAccounts: Array.isArray(input?.syncAccounts) ? input.syncAccounts : [],
-    readingGoals: Array.isArray(input?.readingGoals) ? input.readingGoals : [],
+    shelves: Array.isArray(input?.shelves) ? input.shelves.map((shelf) => ({ ...shelf, bookIds: shelf.bookIds.filter((bookId) => validBookIds.has(bookId)) })) : [],
+    syncAccounts: Array.isArray(input?.syncAccounts) ? input.syncAccounts.map((item) => sanitizeSyncAccount(item)) : [],
     updatedAt: typeof input?.updatedAt === "string" ? input.updatedAt : fallback.updatedAt
   };
 }
@@ -144,7 +185,7 @@ async function mirrorSnapshotToSQLite(snapshot: MobileSnapshot): Promise<void> {
     ...snapshot.categories.map((item) => upsertJson("categories", "id", item.id, item, { name: item.name })),
     ...snapshot.shelves.map((item) => upsertJson("shelves", "id", item.id, item, { name: item.name })),
     ...snapshot.syncAccounts.map((item) =>
-      upsertJson("sync_accounts", "id", item.id, item, {
+      upsertJson("sync_accounts", "id", sanitizeSyncAccount(item).id, sanitizeSyncAccount(item), {
         provider: item.provider
       })
     )
@@ -204,7 +245,7 @@ export async function saveMobileSnapshot(snapshot: MobileSnapshot): Promise<void
 }
 
 function detectTitleFromFileName(fileName: string): string {
-  return fileName.replace(/\.(txt|md|markdown|epub)$/i, "").replace(/[_-]+/g, " ").trim() || "未命名书籍";
+  return getBaseFileName(fileName).replace(/\.(txt|md|markdown|epub)$/i, "").replace(/[_-]+/g, " ").trim() || "未命名书籍";
 }
 
 function detectAuthor(content: string): string | undefined {
@@ -222,13 +263,17 @@ export async function hashText(content: string): Promise<string> {
 }
 
 export async function createImportedMobileBook(fileName: string, content: string, size: number): Promise<ImportedMobileBook> {
-  const extension = fileName.toLowerCase().split(".").pop();
+  if (!isSupportedMobileBookFileName(fileName) || size <= 0) {
+    throw new Error("unsupported-mobile-book-file");
+  }
+  const extension = getMobileBookFileExtension(fileName);
   const format: BookFormat = extension === "md" || extension === "markdown" ? "md" : extension === "epub" ? "epub" : "txt";
+  const originalFileName = getBaseFileName(fileName);
   return {
-    title: detectTitleFromFileName(fileName),
+    title: detectTitleFromFileName(originalFileName),
     author: detectAuthor(content),
     format,
-    originalFileName: fileName,
+    originalFileName,
     content,
     size,
     contentHash: await hashText(content)
@@ -278,7 +323,7 @@ export async function saveMobileBook(snapshot: MobileSnapshot, imported: Importe
 export async function saveSyncedMobileBookFile(snapshot: MobileSnapshot, book: MobileBook, content: string): Promise<MobileSnapshot> {
   const storedFile = await saveMobileBookFile({
     bookId: book.id,
-    originalFileName: book.originalFileName ?? `${book.id}.${book.format}`,
+    originalFileName: getStoredBookFileName(book),
     format: book.format,
     content
   });
@@ -302,7 +347,7 @@ export async function saveSyncedMobileBookFile(snapshot: MobileSnapshot, book: M
 export async function saveSyncedMobileBookBlob(snapshot: MobileSnapshot, book: MobileBook, blob: Blob): Promise<MobileSnapshot> {
   const storedFile = await saveMobileBookBlob({
     bookId: book.id,
-    originalFileName: book.originalFileName ?? `${book.id}.${book.format}`,
+    originalFileName: getStoredBookFileName(book),
     format: book.format,
     blob
   });
@@ -413,6 +458,7 @@ export async function updateMobileInspiration(
     tags?: string[];
     type?: MobileInspiration["type"];
     status?: MobileInspiration["status"];
+    variants?: MobileInspiration["variants"];
   }
 ): Promise<MobileSnapshot> {
   const current = snapshot.inspirations.find((item) => item.id === inspirationId);
@@ -425,6 +471,7 @@ export async function updateMobileInspiration(
     tags: input.tags ?? current.tags,
     type: input.type ?? current.type,
     status: input.status ?? current.status,
+    variants: input.variants ?? current.variants,
     updatedAt,
     revision: (current.revision ?? 0) + 1
   };
@@ -432,6 +479,38 @@ export async function updateMobileInspiration(
     ...snapshot,
     inspirations: [updated, ...snapshot.inspirations.filter((item) => item.id !== inspirationId)],
     updatedAt
+  };
+  await saveMobileSnapshot(next);
+  return next;
+}
+
+export async function addMobileInspirationVariant(
+  snapshot: MobileSnapshot,
+  inspirationId: string,
+  input: AddInspirationVariantInput
+): Promise<MobileSnapshot> {
+  const current = snapshot.inspirations.find((item) => item.id === inspirationId);
+  if (!current) return snapshot;
+  const timestamp = nowIso();
+  const variant = {
+    id: `mobile-variant-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    kind: input.kind,
+    content: input.content,
+    prompt: input.prompt,
+    model: input.model,
+    createdAt: timestamp
+  };
+  const updated: MobileInspiration = {
+    ...current,
+    status: "polished",
+    variants: [variant, ...current.variants],
+    updatedAt: timestamp,
+    revision: (current.revision ?? 0) + 1
+  };
+  const next = {
+    ...snapshot,
+    inspirations: [updated, ...snapshot.inspirations.filter((item) => item.id !== inspirationId)],
+    updatedAt: timestamp
   };
   await saveMobileSnapshot(next);
   return next;
@@ -462,7 +541,7 @@ export async function deleteMobileNote(snapshot: MobileSnapshot, noteId: string)
 }
 
 export async function exportMobileSnapshot(snapshot: MobileSnapshot): Promise<string> {
-  return JSON.stringify(snapshot, null, 2);
+  return JSON.stringify(normalizeMobileSnapshot(snapshot), null, 2);
 }
 
 export async function importMobileSnapshot(currentSnapshot: MobileSnapshot, json: string): Promise<MobileSnapshot> {
@@ -495,9 +574,6 @@ export async function importMobileSnapshot(currentSnapshot: MobileSnapshot, json
         (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
       ),
       syncAccounts: [...currentSnapshot.syncAccounts, ...imported.syncAccounts].filter(
-        (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
-      ),
-      readingGoals: [...currentSnapshot.readingGoals, ...imported.readingGoals].filter(
         (item, index, array) => array.findIndex((dup) => dup.id === item.id) === index
       ),
       updatedAt: nowIso()
@@ -589,43 +665,6 @@ export async function saveSyncAccount(snapshot: MobileSnapshot, account: Omit<Sy
   const next = {
     ...snapshot,
     syncAccounts: [nextAccount, ...snapshot.syncAccounts.filter((item) => item.provider !== account.provider)],
-    updatedAt: timestamp
-  };
-  await saveMobileSnapshot(next);
-  return next;
-}
-
-export async function addMobileReadingGoal(
-  snapshot: MobileSnapshot,
-  input: {
-    type: MobileReadingGoal["type"];
-    targetMinutes: number;
-  }
-): Promise<MobileSnapshot> {
-  const timestamp = nowIso();
-  const goal: MobileReadingGoal = {
-    id: `mobile-goal-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
-    type: input.type,
-    targetMinutes: input.targetMinutes,
-    createdAt: timestamp,
-    updatedAt: timestamp,
-    revision: 1,
-    deviceId: getMobileDeviceId()
-  };
-  const next = {
-    ...snapshot,
-    readingGoals: [goal, ...snapshot.readingGoals],
-    updatedAt: timestamp
-  };
-  await saveMobileSnapshot(next);
-  return next;
-}
-
-export async function deleteMobileReadingGoal(snapshot: MobileSnapshot, goalId: string): Promise<MobileSnapshot> {
-  const timestamp = nowIso();
-  const next = {
-    ...snapshot,
-    readingGoals: snapshot.readingGoals.filter((item) => item.id !== goalId),
     updatedAt: timestamp
   };
   await saveMobileSnapshot(next);

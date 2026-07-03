@@ -26,6 +26,12 @@ assertIncludes("mobile/src/storage/mobile-files.ts", "readMobileBookFile", "Mobi
 assertIncludes("mobile/src/services/mobile-storage.ts", "migrateLegacySnapshot", "Storage must migrate the old localStorage snapshot.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "saveSyncedMobileBookFile", "Mobile storage must persist book files downloaded from desktop sync.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "BOOK_CONTENT_STORAGE_KEY_PREFIX", "Storage should keep old localStorage content only as migration fallback.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "SUPPORTED_MOBILE_BOOK_EXTENSIONS", "Mobile imports must use an explicit book extension allowlist.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "isSupportedMobileBookFileName", "Mobile imports must reject hidden/system files such as .nomedia.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "baseName.startsWith(\".\")", "Mobile storage must reject dotfiles instead of treating them as TXT books.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "validBookIds", "Mobile snapshot normalization must remove progress/session records for books filtered out of the shelf.");
+assertIncludes("mobile/src/App.tsx", "跳过 ${skippedCount} 个非书籍或系统文件", "Mobile import flow must tell users when hidden/system files are skipped.");
+assertIncludes("mobile/src/App.tsx", "没有找到可导入的 TXT / Markdown / EPUB 文件", "Mobile import flow must not import unsupported selections.");
 if (read("mobile/src/services/mobile-storage.ts").includes("localStorage.setItem(`creation-reading-assistant-mobile-book-content")) {
   fail("Mobile storage must not write full book content into localStorage; use Capacitor Filesystem to avoid WebView crashes after sync.");
 }

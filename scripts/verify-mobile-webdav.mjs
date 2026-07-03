@@ -23,5 +23,24 @@ assertIncludes("mobile/src/sync/webdav-sync.ts", "downloadWebDavSnapshot", "WebD
 assertIncludes("mobile/src/App.tsx", "WebDAV", "Profile page must expose WebDAV settings.");
 assertIncludes("mobile/src/App.tsx", "local-desktop-lan", "Mobile app must preserve desktop LAN sync provider.");
 assertIncludes("mobile/src/App.tsx", "webdav", "Mobile app must expose WebDAV sync provider.");
+assertIncludes("mobile/src/services/mobile-secret-store.ts", "indexedDB.open(MOBILE_SECRET_DB_NAME", "WebDAV credentials must use the shared mobile secret store.");
+assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "loadWebDavPasswordSecret", "WebDAV password/token must be loadable from the local secret store.");
+assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "saveWebDavPasswordSecret", "WebDAV password/token must be saved through the local secret store.");
+assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "clearWebDavPasswordSecret", "WebDAV password/token must be clearable.");
+assertIncludes("mobile/src/App.tsx", "getWebDavCredentials", "WebDAV sync actions must combine visible settings with saved secret credentials.");
+assertIncludes("mobile/src/App.tsx", "本机密钥库保存 WebDAV 密码 / token", "WebDAV UI must explain local-only credential storage.");
+assertIncludes("mobile/src/services/mobile-storage.ts", "sanitizeSyncAccount", "Mobile snapshot storage must sanitize sync accounts.");
+
+const types = read("mobile/src/types/mobile.ts");
+const storage = read("mobile/src/services/mobile-storage.ts");
+if (/passwordToken/.test(types)) {
+  fail("SyncAccount type must not expose passwordToken.");
+}
+if (!/passwordToken: _passwordToken/.test(storage) || !/password: _password/.test(storage)) {
+  fail("Storage must strip legacy password/passwordToken fields from sync accounts.");
+}
+if (/passwordToken/.test(read("mobile/src/sync/webdav-sync.ts"))) {
+  fail("WebDAV sync transport must not read passwordToken from snapshot metadata.");
+}
 
 console.log("[verify-mobile-webdav] Mobile WebDAV sync guards verified.");

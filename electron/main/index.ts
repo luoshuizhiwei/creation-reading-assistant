@@ -1305,6 +1305,7 @@ async function updateInspiration(id: string, input: UpdateInspirationInput): Pro
     source: input.source === undefined ? current.source : normalizeInspirationSource(input.source),
     sourceBookId: input.sourceBookId === undefined ? current.sourceBookId : optionalString(input.sourceBookId),
     sourceLocation: input.sourceLocation === undefined ? current.sourceLocation : normalizeSourceLocation(input.sourceLocation),
+    variants: Array.isArray(input.variants) ? input.variants as InspirationVariant[] : current.variants,
     ...nextSyncMetadata(current),
     updatedAt: now()
   };

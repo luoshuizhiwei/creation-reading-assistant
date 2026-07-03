@@ -72,12 +72,29 @@ function addDays(date: Date, days: number): Date {
   return next;
 }
 
+function addMonths(date: Date, months: number): Date {
+  return new Date(date.getFullYear(), date.getMonth() + months, Math.min(date.getDate(), 28));
+}
+
 function periodStart(period: StatsPeriod, now = new Date()): Date | undefined {
   const today = startOfDay(now);
   if (period === "day") return today;
-  if (period === "week") return addDays(today, -6);
-  if (period === "month") return addDays(today, -29);
-  if (period === "year") return addDays(today, -364);
+  if (period === "week") {
+    const day = today.getDay() || 7;
+    return addDays(today, 1 - day);
+  }
+  if (period === "month") return new Date(today.getFullYear(), today.getMonth(), 1);
+  if (period === "year") return new Date(today.getFullYear(), 0, 1);
+  return undefined;
+}
+
+function periodEnd(period: StatsPeriod, now = new Date()): Date | undefined {
+  const start = periodStart(period, now);
+  if (!start) return undefined;
+  if (period === "day") return addDays(start, 1);
+  if (period === "week") return addDays(start, 7);
+  if (period === "month") return addMonths(start, 1);
+  if (period === "year") return new Date(start.getFullYear() + 1, 0, 1);
   return undefined;
 }
 
@@ -85,8 +102,10 @@ function withinPeriod(value: string | undefined, period: StatsPeriod, now = new 
   if (period === "total") return true;
   const date = parseDateLike(value);
   const start = periodStart(period, now);
-  if (!date || !start) return false;
-  return startOfDay(date).getTime() >= start.getTime() && startOfDay(date).getTime() <= startOfDay(now).getTime();
+  const end = periodEnd(period, now);
+  if (!date || !start || !end) return false;
+  const time = startOfDay(date).getTime();
+  return time >= start.getTime() && time < end.getTime();
 }
 
 function durationOfSession(session: MobileSnapshot["sessions"][number]): number {
@@ -106,20 +125,39 @@ function estimatedReadWords(snapshot: MobileSnapshot): number {
   }, 0);
 }
 
-function createdInPeriod(item: MobileNote | MobileInspiration, period: StatsPeriod): boolean {
-  return withinPeriod(item.createdAt ?? item.updatedAt, period);
+function formatMonthDay(date: Date): string {
+  return `${date.getMonth() + 1}月${date.getDate()}日`;
+}
+
+function createdInPeriod(item: MobileNote | MobileInspiration, period: StatsPeriod, now = new Date()): boolean {
+  return withinPeriod(item.createdAt ?? item.updatedAt, period, now);
 }
 
 export function getStatsPeriodTitle(period: StatsPeriod, now = new Date()): string {
-  if (period === "day") return "今日";
-  if (period === "week") return "最近 7 天";
-  if (period === "month") return "最近 30 天";
-  if (period === "year") return "最近 365 天";
+  const start = periodStart(period, now);
+  const end = periodEnd(period, now);
+  if (period === "day") return `${now.getFullYear()}年${now.getMonth() + 1}月${now.getDate()}日`;
+  if (period === "week" && start && end) return `${formatMonthDay(start)} - ${formatMonthDay(addDays(end, -1))}`;
+  if (period === "month") return `${now.getFullYear()}年${now.getMonth() + 1}月`;
+  if (period === "year") return `${now.getFullYear()}年`;
   return "全部记录";
 }
 
-export function buildMobileStatsSummary(snapshot: MobileSnapshot, period: StatsPeriod = "total"): MobileStatsSummary {
-  const periodSessions = snapshot.sessions.filter((session) => withinPeriod(session.dateKey || session.startAt, period));
+export function shiftStatsPeriodAnchor(date: Date, period: StatsPeriod, direction: -1 | 1): Date {
+  if (period === "day") return addDays(date, direction);
+  if (period === "week") return addDays(date, direction * 7);
+  if (period === "month") return addMonths(date, direction);
+  if (period === "year") return new Date(date.getFullYear() + direction, date.getMonth(), Math.min(date.getDate(), 28));
+  return date;
+}
+
+export function isCurrentStatsPeriod(period: StatsPeriod, anchor: Date, now = new Date()): boolean {
+  if (period === "total") return true;
+  return periodStart(period, anchor)?.getTime() === periodStart(period, now)?.getTime();
+}
+
+export function buildMobileStatsSummary(snapshot: MobileSnapshot, period: StatsPeriod = "total", now = new Date()): MobileStatsSummary {
+  const periodSessions = snapshot.sessions.filter((session) => withinPeriod(session.dateKey || session.startAt, period, now));
   const overallReadingMs = snapshot.progress.reduce((sum, item) => sum + Math.max(0, item.totalReadingTimeMs || 0), 0);
   const sessionReadingMs = periodSessions.reduce((sum, session) => sum + durationOfSession(session), 0);
   const totalReadingMs = period === "total" ? Math.max(overallReadingMs, sessionReadingMs) : sessionReadingMs;
@@ -134,15 +172,15 @@ export function buildMobileStatsSummary(snapshot: MobileSnapshot, period: StatsP
     words,
     speed: totalReadingMs > 0 ? Math.round(words / Math.max(1, totalReadingMs / 60_000)) : 0,
     sessionCount: periodSessions.length,
-    noteCount: snapshot.notes.filter((item) => createdInPeriod(item, period)).length,
-    inspirationCount: snapshot.inspirations.filter((item) => createdInPeriod(item, period)).length
+    noteCount: snapshot.notes.filter((item) => createdInPeriod(item, period, now)).length,
+    inspirationCount: snapshot.inspirations.filter((item) => createdInPeriod(item, period, now)).length
   };
 }
 
-export function buildReadingTimeline(snapshot: MobileSnapshot, period: StatsPeriod, limit = 14): ReadingTimelineItem[] {
+export function buildReadingTimeline(snapshot: MobileSnapshot, period: StatsPeriod, limit = 14, now = new Date()): ReadingTimelineItem[] {
   const books = bookById(snapshot);
   const groups = new Map<string, ReadingTimelineItem>();
-  for (const session of snapshot.sessions.filter((item) => withinPeriod(item.dateKey || item.startAt, period))) {
+  for (const session of snapshot.sessions.filter((item) => withinPeriod(item.dateKey || item.startAt, period, now))) {
     const dateKey = session.dateKey || toDateKey(parseDateLike(session.startAt) ?? new Date());
     const group =
       groups.get(dateKey) ??
@@ -162,7 +200,7 @@ export function buildReadingTimeline(snapshot: MobileSnapshot, period: StatsPeri
   }
   for (const note of snapshot.notes) {
     const date = parseDateLike(note.createdAt);
-    if (!date || !withinPeriod(note.createdAt, period)) continue;
+    if (!date || !withinPeriod(note.createdAt, period, now)) continue;
     const dateKey = toDateKey(date);
     const group = groups.get(dateKey);
     if (group) group.noteCount += 1;
@@ -172,7 +210,7 @@ export function buildReadingTimeline(snapshot: MobileSnapshot, period: StatsPeri
     .slice(0, limit);
 }
 
-export function buildBookRanking(snapshot: MobileSnapshot, period: StatsPeriod, limit = 5): BookRankingItem[] {
+export function buildBookRanking(snapshot: MobileSnapshot, period: StatsPeriod, limit = 5, now = new Date()): BookRankingItem[] {
   const books = bookById(snapshot);
   const durationByBook = new Map<string, number>();
   if (period === "total") {
@@ -180,7 +218,7 @@ export function buildBookRanking(snapshot: MobileSnapshot, period: StatsPeriod, 
       durationByBook.set(progress.bookId, Math.max(durationByBook.get(progress.bookId) ?? 0, progress.totalReadingTimeMs || 0));
     }
   }
-  for (const session of snapshot.sessions.filter((item) => withinPeriod(item.dateKey || item.startAt, period))) {
+  for (const session of snapshot.sessions.filter((item) => withinPeriod(item.dateKey || item.startAt, period, now))) {
     durationByBook.set(session.bookId, (durationByBook.get(session.bookId) ?? 0) + durationOfSession(session));
   }
   return Array.from(durationByBook.entries())
@@ -201,10 +239,10 @@ export function buildBookRanking(snapshot: MobileSnapshot, period: StatsPeriod, 
     .slice(0, limit);
 }
 
-export function buildNoteInsights(snapshot: MobileSnapshot, period: StatsPeriod, limit = 5): NoteInsightItem[] {
+export function buildNoteInsights(snapshot: MobileSnapshot, period: StatsPeriod, limit = 5, now = new Date()): NoteInsightItem[] {
   const books = bookById(snapshot);
   const notes: NoteInsightItem[] = snapshot.notes
-    .filter((item) => createdInPeriod(item, period))
+    .filter((item) => createdInPeriod(item, period, now))
     .map((item) => ({
       id: item.id,
       kind: "笔记",
@@ -214,7 +252,7 @@ export function buildNoteInsights(snapshot: MobileSnapshot, period: StatsPeriod,
       createdAt: item.createdAt
     }));
   const inspirations: NoteInsightItem[] = snapshot.inspirations
-    .filter((item) => createdInPeriod(item, period))
+    .filter((item) => createdInPeriod(item, period, now))
     .map((item) => ({
       id: item.id,
       kind: "灵感",

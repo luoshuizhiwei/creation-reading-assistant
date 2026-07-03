@@ -106,7 +106,7 @@ export function extractEpubText(content: string, title = "EPUB 书籍"): MobileR
     .replace(/<[^>]+>/g, "\n")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
-  const fallback = clean || "EPUB 文件已保存到手机端。完整保留原书样式的渲染会在后续接入 EPUB 专用渲染器继续加强。";
+  const fallback = clean || "这本 EPUB 已保存到手机端，但当前章节没有可提取的正文。请尝试重新下载正文，或回到书架重新导入原文件。";
   return {
     title,
     format: "epub",
@@ -130,8 +130,15 @@ function dirname(path: string): string {
 }
 
 function resolvePath(base: string, href: string): string {
-  if (!base) return href;
-  return `${base}${href}`.replace(/\/\.\//g, "/");
+  if (/^(https?:|data:|#)/i.test(href)) return href;
+  const parts = `${base}${href}`.replace(/\\/g, "/").split("/");
+  const normalized: string[] = [];
+  for (const part of parts) {
+    if (!part || part === ".") continue;
+    if (part === "..") normalized.pop();
+    else normalized.push(part);
+  }
+  return normalized.join("/");
 }
 
 function textFromXml(xml: string, tagName: string): string | undefined {
@@ -155,17 +162,58 @@ function spineIdsFromOpf(opf: string): string[] {
   return Array.from(spine.matchAll(/<itemref\b[^>]*idref=["']([^"']+)["'][^>]*>/gi)).map((match) => match[1]);
 }
 
-function xhtmlBodyToHtml(xhtml: string, fallbackTitle: string, index: number): { html: string; title: string } {
-  const title = textFromXml(xhtml, "title") || textFromXml(xhtml, "h1") || `${fallbackTitle} · ${index + 1}`;
-  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(xhtml)?.[1] ?? xhtml;
-  const clean = body
+function mediaTypeFromPath(path: string): string {
+  const extension = path.toLowerCase().split(".").pop() ?? "";
+  if (extension === "jpg" || extension === "jpeg") return "image/jpeg";
+  if (extension === "png") return "image/png";
+  if (extension === "gif") return "image/gif";
+  if (extension === "webp") return "image/webp";
+  if (extension === "svg") return "image/svg+xml";
+  return "application/octet-stream";
+}
+
+function normalizeEpubBodyMarkup(body: string): string {
+  return body
     .replace(/<script[\s\S]*?<\/script>/gi, "")
     .replace(/<style[\s\S]*?<\/style>/gi, "")
+    .replace(/<iframe[\s\S]*?<\/iframe>/gi, "")
     .replace(/\s(on\w+|style)=["'][\s\S]*?["']/gi, "")
-    .replace(/href=["'](?!https?:|#)[^"']*["']/gi, "");
+    .replace(/\s(xml:)?lang=["']([^"']+)["']/gi, ' lang="$2"')
+    .replace(/<a\b([^>]*?)href=["']javascript:[^"']*["']([^>]*)>/gi, "<a$1$2>")
+    .replace(/<a\b([^>]*?)href=["'](https?:[^"']+)["']([^>]*)>/gi, '<a$1href="$2"$3 target="_blank" rel="noreferrer">')
+    .replace(/<image\b/gi, "<img")
+    .replace(/<\/image>/gi, "");
+}
+
+async function inlineEpubImages(zip: JSZip, html: string, chapterPath: string): Promise<string> {
+  const chapterDir = dirname(chapterPath);
+  const matches = Array.from(html.matchAll(/<img\b[^>]*(?:src|href|xlink:href)=["']([^"']+)["'][^>]*>/gi));
+  let nextHtml = html;
+  for (const match of matches) {
+    const originalTag = match[0];
+    const source = match[1];
+    if (/^(https?:|data:|#)/i.test(source)) continue;
+    const resourcePath = resolvePath(chapterDir, source);
+    const file = zip.file(resourcePath);
+    if (!file) continue;
+    const data = await file.async("base64");
+    const dataUrl = `data:${mediaTypeFromPath(resourcePath)};base64,${data}`;
+    const safeTag = originalTag
+      .replace(/\s(?:src|href|xlink:href)=["'][^"']+["']/i, ` src="${dataUrl}"`)
+      .replace(/<img\b(?![^>]*\salt=)/i, '<img alt=""')
+      .replace(/<img\b(?![^>]*\sloading=)/i, '<img loading="lazy"');
+    nextHtml = nextHtml.replace(originalTag, safeTag);
+  }
+  return nextHtml;
+}
+
+async function xhtmlBodyToHtml(zip: JSZip, xhtml: string, chapterPath: string, fallbackTitle: string, index: number): Promise<{ html: string; title: string }> {
+  const title = textFromXml(xhtml, "title") || textFromXml(xhtml, "h1") || `${fallbackTitle} · ${index + 1}`;
+  const body = /<body\b[^>]*>([\s\S]*?)<\/body>/i.exec(xhtml)?.[1] ?? xhtml;
+  const clean = await inlineEpubImages(zip, normalizeEpubBodyMarkup(body), chapterPath);
   return {
     title,
-    html: `<section class="epub-chapter" id="epub-chapter-${index}"><h2>${escapeHtml(title)}</h2>${clean}</section>`
+    html: `<section class="epub-chapter epub-publisher-flow" id="epub-chapter-${index}" data-chapter-index="${index + 1}"><h2>${escapeHtml(title)}</h2>${clean}</section>`
   };
 }
 
@@ -188,7 +236,7 @@ export async function renderEpubDocument(content: string, title = "EPUB 书籍")
       if (!item || !/xhtml|html/i.test(item.mediaType)) continue;
       const xhtml = await zip.file(item.href)?.async("string");
       if (!xhtml) continue;
-      const chapter = xhtmlBodyToHtml(xhtml, bookTitle, index);
+      const chapter = await xhtmlBodyToHtml(zip, xhtml, item.href, bookTitle, index);
       html.push(chapter.html);
       toc.push({ id: `epub-chapter-${index}`, title: chapter.title, level: 1 });
     }

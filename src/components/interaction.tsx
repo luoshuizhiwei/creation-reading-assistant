@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useUIStore, type ToastTone } from "@/stores/ui-store";
@@ -47,13 +47,31 @@ export function ToastCenter() {
 export function ConfirmDialog() {
   const request = useUIStore((state) => state.confirmRequest);
   const resolveConfirm = useUIStore((state) => state.resolveConfirm);
+  const confirmRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!request) return undefined;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        resolveConfirm(false);
+      }
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [request, resolveConfirm]);
+
+  useEffect(() => {
+    if (!request) return;
+    confirmRef.current?.focus();
+  }, [request]);
+
   if (!request) return null;
 
   const danger = request.tone === "danger";
   const warning = request.tone === "warning";
   return (
-    <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm">
-      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper">
+    <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={() => resolveConfirm(false)}>
+      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
         <div className={`h-1 ${danger ? "bg-red-500" : warning ? "bg-amber-500" : "bg-copper"}`} />
         <div className="p-5">
           <div className="flex items-start gap-3">
@@ -61,15 +79,15 @@ export function ConfirmDialog() {
               <AlertTriangle size={18} />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 className="paper-title text-lg font-semibold text-paper-ink">{request.title}</h2>
-              <p className="mt-2 text-sm leading-6 text-paper-muted">{request.body}</p>
+              <h2 id="confirm-dialog-title" className="paper-title text-lg font-semibold text-paper-ink">{request.title}</h2>
+              <p id="confirm-dialog-message" className="mt-2 text-sm leading-6 text-paper-muted">{request.body}</p>
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
             <Button variant="secondary" onClick={() => resolveConfirm(false)}>
               {request.cancelLabel}
             </Button>
-            <Button className={danger ? "bg-red-700 hover:bg-red-800" : ""} onClick={() => resolveConfirm(true)}>
+            <Button ref={confirmRef} className={danger ? "bg-red-700 hover:bg-red-800" : ""} onClick={() => resolveConfirm(true)}>
               {request.confirmLabel}
             </Button>
           </div>

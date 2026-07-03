@@ -71,7 +71,7 @@ export interface CreateInspirationInput {
 }
 
 export type UpdateInspirationInput = Partial<
-  Pick<InspirationItem, "title" | "body" | "type" | "status" | "tags" | "platformTags" | "source" | "sourceBookId" | "sourceLocation">
+  Pick<InspirationItem, "title" | "body" | "type" | "status" | "tags" | "platformTags" | "source" | "sourceBookId" | "sourceLocation" | "variants">
 >;
 
 export interface AddInspirationVariantInput {

@@ -1,10 +1,82 @@
-import { useEffect } from "react";
-import { ArrowLeft, BarChart3, BookOpen, Clock3 } from "lucide-react";
-import { Button, EmptyState, ShellPanel } from "@/components/ui";
+import { useEffect, useMemo, useState } from "react";
+import { BookOpen, Clock3 } from "lucide-react";
+import { Button, EmptyState } from "@/components/ui";
 import { getReadingStats } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAppStore } from "@/stores/app-store";
 import { formatDuration, formatDate } from "@/utils/format";
+
+type StatsRange = "day" | "week" | "month" | "year" | "all";
+
+const rangeLabels: Record<StatsRange, string> = {
+  day: "今日",
+  week: "本周",
+  month: "本月",
+  year: "本年",
+  all: "全部"
+};
+
+function calcPeriodDurations(
+  stats: NonNullable<Awaited<ReturnType<typeof getReadingStats>>>,
+  range: StatsRange,
+  anchor: Date
+): { totalMs: number; days: number } {
+  if (range === "all") return { totalMs: stats.totalDurationMs, days: stats.readingDaysCount };
+
+  const start = new Date(anchor);
+  const end = new Date(anchor);
+  start.setHours(0, 0, 0, 0);
+  end.setHours(23, 59, 59, 999);
+  if (range === "week") {
+    start.setDate(start.getDate() - ((start.getDay() + 6) % 7));
+    end.setTime(start.getTime());
+    end.setDate(start.getDate() + 6);
+    end.setHours(23, 59, 59, 999);
+  } else if (range === "month") {
+    start.setDate(1);
+    end.setFullYear(start.getFullYear(), start.getMonth() + 1, 0);
+    end.setHours(23, 59, 59, 999);
+  } else if (range === "year") {
+    start.setMonth(0, 1);
+    end.setFullYear(start.getFullYear(), 11, 31);
+    end.setHours(23, 59, 59, 999);
+  }
+
+  const startKey = formatLocalDateKey(start);
+  const endKey = formatLocalDateKey(end);
+  let total = 0;
+  let days = 0;
+  for (const d of stats.daily) {
+    if (d.dateKey >= startKey && d.dateKey <= endKey) {
+      total += d.durationMs;
+      if (d.durationMs > 0) days++;
+    }
+  }
+  return { totalMs: total, days };
+}
+
+function formatLocalDateKey(date: Date): string {
+  const year = date.getFullYear();
+  const month = `${date.getMonth() + 1}`.padStart(2, "0");
+  const day = `${date.getDate()}`.padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function shiftStatsAnchor(anchor: Date, range: Exclude<StatsRange, "all">, direction: -1 | 1): Date {
+  const next = new Date(anchor);
+  if (range === "day") next.setDate(next.getDate() + direction);
+  else if (range === "week") next.setDate(next.getDate() + direction * 7);
+  else if (range === "month") next.setMonth(next.getMonth() + direction);
+  else next.setFullYear(next.getFullYear() + direction);
+  return next;
+}
+
+function isFutureStatsAnchor(anchor: Date, range: Exclude<StatsRange, "all">): boolean {
+  const next = shiftStatsAnchor(anchor, range, 1);
+  const today = new Date();
+  today.setHours(23, 59, 59, 999);
+  return next > today;
+}
 
 export function ReadingStatsPage() {
   const stats = useLibraryStore((state) => state.stats);
@@ -13,6 +85,8 @@ export function ReadingStatsPage() {
   const setStats = useLibraryStore((state) => state.setStats);
   const setError = useAppStore((state) => state.setError);
   const setScreen = useAppStore((state) => state.setScreen);
+  const [selectedRange, setSelectedRange] = useState<StatsRange>("week");
+  const [anchorDate, setAnchorDate] = useState(() => new Date());
 
   useEffect(() => {
     getReadingStats()
@@ -20,35 +94,137 @@ export function ReadingStatsPage() {
       .catch((error) => setError(error instanceof Error ? error.message : String(error)));
   }, [setError, setStats]);
 
-  const maxDailyDuration = Math.max(1, ...(stats?.daily.map((item) => item.durationMs) ?? [1]));
+  const maxDailyDuration = useMemo(
+    () => Math.max(1, ...(stats?.daily.map((item) => item.durationMs) ?? [1])),
+    [stats]
+  );
+
+  const periodInfo = useMemo(
+    () => {
+      if (!stats) return undefined;
+      const previousAnchor = selectedRange === "all" ? anchorDate : shiftStatsAnchor(anchorDate, selectedRange, -1);
+      return {
+        current: calcPeriodDurations(stats, selectedRange, anchorDate),
+        previous: calcPeriodDurations(stats, selectedRange, previousAnchor)
+      };
+    },
+    [stats, selectedRange, anchorDate]
+  );
+
+  const changeRange = (range: StatsRange) => {
+    setSelectedRange(range);
+    setAnchorDate(new Date());
+  };
+
+  const nextPeriodIsFuture = selectedRange !== "all" && isFutureStatsAnchor(anchorDate, selectedRange);
+
+  const pctChange = (current: number, previous: number) => {
+    if (previous <= 0) return null;
+    return Math.round(((current - previous) / previous) * 100);
+  };
+
+  const renderComparisonRow = () => {
+    if (!periodInfo) return null;
+    if (!periodInfo.previous.totalMs && !periodInfo.previous.days) return null;
+    const metrics: Array<[string, number, number]> = [
+      ["时长", periodInfo.current.totalMs, periodInfo.previous.totalMs],
+      ["天数", periodInfo.current.days, periodInfo.previous.days],
+    ];
+    return (
+      <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-3 shadow-lift">
+        <div className="flex items-center gap-2 text-xs font-semibold text-paper-muted mb-2">
+          <span>较上一周期</span>
+        </div>
+        <div className="flex flex-wrap gap-x-6 gap-y-2 overflow-x-auto">
+          {metrics.map(([label, currentVal, prevVal]) => {
+            const diff = currentVal - prevVal;
+            const absDiff = diff < 0 ? -diff : diff;
+            const pct = pctChange(currentVal, prevVal);
+            if (prevVal <= 0 && currentVal <= 0) return null;
+            const trendClass = diff > 0 ? "text-moss" : diff < 0 ? "text-red-600" : "text-paper-muted opacity-50";
+            return (
+              <span key={label} className={`flex items-center gap-1 text-sm ${trendClass}`}>
+                <span className="text-xs text-paper-muted">{label}</span>
+                <span>{diff > 0 ? "+" : ""}{absDiff}</span>
+                {pct !== null && <span className="text-xs opacity-70">({diff > 0 ? "+" : ""}{pct}%)</span>}
+              </span>
+            );
+          })}
+        </div>
+      </div>
+    );
+  };
 
   return (
-    <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
-      <header className="paper-topbar flex items-center gap-3 px-5">
-        <BarChart3 size={18} />
-        <div className="paper-title text-xl font-semibold text-copper">阅读统计</div>
-        <div className="min-w-0 flex-1 text-sm text-paper-muted">基于有效阅读会话聚合，不按单纯打开时长计算</div>
-        <Button variant="quiet" onClick={() => setScreen("library")}>
-          <BookOpen size={16} />
-          书库
-        </Button>
-        <Button variant="quiet" onClick={() => setScreen("start")}>
-          <ArrowLeft size={16} />
-          返回首页
-        </Button>
-      </header>
+    <div className="desktop-page-scroll paper-shell">
+      <div className="desktop-page-stack">
+        <section className="desktop-page-hero motion-panel">
+          <div>
+            <div className="desktop-card-label">Reading rhythm</div>
+            <h2>阅读统计仪表板</h2>
+            <p>基于有效阅读会话聚合，不按单纯打开时长计算；桌面端用于复盘节奏、书籍推进和素材沉淀。</p>
+          </div>
+          <div className="desktop-page-actions">
+            <Button variant="quiet" onClick={() => setScreen("library")}>
+              <BookOpen size={16} />
+              打开书库
+            </Button>
+          </div>
+        </section>
 
-      <ShellPanel className="min-h-0 overflow-auto border-0 bg-transparent p-6 shadow-none">
         {!stats ? (
-          <EmptyState title="正在读取统计" body="阅读会话保存在本地 JSON 中，统计会从会话日志即时聚合。" />
+          <div className="desktop-panel-card desktop-empty-wrap">
+            <EmptyState title="正在读取统计" body="阅读会话保存在本地 JSON 中，统计会从会话日志即时聚合。" />
+          </div>
         ) : (
-          <div className="mx-auto grid max-w-7xl gap-6">
-            <div className="flex items-end justify-between border-b border-paper-line pb-4">
+          <div className="grid gap-5">
+            {/* Period selector + nav */}
+            <div className="desktop-panel-card flex items-end justify-between gap-4 p-4">
               <div>
                 <h1 className="paper-title text-2xl font-semibold">阅读与沉淀节律</h1>
                 <p className="mt-1 text-sm text-paper-muted">统计只计算有效阅读会话，后台挂起和空闲时间不会膨胀数据。</p>
               </div>
-              <div className="moss-chip">阅读天数 {stats.readingDaysCount} 天</div>
+              <div className="flex items-center gap-3">
+                <div className="range-tabs inline-flex rounded-lg border border-paper-line bg-paper-soft/50 p-1">
+                  {(Object.keys(rangeLabels) as StatsRange[]).map((r) => (
+                    <button
+                      key={r}
+                      className={`rounded-md px-3 py-1 text-xs font-medium transition ${
+                        selectedRange === r ? "bg-copper text-white shadow-lift" : "text-paper-muted hover:text-paper-ink"
+                      }`}
+                      onClick={() => changeRange(r)}
+                    >
+                      {rangeLabels[r]}
+                    </button>
+                  ))}
+                </div>
+                {selectedRange !== "all" && (
+                  <div className="flex items-center gap-1">
+                    <Button
+                      variant="quiet"
+                      className="px-2"
+                      onClick={() => setAnchorDate((d) => {
+                        return shiftStatsAnchor(d, selectedRange, -1);
+                      })}
+                    >
+                      ◀
+                    </Button>
+                    <span className="text-sm font-medium text-paper-ink min-w-[100px] text-center">
+                      {new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(anchorDate)}
+                    </span>
+                    <Button
+                      variant="quiet"
+                      className="px-2"
+                      disabled={nextPeriodIsFuture}
+                      onClick={() => setAnchorDate((d) => {
+                        return shiftStatsAnchor(d, selectedRange, 1);
+                      })}
+                    >
+                      ▶
+                    </Button>
+                  </div>
+                )}
+              </div>
             </div>
 
             <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
@@ -66,7 +242,10 @@ export function ReadingStatsPage() {
               ))}
             </section>
 
-            <section className="grid grid-cols-[1fr_380px] gap-5">
+            {/* Period comparison row */}
+            {renderComparisonRow()}
+
+            <section className="desktop-stats-grid">
               <div className="grid gap-5">
                 <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
                   <div className="mb-3 flex items-center justify-between">
@@ -156,8 +335,7 @@ export function ReadingStatsPage() {
             </section>
           </div>
         )}
-      </ShellPanel>
+      </div>
     </div>
   );
 }
-

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Library, Plus, Save, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Library, Plus, Save, Sparkles, Trash2, Copy, X } from "lucide-react";
 import { AnimatedPanel } from "@/components/interaction";
 import { Button, EmptyState, Field, ShellPanel, TextArea, TextInput } from "@/components/ui";
 import { useInspirationActions } from "@/hooks/useInspirationActions";
@@ -234,43 +234,60 @@ export function InspirationPage() {
     if (deleted) showToast({ tone: "success", title: "灵感已删除" });
   };
 
-  return (
-    <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
-      <header className="paper-topbar flex items-center gap-3 px-5">
-        <Sparkles size={18} />
-        <div className="paper-title text-xl font-semibold text-copper">灵感中心</div>
-        <div className="min-w-0 flex-1 text-sm text-paper-muted">先收进箱子，再用 AI 打磨成可写素材</div>
-        {readerReturn && (
-          <Button variant="secondary" onClick={() => void returnToReading()}>
-            <ArrowLeft size={16} />
-            返回阅读
-          </Button>
-        )}
-        <Button variant="secondary" onClick={() => setScreen("library")}>
-          <Library size={16} />
-          本地书库
-        </Button>
-        <Button variant="quiet" onClick={() => setScreen("start")}>
-          <ArrowLeft size={16} />
-          首页
-        </Button>
-      </header>
+  const copyVariantToClipboard = async (content: string) => {
+    try {
+      await navigator.clipboard.writeText(content);
+      showToast({ tone: "success", title: "已复制到剪贴板" });
+    } catch {
+      showToast({ tone: "warning", title: "复制失败，请手动选中复制" });
+    }
+  };
 
-      <div className="grid min-h-0 grid-cols-[340px_1fr] gap-0 bg-paper-bg">
-        <ShellPanel className="min-h-0 overflow-hidden border-y-0 border-l-0 bg-paper-soft/55 p-4 shadow-none">
-          <div className="mb-3 flex gap-2">
+  const adoptVariant = async (variantContent: string) => {
+    setDraft((prev) => ({ ...prev, body: variantContent }));
+    showToast({ tone: "info", title: "已采纳为正文", body: "当前编辑区内容已替换，记得点击保存按钮。" });
+  };
+
+  const removeVariant = async (variantId: string) => {
+    if (!selected) return;
+    const nextVariants = selected.variants.filter((v) => v.id !== variantId);
+    await updateItem(selected.id, { variants: nextVariants });
+    showToast({ tone: "info", title: "候选已移除" });
+  };
+
+  return (
+    <div className="desktop-inspiration-page paper-shell">
+        <ShellPanel className="desktop-inspiration-list desktop-panel-card motion-panel border-0 bg-transparent p-0 shadow-none">
+          <div className="grid gap-3">
+            <div>
+              <div className="desktop-card-label">Inspiration index</div>
+              <h2 className="paper-title mt-1 text-xl font-semibold">灵感中心索引</h2>
+              <p className="mt-1 text-xs leading-5 text-paper-muted">先收进箱子，再在桌面端筛选、编辑和打磨。</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {readerReturn && (
+                <Button variant="secondary" className="h-8 px-2 text-xs" onClick={() => void returnToReading()}>
+                  <ArrowLeft size={14} />
+                  返回阅读
+                </Button>
+              )}
+              <Button variant="secondary" className="h-8 px-2 text-xs" onClick={() => setScreen("library")}>
+                <Library size={14} />
+                书库
+              </Button>
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2">
             <TextInput value={filter} onChange={(event) => setFilter(event.target.value)} placeholder="搜索标题、标签、平台标签" />
             <Button onClick={createNew} disabled={loading}>
               <Plus size={16} />
             </Button>
           </div>
-          <div className="grid max-h-[calc(100%-52px)] gap-2 overflow-auto pr-1">
+          <div className="desktop-inspiration-list-scroll mt-3 grid gap-2 pr-1">
             {filtered.map((item) => (
               <button
                 key={item.id}
-                className={`rounded-xl border p-3 text-left transition duration-150 hover:-translate-y-0.5 ${
-                  item.id === selectedId ? "border-copper bg-paper-panel shadow-lift" : "border-paper-line bg-white/60 hover:border-copper/40"
-                }`}
+                className={`desktop-inspiration-card ${item.id === selectedId ? "active" : ""}`}
                 onClick={() => setSelectedId(item.id)}
               >
                 <div className="paper-title truncate text-sm font-semibold">{item.title}</div>
@@ -291,12 +308,29 @@ export function InspirationPage() {
           </div>
         </ShellPanel>
 
-        <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-transparent p-5 shadow-none">
+        <ShellPanel className="desktop-inspiration-editor desktop-panel-card motion-panel border-0 bg-transparent p-0 shadow-none">
+          <div className="desktop-inspiration-editor-scroll">
           {!selected ? (
             <EmptyState title="灵感箱还是空的" body="点击左侧加号，把剧情点子、人设、桥段或阅读札记先收进来。" />
           ) : (
-            <div className="mx-auto grid max-w-4xl gap-4">
-              <AnimatedPanel className="rounded-2xl border border-paper-line bg-paper-panel p-5 shadow-paper">
+            <div className="grid gap-4">
+              <AnimatedPanel className="desktop-editor-card rounded-2xl border border-paper-line bg-paper-panel shadow-paper">
+                <div className="mb-4 flex items-center justify-between gap-3">
+                  <div>
+                    <div className="desktop-card-label">Editor</div>
+                    <h2 className="paper-title mt-1 text-xl font-semibold">素材正文</h2>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => void deleteSelected()}>
+                      <Trash2 size={16} />
+                      删除
+                    </Button>
+                    <Button onClick={() => void saveSelected()}>
+                      <Save size={16} />
+                      保存
+                    </Button>
+                  </div>
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="标题">
                     <TextInput value={draft.title} onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))} />
@@ -359,52 +393,78 @@ export function InspirationPage() {
                     )}
                   </div>
                 )}
-                <div className="mt-4 flex flex-wrap justify-between gap-2">
-                  <div className="flex flex-wrap gap-2">
-                    {Object.entries(aiLabels).map(([action, label]) => (
-                      <Button key={action} variant="secondary" disabled={Boolean(aiBusy)} onClick={() => void runAI(action as AIRunAction)}>
-                        <Sparkles size={15} />
-                        {aiBusy === action ? "生成中..." : label}
-                      </Button>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="secondary" onClick={() => void deleteSelected()}>
-                      <Trash2 size={16} />
-                      删除
-                    </Button>
-                    <Button onClick={() => void saveSelected()}>
-                      <Save size={16} />
-                      保存
-                    </Button>
-                  </div>
-                </div>
-              </AnimatedPanel>
-
-              <AnimatedPanel className="rounded-2xl border border-paper-line bg-paper-panel p-5 shadow-paper">
-                <div className="paper-title text-base font-semibold">AI 候选版本</div>
-                <div className="mt-3 grid gap-3">
-                  {selected.variants.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-paper-line p-4 text-sm text-paper-muted">
-                      还没有候选版本。点击上方“润色 / 扩写 / 平台风格化”后，结果会保存在这里，不会覆盖原文。
-                    </div>
-                  ) : (
-                    selected.variants.map((variant) => (
-                      <article key={variant.id} className="rounded-xl border border-paper-line bg-paper-soft/40 p-4">
-                        <div className="mb-2 text-xs font-medium text-copper">
-                          {aiLabels[variant.kind]} · {variant.model || "AI"}
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm leading-7 text-paper-ink">{variant.content}</div>
-                      </article>
-                    ))
-                  )}
-                </div>
               </AnimatedPanel>
             </div>
           )}
+          </div>
         </ShellPanel>
-      </div>
+
+        <aside className="desktop-inspiration-aside desktop-panel-card motion-panel">
+          <div className="desktop-inspiration-aside-scroll">
+            <section className="desktop-ai-card rounded-2xl border border-paper-line bg-paper-panel">
+              <div className="desktop-card-label">AI polish</div>
+              <h2 className="paper-title mt-1 text-lg font-semibold">AI 打磨</h2>
+              <p className="mt-2 text-xs leading-5 text-paper-muted">所有输出都进入候选版本，不会覆盖正文。</p>
+              <div className="mt-3 grid gap-2">
+                {Object.entries(aiLabels).map(([action, label]) => (
+                  <Button key={action} variant="secondary" disabled={!selected || Boolean(aiBusy)} onClick={() => void runAI(action as AIRunAction)}>
+                    <Sparkles size={15} />
+                    {aiBusy === action ? "生成中..." : label}
+                  </Button>
+                ))}
+              </div>
+            </section>
+
+            <section className="desktop-ai-card rounded-2xl border border-paper-line bg-paper-panel">
+              <div className="paper-title text-base font-semibold">AI 候选版本</div>
+              <div className="mt-3 grid gap-3">
+                {!selected ? (
+                  <div className="rounded-lg border border-dashed border-paper-line p-4 text-sm text-paper-muted">先从左侧选择一条灵感。</div>
+                ) : selected.variants.length === 0 ? (
+                  <div className="rounded-lg border border-dashed border-paper-line p-4 text-sm text-paper-muted">
+                    还没有候选版本。点击上方“润色 / 扩写 / 平台风格化”后，结果会保存在这里。
+                  </div>
+                ) : (
+                  selected.variants.map((variant) => (
+                    <article key={variant.id} className="rounded-xl border border-paper-line bg-paper-soft/40 p-4">
+                      <div className="mb-2 flex items-start justify-between gap-2">
+                        <div className="text-xs font-medium text-copper">
+                          {aiLabels[variant.kind]} · {variant.model || "AI"}
+                        </div>
+                        <button
+                          className="shrink-0 rounded-full p-0.5 text-paper-muted transition hover:bg-red-50 hover:text-red-700"
+                          title="移除候选"
+                          onClick={() => void removeVariant(variant.id)}
+                        >
+                          <X size={14} />
+                        </button>
+                      </div>
+                      <div className="line-clamp-[8] whitespace-pre-wrap text-sm leading-7 text-paper-ink">{variant.content}</div>
+                      <div className="mt-3 flex gap-2">
+                        <Button
+                          variant="quiet"
+                          className="px-2 text-xs"
+                          onClick={() => void copyVariantToClipboard(variant.content)}
+                        >
+                          <Copy size={12} />
+                          复制
+                        </Button>
+                        <Button
+                          variant="quiet"
+                          className="px-2 text-xs"
+                          onClick={() => void adoptVariant(variant.content)}
+                        >
+                          <Sparkles size={12} />
+                          采纳
+                        </Button>
+                      </div>
+                    </article>
+                  ))
+                )}
+              </div>
+            </section>
+          </div>
+        </aside>
     </div>
   );
 }
-

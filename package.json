@@ -1,6 +1,6 @@
 {
   "name": "creation-reading-assistant",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "private": true,
   "author": "Creation Reading Assistant Contributors",
   "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
@@ -28,6 +28,8 @@
     "verify:sync-server": "node scripts/verify-sync-server.mjs",
     "verify:mobile-adapter": "node scripts/verify-mobile-adapter.mjs",
     "verify:mobile-ui": "node scripts/verify-mobile-ui.mjs",
+    "verify:mobile-profile": "node scripts/verify-mobile-profile.mjs",
+    "verify:mobile-ai": "node scripts/verify-mobile-ai.mjs",
     "verify:mobile-storage": "node scripts/verify-mobile-storage.mjs",
     "verify:mobile-reader": "node scripts/verify-mobile-reader.mjs",
     "verify:mobile-scan": "node scripts/verify-mobile-scan.mjs",

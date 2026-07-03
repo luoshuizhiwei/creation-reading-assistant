@@ -25,6 +25,10 @@ assertIncludes("mobile/src/App.tsx", "progressFromSessionScroll", "Book detail r
 assertIncludes("mobile/src/App.tsx", "ReaderDrawerTab", "Reader drawer must support multiple reader tabs.");
 assertIncludes("mobile/src/App.tsx", "createReaderSearchResults", "Reader must build in-book search results from the current document.");
 assertIncludes("mobile/src/App.tsx", "jumpToReaderSearchResult", "Reader search results must jump to matched text.");
+assertIncludes("mobile/src/App.tsx", "jumpToReaderProgress", "Reader bookmarks and notes must share a unified progress jump helper.");
+assertIncludes("mobile/src/App.tsx", "finishReaderJump", "Reader jumps must close the drawer and show feedback.");
+assertIncludes("mobile/src/App.tsx", "triggerReaderPageTurn", "Reader navigation must trigger lightweight page-turn feedback.");
+assertIncludes("mobile/src/App.tsx", "data-page-turn", "Reader shell must expose page-turn direction to CSS.");
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"search\"", "Reader drawer must expose an in-book search tab.");
 assertIncludes("mobile/src/App.tsx", "addReaderBookmark", "Reader must allow adding bookmarks at the current location.");
 assertIncludes("mobile/src/App.tsx", "addReaderNote", "Reader must allow saving reading notes.");
@@ -38,6 +42,11 @@ assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"bookmarks\"", "Reade
 assertIncludes("mobile/src/App.tsx", "readerDrawerTab === \"notes\"", "Reader drawer must expose a notes tab.");
 assertIncludes("mobile/src/App.tsx", "handleReaderTap", "Reader must use tap zones instead of only toolbar buttons.");
 assertIncludes("mobile/src/App.tsx", "moveChapter", "Reader tap zones must support previous/next chapter movement.");
+assertIncludes("mobile/src/App.tsx", "useState(false)", "Reader controls should default to hidden so text is primary.");
+assertIncludes("mobile/src/App.tsx", "reader-chapter-control-row", "Reader bottom menu must use previous/progress/next chapter row.");
+assertIncludes("mobile/src/App.tsx", "reader-menu-chip", "Reader progress chip must live in the reader menu instead of floating over text.");
+assertIncludes("mobile/src/App.tsx", "reader-actions reader-primary-actions", "Reader quick actions must be compact in the bottom toolbar.");
+assertIncludes("mobile/src/App.tsx", "showLoadingHint", "Reader loading hint must be delayed so instant local opens do not feel blocked.");
 assertIncludes("mobile/src/App.tsx", "turnReaderPage", "Reader paged mode must support previous/next page movement.");
 assertIncludes("mobile/src/App.tsx", "reader-mode-", "Reader shell must expose the active reading mode to CSS.");
 assertIncludes("mobile/src/App.tsx", "tapZoneMode", "Reader must support configurable tap zones.");
@@ -62,10 +71,14 @@ assertIncludes("mobile/src/styles.css", ".reader-search-panel", "Reader in-book 
 assertIncludes("mobile/src/styles.css", ".reader-search-results", "Reader search results must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-note-item", "Reader notes and bookmarks must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-selection-toolbar", "Reader selected-text quick toolbar must be styled.");
-assertIncludes("mobile/src/styles.css", ".reader-actions::-webkit-scrollbar", "Reader action bar must be horizontally scrollable instead of cramped on small phones.");
+assertIncludes("mobile/src/styles.css", "grid-template-columns: repeat(5, minmax(0, 1fr))", "Reader action bar must use five compact native-like actions.");
 assertIncludes("mobile/src/styles.css", ".reader-progress-chip", "Reader chapter/progress chip must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-chapter-control-row", "Reader chapter/progress row must be styled.");
+assertIncludes("mobile/src/styles.css", ".reader-primary-actions", "Reader primary menu row must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-zone-guide", "Reader tap-zone hints must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-mode-paged", "Paged reading mode must have dedicated styling.");
+assertIncludes("mobile/src/styles.css", "reader-page-forward", "Reader forward page-turn feedback must be styled.");
+assertIncludes("mobile/src/styles.css", "reader-page-backward", "Reader backward page-turn feedback must be styled.");
 assertIncludes("mobile/src/styles.css", ".reader-mode-grid", "Reader mode controls must be styled in the settings drawer.");
 assertIncludes("mobile/src/styles.css", "touch-action: pan-y", "Reader body must prioritize vertical reading gestures.");
 

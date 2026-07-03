@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#9a6230</color>
+    <color name="colorPrimaryDark">#fbf6ed</color>
+    <color name="colorAccent">#b26f32</color>
+    <color name="paper_surface">#fbf6ed</color>
+    <color name="paper_surface_variant">#f1e4d3</color>
+    <color name="paper_ink">#211914</color>
+</resources>

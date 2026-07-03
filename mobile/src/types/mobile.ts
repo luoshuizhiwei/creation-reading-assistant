@@ -7,6 +7,8 @@ export type MobileBook = LibraryBook & {
   localFilePath?: string;
   coverDataUrl?: string;
   lastOpenedAt?: string;
+  categoryIds?: string[];
+  tagNames?: string[];
 };
 
 export type MobileReadingProgress = ReadingProgress;
@@ -72,7 +74,6 @@ export interface SyncAccount {
   name: string;
   endpoint?: string;
   username?: string;
-  passwordToken?: string;
   enabled: boolean;
   lastSyncAt?: string;
   createdAt: string;
@@ -102,7 +103,6 @@ export interface MobileSnapshot {
   categories: MobileCategory[];
   shelves: MobileShelf[];
   syncAccounts: SyncAccount[];
-  readingGoals: MobileReadingGoal[];
   updatedAt: string;
 }
 
@@ -118,17 +118,6 @@ export interface MobileReaderSettings {
   showProgressBar: boolean;
   keepAwake: boolean;
   brightness: number;
-}
-
-export interface MobileReadingGoal {
-  id: string;
-  type: "daily" | "weekly" | "monthly";
-  targetMinutes: number;
-  createdAt: string;
-  updatedAt: string;
-  revision: number;
-  deviceId: string;
-  deletedAt?: string;
 }
 
 export interface ImportedMobileBook {

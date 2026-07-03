@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
+import { DesktopFrame } from "@/components/layout/DesktopFrame";
 import { InspirationPage } from "@/features/inspiration/InspirationPage";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { ReaderPage } from "@/features/library/ReaderPage";
@@ -143,14 +144,21 @@ export default function App() {
       {recoveryInfo && recoveryInfo.recoveredSessionsCount > 0 && (
         <RecoveryPrompt info={recoveryInfo} onOpenLibrary={openRecoveredLibrary} onDismiss={closeRecoveryPrompt} />
       )}
-      <PageTransition screenKey={screen}>
-        {screen === "start" && <StartPage />}
-        {screen === "inspiration" && <InspirationPage />}
-        {screen === "library" && <LibraryPage />}
-        {screen === "reader" && <ReaderPage />}
-        {screen === "stats" && <ReadingStatsPage />}
-        {screen === "settings" && <SettingsPage />}
-      </PageTransition>
+      {screen === "reader" ? (
+        <PageTransition screenKey={screen}>
+          <ReaderPage />
+        </PageTransition>
+      ) : (
+        <DesktopFrame>
+          <PageTransition screenKey={screen}>
+            {screen === "start" && <StartPage />}
+            {screen === "inspiration" && <InspirationPage />}
+            {screen === "library" && <LibraryPage />}
+            {screen === "stats" && <ReadingStatsPage />}
+            {screen === "settings" && <SettingsPage />}
+          </PageTransition>
+        </DesktopFrame>
+      )}
     </div>
   );
 }

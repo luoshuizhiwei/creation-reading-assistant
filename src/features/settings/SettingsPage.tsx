@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowLeft, FolderOpen, QrCode, RotateCcw, Settings, Smartphone, Wifi, WifiOff } from "lucide-react";
+import { FolderOpen, QrCode, RotateCcw, Smartphone, Wifi, WifiOff } from "lucide-react";
 import QRCode from "qrcode";
 import { AnimatedPanel, InlineNotice } from "@/components/interaction";
-import { Button, Field, ShellPanel, TextInput } from "@/components/ui";
+import { Button, Field, TextInput } from "@/components/ui";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
 import { clearAIApiKey, saveAIApiKey, testAIConnection, updateAISettings } from "@/services/ai-service";
 import { createBackup, exportDebugInfo, openDataDirectory, openLogDirectory, restoreBackup } from "@/services/maintenance-service";
@@ -101,9 +101,9 @@ export function SettingsPage() {
 
   if (!settings) {
     return (
-      <ShellPanel className="h-full border-0">
+      <div className="desktop-panel-card desktop-empty-wrap h-full">
         <div className="grid h-full place-items-center text-sm text-paper-muted">正在读取设置...</div>
-      </ShellPanel>
+      </div>
     );
   }
 
@@ -308,19 +308,17 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
-      <header className="paper-topbar flex items-center gap-3 px-5">
-        <Settings size={18} />
-        <div className="paper-title text-xl font-semibold text-copper">设置中心</div>
-        <div className="min-w-0 flex-1 text-sm text-paper-muted">设置保存在本地数据目录，重启后继续生效</div>
-        <Button variant="quiet" onClick={() => setScreen("start")}>
-          <ArrowLeft size={16} />
-          返回首页
-        </Button>
-      </header>
+    <div className="desktop-page-scroll paper-shell">
+      <div className="desktop-page-stack">
+        <section className="desktop-page-hero motion-panel">
+          <div>
+            <div className="desktop-card-label">Preferences</div>
+            <h2>设置中心</h2>
+            <p>设置保存在本地数据目录；桌面端把外观、阅读器、AI、同步和数据维护分区管理。</p>
+          </div>
+        </section>
 
-      <ShellPanel className="min-h-0 overflow-auto border-0 bg-transparent p-5 shadow-none">
-        <div className="mx-auto grid max-w-5xl gap-4">
+        <div className="desktop-settings-grid">
           <Section title="外观" section="appearance" onReset={resetSection}>
             <label className="grid gap-1.5 text-sm text-paper-muted">
               <span className="font-medium text-paper-ink">应用主题</span>
@@ -604,7 +602,7 @@ export function SettingsPage() {
             </div>
           </Section>
 
-          <AnimatedPanel className="rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+          <AnimatedPanel className="settings-wide rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Smartphone size={17} className="text-copper" />
@@ -726,6 +724,7 @@ export function SettingsPage() {
             </div>
           </AnimatedPanel>
 
+          <div className="settings-wide">
           <Section title="关于 / 调试" section="debug" onReset={resetSection}>
             <Field label="应用版本">
               <TextInput value={settings.debug.appVersion} readOnly />
@@ -766,8 +765,9 @@ export function SettingsPage() {
               )}
             </div>
           </Section>
+          </div>
         </div>
-      </ShellPanel>
+      </div>
     </div>
   );
 }

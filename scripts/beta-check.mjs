@@ -193,6 +193,8 @@ run("npm run verify:sync-schema");
 run("npm run verify:sync-server");
 run("npm run verify:mobile-adapter");
 run("npm run verify:mobile-ui");
+run("npm run verify:mobile-profile");
+run("npm run verify:mobile-ai");
 run("npm run verify:mobile-storage");
 run("npm run verify:mobile-reader");
 run("npm run verify:mobile-scan");
