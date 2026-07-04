@@ -4241,6 +4241,201 @@ body {
   text-align: left;
 }
 
+/* v0.1.16 polish: home, shelf and inspiration controls are tuned here last
+   because older iterations intentionally keep their historical blocks above. */
+.screen-stack {
+  width: min(100%, 520px);
+}
+
+.home-section {
+  padding: 16px;
+}
+
+.home-section .section-heading {
+  align-items: baseline;
+}
+
+.continue-strip {
+  display: flex;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+}
+
+.continue-card {
+  flex: 0 0 min(100%, 352px);
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 13px;
+  align-items: center;
+  min-height: 98px;
+  padding: 13px;
+  text-align: left;
+  scroll-snap-align: start;
+}
+
+.continue-card-main {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.continue-card-main span {
+  display: -webkit-box;
+  overflow: hidden;
+  color: var(--md3-on-surface);
+  font-size: 16px;
+  font-weight: 760;
+  line-height: 1.28;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.continue-card-main small {
+  overflow: hidden;
+  color: var(--md3-on-surface-variant);
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.continue-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.continue-progress-row .book-progress-line {
+  height: 4px;
+  margin: 0;
+}
+
+.continue-progress-row em {
+  color: var(--md3-primary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.shelf-toolbar {
+  margin-top: -2px;
+}
+
+.shelf-subtoolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.book-grid {
+  gap: 22px 14px;
+}
+
+.book-grid:not(.book-list) .book-meta h3 {
+  margin-right: 20px;
+}
+
+.book-grid:not(.book-list) .tile-more {
+  right: 0;
+  bottom: 29px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  color: color-mix(in srgb, var(--md3-on-surface-variant) 78%, transparent);
+}
+
+.book-grid:not(.book-list) .tile-more svg {
+  width: 14px;
+  height: 14px;
+}
+
+.book-grid:not(.book-list) .grid-progress-text {
+  color: color-mix(in srgb, var(--md3-on-surface-variant) 84%, transparent);
+}
+
+.book-list .book-tile {
+  grid-template-columns: 48px minmax(0, 1fr) 28px;
+  min-height: 76px;
+  padding: 8px 10px;
+}
+
+.book-list .book-cover {
+  width: 48px;
+  height: 66px;
+}
+
+.book-list .tile-more {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+}
+
+.status-chip-group {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+
+.status-chip {
+  display: grid;
+  gap: 2px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 16px;
+  background: rgba(255, 252, 246, 0.72);
+  color: var(--md3-on-surface);
+  box-shadow: none;
+  text-align: left;
+}
+
+.status-chip strong {
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.status-chip span {
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.status-chip.active {
+  border-color: color-mix(in srgb, var(--md3-primary) 46%, var(--app-hairline));
+  background: color-mix(in srgb, var(--md3-secondary-container) 58%, var(--md3-surface-container-lowest));
+}
+
+.update-card {
+  gap: 12px;
+}
+
+.update-card h2 {
+  margin: 2px 0 4px;
+  font-size: 20px;
+}
+
+.update-release-note {
+  padding: 12px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 16px;
+  background: rgba(255, 252, 246, 0.62);
+}
+
+.update-release-note strong {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 14px;
+}
+
+.update-release-note p {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
 .home-inspiration-mini {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
@@ -5576,4 +5771,149 @@ body::-webkit-scrollbar,
 .editable-tag-row {
   justify-content: flex-start;
   opacity: 0.9;
+}
+
+/* Final v0.1.16 overrides: keep these last so older UI passes cannot win. */
+.screen-stack {
+  width: min(100%, 520px);
+}
+
+.home-section {
+  padding: 16px;
+}
+
+.continue-card {
+  flex: 0 0 min(100%, 352px);
+  display: grid;
+  grid-template-columns: 64px minmax(0, 1fr);
+  gap: 13px;
+  align-items: center;
+  min-height: 98px;
+  padding: 13px;
+  text-align: left;
+}
+
+.continue-card-main {
+  display: grid;
+  min-width: 0;
+  gap: 4px;
+}
+
+.continue-card-main span {
+  display: -webkit-box;
+  overflow: hidden;
+  font-size: 16px;
+  font-weight: 760;
+  line-height: 1.28;
+  text-overflow: ellipsis;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.continue-progress-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.continue-progress-row .book-progress-line {
+  height: 4px;
+  margin: 0;
+}
+
+.continue-progress-row em {
+  color: var(--md3-primary);
+  font-size: 12px;
+  font-style: normal;
+  font-weight: 760;
+}
+
+.shelf-toolbar {
+  margin-top: -2px;
+}
+
+.book-grid {
+  gap: 22px 14px;
+}
+
+.book-grid:not(.book-list) .book-meta h3 {
+  margin-right: 20px;
+}
+
+.book-grid:not(.book-list) .tile-more {
+  right: 0;
+  bottom: 28px;
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  min-height: 20px;
+  color: color-mix(in srgb, var(--md3-on-surface-variant) 78%, transparent);
+}
+
+.book-grid:not(.book-list) .tile-more svg {
+  width: 14px;
+  height: 14px;
+}
+
+.book-list .tile-more {
+  width: 24px;
+  min-width: 24px;
+  height: 24px;
+  min-height: 24px;
+}
+
+.status-chip-group {
+  display: grid;
+  gap: 8px;
+  margin: 2px 0 4px;
+}
+
+.status-chip {
+  display: grid;
+  gap: 2px;
+  min-height: 54px;
+  padding: 10px 12px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 16px;
+  background: rgba(255, 252, 246, 0.72);
+  color: var(--md3-on-surface);
+  box-shadow: none;
+  text-align: left;
+}
+
+.status-chip strong {
+  font-size: 15px;
+  font-weight: 760;
+}
+
+.status-chip span {
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.status-chip.active {
+  border-color: color-mix(in srgb, var(--md3-primary) 46%, var(--app-hairline));
+  background: color-mix(in srgb, var(--md3-secondary-container) 58%, var(--md3-surface-container-lowest));
+}
+
+.update-card h2 {
+  margin: 2px 0 4px;
+  font-size: 20px;
+}
+
+.update-release-note {
+  padding: 12px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 16px;
+  background: rgba(255, 252, 246, 0.62);
+}
+
+.update-release-note p {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.55;
 }

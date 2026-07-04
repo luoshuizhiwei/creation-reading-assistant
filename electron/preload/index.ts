@@ -27,6 +27,7 @@ import type {
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "../../src/types/sync";
+import type { AppUpdateInfo } from "../../src/types/updates";
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args);
 
@@ -38,6 +39,10 @@ const api: DesktopApi = {
     openDataDirectory: () => invoke<void>("app:openDataDirectory"),
     openLogDirectory: () => invoke<void>("app:openLogDirectory"),
     writeRendererLog: (input: RendererLogInput) => invoke<void>("app:writeRendererLog", input)
+  },
+  updates: {
+    check: () => invoke<AppUpdateInfo>("updates:check"),
+    openDownload: (url: string) => invoke<void>("updates:openDownload", url)
   },
   library: {
     importBook: () => invoke<LibraryBook[]>("library:importBook"),
