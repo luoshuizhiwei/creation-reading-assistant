@@ -4436,6 +4436,181 @@ body {
   line-height: 1.55;
 }
 
+/* === v0.1.17 mobile detail polish === */
+.shelf-subtoolbar {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.shelf-sort-chips {
+  display: inline-flex;
+  align-items: center;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 3px;
+  overflow-x: auto;
+  border: 1px solid var(--app-hairline);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--md3-surface-container-lowest) 76%, var(--md3-secondary-container));
+  scrollbar-width: none;
+}
+
+.shelf-sort-chips::-webkit-scrollbar {
+  display: none;
+}
+
+.shelf-sort-chips button {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--md3-on-surface-variant);
+  box-shadow: none;
+  font-size: 13px;
+  font-weight: 720;
+}
+
+.shelf-sort-chips button.active {
+  background: var(--md3-surface-container-lowest);
+  color: var(--md3-on-surface);
+  box-shadow: 0 4px 12px rgba(69, 45, 27, 0.07);
+}
+
+.book-detail-page {
+  padding-bottom: max(22px, env(safe-area-inset-bottom));
+}
+
+.book-detail-page .book-detail-hero,
+.book-detail-page .book-detail-insights {
+  border: 1px solid var(--app-hairline);
+  background: rgba(255, 252, 246, 0.72);
+}
+
+.book-detail-page .book-detail-hero {
+  padding: 14px;
+  border-radius: 24px;
+}
+
+.book-detail-page .book-detail-progress div {
+  background: rgba(255, 252, 246, 0.68);
+}
+
+.book-grid:not(.book-list) .tile-more {
+  right: -4px;
+  bottom: 36px;
+  width: 32px;
+  height: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  color: color-mix(in srgb, var(--md3-on-surface-variant) 70%, transparent);
+}
+
+.book-grid:not(.book-list) .tile-more svg {
+  width: 15px;
+  height: 15px;
+  stroke-width: 2.6;
+}
+
+.book-list .tile-more svg {
+  width: 16px;
+  height: 16px;
+}
+
+.manager-rename-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.manager-rename-row input {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.manager-rename-row button {
+  min-height: 34px;
+  padding: 0 10px;
+  font-size: 12px;
+}
+
+.management-row-expanded {
+  align-items: start;
+}
+
+.linked-book-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.linked-book-list button,
+.linked-book-list span {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.linked-book-list button {
+  min-height: 28px;
+  padding: 0 9px;
+  border: 1px solid var(--app-hairline);
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.8);
+  color: var(--md3-on-surface);
+  box-shadow: none;
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.linked-book-list .text-danger {
+  border-color: color-mix(in srgb, var(--md3-error) 22%, var(--app-hairline));
+  color: var(--md3-error);
+}
+
+.mini-row-action {
+  min-height: 30px;
+  padding: 0 10px;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.reader-shell.reader-is-loading .reader-topbar,
+.reader-shell.reader-has-error .reader-topbar {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+
+.reader-load-error {
+  max-width: 330px;
+  margin: auto;
+  border: 1px solid color-mix(in srgb, var(--md3-error) 30%, var(--app-hairline));
+  background: color-mix(in srgb, var(--md3-surface-container-lowest) 88%, var(--md3-error-container));
+}
+
+.reader-error-actions {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reader-error-actions button {
+  min-height: 40px;
+}
+
+.reader-fallback-note {
+  margin: 10px auto;
+  max-width: 320px;
+  opacity: 0.88;
+}
+
 .home-inspiration-mini {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 44px;
