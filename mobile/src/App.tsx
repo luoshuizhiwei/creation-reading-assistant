@@ -95,7 +95,8 @@ type ProfileSubPage = "sync" | "webdav" | "tags" | "categories" | "shelves" | "r
 type ShelfViewMode = "grid" | "list";
 type ShelfFilterMode = "all" | "reading" | "downloaded" | "pending";
 type ShelfSortMode = "recent" | "title" | "progress";
-type ReaderDrawerTab = "toc" | "search" | "bookmarks" | "notes";
+type ReaderDrawerTab = "toc" | "search" | "bookmarks" | "notes" | "inspirations";
+type ReaderPanel = ReaderDrawerTab | "settings" | "book-info";
 type ReaderSearchResult = { id: string; occurrenceIndex: number; snippet: string; progressPercent: number };
 type MobileAppTheme = "system" | "light" | "dark";
 
@@ -105,7 +106,7 @@ const defaultReaderSettings: MobileReaderSettings = {
   pageMargin: 22,
   paragraphSpacing: 1.15,
   readerBackground: "warm",
-  readerMode: "scroll",
+  readerMode: "paged",
   fontWeight: "regular",
   tapZoneMode: "three-zone",
   showProgressBar: true,
@@ -209,6 +210,15 @@ function isBookDownloaded(book: MobileBook): boolean {
 
 function bookStorageLabel(book: MobileBook): string {
   return isBookDownloaded(book) ? "本机可读" : "需下载正文";
+}
+
+function parseTagInput(value: string): string[] {
+  return Array.from(new Set(
+    value
+      .split(/[,\s，、#]+/)
+      .map((tag) => tag.trim())
+      .filter(Boolean)
+  )).slice(0, 12);
 }
 
 function getContinueBooks(snapshot: MobileSnapshot): MobileBook[] {
@@ -319,7 +329,9 @@ export function App() {
         return;
       }
       if (readerBook) {
-        closeMobileReader();
+        const readerBackEvent = new Event("mobile-reader-back", { cancelable: true });
+        window.dispatchEvent(readerBackEvent);
+        if (!readerBackEvent.defaultPrevented) closeMobileReader();
         return;
       }
       if (tab === "profile" && activeProfilePage) {
@@ -1274,7 +1286,9 @@ function ShelfPage({
           )}
         </section>
       )}
-      <p className="center-foot">共 {snapshot.books.length} 本书籍 · 当前显示 {filtered.length} 本</p>
+      {snapshot.books.length > 0 && (
+        <p className="center-foot shelf-count-foot">共 {snapshot.books.length} 本书籍 · 当前显示 {filtered.length} 本</p>
+      )}
 
       {detailBook && (
         <BookDetailSheet
@@ -1542,12 +1556,16 @@ function InspirationPage({
   onConfirm: (dialog: { title: string; message: string; onConfirm: () => void } | null) => void;
   onMessage: (message: string) => void;
 }) {
+  const [draftTitle, setDraftTitle] = useState("");
   const [draft, setDraft] = useState("");
+  const [draftTags, setDraftTags] = useState("快速记录");
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editBody, setEditBody] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editStatus, setEditStatus] = useState<MobileSnapshot["inspirations"][number]["status"]>("inbox");
   const [aiBusy, setAiBusy] = useState<string>();
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -1574,32 +1592,41 @@ function InspirationPage({
   }, [snapshot.inspirations, debouncedQuery]);
 
   const addDraft = async () => {
+    const tags = parseTagInput(draftTags);
     const next = await addMobileInspiration(snapshot, {
-      title: draft.split("\n")[0] || "快速记录",
+      title: draftTitle.trim() || "未命名灵感",
       body: draft,
-      tags: ["快速记录"]
+      tags: tags.length ? tags : ["快速记录"]
     });
     onSnapshotChange(next);
+    setDraftTitle("");
     setDraft("");
+    setDraftTags("快速记录");
   };
 
   const startEdit = (item: typeof snapshot.inspirations[0]) => {
     setEditingId(item.id);
     setEditTitle(item.title);
     setEditBody(item.body);
+    setEditTags(item.tags.join("，"));
+    setEditStatus(item.status);
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setEditTitle("");
     setEditBody("");
+    setEditTags("");
+    setEditStatus("inbox");
   };
 
   const saveEdit = async () => {
     if (!editingId) return;
     const next = await updateMobileInspiration(snapshot, editingId, {
       title: editTitle,
-      body: editBody
+      body: editBody,
+      tags: parseTagInput(editTags),
+      status: editStatus
     });
     onSnapshotChange(next);
     cancelEdit();
@@ -1702,6 +1729,28 @@ function InspirationPage({
                 placeholder="灵感内容"
                 className="inspiration-edit-body"
               />
+              <input
+                type="text"
+                value={editTags}
+                onChange={(event) => setEditTags(event.target.value)}
+                placeholder="标签，用逗号或空格分隔"
+                className="inspiration-edit-title"
+              />
+              <select
+                value={editStatus}
+                onChange={(event) => setEditStatus(event.target.value as typeof editStatus)}
+                className="inspiration-edit-title"
+                aria-label="灵感状态"
+              >
+                <option value="inbox">未整理</option>
+                <option value="draft">草稿</option>
+                <option value="polished">已打磨</option>
+                <option value="archived">已归档</option>
+              </select>
+              <div className="tag-row editable-tag-row">
+                {parseTagInput(editTags).map((tag) => <span key={tag}>#{tag}</span>)}
+                {!parseTagInput(editTags).length && <span>保存后这里会显示标签</span>}
+              </div>
               <div className="inspiration-edit-actions">
                 <button onClick={() => void saveEdit()}>保存</button>
                 <button onClick={cancelEdit} className="secondary">取消</button>
@@ -1785,8 +1834,10 @@ function InspirationPage({
           <h2>快速记录</h2>
           <span>按书籍 / 标签筛选</span>
         </div>
+        <input value={draftTitle} onChange={(event) => setDraftTitle(event.target.value)} placeholder="标题（可选，不填则为未命名灵感）" />
         <textarea value={draft} onChange={(event) => setDraft(event.target.value)} placeholder="写下一句设定、冲突点、人物小动作……" />
-        <button disabled={!draft.trim()} onClick={() => void addDraft()}>
+        <input value={draftTags} onChange={(event) => setDraftTags(event.target.value)} placeholder="标签，如 人物，冲突，世界观" />
+        <button disabled={!draft.trim() && !draftTitle.trim()} onClick={() => void addDraft()}>
           保存灵感
         </button>
       </section>
@@ -2881,23 +2932,33 @@ function ProfilePage({
   );
 }
 
-function calculateScrollProgress(element: HTMLElement): number {
-  const scrollable = Math.max(1, element.scrollHeight - element.clientHeight);
-  return Math.min(100, Math.max(0, (element.scrollTop / scrollable) * 100));
+function calculateReaderProgress(element: HTMLElement, mode: MobileReaderSettings["readerMode"]): number {
+  const scrollable = mode === "paged"
+    ? Math.max(1, element.scrollWidth - element.clientWidth)
+    : Math.max(1, element.scrollHeight - element.clientHeight);
+  const current = mode === "paged" ? element.scrollLeft : element.scrollTop;
+  return Math.min(100, Math.max(0, (current / scrollable) * 100));
 }
 
-function scrollToPercent(element: HTMLElement, progressPercent: number): void {
+function scrollReaderToPercent(element: HTMLElement, progressPercent: number, mode: MobileReaderSettings["readerMode"]): void {
+  const bounded = Math.min(100, Math.max(0, progressPercent));
+  if (mode === "paged") {
+    const scrollable = Math.max(0, element.scrollWidth - element.clientWidth);
+    element.scrollTo({ left: (scrollable * bounded) / 100, behavior: "smooth" });
+    return;
+  }
   const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
-  element.scrollTo({ top: (scrollable * Math.min(100, Math.max(0, progressPercent))) / 100, behavior: "smooth" });
+  element.scrollTo({ top: (scrollable * bounded) / 100, behavior: "smooth" });
 }
 
-function findCurrentChapter(document: MobileReaderDocument, root?: HTMLElement | null): MobileReaderDocument["toc"][number] | undefined {
+function findCurrentChapter(document: MobileReaderDocument, root?: HTMLElement | null, mode: MobileReaderSettings["readerMode"] = "scroll"): MobileReaderDocument["toc"][number] | undefined {
   if (!root || !document.toc.length) return document.toc[0];
-  const markerTop = root.scrollTop + 96;
+  const marker = (mode === "paged" ? root.scrollLeft : root.scrollTop) + 96;
   let current = document.toc[0];
   for (const item of document.toc) {
     const element = root.querySelector<HTMLElement>(`#${item.id}`);
-    if (element && element.offsetTop <= markerTop) current = item;
+    const offset = mode === "paged" ? element?.offsetLeft : element?.offsetTop;
+    if (element && offset !== undefined && offset <= marker) current = item;
   }
   return current;
 }
@@ -3004,9 +3065,8 @@ function MobileReaderView({
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const pinchStartRef = useRef<{ distance: number; fontSize: number } | null>(null);
   const [selectionText, setSelectionText] = useState("");
-  const [showToc, setShowToc] = useState(false);
+  const [readerPanel, setReaderPanel] = useState<ReaderPanel | null>(null);
   const [readerDrawerTab, setReaderDrawerTab] = useState<ReaderDrawerTab>("toc");
-  const [showSettings, setShowSettings] = useState(false);
   const [readerControlsVisible, setReaderControlsVisible] = useState(false);
   const [readerNotice, setReaderNotice] = useState("");
   const [lastSavedInspirationId, setLastSavedInspirationId] = useState("");
@@ -3021,6 +3081,11 @@ function MobileReaderView({
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [pageTurnDirection, setPageTurnDirection] = useState<"forward" | "backward" | null>(null);
   const readerSearchResults = useMemo(() => createReaderSearchResults(document, readerSearchQuery), [document, readerSearchQuery]);
+
+  const bookInspirations = useMemo(
+    () => snapshot.inspirations.filter((item) => item.source?.bookId === book.id),
+    [snapshot.inspirations, book.id]
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -3064,12 +3129,29 @@ function MobileReaderView({
   }, [documentRendering, loading]);
 
   useEffect(() => {
+    const handleReaderBack = (event: Event) => {
+      if (readerPanel) {
+        event.preventDefault();
+        setReaderPanel(null);
+        return;
+      }
+      if (readerNotice || selectionText || readerControlsVisible) {
+        event.preventDefault();
+        setReaderNotice("");
+        clearSelectedText();
+        setReaderControlsVisible(false);
+      }
+    };
+    window.addEventListener("mobile-reader-back", handleReaderBack);
+    return () => window.removeEventListener("mobile-reader-back", handleReaderBack);
+  }, [readerPanel, readerNotice, selectionText, readerControlsVisible]);
+
+  useEffect(() => {
     const element = scrollRef.current;
     if (!element || !document.html) return;
-    const scrollable = Math.max(0, element.scrollHeight - element.clientHeight);
-    element.scrollTop = (scrollable * currentProgress) / 100;
-    setCurrentChapter(findCurrentChapter(document, element));
-  }, [document.html]);
+    scrollReaderToPercent(element, currentProgress, settings.readerMode);
+    setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
+  }, [document.html, settings.readerMode]);
 
   useEffect(() => {
     let cancelled = false;
@@ -3126,7 +3208,7 @@ function MobileReaderView({
   };
 
   const finishReaderJump = (message: string) => {
-    setShowToc(false);
+    setReaderPanel(null);
     setReaderControlsVisible(false);
     setReaderNotice(message);
   };
@@ -3137,9 +3219,9 @@ function MobileReaderView({
     const bounded = Math.min(100, Math.max(0, progressPercent));
     const direction = bounded >= currentProgress ? 1 : -1;
     lastReaderActivityRef.current = Date.now();
-    scrollToPercent(element, bounded);
+    scrollReaderToPercent(element, bounded, settings.readerMode);
     setCurrentProgress(bounded);
-    setCurrentChapter(findCurrentChapter(document, element));
+    setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
     triggerReaderPageTurn(direction);
     finishReaderJump(message);
   };
@@ -3150,8 +3232,14 @@ function MobileReaderView({
     lastReaderActivityRef.current = Date.now();
     const chapterElement = element.querySelector<HTMLElement>(`#${target.id}`);
     if (chapterElement) {
-      const direction = chapterElement.offsetTop >= element.scrollTop ? 1 : -1;
-      element.scrollTo({ top: Math.max(0, chapterElement.offsetTop - 72), behavior: "smooth" });
+      const targetOffset = settings.readerMode === "paged" ? chapterElement.offsetLeft : chapterElement.offsetTop;
+      const currentOffset = settings.readerMode === "paged" ? element.scrollLeft : element.scrollTop;
+      const direction = targetOffset >= currentOffset ? 1 : -1;
+      if (settings.readerMode === "paged") {
+        element.scrollTo({ left: Math.max(0, targetOffset - 12), behavior: "smooth" });
+      } else {
+        element.scrollTo({ top: Math.max(0, targetOffset - 72), behavior: "smooth" });
+      }
       setCurrentChapter(target);
       triggerReaderPageTurn(direction);
       finishReaderJump(`已跳到：${target.title}`);
@@ -3163,16 +3251,22 @@ function MobileReaderView({
     if (!element) return;
     lastReaderActivityRef.current = Date.now();
     const jumped = jumpToReaderSearchResult(element, readerSearchQuery, result.occurrenceIndex);
-    if (!jumped) scrollToPercent(element, result.progressPercent);
+    if (!jumped) scrollReaderToPercent(element, result.progressPercent, settings.readerMode);
+    if (jumped && settings.readerMode === "paged") {
+      window.setTimeout(() => {
+        const selectionElement = window.getSelection()?.anchorNode?.parentElement;
+        if (selectionElement) element.scrollTo({ left: Math.max(0, selectionElement.offsetLeft - 12), behavior: "smooth" });
+      }, 40);
+    }
     setCurrentProgress(result.progressPercent);
-    setCurrentChapter(findCurrentChapter(document, element));
+    setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
     triggerReaderPageTurn(result.progressPercent >= currentProgress ? 1 : -1);
     finishReaderJump(`已跳到搜索结果：${result.progressPercent.toFixed(1)}%`);
   };
 
   const openReaderDrawer = (tab: ReaderDrawerTab) => {
     setReaderDrawerTab(tab);
-    setShowToc(true);
+    setReaderPanel(tab);
     setReaderControlsVisible(false);
   };
 
@@ -3191,10 +3285,17 @@ function MobileReaderView({
     const element = scrollRef.current;
     if (!element) return;
     triggerReaderPageTurn(direction);
-    element.scrollTo({
-      top: Math.min(element.scrollHeight, Math.max(0, element.scrollTop + direction * element.clientHeight * 0.86)),
-      behavior: "smooth"
-    });
+    if (settings.readerMode === "paged") {
+      element.scrollTo({
+        left: Math.min(element.scrollWidth, Math.max(0, element.scrollLeft + direction * element.clientWidth)),
+        behavior: "smooth"
+      });
+    } else {
+      element.scrollTo({
+        top: Math.min(element.scrollHeight, Math.max(0, element.scrollTop + direction * element.clientHeight * 0.86)),
+        behavior: "smooth"
+      });
+    }
     setReaderControlsVisible(false);
     setReaderNotice(direction > 0 ? "下一页" : "上一页");
   };
@@ -3203,9 +3304,9 @@ function MobileReaderView({
     const element = scrollRef.current;
     if (!element) return;
     lastReaderActivityRef.current = Date.now();
-    const nextProgress = calculateScrollProgress(element);
+    const nextProgress = calculateReaderProgress(element, settings.readerMode);
     setCurrentProgress(nextProgress);
-    setCurrentChapter(findCurrentChapter(document, element));
+    setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
     setReaderControlsVisible(false);
     if (progressSaveTimer.current) window.clearTimeout(progressSaveTimer.current);
     progressSaveTimer.current = window.setTimeout(() => {
@@ -3411,7 +3512,7 @@ function MobileReaderView({
   const chapterLabel = currentChapter ? `${chapterIndex + 1}/${document.toc.length} · ${currentChapter.title}` : "正文";
   const bookNotes = snapshot.notes.filter((item) => item.bookId === book.id && item.kind !== "bookmark");
   const bookBookmarks = snapshot.notes.filter((item) => item.bookId === book.id && item.kind === "bookmark");
-  const showSelectionToolbar = Boolean(selectionText) && !showToc && !showSettings;
+  const showSelectionToolbar = Boolean(selectionText) && !readerPanel;
   const savedBookReadingMs = snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0;
   const sessionProgressDelta = Math.max(0, currentProgress - readerSessionStartProgressRef.current);
   const sessionWords = Math.round(document.wordCount * sessionProgressDelta / 100);
@@ -3437,97 +3538,212 @@ function MobileReaderView({
           <button className="ghost-button reader-icon-button" onClick={() => openReaderDrawer("toc")} aria-label="目录">
             <Menu size={20} />
           </button>
-          <button className="ghost-button reader-icon-button" onClick={() => setShowSettings(true)} aria-label="更多设置">
+          <button className="ghost-button reader-icon-button" onClick={() => setReaderPanel("book-info")} aria-label="书籍信息">
             ⋮
           </button>
         </div>
       </header>
 
-      {showToc && (
-        <aside className="reader-toc-drawer">
-          <div className="drawer-header">
-            <h2>{readerDrawerTab === "toc" ? "目录" : readerDrawerTab === "search" ? "搜索" : readerDrawerTab === "bookmarks" ? "书签" : "笔记"}</h2>
-            <button className="ghost-button" onClick={() => setShowToc(false)}>关闭</button>
+      {readerPanel && (
+        <section className={`reader-panel reader-panel-${readerPanel}`} role="dialog" aria-modal="true">
+          <header className="reader-panel-header">
+            <button className="ghost-button reader-icon-button" onClick={() => setReaderPanel(null)} aria-label="返回阅读">
+              ←
+            </button>
+            <div>
+              <p>{book.title}</p>
+              <h2>
+                {readerPanel === "settings" ? "阅读设置" :
+                  readerPanel === "book-info" ? "书籍信息" :
+                  readerDrawerTab === "toc" ? "目录" :
+                  readerDrawerTab === "search" ? "搜索" :
+                  readerDrawerTab === "bookmarks" ? "书签" :
+                  readerDrawerTab === "inspirations" ? "灵感记录" : "笔记"}
+              </h2>
+            </div>
+          </header>
+
+          {readerPanel !== "settings" && readerPanel !== "book-info" && (
+            <div className="reader-drawer-tabs reader-panel-tabs">
+              {([
+                ["toc", "目录"],
+                ["search", `搜索 ${readerSearchResults.length}`],
+                ["bookmarks", `书签 ${bookBookmarks.length}`],
+                ["notes", `笔记 ${bookNotes.length}`],
+                ["inspirations", `灵感 ${bookInspirations.length}`]
+              ] as Array<[ReaderDrawerTab, string]>).map(([key, label]) => (
+                <button key={key} className={readerDrawerTab === key ? "active" : ""} onClick={() => setReaderDrawerTab(key)}>
+                  {label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          <div className="reader-panel-body">
+            {readerPanel === "book-info" && (
+              <div className="reader-info-panel">
+                <div className="reader-info-cover">{book.title.slice(0, 4)}</div>
+                <h3>{book.title}</h3>
+                <p>{book.author || "作者未知"} · {book.format.toUpperCase()} · {progressLabel}</p>
+                <dl>
+                  <div><dt>当前章节</dt><dd>{chapterLabel}</dd></div>
+                  <div><dt>总字数</dt><dd>{document.wordCount.toLocaleString("zh-CN")} 字</dd></div>
+                  <div><dt>本次阅读</dt><dd>{formatDuration(activeReadingMs)}</dd></div>
+                  <div><dt>来源文件</dt><dd>{book.originalFileName || book.originalFilePath || "本地导入"}</dd></div>
+                </dl>
+                {loadError && <p className="reader-error-line">正文读取失败：{loadError}</p>}
+                <button onClick={() => setReaderPanel("settings")}>打开阅读设置</button>
+              </div>
+            )}
+
+            {readerPanel === "settings" && (
+              <div className="reader-settings-panel">
+                <div className="reader-mode-grid" aria-label="阅读模式">
+                  <button className={settings.readerMode === "paged" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "paged" })}>
+                    横向分页
+                  </button>
+                  <button className={settings.readerMode === "scroll" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "scroll" })}>
+                    上下滚动
+                  </button>
+                  <button className={settings.fontWeight === "bold" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, fontWeight: settings.fontWeight === "bold" ? "regular" : "bold" })}>
+                    加粗
+                  </button>
+                  <button onClick={() => onSettingsChange(defaultReaderSettings)}>
+                    重置
+                  </button>
+                </div>
+                <div className="reader-mode-grid" aria-label="点击区域">
+                  <button className={settings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "three-zone" })}>
+                    三分区
+                  </button>
+                  <button className={settings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "five-zone" })}>
+                    五分区
+                  </button>
+                  <button className={settings.showProgressBar ? "active" : ""} onClick={() => onSettingsChange({ ...settings, showProgressBar: !settings.showProgressBar })}>
+                    进度条
+                  </button>
+                  <button className={settings.keepAwake ? "active" : ""} onClick={() => onSettingsChange({ ...settings, keepAwake: !settings.keepAwake })}>
+                    常亮
+                  </button>
+                </div>
+                <label>
+                  字号
+                  <input type="range" min="15" max="28" value={settings.fontSize} onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })} />
+                </label>
+                <label>
+                  行距
+                  <input type="range" min="1.4" max="2.4" step="0.05" value={settings.lineHeight} onChange={(event) => onSettingsChange({ ...settings, lineHeight: Number(event.target.value) })} />
+                </label>
+                <label>
+                  边距
+                  <input type="range" min="10" max="42" value={settings.pageMargin} onChange={(event) => onSettingsChange({ ...settings, pageMargin: Number(event.target.value) })} />
+                </label>
+                <label>
+                  段距
+                  <input type="range" min="0.7" max="1.8" step="0.05" value={settings.paragraphSpacing} onChange={(event) => onSettingsChange({ ...settings, paragraphSpacing: Number(event.target.value) })} />
+                </label>
+                <label>
+                  亮度
+                  <input type="range" min="45" max="100" value={settings.brightness} onChange={(event) => onSettingsChange({ ...settings, brightness: Number(event.target.value) })} />
+                </label>
+                <div className="reader-background-grid">
+                  {(["white", "warm", "green", "night"] as const).map((background) => (
+                    <button key={background} className={settings.readerBackground === background ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerBackground: background })}>
+                      {background === "white" ? "白纸" : background === "warm" ? "暖纸" : background === "green" ? "护眼" : "夜间"}
+                    </button>
+                  ))}
+                </div>
+                <p className="subtle">横向分页更接近阅读 App；上下滚动适合查找和长文浏览。返回键会先回到正文，不会直接退出阅读。</p>
+              </div>
+            )}
+
+            {readerPanel !== "settings" && readerPanel !== "book-info" && readerDrawerTab === "toc" && (
+              <div className="reader-toc-list">
+                {document.toc.length ? document.toc.map((item) => (
+                  <a
+                    key={item.id}
+                    href={`#${item.id}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      jumpToChapter(item);
+                    }}
+                  >
+                    {item.title}
+                  </a>
+                )) : <p className="empty-hint">这本书暂未识别到目录。</p>}
+              </div>
+            )}
+
+            {readerPanel !== "settings" && readerPanel !== "book-info" && readerDrawerTab === "search" && (
+              <div className="reader-search-panel">
+                <label>
+                  <span>搜索当前书籍</span>
+                  <input value={readerSearchQuery} onChange={(event) => setReaderSearchQuery(event.target.value)} placeholder="输入书名、人名、设定或句子片段" autoFocus />
+                </label>
+                {readerSearchQuery.trim() ? (
+                  <>
+                    <p className="search-summary">找到 {readerSearchResults.length} 处，最多显示前 80 条。</p>
+                    <div className="reader-search-results">
+                      {readerSearchResults.length ? readerSearchResults.map((result) => (
+                        <button key={result.id} onClick={() => jumpToSearchResult(result)}>
+                          <strong>{result.progressPercent.toFixed(1)}%</strong>
+                          <span>{result.snippet}</span>
+                        </button>
+                      )) : <p className="empty-hint">没有搜到。可以换一个更短的关键词。</p>}
+                    </div>
+                  </>
+                ) : (
+                  <p className="empty-hint">搜索会在当前 TXT / Markdown / EPUB 正文中查找，点击结果后直接跳到正文位置。</p>
+                )}
+              </div>
+            )}
+
+            {readerPanel !== "settings" && readerPanel !== "book-info" && readerDrawerTab === "bookmarks" && (
+              <div className="reader-note-list">
+                <button onClick={() => void addReaderBookmark()}>在当前位置添加书签</button>
+                {bookBookmarks.length ? bookBookmarks.map((item) => (
+                  <article key={item.id} className="reader-note-item">
+                    <strong>{item.title}</strong>
+                    <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
+                    {item.excerpt && <p>{item.excerpt}</p>}
+                    <button onClick={() => jumpToReaderProgress(item.progressPercent ?? 0, `已跳到书签：${(item.progressPercent ?? 0).toFixed(1)}%`)}>跳转</button>
+                  </article>
+                )) : <p className="empty-hint">还没有书签。阅读时点底部“书签”即可保存当前位置。</p>}
+              </div>
+            )}
+
+            {readerPanel !== "settings" && readerPanel !== "book-info" && readerDrawerTab === "notes" && (
+              <div className="reader-note-list">
+                <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="写一条阅读笔记；如果你选中了正文，也会一起保存为摘录。" />
+                <button onClick={() => void addReaderNote()}>保存笔记</button>
+                {bookNotes.length ? bookNotes.map((item) => (
+                  <article key={item.id} className="reader-note-item">
+                    <strong>{item.title}</strong>
+                    <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
+                    {item.excerpt && <blockquote>{item.excerpt}</blockquote>}
+                    <p>{item.body}</p>
+                    <button onClick={() => jumpToReaderProgress(item.progressPercent ?? 0, `已跳到笔记：${(item.progressPercent ?? 0).toFixed(1)}%`)}>跳转</button>
+                  </article>
+                )) : <p className="empty-hint">还没有笔记。可以先选中文字，再打开这里保存。</p>}
+              </div>
+            )}
+
+            {readerPanel !== "settings" && readerPanel !== "book-info" && readerDrawerTab === "inspirations" && (
+              <div className="reader-note-list">
+                <button onClick={() => void addReaderInspiration()}>把当前位置记为灵感</button>
+                {bookInspirations.length ? bookInspirations.map((item) => (
+                  <article key={item.id} className="reader-note-item">
+                    <strong>{item.title}</strong>
+                    <span>{item.source?.locationLabel || `${item.source?.progressPercent?.toFixed(1) ?? 0}%`}</span>
+                    {item.source?.excerpt && <blockquote>{item.source.excerpt}</blockquote>}
+                    <p>{item.body || "还没有正文。"}</p>
+                    <button onClick={() => onOpenInspiration(item.id)}>打开灵感</button>
+                  </article>
+                )) : <p className="empty-hint">这本书还没有灵感记录。选中文字后点“灵感”，来源会单独保存。</p>}
+              </div>
+            )}
           </div>
-          <div className="reader-drawer-tabs">
-            {([
-              ["toc", "目录"],
-              ["search", `搜索 ${readerSearchResults.length}`],
-              ["bookmarks", `书签 ${bookBookmarks.length}`],
-              ["notes", `笔记 ${bookNotes.length}`]
-            ] as Array<[ReaderDrawerTab, string]>).map(([key, label]) => (
-              <button key={key} className={readerDrawerTab === key ? "active" : ""} onClick={() => setReaderDrawerTab(key)}>
-                {label}
-              </button>
-            ))}
-          </div>
-          {readerDrawerTab === "toc" && (
-            document.toc.length ? document.toc.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                onClick={(event) => {
-                  event.preventDefault();
-                  jumpToChapter(item);
-                  setShowToc(false);
-                }}
-              >
-                {item.title}
-              </a>
-            )) : <p>这本书暂未识别到目录。</p>
-          )}
-          {readerDrawerTab === "search" && (
-            <div className="reader-search-panel">
-              <label>
-                <span>搜索当前书籍</span>
-                <input value={readerSearchQuery} onChange={(event) => setReaderSearchQuery(event.target.value)} placeholder="输入书名、人名、设定或句子片段" autoFocus />
-              </label>
-              {readerSearchQuery.trim() ? (
-                <>
-                  <p className="search-summary">找到 {readerSearchResults.length} 处，最多显示前 80 条。</p>
-                  <div className="reader-search-results">
-                    {readerSearchResults.length ? readerSearchResults.map((result) => (
-                      <button key={result.id} onClick={() => jumpToSearchResult(result)}>
-                        <strong>{result.progressPercent.toFixed(1)}%</strong>
-                        <span>{result.snippet}</span>
-                      </button>
-                    )) : <p className="empty-hint">没有搜到。可以换一个更短的关键词。</p>}
-                  </div>
-                </>
-              ) : (
-                <p className="empty-hint">搜索会在当前 TXT / Markdown / EPUB 正文中查找，点击结果后直接跳到正文位置。</p>
-              )}
-            </div>
-          )}
-          {readerDrawerTab === "bookmarks" && (
-            <div className="reader-note-list">
-              <button onClick={() => void addReaderBookmark()}>在当前位置添加书签</button>
-              {bookBookmarks.length ? bookBookmarks.map((item) => (
-                <article key={item.id} className="reader-note-item">
-                  <strong>{item.title}</strong>
-                  <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
-                  {item.excerpt && <p>{item.excerpt}</p>}
-                  <button onClick={() => jumpToReaderProgress(item.progressPercent ?? 0, `已跳到书签：${(item.progressPercent ?? 0).toFixed(1)}%`)}>跳转</button>
-                </article>
-              )) : <p className="empty-hint">还没有书签。阅读时点底部“书签”即可保存当前位置。</p>}
-            </div>
-          )}
-          {readerDrawerTab === "notes" && (
-            <div className="reader-note-list">
-              <textarea value={noteDraft} onChange={(event) => setNoteDraft(event.target.value)} placeholder="写一条阅读笔记；如果你选中了正文，也会一起保存为摘录。" />
-              <button onClick={() => void addReaderNote()}>保存笔记</button>
-              {bookNotes.length ? bookNotes.map((item) => (
-                <article key={item.id} className="reader-note-item">
-                  <strong>{item.title}</strong>
-                  <span>{item.chapterTitle || "当前位置"} · {(item.progressPercent ?? 0).toFixed(1)}%</span>
-                  {item.excerpt && <blockquote>{item.excerpt}</blockquote>}
-                  <p>{item.body}</p>
-                  <button onClick={() => jumpToReaderProgress(item.progressPercent ?? 0, `已跳到笔记：${(item.progressPercent ?? 0).toFixed(1)}%`)}>跳转</button>
-                </article>
-              )) : <p className="empty-hint">还没有笔记。可以先选中文字，再打开这里保存。</p>}
-            </div>
-          )}
-        </aside>
+        </section>
       )}
 
       <section
@@ -3621,7 +3837,18 @@ function MobileReaderView({
         <div className="reader-chapter-control-row">
           <button onClick={() => moveChapter(-1)}>上一章</button>
           {settings.showProgressBar ? (
-            <input className="reader-progress-slider" type="range" min="0" max="100" step="0.1" value={currentProgress} onChange={(event) => void saveProgress(Number(event.target.value))} />
+            <input
+              className="reader-progress-slider"
+              type="range"
+              min="0"
+              max="100"
+              step="0.1"
+              value={currentProgress}
+              onChange={(event) => {
+                jumpToReaderProgress(Number(event.target.value), `已跳到 ${Number(event.target.value).toFixed(1)}%`);
+                void saveProgress(Number(event.target.value));
+              }}
+            />
           ) : (
             <div className="reader-progress-disabled">{progressLabel}</div>
           )}
@@ -3640,76 +3867,11 @@ function MobileReaderView({
           <button onClick={() => void addReaderBookmark()}>
             <Star size={20} /><span>书签</span>
           </button>
-          <button onClick={() => setShowSettings(true)}>
+          <button onClick={() => setReaderPanel("settings")}>
             <span className="reader-aa-icon">Aa</span><span>设置</span>
           </button>
         </div>
       </footer>
-
-      {showSettings && (
-        <aside className="reader-settings-drawer">
-          <div className="drawer-header">
-            <h2>阅读设置</h2>
-            <button className="ghost-button" onClick={() => setShowSettings(false)}>关闭</button>
-          </div>
-          <div className="reader-mode-grid" aria-label="阅读模式">
-            <button className={settings.readerMode === "scroll" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "scroll" })}>
-              滚动
-            </button>
-            <button className={settings.readerMode === "paged" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerMode: "paged" })}>
-              分页
-            </button>
-            <button className={settings.fontWeight === "bold" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, fontWeight: settings.fontWeight === "bold" ? "regular" : "bold" })}>
-              加粗
-            </button>
-            <button onClick={() => onSettingsChange(defaultReaderSettings)}>
-              重置
-            </button>
-          </div>
-          <div className="reader-mode-grid" aria-label="点击区域">
-            <button className={settings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "three-zone" })}>
-              三分区
-            </button>
-            <button className={settings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "five-zone" })}>
-              五分区
-            </button>
-            <button className={settings.showProgressBar ? "active" : ""} onClick={() => onSettingsChange({ ...settings, showProgressBar: !settings.showProgressBar })}>
-              进度条
-            </button>
-            <button className={settings.keepAwake ? "active" : ""} onClick={() => onSettingsChange({ ...settings, keepAwake: !settings.keepAwake })}>
-              常亮
-            </button>
-          </div>
-          <label>
-            字号
-            <input type="range" min="15" max="28" value={settings.fontSize} onChange={(event) => onSettingsChange({ ...settings, fontSize: Number(event.target.value) })} />
-          </label>
-          <label>
-            行距
-            <input type="range" min="1.4" max="2.4" step="0.05" value={settings.lineHeight} onChange={(event) => onSettingsChange({ ...settings, lineHeight: Number(event.target.value) })} />
-          </label>
-          <label>
-            边距
-            <input type="range" min="10" max="42" value={settings.pageMargin} onChange={(event) => onSettingsChange({ ...settings, pageMargin: Number(event.target.value) })} />
-          </label>
-          <label>
-            段距
-            <input type="range" min="0.7" max="1.8" step="0.05" value={settings.paragraphSpacing} onChange={(event) => onSettingsChange({ ...settings, paragraphSpacing: Number(event.target.value) })} />
-          </label>
-          <label>
-            亮度
-            <input type="range" min="45" max="100" value={settings.brightness} onChange={(event) => onSettingsChange({ ...settings, brightness: Number(event.target.value) })} />
-          </label>
-          <div className="reader-background-grid">
-            {(["white", "warm", "green", "night"] as const).map((background) => (
-              <button key={background} className={settings.readerBackground === background ? "active" : ""} onClick={() => onSettingsChange({ ...settings, readerBackground: background })}>
-                {background === "white" ? "白纸" : background === "warm" ? "暖纸" : background === "green" ? "护眼" : "夜间"}
-              </button>
-            ))}
-          </div>
-          <p className="subtle">三分区：左 / 中 / 右；五分区会额外把中间上方作为后退、中间下方作为前进。分页模式按页翻动，滚动模式按章节跳转。</p>
-        </aside>
-      )}
     </main>
   );
 }

@@ -23,6 +23,9 @@ assertIncludes("mobile/src/App.tsx", "inspiration-ai-panel", "AI variants and ac
 assertIncludes("mobile/src/App.tsx", "AI 打磨", "Inspiration detail must expose AI polishing actions.");
 assertIncludes("mobile/src/App.tsx", "个候选", "Inspiration detail must show AI candidate count.");
 assertIncludes("mobile/src/App.tsx", "按书籍", "Inspiration page must filter or group by book.");
+assertIncludes("mobile/src/App.tsx", "parseTagInput", "Inspiration editor must allow users to type and save tags.");
+assertIncludes("mobile/src/App.tsx", "未命名灵感", "New inspirations must not blindly use the first body line as the title.");
+assertIncludes("mobile/src/App.tsx", "setEditTags", "Inspiration detail editing must include editable tags.");
 assertIncludes("mobile/src/App.tsx", "lastSavedInspirationId", "Reader-to-inspiration flow must remember the saved inspiration for feedback navigation.");
 assertIncludes("mobile/src/App.tsx", "createdFrom: sourceExcerpt ? \"reader-selection\" : \"reader-note\"", "Reader inspiration source must distinguish selected text from a general reading note.");
 assertIncludes("mobile/src/services/mobile-storage.ts", "addMobileInspiration", "Mobile storage must support adding inspirations.");
