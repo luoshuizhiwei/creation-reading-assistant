@@ -133,6 +133,36 @@ const defaultReaderSettings: MobileReaderSettings = {
   brightness: 100
 };
 
+const shelfSortOptions: Array<{ value: ShelfSortMode; label: string }> = [
+  { value: "recent", label: "最近" },
+  { value: "title", label: "书名" },
+  { value: "progress", label: "进度" }
+];
+
+function escapeReaderHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildPlainTextFallbackDocument(book: MobileBook, content: string): MobileReaderDocument {
+  const safeContent = content.trim() || `${book.title}\n\n正文为空。可以返回书架重新导入，或在“我的 / 同步”里重新下载正文。`;
+  return {
+    title: book.title,
+    format: book.format,
+    html: safeContent
+      .split(/\n{2,}/)
+      .map((paragraph) => `<p>${escapeReaderHtml(paragraph.trim()).replace(/\n/g, "<br />")}</p>`)
+      .join("\n"),
+    plainText: safeContent,
+    toc: [],
+    wordCount: safeContent.replace(/\s/g, "").length
+  };
+}
+
 const emptySnapshot: MobileSnapshot = {
   inspirations: [],
   books: [],
@@ -1147,6 +1177,26 @@ function ShelfPage({
     snapshot.books.forEach((book) => book.tagNames?.forEach((tag) => names.add(tag)));
     return [...names].sort((left, right) => left.localeCompare(right, "zh-Hans-CN"));
   }, [snapshot.books, snapshot.tags]);
+
+  if (detailBook) {
+    return (
+      <BookDetailSheet
+        book={detailBook}
+        snapshot={snapshot}
+        downloadingBookId={downloadingBookId}
+        onClose={() => setDetailBookId("")}
+        onOpenBook={(book) => {
+          setDetailBookId("");
+          onOpenBook(book);
+        }}
+        onDownloadBook={onDownloadBook}
+        onCancelDownload={onCancelDownload}
+        onSnapshotChange={onSnapshotChange}
+        onMessage={onMessage}
+      />
+    );
+  }
+
   return (
     <div className="screen-stack">
       <header className="mobile-header row-header">
@@ -1168,11 +1218,18 @@ function ShelfPage({
 
       <section className="shelf-toolbar" aria-label="书架筛选和视图">
         <div className="shelf-subtoolbar">
-          <select value={sortMode} onChange={(event) => setSortMode(event.target.value as ShelfSortMode)} aria-label="书籍排序">
-            <option value="recent">最近阅读</option>
-            <option value="title">书名排序</option>
-            <option value="progress">进度优先</option>
-          </select>
+          <div className="shelf-sort-chips" role="group" aria-label="书籍排序">
+            {shelfSortOptions.map((option) => (
+              <button
+                key={option.value}
+                className={sortMode === option.value ? "active" : ""}
+                onClick={() => setSortMode(option.value)}
+                type="button"
+              >
+                {option.label}{option.value === "recent" && sortMode === "recent" ? " ▾" : ""}
+              </button>
+            ))}
+          </div>
           <div className="view-toggle" aria-label="书架视图">
             <button className={viewMode === "grid" ? "active" : ""} onClick={() => setViewMode("grid")} aria-label="网格视图">
               <Grid size={18} />
@@ -1292,22 +1349,6 @@ function ShelfPage({
         <p className="center-foot shelf-count-foot">共 {snapshot.books.length} 本书籍 · 当前显示 {filtered.length} 本</p>
       )}
 
-      {detailBook && (
-        <BookDetailSheet
-          book={detailBook}
-          snapshot={snapshot}
-          downloadingBookId={downloadingBookId}
-          onClose={() => setDetailBookId("")}
-          onOpenBook={(book) => {
-            setDetailBookId("");
-            onOpenBook(book);
-          }}
-          onDownloadBook={onDownloadBook}
-          onCancelDownload={onCancelDownload}
-          onSnapshotChange={onSnapshotChange}
-          onMessage={onMessage}
-        />
-      )}
     </div>
   );
 }
@@ -1416,11 +1457,14 @@ function BookDetailSheet({
     onMessage(inShelf ? `已从书单「${targetShelf.name}」移除《${book.title}》。` : `已把《${book.title}》加入书单「${targetShelf.name}」。`);
   };
   return (
-    <aside className="book-detail-sheet" role="dialog" aria-label={`${book.title} 详情`}>
-      <div className="drawer-header">
-        <h2>书籍详情</h2>
-        <button className="ghost-button" onClick={onClose}>关闭</button>
-      </div>
+    <div className="screen-stack book-detail-page" role="region" aria-label={`${book.title} 详情`}>
+      <header className="mobile-header row-header subpage-header">
+        <button className="ghost-button back-button" onClick={onClose}>← 返回</button>
+        <div>
+          <p className="mini-label">本地书库</p>
+          <h1>书籍详情</h1>
+        </div>
+      </header>
       <section className="book-detail-hero">
         <div className="book-cover detail-cover">{book.title.slice(0, 4)}</div>
         <div>
@@ -1543,7 +1587,7 @@ function BookDetailSheet({
           </div>
         ) : <p className="empty-hint">还没有书籍标签。可以在“我的 / 标签管理”里创建类型为“书籍”的标签。</p>}
       </section>
-    </aside>
+    </div>
   );
 }
 
@@ -2131,6 +2175,8 @@ function ProfilePage({
   const [newTagType, setNewTagType] = useState<"book" | "inspiration" | "note">("book");
   const [newCategoryName, setNewCategoryName] = useState("");
   const [newShelfName, setNewShelfName] = useState("");
+  const [editingManagerItem, setEditingManagerItem] = useState<{ kind: "tag" | "category" | "shelf"; id: string; name: string } | null>(null);
+  const [editingManagerName, setEditingManagerName] = useState("");
   const [aiSettings, setAiSettings] = useState(() => loadMobileAISettings());
   const [aiKeyDraft, setAiKeyDraft] = useState("");
   const [profileMoreOpen, setProfileMoreOpen] = useState(false);
@@ -2366,6 +2412,15 @@ function ProfilePage({
                   revision: (book.revision ?? 0) + 1
                 }
               : book)
+            : kind === "category"
+              ? snapshot.books.map((book) => book.categoryIds?.includes(id)
+                ? {
+                    ...book,
+                    categoryIds: book.categoryIds.filter((categoryId) => categoryId !== id),
+                    updatedAt: timestamp,
+                    revision: (book.revision ?? 0) + 1
+                  }
+                : book)
             : snapshot.books,
           inspirations: kind === "tag" && targetTag?.type === "inspiration"
             ? snapshot.inspirations.map((item) => item.tags.includes(name)
@@ -2380,6 +2435,100 @@ function ProfilePage({
           updatedAt: timestamp
         };
         await saveSnapshotAndNotify(next, "已删除。");
+        onConfirm(null);
+      }
+    });
+  };
+
+  const startRenameRecord = (kind: "tag" | "category" | "shelf", id: string, name: string) => {
+    setEditingManagerItem({ kind, id, name });
+    setEditingManagerName(name);
+  };
+
+  const cancelRenameRecord = () => {
+    setEditingManagerItem(null);
+    setEditingManagerName("");
+  };
+
+  const renameRecord = async () => {
+    if (!editingManagerItem) return;
+    const nextName = editingManagerName.trim();
+    if (!nextName || nextName === editingManagerItem.name) {
+      cancelRenameRecord();
+      return;
+    }
+    const timestamp = new Date().toISOString();
+    const { kind, id, name: oldName } = editingManagerItem;
+    const targetTag = kind === "tag" ? snapshot.tags.find((item) => item.id === id) : undefined;
+    const next: MobileSnapshot = {
+      ...snapshot,
+      tags: kind === "tag"
+        ? snapshot.tags.map((item) => item.id === id ? { ...item, name: nextName, updatedAt: timestamp, revision: item.revision + 1 } : item)
+        : snapshot.tags,
+      categories: kind === "category"
+        ? snapshot.categories.map((item) => item.id === id ? { ...item, name: nextName, updatedAt: timestamp, revision: item.revision + 1 } : item)
+        : snapshot.categories,
+      shelves: kind === "shelf"
+        ? snapshot.shelves.map((item) => item.id === id ? { ...item, name: nextName, updatedAt: timestamp, revision: item.revision + 1 } : item)
+        : snapshot.shelves,
+      books: kind === "tag" && targetTag?.type === "book"
+        ? snapshot.books.map((book) => book.tagNames?.includes(oldName)
+          ? {
+              ...book,
+              tagNames: book.tagNames.map((tag) => tag === oldName ? nextName : tag),
+              updatedAt: timestamp,
+              revision: (book.revision ?? 0) + 1
+            }
+          : book)
+        : snapshot.books,
+      inspirations: kind === "tag" && targetTag?.type === "inspiration"
+        ? snapshot.inspirations.map((item) => item.tags.includes(oldName)
+          ? {
+              ...item,
+              tags: item.tags.map((tag) => tag === oldName ? nextName : tag),
+              updatedAt: timestamp,
+              revision: item.revision + 1
+            }
+          : item)
+        : snapshot.inspirations,
+      updatedAt: timestamp
+    };
+    cancelRenameRecord();
+    await saveSnapshotAndNotify(next, `已重命名为「${nextName}」。`);
+  };
+
+  const removeBookFromShelf = async (shelfId: string, bookId: string) => {
+    const timestamp = new Date().toISOString();
+    const shelf = snapshot.shelves.find((item) => item.id === shelfId);
+    if (!shelf) return;
+    const book = snapshot.books.find((item) => item.id === bookId);
+    const next: MobileSnapshot = {
+      ...snapshot,
+      shelves: snapshot.shelves.map((item) => item.id === shelfId
+        ? {
+            ...item,
+            bookIds: item.bookIds.filter((id) => id !== bookId),
+            updatedAt: timestamp,
+            revision: item.revision + 1
+          }
+        : item),
+      updatedAt: timestamp
+    };
+    await saveSnapshotAndNotify(next, `已从书单「${shelf.name}」移除${book ? `《${book.title}》` : "这本书"}。`);
+  };
+
+  const clearBookProgress = (book: MobileBook) => {
+    onConfirm({
+      title: "清除阅读进度",
+      message: `确定清除《${book.title}》的阅读进度吗？阅读记录会保留。`,
+      onConfirm: async () => {
+        const timestamp = new Date().toISOString();
+        const next: MobileSnapshot = {
+          ...snapshot,
+          progress: snapshot.progress.filter((item) => item.bookId !== book.id),
+          updatedAt: timestamp
+        };
+        await saveSnapshotAndNotify(next, "已清除这本书的阅读进度。");
         onConfirm(null);
       }
     });
@@ -2447,7 +2596,15 @@ function ProfilePage({
       setUpdateInfo(info);
       onMessage(info.hasUpdate ? `发现新版本 v${info.latestVersion}。` : "当前已经是最新版本。");
     } catch (error) {
-      onMessage(error instanceof Error ? error.message : String(error));
+      const detail = error instanceof Error ? error.message : String(error);
+      setUpdateInfo({
+        currentVersion: MOBILE_APP_VERSION,
+        latestVersion: MOBILE_APP_VERSION,
+        hasUpdate: true,
+        releaseUrl: "https://github.com/luoshuizhiwei/creation-reading-assistant/releases",
+        notes: "更新源暂时不可访问。可以打开发布页手动查看最新安装包。"
+      });
+      onMessage(detail);
     } finally {
       setUpdateBusy(false);
     }
@@ -2562,8 +2719,20 @@ function ProfilePage({
                   <div>
                     <strong>{tag.name}</strong>
                     <small>{tagTypeLabels[tag.type]}标签 · {tag.count ? `${tag.count} 处使用` : "暂未使用"}</small>
+                    {editingManagerItem?.kind === "tag" && editingManagerItem.id === managed?.id && (
+                      <div className="manager-rename-row">
+                        <input value={editingManagerName} onChange={(event) => setEditingManagerName(event.target.value)} aria-label="新标签名称" />
+                        <button onClick={() => void renameRecord()}>保存</button>
+                        <button className="secondary" onClick={cancelRenameRecord}>取消</button>
+                      </div>
+                    )}
                   </div>
-                  {managed && <button className="icon-danger" onClick={() => void removeRecord("tag", managed.id, managed.name)} aria-label={`删除标签 ${tag.name}`}><Trash2 size={17} /></button>}
+                  {managed && (
+                    <>
+                      <button className="secondary mini-row-action" onClick={() => startRenameRecord("tag", managed.id, managed.name)}>重命名</button>
+                      <button className="icon-danger" onClick={() => void removeRecord("tag", managed.id, managed.name)} aria-label={`删除标签 ${tag.name}`}><Trash2 size={17} /></button>
+                    </>
+                  )}
                 </article>
               );
             }) : <p className="empty-hint">还没有标签。记录灵感或手动添加后，会在这里统一管理。</p>}
@@ -2583,16 +2752,34 @@ function ProfilePage({
             <button onClick={() => void addCategory()}>添加</button>
           </div>
           <div className="management-list">
-            {snapshot.categories.length ? snapshot.categories.map((item) => (
-              <article key={item.id} className="management-row">
-                <span className="profile-menu-icon"><FolderTree size={18} /></span>
-                <div>
-                  <strong>{item.name}</strong>
-                  <small>排序 {item.sortOrder} · {formatCompactDateTime(item.createdAt)}</small>
-                </div>
-                <button className="icon-danger" onClick={() => void removeRecord("category", item.id, item.name)} aria-label={`删除分类 ${item.name}`}><Trash2 size={17} /></button>
-              </article>
-            )) : <p className="empty-hint">还没有分类。创建后可在书籍详情里归类，并在书架顶部按分类筛选。</p>}
+            {snapshot.categories.length ? snapshot.categories.map((item) => {
+              const categoryBooks = snapshot.books.filter((book) => book.categoryIds?.includes(item.id));
+              return (
+                <article key={item.id} className="management-row management-row-expanded">
+                  <span className="profile-menu-icon"><FolderTree size={18} /></span>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <small>{categoryBooks.length} 本书 · {formatCompactDateTime(item.updatedAt)}</small>
+                    {editingManagerItem?.kind === "category" && editingManagerItem.id === item.id && (
+                      <div className="manager-rename-row">
+                        <input value={editingManagerName} onChange={(event) => setEditingManagerName(event.target.value)} aria-label="新分类名称" />
+                        <button onClick={() => void renameRecord()}>保存</button>
+                        <button className="secondary" onClick={cancelRenameRecord}>取消</button>
+                      </div>
+                    )}
+                    {categoryBooks.length > 0 && (
+                      <div className="linked-book-list">
+                        {categoryBooks.slice(0, 4).map((book) => (
+                          <button key={book.id} onClick={() => onOpenBook(book)}>{book.title}</button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button className="secondary mini-row-action" onClick={() => startRenameRecord("category", item.id, item.name)}>重命名</button>
+                  <button className="icon-danger" onClick={() => void removeRecord("category", item.id, item.name)} aria-label={`删除分类 ${item.name}`}><Trash2 size={17} /></button>
+                </article>
+              );
+            }) : <p className="empty-hint">还没有分类。创建后可在书籍详情里归类，并在书架顶部按分类筛选。</p>}
           </div>
         </section>
       </div>
@@ -2609,16 +2796,37 @@ function ProfilePage({
             <button onClick={() => void addShelf()}>创建</button>
           </div>
           <div className="management-list">
-            {snapshot.shelves.length ? snapshot.shelves.map((item) => (
-              <article key={item.id} className="management-row">
-                <span className="profile-menu-icon"><BookOpen size={18} /></span>
-                <div>
-                  <strong>{item.name}</strong>
-                  <small>{item.bookIds.length} 本书 · {formatCompactDateTime(item.updatedAt)}</small>
-                </div>
-                <button className="icon-danger" onClick={() => void removeRecord("shelf", item.id, item.name)} aria-label={`删除书单 ${item.name}`}><Trash2 size={17} /></button>
-              </article>
-            )) : <p className="empty-hint">还没有书单。创建后可在书籍详情里收书，并在书架顶部按书单筛选。</p>}
+            {snapshot.shelves.length ? snapshot.shelves.map((item) => {
+              const shelfBooks = item.bookIds.map((bookId) => snapshot.books.find((book) => book.id === bookId)).filter((book): book is MobileBook => Boolean(book));
+              return (
+                <article key={item.id} className="management-row management-row-expanded">
+                  <span className="profile-menu-icon"><BookOpen size={18} /></span>
+                  <div>
+                    <strong>{item.name}</strong>
+                    <small>{shelfBooks.length} 本书 · {formatCompactDateTime(item.updatedAt)}</small>
+                    {editingManagerItem?.kind === "shelf" && editingManagerItem.id === item.id && (
+                      <div className="manager-rename-row">
+                        <input value={editingManagerName} onChange={(event) => setEditingManagerName(event.target.value)} aria-label="新书单名称" />
+                        <button onClick={() => void renameRecord()}>保存</button>
+                        <button className="secondary" onClick={cancelRenameRecord}>取消</button>
+                      </div>
+                    )}
+                    {shelfBooks.length > 0 && (
+                      <div className="linked-book-list">
+                        {shelfBooks.slice(0, 4).map((book) => (
+                          <span key={book.id}>
+                            <button onClick={() => onOpenBook(book)}>{book.title}</button>
+                            <button className="text-danger" onClick={() => void removeBookFromShelf(item.id, book.id)}>移除</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <button className="secondary mini-row-action" onClick={() => startRenameRecord("shelf", item.id, item.name)}>重命名</button>
+                  <button className="icon-danger" onClick={() => void removeRecord("shelf", item.id, item.name)} aria-label={`删除书单 ${item.name}`}><Trash2 size={17} /></button>
+                </article>
+              );
+            }) : <p className="empty-hint">还没有书单。创建后可在书籍详情里收书，并在书架顶部按书单筛选。</p>}
           </div>
         </section>
       </div>
@@ -2648,6 +2856,15 @@ function ProfilePage({
                   <small>{progress.progressPercent.toFixed(2)}% · {formatDuration(progress.totalReadingTimeMs)} · {formatCompactDateTime(progress.lastReadAt)}</small>
                   <div className="book-progress-line"><span style={{ width: `${Math.min(100, Math.max(0, progress.progressPercent))}%` }} /></div>
                 </div>
+                <button
+                  className="secondary mini-row-action"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    clearBookProgress(book);
+                  }}
+                >
+                  清除进度
+                </button>
               </article>
             )) : <p className="empty-hint">还没有阅读记录。打开一本书读一会儿，这里会自动生成档案。</p>}
           </div>
@@ -2818,7 +3035,7 @@ function ProfilePage({
             <button disabled={updateBusy} onClick={() => void checkUpdate()}>
               <RefreshCw size={17} />{updateBusy ? "检查中…" : "检查更新"}
             </button>
-            <button className="secondary-button" disabled={!updateInfo?.hasUpdate} onClick={openUpdate}>
+            <button className="secondary-button" disabled={!updateInfo} onClick={openUpdate}>
               <Download size={17} />下载新版
             </button>
           </div>
@@ -3129,6 +3346,8 @@ function MobileReaderView({
   const [activeReadingMs, setActiveReadingMs] = useState(0);
   const [document, setDocument] = useState<MobileReaderDocument>(() => emptyReaderDocument(book.title, book.format));
   const [documentRendering, setDocumentRendering] = useState(false);
+  const [documentError, setDocumentError] = useState("");
+  const [readerTimeoutError, setReaderTimeoutError] = useState("");
   const [showLoadingHint, setShowLoadingHint] = useState(false);
   const [currentProgress, setCurrentProgress] = useState(() => progressFor(snapshot, book.id));
   const [currentChapter, setCurrentChapter] = useState<MobileReaderDocument["toc"][number]>();
@@ -3145,15 +3364,34 @@ function MobileReaderView({
     let cancelled = false;
     if (!content) {
       setDocument(emptyReaderDocument(book.title, book.format));
+      setDocumentError("");
       setDocumentRendering(false);
       return () => {
         cancelled = true;
       };
     }
     setDocumentRendering(true);
+    setDocumentError("");
     void renderMobileDocument(book.format, content, book.title)
       .then((nextDocument) => {
-        if (!cancelled) setDocument(nextDocument);
+        if (cancelled) return;
+        if (!nextDocument.html.trim()) {
+          setDocument(buildPlainTextFallbackDocument(book, content));
+          setDocumentError("正文解析结果为空，已切换为纯文本兜底阅读。");
+          return;
+        }
+        setDocument(nextDocument);
+      })
+      .catch((error) => {
+        if (cancelled) return;
+        const detail = error instanceof Error ? error.message : String(error);
+        if (book.format === "epub") {
+          setDocument(emptyReaderDocument(book.title, book.format));
+          setDocumentError(`EPUB 解析失败：${detail || "未知错误"}`);
+          return;
+        }
+        setDocument(buildPlainTextFallbackDocument(book, content));
+        setDocumentError(`正文排版失败，已切换为纯文本兜底：${detail || "未知错误"}`);
       })
       .finally(() => {
         if (!cancelled) setDocumentRendering(false);
@@ -3162,6 +3400,15 @@ function MobileReaderView({
       cancelled = true;
     };
   }, [book.format, book.title, content]);
+
+  useEffect(() => {
+    setReaderTimeoutError("");
+    if (!loading && !documentRendering) return undefined;
+    const timer = window.setTimeout(() => {
+      setReaderTimeoutError("正文打开超时。可以返回书架重新导入，或在“我的 / 同步”里重新下载正文。");
+    }, 12_000);
+    return () => window.clearTimeout(timer);
+  }, [loading, documentRendering, book.id]);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -3184,6 +3431,7 @@ function MobileReaderView({
 
   useEffect(() => {
     const handleReaderBack = (event: Event) => {
+      if (loadError || documentError || readerTimeoutError) return;
       if (readerPanel) {
         event.preventDefault();
         setReaderPanel(null);
@@ -3198,7 +3446,7 @@ function MobileReaderView({
     };
     window.addEventListener("mobile-reader-back", handleReaderBack);
     return () => window.removeEventListener("mobile-reader-back", handleReaderBack);
-  }, [readerPanel, readerNotice, selectionText, readerControlsVisible]);
+  }, [readerPanel, readerNotice, selectionText, readerControlsVisible, loadError, documentError, readerTimeoutError]);
 
   useEffect(() => {
     const element = scrollRef.current;
@@ -3571,9 +3819,14 @@ function MobileReaderView({
   const sessionProgressDelta = Math.max(0, currentProgress - readerSessionStartProgressRef.current);
   const sessionWords = Math.round(document.wordCount * sessionProgressDelta / 100);
   const readerSpeed = activeReadingMs > 0 && sessionWords > 0 ? Math.round(sessionWords / Math.max(1, activeReadingMs / 60_000)) : 0;
+  const readerEmptyMessage = !loading && !documentRendering && !document.html.trim()
+    ? "没有读到正文内容。请返回书架重新导入本地文件，或在同步后下载正文。"
+    : "";
+  const readerErrorMessage = loadError || (book.format === "epub" ? documentError : "") || readerTimeoutError || readerEmptyMessage;
+  const hasReadableDocument = !loading && !documentRendering && !readerErrorMessage && Boolean(document.html.trim());
 
   return (
-    <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"}`}>
+    <main className={`reader-shell reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${readerControlsVisible ? "" : "reader-chrome-hidden"} ${readerErrorMessage ? "reader-has-error" : ""} ${loading || documentRendering ? "reader-is-loading" : ""}`}>
       <div className="reader-dim-layer" style={{ opacity: Math.max(0, Math.min(0.58, (100 - settings.brightness) / 100)) }} aria-hidden="true" />
       <header className="reader-topbar">
         <button className="ghost-button reader-icon-button" onClick={() => void closeReader()} aria-label="返回书架">
@@ -3820,13 +4073,23 @@ function MobileReaderView({
             <p>{book.format === "epub" ? "EPUB 首次打开需要解析章节和图片；解析完成后会自动显示。" : "本地文件正在载入。小书通常会直接打开，大书可能需要几秒。"}</p>
           </div>
         )}
-        {loadError && (
+        {readerErrorMessage && (
           <div className="reader-loading-state reader-load-error" role="alert">
-            <strong>正文读取失败</strong>
-            <p>{loadError}</p>
+            <strong>{book.format === "epub" ? "EPUB 暂时打不开" : "正文暂时打不开"}</strong>
+            <p>{readerErrorMessage}</p>
+            <div className="reader-error-actions">
+              <button onClick={() => void closeReader()}>返回书架</button>
+              <button className="secondary-button" onClick={() => setReaderPanel("book-info")}>查看书籍信息</button>
+            </div>
           </div>
         )}
-        {!loading && !documentRendering && !loadError && (
+        {!readerErrorMessage && documentError && (
+          <div className="reader-loading-state reader-fallback-note" role="status">
+            <strong>已启用兜底阅读</strong>
+            <p>{documentError}</p>
+          </div>
+        )}
+        {hasReadableDocument && (
           <article
             className="reader-content"
             style={{
