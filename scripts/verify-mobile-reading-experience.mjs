@@ -14,8 +14,14 @@ function assertIncludes(file, needle, message) {
   if (!content.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in ${file}`);
 }
 
+function assertNotIncludes(file, needle, message) {
+  const content = read(file);
+  if (content.includes(needle)) fail(`${message}\nUnexpected ${JSON.stringify(needle)} in ${file}`);
+}
+
 assertIncludes("mobile/src/App.tsx", "ShelfViewMode", "Shelf must support reading-app style grid/list view switching.");
-assertIncludes("mobile/src/App.tsx", "ShelfFilterMode", "Shelf must support quick filters for all/reading/downloaded/pending books.");
+assertNotIncludes("mobile/src/App.tsx", "ShelfFilterMode", "Shelf must not expose confusing all/reading/downloaded/pending quick filters on the primary shelf.");
+assertIncludes("mobile/src/App.tsx", "shelf-filter-rails", "Shelf must still support useful shelf/category/tag filter rails.");
 assertIncludes("mobile/src/App.tsx", "ShelfSortMode", "Shelf must support reader-oriented sorting.");
 assertIncludes("mobile/src/App.tsx", "book-progress-line", "Shelf cards must expose compact reading progress instead of plain web text.");
 assertIncludes("mobile/src/App.tsx", "BookDetailSheet", "Shelf must provide a native-reader style book detail sheet.");

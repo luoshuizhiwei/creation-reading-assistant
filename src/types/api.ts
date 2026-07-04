@@ -25,6 +25,7 @@ import type {
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "./sync";
+import type { AppUpdateInfo } from "./updates";
 
 export interface DesktopApi {
   app: {
@@ -34,6 +35,10 @@ export interface DesktopApi {
     openDataDirectory: () => Promise<void>;
     openLogDirectory: () => Promise<void>;
     writeRendererLog: (input: RendererLogInput) => Promise<void>;
+  };
+  updates: {
+    check: () => Promise<AppUpdateInfo>;
+    openDownload: (url: string) => Promise<void>;
   };
   library: {
     importBook: () => Promise<LibraryBook[]>;

@@ -88,17 +88,36 @@ import {
 import { createSyncClient, pairWithFirstReachable, parsePairingCandidates, type PairingInput } from "./services/sync-client";
 import { readMobileBookFile } from "./storage/mobile-files";
 import { downloadWebDavSnapshot, testWebDavConnection, uploadWebDavSnapshot } from "./sync/webdav-sync";
+import {
+  MOBILE_APP_VERSION,
+  checkForMobileUpdate,
+  openMobileUpdateUrl,
+  type MobileUpdateInfo
+} from "./services/mobile-updates";
+import type { InspirationStatus } from "../../src/types/inspiration";
 import type { MobileBook, MobileReaderSettings, SyncAccount } from "./types/mobile";
 
 type MainTab = "home" | "shelf" | "inspiration" | "stats" | "profile";
 type ProfileSubPage = "sync" | "webdav" | "tags" | "categories" | "shelves" | "reading" | "notes" | "ai" | "appearance" | "storage" | "privacy" | "about";
 type ShelfViewMode = "grid" | "list";
-type ShelfFilterMode = "all" | "reading" | "downloaded" | "pending";
 type ShelfSortMode = "recent" | "title" | "progress";
 type ReaderDrawerTab = "toc" | "search" | "bookmarks" | "notes" | "inspirations";
 type ReaderPanel = ReaderDrawerTab | "settings" | "book-info";
 type ReaderSearchResult = { id: string; occurrenceIndex: number; snippet: string; progressPercent: number };
 type MobileAppTheme = "system" | "light" | "dark";
+
+const inspirationStatusOptions: Array<{ value: InspirationStatus; label: string; hint: string }> = [
+  { value: "inbox", label: "收集箱", hint: "刚记下，之后再整理" },
+  { value: "usable", label: "可使用", hint: "已经能转成素材" },
+  { value: "polished", label: "已打磨", hint: "经过润色或扩写" },
+  { value: "used", label: "已采用", hint: "已写入正文或方案" },
+  { value: "archived", label: "归档", hint: "暂时不再处理" }
+];
+
+const getInspirationStatusLabel = (status: string): string => {
+  if (status === "draft") return "可使用";
+  return inspirationStatusOptions.find((item) => item.value === status)?.label ?? "收集箱";
+};
 
 const defaultReaderSettings: MobileReaderSettings = {
   fontSize: 18,
@@ -912,16 +931,24 @@ function HomePage({
         </div>
         <div className="continue-strip">
           {continueBooks.length ? (
-            continueBooks.map((book) => (
+            continueBooks.map((book) => {
+              const progress = progressFor(snapshot, book.id);
+              return (
               <button key={book.id} className="continue-card" onClick={() => onOpenBook(book)}>
                 <div className="book-cover compact">{book.title.slice(0, 2)}</div>
-                <div>
+                <div className="continue-card-main">
                   <span>{book.title}</span>
                   <small>{book.author || "作者未知"}</small>
+                  <div className="continue-progress-row">
+                    <div className="book-progress-line" aria-label={`阅读进度 ${progress.toFixed(1)}%`}>
+                      <span style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
+                    </div>
+                    <em>{progress.toFixed(1)}%</em>
+                  </div>
                 </div>
-                <strong>{progressFor(snapshot, book.id).toFixed(1)}%</strong>
               </button>
-            ))
+            );
+            })
           ) : (
             <button className="continue-empty" onClick={() => onGo("shelf")}>
               书架还空着，先导入一本 TXT、Markdown 或 EPUB。
@@ -1026,7 +1053,7 @@ const BookTile = React.memo(function BookTile({
                 </div>
               </>
             ) : (
-              <small className="grid-progress-text">{progress > 0 ? `${progress.toFixed(1)}%` : downloaded ? "未读过" : "待下载"}</small>
+              <small className="grid-progress-text">{progress > 0 ? `${progress.toFixed(1)}%` : "未读过"}</small>
             )}
             <div className="book-progress-line" aria-label={`阅读进度 ${progress.toFixed(1)}%`}>
               <span style={{ width: `${Math.min(100, Math.max(0, progress))}%` }} />
@@ -1040,7 +1067,7 @@ const BookTile = React.memo(function BookTile({
             }}
             aria-label={`查看《${book.title}》详情`}
           >
-            <span aria-hidden="true">•••</span>
+            <MoreHorizontal size={14} strokeWidth={2.4} aria-hidden="true" />
           </button>
         </>
       ) : (
@@ -1074,14 +1101,12 @@ function ShelfPage({
   const [query, setQuery] = useState("");
   const [debouncedQuery, setDebouncedQuery] = useState("");
   const [viewMode, setViewMode] = useState<ShelfViewMode>("grid");
-  const [filterMode, setFilterMode] = useState<ShelfFilterMode>("all");
   const [sortMode, setSortMode] = useState<ShelfSortMode>("recent");
   const [selectedShelfId, setSelectedShelfId] = useState("");
   const [selectedCategoryId, setSelectedCategoryId] = useState("");
   const [selectedTagName, setSelectedTagName] = useState("");
   const [detailBookId, setDetailBookId] = useState("");
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const filterModeLabels: Record<ShelfFilterMode, string> = { all: "全部", reading: "在读", downloaded: "已下载", pending: "待下载" };
   const detailBook = detailBookId ? snapshot.books.find((book) => book.id === detailBookId) : undefined;
 
   useEffect(() => {
@@ -1103,13 +1128,6 @@ function ShelfPage({
     const lowerQuery = debouncedQuery.toLowerCase();
     return snapshot.books
       .filter((book) => `${book.title} ${book.author ?? ""} ${book.importLabel ?? ""}`.toLowerCase().includes(lowerQuery))
-      .filter((book) => {
-        const progress = progressFor(snapshot, book.id);
-        if (filterMode === "reading") return progress > 0 && progress < 100;
-        if (filterMode === "downloaded") return isBookDownloaded(book);
-        if (filterMode === "pending") return !isBookDownloaded(book);
-        return true;
-      })
       .filter((book) => !selectedShelfId || snapshot.shelves.find((shelf) => shelf.id === selectedShelfId)?.bookIds.includes(book.id))
       .filter((book) => !selectedCategoryId || book.categoryIds?.includes(selectedCategoryId))
       .filter((book) => !selectedTagName || book.tagNames?.includes(selectedTagName))
@@ -1120,7 +1138,7 @@ function ShelfPage({
         const rightProgress = snapshot.progress.find((item) => item.bookId === right.id)?.lastReadAt ?? right.updatedAt;
         return rightProgress.localeCompare(leftProgress);
       });
-  }, [snapshot.books, snapshot.progress, snapshot.shelves, debouncedQuery, filterMode, selectedShelfId, selectedCategoryId, selectedTagName, sortMode]);
+  }, [snapshot.books, snapshot.progress, snapshot.shelves, debouncedQuery, selectedShelfId, selectedCategoryId, selectedTagName, sortMode]);
   const activeShelf = selectedShelfId ? snapshot.shelves.find((item) => item.id === selectedShelfId) : undefined;
   const activeCategory = selectedCategoryId ? snapshot.categories.find((item) => item.id === selectedCategoryId) : undefined;
   const bookTagNames = useMemo(() => {
@@ -1149,18 +1167,6 @@ function ShelfPage({
       </label>
 
       <section className="shelf-toolbar" aria-label="书架筛选和视图">
-        <div className="segmented-control">
-          {([
-            ["all", "全部"],
-            ["reading", "在读"],
-            ["downloaded", "已下载"],
-            ["pending", "待下载"]
-          ] as Array<[ShelfFilterMode, string]>).map(([key, label]) => (
-            <button key={key} className={filterMode === key ? "active" : ""} onClick={() => setFilterMode(key)}>
-              {label}
-            </button>
-          ))}
-        </div>
         <div className="shelf-subtoolbar">
           <select value={sortMode} onChange={(event) => setSortMode(event.target.value as ShelfSortMode)} aria-label="书籍排序">
             <option value="recent">最近阅读</option>
@@ -1223,7 +1229,7 @@ function ShelfPage({
         </section>
       )}
 
-      {(activeShelf || activeCategory || selectedTagName || filterMode !== "all" || debouncedQuery) && (() => {
+      {(activeShelf || activeCategory || selectedTagName || debouncedQuery) && (() => {
         const parts: string[] = [];
         if (activeShelf) parts.push(`书单「${activeShelf.name}」`);
         if ((activeShelf && activeCategory) || (activeShelf && selectedTagName)) parts.push(" / ");
@@ -1231,10 +1237,8 @@ function ShelfPage({
         if (activeCategory && selectedTagName) parts.push(" / ");
         if (selectedTagName) parts.push(`标签「${selectedTagName}」`);
         if (!parts.length) {
-          if (filterMode !== "all") parts.push(filterModeLabels[filterMode]);
           if (debouncedQuery) parts.push(`搜索"${debouncedQuery}"`);
         } else {
-          if (filterMode !== "all" && filterModeLabels[filterMode]) parts.push(filterModeLabels[filterMode]);
           if (debouncedQuery) parts.push(`搜索"${debouncedQuery}"`);
         }
         return (
@@ -1242,7 +1246,6 @@ function ShelfPage({
             {parts.join("")}
             {" "}·
             <button onClick={() => {
-              setFilterMode("all");
               setQuery("");
               setSelectedShelfId("");
               setSelectedCategoryId("");
@@ -1274,7 +1277,6 @@ function ShelfPage({
           {snapshot.books.length ? (
             <button className="secondary" onClick={() => {
               setQuery("");
-              setFilterMode("all");
             }}>
               显示全部
             </button>
@@ -1609,7 +1611,7 @@ function InspirationPage({
     setEditTitle(item.title);
     setEditBody(item.body);
     setEditTags(item.tags.join("，"));
-    setEditStatus(item.status);
+    setEditStatus(((item.status as string) === "draft" ? "usable" : item.status) as InspirationStatus);
   };
 
   const cancelEdit = () => {
@@ -1708,7 +1710,7 @@ function InspirationPage({
             ← 返回
           </button>
           <div>
-            <p className="mini-label">{selectedItem.status} · {selectedItem.type}</p>
+            <p className="mini-label">{getInspirationStatusLabel(selectedItem.status)} · {selectedItem.type}</p>
             <h1>灵感详情</h1>
           </div>
         </header>
@@ -1736,17 +1738,21 @@ function InspirationPage({
                 placeholder="标签，用逗号或空格分隔"
                 className="inspiration-edit-title"
               />
-              <select
-                value={editStatus}
-                onChange={(event) => setEditStatus(event.target.value as typeof editStatus)}
-                className="inspiration-edit-title"
-                aria-label="灵感状态"
-              >
-                <option value="inbox">未整理</option>
-                <option value="draft">草稿</option>
-                <option value="polished">已打磨</option>
-                <option value="archived">已归档</option>
-              </select>
+              <div className="status-chip-group" role="radiogroup" aria-label="灵感状态">
+                {inspirationStatusOptions.map((option) => (
+                  <button
+                    key={option.value}
+                    type="button"
+                    role="radio"
+                    aria-checked={editStatus === option.value}
+                    className={editStatus === option.value ? "status-chip active" : "status-chip"}
+                    onClick={() => setEditStatus(option.value)}
+                  >
+                    <strong>{option.label}</strong>
+                    <span>{option.hint}</span>
+                  </button>
+                ))}
+              </div>
               <div className="tag-row editable-tag-row">
                 {parseTagInput(editTags).map((tag) => <span key={tag}>#{tag}</span>)}
                 {!parseTagInput(editTags).length && <span>保存后这里会显示标签</span>}
@@ -1873,7 +1879,7 @@ function InspirationPage({
             ) : (
               <>
                 <div className="compact-inspiration-main">
-                  <p className="mini-label">{item.status} · {item.type}</p>
+                  <p className="mini-label">{getInspirationStatusLabel(item.status)} · {item.type}</p>
                   <h2>{item.title}</h2>
                   <p className="compact-inspiration-preview">{item.body || item.source?.excerpt || "还没有正文。"}</p>
                   <div className="compact-inspiration-meta">
@@ -2128,6 +2134,8 @@ function ProfilePage({
   const [aiSettings, setAiSettings] = useState(() => loadMobileAISettings());
   const [aiKeyDraft, setAiKeyDraft] = useState("");
   const [profileMoreOpen, setProfileMoreOpen] = useState(false);
+  const [updateInfo, setUpdateInfo] = useState<MobileUpdateInfo>();
+  const [updateBusy, setUpdateBusy] = useState(false);
   const importSnapshotInputRef = useRef<HTMLInputElement>(null);
 
   const validateWebDavEndpoint = (url: string): string => {
@@ -2432,6 +2440,25 @@ function ProfilePage({
     }
   };
 
+  const checkUpdate = async () => {
+    setUpdateBusy(true);
+    try {
+      const info = await checkForMobileUpdate();
+      setUpdateInfo(info);
+      onMessage(info.hasUpdate ? `发现新版本 v${info.latestVersion}。` : "当前已经是最新版本。");
+    } catch (error) {
+      onMessage(error instanceof Error ? error.message : String(error));
+    } finally {
+      setUpdateBusy(false);
+    }
+  };
+
+  const openUpdate = () => {
+    if (!updateInfo) return;
+    openMobileUpdateUrl(updateInfo);
+    onMessage(updateInfo.apkUrl ? "已打开新版 APK 下载。下载完成后按系统提示安装。" : "已打开 GitHub Release 页面。");
+  };
+
   const totalBookBytes = snapshot.books.reduce((sum, book) => sum + (book.size ?? 0), 0);
   const localBookCount = snapshot.books.filter(isBookDownloaded).length;
   const tagTypeLabels = {
@@ -2478,7 +2505,7 @@ function ProfilePage({
       items: [
         { label: "存储管理", desc: `${localBookCount}/${snapshot.books.length} 本已落地`, icon: <Database size={20} />, action: () => onSetActivePage("storage") },
         { label: "隐私安全", desc: "本地优先", icon: <Shield size={20} />, action: () => onSetActivePage("privacy") },
-        { label: "关于", desc: "版本 0.1.13+", icon: <Info size={20} />, action: () => onSetActivePage("about") }
+        { label: "关于", desc: `版本 ${MOBILE_APP_VERSION}`, icon: <Info size={20} />, action: () => onSetActivePage("about") }
       ]
     }
   ];
@@ -2764,9 +2791,36 @@ function ProfilePage({
           <h2>创作阅读助手</h2>
           <p>Android 端 · 本地优先 · 灵感中心特色版</p>
           <div className="about-list">
-            <span>版本：0.1.13 本地增强版</span>
+            <span>版本：{MOBILE_APP_VERSION}</span>
             <span>支持：TXT / Markdown / EPUB</span>
             <span>同步：电脑局域网 / WebDAV</span>
+          </div>
+        </section>
+        <section className="subpage-card update-card">
+          <div>
+            <p className="mini-label">应用更新</p>
+            <h2>{updateInfo?.hasUpdate ? `发现 v${updateInfo.latestVersion}` : "检查新版本"}</h2>
+            <p className="subtle">
+              {updateInfo
+                ? updateInfo.hasUpdate
+                  ? `当前版本 ${updateInfo.currentVersion}，新版安装包可从应用内打开下载。`
+                  : `当前版本 ${updateInfo.currentVersion}，已经是 GitHub Release 上的最新版本。`
+                : "以后发布新版后，可以在这里检查并打开安装包下载；Android 仍会要求你确认安装。"}
+            </p>
+          </div>
+          {updateInfo?.hasUpdate && (
+            <div className="update-release-note">
+              <strong>{updateInfo.apkName || `v${updateInfo.latestVersion}`}</strong>
+              <p>{updateInfo.notes.slice(0, 180)}{updateInfo.notes.length > 180 ? "…" : ""}</p>
+            </div>
+          )}
+          <div className="button-row settings-actions">
+            <button disabled={updateBusy} onClick={() => void checkUpdate()}>
+              <RefreshCw size={17} />{updateBusy ? "检查中…" : "检查更新"}
+            </button>
+            <button className="secondary-button" disabled={!updateInfo?.hasUpdate} onClick={openUpdate}>
+              <Download size={17} />下载新版
+            </button>
           </div>
         </section>
       </div>

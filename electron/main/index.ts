@@ -42,6 +42,7 @@ import type {
 } from "../../src/types/inspiration";
 import type { SearchQuery, SearchResult, SearchResultType } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
+import type { AppUpdateInfo } from "../../src/types/updates";
 import type {
   BookFileManifest,
   DeviceInfo,
@@ -72,8 +73,42 @@ let pairingToken: PairingTokenResult | undefined;
 const EPUB_PROTOCOL_SCHEME = "novel-workbench-epub";
 const MAX_SEARCH_TEXT_FILE_BYTES = 5 * 1024 * 1024;
 const SYNC_CHUNK_SIZE = 1024 * 1024;
+const RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant/releases/latest";
 const now = (): string => new Date().toISOString();
 const makeId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+
+interface GitHubReleaseAsset {
+  name?: string;
+  browser_download_url?: string;
+}
+
+interface GitHubRelease {
+  tag_name?: string;
+  html_url?: string;
+  body?: string;
+  assets?: GitHubReleaseAsset[];
+}
+
+function normalizeVersionParts(value: string): number[] {
+  return value
+    .replace(/^v/i, "")
+    .split(".")
+    .map((part) => Number.parseInt(part.replace(/[^\d].*$/, ""), 10))
+    .map((part) => (Number.isFinite(part) ? part : 0));
+}
+
+function isNewerVersion(latest: string, current: string): boolean {
+  const left = normalizeVersionParts(latest);
+  const right = normalizeVersionParts(current);
+  const length = Math.max(left.length, right.length, 3);
+  for (let index = 0; index < length; index += 1) {
+    const latestPart = left[index] ?? 0;
+    const currentPart = right[index] ?? 0;
+    if (latestPart > currentPart) return true;
+    if (latestPart < currentPart) return false;
+  }
+  return false;
+}
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -963,6 +998,36 @@ function getBuildInfo(): BuildInfo {
     logsRoot: logsRoot(),
     buildMode: app.isPackaged ? "production" : "development"
   };
+}
+
+async function checkForUpdates(): Promise<AppUpdateInfo> {
+  const response = await fetch(RELEASE_API_URL, {
+    headers: { Accept: "application/vnd.github+json" }
+  });
+  if (!response.ok) throw new Error(`检查更新失败：GitHub 返回 ${response.status}`);
+  const release = (await response.json()) as GitHubRelease;
+  const currentVersion = app.getVersion();
+  const latestVersion = release.tag_name?.replace(/^v/i, "") || currentVersion;
+  const desktopAsset = release.assets?.find((asset) => {
+    const name = asset.name?.toLowerCase() ?? "";
+    return name.endsWith(".exe") || name.includes("setup") || name.includes("windows");
+  });
+  return {
+    currentVersion,
+    latestVersion,
+    hasUpdate: isNewerVersion(latestVersion, currentVersion),
+    releaseUrl: release.html_url || "https://github.com/luoshuizhiwei/creation-reading-assistant/releases",
+    notes: release.body || "暂无更新说明。",
+    desktopAssetName: desktopAsset?.name,
+    desktopAssetUrl: desktopAsset?.browser_download_url
+  };
+}
+
+async function openUpdateDownload(url: string): Promise<void> {
+  if (!/^https:\/\/github\.com\/luoshuizhiwei\/creation-reading-assistant\/releases\//i.test(url)) {
+    throw new Error("只能打开本项目 GitHub Release 下载地址。");
+  }
+  await shell.openExternal(url);
 }
 
 async function prepareStartupRecovery(): Promise<void> {
@@ -2946,6 +3011,8 @@ function registerIpc(): void {
   ipcMain.handle("app:openDataDirectory", async () => openPathOrThrow(appDataRoot()));
   ipcMain.handle("app:openLogDirectory", async () => openPathOrThrow(logsRoot()));
   ipcMain.handle("app:writeRendererLog", async (_event, input: RendererLogInput) => writeRendererLog(input));
+  ipcMain.handle("updates:check", async () => checkForUpdates());
+  ipcMain.handle("updates:openDownload", async (_event, url: string) => openUpdateDownload(url));
   ipcMain.handle("library:importBook", async () => importBook());
   ipcMain.handle("library:importEpub", async () => importEpub());
   ipcMain.handle("library:listBooks", async () => readLibraryIndex());
