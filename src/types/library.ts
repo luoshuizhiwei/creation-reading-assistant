@@ -2,7 +2,7 @@ import type { ID, ISODateString } from "./common";
 
 export type BookFormat = "txt" | "md" | "epub";
 export type AppThemeMode = "light" | "dark" | "system";
-export type ReaderBackground = "white" | "warm" | "green" | "night";
+export type ReaderBackground = "white" | "warm" | "green" | "night" | "amber" | "parchment" | "beans";
 export type EpubStyleMode = "publisher" | "unified";
 
 export interface EpubTocItem {
@@ -35,6 +35,41 @@ export interface EpubSearchIndex {
   bookId: ID;
   updatedAt: ISODateString;
   items: EpubSearchIndexItem[];
+}
+
+/** 高亮颜色 */
+export type HighlightColor = "yellow" | "red" | "green" | "blue" | "purple";
+
+/** 高亮标注项 */
+export interface HighlightItem {
+  id: ID;
+  bookId: ID;
+  /** EPUB: CFI range; TXT/MD: 字符偏移 */
+  cfiRange?: string;
+  charOffset?: number;
+  charLength?: number;
+  text: string;           // 高亮的文本内容
+  color: HighlightColor;
+  note?: string;          // 可选批注
+  chapterTitle?: string;  // 所在章节标题
+  progressPercent?: number; // 阅读进度百分比，用于跳回原文
+  createdAt: ISODateString;
+  updatedAt: ISODateString;
+}
+
+/** 书签项 */
+export interface BookmarkItem {
+  id: ID;
+  bookId: ID;
+  label: string;          // 书签名称（可选）
+  /** EPUB 定位 */
+  cfi?: string;
+  href?: string;
+  /** TXT/MD 定位 */
+  scrollTop?: number;
+  progressPercent?: number;
+  chapterTitle?: string;
+  createdAt: ISODateString;
 }
 
 export type ReadingLocationMode = "scroll" | "text-anchor" | "epub-cfi" | "page";
@@ -128,18 +163,37 @@ export interface ReaderTrackingSettings {
   showReadingStatsCards: boolean;
 }
 
+export interface ReaderPreset {
+  id: string;
+  name: string;
+  fontSize: number;
+  lineHeight: number;
+  pageMargin: number;
+  paragraphSpacing: number;
+  letterSpacing: number;
+  readerBackground: ReaderBackground;
+  fontFamily?: string;
+}
+
+export type TextConversionMode = "none" | "s2t" | "t2s";
+
 export interface ReaderSettings {
   fontSize: number;
   lineHeight: number;
+  paragraphSpacing: number;
+  letterSpacing: number;
   pageMargin: number;
   appTheme: AppThemeMode;
   readerBackground: ReaderBackground;
   epubStyleMode: EpubStyleMode;
   /** @deprecated Kept only to normalize older settings files. */
   theme?: "light" | "dark";
+  textConversion: TextConversionMode;
   restoreLastPosition: boolean;
   readingMode: "scroll";
   tracking: ReaderTrackingSettings;
+  presets?: ReaderPreset[];
+  fontFamily?: string;
 }
 
 export interface ReaderBookPayload {

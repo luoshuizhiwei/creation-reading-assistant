@@ -251,6 +251,27 @@ button:disabled {
     @apply border border-stone-800 text-stone-100 shadow-paper;
   }
 
+  .reader-bg-amber {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.36), transparent 38%),
+      linear-gradient(180deg, #faf0dc, #f0dfbe);
+    @apply border border-amber-200/60 shadow-paper;
+  }
+
+  .reader-bg-parchment {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.38), transparent 38%),
+      linear-gradient(180deg, #f5ead8, #ebe0cc);
+    @apply border border-stone-300/70 shadow-paper;
+  }
+
+  .reader-bg-beans {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.38), transparent 38%),
+      linear-gradient(180deg, #d6f2d8, #c2e8c4);
+    @apply border border-green-300/50 shadow-paper;
+  }
+
   .reader-shell-white {
     background: #f6f4ef;
     color: #241b16;
@@ -269,6 +290,21 @@ button:disabled {
   .reader-shell-night {
     background: #15100e;
     color: #f4eadf;
+  }
+
+  .reader-shell-amber {
+    background: #f5e6c8;
+    color: #5c4a2a;
+  }
+
+  .reader-shell-parchment {
+    background: #f0e4d0;
+    color: #4a3728;
+  }
+
+  .reader-shell-beans {
+    background: #c7edcc;
+    color: #2d4a2d;
   }
 
   .markdown-reader h1,

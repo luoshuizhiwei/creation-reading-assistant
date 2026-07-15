@@ -59,6 +59,11 @@ assertIncludes("electron/main/index.ts", required, `LAN sync server missing ${re
 assertIncludes("electron/main/index.ts", "PUT", "LAN sync server must accept a PUT upload for phone-imported book files.");
 assertIncludes("electron/main/index.ts", "writeUploadedBookFile", "LAN sync server must persist uploaded phone book files inside the desktop library directory.");
 assertIncludes("electron/main/index.ts", "X-Original-File-Name", "Book upload must preserve the original file name for library display.");
+assertIncludes("electron/main/index.ts", "x-sync-token", "Paired sync requests must include a per-device authorization token.");
+assertIncludes("electron/main/index.ts", "syncAuthTokenHash", "Desktop sync state must store only a hash of the device authorization token.");
+assertIncludes("electron/main/index.ts", "requirePairedSyncDevice(request, response)", "Manifest, pull, push and book file endpoints must reject unpaired devices.");
+assertIncludes("mobile/src/services/sync-client.ts", "authToken", "Mobile sync client must retain the device authorization token returned during pairing.");
+assertIncludes("mobile/src/services/sync-client.ts", "x-sync-token", "Mobile sync client must send the device authorization token on later requests.");
 
 assertIncludes("src/features/settings/SettingsPage.tsx", "QRCode.toDataURL", "Settings page must render a real QR code for phone pairing.");
 assertIncludes("src/features/settings/SettingsPage.tsx", "pairing.pairingUrls.map", "Settings page must expose alternate LAN pairing URLs for multi-network PCs.");

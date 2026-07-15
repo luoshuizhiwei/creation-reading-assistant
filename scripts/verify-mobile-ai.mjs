@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readWithCssImports } from "./lib/read-with-css-imports.mjs";
 
 function read(path) {
-  return readFileSync(path, "utf-8");
+  return readWithCssImports(path);
 }
 
 function fail(message) {
@@ -15,9 +15,11 @@ function assertIncludes(file, needle, message) {
 }
 
 const app = "mobile/src/App.tsx";
+const aiSettingsPage = "mobile/src/features/profile/pages/AISettingsPage.tsx";
+const useMobileAISettingsHook = "mobile/src/features/profile/hooks/useMobileAISettings.ts";
 const ai = "mobile/src/services/mobile-ai.ts";
 const secret = "mobile/src/services/mobile-secret-store.ts";
-const storage = "mobile/src/services/mobile-storage.ts";
+const storage = "mobile/src/services/mobile-storage-inspirations.ts";
 const sync = "mobile/src/services/sync-client.ts";
 const webdav = "mobile/src/sync/webdav-sync.ts";
 const css = "mobile/src/styles.css";
@@ -38,28 +40,40 @@ if (/localStorage\.setItem\(\s*LEGACY_AI_API_KEY_KEY/.test(read(ai))) {
 assertIncludes(storage, "addMobileInspirationVariant", "Mobile storage must be able to save AI variants.");
 assertIncludes(storage, "variants: [variant, ...current.variants]", "AI output must be appended as a variant instead of overwriting inspiration body.");
 
+const inspirationDetail = "mobile/src/features/inspiration/InspirationDetailPanel.tsx";
+const inspirationHelpers = "mobile/src/features/inspiration/inspiration-helpers.ts";
+
 for (const marker of [
   "runInspirationAI",
   "runMobileAIAction",
   "addMobileInspirationVariant",
-  "copyInspirationVariant",
-  "adoptInspirationVariant",
-  "润色",
-  "扩写",
-  "平台风格化",
-  "生成冲突",
-  "去 AI 味",
-  "复制候选",
+  "copyVariant",
+  "adoptVariant",
+  "候选内容已复制",
   "采用为正文",
-  "候选记录仍保留",
-  "原文没有被覆盖",
+  "原候选仍然保留",
+  "原文没有被覆盖"
+]) {
+  assertIncludes(inspirationDetail, marker, `Mobile inspiration/AI UI must include ${marker}.`);
+}
+
+for (const marker of ["润色", "扩写", "平台风格化", "生成冲突", "去 AI 味"]) {
+  assertIncludes(inspirationHelpers, marker, `Mobile inspiration/AI UI must include ${marker}.`);
+}
+
+for (const marker of [
+  "runMobileAIAction",
   "测试",
   "清除 Key"
 ]) {
-  assertIncludes(app, marker, `Mobile inspiration/AI UI must include ${marker}.`);
+  if (marker === "runMobileAIAction") {
+    assertIncludes(useMobileAISettingsHook, marker, `Mobile AI settings UI must include ${marker}.`);
+  } else {
+    assertIncludes(aiSettingsPage, marker, `Mobile AI settings UI must include ${marker}.`);
+  }
 }
 
-for (const selector of [".ai-action-row", ".ai-variant-card", ".ai-variant-actions", ".range-setting-row"]) {
+for (const selector of [".inspiration-ai-actions", ".inspiration-variant-list-v2", ".range-setting-row"]) {
   assertIncludes(css, selector, `Mobile AI UI must include ${selector}.`);
 }
 

@@ -6,6 +6,7 @@ import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useAppStore } from "@/stores/app-store";
+import { useUIStore } from "@/stores/ui-store";
 import { messageFromError } from "@/utils/format";
 import type { SearchQuery, SearchResult } from "@/types/search";
 
@@ -18,6 +19,7 @@ export function useSearchActions() {
   const setOpen = useSearchStore((state) => state.setOpen);
   const setLoading = useSearchStore((state) => state.setLoading);
   const setError = useAppStore((state) => state.setError);
+  const showToast = useUIStore((state) => state.showToast);
   const timerRef = useRef<number>();
 
   const runSearch = useCallback(
@@ -67,6 +69,13 @@ export function useSearchActions() {
           if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
           useLibraryStore.getState().setReaderSettings(payload.settings);
           useAppStore.getState().setScreen("reader");
+          if (book.format === "epub" && !result.target.epubHref) {
+            showToast({
+              tone: "info",
+              title: "EPUB 全文索引未建立",
+              body: "已打开书籍首页；如需跳到具体章节，请先重新导入或等待索引生成。"
+            });
+          }
         } else if (result.target.inspirationId) {
           useInspirationStore.getState().setSelectedId(result.target.inspirationId);
           useAppStore.getState().setScreen("inspiration");
@@ -76,7 +85,7 @@ export function useSearchActions() {
         setError(messageFromError(error));
       }
     },
-    [setError, setOpen]
+    [setError, setOpen, showToast]
   );
 
   return { runSearch, openResult };

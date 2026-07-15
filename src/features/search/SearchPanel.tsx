@@ -65,6 +65,12 @@ function HighlightedText({ text, keyword, className = "" }: { text: string; keyw
   );
 }
 
+function isEditableTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  const tagName = target.tagName.toLowerCase();
+  return tagName === "input" || tagName === "textarea" || tagName === "select" || target.isContentEditable;
+}
+
 export function SearchPanel() {
   const [draft, setDraft] = useState("");
   const inputRef = useRef<HTMLInputElement>(null);
@@ -80,6 +86,7 @@ export function SearchPanel() {
     const handleKeydown = (event: KeyboardEvent) => {
       const isSearchShortcut = (event.ctrlKey || event.metaKey) && (event.key.toLowerCase() === "k" || (event.shiftKey && event.key.toLowerCase() === "f"));
       if (!isSearchShortcut) return;
+      if (isEditableTarget(event.target)) return;
       event.preventDefault();
       setOpen(true);
     };

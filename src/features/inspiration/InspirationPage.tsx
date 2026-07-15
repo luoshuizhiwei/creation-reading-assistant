@@ -6,6 +6,7 @@ import { useInspirationActions } from "@/hooks/useInspirationActions";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { runAIAction } from "@/services/ai-service";
 import { useInspirationStore } from "@/stores/inspiration-store";
+import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { AIRunAction } from "@/types/ai";
@@ -18,11 +19,13 @@ const typeLabels: Record<InspirationType, string> = {
   scene: "桥段",
   line: "台词/金句",
   trope: "套路",
+  conflict: "冲突点",
   note: "札记"
 };
 
 const statusLabels: Record<InspirationStatus, string> = {
   inbox: "未整理",
+  reviewing: "待整理",
   usable: "可用",
   polished: "已润色",
   used: "已使用",
@@ -74,6 +77,7 @@ export function InspirationPage() {
   const confirmAction = useUIStore((state) => state.confirmAction);
   const showToast = useUIStore((state) => state.showToast);
   const items = useInspirationStore((state) => state.items);
+  const books = useLibraryStore((state) => state.books);
   const selectedId = useInspirationStore((state) => state.selectedId);
   const setSelectedId = useInspirationStore((state) => state.setSelectedId);
   const loading = useInspirationStore((state) => state.loading);
@@ -82,6 +86,9 @@ export function InspirationPage() {
   const [filter, setFilter] = useState("");
   const [draft, setDraft] = useState<InspirationDraft>(EMPTY_DRAFT);
   const [aiBusy, setAiBusy] = useState<AIRunAction | undefined>();
+  const [isAIRunning, setIsAIRunning] = useState(false);
+  const isAIRunningRef = useRef(false);
+  const userEditedDraftRef = useRef(false);
   const autoSaveTimerRef = useRef<number | undefined>();
 
   useEffect(() => {
@@ -92,9 +99,11 @@ export function InspirationPage() {
 
   useEffect(() => {
     if (!selected) {
+      userEditedDraftRef.current = false;
       setDraft(EMPTY_DRAFT);
       return;
     }
+    userEditedDraftRef.current = false;
     setDraft({
       title: selected.title,
       body: selected.body,
@@ -111,8 +120,12 @@ export function InspirationPage() {
     if (autoSaveTimerRef.current) {
       window.clearTimeout(autoSaveTimerRef.current);
     }
+    if (isAIRunningRef.current) return;
+    if (!userEditedDraftRef.current) return;
 
     autoSaveTimerRef.current = window.setTimeout(async () => {
+      if (isAIRunningRef.current) return;
+      if (!userEditedDraftRef.current) return;
       const hasChanges =
         draft.title !== selected.title ||
         draft.body !== selected.body ||
@@ -130,6 +143,7 @@ export function InspirationPage() {
           tags: parseList(draft.tags),
           platformTags: parseList(draft.platformTags)
         });
+        userEditedDraftRef.current = false;
       }
     }, 1500);
 
@@ -139,6 +153,15 @@ export function InspirationPage() {
       }
     };
   }, [draft, selected, updateItem]);
+
+  useEffect(() => {
+    return () => {
+      if (autoSaveTimerRef.current) {
+        window.clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = undefined;
+      }
+    };
+  }, []);
 
   const filtered = useMemo(() => {
     const keyword = filter.trim().toLowerCase();
@@ -163,9 +186,14 @@ export function InspirationPage() {
   }, [filter, items]);
 
   const source = selected?.source;
+  const updateDraft = (patch: Partial<InspirationDraft>) => {
+    userEditedDraftRef.current = true;
+    setDraft((prev) => ({ ...prev, ...patch }));
+  };
+  const legacySourceBook = selected?.sourceBookId ? books.find((book) => book.id === selected.sourceBookId) : undefined;
   const legacySourceLabel =
     !source && selected?.sourceBookId
-      ? `来源书籍：${selected.sourceBookId}${selected.sourceLocation?.progressPercent !== undefined ? ` · ${selected.sourceLocation.progressPercent.toFixed(1)}%` : ""}`
+      ? `来源书籍：${legacySourceBook?.title ?? "未知书籍"}${selected.sourceLocation?.progressPercent !== undefined ? ` · ${selected.sourceLocation.progressPercent.toFixed(1)}%` : ""}`
       : undefined;
 
   const returnToReading = async () => {
@@ -174,17 +202,23 @@ export function InspirationPage() {
     clearReaderReturn();
   };
 
-  const saveSelected = async () => {
+  const persistSelectedDraft = async (nextDraft: InspirationDraft = draft, options: { toast?: boolean } = { toast: true }) => {
     if (!selected) return;
     const item = await updateItem(selected.id, {
-      title: draft.title,
-      body: draft.body,
-      type: draft.type,
-      status: draft.status,
-      tags: parseList(draft.tags),
-      platformTags: parseList(draft.platformTags)
+      title: nextDraft.title,
+      body: nextDraft.body,
+      type: nextDraft.type,
+      status: nextDraft.status,
+      tags: parseList(nextDraft.tags),
+      platformTags: parseList(nextDraft.platformTags)
     });
-    if (item) showToast({ tone: "success", title: "灵感已保存", body: "正文、标签和状态已写入本地灵感箱。" });
+    if (item) userEditedDraftRef.current = false;
+    if (item && options.toast) showToast({ tone: "success", title: "灵感已保存", body: "正文、标签和状态已写入本地灵感箱。" });
+    return item;
+  };
+
+  const saveSelected = async () => {
+    await persistSelectedDraft();
   };
 
   const createNew = async () => {
@@ -205,7 +239,14 @@ export function InspirationPage() {
   const runAI = async (action: AIRunAction) => {
     if (!selected) return;
     setAiBusy(action);
+    setIsAIRunning(true);
+    isAIRunningRef.current = true;
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = undefined;
+    }
     try {
+      await persistSelectedDraft(draft, { toast: false });
       const result = await runAIAction({
         action,
         title: draft.title,
@@ -217,6 +258,8 @@ export function InspirationPage() {
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
     } finally {
+      isAIRunningRef.current = false;
+      setIsAIRunning(false);
       setAiBusy(undefined);
     }
   };
@@ -244,8 +287,15 @@ export function InspirationPage() {
   };
 
   const adoptVariant = async (variantContent: string) => {
-    setDraft((prev) => ({ ...prev, body: variantContent }));
-    showToast({ tone: "info", title: "已采纳为正文", body: "当前编辑区内容已替换，记得点击保存按钮。" });
+    if (!selected) return;
+    const nextDraft = { ...draft, body: variantContent };
+    if (autoSaveTimerRef.current) {
+      window.clearTimeout(autoSaveTimerRef.current);
+      autoSaveTimerRef.current = undefined;
+    }
+    setDraft(nextDraft);
+    const item = await persistSelectedDraft(nextDraft, { toast: false });
+    if (item) showToast({ tone: "success", title: "已采纳为正文", body: "候选内容已立即写入本地灵感箱。" });
   };
 
   const removeVariant = async (variantId: string) => {
@@ -333,12 +383,12 @@ export function InspirationPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <Field label="标题">
-                    <TextInput value={draft.title} onChange={(event) => setDraft((prev) => ({ ...prev, title: event.target.value }))} />
+                    <TextInput value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} />
                   </Field>
                   <div className="grid grid-cols-2 gap-3">
                     <label className="grid gap-1.5 text-sm text-paper-muted">
                       <span className="font-medium text-paper-ink">类型</span>
-                      <select className="paper-input h-9" value={draft.type} onChange={(event) => setDraft((prev) => ({ ...prev, type: event.target.value as InspirationType }))}>
+                      <select className="paper-input h-9" value={draft.type} onChange={(event) => updateDraft({ type: event.target.value as InspirationType })}>
                         {Object.entries(typeLabels).map(([value, label]) => (
                           <option key={value} value={value}>
                             {label}
@@ -348,7 +398,7 @@ export function InspirationPage() {
                     </label>
                     <label className="grid gap-1.5 text-sm text-paper-muted">
                       <span className="font-medium text-paper-ink">状态</span>
-                      <select className="paper-input h-9" value={draft.status} onChange={(event) => setDraft((prev) => ({ ...prev, status: event.target.value as InspirationStatus }))}>
+                      <select className="paper-input h-9" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value as InspirationStatus })}>
                         {Object.entries(statusLabels).map(([value, label]) => (
                           <option key={value} value={value}>
                             {label}
@@ -358,14 +408,14 @@ export function InspirationPage() {
                     </label>
                   </div>
                   <Field label="标签，逗号分隔">
-                    <TextInput value={draft.tags} onChange={(event) => setDraft((prev) => ({ ...prev, tags: event.target.value }))} placeholder="修罗场, 系统流, 反差" />
+                    <TextInput value={draft.tags} onChange={(event) => updateDraft({ tags: event.target.value })} placeholder="修罗场, 系统流, 反差" />
                   </Field>
                   <Field label="平台标签，逗号分隔">
-                    <TextInput value={draft.platformTags} onChange={(event) => setDraft((prev) => ({ ...prev, platformTags: event.target.value }))} placeholder="番茄, 起点, 刺猬猫" />
+                    <TextInput value={draft.platformTags} onChange={(event) => updateDraft({ platformTags: event.target.value })} placeholder="番茄, 起点, 刺猬猫" />
                   </Field>
                 </div>
                 <Field label="正文">
-                  <TextArea className="mt-2 min-h-[260px] resize-y" value={draft.body} onChange={(event) => setDraft((prev) => ({ ...prev, body: event.target.value }))} />
+                  <TextArea className="mt-2 min-h-[260px] resize-y" value={draft.body} onChange={(event) => updateDraft({ body: event.target.value })} />
                 </Field>
                 {(source || legacySourceLabel) && (
                   <div className="mt-3 rounded-xl border border-paper-line bg-paper-soft/45 p-4 text-sm text-paper-muted">
@@ -407,7 +457,7 @@ export function InspirationPage() {
               <p className="mt-2 text-xs leading-5 text-paper-muted">所有输出都进入候选版本，不会覆盖正文。</p>
               <div className="mt-3 grid gap-2">
                 {Object.entries(aiLabels).map(([action, label]) => (
-                  <Button key={action} variant="secondary" disabled={!selected || Boolean(aiBusy)} onClick={() => void runAI(action as AIRunAction)}>
+                  <Button key={action} variant="secondary" disabled={!selected || isAIRunning || Boolean(aiBusy)} onClick={() => void runAI(action as AIRunAction)}>
                     <Sparkles size={15} />
                     {aiBusy === action ? "生成中..." : label}
                   </Button>

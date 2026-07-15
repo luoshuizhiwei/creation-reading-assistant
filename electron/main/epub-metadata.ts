@@ -168,14 +168,25 @@ async function parseNavToc(zip: JSZip, navItem: ManifestItem): Promise<EpubTocIt
   if (!navElement) return [];
 
   const navHrefDir = packageHrefDirname(navItem.href);
-  return getElementsByLocalName(navElement, "a")
-    .map((anchor, index) => ({
-      id: `toc-nav-${index}`,
-      label: normalizeWhitespace(anchor.textContent ?? ""),
-      href: resolvePackageHref(navHrefDir, anchor.getAttribute("href") ?? ""),
-      level: 1
-    }))
-    .filter((item) => item.label && item.href);
+  const toc: EpubTocItem[] = [];
+  let index = 0;
+  const walkList = (listElement: XmlElement, level: number) => {
+    for (const listItem of directChildElements(listElement, "li")) {
+      const anchor = directChildElements(listItem, "a")[0] ?? getFirstElementByLocalName(listItem, "a");
+      const label = anchor ? normalizeWhitespace(anchor.textContent ?? "") : "";
+      const href = anchor ? resolvePackageHref(navHrefDir, anchor.getAttribute("href") ?? "") : "";
+      if (label && href) {
+        toc.push({ id: `toc-nav-${index}`, label, href, level });
+        index += 1;
+      }
+      for (const nestedList of directChildElements(listItem, "ol")) {
+        walkList(nestedList, level + 1);
+      }
+    }
+  };
+  const rootList = directChildElements(navElement, "ol")[0] ?? getFirstElementByLocalName(navElement, "ol");
+  if (rootList) walkList(rootList, 1);
+  return toc;
 }
 
 async function parseNcxToc(zip: JSZip, ncxItem: ManifestItem): Promise<EpubTocItem[]> {
@@ -184,18 +195,25 @@ async function parseNcxToc(zip: JSZip, ncxItem: ManifestItem): Promise<EpubTocIt
 
   const ncxDoc = parseXml(ncxXml);
   const ncxHrefDir = packageHrefDirname(ncxItem.href);
-  return getElementsByLocalName(ncxDoc, "navPoint")
-    .map((navPoint, index) => {
+  const toc: EpubTocItem[] = [];
+  let index = 0;
+  const walkNavPoint = (navPoint: XmlElement, level: number) => {
       const label = findFirstText(navPoint, "text") ?? "";
       const src = getFirstElementByLocalName(navPoint, "content")?.getAttribute("src") ?? "";
-      return {
-        id: `toc-ncx-${index}`,
-        label,
-        href: resolvePackageHref(ncxHrefDir, src),
-        level: 1
-      };
-    })
-    .filter((item) => item.label && item.href);
+      const href = resolvePackageHref(ncxHrefDir, src);
+      if (label && href) {
+        toc.push({ id: `toc-ncx-${index}`, label, href, level });
+        index += 1;
+      }
+      for (const child of directChildElements(navPoint, "navPoint")) {
+        walkNavPoint(child, level + 1);
+      }
+  };
+  const navMap = getFirstElementByLocalName(ncxDoc, "navMap") ?? ncxDoc;
+  for (const navPoint of directChildElements(navMap, "navPoint")) {
+    walkNavPoint(navPoint, 1);
+  }
+  return toc;
 }
 
 async function buildSearchItems(zip: JSZip, manifest: ManifestItem[]): Promise<EpubSearchIndexItem[]> {
@@ -285,6 +303,13 @@ function getFirstElementByLocalName(root: XmlDocument | XmlElement, localName: s
 function getElementsByLocalName(root: XmlDocument | XmlElement, localName: string): XmlElement[] {
   const lowerName = localName.toLowerCase();
   return Array.from(root.getElementsByTagName("*")).filter((element) => elementLocalName(element) === lowerName);
+}
+
+function directChildElements(root: XmlDocument | XmlElement, localName?: string): XmlElement[] {
+  const lowerName = localName?.toLowerCase();
+  return Array.from(root.childNodes)
+    .filter((node): node is XmlElement => node.nodeType === 1)
+    .filter((element) => !lowerName || elementLocalName(element) === lowerName);
 }
 
 function elementLocalName(element: XmlElement): string {

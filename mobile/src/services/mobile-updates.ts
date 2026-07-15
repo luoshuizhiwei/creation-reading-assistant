@@ -1,8 +1,13 @@
-export const MOBILE_APP_VERSION = "0.1.17";
+import mobilePackage from "../../package.json";
 
-const RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant/releases/latest";
-const RELEASES_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant/releases";
-const RELEASE_MANIFEST_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant/releases/latest/download/mobile-update.json";
+export const MOBILE_APP_VERSION = mobilePackage.version;
+
+// 源码仓库保持私有；安装包和无凭证更新清单发布到独立的公开仓库。
+// APK 内绝不能嵌入 GitHub token，否则任何安装者都能提取凭证。
+const PUBLIC_RELEASE_REPOSITORY = "luoshuizhiwei/creation-reading-assistant-releases";
+const RELEASE_API_URL = `https://api.github.com/repos/${PUBLIC_RELEASE_REPOSITORY}/releases/latest`;
+const RELEASES_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases`;
+const RELEASE_MANIFEST_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases/latest/download/mobile-update.json`;
 
 export interface MobileUpdateInfo {
   currentVersion: string;
@@ -12,6 +17,7 @@ export interface MobileUpdateInfo {
   notes: string;
   apkUrl?: string;
   apkName?: string;
+  checkFailed?: boolean;
 }
 
 interface GitHubReleaseAsset {
@@ -32,6 +38,16 @@ interface MobileUpdateManifest {
   notes?: string;
   apkUrl?: string;
   apkName?: string;
+}
+
+async function fetchWithTimeout(input: RequestInfo | URL, init: RequestInit = {}, timeoutMs = 10_000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(input, { ...init, signal: controller.signal });
+  } finally {
+    window.clearTimeout(timer);
+  }
 }
 
 function normalizeVersion(value: string): number[] {
@@ -57,7 +73,7 @@ function isNewerVersion(latest: string, current: string): boolean {
 
 export async function checkForMobileUpdate(): Promise<MobileUpdateInfo> {
   try {
-    const manifestResponse = await fetch(`${RELEASE_MANIFEST_URL}?t=${Date.now()}`, {
+    const manifestResponse = await fetchWithTimeout(`${RELEASE_MANIFEST_URL}?t=${Date.now()}`, {
       cache: "no-store"
     });
     if (manifestResponse.ok) {
@@ -78,7 +94,7 @@ export async function checkForMobileUpdate(): Promise<MobileUpdateInfo> {
   }
 
   try {
-    const response = await fetch(RELEASE_API_URL, {
+    const response = await fetchWithTimeout(RELEASE_API_URL, {
       headers: { Accept: "application/vnd.github+json" },
       cache: "no-store"
     });

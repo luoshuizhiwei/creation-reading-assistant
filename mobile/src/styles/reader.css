@@ -1,0 +1,1755 @@
+/* === MD3 Reader Shell === */
+.reader-shell {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 100dvh;
+  max-width: 100vw;
+  overflow: hidden;
+  padding-bottom: 0;
+}
+
+.reader-dim-layer {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  background: #000;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+}
+
+.reader-bg-white { background: #fafaf8; }
+.reader-bg-warm  { background: #f3e8d8; }
+.reader-bg-green { background: #e8f0df; }
+.reader-bg-night { background: #1a1614; color: #e8ddd0; }
+
+/* 移动端专属护眼主题 */
+.reader-bg-warm-yellow {
+  --paper: #f7f0d8;
+  --ink: #3d2b1f;
+  --muted: #7d6b5a;
+  --line: rgba(61, 43, 31, 0.12);
+  --md3-surface: #f7f0d8;
+  --md3-surface-container: #efe6cc;
+  --md3-surface-container-high: #e7dcc0;
+  --md3-on-surface: #3d2b1f;
+  --md3-on-surface-variant: #5d4b3a;
+  --md3-outline: rgba(61, 43, 31, 0.16);
+  --copper: #8e5b2b;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.reader-bg-green-bean {
+  --paper: #e8f0e0;
+  --ink: #2d332b;
+  --muted: #5d6a58;
+  --line: rgba(45, 51, 43, 0.12);
+  --md3-surface: #e8f0e0;
+  --md3-surface-container: #dce8d4;
+  --md3-surface-container-high: #d0e0c8;
+  --md3-on-surface: #2d332b;
+  --md3-on-surface-variant: #4a5546;
+  --md3-outline: rgba(45, 51, 43, 0.16);
+  --copper: #5e7a4a;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.reader-bg-oled-black {
+  --paper: #000000;
+  --ink: #b8b0a8;
+  --muted: #7a736d;
+  --line: rgba(184, 176, 168, 0.10);
+  --md3-surface: #000000;
+  --md3-surface-container: #0a0908;
+  --md3-surface-container-high: #12100e;
+  --md3-on-surface: #b8b0a8;
+  --md3-on-surface-variant: #9a918a;
+  --md3-outline: rgba(184, 176, 168, 0.12);
+  --copper: #d59a61;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+/* === MD3 Reader Top App Bar === */
+.reader-topbar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 58px;
+  padding: max(8px, env(safe-area-inset-top)) 10px 8px;
+  background: color-mix(in srgb, var(--md3-surface-container) 92%, transparent);
+  box-shadow: 0 1px 2px rgba(34, 25, 21, 0.08);
+  border: none;
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: transform var(--motion-medium) var(--motion-easing-standard),
+              opacity var(--motion-medium) var(--motion-easing-standard);
+}
+
+.reader-chrome-hidden .reader-topbar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-56px);
+}
+
+.reader-topbar p {
+  margin: 2px 0 0;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-title-block {
+  min-width: 0;
+}
+
+.reader-topbar strong {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--md3-typescale-title-medium);
+  font-weight: 500;
+}
+
+.reader-topbar-actions {
+  display: flex;
+  gap: 4px;
+  justify-content: flex-end;
+  margin-left: auto;
+}
+
+.reader-topbar-actions .ghost-button {
+  min-height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: var(--md3-shape-full);
+}
+
+.reader-icon-button {
+  flex: 0 0 auto;
+  width: 42px;
+  min-width: 42px;
+  height: 42px;
+  font-size: 28px;
+  line-height: 1;
+}
+
+/* === MD3 Reader Progress Chip === */
+.reader-progress-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  border: none;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--md3-surface-container-high) 82%, transparent);
+  padding: 7px 12px;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+  box-shadow: none;
+  transition: opacity var(--motion-medium) var(--motion-easing-standard),
+              transform var(--motion-medium) var(--motion-easing-standard);
+}
+
+.reader-progress-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-progress-chip strong {
+  flex: 0 0 auto;
+  color: var(--md3-primary);
+}
+
+.reader-menu-chip {
+  width: 100%;
+}
+
+.reader-chrome-hidden .reader-progress-chip {
+  opacity: 1;
+  transform: none;
+}
+
+/* === MD3 Reader Drawer (Bottom Sheet Dialog) === */
+.reader-toc-drawer,
+.reader-settings-drawer {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 32;
+  display: grid;
+  gap: 12px;
+  max-height: min(80dvh, 640px);
+  overflow: auto;
+  border: none;
+  border-radius: var(--app-sheet-radius) var(--app-sheet-radius) 0 0;
+  background: var(--md3-surface-container-high);
+  padding: 0 16px max(16px, env(safe-area-inset-bottom));
+  box-shadow: var(--app-soft-shadow-lg);
+  color: var(--md3-on-surface);
+  animation: md3-sheet-rise var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Drag handle indicator */
+.reader-toc-drawer::before,
+.reader-settings-drawer::before {
+  content: '';
+  position: sticky;
+  top: 8px;
+  display: block;
+  width: 32px;
+  height: 4px;
+  margin: 8px auto 4px;
+  border-radius: var(--md3-shape-full);
+  background: var(--md3-outline-variant);
+}
+
+.reader-toc-drawer h2,
+.reader-settings-drawer h2 {
+  margin: 0 0 4px;
+  font-size: var(--md3-typescale-title-large);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+.reader-toc-drawer a {
+  display: flex;
+  align-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  color: var(--md3-on-surface);
+  text-decoration: none;
+  padding: 12px 8px;
+  border-radius: var(--md3-shape-small);
+  font-size: var(--md3-typescale-body-medium);
+  transition: background var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-toc-drawer a:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+/* === MD3 Segmented Tabs (Drawer Tabs) === */
+.reader-drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 2px;
+  border-radius: var(--md3-shape-full);
+  background: var(--md3-surface-container);
+  padding: 2px;
+  border: 1px solid var(--md3-outline-variant);
+}
+
+.reader-drawer-tabs button {
+  min-height: 32px;
+  border-radius: var(--md3-shape-full);
+  background: transparent;
+  color: var(--md3-on-surface-variant);
+  box-shadow: none;
+  padding: 0 4px;
+  font-size: var(--md3-typescale-label-small);
+  font-weight: 500;
+  border: none;
+  cursor: pointer;
+  transition: background var(--motion-short) var(--motion-easing-standard),
+              color var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-drawer-tabs button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.reader-drawer-tabs button.active {
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+  box-shadow: none;
+}
+
+@keyframes md3-sheet-rise {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* === MD3 Search Panel === */
+.reader-search-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.reader-search-panel label {
+  display: grid;
+  gap: 4px;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+}
+
+.reader-search-panel input {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--md3-shape-small);
+  background: transparent;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-body-medium);
+  transition: border-color var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-search-panel input:focus {
+  border-color: var(--md3-primary);
+  outline: none;
+}
+
+.search-summary {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+}
+
+/* === MD3 Search Results === */
+.reader-search-results {
+  display: grid;
+  gap: 8px;
+}
+
+.reader-search-results button {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+  padding: 12px;
+  background: transparent;
+  color: var(--md3-on-surface);
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: var(--md3-shape-medium);
+  box-shadow: none;
+  text-align: left;
+  cursor: pointer;
+  transition: background var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-search-results button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.reader-search-results button strong {
+  color: var(--md3-primary);
+  font-size: var(--md3-typescale-label-small);
+}
+
+.reader-search-results button span {
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-body-small);
+  line-height: 1.4;
+}
+
+/* === MD3 Note List === */
+.reader-note-list {
+  display: grid;
+  gap: 8px;
+}
+
+.reader-note-list textarea {
+  min-height: 88px;
+  padding: 12px 16px;
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--md3-shape-small);
+  background: transparent;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-body-medium);
+  line-height: 1.5;
+  resize: vertical;
+}
+
+.reader-note-list textarea:focus {
+  border-color: var(--md3-primary);
+  outline: none;
+}
+
+/* === MD3 Note Item === */
+.reader-note-item {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  background: var(--md3-surface-container);
+  border-radius: var(--md3-shape-medium);
+  border: none;
+}
+
+.reader-note-item span {
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+}
+
+.reader-note-item p,
+.reader-note-item blockquote {
+  margin: 0;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-body-medium);
+}
+
+.reader-note-item blockquote {
+  border-left: 3px solid var(--md3-primary);
+  padding-left: 12px;
+  color: var(--md3-on-surface-variant);
+}
+
+/* === MD3 Reader Scroll Container === */
+.reader-scroll-container {
+  height: 100%;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  /* 固定 padding，不随 chrome 显隐切换，避免唤出菜单时正文重排 */
+  padding-top: calc(48px + env(safe-area-inset-top));
+  padding-bottom: calc(24px + env(safe-area-inset-bottom));
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+}
+
+.reader-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.reader-mode-paged.reader-format-txt .reader-scroll-container,
+.reader-mode-paged.reader-format-md .reader-scroll-container {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0;
+  scroll-behavior: auto;
+  touch-action: pan-y;
+}
+
+/*
+ * TXT / Markdown 的分页必须是真正的横向分栏。每一列正文宽度加列间距
+ * 恰好等于一个视口宽度，翻页计算才能稳定落在整页边界，避免半页夹缝。
+ * EPUB 使用 epubjs 自己的 paginated flow，不套用这里的列布局。
+ */
+.reader-mode-paged.reader-format-txt .reader-content,
+.reader-mode-paged.reader-format-md .reader-content {
+  box-sizing: border-box;
+  width: 100vw;
+  max-width: none;
+  /* Android 旧版 WebView 会丢弃 height:100dvh，使用 100vh 保证列容器有固定高度。 */
+  height: 100vh;
+  max-height: 100vh;
+  min-height: 0;
+  margin: 0;
+  padding-top: calc(58px + env(safe-area-inset-top));
+  padding-right: var(--reader-page-margin, 22px);
+  padding-bottom: calc(28px + env(safe-area-inset-bottom));
+  padding-left: var(--reader-page-margin, 22px);
+  /* CSS calc 不支持乘法；显式相减/相加，保证 WebView 真正启用多栏。 */
+  column-width: calc(100vw - var(--reader-page-margin, 22px) - var(--reader-page-margin, 22px));
+  column-gap: calc(var(--reader-page-margin, 22px) + var(--reader-page-margin, 22px));
+  column-fill: auto;
+  overflow-wrap: break-word;
+}
+
+/* Swipe gesture visual feedback */
+.reader-scroll-container.swipe-left {
+  animation: md3-swipe-left var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reader-scroll-container.swipe-right {
+  animation: md3-swipe-right var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reader-scroll-container[data-page-turn="forward"] .reader-content {
+  animation: reader-page-forward var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reader-scroll-container[data-page-turn="backward"] .reader-content {
+  animation: reader-page-backward var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reader-loading-state {
+  display: grid;
+  gap: 10px;
+  width: min(calc(100% - 48px), 420px);
+  margin: 22dvh auto 0;
+  padding: 18px 20px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: var(--app-card-radius);
+  background: color-mix(in srgb, var(--md3-surface-container-low) 92%, transparent);
+  box-shadow: var(--app-soft-shadow);
+  color: var(--md3-on-surface);
+  animation: md3-fade-up var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+.reader-loading-state strong {
+  font-size: 17px;
+  line-height: 1.3;
+}
+
+.reader-loading-state p {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.reader-load-error {
+  border-color: color-mix(in srgb, var(--md3-error) 42%, var(--md3-outline-variant));
+  background: var(--md3-error-container);
+  color: var(--md3-on-error-container);
+}
+
+.reader-load-error p {
+  color: var(--md3-on-error-container);
+}
+
+@keyframes md3-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes md3-swipe-left {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(-30px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes md3-swipe-right {
+  0% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  40% {
+    transform: translateX(30px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes reader-page-forward {
+  0% {
+    opacity: 0.86;
+    transform: translateX(18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes reader-page-backward {
+  0% {
+    opacity: 0.86;
+    transform: translateX(-18px);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* === MD3 Reader Content === */
+.reader-content {
+  width: min(100%, 720px);
+  margin: 0 auto;
+  padding: 0 16px;
+  color: inherit;
+  overflow-wrap: anywhere;
+  user-select: text;
+  letter-spacing: 0.01em;
+  text-align: justify;
+  font-size: var(--md3-typescale-body-large);
+  line-height: 1.7;
+}
+
+.reader-content p,
+.reader-content li,
+.reader-content blockquote {
+  margin: 0 0 var(--reader-paragraph-spacing, 1.2em);
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3 {
+  margin: 1.6em 0 0.8em;
+  letter-spacing: -0.02em;
+  font-weight: 600;
+}
+
+.reader-content h1 {
+  font-size: var(--md3-typescale-headline-medium);
+}
+
+.reader-content h2 {
+  font-size: var(--md3-typescale-headline-small);
+}
+
+.reader-content h3 {
+  font-size: var(--md3-typescale-title-large);
+}
+
+.reader-content table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.2em 0;
+}
+
+.reader-content td,
+.reader-content th {
+  border: 1px solid var(--md3-outline-variant);
+  padding: 8px;
+  text-align: left;
+}
+
+.reader-content pre,
+.reader-content code {
+  border-radius: var(--md3-shape-small);
+  background: var(--md3-surface-container);
+}
+
+.reader-content code {
+  padding: 2px 6px;
+  font-size: 0.9em;
+}
+
+.reader-content pre {
+  overflow: auto;
+  padding: 12px 16px;
+  margin: 1.2em 0;
+}
+
+.reader-content pre code {
+  padding: 0;
+  background: transparent;
+}
+
+.reader-content .epub-publisher-flow {
+  position: relative;
+  display: flow-root;
+  margin: 0 auto 2.4em;
+}
+
+.reader-content .epub-publisher-flow::before {
+  content: "EPUB";
+  display: inline-flex;
+  margin: 0 0 0.8em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--md3-primary) 12%, transparent);
+  color: var(--md3-primary);
+  font-size: 0.62em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.reader-content .epub-chapter > h2:first-child {
+  margin-top: 0.2em;
+  padding-bottom: 0.55em;
+  border-bottom: 1px solid color-mix(in srgb, var(--md3-outline-variant) 70%, transparent);
+  color: var(--md3-primary);
+  font-size: 1.38em;
+  line-height: 1.32;
+}
+
+.reader-content img,
+.reader-content svg {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 1.2em auto;
+  border-radius: 12px;
+  object-fit: contain;
+}
+
+.reader-content figure,
+.reader-content .figure {
+  margin: 1.4em auto;
+  text-align: center;
+}
+
+.reader-content .epub-image-placeholder {
+  display: block;
+  max-width: 88%;
+  padding: 0.85em 1em;
+  border: 1px dashed color-mix(in srgb, var(--reader-border) 78%, transparent);
+  border-radius: var(--app-card-radius);
+  color: var(--md3-on-surface-variant);
+  font-size: 0.82em;
+  line-height: 1.55;
+  background: color-mix(in srgb, var(--reader-surface-strong) 72%, transparent);
+}
+
+.reader-content figcaption,
+.reader-content .caption {
+  margin-top: -0.6em;
+  color: var(--md3-on-surface-variant);
+  font-size: 0.82em;
+  text-align: center;
+}
+
+.reader-content a {
+  color: var(--md3-primary);
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.18em;
+}
+
+.reader-content blockquote,
+.reader-content aside,
+.reader-content .note {
+  border-left: 3px solid color-mix(in srgb, var(--md3-primary) 62%, transparent);
+  padding: 0.2em 0 0.2em 0.9em;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-content .poem,
+.reader-content .verse {
+  width: fit-content;
+  max-width: 100%;
+  margin: 1.4em auto;
+  text-align: left;
+  line-height: 1.9;
+}
+
+.reader-content table {
+  display: block;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border-radius: 12px;
+}
+
+.reader-content thead {
+  background: color-mix(in srgb, var(--md3-primary) 9%, transparent);
+}
+
+.reader-bg-night .reader-content img {
+  filter: brightness(0.9) contrast(1.04);
+}
+
+/* === Reader Toast (轻量提示，自动消失) === */
+.reader-toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(max(12px, env(safe-area-inset-bottom)) + 76px);
+  transform: translateX(-50%);
+  z-index: 8;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: calc(100% - 32px);
+  padding: 8px 16px;
+  background: rgba(33, 25, 20, 0.82);
+  color: #f5ede0;
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  font-size: 13px;
+  line-height: 1.4;
+  pointer-events: auto;
+  animation: reader-toast-in var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-toast span {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-toast button {
+  flex-shrink: 0;
+  padding: 4px 12px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #f5ede0;
+  border: none;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.reader-toast button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+@keyframes reader-toast-in {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+/* === MD3 Reader Selection Toolbar === */
+.reader-selection-toolbar {
+  position: fixed;
+  left: 8px;
+  right: 8px;
+  bottom: calc(max(8px, env(safe-area-inset-bottom)) + 136px);
+  z-index: 9;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(calc(100% - 16px), 720px);
+  margin: 0 auto;
+  padding: 12px;
+  background: var(--md3-surface-container-high);
+  color: var(--md3-on-surface);
+  border: none;
+  border-radius: var(--md3-shape-medium);
+  box-shadow: var(--app-soft-shadow-lg);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+.reader-selection-toolbar p {
+  margin: 0;
+  overflow: hidden;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-selection-toolbar div {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.reader-selection-toolbar div::-webkit-scrollbar {
+  display: none;
+}
+
+.reader-selection-toolbar button {
+  flex: 0 0 auto;
+  min-height: 36px;
+  padding: 0 16px;
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+  border: none;
+  border-radius: var(--md3-shape-full);
+  box-shadow: none;
+  font-size: var(--md3-typescale-label-medium);
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.reader-selection-toolbar button:active {
+  opacity: 0.8;
+}
+
+.reader-selection-toolbar .ghost-button {
+  background: transparent;
+  color: var(--md3-on-surface-variant);
+}
+
+/* === MD3 Reader Zone Guide === */
+.reader-zone-guide {
+  display: none;
+}
+
+.reader-zone-guide span {
+  justify-self: center;
+  padding: 6px 12px;
+  background: var(--md3-surface-container-high);
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+  border-radius: var(--md3-shape-full);
+  box-shadow: var(--app-soft-shadow);
+}
+
+/* === MD3 Reader Bottom Sheet === */
+.reader-bottom-sheet {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 7;
+  display: grid;
+  gap: 10px;
+  width: min(100%, 760px);
+  max-width: calc(100vw - 0px);
+  margin: 0 auto;
+  padding: 12px 14px max(12px, env(safe-area-inset-bottom));
+  background: color-mix(in srgb, var(--md3-surface-container-high) 96%, transparent);
+  border: none;
+  border-radius: var(--app-sheet-radius) var(--app-sheet-radius) 0 0;
+  box-shadow: 0 -14px 40px rgba(34, 25, 21, 0.16);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  transition: transform var(--motion-medium) var(--motion-easing-standard),
+              opacity var(--motion-medium) var(--motion-easing-standard);
+}
+
+.reader-chrome-hidden .reader-bottom-sheet {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+}
+
+/* 加载/错误页只保留顶部返回入口，避免目录、主题等无效操作误导用户。 */
+.reader-is-loading .reader-bottom-sheet,
+.reader-has-error .reader-bottom-sheet {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+}
+
+/* TTS 播放条激活时隐藏底部 5 按钮菜单，避免叠加 */
+.reader-shell.tts-active .reader-bottom-sheet,
+.reader-bottom-sheet.tts-active {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+}
+
+/* 选字工具栏出现时隐藏/降低底部菜单与各类 reader sheet，避免冲突 */
+.reader-shell.selection-active .reader-bottom-sheet,
+.reader-bottom-sheet.selection-active,
+.reader-shell.selection-active .reader-bottom-sheet-panel,
+.reader-shell.selection-active .reader-progress-panel,
+.reader-shell.selection-active .reader-toc-drawer-sheet,
+.reader-shell.selection-active .reader-drawer-mask,
+.reader-shell.selection-active .reader-sheet-mask,
+.reader-shell.selection-active .ai-assist-overlay {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(12px);
+}
+
+/* === 沉浸模式 === */
+.reader-shell.immersive-mode .reader-dim-layer {
+  transition: opacity var(--motion-medium) var(--motion-easing-standard);
+}
+
+.reader-shell.immersive-mode.reader-chrome-hidden .reader-dim-layer {
+  opacity: 0 !important;
+}
+
+.reader-shell.immersive-mode .reader-topbar,
+.reader-shell.immersive-mode .reader-bottom-sheet {
+  transition: transform var(--motion-medium) var(--motion-easing-standard),
+              opacity var(--motion-medium) var(--motion-easing-standard);
+}
+
+/* 沉浸模式下进度 chip 随 chrome 一起淡出 */
+.reader-shell.immersive-mode.reader-chrome-hidden .reader-progress-chip {
+  opacity: 0;
+  transform: translateY(8px);
+  transition: opacity var(--motion-medium) var(--motion-easing-standard),
+              transform var(--motion-medium) var(--motion-easing-standard);
+}
+
+.reader-shell.selection-active .reader-toc-drawer-sheet,
+.reader-shell.selection-active .reader-drawer-mask {
+  transform: translateX(-100%);
+}
+
+.reader-bottom-sheet button {
+  min-width: 44px;
+  min-height: 44px;
+}
+
+/* === MD3 Reader Stats Row === */
+.reader-stat-row {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+  text-align: center;
+  padding: 4px 0;
+}
+
+.reader-menu-stats {
+  opacity: 0.82;
+  padding: 0;
+}
+
+.reader-stat-row span {
+  min-width: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-small);
+}
+
+.reader-stat-row strong {
+  display: block;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-title-small);
+  font-weight: 500;
+  letter-spacing: 0;
+}
+
+/* === MD3 Reader Progress Slider === */
+.reader-progress-slider {
+  width: 100%;
+  height: 30px;
+  margin: 0;
+  accent-color: var(--md3-primary);
+  cursor: pointer;
+}
+
+.reader-chapter-control-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+}
+
+.reader-chapter-control-row button {
+  min-height: 36px;
+  padding: 0 8px;
+  border: none;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--md3-on-surface);
+  box-shadow: none;
+  font-size: 15px;
+}
+
+.reader-progress-disabled {
+  color: var(--md3-on-surface-variant);
+  text-align: center;
+  font-size: 13px;
+}
+
+.reader-floating-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 18px;
+  justify-items: center;
+  margin: -2px 0 0;
+}
+
+.reader-floating-actions button {
+  display: grid;
+  width: 54px;
+  height: 54px;
+  min-height: 54px;
+  place-items: center;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--md3-on-surface) 10%, var(--md3-surface-container-high));
+  color: var(--md3-on-surface);
+  box-shadow: 0 8px 20px rgba(34, 25, 21, 0.14);
+}
+
+/* === MD3 Reader Actions === */
+.reader-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  overflow: visible;
+  padding: 0;
+  scrollbar-width: none;
+}
+
+.reader-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.reader-actions button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-width: 44px;
+  min-height: 44px;
+  height: 58px;
+  padding: 4px 8px;
+  background: transparent;
+  color: var(--md3-on-surface);
+  border: none;
+  border-radius: var(--md3-shape-medium);
+  box-shadow: none;
+  font-size: var(--md3-typescale-label-medium);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-primary-actions {
+  border-top: 1px solid color-mix(in srgb, var(--md3-outline-variant) 70%, transparent);
+  padding-top: 8px;
+}
+
+.reader-aa-icon {
+  font-size: 21px;
+  font-weight: 650;
+  line-height: 1;
+}
+
+.reader-actions button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.reader-actions button span {
+  font-size: var(--md3-typescale-label-small);
+}
+
+/* === MD3 Reader Settings Drawer Form === */
+.reader-settings-drawer label {
+  display: grid;
+  gap: 4px;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-label-medium);
+  font-weight: 500;
+}
+
+.reader-settings-drawer input[type="range"] {
+  min-height: 32px;
+  border-radius: var(--md3-shape-full);
+  accent-color: var(--md3-primary);
+}
+
+.reader-settings-drawer input[type="number"],
+.reader-settings-drawer select {
+  height: 48px;
+  padding: 0 16px;
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--md3-shape-small);
+  background: transparent;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-body-medium);
+}
+
+.reader-settings-drawer input:focus,
+.reader-settings-drawer select:focus {
+  border-color: var(--md3-primary);
+  outline: none;
+}
+
+/* === MD3 Reader Background/Mode Grid === */
+.reader-background-grid,
+.reader-mode-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reader-background-grid button,
+.reader-mode-grid button {
+  min-height: 48px;
+  padding: 0 8px;
+  background: transparent;
+  color: var(--md3-on-surface);
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--md3-shape-small);
+  box-shadow: none;
+  font-size: var(--md3-typescale-label-medium);
+  font-weight: 500;
+  cursor: pointer;
+  transition: background var(--motion-short) var(--motion-easing-standard),
+              color var(--motion-short) var(--motion-easing-standard),
+              border-color var(--motion-short) var(--motion-easing-standard),
+              box-shadow var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-background-grid button:active,
+.reader-mode-grid button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+.reader-background-grid button.active,
+.reader-mode-grid button.active {
+  background: var(--md3-primary);
+  color: var(--md3-on-primary);
+  border-color: var(--md3-primary);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Small screen adjustments */
+@media (max-width: 390px) {
+  .mobile-shell {
+    padding-left: var(--md3-spacing-medium);
+    padding-right: var(--md3-spacing-medium);
+  }
+
+  .book-grid {
+    gap: var(--md3-spacing-small);
+  }
+
+  .metric-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .reader-bottom-sheet {
+    padding: var(--md3-spacing-medium);
+  }
+
+  .reader-notice {
+    grid-template-columns: 1fr;
+  }
+}
+
+@keyframes drawer-rise {
+  from {
+    opacity: 0;
+    transform: translateY(var(--md3-spacing-large)) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* === 进度面板（点击进度按钮弹出，贴合底部菜单栏上方） === */
+.reader-progress-panel {
+  position: fixed;
+  left: 50%;
+  right: auto;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 28;
+  width: min(calc(100% - 24px), 520px);
+  padding: 10px 14px 12px;
+  border-radius: var(--app-control-radius);
+  background: color-mix(in srgb, var(--md3-surface-container-high) 97%, transparent);
+  box-shadow: 0 -4px 24px rgba(34, 25, 21, 0.14);
+  -webkit-backdrop-filter: blur(14px);
+  backdrop-filter: blur(14px);
+  display: grid;
+  gap: 8px;
+  animation: reader-progress-panel-rise var(--motion-short) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes reader-progress-panel-rise {
+  from { opacity: 0; transform: translateX(-50%) translateY(12px); }
+  to { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.reader-progress-panel-main {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.reader-progress-panel-center {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.reader-progress-panel-center .reader-progress-chip {
+  justify-content: space-between;
+  padding: 2px 4px;
+  background: transparent;
+  box-shadow: none;
+}
+
+.reader-progress-panel-center .reader-progress-chip span {
+  font-size: var(--md3-typescale-label-small);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-progress-panel-center .reader-progress-chip strong {
+  font-size: var(--md3-typescale-label-small);
+  flex-shrink: 0;
+}
+
+.reader-progress-chapter-btn {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0 12px;
+  border: none;
+  border-radius: 999px;
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.reader-progress-panel-slider {
+  width: 100%;
+  height: 22px;
+  margin: 0;
+  accent-color: var(--md3-primary);
+  cursor: pointer;
+}
+
+/* === 目录左侧 drawer（刺猬猫风格） === */
+.reader-drawer-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgba(0, 0, 0, 0.38);
+  animation: drawer-fade-in var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-toc-drawer-sheet {
+  position: fixed;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 45;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr);
+  width: min(82vw, 360px);
+  background: var(--md3-surface-container-low);
+  box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
+  animation: toc-drawer-in var(--motion-short) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes toc-drawer-in {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes drawer-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.reader-toc-drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: calc(env(safe-area-inset-top) + 14px) 16px 10px;
+  border-bottom: 1px solid var(--md3-outline-variant);
+}
+
+.reader-toc-drawer-header h3 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.reader-toc-drawer-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--md3-outline-variant);
+}
+
+.reader-toc-drawer-tabs button {
+  min-height: 36px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--md3-on-surface-variant);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.reader-toc-drawer-tabs button.active {
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+}
+
+.reader-toc-drawer-body {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 12px calc(env(safe-area-inset-bottom) + 16px);
+}
+
+/* === 底部 sheet 通用样式（起点风格） === */
+.reader-sheet-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 34;
+  background: rgba(0, 0, 0, 0.34);
+  animation: drawer-fade-in var(--motion-short) var(--motion-easing-standard);
+}
+
+.reader-bottom-sheet-panel {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 35;
+  max-height: 72dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 16px calc(env(safe-area-inset-bottom) + 20px);
+  border-radius: var(--app-sheet-radius) var(--app-sheet-radius) 0 0;
+  background: var(--md3-surface-container-low);
+  box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.16);
+  animation: bottom-sheet-rise var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes bottom-sheet-rise {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+.reader-sheet-handle {
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 6px;
+}
+
+.reader-sheet-grabber {
+  width: 36px;
+  height: 4px;
+  border-radius: 999px;
+  background: var(--md3-outline-variant);
+}
+
+.reader-sheet-title {
+  margin: 4px 0 12px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.reader-theme-sheet .reader-theme-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+/* === 灵感记录底部 sheet === */
+.reader-inspiration-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding-bottom: 12px;
+}
+
+.reader-inspiration-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.reader-inspiration-field > span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-inspiration-field input,
+.reader-inspiration-field textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: var(--md3-shape-small);
+  background: var(--md3-surface-container);
+  color: var(--md3-on-surface);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.reader-inspiration-field textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.reader-inspiration-excerpt {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: var(--md3-shape-small);
+  background: var(--md3-surface-container-highest);
+}
+
+.reader-inspiration-excerpt > span {
+  font-size: 12px;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-inspiration-excerpt blockquote {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--md3-on-surface);
+}
+
+.reader-inspiration-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.reader-inspiration-section-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.reader-inspiration-section-header span {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-inspiration-section-header small {
+  font-size: 11px;
+  color: var(--md3-on-surface-variant);
+  opacity: 0.8;
+}
+
+.reader-inspiration-section .empty-hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-inspiration-inline-add {
+  display: flex;
+  gap: 8px;
+}
+
+.reader-inspiration-inline-add input {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: var(--md3-shape-small);
+  background: var(--md3-surface-container);
+  color: var(--md3-on-surface);
+  font-size: 14px;
+}
+
+.reader-inspiration-inline-add button {
+  flex: 0 0 auto;
+  padding: 10px 14px;
+  border-radius: var(--md3-shape-small);
+  font-size: 13px;
+}
+
+.reader-inspiration-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.reader-inspiration-actions button {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--md3-shape-medium);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.reader-inspiration-actions button:disabled {
+  opacity: 0.5;
+}
+
+/* === Dark mode surface overrides === */
+:root[data-mobile-theme="dark"] .reader-toast button {
+  background: rgba(29, 23, 19, 0.16);
+}
+
+@media (prefers-color-scheme: dark) {
+  .reader-toast button {
+    background: rgba(29, 23, 19, 0.16);
+  }
+}
+
+/* === 阅读节奏提示顶部浮层 === */
+.reader-rhythm-notice {
+  position: fixed;
+  top: calc(58px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 6;
+  max-width: min(calc(100% - 32px), 360px);
+  padding: 10px 20px;
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+  border-radius: 999px;
+  box-shadow: var(--app-soft-shadow);
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  pointer-events: none;
+  animation: reader-rhythm-in 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+@keyframes reader-rhythm-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+}
+
+/* === 目录最近浏览分组 === */
+.reader-toc-recent {
+  margin: 0 -12px 12px;
+  padding: 12px;
+  background: var(--md3-surface-container);
+  border-radius: var(--md3-shape-medium);
+}
+
+.reader-toc-recent-label {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md3-primary);
+}
+
+.reader-toc-recent-item {
+  display: flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 6px 0;
+  color: var(--md3-on-surface);
+  font-size: 14px;
+  text-decoration: none;
+}
+
+.reader-toc-recent-item:active {
+  opacity: 0.8;
+}
+
+/* === AI 解读底部 sheet === */
+.reader-ai-explain-sheet .reader-ai-explain-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.reader-ai-explain-source {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  background: var(--md3-surface-container-highest);
+  border-radius: var(--md3-shape-small);
+}
+
+.reader-ai-explain-source > span {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--md3-on-surface-variant);
+}
+
+.reader-ai-explain-source blockquote {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--md3-on-surface);
+}
+
+.reader-ai-explain-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.reader-ai-explain-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 14px;
+}
+
+.ai-spin {
+  animation: ai-spin 1s linear infinite;
+}
+
+@keyframes ai-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.reader-ai-explain-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--md3-error) 10%, transparent);
+  color: var(--md3-error);
+  border-radius: var(--md3-shape-small);
+  font-size: 14px;
+}
+
+.reader-ai-explain-error button {
+  align-self: stretch;
+}
+
+.reader-ai-explain-result {
+  font-size: 15px;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
+.reader-ai-explain-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
+.reader-ai-explain-actions button {
+  width: 100%;
+  padding: 12px;
+  border-radius: var(--md3-shape-medium);
+  font-size: 15px;
+  font-weight: 600;
+}
+
+/* === TTS 朗读段落高亮 === */
+.reader-content .tts-current-paragraph {
+  background: color-mix(in srgb, var(--md3-primary) 14%, transparent);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}

@@ -56,6 +56,13 @@ export const MOBILE_SCHEMA_STATEMENTS = [
     updated_at TEXT NOT NULL,
     deleted_at TEXT
   );`,
+  `CREATE TABLE IF NOT EXISTS highlights (
+    id TEXT PRIMARY KEY NOT NULL,
+    book_id TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    deleted_at TEXT
+  );`,
   `CREATE TABLE IF NOT EXISTS tags (
     id TEXT PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,

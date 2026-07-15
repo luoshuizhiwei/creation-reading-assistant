@@ -4,14 +4,17 @@
    ======================================== */
 
 :root {
-  /* === MD3 Elevation System === */
-  --md3-elevation-1: 0 1px 2px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.12);
-  --md3-elevation-2: 0 1px 2px rgba(0, 0, 0, 0.06), 0 2px 6px rgba(0, 0, 0, 0.10);
-  --md3-elevation-3: 0 2px 4px rgba(0, 0, 0, 0.08), 0 4px 8px rgba(0, 0, 0, 0.12);
-  --md3-elevation-4: 0 4px 8px rgba(0, 0, 0, 0.10), 0 6px 12px rgba(0, 0, 0, 0.14);
-  --md3-elevation-5: 0 8px 16px rgba(0, 0, 0, 0.12), 0 12px 24px rgba(0, 0, 0, 0.16);
+  /* === App Shadow System (replaces MD3 elevation; flat paper + soft shadow) === */
+  --app-soft-shadow: 0 10px 26px rgba(66, 43, 24, 0.045);
+  --app-soft-shadow-sm: 0 4px 12px rgba(66, 43, 24, 0.04);
+  --app-soft-shadow-lg: 0 16px 40px rgba(66, 43, 24, 0.08);
 
-  /* === MD3 Shape System (Border Radius) === */
+  /* === App Shape Tokens (unified radius) === */
+  --app-card-radius: 22px;
+  --app-control-radius: 18px;
+  --app-sheet-radius: 24px;
+
+  /* === MD3 Shape System (Border Radius) — kept for legacy small tokens === */
   --md3-shape-none: 0px;
   --md3-shape-extra-small: 4px;
   --md3-shape-small: 8px;
@@ -54,6 +57,12 @@
   --md3-motion-easing-decelerate: cubic-bezier(0, 0, 0, 1);
   --md3-motion-easing-accelerate: cubic-bezier(0.3, 0, 1, 1);
 
+  /* === App Motion Aliases (unified timing) === */
+  --motion-short: var(--md3-motion-duration-short-2);
+  --motion-medium: var(--md3-motion-duration-short-4);
+  --motion-long: var(--md3-motion-duration-medium-2);
+  --motion-easing-standard: var(--md3-motion-easing-standard);
+
   /* === MD3 Component Tokens === */
   --md3-container-padding: 16px;
   --md3-spacing-small: 8px;
@@ -91,6 +100,19 @@
   --md3-error-container: #f9dedc;
   --md3-error-container-hover: #f2b8b5;
   --md3-on-error-container: #410e0b;
+
+  /* === Semantic Accent Colors (warm copper theme) === */
+  --md3-success: #4a7c3e;
+  --md3-on-success: #ffffff;
+  --md3-success-container: #d9e8d4;
+  --md3-on-success-container: #0f2a0e;
+  --md3-warning: #b86a00;
+  --md3-on-warning: #ffffff;
+  --md3-warning-container: #ffeecc;
+  --md3-on-warning-container: #3d1f00;
+  --md3-streak: #c96a2e;
+  --md3-on-streak: #ffffff;
+
   --md3-surface: var(--paper);
   --md3-surface-dim: #f3e7d8;
   --md3-surface-bright: #fffaf1;
@@ -176,11 +198,12 @@ body {
 }
 
 /* === Utility Classes === */
-.md3-elevation-1 { box-shadow: var(--md3-elevation-1); }
-.md3-elevation-2 { box-shadow: var(--md3-elevation-2); }
-.md3-elevation-3 { box-shadow: var(--md3-elevation-3); }
-.md3-elevation-4 { box-shadow: var(--md3-elevation-4); }
-.md3-elevation-5 { box-shadow: var(--md3-elevation-5); }
+/* === Deprecated Elevation Utilities (kept for compatibility; use --app-soft-shadow) === */
+.md3-elevation-1 { box-shadow: var(--app-soft-shadow-sm); }
+.md3-elevation-2 { box-shadow: var(--app-soft-shadow); }
+.md3-elevation-3 { box-shadow: var(--app-soft-shadow); }
+.md3-elevation-4 { box-shadow: var(--app-soft-shadow-lg); }
+.md3-elevation-5 { box-shadow: var(--app-soft-shadow-lg); }
 
 /* === Typography Utilities === */
 .md3-display-large {

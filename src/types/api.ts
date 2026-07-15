@@ -1,9 +1,12 @@
 import type {
   EndReadingSessionInput,
   GetReadingSessionsInput,
+  BookmarkItem,
+  HighlightItem,
   LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
+  ReaderPreset,
   ReaderSettings,
   ReadingProgress,
   ReadingLocation,
@@ -61,6 +64,11 @@ export interface DesktopApi {
     getStats: () => Promise<ReadingStatsSummary>;
     getSettings: () => Promise<ReaderSettings>;
     updateSettings: (settings: Partial<ReaderSettings>) => Promise<ReaderSettings>;
+    savePreset: (preset: ReaderPreset) => Promise<ReaderPreset>;
+    deletePreset: (presetId: string) => Promise<void>;
+    chooseFont: () => Promise<{ fileName: string; filePath: string } | null>;
+    getInstalledFonts: () => Promise<string[]>;
+    deleteFont: (fileName: string) => Promise<void>;
   };
   settings: {
     get: () => Promise<AppSettings>;
@@ -108,5 +116,13 @@ export interface DesktopApi {
   };
   diagnostics: {
     exportDebugInfo: () => Promise<DebugExportResult | null>;
+  };
+  annotations: {
+    getHighlightsByBook: (bookId: string) => Promise<HighlightItem[]>;
+    saveHighlight: (item: HighlightItem) => Promise<HighlightItem>;
+    deleteHighlight: (id: string) => Promise<void>;
+    getBookmarksByBook: (bookId: string) => Promise<BookmarkItem[]>;
+    saveBookmark: (item: BookmarkItem) => Promise<BookmarkItem>;
+    deleteBookmark: (id: string) => Promise<void>;
   };
 }

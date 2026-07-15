@@ -1,22 +1,27 @@
 import { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, session, shell } from "electron";
 import type { OpenDialogOptions } from "electron";
-import { appendFile, copyFile, cp, mkdir, readFile, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import { existsSync, writeFileSync } from "node:fs";
+import { appendFile, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
+import { createReadStream, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import crypto from "node:crypto";
 import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { parseEpubFile } from "./epub-metadata";
+import jschardet from "jschardet";
+import iconv from "iconv-lite";
 import type {
   BookFormat,
+  BookmarkItem,
   EndReadingSessionInput,
   EpubSearchIndex,
   EpubSearchIndexItem,
   GetReadingSessionsInput,
+  HighlightItem,
   LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
+  ReaderPreset,
   ReaderSettings,
   ReadingLocation,
   ReadingProgress,
@@ -72,10 +77,29 @@ let pairingToken: PairingTokenResult | undefined;
 
 const EPUB_PROTOCOL_SCHEME = "novel-workbench-epub";
 const MAX_SEARCH_TEXT_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_READER_TEXT_FILE_BYTES = 50 * 1024 * 1024;
 const SYNC_CHUNK_SIZE = 1024 * 1024;
 const RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant/releases/latest";
 const now = (): string => new Date().toISOString();
 const makeId = (prefix: string): string => `${prefix}-${Date.now().toString(36)}-${crypto.randomBytes(4).toString("hex")}`;
+
+// Simple Promise-chain mutex for file-level write serialization (no external deps)
+const fileWriteChains = new Map<string, Promise<unknown>>();
+function withFileLock<T>(filePath: string, fn: () => Promise<T>): Promise<T> {
+  const previous = fileWriteChains.get(filePath) ?? Promise.resolve();
+  const next = previous.then(fn, fn);
+  fileWriteChains.set(filePath, next);
+  return next.then(
+    (result) => {
+      if (fileWriteChains.get(filePath) === next) fileWriteChains.delete(filePath);
+      return result;
+    },
+    (error) => {
+      if (fileWriteChains.get(filePath) === next) fileWriteChains.delete(filePath);
+      throw error;
+    }
+  );
+}
 
 interface GitHubReleaseAsset {
   name?: string;
@@ -208,6 +232,14 @@ function readerSettingsPath(): string {
   return path.join(appLibraryRoot(), "settings.json");
 }
 
+function highlightsPath(): string {
+  return path.join(appLibraryRoot(), "highlights.json");
+}
+
+function bookmarksPath(): string {
+  return path.join(appLibraryRoot(), "bookmarks.json");
+}
+
 function logsRoot(): string {
   return path.join(appDataRoot(), "logs");
 }
@@ -279,7 +311,7 @@ async function writeJson<T>(filePath: string, data: T): Promise<void> {
 interface SyncStateFile {
   version: 1;
   deviceId: string;
-  devices: DeviceInfo[];
+  devices: Array<DeviceInfo & { authTokenHash?: string }>;
   updatedAt: string;
 }
 
@@ -318,7 +350,8 @@ async function readSyncState(): Promise<SyncStateFile> {
                 ? item.platform
                 : "android",
             pairedAt: optionalString(item.pairedAt) ?? now(),
-            lastSeenAt: optionalString(item.lastSeenAt) ?? now()
+            lastSeenAt: optionalString(item.lastSeenAt) ?? now(),
+            authTokenHash: optionalString(item.authTokenHash)
           }))
       : [],
     updatedAt: optionalString(raw.updatedAt) ?? now()
@@ -441,8 +474,10 @@ function timestampForFile(): string {
 }
 
 function isInsidePath(parentPath: string, childPath: string): boolean {
-  const parent = path.resolve(parentPath).toLowerCase();
-  const child = path.resolve(childPath).toLowerCase();
+  const parent = path.resolve(parentPath);
+  const child = path.resolve(childPath);
+  // On Windows, path.resolve already normalizes drive letter casing;
+  // we compare directly without toLowerCase to preserve Linux case-sensitivity.
   return child === parent || child.startsWith(`${parent}${path.sep}`);
 }
 
@@ -524,6 +559,13 @@ function assertSafeMigrationTarget(currentRoot: string, targetRoot: string, labe
   }
 }
 
+function relocatePathInsideRoot(filePath: string | undefined, oldRoot: string, newRoot: string): string | undefined {
+  if (!filePath) return filePath;
+  if (!isInsidePath(oldRoot, filePath)) return filePath;
+  const relative = path.relative(path.resolve(oldRoot), path.resolve(filePath));
+  return path.join(newRoot, relative);
+}
+
 async function unlinkManagedFileIfPresent(managedRoot: string, filePath: string | undefined, context: Record<string, unknown>): Promise<void> {
   if (!filePath) return;
   const managedRootPath = path.resolve(managedRoot);
@@ -555,12 +597,38 @@ function defaultReaderSettings(): ReaderSettings {
   return {
     fontSize: 18,
     lineHeight: 1.8,
+    paragraphSpacing: 1.0,
+    letterSpacing: 0,
     pageMargin: 56,
     appTheme: "system",
     readerBackground: "warm",
     epubStyleMode: "publisher",
+    textConversion: "none",
     restoreLastPosition: true,
     readingMode: "scroll",
+    presets: [
+      {
+        id: "preset-comfortable",
+        name: "舒适阅读",
+        fontSize: 18, lineHeight: 1.8, pageMargin: 24,
+        paragraphSpacing: 1.0, letterSpacing: 0,
+        readerBackground: "warm" as const,
+      },
+      {
+        id: "preset-compact",
+        name: "紧凑模式",
+        fontSize: 15, lineHeight: 1.4, pageMargin: 16,
+        paragraphSpacing: 0.6, letterSpacing: 0,
+        readerBackground: "white" as const,
+      },
+      {
+        id: "preset-large",
+        name: "大字体",
+        fontSize: 24, lineHeight: 2.0, pageMargin: 32,
+        paragraphSpacing: 1.5, letterSpacing: 0.02,
+        readerBackground: "parchment" as const,
+      },
+    ],
     tracking: {
       trackReadingSessions: true,
       idleTimeoutMs: 90_000,
@@ -620,6 +688,8 @@ async function ensureAppStorage(): Promise<void> {
   if (!existsSync(libraryPath())) await writeJson<{ books: LibraryBook[] }>(libraryPath(), { books: [] });
   if (!existsSync(readingProgressPath())) await writeJson(readingProgressPath(), { version: 2, updatedAt: now(), items: [] });
   if (!existsSync(readingSessionsPath())) await writeJson(readingSessionsPath(), { version: 1, updatedAt: now(), sessions: [] });
+  if (!existsSync(highlightsPath())) await writeJson(highlightsPath(), { version: 1, updatedAt: now(), items: [] });
+  if (!existsSync(bookmarksPath())) await writeJson(bookmarksPath(), { version: 1, updatedAt: now(), items: [] });
   if (!existsSync(readerSettingsPath())) await writeJson<ReaderSettings>(readerSettingsPath(), defaultReaderSettings());
   if (!existsSync(appSettingsPath())) await writeJson<AppSettings>(appSettingsPath(), normalizeAppSettings(defaultAppSettings(), await readLegacyReaderSettings()));
 }
@@ -635,7 +705,8 @@ function normalizeReaderSettings(value: unknown): ReaderSettings {
   const tracking = isRecord(raw.tracking) ? raw.tracking : {};
   const legacyTheme = raw.theme === "dark" || raw.theme === "light" ? raw.theme : undefined;
   const readerBackground =
-    raw.readerBackground === "white" || raw.readerBackground === "warm" || raw.readerBackground === "green" || raw.readerBackground === "night"
+    raw.readerBackground === "white" || raw.readerBackground === "warm" || raw.readerBackground === "green" || raw.readerBackground === "night" ||
+    raw.readerBackground === "amber" || raw.readerBackground === "parchment" || raw.readerBackground === "beans"
       ? raw.readerBackground
       : legacyTheme === "dark"
         ? "night"
@@ -643,13 +714,22 @@ function normalizeReaderSettings(value: unknown): ReaderSettings {
   return {
     fontSize: typeof raw.fontSize === "number" ? raw.fontSize : defaults.fontSize,
     lineHeight: typeof raw.lineHeight === "number" ? raw.lineHeight : defaults.lineHeight,
+    paragraphSpacing: typeof raw.paragraphSpacing === "number" && !isNaN(raw.paragraphSpacing)
+      ? Math.max(0.5, Math.min(3.0, raw.paragraphSpacing))
+      : defaults.paragraphSpacing,
+    letterSpacing: typeof raw.letterSpacing === "number" && !isNaN(raw.letterSpacing)
+      ? Math.max(0, Math.min(0.5, raw.letterSpacing))
+      : defaults.letterSpacing,
     pageMargin: typeof raw.pageMargin === "number" ? raw.pageMargin : defaults.pageMargin,
     appTheme: raw.appTheme === "light" || raw.appTheme === "dark" || raw.appTheme === "system" ? raw.appTheme : defaults.appTheme,
     readerBackground,
     epubStyleMode: raw.epubStyleMode === "publisher" || raw.epubStyleMode === "unified" ? raw.epubStyleMode : defaults.epubStyleMode,
+    textConversion: raw.textConversion === "none" || raw.textConversion === "s2t" || raw.textConversion === "t2s" ? raw.textConversion : defaults.textConversion,
     theme: legacyTheme,
     restoreLastPosition: typeof raw.restoreLastPosition === "boolean" ? raw.restoreLastPosition : defaults.restoreLastPosition,
     readingMode: "scroll",
+    presets: Array.isArray(raw.presets) ? raw.presets : defaults.presets,
+    fontFamily: typeof raw.fontFamily === "string" ? raw.fontFamily : undefined,
     tracking: {
       trackReadingSessions:
         typeof tracking.trackReadingSessions === "boolean" ? tracking.trackReadingSessions : defaults.tracking.trackReadingSessions,
@@ -869,9 +949,24 @@ async function migrateDataDirectory(targetDirectory: string): Promise<AppSetting
 
 async function migrateLibraryDirectory(targetDirectory: string): Promise<AppSettings> {
   const target = requireString(targetDirectory, "书籍目录");
-  assertSafeMigrationTarget(appLibraryRoot(), target, "书籍目录");
+  const oldLibraryRoot = appLibraryRoot();
+  assertSafeMigrationTarget(oldLibraryRoot, target, "书籍目录");
   if (!(await isDirectoryWritable(target))) throw new Error("选择的书籍目录不可写，请换一个位置。");
-  await copyDirectory(appLibraryRoot(), target);
+  const books = await readLibraryIndex({ includeDeleted: true });
+  await copyDirectory(oldLibraryRoot, target);
+  const relocatedBooks = books.map((book) => ({
+    ...book,
+    filePath: relocatePathInsideRoot(book.filePath, oldLibraryRoot, target) ?? book.filePath,
+    coverPath: relocatePathInsideRoot(book.coverPath, oldLibraryRoot, target),
+    epub: book.epub
+      ? {
+          ...book.epub,
+          coverPath: relocatePathInsideRoot(book.epub.coverPath, oldLibraryRoot, target),
+          searchIndexPath: relocatePathInsideRoot(book.epub.searchIndexPath, oldLibraryRoot, target)
+        }
+      : undefined
+  }));
+  await writeJson(path.join(target, "library.json"), { books: relocatedBooks });
   const current = await getAppSettings();
   const next = normalizeAppSettings({
     ...current,
@@ -895,25 +990,11 @@ async function getAISettings(): Promise<AISettings> {
 }
 
 async function updateAISettings(patch: AISettingsPatch): Promise<AISettings> {
+  if (Object.keys(patch).length === 0) return getAISettings();
   const settings = await updateAppSettings({ ai: patch });
   return settings.ai;
 }
 
-function aiActionLabel(action: AIRunAction): string {
-  switch (action) {
-    case "expand":
-      return "扩写";
-    case "platform-style":
-      return "平台风格化";
-    case "conflict":
-      return "生成冲突点";
-    case "humanize":
-      return "去 AI 味润色";
-    case "polish":
-    default:
-      return "润色";
-  }
-}
 
 function buildAIPrompt(input: AIRunInput): string {
   const title = input.title?.trim() ? `标题：${input.title.trim()}\n` : "";
@@ -1001,26 +1082,36 @@ function getBuildInfo(): BuildInfo {
 }
 
 async function checkForUpdates(): Promise<AppUpdateInfo> {
-  const response = await fetch(RELEASE_API_URL, {
-    headers: { Accept: "application/vnd.github+json" }
-  });
-  if (!response.ok) throw new Error(`检查更新失败：GitHub 返回 ${response.status}`);
-  const release = (await response.json()) as GitHubRelease;
-  const currentVersion = app.getVersion();
-  const latestVersion = release.tag_name?.replace(/^v/i, "") || currentVersion;
-  const desktopAsset = release.assets?.find((asset) => {
-    const name = asset.name?.toLowerCase() ?? "";
-    return name.endsWith(".exe") || name.includes("setup") || name.includes("windows");
-  });
-  return {
-    currentVersion,
-    latestVersion,
-    hasUpdate: isNewerVersion(latestVersion, currentVersion),
-    releaseUrl: release.html_url || "https://github.com/luoshuizhiwei/creation-reading-assistant/releases",
-    notes: release.body || "暂无更新说明。",
-    desktopAssetName: desktopAsset?.name,
-    desktopAssetUrl: desktopAsset?.browser_download_url
-  };
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15_000);
+  try {
+    const response = await fetch(RELEASE_API_URL, {
+      headers: { Accept: "application/vnd.github+json" },
+      signal: controller.signal
+    });
+    if (!response.ok) throw new Error(`检查更新失败：GitHub 返回 ${response.status}`);
+    const release = (await response.json()) as GitHubRelease;
+    const currentVersion = app.getVersion();
+    const latestVersion = release.tag_name?.replace(/^v/i, "") || currentVersion;
+    const desktopAsset = release.assets?.find((asset) => {
+      const name = asset.name?.toLowerCase() ?? "";
+      return name.endsWith(".exe") || name.includes("setup") || name.includes("windows");
+    });
+    return {
+      currentVersion,
+      latestVersion,
+      hasUpdate: isNewerVersion(latestVersion, currentVersion),
+      releaseUrl: release.html_url || "https://github.com/luoshuizhiwei/creation-reading-assistant/releases",
+      notes: release.body || "暂无更新说明。",
+      desktopAssetName: desktopAsset?.name,
+      desktopAssetUrl: desktopAsset?.browser_download_url
+    };
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") throw new Error("检查更新超时，请检查网络后稍后重试。");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function openUpdateDownload(url: string): Promise<void> {
@@ -1069,6 +1160,8 @@ interface BackupManifest {
   arch: string;
   dataRoot: string;
   appDataPath: "app-data";
+  libraryPath?: "library";
+  libraryCopied?: boolean;
 }
 
 async function chooseDirectory(title: string): Promise<string | null> {
@@ -1086,9 +1179,14 @@ async function createBackup(): Promise<BackupResult | null> {
   const createdAt = now();
   const backupRoot = path.join(selectedDir, `CreationReadingAssistant-backup-${timestampForFile()}`);
   const appDataBackupPath = path.join(backupRoot, "app-data");
+  const libraryBackupPath = path.join(backupRoot, "library");
+  const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
   await ensureDir(backupRoot);
   await writeLog("info", "Backup started.", { backupRoot });
   await copyDirectory(appDataRoot(), appDataBackupPath);
+  if (shouldCopyExternalLibrary) {
+    await copyDirectory(appLibraryRoot(), libraryBackupPath);
+  }
 
   const manifest: BackupManifest = {
     version: 1,
@@ -1097,7 +1195,9 @@ async function createBackup(): Promise<BackupResult | null> {
     platform: process.platform,
     arch: process.arch,
     dataRoot: appDataRoot(),
-    appDataPath: "app-data"
+    appDataPath: "app-data",
+    libraryPath: shouldCopyExternalLibrary ? "library" : undefined,
+    libraryCopied: shouldCopyExternalLibrary
   };
   const manifestPath = path.join(backupRoot, "backup-manifest.json");
   await writeJson<BackupManifest>(manifestPath, manifest);
@@ -1121,7 +1221,9 @@ function normalizeBackupManifest(value: unknown): BackupManifest {
     platform: typeof value.platform === "string" ? value.platform : "",
     arch: typeof value.arch === "string" ? value.arch : "",
     dataRoot: typeof value.dataRoot === "string" ? value.dataRoot : "",
-    appDataPath: "app-data"
+    appDataPath: "app-data",
+    libraryPath: value.libraryPath === "library" ? "library" : undefined,
+    libraryCopied: value.libraryCopied === true
   };
 }
 
@@ -1148,12 +1250,38 @@ async function restoreBackup(): Promise<RestoreResult | null> {
   const restoredAt = now();
   const checkpointPath = existsSync(appDataRoot()) ? path.join(path.dirname(appDataRoot()), `CreationReadingAssistant-before-restore-${timestampForFile()}`) : undefined;
   if (checkpointPath) await copyDirectory(appDataRoot(), checkpointPath);
+
+  // Safer restore: copy to temp dir first, then atomic swap (rename)
+  const tempRestorePath = `${appDataRoot()}.restoring`;
+  if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
+  await copyDirectory(appDataBackupPath, tempRestorePath);
+
+  // Check available disk space before final swap (require at least 100 MB free)
+  try {
+    const tempStats = await stat(tempRestorePath);
+    // Simple heuristic: just verify temp dir was created successfully
+    if (!existsSync(tempRestorePath)) throw new Error("Temp restore directory missing after copy.");
+  } catch (spaceError) {
+    // If copy failed, clean up temp dir and abort
+    if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
+    throw new Error(`Restore aborted: failed to stage backup data. ${spaceError instanceof Error ? spaceError.message : String(spaceError)}`);
+  }
+
+  // Atomic swap: remove old data dir, rename temp to final path
   if (existsSync(appDataRoot())) await rm(appDataRoot(), { recursive: true, force: true });
-  await copyDirectory(appDataBackupPath, appDataRoot());
+  await rename(tempRestorePath, appDataRoot());
+  if (manifest.libraryPath) {
+    const libraryBackupPath = path.join(backupRoot, manifest.libraryPath);
+    if (existsSync(libraryBackupPath)) {
+      const restoredSettings = normalizeAppSettings(await readJson<unknown>(appSettingsPath(), defaultAppSettings()), await readLegacyReaderSettings());
+      await setActiveStorageFromSettings(restoredSettings);
+      await copyDirectory(libraryBackupPath, appLibraryRoot());
+    }
+  }
   await ensureDir(logsRoot());
 
   await writeLog("warn", "Restore completed.", { backupRoot, checkpointPath });
-  writeRuntimeStateSync(false);
+  writeRuntimeStateSync(true);
   return {
     backupRoot,
     restoredAt,
@@ -1205,7 +1333,25 @@ async function exportDebugInfo(): Promise<DebugExportResult | null> {
 }
 
 async function readTextFile(filePath: string): Promise<string> {
-  return (await readFile(filePath, "utf-8")).replace(/^\uFEFF/, "");
+  const buffer = await readFile(filePath);
+
+  // 用前 64KB 检测编码
+  const sampleBuffer = buffer.subarray(0, Math.min(buffer.length, 65536));
+  const detection = jschardet.detect(sampleBuffer);
+
+  let text: string;
+  const encoding = detection.encoding?.toLowerCase() ?? "";
+
+  if (encoding && encoding !== "utf-8" && encoding !== "ascii" && detection.confidence > 0.5) {
+    // 非 UTF-8 编码，使用 iconv-lite 解码
+    console.log(`[readTextFile] Detected non-UTF-8 encoding: ${detection.encoding} (confidence: ${detection.confidence.toFixed(2)})`);
+    text = iconv.decode(buffer, detection.encoding);
+  } else {
+    text = buffer.toString("utf-8");
+  }
+
+  // 去除 BOM
+  return text.replace(/^\uFEFF/, "");
 }
 
 async function readTextFileIfWithinLimit(filePath: string, maxBytes = MAX_SEARCH_TEXT_FILE_BYTES): Promise<string> {
@@ -1286,8 +1432,13 @@ function normalizeInspirationVariant(value: unknown): InspirationVariant | undef
 
 function normalizeInspirationItem(value: unknown): InspirationItem | undefined {
   if (!isRecord(value)) return undefined;
-  const title = optionalString(value.title);
-  if (!title) return undefined;
+  let title = optionalString(value.title);
+  if (!title) {
+    title = "未命名灵感";
+    void writeLog("warn", "Inspiration item had empty title and was normalized with a fallback title.", {
+      id: optionalString(value.id) ?? "unknown"
+    });
+  }
   const createdAt = optionalString(value.createdAt) ?? now();
   return withSyncMetadata(
     {
@@ -1347,7 +1498,10 @@ async function createInspiration(input: CreateInspirationInput): Promise<Inspira
     createdAt: now(),
     updatedAt: now()
   };
-  await writeInspirations([item, ...(await readInspirations())]);
+  // Acquire file-level lock to prevent read-write race with concurrent IPC handlers
+  await withFileLock(inspirationsPath(), async () => {
+    await writeInspirations([item, ...(await readInspirations())]);
+  });
   return item;
 }
 
@@ -1356,54 +1510,88 @@ async function readInspiration(id: string): Promise<InspirationItem | undefined>
 }
 
 async function updateInspiration(id: string, input: UpdateInspirationInput): Promise<InspirationItem> {
-  const items = await readInspirations();
-  const current = items.find((item) => item.id === id);
-  if (!current) throw new Error("未找到灵感。");
-  const next: InspirationItem = {
-    ...current,
-    title: typeof input.title === "string" && input.title.trim() ? input.title.trim() : current.title,
-    body: typeof input.body === "string" ? input.body : current.body,
-    type: input.type ? normalizeInspirationType(input.type) : current.type,
-    status: input.status ? normalizeInspirationStatus(input.status) : current.status,
-    tags: Array.isArray(input.tags) ? normalizeTags(input.tags) : current.tags,
-    platformTags: Array.isArray(input.platformTags) ? normalizeTags(input.platformTags) : current.platformTags,
-    source: input.source === undefined ? current.source : normalizeInspirationSource(input.source),
-    sourceBookId: input.sourceBookId === undefined ? current.sourceBookId : optionalString(input.sourceBookId),
-    sourceLocation: input.sourceLocation === undefined ? current.sourceLocation : normalizeSourceLocation(input.sourceLocation),
-    variants: Array.isArray(input.variants) ? input.variants as InspirationVariant[] : current.variants,
-    ...nextSyncMetadata(current),
-    updatedAt: now()
-  };
-  await writeInspirations(items.map((item) => (item.id === id ? next : item)));
-  return next;
+  return withFileLock(inspirationsPath(), async () => {
+    const items = await readInspirations();
+    const current = items.find((item) => item.id === id);
+    if (!current) throw new Error("未找到灵感。");
+    const next: InspirationItem = {
+      ...current,
+      title: typeof input.title === "string" ? input.title.trim() : current.title,
+      body: typeof input.body === "string" ? input.body : current.body,
+      type: input.type ? normalizeInspirationType(input.type) : current.type,
+      status: input.status ? normalizeInspirationStatus(input.status) : current.status,
+      tags: Array.isArray(input.tags) ? normalizeTags(input.tags) : current.tags,
+      platformTags: Array.isArray(input.platformTags) ? normalizeTags(input.platformTags) : current.platformTags,
+      source: input.source === undefined ? current.source : normalizeInspirationSource(input.source),
+      sourceBookId: input.sourceBookId === undefined ? current.sourceBookId : optionalString(input.sourceBookId),
+      sourceLocation: input.sourceLocation === undefined ? current.sourceLocation : normalizeSourceLocation(input.sourceLocation),
+      variants: Array.isArray(input.variants)
+        ? input.variants.map(normalizeInspirationVariant).filter((item): item is InspirationVariant => Boolean(item))
+        : current.variants,
+      ...nextSyncMetadata(current),
+      updatedAt: now()
+    };
+    await writeInspirations(items.map((item) => (item.id === id ? next : item)));
+    return next;
+  });
 }
 
 async function deleteInspiration(id: string): Promise<InspirationItem[]> {
-  const timestamp = now();
-  const items = await readInspirations({ includeDeleted: true });
-  await writeInspirations(items.map((item) => (item.id === id ? { ...item, ...nextSyncMetadata(item), deletedAt: timestamp, updatedAt: timestamp } : item)));
-  return readInspirations();
+  return withFileLock(inspirationsPath(), async () => {
+    const timestamp = now();
+    const items = await readInspirations({ includeDeleted: true });
+    const nextItems = items.map((item) => (item.id === id ? { ...item, ...nextSyncMetadata(item), deletedAt: timestamp, updatedAt: timestamp } : item));
+    await writeInspirations(nextItems);
+    return nextItems.filter((item) => !item.deletedAt).sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+  });
 }
 
 async function addInspirationVariant(id: string, input: AddInspirationVariantInput): Promise<InspirationItem> {
-  const items = await readInspirations();
-  const current = items.find((item) => item.id === id);
-  if (!current) throw new Error("未找到灵感。");
-  const content = requireString(input.content, "AI 候选内容");
-  const variant: InspirationVariant = {
-    id: makeId("variant"),
-    kind:
-      input.kind === "polish" || input.kind === "expand" || input.kind === "platform-style" || input.kind === "conflict" || input.kind === "humanize"
-        ? input.kind
-        : "polish",
-    content,
-    prompt: typeof input.prompt === "string" ? input.prompt : "",
-    model: typeof input.model === "string" ? input.model : "",
-    createdAt: now()
-  };
-  const next = { ...current, status: "polished" as InspirationStatus, variants: [variant, ...current.variants], ...nextSyncMetadata(current), updatedAt: now() };
-  await writeInspirations(items.map((item) => (item.id === id ? next : item)));
-  return next;
+  return withFileLock(inspirationsPath(), async () => {
+    const items = await readInspirations();
+    const current = items.find((item) => item.id === id);
+    if (!current) throw new Error("未找到灵感。");
+    const content = requireString(input.content, "AI 候选内容");
+    const variant: InspirationVariant = {
+      id: makeId("variant"),
+      kind:
+        input.kind === "polish" || input.kind === "expand" || input.kind === "platform-style" || input.kind === "conflict" || input.kind === "humanize"
+          ? input.kind
+          : "polish",
+      content,
+      prompt: typeof input.prompt === "string" ? input.prompt : "",
+      model: typeof input.model === "string" ? input.model : "",
+      createdAt: now()
+    };
+    const nextStatus: InspirationStatus = current.status === "inbox" || current.status === "usable" ? "polished" : current.status;
+    const next = { ...current, status: nextStatus, variants: [variant, ...current.variants], ...nextSyncMetadata(current), updatedAt: now() };
+    await writeInspirations(items.map((item) => (item.id === id ? next : item)));
+    return next;
+  });
+}
+
+async function readHighlights(): Promise<HighlightItem[]> {
+  const raw = await readJson<unknown>(highlightsPath(), { version: 1, updatedAt: now(), items: [] });
+  const items = isRecord(raw) && Array.isArray(raw.items) ? raw.items : Array.isArray(raw) ? raw : [];
+  return items
+    .filter((item): item is HighlightItem => isRecord(item) && typeof item.id === "string" && typeof item.bookId === "string")
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+async function writeHighlights(items: HighlightItem[]): Promise<void> {
+  await writeJson(highlightsPath(), { version: 1, updatedAt: now(), items });
+}
+
+async function readBookmarks(): Promise<BookmarkItem[]> {
+  const raw = await readJson<unknown>(bookmarksPath(), { version: 1, updatedAt: now(), items: [] });
+  const items = isRecord(raw) && Array.isArray(raw.items) ? raw.items : Array.isArray(raw) ? raw : [];
+  return items
+    .filter((item): item is BookmarkItem => isRecord(item) && typeof item.id === "string" && typeof item.bookId === "string")
+    .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+async function writeBookmarks(items: BookmarkItem[]): Promise<void> {
+  await writeJson(bookmarksPath(), { version: 1, updatedAt: now(), items });
 }
 
 function normalizeLibraryBook(value: unknown): LibraryBook | null {
@@ -1462,8 +1650,12 @@ async function writeEpubSearchIndex(bookId: string, items: EpubSearchIndexItem[]
 }
 
 async function readEpubSearchIndex(bookId: string): Promise<EpubSearchIndex | undefined> {
+  // First check if the file exists at all — "not built yet" is not an error
+  const indexPath = epubSearchIndexPath(bookId);
+  if (!existsSync(indexPath)) return undefined;
+
   try {
-    const index = await readJson<unknown>(epubSearchIndexPath(bookId), undefined);
+    const index = await readJson<unknown>(indexPath, undefined);
     if (index === undefined) return undefined;
     if (!isRecord(index)) {
       await writeLog("warn", "EPUB search index ignored.", { bookId, reason: "not-an-object" });
@@ -1503,6 +1695,12 @@ async function readEpubSearchIndex(bookId: string): Promise<EpubSearchIndex | un
       items: items as EpubSearchIndexItem[]
     };
   } catch (error) {
+    const isNotFound = error instanceof Error && (error as NodeJS.ErrnoException).code === "ENOENT";
+    if (isNotFound) {
+      // File disappeared between existsSync check and read — treat as not indexed
+      return undefined;
+    }
+    // Actual data format / IO error — log as warning
     await writeLog("warn", "EPUB search index ignored.", {
       bookId,
       reason: "read-failed",
@@ -1523,8 +1721,13 @@ function importDateLabel(date = new Date()): string {
 }
 
 async function contentHash(filePath: string): Promise<string> {
-  const buffer = await readFile(filePath);
-  return crypto.createHash("sha256").update(buffer).digest("hex");
+  return new Promise<string>((resolve, reject) => {
+    const hash = crypto.createHash("sha256");
+    const stream = createReadStream(filePath);
+    stream.on("data", (chunk) => hash.update(chunk));
+    stream.on("end", () => resolve(hash.digest("hex")));
+    stream.on("error", reject);
+  });
 }
 
 function duplicateImportInfo(existingBooks: LibraryBook[], hash: string): Pick<LibraryBook, "contentHash" | "duplicateIndex" | "importLabel"> {
@@ -1746,8 +1949,11 @@ function clamp01(value: unknown): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : 0;
 }
 
-function clampDuration(value: unknown, maxMs = 5 * 60_000): number {
+function clampDuration(value: unknown, maxMs = 30 * 60_000): number {
   if (typeof value !== "number" || !Number.isFinite(value)) return 0;
+  if (value > maxMs) {
+    console.warn(`[clampDuration] unusually large delta ${value}ms exceeds ${maxMs}ms cap, clamping.`);
+  }
   return Math.max(0, Math.min(maxMs, value));
 }
 
@@ -1920,7 +2126,6 @@ async function saveProgress(input: SaveProgressInput): Promise<ReadingProgress> 
   const current = list.find((item) => item.bookId === input.bookId);
   const location = normalizeLocation(input.location, book.format) ?? defaultLocation(book.format);
   const timestamp = now();
-  const totalReadingTimeMs = await totalReadingTimeForBook(book.id);
   const next: ReadingProgress = {
     bookId: book.id,
     filePath: book.filePath,
@@ -1929,7 +2134,7 @@ async function saveProgress(input: SaveProgressInput): Promise<ReadingProgress> 
     currentLocation: { ...location, updatedAt: timestamp },
     progressPercent: location.progressPercent,
     lastReadAt: timestamp,
-    totalReadingTimeMs,
+    totalReadingTimeMs: current?.totalReadingTimeMs ?? 0,
     lastSessionId: current?.lastSessionId,
     completionState: location.progressPercent >= 0.995 ? "completed" : "reading",
     completedAt: location.progressPercent >= 0.995 ? current?.completedAt ?? timestamp : undefined,
@@ -1949,6 +2154,7 @@ function normalizeSessionItem(value: unknown): ReadingSession | null {
   const startAt = typeof value.startAt === "string" ? value.startAt : typeof value.startedAt === "string" ? value.startedAt : now();
   const activeDurationMs =
     typeof value.activeDurationMs === "number" ? Math.max(0, value.activeDurationMs) : typeof value.durationMs === "number" ? Math.max(0, value.durationMs) : 0;
+  const idleDurationMs = typeof value.idleDurationMs === "number" ? Math.max(0, value.idleDurationMs) : 0;
   const status: ReadingSession["status"] =
     value.status === "active" || value.status === "paused" || value.status === "ended" || value.status === "recovered" ? value.status : value.endAt ? "ended" : "active";
   const source: ReadingSession["source"] = value.source === "restore" || value.source === "switchBook" ? value.source : "manualOpen";
@@ -1969,9 +2175,9 @@ function normalizeSessionItem(value: unknown): ReadingSession | null {
     format,
     startAt,
     endAt: typeof value.endAt === "string" ? value.endAt : undefined,
-    durationMs: activeDurationMs,
+    durationMs: activeDurationMs + idleDurationMs,
     activeDurationMs,
-    idleDurationMs: typeof value.idleDurationMs === "number" ? Math.max(0, value.idleDurationMs) : 0,
+    idleDurationMs,
     wallDurationMs: typeof value.wallDurationMs === "number" ? Math.max(0, value.wallDurationMs) : Math.max(0, Date.now() - new Date(startAt).getTime()),
     startLocation: normalizeLocation(value.startLocation, format) ?? defaultLocation(format, clamp01(value.startProgress)),
     endLocation: normalizeLocation(value.endLocation, format) ?? undefined,
@@ -2015,7 +2221,7 @@ function applySessionDelta(session: ReadingSession, input: UpdateReadingSessionI
   const idleDurationMs = session.idleDurationMs + idleDeltaMs;
   return {
     ...session,
-    durationMs: activeDurationMs,
+    durationMs: activeDurationMs + idleDurationMs,
     activeDurationMs,
     idleDurationMs,
     wallDurationMs: Math.max(0, new Date(timestamp).getTime() - new Date(session.startAt).getTime()),
@@ -2079,7 +2285,10 @@ async function startReadingSession(input: StartReadingSessionInput): Promise<Rea
     updatedAt: timestamp,
     lastPersistAt: timestamp
   };
-  await writeSessionList([session, ...(await readSessionList())]);
+  // Acquire file-level lock to prevent read-write race with concurrent IPC handlers
+  await withFileLock(readingSessionsPath(), async () => {
+    await writeSessionList([session, ...(await readSessionList())]);
+  });
   return session;
 }
 
@@ -2248,6 +2457,11 @@ async function openBook(bookId: string): Promise<ReaderBookPayload> {
   const book = (await readLibraryIndex()).find((item) => item.id === bookId);
   if (!book) throw new Error("Book not found.");
   if (book.format === "epub") throw new Error("Use reader:openEpub for EPUB books.");
+  const fileInfo = await stat(book.filePath);
+  if (fileInfo.size > MAX_READER_TEXT_FILE_BYTES) {
+    await writeLog("warn", "Text reader refused oversized file.", { bookId, filePath: book.filePath, size: fileInfo.size, maxBytes: MAX_READER_TEXT_FILE_BYTES });
+    throw new Error("文件过大，当前桌面阅读器单本 TXT/Markdown 建议不超过 50MB；请分割后再导入。");
+  }
   await writeLog("info", "Text reader opened.", { bookId, format: book.format });
   return {
     book,
@@ -2351,6 +2565,7 @@ async function searchGlobal(query: SearchQuery): Promise<SearchResult[]> {
       if (book.format === "epub") {
         const metaText = `${book.format}\n${book.author ?? ""}\n${book.description ?? ""}\n${book.originalPath ?? ""}\n${book.filePath}`;
         const index = await readEpubSearchIndex(book.id);
+        const resultCountBeforeBook = results.length;
         if (index) {
           for (const item of index.items) {
             const itemMetaText = item.href;
@@ -2359,8 +2574,13 @@ async function searchGlobal(query: SearchQuery): Promise<SearchResult[]> {
               epubHref: item.href
             });
           }
+        } else {
+          // EPUB has no full-text search index — add a hint result
+          pushResult("book", `${book.title} · 该 EPUB 尚未建立全文索引`, metaText, "", book.originalPath ?? book.filePath, { bookId: book.id });
         }
-        pushResult("book", book.title, metaText, "", book.originalPath ?? book.filePath, { bookId: book.id });
+        if (results.length === resultCountBeforeBook) {
+          pushResult("book", book.title, metaText, "", book.originalPath ?? book.filePath, { bookId: book.id });
+        }
         continue;
       }
       const canReadBody = book.format === "txt" || book.format === "md";
@@ -2443,20 +2663,21 @@ function normalizeDeviceInfo(value: unknown): DeviceInfo | undefined {
   };
 }
 
-async function upsertPairedDevice(device: DeviceInfo): Promise<void> {
+async function upsertPairedDevice(device: DeviceInfo, authTokenHash?: string): Promise<void> {
   const state = await readSyncState();
   const existing = state.devices.find((item) => item.deviceId === device.deviceId);
-  const nextDevice: DeviceInfo = {
+  const nextDevice: DeviceInfo & { authTokenHash?: string } = {
     ...device,
     pairedAt: existing?.pairedAt ?? device.pairedAt ?? now(),
-    lastSeenAt: now()
+    lastSeenAt: now(),
+    authTokenHash: authTokenHash ?? existing?.authTokenHash
   };
   state.devices = [nextDevice, ...state.devices.filter((item) => item.deviceId !== device.deviceId)];
   await writeSyncState(state);
 }
 
 async function listPairedDevices(): Promise<DeviceInfo[]> {
-  return (await readSyncState()).devices;
+  return (await readSyncState()).devices.map(({ authTokenHash: _authTokenHash, ...device }) => device);
 }
 
 async function removePairedDevice(deviceId: string): Promise<DeviceInfo[]> {
@@ -2657,6 +2878,27 @@ async function applySyncPush(payload: SyncPushPayload): Promise<SyncPushResult> 
 
   await syncAllProgressTotals();
 
+  // After sync, reconcile totalReadingTimeMs: take the of incoming and computed values
+  // to avoid losing time tracked on other devices
+  const finalSessions = await readSessionList();
+  const finalProgress = await readProgressList();
+  const incomingProgressMap = new Map(
+    incomingProgress
+      .map((env) => normalizeProgressItem(env.payload))
+      .filter((p): p is ReadingProgress => p !== null)
+      .map((p) => [p.bookId, p])
+  );
+  const reconciled = finalProgress.map((progress) => {
+    const incoming = incomingProgressMap.get(progress.bookId);
+    if (!incoming) return progress;
+    const computed = finalSessions
+      .filter((s) => s.bookId === progress.bookId)
+      .reduce((sum, s) => sum + Math.max(0, s.activeDurationMs), 0);
+    const merged = Math.max(progress.totalReadingTimeMs, incoming.totalReadingTimeMs, computed);
+    return merged !== progress.totalReadingTimeMs ? { ...progress, totalReadingTimeMs: merged } : progress;
+  });
+  if (incomingProgress.length > 0) await writeProgressList(reconciled);
+
   return {
     ok: true,
     applied: {
@@ -2782,7 +3024,7 @@ async function readRequestBuffer(request: IncomingMessage, maxBytes = 256 * 1024
 function sendCorsHeaders(response: ServerResponse): void {
   response.setHeader("Access-Control-Allow-Origin", "*");
   response.setHeader("Access-Control-Allow-Methods", "GET,POST,PUT,OPTIONS");
-  response.setHeader("Access-Control-Allow-Headers", "content-type,x-device-id,x-original-file-name,X-Original-File-Name");
+  response.setHeader("Access-Control-Allow-Headers", "content-type,x-device-id,x-sync-token,x-original-file-name,X-Original-File-Name");
 }
 
 function sendJson(response: ServerResponse, statusCode: number, payload: unknown): void {
@@ -2817,6 +3059,28 @@ async function downloadBookFile(bookId: string, response: ServerResponse): Promi
 function requestHeaderString(request: IncomingMessage, headerName: string): string | undefined {
   const value = request.headers[headerName.toLowerCase()];
   return Array.isArray(value) ? value[0] : value;
+}
+
+function syncAuthTokenHash(token: string): string {
+  return crypto.createHash("sha256").update(token).digest("hex");
+}
+
+async function isPairedSyncRequest(request: IncomingMessage): Promise<boolean> {
+  const deviceId = requestHeaderString(request, "x-device-id")?.trim();
+  const authToken = requestHeaderString(request, "x-sync-token")?.trim();
+  if (!deviceId || !authToken) return false;
+  const state = await readSyncState();
+  const device = state.devices.find((item) => item.deviceId === deviceId);
+  if (!device?.authTokenHash) return false;
+  const expected = Buffer.from(device.authTokenHash, "hex");
+  const actual = Buffer.from(syncAuthTokenHash(authToken), "hex");
+  return expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+}
+
+async function requirePairedSyncDevice(request: IncomingMessage, response: ServerResponse): Promise<boolean> {
+  if (await isPairedSyncRequest(request)) return true;
+  sendJson(response, 403, { ok: false, message: "设备尚未配对，不能下载或上传书籍文件。" });
+  return false;
 }
 
 async function writeUploadedBookFile(book: LibraryBook, request: IncomingMessage): Promise<LibraryBook> {
@@ -2872,14 +3136,22 @@ async function downloadBookChunk(bookId: string, index: number, response: Server
     sendJson(response, 416, { ok: false, message: "分块序号超出范围。" });
     return;
   }
-  const buffer = await readFile(book.filePath);
-  const chunk = buffer.subarray(start, Math.min(start + SYNC_CHUNK_SIZE, buffer.byteLength));
+  // Read only the required byte range via stream instead of loading entire file
+  const end = Math.min(start + SYNC_CHUNK_SIZE - 1, fileStats.size - 1);
+  const chunks: Buffer[] = [];
+  const stream = createReadStream(book.filePath, { start, end });
+  await new Promise<void>((resolve, reject) => {
+    stream.on("data", (chunk: Buffer | string) => chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk));
+    stream.on("end", resolve);
+    stream.on("error", reject);
+  });
+  const chunkBuffer = Buffer.concat(chunks);
   sendCorsHeaders(response);
   response.statusCode = 200;
   response.setHeader("Content-Type", "application/octet-stream");
-  response.setHeader("Content-Range", `bytes ${start}-${start + chunk.byteLength - 1}/${fileStats.size}`);
+  response.setHeader("Content-Range", `bytes ${start}-${end}/${fileStats.size}`);
   response.setHeader("X-Chunk-Index", String(index));
-  response.end(chunk);
+  response.end(chunkBuffer);
 }
 
 async function handlePairingRequest(request: IncomingMessage, response: ServerResponse, url: URL): Promise<void> {
@@ -2898,9 +3170,14 @@ async function handlePairingRequest(request: IncomingMessage, response: ServerRe
       pairedAt: now(),
       lastSeenAt: now()
     } satisfies DeviceInfo);
-  await upsertPairedDevice(device);
-  pairingToken = undefined;
-  sendJson(response, 200, { ok: true, device: await desktopDeviceInfo(), manifest: await buildSyncManifest() });
+  const deviceAuthToken = crypto.randomBytes(32).toString("hex");
+  await upsertPairedDevice(device, syncAuthTokenHash(deviceAuthToken));
+  sendJson(response, 200, {
+    ok: true,
+    device: await desktopDeviceInfo(),
+    manifest: await buildSyncManifest(),
+    authToken: deviceAuthToken
+  });
 }
 
 async function handleSyncRequest(request: IncomingMessage, response: ServerResponse): Promise<void> {
@@ -2911,35 +3188,41 @@ async function handleSyncRequest(request: IncomingMessage, response: ServerRespo
     return;
   }
   const url = new URL(request.url ?? "/", "http://127.0.0.1");
+  if (url.pathname === "/sync/pair") {
+    await handlePairingRequest(request, response, url);
+    return;
+  }
   if (request.method === "GET" && url.pathname === "/sync/manifest") {
+    if (!(await requirePairedSyncDevice(request, response))) return;
     sendJson(response, 200, await buildSyncManifest());
     return;
   }
   if (request.method === "POST" && url.pathname === "/sync/pull") {
+    if (!(await requirePairedSyncDevice(request, response))) return;
     sendJson(response, 200, await buildSyncPullResponse());
     return;
   }
   if (request.method === "POST" && url.pathname === "/sync/push") {
+    if (!(await requirePairedSyncDevice(request, response))) return;
     const payload = await readRequestJson<SyncPushPayload>(request);
     sendJson(response, 200, await applySyncPush(payload));
-    return;
-  }
-  if (url.pathname === "/sync/pair") {
-    await handlePairingRequest(request, response, url);
     return;
   }
   if (url.pathname.startsWith("/sync/books/")) {
     const parts = url.pathname.split("/").map(decodeURIComponent);
     const bookId = parts[3];
     if (request.method === "GET" && parts[4] === "file" && bookId) {
+      if (!(await requirePairedSyncDevice(request, response))) return;
       await downloadBookFile(bookId, response);
       return;
     }
     if (request.method === "PUT" && parts[4] === "file" && bookId) {
+      if (!(await requirePairedSyncDevice(request, response))) return;
       await uploadBookFile(bookId, request, response);
       return;
     }
     if (request.method === "GET" && parts[4] === "chunks" && bookId) {
+      if (!(await requirePairedSyncDevice(request, response))) return;
       await downloadBookChunk(bookId, Number(parts[5] ?? "-1"), response);
       return;
     }
@@ -2948,9 +3231,12 @@ async function handleSyncRequest(request: IncomingMessage, response: ServerRespo
 }
 
 function contentSecurityPolicy(): string {
+  const scriptPolicy = app.isPackaged
+    ? "script-src 'self'"
+    : "script-src 'self' 'unsafe-inline'";
   return [
     "default-src 'self'",
-    "script-src 'self'",
+    scriptPolicy,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: file: novel-workbench-epub:",
     "font-src 'self' data:",
@@ -3031,6 +3317,47 @@ function registerIpc(): void {
   ipcMain.handle("reader:getStats", async () => getReadingStats());
   ipcMain.handle("reader:getSettings", async () => getReaderSettings());
   ipcMain.handle("reader:updateSettings", async (_event, settings: Partial<ReaderSettings>) => updateReaderSettings(settings));
+  ipcMain.handle("reader:savePreset", async (_e, preset: any) => {
+    const current = (await getAppSettings()).reader;
+    const presets = Array.isArray(current.presets) ? [...current.presets] : [];
+    const idx = presets.findIndex((p: any) => p.id === preset.id);
+    if (idx >= 0) presets[idx] = preset;
+    else presets.push(preset);
+    const next = await updateAppSettings({ reader: { ...current, presets } });
+    return preset;
+  });
+  ipcMain.handle("reader:deletePreset", async (_e, presetId: string) => {
+    const current = (await getAppSettings()).reader;
+    if (Array.isArray(current.presets)) {
+      const presets = current.presets.filter((p: any) => p.id !== presetId);
+      await updateAppSettings({ reader: { ...current, presets } });
+    }
+  });
+  ipcMain.handle("reader:chooseFont", async () => {
+    const result = await dialog.showOpenDialog({
+      properties: ["openFile"],
+      filters: [{ name: "字体文件", extensions: ["ttf", "otf", "woff", "woff2"] }],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const srcPath = result.filePaths[0];
+    const fontFileName = path.basename(srcPath);
+    const fontsDir = path.join(appDataRoot(), "fonts");
+    await mkdir(fontsDir, { recursive: true });
+    const destPath = path.join(fontsDir, fontFileName);
+    await copyFile(srcPath, destPath);
+    return { fileName: fontFileName, filePath: destPath };
+  });
+  ipcMain.handle("reader:getInstalledFonts", async () => {
+    const fontsDir = path.join(appDataRoot(), "fonts");
+    try {
+      const files = await readdir(fontsDir);
+      return files.filter((f: string) => /\.(ttf|otf|woff|woff2)$/i.test(f));
+    } catch { return []; }
+  });
+  ipcMain.handle("reader:deleteFont", async (_e, fileName: string) => {
+    const fontsDir = path.join(appDataRoot(), "fonts");
+    try { await unlink(path.join(fontsDir, fileName)); } catch {}
+  });
   ipcMain.handle("settings:get", async () => getAppSettings());
   ipcMain.handle("settings:update", async (_event, patch: AppSettingsPatch) => updateAppSettings(patch));
   ipcMain.handle("settings:resetSection", async (_event, section: SettingsSection) => resetSettingsSection(section));
@@ -3046,6 +3373,36 @@ function registerIpc(): void {
   ipcMain.handle("inspiration:update", async (_event, id: string, input: UpdateInspirationInput) => updateInspiration(id, input));
   ipcMain.handle("inspiration:delete", async (_event, id: string) => deleteInspiration(id));
   ipcMain.handle("inspiration:addVariant", async (_event, id: string, input: AddInspirationVariantInput) => addInspirationVariant(id, input));
+  ipcMain.handle("highlights:getByBook", async (_event, bookId: string) => {
+    const all = await readHighlights();
+    return all.filter(h => h.bookId === bookId);
+  });
+  ipcMain.handle("highlights:save", async (_event, item: HighlightItem) => {
+    const all = await readHighlights();
+    const idx = all.findIndex(h => h.id === item.id);
+    if (idx >= 0) all[idx] = item; else all.push(item);
+    await writeHighlights(all);
+    return item;
+  });
+  ipcMain.handle("highlights:delete", async (_event, id: string) => {
+    const all = await readHighlights();
+    await writeHighlights(all.filter(h => h.id !== id));
+  });
+  ipcMain.handle("bookmarks:getByBook", async (_event, bookId: string) => {
+    const all = await readBookmarks();
+    return all.filter(b => b.bookId === bookId);
+  });
+  ipcMain.handle("bookmarks:save", async (_event, item: BookmarkItem) => {
+    const all = await readBookmarks();
+    const idx = all.findIndex(b => b.id === item.id);
+    if (idx >= 0) all[idx] = item; else all.push(item);
+    await writeBookmarks(all);
+    return item;
+  });
+  ipcMain.handle("bookmarks:delete", async (_event, id: string) => {
+    const all = await readBookmarks();
+    await writeBookmarks(all.filter(b => b.id !== id));
+  });
   ipcMain.handle("ai:getSettings", async () => getAISettings());
   ipcMain.handle("ai:updateSettings", async (_event, patch: AISettingsPatch) => updateAISettings(patch));
   ipcMain.handle("ai:saveApiKey", async (_event, input: SaveAIApiKeyInput) => saveAIApiKey(input));

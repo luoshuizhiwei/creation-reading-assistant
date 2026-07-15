@@ -1,0 +1,484 @@
+:root {
+  color-scheme: light;
+  font-family: "LXGW WenKai Screen", "MiSans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  background: var(--md3-surface);
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100dvh;
+  font-size: var(--md3-typescale-body-large);
+  line-height: var(--md3-typescale-body-large-line-height);
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  overscroll-behavior-x: none;
+  background: var(--md3-surface);
+  color: var(--md3-on-surface);
+}
+
+html {
+  background-color: var(--md3-surface);
+}
+
+body.barcode-scanner-active {
+  background: transparent;
+}
+
+body.barcode-scanner-active #root {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* === MD3 QR Scan === */
+.qr-scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(26, 22, 20, 0.72);
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+}
+
+.qr-scan-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  width: min(100%, 400px);
+  padding: 20px;
+  border-radius: var(--md3-shape-extra-large);
+  background: var(--md3-surface-container-high);
+  box-shadow: var(--app-soft-shadow-lg);
+}
+
+.qr-scan-header,
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.qr-scan-header h2,
+.drawer-header h2 {
+  margin: 0;
+  font-size: var(--md3-typescale-headline-small);
+  font-weight: 600;
+  color: var(--md3-on-surface);
+}
+
+.qr-scan-header p,
+.qr-scan-error {
+  margin: 4px 0 0;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-body-small);
+}
+
+.qr-video-frame {
+  position: relative;
+  overflow: hidden;
+  aspect-ratio: 1;
+  border-radius: var(--md3-shape-large);
+  background: var(--md3-surface-container-lowest);
+  box-shadow: var(--app-soft-shadow);
+}
+
+.qr-video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.qr-corners {
+  position: absolute;
+  inset: 16%;
+  border: 3px solid var(--md3-primary);
+  border-radius: var(--md3-shape-medium);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+}
+
+.qr-scan-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* === MD3 Buttons === */
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 8px 24px;
+  border: none;
+  border-radius: var(--md3-shape-full);
+  background: var(--md3-primary);
+  color: var(--md3-on-primary);
+  font-size: var(--md3-typescale-label-large);
+  font-weight: 600;
+  letter-spacing: 0.1px;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background var(--motion-short) var(--motion-easing-standard),
+              box-shadow var(--motion-short) var(--motion-easing-standard),
+              transform var(--motion-short) var(--motion-easing-standard);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:hover {
+  background: var(--md3-primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.38;
+  box-shadow: none;
+}
+
+/* === MD3 Inputs === */
+input,
+textarea,
+select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1px solid var(--md3-outline);
+  border-radius: var(--md3-shape-extra-small);
+  background: transparent;
+  color: var(--md3-on-surface);
+  font-size: var(--md3-typescale-body-large);
+  transition: border-color var(--motion-short) var(--motion-easing-standard);
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--md3-primary);
+  outline: none;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--md3-on-surface-variant);
+}
+
+input,
+select {
+  min-height: 56px;
+}
+
+textarea {
+  min-height: 120px;
+  resize: vertical;
+  padding: 12px 16px;
+  line-height: 1.5;
+  font-size: var(--md3-typescale-body-large);
+}
+
+/* === MD3 Mobile Shell === */
+.mobile-shell {
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100vw;
+  overflow-x: hidden;
+  padding: max(12px, env(safe-area-inset-top)) 12px calc(80px + env(safe-area-inset-bottom));
+  background: var(--md3-surface);
+}
+
+.phone-page {
+  width: min(100%, 560px);
+  margin: 0 auto;
+  overflow-x: hidden;
+}
+
+.screen-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  animation: md3-page-enter var(--md3-motion-duration-medium-2) var(--md3-motion-easing-decelerate);
+  will-change: opacity, transform;
+}
+
+@keyframes md3-page-enter {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.98);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* === MD3 Mobile Header === */
+.mobile-header {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 0 4px;
+}
+
+.mobile-header h1 {
+  margin: 0;
+  font-size: var(--md3-typescale-headline-large);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+  color: var(--md3-on-surface);
+}
+
+.mini-label {
+  margin: 0;
+  color: var(--md3-primary);
+  font-size: var(--md3-typescale-label-medium);
+  font-weight: 500;
+  letter-spacing: 0.5px;
+}
+
+/* === MD3 Section Header === */
+.row-header,
+.section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 4px;
+}
+
+.section-heading h2,
+.inspiration-quick-card h2,
+.sync-status-card h2,
+.quick-note-card h2,
+.settings-card h2 {
+  margin: 0;
+  font-size: var(--md3-typescale-title-large);
+  font-weight: 500;
+  letter-spacing: 0;
+  color: var(--md3-on-surface);
+}
+
+/* === MD3 Grid Layouts === */
+.metric-grid,
+.profile-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+/* === MD3 Card Base (Unified) === */
+.metric-card,
+.section-block,
+.inspiration-quick-card,
+.sync-status-card,
+.quick-note-card,
+.inspiration-card,
+.profile-card,
+.profile-grid article,
+.settings-card,
+.menu-list {
+  min-width: 0;
+  padding: 16px;
+  background: var(--md3-surface-container-low);
+  border: none;
+  border-radius: var(--md3-shape-medium);
+  box-shadow: var(--app-soft-shadow-sm);
+}
+
+/* === MD3 Metric Card === */
+.metric-card {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  min-height: 72px;
+}
+
+.metric-card p,
+.metric-card strong {
+  margin: 0;
+}
+
+.metric-card p,
+.subtle,
+.empty-hint,
+.center-foot,
+.book-tile p,
+.book-tile small {
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-body-small);
+}
+
+.metric-card strong {
+  font-size: var(--md3-typescale-headline-small);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--md3-on-surface);
+}
+
+/* === MD3 Metric Icon === */
+.metric-icon {
+  grid-row: span 2;
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  border-radius: var(--md3-shape-medium);
+  background: var(--md3-primary-container);
+  color: var(--md3-on-primary-container);
+  font-size: 20px;
+}
+
+.section-block,
+.quick-note-card,
+.settings-card {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+/* === MD3 Ghost/Text Button === */
+.ghost-button {
+  background: transparent;
+  color: var(--md3-primary);
+  border: none;
+  box-shadow: none;
+  font-size: var(--md3-typescale-label-large);
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  padding: 8px 12px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--md3-shape-full);
+  cursor: pointer;
+  transition: background var(--md3-motion-duration-short-2) var(--md3-motion-easing-standard);
+}
+
+.ghost-button:active {
+  transform: scale(0.96);
+  opacity: 0.92;
+}
+
+/* === MD3 Round Action (Icon Button) === */
+.round-action {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  min-width: 44px;
+  min-height: 44px;
+  border-radius: var(--md3-shape-full);
+  background: transparent;
+  color: var(--md3-on-surface);
+  border: none;
+  box-shadow: none;
+  cursor: pointer;
+  transition: background var(--md3-motion-duration-short-2) var(--md3-motion-easing-standard);
+}
+
+.round-action:active {
+  transform: scale(0.92);
+  opacity: 0.92;
+}
+
+/* === MD3 Book Cover === */
+.book-cover {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  aspect-ratio: 0.72;
+  border-radius: var(--md3-shape-medium);
+  background: linear-gradient(145deg, rgba(34, 25, 21, 0.08), rgba(154, 98, 48, 0.28)), #d8b98e;
+  color: var(--md3-on-primary);
+  padding: 12px;
+  font-weight: 600;
+  font-size: var(--md3-typescale-title-small);
+  box-shadow: var(--app-soft-shadow);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+}
+
+.book-cover.compact {
+  width: 48px;
+  height: 64px;
+  aspect-ratio: auto;
+  padding: 8px;
+  font-size: var(--md3-typescale-label-small);
+  border-radius: var(--md3-shape-small);
+}
+
+/* === MD3 Quick Action Cards === */
+.inspiration-quick-card,
+.sync-status-card,
+.profile-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px;
+}
+
+.inspiration-quick-card p,
+.sync-status-card p,
+.profile-card p,
+.inspiration-card p {
+  margin: 4px 0 0;
+  color: var(--md3-on-surface-variant);
+  font-size: var(--md3-typescale-body-medium);
+  line-height: 1.5;
+}
+
+/* === MD3 FAB (Floating Action Button) === */
+.inspiration-fab {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  background: var(--md3-primary-container);
+  color: var(--md3-on-primary-container);
+  border: none;
+  border-radius: var(--md3-shape-large);
+  box-shadow: var(--app-soft-shadow);
+  font-size: 24px;
+  cursor: pointer;
+  transition: box-shadow var(--md3-motion-duration-short-2) var(--md3-motion-easing-standard),
+              transform var(--md3-motion-duration-short-2) var(--md3-motion-easing-standard);
+}
+
+.inspiration-fab:active {
+  box-shadow: var(--app-soft-shadow-lg);
+  transform: scale(0.95);
+}

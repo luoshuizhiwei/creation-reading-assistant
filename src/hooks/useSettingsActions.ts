@@ -12,27 +12,34 @@ function messageFromError(error: unknown): string {
 export function useSettingsActions() {
   const setSettings = useSettingsStore((state) => state.setSettings);
   const setLoading = useSettingsStore((state) => state.setLoading);
+  const setSettingsError = useSettingsStore((state) => state.setError);
   const setReaderSettings = useLibraryStore((state) => state.setReaderSettings);
   const setError = useAppStore((state) => state.setError);
 
   const applySettings = useCallback(
     (settings: Awaited<ReturnType<typeof getSettings>>) => {
       setSettings(settings);
+      setSettingsError(undefined);
       setReaderSettings(settings.reader);
     },
-    [setReaderSettings, setSettings]
+    [setReaderSettings, setSettings, setSettingsError]
   );
 
   const loadSettings = useCallback(async () => {
     setLoading(true);
     try {
-      applySettings(await getSettings());
+      const settings = await getSettings();
+      applySettings(settings);
+      return settings;
     } catch (error) {
-      setError(messageFromError(error));
+      const message = messageFromError(error);
+      setSettingsError(message);
+      setError(message);
+      return undefined;
     } finally {
       setLoading(false);
     }
-  }, [applySettings, setError, setLoading]);
+  }, [applySettings, setError, setLoading, setSettingsError]);
 
   const patchSettings = useCallback(
     async (patch: AppSettingsPatch) => {
@@ -42,13 +49,15 @@ export function useSettingsActions() {
         applySettings(settings);
         return settings;
       } catch (error) {
-        setError(messageFromError(error));
+        const message = messageFromError(error);
+        setSettingsError(message);
+        setError(message);
         return undefined;
       } finally {
         setLoading(false);
       }
     },
-    [applySettings, setError, setLoading]
+    [applySettings, setError, setLoading, setSettingsError]
   );
 
   const resetSection = useCallback(
@@ -57,15 +66,19 @@ export function useSettingsActions() {
       try {
         const settings = await resetSettingsSection(section);
         applySettings(settings);
+        return settings;
       } catch (error) {
-        setError(messageFromError(error));
+        const message = messageFromError(error);
+        setSettingsError(message);
+        setError(message);
+        return undefined;
       } finally {
         setLoading(false);
       }
     },
-    [applySettings, setError, setLoading]
+    [applySettings, setError, setLoading, setSettingsError]
   );
 
-  return { loadSettings, patchSettings, resetSection };
+  return { applySettings, loadSettings, patchSettings, resetSection };
 }
 

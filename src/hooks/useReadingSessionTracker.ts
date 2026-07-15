@@ -26,6 +26,7 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
   const pendingIdleMsRef = useRef(0);
   const persistInFlightRef = useRef(false);
   const endingRef = useRef(false);
+  const endingPromiseRef = useRef<Promise<void> | undefined>();
 
   const tracking = settings?.tracking;
 
@@ -75,27 +76,36 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
 
   const endTracking = useCallback(
     async (endReason: EndReason = "leave-reader") => {
+      if (endingPromiseRef.current) {
+        await endingPromiseRef.current;
+        return;
+      }
       const session = sessionRef.current;
       if (!session || endingRef.current) return;
       endingRef.current = true;
-      try {
-        const ended = await endSession({
-          sessionId: session.id,
-          endReason,
-          activeDeltaMs: pendingActiveMsRef.current,
-          idleDeltaMs: pendingIdleMsRef.current,
-          location: getCurrentLocation()
-        });
-        pendingActiveMsRef.current = 0;
-        pendingIdleMsRef.current = 0;
-        sessionRef.current = undefined;
-        setActiveSession(ended);
-        setActivity({ isTracking: false, activeSessionId: undefined, isUserActive: false });
-      } catch (error) {
-        setError(error instanceof Error ? error.message : String(error));
-      } finally {
-        endingRef.current = false;
-      }
+      const task = (async () => {
+        try {
+          const ended = await endSession({
+            sessionId: session.id,
+            endReason,
+            activeDeltaMs: pendingActiveMsRef.current,
+            idleDeltaMs: pendingIdleMsRef.current,
+            location: getCurrentLocation()
+          });
+          pendingActiveMsRef.current = 0;
+          pendingIdleMsRef.current = 0;
+          sessionRef.current = undefined;
+          setActiveSession(ended);
+          setActivity({ isTracking: false, activeSessionId: undefined, isUserActive: false });
+        } catch (error) {
+          setError(error instanceof Error ? error.message : String(error));
+        } finally {
+          endingRef.current = false;
+          endingPromiseRef.current = undefined;
+        }
+      })();
+      endingPromiseRef.current = task;
+      await task;
     },
     [getCurrentLocation, setActiveSession, setActivity, setError]
   );
@@ -104,7 +114,11 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
     async (source: "manualOpen" | "restore" | "switchBook" = "manualOpen") => {
       const book = useLibraryStore.getState().activeBook;
       const currentSettings = useLibraryStore.getState().readerSettings;
-      if (!book || !currentSettings?.tracking.trackReadingSessions || sessionRef.current) return;
+      if (!book || !currentSettings?.tracking.trackReadingSessions) return;
+      if (sessionRef.current || endingPromiseRef.current) {
+        await endTracking("switch-book");
+      }
+      if (sessionRef.current) return;
       const location = getCurrentLocation();
       if (!location) return;
       try {
@@ -132,7 +146,7 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
         setError(error instanceof Error ? error.message : String(error));
       }
     },
-    [getCurrentLocation, setActiveSession, setActivity, setError]
+    [endTracking, getCurrentLocation, setActiveSession, setActivity, setError]
   );
 
   const recordInteraction = useCallback(() => {
@@ -218,6 +232,27 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
       void persistSession("paused", true, "window-blur");
     };
     const handleBeforeUnload = () => {
+      // Snapshot critical session data synchronously so it survives window close.
+      // The async endTracking may not complete before the renderer is destroyed;
+      // recoverActiveSession() will reconcile any stale session on next launch.
+      const session = sessionRef.current;
+      if (session) {
+        try {
+          localStorage.setItem(
+            "pending-session-end",
+            JSON.stringify({
+              sessionId: session.id,
+              endReason: "window-close",
+              activeDeltaMs: pendingActiveMsRef.current,
+              idleDeltaMs: pendingIdleMsRef.current,
+              location: getCurrentLocation(),
+              savedAt: Date.now()
+            })
+          );
+        } catch {
+          // localStorage may be unavailable during unload; ignore.
+        }
+      }
       void endTracking("window-close");
     };
     window.addEventListener("blur", pauseForBlur);
@@ -230,9 +265,17 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
     };
   }, [endTracking, persistSession]);
 
+  const endTrackingRef = useRef(endTracking);
+  endTrackingRef.current = endTracking;
+  const endSessionOnSwitchRef = useRef(settings?.tracking.endSessionOnBookSwitch);
+  endSessionOnSwitchRef.current = settings?.tracking.endSessionOnBookSwitch;
+
   useEffect(() => {
     return () => {
-      void endTracking(settings?.tracking.endSessionOnBookSwitch ? "switch-book" : "leave-reader");
+      // Fire-and-forget: never block navigation/unmount on session I/O.
+      void endTrackingRef.current(
+        endSessionOnSwitchRef.current ? "switch-book" : "leave-reader"
+      );
     };
   }, [activeBook?.id]);
 
@@ -242,4 +285,3 @@ export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>,
 
   return { recordInteraction, endTracking };
 }
-

@@ -134,3 +134,78 @@ export async function runMobileAIAction(input: AIRunInput): Promise<AIRunResult>
     model: settings.model
   };
 }
+
+// ===== 阅读辅助 AI 功能 =====
+
+const AI_READING_MAX_CHARS = 4000;
+
+/** 通用阅读辅助 AI 调用 */
+async function runReadingAIAssist(systemPrompt: string, userPrompt: string): Promise<string> {
+  const settings = loadMobileAISettings();
+  const apiKey = await loadMobileAIApiKey();
+  if (!settings.baseUrl.trim()) throw new Error("请先在「我的 / AI 助手」填写 Base URL。");
+  if (!settings.model.trim()) throw new Error("请先在「我的 / AI 助手」填写模型名。");
+  if (!apiKey) throw new Error("请先在「我的 / AI 助手」保存手机端 API Key。");
+  const endpoint = `${settings.baseUrl.replace(/\/+$/, "")}/chat/completions`;
+  const response = await fetch(endpoint, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`
+    },
+    body: JSON.stringify({
+      model: settings.model,
+      temperature: settings.temperature,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ]
+    })
+  });
+  if (!response.ok) {
+    const detail = await response.text().catch(() => "");
+    throw new Error(`AI 请求失败：${response.status} ${response.statusText}${detail ? "。请检查配置或额度。" : ""}`);
+  }
+  const payload = (await response.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  const content = payload.choices?.[0]?.message?.content?.trim();
+  if (!content) throw new Error("AI 返回为空，请稍后重试。");
+  return content;
+}
+
+/** 章节摘要 */
+export async function summarizeChapter(title: string, text: string): Promise<string> {
+  const truncated = text.slice(0, AI_READING_MAX_CHARS);
+  return runReadingAIAssist(
+    "你是阅读助手，擅长用简洁的中文概括章节内容。输出 3-5 个要点，每个要点一句话，不要有 AI 腔。",
+    `请概括以下章节的核心内容。\n\n章节标题：${title}\n\n章节内容：\n${truncated}`
+  );
+}
+
+/** 选中内容问答 */
+export async function askAboutContent(question: string, context: string, bookTitle?: string): Promise<string> {
+  const truncated = context.slice(0, AI_READING_MAX_CHARS);
+  const titleLine = bookTitle ? `来自《${bookTitle}》` : "";
+  return runReadingAIAssist(
+    "你是阅读助手，根据用户提供的阅读内容回答问题。回答要准确、简洁，基于原文不要编造。如果内容中没有答案，请说明。",
+    `阅读内容${titleLine}：\n${truncated}\n\n用户问题：${question}`
+  );
+}
+
+/** 全书/全章要点提取 */
+export async function extractKeyPoints(title: string, text: string): Promise<string> {
+  const truncated = text.slice(0, AI_READING_MAX_CHARS);
+  return runReadingAIAssist(
+    "你是阅读助手，擅长从文本中提取关键信息和可记忆要点。输出 5-8 条要点，每条以「· 」开头，简洁有信息量。",
+    `请从以下内容中提取关键要点。\n\n标题：${title}\n\n内容：\n${truncated}`
+  );
+}
+
+/** 对选中文本进行“AI 解读”：文意概括、生僻词/典故解释、写作手法分析 */
+export async function explainSelectedText(selectedText: string, contextText?: string, bookTitle?: string): Promise<string> {
+  const titleLine = bookTitle ? `《${bookTitle}》` : "当前书籍";
+  const context = (contextText ?? "").slice(0, AI_READING_MAX_CHARS);
+  return runReadingAIAssist(
+    "你是中文网文与写作阅读助手。请用自然的中文对所选文本进行三层解读，帮助写作爱好者吸收素材：\n1. 文意概括：用 1-2 句话讲清楚这段文字在说什么；\n2. 生僻词/典故解释：如有难词、典故、特定设定或文化梗，请简明解释；\n3. 写作手法分析：从节奏、冲突、人物塑造、视角、细节铺陈等角度指出可借鉴之处。\n输出分条，不要有 AI 腔。",
+    `书籍：${titleLine}\n\n上下文（供参考）：\n${context}\n\n需要解读的文本：\n${selectedText.slice(0, AI_READING_MAX_CHARS)}`
+  );
+}
