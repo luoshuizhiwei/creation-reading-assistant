@@ -21,9 +21,13 @@ export const useInspirationStore = create<InspirationState>((set) => ({
     })),
   setSelectedId: (selectedId) => set({ selectedId }),
   upsertItem: (item) =>
-    set((state) => ({
-      items: [item, ...state.items.filter((current) => current.id !== item.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
-      selectedId: item.id
-    })),
+    set((state) => {
+      const exists = state.items.some((current) => current.id === item.id);
+      const items = [item, ...state.items.filter((current) => current.id !== item.id)].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return {
+        items,
+        selectedId: exists ? state.selectedId : state.selectedId ?? item.id
+      };
+    }),
   setLoading: (loading) => set({ loading })
 }));

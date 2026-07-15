@@ -1,7 +1,8 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
+import { readWithCssImports } from "./lib/read-with-css-imports.mjs";
 
 function read(path) {
-  return readFileSync(path, "utf-8");
+  return readWithCssImports(path);
 }
 
 function fail(message) {
@@ -20,12 +21,15 @@ function assertIncludes(file, needle, message) {
 
 for (const file of ["mobile/package.json", "mobile/src/App.tsx", "mobile/src/styles.css"]) assertFile(file);
 
+const appPath = "mobile/src/App.tsx";
+const qrScanOverlayPath = "mobile/src/components/QrScanOverlay.tsx";
+
 assertIncludes("mobile/package.json", "jsqr", "Mobile QR scanning must decode WebView video frames instead of relying on an invisible native preview.");
-assertIncludes("mobile/src/App.tsx", "QrScanOverlay", "Mobile app must render an in-app QR scan overlay.");
-assertIncludes("mobile/src/App.tsx", "navigator.mediaDevices.getUserMedia", "QR scan overlay must request a visible WebView camera stream.");
-assertIncludes("mobile/src/App.tsx", "qr-video", "QR scan overlay must include a visible video preview.");
-assertIncludes("mobile/src/App.tsx", "粘贴配对 URL", "QR scan overlay must keep paste pairing as a fallback.");
-assertIncludes("mobile/src/App.tsx", "扫码超时", "QR scan overlay must show a Chinese timeout message.");
+assertIncludes(appPath, "QrScanOverlay", "Mobile app must render an in-app QR scan overlay.");
+assertIncludes(qrScanOverlayPath, "navigator.mediaDevices.getUserMedia", "QR scan overlay must request a visible WebView camera stream.");
+assertIncludes(qrScanOverlayPath, "qr-video", "QR scan overlay must include a visible video preview.");
+assertIncludes(qrScanOverlayPath, "粘贴配对 URL", "QR scan overlay must keep paste pairing as a fallback.");
+assertIncludes(qrScanOverlayPath, "扫码超时", "QR scan overlay must show a Chinese timeout message.");
 assertIncludes("mobile/src/styles.css", ".qr-scan-overlay", "QR scan overlay must have dedicated full-screen mobile styling.");
 assertIncludes("mobile/src/styles.css", ".qr-video", "QR scan video preview must be styled as a visible surface.");
 

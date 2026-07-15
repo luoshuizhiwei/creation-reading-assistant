@@ -1,7 +1,7 @@
 import type { ID, ISODateString } from "./common";
 
-export type InspirationType = "plot" | "character" | "world" | "scene" | "line" | "trope" | "note";
-export type InspirationStatus = "inbox" | "usable" | "polished" | "used" | "archived";
+export type InspirationType = "plot" | "character" | "world" | "scene" | "line" | "trope" | "conflict" | "note";
+export type InspirationStatus = "inbox" | "reviewing" | "usable" | "polished" | "used" | "archived";
 export type InspirationVariantKind = "polish" | "expand" | "platform-style" | "conflict" | "humanize";
 
 export interface InspirationSourceLocation {
@@ -47,6 +47,8 @@ export interface InspirationItem {
   status: InspirationStatus;
   tags: string[];
   platformTags: string[];
+  /** 灵感所属分类（与书籍分类共用同一套分类体系） */
+  categoryIds?: string[];
   source?: InspirationSourceSnapshot;
   sourceBookId?: ID;
   sourceLocation?: InspirationSourceLocation;
@@ -65,13 +67,14 @@ export interface CreateInspirationInput {
   status?: InspirationStatus;
   tags?: string[];
   platformTags?: string[];
+  categoryIds?: string[];
   source?: Partial<InspirationSourceSnapshot>;
   sourceBookId?: ID;
   sourceLocation?: InspirationSourceLocation;
 }
 
 export type UpdateInspirationInput = Partial<
-  Pick<InspirationItem, "title" | "body" | "type" | "status" | "tags" | "platformTags" | "source" | "sourceBookId" | "sourceLocation" | "variants">
+  Pick<InspirationItem, "title" | "body" | "type" | "status" | "tags" | "platformTags" | "categoryIds" | "source" | "sourceBookId" | "sourceLocation" | "variants">
 >;
 
 export interface AddInspirationVariantInput {

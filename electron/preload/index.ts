@@ -3,9 +3,12 @@ import type { DesktopApi } from "../../src/types/api";
 import type {
   EndReadingSessionInput,
   GetReadingSessionsInput,
+  BookmarkItem,
+  HighlightItem,
   LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
+  ReaderPreset,
   ReaderSettings,
   ReadingLocation,
   ReadingProgress,
@@ -64,7 +67,12 @@ const api: DesktopApi = {
     getSessions: (input?: GetReadingSessionsInput) => invoke<ReadingSession[]>("reader:getSessions", input),
     getStats: () => invoke<ReadingStatsSummary>("reader:getStats"),
     getSettings: () => invoke<ReaderSettings>("reader:getSettings"),
-    updateSettings: (settings: Partial<ReaderSettings>) => invoke<ReaderSettings>("reader:updateSettings", settings)
+    updateSettings: (settings: Partial<ReaderSettings>) => invoke<ReaderSettings>("reader:updateSettings", settings),
+    savePreset: (preset: ReaderPreset) => invoke<ReaderPreset>("reader:savePreset", preset),
+    deletePreset: (presetId: string) => invoke<void>("reader:deletePreset", presetId),
+    chooseFont: () => invoke<{ fileName: string; filePath: string } | null>("reader:chooseFont"),
+    getInstalledFonts: () => invoke<string[]>("reader:getInstalledFonts"),
+    deleteFont: (fileName: string) => invoke<void>("reader:deleteFont", fileName)
   },
   settings: {
     get: () => invoke<AppSettings>("settings:get"),
@@ -112,6 +120,14 @@ const api: DesktopApi = {
   },
   diagnostics: {
     exportDebugInfo: () => invoke<DebugExportResult | null>("diagnostics:exportDebugInfo")
+  },
+  annotations: {
+    getHighlightsByBook: (bookId: string) => invoke<HighlightItem[]>("highlights:getByBook", bookId),
+    saveHighlight: (item: HighlightItem) => invoke<HighlightItem>("highlights:save", item),
+    deleteHighlight: (id: string) => invoke<void>("highlights:delete", id),
+    getBookmarksByBook: (bookId: string) => invoke<BookmarkItem[]>("bookmarks:getByBook", bookId),
+    saveBookmark: (item: BookmarkItem) => invoke<BookmarkItem>("bookmarks:save", item),
+    deleteBookmark: (id: string) => invoke<void>("bookmarks:delete", id)
   }
 };
 

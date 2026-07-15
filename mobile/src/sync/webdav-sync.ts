@@ -1,4 +1,5 @@
 import type { MobileSnapshot, SyncAccount } from "../types/mobile";
+import { sanitizeMobileBookForSync } from "../services/mobile-storage";
 
 export const WEBDAV_REMOTE_ROOT = ".creation-reading-assistant/";
 export const WEBDAV_MANIFEST_PATH = ".creation-reading-assistant/manifest.json";
@@ -27,15 +28,16 @@ function buildUrl(endpoint: string, path: string): string {
 function authHeader(credentials: WebDavCredentials): HeadersInit {
   if (!credentials.username || !credentials.password) return {};
   return {
-    authorization: `Basic ${btoa(`${credentials.username}:${credentials.password}`)}`
+    authorization: `Basic ${btoa(unescape(encodeURIComponent(`${credentials.username}:${credentials.password}`)))}`
   };
 }
 
-async function ensureWebDavDir(credentials: WebDavCredentials, path: string): Promise<void> {
-  await fetch(buildUrl(credentials.endpoint, path), {
+async function ensureWebDavDir(credentials: WebDavCredentials, path: string): Promise<boolean> {
+  const response = await fetch(buildUrl(credentials.endpoint, path), {
     method: "MKCOL",
     headers: authHeader(credentials)
   }).catch(() => undefined);
+  return response?.ok ?? false;
 }
 
 export async function testWebDavConnection(credentials: WebDavCredentials): Promise<{ ok: boolean; message: string }> {
@@ -48,11 +50,13 @@ export async function testWebDavConnection(credentials: WebDavCredentials): Prom
     }
   }).catch(() => undefined);
   if (response?.ok || response?.status === 207) return { ok: true, message: "WebDAV 连接正常。" };
-  await ensureWebDavDir(credentials, WEBDAV_REMOTE_ROOT);
-  return { ok: true, message: "已创建 WebDAV 同步目录。" };
+  const created = await ensureWebDavDir(credentials, WEBDAV_REMOTE_ROOT);
+  if (created) return { ok: true, message: "已创建 WebDAV 同步目录。" };
+  return { ok: false, message: "WebDAV 连接失败，请检查地址和凭据。" };
 }
 
 export function createWebDavManifest(snapshot: MobileSnapshot, account: SyncAccount): WebDavManifest {
+  const safeBooks = snapshot.books.map(sanitizeMobileBookForSync);
   return {
     app: "creation-reading-assistant",
     version: 1,
@@ -68,7 +72,7 @@ export function createWebDavManifest(snapshot: MobileSnapshot, account: SyncAcco
       categories: `${WEBDAV_RECORDS_DIR}categories.json`,
       shelves: `${WEBDAV_RECORDS_DIR}shelves.json`
     },
-    books: snapshot.books.map((book) => ({
+    books: safeBooks.map((book) => ({
       bookId: book.id,
       contentHash: book.contentHash,
       fileName: book.originalFileName ?? `${book.id}.${book.format}`,
@@ -97,8 +101,9 @@ export async function uploadWebDavSnapshot(credentials: WebDavCredentials, accou
   await ensureWebDavDir(credentials, WEBDAV_BOOKS_DIR);
 
   const manifest = createWebDavManifest(snapshot, account);
+  const safeBooks = snapshot.books.map(sanitizeMobileBookForSync);
   await putJson(credentials, ".creation-reading-assistant/records/inspirations.json", snapshot.inspirations);
-  await putJson(credentials, ".creation-reading-assistant/records/books.json", snapshot.books);
+  await putJson(credentials, ".creation-reading-assistant/records/books.json", safeBooks);
   await putJson(credentials, ".creation-reading-assistant/records/reading-progress.json", snapshot.progress);
   await putJson(credentials, ".creation-reading-assistant/records/reading-sessions.json", snapshot.sessions);
   await putJson(credentials, ".creation-reading-assistant/records/notes.json", snapshot.notes);

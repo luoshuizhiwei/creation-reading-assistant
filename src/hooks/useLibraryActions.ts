@@ -71,14 +71,18 @@ export function useLibraryActions() {
   }, [setBooks, setError, setLoading, showToast]);
 
   const removeBookById = useCallback(
-    async (bookId: string) => {
-      const confirmed = await confirmAction({
-        title: "移除这本书？",
-        body: "只会从书库中移除记录和受管副本，不会删除你导入前的原始文件。",
-        confirmLabel: "移除",
-        tone: "danger"
-      });
-      if (!confirmed) return;
+    async (bookId: string, options?: { skipConfirm?: boolean }) => {
+      if (!options?.skipConfirm) {
+        const book = useLibraryStore.getState().books.find((item) => item.id === bookId);
+        const confirmed = await confirmAction({
+          title: `从书库移除「${book?.title ?? "这本书"}」？`,
+          body: "书籍文件不会被删除，仅移除该书的记录及阅读进度。",
+          cancelLabel: "取消",
+          confirmLabel: "移除",
+          tone: "danger"
+        });
+        if (!confirmed) return;
+      }
       setLoading(true);
       try {
         const books = await removeBook(bookId);

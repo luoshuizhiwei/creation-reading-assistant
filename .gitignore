@@ -6,6 +6,15 @@ mobile-release/
 visual-qa-sample/
 tmp-reader-fixtures/
 .claude/
+.agents/
+.qoder/
+skills-lock.json
+creation-reading-assistant-mobile-ui/
+mobile-screenshots/
+mobile/android-screenshots/
+mobile/screenshots/
+mobile/creation-reading-assistant-v*.apk
+tmp-device-*
 *.zip
 *.7z
 *.exe.blockmap

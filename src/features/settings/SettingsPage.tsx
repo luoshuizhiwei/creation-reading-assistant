@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { Download, FolderOpen, QrCode, RefreshCw, RotateCcw, Smartphone, Wifi, WifiOff } from "lucide-react";
 import QRCode from "qrcode";
@@ -20,7 +20,8 @@ import { checkForAppUpdates, openAppUpdateDownload } from "@/services/updates-se
 import { useSettingsStore } from "@/stores/settings-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
-import type { ReaderTrackingSettings } from "@/types/library";
+import type { ReaderPreset, ReaderTrackingSettings } from "@/types/library";
+import { getDesktopApi } from "@/services/ipc-client";
 import type { AppSettingsPatch, SettingsSection, StorageLocations } from "@/types/settings";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "@/types/sync";
 import type { AppUpdateInfo } from "@/types/updates";
@@ -52,8 +53,13 @@ function Section({
 
 export function SettingsPage() {
   const settings = useSettingsStore((state) => state.settings);
+  const settingsLoading = useSettingsStore((state) => state.loading);
+  const settingsError = useSettingsStore((state) => state.error);
   const [maintenanceMessage, setMaintenanceMessage] = useState("");
   const [storageMessage, setStorageMessage] = useState("");
+  const [readerMessage, setReaderMessage] = useState("");
+  const [readerPresetName, setReaderPresetName] = useState("");
+  const [installedFonts, setInstalledFonts] = useState<string[]>([]);
   const [storageLocations, setStorageLocations] = useState<StorageLocations>();
   const [apiKey, setApiKey] = useState("");
   const [aiMessage, setAiMessage] = useState("");
@@ -68,26 +74,37 @@ export function SettingsPage() {
   const setError = useAppStore((state) => state.setError);
   const confirmAction = useUIStore((state) => state.confirmAction);
   const showToast = useUIStore((state) => state.showToast);
-  const { loadSettings, patchSettings, resetSection } = useSettingsActions();
+  const { applySettings, loadSettings, patchSettings, resetSection } = useSettingsActions();
 
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
 
   useEffect(() => {
+    void getDesktopApi().reader.getInstalledFonts().then(setInstalledFonts).catch(() => {});
+  }, []);
+
+  useEffect(() => {
     void getStorageLocations().then(setStorageLocations).catch((error) => setError(error instanceof Error ? error.message : String(error)));
   }, [settings?.storage.dataDirectory, settings?.storage.libraryDirectory, setError]);
 
-  const refreshSync = async () => {
+  const refreshSync = useCallback(async () => {
     const [status, devices] = await Promise.all([getSyncStatus(), listSyncDevices()]);
     setSyncStatus(status);
     setSyncDevices(devices);
     setPairing(status.pairingToken);
-  };
+  }, []);
 
   useEffect(() => {
     void refreshSync().catch((error) => setError(error instanceof Error ? error.message : String(error)));
-  }, [setError]);
+  }, [refreshSync, setError]);
+
+  const patchNumericSetting = (rawValue: string, min: number, max: number, buildPatch: (value: number) => AppSettingsPatch) => {
+    if (rawValue.trim() === "") return;
+    const value = Number(rawValue);
+    if (!Number.isFinite(value)) return;
+    void patchSettings(buildPatch(Math.min(max, Math.max(min, value))));
+  };
 
   useEffect(() => {
     if (!pairing?.qrPayload) {
@@ -106,7 +123,19 @@ export function SettingsPage() {
   if (!settings) {
     return (
       <div className="desktop-panel-card desktop-empty-wrap h-full">
-        <div className="grid h-full place-items-center text-sm text-paper-muted">正在读取设置...</div>
+        <div className="grid h-full place-items-center text-sm text-paper-muted">
+          {settingsError ? (
+            <div className="max-w-md rounded-2xl border border-red-200 bg-red-50/80 p-5 text-center text-red-700">
+              <div className="text-base font-semibold">设置读取失败</div>
+              <p className="mt-2 text-sm leading-6">{settingsError}</p>
+              <Button className="mt-4" disabled={settingsLoading} onClick={() => void loadSettings()}>
+                {settingsLoading ? "正在重试..." : "重试读取设置"}
+              </Button>
+            </div>
+          ) : (
+            <div>{settingsLoading ? "正在读取设置..." : "设置尚未加载。"}</div>
+          )}
+        </div>
       </div>
     );
   }
@@ -138,8 +167,8 @@ export function SettingsPage() {
   };
 
   const refreshAISettings = async () => {
-    const next = await updateAISettings({});
-    await patchSettings({ ai: next });
+    await updateAISettings({});
+    await loadSettings();
   };
 
   const saveKey = async () => {
@@ -185,8 +214,8 @@ export function SettingsPage() {
   const resetReaderDefaults = async () => {
     try {
       const next = await resetReaderSettings();
-      await patchSettings({ reader: next.reader });
-      setStorageMessage("阅读设置已恢复默认。");
+      applySettings(next);
+      setReaderMessage("阅读设置已恢复默认。");
       showToast({ tone: "success", title: "阅读设置已恢复默认", body: "字号、行距、页边距和书籍背景已回到初始值。" });
     } catch (error) {
       setError(error instanceof Error ? error.message : String(error));
@@ -330,7 +359,12 @@ export function SettingsPage() {
 
   const openUpdate = async () => {
     if (!updateInfo) return;
-    await openAppUpdateDownload(updateInfo.desktopAssetUrl || updateInfo.releaseUrl);
+    const url = updateInfo.desktopAssetUrl || updateInfo.releaseUrl;
+    if (!url) {
+      showToast({ tone: "info", title: "暂无可用下载链接", body: "当前更新信息里没有可打开的安装包或 Release 页面。" });
+      return;
+    }
+    await openAppUpdateDownload(url);
   };
 
   return (
@@ -365,7 +399,7 @@ export function SettingsPage() {
                 max={1.4}
                 step={0.05}
                 value={settings.appearance.appFontScale}
-                onChange={(event) => void patchSettings({ appearance: { appFontScale: Number(event.target.value) } })}
+                onChange={(event) => patchNumericSetting(event.target.value, 0.85, 1.4, (appFontScale) => ({ appearance: { appFontScale } }))}
               />
             </Field>
             <label className="flex items-center gap-2 text-sm text-paper-muted">
@@ -389,24 +423,162 @@ export function SettingsPage() {
                 恢复阅读默认
               </Button>
             </div>
+            {readerMessage && (
+              <InlineNotice tone="success" className="col-span-2 p-2 text-xs">
+                {readerMessage}
+              </InlineNotice>
+            )}
+            {/* 预设选择 */}
+            <div className="col-span-2 flex items-center gap-2">
+              <select
+                value=""
+                onChange={(e) => {
+                  const preset = settings.reader.presets?.find((p: ReaderPreset) => p.id === e.target.value);
+                  if (preset) {
+                    void patchSettings({
+                      reader: {
+                        fontSize: preset.fontSize,
+                        lineHeight: preset.lineHeight,
+                        pageMargin: preset.pageMargin,
+                        paragraphSpacing: preset.paragraphSpacing,
+                        letterSpacing: preset.letterSpacing,
+                        readerBackground: preset.readerBackground,
+                        ...(preset.fontFamily ? { fontFamily: preset.fontFamily } : {}),
+                      },
+                    });
+                  }
+                  e.target.value = "";
+                }}
+                className="paper-input h-9 flex-1"
+              >
+                <option value="">选择预设...</option>
+                {settings.reader.presets?.map((p: ReaderPreset) => (
+                  <option key={p.id} value={p.id}>{p.name}</option>
+                ))}
+              </select>
+              <TextInput
+                value={readerPresetName}
+                onChange={(event) => setReaderPresetName(event.target.value)}
+                placeholder="预设名称"
+                className="w-32"
+                aria-label="阅读预设名称"
+              />
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const name = readerPresetName.trim();
+                  if (!name) return;
+                  const preset: ReaderPreset = {
+                    id: `preset-${Date.now()}`,
+                    name,
+                    fontSize: settings.reader.fontSize,
+                    lineHeight: settings.reader.lineHeight,
+                    pageMargin: settings.reader.pageMargin,
+                    paragraphSpacing: settings.reader.paragraphSpacing ?? 1.0,
+                    letterSpacing: settings.reader.letterSpacing ?? 0,
+                    readerBackground: settings.reader.readerBackground,
+                    fontFamily: settings.reader.fontFamily,
+                  };
+                  void getDesktopApi().reader.savePreset(preset).then(() => {
+                    setReaderPresetName("");
+                    return loadSettings();
+                  });
+                }}
+              >
+                保存
+              </Button>
+            </div>
             <Field label="字号">
-              <TextInput
-                type="number"
-                min={12}
-                max={32}
-                value={settings.reader.fontSize}
-                onChange={(event) => void patchSettings({ reader: { fontSize: Number(event.target.value) } })}
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={12}
+                  max={32}
+                  step={1}
+                  value={settings.reader.fontSize}
+                  onChange={(e) => void patchSettings({ reader: { fontSize: Number(e.target.value) } })}
+                  className="flex-1 accent-amber-700"
+                />
+                <span className="text-sm text-stone-600 w-8 text-center">{settings.reader.fontSize}</span>
+              </div>
             </Field>
+            {/* 字体选择 */}
+            <div className="col-span-2 flex items-center gap-2">
+              <label className="text-sm text-paper-muted shrink-0">字体</label>
+              <select
+                value={settings.reader.fontFamily || ""}
+                onChange={(e) => void patchSettings({ reader: { fontFamily: e.target.value || undefined } })}
+                className="paper-input h-9 flex-1"
+              >
+                <option value="">系统默认</option>
+                {installedFonts.map((f) => {
+                  const name = f.replace(/\.[^.]+$/, "");
+                  return <option key={f} value={name}>{name}</option>;
+                })}
+              </select>
+              <Button
+                variant="secondary"
+                onClick={async () => {
+                  const result = await getDesktopApi().reader.chooseFont();
+                  if (result) {
+                    const fontName = result.fileName.replace(/\.[^.]+$/, "");
+                    const styleId = `font-${fontName}`;
+                    let styleEl = document.getElementById(styleId) as HTMLStyleElement;
+                    if (!styleEl) {
+                      styleEl = document.createElement("style");
+                      styleEl.id = styleId;
+                      document.head.appendChild(styleEl);
+                    }
+                    styleEl.textContent = `@font-face { font-family: '${fontName}'; src: url('file://${result.filePath}'); }`;
+                    void patchSettings({ reader: { fontFamily: fontName } });
+                    void getDesktopApi().reader.getInstalledFonts().then(setInstalledFonts).catch(() => {});
+                  }
+                }}
+              >
+                导入
+              </Button>
+            </div>
             <Field label="行距">
-              <TextInput
-                type="number"
-                min={1.2}
-                max={2.6}
-                step={0.1}
-                value={settings.reader.lineHeight}
-                onChange={(event) => void patchSettings({ reader: { lineHeight: Number(event.target.value) } })}
-              />
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={1.2}
+                  max={2.5}
+                  step={0.1}
+                  value={settings.reader.lineHeight}
+                  onChange={(e) => void patchSettings({ reader: { lineHeight: Number(e.target.value) } })}
+                  className="flex-1 accent-amber-700"
+                />
+                <span className="text-sm text-stone-600 w-10 text-center">{settings.reader.lineHeight.toFixed(1)}</span>
+              </div>
+            </Field>
+            <Field label="段间距">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0.5}
+                  max={3.0}
+                  step={0.1}
+                  value={settings.reader.paragraphSpacing ?? 1.0}
+                  onChange={(e) => void patchSettings({ reader: { paragraphSpacing: Number(e.target.value) } })}
+                  className="flex-1 accent-amber-700"
+                />
+                <span className="text-sm text-stone-600 w-10 text-center">{(settings.reader.paragraphSpacing ?? 1.0).toFixed(1)}</span>
+              </div>
+            </Field>
+            <Field label="字间距">
+              <div className="flex items-center gap-3">
+                <input
+                  type="range"
+                  min={0}
+                  max={0.5}
+                  step={0.01}
+                  value={settings.reader.letterSpacing ?? 0}
+                  onChange={(e) => void patchSettings({ reader: { letterSpacing: Number(e.target.value) } })}
+                  className="flex-1 accent-amber-700"
+                />
+                <span className="text-sm text-stone-600 w-10 text-center">{(settings.reader.letterSpacing ?? 0).toFixed(2)}</span>
+              </div>
             </Field>
             <Field label="页边距">
               <TextInput
@@ -414,7 +586,7 @@ export function SettingsPage() {
                 min={24}
                 max={120}
                 value={settings.reader.pageMargin}
-                onChange={(event) => void patchSettings({ reader: { pageMargin: Number(event.target.value) } })}
+                onChange={(event) => patchNumericSetting(event.target.value, 24, 120, (pageMargin) => ({ reader: { pageMargin } }))}
               />
             </Field>
             <label className="grid gap-1.5 text-sm text-paper-muted">
@@ -428,6 +600,9 @@ export function SettingsPage() {
                 <option value="warm">暖纸</option>
                 <option value="green">护眼</option>
                 <option value="night">夜间</option>
+                <option value="amber">琥珀</option>
+                <option value="parchment">羊皮纸</option>
+                <option value="beans">绿豆沙</option>
               </select>
             </label>
             <label className="grid gap-1.5 text-sm text-paper-muted">
@@ -439,6 +614,18 @@ export function SettingsPage() {
               >
                 <option value="publisher">保留原书样式</option>
                 <option value="unified">统一阅读样式</option>
+              </select>
+            </label>
+            <label className="grid gap-1.5 text-sm text-paper-muted">
+              <span className="font-medium text-paper-ink">繁简转换</span>
+              <select
+                className="paper-input h-9"
+                value={settings.reader.textConversion || "none"}
+                onChange={(event) => void patchSettings({ reader: { textConversion: event.target.value as typeof settings.reader.textConversion } })}
+              >
+                <option value="none">不转换</option>
+                <option value="s2t">简体 → 繁体</option>
+                <option value="t2s">繁体 → 简体</option>
               </select>
             </label>
             <div className="col-span-2 rounded-xl border border-paper-line bg-paper-soft/35 p-3">
@@ -478,7 +665,7 @@ export function SettingsPage() {
                 min={15}
                 max={600}
                 value={Math.round(settings.reader.tracking.idleTimeoutMs / 1000)}
-                onChange={(event) => patchReaderTracking({ idleTimeoutMs: Number(event.target.value) * 1000 })}
+                onChange={(event) => patchNumericSetting(event.target.value, 15, 600, (value) => ({ reader: { tracking: { ...settings.reader.tracking, idleTimeoutMs: value * 1000 } } }))}
               />
             </Field>
             <Field label="进度保存间隔秒数">
@@ -488,7 +675,9 @@ export function SettingsPage() {
                 min={1}
                 max={60}
                 value={Math.round(settings.reader.tracking.progressSaveIntervalMs / 1000)}
-                onChange={(event) => patchReaderTracking({ progressSaveIntervalMs: Number(event.target.value) * 1000 })}
+                onChange={(event) =>
+                  patchNumericSetting(event.target.value, 1, 60, (value) => ({ reader: { tracking: { ...settings.reader.tracking, progressSaveIntervalMs: value * 1000 } } }))
+                }
               />
             </Field>
             <Field label="会话心跳秒数">
@@ -498,7 +687,9 @@ export function SettingsPage() {
                 min={2}
                 max={60}
                 value={Math.round(settings.reader.tracking.sessionHeartbeatMs / 1000)}
-                onChange={(event) => patchReaderTracking({ sessionHeartbeatMs: Number(event.target.value) * 1000 })}
+                onChange={(event) =>
+                  patchNumericSetting(event.target.value, 2, 60, (value) => ({ reader: { tracking: { ...settings.reader.tracking, sessionHeartbeatMs: value * 1000 } } }))
+                }
               />
             </Field>
             <Field label="会话持久化间隔秒数">
@@ -508,7 +699,9 @@ export function SettingsPage() {
                 min={5}
                 max={300}
                 value={Math.round(settings.reader.tracking.sessionPersistIntervalMs / 1000)}
-                onChange={(event) => patchReaderTracking({ sessionPersistIntervalMs: Number(event.target.value) * 1000 })}
+                onChange={(event) =>
+                  patchNumericSetting(event.target.value, 5, 300, (value) => ({ reader: { tracking: { ...settings.reader.tracking, sessionPersistIntervalMs: value * 1000 } } }))
+                }
               />
             </Field>
           </Section>
@@ -541,7 +734,7 @@ export function SettingsPage() {
                 max={1.5}
                 step={0.1}
                 value={settings.ai.temperature}
-                onChange={(event) => void patchSettings({ ai: { temperature: Number(event.target.value) } })}
+                onChange={(event) => patchNumericSetting(event.target.value, 0, 1.5, (temperature) => ({ ai: { temperature } }))}
               />
             </Field>
             <Field label={settings.ai.hasApiKey ? "API Key（已保存，可留空）" : "API Key"}>
@@ -826,4 +1019,3 @@ export function SettingsPage() {
     </div>
   );
 }
-

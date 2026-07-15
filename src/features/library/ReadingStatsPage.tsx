@@ -62,8 +62,9 @@ function formatLocalDateKey(date: Date): string {
   return `${year}-${month}-${day}`;
 }
 
-function shiftStatsAnchor(anchor: Date, range: Exclude<StatsRange, "all">, direction: -1 | 1): Date {
+function shiftStatsAnchor(anchor: Date, range: StatsRange, direction: -1 | 1): Date {
   const next = new Date(anchor);
+  if (range === "all") return next;
   if (range === "day") next.setDate(next.getDate() + direction);
   else if (range === "week") next.setDate(next.getDate() + direction * 7);
   else if (range === "month") next.setMonth(next.getMonth() + direction);
@@ -139,13 +140,13 @@ export function ReadingStatsPage() {
           {metrics.map(([label, currentVal, prevVal]) => {
             const diff = currentVal - prevVal;
             const absDiff = diff < 0 ? -diff : diff;
-            const pct = pctChange(currentVal, prevVal);
+            const pct = label === "天数" ? null : pctChange(currentVal, prevVal);
             if (prevVal <= 0 && currentVal <= 0) return null;
             const trendClass = diff > 0 ? "text-moss" : diff < 0 ? "text-red-600" : "text-paper-muted opacity-50";
             return (
               <span key={label} className={`flex items-center gap-1 text-sm ${trendClass}`}>
                 <span className="text-xs text-paper-muted">{label}</span>
-                <span>{diff > 0 ? "+" : ""}{absDiff}</span>
+                <span>{label === "天数" ? `${diff > 0 ? "多" : diff < 0 ? "少" : ""}${absDiff} 天` : `${diff > 0 ? "+" : ""}${absDiff}`}</span>
                 {pct !== null && <span className="text-xs opacity-70">({diff > 0 ? "+" : ""}{pct}%)</span>}
               </span>
             );

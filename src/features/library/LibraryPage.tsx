@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, BookOpen, FileText, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
 import { Button, EmptyState, ShellPanel } from "@/components/ui";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
@@ -33,6 +33,18 @@ export function LibraryPage() {
   const [sortMode, setSortMode] = useState<SortMode>("recent");
   const [formatFilter, setFormatFilter] = useState<FormatFilter>("all");
   const [showSortDropdown, setShowSortDropdown] = useState(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!showSortDropdown) return;
+    const handleMouseDown = (e: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setShowSortDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleMouseDown);
+    return () => document.removeEventListener("mousedown", handleMouseDown);
+  }, [showSortDropdown]);
 
   useEffect(() => {
     void refreshBooks();
@@ -85,7 +97,7 @@ export function LibraryPage() {
       tone: "danger"
     });
     if (confirmed) {
-      await removeBookById(bookId);
+      await removeBookById(bookId, { skipConfirm: true });
     }
   };
 
@@ -136,7 +148,7 @@ export function LibraryPage() {
               </div>
               <div className="flex items-center gap-2 shrink-0">
                 {/* Sort dropdown */}
-                <div className="relative">
+                <div className="relative" ref={sortDropdownRef}>
                   <button
                     className={`inline-flex items-center gap-1 rounded-md border px-3 py-1.5 text-xs font-medium transition hover:border-copper ${
                       showSortDropdown ? "border-copper bg-copper/5" : "border-paper-line bg-paper-panel"

@@ -38,6 +38,12 @@ export function readerBackgroundColor(background: ReaderBackground): string {
       return "#e9f2e2";
     case "night":
       return "#15100e";
+    case "amber":
+      return "#f5e6c8";
+    case "parchment":
+      return "#f0e4d0";
+    case "beans":
+      return "#c7edcc";
     case "warm":
     default:
       return "#f7f0e7";
@@ -45,5 +51,16 @@ export function readerBackgroundColor(background: ReaderBackground): string {
 }
 
 export function readerTextColor(background: ReaderBackground): string {
-  return background === "night" ? "#f4eadf" : "#241b16";
+  switch (background) {
+    case "night":
+      return "#f4eadf";
+    case "amber":
+      return "#5c4a2a";
+    case "parchment":
+      return "#4a3728";
+    case "beans":
+      return "#2d4a2d";
+    default:
+      return "#241b16";
+  }
 }

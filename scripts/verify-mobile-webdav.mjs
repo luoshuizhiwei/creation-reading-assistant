@@ -1,7 +1,7 @@
-import { readFileSync } from "node:fs";
+import { readWithCssImports } from "./lib/read-with-css-imports.mjs";
 
 function read(path) {
-  return readFileSync(path, "utf-8");
+  return readWithCssImports(path);
 }
 
 function fail(message) {
@@ -20,19 +20,19 @@ assertIncludes("mobile/src/sync/webdav-sync.ts", ".creation-reading-assistant/bo
 assertIncludes("mobile/src/sync/webdav-sync.ts", "testWebDavConnection", "WebDAV sync must support connection testing.");
 assertIncludes("mobile/src/sync/webdav-sync.ts", "uploadWebDavSnapshot", "WebDAV sync must support upload.");
 assertIncludes("mobile/src/sync/webdav-sync.ts", "downloadWebDavSnapshot", "WebDAV sync must support download.");
-assertIncludes("mobile/src/App.tsx", "WebDAV", "Profile page must expose WebDAV settings.");
-assertIncludes("mobile/src/App.tsx", "local-desktop-lan", "Mobile app must preserve desktop LAN sync provider.");
-assertIncludes("mobile/src/App.tsx", "webdav", "Mobile app must expose WebDAV sync provider.");
+assertIncludes("mobile/src/features/profile/ProfileHome.tsx", "WebDAV", "Profile page must expose WebDAV settings.");
+assertIncludes("mobile/src/features/profile/ProfileHome.tsx", "local-desktop-lan", "Mobile app must preserve desktop LAN sync provider.");
+assertIncludes("mobile/src/features/profile/ProfilePage.tsx", "webdav", "Mobile app must expose WebDAV sync provider.");
 assertIncludes("mobile/src/services/mobile-secret-store.ts", "indexedDB.open(MOBILE_SECRET_DB_NAME", "WebDAV credentials must use the shared mobile secret store.");
 assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "loadWebDavPasswordSecret", "WebDAV password/token must be loadable from the local secret store.");
 assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "saveWebDavPasswordSecret", "WebDAV password/token must be saved through the local secret store.");
 assertIncludes("mobile/src/services/mobile-webdav-secrets.ts", "clearWebDavPasswordSecret", "WebDAV password/token must be clearable.");
-assertIncludes("mobile/src/App.tsx", "getWebDavCredentials", "WebDAV sync actions must combine visible settings with saved secret credentials.");
-assertIncludes("mobile/src/App.tsx", "本机密钥库保存 WebDAV 密码 / token", "WebDAV UI must explain local-only credential storage.");
-assertIncludes("mobile/src/services/mobile-storage.ts", "sanitizeSyncAccount", "Mobile snapshot storage must sanitize sync accounts.");
+assertIncludes("mobile/src/features/profile/hooks/useWebDavSettings.ts", "getWebDavCredentials", "WebDAV sync actions must combine visible settings with saved secret credentials.");
+assertIncludes("mobile/src/features/profile/pages/WebDavPage.tsx", "应用本地沙箱保存 WebDAV 密码 / token", "WebDAV UI must explain local-only credential storage.");
+assertIncludes("mobile/src/services/mobile-storage-core.ts", "sanitizeSyncAccount", "Mobile snapshot storage must sanitize sync accounts.");
 
 const types = read("mobile/src/types/mobile.ts");
-const storage = read("mobile/src/services/mobile-storage.ts");
+const storage = read("mobile/src/services/mobile-storage-core.ts");
 if (/passwordToken/.test(types)) {
   fail("SyncAccount type must not expose passwordToken.");
 }

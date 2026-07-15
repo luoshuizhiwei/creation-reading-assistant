@@ -23,7 +23,6 @@ const requiredSnippets = [
   [reader, "void book.locations.generate(1600)", "EPUB location generation should not block initial rendering."],
   [reader, "restoreHref", "EPUB restore should fall back to the saved href when CFI restore is unreliable."],
   [reader, "initialTargetHref || restoreHref || restoreCfi", "EPUB restore should prefer saved href before CFI for real-world EPUB compatibility."],
-  [reader, "displayWithTimeout(rendition, undefined)", "EPUB reader should warm up the rendition before jumping to a restored href."],
   [reader, "fallback.progressPercent > 0", "EPUB restore should not overwrite a known chapter progress with a zero percentage while locations are still generating."],
   [reader, "cfiProgressPercent === 0", "EPUB restore should not overwrite a known chapter progress when percentageFromCfi returns zero before location generation finishes."],
   [reader, "canSaveProgressRef.current = false", "EPUB reader should block progress writes during initial restore."],
@@ -39,6 +38,10 @@ const missing = requiredSnippets
 
 if (reader.includes("await book.locations.generate(1600)")) {
   missing.push("EPUB reader should not await book.locations.generate before rendering.");
+}
+
+if (reader.includes("displayWithTimeout(rendition, undefined)")) {
+  missing.push("EPUB reader should not display an empty initial target before jumping to a restored location.");
 }
 
 if (missing.length > 0) {

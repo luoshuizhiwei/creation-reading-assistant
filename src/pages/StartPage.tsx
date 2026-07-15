@@ -56,7 +56,8 @@ export function StartPage() {
   const visibleResults = useMemo(() => results.slice(0, 5), [results]);
 
   useEffect(() => {
-    runSearch(homeQuery);
+    const timer = window.setTimeout(() => runSearch(homeQuery), 250);
+    return () => window.clearTimeout(timer);
   }, [homeQuery, runSearch]);
 
   return (

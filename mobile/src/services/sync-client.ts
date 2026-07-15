@@ -1,10 +1,19 @@
 import type { DeviceInfo, PairingTokenResult, SyncManifest, SyncPullResponse, SyncPushPayload, SyncPushResult } from "../../../src/types/sync";
+import { getMobileDeviceId } from "./mobile-storage";
 
 export interface PairingInput {
   host: string;
   port: number;
   token: string;
   pairingUrl?: string;
+  authToken?: string;
+}
+
+interface PairingResponse {
+  ok: boolean;
+  device: DeviceInfo;
+  manifest: SyncManifest;
+  authToken: string;
 }
 
 function trimTrailingSlash(value: string): string {
@@ -72,9 +81,7 @@ export function parsePairingCandidates(text: string): PairingInput[] {
 }
 
 export function createMobileDevice(): DeviceInfo {
-  const saved = localStorage.getItem("creation-reading-assistant-mobile-device-id");
-  const deviceId = saved ?? `android-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`;
-  localStorage.setItem("creation-reading-assistant-mobile-device-id", deviceId);
+  const deviceId = getMobileDeviceId();
   return {
     deviceId,
     name: "Android 手机端",
@@ -88,12 +95,17 @@ export function createSyncClient(input: PairingInput) {
   const baseUrl = trimTrailingSlash(`http://${input.host}:${input.port}`);
   const device = createMobileDevice();
 
+  const authHeaders = (): Record<string, string> => ({
+    "x-device-id": device.deviceId,
+    ...(input.authToken ? { "x-sync-token": input.authToken } : {})
+  });
+
   async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${baseUrl}/${path.replace(/^\/+/, "")}`, {
       ...init,
       headers: {
         "content-type": "application/json",
-        "x-device-id": device.deviceId,
+        ...authHeaders(),
         ...(init?.headers ?? {})
       }
     });
@@ -102,7 +114,7 @@ export function createSyncClient(input: PairingInput) {
   }
 
   return {
-    async pair(): Promise<{ ok: boolean; device: DeviceInfo; manifest: SyncManifest }> {
+    async pair(): Promise<PairingResponse> {
       return requestJson("sync/pair", {
         method: "POST",
         body: JSON.stringify({ token: input.token, device })
@@ -122,7 +134,7 @@ export function createSyncClient(input: PairingInput) {
     },
     async downloadBookFile(bookId: string, signal?: AbortSignal): Promise<Blob> {
       const response = await fetch(`${baseUrl}/sync/books/${encodeURIComponent(bookId)}/file`, {
-        headers: { "x-device-id": device.deviceId },
+        headers: authHeaders(),
         signal
       });
       if (!response.ok) throw new Error(await response.text());
@@ -133,7 +145,7 @@ export function createSyncClient(input: PairingInput) {
         method: "PUT",
         headers: {
           "content-type": "application/octet-stream",
-          "x-device-id": device.deviceId,
+          ...authHeaders(),
           "X-Original-File-Name": encodeURIComponent(fileName)
         },
         body: content
@@ -143,7 +155,7 @@ export function createSyncClient(input: PairingInput) {
     },
     async downloadBookChunk(bookId: string, index: number): Promise<Blob> {
       const response = await fetch(`${baseUrl}/sync/books/${encodeURIComponent(bookId)}/chunks/${index}`, {
-        headers: { "x-device-id": device.deviceId }
+        headers: authHeaders()
       });
       if (!response.ok) throw new Error(await response.text());
       return response.blob();
@@ -154,13 +166,14 @@ export function createSyncClient(input: PairingInput) {
 export async function pairWithFirstReachable(
   candidates: PairingInput[],
   onAttempt?: (attempt: { index: number; total: number; input: PairingInput }) => void
-): Promise<{ input: PairingInput; result: { ok: boolean; device: DeviceInfo; manifest: SyncManifest } }> {
+): Promise<{ input: PairingInput; result: PairingResponse }> {
   let lastError = "";
   for (const [index, input] of candidates.entries()) {
     onAttempt?.({ index: index + 1, total: candidates.length, input });
     try {
       const result = await createSyncClient(input).pair();
-      return { input, result };
+      if (!result.authToken) throw new Error("电脑端没有返回设备授权密钥，请升级电脑端后重新配对。");
+      return { input: { ...input, authToken: result.authToken }, result };
     } catch (error) {
       lastError = error instanceof Error ? error.message : String(error);
     }

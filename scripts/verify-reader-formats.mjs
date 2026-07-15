@@ -31,4 +31,15 @@ assertIncludes("src/pages/StartPage.tsx", "首页搜索", "Start page must expos
 assertIncludes("src/pages/StartPage.tsx", "本地书库", "Start page must keep local library as a primary entry.");
 assertIncludes("src/pages/StartPage.tsx", "灵感中心", "Start page must keep inspiration center as a primary entry.");
 
+// TXT smart chapter splitting
+assertIncludes("src/features/library/ReaderPage.tsx", "splitTxtChapters", "TXT reader must provide smart chapter splitting by heading regex.");
+assertIncludes("src/features/library/ReaderPage.tsx", "txtChapters", "TXT reader must compute chapter list from content.");
+assertIncludes("src/features/library/ReaderPage.tsx", "txtToc", "TXT reader must generate a table of contents from split chapters.");
+assertIncludes("src/features/library/ReaderPage.tsx", "txt-chapter-", "TXT chapter headings must carry stable anchor ids for TOC jump.");
+assertIncludes("src/features/library/ReaderPage.tsx", "renderChapterParagraphs", "TXT chapter body must be rendered paragraph-by-paragraph.");
+assertIncludes("src/features/library/ReaderPage.tsx", "readerTextColor(settings.readerBackground)", "TXT chapter headings must follow reader text color setting.");
+assertIncludes("src/features/library/ReaderPage.tsx", "renderPlainText(convertedContent)", "TXT without detected chapters must fall back to plain paragraph rendering.");
+assertIncludes("src/features/library/ReaderPage.tsx", "reversedVolumePattern", "TXT chapter regex must match reversed volume format like 卷一/卷二.");
+assertIncludes("src/features/library/ReaderPage.tsx", "txtChapters.length <= 1", "TXT single-chapter detection must not trigger chapter split rendering.");
+
 console.log("[verify-reader-formats] Reader format and search guards verified.");

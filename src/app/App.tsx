@@ -55,7 +55,8 @@ function RecoveryPrompt({
 
 export default function App() {
   const screen = useAppStore((state) => state.screen);
-  const error = useAppStore((state) => state.error);
+  const errors = useAppStore((state) => state.errors);
+  const clearErrors = useAppStore((state) => state.clearErrors);
   const setError = useAppStore((state) => state.setError);
   const setScreen = useAppStore((state) => state.setScreen);
   const settings = useSettingsStore((state) => state.settings);
@@ -68,10 +69,12 @@ export default function App() {
   }, [loadSettings]);
 
   useEffect(() => {
-    if (!error) return;
-    showToast({ tone: "error", title: "发生错误", body: error });
-    setError(undefined);
-  }, [error, setError, showToast]);
+    if (errors.length === 0) return;
+    for (const err of errors) {
+      showToast({ tone: "error", title: "发生错误", body: err.message });
+    }
+    clearErrors();
+  }, [errors, clearErrors, showToast]);
 
   useEffect(() => {
     const root = document.documentElement;
