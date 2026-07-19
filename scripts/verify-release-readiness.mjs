@@ -31,7 +31,8 @@ for (const file of [
   "mobile/THIRD_PARTY_NOTICES.md",
   "mobile/android/legado-reader-core/LICENSE",
   "mobile/android/legado-reader-core/UPSTREAM.md",
-  "mobile/android/legado-reader-core/PATCHES.md"
+  "mobile/android/legado-reader-core/PATCHES.md",
+  "scripts/dist-beta-offline.mjs"
 ]) {
   assertFile(file);
 }
@@ -64,6 +65,11 @@ for (const required of [
 }
 if (workflow.includes("assembleDebug") || workflow.includes("mobile-debug.apk")) {
   fail("Release workflow must not publish a Debug APK.");
+}
+
+const offlineBuilder = read("scripts/dist-beta-offline.mjs");
+if (!offlineBuilder.includes('"--publish"') || !offlineBuilder.includes('"never"')) {
+  fail("Offline desktop packaging must disable electron-builder implicit tag publishing.");
 }
 
 const rootPackage = JSON.parse(read("package.json"));
