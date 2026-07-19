@@ -4,6 +4,11 @@ import {
   emptyReaderDocument
 } from "../reader-model";
 import { renderMobileDocument, type MobileReaderDocument } from "../../../reader/mobile-reader";
+import {
+  renderPreparedPlainText,
+  type PreparedPlainTextSource
+} from "../../../reader/mobile-reader-txt";
+import { preparePlainTextSourceAsync } from "../../../reader/mobile-reader-preparation";
 import type { MobileBook, MobileReaderSettings } from "../../../types/mobile";
 import type { ReadingLocation } from "../../../../../src/types/library";
 import {
@@ -52,16 +57,24 @@ export function useReaderDocument({
   const [showLoadingHint, setShowLoadingHint] = useState(false);
   const [loadingHintLong, setLoadingHintLong] = useState(false);
   const initialReaderChapterAppliedRef = useRef("");
+  const preparedTxtRef = useRef<{
+    bookId: string;
+    title: string;
+    content: string;
+    source: PreparedPlainTextSource;
+  }>();
 
   // 文档渲染：当 content / chapter / mode 变化时重新解析
   useEffect(() => {
     let cancelled = false;
+    const renderAbort = new AbortController();
     if (!content) {
       setDocument(emptyReaderDocument(book.title, book.format));
       setDocumentError("");
       setDocumentRendering(false);
       return () => {
         cancelled = true;
+        renderAbort.abort();
       };
     }
     setDocumentRendering(true);
@@ -73,9 +86,27 @@ export function useReaderDocument({
       setDocumentRendering(false);
       return () => {
         cancelled = true;
+        renderAbort.abort();
       };
     }
-    void renderMobileDocument(book.format, content, book.title, { chapterIndex: readerChapterIndex, renderAllChapters: readerMode === "scroll" })
+    const renderOptions = { chapterIndex: readerChapterIndex, renderAllChapters: readerMode === "scroll" };
+    let renderPromise: Promise<MobileReaderDocument>;
+    if (book.format === "txt") {
+      const cached = preparedTxtRef.current;
+      const cachedSource = cached?.bookId === book.id && cached.title === book.title && cached.content === content
+        ? cached.source
+        : undefined;
+      renderPromise = cachedSource
+        ? Promise.resolve(renderPreparedPlainText(cachedSource, renderOptions))
+        : preparePlainTextSourceAsync(content, book.title, renderAbort.signal).then((source) => {
+            if (renderAbort.signal.aborted) throw new DOMException("TXT 预处理已取消。", "AbortError");
+            preparedTxtRef.current = { bookId: book.id, title: book.title, content, source };
+            return renderPreparedPlainText(source, renderOptions);
+          });
+    } else {
+      renderPromise = renderMobileDocument(book.format, content, book.title, renderOptions);
+    }
+    void renderPromise
       .then((nextDocument) => {
         if (cancelled) return;
         // EPUB 由 EpubReaderView 单独渲染 iframe，parseEpubDocumentStructure 返回的 html 为空是预期行为
@@ -110,6 +141,7 @@ export function useReaderDocument({
       })
       .catch((error) => {
         if (cancelled) return;
+        if (error instanceof DOMException && error.name === "AbortError") return;
         const detail = error instanceof Error ? error.message : String(error);
         if (book.format === "epub") {
           // 跳转失败时保留原 document，不清空，避免用户从可读章节跳到失败章节后连原内容也消失
@@ -124,6 +156,7 @@ export function useReaderDocument({
       });
     return () => {
       cancelled = true;
+      renderAbort.abort();
     };
   }, [book.format, book.id, book.title, content, readerChapterIndex, readerMode, sessionStartProgress]);
 

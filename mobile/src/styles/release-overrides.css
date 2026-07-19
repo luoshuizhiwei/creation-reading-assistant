@@ -373,10 +373,14 @@ body {
 
 .home-header .mini-label {
   letter-spacing: 0.02em;
+  caret-color: transparent;
+  user-select: none;
 }
 
 .home-header h1 {
   font-size: clamp(28px, 7vw, 32px);
+  caret-color: transparent;
+  user-select: none;
 }
 
 .home-header .round-action {
@@ -746,14 +750,46 @@ body {
 .reading-book-profile .book-detail-progress {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 8px;
+  gap: 0;
+  padding: 4px;
+  overflow: hidden;
+  border: 1px solid var(--app-hairline);
+  border-radius: var(--app-card-radius);
+  background: rgba(255, 252, 246, 0.66);
 }
 
 .reading-book-profile .book-detail-progress div {
-  padding: 12px 8px;
-  border: 1px solid var(--app-hairline);
-  border-radius: var(--app-control-radius);
-  background: rgba(255, 252, 246, 0.62);
+  display: grid;
+  grid-template-rows: 18px minmax(20px, auto) 16px;
+  place-items: center;
+  min-height: 68px;
+  padding: 6px 7px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.reading-book-profile .book-detail-progress div + div {
+  border-left: 1px solid var(--app-hairline);
+}
+
+.reading-book-profile .book-detail-progress svg {
+  color: var(--md3-primary);
+}
+
+.reading-book-profile .book-detail-progress strong {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.25;
+  text-align: center;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.reading-book-profile .book-detail-progress span {
+  font-size: 10px;
 }
 
 .reading-book-profile .book-detail-actions {
@@ -1461,7 +1497,7 @@ body {
   }
 
   .reading-book-profile .book-detail-progress {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
   .reader-actions {

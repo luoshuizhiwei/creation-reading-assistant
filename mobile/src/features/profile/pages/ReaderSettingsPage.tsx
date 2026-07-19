@@ -2,7 +2,11 @@ import { useMemo } from "react";
 import { CheckCircle2 } from "lucide-react";
 import { type MobileReaderSettings } from "../../../types/mobile";
 import { defaultReaderSettings } from "../../reader/reader-model";
-import { READER_BACKGROUND_OPTIONS } from "../../reader/reader-constants";
+import {
+  READER_AUTO_HIDE_OPTIONS,
+  READER_BACKGROUND_OPTIONS,
+  READER_PAGE_TURN_EFFECT_OPTIONS
+} from "../../reader/reader-constants";
 import { clampFontSize, clampLineHeight, clampParagraphSpacing } from "../profile-helpers";
 import type { ProfileSubPage } from "../ProfilePage";
 
@@ -62,6 +66,31 @@ export function ReaderSettingsPage({ settings, onSettingsChange, onSetActivePage
               上下滚动
             </button>
           </div>
+          <p className="subtle">分页用于沉浸阅读；滚动适合长文快速浏览。切换后会按稳定进度恢复位置。</p>
+        </div>
+
+        <div className="reader-settings-section">
+          <h4>翻页与点击</h4>
+          <div className="reader-settings-options">
+            {READER_PAGE_TURN_EFFECT_OPTIONS.map(([key, label]) => (
+              <button
+                key={key}
+                className={(safeSettings.pageTurnEffect ?? "none") === key ? "active" : ""}
+                onClick={() => update({ pageTurnEffect: key })}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="reader-settings-options">
+            <button className={safeSettings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => update({ tapZoneMode: "three-zone" })}>
+              左中右三区
+            </button>
+            <button className={safeSettings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => update({ tapZoneMode: "five-zone" })}>
+              上下扩展五区
+            </button>
+          </div>
+          <p className="subtle">“柔和淡入”只使用轻量遮罩，不移动整块正文，避免 Android 大文本翻页残影。</p>
         </div>
 
         <div className="reader-settings-section">
@@ -132,6 +161,40 @@ export function ReaderSettingsPage({ settings, onSettingsChange, onSetActivePage
 
         <div className="reader-settings-section">
           <h4>显示与辅助</h4>
+          <label className="reader-settings-toggle-row">
+            <span>沉浸模式</span>
+            <input
+              type="checkbox"
+              checked={safeSettings.immersiveMode ?? false}
+              onChange={(event) => update({ immersiveMode: event.target.checked })}
+            />
+          </label>
+          <label className="reader-settings-toggle-row">
+            <span>安静阅读信息</span>
+            <input
+              type="checkbox"
+              checked={safeSettings.showReaderInfo ?? true}
+              onChange={(event) => update({ showReaderInfo: event.target.checked })}
+            />
+          </label>
+          <label className="reader-settings-toggle-row">
+            <span>中文排版优化</span>
+            <input
+              type="checkbox"
+              checked={safeSettings.chineseTypography ?? false}
+              onChange={(event) => update({ chineseTypography: event.target.checked })}
+            />
+          </label>
+          <label className="reader-settings-toggle-row reader-settings-select-row">
+            <span>菜单自动隐藏</span>
+            <select
+              value={safeSettings.autoHideControlsSeconds ?? 4}
+              disabled={!safeSettings.immersiveMode}
+              onChange={(event) => update({ autoHideControlsSeconds: Number(event.target.value) })}
+            >
+              {READER_AUTO_HIDE_OPTIONS.map(([seconds, label]) => <option key={seconds} value={seconds}>{label}</option>)}
+            </select>
+          </label>
           <label className="reader-settings-toggle-row">
             <span>屏幕常亮</span>
             <input

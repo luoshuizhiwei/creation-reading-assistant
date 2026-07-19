@@ -96,12 +96,14 @@ export async function addMobileReadingSession(
   book: LibraryBook,
   durationMs: number,
   progressPercent: number,
-  locationExtras: Partial<ReadingLocation> = {}
+  locationExtras: Partial<ReadingLocation> = {},
+  sessionId?: string
 ): Promise<MobileSnapshot> {
+  if (sessionId && snapshot.sessions.some((item) => item.id === sessionId)) return snapshot;
   const createdAt = nowIso();
   const location = createReadingLocation(book.format, progressPercent, 0, locationExtras);
   const session: ReadingSession = {
-    id: `mobile-session-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    id: sessionId ?? `mobile-session-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     bookId: book.id,
     filePath: book.filePath,
     format: book.format,
@@ -123,8 +125,24 @@ export async function addMobileReadingSession(
     updatedAt: createdAt,
     lastPersistAt: createdAt
   };
-  const next = { ...snapshot, sessions: [session, ...snapshot.sessions], updatedAt: nowIso() };
-  await saveMobileSnapshot(next, ["sessions"]);
+  const existingProgress = snapshot.progress.find((item) => item.bookId === book.id);
+  const nextProgress = existingProgress
+    ? {
+        ...existingProgress,
+        totalReadingTimeMs: Math.max(0, existingProgress.totalReadingTimeMs ?? 0) + Math.max(0, durationMs),
+        updatedAt: createdAt,
+        revision: (existingProgress.revision ?? 0) + 1
+      }
+    : undefined;
+  const next = {
+    ...snapshot,
+    sessions: [session, ...snapshot.sessions],
+    progress: nextProgress
+      ? [nextProgress, ...snapshot.progress.filter((item) => item.bookId !== book.id)]
+      : snapshot.progress,
+    updatedAt: createdAt
+  };
+  await saveMobileSnapshot(next, ["sessions", "progress"]);
   return next;
 }
 

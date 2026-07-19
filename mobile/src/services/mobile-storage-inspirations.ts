@@ -2,11 +2,13 @@ import type { InspirationSourceSnapshot, InspirationStatus, InspirationType } fr
 import type { LibraryBook } from "../../../src/types/library";
 import type { AddInspirationVariantInput } from "../../../src/types/inspiration";
 import type { MobileInspiration, MobileNote, MobileSnapshot } from "../types/mobile";
+import type { ReaderLocatorV2 } from "../../../src/types/library";
 import { getMobileDeviceId, nowIso, saveMobileSnapshot } from "./mobile-storage-core";
 
 export async function addMobileInspiration(
   snapshot: MobileSnapshot,
   input: {
+    id?: string;
     title: string;
     body?: string;
     tags?: string[];
@@ -16,9 +18,10 @@ export async function addMobileInspiration(
     source?: Partial<InspirationSourceSnapshot>;
   }
 ): Promise<MobileSnapshot> {
+  if (input.id && snapshot.inspirations.some((item) => item.id === input.id)) return snapshot;
   const createdAt = nowIso();
   const item: MobileInspiration = {
-    id: `mobile-insp-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    id: input.id ?? `mobile-insp-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     title: input.title.trim() || "新的灵感",
     body: input.body?.trim() ?? "",
     type: input.type ?? "note",
@@ -200,24 +203,28 @@ export async function deleteMobileNote(snapshot: MobileSnapshot, noteId: string)
 export async function addMobileNote(
   snapshot: MobileSnapshot,
   input: {
+    id?: string;
     book: LibraryBook;
     title: string;
     body?: string;
     excerpt?: string;
     chapterTitle?: string;
     progressPercent?: number;
+    locator?: ReaderLocatorV2;
     kind?: MobileNote["kind"];
   }
 ): Promise<MobileSnapshot> {
+  if (input.id && snapshot.notes.some((item) => item.id === input.id)) return snapshot;
   const timestamp = nowIso();
   const note: MobileNote = {
-    id: `mobile-note-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
+    id: input.id ?? `mobile-note-${Date.now().toString(36)}-${Math.random().toString(16).slice(2, 8)}`,
     bookId: input.book.id,
     title: input.title.trim() || (input.kind === "bookmark" ? "阅读书签" : "阅读笔记"),
     body: input.body?.trim() ?? "",
     excerpt: input.excerpt?.trim(),
     chapterTitle: input.chapterTitle,
     progressPercent: input.progressPercent,
+    locator: input.locator,
     kind: input.kind ?? "note",
     createdAt: timestamp,
     updatedAt: timestamp,

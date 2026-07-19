@@ -2,8 +2,7 @@
 .reader-shell {
   position: fixed;
   inset: 0;
-  display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  display: block;
   min-height: 100dvh;
   max-width: 100vw;
   overflow: hidden;
@@ -180,6 +179,38 @@
 .reader-chrome-hidden .reader-progress-chip {
   opacity: 1;
   transform: none;
+}
+
+/* 阅读控件收起后的轻量信息层。只显示章节、进度和本次时长，不占正文布局。 */
+.reader-quiet-info {
+  position: fixed;
+  left: max(16px, env(safe-area-inset-left));
+  right: max(16px, env(safe-area-inset-right));
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  pointer-events: none;
+  color: color-mix(in srgb, currentColor 68%, transparent);
+  font-size: 11px;
+  line-height: 1.25;
+  letter-spacing: 0.02em;
+  text-shadow: 0 1px 0 color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.reader-quiet-info-top {
+  top: max(8px, env(safe-area-inset-top));
+}
+
+.reader-quiet-info-bottom {
+  bottom: max(8px, env(safe-area-inset-bottom));
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reader-quiet-info-chapter {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* === MD3 Reader Drawer (Bottom Sheet Dialog) === */
@@ -417,7 +448,10 @@
 
 /* === MD3 Reader Scroll Container === */
 .reader-scroll-container {
-  height: 100%;
+  position: absolute;
+  inset: 0;
+  box-sizing: border-box;
+  height: auto;
   min-height: 0;
   overflow-y: auto;
   overflow-x: hidden;
@@ -432,6 +466,19 @@
 
 .reader-scroll-container::-webkit-scrollbar {
   display: none;
+}
+
+/* epubjs 会在内部创建自己的滚动容器和 iframe。部分 Android WebView 会把
+   continuous flow 的内部宽度向右撑出 1px 以上，从而显示横向白色滚动条。
+   只限制横向溢出，不接管 epubjs 的纵向滚动与分页计算。 */
+.reader-epub-scroll .epub-container {
+  max-width: 100% !important;
+  overflow-x: hidden !important;
+}
+
+.reader-epub-scroll .epub-view,
+.reader-epub-scroll iframe {
+  max-width: 100% !important;
 }
 
 .reader-mode-paged.reader-format-txt .reader-scroll-container,
@@ -478,12 +525,44 @@
   animation: md3-swipe-right var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
+/* TXT/Markdown 多栏正文在 Android WebView 中是一个超宽合成层。
+   对外层视口做 transform 会在反向滑动或跨章时复用旧纹理，留下上一页文字残影。 */
+.reader-mode-paged.reader-format-txt .reader-scroll-container.swipe-left,
+.reader-mode-paged.reader-format-txt .reader-scroll-container.swipe-right,
+.reader-mode-paged.reader-format-md .reader-scroll-container.swipe-left,
+.reader-mode-paged.reader-format-md .reader-scroll-container.swipe-right {
+  animation: none;
+}
+
 .reader-scroll-container[data-page-turn="forward"] .reader-content {
   animation: reader-page-forward var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 .reader-scroll-container[data-page-turn="backward"] .reader-content {
   animation: reader-page-backward var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* TXT/Markdown 的正文是整块多栏图层。对整块正文做 transform 会让 Android
+   WebView 在每次点击翻页时重新合成大图层，产生明显停顿；位置变化本身已足够反馈。 */
+.reader-mode-paged.reader-format-txt .reader-scroll-container[data-page-turn] .reader-content,
+.reader-mode-paged.reader-format-md .reader-scroll-container[data-page-turn] .reader-content {
+  animation: none;
+}
+
+/* 安全翻页反馈：只绘制固定遮罩的透明度，不移动/缩放超宽正文图层。 */
+.reader-turn-fade .reader-scroll-container[data-page-turn]::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  background: color-mix(in srgb, currentColor 8%, transparent);
+  animation: reader-safe-page-fade 180ms ease-out both;
+}
+
+@keyframes reader-safe-page-fade {
+  from { opacity: 0.65; }
+  to { opacity: 0; }
 }
 
 .reader-loading-state {
@@ -926,6 +1005,35 @@
   opacity: 0;
   pointer-events: none;
   transform: translateY(100%);
+}
+
+.reader-select-row select,
+.reader-settings-select-row select {
+  min-width: 116px;
+  min-height: 36px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: 10px;
+  background: var(--md3-surface-container-low, transparent);
+  padding: 0 30px 0 10px;
+  color: inherit;
+  font: inherit;
+}
+
+.reader-select-row select:disabled,
+.reader-settings-select-row select:disabled {
+  opacity: 0.46;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reader-turn-fade .reader-scroll-container[data-page-turn]::after {
+    animation: none;
+    opacity: 0;
+  }
+}
+
+/* 首次恢复精确阅读位置前保留排版尺寸但不绘制正文，防止先闪出第一页。 */
+.reader-content.reader-content-restoring {
+  visibility: hidden;
 }
 
 /* 加载/错误页只保留顶部返回入口，避免目录、主题等无效操作误导用户。 */
@@ -1417,7 +1525,9 @@
   -webkit-overflow-scrolling: touch;
   padding: 0 16px calc(env(safe-area-inset-bottom) + 20px);
   border-radius: var(--app-sheet-radius) var(--app-sheet-radius) 0 0;
-  background: var(--md3-surface-container-low);
+  border: 1px solid var(--reader-border);
+  background: var(--reader-surface);
+  color: var(--reader-text);
   box-shadow: 0 -8px 30px rgba(0, 0, 0, 0.16);
   animation: bottom-sheet-rise var(--motion-medium) cubic-bezier(0.2, 0.8, 0.2, 1);
 }
@@ -1437,7 +1547,15 @@
   width: 36px;
   height: 4px;
   border-radius: 999px;
-  background: var(--md3-outline-variant);
+  background: var(--reader-border);
+}
+
+.reader-bottom-sheet-panel input,
+.reader-bottom-sheet-panel textarea,
+.reader-bottom-sheet-panel select {
+  border-color: var(--reader-border);
+  background: var(--reader-bg);
+  color: var(--reader-text);
 }
 
 .reader-sheet-title {
@@ -1752,4 +1870,481 @@
   background: color-mix(in srgb, var(--md3-primary) 14%, transparent);
   border-radius: 4px;
   transition: background 0.2s ease;
+}
+
+/* Reader Engine V2 的独立文本视口。旧阅读器未启用这些类。 */
+.reader-engine-v2-text-root {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reader-engine-v2-text-root::-webkit-scrollbar {
+  display: none;
+}
+
+.reader-engine-v2-text-content {
+  width: 100%;
+  min-height: 100%;
+  margin: 0;
+  padding-top: calc(18px + env(safe-area-inset-top));
+  padding-bottom: calc(22px + env(safe-area-inset-bottom));
+  box-sizing: border-box;
+}
+
+.reader-engine-v2-paged .reader-engine-v2-text-content {
+  max-width: none;
+  column-fill: auto;
+}
+
+/* === V2 灰度阅读页：与 Legacy 完全隔离，避免两个引擎同时写进度 === */
+.reader-v2-shell {
+  color: #241c18;
+}
+
+.reader-v2-shell.reader-bg-night {
+  color: #e8ddd0;
+}
+
+.reader-v2-topbar,
+.reader-v2-bottombar {
+  position: fixed;
+  z-index: 8;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  color: inherit;
+  background: color-mix(in srgb, currentColor 5%, transparent);
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+
+.reader-v2-topbar {
+  top: 0;
+  min-height: 58px;
+  gap: 10px;
+  padding: max(8px, env(safe-area-inset-top)) 12px 8px;
+  border-bottom: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.reader-v2-topbar > div {
+  display: grid;
+  min-width: 0;
+  flex: 1;
+  gap: 2px;
+}
+
+.reader-v2-topbar strong,
+.reader-v2-topbar span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reader-v2-topbar strong {
+  font-size: 15px;
+}
+
+.reader-v2-topbar span {
+  opacity: 0.68;
+  font-size: 11px;
+}
+
+.reader-v2-icon-button {
+  display: grid;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.reader-v2-badge {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  max-width: 54px;
+  padding: 5px 8px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--md3-primary) 14%, transparent);
+  color: var(--md3-primary);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.reader-v2-viewport,
+.reader-v2-mount {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.reader-v2-mount {
+  color: inherit;
+}
+
+.reader-v2-shell .reader-engine-v2-text-content {
+  padding-top: calc(76px + env(safe-area-inset-top));
+  padding-bottom: calc(88px + env(safe-area-inset-bottom));
+  color: inherit;
+  background: transparent;
+}
+
+.reader-v2-shell .reader-engine-v2-paged {
+  scroll-snap-type: x proximity;
+}
+
+.reader-v2-bottombar {
+  bottom: 0;
+  min-height: 68px;
+  justify-content: space-around;
+  padding: 7px 8px max(7px, env(safe-area-inset-bottom));
+  border-top: 1px solid color-mix(in srgb, currentColor 10%, transparent);
+}
+
+.reader-v2-bottombar > button {
+  display: grid;
+  min-width: 52px;
+  min-height: 48px;
+  gap: 2px;
+  padding: 4px 8px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.reader-v2-bottombar > button span {
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.reader-v2-progress {
+  display: grid;
+  min-width: 66px;
+  gap: 2px;
+  text-align: center;
+}
+
+.reader-v2-progress strong {
+  color: var(--md3-primary);
+  font-size: 13px;
+}
+
+.reader-v2-progress span {
+  opacity: 0.7;
+  font-size: 9px;
+}
+
+.reader-v2-shell.reader-chrome-hidden .reader-v2-topbar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
+}
+
+.reader-v2-shell.reader-chrome-hidden .reader-v2-bottombar {
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(100%);
+}
+
+.reader-v2-state {
+  position: absolute;
+  z-index: 7;
+  inset: 0;
+  display: grid;
+  align-content: center;
+  justify-items: center;
+  gap: 9px;
+  padding: 32px;
+  background: inherit;
+  color: inherit;
+  text-align: center;
+}
+
+.reader-v2-state p {
+  max-width: 320px;
+  margin: 0;
+  opacity: 0.7;
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.reader-v2-state > div {
+  display: grid;
+  width: min(100%, 300px);
+  gap: 9px;
+  margin-top: 10px;
+}
+
+.reader-v2-state button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.reader-v2-panel {
+  position: fixed;
+  z-index: 12;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  color: var(--md3-on-surface);
+  background: var(--md3-surface);
+}
+
+.reader-v2-panel > header {
+  display: grid;
+  grid-template-columns: 44px 1fr 44px;
+  align-items: center;
+  min-height: 58px;
+  padding: max(7px, env(safe-area-inset-top)) 10px 7px;
+  border-bottom: 1px solid var(--md3-outline-variant);
+  text-align: center;
+}
+
+.reader-v2-panel > header button {
+  display: grid;
+  width: 42px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  box-shadow: none;
+}
+
+.reader-v2-toc-list,
+.reader-v2-settings,
+.reader-v2-annotations {
+  overflow-y: auto;
+  padding: 12px 16px calc(24px + env(safe-area-inset-bottom));
+}
+
+.reader-v2-toc-list button {
+  display: block;
+  width: 100%;
+  min-height: 48px;
+  border: 0;
+  border-bottom: 1px solid var(--md3-outline-variant);
+  border-radius: 0;
+  background: transparent;
+  color: var(--md3-on-surface);
+  text-align: left;
+  box-shadow: none;
+}
+
+.reader-v2-toc-list button.active {
+  color: var(--md3-primary);
+  font-weight: 700;
+}
+
+.reader-v2-settings {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+}
+
+.reader-v2-settings label {
+  display: grid;
+  gap: 8px;
+}
+
+.reader-v2-settings label > span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reader-v2-theme-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reader-v2-theme-grid button,
+.reader-v2-legacy-action {
+  min-height: 44px;
+}
+
+.reader-v2-theme-grid button.active {
+  outline: 2px solid var(--md3-primary);
+  outline-offset: -2px;
+}
+
+.reader-v2-settings > p {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.reader-v2-selection-toolbar {
+  position: fixed;
+  z-index: 10;
+  left: 50%;
+  bottom: calc(82px + env(safe-area-inset-bottom));
+  display: flex;
+  max-width: calc(100vw - 24px);
+  padding: 5px;
+  border: 1px solid color-mix(in srgb, currentColor 12%, transparent);
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--md3-surface) 94%, transparent);
+  box-shadow: 0 8px 28px rgb(36 28 24 / 16%);
+  transform: translateX(-50%);
+}
+
+.reader-v2-selection-toolbar button {
+  display: inline-flex;
+  min-width: 46px;
+  min-height: 40px;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 9px;
+  border: 0;
+  background: transparent;
+  color: var(--md3-on-surface);
+  box-shadow: none;
+  font-size: 12px;
+}
+
+.reader-v2-annotations {
+  display: grid;
+  align-content: start;
+  gap: 16px;
+}
+
+.reader-v2-selection-preview {
+  max-height: 128px;
+  margin: 0;
+  overflow-y: auto;
+  padding: 12px 14px;
+  border-left: 3px solid var(--md3-primary);
+  border-radius: 0 12px 12px 0;
+  background: var(--md3-surface-container-low);
+  font-size: 13px;
+  line-height: 1.65;
+}
+
+.reader-v2-annotation-hint,
+.reader-v2-inspiration-count {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.reader-v2-annotation-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.reader-v2-annotation-actions button {
+  display: inline-flex;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px;
+}
+
+.reader-v2-note-editor {
+  display: grid;
+  gap: 9px;
+  padding: 14px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: 16px;
+}
+
+.reader-v2-note-editor > span {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.reader-v2-note-editor textarea {
+  width: 100%;
+  min-height: 96px;
+  resize: vertical;
+}
+
+.reader-v2-annotation-list {
+  display: grid;
+  gap: 8px;
+}
+
+.reader-v2-annotation-list > header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
+}
+
+.reader-v2-annotation-list > header span {
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+}
+
+.reader-v2-annotation-list article {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 40px;
+  gap: 8px;
+  align-items: start;
+  padding: 12px 10px 12px 14px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: 14px;
+}
+
+.reader-v2-annotation-list article > div {
+  display: grid;
+  min-width: 0;
+  gap: 5px;
+}
+
+.reader-v2-annotation-list article p {
+  display: -webkit-box;
+  margin: 0;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  color: var(--md3-on-surface-variant);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.reader-v2-annotation-list article small {
+  color: var(--md3-on-surface-variant);
+  font-size: 10px;
+}
+
+.reader-v2-annotation-list article > button {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  padding: 0;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--md3-error);
+  box-shadow: none;
 }

@@ -72,13 +72,30 @@ export function waitForBrowserPaint(): Promise<void> {
   });
 }
 
-export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string, signal?: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {
-    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs);
+    let settled = false;
+    let timer: number | undefined;
+    const cleanup = () => {
+      if (timer !== undefined) window.clearTimeout(timer);
+      signal?.removeEventListener("abort", handleAbort);
+    };
+    const finish = (callback: () => void) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      callback();
+    };
+    const handleAbort = () => finish(() => reject(new DOMException("任务已取消。", "AbortError")));
+    timer = window.setTimeout(() => finish(() => reject(new Error(message))), timeoutMs);
+    if (signal?.aborted) {
+      handleAbort();
+      return;
+    }
+    signal?.addEventListener("abort", handleAbort, { once: true });
     promise
-      .then((value) => resolve(value))
-      .catch((error) => reject(error))
-      .finally(() => window.clearTimeout(timer));
+      .then((value) => finish(() => resolve(value)))
+      .catch((error) => finish(() => reject(error)));
   });
 }
 

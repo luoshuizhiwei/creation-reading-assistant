@@ -7,16 +7,18 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   build-release-assets:
-    name: 构建 Windows 和 Android 发布包
+    name: 构建 Windows 与 Android 正式发布包
     runs-on: windows-latest
 
     steps:
       - name: 拉取源码
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: 设置 Node.js
         uses: actions/setup-node@v4
@@ -33,60 +35,102 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - name: 安装桌面端依赖
-        run: npm ci
+      - name: 准备版本与 Android 对应源码归档
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
+          $version = (Get-Content mobile/package.json | ConvertFrom-Json).version
+          "CRA_RELEASE_VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          git archive --format=zip --output=release-artifacts/creation-reading-assistant-android-source.zip HEAD mobile scripts docs CHANGELOG.md package.json package-lock.json
 
-      - name: 安装手机端依赖
-        run: npm ci --prefix mobile
+      - name: 恢复 Android 发布签名
+        shell: pwsh
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          if (-not $env:ANDROID_KEYSTORE_BASE64 -or -not $env:ANDROID_KEYSTORE_PASSWORD -or -not $env:ANDROID_KEY_ALIAS -or -not $env:ANDROID_KEY_PASSWORD) {
+            throw "缺少 Android 发布签名 Secret；禁止回退为 Debug APK。"
+          }
+          $keystorePath = Join-Path $env:RUNNER_TEMP "creation-reading-assistant-release.jks"
+          [IO.File]::WriteAllBytes($keystorePath, [Convert]::FromBase64String($env:ANDROID_KEYSTORE_BASE64))
+          "CRA_ANDROID_KEYSTORE_FILE=$keystorePath" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CRA_ANDROID_KEYSTORE_PASSWORD=$env:ANDROID_KEYSTORE_PASSWORD" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CRA_ANDROID_KEY_ALIAS=$env:ANDROID_KEY_ALIAS" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "CRA_ANDROID_KEY_PASSWORD=$env:ANDROID_KEY_PASSWORD" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
-      - name: 检查发布流程文件
-        run: npm run verify:release-readiness
+      - name: 安装依赖
+        run: |
+          npm ci
+          npm ci --prefix mobile
 
-      - name: 运行桌面端完整 Beta 门禁
-        run: npm run verify:beta
+      - name: 运行发布门禁
+        run: |
+          npm run verify:release-readiness
+          npm run verify:beta
+          npm run mobile:build
 
-      - name: 构建电脑端安装包和免安装目录
+      - name: 构建 Windows 安装版与免安装版
         run: npm run dist:beta:installer
 
-      - name: 验证电脑端打包产物
-        run: npm run verify:beta:release
+      - name: 验证 Windows 打包产物
+        run: |
+          npm run verify:beta:release
+          npm run verify:installer-release -- --require-artifact
 
-      - name: 验证电脑端安装包发布配置
-        run: npm run verify:installer-release -- --require-artifact
-
-      - name: 构建手机端网页资源
-        run: npm run mobile:build
-
-      - name: 同步 Capacitor Android 工程
+      - name: 同步并构建签名 Android Release APK
         shell: pwsh
         run: |
           Push-Location mobile
           npx cap sync android
           Pop-Location
-
-      - name: 构建 Android 测试 APK
-        shell: pwsh
-        run: |
-          Push-Location mobile\android
-          .\gradlew.bat assembleDebug
+          Push-Location mobile/android
+          .\gradlew.bat testDebugUnitTest assembleRelease
           Pop-Location
 
-      - name: 整理发布下载文件
+      - name: 验证 Android 签名并整理下载文件
         shell: pwsh
         run: |
-          New-Item -ItemType Directory -Force -Path release-artifacts | Out-Null
-          Compress-Archive -Path release-beta\win-unpacked\* -DestinationPath release-artifacts\creation-reading-assistant-windows-win-unpacked.zip -Force
+          $version = $env:CRA_RELEASE_VERSION
+          $apk = "mobile/android/app/build/outputs/apk/release/app-release.apk"
+          if (-not (Test-Path $apk)) { throw "没有找到已签名 Android Release APK" }
+          $buildTools = Get-ChildItem "$env:ANDROID_HOME/build-tools" -Directory | Sort-Object Name -Descending | Select-Object -First 1
+          & (Join-Path $buildTools.FullName "apksigner.bat") verify --verbose --print-certs $apk
+          if ($LASTEXITCODE -ne 0) { throw "Android APK 签名验证失败" }
+
+          $apkName = "creation-reading-assistant-$version-android.apk"
+          Copy-Item $apk "release-artifacts/$apkName" -Force
+          Copy-Item mobile/LICENSE release-artifacts/LICENSE -Force
+          Copy-Item mobile/NOTICE.md release-artifacts/NOTICE.md -Force
+          Copy-Item mobile/THIRD_PARTY_NOTICES.md release-artifacts/THIRD_PARTY_NOTICES.md -Force
+
+          Compress-Archive -Path release-beta/win-unpacked/* -DestinationPath "release-artifacts/creation-reading-assistant-$version-windows-x64-portable.zip" -Force
           $installer = Get-ChildItem release-beta -Filter "创作阅读助手-*-win-x64.exe" | Select-Object -First 1
           if (-not $installer) { throw "没有找到 Windows 安装包" }
-          Copy-Item $installer.FullName release-artifacts\creation-reading-assistant-windows-setup.exe -Force
-          Copy-Item mobile\android\app\build\outputs\apk\debug\app-debug.apk release-artifacts\creation-reading-assistant-mobile-debug.apk -Force
+          Copy-Item $installer.FullName "release-artifacts/creation-reading-assistant-$version-windows-x64-setup.exe" -Force
+
+          $tag = "v$version"
+          $releaseUrl = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/tag/$tag"
+          $apkUrl = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/download/$tag/$apkName"
+          $manifest = [ordered]@{
+            version = $version
+            releaseUrl = $releaseUrl
+            notes = "Android 原生阅读内核、按需 EPUB 解析、翻页与恢复修复；发布包同时提供 GPL-3.0 对应源码。"
+            apkUrl = $apkUrl
+            apkName = $apkName
+          } | ConvertTo-Json
+          $manifest | Set-Content release-artifacts/mobile-update.json -Encoding utf8
+          $manifest | Set-Content release-artifacts/latest-mobile.json -Encoding utf8
+          Copy-Item CHANGELOG.md release-artifacts/RELEASE_NOTES_zh-CN.md -Force
+
           Get-ChildItem release-artifacts -File |
             Where-Object { $_.Name -ne "SHA256SUMS.txt" } |
             ForEach-Object {
               $hash = Get-FileHash -Algorithm SHA256 -LiteralPath $_.FullName
               "$($hash.Hash)  $($_.Name)"
-            } |
-            Set-Content -Encoding UTF8 release-artifacts\SHA256SUMS.txt
+            } | Set-Content -Encoding utf8 release-artifacts/SHA256SUMS.txt
 
       - name: 上传工作流构建产物
         uses: actions/upload-artifact@v4
@@ -95,15 +139,24 @@ jobs:
           path: release-artifacts/*
           if-no-files-found: error
 
-      - name: 发布 GitHub Release
+      - name: 发布到公开下载仓库
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
-        with:
-          name: 创作阅读助手 ${{ github.ref_name }}
-          body_path: CHANGELOG.md
-          prerelease: true
-          files: |
-            release-artifacts/creation-reading-assistant-windows-win-unpacked.zip
-            release-artifacts/creation-reading-assistant-windows-setup.exe
-            release-artifacts/creation-reading-assistant-mobile-debug.apk
-            release-artifacts/SHA256SUMS.txt
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+        run: |
+          if (-not $env:GH_TOKEN) { throw "缺少 PUBLIC_RELEASE_TOKEN，不能发布到公开下载仓库。" }
+          gh release create $env:GITHUB_REF_NAME --repo luoshuizhiwei/creation-reading-assistant-releases --title "创作阅读助手 $env:GITHUB_REF_NAME" --notes-file release-artifacts/RELEASE_NOTES_zh-CN.md release-artifacts/*
+
+          $manifestBytes = [IO.File]::ReadAllBytes("release-artifacts/latest-mobile.json")
+          $manifestBase64 = [Convert]::ToBase64String($manifestBytes)
+          $existingSha = gh api repos/luoshuizhiwei/creation-reading-assistant-releases/contents/latest-mobile.json --jq .sha 2>$null
+          $arguments = @(
+            "api", "--method", "PUT",
+            "repos/luoshuizhiwei/creation-reading-assistant-releases/contents/latest-mobile.json",
+            "-f", "message=chore: update Android release manifest to $env:GITHUB_REF_NAME",
+            "-f", "content=$manifestBase64",
+            "-f", "branch=main"
+          )
+          if ($existingSha) { $arguments += @("-f", "sha=$existingSha") }
+          gh @arguments

@@ -6,6 +6,7 @@ import {
   type MobileSnapshot
 } from "../../../services/mobile-storage";
 import type { MobileBook } from "../../../types/mobile";
+import { bookReadingTimeMs, totalReadingTimeMs } from "../../shelf/book-progress";
 import type { ProfileSubPage } from "../ProfilePage";
 
 type ConfirmDialog = { title: string; message: string; onConfirm: () => void } | null;
@@ -88,7 +89,7 @@ export function ReadingAndNotesPage({
         <section className="profile-metric-strip">
           <article><strong>{snapshot.books.length}</strong><span>书架书籍</span></article>
           <article><strong>{progressItems.length}</strong><span>有进度</span></article>
-          <article><strong>{formatDuration(snapshot.progress.reduce((sum, item) => sum + item.totalReadingTimeMs, 0))}</strong><span>累计时长</span></article>
+          <article><strong>{formatDuration(totalReadingTimeMs(snapshot))}</strong><span>累计时长</span></article>
         </section>
         <section className="subpage-card">
           <div className="management-list">
@@ -97,7 +98,7 @@ export function ReadingAndNotesPage({
                 <div className="book-cover mini-cover">{book.title.slice(0, 2)}</div>
                 <div>
                   <strong>{book.title}</strong>
-                  <small>{progress.progressPercent.toFixed(2)}% · {formatDuration(progress.totalReadingTimeMs)} · {formatCompactDateTime(progress.lastReadAt)}</small>
+                  <small>{progress.progressPercent.toFixed(2)}% · {formatDuration(bookReadingTimeMs(snapshot, book.id))} · {formatCompactDateTime(progress.lastReadAt)}</small>
                   <div className="book-progress-line"><span style={{ width: `${Math.min(100, Math.max(0, progress.progressPercent))}%` }} /></div>
                 </div>
                 <button

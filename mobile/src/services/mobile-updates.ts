@@ -6,8 +6,17 @@ export const MOBILE_APP_VERSION = mobilePackage.version;
 // APK 内绝不能嵌入 GitHub token，否则任何安装者都能提取凭证。
 const PUBLIC_RELEASE_REPOSITORY = "luoshuizhiwei/creation-reading-assistant-releases";
 const RELEASE_API_URL = `https://api.github.com/repos/${PUBLIC_RELEASE_REPOSITORY}/releases/latest`;
-const RELEASES_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases`;
-const RELEASE_MANIFEST_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases/latest/download/mobile-update.json`;
+export const MOBILE_RELEASES_URL = `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases`;
+export const MOBILE_SOURCE_ARCHIVE_URL = `${MOBILE_RELEASES_URL}/latest/download/creation-reading-assistant-android-source.zip`;
+export const MOBILE_LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html";
+
+// GitHub API 在未登录的 Android WebView 中容易遇到共享 IP 限流（403）。
+// 发行仓库根目录的静态清单不依赖 API 配额，并且每次发版都会更新，作为首选更新源。
+const RELEASE_MANIFEST_URLS = [
+  `https://raw.githubusercontent.com/${PUBLIC_RELEASE_REPOSITORY}/main/latest-mobile.json`,
+  `https://cdn.jsdelivr.net/gh/${PUBLIC_RELEASE_REPOSITORY}@main/latest-mobile.json`,
+  `https://github.com/${PUBLIC_RELEASE_REPOSITORY}/releases/latest/download/mobile-update.json`
+] as const;
 
 export interface MobileUpdateInfo {
   currentVersion: string;
@@ -72,25 +81,29 @@ function isNewerVersion(latest: string, current: string): boolean {
 }
 
 export async function checkForMobileUpdate(): Promise<MobileUpdateInfo> {
-  try {
-    const manifestResponse = await fetchWithTimeout(`${RELEASE_MANIFEST_URL}?t=${Date.now()}`, {
-      cache: "no-store"
-    });
-    if (manifestResponse.ok) {
+  for (const manifestUrl of RELEASE_MANIFEST_URLS) {
+    try {
+      const separator = manifestUrl.includes("?") ? "&" : "?";
+      const manifestResponse = await fetchWithTimeout(`${manifestUrl}${separator}t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { Accept: "application/json" }
+      });
+      if (!manifestResponse.ok) continue;
       const manifest = (await manifestResponse.json()) as MobileUpdateManifest;
-      const latestVersion = manifest.version?.replace(/^v/i, "") || MOBILE_APP_VERSION;
+      if (!manifest.version) continue;
+      const latestVersion = manifest.version.replace(/^v/i, "");
       return {
         currentVersion: MOBILE_APP_VERSION,
         latestVersion,
         hasUpdate: isNewerVersion(latestVersion, MOBILE_APP_VERSION),
-        releaseUrl: manifest.releaseUrl || RELEASES_URL,
+        releaseUrl: manifest.releaseUrl || MOBILE_RELEASES_URL,
         notes: manifest.notes || "暂无更新说明。",
         apkUrl: manifest.apkUrl,
         apkName: manifest.apkName
       };
+    } catch {
+      // 继续尝试下一个不依赖 GitHub API 的静态镜像。
     }
-  } catch {
-    // The static manifest is the preferred path, but it may not exist before the next release.
   }
 
   try {
@@ -111,7 +124,7 @@ export async function checkForMobileUpdate(): Promise<MobileUpdateInfo> {
       currentVersion: MOBILE_APP_VERSION,
       latestVersion,
       hasUpdate: isNewerVersion(latestVersion, MOBILE_APP_VERSION),
-      releaseUrl: release.html_url || RELEASES_URL,
+      releaseUrl: release.html_url || MOBILE_RELEASES_URL,
       notes: release.body || "暂无更新说明。",
       apkUrl: apkAsset?.browser_download_url,
       apkName: apkAsset?.name
@@ -123,5 +136,5 @@ export async function checkForMobileUpdate(): Promise<MobileUpdateInfo> {
 }
 
 export function openMobileUpdateUrl(info: MobileUpdateInfo): void {
-  window.open(info.apkUrl || info.releaseUrl || RELEASES_URL, "_blank", "noopener,noreferrer");
+  window.open(info.apkUrl || info.releaseUrl || MOBILE_RELEASES_URL, "_blank", "noopener,noreferrer");
 }

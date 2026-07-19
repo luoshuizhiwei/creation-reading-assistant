@@ -28,7 +28,7 @@ import {
 } from "../../services/mobile-storage";
 import type { MobileBook, MobileReaderSettings } from "../../types/mobile";
 import { formatDuration } from "../../utils/format";
-import { estimateBookReadingSpeed, progressFor } from "../shelf/book-progress";
+import { bookReadingTimeMs, estimateBookReadingSpeed, progressFor } from "../shelf/book-progress";
 import { useReaderSession } from "./hooks/useReaderSession";
 import { useReaderWakeLock } from "./hooks/useReaderWakeLock";
 import { useReaderDocument } from "./hooks/useReaderDocument";
@@ -42,7 +42,10 @@ import { ReaderInspirationSheet } from "./components/ReaderInspirationSheet";
 import { TTSPlayerBar } from "./components/TTSPlayerBar";
 import { ReaderAIAssistSheet } from "./components/ReaderAIAssistSheet";
 import { ReaderAIExplainSheet } from "./components/ReaderAIExplainSheet";
-import { EpubReaderView, type EpubLocationInfo, type EpubReaderHandle } from "./components/EpubReaderView";
+import { EpubReaderView, type EpubReaderHandle } from "./components/EpubReaderView";
+import { EpubNavigatorAdapter, type EpubLocationInfo } from "./epub-navigator";
+import { normalizeReaderLocator } from "./engine-v2/locator";
+import { readerFormatFromBook, type ReaderLocator } from "./engine-v2/types";
 import { READER_PROGRESS_SAVE_DEBOUNCE_MS } from "./reader-constants";
 import { loadMobileAISettings } from "../../services/mobile-ai";
 import {
@@ -87,9 +90,11 @@ export function MobileReaderView({
   const readerSessionStartProgressRef = useRef(progressFor(snapshot, book.id));
   // 持有最新的 closeReader，供硬件返回键事件回调调用，避免闭包陈旧导致进度丢失
   const closeReaderRef = useRef<() => void>(() => {});
-  // EPUB 渲染视图引用与位置状态
-  const epubViewRef = useRef<EpubReaderHandle>(null);
-  const epubLocationRef = useRef<EpubLocationInfo | null>(null);
+  // EPUB 页面只依赖统一 Navigator；epub.js 的具体句柄留在适配层内部。
+  const epubNavigator = useMemo(() => new EpubNavigatorAdapter(book.id), [book.id]);
+  const bindEpubView = useCallback((handle: EpubReaderHandle | null) => {
+    epubNavigator.bind(handle);
+  }, [epubNavigator]);
   const epubSaveTimerRef = useRef<number>();
   const readerClosingRef = useRef(false);
   const readerSessionSavedRef = useRef(false);
@@ -125,7 +130,7 @@ export function MobileReaderView({
   const rhythmLastNotifiedRef = useRef(0);
   const ttsHighlightElRef = useRef<HTMLElement | null>(null);
 
-  // 沉浸模式计时器：控件显示后 3.5s 无交互自动隐藏
+  // 沉浸模式计时器：按用户设置在无交互后自动隐藏；0 表示保持显示。
   const immersiveTimerRef = useRef<number>();
   const clearImmersiveTimer = useCallback(() => {
     if (immersiveTimerRef.current) {
@@ -134,12 +139,13 @@ export function MobileReaderView({
     }
   }, []);
   const scheduleImmersiveHide = useCallback(() => {
-    if (!settings.immersiveMode) return;
+    const delaySeconds = Math.min(10, Math.max(0, settings.autoHideControlsSeconds ?? 4));
+    if (!settings.immersiveMode || delaySeconds === 0) return;
     clearImmersiveTimer();
     immersiveTimerRef.current = window.setTimeout(() => {
       setReaderControlsVisible(false);
-    }, 3500);
-  }, [settings.immersiveMode, clearImmersiveTimer]);
+    }, delaySeconds * 1000);
+  }, [settings.immersiveMode, settings.autoHideControlsSeconds, clearImmersiveTimer]);
   const resetImmersiveTimer = useCallback(() => {
     if (!settings.immersiveMode || !readerControlsVisible) {
       clearImmersiveTimer();
@@ -232,7 +238,9 @@ export function MobileReaderView({
 
   const savedReadingProgress = snapshot.progress.find((item) => item.bookId === book.id);
   const savedReadingLocation = savedReadingProgress?.currentLocation;
-  const initialEpubCfi = savedReadingLocation?.epub?.cfi;
+  // epubjs 会在阅读模式切换时重新挂载。优先使用本次阅读中最新的 CFI，
+  // 避免回退到尚未落盘的旧进度，造成切换分页/滚动后章节瞬间跳回。
+  const initialEpubCfi = epubNavigator.getLegacyLocationInfo()?.cfi ?? savedReadingLocation?.epub?.cfi;
 
   const {
     document,
@@ -257,7 +265,10 @@ export function MobileReaderView({
   const readerSearchResults = useMemo(() => createReaderSearchResults(document, readerSearchQuery), [document, readerSearchQuery]);
 
   const {
+    chapterTurnPending,
+    readerViewportReady,
     pageTurnDirection,
+    triggerReaderPageTurn,
     swipeDirection,
     setSwipeDirection,
     currentPageInfo,
@@ -330,7 +341,7 @@ export function MobileReaderView({
   }, []);
 
   const handleEpubLocationChange = useCallback((info: EpubLocationInfo) => {
-    epubLocationRef.current = info;
+    epubNavigator.updateLocation(info);
     setCurrentProgress(info.progressPercent);
     const matched = document.toc.find((item) => {
       if (!item.href || !info.href) return false;
@@ -346,69 +357,62 @@ export function MobileReaderView({
       const extras = buildEpubLocationExtras(info, matched);
       void saveProgressRef.current(info.progressPercent, extras);
     }, READER_PROGRESS_SAVE_DEBOUNCE_MS);
-  }, [document.toc, currentChapter, buildEpubLocationExtras]);
+  }, [document.toc, currentChapter, buildEpubLocationExtras, epubNavigator]);
 
   const handleEpubReady = useCallback(() => {
+    epubNavigator.markReady();
     setEpubReady(true);
-  }, []);
+  }, [epubNavigator]);
 
   const handleEpubDocumentReady = useCallback((nextDocument: MobileReaderDocument) => {
+    epubNavigator.updateDocument(nextDocument);
     setDocument(nextDocument);
     setCurrentChapter(nextDocument.toc[0]);
-  }, [setDocument]);
+  }, [epubNavigator, setDocument]);
 
   const handleEpubError = useCallback((message: string) => {
     setEpubRenderError(message);
   }, []);
 
   const epubTurnPrev = useCallback(() => {
-    void epubViewRef.current?.prev();
-  }, []);
+    triggerReaderPageTurn(-1);
+    void epubNavigator.goBackward();
+  }, [epubNavigator, triggerReaderPageTurn]);
 
   const epubTurnNext = useCallback(() => {
-    void epubViewRef.current?.next();
-  }, []);
+    triggerReaderPageTurn(1);
+    void epubNavigator.goForward();
+  }, [epubNavigator, triggerReaderPageTurn]);
 
   // 封装导航函数：EPUB 格式使用 epubjs 渲染视图，TXT/Markdown 使用原有滚动容器
   const handleJumpToChapter = useCallback((target: MobileReaderDocument["toc"][number] | undefined) => {
     if (book.format === "epub") {
       if (!target) return;
-      if (target.href) {
-        void epubViewRef.current?.display(target.href);
-      } else if (typeof target.index === "number") {
-        void epubViewRef.current?.display(target.index);
-      }
+      void epubNavigator.goToChapter(target);
       finishReaderJump();
       return;
     }
     jumpToChapter(target);
-  }, [book.format, jumpToChapter, finishReaderJump]);
+  }, [book.format, epubNavigator, jumpToChapter, finishReaderJump]);
 
   const handleMoveChapter = useCallback((direction: -1 | 1) => {
     if (book.format === "epub") {
-      if (direction < 0) void epubViewRef.current?.prev();
-      else void epubViewRef.current?.next();
+      if (direction < 0) void epubNavigator.goBackward();
+      else void epubNavigator.goForward();
       finishReaderJump();
       return;
     }
     moveChapter(direction);
-  }, [book.format, moveChapter, finishReaderJump]);
+  }, [book.format, epubNavigator, moveChapter, finishReaderJump]);
 
   const handleJumpToReaderProgress = useCallback((progressPercent: number) => {
     if (book.format === "epub") {
-      const total = document.totalChapters ?? document.toc.length;
-      const targetIndex = Math.min(Math.max(0, total - 1), Math.floor((progressPercent / 100) * total));
-      const item = document.toc.find((item) => item.index === targetIndex) ?? document.toc[targetIndex];
-      if (item?.href) {
-        void epubViewRef.current?.display(item.href);
-      } else {
-        void epubViewRef.current?.display(targetIndex);
-      }
+      void epubNavigator.goToProgress(progressPercent);
       finishReaderJump();
       return;
     }
     jumpToReaderProgress(progressPercent);
-  }, [book.format, document.totalChapters, document.toc, jumpToReaderProgress, finishReaderJump]);
+  }, [book.format, epubNavigator, jumpToReaderProgress, finishReaderJump]);
 
   useEffect(() => {
     if (typeof initialProgressPercent !== "number") return;
@@ -531,12 +535,31 @@ export function MobileReaderView({
     runBackwardAction: runBackwardWithImmersive,
     runForwardAction: runForwardWithImmersive,
     onToggleControls: toggleReaderControls,
-    setSwipeDirection
+    setSwipeDirection,
+    navigationBlocked: book.format !== "epub" && (documentRendering || chapterTurnPending || !readerViewportReady)
   });
 
   const openInspirationSheet = useCallback(() => {
     setReaderSheet("inspiration-sheet");
   }, []);
+
+  const getCurrentAnnotationLocator = useCallback((): ReaderLocator | null => {
+    if (book.format === "epub") return epubNavigator.getCurrentLocator();
+    const element = scrollRef.current;
+    const extras = element
+      ? readerLocationExtrasFromViewport(element, document, settings.readerMode, currentChapter)
+      : undefined;
+    return normalizeReaderLocator({
+      version: 2,
+      bookId: book.id,
+      format: readerFormatFromBook(book),
+      progression: Math.min(1, Math.max(0, currentProgress / 100)),
+      chapterId: currentChapter?.id,
+      textOffset: extras?.text?.charOffset,
+      paragraphIndex: extras?.paragraphIndex,
+      updatedAt: Date.now()
+    });
+  }, [book, currentChapter, currentProgress, document, epubNavigator, settings.readerMode]);
 
   const handleSaveInspiration = useCallback((nextSnapshot: MobileSnapshot, savedId: string) => {
     setLastSavedInspirationId(savedId);
@@ -571,6 +594,7 @@ export function MobileReaderView({
     setSelectionText,
     currentChapter,
     currentProgress,
+    getCurrentLocator: getCurrentAnnotationLocator,
     noteDraft,
     setNoteDraft,
     setReaderNotice,
@@ -579,6 +603,17 @@ export function MobileReaderView({
     openInspirationSheet,
     lastReaderActivityRef
   });
+
+  // TXT/Markdown 的 Android 文本选择在 touchend 时可能尚未提交；监听宿主
+  // selectionchange 才能稳定显示应用自己的“灵感/高亮/笔记”工具栏。
+  useEffect(() => {
+    if (book.format === "epub") return;
+    const updateSelection = () => {
+      window.requestAnimationFrame(() => captureSelection());
+    };
+    window.document.addEventListener("selectionchange", updateSelection);
+    return () => window.document.removeEventListener("selectionchange", updateSelection);
+  }, [book.format, captureSelection]);
 
   // 书籍切换时重置会话状态
   useEffect(() => {
@@ -596,14 +631,18 @@ export function MobileReaderView({
     setReaderNotice("");
     setEpubReady(false);
     setEpubRenderError("");
-    epubLocationRef.current = null;
+    epubNavigator.clearLocation();
     setShowTTSPlayer(false);
     setTtsStartCharOffset(0);
     setTtsCharOffset(0);
     setTtsParagraphIndex(-1);
     readerClosingRef.current = false;
     readerSessionSavedRef.current = false;
-  }, [book.id]);
+  }, [book.id, epubNavigator]);
+
+  useEffect(() => () => {
+    epubNavigator.destroy();
+  }, [epubNavigator]);
 
   // readerNotice 自动消失：简短提示 2.5 秒，灵感保存提示 5 秒
   useEffect(() => {
@@ -616,14 +655,15 @@ export function MobileReaderView({
   }, [readerNotice]);
 
   const buildCurrentLocationExtras = useCallback((): Partial<ReadingLocation> | undefined => {
-    if (book.format === "epub" && epubLocationRef.current) {
-      return buildEpubLocationExtras(epubLocationRef.current, currentChapter);
+    const epubLocation = epubNavigator.getLegacyLocationInfo();
+    if (book.format === "epub" && epubLocation) {
+      return buildEpubLocationExtras(epubLocation, currentChapter);
     }
     const scrollElement = scrollRef.current;
     return scrollElement
       ? readerLocationExtrasFromViewport(scrollElement, document, settings.readerMode, currentChapter)
       : undefined;
-  }, [book.format, buildEpubLocationExtras, currentChapter, document, settings.readerMode]);
+  }, [book.format, buildEpubLocationExtras, currentChapter, document, epubNavigator, settings.readerMode]);
   const buildCurrentLocationExtrasRef = useRef(buildCurrentLocationExtras);
   buildCurrentLocationExtrasRef.current = buildCurrentLocationExtras;
 
@@ -752,7 +792,7 @@ export function MobileReaderView({
     [snapshot.inspirations, book.id]
   );
   const showSelectionToolbar = Boolean(selectionText) && !readerPanel;
-  const savedBookReadingMs = snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0;
+  const savedBookReadingMs = bookReadingTimeMs(snapshot, book.id);
   const sessionProgressDelta = Math.max(0, currentProgress - readerSessionStartProgressRef.current);
   const readerSpeed = estimateBookReadingSpeed(snapshot, book, document.wordCount, activeReadingMs, sessionProgressDelta);
   // 估算读完本书剩余时间
@@ -764,12 +804,13 @@ export function MobileReaderView({
     ? "没有读到正文内容。请返回书架重新导入本地文件，或在同步后下载正文。"
     : "";
   const readerErrorMessage = loadError || (book.format === "epub" ? documentError || epubRenderError : "") || readerTimeoutError || readerEmptyMessage;
-  const hasReadableDocument = !loading && !documentRendering && !readerErrorMessage && (book.format === "epub" ? Boolean(content) : Boolean(document.html.trim()));
-  const forceReaderChromeVisible = Boolean(readerControlsVisible || readerErrorMessage || loading || documentRendering || (book.format === "epub" && !epubReady));
+  const initialDocumentRendering = documentRendering && !document.html.trim();
+  const hasReadableDocument = !loading && !readerErrorMessage && (book.format === "epub" ? Boolean(content) : Boolean(document.html.trim()));
+  const forceReaderChromeVisible = Boolean(readerControlsVisible || readerErrorMessage || loading || initialDocumentRendering || (book.format === "epub" && !epubReady));
 
   return (
     <main
-      className={`reader-shell reader-format-${book.format} reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} ${forceReaderChromeVisible ? "" : "reader-chrome-hidden"} ${readerErrorMessage ? "reader-has-error" : ""} ${loading || documentRendering ? "reader-is-loading" : ""} ${showTTSPlayer ? "tts-active" : ""} ${selectionText ? "selection-active" : ""} ${settings.immersiveMode ? "immersive-mode" : ""} ${settings.chineseTypography ? "chinese-typography" : ""}`}
+      className={`reader-shell reader-format-${book.format} reader-bg-${settings.readerBackground} reader-mode-${settings.readerMode} reader-tap-${settings.tapZoneMode} reader-turn-${settings.pageTurnEffect ?? "none"} ${forceReaderChromeVisible ? "" : "reader-chrome-hidden"} ${readerErrorMessage ? "reader-has-error" : ""} ${loading || initialDocumentRendering ? "reader-is-loading" : ""} ${showTTSPlayer ? "tts-active" : ""} ${selectionText ? "selection-active" : ""} ${settings.immersiveMode ? "immersive-mode" : ""} ${settings.chineseTypography ? "chinese-typography" : ""}`}
       onPointerDown={resetImmersiveTimer}
     >
       <div className="reader-dim-layer" style={{ opacity: Math.max(0, Math.min(0.58, (100 - settings.brightness) / 100)) }} aria-hidden="true" />
@@ -835,6 +876,18 @@ export function MobileReaderView({
         </div>
       </header>
 
+      {(settings.showReaderInfo ?? true) && hasReadableDocument && !forceReaderChromeVisible && !readerPanel && !readerSheet && !selectionText && (
+        <>
+          <div className="reader-quiet-info reader-quiet-info-top" aria-hidden="true">
+            <span className="reader-quiet-info-chapter">{chapterLabel}</span>
+          </div>
+          <div className="reader-quiet-info reader-quiet-info-bottom" aria-hidden="true">
+            <span>{progressLabel}</span>
+            <span>本次 {formatDuration(activeReadingMs)}</span>
+          </div>
+        </>
+      )}
+
       {readerPanel && (
         <ReaderPanelView
           readerPanel={readerPanel}
@@ -882,17 +935,21 @@ export function MobileReaderView({
         ref={scrollRef}
         className={`reader-scroll-container ${swipeDirection ? `swipe-${swipeDirection}` : ""}`}
         data-page-turn={pageTurnDirection ?? undefined}
-        onClick={handleReaderTap}
+        // EPUB 正文位于 iframe 内，并由 EpubReaderView 自己处理点击区和滑动。
+        // 如果外层 section 同时监听，Android 会把同一次物理触摸分别作为
+        // iframe touch/click 与宿主 click 消费，造成一次点击连续翻多页甚至跨章。
+        onClick={book.format === "epub" ? undefined : handleReaderTap}
         onScroll={handleReaderScrollWithImmersive}
         onMouseUp={captureSelection}
-        onTouchStart={handleReaderTouchStart}
-        onTouchMove={handleReaderTouchMove}
+        onTouchStart={book.format === "epub" ? undefined : handleReaderTouchStart}
+        onTouchMove={book.format === "epub" ? undefined : handleReaderTouchMove}
         onTouchEnd={(event) => {
+          if (book.format === "epub") return;
           captureSelection(event);
           handleReaderTouchEnd(event);
         }}
       >
-        {(loading || documentRendering || (book.format === "epub" && !epubReady && !epubRenderError)) && (
+        {(loading || initialDocumentRendering || (book.format === "epub" && !epubReady && !epubRenderError)) && (
           <div className="reader-skeleton" role="status" aria-live="polite">
             <div className="reader-skeleton-line"></div>
             <div className="reader-skeleton-line"></div>
@@ -931,7 +988,8 @@ export function MobileReaderView({
         )}
         {hasReadableDocument && book.format !== "epub" && (
           <article
-            className="reader-content"
+            key={`${book.id}:${document.currentTocIndex ?? readerChapterIndex}:${settings.readerMode}`}
+            className={`reader-content ${readerViewportReady ? "" : "reader-content-restoring"}`}
             style={{
               fontSize: `${settings.fontSize}px`,
               lineHeight: settings.lineHeight,
@@ -969,7 +1027,7 @@ export function MobileReaderView({
         )}
         {hasReadableDocument && book.format === "epub" && (
           <EpubReaderView
-            ref={epubViewRef}
+            ref={bindEpubView}
             book={book}
             content={content}
             settings={settings}
@@ -982,6 +1040,7 @@ export function MobileReaderView({
             onBackward={epubTurnPrev}
             onForward={epubTurnNext}
             onToggleControls={toggleReaderControls}
+            onSelectionChange={setSelectionText}
           />
         )}
       </section>
@@ -1089,6 +1148,7 @@ export function MobileReaderView({
           selectionText={selectionText}
           currentProgress={currentProgress}
           currentChapter={currentChapter}
+          currentLocator={getCurrentAnnotationLocator()}
           onSave={handleSaveInspiration}
           onClose={() => setReaderSheet(null)}
         />
@@ -1111,6 +1171,7 @@ export function MobileReaderView({
           selectionText={selectionText}
           currentProgress={currentProgress}
           currentChapter={currentChapter}
+          currentLocator={getCurrentAnnotationLocator()}
           onSave={handleSaveInspiration}
           onClose={() => setReaderSheet(null)}
         />

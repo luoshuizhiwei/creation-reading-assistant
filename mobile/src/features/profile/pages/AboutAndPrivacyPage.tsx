@@ -6,7 +6,12 @@ import {
   importMobileSnapshot,
   type MobileSnapshot
 } from "../../../services/mobile-storage";
-import { MOBILE_APP_VERSION } from "../../../services/mobile-updates";
+import {
+  MOBILE_APP_VERSION,
+  MOBILE_LICENSE_URL,
+  MOBILE_RELEASES_URL,
+  MOBILE_SOURCE_ARCHIVE_URL
+} from "../../../services/mobile-updates";
 import { buildStorageBreakdown, clearReaderContentCache } from "../profile-helpers";
 import type { useUpdateCheck } from "../hooks/useUpdateCheck";
 import type { ProfileSubPage } from "../ProfilePage";
@@ -166,6 +171,24 @@ export function AboutAndPrivacyPage({
           </div>
         </section>
 
+        <section className="subpage-card">
+          <div>
+            <p className="mini-label">开源与许可证</p>
+            <h2>Android 端按 GPL-3.0 发布</h2>
+            <p className="subtle">
+              移动端包含基于 Legado / 阅读Sigma 固定版本适配的本地阅读内核。每个正式 APK 版本都会同时提供对应源代码归档、许可证与修改说明。
+            </p>
+          </div>
+          <div className="button-row settings-actions">
+            <a className="secondary-button" href={MOBILE_SOURCE_ARCHIVE_URL} target="_blank" rel="noopener noreferrer">
+              <FileDown size={17} />下载对应源码
+            </a>
+            <a className="secondary-button" href={MOBILE_LICENSE_URL} target="_blank" rel="noopener noreferrer">
+              <ExternalLink size={17} />查看 GPL-3.0
+            </a>
+          </div>
+        </section>
+
         {showUpdateBanner && updateInfo && (
           <section className="subpage-card update-banner-card" role="status">
             <button className="update-banner-close" onClick={dismissUpdate} aria-label="忽略此版本">
@@ -224,7 +247,7 @@ export function AboutAndPrivacyPage({
           </div>
           <a
             className="update-release-link"
-            href={updateInfo?.releaseUrl || "https://github.com/luoshuizhiwei/creation-reading-assistant/releases"}
+            href={updateInfo?.releaseUrl || MOBILE_RELEASES_URL}
             target="_blank"
             rel="noopener noreferrer"
           >

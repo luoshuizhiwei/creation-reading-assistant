@@ -20,6 +20,28 @@ export function progressFor(snapshot: MobileSnapshot, bookId: string): number {
   return Number.isFinite(value) ? Math.min(100, Math.max(0, value)) : 0;
 }
 
+/**
+ * 返回一本书可信的累计阅读时长。
+ * 旧版本只写 session、没有同步更新 progress.totalReadingTimeMs；取两者较大值
+ * 既能兼容旧数据，也避免新版本同时写 progress/session 后被重复累计。
+ */
+export function bookReadingTimeMs(snapshot: MobileSnapshot, bookId: string): number {
+  const persisted = snapshot.progress.find((item) => item.bookId === bookId)?.totalReadingTimeMs ?? 0;
+  const sessions = snapshot.sessions
+    .filter((session) => session.bookId === bookId && !session.deletedAt)
+    .reduce((sum, session) => sum + Math.max(0, session.activeDurationMs ?? session.durationMs ?? 0), 0);
+  return Math.max(0, persisted, sessions);
+}
+
+export function totalReadingTimeMs(snapshot: MobileSnapshot): number {
+  const bookIds = new Set<string>([
+    ...snapshot.books.map((book) => book.id),
+    ...snapshot.progress.map((progress) => progress.bookId),
+    ...snapshot.sessions.map((session) => session.bookId)
+  ]);
+  return [...bookIds].reduce((sum, bookId) => sum + bookReadingTimeMs(snapshot, bookId), 0);
+}
+
 export interface ReaderPositionLabel {
   chapterTitle?: string;
   pageIndex?: number;

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import jsQR from "jsqr";
 import { formatQrScanError } from "../utils/mobile-helpers";
+import { addMobileLog } from "../services/mobile-logger";
 
 export function QrScanOverlay({
   onResult,
@@ -15,7 +16,12 @@ export function QrScanOverlay({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const onResultRef = useRef(onResult);
+  const onMessageRef = useRef(onMessage);
   const [error, setError] = useState("");
+
+  onResultRef.current = onResult;
+  onMessageRef.current = onMessage;
 
   useEffect(() => {
     let stream: MediaStream | undefined;
@@ -43,7 +49,7 @@ export function QrScanOverlay({
         const code = jsQR(imageData.data, imageData.width, imageData.height);
         if (code?.data) {
           stop();
-          onResult(code.data);
+          onResultRef.current(code.data);
           return;
         }
       }
@@ -58,24 +64,42 @@ export function QrScanOverlay({
           video: { facingMode: { ideal: "environment" } }
         });
         const video = videoRef.current;
-        if (!video) return;
+        if (!video || stopped) {
+          stream.getTracks().forEach((track) => track.stop());
+          return;
+        }
         video.srcObject = stream;
+        if (video.readyState < HTMLMediaElement.HAVE_METADATA) {
+          await new Promise<void>((resolve, reject) => {
+            const ready = () => { cleanup(); resolve(); };
+            const failed = () => { cleanup(); reject(new Error("camera metadata unavailable")); };
+            const cleanup = () => {
+              video.removeEventListener("loadedmetadata", ready);
+              video.removeEventListener("error", failed);
+            };
+            video.addEventListener("loadedmetadata", ready, { once: true });
+            video.addEventListener("error", failed, { once: true });
+          });
+        }
+        if (stopped) return;
         await video.play();
-        onMessage("摄像头已打开，请把电脑端二维码放进取景框。");
+        onMessageRef.current("摄像头已打开，请把电脑端二维码放进取景框。");
         timeout = window.setTimeout(() => {
           setError("扫码超时。请靠近二维码、提高电脑屏幕亮度，或改用粘贴配对 URL。");
         }, 45_000);
         scanFrame();
       } catch (err) {
+        if (stopped) return;
         const message = formatQrScanError(err);
         setError(message);
-        onMessage(message);
+        addMobileLog("error", "二维码扫码", message, { code: "QR_CAMERA_FAILED" });
+        onMessageRef.current(message);
       }
     };
 
     void start();
     return stop;
-  }, [onMessage, onResult]);
+  }, []);
 
   return (
     <section className="qr-scan-overlay" role="dialog" aria-modal="true" aria-label="扫码连接电脑">
@@ -90,7 +114,7 @@ export function QrScanOverlay({
           </button>
         </header>
         <div className="qr-video-frame">
-          <video ref={videoRef} className="qr-video" muted playsInline />
+          <video ref={videoRef} className="qr-video" muted playsInline autoPlay />
           <canvas ref={canvasRef} hidden />
           <div className="qr-corners" aria-hidden="true" />
         </div>

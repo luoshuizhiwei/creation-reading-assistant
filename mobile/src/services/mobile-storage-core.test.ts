@@ -28,7 +28,14 @@ Object.defineProperty(globalThis, "localStorage", {
   }
 });
 
-import { emptySnapshot, initializeMobileStorage, saveMobileSnapshot } from "./mobile-storage-core";
+import {
+  emptySnapshot,
+  initializeMobileStorage,
+  loadMobileReaderSettings,
+  saveMobileReaderSettings,
+  saveMobileSnapshot
+} from "./mobile-storage-core";
+import { defaultReaderSettings } from "../features/reader/reader-model";
 
 function inspiration(id: string): MobileInspiration {
   const now = new Date().toISOString();
@@ -84,5 +91,24 @@ describe("mobile SQLite snapshot persistence", () => {
     const snapshot = await initializeMobileStorage();
 
     expect(snapshot.tags).toEqual([tag]);
+  });
+
+  it("persists Legado-inspired reader behavior settings across restarts", () => {
+    saveMobileReaderSettings({
+      ...defaultReaderSettings,
+      immersiveMode: true,
+      chineseTypography: true,
+      pageTurnEffect: "fade",
+      showReaderInfo: false,
+      autoHideControlsSeconds: 8
+    });
+
+    const restored = loadMobileReaderSettings();
+
+    expect(restored.immersiveMode).toBe(true);
+    expect(restored.chineseTypography).toBe(true);
+    expect(restored.pageTurnEffect).toBe("fade");
+    expect(restored.showReaderInfo).toBe(false);
+    expect(restored.autoHideControlsSeconds).toBe(8);
   });
 });

@@ -1,10 +1,17 @@
 import { useMemo, useRef, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { BookOpen, Clock3, Download, Gauge, ImagePlus, Pencil, RotateCcw, Sparkles, Trash2, Type } from "lucide-react";
 import { deleteMobileBook, saveMobileSnapshot } from "../../services/mobile-storage";
 import type { MobileBook, MobileSnapshot } from "../../types/mobile";
 import { formatBytes } from "../../utils/mobile-helpers";
 import { formatCompactDateTime, formatDuration } from "../../utils/format";
-import { formatReaderPositionLabel, progressFor, readerPositionFor } from "./book-progress";
+import {
+  loadReaderEngineVersionForBook,
+  readerEngineSupportsNative,
+  readerEngineSupportsV2,
+  saveReaderEngineVersionForBook,
+  type ResolvedReaderEngineVersion
+} from "../reader/engine-v2/engine-version";
+import { bookReadingTimeMs, formatReaderPositionLabel, progressFor, readerPositionFor } from "./book-progress";
 import { getBookReadiness, isBookDownloaded } from "./book-status";
 
 function progressFromSessionScroll(session: MobileSnapshot["sessions"][number], fallback: number): string {
@@ -123,6 +130,9 @@ export function BookDetailSheet({
   const [editTitle, setEditTitle] = useState(book.title);
   const [editAuthor, setEditAuthor] = useState(book.author ?? "");
   const [editDescription, setEditDescription] = useState(book.description ?? "");
+  const [readerEngineVersion, setReaderEngineVersion] = useState<ResolvedReaderEngineVersion>(() => (
+    loadReaderEngineVersionForBook(book)
+  ));
   const coverInputRef = useRef<HTMLInputElement>(null);
 
   const progress = progressFor(snapshot, book.id);
@@ -130,7 +140,7 @@ export function BookDetailSheet({
   const downloaded = isBookDownloaded(book);
   const readiness = getBookReadiness(book);
   const inspirationCount = snapshot.inspirations.filter((item) => item.source?.bookId === book.id).length;
-  const totalReadingMs = snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0;
+  const totalReadingMs = bookReadingTimeMs(snapshot, book.id);
   const bookSessions = snapshot.sessions
     .filter((item) => item.bookId === book.id)
     .sort((left, right) => right.startAt.localeCompare(left.startAt));
@@ -305,6 +315,16 @@ export function BookDetailSheet({
   const fileSizeLabel = formatBytes(book.size);
   const formatLabel = book.format.toUpperCase();
 
+  const selectReaderEngine = (version: ResolvedReaderEngineVersion) => {
+    saveReaderEngineVersionForBook(book.id, version);
+    setReaderEngineVersion(version);
+    onMessage(version === "native-legado"
+      ? `《${book.title}》下次打开将使用 Android 原生 Legado 分页内核。`
+      : version === "v2"
+        ? `《${book.title}》下次打开将使用 V2 Web 内核；遇到问题可随时切换。`
+        : `《${book.title}》已切回 Legacy 阅读内核。`);
+  };
+
   return (
     <div className="screen-stack book-detail-page book-detail-sheet reading-book-profile" role="region" aria-label={`${book.title} 详情`}>
       <header className="mobile-header row-header subpage-header">
@@ -315,7 +335,8 @@ export function BookDetailSheet({
         </div>
         {!editing && (
           <button className="ghost-button edit-toggle-btn" onClick={() => setEditing(true)} aria-label="编辑书籍信息">
-            编辑
+            <Pencil size={16} aria-hidden="true" />
+            <span>编辑</span>
           </button>
         )}
       </header>
@@ -390,13 +411,16 @@ export function BookDetailSheet({
           </div>
           <div className="book-cover-actions">
             <button className="secondary-button" onClick={() => coverInputRef.current?.click()}>
+              <ImagePlus size={17} aria-hidden="true" />
               本地图片
             </button>
             <button className="secondary-button" onClick={() => void handleGenerateTextCover()}>
+              <Type size={17} aria-hidden="true" />
               文字封面
             </button>
             {book.coverDataUrl ? (
               <button className="secondary-button text-danger" onClick={() => void handleResetCover()}>
+                <RotateCcw size={16} aria-hidden="true" />
                 重置封面
               </button>
             ) : null}
@@ -413,14 +437,17 @@ export function BookDetailSheet({
 
       <div className="book-detail-progress">
         <div>
+          <Gauge size={17} aria-hidden="true" />
           <strong>{formatReaderPositionLabel(position)}</strong>
           <span>阅读进度</span>
         </div>
         <div>
+          <Clock3 size={17} aria-hidden="true" />
           <strong>{formatDuration(totalReadingMs)}</strong>
           <span>累计阅读</span>
         </div>
         <div>
+          <Sparkles size={17} aria-hidden="true" />
           <strong>{inspirationCount}</strong>
           <span>灵感</span>
         </div>
@@ -430,6 +457,7 @@ export function BookDetailSheet({
       </div>
       <div className="book-detail-actions">
         <button onClick={() => (downloaded ? onOpenBook(book) : onDownloadBook(book))}>
+          <BookOpen size={18} aria-hidden="true" />
           {downloaded ? (progress > 0 ? "继续阅读" : "开始阅读") : "下载后阅读"}
         </button>
         <button
@@ -440,6 +468,7 @@ export function BookDetailSheet({
             else onDownloadBook(book);
           }}
         >
+          <Download size={17} aria-hidden="true" />
           {downloadingBookId === book.id ? "取消下载" : downloaded ? "正文已下载" : "下载正文"}
         </button>
       </div>
@@ -537,10 +566,50 @@ export function BookDetailSheet({
           </div>
         ) : <p className="empty-hint">还没有书籍标签。可以在“我的 / 标签管理”里创建类型为“书籍”的标签。</p>}
       </section>
-      <section className="book-detail-insights">
+      {readerEngineSupportsV2(book) || readerEngineSupportsNative(book) ? (
+        <section className="book-detail-insights reader-engine-choice" aria-label="阅读内核">
+          <div className="book-detail-section-title">
+            <strong>阅读内核</strong>
+            <span>仅影响这本书</span>
+          </div>
+          <div className="reader-engine-choice-buttons" role="group" aria-label="选择阅读内核">
+            {readerEngineSupportsNative(book) ? (
+              <button
+                type="button"
+                className={readerEngineVersion === "native-legado" ? "active" : ""}
+                aria-pressed={readerEngineVersion === "native-legado"}
+                onClick={() => selectReaderEngine("native-legado")}
+              >
+                原生内核
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className={readerEngineVersion === "legacy" ? "active" : ""}
+              aria-pressed={readerEngineVersion === "legacy"}
+              onClick={() => selectReaderEngine("legacy")}
+            >
+              Legacy
+            </button>
+            {readerEngineSupportsV2(book) ? <button
+              type="button"
+              className={readerEngineVersion === "v2" ? "active" : ""}
+              aria-pressed={readerEngineVersion === "v2"}
+              onClick={() => selectReaderEngine("v2")}
+            >
+              V2 Web
+            </button> : null}
+          </div>
+          <p className="reader-engine-choice-note">
+            {readerEngineSupportsNative(book)
+              ? "原生内核使用 Android Canvas 和确定性字符偏移分页；如果设备兼容性异常，可按单本切回 Legacy 或 V2 Web。"
+              : "Markdown 目前继续使用成熟的 HTML 渲染内核；可以按单本在 Legacy 与 V2 Web 之间切换。"}
+          </p>
+        </section>
+      ) : null}
+      <section className="book-danger-zone" aria-label="危险操作">
         <button
-          className="text-danger"
-          style={{ width: "100%", padding: "12px", textAlign: "center", border: "1px solid var(--app-hairline)", borderRadius: "12px", background: "transparent", fontSize: "14px", cursor: "pointer" }}
+          className="book-delete-button"
           onClick={() => {
             onConfirm({
               title: "删除书籍",
@@ -554,7 +623,11 @@ export function BookDetailSheet({
             });
           }}
         >
-          <Trash2 size={15} style={{ verticalAlign: -2, marginRight: 4 }} />删除本书
+          <Trash2 size={19} aria-hidden="true" />
+          <span>
+            <strong>删除本书</strong>
+            <small>同时移除本机正文、进度、书签和笔记</small>
+          </span>
         </button>
       </section>
     </div>

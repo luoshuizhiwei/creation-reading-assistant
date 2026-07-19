@@ -149,35 +149,14 @@ export function useMobileImport({ snapshot, setSnapshot, setMessage, readerConte
         file.name.toLowerCase().endsWith(".epub") ? "EPUB 导入校验超时，未创建书籍记录。" : "文件校验超时，未创建书籍记录。"
       );
       snapshotRef.current = await loadMobileSnapshot();
-      const existingBook = snapshotRef.current.books.find((book) => book.contentHash === imported.contentHash);
-      if (existingBook) {
-        updateTask(taskId, {
-          status: "success",
-          phase: "done",
-          progress: 100,
-          format: imported.format,
-          isDuplicate: true,
-          bookId: existingBook.id,
-          bookTitle: existingBook.title
-        });
-        appendHistory({
-          id: taskId,
-          fileName: file.name,
-          fileSize: file.size,
-          format: imported.format,
-          status: "success",
-          encoding,
-          isDuplicate: true,
-          bookId: existingBook.id,
-          bookTitle: existingBook.title,
-          timestamp: new Date().toISOString()
-        });
-        return "duplicate";
-      }
+      const previousBookIds = new Set(snapshotRef.current.books.map((book) => book.id));
+      const isDuplicateImport = snapshotRef.current.books.some((book) => book.contentHash === imported.contentHash);
 
-      updateTask(taskId, { phase: "committing", format: imported.format, isDuplicate: false });
+      // 重复导入是书库的正式能力：每次都创建独立记录和独立文件，
+      // saveMobileBook 会为后导入的副本补上“重复导入 #N”标签。
+      updateTask(taskId, { phase: "committing", format: imported.format, isDuplicate: isDuplicateImport });
       const next = await saveMobileBook(snapshotRef.current, imported);
-      const savedBook = next.books.find((book) => book.contentHash === imported.contentHash && book.originalFileName === imported.originalFileName);
+      const savedBook = next.books.find((book) => !previousBookIds.has(book.id));
       if (savedBook) {
         if (canCacheReaderText(imported.format, content, file.size)) {
           readerContentCacheRef.current.set(savedBook.id, content);
@@ -202,12 +181,12 @@ export function useMobileImport({ snapshot, setSnapshot, setMessage, readerConte
         format: imported.format,
         status: "success",
         encoding,
-        isDuplicate: false,
+        isDuplicate: isDuplicateImport,
         bookId: savedBook?.id,
         bookTitle: savedBook?.title,
         timestamp: new Date().toISOString()
       });
-      return "imported";
+      return isDuplicateImport ? "duplicate" : "imported";
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
       addMobileLog("error", "书籍导入", `${file.name}：${detail}`, { code: "IMPORT_FAILED" });
@@ -325,9 +304,9 @@ export function useMobileImport({ snapshot, setSnapshot, setMessage, readerConte
         skippedCount ? `跳过 ${skippedCount} 个非书籍或系统文件` : "",
         oversizedFiles.length ? `${oversizedFiles.length} 个文件超过对应格式的安全上限` : "",
         emptyFiles.length ? `${emptyFiles.length} 个空文件未导入` : "",
-        duplicateCount ? `${duplicateCount} 本内容已存在，未重复创建` : "",
+        duplicateCount ? `${duplicateCount} 本重复书籍已作为独立副本导入并添加区分标签` : "",
         failedCount ? `${failedCount} 本导入失败` : "",
-        importedCount ? "同名但内容不同的文件仍会作为可区分副本导入" : ""
+        importedCount || duplicateCount ? "同名或同内容书籍都可以分别打开，不会互相覆盖" : ""
       ].filter(Boolean).join("；") + "。"
     );
     } finally {

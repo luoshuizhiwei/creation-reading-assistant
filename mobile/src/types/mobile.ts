@@ -1,5 +1,5 @@
 import type { InspirationItem, InspirationVariant } from "../../../src/types/inspiration";
-import type { BookFormat, HighlightColor, HighlightItem, LibraryBook, ReaderBackground, ReadingProgress, ReadingSession } from "../../../src/types/library";
+import type { BookFormat, HighlightColor, HighlightItem, LibraryBook, ReaderBackground, ReaderLocatorV2, ReadingProgress, ReadingSession } from "../../../src/types/library";
 
 export type MobileSyncProvider = "local-desktop-lan" | "webdav";
 export type BookOrigin = "local_import" | "sync_placeholder" | "sync_downloaded";
@@ -36,6 +36,8 @@ export interface MobileNote {
   excerpt?: string;
   chapterTitle?: string;
   progressPercent?: number;
+  /** 新阅读内核稳定锚点；chapterTitle/progressPercent 继续双写供旧版本读取。 */
+  locator?: ReaderLocatorV2;
   kind?: "bookmark" | "note";
   createdAt: string;
   updatedAt: string;
@@ -134,6 +136,12 @@ export interface MobileReaderSettings {
   immersiveMode?: boolean;
   /** 中文排版优化：首行缩进 2 字符、标点悬挂微调 */
   chineseTypography?: boolean;
+  /** 翻页视觉反馈。移动端大文本层仅使用无位移的安全动画，避免 WebView 残影。 */
+  pageTurnEffect?: "none" | "fade";
+  /** 菜单隐藏时显示轻量章节、进度和本次阅读时长。 */
+  showReaderInfo?: boolean;
+  /** 沉浸模式菜单自动隐藏秒数，0 表示不自动隐藏。 */
+  autoHideControlsSeconds?: number;
   /** 护眼提醒间隔（分钟），0 表示关闭 */
   eyeCareReminderMinutes?: number;
   /** 是否显示选中文字工具栏里的“AI 解读”按钮 */

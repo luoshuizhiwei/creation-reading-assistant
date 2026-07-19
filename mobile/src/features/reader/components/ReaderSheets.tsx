@@ -2,7 +2,11 @@ import { defaultReaderSettings, type ReaderDrawerTab, type ReaderSheet } from ".
 import type { MobileReaderDocument } from "../../../reader/mobile-reader";
 import type { MobileBook, MobileReaderSettings, MobileSnapshot } from "../../../types/mobile";
 import { formatDuration } from "../../../utils/format";
-import { READER_BACKGROUND_OPTIONS } from "../reader-constants";
+import {
+  READER_AUTO_HIDE_OPTIONS,
+  READER_BACKGROUND_OPTIONS,
+  READER_PAGE_TURN_EFFECT_OPTIONS
+} from "../reader-constants";
 
 interface ReaderSheetsProps {
   readerSheet: ReaderSheet;
@@ -218,6 +222,29 @@ export function ReaderSheets(props: ReaderSheetsProps) {
               </section>
 
               <section className="reader-settings-card">
+                <h4 className="reader-settings-card-header">翻页与点击</h4>
+                <div className="reader-settings-options">
+                  {READER_PAGE_TURN_EFFECT_OPTIONS.map(([key, label]) => (
+                    <button
+                      key={key}
+                      className={(settings.pageTurnEffect ?? "none") === key ? "active" : ""}
+                      onClick={() => onSettingsChange({ ...settings, pageTurnEffect: key })}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="reader-settings-options">
+                  <button className={settings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "three-zone" })}>
+                    左中右三区
+                  </button>
+                  <button className={settings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "five-zone" })}>
+                    上下扩展五区
+                  </button>
+                </div>
+              </section>
+
+              <section className="reader-settings-card">
                 <h4 className="reader-settings-card-header">排版</h4>
                 <div className="reader-typography-row">
                   <span className="reader-setting-label">字号</span>
@@ -282,6 +309,20 @@ export function ReaderSheets(props: ReaderSheetsProps) {
                   <label className="reader-toggle-row">
                     <span>中文排版优化</span>
                     <input type="checkbox" checked={settings.chineseTypography ?? false} onChange={() => onSettingsChange({ ...settings, chineseTypography: !settings.chineseTypography })} />
+                  </label>
+                  <label className="reader-toggle-row">
+                    <span>安静阅读信息</span>
+                    <input type="checkbox" checked={settings.showReaderInfo ?? true} onChange={() => onSettingsChange({ ...settings, showReaderInfo: !(settings.showReaderInfo ?? true) })} />
+                  </label>
+                  <label className="reader-toggle-row reader-select-row">
+                    <span>菜单自动隐藏</span>
+                    <select
+                      value={settings.autoHideControlsSeconds ?? 4}
+                      disabled={!settings.immersiveMode}
+                      onChange={(event) => onSettingsChange({ ...settings, autoHideControlsSeconds: Number(event.target.value) })}
+                    >
+                      {READER_AUTO_HIDE_OPTIONS.map(([seconds, label]) => <option key={seconds} value={seconds}>{label}</option>)}
+                    </select>
                   </label>
                   <label className="reader-toggle-row">
                     <span>常亮显示</span>
