@@ -40,6 +40,25 @@ export interface EpubSearchIndex {
 /** 高亮颜色 */
 export type HighlightColor = "yellow" | "red" | "green" | "blue" | "purple";
 
+/** 跨内核稳定阅读锚点。旧 ReadingLocation 字段继续保留用于兼容。 */
+export interface ReaderLocatorV2 {
+  version: 2;
+  bookId: ID;
+  format: "txt" | "markdown" | "epub";
+  progression?: number;
+  chapterId?: string;
+  href?: string;
+  fragment?: string;
+  textOffset?: number;
+  paragraphIndex?: number;
+  epub?: {
+    cfi?: string;
+    position?: number;
+    totalProgression?: number;
+  };
+  updatedAt: number;
+}
+
 /** 高亮标注项 */
 export interface HighlightItem {
   id: ID;
@@ -53,6 +72,8 @@ export interface HighlightItem {
   note?: string;          // 可选批注
   chapterTitle?: string;  // 所在章节标题
   progressPercent?: number; // 阅读进度百分比，用于跳回原文
+  /** 新阅读内核使用的稳定锚点；旧字段仍双写以兼容历史版本。 */
+  locator?: ReaderLocatorV2;
   createdAt: ISODateString;
   updatedAt: ISODateString;
 }

@@ -132,6 +132,27 @@ function buildPlainTextToc(content: string, title: string): MobileReaderTocItem[
   return toc.length ? toc : [{ id: "txt-start", title, level: 1, index: 0, startOffset: 0, endOffset: normalized.length }];
 }
 
+export interface PreparedPlainTextSource {
+  title: string;
+  normalized: string;
+  toc: MobileReaderTocItem[];
+  wordCount: number;
+}
+
+/**
+ * TXT 的整书预处理结果。目录扫描是大文件阅读中最昂贵的步骤之一，
+ * 因此应在打开书籍时执行一次，翻章时只切片并排版当前章节。
+ */
+export function preparePlainTextSource(content: string, title = "TXT 书籍"): PreparedPlainTextSource {
+  const normalized = content.replace(/\r\n/g, "\n");
+  return {
+    title,
+    normalized,
+    toc: buildPlainTextToc(normalized, title),
+    wordCount: normalized.replace(/\s/g, "").length
+  };
+}
+
 function stripLeadingChapterTitle(text: string, title: string): string {
   if (!title) return text;
   const trimmed = text.trimStart();
@@ -139,9 +160,8 @@ function stripLeadingChapterTitle(text: string, title: string): string {
   return trimmed.replace(pattern, "").trimStart();
 }
 
-export function renderPlainText(content: string, title = "TXT 书籍", options: MobileReaderRenderOptions = {}): MobileReaderDocument {
-  const normalized = content.replace(/\r\n/g, "\n");
-  const toc = buildPlainTextToc(normalized, title);
+export function renderPreparedPlainText(source: PreparedPlainTextSource, options: MobileReaderRenderOptions = {}): MobileReaderDocument {
+  const { normalized, toc, title, wordCount } = source;
   const renderAll = options.renderAllChapters ?? false;
   if (renderAll) {
     const chapterCount = toc.filter((item) => item.level > 0).length;
@@ -163,7 +183,7 @@ export function renderPlainText(content: string, title = "TXT 书籍", options: 
           plainText: normalized,
           fullText: normalized,
           toc,
-          wordCount: normalized.replace(/\s/g, "").length,
+          wordCount,
           currentTocIndex: 0,
           totalChapters: toc.length,
           renderAllChapters: true
@@ -185,8 +205,12 @@ export function renderPlainText(content: string, title = "TXT 书籍", options: 
     plainText: chapterText,
     fullText: normalized,
     toc,
-    wordCount: normalized.replace(/\s/g, "").length,
+    wordCount,
     currentTocIndex: currentIndex,
     totalChapters: toc.length
   };
+}
+
+export function renderPlainText(content: string, title = "TXT 书籍", options: MobileReaderRenderOptions = {}): MobileReaderDocument {
+  return renderPreparedPlainText(preparePlainTextSource(content, title), options);
 }

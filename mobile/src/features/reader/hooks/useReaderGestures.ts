@@ -15,6 +15,8 @@ interface UseReaderGesturesOptions {
   onToggleControls: () => void;
   /** 来自 useReaderNavigation 的滑动方向 setter */
   setSwipeDirection: React.Dispatch<React.SetStateAction<"left" | "right" | null>>;
+  /** 跨章渲染期间禁止重复翻页，避免旧章节索引被连续消费 */
+  navigationBlocked?: boolean;
 }
 
 /**
@@ -31,7 +33,8 @@ export function useReaderGestures({
   runBackwardAction,
   runForwardAction,
   onToggleControls,
-  setSwipeDirection
+  setSwipeDirection,
+  navigationBlocked = false
 }: UseReaderGesturesOptions) {
   const swipeStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const pinchStartRef = useRef<{ distance: number; fontSize: number } | null>(null);
@@ -46,6 +49,11 @@ export function useReaderGestures({
 
   const handleReaderTouchStart = (event: React.TouchEvent<HTMLElement>) => {
     lastReaderActivityRef.current = Date.now();
+    if (navigationBlocked) {
+      swipeStartRef.current = null;
+      pinchStartRef.current = null;
+      return;
+    }
     const touches = event.touches;
     if (touches.length === 2) {
       // Pinch start
@@ -80,6 +88,10 @@ export function useReaderGestures({
 
   const handleReaderTouchEnd = (event: React.TouchEvent<HTMLElement>) => {
     pinchStartRef.current = null;
+    if (navigationBlocked) {
+      swipeStartRef.current = null;
+      return;
+    }
     if (!swipeStartRef.current) return;
     const touches = event.changedTouches;
     if (!touches.length) { swipeStartRef.current = null; return; }
@@ -114,6 +126,7 @@ export function useReaderGestures({
 
   const handleReaderTap = (event: MouseEvent<HTMLElement>) => {
     lastReaderActivityRef.current = Date.now();
+    if (navigationBlocked) return;
     if ((window.getSelection()?.toString().trim() ?? "").length > 0) return;
     const rect = event.currentTarget.getBoundingClientRect();
     const x = event.clientX - rect.left;

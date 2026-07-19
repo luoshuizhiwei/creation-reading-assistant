@@ -18,8 +18,8 @@ function assertIncludes(filePath, needle, message) {
 assertIncludes("package.json", "dist:beta:installer", "package.json must expose an installer build command.");
 assertIncludes("scripts/dist-beta-offline.mjs", "--installer", "Offline desktop packaging must support installer mode.");
 assertIncludes(".github/workflows/release.yml", "dist:beta:installer", "GitHub release workflow must build the installer package.");
-assertIncludes(".github/workflows/release.yml", "creation-reading-assistant-windows-setup.exe", "GitHub release workflow must upload the Windows installer.");
-assertIncludes("scripts/verify-release-readiness.mjs", "creation-reading-assistant-windows-setup.exe", "Release readiness must guard the Windows installer asset.");
+assertIncludes(".github/workflows/release.yml", "windows-x64-setup.exe", "GitHub release workflow must upload a versioned Windows installer.");
+assertIncludes("scripts/verify-release-readiness.mjs", "windows-x64-setup.exe", "Release readiness must guard the versioned Windows installer asset.");
 
 if (process.argv.includes("--require-artifact")) {
   const releaseRoot = path.resolve("release-beta");

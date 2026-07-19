@@ -12,6 +12,7 @@ import { ConfirmDialog } from "./components/ConfirmDialog";
 import { QrScanOverlay } from "./components/QrScanOverlay";
 import { emptySnapshot } from "./utils/mobile-helpers";
 import { idleReaderState } from "./features/reader/reader-model";
+import { saveReaderEngineVersionForBook } from "./features/reader/engine-v2/engine-version";
 import { GlobalSearchOverlay } from "./features/search/GlobalSearchOverlay";
 import { OnboardingOverlay, hasCompletedOnboarding } from "./features/onboarding/OnboardingOverlay";
 import {
@@ -33,6 +34,7 @@ const InspirationPage = lazy(() => import("./features/inspiration/InspirationPag
 const StatsPage = lazy(() => import("./features/stats/StatsPage").then((module) => ({ default: module.StatsPage })));
 const ProfilePage = lazy(() => import("./features/profile/ProfilePage").then((module) => ({ default: module.ProfilePage })));
 const MobileReaderView = lazy(() => import("./features/reader/MobileReaderView").then((module) => ({ default: module.MobileReaderView })));
+const MobileReaderV2View = lazy(() => import("./features/reader/MobileReaderV2View").then((module) => ({ default: module.MobileReaderV2View })));
 
 type MainTab = "home" | "shelf" | "inspiration" | "stats" | "profile";
 
@@ -185,9 +187,48 @@ export function App() {
   ];
 
   if (readerBook) {
+    const useV2Reader = readerState.bookId === readerBook.id && readerState.engineVersion === "v2" && readerBook.format !== "epub";
     return (
       <Suspense fallback={<div className="reader-loading-state" role="status">正在准备阅读器…</div>}>
+        {useV2Reader ? (
+          <MobileReaderV2View
+            key={`${readerBook.id}:v2`}
+            book={readerBook}
+            content={readerState.visibleContent}
+            loading={readerState.phase === "opening"}
+            loadError={readerState.phase === "error" ? readerState.errorMessage : undefined}
+            snapshot={snapshot}
+            settings={readerSettings}
+            onSettingsChange={setReaderSettings}
+            onSnapshotChange={setSnapshot}
+            onBack={() => {
+              setReaderJumpTarget(undefined);
+              closeMobileReader();
+            }}
+            onReload={() => {
+              readerContentCacheRef.current.delete(readerBook.id);
+              openBook(readerBook);
+            }}
+            onSwitchToLegacy={() => {
+              saveReaderEngineVersionForBook(readerBook.id, "legacy");
+              readerContentCacheRef.current.delete(readerBook.id);
+              openBook(readerBook);
+              setMessage("已切回稳定阅读内核。");
+            }}
+            onOpenInspiration={(inspirationId) => {
+              setReaderBook(undefined);
+              setReaderState(idleReaderState);
+              setReaderJumpTarget(undefined);
+              setFocusedInspirationId(inspirationId);
+              goTab("inspiration");
+              setMessage("已打开刚保存的阅读灵感。");
+            }}
+            onMessage={setMessage}
+            initialProgressPercent={readerJumpTarget?.bookId === readerBook.id ? readerJumpTarget.progressPercent : undefined}
+          />
+        ) : (
         <MobileReaderView
+          key={`${readerBook.id}:legacy`}
           book={readerBook}
           content={readerState.bookId === readerBook.id ? readerState.visibleContent : ""}
           loading={readerState.bookId === readerBook.id && readerState.phase === "opening"}
@@ -216,6 +257,7 @@ export function App() {
           initialProgressPercent={readerJumpTarget?.bookId === readerBook.id ? readerJumpTarget.progressPercent : undefined}
           onConfirm={setConfirmDialog}
         />
+        )}
         {confirmDialog && (
           <ConfirmDialog
             title={confirmDialog.title}

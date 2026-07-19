@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   MOBILE_APP_VERSION,
+  MOBILE_RELEASES_URL,
   checkForMobileUpdate,
   openMobileUpdateUrl,
   type MobileUpdateInfo
@@ -71,7 +72,7 @@ export function useUpdateCheck({ onMessage }: { onMessage: (value: string) => vo
         currentVersion: MOBILE_APP_VERSION,
         latestVersion: MOBILE_APP_VERSION,
         hasUpdate: false,
-        releaseUrl: "https://github.com/luoshuizhiwei/creation-reading-assistant/releases",
+        releaseUrl: MOBILE_RELEASES_URL,
         notes: "更新源暂时不可访问。可以打开发布页手动查看最新安装包。",
         checkFailed: true
       });

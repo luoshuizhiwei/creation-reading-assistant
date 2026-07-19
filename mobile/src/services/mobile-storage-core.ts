@@ -153,6 +153,13 @@ export function loadMobileReaderSettings(): MobileReaderSettings {
       showProgressBar: typeof parsed.showProgressBar === "boolean" ? parsed.showProgressBar : defaultReaderSettings.showProgressBar,
       keepAwake: typeof parsed.keepAwake === "boolean" ? parsed.keepAwake : defaultReaderSettings.keepAwake,
       brightness: typeof parsed.brightness === "number" ? parsed.brightness : defaultReaderSettings.brightness,
+      immersiveMode: typeof parsed.immersiveMode === "boolean" ? parsed.immersiveMode : defaultReaderSettings.immersiveMode,
+      chineseTypography: typeof parsed.chineseTypography === "boolean" ? parsed.chineseTypography : defaultReaderSettings.chineseTypography,
+      pageTurnEffect: parsed.pageTurnEffect === "fade" || parsed.pageTurnEffect === "none" ? parsed.pageTurnEffect : defaultReaderSettings.pageTurnEffect,
+      showReaderInfo: typeof parsed.showReaderInfo === "boolean" ? parsed.showReaderInfo : defaultReaderSettings.showReaderInfo,
+      autoHideControlsSeconds: typeof parsed.autoHideControlsSeconds === "number"
+        ? Math.min(10, Math.max(0, parsed.autoHideControlsSeconds))
+        : defaultReaderSettings.autoHideControlsSeconds,
       eyeCareReminderMinutes: typeof parsed.eyeCareReminderMinutes === "number" ? parsed.eyeCareReminderMinutes : defaultReaderSettings.eyeCareReminderMinutes,
       showAIExplainButton: typeof parsed.showAIExplainButton === "boolean" ? parsed.showAIExplainButton : defaultReaderSettings.showAIExplainButton,
       readingRhythmReminderMinutes: typeof parsed.readingRhythmReminderMinutes === "number" ? parsed.readingRhythmReminderMinutes : defaultReaderSettings.readingRhythmReminderMinutes,

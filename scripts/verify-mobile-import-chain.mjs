@@ -23,8 +23,10 @@ const shelf = "mobile/src/features/shelf/ShelfPage.tsx";
 includes(importer, "ImportTaskPhase", "Import flow must expose explicit phases instead of contradictory booleans.");
 includes(importer, "runningTaskIdsRef", "The same import task must not run concurrently.");
 includes(importer, "if (importingRef.current)", "Rapid import or repair actions must be rejected while a foreground task is active.");
-includes(importer, "existingBook = snapshotRef.current.books.find((book) => book.contentHash === imported.contentHash)", "Exact content duplicates must be detected before committing a new record.");
-includes(importer, "return \"duplicate\"", "Exact duplicates must reuse the existing record instead of silently creating another copy.");
+includes(importer, "isDuplicateImport = snapshotRef.current.books.some((book) => book.contentHash === imported.contentHash)", "Exact content duplicates must be detected before committing a distinguishable copy.");
+includes(importer, "const next = await saveMobileBook(snapshotRef.current, imported)", "Duplicate imports must still create an independent readable record.");
+includes(importer, "previousBookIds", "The importer must identify the newly created duplicate instead of reusing the old book id.");
+includes(importer, "重复书籍已作为独立副本导入", "Duplicate imports must explain that a labelled independent copy was created.");
 includes(importer, "EMPTY_FILE", "Empty files must fail explicitly and remain out of the shelf.");
 includes(importer, "repairMobileBookFromImport", "Missing local files must have a safe re-import path.");
 

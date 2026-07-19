@@ -151,9 +151,13 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:hover {
-  background: var(--md3-primary);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+/* 触屏 WebView 会把 :hover 保留到下一次点击，造成按钮返回页面后像被颜色覆盖。
+   仅让真正具备鼠标悬停能力的设备启用 hover 反馈。 */
+@media (hover: hover) and (pointer: fine) {
+  button:hover {
+    background: var(--md3-primary);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+  }
 }
 
 button:active {

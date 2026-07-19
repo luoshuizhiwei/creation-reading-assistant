@@ -1,4 +1,5 @@
 import type { ID, ISODateString } from "./common";
+import type { ReaderLocatorV2 } from "./library";
 
 export type InspirationType = "plot" | "character" | "world" | "scene" | "line" | "trope" | "conflict" | "note";
 export type InspirationStatus = "inbox" | "reviewing" | "usable" | "polished" | "used" | "archived";
@@ -27,6 +28,8 @@ export interface InspirationSourceSnapshot {
   cfi?: string;
   scrollTop?: number;
   createdFrom?: "reader-selection" | "reader-note" | "manual";
+  /** 可跨阅读内核恢复的精确位置；旧位置字段继续保留。 */
+  locator?: ReaderLocatorV2;
   createdAt: ISODateString;
 }
 

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import {
   applyReaderExactLocationOffsets,
@@ -86,11 +86,16 @@ export function useReaderNavigation({
   const progressWriteQueueRef = useRef<Promise<void>>(Promise.resolve());
   const pageTurnTimer = useRef<number>();
   const searchTimer = useRef<number>();
+  const chapterTurnTimer = useRef<number>();
+  const chapterTurnPendingRef = useRef(false);
+  const restoredViewportKeyRef = useRef("");
   // paged 模式下向前翻章时，标记需要在渲染后滚动到末尾
   const pendingScrollToEndRef = useRef(false);
   const [pageTurnDirection, setPageTurnDirection] = useState<"forward" | "backward" | null>(null);
   const [swipeDirection, setSwipeDirection] = useState<"left" | "right" | null>(null);
   const [currentPageInfo, setCurrentPageInfo] = useState<{ pageIndex?: number; pageCount?: number }>({});
+  const [chapterTurnPending, setChapterTurnPending] = useState(false);
+  const [readerViewportReady, setReaderViewportReady] = useState(false);
   // 允许外部（如 EPUB 渲染视图）直接更新页码信息
   const updateCurrentPageInfo = (info: { pageIndex?: number; pageCount?: number }) => {
     setCurrentPageInfo(info);
@@ -101,6 +106,7 @@ export function useReaderNavigation({
       if (progressSaveTimer.current) window.clearTimeout(progressSaveTimer.current);
       if (pageTurnTimer.current) window.clearTimeout(pageTurnTimer.current);
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
+      if (chapterTurnTimer.current) window.clearTimeout(chapterTurnTimer.current);
     };
   }, []);
 
@@ -264,14 +270,32 @@ export function useReaderNavigation({
   };
 
   const moveChapter = (direction: -1 | 1) => {
+    if (chapterTurnPendingRef.current) return false;
     const toc = document.toc;
     if (!toc.length) {
       jumpToReaderProgress(currentProgress + direction * 4);
-      return;
+      return true;
     }
-    const currentIndex = Math.max(0, document.currentTocIndex ?? currentChapter?.index ?? toc.findIndex((item) => item.id === currentChapter?.id));
+    const currentIndex = Math.max(0, document.renderAllChapters
+      ? (currentChapter?.index ?? toc.findIndex((item) => item.id === currentChapter?.id))
+      : readerChapterIndex);
     const nextIndex = Math.min(toc.length - 1, Math.max(0, currentIndex + direction));
+    if (nextIndex === currentIndex) {
+      setReaderNotice(direction > 0 ? "已到全书末尾" : "已到全书开头");
+      return false;
+    }
+    if (!document.renderAllChapters) {
+      chapterTurnPendingRef.current = true;
+      setChapterTurnPending(true);
+      if (chapterTurnTimer.current) window.clearTimeout(chapterTurnTimer.current);
+      chapterTurnTimer.current = window.setTimeout(() => {
+        chapterTurnPendingRef.current = false;
+        setChapterTurnPending(false);
+        chapterTurnTimer.current = undefined;
+      }, 1200);
+    }
     jumpToChapter(toc[nextIndex]);
+    return true;
   };
 
   const getPagedStep = (element: HTMLElement) => {
@@ -298,7 +322,7 @@ export function useReaderNavigation({
 
   const turnReaderPage = (direction: -1 | 1) => {
     const element = scrollRef.current;
-    if (!element) return;
+    if (!element || chapterTurnPendingRef.current) return;
     triggerReaderPageTurn(direction);
     if (settings.readerMode === "paged") {
       const pageStep = getPagedStep(element);
@@ -385,25 +409,63 @@ export function useReaderNavigation({
     settings.readerMode === "paged" ? turnReaderPage(1) : moveChapter(1);
   };
 
-  // 视口恢复：文档变化后恢复到上次阅读位置，或向前翻章时滚动到末尾
+  // 单章 TXT/Markdown 切换完成后再允许下一次跨章操作，避免连续点击使用旧章节索引。
   useEffect(() => {
+    if (!chapterTurnPendingRef.current || document.currentTocIndex !== readerChapterIndex) return undefined;
+    let secondFrame = 0;
+    const firstFrame = window.requestAnimationFrame(() => {
+      secondFrame = window.requestAnimationFrame(() => {
+        chapterTurnPendingRef.current = false;
+        setChapterTurnPending(false);
+        if (chapterTurnTimer.current) window.clearTimeout(chapterTurnTimer.current);
+        chapterTurnTimer.current = undefined;
+      });
+    });
+    return () => {
+      window.cancelAnimationFrame(firstFrame);
+      if (secondFrame) window.cancelAnimationFrame(secondFrame);
+    };
+  }, [document.currentTocIndex, document.html, readerChapterIndex]);
+
+  // 视口恢复必须在浏览器绘制正文前开始，避免重新进书时先闪出章节第一页。
+  // 保存位置只在每本书/阅读模式首次打开时应用；跨章节后不能再次套用旧位置。
+  useLayoutEffect(() => {
     const element = scrollRef.current;
     if (!element || !document.html) return;
+    const viewportKey = `${book.id}:${settings.readerMode}`;
+    const isInitialRestore = restoredViewportKeyRef.current !== viewportKey;
     // 如果是向前翻章（需要跳到上一章末页），覆盖恢复逻辑
     if (pendingScrollToEndRef.current && settings.readerMode === "paged") {
       pendingScrollToEndRef.current = false;
+      setReaderViewportReady(false);
       // 等待布局完成后再滚动到末尾
-      window.requestAnimationFrame(() => {
+      const frame = window.requestAnimationFrame(() => {
         const pageStep = getPagedStep(element);
         const maxScroll = Math.max(0, element.scrollWidth - element.clientWidth);
         const lastPage = Math.round(maxScroll / pageStep);
         element.scrollTo({ left: Math.min(maxScroll, Math.max(0, lastPage * pageStep)), behavior: "auto" });
         setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
+        setReaderViewportReady(true);
       });
-      return;
+      return () => window.cancelAnimationFrame(frame);
     }
     // 清除可能残留的标记（模式切换、书籍切换等场景下未消费的 pendingScrollToEnd）
     pendingScrollToEndRef.current = false;
+    if (!isInitialRestore) {
+      // 正向跨章后从新章节第一页开始。同步归零可避免旧章节的 scrollLeft
+      // 在 Android WebView 合成下一帧时留下半页文字残影。
+      if (settings.readerMode === "paged") {
+        element.scrollLeft = 0;
+        element.scrollTop = 0;
+      } else {
+        element.scrollTop = 0;
+        element.scrollLeft = 0;
+      }
+      setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
+      setReaderViewportReady(true);
+      return;
+    }
+    setReaderViewportReady(false);
     // 优先按保存的精确位置恢复：charOffset > pageIndex > progressPercent
     let localProgress = readerLocalProgressFromBook(document, currentProgress);
     const savedCharOffset = initialLocation?.text?.charOffset;
@@ -420,12 +482,17 @@ export function useReaderNavigation({
       const exactApplied = applyReaderExactLocationOffsets(element, settings.readerMode, initialLocation);
       if (settings.readerMode === "paged" && !exactApplied) snapScrollToPage(element);
       setCurrentChapter(findCurrentChapter(document, element, settings.readerMode));
+      restoredViewportKeyRef.current = viewportKey;
+      setReaderViewportReady(true);
     });
-  }, [document.html, settings.readerMode]);
+  }, [book.id, document.html, settings.readerMode]);
 
   return {
     pendingScrollToEndRef,
+    readerViewportReady,
+    chapterTurnPending,
     pageTurnDirection,
+    triggerReaderPageTurn,
     swipeDirection,
     setSwipeDirection,
     currentPageInfo,

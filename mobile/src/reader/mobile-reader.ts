@@ -12,7 +12,12 @@ export {
   parseEpubDocumentStructure,
   renderEpubDocument
 } from "./mobile-reader-epubjs";
-export { renderPlainText } from "./mobile-reader-txt";
+export {
+  preparePlainTextSource,
+  renderPlainText,
+  renderPreparedPlainText
+} from "./mobile-reader-txt";
+export type { PreparedPlainTextSource } from "./mobile-reader-txt";
 export {
   EPUB_INLINE_IMAGES_BY_DEFAULT,
   EPUB_INLINE_IMAGE_MAX_BYTES,

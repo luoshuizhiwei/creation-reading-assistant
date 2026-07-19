@@ -14,6 +14,8 @@ import type { HighlightColor } from "../../../../../src/types/library";
 import { formatDuration } from "../../../utils/format";
 import { deleteMobileBook, exportBookExcerpts } from "../../../services/mobile-storage";
 import { HIGHLIGHT_COLOR_OPTIONS, colorLabel } from "../hooks/useReaderAnnotations";
+import { bookReadingTimeMs } from "../../shelf/book-progress";
+import { READER_AUTO_HIDE_OPTIONS, READER_PAGE_TURN_EFFECT_OPTIONS } from "../reader-constants";
 
 interface ReaderPanelProps {
   readerPanel: ReaderPanelType;
@@ -137,7 +139,7 @@ export function ReaderPanel(props: ReaderPanelProps) {
 
       <div className="reader-panel-body">
         {readerPanel === "book-info" && (() => {
-          const totalReadingMs = snapshot.progress.find((item) => item.bookId === book.id)?.totalReadingTimeMs ?? 0;
+          const totalReadingMs = bookReadingTimeMs(snapshot, book.id);
           const sessions = snapshot.sessions.filter((s) => s.bookId === book.id);
           return (
             <div className="reader-info-panel">
@@ -230,6 +232,29 @@ export function ReaderPanel(props: ReaderPanelProps) {
             </section>
 
             <section className="reader-settings-card">
+              <h4 className="reader-settings-card-header">翻页与点击</h4>
+              <div className="reader-settings-options">
+                {READER_PAGE_TURN_EFFECT_OPTIONS.map(([key, label]) => (
+                  <button
+                    key={key}
+                    className={(settings.pageTurnEffect ?? "none") === key ? "active" : ""}
+                    onClick={() => onSettingsChange({ ...settings, pageTurnEffect: key })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="reader-settings-options">
+                <button className={settings.tapZoneMode === "three-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "three-zone" })}>
+                  左中右三区
+                </button>
+                <button className={settings.tapZoneMode === "five-zone" ? "active" : ""} onClick={() => onSettingsChange({ ...settings, tapZoneMode: "five-zone" })}>
+                  上下扩展五区
+                </button>
+              </div>
+            </section>
+
+            <section className="reader-settings-card">
               <h4 className="reader-settings-card-header">排版</h4>
               <div className="reader-typography-row">
                 <span className="reader-setting-label">字号</span>
@@ -275,6 +300,28 @@ export function ReaderPanel(props: ReaderPanelProps) {
                 </div>
               </div>
               <div className="reader-settings-toggles">
+                <label className="reader-toggle-row">
+                  <span>沉浸模式</span>
+                  <input type="checkbox" checked={settings.immersiveMode ?? false} onChange={() => onSettingsChange({ ...settings, immersiveMode: !settings.immersiveMode })} />
+                </label>
+                <label className="reader-toggle-row">
+                  <span>中文排版优化</span>
+                  <input type="checkbox" checked={settings.chineseTypography ?? false} onChange={() => onSettingsChange({ ...settings, chineseTypography: !settings.chineseTypography })} />
+                </label>
+                <label className="reader-toggle-row">
+                  <span>安静阅读信息</span>
+                  <input type="checkbox" checked={settings.showReaderInfo ?? true} onChange={() => onSettingsChange({ ...settings, showReaderInfo: !(settings.showReaderInfo ?? true) })} />
+                </label>
+                <label className="reader-toggle-row reader-select-row">
+                  <span>菜单自动隐藏</span>
+                  <select
+                    value={settings.autoHideControlsSeconds ?? 4}
+                    disabled={!settings.immersiveMode}
+                    onChange={(event) => onSettingsChange({ ...settings, autoHideControlsSeconds: Number(event.target.value) })}
+                  >
+                    {READER_AUTO_HIDE_OPTIONS.map(([seconds, label]) => <option key={seconds} value={seconds}>{label}</option>)}
+                  </select>
+                </label>
                 <label className="reader-toggle-row">
                   <span>常亮显示</span>
                   <input type="checkbox" checked={settings.keepAwake} onChange={() => onSettingsChange({ ...settings, keepAwake: !settings.keepAwake })} />

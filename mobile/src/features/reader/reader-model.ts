@@ -1,5 +1,6 @@
 import type { MobileReaderDocument } from "../../reader/mobile-reader";
 import type { MobileBook, MobileReaderSettings } from "../../types/mobile";
+import type { ResolvedReaderEngineVersion } from "./engine-v2/engine-version";
 
 export type ReaderDrawerTab = "toc" | "search" | "highlights" | "bookmarks" | "notes" | "inspirations";
 export type ReaderPanel = ReaderDrawerTab | "settings" | "book-info";
@@ -17,6 +18,7 @@ export type ReaderErrorCode =
 
 export interface ReaderState {
   phase: ReaderPhase;
+  engineVersion?: ResolvedReaderEngineVersion;
   bookId?: string;
   title?: string;
   visibleContent: string;
@@ -44,6 +46,9 @@ export const defaultReaderSettings: MobileReaderSettings = {
   brightness: 100,
   immersiveMode: false,
   chineseTypography: false,
+  pageTurnEffect: "none",
+  showReaderInfo: true,
+  autoHideControlsSeconds: 4,
   eyeCareReminderMinutes: 30,
   showAIExplainButton: true,
   readingRhythmReminderMinutes: 30,

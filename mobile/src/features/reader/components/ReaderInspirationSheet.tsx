@@ -4,6 +4,7 @@ import { getMobileDeviceId, nowIso } from "../../../services/mobile-storage-core
 import { addMobileInspiration, type MobileSnapshot } from "../../../services/mobile-storage";
 import type { MobileBook } from "../../../types/mobile";
 import type { MobileReaderDocument } from "../../../reader/mobile-reader";
+import type { ReaderLocator } from "../engine-v2/types";
 
 interface ReaderInspirationSheetProps {
   book: MobileBook;
@@ -11,6 +12,7 @@ interface ReaderInspirationSheetProps {
   selectionText: string;
   currentProgress: number;
   currentChapter?: MobileReaderDocument["toc"][number];
+  currentLocator?: ReaderLocator | null;
   onSave: (nextSnapshot: MobileSnapshot, savedId: string) => void;
   onClose: () => void;
 }
@@ -44,6 +46,7 @@ export function ReaderInspirationSheet({
   selectionText,
   currentProgress,
   currentChapter,
+  currentLocator,
   onSave,
   onClose
 }: ReaderInspirationSheetProps) {
@@ -122,7 +125,8 @@ export function ReaderInspirationSheet({
       locationLabel: currentProgress ? `${currentProgress.toFixed(1)}%` : "当前位置附近",
       progressPercent: currentProgress,
       excerpt: selectionText || undefined,
-      createdFrom: selectionText ? "reader-selection" : "reader-note"
+      createdFrom: selectionText ? "reader-selection" : "reader-note",
+      locator: currentLocator ?? undefined
     };
 
     const next = await addMobileInspiration(working, {

@@ -1,104 +1,113 @@
 # GitHub 发布流程
 
-本项目的发布规则：大修改要进入 GitHub，更新说明要可追踪，电脑端应用和 Android APK 要能从 GitHub Release 下载。
+本项目采用“私有源码仓库 + 公开下载仓库”的分发结构：
 
-## 第一次设置
+- 私有源码：`luoshuizhiwei/creation-reading-assistant`
+- 公开下载：`luoshuizhiwei/creation-reading-assistant-releases`
+- Android 移动端按 GPL-3.0 发布。每个 APK 必须同时公开该版本的完整对应源代码，不能只上传二进制。
 
-1. 安装 GitHub CLI。
+## 本地环境准备
+
+安装并登录 GitHub CLI：
 
 ```powershell
 winget install --id GitHub.cli -e
-```
-
-2. 登录 GitHub。
-
-```powershell
 gh auth login
 gh auth status
 ```
 
-3. 创建私有仓库并推送当前项目。
+Android Release 构建必须提供四项签名配置。密钥和密码只能放在本机环境变量或 GitHub Secrets，禁止提交到仓库：
 
 ```powershell
-git init
-git add .
-git commit -m "chore: prepare GitHub release pipeline"
-gh repo create creation-reading-assistant --private --source . --remote origin --push
+$env:CRA_ANDROID_KEYSTORE_FILE = "D:\\path\\to\\android-release.jks"
+$env:CRA_ANDROID_KEYSTORE_PASSWORD = "<本机密钥库密码>"
+$env:CRA_ANDROID_KEY_ALIAS = "<别名>"
+$env:CRA_ANDROID_KEY_PASSWORD = "<本机私钥密码>"
 ```
 
-如果你已经在 GitHub 网页上创建了仓库，则改用：
+当前 `0.1.x` 公开发行包使用旧兼容签名。为了覆盖安装并保留用户数据，`0.2.0` 不能直接更换证书。若以后迁移到新的安全密钥，必须先验证 Android APK Signature Scheme v3/v3.1 的签名轮换和目标系统兼容性。
 
-```powershell
-git remote add origin https://github.com/<your-name>/creation-reading-assistant.git
-git push -u origin main
-```
+## 每次大修改
 
-## 每次大修改的本地流程
-
-1. 修改代码。
-2. 更新 `CHANGELOG.md` 的“未发布”区域。
-3. 运行验证。
+1. 更新 `CHANGELOG.md` 的“未发布”区域。
+2. 同步根目录与 `mobile/package.json` 的版本号，并递增 Android `versionCode`。
+3. 运行门禁：
 
 ```powershell
 npm run build
+npm run mobile:build
 npm run verify:beta
 npm run verify:release-readiness
 ```
 
-4. 提交并推送。
+4. 查看改动后提交并推送：
 
 ```powershell
 git status -sb
 git add .
 git commit -m "feat: 简短说明本次大改"
-git push
+git push origin main
 ```
 
-## 发布新版本
-
-1. 把 `CHANGELOG.md` 中的“未发布”内容移动到新版本标题下，例如 `v0.1.1 - 2026-07-01`。
-2. 提交 changelog。
+## 本地生成 Android 正式包
 
 ```powershell
-git add CHANGELOG.md
-git commit -m "docs: update changelog for v0.1.1"
-git push
-```
-
-3. 打 tag 并推送。
-
-```powershell
-git tag -a v0.1.1 -m "v0.1.1"
-git push origin v0.1.1
-```
-
-4. GitHub Actions 会自动构建并创建 GitHub Release。
-
-Release 页面会提供这些下载文件：
-
-- `creation-reading-assistant-windows-setup.exe`：Windows 电脑端安装包，适合普通用户安装到开始菜单和桌面快捷方式。
-- `creation-reading-assistant-windows-win-unpacked.zip`：Windows 电脑端免安装包。
-- `creation-reading-assistant-mobile-debug.apk`：Android 手机端测试 APK。
-- `SHA256SUMS.txt`：下载文件校验值。
-
-## 手动本地打包
-
-如果 GitHub Actions 暂时不可用，可以在本地生成当前候选包：
-
-```powershell
-npm run dist:beta:installer
 npm run mobile:build
-Set-Location mobile
-npx cap sync android
-Set-Location android
-.\gradlew.bat assembleDebug
-Set-Location ..\..
-Copy-Item mobile\android\app\build\outputs\apk\debug\app-debug.apk mobile-release\creation-reading-assistant-mobile-debug.apk -Force
+npm run cap:sync --prefix mobile
+Push-Location mobile\android
+.\gradlew.bat testDebugUnitTest assembleRelease
+Pop-Location
 ```
 
-## 注意事项
+必须使用 `apksigner verify --print-certs` 验证 Release APK，且证书摘要要与目标升级链兼容。未签名的 `app-release-unsigned.apk` 不能发布。
 
-- 不要把 `release-beta/`、`mobile-release/`、`node_modules/`、`out/` 提交到 Git。
-- 不要把 API Key、密钥、账号凭证写入仓库、Release notes 或日志。
-- Android 当前上传的是 debug APK，适合测试安装；正式对外分发前应再加入签名 release APK。
-- 如果手机无法连接电脑端同步服务，先确认手机和电脑在同一 Wi-Fi，再检查 Windows 防火墙，并尝试电脑端显示的备用配对地址。
+## Android GPL 对应源码
+
+公开 Release 至少包含：
+
+- `creation-reading-assistant-<version>-android.apk`
+- `creation-reading-assistant-android-source.zip`
+- `LICENSE`
+- `NOTICE.md`
+- `THIRD_PARTY_NOTICES.md`
+- `SHA256SUMS.txt`
+- `mobile-update.json`
+- 中文更新说明
+
+源码归档必须包含构建该 APK 所需的 `mobile/`、固定上游信息、补丁记录和相关验证脚本。由于主源码仓库是私有仓库，不能依赖 GitHub 自动生成的 Source code 压缩包履行 Android GPL 源码提供义务。
+
+## 公开更新清单
+
+`mobile-update.json` 和公开仓库根目录的 `latest-mobile.json` 使用相同内容：
+
+```json
+{
+  "version": "0.2.0",
+  "releaseUrl": "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/tag/v0.2.0",
+  "notes": "中文更新摘要",
+  "apkUrl": "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/download/v0.2.0/creation-reading-assistant-0.2.0-android.apk",
+  "apkName": "creation-reading-assistant-0.2.0-android.apk"
+}
+```
+
+发版后必须更新公开仓库 `main` 分支中的 `latest-mobile.json`，否则应用内更新仍会指向旧版本。
+
+## GitHub Actions Secrets
+
+若使用 `.github/workflows/release.yml` 自动构建，需要在私有源码仓库配置：
+
+- `ANDROID_KEYSTORE_BASE64`
+- `ANDROID_KEYSTORE_PASSWORD`
+- `ANDROID_KEY_ALIAS`
+- `ANDROID_KEY_PASSWORD`
+- `PUBLIC_RELEASE_TOKEN`：只授予公开下载仓库 Release 和内容写入权限
+
+工作流不得把任何 Secret 输出到日志。缺少签名 Secret 时应直接失败，不能退回 Debug APK。
+
+## 发布前检查
+
+- 工作区没有密钥、Token、用户数据库、书籍正文或真机导出文件。
+- APK 可以覆盖上一公开版本，安装后原有书籍、进度、灵感和设置仍存在。
+- APK 签名、SHA256、版本名、`versionCode` 与更新清单一致。
+- 公开 Release 同时包含 APK 和完整对应源码。
+- 本地只保留当前版本产物；旧版本由 GitHub Release 保存。

@@ -14,6 +14,11 @@ function assertIncludes(file, needle, message) {
   if (!content.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in ${file}`);
 }
 
+function assertNotIncludes(file, needle, message) {
+  const content = read(file);
+  if (content.includes(needle)) fail(`${message}\nForbidden ${JSON.stringify(needle)} in ${file}`);
+}
+
 const READER_MAIN = "mobile/src/reader/mobile-reader.ts";
 const READER_EPUB = "mobile/src/reader/mobile-reader-epubjs.ts";
 const READER_TXT = "mobile/src/reader/mobile-reader-txt.ts";
@@ -25,6 +30,45 @@ assertIncludes(READER_EPUB, "mediaTypeFromPath", "EPUB renderer must preserve im
 assertIncludes(READER_EPUB, "epub-publisher-flow", "EPUB renderer must mark publisher-style chapter flow.");
 assertIncludes(READER_EPUB, "loading=\"lazy\"", "EPUB images must be lazy-loaded.");
 assertIncludes("mobile/src/App.tsx", "MobileReaderView", "Mobile app must expose a dedicated reader view.");
+assertIncludes("mobile/src/App.tsx", "MobileReaderV2View", "Mobile app must expose the isolated V2 reader behind a feature flag.");
+assertIncludes("mobile/src/App.tsx", "readerState.engineVersion === \"v2\"", "V2 reader rendering must be explicitly gated by the resolved per-book engine version.");
+assertIncludes("mobile/src/features/reader/engine-v2/engine-version.ts", "loadReaderEngineVersionForBook", "Reader engine rollout must support per-book selection.");
+assertIncludes("mobile/src/features/reader/engine-v2/engine-version.ts", "book.format === \"txt\" || book.format === \"md\"", "V2 rollout must remain limited to TXT and Markdown.");
+assertIncludes("mobile/src/features/shelf/BookDetailSheet.tsx", "原生内核", "Book details must expose the Android native Legado engine choice.");
+assertIncludes("mobile/src/native/native-reader.ts", "openNativeReader", "Mobile reader must expose the Capacitor bridge for the native Legado core.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "showTocPage", "Native EPUB reading must expose a scrollable table of contents.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "showSelectionActions", "Native reading must expose selected-text actions.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "TextChapterDetector.INSTANCE.detect", "Native TXT reading must build a chapter index off the main reading surface.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "new ListView(this)", "Native TXT/EPUB tables of contents must virtualize rows instead of inflating every chapter at once.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "Pattern.compile(Pattern.quote(query)", "Native book search must avoid allocating a lower-cased copy of the full book.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActivity.java", "searchGeneration.incrementAndGet", "Native book search must discard stale asynchronous results.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderActionJournal.java", "SharedPreferences", "Native notes, bookmarks and inspirations must survive an activity or process interruption.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderCheckpointJournal.java", "SharedPreferences", "Native reader progress checkpoints must survive an activity or process interruption.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderPlugin.java", "getPendingActions", "Native action journal entries must be recoverable through the Capacitor bridge.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderPlugin.java", "acknowledgeActions", "Persisted native actions must only be acknowledged after JavaScript storage succeeds.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderPlugin.java", "getPendingCheckpoints", "Native progress checkpoints must be recoverable through the Capacitor bridge.");
+assertIncludes("mobile/android/app/src/main/java/local/creationReadingAssistant/mobile/NativeReaderPlugin.java", "acknowledgeCheckpoints", "Persisted native checkpoints must support explicit acknowledgement.");
+assertIncludes("mobile/src/native/native-reader.ts", "getPendingNativeReaderActions", "The mobile bridge must expose pending native annotation actions.");
+assertIncludes("mobile/src/native/native-reader.ts", "getPendingNativeReaderCheckpoints", "The mobile bridge must expose pending native progress checkpoints.");
+assertIncludes("mobile/src/hooks/useMobileReaderBook.ts", "native-session-${checkpoint.sessionId}", "Recovered native sessions must use deterministic ids to prevent duplicate reading time.");
+assertIncludes("mobile/src/hooks/useMobileReaderBook.ts", "native-${action.type}-${action.actionId}", "Recovered native actions must use deterministic ids to prevent duplicate annotations.");
+assertIncludes("mobile/android/legado-reader-core/src/main/java/local/creationReadingAssistant/reader/legado/view/LegadoTextReaderView.kt", "selectedLine.startOffset", "TXT selections must persist the exact selected source offset.");
+assertIncludes("mobile/android/legado-reader-core/src/main/java/local/creationReadingAssistant/reader/legado/view/LegadoEpubReaderView.kt", "selected.startOffset", "EPUB selections must persist the exact selected chapter offset.");
+const NATIVE_EPUB_LOADER = "mobile/android/legado-reader-core/src/main/java/local/creationReadingAssistant/reader/legado/epub/EpubDocumentLoader.kt";
+const NATIVE_EPUB_DOCUMENT = "mobile/android/legado-reader-core/src/main/java/local/creationReadingAssistant/reader/legado/epub/EpubReaderDocument.kt";
+const NATIVE_EPUB_VIEW = "mobile/android/legado-reader-core/src/main/java/local/creationReadingAssistant/reader/legado/view/LegadoEpubReaderView.kt";
+assertIncludes(NATIVE_EPUB_LOADER, "readEpubLazy", "Native EPUB initial open must retain lazy ZIP resources instead of inflating the whole archive.");
+assertNotIncludes(NATIVE_EPUB_LOADER, "val textBuilder", "Native EPUB initial open must not concatenate a duplicate full-book text copy.");
+assertNotIncludes(NATIVE_EPUB_LOADER, "resource.data", "Native EPUB initial open must not load every image resource into byte arrays.");
+assertIncludes(NATIVE_EPUB_DOCUMENT, "MAX_CACHED_CHAPTERS = 4", "Native EPUB chapter parsing must use a small bounded cache.");
+assertIncludes(NATIVE_EPUB_DOCUMENT, "fun openImageStream", "Native EPUB images must be streamed on demand.");
+assertIncludes(NATIVE_EPUB_VIEW, "inJustDecodeBounds = true", "Native EPUB images must inspect dimensions before allocation.");
+assertIncludes(NATIVE_EPUB_VIEW, "inSampleSize = sampleSize", "Native EPUB images must be downsampled to the reader viewport.");
+assertIncludes(NATIVE_EPUB_VIEW, "visiblePageHeight", "Native EPUB pages must clip at a complete line boundary instead of drawing half of the next line.");
+assertIncludes("mobile/src/hooks/useMobileReaderBook.ts", "原生内核打开失败，已切回 Legacy", "Native parser failures must fall back per book instead of trapping the user.");
+assertIncludes("mobile/src/features/reader/MobileReaderV2View.tsx", "切回稳定内核", "V2 failures and settings must provide a visible Legacy rollback.");
+assertIncludes("mobile/src/features/reader/MobileReaderV2View.tsx", "ReaderController", "V2 production view must use the isolated reader controller.");
+assertIncludes("mobile/src/features/reader/MobileReaderV2View.tsx", "ReaderProgressRepository", "V2 production view must serialize progress through the V2 repository.");
 assertIncludes("mobile/src/App.tsx", "readMobileBookContent", "Opening a book must read the real saved local file before falling back to placeholders.");
 assertIncludes("mobile/src/hooks/useMobileReaderBook.ts", "openBookRequestRef", "Opening a book must be guarded against stale async reads.");
 assertIncludes("mobile/src/hooks/useMobileReaderBook.ts", "readerLoadSeqRef", "Reader background loads must use a sequence guard so timed-out promises cannot overwrite newer books.");
@@ -96,10 +140,37 @@ assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "flushProgress
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "appStateChange", "Reader must save progress when the Android app enters the background.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "EPUB_OPEN_TIMEOUT_MS", "EPUB opening must have a hard timeout instead of hanging indefinitely.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "lastTouchTapAtRef", "EPUB tap handling must prevent synthetic click and touch events from firing twice.");
+assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "lastClickHandledAtRef", "EPUB rendition and iframe click listeners must deduplicate the same physical tap.");
+assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "navigationInFlightRef", "EPUB page turns must be serialized so duplicate events cannot skip or cycle pages.");
+assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "EPUB_READER_BOTTOM_PADDING", "EPUB publisher content must keep an Android safe-area reading inset instead of clipping the last line.");
+assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "2.2em + env(safe-area-inset-bottom)", "EPUB bottom inset must scale with large reader text instead of relying on a small fixed pixel padding.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "hooks.content.register(bindContentInteractions)", "EPUB gestures must bind directly to each iframe document on Android WebView.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "item.linear !== false", "EPUB reader must exclude non-linear cover sections represented as booleans by epubjs.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "restoredSection && isReadableEpubSpineItem(restoredSection)", "EPUB reader must not restore users into a non-linear cover section.");
 assertIncludes("mobile/src/features/reader/components/EpubReaderView.tsx", "contentDocument.addEventListener(\"touchend\"", "EPUB iframe content must receive direct swipe/tap handling.");
+assertIncludes("mobile/src/features/reader/epub-navigator.ts", "class EpubNavigatorAdapter", "Stable EPUB rendering must be exposed through a navigator adapter.");
+assertIncludes("mobile/src/features/reader/epub-navigator.ts", "getCurrentLocator", "EPUB navigation must expose the shared locator model.");
+assertIncludes("mobile/src/features/reader/epub-navigator.ts", "getTableOfContents", "EPUB navigation must expose a kernel-independent table of contents.");
+assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "new EpubNavigatorAdapter(book.id)", "Reader UI must depend on the EPUB navigator instead of raw epub.js handles.");
+assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "epubNavigator.goForward()", "EPUB forward navigation must go through the shared navigator boundary.");
+assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "epubNavigator.goBackward()", "EPUB backward navigation must go through the shared navigator boundary.");
+const mobileReaderViewSource = read("mobile/src/features/reader/MobileReaderView.tsx");
+for (const rawEpubHandleCall of ["epubViewRef.current?.display", "epubViewRef.current?.next", "epubViewRef.current?.prev"]) {
+  if (mobileReaderViewSource.includes(rawEpubHandleCall)) {
+    fail(`Reader UI must not call the raw EPUB view handle directly: ${rawEpubHandleCall}`);
+  }
+}
+assertIncludes("src/types/library.ts", "interface ReaderLocatorV2", "Reader annotations must share one stable locator schema across engines.");
+assertIncludes("src/types/library.ts", "locator?: ReaderLocatorV2", "Highlights must retain a stable locator alongside legacy fields.");
+assertIncludes("src/types/inspiration.ts", "locator?: ReaderLocatorV2", "Reading inspirations must retain a stable source locator.");
+assertIncludes("mobile/src/types/mobile.ts", "locator?: ReaderLocatorV2", "Mobile notes and bookmarks must retain a stable locator.");
+assertIncludes("mobile/src/features/reader/hooks/useReaderAnnotations.ts", "getCurrentLocator() ?? undefined", "Bookmarks, notes and highlights must capture the current shared locator.");
+assertIncludes("mobile/src/features/reader/components/ReaderInspirationSheet.tsx", "locator: currentLocator ?? undefined", "Reader inspirations must write the shared locator without removing legacy source fields.");
+assertIncludes("mobile/src/features/reader/MobileReaderV2View.tsx", "useReaderV2Annotations", "V2 reader must expose annotations without coupling them to the Legacy reader state machine.");
+assertIncludes("mobile/src/features/reader/MobileReaderV2View.tsx", "ReaderInspirationSheet", "V2 reader must capture reading inspirations through the shared form.");
+assertIncludes("mobile/src/features/reader/hooks/useReaderV2Annotations.ts", "locator: current", "V2 bookmarks must dual-write the stable locator.");
+assertIncludes("mobile/src/features/reader/hooks/useReaderV2Annotations.ts", "locator: activeLocator()", "V2 notes and highlights must preserve the active selection or reading locator.");
+assertIncludes("mobile/src/features/reader/reader-v2-annotations.ts", "isSameReaderPosition", "V2 bookmark duplicate detection must prefer stable locators over loose progress values.");
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "fontSize", "Reader settings must include font size.");
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "lineHeight", "Reader settings must include line height.");
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "readerBackground", "Reader settings must include background.");
@@ -160,6 +231,8 @@ if (!navigationHookSource.includes("saveProgress(nextProgress, extras)") && !nav
 assertIncludes("mobile/src/features/reader/hooks/useReaderDocument.ts", "initialLocation?: ReadingLocation", "Document hook must accept initial location for chapter restore.");
 assertIncludes("mobile/src/features/reader/hooks/useReaderDocument.ts", "readerTocIndexFromCharOffset", "Document hook must restore chapter from charOffset.");
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "savedReadingLocation", "Reader view must read saved location for restore.");
+assertIncludes("mobile/src/features/reader/hooks/useReaderNavigation.ts", "restoredViewportKeyRef", "Saved TXT/Markdown locations must be applied only once per open instead of again after every chapter change.");
+assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "reader-content-restoring", "TXT/Markdown content must stay hidden until its saved viewport has been restored.");
 assertIncludes("mobile/src/features/reader/MobileReaderView.tsx", "readerLocationExtrasFromViewport", "Reader view must compute location extras on close.");
 
 console.log("[verify-mobile-reader] Mobile reader guards verified.");

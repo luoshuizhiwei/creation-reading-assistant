@@ -8,9 +8,14 @@ import type Section from "epubjs/types/section";
 import type { MobileBook, MobileReaderSettings } from "../../../types/mobile";
 import type { MobileReaderDocument } from "../../../reader/mobile-reader";
 import { addMobileLog } from "../../../services/mobile-logger";
+import type { EpubLocationInfo, EpubViewBridge } from "../epub-navigator";
 
 const EPUB_WEBVIEW_SAFE_BYTES = 48 * 1024 * 1024;
 const EPUB_OPEN_TIMEOUT_MS = 12_000;
+// EPUB 正文渲染在独立 iframe 中，Android WebView 往往不会把宿主页面的
+// safe-area-inset-bottom 传进 iframe。底部间距不能只用一个小的固定值，
+// 否则大字号/大行距时最后一行仍可能被分页视口裁掉。
+export const EPUB_READER_BOTTOM_PADDING = "max(72px, calc(2.2em + env(safe-area-inset-bottom)))";
 
 function readerThemeRules(settings: MobileReaderSettings) {
   const backgroundMap: Record<string, { bg: string; fg: string }> = {
@@ -24,14 +29,23 @@ function readerThemeRules(settings: MobileReaderSettings) {
   };
   const theme = backgroundMap[settings.readerBackground] ?? backgroundMap.warm;
   return {
-    html: { "background-color": theme.bg },
+    "*": { "box-sizing": "border-box" },
+    html: {
+      margin: "0",
+      padding: "0",
+      "min-height": "100%",
+      "background-color": theme.bg
+    },
     body: {
       "font-size": `${settings.fontSize}px`,
       "line-height": String(settings.lineHeight),
       color: theme.fg,
       "background-color": theme.bg,
-      padding: `0 ${settings.pageMargin}px`,
-      "margin-bottom": `${settings.paragraphSpacing}em`
+      margin: "0",
+      "min-height": "100%",
+      // EPUB 正文位于 iframe 内，外层 WebView 的 safe-area 不会稳定传入。
+      // 预留足够的底部阅读空间，避免最后一行落进 Android 手势导航区。
+      padding: `14px ${settings.pageMargin}px ${EPUB_READER_BOTTOM_PADDING}`
     },
     p: {
       "margin-bottom": `${settings.paragraphSpacing}em`,
@@ -40,21 +54,7 @@ function readerThemeRules(settings: MobileReaderSettings) {
   };
 }
 
-export interface EpubReaderHandle {
-  display(target: string): Promise<void>;
-  display(target: number): Promise<void>;
-  next(): Promise<void>;
-  prev(): Promise<void>;
-}
-
-export interface EpubLocationInfo {
-  cfi: string;
-  href: string;
-  progressPercent: number;
-  chapterTitle?: string;
-  pageIndex?: number;
-  pageCount?: number;
-}
+export type EpubReaderHandle = EpubViewBridge;
 
 interface EpubReaderViewProps {
   book: MobileBook;
@@ -73,6 +73,8 @@ interface EpubReaderViewProps {
   onForward?: () => void;
   /** 点击中央区域 */
   onToggleControls?: () => void;
+  /** EPUB iframe 内选中的正文。iframe 的 selection 不会冒泡到宿主 document。 */
+  onSelectionChange?: (text: string) => void;
 }
 
 function decodeBase64ToArrayBuffer(value: string): ArrayBuffer {
@@ -111,6 +113,33 @@ function flattenNavItems(items: NavItem[], level = 1): Array<{ href: string; tit
 
 export function isReadableEpubSpineItem(item: { linear?: boolean | string }): boolean {
   return item.linear !== false && item.linear !== "no";
+}
+
+export function shouldHandleEpubClick(
+  now: number,
+  lastTouchTapAt: number,
+  lastClickHandledAt: number,
+  touchSuppressionMs: number
+): boolean {
+  return now - lastTouchTapAt >= touchSuppressionMs && now - lastClickHandledAt >= 80;
+}
+
+export function shouldHandleEpubZoneAction(now: number, lastHandledAt: number, minimumIntervalMs = 160): boolean {
+  return now - lastHandledAt >= minimumIntervalMs;
+}
+
+export function resolveEpubVisibleTapPosition(
+  clientX: number,
+  clientY: number,
+  containerRect: Pick<DOMRect, "left" | "top" | "width" | "height">,
+  frameRect?: Pick<DOMRect, "left" | "top"> | null
+) {
+  return {
+    x: frameRect ? clientX + frameRect.left - containerRect.left : clientX,
+    y: frameRect ? clientY + frameRect.top - containerRect.top : clientY,
+    width: containerRect.width,
+    height: containerRect.height
+  };
 }
 
 function findAdjacentReadableSection(book: Book | null, current: Section | undefined, direction: -1 | 1): Section | undefined {
@@ -176,7 +205,7 @@ function buildEpubReaderDocument(book: Book, fallbackTitle: string): MobileReade
 }
 
 export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(function EpubReaderView(
-  { book, content, settings, initialCfi, onLocationChange, onDocumentReady, onReady, onError, onInteraction, onBackward, onForward, onToggleControls },
+  { book, content, settings, initialCfi, onLocationChange, onDocumentReady, onReady, onError, onInteraction, onBackward, onForward, onToggleControls, onSelectionChange },
   ref
 ) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -184,6 +213,10 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
   const renditionRef = useRef<ReturnType<Book["renderTo"]> | null>(null);
   const touchStartRef = useRef<{ x: number; y: number; time: number } | null>(null);
   const lastTouchTapAtRef = useRef(0);
+  const lastClickHandledAtRef = useRef(0);
+  const lastZoneActionAtRef = useRef(0);
+  const navigationInFlightRef = useRef(false);
+  const navigationUnlockTimerRef = useRef<number>();
   const onLocationChangeRef = useRef(onLocationChange);
   const onDocumentReadyRef = useRef(onDocumentReady);
   const onReadyRef = useRef(onReady);
@@ -192,6 +225,7 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
   const onBackwardRef = useRef(onBackward);
   const onForwardRef = useRef(onForward);
   const onToggleControlsRef = useRef(onToggleControls);
+  const onSelectionChangeRef = useRef(onSelectionChange);
   const [ready, setReady] = useState(false);
 
   // 保持回调引用最新，避免重建 rendition 时丢失闭包
@@ -203,53 +237,76 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
   onBackwardRef.current = onBackward;
   onForwardRef.current = onForward;
   onToggleControlsRef.current = onToggleControls;
+  onSelectionChangeRef.current = onSelectionChange;
+
+  const runNavigation = async (navigate: () => Promise<void>) => {
+    if (navigationInFlightRef.current) return;
+    navigationInFlightRef.current = true;
+    try {
+      await navigate();
+    } finally {
+      // epubjs 的 relocated 与 iframe click 可能分属相邻帧。保留一个较短的
+      // 冷却窗口，避免一次物理点击被 rendition/direct 两条事件链连续消费。
+      if (navigationUnlockTimerRef.current) window.clearTimeout(navigationUnlockTimerRef.current);
+      navigationUnlockTimerRef.current = window.setTimeout(() => {
+        navigationInFlightRef.current = false;
+        navigationUnlockTimerRef.current = undefined;
+      }, 220);
+    }
+  };
 
   useImperativeHandle(ref, () => ({
     display: async (target: string | number) => {
       const rendition = renditionRef.current;
       if (!rendition) return;
-      try {
-        if (typeof target === "number") await rendition.display(target);
-        else await rendition.display(target);
-      } catch (error) {
-        onErrorRef.current(`章节打开失败：${error instanceof Error ? error.message : String(error)}`);
-      }
+      await runNavigation(async () => {
+        try {
+          if (typeof target === "number") await rendition.display(target);
+          else await rendition.display(target);
+        } catch (error) {
+          onErrorRef.current(`章节打开失败：${error instanceof Error ? error.message : String(error)}`);
+        }
+      });
     },
     next: async () => {
       const rendition = renditionRef.current;
       if (!rendition) return;
-      try {
-        const href = rendition.location?.start?.href;
-        const current = href ? bookRef.current?.spine.get(href) : undefined;
-        if (current && !isReadableEpubSpineItem(current)) {
-          const target = findAdjacentReadableSection(bookRef.current, current, 1);
-          if (target?.href) {
-            await rendition.display(target.href);
-            return;
+      await runNavigation(async () => {
+        try {
+          const href = rendition.location?.start?.href;
+          const current = href ? bookRef.current?.spine.get(href) : undefined;
+          if (current && !isReadableEpubSpineItem(current)) {
+            const target = findAdjacentReadableSection(bookRef.current, current, 1);
+            if (target?.href) {
+              await rendition.display(target.href);
+              return;
+            }
           }
+          await rendition.next();
+        } catch (error) {
+          onErrorRef.current(`下一页打开失败：${error instanceof Error ? error.message : String(error)}`);
         }
-        await rendition.next();
-      } catch (error) {
-        onErrorRef.current(`下一页打开失败：${error instanceof Error ? error.message : String(error)}`);
-      }
+      });
     },
     prev: async () => {
       const rendition = renditionRef.current;
       if (!rendition) return;
-      try {
-        const href = rendition.location?.start?.href;
-        const current = href ? bookRef.current?.spine.get(href) : undefined;
-        if (current && !isReadableEpubSpineItem(current)) {
-          const target = findAdjacentReadableSection(bookRef.current, current, -1);
-          if (target?.href) {
-            await rendition.display(target.href);
-            return;
+      await runNavigation(async () => {
+        try {
+          const href = rendition.location?.start?.href;
+          const current = href ? bookRef.current?.spine.get(href) : undefined;
+          if (current && !isReadableEpubSpineItem(current)) {
+            const target = findAdjacentReadableSection(bookRef.current, current, -1);
+            if (target?.href) {
+              await rendition.display(target.href);
+              return;
+            }
           }
+          await rendition.prev();
+        } catch (error) {
+          onErrorRef.current(`上一页打开失败：${error instanceof Error ? error.message : String(error)}`);
         }
-        await rendition.prev();
-      } catch (error) {
-        onErrorRef.current(`上一页打开失败：${error instanceof Error ? error.message : String(error)}`);
-      }
+      });
     }
   }));
 
@@ -259,6 +316,9 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
     let initialized = false;
     let bookInstance: Book | null = null;
     let renditionInstance: ReturnType<Book["renderTo"]> | null = null;
+    let resizeObserver: ResizeObserver | undefined;
+    let resizeFrame: number | undefined;
+    let lastRenditionSize = "";
     const contentInteractionCleanups = new Set<() => void>();
     const boundContentDocuments = new WeakSet<Document>();
     const openTimeout = window.setTimeout(() => {
@@ -303,15 +363,43 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
 
         const isPaged = settings.readerMode === "paged";
         const flow: RenditionOptions["flow"] = isPaged ? "paginated" : "scrolled-doc";
+        const container = containerRef.current;
+        if (!container) throw new Error("EPUB 阅读容器尚未就绪。");
+        const initialWidth = Math.max(1, Math.round(container.clientWidth));
+        const initialHeight = Math.max(1, Math.round(container.clientHeight));
         const options: RenditionOptions = {
+          width: initialWidth,
+          height: initialHeight,
+          manager: isPaged ? "default" : "continuous",
           flow,
           spread: "none",
           resizeOnOrientationChange: true,
-          snap: isPaged
+          snap: isPaged,
+          overflow: isPaged ? "hidden" : "auto",
+          allowScriptedContent: false
         };
 
-        renditionInstance = bookInstance.renderTo(containerRef.current!, options);
+        renditionInstance = bookInstance.renderTo(container, options);
         renditionRef.current = renditionInstance;
+        lastRenditionSize = `${initialWidth}x${initialHeight}`;
+
+        // epubjs 默认会用外层 WebView 的可视高度创建 stage，而 reader 宿主还包含
+        // 顶部/底部安全间距。两者不一致时 iframe 会比实际宿主高，底部正文被裁掉，
+        // 同时 displayed.total 错误地变成 1。始终以真实宿主 content box 为准。
+        const syncRenditionSize = () => {
+          if (cancelled || !renditionInstance) return;
+          const width = Math.max(1, Math.round(container.clientWidth));
+          const height = Math.max(1, Math.round(container.clientHeight));
+          const nextSize = `${width}x${height}`;
+          if (nextSize === lastRenditionSize) return;
+          lastRenditionSize = nextSize;
+          renditionInstance.resize(width, height);
+        };
+        resizeObserver = new ResizeObserver(() => {
+          if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+          resizeFrame = window.requestAnimationFrame(syncRenditionSize);
+        });
+        resizeObserver.observe(container);
 
         // 注册主题：根据背景、字号、行距等生成 CSS
         renditionInstance.themes.register("reader-theme", readerThemeRules(settings));
@@ -358,26 +446,24 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
           onErrorRef.current(error?.message || "EPUB 渲染失败");
         });
 
-        // 手势与点击区域控制：iframe 内事件不冒泡到父容器，需通过 rendition 代理
-        renditionInstance.on("touchstart", (event: TouchEvent) => {
-          onInteractionRef.current?.();
-          const touches = event.touches;
-          if (touches.length === 1) {
-            touchStartRef.current = { x: touches[0].clientX, y: touches[0].clientY, time: Date.now() };
-          }
-        });
-
         const handleTapZone = (clientX: number, clientY: number, sourceView?: Window | null) => {
           const container = containerRef.current;
           if (!container) return;
           const rect = container.getBoundingClientRect();
-          // epubjs 的事件来自章节 iframe，clientX/clientY 已经是 iframe 视口坐标，
-          // 不能再减父容器的 left/top，否则中央点击会被误判成翻页区域。
-          const viewportWidth = sourceView?.innerWidth || rect.width;
-          const viewportHeight = sourceView?.innerHeight || rect.height;
+          // paginated 模式下 epubjs 会把一个章节排成数个横向列，章节 iframe 的
+          // clientWidth 因此可能是可见阅读区的数倍，并通过负 left 显示当前页。
+          // iframe document 里的 clientX 是“整章坐标”，不能直接除以 innerWidth；
+          // 必须先加上 iframe 相对外层容器的位移，换算为当前可见页坐标。
+          const frameRect = sourceView?.frameElement?.getBoundingClientRect();
+          const visibleTap = resolveEpubVisibleTapPosition(clientX, clientY, rect, frameRect);
+          const viewportWidth = visibleTap.width;
+          const viewportHeight = visibleTap.height;
           if (viewportWidth <= 0 || viewportHeight <= 0) return;
-          const ratio = clientX / viewportWidth;
-          const verticalRatio = clientY / viewportHeight;
+          const now = Date.now();
+          if (!shouldHandleEpubZoneAction(now, lastZoneActionAtRef.current)) return;
+          lastZoneActionAtRef.current = now;
+          const ratio = visibleTap.x / viewportWidth;
+          const verticalRatio = visibleTap.y / viewportHeight;
           if (settings.tapZoneMode === "five-zone" && ratio >= 0.24 && ratio <= 0.76) {
             if (verticalRatio < 0.26) {
               onBackwardRef.current?.();
@@ -399,46 +485,10 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
           onToggleControlsRef.current?.();
         };
 
-        renditionInstance.on("touchend", (event: TouchEvent) => {
-          const start = touchStartRef.current;
-          touchStartRef.current = null;
-          if (!start) return;
-          const touches = event.changedTouches;
-          if (!touches.length) return;
-          const dx = touches[0].clientX - start.x;
-          const dy = touches[0].clientY - start.y;
-          const elapsed = Date.now() - start.time;
-          const absDx = Math.abs(dx);
-          const absDy = Math.abs(dy);
-
-          // 翻页模式才响应左右滑动手势；滚动模式保留原生滚动
-          if (settings.readerMode === "paged" && absDx >= 30 && elapsed <= 500 && absDy < absDx * 1.2) {
-            if (dx > 0) {
-              onBackwardRef.current?.();
-            } else {
-              onForwardRef.current?.();
-            }
-            return;
-          }
-
-          // 轻触区域判断（兼容三分区/五分区）
-          if (absDx < 12 && absDy < 12 && elapsed < 300) {
-            lastTouchTapAtRef.current = Date.now();
-            handleTapZone(touches[0].clientX, touches[0].clientY, event.view);
-          }
-        });
-
-        // 部分 Android System WebView / 模拟器不会把 iframe 内轻触转发成 epubjs touchend，
-        // 但会派发 click。保留 click 兜底，并抑制 touchend 后的合成 click，避免一次点击翻两页。
-        renditionInstance.on("click", (event: MouseEvent) => {
-          onInteractionRef.current?.();
-          if (Date.now() - lastTouchTapAtRef.current < 350) return;
-          handleTapZone(event.clientX, event.clientY, event.view);
-        });
-
-        // epubjs 把章节渲染在 iframe 中。部分 Android System WebView 不会把 iframe
-        // 内的触控事件转发给 rendition，因此不能只依赖 rendition.on("touchend")。
-        // 每次章节内容创建后直接监听它自己的 document，并在 rendition 销毁前解绑。
+        // EPUB 章节渲染在 iframe 中。触控只由章节 document 这一条事件链处理。
+        // 不再同时监听 rendition.on(touch/click)：两套监听在 Android WebView 中
+        // 会竞争同一个 touch 状态，导致一次点击翻多页或中央点击偶发失效。
+        // 每次章节内容创建后直接监听其 document，并在 rendition 销毁前解绑。
         const bindContentInteractions = (contents: Contents) => {
           const contentDocument = contents.document;
           if (!contentDocument || boundContentDocuments.has(contentDocument)) return;
@@ -449,6 +499,12 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
 
           const isInteractiveTarget = (target: EventTarget | null) =>
             target instanceof Element && Boolean(target.closest("a,button,input,textarea,select,[contenteditable='true']"));
+
+          const reportSelection = () => {
+            const text = contents.window.getSelection()?.toString().trim() ?? "";
+            onSelectionChangeRef.current?.(text.slice(0, 800));
+            return text;
+          };
 
           const handleDirectTouchStart = (event: TouchEvent) => {
             onInteractionRef.current?.();
@@ -464,6 +520,7 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
           };
 
           const handleDirectTouchEnd = (event: TouchEvent) => {
+            if (event.changedTouches.length) lastTouchTapAtRef.current = Date.now();
             const start = touchStartRef.current;
             touchStartRef.current = null;
             const touch = event.changedTouches[0];
@@ -474,9 +531,12 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
             const absDx = Math.abs(dx);
             const absDy = Math.abs(dy);
 
+            // Android 长按选词的 selection 通常在 touchend 后一帧才稳定。
+            window.setTimeout(reportSelection, 0);
+            if (reportSelection()) return;
+
             if (settings.readerMode === "paged" && absDx >= 30 && elapsed <= 600 && absDx > absDy * 1.1) {
               if (event.cancelable) event.preventDefault();
-              lastTouchTapAtRef.current = Date.now();
               if (dx > 0) onBackwardRef.current?.();
               else onForwardRef.current?.();
               return;
@@ -484,28 +544,45 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
 
             if (absDx < 12 && absDy < 12 && elapsed < 350 && !isInteractiveTarget(event.target)) {
               if (event.cancelable) event.preventDefault();
-              lastTouchTapAtRef.current = Date.now();
               handleTapZone(touch.clientX, touch.clientY, contents.window);
             }
           };
 
           const handleDirectClick = (event: MouseEvent) => {
             onInteractionRef.current?.();
-            if (Date.now() - lastTouchTapAtRef.current < 400 || isInteractiveTarget(event.target)) return;
+            if (reportSelection()) return;
+            const now = Date.now();
+            if (!shouldHandleEpubClick(now, lastTouchTapAtRef.current, lastClickHandledAtRef.current, 700) || isInteractiveTarget(event.target)) return;
+            lastClickHandledAtRef.current = now;
             handleTapZone(event.clientX, event.clientY, contents.window);
           };
+
+          const handleSelectionChange = () => reportSelection();
+          const handlePointerUp = () => window.setTimeout(reportSelection, 0);
 
           contentDocument.addEventListener("touchstart", handleDirectTouchStart, { capture: true, passive: true });
           contentDocument.addEventListener("touchend", handleDirectTouchEnd, { capture: true, passive: false });
           contentDocument.addEventListener("click", handleDirectClick, true);
+          contentDocument.addEventListener("selectionchange", handleSelectionChange);
+          contentDocument.addEventListener("mouseup", handlePointerUp, true);
           contentInteractionCleanups.add(() => {
             contentDocument.removeEventListener("touchstart", handleDirectTouchStart, true);
             contentDocument.removeEventListener("touchend", handleDirectTouchEnd, true);
             contentDocument.removeEventListener("click", handleDirectClick, true);
+            contentDocument.removeEventListener("selectionchange", handleSelectionChange);
+            contentDocument.removeEventListener("mouseup", handlePointerUp, true);
           });
         };
 
         renditionInstance.hooks.content.register(bindContentInteractions);
+
+        // renderTo 后再同步一次，避免首次布局发生在 CSS 尚未完成计算的帧。
+        await new Promise<void>((resolve) => {
+          window.requestAnimationFrame(() => {
+            syncRenditionSize();
+            resolve();
+          });
+        });
 
         // 初始显示
         const firstTarget = readerDocument.toc[0]?.href ?? 0;
@@ -545,6 +622,11 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
     return () => {
       cancelled = true;
       window.clearTimeout(openTimeout);
+      resizeObserver?.disconnect();
+      if (resizeFrame) window.cancelAnimationFrame(resizeFrame);
+      if (navigationUnlockTimerRef.current) window.clearTimeout(navigationUnlockTimerRef.current);
+      navigationUnlockTimerRef.current = undefined;
+      navigationInFlightRef.current = false;
       setReady(false);
       contentInteractionCleanups.forEach((cleanup) => cleanup());
       contentInteractionCleanups.clear();
@@ -565,7 +647,10 @@ export const EpubReaderView = forwardRef<EpubReaderHandle, EpubReaderViewProps>(
     if (!rendition || !ready) return;
     rendition.themes.register("reader-theme", readerThemeRules(settings));
     rendition.themes.select("reader-theme");
-    (rendition.resize as (width?: number, height?: number) => void)();
+    const container = containerRef.current;
+    if (container?.clientWidth && container.clientHeight) {
+      rendition.resize(Math.round(container.clientWidth), Math.round(container.clientHeight));
+    }
   }, [settings.fontSize, settings.lineHeight, settings.pageMargin, settings.paragraphSpacing, settings.readerBackground, ready]);
 
   return (

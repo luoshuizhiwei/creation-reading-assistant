@@ -10,6 +10,7 @@ import type { HighlightColor } from "../../../../../src/types/library";
 import type { MobileBook, MobileHighlight } from "../../../types/mobile";
 import type { MobileReaderDocument } from "../../../reader/mobile-reader";
 import type { ReaderDrawerTab } from "../reader-model";
+import type { ReaderLocator } from "../engine-v2/types";
 
 interface UseReaderAnnotationsOptions {
   book: MobileBook;
@@ -22,6 +23,7 @@ interface UseReaderAnnotationsOptions {
   setSelectionText: React.Dispatch<React.SetStateAction<string>>;
   currentChapter: MobileReaderDocument["toc"][number] | undefined;
   currentProgress: number;
+  getCurrentLocator: () => ReaderLocator | null;
   noteDraft: string;
   setNoteDraft: React.Dispatch<React.SetStateAction<string>>;
   setReaderNotice: React.Dispatch<React.SetStateAction<string>>;
@@ -49,6 +51,7 @@ export function useReaderAnnotations({
   setSelectionText,
   currentChapter,
   currentProgress,
+  getCurrentLocator,
   noteDraft,
   setNoteDraft,
   setReaderNotice,
@@ -63,6 +66,18 @@ export function useReaderAnnotations({
   };
 
   const addReaderBookmark = async () => {
+    const duplicate = snapshot.notes.some((item) =>
+      item.bookId === book.id &&
+      item.kind === "bookmark" &&
+      !item.deletedAt &&
+      Math.abs((item.progressPercent ?? 0) - currentProgress) < 0.15 &&
+      (item.chapterTitle ?? "") === (currentChapter?.title ?? "")
+    );
+    if (duplicate) {
+      setReaderNotice("当前位置已经有书签。");
+      onMessage("当前位置已经有书签，无需重复添加。");
+      return;
+    }
     const next = await addMobileNote(snapshot, {
       book,
       title: `书签：${currentChapter?.title ?? book.title}`,
@@ -70,6 +85,7 @@ export function useReaderAnnotations({
       excerpt: selectionText || undefined,
       chapterTitle: currentChapter?.title,
       progressPercent: currentProgress,
+      locator: getCurrentLocator() ?? undefined,
       kind: "bookmark"
     });
     onSnapshotChange(next);
@@ -88,7 +104,8 @@ export function useReaderAnnotations({
       text,
       color,
       chapterTitle: currentChapter?.title,
-      progressPercent: currentProgress
+      progressPercent: currentProgress,
+      locator: getCurrentLocator() ?? undefined
     });
     onSnapshotChange(next);
     setReaderNotice(`已添加${colorLabel(color)}高亮。`);
@@ -115,6 +132,7 @@ export function useReaderAnnotations({
       excerpt: highlight.text,
       chapterTitle: highlight.chapterTitle,
       progressPercent: highlight.progressPercent,
+      locator: highlight.locator,
       kind: "note"
     });
     onSnapshotChange(next);
@@ -140,6 +158,7 @@ export function useReaderAnnotations({
       excerpt: selectionText || undefined,
       chapterTitle: currentChapter?.title,
       progressPercent: currentProgress,
+      locator: getCurrentLocator() ?? undefined,
       kind: "note"
     });
     onSnapshotChange(next);

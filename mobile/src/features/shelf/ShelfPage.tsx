@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { BookOpen, Grid, List, Search, X, History, Loader2, CheckCircle2, AlertCircle, RotateCw, Trash2, MoreHorizontal, Plus, Info, Download, SlidersHorizontal } from "lucide-react";
+import { BookOpen, Grid, List, Search, X, History, Loader2, CheckCircle2, AlertCircle, RotateCw, Trash2, MoreHorizontal, Plus, Info, Download, SlidersHorizontal, ChevronRight } from "lucide-react";
 import type { MobileBook, MobileSnapshot } from "../../types/mobile";
 import { BookTile } from "./BookTile";
 import { progressFor, readerPositionFor } from "./book-progress";
@@ -242,7 +242,6 @@ export function ShelfPage({
   }, []);
 
   const handleOpenBook = useCallback(async (book: MobileBook) => {
-    setActionBookId("");
     const readiness = getBookReadiness(book);
     if (book.origin === "sync_placeholder" || book.contentStatus === "missing") {
       onMessage(`《${book.title}》当前设备暂无本地内容，请先下载正文或重新导入。`);
@@ -294,6 +293,9 @@ export function ShelfPage({
         await saveMobileSnapshot(next);
         onSnapshotChange(next);
       }
+      // 校验完成后再关闭操作层；详情页继续保留在下方，阅读器会直接覆盖它，
+      // 避免先闪回书架再进入正文。
+      setActionBookId("");
       onOpenBook(normalizedBook);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -598,7 +600,6 @@ export function ShelfPage({
         downloadingBookId={downloadingBookId}
         onClose={() => setDetailBookId("")}
         onOpenBook={(book) => {
-          setDetailBookId("");
           void handleOpenBook(book);
         }}
         onDownloadBook={onDownloadBook}
@@ -890,8 +891,13 @@ export function ShelfPage({
           <div className="reader-sheet-mask shelf-action-mask" onClick={() => setActionBookId("")} />
           <aside className="reader-bottom-sheet-panel shelf-book-action-sheet" role="dialog" aria-modal="true" aria-label={`管理《${actionBook.title}》`}>
             <header className="reader-sheet-handle"><span className="reader-sheet-grabber" /></header>
+            <button className="shelf-action-close" onClick={() => setActionBookId("")} aria-label="关闭书籍操作">
+              <X size={18} />
+            </button>
             <div className="shelf-action-book-summary">
-              <div className="shelf-action-cover" aria-hidden="true">{actionBook.title.slice(0, 4)}</div>
+              <div className={`shelf-action-cover ${actionBook.coverDataUrl ? "has-image" : ""}`} aria-hidden="true">
+                {actionBook.coverDataUrl ? <img src={actionBook.coverDataUrl} alt="" /> : actionBook.title.slice(0, 4)}
+              </div>
               <div>
                 <h2>{actionBook.title}</h2>
                 <p>{actionBook.author || "作者未知"} · {getBookReadiness(actionBook).label}</p>
@@ -899,21 +905,40 @@ export function ShelfPage({
             </div>
             <div className="shelf-action-list">
               {isBookReadableOnDevice(actionBook) ? (
-                <button onClick={() => void handleOpenBook(actionBook)}><BookOpen size={19} />继续阅读</button>
+                <button className="shelf-action-row primary-row" onClick={() => void handleOpenBook(actionBook)}>
+                  <span className="shelf-action-row-icon"><BookOpen size={19} /></span>
+                  <span className="shelf-action-row-copy"><strong>继续阅读</strong><small>从上次保存的位置打开</small></span>
+                  <ChevronRight size={18} className="shelf-action-chevron" />
+                </button>
               ) : (actionBook.origin === "sync_placeholder" || actionBook.contentStatus === "missing") ? (
                 <>
                   {actionBook.origin === "sync_placeholder" ? (
-                    <button onClick={() => { setActionBookId(""); onDownloadBook(actionBook); }}><Download size={19} />下载正文到本机</button>
+                    <button className="shelf-action-row" onClick={() => { setActionBookId(""); onDownloadBook(actionBook); }}>
+                      <span className="shelf-action-row-icon"><Download size={19} /></span>
+                      <span className="shelf-action-row-copy"><strong>下载正文</strong><small>保存到本机后离线阅读</small></span>
+                      <ChevronRight size={18} className="shelf-action-chevron" />
+                    </button>
                   ) : null}
-                  <button onClick={() => {
+                  <button aria-label="重新选择文件修复正文" className="shelf-action-row" onClick={() => {
                     setRepairBookId(actionBook.id);
                     setActionBookId("");
                     window.setTimeout(() => repairInputRef.current?.click(), 0);
-                  }}><RotateCw size={19} />重新选择文件修复正文</button>
+                  }}>
+                    <span className="shelf-action-row-icon"><RotateCw size={19} /></span>
+                    <span className="shelf-action-row-copy"><strong>重新选择文件</strong><small>修复缺失的本地正文</small></span>
+                    <ChevronRight size={18} className="shelf-action-chevron" />
+                  </button>
                 </>
               ) : null}
-              <button onClick={() => { setActionBookId(""); setDetailBookId(actionBook.id); }}><Info size={19} />书籍详情与管理</button>
-              <button className="danger" onClick={() => requestDeleteBook(actionBook)}><Trash2 size={19} />删除书籍</button>
+              <button className="shelf-action-row" onClick={() => { setActionBookId(""); setDetailBookId(actionBook.id); }}>
+                <span className="shelf-action-row-icon"><Info size={19} /></span>
+                <span className="shelf-action-row-copy"><strong>书籍详情与管理</strong><small>编辑信息、封面、分类和书单</small></span>
+                <ChevronRight size={18} className="shelf-action-chevron" />
+              </button>
+              <button className="shelf-action-row danger" onClick={() => requestDeleteBook(actionBook)}>
+                <span className="shelf-action-row-icon"><Trash2 size={19} /></span>
+                <span className="shelf-action-row-copy"><strong>删除书籍</strong><small>同时移除本机正文和阅读数据</small></span>
+              </button>
             </div>
           </aside>
         </>,

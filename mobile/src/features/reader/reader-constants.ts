@@ -9,6 +9,19 @@ export const READER_BACKGROUND_OPTIONS = [
   ["oled-black", "夜间 OLED"]
 ] as const;
 
+// Android WebView 中禁止对超宽 TXT/Markdown 多栏图层做位移动画；fade 只绘制轻量遮罩。
+export const READER_PAGE_TURN_EFFECT_OPTIONS = [
+  ["none", "无动画"],
+  ["fade", "柔和淡入"]
+] as const;
+
+export const READER_AUTO_HIDE_OPTIONS = [
+  [0, "不自动隐藏"],
+  [3, "3 秒"],
+  [5, "5 秒"],
+  [8, "8 秒"]
+] as const;
+
 // 阅读器加载超时阈值（毫秒）
 export const READER_LOAD_TIMEOUT_MS = 12_000;
 // 加载提示首次出现延迟（毫秒）

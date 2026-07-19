@@ -1,4 +1,4 @@
-import type { HighlightColor, LibraryBook } from "../../../src/types/library";
+import type { HighlightColor, LibraryBook, ReaderLocatorV2 } from "../../../src/types/library";
 import type { MobileHighlight, MobileSnapshot } from "../types/mobile";
 import { getMobileDeviceId, nowIso, saveMobileSnapshot } from "./mobile-storage-core";
 
@@ -12,6 +12,7 @@ export interface AddMobileHighlightInput {
   charOffset?: number;
   charLength?: number;
   progressPercent?: number;
+  locator?: ReaderLocatorV2;
 }
 
 export async function addMobileHighlight(
@@ -30,6 +31,7 @@ export async function addMobileHighlight(
     note: input.note,
     chapterTitle: input.chapterTitle,
     progressPercent: input.progressPercent,
+    locator: input.locator,
     createdAt,
     updatedAt: createdAt
   };

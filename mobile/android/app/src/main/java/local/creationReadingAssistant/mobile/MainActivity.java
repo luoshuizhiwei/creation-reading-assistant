@@ -11,6 +11,7 @@ public class MainActivity extends BridgeActivity {
   @Override
   protected void onCreate(Bundle savedInstanceState) {
     WebView.setWebContentsDebuggingEnabled(true);
+    registerPlugin(NativeReaderPlugin.class);
     super.onCreate(savedInstanceState);
     getOnBackPressedDispatcher().addCallback(this, new OnBackPressedCallback(true) {
       @Override
