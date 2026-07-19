@@ -21,6 +21,8 @@ if (!existsSync(electronBuilderCli)) {
 const electronVersion = JSON.parse(readFileSync(electronPackageJson, "utf8")).version;
 const builderArgs = [
   electronBuilderCli,
+  "--publish",
+  "never",
   "--config.directories.output=release-beta",
   `--config.electronDist=${electronDist}`,
   `--config.electronVersion=${electronVersion}`
