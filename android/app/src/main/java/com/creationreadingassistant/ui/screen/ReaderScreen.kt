@@ -171,6 +171,7 @@ import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
+import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -1085,7 +1086,6 @@ fun ReaderScreen(
     } else {
         plainContent
     }
-    val currentChapterTitle = epubBook?.chapters?.getOrNull(chapterIndex)?.title ?: ""
 
     // 书内搜索：EPUB 不再常驻全本文本（会 OOM），改为搜索时按需逐章流式抽取（见 computeEpubSearch）；
     // 这里只暴露各章偏移与标题，供跳章 / 命中映射使用。
@@ -1093,6 +1093,16 @@ fun ReaderScreen(
     val chapterStartOffsets = bookIndex?.chapterStartOffsets ?: emptyList()
     val chapterTitles = bookIndex?.chapterTitles ?: emptyList()
     val plainChunks = remember(plainContent) { chunkPlainText(plainContent) }
+
+    // TXT 章节识别：此前 TXT 完全没有章节概念，目录永远是「暂未识别到目录」。
+    // 只在正文变化时算一次，识别不出章节时 TxtChapterDetector 会返回单章「全文」。
+    val txtChapters = remember(plainContent) {
+        if (epubBook == null && plainContent.isNotBlank()) {
+            PlainTextDocument(plainContent).chapters
+        } else {
+            emptyList()
+        }
+    }
 
     // 进度计算
     val epubPercent = if (epubBook != null) {
@@ -1112,6 +1122,19 @@ fun ReaderScreen(
         firstPlainChunk.startOffset + (firstPlainChunk.text.length * firstPlainFraction).toInt()
     } else {
         0
+    }
+    // TXT 当前所在章：按当前可见偏移反查。必须放在 visiblePlainOffset 之后。
+    val txtChapterIndex = if (txtChapters.isEmpty()) {
+        0
+    } else {
+        txtChapters.indexOfLast { it.startOffset <= visiblePlainOffset }.coerceAtLeast(0)
+    }
+    // 顶栏副行与 TTS、书签都用它。TXT 此前恒为空串只能显示「正文」，
+    // 现在有章节识别了就跟着滚动位置走。
+    val currentChapterTitle = if (epubBook != null) {
+        epubBook!!.chapters.getOrNull(chapterIndex)?.title ?: ""
+    } else {
+        txtChapters.getOrNull(txtChapterIndex)?.title ?: ""
     }
     val plainPercent = when {
         plainContent.isEmpty() -> 0f
@@ -1835,15 +1858,28 @@ fun ReaderScreen(
                 ) {
                     when (type) {
                         SheetType.TOC -> TocSheet(
-                            chapters = epubBook?.chapters ?: emptyList(),
-                            current = chapterIndex,
+                            titles = epubBook?.chapters?.map { it.title }
+                                ?: txtChapters.map { it.title },
+                            current = if (epubBook != null) chapterIndex else txtChapterIndex,
                             recent = recentChapters.toList(),
                             onPick = {
                                 if (!recentChapters.contains(it)) {
                                     recentChapters.add(0, it)
                                     if (recentChapters.size > 5) recentChapters.removeAt(recentChapters.lastIndex)
                                 }
-                                goToChapter(it); sheet = null
+                                if (epubBook != null) {
+                                    goToChapter(it)
+                                } else {
+                                    // TXT 没有「章」这一层渲染单位，跳章 = 滚到该章起始偏移所在的块
+                                    txtChapters.getOrNull(it)?.let { c ->
+                                        scope.launch {
+                                            plainListState.scrollToItem(
+                                                chunkIndexForOffset(plainChunks, c.startOffset),
+                                            )
+                                        }
+                                    }
+                                }
+                                sheet = null
                             },
                         )
 
@@ -2618,17 +2654,19 @@ private fun SearchSheet(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
+// 只依赖标题，不依赖 EpubChapter —— TXT 现在也有章节（TxtChapterDetector），
+// 目录必须能同时服务两种格式。
 private fun TocSheet(
-    chapters: List<EpubChapter>,
+    titles: List<String>,
     current: Int,
     recent: List<Int>,
     onPick: (Int) -> Unit,
 ) {
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
-    val groups = remember(chapters) { groupChaptersByVolume(chapters) }
+    val groups = remember(titles) { groupChaptersByVolume(titles) }
     Column(Modifier.fillMaxWidth().padding(16.dp)) {
         Text("目录", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold))
-        if (chapters.isEmpty()) {
+        if (titles.isEmpty()) {
             Text("这本书暂未识别到目录。", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outline)
         } else {
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(top = 8.dp)) {
@@ -2643,8 +2681,8 @@ private fun TocSheet(
                         )
                     }
                     items(recent) { i ->
-                        val ch = chapters.getOrNull(i) ?: return@items
-                        TocRow(i, ch.title, i == current) { onPick(i) }
+                        val t = titles.getOrNull(i) ?: return@items
+                        TocRow(i, t, i == current) { onPick(i) }
                     }
                     item { HorizontalDivider(modifier = Modifier.padding(vertical = 6.dp)) }
                 }
@@ -2671,7 +2709,7 @@ private fun TocSheet(
                     }
                     if (!isCollapsed) {
                         items(idxs) { i ->
-                            TocRow(i, chapters[i].title, i == current) { onPick(i) }
+                            TocRow(i, titles[i], i == current) { onPick(i) }
                         }
                     }
                 }
@@ -2696,11 +2734,11 @@ private fun TocRow(index: Int, title: String, isCurrent: Boolean, onPick: () -> 
 }
 
 /** R5：按「卷/部」标题聚合章节；检测不到卷时归入「正文」。 */
-private fun groupChaptersByVolume(chapters: List<EpubChapter>): List<Pair<String, List<Int>>> {
+private fun groupChaptersByVolume(titles: List<String>): List<Pair<String, List<Int>>> {
     val result = mutableListOf<Pair<String, MutableList<Int>>>()
-    for ((i, ch) in chapters.withIndex()) {
-        if (isVolumeHeader(ch.title)) {
-            result.add(ch.title to mutableListOf())
+    for ((i, title) in titles.withIndex()) {
+        if (isVolumeHeader(title)) {
+            result.add(title to mutableListOf())
         } else {
             if (result.isEmpty()) result.add("正文" to mutableListOf())
             result.last().second.add(i)
