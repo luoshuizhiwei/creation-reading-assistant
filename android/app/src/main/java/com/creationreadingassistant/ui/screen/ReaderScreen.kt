@@ -1544,18 +1544,22 @@ fun ReaderScreen(
             },
             confirmButton = {
                 TextButton(onClick = {
+                    // 同高亮保存：先快照再进协程，否则下面同步清空后 IO 线程读到空串
+                    val snapshotText = selectedText
+                    val snapshotBody = noteBody
+                    val snapshotLocator = computeLocatorJson()
                     scope.launch(Dispatchers.IO) {
                         entry.noteDao().upsert(
                             NoteEntity(
                                 id = UUID.randomUUID().toString(),
                                 book_id = bid.ifBlank { null },
-                                title = (noteBody.ifBlank { selectedText }).take(40),
-                                body = noteBody,
-                                excerpt = selectedText.takeIf { it.isNotBlank() },
+                                title = (snapshotBody.ifBlank { snapshotText }).take(40),
+                                body = snapshotBody,
+                                excerpt = snapshotText.takeIf { it.isNotBlank() },
                                 chapter_title = currentChapterTitle.ifBlank { null },
                                 progress_percent = progressPercent,
                                 kind = "note",
-                                locator_json = computeLocatorJson(),
+                                locator_json = snapshotLocator,
                                 payload = "{}",
                                 created_at = nowIso(),
                                 device_id = null,
@@ -1815,6 +1819,15 @@ fun ReaderScreen(
                         onToggleControls = { controlsVisible = !controlsVisible },
                         store = entry.pageIndexStore(),
                         contentKey = bid,
+                        ttsRangeAbs = if (showTts && tts.status != "idle") tts.currentSentenceRange else null,
+                        onSelect = { text, absStart ->
+                            selectedText = text
+                            selectedRangeStart = absStart
+                            selectedGlobalOffset = -1
+                        },
+                        selectionCleared = selectedText.isBlank(),
+                        selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                        ttsHighlightColor = sentenceHighlightBg,
                     )
                 }
 
@@ -1888,12 +1901,15 @@ fun ReaderScreen(
                     onToggleColor = { showColorRow = !showColorRow },
                     onPickColor = { color ->
                         val locator = computeLocatorJson()
+                        // 必须先落到局部变量再进协程：下面马上把 selectedText 清空，
+                        // IO 协程晚一步才读的话高亮就存成空串（真机翻页模式实测踩过）。
+                        val snapshotText = selectedText
                         scope.launch(Dispatchers.IO) {
                             entry.highlightDao().upsert(
                                 HighlightEntity(
                                     id = UUID.randomUUID().toString(),
                                     book_id = bid,
-                                    text = selectedText,
+                                    text = snapshotText,
                                     note = null,
                                     color = color,
                                     chapter_title = currentChapterTitle.ifBlank { null },
@@ -2096,16 +2112,17 @@ fun ReaderScreen(
                                 id
                             },
                             onSaveInspiration = { body, tags, categoryIds ->
+                                val snapshotText = selectedText // 进协程前快照，防止随后清空导致存空串
                                 scope.launch(Dispatchers.IO) {
                                     entry.inspirationDao().upsert(
                                         InspirationEntity(
                                             id = UUID.randomUUID().toString(),
-                                            title = "AI 解读：${selectedText.take(24)}",
+                                            title = "AI 解读：${snapshotText.take(24)}",
                                             body = body,
                                             type = "note",
                                             status = "inbox",
                                             source_book_id = bid.ifBlank { null },
-                                            payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, selectedText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                                            payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
                                             created_at = nowIso(),
                                             device_id = null,
                                             revision = 1,
@@ -2141,6 +2158,7 @@ fun ReaderScreen(
                                 id
                             },
                             onSave = { title, body, tags, categoryIds ->
+                                val snapshotText = selectedText // 进协程前快照，防止随后清空导致存空串
                                 scope.launch(Dispatchers.IO) {
                                     entry.inspirationDao().upsert(
                                         InspirationEntity(
@@ -2150,7 +2168,7 @@ fun ReaderScreen(
                                             type = "note",
                                             status = "inbox",
                                             source_book_id = bid.ifBlank { null },
-                                            payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, selectedText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                                            payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
                                             created_at = nowIso(),
                                             device_id = null,
                                             revision = 1,

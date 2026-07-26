@@ -82,6 +82,10 @@ class TxtPagedController(
             return start until (if (end > start) end else start + 1)
         }
 
+    /** 当前章起始的全书偏移（选区/TTS 的章内↔全书换算用）。 */
+    val currentChapterStartAbs: Int
+        get() = chapters.getOrNull(chapterIndex)?.startOffset ?: 0
+
     val canGoPrev: Boolean get() = pageIndex > 0 || chapterIndex > 0
     val canGoNext: Boolean
         get() = pageIndex < pageCount - 1 || chapterIndex < chapters.size - 1

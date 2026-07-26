@@ -146,6 +146,23 @@ class TxtPageSourceTest {
     }
 
     @Test
+    fun `sentence selection expands to chinese sentence bounds`() {
+        val text = "　　第一句话。第二句带引号：“对话内容。”第三句！"
+        // 点在「第二句」中间
+        val at = text.indexOf("带引号")
+        val r = PageSelection.sentenceAround(text, at)
+        assertEquals("第二句带引号：“对话内容。”", text.substring(r.first, r.last + 1))
+        // 点在段首句：不能把「　　」缩进空白选进来
+        val r2 = PageSelection.sentenceAround(text, text.indexOf("第一句"))
+        assertEquals("第一句话。", text.substring(r2.first, r2.last + 1))
+        // 句末闭合引号要跟着句子走
+        val t3 = "他说：“好。”然后走了。"
+        val r3 = PageSelection.sentenceAround(t3, t3.indexOf("好"))
+        assertTrue(text.isNotEmpty())
+        assertEquals("他说：“好。”", t3.substring(r3.first, r3.last + 1))
+    }
+
+    @Test
     fun `line para offsets let pages slice chapter text back`() {
         val body = "第一段正文内容比较长会跨越多行甚至多页。".repeat(30)
         val ch = chapter(0, body.length, title = "x")

@@ -20,6 +20,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.snapshotFlow
@@ -72,6 +73,14 @@ fun PagedTxtReaderHost(
     store: PageIndexStore?,
     contentKey: String,
     modifier: Modifier = Modifier,
+    /** TTS 当前句（全书偏移区间），null = 不朗读 */
+    ttsRangeAbs: Pair<Int, Int>? = null,
+    /** 长按选句回调：(选中文本, 全书起始偏移)。空文本 = 选区清除 */
+    onSelect: (String, Int) -> Unit = { _, _ -> },
+    /** 外部（工具条动作后）已清空选区的信号，host 据此撤掉选区底色 */
+    selectionCleared: Boolean = true,
+    selectionColor: Color = Color(0x40365B7E),
+    ttsHighlightColor: Color = Color(0x33365B7E),
 ) {
     val density = LocalDensity.current
     val fontPx = with(density) { fontSizeSp.sp.toPx() }
@@ -154,28 +163,63 @@ fun PagedTxtReaderHost(
                     jumpRequest.value = null
                 }
 
+                // 选区（章内偏移区间）。翻页/外部清除时撤掉。
+                val selRange = remember { mutableStateOf<IntRange?>(null) }
+                LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
+
                 val page = controller.currentPage
                 if (page == null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 } else {
+                    // TTS 当前句：全书偏移 → 章内偏移
+                    val chStart = controller.currentChapterStartAbs
+                    val ttsRects = remember(page, ttsRangeAbs, chStart) {
+                        val r = ttsRangeAbs ?: return@remember emptyList()
+                        PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
+                    }
+                    val selRects = remember(page, selRange.value) {
+                        val r = selRange.value ?: return@remember emptyList()
+                        PageSelection.rectsForRange(page, cfg, r.first, r.last + 1)
+                    }
                     PageCanvas(
                         page = page,
                         chapterText = controller.chapterText,
                         cfg = cfg,
                         paint = paint,
                         headingPaint = headingPaint,
+                        underlays = listOf(ttsHighlightColor to ttsRects, selectionColor to selRects),
                         modifier = Modifier
                             .fillMaxSize()
                             .pointerInput(controller) {
-                                detectTapGestures { offset ->
-                                    when {
-                                        offset.x < size.width / 3f -> controller.prevPage()
-                                        offset.x > size.width * 2f / 3f -> controller.nextPage()
-                                        else -> onToggleControls()
-                                    }
-                                }
+                                detectTapGestures(
+                                    onLongPress = { offset ->
+                                        // 长按选中一句，交给外部工具条做高亮/笔记/灵感
+                                        val ch = PageSelection.offsetAt(page, cfg, offset.x, offset.y)
+                                        val sent = PageSelection.sentenceAround(controller.chapterText, ch)
+                                        if (!sent.isEmpty()) {
+                                            selRange.value = sent
+                                            onSelect(
+                                                controller.chapterText.substring(sent.first, sent.last + 1),
+                                                chStart + sent.first,
+                                            )
+                                        }
+                                    },
+                                    onTap = { offset ->
+                                        if (selRange.value != null) {
+                                            // 有选区时，任何点按先撤选区，不翻页
+                                            selRange.value = null
+                                            onSelect("", -1)
+                                        } else {
+                                            when {
+                                                offset.x < size.width / 3f -> controller.prevPage()
+                                                offset.x > size.width * 2f / 3f -> controller.nextPage()
+                                                else -> onToggleControls()
+                                            }
+                                        }
+                                    },
+                                )
                             }
                             .pointerInput(controller) {
                                 // 水平滑动翻页：松手时按累计位移方向翻。动画留给 P4。
@@ -185,6 +229,7 @@ fun PagedTxtReaderHost(
                                     onDragEnd = {
                                         val threshold = with(density) { 48.dp.toPx() }
                                         if (abs(dragTotal) > threshold) {
+                                            selRange.value = null
                                             if (dragTotal < 0) controller.nextPage() else controller.prevPage()
                                         }
                                     },
@@ -247,8 +292,19 @@ private fun PageCanvas(
     paint: TextPaint,
     headingPaint: TextPaint,
     modifier: Modifier = Modifier,
+    /** 文字底下的色块层（TTS 句高亮、选区），先画色块再画字 */
+    underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
     Canvas(modifier) {
+        underlays.forEach { (color, rects) ->
+            rects.forEach { r ->
+                drawRect(
+                    color = color,
+                    topLeft = androidx.compose.ui.geometry.Offset(r.left, r.top),
+                    size = androidx.compose.ui.geometry.Size(r.right - r.left, r.bottom - r.top),
+                )
+            }
+        }
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
             val fm = paint.fontMetrics
