@@ -133,6 +133,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dagger.hilt.EntryPoint
@@ -1514,10 +1515,19 @@ fun ReaderScreen(
             if (controlsVisible) {
                 TopAppBar(
                     title = {
+                        // 顶栏此前挤了 7 个操作图标，标题只剩一个字的宽度，
+                        // 书名被压成竖排单字。图标已精简，这里再补上截断兜底。
                         Column {
-                            Text(bookTitle, maxLines = 1, style = MaterialTheme.typography.titleMedium)
+                            Text(
+                                bookTitle,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.titleMedium,
+                            )
                             Text(
                                 "${if (epubBook != null) "EPUB" else "TXT"} · ${currentChapterTitle.ifBlank { "正文" }} · ${progressPercent.toInt()}%",
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.outline,
                             )
@@ -1528,21 +1538,14 @@ fun ReaderScreen(
                             Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
                         }
                     },
+                    // 「目录」与「设置」不再放在顶栏：底栏已经有这两个入口，且底栏同时可见，
+                    // 重复占位只会把标题挤没。次要动作收进「更多」。
                     actions = {
-                        IconButton(onClick = { sheet = SheetType.TOC }) {
-                            Icon(Icons.Filled.Menu, contentDescription = "目录")
-                        }
                         IconButton(onClick = { if (showTts) { tts.stop(); showTts = false } else openTts() }) {
                             Icon(Icons.Filled.Headphones, contentDescription = "听书")
                         }
-                        IconButton(onClick = { sheet = SheetType.NOTES }) {
-                            Icon(Icons.Filled.BorderColor, contentDescription = "笔记与标注")
-                        }
                         IconButton(onClick = { sheet = SheetType.AI_ASSIST }) {
-                            Icon(Icons.Filled.AutoAwesome, contentDescription = "AI")
-                        }
-                        IconButton(onClick = { sheet = SheetType.SETTINGS }) {
-                            Icon(Icons.Filled.Settings, contentDescription = "设置")
+                            Icon(Icons.Filled.AutoAwesome, contentDescription = "AI 助手")
                         }
                         Box {
                             IconButton(onClick = { showReaderOverflow = true }) {
@@ -1553,7 +1556,15 @@ fun ReaderScreen(
                                 onDismissRequest = { showReaderOverflow = false },
                             ) {
                                 DropdownMenuItem(
-                                    text = { Text("搜索") },
+                                    text = { Text("笔记与标注") },
+                                    leadingIcon = { Icon(Icons.Filled.BorderColor, contentDescription = null) },
+                                    onClick = {
+                                        showReaderOverflow = false
+                                        sheet = SheetType.NOTES
+                                    },
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("书内搜索") },
                                     leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                                     onClick = {
                                         showReaderOverflow = false
@@ -1561,10 +1572,15 @@ fun ReaderScreen(
                                         sheet = SheetType.SEARCH
                                     },
                                 )
+                                DropdownMenuItem(
+                                    text = { Text("隐藏工具栏") },
+                                    leadingIcon = { Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null) },
+                                    onClick = {
+                                        showReaderOverflow = false
+                                        controlsVisible = false
+                                    },
+                                )
                             }
-                        }
-                        IconButton(onClick = { controlsVisible = false }) {
-                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "收起")
                         }
                     },
                 )
