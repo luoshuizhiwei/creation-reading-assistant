@@ -73,6 +73,7 @@ let activeLibraryRoot: string | undefined;
 let desktopDeviceId: string | undefined;
 let syncServer: Server | undefined;
 let syncServerPort: number | undefined;
+let syncServerHost: string | undefined;
 let pairingToken: PairingTokenResult | undefined;
 
 const EPUB_PROTOCOL_SCHEME = "novel-workbench-epub";
@@ -2921,7 +2922,7 @@ async function getSyncStatus(): Promise<SyncStatus> {
   return {
     running: Boolean(syncServer && syncServerPort),
     port: syncServerPort,
-    addresses: listLanAddresses(),
+    addresses: syncServer && syncServerHost ? [syncServerHost] : listLanAddresses(),
     device: await desktopDeviceInfo(),
     pairingToken
   };
@@ -2929,7 +2930,13 @@ async function getSyncStatus(): Promise<SyncStatus> {
 
 async function startSyncServer(): Promise<SyncStatus> {
   await getOrCreateDeviceId();
-  if (syncServer && syncServerPort) return getSyncStatus();
+  // 只绑定配对选定的那块局域网网卡，不监听 0.0.0.0
+  const host = pairingAddresses(listLanAddresses())[0];
+  if (syncServer && syncServerPort) {
+    if (syncServerHost === host) return getSyncStatus();
+    // 网卡地址变了：旧绑定已失效，停掉后重新绑定到新地址
+    await stopSyncServer();
+  }
   syncServer = createServer((request, response) => {
     void handleSyncRequest(request, response).catch((error) => {
       void writeLog("error", "Sync server request failed.", error);
@@ -2943,10 +2950,11 @@ async function startSyncServer(): Promise<SyncStatus> {
       return;
     }
     syncServer.once("error", onError);
-    syncServer.listen(0, "0.0.0.0", () => {
+    syncServer.listen(0, host, () => {
       syncServer?.off("error", onError);
       const address = syncServer?.address();
       syncServerPort = typeof address === "object" && address ? address.port : undefined;
+      syncServerHost = host;
       resolve();
     });
   });
@@ -2956,6 +2964,7 @@ async function startSyncServer(): Promise<SyncStatus> {
 async function stopSyncServer(): Promise<SyncStatus> {
   if (!syncServer) {
     syncServerPort = undefined;
+    syncServerHost = undefined;
     pairingToken = undefined;
     return getSyncStatus();
   }
@@ -2963,6 +2972,7 @@ async function stopSyncServer(): Promise<SyncStatus> {
   await new Promise<void>((resolve) => server.close(() => resolve()));
   syncServer = undefined;
   syncServerPort = undefined;
+  syncServerHost = undefined;
   pairingToken = undefined;
   return getSyncStatus();
 }
@@ -3161,6 +3171,8 @@ async function handlePairingRequest(request: IncomingMessage, response: ServerRe
     sendJson(response, 401, { ok: false, message: "配对码无效或已过期，请在电脑端重新生成。" });
     return;
   }
+  // 配对码一次有效：验证通过立即作废，防止有效期内被重放
+  pairingToken = undefined;
   const device =
     normalizeDeviceInfo(body.device) ??
     ({
