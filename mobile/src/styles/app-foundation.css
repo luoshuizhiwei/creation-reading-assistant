@@ -1,6 +1,6 @@
 :root {
   color-scheme: light;
-  font-family: "LXGW WenKai Screen", "MiSans", "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  font-family: var(--font-family-primary);
 }
 
 * {
@@ -19,7 +19,6 @@ body,
 
 body {
   margin: 0;
-  min-width: 320px;
   min-height: 100dvh;
   font-size: var(--md3-typescale-body-large);
   line-height: var(--md3-typescale-body-large-line-height);
@@ -51,7 +50,7 @@ body.barcode-scanner-active #root {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(26, 22, 20, 0.72);
+  background: var(--app-scrim);
   padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
   -webkit-backdrop-filter: blur(8px);
   backdrop-filter: blur(8px);
@@ -111,7 +110,7 @@ body.barcode-scanner-active #root {
   inset: 16%;
   border: 3px solid var(--md3-primary);
   border-radius: var(--md3-shape-medium);
-  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 0 0 9999px var(--app-scrim);
 }
 
 .qr-scan-actions {
@@ -156,7 +155,7 @@ button {
 @media (hover: hover) and (pointer: fine) {
   button:hover {
     background: var(--md3-primary);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    box-shadow: var(--app-soft-shadow-sm);
   }
 }
 
@@ -216,7 +215,7 @@ textarea {
   max-width: 100vw;
   overflow-x: hidden;
   padding: max(12px, env(safe-area-inset-top)) 12px calc(80px + env(safe-area-inset-bottom));
-  background: var(--md3-surface);
+  background: var(--app-page-bg);
 }
 
 .phone-page {
@@ -230,7 +229,6 @@ textarea {
   flex-direction: column;
   gap: 16px;
   animation: md3-page-enter var(--md3-motion-duration-medium-2) var(--md3-motion-easing-decelerate);
-  will-change: opacity, transform;
 }
 
 @keyframes md3-page-enter {
@@ -420,7 +418,7 @@ textarea {
   justify-content: flex-start;
   aspect-ratio: 0.72;
   border-radius: var(--md3-shape-medium);
-  background: linear-gradient(145deg, rgba(34, 25, 21, 0.08), rgba(154, 98, 48, 0.28)), #d8b98e;
+  background: linear-gradient(145deg, color-mix(in srgb, var(--md3-inverse-surface) 6%, transparent), color-mix(in srgb, var(--md3-primary) 22%, transparent)), var(--paper-3);
   color: var(--md3-on-primary);
   padding: 12px;
   font-weight: 600;
@@ -431,6 +429,10 @@ textarea {
   display: -webkit-box;
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
+}
+
+:root[data-mobile-theme="dark"] .book-cover:not([data-category]) {
+  background: var(--cover-default);
 }
 
 .book-cover.compact {
@@ -485,4 +487,296 @@ textarea {
 .inspiration-fab:active {
   box-shadow: var(--app-soft-shadow-lg);
   transform: scale(0.95);
+}
+
+/* === P0 Blueprint: 分类色封面梯度（骨架，元素需带 data-category 才生效） === */
+/* 叠加书封光泽：顶部高光 + 左侧书脊阴影 + 底部加深，让彩色封面有立体感 */
+.book-cover[data-category] {
+  position: relative;
+  box-shadow: var(--app-shadow-cover);
+}
+.book-cover[data-category]::before 
+.book-cover[data-category="literature"] { background: var(--cover-literature); }
+.book-cover[data-category="social"]     { background: var(--cover-social); }
+.book-cover[data-category="tech"]       { background: var(--cover-tech); }
+.book-cover[data-category="history"]    { background: var(--cover-history); }
+.book-cover[data-category="art"]        { background: var(--cover-art); }
+.book-cover[data-category="default"]    { background: var(--cover-default); }
+
+/* P3: 暗色模式下未带 data-category 的封面（详情页兜底封面 / 阅读笔记 mini 封面 / 图片封面占位）
+   回退到深色 --cover-default，避免出现浅米色方块，使暗色模式书架与详情更完整统一。
+   用 :not([data-category]) 限定，绝不覆盖上面 6 个分类色封面。 */
+:root[data-mobile-theme="dark"] .book-cover:not([data-category]) {
+  background: var(--cover-default);
+}
+
+/* 封面内进度条（P1 时由 TS 渲染 .cover-progress 子元素） */
+.book-cover .cover-progress,
+.home-continue-cover .cover-progress {
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  height: 6px;
+  border-radius: var(--md3-shape-full);
+  background: var(--app-progress-track-on-cover);
+  overflow: hidden;
+}
+.book-cover .cover-progress > i,
+.home-continue-cover .cover-progress > i {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--app-progress-fill-on-cover);
+}
+.home-continue-cover { position: relative; }
+
+/* === P0 Blueprint: 状态胶囊语义色变体（需带 data-tone 才生效） === */
+.status-chip[data-tone="done"] {
+  background: var(--md3-success-container);
+  color: var(--md3-on-success-container);
+}
+.status-chip[data-tone="reading"] {
+  background: var(--md3-warning-container);
+  color: var(--md3-on-warning-container);
+}
+.status-chip[data-tone="streak"] {
+  background: color-mix(in srgb, var(--md3-streak) 14%, var(--md3-surface-container-lowest));
+}
+.status-chip[data-tone="streak"] strong {
+  color: var(--md3-streak);
+}
+/* P1-4 扩展：与 book-readiness-pill 的 ready/cloud/error 语义对齐 */
+.status-chip[data-tone="ready"] {
+  background: var(--md3-success-container);
+  color: var(--md3-on-success-container);
+}
+.status-chip[data-tone="cloud"] {
+  background: color-mix(in srgb, var(--md3-secondary-container) 82%, var(--md3-surface));
+  color: var(--md3-on-secondary-container);
+}
+.status-chip[data-tone="error"] {
+  background: var(--md3-error-container);
+  color: var(--md3-on-error-container);
+}
+
+/* P1-2 分类封面色调选择器 */
+.tone-picker {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+.tone-dot {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--md3-shape-full);
+  border: 2px solid transparent;
+  padding: 0;
+  cursor: pointer;
+  transition: transform var(--md3-motion-duration-short-2, 0.15s) var(--md3-motion-easing-standard, ease);
+}
+.tone-dot[data-tone="literature"] { background: var(--cover-literature); }
+.tone-dot[data-tone="social"]     { background: var(--cover-social); }
+.tone-dot[data-tone="tech"]       { background: var(--cover-tech); }
+.tone-dot[data-tone="history"]    { background: var(--cover-history); }
+.tone-dot[data-tone="art"]        { background: var(--cover-art); }
+.tone-dot[data-tone="default"]    { background: var(--cover-default); }
+.tone-dot[aria-pressed="true"] {
+  border-color: var(--md3-on-surface);
+  transform: scale(1.12);
+}
+
+/* === P2-2 Chip 统一基类（filter-chip / shelf-chip 继承，外观与 active 态一致） === */
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 6px 14px;
+  border: 1px solid var(--md3-outline-variant);
+  border-radius: var(--md3-shape-full);
+  background: var(--md3-surface-container-low);
+  color: var(--md3-on-surface-variant);
+  box-shadow: none;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 550;
+  line-height: 1.2;
+  letter-spacing: 0.2px;
+  cursor: pointer;
+  transition: background var(--md3-motion-duration-short-2, 0.15s) var(--md3-motion-easing-standard, ease),
+              border-color var(--md3-motion-duration-short-2, 0.15s) var(--md3-motion-easing-standard, ease),
+              color var(--md3-motion-duration-short-2, 0.15s) var(--md3-motion-easing-standard, ease),
+              transform var(--md3-motion-duration-short-2, 0.15s) var(--md3-motion-easing-emphasized, ease);
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  touch-action: manipulation;
+}
+.chip:active {
+  transform: scale(0.96);
+}
+.chip.active {
+  border-color: color-mix(in srgb, var(--md3-primary) 42%, var(--md3-outline-variant));
+  background: var(--md3-secondary-container);
+  color: var(--md3-on-secondary-container);
+  font-weight: 650;
+}
+/* 分类色 chip（可选，使用处加 data-tone；与封面色调令牌一致） */
+.chip[data-tone="literature"].active { border-color: var(--cover-literature); background: color-mix(in srgb, var(--cover-literature) 16%, var(--md3-surface)); color: color-mix(in srgb, var(--cover-literature) 78%, var(--md3-on-surface)); }
+.chip[data-tone="social"].active     { border-color: var(--cover-social);     background: color-mix(in srgb, var(--cover-social) 16%, var(--md3-surface));     color: color-mix(in srgb, var(--cover-social) 78%, var(--md3-on-surface)); }
+.chip[data-tone="tech"].active       { border-color: var(--cover-tech);       background: color-mix(in srgb, var(--cover-tech) 16%, var(--md3-surface));       color: color-mix(in srgb, var(--cover-tech) 78%, var(--md3-on-surface)); }
+.chip[data-tone="history"].active    { border-color: var(--cover-history);    background: color-mix(in srgb, var(--cover-history) 16%, var(--md3-surface));    color: color-mix(in srgb, var(--cover-history) 78%, var(--md3-on-surface)); }
+.chip[data-tone="art"].active        { border-color: var(--cover-art);        background: color-mix(in srgb, var(--cover-art) 16%, var(--md3-surface));        color: color-mix(in srgb, var(--cover-art) 78%, var(--md3-on-surface)); }
+.chip[data-tone="default"].active    { border-color: var(--cover-default);    background: color-mix(in srgb, var(--cover-default) 16%, var(--md3-surface));    color: color-mix(in srgb, var(--cover-default) 78%, var(--md3-on-surface)); }
+
+/* P2-4 空态插画（暖铜线条，统一风格；各空态容器可微调间距） */
+.empty-illustration {
+  width: 44px;
+  height: 44px;
+  color: var(--md3-primary);
+  opacity: 0.9;
+  margin-bottom: 6px;
+}
+/* 启动时先恢复 SQLite 快照，避免把尚未加载的数据误画成“空书库”。 */
+.app-boot-screen {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: max(24px, env(safe-area-inset-top)) 28px max(24px, env(safe-area-inset-bottom));
+  color: var(--md3-on-surface);
+  background: var(--app-page-bg);
+}
+
+.app-boot-card {
+  width: min(100%, 320px);
+  display: grid;
+  justify-items: center;
+  gap: 12px;
+  text-align: center;
+}
+
+.app-boot-card strong {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.app-boot-card p {
+  margin: 0;
+  color: var(--md3-on-surface-variant);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.app-boot-spinner {
+  width: 30px;
+  height: 30px;
+  border: 3px solid color-mix(in srgb, var(--md3-primary) 22%, transparent);
+  border-top-color: var(--md3-primary);
+  border-radius: var(--md3-shape-full);
+  animation: app-boot-spin 720ms linear infinite;
+}
+
+@keyframes app-boot-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-boot-spinner { animation-duration: 1.8s; }
+}
+
+/* === Paper texture overlay === */
+.book-cover,
+.mobile-shell,
+.metric-card,
+.section-block,
+.inspiration-quick-card,
+.sync-status-card,
+.quick-note-card,
+.inspiration-card,
+.profile-card,
+.profile-grid article,
+.settings-card,
+.menu-list,
+.subpage-card,
+.stats-card,
+.stats-summary-card,
+.stats-streak-card,
+.app-info-card,
+.inspiration-detail-card,
+.inspiration-source-card-v2,
+.inspiration-ai-v2,
+.import-queue-card,
+.import-history-item,
+.storage-cache-row,
+.danger-zone-card,
+.update-card,
+.update-banner-card,
+.management-list,
+.option-list,
+.privacy-list,
+.diagnostics-list,
+.about-list,
+.home-inspiration-mini,
+.compact-inspiration-card,
+.profile-more-panel,
+.profile-menu-list,
+.compact-profile-card,
+.status-chip,
+.update-release-note,
+.shelf-reading-summary span,
+.reading-book-profile .book-detail-hero,
+.book-detail-page .book-detail-hero,
+.book-detail-page .book-detail-insights,
+.book-list .book-tile,
+.empty-state {
+  position: relative;}
+
+.book-cover::before,
+.mobile-shell::before,
+.metric-card::before,
+.section-block::before,
+.inspiration-quick-card::before,
+.sync-status-card::before,
+.quick-note-card::before,
+.inspiration-card::before,
+.profile-card::before,
+.profile-grid article::before,
+.settings-card::before,
+.menu-list::before,
+.subpage-card::before,
+.stats-card::before,
+.stats-summary-card::before,
+.stats-streak-card::before,
+.app-info-card::before,
+.inspiration-detail-card::before,
+.inspiration-source-card-v2::before,
+.inspiration-ai-v2::before,
+.import-queue-card::before,
+.import-history-item::before,
+.storage-cache-row::before,
+.danger-zone-card::before,
+.update-card::before,
+.update-banner-card::before,
+.management-list::before,
+.option-list::before,
+.privacy-list::before,
+.diagnostics-list::before,
+.about-list::before,
+.home-inspiration-mini::before,
+.compact-inspiration-card::before,
+.profile-more-panel::before,
+.profile-menu-list::before,
+.compact-profile-card::before,
+.status-chip::before,
+.update-release-note::before,
+.shelf-reading-summary span::before,
+.reading-book-profile .book-detail-hero::before,
+.book-detail-page .book-detail-hero::before,
+.book-detail-page .book-detail-insights::before,
+.book-list .book-tile::before,
+.empty-state::before 
+
+.book-cover[data-category]::before {
+  /* 纸纹叠加层由 paper-grain.css 的 V1–V5 工具类承载；此处选择器清单仅维持级联编译通过，无独立视觉声明。 */
 }

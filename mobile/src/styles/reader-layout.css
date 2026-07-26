@@ -1,0 +1,193 @@
+/* Final compatibility-reader typography layer.
+ * The Android native reader is primary; these rules keep the Web fallback
+ * readable on the same 320–430dp phone range without inheriting page UI density. */
+.reader-shell {
+  --reader-adaptive-gutter: max(var(--reader-page-margin, 22px), clamp(18px, 5.8vw, 30px));
+}
+
+.reader-content {
+  color: var(--reader-text);
+  overflow-wrap: break-word;
+  word-break: normal;
+  line-break: strict;
+  letter-spacing: 0.012em;
+  -webkit-text-size-adjust: none;
+  text-size-adjust: none;
+}
+
+.reader-mode-scroll .reader-content {
+  width: min(100%, 42rem);
+  min-height: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+  padding: calc(max(20px, env(safe-area-inset-top)) + 24px) var(--reader-adaptive-gutter)
+    calc(max(20px, env(safe-area-inset-bottom)) + 34px);
+}
+
+.reader-mode-paged.reader-format-txt .reader-content,
+.reader-mode-paged.reader-format-md .reader-content {
+  padding-top: calc(max(20px, env(safe-area-inset-top)) + 20px);
+  padding-right: var(--reader-adaptive-gutter);
+  padding-bottom: calc(max(18px, env(safe-area-inset-bottom)) + 24px);
+  padding-left: var(--reader-adaptive-gutter);
+  column-width: calc(100vw - var(--reader-adaptive-gutter) - var(--reader-adaptive-gutter));
+  column-gap: calc(var(--reader-adaptive-gutter) + var(--reader-adaptive-gutter));
+}
+
+.reader-content p,
+.reader-txt-body p {
+  orphans: 2;
+  widows: 2;
+  text-align: justify;
+  text-justify: inter-ideograph;
+  /* P3 阅读器走纸感：行距放宽到 1.9、段首缩进 2em、段间轻留白，
+     强化"读书"而非"看网页"。沿用现有两端对齐与孤行保护，不改动版心。 */
+  line-height: 1.9;
+  text-indent: 2em;
+  margin: 0.15em 0;
+}
+
+.reader-content h1,
+.reader-content h2,
+.reader-content h3 {
+  break-after: avoid;
+  page-break-after: avoid;
+  text-wrap: balance;
+}
+
+.reader-content h1 {
+  font-size: min(1.48em, 30px);
+  line-height: 1.34;
+}
+
+.reader-content h2 {
+  font-size: min(1.3em, 26px);
+  line-height: 1.38;
+}
+
+.reader-content img,
+.reader-content svg,
+.reader-content figure {
+  max-height: calc(100dvh - max(96px, env(safe-area-inset-top)) - max(72px, env(safe-area-inset-bottom)));
+  break-inside: avoid;
+  page-break-inside: avoid;
+}
+
+@media (max-width: 340px) {
+  .reader-shell {
+    --reader-adaptive-gutter: max(var(--reader-page-margin, 18px), 18px);
+  }
+
+  .reader-content {
+    letter-spacing: 0;
+  }
+}
+
+@media (min-width: 520px) {
+  .reader-shell {
+    --reader-adaptive-gutter: max(var(--reader-page-margin, 24px), calc((100vw - 520px) / 2));
+  }
+}
+
+/* 阅读设置里的布尔项使用移动端开关，不继承历史表单规则中的 display:block。 */
+.reader-settings-card label.reader-toggle-row {
+  display: flex;
+  min-height: 44px;
+  padding: 7px 0;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.reader-settings-card .reader-toggle-row input[type="checkbox"] {
+  position: relative;
+  width: 44px;
+  height: 26px;
+  min-width: 44px;
+  min-height: 26px;
+  max-height: 26px;
+  padding: 0;
+  margin: 0;
+  border: 1px solid color-mix(in srgb, var(--reader-muted) 44%, transparent);
+  border-radius: 999px;
+  appearance: none;
+  -webkit-appearance: none;
+  background: color-mix(in srgb, var(--reader-muted) 14%, var(--reader-surface));
+  cursor: pointer;
+  transition: background-color 160ms ease, border-color 160ms ease;
+}
+
+.reader-settings-card .reader-toggle-row input[type="checkbox"]::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--reader-muted);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  transition: transform 160ms ease, background-color 160ms ease;
+}
+
+.reader-settings-card .reader-toggle-row input[type="checkbox"]:checked {
+  border-color: var(--reader-accent);
+  background: var(--reader-accent);
+}
+
+.reader-settings-card .reader-toggle-row input[type="checkbox"]:checked::after {
+  transform: translateX(18px);
+  background: var(--reader-bg);
+}
+
+.reader-settings-card .reader-toggle-row input[type="checkbox"]:focus-visible {
+  outline: 3px solid color-mix(in srgb, var(--reader-accent) 24%, transparent);
+  outline-offset: 2px;
+}
+
+.reader-settings-card label.reader-select-row {
+  display: flex;
+}
+
+.reader-settings-card .reader-select-row > span {
+  min-width: 0;
+  white-space: nowrap;
+}
+
+.reader-settings-card .reader-select-row select {
+  width: 152px;
+  max-width: 54%;
+  flex: 0 0 152px;
+}
+
+/* 目录页共有六个分区，固定为单行，避免“灵感”被挤到第二行。 */
+.reader-panel-tabs {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.reader-panel-tabs button {
+  min-width: 0;
+  padding-inline: 2px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+/* 阅读器内所有 Sheet 必须跟随书籍主题，不能继承应用层的白色面板。 */
+.reader-shell .reader-bottom-sheet-panel {
+  border-color: var(--reader-border);
+  background: var(--reader-surface);
+  color: var(--reader-text);
+  box-shadow: 0 -12px 34px color-mix(in srgb, #000 22%, transparent);
+}
+
+.reader-shell .reader-bottom-sheet-panel .reader-sheet-title,
+.reader-shell .reader-bottom-sheet-panel strong,
+.reader-shell .reader-bottom-sheet-panel label {
+  color: var(--reader-text);
+}
+
+.reader-shell .reader-bottom-sheet-panel .subtle,
+.reader-shell .reader-bottom-sheet-panel small,
+.reader-shell .reader-bottom-sheet-panel p {
+  color: var(--reader-muted);
+}

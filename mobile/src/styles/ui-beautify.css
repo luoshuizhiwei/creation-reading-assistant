@@ -1,0 +1,250 @@
+/* ============================================================
+   UI 美化增强层（UI Beautify Layer）
+   定位：在不改动功能、布局、导航结构的前提下，
+   仅做「动效愉悦感 + 触感一致性 + 标题精致度」三件事。
+   纯加法：不覆盖 unified-layer 的权威外观，只在其之前加载，
+   所有规则均为新增 keyframes / 新增 transform 反馈 / 标题字重微调。
+   原则：
+     - 动效只在用户未声明「减少动态效果」时启用（prefers-reduced-motion）。
+     - 入场动画用 backwards 填充，结束后不残留 transform，
+       保证 .book-tile 等需要 :active 缩放的元素触感不被吃掉。
+     - 不引入新颜色、不引入新圆角、不改动安全区与栅格。
+   ============================================================ */
+
+/* === 1. 入场动效：轻量「浮起」=== */
+@keyframes ui-beautify-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes ui-beautify-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* 门面级卡片：柔和浮起（backwards 保证结束后触感正常） */
+@media (prefers-reduced-motion: no-preference) {
+  .home-continue-hero,
+  .inspiration-card,
+  .compact-inspiration-card,
+  .section-block,
+  .stats-card,
+  .stats-streak-card,
+  .stats-summary-card,
+  .metric-card,
+  .settings-card,
+  .subpage-card,
+  .source-card,
+  .reading-archive-card,
+  .import-queue-card,
+  .update-card,
+  .sync-status-card,
+  .profile-card,
+  .compact-profile-card,
+  .dialog-content,
+  .home-bottom-sheet {
+    animation: ui-beautify-rise var(--motion-long) var(--md3-motion-easing-decelerate) backwards;
+  }
+
+  /* 网格/多列卡片：轻微错峰，制造节奏感（封顶 10 级，避免长列表拖影） */
+  .home-metrics article:nth-child(1) { animation-delay: 40ms; }
+  .home-metrics article:nth-child(2) { animation-delay: 80ms; }
+  .home-metrics article:nth-child(3) { animation-delay: 120ms; }
+
+  .book-tile:nth-child(1) { animation-delay: 30ms; }
+  .book-tile:nth-child(2) { animation-delay: 60ms; }
+  .book-tile:nth-child(3) { animation-delay: 90ms; }
+  .book-tile:nth-child(4) { animation-delay: 120ms; }
+  .book-tile:nth-child(5) { animation-delay: 150ms; }
+  .book-tile:nth-child(6) { animation-delay: 180ms; }
+  .book-tile:nth-child(7) { animation-delay: 210ms; }
+  .book-tile:nth-child(8) { animation-delay: 240ms; }
+  .book-tile:nth-child(9) { animation-delay: 270ms; }
+  .book-tile:nth-child(10) { animation-delay: 300ms; }
+
+  .profile-grid article:nth-child(1) { animation-delay: 40ms; }
+  .profile-grid article:nth-child(2) { animation-delay: 80ms; }
+  .profile-grid article:nth-child(3) { animation-delay: 120ms; }
+
+  .profile-card-summary-row article:nth-child(1) { animation-delay: 40ms; }
+  .profile-card-summary-row article:nth-child(2) { animation-delay: 80ms; }
+  .profile-card-summary-row article:nth-child(3) { animation-delay: 120ms; }
+
+  /* 首页横向书架小卡：轻浮起 */
+  .home-shelf-book {
+    animation: ui-beautify-rise var(--motion-medium) var(--md3-motion-easing-decelerate) backwards;
+  }
+  .home-shelf-book:nth-child(1) { animation-delay: 40ms; }
+  .home-shelf-book:nth-child(2) { animation-delay: 80ms; }
+  .home-shelf-book:nth-child(3) { animation-delay: 120ms; }
+  .home-shelf-book:nth-child(4) { animation-delay: 160ms; }
+  .home-shelf-book:nth-child(5) { animation-delay: 200ms; }
+}
+
+/* === 2. 触感一致性：给「整块可点」元素补按压反馈 === */
+/* 书架书卡（网格/列表）整体可点，但此前只有右上角 more 按钮有缩放，
+   整卡补一个克制的按压回弹，触感与全站一致。backwards 保证不挡 :active。 */
+.book-tile {
+  transition: transform var(--motion-short) var(--motion-easing-standard),
+              box-shadow var(--motion-short) var(--motion-easing-standard);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .book-tile:active { transform: scale(0.975); }
+  .book-tile.as-list:active { transform: scale(0.99); }
+}
+
+/* 首页横向书架小卡按压反馈 */
+.home-shelf-book {
+  transition: transform var(--motion-short) var(--motion-easing-standard);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .home-shelf-book:active { transform: scale(0.94); }
+}
+
+/* 首页搜索条已有反馈；补一条统一过渡，确保 :active 缩放顺滑 */
+.home-search-bar {
+  transition: transform var(--motion-short) var(--motion-easing-standard),
+              box-shadow var(--motion-short) var(--motion-easing-standard),
+              background-color var(--motion-short) var(--motion-easing-standard);
+}
+
+/* 统一菜单行按压底色（部分页面用 :hover，移动端无 hover，补 :active 触感） */
+.menu-list button,
+.profile-menu-list button,
+.home-sheet-menu-row {
+  transition: background-color var(--motion-short) var(--motion-easing-standard),
+              transform var(--motion-short) var(--motion-easing-standard);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .menu-list button:active { background: var(--md3-surface-container-high); transform: scale(0.99); }
+  .profile-menu-list button:active { background: var(--md3-surface-container-high); transform: scale(0.99); }
+}
+
+/* === 3. 标题精致度：AppBar 主标题字重与字距收敛 === */
+/* 现状 .mobile-header h1 用 weight 800，偏硬；收敛到 700 + 负字距，
+   更贴合「墨韵·素笺」的文气，且不改字号与位置。 */
+.mobile-header h1 {
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+
+/* 次级页标题同样收敛，统一气质 */
+.subpage-header h1,
+.profile-topbar h1 {
+  letter-spacing: -0.01em;
+}
+
+/* === 4. 安全兜底：用户要求减少动态时，全部关闭 === */
+@media (prefers-reduced-motion: reduce) {
+  .home-continue-hero,
+  .inspiration-card,
+  .compact-inspiration-card,
+  .section-block,
+  .stats-card,
+  .stats-streak-card,
+  .stats-summary-card,
+  .metric-card,
+  .settings-card,
+  .subpage-card,
+  .source-card,
+  .reading-archive-card,
+  .import-queue-card,
+  .update-card,
+  .sync-status-card,
+  .profile-card,
+  .compact-profile-card,
+  .dialog-content,
+  .home-bottom-sheet,
+  .home-shelf-book,
+  .book-tile,
+  .profile-grid article,
+  .profile-card-summary-row article,
+  .home-metrics article,
+  .menu-list button,
+  .profile-menu-list button,
+  .home-sheet-menu-row {
+    animation: none !important;
+  }
+}
+
+/* === 5. P1 触摸设备 hover 隔离护栏 === */
+/* 移动端无真实 hover，触摸后部分浏览器会短暂悬停并卡住缩放/阴影。
+   在 hover:none（纯触摸）设备下，清除核心交互元素的 hover 变换与阴影，
+   仅保留 :active 触感（见第 2 节）。桌面 hover 设备不受影响。 */
+@media (hover: none) {
+  .book-tile:hover,
+  .home-shelf-book:hover,
+  .menu-list button:hover,
+  .profile-menu-list button:hover,
+  .home-sheet-menu-row:hover,
+  .chip:hover,
+  .icon-btn:hover,
+  .btn:hover,
+  .settings-row:hover,
+  .source-card:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* === 6. P2 空态插画一致性 === */
+/* EmptyIllustration 用 currentColor 描边；统一为靛青主色，呼应墨韵主题，
+   避免不同页面出现灰/黑不一致的线条感。尺寸由各页面传入，此处只管颜色。 */
+.empty-illustration {
+  color: var(--md3-primary);
+}
+
+/* === 7. P4 进度条圆角统一 === */
+/* 全站进度条统一为胶囊圆角 + 隐藏溢出，消除个别方角不一致。
+   仅引用既有几何，不新增颜色。 */
+.cover-progress,
+.home-continue-progress-bar,
+.import-queue-progress-bar,
+.import-history-progress-bar,
+.reader-progress-slider {
+  border-radius: 999px;
+  overflow: hidden;
+}
+.cover-progress > i,
+.home-continue-progress-bar > i,
+.import-queue-progress-bar > i,
+.import-history-progress-bar > i,
+.reader-progress-slider > i {
+  border-radius: 999px;
+}
+
+/* === 8. P5 焦点环一致性（a11y） === */
+/* 全部可交互元素统一靛青 :focus-visible 环，键盘 Tab 走查可见、习惯统一。
+   尊重各主题变量（暗色自动转亮）。 */
+a:focus-visible,
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible,
+.book-tile:focus-visible,
+.chip:focus-visible,
+.icon-btn:focus-visible {
+  outline: 2px solid var(--md3-primary);
+  outline-offset: 2px;
+}
+
+/* === 9. P6 封面微高光（实体书质感） === */
+/* 分类封面左上角加极淡白色斜向高光，强化"实体书"光泽。
+   用 ::after（::before 已被 paper-grain 纸纹占用）。
+   暗色模式下封面为深色，白色高光正好提亮，故不随 reduce 关闭。 */
+.book-cover[data-category]::after,
+.home-continue-cover::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.24), rgba(255, 255, 255, 0) 44%);
+}
