@@ -51,9 +51,11 @@ object AtomicUnits {
             }
         }
 
-        // 间隔号：A·B 三簇成一体（人名不可断）
+        // 间隔号：A·B 三簇成一体（人名不可断）。
+        // 只认人名间隔号 ·・‧，不认分隔号 ／ / —— 否则 URL 末尾的 `/` 会把紧随其后的
+        // 中文也粘进这个原子单元里。
         for (idx in 1 until n - 1) {
-            if (clusters.klass[idx] == CharClass.MIDDLE) {
+            if (CharClass.isNameSeparator(clusters.text[clusters.startInText[idx]])) {
                 val id = if (out[idx - 1] != NONE) out[idx - 1] else nextId++
                 markRange(out, idx - 1, idx + 2, id)
             }

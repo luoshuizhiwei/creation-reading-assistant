@@ -57,6 +57,14 @@ class LayoutLine(
     /** 行首缩进后的起始 x */
     val startX: Float,
     val clusterX: FloatArray,
+    /**
+     * 每簇首字符在段内的字符偏移，长度与 [clusterX] 相同（末位为行末字符偏移）。
+     *
+     * 必须实存，不能由「首末偏移按簇数等分」反推：簇与字符不是一一对应
+     * （代理对 𠮷、ZWJ emoji 家族、组合字都是一簇多字符），插值会让整行的
+     * 点击定位、选区、高亮矩形集体错位 —— 而且错的方向随行内容而变，没法事后校正。
+     */
+    val clusterStarts: IntArray,
     val isParagraphStart: Boolean,
     val isParagraphEnd: Boolean,
     val role: BlockRole,
@@ -77,6 +85,7 @@ class LayoutLine(
             endInText == other.endInText &&
             startX == other.startX &&
             clusterX.contentEquals(other.clusterX) &&
+            clusterStarts.contentEquals(other.clusterStarts) &&
             isParagraphStart == other.isParagraphStart &&
             isParagraphEnd == other.isParagraphEnd &&
             role == other.role &&
@@ -90,6 +99,7 @@ class LayoutLine(
         r = 31 * r + endInText
         r = 31 * r + startX.hashCode()
         r = 31 * r + clusterX.contentHashCode()
+        r = 31 * r + clusterStarts.contentHashCode()
         r = 31 * r + role.hashCode()
         return r
     }

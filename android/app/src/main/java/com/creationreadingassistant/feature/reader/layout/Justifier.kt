@@ -23,6 +23,7 @@ object Justifier {
         c: Clusters,
         a: WidthAdjuster.PhaseA,
         b: WidthAdjuster.PhaseB,
+        atom: IntArray,
         from: Int,
         until: Int,
         indent: Float,
@@ -37,29 +38,35 @@ object Justifier {
         val em = cfg.em
         val slack = avail - b.width
 
-        // 末行、标题、太短的行都不拉伸
+        // 末行、标题、太短的行都不拉伸。
+        //
+        // 刻意**不含** overflowed：溢出行恰恰是最需要按负字距压回的那一类。
+        // 早先把它并进来，导致下面的压缩分支永远走不到（不溢出的行 slack ≥ 0），
+        // 于是「宁可溢出也不违反禁则」的取舍失去了后半句 —— 溢出后没人把它压回来。
         val noStretch = isParagraphEnd ||
             role != BlockRole.BODY ||
             !cfg.justify ||
-            n < cfg.minJustifyClusters ||
-            overflowed
+            n < cfg.minJustifyClusters
 
         val stretchable = ArrayList<Int>(n)
         if (!noStretch) {
             for (i in from until until - 1) {
-                if (isStretchable(c, i, until)) stretchable.add(i)
+                if (isStretchable(c, atom, i, until)) stretchable.add(i)
             }
         }
 
         val d: Float = when {
             noStretch || stretchable.isEmpty() -> 0f
             slack > 0f -> {
-                if (slack > cfg.maxSlackEm * em) {
+                if (overflowed) {
+                    0f // 溢出行没有正余量可分，不该走到这里；保险起见不拉
+                } else if (slack > cfg.maxSlackEm * em) {
                     0f // 整行余量过大，放弃拉伸好过稀疏
                 } else {
                     (slack / stretchable.size).coerceAtMost(cfg.maxStretchPerGapEm * em)
                 }
             }
+            // slack < 0：溢出行，按负字距往回压，单间隙压缩量有下限
             else -> (slack / stretchable.size).coerceAtLeast(cfg.minCompressPerGapEm * em)
         }
 
@@ -67,8 +74,8 @@ object Justifier {
         val xs = FloatArray(n + 1)
         var x = indent
         for (i in from until until) {
-            xs[i - from] = x + b.drawShift[i]
-            x += b.adv[i]
+            xs[i - from] = x + b.shiftAt(a, i)
+            x += b.advAt(a, i)
             if (i + 1 < until) x += a.gapAfter[i]
             if (i in stretchSet) x += d
         }
@@ -81,6 +88,7 @@ object Justifier {
             endInText = c.startInText[until],
             startX = indent,
             clusterX = xs,
+            clusterStarts = IntArray(n + 1) { c.startInText[from + it] },
             isParagraphStart = isParagraphStart,
             isParagraphEnd = isParagraphEnd,
             role = role,
@@ -91,10 +99,15 @@ object Justifier {
     /**
      * 间隙 [i, i+1) 是否可拉伸。
      *
-     * 四条排除：西文词内部、原子单元内部、连接类标点两侧、行末字之后。
+     * 四条排除：西文词内部、**原子单元内部**、连接类标点两侧、行末字之后。
+     *
+     * 原子单元那条曾被漏掉，后果是两端对齐会把 `3.14159`、`2019-08-15`、`e-mail`
+     * 从内部撑开 —— 而这些恰恰是「必须整体移动」才定义出来的单元。
      */
-    private fun isStretchable(c: Clusters, i: Int, until: Int): Boolean {
+    private fun isStretchable(c: Clusters, atom: IntArray, i: Int, until: Int): Boolean {
         if (i + 1 >= until) return false
+        // 原子单元内部不拉
+        if (atom[i] != AtomicUnits.NONE && atom[i] == atom[i + 1]) return false
         val k = c.klass[i]
         val kn = c.klass[i + 1]
         // 西文词内部不拉，否则单词会被拆得七零八落

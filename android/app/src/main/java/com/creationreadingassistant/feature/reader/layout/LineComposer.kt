@@ -31,12 +31,8 @@ object LineComposer {
         val atom = AtomicUnits.compute(c)
         val brk = oracle.breaks(p.text)
         val a = WidthAdjuster.phaseA(c, cfg)
-
-        // 前缀和：pre[i] 为前 i 簇的总宽（含内部 gap），用于二分
-        val pre = FloatArray(c.count + 1)
-        for (i in 0 until c.count) {
-            pre[i + 1] = pre[i] + a.adv[i] + (if (i + 1 < c.count) a.gapAfter[i] else 0f)
-        }
+        // 前缀和由相位 A 一并算好（二分与相位 B 的宽度都靠它）
+        val pre = a.pre
 
         val lines = ArrayList<LayoutLine>()
         var lineStart = 0
@@ -68,7 +64,7 @@ object LineComposer {
                 end = if (k > floor && breakOk(c, atom, brk, k, lineStart, cfg)) {
                     k
                 } else {
-                    advanceToOverflow(c, atom, brk, end, avail, cfg)
+                    advanceToOverflow(c, a, atom, lineStart, end, avail, cfg)
                 }
                 b = WidthAdjuster.phaseB(c, a, lineStart, end, cfg)
             }
@@ -79,6 +75,7 @@ object LineComposer {
                     c = c,
                     a = a,
                     b = b,
+                    atom = atom,
                     from = lineStart,
                     until = end,
                     indent = indent,
@@ -146,8 +143,9 @@ object LineComposer {
      */
     private fun advanceToOverflow(
         c: Clusters,
+        a: WidthAdjuster.PhaseA,
         atom: IntArray,
-        brk: BooleanArray,
+        lineStart: Int,
         from: Int,
         avail: Float,
         cfg: LayoutConfig,
@@ -155,8 +153,15 @@ object LineComposer {
         if (from >= c.count) return c.count
 
         if (AtomicUnits.exceedsLine(c, atom, from, avail)) {
-            // 逃生：该单元比一行还长，任意位置断
-            return (from + 1).coerceAtMost(c.count)
+            // 逃生：该单元比一行还长，降级为「任意簇边界可断」。
+            //
+            // 断在 from 本身 —— 它就是③④算出的「恰好放得下」的边界，已经是最优断点。
+            // 曾经写成 from + 1，理由是「防死循环」，但那个理由不成立：
+            // 调用点传进来的 end 已经 coerceAtLeast(lineStart + 1)，返回 from 必然前进。
+            // 代价却是实打实的：逃生分支覆盖到的**每一行**都凭空多出一簇，
+            // 稳定溢出半个到一个字宽，而且整行被标成 overflowed 从而放弃两端对齐。
+            // 长省略号串、长破折号串、网址、长数字串在中文网文里都能触发。
+            return from.coerceAtMost(c.count)
         }
 
         val id = atom[from]
@@ -166,15 +171,20 @@ object LineComposer {
         } else {
             k = from + 1
         }
-        // 跳出单元后再往前找一个不违反禁首的位置，最多再走几簇
+        // 跳出单元后再往前找一个不违反禁首的位置，最多再走几簇。
+        // 除簇数上限外还有宽度闸门：连续禁首标点（「』」」这类）能让前扫一路推进，
+        // 没有闸门时溢出量没有上界。宁可在这里停下接受一个禁首违例，
+        // 也好过让一行冲出页面两三个字。
         var guard = 0
+        val overflowBudget = avail + MAX_OVERFLOW_RATIO * avail
         while (k < c.count && guard < MAX_OVERFLOW_SCAN) {
             val ch = c.text[c.startInText[k]]
             if (!CharClass.isNoStart(c.klass[k], ch, cfg.strictKinsoku)) break
+            if (a.width(lineStart, k + 1) > overflowBudget) break
             k++
             guard++
         }
-        return k.coerceAtMost(c.count).coerceAtLeast(from + 1)
+        return k.coerceIn(from, c.count)
     }
 
     private fun skipLeadingSpaces(c: Clusters, from: Int): Int {
@@ -185,5 +195,8 @@ object LineComposer {
 
     private const val MAX_SQUEEZE_IN_ROUNDS = 4
     private const val MAX_OVERFLOW_SCAN = 8
+
+    /** 逃生前扫允许的最大额外溢出比例（相对可用宽度）。超过就停下，接受禁首违例。 */
+    private const val MAX_OVERFLOW_RATIO = 0.15f
     const val EPS = 0.01f
 }

@@ -108,18 +108,15 @@ object PageHitTest {
     }
 
     /**
-     * 行内簇序号 → 章内字符偏移。
+     * 行内簇序号 → 章内字符偏移。直接查 [LayoutLine.clusterStarts]。
      *
-     * 注意 [LayoutLine] 只存了首末字符偏移，簇与字符不是一一对应（代理对、组合字），
-     * 所以这里按比例反推是不对的。真正的映射需要 [Clusters]；在只有 Line 的场景下
-     * 退化为线性插值，仅用于 x 坐标查找这类不要求精确的用途。
+     * 早先这里是「按簇数等分首末偏移」的线性插值。簇与字符不是一一对应
+     * （代理对 𠮷、ZWJ emoji 家族、组合字都是一簇多字符），插值出来的偏移
+     * 会落在字符中间，含这类字符的行整行点错。
      */
     private fun clusterToOffset(line: LayoutLine, cluster: Int): Int {
         val n = line.clusterCount
         if (n == 0) return line.startInText
-        if (cluster <= 0) return line.startInText
-        if (cluster >= n) return line.endInText
-        val span = line.endInText - line.startInText
-        return line.startInText + (span.toLong() * cluster / n).toInt()
+        return line.clusterStarts[cluster.coerceIn(0, n)]
     }
 }

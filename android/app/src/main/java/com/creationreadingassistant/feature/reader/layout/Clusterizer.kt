@@ -34,7 +34,9 @@ object Clusterizer {
         while (i < text.length) {
             val start = i
             var w = widths[i]
-            var repChar = text[i]
+            // 按码位取类别：代理对（𠮷 U+20BB7）单看高位半个不是汉字，
+            // 用 text[i] 会把扩展汉字判成 OTHER。
+            val repCodePoint = text.codePointAt(i)
 
             // 代理对：整体成簇
             if (Character.isHighSurrogate(text[i]) && i + 1 < text.length &&
@@ -72,7 +74,7 @@ object Clusterizer {
 
             starts.add(start)
             adv.add(w)
-            kls.add(CharClass.classify(repChar))
+            kls.add(CharClass.classifyCodePoint(repCodePoint))
         }
         starts.add(text.length)
 

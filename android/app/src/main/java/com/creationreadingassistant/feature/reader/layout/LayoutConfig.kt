@@ -67,6 +67,8 @@ data class LayoutConfig(
             r = 31 * r + if (justify) 1 else 0
             r = 31 * r + maxStretchPerGapEm.toBits()
             r = 31 * r + maxSlackEm.toBits()
+            // 溢出行现在会按负字距压回，压缩量因此会影响行宽 —— 必须进指纹
+            r = 31 * r + minCompressPerGapEm.toBits()
             r = 31 * r + minJustifyClusters
             r = 31 * r + minLineClusters
             r = 31 * r + if (strictKinsoku) 1 else 0
@@ -76,7 +78,13 @@ data class LayoutConfig(
         }
 
     companion object {
-        /** 改动排版算法时必须 +1，否则旧缓存的页边界会与新算法混用。 */
-        const val ENGINE_VERSION = 1
+        /**
+         * 改动排版算法时必须 +1，否则旧缓存的页边界会与新算法混用。
+         *
+         * v2（2026-07-27）：对抗性复核修掉 12 处缺陷，行宽与断点均已改变 ——
+         * 逃生分支不再多塞一簇、标点削宽按实测封顶、中西文间距不再进标点两侧、
+         * 全角字母数字改判同类、扩展汉字按码位分类。
+         */
+        const val ENGINE_VERSION = 2
     }
 }

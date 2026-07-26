@@ -26,6 +26,29 @@ object WidthAdjuster {
     const val CJK_LATIN_GAP_EM = 0.125f
 
     /**
+     * 一个全角标点实际可削掉的空白（px）。
+     *
+     * **不能直接用 `blankEm * em`。** 那是「标点确实占满一个字宽」的理想假设，
+     * 而真机上大量字体的标点并不满宽：思源黑体的 `，` 约 0.5em，
+     * 半角/窄形标点更只有 0.3em 左右。硬减 0.5em 会把这些标点削成零宽甚至负宽 ——
+     * 负 advance 会让 `clusterX` 不再单调递增，绘制时后字压上来，
+     * 选区与高亮矩形跟着整行错位。
+     *
+     * 所以以**实测宽度的一半**封顶：无论字体怎么设计，标点最多让出自己的一半。
+     */
+    fun blankPx(klass: Int, measured: Float, em: Float): Float {
+        val ideal = CharClass.blankEm(klass) * em
+        if (ideal <= 0f) return 0f
+        return ideal.coerceAtMost(measured * 0.5f).coerceAtLeast(0f)
+    }
+
+    private fun rightBlankPx(klass: Int, measured: Float, em: Float): Float =
+        if (CharClass.blankSide(klass) == CharClass.BLANK_RIGHT) blankPx(klass, measured, em) else 0f
+
+    private fun leftBlankPx(klass: Int, measured: Float, em: Float): Float =
+        if (CharClass.blankSide(klass) == CharClass.BLANK_LEFT) blankPx(klass, measured, em) else 0f
+
+    /**
      * 相位 A 的产物。
      *
      * @param adv 调整后的每簇推进宽度
@@ -37,13 +60,26 @@ object WidthAdjuster {
         val gapAfter: FloatArray,
         val drawShift: FloatArray,
     ) {
-        /** [from, until) 的总宽度，含区间内部的 gap，但不含末尾 gap。 */
-        fun width(from: Int, until: Int): Float {
-            var w = 0f
-            for (i in from until until) {
-                w += adv[i]
-                if (i + 1 < until) w += gapAfter[i]
+        /**
+         * 前缀和：`pre[i]` 为前 i 簇的总宽（含其间的 gap）。
+         *
+         * 存在的理由有两个：装行时的二分要它；[width] 要它。
+         * 后者尤其重要 —— 装行主循环每行会调 4~5 次相位 B，
+         * 若每次都 O(行长) 地累加，长段落的装行就退化成平方级。
+         */
+        val pre: FloatArray = FloatArray(adv.size + 1).also { p ->
+            for (i in adv.indices) {
+                p[i + 1] = p[i] + adv[i] + (if (i + 1 < adv.size) gapAfter[i] else 0f)
             }
+        }
+
+        /** [from, until) 的总宽度，含区间内部的 gap，但不含末尾 gap。O(1)。 */
+        fun width(from: Int, until: Int): Float {
+            if (until <= from) return 0f
+            var w = pre[until] - pre[from]
+            // pre 把 gapAfter[until-1] 也算进来了（当它不是全段最后一簇时），
+            // 但行末那个 gap 不属于本行。
+            if (until < adv.size) w -= gapAfter[until - 1]
             return w
         }
     }
@@ -61,13 +97,13 @@ object WidthAdjuster {
 
             // 连续标点挤压：只在两个全角标点相邻时发生
             if (CharClass.isFullWidthPunct(k) && CharClass.isFullWidthPunct(kn)) {
-                val right = CharClass.rightBlankEm(k)
-                val left = CharClass.leftBlankEm(kn)
-                if (right > 0f) adv[i] -= right * em
+                val right = rightBlankPx(k, c.advance[i], em)
+                val left = leftBlankPx(kn, c.advance[i + 1], em)
+                if (right > 0f) adv[i] -= right
                 if (left > 0f) {
-                    adv[i + 1] -= left * em
+                    adv[i + 1] -= left
                     // 左侧空白被削掉后，墨水要跟着左移，否则会和前一个标点拉开缝
-                    shift[i + 1] -= left * em
+                    shift[i + 1] -= left
                 }
             } else if (isCjkSide(k) && CharClass.isLatinLike(kn) ||
                 CharClass.isLatinLike(k) && isCjkSide(kn)
@@ -76,6 +112,8 @@ object WidthAdjuster {
                 gap[i] = CJK_LATIN_GAP_EM * em
             }
         }
+        // 兜底：任何路径都不允许出现负推进，否则 clusterX 会倒退。
+        for (i in 0 until n) if (adv[i] < 0f) adv[i] = 0f
         return PhaseA(adv, gap, shift)
     }
 
@@ -83,18 +121,38 @@ object WidthAdjuster {
      * 相位 B 的产物：在相位 A 基础上，针对某一行 [from, until) 的调整。
      *
      * **只释放宽度，不占用宽度** —— 这是收敛性的前提。
+     *
+     * 只记录三个增量而不是复制整段数组。相位 B 每行要算 4~5 次，
+     * 复制两条长度为「整段簇数」的数组会让装行退化为 O(n²)：
+     * 20 万字的单段（网文里「作者有话说」常见）能跑到几十秒，直接 ANR。
+     * 真正被改动的永远只有行首、行末两个下标。
      */
     class PhaseB(
-        val adv: FloatArray,
-        val drawShift: FloatArray,
+        val from: Int,
+        val until: Int,
+        val firstAdvDelta: Float,
+        val firstShiftDelta: Float,
+        val lastAdvDelta: Float,
         val width: Float,
-    )
+    ) {
+        /** 第 [i] 簇在本行的推进宽度。 */
+        fun advAt(a: PhaseA, i: Int): Float {
+            var v = a.adv[i]
+            if (i == from) v += firstAdvDelta
+            if (i == until - 1) v += lastAdvDelta
+            return if (v < 0f) 0f else v
+        }
+
+        /** 第 [i] 簇在本行的绘制偏移。 */
+        fun shiftAt(a: PhaseA, i: Int): Float =
+            a.drawShift[i] + (if (i == from) firstShiftDelta else 0f)
+    }
 
     /**
      * 施加行首/行末调整。
      *
-     * @param indentPx 本行的首行缩进；行首括号缩左半会从缩进里扣，
-     *        所以「段首『你好』」的实际缩进是 2em − 0.5em = 1.5em
+     * 注：行首起始括号缩掉的左半会自然体现在 x 起点上，
+     * 所以「段首『你好』」的实际缩进是 2em − 0.5em = 1.5em。
      */
     fun phaseB(
         c: Clusters,
@@ -103,35 +161,38 @@ object WidthAdjuster {
         until: Int,
         cfg: LayoutConfig,
     ): PhaseB {
-        val adv = a.adv.copyOf()
-        val shift = a.drawShift.copyOf()
         val em = cfg.em
+        var firstAdv = 0f
+        var firstShift = 0f
+        var lastAdv = 0f
 
         if (until > from) {
             // 行首起始类标点：左半空白无意义，削掉
             val kFirst = c.klass[from]
-            val leftBlank = CharClass.leftBlankEm(kFirst)
+            val leftBlank = leftBlankPx(kFirst, c.advance[from], em)
             if (leftBlank > 0f && a.drawShift[from] == 0f) {
-                adv[from] -= leftBlank * em
-                shift[from] -= leftBlank * em
+                firstAdv -= leftBlank
+                firstShift -= leftBlank
             }
             // 行末句读/收尾类标点：右半空白无意义，削掉
             val last = until - 1
             val kLast = c.klass[last]
-            val rightBlank = CharClass.rightBlankEm(kLast)
+            val rightBlank = rightBlankPx(kLast, c.advance[last], em)
             if (rightBlank > 0f && a.adv[last] == c.advance[last]) {
-                adv[last] -= rightBlank * em
+                lastAdv -= rightBlank
             }
         }
 
-        var w = 0f
-        for (i in from until until) {
-            w += adv[i]
-            if (i + 1 < until) w += a.gapAfter[i]
-        }
-        return PhaseB(adv, shift, w)
+        val w = (a.width(from, until) + firstAdv + lastAdv).coerceAtLeast(0f)
+        return PhaseB(from, until, firstAdv, firstShift, lastAdv, w)
     }
 
-    private fun isCjkSide(k: Int): Boolean =
-        k == CharClass.CJK || CharClass.isFullWidthPunct(k)
+    /**
+     * 该类别是否属于中西文间距里的「中」侧。
+     *
+     * **只认汉字/假名，不认全角标点。** clreq 6.3.3 明确规定标点与西文之间不加这个间距 ——
+     * 全角标点自带的半格空白已经承担了同样的视觉职责，再加就是双份，
+     * 表现为「他说：Hello」的冒号后凭空多出一道缝。
+     */
+    private fun isCjkSide(k: Int): Boolean = k == CharClass.CJK
 }
