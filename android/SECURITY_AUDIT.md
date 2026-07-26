@@ -139,8 +139,16 @@ D:\develop\Code\Codex\�����Ķ�����\android\app
 参数确实进了 worker 命令行，但参数文件在写入阶段就已经错了，且 Windows 上原生路径解码在 JVM 启动前就已确定。该改动已回退。
 
 **根治办法只有一个：把项目移到不含非 ASCII 字符的路径**，例如
-`D:\develop\Code\Codex\creation-reading-assistant\`。在那之前，`android/` 的单测无法通过 Gradle 运行，
-CI 上的 `test` 任务也会一直是红的。
+`D:\develop\Code\Codex\creation-reading-assistant\`。
+
+### 已于 2026-07-27 根治
+
+项目目录已从 `创作阅读助手` 改名为 `creation-reading-assistant`。改名后首次运行
+`./gradlew :app:testDebugUnitTest` 即 88 个用例全绿（此前恒为 `ClassNotFoundException`）。
+
+**因此本节描述的绕行方案已作废** —— 不要再把编译产物复制到 ASCII 目录、
+不要再用 `java -cp … JUnitCore`，直接跑 Gradle 即可。
+`gradle.properties` 里的 `android.overridePathCheck=true` 也已无必要。
 
 ## 五、同一家族的第二个环境陷阱：Kotlin 守护进程编码（已修）
 

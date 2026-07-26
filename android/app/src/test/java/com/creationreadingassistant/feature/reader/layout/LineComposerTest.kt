@@ -8,11 +8,12 @@ import org.junit.Test
 /**
  * 排版内核验收（对应 SIDECAR-ZH 第 6 节 P1 的验收清单）。
  *
- * 全部纯 JVM：`layout/` 包禁止 `import android.*`，正是为了这些测试能在
- * ASCII 路径下用 JUnitCore 直接跑（项目路径含中文导致 Gradle 跑不了测试）。
+ * 全部纯 JVM：`layout/` 包禁止 `import android.*`，所以这些测试不用起模拟器。
  *
- * 测宽用 [FakeTextRuler]：CJK 与全角标点 1em，其余 0.5em。中文正文本来就是等宽的，
- * 所以断行、禁则、挤压、两端对齐的正确性在这里验证与真机高度一致。
+ * 测宽用 [FakeTextRuler]：按 East_Asian_Width 给宽度，全角 1em、半角 0.5em。
+ * 中文正文本来就是等宽的，所以断行、禁则、挤压、两端对齐的正确性在这里验证与真机高度一致。
+ *
+ * 复核确认的具体缺陷的回归断言另见 [LayoutRegressionTest]。
  */
 class LineComposerTest {
 

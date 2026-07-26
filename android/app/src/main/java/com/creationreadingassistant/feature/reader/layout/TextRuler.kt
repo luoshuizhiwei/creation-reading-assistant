@@ -4,8 +4,8 @@ package com.creationreadingassistant.feature.reader.layout
  * 测宽接缝。
  *
  * 排版内核只认这个接口，平台实现（基于 `TextPaint.getTextWidths()`）放在
- * `layout/android/`。这样内核可以在纯 JVM 下用 [FakeTextRuler] 跑单测 ——
- * 项目路径含中文导致 Gradle 跑不了测试，只有零 Android 依赖的代码才测得了。
+ * `layout/android/`。这样内核可以在纯 JVM 下用 [FakeTextRuler] 跑单测，
+ * 不必起模拟器 —— 排版逻辑的断言数量很大，这个差别决定了它测不测得动。
  *
  * 为什么必须是 `getTextWidths()` 而不是 Compose 的 TextMeasurer：
  * Compose 不存在「不做布局就拿到字符宽度」的 API（`getBoundingBox` 首条指令即

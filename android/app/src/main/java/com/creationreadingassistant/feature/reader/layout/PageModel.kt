@@ -4,10 +4,13 @@ package com.creationreadingassistant.feature.reader.layout
  * 排版内核的数据模型。
  *
  * **本包（`feature/reader/layout/`）禁止 `import android.*`。**
- * 这不是洁癖：项目路径含中文导致 Gradle 跑不了单元测试（见 SECURITY_AUDIT.md 第四节），
- * 只有零 Android 依赖的纯 JVM 代码才能把编译产物复制到 ASCII 路径后用
- * `java -cp … org.junit.runner.JUnitCore` 直接跑。排版是最容易出细微错误的一层，
- * 它必须是可测的。平台相关实现放在 `layout/android/` 子包。
+ * 排版是最容易出细微错误的一层（一轮对抗性复核在这里确认了 12 处缺陷），
+ * 零 Android 依赖让它能在纯 JVM 下毫秒级地跑成百上千条断言，不必起模拟器。
+ * 平台相关实现放在 `layout/android/` 子包。
+ *
+ * 注：这条约束最初还有一个理由 —— 项目路径含中文时 Gradle 根本跑不了测试，
+ * 只有纯 JVM 代码能把产物复制到 ASCII 路径后用 JUnitCore 直接跑。
+ * 该故障已于 2026-07-27 随项目改名根治，但上面那个理由本身依然成立。
  */
 
 /** 段落角色。标题参与 keep-with-next，且不做首行缩进、不做两端对齐。 */

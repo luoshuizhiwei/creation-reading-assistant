@@ -72,7 +72,10 @@
 
 验证：`EpubParserTextTest` 8 个用例 + 既有 10 个用例全绿（`OK (18 tests)`），`assembleDebug` BUILD SUCCESSFUL。
 
-> 注意单测**不能**用 Gradle 跑，原因是项目路径含中文导致的既有环境故障，详见 `SECURITY_AUDIT.md` 第四节。上述结果是把编译产物复制到 ASCII 路径后用 `java -cp … JUnitCore` 得到的。
+> **历史备注（已作废）**：写这段时单测不能用 Gradle 跑，项目路径含中文导致测试 worker 加载不了任何测试类，
+> 上述结果是把编译产物复制到 ASCII 路径后用 `java -cp … JUnitCore` 得到的。
+> 2026-07-27 项目改名为 `creation-reading-assistant` 后该故障已根治，现在直接
+> `./gradlew :app:testDebugUnitTest` 即可，不要再走绕行方案。
 
 ---
 
