@@ -1,13 +1,7 @@
 @import './md3-base.css';
-/* 纸质纹理层（Paper Grain Layer）：统一抽取各组件的重复 ::before 噪点叠加与 isolation，
-   视觉表现与原先逐字一致。须在组件样式之前加载。 */
-@import './styles/paper-grain.css';
 @import './styles/app-foundation.css';
 @import './styles/app-pages.css';
 @import './styles/interaction-polish.css';
-/* UI 美化增强层：纯加法动效/触感/标题微调，须在 unified-layer 之前加载，
-   仅补充愉悦感，不覆盖其权威外观，也不改动功能与布局。 */
-@import './styles/ui-beautify.css';
 @import './styles/tts-player.css';
 @import './styles/reader.css';
 @import './styles/release-overrides.css';
@@ -18,8 +12,3 @@
 /* 统计页面专属样式，在所有历史覆盖层之后加载，确保新规则生效。 */
 @import './features/stats/stats-page.css';
 @import './features/profile/profile.css';
-/* 全局统一层：最后加载，归一所有分散组件样式（卡片/按钮/输入框/标题/Sheet/蒙层），
-   覆盖之前所有文件里的不一致定义，是全局唯一权威外观。 */
-@import './styles/unified-layer.css';
-/* 阅读正文独立于页面 UI，在最后加载，避免历史覆盖层破坏版心和安全区。 */
-@import './styles/reader-layout.css';
