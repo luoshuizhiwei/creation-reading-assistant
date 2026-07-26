@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  局域网同步的桌面端只提供明文 HTTP，因此这里必须放行 cleartext。
+
+  为什么不在这里收窄到内网网段：Android 的 <domain-config> 只能匹配具体主机名，
+  不支持 CIDR/网段通配，而配对目标是每次可能变化的局域网 IP，无法在配置里表达。
+  因此「只允许内网地址」这一约束由代码层强制执行：
+  PairingManager.isLanHost() 拒绝一切非回环/非私有网段的配对地址，
+  使明文流量实际只可能发往本机或同一局域网的桌面端。
+
+  同步链路仍是明文，局域网内的主动攻击者依然可以嗅探/篡改。
+  彻底修复需要桌面端启用 TLS 并把证书指纹放进配对二维码做固定校验。
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

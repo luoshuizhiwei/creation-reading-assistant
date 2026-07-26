@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  备份排除规则（Android 6.0–11，配合 android:fullBackupContent）。
+
+  书库与创作数据仍然参与备份 —— 用户的灵感/笔记只存在本机，不备份的数据丢失风险更大。
+  但三处凭据存储必须排除：
+    sync_config  局域网同步 token（可读写整个书库）
+    webdav_config WebDAV 账号密码
+    ai_secrets    AI 服务 API Key（可产生费用）
+
+  正常情况下它们由 EncryptedSharedPreferences 加密、主密钥留在 AndroidKeyStore 且不参与备份，
+  但 SecurePrefs 在设备不支持加密存储时会回退明文，那种情况下备份就会带走明文凭据。
+  这里显式排除，避免依赖“恰好加密成功”这一前提。
+-->
+<full-backup-content>
+    <exclude domain="sharedpref" path="sync_config.xml" />
+    <exclude domain="sharedpref" path="webdav_config.xml" />
+    <exclude domain="sharedpref" path="ai_secrets.xml" />
+</full-backup-content>

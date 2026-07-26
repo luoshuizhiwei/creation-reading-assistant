@@ -1,0 +1,62 @@
+package com.creationreadingassistant.ui.theme
+
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+
+/**
+ * 藏书印。
+ *
+ * 文人在读过、收藏的书上钤印，「读毕」印本身就承载"这本书我读完了"这一条信息——
+ * 所以它不是花纹，是状态标记。**只用在已读完的书上**，别拿去当通用点缀：
+ * 印一旦到处盖就不是印了，朱砂红也会从"印泥"退化成一个普通的暖红强调色。
+ *
+ * 三个刻意的细节：
+ * - 轻微旋转：手盖的印不会和网格对齐，正了反而假。
+ * - 不满不透明：印泥压进纸里，边缘会透出纸色。
+ * - 方形小圆角：篆刻的边框是刻出来的，不是圆角矩形按钮。
+ */
+@Composable
+fun SealMark(
+    modifier: Modifier = Modifier,
+    text: String = "读毕",
+    size: Dp = 34.dp,
+    rotationDegrees: Float = -8f,
+) {
+    val box = size.value
+    Box(
+        modifier = modifier
+            .size(size)
+            .rotate(rotationDegrees)
+            .alpha(0.88f)
+            .border(width = 1.5.dp, color = AppCinnabar, shape = RoundedCornerShape(2.dp))
+            .semantics { contentDescription = "已读完" },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            color = AppCinnabar,
+            fontFamily = FontFamily.Serif,
+            fontWeight = FontWeight.Bold,
+            fontSize = (box * 0.34f).sp,
+            lineHeight = (box * 0.36f).sp,
+            letterSpacing = (-0.5).sp,
+            textAlign = TextAlign.Center,
+        )
+    }
+}

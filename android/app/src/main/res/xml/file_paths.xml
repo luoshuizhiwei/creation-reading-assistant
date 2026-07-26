@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  FileProvider 只暴露实际需要对外分享的目录。
+  此前 files-path / external-files-path / cache-path 都以 "." 暴露各自根目录，
+  等于让 Room 数据库、缓存的书籍原文都处于可被 content:// 寻址的范围内。
+  当前唯一的分享场景是导出诊断日志（cacheDir/diagnostics），因此只保留该子目录。
+  新增分享场景时，请另加精确到子目录的条目，不要退回 path="."。
+-->
+<paths>
+    <cache-path name="diagnostics" path="diagnostics/" />
+</paths>

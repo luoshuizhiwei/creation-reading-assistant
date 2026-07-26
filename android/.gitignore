@@ -1,0 +1,21 @@
+# 构建产物与本地缓存
+.gradle/
+build/
+.cxx/
+
+# 本机专属配置：含各人自己的 Android SDK 绝对路径，不能进版本库
+local.properties
+
+# IDE
+*.iml
+.idea/
+
+# 签名文件，绝不提交
+*.jks
+*.keystore
+
+*.log
+
+# 说明：app/schemas/ 是 Room 的数据库结构快照，**必须提交**。
+# 少了它就无法验证数据库升级脚本，而本项目开着 fallbackToDestructiveMigration()，
+# 升级写错会静默清空用户全部数据。
