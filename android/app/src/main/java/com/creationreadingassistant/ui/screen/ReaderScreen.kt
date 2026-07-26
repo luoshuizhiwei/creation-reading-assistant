@@ -125,6 +125,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import com.creationreadingassistant.data.settings.SettingsStore
@@ -1014,11 +1015,49 @@ fun ReaderScreen(
     var chapterLoadJob by remember { mutableStateOf<Job?>(null) }
 
     var controlsVisible by remember { mutableStateOf(true) }
+
+    // ── 让「摆设开关」真正生效（此前这些设置存了值但没有任何消费者）──────────
+    val hostView = LocalView.current
+
+    // 常亮显示：阅读器在前台期间保持屏幕不熄灭，离开页面必须撤掉
+    DisposableEffect(readerSettings.keepAwake) {
+        val window = (context as? Activity)?.window
+        if (readerSettings.keepAwake) window?.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+        onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
+    }
+
+    // 沉浸模式：菜单收起时连系统状态栏/导航栏一起藏；离开阅读器恢复
+    DisposableEffect(readerSettings.immersiveMode, controlsVisible) {
+        val window = (context as? Activity)?.window
+        val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, hostView) }
+        if (controller != null) {
+            controller.systemBarsBehavior =
+                androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
+            if (readerSettings.immersiveMode && !controlsVisible) {
+                controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            } else {
+                controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            }
+        }
+        onDispose { controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+    }
+
+    // 菜单自动隐藏：呼出菜单 N 秒后自动收起（0 = 从不）。弹层打开时不倒计时。
+    var sheetOpenGuard by remember { mutableStateOf(false) }
+    LaunchedEffect(controlsVisible, readerSettings.autoHideSeconds, sheetOpenGuard) {
+        val secs = readerSettings.autoHideSeconds
+        if (controlsVisible && secs > 0 && !sheetOpenGuard) {
+            delay(secs * 1000L)
+            controlsVisible = false
+        }
+    }
     var selectedText by remember { mutableStateOf("") }
     // T1：记录选区起点在本书全局文本中的偏移，用于写入 locator_json（TXT=plainContent 偏移，EPUB=block 全局偏移）
     var selectedRangeStart by remember { mutableStateOf(-1) }
     var selectedGlobalOffset by remember { mutableStateOf(-1) }
     var sheet by remember { mutableStateOf<SheetType?>(null) }
+    // 弹层打开时暂停「菜单自动隐藏」倒计时（否则调设置调到一半菜单没了）
+    LaunchedEffect(sheet) { sheetOpenGuard = sheet != null }
     var showTts by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     // R5：最近浏览章节（本会话记录，置顶于目录）；R8：顶栏「更多」菜单
@@ -1891,6 +1930,15 @@ fun ReaderScreen(
                         }
                     }
                 }
+            }
+
+            // 显示进度条：正文底部 2dp 细线（此前该开关是摆设）
+            if (readerSettings.showProgressBar && !isLoading && error == null) {
+                androidx.compose.material3.LinearProgressIndicator(
+                    progress = { (progressPercent / 100f).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(2.dp).align(Alignment.BottomCenter),
+                    trackColor = androidx.compose.ui.graphics.Color.Transparent,
+                )
             }
 
             // 选中文字工具条（对照 web 选中工具栏）
