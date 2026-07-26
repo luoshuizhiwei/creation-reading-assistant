@@ -141,8 +141,6 @@ import kotlinx.coroutines.withContext
 
 // 与网页版 mobile-updates.ts 保持一致的发布链接
 private const val MOBILE_RELEASES_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases"
-private const val MOBILE_SOURCE_ARCHIVE_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/latest/download/creation-reading-assistant-android-source.zip"
-private const val MOBILE_LICENSE_URL = "https://www.gnu.org/licenses/gpl-3.0.html"
 private const val MOBILE_RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant-releases/releases/latest"
 
 /** Hilt 入口：向「我的」子页暴露所需 DAO（避免新增 ViewModel）。 */
@@ -361,6 +359,7 @@ fun ProfileScreen(
             ProfileSubPage.READER -> ReaderSettingsSubPage(
                 modifier = modifier,
                 readerMode = reader.readerMode, onReaderModeChange = { settingsVm.updateReader { copy(readerMode = it) } },
+                pagerEngineMode = reader.pagerEngineMode, onPagerEngineModeChange = { settingsVm.updateReader { copy(pagerEngineMode = it) } },
                 pageTurnEffect = reader.pageTurnEffect, onPageTurnEffectChange = { settingsVm.updateReader { copy(pageTurnEffect = it) } },
                 tapZoneMode = reader.tapZoneMode, onTapZoneModeChange = { settingsVm.updateReader { copy(tapZoneMode = it) } },
                 fontSize = reader.fontSize, onFontSizeChange = { settingsVm.updateReader { copy(fontSize = it) } },
@@ -1005,6 +1004,7 @@ private fun AppearanceSubPage(
 private fun ReaderSettingsSubPage(
     modifier: Modifier,
     readerMode: String, onReaderModeChange: (String) -> Unit,
+    pagerEngineMode: String, onPagerEngineModeChange: (String) -> Unit,
     pageTurnEffect: String, onPageTurnEffectChange: (String) -> Unit,
     tapZoneMode: String, onTapZoneModeChange: (String) -> Unit,
     fontSize: Float, onFontSizeChange: (Float) -> Unit,
@@ -1030,6 +1030,10 @@ private fun ReaderSettingsSubPage(
                     selected = readerMode,
                     onSelect = onReaderModeChange,
                 )
+                // 与阅读器内设置面板保持同一开关：真正的章内逐页翻页（TXT）
+                ToggleRow("翻页新引擎（试验，TXT）", pagerEngineMode == "on") {
+                    onPagerEngineModeChange(if (it) "on" else "off")
+                }
                 SectionTitle("翻页与点击")
                 SegmentedRow(
                     options = listOf("none" to "无动画", "fade" to "柔和淡入"),
@@ -1743,13 +1747,9 @@ private fun AboutSubPage(modifier: Modifier, context: Context) {
         }
         Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text("开源与许可证", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text("Android 端按 GPL-3.0 发布", style = MaterialTheme.typography.titleMedium)
-                Text("移动端包含基于 Legado / 阅读 Sigma 固定版本适配的本地阅读内核。每个正式 APK 版本都会同时提供对应源代码归档、许可证与修改说明。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { openUrl(MOBILE_SOURCE_ARCHIVE_URL) }) { Icon(Icons.Filled.Download, contentDescription = null); Text("下载对应源码", modifier = Modifier.padding(start = 6.dp)) }
-                    OutlinedButton(onClick = { openUrl(MOBILE_LICENSE_URL) }) { Icon(Icons.AutoMirrored.Filled.OpenInNew, contentDescription = null); Text("查看 GPL-3.0", modifier = Modifier.padding(start = 6.dp)) }
-                }
+                Text("开源与致谢", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("个人自用构建，不对外分发", style = MaterialTheme.typography.titleMedium)
+                Text("阅读内核为自研实现，设计上参考了 Legado（开源阅读应用，GPL-3.0）等项目。若未来对外分发，将依 GPL-3.0 要求提供完整源代码与修改说明。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         if (hasUpdate) {

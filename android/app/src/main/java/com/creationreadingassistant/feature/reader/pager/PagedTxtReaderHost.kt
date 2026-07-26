@@ -1,6 +1,8 @@
 package com.creationreadingassistant.feature.reader.pager
 
 import android.text.TextPaint
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -65,6 +67,12 @@ fun PagedTxtReaderHost(
     pageMarginDp: Float,
     fontWeightBold: Boolean,
     showReaderInfo: Boolean,
+    /** 「中文排版优化」开关：关掉则不做两端对齐（禁则与标点挤压保留 —— 那是正确性不是风格）。 */
+    chineseTypography: Boolean,
+    /** 点按分区：three-zone 左右边缘；five-zone 追加上=上一页、下=下一页。 */
+    tapZoneMode: String,
+    /** 翻页效果：none 直接切页；fade 柔和淡入（Crossfade 单页画布，无位移不残影）。 */
+    pageTurnEffect: String,
     textColor: Color,
     initialOffset: Int,
     jumpRequest: MutableState<Int?>,
@@ -112,7 +120,7 @@ fun PagedTxtReaderHost(
                 val widthPx = constraints.maxWidth.toFloat()
                 val heightPx = constraints.maxHeight.toFloat()
 
-                val cfg = remember(widthPx, heightPx, fontPx, lineHeightMultiplier, paragraphSpacing, typefaceKey) {
+                val cfg = remember(widthPx, heightPx, fontPx, lineHeightMultiplier, paragraphSpacing, typefaceKey, chineseTypography) {
                     LayoutConfig(
                         contentWidthPx = widthPx,
                         contentHeightPx = heightPx,
@@ -120,6 +128,7 @@ fun PagedTxtReaderHost(
                         lineHeightMultiplier = lineHeightMultiplier,
                         // 设置里的段距是 0.8/1.1/1.5 的倍率档，映射到 em 值
                         paragraphSpacingEm = 0.4f * paragraphSpacing,
+                        justify = chineseTypography,
                         typefaceKey = typefaceKey,
                     )
                 }
@@ -183,14 +192,8 @@ fun PagedTxtReaderHost(
                         val r = selRange.value ?: return@remember emptyList()
                         PageSelection.rectsForRange(page, cfg, r.first, r.last + 1)
                     }
-                    PageCanvas(
-                        page = page,
-                        chapterText = controller.chapterText,
-                        cfg = cfg,
-                        paint = paint,
-                        headingPaint = headingPaint,
-                        underlays = listOf(ttsHighlightColor to ttsRects, selectionColor to selRects),
-                        modifier = Modifier
+                    val underlays = listOf(ttsHighlightColor to ttsRects, selectionColor to selRects)
+                    val gestures = Modifier
                             .fillMaxSize()
                             .pointerInput(controller) {
                                 detectTapGestures(
@@ -212,7 +215,11 @@ fun PagedTxtReaderHost(
                                             selRange.value = null
                                             onSelect("", -1)
                                         } else {
+                                            val fiveZone = tapZoneMode == "five-zone"
                                             when {
+                                                // five-zone：上 12% 上一页、下 12% 下一页（对照 web tapZoneMode）
+                                                fiveZone && offset.y < size.height * 0.12f -> controller.prevPage()
+                                                fiveZone && offset.y > size.height * 0.88f -> controller.nextPage()
                                                 offset.x < size.width / 3f -> controller.prevPage()
                                                 offset.x > size.width * 2f / 3f -> controller.nextPage()
                                                 else -> onToggleControls()
@@ -234,8 +241,35 @@ fun PagedTxtReaderHost(
                                         }
                                     },
                                 ) { _, dragAmount -> dragTotal += dragAmount }
-                            },
-                    )
+                            }
+                    if (pageTurnEffect == "fade") {
+                        // 淡入帧带自己的章文本快照：跨章翻页时旧页必须仍按旧章文本绘制
+                        val frame = remember(page) { PageFrame(page, controller.chapterText) }
+                        Box(gestures) {
+                            Crossfade(targetState = frame, animationSpec = tween(180), label = "pageFade") { f ->
+                                PageCanvas(
+                                    page = f.page,
+                                    chapterText = f.chapterText,
+                                    cfg = cfg,
+                                    paint = paint,
+                                    headingPaint = headingPaint,
+                                    // 高亮只画在当前帧上，淡出的旧帧随整帧一起淡掉即可
+                                    underlays = if (f === frame) underlays else emptyList(),
+                                    modifier = Modifier.fillMaxSize(),
+                                )
+                            }
+                        }
+                    } else {
+                        PageCanvas(
+                            page = page,
+                            chapterText = controller.chapterText,
+                            cfg = cfg,
+                            paint = paint,
+                            headingPaint = headingPaint,
+                            underlays = underlays,
+                            modifier = gestures,
+                        )
+                    }
                 }
 
                 // 页脚信息行占位在 Column 外层，这里只负责正文
@@ -269,6 +303,9 @@ fun PagedTxtReaderHost(
         }
     }
 }
+
+/** 淡入过渡的一帧快照：页 + 其所属章文本。故意用引用相等 —— 只有换页才算新帧。 */
+private class PageFrame(val page: ChapterPaginator.Page, val chapterText: String)
 
 /** 页脚左右两栏：章节名 / 全书进度。页号在排版完成前拿不到，用全书百分比代替更稳。 */
 private fun footerInfo(fullText: String, chapters: List<DocChapter>, absOffset: Int): Pair<String, String> {

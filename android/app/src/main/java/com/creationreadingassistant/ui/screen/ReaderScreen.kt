@@ -123,6 +123,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -1026,20 +1030,40 @@ fun ReaderScreen(
         onDispose { window?.clearFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
 
-    // 沉浸模式：菜单收起时连系统状态栏/导航栏一起藏；离开阅读器恢复
+    // 沉浸模式：菜单收起时连系统状态栏/导航栏一起藏；离开阅读器恢复。
+    // 必须同时允许内容进刘海区（SHORT_EDGES），否则藏掉状态栏后系统会在
+    // 打孔摄像头那一条补黑边 —— 真机上就是一条黑带，比不沉浸还难看。
     DisposableEffect(readerSettings.immersiveMode, controlsVisible) {
         val window = (context as? Activity)?.window
         val controller = window?.let { androidx.core.view.WindowCompat.getInsetsController(it, hostView) }
+        val hide = readerSettings.immersiveMode && !controlsVisible
+        if (window != null && Build.VERSION.SDK_INT >= 28) {
+            window.attributes = window.attributes.apply {
+                layoutInDisplayCutoutMode = if (hide) {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_SHORT_EDGES
+                } else {
+                    android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
+        }
         if (controller != null) {
             controller.systemBarsBehavior =
                 androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE
-            if (readerSettings.immersiveMode && !controlsVisible) {
+            if (hide) {
                 controller.hide(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             } else {
                 controller.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
             }
         }
-        onDispose { controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars()) }
+        onDispose {
+            controller?.show(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            if (window != null && Build.VERSION.SDK_INT >= 28) {
+                window.attributes = window.attributes.apply {
+                    layoutInDisplayCutoutMode =
+                        android.view.WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_DEFAULT
+                }
+            }
+        }
     }
 
     // 菜单自动隐藏：呼出菜单 N 秒后自动收起（0 = 从不）。弹层打开时不倒计时。
@@ -1219,6 +1243,15 @@ fun ReaderScreen(
     val readerBrightness = readerSettings.brightness.coerceIn(45, 100)
     val dimAlpha = ((100 - readerBrightness) / 100f).coerceAtMost(0.58f)
     val effectivePaperBg = if (dimAlpha > 0.001f) lerp(paperBg, Color.Black, dimAlpha) else paperBg
+
+    // 窗口底色刷成纸色：沉浸模式藏掉系统栏后腾出的区域在 Compose 画布之外，
+    // 露出的是窗口底色 —— 不刷的话那里是一条黑带。离开阅读器恢复原样。
+    val originalWindowBg = remember { (context as? Activity)?.window?.decorView?.background }
+    DisposableEffect(effectivePaperBg) {
+        val window = (context as? Activity)?.window
+        window?.setBackgroundDrawable(android.graphics.drawable.ColorDrawable(effectivePaperBg.toArgb()))
+        onDispose { window?.setBackgroundDrawable(originalWindowBg) }
+    }
 
     // T2：朗读句高亮背景色（与 TXT 保持一致）
     val sentenceHighlightBg = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
@@ -1738,7 +1771,9 @@ fun ReaderScreen(
             }
         },
         floatingActionButton = {
-            if (!controlsVisible) {
+            // 翻页引擎下点屏幕中央即可呼出菜单，悬浮按钮纯属多余还压在正文上；
+            // 滚动模式没有中央点按手势，仍需要它。
+            if (!controlsVisible && !pagerEngineOn) {
                 FloatingActionButton(onClick = { controlsVisible = true }) {
                     Icon(Icons.Filled.Menu, contentDescription = "展开菜单")
                 }
@@ -1748,8 +1783,19 @@ fun ReaderScreen(
         Box(
             Modifier
                 .fillMaxSize()
+                // 背景必须在 padding 之前铺：沉浸模式藏掉系统栏后，腾出的区域
+                // 也要是纸色，否则那里露出的是窗口底色（黑条）
+                .background(effectivePaperBg)
                 .padding(padding)
-                .background(effectivePaperBg),
+                // 沉浸时内容延伸进了刘海区（SHORT_EDGES），正文要让开打孔摄像头那一条；
+                // 纸色背景仍然铺满整屏（在 padding 之前），所以让出来的部分不是黑边
+                .then(
+                    if (readerSettings.immersiveMode && !controlsVisible) {
+                        Modifier.windowInsetsPadding(androidx.compose.foundation.layout.WindowInsets.displayCutout)
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             when {
                 isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -1843,6 +1889,9 @@ fun ReaderScreen(
                         pageMarginDp = readerSettings.pageMargin,
                         fontWeightBold = readerSettings.fontWeightBold,
                         showReaderInfo = readerSettings.showReaderInfo,
+                        chineseTypography = readerSettings.chineseTypography,
+                        tapZoneMode = readerSettings.tapZoneMode,
+                        pageTurnEffect = readerSettings.pageTurnEffect,
                         textColor = paperFg,
                         initialOffset = when {
                             // 来回切换引擎/重进时优先接上最近位置，最后才退回存档百分比
