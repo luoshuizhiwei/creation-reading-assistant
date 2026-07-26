@@ -2928,14 +2928,28 @@ async function getSyncStatus(): Promise<SyncStatus> {
   };
 }
 
-async function startSyncServer(): Promise<SyncStatus> {
+// startSyncServer / stopSyncServer / createPairingToken 共享 syncServer 等模块状态，
+// 且中间有多个 await 点；并发进入（如重绑等待连接排空时用户再点按钮）会产生
+// 状态里看不到也关不掉的孤儿监听服务。所以三个入口一律经此队列串行执行。
+let syncServerOpQueue: Promise<unknown> = Promise.resolve();
+
+function withSyncServerLock<T>(operation: () => Promise<T>): Promise<T> {
+  const run = syncServerOpQueue.then(operation, operation);
+  syncServerOpQueue = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
+}
+
+async function startSyncServerUnlocked(): Promise<SyncStatus> {
   await getOrCreateDeviceId();
   // 只绑定配对选定的那块局域网网卡，不监听 0.0.0.0
   const host = pairingAddresses(listLanAddresses())[0];
   if (syncServer && syncServerPort) {
     if (syncServerHost === host) return getSyncStatus();
     // 网卡地址变了：旧绑定已失效，停掉后重新绑定到新地址
-    await stopSyncServer();
+    await stopSyncServerUnlocked();
   }
   syncServer = createServer((request, response) => {
     void handleSyncRequest(request, response).catch((error) => {
@@ -2961,7 +2975,11 @@ async function startSyncServer(): Promise<SyncStatus> {
   return getSyncStatus();
 }
 
-async function stopSyncServer(): Promise<SyncStatus> {
+async function startSyncServer(): Promise<SyncStatus> {
+  return withSyncServerLock(startSyncServerUnlocked);
+}
+
+async function stopSyncServerUnlocked(): Promise<SyncStatus> {
   if (!syncServer) {
     syncServerPort = undefined;
     syncServerHost = undefined;
@@ -2977,8 +2995,20 @@ async function stopSyncServer(): Promise<SyncStatus> {
   return getSyncStatus();
 }
 
-async function createPairingToken(): Promise<PairingTokenResult> {
-  const status = await startSyncServer();
+async function stopSyncServer(): Promise<SyncStatus> {
+  return withSyncServerLock(stopSyncServerUnlocked);
+}
+
+// 设置页刷新状态时顺带自愈：绑定的网卡地址已经不存在（比如换了 Wi-Fi）就重绑到新地址
+async function getSyncStatusWithRebind(): Promise<SyncStatus> {
+  if (syncServer && syncServerPort && syncServerHost && !listLanAddresses().includes(syncServerHost)) {
+    return startSyncServer();
+  }
+  return getSyncStatus();
+}
+
+async function createPairingTokenUnlocked(): Promise<PairingTokenResult> {
+  const status = await startSyncServerUnlocked();
   if (!status.port) throw new Error("同步服务未能启动。");
   const token = crypto.randomBytes(18).toString("hex");
   const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
@@ -3004,6 +3034,10 @@ async function createPairingToken(): Promise<PairingTokenResult> {
     expiresAt
   };
   return pairingToken;
+}
+
+async function createPairingToken(): Promise<PairingTokenResult> {
+  return withSyncServerLock(createPairingTokenUnlocked);
 }
 
 async function readRequestJson<T>(request: IncomingMessage): Promise<T> {
@@ -3422,7 +3456,7 @@ function registerIpc(): void {
   ipcMain.handle("ai:test", async () => testAIConnection());
   ipcMain.handle("ai:run", async (_event, input: AIRunInput) => runAIAction(input));
   ipcMain.handle("search:global", async (_event, query: SearchQuery) => searchGlobal(query));
-  ipcMain.handle("sync:getStatus", async () => getSyncStatus());
+  ipcMain.handle("sync:getStatus", async () => getSyncStatusWithRebind());
   ipcMain.handle("sync:startServer", async () => startSyncServer());
   ipcMain.handle("sync:stopServer", async () => stopSyncServer());
   ipcMain.handle("sync:createPairingToken", async () => createPairingToken());
