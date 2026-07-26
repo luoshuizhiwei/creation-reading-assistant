@@ -25,24 +25,22 @@ class EpubDocument(private val book: EpubBook) : ReaderDocument {
 
     private val cache = DocumentCache()
 
-    override val chapters: List<DocChapter> = buildList {
-        var offset = 0
-        book.chapters.forEachIndexed { i, c ->
-            val len = c.estimatedTextLength.coerceAtLeast(1)
-            add(
-                DocChapter(
-                    index = i,
-                    title = c.title,
-                    startOffset = offset,
-                    charCount = len,
-                    charCountIsEstimated = true,
-                ),
-            )
-            offset += len
-        }
-    }
+    // 偏移必须走 LegacyOffsetCodec，不能自己再累加一遍：旧公式每章多加 1（章间分隔位），
+    // 漏掉它会让第 N 章之后的偏移全部少 N，历史高亮/笔记整体前移。
+    private val estimatedLengths = book.chapters.map { it.estimatedTextLength }
 
-    override val totalChars: Int = chapters.sumOf { it.charCount }
+    override val chapters: List<DocChapter> =
+        LegacyOffsetCodec.chapterStartOffsets(estimatedLengths).mapIndexed { i, start ->
+            DocChapter(
+                index = i,
+                title = book.chapters[i].title,
+                startOffset = start,
+                charCount = estimatedLengths[i].coerceAtLeast(1),
+                charCountIsEstimated = true,
+            )
+        }
+
+    override val totalChars: Int = LegacyOffsetCodec.totalChars(estimatedLengths)
 
     override fun blocks(chapterIndex: Int): List<DocBlock> {
         val chapter = book.chapters.getOrNull(chapterIndex) ?: return emptyList()

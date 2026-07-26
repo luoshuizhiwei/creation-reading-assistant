@@ -169,6 +169,7 @@ import com.creationreadingassistant.domain.model.EpubChapter
 import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
+import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -663,14 +664,10 @@ private fun splitSentencesWithOffsets(text: String): List<Pair<String, Int>> {
 }
 
 /** 构造高亮/笔记的 locator_json，记录选中文字起点在全书文本中的全局字符偏移。 */
-private fun makeOffsetLocator(offset: Int): String = """{"offset":$offset}"""
+private fun makeOffsetLocator(offset: Int): String = LegacyOffsetCodec.encodeLocator(offset)
 
 /** 从 locator_json 解析全局字符偏移（容错：不依赖完整 JSON 解析）。 */
-private fun parseLocatorOffset(json: String?): Int? {
-    if (json.isNullOrBlank()) return null
-    val m = Regex("\"offset\"\\s*:\\s*(\\d+)").find(json) ?: return null
-    return m.groupValues[1].toIntOrNull()
-}
+private fun parseLocatorOffset(json: String?): Int? = LegacyOffsetCodec.decodeLocator(json)
 
 /**
  * 为单个文本块构造带「当前朗读句」高亮背景的 AnnotatedString（EPUB 逐句高亮，对照 TXT 机制）。
@@ -697,19 +694,11 @@ private fun buildSentenceHighlighted(
  * 计算每章各渲染块（含图片，图片记为 -1）在全书文本中的全局字符偏移。
  * 与 [splitSentencesWithOffsets] 对 contentText 的切分一致：文本块按 "\n" 拼接。
  */
-private fun computeBlockGlobalOffsets(blocks: List<EpubBlock>, chapterBase: Int): List<Int> {
-    val list = mutableListOf<Int>()
-    var acc = chapterBase
-    for (block in blocks) {
-        if (block is EpubBlock.Text) {
-            list.add(acc)
-            acc += block.text.length + 1
-        } else {
-            list.add(-1)
-        }
-    }
-    return list
-}
+private fun computeBlockGlobalOffsets(blocks: List<EpubBlock>, chapterBase: Int): List<Int> =
+    LegacyOffsetCodec.blockOffsets(
+        blocks.map { (it as? EpubBlock.Text)?.text?.length },
+        chapterBase,
+    )
 
 /** 根据章节内偏移，返回包含该偏移的「渲染块」索引（用于导航精确滚动）。 */
 private fun blockIndexForChapterOffset(blocks: List<EpubBlock>, inChapter: Int): Int? {
@@ -974,16 +963,15 @@ private fun chunkIndexForOffset(chunks: List<PlainTextChunk>, offset: Int): Int 
  * ZIP 解压后字节数通常大于可见字符数，适合作为单调递增的定位偏移估算。
  */
 private fun buildBookIndex(book: EpubBook): BookIndex {
-    val offsets = mutableListOf<Int>()
-    val titles = mutableListOf<String>()
-    var len = 0L
-    for (ch in book.chapters) {
-        offsets.add(len.coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
-        titles.add(ch.title)
-        val estimate = ch.estimatedTextLength.coerceAtLeast(1)
-        len = (len + estimate + 1L).coerceAtMost(Int.MAX_VALUE.toLong())
-    }
-    return BookIndex(offsets, titles, len.toInt().coerceAtLeast(0))
+    // 公式已抽到 LegacyOffsetCodec 并由单测逐值锁死。这里只保留一处调用：
+    // 所有历史高亮/笔记的 locator 都按这套公式算出，线上必须只有一份实现，
+    // 否则将来换偏移基准时无从比对。
+    val lengths = book.chapters.map { it.estimatedTextLength }
+    return BookIndex(
+        chapterStartOffsets = LegacyOffsetCodec.chapterStartOffsets(lengths),
+        chapterTitles = book.chapters.map { it.title },
+        totalChars = LegacyOffsetCodec.totalChars(lengths),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class, ExperimentalFoundationApi::class)
