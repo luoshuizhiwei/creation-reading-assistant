@@ -19,6 +19,9 @@ object ChapterPaginator {
 
     /**
      * @param lineTops 每行在页内的 y 顶点（已含底部均摊）
+     * @param lineParaOffsets 每行所属段落的段首在章内的字符偏移。
+     *        [LayoutLine] 里的一切偏移（startInText / clusterStarts）都是**段内**的，
+     *        绘制与选区要换算回章内偏移，必须知道该行属于哪个段。
      */
     class Page(
         val index: Int,
@@ -26,6 +29,7 @@ object ChapterPaginator {
         val endCharOffset: Int,
         val lines: List<LayoutLine>,
         val lineTops: FloatArray,
+        val lineParaOffsets: IntArray,
     )
 
     class ChapterLayout(
@@ -107,7 +111,16 @@ object ChapterPaginator {
             val endOffset = absoluteOffset(pageItems.last().para, pageItems.last().line.endInText)
 
             starts.add(startOffset)
-            pages.add(Page(pages.size, startOffset, endOffset, pageLines.toList(), tops))
+            pages.add(
+                Page(
+                    index = pages.size,
+                    startCharOffset = startOffset,
+                    endCharOffset = endOffset,
+                    lines = pageLines.toList(),
+                    lineTops = tops,
+                    lineParaOffsets = IntArray(pageItems.size) { pageItems[it].para.charOffset },
+                ),
+            )
         }
 
         val charCount = paragraphs.sumOf { it.text.length }

@@ -38,6 +38,7 @@ private val KEY_PAPER_TEXTURE = booleanPreferencesKey("appearance_paper_texture"
 
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
+private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | on（自研分页引擎）
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
 private val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
@@ -99,6 +100,12 @@ data class AppearanceSettings(
 
 data class ReaderSettings(
     val readerMode: String = "paged",            // paged | scroll
+    /**
+     * 自研分页引擎开关：off | on。默认 off —— 新内核先躲在开关后面灰度，
+     * 出问题用户可以自己关掉回到旧滚动视图（SIDECAR-ZH 的 P6 才逐步默认开）。
+     * 目前仅 TXT 生效；readerMode=paged 且本开关 on 时 TXT 走真正的章内逐页翻页。
+     */
+    val pagerEngineMode: String = "off",
     val pageTurnEffect: String = "none",         // none | fade | slide | curl
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     val fontSize: Float = 18f,
@@ -163,6 +170,7 @@ class SettingsStore @Inject constructor(
     val reader: StateFlow<ReaderSettings> = ds.data.map { prefs ->
         ReaderSettings(
             readerMode = prefs[KEY_READER_MODE] ?: "paged",
+            pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "off",
             pageTurnEffect = prefs[KEY_PAGE_TURN_EFFECT] ?: "none",
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             fontSize = prefs[KEY_FONT_SIZE] ?: 18f,
@@ -238,6 +246,7 @@ class SettingsStore @Inject constructor(
         val next = reader.value.block()
         ds.edit { prefs ->
             prefs[KEY_READER_MODE] = next.readerMode
+            prefs[KEY_PAGER_ENGINE] = next.pagerEngineMode
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
             prefs[KEY_FONT_SIZE] = next.fontSize

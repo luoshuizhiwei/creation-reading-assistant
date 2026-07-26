@@ -12,6 +12,7 @@ import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.InspirationVariantDao
 import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.ShelfBookDao
@@ -64,4 +65,5 @@ object DatabaseModule {
     @Provides fun provideShelfBookDao(db: AppDatabase): ShelfBookDao = db.shelfBookDao()
     @Provides fun provideSyncAccountDao(db: AppDatabase): SyncAccountDao = db.syncAccountDao()
     @Provides fun provideSyncStateDao(db: AppDatabase): SyncStateDao = db.syncStateDao()
+    @Provides fun provideReaderPageIndexDao(db: AppDatabase): ReaderPageIndexDao = db.readerPageIndexDao()
 }
