@@ -87,6 +87,8 @@ fun PagedTxtReaderHost(
     onSelect: (String, Int) -> Unit = { _, _ -> },
     /** 外部（工具条动作后）已清空选区的信号，host 据此撤掉选区底色 */
     selectionCleared: Boolean = true,
+    /** 已存高亮（全书偏移区间 + 已带透明度的颜色），在页面上常驻绘制 */
+    persistentHighlights: List<Pair<IntRange, Color>> = emptyList(),
     selectionColor: Color = Color(0x40365B7E),
     ttsHighlightColor: Color = Color(0x33365B7E),
 ) {
@@ -192,7 +194,16 @@ fun PagedTxtReaderHost(
                         val r = selRange.value ?: return@remember emptyList()
                         PageSelection.rectsForRange(page, cfg, r.first, r.last + 1)
                     }
-                    val underlays = listOf(ttsHighlightColor to ttsRects, selectionColor to selRects)
+                    // 已存高亮：常驻底色。放最底层，TTS 句与活动选区盖在其上。
+                    val hlUnderlays = remember(page, persistentHighlights, chStart) {
+                        persistentHighlights.mapNotNull { (range, color) ->
+                            val rects = PageSelection.rectsForRange(
+                                page, cfg, range.first - chStart, range.last + 1 - chStart,
+                            )
+                            if (rects.isEmpty()) null else color to rects
+                        }
+                    }
+                    val underlays = hlUnderlays + listOf(ttsHighlightColor to ttsRects, selectionColor to selRects)
                     val gestures = Modifier
                             .fillMaxSize()
                             .pointerInput(controller) {

@@ -1916,6 +1916,14 @@ fun ReaderScreen(
                         selectionCleared = selectedText.isBlank(),
                         selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
                         ttsHighlightColor = sentenceHighlightBg,
+                        persistentHighlights = remember(highlights) {
+                            highlights.mapNotNull { h ->
+                                val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
+                                val len = h.text.length
+                                if (len <= 0) return@mapNotNull null
+                                (start until start + len) to highlightColor(h.color ?: "yellow").copy(alpha = 0.42f)
+                            }
+                        },
                     )
                 }
 
