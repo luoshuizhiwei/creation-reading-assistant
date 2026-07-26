@@ -45,6 +45,15 @@ import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 
 /**
+ * 数据库 schema 版本。唯一真源 —— [AppDatabase] 的 `@Database(version)` 与
+ * [DatabaseSafetyNet] 的升级判断都读它，改版本号只改这一处。
+ *
+ * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
+ * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
+ */
+const val APP_DATABASE_SCHEMA_VERSION = 5
+
+/**
  * 原生端 Room 数据库（v1）。
  *
  * 严格对齐 mobile/src/storage/mobile-schema.ts 的 V2 schema（17 张表）。
@@ -69,7 +78,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
         SyncAccountEntity::class, SyncStateEntity::class,
         ReaderPageIndexEntity::class,
     ],
-    version = 5,
+    version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = false,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -94,6 +103,9 @@ abstract class AppDatabase : RoomDatabase() {
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
+
+        /** 见顶层 [APP_DATABASE_SCHEMA_VERSION]。此处仅为调用方提供一个更好找的名字。 */
+        const val SCHEMA_VERSION = APP_DATABASE_SCHEMA_VERSION
 
         /** v2→v3：为 books 表补 description 一列（非破坏迁移，保留既有数据）。 */
         val MIGRATION_2_3 = object : Migration(2, 3) {

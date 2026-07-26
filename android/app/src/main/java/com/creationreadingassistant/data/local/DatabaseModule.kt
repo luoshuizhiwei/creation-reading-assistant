@@ -35,12 +35,17 @@ object DatabaseModule {
 
     @Provides
     @Singleton
-    fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
+    fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
+        // 必须在 build() 之前：build() 不打开库，但第一次查询就会触发 onUpgrade，
+        // 而下面的 fallbackToDestructiveMigration() 会把迁移失败静默转成「删库重建」。
+        // 详见 DatabaseSafetyNet 的类注释。
+        DatabaseSafetyNet.snapshotIfUpgrading(context, AppDatabase.DB_NAME, AppDatabase.SCHEMA_VERSION)
+        return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
             .addCallback(AppDatabase.CreateIndexCallback())
             .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
             .fallbackToDestructiveMigration()
             .build()
+    }
 
     @Provides fun provideBookDao(db: AppDatabase): BookDao = db.bookDao()
     @Provides fun provideBookContentDao(db: AppDatabase): BookContentDao = db.bookContentDao()
