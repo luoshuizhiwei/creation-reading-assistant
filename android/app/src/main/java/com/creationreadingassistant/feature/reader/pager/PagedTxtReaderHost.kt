@@ -25,6 +25,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -37,7 +38,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
@@ -46,9 +46,10 @@ import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import kotlin.math.abs
 
 /**
- * TXT 左右翻页宿主（pagerEngineMode = on 时替换滚动视图）。
+ * 左右翻页宿主（pagerEngineMode = on 时替换原视图；TXT 与 EPUB 共用，
+ * 差别都在 [PagedChapterSource] 后面。EPUB 首版为纯文本页，图片块暂不渲染）。
  *
- * 组成：视口测量 → [LayoutConfig] → [TxtPagedController]（后台整章排版）→
+ * 组成：视口测量 → [LayoutConfig] → [PagedReaderController]（后台整章排版）→
  * [PageCanvas]（逐簇绘制）→ 手势（左/右点按翻页、水平滑动翻页、中央点按呼出菜单）。
  *
  * P2 边界（后续阶段补）：无翻页动画（P4）、无选区/高亮/TTS 句高亮（P3）。
@@ -58,9 +59,8 @@ import kotlin.math.abs
  *        调用方拿它做进度持久化与顶栏章节名显示。
  */
 @Composable
-fun PagedTxtReaderHost(
-    fullText: String,
-    chapters: List<DocChapter>,
+fun PagedReaderHost(
+    source: PagedChapterSource,
     fontSizeSp: Float,
     lineHeightMultiplier: Float,
     paragraphSpacing: Float,
@@ -114,7 +114,7 @@ fun PagedTxtReaderHost(
     val scope = rememberCoroutineScope()
 
     // 位置锚点：当前页首字符的全书偏移。改字号/转屏/切菜单导致重排后，靠它回到同一句。
-    val anchor = remember(fullText) { mutableIntStateOf(initialOffset) }
+    val anchor = remember(source) { mutableIntStateOf(initialOffset) }
 
     Column(modifier.fillMaxSize().padding(horizontal = pageMarginDp.dp)) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
@@ -135,10 +135,9 @@ fun PagedTxtReaderHost(
                     )
                 }
 
-                val controller = remember(fullText, chapters, cfg, ruler) {
-                    TxtPagedController(
-                        fullText = fullText,
-                        chapters = chapters,
+                val controller = remember(source, cfg, ruler) {
+                    PagedReaderController(
+                        source = source,
                         cfg = cfg,
                         ruler = ruler,
                         oracle = oracle,
@@ -181,7 +180,12 @@ fun PagedTxtReaderHost(
                 val page = controller.currentPage
                 if (page == null) {
                     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                        val message = controller.loadError
+                        if (message == null) {
+                            CircularProgressIndicator()
+                        } else {
+                            Text(message, color = textColor)
+                        }
                     }
                 } else {
                     // TTS 当前句：全书偏移 → 章内偏移
@@ -204,19 +208,27 @@ fun PagedTxtReaderHost(
                         }
                     }
                     val underlays = hlUnderlays + listOf(ttsHighlightColor to ttsRects, selectionColor to selRects)
+                    // 手势协程只随 controller 重启，闭包捕获的组合期快照会冻结在首次触摸前
+                    // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
+                    // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
+                    val tapZone by rememberUpdatedState(tapZoneMode)
                     val gestures = Modifier
                             .fillMaxSize()
                             .pointerInput(controller) {
                                 detectTapGestures(
-                                    onLongPress = { offset ->
-                                        // 长按选中一句，交给外部工具条做高亮/笔记/灵感
-                                        val ch = PageSelection.offsetAt(page, cfg, offset.x, offset.y)
+                                    onLongPress = press@{ offset ->
+                                        // 长按选中一句，交给外部工具条做高亮/笔记/灵感。
+                                        // 不可用外层捕获的 page/chStart：那是冻结快照，
+                                        // 翻页后会按旧页几何选错句、跨章后偏移错位入库。
+                                        val curPage = controller.currentPage ?: return@press
+                                        val curChStart = controller.currentChapterStartAbs
+                                        val ch = PageSelection.offsetAt(curPage, cfg, offset.x, offset.y)
                                         val sent = PageSelection.sentenceAround(controller.chapterText, ch)
                                         if (!sent.isEmpty()) {
                                             selRange.value = sent
                                             onSelect(
                                                 controller.chapterText.substring(sent.first, sent.last + 1),
-                                                chStart + sent.first,
+                                                curChStart + sent.first,
                                             )
                                         }
                                     },
@@ -226,7 +238,7 @@ fun PagedTxtReaderHost(
                                             selRange.value = null
                                             onSelect("", -1)
                                         } else {
-                                            val fiveZone = tapZoneMode == "five-zone"
+                                            val fiveZone = tapZone == "five-zone"
                                             when {
                                                 // five-zone：上 12% 上一页、下 12% 下一页（对照 web tapZoneMode）
                                                 fiveZone && offset.y < size.height * 0.12f -> controller.prevPage()
@@ -294,7 +306,7 @@ fun PagedTxtReaderHost(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val footerColor = textColor.copy(alpha = 0.45f)
-            val controllerInfo = footerInfo(fullText, chapters, anchor.intValue)
+            val controllerInfo = footerInfo(source, anchor.intValue)
             if (showReaderInfo) {
                 Text(
                     controllerInfo.first,
@@ -319,9 +331,10 @@ fun PagedTxtReaderHost(
 private class PageFrame(val page: ChapterPaginator.Page, val chapterText: String)
 
 /** 页脚左右两栏：章节名 / 全书进度。页号在排版完成前拿不到，用全书百分比代替更稳。 */
-private fun footerInfo(fullText: String, chapters: List<DocChapter>, absOffset: Int): Pair<String, String> {
-    val title = chapters.lastOrNull { it.startOffset <= absOffset }?.title ?: ""
-    val percent = if (fullText.isEmpty()) 0f else (absOffset * 100f / fullText.length).coerceIn(0f, 100f)
+private fun footerInfo(source: PagedChapterSource, absOffset: Int): Pair<String, String> {
+    val title = if (source.chapterCount > 0) source.chapterTitle(source.chapterIndexFor(absOffset)) else ""
+    val total = source.totalChars
+    val percent = if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
     return title to "%.1f%%".format(percent)
 }
 

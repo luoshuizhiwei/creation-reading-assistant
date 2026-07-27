@@ -1031,7 +1031,7 @@ private fun ReaderSettingsSubPage(
                     onSelect = onReaderModeChange,
                 )
                 // 与阅读器内设置面板保持同一开关：真正的章内逐页翻页（TXT）
-                ToggleRow("翻页新引擎（试验，TXT）", pagerEngineMode == "on") {
+                ToggleRow("翻页新引擎（试验，TXT/EPUB）", pagerEngineMode == "on") {
                     onPagerEngineModeChange(if (it) "on" else "off")
                 }
                 SectionTitle("翻页与点击")

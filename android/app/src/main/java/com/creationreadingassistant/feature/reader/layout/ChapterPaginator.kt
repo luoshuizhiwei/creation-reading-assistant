@@ -73,7 +73,17 @@ object ChapterPaginator {
             }
         }
         if (items.isEmpty()) {
-            return ChapterLayout(emptyList(), intArrayOf(0), 0)
+            // 空白章也必须有一页，否则 pageStarts 声称有页而 pages 为空，
+            // 控制器会结束排版但 currentPage 永远为 null，UI 随之永久转圈。
+            val emptyPage = Page(
+                index = 0,
+                startCharOffset = 0,
+                endCharOffset = 0,
+                lines = emptyList(),
+                lineTops = FloatArray(0),
+                lineParaOffsets = IntArray(0),
+            )
+            return ChapterLayout(listOf(emptyPage), intArrayOf(0), 0)
         }
 
         val pages = ArrayList<Page>()
@@ -99,10 +109,12 @@ object ChapterPaginator {
             if (pageLines.size > 1 && i < items.size) {
                 val lastIdx = pageItems.lastIndex
                 if (pageItems[lastIdx].line.role == BlockRole.HEADING) {
+                    val removed = pageItems[lastIdx]
                     pageLines.removeAt(lastIdx)
                     pageItems.removeAt(lastIdx)
                     i--
-                    used -= lineHeight(items[i].line, cfg)
+                    used -= lineHeight(removed.line, cfg)
+                    if (removed.isParaEnd) used -= cfg.paragraphSpacingPx
                 }
             }
 

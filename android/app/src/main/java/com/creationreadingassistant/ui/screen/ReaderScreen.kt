@@ -175,10 +175,14 @@ import com.creationreadingassistant.domain.model.EpubChapter
 import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
+import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
-import com.creationreadingassistant.feature.reader.pager.PagedTxtReaderHost
+import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
+import com.creationreadingassistant.feature.reader.pager.PagedReaderHost
+import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -1012,6 +1016,7 @@ fun ReaderScreen(
     var isLoading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var savedPlainPercent by remember { mutableFloatStateOf(0f) }
+    var savedEpubOffsetInChapter by remember { mutableIntStateOf(0) }
 
     // 预加载状态（IO 线程填充，主线程只读，杜绝主线程 Zip I/O 导致的 ANR / OOM）
     var chapterBlocks by remember { mutableStateOf<List<EpubBlock>>(emptyList()) }
@@ -1160,8 +1165,8 @@ fun ReaderScreen(
     val chapterTitles = bookIndex?.chapterTitles ?: emptyList()
     val plainChunks = remember(plainContent) { chunkPlainText(plainContent) }
 
-    // ── 自研分页引擎（pagerEngineMode=on 时 TXT 走真正的章内逐页翻页）────────
-    val pagerEngineOn = readerSettings.pagerEngineMode == "on" && isTxt
+    // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
+    val pagerEngineOn = readerSettings.pagerEngineMode == "on"
     // 外部跳转请求（进度条 / 目录 / 高亮定位），宿主消费后置回 null
     val pagedJumpRequest = remember { mutableStateOf<Int?>(null) }
     // 分页引擎上报的当前位置（全书字符偏移 + 百分比），-1 表示尚未上报
@@ -1175,6 +1180,35 @@ fun ReaderScreen(
             PlainTextDocument(plainContent).chapters
         } else {
             emptyList()
+        }
+    }
+    // EPUB 分页只在试验引擎开启时消费它；缓存让同章重排/往返不再重复解压。
+    val epubDocument = remember(epubBook) { epubBook?.let(::EpubDocument) }
+    DisposableEffect(epubDocument) {
+        onDispose { epubDocument?.close() }
+    }
+    val pagedSource: PagedChapterSource? = remember(
+        epubBook,
+        epubDocument,
+        bookIndex,
+        plainContent,
+        txtChapters,
+    ) {
+        val index = bookIndex
+        val document = epubDocument
+        when {
+            epubBook != null && index != null && document != null ->
+                EpubChapterSource(
+                    titles = index.chapterTitles,
+                    chapterStartOffsets = index.chapterStartOffsets,
+                    totalChars = index.totalChars,
+                    loadText = document::text,
+                )
+
+            plainContent.isNotBlank() && txtChapters.isNotEmpty() ->
+                TxtChapterSource(plainContent, txtChapters)
+
+            else -> null
         }
     }
 
@@ -1218,7 +1252,12 @@ fun ReaderScreen(
         !plainListState.canScrollForward && plainListState.firstVisibleItemIndex > 0 -> 100f
         else -> (visiblePlainOffset * 100f / plainContent.length).coerceIn(0f, 100f)
     }
-    val progressPercent = if (epubBook != null) epubPercent else plainPercent
+    val progressPercent = when {
+        // 分页引擎的进度按全书字符偏移算（EPUB 分母为估算值，够显示与存档用）
+        pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
+        epubBook != null -> epubPercent
+        else -> plainPercent
+    }
 
     // 阅读统计派生值（对照 web：bookReadingTimeMs / estimateBookReadingSpeed）
     val plainWordCount = remember(plainContent) { plainContent.count { !it.isWhitespace() } }
@@ -1297,6 +1336,9 @@ fun ReaderScreen(
     fun goToChapter(i: Int) {
         val book = epubBook ?: return
         val clamped = i.coerceIn(0, book.chapters.lastIndex)
+        if (pagerEngineOn) {
+            pagedJumpRequest.value = chapterStartOffsets.getOrElse(clamped) { 0 }
+        }
         chapterIndex = clamped
         tts.stop()
         // 先清空，避免上一章内容残留闪现；随后在 IO 线程预加载本章块
@@ -1336,11 +1378,16 @@ fun ReaderScreen(
         }
     }
 
-    // R6：进度滑块跳转（TXT 定位到百分比；EPUB 跳到对应章节）
+    // R6：进度滑块跳转（TXT 定位到百分比；EPUB 跳到对应章节；分页引擎按全书偏移精确定位）
     fun seekToPercent(p: Float) {
         if (epubBook != null) {
-            val sz = epubBook!!.chapters.size
-            if (sz > 0) goToChapter((p / 100f * sz).toInt().coerceIn(0, sz - 1))
+            if (pagerEngineOn) {
+                val total = bookIndex?.totalChars ?: 0
+                if (total > 0) pagedJumpRequest.value = (p.coerceIn(0f, 100f) / 100f * total).toInt()
+            } else {
+                val sz = epubBook!!.chapters.size
+                if (sz > 0) goToChapter((p / 100f * sz).toInt().coerceIn(0, sz - 1))
+            }
         } else if (plainContent.isNotEmpty()) {
             jumpToPlainOffset((p.coerceIn(0f, 100f) / 100f * plainContent.length).toInt())
         }
@@ -1404,6 +1451,7 @@ fun ReaderScreen(
                         } else {
                             val idx = entry.epubRepository().loadProgress(bid)
                                 .coerceIn(0, (book.chapters.size - 1).coerceAtLeast(0))
+                            savedEpubOffsetInChapter = entry.epubRepository().loadProgressOffset(bid)
                             // 预加载：当前章块 + 全书索引（搜索 / 字数 / 偏移），均在 IO 线程完成
                             val blocks = book.chapters.getOrNull(idx)?.blocks ?: emptyList()
                             val index = buildBookIndex(book)
@@ -1490,21 +1538,28 @@ fun ReaderScreen(
     }
 
     // 翻页进度落库（分页引擎侧），与滚动侧同样 500ms 防抖、同一张表同一套字段
-    androidx.compose.runtime.LaunchedEffect(bid, epubBook, pagerEngineOn) {
-        if (bid.isBlank() || epubBook != null || !pagerEngineOn) return@LaunchedEffect
+    androidx.compose.runtime.LaunchedEffect(bid, epubBook, pagerEngineOn, pagedSource) {
+        if (bid.isBlank() || !pagerEngineOn) return@LaunchedEffect
         snapshotFlow { pagedAbsOffset to pagedPercent }
             .debounce(500)
             .collect { (off, pct) ->
                 if (off < 0) return@collect
-                entry.readingProgressDao().upsert(
-                    ReadingProgressEntity(
-                        book_id = bid,
-                        progress_percent = pct,
-                        completion_state = if (pct >= 99.9f) "finished" else "reading",
-                        current_location_json = null,
-                        updated_at = nowIso(),
-                    ),
-                )
+                val source = pagedSource ?: return@collect
+                if (epubBook != null) {
+                    val ci = source.chapterIndexFor(off)
+                    val chapterOffset = off - source.chapterStartAbs(ci)
+                    entry.epubRepository().saveProgress(bid, ci, pct, chapterOffset)
+                } else {
+                    entry.readingProgressDao().upsert(
+                        ReadingProgressEntity(
+                            book_id = bid,
+                            progress_percent = pct,
+                            completion_state = if (pct >= 99.9f) "finished" else "reading",
+                            current_location_json = null,
+                            updated_at = nowIso(),
+                        ),
+                    )
+                }
             }
     }
 
@@ -1543,10 +1598,15 @@ fun ReaderScreen(
                 // T1：按全局偏移精确定位到所属章节，并进一步滚动到章内偏移所在块
                 val ci = chapterStartOffsets.indexOfLast { it <= locOffset }.coerceIn(0, book.chapters.lastIndex)
                 goToChapter(ci)
-                val inChapter = locOffset - chapterStartOffsets.getOrElse(ci) { 0 }
-                // 在 IO 线程加载目标章块，避免主线程 Zip I/O 造成 ANR
-                val blocks = withContext(Dispatchers.IO) { book.chapters[ci].blocks }
-                navFocusBlockIndex = blockIndexForChapterOffset(blocks, inChapter)
+                if (pagerEngineOn) {
+                    pagedJumpRequest.value = locOffset
+                    navFocusBlockIndex = null
+                } else {
+                    val inChapter = locOffset - chapterStartOffsets.getOrElse(ci) { 0 }
+                    // 在 IO 线程加载目标章块，避免主线程 Zip I/O 造成 ANR
+                    val blocks = withContext(Dispatchers.IO) { book.chapters[ci].blocks }
+                    navFocusBlockIndex = blockIndexForChapterOffset(blocks, inChapter)
+                }
             } else {
                 val idx = if (chapterTitle != null) {
                     val exact = book.chapters.indexOfFirst { it.title == chapterTitle }.takeIf { it >= 0 }
@@ -1587,10 +1647,14 @@ fun ReaderScreen(
     // R2：朗读时把正文跟到当前句（TXT），与网页 ttsSyncToReader 对齐。
     // 分页引擎侧同样生效：翻到句子所在页。
     LaunchedEffect(tts.status, tts.currentSentenceRange) {
-        if (showTts && tts.status != "idle" && isTxt && plainContent.isNotEmpty()) {
+        if (showTts && tts.status != "idle") {
             val start = tts.currentSentenceRange.first
-            if (start in 0 until plainContent.length) {
-                jumpToPlainOffset(start)
+            if (isTxt && plainContent.isNotEmpty()) {
+                if (start in 0 until plainContent.length) {
+                    jumpToPlainOffset(start)
+                }
+            } else if (pagerEngineOn && epubBook != null) {
+                pagedJumpRequest.value = chapterStartOffsets.getOrElse(chapterIndex) { 0 } + start
             }
         }
     }
@@ -1803,6 +1867,76 @@ fun ReaderScreen(
                     Text(error!!, color = paperFg)
                 }
 
+                pagerEngineOn && pagedSource != null -> {
+                    // 试验分页引擎：TXT 与 EPUB 共用排版/手势/高亮链路。
+                    // EPUB 首版只排文字块；图片分页与四档动画仍按 P4 后续刀次推进。
+                    PagedReaderHost(
+                        source = pagedSource,
+                        fontSizeSp = readerSettings.fontSize,
+                        lineHeightMultiplier = readerSettings.lineHeight,
+                        paragraphSpacing = readerSettings.paragraphSpacing,
+                        pageMarginDp = readerSettings.pageMargin,
+                        fontWeightBold = readerSettings.fontWeightBold,
+                        showReaderInfo = readerSettings.showReaderInfo,
+                        chineseTypography = readerSettings.chineseTypography,
+                        tapZoneMode = readerSettings.tapZoneMode,
+                        pageTurnEffect = readerSettings.pageTurnEffect,
+                        textColor = paperFg,
+                        initialOffset = when {
+                            pagedAbsOffset >= 0 -> pagedAbsOffset
+                            epubBook != null ->
+                                chapterStartOffsets.getOrElse(chapterIndex) { 0 } + savedEpubOffsetInChapter
+                            visiblePlainOffset > 0 -> visiblePlainOffset
+                            else -> (savedPlainPercent.coerceIn(0f, 100f) / 100f * plainContent.length).toInt()
+                        },
+                        jumpRequest = pagedJumpRequest,
+                        onPositionChanged = { off, pct ->
+                            pagedAbsOffset = off
+                            pagedPercent = pct
+                            if (epubBook != null) {
+                                val ci = pagedSource.chapterIndexFor(off)
+                                if (ci != chapterIndex) goToChapter(ci)
+                            }
+                        },
+                        onToggleControls = { controlsVisible = !controlsVisible },
+                        store = entry.pageIndexStore(),
+                        contentKey = bid,
+                        ttsRangeAbs = if (showTts && tts.status != "idle") {
+                            if (epubBook != null) {
+                                val base = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
+                                (base + tts.currentSentenceRange.first) to
+                                    (base + tts.currentSentenceRange.second)
+                            } else {
+                                tts.currentSentenceRange
+                            }
+                        } else {
+                            null
+                        },
+                        onSelect = { text, absStart ->
+                            selectedText = text
+                            if (epubBook != null) {
+                                selectedGlobalOffset = absStart
+                                selectedRangeStart = -1
+                            } else {
+                                selectedRangeStart = absStart
+                                selectedGlobalOffset = -1
+                            }
+                        },
+                        selectionCleared = selectedText.isBlank(),
+                        selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
+                        ttsHighlightColor = sentenceHighlightBg,
+                        persistentHighlights = remember(highlights) {
+                            highlights.mapNotNull { h ->
+                                val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
+                                val len = h.text.length
+                                if (len <= 0) return@mapNotNull null
+                                (start until start + len) to
+                                    highlightColor(h.color ?: "yellow").copy(alpha = 0.42f)
+                            }
+                        },
+                    )
+                }
+
                 epubBook != null -> {
                     val book = epubBook!!
                     val chapter = book.chapters.getOrNull(chapterIndex)
@@ -1876,55 +2010,6 @@ fun ReaderScreen(
                             }
                         }
                     }
-                }
-
-                pagerEngineOn && plainContent.isNotBlank() && txtChapters.isNotEmpty() -> {
-                    // 自研分页引擎：真正的章内左右翻页（P2，默认关，设置里打开）
-                    PagedTxtReaderHost(
-                        fullText = plainContent,
-                        chapters = txtChapters,
-                        fontSizeSp = readerSettings.fontSize,
-                        lineHeightMultiplier = readerSettings.lineHeight,
-                        paragraphSpacing = readerSettings.paragraphSpacing,
-                        pageMarginDp = readerSettings.pageMargin,
-                        fontWeightBold = readerSettings.fontWeightBold,
-                        showReaderInfo = readerSettings.showReaderInfo,
-                        chineseTypography = readerSettings.chineseTypography,
-                        tapZoneMode = readerSettings.tapZoneMode,
-                        pageTurnEffect = readerSettings.pageTurnEffect,
-                        textColor = paperFg,
-                        initialOffset = when {
-                            // 来回切换引擎/重进时优先接上最近位置，最后才退回存档百分比
-                            pagedAbsOffset >= 0 -> pagedAbsOffset
-                            visiblePlainOffset > 0 -> visiblePlainOffset
-                            else -> (savedPlainPercent.coerceIn(0f, 100f) / 100f * plainContent.length).toInt()
-                        },
-                        jumpRequest = pagedJumpRequest,
-                        onPositionChanged = { off, pct ->
-                            pagedAbsOffset = off
-                            pagedPercent = pct
-                        },
-                        onToggleControls = { controlsVisible = !controlsVisible },
-                        store = entry.pageIndexStore(),
-                        contentKey = bid,
-                        ttsRangeAbs = if (showTts && tts.status != "idle") tts.currentSentenceRange else null,
-                        onSelect = { text, absStart ->
-                            selectedText = text
-                            selectedRangeStart = absStart
-                            selectedGlobalOffset = -1
-                        },
-                        selectionCleared = selectedText.isBlank(),
-                        selectionColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.30f),
-                        ttsHighlightColor = sentenceHighlightBg,
-                        persistentHighlights = remember(highlights) {
-                            highlights.mapNotNull { h ->
-                                val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
-                                val len = h.text.length
-                                if (len <= 0) return@mapNotNull null
-                                (start until start + len) to highlightColor(h.color ?: "yellow").copy(alpha = 0.42f)
-                            }
-                        },
-                    )
                 }
 
                 else -> {
@@ -3451,7 +3536,7 @@ private fun SettingsSheet(
             OptionPill(selected = readerMode == "scroll", label = "上下滚动", onClick = { onReaderMode("scroll") })
         }
         // 自研分页引擎（P2 起 TXT 生效）：真正的章内逐页翻页 + 中文排版（避头尾/标点挤压/两端对齐）
-        SettingsSwitchRow("翻页新引擎（试验，TXT）", pagerEngineMode == "on") {
+        SettingsSwitchRow("翻页新引擎（试验，TXT/EPUB）", pagerEngineMode == "on") {
             onPagerEngineMode(if (it) "on" else "off")
         }
 

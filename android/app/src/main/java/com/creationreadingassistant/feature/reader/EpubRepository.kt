@@ -50,13 +50,19 @@ class EpubRepository @Inject constructor(
 
     fun cached(bookId: String): EpubBook? = memoryCache[bookId]
 
-    suspend fun saveProgress(bookId: String, chapterIndex: Int, percent: Float) {
+    suspend fun saveProgress(
+        bookId: String,
+        chapterIndex: Int,
+        percent: Float,
+        offsetInChapter: Int = 0,
+    ) {
         readingProgressDao.upsert(
             ReadingProgressEntity(
                 book_id = bookId,
                 progress_percent = percent,
                 completion_state = if (percent >= 99.9f) "finished" else "reading",
-                current_location_json = """{"chapter":$chapterIndex}""",
+                current_location_json =
+                    """{"chapter":$chapterIndex,"offset":${offsetInChapter.coerceAtLeast(0)}}""",
                 updated_at = Instant.now().toString(),
             ),
         )
@@ -66,5 +72,11 @@ class EpubRepository @Inject constructor(
         val raw = readingProgressDao.getByBook(bookId)?.current_location_json ?: return 0
         val m = Regex("\"chapter\"\\s*:\\s*(\\d+)").find(raw)?.groupValues?.getOrNull(1)
         return m?.toIntOrNull() ?: 0
+    }
+
+    suspend fun loadProgressOffset(bookId: String): Int {
+        val raw = readingProgressDao.getByBook(bookId)?.current_location_json ?: return 0
+        val m = Regex("\"offset\"\\s*:\\s*(\\d+)").find(raw)?.groupValues?.getOrNull(1)
+        return m?.toIntOrNull()?.coerceAtLeast(0) ?: 0
     }
 }

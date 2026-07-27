@@ -174,9 +174,11 @@ class ChapterPaginatorTest {
     }
 
     @Test
-    fun `empty chapter yields no pages`() {
+    fun `empty chapter yields one navigable empty page`() {
         val layout = ChapterPaginator.paginate(emptyList(), cfg(), ruler, oracle)
-        assertTrue(layout.pages.isEmpty())
+        assertEquals(1, layout.pages.size)
+        assertTrue(layout.pages.single().lines.isEmpty())
+        assertEquals(1, layout.pageStarts.size)
         assertEquals(0, layout.pageIndexFor(0))
     }
 }

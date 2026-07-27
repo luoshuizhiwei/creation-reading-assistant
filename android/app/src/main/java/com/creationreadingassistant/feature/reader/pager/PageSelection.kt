@@ -58,8 +58,8 @@ object PageSelection {
     }
 
     /** 中文句子边界（含闭合引号跟随）。长按选中「一句」比选中「一个词」更贴中文阅读习惯。 */
-    private const val SENTENCE_ENDS = "。！？…；\n"
-    private const val TRAILING = "”’」』）"
+    private const val SENTENCE_ENDS = "。！？…；\r\n"
+    private const val TRAILING = "”’」』）》〉】〕)\"'"
 
     /** 以 [offset]（章内）为中心扩到整句，返回章内区间 [start, end)。 */
     fun sentenceAround(chapterText: String, offset: Int): IntRange {
@@ -71,7 +71,16 @@ object PageSelection {
         while (s < at && chapterText[s].isWhitespace()) s++
         var e = at
         while (e < chapterText.length && chapterText[e] !in SENTENCE_ENDS) e++
-        if (e < chapterText.length) e++ // 含句末标点
+        // 连续标点是同一个句末（…… / ？！ / !!!），不能只吃第一个留下孤儿标点。
+        // CR/LF 只承担段边界职责，本身不属于选中文本。
+        while (
+            e < chapterText.length &&
+            chapterText[e] in SENTENCE_ENDS &&
+            chapterText[e] != '\r' &&
+            chapterText[e] != '\n'
+        ) {
+            e++
+        }
         while (e < chapterText.length && chapterText[e] in TRAILING) e++
         return s until e
     }
