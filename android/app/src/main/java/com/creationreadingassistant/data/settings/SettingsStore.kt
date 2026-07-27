@@ -55,8 +55,16 @@ private val KEY_KEEP_AWAKE = booleanPreferencesKey("reader_keep_awake")
 private val KEY_SHOW_PROGRESS = booleanPreferencesKey("reader_show_progress")
 private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
 private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // 45..100，对照 web reader brightness（压暗遮罩）
+private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
+private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
 // 阅读提醒（对照 web eyeCareReminderMinutes / readingRhythmReminder*）
 private val KEY_EYE_CARE_MIN = intPreferencesKey("reader_eye_care_minutes")
+private val KEY_EYE_FILTER_ENABLED = booleanPreferencesKey("reader_eye_filter_enabled")
+private val KEY_EYE_FILTER_TEMPERATURE = intPreferencesKey("reader_eye_filter_temperature")
+private val KEY_EYE_FILTER_INTENSITY = intPreferencesKey("reader_eye_filter_intensity")
+private val KEY_EYE_FILTER_SCHEDULE = booleanPreferencesKey("reader_eye_filter_schedule")
+private val KEY_EYE_FILTER_START = intPreferencesKey("reader_eye_filter_start")
+private val KEY_EYE_FILTER_END = intPreferencesKey("reader_eye_filter_end")
 private val KEY_RHYTHM_ENABLED = booleanPreferencesKey("reader_rhythm_enabled")
 private val KEY_RHYTHM_MIN = intPreferencesKey("reader_rhythm_minutes")
 // TTS 高级（对照 web TTSSettings：pitch / volume / voiceId / 定时停止）
@@ -124,8 +132,16 @@ data class ReaderSettings(
     val showProgressBar: Boolean = true,
     val fontWeightBold: Boolean = false,
     val brightness: Int = 100,             // 45..100，对照 web reader brightness（压暗遮罩）
+    val volumeKeyPaging: Boolean = true,
+    val volumeKeyPagingDuringTts: Boolean = false,
     // 阅读提醒
     val eyeCareReminderMinutes: Int = 30,
+    val eyeCareFilterEnabled: Boolean = false,
+    val eyeCareTemperature: Int = 3400,
+    val eyeCareIntensity: Int = 60,
+    val eyeCareScheduleEnabled: Boolean = false,
+    val eyeCareStartMinute: Int = 1320,
+    val eyeCareEndMinute: Int = 420,
     val readingRhythmReminderEnabled: Boolean = true,
     val readingRhythmReminderMinutes: Int = 30,
     // TTS 高级
@@ -195,7 +211,15 @@ class SettingsStore @Inject constructor(
             showProgressBar = prefs[KEY_SHOW_PROGRESS] ?: true,
             fontWeightBold = prefs[KEY_FONT_BOLD] ?: false,
             brightness = prefs[KEY_READER_BRIGHTNESS] ?: 100,
+            volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
+            volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
             eyeCareReminderMinutes = prefs[KEY_EYE_CARE_MIN] ?: 30,
+            eyeCareFilterEnabled = prefs[KEY_EYE_FILTER_ENABLED] ?: false,
+            eyeCareTemperature = prefs[KEY_EYE_FILTER_TEMPERATURE] ?: 3400,
+            eyeCareIntensity = prefs[KEY_EYE_FILTER_INTENSITY] ?: 60,
+            eyeCareScheduleEnabled = prefs[KEY_EYE_FILTER_SCHEDULE] ?: false,
+            eyeCareStartMinute = prefs[KEY_EYE_FILTER_START] ?: 1320,
+            eyeCareEndMinute = prefs[KEY_EYE_FILTER_END] ?: 420,
             readingRhythmReminderEnabled = prefs[KEY_RHYTHM_ENABLED] ?: true,
             readingRhythmReminderMinutes = prefs[KEY_RHYTHM_MIN] ?: 30,
             ttsPitch = prefs[KEY_TTS_PITCH] ?: 1f,
@@ -273,7 +297,15 @@ class SettingsStore @Inject constructor(
             prefs[KEY_SHOW_PROGRESS] = next.showProgressBar
             prefs[KEY_FONT_BOLD] = next.fontWeightBold
             prefs[KEY_READER_BRIGHTNESS] = next.brightness
+            prefs[KEY_VOLUME_PAGE] = next.volumeKeyPaging
+            prefs[KEY_VOLUME_PAGE_DURING_TTS] = next.volumeKeyPagingDuringTts
             prefs[KEY_EYE_CARE_MIN] = next.eyeCareReminderMinutes
+            prefs[KEY_EYE_FILTER_ENABLED] = next.eyeCareFilterEnabled
+            prefs[KEY_EYE_FILTER_TEMPERATURE] = next.eyeCareTemperature
+            prefs[KEY_EYE_FILTER_INTENSITY] = next.eyeCareIntensity
+            prefs[KEY_EYE_FILTER_SCHEDULE] = next.eyeCareScheduleEnabled
+            prefs[KEY_EYE_FILTER_START] = next.eyeCareStartMinute
+            prefs[KEY_EYE_FILTER_END] = next.eyeCareEndMinute
             prefs[KEY_RHYTHM_ENABLED] = next.readingRhythmReminderEnabled
             prefs[KEY_RHYTHM_MIN] = next.readingRhythmReminderMinutes
             prefs[KEY_TTS_PITCH] = next.ttsPitch

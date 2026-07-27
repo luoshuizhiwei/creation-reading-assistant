@@ -82,6 +82,7 @@ fun PagedReaderHost(
     textColor: Color,
     initialOffset: Int,
     jumpRequest: MutableState<Int?>,
+    externalTurnRequest: MutableState<Int?>,
     onPositionChanged: (absOffset: Int, percent: Float) -> Unit,
     onToggleControls: () -> Unit,
     store: PageIndexStore?,
@@ -188,6 +189,11 @@ fun PagedReaderHost(
                 val selRange = remember { mutableStateOf<IntRange?>(null) }
                 val turnRequest = remember { mutableIntStateOf(0) }
                 LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
+                LaunchedEffect(externalTurnRequest.value) {
+                    val direction = externalTurnRequest.value ?: return@LaunchedEffect
+                    turnRequest.intValue = direction
+                    externalTurnRequest.value = null
+                }
 
                 val page = controller.currentPage
                 if (page == null) {

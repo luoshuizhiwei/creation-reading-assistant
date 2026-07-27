@@ -28,6 +28,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -122,11 +123,13 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -184,10 +187,12 @@ import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedReaderHost
 import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
+import com.creationreadingassistant.feature.reader.pager.ReaderHardwareKeys
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.locator.AnchorConfidence
 import com.creationreadingassistant.feature.reader.locator.AnchorResolver
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.feature.reader.eyecare.EyeCareSchedule
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -1200,6 +1205,7 @@ fun ReaderScreen(
     }
     // 外部跳转请求（进度条 / 目录 / 高亮定位），宿主消费后置回 null
     val pagedJumpRequest = remember { mutableStateOf<Int?>(null) }
+    val pagedHardwareTurnRequest = remember { mutableStateOf<Int?>(null) }
     // 分页引擎上报的当前位置（全书字符偏移 + 百分比），-1 表示尚未上报
     var pagedAbsOffset by remember { mutableIntStateOf(-1) }
     var pagedPercent by remember { mutableFloatStateOf(0f) }
@@ -1311,8 +1317,43 @@ fun ReaderScreen(
 
     val (paperBg, paperFg) = paperColors(readerSettings.background)
     val readerBrightness = readerSettings.brightness.coerceIn(45, 100)
-    val dimAlpha = ((100 - readerBrightness) / 100f).coerceAtMost(0.58f)
-    val effectivePaperBg = if (dimAlpha > 0.001f) lerp(paperBg, Color.Black, dimAlpha) else paperBg
+    val effectivePaperBg = paperBg
+
+    // 直接控制当前阅读窗口亮度，不再用黑色遮罩伪装；退出阅读器恢复系统原值。
+    DisposableEffect(readerBrightness) {
+        val window = (context as? Activity)?.window
+        val original = window?.attributes?.screenBrightness ?: -1f
+        if (window != null) {
+            window.attributes = window.attributes.apply {
+                screenBrightness = readerBrightness / 100f
+            }
+        }
+        onDispose {
+            if (window != null) {
+                window.attributes = window.attributes.apply { screenBrightness = original }
+            }
+        }
+    }
+
+    var currentMinute by remember { mutableIntStateOf(0) }
+    LaunchedEffect(readerSettings.eyeCareScheduleEnabled) {
+        while (true) {
+            val calendar = java.util.Calendar.getInstance()
+            currentMinute = calendar.get(java.util.Calendar.HOUR_OF_DAY) * 60 +
+                calendar.get(java.util.Calendar.MINUTE)
+            delay(60_000)
+        }
+    }
+    val eyeCareActive = readerSettings.eyeCareFilterEnabled ||
+        (readerSettings.eyeCareScheduleEnabled && EyeCareSchedule.isActive(
+            currentMinute,
+            readerSettings.eyeCareStartMinute,
+            readerSettings.eyeCareEndMinute,
+        ))
+    val eyeRgb = remember(readerSettings.eyeCareTemperature) {
+        EyeCareSchedule.rgbForKelvin(readerSettings.eyeCareTemperature)
+    }
+    val eyeFilterColor = Color(eyeRgb.first, eyeRgb.second, eyeRgb.third)
 
     // 窗口底色刷成纸色：沉浸模式藏掉系统栏后腾出的区域在 Compose 画布之外，
     // 露出的是窗口底色 —— 不刷的话那里是一条黑带。离开阅读器恢复原样。
@@ -1402,6 +1443,31 @@ fun ReaderScreen(
                     error = e.message ?: "章节加载失败"
                 }
             }
+        }
+    }
+
+    DisposableEffect(
+        readerSettings.volumeKeyPaging,
+        readerSettings.volumeKeyPagingDuringTts,
+        pagerEngineOn,
+        chapterIndex,
+        showTts,
+    ) {
+        ReaderHardwareKeys.handler = handler@{ direction ->
+            if (!readerSettings.volumeKeyPaging) return@handler false
+            if (showTts && !readerSettings.volumeKeyPagingDuringTts) return@handler false
+            when {
+                pagerEngineOn -> pagedHardwareTurnRequest.value = direction
+                epubBook != null -> goToChapter(chapterIndex + direction)
+                else -> scope.launch {
+                    val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * direction
+                    plainListState.animateScrollBy(amount)
+                }
+            }
+            true
+        }
+        onDispose {
+            ReaderHardwareKeys.handler = null
         }
     }
 
@@ -1794,6 +1860,17 @@ fun ReaderScreen(
     }
 
     Scaffold(
+        modifier = Modifier.drawWithContent {
+            drawContent()
+            if (eyeCareActive) {
+                drawRect(
+                    color = eyeFilterColor.copy(
+                        alpha = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f,
+                    ),
+                    blendMode = BlendMode.Multiply,
+                )
+            }
+        },
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             if (controlsVisible) {
@@ -1966,6 +2043,7 @@ fun ReaderScreen(
                             else -> (savedPlainPercent.coerceIn(0f, 100f) / 100f * plainContent.length).toInt()
                         },
                         jumpRequest = pagedJumpRequest,
+                        externalTurnRequest = pagedHardwareTurnRequest,
                         onPositionChanged = { off, pct ->
                             pagedAbsOffset = off
                             pagedPercent = pct
@@ -2463,6 +2541,12 @@ fun ReaderScreen(
                             pageMargin = readerSettings.pageMargin,
                             paragraphSpacing = readerSettings.paragraphSpacing,
                             eyeCareMin = readerSettings.eyeCareReminderMinutes,
+                            eyeFilterEnabled = readerSettings.eyeCareFilterEnabled,
+                            eyeTemperature = readerSettings.eyeCareTemperature,
+                            eyeIntensity = readerSettings.eyeCareIntensity,
+                            eyeScheduleEnabled = readerSettings.eyeCareScheduleEnabled,
+                            volumeKeyPaging = readerSettings.volumeKeyPaging,
+                            volumeKeyPagingDuringTts = readerSettings.volumeKeyPagingDuringTts,
                             rhythmEnabled = readerSettings.readingRhythmReminderEnabled,
                             rhythmMin = readerSettings.readingRhythmReminderMinutes,
                             onFontSize = { settingsVm.updateReader { copy(fontSize = it) } },
@@ -2478,6 +2562,12 @@ fun ReaderScreen(
                             onPageMargin = { settingsVm.updateReader { copy(pageMargin = it) } },
                             onParagraphSpacing = { settingsVm.updateReader { copy(paragraphSpacing = it) } },
                             onEyeCareMin = { settingsVm.updateReader { copy(eyeCareReminderMinutes = it) } },
+                            onEyeFilterEnabled = { settingsVm.updateReader { copy(eyeCareFilterEnabled = it) } },
+                            onEyeTemperature = { settingsVm.updateReader { copy(eyeCareTemperature = it) } },
+                            onEyeIntensity = { settingsVm.updateReader { copy(eyeCareIntensity = it) } },
+                            onEyeScheduleEnabled = { settingsVm.updateReader { copy(eyeCareScheduleEnabled = it) } },
+                            onVolumeKeyPaging = { settingsVm.updateReader { copy(volumeKeyPaging = it) } },
+                            onVolumeKeyPagingDuringTts = { settingsVm.updateReader { copy(volumeKeyPagingDuringTts = it) } },
                             onRhythmEnabled = { settingsVm.updateReader { copy(readingRhythmReminderEnabled = it) } },
                             onRhythmMin = { settingsVm.updateReader { copy(readingRhythmReminderMinutes = it) } },
                             immersiveMode = readerSettings.immersiveMode,
@@ -3591,6 +3681,12 @@ private fun SettingsSheet(
     pageMargin: Float,
     paragraphSpacing: Float,
     eyeCareMin: Int,
+    eyeFilterEnabled: Boolean,
+    eyeTemperature: Int,
+    eyeIntensity: Int,
+    eyeScheduleEnabled: Boolean,
+    volumeKeyPaging: Boolean,
+    volumeKeyPagingDuringTts: Boolean,
     rhythmEnabled: Boolean,
     rhythmMin: Int,
     onFontSize: (Float) -> Unit,
@@ -3606,6 +3702,12 @@ private fun SettingsSheet(
     onPageMargin: (Float) -> Unit,
     onParagraphSpacing: (Float) -> Unit,
     onEyeCareMin: (Int) -> Unit,
+    onEyeFilterEnabled: (Boolean) -> Unit,
+    onEyeTemperature: (Int) -> Unit,
+    onEyeIntensity: (Int) -> Unit,
+    onEyeScheduleEnabled: (Boolean) -> Unit,
+    onVolumeKeyPaging: (Boolean) -> Unit,
+    onVolumeKeyPagingDuringTts: (Boolean) -> Unit,
     onRhythmEnabled: (Boolean) -> Unit,
     onRhythmMin: (Int) -> Unit,
     immersiveMode: Boolean = false,
@@ -3704,8 +3806,32 @@ private fun SettingsSheet(
             Text("${brightness}%", Modifier.padding(start = 8.dp))
         }
 
+        Text("夜间护眼滤镜", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+        SettingsSwitchRow("手动开启", eyeFilterEnabled, onEyeFilterEnabled)
+        SettingsSwitchRow("按时间自动开启（22:00–07:00）", eyeScheduleEnabled, onEyeScheduleEnabled)
+        Text("色温 ${eyeTemperature}K", style = MaterialTheme.typography.bodySmall)
+        androidx.compose.material3.Slider(
+            value = eyeTemperature.toFloat(),
+            onValueChange = { onEyeTemperature((it / 100).toInt() * 100) },
+            valueRange = 2600f..5500f,
+            steps = 28,
+        )
+        Text("强度 ${eyeIntensity}%", style = MaterialTheme.typography.bodySmall)
+        androidx.compose.material3.Slider(
+            value = eyeIntensity.toFloat(),
+            onValueChange = { onEyeIntensity(it.toInt()) },
+            valueRange = 0f..100f,
+            steps = 19,
+        )
+
         // R7：阅读内快捷开关（沉浸 / 安静信息 / 中文排版 / 常亮 / 进度条 / 自动隐藏）
         Text("阅读辅助", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
+        SettingsSwitchRow("音量键翻页", volumeKeyPaging, onVolumeKeyPaging)
+        SettingsSwitchRow(
+            "朗读时音量键仍翻页",
+            volumeKeyPagingDuringTts,
+            onVolumeKeyPagingDuringTts,
+        )
         SettingsSwitchRow("沉浸模式", immersiveMode) { onImmersive(it) }
         SettingsSwitchRow("安静阅读信息", showReaderInfo) { onShowInfo(it) }
         SettingsSwitchRow("中文排版优化", chineseTypography) { onChineseTypo(it) }

@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.util.Log
 import android.widget.ScrollView
 import android.widget.TextView
+import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -19,6 +20,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.reader.pager.ReaderHardwareKeys
 import com.creationreadingassistant.ui.navigation.AppNavigation
 import com.creationreadingassistant.ui.onboarding.OnboardingOverlay
 import com.creationreadingassistant.ui.onboarding.isOnboardingCompleted
@@ -78,6 +80,9 @@ class MainActivity : ComponentActivity() {
             showErrorScreen(e)
         }
     }
+
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
+        ReaderHardwareKeys.dispatch(event) || super.dispatchKeyEvent(event)
 
     /** 本次启动失败兜底：直接把异常类型 + 完整栈显示出来。 */
     private fun showErrorScreen(e: Throwable) {
