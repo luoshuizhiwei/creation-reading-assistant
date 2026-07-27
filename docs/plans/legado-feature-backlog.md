@@ -77,7 +77,9 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
   拟合 2596K–5500K 色温出 ColorMatrix，跨零点时段判定逻辑也现成。系数是物理拟合
   的事实数据，可直接用。
 - **工作量**：1–2 天。
-- **依赖模块**：ReaderScreen 根层 `graphicsLayer(colorFilter)`、`SettingsStore`。
+- **依赖模块**：ReaderScreen 根层绘制、`SettingsStore`。
+- **备料已就绪**：设计稿（含算好的色温系数表、Compose 实现、定时判定、验收标准）
+  见 `docs/plans/backlog-04-eye-care-filter-design.md`，实施时照单做。
 
 ### 5. 章节流式排版（第一页先出）
 
@@ -139,6 +141,8 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
 - **工作量**：2–4 天（规则选择 UI + 重识别 + 进度保持）。
 - **依赖模块**：`feature/reader/doc/TxtChapterDetector`、`doc/PlainTextDocument`、
   书籍详情 Sheet（入口）。
+- **备料已就绪**：规则集草案（8 条规则的正则与用例、交互流程、误报对策、
+  待验证清单）见 `docs/plans/backlog-09-txt-toc-rules-design.md`。
 
 ### 10. 阅读统计增强：日粒度 + 热力图 + 周期总览
 
