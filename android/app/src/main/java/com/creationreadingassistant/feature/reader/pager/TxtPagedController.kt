@@ -8,6 +8,7 @@ import com.creationreadingassistant.feature.reader.layout.BreakOracle
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.TextRuler
+import com.creationreadingassistant.feature.reader.locator.LearningProgressEstimator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -107,6 +108,16 @@ class PagedReaderController(
     /** 全书进度百分比。末章末页视为 100。EPUB 分母是估算值，够显示用。 */
     val progressPercent: Float
         get() {
+            if (source.chapterLengthsAreEstimated) {
+                return LearningProgressEstimator.percent(
+                    chapterIndex = chapterIndex,
+                    charOffset = currentPage?.startCharOffset ?: 0,
+                    estimatedCounts = List(source.chapterCount, source::chapterEstimatedCharCount),
+                    actualCounts = actualCharCounts,
+                    atBookEnd = chapterIndex == source.chapterCount - 1 &&
+                        pageCount > 0 && pageIndex == pageCount - 1,
+                )
+            }
             val total = source.totalChars
             if (total <= 0) return 0f
             if (chapterIndex == source.chapterCount - 1 && pageCount > 0 && pageIndex == pageCount - 1) return 100f
@@ -117,6 +128,8 @@ class PagedReaderController(
     private var prefetchJob: Job? = null
     private val layoutMutex = Mutex()
     private val chapterCache = LinkedHashMap<Int, CachedChapter>(3, 0.75f, true)
+    private val actualCharCounts = LinkedHashMap<Int, Int>()
+    private var persistedMetricsLoaded = false
     var cacheRevision by mutableIntStateOf(0)
         private set
 
@@ -192,6 +205,13 @@ class PagedReaderController(
         loadError = null
         layoutJob = scope.launch {
             try {
+                if (source.chapterLengthsAreEstimated && !persistedMetricsLoaded) {
+                    persistedMetricsLoaded = true
+                    val s = store
+                    if (s != null && contentKey.isNotBlank()) {
+                        actualCharCounts.putAll(withContext(Dispatchers.IO) { s.knownCharCounts(contentKey) })
+                    }
+                }
                 // 章文本加载走 IO（EPUB 解压），排版走 Default（纯计算）
                 val cached = chapterCache[chIdx] ?: run {
                     val (content, chapterLayout) = layoutMutex.withLock {
@@ -207,13 +227,14 @@ class PagedReaderController(
                     }
                 }
                 val l = cached.layout
+                actualCharCounts[chIdx] = cached.content.text.length
                 applyChapter(chIdx, cached, pickPage(l))
 
                 // 写通缓存：pageStarts 落库（失败无所谓，见 PageIndexStore 的纪律）
                 val s = store
                 if (s != null && contentKey.isNotBlank()) {
                     launch(Dispatchers.IO) {
-                        s.save(contentKey, chIdx, cfg.fingerprint, l.pageStarts, l.charCount)
+                        s.save(contentKey, chIdx, cfg.fingerprint, l.pageStarts, cached.content.text.length)
                         s.prune(contentKey)
                     }
                 }
@@ -244,13 +265,14 @@ class PagedReaderController(
                         loaded to laidOut
                     }
                     chapterCache[index] = CachedChapter(content, chapterLayout)
+                    actualCharCounts[index] = content.text.length
                     val keep = setOf(center - 1, center, center + 1)
                     chapterCache.keys.toList().filterNot { it in keep }.forEach(chapterCache::remove)
                     cacheRevision++
                     val s = store
                     if (s != null && contentKey.isNotBlank()) {
                         withContext(Dispatchers.IO) {
-                            s.save(contentKey, index, cfg.fingerprint, chapterLayout.pageStarts, chapterLayout.charCount)
+                            s.save(contentKey, index, cfg.fingerprint, chapterLayout.pageStarts, content.text.length)
                         }
                     }
                 } catch (cancelled: CancellationException) {

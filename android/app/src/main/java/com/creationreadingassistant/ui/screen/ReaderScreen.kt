@@ -183,6 +183,11 @@ import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedReaderHost
 import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
+import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
+import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
+import com.creationreadingassistant.feature.reader.locator.AnchorConfidence
+import com.creationreadingassistant.feature.reader.locator.AnchorResolver
+import com.creationreadingassistant.feature.reader.locator.LocatorCodec
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
@@ -222,6 +227,7 @@ interface ReaderEntryPoint {
     fun aiClient(): AiClient
     fun settingsStore(): SettingsStore
     fun pageIndexStore(): PageIndexStore
+    fun anchorCacheStore(): AnchorCacheStore
 }
 
 /** 底部弹层类型（不新建路由，仅切换状态）。 */
@@ -678,10 +684,8 @@ private fun splitSentencesWithOffsets(text: String): List<Pair<String, Int>> {
 }
 
 /** 构造高亮/笔记的 locator_json，记录选中文字起点在全书文本中的全局字符偏移。 */
-private fun makeOffsetLocator(offset: Int): String = LegacyOffsetCodec.encodeLocator(offset)
-
 /** 从 locator_json 解析全局字符偏移（容错：不依赖完整 JSON 解析）。 */
-private fun parseLocatorOffset(json: String?): Int? = LegacyOffsetCodec.decodeLocator(json)
+private fun parseLocatorOffset(json: String?): Int? = LocatorCodec.decode(json)?.legacyOffset
 
 /**
  * 为单个文本块构造带「当前朗读句」高亮背景的 AnnotatedString（EPUB 逐句高亮，对照 TXT 机制）。
@@ -1095,6 +1099,7 @@ fun ReaderScreen(
     var showReaderOverflow by remember { mutableStateOf(false) }
     // R3：跨会话 TTS 续读句偏移
     var ttsResumeOffset by remember { mutableStateOf(0) }
+    var ttsResumeChapter by remember { mutableIntStateOf(-1) }
 
     // 阅读设置（来自持久化 SettingsStore，见 readerSettings）
 
@@ -1132,10 +1137,15 @@ fun ReaderScreen(
     // R3：跨会话 TTS 续读 —— 加载本书上次朗读句偏移；并把句变化持久化（含本会话续读偏移）。
     LaunchedEffect(bid) {
         val r = runCatching { entry.settingsStore().loadTtsResume() }.getOrNull()
-        ttsResumeOffset = if (r?.first == bid) r.second else 0
+        ttsResumeOffset = if (r?.bookId == bid) r.offset else 0
+        ttsResumeChapter = if (r?.bookId == bid) r.chapterIndex else -1
         tts.onSentence = { start, _ ->
             ttsResumeOffset = start
-            scope.launch(Dispatchers.IO) { runCatching { entry.settingsStore().saveTtsResume(bid, start) } }
+            val resumeChapter = if (epubBook != null) chapterIndex else -1
+            ttsResumeChapter = resumeChapter
+            scope.launch(Dispatchers.IO) {
+                runCatching { entry.settingsStore().saveTtsResume(bid, resumeChapter, start) }
+            }
         }
     }
 
@@ -1167,10 +1177,26 @@ fun ReaderScreen(
     val plainChunks = remember(plainContent) { chunkPlainText(plainContent) }
 
     // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
-    val pagerEngineOn = if (epubBook != null) {
-        readerSettings.epubPagerEngineMode == "on"
+    val pagerHealth = remember { PagerHealthStore(context.applicationContext) }
+    val configuredPagerMode = if (epubBook != null) {
+        readerSettings.epubPagerEngineMode
     } else {
-        readerSettings.pagerEngineMode == "on"
+        readerSettings.pagerEngineMode
+    }
+    val pagerEngineOn = readerSettings.readerMode == "paged" && when (configuredPagerMode) {
+        "on" -> true
+        "auto" -> !pagerHealth.isAutoDisabled
+        else -> false
+    }
+    DisposableEffect(pagerEngineOn) {
+        val guard = if (pagerEngineOn) pagerHealth.installCrashGuard() else null
+        onDispose { guard?.close() }
+    }
+    LaunchedEffect(pagerEngineOn, isLoading, error) {
+        if (pagerEngineOn && !isLoading && error == null) {
+            delay(60_000)
+            pagerHealth.clearAfterStableRead()
+        }
     }
     // 外部跳转请求（进度条 / 目录 / 高亮定位），宿主消费后置回 null
     val pagedJumpRequest = remember { mutableStateOf<Int?>(null) }
@@ -1329,8 +1355,13 @@ fun ReaderScreen(
 
     /** 依据当前选区生成 locator_json（T1）。 */
     fun computeLocatorJson(): String? = when {
-        epubBook != null && selectedGlobalOffset >= 0 -> makeOffsetLocator(selectedGlobalOffset)
-        epubBook == null && selectedRangeStart >= 0 -> makeOffsetLocator(selectedRangeStart)
+        epubBook != null && selectedGlobalOffset >= 0 -> {
+            val ci = chapterStartOffsets.indexOfLast { it <= selectedGlobalOffset }.coerceAtLeast(0)
+            val co = selectedGlobalOffset - chapterStartOffsets.getOrElse(ci) { 0 }
+            LocatorCodec.encode(selectedGlobalOffset, ci, co, selectedText)
+        }
+        epubBook == null && selectedRangeStart >= 0 ->
+            LocatorCodec.encode(selectedRangeStart, 0, selectedRangeStart, selectedText)
         else -> null
     }
 
@@ -1599,23 +1630,48 @@ fun ReaderScreen(
         val nt = target as? NoteEntity
         val chapterTitle = hl?.chapter_title ?: nt?.chapter_title
         val targetProgress = hl?.progress_percent ?: nt?.progress_percent
-        val locOffset = parseLocatorOffset(hl?.locator_json ?: nt?.locator_json)
+        val locatorJson = hl?.locator_json ?: nt?.locator_json
+        val decodedLocator = LocatorCodec.decode(locatorJson)
+        val targetKind = if (hl != null) "highlight" else "note"
+        val targetId = hl?.id ?: nt?.id.orEmpty()
+        val targetExcerpt = hl?.text ?: nt?.excerpt ?: nt?.body
         if (epubBook != null) {
             val book = epubBook!!
-            if (locOffset != null && bookIndex != null) {
-                // T1：按全局偏移精确定位到所属章节，并进一步滚动到章内偏移所在块
-                val ci = chapterStartOffsets.indexOfLast { it <= locOffset }.coerceIn(0, book.chapters.lastIndex)
+            if (decodedLocator != null && bookIndex != null) {
+                val cached = entry.anchorCacheStore().get(targetKind, targetId, bid)
+                val resolved = cached ?: run {
+                    val provisionalChapter = decodedLocator.chapterIndex
+                        ?.coerceIn(0, book.chapters.lastIndex)
+                        ?: chapterStartOffsets.indexOfLast {
+                            it <= (decodedLocator.legacyOffset ?: 0)
+                        }.coerceIn(0, book.chapters.lastIndex)
+                    val chapterText = withContext(Dispatchers.IO) {
+                        epubDocument?.text(provisionalChapter).orEmpty()
+                    }
+                    AnchorResolver.resolve(
+                        locator = decodedLocator,
+                        chapterStarts = chapterStartOffsets,
+                        chapterText = chapterText,
+                        excerpt = targetExcerpt,
+                    ).also {
+                        entry.anchorCacheStore().save(targetKind, targetId, bid, it)
+                    }
+                }
+                val ci = resolved.chapterIndex.coerceIn(0, book.chapters.lastIndex)
+                val locOffset = chapterStartOffsets.getOrElse(ci) { 0 } + resolved.charOffset
                 goToChapter(ci)
+                if (resolved.confidence == AnchorConfidence.APPROXIMATE) {
+                    showNotice("原文可能已变化，已跳到最接近的位置")
+                }
                 if (pagerEngineOn) {
                     pagedJumpRequest.value = locOffset
                     navFocusBlockIndex = null
                 } else {
-                    val inChapter = locOffset - chapterStartOffsets.getOrElse(ci) { 0 }
                     // 在 IO 线程加载目标章块，避免主线程 Zip I/O 造成 ANR
                     val blocks = withContext(Dispatchers.IO) {
                         epubDocument?.blocks(ci) ?: emptyList()
                     }
-                    navFocusBlockIndex = blockIndexForChapterOffset(blocks, inChapter)
+                    navFocusBlockIndex = blockIndexForChapterOffset(blocks, resolved.charOffset)
                 }
             } else {
                 val idx = if (chapterTitle != null) {
@@ -1628,8 +1684,17 @@ fun ReaderScreen(
                 navFocusBlockIndex = null
             }
         } else if (plainContent.isNotBlank()) {
-            if (locOffset != null && plainContent.isNotEmpty()) {
-                jumpToPlainOffset(locOffset)
+            if (decodedLocator != null && plainContent.isNotEmpty()) {
+                val resolved = entry.anchorCacheStore().get(targetKind, targetId, bid) ?: AnchorResolver.resolve(
+                    locator = decodedLocator,
+                    chapterStarts = listOf(0),
+                    chapterText = plainContent,
+                    excerpt = targetExcerpt,
+                ).also { entry.anchorCacheStore().save(targetKind, targetId, bid, it) }
+                jumpToPlainOffset(resolved.charOffset)
+                if (resolved.confidence == AnchorConfidence.APPROXIMATE) {
+                    showNotice("原文可能已变化，已跳到最接近的位置")
+                }
             } else if (targetProgress != null) {
                 jumpToPlainOffset((targetProgress.coerceIn(0f, 100f) / 100f * plainContent.length).toInt())
             }
@@ -1650,7 +1715,8 @@ fun ReaderScreen(
                 ActivityCompat.requestPermissions(act, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
             }
         }
-        tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, ttsResumeOffset)
+        val resumeAt = if (epubBook == null || ttsResumeChapter == chapterIndex) ttsResumeOffset else 0
+        tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, resumeAt)
         showTts = true
     }
 
@@ -2451,7 +2517,7 @@ fun ReaderScreen(
                         )
 
                         SheetType.SEARCH -> SearchSheet(
-                            book = epubBook,
+                            document = epubDocument,
                             plainContent = plainContent,
                             chapterStartOffsets = chapterStartOffsets,
                             chapterTitles = chapterTitles,
@@ -2462,10 +2528,20 @@ fun ReaderScreen(
                             onJump = { result ->
                                 if (result.chapterIndex >= 0) {
                                     goToChapter(result.chapterIndex)
+                                    val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex) { 0 } +
+                                        result.charOffset
+                                    if (pagerEngineOn) {
+                                        pagedJumpRequest.value = globalOffset
+                                    } else {
+                                        scope.launch {
+                                            val blocks = withContext(Dispatchers.IO) {
+                                                epubDocument?.blocks(result.chapterIndex).orEmpty()
+                                            }
+                                            navFocusBlockIndex = blockIndexForChapterOffset(blocks, result.charOffset)
+                                        }
+                                    }
                                 } else if (plainContent.isNotEmpty()) {
-                                    jumpToPlainOffset(
-                                        (result.progressPercent.coerceIn(0f, 100f) / 100f * plainContent.length).toInt(),
-                                    )
+                                    jumpToPlainOffset(result.charOffset)
                                 }
                                 sheet = null
                             },
@@ -2800,6 +2876,8 @@ private data class BookSearchResult(
     val progressPercent: Float,
     val chapterIndex: Int, // -1 表示纯文本全书
     val chapterTitle: String,
+    /** TXT 为全书偏移；EPUB 为章内真实字符偏移。 */
+    val charOffset: Int,
 )
 
 /** 对照 web createReaderSearchResults：全本拼接文本上做不区分大小写检索，最多 80 处，片断取 28 前 +42 后。 */
@@ -2812,7 +2890,7 @@ private fun computeBookSearch(
 ): List<BookSearchResult> {
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
-    val text = fullText.replace(Regex("\\s+"), " ")
+    val text = fullText
     val lower = text.lowercase()
     val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
@@ -2823,7 +2901,8 @@ private fun computeBookSearch(
         if (hit < 0) break
         val start = (hit - 28).coerceAtLeast(0)
         val end = (hit + keyword.length + 42).coerceAtMost(text.length)
-        val snippet = "${if (start > 0) "…" else ""}${text.substring(start, end)}${if (end < text.length) "…" else ""}"
+        val excerpt = text.substring(start, end).replace(Regex("\\s+"), " ")
+        val snippet = "${if (start > 0) "…" else ""}$excerpt${if (end < text.length) "…" else ""}"
         val progress = if (text.isEmpty()) 0f else (hit.toFloat() / text.length) * 100f
         val chIdx = if (isTxt || chapterStartOffsets.isEmpty()) {
             -1
@@ -2831,7 +2910,7 @@ private fun computeBookSearch(
             chapterStartOffsets.indexOfLast { it <= hit }.coerceIn(0, chapterTitles.lastIndex)
         }
         val chTitle = if (isTxt || chIdx < 0) "全文" else chapterTitles.getOrNull(chIdx) ?: "正文"
-        results.add(BookSearchResult(occurrence, snippet, progress, chIdx, chTitle))
+        results.add(BookSearchResult(occurrence, snippet, progress, chIdx, chTitle, hit))
         occurrence += 1
         from = hit + lowerKw.length
     }
@@ -2839,12 +2918,12 @@ private fun computeBookSearch(
 }
 
 /**
- * EPUB 搜索：逐章经 [EpubParser.loadChapterText] 流式抽取当前章文本并检索，
+ * EPUB 搜索：逐章经 [ReaderDocument.text] 读取与渲染完全相同的文本空间并检索，
  * 内存只保留当前章文本（不拼接全本），命中后用 [chapterStartOffsets] 映射回全局偏移与所属章。
  * 必须在 IO 线程调用（[SearchSheet] 内已 withContext(Dispatchers.IO)）。
  */
 private suspend fun computeEpubSearch(
-    book: EpubBook,
+    document: com.creationreadingassistant.feature.reader.doc.ReaderDocument,
     query: String,
     chapterStartOffsets: List<Int>,
     chapterTitles: List<String>,
@@ -2855,11 +2934,11 @@ private suspend fun computeEpubSearch(
     val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
     val denom = totalChars.coerceAtLeast(1)
-    for ((ci, ch) in book.chapters.withIndex()) {
+    for (ci in document.chapters.indices) {
         if (results.size >= 80) break
-        val ct = EpubParser.loadChapterText(ch.cachedEpubPath, ch.entryPath, ch.chapterDir)
+        val ct = document.text(ci)
         if (ct.isBlank()) continue
-        val text = ct.replace(Regex("\\s+"), " ")
+        val text = ct
         val lower = text.lowercase()
         val base = chapterStartOffsets.getOrElse(ci) { 0 }
         var from = 0
@@ -2868,11 +2947,12 @@ private suspend fun computeEpubSearch(
             if (hit < 0) break
             val start = (hit - 28).coerceAtLeast(0)
             val end = (hit + keyword.length + 42).coerceAtMost(text.length)
-            val snippet = "${if (start > 0) "…" else ""}${text.substring(start, end)}${if (end < text.length) "…" else ""}"
+            val excerpt = text.substring(start, end).replace(Regex("\\s+"), " ")
+            val snippet = "${if (start > 0) "…" else ""}$excerpt${if (end < text.length) "…" else ""}"
             val globalHit = base + hit
             val progress = (globalHit.toFloat() / denom) * 100f
             val chTitle = chapterTitles.getOrNull(ci) ?: "正文"
-            results.add(BookSearchResult(results.size, snippet, progress, ci, chTitle))
+            results.add(BookSearchResult(results.size, snippet, progress, ci, chTitle, hit))
             from = hit + lowerKw.length
         }
     }
@@ -2881,7 +2961,7 @@ private suspend fun computeEpubSearch(
 
 @Composable
 private fun SearchSheet(
-    book: EpubBook?,
+    document: com.creationreadingassistant.feature.reader.doc.ReaderDocument?,
     plainContent: String,
     chapterStartOffsets: List<Int>,
     chapterTitles: List<String>,
@@ -2892,13 +2972,13 @@ private fun SearchSheet(
     onJump: (BookSearchResult) -> Unit,
 ) {
     var results by remember { mutableStateOf(emptyList<BookSearchResult>()) }
-    LaunchedEffect(query, book, plainContent) {
+    LaunchedEffect(query, document, plainContent) {
         delay(250)
         results = withContext(Dispatchers.IO) {
             if (isTxt) {
                 computeBookSearch(plainContent, query, chapterStartOffsets, chapterTitles, isTxt)
             } else {
-                book?.let { computeEpubSearch(it, query, chapterStartOffsets, chapterTitles, totalChars) }
+                document?.let { computeEpubSearch(it, query, chapterStartOffsets, chapterTitles, totalChars) }
                     ?: emptyList()
             }
         }
@@ -3550,11 +3630,17 @@ private fun SettingsSheet(
             OptionPill(selected = readerMode == "paged", label = "左右翻页", onClick = { onReaderMode("paged") })
             OptionPill(selected = readerMode == "scroll", label = "上下滚动", onClick = { onReaderMode("scroll") })
         }
-        SettingsSwitchRow("TXT 新分页引擎（试验）", pagerEngineMode == "on") {
-            onPagerEngineMode(if (it) "on" else "off")
+        Text("TXT 新分页引擎", style = MaterialTheme.typography.labelMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启").forEach { (value, label) ->
+                OptionPill(pagerEngineMode == value, label) { onPagerEngineMode(value) }
+            }
         }
-        SettingsSwitchRow("EPUB 新分页引擎（试验）", epubPagerEngineMode == "on") {
-            onEpubPagerEngineMode(if (it) "on" else "off")
+        Text("EPUB 新分页引擎", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启").forEach { (value, label) ->
+                OptionPill(epubPagerEngineMode == value, label) { onEpubPagerEngineMode(value) }
+            }
         }
 
         Text("翻页与点击", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))

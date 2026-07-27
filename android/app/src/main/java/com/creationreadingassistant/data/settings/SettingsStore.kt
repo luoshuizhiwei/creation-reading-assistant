@@ -38,7 +38,7 @@ private val KEY_PAPER_TEXTURE = booleanPreferencesKey("appearance_paper_texture"
 
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
-private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | on（自研分页引擎）
+private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | auto | on
 private val KEY_EPUB_PAGER_ENGINE = stringPreferencesKey("epub_pager_engine_mode")
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
@@ -67,6 +67,7 @@ private val KEY_TTS_TIMED_STOP = intPreferencesKey("tts_timed_stop_minutes")
 // TTS 跨会话续读：记录最近一次朗读的书 id 与句首偏移（R3）
 private val KEY_TTS_RESUME_BOOK = stringPreferencesKey("tts_resume_book")
 private val KEY_TTS_RESUME_OFFSET = intPreferencesKey("tts_resume_offset")
+private val KEY_TTS_RESUME_CHAPTER = intPreferencesKey("tts_resume_chapter")
 
 // ---- 灵感 ----
 private val KEY_INSPIRATION_SORT = stringPreferencesKey("inspiration_sort")   // updated | created | title | source
@@ -106,8 +107,8 @@ data class ReaderSettings(
      * 出问题用户可以自己关掉回到旧滚动视图（SIDECAR-ZH 的 P6 才逐步默认开）。
      * TXT 与 EPUB 分开灰度，避免其中一种格式的问题迫使另一种一起回退。
      */
-    val pagerEngineMode: String = "off",
-    val epubPagerEngineMode: String = "off",
+    val pagerEngineMode: String = "auto",
+    val epubPagerEngineMode: String = "auto",
     val pageTurnEffect: String = "none",         // none | fade | slide | cover
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     val fontSize: Float = 18f,
@@ -143,6 +144,8 @@ data class AISettings(
     val prompt: String = "",
 )
 
+data class TtsResume(val bookId: String, val chapterIndex: Int, val offset: Int)
+
 @Singleton
 class SettingsStore @Inject constructor(
     @ApplicationContext context: Context,
@@ -172,8 +175,8 @@ class SettingsStore @Inject constructor(
     val reader: StateFlow<ReaderSettings> = ds.data.map { prefs ->
         ReaderSettings(
             readerMode = prefs[KEY_READER_MODE] ?: "paged",
-            pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "off",
-            epubPagerEngineMode = prefs[KEY_EPUB_PAGER_ENGINE] ?: "off",
+            pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "auto",
+            epubPagerEngineMode = prefs[KEY_EPUB_PAGER_ENGINE] ?: "auto",
             pageTurnEffect = when (val effect = prefs[KEY_PAGE_TURN_EFFECT] ?: "none") {
                 "curl" -> "cover"
                 else -> effect
@@ -220,19 +223,20 @@ class SettingsStore @Inject constructor(
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), "updated")
 
     /** TTS 跨会话续读：保存「书 id + 句首偏移」（R3）。 */
-    suspend fun saveTtsResume(bookId: String, offset: Int) {
+    suspend fun saveTtsResume(bookId: String, chapterIndex: Int, offset: Int) {
         ds.edit {
             it[KEY_TTS_RESUME_BOOK] = bookId
+            it[KEY_TTS_RESUME_CHAPTER] = chapterIndex
             it[KEY_TTS_RESUME_OFFSET] = offset
         }
     }
 
-    /** 读取 TTS 续读信息，返回 (bookId, offset) 或 null。 */
-    suspend fun loadTtsResume(): Pair<String, Int>? {
+    suspend fun loadTtsResume(): TtsResume? {
         val prefs = ds.data.first()
         val book = prefs[KEY_TTS_RESUME_BOOK] ?: return null
+        val chapter = prefs[KEY_TTS_RESUME_CHAPTER] ?: -1
         val offset = prefs[KEY_TTS_RESUME_OFFSET] ?: 0
-        return book to offset
+        return TtsResume(book, chapter, offset)
     }
 
     suspend fun setInspirationSort(value: String) {

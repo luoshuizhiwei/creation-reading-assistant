@@ -10,11 +10,13 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -123,8 +125,13 @@ fun PagedReaderHost(
     Column(modifier.fillMaxSize().padding(horizontal = pageMarginDp.dp)) {
         Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                val widthPx = constraints.maxWidth.toFloat()
+                // 平板横屏仍保持中文正文每行不超过约 42 字，超出的空间左右留白。
+                val widthPx = minOf(constraints.maxWidth.toFloat(), fontPx * 42f)
                 val heightPx = constraints.maxHeight.toFloat()
+                val horizontalInsetDp = with(density) {
+                    ((constraints.maxWidth.toFloat() - widthPx) / 2f).coerceAtLeast(0f).toDp()
+                }
+                val contentWidthDp = with(density) { widthPx.toDp() }
 
                 val cfg = remember(widthPx, heightPx, fontPx, lineHeightMultiplier, paragraphSpacing, typefaceKey, chineseTypography) {
                     LayoutConfig(
@@ -218,7 +225,6 @@ fun PagedReaderHost(
                     // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
                     val tapZone by rememberUpdatedState(tapZoneMode)
                     val gestures = Modifier
-                            .fillMaxSize()
                             .pointerInput(controller) {
                                 detectTapGestures(
                                     onLongPress = press@{ offset ->
@@ -277,7 +283,11 @@ fun PagedReaderHost(
                             selRange.value = null
                             controller.nextPage()
                         },
-                        modifier = gestures,
+                        modifier = Modifier
+                            .offset(x = horizontalInsetDp)
+                            .width(contentWidthDp)
+                            .fillMaxHeight()
+                            .then(gestures),
                     ) { rendered, isCurrent ->
                         PageLayer(
                             page = rendered.page,

@@ -31,6 +31,15 @@ interface PagedChapterSource {
     /** 全书总字符数（进度百分比的分母；EPUB 为估算值）。 */
     val totalChars: Int
 
+    /** EPUB 为 true；TXT 的章节长度本来就是精确字符数。 */
+    val chapterLengthsAreEstimated: Boolean get() = false
+
+    fun chapterEstimatedCharCount(index: Int): Int {
+        val start = chapterStartAbs(index)
+        val next = if (index + 1 < chapterCount) chapterStartAbs(index + 1) else totalChars
+        return (next - start - 1).coerceAtLeast(0)
+    }
+
     /**
      * 取整章纯文本。**可能做 IO（EPUB 解压），必须在后台线程调。**
      *
@@ -90,6 +99,7 @@ class EpubChapterSource(
 ) : PagedChapterSource {
 
     override val chapterCount: Int get() = titles.size
+    override val chapterLengthsAreEstimated: Boolean get() = true
     override fun chapterTitle(index: Int): String = titles.getOrNull(index) ?: ""
     override fun chapterStartAbs(index: Int): Int = chapterStartOffsets.getOrNull(index) ?: 0
     override fun loadChapter(index: Int): PagedChapterContent {

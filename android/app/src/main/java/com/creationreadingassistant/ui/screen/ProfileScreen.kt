@@ -1032,12 +1032,18 @@ private fun ReaderSettingsSubPage(
                     selected = readerMode,
                     onSelect = onReaderModeChange,
                 )
-                ToggleRow("TXT 新分页引擎（试验）", pagerEngineMode == "on") {
-                    onPagerEngineModeChange(if (it) "on" else "off")
-                }
-                ToggleRow("EPUB 新分页引擎（试验）", epubPagerEngineMode == "on") {
-                    onEpubPagerEngineModeChange(if (it) "on" else "off")
-                }
+                SegmentedRow(
+                    options = listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启"),
+                    selected = pagerEngineMode,
+                    onSelect = onPagerEngineModeChange,
+                )
+                Text("上方：TXT 新分页引擎", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                SegmentedRow(
+                    options = listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启"),
+                    selected = epubPagerEngineMode,
+                    onSelect = onEpubPagerEngineModeChange,
+                )
+                Text("上方：EPUB 新分页引擎", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 SectionTitle("翻页与点击")
                 SegmentedRow(
                     options = listOf(

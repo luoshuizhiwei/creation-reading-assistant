@@ -23,6 +23,7 @@ import com.creationreadingassistant.data.local.dao.ShelfBookDao
 import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.SyncAccountDao
 import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
+import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.entity.BookContentEntity
@@ -41,6 +42,7 @@ import com.creationreadingassistant.data.local.entity.ShelfBookEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.SyncAccountEntity
 import com.creationreadingassistant.data.local.entity.ReaderPageIndexEntity
+import com.creationreadingassistant.data.local.entity.ReaderAnchorCacheEntity
 import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 
@@ -51,7 +53,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 5
+const val APP_DATABASE_SCHEMA_VERSION = 6
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -77,6 +79,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 5
         BookTagEntity::class, BookCategoryEntity::class, ShelfBookEntity::class,
         SyncAccountEntity::class, SyncStateEntity::class,
         ReaderPageIndexEntity::class,
+        ReaderAnchorCacheEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = false,
@@ -100,6 +103,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncAccountDao(): SyncAccountDao
     abstract fun syncStateDao(): SyncStateDao
     abstract fun readerPageIndexDao(): ReaderPageIndexDao
+    abstract fun readerAnchorCacheDao(): ReaderAnchorCacheDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -146,6 +150,24 @@ abstract class AppDatabase : RoomDatabase() {
                         "`char_count` INTEGER NOT NULL, " +
                         "`created_at` INTEGER NOT NULL, " +
                         "PRIMARY KEY(`content_key`, `chapter_index`, `fingerprint`))",
+                )
+            }
+        }
+
+        /** v5→v6：仅新增 locator 懒解析缓存；不修改任何用户内容表。 */
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `reader_anchor_cache` (" +
+                        "`kind` TEXT NOT NULL, " +
+                        "`entity_id` TEXT NOT NULL, " +
+                        "`content_key` TEXT NOT NULL, " +
+                        "`chapter_index` INTEGER NOT NULL, " +
+                        "`char_offset` INTEGER NOT NULL, " +
+                        "`confidence` INTEGER NOT NULL, " +
+                        "`resolved_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`kind`, `entity_id`, `content_key`))",
                 )
             }
         }

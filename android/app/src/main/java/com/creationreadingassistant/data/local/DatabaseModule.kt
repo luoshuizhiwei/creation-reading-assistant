@@ -13,6 +13,7 @@ import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.InspirationVariantDao
 import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
+import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.ShelfBookDao
@@ -43,7 +44,13 @@ object DatabaseModule {
         DatabaseSafetyNet.snapshotIfUpgrading(context, AppDatabase.DB_NAME, AppDatabase.SCHEMA_VERSION)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
             .addCallback(AppDatabase.CreateIndexCallback())
-            .addMigrations(AppDatabase.MIGRATION_1_2, AppDatabase.MIGRATION_2_3, AppDatabase.MIGRATION_3_4, AppDatabase.MIGRATION_4_5)
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
+            )
             .fallbackToDestructiveMigration()
             .build()
     }
@@ -66,4 +73,5 @@ object DatabaseModule {
     @Provides fun provideSyncAccountDao(db: AppDatabase): SyncAccountDao = db.syncAccountDao()
     @Provides fun provideSyncStateDao(db: AppDatabase): SyncStateDao = db.syncStateDao()
     @Provides fun provideReaderPageIndexDao(db: AppDatabase): ReaderPageIndexDao = db.readerPageIndexDao()
+    @Provides fun provideReaderAnchorCacheDao(db: AppDatabase): ReaderAnchorCacheDao = db.readerAnchorCacheDao()
 }
