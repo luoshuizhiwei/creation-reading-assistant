@@ -1336,7 +1336,7 @@ fun ReaderScreen(
     val inspirationsCount = inspirations.size
 
     val (paperBg, paperFg) = paperColors(readerSettings.background)
-    val readerBrightness = readerSettings.brightness.coerceIn(45, 100)
+    val readerBrightness = readerSettings.brightness.coerceIn(5, 100)
     val effectivePaperBg = paperBg
 
     // 直接控制当前阅读窗口亮度，不再用黑色遮罩伪装；退出阅读器恢复系统原值。
@@ -3862,8 +3862,8 @@ private fun SettingsSheet(
             androidx.compose.material3.Slider(
                 value = brightness.toFloat(),
                 onValueChange = { onBrightness(it.toInt()) },
-                valueRange = 45f..100f,
-                steps = 55,
+                valueRange = 5f..100f,
+                steps = 18,
                 modifier = Modifier.weight(1f),
             )
             Text("${brightness}%", Modifier.padding(start = 8.dp))
