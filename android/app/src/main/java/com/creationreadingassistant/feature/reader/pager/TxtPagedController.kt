@@ -14,6 +14,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 
 /**
  * 左右翻页的状态机：持有「当前章的整章排版 + 当前页号」。
@@ -39,6 +41,16 @@ class PagedReaderController(
     private val store: PageIndexStore? = null,
     private val contentKey: String = "",
 ) {
+    data class ReaderPageFrame(
+        val page: ChapterPaginator.Page,
+        val chapterText: String,
+        val chapterIndex: Int,
+    )
+
+    private data class CachedChapter(
+        val content: PagedChapterContent,
+        val layout: ChapterPaginator.ChapterLayout,
+    )
 
     var chapterIndex by mutableIntStateOf(0)
         private set
@@ -102,6 +114,28 @@ class PagedReaderController(
         }
 
     private var layoutJob: Job? = null
+    private var prefetchJob: Job? = null
+    private val layoutMutex = Mutex()
+    private val chapterCache = LinkedHashMap<Int, CachedChapter>(3, 0.75f, true)
+    var cacheRevision by mutableIntStateOf(0)
+        private set
+
+    /** 相邻页快照；章内直接取，跨章仅在预排版完成后提供。 */
+    fun frameAt(delta: Int): ReaderPageFrame? {
+        if (delta == 0) {
+            val page = currentPage ?: return null
+            return ReaderPageFrame(page, chapterText, chapterIndex)
+        }
+        val currentLayout = layout ?: return null
+        val candidate = pageIndex + delta
+        if (candidate in currentLayout.pages.indices) {
+            return ReaderPageFrame(currentLayout.pages[candidate], chapterText, chapterIndex)
+        }
+        val targetChapter = chapterIndex + if (delta < 0) -1 else 1
+        val cached = chapterCache[targetChapter] ?: return null
+        val targetPage = if (delta < 0) cached.layout.pages.lastOrNull() else cached.layout.pages.firstOrNull()
+        return targetPage?.let { ReaderPageFrame(it, cached.content.text, targetChapter) }
+    }
 
     /** 打开到全书偏移 [absOffset] 所在的页。幂等，可反复调。 */
     fun open(absOffset: Int) {
@@ -117,15 +151,33 @@ class PagedReaderController(
         val l = layout ?: return
         when {
             pageIndex < l.pages.size - 1 -> pageIndex++
-            chapterIndex < source.chapterCount - 1 -> loadChapter(chapterIndex + 1) { 0 }
+            chapterIndex < source.chapterCount - 1 -> {
+                val next = chapterCache[chapterIndex + 1]
+                if (next != null) applyChapter(chapterIndex + 1, next, 0)
+                else loadChapter(chapterIndex + 1) { 0 }
+            }
         }
     }
 
     fun prevPage() {
         when {
             pageIndex > 0 -> pageIndex--
-            chapterIndex > 0 -> loadChapter(chapterIndex - 1) { it.pages.size - 1 }
+            chapterIndex > 0 -> {
+                val previous = chapterCache[chapterIndex - 1]
+                if (previous != null) applyChapter(chapterIndex - 1, previous, previous.layout.pages.lastIndex)
+                else loadChapter(chapterIndex - 1) { it.pages.size - 1 }
+            }
         }
+    }
+
+    private fun applyChapter(chIdx: Int, cached: CachedChapter, targetPage: Int) {
+        chapterText = cached.content.text
+        chapterIndex = chIdx
+        layout = cached.layout
+        pageIndex = targetPage.coerceIn(0, cached.layout.pages.lastIndex.coerceAtLeast(0))
+        isLayingOut = false
+        loadError = null
+        prefetchNeighbors(chIdx)
     }
 
     /**
@@ -135,23 +187,27 @@ class PagedReaderController(
     private fun loadChapter(chIdx: Int, pickPage: (ChapterPaginator.ChapterLayout) -> Int) {
         if (chIdx !in 0 until source.chapterCount) return
         layoutJob?.cancel()
+        prefetchJob?.cancel()
         isLayingOut = true
         loadError = null
         layoutJob = scope.launch {
             try {
                 // 章文本加载走 IO（EPUB 解压），排版走 Default（纯计算）
-                val text = withContext(Dispatchers.IO) { source.loadChapterText(chIdx) }
-                val l = withContext(Dispatchers.Default) {
-                    ChapterPaginator.paginate(
-                        TxtPageSource.paragraphsOf(text, source.chapterTitle(chIdx)),
-                        cfg, ruler, oracle,
-                    )
+                val cached = chapterCache[chIdx] ?: run {
+                    val (content, chapterLayout) = layoutMutex.withLock {
+                        val loaded = withContext(Dispatchers.IO) { source.loadChapter(chIdx) }
+                        val laidOut = withContext(Dispatchers.Default) {
+                            ChapterPaginator.paginateBlocks(loaded.blocks, cfg, ruler, oracle)
+                        }
+                        loaded to laidOut
+                    }
+                    CachedChapter(content, chapterLayout).also {
+                        chapterCache[chIdx] = it
+                        cacheRevision++
+                    }
                 }
-                chapterText = text
-                chapterIndex = chIdx
-                layout = l
-                pageIndex = pickPage(l).coerceIn(0, (l.pages.size - 1).coerceAtLeast(0))
-                isLayingOut = false
+                val l = cached.layout
+                applyChapter(chIdx, cached, pickPage(l))
 
                 // 写通缓存：pageStarts 落库（失败无所谓，见 PageIndexStore 的纪律）
                 val s = store
@@ -166,6 +222,42 @@ class PagedReaderController(
             } catch (t: Throwable) {
                 loadError = t.message ?: "章节排版失败"
                 isLayingOut = false
+            }
+        }
+    }
+
+    /**
+     * 当前章显示后再顺序预排相邻章。所有排版仍在同一个 controller job 下串行使用
+     * ruler，避免 PaintTextRuler 的 scratch/cache 被并发访问。
+     */
+    private fun prefetchNeighbors(center: Int) {
+        prefetchJob?.cancel()
+        prefetchJob = scope.launch {
+            for (index in listOf(center - 1, center + 1)) {
+                if (index !in 0 until source.chapterCount || chapterCache.containsKey(index)) continue
+                try {
+                    val (content, chapterLayout) = layoutMutex.withLock {
+                        val loaded = withContext(Dispatchers.IO) { source.loadChapter(index) }
+                        val laidOut = withContext(Dispatchers.Default) {
+                            ChapterPaginator.paginateBlocks(loaded.blocks, cfg, ruler, oracle)
+                        }
+                        loaded to laidOut
+                    }
+                    chapterCache[index] = CachedChapter(content, chapterLayout)
+                    val keep = setOf(center - 1, center, center + 1)
+                    chapterCache.keys.toList().filterNot { it in keep }.forEach(chapterCache::remove)
+                    cacheRevision++
+                    val s = store
+                    if (s != null && contentKey.isNotBlank()) {
+                        withContext(Dispatchers.IO) {
+                            s.save(contentKey, index, cfg.fingerprint, chapterLayout.pageStarts, chapterLayout.charCount)
+                        }
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Throwable) {
+                    // 预取失败不影响当前章；真正翻到目标章时 loadChapter 会正常报告错误。
+                }
             }
         }
     }

@@ -1167,7 +1167,11 @@ fun ReaderScreen(
     val plainChunks = remember(plainContent) { chunkPlainText(plainContent) }
 
     // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
-    val pagerEngineOn = readerSettings.pagerEngineMode == "on"
+    val pagerEngineOn = if (epubBook != null) {
+        readerSettings.epubPagerEngineMode == "on"
+    } else {
+        readerSettings.pagerEngineMode == "on"
+    }
     // 外部跳转请求（进度条 / 目录 / 高亮定位），宿主消费后置回 null
     val pagedJumpRequest = remember { mutableStateOf<Int?>(null) }
     // 分页引擎上报的当前位置（全书字符偏移 + 百分比），-1 表示尚未上报
@@ -1203,7 +1207,7 @@ fun ReaderScreen(
                     titles = index.chapterTitles,
                     chapterStartOffsets = index.chapterStartOffsets,
                     totalChars = index.totalChars,
-                    loadText = document::text,
+                    loadBlocks = document::blocks,
                 )
 
             plainContent.isNotBlank() && txtChapters.isNotEmpty() ->
@@ -2387,6 +2391,7 @@ fun ReaderScreen(
                             brightness = readerSettings.brightness,
                             readerMode = readerSettings.readerMode,
                             pagerEngineMode = readerSettings.pagerEngineMode,
+                            epubPagerEngineMode = readerSettings.epubPagerEngineMode,
                             pageTurnEffect = readerSettings.pageTurnEffect,
                             tapZoneMode = readerSettings.tapZoneMode,
                             pageMargin = readerSettings.pageMargin,
@@ -2401,6 +2406,7 @@ fun ReaderScreen(
                             onBold = { settingsVm.updateReader { copy(fontWeightBold = it) } },
                             onReaderMode = { settingsVm.updateReader { copy(readerMode = it) } },
                             onPagerEngineMode = { settingsVm.updateReader { copy(pagerEngineMode = it) } },
+                            onEpubPagerEngineMode = { settingsVm.updateReader { copy(epubPagerEngineMode = it) } },
                             onPageTurnEffect = { settingsVm.updateReader { copy(pageTurnEffect = it) } },
                             onTapZoneMode = { settingsVm.updateReader { copy(tapZoneMode = it) } },
                             onPageMargin = { settingsVm.updateReader { copy(pageMargin = it) } },
@@ -3498,6 +3504,7 @@ private fun SettingsSheet(
     brightness: Int,
     readerMode: String,
     pagerEngineMode: String,
+    epubPagerEngineMode: String,
     pageTurnEffect: String,
     tapZoneMode: String,
     pageMargin: Float,
@@ -3512,6 +3519,7 @@ private fun SettingsSheet(
     onBold: (Boolean) -> Unit,
     onReaderMode: (String) -> Unit,
     onPagerEngineMode: (String) -> Unit,
+    onEpubPagerEngineMode: (String) -> Unit,
     onPageTurnEffect: (String) -> Unit,
     onTapZoneMode: (String) -> Unit,
     onPageMargin: (Float) -> Unit,
@@ -3541,9 +3549,11 @@ private fun SettingsSheet(
             OptionPill(selected = readerMode == "paged", label = "左右翻页", onClick = { onReaderMode("paged") })
             OptionPill(selected = readerMode == "scroll", label = "上下滚动", onClick = { onReaderMode("scroll") })
         }
-        // 自研分页引擎（P2 起 TXT 生效）：真正的章内逐页翻页 + 中文排版（避头尾/标点挤压/两端对齐）
-        SettingsSwitchRow("翻页新引擎（试验，TXT/EPUB）", pagerEngineMode == "on") {
+        SettingsSwitchRow("TXT 新分页引擎（试验）", pagerEngineMode == "on") {
             onPagerEngineMode(if (it) "on" else "off")
+        }
+        SettingsSwitchRow("EPUB 新分页引擎（试验）", epubPagerEngineMode == "on") {
+            onEpubPagerEngineMode(if (it) "on" else "off")
         }
 
         Text("翻页与点击", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))

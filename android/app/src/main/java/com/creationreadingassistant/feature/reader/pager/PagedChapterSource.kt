@@ -1,6 +1,13 @@
 package com.creationreadingassistant.feature.reader.pager
 
 import com.creationreadingassistant.feature.reader.doc.DocChapter
+import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.layout.LayoutBlock
+
+data class PagedChapterContent(
+    val text: String,
+    val blocks: List<LayoutBlock>,
+)
 
 /**
  * 翻页引擎的章节内容来源。TXT / EPUB 的差别全部收在这个接口后面，
@@ -31,7 +38,9 @@ interface PagedChapterSource {
      * `text == blocks.filterIsInstance<Text>().joinToString("\n") { it.text }`
      * —— 搜索、TTS、选区偏移全都建立在这条之上。
      */
-    fun loadChapterText(index: Int): String
+    fun loadChapter(index: Int): PagedChapterContent
+
+    fun loadChapterText(index: Int): String = loadChapter(index).text
 
     /** 全书偏移 → 章号（二分，取最后一个起点 ≤ offset 的章）。 */
     fun chapterIndexFor(absOffset: Int): Int {
@@ -57,9 +66,13 @@ class TxtChapterSource(
     override fun chapterStartAbs(index: Int): Int = chapters.getOrNull(index)?.startOffset ?: 0
     override val totalChars: Int get() = fullText.length
 
-    override fun loadChapterText(index: Int): String {
-        val c = chapters.getOrNull(index) ?: return ""
-        return TxtPageSource.chapterTextOf(fullText, c)
+    override fun loadChapter(index: Int): PagedChapterContent {
+        val c = chapters.getOrNull(index) ?: return PagedChapterContent("", emptyList())
+        val text = TxtPageSource.chapterTextOf(fullText, c)
+        return PagedChapterContent(
+            text = text,
+            blocks = TxtPageSource.paragraphsOf(text, c.title).map(LayoutBlock::Text),
+        )
     }
 }
 
@@ -67,18 +80,23 @@ class TxtChapterSource(
  * EPUB：按需解压取章文本。
  *
  * @param chapterStartOffsets 来自 LegacyOffsetCodec 的既有估算基准（勿自算）
- * @param loadText 按章取纯文本，调用方保证与渲染/搜索同源
- *        （`blocks.filterIsInstance<Text>().joinToString("\n")`）
+ * @param loadBlocks 按章取文档块，调用方通常接 [ReaderDocument.blocks]。
  */
 class EpubChapterSource(
     private val titles: List<String>,
     private val chapterStartOffsets: List<Int>,
     override val totalChars: Int,
-    private val loadText: (Int) -> String,
+    private val loadBlocks: (Int) -> List<DocBlock>,
 ) : PagedChapterSource {
 
     override val chapterCount: Int get() = titles.size
     override fun chapterTitle(index: Int): String = titles.getOrNull(index) ?: ""
     override fun chapterStartAbs(index: Int): Int = chapterStartOffsets.getOrNull(index) ?: 0
-    override fun loadChapterText(index: Int): String = loadText(index)
+    override fun loadChapter(index: Int): PagedChapterContent {
+        val blocks = loadBlocks(index)
+        return PagedChapterContent(
+            text = EpubPageSource.chapterTextOf(blocks),
+            blocks = EpubPageSource.layoutBlocksOf(blocks),
+        )
+    }
 }

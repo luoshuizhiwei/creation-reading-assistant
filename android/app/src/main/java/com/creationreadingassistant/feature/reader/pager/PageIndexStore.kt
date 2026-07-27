@@ -14,7 +14,7 @@ import javax.inject.Singleton
  * 缓存层的故障绝不能升级成阅读器的故障。
  *
  * 命中条件（三个键 + 一道校验）：
- * - `contentKey`（TXT = 书籍 id）
+ * - `contentKey`（TXT / EPUB 均为书籍 id）
  * - `chapterIndex`
  * - `fingerprint`（排版指纹：字号/行距/边距/视口/字体/引擎版本，见 LayoutConfig）
  * - 校验 `char_count`：同一本书重新导入后内容可能变了而 id 未变，

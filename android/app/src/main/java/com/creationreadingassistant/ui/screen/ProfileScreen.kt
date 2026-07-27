@@ -360,6 +360,7 @@ fun ProfileScreen(
                 modifier = modifier,
                 readerMode = reader.readerMode, onReaderModeChange = { settingsVm.updateReader { copy(readerMode = it) } },
                 pagerEngineMode = reader.pagerEngineMode, onPagerEngineModeChange = { settingsVm.updateReader { copy(pagerEngineMode = it) } },
+                epubPagerEngineMode = reader.epubPagerEngineMode, onEpubPagerEngineModeChange = { settingsVm.updateReader { copy(epubPagerEngineMode = it) } },
                 pageTurnEffect = reader.pageTurnEffect, onPageTurnEffectChange = { settingsVm.updateReader { copy(pageTurnEffect = it) } },
                 tapZoneMode = reader.tapZoneMode, onTapZoneModeChange = { settingsVm.updateReader { copy(tapZoneMode = it) } },
                 fontSize = reader.fontSize, onFontSizeChange = { settingsVm.updateReader { copy(fontSize = it) } },
@@ -1005,6 +1006,7 @@ private fun ReaderSettingsSubPage(
     modifier: Modifier,
     readerMode: String, onReaderModeChange: (String) -> Unit,
     pagerEngineMode: String, onPagerEngineModeChange: (String) -> Unit,
+    epubPagerEngineMode: String, onEpubPagerEngineModeChange: (String) -> Unit,
     pageTurnEffect: String, onPageTurnEffectChange: (String) -> Unit,
     tapZoneMode: String, onTapZoneModeChange: (String) -> Unit,
     fontSize: Float, onFontSizeChange: (Float) -> Unit,
@@ -1030,9 +1032,11 @@ private fun ReaderSettingsSubPage(
                     selected = readerMode,
                     onSelect = onReaderModeChange,
                 )
-                // 与阅读器内设置面板保持同一开关：真正的章内逐页翻页（TXT）
-                ToggleRow("翻页新引擎（试验，TXT/EPUB）", pagerEngineMode == "on") {
+                ToggleRow("TXT 新分页引擎（试验）", pagerEngineMode == "on") {
                     onPagerEngineModeChange(if (it) "on" else "off")
+                }
+                ToggleRow("EPUB 新分页引擎（试验）", epubPagerEngineMode == "on") {
+                    onEpubPagerEngineModeChange(if (it) "on" else "off")
                 }
                 SectionTitle("翻页与点击")
                 SegmentedRow(

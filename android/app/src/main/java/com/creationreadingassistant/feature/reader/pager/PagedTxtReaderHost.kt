@@ -4,6 +4,7 @@ import android.text.TextPaint
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
@@ -14,7 +15,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,13 +40,18 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.layout.ContentScale
+import coil.compose.AsyncImage
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
+import java.io.File
 import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * 左右翻页宿主（pagerEngineMode = on 时替换原视图；TXT 与 EPUB 共用，
@@ -270,7 +278,7 @@ fun PagedReaderHost(
                         val frame = remember(page) { PageFrame(page, controller.chapterText) }
                         Box(gestures) {
                             Crossfade(targetState = frame, animationSpec = tween(180), label = "pageFade") { f ->
-                                PageCanvas(
+                                PageLayer(
                                     page = f.page,
                                     chapterText = f.chapterText,
                                     cfg = cfg,
@@ -283,7 +291,7 @@ fun PagedReaderHost(
                             }
                         }
                     } else {
-                        PageCanvas(
+                        PageLayer(
                             page = page,
                             chapterText = controller.chapterText,
                             cfg = cfg,
@@ -346,7 +354,7 @@ private fun footerInfo(source: PagedChapterSource, absOffset: Int): Pair<String,
  * 排版层算出什么就画什么 —— 这是「排版可单测、绘制只是搬运」分层的关键。
  */
 @Composable
-private fun PageCanvas(
+private fun PageLayer(
     page: ChapterPaginator.Page,
     chapterText: String,
     cfg: LayoutConfig,
@@ -354,6 +362,47 @@ private fun PageCanvas(
     headingPaint: TextPaint,
     modifier: Modifier = Modifier,
     /** 文字底下的色块层（TTS 句高亮、选区），先画色块再画字 */
+    underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
+) {
+    val density = LocalDensity.current
+    Box(modifier) {
+        PageCanvas(
+            page = page,
+            chapterText = chapterText,
+            cfg = cfg,
+            paint = paint,
+            headingPaint = headingPaint,
+            underlays = underlays,
+            modifier = Modifier.fillMaxSize(),
+        )
+        page.images.forEach { image ->
+            val width = with(density) { image.width.toDp() }
+            val height = with(density) { image.height.toDp() }
+            Box(
+                Modifier
+                    .offset { IntOffset(image.left.roundToInt(), image.top.roundToInt()) }
+                    .size(width, height)
+                    .background(Color(0x12000000)),
+            ) {
+                AsyncImage(
+                    model = File(image.sourceKey),
+                    contentDescription = null,
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun PageCanvas(
+    page: ChapterPaginator.Page,
+    chapterText: String,
+    cfg: LayoutConfig,
+    paint: TextPaint,
+    headingPaint: TextPaint,
+    modifier: Modifier = Modifier,
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
     Canvas(modifier) {

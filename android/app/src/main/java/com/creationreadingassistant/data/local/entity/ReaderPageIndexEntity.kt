@@ -21,7 +21,7 @@ import androidx.room.Entity
     primaryKeys = ["content_key", "chapter_index", "fingerprint"],
 )
 data class ReaderPageIndexEntity(
-    /** 内容标识。EPUB 用缓存文件路径的 hash，TXT 用书籍 id。 */
+    /** 内容标识。TXT / EPUB 均使用书籍 id；内容变化由 char_count 校验兜底。 */
     val content_key: String,
     val chapter_index: Int,
     val fingerprint: Int,

@@ -1,6 +1,8 @@
 package com.creationreadingassistant.feature.reader.pager
 
 import com.creationreadingassistant.feature.reader.doc.DocChapter
+import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.layout.LayoutBlock
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -33,9 +35,9 @@ class PagedChapterSourceTest {
             titles = listOf("一", "二", "三"),
             chapterStartOffsets = listOf(0, 101, 302),
             totalChars = 603,
-            loadText = { index ->
+            loadBlocks = { index ->
                 loads += index
-                "chapter-$index"
+                listOf(DocBlock.Text("chapter-$index"))
             },
         )
 
@@ -46,5 +48,29 @@ class PagedChapterSourceTest {
         assertEquals(2, source.chapterIndexFor(9999))
         assertEquals("chapter-2", source.loadChapterText(2))
         assertEquals(listOf(2), loads)
+    }
+
+    @Test
+    fun `epub page source keeps text offsets reversible and images zero-width`() {
+        val blocks = listOf(
+            DocBlock.Image("cover", 800, 1200),
+            DocBlock.Text("　标题　", isHeading = true),
+            DocBlock.Image("middle", 640, 480),
+            DocBlock.Text(" 第一行 \n\n第二行 "),
+            DocBlock.Image("ending", 0, 0),
+        )
+        val text = EpubPageSource.chapterTextOf(blocks)
+        val layout = EpubPageSource.layoutBlocksOf(blocks)
+
+        assertEquals("　标题　\n 第一行 \n\n第二行 ", text)
+        val paragraphs = layout.filterIsInstance<LayoutBlock.Text>().map { it.paragraph }
+        paragraphs.forEach { paragraph ->
+            assertEquals(
+                paragraph.text,
+                text.substring(paragraph.charOffset, paragraph.charOffset + paragraph.text.length),
+            )
+        }
+        assertEquals(listOf(0, 5, text.length), layout.filterIsInstance<LayoutBlock.Image>().map { it.anchorOffset })
+        assertEquals(com.creationreadingassistant.feature.reader.layout.BlockRole.HEADING, paragraphs.first().role)
     }
 }
