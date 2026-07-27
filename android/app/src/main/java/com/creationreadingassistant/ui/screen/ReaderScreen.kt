@@ -166,7 +166,6 @@ import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.domain.model.EpubBlock
 import com.creationreadingassistant.ui.viewmodel.InspirationPayloadData
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
@@ -176,6 +175,7 @@ import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
+import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
@@ -708,18 +708,18 @@ private fun buildSentenceHighlighted(
  * 计算每章各渲染块（含图片，图片记为 -1）在全书文本中的全局字符偏移。
  * 与 [splitSentencesWithOffsets] 对 contentText 的切分一致：文本块按 "\n" 拼接。
  */
-private fun computeBlockGlobalOffsets(blocks: List<EpubBlock>, chapterBase: Int): List<Int> =
+private fun computeBlockGlobalOffsets(blocks: List<DocBlock>, chapterBase: Int): List<Int> =
     LegacyOffsetCodec.blockOffsets(
-        blocks.map { (it as? EpubBlock.Text)?.text?.length },
+        blocks.map { (it as? DocBlock.Text)?.text?.length },
         chapterBase,
     )
 
 /** 根据章节内偏移，返回包含该偏移的「渲染块」索引（用于导航精确滚动）。 */
-private fun blockIndexForChapterOffset(blocks: List<EpubBlock>, inChapter: Int): Int? {
+private fun blockIndexForChapterOffset(blocks: List<DocBlock>, inChapter: Int): Int? {
     var acc = 0
     var idx = -1
     blocks.forEachIndexed { i, block ->
-        if (block is EpubBlock.Text) {
+        if (block is DocBlock.Text) {
             if (acc <= inChapter) idx = i
             acc += block.text.length + 1
         }
@@ -743,7 +743,7 @@ private fun rememberTts(): TtsController {
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PagedEpubView(
-    blocks: List<EpubBlock>,
+    blocks: List<DocBlock>,
     fontSize: Float,
     lineHeight: Float,
     fontWeightBold: Boolean,
@@ -845,7 +845,7 @@ private fun PagedEpubView(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun PagedChapterContent(
-    blocks: List<EpubBlock>,
+    blocks: List<DocBlock>,
     fontSize: Float,
     lineHeight: Float,
     fontWeightBold: Boolean,
@@ -866,13 +866,13 @@ private fun PagedChapterContent(
             items = blocks,
             key = { index, block ->
                 when (block) {
-                    is EpubBlock.Text -> "text-$index"
-                    is EpubBlock.Image -> "image-$index-${block.filePath}"
+                    is DocBlock.Text -> "text-$index"
+                    is DocBlock.Image -> "image-$index-${block.path}"
                 }
             },
         ) { idx, block ->
             when (block) {
-                is EpubBlock.Text -> {
+                is DocBlock.Text -> {
                     val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
                     val ann = buildSentenceHighlighted(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg)
                     Text(
@@ -888,8 +888,8 @@ private fun PagedChapterContent(
                         modifier = Modifier.fillMaxWidth().clickable { onSelectBlock(block.text, gOff) },
                     )
                 }
-                is EpubBlock.Image -> AsyncImage(
-                    model = java.io.File(block.filePath),
+                is DocBlock.Image -> AsyncImage(
+                    model = java.io.File(block.path),
                     contentDescription = null,
                     modifier = Modifier.fillMaxWidth(),
                     contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
@@ -1019,9 +1019,10 @@ fun ReaderScreen(
     var savedEpubOffsetInChapter by remember { mutableIntStateOf(0) }
 
     // 预加载状态（IO 线程填充，主线程只读，杜绝主线程 Zip I/O 导致的 ANR / OOM）
-    var chapterBlocks by remember { mutableStateOf<List<EpubBlock>>(emptyList()) }
+    var chapterBlocks by remember { mutableStateOf<List<DocBlock>>(emptyList()) }
     var bookIndex by remember { mutableStateOf<BookIndex?>(null) }
     var chapterLoadJob by remember { mutableStateOf<Job?>(null) }
+    var epubDocument by remember { mutableStateOf<EpubDocument?>(null) }
 
     var controlsVisible by remember { mutableStateOf(true) }
 
@@ -1153,7 +1154,7 @@ fun ReaderScreen(
 
     // 正文文本（TTS / 选择用）：EPUB 取当前章节（已预加载到 chapterBlocks），TXT 取全文
     val contentText = if (epubBook != null) {
-        chapterBlocks.filterIsInstance<EpubBlock.Text>().joinToString("\n") { it.text }
+        chapterBlocks.filterIsInstance<DocBlock.Text>().joinToString("\n") { it.text }
     } else {
         plainContent
     }
@@ -1183,9 +1184,9 @@ fun ReaderScreen(
         }
     }
     // EPUB 分页只在试验引擎开启时消费它；缓存让同章重排/往返不再重复解压。
-    val epubDocument = remember(epubBook) { epubBook?.let(::EpubDocument) }
     DisposableEffect(epubDocument) {
-        onDispose { epubDocument?.close() }
+        val document = epubDocument
+        onDispose { document?.close() }
     }
     val pagedSource: PagedChapterSource? = remember(
         epubBook,
@@ -1347,7 +1348,7 @@ fun ReaderScreen(
         chapterLoadJob = scope.launch {
             try {
                 val blocks = withContext(Dispatchers.IO) {
-                    book.chapters.getOrNull(clamped)?.blocks ?: emptyList()
+                    epubDocument?.blocks(clamped) ?: emptyList()
                 }
                 if (chapterIndex != clamped) return@launch
                 chapterBlocks = blocks
@@ -1453,8 +1454,11 @@ fun ReaderScreen(
                                 .coerceIn(0, (book.chapters.size - 1).coerceAtLeast(0))
                             savedEpubOffsetInChapter = entry.epubRepository().loadProgressOffset(bid)
                             // 预加载：当前章块 + 全书索引（搜索 / 字数 / 偏移），均在 IO 线程完成
-                            val blocks = book.chapters.getOrNull(idx)?.blocks ?: emptyList()
+                            val document = EpubDocument(book)
+                            val blocks = document.blocks(idx)
                             val index = buildBookIndex(book)
+                            epubDocument?.close()
+                            epubDocument = document
                             chapterBlocks = blocks
                             bookIndex = index
                             epubBook = book
@@ -1604,7 +1608,9 @@ fun ReaderScreen(
                 } else {
                     val inChapter = locOffset - chapterStartOffsets.getOrElse(ci) { 0 }
                     // 在 IO 线程加载目标章块，避免主线程 Zip I/O 造成 ANR
-                    val blocks = withContext(Dispatchers.IO) { book.chapters[ci].blocks }
+                    val blocks = withContext(Dispatchers.IO) {
+                        epubDocument?.blocks(ci) ?: emptyList()
+                    }
                     navFocusBlockIndex = blockIndexForChapterOffset(blocks, inChapter)
                 }
             } else {
@@ -1974,7 +1980,7 @@ fun ReaderScreen(
                         ) {
                             itemsIndexed(chapterBlocks) { idx, block ->
                                 when (block) {
-                                    is EpubBlock.Text -> {
+                                    is DocBlock.Text -> {
                                         val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
                                         val ann = buildSentenceHighlighted(
                                             block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg,
@@ -2000,8 +2006,8 @@ fun ReaderScreen(
                                         )
                                     }
 
-                                    is EpubBlock.Image -> AsyncImage(
-                                        model = java.io.File(block.filePath),
+                                    is DocBlock.Image -> AsyncImage(
+                                        model = java.io.File(block.path),
                                         contentDescription = null,
                                         modifier = Modifier.fillMaxWidth(),
                                         contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
