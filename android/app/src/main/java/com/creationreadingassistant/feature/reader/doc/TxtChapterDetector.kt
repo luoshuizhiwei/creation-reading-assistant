@@ -25,6 +25,7 @@ package com.creationreadingassistant.feature.reader.doc
  *   后面必须是行尾、编号或分隔符。
  */
 object TxtChapterDetector {
+    data class Rule(val id: String, val label: String, val patterns: List<Regex>)
 
     /** 章节标题行的长度上限。超过这个长度的行是正文，不是标题。 */
     private const val MAX_TITLE_LENGTH = 40
@@ -79,6 +80,41 @@ object TxtChapterDetector {
         Regex("""^chapter\s+[0-9ivxlcdm]{1,12}\b[^\n]{0,30}$""", RegexOption.IGNORE_CASE),
     )
 
+    val rules: List<Rule> = listOf(
+        Rule("builtin", "标准", emptyList()),
+        Rule(
+            "num-dot",
+            "数字+标点",
+            listOf(Regex("""^[ \t　]{0,4}[0-9０-９]{1,4}\s*[.、．:：,，]\s*(?![0-9０-９])\S.{0,29}$""")),
+        ),
+        Rule("num-bare", "纯数字", listOf(Regex("""^[ \t　]{0,4}[0-9０-９]{1,4}[ \t　]*$"""))),
+        Rule(
+            "cn-num-dot",
+            "中文数字+顿号",
+            listOf(Regex("""^[ \t　]{0,4}[零〇○一二三四五六七八九十百千两]{1,8}\s*[、.．]\s*\S.{0,29}$""")),
+        ),
+        Rule(
+            "bracketed",
+            "数字括号",
+            listOf(
+                Regex(
+                    """^[ \t　]{0,4}[【〔\[（(]\s*(?:第?\s*$NUM{1,12}\s*[章节回卷部篇]?|[0-9０-９]{1,4})\s*[】〕\]）)]\s*.{0,30}$""",
+                ),
+            ),
+        ),
+        Rule(
+            "en-extended",
+            "英文扩展",
+            listOf(
+                Regex(
+                    """^(?:part|section|book|act|prologue|epilogue|interlude)\s*[0-9ivxlcdm]{0,8}\b.{0,30}$""",
+                    RegexOption.IGNORE_CASE,
+                ),
+            ),
+        ),
+        Rule("md-heading", "Markdown 标题", listOf(Regex("""^#{1,3}\s+\S.{0,38}$"""))),
+    )
+
     /** 一个识别出的章节。[startOffset] 是章节标题首字符在全文中的字符偏移。 */
     data class Chapter(
         val title: String,
@@ -94,7 +130,7 @@ object TxtChapterDetector {
      * 识别不出来时返回单章「全文」，而不是空列表 —— 调用方永远能拿到至少一章，
      * 不必到处判空。
      */
-    fun detect(text: String): List<Chapter> {
+    fun detect(text: String, ruleId: String = "builtin"): List<Chapter> {
         if (text.isEmpty()) return listOf(Chapter("全文", 0, 0))
 
         val marks = ArrayList<Pair<Int, String>>() // (标题行起始偏移, 标题)
@@ -106,7 +142,7 @@ object TxtChapterDetector {
             if (atEnd || text[i] == '\n') {
                 val rawLine = text.substring(lineStart, i)
                 val title = rawLine.trim()
-                if (title.length in 1..MAX_TITLE_LENGTH && isChapterTitle(title)) {
+                if (title.length in 1..MAX_TITLE_LENGTH && isChapterTitle(title, ruleId)) {
                     // 用 trim 之后的标题，但偏移仍指向原始行首，保证偏移连续、无空洞
                     marks.add(lineStart to title)
                 }
@@ -130,16 +166,17 @@ object TxtChapterDetector {
         // 合理性检查：真实小说的章节平均长度远大于几百字。
         // 平均值过小说明匹配到的多半是正文里的目录列表或诗歌，宁可没有目录。
         val average = n.toDouble() / chapters.size
-        if (average < MIN_AVERAGE_CHAPTER_CHARS) {
+        if (ruleId == "builtin" && average < MIN_AVERAGE_CHAPTER_CHARS) {
             return listOf(Chapter("全文", 0, n))
         }
         return chapters
     }
 
     /** 单行是否构成章节标题。抽出来便于单测与复用。 */
-    fun isChapterTitle(line: String): Boolean {
+    fun isChapterTitle(line: String, ruleId: String = "builtin"): Boolean {
         val t = line.trim()
         if (t.isEmpty() || t.length > MAX_TITLE_LENGTH) return false
-        return PATTERNS.any { it.matches(t) }
+        if (PATTERNS.any { it.matches(t) }) return true
+        return rules.firstOrNull { it.id == ruleId }?.patterns?.any { it.matches(t) } == true
     }
 }

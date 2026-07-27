@@ -181,6 +181,7 @@ import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
@@ -1138,6 +1139,10 @@ fun ReaderScreen(
     }
 
     val bid = bookId ?: ""
+    var txtTocRuleId by remember(bid) { mutableStateOf("builtin") }
+    LaunchedEffect(bid) {
+        txtTocRuleId = entry.settingsStore().loadTxtTocRule(bid)
+    }
 
     // R3：跨会话 TTS 续读 —— 加载本书上次朗读句偏移；并把句变化持久化（含本会话续读偏移）。
     LaunchedEffect(bid) {
@@ -1212,11 +1217,26 @@ fun ReaderScreen(
 
     // TXT 章节识别：此前 TXT 完全没有章节概念，目录永远是「暂未识别到目录」。
     // 只在正文变化时算一次，识别不出章节时 TxtChapterDetector 会返回单章「全文」。
-    val txtChapters = remember(plainContent) {
+    val txtChapters = remember(plainContent, txtTocRuleId) {
         if (epubBook == null && plainContent.isNotBlank()) {
-            PlainTextDocument(plainContent).chapters
+            PlainTextDocument(plainContent, txtTocRuleId).chapters
         } else {
             emptyList()
+        }
+    }
+    val txtRulePreviews by androidx.compose.runtime.produceState(
+        initialValue = emptyMap<String, List<TxtChapterDetector.Chapter>>(),
+        plainContent,
+        epubBook,
+    ) {
+        value = if (plainContent.isBlank() || epubBook != null) {
+            emptyMap()
+        } else {
+            withContext(Dispatchers.Default) {
+                TxtChapterDetector.rules.associate { rule ->
+                    rule.id to TxtChapterDetector.detect(plainContent, rule.id)
+                }
+            }
         }
     }
     // EPUB 分页只在试验引擎开启时消费它；缓存让同章重排/往返不再重复解压。
@@ -2054,7 +2074,7 @@ fun ReaderScreen(
                         },
                         onToggleControls = { controlsVisible = !controlsVisible },
                         store = entry.pageIndexStore(),
-                        contentKey = bid,
+                        contentKey = if (epubBook != null) bid else "$bid|toc=$txtTocRuleId",
                         ttsRangeAbs = if (showTts && tts.status != "idle") {
                             if (epubBook != null) {
                                 val base = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
@@ -2308,6 +2328,17 @@ fun ReaderScreen(
                                     txtChapters.getOrNull(it)?.let { c -> jumpToPlainOffset(c.startOffset) }
                                 }
                                 sheet = null
+                            },
+                            txtRules = if (isTxt) TxtChapterDetector.rules else emptyList(),
+                            selectedTxtRule = txtTocRuleId,
+                            txtRulePreviews = txtRulePreviews,
+                            onTxtRule = { ruleId ->
+                                val anchorOffset = visiblePlainOffset
+                                txtTocRuleId = ruleId
+                                pagedJumpRequest.value = anchorOffset
+                                scope.launch(Dispatchers.IO) {
+                                    entry.settingsStore().saveTxtTocRule(bid, ruleId)
+                                }
                             },
                         )
 
@@ -3120,6 +3151,10 @@ private fun TocSheet(
     current: Int,
     recent: List<Int>,
     onPick: (Int) -> Unit,
+    txtRules: List<TxtChapterDetector.Rule> = emptyList(),
+    selectedTxtRule: String = "builtin",
+    txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>> = emptyMap(),
+    onTxtRule: (String) -> Unit = {},
 ) {
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     val groups = remember(titles) { groupChaptersByVolume(titles) }
@@ -3169,6 +3204,34 @@ private fun TocSheet(
                     if (!isCollapsed) {
                         items(idxs) { i ->
                             TocRow(i, titles[i], i == current) { onPick(i) }
+                        }
+                    }
+                }
+            }
+        }
+        if (txtRules.isNotEmpty()) {
+            HorizontalDivider(modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
+            Text("目录不对？换一套识别规则", style = MaterialTheme.typography.titleSmall)
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(top = 6.dp),
+            ) {
+                txtRules.forEach { rule ->
+                    val preview = txtRulePreviews[rule.id].orEmpty()
+                    val hint = preview.take(3).joinToString(" / ") { it.title }.take(42)
+                    Column {
+                        OptionPill(
+                            selected = selectedTxtRule == rule.id,
+                            label = "${rule.label} · ${preview.size} 章",
+                            onClick = { onTxtRule(rule.id) },
+                        )
+                        if (selectedTxtRule == rule.id && hint.isNotBlank()) {
+                            Text(
+                                hint,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
                         }
                     }
                 }

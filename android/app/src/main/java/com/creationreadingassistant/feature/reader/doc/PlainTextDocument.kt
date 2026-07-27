@@ -9,9 +9,12 @@ package com.creationreadingassistant.feature.reader.doc
  * 段落切分规则：按空行分段；单个换行视为段内换行，转成一个空格。
  * 这样诗歌、书信不会被拆成一堆碎块，而普通小说的自然段又能正确分开。
  */
-class PlainTextDocument(private val fullText: String) : ReaderDocument {
+class PlainTextDocument(
+    private val fullText: String,
+    private val tocRuleId: String = "builtin",
+) : ReaderDocument {
 
-    private val detected = TxtChapterDetector.detect(fullText)
+    private val detected = TxtChapterDetector.detect(fullText, tocRuleId)
 
     override val chapters: List<DocChapter> = detected.mapIndexed { i, c ->
         DocChapter(
@@ -54,7 +57,7 @@ class PlainTextDocument(private val fullText: String) : ReaderDocument {
                 continue
             }
             // 章节标题独占一块，并标记为 heading —— 排版层据此加大字号、做 keep-with-next
-            if (first && TxtChapterDetector.isChapterTitle(trimmed)) {
+            if (first && TxtChapterDetector.isChapterTitle(trimmed, tocRuleId)) {
                 flush(false)
                 out.add(DocBlock.Text(trimmed, isHeading = true))
                 first = false

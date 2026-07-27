@@ -268,6 +268,17 @@ class SettingsStore @Inject constructor(
         ds.edit { it[KEY_INSPIRATION_SORT] = value }
     }
 
+    suspend fun saveTxtTocRule(bookId: String, ruleId: String) {
+        if (bookId.isBlank() || TxtChapterRuleIds.allowed.none { it == ruleId }) return
+        ds.edit { it[stringPreferencesKey("txt_toc_rule_$bookId")] = ruleId }
+    }
+
+    suspend fun loadTxtTocRule(bookId: String): String {
+        if (bookId.isBlank()) return "builtin"
+        val value = ds.data.first()[stringPreferencesKey("txt_toc_rule_$bookId")]
+        return value?.takeIf { it in TxtChapterRuleIds.allowed } ?: "builtin"
+    }
+
     suspend fun updateAppearance(block: AppearanceSettings.() -> AppearanceSettings) {
         val next = appearance.value.block()
         ds.edit { prefs ->
@@ -327,4 +338,8 @@ class SettingsStore @Inject constructor(
         // API Key 单独写入加密存储，不落 DataStore 明文。
         writeAiApiKey(next.apiKey)
     }
+}
+
+private object TxtChapterRuleIds {
+    val allowed = setOf("builtin", "num-dot", "num-bare", "cn-num-dot", "bracketed", "en-extended", "md-heading")
 }
