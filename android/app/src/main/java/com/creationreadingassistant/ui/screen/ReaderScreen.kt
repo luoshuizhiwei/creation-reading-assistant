@@ -3496,6 +3496,7 @@ private fun ThemeSheet(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun SettingsSheet(
     fontSize: Float,
     lineHeight: Float,
@@ -3557,8 +3558,13 @@ private fun SettingsSheet(
         }
 
         Text("翻页与点击", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("none" to "无动画", "fade" to "柔和淡入").forEach { (v, label) ->
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+            listOf(
+                "none" to "无动画",
+                "fade" to "柔和淡入",
+                "slide" to "左右滑动",
+                "cover" to "覆盖翻页",
+            ).forEach { (v, label) ->
                 OptionPill(selected = pageTurnEffect == v, label = label, onClick = { onPageTurnEffect(v) })
             }
         }

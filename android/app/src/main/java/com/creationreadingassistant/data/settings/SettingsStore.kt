@@ -108,7 +108,7 @@ data class ReaderSettings(
      */
     val pagerEngineMode: String = "off",
     val epubPagerEngineMode: String = "off",
-    val pageTurnEffect: String = "none",         // none | fade | slide | curl
+    val pageTurnEffect: String = "none",         // none | fade | slide | cover
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     val fontSize: Float = 18f,
     val lineHeight: Float = 1.85f,
@@ -174,7 +174,10 @@ class SettingsStore @Inject constructor(
             readerMode = prefs[KEY_READER_MODE] ?: "paged",
             pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "off",
             epubPagerEngineMode = prefs[KEY_EPUB_PAGER_ENGINE] ?: "off",
-            pageTurnEffect = prefs[KEY_PAGE_TURN_EFFECT] ?: "none",
+            pageTurnEffect = when (val effect = prefs[KEY_PAGE_TURN_EFFECT] ?: "none") {
+                "curl" -> "cover"
+                else -> effect
+            },
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             fontSize = prefs[KEY_FONT_SIZE] ?: 18f,
             lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,

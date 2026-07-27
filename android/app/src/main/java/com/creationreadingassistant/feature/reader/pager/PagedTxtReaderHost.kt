@@ -1,11 +1,8 @@
 package com.creationreadingassistant.feature.reader.pager
 
 import android.text.TextPaint
-import androidx.compose.animation.Crossfade
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -50,7 +47,6 @@ import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import java.io.File
-import kotlin.math.abs
 import kotlin.math.roundToInt
 
 /**
@@ -183,6 +179,7 @@ fun PagedReaderHost(
 
                 // 选区（章内偏移区间）。翻页/外部清除时撤掉。
                 val selRange = remember { mutableStateOf<IntRange?>(null) }
+                val turnRequest = remember { mutableIntStateOf(0) }
                 LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
 
                 val page = controller.currentPage
@@ -249,56 +246,47 @@ fun PagedReaderHost(
                                             val fiveZone = tapZone == "five-zone"
                                             when {
                                                 // five-zone：上 12% 上一页、下 12% 下一页（对照 web tapZoneMode）
-                                                fiveZone && offset.y < size.height * 0.12f -> controller.prevPage()
-                                                fiveZone && offset.y > size.height * 0.88f -> controller.nextPage()
-                                                offset.x < size.width / 3f -> controller.prevPage()
-                                                offset.x > size.width * 2f / 3f -> controller.nextPage()
+                                                fiveZone && offset.y < size.height * 0.12f -> turnRequest.intValue = -1
+                                                fiveZone && offset.y > size.height * 0.88f -> turnRequest.intValue = 1
+                                                offset.x < size.width / 3f -> turnRequest.intValue = -1
+                                                offset.x > size.width * 2f / 3f -> turnRequest.intValue = 1
                                                 else -> onToggleControls()
                                             }
                                         }
                                     },
                                 )
                             }
-                            .pointerInput(controller) {
-                                // 水平滑动翻页：松手时按累计位移方向翻。动画留给 P4。
-                                var dragTotal = 0f
-                                detectHorizontalDragGestures(
-                                    onDragStart = { dragTotal = 0f },
-                                    onDragEnd = {
-                                        val threshold = with(density) { 48.dp.toPx() }
-                                        if (abs(dragTotal) > threshold) {
-                                            selRange.value = null
-                                            if (dragTotal < 0) controller.nextPage() else controller.prevPage()
-                                        }
-                                    },
-                                ) { _, dragAmount -> dragTotal += dragAmount }
-                            }
-                    if (pageTurnEffect == "fade") {
-                        // 淡入帧带自己的章文本快照：跨章翻页时旧页必须仍按旧章文本绘制
-                        val frame = remember(page) { PageFrame(page, controller.chapterText) }
-                        Box(gestures) {
-                            Crossfade(targetState = frame, animationSpec = tween(180), label = "pageFade") { f ->
-                                PageLayer(
-                                    page = f.page,
-                                    chapterText = f.chapterText,
-                                    cfg = cfg,
-                                    paint = paint,
-                                    headingPaint = headingPaint,
-                                    // 高亮只画在当前帧上，淡出的旧帧随整帧一起淡掉即可
-                                    underlays = if (f === frame) underlays else emptyList(),
-                                    modifier = Modifier.fillMaxSize(),
-                                )
-                            }
-                        }
-                    } else {
+                    // 读取 revision 让相邻章预排完成后触发重组，跨章拖动立即拿到邻帧。
+                    @Suppress("UNUSED_VARIABLE")
+                    val cacheRevision = controller.cacheRevision
+                    val frame = controller.frameAt(0) ?: return@BoxWithConstraints
+                    val previous = controller.frameAt(-1)
+                    val next = controller.frameAt(1)
+                    PageTurner(
+                        currentFrame = frame,
+                        previousFrame = previous,
+                        nextFrame = next,
+                        effect = pageTurnEffect,
+                        turnRequest = turnRequest.intValue,
+                        onTurnRequestConsumed = { turnRequest.intValue = 0 },
+                        onPrevious = {
+                            selRange.value = null
+                            controller.prevPage()
+                        },
+                        onNext = {
+                            selRange.value = null
+                            controller.nextPage()
+                        },
+                        modifier = gestures,
+                    ) { rendered, isCurrent ->
                         PageLayer(
-                            page = page,
-                            chapterText = controller.chapterText,
+                            page = rendered.page,
+                            chapterText = rendered.chapterText,
                             cfg = cfg,
                             paint = paint,
                             headingPaint = headingPaint,
-                            underlays = underlays,
-                            modifier = gestures,
+                            underlays = if (isCurrent) underlays else emptyList(),
+                            modifier = Modifier.fillMaxSize(),
                         )
                     }
                 }
@@ -334,9 +322,6 @@ fun PagedReaderHost(
         }
     }
 }
-
-/** 淡入过渡的一帧快照：页 + 其所属章文本。故意用引用相等 —— 只有换页才算新帧。 */
-private class PageFrame(val page: ChapterPaginator.Page, val chapterText: String)
 
 /** 页脚左右两栏：章节名 / 全书进度。页号在排版完成前拿不到，用全书百分比代替更稳。 */
 private fun footerInfo(source: PagedChapterSource, absOffset: Int): Pair<String, String> {

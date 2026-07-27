@@ -1040,7 +1040,12 @@ private fun ReaderSettingsSubPage(
                 }
                 SectionTitle("翻页与点击")
                 SegmentedRow(
-                    options = listOf("none" to "无动画", "fade" to "柔和淡入"),
+                    options = listOf(
+                        "none" to "无动画",
+                        "fade" to "柔和淡入",
+                        "slide" to "左右滑动",
+                        "cover" to "覆盖翻页",
+                    ),
                     selected = pageTurnEffect,
                     onSelect = onPageTurnEffectChange,
                 )
@@ -1049,7 +1054,7 @@ private fun ReaderSettingsSubPage(
                     selected = tapZoneMode,
                     onSelect = onTapZoneModeChange,
                 )
-                Text("“柔和淡入”只使用轻量遮罩，不移动整块正文，避免 Android 大文本翻页残影。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("四档动效都直接移动轻量页面层，不创建页面截图。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
         Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
