@@ -24,6 +24,31 @@ data class LayoutParagraph(
     val charOffset: Int = 0,
 )
 
+/** 分页输入块。图片不进入字符流，只挂靠在 [Image.anchorOffset]。 */
+sealed interface LayoutBlock {
+    data class Text(val paragraph: LayoutParagraph) : LayoutBlock
+
+    data class Image(
+        /** 渲染层使用的不透明资源键；EPUB 中是解压后的图片路径。 */
+        val sourceKey: String,
+        /** intrinsic 尺寸（px）；任一维度 ≤ 0 时按 4:3 全宽占位。 */
+        val widthPx: Float,
+        val heightPx: Float,
+        /** 图片所处的章内字符偏移，不占用字符。 */
+        val anchorOffset: Int,
+    ) : LayoutBlock
+}
+
+/** 页内已定位的图片矩形。坐标与文字行一样，以正文内容区左上角为原点。 */
+data class PlacedImage(
+    val sourceKey: String,
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float,
+    val anchorOffset: Int,
+)
+
 /**
  * 一段文本按字素簇切分后的测量结果。
  *

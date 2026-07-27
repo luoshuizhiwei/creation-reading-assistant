@@ -30,11 +30,18 @@ object ChapterPaginator {
         val lines: List<LayoutLine>,
         val lineTops: FloatArray,
         val lineParaOffsets: IntArray,
+        /** 本页图片，与 [lines] 平行存在；纯文字页恒为空。 */
+        val images: List<PlacedImage> = emptyList(),
     )
 
     class ChapterLayout(
         val pages: List<Page>,
-        /** 每页首字符在章内的偏移。这是唯一需要持久化的东西。 */
+        /**
+         * 每页首字符在章内的偏移。这是唯一需要持久化的东西。
+         *
+         * 含图片时允许非严格递增：纯图片页和后继文字页可以有相同起点。
+         * [pageIndexFor] 有意取最后一个 `<=`，恢复位置时优先落到可定位的文字页。
+         */
         val pageStarts: IntArray,
         val charCount: Int,
     ) {
@@ -53,6 +60,29 @@ object ChapterPaginator {
 
     /** 段落及其在章内的绝对偏移。 */
     private class Placed(val para: LayoutParagraph, val lines: List<LayoutLine>)
+
+    private sealed interface BlockItem {
+        val startOffset: Int
+        val endOffset: Int
+
+        data class Text(
+            val line: LayoutLine,
+            val para: LayoutParagraph,
+            val isParaEnd: Boolean,
+        ) : BlockItem {
+            override val startOffset: Int get() = para.charOffset + line.startInText
+            override val endOffset: Int get() = para.charOffset + line.endInText
+        }
+
+        data class Image(
+            val block: LayoutBlock.Image,
+            val width: Float,
+            val height: Float,
+        ) : BlockItem {
+            override val startOffset: Int get() = block.anchorOffset
+            override val endOffset: Int get() = block.anchorOffset
+        }
+    }
 
     fun paginate(
         paragraphs: List<LayoutParagraph>,
@@ -136,6 +166,161 @@ object ChapterPaginator {
         }
 
         val charCount = paragraphs.sumOf { it.text.length }
+        return ChapterLayout(pages, starts.toIntArray(), charCount)
+    }
+
+    /**
+     * 文本与块级图片混合分页。图片整块放置、不拆页，也不占用字符偏移。
+     *
+     * 纯文本输入直接走 [paginate]，因此既有 TXT 的 pageStarts、行对象与浮点
+     * 累加顺序逐字段不变，旧的页索引缓存继续有效。
+     */
+    fun paginateBlocks(
+        blocks: List<LayoutBlock>,
+        cfg: LayoutConfig,
+        ruler: TextRuler,
+        oracle: BreakOracle,
+    ): ChapterLayout {
+        if (blocks.all { it is LayoutBlock.Text }) {
+            return paginate(blocks.map { (it as LayoutBlock.Text).paragraph }, cfg, ruler, oracle)
+        }
+
+        val items = ArrayList<BlockItem>()
+        blocks.forEach { block ->
+            when (block) {
+                is LayoutBlock.Text -> {
+                    val para = block.paragraph
+                    val lines = LineComposer.layoutParagraph(para, cfg, ruler, oracle)
+                    lines.forEachIndexed { i, line ->
+                        items += BlockItem.Text(line, para, i == lines.lastIndex)
+                    }
+                }
+
+                is LayoutBlock.Image -> {
+                    val intrinsicW: Float
+                    val intrinsicH: Float
+                    if (block.widthPx > 0f && block.heightPx > 0f) {
+                        intrinsicW = block.widthPx
+                        intrinsicH = block.heightPx
+                    } else {
+                        intrinsicW = cfg.contentWidthPx
+                        intrinsicH = cfg.contentWidthPx * 0.75f
+                    }
+                    val scale = minOf(
+                        1f,
+                        cfg.contentWidthPx / intrinsicW,
+                        cfg.contentHeightPx / intrinsicH,
+                    )
+                    items += BlockItem.Image(block, intrinsicW * scale, intrinsicH * scale)
+                }
+            }
+        }
+
+        if (items.isEmpty()) {
+            return ChapterLayout(
+                pages = listOf(
+                    Page(
+                        index = 0,
+                        startCharOffset = 0,
+                        endCharOffset = 0,
+                        lines = emptyList(),
+                        lineTops = FloatArray(0),
+                        lineParaOffsets = IntArray(0),
+                    ),
+                ),
+                pageStarts = intArrayOf(0),
+                charCount = 0,
+            )
+        }
+
+        fun itemHeight(item: BlockItem): Float = when (item) {
+            is BlockItem.Text -> lineHeight(item.line, cfg)
+            is BlockItem.Image -> item.height
+        }
+
+        fun spacingAfter(item: BlockItem): Float = when (item) {
+            is BlockItem.Text -> if (item.isParaEnd) cfg.paragraphSpacingPx else 0f
+            is BlockItem.Image -> cfg.paragraphSpacingPx
+        }
+
+        val pages = ArrayList<Page>()
+        val starts = ArrayList<Int>()
+        var cursor = 0
+        while (cursor < items.size) {
+            val pageItems = ArrayList<BlockItem>()
+            var used = 0f
+
+            while (cursor < items.size) {
+                val item = items[cursor]
+                val height = itemHeight(item)
+                if (pageItems.isNotEmpty() && used + height > cfg.contentHeightPx + LineComposer.EPS) break
+                pageItems += item
+                used += height + spacingAfter(item)
+                cursor++
+            }
+
+            // 标题的下一项可以是正文行，也可以是图片；两种情况都不能把标题孤留页底。
+            if (pageItems.size > 1 && cursor < items.size) {
+                val last = pageItems.last()
+                if (last is BlockItem.Text && last.line.role == BlockRole.HEADING) {
+                    pageItems.removeAt(pageItems.lastIndex)
+                    cursor--
+                    used -= itemHeight(last) + spacingAfter(last)
+                }
+            }
+
+            val slack = (cfg.contentHeightPx - used).coerceAtLeast(0f)
+            val gaps = (pageItems.size - 1).coerceAtLeast(1)
+            val perGap = if (slack < cfg.lineHeightPx) slack / gaps else 0f
+            val lines = ArrayList<LayoutLine>()
+            val lineTops = ArrayList<Float>()
+            val paraOffsets = ArrayList<Int>()
+            val images = ArrayList<PlacedImage>()
+            var y = 0f
+
+            pageItems.forEachIndexed { index, item ->
+                when (item) {
+                    is BlockItem.Text -> {
+                        lines += item.line
+                        lineTops += y
+                        paraOffsets += item.para.charOffset
+                    }
+
+                    is BlockItem.Image -> {
+                        images += PlacedImage(
+                            sourceKey = item.block.sourceKey,
+                            left = (cfg.contentWidthPx - item.width) / 2f,
+                            top = y,
+                            width = item.width,
+                            height = item.height,
+                            anchorOffset = item.block.anchorOffset,
+                        )
+                    }
+                }
+                y += itemHeight(item) + spacingAfter(item)
+                if (index < pageItems.lastIndex) y += perGap
+            }
+
+            val startOffset = pageItems.first().startOffset
+            val endOffset = pageItems.last().endOffset
+            starts += startOffset
+            pages += Page(
+                index = pages.size,
+                startCharOffset = startOffset,
+                endCharOffset = endOffset,
+                lines = lines,
+                lineTops = lineTops.toFloatArray(),
+                lineParaOffsets = paraOffsets.toIntArray(),
+                images = images,
+            )
+        }
+
+        val charCount = blocks.maxOfOrNull { block ->
+            when (block) {
+                is LayoutBlock.Text -> block.paragraph.charOffset + block.paragraph.text.length
+                is LayoutBlock.Image -> block.anchorOffset
+            }
+        } ?: 0
         return ChapterLayout(pages, starts.toIntArray(), charCount)
     }
 
