@@ -2176,10 +2176,12 @@ private fun FilterSheet(
 
 @Composable
 private fun FilterChipRow(options: List<Pair<String, String>>, selected: String, onSelect: (String) -> Unit) {
+    // G 档：筛选 chips 离散选择加轻触感
+    val haptic = rememberHaptic(rememberReducedMotion())
     Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        FilterChip(selected = selected.isEmpty(), onClick = { onSelect("") }, label = { Text("全部") })
+        FilterChip(selected = selected.isEmpty(), onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect("") }, label = { Text("全部") })
         options.forEach { (id, name) ->
-            FilterChip(selected = selected == id, onClick = { onSelect(id) }, label = { Text(name) })
+            FilterChip(selected = selected == id, onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect(id) }, label = { Text(name) })
         }
     }
 }
@@ -2410,6 +2412,8 @@ private fun ImportHistorySheet(
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    // G 档：清空历史是结果性动作，加确认触感
+    val haptic = rememberHaptic(rememberReducedMotion())
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
@@ -2421,7 +2425,7 @@ private fun ImportHistorySheet(
                 IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
                 Text("导入历史", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (history.isNotEmpty()) {
-                    IconButton(onClick = onClear, modifier = Modifier.size(28.dp)) {
+                    IconButton(onClick = { haptic(HapticFeedbackType.LongPress); onClear() }, modifier = Modifier.size(28.dp)) {
                         Icon(Icons.Filled.Delete, contentDescription = "清空历史", modifier = Modifier.size(16.dp), tint = AppError)
                     }
                 }
@@ -2470,7 +2474,7 @@ private fun ImportHistorySheet(
             }
             if (tasks.isEmpty() && history.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                    Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    LineArtBook(modifier = Modifier.size(44.dp))
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("还没有导入记录", style = MaterialTheme.typography.bodyMedium)
                     Text("导入书籍后，这里会显示每次导入的结果、编码识别和失败原因。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

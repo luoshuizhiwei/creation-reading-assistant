@@ -235,6 +235,8 @@ fun SettingRow(
     val layout = LocalLayoutTokens.current
     val shape = spec.listItemShape
     val interactionSource = remember { MutableInteractionSource() }
+    // G 档：组件内建轻触感，所有 SettingRow（排序/批量/设置/阅读器弹层）统一手感；调用处勿再重复触发
+    val haptic = rememberHaptic(rememberReducedMotion())
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -249,7 +251,10 @@ fun SettingRow(
                 if (onClick != null) {
                     Modifier
                         .clip(shape)
-                        .clickable(interactionSource = interactionSource, indication = null, onClick = onClick)
+                        .clickable(interactionSource = interactionSource, indication = null) {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            onClick()
+                        }
                         .bounceable(interactionSource)
                 } else {
                     Modifier

@@ -610,7 +610,7 @@ private fun ColumnScope.MenuItem(
     danger: Boolean = false,
     onClick: () -> Unit,
 ) {
-    val haptic = rememberHaptic(rememberReducedMotion())
+    // G 档：SettingRow 已内建触感，此处不再手动触发（防双振）
     SettingRow(
         title = label,
         subtitle = desc,
@@ -628,7 +628,7 @@ private fun ColumnScope.MenuItem(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
+        onClick = onClick,
     )
 }
 

@@ -26,12 +26,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -57,6 +60,8 @@ internal fun AiExplainSheet(
     var newTagInput by remember { mutableStateOf("") }
     val scope = rememberCoroutineScope()
     val inspirationTags = tags.filter { it.type == "inspiration" || it.type == null }
+    // G 档：分类/标签 chips 离散选择加轻触感
+    val haptic = rememberHaptic(rememberReducedMotion())
 
     fun callExplain() {
         if (selectedText.isBlank()) return
@@ -96,7 +101,7 @@ internal fun AiExplainSheet(
                     val active = selectedCategoryIds.contains(c.id)
                     FilterChip(
                         selected = active,
-                        onClick = { selectedCategoryIds = if (active) selectedCategoryIds - c.id else selectedCategoryIds + c.id },
+                        onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedCategoryIds = if (active) selectedCategoryIds - c.id else selectedCategoryIds + c.id },
                         label = { Text(c.name) },
                     )
                 }
@@ -114,12 +119,12 @@ internal fun AiExplainSheet(
                     val active = selectedTagNames.contains(t.name)
                     FilterChip(
                         selected = active,
-                        onClick = { selectedTagNames = if (active) selectedTagNames - t.name else selectedTagNames + t.name },
+                        onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedTagNames = if (active) selectedTagNames - t.name else selectedTagNames + t.name },
                         label = { Text(t.name) },
                     )
                 }
                 selectedTagNames.filter { name -> inspirationTags.none { it.name == name } }.forEach { name ->
-                    FilterChip(selected = true, onClick = { selectedTagNames = selectedTagNames - name }, label = { Text(name) })
+                    FilterChip(selected = true, onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedTagNames = selectedTagNames - name }, label = { Text(name) })
                 }
             }
             Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
@@ -134,7 +139,7 @@ internal fun AiExplainSheet(
                 }) { Text("添加") }
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onSaveInspiration(result, selectedTagNames, selectedCategoryIds) }) { Text("存入灵感") }
+                Button(onClick = { haptic(HapticFeedbackType.LongPress); onSaveInspiration(result, selectedTagNames, selectedCategoryIds) }) { Text("存入灵感") }
             }
         }
     }

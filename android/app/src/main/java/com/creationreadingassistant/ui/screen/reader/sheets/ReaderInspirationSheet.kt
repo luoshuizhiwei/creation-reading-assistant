@@ -25,8 +25,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -49,6 +52,8 @@ internal fun InspirationSheet(
     var newTagInput by remember { mutableStateOf("") }
     val canSave = title.isNotBlank() || body.isNotBlank() || excerpt.isNotBlank()
     val inspirationTags = tags.filter { it.type == "inspiration" || it.type == null }
+    // G 档：分类/标签 chips 离散选择加轻触感
+    val haptic = rememberHaptic(rememberReducedMotion())
 
     Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
         Text("记录灵感", style = MaterialTheme.typography.titleLarge)
@@ -76,7 +81,7 @@ internal fun InspirationSheet(
                 val active = selectedCategoryIds.contains(c.id)
                 FilterChip(
                     selected = active,
-                    onClick = { selectedCategoryIds = if (active) selectedCategoryIds - c.id else selectedCategoryIds + c.id },
+                    onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedCategoryIds = if (active) selectedCategoryIds - c.id else selectedCategoryIds + c.id },
                     label = { Text(c.name) },
                 )
             }
@@ -95,12 +100,12 @@ internal fun InspirationSheet(
                 val active = selectedTagNames.contains(t.name)
                 FilterChip(
                     selected = active,
-                    onClick = { selectedTagNames = if (active) selectedTagNames - t.name else selectedTagNames + t.name },
+                    onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedTagNames = if (active) selectedTagNames - t.name else selectedTagNames + t.name },
                     label = { Text(t.name) },
                 )
             }
             selectedTagNames.filter { name -> inspirationTags.none { it.name == name } }.forEach { name ->
-                FilterChip(selected = true, onClick = { selectedTagNames = selectedTagNames - name }, label = { Text(name) })
+                FilterChip(selected = true, onClick = { haptic(HapticFeedbackType.TextHandleMove); selectedTagNames = selectedTagNames - name }, label = { Text(name) })
             }
         }
         Row(Modifier.fillMaxWidth().padding(top = 4.dp)) {
@@ -122,7 +127,7 @@ internal fun InspirationSheet(
             modifier = Modifier.padding(top = 8.dp),
         )
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = canSave, onClick = { onSave(title.trim(), body.trim(), selectedTagNames, selectedCategoryIds) }) { Text("保存灵感") }
+            Button(enabled = canSave, onClick = { haptic(HapticFeedbackType.LongPress); onSave(title.trim(), body.trim(), selectedTagNames, selectedCategoryIds) }) { Text("保存灵感") }
         }
     }
 }
