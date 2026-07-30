@@ -115,6 +115,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateListOf
@@ -576,12 +577,14 @@ fun ShelfScreen(
                     actionBookId = if (actionBookId == id) null else id
                 }
                 val onToggleSelected: (String) -> Unit by rememberUpdatedState { toggleSelected(it) }
+                // 选择集合 snapshot：SnapshotStateList 是不稳定类型，转成稳定 Set 后 Lazy 子项只在选中状态变化时重组。
+                val selectedIdSet by remember { derivedStateOf { selectedIds.toSet() } }
                 BookGrid(
                     books = filtered,
                     progressById = progressById,
                     viewMode = viewMode,
                     selectionMode = selectionMode,
-                    selectedIds = selectedIds,
+                    selectedIds = selectedIdSet,
                     actionBookId = actionBookId,
                     downloadingIds = downloadingIds,
                     onOpenBook = onOpenBook,
@@ -897,11 +900,7 @@ private fun ShelfHeader(
             } else {
                 Text(
                     "书架",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 30.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = (-1.2).sp,
-                    ),
+                    style = MaterialTheme.typography.headlineLarge,
                     modifier = Modifier.weight(1f),
                 )
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1120,7 +1119,7 @@ private fun BookGrid(
     progressById: Map<String, ReadingProgressEntity>,
     viewMode: ShelfViewMode,
     selectionMode: Boolean,
-    selectedIds: List<String>,
+    selectedIds: Set<String>,
     actionBookId: String?,
     downloadingIds: Set<String>,
     onOpenBook: (BookEntity) -> Unit,

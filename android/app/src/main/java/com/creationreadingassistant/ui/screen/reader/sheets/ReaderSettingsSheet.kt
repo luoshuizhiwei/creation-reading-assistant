@@ -16,7 +16,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Slider
@@ -196,8 +195,8 @@ internal fun SettingsSheet(
         }
 
         Text("夜间护眼滤镜", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        SettingsSwitchRow("手动开启", eyeFilterEnabled, onEyeFilterEnabled)
-        SettingsSwitchRow("按时间自动开启（22:00–07:00）", eyeScheduleEnabled, onEyeScheduleEnabled)
+        SettingsSwitchRow("手动开启", eyeFilterEnabled) { onEyeFilterEnabled(it) }
+        SettingsSwitchRow("按时间自动开启（22:00–07:00）", eyeScheduleEnabled) { onEyeScheduleEnabled(it) }
         Text("色温 ${eyeTemperature}K", style = MaterialTheme.typography.bodySmall)
         Slider(
             value = eyeTemperature.toFloat(),
@@ -217,12 +216,11 @@ internal fun SettingsSheet(
 
         // R7：阅读内快捷开关（沉浸 / 安静信息 / 中文排版 / 常亮 / 进度条 / 自动隐藏）
         Text("阅读辅助", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        SettingsSwitchRow("音量键翻页", volumeKeyPaging, onVolumeKeyPaging)
+        SettingsSwitchRow("音量键翻页", volumeKeyPaging) { onVolumeKeyPaging(it) }
         SettingsSwitchRow(
             "朗读时音量键仍翻页",
             volumeKeyPagingDuringTts,
-            onVolumeKeyPagingDuringTts,
-        )
+        ) { onVolumeKeyPagingDuringTts(it) }
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
             Text("自动翻页速度", Modifier.weight(1f))
             Slider(
@@ -302,10 +300,11 @@ internal fun SettingsSheet(
                 modifier = Modifier.weight(1f),
             )
         }
-        ListItem(
-            headlineContent = { Text("阅读节奏提示") },
-            supportingContent = { Text("每 ${rhythmMin} 分钟轻提示休息") },
-            trailingContent = { Switch(checked = rhythmEnabled, onCheckedChange = onRhythmEnabled) },
+        SettingsSwitchRow(
+            label = "阅读节奏提示",
+            checked = rhythmEnabled,
+            onCheckedChange = onRhythmEnabled,
+            subtitle = "每 ${rhythmMin} 分钟轻提示休息",
         )
         if (rhythmEnabled) {
             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -320,10 +319,7 @@ internal fun SettingsSheet(
             }
         }
 
-        ListItem(
-            headlineContent = { Text("粗体文字") },
-            trailingContent = { Switch(checked = bold, onCheckedChange = onBold) },
-        )
+        SettingsSwitchRow(label = "粗体文字", checked = bold, onCheckedChange = onBold)
 
         Button(onClick = onBookInfo, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
             Text("书籍信息")

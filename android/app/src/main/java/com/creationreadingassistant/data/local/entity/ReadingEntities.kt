@@ -1,5 +1,6 @@
 package com.creationreadingassistant.data.local.entity
 
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -7,6 +8,7 @@ import kotlinx.serialization.Serializable
 
 /**
  * 阅读进度（每本书一条），对齐 V2 reading_progress 表。
+ * 标记为 @Immutable 使 Compose 将其识别为稳定类型。
  */
 @Serializable
 @Entity(
@@ -18,6 +20,7 @@ import kotlinx.serialization.Serializable
         onDelete = ForeignKey.CASCADE,
     )],
 )
+@Immutable
 data class ReadingProgressEntity(
     @PrimaryKey val book_id: String,
     val progress_percent: Float = 0f,

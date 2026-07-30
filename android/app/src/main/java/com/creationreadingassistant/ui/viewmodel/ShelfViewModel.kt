@@ -40,6 +40,7 @@ import com.creationreadingassistant.feature.library.SafBookSourceScanner
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -50,6 +51,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -63,6 +65,7 @@ import javax.inject.Inject
  * - 书单 / 分类 / 标签：来自各自 DAO 的 observeAllActive（用于筛选 chip 与批量弹层展示）。
  * - 导入队列：支持真实 SAF 文件导入（EPUB/TXT/MD），保留示例书导入作空书架兜底。
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ShelfViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -137,30 +140,48 @@ class ShelfViewModel @Inject constructor(
     fun setShelfSortMode(mode: String) = viewModelScope.launch { shelfPrefs.setSortMode(mode) }
 
     /**
-     * 书架渲染用稳定列表：后台线程完成模型投影与排序，新请求自动取消旧请求。
-     *
-     * 只依赖书籍、进度、排序方式；搜索词、弹层、选择状态、导入任务变化不会触发此 Flow。
+     * 书架列表的模型投影：在后台线程把数据库实体转为稳定 [ShelfBookItem]，
+     * 并通过 distinctUntilChanged 让纯排序切换不必重复投影。
      */
-    val shelfBooks: StateFlow<List<ShelfBookItem>> = combine(
+    private val projectedBooks: Flow<List<ShelfBookItem>> = combine(
         books,
         progressById,
-        shelfSortMode,
-    ) { bookList, progress, sortMode ->
-        Trace.beginSection("ShelfListPublish")
+    ) { bookList, progress ->
+        Trace.beginSection("ShelfItemProjection")
         try {
-            withContext(Dispatchers.Default) {
-                Trace.beginSection("ShelfItemProjection")
-                val projected = ShelfBookSorter.projectAll(bookList, progress)
-                Trace.endSection()
-                Trace.beginSection("ShelfSort")
-                val sorted = ShelfBookSorter.sort(projected, sortMode)
-                Trace.endSection()
-                sorted
-            }
+            ShelfBookSorter.projectAll(bookList, progress)
         } finally {
             Trace.endSection()
         }
     }
+        .flowOn(Dispatchers.Default)
+        .distinctUntilChanged()
+
+    /**
+     * 书架渲染用稳定列表：后台线程完成排序，新排序请求自动取消旧请求。
+     *
+     * 只依赖投影后的书籍与排序方式；搜索词、弹层、选择状态、导入任务变化不会触发此 Flow。
+     */
+    val shelfBooks: StateFlow<List<ShelfBookItem>> = combine(
+        projectedBooks,
+        shelfSortMode,
+    ) { projected, sortMode -> projected to sortMode }
+        .mapLatest { (projected, sortMode) ->
+            Trace.beginSection("ShelfListPublish")
+            try {
+                withContext(Dispatchers.Default) {
+                    Trace.beginSection("ShelfSort")
+                    try {
+                        ShelfBookSorter.sort(projected, sortMode)
+                    } finally {
+                        Trace.endSection()
+                    }
+                }
+            } finally {
+                Trace.endSection()
+            }
+        }
+        .flowOn(Dispatchers.Default)
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,

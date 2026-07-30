@@ -70,6 +70,7 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
+import androidx.compose.ui.draw.alpha
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -1250,7 +1251,7 @@ private fun LibrarySubPage(
                                     else -> Icons.Filled.Book
                                 },
                                 contentDescription = null,
-                                modifier = Modifier.size(20.dp),
+                                modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary,
                             )
                             Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -1310,13 +1311,15 @@ private fun LibrarySubPage(
                                     linkedBooks.forEach { book ->
                                         Card(
                                             modifier = Modifier.clickable { onOpenBook(book) },
+                                            shape = LocalComponentSpec.current.pillShape,
+                                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                             colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                                             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                         ) {
                                             Text(
                                                 book.title,
                                                 style = MaterialTheme.typography.bodySmall,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                                 maxLines = 1,
                                                 overflow = TextOverflow.Ellipsis,
                                             )
@@ -1561,11 +1564,13 @@ private fun StorageSubPage(
                                     else -> fmt.uppercase()
                                 }
                                 Card(
+                                    shape = LocalComponentSpec.current.pillShape,
+                                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
                                     elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
                                 ) {
                                     Row(
-                                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                                     ) {
@@ -1606,7 +1611,7 @@ private fun StorageStat(
     label: String,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 72.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
         Text(value, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -1630,10 +1635,11 @@ private fun PrivacySubPage(modifier: Modifier) {
 
 @Composable
 private fun PrivacyItem(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
-    ListItem(
-        leadingContent = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-        headlineContent = { Text(title) },
-        supportingContent = { Text(body, color = MaterialTheme.colorScheme.onSurfaceVariant) },
+    // 视觉统一：与全页开关/菜单行一致，走 SettingRow（原 Material3 ListItem 的内边距与字号偏离规范）
+    SettingRow(
+        title = title,
+        subtitle = body,
+        leading = { Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
     )
 }
 
@@ -1734,7 +1740,10 @@ private fun AboutSubPage(modifier: Modifier, context: Context) {
         }
         if (hasUpdate) {
             Card(
-                shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = LocalComponentSpec.current.cardShape,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
             ) {
                 Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1919,7 +1928,9 @@ private fun LogEntryItem(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { expanded = !expanded },
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+        shape = LocalComponentSpec.current.listItemShape,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow),
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
     ) {
         Column(
@@ -2101,16 +2112,19 @@ private fun <T> SegmentedRow(
     onSelect: (T) -> Unit,
     enabled: Boolean = true,
 ) {
-    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    // 视觉统一：与阅读器弹层 OptionPill 同语言（SelectablePill，pillShape + 内建触感），
+    // 替代旧 OutlinedButton + 硬编码 8.dp 圆角的分段按钮
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = if (enabled) Modifier else Modifier.alpha(0.5f),
+    ) {
         options.forEach { (value, label) ->
-            val isSelected = value == selected
-            OutlinedButton(
-                onClick = { onSelect(value) },
-                enabled = enabled,
-                shape = RoundedCornerShape(8.dp),
-            ) {
-                Text(label, color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            SelectablePill(
+                text = label,
+                selected = value == selected,
+                onClick = { if (enabled) onSelect(value) },
+            )
         }
     }
 }

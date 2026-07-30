@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
+import com.creationreadingassistant.ui.components.SectionCard
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -296,12 +297,12 @@ private fun MenuOverlay(
             .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.01f)),
         contentAlignment = Alignment.TopEnd,
     ) {
-        Card(
+        SectionCard(
             modifier = Modifier
                 .padding(top = 56.dp, end = 8.dp)
                 .width(220.dp)
                 .clickable(enabled = false) {},
-            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            contentPadding = 0.dp,
         ) {
             Column(modifier = Modifier.padding(vertical = 8.dp)) {
                 when (menuView) {

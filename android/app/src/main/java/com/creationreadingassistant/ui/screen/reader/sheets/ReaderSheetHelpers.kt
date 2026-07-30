@@ -28,9 +28,15 @@ internal fun OptionPill(selected: Boolean, label: String, onClick: () -> Unit) {
 
 /** 阅读设置中的开关行（R7 阅读内快捷开关）：统一委托 SettingRow。 */
 @Composable
-internal fun SettingsSwitchRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
+internal fun SettingsSwitchRow(
+    label: String,
+    checked: Boolean,
+    subtitle: String? = null,
+    onCheckedChange: (Boolean) -> Unit,
+) {
     SettingRow(
         title = label,
+        subtitle = subtitle,
         trailing = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
     )
 }

@@ -462,11 +462,7 @@ private fun SummaryMetricCell(
             val display = rememberCountUp(item.value, reducedMotion)
             Text(
                 item.format(display),
-                style = MaterialTheme.typography.titleMedium.copy(
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                ),
-                lineHeight = 22.sp,
+                style = MaterialTheme.typography.headlineSmall,
             )
             Text(
                 item.label,
@@ -504,7 +500,7 @@ private fun CreationItem(icon: ImageVector, value: String, label: String, modifi
             val numeric = value.toIntOrNull()
             Text(
                 if (numeric != null) rememberCountUp(numeric, reducedMotion).toString() else value,
-                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+                style = MaterialTheme.typography.titleMedium,
             )
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }

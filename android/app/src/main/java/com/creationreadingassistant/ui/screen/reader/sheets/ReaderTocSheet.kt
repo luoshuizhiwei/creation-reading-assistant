@@ -26,7 +26,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingRow
@@ -57,7 +56,8 @@ internal fun TocSheet(
     val groups = remember(titles) { groupChaptersByVolume(titles) }
     val reducedMotion = rememberReducedMotion()
     Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
-        Text("目录", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold))
+        // 视觉统一：弹层标题走 titleLarge 令牌（与主题弹层一致），不手写字号
+        Text("目录", style = MaterialTheme.typography.titleLarge)
         if (titles.isEmpty()) {
             Text("这本书暂未识别到目录。", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outline)
         } else {
