@@ -1,12 +1,12 @@
 {
   "formatVersion": 1,
   "database": {
-    "version": 2,
-    "identityHash": "f91034f540a7711bf52d1fbf722a574b",
+    "version": 4,
+    "identityHash": "73861914607b498000650590ed7e70c4",
     "entities": [
       {
         "tableName": "books",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `format` TEXT NOT NULL, `original_file_name` TEXT, `content_hash` TEXT, `size` INTEGER NOT NULL, `local_uri` TEXT, `local_content_path` TEXT, `content_status` TEXT NOT NULL, `cover_data_url` TEXT, `imported_at` TEXT, `device_id` TEXT, `payload` TEXT, `revision` INTEGER NOT NULL, `updated_at` TEXT NOT NULL, `deleted_at` TEXT, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `author` TEXT, `format` TEXT NOT NULL, `original_file_name` TEXT, `content_hash` TEXT, `size` INTEGER NOT NULL, `local_uri` TEXT, `local_content_path` TEXT, `content_status` TEXT NOT NULL, `cover_data_url` TEXT, `description` TEXT, `imported_at` TEXT, `device_id` TEXT, `payload` TEXT, `revision` INTEGER NOT NULL, `updated_at` TEXT NOT NULL, `deleted_at` TEXT, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -71,6 +71,12 @@
           {
             "fieldPath": "cover_data_url",
             "columnName": "cover_data_url",
+            "affinity": "TEXT",
+            "notNull": false
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
             "affinity": "TEXT",
             "notNull": false
           },
@@ -246,7 +252,7 @@
       },
       {
         "tableName": "reading_progress",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`book_id` TEXT NOT NULL, `progress_percent` REAL NOT NULL, `last_read_at` TEXT, `total_reading_time_ms` INTEGER NOT NULL, `completion_state` TEXT NOT NULL, `current_location_json` TEXT, `payload` TEXT, `revision` INTEGER NOT NULL, `device_id` TEXT, `updated_at` TEXT NOT NULL, `deleted_at` TEXT, PRIMARY KEY(`book_id`), FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`book_id` TEXT NOT NULL, `progress_percent` REAL NOT NULL, `last_read_at` TEXT, `total_reading_time_ms` INTEGER NOT NULL, `completion_state` TEXT NOT NULL, `current_location_json` TEXT, `payload` TEXT, `revision` INTEGER NOT NULL, `device_id` TEXT, `updated_at` TEXT NOT NULL, `completed_at` INTEGER, `deleted_at` TEXT, PRIMARY KEY(`book_id`), FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
         "fields": [
           {
             "fieldPath": "book_id",
@@ -307,6 +313,12 @@
             "columnName": "updated_at",
             "affinity": "TEXT",
             "notNull": true
+          },
+          {
+            "fieldPath": "completed_at",
+            "columnName": "completed_at",
+            "affinity": "INTEGER",
+            "notNull": false
           },
           {
             "fieldPath": "deleted_at",
@@ -1349,7 +1361,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f91034f540a7711bf52d1fbf722a574b')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '73861914607b498000650590ed7e70c4')"
     ]
   }
 }

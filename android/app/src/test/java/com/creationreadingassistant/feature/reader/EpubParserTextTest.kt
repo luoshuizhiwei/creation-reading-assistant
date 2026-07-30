@@ -2,6 +2,7 @@ package com.creationreadingassistant.feature.reader
 
 import com.creationreadingassistant.domain.model.EpubBlock
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.File
@@ -22,6 +23,18 @@ class EpubParserTextTest {
             entries.forEach { (name, content) ->
                 zos.putNextEntry(ZipEntry(name))
                 zos.write(content.toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+            }
+        }
+        return f.absolutePath
+    }
+
+    private fun zipWithBytes(vararg entries: Pair<String, ByteArray>): String {
+        val f = File.createTempFile("epub-test-", ".epub").apply { deleteOnExit() }
+        ZipOutputStream(f.outputStream()).use { zos ->
+            entries.forEach { (name, content) ->
+                zos.putNextEntry(ZipEntry(name))
+                zos.write(content)
                 zos.closeEntry()
             }
         }
@@ -115,8 +128,60 @@ class EpubParserTextTest {
         val path = zipWith(entry to "<html><head></head><body><p>中文正文</p></body></html>")
         val encoded = "OEBPS/%E7%AC%AC%20%E4%B8%80%20%E7%AB%A0.xhtml"
         val t = EpubParser.loadChapterText(path, encoded, "OEBPS")
-        // 注意：调用方传入的 entryPath 已由 resolvePath 归一化过，这里直接验证解码后的等价性
-        assertTrue("解码后应能命中条目，实际=<$t>", t.contains("中文正文") || t.isEmpty())
+        assertTrue("解码后应能命中条目，实际=<$t>", t.contains("中文正文"))
+    }
+
+    @Test
+    fun `encoded relative image path is extracted without escaping cache`() {
+        val html = """
+            <html><head></head><body>
+            <p>图片之前</p>
+            <img src="../图片/%E5%B0%81%E9%9D%A2%20%E5%9B%BE.png"/>
+            <p>图片之后</p>
+            </body></html>
+        """.trimIndent()
+        val imageBytes = byteArrayOf(1, 2, 3, 4, 5)
+        val path = zipWithBytes(
+            "OEBPS/text/ch1.xhtml" to html.toByteArray(),
+            "OEBPS/图片/封面 图.png" to imageBytes,
+        )
+
+        val blocks = EpubParser.loadChapterBlocks(path, "OEBPS/text/ch1.xhtml", "OEBPS/text")
+        val image = blocks.filterIsInstance<EpubBlock.Image>().single()
+        val extracted = File(image.filePath)
+
+        assertTrue(extracted.isFile)
+        assertTrue(imageBytes.contentEquals(extracted.readBytes()))
+        assertTrue(blocks.filterIsInstance<EpubBlock.Text>().any { it.text == "图片之前" })
+        assertTrue(blocks.filterIsInstance<EpubBlock.Text>().any { it.text == "图片之后" })
+    }
+
+    @Test
+    fun `svg image href is extracted as an image block`() {
+        val html = """
+            <html><head></head><body>
+            <svg><image xlink:href="../images/cover.jpg"/></svg>
+            </body></html>
+        """.trimIndent()
+        val path = zipWithBytes(
+            "OEBPS/text/cover.xhtml" to html.toByteArray(),
+            "OEBPS/images/cover.jpg" to byteArrayOf(9, 8, 7),
+        )
+
+        val blocks = EpubParser.loadChapterBlocks(path, "OEBPS/text/cover.xhtml", "OEBPS/text")
+
+        assertEquals(1, blocks.filterIsInstance<EpubBlock.Image>().size)
+    }
+
+    @Test
+    fun `missing image does not hide surrounding text`() {
+        val blocks = blocksOf(
+            "<html><head></head><body><p>前文</p><img src=\"missing.png\"/><p>后文</p></body></html>",
+        )
+        val texts = blocks.filterIsInstance<EpubBlock.Text>().map { it.text }
+
+        assertEquals(listOf("前文", "后文"), texts)
+        assertFalse(blocks.any { it is EpubBlock.Image })
     }
 
     // ── 搜索与渲染必须同源（P0 核心不变式）────────────────────────────────
@@ -191,6 +256,37 @@ class EpubParserTextTest {
         assertTrue("标签残片不应渲染为正文，实际=<$text>", !text.contains("src="))
     }
 
+    @Test
+    fun `malformed unclosed paragraph keeps readable text`() {
+        val blocks = blocksOf(
+            "<html><head></head><body><p>第一段<p>第二段<div>第三段",
+        )
+        val text = blocks.filterIsInstance<EpubBlock.Text>().joinToString("|") { it.text }
+
+        assertTrue(text.contains("第一段"))
+        assertTrue(text.contains("第二段"))
+        assertTrue(text.contains("第三段"))
+    }
+
+    @Test
+    fun `oversized chapter fails with the same controlled error for render and search`() {
+        val html = "<html><body><p>" +
+            "a".repeat(8 * 1024 * 1024 + 1) +
+            "</p></body></html>"
+        val path = zipWith("OEBPS/huge.xhtml" to html)
+
+        val renderError = runCatching {
+            EpubParser.loadChapterBlocks(path, "OEBPS/huge.xhtml", "OEBPS")
+        }.exceptionOrNull()
+        val searchError = runCatching {
+            EpubParser.loadChapterText(path, "OEBPS/huge.xhtml", "OEBPS")
+        }.exceptionOrNull()
+
+        assertTrue(renderError is IllegalStateException)
+        assertTrue(searchError is IllegalStateException)
+        assertEquals(renderError?.message, searchError?.message)
+    }
+
     // ── headings ────────────────────────────────────────────────────────
 
     @Test
@@ -199,5 +295,82 @@ class EpubParserTextTest {
         val texts = blocks.filterIsInstance<EpubBlock.Text>()
         assertTrue("应识别出标题块，实际=$texts", texts.any { it.isHeading && it.text.contains("第一章") })
         assertTrue(texts.any { !it.isHeading && it.text.contains("正文") })
+    }
+
+    // ── TOC 解析辅助测试 ──────────────────────────────────────────────────
+
+    @Test
+    fun `nav document regex matches epub3 toc nav`() {
+        val navRegex = Regex(
+            """<nav[^>]*(?:epub:type\s*=\s*["']toc["']|role\s*=\s*["']doc-toc["'])[^>]*>(.*?)</nav>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        val html = """
+            <html><body>
+            <nav epub:type="toc">
+              <ol>
+                <li><a href="ch1.xhtml">第一章</a></li>
+                <li><a href="ch2.xhtml">第二章</a></li>
+              </ol>
+            </nav>
+            </body></html>
+        """.trimIndent()
+        val match = navRegex.find(html)
+        assertTrue("应匹配 epub:type='toc' 的 nav", match != null)
+        val content = match!!.groupValues[1]
+        assertTrue("应包含第一章链接", content.contains("ch1.xhtml"))
+        assertTrue("应包含第二章链接", content.contains("ch2.xhtml"))
+    }
+
+    @Test
+    fun `nav document regex matches doc-toc role`() {
+        val navRegex = Regex(
+            """<nav[^>]*(?:epub:type\s*=\s*["']toc["']|role\s*=\s*["']doc-toc["'])[^>]*>(.*?)</nav>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        val html = """<html><body><nav role="doc-toc"><ol><li><a href="ch1.xhtml">第一章</a></li></ol></nav></body></html>"""
+        val match = navRegex.find(html)
+        assertTrue("应匹配 role='doc-toc' 的 nav", match != null)
+    }
+
+    @Test
+    fun `nav document regex does not match non-toc nav`() {
+        val navRegex = Regex(
+            """<nav[^>]*(?:epub:type\s*=\s*["']toc["']|role\s*=\s*["']doc-toc["'])[^>]*>(.*?)</nav>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        val html = """<html><body><nav epub:type="landmarks"><a href="ch1.xhtml">正文</a></nav></body></html>"""
+        val match = navRegex.find(html)
+        assertTrue("不应匹配 landmarks nav", match == null)
+    }
+
+    @Test
+    fun `link extraction regex parses anchor tags`() {
+        val linkRegex = Regex(
+            """<a\s[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        val navContent = """
+            <ol>
+              <li><a href="text/ch1.xhtml">第一章 开始</a></li>
+              <li><a href="text/ch2.xhtml#sec1">第二章 <span>第二节</span></a></li>
+            </ol>
+        """.trimIndent()
+        val links = linkRegex.findAll(navContent).toList()
+        assertEquals(2, links.size)
+        assertEquals("text/ch1.xhtml", links[0].groupValues[1])
+        assertEquals("第一章 开始", links[0].groupValues[2].trim())
+        assertEquals("text/ch2.xhtml#sec1", links[1].groupValues[1])
+    }
+
+    @Test
+    fun `non-content path patterns detect cover and copyright`() {
+        val pattern = Regex("cover|titlepage|title-page|frontmatter|copyright|colophon|dedication|frontispiece", RegexOption.IGNORE_CASE)
+        assertTrue(pattern.containsMatchIn("OEBPS/cover.xhtml"))
+        assertTrue(pattern.containsMatchIn("text/titlepage.html"))
+        assertTrue(pattern.containsMatchIn("OEBPS/copyright.xhtml"))
+        assertTrue(pattern.containsMatchIn("content/colophon.xhtml"))
+        assertFalse(pattern.containsMatchIn("text/chapter1.xhtml"))
+        assertFalse(pattern.containsMatchIn("OEBPS/第一章.xhtml"))
     }
 }
