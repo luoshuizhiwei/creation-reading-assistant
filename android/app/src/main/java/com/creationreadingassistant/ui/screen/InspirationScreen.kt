@@ -92,6 +92,7 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -810,7 +811,7 @@ private fun InspirationDetailPanel(
     val tags = viewModel.tagsOf(entity)
     val variants by viewModel.observeVariants(entity.id).collectAsStateWithLifecycle(emptyList())
     var generatingAction by remember { mutableStateOf<String?>(null) }
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).animateEnter(reducedMotion = rememberReducedMotion()).padding(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = spec.pillShape) {
                 Text(getTypeLabel(entity.type), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
@@ -1035,7 +1036,7 @@ private fun InspirationEditor(
         onSaved(id, isNew)
     }
 
-    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
+    Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).animateEnter(reducedMotion = rememberReducedMotion()).padding(16.dp)) {
         FieldLabel("标题")
         OutlinedTextField(
             value = title,

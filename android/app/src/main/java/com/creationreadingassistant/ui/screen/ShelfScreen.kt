@@ -70,6 +70,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.InputChip
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -154,6 +155,7 @@ import com.creationreadingassistant.ui.theme.AppWarning
 import com.creationreadingassistant.ui.theme.SealMark
 import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
 import com.creationreadingassistant.ui.viewmodel.ImportBatchUiState
+import com.creationreadingassistant.ui.viewmodel.ShelfBookItem
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
 import com.creationreadingassistant.feature.reader.hasLocalBookSource
 import kotlinx.coroutines.delay
@@ -208,17 +210,17 @@ private fun bookStatus(book: BookEntity, percent: Float): ShelfStatusFilter {
     }
 }
 
-/** 对齐 shelf-selectors.filterAndSortShelfBooks：搜索 + 排序 + 状态 + 书单/分类/标签筛选均生效。 */
-private fun filterAndSort(
-    books: List<BookEntity>,
+/** 仅做筛选，不做排序；排序已在 ViewModel 后台完成。 */
+private fun filterItems(
+    items: List<ShelfBookItem>,
     query: String,
-    sortMode: ShelfSortMode,
     statusFilter: ShelfStatusFilter,
     progressById: Map<String, ReadingProgressEntity>,
     allowedBookIds: Set<String>?,
-): List<BookEntity> {
+): List<ShelfBookItem> {
     val lower = query.trim().lowercase()
-    val base = books.filter { book ->
+    return items.filter { item ->
+        val book = item.book
         val matchesQuery = lower.isEmpty() ||
             "${book.title} ${book.author ?: ""} ${book.original_file_name ?: ""}".lowercase().contains(lower)
         val matchesFilter = allowedBookIds?.contains(book.id) ?: true
@@ -226,16 +228,6 @@ private fun filterAndSort(
             bookStatus(book, progressFor(progressById, book.id)) == statusFilter
         matchesQuery && matchesFilter && matchesStatus
     }
-    val sorted = when (sortMode) {
-        ShelfSortMode.TITLE -> base.sortedBy { it.title }
-        ShelfSortMode.PROGRESS -> base.sortedByDescending { progressFor(progressById, it.id) }
-        ShelfSortMode.IMPORTED -> base.sortedByDescending { it.imported_at ?: it.updated_at }
-        ShelfSortMode.RECENT -> base.sortedWith(
-            compareByDescending<BookEntity> { progressById[it.id]?.last_read_at ?: "" }
-                .thenByDescending { it.updated_at }
-        )
-    }
-    return sorted
 }
 
 private fun formatBytes(size: Int): String {
@@ -292,6 +284,7 @@ fun ShelfScreen(
 ) {
     val taxonomyVm: com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel = hiltViewModel()
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val shelfBooks by viewModel.shelfBooks.collectAsStateWithLifecycle()
     val books = uiState.library.books
     val tags = uiState.library.tags
     val categories = uiState.library.categories
@@ -445,8 +438,8 @@ fun ShelfScreen(
         filteredBookIds = if (filters.isEmpty()) null else filters.reduce { acc, set -> acc.intersect(set) }
     }
 
-    val filtered = remember(books, debouncedQuery, sortMode, statusFilter, progressById, filteredBookIds) {
-        filterAndSort(books, debouncedQuery, sortMode, statusFilter, progressById, filteredBookIds)
+    val filtered = remember(shelfBooks, debouncedQuery, statusFilter, progressById, filteredBookIds) {
+        filterItems(shelfBooks, debouncedQuery, statusFilter, progressById, filteredBookIds)
     }
     val hasActiveImports = importBatch.isRunning || importTasks.any { it.status == "processing" }
     val detailBook = detailBookId?.let { books.find { b -> b.id == it } }
@@ -459,11 +452,30 @@ fun ShelfScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-        topBar = {
-            // ShelfHeader 是自定义头部而非 TopAppBar，不会自己让开状态栏，
-            // 而 Scaffold 的 topBar 槽位也不会替它加 —— 只有 TopAppBar 组件自己处理 inset。
-            // 不补这一层，标题就会压在系统时钟下面。
-            Box(Modifier.statusBarsPadding()) {
+        floatingActionButton = {
+            FloatingActionButton(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    importLauncher.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown"))
+                },
+            ) {
+                Icon(Icons.Filled.Add, contentDescription = "导入")
+            }
+        },
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
+            // 书架顶栏移入下拉内容区首子：不再独占 Scaffold 的 topBar 上层，
+            // 与指示器同处内容层、且指示器最后绘制，故永不被固定顶栏遮挡。
             ShelfHeader(
                 selectionMode = selectionMode,
                 searchActive = searchActive,
@@ -486,19 +498,6 @@ fun ShelfScreen(
                 onClosePageMenu = { showPageMenu = false },
                 onOpenDesktopBooks = { showPageMenu = false; showDesktopBooks = true },
             )
-            }
-        },
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .pullRefresh(pullRefreshState)
-        ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
             if (hasActiveImports && !selectionMode) {
                 ImportQueueCard(
                     tasks = importTasks.filter { it.status == "processing" },
@@ -510,7 +509,7 @@ fun ShelfScreen(
                 SelectionBar(
                     selectedCount = selectedIds.size,
                     visibleCount = filtered.size,
-                    onSelectAll = { selectedIds.clear(); selectedIds.addAll(filtered.map { it.id }) },
+                    onSelectAll = { selectedIds.clear(); selectedIds.addAll(filtered.map { it.bookId }) },
                     onClear = { selectedIds.clear() },
                 )
             } else {
@@ -595,7 +594,8 @@ fun ShelfScreen(
                 thresholdPx = pullThresholdPx,
                 modifier = Modifier
                     .align(androidx.compose.ui.Alignment.TopCenter)
-                    .offset { IntOffset(0, ((pullRefreshState.progress * pullThresholdPx) - pullThresholdPx).roundToInt()) },
+                    // header 现已在 pullRefresh 内容首子内，指示器恒绘制在内容上方（含 header 之上），永不被遮挡
+                    .offset { IntOffset(0, (if (isRefreshing) pullThresholdPx else pullRefreshState.progress * pullThresholdPx).roundToInt()) },
             )
         }
     }
@@ -1105,7 +1105,7 @@ private fun StatusRail(
 // ===================== 书封网格 / 列表 =====================
 @Composable
 private fun BookGrid(
-    books: List<BookEntity>,
+    books: List<ShelfBookItem>,
     progressById: Map<String, ReadingProgressEntity>,
     viewMode: ShelfViewMode,
     selectionMode: Boolean,
@@ -1127,7 +1127,8 @@ private fun BookGrid(
             verticalArrangement = Arrangement.spacedBy(layout.gridGap),
             horizontalArrangement = Arrangement.spacedBy(layout.gridGap),
         ) {
-            items(books, key = { it.id }) { book ->
+            items(books, key = { it.bookId }) { item ->
+                val book = item.book
                 BookTile(
                     book = book,
                     percent = progressFor(progressById, book.id),
@@ -1150,7 +1151,8 @@ private fun BookGrid(
             contentPadding = PaddingValues(vertical = layout.relatedGap),
             verticalArrangement = Arrangement.spacedBy(layout.contentGap),
         ) {
-            items(books, key = { it.id }) { book ->
+            items(books, key = { it.bookId }) { item ->
+                val book = item.book
                 BookTile(
                     book = book,
                     percent = progressFor(progressById, book.id),

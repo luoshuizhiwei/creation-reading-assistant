@@ -44,6 +44,20 @@ import kotlin.math.roundToInt
  */
 
 /**
+ * 动效时长与缓动基准（D 档统一规范）。
+ *
+ * 所有新增强化动效应优先引用这些常量，避免在散落处写魔数导致时长漂移、各页面手感不一致。
+ * 既有动效（A/B/C 档已验收）不强制回改，仅作为后续统一基准。
+ */
+object MotionTokens {
+    const val Fast = 220      // 轻微提示 / 局部入场
+    const val Base = 340      // 标准面板 / 卡片入场
+    const val Slow = 650      // 数字滚动 / 强调过渡
+    const val Shimmer = 1100
+    const val CountUpDelay = 120
+}
+
+/**
  * 读取系统「减少动态效果」无障碍设置。
  * 开启时所有入场 / 过渡动效应退化为瞬时，避免对前庭 / 注意力障碍用户造成不适。
  */
@@ -94,7 +108,7 @@ fun Modifier.animateEnter(
     val progress = remember { Animatable(if (reducedMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!reducedMotion) {
-            progress.animateTo(1f, animationSpec = tween(durationMillis = 340, delayMillis = delayMillis))
+            progress.animateTo(1f, animationSpec = tween(durationMillis = MotionTokens.Base, delayMillis = delayMillis))
         }
     }
     val alpha = progress.value

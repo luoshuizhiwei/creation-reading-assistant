@@ -134,7 +134,9 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
@@ -150,6 +152,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.hilt.navigation.compose.hiltViewModel
 import kotlinx.coroutines.delay
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -178,12 +190,14 @@ import com.creationreadingassistant.feature.reader.EpubParser
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.ui.screen.reader.RenderMarkdownChapter
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
 import com.creationreadingassistant.feature.reader.pager.AutoPagingTiming
 import com.creationreadingassistant.feature.reader.pager.AutoScrollAccumulator
+import com.creationreadingassistant.feature.reader.pager.MarkdownChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedReaderHost
@@ -292,8 +306,29 @@ private fun PagedEpubView(
     sentenceHighlightBg: Color,
     bringRequester: BringIntoViewRequester,
 ) {
+    val reducedMotion = rememberReducedMotion()
+    val contentAlpha = remember { Animatable(1f) }
+    var firstRun by remember { mutableStateOf(true) }
+    LaunchedEffect(chapterIndex) {
+        if (reducedMotion || firstRun) {
+            firstRun = false
+            contentAlpha.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // 轻量翻页淡入：单 Composition、只动 alpha，绝不复制整章组件树（守住 OOM 内存纪律）。
+        contentAlpha.snapTo(0.35f)
+        contentAlpha.animateTo(1f, tween(durationMillis = 240))
+    }
+    val haptic = rememberHaptic(reducedMotion)
+    val onPrevHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onPrev() }
+    val onNextHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onNext() }
     Box(Modifier.fillMaxSize()) {
-        Box(Modifier.fillMaxSize().padding(horizontal = pageMargin.dp, vertical = pageMargin.dp)) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = pageMargin.dp, vertical = pageMargin.dp)
+                .graphicsLayer { alpha = contentAlpha.value },
+        ) {
             val content: @Composable () -> Unit = {
                 PagedChapterContent(
                     blocks = blocks,
@@ -323,28 +358,28 @@ private fun PagedEpubView(
         if (tapZoneMode == "five-zone") {
             Column(Modifier.fillMaxSize()) {
                 Box(
-                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canPrev) { onPrev() },
+                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canPrev) { onPrevHaptic() },
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                 }
                 Row(Modifier.weight(0.76f).fillMaxWidth()) {
                     Box(
-                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrev() },
+                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
                         contentAlignment = Alignment.CenterStart,
                     ) {
                         if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                     }
                     Spacer(Modifier.weight(0.68f))
                     Box(
-                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNext() },
+                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                         contentAlignment = Alignment.CenterEnd,
                     ) {
                         if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
                     }
                 }
                 Box(
-                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canNext) { onNext() },
+                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canNext) { onNextHaptic() },
                     contentAlignment = Alignment.BottomCenter,
                 ) {
                     if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
@@ -353,14 +388,14 @@ private fun PagedEpubView(
         } else {
             Row(Modifier.fillMaxSize()) {
                 Box(
-                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrev() },
+                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
                     contentAlignment = Alignment.CenterStart,
                 ) {
                     if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                 }
                 Spacer(Modifier.weight(0.68f))
                 Box(
-                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNext() },
+                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                     contentAlignment = Alignment.CenterEnd,
                 ) {
                     if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
@@ -396,6 +431,7 @@ private fun PagedChapterContent(
                 when (block) {
                     is DocBlock.Text -> "text-$index"
                     is DocBlock.Image -> "image-$index-${block.path}"
+                    is DocBlock.Markdown -> "markdown-$index"
                 }
             },
         ) { idx, block ->
@@ -427,6 +463,19 @@ private fun PagedChapterContent(
                         contentDescription = null,
                         modifier = Modifier.fillMaxWidth(),
                         contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
+                    )
+                }
+                is DocBlock.Markdown -> {
+                    RenderMarkdownChapter(
+                        chapter = block.chapter,
+                        fontSize = fontSize,
+                        lineHeight = lineHeight,
+                        paperFg = paperFg,
+                        blockGlobalOffset = blockGlobalOffsets.getOrElse(idx) { -1 },
+                        chapterBase = chapterBase,
+                        ttsSentenceRange = ttsSentenceRangeInChapter,
+                        sentenceHighlightBg = sentenceHighlightBg,
+                        onSelectBlock = { text, gOff -> onSelectBlock(text, gOff) },
                     )
                 }
             }
@@ -481,6 +530,8 @@ fun ReaderScreen(
     val paperBg = paper.bg
     val paperFg = paper.fg
     val scope = rememberCoroutineScope()
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
     val clipboard = LocalClipboardManager.current
     val snackbarHost = remember { SnackbarHostState() }
     val tts = rememberTts()
@@ -490,8 +541,10 @@ fun ReaderScreen(
     val loadedBook = documentUiState.loadedBook
     val epubContent = loadedBook?.content as? ReaderLoadedContent.Epub
     val textContent = loadedBook?.content as? ReaderLoadedContent.Text
+    val markdownContent = loadedBook?.content as? ReaderLoadedContent.Markdown
     val epubBook = epubContent?.book
     val epubDocument = epubContent?.document
+    val markdownDocument = markdownContent?.document
     val bookIndex = remember(epubBook) { epubBook?.let(::buildBookIndex) }
     val plainContent = textContent?.fullText.orEmpty()
     val bookTitle = loadedBook?.title ?: "未命名书籍"
@@ -499,7 +552,7 @@ fun ReaderScreen(
     val bookOriginalFile = loadedBook?.originalFileName
     val bookSize = loadedBook?.sizeBytes ?: 0
     val savedPlainPercent = if (textContent != null) loadedBook.initialProgressPercent else 0f
-    val savedPlainOffset = textContent?.initialAbsoluteOffset ?: 0
+    val savedPlainOffset = textContent?.initialAbsoluteOffset ?: markdownContent?.initialAbsoluteOffset ?: 0
     val savedEpubOffsetInChapter = epubContent?.initialOffsetInChapter ?: 0
     val savedTotalReadingMs = loadedBook?.savedReadingTimeMs ?: 0L
     val sessionStartProgress = loadedBook?.initialProgressPercent ?: 0f
@@ -525,6 +578,10 @@ fun ReaderScreen(
         chapterBlocks = epubContent?.initialChapterBlocks.orEmpty()
         txtStreamingDocument = textContent?.streamingDocument
         txtStreamingFileIndex = textContent?.fileIndex
+        // Markdown 滚动模式首章直接同步装载；分页模式由 pagedSource 按需读取
+        if (markdownDocument != null) {
+            chapterBlocks = markdownDocument.blocks(0)
+        }
     }
 
     // R6：观察 ViewModel 章节加载结果
@@ -653,11 +710,13 @@ fun ReaderScreen(
 
     // 书内搜索：EPUB 不再常驻全本文本（会 OOM），改为搜索时按需逐章流式抽取（见 computeEpubSearch）；
     // 这里只暴露各章偏移与标题，供跳章 / 命中映射使用。
-    val isTxt = epubBook == null
+    val isTxt = epubBook == null && markdownDocument == null
     val chapterStartOffsets = bookIndex?.chapterStartOffsets
+        ?: markdownDocument?.chapters?.map { it.startOffset }
         ?: txtStreamingDocument?.chapters?.map { it.startOffset }
         ?: emptyList()
     val chapterTitles = bookIndex?.chapterTitles
+        ?: markdownDocument?.chapters?.map { it.title }
         ?: txtStreamingDocument?.chapters?.map { it.title }
         ?: emptyList()
     // 读取单元：惰性加载的元数据列表，不持有文本
@@ -767,6 +826,7 @@ fun ReaderScreen(
         plainContent,
         txtChapters,
         txtStreamingDocument,
+        markdownDocument,
     ) {
         val index = bookIndex
         val document = epubDocument
@@ -778,6 +838,9 @@ fun ReaderScreen(
                     totalChars = index.totalChars,
                     loadBlocks = document::blocks,
                 )
+
+            markdownDocument != null ->
+                MarkdownChapterSource(markdownDocument)
 
             txtStreamingDocument != null && txtChapters.isNotEmpty() ->
                 TxtChapterSource(txtStreamingDocument!!)
@@ -826,6 +889,7 @@ fun ReaderScreen(
     }
     val contentText = remember(
         epubBook,
+        markdownDocument,
         chapterBlocks,
         txtStreamingDocument,
         streamingContentText,
@@ -834,6 +898,8 @@ fun ReaderScreen(
         when {
             epubBook != null ->
                 chapterBlocks.filterIsInstance<DocBlock.Text>().joinToString("\n") { it.text }
+            markdownDocument != null ->
+                chapterBlocks.filterIsInstance<DocBlock.Markdown>().firstOrNull()?.chapter?.canonicalText ?: ""
             txtStreamingDocument != null -> streamingContentText
             else -> plainContent
         }
@@ -846,14 +912,26 @@ fun ReaderScreen(
     } else {
         txtChapters.indexOfLast { it.startOffset <= visiblePlainOffset }.coerceAtLeast(0)
     }
+    // C6：滚动模式切章时正文轻淡入（翻页模式由 PagedEpubView 的 contentAlpha 负责）；尊重「减少动态效果」
+    val chapterFade = remember { Animatable(1f) }
+    val chapterFadeKey = if (epubBook != null) chapterIndex else txtChapterIndex
+    LaunchedEffect(chapterFadeKey) {
+        if (reducedMotion) {
+            chapterFade.snapTo(1f)
+            return@LaunchedEffect
+        }
+        chapterFade.snapTo(0.45f)
+        chapterFade.animateTo(1f, tween(durationMillis = 220))
+    }
     // 顶栏副行与 TTS、书签都用它。TXT 此前恒为空串只能显示「正文」，
     // 现在有章节识别了就跟着滚动位置走。
-    val currentChapterTitle = if (epubBook != null) {
-        epubBook!!.chapters.getOrNull(chapterIndex)?.title ?: ""
-    } else {
-        txtChapters.getOrNull(txtChapterIndex)?.title ?: ""
+    val currentChapterTitle = when {
+        epubBook != null -> epubBook!!.chapters.getOrNull(chapterIndex)?.title ?: ""
+        markdownDocument != null -> markdownDocument.chapters.getOrNull(chapterIndex)?.title ?: ""
+        else -> txtChapters.getOrNull(txtChapterIndex)?.title ?: ""
     }
     val plainPercent = when {
+        markdownDocument != null && pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
         plainContent.isEmpty() && txtStreamingDocument == null -> 0f
         pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
         !plainListState.canScrollForward && plainListState.firstVisibleItemIndex > 0 -> 100f
@@ -878,6 +956,10 @@ fun ReaderScreen(
             val base = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
             offsetInChapter = (if (pagerEngineOn && pagedAbsOffset >= 0) pagedAbsOffset else visiblePlainOffset) - base
             chapterLen = contentText.length.coerceAtLeast(1)
+        } else if (markdownDocument != null) {
+            val base = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
+            offsetInChapter = (if (pagerEngineOn && pagedAbsOffset >= 0) pagedAbsOffset else base) - base
+            chapterLen = contentText.length.coerceAtLeast(1)
         } else {
             val ch = txtChapters.getOrNull(txtChapterIndex)
             val base = ch?.startOffset ?: 0
@@ -889,9 +971,12 @@ fun ReaderScreen(
 
     // 阅读统计派生值（对照 web：bookReadingTimeMs / estimateBookReadingSpeed）
     val plainWordCount = remember(plainContent) { plainContent.count { !it.isWhitespace() } }
-    val documentWordCount = if (epubBook != null) bookIndex?.totalChars ?: 0
-        else if (txtStreamingDocument != null) txtStreamingDocument!!.totalChars
-        else plainWordCount
+    val documentWordCount = when {
+        epubBook != null -> bookIndex?.totalChars ?: 0
+        markdownDocument != null -> markdownDocument.totalChars
+        txtStreamingDocument != null -> txtStreamingDocument!!.totalChars
+        else -> plainWordCount
+    }
     val sessionReadingMs = remember(sessions) { sessions.sumOf { it.duration_ms }.coerceAtLeast(0L) }
     val savedBookReadingMs = kotlin.math.max(savedTotalReadingMs, sessionReadingMs).coerceAtLeast(0L)
     val effectiveWordCount = if (documentWordCount > 0) documentWordCount else kotlin.math.max(1, bookSize / 3)
@@ -1037,16 +1122,25 @@ fun ReaderScreen(
         }
     }
 
+    // 自动翻页开启时给一次确认感触感（尊重系统「减少动态效果」）
+    LaunchedEffect(autoPagingActive) {
+        if (autoPagingActive) haptic(HapticFeedbackType.LongPress)
+    }
+
     fun goToChapter(i: Int) {
-        val book = epubBook ?: return
-        val clamped = i.coerceIn(0, book.chapters.lastIndex)
+        val maxIndex = when {
+            epubBook != null -> epubBook!!.chapters.lastIndex
+            markdownDocument != null -> markdownDocument.chapters.lastIndex
+            else -> return
+        }
+        val clamped = i.coerceIn(0, maxIndex)
         if (pagerEngineOn) {
             pagedJumpRequest.value = chapterStartOffsets.getOrElse(clamped) { 0 }
         }
         chapterIndex = clamped
         tts.stop()
         // R6：章节块加载 + 进度保存统一由 ViewModel 处理
-        onAction(ReaderAction.LoadChapter(book.id, clamped))
+        onAction(ReaderAction.LoadChapter(bid, clamped))
     }
 
     /** TXT 跳转统一入口：分页引擎开着走翻页定位，否则滚动列表。两条路都以全书字符偏移为准。 */
@@ -1102,7 +1196,11 @@ fun ReaderScreen(
             } else {
                 visiblePlainOffset
             }.coerceAtLeast(0)
-            val totalChars = (txtStreamingDocument?.totalChars ?: plainContent.length).coerceAtLeast(1)
+            val totalChars = when {
+                markdownDocument != null -> markdownDocument.totalChars
+                txtStreamingDocument != null -> txtStreamingDocument!!.totalChars
+                else -> plainContent.length
+            }.coerceAtLeast(1)
             val percent = (absoluteOffset * 100f / totalChars).coerceIn(0f, 100f)
             onAction(
                 ReaderAction.SaveProgress(
@@ -1110,7 +1208,11 @@ fun ReaderScreen(
                         book_id = bid,
                         progress_percent = percent,
                         completion_state = if (percent >= 99.9f) "finished" else "reading",
-                        current_location_json = """{"offset":$absoluteOffset}""",
+                        current_location_json = if (markdownDocument != null) {
+                            """{"offset":$absoluteOffset,"space":"canonical"}"""
+                        } else {
+                            """{"offset":$absoluteOffset}"""
+                        },
                         updated_at = nowIso(),
                     )
                 )
@@ -1134,7 +1236,7 @@ fun ReaderScreen(
             else {
                 when {
                     pagerEngineOn -> pagedHardwareTurnRequest.value = -1
-                    epubBook != null -> goToChapter(chapterIndex - 1)
+                    epubBook != null || markdownDocument != null -> goToChapter(chapterIndex - 1)
                     else -> scope.launch {
                         val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * -1
                         plainListState.animateScrollBy(amount)
@@ -1149,7 +1251,7 @@ fun ReaderScreen(
             else {
                 when {
                     pagerEngineOn -> pagedHardwareTurnRequest.value = 1
-                    epubBook != null -> goToChapter(chapterIndex + 1)
+                    epubBook != null || markdownDocument != null -> goToChapter(chapterIndex + 1)
                     else -> scope.launch {
                         val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * 1
                         plainListState.animateScrollBy(amount)
@@ -1277,7 +1379,11 @@ fun ReaderScreen(
                         book_id = bid,
                         progress_percent = percent,
                         completion_state = if (percent >= 99.9f) "finished" else "reading",
-                        current_location_json = """{"offset":${offset.coerceAtLeast(0)}}""",
+                        current_location_json = if (markdownDocument != null) {
+                            """{"offset":${offset.coerceAtLeast(0)},"space":"canonical"}"""
+                        } else {
+                            """{"offset":${offset.coerceAtLeast(0)}}"""
+                        },
                         updated_at = nowIso(),
                     ),
                 ))
@@ -1302,7 +1408,11 @@ fun ReaderScreen(
                             book_id = bid,
                             progress_percent = pct,
                             completion_state = if (pct >= 99.9f) "finished" else "reading",
-                            current_location_json = """{"offset":${off.coerceAtLeast(0)}}""",
+                            current_location_json = if (markdownDocument != null) {
+                                """{"offset":${off.coerceAtLeast(0)},"space":"canonical"}"""
+                            } else {
+                                """{"offset":${off.coerceAtLeast(0)}}"""
+                            },
                             updated_at = nowIso(),
                         ),
                     ))
@@ -1717,17 +1827,26 @@ fun ReaderScreen(
                             pagedAbsOffset = off
                             pagedPercent = pct
                             pendingInitialPosition = false
-                            if (epubBook != null) {
-                                val ci = pagedSource.chapterIndexFor(off)
+                            if (epubBook != null || markdownDocument != null) {
+                                val ci = pagedSource?.chapterIndexFor(off) ?: chapterIndex
                                 if (ci != chapterIndex) goToChapter(ci)
                             }
                         },
                         onToggleControls = { controlsVisible = !controlsVisible },
                         store = pageIndexStore,
-                        contentKey = if (epubBook != null) bid else "$bid|toc=$txtTocRuleId",
+                        contentKey = when {
+                            epubBook != null -> bid
+                            markdownDocument != null -> "$bid|md"
+                            else -> "$bid|toc=$txtTocRuleId"
+                        },
                         ttsRangeAbs = if (showTts && tts.status != "idle") {
                             if (epubBook != null) {
                                 val base = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
+                                (base + tts.currentSentenceRange.first) to
+                                    (base + tts.currentSentenceRange.second)
+                            } else if (markdownDocument != null) {
+                                // Markdown：tts.currentSentenceRange 是章内规范文本偏移，转全书偏移
+                                val base = pagedSource?.chapterStartAbs(chapterIndex) ?: 0
                                 (base + tts.currentSentenceRange.first) to
                                     (base + tts.currentSentenceRange.second)
                             } else if (txtStreamingDocument != null) {
@@ -1817,7 +1936,7 @@ fun ReaderScreen(
                     } else {
                         LazyColumn(
                             state = epubListState,
-                            modifier = Modifier.fillMaxSize().padding(horizontal = readerSettings.pageMargin.dp, vertical = readerSettings.pageMargin.dp),
+                            modifier = Modifier.fillMaxSize().padding(horizontal = readerSettings.pageMargin.dp, vertical = readerSettings.pageMargin.dp).graphicsLayer { alpha = chapterFade.value },
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
                             itemsIndexed(chapterBlocks) { idx, block ->
@@ -1861,7 +1980,45 @@ fun ReaderScreen(
                                             contentScale = androidx.compose.ui.layout.ContentScale.FillWidth,
                                         )
                                     }
+
+                                    is DocBlock.Markdown -> {
+                                        // EPUB 路径不会出现 Markdown 块
+                                    }
                                 }
+                            }
+                        }
+                    }
+                }
+
+                markdownDocument != null -> {
+                    val markdownBlock = chapterBlocks.filterIsInstance<DocBlock.Markdown>().firstOrNull()
+                    if (isChapterLoading) {
+                        Box(
+                            Modifier
+                                .fillMaxSize()
+                                .semantics { contentDescription = "正在加载章节" },
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(color = paper.accent)
+                        }
+                    } else if (markdownBlock == null) {
+                        Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
+                            Text("本章暂无可读内容。", color = paperFg)
+                        }
+                    } else {
+                        LazyColumn(
+                            state = epubListState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(horizontal = readerSettings.pageMargin.dp, vertical = readerSettings.pageMargin.dp),
+                        ) {
+                            item {
+                                RenderMarkdownChapter(
+                                    chapter = markdownBlock.chapter,
+                                    fontSize = readerSettings.fontSize,
+                                    lineHeight = readerSettings.lineHeight,
+                                    paperFg = paperFg,
+                                )
                             }
                         }
                     }
@@ -1870,7 +2027,7 @@ fun ReaderScreen(
                 else -> {
                     LazyColumn(
                         state = plainListState,
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize().graphicsLayer { alpha = chapterFade.value },
                         contentPadding = androidx.compose.foundation.layout.PaddingValues(
                             horizontal = readerSettings.pageMargin.dp,
                             vertical = readerSettings.pageMargin.dp,
@@ -1958,8 +2115,12 @@ fun ReaderScreen(
                 )
             }
 
-            // 选中文字工具条（对照 web 选中工具栏）
-            if (selectedText.isNotBlank()) {
+            // 选中文字工具条（对照 web 选中工具栏）：带入场动效（尊重「减少动态效果」）
+            AnimatedVisibility(
+                visible = selectedText.isNotBlank(),
+                enter = if (reducedMotion) fadeIn(tween(120)) else (slideInVertically(initialOffsetY = { it / 3 }) + fadeIn(tween(160))),
+                exit = if (reducedMotion) fadeOut(tween(120)) else (slideOutVertically(targetOffsetY = { it / 3 }) + fadeOut(tween(120))),
+            ) {
                 SelectionToolbar(
                     paper = paper,
                     selectedText = selectedText,
@@ -2190,6 +2351,7 @@ fun ReaderScreen(
                         )
 
                         ReaderSheet.SETTINGS -> SettingsSheet(
+                            paper = paper,
                             fontSize = readerSettings.fontSize,
                             lineHeight = readerSettings.lineHeight,
                             background = readerSettings.background,

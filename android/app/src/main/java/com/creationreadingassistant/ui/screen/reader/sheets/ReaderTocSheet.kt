@@ -31,6 +31,13 @@ import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.core.tween
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -48,11 +55,21 @@ internal fun TocSheet(
 ) {
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     val groups = remember(titles) { groupChaptersByVolume(titles) }
+    val reducedMotion = rememberReducedMotion()
     Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
         Text("目录", style = MaterialTheme.typography.titleLarge.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold))
         if (titles.isEmpty()) {
             Text("这本书暂未识别到目录。", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outline)
         } else {
+            AnimatedVisibility(
+                visible = true,
+                enter = if (reducedMotion) {
+                    EnterTransition.None
+                } else {
+                    fadeIn(tween(durationMillis = 220)) + slideInVertically(initialOffsetY = { it / 10 })
+                },
+                exit = ExitTransition.None,
+            ) {
             LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(top = 8.dp)) {
                 // R5：最近浏览章节置顶
                 if (recent.isNotEmpty()) {
@@ -97,6 +114,7 @@ internal fun TocSheet(
                         }
                     }
                 }
+            }
             }
         }
         if (txtRules.isNotEmpty()) {

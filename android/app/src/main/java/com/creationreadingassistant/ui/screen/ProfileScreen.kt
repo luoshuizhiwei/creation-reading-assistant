@@ -96,6 +96,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -113,11 +114,15 @@ import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
 import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
-import com.creationreadingassistant.ui.viewmodel.StatsViewModel
 import com.creationreadingassistant.ui.viewmodel.SyncFailedItem
 import com.creationreadingassistant.ui.viewmodel.SyncResultDetail
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.components.*
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberCountUp
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -152,14 +157,12 @@ private const val MOBILE_RELEASE_API_URL = "https://api.github.com/repos/luoshui
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel = hiltViewModel(),
-    statsViewModel: StatsViewModel = hiltViewModel(),
     navController: NavHostController? = null,
 ) {
     val layout = LocalLayoutTokens.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
 
     val config by viewModel.config.collectAsStateWithLifecycle()
     val pairing by viewModel.pairing.collectAsStateWithLifecycle()
@@ -171,12 +174,18 @@ fun ProfileScreen(
     val webDavBackups by viewModel.webDavBackups.collectAsStateWithLifecycle()
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
-    val stats by statsViewModel.stats.collectAsStateWithLifecycle()
+    val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
-    val books = libraryState.books
 
     var currentSubPage by remember { mutableStateOf<ProfileSubPage?>(null) }
+    // 子页专用的完整档案数据：仅在进入某个子页后（currentSubPage != null）才订阅，
+    // 首页不物化任何书籍 / 进度 / 会话 / 笔记实体，也不触发子页查询。
+    val libraryState by produceState(initialValue = ProfileLibraryState(), currentSubPage) {
+        if (currentSubPage == null) return@produceState
+        viewModel.libraryState.collect { value = it }
+    }
+    val books = libraryState.books
     var moreExpanded by remember { mutableStateOf(false) }
     var confirmDialog by remember { mutableStateOf<ConfirmSpec?>(null) }
 
@@ -208,6 +217,7 @@ fun ProfileScreen(
 
     val webDavConfigured = !webDavConfig?.url.isNullOrBlank()
     val paired = config != null
+    val reducedMotion = rememberReducedMotion()
 
     Scaffold(
         topBar = {
@@ -278,6 +288,7 @@ fun ProfileScreen(
                 horizontal = layout.pageHorizontal,
                 vertical = layout.pageVertical,
             )
+            .animateEnter(reducedMotion = reducedMotion)
 
         when (val page = currentSubPage) {
             null -> ProfileHomeContent(
@@ -286,10 +297,11 @@ fun ProfileScreen(
                 webDavConfigured = webDavConfigured,
                 aiConfigured = ai.enabled && ai.apiKey.isNotBlank(),
                 appThemeLabel = themeLabel(appearance.themeMode),
-                totalDurationMs = stats?.totalDurationMs ?: 0L,
-                completedBookCount = stats?.completedBookCount ?: 0,
-                inspirationCount = stats?.inspirationCount ?: 0,
+                totalDurationMs = homeSummary.totalDurationMs,
+                completedBookCount = homeSummary.completedBookCount,
+                inspirationCount = homeSummary.inspirationCount,
                 onNavigate = { currentSubPage = it },
+                reducedMotion = reducedMotion,
                 onClearCache = {
                     confirmDialog = ConfirmSpec(
                         title = "清理缓存",
@@ -500,6 +512,7 @@ private fun ProfileHomeContent(
     inspirationCount: Int,
     onNavigate: (ProfileSubPage) -> Unit,
     onClearCache: () -> Unit,
+    reducedMotion: Boolean = false,
 ) {
     val layout = LocalLayoutTokens.current
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(layout.contentGap)) {
@@ -518,9 +531,9 @@ private fun ProfileHomeContent(
                     .padding(top = 12.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
             ) {
-                HomeStat("阅读时长", formatDuration(totalDurationMs))
-                HomeStat("累计读完", completedBookCount.toString())
-                HomeStat("灵感数量", inspirationCount.toString())
+                HomeStat("阅读时长", (totalDurationMs / 60000).toInt(), { formatDuration(it.toLong() * 60000) }, reducedMotion = reducedMotion)
+                HomeStat("累计读完", completedBookCount, reducedMotion = reducedMotion)
+                HomeStat("灵感数量", inspirationCount, reducedMotion = reducedMotion)
             }
         }
 
@@ -562,18 +575,19 @@ private fun ProfileHomeContent(
 }
 
 @Composable
-private fun HomeStat(label: String, value: String) {
+private fun HomeStat(label: String, value: Int, format: (Int) -> String = { "$it" }, reducedMotion: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(value, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(rememberCountUp(value, reducedMotion).let { format(it) }, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun RowScope.QuickTile(label: String, value: String, onClick: () -> Unit) {
+    val haptic = rememberHaptic(rememberReducedMotion())
     SectionCard(
         modifier = Modifier.weight(1f),
-        onClick = onClick,
+        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
     ) {
         Text(label, style = MaterialTheme.typography.titleSmall)
         Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
@@ -596,6 +610,7 @@ private fun ColumnScope.MenuItem(
     danger: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val haptic = rememberHaptic(rememberReducedMotion())
     SettingRow(
         title = label,
         subtitle = desc,
@@ -613,7 +628,7 @@ private fun ColumnScope.MenuItem(
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         },
-        onClick = onClick,
+        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
     )
 }
 

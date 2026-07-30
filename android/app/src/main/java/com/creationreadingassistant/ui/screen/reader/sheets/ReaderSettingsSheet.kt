@@ -20,6 +20,7 @@ import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -32,11 +33,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 
 @Composable
 @OptIn(ExperimentalLayoutApi::class)
 internal fun SettingsSheet(
+    paper: ReaderPaperPalette,
     fontSize: Float,
     lineHeight: Float,
     background: String,
@@ -103,6 +106,11 @@ internal fun SettingsSheet(
     onFooterLeft: (HeaderFooterItem) -> Unit = {},
     onFooterRight: (HeaderFooterItem) -> Unit = {},
 ) {
+    val sliderColors = SliderDefaults.colors(
+        thumbColor = paper.accent,
+        activeTrackColor = paper.accent,
+        inactiveTrackColor = paper.accent.copy(alpha = 0.32f),
+    )
     Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
         Text("阅读设置", style = MaterialTheme.typography.titleLarge)
 
@@ -168,6 +176,7 @@ internal fun SettingsSheet(
                 onValueChange = { onPageMargin(it) },
                 valueRange = 10f..42f,
                 steps = 32,
+                colors = sliderColors,
                 modifier = Modifier.weight(1f),
             )
             Text("${pageMargin.toInt()}", Modifier.padding(start = 8.dp))
@@ -180,6 +189,7 @@ internal fun SettingsSheet(
                 onValueChange = { onBrightness(it.toInt()) },
                 valueRange = 5f..100f,
                 steps = 18,
+                colors = sliderColors,
                 modifier = Modifier.weight(1f),
             )
             Text("${brightness}%", Modifier.padding(start = 8.dp))
@@ -192,16 +202,18 @@ internal fun SettingsSheet(
         Slider(
             value = eyeTemperature.toFloat(),
             onValueChange = { onEyeTemperature((it / 100).toInt() * 100) },
-            valueRange = 2600f..5500f,
-            steps = 28,
-        )
+                valueRange = 2600f..5500f,
+                steps = 28,
+                colors = sliderColors,
+            )
         Text("强度 ${eyeIntensity}%", style = MaterialTheme.typography.bodySmall)
         Slider(
             value = eyeIntensity.toFloat(),
             onValueChange = { onEyeIntensity(it.toInt()) },
-            valueRange = 0f..100f,
-            steps = 19,
-        )
+                valueRange = 0f..100f,
+                steps = 19,
+                colors = sliderColors,
+            )
 
         // R7：阅读内快捷开关（沉浸 / 安静信息 / 中文排版 / 常亮 / 进度条 / 自动隐藏）
         Text("阅读辅助", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
@@ -218,6 +230,7 @@ internal fun SettingsSheet(
                 onValueChange = { onAutoPageSpeed(it.toInt().coerceIn(1, 10)) },
                 valueRange = 1f..10f,
                 steps = 8,
+                colors = sliderColors,
                 modifier = Modifier.weight(1f),
             )
             Text("$autoPageSpeed", Modifier.padding(start = 8.dp))
@@ -268,6 +281,7 @@ internal fun SettingsSheet(
                 onValueChange = { onAutoHide(it.toInt()) },
                 valueRange = 0f..8f,
                 steps = 8,
+                colors = sliderColors,
                 modifier = Modifier.weight(1f),
             )
             Text("${autoHideSeconds}", Modifier.padding(start = 8.dp))
@@ -284,6 +298,7 @@ internal fun SettingsSheet(
                 onValueChange = { onEyeCareMin(it.toInt()) },
                 valueRange = 5f..60f,
                 steps = 55,
+                colors = sliderColors,
                 modifier = Modifier.weight(1f),
             )
         }
@@ -295,11 +310,12 @@ internal fun SettingsSheet(
         if (rhythmEnabled) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Slider(
-                    value = rhythmMin.toFloat(),
-                    onValueChange = { onRhythmMin(it.toInt()) },
-                    valueRange = 5f..60f,
-                    steps = 55,
-                    modifier = Modifier.weight(1f),
+                value = rhythmMin.toFloat(),
+                onValueChange = { onRhythmMin(it.toInt()) },
+                valueRange = 5f..60f,
+                steps = 55,
+                colors = sliderColors,
+                modifier = Modifier.weight(1f),
                 )
             }
         }

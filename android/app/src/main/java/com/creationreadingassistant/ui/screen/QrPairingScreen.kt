@@ -49,6 +49,10 @@ import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.creationreadingassistant.R
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -70,6 +74,8 @@ fun QrPairingScreen(
     var hasPermission by remember { mutableStateOf(false) }
     var showRationale by remember { mutableStateOf(false) }
     var scanned by remember { mutableStateOf(false) }
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
 
     val permissionLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
@@ -127,6 +133,7 @@ fun QrPairingScreen(
                                                     val raw = barcodes.firstOrNull()?.rawValue
                                                     if (!raw.isNullOrBlank()) {
                                                         scanned = true
+                                                        haptic(HapticFeedbackType.LongPress)
                                                         onScanned(raw)
                                                     }
                                                 }
@@ -150,11 +157,11 @@ fun QrPairingScreen(
                     },
                 )
                 // 取景框四角括号，对齐 web .qr-corners
-                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(Modifier.fillMaxSize().animateEnter(reducedMotion = reducedMotion), contentAlignment = Alignment.Center) {
                     QrCorners()
                 }
                 Column(
-                    modifier = Modifier.fillMaxSize().padding(24.dp),
+                    modifier = Modifier.fillMaxSize().padding(24.dp).animateEnter(reducedMotion = reducedMotion),
                     verticalArrangement = Arrangement.Bottom,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
@@ -171,7 +178,7 @@ fun QrPairingScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    SectionCard {
+                    SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                         Text("未获得相机权限，无法扫码。", style = MaterialTheme.typography.bodyLarge)
                         Button(onClick = { showRationale = true }, modifier = Modifier.padding(top = 12.dp)) {
                             Text("申请权限")

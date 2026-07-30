@@ -63,8 +63,11 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
+import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.creationreadingassistant.data.local.dao.StatsBookRow
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
@@ -186,7 +189,7 @@ fun StatsScreen(
         ) {
             // 2. 时间范围 tabs（对齐 web .stats-period-tabs 分段控件）
             item(key = "period-tabs") {
-                StatsPeriodTabs(period = period, onSelect = viewModel::selectPeriod)
+                StatsPeriodTabs(period = period, onSelect = viewModel::selectPeriod, reducedMotion = reducedMotion)
             }
 
             // 3. 周期标题行（上一周期 / 标题 / 下一周期）
@@ -214,18 +217,19 @@ fun StatsScreen(
             } else {
                 item(key = "summary") {
                 SummaryMetricGroup(
+                    reducedMotion = reducedMotion,
                     items = listOf(
-                        SummaryMetric(Icons.Filled.AccessTime, formatCompactDuration(ui.totalReadingMs), "阅读时长"),
-                        SummaryMetric(Icons.Filled.CalendarMonth, "${ui.readingDays} 天", "阅读天数"),
-                        SummaryMetric(Icons.Filled.Book, "${ui.readBooks} 本", "读过书籍"),
-                        SummaryMetric(Icons.Filled.CheckCircle, "${ui.completed} 本", "已读完"),
+                        SummaryMetric(Icons.Filled.AccessTime, (ui.totalReadingMs / 60000).toInt(), { formatCompactDuration(it.toLong() * 60000) }, "阅读时长"),
+                        SummaryMetric(Icons.Filled.CalendarMonth, ui.readingDays, { "$it 天" }, "阅读天数"),
+                        SummaryMetric(Icons.Filled.Book, ui.readBooks, { "$it 本" }, "读过书籍"),
+                        SummaryMetric(Icons.Filled.CheckCircle, ui.completed, { "$it 本" }, "已读完"),
                     ),
                 )
                 }
 
                 // 5. 连续阅读卡片
                 item(key = "streak") {
-                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionCard(modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
                     Row(
                         modifier = Modifier,
                         verticalAlignment = Alignment.CenterVertically,
@@ -259,7 +263,7 @@ fun StatsScreen(
 
                 // 6. 阅读趋势卡片
                 item(key = "trend") {
-                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionCard(modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
                     Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -280,7 +284,7 @@ fun StatsScreen(
 
                 // 7. 书籍状态卡片
                 item(key = "book-status") {
-                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionCard(modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
                     Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -322,7 +326,7 @@ fun StatsScreen(
 
                 // 8. 阅读与创作卡片
                 item(key = "creation") {
-                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionCard(modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
                     Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("阅读与创作", style = MaterialTheme.typography.titleMedium)
                         Row(
@@ -351,12 +355,7 @@ fun StatsScreen(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.LibraryBooks,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(32.dp),
-                        )
+                        LineArtBook(modifier = Modifier.size(48.dp))
                         Text("本期还没有阅读记录", style = MaterialTheme.typography.titleSmall)
                         Text(
                             "切换其他时间范围，或开始阅读以生成统计。",
@@ -375,7 +374,8 @@ fun StatsScreen(
 // ===================== UI 小组件 =====================
 
 @Composable
-private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit) {
+private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit, reducedMotion: Boolean = false) {
+    val haptic = rememberHaptic(reducedMotion)
     Surface(
         shape = LocalComponentSpec.current.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -387,7 +387,7 @@ private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit
             StatsPeriod.values().forEach { p ->
                 val active = period == p
                 Surface(
-                    onClick = { onSelect(p) },
+                    onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect(p) },
                     modifier = Modifier.weight(1f),
                     shape = LocalComponentSpec.current.listItemShape,
                     color = if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
@@ -409,12 +409,13 @@ private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit
 
 private data class SummaryMetric(
     val icon: ImageVector,
-    val value: String,
+    val value: Int,
+    val format: (Int) -> String,
     val label: String,
 )
 
 @Composable
-private fun SummaryMetricGroup(items: List<SummaryMetric>) {
+private fun SummaryMetricGroup(items: List<SummaryMetric>, reducedMotion: Boolean = false) {
     SectionCard(
         modifier = Modifier.fillMaxWidth(),
         contentPadding = 0.dp,
@@ -434,6 +435,7 @@ private fun SummaryMetricGroup(items: List<SummaryMetric>) {
                     SummaryMetricCell(
                         item = item,
                         modifier = Modifier.weight(1f),
+                        reducedMotion = reducedMotion,
                     )
                 }
             }
@@ -445,6 +447,7 @@ private fun SummaryMetricGroup(items: List<SummaryMetric>) {
 private fun SummaryMetricCell(
     item: SummaryMetric,
     modifier: Modifier = Modifier,
+    reducedMotion: Boolean = false,
 ) {
     val layout = LocalLayoutTokens.current
     Row(
@@ -456,8 +459,9 @@ private fun SummaryMetricCell(
     ) {
         Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         Column {
+            val display = rememberCountUp(item.value, reducedMotion)
             Text(
-                item.value,
+                item.format(display),
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
@@ -687,6 +691,13 @@ internal fun computeStats(
     inspirations: List<StatsCreatedRow>,
     notes: List<StatsCreatedRow>,
 ): StatsUi {
+    // 空数据早退：全部表为空时直接返回共享的 EMPTY_STATS 单例，
+    // 不构建趋势桶 / 进度映射等图表结构（此时 UI 展示全局空态，不渲染趋势图）。
+    if (sessions.isEmpty() && progress.isEmpty() && books.isEmpty() &&
+        inspirations.isEmpty() && notes.isEmpty()
+    ) {
+        return EMPTY_STATS
+    }
     val valid = sessions.filter { sessionDuration(it) > 0 }
     val (rs, re) = buildRange(period, anchor)
     val periodSessions = valid.filter { s ->

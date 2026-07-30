@@ -60,10 +60,16 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.viewmodel.SearchViewModel
 import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -78,6 +84,7 @@ fun SearchScreen(
     val history by viewModel.history.collectAsStateWithLifecycle()
     var tab by remember { mutableStateOf("all") }
     val focusRequester = remember { FocusRequester() }
+    val reducedMotion = rememberReducedMotion()
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
@@ -130,9 +137,7 @@ fun SearchScreen(
 
             when {
                 loading -> {
-                    Box(Modifier.fillMaxWidth().padding(layout.cardPadding), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
-                    }
+                    ListSkeleton(modifier = Modifier.fillMaxWidth().padding(layout.cardPadding), reducedMotion = reducedMotion)
                 }
                 query.isBlank() -> {
                     if (history.isNotEmpty()) {
@@ -173,7 +178,7 @@ fun SearchScreen(
                             }
                         }
                     } else {
-                        EmptyHint(icon = Icons.Filled.Search, text = "输入关键词开始搜索")
+                        EmptyHint(text = "输入关键词开始搜索")
                     }
                 }
                 totalHits == 0 -> {
@@ -193,6 +198,7 @@ fun SearchScreen(
                                     title = buildHighlighted(book.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "书籍",
                                     sourceLabel = null,
+                                    reducedMotion = reducedMotion,
                                     snippet = (book.author ?: "未知作者") + " · ${book.format.uppercase()}",
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -208,6 +214,7 @@ fun SearchScreen(
                                     title = buildHighlighted(insp.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "灵感",
                                     sourceLabel = null,
+                                    reducedMotion = reducedMotion,
                                     snippet = (insp.body.ifBlank { insp.title }).take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -224,6 +231,7 @@ fun SearchScreen(
                                     title = buildHighlighted(note.title.ifBlank { note.body }, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "笔记",
                                     sourceLabel = source,
+                                    reducedMotion = reducedMotion,
                                     snippet = (note.body.ifBlank { note.excerpt ?: "" }).take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -240,6 +248,7 @@ fun SearchScreen(
                                     title = buildHighlighted(hl.text.take(40), query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "高亮",
                                     sourceLabel = source,
+                                    reducedMotion = reducedMotion,
                                     snippet = (hl.note ?: "无备注").take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -256,23 +265,24 @@ fun SearchScreen(
 }
 
 @Composable
-private fun EmptyHint(icon: androidx.compose.ui.graphics.vector.ImageVector, text: String) {
+private fun EmptyHint(text: String) {
     Column(
         Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(48.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        LineArtBook(modifier = Modifier.size(64.dp))
         Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
 private fun SearchPill(selected: Boolean, label: String, onClick: () -> Unit) {
+    val haptic = rememberHaptic(rememberReducedMotion())
     SelectablePill(
         text = label,
         selected = selected,
-        onClick = onClick,
+        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
         unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     )
 }
@@ -285,10 +295,12 @@ private fun SearchResultRow(
     sourceLabel: String?,
     snippet: String,
     onClick: () -> Unit,
+    reducedMotion: Boolean = false,
 ) {
+    val haptic = rememberHaptic(rememberReducedMotion())
     SectionCard(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).animateEnter(reducedMotion = reducedMotion),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
