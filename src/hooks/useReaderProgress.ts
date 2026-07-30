@@ -4,26 +4,11 @@ import { saveProgress } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAppStore } from "@/stores/app-store";
 import type { ReadingLocation } from "@/types/library";
+import { computeScrollLocation } from "@/utils/reading-progress";
 
 export function buildScrollLocation(scroller: HTMLDivElement | null, book = useLibraryStore.getState().activeBook): ReadingLocation | undefined {
   if (!book || !scroller) return undefined;
-  const maxScroll = Math.max(1, scroller.scrollHeight - scroller.clientHeight);
-  const progressPercent = Math.min(1, Math.max(0, scroller.scrollTop / maxScroll));
-  return {
-    format: book.format,
-    mode: "scroll",
-    progressPercent,
-    precision: "estimated",
-    scroll: {
-      scrollTop: scroller.scrollTop,
-      scrollHeight: scroller.scrollHeight,
-      containerHeight: scroller.clientHeight
-    },
-    sourceVersion: {
-      fileSize: book.size
-    },
-    updatedAt: new Date().toISOString()
-  };
+  return computeScrollLocation(scroller, book);
 }
 
 export function useReaderProgress(scrollerRef: RefObject<HTMLDivElement>) {
