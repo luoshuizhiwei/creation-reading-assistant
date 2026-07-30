@@ -1,0 +1,161 @@
+classDiagram
+    %% ── 既有机制（复用，不改）──
+    class VisualStyle {
+        <<enum>>
+        DEFAULT
+        APPLE
+        WEB
+        INK_WASH
+        CYBERPUNK
+        MINIMAL
+        CLASSIC
+    }
+
+    class ComponentSpec {
+        +Dp cardRadius
+        +Dp sheetRadius
+        +Dp pillRadius
+        +Dp listItemRadius
+        +Shape cardShape
+        +Shape sheetShape
+        +Shape listItemShape
+        +Shape pillShape
+        +Boolean useSquircle
+        +Boolean glassBlur
+        +Float pressScale
+        +Float bounceStiffness
+        +Float bounceDamping
+        +Dp cardElevation
+        +Dp cardElevationAmbient
+        +Boolean glassEnabled
+        +Float glassTint
+        +Dp borderWidth
+        +Boolean borderSubtle
+        +Dp dividerThickness
+        +CardContainer cardContainer
+        +Dp contentPadding
+        +Dp sectionGap
+        +Dp listItemGap
+    }
+    note for ComponentSpec "4 新主题全部复用现有字段，data class 不加字段"
+
+    class CardContainer {
+        <<enum>>
+        Lowest
+        Low
+        Variant
+    }
+
+    class ThemeParams {
+        +ColorScheme colorScheme
+        +Typography typography
+        +Shapes shapes
+    }
+
+    class LiquidGlassPalette {
+        +GlassTokens light
+        +GlassTokens dark
+    }
+    class GlassTokens {
+        +Color highlightColor
+        +Color glassTintColor
+        +Float specularAlpha
+        +Dp blurRadius
+    }
+
+    %% ── 4 新主题 ComponentSpec 实例 ──
+    class InkWashComponentSpec
+    class CyberpunkComponentSpec
+    class MinimalComponentSpec
+    class ClassicComponentSpec
+
+    %% ── 4 新主题 Token 文件 ──
+    class InkThemeTokens {
+        +ColorScheme InkWashLightColorScheme
+        +ColorScheme InkWashDarkColorScheme
+        +Typography InkWashTypography
+        +Shapes InkWashShapes
+    }
+    class CyberpunkThemeTokens {
+        +ColorScheme CyberpunkDarkColorScheme
+        +Typography CyberpunkTypography
+        +Shapes CyberpunkShapes
+    }
+    class MinimalThemeTokens {
+        +ColorScheme MinimalLightColorScheme
+        +ColorScheme MinimalDarkColorScheme
+        +Typography MinimalTypography
+        +Shapes MinimalShapes
+    }
+    class ClassicThemeTokens {
+        +ColorScheme ClassicLightColorScheme
+        +ColorScheme ClassicDarkColorScheme
+        +Typography ClassicTypography
+        +Shapes ClassicShapes
+    }
+
+    class CyberpunkGlassPalette {
+        +LiquidGlassPalette INSTANCE
+    }
+
+    %% ── 自定义组件（仅观感超出 Token 能力）──
+    class BrushBorder {
+        +BrushBorderVariant variant
+        +Modifier modifier
+        +Color glowColor
+        +content() void
+    }
+    class BrushBorderVariant {
+        <<enum>>
+        Ink
+        Neon
+    }
+    class InkDropIndication {
+        <<Indication>>
+        +rememberUpdatedInstance() IndicationInstance
+    }
+    class ScanLineOverlay {
+        +Boolean active
+        +Modifier modifier
+    }
+    class SealButton {
+        +String text
+        +onClick() void
+        +SealVariant variant
+    }
+    class SealVariant {
+        <<enum>>
+        Red
+        Gold
+    }
+    class ClassicVerticalDivider {
+        +Dp thickness
+    }
+    class BambooDivider {
+        +Dp thickness
+    }
+    class PageFlipTransition {
+        +Boolean flipped
+        +content() void
+    }
+    class AgedPaperOverlay {
+        +Float intensity
+    }
+
+    %% ── 关系 ──
+    VisualStyle "1" --> "1" ComponentSpec : componentSpecForStyle()
+    VisualStyle "1" --> "1" ThemeParams : resolveThemeParams()
+    InkWashComponentSpec --|> ComponentSpec
+    CyberpunkComponentSpec --|> ComponentSpec
+    MinimalComponentSpec --|> ComponentSpec
+    ClassicComponentSpec --|> ComponentSpec
+    LiquidGlassPalette *-- "2" GlassTokens
+    CyberpunkGlassPalette ..> LiquidGlassPalette : 霓虹色实例化
+    InkThemeTokens ..> VisualStyle : INK_WASH
+    CyberpunkThemeTokens ..> VisualStyle : CYBERPUNK
+    MinimalThemeTokens ..> VisualStyle : MINIMAL
+    ClassicThemeTokens ..> VisualStyle : CLASSIC
+    ComponentSpec ..> CardContainer : cardContainer.resolve()
+    BrushBorder ..> BrushBorderVariant : variant
+    SealButton ..> SealVariant : variant
+    CyberpunkGlassPalette ..> GlassSurface : 经 LocalGlassPalette 驱动外发光

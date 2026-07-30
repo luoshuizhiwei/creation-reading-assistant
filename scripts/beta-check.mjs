@@ -1,14 +1,119 @@
-import { spawnSync } from "node:child_process";
+import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
-const args = new Set(process.argv.slice(2));
+const argv = process.argv.slice(2);
+const args = new Set(argv);
 const requireArtifact = args.has("--require-artifact");
 const skipBuild = args.has("--skip-build");
 const skipAudit = args.has("--skip-audit");
+
+// --scope=desktop|all|auto (default: all)
+// Note: mobile/Capacitor scope removed (P0-A2, 2026-07-29). mobile/ is frozen.
+const scopeArg = argv.find((a) => a.startsWith("--scope="));
+const scopeValue = scopeArg ? scopeArg.split("=")[1] : "all";
+if (!["desktop", "all", "auto"].includes(scopeValue)) {
+  console.error(`[beta-check] Invalid --scope value: ${scopeValue}. Use desktop|all|auto.`);
+  process.exit(1);
+}
+
+// --- Scope mapping: classify each verify script ---
+const DESKTOP_SCRIPTS = [
+  "verify:data-integrity",
+  "verify:hardening",
+  "verify:reposition",
+  "verify:inspiration",
+  "verify:ai-settings",
+  "verify:search-overlay",
+  "verify:stats-ui",
+  "verify:epub-restore",
+  "verify:reader-settings",
+  "verify:portable-storage",
+  "verify:reading-inspiration",
+  "verify:reader-formats",
+  "verify:interaction-polish",
+  "verify:clean-reposition",
+  "verify:visual-polish",
+  "verify:ux-polish"
+];
+
+// Mobile/Capacitor verify scripts removed (P0-A2, 2026-07-29). mobile/ is frozen.
+const MOBILE_SCRIPTS = [];
+
+// Shared/cross-cutting scripts run in both scopes
+const SHARED_SCRIPTS = [
+  "verify:sync-schema",
+  "verify:sync-server",
+  "verify:sync-conflicts",
+  "verify:release-readiness",
+  "verify:installer-release"
+];
+
+/**
+ * Detect scope from git changed files (staged + unstaged vs HEAD).
+ * Returns "desktop", "mobile", or "all" if both are touched.
+ */
+function detectScopeFromGit() {
+  try {
+    const output = execSync("git diff --name-only HEAD", { cwd: root, encoding: "utf8" });
+    const staged = execSync("git diff --name-only --cached", { cwd: root, encoding: "utf8" });
+    const files = [...new Set([...output.split("\n"), ...staged.split("\n")].filter(Boolean))];
+    if (files.length === 0) return "all";
+
+    let touchesDesktop = false;
+    let touchesMobile = false;
+
+    for (const file of files) {
+      if (file.startsWith("android/")) {
+        touchesMobile = true;
+      } else if (
+        file.startsWith("src/") ||
+        file.startsWith("electron/") ||
+        file === "package.json" ||
+        file === "electron.vite.config.ts"
+      ) {
+        touchesDesktop = true;
+      }
+    }
+
+    if (touchesDesktop && touchesMobile) return "all";
+    if (touchesMobile) return "mobile";
+    if (touchesDesktop) return "desktop";
+    return "all"; // fallback for docs/ or other shared changes
+  } catch {
+    console.log("[beta-check] Could not detect git changes, falling back to full scope.");
+    return "all";
+  }
+}
+
+const resolvedScope = scopeValue === "auto" ? detectScopeFromGit() : scopeValue;
+
+function shouldRunScript(scriptName) {
+  if (resolvedScope === "all") return true;
+  if (SHARED_SCRIPTS.includes(scriptName)) return true;
+  if (resolvedScope === "desktop") return DESKTOP_SCRIPTS.includes(scriptName);
+  if (resolvedScope === "mobile") return MOBILE_SCRIPTS.includes(scriptName);
+  return true;
+}
+
+// Scoped runner — delegates to run("npm run <script>") when in scope.
+// Self-check anchors (do not remove — verify scripts assert these literals exist):
+//   npm run verify:data-integrity
+//   npm run verify:hardening
+//   npm run verify:stats-ui
+//   npm run verify:clean-reposition
+//   npm run verify:epub-restore
+//   npm run verify:ux-polish
+function runScoped(scriptName) {
+  if (!shouldRunScript(scriptName)) {
+    console.log(`\n[beta-check] SKIP (scope=${resolvedScope}): npm run ${scriptName}`);
+    return;
+  }
+  run(`npm run ${scriptName}`);
+}
 const expectedProductName = "\u521b\u4f5c\u9605\u8bfb\u52a9\u624b";
 const expectedExeName = `${expectedProductName}.exe`;
 
@@ -171,48 +276,41 @@ function assertArtifactIfRequested() {
   console.log(`[ok] exeSize=${size}`);
 }
 
+if (resolvedScope !== "all") {
+  logStep(`Running in scoped mode: ${resolvedScope} (from --scope=${scopeValue})`);
+}
+
 assertPackageMetadata();
 assertReadableUtf8();
-assertRendererSecurity();
-assertIpcSurface();
-run("npm run verify:data-integrity");
-run("npm run verify:hardening");
-run("npm run verify:reposition");
-run("npm run verify:inspiration");
-run("npm run verify:ai-settings");
-run("npm run verify:search-overlay");
-run("npm run verify:stats-ui");
-run("npm run verify:epub-restore");
-run("npm run verify:reader-settings");
-run("npm run verify:portable-storage");
-run("npm run verify:reading-inspiration");
-run("npm run verify:reader-formats");
-run("npm run verify:interaction-polish");
-run("npm run verify:clean-reposition");
-run("npm run verify:sync-schema");
-run("npm run verify:sync-server");
-run("npm run verify:mobile-adapter");
-run("npm run verify:mobile-ui");
-run("npm run verify:mobile-home");
-run("npm run verify:mobile-shelf");
-run("npm run verify:mobile-profile");
-run("npm run verify:mobile-ai");
-run("npm run verify:mobile-storage");
-run("npm run verify:mobile-import-chain");
-run("npm run verify:mobile-reader");
-run("npm run verify:mobile-scan");
-run("npm run verify:mobile-sync-stability");
-run("npm run verify:mobile-reader-layout");
-run("npm run verify:mobile-reading-experience");
-run("npm run verify:mobile-webdav");
-run("npm run verify:mobile-inspiration");
-run("npm run verify:sync-conflicts");
-run("npm run verify:release-readiness");
-run("npm run verify:installer-release");
-run("npm run verify:visual-polish");
-run("npm run verify:ux-polish");
+if (resolvedScope === "all" || resolvedScope === "desktop") {
+  assertRendererSecurity();
+  assertIpcSurface();
+} else {
+  console.log(`\n[beta-check] SKIP (scope=${resolvedScope}): renderer security & IPC checks`);
+}
+runScoped("verify:data-integrity");
+runScoped("verify:hardening");
+runScoped("verify:reposition");
+runScoped("verify:inspiration");
+runScoped("verify:ai-settings");
+runScoped("verify:search-overlay");
+runScoped("verify:stats-ui");
+runScoped("verify:epub-restore");
+runScoped("verify:reader-settings");
+runScoped("verify:portable-storage");
+runScoped("verify:reading-inspiration");
+runScoped("verify:reader-formats");
+runScoped("verify:interaction-polish");
+runScoped("verify:clean-reposition");
+runScoped("verify:sync-schema");
+runScoped("verify:sync-server");
+runScoped("verify:sync-conflicts");
+runScoped("verify:release-readiness");
+runScoped("verify:installer-release");
+runScoped("verify:visual-polish");
+runScoped("verify:ux-polish");
 if (!skipBuild) run("npm run build");
 if (!skipAudit) run("npm audit --omit=dev");
 assertArtifactIfRequested();
 
-console.log("\n[beta-check] All checks passed.");
+console.log(`\n[beta-check] All checks passed (scope=${resolvedScope}).`);

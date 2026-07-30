@@ -1,0 +1,72 @@
+name: CI 质量关卡
+
+on:
+  push:
+    branches: ["**"]
+    tags-ignore: ["v*"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    name: 桌面端类型检查与测试
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 设置 Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: 安装依赖
+        run: npm ci
+
+      - name: 桌面端类型检查
+        run: |
+          npx tsc --noEmit -p tsconfig.main.json
+          npx tsc --noEmit -p tsconfig.renderer.json
+          npx tsc --noEmit -p tsconfig.node.json
+
+      - name: 桌面端单元测试
+        run: npm test
+
+      - name: 桌面端生产构建
+        run: npm run build
+
+      - name: 运行关键 verify 脚本
+        run: |
+          node scripts/verify-data-integrity.mjs
+          node scripts/verify-sync-schema.mjs
+
+  android-native:
+    name: Android Native (Build + Test + Lint)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      - name: Unit Tests
+        run: ./gradlew :app:testDebugUnitTest
+      - name: Lint Check
+        run: ./gradlew :app:lintDebug
+      - name: Build Debug APK
+        run: ./gradlew :app:assembleDebug
+      - name: Compile Instrumented Tests
+        run: ./gradlew :app:compileDebugAndroidTestKotlin
+        # Note: Running instrumented tests requires a device/emulator.
+        # Migration tests should be run locally on a connected device.

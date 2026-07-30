@@ -1,5 +1,8 @@
 # Beta Readiness Checklist
 
+> **历史快照**：本文件记录 2026-06-30 的桌面端/Capacitor v0.1.2 Beta 验收，
+> 不代表当前独立原生 `android/` 的发布状态。当前文档入口见 `docs/README.md`。
+
 Test date: 2026-06-30
 Version: 0.1.2
 Expected artifact: `release-beta/win-unpacked/创作阅读助手.exe`

@@ -1,72 +1,56 @@
 # 创作阅读助手
 
-创作阅读助手是一款本地优先的桌面应用，定位为“灵感中心 + 本地书库 + 阅读统计 + AI 润色辅助”。它不再把重点放在应用内写完整小说正文，而是帮助你记录灵感、从阅读中沉淀素材，并把灵感交给 AI 做润色、扩写或平台风格化。
+创作阅读助手是一套本地优先的“阅读 + 灵感沉淀 + AI 辅助”应用。仓库同时保留桌面端和两条 Android 实现，但当前移动端主线是独立原生应用 `android/`。
 
-## 主要功能
+## 产品线
 
-- 灵感中心：记录想法、标签、状态、来源摘录和 AI 候选版本。
-- 本地书库：导入 TXT、Markdown、EPUB，保留阅读进度和阅读时长。
-- 阅读到灵感：阅读时可把当前书籍、章节、位置和选中文字记录为结构化来源。
-- AI 辅助：支持 OpenAI-compatible Base URL、API Key 和模型配置，AI 结果默认保存为候选版本，不覆盖原文。
-- 手机同步：Android 手机端可通过局域网与电脑端同步灵感、书库、阅读进度和阅读统计。
+| 产品线 | 目录 | 当前定位 |
+|---|---|---|
+| Electron 桌面端 | `src/`、`electron/` | 桌面书库、灵感、AI 与局域网同步端 |
+| 独立原生 Android | `android/` | **当前移动端主线**，Kotlin + Jetpack Compose + Room |
+| Capacitor Android | `mobile/` | 历史实现/对照代码，不是当前原生端的运行时依赖 |
 
-## 下载
+深入的目录边界和命令见 [AGENTS.md](AGENTS.md)，文档状态见 [docs/README.md](docs/README.md)。
 
-每次正式版本会发布到 GitHub Releases：
+## 主要能力
 
-[GitHub Releases](https://github.com/luoshuizhiwei/creation-reading-assistant/releases)
-
-Release 页面会提供：
-
-- `creation-reading-assistant-windows-win-unpacked.zip`：Windows 电脑端免安装包。
-- `creation-reading-assistant-mobile-debug.apk`：Android 手机端测试 APK。
-- `SHA256SUMS.txt`：下载文件校验值。
+- 本地导入 TXT、Markdown、EPUB。
+- 原生中文分页、滚动阅读、目录、搜索、进度恢复、书签、笔记、高亮和阅读灵感。
+- 系统 TTS、阅读统计、主题与阅读纸张设置。
+- 用户自配 OpenAI-compatible 接口；密钥只保存在本机安全存储。
+- 与桌面端局域网同步，以及 WebDAV 备份。
 
 ## 本地开发
 
-安装依赖：
+桌面端：
 
 ```powershell
 npm install
-npm install --prefix mobile
-```
-
-运行验证：
-
-```powershell
+npm test
 npm run build
-npm run verify:beta
 ```
 
-本地打包电脑端：
+当前原生 Android：
 
 ```powershell
-npm run dist:beta:offline
-```
-
-本地打包 Android APK：
-
-```powershell
-npm run mobile:build
-Set-Location mobile
-npx cap sync android
 Set-Location android
-.\gradlew.bat assembleDebug
+.\gradlew.bat :app:testDebugUnitTest
+.\gradlew.bat :app:lintDebug
+.\gradlew.bat :app:assembleDebug
 ```
 
-## 发布规则
+需要 UI 或设备行为验证时，只使用已连接的真实 Android 手机；先用 `adb devices` 确认设备，再用 `adb -s <serial>` 明确指定目标。不要使用 MuMu 模拟器。长时间测试临时修改常亮设置后，必须恢复设备原值。
 
-以后每次大的修改都要：
+Capacitor 历史实现（`mobile/`）已于 2026-07-29 正式冻结，不再作为可构建或可发布的当前产品。它的构建命令不再列在本文档中；如需了解历史实现或许可证追踪，见 [`mobile/FROZEN.md`](mobile/FROZEN.md)。原生 Android Release 的正式发布迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
 
-1. 更新 `CHANGELOG.md`。
-2. 运行验证命令。
-3. 提交并推送到 GitHub。
-4. 如需提供下载包，创建 `v*` 标签触发 GitHub Actions。
+## 当前交付状态
 
-详细流程见：[GitHub 发布流程](docs/GITHUB_RELEASE_PROCESS.md)。
+- 原生 Android 的 JVM 单元测试、Lint 和 Debug APK 已有构建入口。
+- Room 迁移测试位于 `android/app/src/androidTest/`，需要在真实设备上执行。
+- `.github/workflows/release.yml` 已在 P0-A2 退役旧 `mobile/android` APK 的构建与上传，当前只构建桌面端（Windows 安装版 + 免安装版）。原生 `android/` Release 迁移属于后续 P0-A3，完成前不发布 Android APK。
 
-## 安全说明
+## 安全与数据
 
-- 不要提交 API Key、账号凭证或本地私密数据。
-- AI Key 只应保存在 Electron 主进程安全存储中。
-- 当前 Android APK 是测试用 debug 包；正式公开分发前应增加签名 release APK。
+- 不提交 API Key、账号凭证、真实书籍内容或本地私密数据。
+- 测试报告和截图说明只使用“测试 EPUB”“测试 TXT”等中性名称，不记录真实测试书名。
+- 不使用破坏性数据库迁移；导入、同步、恢复和升级都必须保留用户已有数据。

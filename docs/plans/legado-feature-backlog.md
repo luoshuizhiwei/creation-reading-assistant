@@ -33,7 +33,7 @@
 | 同步 | 局域网配对同步（QR 配对）、WebDAV 备份 |
 | AI | 自配接口的 AI 助手（解释选段等），Key 加密存储 |
 
-**已排定、优先于本清单一切项的主线**：`android/READER_KERNEL_SIDECAR_ZH.md` 的
+**已排定、优先于本清单一切项的主线**：`docs/architecture/native-android-reader.md` 的
 P3 收尾（双把手拖拽选区）→ P4（EPUB 分页 + 翻页动效）→ P5（locator 与进度）→
 P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是「真正的左右翻页」，
 是第一优先级的阅读体验，**不要被下面任何 backlog 项打断**。

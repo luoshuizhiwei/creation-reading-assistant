@@ -14,9 +14,6 @@ tmp-reader-fixtures/
 skills-lock.json
 creation-reading-assistant-mobile-ui/
 mobile-screenshots/
-mobile/android-screenshots/
-mobile/screenshots/
-mobile/creation-reading-assistant-v*.apk
 tmp-device-*
 *.zip
 *.7z
@@ -32,6 +29,9 @@ Thumbs.db
 # 本地运行数据与人工验收产物
 /data/
 /artifacts/
+/android/cra_db_main.db
+/android/results/
+/archives/frozen-mobile/legado-reader-core/build/
 /android/build_log*.txt
 /android/screen_*.png
 /android/ui*.xml

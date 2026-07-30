@@ -20,7 +20,7 @@
 
 **所有改动都落在 `android/`。**
 
-- `mobile/` 是 Capacitor 网页版，只作参考，**不要改**
+- 旧 `mobile/` Capacitor 网页版已于 2026-07-30 删除，历史许可证与上游存档见 `archives/frozen-mobile/`；所有新改动都落在 `android/`。
 - 历史教训：提交 `fa30a7c` 撤销过一次 UI 美化，原因就是改错了端
 
 ## 不要逐段汇报
@@ -33,7 +33,7 @@
 
 - 结论先说，用大白话。技术细节写进项目文档，对话里只留用户需要知道的
 - 需要决策时，把选项翻译成后果，不要让用户在技术方案之间选
-- 完整协作偏好见记忆库 `D:\Application\文档\Obsidian\Claude-Code\agent\用户偏好.md`
+- 完整协作约束见本仓库 `AGENTS.md` 与 `D:\Application\文档\Obsidian\Codex\AGENTS.md`
 
 ## 环境陷阱
 
@@ -51,16 +51,19 @@
 
 ## 已定的技术决策（勿反复推翻）
 
-**阅读器内核自研，不引第三方。** 方案见 `android/READER_KERNEL_SIDECAR_ZH.md`，
-选型对比见 `android/READER_KERNEL_PLAN.md`。
+**阅读器内核自研，不引第三方。** 当前架构见
+`docs/architecture/native-android-reader.md`；后续功能候选见
+`docs/plans/legado-feature-backlog.md`。
 
 - Readium：分页锁在 WebView 里，与纯原生冲突
-- `mobile/android/legado-reader-core`：其 `ZhLayout` 在仓库里是死代码，接进来拿不到中文排版
+- `archives/frozen-mobile/legado-reader-core`：其 `ZhLayout` 在仓库里是死代码，接进来拿不到中文排版
 - **许可证不再是约束**：用户确认本应用仅自用、不外传，GPL 义务只在分发时触发。
   因此可以直接参考并改写上游 legado 的算法，不必"只读规格从零重写"。
   （若将来要分发，需补回来源说明与 GPL 材料。）
 
 ## 验证方式
 
-用户已授权 adb 连接手机（小米 22081212C / Android 15）、安装 debug 包、截图。
-**UI 改动必须真机截图确认**，多次证明读代码看不出问题。
+用户已授权 adb 连接真实手机、安装 debug 包和截图。
+**UI 改动必须真机截图确认**，多次证明读代码看不出问题。禁止使用 MuMu
+模拟器；执行前用 `adb devices` 核对当前设备，并用 `adb -s <serial>` 明确指定。
+长测试若临时开启 `stay_on_while_plugged_in`，结束时必须恢复原值。

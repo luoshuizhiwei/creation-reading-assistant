@@ -1,8 +1,9 @@
 # P4 实施方案：EPUB 接入自研翻页引擎 + 翻页动画
 
 > 日期：2026-07-27
-> 上位文档：[android/READER_KERNEL_SIDECAR_ZH.md](../../android/READER_KERNEL_SIDECAR_ZH.md) §6「P4 · EPUB + 翻页动效」。
-> 本文的 P4 指 SIDECAR-ZH 的阶段编号。**不要**与 `android/P4_DESIGN.md`（旧一代编号，内容是统计/TTS/批注/WebDAV）混淆。
+> 上位架构现已收口到
+> [`docs/architecture/native-android-reader.md`](../architecture/native-android-reader.md)。
+> 本文是已完成的 EPUB 分页阶段实施记录，不再作为新任务入口。
 > 产出方式：4 路并行只读调研（TTS/locator 语义、排版内核扩展缝、设置与 UI 接线面、工作区动态）→ 起草 → 1 轮对抗性复核修订。
 > 所有 file:line 以 2026-07-27 提交 `ddc1fb0` 后的工作区为准；android/ 侧有并行会话活跃，动手前先 `git pull --rebase` 并复核关键行号。
 

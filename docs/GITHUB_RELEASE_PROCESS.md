@@ -1,5 +1,13 @@
 # GitHub 发布流程
 
+> **状态（2026-07-29，P0-A2）**：旧 `mobile/android` Capacitor APK 的构建与上传已在
+> `.github/workflows/release.yml` 中退役。当前 Release 工作流只构建桌面端
+> （Windows 安装版 + 免安装版）。原生 `android/` Release 迁移属于后续
+> **P0-A3**（见 `docs/testing/native-android-gap-audit-2026-07-29.md`），完成前不发布 Android APK。
+>
+> 下文中涉及旧 Capacitor Android 构建与签名的内容保留为**历史快照**，仅供
+> P0-A3 迁移参考，不能作为当前操作指南。
+
 本项目采用“私有源码仓库 + 公开下载仓库”的分发结构：
 
 - 私有源码：`luoshuizhiwei/creation-reading-assistant`
@@ -27,15 +35,14 @@ $env:CRA_ANDROID_KEY_PASSWORD = "<本机私钥密码>"
 
 当前 `0.1.x` 公开发行包使用旧兼容签名。为了覆盖安装并保留用户数据，`0.2.0` 不能直接更换证书。若以后迁移到新的安全密钥，必须先验证 Android APK Signature Scheme v3/v3.1 的签名轮换和目标系统兼容性。
 
-## 每次大修改
+## 每次大修改（当前：桌面端）
 
-1. 更新 `CHANGELOG.md` 的“未发布”区域。
-2. 同步根目录与 `mobile/package.json` 的版本号，并递增 Android `versionCode`。
+1. 更新 `CHANGELOG.md` 的"未发布"区域。
+2. 递增根目录 `package.json` 的版本号。
 3. 运行门禁：
 
 ```powershell
 npm run build
-npm run mobile:build
 npm run verify:beta
 npm run verify:release-readiness
 ```
@@ -49,7 +56,10 @@ git commit -m "feat: 简短说明本次大改"
 git push origin main
 ```
 
-## 本地生成 Android 正式包
+## 本地生成 Android 正式包（历史 — P0-A3 待恢复）
+
+> 以下内容描述旧 `mobile/android` Capacitor 构建流程，保留为 P0-A3 迁移参考。
+> 当前 `mobile/` 已冻结（见 [`mobile/FROZEN.md`](../mobile/FROZEN.md)），这些命令不可用。
 
 ```powershell
 npm run mobile:build
@@ -61,7 +71,9 @@ Pop-Location
 
 必须使用 `apksigner verify --print-certs` 验证 Release APK，且证书摘要要与目标升级链兼容。未签名的 `app-release-unsigned.apk` 不能发布。
 
-## Android GPL 对应源码
+## Android GPL 对应源码（历史 — P0-A3 待恢复）
+
+> 以下清单描述旧 `mobile/android` 发布产物要求，保留为 P0-A3 迁移参考。
 
 公开 Release 至少包含：
 
@@ -76,7 +88,9 @@ Pop-Location
 
 源码归档必须包含构建该 APK 所需的 `mobile/`、固定上游信息、补丁记录和相关验证脚本。由于主源码仓库是私有仓库，不能依赖 GitHub 自动生成的 Source code 压缩包履行 Android GPL 源码提供义务。
 
-## 公开更新清单
+## 公开更新清单（历史 — P0-A3 待恢复）
+
+> 以下描述旧 `mobile/android` 更新清单机制，保留为 P0-A3 迁移参考。
 
 `mobile-update.json` 和公开仓库根目录的 `latest-mobile.json` 使用相同内容：
 
@@ -92,7 +106,9 @@ Pop-Location
 
 发版后必须更新公开仓库 `main` 分支中的 `latest-mobile.json`，否则应用内更新仍会指向旧版本。
 
-## GitHub Actions Secrets
+## GitHub Actions Secrets（当前：桌面端 + 历史 Android）
+
+> Android 签名 Secret 保留为 P0-A3 迁移参考；当前桌面端 Release 只需要 `PUBLIC_RELEASE_TOKEN`。
 
 若使用 `.github/workflows/release.yml` 自动构建，需要在私有源码仓库配置：
 

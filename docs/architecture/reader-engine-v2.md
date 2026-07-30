@@ -1,5 +1,9 @@
 # Reader Engine V2 架构决策
 
+> **历史快照（mobile/Capacitor，非当前 android/ 架构）**：本文记录 2026-07-16 的
+> React/epub.js 迁移方案。当前独立原生 Android 以
+> [`native-android-reader.md`](native-android-reader.md) 为准。
+
 状态：开发中，Legacy 仍为默认
 
 日期：2026-07-16
@@ -158,4 +162,3 @@ type ReaderEngineVersion = "legacy" | "v2" | "auto";
 - Android 12 与 Android 13+、360/390/412～430 CSS px 验证通过；
 - APK 可安装启动；
 - 许可证和 notices 完成。
-

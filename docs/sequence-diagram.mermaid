@@ -1,0 +1,44 @@
+sequenceDiagram
+    autonumber
+    actor User
+    participant TSB as ThemeSwitchButton
+    participant VSS as LocalVisualStyleState
+    participant VSP as VisualStyleProvider
+    participant RP as resolveThemeParams
+    participant CS as componentSpecForStyle
+    participant GP as LocalGlassPalette
+    participant MT as MaterialTheme
+    participant SC as SharedComponents (SectionCard等)
+    participant CC as CustomComponents (BrushBorder/SealButton...)
+
+    User->>TSB: 点击切换，选 INK_WASH
+    TSB->>VSS: onStyleChange(INK_WASH)
+    Note over VSS: visualStyleState.value = INK_WASH
+    VSS-->>VSP: 触发重组（快照系统）
+    VSP->>RP: resolveThemeParams(INK_WASH, isSystemInDarkTheme())
+    RP-->>VSP: ThemeParams(InkWashDarkColorScheme, InkWashTypography, InkWashShapes)
+    VSP->>CS: componentSpecForStyle(INK_WASH)
+    CS-->>VSP: InkWashComponentSpec
+    VSP->>GP: INK_WASH != CYBERPUNK → null
+    VSP->>MT: MaterialTheme(colorScheme / typography / shapes)
+    MT-->>SC: 子树重组
+    SC->>SC: 读 LocalComponentSpec.current
+    Note over SC: cardShape / borderWidth / dividerThickness<br/>自动适配，零改共享组件
+
+    alt 主题含自定义观感（国风/水墨/赛博）
+        SC->>CC: 在对应位置包裹自定义组件
+        CC->>CC: 读 LocalVisualStyle 分支（SealButton / BrushBorder / ScanLine）
+        CC->>CC: 读 LocalComponentSpec 取圆角/描边（禁硬编码）
+    end
+
+    Note over User: 4 套主题可切换<br/>辨识度靠配色 / 圆角 / 描边 / 字体
+
+    rect rgb(235,245,255)
+    note over User,GP: 赛博朋克专属路径
+    User->>TSB: 选 CYBERPUNK
+    TSB->>VSS: onStyleChange(CYBERPUNK)
+    VSP->>RP: darkTheme 真/假均返 CyberpunkDarkColorScheme
+    VSP->>GP: CYBERPUNK → CyberpunkGlassPalette（霓虹色）
+    GP-->>SC: GlassSurface 读 palette + glassEnabled=true
+    SC->>SC: 绘制既有 rim / sheen / specular 外发光叠加层
+    end
