@@ -683,7 +683,7 @@ private fun InspirationRecordCard(
     val tags = viewModel.tagsOf(item)
     // 对齐 web .inspiration-record：扁平 + 1px 发丝线、圆角来自 spec、无投影
     SectionCard(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = rememberReducedMotion()),
         onClick = onOpen,
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {

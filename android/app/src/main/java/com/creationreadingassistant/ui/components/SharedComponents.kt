@@ -30,9 +30,12 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.theme.CardContainer
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.bounceable
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.resolve
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 
@@ -163,9 +166,10 @@ fun SelectablePill(
         BorderStroke(spec.borderWidth, scheme.outlineVariant)
     }
     val interactionSource = remember { MutableInteractionSource() }
+    val haptic = rememberHaptic(rememberReducedMotion())
 
     Surface(
-        onClick = onClick,
+        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
         interactionSource = interactionSource,
         shape = spec.pillShape,
         color = container,

@@ -96,7 +96,9 @@ import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -119,6 +121,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -560,6 +563,19 @@ fun ShelfScreen(
                     }
                 }
                 CompositionLocalProvider(LocalViewConfiguration provides longPressConfig) {
+                // 稳定事件回调：避免 ShelfScreen 因搜索/弹层等状态变化重组时，BookGrid 子项被误判为需要重组。
+                val onOpenBook: (BookEntity) -> Unit by rememberUpdatedState {
+                    val book = it
+                    if (book.readiness().tone == ReadinessTone.READY) {
+                        navController.navigate("reader/${book.id}")
+                    } else {
+                        showMessage("《${book.title}》暂无可离线正文，请先导入或下载。")
+                    }
+                }
+                val onToggleActions: (String) -> Unit by rememberUpdatedState { id ->
+                    actionBookId = if (actionBookId == id) null else id
+                }
+                val onToggleSelected: (String) -> Unit by rememberUpdatedState { toggleSelected(it) }
                 BookGrid(
                     books = filtered,
                     progressById = progressById,
@@ -568,15 +584,9 @@ fun ShelfScreen(
                     selectedIds = selectedIds,
                     actionBookId = actionBookId,
                     downloadingIds = downloadingIds,
-                    onOpenBook = { book ->
-                        if (book.readiness().tone == ReadinessTone.READY) {
-                            navController.navigate("reader/${book.id}")
-                        } else {
-                            showMessage("《${book.title}》暂无可离线正文，请先导入或下载。")
-                        }
-                    },
-                    onToggleActions = { id -> actionBookId = if (actionBookId == id) null else id },
-                    onToggleSelected = ::toggleSelected,
+                    onOpenBook = onOpenBook,
+                    onToggleActions = onToggleActions,
+                    onToggleSelected = onToggleSelected,
                 )
                 }
                 Spacer(modifier = Modifier.height(8.dp))
@@ -1029,6 +1039,7 @@ private fun Toolbar(
     onToggleView: () -> Unit,
 ) {
     val spec = LocalComponentSpec.current
+    val haptic = rememberHaptic(rememberReducedMotion())
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -1051,10 +1062,10 @@ private fun Toolbar(
                 .clip(spec.listItemShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
-            IconButton(onClick = { if (viewMode != ShelfViewMode.GRID) onToggleView() }) {
+            IconButton(onClick = { if (viewMode != ShelfViewMode.GRID) { haptic(HapticFeedbackType.TextHandleMove); onToggleView() } }) {
                 Icon(Icons.Outlined.GridView, contentDescription = "网格视图", tint = if (viewMode == ShelfViewMode.GRID) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
-            IconButton(onClick = { if (viewMode != ShelfViewMode.LIST) onToggleView() }) {
+            IconButton(onClick = { if (viewMode != ShelfViewMode.LIST) { haptic(HapticFeedbackType.TextHandleMove); onToggleView() } }) {
                 Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "列表视图", tint = if (viewMode == ShelfViewMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
             }
         }
@@ -1237,15 +1248,24 @@ private fun BookTile(
     val readiness = book.readiness()
     val spec = LocalComponentSpec.current
     val layout = LocalLayoutTokens.current
+    val haptic = rememberHaptic(rememberReducedMotion())
     val onClick = {
-        if (selectionMode) onToggleSelected(book.id) else onOpenBook(book)
+        if (selectionMode) {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onToggleSelected(book.id)
+        } else onOpenBook(book)
     }
     val tileModifier = Modifier
         .fillMaxWidth()
         .semantics { contentDescription = "打开书籍" }
         .combinedClickable(
             onClick = onClick,
-            onLongClick = { if (!selectionMode) onToggleActions(book.id) },
+            onLongClick = {
+                if (!selectionMode) {
+                    haptic(HapticFeedbackType.LongPress)
+                    onToggleActions(book.id)
+                }
+            },
         )
 
     if (viewMode == ShelfViewMode.GRID) {
@@ -1487,10 +1507,11 @@ private fun EmptyState(
     Column(
         modifier = Modifier
             .fillMaxWidth()
+            .animateEnter(reducedMotion = rememberReducedMotion())
             .padding(32.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(56.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        LineArtBook(modifier = Modifier.size(56.dp))
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             if (isEmptyShelf) "书架还空着" else if (isSearchNoResult) "没有找到匹配的书" else "当前筛选下没有书籍",

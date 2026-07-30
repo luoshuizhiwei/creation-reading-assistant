@@ -278,11 +278,11 @@ private fun EmptyHint(text: String) {
 
 @Composable
 private fun SearchPill(selected: Boolean, label: String, onClick: () -> Unit) {
-    val haptic = rememberHaptic(rememberReducedMotion())
+    // 触感已由 SelectablePill 内建，勿在此重复触发
     SelectablePill(
         text = label,
         selected = selected,
-        onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
+        onClick = onClick,
         unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
     )
 }
