@@ -66,15 +66,28 @@ class StatsDashboardViewModel @Inject constructor(
     ) { sessions, progress, books, inspirations, notes ->
         StatsTables(sessions, progress, books, inspirations, notes)
     }
+        // 等价的 DB 结果（如无关表触发的 Room 失效重查）不得进入下游重算。
+        .distinctUntilChanged()
+
+    /**
+     * 图表模型缓存：key = (period, anchor)。
+     * tables 未变化时，周期筛选来回切换直接复用已生成的 [StatsUi]，
+     * 避免对同一 DB 结果重复 map/group/sort；tables 变化则整体失效。
+     * 仅在 [uiState] 的 combine 变换内访问（flowOn Default，串行执行），无并发竞争。
+     */
+    private var cachedTables: StatsTables? = null
+    private val statsCache = HashMap<Pair<StatsPeriod, LocalDate>, StatsUi>()
 
     internal val uiState: StateFlow<StatsDashboardUiState> = combine(
         tables,
         selection,
     ) { data, selected ->
-        StatsDashboardUiState(
-            period = selected.period,
-            anchor = selected.anchor,
-            stats = computeStats(
+        if (cachedTables !== data) {
+            statsCache.clear()
+            cachedTables = data
+        }
+        val stats = statsCache.getOrPut(selected.period to selected.anchor) {
+            computeStats(
                 selected.period,
                 selected.anchor,
                 data.sessions,
@@ -82,7 +95,12 @@ class StatsDashboardViewModel @Inject constructor(
                 data.books,
                 data.inspirations,
                 data.notes,
-            ),
+            )
+        }
+        StatsDashboardUiState(
+            period = selected.period,
+            anchor = selected.anchor,
+            stats = stats,
             booksEmpty = data.books.isEmpty(),
         )
     }

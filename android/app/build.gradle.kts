@@ -63,6 +63,10 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+
+    testOptions {
+        unitTests.isReturnDefaultValues = true
+    }
 }
 
 dependencies {
@@ -114,6 +118,12 @@ dependencies {
 
     // 设置持久化（DataStore Preferences）
     implementation(libs.androidx.datastore.preferences)
+
+    // Markdown 语义解析（CommonMark + GFM 表格/删除线/任务列表）
+    implementation(libs.commonmark)
+    implementation(libs.commonmark.ext.gfm.tables)
+    implementation(libs.commonmark.ext.gfm.strikethrough)
+    implementation(libs.commonmark.ext.task.list.items)
 
     // 测试
     testImplementation(libs.junit)

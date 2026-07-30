@@ -10,6 +10,14 @@ package com.creationreadingassistant.feature.reader.doc
 sealed interface DocBlock {
     data class Text(val text: String, val isHeading: Boolean = false) : DocBlock
 
+    /**
+     * Markdown 语义块容器。
+     *
+     * [chapter] 包含规范阅读文本、语义块树、偏移映射与目录项。
+     * 搜索、TTS、Locator、选区、高亮、书签全部基于 [chapter.canonicalText] 的字符偏移。
+     */
+    data class Markdown(val chapter: MarkdownParser.MarkdownChapter) : DocBlock
+
     /** [width]/[height] 为 0 表示尺寸未知（读取失败），排版层需按占位处理。 */
     data class Image(val path: String, val width: Int, val height: Int) : DocBlock
 }

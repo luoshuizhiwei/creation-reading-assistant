@@ -99,6 +99,7 @@ object ChapterPaginator {
         val items = ArrayList<Item>()
         for (pl in placed) {
             pl.lines.forEachIndexed { i, ln ->
+                ln.listMarker = pl.para.listMarker
                 items.add(Item(ln, pl.para, i == pl.lines.lastIndex))
             }
         }
@@ -138,7 +139,7 @@ object ChapterPaginator {
             // keep-with-next：末行是标题且后面还有内容 → 把标题推到次页
             if (pageLines.size > 1 && i < items.size) {
                 val lastIdx = pageItems.lastIndex
-                if (pageItems[lastIdx].line.role == BlockRole.HEADING) {
+                if (pageItems[lastIdx].line.role.isHeading()) {
                     val removed = pageItems[lastIdx]
                     pageLines.removeAt(lastIdx)
                     pageItems.removeAt(lastIdx)
@@ -192,6 +193,7 @@ object ChapterPaginator {
                     val para = block.paragraph
                     val lines = LineComposer.layoutParagraph(para, cfg, ruler, oracle)
                     lines.forEachIndexed { i, line ->
+                        line.listMarker = para.listMarker
                         items += BlockItem.Text(line, para, i == lines.lastIndex)
                     }
                 }
@@ -262,7 +264,7 @@ object ChapterPaginator {
             // 标题的下一项可以是正文行，也可以是图片；两种情况都不能把标题孤留页底。
             if (pageItems.size > 1 && cursor < items.size) {
                 val last = pageItems.last()
-                if (last is BlockItem.Text && last.line.role == BlockRole.HEADING) {
+                if (last is BlockItem.Text && last.line.role.isHeading()) {
                     pageItems.removeAt(pageItems.lastIndex)
                     cursor--
                     used -= itemHeight(last) + spacingAfter(last)
@@ -353,8 +355,14 @@ object ChapterPaginator {
         return tops
     }
 
-    private fun lineHeight(line: LayoutLine, cfg: LayoutConfig): Float =
-        if (line.role == BlockRole.HEADING) cfg.lineHeightPx * cfg.headingScale else cfg.lineHeightPx
+    private fun lineHeight(line: LayoutLine, cfg: LayoutConfig): Float = when (line.role) {
+        BlockRole.HEADING -> cfg.lineHeightPx * cfg.headingScale
+        BlockRole.HEADING_1 -> cfg.lineHeightPx * cfg.headingScale * 1.15f
+        BlockRole.HEADING_2 -> cfg.lineHeightPx * cfg.headingScale * 1.10f
+        BlockRole.HEADING_3 -> cfg.lineHeightPx * cfg.headingScale * 1.05f
+        BlockRole.CODE_BLOCK -> cfg.lineHeightPx * cfg.codeScale
+        else -> cfg.lineHeightPx
+    }
 
     private fun absoluteOffset(para: LayoutParagraph, inParagraph: Int): Int =
         para.charOffset + inParagraph

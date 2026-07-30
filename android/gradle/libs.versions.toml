@@ -26,6 +26,7 @@ baselineprofile = "1.4.1"
 profileinstaller = "1.4.1"
 uiautomator = "2.3.0"
 immutableCollections = "0.3.8"
+commonmark = "0.29.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -94,3 +95,9 @@ kotlinx-collections-immutable = { group = "org.jetbrains.kotlinx", name = "kotli
 
 # 设置持久化（DataStore Preferences）
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
+
+# Markdown 语义解析（CommonMark + GFM 扩展；BSD 许可证，无 Android 依赖）
+commonmark = { group = "org.commonmark", name = "commonmark", version.ref = "commonmark" }
+commonmark-ext-gfm-tables = { group = "org.commonmark", name = "commonmark-ext-gfm-tables", version.ref = "commonmark" }
+commonmark-ext-gfm-strikethrough = { group = "org.commonmark", name = "commonmark-ext-gfm-strikethrough", version.ref = "commonmark" }
+commonmark-ext-task-list-items = { group = "org.commonmark", name = "commonmark-ext-task-list-items", version.ref = "commonmark" }

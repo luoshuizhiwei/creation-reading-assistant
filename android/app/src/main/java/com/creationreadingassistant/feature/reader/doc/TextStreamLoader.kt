@@ -2,6 +2,8 @@ package com.creationreadingassistant.feature.reader.doc
 
 import android.content.Context
 import android.net.Uri
+import android.os.Trace
+import android.os.SystemClock
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import java.io.File
 import java.io.InputStream
@@ -31,11 +33,13 @@ class TextStreamLoader(
 
     data class LoadResult(
         val document: PlainTextDocument,
-        val tempFile: File?,       // non-null for streaming mode
+        val tempFile: File?,       // non-null for streaming mode from InputStream
         val isStreaming: Boolean,   // true if routed to streaming path
         val actualSizeBytes: Long, // actual file size in bytes
         val fileIndex: TxtFileIndex? = null, // non-null for streaming mode
         val fullText: String? = null, // non-null for small-file mode
+        /** 实际被读取的源文件；InputStream 模式为临时文件，file URI 模式为原文件。 */
+        val sourceFile: File? = null,
     )
 
     /**
@@ -69,15 +73,25 @@ class TextStreamLoader(
                 isStreaming = false,
                 actualSizeBytes = actualSize,
                 fullText = decoded.text,
+                sourceFile = file,
             )
         } else {
-            val index = TxtFileIndexCache(cacheDir).getOrBuild(file)
+            Trace.beginSection("TxtIndexLoad")
+            val indexStartNs = SystemClock.elapsedRealtimeNanos()
+            val index = try {
+                TxtFileIndexCache(cacheDir).getOrBuild(file)
+            } finally {
+                Trace.endSection()
+            }
+            val indexEndNs = SystemClock.elapsedRealtimeNanos()
+            android.util.Log.d("TxtPerfTrace", "TxtIndexLoad: ${(indexEndNs - indexStartNs) / 1_000_000} ms")
             LoadResult(
                 document = PlainTextDocument.fromFileIndex(file, index),
                 tempFile = null,
                 isStreaming = true,
                 actualSizeBytes = actualSize,
                 fileIndex = index,
+                sourceFile = file,
             )
         }
     }
@@ -115,6 +129,7 @@ class TextStreamLoader(
                     isStreaming = false,
                     actualSizeBytes = actualSize,
                     fullText = decoded.text,
+                    sourceFile = tempFile,
                 )
             } else {
                 // Streaming path: scan with TxtFileScanner
@@ -126,6 +141,7 @@ class TextStreamLoader(
                     isStreaming = true,
                     actualSizeBytes = actualSize,
                     fileIndex = index,
+                    sourceFile = tempFile,
                 )
             }
         } catch (e: Exception) {

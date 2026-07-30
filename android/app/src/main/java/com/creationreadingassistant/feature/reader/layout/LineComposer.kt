@@ -39,8 +39,17 @@ object LineComposer {
         var first = true
 
         while (lineStart < c.count) {
-            val indent = if (first && p.role == BlockRole.BODY) cfg.firstLineIndentPx else 0f
-            val avail = cfg.contentWidthPx - indent
+            val baseIndent = when (p.role) {
+                BlockRole.QUOTE -> cfg.em * (cfg.listIndentEm + cfg.quoteExtraIndentEm)
+                BlockRole.LIST_ITEM_BULLET,
+                BlockRole.LIST_ITEM_NUMBER,
+                BlockRole.TASK_ITEM_UNCHECKED,
+                BlockRole.TASK_ITEM_CHECKED -> cfg.em * cfg.listIndentEm * p.indentLevel.coerceAtLeast(1)
+                else -> 0f
+            }
+            val firstLineIndent = if (first && p.role == BlockRole.BODY) cfg.firstLineIndentPx else 0f
+            val indent = baseIndent + firstLineIndent
+            val avail = (cfg.contentWidthPx - indent).coerceAtLeast(cfg.em * 2f)
 
             // ③ 贪心：找到最大的 end 使 [lineStart, end) 宽度 ≤ avail
             var end = upperBound(pre, lineStart, avail).coerceAtLeast(lineStart + 1)
@@ -70,23 +79,23 @@ object LineComposer {
             }
 
             val overflowed = b.width > avail + EPS
-            lines.add(
-                Justifier.build(
-                    c = c,
-                    a = a,
-                    b = b,
-                    atom = atom,
-                    from = lineStart,
-                    until = end,
-                    indent = indent,
-                    avail = avail,
-                    isParagraphStart = first,
-                    isParagraphEnd = end >= c.count,
-                    role = p.role,
-                    overflowed = overflowed,
-                    cfg = cfg,
-                ),
+            val line = Justifier.build(
+                c = c,
+                a = a,
+                b = b,
+                atom = atom,
+                from = lineStart,
+                until = end,
+                indent = indent,
+                avail = avail,
+                isParagraphStart = first,
+                isParagraphEnd = end >= c.count,
+                role = p.role,
+                overflowed = overflowed,
+                cfg = cfg,
             )
+            line.clusterStyles = MarkdownStyleMap.computeClusterStyles(line, p.inlineSpans)
+            lines.add(line)
 
             val next = skipLeadingSpaces(c, end)
             // 绝对不允许原地踏步，否则死循环

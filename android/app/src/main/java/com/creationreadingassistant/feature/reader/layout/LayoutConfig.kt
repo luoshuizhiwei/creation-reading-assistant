@@ -25,6 +25,12 @@ data class LayoutConfig(
     val firstLineIndentEm: Float = 2f,
     /** 标题字号相对正文的倍数 */
     val headingScale: Float = 1.25f,
+    /** 代码块字号相对正文的倍数 */
+    val codeScale: Float = 0.92f,
+    /** 列表/引用每层缩进 em 数 */
+    val listIndentEm: Float = 1.2f,
+    /** 引用块额外缩进 em 数（在 [listIndentEm] 基础上） */
+    val quoteExtraIndentEm: Float = 0.4f,
 
     // ── 两端对齐 ────────────────────────────────────────────────────────
     val justify: Boolean = true,
@@ -64,6 +70,9 @@ data class LayoutConfig(
             r = 31 * r + paragraphSpacingEm.toBits()
             r = 31 * r + firstLineIndentEm.toBits()
             r = 31 * r + headingScale.toBits()
+            r = 31 * r + codeScale.toBits()
+            r = 31 * r + listIndentEm.toBits()
+            r = 31 * r + quoteExtraIndentEm.toBits()
             r = 31 * r + if (justify) 1 else 0
             r = 31 * r + maxStretchPerGapEm.toBits()
             r = 31 * r + maxSlackEm.toBits()

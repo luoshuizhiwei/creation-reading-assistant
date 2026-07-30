@@ -2,6 +2,8 @@ package com.creationreadingassistant.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import android.os.Trace
+import android.os.SystemClock
 import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.entity.CategoryEntity
@@ -15,6 +17,7 @@ import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
+import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
@@ -66,17 +69,69 @@ class ReaderDocumentLoader @Inject constructor(
                 }
             }
 
-            else -> {
+            "md", "markdown" -> {
                 val localUri = metadata.local_uri
                     ?: metadata.local_content_path?.let { Uri.fromFile(File(it)).toString() }
                 val loadAttempt = localUri?.let { value ->
                     runCatching {
-                        TextStreamLoader(context.cacheDir).load(
-                            context = context,
-                            uri = Uri.parse(value),
-                            reportedSize = metadata.size.toLong(),
-                        )
+                        Trace.beginSection("MarkdownDocumentLoad")
+                        try {
+                            TextStreamLoader(context.cacheDir).load(
+                                context = context,
+                                uri = Uri.parse(value),
+                                reportedSize = metadata.size.toLong(),
+                            )
+                        } finally {
+                            Trace.endSection()
+                        }
                     }
+                }
+                val result = loadAttempt?.getOrNull()
+                    ?: throw loadAttempt?.exceptionOrNull()
+                        ?: IllegalArgumentException("本书暂无可阅读的 Markdown 正文（需重新导入或同步下载）")
+                val markdownDocument = if (result.isStreaming) {
+                    val file = result.sourceFile
+                        ?: throw IllegalStateException("流式 Markdown 缺少源文件")
+                    val index = result.fileIndex
+                        ?: throw IllegalStateException("流式 Markdown 缺少文件索引")
+                    MarkdownDocument.fromFileIndex(file, index)
+                } else {
+                    MarkdownDocument(result.fullText ?: "")
+                }
+                val stored = parseStoredOffset(progress?.current_location_json)
+                val initialOffset = if (stored.space == "canonical") {
+                    stored.offset
+                } else {
+                    // 旧版纯文本 Markdown 的进度按源文本偏移存储，需迁移到规范文本偏移
+                    markdownDocument.migrateLegacyOffset(stored.offset)
+                }
+                ReaderLoadedContent.Markdown(
+                    document = markdownDocument,
+                    ownedTempFile = result.takeIf { it.isStreaming }?.tempFile,
+                    initialAbsoluteOffset = initialOffset,
+                )
+            }
+
+            else -> {
+                val localUri = metadata.local_uri
+                    ?: metadata.local_content_path?.let { Uri.fromFile(File(it)).toString() }
+                val loadAttempt = localUri?.let { value ->
+                    val traceStartNs = SystemClock.elapsedRealtimeNanos()
+                    val result = runCatching {
+                        Trace.beginSection("TxtDocumentLoad")
+                        try {
+                            TextStreamLoader(context.cacheDir).load(
+                                context = context,
+                                uri = Uri.parse(value),
+                                reportedSize = metadata.size.toLong(),
+                            )
+                        } finally {
+                            Trace.endSection()
+                        }
+                    }
+                    val traceEndNs = SystemClock.elapsedRealtimeNanos()
+                    android.util.Log.d("TxtPerfTrace", "TxtDocumentLoad: ${(traceEndNs - traceStartNs) / 1_000_000} ms")
+                    result
                 }
                 val result = loadAttempt?.getOrNull()
                 val fullText = result?.fullText
@@ -109,6 +164,7 @@ class ReaderDocumentLoader @Inject constructor(
             }
 
             is ReaderLoadedContent.Text -> progress?.progress_percent ?: 0f
+            is ReaderLoadedContent.Markdown -> progress?.progress_percent ?: 0f
         }
 
         return ReaderLoadedBook(
@@ -161,17 +217,40 @@ sealed interface ReaderLoadedContent {
             ownedTempFile?.delete()
         }
     }
+
+    data class Markdown(
+        val document: MarkdownDocument,
+        internal val ownedTempFile: File?,
+        val initialAbsoluteOffset: Int,
+    ) : ReaderLoadedContent {
+        override fun release() {
+            ownedTempFile?.delete()
+        }
+    }
 }
 
-internal fun parseStoredAbsoluteOffset(locationJson: String?): Int {
-    if (locationJson.isNullOrBlank()) return 0
-    return Regex("\"offset\"\\s*:\\s*(\\d+)")
+internal fun parseStoredAbsoluteOffset(locationJson: String?): Int =
+    parseStoredOffset(locationJson).offset
+
+internal data class StoredOffset(
+    val offset: Int,
+    val space: String?,
+)
+
+internal fun parseStoredOffset(locationJson: String?): StoredOffset {
+    if (locationJson.isNullOrBlank()) return StoredOffset(0, null)
+    val offset = Regex("\"offset\"\\s*:\\s*(\\d+)")
         .find(locationJson)
         ?.groupValues
         ?.getOrNull(1)
         ?.toIntOrNull()
         ?.coerceAtLeast(0)
         ?: 0
+    val space = Regex("\"space\"\\s*:\\s*\"([^\"]+)\"")
+        .find(locationJson)
+        ?.groupValues
+        ?.getOrNull(1)
+    return StoredOffset(offset, space)
 }
 
 data class ReaderUiState(

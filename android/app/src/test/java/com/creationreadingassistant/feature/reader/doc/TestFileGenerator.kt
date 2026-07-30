@@ -370,6 +370,98 @@ object TestFileGenerator {
     }
 
     /**
+     * Generate a temporary UTF-8 Markdown file with ATX headings and varied blocks.
+     */
+    fun generateMarkdownUtf8(chapterCount: Int, charsPerChapter: Int): File {
+        val file = File.createTempFile("test_md_utf8_", ".md")
+        val sb = StringBuilder()
+        val body = "正文段落，包含**粗体**、`行内代码`和中英文 mixed content。"
+        val repeats = (charsPerChapter / body.length).coerceAtLeast(1)
+        for (i in 1..chapterCount) {
+            sb.append("# 第${i}章 测试标题\n\n")
+            sb.append(body.repeat(repeats))
+            sb.append("\n\n")
+            if (i < chapterCount) {
+                sb.append("- 列表项 one\n- 列表项 two\n\n")
+            }
+        }
+        file.writeText(sb.toString(), Charsets.UTF_8)
+        return file
+    }
+
+    /**
+     * Generate a Markdown file with BOM and the specified charset.
+     */
+    fun generateMarkdownWithBom(
+        bomBytes: ByteArray,
+        chapterCount: Int,
+        charsPerChapter: Int,
+        charset: Charset,
+    ): File {
+        val file = File.createTempFile("test_md_bom_", ".md")
+        val sb = StringBuilder()
+        val body = "正文段落，包含**粗体**、*斜体*。"
+        val repeats = (charsPerChapter / body.length).coerceAtLeast(1)
+        for (i in 1..chapterCount) {
+            sb.append("# 第${i}章 测试\n\n")
+            sb.append(body.repeat(repeats))
+            sb.append("\n\n")
+        }
+        val contentBytes = sb.toString().toByteArray(charset)
+        RandomAccessFile(file, "rw").use { raf ->
+            raf.write(bomBytes)
+            raf.write(contentBytes)
+        }
+        return file
+    }
+
+    /**
+     * Generate a GB18030-encoded Markdown file.
+     */
+    fun generateMarkdownGb18030(chapterCount: Int, charsPerChapter: Int): File {
+        val file = File.createTempFile("test_md_gb18030_", ".md")
+        val gb18030 = Charset.forName("GB18030")
+        val sb = StringBuilder()
+        val body = "正文段落，包含**粗体**、*斜体*。"
+        val repeats = (charsPerChapter / body.length).coerceAtLeast(1)
+        for (i in 1..chapterCount) {
+            sb.append("# 第${i}章 测试\n\n")
+            sb.append(body.repeat(repeats))
+            sb.append("\n\n")
+        }
+        RandomAccessFile(file, "rw").use { raf ->
+            raf.write(sb.toString().toByteArray(gb18030))
+        }
+        return file
+    }
+
+    /**
+     * Generate a large UTF-8 Markdown file of at least [targetSizeBytes] bytes.
+     * Uses ATX headings to create chapters and bounded reading units.
+     */
+    fun generateLargeMarkdownUtf8(targetSizeBytes: Long, chapterCount: Int): File {
+        val file = File.createTempFile("test_large_md_", ".md")
+        val bodyUnit = "测试 Markdown 正文，含**粗体**、*斜体*、`代码`和 emoji \uD83D\uDE00。"
+        val bodyUnitBytes = bodyUnit.toByteArray(Charsets.UTF_8).size
+        val bytesPerChapter = targetSizeBytes / chapterCount
+        val repeats = (bytesPerChapter / bodyUnitBytes).toInt() + 1
+
+        RandomAccessFile(file, "rw").use { raf ->
+            for (i in 1..chapterCount) {
+                val title = "# 第${i}章 测试标题\n\n"
+                raf.write(title.toByteArray(Charsets.UTF_8))
+                for (j in 0 until repeats) {
+                    raf.write(bodyUnit.toByteArray(Charsets.UTF_8))
+                }
+                if (i < chapterCount) {
+                    raf.write("\n\n".toByteArray(Charsets.UTF_8))
+                }
+            }
+        }
+        return file
+    }
+
+    /**
      * Generate a 50MB UTF-8 file with mixed Chinese/ASCII/emoji content.
      */
     fun generateLargeMixedUtf8(targetSizeBytes: Long, chapterCount: Int): File {

@@ -2,6 +2,7 @@ package com.creationreadingassistant.feature.reader.pager
 
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.Typeface
 import android.os.BatteryManager
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
@@ -51,8 +52,10 @@ import com.creationreadingassistant.ui.components.SizedAsyncImage
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
+import com.creationreadingassistant.feature.reader.layout.MarkdownStyleMap
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
+import com.creationreadingassistant.feature.reader.layout.isHeading
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -540,6 +543,23 @@ private fun PageCanvas(
     modifier: Modifier = Modifier,
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
+    val stylePaints = remember(paint, cfg) {
+        Array(32) { mask ->
+            TextPaint(paint).apply {
+                if (mask and MarkdownStyleMap.BOLD != 0) isFakeBoldText = true
+                if (mask and MarkdownStyleMap.ITALIC != 0) textSkewX = -0.25f
+                if (mask and MarkdownStyleMap.CODE != 0) {
+                    typeface = Typeface.MONOSPACE
+                    textSize *= cfg.codeScale
+                }
+                if (mask and MarkdownStyleMap.LINK != 0) {
+                    isUnderlineText = true
+                    isFakeBoldText = true
+                }
+            }
+        }
+    }
+
     Canvas(modifier) {
         underlays.forEach { (color, rects) ->
             rects.forEach { r ->
@@ -557,18 +577,63 @@ private fun PageCanvas(
 
             page.lines.forEachIndexed { li, line ->
                 val paraOff = page.lineParaOffsets.getOrElse(li) { 0 }
-                val isHeading = line.role == BlockRole.HEADING
-                val p = if (isHeading) headingPaint else paint
-                val boxH = if (isHeading) cfg.lineHeightPx * cfg.headingScale else cfg.lineHeightPx
+                val isHeading = line.role.isHeading()
+                val basePaint = if (isHeading) headingPaint else paint
+                val boxH = when (line.role) {
+                    BlockRole.HEADING -> cfg.lineHeightPx * cfg.headingScale
+                    BlockRole.HEADING_1 -> cfg.lineHeightPx * cfg.headingScale * 1.15f
+                    BlockRole.HEADING_2 -> cfg.lineHeightPx * cfg.headingScale * 1.10f
+                    BlockRole.HEADING_3 -> cfg.lineHeightPx * cfg.headingScale * 1.05f
+                    BlockRole.CODE_BLOCK -> cfg.lineHeightPx * cfg.codeScale
+                    else -> cfg.lineHeightPx
+                }
                 val top = page.lineTops.getOrElse(li) { 0f }
-                // 字形在行框内垂直居中
                 val baseline = top + (boxH - glyphH) / 2f - fm.ascent
 
+                if (line.role == BlockRole.CODE_BLOCK) {
+                    drawRect(
+                        color = androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.15f),
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
+                    )
+                }
+
+                if (line.role == BlockRole.HORIZONTAL_RULE) {
+                    drawLine(
+                        color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.5f),
+                        start = androidx.compose.ui.geometry.Offset(0f, baseline),
+                        end = androidx.compose.ui.geometry.Offset(cfg.contentWidthPx, baseline),
+                        strokeWidth = 2f,
+                    )
+                    return@forEachIndexed
+                }
+
+                line.listMarker?.let { marker ->
+                    val markerW = basePaint.measureText(marker)
+                    native.drawText(
+                        marker, 0, marker.length,
+                        line.clusterX.getOrElse(0) { 0f } - markerW,
+                        baseline, basePaint,
+                    )
+                }
+
+                val clusterStyles = line.clusterStyles
                 for (j in 0 until line.clusterCount) {
                     val s = paraOff + line.clusterStarts[j]
                     val e = paraOff + line.clusterStarts[j + 1]
                     if (e <= s || s < 0 || e > chapterText.length) continue
+                    val mask = clusterStyles?.getOrNull(j) ?: 0
+                    val p = if (mask == 0) basePaint else stylePaints[mask]
                     native.drawText(chapterText, s, e, line.clusterX[j], baseline, p)
+                    if (mask and MarkdownStyleMap.STRIKETHROUGH != 0) {
+                        val left = line.clusterX[j]
+                        val right = line.clusterX[j + 1]
+                        native.drawLine(
+                            left, baseline + fm.ascent * 0.35f,
+                            right, baseline + fm.ascent * 0.35f,
+                            p,
+                        )
+                    }
                 }
             }
         }

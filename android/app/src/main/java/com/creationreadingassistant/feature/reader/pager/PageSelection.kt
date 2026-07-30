@@ -1,9 +1,9 @@
 package com.creationreadingassistant.feature.reader.pager
 
-import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.PageHitTest
+import com.creationreadingassistant.feature.reader.layout.isHeading
 
 /**
  * 页级命中与选区矩形：把 [PageHitTest]（段内偏移语义）适配到「一页多段」。
@@ -16,7 +16,7 @@ object PageSelection {
 
     /** 行框高度（标题行更高）。 */
     private fun lineBoxH(page: ChapterPaginator.Page, li: Int, cfg: LayoutConfig): Float =
-        if (page.lines[li].role == BlockRole.HEADING) cfg.lineHeightPx * cfg.headingScale else cfg.lineHeightPx
+        if (page.lines[li].role.isHeading()) cfg.lineHeightPx * cfg.headingScale else cfg.lineHeightPx
 
     /** 点 (x, y) → 章内字符偏移。y 落在行间空隙归上一行，越界钳到首末。 */
     fun offsetAt(page: ChapterPaginator.Page, cfg: LayoutConfig, x: Float, y: Float): Int {

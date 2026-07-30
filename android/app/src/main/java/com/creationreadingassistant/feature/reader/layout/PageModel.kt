@@ -1,5 +1,7 @@
 package com.creationreadingassistant.feature.reader.layout
 
+import com.creationreadingassistant.feature.reader.doc.MdInlineSpan
+
 /**
  * 排版内核的数据模型。
  *
@@ -14,7 +16,37 @@ package com.creationreadingassistant.feature.reader.layout
  */
 
 /** 段落角色。标题参与 keep-with-next，且不做首行缩进、不做两端对齐。 */
-enum class BlockRole { BODY, HEADING }
+enum class BlockRole {
+    BODY,
+    HEADING,
+    HEADING_1,
+    HEADING_2,
+    HEADING_3,
+    HEADING_4,
+    HEADING_5,
+    HEADING_6,
+    QUOTE,
+    LIST_ITEM_BULLET,
+    LIST_ITEM_NUMBER,
+    TASK_ITEM_UNCHECKED,
+    TASK_ITEM_CHECKED,
+    CODE_BLOCK,
+    TABLE_HEADER,
+    TABLE_ROW,
+    HORIZONTAL_RULE,
+}
+
+/** 判断角色是否为标题（含通用 HEADING 与 H1-H6）。 */
+fun BlockRole.isHeading(): Boolean = when (this) {
+    BlockRole.HEADING,
+    BlockRole.HEADING_1,
+    BlockRole.HEADING_2,
+    BlockRole.HEADING_3,
+    BlockRole.HEADING_4,
+    BlockRole.HEADING_5,
+    BlockRole.HEADING_6 -> true
+    else -> false
+}
 
 /** 排版输入：一个段落。 */
 data class LayoutParagraph(
@@ -22,6 +54,14 @@ data class LayoutParagraph(
     val role: BlockRole = BlockRole.BODY,
     /** 该段首字符在章内的字符偏移。位置恢复的真源是字符偏移，不是页号。 */
     val charOffset: Int = 0,
+    /** Markdown 专用缩进层级（列表/引用），每层约 1em。 */
+    val indentLevel: Int = 0,
+    /** 列表项前缀标记文本（如 "• "、"1. "、"[x] "），不占用 [text] 的字符偏移。 */
+    val listMarker: String? = null,
+    /** 行内样式区间，基于 [text] 的字符偏移。 */
+    val inlineSpans: List<MdInlineSpan> = emptyList(),
+    /** 代码块语言标签，仅 [role] == [BlockRole.CODE_BLOCK] 时有效。 */
+    val codeLanguage: String? = null,
 )
 
 /** 分页输入块。图片不进入字符流，只挂靠在 [Image.anchorOffset]。 */
@@ -99,6 +139,17 @@ class LayoutLine(
     /** 本行为满足禁则而溢出，绘制时需按负字距压回 */
     val overflowed: Boolean = false,
 ) {
+    /**
+     * 每簇的 Markdown 行内样式掩码（末位为 0）。
+     * 不在主构造器中，因此不影响 [equals]/[hashCode] 与既有分页单测。
+     */
+    var clusterStyles: IntArray? = null
+
+    /**
+     * Markdown 列表项前缀标记（如 "• "）。不在主构造器中。
+     */
+    var listMarker: String? = null
+
     val clusterCount: Int get() = endCluster - startCluster
 
     /** 行末笔尖位置。两端对齐的非末行应精确等于可用宽度。 */

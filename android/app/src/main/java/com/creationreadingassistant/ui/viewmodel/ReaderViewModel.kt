@@ -410,18 +410,24 @@ class ReaderViewModel @Inject constructor(
         chapterLoadJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val book = _uiState.value.loadedBook ?: return@launch
-                val epub = book.content as? ReaderLoadedContent.Epub ?: return@launch
                 if (book.id != bookId) return@launch
-                val blocks = epub.document.blocks(chapterIndex)
+                val blocks = when (val content = book.content) {
+                    is ReaderLoadedContent.Epub -> content.document.blocks(chapterIndex)
+                    is ReaderLoadedContent.Markdown -> content.document.blocks(chapterIndex)
+                    is ReaderLoadedContent.Text -> return@launch
+                }
                 if (gen != chapterLoadGeneration.get()) return@launch
                 _chapterLoadState.value = ChapterLoadResult.Loaded(bookId, chapterIndex, blocks)
                 // 保存 epub 进度
-                val percent = if (epub.book.chapters.isEmpty()) {
-                    0f
-                } else {
-                    ((chapterIndex + 1).toFloat() / epub.book.chapters.size) * 100f
+                if (book.content is ReaderLoadedContent.Epub) {
+                    val epub = book.content
+                    val percent = if (epub.book.chapters.isEmpty()) {
+                        0f
+                    } else {
+                        ((chapterIndex + 1).toFloat() / epub.book.chapters.size) * 100f
+                    }
+                    epubRepository.saveProgress(bookId, chapterIndex, percent)
                 }
-                epubRepository.saveProgress(bookId, chapterIndex, percent)
             } catch (_: CancellationException) {
                 // stale load, ignore
             } catch (e: Exception) {
@@ -435,10 +441,14 @@ class ReaderViewModel @Inject constructor(
     /** 一次性加载章节块（供搜索/高亮定位等 UI 跳转场景使用，不改变当前章节状态）。 */
     suspend fun loadChapterBlocks(bookId: String, chapterIndex: Int): List<DocBlock> {
         val book = _uiState.value.loadedBook ?: return emptyList()
-        val epub = book.content as? ReaderLoadedContent.Epub ?: return emptyList()
         if (book.id != bookId) return emptyList()
+        val document = when (val content = book.content) {
+            is ReaderLoadedContent.Epub -> content.document
+            is ReaderLoadedContent.Markdown -> content.document
+            is ReaderLoadedContent.Text -> return emptyList()
+        }
         return try {
-            epub.document.blocks(chapterIndex)
+            document.blocks(chapterIndex)
         } catch (_: Exception) {
             emptyList()
         }
@@ -447,10 +457,14 @@ class ReaderViewModel @Inject constructor(
     /** 提取章节纯文本（供锚点解析等场景使用）。 */
     suspend fun extractChapterText(bookId: String, chapterIndex: Int): String {
         val book = _uiState.value.loadedBook ?: return ""
-        val epub = book.content as? ReaderLoadedContent.Epub ?: return ""
         if (book.id != bookId) return ""
+        val document = when (val content = book.content) {
+            is ReaderLoadedContent.Epub -> content.document
+            is ReaderLoadedContent.Markdown -> content.document
+            is ReaderLoadedContent.Text -> return ""
+        }
         return try {
-            epub.document.text(chapterIndex)
+            document.text(chapterIndex)
         } catch (_: Exception) {
             ""
         }

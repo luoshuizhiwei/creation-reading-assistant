@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.viewmodel
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Trace
 import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -46,6 +47,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -133,6 +135,38 @@ class ShelfViewModel @Inject constructor(
 
     fun setShelfViewMode(mode: String) = viewModelScope.launch { shelfPrefs.setViewMode(mode) }
     fun setShelfSortMode(mode: String) = viewModelScope.launch { shelfPrefs.setSortMode(mode) }
+
+    /**
+     * 书架渲染用稳定列表：后台线程完成模型投影与排序，新请求自动取消旧请求。
+     *
+     * 只依赖书籍、进度、排序方式；搜索词、弹层、选择状态、导入任务变化不会触发此 Flow。
+     */
+    val shelfBooks: StateFlow<List<ShelfBookItem>> = combine(
+        books,
+        progressById,
+        shelfSortMode,
+    ) { bookList, progress, sortMode ->
+        Trace.beginSection("ShelfListPublish")
+        try {
+            withContext(Dispatchers.Default) {
+                Trace.beginSection("ShelfItemProjection")
+                val projected = ShelfBookSorter.projectAll(bookList, progress)
+                Trace.endSection()
+                Trace.beginSection("ShelfSort")
+                val sorted = ShelfBookSorter.sort(projected, sortMode)
+                Trace.endSection()
+                sorted
+            }
+        } finally {
+            Trace.endSection()
+        }
+    }
+        .distinctUntilChanged()
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = emptyList(),
+        )
 
     // ===== 导入历史（持久化记录，对齐网页 ImportHistoryPanel）=====
     val importHistory: StateFlow<List<ImportHistoryEntry>> = importHistoryStore.entries

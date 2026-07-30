@@ -1,5 +1,6 @@
 package com.creationreadingassistant.data.local.entity
 
+import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.ForeignKey
 import androidx.room.PrimaryKey
@@ -8,9 +9,12 @@ import kotlinx.serialization.Serializable
 /**
  * 书籍主表 —— 对齐 mobile/src/storage/mobile-schema.ts 的 V2 books 表。
  * payload TEXT 保留为「无损真相源」，与现有同步契约一致。
+ *
+ * 标记为 @Immutable 以便 Compose 将其识别为稳定类型；所有字段均为 val，满足不可变语义。
  */
 @Serializable
 @Entity(tableName = "books")
+@Immutable
 data class BookEntity(
     @PrimaryKey val id: String,
     val title: String,

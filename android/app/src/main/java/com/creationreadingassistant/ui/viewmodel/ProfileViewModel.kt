@@ -6,9 +6,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
+import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.dao.StatsCreatedRow
+import com.creationreadingassistant.data.local.dao.StatsProgressRow
+import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
@@ -92,6 +96,18 @@ data class ProfileLibraryState(
     val cacheBytes: Long = 0L,
 )
 
+/**
+ * 「我的」首页摘要：仅承载首页需要的少量聚合数字。
+ * 全部来自窄投影（StatsSessionRow / StatsProgressRow / StatsCreatedRow），
+ * 不物化完整 Book/Progress/Session/Note 实体，也不触发同步 / WebDAV / AI /
+ * 诊断 / 存储等子页查询。子页数据由 [libraryState] 在子页打开后单独加载。
+ */
+data class ProfileHomeSummary(
+    val totalDurationMs: Long = 0L,
+    val completedBookCount: Int = 0,
+    val inspirationCount: Int = 0,
+)
+
 private data class ProfileReadingArchive(
     val books: List<BookEntity>,
     val progressByBook: Map<String, ReadingProgressEntity>,
@@ -122,6 +138,7 @@ class ProfileViewModel @Inject constructor(
     readingProgressDao: ReadingProgressDao,
     readingSessionDao: ReadingSessionDao,
     noteDao: NoteDao,
+    inspirationDao: InspirationDao,
     bookContentDao: BookContentDao,
 ) : ViewModel() {
 
@@ -170,6 +187,31 @@ class ProfileViewModel @Inject constructor(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = ProfileLibraryState(),
     )
+
+    /**
+     * 首页摘要：窄投影聚合，仅供首页展示「阅读时长 / 累计读完 / 灵感数量」。
+     * 与 [libraryState] 完全解耦 —— 首页不订阅 [libraryState]，故不会物化
+     * 全部书籍 / 进度 / 会话 / 笔记实体，也不会触发同步 / WebDAV / AI / 诊断 /
+     * 存储等子页查询（子页数据由 [libraryState] 在对应子页打开后单独加载）。
+     */
+    val homeSummary: StateFlow<ProfileHomeSummary> = combine(
+        readingSessionDao.observeStatsRows(),
+        readingProgressDao.observeStatsRows(),
+        inspirationDao.observeStatsCreatedRows(),
+    ) { sessions, progress, inspirations ->
+        ProfileHomeSummary(
+            totalDurationMs = sessions.sumOf { it.duration_ms },
+            completedBookCount = progress.count { it.completion_state == "finished" || it.progress_percent >= 99.5f },
+            inspirationCount = inspirations.size,
+        )
+    }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ProfileHomeSummary(),
+        )
 
     // ---- JSON 桥接 ----
     private val _bridgeStatus = MutableStateFlow<String?>(null)

@@ -68,6 +68,8 @@ object EpubPageSource {
                     heightPx = block.height.toFloat(),
                     anchorOffset = nextTextStart[index],
                 )
+
+                is DocBlock.Markdown -> throw IllegalStateException("Markdown blocks not supported in EPUB")
             }
         }
         return out
