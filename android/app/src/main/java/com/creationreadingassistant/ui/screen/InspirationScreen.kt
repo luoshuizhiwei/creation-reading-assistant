@@ -34,6 +34,8 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -81,6 +83,17 @@ import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
 import com.creationreadingassistant.ui.viewmodel.InspirationDraft
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SelectablePill
+import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.components.SettingRow
+import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.components.LineArtBookmark
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.ZoneId
@@ -185,6 +198,14 @@ fun InspirationScreen(
     val scope = rememberCoroutineScope()
     val clipboard = androidx.compose.ui.platform.LocalClipboardManager.current
     fun message(text: String) = scope.launch { snackbarHostState.showSnackbar(text) }
+
+    // A 档打磨：首屏加载占位 + 系统「减少动态效果」感知
+    val layout = LocalLayoutTokens.current
+    val reducedMotion = rememberReducedMotion()
+    var firstLoad by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { delay(350); firstLoad = false }
+    LaunchedEffect(items) { if (items.isNotEmpty()) firstLoad = false }
+    val showSkeleton = firstLoad && items.isEmpty()
 
     val selectedEntity = items.firstOrNull { it.id == selectedId }
     val editingEntity = items.firstOrNull { it.id == editingId }
@@ -359,6 +380,15 @@ fun InspirationScreen(
                         hasFilter -> "filter"
                         else -> "empty"
                     }
+                    if (showSkeleton) {
+                        ListSkeleton(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
+                            count = 5,
+                            reducedMotion = reducedMotion,
+                        )
+                    } else {
                     InspirationList(
                         itemsList = filtered,
                         typeFilter = typeFilter,
@@ -374,6 +404,7 @@ fun InspirationScreen(
                         onCreate = { editingId = null; editorDirty = false; mode = "editor" },
                         onResetFilter = { query = ""; typeFilter = "all" },
                     )
+                    }
                 }
             }
         }
@@ -382,37 +413,31 @@ fun InspirationScreen(
     // 排序底部弹层
     if (sortOpen) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-        ModalBottomSheet(onDismissRequest = { sortOpen = false }, sheetState = sheetState) {
+        GlassModalBottomSheet(onDismissRequest = { sortOpen = false }, sheetState = sheetState) {
+            SheetHandle()
             Text(
                 "排序方式",
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(16.dp),
             )
-            SORT_OPTIONS.forEach { (value, label) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                TextButton(
-                    onClick = { viewModel.setInspirationSort(value); sortOpen = false },
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        ) {
-                            Icon(
-                                imageVector = if (value == "title") Icons.Outlined.SortByAlpha else Icons.Outlined.Tune,
-                                contentDescription = null,
-                            )
-                            Text(label, modifier = Modifier.weight(1f))
-                            if (sortMode == value) {
-                                Icon(Icons.Filled.Check, contentDescription = null)
-                            }
+            SORT_OPTIONS.forEachIndexed { index, (value, label) ->
+                SettingRow(
+                    title = label,
+                    leading = {
+                        Icon(
+                            imageVector = if (value == "title") Icons.Outlined.SortByAlpha else Icons.Outlined.Tune,
+                            contentDescription = null,
+                        )
+                    },
+                    trailing = {
+                        if (sortMode == value) {
+                            Icon(Icons.Filled.Check, contentDescription = null)
                         }
-                    }
+                    },
+                    onClick = { viewModel.setInspirationSort(value); sortOpen = false },
+                )
+                if (index < SORT_OPTIONS.lastIndex) {
+                    SectionDivider()
                 }
             }
             Box(Modifier.fillMaxWidth().padding(bottom = 24.dp))
@@ -424,36 +449,51 @@ fun InspirationScreen(
     if (actionItem != null) {
         val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
         val src = viewModel.sourceOf(actionItem)
-        ModalBottomSheet(onDismissRequest = { actionItemId = null }, sheetState = sheetState) {
+        GlassModalBottomSheet(onDismissRequest = { actionItemId = null }, sheetState = sheetState) {
+            SheetHandle()
             Text(
                 actionItem.title.ifBlank { "未命名灵感" },
                 style = MaterialTheme.typography.titleMedium,
                 modifier = Modifier.padding(16.dp),
             )
-            InspirationActionRow(Icons.Outlined.AutoAwesome, "查看详情") { actionItemId = null; openDetail(actionItem.id) }
-            InspirationActionRow(Icons.Outlined.Edit, "编辑") {
-                actionItemId = null
-                selectedId = actionItem.id
-                editingId = actionItem.id
-                editorDirty = false
-                mode = "editor"
+            val actionRows = buildList {
+                add(Triple(Icons.Outlined.AutoAwesome, "查看详情") { actionItemId = null; openDetail(actionItem.id) })
+                add(Triple(Icons.Outlined.Edit, "编辑") {
+                    actionItemId = null
+                    selectedId = actionItem.id
+                    editingId = actionItem.id
+                    editorDirty = false
+                    mode = "editor"
+                })
+                add(Triple(Icons.Outlined.ContentCopy, "复制内容") { copyItem(actionItem, clipboard) })
+                if (src?.bookId != null) {
+                    add(Triple(Icons.Outlined.Book, "查看来源书籍") { openSource(actionItem) })
+                }
+                add(Triple(Icons.Outlined.Delete, "删除灵感") { actionItemId = null; pendingDeleteId = actionItem.id })
             }
-            InspirationActionRow(Icons.Outlined.ContentCopy, "复制内容") { copyItem(actionItem, clipboard) }
-            if (src?.bookId != null) {
-                InspirationActionRow(Icons.Outlined.Book, "查看来源书籍") { openSource(actionItem) }
+            actionRows.forEachIndexed { index, (icon, label, onClick) ->
+                SettingRow(
+                    title = label,
+                    leading = {
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = null,
+                            tint = if (label == "删除灵感") MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                        )
+                    },
+                    onClick = onClick,
+                )
+                if (index < actionRows.lastIndex) {
+                    SectionDivider()
+                }
             }
-            InspirationActionRow(
-                icon = Icons.Outlined.Delete,
-                label = "删除灵感",
-                danger = true,
-            ) { actionItemId = null; pendingDeleteId = actionItem.id }
             Box(Modifier.fillMaxWidth().padding(bottom = 24.dp))
         }
     }
 
     // 删除确认
     if (pendingDeleteId != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { pendingDeleteId = null },
             title = { Text("删除这条灵感？") },
             text = { Text("只会删除当前灵感，不会删除来源书籍、笔记或正文。") },
@@ -464,7 +504,7 @@ fun InspirationScreen(
 
     // 未保存修改确认
     if (showUnsavedDialog) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showUnsavedDialog = false },
             title = { Text("放弃未保存修改？") },
             text = { Text("返回后，本次输入的内容不会保存。") },
@@ -473,33 +513,6 @@ fun InspirationScreen(
             },
             dismissButton = { TextButton(onClick = { showUnsavedDialog = false }) { Text("继续编辑") } },
         )
-    }
-}
-
-@Composable
-private fun InspirationActionRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    danger: Boolean = false,
-    onClick: () -> Unit,
-) {
-    TextButton(onClick = onClick, modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                label,
-                modifier = Modifier.weight(1f),
-                color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
-            )
-        }
     }
 }
 
@@ -536,11 +549,7 @@ private fun InspirationListTopBar(
             } else {
                 Text(
                     "灵感",
-                    style = MaterialTheme.typography.titleLarge.copy(
-                        fontSize = 28.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = (-1.1).sp,
-                    ),
+                    style = MaterialTheme.typography.headlineLarge,
                 )
             }
         },
@@ -577,18 +586,7 @@ private fun InspirationEditorTopBar(editing: Boolean, onBack: () -> Unit) {
 
 @Composable
 private fun InspirationTypePill(selected: Boolean, label: String, onClick: () -> Unit) {
-    Surface(
-        onClick = onClick,
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant,
-        ),
-        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Text(label, modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp), style = MaterialTheme.typography.labelMedium)
-    }
+    SelectablePill(text = label, selected = selected, onClick = onClick)
 }
 
 /* ---------- 列表 ---------- */
@@ -609,11 +607,17 @@ private fun InspirationList(
     onCreate: () -> Unit,
     onResetFilter: () -> Unit,
 ) {
+    val layout = LocalLayoutTokens.current
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(
+                    horizontal = layout.pageHorizontal,
+                    vertical = layout.relatedGap,
+                ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
         ) {
             Row(
                 modifier = Modifier.weight(1f).horizontalScroll(rememberScrollState()),
@@ -647,8 +651,10 @@ private fun InspirationList(
             InspirationEmptyState(kind = emptyKind, onCreate = onCreate, onReset = onResetFilter)
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = layout.pageHorizontal),
+                verticalArrangement = Arrangement.spacedBy(layout.contentGap),
             ) {
                 items(itemsList, key = { it.id }) { item ->
                     InspirationRecordCard(
@@ -671,18 +677,15 @@ private fun InspirationRecordCard(
     onOpen: () -> Unit,
     onMore: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     val src = viewModel.sourceOf(item)
     val tags = viewModel.tagsOf(item)
-    // 对齐 web .inspiration-record：扁平 + 1px 发丝线、圆角 16、无投影
-    Surface(
+    // 对齐 web .inspiration-record：扁平 + 1px 发丝线、圆角来自 spec、无投影
+    SectionCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onOpen,
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-        contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(top = 13.dp, bottom = 12.dp, start = 14.dp, end = 14.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -706,7 +709,10 @@ private fun InspirationRecordCard(
                     modifier = Modifier.weight(1f),
                     textAlign = androidx.compose.ui.text.style.TextAlign.End,
                 )
-                IconButton(onClick = onMore, modifier = Modifier.size(44.dp)) {
+                IconButton(
+                    onClick = onMore,
+                    modifier = Modifier.size(LocalLayoutTokens.current.minimumTouchTarget),
+                ) {
                     Icon(Icons.Outlined.MoreHoriz, contentDescription = "更多操作", tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
@@ -749,7 +755,7 @@ private fun InspirationRecordCard(
                     tags.take(3).forEach { tag ->
                         Surface(
                             color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                            shape = RoundedCornerShape(6.dp),
+                            shape = spec.pillShape,
                         ) {
                             Text(tag, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                         }
@@ -773,6 +779,7 @@ private fun InspirationEmptyState(kind: String, onCreate: () -> Unit, onReset: (
         verticalArrangement = Arrangement.Center,
     ) {
         Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.padding(bottom = 16.dp), tint = MaterialTheme.colorScheme.primary)
+        LineArtBookmark(modifier = Modifier.padding(bottom = 4.dp))
         Text(title, style = MaterialTheme.typography.titleMedium)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
         Spacer(Modifier.height(16.dp))
@@ -798,16 +805,17 @@ private fun InspirationDetailPanel(
     onMessage: (String) -> Unit,
     onCopyVariant: (String) -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     val src = viewModel.sourceOf(entity)
     val tags = viewModel.tagsOf(entity)
     val variants by viewModel.observeVariants(entity.id).collectAsStateWithLifecycle(emptyList())
     var generatingAction by remember { mutableStateOf<String?>(null) }
     Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = RoundedCornerShape(6.dp)) {
+            Surface(color = MaterialTheme.colorScheme.primaryContainer, shape = spec.pillShape) {
                 Text(getTypeLabel(entity.type), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
-            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = RoundedCornerShape(6.dp)) {
+            Surface(color = MaterialTheme.colorScheme.secondaryContainer, shape = spec.pillShape) {
                 Text(getStatusLabel(entity.status), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSecondaryContainer, modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp))
             }
             Text("更新于 ${formatDetailTime(entity.updated_at)}", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
@@ -824,7 +832,7 @@ private fun InspirationDetailPanel(
             Spacer(Modifier.height(12.dp))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 tags.forEach { tag ->
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(6.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = spec.pillShape) {
                         Text("#$tag", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }
@@ -832,12 +840,10 @@ private fun InspirationDetailPanel(
         }
         if (src != null) {
             Spacer(Modifier.height(16.dp))
-            Surface(
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(12.dp),
+            SectionCard(
                 modifier = Modifier.fillMaxWidth(),
             ) {
-                Column(modifier = Modifier.fillMaxWidth().padding(16.dp)) {
+                Column(modifier = Modifier.fillMaxWidth()) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         Icon(Icons.Outlined.Book, contentDescription = null)
                         Text("来源", style = MaterialTheme.typography.titleSmall)
@@ -933,12 +939,10 @@ private fun VariantCard(
     onDelete: () -> Unit,
     onCopy: (String) -> Unit,
 ) {
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceVariant,
-        shape = RoundedCornerShape(12.dp),
+    SectionCard(
         modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
     ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 Icon(Icons.Filled.AutoAwesome, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Text(aiActionLabel(variant.kind), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -974,6 +978,7 @@ private fun InspirationEditor(
     onSaved: (String, Boolean) -> Unit,
     @Suppress("unused") onMessage: (String) -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     val books by viewModel.books.collectAsStateWithLifecycle()
 
     var title by remember { mutableStateOf(existing?.title ?: "") }
@@ -1101,7 +1106,7 @@ private fun InspirationEditor(
         if (previewTags.isNotEmpty()) {
             FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(top = 8.dp)) {
                 previewTags.forEach { tag ->
-                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = RoundedCornerShape(6.dp)) {
+                    Surface(color = MaterialTheme.colorScheme.surfaceVariant, shape = spec.pillShape) {
                         Text("#$tag", style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                     }
                 }

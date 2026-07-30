@@ -38,8 +38,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.R
+import com.creationreadingassistant.ui.components.GlassCard
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.LocalVisualStyle
+import com.creationreadingassistant.ui.theme.VisualStyle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 
 private const val PREFS = "app_prefs"
 private const val KEY_ONBOARDED = "onboarded_v1"
@@ -78,6 +86,9 @@ private val STEPS = listOf(
 @Composable
 fun OnboardingOverlay(onClose: () -> Unit) {
     val context = LocalContext.current
+    val spec = LocalComponentSpec.current
+    val layout = LocalLayoutTokens.current
+    val style = LocalVisualStyle.current
     var step by remember { mutableStateOf(0) }
     val current = STEPS[step]
     val isLast = step >= STEPS.lastIndex
@@ -86,14 +97,24 @@ fun OnboardingOverlay(onClose: () -> Unit) {
         color = MaterialTheme.colorScheme.scrim.copy(alpha = 0.6f),
     ) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.BottomCenter) {
-            // 对齐 web .onboarding-panel：底部抽屉，仅上方两角 20dp 圆角，无投影
-            Surface(
-                shape = RoundedCornerShape(topStart = 20.dp, topEnd = 20.dp),
-                color = MaterialTheme.colorScheme.surface,
-                modifier = Modifier.fillMaxWidth(),
+            // 底部抽屉面板：消费 LocalComponentSpec。
+            // - Apple 下 GlassCard 自动变为毛玻璃近似（半透明表面 + 极细边 + 柔和阴影）
+            // - Web 下退化为轻投影 SectionCard（1dp key + 4dp ambient）
+            // - 墨韵下退化为扁平 + 1px 发丝线 SectionCard（无投影）
+            // 仅上方两角大圆角（抽屉式），用 clip 把 GlassCard 的全圆角收敛为顶部圆角。
+            // 内边距补偿 GlassCard 内部 contentPadding（三套主题均为 16dp），保持原 28/24/24/24 的外边距。
+            GlassCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(spec.sheetShape),
             ) {
                 Column(
-                    Modifier.padding(top = 28.dp, start = 24.dp, end = 24.dp, bottom = 24.dp),
+                    Modifier.padding(
+                        top = 28.dp - layout.cardPadding,
+                        start = 24.dp - layout.cardPadding,
+                        end = 24.dp - layout.cardPadding,
+                        bottom = 24.dp - layout.cardPadding,
+                    ),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     // 跳过（右上，透明胶囊，对齐 web .onboarding-skip）
@@ -101,7 +122,7 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                         Spacer(Modifier.weight(1f))
                         TextButton(
                             onClick = { markOnboardingComplete(context); onClose() },
-                            shape = RoundedCornerShape(999.dp),
+                            shape = spec.listItemShape,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                         ) {
                             Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -112,7 +133,7 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                     Box(
                         Modifier
                             .size(72.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), RoundedCornerShape(20.dp)),
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), spec.cardShape),
                         contentAlignment = Alignment.Center,
                     ) {
                         Icon(current.icon, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.primary)
@@ -125,7 +146,7 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                                     .size(width = if (i == step) 18.dp else 6.dp, height = 6.dp)
                                     .background(
                                         if (i == step) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.4f),
-                                        shape = RoundedCornerShape(999.dp),
+                                        shape = spec.pillShape,
                                     ),
                             )
                         }
@@ -146,11 +167,11 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                     Spacer(Modifier.height(22.dp))
                     Button(
                         onClick = {
-                            if (isLast) { markOnboardingComplete(context); onClose() }
-                            else step++
-                        },
-                        shape = RoundedCornerShape(999.dp),
-                        colors = ButtonDefaults.buttonColors(
+                                if (isLast) { markOnboardingComplete(context); onClose() }
+                                else step++
+                            },
+                            shape = spec.listItemShape,
+                            colors = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary,
                             contentColor = MaterialTheme.colorScheme.onPrimary,
                         ),
@@ -158,7 +179,9 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(if (isLast) "开始使用" else "下一步", style = MaterialTheme.typography.labelLarge)
-                        if (!isLast) Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
+                        if (!isLast) {
+                            Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
+                        }
                     }
                 }
             }

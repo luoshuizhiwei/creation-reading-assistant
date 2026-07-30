@@ -1,10 +1,8 @@
 package com.creationreadingassistant.ui.screen
 
-import android.content.Context
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -15,6 +13,8 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -40,41 +40,37 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.collectAsState
-import dagger.hilt.android.EntryPointAccessors
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
-import com.creationreadingassistant.data.local.entity.BookEntity
-import com.creationreadingassistant.data.local.entity.InspirationEntity
-import com.creationreadingassistant.data.local.entity.NoteEntity
-import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
-import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.components.SingletonComponent
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.LineArtBook
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.rememberCountUp
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.creationreadingassistant.data.local.dao.StatsBookRow
+import com.creationreadingassistant.data.local.dao.StatsCreatedRow
+import com.creationreadingassistant.data.local.dao.StatsProgressRow
+import com.creationreadingassistant.data.local.dao.StatsSessionRow
+import com.creationreadingassistant.ui.viewmodel.StatsDashboardViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -93,7 +89,7 @@ import kotlin.math.round
  */
 
 // ---- 时间范围（与 statsPeriodLabels 对齐，无 day） ----
-private enum class StatsPeriod { WEEK, MONTH, YEAR, TOTAL }
+internal enum class StatsPeriod { WEEK, MONTH, YEAR, TOTAL }
 private val PERIOD_LABELS = mapOf(
     StatsPeriod.WEEK to "本周",
     StatsPeriod.MONTH to "本月",
@@ -102,14 +98,14 @@ private val PERIOD_LABELS = mapOf(
 )
 
 // ---- 计算结果模型 ----
-private data class TrendItem(
+internal data class TrendItem(
     val dateKey: String,
     val label: String,
     val durationMs: Long,
     val sessionCount: Int,
 )
 
-private data class BookStatus(
+internal data class BookStatus(
     val reading: Int,
     val completed: Int,
     val unread: Int,
@@ -117,7 +113,7 @@ private data class BookStatus(
     val total: Int,
 )
 
-private data class StatsUi(
+internal data class StatsUi(
     val totalReadingMs: Long,
     val readingDays: Int,
     val readBooks: Int,
@@ -133,46 +129,37 @@ private data class StatsUi(
     val trend: List<TrendItem>,
 )
 
-// ---- Hilt 入口：访问已存在 DAO ----
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface StatsDataEntryPoint {
-    fun bookDao(): BookDao
-    fun readingSessionDao(): ReadingSessionDao
-    fun readingProgressDao(): ReadingProgressDao
-    fun inspirationDao(): InspirationDao
-    fun noteDao(): NoteDao
-}
+internal val EMPTY_STATS = StatsUi(
+    totalReadingMs = 0L,
+    readingDays = 0,
+    readBooks = 0,
+    completed = 0,
+    sessionCount = 0,
+    streakCurrent = 0,
+    streakLongest = 0,
+    status = BookStatus(0, 0, 0, 0, 0),
+    words = 0,
+    speed = 0,
+    noteCount = 0,
+    inspirationCount = 0,
+    trend = emptyList(),
+)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun StatsScreen(onGoToShelf: () -> Unit = {}) {
-    val context = LocalContext.current
-    val entryPoint = remember {
-        EntryPointAccessors.fromApplication(context.applicationContext, StatsDataEntryPoint::class.java)
-    }
-
-    val sessionsFlow = remember { entryPoint.readingSessionDao().observeAllActive() }
-    val progressFlow = remember { entryPoint.readingProgressDao().observeAllActive() }
-    val booksFlow = remember { entryPoint.bookDao().observeAllActive() }
-    val inspirationsFlow = remember { entryPoint.inspirationDao().observeAllActive() }
-    val notesFlow = remember { entryPoint.noteDao().observeAllActive() }
-
-    val sessions by sessionsFlow.collectAsState(initial = emptyList())
-    val progress by progressFlow.collectAsState(initial = emptyList())
-    val books by booksFlow.collectAsState(initial = emptyList())
-    val inspirations by inspirationsFlow.collectAsState(initial = emptyList())
-    val notes by notesFlow.collectAsState(initial = emptyList())
-
-    var period by remember { mutableStateOf(StatsPeriod.WEEK) }
-    var anchor by remember { mutableStateOf(today()) }
-
-    val ui = remember(sessions, progress, books, inspirations, notes, period, anchor) {
-        computeStats(period, anchor, sessions, progress, books, inspirations, notes)
-    }
+fun StatsScreen(
+    onGoToShelf: () -> Unit = {},
+    viewModel: StatsDashboardViewModel = hiltViewModel(),
+) {
+    val layout = LocalLayoutTokens.current
+    val reducedMotion = rememberReducedMotion()
+    val dashboard by viewModel.uiState.collectAsStateWithLifecycle()
+    val period = dashboard.period
+    val anchor = dashboard.anchor
+    val ui = dashboard.stats ?: EMPTY_STATS
 
     val hasAnyData = ui.totalReadingMs > 0 || ui.sessionCount > 0
-    val showGlobalEmpty = books.isEmpty() && !hasAnyData
+    val showGlobalEmpty = dashboard.booksEmpty && !hasAnyData
     val currentPeriod = isCurrentPeriod(period, anchor)
 
     Scaffold(
@@ -181,64 +168,66 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                 title = {
                     Text(
                         "统计",
-                        style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
+                        style = MaterialTheme.typography.headlineLarge,
                     )
                 },
             )
         },
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(padding),
+            contentPadding = PaddingValues(
+                horizontal = layout.pageHorizontal,
+                vertical = layout.pageVertical,
+            ),
+            verticalArrangement = Arrangement.spacedBy(layout.contentGap),
         ) {
             // 2. 时间范围 tabs（对齐 web .stats-period-tabs 分段控件）
-            StatsPeriodTabs(period = period, onSelect = { p -> period = p; anchor = today() })
+            item(key = "period-tabs") {
+                StatsPeriodTabs(period = period, onSelect = viewModel::selectPeriod)
+            }
 
             // 3. 周期标题行（上一周期 / 标题 / 下一周期）
+            item(key = "period-title") {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
                 IconButton(
-                    onClick = { anchor = shiftAnchor(anchor, period, -1) },
+                    onClick = { viewModel.shiftPeriod(-1) },
                     enabled = period != StatsPeriod.TOTAL,
                 ) { Icon(Icons.Filled.ChevronLeft, contentDescription = "上一周期") }
                 Text(periodTitle(period, anchor), style = MaterialTheme.typography.titleMedium)
                 IconButton(
-                    onClick = { anchor = shiftAnchor(anchor, period, 1) },
+                    onClick = { viewModel.shiftPeriod(1) },
                     enabled = period != StatsPeriod.TOTAL && !currentPeriod,
                 ) { Icon(Icons.Filled.ChevronRight, contentDescription = "下一周期") }
+            }
             }
 
             if (showGlobalEmpty) {
                 // 9. 全局空状态
-                GlobalEmptyState(onGoToShelf)
+                item(key = "global-empty") { GlobalEmptyState(onGoToShelf) }
             } else {
-                // 4. 概要卡片网格（4 张）
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SummaryCard(Icons.Filled.AccessTime, formatCompactDuration(ui.totalReadingMs), "阅读时长", Modifier.weight(1f))
-                    SummaryCard(Icons.Filled.CalendarMonth, "${ui.readingDays} 天", "阅读天数", Modifier.weight(1f))
-                }
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    SummaryCard(Icons.Filled.Book, "${ui.readBooks} 本", "读过书籍", Modifier.weight(1f))
-                    SummaryCard(Icons.Filled.CheckCircle, "${ui.completed} 本", "已读完", Modifier.weight(1f))
+                item(key = "summary") {
+                SummaryMetricGroup(
+                    items = listOf(
+                        SummaryMetric(Icons.Filled.AccessTime, formatCompactDuration(ui.totalReadingMs), "阅读时长"),
+                        SummaryMetric(Icons.Filled.CalendarMonth, "${ui.readingDays} 天", "阅读天数"),
+                        SummaryMetric(Icons.Filled.Book, "${ui.readBooks} 本", "读过书籍"),
+                        SummaryMetric(Icons.Filled.CheckCircle, "${ui.completed} 本", "已读完"),
+                    ),
+                )
                 }
 
                 // 5. 连续阅读卡片
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
+                item(key = "streak") {
+                SectionCard(modifier = Modifier.fillMaxWidth()) {
                     Row(
-                        modifier = Modifier.padding(14.dp),
+                        modifier = Modifier,
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
@@ -248,6 +237,7 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                             label = "当前连续（天）",
                             active = ui.streakCurrent > 0,
                             modifier = Modifier.weight(1f),
+                            reducedMotion = reducedMotion,
                         )
                         Box(
                             modifier = Modifier
@@ -261,13 +251,16 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                             label = "最长连续（天）",
                             active = ui.streakLongest > 0,
                             modifier = Modifier.weight(1f),
+                            reducedMotion = reducedMotion,
                         )
                     }
                 }
+                }
 
                 // 6. 阅读趋势卡片
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item(key = "trend") {
+                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -283,10 +276,12 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                         TrendChart(ui.trend)
                     }
                 }
+                }
 
                 // 7. 书籍状态卡片
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item(key = "book-status") {
+                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -323,30 +318,34 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                         }
                     }
                 }
+                }
 
                 // 8. 阅读与创作卡片
-                Surface(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(22.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest, border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)) {
-                    Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                item(key = "creation") {
+                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                    Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("阅读与创作", style = MaterialTheme.typography.titleMedium)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            CreationItem(Icons.Filled.TextFields, formatThousands(ui.words), "阅读字数", Modifier.weight(1f))
-                            CreationItem(Icons.Filled.Speed, "${ui.speed}", "字/分钟", Modifier.weight(1f))
+                            CreationItem(Icons.Filled.TextFields, formatThousands(ui.words), "阅读字数", Modifier.weight(1f), reducedMotion = reducedMotion)
+                            CreationItem(Icons.Filled.Speed, "${ui.speed}", "字/分钟", Modifier.weight(1f), reducedMotion = reducedMotion)
                         }
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(12.dp),
                         ) {
-                            CreationItem(Icons.Filled.ChatBubble, "${ui.noteCount}", "笔记", Modifier.weight(1f))
-                            CreationItem(Icons.Filled.AutoAwesome, "${ui.inspirationCount}", "灵感", Modifier.weight(1f))
+                            CreationItem(Icons.Filled.ChatBubble, "${ui.noteCount}", "笔记", Modifier.weight(1f), reducedMotion = reducedMotion)
+                            CreationItem(Icons.Filled.AutoAwesome, "${ui.inspirationCount}", "灵感", Modifier.weight(1f), reducedMotion = reducedMotion)
                         }
                     }
+                }
                 }
 
                 // 9. 本期无数据
                 if (!hasAnyData) {
+                    item(key = "period-empty") {
                     Column(
                         modifier = Modifier.fillMaxWidth().padding(24.dp),
                         horizontalAlignment = Alignment.CenterHorizontally,
@@ -366,6 +365,7 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
                             textAlign = TextAlign.Center,
                         )
                     }
+                    }
                 }
             }
         }
@@ -377,8 +377,8 @@ fun StatsScreen(onGoToShelf: () -> Unit = {}) {
 @Composable
 private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit) {
     Surface(
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainer,
+        shape = LocalComponentSpec.current.listItemShape,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(3.dp),
@@ -389,7 +389,7 @@ private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit
                 Surface(
                     onClick = { onSelect(p) },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(12.dp),
+                    shape = LocalComponentSpec.current.listItemShape,
                     color = if (active) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent,
                     contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurface,
                 ) {
@@ -407,30 +407,74 @@ private fun StatsPeriodTabs(period: StatsPeriod, onSelect: (StatsPeriod) -> Unit
 
 
 
+private data class SummaryMetric(
+    val icon: ImageVector,
+    val value: String,
+    val label: String,
+)
+
 @Composable
-private fun SummaryCard(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(22.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+private fun SummaryMetricGroup(items: List<SummaryMetric>) {
+    SectionCard(
+        modifier = Modifier.fillMaxWidth(),
+        contentPadding = 0.dp,
     ) {
-        Row(
-            modifier = Modifier.padding(12.dp).then(Modifier.heightIn(min = 68.dp)),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            Column {
-                Text(value, style = MaterialTheme.typography.titleMedium.copy(fontSize = 18.sp, fontWeight = FontWeight.Bold), lineHeight = 22.sp)
-                Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        items.chunked(2).forEachIndexed { rowIndex, rowItems ->
+            if (rowIndex > 0) {
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            }
+            Row(Modifier.fillMaxWidth()) {
+                rowItems.forEachIndexed { columnIndex, item ->
+                    if (columnIndex > 0) {
+                        VerticalDivider(
+                            modifier = Modifier.height(52.dp),
+                            color = MaterialTheme.colorScheme.outlineVariant,
+                        )
+                    }
+                    SummaryMetricCell(
+                        item = item,
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-private fun StreakItem(icon: ImageVector, value: Int, label: String, active: Boolean, modifier: Modifier = Modifier) {
+private fun SummaryMetricCell(
+    item: SummaryMetric,
+    modifier: Modifier = Modifier,
+) {
+    val layout = LocalLayoutTokens.current
+    Row(
+        modifier = modifier
+            .heightIn(min = 76.dp)
+            .padding(layout.compactCardPadding),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+    ) {
+        Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Column {
+            Text(
+                item.value,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                ),
+                lineHeight = 22.sp,
+            )
+            Text(
+                item.label,
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun StreakItem(icon: ImageVector, value: Int, label: String, active: Boolean, modifier: Modifier = Modifier, reducedMotion: Boolean = false) {
     Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(
             icon,
@@ -438,22 +482,26 @@ private fun StreakItem(icon: ImageVector, value: Int, label: String, active: Boo
             tint = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Column {
-            Text("$value", style = MaterialTheme.typography.headlineSmall)
+            Text("${rememberCountUp(value, reducedMotion)}", style = MaterialTheme.typography.headlineSmall)
             Text(label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 @Composable
-private fun CreationItem(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier) {
+private fun CreationItem(icon: ImageVector, value: String, label: String, modifier: Modifier = Modifier, reducedMotion: Boolean = false) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = LocalComponentSpec.current.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainer,
     ) {
         Column(modifier = Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-            Text(value, style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold))
+            val numeric = value.toIntOrNull()
+            Text(
+                if (numeric != null) rememberCountUp(numeric, reducedMotion).toString() else value,
+                style = MaterialTheme.typography.titleMedium.copy(fontSize = 16.sp, fontWeight = FontWeight.Bold),
+            )
             Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
@@ -461,11 +509,12 @@ private fun CreationItem(icon: ImageVector, value: String, label: String, modifi
 
 @Composable
 private fun TrendChart(items: List<TrendItem>) {
-    if (items.isEmpty()) {
+    if (items.isEmpty() || items.none { it.durationMs > 0L }) {
         Text(
-            "本期还没有阅读记录",
+            "开始阅读后，这里会显示每天的时长变化。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(vertical = LocalLayoutTokens.current.microGap),
         )
         return
     }
@@ -486,7 +535,7 @@ private fun TrendChart(items: List<TrendItem>) {
                     modifier = Modifier
                         .height(h)
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(LocalComponentSpec.current.listItemShape)
                         .background(MaterialTheme.colorScheme.primary),
                 )
                 Spacer(modifier = Modifier.height(4.dp))
@@ -522,7 +571,7 @@ private fun StatusBar(label: String, count: Int, total: Int, color: Color) {
                 modifier = Modifier
                     .fillMaxWidth(fraction = fraction)
                     .height(8.dp)
-                    .clip(RoundedCornerShape(4.dp))
+                    .clip(LocalComponentSpec.current.listItemShape)
                     .background(color = color),
             )
         }
@@ -538,6 +587,7 @@ private fun GlobalEmptyState(onGoToShelf: () -> Unit) {
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
+        LineArtBook(modifier = Modifier.size(72.dp))
         Text("还没有阅读记录", style = MaterialTheme.typography.titleMedium)
         Text(
             "开始阅读后，这里会展示你的阅读时长、书籍和天数统计。",
@@ -561,13 +611,13 @@ private fun parseDate(iso: String?): LocalDate? {
     return runCatching { Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate() }.getOrNull()
 }
 
-private fun sessionDateKey(s: ReadingSessionEntity): String {
-    val d = parseDate(s.started_at ?: s.created_at) ?: today()
+private fun sessionDateKey(s: StatsSessionRow): String {
+    val d = parseDate(s.occurred_at) ?: today()
     return toDateKey(d)
 }
 
 /** 有效会话时长（过滤 <=0 与 >24h 的异常值），对齐 MAX_SESSION_MS。 */
-private fun sessionDuration(s: ReadingSessionEntity): Long {
+private fun sessionDuration(s: StatsSessionRow): Long {
     val d = s.duration_ms
     if (d <= 0) return 0
     if (d > 24L * 60 * 60 * 1000) return 0
@@ -628,19 +678,19 @@ private fun shiftAnchor(anchor: LocalDate, period: StatsPeriod, dir: Int): Local
     }
 }
 
-private fun computeStats(
+internal fun computeStats(
     period: StatsPeriod,
     anchor: LocalDate,
-    sessions: List<ReadingSessionEntity>,
-    progress: List<ReadingProgressEntity>,
-    books: List<BookEntity>,
-    inspirations: List<InspirationEntity>,
-    notes: List<NoteEntity>,
+    sessions: List<StatsSessionRow>,
+    progress: List<StatsProgressRow>,
+    books: List<StatsBookRow>,
+    inspirations: List<StatsCreatedRow>,
+    notes: List<StatsCreatedRow>,
 ): StatsUi {
     val valid = sessions.filter { sessionDuration(it) > 0 }
     val (rs, re) = buildRange(period, anchor)
     val periodSessions = valid.filter { s ->
-        val d = parseDate(s.started_at ?: s.created_at)
+        val d = parseDate(s.occurred_at)
         d != null && inRange(rs to re, d)
     }
 
@@ -652,7 +702,7 @@ private fun computeStats(
     val displayable = books.filter { it.content_status == "available" }
     val progressMap = progress.associateBy { it.book_id }
     fun hasSession(bid: String) = valid.any { it.book_id == bid }
-    fun hasRead(bid: String, p: ReadingProgressEntity?): Boolean =
+    fun hasRead(bid: String, p: StatsProgressRow?): Boolean =
         (p?.progress_percent ?: 0f) > 0f || hasSession(bid)
 
     var reading = 0
@@ -715,7 +765,7 @@ private fun computeStats(
     )
 }
 
-private fun computeStreak(valid: List<ReadingSessionEntity>): Pair<Int, Int> {
+private fun computeStreak(valid: List<StatsSessionRow>): Pair<Int, Int> {
     val keys = valid.map { sessionDateKey(it) }.toSet().toList().sorted()
     if (keys.isEmpty()) return 0 to 0
     var longest = 1
@@ -745,10 +795,10 @@ private fun computeStreak(valid: List<ReadingSessionEntity>): Pair<Int, Int> {
 
 // ---- 阅读趋势 ----
 
-private fun bucketByDate(valid: List<ReadingSessionEntity>): Map<String, Pair<Long, Int>> {
+private fun bucketByDate(valid: List<StatsSessionRow>): Map<String, Pair<Long, Int>> {
     val m = mutableMapOf<String, Pair<Long, Int>>()
     for (s in valid) {
-        val d = parseDate(s.started_at ?: s.created_at) ?: continue
+        val d = parseDate(s.occurred_at) ?: continue
         val key = toDateKey(d)
         val dur = sessionDuration(s)
         val e = m[key]
@@ -757,7 +807,7 @@ private fun bucketByDate(valid: List<ReadingSessionEntity>): Map<String, Pair<Lo
     return m
 }
 
-private fun buildTrend(period: StatsPeriod, anchor: LocalDate, valid: List<ReadingSessionEntity>): List<TrendItem> {
+private fun buildTrend(period: StatsPeriod, anchor: LocalDate, valid: List<StatsSessionRow>): List<TrendItem> {
     return when (period) {
         StatsPeriod.WEEK -> fillDaily(valid, buildRange(period, anchor))
         StatsPeriod.MONTH -> fillWeekly(valid, buildRange(period, anchor))
@@ -766,7 +816,7 @@ private fun buildTrend(period: StatsPeriod, anchor: LocalDate, valid: List<Readi
     }
 }
 
-private fun fillDaily(valid: List<ReadingSessionEntity>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
+private fun fillDaily(valid: List<StatsSessionRow>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
     val groups = bucketByDate(valid)
     val items = mutableListOf<TrendItem>()
     var d = range.first
@@ -779,10 +829,10 @@ private fun fillDaily(valid: List<ReadingSessionEntity>, range: Pair<LocalDate, 
     return items
 }
 
-private fun fillWeekly(valid: List<ReadingSessionEntity>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
+private fun fillWeekly(valid: List<StatsSessionRow>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
     val buckets = mutableMapOf<String, Pair<Long, Int>>()
     for (s in valid) {
-        val d = parseDate(s.started_at ?: s.created_at) ?: continue
+        val d = parseDate(s.occurred_at) ?: continue
         if (d.isBefore(range.first) || !d.isBefore(range.second)) continue
         val dow = d.dayOfWeek.value
         val off = if (dow == 7) -6 else (1 - dow)
@@ -810,10 +860,10 @@ private fun fillWeekly(valid: List<ReadingSessionEntity>, range: Pair<LocalDate,
     return items
 }
 
-private fun fillMonthly(valid: List<ReadingSessionEntity>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
+private fun fillMonthly(valid: List<StatsSessionRow>, range: Pair<LocalDate, LocalDate>): List<TrendItem> {
     val buckets = mutableMapOf<String, Pair<Long, Int>>()
     for (s in valid) {
-        val d = parseDate(s.started_at ?: s.created_at) ?: continue
+        val d = parseDate(s.occurred_at) ?: continue
         if (d.isBefore(range.first) || !d.isBefore(range.second)) continue
         val key = "${d.year}-${String.format("%02d", d.monthValue)}"
         val dur = sessionDuration(s)
@@ -831,8 +881,8 @@ private fun fillMonthly(valid: List<ReadingSessionEntity>, range: Pair<LocalDate
     return items
 }
 
-private fun fillTotal(valid: List<ReadingSessionEntity>): List<TrendItem> {
-    val dates = valid.mapNotNull { parseDate(it.started_at ?: it.created_at) }
+private fun fillTotal(valid: List<StatsSessionRow>): List<TrendItem> {
+    val dates = valid.mapNotNull { parseDate(it.occurred_at) }
     if (dates.isEmpty()) return emptyList()
     val start = dates.minOrNull()!!.withDayOfMonth(1)
     val end = dates.maxOrNull()!!.withDayOfMonth(1).plusMonths(1)

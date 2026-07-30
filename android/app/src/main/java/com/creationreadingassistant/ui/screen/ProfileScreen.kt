@@ -70,7 +70,7 @@ import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Wifi
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
+import com.creationreadingassistant.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -111,25 +111,18 @@ import androidx.navigation.NavHostController
 import androidx.core.content.FileProvider
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
+import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.StatsViewModel
 import com.creationreadingassistant.ui.viewmodel.SyncFailedItem
 import com.creationreadingassistant.ui.viewmodel.SyncResultDetail
 import com.creationreadingassistant.data.settings.ReaderSettings
-import com.creationreadingassistant.data.local.dao.BookContentDao
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.BookFileDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.ui.components.*
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
-import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
-import dagger.hilt.EntryPoint
-import dagger.hilt.InstallIn
-import dagger.hilt.android.EntryPointAccessors
-import dagger.hilt.components.SingletonComponent
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
@@ -142,18 +135,6 @@ import kotlinx.coroutines.withContext
 // 与网页版 mobile-updates.ts 保持一致的发布链接
 private const val MOBILE_RELEASES_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases"
 private const val MOBILE_RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant-releases/releases/latest"
-
-/** Hilt 入口：向「我的」子页暴露所需 DAO（避免新增 ViewModel）。 */
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface ProfileDataEntryPoint {
-    fun bookDao(): BookDao
-    fun readingProgressDao(): ReadingProgressDao
-    fun readingSessionDao(): ReadingSessionDao
-    fun noteDao(): NoteDao
-    fun bookContentDao(): BookContentDao
-    fun bookFileDao(): BookFileDao
-}
 
 /**
  * 「我的」页（P3）：1:1 复刻网页版 mobile/ ProfilePage/ProfileHome 布局。
@@ -174,13 +155,11 @@ fun ProfileScreen(
     statsViewModel: StatsViewModel = hiltViewModel(),
     navController: NavHostController? = null,
 ) {
+    val layout = LocalLayoutTokens.current
     val context = LocalContext.current
-    val entryPoint = remember {
-        EntryPointAccessors.fromApplication(context.applicationContext, ProfileDataEntryPoint::class.java)
-    }
     val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
-    val cachedCount by entryPoint.bookContentDao().observeCachedCount().collectAsStateWithLifecycle(initialValue = 0)
+    val libraryState by viewModel.libraryState.collectAsStateWithLifecycle()
 
     val config by viewModel.config.collectAsStateWithLifecycle()
     val pairing by viewModel.pairing.collectAsStateWithLifecycle()
@@ -195,8 +174,7 @@ fun ProfileScreen(
     val stats by statsViewModel.stats.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
-    val books by entryPoint.bookDao().observeAllActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val cacheBytes by entryPoint.bookContentDao().observeCachedBytes().collectAsStateWithLifecycle(initialValue = 0L)
+    val books = libraryState.books
 
     var currentSubPage by remember { mutableStateOf<ProfileSubPage?>(null) }
     var moreExpanded by remember { mutableStateOf(false) }
@@ -242,7 +220,7 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(text = "我的", style = MaterialTheme.typography.titleLarge)
+                            Text(text = "我的", style = MaterialTheme.typography.headlineLarge)
                         }
                     },
                     actions = {
@@ -279,7 +257,7 @@ fun ProfileScreen(
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            Text(text = subPageTitle(currentSubPage), style = MaterialTheme.typography.titleLarge)
+                            Text(text = subPageTitle(currentSubPage), style = MaterialTheme.typography.headlineLarge)
                         }
                     },
                     navigationIcon = {
@@ -296,7 +274,10 @@ fun ProfileScreen(
             .fillMaxSize()
             .padding(innerPadding)
             .verticalScroll(rememberScrollState())
-            .padding(16.dp)
+            .padding(
+                horizontal = layout.pageHorizontal,
+                vertical = layout.pageVertical,
+            )
 
         when (val page = currentSubPage) {
             null -> ProfileHomeContent(
@@ -406,13 +387,17 @@ fun ProfileScreen(
                     onMessage = showMsg,
                 )
             ProfileSubPage.READING, ProfileSubPage.NOTES ->
-                ReadingNotesSubPage(modifier = modifier, page = page)
+                ReadingNotesSubPage(
+                    modifier = modifier,
+                    page = page,
+                    libraryState = libraryState,
+                )
             ProfileSubPage.STORAGE -> StorageSubPage(
                 modifier = modifier,
                 totalBooks = books.size,
                 downloadedCount = books.count { isBookDownloaded(it) },
-                cachedCount = cachedCount,
-                cacheBytes = cacheBytes,
+                cachedCount = libraryState.cachedCount,
+                cacheBytes = libraryState.cacheBytes,
                 indexBytes = books.sumOf { it.size.toLong() },
                 formatCounts = remember(books) { books.groupingBy { it.format }.eachCount() },
                 onExport = { exportLauncher.launch("cra-export-${System.currentTimeMillis()}.json") },
@@ -435,7 +420,7 @@ fun ProfileScreen(
     }
 
     confirmDialog?.let { spec ->
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmDialog = null },
             confirmButton = {
                 TextButton(onClick = { spec.onConfirm(); confirmDialog = null }) { Text("确认") }
@@ -516,27 +501,26 @@ private fun ProfileHomeContent(
     onNavigate: (ProfileSubPage) -> Unit,
     onClearCache: () -> Unit,
 ) {
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    val layout = LocalLayoutTokens.current
+    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(layout.contentGap)) {
         // 顶部同步状态卡（对应 ProfileHome 的 compact-profile-card + profile-grid）
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Book, contentDescription = null, modifier = Modifier.size(28.dp))
-                    Column(modifier = Modifier.padding(start = 12.dp)) {
-                        Text("创作阅读助手", style = MaterialTheme.typography.titleMedium)
-                        Text("本地优先", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+        SectionCard {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Filled.Book, contentDescription = null, modifier = Modifier.size(28.dp))
+                Column(modifier = Modifier.padding(start = 12.dp)) {
+                    Text("创作阅读助手", style = MaterialTheme.typography.titleMedium)
+                    Text("本地优先", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                    horizontalArrangement = Arrangement.SpaceEvenly,
-                ) {
-                    HomeStat("阅读时长", formatDuration(totalDurationMs))
-                    HomeStat("累计读完", completedBookCount.toString())
-                    HomeStat("灵感数量", inspirationCount.toString())
-                }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                HomeStat("阅读时长", formatDuration(totalDurationMs))
+                HomeStat("累计读完", completedBookCount.toString())
+                HomeStat("灵感数量", inspirationCount.toString())
             }
         }
 
@@ -587,26 +571,20 @@ private fun HomeStat(label: String, value: String) {
 
 @Composable
 private fun RowScope.QuickTile(label: String, value: String, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier
-            .weight(1f)
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+    SectionCard(
+        modifier = Modifier.weight(1f),
+        onClick = onClick,
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(label, style = MaterialTheme.typography.titleSmall)
-            Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
-        }
+        Text(label, style = MaterialTheme.typography.titleSmall)
+        Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
     }
 }
 
 @Composable
 private fun MenuGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.relatedGap)) {
         Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(content = content)
-        }
+        SectionCard(contentPadding = 0.dp, content = content)
     }
 }
 
@@ -618,12 +596,24 @@ private fun ColumnScope.MenuItem(
     danger: Boolean = false,
     onClick: () -> Unit,
 ) {
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        headlineContent = { Text(label, color = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface) },
-        supportingContent = desc?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
-        leadingContent = { Icon(icon, contentDescription = null, tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary) },
-        trailingContent = { Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+    SettingRow(
+        title = label,
+        subtitle = desc,
+        leading = {
+            Icon(
+                icon,
+                contentDescription = null,
+                tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+            )
+        },
+        trailing = {
+            Icon(
+                Icons.Filled.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        },
+        onClick = onClick,
     )
 }
 
@@ -649,8 +639,8 @@ private fun SyncSubPage(
     var pairingText by remember { mutableStateOf("") }
     var showLogs by remember { mutableStateOf(false) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -697,11 +687,11 @@ private fun SyncSubPage(
         }
 
         lastSyncResult?.let { result ->
-            Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-                Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Icon(
-                            if (result.success) Icons.Filled.CheckCircle else Icons.Filled.Info,
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Icon(
+                        if (result.success) Icons.Filled.CheckCircle else Icons.Filled.Info,
                             contentDescription = null,
                             tint = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                         )
@@ -828,8 +818,8 @@ private fun SyncSubPage(
             }
         }
 
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().clickable { showLogs = !showLogs },
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -900,8 +890,8 @@ private fun WebDavSubPage(
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("同步目录固定为 .creation-reading-assistant/，会上传 manifest、records 和 books。WebDAV 密码 / token 仅保存在应用本地沙箱，AI Key 不参与同步。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(value = url, onValueChange = { url = it }, placeholder = { Text("https://example.com/dav") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                 OutlinedTextField(value = user, onValueChange = { user = it }, placeholder = { Text("用户名") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
@@ -920,8 +910,8 @@ private fun WebDavSubPage(
             }
         }
 
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text("远程备份列表", style = MaterialTheme.typography.titleSmall)
                     Spacer(modifier = Modifier.weight(1f))
@@ -962,39 +952,20 @@ private fun AppearanceSubPage(
     onPaperTextureChange: (Boolean) -> Unit,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Text("应用外观影响首页、书架、灵感、统计和设置；阅读页正文背景仍在阅读器设置里单独控制。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
-                listOf(
-                    Triple("system", "跟随系统", "随手机深浅色变化"),
-                    Triple("light", "浅色", "纸张感更强，适合白天"),
-                    Triple("dark", "深色", "夜间浏览更安静"),
-                ).forEach { (value, title, desc) ->
-                    val selected = appTheme == value
-                    ListItem(
-                        modifier = Modifier.clickable { onThemeChange(value) },
-                        headlineContent = { Text(title) },
-                        supportingContent = { Text(desc, color = MaterialTheme.colorScheme.onSurfaceVariant) },
-                        leadingContent = { Icon(Icons.Filled.DarkMode, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                        trailingContent = { if (selected) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
-                    )
-                }
-            }
+        SectionCard {
+            Text("应用外观影响首页、书架、灵感、统计和设置；阅读页正文背景仍在阅读器设置里单独控制。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
+            ThemeSwitchButton(
+                currentMode = appTheme,
+                onModeChange = onThemeChange,
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Column {
-                    Text("纸张纹理")
-                    Text("开启后界面叠加纸感底纹", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Switch(checked = paperTexture, onCheckedChange = onPaperTextureChange)
-            }
+        SectionCard {
+            SettingRow(
+                title = "纸张纹理",
+                subtitle = "开启后界面叠加纸感底纹",
+                trailing = { Switch(checked = paperTexture, onCheckedChange = onPaperTextureChange) },
+            )
         }
     }
 }
@@ -1024,8 +995,8 @@ private fun ReaderSettingsSubPage(
     onReset: () -> Unit,
 ) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("阅读模式")
                 SegmentedRow(
                     options = listOf("paged" to "左右翻页", "scroll" to "上下滚动"),
@@ -1063,8 +1034,8 @@ private fun ReaderSettingsSubPage(
                 Text("四档动效都直接移动轻量页面层，不创建页面截图。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("排版")
                 RangeRow("字号", fontSize, 12f, 32f, 1f, valueLabel = { "${it.toInt()}" }, onValueChange = onFontSizeChange)
                 RangeRow("行距", lineHeight, 1.2f, 2.5f, 0.05f, valueLabel = { "%.2f".format(it) }, onValueChange = onLineHeightChange)
@@ -1072,26 +1043,25 @@ private fun ReaderSettingsSubPage(
                 RangeRow("边距", pageMargin, 10f, 42f, 1f, valueLabel = { "${it.toInt()}px" }, onValueChange = onPageMarginChange)
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 SectionTitle("阅读主题")
+                // 收敛为定稿 4 档 + 跟随外观（旧 7 色 key 已由 SettingsStore.migrateReaderBg 迁移，不再暴露入口）
                 SegmentedRow(
                     options = listOf(
-                        "white" to "素白",
-                        "warm" to "暖黄纸感",
-                        "green" to "护眼绿",
-                        "night" to "夜间",
-                        "warm-yellow" to "暖黄",
-                        "green-bean" to "绿豆沙",
-                        "oled-black" to "纯黑OLED",
+                        "follow" to "跟随外观",
+                        "white" to "白纸",
+                        "warm" to "暖纸",
+                        "green" to "护眼",
+                        "night" to "夜读",
                     ),
                     selected = readerBackground,
                     onSelect = onReaderBackgroundChange,
                 )
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(8.dp)) {
+        SectionCard {
+            Column {
                 SectionTitle("显示与辅助", modifier = Modifier.padding(8.dp))
                 ToggleRow("沉浸模式", immersiveMode, onImmersiveModeChange)
                 ToggleRow("安静阅读信息", showReaderInfo, onShowReaderInfoChange)
@@ -1116,8 +1086,8 @@ private fun ReaderSettingsSubPage(
                 ToggleRow("粗体文字", fontWeightBold, onFontWeightBoldChange)
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 SectionTitle("危险操作")
                 Text("重置阅读设置只会恢复字号、行距、主题等默认值，不会删除阅读进度、书籍、书签和笔记。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedButton(onClick = onReset, modifier = Modifier.fillMaxWidth()) { Text("重置阅读设置", color = MaterialTheme.colorScheme.error) }
@@ -1145,16 +1115,12 @@ private fun AiSettingsSubPage(
     var showKey by remember { mutableStateOf(keyDraft.isBlank()) }
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         DegradedNote("手机端 AI Key 已持久化在应用本地沙箱，不会跨设备同步，也不参与 WebDAV 同步或数据导出；配置 OpenAI-compatible 接口后，灵感详情页可一键生成 AI 候选版本。")
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                ) {
-                    Text("启用 AI 助手")
-                    Switch(checked = enabled, onCheckedChange = onEnabledChange)
-                }
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                SettingRow(
+                    title = "启用 AI 助手",
+                    trailing = { Switch(checked = enabled, onCheckedChange = onEnabledChange) },
+                )
                 OutlinedTextField(value = baseUrl, onValueChange = onBaseUrlChange, placeholder = { Text("https://dashscope.aliyuncs.com/compatible-mode/v1") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                 OutlinedTextField(value = model, onValueChange = onModelChange, placeholder = { Text("qwen-plus") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                 Column {
@@ -1257,11 +1223,10 @@ private fun LibrarySubPage(
                 val expanded = expandedIds.contains(id)
                 val entityTag = if (page == ProfileSubPage.TAGS) allTags.find { it.id == id } else null
                 val entityCategory = if (page == ProfileSubPage.CATEGORIES) allCategories.find { it.id == id } else null
-                Card(
-                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                    modifier = Modifier.clickable { toggleExpanded(id) },
+                SectionCard(
+                    onClick = { toggleExpanded(id) },
                 ) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 imageVector = when (page) {
@@ -1311,20 +1276,11 @@ private fun LibrarySubPage(
                                         "night" to "夜间",
                                     ).forEach { (tone, label) ->
                                         val selected = entityCategory?.cover_tone == tone
-                                        Card(
-                                            modifier = Modifier.clickable { taxonomyVm.updateCategoryTone(id, tone) },
-                                            colors = CardDefaults.cardColors(
-                                                containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                                            ),
-                                            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-                                        ) {
-                                            Text(
-                                                label,
-                                                style = MaterialTheme.typography.labelSmall,
-                                                color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                            )
-                                        }
+                                        SelectablePill(
+                                            text = label,
+                                            selected = selected,
+                                            onClick = { taxonomyVm.updateCategoryTone(id, tone) },
+                                        )
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -1358,8 +1314,8 @@ private fun LibrarySubPage(
                 }
             }
         } else {
-            Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-                Column(Modifier.fillMaxWidth().padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            SectionCard {
+                Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Icon(
                         when (page) { ProfileSubPage.TAGS -> Icons.Filled.Sell; ProfileSubPage.CATEGORIES -> Icons.Filled.Folder; else -> Icons.Filled.Book },
                         contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -1370,7 +1326,7 @@ private fun LibrarySubPage(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        SectionDivider(color = MaterialTheme.colorScheme.outlineVariant)
         if (showCreate) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 OutlinedTextField(value = newName, onValueChange = { newName = it }, placeholder = { Text("输入名称") }, singleLine = true, modifier = Modifier.weight(1f))
@@ -1385,7 +1341,7 @@ private fun LibrarySubPage(
 
     // 重命名对话框
     editingItem?.let { (id, name) ->
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { editingItem = null },
             title = { Text("重命名") },
             text = { OutlinedTextField(value = editName, onValueChange = { editName = it }, singleLine = true) },
@@ -1410,25 +1366,20 @@ private fun LibrarySubPage(
 // ============================== 阅读与笔记 ==============================
 
 @Composable
-private fun ReadingNotesSubPage(modifier: Modifier, page: ProfileSubPage) {
-    val context = LocalContext.current
-    val entryPoint = remember {
-        EntryPointAccessors.fromApplication(context.applicationContext, ProfileDataEntryPoint::class.java)
-    }
-    val books by entryPoint.bookDao().observeAllActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val progress by entryPoint.readingProgressDao().observeAllActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val sessions by entryPoint.readingSessionDao().observeAllActive().collectAsStateWithLifecycle(initialValue = emptyList())
-    val notes by entryPoint.noteDao().observeAllActive().collectAsStateWithLifecycle(initialValue = emptyList())
-
+private fun ReadingNotesSubPage(
+    modifier: Modifier,
+    page: ProfileSubPage,
+    libraryState: ProfileLibraryState,
+) {
+    val books = libraryState.books
+    val notes = libraryState.notes
     val bookMap = remember(books) { books.associateBy { it.id } }
-    val progressMap = remember(progress) { progress.associateBy { it.book_id } }
-    val sessionsByBook = remember(sessions) {
-        sessions.groupBy { it.book_id }.mapValues { entry -> entry.value.sumOf { it.duration_ms } }
-    }
+    val progressMap = libraryState.progressByBook
+    val sessionsByBook = libraryState.readingDurationByBook
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
         if (page == ProfileSubPage.READING) {
-            val readingBooks = remember(books, progress) {
+            val readingBooks = remember(books, progressMap) {
                 books.sortedByDescending { progressMap[it.id]?.last_read_at ?: it.updated_at }
             }
             if (readingBooks.isEmpty()) {
@@ -1444,11 +1395,10 @@ private fun ReadingNotesSubPage(modifier: Modifier, page: ProfileSubPage) {
                 }
             }
         } else {
-            val sortedNotes = remember(notes) { notes.sortedByDescending { it.created_at } }
-            if (sortedNotes.isEmpty()) {
+            if (notes.isEmpty()) {
                 EmptyCard(icon = Icons.Filled.Description, title = "还没有笔记", body = "在阅读页选中文字添加笔记或书签后，它们会出现在这里。")
             } else {
-                sortedNotes.forEach { note ->
+                notes.forEach { note ->
                     NoteItem(note = note, book = note.book_id?.let { bookMap[it] })
                 }
             }
@@ -1458,9 +1408,9 @@ private fun ReadingNotesSubPage(modifier: Modifier, page: ProfileSubPage) {
 
 @Composable
 private fun EmptyCard(icon: androidx.compose.ui.graphics.vector.ImageVector, title: String, body: String) {
-    Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+    SectionCard {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(32.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
@@ -1474,8 +1424,8 @@ private fun EmptyCard(icon: androidx.compose.ui.graphics.vector.ImageVector, tit
 @Composable
 private fun ReadingBookItem(book: BookEntity, progress: ReadingProgressEntity?, totalMs: Long) {
     val pct = (progress?.progress_percent ?: 0f).roundToInt()
-    Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    SectionCard {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(book.title, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (!book.author.isNullOrBlank()) {
                 Text(book.author, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1493,8 +1443,8 @@ private fun ReadingBookItem(book: BookEntity, progress: ReadingProgressEntity?, 
 
 @Composable
 private fun NoteItem(note: NoteEntity, book: BookEntity?) {
-    Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    SectionCard {
+        Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(
                 note.title.ifBlank { "笔记" },
                 style = MaterialTheme.typography.titleSmall,
@@ -1538,9 +1488,9 @@ private fun StorageSubPage(
 ) {
     val cacheBudget = 100 * 1024 * 1024L
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        SectionCard {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text("导出会保存灵感、书库元数据、进度、阅读记录、笔记、标签、分类和同步账号信息；不会导出 AI Key、WebDAV 密码 / token 或设备私有路径。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1550,9 +1500,9 @@ private fun StorageSubPage(
                 }
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        SectionCard {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text("存储概览", style = MaterialTheme.typography.titleSmall)
@@ -1614,9 +1564,9 @@ private fun StorageSubPage(
                 }
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        SectionCard {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(16.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Row(
@@ -1652,8 +1602,8 @@ private fun StorageStat(
 @Composable
 private fun PrivacySubPage(modifier: Modifier) {
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(8.dp)) {
+        SectionCard {
+            Column {
                 PrivacyItem(Icons.Filled.Security, "本地优先", "没有账号服务器。书籍、灵感、进度和笔记默认保存在手机本地。")
                 PrivacyItem(Icons.Filled.Wifi, "同步可控", "局域网同步需要你手动连接电脑；WebDAV 需要你主动配置地址。")
                 PrivacyItem(Icons.Filled.AutoAwesome, "密钥隔离", "AI Key 和 WebDAV 密码 / token 仅保存在应用本地沙箱，不参与电脑同步、WebDAV 同步或数据导出。")
@@ -1746,9 +1696,9 @@ private fun AboutSubPage(modifier: Modifier, context: Context) {
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
+        SectionCard {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(24.dp),
+                modifier = Modifier.fillMaxWidth(),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
@@ -1760,8 +1710,8 @@ private fun AboutSubPage(modifier: Modifier, context: Context) {
                 Text("同步：电脑局域网 / WebDAV", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(modifier = Modifier, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("开源与致谢", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("个人自用构建，不对外分发", style = MaterialTheme.typography.titleMedium)
                 Text("阅读内核为自研实现，设计上参考了 Legado（开源阅读应用，GPL-3.0）等项目。若未来对外分发，将依 GPL-3.0 要求提供完整源代码与修改说明。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1793,8 +1743,8 @@ private fun AboutSubPage(modifier: Modifier, context: Context) {
                 }
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("应用更新", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Text("检查新版本", style = MaterialTheme.typography.titleMedium)
                 Text("发布新版后可在此检查并前往安装包下载页；Android 仍会要求你确认安装。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -1868,7 +1818,7 @@ private fun DiagnosticsSubPage(modifier: Modifier) {
                 val dir = java.io.File(context.cacheDir, "diagnostics").apply { mkdirs() }
                 val file = java.io.File(dir, "diagnostics-${System.currentTimeMillis()}.log")
                 file.writeText(AppLog.snapshot().ifBlank { "（暂无日志）" })
-                val uri = FileProvider.getUriForFile(context, "com.creationreadingassistant.fileprovider", file)
+                val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
                 val intent = Intent(Intent.ACTION_SEND).apply {
                     type = "text/plain"
                     putExtra(Intent.EXTRA_STREAM, uri)
@@ -1884,8 +1834,8 @@ private fun DiagnosticsSubPage(modifier: Modifier) {
     }
 
     Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp)) {
+        SectionCard {
+            Column {
                 Text("运行环境", style = MaterialTheme.typography.titleMedium)
                 Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     info.forEach { (k, v) ->
@@ -1897,8 +1847,8 @@ private fun DiagnosticsSubPage(modifier: Modifier) {
                 }
             }
         }
-        Card(shape = RoundedCornerShape(22.dp), border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest), elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        SectionCard {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("日志", style = MaterialTheme.typography.titleMedium)
                 Text("运行中的导入、同步、备份与未捕获异常会自动记录到这里（最多保留 500 条）。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1908,7 +1858,7 @@ private fun DiagnosticsSubPage(modifier: Modifier) {
                 if (exportMsg != null) {
                     Text(exportMsg!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                SectionDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("级别过滤", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     LogFilterChip(label = "全部", selected = selectedLevel == null) { selectedLevel = null }
@@ -1931,7 +1881,7 @@ private fun DiagnosticsSubPage(modifier: Modifier) {
                         }
                     }
                 }
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                SectionDivider(modifier = Modifier.padding(vertical = 4.dp))
                 if (filtered.isEmpty()) {
                     Text("（无匹配日志）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
@@ -2003,20 +1953,11 @@ private fun LogEntryItem(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun LogFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    Card(
-        modifier = Modifier.clickable(onClick = onClick),
-        colors = CardDefaults.cardColors(
-            containerColor = if (selected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = if (selected) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-        )
-    }
+    SelectablePill(
+        text = label,
+        selected = selected,
+        onClick = onClick,
+    )
 }
 
 private fun logLevelLabel(level: AppLog.Level): String = when (level) {
@@ -2161,16 +2102,10 @@ private fun <T> SegmentedRow(
 
 @Composable
 private fun ToggleRow(label: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Text(label)
-        Switch(checked = checked, onCheckedChange = onCheckedChange)
-    }
+    SettingRow(
+        title = label,
+        trailing = { Switch(checked = checked, onCheckedChange = onCheckedChange) },
+    )
 }
 
 @Composable

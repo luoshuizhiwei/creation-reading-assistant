@@ -18,6 +18,9 @@ interface InspirationDao {
     @Query("SELECT * FROM inspirations WHERE deleted_at IS NULL ORDER BY updated_at DESC")
     fun observeAllActive(): Flow<List<InspirationEntity>>
 
+    @Query("SELECT created_at FROM inspirations WHERE deleted_at IS NULL")
+    fun observeStatsCreatedRows(): Flow<List<StatsCreatedRow>>
+
     @Query("SELECT * FROM inspirations WHERE id = :id AND deleted_at IS NULL")
     suspend fun getById(id: String): InspirationEntity?
 
@@ -51,6 +54,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY created_at DESC")
     fun observeAllActive(): Flow<List<NoteEntity>>
 
+    @Query("SELECT created_at FROM notes WHERE deleted_at IS NULL")
+    fun observeStatsCreatedRows(): Flow<List<StatsCreatedRow>>
+
     @Query("SELECT * FROM notes WHERE book_id = :bookId AND deleted_at IS NULL ORDER BY created_at DESC")
     fun observeByBook(bookId: String): Flow<List<NoteEntity>>
 
@@ -59,6 +65,9 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE deleted_at IS NOT NULL")
     suspend fun getDeleted(): List<NoteEntity>
+
+    @Query("SELECT * FROM notes WHERE id = :id")
+    suspend fun getById(id: String): NoteEntity?
 }
 
 @Dao
@@ -74,6 +83,9 @@ interface HighlightDao {
 
     @Query("SELECT * FROM highlights WHERE deleted_at IS NOT NULL")
     suspend fun getDeleted(): List<HighlightEntity>
+
+    @Query("SELECT * FROM highlights WHERE id = :id")
+    suspend fun getById(id: String): HighlightEntity?
 
     /** 全局搜索：按高亮正文 text 与备注 note 模糊检索（对齐网页 highlightHaystacks）。 */
     @Query("SELECT * FROM highlights WHERE deleted_at IS NULL AND (text LIKE '%' || :q || '%' OR note LIKE '%' || :q || '%') ORDER BY created_at DESC LIMIT 20")

@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.ui.graphics.Brush
@@ -44,6 +45,7 @@ import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -71,11 +73,12 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.InputChip
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
@@ -85,6 +88,28 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SelectablePill
+import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.components.SettingRow
+import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.material.ExperimentalMaterialApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material.pullrefresh.PullRefreshDefaults
+import androidx.compose.material.pullrefresh.PullRefreshState
+import androidx.compose.material.pullrefresh.pullRefresh
+import androidx.compose.material.pullrefresh.rememberPullRefreshState
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -101,6 +126,8 @@ import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -109,7 +136,6 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
@@ -122,13 +148,17 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.ui.theme.AppError
+import com.creationreadingassistant.ui.components.SizedAsyncImage
 import com.creationreadingassistant.ui.theme.AppSuccess
 import com.creationreadingassistant.ui.theme.AppWarning
 import com.creationreadingassistant.ui.theme.SealMark
 import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
+import com.creationreadingassistant.ui.viewmodel.ImportBatchUiState
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
+import com.creationreadingassistant.feature.reader.hasLocalBookSource
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlin.math.roundToInt
 
 private const val DEBOUNCE_SEARCH_MS = 300L
 
@@ -152,17 +182,16 @@ private enum class ReadinessTone { READY, CLOUD, ERROR }
 private data class BookReadiness(val label: String, val tone: ReadinessTone)
 
 private fun BookEntity.isDownloaded(): Boolean {
-    if (content_status == "missing" || content_status == "failed" || content_status == "downloading") return false
-    return !local_content_path.isNullOrBlank() || !local_uri.isNullOrBlank()
+    return hasLocalBookSource()
 }
 
 private fun BookEntity.readiness(): BookReadiness {
     if (content_status == "failed") return BookReadiness("正文保存失败", ReadinessTone.ERROR)
     if (content_status == "missing") return BookReadiness("正文未在本机", ReadinessTone.CLOUD)
     if (content_status == "downloading") return BookReadiness("正文下载中", ReadinessTone.CLOUD)
+    if (isDownloaded()) return BookReadiness("可离线阅读", ReadinessTone.READY)
     if (size <= 0) return BookReadiness("正文为空", ReadinessTone.ERROR)
-    return if (isDownloaded()) BookReadiness("可离线阅读", ReadinessTone.READY)
-    else BookReadiness("需下载正文", ReadinessTone.CLOUD)
+    return BookReadiness("需下载正文", ReadinessTone.CLOUD)
 }
 
 private fun progressFor(map: Map<String, ReadingProgressEntity>, id: String): Float =
@@ -253,7 +282,7 @@ private fun toneColor(tone: ReadinessTone): Color = when (tone) {
     ReadinessTone.ERROR -> AppError
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterialApi::class)
 @Composable
 fun ShelfScreen(
     navController: NavHostController,
@@ -262,20 +291,23 @@ fun ShelfScreen(
     initialDetailBookId: String? = null,
 ) {
     val taxonomyVm: com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel = hiltViewModel()
-    val books by viewModel.books.collectAsStateWithLifecycle()
-    val tags by viewModel.tags.collectAsStateWithLifecycle()
-    val categories by viewModel.categories.collectAsStateWithLifecycle()
-    val shelves by viewModel.shelves.collectAsStateWithLifecycle()
-    val progressById by viewModel.progressById.collectAsStateWithLifecycle()
-    val sessionsByBook by viewModel.sessionsByBook.collectAsStateWithLifecycle()
-    val importTasks by viewModel.importTasks.collectAsStateWithLifecycle()
-    val downloadingIds by viewModel.downloadingIds.collectAsStateWithLifecycle()
-    val notesByBook by viewModel.notesByBook.collectAsStateWithLifecycle()
-    val highlightsByBook by viewModel.highlightsByBook.collectAsStateWithLifecycle()
-    val inspirationsByBook by viewModel.inspirationsByBook.collectAsStateWithLifecycle()
-    val importHistory by viewModel.importHistory.collectAsStateWithLifecycle()
-    val savedViewMode by viewModel.shelfViewMode.collectAsStateWithLifecycle()
-    val savedSortMode by viewModel.shelfSortMode.collectAsStateWithLifecycle()
+    val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val books = uiState.library.books
+    val tags = uiState.library.tags
+    val categories = uiState.library.categories
+    val shelves = uiState.library.shelves
+    val progressById = uiState.library.progressById
+    val sessionsByBook = uiState.activity.sessionsByBook
+    val notesByBook = uiState.activity.notesByBook
+    val highlightsByBook = uiState.activity.highlightsByBook
+    val inspirationsByBook = uiState.activity.inspirationsByBook
+    val importTasks = uiState.auxiliary.importTasks
+    val importBatch = uiState.auxiliary.importBatch
+    val downloadingIds = uiState.auxiliary.downloadingIds
+    val importHistory = uiState.auxiliary.importHistory
+    val savedViewMode = uiState.auxiliary.savedViewMode
+    val savedSortMode = uiState.auxiliary.savedSortMode
+    val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
     var query by remember { mutableStateOf("") }
     var debouncedQuery by remember { mutableStateOf("") }
@@ -319,11 +351,41 @@ fun ShelfScreen(
     val selectedIds = remember { mutableStateListOf<String>() }
     var batchSheet by remember { mutableStateOf<BatchSheetKind?>(null) }
     var showImportHistory by remember { mutableStateOf(false) }
+    var showImportSource by remember { mutableStateOf(false) }
     var showFilterPanel by remember { mutableStateOf(false) }
     var showSortSheet by remember { mutableStateOf(false) }
     var showDesktopBooks by remember { mutableStateOf(false) }
     var confirmDeleteIds by remember { mutableStateOf<List<String>?>(null) }
     var filteredBookIds by remember { mutableStateOf<Set<String>?>(null) }
+
+    // A 档打磨：首屏加载占位 + 系统「减少动态效果」感知
+    val layout = LocalLayoutTokens.current
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
+    var firstLoad by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { delay(350); firstLoad = false }
+    LaunchedEffect(books) { if (books.isNotEmpty()) firstLoad = false }
+    val showSkeleton = firstLoad && books.isEmpty()
+
+    // B3：导入任务由 processing → done 完成时触感确认（首帧不响，仅在新增完成时触发）
+    var importDoneSeeded by remember { mutableStateOf(false) }
+    val prevImportDoneIds = remember { mutableStateOf<Set<String>>(emptySet()) }
+    LaunchedEffect(importTasks) {
+        val doneIds = importTasks.filter { it.status == "done" }.map { it.id }.toSet()
+        val newlyDone = doneIds - prevImportDoneIds.value
+        if (newlyDone.isNotEmpty() && importDoneSeeded) {
+            haptic(HapticFeedbackType.LongPress)
+        }
+        prevImportDoneIds.value = doneIds
+        importDoneSeeded = true
+    }
+
+    // B2：主书架页下拉刷新
+    val pullRefreshState = rememberPullRefreshState(
+        refreshing = isRefreshing,
+        onRefresh = { viewModel.refresh() },
+    )
+    val pullThresholdPx = with(LocalDensity.current) { PullRefreshDefaults.RefreshThreshold.toPx() }
     var reselectBookId by remember { mutableStateOf<String?>(null) }
     var coverBookId by remember { mutableStateOf<String?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
@@ -331,9 +393,15 @@ fun ShelfScreen(
     fun showMessage(msg: String) = scope.launch { snackbarHostState.showSnackbar(msg) }
 
     val importLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenDocument(),
+        contract = ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isNotEmpty()) viewModel.importFiles(uris)
+    }
+
+    val importFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree(),
     ) { uri ->
-        uri?.let { viewModel.importFile(it) }
+        uri?.let(viewModel::importFolder)
     }
 
     val reselectLauncher = rememberLauncherForActivityResult(
@@ -363,6 +431,12 @@ fun ShelfScreen(
 
     LaunchedEffect(query) { delay(DEBOUNCE_SEARCH_MS); debouncedQuery = query }
 
+    LaunchedEffect(importBatch.id, importBatch.isRunning) {
+        if (importBatch.id.isNotBlank() && !importBatch.isRunning && importBatch.hasResult) {
+            showImportHistory = true
+        }
+    }
+
     LaunchedEffect(selectedShelfId, selectedCategoryId, selectedTagId, books) {
         val byShelf = if (selectedShelfId.isEmpty()) null else taxonomyVm.getBookIdsByShelf(selectedShelfId).toSet()
         val byCategory = if (selectedCategoryId.isEmpty()) null else taxonomyVm.getBookIdsByCategory(selectedCategoryId).toSet()
@@ -374,7 +448,7 @@ fun ShelfScreen(
     val filtered = remember(books, debouncedQuery, sortMode, statusFilter, progressById, filteredBookIds) {
         filterAndSort(books, debouncedQuery, sortMode, statusFilter, progressById, filteredBookIds)
     }
-    val hasActiveImports = importTasks.any { it.status == "processing" }
+    val hasActiveImports = importBatch.isRunning || importTasks.any { it.status == "processing" }
     val detailBook = detailBookId?.let { books.find { b -> b.id == it } }
     val actionBook = actionBookId?.let { books.find { b -> b.id == it } }
     val selectedBooks = books.filter { selectedIds.contains(it.id) }
@@ -401,7 +475,10 @@ fun ShelfScreen(
                 hasActiveImports = hasActiveImports,
                 showPageMenu = showPageMenu,
                 onTogglePageMenu = { showPageMenu = !showPageMenu },
-                onImport = { importLauncher.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown")) },
+                onImport = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    showImportSource = true
+                },
                 onEnterSelection = ::enterSelection,
                 onExitSelection = ::exitSelection,
                 importBadge = importTasks.size,
@@ -412,13 +489,21 @@ fun ShelfScreen(
             }
         },
     ) { padding ->
-        Column(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
         ) {
             if (hasActiveImports && !selectionMode) {
-                ImportQueueCard(tasks = importTasks.filter { it.status == "processing" })
+                ImportQueueCard(
+                    tasks = importTasks.filter { it.status == "processing" },
+                    batch = importBatch,
+                )
             }
 
             if (selectionMode) {
@@ -448,11 +533,22 @@ fun ShelfScreen(
                 }
             }
 
-            if (filtered.isEmpty()) {
+            if (showSkeleton) {
+                ListSkeleton(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
+                    count = if (viewMode == ShelfViewMode.GRID) 6 else 5,
+                    reducedMotion = reducedMotion,
+                )
+            } else if (filtered.isEmpty()) {
                 EmptyState(
                     isEmptyShelf = books.isEmpty(),
                     isSearchNoResult = books.isNotEmpty() && debouncedQuery.isNotEmpty(),
-                    onImport = { importLauncher.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown")) },
+                onImport = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    showImportSource = true
+                },
                     onShowAll = {
                         selectedShelfId = ""; selectedCategoryId = ""; selectedTagId = ""; statusFilter = ShelfStatusFilter.ALL; query = ""
                     },
@@ -492,6 +588,15 @@ fun ShelfScreen(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
                 )
             }
+        }
+            ShelfRefreshIndicator(
+                state = pullRefreshState,
+                refreshing = isRefreshing,
+                thresholdPx = pullThresholdPx,
+                modifier = Modifier
+                    .align(androidx.compose.ui.Alignment.TopCenter)
+                    .offset { IntOffset(0, ((pullRefreshState.progress * pullThresholdPx) - pullThresholdPx).roundToInt()) },
+            )
         }
     }
 
@@ -662,8 +767,25 @@ fun ShelfScreen(
         ImportHistorySheet(
             tasks = importTasks,
             history = importHistory,
+            batch = importBatch,
+            onRetryFailed = viewModel::retryFailedImports,
+            onDismissBatch = viewModel::dismissImportBatchSummary,
             onClear = { viewModel.clearImportHistory() },
             onDismiss = { showImportHistory = false },
+        )
+    }
+
+    if (showImportSource) {
+        ImportSourceSheet(
+            onSelectFiles = {
+                showImportSource = false
+                importLauncher.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown"))
+            },
+            onSelectFolder = {
+                showImportSource = false
+                importFolderLauncher.launch(null)
+            },
+            onDismiss = { showImportSource = false },
         )
     }
 
@@ -679,7 +801,7 @@ fun ShelfScreen(
     // 删除确认
     val deleteIds = confirmDeleteIds
     if (deleteIds != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { confirmDeleteIds = null },
             title = { Text(if (deleteIds.size > 1) "批量删除书籍" else "删除书籍") },
             text = {
@@ -691,6 +813,7 @@ fun ShelfScreen(
             confirmButton = {
                 Button(
                     onClick = {
+                        haptic(HapticFeedbackType.LongPress)
                         val ids = deleteIds
                         confirmDeleteIds = null
                         ids.forEach { viewModel.deleteBook(it) }
@@ -809,42 +932,57 @@ private fun ShelfHeader(
 
 // ===================== 导入队列浮动卡片 =====================
 @Composable
-private fun ImportQueueCard(tasks: List<ImportTaskUi>) {
-    Surface(
-        tonalElevation = 2.dp,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant,
+private fun ImportQueueCard(
+    tasks: List<ImportTaskUi>,
+    batch: ImportBatchUiState,
+) {
+    val progress = if (batch.total > 0) {
+        batch.completed.toFloat() / batch.total.toFloat()
+    } else {
+        0f
+    }
+    SectionCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 8.dp),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("正在导入 ${tasks.size} 本书", style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                Text(
+                    when {
+                        batch.isScanning -> "正在扫描文件夹"
+                        batch.total > 0 -> "正在导入 ${batch.completed}/${batch.total}"
+                        else -> "正在准备导入"
+                    },
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
+            if (batch.total > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(progress.coerceIn(0f, 1f))
+                            .height(3.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             tasks.take(3).forEach { task ->
                 Column(modifier = Modifier.padding(vertical = 4.dp)) {
                     Text(task.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(task.phase, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(3.dp)
-                            .clip(RoundedCornerShape(2.dp))
-                            .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.3f))
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth(0.6f)
-                                .height(3.dp)
-                                .clip(RoundedCornerShape(2.dp))
-                                .background(MaterialTheme.colorScheme.primary)
-                        )
-                    }
                 }
             }
             if (tasks.size > 3) {
@@ -890,6 +1028,7 @@ private fun Toolbar(
     onOpenFilter: () -> Unit,
     onToggleView: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -909,7 +1048,7 @@ private fun Toolbar(
         }
         Row(
             modifier = Modifier
-                .clip(RoundedCornerShape(8.dp))
+                .clip(spec.listItemShape)
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
             IconButton(onClick = { if (viewMode != ShelfViewMode.GRID) onToggleView() }) {
@@ -956,18 +1095,10 @@ private fun StatusRail(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        options.forEach { (value, label) ->
-            val active = statusFilter == value
-            Surface(
-                onClick = { onSelect(value) },
-                shape = RoundedCornerShape(18.dp),
-                color = if (active) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surface,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                contentColor = if (active) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-            ) {
-                Text(label, modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp), style = MaterialTheme.typography.labelMedium)
+            options.forEach { (value, label) ->
+                val active = statusFilter == value
+                SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
             }
-        }
     }
 }
 
@@ -985,13 +1116,16 @@ private fun BookGrid(
     onToggleActions: (String) -> Unit,
     onToggleSelected: (String) -> Unit,
 ) {
+    val layout = LocalLayoutTokens.current
     if (viewMode == ShelfViewMode.GRID) {
         LazyVerticalGrid(
-            columns = GridCells.Fixed(3),
-            modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            columns = GridCells.Adaptive(minSize = 104.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = layout.pageHorizontal),
+            contentPadding = PaddingValues(vertical = layout.relatedGap),
+            verticalArrangement = Arrangement.spacedBy(layout.gridGap),
+            horizontalArrangement = Arrangement.spacedBy(layout.gridGap),
         ) {
             items(books, key = { it.id }) { book ->
                 BookTile(
@@ -1010,9 +1144,11 @@ private fun BookGrid(
         }
     } else {
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = layout.pageHorizontal),
+            contentPadding = PaddingValues(vertical = layout.relatedGap),
+            verticalArrangement = Arrangement.spacedBy(layout.contentGap),
         ) {
             items(books, key = { it.id }) { book ->
                 BookTile(
@@ -1032,6 +1168,56 @@ private fun BookGrid(
     }
 }
 
+// ===================== B2：下拉刷新指示器（克制细弧 + 墨线文字，非默认 spinner）=====================
+@OptIn(ExperimentalMaterialApi::class)
+@Composable
+private fun ShelfRefreshIndicator(
+    state: PullRefreshState,
+    refreshing: Boolean,
+    thresholdPx: Float,
+    modifier: Modifier = Modifier,
+) {
+    val reducedMotion = rememberReducedMotion()
+    val color = MaterialTheme.colorScheme.primary
+    val visible = refreshing || state.progress > 0.01f
+    AnimatedVisibility(
+        visible = visible,
+        modifier = modifier,
+        enter = fadeIn(),
+        exit = fadeOut(),
+    ) {
+        Column(
+            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+        ) {
+            val useIndeterminate = !reducedMotion && refreshing
+            if (useIndeterminate) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(20.dp),
+                    color = color,
+                    strokeWidth = 2.dp,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                )
+            } else {
+                val p = if (reducedMotion) 1f else state.progress.coerceIn(0f, 1f)
+                CircularProgressIndicator(
+                    progress = { p },
+                    modifier = Modifier.size(20.dp),
+                    color = color,
+                    strokeWidth = 2.dp,
+                    strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
+                    trackColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                )
+            }
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (refreshing) "刷新中" else "下拉刷新",
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun BookTile(
@@ -1047,65 +1233,102 @@ private fun BookTile(
     onToggleSelected: (String) -> Unit,
 ) {
     val readiness = book.readiness()
+    val spec = LocalComponentSpec.current
+    val layout = LocalLayoutTokens.current
     val onClick = {
         if (selectionMode) onToggleSelected(book.id) else onOpenBook(book)
     }
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .then(if (selected) Modifier else Modifier)
-            .combinedClickable(
-                onClick = { onClick() },
-                onLongClick = { if (!selectionMode) onToggleActions(book.id) },
-            ),
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp,
-    ) {
-        if (viewMode == ShelfViewMode.GRID) {
-            Column(modifier = Modifier.padding(8.dp)) {
-                Box {
-                    BookCover(book = book, percent = percent, modifier = Modifier.fillMaxWidth().height(140.dp), sealSize = 30.dp)
-                    if (downloading) {
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(140.dp)
-                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-                        }
+    val tileModifier = Modifier
+        .fillMaxWidth()
+        .semantics { contentDescription = "打开书籍" }
+        .combinedClickable(
+            onClick = onClick,
+            onLongClick = { if (!selectionMode) onToggleActions(book.id) },
+        )
+
+    if (viewMode == ShelfViewMode.GRID) {
+        Column(
+            modifier = tileModifier,
+            verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .aspectRatio(0.72f)
+                    .clip(spec.cardShape),
+            ) {
+                BookCover(book = book, percent = percent, modifier = Modifier.fillMaxSize(), sealSize = 30.dp)
+                if (downloading) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
                     }
-                    if (selectionMode) {
-                        Box(
-                            modifier = Modifier
-                                .padding(6.dp)
-                                .size(22.dp)
-                                .clip(RoundedCornerShape(11.dp))
-                                .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                                .align(Alignment.TopStart),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            if (selected) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                    IconButton(
-                        onClick = { onToggleActions(book.id) },
-                        modifier = Modifier.align(Alignment.TopEnd).size(28.dp),
-                    ) { Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${book.title}》", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(book.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(book.author ?: "作者未知", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                val label = if (downloading) "下载中…" else if (readiness.tone == ReadinessTone.READY) "进度 ${percent.toInt()}%" else readiness.label
-                Text(label, style = MaterialTheme.typography.labelSmall, color = toneColor(readiness.tone), maxLines = 1)
-                Spacer(modifier = Modifier.height(4.dp))
-                ProgressLine(percent = percent)
+                if (selectionMode) {
+                    Box(
+                        modifier = Modifier
+                            .padding(6.dp)
+                            .size(22.dp)
+                            .clip(RoundedCornerShape(11.dp))
+                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
+                            .align(Alignment.TopStart),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        if (selected) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                    }
+                }
+                IconButton(
+                    onClick = { onToggleActions(book.id) },
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(layout.minimumTouchTarget),
+                ) {
+                    Icon(
+                        Icons.Outlined.MoreHoriz,
+                        contentDescription = "管理《${book.title}》",
+                        modifier = Modifier.size(18.dp),
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
-        } else {
+            Text(
+                text = book.title,
+                style = MaterialTheme.typography.titleSmall,
+                minLines = 2,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+            val label = if (downloading) {
+                "下载中…"
+            } else if (readiness.tone == ReadinessTone.READY) {
+                "${percent.toInt()}%"
+            } else {
+                readiness.label
+            }
             Row(
-                modifier = Modifier.padding(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+            ) {
+                Text(
+                    text = label,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = toneColor(readiness.tone),
+                    maxLines = 1,
+                )
+                ProgressLine(percent = percent, modifier = Modifier.weight(1f))
+            }
+        }
+    } else {
+        SectionCard(
+            modifier = tileModifier,
+            contentPadding = layout.compactCardPadding,
+        ) {
+            Row(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
@@ -1155,13 +1378,14 @@ private fun BookCover(
     modifier: Modifier = Modifier,
     sealSize: Dp = 22.dp,
 ) {
+    val spec = LocalComponentSpec.current
+    val scheme = MaterialTheme.colorScheme
     val hasImage = !book.cover_data_url.isNullOrBlank()
-    // 对齐 web .book-cover：无封面时回退到固定的羊皮纸琥珀渐变（非 hash 彩色）
-    val parchment = Brush.linearGradient(
+    // 无封面回退：取主题 surface 容器色做柔和渐变（永不用土黄/羊皮纸色），与主题一致
+    val coverFallback = Brush.linearGradient(
         colorStops = arrayOf(
-            0.0f to Color(0xFFc8a06c),
-            0.48f to Color(0xFFd4b27e),
-            1.0f to Color(0xFFb9854c),
+            0.0f to scheme.surfaceContainerHigh,
+            1.0f to scheme.surfaceVariant,
         ),
     )
     // 左上→右下极淡白色斜向高光，强化实体书质感（对齐 web .book-cover 叠加层）
@@ -1173,13 +1397,14 @@ private fun BookCover(
     )
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
+            .clip(spec.listItemShape)
             .background(MaterialTheme.colorScheme.surfaceVariant),
         contentAlignment = Alignment.Center,
     ) {
         if (hasImage) {
-            AsyncImage(
-                model = book.cover_data_url,
+            SizedAsyncImage(
+                data = book.cover_data_url,
+                cacheKey = "cover:${book.id}:${book.updated_at}",
                 contentDescription = "《${book.title}》封面",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
@@ -1188,14 +1413,14 @@ private fun BookCover(
             Column(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(parchment)
+                    .background(coverFallback)
                     .padding(8.dp),
                 verticalArrangement = Arrangement.Center,
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(book.title.take(4), color = Color(0xFFfffaf1), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(book.title.take(4), color = scheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(book.format.uppercase(), color = Color(0xFFfffaf1).copy(alpha = 0.85f), style = MaterialTheme.typography.labelSmall)
+                Text(book.format.uppercase(), color = scheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
             }
         }
         // 格式角标：图片封面右下、文字回退左下（对齐 web .book-cover-image em / .book-cover > em）
@@ -1227,10 +1452,13 @@ private fun BookCover(
 }
 
 @Composable
-private fun ProgressLine(percent: Float) {
+private fun ProgressLine(
+    percent: Float,
+    modifier: Modifier = Modifier,
+) {
     val p = percent.coerceIn(0f, 100f)
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .height(4.dp)
             .clip(RoundedCornerShape(2.dp))
@@ -1340,12 +1568,13 @@ private fun BookActionSheet(
     onOpenDetail: (String) -> Unit,
     onDelete: (String) -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outline))
-            }
-            Spacer(modifier = Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 BookCover(book = book, percent = progressFor(progressById, book.id), modifier = Modifier.size(48.dp, 66.dp))
                 Spacer(modifier = Modifier.width(12.dp))
@@ -1362,8 +1591,13 @@ private fun BookActionSheet(
                 if (r.tone == ReadinessTone.CLOUD) {
                     ActionRow(icon = Icons.Filled.Download, title = "下载正文", subtitle = "保存到本机后离线阅读", onClick = { onDownload(book) })
                 }
-                ActionRow(icon = Icons.Filled.Refresh, title = "重新选择文件", subtitle = "修复缺失的本地正文", onClick = { onRepair(book) })
             }
+            ActionRow(
+                icon = Icons.Filled.Refresh,
+                title = "重新定位文件",
+                subtitle = if (r.tone == ReadinessTone.READY) "更换本地文件并保留阅读记录" else "修复缺失的本地正文",
+                onClick = { onRepair(book) },
+            )
             ActionRow(icon = Icons.Outlined.Info, title = "书籍详情与管理", subtitle = "编辑信息、封面、分类和书单", onClick = { onOpenDetail(book.id) })
             ActionRow(icon = Icons.Filled.Delete, title = "删除书籍", subtitle = "同时移除本机正文和阅读数据", danger = true, onClick = { onDelete(book.id) })
             Spacer(modifier = Modifier.height(8.dp))
@@ -1434,6 +1668,7 @@ private fun BookDetailSheet(
     onChangeTextCover: () -> Unit,
     onResetCover: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     val percent = progressFor(progressById, book.id)
     val readiness = book.readiness()
     val progress = progressById[book.id]
@@ -1441,12 +1676,13 @@ private fun BookDetailSheet(
     var editTitle by remember(book.title) { mutableStateOf(book.title) }
     var editAuthor by remember(book.author) { mutableStateOf(book.author ?: "") }
     var editDescription by remember(book.description) { mutableStateOf(book.description ?: "") }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
-                Box(modifier = Modifier.width(40.dp).height(4.dp).clip(RoundedCornerShape(2.dp)).background(MaterialTheme.colorScheme.outline))
-            }
-            Spacer(modifier = Modifier.height(12.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box {
                     BookCover(book = book, percent = percent, modifier = Modifier.size(64.dp, 90.dp))
@@ -1495,7 +1731,7 @@ private fun BookDetailSheet(
                         }
                     }
                     Spacer(modifier = Modifier.height(6.dp))
-                    Surface(color = toneColor(readiness.tone).copy(alpha = 0.15f), shape = RoundedCornerShape(6.dp)) {
+                    Surface(color = toneColor(readiness.tone).copy(alpha = 0.15f), shape = spec.pillShape) {
                         Text(readiness.label, color = toneColor(readiness.tone), style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp))
                     }
                 }
@@ -1541,154 +1777,175 @@ private fun BookDetailSheet(
             }
             Spacer(modifier = Modifier.height(16.dp))
 
-            SectionTitle("阅读统计")
-            InfoRow("总阅读时长", formatDuration(progress?.total_reading_time_ms ?: 0L))
-            InfoRow("上次阅读", (progress?.last_read_at ?: "从未阅读").take(19).replace("T", " "))
-            InfoRow("阅读进度", "${"%.1f".format(percent)}%")
-            InfoRow("阅读次数", "${sessions.size} 次")
-            Spacer(modifier = Modifier.height(8.dp))
-            ReadingHistoryChart(sessions = sessions)
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("阅读统计")
+                InfoRow("总阅读时长", formatDuration(progress?.total_reading_time_ms ?: 0L))
+                InfoRow("上次阅读", (progress?.last_read_at ?: "从未阅读").take(19).replace("T", " "))
+                InfoRow("阅读进度", "${"%.1f".format(percent)}%")
+                InfoRow("阅读次数", "${sessions.size} 次")
+                Spacer(modifier = Modifier.height(8.dp))
+                ReadingHistoryChart(sessions = sessions)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // S3：逐条阅读记录（按日期聚合，可展开明细）
-            val sortedSessions = sessions.sortedByDescending { it.started_at ?: it.created_at ?: "" }
-            SectionTitle("阅读记录 (${sortedSessions.size})")
-            if (sortedSessions.isEmpty()) {
-                Text("还没有阅读记录。开始阅读后，这里会显示每次阅读。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                // S3：按日期二级分组（对齐网页 BookDetailSheet 按日聚合）
-                val todayStr = LocalDate.now().toString()
-                val yesterdayStr = LocalDate.now().minusDays(1).toString()
-                val grouped = sortedSessions.groupBy { s ->
-                    (s.started_at ?: s.created_at ?: "").take(10)
-                }
-                val dateOrder = grouped.keys.sortedDescending()
-                dateOrder.forEach { date ->
-                    val label = when (date) {
-                        todayStr -> "今天"
-                        yesterdayStr -> "昨天"
-                        else -> date
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                // S3：逐条阅读记录（按日期聚合，可展开明细）
+                val sortedSessions = sessions.sortedByDescending { it.started_at ?: it.created_at ?: "" }
+                SectionTitle("阅读记录 (${sortedSessions.size})")
+                if (sortedSessions.isEmpty()) {
+                    Text("还没有阅读记录。开始阅读后，这里会显示每次阅读。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    // S3：按日期二级分组（对齐网页 BookDetailSheet 按日聚合）
+                    val todayStr = LocalDate.now().toString()
+                    val yesterdayStr = LocalDate.now().minusDays(1).toString()
+                    val grouped = sortedSessions.groupBy { s ->
+                        (s.started_at ?: s.created_at ?: "").take(10)
                     }
-                    Text(
-                        label,
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                    grouped[date]?.forEach { s ->
-                        ExpandableRow(
-                            title = (s.started_at ?: s.created_at ?: "未知时间").take(16).replace("T", " "),
-                            subtitle = "${formatDuration(s.duration_ms)} · 进度 ${(s.progress_percent ?: 0f).toInt()}%",
-                        ) {
-                            InfoRow("开始", (s.started_at ?: "-").take(19).replace("T", " "))
-                            InfoRow("结束", (s.ended_at ?: "-").take(19).replace("T", " "))
+                    val dateOrder = grouped.keys.sortedDescending()
+                    dateOrder.forEach { date ->
+                        val label = when (date) {
+                            todayStr -> "今天"
+                            yesterdayStr -> "昨天"
+                            else -> date
+                        }
+                        Text(
+                            label,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(top = 4.dp),
+                        )
+                        grouped[date]?.forEach { s ->
+                            ExpandableRow(
+                                title = (s.started_at ?: s.created_at ?: "未知时间").take(16).replace("T", " "),
+                                subtitle = "${formatDuration(s.duration_ms)} · 进度 ${(s.progress_percent ?: 0f).toInt()}%",
+                            ) {
+                                InfoRow("开始", (s.started_at ?: "-").take(19).replace("T", " "))
+                                InfoRow("结束", (s.ended_at ?: "-").take(19).replace("T", " "))
+                            }
                         }
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(12.dp))
 
-            // S3：书签与笔记 / 高亮区块
-            val bookmarks = notes.filter { it.kind == "bookmark" }
-            val noteList = notes.filter { it.kind != "bookmark" }
-            SectionTitle("书签与笔记 · ${bookmarks.size} 书签 · ${noteList.size + highlights.size} 条")
-            if (bookmarks.isEmpty() && noteList.isEmpty() && highlights.isEmpty()) {
-                Text("阅读时点“书签”或“笔记”，这本书的沉淀会集中在这里。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                bookmarks.forEach { n ->
-                    ExpandableRow(
-                        title = "书签 · ${(n.progress_percent ?: 0f).toInt()}%",
-                        subtitle = n.excerpt ?: n.body ?: n.chapter_title ?: "当前位置",
-                    ) {
-                        if (!n.chapter_title.isNullOrBlank()) InfoRow("章节", n.chapter_title)
-                        if (!n.body.isBlank()) InfoRow("正文", n.body)
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                // S3：书签与笔记 / 高亮区块
+                val bookmarks = notes.filter { it.kind == "bookmark" }
+                val noteList = notes.filter { it.kind != "bookmark" }
+                SectionTitle("书签与笔记 · ${bookmarks.size} 书签 · ${noteList.size + highlights.size} 条")
+                if (bookmarks.isEmpty() && noteList.isEmpty() && highlights.isEmpty()) {
+                    Text("阅读时点“书签”或“笔记”，这本书的沉淀会集中在这里。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    bookmarks.forEach { n ->
+                        ExpandableRow(
+                            title = "书签 · ${(n.progress_percent ?: 0f).toInt()}%",
+                            subtitle = n.excerpt ?: n.body ?: n.chapter_title ?: "当前位置",
+                        ) {
+                            if (!n.chapter_title.isNullOrBlank()) InfoRow("章节", n.chapter_title)
+                            if (!n.body.isBlank()) InfoRow("正文", n.body)
+                        }
                     }
-                }
-                noteList.forEach { n ->
-                    ExpandableRow(
-                        title = "笔记 · ${(n.progress_percent ?: 0f).toInt()}%",
-                        subtitle = n.excerpt ?: n.body ?: n.chapter_title ?: "当前位置",
-                    ) {
-                        if (!n.chapter_title.isNullOrBlank()) InfoRow("章节", n.chapter_title)
-                        if (!n.body.isBlank()) InfoRow("正文", n.body)
+                    noteList.forEach { n ->
+                        ExpandableRow(
+                            title = "笔记 · ${(n.progress_percent ?: 0f).toInt()}%",
+                            subtitle = n.excerpt ?: n.body ?: n.chapter_title ?: "当前位置",
+                        ) {
+                            if (!n.chapter_title.isNullOrBlank()) InfoRow("章节", n.chapter_title)
+                            if (!n.body.isBlank()) InfoRow("正文", n.body)
+                        }
                     }
-                }
-                highlights.forEach { h ->
-                    ExpandableRow(
-                        title = "高亮 · ${(h.progress_percent ?: 0f).toInt()}%",
-                        subtitle = h.text,
-                    ) {
-                        if (!h.note.isNullOrBlank()) InfoRow("笔记", h.note)
-                        if (!h.chapter_title.isNullOrBlank()) InfoRow("章节", h.chapter_title)
+                    highlights.forEach { h ->
+                        ExpandableRow(
+                            title = "高亮 · ${(h.progress_percent ?: 0f).toInt()}%",
+                            subtitle = h.text,
+                        ) {
+                            if (!h.note.isNullOrBlank()) InfoRow("笔记", h.note)
+                            if (!h.chapter_title.isNullOrBlank()) InfoRow("章节", h.chapter_title)
+                        }
                     }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            // S3：灵感区块
-            SectionTitle("灵感 (${inspirations.size})")
-            if (inspirations.isEmpty()) {
-                Text("还没有与本书相关的灵感。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                inspirations.forEach { ins ->
-                    ExpandableRow(title = ins.title, subtitle = ins.body.take(40)) {
-                        InfoRow("类型", ins.type)
-                        if (ins.body.isNotBlank()) InfoRow("正文", ins.body)
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(8.dp))
-
-            SectionTitle("文件信息")
-            InfoRow("原始文件名", book.original_file_name ?: "未知")
-            InfoRow("导入时间", (book.imported_at ?: "未知").take(19).replace("T", " "))
-            InfoRow("文件大小", formatBytes(book.size))
-            InfoRow("格式", book.format.uppercase())
-
-            SectionTitle("所在书单")
-            if (shelves.isEmpty()) Text("尚未加入书单", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                shelves.forEach { shelf ->
-                    InputChip(
-                        selected = false, onClick = {},
-                        label = { Text(shelf.name) },
-                        trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveShelf(shelf.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
-                    )
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            SectionTitle("所属分类")
-            if (categories.isEmpty()) Text("尚未设置分类", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                categories.forEach { category ->
-                    InputChip(
-                        selected = false, onClick = {},
-                        label = { Text(category.name) },
-                        trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveCategory(category.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
-                    )
+
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                // S3：灵感区块
+                SectionTitle("灵感 (${inspirations.size})")
+                if (inspirations.isEmpty()) {
+                    Text("还没有与本书相关的灵感。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    inspirations.forEach { ins ->
+                        ExpandableRow(title = ins.title, subtitle = ins.body.take(40)) {
+                            InfoRow("类型", ins.type)
+                            if (ins.body.isNotBlank()) InfoRow("正文", ins.body)
+                        }
+                    }
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-            // S4：书籍标签可增删（点击切换：已分配则移除，未分配则添加）
-            SectionTitle("书籍标签 (${assignedTagIds.size})")
-            if (allTags.isEmpty()) Text("还没有书籍标签。可以在“我的 / 标签管理”里创建类型为“书籍”的标签。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                allTags.forEach { tag ->
-                    val assigned = assignedTagIds.contains(tag.id)
-                    InputChip(
-                        selected = assigned,
-                        onClick = { if (assigned) onRemoveTag(tag.id) else onAddTag(tag.id) },
-                        label = { Text(tag.name) },
-                        trailingIcon = if (assigned) {
-                            { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveTag(tag.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } }
-                        } else null,
-                    )
+
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("文件信息")
+                InfoRow("原始文件名", book.original_file_name ?: "未知")
+                InfoRow("导入时间", (book.imported_at ?: "未知").take(19).replace("T", " "))
+                InfoRow("文件大小", formatBytes(book.size))
+                InfoRow("格式", book.format.uppercase())
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("所在书单")
+                if (shelves.isEmpty()) Text("尚未加入书单", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    shelves.forEach { shelf ->
+                        InputChip(
+                            selected = false, onClick = {},
+                            label = { Text(shelf.name) },
+                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveShelf(shelf.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                SectionTitle("所属分类")
+                if (categories.isEmpty()) Text("尚未设置分类", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    categories.forEach { category ->
+                        InputChip(
+                            selected = false, onClick = {},
+                            label = { Text(category.name) },
+                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveCategory(category.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+
+            SectionCard(modifier = Modifier.fillMaxWidth()) {
+                // S4：书籍标签可增删（点击切换：已分配则移除，未分配则添加）
+                SectionTitle("书籍标签 (${assignedTagIds.size})")
+                if (allTags.isEmpty()) Text("还没有书籍标签。可以在“我的 / 标签管理”里创建类型为“书籍”的标签。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    allTags.forEach { tag ->
+                        val assigned = assignedTagIds.contains(tag.id)
+                        InputChip(
+                            selected = assigned,
+                            onClick = { if (assigned) onRemoveTag(tag.id) else onAddTag(tag.id) },
+                            label = { Text(tag.name) },
+                            trailingIcon = if (assigned) {
+                                { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveTag(tag.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } }
+                            } else null,
+                        )
+                    }
                 }
             }
 
             Spacer(modifier = Modifier.height(16.dp))
             Surface(
                 color = AppError.copy(alpha = 0.08f),
-                shape = RoundedCornerShape(12.dp),
+                shape = LocalComponentSpec.current.listItemShape,
+                border = BorderStroke(LocalComponentSpec.current.borderWidth, MaterialTheme.colorScheme.outlineVariant),
                 modifier = Modifier.fillMaxWidth().clickable { onDelete(book.id) },
             ) {
                 Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -1737,7 +1994,7 @@ private fun ExpandableRow(
             Spacer(modifier = Modifier.height(6.dp))
             Surface(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(8.dp),
+                shape = LocalComponentSpec.current.listItemShape,
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Column(modifier = Modifier.padding(10.dp)) { expandedContent() }
@@ -1817,18 +2074,11 @@ private fun ChipRow(names: List<String>, active: List<String>, onClick: () -> Un
     Row(modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         names.forEach { name ->
             val isActive = active.contains(name)
-            Surface(
-                color = if (isActive) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant,
-                shape = RoundedCornerShape(16.dp),
-                modifier = Modifier.clickable(onClick = onClick),
-            ) {
-                Text(
-                    (if (isActive) "✓ " else "") + name,
-                    style = MaterialTheme.typography.labelMedium,
-                    color = if (isActive) MaterialTheme.colorScheme.onPrimaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
-            }
+            SelectablePill(
+                text = (if (isActive) "✓ " else "") + name,
+                selected = isActive,
+                onClick = onClick,
+            )
         }
     }
 }
@@ -1837,17 +2087,20 @@ private fun ChipRow(names: List<String>, active: List<String>, onClick: () -> Un
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SortSheet(current: ShelfSortMode, onSelect: (ShelfSortMode) -> Unit, onDismiss: () -> Unit) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Text("排序方式", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
             SORT_OPTIONS.forEach { (mode, label) ->
-                Row(
-                    modifier = Modifier.fillMaxWidth().clickable { onSelect(mode) }.padding(vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    if (current == mode) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
-                }
+                SettingRow(
+                    title = label,
+                    trailing = { if (current == mode) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp)) },
+                    onClick = { onSelect(mode) },
+                )
             }
         }
     }
@@ -1868,7 +2121,12 @@ private fun FilterSheet(
     onSelectTag: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp).verticalScroll(rememberScrollState())) {
             Text("筛选", style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(bottom = 8.dp))
             if (shelves.isNotEmpty()) {
@@ -1927,7 +2185,12 @@ private fun BatchSheet(
     var newName by remember { mutableStateOf("") }
     var showCreate by remember { mutableStateOf(false) }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Text(title, style = MaterialTheme.typography.titleMedium)
             // S5：批量操作显示已选计数（对齐网页「已选 X 本」）
@@ -1941,36 +2204,34 @@ private fun BatchSheet(
             } else if (kind == BatchSheetKind.TAG) {
                 // S5：标签批量支持「添加 / 移除」
                 items.forEach { (id, name) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        OutlinedButton(
-                            onClick = { onSelect(id) },
-                            contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
-                            enabled = selectedCount > 0,
-                        ) { Text("添加") }
-                        Spacer(modifier = Modifier.width(6.dp))
-                        TextButton(
-                            onClick = { onRemoveTag(id) },
-                            enabled = selectedCount > 0,
-                        ) { Text("移除", color = AppError) }
-                    }
+                    SettingRow(
+                        title = name,
+                        trailing = {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                OutlinedButton(
+                                    onClick = { onSelect(id) },
+                                    contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                    enabled = selectedCount > 0,
+                                ) { Text("添加") }
+                                Spacer(modifier = Modifier.width(6.dp))
+                                TextButton(
+                                    onClick = { onRemoveTag(id) },
+                                    enabled = selectedCount > 0,
+                                ) { Text("移除", color = AppError) }
+                            }
+                        },
+                    )
                 }
             } else {
                 items.forEach { (id, name) ->
-                    Row(
-                        modifier = Modifier.fillMaxWidth().clickable { onSelect(id) }.padding(vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(name, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-                    }
+                    SettingRow(
+                        title = name,
+                        onClick = { onSelect(id) },
+                    )
                 }
             }
             Spacer(modifier = Modifier.height(8.dp))
-            HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SectionDivider()
             Spacer(modifier = Modifier.height(8.dp))
             if (showCreate) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
@@ -2008,7 +2269,12 @@ private fun DesktopBooksSheet(
     fun load() { scope.launch { loading = true; books = listBooks(); loading = false } }
     LaunchedEffect(Unit) { load() }
 
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("从电脑下载", style = MaterialTheme.typography.titleMedium)
@@ -2037,16 +2303,96 @@ private fun DesktopBooksSheet(
     }
 }
 
+// ===================== 导入来源 =====================
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ImportSourceSheet(
+    onSelectFiles: () -> Unit,
+    onSelectFolder: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            Text("添加到书架", style = MaterialTheme.typography.titleMedium)
+            Text(
+                "可以一次选择多本书，也可以扫描一个文件夹。只会读取 EPUB、TXT 和 Markdown。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
+            )
+            ImportSourceRow(
+                icon = Icons.AutoMirrored.Filled.MenuBook,
+                title = "选择书籍",
+                description = "一次选择一本或多本文件",
+                onClick = onSelectFiles,
+            )
+            SectionDivider()
+            ImportSourceRow(
+                icon = Icons.Filled.Folder,
+                title = "扫描文件夹",
+                description = "包含子文件夹，自动跳过其他文件",
+                onClick = onSelectFolder,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ImportSourceRow(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    title: String,
+    description: String,
+    onClick: () -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
+            .padding(vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
 // ===================== 底部弹层：导入历史 =====================
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ImportHistorySheet(
     tasks: List<ImportTaskUi>,
     history: List<ImportHistoryEntry>,
+    batch: ImportBatchUiState,
+    onRetryFailed: () -> Unit,
+    onDismissBatch: () -> Unit,
     onClear: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)) {
+    GlassModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = LocalComponentSpec.current.sheetShape,
+        dragHandle = { SheetHandle() },
+    ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
@@ -2058,6 +2404,47 @@ private fun ImportHistorySheet(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+            if (batch.hasResult) {
+                SectionCard(modifier = Modifier.fillMaxWidth()) {
+                    Column {
+                        Text(
+                            if (batch.isRunning) "正在处理 ${batch.sourceLabel}" else "本次导入结果",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Text(
+                            buildList {
+                                add("成功 ${batch.succeeded}")
+                                if (batch.duplicates > 0) add("重复 ${batch.duplicates}")
+                                if (batch.skipped > 0) add("跳过 ${batch.skipped}")
+                                if (batch.failed > 0) add("失败 ${batch.failed}")
+                            }.joinToString(" · "),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        if (batch.truncated || batch.unreadableFolders > 0) {
+                            Text(
+                                buildList {
+                                    if (batch.truncated) add("文件较多，已按安全上限停止扫描")
+                                    if (batch.unreadableFolders > 0) add("${batch.unreadableFolders} 个子文件夹无法读取")
+                                }.joinToString("；"),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = AppWarning,
+                                modifier = Modifier.padding(top = 4.dp),
+                            )
+                        }
+                        if (!batch.isRunning) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                                if (batch.failures.isNotEmpty()) {
+                                    TextButton(onClick = onRetryFailed) { Text("重试失败项") }
+                                }
+                                TextButton(onClick = onDismissBatch) { Text("知道了") }
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+            }
             if (tasks.isEmpty() && history.isEmpty()) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(24.dp)) {
                     Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(36.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -2070,7 +2457,21 @@ private fun ImportHistorySheet(
                     SectionTitle("本次导入队列（${tasks.size}）")
                     tasks.forEach { task ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(if (task.status == "processing") Icons.Filled.Refresh else Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                            val taskColor = when (task.status) {
+                                "error" -> AppError
+                                "duplicate", "skipped" -> AppWarning
+                                else -> MaterialTheme.colorScheme.primary
+                            }
+                            Icon(
+                                when (task.status) {
+                                    "processing" -> Icons.Filled.Refresh
+                                    "error", "skipped" -> Icons.Filled.Warning
+                                    else -> Icons.Filled.CheckCircle
+                                },
+                                contentDescription = null,
+                                modifier = Modifier.size(16.dp),
+                                tint = taskColor,
+                            )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column {
                                 Text(task.fileName, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -2083,14 +2484,28 @@ private fun ImportHistorySheet(
                 if (history.isNotEmpty()) {
                     val successCount = history.count { it.status == "success" }
                     val failedCount = history.count { it.status == "failed" }
-                    SectionTitle("历史记录（${history.size}）· 成功 $successCount · 失败 $failedCount")
+                    val duplicateCount = history.count { it.isDuplicate || it.status == "duplicate" }
+                    val skippedCount = history.count { it.status == "skipped" }
+                    SectionTitle(
+                        buildList {
+                            add("历史记录（${history.size}）")
+                            add("成功 $successCount")
+                            if (duplicateCount > 0) add("重复 $duplicateCount")
+                            if (skippedCount > 0) add("跳过 $skippedCount")
+                            if (failedCount > 0) add("失败 $failedCount")
+                        }.joinToString(" · ")
+                    )
                     history.forEach { entry ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
                                 if (entry.status == "success") Icons.Filled.CheckCircle else Icons.Filled.Warning,
                                 contentDescription = null,
                                 modifier = Modifier.size(16.dp),
-                                tint = if (entry.status == "success") AppSuccess else AppError,
+                                tint = when (entry.status) {
+                                    "success" -> AppSuccess
+                                    "duplicate", "skipped" -> AppWarning
+                                    else -> AppError
+                                },
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {

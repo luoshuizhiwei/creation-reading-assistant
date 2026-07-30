@@ -18,8 +18,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.core.view.WindowCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.lifecycleScope
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.pager.ReaderHardwareKeys
 import com.creationreadingassistant.ui.navigation.AppNavigation
 import com.creationreadingassistant.ui.onboarding.OnboardingOverlay
@@ -28,29 +30,22 @@ import com.creationreadingassistant.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.concurrent.atomic.AtomicBoolean
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var settingsStore: SettingsStore
+    private val homeContentReported = AtomicBoolean(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         // Activity 必须先完成系统初始化。之前在崩溃回放分支中先 setContentView 后
         // return，会触发 SuperNotCalledException，并让一份旧日志造成永久闪退循环。
         super.onCreate(savedInstanceState)
 
-        // 1) 读取并回放上次崩溃日志。此时 Activity 已完成初始化，可以安全显示原生视图。
-        val cacheDir = runCatching { cacheDir }.getOrNull()
-        val fatalFile = cacheDir?.let { File(it, "cra_fatal.log") }
-        val fatalText = runCatching { fatalFile?.takeIf { f -> f.exists() }?.readText()?.trim() }.getOrNull()
-
-        if (!fatalText.isNullOrEmpty()) {
-            // 保留上次异常用于诊断，但不能阻塞本次正常启动。
-            // 旧实现会让用户每次崩溃后的第一次启动停在诊断页。
-            AppLog.e("PreviousCrash", fatalText)
-            runCatching { fatalFile?.renameTo(File(cacheDir, "cra_fatal.shown")) }
-        }
-
-        // 2) 主路径。
+        // 主路径必须先绘制。上次崩溃日志在首帧之后于 IO 线程回放。
         WindowCompat.setDecorFitsSystemWindows(window, false)
         App.trace("MainActivity", "super.onCreate done")
         try {
@@ -81,8 +76,32 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun dispatchKeyEvent(event: KeyEvent): Boolean =
-        ReaderHardwareKeys.dispatch(event) || super.dispatchKeyEvent(event)
+    internal fun onHomeContentReady() {
+        if (!homeContentReported.compareAndSet(false, true)) return
+        reportFullyDrawn()
+        replayDeferredStartupWork()
+    }
+
+    private fun replayDeferredStartupWork() {
+        lifecycleScope.launch {
+            val result = withContext(Dispatchers.IO) {
+                val dir = runCatching { cacheDir }.getOrNull() ?: return@withContext null
+                val fatal = File(dir, "cra_fatal.log")
+                val text = runCatching {
+                    fatal.takeIf(File::exists)?.readText()?.trim()
+                }.getOrNull()
+                if (!text.isNullOrEmpty()) {
+                    runCatching { fatal.renameTo(File(dir, "cra_fatal.shown")) }
+                }
+                TextStreamLoader(dir).cleanupStaleTempFiles()
+                text?.takeIf(String::isNotEmpty)
+            }
+            result?.let { AppLog.e("PreviousCrash", it) }
+        }
+    }
+
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
+        ReaderHardwareKeys.dispatch(event) || super.onKeyDown(keyCode, event)
 
     /** 本次启动失败兜底：直接把异常类型 + 完整栈显示出来。 */
     private fun showErrorScreen(e: Throwable) {

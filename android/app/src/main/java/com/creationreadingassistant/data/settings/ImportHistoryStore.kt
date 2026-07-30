@@ -9,9 +9,9 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.sync.Mutex
@@ -53,8 +53,6 @@ class ImportHistoryStore @Inject constructor(
     private val ds = context.importHistoryDataStore
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
-    private val _entries = MutableStateFlow<List<ImportHistoryEntry>>(emptyList())
-
     val entries: StateFlow<List<ImportHistoryEntry>> = ds.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: "[]"
         runCatching { json.decodeFromString<List<ImportHistoryEntry>>(raw) }.getOrDefault(emptyList())
@@ -62,7 +60,10 @@ class ImportHistoryStore @Inject constructor(
 
     suspend fun addEntry(entry: ImportHistoryEntry) {
         mutex.withLock {
-            val current = _entries.value
+            val prefs = ds.data.first()
+            val current = runCatching {
+                json.decodeFromString<List<ImportHistoryEntry>>(prefs[KEY_HISTORY] ?: "[]")
+            }.getOrDefault(emptyList())
             val next = (listOf(entry) + current).take(100)
             ds.edit { prefs -> prefs[KEY_HISTORY] = json.encodeToString(ListSerializer(ImportHistoryEntry.serializer()), next) }
         }

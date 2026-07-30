@@ -4,6 +4,7 @@ import android.Manifest
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.camera.core.CameraSelector
+import androidx.camera.core.ExperimentalGetImage
 import androidx.camera.core.ImageAnalysis
 import androidx.camera.core.ImageProxy
 import androidx.camera.core.Preview
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.Canvas
 import androidx.compose.material3.AlertDialog
+import com.creationreadingassistant.ui.components.GlassAlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -46,6 +48,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.content.ContextCompat
 import com.creationreadingassistant.R
+import com.creationreadingassistant.ui.components.SectionCard
 import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.common.Barcode
 import com.google.mlkit.vision.common.InputImage
@@ -81,7 +84,7 @@ fun QrPairingScreen(
     }
 
     if (showRationale) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { showRationale = false },
             title = { Text("需要相机权限") },
             text = { Text("扫描桌面端同步二维码需要相机权限。请在系统设置中授予后重试。") },
@@ -93,7 +96,7 @@ fun QrPairingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("扫码配对") },
+                title = { Text("扫码配对", style = MaterialTheme.typography.headlineLarge) },
                 navigationIcon = { IconButton(onClick = onCancel) { Icon(Icons.AutoMirrored.Filled.ArrowBack, stringResource(R.string.back)) } },
             )
         },
@@ -117,9 +120,8 @@ fun QrPairingScreen(
                                 .build().also { imageAnalysis ->
                                     imageAnalysis.setAnalyzer(analyzerExecutor) { imageProxy: ImageProxy ->
                                         if (scanned) { imageProxy.close(); return@setAnalyzer }
-                                        val mediaImage = imageProxy.image
-                                        if (mediaImage != null) {
-                                            val image = InputImage.fromMediaImage(mediaImage, imageProxy.imageInfo.rotationDegrees)
+                                        val image = imageProxy.toInputImageOrNull()
+                                        if (image != null) {
                                             BarcodeScanning.getClient().process(image)
                                                 .addOnSuccessListener { barcodes: List<Barcode> ->
                                                     val raw = barcodes.firstOrNull()?.rawValue
@@ -169,14 +171,22 @@ fun QrPairingScreen(
                     verticalArrangement = Arrangement.Center,
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text("未获得相机权限，无法扫码。", style = MaterialTheme.typography.bodyLarge)
-                    Button(onClick = { showRationale = true }, modifier = Modifier.padding(top = 12.dp)) {
-                        Text("申请权限")
+                    SectionCard {
+                        Text("未获得相机权限，无法扫码。", style = MaterialTheme.typography.bodyLarge)
+                        Button(onClick = { showRationale = true }, modifier = Modifier.padding(top = 12.dp)) {
+                            Text("申请权限")
+                        }
                     }
                 }
             }
         }
     }
+}
+
+@androidx.annotation.OptIn(markerClass = [ExperimentalGetImage::class])
+private fun ImageProxy.toInputImageOrNull(): InputImage? {
+    val mediaImage = image ?: return null
+    return InputImage.fromMediaImage(mediaImage, imageInfo.rotationDegrees)
 }
 
 /** 取景框四角括号，对齐 web .qr-corners（四角 L 形亮线）。 */

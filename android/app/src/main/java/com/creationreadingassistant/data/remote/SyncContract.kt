@@ -10,7 +10,7 @@ import kotlinx.serialization.json.JsonObject
  *
  * envelope 的 payload 采用 [JsonObject] 透传：服务端返回的业务对象（LibraryBook /
  * InspirationItem / ReadingProgress / ReadingSession）直接作为 JSON 存入本地表的
- * `payload TEXT` 真相源列，无需在原生端为每类业务对象各建一套模型（见 P3_DESIGN.md）。
+ * `payload TEXT` 真相源列，无需在原生端为每类业务对象各建一套同步模型。
  */
 object SyncContract {
 
@@ -109,7 +109,7 @@ object SyncContract {
     )
 
     /**
-     * 移动端调用 /sync/pair 的响应（桌面端返回形态，见 P3_DESIGN.md 待确认项）。
+     * 移动端调用 /sync/pair 的响应；字段必须与桌面端同步协议保持兼容。
      * 字段全部可空：若桌面端未返回 token，则回退使用二维码携带的一次性 token。
      */
     @Serializable

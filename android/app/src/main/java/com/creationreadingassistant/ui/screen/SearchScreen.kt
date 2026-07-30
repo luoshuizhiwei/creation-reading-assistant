@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Highlight
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.SearchOff
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -33,7 +32,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -61,6 +59,11 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.viewmodel.SearchViewModel
+import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SelectablePill
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -68,6 +71,7 @@ fun SearchScreen(
     navController: NavHostController,
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
+    val layout = LocalLayoutTokens.current
     var query by remember { mutableStateOf("") }
     val results by viewModel.results.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
@@ -83,7 +87,7 @@ fun SearchScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("搜索") },
+                title = { Text("搜索", style = MaterialTheme.typography.headlineLarge) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
@@ -97,8 +101,15 @@ fun SearchScreen(
                 value = query,
                 onValueChange = { query = it },
                 placeholder = { Text("搜索书籍、灵感、笔记、摘录") },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focusRequester),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(
+                        horizontal = layout.pageHorizontal,
+                        vertical = layout.relatedGap,
+                    )
+                    .focusRequester(focusRequester),
                 singleLine = true,
+                shape = LocalComponentSpec.current.listItemShape,
                 leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) viewModel.addHistory(query) }),
@@ -106,9 +117,9 @@ fun SearchScreen(
 
             // Tab 分类：全部 / 书籍 / 灵感 / 笔记 / 高亮（SE5）—— 类型胶囊，对齐 web filter-chip 视觉
             FlowRow(
-                Modifier.padding(horizontal = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
+                Modifier.padding(horizontal = layout.pageHorizontal),
+                horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+                verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
             ) {
                 SearchPill(selected = tab == "all", label = "全部", onClick = { tab = "all" })
                 SearchPill(selected = tab == "books", label = "书籍 (${results.books.size})", onClick = { tab = "books" })
@@ -119,14 +130,21 @@ fun SearchScreen(
 
             when {
                 loading -> {
-                    Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                    Box(Modifier.fillMaxWidth().padding(layout.cardPadding), contentAlignment = Alignment.Center) {
                         CircularProgressIndicator()
                     }
                 }
                 query.isBlank() -> {
                     if (history.isNotEmpty()) {
                         // 搜索历史（SE2）
-                        Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp)) {
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(
+                                    horizontal = layout.pageHorizontal,
+                                    vertical = layout.relatedGap,
+                                ),
+                        ) {
                             Row(
                                 Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically,
@@ -159,7 +177,12 @@ fun SearchScreen(
                     }
                 }
                 totalHits == 0 -> {
-                    EmptyHint(icon = Icons.Filled.SearchOff, text = "未找到匹配结果")
+                    EmptyStateHint(
+                        text = "未找到匹配结果",
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(layout.pageHorizontal),
+                    )
                 }
                 else -> {
                     LazyColumn(Modifier.fillMaxSize()) {
@@ -246,18 +269,12 @@ private fun EmptyHint(icon: androidx.compose.ui.graphics.vector.ImageVector, tex
 
 @Composable
 private fun SearchPill(selected: Boolean, label: String, onClick: () -> Unit) {
-    Surface(
+    SelectablePill(
+        text = label,
+        selected = selected,
         onClick = onClick,
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant,
-        ),
-        contentColor = if (selected) MaterialTheme.colorScheme.onSecondaryContainer else MaterialTheme.colorScheme.onSurfaceVariant,
-    ) {
-        Text(label, modifier = Modifier.padding(horizontal = 13.dp, vertical = 9.dp), style = MaterialTheme.typography.labelMedium)
-    }
+        unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+    )
 }
 
 @Composable
@@ -269,15 +286,12 @@ private fun SearchResultRow(
     snippet: String,
     onClick: () -> Unit,
 ) {
-    Surface(
+    SectionCard(
         onClick = onClick,
-        shape = RoundedCornerShape(12.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)

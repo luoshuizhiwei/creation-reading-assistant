@@ -4,7 +4,14 @@ import android.content.Context
 import android.net.Uri
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
+import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.local.dao.ReadingProgressDao
+import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.SyncRepository
@@ -16,9 +23,14 @@ import com.creationreadingassistant.feature.log.AppLog
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
 import javax.inject.Inject
@@ -71,6 +83,27 @@ data class SyncResultDetail(
     val snapshotBackupKey: String? = null,
 )
 
+data class ProfileLibraryState(
+    val books: List<BookEntity> = emptyList(),
+    val progressByBook: Map<String, ReadingProgressEntity> = emptyMap(),
+    val readingDurationByBook: Map<String, Long> = emptyMap(),
+    val notes: List<NoteEntity> = emptyList(),
+    val cachedCount: Int = 0,
+    val cacheBytes: Long = 0L,
+)
+
+private data class ProfileReadingArchive(
+    val books: List<BookEntity>,
+    val progressByBook: Map<String, ReadingProgressEntity>,
+    val readingDurationByBook: Map<String, Long>,
+    val notes: List<NoteEntity>,
+)
+
+private data class ProfileCacheSummary(
+    val count: Int,
+    val bytes: Long,
+)
+
 /**
  * 「我的」页 ViewModel。
  * - JSON 数据桥接（导出/导入）—— 复用同步信封契约
@@ -86,7 +119,57 @@ class ProfileViewModel @Inject constructor(
     private val webDavBackup: WebDavBackup,
     private val aiClient: AiClient,
     private val bookDao: BookDao,
+    readingProgressDao: ReadingProgressDao,
+    readingSessionDao: ReadingSessionDao,
+    noteDao: NoteDao,
+    bookContentDao: BookContentDao,
 ) : ViewModel() {
+
+    private val readingArchive = combine(
+        bookDao.observeAllActive(),
+        readingProgressDao.observeAllActive(),
+        readingSessionDao.observeAllActive(),
+        noteDao.observeAllActive(),
+    ) { books, progress, sessions, notes ->
+        ProfileReadingArchive(
+            books = books,
+            progressByBook = progress.associateBy { it.book_id },
+            readingDurationByBook = sessions
+                .groupBy { it.book_id }
+                .mapValues { (_, values) -> values.sumOf { it.duration_ms } },
+            notes = notes.sortedByDescending { it.created_at },
+        )
+    }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+
+    private val cacheSummary = combine(
+        bookContentDao.observeCachedCount(),
+        bookContentDao.observeCachedBytes(),
+    ) { count, bytes ->
+        ProfileCacheSummary(count = count, bytes = bytes)
+    }.distinctUntilChanged()
+
+    val libraryState: StateFlow<ProfileLibraryState> = combine(
+        readingArchive,
+        cacheSummary,
+    ) { archive, cache ->
+        ProfileLibraryState(
+            books = archive.books,
+            progressByBook = archive.progressByBook,
+            readingDurationByBook = archive.readingDurationByBook,
+            notes = archive.notes,
+            cachedCount = cache.count,
+            cacheBytes = cache.bytes,
+        )
+    }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
+        .stateIn(
+        scope = viewModelScope,
+        started = SharingStarted.WhileSubscribed(5_000),
+        initialValue = ProfileLibraryState(),
+    )
 
     // ---- JSON 桥接 ----
     private val _bridgeStatus = MutableStateFlow<String?>(null)

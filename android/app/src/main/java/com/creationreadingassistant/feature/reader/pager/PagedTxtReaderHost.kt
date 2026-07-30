@@ -1,5 +1,8 @@
 package com.creationreadingassistant.feature.reader.pager
 
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.BatteryManager
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -37,19 +40,34 @@ import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
-import coil.compose.AsyncImage
+import com.creationreadingassistant.ui.components.SizedAsyncImage
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
+import com.creationreadingassistant.data.settings.HeaderFooterItem
+
+/** 页眉/页脚渲染所需的分页快照 */
+private data class PageInfo(
+    val chapterIndex: Int = 0,
+    val pageIndex: Int = 0,
+    val pageCount: Int = 0,
+    val progressPercent: Float = 0f,
+)
 
 /**
  * 左右翻页宿主（pagerEngineMode = on 时替换原视图；TXT 与 EPUB 共用，
@@ -98,6 +116,19 @@ fun PagedReaderHost(
     persistentHighlights: List<Pair<IntRange, Color>> = emptyList(),
     selectionColor: Color = Color(0x40365B7E),
     ttsHighlightColor: Color = Color(0x33365B7E),
+    /** 非 null 时按该间隔自动翻到下一页；到全书末页后回调并停止。 */
+    autoPageIntervalMillis: Long? = null,
+    onAutoPagingFinished: () -> Unit = {},
+    /** 页眉左侧内容条目 */
+    headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
+    /** 页眉右侧内容条目 */
+    headerRight: HeaderFooterItem = HeaderFooterItem.NONE,
+    /** 页脚左侧内容条目 */
+    footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
+    /** 页脚右侧内容条目 */
+    footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
+    /** 书名（用于页眉/页脚显示） */
+    bookName: String = "",
 ) {
     val density = LocalDensity.current
     val fontPx = with(density) { fontSizeSp.sp.toPx() }
@@ -120,11 +151,57 @@ fun PagedReaderHost(
     val oracle = remember { IcuBreakOracle() }
     val scope = rememberCoroutineScope()
 
-    // 位置锚点：当前页首字符的全书偏移。改字号/转屏/切菜单导致重排后，靠它回到同一句。
+    // ── 动态数据：时间 & 电量 ──
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val currentTime = remember { mutableStateOf(formatCurrentTime()) }
+    val batteryLevel = remember { mutableIntStateOf(getBatteryLevel(context)) }
+    // 每分钟刷新时间
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(60_000L)
+            currentTime.value = formatCurrentTime()
+        }
+    }
+    // 每 30 秒刷新电量
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(30_000L)
+            batteryLevel.intValue = getBatteryLevel(context)
+        }
+    }
+
+    // 位置锚点：当前页首字符的全书偏移。改字号/转屏/菜单导致重排后，靠它回到同一句。
     val anchor = remember(source) { mutableIntStateOf(initialOffset) }
+    // 页眉/页脚需要的分页信息（章号、页号、总页数、进度）
+    val pageInfo = remember { mutableStateOf(PageInfo()) }
 
     Column(modifier.fillMaxSize().padding(horizontal = pageMarginDp.dp)) {
-        Box(Modifier.weight(1f).fillMaxWidth().padding(top = 10.dp)) {
+        // 页眉
+        if (showReaderInfo && (headerLeft != HeaderFooterItem.NONE || headerRight != HeaderFooterItem.NONE)) {
+            Row(
+                Modifier.fillMaxWidth().height(24.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                val headerColor = textColor.copy(alpha = 0.45f)
+                Text(
+                    resolveItemText(headerLeft, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
+                    fontSize = 11.sp,
+                    color = headerColor,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Text(
+                    resolveItemText(headerRight, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
+                    fontSize = 11.sp,
+                    color = headerColor,
+                    modifier = Modifier.padding(start = 12.dp),
+                )
+            }
+        }
+
+        Box(Modifier.weight(1f).fillMaxWidth().padding(top = pageMarginDp.dp)) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 // 平板横屏仍保持中文正文每行不超过约 42 字，超出的空间左右留白。
                 val widthPx = minOf(constraints.maxWidth.toFloat(), fontPx * 42f)
@@ -174,6 +251,12 @@ fun PagedReaderHost(
                                     anchor.intValue = range.first
                                 }
                                 onPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                                pageInfo.value = PageInfo(
+                                    chapterIndex = controller.chapterIndex,
+                                    pageIndex = controller.pageIndex,
+                                    pageCount = controller.pageCount,
+                                    progressPercent = controller.progressPercent,
+                                )
                             }
                         }
                 }
@@ -188,11 +271,31 @@ fun PagedReaderHost(
                 // 选区（章内偏移区间）。翻页/外部清除时撤掉。
                 val selRange = remember { mutableStateOf<IntRange?>(null) }
                 val turnRequest = remember { mutableIntStateOf(0) }
+                val finishAutoPaging by rememberUpdatedState(onAutoPagingFinished)
                 LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
                 LaunchedEffect(externalTurnRequest.value) {
                     val direction = externalTurnRequest.value ?: return@LaunchedEffect
                     turnRequest.intValue = direction
                     externalTurnRequest.value = null
+                }
+                LaunchedEffect(
+                    controller,
+                    autoPageIntervalMillis,
+                    controller.chapterIndex,
+                    controller.pageIndex,
+                    controller.isLayingOut,
+                ) {
+                    val interval = autoPageIntervalMillis ?: return@LaunchedEffect
+                    if (interval <= 0L || controller.isLayingOut) return@LaunchedEffect
+                    delay(interval)
+                    if (!controller.canGoNext) {
+                        finishAutoPaging()
+                    } else if (controller.frameAt(1) != null) {
+                        turnRequest.intValue = 1
+                    } else {
+                        // 相邻章尚未预排完成时直接发起加载，不让自动翻页空等一整个周期。
+                        controller.nextPage()
+                    }
                 }
 
                 val page = controller.currentPage
@@ -293,6 +396,7 @@ fun PagedReaderHost(
                             .offset(x = horizontalInsetDp)
                             .width(contentWidthDp)
                             .fillMaxHeight()
+                            .semantics { contentDescription = "分页正文已就绪" }
                             .then(gestures),
                     ) { rendered, isCurrent ->
                         PageLayer(
@@ -311,17 +415,16 @@ fun PagedReaderHost(
             }
         }
 
-        // 页脚：章节名 + 页号。安静阅读信息关闭时只留空隙保持正文位置稳定。
+        // 页脚：可配置内容。安静阅读信息关闭时只留空隙保持正文位置稳定。
         Row(
             Modifier.fillMaxWidth().height(28.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             val footerColor = textColor.copy(alpha = 0.45f)
-            val controllerInfo = footerInfo(source, anchor.intValue)
             if (showReaderInfo) {
                 Text(
-                    controllerInfo.first,
+                    resolveItemText(footerLeft, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
                     fontSize = 11.sp,
                     color = footerColor,
                     maxLines = 1,
@@ -329,7 +432,7 @@ fun PagedReaderHost(
                     modifier = Modifier.weight(1f, fill = false),
                 )
                 Text(
-                    controllerInfo.second,
+                    resolveItemText(footerRight, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
                     fontSize = 11.sp,
                     color = footerColor,
                     modifier = Modifier.padding(start = 12.dp),
@@ -339,12 +442,41 @@ fun PagedReaderHost(
     }
 }
 
-/** 页脚左右两栏：章节名 / 全书进度。页号在排版完成前拿不到，用全书百分比代替更稳。 */
-private fun footerInfo(source: PagedChapterSource, absOffset: Int): Pair<String, String> {
-    val title = if (source.chapterCount > 0) source.chapterTitle(source.chapterIndexFor(absOffset)) else ""
-    val total = source.totalChars
-    val percent = if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
-    return title to "%.1f%%".format(percent)
+/** 根据配置条目解析出对应的显示文本 */
+private fun resolveItemText(
+    item: HeaderFooterItem,
+    source: PagedChapterSource,
+    absOffset: Int,
+    pageInfo: PageInfo,
+    currentTime: String,
+    batteryLevel: Int,
+    bookName: String,
+): String = when (item) {
+    HeaderFooterItem.NONE -> ""
+    HeaderFooterItem.CHAPTER_TITLE -> {
+        if (source.chapterCount > 0) source.chapterTitle(source.chapterIndexFor(absOffset)) else ""
+    }
+    HeaderFooterItem.BOOK_NAME -> bookName
+    HeaderFooterItem.TIME -> currentTime
+    HeaderFooterItem.BATTERY -> if (batteryLevel >= 0) "$batteryLevel%" else ""
+    HeaderFooterItem.PAGE_NUMBER -> if (pageInfo.pageCount > 0) "${pageInfo.pageIndex + 1}/${pageInfo.pageCount}" else ""
+    HeaderFooterItem.PROGRESS -> {
+        val total = source.totalChars
+        val percent = if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
+        "%.1f%%".format(percent)
+    }
+}
+
+private fun formatCurrentTime(): String {
+    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
+}
+
+private fun getBatteryLevel(context: android.content.Context): Int {
+    val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
+    val batteryStatus = context.registerReceiver(null, ifilter)
+    val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
+    val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
+    return if (level >= 0 && scale > 0) (level * 100 / scale) else -1
 }
 
 /**
@@ -385,8 +517,10 @@ private fun PageLayer(
                     .size(width, height)
                     .background(Color(0x12000000)),
             ) {
-                AsyncImage(
-                    model = File(image.sourceKey),
+                val imageFile = remember(image.sourceKey) { File(image.sourceKey) }
+                SizedAsyncImage(
+                    data = imageFile,
+                    cacheKey = "reader:${image.sourceKey}:${imageFile.lastModified()}",
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),

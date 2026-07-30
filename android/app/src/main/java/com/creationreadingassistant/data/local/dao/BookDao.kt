@@ -16,14 +16,36 @@ interface BookDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(book: BookEntity)
 
+    /**
+     * 更新已存在的书籍记录。
+     *
+     * 与 SQLite 的 REPLACE 不同，UPDATE 不会先删除旧行，因此不会触发 books 外键的级联删除。
+     */
+    @Update
+    suspend fun update(book: BookEntity): Int
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(books: List<BookEntity>)
 
     @Query("SELECT * FROM books WHERE deleted_at IS NULL ORDER BY updated_at DESC")
     fun observeAllActive(): Flow<List<BookEntity>>
 
+    @Query("SELECT id, size, content_status FROM books WHERE deleted_at IS NULL")
+    fun observeStatsRows(): Flow<List<StatsBookRow>>
+
     @Query("SELECT * FROM books WHERE id = :id AND deleted_at IS NULL")
     suspend fun getById(id: String): BookEntity?
+
+    @Query(
+        "SELECT * FROM books " +
+            "WHERE deleted_at IS NULL AND LOWER(format) = 'epub' AND size <= 0 " +
+            "AND ((local_uri IS NOT NULL AND local_uri != '') " +
+            "OR (local_content_path IS NOT NULL AND local_content_path != ''))"
+    )
+    suspend fun getEpubBooksNeedingSizeRepair(): List<BookEntity>
+
+    @Query("UPDATE books SET size = :size WHERE id = :id AND size <= 0")
+    suspend fun updateSizeIfMissing(id: String, size: Int): Int
 
     @Query("UPDATE books SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: String)

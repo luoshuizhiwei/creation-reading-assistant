@@ -1,9 +1,11 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
+    alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hilt.android)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.baselineprofile)
 }
 
 android {
@@ -24,6 +26,14 @@ android {
     }
 
     buildTypes {
+        create("benchmark") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".benchmarktarget"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isProfileable = true
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -48,10 +58,6 @@ android {
         compose = true
     }
 
-    composeOptions {
-        kotlinCompilerExtensionVersion = libs.versions.composeCompiler.get()
-    }
-
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -68,6 +74,7 @@ dependencies {
 
     // Compose BOM：统一管理 Compose 相关库版本
     implementation(platform(libs.androidx.compose.bom))
+    implementation(libs.androidx.compose.material)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons.extended)
     implementation(libs.androidx.navigation.compose)
@@ -88,6 +95,8 @@ dependencies {
     implementation(libs.coil.compose)
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.collections.immutable)
+    implementation(libs.androidx.profileinstaller)
 
     // 局域网同步（Retrofit + OkHttp）
     implementation(libs.retrofit)
@@ -111,9 +120,38 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+
+    // Android 测试（Room 迁移测试）
+    androidTestImplementation(libs.room.testing)
+    androidTestImplementation(libs.androidx.test.ext.junit)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(platform(libs.androidx.compose.bom))
+    androidTestImplementation(libs.androidx.compose.ui.test.junit4)
+    androidTestImplementation(libs.hilt.android.testing)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
+    baselineProfile(project(":benchmark"))
+}
+
+baselineProfile {
+    automaticGenerationDuringBuild = false
+    saveInSrc = true
 }
 
 // Room schema 导出目录（exportSchema = true 时必填，否则 KSP 报错）。
 ksp {
     arg("room.schemaLocation", "$projectDir/schemas")
+}
+
+// 将 Room schema 复制到构建目录，避免测试准备任务写回 src/ 并与 Lint 并发冲突。
+val roomMigrationSchemasDir = layout.buildDirectory.dir("generated/roomMigrationSchemas")
+val copyRoomSchemasForMigrationTest = tasks.register<Copy>("copyRoomSchemasForMigrationTest") {
+    from("$projectDir/schemas")
+    into(roomMigrationSchemasDir)
+    include("**/*.json")
+}
+android.sourceSets.named("androidTest") {
+    assets.srcDir(roomMigrationSchemasDir)
+}
+tasks.matching { it.name.contains("AndroidTest") }.configureEach {
+    dependsOn(copyRoomSchemasForMigrationTest)
 }

@@ -21,6 +21,22 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import dagger.hilt.android.qualifiers.ApplicationContext
 
+/** 页眉/页脚可显示的条目类型 */
+enum class HeaderFooterItem(val label: String) {
+    NONE("无"),
+    CHAPTER_TITLE("章节标题"),
+    BOOK_NAME("书名"),
+    TIME("当前时间"),
+    BATTERY("电量"),
+    PAGE_NUMBER("页码"),
+    PROGRESS("进度%");
+
+    companion object {
+        fun fromString(value: String): HeaderFooterItem =
+            entries.firstOrNull { it.name == value } ?: NONE
+    }
+}
+
 /**
  * 应用设置持久层（DataStore Preferences，单事实源）。
  * 取代此前 ProfileScreen / ReaderScreen 内的会话态设置，做到重启保持。
@@ -46,7 +62,7 @@ private val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
 private val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
 private val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
 private val KEY_PAGE_MARGIN = floatPreferencesKey("reader_page_margin")
-private val KEY_READER_BG = stringPreferencesKey("reader_background")          // white | warm | green | night | warm-yellow | green-bean | oled-black
+private val KEY_READER_BG = stringPreferencesKey("reader_background")          // white | warm | green | night | follow
 private val KEY_IMMERSIVE = booleanPreferencesKey("reader_immersive")
 private val KEY_SHOW_READER_INFO = booleanPreferencesKey("reader_show_info")
 private val KEY_CHINESE_TYPO = booleanPreferencesKey("reader_chinese_typo")
@@ -57,6 +73,7 @@ private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
 private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // 45..100，对照 web reader brightness（压暗遮罩）
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
+private val KEY_AUTO_PAGE_SPEED = intPreferencesKey("reader_auto_page_speed")
 // 阅读提醒（对照 web eyeCareReminderMinutes / readingRhythmReminder*）
 private val KEY_EYE_CARE_MIN = intPreferencesKey("reader_eye_care_minutes")
 private val KEY_EYE_FILTER_ENABLED = booleanPreferencesKey("reader_eye_filter_enabled")
@@ -76,6 +93,11 @@ private val KEY_TTS_TIMED_STOP = intPreferencesKey("tts_timed_stop_minutes")
 private val KEY_TTS_RESUME_BOOK = stringPreferencesKey("tts_resume_book")
 private val KEY_TTS_RESUME_OFFSET = intPreferencesKey("tts_resume_offset")
 private val KEY_TTS_RESUME_CHAPTER = intPreferencesKey("tts_resume_chapter")
+// 页眉页脚配置
+private val KEY_HEADER_LEFT = stringPreferencesKey("reader_header_left")
+private val KEY_HEADER_RIGHT = stringPreferencesKey("reader_header_right")
+private val KEY_FOOTER_LEFT = stringPreferencesKey("reader_footer_left")
+private val KEY_FOOTER_RIGHT = stringPreferencesKey("reader_footer_right")
 
 // ---- 灵感 ----
 private val KEY_INSPIRATION_SORT = stringPreferencesKey("inspiration_sort")   // updated | created | title | source
@@ -92,15 +114,19 @@ private const val AI_SECRETS_PREFS_NAME = "ai_secrets"
 private const val KEY_AI_API_KEY_ENC = "ai_api_key"
 
 /**
- * 旧版阅读背景 key（paper/plain/eye）迁移到网页版 7 色体系，
- * 保证 WebDAV / 局域网同步的书目背景值在跨端不回退为默认。
+ * 旧版阅读背景 key 迁移到统一 4 档纸张体系（white / warm / green / night）+ 跟随外观（follow）。
+ * 原「网页版 7 色」(warm-yellow / green-bean / oled-black) 与更旧的 (paper / plain / eye)
+ * 在此收敛为 4 档，避免跨端同步时出现未定义纸张；「follow」由阅读器按外壳明暗映射白纸 / 夜读。
  */
 private fun migrateReaderBg(v: String?): String = when (v) {
     null -> "warm"
     "paper" -> "warm"
     "plain" -> "white"
     "eye" -> "green"
-    else -> v
+    "warm-yellow" -> "warm"
+    "green-bean" -> "green"
+    "oled-black" -> "night"
+    else -> v   // white | warm | green | night | follow 等已合法值原样保留
 }
 
 data class AppearanceSettings(
@@ -119,11 +145,11 @@ data class ReaderSettings(
     val epubPagerEngineMode: String = "auto",
     val pageTurnEffect: String = "none",         // none | fade | slide | cover
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
-    val fontSize: Float = 18f,
+    val fontSize: Float = 25f,
     val lineHeight: Float = 1.85f,
     val paragraphSpacing: Float = 1.15f,
     val pageMargin: Float = 22f,
-    val background: String = "warm",             // white | warm | green | night | warm-yellow | green-bean | oled-black
+    val background: String = "warm",             // white | warm | green | night | follow
     val immersiveMode: Boolean = false,
     val showReaderInfo: Boolean = true,
     val chineseTypography: Boolean = true,
@@ -134,6 +160,7 @@ data class ReaderSettings(
     val brightness: Int = 100,             // 45..100，对照 web reader brightness（压暗遮罩）
     val volumeKeyPaging: Boolean = true,
     val volumeKeyPagingDuringTts: Boolean = false,
+    val autoPageSpeed: Int = 5,            // 1..10；是否正在自动翻页仅为会话态，不持久化
     // 阅读提醒
     val eyeCareReminderMinutes: Int = 30,
     val eyeCareFilterEnabled: Boolean = false,
@@ -149,6 +176,11 @@ data class ReaderSettings(
     val ttsVolume: Float = 1f,
     val ttsVoiceId: String = "",
     val ttsTimedStopMinutes: Int = 0,
+    // 页眉页脚
+    val headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
+    val headerRight: HeaderFooterItem = HeaderFooterItem.NONE,
+    val footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
+    val footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
 )
 
 data class AISettings(
@@ -198,7 +230,7 @@ class SettingsStore @Inject constructor(
                 else -> effect
             },
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
-            fontSize = prefs[KEY_FONT_SIZE] ?: 18f,
+            fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
             lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
             pageMargin = prefs[KEY_PAGE_MARGIN] ?: 22f,
@@ -213,6 +245,7 @@ class SettingsStore @Inject constructor(
             brightness = prefs[KEY_READER_BRIGHTNESS] ?: 100,
             volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
             volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
+            autoPageSpeed = (prefs[KEY_AUTO_PAGE_SPEED] ?: 5).coerceIn(1, 10),
             eyeCareReminderMinutes = prefs[KEY_EYE_CARE_MIN] ?: 30,
             eyeCareFilterEnabled = prefs[KEY_EYE_FILTER_ENABLED] ?: false,
             eyeCareTemperature = prefs[KEY_EYE_FILTER_TEMPERATURE] ?: 3400,
@@ -226,6 +259,10 @@ class SettingsStore @Inject constructor(
             ttsVolume = prefs[KEY_TTS_VOLUME] ?: 1f,
             ttsVoiceId = prefs[KEY_TTS_VOICE] ?: "",
             ttsTimedStopMinutes = prefs[KEY_TTS_TIMED_STOP] ?: 0,
+            headerLeft = HeaderFooterItem.fromString(prefs[KEY_HEADER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
+            headerRight = HeaderFooterItem.fromString(prefs[KEY_HEADER_RIGHT] ?: HeaderFooterItem.NONE.name),
+            footerLeft = HeaderFooterItem.fromString(prefs[KEY_FOOTER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
+            footerRight = HeaderFooterItem.fromString(prefs[KEY_FOOTER_RIGHT] ?: HeaderFooterItem.PROGRESS.name),
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), ReaderSettings())
 
@@ -310,6 +347,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_READER_BRIGHTNESS] = next.brightness
             prefs[KEY_VOLUME_PAGE] = next.volumeKeyPaging
             prefs[KEY_VOLUME_PAGE_DURING_TTS] = next.volumeKeyPagingDuringTts
+            prefs[KEY_AUTO_PAGE_SPEED] = next.autoPageSpeed.coerceIn(1, 10)
             prefs[KEY_EYE_CARE_MIN] = next.eyeCareReminderMinutes
             prefs[KEY_EYE_FILTER_ENABLED] = next.eyeCareFilterEnabled
             prefs[KEY_EYE_FILTER_TEMPERATURE] = next.eyeCareTemperature
@@ -323,6 +361,10 @@ class SettingsStore @Inject constructor(
             prefs[KEY_TTS_VOLUME] = next.ttsVolume
             prefs[KEY_TTS_VOICE] = next.ttsVoiceId
             prefs[KEY_TTS_TIMED_STOP] = next.ttsTimedStopMinutes
+            prefs[KEY_HEADER_LEFT] = next.headerLeft.name
+            prefs[KEY_HEADER_RIGHT] = next.headerRight.name
+            prefs[KEY_FOOTER_LEFT] = next.footerLeft.name
+            prefs[KEY_FOOTER_RIGHT] = next.footerRight.name
         }
     }
 

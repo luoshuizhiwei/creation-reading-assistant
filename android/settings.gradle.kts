@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "CreationReadingAssistant"
 include(":app")
+include(":benchmark")

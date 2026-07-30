@@ -2,9 +2,10 @@ package com.creationreadingassistant.feature.log
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import java.text.SimpleDateFormat
-import java.util.Date
+import kotlinx.collections.immutable.PersistentList
+import kotlinx.collections.immutable.persistentListOf
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 import java.util.Locale
 import java.util.UUID
 
@@ -27,10 +28,10 @@ object AppLog {
         val code: String? = null,
     )
 
-    private val fmt = SimpleDateFormat("MM-dd HH:mm:ss", Locale.US)
+    private val fmt = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss", Locale.US)
     private const val MAX = 500
 
-    private val _entries = MutableStateFlow<List<Entry>>(emptyList())
+    private val _entries = MutableStateFlow<PersistentList<Entry>>(persistentListOf())
     val entries = _entries.asStateFlow()
 
     fun i(tag: String, msg: String) = push(Level.INFO, tag, msg)
@@ -42,7 +43,7 @@ object AppLog {
     fun warn(tag: String, msg: String, code: String) = push(Level.WARN, tag, msg, code)
 
     private fun push(level: Level, tag: String, msg: String, code: String? = null) {
-        val ts = fmt.format(Date())
+        val ts = fmt.format(LocalDateTime.now())
         val entry = Entry(
             id = UUID.randomUUID().toString(),
             timestamp = ts,
@@ -51,11 +52,15 @@ object AppLog {
             message = msg,
             code = code,
         )
-        _entries.update { (it + entry).takeLast(MAX) }
+        synchronized(this) {
+            _entries.value = _entries.value
+                .let { current -> if (current.size >= MAX) current.removeAt(0) else current }
+                .add(entry)
+        }
     }
 
     fun clear() {
-        _entries.value = emptyList()
+        _entries.value = persistentListOf()
     }
 
     fun snapshot(): String = _entries.value.joinToString("\n") { format(it) }

@@ -66,8 +66,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 6
  *  - v1→v2：高亮表补 chapter_title / progress_percent（MIGRATION_1_2）
  *  - v2→v3：books 表补 description（MIGRATION_2_3）
  *  - v3→v4：reading_progress 表补 completed_at（MIGRATION_3_4，对应网页 completedAt）
- * 本机仅存在 v2 的 schema 导出文件，故关闭 exportSchema 以免缺失中间版本
- * schema 文件导致 Room 迁移校验失败（行为不受影响，运行时仍按表结构校验）。
+ * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
     entities = [
@@ -82,7 +81,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 6
         ReaderAnchorCacheEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
-    exportSchema = false,
+    exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun bookDao(): BookDao
@@ -131,9 +130,9 @@ abstract class AppDatabase : RoomDatabase() {
          * v4→v5：新增分页索引缓存表 reader_page_index。
          *
          * **只做 CREATE TABLE IF NOT EXISTS，绝不 ALTER 任何现有表。**
-         * `DatabaseModule` 上挂着 `fallbackToDestructiveMigration()`，任何迁移失误
-         * 都会被静默转成「清库重建」—— 用户全部书籍、进度、高亮、笔记、灵感、
-         * 同步状态一次归零，而且不报错。只新建表的话，最坏情况仅仅是丢掉缓存。
+         * DatabaseModule 已移除 fallbackToDestructiveMigration()；
+         * 迁移失败会抛异常，因此必须保证所有历史版本都有正确 Migration 和测试覆盖。
+         * 只新建表的话，最坏情况仅仅是丢掉缓存。
          *
          * 建表语句必须与 Room 为 [ReaderPageIndexEntity] 生成的完全一致
          * （列顺序、NOT NULL、主键），否则打开时的 schema 校验会失败。

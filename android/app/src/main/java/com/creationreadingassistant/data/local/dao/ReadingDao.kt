@@ -19,6 +19,12 @@ interface ReadingProgressDao {
     @Query("SELECT * FROM reading_progress WHERE deleted_at IS NULL ORDER BY updated_at DESC")
     fun observeAllActive(): Flow<List<ReadingProgressEntity>>
 
+    @Query(
+        "SELECT book_id, progress_percent, completion_state " +
+            "FROM reading_progress WHERE deleted_at IS NULL"
+    )
+    fun observeStatsRows(): Flow<List<StatsProgressRow>>
+
     @Query("SELECT * FROM reading_progress WHERE deleted_at IS NOT NULL")
     suspend fun getDeleted(): List<ReadingProgressEntity>
 }
@@ -33,6 +39,13 @@ interface ReadingSessionDao {
 
     @Query("SELECT * FROM reading_sessions WHERE deleted_at IS NULL ORDER BY created_at DESC")
     fun observeAllActive(): Flow<List<ReadingSessionEntity>>
+
+    @Query(
+        "SELECT book_id, COALESCE(started_at, created_at) AS occurred_at, " +
+            "duration_ms, progress_percent " +
+            "FROM reading_sessions WHERE deleted_at IS NULL"
+    )
+    fun observeStatsRows(): Flow<List<StatsSessionRow>>
 
     @Query("SELECT * FROM reading_sessions WHERE id = :id")
     suspend fun getById(id: String): ReadingSessionEntity?

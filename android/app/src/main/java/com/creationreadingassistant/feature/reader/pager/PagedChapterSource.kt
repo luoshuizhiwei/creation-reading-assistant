@@ -2,6 +2,9 @@ package com.creationreadingassistant.feature.reader.pager
 
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.feature.reader.doc.ReadingUnit
+import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.layout.LayoutBlock
 
 data class PagedChapterContent(
@@ -70,14 +73,82 @@ class TxtChapterSource(
     private val chapters: List<DocChapter>,
 ) : PagedChapterSource {
 
-    override val chapterCount: Int get() = chapters.size
-    override fun chapterTitle(index: Int): String = chapters.getOrNull(index)?.title ?: ""
-    override fun chapterStartAbs(index: Int): Int = chapters.getOrNull(index)?.startOffset ?: 0
-    override val totalChars: Int get() = fullText.length
+    /**
+     * 通过 [PlainTextDocument] 构建。支持流式大文件模式：
+     * - 小文件路径：document.text(index) 从内存 fullText 切片
+     * - 流式路径：document.text(index) 按需从文件读取章节字节
+     *
+     * 如果 document.readingUnits 非空，则使用 ReadingUnit 作为虚拟可分页章节，
+     * 解决无目录或超大章节的分页问题。
+     */
+    constructor(document: PlainTextDocument) : this(
+        fullText = "",
+        chapters = document.chapters,
+    ) {
+        _document = document
+        _readingUnits = document.readingUnits
+    }
+
+    private var _document: PlainTextDocument? = null
+
+    // ── Streaming mode (explicit file-index path for large files) ──
+    private var streamingDocument: PlainTextDocument? = null
+    private var streamingIndex: TxtFileIndex? = null
+
+    /** ReadingUnit 列表：非空时作为虚拟可分页章节使用。 */
+    private var _readingUnits: List<ReadingUnit> = emptyList()
+
+    companion object {
+        /**
+         * 流式大文件工厂方法。不加载全文到内存，章节内容按需从文件读取。
+         * [document] 由 [PlainTextDocument.fromFileIndex] 创建，[fileIndex] 由 TxtFileScanner 扫描得到。
+         */
+        fun fromStreaming(document: PlainTextDocument, fileIndex: TxtFileIndex): TxtChapterSource {
+            val src = TxtChapterSource("", document.chapters)
+            src._document = document
+            src.streamingDocument = document
+            src.streamingIndex = fileIndex
+            return src
+        }
+    }
+
+    override val chapterCount: Int
+        get() = if (_readingUnits.isNotEmpty()) _readingUnits.size else chapters.size
+
+    override fun chapterTitle(index: Int): String {
+        if (_readingUnits.isNotEmpty()) return _readingUnits.getOrNull(index)?.title ?: ""
+        return chapters.getOrNull(index)?.title ?: ""
+    }
+
+    override fun chapterStartAbs(index: Int): Int {
+        if (_readingUnits.isNotEmpty()) return _readingUnits.getOrNull(index)?.charStart ?: 0
+        streamingIndex?.let { return it.chapters.getOrNull(index)?.charStart?.toInt() ?: 0 }
+        return chapters.getOrNull(index)?.startOffset ?: 0
+    }
+
+    override val totalChars: Int
+        get() {
+            streamingIndex?.let { return it.totalCharCount.toInt() }
+            return _document?.totalChars ?: fullText.length
+        }
 
     override fun loadChapter(index: Int): PagedChapterContent {
+        // ReadingUnit 虚拟章节路径：按 unit 有界读取
+        if (_readingUnits.isNotEmpty()) {
+            val unit = _readingUnits.getOrNull(index)
+                ?: return PagedChapterContent("", emptyList())
+            val text = streamingDocument?.readUnit(unit)
+                ?: _document?.readUnit(unit)
+                ?: return PagedChapterContent("", emptyList())
+            return PagedChapterContent(
+                text = text,
+                blocks = TxtPageSource.paragraphsOf(text, unit.title).map(LayoutBlock::Text),
+            )
+        }
         val c = chapters.getOrNull(index) ?: return PagedChapterContent("", emptyList())
-        val text = TxtPageSource.chapterTextOf(fullText, c)
+        val text = streamingDocument?.text(index)
+            ?: _document?.text(index)
+            ?: TxtPageSource.chapterTextOf(fullText, c)
         return PagedChapterContent(
             text = text,
             blocks = TxtPageSource.paragraphsOf(text, c.title).map(LayoutBlock::Text),

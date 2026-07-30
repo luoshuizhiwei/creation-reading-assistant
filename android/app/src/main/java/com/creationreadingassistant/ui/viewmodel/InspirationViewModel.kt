@@ -59,6 +59,11 @@ class InspirationViewModel @Inject constructor(
     private val aiClient: AiClient,
     private val settings: SettingsStore,
 ) : ViewModel() {
+    private val payloadCache = object : LinkedHashMap<String, InspirationPayloadData>(128, 0.75f, true) {
+        override fun removeEldestEntry(
+            eldest: MutableMap.MutableEntry<String, InspirationPayloadData>?,
+        ): Boolean = size > 256
+    }
 
     val items: StateFlow<List<InspirationEntity>> = inspirationDao.observeAllActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -150,9 +155,9 @@ class InspirationViewModel @Inject constructor(
         }
     }
 
-    fun tagsOf(entity: InspirationEntity): List<String> = parsePayload(entity.payload).tags
+    fun tagsOf(entity: InspirationEntity): List<String> = parsePayload(entity).tags
 
-    fun sourceOf(entity: InspirationEntity): InspirationSourceInfo? = parsePayload(entity.payload).source
+    fun sourceOf(entity: InspirationEntity): InspirationSourceInfo? = parsePayload(entity).source
 
     fun saveInspiration(draft: InspirationDraft) {
         val now = java.time.Instant.now().toString()
@@ -184,6 +189,16 @@ class InspirationViewModel @Inject constructor(
         if (json.isNullOrBlank()) return InspirationPayloadData()
         return runCatching { JSON.decodeFromString<InspirationPayloadData>(json) }
             .getOrDefault(InspirationPayloadData())
+    }
+
+    private fun parsePayload(entity: InspirationEntity): InspirationPayloadData {
+        val cacheKey = "${entity.id}:${entity.updated_at}:${entity.payload?.hashCode() ?: 0}"
+        synchronized(payloadCache) {
+            payloadCache[cacheKey]?.let { return it }
+        }
+        val parsed = parsePayload(entity.payload)
+        synchronized(payloadCache) { payloadCache[cacheKey] = parsed }
+        return parsed
     }
 
     private companion object {

@@ -1,5 +1,8 @@
 package com.creationreadingassistant.ui.screen
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -13,6 +16,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -22,8 +27,6 @@ import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +48,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -52,27 +56,33 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
 import com.creationreadingassistant.R
+import com.creationreadingassistant.MainActivity
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.viewmodel.BookViewModel
-import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
-import com.creationreadingassistant.ui.viewmodel.StatsViewModel
+import com.creationreadingassistant.ui.viewmodel.HomeViewModel
+import androidx.compose.material3.VerticalDivider
+import androidx.compose.material3.LinearProgressIndicator
+import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SectionHeader
+import com.creationreadingassistant.ui.components.SizedAsyncImage
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.rememberCountUp
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -88,65 +98,41 @@ import kotlin.math.roundToInt
 fun HomeScreen(
     navController: NavHostController,
     bookViewModel: BookViewModel = hiltViewModel(),
-    statsViewModel: StatsViewModel = hiltViewModel(),
-    inspirationViewModel: InspirationViewModel = hiltViewModel(),
+    homeViewModel: HomeViewModel = hiltViewModel(),
 ) {
-    val books by bookViewModel.books.collectAsStateWithLifecycle()
-    val progressById by bookViewModel.progressById.collectAsStateWithLifecycle()
-    val sessions by bookViewModel.sessions.collectAsStateWithLifecycle()
-    val removedContinueIds by bookViewModel.removedContinueIds.collectAsStateWithLifecycle()
-    val stats by statsViewModel.stats.collectAsStateWithLifecycle()
-    val inspirations by inspirationViewModel.items.collectAsStateWithLifecycle()
-
-    val weekStart = weekStartEpochDay()
-    val nowDay = LocalDate.now().toEpochDay()
-
-    val totalReadBooksCount = books.count { isBookDisplayable(it) && hasBookBeenRead(it, progressById[it.id], sessions[it.id]) }
-    val thisWeekNew = books.count { epochDayOf(it.imported_at) in weekStart..nowDay }
-    val readingCount = books.count {
-        val p = progressById[it.id]
-        isBookDisplayable(it) && p?.completion_state == "reading"
+    val layout = LocalLayoutTokens.current
+    val uiState by homeViewModel.uiState.collectAsStateWithLifecycle()
+    val activity = LocalContext.current.findActivity()
+    LaunchedEffect(uiState.isReady) {
+        if (uiState.isReady) {
+            (activity as? MainActivity)?.onHomeContentReady()
+        }
     }
-    val completedBooks = books
-        .filter {
-            val p = progressById[it.id]
-            isBookDisplayable(it) && (p?.completion_state == "finished" || (p?.progress_percent ?: 0f) >= 99.5f)
-        }
-        // 对齐网页：按完成时间（completed_at）倒序，未写的排末尾；回退 updated_at / 书籍 updated_at
-        .sortedWith { a, b ->
-            val ka = runCatching {
-                val pa = progressById[a.id]
-                pa?.completed_at ?: Instant.parse(pa?.updated_at ?: a.updated_at).toEpochMilli()
-            }.getOrNull()
-            val kb = runCatching {
-                val pb = progressById[b.id]
-                pb?.completed_at ?: Instant.parse(pb?.updated_at ?: b.updated_at).toEpochMilli()
-            }.getOrNull()
-            when {
-                ka == null && kb == null -> 0
-                ka == null -> 1 // 无完成时间排末尾
-                kb == null -> -1
-                else -> kb.compareTo(ka) // 倒序
-            }
-        }
-        .take(8)
-
-    val continueBooks = buildContinueBooks(books, progressById, sessions, removedContinueIds)
-
-    val recentInspirations = inspirations
-        .sortedByDescending { it.updated_at }
-        .take(5)
-    val totalMs = stats?.totalDurationMs ?: 0L
-    val todayMs = stats?.todayMs ?: 0L
+    val books = uiState.books
+    val progressById = uiState.progressById
+    val sessions = uiState.sessionsByBook
+    val removedContinueIds = uiState.removedContinueIds
+    val totalReadBooksCount = uiState.totalReadBooksCount
+    val thisWeekNew = uiState.thisWeekNew
+    val readingCount = uiState.readingCount
+    val completedBooks = uiState.completedBooks
+    val continueBooks = uiState.continueBooks
+    val recentInspirations = uiState.recentInspirations
+    val totalMs = uiState.totalReadingMs
+    val todayMs = uiState.todayReadingMs
 
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
 
     var continueSheetOpen by remember { mutableStateOf(false) }
 
-    var homeEntered by remember { mutableStateOf(false) }
-    LaunchedEffect(Unit) { homeEntered = true }
-    val homeAlpha by animateFloatAsState(if (homeEntered) 1f else 0f, label = "homeEnterAlpha")
+    // A 档打磨：系统「减少动态效果」时所有入场动效退化为瞬时
+    val reducedMotion = rememberReducedMotion()
+    // 首屏加载占位：数据未就绪时显示微光骨架，避免空白一闪；数据到达或超时后回到真实内容 / 空态
+    var firstLoad by remember { mutableStateOf(true) }
+    LaunchedEffect(Unit) { delay(350); firstLoad = false }
+    LaunchedEffect(books) { if (books.isNotEmpty()) firstLoad = false }
+    val showSkeleton = firstLoad && books.isEmpty()
 
     // H2：打开阅读器前做 readiness 校验，未就绪用 Snackbar 提示（对齐网页 getBookReadiness）
     fun openBook(book: BookEntity) {
@@ -173,44 +159,94 @@ fun HomeScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
     ) { padding ->
-        Column(
+        LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .alpha(homeAlpha)
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+                .padding(padding),
+            contentPadding = PaddingValues(
+                horizontal = layout.pageHorizontal,
+                vertical = layout.pageVertical,
+            ),
+            verticalArrangement = Arrangement.spacedBy(layout.contentGap),
         ) {
-            // 阅读概览双卡
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.Book,
-                    value = totalReadBooksCount.toString(),
-                    label = stringResource(R.string.home_books),
-                    unit = " 本",
-                    onClick = { navController.navigate("shelf") },
-                )
-                SummaryCard(
-                    modifier = Modifier.weight(1f),
-                    icon = Icons.Filled.Schedule,
-                    value = formatDuration(totalMs),
-                    label = stringResource(R.string.home_duration),
-                    onClick = { navController.navigate("stats") },
-                )
+            // 首屏加载占位：数据未就绪时显示微光骨架，避免空白一闪（reduced-motion 时退化为静态）
+            if (showSkeleton) {
+                item(key = "skeleton") {
+                    ListSkeleton(modifier = Modifier.fillMaxWidth(), count = 5, reducedMotion = reducedMotion)
+                }
+            } else {
+            // 阅读概览（去卡片化：无边框 Row，两项间 1dp 发丝线分隔，与"阅读统计"区风格一致；不套 Card / 不 surfaceVariant 底 / 不描边）
+            item(key = "overview") {
+            Row(
+                modifier = Modifier.fillMaxWidth().animateEnter(0, reducedMotion),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { navController.navigate("shelf") }
+                        .padding(10.dp, 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Book,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        rememberCountUp(totalReadBooksCount, reducedMotion).toString() + " 本",
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(stringResource(R.string.home_books), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+                VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clickable { navController.navigate("stats") }
+                        .padding(10.dp, 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Icon(
+                        Icons.Filled.Schedule,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.outline,
+                        modifier = Modifier.size(18.dp),
+                    )
+                    Text(
+                        formatDuration(rememberCountUp((totalMs / 60000).toInt(), reducedMotion).toLong() * 60000L),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(stringResource(R.string.home_duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
             }
 
-            // 继续阅读
+            // 继续阅读（唯一主卡片：消费 SectionCard，沿用 §3 容器规则）
+            item(key = "continue-header") {
             SectionHeader(
                 title = stringResource(R.string.home_continue),
-                actionIcon = { Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "管理继续阅读") },
-                onAction = { continueSheetOpen = true },
+                modifier = Modifier.animateEnter(60, reducedMotion),
+                action = {
+                    IconButton(onClick = { continueSheetOpen = true }) {
+                        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = "管理继续阅读")
+                    }
+                },
             )
+            }
+            item(key = "continue-content") {
             if (continueBooks.isEmpty()) {
-                EmptyHint(text = "书架还空着，先导入一本 TXT、Markdown 或 EPUB。") { navController.navigate("shelf") }
+                EmptyHint(
+                    text = "书架还空着，先导入一本 TXT、Markdown 或 EPUB。",
+                    onClick = { navController.navigate("shelf") },
+                    modifier = Modifier.animateEnter(60, reducedMotion),
+                )
             } else {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyRow(
+                    modifier = Modifier.animateEnter(60, reducedMotion),
+                    horizontalArrangement = Arrangement.spacedBy(layout.contentGap),
+                ) {
                     items(continueBooks, key = { it.id }) { book ->
                         ContinueCard(book = book, progress = progressById[book.id]) {
                             openBook(book)
@@ -218,45 +254,128 @@ fun HomeScreen(
                     }
                 }
             }
-
-            // 阅读统计网格（本周新增 / 在读 / 已读完 / 今日阅读）
-            Text("阅读统计", style = MaterialTheme.typography.headlineSmall)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GridStat(Modifier.weight(1f), stringResource(R.string.home_this_week), thisWeekNew.toString())
-                GridStat(Modifier.weight(1f), stringResource(R.string.home_reading), readingCount.toString())
-                GridStat(Modifier.weight(1f), stringResource(R.string.home_finished), completedBooks.size.toString())
-                GridStat(Modifier.weight(1f), stringResource(R.string.home_today), formatCompactDuration(todayMs))
             }
 
-            // 最近灵感
+            // 阅读统计（去卡片化：仅颜色 / 排版 / 间距 Token，区块间用 1dp 发丝线分隔）
+            item(key = "stats-title") {
+            Text(
+                "阅读统计",
+                style = MaterialTheme.typography.headlineSmall,
+                modifier = Modifier.animateEnter(120, reducedMotion),
+            )
+            }
+            item(key = "stats-values") {
+            Row(
+                modifier = Modifier.fillMaxWidth().animateEnter(120, reducedMotion),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GridStat(Modifier.weight(1f), stringResource(R.string.home_this_week), rememberCountUp(thisWeekNew, reducedMotion).toString())
+                VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                GridStat(Modifier.weight(1f), stringResource(R.string.home_reading), rememberCountUp(readingCount, reducedMotion).toString())
+                VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                GridStat(Modifier.weight(1f), stringResource(R.string.home_finished), rememberCountUp(completedBooks.size, reducedMotion).toString())
+                VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
+                GridStat(Modifier.weight(1f), stringResource(R.string.home_today), formatCompactDuration(rememberCountUp((todayMs / 60000).toInt(), reducedMotion).toLong() * 60000L))
+            }
+            }
+
+            // 最近灵感（去卡片化：留白 + 短横线墨线装饰，不套卡片）
+            item(key = "inspiration-header") {
             SectionHeader(
                 title = stringResource(R.string.home_recent_inspiration),
-                onSeeAll = { navController.navigate("inspiration") },
-            )
-            if (recentInspirations.isEmpty()) {
-                EmptyHint(text = "还没有灵感，阅读时选中文字即可保存为灵感。") {}
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    recentInspirations.forEach { insp ->
-                        // H3：对齐网页，点击打开该条灵感自己的详情面板（按 id），而非灵感列表页
-                        InspirationMiniCard(insp = insp) { navController.navigate("inspiration?inspId=${insp.id}") }
+                modifier = Modifier.animateEnter(180, reducedMotion),
+                action = {
+                    TextButton(onClick = { navController.navigate("inspiration") }) {
+                        Text(stringResource(R.string.home_see_all) + " ›")
                     }
+                },
+            )
+            }
+            if (recentInspirations.isEmpty()) {
+                // 无容器空态：仅留白 + 短墨线 + 提示文字（与有数据时的装饰一致），
+                // 不套 Card / Surface / 边框 / 阴影 / 有色背景。
+                item(key = "inspiration-empty") {
+                Column(Modifier.fillMaxWidth().animateEnter(180, reducedMotion)) {
+                    Box(
+                        Modifier
+                            .width(24.dp)
+                            .height(1.dp)
+                            .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(1.dp)),
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        "还没有灵感，阅读时选中文字即可保存为灵感。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                }
+                }
+            } else {
+                items(recentInspirations, key = { "inspiration-${it.id}" }) { insp ->
+                        // 去卡片化：仅留白 + 一条短横线墨线（品牌笔触），点击打开该条灵感详情
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .animateEnter(180, reducedMotion),
+                        ) {
+                            Box(
+                                Modifier
+                                    .width(24.dp)
+                                    .height(1.dp)
+                                    .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(1.dp)),
+                            )
+                            Spacer(Modifier.height(6.dp))
+                            Text(
+                                insp.title.ifBlank { "无标题灵感" },
+                                style = MaterialTheme.typography.bodyMedium,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.clickable { navController.navigate("inspiration?inspId=${insp.id}") },
+                            )
+                            if (insp.body.isNotBlank()) {
+                                Text(
+                                    insp.body.take(60),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
                 }
             }
 
             // 已阅读完成
+            item(key = "completed-header") {
             SectionHeader(
                 title = stringResource(R.string.home_completed),
-                onSeeAll = { navController.navigate("shelf") },
+                modifier = Modifier.animateEnter(240, reducedMotion),
+                action = {
+                    TextButton(onClick = { navController.navigate("shelf") }) {
+                        Text(stringResource(R.string.home_see_all) + " ›")
+                    }
+                },
             )
+            }
+            item(key = "completed-content") {
             if (completedBooks.isEmpty()) {
-                EmptyHint(text = "还没有读完的书，继续阅读吧。") {}
+                EmptyHint(
+                    text = "还没有读完的书，继续阅读吧。",
+                    onClick = {},
+                    modifier = Modifier.animateEnter(240, reducedMotion),
+                )
             } else {
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                LazyRow(
+                    modifier = Modifier.animateEnter(240, reducedMotion),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
                     items(completedBooks, key = { it.id }) { book ->
                         CompletedCard(book = book, progress = progressById[book.id]) { openBook(book) }
                     }
                 }
+            }
+            }
             }
         }
     }
@@ -274,81 +393,17 @@ fun HomeScreen(
     }
 }
 
-@Composable
-private fun SummaryCard(
-    modifier: Modifier,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    value: String,
-    label: String,
-    unit: String = "",
-    onClick: () -> Unit,
-) {
-    Card(
-        onClick = onClick,
-        modifier = modifier,
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
-    ) {
-        Row(
-            Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(32.dp)
-                    .background(MaterialTheme.colorScheme.outline.copy(alpha = 0.10f), RoundedCornerShape(10.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Row(verticalAlignment = Alignment.Bottom) {
-                    Text(value, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
-                    if (unit.isNotBlank()) {
-                        Text(unit, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(start = 2.dp, bottom = 2.dp))
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeader(
-    title: String,
-    onSeeAll: (() -> Unit)? = null,
-    actionIcon: @Composable (() -> Unit)? = null,
-    onAction: (() -> Unit)? = null,
-) {
-    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-        // 区块标题走宋体 headline：此前用 titleMedium(16sp) 只比正文大 2sp，
-        // 层级几乎不存在，整屏文字看起来一样大。
-        Text(title, style = MaterialTheme.typography.headlineSmall)
-        Spacer(Modifier.weight(1f))
-        if (onSeeAll != null) {
-            TextButton(onClick = onSeeAll) {
-                Text(stringResource(R.string.home_see_all) + " ›")
-            }
-        }
-        if (actionIcon != null && onAction != null) {
-            IconButton(onClick = onAction) {
-                actionIcon()
-            }
-        }
-    }
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }
 
 @Composable
 private fun GridStat(modifier: Modifier, label: String, value: String) {
     Column(
         modifier = modifier
-            .clip(RoundedCornerShape(8.dp))
-            .background(MaterialTheme.colorScheme.surfaceVariant)
-            .padding(10.dp, 4.dp),
+            .padding(10.dp, 8.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
@@ -364,92 +419,102 @@ private fun ContinueCard(
     onClick: () -> Unit,
 ) {
     val pct = progress?.progress_percent ?: 0f
-    Card(
+    val layout = LocalLayoutTokens.current
+    SectionCard(
         onClick = onClick,
-        modifier = Modifier.width(180.dp),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
+        modifier = Modifier.width(276.dp),
+        contentPadding = layout.compactCardPadding,
     ) {
-        Row(
-            Modifier.height(100.dp).padding(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                Modifier
-                    .size(56.dp, 80.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(MaterialTheme.colorScheme.surfaceVariant),
-                contentAlignment = Alignment.Center,
+        Column {
+            Row(
+                Modifier.height(88.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(layout.contentGap),
             ) {
-                if (book.cover_data_url != null) {
-                    AsyncImage(
-                        model = book.cover_data_url,
+                Box(
+                    Modifier
+                        .size(56.dp, 80.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (book.cover_data_url != null) {
+                    SizedAsyncImage(
+                        data = book.cover_data_url,
+                        cacheKey = "cover:${book.id}:${book.updated_at}",
                         contentDescription = null,
                         modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                } else {
-                    Text(book.title.take(2), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                }
-                Surface(
-                    color = Color.Black.copy(alpha = 0.5f),
-                    shape = RoundedCornerShape(4.dp),
-                    modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
-                ) {
-                    Text(
-                        book.format.uppercase(),
-                        modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = Color.White,
-                    )
-                }
-                // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.linearGradient(
-                                colorStops = arrayOf(
-                                    0.0f to Color.White.copy(alpha = 0.16f),
-                                    0.55f to Color.White.copy(alpha = 0.03f),
-                                    1.0f to Color.White.copy(alpha = 0.0f),
+                            contentScale = ContentScale.Crop,
+                        )
+                    } else {
+                        Text(book.title.take(2), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
+                    }
+                    Surface(
+                        color = Color.Black.copy(alpha = 0.5f),
+                        shape = RoundedCornerShape(4.dp),
+                        modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
+                    ) {
+                        Text(
+                            book.format.uppercase(),
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.White,
+                        )
+                    }
+                    // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(
+                                Brush.linearGradient(
+                                    colorStops = arrayOf(
+                                        0.0f to Color.White.copy(alpha = 0.16f),
+                                        0.55f to Color.White.copy(alpha = 0.03f),
+                                        1.0f to Color.White.copy(alpha = 0.0f),
+                                    ),
                                 ),
                             ),
-                        ),
-                )
-            }
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(
-                    book.title,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                if (!book.author.isNullOrBlank()) {
+                    )
+                }
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
-                        book.author!!,
-                        fontSize = 13.sp,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        book.title,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    if (!book.author.isNullOrBlank()) {
+                        Text(
+                            book.author!!,
+                            fontSize = 13.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    Text(
+                        formatBookProgressForCard(pct),
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
-                Text(
-                    formatBookProgressForCard(pct),
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = MaterialTheme.colorScheme.primary,
+                Icon(
+                    Icons.Filled.KeyboardArrowRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.size(24.dp),
                 )
             }
-            Icon(
-                Icons.Filled.KeyboardArrowRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(24.dp),
+            Spacer(Modifier.height(10.dp))
+            // 进度细条：消费既有 primary / surfaceVariant Token，2dp 极细，贴合清屏美学（§冻结设计）
+            LinearProgressIndicator(
+                progress = { pct.coerceIn(0f, 1f) },
+                modifier = Modifier.fillMaxWidth().height(2.dp),
+                color = MaterialTheme.colorScheme.primary,
+                trackColor = MaterialTheme.colorScheme.surfaceVariant,
+                strokeCap = androidx.compose.ui.graphics.StrokeCap.Round,
             )
         }
     }
@@ -474,8 +539,9 @@ private fun CompletedCard(
             contentAlignment = Alignment.Center,
         ) {
             if (book.cover_data_url != null) {
-                AsyncImage(
-                    model = book.cover_data_url,
+                SizedAsyncImage(
+                    data = book.cover_data_url,
+                    cacheKey = "cover:${book.id}:${book.updated_at}",
                     contentDescription = null,
                     modifier = Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
@@ -532,63 +598,12 @@ private fun CompletedCard(
 }
 
 @Composable
-private fun InspirationMiniCard(insp: InspirationEntity, onClick: () -> Unit) {
-    Card(
+private fun EmptyHint(text: String, onClick: () -> Unit = {}, modifier: Modifier = Modifier) {
+    EmptyStateHint(
+        text = text,
+        modifier = modifier.fillMaxWidth(),
         onClick = onClick,
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp, pressedElevation = 4.dp),
-    ) {
-        Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(
-                insp.title.ifBlank { "无标题灵感" },
-                style = MaterialTheme.typography.bodyMedium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                insp.body.takeIf { it.isNotBlank() } ?: insp.payload?.takeIf { it.length > 30 }?.take(60) ?: "",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-        }
-    }
-}
-
-@Composable
-private fun EmptyHint(text: String, onClick: () -> Unit = {}) {
-    // 空状态用虚线框而不是实心块：虚线本身就表示「这个位置在等内容」，
-    // 实心填充反而像一张有内容的卡片，读者要看完文字才知道是空的。
-    val outline = MaterialTheme.colorScheme.outlineVariant
-    val radius = 10.dp
-    Card(
-        onClick = onClick,
-        modifier = Modifier
-            .fillMaxWidth()
-            .drawBehind {
-                drawRoundRect(
-                    color = outline,
-                    cornerRadius = CornerRadius(radius.toPx()),
-                    style = Stroke(
-                        width = 1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 8f)),
-                    ),
-                )
-            },
-        shape = RoundedCornerShape(radius),
-        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
-    ) {
-        Text(
-            text,
-            modifier = Modifier.padding(16.dp),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
+    )
 }
 
 private fun formatDuration(ms: Long): String {

@@ -47,15 +47,53 @@ object EpubParser {
     /** SVG 封面页用的 <image xlink:href="…">，此前完全不识别，整页渲染为空白。 */
     private val RE_SVG_HREF = Regex("(?:xlink:)?href\\s*=\\s*[\"']([^\"']+)[\"']", RegexOption.IGNORE_CASE)
 
-    suspend fun parse(context: Context, uri: Uri): EpubBook = withContext(Dispatchers.IO) {
+    suspend fun parse(
+        context: Context,
+        uri: Uri,
+        expectedBookId: String? = null,
+        fallbackLocalPath: String? = null,
+    ): EpubBook = withContext(Dispatchers.IO) {
         // 使用完整 Uri 字符串的 hashCode，避免不同书因 lastPathSegment 相同而碰撞。
-        val id = "epub_" + uri.toString().hashCode().toString(36)
-        val epubFile = File(context.cacheDir, "epub/$id.epub")
-        if (!epubFile.exists()) {
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                epubFile.parentFile?.mkdirs()
-                epubFile.outputStream().use { out -> input.copyTo(out) }
-            } ?: throw IllegalStateException("无法打开 EPUB 文件")
+        val id = expectedBookId ?: ("epub_" + uri.toString().hashCode().toString(36))
+        // EPUB 是已导入的用户内容，不能只放 cacheDir：系统清缓存后书架记录还在，
+        // 正文却会消失。首次打开时迁移/复制到 filesDir，后续解析只依赖应用自有副本。
+        val epubFile = File(context.filesDir, "books/epub/$id.epub")
+        if (!epubFile.exists() || epubFile.length() == 0L) {
+            epubFile.parentFile?.mkdirs()
+            val staging = File(epubFile.parentFile, "$id.importing")
+            staging.delete()
+            try {
+                val copied = runCatching {
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        staging.outputStream().use { out -> input.copyTo(out) }
+                    } != null
+                }.getOrDefault(false)
+                if (!copied) {
+                    // 兼容同步下载和旧版本：外部 Uri 权限失效时，从已登记的本地路径
+                    // 或旧 cacheDir 副本迁移，仍保留原书 id 与阅读进度。
+                    val fallback = fallbackLocalPath
+                        ?.removePrefix("file://")
+                        ?.let(::File)
+                        ?.takeIf { it.isFile && it.length() > 0L }
+                        ?: File(context.cacheDir, "epub/$id.epub")
+                            .takeIf { it.isFile && it.length() > 0L }
+                    if (fallback != null) {
+                        fallback.inputStream().use { input ->
+                            staging.outputStream().use { out -> input.copyTo(out) }
+                        }
+                    }
+                }
+                if (staging.length() == 0L) {
+                    throw IllegalStateException("无法打开 EPUB 文件，请重新导入")
+                }
+                if (!staging.renameTo(epubFile)) {
+                    staging.copyTo(epubFile, overwrite = true)
+                    staging.delete()
+                }
+            } catch (e: Exception) {
+                staging.delete()
+                throw e
+            }
         }
         val cachedPath = epubFile.absolutePath
 
@@ -68,44 +106,30 @@ object EpubParser {
 
             val opfEntry = zip.getEntry(opfPath)
                 ?: throw IllegalStateException("OPF 文件缺失：$opfPath")
-            val (title, creator, manifest, spine) = zip.getInputStream(opfEntry).use { parseOpf(it) }
+            val (title, creator, manifest, spine, spineTocId) = zip.getInputStream(opfEntry).use { parseOpf(it) }
 
             val chapterRefs = spine.mapNotNull { idref -> manifest[idref] }
-
-            // 只抽目录：每章只读头部前 8KB 推断标题，绝不整章载入 / 抽块 —— 避免整本 OOM。
-            val chapters = if (chapterRefs.isEmpty()) {
-                listOf(
-                    EpubChapter(
-                        title = "正文",
-                        entryPath = "",
-                        chapterDir = "",
-                        cachedEpubPath = cachedPath,
-                    ),
-                )
-            } else {
-                chapterRefs.mapIndexed { index, ref ->
-                    val entryPath = resolvePath(opfDir, ref.href)
-                    val entry = zip.getEntry(entryPath)
-                    val chapterDir = entryPath.substringBeforeLast('/', "")
-                    val titleText = if (entry != null) {
-                        val buf = ByteArray(8192)
-                        val n = zip.getInputStream(entry).use { it.read(buf) }
-                        val head = if (n > 0) String(buf, 0, n, Charsets.UTF_8) else ""
-                        guessChapterTitle(head, index)
-                    } else {
-                        guessChapterTitle("", index)
+                .ifEmpty {
+                    // 某些转换器会生成空 spine，但 manifest 仍完整列出正文。按 manifest
+                    // 原顺序兜底，排除 EPUB3 nav 文档，避免整本只得到一个空白占位章。
+                    manifest.values.filter { item ->
+                        item.isReadableDocument() && !item.properties
+                            .split(Regex("\\s+"))
+                            .any { it.equals("nav", ignoreCase = true) }
                     }
-                    EpubChapter(
-                        title = titleText,
-                        entryPath = entryPath,
-                        chapterDir = chapterDir,
-                        cachedEpubPath = cachedPath,
-                        estimatedTextLength = entry?.size
-                            ?.coerceIn(0L, Int.MAX_VALUE.toLong())
-                            ?.toInt()
-                            ?: 0,
-                    )
                 }
+
+            // 优先使用 EPUB 内置目录（NCX / Navigation Document），获得准确的章节标题；
+            // 无内置目录时回退到 spine 顺序，过滤封面/版权等非正文条目。
+            val tocEntries = resolveToc(zip, opfDir, manifest, spine, spineTocId)
+
+            val chapters = if (tocEntries != null && tocEntries.isNotEmpty()) {
+                buildChaptersFromToc(zip, opfDir, cachedPath, chapterRefs, tocEntries)
+            } else {
+                buildChaptersFromSpine(zip, opfDir, cachedPath, chapterRefs, manifest, spine)
+            }
+            if (chapters.isEmpty()) {
+                throw IllegalStateException("EPUB 中没有可读取的正文文件")
             }
 
             EpubBook(
@@ -129,7 +153,7 @@ object EpubParser {
         if (entryPath.isEmpty()) return emptyList()
         val zip = ZipFile(cachedEpubPath)
         try {
-            val entry = zip.getEntry(entryPath) ?: return emptyList()
+            val entry = findEntry(zip, entryPath) ?: return emptyList()
             if (entry.size > MAX_CHAPTER_BYTES) {
                 throw IllegalStateException(
                     "当前 EPUB 章节过大（${entry.size / 1024 / 1024} MB），已停止解析以避免应用闪退。",
@@ -156,7 +180,12 @@ object EpubParser {
         if (entryPath.isEmpty()) return ""
         val zip = ZipFile(cachedEpubPath)
         try {
-            val entry = zip.getEntry(entryPath) ?: return ""
+            val entry = findEntry(zip, entryPath) ?: return ""
+            if (entry.size > MAX_CHAPTER_BYTES) {
+                throw IllegalStateException(
+                    "当前 EPUB 章节过大（${entry.size / 1024 / 1024} MB），已停止解析以避免应用闪退。",
+                )
+            }
             // imgCacheDir = null：搜索/索引路径不抽图片，避免无谓的 I/O 与缓存写入。
             return extractStreaming(zip, entry, chapterDir, null, "")
                 .filterIsInstance<EpubBlock.Text>()
@@ -316,12 +345,30 @@ object EpubParser {
 
     // ── OPF / container 解析 ──────────────────────────────────────────────
 
-    private data class ManifestItem(val href: String, val mediaType: String)
+    /** EPUB 内置目录条目（来自 NCX 或 Navigation Document）。 */
+    private data class TocItem(
+        val title: String,
+        val href: String,
+    )
+
+    private data class ManifestItem(
+        val href: String,
+        val mediaType: String,
+        val properties: String,
+    ) {
+        fun isReadableDocument(): Boolean =
+            mediaType.equals("application/xhtml+xml", ignoreCase = true) ||
+                mediaType.equals("text/html", ignoreCase = true) ||
+                href.substringBefore('#').substringBefore('?')
+                    .substringAfterLast('.', "")
+                    .lowercase() in setOf("xhtml", "html", "htm")
+    }
     private data class OpfData(
         val title: String?,
         val creator: String?,
         val manifest: Map<String, ManifestItem>,
         val spine: List<String>,
+        val toc: String?,
     )
 
     private fun parseContainer(stream: java.io.InputStream): String {
@@ -345,6 +392,7 @@ object EpubParser {
         var creator: String? = null
         val manifest = mutableMapOf<String, ManifestItem>()
         val spine = mutableListOf<String>()
+        var spineToc: String? = null
         var event = parser.next()
         while (event != XmlPullParser.END_DOCUMENT) {
             if (event == XmlPullParser.START_TAG) {
@@ -355,18 +403,225 @@ object EpubParser {
                         val id = parser.getAttributeValue(null, "id")
                         val href = parser.getAttributeValue(null, "href")
                         val mt = parser.getAttributeValue(null, "media-type") ?: ""
-                        if (id != null && href != null) manifest[id] = ManifestItem(href, mt)
+                        val properties = parser.getAttributeValue(null, "properties") ?: ""
+                        if (id != null && href != null) {
+                            manifest[id] = ManifestItem(href, mt, properties)
+                        }
                     }
                     "itemref" -> {
                         val idref = parser.getAttributeValue(null, "idref")
                         if (idref != null) spine.add(idref)
                     }
+                    "spine" -> {
+                        spineToc = parser.getAttributeValue(null, "toc")
+                    }
                 }
             }
             event = parser.next()
         }
-        return OpfData(title, creator, manifest, spine)
+        return OpfData(title, creator, manifest, spine, spineToc)
     }
+
+    // ── 目录（TOC）解析 ────────────────────────────────────────────────
+
+    /**
+     * 尝试从 EPUB 内置导航结构解析目录。
+     * 优先 EPUB 3 Navigation Document，其次 EPUB 2 NCX。
+     * 两者都没有时返回 null，调用方回退到 spine 顺序。
+     */
+    private fun resolveToc(
+        zip: ZipFile,
+        opfDir: String,
+        manifest: Map<String, ManifestItem>,
+        spine: List<String>,
+        spineTocId: String?,
+    ): List<TocItem>? {
+        // 1) EPUB 3: manifest 中 properties="nav" 的文档
+        val navItem = manifest.values.firstOrNull {
+            it.properties.split(Regex("\\s+")).any { p -> p.equals("nav", ignoreCase = true) }
+        }
+        if (navItem != null) {
+            val navPath = resolvePath(opfDir, navItem.href)
+            val navEntry = findEntry(zip, navPath)
+            if (navEntry != null) {
+                val toc = zip.getInputStream(navEntry).use { parseNavDocument(it) }
+                if (toc.isNotEmpty()) return toc
+            }
+        }
+        // 2) EPUB 2: spine toc 属性指向的 NCX
+        val ncxItem = spineTocId?.let { manifest[it] }
+            ?: manifest.values.firstOrNull {
+                it.mediaType.equals("application/x-dtbncx+xml", ignoreCase = true)
+            }
+        if (ncxItem != null) {
+            val ncxPath = resolvePath(opfDir, ncxItem.href)
+            val ncxEntry = findEntry(zip, ncxPath)
+            if (ncxEntry != null) {
+                val toc = zip.getInputStream(ncxEntry).use { parseNcx(it) }
+                if (toc.isNotEmpty()) return toc
+            }
+        }
+        return null
+    }
+
+    /** 解析 EPUB 2 NCX 文件中的 <navMap>。 */
+    private fun parseNcx(stream: java.io.InputStream): List<TocItem> {
+        val parser = newParser()
+        parser.setInput(stream, "utf-8")
+        val items = mutableListOf<TocItem>()
+        var inNavMap = false
+        var inNavPoint = false
+        var inText = false
+        var currentLabel = StringBuilder()
+        var currentSrc: String? = null
+        var event = parser.next()
+        while (event != XmlPullParser.END_DOCUMENT) {
+            when (event) {
+                XmlPullParser.START_TAG -> {
+                    when (parser.local()) {
+                        "navMap" -> inNavMap = true
+                        "navPoint" -> if (inNavMap) {
+                            inNavPoint = true; currentLabel = StringBuilder(); currentSrc = null
+                        }
+                        "text" -> if (inNavPoint) { inText = true; currentLabel = StringBuilder() }
+                        "content" -> if (inNavPoint) {
+                            currentSrc = parser.getAttributeValue(null, "src")
+                        }
+                    }
+                }
+                XmlPullParser.TEXT -> if (inText) currentLabel.append(parser.text)
+                XmlPullParser.END_TAG -> {
+                    when (parser.local()) {
+                        "navMap" -> inNavMap = false
+                        "navPoint" -> if (inNavPoint) {
+                            inNavPoint = false
+                            val label = currentLabel.toString().trim()
+                            val src = currentSrc
+                            if (label.isNotBlank() && src != null) {
+                                items.add(TocItem(label, src.substringBefore('#')))
+                            }
+                        }
+                        "text" -> inText = false
+                    }
+                }
+            }
+            event = parser.next()
+        }
+        return items
+    }
+
+    /** 解析 EPUB 3 Navigation Document 中的 <nav epub:type="toc">。 */
+    private fun parseNavDocument(stream: java.io.InputStream): List<TocItem> {
+        val html = BufferedReader(InputStreamReader(stream, Charsets.UTF_8), 32 * 1024).use { it.readText() }
+        // 匹配 <nav epub:type="toc"> 或 <nav role="doc-toc">（EPUB 3.2）
+        val navRegex = Regex(
+            """<nav[^>]*(?:epub:type\s*=\s*["']toc["']|role\s*=\s*["']doc-toc["'])[^>]*>(.*?)</nav>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        val navMatch = navRegex.find(html) ?: return emptyList()
+        val navContent = navMatch.groupValues[1]
+        val items = mutableListOf<TocItem>()
+        val linkRegex = Regex(
+            """<a\s[^>]*href\s*=\s*["']([^"']+)["'][^>]*>(.*?)</a>""",
+            setOf(RegexOption.DOT_MATCHES_ALL, RegexOption.IGNORE_CASE),
+        )
+        for (match in linkRegex.findAll(navContent)) {
+            val href = match.groupValues[1].substringBefore('#')
+            val rawText = match.groupValues[2]
+            val text = TAG_REGEX.replace(rawText, "").trim()
+            if (href.isNotBlank() && text.isNotBlank()) {
+                items.add(TocItem(text, href))
+            }
+        }
+        return items
+    }
+
+    private val TAG_REGEX = Regex("<[^>]+>")
+
+    /** 根据 TOC 条目构建章节列表，使用 TOC 中的准确标题。 */
+    private fun buildChaptersFromToc(
+        zip: ZipFile,
+        opfDir: String,
+        cachedEpubPath: String,
+        chapterRefs: List<ManifestItem>,
+        tocEntries: List<TocItem>,
+    ): List<EpubChapter> {
+        // 用 spine 条目 href（去掉 fragment）做 key，匹配 TOC href
+        val refMap = chapterRefs.mapIndexedNotNull { index, ref ->
+            val key = ref.href.substringBefore('#')
+            val resolved = resolvePath(opfDir, key)
+            val entry = findEntry(zip, resolved) ?: return@mapIndexedNotNull null
+            key to Triple(index, resolved, entry)
+        }.toMap()
+
+        val chapters = mutableListOf<EpubChapter>()
+        for (toc in tocEntries) {
+            val triple = refMap[toc.href.substringBefore('#')] ?: continue
+            val (spineIndex, entryPath, entry) = triple
+            val chapterDir = entryPath.substringBeforeLast('/', "")
+            val buf = ByteArray(8192)
+            val n = zip.getInputStream(entry).use { it.read(buf) }
+            val head = if (n > 0) String(buf, 0, n, Charsets.UTF_8) else ""
+            val title = toc.title.ifBlank { guessChapterTitle(head, spineIndex) }
+            chapters.add(
+                EpubChapter(
+                    title = title,
+                    entryPath = entryPath,
+                    chapterDir = chapterDir,
+                    cachedEpubPath = cachedEpubPath,
+                    estimatedTextLength = entry.size
+                        ?.coerceIn(0L, Int.MAX_VALUE.toLong())
+                        ?.toInt() ?: 0,
+                )
+            )
+        }
+        return chapters
+    }
+
+    /** 无内置 TOC 时，从 spine 顺序构建章节列表，过滤封面/版权等非正文条目。 */
+    private fun buildChaptersFromSpine(
+        zip: ZipFile,
+        opfDir: String,
+        cachedEpubPath: String,
+        chapterRefs: List<ManifestItem>,
+        manifest: Map<String, ManifestItem>,
+        spine: List<String>,
+    ): List<EpubChapter> {
+        // 按 spine idref 查找对应的 manifest 条目，用于过滤非正文内容
+        val spineProps = spine.map { idref -> manifest[idref] }
+        return chapterRefs.mapIndexedNotNull { index, ref ->
+            if (isNonContentManifestItem(spineProps.getOrNull(index))) return@mapIndexedNotNull null
+
+            val entryPath = resolvePath(opfDir, ref.href)
+            val entry = findEntry(zip, entryPath) ?: return@mapIndexedNotNull null
+            val chapterDir = entryPath.substringBeforeLast('/', "")
+            val buf = ByteArray(8192)
+            val n = zip.getInputStream(entry).use { it.read(buf) }
+            val head = if (n > 0) String(buf, 0, n, Charsets.UTF_8) else ""
+            EpubChapter(
+                title = guessChapterTitle(head, index),
+                entryPath = entryPath,
+                chapterDir = chapterDir,
+                cachedEpubPath = cachedEpubPath,
+                estimatedTextLength = entry.size
+                    ?.coerceIn(0L, Int.MAX_VALUE.toLong())
+                    ?.toInt() ?: 0,
+            )
+        }
+    }
+
+    /** 判断 manifest 条目是否为非正文内容（封面、版权页等）。 */
+    private fun isNonContentManifestItem(item: ManifestItem?): Boolean {
+        if (item == null) return false
+        val props = item.properties.lowercase()
+        if (props.contains("cover")) return true
+        val href = item.href.lowercase()
+        return NON_CONTENT_PATH_PATTERNS.any { pattern -> pattern.containsMatchIn(href) }
+    }
+
+    private val NON_CONTENT_PATH_PATTERNS = listOf(
+        Regex("cover|titlepage|title-page|frontmatter|copyright|colophon|dedication|frontispiece", RegexOption.IGNORE_CASE),
+    )
 
     private fun extractImage(
         src: String,
@@ -376,7 +631,7 @@ object EpubParser {
         key: String,
     ): String? {
         val entryPath = resolvePath(chapterDir, src)
-        val entry = zip.getEntry(entryPath) ?: return null
+        val entry = findEntry(zip, entryPath) ?: return null
         // 扩展名取自书内 img src，是不可信输入，必须限制为纯字母数字。
         // 否则形如 "cover.pn/../../../../databases/app.db" 的 src 会让 substringAfterLast('.')
         // 带上 "/.." 片段，使写入路径逃出缓存目录，改写应用私有文件。
@@ -469,6 +724,10 @@ object EpubParser {
         }
         return stack.joinToString("/")
     }
+
+    /** 同时兼容调用方尚未解码的 URI 路径与已经归一化的 ZIP 条目路径。 */
+    private fun findEntry(zip: ZipFile, entryPath: String): ZipEntry? =
+        zip.getEntry(entryPath) ?: zip.getEntry(resolvePath("", entryPath))
 
     private fun newParser(): XmlPullParser {
         val factory = XmlPullParserFactory.newInstance()

@@ -36,6 +36,8 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
+import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -58,6 +60,9 @@ import coil.compose.AsyncImage
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.viewmodel.BookViewModel
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlinx.coroutines.launch
 import java.time.Instant
 import java.time.LocalDate
@@ -101,6 +106,8 @@ fun HomeContinueSheet(
     var deleteTarget by remember { mutableStateOf<BookEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
 
     val items = remember(books, progressById, sessions, removedIds, sortKey, sortAsc) {
         buildContinueItems(books, progressById, sessions, removedIds)
@@ -115,7 +122,7 @@ fun HomeContinueSheet(
             }
     }
 
-    ModalBottomSheet(
+    GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
         modifier = Modifier.fillMaxHeight(0.85f),
@@ -131,6 +138,7 @@ fun HomeContinueSheet(
                     navController.navigate("shelf?detailBookId=$id")
                 },
                 onMarkRead = {
+                    haptic(HapticFeedbackType.LongPress)
                     viewModel.markRead(actionBook!!.id)
                     actionBook = null
                 },
@@ -179,7 +187,7 @@ fun HomeContinueSheet(
     }
 
     if (deleteTarget != null) {
-        AlertDialog(
+        GlassAlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("删除书籍") },
             text = { Text("确定从书架删除《${deleteTarget!!.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，此操作不可撤销。") },

@@ -37,7 +37,7 @@
         <!-- 文件分享（导出 JSON / 书籍文件） -->
         <provider
             android:name="androidx.core.content.FileProvider"
-            android:authorities="com.creationreadingassistant.fileprovider"
+            android:authorities="${applicationId}.fileprovider"
             android:exported="false"
             android:grantUriPermissions="true">
             <meta-data

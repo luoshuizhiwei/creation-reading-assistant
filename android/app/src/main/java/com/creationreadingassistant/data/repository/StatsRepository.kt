@@ -11,7 +11,9 @@ import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
@@ -56,6 +58,8 @@ class StatsRepository @Inject constructor(
     ) { sessions, progress, books, inspirations ->
         computeFrom(sessions, progress, books, inspirations)
     }
+        .distinctUntilChanged()
+        .flowOn(Dispatchers.Default)
 
     suspend fun compute(): Stats = withContext(Dispatchers.IO) {
         val sessions = sessionDao.observeAllActive().first()
