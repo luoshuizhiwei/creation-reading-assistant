@@ -8,6 +8,9 @@ tmp-reader-fixtures/
 .claude/
 .agents/
 .qoder/
+.idea/
+.trae/
+.workbuddy/
 skills-lock.json
 creation-reading-assistant-mobile-ui/
 mobile-screenshots/
@@ -25,3 +28,19 @@ dist/
 coverage/
 .DS_Store
 Thumbs.db
+
+# 本地运行数据与人工验收产物
+/data/
+/artifacts/
+/android/build_log*.txt
+/android/screen_*.png
+/android/ui*.xml
+/android/v3_*.png
+/android/v3_*.xml
+/android/v4_*.png
+/android/v4_*.xml
+/android/verify_*.png
+
+# 临时调研下载
+/icu4j-charset.jar
+/r8faq.html
