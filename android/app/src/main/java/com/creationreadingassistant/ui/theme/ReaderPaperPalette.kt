@@ -59,7 +59,7 @@ data class ReaderPaperPalette(
 /** 白纸（默认，light） */
 private val WHITE = ReaderPaperPalette(
     key = "white",
-    bg = Color(0xFFFAFAFB),
+    bg = Color(0xFFFAF8F2),
     fg = Color(0xFF1B1E23),
     fgMuted = Color(0xFF5C606A),
     accent = Color(0xFF3D5A80),
