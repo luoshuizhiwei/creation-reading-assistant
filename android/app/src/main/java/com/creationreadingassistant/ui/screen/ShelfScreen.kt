@@ -90,6 +90,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.components.SettingRow
@@ -130,7 +131,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalViewConfiguration
 import androidx.compose.ui.platform.ViewConfiguration
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -153,10 +153,8 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.ui.theme.AppError
-import com.creationreadingassistant.ui.components.SizedAsyncImage
 import com.creationreadingassistant.ui.theme.AppSuccess
 import com.creationreadingassistant.ui.theme.AppWarning
-import com.creationreadingassistant.ui.theme.SealMark
 import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
 import com.creationreadingassistant.ui.viewmodel.ImportBatchUiState
 import com.creationreadingassistant.ui.viewmodel.ShelfBookItem
@@ -1278,7 +1276,7 @@ private fun BookTile(
                     .aspectRatio(0.72f)
                     .clip(spec.cardShape),
             ) {
-                BookCover(book = book, percent = percent, modifier = Modifier.fillMaxSize(), sealSize = 30.dp)
+                BookCover(book = book, percent = percent, modifier = Modifier.fillMaxSize(), sealSize = 30.dp, fallback = { ShelfCoverFallback(book) })
                 if (downloading) {
                     Box(
                         modifier = Modifier
@@ -1353,7 +1351,7 @@ private fun BookTile(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Box {
-                    BookCover(book = book, percent = percent, modifier = Modifier.size(56.dp, 78.dp))
+                    BookCover(book = book, percent = percent, modifier = Modifier.size(56.dp, 78.dp), fallback = { ShelfCoverFallback(book) })
                     if (downloading) {
                         Box(
                             modifier = Modifier
@@ -1393,15 +1391,8 @@ private fun BookTile(
 }
 
 @Composable
-private fun BookCover(
-    book: BookEntity,
-    percent: Float,
-    modifier: Modifier = Modifier,
-    sealSize: Dp = 22.dp,
-) {
-    val spec = LocalComponentSpec.current
+private fun ShelfCoverFallback(book: BookEntity) {
     val scheme = MaterialTheme.colorScheme
-    val hasImage = !book.cover_data_url.isNullOrBlank()
     // 无封面回退：取主题 surface 容器色做柔和渐变（永不用土黄/羊皮纸色），与主题一致
     val coverFallback = Brush.linearGradient(
         colorStops = arrayOf(
@@ -1409,66 +1400,17 @@ private fun BookCover(
             1.0f to scheme.surfaceVariant,
         ),
     )
-    // 左上→右下极淡白色斜向高光，强化实体书质感（对齐 web .book-cover 叠加层）
-    val sheen = Brush.linearGradient(
-        colorStops = arrayOf(
-            0.0f to Color.White.copy(alpha = 0.16f),
-            0.42f to Color.White.copy(alpha = 0.0f),
-        ),
-    )
-    Box(
-        modifier = modifier
-            .clip(spec.listItemShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
-        contentAlignment = Alignment.Center,
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(coverFallback)
+            .padding(8.dp),
+        verticalArrangement = Arrangement.Center,
+        horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        if (hasImage) {
-            SizedAsyncImage(
-                data = book.cover_data_url,
-                cacheKey = "cover:${book.id}:${book.updated_at}",
-                contentDescription = "《${book.title}》封面",
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-            )
-        } else {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(coverFallback)
-                    .padding(8.dp),
-                verticalArrangement = Arrangement.Center,
-                horizontalAlignment = Alignment.CenterHorizontally,
-            ) {
-                Text(book.title.take(4), color = scheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(book.format.uppercase(), color = scheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-            }
-        }
-        // 格式角标：图片封面右下、文字回退左下（对齐 web .book-cover-image em / .book-cover > em）
-        Surface(
-            color = Color.Black.copy(alpha = 0.45f),
-            shape = RoundedCornerShape(if (hasImage) 6.dp else 4.dp),
-            modifier = Modifier
-                .align(if (hasImage) Alignment.BottomEnd else Alignment.BottomStart)
-                .padding(if (hasImage) 6.dp else 4.dp),
-        ) {
-            Text(book.format.uppercase(), color = Color.White, style = MaterialTheme.typography.labelSmall, modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
-        }
-        // 封面斜向高光叠加层
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(sheen),
-        )
-        // 藏书印：读完才盖。必须画在高光层之上，否则会被叠加层压住。
-        if (percent >= 99.5f) {
-            SealMark(
-                size = sealSize,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(4.dp),
-            )
-        }
+        Text(book.title.take(4), color = scheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
+        Spacer(modifier = Modifier.height(4.dp))
+        Text(book.format.uppercase(), color = scheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
     }
 }
 
@@ -1598,7 +1540,7 @@ private fun BookActionSheet(
     ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                BookCover(book = book, percent = progressFor(progressById, book.id), modifier = Modifier.size(48.dp, 66.dp))
+                BookCover(book = book, percent = progressFor(progressById, book.id), modifier = Modifier.size(48.dp, 66.dp), fallback = { ShelfCoverFallback(book) })
                 Spacer(modifier = Modifier.width(12.dp))
                 Column {
                     Text(book.title, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -1707,7 +1649,7 @@ private fun BookDetailSheet(
         Column(modifier = Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box {
-                    BookCover(book = book, percent = percent, modifier = Modifier.size(64.dp, 90.dp))
+                    BookCover(book = book, percent = percent, modifier = Modifier.size(64.dp, 90.dp), fallback = { ShelfCoverFallback(book) })
                     Surface(
                         color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
                         shape = RoundedCornerShape(8.dp),

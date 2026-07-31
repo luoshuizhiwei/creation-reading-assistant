@@ -34,7 +34,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -49,14 +48,9 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.text.font.FontWeight
@@ -75,7 +69,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import com.creationreadingassistant.ui.components.EmptyStateHint
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionHeader
-import com.creationreadingassistant.ui.components.SizedAsyncImage
+import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.rememberCountUp
@@ -430,51 +424,18 @@ private fun ContinueCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(layout.contentGap),
             ) {
-                Box(
-                    Modifier
-                        .size(56.dp, 80.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(MaterialTheme.colorScheme.surfaceVariant),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (book.cover_data_url != null) {
-                    SizedAsyncImage(
-                        data = book.cover_data_url,
-                        cacheKey = "cover:${book.id}:${book.updated_at}",
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                            contentScale = ContentScale.Crop,
-                        )
-                    } else {
-                        Text(book.title.take(2), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                    }
-                    Surface(
-                        color = Color.Black.copy(alpha = 0.5f),
-                        shape = RoundedCornerShape(4.dp),
-                        modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
-                    ) {
+                BookCover(
+                    book = book,
+                    modifier = Modifier.size(56.dp, 80.dp),
+                    percent = null,
+                    fallback = {
                         Text(
-                            book.format.uppercase(),
-                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color.White,
+                            book.title.take(2),
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.primary,
                         )
-                    }
-                    // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(
-                                Brush.linearGradient(
-                                    colorStops = arrayOf(
-                                        0.0f to Color.White.copy(alpha = 0.16f),
-                                        0.55f to Color.White.copy(alpha = 0.03f),
-                                        1.0f to Color.White.copy(alpha = 0.0f),
-                                    ),
-                                ),
-                            ),
-                    )
-                }
+                    },
+                )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         book.title,
@@ -530,50 +491,18 @@ private fun CompletedCard(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        Box(
-            Modifier
-                .size(84.dp, 112.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(MaterialTheme.colorScheme.surfaceVariant),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (book.cover_data_url != null) {
-                SizedAsyncImage(
-                    data = book.cover_data_url,
-                    cacheKey = "cover:${book.id}:${book.updated_at}",
-                    contentDescription = null,
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            } else {
-                Text(book.title.take(2), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-            }
-            Surface(
-                color = Color.Black.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(4.dp),
-                modifier = Modifier.align(Alignment.BottomStart).padding(4.dp),
-            ) {
+        BookCover(
+            book = book,
+            modifier = Modifier.size(84.dp, 112.dp),
+            percent = null,
+            fallback = {
                 Text(
-                    book.format.uppercase(),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White,
+                    book.title.take(2),
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.primary,
                 )
-            }
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.White.copy(alpha = 0.16f),
-                                0.55f to Color.White.copy(alpha = 0.03f),
-                                1.0f to Color.White.copy(alpha = 0.0f),
-                            ),
-                        ),
-                    ),
-            )
-        }
+            },
+        )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
                 book.title,
