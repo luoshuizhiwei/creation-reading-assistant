@@ -8,8 +8,9 @@ import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.time.Instant
@@ -25,6 +26,7 @@ class EpubRepository @Inject constructor(
     @ApplicationContext private val context: Context,
     private val bookDao: BookDao,
     private val readingProgressDao: ReadingProgressDao,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     /** 进程内解析缓存，最多缓存 3 本，超出自动淘汰最久未访问的条目。 */
     private val memoryCache = object : LinkedHashMap<String, EpubBook>(3, 0.75f, true) {
@@ -72,7 +74,7 @@ class EpubRepository @Inject constructor(
         stored: BookEntity,
         selectedUri: Uri,
         selectedFileName: String,
-    ): EpubBook = withContext(Dispatchers.IO) {
+    ): EpubBook = withContext(ioDispatcher) {
         val validated = EpubParser.parse(context, selectedUri)
         val validatedFile = File(validated.cachedEpubPath)
         require(validatedFile.isFile && validatedFile.length() > 0L) {
@@ -146,7 +148,7 @@ class EpubRepository @Inject constructor(
             existing = existing,
             parsed = book,
             originalFileName = originalFileName,
-            resolvedSize = withContext(Dispatchers.IO) {
+            resolvedSize = withContext(ioDispatcher) {
                 fileSize(book.cachedEpubPath)
             },
             now = now,
@@ -163,7 +165,7 @@ class EpubRepository @Inject constructor(
      * 只更新确认可读取且长度大于 0 的记录；权限失效或暂时不可访问时保留原记录，
      * 避免把一次瞬时 I/O 失败误判成正文丢失。
      */
-    suspend fun repairMissingLocalFileSizes(): Int = withContext(Dispatchers.IO) {
+    suspend fun repairMissingLocalFileSizes(): Int = withContext(ioDispatcher) {
         var repaired = 0
         bookDao.getEpubBooksNeedingSizeRepair().forEach { stored ->
             val uri = stored.local_uri

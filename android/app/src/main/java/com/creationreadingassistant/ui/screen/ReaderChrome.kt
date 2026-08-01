@@ -147,8 +147,8 @@ internal fun ReaderBottomActions(
             ReaderFooterAction(Icons.Filled.Menu, "目录") {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.TOC))
             }
-            ReaderFooterAction(Icons.Filled.BarChart, "进度") {
-                onAction(ReaderChromeAction.OpenSheet(ReaderSheet.PROGRESS))
+            ReaderFooterAction(Icons.Filled.Headphones, "听书") {
+                onAction(ReaderChromeAction.ToggleTts)
             }
             ReaderFooterAction(Icons.Filled.Lightbulb, "灵感") {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.INSPIRATION))
@@ -244,12 +244,6 @@ internal fun ReaderTopChrome(
             }
         },
         actions = {
-            IconButton(onClick = { onAction(ReaderChromeAction.ToggleTts) }) {
-                Icon(Icons.Filled.Headphones, contentDescription = "听书")
-            }
-            IconButton(onClick = { onAction(ReaderChromeAction.OpenSheet(ReaderSheet.AI_ASSIST)) }) {
-                Icon(Icons.Filled.AutoAwesome, contentDescription = "AI 助手")
-            }
             Box {
                 IconButton(onClick = { onOverflowExpandedChange(true) }) {
                     Icon(Icons.Filled.MoreVert, contentDescription = "更多")
@@ -258,6 +252,22 @@ internal fun ReaderTopChrome(
                     expanded = overflowExpanded,
                     onDismissRequest = { onOverflowExpandedChange(false) },
                 ) {
+                    DropdownMenuItem(
+                        text = { Text("阅读进度") },
+                        leadingIcon = { Icon(Icons.Filled.BarChart, contentDescription = null) },
+                        onClick = {
+                            onOverflowExpandedChange(false)
+                            onAction(ReaderChromeAction.OpenSheet(ReaderSheet.PROGRESS))
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("AI 助手") },
+                        leadingIcon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                        onClick = {
+                            onOverflowExpandedChange(false)
+                            onAction(ReaderChromeAction.OpenSheet(ReaderSheet.AI_ASSIST))
+                        },
+                    )
                     DropdownMenuItem(
                         text = { Text("笔记与标注") },
                         leadingIcon = { Icon(Icons.Filled.BorderColor, contentDescription = null) },

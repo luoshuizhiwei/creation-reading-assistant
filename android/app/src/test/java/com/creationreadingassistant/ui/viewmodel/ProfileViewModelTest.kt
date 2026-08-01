@@ -120,6 +120,8 @@ class ProfileViewModelTest {
             noteDao = noteDao,
             inspirationDao = inspirationDao,
             bookContentDao = bookContentDao,
+            ioDispatcher = UnconfinedTestDispatcher(testScheduler),
+            defaultDispatcher = UnconfinedTestDispatcher(testScheduler),
         )
     }
 

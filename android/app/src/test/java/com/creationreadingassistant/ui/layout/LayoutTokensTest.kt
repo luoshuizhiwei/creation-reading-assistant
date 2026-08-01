@@ -13,7 +13,7 @@ class LayoutTokensTest {
         assertEquals(4.dp, tokens.microGap)
         assertEquals(8.dp, tokens.relatedGap)
         assertEquals(12.dp, tokens.contentGap)
-        assertEquals(24.dp, tokens.sectionGap)
+        assertEquals(20.dp, tokens.sectionGap)
         assertEquals(16.dp, tokens.pageHorizontal)
         assertEquals(24.dp, tokens.pageHorizontalWide)
     }

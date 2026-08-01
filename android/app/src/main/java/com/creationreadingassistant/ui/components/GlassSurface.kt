@@ -108,6 +108,11 @@ fun GlassSurface(
  * - 顶部亮边 + 底部暗边（glass rim，赋予卡片"厚度"与玻璃边缘感）
  * - 斜向微光 sheen（高级反光）
  * - 顶部窄 specular 高光带
+ *
+ * 渐变里的 Color.White / Color.Black 是「光」与「阴影」的物理视觉语言，不是 UI 主题色：
+ * 顶部亮边=玻璃边缘反光、底部暗边=边缘阴影、sheen=斜向反光。改成主题色会让物理光泽
+ * 变成色块，破坏 Liquid Glass 的光学仿真。specular 高光带用 tokens.highlightColor 是因为
+ * 它需要跟随调色板色相，而 rim/sheen 是无色光学叠加，故保留纯白/纯黑。
  */
 @Composable
 internal fun BoxScope.GlassOverlays(

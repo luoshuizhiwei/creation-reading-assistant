@@ -28,14 +28,17 @@ import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.ui.screen.ReaderScreenState
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -73,7 +76,10 @@ class ReaderViewModel @Inject constructor(
     val settingsStore: SettingsStore,
     val anchorCacheStore: AnchorCacheStore,
     val pageIndexStore: PageIndexStore,
+    val pagerHealthStore: PagerHealthStore,
     val aiClient: AiClient,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // ── 文档加载代次 ──────────────────────────────────────────────
@@ -127,7 +133,7 @@ class ReaderViewModel @Inject constructor(
             }
         }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
 
     private val taxonomyData = screenState
         .map { state ->
@@ -177,7 +183,7 @@ class ReaderViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -330,7 +336,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     private fun io(block: suspend () -> Unit) {
-        viewModelScope.launch(Dispatchers.IO) { block() }
+        viewModelScope.launch(ioDispatcher) { block() }
     }
 
     private fun nowIso(): String = Instant.now().toString()
@@ -351,7 +357,7 @@ class ReaderViewModel @Inject constructor(
             isLoading = true,
         )
 
-        loadJob = viewModelScope.launch(Dispatchers.IO) {
+        loadJob = viewModelScope.launch(ioDispatcher) {
             var loaded: ReaderLoadedBook? = null
             try {
                 loaded = documentLoader.load(bookId)
@@ -407,7 +413,7 @@ class ReaderViewModel @Inject constructor(
         chapterLoadJob?.cancel()
         val gen = chapterLoadGeneration.incrementAndGet()
         _chapterLoadState.value = ChapterLoadResult.Loading(bookId, chapterIndex)
-        chapterLoadJob = viewModelScope.launch(Dispatchers.IO) {
+        chapterLoadJob = viewModelScope.launch(ioDispatcher) {
             try {
                 val book = _uiState.value.loadedBook ?: return@launch
                 if (book.id != bookId) return@launch
@@ -472,7 +478,7 @@ class ReaderViewModel @Inject constructor(
 
     // ── TXT 规则扫描 ──────────────────────────────────────────
     private fun scanTxtTocRule(filePath: String, ruleId: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             try {
                 val file = File(filePath)
                 val newIndex = TxtFileScanner.scan(file, ruleId)

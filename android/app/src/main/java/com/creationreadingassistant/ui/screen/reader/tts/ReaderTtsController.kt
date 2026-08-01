@@ -265,6 +265,8 @@ internal class TtsMediaSession(
 
     init {
         mediaSession = MediaSession(appContext, "TtsPlayback")
+        // 旧 flags 在 API 33+ 已 deprecated 且内部无副作用：媒体按钮与传输控制默认启用。
+        @Suppress("DEPRECATION")
         mediaSession.setFlags(MediaSession.FLAG_HANDLES_MEDIA_BUTTONS or MediaSession.FLAG_HANDLES_TRANSPORT_CONTROLS)
         mediaSession.setCallback(object : MediaSession.Callback() {
             override fun onPlay() = this@TtsMediaSession.onPlay()
@@ -341,13 +343,19 @@ internal class TtsMediaSession(
             .setVisibility(Notification.VISIBILITY_PUBLIC)
             .setStyle(style)
             .setOngoing(playing)
-            .addAction(android.R.drawable.ic_media_previous, "上一句", pending(ACTION_PREV))
-            .addAction(
-                if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
-                if (playing) "暂停" else "播放",
-                pending(if (playing) ACTION_PAUSE else ACTION_PLAY),
-            )
-            .addAction(android.R.drawable.ic_media_next, "下一句", pending(ACTION_NEXT))
+        // Notification.Builder.addAction(int, CharSequence, PendingIntent) 在 API 23+ 已 deprecated，
+        // 但 AndroidX Media2 / androidx.media.app.NotificationCompat.MediaStyle 会引入额外依赖；
+        // 此签名仍被系统兼容，逐处加 @Suppress 避免 compile 警告。
+        @Suppress("DEPRECATION")
+        val a1: Notification.Builder = builder.addAction(android.R.drawable.ic_media_previous, "上一句", pending(ACTION_PREV))
+        @Suppress("DEPRECATION")
+        val a2: Notification.Builder = a1.addAction(
+            if (playing) android.R.drawable.ic_media_pause else android.R.drawable.ic_media_play,
+            if (playing) "暂停" else "播放",
+            pending(if (playing) ACTION_PAUSE else ACTION_PLAY),
+        )
+        @Suppress("DEPRECATION")
+        a2.addAction(android.R.drawable.ic_media_next, "下一句", pending(ACTION_NEXT))
 
         try { notificationManager.notify(notifId, builder.build()) } catch (_: Exception) { }
     }

@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -24,7 +26,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -60,8 +61,8 @@ internal fun AiAssistSheet(
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
-        Text("AI 阅读辅助", style = MaterialTheme.typography.titleLarge)
+    ReaderSheetScaffold(title = "AI 阅读辅助") {
+      Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         Row(Modifier.padding(vertical = 8.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             OptionPill(selected = tab == "summary", label = "章节摘要", onClick = { tab = "summary" })
             OptionPill(selected = tab == "qa", label = "内容问答", onClick = { tab = "qa" })
@@ -113,5 +114,6 @@ internal fun AiAssistSheet(
         if (!hasContext) {
             Text("当前没有可分析的文本内容。", color = MaterialTheme.colorScheme.outline, modifier = Modifier.padding(top = 8.dp))
         }
+      }
     }
 }

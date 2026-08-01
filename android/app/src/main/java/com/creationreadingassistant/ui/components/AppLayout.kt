@@ -3,12 +3,16 @@ package com.creationreadingassistant.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +46,8 @@ fun AppPageScaffold(
                 navigationIcon = navigationIcon,
                 actions = actions,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.background,
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
                 ),
             )
         },
@@ -60,6 +65,65 @@ fun AppPageScaffold(
     }
 }
 
+/**
+ * Unified page shell. Unlike the legacy [AppPageScaffold], this component owns
+ * only the chrome and insets; screens remain free to use a lazy list, grid or a
+ * custom canvas without receiving a second layer of padding.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppScreenScaffold(
+    title: String,
+    modifier: Modifier = Modifier,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    snackbarHost: @Composable () -> Unit = {},
+    topBarSupportingContent: (@Composable () -> Unit)? = null,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    Scaffold(
+        modifier = modifier,
+        snackbarHost = snackbarHost,
+        topBar = {
+            Column {
+                TopAppBar(
+                    title = { Text(title, style = MaterialTheme.typography.headlineLarge) },
+                    navigationIcon = navigationIcon,
+                    actions = actions,
+                    colors = TopAppBarDefaults.topAppBarColors(
+                        containerColor = MaterialTheme.colorScheme.surface,
+                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                    ),
+                )
+                topBarSupportingContent?.invoke()
+            }
+        },
+        content = content,
+    )
+}
+
+@Composable
+fun PageLazyColumn(
+    modifier: Modifier = Modifier,
+    scaffoldPadding: PaddingValues = PaddingValues(0.dp),
+    contentPadding: PaddingValues? = null,
+    verticalArrangement: Arrangement.Vertical = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
+    content: LazyListScope.() -> Unit,
+) {
+    val layout = LocalLayoutTokens.current
+    LazyColumn(
+        modifier = modifier
+            .fillMaxSize()
+            .padding(scaffoldPadding),
+        contentPadding = contentPadding ?: PaddingValues(
+            horizontal = layout.pageHorizontal,
+            vertical = layout.pageVertical,
+        ),
+        verticalArrangement = verticalArrangement,
+        content = content,
+    )
+}
+
 @Composable
 fun SectionHeader(
     title: String,
@@ -75,7 +139,7 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineMedium,
+            style = MaterialTheme.typography.headlineSmall,
             modifier = Modifier.weight(1f),
         )
         action?.invoke(this)

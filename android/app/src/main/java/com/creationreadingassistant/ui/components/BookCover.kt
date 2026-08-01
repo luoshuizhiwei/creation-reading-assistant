@@ -21,6 +21,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.SealMark
 
@@ -79,7 +80,7 @@ fun BookCover(
             Surface(
                 color = scheme.inverseSurface.copy(alpha = 0.8f),
                 border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.6f)),
-                shape = RoundedCornerShape(4.dp),
+                shape = AppShapes.extraSmall,
                 modifier = Modifier
                     .align(if (hasImage) Alignment.BottomEnd else Alignment.BottomStart)
                     .padding(4.dp),
@@ -93,7 +94,9 @@ fun BookCover(
             }
         }
         if (showSheen) {
-            // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感
+            // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感。
+            // Color.White 在此是「光」的视觉语言（物理高光），不是 UI 主题色：
+            // 深色模式下封面底色变深，白色光泽仍呈现为高光，故故意脱离主题令牌。
             Box(
                 modifier = Modifier
                     .fillMaxSize()

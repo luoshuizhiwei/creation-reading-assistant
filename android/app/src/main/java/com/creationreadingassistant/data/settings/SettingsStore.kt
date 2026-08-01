@@ -8,10 +8,10 @@ import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import com.creationreadingassistant.data.security.SecurePrefs
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -19,7 +19,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 import javax.inject.Singleton
-import dagger.hilt.android.qualifiers.ApplicationContext
 
 /** 页眉/页脚可显示的条目类型 */
 enum class HeaderFooterItem(val label: String) {
@@ -197,9 +196,9 @@ data class TtsResume(val bookId: String, val chapterIndex: Int, val offset: Int)
 @Singleton
 class SettingsStore @Inject constructor(
     @ApplicationContext context: Context,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val ds = context.dataStore
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /** AI API Key 加密存储，与 SyncConfigStore 同机制（EncryptedSharedPreferences + AES256）。 */
     private val aiSecretsPrefs: SharedPreferences by lazy {

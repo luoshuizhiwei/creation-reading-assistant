@@ -17,8 +17,9 @@ import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.domain.model.SyncEnvelope
 import android.content.Context
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -52,6 +53,7 @@ class SyncRepository @Inject constructor(
     private val readingProgressDao: ReadingProgressDao,
     private val readingSessionDao: ReadingSessionDao,
     @ApplicationContext private val context: Context,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
 
@@ -86,7 +88,7 @@ class SyncRepository @Inject constructor(
     )
 
     // ---- 拉取：服务端全量 → 本地库 ----
-    suspend fun pull(): PullResult = withContext(Dispatchers.IO) {
+    suspend fun pull(): PullResult = withContext(ioDispatcher) {
         val api = apiProvider.current() ?: error("尚未配对，无法同步")
         val device = deviceInfoProvider.provide()
         val resp = api.pull(SyncContract.SyncPullPayloadRequest(device))
@@ -217,7 +219,7 @@ class SyncRepository @Inject constructor(
     }
 
     // ---- 推送：本地库 → 服务端 ----
-    suspend fun push(): PushResult = withContext(Dispatchers.IO) {
+    suspend fun push(): PushResult = withContext(ioDispatcher) {
         val api = apiProvider.current() ?: error("尚未配对，无法同步")
         val device = deviceInfoProvider.provide()
         val failures = mutableListOf<SyncFailedEntry>()
@@ -344,7 +346,7 @@ class SyncRepository @Inject constructor(
     }
 
     // ---- 书籍正文下载 ----
-    suspend fun downloadBookContent(bookId: String): Result<Unit> = withContext(Dispatchers.IO) {
+    suspend fun downloadBookContent(bookId: String): Result<Unit> = withContext(ioDispatcher) {
         // 先标记 downloading，让 UI 能即时反映
         runCatching {
             val b = bookDao.getById(bookId) ?: return@runCatching
@@ -388,7 +390,7 @@ class SyncRepository @Inject constructor(
     )
 
     /** 同步后自动下载未下载的书籍正文（最多 maxCount 本，单线程顺序下载）。 */
-    suspend fun downloadPendingBooks(maxCount: Int = 20): DownloadBooksResult = withContext(Dispatchers.IO) {
+    suspend fun downloadPendingBooks(maxCount: Int = 20): DownloadBooksResult = withContext(ioDispatcher) {
         val api = apiProvider.current() ?: return@withContext DownloadBooksResult(0, 0)
         val manifest = runCatching { api.manifest().bookFiles.associateBy { it.bookId } }.getOrDefault(emptyMap())
         val pendingBooks = bookDao.observeAllActive().first()
@@ -437,7 +439,7 @@ class SyncRepository @Inject constructor(
     }
 
     /** 获取桌面端清单（轻量探查，用于"从电脑下载"列表）。 */
-    suspend fun listDesktopBooks(): List<SyncContract.BookFileManifest> = withContext(Dispatchers.IO) {
+    suspend fun listDesktopBooks(): List<SyncContract.BookFileManifest> = withContext(ioDispatcher) {
         runCatching {
             val api = apiProvider.current() ?: return@withContext emptyList()
             api.manifest().bookFiles

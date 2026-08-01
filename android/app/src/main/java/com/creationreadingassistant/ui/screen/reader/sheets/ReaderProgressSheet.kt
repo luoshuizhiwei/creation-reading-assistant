@@ -24,7 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.domain.model.EpubBook
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.formatDuration
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -46,10 +45,9 @@ internal fun ProgressSheet(
 ) {
     var slider by remember { mutableFloatStateOf(progressPercent) }
     val size = epubBook?.chapters?.size ?: 0
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
-        Text("阅读进度", style = MaterialTheme.typography.titleLarge)
+    ReaderSheetScaffold(title = "阅读进度", modifier = Modifier) {
         Row(
-            Modifier.fillMaxWidth().padding(top = 8.dp),
+            Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
             StatCell("阅读", formatDuration(savedBookReadingMs + activeReadingMs))
@@ -58,7 +56,7 @@ internal fun ProgressSheet(
             StatCell("灵感", "$inspirationsCount")
             StatCell("书签", "$bookmarksCount")
         }
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onChapter(chapterIndex - 1) }, enabled = chapterIndex > 0) {
                 Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章")
             }
@@ -79,6 +77,7 @@ internal fun ProgressSheet(
                     if (size > 0) onChapter((slider / 100f * size).toInt().coerceIn(0, size - 1))
                     else onSeekPercent(slider)
                 },
+                modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
     }

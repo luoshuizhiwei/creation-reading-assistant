@@ -19,6 +19,7 @@ import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.ui.screen.ReaderSheet
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -58,6 +59,7 @@ class ReaderViewModelTest {
     private lateinit var settingsStore: SettingsStore
     private lateinit var anchorCacheStore: AnchorCacheStore
     private lateinit var pageIndexStore: PageIndexStore
+    private lateinit var pagerHealthStore: PagerHealthStore
     private lateinit var aiClient: AiClient
 
     private lateinit var viewModel: ReaderViewModel
@@ -79,6 +81,7 @@ class ReaderViewModelTest {
         settingsStore = mockk(relaxed = true)
         anchorCacheStore = mockk(relaxed = true)
         pageIndexStore = mockk(relaxed = true)
+        pagerHealthStore = mockk(relaxed = true)
         aiClient = mockk(relaxed = true)
 
         every { highlightDao.observeAllActive() } returns flowOf(emptyList())
@@ -111,7 +114,10 @@ class ReaderViewModelTest {
             settingsStore = settingsStore,
             anchorCacheStore = anchorCacheStore,
             pageIndexStore = pageIndexStore,
+            pagerHealthStore = pagerHealthStore,
             aiClient = aiClient,
+            ioDispatcher = UnconfinedTestDispatcher(),
+            defaultDispatcher = UnconfinedTestDispatcher(),
         )
     }
 

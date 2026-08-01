@@ -55,27 +55,27 @@ private fun cjk(
 
 val AppTypography = Typography(
     // ── Display：宋体，用于极少数需要"开篇"感的地方（统计大数、空状态标题）
-    displayLarge = cjk(Serif, 44, 1.20, FontWeight.Normal, -0.5),
-    displayMedium = cjk(Serif, 34, 1.22, FontWeight.Normal, -0.25),
-    displaySmall = cjk(Serif, 28, 1.25, FontWeight.Normal),
+    displayLarge = cjk(Serif, 36, 1.22, FontWeight.Normal, -0.4),
+    displayMedium = cjk(Serif, 30, 1.27, FontWeight.Normal, -0.2),
+    displaySmall = cjk(Serif, 26, 1.31, FontWeight.Normal),
 
     // ── Headline：宋体，页面级标题
     headlineLarge = cjk(Serif, 26, 1.30, FontWeight.Medium),
-    headlineMedium = cjk(Serif, 22, 1.35, FontWeight.Medium),
-    headlineSmall = cjk(Serif, 19, 1.40, FontWeight.Medium),
+    headlineMedium = cjk(Serif, 20, 1.40, FontWeight.Medium),
+    headlineSmall = cjk(Serif, 18, 1.44, FontWeight.Medium),
 
     // ── Title：黑体，卡片与区块标题。中文加粗靠字重而非 Bold，避免糊成一团
-    titleLarge = cjk(Sans, 19, 1.40, FontWeight.Medium),
-    titleMedium = cjk(Sans, 16, 1.45, FontWeight.Medium),
-    titleSmall = cjk(Sans, 14, 1.50, FontWeight.Medium),
+    titleLarge = cjk(Sans, 18, 1.44, FontWeight.Medium),
+    titleMedium = cjk(Sans, 16, 1.50, FontWeight.Medium),
+    titleSmall = cjk(Sans, 14, 1.43, FontWeight.Medium),
 
     // ── Body：黑体，正文与说明。字距归零、行高放宽
-    bodyLarge = cjk(Sans, 16, 1.75),
-    bodyMedium = cjk(Sans, 14, 1.70),
-    bodySmall = cjk(Sans, 13, 1.65),
+    bodyLarge = cjk(Sans, 16, 1.63),
+    bodyMedium = cjk(Sans, 14, 1.57),
+    bodySmall = cjk(Sans, 13, 1.54),
 
     // ── Label：黑体，按钮与标签。这里保留极小字距，纯拉丁的数字/英文会更清晰
-    labelLarge = cjk(Sans, 14, 1.45, FontWeight.Medium),
-    labelMedium = cjk(Sans, 12, 1.40, FontWeight.Medium, 0.1),
-    labelSmall = cjk(Sans, 11, 1.40, FontWeight.Medium, 0.1),
+    labelLarge = cjk(Sans, 14, 1.43, FontWeight.Medium),
+    labelMedium = cjk(Sans, 12, 1.50, FontWeight.Medium, 0.1),
+    labelSmall = cjk(Sans, 11, 1.45, FontWeight.Medium, 0.1),
 )

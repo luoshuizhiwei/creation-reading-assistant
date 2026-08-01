@@ -13,8 +13,9 @@ import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.ShelfBookEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -37,6 +38,7 @@ class TaxonomyViewModel @Inject constructor(
     private val bookTagDao: BookTagDao,
     private val bookCategoryDao: BookCategoryDao,
     private val shelfBookDao: ShelfBookDao,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // ---- 全部列表 ----
@@ -71,7 +73,7 @@ class TaxonomyViewModel @Inject constructor(
     suspend fun getBookIdsByTag(tagId: String): List<String> = bookTagDao.getBookIds(tagId)
 
     // ---- 创建 ----
-    fun createTag(name: String, type: String = "book") = viewModelScope.launch(Dispatchers.IO) {
+    fun createTag(name: String, type: String = "book") = viewModelScope.launch(ioDispatcher) {
         createTagAndGetId(name, type)
     }
 
@@ -82,7 +84,7 @@ class TaxonomyViewModel @Inject constructor(
         return id
     }
 
-    fun createCategory(name: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun createCategory(name: String) = viewModelScope.launch(ioDispatcher) {
         createCategoryAndGetId(name)
     }
 
@@ -93,7 +95,7 @@ class TaxonomyViewModel @Inject constructor(
         return id
     }
 
-    fun createShelf(name: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun createShelf(name: String) = viewModelScope.launch(ioDispatcher) {
         createShelfAndGetId(name)
     }
 
@@ -105,63 +107,63 @@ class TaxonomyViewModel @Inject constructor(
     }
 
     // ---- 重命名 ----
-    fun renameTag(id: String, newName: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun renameTag(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
         tagDao.rename(id, newName.trim(), Instant.now().toString())
     }
 
-    fun renameCategory(id: String, newName: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun renameCategory(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
         categoryDao.rename(id, newName.trim(), Instant.now().toString())
     }
 
-    fun renameShelf(id: String, newName: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun renameShelf(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
         shelfDao.rename(id, newName.trim(), Instant.now().toString())
     }
 
-    fun updateCategoryTone(id: String, tone: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun updateCategoryTone(id: String, tone: String) = viewModelScope.launch(ioDispatcher) {
         categoryDao.updateCoverTone(id, tone.trim(), Instant.now().toString())
     }
 
     // ---- 软删除 ----
-    fun deleteTag(id: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun deleteTag(id: String) = viewModelScope.launch(ioDispatcher) {
         tagDao.softDelete(id, Instant.now().toString())
     }
 
-    fun deleteCategory(id: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun deleteCategory(id: String) = viewModelScope.launch(ioDispatcher) {
         categoryDao.softDelete(id, Instant.now().toString())
     }
 
-    fun deleteShelf(id: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun deleteShelf(id: String) = viewModelScope.launch(ioDispatcher) {
         shelfDao.softDelete(id, Instant.now().toString())
     }
 
     // ---- 书籍关联 ----
-    fun addTagToBooks(bookIds: List<String>, tagId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun addTagToBooks(bookIds: List<String>, tagId: String) = viewModelScope.launch(ioDispatcher) {
         bookTagDao.upsertAll(bookIds.map { BookTagEntity(book_id = it, tag_id = tagId) })
     }
 
-    fun addTagToBook(bookId: String, tagId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun addTagToBook(bookId: String, tagId: String) = viewModelScope.launch(ioDispatcher) {
         bookTagDao.upsert(BookTagEntity(book_id = bookId, tag_id = tagId))
     }
 
-    fun removeTagFromBook(bookId: String, tagId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun removeTagFromBook(bookId: String, tagId: String) = viewModelScope.launch(ioDispatcher) {
         bookTagDao.remove(bookId, tagId)
     }
 
-    fun setCategoryForBooks(bookIds: List<String>, categoryId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun setCategoryForBooks(bookIds: List<String>, categoryId: String) = viewModelScope.launch(ioDispatcher) {
         if (bookIds.isEmpty()) return@launch
         // 原子操作：clear + upsertAll 在同一事务中执行
         bookCategoryDao.replaceForBooks(bookIds, categoryId)
     }
 
-    fun removeCategoryFromBook(bookId: String, categoryId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun removeCategoryFromBook(bookId: String, categoryId: String) = viewModelScope.launch(ioDispatcher) {
         bookCategoryDao.remove(bookId, categoryId)
     }
 
-    fun addBooksToShelf(bookIds: List<String>, shelfId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun addBooksToShelf(bookIds: List<String>, shelfId: String) = viewModelScope.launch(ioDispatcher) {
         shelfBookDao.upsertAll(bookIds.map { ShelfBookEntity(shelf_id = shelfId, book_id = it) })
     }
 
-    fun removeBookFromShelf(bookId: String, shelfId: String) = viewModelScope.launch(Dispatchers.IO) {
+    fun removeBookFromShelf(bookId: String, shelfId: String) = viewModelScope.launch(ioDispatcher) {
         shelfBookDao.remove(shelfId, bookId)
     }
 }

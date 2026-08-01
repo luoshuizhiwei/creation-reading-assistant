@@ -10,9 +10,14 @@
 
   同步链路仍是明文，局域网内的主动攻击者依然可以嗅探/篡改。
   彻底修复需要桌面端启用 TLS 并把证书指纹放进配对二维码做固定校验。
+
+  注意：此处 cleartextTrafficPermitted=true 为有意为之（见上），
+  非安全疏漏，因此抑制 Lint 的 InsecureBaseConfiguration 警告。
 -->
-<network-security-config>
-    <base-config cleartextTrafficPermitted="true">
+<network-security-config
+    xmlns:tools="http://schemas.android.com/tools">
+    <base-config cleartextTrafficPermitted="true"
+        tools:ignore="InsecureBaseConfiguration">
         <trust-anchors>
             <certificates src="system" />
         </trust-anchors>

@@ -1,26 +1,37 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.Slider
-import androidx.compose.material3.SliderDefaults
-import androidx.compose.material3.Switch
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -30,337 +41,391 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.data.settings.HeaderFooterItem
+import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.components.SettingLinkRow
+import com.creationreadingassistant.ui.components.SettingSegmentedRow
+import com.creationreadingassistant.ui.components.SettingSliderRow
+import com.creationreadingassistant.ui.components.SettingSwitchRow
+import com.creationreadingassistant.ui.components.SettingsGroup
+import com.creationreadingassistant.ui.components.SettingsSection
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
-import com.creationreadingassistant.data.settings.HeaderFooterItem
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlin.math.abs
+
+internal enum class ReaderSettingsPage(val title: String) {
+    ROOT("阅读设置"),
+    TYPOGRAPHY("排版"),
+    PAGING("翻页与操作"),
+    DISPLAY("显示与页眉页脚"),
+    EYE_CARE("护眼与提醒"),
+    ADVANCED("高级兼容"),
+}
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 internal fun SettingsSheet(
     paper: ReaderPaperPalette,
-    fontSize: Float,
-    lineHeight: Float,
-    background: String,
-    bold: Boolean,
-    brightness: Int,
-    readerMode: String,
-    pagerEngineMode: String,
-    epubPagerEngineMode: String,
-    pageTurnEffect: String,
-    tapZoneMode: String,
-    pageMargin: Float,
-    paragraphSpacing: Float,
-    eyeCareMin: Int,
-    eyeFilterEnabled: Boolean,
-    eyeTemperature: Int,
-    eyeIntensity: Int,
-    eyeScheduleEnabled: Boolean,
-    volumeKeyPaging: Boolean,
-    volumeKeyPagingDuringTts: Boolean,
-    autoPageSpeed: Int,
-    rhythmEnabled: Boolean,
-    rhythmMin: Int,
-    onFontSize: (Float) -> Unit,
-    onLineHeight: (Float) -> Unit,
-    onBackground: (String) -> Unit,
-    onBrightness: (Int) -> Unit,
-    onBold: (Boolean) -> Unit,
-    onReaderMode: (String) -> Unit,
-    onPagerEngineMode: (String) -> Unit,
-    onEpubPagerEngineMode: (String) -> Unit,
-    onPageTurnEffect: (String) -> Unit,
-    onTapZoneMode: (String) -> Unit,
-    onPageMargin: (Float) -> Unit,
-    onParagraphSpacing: (Float) -> Unit,
-    onEyeCareMin: (Int) -> Unit,
-    onEyeFilterEnabled: (Boolean) -> Unit,
-    onEyeTemperature: (Int) -> Unit,
-    onEyeIntensity: (Int) -> Unit,
-    onEyeScheduleEnabled: (Boolean) -> Unit,
-    onVolumeKeyPaging: (Boolean) -> Unit,
-    onVolumeKeyPagingDuringTts: (Boolean) -> Unit,
-    onAutoPageSpeed: (Int) -> Unit,
-    onRhythmEnabled: (Boolean) -> Unit,
-    onRhythmMin: (Int) -> Unit,
-    immersiveMode: Boolean = false,
-    showReaderInfo: Boolean = true,
-    chineseTypography: Boolean = true,
-    keepAwake: Boolean = false,
-    showProgressBar: Boolean = true,
-    autoHideSeconds: Int = 4,
-    onImmersive: (Boolean) -> Unit = {},
-    onShowInfo: (Boolean) -> Unit = {},
-    onChineseTypo: (Boolean) -> Unit = {},
-    onKeepAwake: (Boolean) -> Unit = {},
-    onShowProgress: (Boolean) -> Unit = {},
-    onAutoHide: (Int) -> Unit = {},
+    settings: ReaderSettings,
+    onSettingsChange: (ReaderSettings) -> Unit,
     onBookInfo: () -> Unit,
-    headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
-    headerRight: HeaderFooterItem = HeaderFooterItem.NONE,
-    footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
-    footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
-    onHeaderLeft: (HeaderFooterItem) -> Unit = {},
-    onHeaderRight: (HeaderFooterItem) -> Unit = {},
-    onFooterLeft: (HeaderFooterItem) -> Unit = {},
-    onFooterRight: (HeaderFooterItem) -> Unit = {},
 ) {
-    val sliderColors = SliderDefaults.colors(
-        thumbColor = paper.accent,
-        activeTrackColor = paper.accent,
-        inactiveTrackColor = paper.accent.copy(alpha = 0.32f),
-    )
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
-        Text("阅读设置", style = MaterialTheme.typography.titleLarge)
+    var page by remember { mutableStateOf(ReaderSettingsPage.ROOT) }
+    val reducedMotion = rememberReducedMotion()
+    BackHandler(enabled = page != ReaderSettingsPage.ROOT) { page = ReaderSettingsPage.ROOT }
 
-        Text("阅读模式", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            OptionPill(selected = readerMode == "paged", label = "左右翻页", onClick = { onReaderMode("paged") })
-            OptionPill(selected = readerMode == "scroll", label = "上下滚动", onClick = { onReaderMode("scroll") })
-        }
-        Text("TXT 新分页引擎", style = MaterialTheme.typography.labelMedium)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启").forEach { (value, label) ->
-                OptionPill(pagerEngineMode == value, label) { onPagerEngineMode(value) }
-            }
-        }
-        Text("EPUB 新分页引擎", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 4.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf("off" to "关闭", "auto" to "自动", "on" to "强制开启").forEach { (value, label) ->
-                OptionPill(epubPagerEngineMode == value, label) { onEpubPagerEngineMode(value) }
-            }
-        }
-
-        Text("翻页与点击", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(
-                "none" to "无动画",
-                "fade" to "柔和淡入",
-                "slide" to "左右滑动",
-                "cover" to "覆盖翻页",
-            ).forEach { (v, label) ->
-                OptionPill(selected = pageTurnEffect == v, label = label, onClick = { onPageTurnEffect(v) })
-            }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp), modifier = Modifier.padding(top = 4.dp)) {
-            OptionPill(selected = tapZoneMode == "three-zone", label = "左中右三区", onClick = { onTapZoneMode("three-zone") })
-            OptionPill(selected = tapZoneMode == "five-zone", label = "上下扩展五区", onClick = { onTapZoneMode("five-zone") })
-        }
-
-        Text("字号", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = { onFontSize((fontSize - 1f).coerceAtLeast(12f)) }) { Text("A-") }
-            Text(fontSize.toInt().toString(), Modifier.padding(horizontal = 8.dp))
-            IconButton(onClick = { onFontSize((fontSize + 1f).coerceAtMost(32f)) }) { Text("A+") }
-        }
-
-        Text("行距", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(1.5f to "紧凑", 1.85f to "标准", 2.1f to "宽松").forEach { (v, label) ->
-                OptionPill(selected = kotlin.math.abs(lineHeight - v) < 0.01f, label = label, onClick = { onLineHeight(v) })
-            }
-        }
-
-        Text("段距", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            listOf(0.8f to "小", 1.1f to "中", 1.5f to "大").forEach { (v, label) ->
-                OptionPill(selected = kotlin.math.abs(paragraphSpacing - v) < 0.01f, label = label, onClick = { onParagraphSpacing(v) })
-            }
-        }
-
-        Text("页边距", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Slider(
-                value = pageMargin,
-                onValueChange = { onPageMargin(it) },
-                valueRange = 10f..42f,
-                steps = 32,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-            )
-            Text("${pageMargin.toInt()}", Modifier.padding(start = 8.dp))
-        }
-
-        Text("亮度", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Slider(
-                value = brightness.toFloat(),
-                onValueChange = { onBrightness(it.toInt()) },
-                valueRange = 5f..100f,
-                steps = 18,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-            )
-            Text("${brightness}%", Modifier.padding(start = 8.dp))
-        }
-
-        Text("夜间护眼滤镜", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        SettingsSwitchRow("手动开启", eyeFilterEnabled) { onEyeFilterEnabled(it) }
-        SettingsSwitchRow("按时间自动开启（22:00–07:00）", eyeScheduleEnabled) { onEyeScheduleEnabled(it) }
-        Text("色温 ${eyeTemperature}K", style = MaterialTheme.typography.bodySmall)
-        Slider(
-            value = eyeTemperature.toFloat(),
-            onValueChange = { onEyeTemperature((it / 100).toInt() * 100) },
-                valueRange = 2600f..5500f,
-                steps = 28,
-                colors = sliderColors,
-            )
-        Text("强度 ${eyeIntensity}%", style = MaterialTheme.typography.bodySmall)
-        Slider(
-            value = eyeIntensity.toFloat(),
-            onValueChange = { onEyeIntensity(it.toInt()) },
-                valueRange = 0f..100f,
-                steps = 19,
-                colors = sliderColors,
-            )
-
-        // R7：阅读内快捷开关（沉浸 / 安静信息 / 中文排版 / 常亮 / 进度条 / 自动隐藏）
-        Text("阅读辅助", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        SettingsSwitchRow("音量键翻页", volumeKeyPaging) { onVolumeKeyPaging(it) }
-        SettingsSwitchRow(
-            "朗读时音量键仍翻页",
-            volumeKeyPagingDuringTts,
-        ) { onVolumeKeyPagingDuringTts(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-            Text("自动翻页速度", Modifier.weight(1f))
-            Slider(
-                value = autoPageSpeed.toFloat(),
-                onValueChange = { onAutoPageSpeed(it.toInt().coerceIn(1, 10)) },
-                valueRange = 1f..10f,
-                steps = 8,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-            )
-            Text("$autoPageSpeed", Modifier.padding(start = 8.dp))
-        }
-        SettingsSwitchRow("沉浸模式", immersiveMode) { onImmersive(it) }
-        SettingsSwitchRow("安静阅读信息", showReaderInfo) { onShowInfo(it) }
-
-        // 页眉页脚配置
-        if (showReaderInfo) {
-            Text("页眉显示", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeaderFooterDropdown(
-                    label = "左侧",
-                    selected = headerLeft,
-                    onSelect = onHeaderLeft,
-                    modifier = Modifier.weight(1f),
+    ReaderSheetScaffold(
+        title = page.title,
+        onBack = if (page == ReaderSettingsPage.ROOT) null else ({ page = ReaderSettingsPage.ROOT }),
+    ) {
+        AnimatedContent(
+            targetState = page,
+            transitionSpec = {
+                if (reducedMotion) {
+                    fadeIn(tween(0)) togetherWith fadeOut(tween(0))
+                } else {
+                    fadeIn(tween(160)) togetherWith fadeOut(tween(120))
+                }
+            },
+            label = "reader-settings-page",
+            modifier = Modifier.fillMaxSize(),
+        ) { target ->
+            when (target) {
+                ReaderSettingsPage.ROOT -> SettingsRoot(
+                    paper = paper,
+                    settings = settings,
+                    onSettingsChange = onSettingsChange,
+                    onNavigate = { page = it },
+                    onBookInfo = onBookInfo,
                 )
-                HeaderFooterDropdown(
-                    label = "右侧",
-                    selected = headerRight,
-                    onSelect = onHeaderRight,
-                    modifier = Modifier.weight(1f),
-                )
+                ReaderSettingsPage.TYPOGRAPHY -> TypographySettings(settings, onSettingsChange, paper)
+                ReaderSettingsPage.PAGING -> PagingSettings(settings, onSettingsChange)
+                ReaderSettingsPage.DISPLAY -> DisplaySettings(settings, onSettingsChange)
+                ReaderSettingsPage.EYE_CARE -> EyeCareSettings(settings, onSettingsChange)
+                ReaderSettingsPage.ADVANCED -> AdvancedSettings(settings, onSettingsChange)
             }
-            Text("页脚显示", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(top = 8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                HeaderFooterDropdown(
-                    label = "左侧",
-                    selected = footerLeft,
-                    onSelect = onFooterLeft,
-                    modifier = Modifier.weight(1f),
-                )
-                HeaderFooterDropdown(
-                    label = "右侧",
-                    selected = footerRight,
-                    onSelect = onFooterRight,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-        }
-        SettingsSwitchRow("中文排版优化", chineseTypography) { onChineseTypo(it) }
-        SettingsSwitchRow("常亮显示", keepAwake) { onKeepAwake(it) }
-        SettingsSwitchRow("显示进度条", showProgressBar) { onShowProgress(it) }
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
-            Text("菜单自动隐藏（秒）", Modifier.weight(1f))
-            Slider(
-                value = autoHideSeconds.toFloat(),
-                onValueChange = { onAutoHide(it.toInt()) },
-                valueRange = 0f..8f,
-                steps = 8,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-            )
-            Text("${autoHideSeconds}", Modifier.padding(start = 8.dp))
-        }
-
-        Text("阅读提醒", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(top = 12.dp))
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text("护眼提醒（分钟）", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            Text("$eyeCareMin", style = MaterialTheme.typography.labelMedium)
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Slider(
-                value = eyeCareMin.toFloat(),
-                onValueChange = { onEyeCareMin(it.toInt()) },
-                valueRange = 5f..60f,
-                steps = 55,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        SettingsSwitchRow(
-            label = "阅读节奏提示",
-            checked = rhythmEnabled,
-            onCheckedChange = onRhythmEnabled,
-            subtitle = "每 ${rhythmMin} 分钟轻提示休息",
-        )
-        if (rhythmEnabled) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Slider(
-                value = rhythmMin.toFloat(),
-                onValueChange = { onRhythmMin(it.toInt()) },
-                valueRange = 5f..60f,
-                steps = 55,
-                colors = sliderColors,
-                modifier = Modifier.weight(1f),
-                )
-            }
-        }
-
-        SettingsSwitchRow(label = "粗体文字", checked = bold, onCheckedChange = onBold)
-
-        Button(onClick = onBookInfo, modifier = Modifier.fillMaxWidth().padding(top = 12.dp)) {
-            Text("书籍信息")
         }
     }
 }
 
 @Composable
+private fun SettingsRoot(
+    paper: ReaderPaperPalette,
+    settings: ReaderSettings,
+    onSettingsChange: (ReaderSettings) -> Unit,
+    onNavigate: (ReaderSettingsPage) -> Unit,
+    onBookInfo: () -> Unit,
+) {
+    val layout = LocalLayoutTokens.current
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(layout.cardPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.contentGap),
+    ) {
+        item(key = "preview") {
+            ReaderTypePreview(paper, settings)
+        }
+        item(key = "quick") {
+            SettingsSection(title = "快捷调整") {
+                FontSizeStepper(settings.fontSize) {
+                    onSettingsChange(settings.copy(fontSize = it))
+                }
+                SectionDivider()
+                SettingSliderRow(
+                    title = "亮度",
+                    value = settings.brightness.toFloat(),
+                    valueLabel = "${settings.brightness}%",
+                    valueRange = 5f..100f,
+                    steps = 18,
+                    onValueChange = { onSettingsChange(settings.copy(brightness = it.toInt())) },
+                )
+                SectionDivider()
+                SettingSwitchRow(
+                    title = "粗体文字",
+                    checked = settings.fontWeightBold,
+                    onCheckedChange = { onSettingsChange(settings.copy(fontWeightBold = it)) },
+                )
+            }
+        }
+        item(key = "groups") {
+            SettingsSection(title = "更多设置") {
+                val entries = listOf(
+                    ReaderSettingsPage.TYPOGRAPHY to "字号、行距、段距和页边距",
+                    ReaderSettingsPage.PAGING to "翻页方式、点击区域和自动翻页",
+                    ReaderSettingsPage.DISPLAY to "沉浸、页眉页脚和菜单显示",
+                    ReaderSettingsPage.EYE_CARE to "滤镜、色温与阅读提醒",
+                    ReaderSettingsPage.ADVANCED to "分页兼容与中文排版",
+                )
+                entries.forEachIndexed { index, (target, subtitle) ->
+                    SettingLinkRow(target.title, subtitle = subtitle, onClick = { onNavigate(target) })
+                    if (index != entries.lastIndex) SectionDivider()
+                }
+            }
+        }
+        item(key = "book-info") {
+            OutlinedButton(onClick = onBookInfo, modifier = Modifier.fillMaxWidth()) {
+                Text("查看书籍信息")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSettings) {
+    SectionCard(contentPadding = 0.dp) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(paper.bg)
+                .padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text("排版预览", style = MaterialTheme.typography.labelMedium, color = paper.fgMuted)
+            Text(
+                "窗前的纸页安静展开，文字留下恰好的呼吸。",
+                color = paper.fg,
+                fontSize = settings.fontSize.coerceIn(12f, 32f).sp,
+                lineHeight = (settings.fontSize * settings.lineHeight).sp,
+                fontWeight = if (settings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
+                maxLines = 2,
+            )
+        }
+    }
+}
+
+@Composable
+private fun FontSizeStepper(value: Float, onChange: (Float) -> Unit) {
+    val layout = LocalLayoutTokens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text("字号", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
+        IconButton(onClick = { onChange((value - 1f).coerceAtLeast(12f)) }) {
+            Icon(Icons.Filled.Remove, contentDescription = "减小字号")
+        }
+        Text("${value.toInt()} 字号", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
+        IconButton(onClick = { onChange((value + 1f).coerceAtMost(32f)) }) {
+            Icon(Icons.Filled.Add, contentDescription = "增大字号")
+        }
+    }
+}
+
+@Composable
+private fun TypographySettings(
+    settings: ReaderSettings,
+    onChange: (ReaderSettings) -> Unit,
+    paper: ReaderPaperPalette,
+) = SettingsList {
+    item { ReaderTypePreview(paper, settings) }
+    item {
+        SettingsSection("文字") {
+            FontSizeStepper(settings.fontSize) { onChange(settings.copy(fontSize = it)) }
+            SectionDivider()
+            SettingSwitchRow("粗体文字", settings.fontWeightBold, { onChange(settings.copy(fontWeightBold = it)) })
+        }
+    }
+    item {
+        SettingsSection("行文节奏") {
+            SettingSegmentedRow(
+                title = "行距",
+                options = listOf(1.5f to "紧凑", 1.85f to "标准", 2.1f to "宽松"),
+                selected = nearest(settings.lineHeight, listOf(1.5f, 1.85f, 2.1f)),
+                onSelect = { onChange(settings.copy(lineHeight = it)) },
+            )
+            SectionDivider()
+            SettingSegmentedRow(
+                title = "段距",
+                options = listOf(0.8f to "小", 1.1f to "中", 1.5f to "大"),
+                selected = nearest(settings.paragraphSpacing, listOf(0.8f, 1.1f, 1.5f)),
+                onSelect = { onChange(settings.copy(paragraphSpacing = it)) },
+            )
+            SectionDivider()
+            SettingSliderRow(
+                title = "页边距",
+                value = settings.pageMargin,
+                valueLabel = "${settings.pageMargin.toInt()} dp",
+                valueRange = 10f..42f,
+                steps = 31,
+                onValueChange = { onChange(settings.copy(pageMargin = it)) },
+            )
+        }
+    }
+}
+
+@Composable
+private fun PagingSettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
+    item {
+        SettingsSection("阅读方式") {
+            SettingSegmentedRow("阅读模式", listOf("paged" to "左右翻页", "scroll" to "上下滚动"), settings.readerMode, { onChange(settings.copy(readerMode = it)) })
+            SectionDivider()
+            SettingSegmentedRow(
+                "翻页效果",
+                listOf("none" to "无", "fade" to "淡入", "slide" to "滑动", "cover" to "覆盖"),
+                settings.pageTurnEffect,
+                { onChange(settings.copy(pageTurnEffect = it)) },
+            )
+            SectionDivider()
+            SettingSegmentedRow("点击区域", listOf("three-zone" to "左中右", "five-zone" to "上下扩展"), settings.tapZoneMode, { onChange(settings.copy(tapZoneMode = it)) })
+        }
+    }
+    item {
+        SettingsSection("按键与自动翻页") {
+            SettingSwitchRow("音量键翻页", settings.volumeKeyPaging, { onChange(settings.copy(volumeKeyPaging = it)) })
+            if (settings.volumeKeyPaging) {
+                SectionDivider()
+                SettingSwitchRow("朗读时音量键仍翻页", settings.volumeKeyPagingDuringTts, { onChange(settings.copy(volumeKeyPagingDuringTts = it)) })
+            }
+            SectionDivider()
+            SettingSliderRow(
+                "自动翻页速度",
+                settings.autoPageSpeed.toFloat(),
+                "${settings.autoPageSpeed} 档",
+                { onChange(settings.copy(autoPageSpeed = it.toInt())) },
+                valueRange = 1f..10f,
+                steps = 8,
+            )
+        }
+    }
+}
+
+@Composable
+private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
+    item {
+        SettingsSection("屏幕显示") {
+            SettingSliderRow("亮度", settings.brightness.toFloat(), "${settings.brightness}%", { onChange(settings.copy(brightness = it.toInt())) }, valueRange = 5f..100f, steps = 18)
+            SectionDivider()
+            SettingSwitchRow("沉浸模式", settings.immersiveMode, { onChange(settings.copy(immersiveMode = it)) })
+            SectionDivider()
+            SettingSwitchRow("显示底部进度条", settings.showProgressBar, { onChange(settings.copy(showProgressBar = it)) })
+            SectionDivider()
+            SettingSwitchRow("屏幕常亮", settings.keepAwake, { onChange(settings.copy(keepAwake = it)) })
+        }
+    }
+    item {
+        SettingsSection("菜单") {
+            SettingSegmentedRow(
+                "自动隐藏",
+                listOf(0 to "不隐藏", 3 to "3 秒", 5 to "5 秒", 8 to "8 秒"),
+                listOf(0, 3, 5, 8).minByOrNull { abs(it - settings.autoHideSeconds) } ?: 0,
+                { onChange(settings.copy(autoHideSeconds = it)) },
+            )
+        }
+    }
+    item {
+        SettingsSection("页眉页脚") {
+            SettingSwitchRow("显示安静阅读信息", settings.showReaderInfo, { onChange(settings.copy(showReaderInfo = it)) })
+            if (settings.showReaderInfo) {
+                SectionDivider()
+                HeaderFooterPicker("页眉左侧", settings.headerLeft) { onChange(settings.copy(headerLeft = it)) }
+                SectionDivider()
+                HeaderFooterPicker("页眉右侧", settings.headerRight) { onChange(settings.copy(headerRight = it)) }
+                SectionDivider()
+                HeaderFooterPicker("页脚左侧", settings.footerLeft) { onChange(settings.copy(footerLeft = it)) }
+                SectionDivider()
+                HeaderFooterPicker("页脚右侧", settings.footerRight) { onChange(settings.copy(footerRight = it)) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun EyeCareSettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
+    item {
+        SettingsSection("护眼滤镜") {
+            SettingSwitchRow("开启护眼滤镜", settings.eyeCareFilterEnabled, { onChange(settings.copy(eyeCareFilterEnabled = it)) })
+            SectionDivider()
+            SettingSwitchRow("夜间自动开启（22:00–07:00）", settings.eyeCareScheduleEnabled, { onChange(settings.copy(eyeCareScheduleEnabled = it)) })
+            if (settings.eyeCareFilterEnabled || settings.eyeCareScheduleEnabled) {
+                SectionDivider()
+                SettingSliderRow("色温", settings.eyeCareTemperature.toFloat(), "${settings.eyeCareTemperature} K", { onChange(settings.copy(eyeCareTemperature = ((it / 100).toInt() * 100))) }, valueRange = 2600f..5500f, steps = 28)
+                SectionDivider()
+                SettingSliderRow("强度", settings.eyeCareIntensity.toFloat(), "${settings.eyeCareIntensity}%", { onChange(settings.copy(eyeCareIntensity = it.toInt())) }, valueRange = 0f..100f, steps = 19)
+            }
+        }
+    }
+    item {
+        SettingsSection("阅读提醒") {
+            SettingSliderRow("护眼提醒", settings.eyeCareReminderMinutes.toFloat(), "${settings.eyeCareReminderMinutes} 分钟", { onChange(settings.copy(eyeCareReminderMinutes = it.toInt())) }, valueRange = 5f..60f, steps = 54)
+            SectionDivider()
+            SettingSwitchRow("阅读节奏提示", settings.readingRhythmReminderEnabled, { onChange(settings.copy(readingRhythmReminderEnabled = it)) }, subtitle = "适时提醒休息眼睛和身体")
+            if (settings.readingRhythmReminderEnabled) {
+                SectionDivider()
+                SettingSliderRow("提示间隔", settings.readingRhythmReminderMinutes.toFloat(), "${settings.readingRhythmReminderMinutes} 分钟", { onChange(settings.copy(readingRhythmReminderMinutes = it.toInt())) }, valueRange = 5f..60f, steps = 54)
+            }
+        }
+    }
+}
+
+@Composable
+private fun AdvancedSettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
+    item {
+        SettingsSection(
+            title = "分页兼容",
+            description = "保持“自动”最稳妥。遇到特定书籍分页异常时，再按格式单独调整。",
+        ) {
+            SettingSegmentedRow("TXT 分页兼容模式", listOf("off" to "关闭", "auto" to "自动", "on" to "强制"), settings.pagerEngineMode, { onChange(settings.copy(pagerEngineMode = it)) })
+            SectionDivider()
+            SettingSegmentedRow("EPUB 分页兼容模式", listOf("off" to "关闭", "auto" to "自动", "on" to "强制"), settings.epubPagerEngineMode, { onChange(settings.copy(epubPagerEngineMode = it)) })
+        }
+    }
+    item {
+        SettingsSection("文字处理") {
+            SettingSwitchRow("中文排版优化", settings.chineseTypography, { onChange(settings.copy(chineseTypography = it)) }, subtitle = "优化中文标点、行首行尾与段落显示")
+        }
+    }
+}
+
+@Composable
+private fun SettingsList(content: androidx.compose.foundation.lazy.LazyListScope.() -> Unit) {
+    val layout = LocalLayoutTokens.current
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = androidx.compose.foundation.layout.PaddingValues(layout.cardPadding),
+        verticalArrangement = Arrangement.spacedBy(layout.contentGap),
+        content = content,
+    )
+}
+
+private fun nearest(value: Float, options: List<Float>): Float = options.minByOrNull { abs(it - value) } ?: options.first()
+
 @OptIn(ExperimentalMaterial3Api::class)
-private fun HeaderFooterDropdown(
+@Composable
+private fun HeaderFooterPicker(
     label: String,
     selected: HeaderFooterItem,
     onSelect: (HeaderFooterItem) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    val options = HeaderFooterItem.entries.toList()
-
+    val layout = LocalLayoutTokens.current
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },
-        modifier = modifier,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
     ) {
         TextField(
             value = selected.label,
             onValueChange = {},
             readOnly = true,
             label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-            textStyle = MaterialTheme.typography.bodySmall,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
+            modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
+            textStyle = MaterialTheme.typography.bodyMedium,
         )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false },
-        ) {
-            options.forEach { item ->
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+            HeaderFooterItem.entries.forEach { item ->
                 DropdownMenuItem(
-                    text = { Text(item.label, style = MaterialTheme.typography.bodySmall) },
+                    text = { Text(item.label) },
                     onClick = {
                         onSelect(item)
                         expanded = false

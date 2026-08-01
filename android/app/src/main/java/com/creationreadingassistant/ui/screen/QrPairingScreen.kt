@@ -167,6 +167,9 @@ fun QrPairingScreen(
                 ) {
                     Text(
                         "将桌面端「同步」面板的二维码放入取景框",
+                        // 相机预览覆盖层：后置相机预览背景是真实场景画面，不跟随应用主题；
+                        // Color.White 在大多数实景下对比度最好，故意脱离主题令牌。
+                        // onInverseSurface 浅色下是灰白 (#E8EAEE)，对比度反而差，不适用。
                         color = Color.White,
                         textAlign = TextAlign.Center,
                         style = MaterialTheme.typography.bodyMedium,
@@ -199,6 +202,7 @@ private fun ImageProxy.toInputImageOrNull(): InputImage? {
 /** 取景框四角括号，对齐 web .qr-corners（四角 L 形亮线）。 */
 @Composable
 private fun QrCorners() {
+    // 同提示文字：相机预览覆盖层，故意脱离主题令牌。
     val lineColor = Color.White
     Canvas(Modifier.size(220.dp)) {
         val w = size.width

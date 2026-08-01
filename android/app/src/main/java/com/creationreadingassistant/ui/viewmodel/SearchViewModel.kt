@@ -11,8 +11,9 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.settings.SearchHistoryStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,6 +39,7 @@ class SearchViewModel @Inject constructor(
     private val noteDao: NoteDao,
     private val highlightDao: HighlightDao,
     private val historyStore: SearchHistoryStore,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val _results = MutableStateFlow(SearchResults())
@@ -58,7 +60,7 @@ class SearchViewModel @Inject constructor(
             delay(300) // debounce
             _loading.value = true
             val query = q.trim()
-            val results = withContext(Dispatchers.IO) {
+            val results = withContext(ioDispatcher) {
                 val b = runCatching { bookDao.search(query) }.getOrDefault(emptyList())
                 val i = runCatching { inspirationDao.search(query) }.getOrDefault(emptyList())
                 val n = runCatching { noteDao.search(query) }.getOrDefault(emptyList())

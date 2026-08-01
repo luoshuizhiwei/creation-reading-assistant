@@ -76,9 +76,9 @@ class TextStreamLoader(
                 sourceFile = file,
             )
         } else {
-            Trace.beginSection("TxtIndexLoad")
             val indexStartNs = SystemClock.elapsedRealtimeNanos()
             val index = try {
+                Trace.beginSection("TxtIndexLoad")
                 TxtFileIndexCache(cacheDir).getOrBuild(file)
             } finally {
                 Trace.endSection()

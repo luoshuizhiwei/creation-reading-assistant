@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
  * 卡片一律 elevation 0 + 发丝线描边，不用阴影。纸是叠放的，不是浮起来的。
  */
 val AppShapes = Shapes(
-    extraSmall = RoundedCornerShape(3.dp),   // 标签、进度条、色块
+    extraSmall = RoundedCornerShape(3.dp),   // 标签、小色块、角标
     small = RoundedCornerShape(6.dp),        // 小按钮、输入框
     medium = RoundedCornerShape(10.dp),      // 列表项、次级卡片
     large = RoundedCornerShape(14.dp),       // 主卡片、书籍封面
@@ -27,3 +27,7 @@ val AppShapes = Shapes(
 
 /** 胶囊形。用于筛选 chip 与圆形按钮，替代散落各处的 RoundedCornerShape(999.dp)。 */
 val PillShape = RoundedCornerShape(percent = 50)
+
+/** 细进度条圆角（比 extraSmall 更小一档）。
+ *  统一取代进度条/滑条 clip 里散落的 `RoundedCornerShape(2.dp)` 字面量。*/
+val ProgressBarShape = RoundedCornerShape(2.dp)

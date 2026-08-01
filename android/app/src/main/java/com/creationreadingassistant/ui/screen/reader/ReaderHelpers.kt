@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -265,7 +265,11 @@ private fun AnnotatedString.Builder.applyInlineStyles(
             SpanStyle(
                 fontFamily = FontFamily.Monospace,
                 fontSize = (fontSize * 0.9).sp,
-                background = Color.LightGray.copy(alpha = 0.2f),
+                // 用 paperFg 叠低 alpha 当代码块底色，跟随 paper palette 变化；
+                // 不用 Color.LightGray（固定 #D3D3D3 在夜读纸上叠 alpha 会显灰白浑浊），
+                // 也不用 surfaceVariant（主题层，与阅读器 paper 解耦后会错位）。
+                // alpha 比 LightGray 版降低：paperFg 比 LightGray 深约 2.5 倍，需降 alpha 保持视觉平衡。
+                background = paperFg.copy(alpha = 0.08f),
             ),
             start,
             end,
@@ -372,10 +376,11 @@ private fun RenderMarkdownBlock(
             )
         }
         is MarkdownBlock.FencedCodeBlock -> {
+            // 代码块底色同上：paperFg.copy(alpha) 跟随纸色，避免 LightGray 在夜读纸上浑浊。
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.LightGray.copy(alpha = 0.15f))
+                    .background(paperFg.copy(alpha = 0.06f))
                     .padding(8.dp)
                     .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(block.content, gOff) } else Modifier),
             ) {
@@ -393,7 +398,7 @@ private fun RenderMarkdownBlock(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color.LightGray.copy(alpha = 0.15f))
+                    .background(paperFg.copy(alpha = 0.06f))
                     .padding(8.dp)
                     .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(block.content, gOff) } else Modifier),
             ) {
@@ -408,7 +413,7 @@ private fun RenderMarkdownBlock(
             }
         }
         is MarkdownBlock.HorizontalRule -> {
-            Divider(
+            HorizontalDivider(
                 color = paperFg.copy(alpha = 0.3f),
                 modifier = Modifier.padding(vertical = 8.dp),
             )
@@ -466,7 +471,7 @@ private fun RenderMarkdownBlock(
                             TableCellContent(cell, fontSize, lineHeight, paperFg, bold = true)
                         }
                     }
-                    Divider(color = paperFg.copy(alpha = 0.3f))
+                    HorizontalDivider(color = paperFg.copy(alpha = 0.3f))
                 }
                 // 数据行
                 block.rows.forEach { row ->
@@ -475,7 +480,7 @@ private fun RenderMarkdownBlock(
                             TableCellContent(cell, fontSize, lineHeight, paperFg, bold = false)
                         }
                     }
-                    Divider(color = paperFg.copy(alpha = 0.12f))
+                    HorizontalDivider(color = paperFg.copy(alpha = 0.12f))
                 }
             }
         }

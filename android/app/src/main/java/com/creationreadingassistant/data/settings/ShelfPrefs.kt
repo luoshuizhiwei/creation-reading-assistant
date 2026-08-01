@@ -4,10 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
@@ -27,9 +26,9 @@ private val KEY_SORT_MODE = stringPreferencesKey("shelf_sort_mode") // "recent" 
 @Singleton
 class ShelfPrefs @Inject constructor(
     @ApplicationContext context: Context,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val ds = context.shelfPrefsDataStore
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val viewMode: StateFlow<String> = ds.data.map { it[KEY_VIEW_MODE] ?: "grid" }
         .stateIn(scope, SharingStarted.WhileSubscribed(5000), "grid")

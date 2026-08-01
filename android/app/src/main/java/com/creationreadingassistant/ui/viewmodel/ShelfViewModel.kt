@@ -37,8 +37,11 @@ import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.library.SafBookSourceScanner
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
@@ -50,7 +53,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -80,6 +82,8 @@ class ShelfViewModel @Inject constructor(
     private val epubRepository: EpubRepository,
     private val importHistoryStore: ImportHistoryStore,
     private val shelfPrefs: ShelfPrefs,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     val books: StateFlow<List<BookEntity>> = repository.observeBooks()
@@ -98,14 +102,14 @@ class ShelfViewModel @Inject constructor(
         repository.observeProgress()
             .map { list -> list.associateBy { it.book_id } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val sessionsByBook: StateFlow<Map<String, List<ReadingSessionEntity>>> =
         repository.observeSessions()
             .map { list -> list.groupBy { it.book_id } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** 笔记（书签/笔记）按 bookId 分组，供详情区块展示。 */
@@ -113,7 +117,7 @@ class ShelfViewModel @Inject constructor(
         repository.observeNotes()
             .map { list -> list.groupBy { it.book_id ?: "" } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** 高亮/标注按 bookId 分组，供详情区块展示。 */
@@ -121,7 +125,7 @@ class ShelfViewModel @Inject constructor(
         repository.observeHighlights()
             .map { list -> list.groupBy { it.book_id } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     /** 灵感按 source_book_id 分组，供详情区块展示。 */
@@ -129,7 +133,7 @@ class ShelfViewModel @Inject constructor(
         repository.observeInspirations()
             .map { list -> list.groupBy { it.source_book_id ?: "" } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     // ===== 书架视图 / 排序偏好（持久化，对齐网页 localStorage）=====
@@ -154,7 +158,7 @@ class ShelfViewModel @Inject constructor(
             Trace.endSection()
         }
     }
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .distinctUntilChanged()
 
     /**
@@ -169,7 +173,7 @@ class ShelfViewModel @Inject constructor(
         .mapLatest { (projected, sortMode) ->
             Trace.beginSection("ShelfListPublish")
             try {
-                withContext(Dispatchers.Default) {
+                withContext(defaultDispatcher) {
                     Trace.beginSection("ShelfSort")
                     try {
                         ShelfBookSorter.sort(projected, sortMode)
@@ -181,7 +185,7 @@ class ShelfViewModel @Inject constructor(
                 Trace.endSection()
             }
         }
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .distinctUntilChanged()
         .stateIn(
             scope = viewModelScope,
@@ -202,7 +206,7 @@ class ShelfViewModel @Inject constructor(
                 android.util.Log.e("ShelfVM", "Init seed failed", e)
             }
         }
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             try {
                 epubRepository.repairMissingLocalFileSizes()
             } catch (e: Throwable) {
@@ -360,7 +364,7 @@ class ShelfViewModel @Inject constructor(
             .sortedByDescending { it.createdAt }
             .take(50)
         return try {
-            val metadata = withContext(Dispatchers.IO) {
+            val metadata = withContext(ioDispatcher) {
                 val fileName = uriFileName(uri)
                 val rawFormat = fileName.substringAfterLast('.', "").lowercase()
                 val format = if (rawFormat == "markdown") "md" else rawFormat
@@ -396,7 +400,7 @@ class ShelfViewModel @Inject constructor(
                 return ImportOutcome.Duplicate
             }
 
-            val resolved = withContext(Dispatchers.IO) {
+            val resolved = withContext(ioDispatcher) {
                 val book = when (metadata.format) {
                     "epub" -> importEpub(uri, taskId)
                     "txt", "md" -> importPlainText(uri, taskId, metadata.format)
@@ -669,7 +673,7 @@ class ShelfViewModel @Inject constructor(
 
     // ===== 重新选择文件（修复缺失正文）=====
     fun reselectFile(bookId: String, uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val existing = withContext(Dispatchers.IO) { bookDao.getById(bookId) }
+        val existing = withContext(ioDispatcher) { bookDao.getById(bookId) }
         if (existing == null) {
             onResult("书籍记录不存在")
             return@launch
@@ -680,7 +684,7 @@ class ShelfViewModel @Inject constructor(
             .take(50)
         try {
             // uriFileName / uriSize / 解析 / 读文件 全部属于 I/O，必须切到 IO 线程
-            val resolved = withContext(Dispatchers.IO) {
+            val resolved = withContext(ioDispatcher) {
                 val fileName = uriFileName(uri)
                 val format = normalizedFormat(fileName)
                 val expectedFormat = normalizedFormat(existing.original_file_name ?: "book.${existing.format}")
@@ -884,7 +888,7 @@ class ShelfViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -902,7 +906,7 @@ class ShelfViewModel @Inject constructor(
         viewModelScope.launch {
             _isRefreshing.value = true
             runCatching {
-                withContext(Dispatchers.IO) {
+                withContext(ioDispatcher) {
                     repository.observeBooks().first()
                     repository.observeProgress().first()
                 }

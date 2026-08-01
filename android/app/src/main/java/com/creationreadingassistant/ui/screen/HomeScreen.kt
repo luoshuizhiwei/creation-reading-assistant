@@ -23,9 +23,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,6 +35,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -78,9 +77,11 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 import kotlin.math.roundToInt
+import com.creationreadingassistant.ui.util.bookNotReadyLabel
+import com.creationreadingassistant.ui.util.hasBookBeenRead
+import com.creationreadingassistant.ui.util.isBookDisplayable
+import com.creationreadingassistant.ui.util.formatBookProgressForCard
 
 /**
  * 首页（对齐 mobile/ HomePage）：阅读概览双卡 + 继续阅读横滑 + 统计网格
@@ -105,13 +106,11 @@ fun HomeScreen(
     val progressById = uiState.progressById
     val sessions = uiState.sessionsByBook
     val removedContinueIds = uiState.removedContinueIds
-    val totalReadBooksCount = uiState.totalReadBooksCount
     val thisWeekNew = uiState.thisWeekNew
     val readingCount = uiState.readingCount
     val completedBooks = uiState.completedBooks
     val continueBooks = uiState.continueBooks
     val recentInspirations = uiState.recentInspirations
-    val totalMs = uiState.totalReadingMs
     val todayMs = uiState.todayReadingMs
 
     val snackbarHostState = remember { SnackbarHostState() }
@@ -148,6 +147,10 @@ fun HomeScreen(
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_open_search))
                     }
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -168,55 +171,7 @@ fun HomeScreen(
                     ListSkeleton(modifier = Modifier.fillMaxWidth(), count = 5, reducedMotion = reducedMotion)
                 }
             } else {
-            // 阅读概览（去卡片化：无边框 Row，两项间 1dp 发丝线分隔，与"阅读统计"区风格一致；不套 Card / 不 surfaceVariant 底 / 不描边）
-            item(key = "overview") {
-            Row(
-                modifier = Modifier.fillMaxWidth().animateEnter(0, reducedMotion),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { navController.navigate("shelf") }
-                        .padding(10.dp, 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.Book,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        rememberCountUp(totalReadBooksCount, reducedMotion).toString() + " 本",
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(stringResource(R.string.home_books), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-                Column(
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { navController.navigate("stats") }
-                        .padding(10.dp, 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(2.dp),
-                ) {
-                    Icon(
-                        Icons.Filled.Schedule,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.outline,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        formatDuration(rememberCountUp((totalMs / 60000).toInt(), reducedMotion).toLong() * 60000L),
-                        style = MaterialTheme.typography.titleMedium,
-                    )
-                    Text(stringResource(R.string.home_duration), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
-            }
-
-            // 继续阅读（唯一主卡片：消费 SectionCard，沿用 §3 容器规则）
+            // 首要任务：继续阅读。概览数据并入后面的单一指标组，避免首屏重复。
             item(key = "continue-header") {
             SectionHeader(
                 title = stringResource(R.string.home_continue),
@@ -249,10 +204,10 @@ fun HomeScreen(
             }
             }
 
-            // 阅读统计（去卡片化：仅颜色 / 排版 / 间距 Token，区块间用 1dp 发丝线分隔）
+            // 本周概览（单一指标组）
             item(key = "stats-title") {
             Text(
-                "阅读统计",
+                "本周概览",
                 style = MaterialTheme.typography.headlineSmall,
                 modifier = Modifier.animateEnter(120, reducedMotion),
             )
@@ -272,7 +227,7 @@ fun HomeScreen(
             }
             }
 
-            // 最近灵感（去卡片化：留白 + 短横线墨线装饰，不套卡片）
+            // 最近灵感：编辑式文本列表，不套卡片或额外装饰线。
             item(key = "inspiration-header") {
             SectionHeader(
                 title = stringResource(R.string.home_recent_inspiration),
@@ -285,17 +240,8 @@ fun HomeScreen(
             )
             }
             if (recentInspirations.isEmpty()) {
-                // 无容器空态：仅留白 + 短墨线 + 提示文字（与有数据时的装饰一致），
-                // 不套 Card / Surface / 边框 / 阴影 / 有色背景。
                 item(key = "inspiration-empty") {
                 Column(Modifier.fillMaxWidth().animateEnter(180, reducedMotion)) {
-                    Box(
-                        Modifier
-                            .width(24.dp)
-                            .height(1.dp)
-                            .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(1.dp)),
-                    )
-                    Spacer(Modifier.height(6.dp))
                     Text(
                         "还没有灵感，阅读时选中文字即可保存为灵感。",
                         style = MaterialTheme.typography.bodySmall,
@@ -306,19 +252,13 @@ fun HomeScreen(
                 }
             } else {
                 items(recentInspirations, key = { "inspiration-${it.id}" }) { insp ->
-                        // 去卡片化：仅留白 + 一条短横线墨线（品牌笔触），点击打开该条灵感详情
+                        // 点击标题打开该条灵感详情。
                         Column(
                             Modifier
                                 .fillMaxWidth()
-                                .animateEnter(180, reducedMotion),
+                                .animateEnter(180, reducedMotion)
+                                .padding(bottom = 12.dp),
                         ) {
-                            Box(
-                                Modifier
-                                    .width(24.dp)
-                                    .height(1.dp)
-                                    .background(MaterialTheme.colorScheme.onSurface, RoundedCornerShape(1.dp)),
-                            )
-                            Spacer(Modifier.height(6.dp))
                             Text(
                                 insp.title.ifBlank { "无标题灵感" },
                                 style = MaterialTheme.typography.bodyMedium,
@@ -551,54 +491,8 @@ private fun formatCompactDuration(ms: Long): String {
     return if (h > 0) "${h}h ${m}m" else "${m} 分钟"
 }
 
-private fun epochDayOf(iso: String?): Long {
-    if (iso.isNullOrBlank()) return -1
-    return runCatching { Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay() }.getOrElse { -1 }
-}
-
-private fun formatBookProgressForCard(progress: Float): String {
-    val normalized = progress.coerceIn(0f, 100f)
-    return when {
-        normalized <= 0.05f -> "未读"
-        normalized >= 99.5f -> "已读完"
-        normalized >= 10f -> "${normalized.toInt()}%"
-        else -> "${"%.1f".format(normalized)}%"
-    }
-}
-
-private fun isBookDisplayable(book: BookEntity): Boolean {
-    if (book.deleted_at != null) return false
-    return when (book.content_status) {
-        "failed", "missing", "downloading" -> false
-        else -> book.size > 0 && (book.local_content_path != null || book.local_uri != null || book.content_hash != null)
-    }
-}
-
-/**
- * H2：对齐网页 getBookReadiness。返回未就绪时的中文提示文案；若已就绪（可离线打开）则返回 null。
- */
-private fun bookNotReadyLabel(book: BookEntity): String? {
-    if (book.deleted_at != null) return "正文未在本机"
-    return when (book.content_status) {
-        "failed" -> "正文保存失败"
-        "missing" -> "正文未在本机"
-        "downloading" -> "正文下载中"
-        else -> {
-            val readable = book.size > 0 &&
-                (book.local_content_path != null || book.local_uri != null || book.content_hash != null)
-            if (!readable) "需下载正文" else null
-        }
-    }
-}
-
-private fun hasBookBeenRead(
-    book: BookEntity,
-    progress: ReadingProgressEntity?,
-    sessions: List<com.creationreadingassistant.data.local.entity.ReadingSessionEntity>?,
-): Boolean {
-    if ((progress?.progress_percent ?: 0f) > 0f) return true
-    return sessions?.any { it.book_id == book.id } == true
-}
+// epochDayOf / formatBookProgressForCard / isBookDisplayable / bookNotReadyLabel / hasBookBeenRead
+// 已抽到 ui/util/BookReadiness.kt（含 epochDayOf 死代码删除——HomeViewModel 有自己的 L152 私有版）。
 
 private fun buildContinueBooks(
     books: List<BookEntity>,

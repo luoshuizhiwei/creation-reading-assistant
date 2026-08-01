@@ -42,15 +42,7 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.core.tween
-import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -71,7 +63,6 @@ internal fun NotesSheet(
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
     var noteDraft by remember { mutableStateOf("") }
-    val reducedMotion = rememberReducedMotion()
 
     if (editingNote != null) {
         GlassAlertDialog(
@@ -95,25 +86,19 @@ internal fun NotesSheet(
         )
     }
 
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            Text("笔记与标注", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+    ReaderSheetScaffold(
+        title = "笔记与标注",
+        trailing = {
             if (highlights.isNotEmpty()) {
-                TextButton(onClick = onExportHighlights) { Text("导出书摘") }
+                TextButton(onClick = onExportHighlights) { Text("导出") }
             }
-            Button(onClick = onAddBookmark) { Text("添加书签") }
-        }
-
-        AnimatedVisibility(
-            visible = true,
-            enter = if (reducedMotion) {
-                EnterTransition.None
-            } else {
-                fadeIn(tween(durationMillis = 220)) + slideInVertically(initialOffsetY = { it / 10 })
-            },
-            exit = ExitTransition.None,
-        ) {
-        LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(top = 8.dp)) {
+        },
+    ) {
+        Button(
+            onClick = onAddBookmark,
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+        ) { Text("添加当前位置书签") }
+        LazyColumn(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp)) {
             if (highlights.isNotEmpty()) {
                 val grouped = highlights.groupBy { it.chapter_title ?: "" }.toSortedMap()
                 grouped.forEach { (chapter, items) ->
@@ -124,7 +109,7 @@ internal fun NotesSheet(
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }
-                    items(items) { h ->
+                    items(items, key = { it.id }) { h ->
                         SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                             Column(Modifier.fillMaxWidth()) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -169,7 +154,7 @@ internal fun NotesSheet(
             }
             if (notes.isNotEmpty()) {
                 item { Text("笔记 / 书签", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(notes) { n ->
+                items(notes, key = { it.id }) { n ->
                     SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Row(
                             Modifier.fillMaxWidth(),
@@ -191,7 +176,7 @@ internal fun NotesSheet(
             }
             if (inspirations.isNotEmpty()) {
                 item { Text("灵感记录", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(inspirations) { ins ->
+                items(inspirations, key = { it.id }) { ins ->
                     SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Lightbulb, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
@@ -206,7 +191,6 @@ internal fun NotesSheet(
             if (highlights.isEmpty() && notes.isEmpty() && inspirations.isEmpty()) {
                 item { Text("还没有笔记、标注或灵感。选中正文即可高亮、存笔记或记为灵感。", color = MaterialTheme.colorScheme.outline) }
             }
-        }
         }
     }
 }

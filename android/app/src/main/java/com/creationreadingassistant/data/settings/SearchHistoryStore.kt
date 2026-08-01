@@ -4,10 +4,9 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -38,9 +37,9 @@ private data class SearchHistoryPayload(val items: List<String>)
 @Singleton
 class SearchHistoryStore @Inject constructor(
     @ApplicationContext context: Context,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val ds = context.searchHistoryDataStore
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
     private val _history = MutableStateFlow<List<String>>(emptyList())
 

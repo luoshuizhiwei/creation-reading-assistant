@@ -1,13 +1,11 @@
 package com.creationreadingassistant.ui.screen.reader.tts
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
@@ -21,7 +19,6 @@ import androidx.compose.material.icons.filled.SkipNext
 import androidx.compose.material.icons.filled.SkipPrevious
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,10 +43,12 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
+import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.screen.reader.sheets.ReaderSheetScaffold
 
 @Composable
 internal fun rememberTts(): TtsController {
@@ -90,7 +89,7 @@ internal fun TtsBar(
     onClose: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
-    val speeds = listOf(0.5f, 0.75f, 1f, 1.25f, 1.5f, 2f)
+    val speeds = listOf(0.75f, 1f, 1.25f, 1.5f)
     var showSettings by remember { mutableStateOf(false) }
     Column(
         Modifier
@@ -147,26 +146,13 @@ internal fun TtsBar(
                 Icon(Icons.Filled.Stop, contentDescription = "停止")
             }
         }
-        Row(
-            Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
-                .padding(top = layout.microGap),
-            horizontalArrangement = Arrangement.spacedBy(layout.microGap),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text("语速", style = MaterialTheme.typography.labelSmall)
-            speeds.forEach { s ->
-                Button(
-                    onClick = { tts.rate = s },
-                    modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
-                    contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp),
-                    colors = if (tts.rate == s) ButtonDefaults.filledTonalButtonColors() else ButtonDefaults.textButtonColors(),
-                ) {
-                    Text("${s}x", style = MaterialTheme.typography.labelSmall)
-                }
-            }
-        }
+        SettingSegmentedRow(
+            title = "语速",
+            options = speeds.map { it to "${it}x" },
+            selected = speeds.minByOrNull { kotlin.math.abs(it - tts.rate) } ?: 1f,
+            onSelect = { tts.rate = it },
+            modifier = Modifier.padding(top = layout.microGap),
+        )
     }
     if (showSettings) {
         GlassModalBottomSheet(
@@ -193,21 +179,22 @@ internal fun TtsSettingsContent(
     onClose: () -> Unit,
 ) {
     fun persist() = onPersistTts(tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes)
-    Column(
-        Modifier
-            .fillMaxWidth()
-            .verticalScroll(rememberScrollState())
-            .padding(LocalLayoutTokens.current.cardPadding),
-    ) {
-        Text("朗读设置", style = MaterialTheme.typography.titleMedium)
+    ReaderSheetScaffold(title = "朗读设置") {
+      Column(
+          Modifier
+              .fillMaxWidth()
+              .weight(1f)
+              .verticalScroll(rememberScrollState())
+              .padding(LocalLayoutTokens.current.cardPadding),
+      ) {
         Text(
-            "说明：原生仅支持设备本地 TTS 引擎，暂不支持联网云端音色（web 端的 online 引擎）。",
+            "使用设备内置的朗读声音。可在系统文字转语音设置中安装或切换声音。",
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.outline,
             modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
         )
 
-        SettingLabel("音调（Pitch）")
+        SettingLabel("音调")
         Slider(
             value = tts.pitch,
             onValueChange = { tts.updatePitch(it) },
@@ -217,7 +204,7 @@ internal fun TtsSettingsContent(
         )
         Text("${"%.2f".format(tts.pitch)}x", style = MaterialTheme.typography.bodySmall)
 
-        SettingLabel("音量（Volume）")
+        SettingLabel("音量")
         Slider(
             value = tts.volume,
             onValueChange = { tts.updateVolume(it) },
@@ -231,7 +218,7 @@ internal fun TtsSettingsContent(
             .filter { it.locale.language == "zh" }
             .ifEmpty { tts.availableVoices }
         var voiceMenu by remember { mutableStateOf(false) }
-        SettingLabel("音色（Voice）")
+        SettingLabel("声音")
         OutlinedButton(onClick = { voiceMenu = true }, modifier = Modifier.fillMaxWidth()) {
             Text(
                 voices.firstOrNull { it.name == tts.voiceId }
@@ -278,6 +265,7 @@ internal fun TtsSettingsContent(
         Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
             Text("完成")
         }
+      }
     }
 }
 

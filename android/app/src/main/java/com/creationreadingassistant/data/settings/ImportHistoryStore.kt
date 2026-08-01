@@ -4,11 +4,10 @@ import android.content.Context
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import com.creationreadingassistant.data.local.entity.BookEntity
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
@@ -49,9 +48,9 @@ data class ImportHistoryEntry(
 @Singleton
 class ImportHistoryStore @Inject constructor(
     @ApplicationContext context: Context,
+    @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val ds = context.importHistoryDataStore
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
     val entries: StateFlow<List<ImportHistoryEntry>> = ds.data.map { prefs ->
         val raw = prefs[KEY_HISTORY] ?: "[]"

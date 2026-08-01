@@ -32,7 +32,6 @@ import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
@@ -73,8 +72,8 @@ internal fun AiExplainSheet(
         }
     }
 
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
-        Text("AI 解读", style = MaterialTheme.typography.titleLarge)
+    ReaderSheetScaffold(title = "AI 解读") {
+      Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         if (selectedText.isNotBlank()) {
             SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                 Text("来源摘录：$selectedText")
@@ -139,8 +138,12 @@ internal fun AiExplainSheet(
                 }) { Text("添加") }
             }
             Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { haptic(HapticFeedbackType.LongPress); onSaveInspiration(result, selectedTagNames, selectedCategoryIds) }) { Text("存入灵感") }
+                Button(
+                    onClick = { haptic(HapticFeedbackType.LongPress); onSaveInspiration(result, selectedTagNames, selectedCategoryIds) },
+                    modifier = Modifier.fillMaxWidth(),
+                ) { Text("存入灵感") }
             }
         }
+      }
     }
 }

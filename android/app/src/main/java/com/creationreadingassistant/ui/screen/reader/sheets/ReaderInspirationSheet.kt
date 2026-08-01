@@ -27,7 +27,6 @@ import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -55,13 +54,13 @@ internal fun InspirationSheet(
     // G 档：分类/标签 chips 离散选择加轻触感
     val haptic = rememberHaptic(rememberReducedMotion())
 
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
-        Text("记录灵感", style = MaterialTheme.typography.titleLarge)
+    ReaderSheetScaffold(title = "记录灵感") {
+      Column(Modifier.fillMaxWidth().weight(1f).padding(horizontal = 16.dp).verticalScroll(rememberScrollState())) {
         OutlinedTextField(
             value = title,
             onValueChange = { title = it },
             label = { Text("标题") },
-            modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         )
         OutlinedTextField(
             value = body,
@@ -127,7 +126,13 @@ internal fun InspirationSheet(
             modifier = Modifier.padding(top = 8.dp),
         )
         Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(enabled = canSave, onClick = { haptic(HapticFeedbackType.LongPress); onSave(title.trim(), body.trim(), selectedTagNames, selectedCategoryIds) }) { Text("保存灵感") }
+            Button(
+                enabled = canSave,
+                onClick = { haptic(HapticFeedbackType.LongPress); onSave(title.trim(), body.trim(), selectedTagNames, selectedCategoryIds) },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text("保存灵感") }
         }
+        androidx.compose.foundation.layout.Spacer(Modifier.padding(bottom = 16.dp))
+      }
     }
 }

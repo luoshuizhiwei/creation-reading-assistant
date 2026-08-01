@@ -1,7 +1,8 @@
 package com.creationreadingassistant.data.ai
 
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.settings.SettingsStore
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -21,6 +22,7 @@ import javax.inject.Singleton
 @Singleton
 class AiClient @Inject constructor(
     private val settings: SettingsStore,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     private val client = OkHttpClient.Builder()
@@ -47,7 +49,7 @@ class AiClient @Inject constructor(
     data class ChatResponse(val choices: List<Choice>)
 
     /** 通用对话：发送提示词 + 系统指令，返回助手回答。 */
-    suspend fun chat(systemPrompt: String, userPrompt: String): Result<String> = withContext(Dispatchers.IO) {
+    suspend fun chat(systemPrompt: String, userPrompt: String): Result<String> = withContext(ioDispatcher) {
         runCatching {
             val ai = settings.ai.value
             if (!ai.enabled) error("AI 未启用，请在「我的 → AI 设置」中开启。")

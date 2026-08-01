@@ -10,16 +10,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -28,11 +30,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.theme.CardContainer
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.ProgressBarShape
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -206,7 +211,7 @@ fun SheetHandle(
             Modifier
                 .width(40.dp)
                 .height(4.dp)
-                .clip(RoundedCornerShape(2.dp))
+                .clip(ProgressBarShape)
                 .background(scheme.outline),
         )
     }
@@ -323,5 +328,72 @@ fun EmptyStateHint(
             style = MaterialTheme.typography.bodySmall,
             color = scheme.onSurfaceVariant,
         )
+    }
+}
+
+/**
+ * 统一「全幅空状态」（大图标 + 标题 + 描述 + CTA 按钮）。
+ *
+ * 取代 ShelfScreen / InspirationScreen / StatsScreen 里**结构高度相似但各自手写**的
+ * 3 套 EmptyState。图标与文案按场景传入，统一入场错落、间距节奏与按钮顺序。
+ *
+ * @param icon 顶部图标区块（通常 `Box {...}` 或 `Row {...}`）；大小由调用方控制以便按页面调整
+ * @param title 标题（typography.titleMedium）
+ * @param body 正文描述（typography.bodySmall，onSurfaceVariant，居中）
+ * @param primaryAction 主行动「实线按钮」（Filled Button，放在 Button Row 的 trailing 端）
+ * @param secondaryAction 次行动「描边按钮」（OutlinedButton，放在 Button Row 的 leading 端；为空则只渲染主按钮）
+ */
+@Composable
+fun FullEmptyState(
+    icon: @Composable () -> Unit,
+    title: String,
+    body: String,
+    primaryAction: Pair<String, () -> Unit>? = null,
+    secondaryAction: Pair<String, () -> Unit>? = null,
+    contentPadding: Dp? = null,
+    modifier: Modifier = Modifier,
+) {
+    val layout = LocalLayoutTokens.current
+    val pad = contentPadding ?: layout.sectionGap
+    val reducedMotion = rememberReducedMotion()
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .animateEnter(reducedMotion = reducedMotion)
+            .padding(pad),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        icon()
+        Spacer(Modifier.height(layout.contentGap))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.titleMedium,
+        )
+        Spacer(Modifier.height(layout.relatedGap))
+        Text(
+            text = body,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            textAlign = TextAlign.Center,
+        )
+        if (primaryAction != null || secondaryAction != null) {
+            Spacer(Modifier.height(layout.cardPadding))
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (secondaryAction != null) {
+                    OutlinedButton(onClick = secondaryAction.second) {
+                        Text(secondaryAction.first)
+                    }
+                }
+                if (primaryAction != null) {
+                    Button(onClick = primaryAction.second) {
+                        Text(primaryAction.first)
+                    }
+                }
+            }
+        }
     }
 }

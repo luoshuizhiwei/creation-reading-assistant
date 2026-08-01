@@ -1,14 +1,12 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.MaterialTheme
@@ -22,7 +20,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassAlertDialog
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.formatDuration
 
 @Composable
@@ -51,35 +48,44 @@ internal fun BookInfoSheet(
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } },
         )
     }
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).verticalScroll(rememberScrollState())) {
-        Text("书籍信息", style = MaterialTheme.typography.titleLarge)
-        Text(bookTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 8.dp))
-        Text(
-            "${bookAuthor ?: "作者未知"} · ${bookFormat.uppercase()}",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-        )
-        Spacer(Modifier.height(12.dp))
-        Text("阅读统计", style = MaterialTheme.typography.titleSmall)
-        Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
-            StatCell("本次已读", formatDuration(activeReadingMs))
-            StatCell("累计阅读", formatDuration(savedReadingMs))
-            StatCell("阅读次数", "$sessionsCount")
-            StatCell("进度", "${progressPercent.toInt()}%")
+    ReaderSheetScaffold(title = "书籍信息") {
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth().weight(1f),
+            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 16.dp),
+        ) {
+            item {
+                Text(bookTitle, style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+                Text(
+                    "${bookAuthor ?: "作者未知"} · ${bookFormat.uppercase()}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+                Spacer(Modifier.height(16.dp))
+                Text("阅读统计", style = MaterialTheme.typography.titleSmall)
+                Row(Modifier.fillMaxWidth().padding(top = 8.dp), horizontalArrangement = Arrangement.SpaceEvenly) {
+                    StatCell("本次已读", formatDuration(activeReadingMs))
+                    StatCell("累计阅读", formatDuration(savedReadingMs))
+                    StatCell("阅读次数", "$sessionsCount")
+                    StatCell("进度", "${progressPercent.toInt()}%")
+                }
+                Spacer(Modifier.height(16.dp))
+                Text("正文信息", style = MaterialTheme.typography.titleSmall)
+                InfoRow("章节数", "$chapterCount 章")
+                InfoRow("总字数", "${wordCount} 字")
+                InfoRow("当前章节", currentChapterTitle.ifBlank { "正文" })
+                InfoRow("来源文件", sourceFile ?: "本地导入")
+                Spacer(Modifier.height(16.dp))
+                Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) { Text("阅读设置") }
+                Spacer(Modifier.height(24.dp))
+                Text("危险操作", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.error)
+                Spacer(Modifier.height(8.dp))
+                Button(
+                    onClick = { confirmDelete = true },
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text("删除本书") }
+                Spacer(Modifier.height(16.dp))
+            }
         }
-        Spacer(Modifier.height(12.dp))
-        Text("正文信息", style = MaterialTheme.typography.titleSmall)
-        InfoRow("章节数", "$chapterCount 章")
-        InfoRow("总字数", "${wordCount} 字")
-        InfoRow("当前章节", currentChapterTitle.ifBlank { "正文" })
-        InfoRow("来源文件", sourceFile ?: "本地导入")
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onOpenSettings, modifier = Modifier.fillMaxWidth()) { Text("阅读设置") }
-        Spacer(Modifier.height(8.dp))
-        Button(
-            onClick = { confirmDelete = true },
-            modifier = Modifier.fillMaxWidth(),
-            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
-        ) { Text("删除本书") }
     }
 }

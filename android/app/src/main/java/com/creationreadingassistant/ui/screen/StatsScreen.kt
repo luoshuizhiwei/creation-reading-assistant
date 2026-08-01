@@ -46,6 +46,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -60,9 +61,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -174,6 +177,10 @@ fun StatsScreen(
                         style = MaterialTheme.typography.headlineLarge,
                     )
                 },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface,
+                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
+                ),
             )
         },
     ) { padding ->
@@ -213,7 +220,25 @@ fun StatsScreen(
 
             if (showGlobalEmpty) {
                 // 9. 全局空状态
-                item(key = "global-empty") { GlobalEmptyState(onGoToShelf) }
+                item(key = "global-empty") {
+                    FullEmptyState(
+                        icon = {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.AutoMirrored.Filled.LibraryBooks,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(48.dp),
+                                )
+                                LineArtBook(modifier = Modifier.size(72.dp))
+                            }
+                        },
+                        title = "还没有阅读记录",
+                        body = "开始阅读后，这里会展示你的阅读时长、书籍和天数统计。",
+                        contentPadding = 24.dp,
+                        primaryAction = "前往书架" to onGoToShelf,
+                    )
+                }
             } else {
                 item(key = "summary") {
                 SummaryMetricGroup(
@@ -223,42 +248,10 @@ fun StatsScreen(
                         SummaryMetric(Icons.Filled.CalendarMonth, ui.readingDays, { "$it 天" }, "阅读天数"),
                         SummaryMetric(Icons.Filled.Book, ui.readBooks, { "$it 本" }, "读过书籍"),
                         SummaryMetric(Icons.Filled.CheckCircle, ui.completed, { "$it 本" }, "已读完"),
+                        SummaryMetric(Icons.Filled.BarChart, ui.streakCurrent, { "$it 天" }, "当前连续"),
+                        SummaryMetric(Icons.Filled.CalendarMonth, ui.streakLongest, { "$it 天" }, "最长连续"),
                     ),
                 )
-                }
-
-                // 5. 连续阅读卡片
-                item(key = "streak") {
-                SectionCard(modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
-                    Row(
-                        modifier = Modifier,
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    ) {
-                        StreakItem(
-                            icon = Icons.Filled.BarChart,
-                            value = ui.streakCurrent,
-                            label = "当前连续（天）",
-                            active = ui.streakCurrent > 0,
-                            modifier = Modifier.weight(1f),
-                            reducedMotion = reducedMotion,
-                        )
-                        Box(
-                            modifier = Modifier
-                                .width(1.dp)
-                                .height(36.dp)
-                                .background(MaterialTheme.colorScheme.outlineVariant),
-                        )
-                        StreakItem(
-                            icon = Icons.Filled.CalendarMonth,
-                            value = ui.streakLongest,
-                            label = "最长连续（天）",
-                            active = ui.streakLongest > 0,
-                            modifier = Modifier.weight(1f),
-                            reducedMotion = reducedMotion,
-                        )
-                    }
-                }
                 }
 
                 // 6. 阅读趋势卡片
@@ -564,7 +557,7 @@ private fun StatusBar(label: String, count: Int, total: Int, color: Color) {
             modifier = Modifier
                 .weight(1f)
                 .height(6.dp)
-                .clip(RoundedCornerShape(999.dp))
+                .clip(PillShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest),
         ) {
             Box(
@@ -579,32 +572,12 @@ private fun StatusBar(label: String, count: Int, total: Int, color: Color) {
     }
 }
 
-@Composable
-private fun GlobalEmptyState(onGoToShelf: () -> Unit) {
-    Column(
-        modifier = Modifier.fillMaxWidth().padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Icon(Icons.AutoMirrored.Filled.LibraryBooks, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(48.dp))
-        LineArtBook(modifier = Modifier.size(72.dp))
-        Text("还没有阅读记录", style = MaterialTheme.typography.titleMedium)
-        Text(
-            "开始阅读后，这里会展示你的阅读时长、书籍和天数统计。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-        Button(onClick = onGoToShelf) { Text("前往书架") }
-    }
-}
-
 // ===================== 计算逻辑（复刻 statistics-helpers.ts） =====================
 
 private fun today(): LocalDate = LocalDate.now()
 
 private fun toDateKey(d: LocalDate): String =
-    String.format("%04d-%02d-%02d", d.year, d.monthValue, d.dayOfMonth)
+    String.format(Locale.ROOT, "%04d-%02d-%02d", d.year, d.monthValue, d.dayOfMonth)
 
 private fun parseDate(iso: String?): LocalDate? {
     if (iso.isNullOrBlank()) return null
@@ -872,7 +845,7 @@ private fun fillMonthly(valid: List<StatsSessionRow>, range: Pair<LocalDate, Loc
     for (s in valid) {
         val d = parseDate(s.occurred_at) ?: continue
         if (d.isBefore(range.first) || !d.isBefore(range.second)) continue
-        val key = "${d.year}-${String.format("%02d", d.monthValue)}"
+        val key = "${d.year}-${String.format(Locale.ROOT, "%02d", d.monthValue)}"
         val dur = sessionDuration(s)
         val b = buckets[key]
         buckets[key] = if (b == null) dur to 1 else (b.first + dur) to (b.second + 1)
@@ -880,7 +853,7 @@ private fun fillMonthly(valid: List<StatsSessionRow>, range: Pair<LocalDate, Loc
     val items = mutableListOf<TrendItem>()
     var d = range.first
     while (d.isBefore(range.second)) {
-        val key = "${d.year}-${String.format("%02d", d.monthValue)}"
+        val key = "${d.year}-${String.format(Locale.ROOT, "%02d", d.monthValue)}"
         val b = buckets[key]
         items.add(TrendItem(key, "${d.monthValue}月", b?.first ?: 0, b?.second ?: 0))
         d = d.plusMonths(1)

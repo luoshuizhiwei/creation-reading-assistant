@@ -12,7 +12,8 @@ import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.domain.model.SyncEnvelope
-import kotlinx.coroutines.Dispatchers
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -47,6 +48,7 @@ class JsonBridge @Inject constructor(
     private val inspirationDao: InspirationDao,
     private val progressDao: ReadingProgressDao,
     private val sessionDao: ReadingSessionDao,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
@@ -83,7 +85,7 @@ class JsonBridge @Inject constructor(
     }
 
     /** 导出整库到用户用 SAF 选定的 JSON 文件。 */
-    suspend fun exportTo(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
+    suspend fun exportTo(context: Context, uri: Uri) = withContext(ioDispatcher) {
         val export = buildExport(context)
         context.contentResolver.openOutputStream(uri)?.use { os ->
             os.write(json.encodeToString(LocalExport.serializer(), export).toByteArray(Charsets.UTF_8))
@@ -91,19 +93,19 @@ class JsonBridge @Inject constructor(
     }
 
     /** 导出整库为 JSON 字符串（供 WebDAV 远程备份复用）。 */
-    suspend fun exportToString(context: Context): String = withContext(Dispatchers.IO) {
+    suspend fun exportToString(context: Context): String = withContext(ioDispatcher) {
         json.encodeToString(LocalExport.serializer(), buildExport(context))
     }
 
     /** 从用户用 SAF 选定的 JSON 文件导入整库（按 id 覆盖合并）。 */
-    suspend fun importFrom(context: Context, uri: Uri) = withContext(Dispatchers.IO) {
+    suspend fun importFrom(context: Context, uri: Uri) = withContext(ioDispatcher) {
         val text = context.contentResolver.openInputStream(uri)?.use { it.bufferedReader().readText() }
             ?: throw IllegalStateException("无法读取源文件：$uri")
         importFromString(context, text)
     }
 
     /** 从 JSON 字符串导入整库（供 WebDAV 下载恢复复用）。逐条 revision 校验，避免旧数据覆盖新数据。 */
-    suspend fun importFromString(context: Context, text: String) = withContext(Dispatchers.IO) {
+    suspend fun importFromString(context: Context, text: String) = withContext(ioDispatcher) {
         val export = json.decodeFromString<LocalExport>(text)
 
         // 书籍：逐条比较 revision，仅当导入记录 revision >= 本地时才覆盖

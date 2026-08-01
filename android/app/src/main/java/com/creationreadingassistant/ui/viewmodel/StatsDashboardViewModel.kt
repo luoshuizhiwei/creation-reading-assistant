@@ -14,10 +14,11 @@ import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.ui.screen.StatsPeriod
 import com.creationreadingassistant.ui.screen.StatsUi
 import com.creationreadingassistant.ui.screen.computeStats
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -54,6 +55,7 @@ class StatsDashboardViewModel @Inject constructor(
     bookDao: BookDao,
     inspirationDao: InspirationDao,
     noteDao: NoteDao,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val selection = MutableStateFlow(StatsSelection())
 
@@ -105,7 +107,7 @@ class StatsDashboardViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),

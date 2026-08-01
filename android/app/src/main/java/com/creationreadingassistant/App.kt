@@ -50,6 +50,12 @@ class App : Application() {
 
     override fun onCreate() {
         AppContextHolder.cacheDir = cacheDir
+        // 在 profileable/benchmark 构建中强制启用应用级 atrace，使自定义 Trace section
+        // 能被 Perfetto 捕获，用于性能分析；release 用户构建无影响（非 debuggable
+        // 且非 profileable 时该方法无效果）。
+        runCatching {
+            Trace::class.java.getMethod("forceEnableAppTracing").invoke(null)
+        }
         trace("App", "onCreate start")
         try {
             super.onCreate()

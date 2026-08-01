@@ -2,12 +2,10 @@ package com.creationreadingassistant.ui.screen.reader.sheets
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -15,7 +13,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -29,14 +26,6 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingRow
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.slideInVertically
-import androidx.compose.animation.core.tween
-import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -54,23 +43,15 @@ internal fun TocSheet(
 ) {
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     val groups = remember(titles) { groupChaptersByVolume(titles) }
-    val reducedMotion = rememberReducedMotion()
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding)) {
-        // 视觉统一：弹层标题走 titleLarge 令牌（与主题弹层一致），不手写字号
-        Text("目录", style = MaterialTheme.typography.titleLarge)
+    ReaderSheetScaffold(title = "目录") {
         if (titles.isEmpty()) {
-            Text("这本书暂未识别到目录。", Modifier.padding(top = 8.dp), color = MaterialTheme.colorScheme.outline)
+            Text(
+                "这本书暂未识别到目录。",
+                Modifier.padding(16.dp),
+                color = MaterialTheme.colorScheme.outline,
+            )
         } else {
-            AnimatedVisibility(
-                visible = true,
-                enter = if (reducedMotion) {
-                    EnterTransition.None
-                } else {
-                    fadeIn(tween(durationMillis = 220)) + slideInVertically(initialOffsetY = { it / 10 })
-                },
-                exit = ExitTransition.None,
-            ) {
-            LazyColumn(Modifier.fillMaxWidth().heightIn(max = 480.dp).padding(top = 8.dp)) {
+            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
                 // R5：最近浏览章节置顶
                 if (recent.isNotEmpty()) {
                     item {
@@ -81,7 +62,7 @@ internal fun TocSheet(
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }
-                    items(recent) { i ->
+                    items(recent, key = { "recent_$it" }) { i ->
                         val t = titles.getOrNull(i) ?: return@items
                         TocRow(i, t, i == current) { onPick(i) }
                     }
@@ -109,37 +90,48 @@ internal fun TocSheet(
                         }
                     }
                     if (!isCollapsed) {
-                        items(idxs) { i ->
+                        items(idxs, key = { "vol_$it" }) { i ->
                             TocRow(i, titles[i], i == current) { onPick(i) }
                         }
                     }
                 }
-            }
-            }
-        }
-        if (txtRules.isNotEmpty()) {
-            SectionDivider(modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
-            Text("目录不对？换一套识别规则", style = MaterialTheme.typography.titleSmall)
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(top = 6.dp),
-            ) {
-                txtRules.forEach { rule ->
-                    val preview = txtRulePreviews[rule.id].orEmpty()
-                    val hint = preview.take(3).joinToString(" / ") { it.title }.take(42)
-                    Column {
-                        OptionPill(
-                            selected = selectedTxtRule == rule.id,
-                            label = "${rule.label} · ${preview.size} 章",
-                            onClick = { onTxtRule(rule.id) },
+                if (txtRules.isNotEmpty()) {
+                    item {
+                        SectionDivider(modifier = Modifier.padding(top = 10.dp, bottom = 8.dp))
+                        Text(
+                            "目录识别",
+                            style = MaterialTheme.typography.titleSmall,
+                            modifier = Modifier.padding(horizontal = 16.dp),
                         )
-                        if (selectedTxtRule == rule.id && hint.isNotBlank()) {
-                            Text(
-                                hint,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
+                        Text(
+                            "仅在目录不准确时更换识别规则",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                        )
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            verticalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                        ) {
+                            txtRules.forEach { rule ->
+                                val preview = txtRulePreviews[rule.id].orEmpty()
+                                val hint = preview.take(3).joinToString(" / ") { it.title }.take(42)
+                                androidx.compose.foundation.layout.Column {
+                                    OptionPill(
+                                        selected = selectedTxtRule == rule.id,
+                                        label = "${rule.label} · ${preview.size} 章",
+                                        onClick = { onTxtRule(rule.id) },
+                                    )
+                                    if (selectedTxtRule == rule.id && hint.isNotBlank()) {
+                                        Text(
+                                            hint,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

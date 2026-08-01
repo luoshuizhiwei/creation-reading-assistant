@@ -1,23 +1,16 @@
 package com.creationreadingassistant.ui.navigation
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.offset
-import androidx.compose.ui.Alignment
-import com.creationreadingassistant.ui.components.BookmarkIndicator
-import com.creationreadingassistant.ui.components.BookmarkIndicatorWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.BarChart
 import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.filled.MenuBook
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -29,23 +22,30 @@ import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
-import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.snap
-import androidx.compose.animation.core.tween
+import androidx.navigation.NavBackStackEntry
+import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.navigation.NavHostController
+import androidx.navigation.NavType
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.creationreadingassistant.R
 import com.creationreadingassistant.ui.screen.HomeScreen
 import com.creationreadingassistant.ui.screen.InspirationScreen
@@ -62,18 +62,6 @@ import com.creationreadingassistant.ui.theme.VisualStyle
 import com.creationreadingassistant.ui.theme.VisualStyleProvider
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.rememberHaptic
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.navigation.NavBackStackEntry
-import androidx.navigation.NavDestination.Companion.hierarchy
-import androidx.navigation.NavGraph.Companion.findStartDestination
-import androidx.navigation.NavHostController
-import androidx.navigation.NavType
-import androidx.navigation.compose.composable
-import androidx.navigation.compose.currentBackStackEntryAsState
-import androidx.navigation.compose.NavHost
-import androidx.navigation.compose.rememberNavController
-import androidx.navigation.navArgument
-import androidx.hilt.navigation.compose.hiltViewModel
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
 
 /** 底部 Tab 的五个顶层路由，与原版 mobile/ 一致：首页/书架/灵感/统计/我的。 */
@@ -83,7 +71,7 @@ sealed class TopLevelRoute(
     val icon: ImageVector,
 ) {
     object Home : TopLevelRoute("home", R.string.nav_home, Icons.Filled.Home)
-    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.AutoMirrored.Filled.MenuBook)
+    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.Filled.MenuBook)
     object Inspiration : TopLevelRoute("inspiration", R.string.nav_inspiration, Icons.Filled.Lightbulb)
     object Stats : TopLevelRoute("stats", R.string.nav_stats, Icons.Filled.BarChart)
     object Profile : TopLevelRoute("profile", R.string.nav_profile, Icons.Filled.Person)
@@ -103,8 +91,15 @@ fun AppNavigation() {
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: TopLevelRoute.Home.route
-    // 阅读器（reader/{bookId}）为全屏覆盖层，不显示底部栏
-    val showBottomBar = TOP_LEVEL_ROUTES.any { currentRoute.startsWith(it.route) }
+    var profileSubPageVisible by remember { mutableStateOf(false) }
+    LaunchedEffect(currentRoute) {
+        if (!currentRoute.startsWith(TopLevelRoute.Profile.route)) {
+            profileSubPageVisible = false
+        }
+    }
+    // 阅读器、搜索与「我的」内部设置页是全屏层级，不显示顶层底部栏。
+    val showBottomBar = TOP_LEVEL_ROUTES.any { currentRoute.startsWith(it.route) } &&
+        !(currentRoute.startsWith(TopLevelRoute.Profile.route) && profileSubPageVisible)
 
     // 全局视觉样式状态：由 AppNavigation 创建并提供，所有页面（含首页切换按钮）共享同一状态，
     // 实现「在任意页面点切换，全局统一变主题」。
@@ -124,9 +119,7 @@ fun AppNavigation() {
                 contentWindowInsets = WindowInsets(0, 0, 0, 0),
                 bottomBar = {
                     if (showBottomBar) {
-                        // 当前 active 项索引（仅顶层路由会显示底栏；reader 等全屏路由不显示）
-                        val activeIndex = TOP_LEVEL_ROUTES.indexOfFirst { currentRoute.startsWith(it.route) }
-                        // 系统「减少动态效果」：开启时书签切换退化为瞬切
+                        // 系统「减少动态效果」：开启时瞬切
                         val reducedMotion = rememberReducedMotion()
                         Column {
                             // 底部栏顶部一条 1dp 发丝线，让底栏与页面底分界分明（§2.2 / §3.2）
@@ -134,32 +127,13 @@ fun AppNavigation() {
                                 thickness = spec.dividerThickness,
                                 color = MaterialTheme.colorScheme.outlineVariant,
                             )
-                            Box {
-                                NavigationBar(
-                                    containerColor = MaterialTheme.colorScheme.background,
-                                ) {
-                                    BottomBarItems(
-                                        navBackStackEntry = navBackStackEntry,
-                                        navController = navController,
-                                    )
-                                }
-                                // 书签旗标（§6.1）：单实例，锚定顶 Divider、向底栏内部垂下；
-                                // 跨标签切换时水平滑动过渡（reduced-motion 时瞬切）。
-                                // 不悬浮、不探出底栏上沿，与 24dp 导航图标垂直间隔 ≥4dp、不替代/遮挡。
-                                if (activeIndex >= 0) {
-                                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                                        val itemWidth = maxWidth / TOP_LEVEL_ROUTES.size
-                                        val targetX = itemWidth * activeIndex + (itemWidth - BookmarkIndicatorWidth) / 2
-                                        val animatedX by animateDpAsState(
-                                            targetValue = targetX,
-                                            animationSpec = if (reducedMotion) snap() else tween(durationMillis = 260),
-                                            label = "bookmarkSlide",
-                                        )
-                                        Box(Modifier.fillMaxWidth().offset(x = animatedX)) {
-                                            BookmarkIndicator()
-                                        }
-                                    }
-                                }
+                            NavigationBar(
+                                containerColor = MaterialTheme.colorScheme.background,
+                            ) {
+                                BottomBarItems(
+                                    navBackStackEntry = navBackStackEntry,
+                                    navController = navController,
+                                )
                             }
                         }
                     }
@@ -172,7 +146,10 @@ fun AppNavigation() {
                             .fillMaxSize()
                             .padding(top = contentTop, bottom = innerPadding.calculateBottomPadding()),
                     ) {
-                        AppNavHost(navController = navController)
+                        AppNavHost(
+                            navController = navController,
+                            onProfileSubPageVisibilityChanged = { profileSubPageVisible = it },
+                        )
                     }
                 }
             }
@@ -181,7 +158,10 @@ fun AppNavigation() {
 }
 
 @Composable
-private fun AppNavHost(navController: NavHostController) {
+private fun AppNavHost(
+    navController: NavHostController,
+    onProfileSubPageVisibilityChanged: (Boolean) -> Unit,
+) {
     NavHost(
         navController = navController,
         startDestination = TopLevelRoute.Home.route,
@@ -214,7 +194,12 @@ private fun AppNavHost(navController: NavHostController) {
             InspirationScreen(initialSelectedId = inspId)
         }
         composable(TopLevelRoute.Stats.route) { StatsScreen() }
-        composable(TopLevelRoute.Profile.route) { ProfileScreen(navController = navController) }
+        composable(TopLevelRoute.Profile.route) {
+            ProfileScreen(
+                navController = navController,
+                onSubPageVisibilityChanged = onProfileSubPageVisibilityChanged,
+            )
+        }
         composable("pairing") {
             val profileVm: ProfileViewModel = hiltViewModel()
             QrPairingScreen(

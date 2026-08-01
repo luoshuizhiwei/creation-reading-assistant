@@ -7,14 +7,15 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -22,6 +23,7 @@ import javax.inject.Inject
 class BookViewModel @Inject constructor(
     private val repository: BookRepository,
     private val continueStore: ContinueReadingStore,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     val books: StateFlow<List<BookEntity>> = repository.observeBooks()
@@ -33,13 +35,13 @@ class BookViewModel @Inject constructor(
     val progressById: StateFlow<Map<String, ReadingProgressEntity>> =
         progress.map { list -> list.associateBy { it.book_id } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     val sessions: StateFlow<Map<String, List<ReadingSessionEntity>>> =
         repository.observeSessions().map { list: List<ReadingSessionEntity> -> list.groupBy { it.book_id } }
             .distinctUntilChanged()
-            .flowOn(Dispatchers.Default)
+            .flowOn(defaultDispatcher)
             .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap<String, List<ReadingSessionEntity>>())
 
     val removedContinueIds: StateFlow<Map<String, String>> = continueStore.removedIds

@@ -51,7 +51,7 @@ class SearchViewModelTest {
         every { historyStore.history } returns MutableStateFlow(emptyList())
         coEvery { highlightDao.search(any()) } returns emptyList()
         coEvery { bookDao.getById(any()) } returns null
-        vm = SearchViewModel(bookDao, inspirationDao, noteDao, highlightDao, historyStore)
+        vm = SearchViewModel(bookDao, inspirationDao, noteDao, highlightDao, historyStore, ioDispatcher = UnconfinedTestDispatcher(testScheduler))
     }
 
     @After

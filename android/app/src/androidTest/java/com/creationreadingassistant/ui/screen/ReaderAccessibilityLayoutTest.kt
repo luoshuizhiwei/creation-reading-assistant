@@ -106,7 +106,7 @@ class ReaderAccessibilityLayoutTest {
 
     private fun assertControlsAreReachableAndInsideRoot() {
         val rootBounds = composeRule.onNodeWithTag("root").fetchSemanticsNode().boundsInRoot
-        listOf("目录", "进度", "灵感", "主题", "设置").forEach { label ->
+        listOf("目录", "听书", "灵感", "主题", "设置").forEach { label ->
             val node = composeRule.onNodeWithText(label)
                 .assertIsDisplayed()
                 .assertHasClickAction()

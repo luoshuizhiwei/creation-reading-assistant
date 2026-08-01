@@ -1,6 +1,8 @@
 package com.creationreadingassistant.ui.theme
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.Easing
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.infiniteRepeatable
@@ -19,6 +21,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -55,6 +58,11 @@ object MotionTokens {
     const val Slow = 650      // 数字滚动 / 强调过渡
     const val Shimmer = 1100
     const val CountUpDelay = 120
+
+    /** 标准过渡缓动：MD3 的 FastOutSlowIn（先冲后停）。入场/出场统一用这一条。 */
+    val StandardEasing: Easing = FastOutSlowInEasing
+    /** 线性缓动：仅用于 Shimmer 这类周期性扫光。 */
+    val LinearMotionEasing: Easing = LinearEasing
 }
 
 /**
@@ -108,7 +116,14 @@ fun Modifier.animateEnter(
     val progress = remember { Animatable(if (reducedMotion) 1f else 0f) }
     LaunchedEffect(Unit) {
         if (!reducedMotion) {
-            progress.animateTo(1f, animationSpec = tween(durationMillis = MotionTokens.Base, delayMillis = delayMillis))
+            progress.animateTo(
+                1f,
+                animationSpec = tween(
+                    durationMillis = MotionTokens.Base,
+                    delayMillis = delayMillis,
+                    easing = MotionTokens.StandardEasing,
+                ),
+            )
         }
     }
     val alpha = progress.value
@@ -129,7 +144,14 @@ fun rememberCountUp(target: Int, reducedMotion: Boolean = false): Int {
         if (reducedMotion) {
             anim.snapTo(target.toFloat())
         } else {
-            anim.animateTo(target.toFloat(), animationSpec = tween(durationMillis = 650, delayMillis = 120))
+            anim.animateTo(
+                target.toFloat(),
+                animationSpec = tween(
+                    durationMillis = MotionTokens.Slow,
+                    delayMillis = MotionTokens.CountUpDelay,
+                    easing = MotionTokens.StandardEasing,
+                ),
+            )
         }
     }
     return anim.value.roundToInt()
@@ -149,14 +171,14 @@ fun ShimmerBlock(
 ) {
     val scheme = MaterialTheme.colorScheme
     val offset by if (reducedMotion) {
-        remember { mutableStateOf(0.5f) }
+        remember { mutableFloatStateOf(0.5f) }
     } else {
         val transition = rememberInfiniteTransition(label = "shimmer")
         transition.animateFloat(
             initialValue = 0f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1100, easing = LinearEasing),
+                animation = tween(durationMillis = MotionTokens.Shimmer, easing = MotionTokens.LinearMotionEasing),
                 repeatMode = RepeatMode.Restart,
             ),
             label = "shimmerOffset",

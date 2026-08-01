@@ -24,8 +24,10 @@ import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -140,6 +142,8 @@ class ProfileViewModel @Inject constructor(
     noteDao: NoteDao,
     inspirationDao: InspirationDao,
     bookContentDao: BookContentDao,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     private val readingArchive = combine(
@@ -158,7 +162,7 @@ class ProfileViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
 
     private val cacheSummary = combine(
         bookContentDao.observeCachedCount(),
@@ -181,7 +185,7 @@ class ProfileViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -206,7 +210,7 @@ class ProfileViewModel @Inject constructor(
         )
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
@@ -249,7 +253,7 @@ class ProfileViewModel @Inject constructor(
 
     // ---- JSON 桥接操作 ----
     fun export(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _bridgeStatus.value = null
             runCatching { jsonBridge.exportTo(context, uri) }
                 .onSuccess { _bridgeStatus.value = "导出成功"; AppLog.event("Export", "导出成功") }
@@ -258,7 +262,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun import(context: Context, uri: Uri) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _bridgeStatus.value = null
             runCatching { jsonBridge.importFrom(context, uri) }
                 .onSuccess { _bridgeStatus.value = "导入成功"; AppLog.event("Import", "导入成功") }
@@ -268,7 +272,7 @@ class ProfileViewModel @Inject constructor(
 
     // ---- 配对 ----
     fun startPairing(rawQr: String) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _pairing.value = true
             _pairMsg.value = null
             runCatching {
@@ -296,7 +300,7 @@ class ProfileViewModel @Inject constructor(
 
     // ---- 同步 ----
     fun syncNow(autoDownloadBooks: Boolean = true) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _syncing.value = true
             _syncMsg.value = null
             val startedAt = System.currentTimeMillis()
@@ -410,7 +414,7 @@ class ProfileViewModel @Inject constructor(
 
     /** 重试单个失败项：book_file 类下载失败可单项重下；其余（拉取/推送应用失败）回退为整体重同步。 */
     fun retryItem(item: SyncFailedItem) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             if (item.type == "book_file" && item.bookId != null) {
                 val ok = runCatching { syncRepository.downloadBookContent(item.bookId) }.isSuccess
                 if (ok) dropFailedItem(item)
@@ -423,7 +427,7 @@ class ProfileViewModel @Inject constructor(
 
     /** 重试全部失败项（对齐网页版「重试上传失败项」整体入口）。 */
     fun retryFailed() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             val items = _lastSyncResult.value?.failedItems ?: return@launch
             val bookFileIds = items.filter { it.type == "book_file" }.mapNotNull { it.bookId }.distinct()
             bookFileIds.forEach { id -> runCatching { syncRepository.downloadBookContent(id) } }
@@ -478,7 +482,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun loadWebDavBackups() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             runCatching {
                 val cfg = webDavConfigStore.config ?: return@launch
                 webDavBackup.listBackups(cfg.url, cfg.user, cfg.pass).getOrThrow()
@@ -488,7 +492,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun backupNow(context: Context) {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
             runCatching {
                 val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
@@ -506,7 +510,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun testWebDav() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
             runCatching {
                 val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
@@ -517,7 +521,7 @@ class ProfileViewModel @Inject constructor(
     }
 
     fun downloadRestore(context: Context, filename: String = "cra-backup-latest.json") {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
             runCatching {
                 val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
@@ -540,7 +544,7 @@ class ProfileViewModel @Inject constructor(
     val aiMsg: StateFlow<String?> = _aiMsg.asStateFlow()
 
     fun testAi() {
-        viewModelScope.launch(Dispatchers.IO) {
+        viewModelScope.launch(ioDispatcher) {
             _aiMsg.value = null
             aiClient.testConnection()
                 .onSuccess { _aiMsg.value = "AI 连接成功"; AppLog.event("AI", "连接测试成功") }

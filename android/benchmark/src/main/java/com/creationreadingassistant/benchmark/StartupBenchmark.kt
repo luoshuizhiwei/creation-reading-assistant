@@ -42,4 +42,4 @@ class StartupBenchmark {
     }
 }
 
-internal const val PACKAGE_NAME = "com.creationreadingassistant.benchmarktarget"
+internal const val PACKAGE_NAME = "com.creationreadingassistant"

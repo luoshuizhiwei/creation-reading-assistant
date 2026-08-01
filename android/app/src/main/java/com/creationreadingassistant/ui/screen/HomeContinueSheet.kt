@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -27,18 +26,11 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import com.creationreadingassistant.ui.components.GlassAlertDialog
-import com.creationreadingassistant.ui.components.GlassModalBottomSheet
-import com.creationreadingassistant.ui.components.SectionCard
 import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -53,21 +45,27 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavHostController
-import coil.compose.AsyncImage
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.ui.components.BookCover
+import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.GlassModalBottomSheet
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.util.bookNotReadyLabel
+import com.creationreadingassistant.ui.util.formatBookProgressForCard
+import com.creationreadingassistant.ui.util.hasBookBeenRead
+import com.creationreadingassistant.ui.util.isBookDisplayable
 import com.creationreadingassistant.ui.viewmodel.BookViewModel
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import kotlinx.coroutines.launch
 import java.time.Instant
-import java.time.LocalDate
-import java.time.ZoneId
 
 private enum class ContinueSortKey { RECENT, PROGRESS, CREATED, TITLE }
 
@@ -294,7 +292,9 @@ private fun MenuOverlay(
         modifier = Modifier
             .fillMaxSize()
             .clickable(onClick = onDismiss)
-            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.01f)),
+            // 旧实现用 scrim.copy(alpha = 0.01f) 是反模式：用 scrim 颜色却几乎完全透明，
+            // 实际只想做一个能接收点击关闭的透明遮罩。直接用 Transparent 表达真实意图。
+            .background(Color.Transparent),
         contentAlignment = Alignment.TopEnd,
     ) {
         SectionCard(
@@ -438,40 +438,39 @@ private fun ContinueListItem(
     onAction: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    Card(
+    SectionCard(
         modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+        contentPadding = 0.dp,
+        onClick = if (!manageMode) onClick else null,
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable(enabled = !manageMode, onClick = onClick)
                 .padding(12.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(56.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.small),
-                contentAlignment = Alignment.Center,
-            ) {
-                if (item.book.cover_data_url != null) {
-                    AsyncImage(
-                        model = item.book.cover_data_url,
-                        contentDescription = null,
-                        modifier = Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
+            // 复用共享 BookCover：消除 56dp Box + AsyncImage + 占位 Text 的手搓实现。
+            // 56dp 小尺寸下角标/高光会喧宾夺主，关闭 showBadge / showSheen。
+            // percent 传 null：本列表是"继续阅读"，不显示读完藏书印（已读完的书本就不在列表里）。
+            BookCover(
+                book = item.book,
+                modifier = Modifier.size(56.dp),
+                showBadge = false,
+                showSheen = false,
+                percent = null,
+                fallback = {
+                    Text(
+                        item.book.title.take(2),
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.primary,
                     )
-                } else {
-                    Text(item.book.title.take(2), style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.primary)
-                }
-            }
+                },
+            )
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
                 Text(item.book.author ?: "作者未知", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(formatBookProgress(item.progress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+                Text(formatBookProgressForCard(item.progress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
             }
             if (manageMode) {
                 IconButton(onClick = onRemove) {
@@ -504,21 +503,6 @@ private fun EmptyContinueBody() {
     }
 }
 
-@Composable
-private fun SheetHandle() {
-    Box(
-        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-        contentAlignment = Alignment.Center,
-    ) {
-        Box(
-            modifier = Modifier
-                .width(40.dp)
-                .height(4.dp)
-                .background(MaterialTheme.colorScheme.outlineVariant, shape = CircleShape),
-        )
-    }
-}
-
 private fun buildContinueItems(
     books: List<BookEntity>,
     progressById: Map<String, ReadingProgressEntity>,
@@ -533,7 +517,7 @@ private fun buildContinueItems(
     return books.mapIndexedNotNull { index, book ->
         val progress = progressById[book.id]
         val pct = progress?.progress_percent ?: 0f
-        if (!isBookReadableOnDevice(book)) return@mapIndexedNotNull null
+        if (!isBookDisplayable(book)) return@mapIndexedNotNull null
         if (!hasBookBeenRead(book, progress, sessions[book.id])) return@mapIndexedNotNull null
         if (pct >= 99.5f) return@mapIndexedNotNull null
         val removedAt = removedIds[book.id]
@@ -563,38 +547,6 @@ private fun buildContinueItems(
     }
 }
 
-private fun isBookReadableOnDevice(book: BookEntity): Boolean {
-    if (book.deleted_at != null) return false
-    return when (book.content_status) {
-        "failed", "missing", "downloading" -> false
-        else -> book.size > 0 && (book.local_content_path != null || book.local_uri != null || book.content_hash != null)
-    }
-}
-
-/** H2：对齐网页 getBookReadiness。未就绪返回中文提示，已就绪返回 null。 */
-private fun bookNotReadyLabel(book: BookEntity): String? {
-    if (book.deleted_at != null) return "正文未在本机"
-    return when (book.content_status) {
-        "failed" -> "正文保存失败"
-        "missing" -> "正文未在本机"
-        "downloading" -> "正文下载中"
-        else -> {
-            val readable = book.size > 0 &&
-                (book.local_content_path != null || book.local_uri != null || book.content_hash != null)
-            if (!readable) "需下载正文" else null
-        }
-    }
-}
-
-private fun hasBookBeenRead(
-    book: BookEntity,
-    progress: ReadingProgressEntity?,
-    sessions: List<com.creationreadingassistant.data.local.entity.ReadingSessionEntity>?,
-): Boolean {
-    if ((progress?.progress_percent ?: 0f) > 0f) return true
-    return sessions?.any { it.book_id == book.id } == true
-}
-
 private fun lastReadAtFor(
     book: BookEntity,
     progress: ReadingProgressEntity?,
@@ -607,24 +559,6 @@ private fun lastReadAtFor(
         ?.maxOrNull()
 }
 
-private fun formatBookProgress(progress: Float): String {
-    val normalized = progress.coerceIn(0f, 100f)
-    return when {
-        normalized <= 0.05f -> "未读"
-        normalized >= 99.5f -> "已读完"
-        normalized >= 10f -> "${normalized.toInt()}%"
-        else -> "${"%.1f".format(normalized)}%"
-    }
-}
-
-private fun epochDayOf(iso: String?): Long {
-    if (iso.isNullOrBlank()) return -1
-    return runCatching { Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay() }.getOrElse { -1 }
-}
-
-/** 返回本周一（对齐网页版周起始）。 */
-fun weekStartEpochDay(): Long {
-    val today = LocalDate.now()
-    val dayOfWeek = today.dayOfWeek.value // 1=Mon .. 7=Sun
-    return today.toEpochDay() - (dayOfWeek - 1)
-}
+// isBookReadableOnDevice / bookNotReadyLabel / hasBookBeenRead / formatBookProgress
+// 已抽到 ui/util/BookReadiness.kt（统一命名为 isBookDisplayable / formatBookProgressForCard）。
+// epochDayOf / weekStartEpochDay 已删（前者 HomeViewModel 有自己的私有版，后者 0 调用）。

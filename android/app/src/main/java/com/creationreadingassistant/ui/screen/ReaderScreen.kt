@@ -32,6 +32,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -114,10 +115,12 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
@@ -155,6 +158,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import androidx.compose.animation.AnimatedVisibility
@@ -256,6 +260,9 @@ import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.TocSheet
 import com.creationreadingassistant.ui.screen.reader.ReaderPlatformEffects
+import com.creationreadingassistant.ui.screen.reader.ReaderSheetHost
+import com.creationreadingassistant.ui.screen.reader.ReaderSheetHostState
+import com.creationreadingassistant.ui.screen.reader.ReaderSheetHostCallbacks
 
 /**
  * 阅读器全屏页（1:1 复刻 mobile/ 的 MobileReaderView 布局）。
@@ -317,7 +324,7 @@ private fun PagedEpubView(
         }
         // 轻量翻页淡入：单 Composition、只动 alpha，绝不复制整章组件树（守住 OOM 内存纪律）。
         contentAlpha.snapTo(0.35f)
-        contentAlpha.animateTo(1f, tween(durationMillis = 240))
+        contentAlpha.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
     }
     val haptic = rememberHaptic(reducedMotion)
     val onPrevHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onPrev() }
@@ -485,6 +492,18 @@ private fun PagedChapterContent(
 
 // BookIndex, PlainTextChunk, chunkPlainText, chunkIndexForOffset, unitIndexForOffset, buildBookIndex → reader/ReaderHelpers.kt
 
+/**
+ * 滚动列表位置快照。把 LazyListState 上高频变化的字段打包成 derivedStateOf，
+ * 避免每次滚动像素变化都触发整个 ReaderScreen 的重组。
+ */
+private data class PlainListSnapshot(
+    val firstVisibleUnit: ReadingUnit?,
+    val firstVisibleItemOffset: Int,
+    val firstVisibleItemSize: Int,
+    val reachedEnd: Boolean,
+    val firstVisibleItemIndex: Int,
+)
+
 @SuppressLint("UnusedMaterial3ScaffoldPaddingParameter")
 @OptIn(ExperimentalMaterial3Api::class, FlowPreview::class, ExperimentalFoundationApi::class)
 @Composable
@@ -515,6 +534,7 @@ fun ReaderScreen(
     val aiClient = callbacks.aiClient
     val pageIndexStore = callbacks.pageIndexStore
     val anchorCacheStore = callbacks.anchorCacheStore
+    val pagerHealth = callbacks.pagerHealthStore
     val context = LocalContext.current
     val settingsVm: SettingsViewModel = hiltViewModel()
     val readerSettings by settingsVm.reader.collectAsStateWithLifecycle()
@@ -642,7 +662,7 @@ fun ReaderScreen(
     var showReaderOverflow by remember { mutableStateOf(screenState.showReaderOverflow) }
     LaunchedEffect(screenState.showReaderOverflow) { showReaderOverflow = screenState.showReaderOverflow }
     // R3：跨会话 TTS 续读句偏移
-    var ttsResumeOffset by remember { mutableStateOf(0) }
+    var ttsResumeOffset by remember { mutableIntStateOf(0) }
     var ttsResumeChapter by remember { mutableIntStateOf(-1) }
 
     // 阅读设置（来自持久化 SettingsStore，见 readerSettings）
@@ -680,7 +700,7 @@ fun ReaderScreen(
     }
 
     // 阅读提醒 / 本次阅读计时（对照 web useReaderReminders + useReaderSession）
-    var activeReadingMs by remember { mutableStateOf(0L) }
+    var activeReadingMs by remember { mutableLongStateOf(0L) }
     // 用可变 State 持有最新设置，避免提醒计时器因设置变化反复重建 / 捕获旧值
     val settingsRef = remember { mutableStateOf(readerSettings) }
     LaunchedEffect(readerSettings) { settingsRef.value = readerSettings }
@@ -763,7 +783,6 @@ fun ReaderScreen(
     }
 
     // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
-    val pagerHealth = remember { PagerHealthStore(context.applicationContext) }
     val configuredPagerMode = if (epubBook != null) {
         readerSettings.epubPagerEngineMode
     } else {
@@ -792,13 +811,23 @@ fun ReaderScreen(
     var pagedPercent by remember { mutableFloatStateOf(0f) }
 
     // TXT 章节识别：此前 TXT 完全没有章节概念，目录永远是「暂未识别到目录」。
-    // 只在正文变化时算一次，识别不出章节时 TxtChapterDetector 会返回单章「全文」。
-    val txtChapters = remember(plainContent, txtTocRuleId, txtStreamingDocument) {
+    // P0 优化：优先使用 ReaderDocumentLoader 在 IO 线程预检测的结果，避免阻塞主线程。
+    // 规则 ID 不匹配（用户在目录面板切换了规则）或预检测为空时 fallback 到同步检测。
+    val txtChapters = remember(plainContent, txtTocRuleId, txtStreamingDocument, textContent) {
         val streamDoc = txtStreamingDocument
         if (epubBook == null && streamDoc != null) {
             streamDoc.chapters
         } else if (epubBook == null && plainContent.isNotBlank()) {
-            PlainTextDocument(plainContent, txtTocRuleId).chapters
+            val preDetected = textContent?.preDetectedChapters
+            val preRule = textContent?.preDetectedRuleId
+            if (!preDetected.isNullOrEmpty() && preRule == txtTocRuleId) {
+                // 快速路径：使用 IO 线程预检测结果，不阻塞主线程
+                preDetected
+            } else {
+                // Fallback：规则切换或预检测缺失，同步检测（极少触发）
+                android.util.Log.d("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, ruleId=$txtTocRuleId, preRule=$preRule")
+                PlainTextDocument(plainContent, txtTocRuleId).chapters
+            }
         } else {
             emptyList()
         }
@@ -860,14 +889,28 @@ fun ReaderScreen(
 
     val plainListState = rememberLazyListState()
 
-    // 当前可见字符偏移（必须在 contentText 之前计算）
-    val firstPlainItem = plainListState.layoutInfo.visibleItemsInfo.firstOrNull()
-    val firstPlainUnit = readingUnits.getOrNull(plainListState.firstVisibleItemIndex)
-    val firstPlainFraction = if (firstPlainItem != null && firstPlainItem.size > 0) {
-        (-firstPlainItem.offset).coerceAtLeast(0).toFloat() / firstPlainItem.size
+    // 把 LazyListState 上高频变化的字段包进 derivedStateOf，避免每次滚动触发大范围重组。
+    // 只有当派生对象字段变化时，下游消费方（visiblePlainOffset/plainPercent）才重算。
+    val plainListSnapshot by remember(plainListState, readingUnits) {
+        derivedStateOf {
+            val firstItem = plainListState.layoutInfo.visibleItemsInfo.firstOrNull()
+            val idx = plainListState.firstVisibleItemIndex
+            PlainListSnapshot(
+                firstVisibleUnit = readingUnits.getOrNull(idx),
+                firstVisibleItemOffset = firstItem?.offset ?: 0,
+                firstVisibleItemSize = firstItem?.size ?: 0,
+                reachedEnd = !plainListState.canScrollForward && idx > 0,
+                firstVisibleItemIndex = idx,
+            )
+        }
+    }
+    val firstPlainItemSize = plainListSnapshot.firstVisibleItemSize
+    val firstPlainFraction = if (firstPlainItemSize > 0) {
+        (-plainListSnapshot.firstVisibleItemOffset).coerceAtLeast(0).toFloat() / firstPlainItemSize
     } else {
         0f
     }
+    val firstPlainUnit = plainListSnapshot.firstVisibleUnit
     val visiblePlainOffset = when {
         // 分页引擎开启时，位置的真源是引擎上报的页首偏移，滚动列表根本不在屏上
         pagerEngineOn && pagedAbsOffset >= 0 -> pagedAbsOffset
@@ -921,7 +964,7 @@ fun ReaderScreen(
             return@LaunchedEffect
         }
         chapterFade.snapTo(0.45f)
-        chapterFade.animateTo(1f, tween(durationMillis = 220))
+        chapterFade.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
     }
     // 顶栏副行与 TTS、书签都用它。TXT 此前恒为空串只能显示「正文」，
     // 现在有章节识别了就跟着滚动位置走。
@@ -934,7 +977,7 @@ fun ReaderScreen(
         markdownDocument != null && pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
         plainContent.isEmpty() && txtStreamingDocument == null -> 0f
         pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
-        !plainListState.canScrollForward && plainListState.firstVisibleItemIndex > 0 -> 100f
+        plainListSnapshot.reachedEnd -> 100f
         txtStreamingDocument != null -> {
             val total = txtStreamingDocument!!.totalChars.coerceAtLeast(1)
             (visiblePlainOffset * 100f / total).coerceIn(0f, 100f)
@@ -1695,62 +1738,6 @@ fun ReaderScreen(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHost) },
-        topBar = {
-            if (controlsVisible) {
-                ReaderTopChrome(
-                    bookTitle = bookTitle,
-                    formatLabel = if (epubBook != null) "EPUB" else "TXT",
-                    chapterTitle = currentChapterTitle,
-                    progressPercent = progressPercent,
-                    paper = paper,
-                    overflowExpanded = showReaderOverflow,
-                    autoPagingActive = autoPagingActive,
-                    onOverflowExpandedChange = { showReaderOverflow = it },
-                    onAction = ::handleChromeAction,
-                )
-            }
-        },
-        bottomBar = {
-            if (controlsVisible) {
-                Surface(
-                    color = paper.bg,
-                    contentColor = paper.fg,
-                    border = BorderStroke(1.dp, paper.outlineVariant),
-                ) {
-                    if (showTts) {
-                        TtsBar(
-                            paper = paper,
-                            tts = tts,
-                            chapterLabel = currentChapterTitle.ifBlank { "正文" },
-                            onPersistTts = { p, v, id, t ->
-                                settingsVm.updateReader {
-                                    copy(
-                                        ttsPitch = p,
-                                        ttsVolume = v,
-                                        ttsVoiceId = id,
-                                        ttsTimedStopMinutes = t,
-                                    )
-                                }
-                            },
-                        ) {
-                            tts.stop()
-                            showTts = false
-                        }
-                    } else {
-                        ReaderBottomActions(
-                            onAction = ::handleChromeAction,
-                            chapterProgress = chapterProgress,
-                            onSeekProgress = { seekToChapterPercent(it) },
-                            onPreviousChapter = { goToChapter(chapterIndex - 1) },
-                            onNextChapter = { goToChapter(chapterIndex + 1) },
-                            isFirstChapter = chapterIndex <= 0,
-                            isLastChapter = epubBook == null || chapterIndex >= epubBook!!.chapters.lastIndex,
-                            paper = paper,
-                        )
-                    }
-                }
-            }
-        },
         floatingActionButton = {
             if (!controlsVisible) {
                 ReaderCollapsedControl(
@@ -1939,7 +1926,16 @@ fun ReaderScreen(
                             modifier = Modifier.fillMaxSize().padding(horizontal = readerSettings.pageMargin.dp, vertical = readerSettings.pageMargin.dp).graphicsLayer { alpha = chapterFade.value },
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            itemsIndexed(chapterBlocks) { idx, block ->
+                            itemsIndexed(
+                                items = chapterBlocks,
+                                key = { index, block ->
+                                    when (block) {
+                                        is DocBlock.Text -> "text-$index"
+                                        is DocBlock.Image -> "image-$index-${block.path}"
+                                        is DocBlock.Markdown -> "markdown-$index"
+                                    }
+                                },
+                            ) { idx, block ->
                                 when (block) {
                                     is DocBlock.Text -> {
                                         val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
@@ -2115,6 +2111,73 @@ fun ReaderScreen(
                 )
             }
 
+            // 阅读控制区是正文之上的覆盖层。显示或隐藏不会改变正文容器尺寸，
+            // 因而不会把当前页挤回中间或触发无关分页。
+            AnimatedVisibility(
+                visible = controlsVisible,
+                modifier = Modifier.align(Alignment.TopCenter),
+                enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { -it / 4 }),
+                exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { -it / 4 }),
+            ) {
+                ReaderTopChrome(
+                    bookTitle = bookTitle,
+                    formatLabel = if (epubBook != null) "EPUB" else "TXT",
+                    chapterTitle = currentChapterTitle,
+                    progressPercent = progressPercent,
+                    paper = paper,
+                    overflowExpanded = showReaderOverflow,
+                    autoPagingActive = autoPagingActive,
+                    onOverflowExpandedChange = { showReaderOverflow = it },
+                    onAction = ::handleChromeAction,
+                )
+            }
+
+            AnimatedVisibility(
+                visible = controlsVisible,
+                modifier = Modifier.align(Alignment.BottomCenter),
+                enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { it / 4 }),
+                exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { it / 4 }),
+            ) {
+                Surface(
+                    modifier = Modifier.navigationBarsPadding(),
+                    color = paper.bg.copy(alpha = 0.97f),
+                    contentColor = paper.fg,
+                    border = BorderStroke(1.dp, paper.outlineVariant),
+                ) {
+                    if (showTts) {
+                        TtsBar(
+                            paper = paper,
+                            tts = tts,
+                            chapterLabel = currentChapterTitle.ifBlank { "正文" },
+                            onPersistTts = { p, v, id, t ->
+                                settingsVm.updateReader {
+                                    copy(
+                                        ttsPitch = p,
+                                        ttsVolume = v,
+                                        ttsVoiceId = id,
+                                        ttsTimedStopMinutes = t,
+                                    )
+                                }
+                            },
+                        ) {
+                            tts.stop()
+                            showTts = false
+                        }
+                    } else {
+                        ReaderBottomActions(
+                            onAction = ::handleChromeAction,
+                            chapterProgress = chapterProgress,
+                            onSeekProgress = { seekToChapterPercent(it) },
+                            onPreviousChapter = { goToChapter(chapterIndex - 1) },
+                            onNextChapter = { goToChapter(chapterIndex + 1) },
+                            isFirstChapter = chapterIndex <= 0,
+                            isLastChapter = epubBook == null || chapterIndex >= epubBook!!.chapters.lastIndex,
+                            paper = paper,
+                        )
+                    }
+                }
+            }
+
             // 选中文字工具条（对照 web 选中工具栏）：带入场动效（尊重「减少动态效果」）
             AnimatedVisibility(
                 visible = selectedText.isNotBlank(),
@@ -2164,336 +2227,180 @@ fun ReaderScreen(
                 )
             }
 
-            // 底部弹层（不新建路由，内部状态切换）
-            sheet?.let { type ->
-            GlassModalBottomSheet(
-                onDismissRequest = { sheet = null },
+            // 底部弹层（不新建路由，内部状态切换）→ 抽出到 reader/ReaderSheetHost.kt
+            ReaderSheetHost(
+                sheet = sheet,
                 sheetState = sheetState,
-                containerColor = paper.bg,
-                shape = LocalComponentSpec.current.sheetShape,
-                dragHandle = { SheetHandle() },
-            ) {
-                    when (type) {
-                        ReaderSheet.TOC -> TocSheet(
-                            titles = epubBook?.chapters?.map { it.title }
-                                ?: txtChapters.map { it.title },
-                            current = if (epubBook != null) chapterIndex else txtChapterIndex,
-                            recent = recentChapters.toList(),
-                            onPick = {
-                                if (!recentChapters.contains(it)) {
-                                    recentChapters.add(0, it)
-                                    if (recentChapters.size > 5) recentChapters.removeAt(recentChapters.lastIndex)
+                paper = paper,
+                inputs = inputs,
+                callbacks = callbacks,
+                settingsVm = settingsVm,
+                state = ReaderSheetHostState(
+                    epubBook = epubBook,
+                    epubDocument = epubDocument,
+                    txtStreamingDocument = txtStreamingDocument,
+                    plainContent = plainContent,
+                    chapterIndex = chapterIndex,
+                    txtChapterIndex = txtChapterIndex,
+                    txtChapterTitles = txtChapters.map { it.title },
+                    currentChapterTitle = currentChapterTitle,
+                    progressPercent = progressPercent,
+                    bookTitle = bookTitle,
+                    bookAuthor = bookAuthor,
+                    bookOriginalFile = bookOriginalFile,
+                    selectedText = selectedText,
+                    contentText = contentText,
+                    readerSettings = readerSettings,
+                    activeReadingMs = activeReadingMs,
+                    savedBookReadingMs = savedBookReadingMs,
+                    estimatedRemainingMs = estimatedRemainingMs,
+                    readerSpeed = readerSpeed,
+                    inspirationsCount = inspirationsCount,
+                    bookmarksCount = bookmarksCount,
+                    documentWordCount = documentWordCount,
+                    isTxt = isTxt,
+                    searchQuery = searchQuery,
+                    chapterStartOffsets = chapterStartOffsets,
+                    chapterTitles = chapterTitles,
+                    bookIndex = bookIndex,
+                    txtTocRuleId = txtTocRuleId,
+                    txtRulePreviews = txtRulePreviews,
+                    recentChapters = recentChapters.toList(),
+                ),
+                sheetCallbacks = ReaderSheetHostCallbacks(
+                    onDismiss = { sheet = null },
+                    onOpenSettings = { sheet = ReaderSheet.SETTINGS },
+                    onOpenBookInfo = { sheet = ReaderSheet.BOOK_INFO },
+                    goToChapter = { goToChapter(it) },
+                    seekToPercent = { seekToPercent(it) },
+                    jumpToPlainOffset = { jumpToPlainOffset(it) },
+                    showNotice = { showNotice(it) },
+                    onSearchQueryChange = { searchQuery = it },
+                    onClearSelectedText = { selectedText = "" },
+                    onPickChapter = {
+                        if (!recentChapters.contains(it)) {
+                            recentChapters.add(0, it)
+                            if (recentChapters.size > 5) recentChapters.removeAt(recentChapters.lastIndex)
+                        }
+                        if (epubBook != null) {
+                            goToChapter(it)
+                        } else {
+                            txtChapters.getOrNull(it)?.let { c -> jumpToPlainOffset(c.startOffset) }
+                        }
+                        sheet = null
+                    },
+                    onTxtRule = { ruleId ->
+                        val anchorOffset = visiblePlainOffset
+                        txtTocRuleId = ruleId
+                        val streamingTempFilePath = textContent?.ownedTempFile?.absolutePath
+                        if (txtStreamingDocument != null && streamingTempFilePath != null) {
+                            pendingTxtRuleAnchorOffset = anchorOffset
+                            onAction(ReaderAction.ScanTxtTocRule(streamingTempFilePath!!, ruleId))
+                        } else {
+                            pagedJumpRequest.value = anchorOffset
+                        }
+                        onAction(ReaderAction.SaveTxtTocRule(bid, ruleId))
+                    },
+                    onSearchJump = { result ->
+                        if (result.chapterIndex >= 0 && epubBook != null) {
+                            goToChapter(result.chapterIndex)
+                            val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex) { 0 } +
+                                result.charOffset
+                            if (pagerEngineOn) {
+                                pagedJumpRequest.value = globalOffset
+                            } else {
+                                scope.launch {
+                                    val blocks = onLoadChapterBlocks(bid, result.chapterIndex)
+                                    navFocusBlockIndex = blockIndexForChapterOffset(blocks, result.charOffset)
                                 }
-                                if (epubBook != null) {
-                                    goToChapter(it)
-                                } else {
-                                    // TXT 跳章 = 定位到该章起始偏移（翻页/滚动两种视图都认它）
-                                    txtChapters.getOrNull(it)?.let { c -> jumpToPlainOffset(c.startOffset) }
-                                }
-                                sheet = null
-                            },
-                            txtRules = if (isTxt) TxtChapterDetector.rules else emptyList(),
-                            selectedTxtRule = txtTocRuleId,
-                            txtRulePreviews = txtRulePreviews,
-                            onTxtRule = { ruleId ->
-                                val anchorOffset = visiblePlainOffset
-                                txtTocRuleId = ruleId
-                                val streamingTempFilePath = textContent?.ownedTempFile?.absolutePath
-                                if (txtStreamingDocument != null && streamingTempFilePath != null) {
-                                    // R6：流式模式 TXT 规则扫描由 ViewModel 处理
-                                    pendingTxtRuleAnchorOffset = anchorOffset
-                                    onAction(ReaderAction.ScanTxtTocRule(streamingTempFilePath!!, ruleId))
-                                } else {
-                                    pagedJumpRequest.value = anchorOffset
-                                }
-                                onAction(ReaderAction.SaveTxtTocRule(bid, ruleId))
-                            },
+                            }
+                        } else if (plainContent.isNotEmpty() || txtStreamingDocument != null) {
+                            val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex.coerceAtLeast(0)) { 0 } +
+                                result.charOffset
+                            jumpToPlainOffset(globalOffset)
+                        }
+                        sheet = null
+                    },
+                    onJumpToHighlight = { id ->
+                        pendingHighlightId = id
+                        sheet = null
+                    },
+                    onExportHighlights = {
+                        val sb = StringBuilder()
+                        sb.appendLine("# 《${bookTitle}》书摘")
+                        highlights.groupBy { it.chapter_title ?: "" }.forEach { (chapter, items) ->
+                            sb.appendLine()
+                            sb.appendLine("## ${if (chapter.isBlank()) "未分类" else chapter}")
+                            items.forEachIndexed { i, h ->
+                                sb.appendLine("${i + 1}. ${h.text}")
+                                h.note?.takeIf { it.isNotBlank() }?.let { sb.appendLine("   批注：$it") }
+                            }
+                        }
+                        val intent = Intent(Intent.ACTION_SEND)
+                        intent.type = "text/plain"
+                        intent.putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》书摘")
+                        intent.putExtra(Intent.EXTRA_TEXT, sb.toString())
+                        context.startActivity(Intent.createChooser(intent, "导出书摘"))
+                    },
+                    onSaveAiExplainInspiration = { body, tags, categoryIds ->
+                        val snapshotText = selectedText
+                        onAction(
+                            ReaderAction.SaveInspiration(
+                                InspirationEntity(
+                                    id = UUID.randomUUID().toString(),
+                                    title = "AI 解读：${snapshotText.take(24)}",
+                                    body = body,
+                                    type = "note",
+                                    status = "inbox",
+                                    source_book_id = bid.ifBlank { null },
+                                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                                    created_at = nowIso(),
+                                    device_id = null,
+                                    revision = 1,
+                                    updated_at = nowIso(),
+                                    deleted_at = null,
+                                ),
+                            ),
                         )
-
-                        ReaderSheet.NOTES -> NotesSheet(
-                            paper = paper,
-                            highlights = highlights,
-                            notes = notes,
-                            inspirations = inspirations,
-                            onAddBookmark = {
-                                onAction(ReaderAction.AddBookmark(bid, progressPercent.toInt(), currentChapterTitle.ifBlank { "正文" }))
-                                showNotice("已添加书签")
-                            },
-                            onDeleteHighlight = { h ->
-                                onAction(ReaderAction.DeleteHighlight(h.id))
-                            },
-                            onDeleteNote = { n ->
-                                onAction(ReaderAction.DeleteNote(n.id))
-                            },
-                            onChangeHighlightColor = { h, c ->
-                                onAction(ReaderAction.UpdateHighlightColor(h.id, c))
-                            },
-                            onEditHighlightNote = { h, note ->
-                                onAction(ReaderAction.UpdateHighlightNote(h.id, note))
-                            },
-                            onHighlightToNote = { h ->
-                                onAction(ReaderAction.ConvertHighlightToNote(h.id))
-                                showNotice("已转为笔记")
-                            },
-                            onHighlightToInspiration = { h ->
-                                onAction(ReaderAction.ConvertHighlightToInspiration(h.id))
-                                showNotice("已转为灵感")
-                            },
-                            onJumpToHighlight = { h ->
-                                // R4：复用 SE4「按高亮 id 精确定位」逻辑（pendingHighlightId 驱动 LaunchedEffect）
-                                pendingHighlightId = h.id
-                                sheet = null
-                            },
-                            onExportHighlights = {
-                                val sb = StringBuilder()
-                                sb.appendLine("# 《${bookTitle}》书摘")
-                                highlights.groupBy { it.chapter_title ?: "" }.forEach { (chapter, items) ->
-                                    sb.appendLine()
-                                    sb.appendLine("## ${if (chapter.isBlank()) "未分类" else chapter}")
-                                    items.forEachIndexed { i, h ->
-                                        sb.appendLine("${i + 1}. ${h.text}")
-                                        h.note?.takeIf { it.isNotBlank() }?.let { sb.appendLine("   批注：$it") }
-                                    }
-                                }
-                                val intent = Intent(Intent.ACTION_SEND)
-                                intent.type = "text/plain"
-                                intent.putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》书摘")
-                                intent.putExtra(Intent.EXTRA_TEXT, sb.toString())
-                                context.startActivity(Intent.createChooser(intent, "导出书摘"))
-                            },
+                        sheet = null
+                        showNotice("已存入灵感")
+                    },
+                    onSaveInspiration = { title, body, tags, categoryIds ->
+                        val snapshotText = selectedText
+                        onAction(
+                            ReaderAction.SaveInspiration(
+                                InspirationEntity(
+                                    id = UUID.randomUUID().toString(),
+                                    title = title,
+                                    body = body,
+                                    type = "note",
+                                    status = "inbox",
+                                    source_book_id = bid.ifBlank { null },
+                                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                                    created_at = nowIso(),
+                                    device_id = null,
+                                    revision = 1,
+                                    updated_at = nowIso(),
+                                    deleted_at = null,
+                                ),
+                            ),
                         )
-
-                        ReaderSheet.AI_ASSIST -> AiAssistSheet(
-                            aiClient = aiClient,
-                            bookTitle = bookTitle,
-                            chapterTitle = currentChapterTitle,
-                            contextText = selectedText.ifBlank { contentText },
-                        )
-
-                        ReaderSheet.AI_EXPLAIN -> AiExplainSheet(
-                            aiClient = aiClient,
-                            selectedText = selectedText,
-                            bookTitle = bookTitle,
-                            categories = categories,
-                            tags = tags,
-                            onCreateCategory = { name ->
-                                val id = "mobile-category-${UUID.randomUUID()}"
-                                onAction(ReaderAction.CreateCategory(name))
-                                id
-                            },
-                            onCreateTag = { name ->
-                                val id = "mobile-tag-${UUID.randomUUID()}"
-                                onAction(ReaderAction.CreateTag(name))
-                                id
-                            },
-                            onSaveInspiration = { body, tags, categoryIds ->
-                                val snapshotText = selectedText
-                                onAction(ReaderAction.SaveInspiration(
-                                    InspirationEntity(
-                                        id = UUID.randomUUID().toString(),
-                                        title = "AI 解读：${snapshotText.take(24)}",
-                                        body = body,
-                                        type = "note",
-                                        status = "inbox",
-                                        source_book_id = bid.ifBlank { null },
-                                        payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
-                                        created_at = nowIso(),
-                                        device_id = null,
-                                        revision = 1,
-                                        updated_at = nowIso(),
-                                        deleted_at = null,
-                                    ),
-                                ))
-                                sheet = null
-                                showNotice("已存入灵感")
-                            },
-                        )
-
-                        ReaderSheet.INSPIRATION -> InspirationSheet(
-                            bookTitle = bookTitle,
-                            chapterTitle = currentChapterTitle,
-                            excerpt = selectedText,
-                            progressPercent = progressPercent,
-                            categories = categories,
-                            tags = tags,
-                            onCreateCategory = { name ->
-                                val id = "mobile-category-${UUID.randomUUID()}"
-                                onAction(ReaderAction.CreateCategory(name))
-                                id
-                            },
-                            onCreateTag = { name ->
-                                val id = "mobile-tag-${UUID.randomUUID()}"
-                                onAction(ReaderAction.CreateTag(name))
-                                id
-                            },
-                            onSave = { title, body, tags, categoryIds ->
-                                val snapshotText = selectedText
-                                onAction(ReaderAction.SaveInspiration(
-                                    InspirationEntity(
-                                        id = UUID.randomUUID().toString(),
-                                        title = title,
-                                        body = body,
-                                        type = "note",
-                                        status = "inbox",
-                                        source_book_id = bid.ifBlank { null },
-                                        payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
-                                        created_at = nowIso(),
-                                        device_id = null,
-                                        revision = 1,
-                                        updated_at = nowIso(),
-                                        deleted_at = null,
-                                    ),
-                                ))
-                                selectedText = ""
-                                sheet = null
-                                showNotice("已保存灵感，并记录来源阅读位置")
-                            },
-                        )
-
-                        ReaderSheet.SETTINGS -> SettingsSheet(
-                            paper = paper,
-                            fontSize = readerSettings.fontSize,
-                            lineHeight = readerSettings.lineHeight,
-                            background = readerSettings.background,
-                            bold = readerSettings.fontWeightBold,
-                            brightness = readerSettings.brightness,
-                            readerMode = readerSettings.readerMode,
-                            pagerEngineMode = readerSettings.pagerEngineMode,
-                            epubPagerEngineMode = readerSettings.epubPagerEngineMode,
-                            pageTurnEffect = readerSettings.pageTurnEffect,
-                            tapZoneMode = readerSettings.tapZoneMode,
-                            pageMargin = readerSettings.pageMargin,
-                            paragraphSpacing = readerSettings.paragraphSpacing,
-                            eyeCareMin = readerSettings.eyeCareReminderMinutes,
-                            eyeFilterEnabled = readerSettings.eyeCareFilterEnabled,
-                            eyeTemperature = readerSettings.eyeCareTemperature,
-                            eyeIntensity = readerSettings.eyeCareIntensity,
-                            eyeScheduleEnabled = readerSettings.eyeCareScheduleEnabled,
-                            volumeKeyPaging = readerSettings.volumeKeyPaging,
-                            volumeKeyPagingDuringTts = readerSettings.volumeKeyPagingDuringTts,
-                            autoPageSpeed = readerSettings.autoPageSpeed,
-                            rhythmEnabled = readerSettings.readingRhythmReminderEnabled,
-                            rhythmMin = readerSettings.readingRhythmReminderMinutes,
-                            onFontSize = { settingsVm.updateReader { copy(fontSize = it) } },
-                            onLineHeight = { settingsVm.updateReader { copy(lineHeight = it) } },
-                            onBackground = { settingsVm.updateReader { copy(background = it) } },
-                            onBrightness = { settingsVm.updateReader { copy(brightness = it) } },
-                            onBold = { settingsVm.updateReader { copy(fontWeightBold = it) } },
-                            onReaderMode = { settingsVm.updateReader { copy(readerMode = it) } },
-                            onPagerEngineMode = { settingsVm.updateReader { copy(pagerEngineMode = it) } },
-                            onEpubPagerEngineMode = { settingsVm.updateReader { copy(epubPagerEngineMode = it) } },
-                            onPageTurnEffect = { settingsVm.updateReader { copy(pageTurnEffect = it) } },
-                            onTapZoneMode = { settingsVm.updateReader { copy(tapZoneMode = it) } },
-                            onPageMargin = { settingsVm.updateReader { copy(pageMargin = it) } },
-                            onParagraphSpacing = { settingsVm.updateReader { copy(paragraphSpacing = it) } },
-                            onEyeCareMin = { settingsVm.updateReader { copy(eyeCareReminderMinutes = it) } },
-                            onEyeFilterEnabled = { settingsVm.updateReader { copy(eyeCareFilterEnabled = it) } },
-                            onEyeTemperature = { settingsVm.updateReader { copy(eyeCareTemperature = it) } },
-                            onEyeIntensity = { settingsVm.updateReader { copy(eyeCareIntensity = it) } },
-                            onEyeScheduleEnabled = { settingsVm.updateReader { copy(eyeCareScheduleEnabled = it) } },
-                            onVolumeKeyPaging = { settingsVm.updateReader { copy(volumeKeyPaging = it) } },
-                            onVolumeKeyPagingDuringTts = { settingsVm.updateReader { copy(volumeKeyPagingDuringTts = it) } },
-                            onAutoPageSpeed = { settingsVm.updateReader { copy(autoPageSpeed = it) } },
-                            onRhythmEnabled = { settingsVm.updateReader { copy(readingRhythmReminderEnabled = it) } },
-                            onRhythmMin = { settingsVm.updateReader { copy(readingRhythmReminderMinutes = it) } },
-                            immersiveMode = readerSettings.immersiveMode,
-                            showReaderInfo = readerSettings.showReaderInfo,
-                            chineseTypography = readerSettings.chineseTypography,
-                            keepAwake = readerSettings.keepAwake,
-                            showProgressBar = readerSettings.showProgressBar,
-                            autoHideSeconds = readerSettings.autoHideSeconds,
-                            onImmersive = { settingsVm.updateReader { copy(immersiveMode = it) } },
-                            onShowInfo = { settingsVm.updateReader { copy(showReaderInfo = it) } },
-                            onChineseTypo = { settingsVm.updateReader { copy(chineseTypography = it) } },
-                            onKeepAwake = { settingsVm.updateReader { copy(keepAwake = it) } },
-                            onShowProgress = { settingsVm.updateReader { copy(showProgressBar = it) } },
-                            onAutoHide = { settingsVm.updateReader { copy(autoHideSeconds = it) } },
-                            headerLeft = readerSettings.headerLeft,
-                            headerRight = readerSettings.headerRight,
-                            footerLeft = readerSettings.footerLeft,
-                            footerRight = readerSettings.footerRight,
-                            onHeaderLeft = { settingsVm.updateReader { copy(headerLeft = it) } },
-                            onHeaderRight = { settingsVm.updateReader { copy(headerRight = it) } },
-                            onFooterLeft = { settingsVm.updateReader { copy(footerLeft = it) } },
-                            onFooterRight = { settingsVm.updateReader { copy(footerRight = it) } },
-                            onBookInfo = { sheet = ReaderSheet.BOOK_INFO },
-                        )
-
-                        ReaderSheet.THEME -> ThemeSheet(
-                            background = readerSettings.background,
-                            onBackground = { settingsVm.updateReader { copy(background = it) } },
-                        )
-
-                        ReaderSheet.PROGRESS -> ProgressSheet(
-                            epubBook = epubBook,
-                            chapterIndex = chapterIndex,
-                            currentChapterTitle = currentChapterTitle,
-                            progressPercent = progressPercent,
-                            activeReadingMs = activeReadingMs,
-                            readerSpeed = readerSpeed,
-                            estimatedRemainingMs = estimatedRemainingMs,
-                            savedBookReadingMs = savedBookReadingMs,
-                            inspirationsCount = inspirationsCount,
-                            bookmarksCount = bookmarksCount,
-                            onChapter = { goToChapter(it) },
-                            onSeekPercent = { seekToPercent(it) },
-                            isTxt = isTxt,
-                        )
-
-                        ReaderSheet.SEARCH -> SearchSheet(
-                            document = epubDocument,
-                            txtDocument = txtStreamingDocument,
-                            plainContent = plainContent,
-                            chapterStartOffsets = chapterStartOffsets,
-                            chapterTitles = chapterTitles,
-                            totalChars = bookIndex?.totalChars
-                                ?: txtStreamingDocument?.totalChars ?: 0,
-                            isTxt = isTxt,
-                            query = searchQuery,
-                            onQueryChange = { searchQuery = it },
-                            onJump = { result ->
-                                if (result.chapterIndex >= 0 && epubBook != null) {
-                                    goToChapter(result.chapterIndex)
-                                    val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex) { 0 } +
-                                        result.charOffset
-                                    if (pagerEngineOn) {
-                                        pagedJumpRequest.value = globalOffset
-                                    } else {
-                                        scope.launch {
-                                            val blocks = onLoadChapterBlocks(bid, result.chapterIndex)
-                                            navFocusBlockIndex = blockIndexForChapterOffset(blocks, result.charOffset)
-                                        }
-                                    }
-                                } else if (plainContent.isNotEmpty() || txtStreamingDocument != null) {
-                                    val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex.coerceAtLeast(0)) { 0 } +
-                                        result.charOffset
-                                    jumpToPlainOffset(globalOffset)
-                                }
-                                sheet = null
-                            },
-                        )
-
-                        ReaderSheet.BOOK_INFO -> BookInfoSheet(
-                            bookTitle = bookTitle,
-                            bookAuthor = bookAuthor,
-                            bookFormat = if (epubBook != null) "EPUB" else "TXT",
-                            chapterCount = epubBook?.chapters?.size ?: 0,
-                            wordCount = documentWordCount,
-                            currentChapterTitle = currentChapterTitle,
-                            progressPercent = progressPercent,
-                            activeReadingMs = activeReadingMs,
-                            savedReadingMs = savedBookReadingMs,
-                            sessionsCount = sessions.size,
-                            sourceFile = bookOriginalFile,
-                            onOpenSettings = { sheet = ReaderSheet.SETTINGS },
-                            onDelete = {
-                                onAction(ReaderAction.DeleteBook(bid))
-                                onBack()
-                            },
-                        )
-                    }
-                }
-            }
+                        selectedText = ""
+                        sheet = null
+                        showNotice("已保存灵感，并记录来源阅读位置")
+                    },
+                    onCreateCategory = { name ->
+                        val id = "mobile-category-${UUID.randomUUID()}"
+                        onAction(ReaderAction.CreateCategory(name))
+                        id
+                    },
+                    onCreateTag = { name ->
+                        val id = "mobile-tag-${UUID.randomUUID()}"
+                        onAction(ReaderAction.CreateTag(name))
+                        id
+                    },
+                ),
+            )
         }
     }
 }

@@ -8,7 +8,9 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
-import kotlinx.coroutines.Dispatchers
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
@@ -30,6 +32,8 @@ class StatsRepository @Inject constructor(
     private val progressDao: ReadingProgressDao,
     private val bookDao: BookDao,
     private val inspirationDao: InspirationDao,
+    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
     data class ByBook(val bookId: String, val title: String, val totalMs: Long)
     data class RecentBook(val bookId: String, val title: String, val progressPercent: Float)
@@ -59,9 +63,9 @@ class StatsRepository @Inject constructor(
         computeFrom(sessions, progress, books, inspirations)
     }
         .distinctUntilChanged()
-        .flowOn(Dispatchers.Default)
+        .flowOn(defaultDispatcher)
 
-    suspend fun compute(): Stats = withContext(Dispatchers.IO) {
+    suspend fun compute(): Stats = withContext(ioDispatcher) {
         val sessions = sessionDao.observeAllActive().first()
         val books = bookDao.observeAllActive().first()
         val progress = progressDao.observeAllActive().first()

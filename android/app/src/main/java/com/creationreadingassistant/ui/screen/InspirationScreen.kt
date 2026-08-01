@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.screen
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.BorderStroke
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -89,8 +91,10 @@ import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -632,7 +636,7 @@ private fun InspirationList(
             }
             Surface(
                 onClick = onOpenSort,
-                shape = RoundedCornerShape(999.dp),
+                shape = PillShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLowest,
                 border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                 contentColor = MaterialTheme.colorScheme.primary,
@@ -649,21 +653,47 @@ private fun InspirationList(
         }
 
         if (emptyKind != null) {
-            InspirationEmptyState(kind = emptyKind, onCreate = onCreate, onReset = onResetFilter)
+            val (title, body) = when (emptyKind) {
+                "search" -> "没有搜索结果" to "试试更短的关键词，或清除搜索。"
+                "filter" -> "这个类型还没有内容" to "切换到全部，或新建一条灵感。"
+                else -> "还没有灵感" to "记录设定、摘录或创作片段。"
+            }
+            FullEmptyState(
+                icon = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.AutoAwesome,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        LineArtBookmark()
+                    }
+                },
+                title = title,
+                body = body,
+                contentPadding = 32.dp,
+                primaryAction = if (emptyKind == "empty") "新建灵感" to onCreate else null,
+                secondaryAction = if (emptyKind != "empty") "查看全部" to onResetFilter else null,
+                modifier = Modifier.fillMaxSize(),
+            )
         } else {
             LazyColumn(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = layout.pageHorizontal),
-                verticalArrangement = Arrangement.spacedBy(layout.contentGap),
+                verticalArrangement = Arrangement.spacedBy(0.dp),
             ) {
-                items(itemsList, key = { it.id }) { item ->
+                itemsIndexed(itemsList, key = { _, item -> item.id }) { index, item ->
                     InspirationRecordCard(
                         item = item,
                         viewModel = viewModel,
                         onOpen = { onOpenDetail(item.id) },
                         onMore = { onMore(item.id) },
                     )
+                    if (index != itemsList.lastIndex) SectionDivider()
                 }
                 item { Box(Modifier.fillMaxWidth().padding(bottom = 16.dp)) }
             }
@@ -681,10 +711,12 @@ private fun InspirationRecordCard(
     val spec = LocalComponentSpec.current
     val src = viewModel.sourceOf(item)
     val tags = viewModel.tagsOf(item)
-    // 对齐 web .inspiration-record：扁平 + 1px 发丝线、圆角来自 spec、无投影
-    SectionCard(
-        modifier = Modifier.fillMaxWidth().animateEnter(reducedMotion = rememberReducedMotion()),
-        onClick = onOpen,
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onOpen)
+            .padding(vertical = LocalLayoutTokens.current.contentGap)
+            .animateEnter(reducedMotion = rememberReducedMotion()),
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Row(
@@ -694,7 +726,7 @@ private fun InspirationRecordCard(
             ) {
                 Surface(
                     color = MaterialTheme.colorScheme.secondaryContainer,
-                    shape = RoundedCornerShape(999.dp),
+                    shape = PillShape,
                 ) {
                     Text(
                         getTypeLabel(item.type),
@@ -727,7 +759,7 @@ private fun InspirationRecordCard(
             val summary = item.body.ifBlank { src?.excerpt ?: "还没有正文" }
             Text(
                 summary,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 13.sp, lineHeight = 20.sp),
+                style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -768,31 +800,8 @@ private fun InspirationRecordCard(
 }
 
 @Composable
-private fun InspirationEmptyState(kind: String, onCreate: () -> Unit, onReset: () -> Unit) {
-    val (title, body) = when (kind) {
-        "search" -> "没有搜索结果" to "试试更短的关键词，或清除搜索。"
-        "filter" -> "这个类型还没有内容" to "切换到全部，或新建一条灵感。"
-        else -> "还没有灵感" to "记录设定、摘录或创作片段。"
-    }
-    Column(
-        modifier = Modifier.fillMaxSize().padding(32.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Icon(Icons.Outlined.AutoAwesome, contentDescription = null, modifier = Modifier.padding(bottom = 16.dp), tint = MaterialTheme.colorScheme.primary)
-        LineArtBookmark(modifier = Modifier.padding(bottom = 4.dp))
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 8.dp))
-        Spacer(Modifier.height(16.dp))
-        if (kind == "empty") {
-            TextButton(onClick = onCreate) {
-                Icon(Icons.Filled.Add, contentDescription = null)
-                Text("新建灵感")
-            }
-        } else {
-            TextButton(onClick = onReset) { Text("查看全部") }
-        }
-    }
+private fun InspirationEmptyStatePlaceholder(kind: String, onCreate: () -> Unit, onReset: () -> Unit) {
+    // 已迁移到 SharedComponents.FullEmptyState（见调用点 L652-L678），保留函数体避免断点，但不使用。
 }
 
 /* ---------- 详情 ---------- */

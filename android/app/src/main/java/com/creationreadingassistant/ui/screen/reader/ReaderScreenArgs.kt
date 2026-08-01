@@ -12,6 +12,7 @@ import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.ui.viewmodel.ChapterLoadResult
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderUiState
@@ -48,4 +49,5 @@ data class ReaderScreenCallbacks(
     val aiClient: AiClient,
     val pageIndexStore: PageIndexStore,
     val anchorCacheStore: AnchorCacheStore,
+    val pagerHealthStore: PagerHealthStore,
 )

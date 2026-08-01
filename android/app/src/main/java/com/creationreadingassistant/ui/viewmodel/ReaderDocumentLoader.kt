@@ -13,13 +13,16 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
+import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.ui.screen.ReaderSheet
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -38,6 +41,7 @@ class ReaderDocumentLoader @Inject constructor(
     private val bookRepository: BookRepository,
     private val bookContentDao: BookContentDao,
     private val readingProgressDao: ReadingProgressDao,
+    private val settingsStore: SettingsStore,
 ) {
     suspend fun load(bookId: String): ReaderLoadedBook {
         require(bookId.isNotBlank()) { "未指定书籍" }
@@ -142,6 +146,32 @@ class ReaderDocumentLoader @Inject constructor(
                     throw loadAttempt?.exceptionOrNull()
                         ?: IllegalArgumentException("本书暂无可阅读的正文（需重新导入或同步下载）")
                 }
+
+                // ── P0 优化：在 IO 线程预检测章节，避免 ReaderScreen 组合时同步阻塞主线程 ──
+                val ruleId = settingsStore.loadTxtTocRule(bookId)
+                val preDetected: List<DocChapter> = if (fullText.isNotEmpty() && streamingDocument == null) {
+                    val detectStartNs = SystemClock.elapsedRealtimeNanos()
+                    Trace.beginSection("TxtChapterDetect")
+                    val chapters = try {
+                        TxtChapterDetector.detect(fullText, ruleId)
+                    } finally {
+                        Trace.endSection()
+                    }
+                    val detectEndNs = SystemClock.elapsedRealtimeNanos()
+                    android.util.Log.d("TxtPerfSubTrace", "TxtChapterDetect: ${(detectEndNs - detectStartNs) / 1_000_000} ms, preDetect=true")
+                    chapters.mapIndexed { i, c ->
+                        DocChapter(
+                            index = i,
+                            title = c.title,
+                            startOffset = c.startOffset,
+                            charCount = c.charCount,
+                            charCountIsEstimated = false,
+                        )
+                    }
+                } else {
+                    emptyList()
+                }
+
                 ReaderLoadedContent.Text(
                     fullText = fullText,
                     streamingDocument = streamingDocument,
@@ -150,6 +180,8 @@ class ReaderDocumentLoader @Inject constructor(
                     initialAbsoluteOffset = parseStoredAbsoluteOffset(
                         progress?.current_location_json,
                     ),
+                    preDetectedChapters = preDetected,
+                    preDetectedRuleId = ruleId,
                 )
             }
         }
@@ -212,6 +244,10 @@ sealed interface ReaderLoadedContent {
         val fileIndex: TxtFileIndex?,
         internal val ownedTempFile: File?,
         val initialAbsoluteOffset: Int,
+        /** 在 IO 线程预检测的章节列表（仅小文件路径非空）。 */
+        val preDetectedChapters: List<DocChapter> = emptyList(),
+        /** 预检测使用的规则 ID。ReaderScreen 规则不匹配时 fallback 到同步检测。 */
+        val preDetectedRuleId: String = "builtin",
     ) : ReaderLoadedContent {
         override fun release() {
             ownedTempFile?.delete()

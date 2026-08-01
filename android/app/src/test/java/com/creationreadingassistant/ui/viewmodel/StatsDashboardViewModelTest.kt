@@ -78,7 +78,15 @@ class StatsDashboardViewModelTest {
         every { bookDao.observeStatsRows() } returns booksFlow
         every { inspirationDao.observeStatsCreatedRows() } returns inspirationsFlow
         every { noteDao.observeStatsCreatedRows() } returns notesFlow
-        vm = StatsDashboardViewModel(sessionDao, progressDao, bookDao, inspirationDao, noteDao)
+        // 注意：这里不能用 UnconfinedTestDispatcher。
+        // 两个缓存回归测试的语义前提是 flowOn 的 dispatcher 必须是独立异步线程池：
+        // tables.distinctUntilChanged 与 computeStats 的缓存比较依赖跨上下文切换的发射顺序，
+        // UnconfinedTestDispatcher 会把协程 inline 在调用者线程，合入/更新顺序被打乱，
+        // 导致缓存失效判据与真实运行时不一致。
+        vm = StatsDashboardViewModel(
+            sessionDao, progressDao, bookDao, inspirationDao, noteDao,
+            defaultDispatcher = Dispatchers.Default,
+        )
     }
 
     @After

@@ -54,7 +54,7 @@ internal fun TtsResumeEffect(
             onResumeOffsetChanged(start)
             val resumeChapter = if (isEpub) chapterIndex else -1
             onResumeChapterChanged(resumeChapter)
-            kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
+            launch(Dispatchers.IO) {
                 runCatching { settingsStore.saveTtsResume(bid, resumeChapter, start) }
             }
         }

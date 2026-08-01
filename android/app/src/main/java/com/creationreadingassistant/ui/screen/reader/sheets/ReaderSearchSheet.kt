@@ -3,7 +3,6 @@ package com.creationreadingassistant.ui.screen.reader.sheets
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -21,7 +20,6 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.ui.components.SectionDivider
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.BookSearchResult
 import com.creationreadingassistant.ui.screen.reader.computeBookSearch
 import com.creationreadingassistant.ui.screen.reader.computeEpubSearch
@@ -63,30 +61,30 @@ internal fun SearchSheet(
             }
         }
     }
-    Column(Modifier.fillMaxWidth().padding(LocalLayoutTokens.current.cardPadding).heightIn(max = 560.dp)) {
+    ReaderSheetScaffold(title = "搜索本书") {
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
             label = { Text("搜索本书") },
             placeholder = { Text("输入人名、设定或句子片段") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         )
         if (query.isNotBlank()) {
             Text(
                 "找到 ${results.size} 处，最多显示前 80 条。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(vertical = 8.dp),
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f, fill = false)) {
-            items(results) { r ->
+        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+            items(results, key = { it.occurrenceIndex }) { r ->
                 Column(
                     Modifier
                         .fillMaxWidth()
                         .clickable { onJump(r) }
-                        .padding(vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
                 ) {
                     Text(r.snippet, style = MaterialTheme.typography.bodyMedium)
                     Text(
