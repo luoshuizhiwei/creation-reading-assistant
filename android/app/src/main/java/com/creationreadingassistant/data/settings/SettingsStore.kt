@@ -118,7 +118,7 @@ private const val KEY_AI_API_KEY_ENC = "ai_api_key"
  * 在此收敛为 4 档，避免跨端同步时出现未定义纸张；「follow」由阅读器按外壳明暗映射白纸 / 夜读。
  */
 private fun migrateReaderBg(v: String?): String = when (v) {
-    null -> "warm"
+    null -> "follow"
     "paper" -> "warm"
     "plain" -> "white"
     "eye" -> "green"
@@ -148,7 +148,7 @@ data class ReaderSettings(
     val lineHeight: Float = 1.85f,
     val paragraphSpacing: Float = 1.15f,
     val pageMargin: Float = 22f,
-    val background: String = "warm",             // white | warm | green | night | follow
+    val background: String = "follow",           // white | warm | green | night | follow
     val immersiveMode: Boolean = false,
     val showReaderInfo: Boolean = true,
     val chineseTypography: Boolean = true,

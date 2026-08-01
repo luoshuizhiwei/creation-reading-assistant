@@ -106,6 +106,7 @@ fun PagedReaderHost(
     externalTurnRequest: MutableState<Int?>,
     onPositionChanged: (absOffset: Int, percent: Float) -> Unit,
     onToggleControls: () -> Unit,
+    onGesturePageTurn: () -> Unit,
     store: PageIndexStore?,
     contentKey: String,
     modifier: Modifier = Modifier,
@@ -361,14 +362,27 @@ fun PagedReaderHost(
                                             selRange.value = null
                                             onSelect("", -1)
                                         } else {
-                                            val fiveZone = tapZone == "five-zone"
-                                            when {
-                                                // five-zone：上 12% 上一页、下 12% 下一页（对照 web tapZoneMode）
-                                                fiveZone && offset.y < size.height * 0.12f -> turnRequest.intValue = -1
-                                                fiveZone && offset.y > size.height * 0.88f -> turnRequest.intValue = 1
-                                                offset.x < size.width / 3f -> turnRequest.intValue = -1
-                                                offset.x > size.width * 2f / 3f -> turnRequest.intValue = 1
-                                                else -> onToggleControls()
+                                            when (
+                                                resolveReaderTapAction(
+                                                    x = offset.x,
+                                                    y = offset.y,
+                                                    width = size.width.toFloat(),
+                                                    height = size.height.toFloat(),
+                                                    tapZoneMode = tapZone,
+                                                    canPrevious = controller.frameAt(-1) != null,
+                                                    canNext = controller.frameAt(1) != null,
+                                                )
+                                            ) {
+                                                ReaderTapAction.PREVIOUS_PAGE -> {
+                                                    onGesturePageTurn()
+                                                    turnRequest.intValue = -1
+                                                }
+                                                ReaderTapAction.NEXT_PAGE -> {
+                                                    onGesturePageTurn()
+                                                    turnRequest.intValue = 1
+                                                }
+                                                ReaderTapAction.TOGGLE_CONTROLS -> onToggleControls()
+                                                ReaderTapAction.NONE -> Unit
                                             }
                                         }
                                     },

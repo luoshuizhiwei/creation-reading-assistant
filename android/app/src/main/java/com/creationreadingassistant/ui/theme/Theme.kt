@@ -13,9 +13,10 @@ import androidx.compose.ui.graphics.Color
  */
 
 // 浅色令牌（来自 md3-base.css :root）
-private val Paper = Color(0xFFFAF8F2)        // --paper 宣纸底（主表面）
-private val Paper2 = Color(0xFFF3EFE6)       // --paper-2 次级纸面
-private val Paper3 = Color(0xFFE8E2D7)       // --paper-3 三级纸面
+private val Paper = Color(0xFFF5F1E8)        // 暖宣纸背景
+private val Paper2 = Color(0xFFF0EADF)       // 次级纸面
+private val Paper3 = Color(0xFFE8E0D3)       // 深层纸面
+private val PaperRaised = Color(0xFFFBF8F2)  // 浮起纸面
 private val Ink = Color(0xFF1A1917)          // --ink 墨色正文
 private val InkSoft = Color(0xFF4A4743)      // --ink-soft 次级文字
 private val Muted = Color(0xFF76726A)        // --muted 弱化/说明文字
@@ -50,10 +51,10 @@ private val IndigoSealDarkFg = Color(0xFF7C8FD6) // 提亮靛青（暗色主色�
 // BottomSheet 等组件各自取其中一档做底色。**只设 surface / surfaceVariant 是不够的**：
 // 未覆盖的角色会回落到 MD3 基线值（surfaceContainer 基线是 #F3EDF7 的淡紫），
 // 于是底部导航栏会突兀地泛紫，和整套纸墨配色完全脱节。这里按纸的明度排成阶梯。
-private val PaperBright = Color(0xFFFDFCF8)  // 最亮：浮起的面板
-private val PaperLowest = Color(0xFFFFFFFF)  // 纯白：需要与纸底拉开的卡片
-private val PaperHigh = Color(0xFFEDE8DD)    // 偏深纸面
-private val PaperDim = Color(0xFFE5E0D6)     // 最深：压暗的底
+private val PaperBright = PaperRaised
+private val PaperLowest = PaperRaised
+private val PaperHigh = Paper3
+private val PaperDim = Color(0xFFE2D8C9)
 private val IndigoContainer = Color(0xFFDDE3EA)      // 靛青在纸上的淡染，不透明
 private val IndigoContainerSoft = Color(0xFFE6EAEF)
 
@@ -73,20 +74,20 @@ private val LightColorScheme = lightColorScheme(
     tertiaryContainer = Color(0xFFDCE4EE),
     onTertiaryContainer = Color(0xFF26354A),
     // 暖调宣纸底（墨韵·素笺）：冻结解除后统一为暖调，与阅读器纸张 / 朱砂印对齐
-    background = Color(0xFFFAF8F2),
-    onBackground = Color(0xFF1A1917),
-    surface = Color(0xFFFFFFFF),
-    onSurface = Color(0xFF1A1917),
-    surfaceVariant = Color(0xFFF3EFE6),
+    background = Paper,
+    onBackground = Ink,
+    surface = PaperRaised,
+    onSurface = Ink,
+    surfaceVariant = Paper2,
     onSurfaceVariant = Color(0xFF5A606A),
     surfaceTint = Color(0xFF3D5A80),
-    surfaceBright = Color(0xFFFFFFFF),
-    surfaceDim = Color(0xFFF3EFE6),
-    surfaceContainerLowest = Color(0xFFFFFFFF),
-    surfaceContainerLow = Color(0xFFFDFCF8),
-    surfaceContainer = Color(0xFFF3EFE6),
-    surfaceContainerHigh = Color(0xFFEDE8DD),
-    surfaceContainerHighest = Color(0xFFDCE4EE),
+    surfaceBright = PaperBright,
+    surfaceDim = PaperDim,
+    surfaceContainerLowest = PaperLowest,
+    surfaceContainerLow = PaperRaised,
+    surfaceContainer = Paper2,
+    surfaceContainerHigh = Paper3,
+    surfaceContainerHighest = Color(0xFFDED4C5),
     inverseSurface = Color(0xFF1B1D22),
     inverseOnSurface = Color(0xFFE8EAEE),
     inversePrimary = Color(0xFF8AA6D8),

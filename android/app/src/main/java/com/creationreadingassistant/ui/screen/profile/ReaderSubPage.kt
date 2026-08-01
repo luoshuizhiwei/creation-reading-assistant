@@ -15,6 +15,7 @@ import com.creationreadingassistant.ui.components.SettingSliderRow
 import com.creationreadingassistant.ui.components.SettingSwitchRow
 import com.creationreadingassistant.ui.components.SettingsSection
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.ReaderPaperOptions
 import kotlin.math.abs
 
 /** Full-screen reader settings. The in-reader sheet reuses the same row language. */
@@ -69,7 +70,7 @@ internal fun ReaderSettingsSubPage(
                 SectionDivider()
                 SettingSegmentedRow(
                     title = "固定纸张",
-                    options = listOf("white" to "白纸", "warm" to "暖纸", "green" to "护眼", "night" to "夜读"),
+                    options = ReaderPaperOptions.filterNot { it.key == "follow" }.map { it.key to it.label },
                     selected = settings.background,
                     onSelect = { onSettingsChange(settings.copy(background = it)) },
                 )

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -20,6 +21,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,14 +43,10 @@ fun AppPageScaffold(
         modifier = modifier,
         snackbarHost = snackbarHost,
         topBar = {
-            TopAppBar(
-                title = { Text(title, style = MaterialTheme.typography.headlineLarge) },
+            AppTopBar(
+                title = title,
                 navigationIcon = navigationIcon,
                 actions = actions,
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
     ) { padding ->
@@ -86,14 +84,10 @@ fun AppScreenScaffold(
         snackbarHost = snackbarHost,
         topBar = {
             Column {
-                TopAppBar(
-                    title = { Text(title, style = MaterialTheme.typography.headlineLarge) },
+                AppTopBar(
+                    title = title,
                     navigationIcon = navigationIcon,
                     actions = actions,
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
                 )
                 topBarSupportingContent?.invoke()
             }
@@ -194,4 +188,33 @@ fun CompactEmptyState(
             }
         }
     }
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AppTopBar(
+    title: String,
+    modifier: Modifier = Modifier,
+    titleContent: (@Composable () -> Unit)? = null,
+    navigationIcon: @Composable () -> Unit = {},
+    actions: @Composable RowScope.() -> Unit = {},
+    compact: Boolean = false,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
+) {
+    TopAppBar(
+        title = {
+            titleContent?.invoke() ?: Text(
+                text = title,
+                style = if (compact) MaterialTheme.typography.titleLarge else MaterialTheme.typography.headlineLarge,
+                maxLines = 1,
+            )
+        },
+        modifier = modifier.height(64.dp),
+        navigationIcon = navigationIcon,
+        actions = actions,
+        colors = TopAppBarDefaults.topAppBarColors(
+            containerColor = MaterialTheme.colorScheme.background,
+            scrolledContainerColor = MaterialTheme.colorScheme.background,
+        ),
+        scrollBehavior = scrollBehavior,
+    )
 }

@@ -21,8 +21,10 @@ import com.creationreadingassistant.ui.screen.reader.sheets.SearchSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.TocSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.readerTocEntries
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperTheme
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 
@@ -64,6 +66,7 @@ internal data class ReaderSheetHostState(
     val txtTocRuleId: String,
     val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
     val recentChapters: List<Int>,
+    val appDark: Boolean,
 )
 
 /**
@@ -123,12 +126,16 @@ internal fun ReaderSheetHost(
             shape = LocalComponentSpec.current.sheetShape,
             dragHandle = { SheetHandle() },
         ) {
+            ReaderPaperTheme(paper) {
             when (type) {
                 ReaderSheet.TOC -> TocSheet(
-                    titles = state.epubBook?.chapters?.map { it.title }
-                        ?: state.txtChapterTitles,
+                    entries = readerTocEntries(
+                        titles = state.epubBook?.chapters?.map { it.title } ?: state.txtChapterTitles,
+                        current = if (state.epubBook != null) state.chapterIndex else state.txtChapterIndex,
+                        recent = state.recentChapters,
+                    ),
                     current = if (state.epubBook != null) state.chapterIndex else state.txtChapterIndex,
-                    recent = state.recentChapters,
+                    totalChapters = state.epubBook?.chapters?.size ?: state.txtChapterTitles.size,
                     onPick = sheetCallbacks.onPickChapter,
                     txtRules = if (state.isTxt) TxtChapterDetector.rules else emptyList(),
                     selectedTxtRule = state.txtTocRuleId,
@@ -218,6 +225,7 @@ internal fun ReaderSheetHost(
 
                 ReaderSheet.THEME -> ThemeSheet(
                     background = state.readerSettings.background,
+                    appDark = state.appDark,
                     onBackground = { settingsVm.updateReader { copy(background = it) } },
                 )
 
@@ -269,6 +277,7 @@ internal fun ReaderSheetHost(
                         callbacks.onBack()
                     },
                 )
+            }
             }
         }
     }

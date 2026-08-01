@@ -54,6 +54,7 @@ import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperTheme
 import com.creationreadingassistant.ui.theme.paperPalette
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.TopAppBarDefaults
@@ -1725,6 +1726,7 @@ fun ReaderScreen(
         }
     }
 
+    ReaderPaperTheme(paper) {
     Scaffold(
         modifier = Modifier.drawWithContent {
             drawContent()
@@ -1820,6 +1822,7 @@ fun ReaderScreen(
                             }
                         },
                         onToggleControls = { controlsVisible = !controlsVisible },
+                        onGesturePageTurn = { controlsVisible = false },
                         store = pageIndexStore,
                         contentKey = when {
                             epubBook != null -> bid
@@ -1910,8 +1913,14 @@ fun ReaderScreen(
                             chapterIndex = chapterIndex,
                             canPrev = chapterIndex > 0,
                             canNext = chapterIndex < book.chapters.lastIndex,
-                            onPrev = { goToChapter(chapterIndex - 1) },
-                            onNext = { goToChapter(chapterIndex + 1) },
+                            onPrev = {
+                                controlsVisible = false
+                                goToChapter(chapterIndex - 1)
+                            },
+                            onNext = {
+                                controlsVisible = false
+                                goToChapter(chapterIndex + 1)
+                            },
                             onSelectBlock = { text, off -> selectedText = text; selectedGlobalOffset = off },
                             blockGlobalOffsets = blockGlobalOffsets,
                             chapterBase = chapterBase,
@@ -2139,8 +2148,11 @@ fun ReaderScreen(
                 exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { it / 4 }),
             ) {
                 Surface(
-                    modifier = Modifier.navigationBarsPadding(),
-                    color = paper.bg.copy(alpha = 0.97f),
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                        .navigationBarsPadding(),
+                    shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+                    color = paper.panel.copy(alpha = 0.98f),
                     contentColor = paper.fg,
                     border = BorderStroke(1.dp, paper.outlineVariant),
                 ) {
@@ -2266,6 +2278,7 @@ fun ReaderScreen(
                     txtTocRuleId = txtTocRuleId,
                     txtRulePreviews = txtRulePreviews,
                     recentChapters = recentChapters.toList(),
+                    appDark = appDark,
                 ),
                 sheetCallbacks = ReaderSheetHostCallbacks(
                     onDismiss = { sheet = null },
@@ -2402,5 +2415,6 @@ fun ReaderScreen(
                 ),
             )
         }
+    }
     }
 }

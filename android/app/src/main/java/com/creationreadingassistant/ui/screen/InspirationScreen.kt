@@ -38,6 +38,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
+import com.creationreadingassistant.ui.components.AppTopBar
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
@@ -45,7 +46,6 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -533,8 +533,10 @@ private fun InspirationListTopBar(
     onCloseSearch: () -> Unit,
     onNew: () -> Unit,
 ) {
-    TopAppBar(
-        title = {
+    AppTopBar(
+        title = "灵感",
+        compact = searchOpen,
+        titleContent = {
             if (searchOpen) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -570,8 +572,9 @@ private fun InspirationListTopBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InspirationDetailTopBar(onBack: () -> Unit, onEdit: () -> Unit, onMore: () -> Unit) {
-    TopAppBar(
-        title = { Text("灵感详情") },
+    AppTopBar(
+        title = "灵感详情",
+        compact = true,
         navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") } },
         actions = {
             IconButton(onClick = onEdit) { Icon(Icons.Outlined.Edit, contentDescription = "编辑灵感") }
@@ -583,8 +586,9 @@ private fun InspirationDetailTopBar(onBack: () -> Unit, onEdit: () -> Unit, onMo
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun InspirationEditorTopBar(editing: Boolean, onBack: () -> Unit) {
-    TopAppBar(
-        title = { Text(if (editing) "编辑灵感" else "新建灵感") },
+    AppTopBar(
+        title = if (editing) "编辑灵感" else "新建灵感",
+        compact = true,
         navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") } },
     )
 }

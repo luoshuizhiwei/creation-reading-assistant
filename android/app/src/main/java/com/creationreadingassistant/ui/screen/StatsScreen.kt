@@ -45,8 +45,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -62,6 +60,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.AppTopBar
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -170,18 +169,7 @@ fun StatsScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        "统计",
-                        style = MaterialTheme.typography.headlineLarge,
-                    )
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                ),
-            )
+            AppTopBar(title = "统计")
         },
     ) { padding ->
         LazyColumn(

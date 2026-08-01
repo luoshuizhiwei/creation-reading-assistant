@@ -35,6 +35,7 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -144,19 +145,19 @@ internal fun ReaderBottomActions(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReaderFooterAction(Icons.Filled.Menu, "目录") {
+            ReaderFooterAction(Icons.Filled.Menu, "目录", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.TOC))
             }
-            ReaderFooterAction(Icons.Filled.Headphones, "听书") {
+            ReaderFooterAction(Icons.Filled.Headphones, "听书", accentColor) {
                 onAction(ReaderChromeAction.ToggleTts)
             }
-            ReaderFooterAction(Icons.Filled.Lightbulb, "灵感") {
+            ReaderFooterAction(Icons.Filled.Lightbulb, "灵感", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.INSPIRATION))
             }
-            ReaderFooterAction(Icons.Filled.Palette, "主题") {
+            ReaderFooterAction(Icons.Filled.Palette, "主题", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.THEME))
             }
-            ReaderFooterAction(Icons.Filled.Settings, "设置") {
+            ReaderFooterAction(Icons.Filled.Settings, "设置", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS))
             }
         }
@@ -184,12 +185,17 @@ internal fun ReaderCollapsedControl(
 private fun ReaderFooterAction(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
     label: String,
+    accent: androidx.compose.ui.graphics.Color,
     onClick: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     TextButton(
         onClick = onClick,
         modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = accent,
+            containerColor = androidx.compose.ui.graphics.Color.Transparent,
+        ),
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Icon(icon, contentDescription = null)

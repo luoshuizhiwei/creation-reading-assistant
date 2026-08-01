@@ -32,7 +32,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -44,6 +43,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.AppTopBar
 import com.creationreadingassistant.ui.screen.ShelfSortMode
 import com.creationreadingassistant.ui.screen.ShelfViewMode
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -75,17 +75,21 @@ internal fun ShelfHeader(
     onClosePageMenu: () -> Unit,
     onOpenDesktopBooks: () -> Unit,
 ) {
-    Surface(color = MaterialTheme.colorScheme.background) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
+    AppTopBar(
+        title = if (selectionMode) "选择书籍" else "书架",
+        compact = selectionMode || searchActive,
+        navigationIcon = {
             if (selectionMode) {
-                IconButton(onClick = onExitSelection) { Icon(Icons.Filled.Close, contentDescription = "退出多选") }
-                Text("选择书籍", style = MaterialTheme.typography.titleLarge)
-            } else if (searchActive) {
+                IconButton(onClick = onExitSelection) {
+                    Icon(Icons.Filled.Close, contentDescription = "退出多选")
+                }
+            }
+        },
+        titleContent = if (searchActive) ({
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.padding(end = 8.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                 BasicTextField(
                     value = query,
@@ -101,14 +105,12 @@ internal fun ShelfHeader(
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Filled.Close, contentDescription = "清空搜索", modifier = Modifier.size(18.dp)) }
                 }
+            }
+        }) else null,
+        actions = {
+            if (searchActive) {
                 TextButton(onClick = onExitSearch) { Text("取消") }
-            } else {
-                Text(
-                    "书架",
-                    style = MaterialTheme.typography.headlineLarge,
-                    modifier = Modifier.weight(1f),
-                )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+            } else if (!selectionMode) {
                     IconButton(onClick = onOpenSearch) {
                         Icon(Icons.Outlined.Search, contentDescription = "搜索书架", tint = MaterialTheme.colorScheme.onBackground)
                     }
@@ -138,10 +140,9 @@ internal fun ShelfHeader(
                             )
                         }
                     }
-                }
             }
-        }
-    }
+        },
+    )
 }
 
 // ===================== 导入队列浮动卡片 =====================

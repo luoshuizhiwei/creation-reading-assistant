@@ -18,28 +18,21 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.paperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperOptions
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun ThemeSheet(
     background: String,
+    appDark: Boolean,
     onBackground: (String) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
-    val darkTheme = isSystemInDarkTheme()
-    val options = listOf(
-        "follow" to "跟随外观",
-        "white" to "白纸",
-        "warm" to "暖纸",
-        "green" to "护眼",
-        "night" to "夜读",
-    )
     ReaderSheetScaffold(title = "主题外观") {
         Column(
             modifier = Modifier.fillMaxWidth().padding(layout.cardPadding),
@@ -56,11 +49,11 @@ internal fun ThemeSheet(
                 horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
                 verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
             ) {
-                options.forEach { (key, label) ->
-                    val palette = paperPalette(key, darkTheme)
-                    val selected = key == background
+                ReaderPaperOptions.forEach { option ->
+                    val palette = paperPalette(option.key, appDark)
+                    val selected = option.key == background
                     Surface(
-                        onClick = { onBackground(key) },
+                        onClick = { onBackground(option.key) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         color = palette.bg,
@@ -85,7 +78,7 @@ internal fun ThemeSheet(
                                     )
                                 }
                             }
-                            Text(label, style = MaterialTheme.typography.labelMedium, color = palette.fg)
+                            Text(option.label, style = MaterialTheme.typography.labelMedium, color = palette.fg)
                             Text("正文 · 注释", style = MaterialTheme.typography.labelSmall, color = palette.fgMuted)
                         }
                     }

@@ -1,5 +1,7 @@
 package com.creationreadingassistant.ui.theme
 
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -35,6 +37,12 @@ data class ReaderPaperPalette(
     val outlineVariant: Color,
     /** 实边 / 图标 */
     val outline: Color,
+    /** 阅读器控制栏与弹层纸面 */
+    val panel: Color,
+    /** 当前项、按压态等更深一层纸面 */
+    val panelStrong: Color,
+    /** 强调色上的文字与图标 */
+    val onAccent: Color,
     /** 明暗属性：true=亮纸，false=夜读 */
     val isLight: Boolean,
     /** 随纸 5 色批注实色 [黄, 红, 绿, 蓝, 紫] */
@@ -65,6 +73,9 @@ private val WHITE = ReaderPaperPalette(
     accent = Color(0xFF3D5A80),
     outlineVariant = Color(0xFFE4E6EA),
     outline = Color(0xFFC7CBD2),
+    panel = Color(0xFFF4F1E9),
+    panelStrong = Color(0xFFE8E2D7),
+    onAccent = Color.White,
     isLight = true,
     highlightColors = listOf(
         Color(0xFFE6C95A), // 黄
@@ -84,6 +95,9 @@ private val WARM = ReaderPaperPalette(
     accent = Color(0xFF3D5A80),
     outlineVariant = Color(0xFFE6D8C4),
     outline = Color(0xFFCDBBA0),
+    panel = Color(0xFFEDE3D2),
+    panelStrong = Color(0xFFE0D1BA),
+    onAccent = Color.White,
     isLight = true,
     highlightColors = listOf(
         Color(0xFFC9A24B), // 黄
@@ -103,6 +117,9 @@ private val GREEN = ReaderPaperPalette(
     accent = Color(0xFF3F6B4F),
     outlineVariant = Color(0xFFD8E4CC),
     outline = Color(0xFFBCD0AC),
+    panel = Color(0xFFE0E9D6),
+    panelStrong = Color(0xFFD1DFC4),
+    onAccent = Color.White,
     isLight = true,
     highlightColors = listOf(
         Color(0xFFC7B65A), // 黄
@@ -122,6 +139,9 @@ private val NIGHT = ReaderPaperPalette(
     accent = Color(0xFF8AA6D8),
     outlineVariant = Color(0xFF24262C),
     outline = Color(0xFF383B42),
+    panel = Color(0xFF1D2026),
+    panelStrong = Color(0xFF292D35),
+    onAccent = Color(0xFF111318),
     isLight = false,
     highlightColors = listOf(
         Color(0xFFE6C95A), // 黄
@@ -146,4 +166,50 @@ fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (ke
     "night" -> NIGHT
     "follow" -> if (darkTheme) NIGHT else WHITE
     else -> if (darkTheme) NIGHT else WHITE
+}
+
+data class ReaderPaperOption(val key: String, val label: String)
+
+val ReaderPaperOptions = listOf(
+    ReaderPaperOption("follow", "跟随外观"),
+    ReaderPaperOption("white", "白纸"),
+    ReaderPaperOption("warm", "暖纸"),
+    ReaderPaperOption("green", "护眼"),
+    ReaderPaperOption("night", "夜读"),
+)
+
+/**
+ * 把阅读纸张映射到阅读器内部的 Material 语义色，避免 BottomSheet、按钮和设置行
+ * 意外读取应用外壳颜色。这里只改变阅读器子树，不反向修改应用主题。
+ */
+@Composable
+fun ReaderPaperTheme(
+    palette: ReaderPaperPalette,
+    content: @Composable () -> Unit,
+) {
+    val scheme = MaterialTheme.colorScheme.copy(
+        primary = palette.accent,
+        onPrimary = palette.onAccent,
+        primaryContainer = palette.panelStrong,
+        onPrimaryContainer = palette.fg,
+        background = palette.bg,
+        onBackground = palette.fg,
+        surface = palette.panel,
+        onSurface = palette.fg,
+        surfaceVariant = palette.panelStrong,
+        onSurfaceVariant = palette.fgMuted,
+        surfaceContainerLowest = palette.bg,
+        surfaceContainerLow = palette.panel,
+        surfaceContainer = palette.panel,
+        surfaceContainerHigh = palette.panelStrong,
+        surfaceContainerHighest = palette.panelStrong,
+        outline = palette.outline,
+        outlineVariant = palette.outlineVariant,
+    )
+    MaterialTheme(
+        colorScheme = scheme,
+        typography = MaterialTheme.typography,
+        shapes = MaterialTheme.shapes,
+        content = content,
+    )
 }

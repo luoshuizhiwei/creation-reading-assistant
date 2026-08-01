@@ -337,6 +337,7 @@ fun ShelfScreen(
 
     // A 档打磨：首屏加载占位 + 系统「减少动态效果」感知
     val layout = LocalLayoutTokens.current
+    val componentSpec = LocalComponentSpec.current
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     var firstLoad by remember { mutableStateOf(true) }
@@ -437,19 +438,7 @@ fun ShelfScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbarHostState) },
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .pullRefresh(pullRefreshState)
-        ) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-        ) {
-            // 书架顶栏移入下拉内容区首子：不再独占 Scaffold 的 topBar 上层，
-            // 与指示器同处内容层、且指示器最后绘制，故永不被固定顶栏遮挡。
+        topBar = {
             ShelfHeader(
                 selectionMode = selectionMode,
                 searchActive = searchActive,
@@ -472,6 +461,18 @@ fun ShelfScreen(
                 onClosePageMenu = { showPageMenu = false },
                 onOpenDesktopBooks = { showPageMenu = false; showDesktopBooks = true },
             )
+        },
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .pullRefresh(pullRefreshState)
+        ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+        ) {
             if (hasActiveImports && !selectionMode) {
                 ImportQueueCard(
                     tasks = importTasks.filter { it.status == "processing" },
@@ -487,16 +488,27 @@ fun ShelfScreen(
                     onClear = { selectedIds.clear() },
                 )
             } else {
-                StatusRail(statusFilter = statusFilter, onSelect = { statusFilter = it })
-                Toolbar(
-                    totalCount = books.size,
-                    showFilterButton = showFilterButton,
-                    sortMode = sortMode,
-                    viewMode = viewMode,
-                    onOpenSort = { showSortSheet = true },
-                    onOpenFilter = { showFilterPanel = true },
-                    onToggleView = { viewMode = if (viewMode == ShelfViewMode.GRID) ShelfViewMode.LIST else ShelfViewMode.GRID },
-                )
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layout.pageHorizontal, vertical = layout.microGap),
+                    shape = componentSpec.cardShape,
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(componentSpec.borderWidth, MaterialTheme.colorScheme.outlineVariant),
+                ) {
+                    Column {
+                        StatusRail(statusFilter = statusFilter, onSelect = { statusFilter = it })
+                        Toolbar(
+                            totalCount = books.size,
+                            showFilterButton = showFilterButton,
+                            sortMode = sortMode,
+                            viewMode = viewMode,
+                            onOpenSort = { showSortSheet = true },
+                            onOpenFilter = { showFilterPanel = true },
+                            onToggleView = { viewMode = if (viewMode == ShelfViewMode.GRID) ShelfViewMode.LIST else ShelfViewMode.GRID },
+                        )
+                    }
+                }
                 if (selectedShelfId.isNotEmpty() || selectedCategoryId.isNotEmpty() || selectedTagId.isNotEmpty() || statusFilter != ShelfStatusFilter.ALL || debouncedQuery.isNotEmpty()) {
                     ActiveFilterNote(
                         onReset = {

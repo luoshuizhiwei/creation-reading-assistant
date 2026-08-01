@@ -24,8 +24,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -41,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.AppTopBar
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.profile.AboutSubPage
 import com.creationreadingassistant.ui.screen.profile.AiSettingsSubPage
@@ -156,8 +155,8 @@ fun ProfileScreen(
     Scaffold(
         topBar = {
             if (currentSubPage == null) {
-                TopAppBar(
-                    title = { Text(text = "我的", style = MaterialTheme.typography.headlineLarge) },
+                AppTopBar(
+                    title = "我的",
                     actions = {
                         Box {
                             IconButton(onClick = { moreExpanded = true }) {
@@ -182,23 +181,16 @@ fun ProfileScreen(
                             }
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
                 )
             } else {
-                TopAppBar(
-                    title = { Text(text = subPageTitle(currentSubPage), style = MaterialTheme.typography.headlineLarge) },
+                AppTopBar(
+                    title = subPageTitle(currentSubPage),
+                    compact = true,
                     navigationIcon = {
                         IconButton(onClick = { currentSubPage = null }) {
                             Icon(Icons.Filled.ChevronLeft, contentDescription = "返回")
                         }
                     },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                    ),
                 )
             }
         },

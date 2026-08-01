@@ -107,13 +107,13 @@ fun CardContainer.resolve(): Color {
  * 与现有视觉完全一致，不引入任何新观感。圆角刻意压到 14dp，明显区别于 Apple 的大圆角。
  */
 val DefaultComponentSpec = ComponentSpec(
-    cardRadius = 14.dp,
-    sheetRadius = 20.dp,
+    cardRadius = 18.dp,
+    sheetRadius = 28.dp,
     pillRadius = 999.dp,
-    listItemRadius = 10.dp,
-    cardShape = RoundedCornerShape(14.dp),
-    sheetShape = RoundedCornerShape(20.dp),
-    listItemShape = RoundedCornerShape(10.dp),
+    listItemRadius = 14.dp,
+    cardShape = RoundedCornerShape(18.dp),
+    sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+    listItemShape = RoundedCornerShape(14.dp),
     pillShape = RoundedCornerShape(999.dp),
     useSquircle = false,
     glassBlur = false,
@@ -127,7 +127,7 @@ val DefaultComponentSpec = ComponentSpec(
     borderWidth = 1.dp,
     borderSubtle = true,
     dividerThickness = 1.dp,
-    cardContainer = CardContainer.Lowest,
+    cardContainer = CardContainer.Low,
 )
 
 /** CompositionLocal：当前组件级规格，默认 DEFAULT */

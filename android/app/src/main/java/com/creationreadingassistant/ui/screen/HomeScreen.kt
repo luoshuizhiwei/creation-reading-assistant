@@ -34,8 +34,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -69,6 +67,7 @@ import com.creationreadingassistant.ui.components.EmptyStateHint
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.components.BookCover
+import com.creationreadingassistant.ui.components.AppTopBar
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.rememberCountUp
@@ -140,17 +139,13 @@ fun HomeScreen(
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.home_title)) },
+            AppTopBar(
+                title = stringResource(R.string.home_title),
                 actions = {
                     IconButton(onClick = { navController.navigate("search") }) {
                         Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_open_search))
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.surface,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface,
-                ),
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },

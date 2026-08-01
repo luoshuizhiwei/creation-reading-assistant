@@ -8,10 +8,12 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.dp
+import androidx.compose.material3.ExperimentalMaterial3Api
 import com.creationreadingassistant.ui.theme.AppTheme
 import org.junit.Rule
 import org.junit.Test
 
+@OptIn(ExperimentalMaterial3Api::class)
 class LayoutComponentsTest {
     @get:Rule
     val composeRule = createComposeRule()
@@ -48,5 +50,22 @@ class LayoutComponentsTest {
 
         composeRule.onNodeWithText("暂无内容").assertIsDisplayed()
         composeRule.onNodeWithText("开始").assertIsDisplayed()
+    }
+
+    @Test
+    fun rootTopBarUsesSharedHeightAndHeadline() {
+        composeRule.setContent {
+            AppTheme {
+                AppTopBar(
+                    title = "书架",
+                    modifier = Modifier.testTag("app-top-bar"),
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag("app-top-bar")
+            .assertIsDisplayed()
+            .assertHeightIsAtLeast(64.dp)
+        composeRule.onNodeWithText("书架").assertIsDisplayed()
     }
 }
