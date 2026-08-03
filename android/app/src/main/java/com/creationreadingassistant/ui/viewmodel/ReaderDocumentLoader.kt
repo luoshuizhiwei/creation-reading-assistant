@@ -24,7 +24,7 @@ import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
-import com.creationreadingassistant.ui.screen.ReaderSheet
+import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject

@@ -7,6 +7,7 @@ import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.data.local.entity.mergeReaderProgress
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -188,14 +189,21 @@ class EpubRepository @Inject constructor(
         percent: Float,
         offsetInChapter: Int = 0,
     ) {
+        val now = Instant.now()
+        val incoming = ReadingProgressEntity(
+            book_id = bookId,
+            progress_percent = percent,
+            completion_state = if (percent >= 99.9f) "finished" else "reading",
+            current_location_json =
+                """{"chapter":$chapterIndex,"offset":${offsetInChapter.coerceAtLeast(0)}}""",
+            updated_at = now.toString(),
+        )
         readingProgressDao.upsert(
-            ReadingProgressEntity(
-                book_id = bookId,
-                progress_percent = percent,
-                completion_state = if (percent >= 99.9f) "finished" else "reading",
-                current_location_json =
-                    """{"chapter":$chapterIndex,"offset":${offsetInChapter.coerceAtLeast(0)}}""",
-                updated_at = Instant.now().toString(),
+            mergeReaderProgress(
+                existing = readingProgressDao.getByBook(bookId),
+                incoming = incoming,
+                nowIso = now.toString(),
+                nowMillis = now.toEpochMilli(),
             ),
         )
     }

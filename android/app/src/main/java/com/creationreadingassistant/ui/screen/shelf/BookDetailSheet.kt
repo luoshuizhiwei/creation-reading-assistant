@@ -69,10 +69,6 @@ import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SheetHandle
-import com.creationreadingassistant.ui.screen.progressFor
-import com.creationreadingassistant.ui.screen.ReadinessTone
-import com.creationreadingassistant.ui.screen.readiness
-import com.creationreadingassistant.ui.screen.toneColor
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec

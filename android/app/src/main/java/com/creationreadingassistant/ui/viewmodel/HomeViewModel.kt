@@ -7,6 +7,7 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
@@ -170,6 +171,7 @@ private fun buildContinueBooks(
         val progress = progressById[book.id]
         val sessions = sessionsByBook[book.id]
         if (!book.isDisplayable() || !book.hasBeenRead(progress, sessions)) return@mapNotNull null
+        if (progress?.readingState == ReadingCompletionState.SHELVED) return@mapNotNull null
         if ((progress?.progress_percent ?: 0f) >= 99.5f) return@mapNotNull null
 
         val lastReadAt = progress?.last_read_at

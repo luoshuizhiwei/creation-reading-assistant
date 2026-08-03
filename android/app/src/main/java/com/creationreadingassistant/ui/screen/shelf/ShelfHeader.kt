@@ -44,8 +44,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.AppTopBar
-import com.creationreadingassistant.ui.screen.ShelfSortMode
-import com.creationreadingassistant.ui.screen.ShelfViewMode
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ProgressBarShape
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -78,13 +76,13 @@ internal fun ShelfHeader(
     AppTopBar(
         title = if (selectionMode) "选择书籍" else "书架",
         compact = selectionMode || searchActive,
-        navigationIcon = {
-            if (selectionMode) {
+        navigationIcon = if (selectionMode) {
+            {
                 IconButton(onClick = onExitSelection) {
                     Icon(Icons.Filled.Close, contentDescription = "退出多选")
                 }
             }
-        },
+        } else null,
         titleContent = if (searchActive) ({
             Row(
                 modifier = Modifier.fillMaxWidth(),

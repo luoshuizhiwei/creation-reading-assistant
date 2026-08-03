@@ -1,17 +1,17 @@
 [versions]
-agp = "8.5.2"
+agp = "8.6.0"
 kotlin = "2.0.21"
 ksp = "2.0.21-1.0.28"
-coreKtx = "1.13.1"
-lifecycle = "2.8.4"
+coreKtx = "1.15.0"
+lifecycle = "2.9.4"
 activityCompose = "1.9.2"
-composeBom = "2024.09.00"
+composeBom = "2024.12.01"
 hilt = "2.51.1"
 hiltNavigationCompose = "1.2.0"
 room = "2.6.1"
 coil = "2.7.0"
-serialization = "1.6.3"
-coroutines = "1.9.0"
+serialization = "1.7.3"
+coroutines = "1.10.2"
 security = "1.1.0-alpha06"
 retrofit = "2.11.0"
 okhttp = "4.12.0"
@@ -19,7 +19,7 @@ mlkitBarcode = "17.3.0"
 camera = "1.3.4"
 datastore = "1.1.1"
 junit = "4.13.2"
-coroutinesTest = "1.9.0"
+coroutinesTest = "1.10.2"
 mockk = "1.13.12"
 benchmark = "1.4.1"
 baselineprofile = "1.4.1"
@@ -27,6 +27,10 @@ profileinstaller = "1.4.1"
 uiautomator = "2.3.0"
 immutableCollections = "0.3.8"
 commonmark = "0.29.0"
+desugarJdkLibs = "2.0.4"
+androidxTestExtJunit = "1.1.5"
+androidxTestRunner = "1.5.2"
+turbine = "1.1.0"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -62,7 +66,7 @@ coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coi
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-coroutines-android = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-android", version.ref = "coroutines" }
 androidx-security-crypto = { group = "androidx.security", name = "security-crypto", version.ref = "security" }
-coreLibraryDesugar = { group = "com.android.tools", name = "desugar_jdk_libs", version = "2.0.4" }
+coreLibraryDesugar = { group = "com.android.tools", name = "desugar_jdk_libs", version.ref = "desugarJdkLibs" }
 
 # 网络（局域网同步）
 retrofit = { group = "com.squareup.retrofit2", name = "retrofit", version.ref = "retrofit" }
@@ -80,14 +84,14 @@ androidx-camera-view = { group = "androidx.camera", name = "camera-view", versio
 
 # Room testing
 room-testing = { group = "androidx.room", name = "room-testing", version.ref = "room" }
-androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version = "1.1.5" }
-androidx-test-runner = { group = "androidx.test", name = "runner", version = "1.5.2" }
+androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version.ref = "androidxTestExtJunit" }
+androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 
 # 测试
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
-turbine = { group = "app.cash.turbine", name = "turbine", version = "1.1.0" }
+turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }

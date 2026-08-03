@@ -8,28 +8,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 /**
- * 「墨韵·素笺」主题 —— 严格对齐 mobile/src/md3-base.css 的设计令牌。
- * 纸(paper) 作背景、墨(ink) 作前景、靛青印章(indigo-seal) 作主色。
+ * 「纸墨」配色：暖纸承载内容，墨绿只负责可操作与选中状态。
+ * 阅读器纸张/夜读使用独立的 ReaderPaperPalette，不与应用配色绑定。
  */
 
 // 浅色令牌（来自 md3-base.css :root）
-private val Paper = Color(0xFFF5F1E8)        // 暖宣纸背景
-private val Paper2 = Color(0xFFF0EADF)       // 次级纸面
-private val Paper3 = Color(0xFFE8E0D3)       // 深层纸面
-private val PaperRaised = Color(0xFFFBF8F2)  // 浮起纸面
-private val Ink = Color(0xFF1A1917)          // --ink 墨色正文
-private val InkSoft = Color(0xFF4A4743)      // --ink-soft 次级文字
-private val Muted = Color(0xFF76726A)        // --muted 弱化/说明文字
-private val Line = Color(0x121A1917)         // --line rgba(26,25,23,0.07) 发丝线
-private val IndigoSeal = Color(0xFF3A5670)   // --indigo-seal 靛青印章（主色）
-private val IndigoSealLight = Color(0xFF5A7A94) // --indigo-seal-light 浅靛青
-private val IndigoSealDark = Color(0xFF2A4054)  // --indigo-seal-dark 深靛青
+private val Paper = Color(0xFFF5F1E8)
+private val PaperRaised = Color(0xFFFCFBF7)
+private val PaperLow = Color(0xFFF8F5EE)
+private val PaperMid = Color(0xFFF0ECE3)
+private val PaperHigh = Color(0xFFE8E3D9)
+private val Ink = Color(0xFF202421)
+private val Muted = Color(0xFF626862)
+private val Hairline = Color(0xFFD8D2C7)
+private val PaperInkGreen = Color(0xFF365C4A)
+private val PaperInkGreenContainer = Color(0xFFDCE8DF)
+private val PaperInkGreenOnContainer = Color(0xFF1D392B)
 
 // 语义强调色（来自 md3-base.css）
 val AppSuccess = Color(0xFF4A6E3F)           // --md3-success
 val AppWarning = Color(0xFFA05F12)           // --md3-warning
 val AppError = Color(0xFFB3261E)             // --md3-error
-val AppStreak = Color(0xFF3D5A80)           // --md3-streak 连续阅读（与品牌主色逐字一致）
+val AppStreak = PaperInkGreen
 
 /**
  * 朱砂。**只用于印章标记**，不作通用强调色。
@@ -40,59 +40,38 @@ val AppStreak = Color(0xFF3D5A80)           // --md3-streak 连续阅读（与�
  */
 val AppCinnabar = Color(0xFF9E3D32)
 
-// 暗色令牌（来自 md3-base.css :root[data-mobile-theme="dark"]）
-private val PaperDark = Color(0xFF141311)     // --paper
-private val InkDark = Color(0xFFF3EFE6)      // --ink
-private val MutedDark = Color(0xFF8A847A)    // --muted
-private val LineDark = Color(0x14F3EFE6)     // --line rgba(243,239,230,0.08)
-private val IndigoSealDarkFg = Color(0xFF7C8FD6) // 提亮靛青（暗色主色，保对比度）
-
-// 纸面层级。MD3 的 surfaceContainer* 是一整组「容器台阶」，NavigationBar、Card、
-// BottomSheet 等组件各自取其中一档做底色。**只设 surface / surfaceVariant 是不够的**：
-// 未覆盖的角色会回落到 MD3 基线值（surfaceContainer 基线是 #F3EDF7 的淡紫），
-// 于是底部导航栏会突兀地泛紫，和整套纸墨配色完全脱节。这里按纸的明度排成阶梯。
-private val PaperBright = PaperRaised
-private val PaperLowest = PaperRaised
-private val PaperHigh = Paper3
-private val PaperDim = Color(0xFFE2D8C9)
-private val IndigoContainer = Color(0xFFDDE3EA)      // 靛青在纸上的淡染，不透明
-private val IndigoContainerSoft = Color(0xFFE6EAEF)
-
-// 单套外壳（T1 收敛后唯一外壳）：暖调宣纸底（墨韵·素笺）。冻结已解除，外壳统一为暖调以对齐阅读器纸张与朱砂印。
-private val LightColorScheme = lightColorScheme(
-    primary = Color(0xFF3D5A80),
+private val PaperInkLightColorScheme = lightColorScheme(
+    primary = PaperInkGreen,
     onPrimary = Color(0xFFFFFFFF),
-    primaryContainer = Color(0xFFDCE4EE),
-    onPrimaryContainer = Color(0xFF26354A),
-    // §2.1：secondary 已移除，统一回落到主色（靛青），避免赭石副色残留
-    secondary = Color(0xFF3D5A80),
+    primaryContainer = PaperInkGreenContainer,
+    onPrimaryContainer = PaperInkGreenOnContainer,
+    secondary = PaperInkGreen,
     onSecondary = Color(0xFFFFFFFF),
-    secondaryContainer = Color(0xFFDCE4EE),
-    onSecondaryContainer = Color(0xFF26354A),
-    tertiary = Color(0xFF3D5A80),
+    secondaryContainer = PaperInkGreenContainer,
+    onSecondaryContainer = PaperInkGreenOnContainer,
+    tertiary = PaperInkGreen,
     onTertiary = Color(0xFFFFFFFF),
-    tertiaryContainer = Color(0xFFDCE4EE),
-    onTertiaryContainer = Color(0xFF26354A),
-    // 暖调宣纸底（墨韵·素笺）：冻结解除后统一为暖调，与阅读器纸张 / 朱砂印对齐
+    tertiaryContainer = PaperInkGreenContainer,
+    onTertiaryContainer = PaperInkGreenOnContainer,
     background = Paper,
     onBackground = Ink,
     surface = PaperRaised,
     onSurface = Ink,
-    surfaceVariant = Paper2,
-    onSurfaceVariant = Color(0xFF5A606A),
-    surfaceTint = Color(0xFF3D5A80),
-    surfaceBright = PaperBright,
-    surfaceDim = PaperDim,
-    surfaceContainerLowest = PaperLowest,
+    surfaceVariant = PaperMid,
+    onSurfaceVariant = Muted,
+    surfaceTint = PaperInkGreen,
+    surfaceBright = PaperRaised,
+    surfaceDim = PaperHigh,
+    surfaceContainerLowest = PaperRaised,
     surfaceContainerLow = PaperRaised,
-    surfaceContainer = Paper2,
-    surfaceContainerHigh = Paper3,
-    surfaceContainerHighest = Color(0xFFDED4C5),
-    inverseSurface = Color(0xFF1B1D22),
-    inverseOnSurface = Color(0xFFE8EAEE),
-    inversePrimary = Color(0xFF8AA6D8),
-    outline = Color(0xFFD9D3C7),
-    outlineVariant = Color(0xFFEDE8DD),
+    surfaceContainer = PaperLow,
+    surfaceContainerHigh = PaperMid,
+    surfaceContainerHighest = PaperHigh,
+    inverseSurface = Ink,
+    inverseOnSurface = Color(0xFFF2F5F2),
+    inversePrimary = Color(0xFF8FAF9D),
+    outline = Hairline,
+    outlineVariant = Color(0xFFE7E1D6),
     scrim = Color(0xFF000000),
     error = Color(0xFFC2413B),
     onError = Color(0xFFFFFFFF),
@@ -100,47 +79,38 @@ private val LightColorScheme = lightColorScheme(
     onErrorContainer = Color(0xFF410E0B),
 )
 
-// 夜间同样要排满容器台阶，否则暗色下组件会回落到基线深紫。
-private val InkLowest = Color(0xFF0E0D0C)
-private val InkContainer = Color(0xFF1C1A18)
-private val InkHigh = Color(0xFF24221F)
-private val InkHighest = Color(0xFF2E2B27)
-private val InkBright = Color(0xFF3A3733)
-private val IndigoContainerDark = Color(0xFF2A3446)
-
-private val DarkColorScheme = darkColorScheme(
-    primary = Color(0xFF8AA6D8),
-    onPrimary = Color(0xFF121316),
-    primaryContainer = Color(0xFF26354A),
-    onPrimaryContainer = Color(0xFFDCE4EE),
-    secondary = Color(0xFF8AA6D8),
-    onSecondary = Color(0xFF121316),
-    secondaryContainer = Color(0xFF26354A),
-    onSecondaryContainer = Color(0xFFDCE4EE),
-    tertiary = Color(0xFF8AA6D8),
-    onTertiary = Color(0xFF121316),
-    tertiaryContainer = Color(0xFF26354A),
-    onTertiaryContainer = Color(0xFFDCE4EE),
-    // 暖调近黑（墨韵·素笺）：与浅色暖宣纸同源，仅明暗翻转
-    background = Color(0xFF141311),
-    onBackground = Color(0xFFF3EFE6),
-    surface = Color(0xFF1C1A18),
-    onSurface = Color(0xFFF3EFE6),
-    surfaceVariant = Color(0xFF24221F),
-    onSurfaceVariant = Color(0xFF9AA0AA),
-    surfaceTint = Color(0xFF8AA6D8),
-    surfaceBright = Color(0xFF24221F),
-    surfaceDim = Color(0xFF141311),
-    surfaceContainerLowest = Color(0xFF1B1D22),
-    surfaceContainerLow = Color(0xFF1C1A18),
-    surfaceContainer = Color(0xFF24221F),
-    surfaceContainerHigh = Color(0xFF2E2B27),
-    surfaceContainerHighest = Color(0xFF3A3733),
-    inverseSurface = Color(0xFFF3EFE6),
-    inverseOnSurface = Color(0xFF121316),
-    inversePrimary = Color(0xFF3D5A80),
-    outline = Color(0xFF3A3733),
-    outlineVariant = Color(0xFF2E2B27),
+private val PaperInkDarkColorScheme = darkColorScheme(
+    primary = Color(0xFF8FAF9D),
+    onPrimary = Color(0xFF10251A),
+    primaryContainer = Color(0xFF294637),
+    onPrimaryContainer = Color(0xFFD5E8DC),
+    secondary = Color(0xFF8FAF9D),
+    onSecondary = Color(0xFF10251A),
+    secondaryContainer = Color(0xFF294637),
+    onSecondaryContainer = Color(0xFFD5E8DC),
+    tertiary = Color(0xFF8FAF9D),
+    onTertiary = Color(0xFF10251A),
+    tertiaryContainer = Color(0xFF294637),
+    onTertiaryContainer = Color(0xFFD5E8DC),
+    background = Color(0xFF151815),
+    onBackground = Color(0xFFE8ECE8),
+    surface = Color(0xFF1E221F),
+    onSurface = Color(0xFFE8ECE8),
+    surfaceVariant = Color(0xFF292E2A),
+    onSurfaceVariant = Color(0xFFAEB6B0),
+    surfaceTint = Color(0xFF8FAF9D),
+    surfaceBright = Color(0xFF343A35),
+    surfaceDim = Color(0xFF151815),
+    surfaceContainerLowest = Color(0xFF111411),
+    surfaceContainerLow = Color(0xFF1A1E1B),
+    surfaceContainer = Color(0xFF1E221F),
+    surfaceContainerHigh = Color(0xFF292E2A),
+    surfaceContainerHighest = Color(0xFF343A35),
+    inverseSurface = Color(0xFFE8ECE8),
+    inverseOnSurface = Color(0xFF202421),
+    inversePrimary = PaperInkGreen,
+    outline = Color(0xFF566057),
+    outlineVariant = Color(0xFF353B36),
     scrim = Color(0xFF000000),
     error = Color(0xFFE57373),
     onError = Color(0xFF410E0B),
@@ -151,10 +121,14 @@ private val DarkColorScheme = darkColorScheme(
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
+    palette: AppPalette = AppPalette.default,
     content: @Composable () -> Unit,
 ) {
+    val colorScheme = when (palette) {
+        AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
+    }
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme,
+        colorScheme = colorScheme,
         typography = AppTypography,
         shapes = AppShapes,
         content = content,

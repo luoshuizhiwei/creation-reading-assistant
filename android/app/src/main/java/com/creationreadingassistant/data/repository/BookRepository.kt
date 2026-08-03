@@ -17,6 +17,7 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -137,18 +138,45 @@ class BookRepository @Inject constructor(
     ) {
         val now = Instant.now().toString()
         val existing = progressDao.getByBook(bookId)
-        val finished = completionState == "finished" || progressPercent >= 99.5f
+        val requestedState = ReadingCompletionState.fromStorage(completionState)
+        val state = if (progressPercent >= 99.5f) {
+            ReadingCompletionState.FINISHED
+        } else {
+            requestedState
+        }
+        val finished = state == ReadingCompletionState.FINISHED
         progressDao.upsert(
-            ReadingProgressEntity(
+            (existing ?: ReadingProgressEntity(
                 book_id = bookId,
+                updated_at = now,
+            )).copy(
                 progress_percent = progressPercent.coerceIn(0f, 100f),
-                completion_state = completionState,
+                completion_state = state.storageValue,
                 last_read_at = if (progressPercent > 0) now else existing?.last_read_at,
-                current_location_json = existing?.current_location_json,
-                total_reading_time_ms = existing?.total_reading_time_ms ?: 0L,
                 updated_at = now,
                 // 已读完写入完成时间，未读/在读置 null（对齐网页 completedAt）
-                completed_at = if (finished) System.currentTimeMillis() else null,
+                completed_at = if (finished) existing?.completed_at ?: System.currentTimeMillis() else null,
+            ),
+        )
+    }
+
+    /**
+     * 只改变阅读生命周期状态，不改进度、位置、阅读时长、笔记或灵感。
+     * 搁置与恢复在读都必须走这里，避免把“管理状态”误当成一次阅读进度更新。
+     */
+    suspend fun setReadingState(bookId: String, state: ReadingCompletionState) {
+        val now = Instant.now().toString()
+        val existing = progressDao.getByBook(bookId)
+        val base = existing ?: ReadingProgressEntity(book_id = bookId, updated_at = now)
+        progressDao.upsert(
+            base.copy(
+                completion_state = state.storageValue,
+                completed_at = when (state) {
+                    ReadingCompletionState.FINISHED -> base.completed_at ?: System.currentTimeMillis()
+                    ReadingCompletionState.READING,
+                    ReadingCompletionState.SHELVED -> null
+                },
+                updated_at = now,
             ),
         )
     }

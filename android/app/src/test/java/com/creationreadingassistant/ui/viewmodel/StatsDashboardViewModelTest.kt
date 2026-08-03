@@ -10,8 +10,8 @@ import com.creationreadingassistant.data.local.dao.StatsBookRow
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
-import com.creationreadingassistant.ui.screen.EMPTY_STATS
-import com.creationreadingassistant.ui.screen.StatsPeriod
+import com.creationreadingassistant.ui.screen.stats.EMPTY_STATS
+import com.creationreadingassistant.ui.screen.stats.StatsPeriod
 import io.mockk.every
 import io.mockk.mockk
 import java.time.Instant

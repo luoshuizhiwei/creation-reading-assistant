@@ -34,7 +34,6 @@ import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.SheetHandle
-import com.creationreadingassistant.ui.screen.BatchSheetKind
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 

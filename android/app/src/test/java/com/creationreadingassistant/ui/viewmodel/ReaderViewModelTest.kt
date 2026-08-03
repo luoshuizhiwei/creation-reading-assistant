@@ -20,7 +20,7 @@ import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
-import com.creationreadingassistant.ui.screen.ReaderSheet
+import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every

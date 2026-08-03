@@ -83,28 +83,9 @@ Pop-Location
 - `NOTICE.md`
 - `THIRD_PARTY_NOTICES.md`
 - `SHA256SUMS.txt`
-- `mobile-update.json`
 - 中文更新说明
 
-源码归档必须包含构建该 APK 所需的 `mobile/`、固定上游信息、补丁记录和相关验证脚本。由于主源码仓库是私有仓库，不能依赖 GitHub 自动生成的 Source code 压缩包履行 Android GPL 源码提供义务。
-
-## 公开更新清单（历史 — P0-A3 待恢复）
-
-> 以下描述旧 `mobile/android` 更新清单机制，保留为 P0-A3 迁移参考。
-
-`mobile-update.json` 和公开仓库根目录的 `latest-mobile.json` 使用相同内容：
-
-```json
-{
-  "version": "0.2.0",
-  "releaseUrl": "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/tag/v0.2.0",
-  "notes": "中文更新摘要",
-  "apkUrl": "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases/download/v0.2.0/creation-reading-assistant-0.2.0-android.apk",
-  "apkName": "creation-reading-assistant-0.2.0-android.apk"
-}
-```
-
-发版后必须更新公开仓库 `main` 分支中的 `latest-mobile.json`，否则应用内更新仍会指向旧版本。
+源码归档必须包含构建该 APK 所需的 `archives/frozen-mobile/` 固定上游归属与许可证说明（迁移到独立原生 `android/` 后改为包含 `android/` 与上游 Legado/EpubLib 对应来源）。由于主源码仓库是私有仓库，不能依赖 GitHub 自动生成的 Source code 压缩包履行 Android GPL 源码提供义务。
 
 ## GitHub Actions Secrets（当前：桌面端 + 历史 Android）
 

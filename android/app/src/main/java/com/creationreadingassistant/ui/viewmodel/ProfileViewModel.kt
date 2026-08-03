@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.viewmodel
 
 import android.content.Context
 import android.net.Uri
+import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.dao.BookContentDao
@@ -89,6 +90,7 @@ data class SyncResultDetail(
     val snapshotBackupKey: String? = null,
 )
 
+@Stable
 data class ProfileLibraryState(
     val books: List<BookEntity> = emptyList(),
     val progressByBook: Map<String, ReadingProgressEntity> = emptyMap(),
@@ -104,6 +106,7 @@ data class ProfileLibraryState(
  * 不物化完整 Book/Progress/Session/Note 实体，也不触发同步 / WebDAV / AI /
  * 诊断 / 存储等子页查询。子页数据由 [libraryState] 在子页打开后单独加载。
  */
+@Stable
 data class ProfileHomeSummary(
     val totalDurationMs: Long = 0L,
     val completedBookCount: Int = 0,

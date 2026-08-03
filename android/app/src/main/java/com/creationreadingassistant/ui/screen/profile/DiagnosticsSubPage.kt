@@ -11,7 +11,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +29,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -46,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
@@ -57,7 +61,11 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-internal fun DiagnosticsSubPage(modifier: Modifier) {
+internal fun DiagnosticsSubPage(
+    state: ProfileUiState,
+    onAction: (ProfileAction) -> Unit,
+    scaffoldPadding: PaddingValues,
+) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val logs by AppLog.entries.collectAsStateWithLifecycle()
@@ -79,13 +87,15 @@ internal fun DiagnosticsSubPage(modifier: Modifier) {
             prefs.getString("device_id", null) ?: "未知"
         }.getOrDefault("未知")
     }
-    val info = listOf(
-        "应用版本" to (runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("未知")),
-        "设备标识" to "${deviceId.take(8)}…",
-        "厂商 / 型号" to "${Build.MANUFACTURER} ${Build.MODEL}",
-        "系统版本" to "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
-        "语言" to (context.resources.configuration.locales.get(0)?.toString() ?: "未知"),
-    )
+    val info = remember {
+        listOf<Pair<String, String>>(
+            "应用版本" to (runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("未知") ?: "未知"),
+            "设备标识" to "${deviceId.take(8)}…",
+            "厂商 / 型号" to "${Build.MANUFACTURER} ${Build.MODEL}",
+            "系统版本" to "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT})",
+            "语言" to (context.resources.configuration.locales.get(0)?.toString() ?: "未知"),
+        )
+    }
 
     fun copyToClipboard(text: String) {
         val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
@@ -116,7 +126,11 @@ internal fun DiagnosticsSubPage(modifier: Modifier) {
         }
     }
 
-    Column(modifier = modifier, verticalArrangement = Arrangement.spacedBy(16.dp)) {
+    PageLazyColumn(
+        scaffoldPadding = scaffoldPadding,
+        modifier = Modifier.fillMaxSize(),
+    ) {
+        item {
         SectionCard {
             Column {
                 Text("运行环境", style = MaterialTheme.typography.titleMedium)
@@ -130,6 +144,8 @@ internal fun DiagnosticsSubPage(modifier: Modifier) {
                 }
             }
         }
+        }
+        item {
         SectionCard {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("日志", style = MaterialTheme.typography.titleMedium)
@@ -174,6 +190,7 @@ internal fun DiagnosticsSubPage(modifier: Modifier) {
                 }
             }
         }
+        }
     }
 }
 
@@ -205,9 +222,9 @@ private fun LogEntryItem(
                     logLevelIcon(entry.level),
                     contentDescription = entry.level.name,
                     modifier = Modifier.size(18.dp),
-                    tint = logLevelColor(entry.level),
+                    tint = logLevelColor(entry.level, MaterialTheme.colorScheme),
                 )
-                Text(logLevelLabel(entry.level), style = MaterialTheme.typography.labelSmall, color = logLevelColor(entry.level))
+                Text(logLevelLabel(entry.level), style = MaterialTheme.typography.labelSmall, color = logLevelColor(entry.level, MaterialTheme.colorScheme))
                 Text(entry.module, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 Text(entry.timestamp, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 if (entry.code != null) {
@@ -259,10 +276,9 @@ private fun logLevelIcon(level: AppLog.Level): ImageVector = when (level) {
     AppLog.Level.EVENT -> Icons.Filled.AutoAwesome
 }
 
-@Composable
-private fun logLevelColor(level: AppLog.Level): Color = when (level) {
-    AppLog.Level.INFO -> MaterialTheme.colorScheme.primary
-    AppLog.Level.WARN -> MaterialTheme.colorScheme.tertiary
-    AppLog.Level.ERROR -> MaterialTheme.colorScheme.error
-    AppLog.Level.EVENT -> MaterialTheme.colorScheme.primary
+private fun logLevelColor(level: AppLog.Level, colorScheme: ColorScheme): Color = when (level) {
+    AppLog.Level.INFO -> colorScheme.primary
+    AppLog.Level.WARN -> colorScheme.tertiary
+    AppLog.Level.ERROR -> colorScheme.error
+    AppLog.Level.EVENT -> colorScheme.primary
 }

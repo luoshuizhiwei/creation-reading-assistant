@@ -1,7 +1,7 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.ui.screen.ReaderScreenState
+import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity

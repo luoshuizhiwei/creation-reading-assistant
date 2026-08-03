@@ -16,7 +16,6 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.SheetHandle
-import com.creationreadingassistant.ui.screen.ShelfSortMode
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 
 /** 书架排序选项（label 对应 UI 文案）。 */

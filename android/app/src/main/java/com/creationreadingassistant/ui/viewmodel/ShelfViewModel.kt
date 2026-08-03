@@ -23,6 +23,7 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
@@ -30,6 +31,7 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.data.settings.ShelfPrefs
+import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
@@ -39,6 +41,9 @@ import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.library.SafBookSourceScanner
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import com.creationreadingassistant.ui.screen.shelf.ShelfSortMode
+import com.creationreadingassistant.ui.screen.shelf.ShelfStatusFilter
+import com.creationreadingassistant.ui.screen.shelf.ShelfViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -47,6 +52,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
@@ -82,9 +88,57 @@ class ShelfViewModel @Inject constructor(
     private val epubRepository: EpubRepository,
     private val importHistoryStore: ImportHistoryStore,
     private val shelfPrefs: ShelfPrefs,
+    private val continueReadingStore: ContinueReadingStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
+
+    private val _session = MutableStateFlow(ShelfSessionState())
+    internal val session: StateFlow<ShelfSessionState> = _session.asStateFlow()
+
+    val recentSearches: StateFlow<List<String>> = shelfPrefs.recentSearches
+    val privateSearch: StateFlow<Boolean> = shelfPrefs.privateSearch
+
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery.asStateFlow()
+
+    fun setSearchQuery(value: String) { _searchQuery.value = value }
+    fun clearSearchQuery() { _searchQuery.value = "" }
+    fun recordSearch(query: String = _searchQuery.value) = viewModelScope.launch { shelfPrefs.recordSearch(query) }
+    fun clearRecentSearches() = viewModelScope.launch { shelfPrefs.clearRecentSearches() }
+    fun restoreRecentSearches(values: List<String>) = viewModelScope.launch { shelfPrefs.replaceRecentSearches(values) }
+    fun setPrivateSearch(enabled: Boolean) = viewModelScope.launch { shelfPrefs.setPrivateSearch(enabled) }
+
+    internal fun setStatusFilter(value: ShelfStatusFilter) { _session.value = _session.value.copy(statusFilter = value) }
+    internal fun setSelectedShelf(value: String) { _session.value = _session.value.copy(selectedShelfId = value) }
+    internal fun setSelectedCategory(value: String) { _session.value = _session.value.copy(selectedCategoryId = value) }
+    internal fun setSelectedTag(value: String) {
+        _session.value = _session.value.copy(selectedTagIds = value.takeIf(String::isNotBlank)?.let(::setOf).orEmpty())
+    }
+    internal fun toggleSelectedTag(value: String) {
+        if (value.isBlank()) {
+            clearSelectedTags()
+            return
+        }
+        val selected = _session.value.selectedTagIds
+        _session.value = _session.value.copy(
+            selectedTagIds = if (value in selected) selected - value else selected + value,
+        )
+    }
+    internal fun clearSelectedTags() {
+        _session.value = _session.value.copy(selectedTagIds = emptySet())
+    }
+    internal fun setViewMode(value: ShelfViewMode) {
+        _session.value = _session.value.copy(viewMode = value)
+        setShelfViewMode(value.name)
+    }
+    internal fun setSortMode(value: ShelfSortMode) {
+        _session.value = _session.value.copy(sortMode = value)
+        setShelfSortMode(value.name)
+    }
+    internal fun resetShelfFilters() {
+        _session.value = _session.value.clearFilters()
+    }
 
     val books: StateFlow<List<BookEntity>> = repository.observeBooks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -200,6 +254,18 @@ class ShelfViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
+            shelfViewMode.collect { raw ->
+                val value = ShelfViewMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfViewMode.GRID
+                _session.value = _session.value.copy(viewMode = value)
+            }
+        }
+        viewModelScope.launch {
+            shelfSortMode.collect { raw ->
+                val value = ShelfSortMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfSortMode.RECENT
+                _session.value = _session.value.copy(sortMode = value)
+            }
+        }
+        viewModelScope.launch {
             try {
                 repository.seedSampleIfEmpty()
             } catch (e: Throwable) {
@@ -221,6 +287,7 @@ class ShelfViewModel @Inject constructor(
     private val _importBatch = MutableStateFlow(ImportBatchUiState())
     val importBatch: StateFlow<ImportBatchUiState> = _importBatch.asStateFlow()
     private var activeImportJob: Job? = null
+    private var stopImportAfterCurrent = false
 
     /** 空书架时导入一本示例书（保留原兜底行为）。 */
     fun importSampleBook() {
@@ -238,6 +305,7 @@ class ShelfViewModel @Inject constructor(
     fun importFiles(uris: List<Uri>, sourceLabel: String = "所选文件") {
         val uniqueUris = uris.distinctBy(Uri::toString)
         if (uniqueUris.isEmpty() || activeImportJob?.isActive == true) return
+        stopImportAfterCurrent = false
         activeImportJob = viewModelScope.launch {
             runImportBatch(
                 uris = uniqueUris,
@@ -250,6 +318,7 @@ class ShelfViewModel @Inject constructor(
     /** 扫描用户明确授权的 SAF 文件夹，再顺序导入支持的书籍文件。 */
     fun importFolder(treeUri: Uri) {
         if (activeImportJob?.isActive == true) return
+        stopImportAfterCurrent = false
         activeImportJob = viewModelScope.launch {
             val batchId = "batch-${UUID.randomUUID()}"
             _importBatch.value = ImportBatchUiState(
@@ -304,6 +373,13 @@ class ShelfViewModel @Inject constructor(
         if (!_importBatch.value.isRunning) _importBatch.value = ImportBatchUiState()
     }
 
+    /** 安全停止：不取消当前解析/写库，只在当前文件完成后停止剩余队列。 */
+    fun requestStopImport() {
+        if (!_importBatch.value.isRunning) return
+        stopImportAfterCurrent = true
+        _importBatch.value = _importBatch.value.markStopRequested()
+    }
+
     private suspend fun runImportBatch(
         uris: List<Uri>,
         sourceLabel: String,
@@ -324,7 +400,14 @@ class ShelfViewModel @Inject constructor(
             isRunning = true,
         )
         _importBatch.value = state
-        for (uri in uris) {
+        for ((index, uri) in uris.withIndex()) {
+            if (stopImportAfterCurrent) {
+                state = state.copy(
+                    stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = false),
+                    stopRequested = true,
+                )
+                break
+            }
             val outcome = importOne(uri, fingerprints)
             state = when (outcome) {
                 is ImportOutcome.Success -> state.copy(
@@ -350,8 +433,16 @@ class ShelfViewModel @Inject constructor(
                 )
             }
             _importBatch.value = state
+            if (stopImportAfterCurrent) {
+                state = state.copy(
+                    stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = true),
+                    stopRequested = true,
+                )
+                break
+            }
         }
         _importBatch.value = state.copy(isRunning = false, isScanning = false)
+        stopImportAfterCurrent = false
     }
 
     private suspend fun importOne(
@@ -626,6 +717,28 @@ class ShelfViewModel @Inject constructor(
             onResult?.invoke("已恢复书籍")
         } catch (e: Throwable) {
             onResult?.invoke("恢复失败：${e.message}")
+        }
+    }
+
+    fun shelveBook(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
+        runCatching {
+            repository.setReadingState(id, ReadingCompletionState.SHELVED)
+            continueReadingStore.clear(id)
+        }.onSuccess {
+            onResult("已搁置，阅读记录仍会保留")
+        }.onFailure {
+            onResult("搁置失败：${it.message}")
+        }
+    }
+
+    fun restoreReading(id: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) = viewModelScope.launch {
+        runCatching {
+            repository.setReadingState(id, ReadingCompletionState.READING)
+            continueReadingStore.clear(id)
+        }.onSuccess {
+            onResult(true, "已恢复为在读")
+        }.onFailure {
+            onResult(false, "恢复失败：${it.message}")
         }
     }
 
@@ -944,66 +1057,3 @@ class ShelfViewModel @Inject constructor(
         )
     }
 }
-
-data class ImportTaskUi(
-    val id: String,
-    val fileName: String,
-    val phase: String,
-    val status: String, // "processing" | "done" | "error"
-    val createdAt: Long = System.currentTimeMillis(),
-)
-
-data class ImportFailureUi(
-    val uri: String,
-    val fileName: String,
-    val reason: String,
-)
-
-data class ImportBatchUiState(
-    val id: String = "",
-    val sourceLabel: String = "",
-    val total: Int = 0,
-    val completed: Int = 0,
-    val succeeded: Int = 0,
-    val duplicates: Int = 0,
-    val skipped: Int = 0,
-    val failed: Int = 0,
-    val unreadableFolders: Int = 0,
-    val truncated: Boolean = false,
-    val isScanning: Boolean = false,
-    val isRunning: Boolean = false,
-    val failures: List<ImportFailureUi> = emptyList(),
-) {
-    val hasResult: Boolean
-        get() = total > 0 || failed > 0 || unreadableFolders > 0 || truncated
-}
-
-data class ShelfUiState(
-    val library: ShelfLibraryState = ShelfLibraryState(),
-    val activity: ShelfActivityState = ShelfActivityState(),
-    val auxiliary: ShelfAuxiliaryState = ShelfAuxiliaryState(),
-)
-
-data class ShelfLibraryState(
-    val books: List<BookEntity> = emptyList(),
-    val tags: List<TagEntity> = emptyList(),
-    val categories: List<CategoryEntity> = emptyList(),
-    val shelves: List<ShelfEntity> = emptyList(),
-    val progressById: Map<String, ReadingProgressEntity> = emptyMap(),
-)
-
-data class ShelfActivityState(
-    val sessionsByBook: Map<String, List<ReadingSessionEntity>> = emptyMap(),
-    val notesByBook: Map<String, List<NoteEntity>> = emptyMap(),
-    val highlightsByBook: Map<String, List<HighlightEntity>> = emptyMap(),
-    val inspirationsByBook: Map<String, List<InspirationEntity>> = emptyMap(),
-)
-
-data class ShelfAuxiliaryState(
-    val importTasks: List<ImportTaskUi> = emptyList(),
-    val importBatch: ImportBatchUiState = ImportBatchUiState(),
-    val downloadingIds: Set<String> = emptySet(),
-    val importHistory: List<ImportHistoryEntry> = emptyList(),
-    val savedViewMode: String = "grid",
-    val savedSortMode: String = "recent",
-)

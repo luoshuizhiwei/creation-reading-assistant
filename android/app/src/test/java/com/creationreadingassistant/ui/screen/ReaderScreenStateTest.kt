@@ -1,5 +1,7 @@
 package com.creationreadingassistant.ui.screen
 
+import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
+import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

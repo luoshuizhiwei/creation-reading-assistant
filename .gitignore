@@ -44,3 +44,18 @@ Thumbs.db
 # 临时调研下载
 /icu4j-charset.jar
 /r8faq.html
+
+# 构建探针日志（一次性诊断，不进版本库）
+/build_*.txt
+/build_debug_*.txt
+/clean_out.txt
+/compile_out.txt
+/lint_output.txt
+/test_output.txt
+/verify_out.txt
+
+# Kotlin 守护进程缓存
+/android/.kotlin/
+
+# 归档冻结区（archives/frozen-mobile）内的构建缓存，绝不进版本库
+/archives/frozen-mobile/**/.gradle/

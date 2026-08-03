@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.NoteDao
@@ -11,10 +12,13 @@ import com.creationreadingassistant.data.local.dao.StatsBookRow
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
-import com.creationreadingassistant.ui.screen.StatsPeriod
-import com.creationreadingassistant.ui.screen.StatsUi
-import com.creationreadingassistant.ui.screen.computeStats
-import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.ui.screen.stats.EMPTY_STATS
+import com.creationreadingassistant.ui.screen.stats.StatsPeriod
+import com.creationreadingassistant.ui.screen.stats.StatsUi
+import com.creationreadingassistant.ui.screen.stats.StatsUiState
+import com.creationreadingassistant.ui.screen.stats.computeStats
+import com.creationreadingassistant.ui.screen.stats.isCurrentPeriod
+import com.creationreadingassistant.ui.screen.stats.periodTitle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
 import javax.inject.Inject
@@ -28,13 +32,6 @@ import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
-internal data class StatsDashboardUiState(
-    internal val period: StatsPeriod = StatsPeriod.WEEK,
-    internal val anchor: LocalDate = LocalDate.now(),
-    internal val stats: StatsUi? = null,
-    val booksEmpty: Boolean = true,
-)
-
 private data class StatsTables(
     val sessions: List<StatsSessionRow>,
     val progress: List<StatsProgressRow>,
@@ -47,6 +44,9 @@ private data class StatsSelection(
     val period: StatsPeriod = StatsPeriod.WEEK,
     val anchor: LocalDate = LocalDate.now(),
 )
+
+/** 兼容旧测试 import `StatsDashboardUiState`。 */
+internal typealias StatsDashboardUiState = com.creationreadingassistant.ui.screen.stats.StatsUiState
 
 @HiltViewModel
 class StatsDashboardViewModel @Inject constructor(
@@ -68,19 +68,21 @@ class StatsDashboardViewModel @Inject constructor(
     ) { sessions, progress, books, inspirations, notes ->
         StatsTables(sessions, progress, books, inspirations, notes)
     }
-        // 等价的 DB 结果（如无关表触发的 Room 失效重查）不得进入下游重算。
         .distinctUntilChanged()
 
     /**
      * 图表模型缓存：key = (period, anchor)。
      * tables 未变化时，周期筛选来回切换直接复用已生成的 [StatsUi]，
      * 避免对同一 DB 结果重复 map/group/sort；tables 变化则整体失效。
-     * 仅在 [uiState] 的 combine 变换内访问（flowOn Default，串行执行），无并发竞争。
      */
     private var cachedTables: StatsTables? = null
     private val statsCache = HashMap<Pair<StatsPeriod, LocalDate>, StatsUi>()
 
-    internal val uiState: StateFlow<StatsDashboardUiState> = combine(
+    /**
+     * ViewModel 输出完整 [StatsUiState]。
+     * Screen 消费这个状态即可渲染，不会再自己做 buildRange / inRange / 过滤 等任何计算。
+     */
+    internal val uiState: StateFlow<StatsUiState> = combine(
         tables,
         selection,
     ) { data, selected ->
@@ -99,11 +101,23 @@ class StatsDashboardViewModel @Inject constructor(
                 data.notes,
             )
         }
-        StatsDashboardUiState(
+        // --- 派生标志（Screen 零计算策略） ---
+        val title = periodTitle(selected.period, selected.anchor)
+        val currentPeriod = isCurrentPeriod(selected.period, selected.anchor)
+        val hasAny = stats.totalReadingMs > 0 || stats.sessionCount > 0
+        val globalEmpty = data.books.isEmpty() && !hasAny
+        val periodEmpty = !globalEmpty && !hasAny
+        StatsUiState(
             period = selected.period,
             anchor = selected.anchor,
             stats = stats,
             booksEmpty = data.books.isEmpty(),
+            periodTitle = title,
+            isCurrentPeriod = currentPeriod,
+            nextEnabled = selected.period != StatsPeriod.TOTAL && !currentPeriod,
+            hasAnyData = hasAny,
+            showGlobalEmpty = globalEmpty,
+            showPeriodEmpty = periodEmpty,
         )
     }
         .distinctUntilChanged()
@@ -111,11 +125,11 @@ class StatsDashboardViewModel @Inject constructor(
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = StatsDashboardUiState(),
+            initialValue = StatsUiState(stats = null, periodTitle = ""),
         )
 
     internal fun selectPeriod(period: StatsPeriod) {
-        selection.value = StatsSelection(period = period)
+        selection.value = selection.value.copy(period = period)
     }
 
     internal fun shiftPeriod(direction: Int) {

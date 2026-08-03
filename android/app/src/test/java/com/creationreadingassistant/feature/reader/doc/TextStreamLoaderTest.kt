@@ -13,6 +13,7 @@ import java.io.File
 import java.io.FileInputStream
 import java.io.IOException
 import java.io.InputStream
+import java.nio.file.Files
 
 class TextStreamLoaderTest {
 
@@ -24,7 +25,7 @@ class TextStreamLoaderTest {
 
     @Before
     fun setUp() {
-        cacheDir = createTempDir("loader_test_cache_")
+        cacheDir = Files.createTempDirectory("loader_test_cache_").toFile()
     }
 
     @After

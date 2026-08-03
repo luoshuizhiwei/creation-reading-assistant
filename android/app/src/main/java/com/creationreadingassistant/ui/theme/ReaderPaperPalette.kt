@@ -11,7 +11,7 @@ import androidx.compose.ui.graphics.Color
  * 进入阅读器后，正文、顶栏、底栏、进度条、弹层、系统栏共同跟随所选 paper 的
  * `light` / `dark` 属性（亮纸整屏亮、夜读整屏暗），禁止「浅色顶栏 + 夜读正文」明暗断层。
  *
- * 颜色严格来自设计实施稿 §4（已冻结），此处照单落地，不做任何调整。
+ * 阅读器纸张 accent 已收编进「纸墨」品牌（依据见 docs/theme_decision_log.md）：白/暖纸 = 品牌墨绿，护眼绿纸 = 深青绿（与品牌绿拉开对比），夜读保留蓝。
  *
  * 5 色批注语义顺序固定为：黄(yellow) / 红(red) / 绿(green) / 蓝(blue) / 紫(purple)。
  * - [highlightColors]：随纸 5 色批注实色（用于高亮底 @0.18，正文对比度 ≥ 4.5:1，AA）。
@@ -70,7 +70,7 @@ private val WHITE = ReaderPaperPalette(
     bg = Color(0xFFFAF8F2),
     fg = Color(0xFF1B1E23),
     fgMuted = Color(0xFF5C606A),
-    accent = Color(0xFF3D5A80),
+    accent = Color(0xFF365C4A),
     outlineVariant = Color(0xFFE4E6EA),
     outline = Color(0xFFC7CBD2),
     panel = Color(0xFFF4F1E9),
@@ -92,7 +92,7 @@ private val WARM = ReaderPaperPalette(
     bg = Color(0xFFF3ECDC),
     fg = Color(0xFF2B231A),
     fgMuted = Color(0xFF5C606A),
-    accent = Color(0xFF3D5A80),
+    accent = Color(0xFF365C4A),
     outlineVariant = Color(0xFFE6D8C4),
     outline = Color(0xFFCDBBA0),
     panel = Color(0xFFEDE3D2),
@@ -114,7 +114,7 @@ private val GREEN = ReaderPaperPalette(
     bg = Color(0xFFE8F0DF),
     fg = Color(0xFF1F291A),
     fgMuted = Color(0xFF5C606A),
-    accent = Color(0xFF3F6B4F),
+    accent = Color(0xFF2E6B57),
     outlineVariant = Color(0xFFD8E4CC),
     outline = Color(0xFFBCD0AC),
     panel = Color(0xFFE0E9D6),

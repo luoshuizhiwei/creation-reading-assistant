@@ -1,0 +1,259 @@
+package com.creationreadingassistant.ui.screen.reader.content
+
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextIndent
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.ui.components.rememberViewportImageRequest
+import com.creationreadingassistant.ui.screen.reader.RenderMarkdownChapter
+import com.creationreadingassistant.ui.screen.reader.tts.buildSentenceHighlighted
+import com.creationreadingassistant.ui.theme.MotionTokens
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
+
+/**
+ * EPUB 翻页模式视图（从 ReaderScreen.kt 拆出，纯结构搬运，不改语义）。
+ *
+ * 单章分页渲染 + 三区/五区点击翻页。翻页淡入动效只动 alpha，不复制整章组件树
+ * （守住 OOM 内存纪律）。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun PagedEpubView(
+    blocks: List<DocBlock>,
+    fontSize: Float,
+    lineHeight: Float,
+    fontWeightBold: Boolean,
+    pageMargin: Float,
+    paperFg: Color,
+    tapZoneMode: String,
+    pageTurnEffect: String,
+    chapterIndex: Int,
+    canPrev: Boolean,
+    canNext: Boolean,
+    onPrev: () -> Unit,
+    onNext: () -> Unit,
+    onSelectBlock: (String, Int) -> Unit,
+    blockGlobalOffsets: List<Int>,
+    chapterBase: Int,
+    ttsSentenceRangeInChapter: Pair<Int, Int>?,
+    focusBlockIndex: Int?,
+    sentenceHighlightBg: Color,
+    bringRequester: BringIntoViewRequester,
+) {
+    val reducedMotion = rememberReducedMotion()
+    val contentAlpha = remember { Animatable(1f) }
+    var firstRun by remember { mutableStateOf(true) }
+    LaunchedEffect(chapterIndex) {
+        if (reducedMotion || firstRun) {
+            firstRun = false
+            contentAlpha.snapTo(1f)
+            return@LaunchedEffect
+        }
+        // 轻量翻页淡入：单 Composition、只动 alpha，绝不复制整章组件树（守住 OOM 内存纪律）。
+        contentAlpha.snapTo(0.35f)
+        contentAlpha.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
+    }
+    val haptic = rememberHaptic(reducedMotion)
+    val onPrevHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onPrev() }
+    val onNextHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onNext() }
+    Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .fillMaxSize()
+                .padding(horizontal = pageMargin.dp, vertical = pageMargin.dp)
+                .graphicsLayer { alpha = contentAlpha.value },
+        ) {
+            val content: @Composable () -> Unit = {
+                PagedChapterContent(
+                    blocks = blocks,
+                    fontSize = fontSize,
+                    lineHeight = lineHeight,
+                    fontWeightBold = fontWeightBold,
+                    paperFg = paperFg,
+                    onSelectBlock = onSelectBlock,
+                    blockGlobalOffsets = blockGlobalOffsets,
+                    chapterBase = chapterBase,
+                    ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
+                    focusBlockIndex = focusBlockIndex,
+                    sentenceHighlightBg = sentenceHighlightBg,
+                    bringRequester = bringRequester,
+                )
+            }
+            // 不在这里同时保留新旧整章 Composition。旧 AnimatedContent/Crossfade
+            // 会在大章节翻页时让两章文本布局同时驻留，显著放大峰值内存。
+            // 翻页动效后续应基于轻量截图/页面缓存实现，而不是复制整章组件树。
+            @Suppress("UNUSED_VARIABLE")
+            val configuredEffect = pageTurnEffect
+            @Suppress("UNUSED_VARIABLE")
+            val currentChapter = chapterIndex
+            content()
+        }
+        // 点击翻页分区：three-zone=左右边缘；five-zone=再加上下边缘（对照 web tapZoneMode）
+        if (tapZoneMode == "five-zone") {
+            Column(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canPrev) { onPrevHaptic() },
+                    contentAlignment = Alignment.TopCenter,
+                ) {
+                    if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                }
+                Row(Modifier.weight(0.76f).fillMaxWidth()) {
+                    Box(
+                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
+                        contentAlignment = Alignment.CenterStart,
+                    ) {
+                        if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                    }
+                    Spacer(Modifier.weight(0.68f))
+                    Box(
+                        Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
+                        contentAlignment = Alignment.CenterEnd,
+                    ) {
+                        if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                    }
+                }
+                Box(
+                    Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canNext) { onNextHaptic() },
+                    contentAlignment = Alignment.BottomCenter,
+                ) {
+                    if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                }
+            }
+        } else {
+            Row(Modifier.fillMaxSize()) {
+                Box(
+                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
+                    contentAlignment = Alignment.CenterStart,
+                ) {
+                    if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                }
+                Spacer(Modifier.weight(0.68f))
+                Box(
+                    Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 章节正文内容（LazyColumn + itemsIndexed），PagedEpubView 的内容主体。
+ * 从 ReaderScreen.kt 拆出，纯结构搬运，不改渲染语义。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun PagedChapterContent(
+    blocks: List<DocBlock>,
+    fontSize: Float,
+    lineHeight: Float,
+    fontWeightBold: Boolean,
+    paperFg: Color,
+    onSelectBlock: (String, Int) -> Unit,
+    blockGlobalOffsets: List<Int>,
+    chapterBase: Int,
+    ttsSentenceRangeInChapter: Pair<Int, Int>?,
+    focusBlockIndex: Int?,
+    sentenceHighlightBg: Color,
+    bringRequester: BringIntoViewRequester,
+) {
+    LazyColumn(
+        Modifier.fillMaxSize(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        itemsIndexed(
+            items = blocks,
+            key = { index, block ->
+                when (block) {
+                    is DocBlock.Text -> "text-$index"
+                    is DocBlock.Image -> "image-$index-${block.path}"
+                    is DocBlock.Markdown -> "markdown-$index"
+                }
+            },
+        ) { idx, block ->
+            when (block) {
+                is DocBlock.Text -> {
+                    val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
+                    val ann = buildSentenceHighlighted(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg)
+                    Text(
+                        text = ann,
+                        style = TextStyle(
+                            textAlign = TextAlign.Justify,
+                            lineHeight = (fontSize * lineHeight).sp,
+                            textIndent = if (block.isHeading) TextIndent.None else TextIndent(firstLine = (fontSize * 2).sp),
+                        ),
+                        fontSize = fontSize.sp,
+                        fontWeight = if (block.isHeading || fontWeightBold) FontWeight.Bold else FontWeight.Normal,
+                        color = paperFg,
+                        modifier = Modifier.fillMaxWidth().clickable { onSelectBlock(block.text, gOff) },
+                    )
+                }
+                is DocBlock.Image -> {
+                    val imageFile = remember(block.path) { java.io.File(block.path) }
+                    val imageRequest = rememberViewportImageRequest(
+                        data = imageFile,
+                        cacheKey = "reader:${block.path}:${imageFile.lastModified()}",
+                    )
+                    AsyncImage(
+                        model = imageRequest,
+                        contentDescription = null,
+                        modifier = Modifier.fillMaxWidth(),
+                        contentScale = ContentScale.FillWidth,
+                    )
+                }
+                is DocBlock.Markdown -> {
+                    RenderMarkdownChapter(
+                        chapter = block.chapter,
+                        fontSize = fontSize,
+                        lineHeight = lineHeight,
+                        paperFg = paperFg,
+                        blockGlobalOffset = blockGlobalOffsets.getOrElse(idx) { -1 },
+                        chapterBase = chapterBase,
+                        ttsSentenceRange = ttsSentenceRangeInChapter,
+                        sentenceHighlightBg = sentenceHighlightBg,
+                        onSelectBlock = { text, gOff -> onSelectBlock(text, gOff) },
+                    )
+                }
+            }
+        }
+    }
+}

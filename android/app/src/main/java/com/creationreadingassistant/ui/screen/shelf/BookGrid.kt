@@ -27,6 +27,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.ui.platform.testTag
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material.pullrefresh.PullRefreshDefaults
@@ -60,12 +61,6 @@ import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
-import com.creationreadingassistant.ui.screen.progressFor
-import com.creationreadingassistant.ui.screen.readiness
-import com.creationreadingassistant.ui.screen.ReadinessTone
-import com.creationreadingassistant.ui.screen.ShelfStatusFilter
-import com.creationreadingassistant.ui.screen.ShelfViewMode
-import com.creationreadingassistant.ui.screen.toneColor
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ProgressBarShape
@@ -279,6 +274,7 @@ internal fun BookTile(
     }
     val tileModifier = modifier
         .fillMaxWidth()
+        .testTag("book-tile-${book.id}")
         .semantics { contentDescription = "打开书籍" }
         .combinedClickable(
             onClick = onClick,

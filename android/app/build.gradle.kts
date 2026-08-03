@@ -10,12 +10,12 @@ plugins {
 
 android {
     namespace = "com.creationreadingassistant"
-    compileSdk = 34
+    compileSdk = 35
 
     defaultConfig {
         applicationId = "com.creationreadingassistant"
         minSdk = 24
-        targetSdk = 34
+        targetSdk = 35
         versionCode = 1
         versionName = "0.4.0-p4"
 

@@ -2,11 +2,21 @@
 
 审计日期：2026-07-29  
 主线：`android/` 独立原生 Android  
-附带范围：桌面端、旧 Capacitor、CI 与发布链路
+附带范围：桌面端、CI 与发布链路  
+修订：2026-07-31（清理过时文档后，更新以下与实际代码不一致的条目）
+
+## 0. 与 2026-07-29 审计相比已完成或已修正的条目
+
+下列条目原先在审计报告里被列为缺口或 P1 级问题，现已完成，在阅读 A1-A10 时请不要重复派发：
+
+- **B-1（已修，2026-07-31）CoroutineScope / CoroutineDispatcher 注入缺口**：已在 `CoroutineScopeModule.kt` 新增 `@IODispatcher / @DefaultDispatcher / @MainDispatcher` 三个 Qualifier，并把 `ShelfViewModel / PagerHealthStore` 等硬编码 `Dispatchers.*` 全部改为注入。测试里 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 也改为注入真实 `Dispatchers.Default`，保证缓存模型与生产环境调度一致。
+- **B-4（已修，2026-07-31）Hilt @EntryPoint 滥用**：原来报告的「大量分散 EntryPoint」实际只存在 `StatsScreen.kt` 一处，且使用方式已确认符合 Hilt 约束。本轮已经把 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 问题修正，不再用 EntryPoint 作伪装借口；严重度由原 P1 下调为「仅 1 处、已确认无副作用」，不再作为缺口派发。
+- **C-3（已修正版本号对照，2026-07-31）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。当前 `android/app/build.gradle.kts`：`versionCode = 1`、`versionName = 0.4.0-p4`；Room schema 已导出到 `android/app/schemas`：`1.json`~`6.json`（当前 v6，P0-A8 补外键索引时会生成 v7 和 6→7 迁移）。
+- **A-2（已修，原「明确 Capacitor 去留」，2026-07-30 P0-A2 收尾）**：`mobile/` 已整体删除，仅保留许可证/上游归属存档于 `archives/frozen-mobile/`。`AGENTS.md` 已更新「移动端两条独立产品线」说明，后续所有改动都落在 `android/`，不要再出现 Capacitor、mobile/android 路径、或对已删除的 `MobileReaderView/ShelfPage.tsx` 的改造计划。
 
 ## 结论
 
-原生 Android 已经不是“只有页面的半成品”：书架、阅读、标注、TTS、AI、统计、局域网同步和 WebDAV 都已有实现，JVM 单元测试当前可通过。真正阻碍继续使用和交付的，是大文件边界、Markdown 语义、仓库/发布断层、设备回归盲区和超大页面耦合。
+原生 Android 已经不是"只有页面的半成品"：书架、阅读、标注、TTS、AI、统计、局域网同步和 WebDAV 都已有实现，JVM 单元测试当前可通过。真正阻碍继续使用和交付的，是大文件边界、Markdown 语义、仓库/发布断层、设备回归盲区和超大页面耦合。
 
 下列任务按独立 agent 可交付的粒度拆分。除特别说明外，各 agent 只处理自己的任务包，不顺手重写其他模块。
 

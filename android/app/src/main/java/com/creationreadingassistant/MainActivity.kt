@@ -26,6 +26,7 @@ import com.creationreadingassistant.feature.reader.pager.ReaderHardwareKeys
 import com.creationreadingassistant.ui.navigation.AppNavigation
 import com.creationreadingassistant.ui.onboarding.OnboardingOverlay
 import com.creationreadingassistant.ui.onboarding.isOnboardingCompleted
+import com.creationreadingassistant.ui.theme.AppPalette
 import com.creationreadingassistant.ui.theme.AppTheme
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
@@ -58,7 +59,10 @@ class MainActivity : ComponentActivity() {
                     "light" -> false
                     else -> isSystemInDarkTheme()
                 }
-                AppTheme(darkTheme = darkTheme) {
+                AppTheme(
+                    darkTheme = darkTheme,
+                    palette = AppPalette.fromStored(appearance.colorPalette),
+                ) {
                     Box(Modifier.fillMaxSize()) {
                         AppNavigation()
                         if (showOnboarding) {

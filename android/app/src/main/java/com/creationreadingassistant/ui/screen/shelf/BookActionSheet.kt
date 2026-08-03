@@ -32,9 +32,6 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
-import com.creationreadingassistant.ui.screen.progressFor
-import com.creationreadingassistant.ui.screen.ReadinessTone
-import com.creationreadingassistant.ui.screen.readiness
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 

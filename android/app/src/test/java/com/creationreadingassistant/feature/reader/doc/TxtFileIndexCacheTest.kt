@@ -1,6 +1,7 @@
 package com.creationreadingassistant.feature.reader.doc
 
 import java.io.File
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
@@ -9,7 +10,7 @@ import org.junit.Test
 class TxtFileIndexCacheTest {
     @Test
     fun `reuses valid index and invalidates when source changes`() {
-        val root = createTempDir(prefix = "txt-index-cache-")
+        val root = Files.createTempDirectory("txt-index-cache-").toFile()
         try {
             val source = File(root, "source.txt").apply {
                 writeText("第一章\n正文\n第二章\n更多正文")

@@ -49,6 +49,7 @@ private val Context.dataStore by preferencesDataStore(name = "app_settings")
 
 // ---- Appearance ----
 private val KEY_THEME = stringPreferencesKey("appearance_theme_mode")          // system | light | dark
+private val KEY_COLOR_PALETTE = stringPreferencesKey("appearance_color_palette")
 private val KEY_PAPER_TEXTURE = booleanPreferencesKey("appearance_paper_texture")
 
 // ---- Reader ----
@@ -130,7 +131,8 @@ private fun migrateReaderBg(v: String?): String = when (v) {
 
 data class AppearanceSettings(
     val themeMode: String = "system",   // system | light | dark
-    val paperTexture: Boolean = true,
+    val colorPalette: String = "paper_ink",
+    val paperTexture: Boolean = false,
 )
 
 data class ReaderSettings(
@@ -215,7 +217,8 @@ class SettingsStore @Inject constructor(
     val appearance: StateFlow<AppearanceSettings> = ds.data.map { prefs ->
         AppearanceSettings(
             themeMode = prefs[KEY_THEME] ?: "system",
-            paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
+            colorPalette = prefs[KEY_COLOR_PALETTE] ?: "paper_ink",
+            paperTexture = prefs[KEY_PAPER_TEXTURE] ?: false,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), AppearanceSettings())
 
@@ -319,6 +322,7 @@ class SettingsStore @Inject constructor(
         val next = appearance.value.block()
         ds.edit { prefs ->
             prefs[KEY_THEME] = next.themeMode
+            prefs[KEY_COLOR_PALETTE] = next.colorPalette
             prefs[KEY_PAPER_TEXTURE] = next.paperTexture
         }
     }

@@ -17,6 +17,7 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.data.local.entity.mergeReaderProgress
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
@@ -29,7 +30,7 @@ import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
-import com.creationreadingassistant.ui.screen.ReaderScreenState
+import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -137,8 +138,8 @@ class ReaderViewModel @Inject constructor(
 
     private val taxonomyData = screenState
         .map { state ->
-            state.sheet == com.creationreadingassistant.ui.screen.ReaderSheet.AI_EXPLAIN ||
-                state.sheet == com.creationreadingassistant.ui.screen.ReaderSheet.INSPIRATION
+            state.sheet == com.creationreadingassistant.ui.screen.reader.ReaderSheet.AI_EXPLAIN ||
+                state.sheet == com.creationreadingassistant.ui.screen.reader.ReaderSheet.INSPIRATION
         }
         .distinctUntilChanged()
         .flatMapLatest { needed ->
@@ -307,7 +308,17 @@ class ReaderViewModel @Inject constructor(
                 val id = "mobile-tag-${java.util.UUID.randomUUID()}"
                 tagDao.upsert(TagEntity(id = id, name = action.name, type = "inspiration", created_at = nowIso(), updated_at = nowIso()))
             }
-            is ReaderAction.SaveProgress -> io { readingProgressDao.upsert(action.progress) }
+            is ReaderAction.SaveProgress -> io {
+                val now = nowIso()
+                readingProgressDao.upsert(
+                    mergeReaderProgress(
+                        existing = readingProgressDao.getByBook(action.progress.book_id),
+                        incoming = action.progress,
+                        nowIso = now,
+                        nowMillis = System.currentTimeMillis(),
+                    ),
+                )
+            }
             is ReaderAction.SaveEpubProgress -> io {
                 epubRepository.saveProgress(action.bookId, action.chapterIndex, action.percent, action.offsetInChapter)
             }

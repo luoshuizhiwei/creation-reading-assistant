@@ -1,6 +1,7 @@
 package com.creationreadingassistant.feature.reader.doc
 
 import java.io.File
+import java.nio.file.Files
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -10,7 +11,7 @@ import org.junit.Test
 class TextStreamLoaderDirectFileTest {
     @Test
     fun `small direct file is decoded without owned temp copy`() {
-        val root = createTempDir(prefix = "text-loader-direct-")
+        val root = Files.createTempDirectory("text-loader-direct-").toFile()
         try {
             val source = File(root, "book.txt").apply { writeText("第一章\n正文") }
             val result = TextStreamLoader(root, streamingThresholdBytes = 1_024)
@@ -27,7 +28,7 @@ class TextStreamLoaderDirectFileTest {
 
     @Test
     fun `large direct file streams from source without deleting it`() {
-        val root = createTempDir(prefix = "text-loader-direct-")
+        val root = Files.createTempDirectory("text-loader-direct-").toFile()
         try {
             val source = File(root, "book.txt").apply {
                 writeText(buildString { repeat(300) { append("正文内容\n") } })

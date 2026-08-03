@@ -10,7 +10,7 @@ import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
-import com.creationreadingassistant.ui.screen.ReaderSheet
+import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiExplainSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
@@ -65,6 +66,16 @@ class BookViewModel @Inject constructor(
 
     fun markUnread(id: String) = viewModelScope.launch {
         repository.updateReadingProgress(id, 0f, "reading")
+    }
+
+    fun shelve(id: String) = viewModelScope.launch {
+        repository.setReadingState(id, ReadingCompletionState.SHELVED)
+        continueStore.clear(id)
+    }
+
+    fun restoreReading(id: String) = viewModelScope.launch {
+        repository.setReadingState(id, ReadingCompletionState.READING)
+        continueStore.clear(id)
     }
 
     fun removeFromContinue(id: String) = viewModelScope.launch {
