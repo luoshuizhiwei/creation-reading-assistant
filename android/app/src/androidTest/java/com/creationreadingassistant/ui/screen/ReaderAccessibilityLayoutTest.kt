@@ -19,6 +19,8 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.ui.screen.reader.ReaderBottomActions
+import com.creationreadingassistant.ui.screen.reader.ReaderDocumentStatus
 import com.creationreadingassistant.ui.theme.AppTheme
 import org.junit.Assert.assertTrue
 import org.junit.Rule

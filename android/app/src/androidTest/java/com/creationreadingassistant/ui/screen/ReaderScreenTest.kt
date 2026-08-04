@@ -13,6 +13,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
+import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.theme.AppTheme
 import com.creationreadingassistant.ui.viewmodel.ChapterLoadResult
 import com.creationreadingassistant.ui.viewmodel.ReaderAction

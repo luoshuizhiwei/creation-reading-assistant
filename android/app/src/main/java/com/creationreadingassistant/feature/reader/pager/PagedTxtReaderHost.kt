@@ -22,17 +22,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -123,6 +127,8 @@ fun PagedReaderHost(
     /** 非 null 时按该间隔自动翻到下一页；到全书末页后回调并停止。 */
     autoPageIntervalMillis: Long? = null,
     onAutoPagingFinished: () -> Unit = {},
+    /** 自动翻页期间用户点按（任意分区动作）时调用，用于停止自动翻页。 */
+    onStopAutoPaging: () -> Unit = {},
     /** 页眉左侧内容条目 */
     headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     /** 页眉右侧内容条目 */
@@ -276,29 +282,49 @@ fun PagedReaderHost(
                 val selRange = remember { mutableStateOf<IntRange?>(null) }
                 val turnRequest = remember { mutableIntStateOf(0) }
                 val finishAutoPaging by rememberUpdatedState(onAutoPagingFinished)
+                val stopAutoPaging by rememberUpdatedState(onStopAutoPaging)
                 LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
                 LaunchedEffect(externalTurnRequest.value) {
                     val direction = externalTurnRequest.value ?: return@LaunchedEffect
                     turnRequest.intValue = direction
                     externalTurnRequest.value = null
                 }
-                LaunchedEffect(
-                    controller,
-                    autoPageIntervalMillis,
-                    controller.chapterIndex,
-                    controller.pageIndex,
-                    controller.isLayingOut,
-                ) {
+                // 自动翻页揭动画进度（0..1）。remember 存活跨 effect 重启：
+                // 暂停（interval→null）再恢复（interval 恢复）时从原进度续跑（冻结续跑）。
+                val revealer = remember { AutoRevealProgress() }
+                var revealProgress by remember { mutableFloatStateOf(0f) }
+                LaunchedEffect(controller, autoPageIntervalMillis) {
                     val interval = autoPageIntervalMillis ?: return@LaunchedEffect
-                    if (interval <= 0L || controller.isLayingOut) return@LaunchedEffect
-                    delay(interval)
-                    if (!controller.canGoNext) {
-                        finishAutoPaging()
-                    } else if (controller.frameAt(1) != null) {
-                        turnRequest.intValue = 1
-                    } else {
-                        // 相邻章尚未预排完成时直接发起加载，不让自动翻页空等一整个周期。
-                        controller.nextPage()
+                    if (interval <= 0L) return@LaunchedEffect
+                    var previousFrame = withFrameNanos { it }
+                    // 手动翻页 / 跨章 / 自动提交后（页或章变化）从新页从头揭
+                    var lastSeen = controller.chapterIndex to controller.pageIndex
+                    while (true) {
+                        val frame = withFrameNanos { it }
+                        val now = controller.chapterIndex to controller.pageIndex
+                        if (now != lastSeen) {
+                            revealer.reset()
+                            lastSeen = now
+                        }
+                        // 排版中不推进揭动画（当前页尚未稳定），帧时间交给 250ms 上限兜底
+                        if (controller.isLayingOut) {
+                            revealProgress = revealer.value
+                            continue
+                        }
+                        val elapsed = frame - previousFrame
+                        previousFrame = frame
+                        if (revealer.advance(elapsed, interval)) {
+                            if (!controller.canGoNext) {
+                                finishAutoPaging()
+                                break
+                            } else if (controller.frameAt(1) != null) {
+                                turnRequest.intValue = 1
+                            } else {
+                                // 相邻章尚未预排完成时直接发起加载，不让自动翻页空等一整个周期。
+                                controller.nextPage()
+                            }
+                        }
+                        revealProgress = revealer.value
                     }
                 }
 
@@ -374,14 +400,19 @@ fun PagedReaderHost(
                                                 )
                                             ) {
                                                 ReaderTapAction.PREVIOUS_PAGE -> {
+                                                    stopAutoPaging()
                                                     onGesturePageTurn()
                                                     turnRequest.intValue = -1
                                                 }
                                                 ReaderTapAction.NEXT_PAGE -> {
+                                                    stopAutoPaging()
                                                     onGesturePageTurn()
                                                     turnRequest.intValue = 1
                                                 }
-                                                ReaderTapAction.TOGGLE_CONTROLS -> onToggleControls()
+                                                ReaderTapAction.TOGGLE_CONTROLS -> {
+                                                    stopAutoPaging()
+                                                    onToggleControls()
+                                                }
                                                 ReaderTapAction.NONE -> Unit
                                             }
                                         }
@@ -398,7 +429,7 @@ fun PagedReaderHost(
                         currentFrame = frame,
                         previousFrame = previous,
                         nextFrame = next,
-                        effect = pageTurnEffect,
+                        effect = if (autoPageIntervalMillis != null) "reveal" else pageTurnEffect,
                         turnRequest = turnRequest.intValue,
                         onTurnRequestConsumed = { turnRequest.intValue = 0 },
                         onPrevious = {
@@ -409,6 +440,8 @@ fun PagedReaderHost(
                             selRange.value = null
                             controller.nextPage()
                         },
+                        revealProgress = revealProgress,
+                        revealDividerColor = MaterialTheme.colorScheme.primary,
                         modifier = Modifier
                             .offset(x = horizontalInsetDp)
                             .width(contentWidthDp)
