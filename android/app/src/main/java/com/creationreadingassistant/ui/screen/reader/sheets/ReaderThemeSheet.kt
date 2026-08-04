@@ -20,9 +20,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.paperPalette
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.ReaderPaperOptions
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -33,6 +36,8 @@ internal fun ThemeSheet(
     onBackground: (String) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
     ReaderSheetScaffold(title = "主题外观") {
         Column(
             modifier = Modifier.fillMaxWidth().padding(layout.cardPadding),
@@ -53,7 +58,7 @@ internal fun ThemeSheet(
                     val palette = paperPalette(option.key, appDark)
                     val selected = option.key == background
                     Surface(
-                        onClick = { onBackground(option.key) },
+                        onClick = { haptic(HapticFeedbackType.TextHandleMove); onBackground(option.key) },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(12.dp),
                         color = palette.bg,

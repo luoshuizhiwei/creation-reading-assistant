@@ -3,11 +3,15 @@ package com.creationreadingassistant.feature.reader.pager
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -17,9 +21,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 
@@ -28,6 +35,10 @@ import kotlin.math.abs
  *
  * [turnRequest]：-1 上一页、+1 下一页、0 无请求。点按和外部控制都走这条，
  * 水平拖动则由容器自己跟手。提交后先等新页重组一帧再归零位移，避免旧页闪回。
+ *
+ * [effect] 额外支持 "reveal"（自动翻页专用）：当前页静止在下层，下一页从顶部
+ * 按 [revealProgress] 逐步揭下（clip 顶部区域），交界处画一条 [revealDividerColor]
+ * 的细线。拖动时当前页照常跟手（dx 平移），向右回拖时隐藏下一层。
  */
 @Composable
 fun <Frame : Any> PageTurner(
@@ -40,10 +51,13 @@ fun <Frame : Any> PageTurner(
     onPrevious: () -> Unit,
     onNext: () -> Unit,
     modifier: Modifier = Modifier,
+    revealProgress: Float = 0f,
+    revealDividerColor: Color? = null,
     content: @Composable BoxScope.(frame: Frame, isCurrent: Boolean) -> Unit,
 ) {
     BoxWithConstraints(modifier) {
         val width = constraints.maxWidth.toFloat().coerceAtLeast(1f)
+        val boxMaxHeight = maxHeight
         val normalizedEffect = if (effect == "curl") "cover" else effect
         val dx = remember { Animatable(0f) }
         val scope = rememberCoroutineScope()
@@ -158,6 +172,36 @@ fun <Frame : Any> PageTurner(
                             .fillMaxSize()
                             .graphicsLayer { translationX = -width + offset },
                     ) { content(previousFrame, false) }
+                }
+            }
+        } else if (normalizedEffect == "reveal") {
+            // 自动翻页专用：下一页从顶部按 revealProgress 揭下，分界线贴在揭起底边。
+            // 拖动时当前页跟手平移；向右回拖（上一页方向）隐藏下一层，避免混叠。
+            Box(Modifier.fillMaxSize().then(dragModifier)) {
+                val offset = dx.value
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .graphicsLayer { translationX = offset },
+                ) { content(currentFrame, true) }
+                if (offset <= 0f && nextFrame != null && revealProgress > 0f) {
+                    val revealHeight = boxMaxHeight * revealProgress.coerceIn(0f, 1f)
+                    Box(
+                        Modifier
+                            .fillMaxWidth()
+                            .height(revealHeight)
+                            .align(Alignment.TopCenter),
+                    ) { content(nextFrame, false) }
+                    revealDividerColor?.let { color ->
+                        Box(
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1.dp)
+                                .align(Alignment.TopCenter)
+                                .offset(y = revealHeight - 1.dp)
+                                .background(color),
+                        )
+                    }
                 }
             }
         } else {
