@@ -209,6 +209,7 @@ internal fun InspirationList(
                         tags = tagsOf(item),
                         onOpen = { onAction(InspirationAction.OpenDetail(item.id)) },
                         onMore = { onAction(InspirationAction.OpenItemActions(item.id)) },
+                        entranceDelay = index * 40,
                     )
                     if (index != filtered.lastIndex) SectionDivider()
                 }
@@ -225,6 +226,7 @@ private fun InspirationRecordCard(
     tags: List<String>,
     onOpen: () -> Unit,
     onMore: () -> Unit,
+    entranceDelay: Int = 0,
 ) {
     val spec = LocalComponentSpec.current
     Column(
@@ -232,7 +234,7 @@ private fun InspirationRecordCard(
             .fillMaxWidth()
             .clickable(onClick = onOpen)
             .padding(vertical = LocalLayoutTokens.current.contentGap)
-            .animateEnter(reducedMotion = rememberReducedMotion())
+            .animateEnter(delayMillis = entranceDelay, reducedMotion = rememberReducedMotion())
             .testTag("inspiration-card-${item.id}"),
     ) {
         Row(

@@ -19,9 +19,12 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
+import androidx.compose.foundation.lazy.grid.LazyGridItemSpanScope
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.itemsIndexed
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.listItemEnter
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
@@ -417,14 +420,16 @@ private fun ShelfContent(
                         )
                     }
                 } else {
-                    items(
-                        items = state.filtered,
-                        key = { it.bookId },
-                        contentType = { state.viewMode },
-                        span = if (state.viewMode == ShelfViewMode.LIST) {
+                    val shelfSpan: (LazyGridItemSpanScope.() -> GridItemSpan)? =
+                        if (state.viewMode == ShelfViewMode.LIST) {
                             { GridItemSpan(maxLineSpan) }
-                        } else null,
-                    ) { item ->
+                        } else null
+                    itemsIndexed(
+                        items = state.filtered,
+                        key = { _, item -> item.bookId },
+                        contentType = { _, _ -> state.viewMode },
+                        span = shelfSpan,
+                    ) { index, item ->
                         val book = item.book
                         BookTile(
                             book = book,
@@ -437,6 +442,7 @@ private fun ShelfContent(
                             onOpenBook = { onAction(ShelfAction.OpenBook(it)) },
                             onToggleActions = { onAction(ShelfAction.ToggleActions(it)) },
                             onToggleSelected = { onAction(ShelfAction.ToggleSelected(it)) },
+                            modifier = Modifier.listItemEnter(index, reducedMotion),
                         )
                     }
                     item(key = "shelf-count-footer", span = { GridItemSpan(maxLineSpan) }) {

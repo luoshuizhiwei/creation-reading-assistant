@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.Icon
@@ -32,6 +33,7 @@ import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.EmptyStateHint
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 /**
@@ -85,11 +87,12 @@ fun HomeCompletedSection(
                     .testTag("completed-lazy-row"),
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
-                items(completedBooks, key = { "completed-${it.id}" }) { book ->
+                itemsIndexed(completedBooks, key = { _, book -> "completed-${book.id}" }) { index, book ->
                     CompletedCard(
                         book = book,
                         progress = progressById[book.id],
                         onClick = { onOpenBook(book) },
+                        modifier = Modifier.listItemEnter(index, reducedMotion),
                     )
                 }
             }
@@ -102,9 +105,10 @@ private fun CompletedCard(
     book: BookEntity,
     progress: ReadingProgressEntity?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = Modifier
+        modifier = modifier
             .width(116.dp)
             .clickable(onClick = onClick)
             .testTag("completed-card-${book.id}"),

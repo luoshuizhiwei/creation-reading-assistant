@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material3.Icon
@@ -36,6 +37,7 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.util.formatBookProgressForCard
 
@@ -87,11 +89,12 @@ fun HomeContinueSection(
                     .testTag("continue-lazy-row"),
                 horizontalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
             ) {
-                items(continueBooks, key = { "continue-${it.id}" }) { book ->
+                itemsIndexed(continueBooks, key = { _, book -> "continue-${book.id}" }) { index, book ->
                     ContinueCard(
                         book = book,
                         progress = progressById[book.id],
                         onClick = { onOpenBook(book) },
+                        modifier = Modifier.listItemEnter(index, reducedMotion),
                     )
                 }
             }
@@ -104,12 +107,13 @@ private fun ContinueCard(
     book: BookEntity,
     progress: ReadingProgressEntity?,
     onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val pct = progress?.progress_percent ?: 0f
     val layout = LocalLayoutTokens.current
     SectionCard(
         onClick = onClick,
-        modifier = Modifier
+        modifier = modifier
             .width(252.dp)
             .testTag("continue-card-${book.id}"),
         contentPadding = layout.compactCardPadding,

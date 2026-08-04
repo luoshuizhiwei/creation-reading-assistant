@@ -23,6 +23,7 @@ import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import androidx.compose.foundation.layout.Box
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlin.math.roundToInt
 
@@ -56,10 +57,10 @@ internal fun ReadingNotesSubPage(
                     EmptyCard(icon = Icons.AutoMirrored.Filled.MenuBook, title = "还没有阅读记录", body = "打开任意书籍开始阅读后，这里会按最近阅读时间展示档案。")
                 }
             } else {
-                readingBooks.forEach { book ->
+                readingBooks.forEachIndexed { index, book ->
                     item(key = book.id) {
                         val p = progressMap[book.id]
-                        Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                        Box(Modifier.fillMaxWidth().listItemEnter(index, reducedMotion)) {
                             ReadingBookItem(
                                 book = book,
                                 progress = p,
@@ -75,9 +76,9 @@ internal fun ReadingNotesSubPage(
                     EmptyCard(icon = Icons.Filled.Description, title = "还没有笔记", body = "在阅读页选中文字添加笔记或书签后，它们会出现在这里。")
                 }
             } else {
-                notes.forEach { note ->
+                notes.forEachIndexed { index, note ->
                     item(key = note.id) {
-                        Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                        Box(Modifier.fillMaxWidth().listItemEnter(index, reducedMotion)) {
                             NoteItem(note = note, book = note.book_id?.let { bookMap[it] })
                         }
                     }

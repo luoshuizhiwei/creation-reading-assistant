@@ -132,6 +132,19 @@ fun Modifier.animateEnter(
 }
 
 /**
+ * 列表项错落入场：基于序号的渐进延迟（封顶 12 项，避免长列表末尾延迟过久）。
+ * 用于 LazyColumn/LazyRow/LazyVerticalGrid 的 itemsIndexed，消除"整块啪出现"的生硬感。
+ * 尊重 reducedMotion。
+ */
+fun Modifier.listItemEnter(
+    index: Int,
+    reducedMotion: Boolean = false,
+): Modifier {
+    val delay = (index.coerceAtMost(12) * 40).coerceAtLeast(0)
+    return animateEnter(delayMillis = delay, reducedMotion = reducedMotion)
+}
+
+/**
  * 数字滚动（count-up）。返回随动画推进的整数，调用方负责格式化显示。
  *
  * @param target 目标值；变化时从上一个值平滑过渡到新值（如切换统计周期时重新滚动）。

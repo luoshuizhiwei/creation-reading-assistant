@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -65,6 +66,7 @@ import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -191,13 +193,14 @@ fun SearchScreen(
                 else -> {
                     LazyColumn(Modifier.fillMaxSize()) {
                         if (tab == "all" || tab == "books") {
-                            items(results.books, key = { "book-${it.id}" }) { book ->
+                            itemsIndexed(results.books, key = { _, book -> "book-${book.id}" }) { index, book ->
                                 SearchResultRow(
                                     icon = Icons.Filled.Book,
                                     title = buildHighlighted(book.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "书籍",
                                     sourceLabel = null,
                                     reducedMotion = reducedMotion,
+                                    entranceDelay = index * 40,
                                     snippet = (book.author ?: "未知作者") + " · ${book.format.uppercase()}",
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -207,13 +210,14 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "inspirations") {
-                            items(results.inspirations, key = { "insp-${it.id}" }) { insp ->
+                            itemsIndexed(results.inspirations, key = { _, insp -> "insp-${insp.id}" }) { index, insp ->
                                 SearchResultRow(
                                     icon = Icons.Filled.Lightbulb,
                                     title = buildHighlighted(insp.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "灵感",
                                     sourceLabel = null,
                                     reducedMotion = reducedMotion,
+                                    entranceDelay = index * 40,
                                     snippet = (insp.body.ifBlank { insp.title }).take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -223,7 +227,7 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "notes") {
-                            items(results.notes, key = { "note-${it.id}" }) { note ->
+                            itemsIndexed(results.notes, key = { _, note -> "note-${note.id}" }) { index, note ->
                                 val source = note.book_id?.let { results.bookTitles[it] }?.let { "《$it》" }
                                 SearchResultRow(
                                     icon = Icons.Filled.Description,
@@ -231,6 +235,7 @@ fun SearchScreen(
                                     typeLabel = "笔记",
                                     sourceLabel = source,
                                     reducedMotion = reducedMotion,
+                                    entranceDelay = index * 40,
                                     snippet = (note.body.ifBlank { note.excerpt ?: "" }).take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -240,7 +245,7 @@ fun SearchScreen(
                             }
                         }
                         if (tab == "all" || tab == "highlights") {
-                            items(results.highlights, key = { "highlight-${it.id}" }) { hl ->
+                            itemsIndexed(results.highlights, key = { _, hl -> "highlight-${hl.id}" }) { index, hl ->
                                 val source = results.bookTitles[hl.book_id]?.let { "《$it》" }
                                 SearchResultRow(
                                     icon = Icons.Filled.Highlight,
@@ -248,6 +253,7 @@ fun SearchScreen(
                                     typeLabel = "高亮",
                                     sourceLabel = source,
                                     reducedMotion = reducedMotion,
+                                    entranceDelay = index * 40,
                                     snippet = (hl.note ?: "无备注").take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
@@ -295,11 +301,12 @@ private fun SearchResultRow(
     snippet: String,
     onClick: () -> Unit,
     reducedMotion: Boolean = false,
+    entranceDelay: Int = 0,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     SectionCard(
         onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).animateEnter(reducedMotion = reducedMotion),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).animateEnter(delayMillis = entranceDelay, reducedMotion = reducedMotion),
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
