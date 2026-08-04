@@ -1,10 +1,8 @@
 package com.creationreadingassistant.ui.viewmodel
 
 import android.content.Context
-import android.content.Intent
 import android.net.Uri
 import android.os.Trace
-import android.provider.OpenableColumns
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,15 +13,12 @@ import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.dao.CategoryDao
 import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.TagDao
-import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
-import com.creationreadingassistant.data.local.entity.BookFileEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
-import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
@@ -32,13 +27,9 @@ import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.data.settings.ShelfPrefs
 import com.creationreadingassistant.data.settings.ContinueReadingStore
-import com.creationreadingassistant.feature.reader.PlainTextDecoder
-import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
-import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.feature.reader.EpubRepository
-import com.creationreadingassistant.feature.library.SafBookSourceScanner
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.ui.screen.shelf.ShelfSortMode
@@ -60,18 +51,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Instant
-import java.util.UUID
 import javax.inject.Inject
 
 /**
  * 书架页 ViewModel —— 仅复用已有仓库 / DAO，不新增 DB 列或查询方法。
- * - 书籍列表、阅读进度：来自 BookRepository。
- * - 书单 / 分类 / 标签：来自各自 DAO 的 observeAllActive（用于筛选 chip 与批量弹层展示）。
- * - 导入队列：支持真实 SAF 文件导入（EPUB/TXT/MD），保留示例书导入作空书架兜底。
+ *
+ * 职责边界（2026-08 拆分后）：
+ * - 会话状态（筛选/排序/搜索/多选）、书架列表聚合流、偏好持久化、下拉刷新、同步下载；
+ * - 导入管线 / 修复文件 / 导入历史 → [ShelfImporter]；
+ * - 书籍级写操作（删除/恢复/搁置/封面/缓存）→ [ShelfBookActions]。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 @HiltViewModel
@@ -92,6 +82,24 @@ class ShelfViewModel @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
+
+    val importer: ShelfImporter = ShelfImporter(
+        context = context,
+        repository = repository,
+        bookDao = bookDao,
+        bookContentDao = bookContentDao,
+        bookFileDao = bookFileDao,
+        epubRepository = epubRepository,
+        importHistoryStore = importHistoryStore,
+        ioDispatcher = ioDispatcher,
+        booksProvider = { books.value },
+    )
+
+    private val bookActions: ShelfBookActions = ShelfBookActions(
+        context = context,
+        repository = repository,
+        continueReadingStore = continueReadingStore,
+    )
 
     private val _session = MutableStateFlow(ShelfSessionState())
     internal val session: StateFlow<ShelfSessionState> = _session.asStateFlow()
@@ -247,499 +255,63 @@ class ShelfViewModel @Inject constructor(
             initialValue = emptyList(),
         )
 
-    // ===== 导入历史（持久化记录，对齐网页 ImportHistoryPanel）=====
-    val importHistory: StateFlow<List<ImportHistoryEntry>> = importHistoryStore.entries
-
-    fun clearImportHistory() = viewModelScope.launch { importHistoryStore.clear() }
-
-    init {
-        viewModelScope.launch {
-            shelfViewMode.collect { raw ->
-                val value = ShelfViewMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfViewMode.GRID
-                _session.value = _session.value.copy(viewMode = value)
-            }
-        }
-        viewModelScope.launch {
-            shelfSortMode.collect { raw ->
-                val value = ShelfSortMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfSortMode.RECENT
-                _session.value = _session.value.copy(sortMode = value)
-            }
-        }
-        viewModelScope.launch {
-            try {
-                repository.seedSampleIfEmpty()
-            } catch (e: Throwable) {
-                android.util.Log.e("ShelfVM", "Init seed failed", e)
-            }
-        }
-        viewModelScope.launch(ioDispatcher) {
-            try {
-                epubRepository.repairMissingLocalFileSizes()
-            } catch (e: Throwable) {
-                android.util.Log.w("ShelfVM", "EPUB metadata repair failed", e)
-            }
-        }
-    }
-
-    // ===== 导入队列（真实 SAF 导入 + 示例书兜底）=====
-    private val _importTasks = MutableStateFlow<List<ImportTaskUi>>(emptyList())
-    val importTasks: StateFlow<List<ImportTaskUi>> = _importTasks.asStateFlow()
-    private val _importBatch = MutableStateFlow(ImportBatchUiState())
-    val importBatch: StateFlow<ImportBatchUiState> = _importBatch.asStateFlow()
-    private var activeImportJob: Job? = null
-    private var stopImportAfterCurrent = false
+    // ===== 导入（真实 SAF 导入 / 文件夹扫描 / 修复 / 历史）—— 委托 ShelfImporter =====
+    val importTasks: StateFlow<List<ImportTaskUi>> = importer.importTasks
+    val importBatch: StateFlow<ImportBatchUiState> = importer.importBatch
+    val importHistory: StateFlow<List<ImportHistoryEntry>> = importer.importHistory
 
     /** 空书架时导入一本示例书（保留原兜底行为）。 */
-    fun importSampleBook() {
-        if (_importTasks.value.any { it.status == "processing" }) return
-        viewModelScope.launch {
-            val book = repository.addSampleBook("导入·新卷")
-            recordImport(fileName = "${book.title}.txt", format = "txt", fileSize = 0, status = "success", bookTitle = book.title)
-        }
-    }
+    fun importSampleBook() = viewModelScope.launch { importer.runSampleImport() }
 
     /** 兼容单文件入口；实际统一走顺序批处理，避免同时解析多本大书抢占内存。 */
     fun importFile(uri: Uri) = importFiles(listOf(uri))
 
     /** 导入文件选择器返回的多本书。 */
-    fun importFiles(uris: List<Uri>, sourceLabel: String = "所选文件") {
-        val uniqueUris = uris.distinctBy(Uri::toString)
-        if (uniqueUris.isEmpty() || activeImportJob?.isActive == true) return
-        stopImportAfterCurrent = false
-        activeImportJob = viewModelScope.launch {
-            runImportBatch(
-                uris = uniqueUris,
-                sourceLabel = sourceLabel,
-                initialSkipped = uris.size - uniqueUris.size,
-            )
-        }
+    fun importFiles(uris: List<Uri>, sourceLabel: String = "所选文件") = viewModelScope.launch {
+        importer.importFiles(uris, sourceLabel)
     }
 
     /** 扫描用户明确授权的 SAF 文件夹，再顺序导入支持的书籍文件。 */
-    fun importFolder(treeUri: Uri) {
-        if (activeImportJob?.isActive == true) return
-        stopImportAfterCurrent = false
-        activeImportJob = viewModelScope.launch {
-            val batchId = "batch-${UUID.randomUUID()}"
-            _importBatch.value = ImportBatchUiState(
-                id = batchId,
-                sourceLabel = "所选文件夹",
-                isScanning = true,
-                isRunning = true,
-            )
-            runCatching {
-                context.contentResolver.takePersistableUriPermission(
-                    treeUri,
-                    Intent.FLAG_GRANT_READ_URI_PERMISSION,
-                )
-            }
-            val scanResult = runCatching {
-                SafBookSourceScanner(context.contentResolver).scan(treeUri)
-            }.getOrElse { error ->
-                _importBatch.value = _importBatch.value.copy(
-                    isScanning = false,
-                    isRunning = false,
-                    failed = 1,
-                    completed = 1,
-                    total = 1,
-                    failures = listOf(
-                        ImportFailureUi(
-                            uri = treeUri.toString(),
-                            fileName = "所选文件夹",
-                            reason = error.message ?: "无法读取文件夹",
-                        )
-                    ),
-                )
-                return@launch
-            }
-            runImportBatch(
-                uris = scanResult.bookUris,
-                sourceLabel = "所选文件夹",
-                initialSkipped = scanResult.skippedFiles,
-                unreadableFolders = scanResult.unreadableFolders,
-                truncated = scanResult.truncated,
-                batchId = batchId,
-            )
-        }
+    fun importFolder(treeUri: Uri) = viewModelScope.launch {
+        importer.importFolder(treeUri)
     }
 
-    fun retryFailedImports() {
-        val failures = _importBatch.value.failures
-        if (failures.isEmpty()) return
-        importFiles(failures.map { Uri.parse(it.uri) }, sourceLabel = "重试失败项")
+    fun retryFailedImports() = viewModelScope.launch {
+        importer.retryFailedImports()
     }
 
-    fun dismissImportBatchSummary() {
-        if (!_importBatch.value.isRunning) _importBatch.value = ImportBatchUiState()
-    }
+    fun dismissImportBatchSummary() = importer.dismissImportBatchSummary()
 
     /** 安全停止：不取消当前解析/写库，只在当前文件完成后停止剩余队列。 */
-    fun requestStopImport() {
-        if (!_importBatch.value.isRunning) return
-        stopImportAfterCurrent = true
-        _importBatch.value = _importBatch.value.markStopRequested()
+    fun requestStopImport() = importer.requestStopImport()
+
+    fun clearImportHistory() = viewModelScope.launch {
+        importer.clearImportHistory()
     }
 
-    private suspend fun runImportBatch(
-        uris: List<Uri>,
-        sourceLabel: String,
-        initialSkipped: Int = 0,
-        unreadableFolders: Int = 0,
-        truncated: Boolean = false,
-        batchId: String = "batch-${UUID.randomUUID()}",
-    ) {
-        val fingerprints = mutableSetOf<String>()
-        var state = ImportBatchUiState(
-            id = batchId,
-            sourceLabel = sourceLabel,
-            total = uris.size + initialSkipped,
-            completed = initialSkipped,
-            skipped = initialSkipped,
-            unreadableFolders = unreadableFolders,
-            truncated = truncated,
-            isRunning = true,
-        )
-        _importBatch.value = state
-        for ((index, uri) in uris.withIndex()) {
-            if (stopImportAfterCurrent) {
-                state = state.copy(
-                    stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = false),
-                    stopRequested = true,
-                )
-                break
-            }
-            val outcome = importOne(uri, fingerprints)
-            state = when (outcome) {
-                is ImportOutcome.Success -> state.copy(
-                    completed = state.completed + 1,
-                    succeeded = state.succeeded + 1,
-                )
-                is ImportOutcome.Duplicate -> state.copy(
-                    completed = state.completed + 1,
-                    duplicates = state.duplicates + 1,
-                )
-                is ImportOutcome.Skipped -> state.copy(
-                    completed = state.completed + 1,
-                    skipped = state.skipped + 1,
-                )
-                is ImportOutcome.Failed -> state.copy(
-                    completed = state.completed + 1,
-                    failed = state.failed + 1,
-                    failures = state.failures + ImportFailureUi(
-                        uri = uri.toString(),
-                        fileName = outcome.fileName,
-                        reason = outcome.reason,
-                    ),
-                )
-            }
-            _importBatch.value = state
-            if (stopImportAfterCurrent) {
-                state = state.copy(
-                    stopped = state.stopped + remainingImportCount(uris.size, index, currentCompleted = true),
-                    stopRequested = true,
-                )
-                break
-            }
-        }
-        _importBatch.value = state.copy(isRunning = false, isScanning = false)
-        stopImportAfterCurrent = false
+    /** 重新选择文件（修复缺失正文）。 */
+    fun reselectFile(bookId: String, uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
+        onResult(importer.repairFile(bookId, uri))
     }
 
-    private suspend fun importOne(
-        uri: Uri,
-        batchFingerprints: MutableSet<String>,
-    ): ImportOutcome {
-        val quickName = uri.lastPathSegment?.substringAfterLast('/') ?: "unknown"
-        val taskId = "imp-${UUID.randomUUID()}"
-        _importTasks.value = (_importTasks.value + ImportTaskUi(taskId, quickName, IMPORT_PHASES[0], "processing"))
-            .sortedByDescending { it.createdAt }
-            .take(50)
-        return try {
-            val metadata = withContext(ioDispatcher) {
-                val fileName = uriFileName(uri)
-                val rawFormat = fileName.substringAfterLast('.', "").lowercase()
-                val format = if (rawFormat == "markdown") "md" else rawFormat
-                ImportCandidate(uri, fileName, format, uriSize(uri))
-            }
-            if (metadata.format !in SUPPORTED_FORMATS) {
-                val reason = "不支持的格式"
-                updateTaskResult(taskId, metadata.fileName, "已跳过：$reason", "skipped")
-                recordImport(metadata.fileName, metadata.format, metadata.fileSize, "skipped", error = reason)
-                return ImportOutcome.Skipped
-            }
-
-            val fingerprint = metadata.fingerprint
-            val duplicate = fingerprint in batchFingerprints || books.value.any { book ->
-                book.local_uri == uri.toString() ||
-                    (
-                        metadata.fileSize > 0 &&
-                            book.format.lowercase() == metadata.format &&
-                            book.original_file_name.equals(metadata.fileName, ignoreCase = true) &&
-                            book.size == metadata.fileSize
-                    )
-            }
-            if (duplicate) {
-                batchFingerprints += fingerprint
-                updateTaskResult(taskId, metadata.fileName, "已存在，未重复导入", "duplicate")
-                recordImport(
-                    metadata.fileName,
-                    metadata.format,
-                    metadata.fileSize,
-                    status = "duplicate",
-                    isDuplicate = true,
-                )
-                return ImportOutcome.Duplicate
-            }
-
-            val resolved = withContext(ioDispatcher) {
-                val book = when (metadata.format) {
-                    "epub" -> importEpub(uri, taskId)
-                    "txt", "md" -> importPlainText(uri, taskId, metadata.format)
-                    else -> error("不支持的格式：${metadata.format}")
-                }
-                ResolvedImport(book, metadata.format, metadata.fileSize, metadata.fileName)
-            }
-            batchFingerprints += fingerprint
-            updateTaskResult(taskId, resolved.fileName, "导入完成", "done")
-            recordImport(
-                resolved.fileName,
-                resolved.format,
-                resolved.fileSize,
-                "success",
-                bookTitle = resolved.book.title,
-            )
-            ImportOutcome.Success
-        } catch (e: Throwable) {
-            val msg = e.message ?: "导入失败"
-            updateTaskResult(taskId, quickName, "导入失败：$msg", "error")
-            recordImport(quickName, "unknown", 0, "failed", error = msg)
-            ImportOutcome.Failed(quickName, msg)
-        }
-    }
-
-    private fun updateTaskResult(taskId: String, fileName: String, phase: String, status: String) {
-        _importTasks.value = _importTasks.value.map {
-            if (it.id == taskId) it.copy(fileName = fileName, phase = phase, status = status) else it
-        }
-    }
-
-    private data class ResolvedImport(
-        val book: BookEntity,
-        val format: String,
-        val fileSize: Int,
-        val fileName: String,
-    )
-
-    private data class ImportCandidate(
-        val uri: Uri,
-        val fileName: String,
-        val format: String,
-        val fileSize: Int,
-    ) {
-        val fingerprint: String
-            get() = "${format.lowercase()}|${fileName.lowercase()}|$fileSize"
-    }
-
-    private sealed interface ImportOutcome {
-        data object Success : ImportOutcome
-        data object Duplicate : ImportOutcome
-        data object Skipped : ImportOutcome
-        data class Failed(val fileName: String, val reason: String) : ImportOutcome
-    }
-
-    /** 写入一条导入历史（持久化到 ImportHistoryStore）。 */
-    private suspend fun recordImport(
-        fileName: String,
-        format: String,
-        fileSize: Int,
-        status: String,
-        bookTitle: String? = null,
-        error: String? = null,
-        isDuplicate: Boolean = false,
-    ) {
-        importHistoryStore.addEntry(
-            ImportHistoryEntry(
-                id = "imp-h-${UUID.randomUUID()}",
-                fileName = fileName,
-                fileSize = fileSize,
-                format = format,
-                encoding = if (format in listOf("txt", "md", "markdown")) "UTF-8" else null,
-                isDuplicate = isDuplicate,
-                bookTitle = bookTitle,
-                error = error,
-                status = status,
-            )
-        )
-    }
-
-    private suspend fun importEpub(uri: Uri, taskId: String): BookEntity {
-        updateTask(taskId, "正在解析 EPUB 结构")
-        val book = epubRepository.openEpub(uri)
-        val fileName = uriFileName(uri)
-        val size = uriSize(uri)
-        val now = Instant.now().toString()
-        updateTask(taskId, "正在保存书架记录")
-        bookDao.getById(book.id)?.let { existing ->
-            bookDao.update(
-                existing.copy(
-                    original_file_name = fileName,
-                    size = size,
-                    imported_at = now,
-                    updated_at = now,
-                )
-            )
-        }
-        bookFileDao.upsert(
-            BookFileEntity(
-                book_id = book.id,
-                file_name = fileName,
-                format = "epub",
-                size = size,
-                local_uri = uri.toString(),
-                updated_at = now,
-            )
-        )
-        // 重新导入同一本书时，新的 SAF Uri 需要重新获取持久化读取权限。
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
-        return bookDao.getById(book.id) ?: BookEntity(
-            id = book.id,
-            title = book.title,
-            author = book.author,
-            format = "epub",
-            original_file_name = fileName,
-            size = size,
-            local_uri = uri.toString(),
-            content_status = "available",
-            imported_at = now,
-            updated_at = now,
-        )
-    }
-
-    private suspend fun importPlainText(uri: Uri, taskId: String, format: String): BookEntity {
-        updateTask(taskId, "正在读取文件内容")
-        val fileName = uriFileName(uri)
-        // 无论文件大小都保存应用自有副本。只持有 SAF Uri 会在权限撤销、文件移动或
-        // 文件提供器状态变化后让书架里的书无法再打开。
-        val maxInlineBytes = 10 * 1024 * 1024
-        val id = UUID.randomUUID().toString()
-        val now = Instant.now().toString()
-        updateTask(taskId, "正在保存本地副本")
-        val internalDir = java.io.File(context.filesDir, "books/$id").also { it.mkdirs() }
-        val internalFile = java.io.File(internalDir, fileName)
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            internalFile.outputStream().use { out -> input.copyTo(out) }
-        } ?: throw IllegalStateException("无法打开文件")
-        val size = internalFile.length().coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
-        if (size <= 0) {
-            internalFile.delete()
-            throw IllegalStateException("文件内容为空")
-        }
-        val storedUri = Uri.fromFile(internalFile).toString()
-        val text = if (size <= maxInlineBytes) {
-            PlainTextDecoder.decode(internalFile.readBytes()).text
-        } else {
-            // 大文件只生成有界预览，正文由阅读器按索引流式读取。
-            val index = TxtFileScanner.scan(internalFile)
-            PlainTextDocument.fromFileIndex(internalFile, index).readWindow(0, 20_000)
-        }
-        updateTask(taskId, "正在保存书架记录")
-        val book = BookEntity(
-            id = id,
-            title = fileName.substringBeforeLast('.').ifBlank { "未命名书籍" },
-            author = null,
-            format = format,
-            original_file_name = fileName,
-            size = size,
-            local_uri = storedUri,
-            local_content_path = internalFile.absolutePath,
-            content_status = "available",
-            imported_at = now,
-            updated_at = now,
-        )
-        bookDao.upsert(book)
-        bookContentDao.upsert(BookContentEntity(book_id = id, reader_preview = text.take(20000)))
-        bookFileDao.upsert(
-            BookFileEntity(
-                book_id = id,
-                file_name = fileName,
-                format = format,
-                size = size,
-                local_uri = storedUri,
-                updated_at = now,
-            )
-        )
-        // 持久化 SAF Uri 读取权限（大文件时已复制到内部存储，此处仅对原始 Uri 授权）。
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(
-                uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
-            )
-        }
-        return book
-    }
-
-    private fun updateTask(taskId: String, phase: String) {
-        _importTasks.value = _importTasks.value.map {
-            if (it.id == taskId) it.copy(phase = phase) else it
-        }
-    }
-
-    private fun uriFileName(uri: Uri): String {
-        var name: String? = null
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val idx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-            if (idx >= 0 && cursor.moveToFirst()) name = cursor.getString(idx)
-        }
-        return name ?: uri.lastPathSegment ?: "unknown"
-    }
-
-    private fun uriSize(uri: Uri): Int {
-        var size = 0
-        context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
-            val idx = cursor.getColumnIndex(OpenableColumns.SIZE)
-            if (idx >= 0 && cursor.moveToFirst()) size = cursor.getLong(idx).toInt()
-        }
-        return size
-    }
-
-    // ===== 删除（软删，级联清理进度/会话/笔记/高亮/正文/文件/关联）=====
+    // ===== 书籍级写操作（删除/恢复/搁置/封面/缓存）—— 委托 ShelfBookActions =====
     fun deleteBook(id: String) = viewModelScope.launch {
-        repository.deleteBook(id)
+        bookActions.deleteBook(id)
     }
 
     /** 撤销删除：恢复书籍及其关联数据。 */
     fun restoreBook(id: String, onResult: ((String) -> Unit)? = null) = viewModelScope.launch {
-        try {
-            repository.restoreBook(id)
-            onResult?.invoke("已恢复书籍")
-        } catch (e: Throwable) {
-            onResult?.invoke("恢复失败：${e.message}")
-        }
+        onResult?.invoke(bookActions.restoreBook(id))
     }
 
     fun shelveBook(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
-        runCatching {
-            repository.setReadingState(id, ReadingCompletionState.SHELVED)
-            continueReadingStore.clear(id)
-        }.onSuccess {
-            onResult("已搁置，阅读记录仍会保留")
-        }.onFailure {
-            onResult("搁置失败：${it.message}")
-        }
+        onResult(bookActions.shelveBook(id))
     }
 
     fun restoreReading(id: String, onResult: (Boolean, String) -> Unit = { _, _ -> }) = viewModelScope.launch {
-        runCatching {
-            repository.setReadingState(id, ReadingCompletionState.READING)
-            continueReadingStore.clear(id)
-        }.onSuccess {
-            onResult(true, "已恢复为在读")
-        }.onFailure {
-            onResult(false, "恢复失败：${it.message}")
-        }
+        bookActions.restoreReading(id)
+            .onSuccess { onResult(true, it) }
+            .onFailure { onResult(false, "恢复失败：${it.message}") }
     }
 
     /** 更新书名/作者/简介。 */
@@ -750,208 +322,47 @@ class ShelfViewModel @Inject constructor(
         description: String? = null,
         onResult: (String) -> Unit,
     ) = viewModelScope.launch {
-        if (title.isBlank()) {
-            onResult("书名不能为空")
-            return@launch
-        }
-        repository.updateBookInfo(
-            bookId,
-            title.trim(),
-            author?.trim()?.takeIf { it.isNotBlank() },
-            description?.trim()?.takeIf { it.isNotBlank() },
-        )
-        onResult("已更新书籍信息")
+        onResult(bookActions.updateBookInfo(bookId, title, author, description))
     }
 
     /** 更新封面（SAF Uri 字符串）。 */
     fun updateBookCover(bookId: String, uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-        repository.updateBookCover(bookId, uri.toString())
-        onResult("已更新封面")
+        onResult(bookActions.updateBookCover(bookId, uri))
     }
 
     /** 设置文字封面（由前端生成的 SVG DataURL，对照网页「文字封面」）。 */
     fun setBookTextCover(bookId: String, dataUrl: String, onResult: (String) -> Unit) = viewModelScope.launch {
-        repository.updateBookCover(bookId, dataUrl)
-        onResult("已生成文字封面")
+        onResult(bookActions.setBookTextCover(bookId, dataUrl))
     }
 
     /** 重置封面（清空封面图，回退为文字封面）。 */
     fun resetBookCover(bookId: String, onResult: (String) -> Unit) = viewModelScope.launch {
-        repository.updateBookCover(bookId, null)
-        onResult("已重置封面")
+        onResult(bookActions.resetBookCover(bookId))
     }
 
-    // ===== 重新选择文件（修复缺失正文）=====
-    fun reselectFile(bookId: String, uri: Uri, onResult: (String) -> Unit) = viewModelScope.launch {
-        val existing = withContext(ioDispatcher) { bookDao.getById(bookId) }
-        if (existing == null) {
-            onResult("书籍记录不存在")
-            return@launch
-        }
-        val taskId = "repair-${UUID.randomUUID()}"
-        _importTasks.value = (_importTasks.value + ImportTaskUi(taskId, "修复中", "开始修复", "processing"))
-            .sortedByDescending { it.createdAt }
-            .take(50)
-        try {
-            // uriFileName / uriSize / 解析 / 读文件 全部属于 I/O，必须切到 IO 线程
-            val resolved = withContext(ioDispatcher) {
-                val fileName = uriFileName(uri)
-                val format = normalizedFormat(fileName)
-                val expectedFormat = normalizedFormat(existing.original_file_name ?: "book.${existing.format}")
-                if (format != expectedFormat) {
-                    throw IllegalArgumentException(
-                        "格式不一致：原书为 ${expectedFormat.uppercase()}，所选为 ${format.uppercase()}"
-                    )
-                }
-                val fileSize = uriSize(uri)
-                when (format) {
-                    "epub" -> reselectEpub(existing, uri, taskId)
-                    "txt", "md" -> reselectPlainText(existing, uri, taskId, format)
-                    else -> throw IllegalArgumentException("不支持的格式：$format")
-                }
-                ResolvedImport(existing, format, fileSize, fileName)
-            }
-            _importTasks.value = _importTasks.value.map {
-                if (it.id == taskId) it.copy(phase = "修复完成", status = "done", fileName = resolved.fileName) else it
-            }
-            recordImport(resolved.fileName, resolved.format, resolved.fileSize, "success", bookTitle = resolved.book.title)
-            onResult("《${existing.title}》正文已修复")
-        } catch (e: Throwable) {
-            val msg = e.message ?: "修复失败"
-            _importTasks.value = _importTasks.value.map {
-                if (it.id == taskId) it.copy(phase = "修复失败：$msg", status = "error") else it
-            }
-            recordImport("unknown", "unknown", 0, "failed", bookTitle = existing.title, error = msg)
-            onResult("修复失败：$msg")
-        }
-    }
-
-    private suspend fun reselectEpub(existing: BookEntity, uri: Uri, taskId: String) {
-        updateTask(taskId, "正在解析 EPUB 结构")
-        val fileName = uriFileName(uri)
-        updateTask(taskId, "正在安全替换本地副本")
-        val parsed = epubRepository.replaceStoredEpub(existing, uri, fileName)
-        val size = java.io.File(parsed.cachedEpubPath).length()
-            .coerceIn(0L, Int.MAX_VALUE.toLong())
-            .toInt()
-        val now = Instant.now().toString()
-        bookFileDao.upsert(
-            BookFileEntity(
-                book_id = existing.id,
-                file_name = fileName,
-                format = "epub",
-                size = size,
-                local_uri = Uri.fromFile(java.io.File(parsed.cachedEpubPath)).toString(),
-                updated_at = now,
-            )
-        )
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-    }
-
-    private suspend fun reselectPlainText(existing: BookEntity, uri: Uri, taskId: String, format: String) {
-        updateTask(taskId, "正在读取文件内容")
-        val fileName = uriFileName(uri)
-        val maxInlineBytes = 10 * 1024 * 1024
-        val now = Instant.now().toString()
-        val internalDir = java.io.File(context.filesDir, "books/${existing.id}").also { it.mkdirs() }
-        val safeName = fileName.replace(Regex("""[\\/:*?"<>|]"""), "_")
-        val internalFile = java.io.File(internalDir, safeName)
-        val staging = java.io.File(internalDir, "$safeName.repairing")
-        val backup = java.io.File(internalDir, "$safeName.backup")
-        staging.delete()
-        backup.delete()
-        try {
-            updateTask(taskId, "正在复制到应用存储")
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                staging.outputStream().use { out -> input.copyTo(out) }
-            } ?: throw IllegalStateException("无法打开文件")
-            if (staging.length() <= 0L) throw IllegalStateException("文件内容为空")
-            if (internalFile.exists() && !internalFile.renameTo(backup)) {
-                internalFile.copyTo(backup, overwrite = true)
-                internalFile.delete()
-            }
-            if (!staging.renameTo(internalFile)) {
-                staging.copyTo(internalFile, overwrite = true)
-                staging.delete()
-            }
-            val size = internalFile.length()
-                .coerceIn(0L, Int.MAX_VALUE.toLong())
-                .toInt()
-            val text = if (size <= maxInlineBytes) {
-                PlainTextDecoder.decode(internalFile.readBytes()).text
-            } else {
-                val index = TxtFileScanner.scan(internalFile)
-                PlainTextDocument.fromFileIndex(internalFile, index).readWindow(0, 20_000)
-            }
-            updateTask(taskId, "正在保存书架记录")
-            val storedUri = Uri.fromFile(internalFile).toString()
-            bookDao.runInTransaction {
-                bookDao.upsert(
-                    existing.copy(
-                        original_file_name = fileName,
-                        size = size,
-                        local_uri = storedUri,
-                        local_content_path = internalFile.absolutePath,
-                        content_status = "available",
-                        updated_at = now,
-                    )
-                )
-                bookContentDao.upsert(
-                    BookContentEntity(
-                        book_id = existing.id,
-                        reader_preview = text.take(20_000),
-                    )
-                )
-                bookFileDao.upsert(
-                    BookFileEntity(
-                        book_id = existing.id,
-                        file_name = fileName,
-                        format = format,
-                        size = size,
-                        local_uri = storedUri,
-                        updated_at = now,
-                    )
-                )
-            }
-            backup.delete()
-        } catch (error: Throwable) {
-            internalFile.delete()
-            if (backup.exists()) {
-                if (!backup.renameTo(internalFile)) {
-                    backup.copyTo(internalFile, overwrite = true)
-                    backup.delete()
-                }
-            }
-            throw error
-        } finally {
-            staging.delete()
-        }
-        runCatching {
-            context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
-        }
-    }
-
-    private fun normalizedFormat(fileName: String): String {
-        return when (val format = fileName.substringAfterLast('.', "").lowercase()) {
-            "markdown" -> "md"
-            else -> format
-        }
-    }
-
-    // ===== 清理本地正文缓存（保留书架元数据）=====
+    /** 清理本地正文缓存（保留书架元数据）。 */
     fun clearCacheForBooks(ids: List<String>, onResult: (String) -> Unit) = viewModelScope.launch {
-        ids.forEach { repository.clearBookCache(it) }
-        onResult("已清理 ${ids.size} 本书的本地正文缓存")
+        onResult(bookActions.clearCacheForBooks(ids))
     }
 
-    // ===== 同步下载 ----
+    // ===== 同步下载 =====
     private val _downloadingIds = MutableStateFlow<Set<String>>(emptySet())
     val downloadingIds: StateFlow<Set<String>> = _downloadingIds.asStateFlow()
+
+    fun downloadBookContent(bookId: String, onResult: (String) -> Unit) = viewModelScope.launch {
+        // 防重复下载
+        if (_downloadingIds.value.contains(bookId)) {
+            onResult("正在下载中…")
+            return@launch
+        }
+        _downloadingIds.value = _downloadingIds.value + bookId
+        syncRepository.downloadBookContent(bookId)
+            .onSuccess { onResult("下载成功") }
+            .onFailure { onResult("下载失败：${it.message}") }
+        _downloadingIds.value = _downloadingIds.value - bookId
+    }
+
+    suspend fun listDesktopBooks(): List<SyncContract.BookFileManifest> = syncRepository.listDesktopBooks()
 
     /**
      * 书架渲染所需的单一只读状态。
@@ -1003,10 +414,10 @@ class ShelfViewModel @Inject constructor(
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
         .stateIn(
-        scope = viewModelScope,
-        started = SharingStarted.WhileSubscribed(5_000),
-        initialValue = ShelfUiState(),
-    )
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = ShelfUiState(),
+        )
 
     // ===== 下拉刷新（主书架页）=====
     // 书架数据来自 Room 热流，本身已实时；此刷新用于手动重采底层查询，
@@ -1029,31 +440,32 @@ class ShelfViewModel @Inject constructor(
         }
     }
 
-    fun downloadBookContent(bookId: String, onResult: (String) -> Unit) = viewModelScope.launch {
-        // 防重复下载
-        if (_downloadingIds.value.contains(bookId)) {
-            onResult("正在下载中…")
-            return@launch
+    init {
+        viewModelScope.launch {
+            shelfViewMode.collect { raw ->
+                val value = ShelfViewMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfViewMode.GRID
+                _session.value = _session.value.copy(viewMode = value)
+            }
         }
-        _downloadingIds.value = _downloadingIds.value + bookId
-        syncRepository.downloadBookContent(bookId)
-            .onSuccess { onResult("下载成功") }
-            .onFailure { onResult("下载失败：${it.message}") }
-        _downloadingIds.value = _downloadingIds.value - bookId
-    }
-
-    suspend fun listDesktopBooks(): List<SyncContract.BookFileManifest> = syncRepository.listDesktopBooks()
-
-    private fun nowIso(): String = java.time.Instant.now().toString()
-
-    companion object {
-        private val SUPPORTED_FORMATS = setOf("epub", "txt", "md")
-        private val IMPORT_PHASES = listOf(
-            "正在校验文件",
-            "正在复制到应用",
-            "正在验证 EPUB 结构",
-            "正在保存书架记录",
-            "导入完成",
-        )
+        viewModelScope.launch {
+            shelfSortMode.collect { raw ->
+                val value = ShelfSortMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfSortMode.RECENT
+                _session.value = _session.value.copy(sortMode = value)
+            }
+        }
+        viewModelScope.launch {
+            try {
+                repository.seedSampleIfEmpty()
+            } catch (e: Throwable) {
+                android.util.Log.e("ShelfVM", "Init seed failed", e)
+            }
+        }
+        viewModelScope.launch(ioDispatcher) {
+            try {
+                epubRepository.repairMissingLocalFileSizes()
+            } catch (e: Throwable) {
+                android.util.Log.w("ShelfVM", "EPUB metadata repair failed", e)
+            }
+        }
     }
 }
