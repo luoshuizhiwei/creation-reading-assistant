@@ -9,15 +9,21 @@ class AutoRevealProgressTest {
 
     @Test
     fun `half of interval advances progress to 0_5`() {
+        // 单帧上限 250ms(防卡顿补揭)；累积 40 帧 × 250ms = 半个 20s 间隔
         val revealer = AutoRevealProgress()
-        assertFalse(revealer.advance(elapsedNanos = 10_000_000_000L, intervalMillis = 20_000L))
+        var turned = false
+        repeat(40) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) turned = true }
+        assertFalse(turned)
         assertEquals(0.5f, revealer.value, 0.001f)
     }
 
     @Test
     fun `full interval reports page turned`() {
+        // 累积 80 帧 × 250ms = 整个 20s 间隔 → 整页揭开
         val revealer = AutoRevealProgress()
-        assertTrue(revealer.advance(elapsedNanos = 20_000_000_000L, intervalMillis = 20_000L))
+        var turned = false
+        repeat(80) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) turned = true }
+        assertTrue(turned)
         assertEquals(1.0f, revealer.value, 0.001f)
     }
 
@@ -57,10 +63,12 @@ class AutoRevealProgressTest {
 
     @Test
     fun `freeze resume semantics preserve progress across instance reuse`() {
-        // 暂停 = 不再喂帧（不 reset），恢复 = 继续喂：总时长仍是一个 interval
+        // 暂停 = 不再喂帧（不 reset），恢复 = 继续喂：累计有效时长仍是一个 interval
         val revealer = AutoRevealProgress()
-        revealer.advance(8_000_000_000L, 20_000L) // 0.4
-        assertTrue(revealer.advance(12_000_000_000L, 20_000L))
+        repeat(16) { revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L) } // 0.2
+        var turned = false
+        repeat(64) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) turned = true } // +0.8
+        assertTrue(turned)
         assertEquals(1.0f, revealer.value, 0.001f)
     }
 }
