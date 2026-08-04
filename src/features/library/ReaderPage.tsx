@@ -147,8 +147,10 @@ export interface TxtChapter {
 }
 
 export function splitTxtChapters(content: string): TxtChapter[] {
-  // Pattern 1: 第X章/回/节/卷/部/集/篇/幕 — high confidence, allow free subtitle
-  const chapterPattern = /^(第[一二三四五六七八九十百千万零〇○两壹贰叁肆伍陆柒捌玖拾\d]+[章节回卷部集篇幕].{0,80})$/gim;
+  // Pattern 1: 第X章/回/节/卷/部/集/篇/幕 — require a separator (space / colon / dash)
+  // or end-of-line after the marker, so body text like "第一章的内容" is NOT treated
+  // as a heading. Free subtitle is still captured when a separator is present.
+  const chapterPattern = /^(第[一二三四五六七八九十百千万零〇○两壹贰叁肆伍陆柒捌玖拾\d]+[章节回卷部集篇幕](?:$|[\s:：\-—].{0,80}))$/gim;
   // Pattern 2: special keywords — require end-of-line or separator (space / colon / dash)
   // to avoid matching ordinary paragraphs like "序位骑士冲了过来" or "番外的人来到了城里"
   // "正文" is included as a valid section heading for single-section novels
@@ -210,6 +212,16 @@ export function splitTxtChapters(content: string): TxtChapter[] {
         contentStart: 0,
         endIndex: prologueEnd,
       });
+    }
+  }
+
+  // "正文" is a fallback section marker for single-section books. Keep it as a heading
+  // only when no explicit chapter heading exists; otherwise treat it as body text
+  // (e.g. between "第一章" and "尾声", "正文" is body, not a separate chapter).
+  const hasExplicitHeading = chapters.some((c) => c.title !== "" && c.title !== "正文");
+  if (hasExplicitHeading) {
+    for (let i = chapters.length - 1; i >= 0; i--) {
+      if (chapters[i].title === "正文") chapters.splice(i, 1);
     }
   }
 
