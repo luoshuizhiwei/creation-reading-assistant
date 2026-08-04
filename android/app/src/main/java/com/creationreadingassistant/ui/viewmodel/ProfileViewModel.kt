@@ -34,15 +34,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import java.time.Instant
-import javax.inject.Inject
-
-/**
+import javax.inject.Inject/**
  * 单条同步失败项。
  */
 data class SyncFailedItem(
@@ -148,6 +145,18 @@ class ProfileViewModel @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
+
+    private val syncEngine = ProfileSyncEngine(
+        syncRepository = syncRepository,
+        configStore = configStore,
+        bookDao = bookDao,
+    )
+
+    private val webDavManager = ProfileWebDavManager(
+        webDavConfigStore = webDavConfigStore,
+        webDavBackup = webDavBackup,
+        jsonBridge = jsonBridge,
+    )
 
     private val readingArchive = combine(
         bookDao.observeAllActive(),
@@ -306,111 +315,18 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) {
             _syncing.value = true
             _syncMsg.value = null
-            val startedAt = System.currentTimeMillis()
-            val timestamp = Instant.now().toString()
-            val allFailures = mutableListOf<SyncFailedItem>()
-            var allConflicts = emptyList<SyncConflictItem>()
-            var downloadedBookFiles = 0
-            try {
-                val pulled = syncRepository.pull()
-                allFailures += pulled.failedItems.map { toUiFailedItem(it) }
-                appendSyncLog("拉取完成：${pulled.books} 本 / ${pulled.inspirations} 条 / ${pulled.progress} 进度 / ${pulled.sessions} 会话")
-                if (pulled.failedItems.isNotEmpty()) {
-                    appendSyncLog("  拉取失败 ${pulled.failedItems.size} 项")
-                }
-
-                val pushed = syncRepository.push()
-                allFailures += pushed.failedItems.map { toUiFailedItem(it) }
-                allConflicts = pushed.conflicts.map {
-                    SyncConflictItem(
-                        type = it.type,
-                        id = it.id,
-                        title = it.title,
-                        remoteUpdatedAt = it.remoteUpdatedAt,
-                        localUpdatedAt = it.localUpdatedAt,
-                        resolution = it.resolution,
-                    )
-                }
-                appendSyncLog("推送完成：${pushed.applied.books + pushed.applied.inspirations + pushed.applied.progress + pushed.applied.sessions} 条")
-                if (allConflicts.isNotEmpty()) appendSyncLog("  冲突 ${allConflicts.size} 条（服务端保留）")
-
-                if (autoDownloadBooks) {
-                    appendSyncLog("开始下载书籍正文…")
-                    val dl = syncRepository.downloadPendingBooks(maxCount = 20)
-                    downloadedBookFiles = dl.success
-                    allFailures += dl.failedItems.map { toUiFailedItem(it) }
-                    appendSyncLog("下载完成：${dl.success} 本成功，${dl.failed} 本失败")
-                }
-
+            val outcome = syncEngine.runSync(autoDownloadBooks)
+            outcome.logs.forEach { appendSyncLog(it) }
+            _lastSyncResult.value = outcome.result
+            _syncMsg.value = outcome.message
+            if (outcome.result.success) {
                 _config.value = configStore.config
-
-                val pending = countPendingDownloads()
-                val duration = System.currentTimeMillis() - startedAt
-                val result = SyncResultDetail(
-                    timestamp = timestamp,
-                    success = true,
-                    uploaded = SyncCountGroup(
-                        inspirations = pushed.applied.inspirations,
-                        books = pushed.applied.books,
-                        progress = pushed.applied.progress,
-                        sessions = pushed.applied.sessions,
-                    ),
-                    downloaded = SyncCountGroup(
-                        inspirations = pulled.inspirations,
-                        books = pulled.books,
-                        progress = pulled.progress,
-                        sessions = pulled.sessions,
-                        bookFiles = downloadedBookFiles,
-                    ),
-                    pendingDownloadCount = pending,
-                    failedItems = allFailures,
-                    conflicts = allConflicts,
-                    durationMs = duration,
-                )
-                _lastSyncResult.value = result
-                _syncMsg.value = "同步完成：拉取 ${pulled.books} 书 / ${pulled.inspirations} 灵感；" +
-                    "推送 ${pushed.applied.books + pushed.applied.inspirations} 条；" +
-                    "冲突 ${allConflicts.size}；下载 $downloadedBookFiles 本"
-                AppLog.event("Sync", "同步完成：拉取 ${pulled.books} 本 / ${pulled.inspirations} 条；冲突 ${allConflicts.size}；下载 $downloadedBookFiles 本")
-            } catch (e: Throwable) {
-                val msg = e.message ?: "未知错误"
-                allFailures.add(SyncFailedItem(type = "sync", reason = msg))
-                val result = SyncResultDetail(
-                    timestamp = timestamp,
-                    success = false,
-                    uploaded = SyncCountGroup(),
-                    downloaded = SyncCountGroup(),
-                    pendingDownloadCount = countPendingDownloads(),
-                    failedItems = allFailures,
-                    conflicts = allConflicts,
-                    durationMs = System.currentTimeMillis() - startedAt,
-                )
-                _lastSyncResult.value = result
-                _syncMsg.value = "同步失败：$msg"
-                AppLog.e("Sync", msg)
-                appendSyncLog("同步失败：$msg")
+                AppLog.event("Sync", "同步完成：拉取 ${outcome.result.downloaded.books} 本 / ${outcome.result.downloaded.inspirations} 条；冲突 ${outcome.result.conflicts.size}；下载 ${outcome.result.downloaded.bookFiles} 本")
+            } else {
+                AppLog.e("Sync", outcome.message.removePrefix("同步失败："))
             }
             _syncing.value = false
         }
-    }
-
-    private fun toUiFailedItem(entry: com.creationreadingassistant.data.repository.SyncRepository.SyncFailedEntry): SyncFailedItem =
-        SyncFailedItem(
-            type = entry.type,
-            bookId = if (entry.type == "book" || entry.type == "book_file") entry.id else null,
-            title = entry.title,
-            reason = entry.reason,
-        )
-
-    private suspend fun countPendingDownloads(): Int {
-        return runCatching {
-            bookDao.observeAllActive().first().count { !isBookDownloaded(it) }
-        }.getOrDefault(0)
-    }
-
-    private fun isBookDownloaded(book: com.creationreadingassistant.data.local.entity.BookEntity): Boolean {
-        if (book.content_status == "missing" || book.content_status == "failed" || book.content_status == "downloading") return false
-        return !book.local_content_path.isNullOrBlank() || !book.local_uri.isNullOrBlank()
     }
 
     // ---- 同步失败项重试（对齐网页版「重试上传失败项」/ 逐项重试） ----
@@ -419,8 +335,7 @@ class ProfileViewModel @Inject constructor(
     fun retryItem(item: SyncFailedItem) {
         viewModelScope.launch(ioDispatcher) {
             if (item.type == "book_file" && item.bookId != null) {
-                val ok = runCatching { syncRepository.downloadBookContent(item.bookId) }.isSuccess
-                if (ok) dropFailedItem(item)
+                if (syncEngine.retryBookFile(item.bookId)) dropFailedItem(item)
             } else {
                 // 拉取/推送类失败为整体操作，无单条接口，回退为整体重同步
                 syncNow(autoDownloadBooks = false)
@@ -433,14 +348,14 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) {
             val items = _lastSyncResult.value?.failedItems ?: return@launch
             val bookFileIds = items.filter { it.type == "book_file" }.mapNotNull { it.bookId }.distinct()
-            bookFileIds.forEach { id -> runCatching { syncRepository.downloadBookContent(id) } }
+            bookFileIds.forEach { id -> syncEngine.retryBookFile(id) }
             // 刷新失败列表：移除已成功下载的 book_file 项
             val prev = _lastSyncResult.value
             if (prev != null) {
-                val remaining = prev.failedItems.filterNot { it.type == "book_file" && it.bookId in bookFileIds && isBookDownloadedById(it.bookId) }
+                val remaining = prev.failedItems.filterNot { it.type == "book_file" && it.bookId in bookFileIds && syncEngine.isBookDownloadedById(it.bookId) }
                 _lastSyncResult.value = prev.copy(
                     failedItems = remaining,
-                    pendingDownloadCount = countPendingDownloads(),
+                    pendingDownloadCount = syncEngine.countPendingDownloads(),
                     success = remaining.isEmpty() && prev.conflicts.isEmpty(),
                 )
             }
@@ -453,19 +368,13 @@ class ProfileViewModel @Inject constructor(
 
     private suspend fun dropFailedItem(item: SyncFailedItem) {
         val prev = _lastSyncResult.value ?: return
-        if (!isBookDownloadedById(item.bookId)) return
+        if (!syncEngine.isBookDownloadedById(item.bookId)) return
         val remaining = prev.failedItems.filterNot { it === item }
         _lastSyncResult.value = prev.copy(
             failedItems = remaining,
-            pendingDownloadCount = countPendingDownloads(),
+            pendingDownloadCount = syncEngine.countPendingDownloads(),
             success = remaining.isEmpty() && prev.conflicts.isEmpty(),
         )
-    }
-
-    private suspend fun isBookDownloadedById(id: String?): Boolean {
-        if (id == null) return false
-        val b = runCatching { bookDao.getById(id) }.getOrNull() ?: return false
-        return b.content_status == "available" && (!b.local_content_path.isNullOrBlank() || !b.local_uri.isNullOrBlank())
     }
 
     private fun appendSyncLog(entry: String) {
@@ -486,28 +395,24 @@ class ProfileViewModel @Inject constructor(
 
     fun loadWebDavBackups() {
         viewModelScope.launch(ioDispatcher) {
-            runCatching {
-                val cfg = webDavConfigStore.config ?: return@launch
-                webDavBackup.listBackups(cfg.url, cfg.user, cfg.pass).getOrThrow()
-            }.onSuccess { _webDavBackups.value = it }
-                .onFailure { _webDavBackups.value = emptyList() }
+            when (val result = webDavManager.listBackups()) {
+                null -> Unit
+                else -> result
+                    .onSuccess { _webDavBackups.value = it }
+                    .onFailure { _webDavBackups.value = emptyList() }
+            }
         }
     }
 
     fun backupNow(context: Context) {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
-            runCatching {
-                val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
-                val json = jsonBridge.exportToString(context)
-                // 同时写「最新」固定名（供下载恢复确定性拉取）与带时间戳的归档
-                webDavBackup.put(cfg.url, cfg.user, cfg.pass, "cra-backup-latest.json", json).getOrThrow()
-                webDavBackup.put(cfg.url, cfg.user, cfg.pass, "cra-backup-${System.currentTimeMillis()}.json", json).getOrThrow()
-            }.onSuccess {
-                _webDavMsg.value = "备份成功"
-                AppLog.event("WebDAV", "备份成功")
-                loadWebDavBackups()
-            }
+            webDavManager.backup(context)
+                .onSuccess {
+                    _webDavMsg.value = it
+                    AppLog.event("WebDAV", "备份成功")
+                    loadWebDavBackups()
+                }
                 .onFailure { _webDavMsg.value = "备份失败：${it.message}"; AppLog.e("WebDAV", "备份失败：${it.message}") }
         }
     }
@@ -515,10 +420,8 @@ class ProfileViewModel @Inject constructor(
     fun testWebDav() {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
-            runCatching {
-                val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
-                webDavBackup.test(cfg.url, cfg.user, cfg.pass).getOrThrow()
-            }.onSuccess { _webDavMsg.value = "WebDAV $it"; AppLog.event("WebDAV", "连接测试：$it") }
+            webDavManager.test()
+                .onSuccess { _webDavMsg.value = it; AppLog.event("WebDAV", "连接测试：${it.removePrefix("WebDAV ")}") }
                 .onFailure { _webDavMsg.value = "连接测试失败：${it.message}"; AppLog.e("WebDAV", "连接测试失败：${it.message}") }
         }
     }
@@ -526,11 +429,8 @@ class ProfileViewModel @Inject constructor(
     fun downloadRestore(context: Context, filename: String = "cra-backup-latest.json") {
         viewModelScope.launch(ioDispatcher) {
             _webDavMsg.value = null
-            runCatching {
-                val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
-                val json = webDavBackup.get(cfg.url, cfg.user, cfg.pass, filename).getOrThrow()
-                jsonBridge.importFromString(context, json)
-            }.onSuccess { _webDavMsg.value = "已从 WebDAV 恢复备份"; AppLog.event("WebDAV", "下载恢复成功") }
+            webDavManager.downloadRestore(context, filename)
+                .onSuccess { _webDavMsg.value = it; AppLog.event("WebDAV", "下载恢复成功") }
                 .onFailure { _webDavMsg.value = "下载恢复失败：${it.message}"; AppLog.e("WebDAV", "下载恢复失败：${it.message}") }
         }
     }
