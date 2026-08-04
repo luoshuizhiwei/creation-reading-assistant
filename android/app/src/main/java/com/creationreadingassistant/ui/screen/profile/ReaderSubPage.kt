@@ -18,6 +18,8 @@ import com.creationreadingassistant.ui.components.SettingSwitchRow
 import com.creationreadingassistant.ui.components.SettingsSection
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperOptions
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlin.math.abs
 
 /** Full-screen reader settings. The in-reader sheet reuses the same row language. */
@@ -27,6 +29,7 @@ internal fun ReaderSettingsSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val layout = LocalLayoutTokens.current
     val settings = state.reader
     PageLazyColumn(
@@ -34,7 +37,7 @@ internal fun ReaderSettingsSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SettingsSection("排版") {
+            SettingsSection("排版", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSliderRow("字号", settings.fontSize, "${settings.fontSize.toInt()} 字号", { onAction(ProfileAction.UpdateReader { copy(fontSize = it) }) }, valueRange = 12f..32f, steps = 19)
                 SectionDivider()
                 SettingSegmentedRow("行距", listOf(1.5f to "紧凑", 1.85f to "标准", 2.1f to "宽松"), nearest(settings.lineHeight, listOf(1.5f, 1.85f, 2.1f)), { onAction(ProfileAction.UpdateReader { copy(lineHeight = it) }) })
@@ -48,7 +51,7 @@ internal fun ReaderSettingsSubPage(
         }
 
         item {
-            SettingsSection("阅读方式") {
+            SettingsSection("阅读方式", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSegmentedRow("阅读模式", listOf("paged" to "左右翻页", "scroll" to "上下滚动"), settings.readerMode, { onAction(ProfileAction.UpdateReader { copy(readerMode = it) }) })
                 SectionDivider()
                 SettingSegmentedRow("翻页效果", listOf("none" to "无", "fade" to "淡入", "slide" to "滑动", "cover" to "覆盖"), settings.pageTurnEffect, { onAction(ProfileAction.UpdateReader { copy(pageTurnEffect = it) }) })
@@ -66,7 +69,7 @@ internal fun ReaderSettingsSubPage(
         }
 
         item {
-            SettingsSection("阅读纸张") {
+            SettingsSection("阅读纸张", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSwitchRow(
                     title = "跟随应用外观",
                     checked = settings.background == "follow",
@@ -86,7 +89,7 @@ internal fun ReaderSettingsSubPage(
         }
 
         item {
-            SettingsSection("显示") {
+            SettingsSection("显示", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSliderRow("亮度", settings.brightness.toFloat(), "${settings.brightness}%", { onAction(ProfileAction.UpdateReader { copy(brightness = it.toInt()) }) }, valueRange = 5f..100f, steps = 18)
                 SectionDivider()
                 SettingSwitchRow("沉浸模式", settings.immersiveMode, { onAction(ProfileAction.UpdateReader { copy(immersiveMode = it) }) })
@@ -102,7 +105,7 @@ internal fun ReaderSettingsSubPage(
         }
 
         item {
-            SettingsSection("护眼与提醒") {
+            SettingsSection("护眼与提醒", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSwitchRow("护眼滤镜", settings.eyeCareFilterEnabled, { onAction(ProfileAction.UpdateReader { copy(eyeCareFilterEnabled = it) }) })
                 SectionDivider()
                 SettingSwitchRow("夜间自动开启", settings.eyeCareScheduleEnabled, { onAction(ProfileAction.UpdateReader { copy(eyeCareScheduleEnabled = it) }) }, subtitle = "默认时段 22:00–07:00")
@@ -121,6 +124,7 @@ internal fun ReaderSettingsSubPage(
 
         item {
             SettingsSection(
+                modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
                 title = "高级兼容",
                 description = "保持'自动'最稳妥。只在特定书籍分页异常时调整。",
             ) {
@@ -133,7 +137,7 @@ internal fun ReaderSettingsSubPage(
         }
 
         item {
-            SettingsSection("重置") {
+            SettingsSection("重置", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(layout.relatedGap)) {
                     Text(
                         "只恢复阅读显示与操作设置，不会删除书籍、进度、书签或笔记。",

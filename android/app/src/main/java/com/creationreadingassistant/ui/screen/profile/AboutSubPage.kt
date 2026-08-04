@@ -38,6 +38,8 @@ import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.time.Instant
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -50,6 +52,7 @@ internal fun AboutSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val context = LocalContext.current
     val versionName = remember {
         runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrDefault("未知")
@@ -125,7 +128,7 @@ internal fun AboutSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalAlignment = Alignment.CenterHorizontally,
@@ -141,7 +144,7 @@ internal fun AboutSubPage(
             }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("开源与致谢", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("个人自用构建，不对外分发", style = MaterialTheme.typography.titleMedium)
@@ -152,6 +155,7 @@ internal fun AboutSubPage(
         if (hasUpdate) {
             item {
                 Card(
+                    modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
                     shape = LocalComponentSpec.current.cardShape,
                     border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -181,7 +185,7 @@ internal fun AboutSubPage(
             }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("应用更新", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("检查新版本", style = MaterialTheme.typography.titleMedium)

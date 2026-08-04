@@ -23,6 +23,8 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.ThemeSwitchButton
 import com.creationreadingassistant.ui.theme.AppPalette
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // ============================== 外观页 ==============================
 
@@ -33,12 +35,13 @@ internal fun AppearanceSubPage(
     scaffoldPadding: PaddingValues,
 ) {
     var showPalettePicker by remember { mutableStateOf(false) }
+    val reducedMotion = rememberReducedMotion()
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Text("应用外观影响首页、书架、灵感、统计和设置；阅读页正文背景仍在阅读器设置里单独控制。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 SettingRow(
                     title = "配色主题",
@@ -62,7 +65,7 @@ internal fun AppearanceSubPage(
             }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingRow(
                     title = "纸张纹理",
                     subtitle = "默认关闭；开启后只叠加极淡纸感，不改变主题色",

@@ -45,6 +45,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
+import androidx.compose.foundation.layout.Box
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.viewmodel.SyncFailedItem
 
 // ============================== 同步页 ==============================
@@ -55,6 +58,7 @@ internal fun SyncSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val paired = state.paired
     val pairing = state.pairing
     val syncing = state.syncing
@@ -70,7 +74,7 @@ internal fun SyncSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -113,16 +117,18 @@ internal fun SyncSubPage(
             }
         }
         item {
-            if (paired && !baseUrl.isNullOrBlank()) {
-                Text("已配对服务：$baseUrl", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            } else {
-                Text("（尚未配对电脑端同步服务；扫码或粘贴配对 URL 后即可同步。）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Box(Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                if (paired && !baseUrl.isNullOrBlank()) {
+                    Text("已配对服务：$baseUrl", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    Text("（尚未配对电脑端同步服务；扫码或粘贴配对 URL 后即可同步。）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
         }
 
         lastSyncResult?.let { result ->
             item {
-                SectionCard {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(
@@ -255,7 +261,7 @@ internal fun SyncSubPage(
         }
 
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(
                         modifier = Modifier.fillMaxWidth().clickable { showLogs = !showLogs },

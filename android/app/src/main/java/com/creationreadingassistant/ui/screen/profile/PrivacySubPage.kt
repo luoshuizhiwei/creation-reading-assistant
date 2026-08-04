@@ -16,6 +16,8 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // ============================== 隐私安全 ==============================
 
@@ -25,12 +27,13 @@ internal fun PrivacySubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column {
                     PrivacyItem(Icons.Filled.Security, "本地优先", "没有账号服务器。书籍、灵感、进度和笔记默认保存在手机本地。")
                     PrivacyItem(Icons.Filled.Wifi, "同步可控", "局域网同步需要你手动连接电脑；WebDAV 需要你主动配置地址。")

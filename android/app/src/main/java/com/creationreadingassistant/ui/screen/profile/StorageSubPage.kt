@@ -36,6 +36,8 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // ============================== 存储管理 ==============================
 
@@ -46,6 +48,7 @@ internal fun StorageSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val books = state.libraryState.books
     val totalBooks = books.size
     val downloadedCount = remember(books) { books.count { isBookDownloaded(it) } }
@@ -60,7 +63,7 @@ internal fun StorageSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -74,7 +77,7 @@ internal fun StorageSubPage(
             }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -142,7 +145,7 @@ internal fun StorageSubPage(
             }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),

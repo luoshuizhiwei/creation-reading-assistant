@@ -33,6 +33,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // ============================== WebDAV 页 ==============================
 
@@ -42,6 +44,7 @@ internal fun WebDavSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val initialUrl = state.webDavConfig?.url ?: ""
     val initialUser = state.webDavConfig?.user ?: ""
     val initialPass = state.webDavConfig?.pass ?: ""
@@ -67,7 +70,7 @@ internal fun WebDavSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("同步目录固定为 .creation-reading-assistant/，会上传 manifest、records 和 books。WebDAV 密码 / token 仅保存在应用本地沙箱，AI Key 不参与同步。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     OutlinedTextField(value = url, onValueChange = { url = it }, placeholder = { Text("https://example.com/dav") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
@@ -89,7 +92,7 @@ internal fun WebDavSubPage(
         }
 
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text("远程备份列表", style = MaterialTheme.typography.titleSmall)

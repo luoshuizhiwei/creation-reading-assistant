@@ -49,6 +49,10 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -63,6 +67,8 @@ internal fun LibrarySubPage(
     scaffoldPadding: PaddingValues,
     page: ProfileSubPage,
 ) {
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
     val taxonomyVm: TaxonomyViewModel = hiltViewModel()
     val allTags by taxonomyVm.allTags.collectAsStateWithLifecycle()
     val allCategories by taxonomyVm.allCategories.collectAsStateWithLifecycle()
@@ -117,7 +123,8 @@ internal fun LibrarySubPage(
                     val entityTag = if (page == ProfileSubPage.TAGS) allTags.find { it.id == id } else null
                     val entityCategory = if (page == ProfileSubPage.CATEGORIES) allCategories.find { it.id == id } else null
                     SectionCard(
-                        onClick = { toggleExpanded(id) },
+                        modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
+                        onClick = { haptic(HapticFeedbackType.TextHandleMove); toggleExpanded(id) },
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -211,7 +218,7 @@ internal fun LibrarySubPage(
             }
         } else {
             item {
-                SectionCard {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
                             when (page) { ProfileSubPage.TAGS -> Icons.Filled.Sell; ProfileSubPage.CATEGORIES -> Icons.Filled.Folder; else -> Icons.Filled.Book },
@@ -225,18 +232,18 @@ internal fun LibrarySubPage(
         }
         item {
             Spacer(modifier = Modifier.height(8.dp))
-            SectionDivider(color = MaterialTheme.colorScheme.outlineVariant)
+            SectionDivider(modifier = Modifier.animateEnter(reducedMotion = reducedMotion), color = MaterialTheme.colorScheme.outlineVariant)
         }
         item {
             if (showCreate) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(modifier = Modifier.animateEnter(reducedMotion = reducedMotion), verticalAlignment = Alignment.CenterVertically) {
                     OutlinedTextField(value = newName, onValueChange = { newName = it }, placeholder = { Text("输入名称") }, singleLine = true, modifier = Modifier.weight(1f))
                     Spacer(modifier = Modifier.width(8.dp))
                     TextButton(onClick = { if (newName.isNotBlank()) { when (page) { ProfileSubPage.TAGS -> taxonomyVm.createTag(newName.trim()); ProfileSubPage.CATEGORIES -> taxonomyVm.createCategory(newName.trim()); ProfileSubPage.SHELVES -> taxonomyVm.createShelf(newName.trim()); else -> {} }; showCreate = false; newName = "" } }) { Text("创建") }
                     TextButton(onClick = { showCreate = false; newName = "" }) { Text("取消") }
                 }
             } else {
-                TextButton(onClick = { showCreate = true }) { Text("+ 创建新的") }
+                TextButton(modifier = Modifier.animateEnter(reducedMotion = reducedMotion), onClick = { showCreate = true }) { Text("+ 创建新的") }
             }
         }
     }

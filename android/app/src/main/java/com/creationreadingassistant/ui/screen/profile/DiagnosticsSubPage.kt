@@ -54,6 +54,8 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -66,6 +68,7 @@ internal fun DiagnosticsSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val logs by AppLog.entries.collectAsStateWithLifecycle()
@@ -131,7 +134,7 @@ internal fun DiagnosticsSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-        SectionCard {
+        SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
             Column {
                 Text("运行环境", style = MaterialTheme.typography.titleMedium)
                 Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -146,7 +149,7 @@ internal fun DiagnosticsSubPage(
         }
         }
         item {
-        SectionCard {
+        SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("日志", style = MaterialTheme.typography.titleMedium)
                 Text("运行中的导入、同步、备份与未捕获异常会自动记录到这里（最多保留 500 条）。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

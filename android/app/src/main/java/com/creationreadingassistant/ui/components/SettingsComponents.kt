@@ -25,7 +25,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @Composable
 fun SettingsScreenScaffold(
@@ -147,6 +150,7 @@ fun <T> SettingSegmentedRow(
     enabled: Boolean = true,
 ) {
     val layout = LocalLayoutTokens.current
+    val haptic = rememberHaptic(rememberReducedMotion())
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -165,7 +169,7 @@ fun <T> SettingSegmentedRow(
             options.forEachIndexed { index, (value, label) ->
                 SegmentedButton(
                     selected = selected == value,
-                    onClick = { onSelect(value) },
+                    onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect(value) },
                     enabled = enabled,
                     shape = SegmentedButtonDefaults.itemShape(index, options.size),
                     modifier = Modifier.weight(1f),

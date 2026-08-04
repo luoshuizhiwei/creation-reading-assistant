@@ -25,6 +25,9 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
+import androidx.compose.foundation.layout.Box
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // ============================== AI 设置页 ==============================
 
@@ -34,6 +37,7 @@ internal fun AiSettingsSubPage(
     onAction: (ProfileAction) -> Unit,
     scaffoldPadding: PaddingValues,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val ai = state.ai
     val keyDraft = state.aiKeyDraft
     val keySaved = ai.apiKey.isNotBlank()
@@ -42,10 +46,12 @@ internal fun AiSettingsSubPage(
         modifier = Modifier.fillMaxSize(),
     ) {
         item {
-            DegradedNote("手机端 AI Key 已持久化在应用本地沙箱，不会跨设备同步，也不参与 WebDAV 同步或数据导出；配置 OpenAI-compatible 接口后，灵感详情页可一键生成 AI 候选版本。")
+            Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                DegradedNote("手机端 AI Key 已持久化在应用本地沙箱，不会跨设备同步，也不参与 WebDAV 同步或数据导出；配置 OpenAI-compatible 接口后，灵感详情页可一键生成 AI 候选版本。")
+            }
         }
         item {
-            SectionCard {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     SettingRow(
                         title = "启用 AI 助手",

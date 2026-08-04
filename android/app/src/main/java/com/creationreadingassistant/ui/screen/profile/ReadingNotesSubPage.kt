@@ -21,6 +21,9 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
+import androidx.compose.foundation.layout.Box
+import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlin.math.roundToInt
 
 // ============================== 阅读与笔记 ==============================
@@ -32,6 +35,7 @@ internal fun ReadingNotesSubPage(
     scaffoldPadding: PaddingValues,
     page: ProfileSubPage,
 ) {
+    val reducedMotion = rememberReducedMotion()
     val libraryState = state.libraryState
     val books = libraryState.books
     val notes = libraryState.notes
@@ -55,11 +59,13 @@ internal fun ReadingNotesSubPage(
                 readingBooks.forEach { book ->
                     item(key = book.id) {
                         val p = progressMap[book.id]
-                        ReadingBookItem(
-                            book = book,
-                            progress = p,
-                            totalMs = sessionsByBook[book.id] ?: 0L,
-                        )
+                        Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                            ReadingBookItem(
+                                book = book,
+                                progress = p,
+                                totalMs = sessionsByBook[book.id] ?: 0L,
+                            )
+                        }
                     }
                 }
             }
@@ -71,7 +77,9 @@ internal fun ReadingNotesSubPage(
             } else {
                 notes.forEach { note ->
                     item(key = note.id) {
-                        NoteItem(note = note, book = note.book_id?.let { bookMap[it] })
+                        Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                            NoteItem(note = note, book = note.book_id?.let { bookMap[it] })
+                        }
                     }
                 }
             }
