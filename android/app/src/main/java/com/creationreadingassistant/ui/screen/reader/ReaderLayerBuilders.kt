@@ -158,7 +158,10 @@ internal fun buildReaderContentHostState(
  * setter 调用，局部 fun（[goToChapter] / [showNotice]）作为函数参数传入。
  */
 internal fun buildReaderContentHostCallbacks(
-    controlsVisible: Boolean,
+    // 传 MutableState 而非 Boolean 快照：PagedReaderHost 的 pointerInput(controller) 只在
+    // controller 变化时重建，闭包会冻结首个组合的 callbacks；若此处用 Boolean 快照，
+    // onToggleControls 将永远读到首次组合的 true，导致「只能关、不能开」控件。
+    controlsVisibleState: MutableState<Boolean>,
     onControlsVisibleChange: (Boolean) -> Unit,
     onPagedAbsOffsetChange: (Int) -> Unit,
     onPagedPercentChange: (Float) -> Unit,
@@ -176,7 +179,7 @@ internal fun buildReaderContentHostCallbacks(
         onPendingInitialPositionChange(false)
         if (chapterToGo != null) goToChapter(chapterToGo)
     },
-    onToggleControls = { onControlsVisibleChange(!controlsVisible) },
+    onToggleControls = { onControlsVisibleChange(!controlsVisibleState.value) },
     onHideControls = { onControlsVisibleChange(false) },
     onSelect = { text, globalOffset, rangeStart ->
         onSelectedTextChange(text)

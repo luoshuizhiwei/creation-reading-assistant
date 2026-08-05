@@ -175,7 +175,10 @@ internal fun ReaderCollapsedControl(
         autoPagingActive -> FloatingActionButton(onClick = onPauseAutoPaging) {
             Icon(Icons.Outlined.Pause, contentDescription = "暂停自动翻页")
         }
-        !pagerEngineOn -> FloatingActionButton(onClick = onShowControls) {
+        // 控件收起后必须始终提供「展开菜单」入口：默认 pagerEngineOn=true 且未自动翻页时，
+        // 旧逻辑两个分支都不命中→FAB 不显示，叠加 toggle 冻结 bug 会彻底卡死唤回。
+        // 此处改为 else 兜底，任何收起状态都可点 FAB 唤回工具栏。
+        else -> FloatingActionButton(onClick = onShowControls) {
             Icon(Icons.Outlined.Menu, contentDescription = "展开菜单")
         }
     }

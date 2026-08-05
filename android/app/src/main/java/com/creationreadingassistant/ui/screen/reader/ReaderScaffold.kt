@@ -399,8 +399,8 @@ internal fun ReaderScaffold(
                         pageIndexStore = pageIndexStore,
                         highlights = highlights,
                     ),
-                    callbacks = buildReaderContentHostCallbacks(
-                        controlsVisible = controlsVisible,
+                callbacks = buildReaderContentHostCallbacks(
+                    controlsVisibleState = holders.controlsVisibleState,
                         onControlsVisibleChange = { controlsVisible = it },
                         onPagedAbsOffsetChange = { pagedAbsOffset = it },
                         onPagedPercentChange = { pagedPercent = it },

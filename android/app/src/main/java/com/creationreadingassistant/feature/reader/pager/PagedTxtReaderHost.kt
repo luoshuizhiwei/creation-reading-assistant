@@ -129,6 +129,8 @@ fun PagedReaderHost(
     onAutoPagingFinished: () -> Unit = {},
     /** 自动翻页期间用户点按（任意分区动作）时调用，用于停止自动翻页。 */
     onStopAutoPaging: () -> Unit = {},
+    /** 页面图层本身透明：自动翻页揭动画叠加时用它铺底，避免两层文字互相透叠。 */
+    pageBackground: Color = Color.Transparent,
     /** 页眉左侧内容条目 */
     headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     /** 页眉右侧内容条目 */
@@ -296,9 +298,11 @@ fun PagedReaderHost(
                 LaunchedEffect(controller, autoPageIntervalMillis) {
                     val interval = autoPageIntervalMillis ?: return@LaunchedEffect
                     if (interval <= 0L) return@LaunchedEffect
+                    android.util.Log.d("AutoPagingDebug", "effect start: interval=$interval")
                     var previousFrame = withFrameNanos { it }
                     // 手动翻页 / 跨章 / 自动提交后（页或章变化）从新页从头揭
                     var lastSeen = controller.chapterIndex to controller.pageIndex
+                    var layoutCount = 0
                     while (true) {
                         val frame = withFrameNanos { it }
                         val now = controller.chapterIndex to controller.pageIndex
@@ -308,12 +312,15 @@ fun PagedReaderHost(
                         }
                         // 排版中不推进揭动画（当前页尚未稳定），帧时间交给 250ms 上限兜底
                         if (controller.isLayingOut) {
+                            layoutCount++
                             revealProgress = revealer.value
                             continue
                         }
                         val elapsed = frame - previousFrame
                         previousFrame = frame
                         if (revealer.advance(elapsed, interval)) {
+                            android.util.Log.d("AutoPagingDebug", "turn: interval=$interval elapsed=$elapsed layoutSkip=$layoutCount progress=${revealer.value}")
+                            layoutCount = 0
                             if (!controller.canGoNext) {
                                 finishAutoPaging()
                                 break
@@ -442,6 +449,7 @@ fun PagedReaderHost(
                         },
                         revealProgress = revealProgress,
                         revealDividerColor = MaterialTheme.colorScheme.primary,
+                        revealBackground = pageBackground,
                         modifier = Modifier
                             .offset(x = horizontalInsetDp)
                             .width(contentWidthDp)

@@ -13,19 +13,27 @@ package com.creationreadingassistant.feature.reader.pager
 class AutoRevealProgress {
 
     private var progress = 0.0
+    private var completed = false
 
     val value: Float get() = progress.toFloat()
 
     /** 按一帧经过时间推进进度；返回 true 表示已揭开整页（progress 到 1）。 */
     fun advance(elapsedNanos: Long, intervalMillis: Long): Boolean {
-        if (elapsedNanos <= 0L || intervalMillis <= 0L) return false
+        if (completed || elapsedNanos <= 0L || intervalMillis <= 0L) return false
         val safeElapsed = elapsedNanos.coerceAtMost(MAX_FRAME_NANOS)
         progress += safeElapsed / 1_000_000.0 / intervalMillis
-        return progress >= 1.0
+        if (progress >= 1.0) {
+            // 锁定到 1：同一周期内后续帧不再重复触发翻页，直到 reset()。
+            completed = true
+            progress = 1.0
+            return true
+        }
+        return false
     }
 
     fun reset() {
         progress = 0.0
+        completed = false
     }
 
     private companion object {

@@ -328,12 +328,15 @@ internal fun handleChromeAction(
             onSheetChange(action.sheet)
         }
         ReaderChromeAction.ToggleAutoPaging -> {
+            android.util.Log.d("AutoPagingDebug", "toggle: active=${autoPagingActiveState.value} supported=$autoPagingSupported")
             if (autoPagingActiveState.value) {
                 autoPagingActiveState.value = false
                 onControlsVisibleChange(true)
             } else if (!autoPagingSupported) {
+                android.util.Log.d("AutoPagingDebug", "branch: unsupported")
                 showNotice("左右翻页模式需先开启新分页引擎")
             } else {
+                android.util.Log.d("AutoPagingDebug", "branch: activate")
                 tts.stop()
                 onShowTtsChange(false)
                 onSelectedTextChange("")

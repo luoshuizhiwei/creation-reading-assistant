@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,6 +54,7 @@ fun <Frame : Any> PageTurner(
     modifier: Modifier = Modifier,
     revealProgress: Float = 0f,
     revealDividerColor: Color? = null,
+    revealBackground: Color = Color.Transparent,
     content: @Composable BoxScope.(frame: Frame, isCurrent: Boolean) -> Unit,
 ) {
     BoxWithConstraints(modifier) {
@@ -190,7 +192,13 @@ fun <Frame : Any> PageTurner(
                         Modifier
                             .fillMaxWidth()
                             .height(revealHeight)
-                            .align(Alignment.TopCenter),
+                            .align(Alignment.TopCenter)
+                            // 页面图层本身透明：叠加时须铺纸色，否则下层当前页文字透过
+                            // 笔画间隙露出来，形成文字重叠。
+                            .background(revealBackground)
+                            // 裁剪到揭起高度：页面画布会按整页坐标绘制，不裁剪会溢出
+                            // 到揭示线以下，与当前页文字叠在一起。
+                            .clipToBounds(),
                     ) { content(nextFrame, false) }
                     revealDividerColor?.let { color ->
                         Box(

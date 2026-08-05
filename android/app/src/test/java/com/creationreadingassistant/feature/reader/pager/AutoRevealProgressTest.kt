@@ -72,4 +72,25 @@ class AutoRevealProgressTest {
         assertTrue(turned)
         assertTrue(revealer.value >= 1.0f)
     }
+
+    @Test
+    fun `completion fires only once until reset`() {
+        // 到达 1.0 后同一周期内不再重复触发翻页（否则每帧重复提交、翻两页）
+        val revealer = AutoRevealProgress()
+        var count = 0
+        repeat(200) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) count++ }
+        assertEquals(1, count)
+        assertEquals(1f, revealer.value, 0.001f)
+    }
+
+    @Test
+    fun `reset re-arms completion for a new page`() {
+        val revealer = AutoRevealProgress()
+        var count = 0
+        repeat(200) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) count++ }
+        assertEquals(1, count)
+        revealer.reset()
+        repeat(200) { if (revealer.advance(elapsedNanos = 250_000_000L, intervalMillis = 20_000L)) count++ }
+        assertEquals(2, count)
+    }
 }

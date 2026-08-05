@@ -169,6 +169,7 @@ internal fun ReaderContentHost(
                 tapZoneMode = s.readerSettings.tapZoneMode,
                 pageTurnEffect = s.readerSettings.pageTurnEffect,
                 textColor = s.paperFg,
+                pageBackground = s.paper.bg,
                 headerLeft = s.readerSettings.headerLeft,
                 headerRight = s.readerSettings.headerRight,
                 footerLeft = s.readerSettings.footerLeft,
