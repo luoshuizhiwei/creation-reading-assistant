@@ -54,14 +54,14 @@ class LayoutComponentsTest {
     }
 
     @Test
-    fun compactEmptyStateKeepsPrimaryActionVisible() {
+    fun fullEmptyStateKeepsPrimaryActionVisible() {
         composeRule.setContent {
             AppTheme {
-                CompactEmptyState(
+                FullEmptyState(
+                    icon = { },
                     title = "暂无内容",
-                    message = "稍后可以从这里继续。",
-                    actionLabel = "开始",
-                    onAction = {},
+                    body = "稍后可以从这里继续。",
+                    primaryAction = "开始" to {},
                 )
             }
         }
