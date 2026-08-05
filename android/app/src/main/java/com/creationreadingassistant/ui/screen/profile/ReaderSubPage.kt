@@ -91,7 +91,11 @@ internal fun ReaderSettingsSubPage(
 
         item {
             SettingsSection("显示", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                SettingBrightnessRow(settings.brightness, { onAction(ProfileAction.UpdateReader { copy(brightness = it) }) })
+                SettingBrightnessRow(
+                    settings.brightness,
+                    { onAction(ProfileAction.UpdateReader { copy(brightness = it) }) },
+                    fixedDefault = settings.lastFixedBrightness,
+                )
                 SectionDivider()
                 SettingSwitchRow("沉浸模式", settings.immersiveMode, { onAction(ProfileAction.UpdateReader { copy(immersiveMode = it) }) })
                 SectionDivider()

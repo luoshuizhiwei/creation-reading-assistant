@@ -131,6 +131,7 @@ internal data class ReaderContentHostCallbacks(
     val onHideControls: () -> Unit,
     val onSelect: (text: String, globalOffset: Int, rangeStart: Int) -> Unit,
     val onAutoPagingFinished: () -> Unit,
+    val onStopAutoPaging: () -> Unit,
     val onGoToChapter: (chapterIndex: Int) -> Unit,
 )
 
@@ -246,6 +247,7 @@ internal fun ReaderContentHost(
                     null
                 },
                 onAutoPagingFinished = { callbacks.onAutoPagingFinished() },
+                onStopAutoPaging = callbacks.onStopAutoPaging,
             )
         }
 

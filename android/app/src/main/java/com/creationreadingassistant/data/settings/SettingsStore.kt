@@ -71,6 +71,7 @@ private val KEY_KEEP_AWAKE = booleanPreferencesKey("reader_keep_awake")
 private val KEY_SHOW_PROGRESS = booleanPreferencesKey("reader_show_progress")
 private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
 private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // -1 = 跟随系统；5..100 = 固定亮度（对照 web reader brightness）
+private val KEY_LAST_FIXED_BRIGHTNESS = intPreferencesKey("reader_last_fixed_brightness")  // 上次手动固定的亮度（5..100）
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
 private val KEY_AUTO_PAGE_SPEED = intPreferencesKey("reader_auto_page_speed")
@@ -159,6 +160,7 @@ data class ReaderSettings(
     val showProgressBar: Boolean = true,
     val fontWeightBold: Boolean = false,
     val brightness: Int = -1,               // -1 = 跟随系统亮度；5..100 = 固定亮度（对照 web reader brightness）
+    val lastFixedBrightness: Int = 65,      // 关闭「跟随系统」时回退到的上次固定亮度（5..100）
     val volumeKeyPaging: Boolean = true,
     val volumeKeyPagingDuringTts: Boolean = false,
     val autoPageSpeed: Int = 5,            // 1..10；是否正在自动翻页仅为会话态，不持久化
@@ -245,6 +247,7 @@ class SettingsStore @Inject constructor(
             showProgressBar = prefs[KEY_SHOW_PROGRESS] ?: true,
             fontWeightBold = prefs[KEY_FONT_BOLD] ?: false,
             brightness = prefs[KEY_READER_BRIGHTNESS] ?: -1,
+            lastFixedBrightness = (prefs[KEY_LAST_FIXED_BRIGHTNESS] ?: 65).coerceIn(5, 100),
             volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
             volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
             autoPageSpeed = (prefs[KEY_AUTO_PAGE_SPEED] ?: 5).coerceIn(1, 10),
@@ -348,6 +351,9 @@ class SettingsStore @Inject constructor(
             prefs[KEY_SHOW_PROGRESS] = next.showProgressBar
             prefs[KEY_FONT_BOLD] = next.fontWeightBold
             prefs[KEY_READER_BRIGHTNESS] = next.brightness
+            if (next.brightness >= 0) {
+                prefs[KEY_LAST_FIXED_BRIGHTNESS] = next.brightness.coerceIn(5, 100)
+            }
             prefs[KEY_VOLUME_PAGE] = next.volumeKeyPaging
             prefs[KEY_VOLUME_PAGE_DURING_TTS] = next.volumeKeyPagingDuringTts
             prefs[KEY_AUTO_PAGE_SPEED] = next.autoPageSpeed.coerceIn(1, 10)

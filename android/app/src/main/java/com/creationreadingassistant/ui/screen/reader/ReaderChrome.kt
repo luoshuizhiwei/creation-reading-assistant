@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -161,17 +160,6 @@ internal fun ReaderBottomActions(
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS))
             }
         }
-    }
-}
-
-@Composable
-internal fun ReaderCollapsedControl(
-    onShowControls: () -> Unit,
-) {
-    // 任何收起状态（含自动翻页中）都只显示「展开菜单」FAB：
-    // 暂停/开始自动翻页统一放在顶栏更多菜单里，收起态右下角不占常驻暂停按钮。
-    FloatingActionButton(onClick = onShowControls) {
-        Icon(Icons.Outlined.Menu, contentDescription = "展开菜单")
     }
 }
 

@@ -190,6 +190,7 @@ internal fun buildReaderContentHostCallbacks(
         onAutoPagingActiveChange(false)
         showNotice("已读到书末")
     },
+    onStopAutoPaging = { onAutoPagingActiveChange(false) },
     onGoToChapter = { goToChapter(it) },
 )
 

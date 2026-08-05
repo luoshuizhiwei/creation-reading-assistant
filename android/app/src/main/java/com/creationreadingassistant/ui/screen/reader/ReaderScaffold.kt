@@ -54,7 +54,6 @@ import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
-import com.creationreadingassistant.ui.screen.reader.ReaderCollapsedControl
 import com.creationreadingassistant.ui.screen.reader.ReaderDocumentStatus
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
@@ -296,13 +295,6 @@ internal fun ReaderScaffold(
             }
         },
         snackbarHost = { SnackbarHost(snackbarHost) },
-        floatingActionButton = {
-            if (!controlsVisible) {
-                ReaderCollapsedControl(
-                    onShowControls = { controlsVisible = true },
-                )
-            }
-        },
     ) {
         // Scaffold padding intentionally ignored: reader is full-screen immersive.
         // Background (paper.bg) must fill behind system bars; content uses

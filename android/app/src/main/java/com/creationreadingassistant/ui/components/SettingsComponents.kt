@@ -147,6 +147,7 @@ fun SettingBrightnessRow(
     brightness: Int,
     onBrightnessChange: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    fixedDefault: Int = 65,
 ) {
     val followSystem = brightness < 0
     Column(modifier.fillMaxWidth()) {
@@ -154,7 +155,9 @@ fun SettingBrightnessRow(
             title = "跟随系统亮度",
             subtitle = if (followSystem) "阅读亮度与手机保持一致" else "关闭后使用下方固定亮度",
             checked = followSystem,
-            onCheckedChange = { follow -> onBrightnessChange(if (follow) -1 else 65) },
+            onCheckedChange = { follow ->
+                onBrightnessChange(if (follow) -1 else fixedDefault.coerceIn(5, 100))
+            },
         )
         if (!followSystem) {
             SettingSliderRow(

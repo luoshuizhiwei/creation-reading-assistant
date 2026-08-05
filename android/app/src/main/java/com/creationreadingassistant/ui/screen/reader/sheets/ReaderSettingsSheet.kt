@@ -141,6 +141,7 @@ private fun SettingsRoot(
                 SettingBrightnessRow(
                     brightness = settings.brightness,
                     onBrightnessChange = { onSettingsChange(settings.copy(brightness = it)) },
+                    fixedDefault = settings.lastFixedBrightness,
                 )
                 SectionDivider()
                 SettingSwitchRow(
@@ -298,7 +299,11 @@ private fun PagingSettings(settings: ReaderSettings, onChange: (ReaderSettings) 
 private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
     item {
         SettingsSection("屏幕显示") {
-            SettingBrightnessRow(settings.brightness, { onChange(settings.copy(brightness = it)) })
+            SettingBrightnessRow(
+                settings.brightness,
+                { onChange(settings.copy(brightness = it)) },
+                fixedDefault = settings.lastFixedBrightness,
+            )
             SectionDivider()
             SettingSwitchRow("沉浸模式", settings.immersiveMode, { onChange(settings.copy(immersiveMode = it)) })
             SectionDivider()
