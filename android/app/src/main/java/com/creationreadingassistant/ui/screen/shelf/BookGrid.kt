@@ -21,11 +21,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.ui.platform.testTag
 import androidx.compose.material.ExperimentalMaterialApi
@@ -117,83 +112,6 @@ internal fun StatusRail(
                 val active = statusFilter == value
                 SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
             }
-    }
-}
-
-// ===================== 书封网格 / 列表 =====================
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-internal fun BookGrid(
-    books: List<ShelfBookItem>,
-    progressById: Map<String, ReadingProgressEntity>,
-    viewMode: ShelfViewMode,
-    selectionMode: Boolean,
-    selectedIds: Set<String>,
-    actionBookId: String?,
-    downloadingIds: Set<String>,
-    onOpenBook: (BookEntity) -> Unit,
-    onToggleActions: (String) -> Unit,
-    onToggleSelected: (String) -> Unit,
-) {
-    val layout = LocalLayoutTokens.current
-    if (viewMode == ShelfViewMode.GRID) {
-        LazyVerticalGrid(
-            columns = GridCells.Adaptive(minSize = 104.dp),
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = layout.pageHorizontal),
-            contentPadding = PaddingValues(vertical = layout.relatedGap),
-            verticalArrangement = Arrangement.spacedBy(layout.gridGap),
-            horizontalArrangement = Arrangement.spacedBy(layout.gridGap),
-        ) {
-            items(
-                items = books,
-                key = { it.bookId },
-                contentType = { viewMode },
-            ) { item ->
-                val book = item.book
-                BookTile(
-                    book = book,
-                    percent = progressFor(progressById, book.id),
-                    viewMode = ShelfViewMode.GRID,
-                    selectionMode = selectionMode,
-                    selected = selectedIds.contains(book.id),
-                    actionsOpen = actionBookId == book.id,
-                    downloading = downloadingIds.contains(book.id),
-                    onOpenBook = onOpenBook,
-                    onToggleActions = onToggleActions,
-                    onToggleSelected = onToggleSelected,
-                )
-            }
-        }
-    } else {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = layout.pageHorizontal),
-            contentPadding = PaddingValues(vertical = layout.relatedGap),
-            verticalArrangement = Arrangement.spacedBy(layout.contentGap),
-        ) {
-            items(
-                items = books,
-                key = { it.bookId },
-                contentType = { viewMode },
-            ) { item ->
-                val book = item.book
-                BookTile(
-                    book = book,
-                    percent = progressFor(progressById, book.id),
-                    viewMode = ShelfViewMode.LIST,
-                    selectionMode = selectionMode,
-                    selected = selectedIds.contains(book.id),
-                    actionsOpen = actionBookId == book.id,
-                    downloading = downloadingIds.contains(book.id),
-                    onOpenBook = onOpenBook,
-                    onToggleActions = onToggleActions,
-                    onToggleSelected = onToggleSelected,
-                )
-            }
-        }
     }
 }
 

@@ -38,6 +38,8 @@ data class ComponentSpec(
     val listItemShape: Shape,
     /** 胶囊 / 筛选 chip 形状（通常全圆） */
     val pillShape: Shape,
+    /** 悬浮控制条（阅读器底部 TTS/工具栏）形状：顶部大圆角贴手势、底部中圆角离屏底悬浮 */
+    val floatingBarShape: Shape,
     /** 是否使用 squircle 连续圆角（仅 Apple） */
     val useSquircle: Boolean,
     /** 是否允许真 Window 模糊（仅 Dialog 容器在 API31+ 启用；卡片恒 false） */
@@ -115,6 +117,7 @@ val DefaultComponentSpec = ComponentSpec(
     sheetShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
     listItemShape = RoundedCornerShape(14.dp),
     pillShape = RoundedCornerShape(999.dp),
+    floatingBarShape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
     useSquircle = false,
     glassBlur = false,
     pressScale = 0.96f,

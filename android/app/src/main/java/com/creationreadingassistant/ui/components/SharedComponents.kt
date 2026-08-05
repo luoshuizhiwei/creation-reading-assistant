@@ -296,40 +296,6 @@ fun SettingRow(
     }
 }
 
-/**
- * 统一空状态提示（虚线框）。缺内容时比实心卡片更诚实。
- *
- * 形状读 [com.creationreadingassistant.ui.theme.ComponentSpec.listItemShape]，可点击时叠加 [bounceable]。
- */
-@Composable
-fun EmptyStateHint(
-    text: String,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-) {
-    val scheme = MaterialTheme.colorScheme
-    val radius = LocalComponentSpec.current.listItemShape
-    val interactionSource = remember { MutableInteractionSource() }
-    Surface(
-        onClick = onClick ?: {},
-        enabled = onClick != null,
-        interactionSource = interactionSource,
-        shape = radius,
-        color = Color.Transparent,
-        border = BorderStroke(
-            width = 1.dp,
-            color = scheme.outlineVariant,
-        ),
-        modifier = modifier.then(if (onClick != null) Modifier.bounceable(interactionSource) else Modifier),
-    ) {
-        Text(
-            text = text,
-            modifier = Modifier.padding(LocalLayoutTokens.current.cardPadding),
-            style = MaterialTheme.typography.bodySmall,
-            color = scheme.onSurfaceVariant,
-        )
-    }
-}
 
 /**
  * 统一「全幅空状态」（大图标 + 标题 + 描述 + CTA 按钮）。

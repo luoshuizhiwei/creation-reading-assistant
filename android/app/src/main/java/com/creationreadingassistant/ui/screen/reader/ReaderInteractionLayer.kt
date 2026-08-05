@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -25,6 +24,7 @@ import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderTopChrome
 import com.creationreadingassistant.ui.screen.reader.tts.TtsBar
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -132,7 +132,7 @@ internal fun BoxScope.ReaderInteractionLayer(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 6.dp)
                 .navigationBarsPadding(),
-            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp, bottomStart = 18.dp, bottomEnd = 18.dp),
+            shape = LocalComponentSpec.current.floatingBarShape,
             color = state.paper.panel.copy(alpha = 0.98f),
             contentColor = state.paper.fg,
             border = BorderStroke(1.dp, state.paper.outlineVariant),

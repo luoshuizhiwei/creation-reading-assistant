@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.MenuBook
@@ -72,6 +71,7 @@ import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.ProgressBarShape
 import java.time.LocalDate
 
 // ===================== 底部弹层：书籍详情 =====================
@@ -476,7 +476,7 @@ internal fun ReadingHistoryChart(sessions: List<ReadingSessionEntity>) {
                         modifier = Modifier
                             .fillMaxWidth()
                             .fillMaxHeight(fraction)
-                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
+                            .clip(ProgressBarShape)
                             .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
                     )
                 }
