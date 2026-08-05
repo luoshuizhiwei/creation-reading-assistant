@@ -30,7 +30,8 @@ import com.creationreadingassistant.R
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
-import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.listItemEnter
@@ -72,13 +73,14 @@ fun HomeCompletedSection(
             },
         )
         if (completedBooks.isEmpty()) {
-            EmptyStateHint(
-                text = "还没有读完的书，继续阅读吧。",
+            FullEmptyState(
+                icon = { LineArtBook(sizeDp = 72.dp) },
+                title = "还没有读完的书",
+                body = "继续阅读吧，读完的书会陈列在这里。",
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateEnter(240, reducedMotion)
                     .testTag("completed-empty"),
-                onClick = {},
             )
         } else {
             LazyRow(

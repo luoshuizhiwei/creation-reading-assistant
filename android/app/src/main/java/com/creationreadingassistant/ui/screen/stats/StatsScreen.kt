@@ -1,17 +1,13 @@
 package com.creationreadingassistant.ui.screen.stats
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.LibraryBooks
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -63,17 +59,7 @@ internal fun StatsScreen(
             if (state.showGlobalEmpty) {
                 item(key = "global-empty") {
                     FullEmptyState(
-                        icon = {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.LibraryBooks,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(48.dp),
-                                )
-                                LineArtBook(modifier = Modifier.size(72.dp))
-                            }
-                        },
+                        icon = { LineArtBook(sizeDp = 72.dp) },
                         title = "还没有阅读记录",
                         body = "开始阅读后，这里会展示你的阅读时长、书籍和天数统计。",
                         contentPadding = 24.dp,

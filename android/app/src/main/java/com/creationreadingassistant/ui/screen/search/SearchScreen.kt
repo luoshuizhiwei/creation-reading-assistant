@@ -59,7 +59,8 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.viewmodel.SearchViewModel
-import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
@@ -183,8 +184,10 @@ fun SearchScreen(
                     }
                 }
                 totalHits == 0 -> {
-                    EmptyStateHint(
-                        text = "未找到匹配结果",
+                    FullEmptyState(
+                        icon = { LineArtBook(sizeDp = 72.dp) },
+                        title = "未找到匹配结果",
+                        body = "换个关键词或清除筛选再试一次。",
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(layout.pageHorizontal),

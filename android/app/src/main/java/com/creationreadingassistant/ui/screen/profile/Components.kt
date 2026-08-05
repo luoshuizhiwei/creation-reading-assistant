@@ -18,7 +18,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SectionCard
@@ -26,24 +25,6 @@ import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-
-// ============================== 共享组件 ==============================
-
-@Composable
-internal fun EmptyCard(icon: ImageVector, title: String, body: String) {
-    val reducedMotion = rememberReducedMotion()
-    SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(title, style = MaterialTheme.typography.titleMedium)
-            Text(body, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
-        }
-    }
-}
 
 // ============================== 通用小组件 ==============================
 

@@ -6,9 +6,9 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.Description
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
+import com.creationreadingassistant.ui.components.LineArtBookmark
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,7 +54,11 @@ internal fun ReadingNotesSubPage(
         if (page == ProfileSubPage.READING) {
             if (readingBooks.isEmpty()) {
                 item {
-                    EmptyCard(icon = Icons.AutoMirrored.Filled.MenuBook, title = "还没有阅读记录", body = "打开任意书籍开始阅读后，这里会按最近阅读时间展示档案。")
+                    FullEmptyState(
+                        icon = { LineArtBook(sizeDp = 72.dp) },
+                        title = "还没有阅读记录",
+                        body = "打开任意书籍开始阅读后，这里会按最近阅读时间展示档案。",
+                    )
                 }
             } else {
                 readingBooks.forEachIndexed { index, book ->
@@ -73,7 +77,11 @@ internal fun ReadingNotesSubPage(
         } else {
             if (notes.isEmpty()) {
                 item {
-                    EmptyCard(icon = Icons.Filled.Description, title = "还没有笔记", body = "在阅读页选中文字添加笔记或书签后，它们会出现在这里。")
+                    FullEmptyState(
+                        icon = { LineArtBookmark(sizeDp = 64.dp) },
+                        title = "还没有笔记",
+                        body = "在阅读页选中文字添加笔记或书签后，它们会出现在这里。",
+                    )
                 }
             } else {
                 notes.forEachIndexed { index, note ->

@@ -32,7 +32,8 @@ import com.creationreadingassistant.R
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
-import com.creationreadingassistant.ui.components.EmptyStateHint
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -74,13 +75,15 @@ fun HomeContinueSection(
             },
         )
         if (continueBooks.isEmpty()) {
-            EmptyStateHint(
-                text = "书架还空着，先导入一本 TXT、Markdown 或 EPUB。",
+            FullEmptyState(
+                icon = { LineArtBook(sizeDp = 72.dp) },
+                title = "书架还空着",
+                body = "先导入一本 TXT、Markdown 或 EPUB 开始本地阅读。",
+                primaryAction = "去书架" to onEmptyNavigateShelf,
                 modifier = Modifier
                     .fillMaxWidth()
                     .animateEnter(60, reducedMotion)
                     .testTag("continue-empty"),
-                onClick = onEmptyNavigateShelf,
             )
         } else {
             LazyRow(

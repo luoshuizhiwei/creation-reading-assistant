@@ -288,43 +288,6 @@ fun SettingsGroup(
 }
 
 @Composable
-fun CompactEmptyState(
-    title: String,
-    message: String,
-    modifier: Modifier = Modifier,
-    actionLabel: String? = null,
-    onAction: (() -> Unit)? = null,
-) {
-    val layout = LocalLayoutTokens.current
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = layout.sectionGap),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
-    ) {
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-        )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (actionLabel != null && onAction != null) {
-            Button(
-                onClick = onAction,
-                modifier = Modifier
-                    .heightIn(min = layout.minimumTouchTarget)
-                    .widthIn(min = 96.dp),
-            ) {
-                Text(actionLabel)
-            }
-        }
-    }
-}
-@Composable
 fun AppTopBar(
     title: String,
     modifier: Modifier = Modifier,
