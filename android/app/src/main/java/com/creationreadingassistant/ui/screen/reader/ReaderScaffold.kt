@@ -334,7 +334,7 @@ internal fun ReaderScaffold(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Brush.verticalGradient(lerp(paper.bg, Color.White, 0.04f), lerp(paper.bg, Color.Black, 0.03f)))
+                    .background(Brush.verticalGradient(listOf(lerp(paper.bg, Color.White, 0.04f), lerp(paper.bg, Color.Black, 0.03f))))
                     .background(PaperNoise.brush(), alpha = 0.04f),
             )
             when {
