@@ -14,8 +14,8 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -132,28 +132,28 @@ internal fun PagedEpubView(
                     Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canPrev) { onPrevHaptic() },
                     contentAlignment = Alignment.TopCenter,
                 ) {
-                    if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                    if (canPrev) Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                 }
                 Row(Modifier.weight(0.76f).fillMaxWidth()) {
                     Box(
                         Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
                         contentAlignment = Alignment.CenterStart,
                     ) {
-                        if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                        if (canPrev) Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                     }
                     Spacer(Modifier.weight(0.68f))
                     Box(
                         Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                         contentAlignment = Alignment.CenterEnd,
                     ) {
-                        if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                        if (canNext) Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
                     }
                 }
                 Box(
                     Modifier.weight(0.12f).fillMaxWidth().clickable(enabled = canNext) { onNextHaptic() },
                     contentAlignment = Alignment.BottomCenter,
                 ) {
-                    if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                    if (canNext) Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
                 }
             }
         } else {
@@ -162,14 +162,14 @@ internal fun PagedEpubView(
                     Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canPrev) { onPrevHaptic() },
                     contentAlignment = Alignment.CenterStart,
                 ) {
-                    if (canPrev) Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
+                    if (canPrev) Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                 }
                 Spacer(Modifier.weight(0.68f))
                 Box(
                     Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                     contentAlignment = Alignment.CenterEnd,
                 ) {
-                    if (canNext) Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
+                    if (canNext) Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下一章", tint = paperFg.copy(alpha = 0.3f))
                 }
             }
         }

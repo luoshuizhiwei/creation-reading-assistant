@@ -10,10 +10,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Upload
+import androidx.compose.material.icons.outlined.Wifi
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -77,13 +78,13 @@ internal fun WebDavSubPage(
                     OutlinedTextField(value = user, onValueChange = { user = it }, placeholder = { Text("用户名") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                     OutlinedTextField(value = pass, onValueChange = { pass = it }, placeholder = { Text(if (hasSavedPass) "已保存密码 / token；留空则继续使用" else "密码或 token") }, singleLine = true, modifier = Modifier.fillMaxWidth(), colors = textFieldColors())
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(AppIconSize.Small))
                         Text(if (hasSavedPass) "已在应用本地沙箱保存 WebDAV 密码 / token；不会导出或参与同步。" else "还没有保存 WebDAV 密码 / token。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { onAction(ProfileAction.TestWebDav) }, enabled = url.isNotBlank()) { Icon(Icons.Filled.Wifi, contentDescription = null); Text("测试", modifier = Modifier.padding(start = 6.dp)) }
-                        OutlinedButton(onClick = { onAction(ProfileAction.UploadBackup) }, enabled = url.isNotBlank()) { Icon(Icons.Filled.Upload, contentDescription = null); Text("上传", modifier = Modifier.padding(start = 6.dp)) }
-                        OutlinedButton(onClick = { onAction(ProfileAction.RefreshBackups) }, enabled = url.isNotBlank()) { Icon(Icons.Filled.Refresh, contentDescription = null); Text("刷新列表", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.TestWebDav) }, enabled = url.isNotBlank()) { Icon(Icons.Outlined.Wifi, contentDescription = null); Text("测试", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.UploadBackup) }, enabled = url.isNotBlank()) { Icon(Icons.Outlined.Upload, contentDescription = null); Text("上传", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.RefreshBackups) }, enabled = url.isNotBlank()) { Icon(Icons.Outlined.Refresh, contentDescription = null); Text("刷新列表", modifier = Modifier.padding(start = 6.dp)) }
                         OutlinedButton(onClick = { onAction(ProfileAction.ClearWebDav) }) { Text("清除凭证") }
                     }
                     Button(onClick = { onAction(ProfileAction.SaveWebDav(url.trim(), user.trim(), pass)) }, modifier = Modifier.fillMaxWidth()) { Text("保存设置") }

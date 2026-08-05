@@ -1,7 +1,7 @@
 package com.creationreadingassistant.ui.screen.shelf
 
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -15,7 +15,7 @@ internal const val SHELF_SELECTION_ROUTE = "shelf/organizer/select/{kind}"
 
 @Composable
 internal fun BackButton(onClick: () -> Unit) {
-    IconButton(onClick = onClick) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+    IconButton(onClick = onClick) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") }
 }
 
 @Composable

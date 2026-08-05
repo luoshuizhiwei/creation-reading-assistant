@@ -51,6 +51,7 @@ fun SealMark(
         Text(
             text = text,
             color = AppCinnabar,
+            // 品牌白名单例外：藏书印是装饰性状态标记，允许使用 Serif（非正文/标题，不受「大标题四档」约束）
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,
             fontSize = (box * 0.34f).sp,

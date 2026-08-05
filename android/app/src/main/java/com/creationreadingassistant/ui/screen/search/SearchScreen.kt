@@ -16,13 +16,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Highlight
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.SearchOff
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Highlight
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SearchOff
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.material3.CircularProgressIndicator
@@ -99,7 +100,7 @@ fun SearchScreen(
                 title = { Text("搜索", style = MaterialTheme.typography.headlineLarge) },
                 navigationIcon = {
                     IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
                     }
                 },
             )
@@ -119,7 +120,7 @@ fun SearchScreen(
                     .focusRequester(focusRequester),
                 singleLine = true,
                 shape = LocalComponentSpec.current.listItemShape,
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) viewModel.addHistory(query) }),
             )
@@ -198,7 +199,7 @@ fun SearchScreen(
                         if (tab == "all" || tab == "books") {
                             itemsIndexed(results.books, key = { _, book -> "book-${book.id}" }) { index, book ->
                                 SearchResultRow(
-                                    icon = Icons.Filled.Book,
+                                    icon = Icons.Outlined.Book,
                                     title = buildHighlighted(book.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "书籍",
                                     sourceLabel = null,
@@ -215,7 +216,7 @@ fun SearchScreen(
                         if (tab == "all" || tab == "inspirations") {
                             itemsIndexed(results.inspirations, key = { _, insp -> "insp-${insp.id}" }) { index, insp ->
                                 SearchResultRow(
-                                    icon = Icons.Filled.Lightbulb,
+                                    icon = Icons.Outlined.Lightbulb,
                                     title = buildHighlighted(insp.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "灵感",
                                     sourceLabel = null,
@@ -233,7 +234,7 @@ fun SearchScreen(
                             itemsIndexed(results.notes, key = { _, note -> "note-${note.id}" }) { index, note ->
                                 val source = note.book_id?.let { results.bookTitles[it] }?.let { "《$it》" }
                                 SearchResultRow(
-                                    icon = Icons.Filled.Description,
+                                    icon = Icons.Outlined.Description,
                                     title = buildHighlighted(note.title.ifBlank { note.body }, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "笔记",
                                     sourceLabel = source,
@@ -251,7 +252,7 @@ fun SearchScreen(
                             itemsIndexed(results.highlights, key = { _, hl -> "highlight-${hl.id}" }) { index, hl ->
                                 val source = results.bookTitles[hl.book_id]?.let { "《$it》" }
                                 SearchResultRow(
-                                    icon = Icons.Filled.Highlight,
+                                    icon = Icons.Outlined.Highlight,
                                     title = buildHighlighted(hl.text.take(40), query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "高亮",
                                     sourceLabel = source,
@@ -315,7 +316,7 @@ private fun SearchResultRow(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.primary)
+            Icon(icon, contentDescription = null, modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
                 Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)

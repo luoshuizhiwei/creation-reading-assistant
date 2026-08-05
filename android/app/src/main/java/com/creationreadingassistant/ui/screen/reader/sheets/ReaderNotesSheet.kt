@@ -18,10 +18,10 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Bookmark
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.FormatQuote
-import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,7 +123,7 @@ internal fun NotesSheet(
                                         Modifier.size(14.dp).background(paper.highlightSolid(h.color ?: "yellow"), shape = CircleShape),
                                     )
                                     Text(h.text.take(60), Modifier.weight(1f).padding(horizontal = 8.dp))
-                                    IconButton(onClick = { onDeleteHighlight(h) }) { Icon(Icons.Filled.Delete, contentDescription = "删除") }
+                                    IconButton(onClick = { onDeleteHighlight(h) }) { Icon(Icons.Outlined.Delete, contentDescription = "删除") }
                                 }
                                 h.note?.takeIf { it.isNotBlank() }?.let {
                                     Text(
@@ -167,7 +167,7 @@ internal fun NotesSheet(
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             Icon(
-                                if (n.kind == "bookmark") Icons.Filled.Bookmark else Icons.Filled.FormatQuote,
+                                if (n.kind == "bookmark") Icons.Outlined.Bookmark else Icons.Outlined.FormatQuote,
                                 contentDescription = null,
                                 modifier = Modifier.padding(end = 8.dp),
                             )
@@ -175,7 +175,7 @@ internal fun NotesSheet(
                                 Text(n.title, fontWeight = FontWeight.Bold)
                                 n.excerpt?.let { Text(it.take(50), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
                             }
-                            IconButton(onClick = { onDeleteNote(n) }) { Icon(Icons.Filled.Delete, contentDescription = "删除") }
+                            IconButton(onClick = { onDeleteNote(n) }) { Icon(Icons.Outlined.Delete, contentDescription = "删除") }
                         }
                     }
                 }
@@ -185,7 +185,7 @@ internal fun NotesSheet(
                 itemsIndexed(inspirations, key = { _, ins -> ins.id }) { index, ins ->
                     SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).listItemEnter(index, reducedMotion)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Filled.Lightbulb, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
+                            Icon(Icons.Outlined.Lightbulb, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                             Column(Modifier.weight(1f)) {
                                 Text(ins.title, fontWeight = FontWeight.Bold)
                                 if (ins.body.isNotBlank()) Text(ins.body.take(50), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline)

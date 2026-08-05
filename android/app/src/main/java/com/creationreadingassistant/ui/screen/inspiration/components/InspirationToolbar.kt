@@ -9,11 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -81,7 +82,7 @@ internal fun rememberListToolbar(
                     Icon(Icons.Outlined.Search, contentDescription = "搜索灵感")
                 }
                 IconButton(onClick = onNew) {
-                    Icon(Icons.Filled.Add, contentDescription = "新建灵感")
+                    Icon(Icons.Outlined.Add, contentDescription = "新建灵感")
                 }
             }
         },
@@ -99,7 +100,7 @@ internal fun rememberDetailToolbar(
         compact = true,
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
         actions = {
@@ -123,7 +124,7 @@ internal fun rememberEditorToolbar(
         compact = true,
         navigationIcon = {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
     )
@@ -145,7 +146,7 @@ internal fun placeholderSearchField(
         Icon(
             Icons.Outlined.Search,
             contentDescription = null,
-            modifier = Modifier.size(18.dp),
+            modifier = Modifier.size(AppIconSize.Small),
             tint = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         OutlinedTextField(

@@ -23,10 +23,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -218,7 +219,7 @@ internal fun InspirationDetail(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
-                Icons.Filled.AutoAwesome,
+                Icons.Outlined.AutoAwesome,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
             )
@@ -312,9 +313,9 @@ private fun VariantCard(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Icon(
-                    Icons.Filled.AutoAwesome,
+                    Icons.Outlined.AutoAwesome,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp),
+                    modifier = Modifier.size(AppIconSize.Compact),
                     tint = MaterialTheme.colorScheme.primary,
                 )
                 Text(
@@ -355,7 +356,7 @@ private fun VariantCard(
                     Icon(
                         Icons.Outlined.ContentCopy,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(AppIconSize.Compact),
                     )
                     Text("复制", style = MaterialTheme.typography.labelSmall)
                 }

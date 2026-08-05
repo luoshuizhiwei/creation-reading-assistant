@@ -11,21 +11,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.LinkOff
-import androidx.compose.material.icons.filled.QrCode
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Schedule
-import androidx.compose.material.icons.filled.Sync
-import androidx.compose.material.icons.filled.Warning
-import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Error
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.LinkOff
+import androidx.compose.material.icons.outlined.QrCode
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.Sync
+import androidx.compose.material.icons.outlined.Warning
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material.icons.outlined.Upload
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -82,11 +83,11 @@ internal fun SyncSubPage(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Filled.Wifi, contentDescription = null, tint = if (paired) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Outlined.Wifi, contentDescription = null, tint = if (paired) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(if (paired) "已连接电脑" else "未连接电脑", style = MaterialTheme.typography.bodyMedium)
                         }
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                            Icon(Icons.Filled.Download, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Outlined.Download, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text("$pendingDownloadCount 本待下载正文", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
@@ -100,18 +101,18 @@ internal fun SyncSubPage(
                         colors = textFieldColors(),
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        OutlinedButton(onClick = { onAction(ProfileAction.ScanQr) }) { Icon(Icons.Filled.QrCode, contentDescription = null); Text("扫码", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.ScanQr) }) { Icon(Icons.Outlined.QrCode, contentDescription = null); Text("扫码", modifier = Modifier.padding(start = 6.dp)) }
                         OutlinedButton(onClick = { onAction(ProfileAction.StartPairing(pairingText)) }, enabled = !pairing) {
-                            if (pairing) CircularProgressIndicator(modifier = Modifier.size(18.dp)) else Icon(Icons.Filled.Wifi, contentDescription = null)
+                            if (pairing) CircularProgressIndicator(modifier = Modifier.size(18.dp)) else Icon(Icons.Outlined.Wifi, contentDescription = null)
                             Text(if (pairing) "连接中" else "连接电脑", modifier = Modifier.padding(start = 6.dp))
                         }
                         Button(onClick = { onAction(ProfileAction.SyncNow) }, enabled = paired && !syncing) {
-                            if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp)) else Icon(Icons.Filled.Sync, contentDescription = null)
+                            if (syncing) CircularProgressIndicator(modifier = Modifier.size(18.dp)) else Icon(Icons.Outlined.Sync, contentDescription = null)
                             Text(if (syncing) "同步中" else "立即同步", modifier = Modifier.padding(start = 6.dp))
                         }
                     }
                     if (paired) {
-                        TextButton(onClick = { onAction(ProfileAction.Unpair) }) { Icon(Icons.Filled.LinkOff, contentDescription = null); Text("解除配对", modifier = Modifier.padding(start = 6.dp)) }
+                        TextButton(onClick = { onAction(ProfileAction.Unpair) }) { Icon(Icons.Outlined.LinkOff, contentDescription = null); Text("解除配对", modifier = Modifier.padding(start = 6.dp)) }
                     }
                 }
             }
@@ -132,7 +133,7 @@ internal fun SyncSubPage(
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Icon(
-                                if (result.success) Icons.Filled.CheckCircle else Icons.Filled.Info,
+                                if (result.success) Icons.Outlined.CheckCircle else Icons.Outlined.Info,
                                 contentDescription = null,
                                 tint = if (result.success) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
                             )
@@ -142,7 +143,7 @@ internal fun SyncSubPage(
                                     style = MaterialTheme.typography.titleSmall,
                                 )
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(Icons.Filled.Schedule, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(Icons.Outlined.Schedule, contentDescription = null, modifier = Modifier.size(12.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(
                                         "${formatDateTime(result.timestamp)} · 耗时 ${formatSyncDuration(result.durationMs)}",
                                         style = MaterialTheme.typography.bodySmall,
@@ -164,7 +165,7 @@ internal fun SyncSubPage(
                                     ),
                                 )
                                 SyncStatColumn(
-                                    icon = Icons.Filled.Download,
+                                    icon = Icons.Outlined.Download,
                                     title = "下载",
                                     items = listOf(
                                         "${result.downloaded.inspirations} 条灵感",
@@ -174,7 +175,7 @@ internal fun SyncSubPage(
                                     ),
                                 )
                                 SyncStatColumn(
-                                    icon = Icons.Filled.Description,
+                                    icon = Icons.Outlined.Description,
                                     title = "待处理",
                                     items = listOf("${result.pendingDownloadCount} 本待下载正文"),
                                 )
@@ -183,7 +184,7 @@ internal fun SyncSubPage(
                         if (result.failedItems.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(Icons.Filled.Error, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Outlined.Error, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.error)
                                     Text("${result.failedItems.size} 项失败", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                                 }
                                 result.failedItems.take(10).forEach { item ->
@@ -208,7 +209,7 @@ internal fun SyncSubPage(
                                             modifier = Modifier.weight(1f, fill = false).padding(end = 8.dp),
                                         )
                                         TextButton(onClick = { onAction(ProfileAction.RetryItem(item)) }, enabled = !syncing) {
-                                            Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                             Text("重试", modifier = Modifier.padding(start = 4.dp))
                                         }
                                     }
@@ -221,7 +222,7 @@ internal fun SyncSubPage(
                                     )
                                 }
                                 OutlinedButton(onClick = { onAction(ProfileAction.RetryFailed) }, enabled = !syncing) {
-                                    Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
+                                    Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(14.dp))
                                     Text("重试失败项", modifier = Modifier.padding(start = 6.dp))
                                 }
                             }
@@ -229,7 +230,7 @@ internal fun SyncSubPage(
                         if (result.conflicts.isNotEmpty()) {
                             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Icon(Icons.Filled.Warning, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
+                                    Icon(Icons.Outlined.Warning, contentDescription = null, modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
                                     Text("${result.conflicts.size} 条冲突（服务端保留）", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.tertiary)
                                 }
                                 result.conflicts.take(5).forEach { c ->
@@ -270,7 +271,7 @@ internal fun SyncSubPage(
                     ) {
                         Text("同步日志 / 最近一次错误", style = MaterialTheme.typography.titleSmall)
                         Icon(
-                            if (showLogs) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                            if (showLogs) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                             contentDescription = if (showLogs) "收起" else "展开",
                         )
                     }

@@ -9,8 +9,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Wifi
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -78,7 +79,7 @@ internal fun AiSettingsSubPage(
                         colors = textFieldColors(),
                     )
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(AppIconSize.Small))
                         Text(if (keySaved) "已保存 API Key；不会同步、导出或上传到 WebDAV。" else "还没有保存手机端 API Key。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     OutlinedTextField(
@@ -92,7 +93,7 @@ internal fun AiSettingsSubPage(
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onAction(ProfileAction.SaveAiKey) }) { Text("保存设置") }
-                        OutlinedButton(onClick = { onAction(ProfileAction.TestAi) }) { Icon(Icons.Filled.Wifi, contentDescription = null); Text("测试", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.TestAi) }) { Icon(Icons.Outlined.Wifi, contentDescription = null); Text("测试", modifier = Modifier.padding(start = 6.dp)) }
                         OutlinedButton(onClick = { onAction(ProfileAction.ClearAiKey) }) { Text("清除 Key") }
                     }
                 }

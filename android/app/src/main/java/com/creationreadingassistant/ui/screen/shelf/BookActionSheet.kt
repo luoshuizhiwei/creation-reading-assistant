@@ -10,12 +10,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Info
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -66,20 +67,20 @@ internal fun BookActionSheet(
             Spacer(modifier = Modifier.height(12.dp))
             val r = book.readiness()
             if (r.tone == ReadinessTone.READY) {
-                ActionRow(icon = Icons.AutoMirrored.Filled.MenuBook, title = "继续阅读", subtitle = "从上次保存的位置打开", primary = true, onClick = { onContinue(book) })
+                ActionRow(icon = Icons.AutoMirrored.Outlined.MenuBook, title = "继续阅读", subtitle = "从上次保存的位置打开", primary = true, onClick = { onContinue(book) })
             } else {
                 if (r.tone == ReadinessTone.CLOUD) {
-                    ActionRow(icon = Icons.Filled.Download, title = "下载正文", subtitle = "保存到本机后离线阅读", onClick = { onDownload(book) })
+                    ActionRow(icon = Icons.Outlined.Download, title = "下载正文", subtitle = "保存到本机后离线阅读", onClick = { onDownload(book) })
                 }
             }
             ActionRow(
-                icon = Icons.Filled.Refresh,
+                icon = Icons.Outlined.Refresh,
                 title = "重新定位文件",
                 subtitle = if (r.tone == ReadinessTone.READY) "更换本地文件并保留阅读记录" else "修复缺失的本地正文",
                 onClick = { onRepair(book) },
             )
             ActionRow(icon = Icons.Outlined.Info, title = "书籍详情与管理", subtitle = "编辑信息、封面、分类和书单", onClick = { onOpenDetail(book.id) })
-            ActionRow(icon = Icons.Filled.Delete, title = "删除书籍", subtitle = "同时移除本机正文和阅读数据", danger = true, onClick = { onDelete(book.id) })
+            ActionRow(icon = Icons.Outlined.Delete, title = "删除书籍", subtitle = "同时移除本机正文和阅读数据", danger = true, onClick = { onDelete(book.id) })
             Spacer(modifier = Modifier.height(8.dp))
         }
     }
@@ -109,13 +110,13 @@ internal fun ActionRow(
                 primary -> MaterialTheme.colorScheme.primary
                 else -> MaterialTheme.colorScheme.onSurfaceVariant
             },
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(AppIconSize.Medium),
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, style = MaterialTheme.typography.bodyLarge, color = if (danger) AppError else MaterialTheme.colorScheme.onBackground)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(AppIconSize.Small))
     }
 }

@@ -7,10 +7,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ChatBubble
-import androidx.compose.material.icons.filled.Speed
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ChatBubble
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.TextFields
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -47,14 +48,14 @@ internal fun CreationSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CreationItem(
-                    Icons.Filled.TextFields,
+                    Icons.Outlined.TextFields,
                     formatThousands(stats.words),
                     "阅读字数",
                     Modifier.weight(1f),
                     reducedMotion = reducedMotion,
                 )
                 CreationItem(
-                    Icons.Filled.Speed,
+                    Icons.Outlined.Speed,
                     "${stats.speed}",
                     "字/分钟",
                     Modifier.weight(1f),
@@ -66,14 +67,14 @@ internal fun CreationSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CreationItem(
-                    Icons.Filled.ChatBubble,
+                    Icons.Outlined.ChatBubble,
                     "${stats.noteCount}",
                     "笔记",
                     Modifier.weight(1f),
                     reducedMotion = reducedMotion,
                 )
                 CreationItem(
-                    Icons.Filled.AutoAwesome,
+                    Icons.Outlined.AutoAwesome,
                     "${stats.inspirationCount}",
                     "灵感",
                     Modifier.weight(1f),
@@ -105,7 +106,7 @@ private fun CreationItem(
                 icon,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(AppIconSize.Small),
             )
             val numeric = value.toIntOrNull()
             Text(

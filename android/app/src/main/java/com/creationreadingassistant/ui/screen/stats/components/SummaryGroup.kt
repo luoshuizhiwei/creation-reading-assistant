@@ -7,11 +7,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,16 +47,16 @@ internal fun SummaryGroup(
     val reducedMotion = rememberReducedMotion()
     val metrics = listOf(
         SummaryMetric(
-            Icons.Filled.AccessTime,
+            Icons.Outlined.AccessTime,
             (stats.totalReadingMs / 60000).toInt(),
             { formatCompactDuration(it.toLong() * 60000) },
             "阅读时长",
         ),
-        SummaryMetric(Icons.Filled.CalendarMonth, stats.readingDays, { "$it 天" }, "阅读天数"),
-        SummaryMetric(Icons.Filled.Book, stats.readBooks, { "$it 本" }, "读过书籍"),
-        SummaryMetric(Icons.Filled.CheckCircle, stats.completed, { "$it 本" }, "已读完"),
-        SummaryMetric(Icons.Filled.BarChart, stats.streakCurrent, { "$it 天" }, "当前连续"),
-        SummaryMetric(Icons.Filled.CalendarMonth, stats.streakLongest, { "$it 天" }, "最长连续"),
+        SummaryMetric(Icons.Outlined.CalendarMonth, stats.readingDays, { "$it 天" }, "阅读天数"),
+        SummaryMetric(Icons.Outlined.Book, stats.readBooks, { "$it 本" }, "读过书籍"),
+        SummaryMetric(Icons.Outlined.CheckCircle, stats.completed, { "$it 本" }, "已读完"),
+        SummaryMetric(Icons.Outlined.BarChart, stats.streakCurrent, { "$it 天" }, "当前连续"),
+        SummaryMetric(Icons.Outlined.CalendarMonth, stats.streakLongest, { "$it 天" }, "最长连续"),
     )
     SectionCard(
         modifier = modifier

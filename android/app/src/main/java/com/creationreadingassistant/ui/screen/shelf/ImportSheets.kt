@@ -11,15 +11,16 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Warning
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -87,7 +88,7 @@ internal fun DesktopBooksSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text("从电脑导入", style = MaterialTheme.typography.titleMedium)
                 Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { load() }) { Icon(Icons.Filled.Refresh, contentDescription = "刷新") }
+                IconButton(onClick = { load() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
             }
             Spacer(modifier = Modifier.height(12.dp))
             if (loading) CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally))
@@ -103,7 +104,7 @@ internal fun DesktopBooksSheet(
                             Text(book.fileName, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${book.format.uppercase()} · ${formatBytes(book.size)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Icon(Icons.Filled.Download, contentDescription = "下载", tint = MaterialTheme.colorScheme.primary)
+                        Icon(Icons.Outlined.Download, contentDescription = "下载", tint = MaterialTheme.colorScheme.primary)
                     }
                 }
             }
@@ -139,14 +140,14 @@ internal fun ImportSourceSheet(
                 modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             )
             ImportSourceRow(
-                icon = Icons.AutoMirrored.Filled.MenuBook,
+                icon = Icons.AutoMirrored.Outlined.MenuBook,
                 title = "选择书籍",
                 description = "一次选择一本或多本文件",
                 onClick = onSelectFiles,
             )
             SectionDivider()
             ImportSourceRow(
-                icon = Icons.Filled.Folder,
+                icon = Icons.Outlined.Folder,
                 title = "扫描文件夹",
                 description = "包含子文件夹，自动跳过其他文件",
                 onClick = onSelectFolder,
@@ -181,7 +182,7 @@ internal fun ImportSourceRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        Icon(Icons.Filled.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -207,11 +208,11 @@ internal fun ImportHistorySheet(
     ) {
         Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+                IconButton(onClick = onDismiss) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") }
                 Text("导入历史", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
                 if (history.isNotEmpty()) {
                     IconButton(onClick = { haptic(HapticFeedbackType.LongPress); onClear() }, modifier = Modifier.size(28.dp)) {
-                        Icon(Icons.Filled.Delete, contentDescription = "清空历史", modifier = Modifier.size(16.dp), tint = AppError)
+                        Icon(Icons.Outlined.Delete, contentDescription = "清空历史", modifier = Modifier.size(AppIconSize.Compact), tint = AppError)
                     }
                 }
             }
@@ -276,12 +277,12 @@ internal fun ImportHistorySheet(
                             }
                             Icon(
                                 when (task.status) {
-                                    "processing" -> Icons.Filled.Refresh
-                                    "error", "skipped" -> Icons.Filled.Warning
-                                    else -> Icons.Filled.CheckCircle
+                                    "processing" -> Icons.Outlined.Refresh
+                                    "error", "skipped" -> Icons.Outlined.Warning
+                                    else -> Icons.Outlined.CheckCircle
                                 },
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(AppIconSize.Compact),
                                 tint = taskColor,
                             )
                             Spacer(modifier = Modifier.width(8.dp))
@@ -310,9 +311,9 @@ internal fun ImportHistorySheet(
                     history.forEach { entry ->
                         Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                             Icon(
-                                if (entry.status == "success") Icons.Filled.CheckCircle else Icons.Filled.Warning,
+                                if (entry.status == "success") Icons.Outlined.CheckCircle else Icons.Outlined.Warning,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp),
+                                modifier = Modifier.size(AppIconSize.Compact),
                                 tint = when (entry.status) {
                                     "success" -> AppSuccess
                                     "duplicate", "skipped" -> AppWarning

@@ -8,22 +8,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.BorderColor
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.KeyboardArrowUp
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material.icons.filled.Palette
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -97,7 +97,7 @@ internal fun ReaderBottomActions(
                 modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
             ) {
                 Icon(
-                    Icons.Filled.SkipPrevious,
+                    Icons.Outlined.SkipPrevious,
                     contentDescription = "上一章",
                     tint = if (isFirstChapter) accentColor.copy(alpha = 0.3f) else accentColor,
                 )
@@ -130,7 +130,7 @@ internal fun ReaderBottomActions(
                 modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
             ) {
                 Icon(
-                    Icons.Filled.SkipNext,
+                    Icons.Outlined.SkipNext,
                     contentDescription = "下一章",
                     tint = if (isLastChapter) accentColor.copy(alpha = 0.3f) else accentColor,
                 )
@@ -145,19 +145,19 @@ internal fun ReaderBottomActions(
             horizontalArrangement = Arrangement.SpaceEvenly,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            ReaderFooterAction(Icons.Filled.Menu, "目录", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Menu, "目录", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.TOC))
             }
-            ReaderFooterAction(Icons.Filled.Headphones, "听书", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Headphones, "听书", accentColor) {
                 onAction(ReaderChromeAction.ToggleTts)
             }
-            ReaderFooterAction(Icons.Filled.Lightbulb, "灵感", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Lightbulb, "灵感", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.INSPIRATION))
             }
-            ReaderFooterAction(Icons.Filled.Palette, "主题", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Palette, "主题", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.THEME))
             }
-            ReaderFooterAction(Icons.Filled.Settings, "设置", accentColor) {
+            ReaderFooterAction(Icons.Outlined.Settings, "设置", accentColor) {
                 onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS))
             }
         }
@@ -173,10 +173,10 @@ internal fun ReaderCollapsedControl(
 ) {
     when {
         autoPagingActive -> FloatingActionButton(onClick = onPauseAutoPaging) {
-            Icon(Icons.Filled.Pause, contentDescription = "暂停自动翻页")
+            Icon(Icons.Outlined.Pause, contentDescription = "暂停自动翻页")
         }
         !pagerEngineOn -> FloatingActionButton(onClick = onShowControls) {
-            Icon(Icons.Filled.Menu, contentDescription = "展开菜单")
+            Icon(Icons.Outlined.Menu, contentDescription = "展开菜单")
         }
     }
 }
@@ -246,13 +246,13 @@ internal fun ReaderTopChrome(
         },
         navigationIcon = {
             IconButton(onClick = { onAction(ReaderChromeAction.Back) }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
         actions = {
             Box {
                 IconButton(onClick = { onOverflowExpandedChange(true) }) {
-                    Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "更多")
                 }
                 DropdownMenu(
                     expanded = overflowExpanded,
@@ -260,7 +260,7 @@ internal fun ReaderTopChrome(
                 ) {
                     DropdownMenuItem(
                         text = { Text("阅读进度") },
-                        leadingIcon = { Icon(Icons.Filled.BarChart, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.BarChart, contentDescription = null) },
                         onClick = {
                             onOverflowExpandedChange(false)
                             onAction(ReaderChromeAction.OpenSheet(ReaderSheet.PROGRESS))
@@ -268,7 +268,7 @@ internal fun ReaderTopChrome(
                     )
                     DropdownMenuItem(
                         text = { Text("AI 助手") },
-                        leadingIcon = { Icon(Icons.Filled.AutoAwesome, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.AutoAwesome, contentDescription = null) },
                         onClick = {
                             onOverflowExpandedChange(false)
                             onAction(ReaderChromeAction.OpenSheet(ReaderSheet.AI_ASSIST))
@@ -276,7 +276,7 @@ internal fun ReaderTopChrome(
                     )
                     DropdownMenuItem(
                         text = { Text("笔记与标注") },
-                        leadingIcon = { Icon(Icons.Filled.BorderColor, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.BorderColor, contentDescription = null) },
                         onClick = {
                             onOverflowExpandedChange(false)
                             onAction(ReaderChromeAction.OpenSheet(ReaderSheet.NOTES))
@@ -284,7 +284,7 @@ internal fun ReaderTopChrome(
                     )
                     DropdownMenuItem(
                         text = { Text("书内搜索") },
-                        leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
                         onClick = {
                             onOverflowExpandedChange(false)
                             onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SEARCH))
@@ -294,7 +294,7 @@ internal fun ReaderTopChrome(
                         text = { Text(if (autoPagingActive) "暂停自动翻页" else "开始自动翻页") },
                         leadingIcon = {
                             Icon(
-                                if (autoPagingActive) Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                                if (autoPagingActive) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                                 contentDescription = null,
                             )
                         },
@@ -306,7 +306,7 @@ internal fun ReaderTopChrome(
                     DropdownMenuItem(
                         text = { Text("隐藏工具栏") },
                         leadingIcon = {
-                            Icon(Icons.Filled.KeyboardArrowUp, contentDescription = null)
+                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null)
                         },
                         onClick = {
                             onOverflowExpandedChange(false)

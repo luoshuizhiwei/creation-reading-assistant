@@ -11,8 +11,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForwardIos
-import androidx.compose.material.icons.filled.AutoStories
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
+import androidx.compose.material.icons.outlined.AutoStories
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -65,9 +66,9 @@ fun HomeReadingArchiveSection(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            Icons.Filled.AutoStories,
+                            Icons.Outlined.AutoStories,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(AppIconSize.Medium),
                             tint = MaterialTheme.colorScheme.onPrimaryContainer,
                         )
                     }
@@ -85,9 +86,9 @@ fun HomeReadingArchiveSection(
                 )
             }
             Icon(
-                Icons.AutoMirrored.Filled.ArrowForwardIos,
+                Icons.AutoMirrored.Outlined.ArrowForwardIos,
                 contentDescription = null,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(AppIconSize.Compact),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }

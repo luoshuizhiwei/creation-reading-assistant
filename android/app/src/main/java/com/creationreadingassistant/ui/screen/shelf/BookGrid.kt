@@ -30,8 +30,9 @@ import androidx.compose.material.pullrefresh.PullRefreshState
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MoreHoriz
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -236,7 +237,7 @@ internal fun BookTile(
                             .align(Alignment.TopStart),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (selected) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                        if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(AppIconSize.Compact))
                     }
                 }
                 IconButton(
@@ -248,7 +249,7 @@ internal fun BookTile(
                     Icon(
                         Icons.Outlined.MoreHoriz,
                         contentDescription = "管理《${book.title}》",
-                        modifier = Modifier.size(18.dp),
+                        modifier = Modifier.size(AppIconSize.Small),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
@@ -317,11 +318,11 @@ internal fun BookTile(
                             .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (selected) Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(16.dp))
+                        if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(AppIconSize.Compact))
                     }
                 } else {
                     IconButton(onClick = { onToggleActions(book.id) }) {
-                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${book.title}》", modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${book.title}》", modifier = Modifier.size(AppIconSize.Compact), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

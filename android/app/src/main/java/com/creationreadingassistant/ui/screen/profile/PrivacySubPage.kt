@@ -4,10 +4,10 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Wifi
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Wifi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -35,10 +35,10 @@ internal fun PrivacySubPage(
         item {
             SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column {
-                    PrivacyItem(Icons.Filled.Security, "本地优先", "没有账号服务器。书籍、灵感、进度和笔记默认保存在手机本地。")
-                    PrivacyItem(Icons.Filled.Wifi, "同步可控", "局域网同步需要你手动连接电脑；WebDAV 需要你主动配置地址。")
-                    PrivacyItem(Icons.Filled.AutoAwesome, "密钥隔离", "AI Key 和 WebDAV 密码 / token 仅保存在应用本地沙箱，不参与电脑同步、WebDAV 同步或数据导出。")
-                    PrivacyItem(Icons.Filled.Storage, "路径隔离", "本地文件路径、readerPreview、临时 URI 等设备私有字段不会进入同步 payload。")
+                    PrivacyItem(Icons.Outlined.Security, "本地优先", "没有账号服务器。书籍、灵感、进度和笔记默认保存在手机本地。")
+                    PrivacyItem(Icons.Outlined.Wifi, "同步可控", "局域网同步需要你手动连接电脑；WebDAV 需要你主动配置地址。")
+                    PrivacyItem(Icons.Outlined.AutoAwesome, "密钥隔离", "AI Key 和 WebDAV 密码 / token 仅保存在应用本地沙箱，不参与电脑同步、WebDAV 同步或数据导出。")
+                    PrivacyItem(Icons.Outlined.Storage, "路径隔离", "本地文件路径、readerPreview、临时 URI 等设备私有字段不会进入同步 payload。")
                 }
             }
         }

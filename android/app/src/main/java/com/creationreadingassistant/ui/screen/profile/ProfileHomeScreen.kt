@@ -11,22 +11,22 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.BugReport
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Description
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Security
-import androidx.compose.material.icons.filled.Sell
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.TextFields
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.BugReport
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.DarkMode
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Security
+import androidx.compose.material.icons.outlined.Sell
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -61,7 +61,7 @@ internal fun ProfileHomeScreen(
         item(key = "header-card") {
             SectionCard {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Book, contentDescription = null, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Outlined.Book, contentDescription = null, modifier = Modifier.size(28.dp))
                     Column(modifier = Modifier.padding(start = 12.dp)) {
                         Text("创作阅读助手", style = MaterialTheme.typography.titleMedium)
                         Text("本地优先", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -91,45 +91,45 @@ internal fun ProfileHomeScreen(
         // 阅读与外观
         item(key = "reading-appearance") {
             MenuGroup(title = "阅读与外观") {
-                MenuItem(Icons.Filled.TextFields, "阅读设置", "字号、行距、主题、翻页模式", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
-                MenuItem(Icons.Filled.DarkMode, "应用外观", state.appThemeLabel, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
-                MenuItem(Icons.AutoMirrored.Filled.MenuBook, "我的阅读", "进度、时长、书籍状态", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
+                MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
+                MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
+                MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
             }
         }
 
         // 数据与存储
         item(key = "data-storage") {
             MenuGroup(title = "数据与存储") {
-                MenuItem(Icons.Filled.Storage, "存储管理", "导出 / 导入数据快照", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
-                MenuItem(Icons.Filled.Delete, "清理缓存", "清理阅读器正文缓存", danger = true, onClick = { onAction(ProfileAction.ClearReaderCache) })
-                MenuItem(Icons.Filled.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
-                MenuItem(Icons.Filled.Folder, "分类管理", "整理书籍分类", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
-                MenuItem(Icons.Filled.Book, "书单管理", "自定义书单", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
+                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入数据快照", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
+                MenuItem(Icons.Outlined.Delete, "清理缓存", "清理阅读器正文缓存", danger = true, onClick = { onAction(ProfileAction.ClearReaderCache) })
+                MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
+                MenuItem(Icons.Outlined.Folder, "分类管理", "整理书籍分类", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
+                MenuItem(Icons.Outlined.Book, "书单管理", "自定义书单", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
             }
         }
 
         // 我的书评与笔记
         item(key = "notes") {
             MenuGroup(title = "我的书评与笔记") {
-                MenuItem(Icons.Filled.Description, "我的书评 / 笔记", "书签与读书笔记", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) })
+                MenuItem(Icons.Outlined.Description, "我的书评 / 笔记", "书签与读书笔记", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) })
             }
         }
 
         // 同步与工具
         item(key = "sync-tools") {
             MenuGroup(title = "同步与工具") {
-                MenuItem(Icons.Filled.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
-                MenuItem(Icons.Filled.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
-                MenuItem(Icons.Filled.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
+                MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
+                MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
+                MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
             }
         }
 
         // 帮助与关于
         item(key = "help-about") {
             MenuGroup(title = "帮助与关于") {
-                MenuItem(Icons.Filled.BugReport, "日志与诊断", "运行环境与问题记录", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
-                MenuItem(Icons.Filled.Security, "隐私安全", "本地优先", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
-                MenuItem(Icons.Filled.Info, "关于", "版本与开源许可", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
+                MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
+                MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
+                MenuItem(Icons.Outlined.Info, "关于", "版本与开源许可", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
             }
         }
     }
@@ -186,7 +186,7 @@ private fun ColumnScope.MenuItem(
         },
         trailing = {
             Icon(
-                Icons.Filled.ChevronRight,
+                Icons.Outlined.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )

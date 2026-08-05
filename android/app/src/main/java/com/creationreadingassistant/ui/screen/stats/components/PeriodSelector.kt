@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -56,12 +56,12 @@ internal fun PeriodSelector(
             IconButton(
                 onClick = { onAction(StatsAction.ShiftPeriod(-1)) },
                 enabled = state.period != StatsPeriod.TOTAL,
-            ) { Icon(Icons.Filled.ChevronLeft, contentDescription = "上一周期") }
+            ) { Icon(Icons.Outlined.ChevronLeft, contentDescription = "上一周期") }
             Text(state.periodTitle, style = MaterialTheme.typography.titleMedium)
             IconButton(
                 onClick = { onAction(StatsAction.ShiftPeriod(1)) },
                 enabled = state.nextEnabled,
-            ) { Icon(Icons.Filled.ChevronRight, contentDescription = "下一周期") }
+            ) { Icon(Icons.Outlined.ChevronRight, contentDescription = "下一周期") }
         }
     }
 }

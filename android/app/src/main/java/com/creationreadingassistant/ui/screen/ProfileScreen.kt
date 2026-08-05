@@ -2,8 +2,8 @@ package com.creationreadingassistant.ui.screen
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ChevronLeft
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -55,7 +55,7 @@ internal fun ProfileScreen(
         navigationIcon = if (state.currentSubPage != null) {
             {
                 IconButton(onClick = { onAction(ProfileAction.GoBack) }) {
-                    Icon(Icons.Filled.ChevronLeft, contentDescription = "返回")
+                    Icon(Icons.Outlined.ChevronLeft, contentDescription = "返回")
                 }
             }
         } else {
@@ -65,7 +65,7 @@ internal fun ProfileScreen(
             {
                 Box {
                     IconButton(onClick = { moreExpanded = true }) {
-                        Icon(Icons.Filled.MoreVert, contentDescription = "更多")
+                        Icon(Icons.Outlined.MoreVert, contentDescription = "更多")
                     }
                     DropdownMenu(
                         expanded = moreExpanded,

@@ -13,12 +13,13 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Search
-import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Storage
+import androidx.compose.material.icons.outlined.Upload
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -70,8 +71,8 @@ internal fun StorageSubPage(
                 ) {
                     Text("导出会保存灵感、书库元数据、进度、阅读记录、笔记、标签、分类和同步账号信息；不会导出 AI Key、WebDAV 密码 / token 或设备私有路径。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Button(onClick = { onAction(ProfileAction.Export) }) { Icon(Icons.Filled.Download, contentDescription = null); Text("导出数据", modifier = Modifier.padding(start = 6.dp)) }
-                        OutlinedButton(onClick = { onAction(ProfileAction.Import) }) { Icon(Icons.Filled.Upload, contentDescription = null); Text("导入数据", modifier = Modifier.padding(start = 6.dp)) }
+                        Button(onClick = { onAction(ProfileAction.Export) }) { Icon(Icons.Outlined.Download, contentDescription = null); Text("导出数据", modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.Import) }) { Icon(Icons.Outlined.Upload, contentDescription = null); Text("导入数据", modifier = Modifier.padding(start = 6.dp)) }
                     }
                 }
             }
@@ -87,10 +88,10 @@ internal fun StorageSubPage(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
-                        StorageStat(icon = Icons.Filled.Book, value = totalBooks.toString(), label = "总书籍")
-                        StorageStat(icon = Icons.Filled.Download, value = "$downloadedCount 本", label = "已下载")
-                        StorageStat(icon = Icons.Filled.Storage, value = formatBytes(cacheBytes), label = "正文缓存")
-                        StorageStat(icon = Icons.Filled.Search, value = formatBytes(indexBytes), label = "索引大小")
+                        StorageStat(icon = Icons.Outlined.Book, value = totalBooks.toString(), label = "总书籍")
+                        StorageStat(icon = Icons.Outlined.Download, value = "$downloadedCount 本", label = "已下载")
+                        StorageStat(icon = Icons.Outlined.Storage, value = formatBytes(cacheBytes), label = "正文缓存")
+                        StorageStat(icon = Icons.Outlined.Search, value = formatBytes(indexBytes), label = "索引大小")
                     }
                     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Row(
@@ -159,7 +160,7 @@ internal fun StorageSubPage(
                         Text("$cachedCount 条", color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Text("缓存可在重新打开书籍时重新生成；清理不影响正式数据。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    OutlinedButton(onClick = { onAction(ProfileAction.ClearReaderCache) }) { Icon(Icons.Filled.Delete, contentDescription = null); Text("清理缓存", modifier = Modifier.padding(start = 6.dp)) }
+                    OutlinedButton(onClick = { onAction(ProfileAction.ClearReaderCache) }) { Icon(Icons.Outlined.Delete, contentDescription = null); Text("清理缓存", modifier = Modifier.padding(start = 6.dp)) }
                 }
             }
         }
@@ -173,7 +174,7 @@ private fun StorageStat(
     label: String,
 ) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.widthIn(min = 72.dp)) {
-        Icon(icon, contentDescription = null, modifier = Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
+        Icon(icon, contentDescription = null, modifier = Modifier.size(AppIconSize.Large), tint = MaterialTheme.colorScheme.primary)
         Text(value, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurface)
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }

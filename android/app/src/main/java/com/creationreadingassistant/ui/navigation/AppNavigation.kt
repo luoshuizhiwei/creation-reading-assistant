@@ -23,11 +23,12 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.BarChart
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Lightbulb
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.outlined.BarChart
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Person
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -131,11 +132,11 @@ sealed class TopLevelRoute(
     val labelRes: Int,
     val icon: ImageVector,
 ) {
-    object Home : TopLevelRoute("home", R.string.nav_home, Icons.Filled.Home)
-    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.Filled.MenuBook)
-    object Inspiration : TopLevelRoute("inspiration", R.string.nav_inspiration, Icons.Filled.Lightbulb)
-    object Stats : TopLevelRoute("stats", R.string.nav_stats, Icons.Filled.BarChart)
-    object Profile : TopLevelRoute("profile", R.string.nav_profile, Icons.Filled.Person)
+    object Home : TopLevelRoute("home", R.string.nav_home, Icons.Outlined.Home)
+    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.Outlined.MenuBook)
+    object Inspiration : TopLevelRoute("inspiration", R.string.nav_inspiration, Icons.Outlined.Lightbulb)
+    object Stats : TopLevelRoute("stats", R.string.nav_stats, Icons.Outlined.BarChart)
+    object Profile : TopLevelRoute("profile", R.string.nav_profile, Icons.Outlined.Person)
 }
 
 val TOP_LEVEL_ROUTES = listOf(
@@ -409,7 +410,7 @@ fun RowScope.BottomBarItems(
             Icon(
                 imageVector = top.icon,
                 contentDescription = null,
-                modifier = Modifier.size(22.dp),
+                modifier = Modifier.size(AppIconSize.Medium),
                 tint = tint,
             )
             Spacer(Modifier.height(3.dp))

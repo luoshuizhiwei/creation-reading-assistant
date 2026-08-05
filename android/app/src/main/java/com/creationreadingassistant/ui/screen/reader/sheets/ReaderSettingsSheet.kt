@@ -18,8 +18,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -210,11 +210,11 @@ private fun FontSizeStepper(value: Float, onChange: (Float) -> Unit) {
     ) {
         Text("字号", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
         IconButton(onClick = { onChange((value - 1f).coerceAtLeast(12f)) }) {
-            Icon(Icons.Filled.Remove, contentDescription = "减小字号")
+            Icon(Icons.Outlined.Remove, contentDescription = "减小字号")
         }
         Text("${value.toInt()} 字号", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
         IconButton(onClick = { onChange((value + 1f).coerceAtMost(32f)) }) {
-            Icon(Icons.Filled.Add, contentDescription = "增大字号")
+            Icon(Icons.Outlined.Add, contentDescription = "增大字号")
         }
     }
 }

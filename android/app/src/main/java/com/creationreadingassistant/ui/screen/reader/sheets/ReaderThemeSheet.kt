@@ -11,7 +11,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -76,7 +76,7 @@ internal fun ThemeSheet(
                                 Text("Aa", style = MaterialTheme.typography.titleLarge, color = palette.fg)
                                 if (selected) {
                                     Icon(
-                                        Icons.Filled.Check,
+                                        Icons.Outlined.Check,
                                         contentDescription = "已选择",
                                         tint = palette.accent,
                                         modifier = Modifier.align(Alignment.TopEnd),

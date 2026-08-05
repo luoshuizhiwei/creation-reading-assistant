@@ -20,7 +20,7 @@ import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -199,7 +199,7 @@ internal fun InspirationScreen(
                     },
                     trailing = {
                         if (sortMode == value) {
-                            Icon(Icons.Filled.Check, contentDescription = null)
+                            Icon(Icons.Outlined.Check, contentDescription = null)
                         }
                     },
                     onClick = { onAction(InspirationAction.ChangeSort(value)) },

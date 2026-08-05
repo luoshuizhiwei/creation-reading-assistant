@@ -25,14 +25,15 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.GridView
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material.pullrefresh.PullRefreshDefaults
 import androidx.compose.material.pullrefresh.pullRefresh
 import androidx.compose.material.pullrefresh.rememberPullRefreshState
@@ -109,9 +110,9 @@ internal fun ShelfScreen(
             ) {
                 Text("书架", style = MaterialTheme.typography.headlineLarge, maxLines = 1)
                 Icon(
-                    imageVector = Icons.Filled.ArrowDropDown,
+                    imageVector = Icons.Outlined.ArrowDropDown,
                     contentDescription = "打开书架整理",
-                    modifier = Modifier.size(22.dp),
+                    modifier = Modifier.size(AppIconSize.Medium),
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
@@ -122,7 +123,7 @@ internal fun ShelfScreen(
         {
             IconButton(onClick = { onAction(ShelfAction.ExitSelection) }) {
                 Icon(
-                    imageVector = Icons.Filled.Close,
+                    imageVector = Icons.Outlined.Close,
                     contentDescription = "关闭选择模式",
                     tint = MaterialTheme.colorScheme.onSurface,
                 )
@@ -151,7 +152,7 @@ internal fun ShelfScreen(
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Icon(
-                            imageVector = Icons.Filled.Add,
+                            imageVector = Icons.Outlined.Add,
                             contentDescription = "导入书籍",
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -190,7 +191,7 @@ internal fun ShelfScreen(
                         DropdownMenuItem(
                             text = { Text("批量选择") },
                             onClick = { onAction(ShelfAction.EnterSelection) },
-                            leadingIcon = { Icon(imageVector = Icons.Filled.CheckCircle, contentDescription = null) },
+                            leadingIcon = { Icon(imageVector = Icons.Outlined.CheckCircle, contentDescription = null) },
                         )
                         DropdownMenuItem(
                             text = {
@@ -203,7 +204,7 @@ internal fun ShelfScreen(
                             onClick = { onAction(ShelfAction.OpenImportHistory) },
                             leadingIcon = {
                                 Icon(
-                                    imageVector = Icons.Filled.History,
+                                    imageVector = Icons.Outlined.History,
                                     contentDescription = null,
                                 )
                             },
@@ -270,7 +271,7 @@ private fun SearchInputRow(
                 if (query.isNotEmpty()) {
                     IconButton(onClick = { onQueryChange("") }) {
                         Icon(
-                            imageVector = Icons.Filled.Close,
+                            imageVector = Icons.Outlined.Close,
                             contentDescription = "清空",
                         )
                     }

@@ -10,14 +10,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Headphones
-import androidx.compose.material.icons.filled.Pause
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.SkipPrevious
-import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Headphones
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material.icons.outlined.SkipNext
+import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -98,7 +98,7 @@ internal fun TtsBar(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Icon(
-                Icons.Filled.Headphones,
+                Icons.Outlined.Headphones,
                 contentDescription = null,
                 modifier = Modifier.padding(layout.relatedGap),
             )
@@ -111,10 +111,10 @@ internal fun TtsBar(
                 )
             }
             IconButton(onClick = { showSettings = true }) {
-                Icon(Icons.Filled.Settings, contentDescription = "朗读设置")
+                Icon(Icons.Outlined.Settings, contentDescription = "朗读设置")
             }
             IconButton(onClick = onClose) {
-                Icon(Icons.Filled.Close, contentDescription = "关闭朗读")
+                Icon(Icons.Outlined.Close, contentDescription = "关闭朗读")
             }
         }
         Row(
@@ -123,7 +123,7 @@ internal fun TtsBar(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = tts::prev, enabled = tts.status != "idle") {
-                Icon(Icons.Filled.SkipPrevious, contentDescription = "上一段")
+                Icon(Icons.Outlined.SkipPrevious, contentDescription = "上一段")
             }
             IconButton(
                 onClick = {
@@ -135,15 +135,15 @@ internal fun TtsBar(
                 },
             ) {
                 Icon(
-                    if (tts.status == "playing") Icons.Filled.Pause else Icons.Filled.PlayArrow,
+                    if (tts.status == "playing") Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                     contentDescription = if (tts.status == "playing") "暂停" else "播放",
                 )
             }
             IconButton(onClick = tts::next, enabled = tts.status != "idle") {
-                Icon(Icons.Filled.SkipNext, contentDescription = "下一段")
+                Icon(Icons.Outlined.SkipNext, contentDescription = "下一段")
             }
             IconButton(onClick = tts::stop, enabled = tts.status != "idle") {
-                Icon(Icons.Filled.Stop, contentDescription = "停止")
+                Icon(Icons.Outlined.Stop, contentDescription = "停止")
             }
         }
         SettingSegmentedRow(

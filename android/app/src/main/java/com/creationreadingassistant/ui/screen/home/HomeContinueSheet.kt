@@ -18,15 +18,16 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.MenuBook
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Archive
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -238,7 +239,7 @@ private fun ListPage(
             ) {
                 Text("继续阅读", style = MaterialTheme.typography.titleLarge)
                 IconButton(onClick = onMenuToggle) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "更多选项")
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "更多选项")
                 }
             }
             Spacer(Modifier.height(8.dp))
@@ -327,7 +328,7 @@ private fun MenuOverlay(
                                 .padding(horizontal = 16.dp, vertical = 12.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回", modifier = Modifier.size(18.dp))
+                            Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回", modifier = Modifier.size(AppIconSize.Small))
                             Spacer(Modifier.width(8.dp))
                             Text("排序方式", style = MaterialTheme.typography.labelLarge)
                         }
@@ -368,8 +369,8 @@ private fun MenuRow(
     ) {
         Text(label, style = MaterialTheme.typography.bodyMedium)
         when {
-            selected -> Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp))
-            hasChild -> Icon(Icons.AutoMirrored.Filled.ArrowForward, contentDescription = null, modifier = Modifier.size(18.dp))
+            selected -> Icon(Icons.Outlined.Check, contentDescription = null, modifier = Modifier.size(AppIconSize.Small))
+            hasChild -> Icon(Icons.AutoMirrored.Outlined.ArrowForward, contentDescription = null, modifier = Modifier.size(AppIconSize.Small))
         }
     }
 }
@@ -392,7 +393,7 @@ private fun ActionBookPage(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             IconButton(onClick = onBack) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回列表")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回列表")
             }
             Text(
                 book.title,
@@ -404,13 +405,13 @@ private fun ActionBookPage(
             Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.height(16.dp))
-        ActionButton(icon = { Icon(Icons.Filled.MenuBook, contentDescription = null) }, label = "查看详情", onClick = onShowDetail)
-        ActionButton(icon = { Icon(Icons.Default.Check, contentDescription = null) }, label = "标记为已读完", onClick = onMarkRead)
-        ActionButton(icon = { Icon(Icons.Default.Close, contentDescription = null) }, label = "从继续阅读移除", onClick = onRemoveFromContinue)
+        ActionButton(icon = { Icon(Icons.Outlined.MenuBook, contentDescription = null) }, label = "查看详情", onClick = onShowDetail)
+        ActionButton(icon = { Icon(Icons.Outlined.Check, contentDescription = null) }, label = "标记为已读完", onClick = onMarkRead)
+        ActionButton(icon = { Icon(Icons.Outlined.Close, contentDescription = null) }, label = "从继续阅读移除", onClick = onRemoveFromContinue)
         ActionButton(icon = { Icon(Icons.Outlined.Archive, contentDescription = null) }, label = "搁置本书", onClick = onShelve)
-        ActionButton(icon = { Icon(Icons.Default.Book, contentDescription = null) }, label = "标记为未读", onClick = onMarkUnread)
+        ActionButton(icon = { Icon(Icons.Outlined.Book, contentDescription = null) }, label = "标记为未读", onClick = onMarkUnread)
         ActionButton(
-            icon = { Icon(Icons.Default.Delete, contentDescription = null) },
+            icon = { Icon(Icons.Outlined.Delete, contentDescription = null) },
             label = "删除本地书籍",
             isDanger = true,
             onClick = onDelete,
@@ -482,11 +483,11 @@ private fun ContinueListItem(
             }
             if (manageMode) {
                 IconButton(onClick = onRemove) {
-                    Icon(Icons.Default.Close, contentDescription = "从继续阅读移除", tint = MaterialTheme.colorScheme.error)
+                    Icon(Icons.Outlined.Close, contentDescription = "从继续阅读移除", tint = MaterialTheme.colorScheme.error)
                 }
             } else {
                 IconButton(onClick = onAction) {
-                    Icon(Icons.Default.MoreVert, contentDescription = "操作")
+                    Icon(Icons.Outlined.MoreVert, contentDescription = "操作")
                 }
             }
         }
@@ -504,7 +505,7 @@ private fun EmptyContinueBody() {
             modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Filled.MenuBook, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Outlined.MenuBook, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("暂无可以继续阅读的书籍", style = MaterialTheme.typography.titleMedium)
         Text("开始阅读后，书籍会出现在这里", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

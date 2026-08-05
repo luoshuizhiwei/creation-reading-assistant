@@ -20,8 +20,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,7 +63,7 @@ fun MyReadingScreen(
         title = "我的阅读",
         navigationIcon = {
             IconButton(onClick = { onAction(MyReadingAction.Back) }) {
-                Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回")
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
             }
         },
     ) { viewportPadding ->
@@ -226,7 +226,7 @@ private fun TimelineBookRow(item: MyReadingItem, onOpen: () -> Unit, onManage: (
                     },
                 )
                 IconButton(onClick = onManage, modifier = Modifier.size(48.dp)) {
-                    Icon(Icons.Filled.MoreHoriz, contentDescription = "管理《${item.book.title}》")
+                    Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${item.book.title}》")
                 }
             }
         }

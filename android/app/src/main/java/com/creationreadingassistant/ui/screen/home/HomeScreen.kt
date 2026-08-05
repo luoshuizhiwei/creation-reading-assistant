@@ -8,8 +8,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowForward
-import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -69,7 +69,7 @@ fun HomeScreen(
                 onClick = { onAction(HomeAction.OpenSearch) },
                 modifier = Modifier.testTag("home-search-btn"),
             ) {
-                Icon(Icons.Filled.Search, contentDescription = stringResource(R.string.home_open_search))
+                Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.home_open_search))
             }
         },
         // 桥接 Snackbar：Pure Screen 本地保持 null（= 空占位，不持有任何状态）；
@@ -188,7 +188,7 @@ private fun InspirationHeaderRow(onSeeAll: () -> Unit, isEmpty: Boolean) {
             ) {
                 Text(stringResource(R.string.home_see_all))
                 Icon(
-                    Icons.AutoMirrored.Filled.ArrowForward,
+                    Icons.AutoMirrored.Outlined.ArrowForward,
                     contentDescription = null,
                     modifier = Modifier.height(16.dp),
                 )

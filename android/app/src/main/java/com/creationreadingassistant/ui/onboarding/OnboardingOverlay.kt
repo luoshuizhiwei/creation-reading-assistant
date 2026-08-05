@@ -16,11 +16,12 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Sync
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -66,17 +67,17 @@ private val STEPS = listOf(
     OnboardingStep(
         "导入本地书籍",
         "支持 TXT、Markdown、EPUB 三种格式，自动识别编码，导入后离线阅读。",
-        Icons.Filled.Book,
+        Icons.Outlined.Book,
     ),
     OnboardingStep(
         "边读边记灵感",
         "阅读时选中文字即可转为灵感、高亮或笔记，灵感支持状态流转和批量整理。",
-        Icons.Filled.AutoAwesome,
+        Icons.Outlined.AutoAwesome,
     ),
     OnboardingStep(
         "与电脑端同步",
         "在「我的」页面连接电脑端，可以同步书籍、进度、灵感和笔记，WebDAV 也支持。",
-        Icons.Filled.Sync,
+        Icons.Outlined.Sync,
     ),
 )
 
@@ -126,7 +127,7 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                             shape = spec.listItemShape,
                             contentPadding = PaddingValues(horizontal = 10.dp, vertical = 6.dp),
                         ) {
-                            Icon(Icons.Filled.Close, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.Close, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
                             Text("跳过", style = MaterialTheme.typography.labelMedium)
                         }
                     }
@@ -181,7 +182,7 @@ fun OnboardingOverlay(onClose: () -> Unit) {
                     ) {
                         Text(if (isLast) "开始使用" else "下一步", style = MaterialTheme.typography.labelLarge)
                         if (!isLast) {
-                            Icon(Icons.Filled.ChevronRight, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Icon(Icons.Outlined.ChevronRight, contentDescription = null, modifier = Modifier.size(AppIconSize.Small))
                         }
                     }
                 }

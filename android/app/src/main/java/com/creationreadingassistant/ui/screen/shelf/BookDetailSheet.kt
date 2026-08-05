@@ -21,17 +21,18 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.MenuBook
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.ChevronRight
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.PhotoLibrary
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.TextFields
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -175,7 +176,7 @@ internal fun BookDetailSheet(
                     }
                     editing = !editing
                 }) {
-                    Icon(if (editing) Icons.Filled.CheckCircle else Icons.Outlined.Edit, contentDescription = if (editing) "保存" else "编辑")
+                    Icon(if (editing) Icons.Outlined.CheckCircle else Icons.Outlined.Edit, contentDescription = if (editing) "保存" else "编辑")
                 }
             }
             // S2：文字封面 / 重置封面
@@ -183,13 +184,13 @@ internal fun BookDetailSheet(
                 Spacer(modifier = Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     OutlinedButton(onClick = onChangeTextCover, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                        Icon(Icons.Outlined.TextFields, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.TextFields, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
                         Spacer(modifier = Modifier.width(4.dp))
                         Text("文字封面")
                     }
                     if (!book.cover_data_url.isNullOrBlank()) {
                         OutlinedButton(onClick = onResetCover, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                            Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Icon(Icons.Outlined.RestartAlt, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
                             Spacer(modifier = Modifier.width(4.dp))
                             Text("重置封面")
                         }
@@ -199,12 +200,12 @@ internal fun BookDetailSheet(
             Spacer(modifier = Modifier.height(16.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Button(onClick = { if (readiness.tone == ReadinessTone.READY) onContinue(book) else onDownload(book) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.AutoMirrored.Filled.MenuBook, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(if (readiness.tone == ReadinessTone.READY) (if (percent > 0) "继续阅读" else "开始阅读") else "下载后阅读")
                 }
                 OutlinedButton(onClick = { onDownload(book) }, modifier = Modifier.weight(1f)) {
-                    Icon(Icons.Filled.Download, contentDescription = null)
+                    Icon(Icons.Outlined.Download, contentDescription = null)
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(if (readiness.tone == ReadinessTone.READY) "正文已下载" else "下载正文")
                 }
@@ -334,7 +335,7 @@ internal fun BookDetailSheet(
                         InputChip(
                             selected = false, onClick = {},
                             label = { Text(shelf.name) },
-                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveShelf(shelf.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
+                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveShelf(shelf.id) }) { Icon(Icons.Outlined.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
                         )
                     }
                 }
@@ -349,7 +350,7 @@ internal fun BookDetailSheet(
                         InputChip(
                             selected = false, onClick = {},
                             label = { Text(category.name) },
-                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveCategory(category.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
+                            trailingIcon = { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveCategory(category.id) }) { Icon(Icons.Outlined.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } },
                         )
                     }
                 }
@@ -368,7 +369,7 @@ internal fun BookDetailSheet(
                             onClick = { if (assigned) onRemoveTag(tag.id) else onAddTag(tag.id) },
                             label = { Text(tag.name) },
                             trailingIcon = if (assigned) {
-                                { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveTag(tag.id) }) { Icon(Icons.Filled.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } }
+                                { IconButton(modifier = Modifier.size(18.dp), onClick = { onRemoveTag(tag.id) }) { Icon(Icons.Outlined.Close, contentDescription = "移除", modifier = Modifier.size(14.dp)) } }
                             } else null,
                         )
                     }
@@ -383,7 +384,7 @@ internal fun BookDetailSheet(
                 modifier = Modifier.fillMaxWidth().clickable { onDelete(book.id) },
             ) {
                 Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Filled.Delete, contentDescription = null, tint = AppError)
+                    Icon(Icons.Outlined.Delete, contentDescription = null, tint = AppError)
                     Spacer(modifier = Modifier.width(12.dp))
                     Column {
                         Text("删除本书", style = MaterialTheme.typography.bodyLarge, color = AppError)
@@ -418,10 +419,10 @@ internal fun ExpandableRow(
                 }
             }
             Icon(
-                if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.ChevronRight,
+                if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.ChevronRight,
                 contentDescription = null,
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(AppIconSize.Small),
             )
         }
         if (expanded) {

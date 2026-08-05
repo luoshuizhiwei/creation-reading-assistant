@@ -24,6 +24,7 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Tune
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -146,7 +147,7 @@ internal fun InspirationList(
                     Icon(
                         Icons.Outlined.Tune,
                         contentDescription = null,
-                        modifier = Modifier.size(16.dp),
+                        modifier = Modifier.size(AppIconSize.Compact),
                     )
                     Text(
                         SORT_OPTIONS.firstOrNull { it.first == sortMode }?.second ?: "最近更新",

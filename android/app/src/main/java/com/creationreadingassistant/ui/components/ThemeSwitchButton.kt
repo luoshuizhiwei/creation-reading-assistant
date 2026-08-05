@@ -11,9 +11,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material.icons.filled.Check
-import androidx.compose.material.icons.filled.Palette
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Palette
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -68,10 +69,10 @@ fun ThemeSwitchButton(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             Icon(
-                imageVector = Icons.Filled.Palette,
+                imageVector = Icons.Outlined.Palette,
                 contentDescription = null,
                 tint = scheme.primary,
-                modifier = Modifier.size(18.dp),
+                modifier = Modifier.size(AppIconSize.Small),
             )
             Text(
                 text = current.second,
@@ -79,10 +80,10 @@ fun ThemeSwitchButton(
                 color = scheme.onSurface,
             )
             Icon(
-                imageVector = Icons.Filled.ArrowDropDown,
+                imageVector = Icons.Outlined.ArrowDropDown,
                 contentDescription = null,
                 tint = scheme.onSurfaceVariant,
-                modifier = Modifier.size(16.dp),
+                modifier = Modifier.size(AppIconSize.Compact),
             )
         }
     }
@@ -121,10 +122,10 @@ fun ThemeSwitchButton(
                 trailingIcon = {
                     if (selected) {
                         Icon(
-                            imageVector = Icons.Filled.Check,
+                            imageVector = Icons.Outlined.Check,
                             contentDescription = null,
                             tint = scheme.primary,
-                            modifier = Modifier.size(16.dp),
+                            modifier = Modifier.size(AppIconSize.Compact),
                         )
                     }
                 },

@@ -13,7 +13,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
@@ -70,7 +71,7 @@ fun HomeContinueSection(
                     onClick = onOpenContinueSheet,
                     modifier = Modifier.testTag("continue-manage-btn"),
                 ) {
-                    Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null)
+                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight, contentDescription = null)
                 }
             },
         )
@@ -164,10 +165,10 @@ private fun ContinueCard(
                     )
                 }
                 Icon(
-                    Icons.Filled.KeyboardArrowRight,
+                    Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                     contentDescription = null,
                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier.size(AppIconSize.Large),
                 )
             }
             Spacer(Modifier.height(10.dp))

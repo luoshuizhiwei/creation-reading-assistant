@@ -12,10 +12,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.CloudUpload
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -134,7 +134,7 @@ internal fun AboutSubPage(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Icon(Icons.Filled.Book, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
+                    Icon(Icons.Outlined.Book, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.primary)
                     Text("创作阅读助手", style = MaterialTheme.typography.titleLarge)
                     Text("Android 端 · 本地优先 · 灵感中心特色版", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text("版本：$versionName", style = MaterialTheme.typography.bodyMedium)
@@ -163,7 +163,7 @@ internal fun AboutSubPage(
                 ) {
                     Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Icon(Icons.Filled.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                            Icon(Icons.Outlined.CloudUpload, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                             Text("发现新版本", style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
                         }
                         Text("最新版本：$latestVersion（当前 $versionName）", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
@@ -177,7 +177,7 @@ internal fun AboutSubPage(
                             )
                         }
                         Button(onClick = { openUrl(MOBILE_RELEASES_URL) }) {
-                            Icon(Icons.Filled.Download, contentDescription = null)
+                            Icon(Icons.Outlined.Download, contentDescription = null)
                             Text("前往下载", modifier = Modifier.padding(start = 6.dp))
                         }
                     }
@@ -195,7 +195,7 @@ internal fun AboutSubPage(
                         enabled = !checking,
                     ) {
                         if (checking) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                        else Icon(Icons.Filled.Refresh, contentDescription = null)
+                        else Icon(Icons.Outlined.Refresh, contentDescription = null)
                         Text(
                             if (hasUpdate) "重新检查" else "检查更新",
                             modifier = Modifier.padding(start = 6.dp),

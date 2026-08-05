@@ -23,8 +23,8 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.outlined.Lock
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -102,7 +102,7 @@ internal fun ShelfSearchRoute(
         actions = {
             Box {
                 IconButton(onClick = { showSearchMenu = true }) {
-                    Icon(Icons.Filled.MoreHoriz, contentDescription = "搜索设置")
+                    Icon(Icons.Outlined.MoreHoriz, contentDescription = "搜索设置")
                 }
                 DropdownMenu(expanded = showSearchMenu, onDismissRequest = { showSearchMenu = false }) {
                     DropdownMenuItem(
@@ -111,7 +111,7 @@ internal fun ShelfSearchRoute(
                             viewModel.setPrivateSearch(!privateMode)
                             showSearchMenu = false
                         },
-                        leadingIcon = { Icon(Icons.Filled.Lock, contentDescription = null) },
+                        leadingIcon = { Icon(Icons.Outlined.Lock, contentDescription = null) },
                         trailingIcon = { Switch(checked = privateMode, onCheckedChange = null) },
                     )
                 }
@@ -251,6 +251,6 @@ private fun SearchResultRow(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        IconButton(onClick = onManage) { Icon(Icons.Filled.MoreHoriz, contentDescription = "管理书籍") }
+        IconButton(onClick = onManage) { Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理书籍") }
     }
 }

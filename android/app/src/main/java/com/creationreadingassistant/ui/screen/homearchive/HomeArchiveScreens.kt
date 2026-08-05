@@ -14,8 +14,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.MoreHoriz
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material3.Icon
@@ -211,7 +211,7 @@ private fun ArchiveScaffold(
     AppScreenScaffold(
         title = title,
         navigationIcon = {
-            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") }
+            IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") }
         },
         modifier = modifier,
     ) { viewportPadding ->
@@ -324,7 +324,7 @@ private fun CompletedArchiveScreen(
                             Text(completedDateLabel(item), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         IconButton(onClick = { onManage(item.book) }) {
-                            Icon(Icons.Filled.MoreHoriz, contentDescription = "管理《${item.book.title}》")
+                            Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${item.book.title}》")
                         }
                     }
                 }
@@ -337,7 +337,7 @@ private fun CompletedArchiveScreen(
 private fun InspirationDetailScreen(inspiration: InspirationEntity?, onBack: () -> Unit) {
     AppScreenScaffold(
         title = "灵感详情",
-        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "返回") } },
+        navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回") } },
     ) { viewportPadding ->
         PageLazyColumn(scaffoldPadding = viewportPadding) {
             item {

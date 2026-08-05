@@ -15,11 +15,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.InsertDriveFile
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Computer
-import androidx.compose.material.icons.filled.FolderOpen
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Computer
+import androidx.compose.material.icons.outlined.FolderOpen
+import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
@@ -86,7 +86,7 @@ internal fun ShelfImportRoute(
             item {
                 SectionCard(modifier = Modifier.fillMaxWidth()) {
                     ImportSourceRow(
-                        icon = Icons.AutoMirrored.Filled.InsertDriveFile,
+                        icon = Icons.AutoMirrored.Outlined.InsertDriveFile,
                         title = "选择文件",
                         description = "一次选择一本或多本 EPUB、TXT、Markdown",
                         enabled = !batch.isRunning,
@@ -95,7 +95,7 @@ internal fun ShelfImportRoute(
                     }
                     OrganizerDivider()
                     ImportSourceRow(
-                        icon = Icons.Filled.FolderOpen,
+                        icon = Icons.Outlined.FolderOpen,
                         title = "选择文件夹",
                         description = "扫描文件夹及其子文件夹中的支持格式",
                         enabled = !batch.isRunning,
@@ -104,7 +104,7 @@ internal fun ShelfImportRoute(
                     }
                     OrganizerDivider()
                     ImportSourceRow(
-                        icon = Icons.Filled.Computer,
+                        icon = Icons.Outlined.Computer,
                         title = "从电脑导入",
                         description = "下载电脑端已同步的书籍正文",
                         enabled = !batch.isRunning,
@@ -184,7 +184,7 @@ private fun ImportProgressCard(batch: ImportBatchUiState, onStop: () -> Unit, on
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 if (batch.isRunning) CircularProgressIndicator(progress = { progress.coerceIn(0f, 1f) }, modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-                else Icon(Icons.Filled.CheckCircle, contentDescription = null, tint = if (batch.failed > 0) AppWarning else AppSuccess)
+                else Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = if (batch.failed > 0) AppWarning else AppSuccess)
                 Spacer(Modifier.width(10.dp))
                 Column(Modifier.weight(1f)) {
                     Text(if (batch.isRunning) "正在导入 ${batch.sourceLabel}" else if (batch.stopped > 0) "导入已停止" else "本次导入完成", style = MaterialTheme.typography.titleSmall)
@@ -215,7 +215,7 @@ private fun ImportProgressCard(batch: ImportBatchUiState, onStop: () -> Unit, on
 private fun ImportLine(title: String, subtitle: String, status: String) {
     Row(modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(
-            imageVector = if (status == "success" || status == "done") Icons.Filled.CheckCircle else if (status == "processing") Icons.AutoMirrored.Filled.InsertDriveFile else Icons.Filled.Warning,
+            imageVector = if (status == "success" || status == "done") Icons.Outlined.CheckCircle else if (status == "processing") Icons.AutoMirrored.Outlined.InsertDriveFile else Icons.Outlined.Warning,
             contentDescription = null,
             tint = when (status) {
                 "success", "done" -> AppSuccess

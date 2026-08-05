@@ -18,13 +18,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AutoAwesome
-import androidx.compose.material.icons.filled.ContentCopy
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.Download
-import androidx.compose.material.icons.filled.Error
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Download
+import androidx.compose.material.icons.outlined.Error
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Warning
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -154,8 +155,8 @@ internal fun DiagnosticsSubPage(
                 Text("日志", style = MaterialTheme.typography.titleMedium)
                 Text("运行中的导入、同步、备份与未捕获异常会自动记录到这里（最多保留 500 条）。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { exportLog() }) { Icon(Icons.Filled.Download, contentDescription = null); Text("导出日志", modifier = Modifier.padding(start = 6.dp)) }
-                    OutlinedButton(onClick = { AppLog.clear(); AppLog.event("Diagnostics", "已清空日志") }) { Icon(Icons.Filled.Delete, contentDescription = null); Text("清空日志", modifier = Modifier.padding(start = 6.dp)) }
+                    OutlinedButton(onClick = { exportLog() }) { Icon(Icons.Outlined.Download, contentDescription = null); Text("导出日志", modifier = Modifier.padding(start = 6.dp)) }
+                    OutlinedButton(onClick = { AppLog.clear(); AppLog.event("Diagnostics", "已清空日志") }) { Icon(Icons.Outlined.Delete, contentDescription = null); Text("清空日志", modifier = Modifier.padding(start = 6.dp)) }
                 }
                 if (exportMsg != null) {
                     Text(exportMsg!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
@@ -224,7 +225,7 @@ private fun LogEntryItem(
                 Icon(
                     logLevelIcon(entry.level),
                     contentDescription = entry.level.name,
-                    modifier = Modifier.size(18.dp),
+                    modifier = Modifier.size(AppIconSize.Small),
                     tint = logLevelColor(entry.level, MaterialTheme.colorScheme),
                 )
                 Text(logLevelLabel(entry.level), style = MaterialTheme.typography.labelSmall, color = logLevelColor(entry.level, MaterialTheme.colorScheme))
@@ -232,7 +233,7 @@ private fun LogEntryItem(
                 Text(entry.timestamp, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
                 if (entry.code != null) {
                     IconButton(onClick = { onCopyCode(entry.code) }, modifier = Modifier.size(24.dp)) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = "复制错误码", modifier = Modifier.size(16.dp))
+                        Icon(Icons.Outlined.ContentCopy, contentDescription = "复制错误码", modifier = Modifier.size(AppIconSize.Compact))
                     }
                 }
             }
@@ -273,10 +274,10 @@ private fun logLevelLabel(level: AppLog.Level): String = when (level) {
 }
 
 private fun logLevelIcon(level: AppLog.Level): ImageVector = when (level) {
-    AppLog.Level.INFO -> Icons.Filled.Info
-    AppLog.Level.WARN -> Icons.Filled.Warning
-    AppLog.Level.ERROR -> Icons.Filled.Error
-    AppLog.Level.EVENT -> Icons.Filled.AutoAwesome
+    AppLog.Level.INFO -> Icons.Outlined.Info
+    AppLog.Level.WARN -> Icons.Outlined.Warning
+    AppLog.Level.ERROR -> Icons.Outlined.Error
+    AppLog.Level.EVENT -> Icons.Outlined.AutoAwesome
 }
 
 private fun logLevelColor(level: AppLog.Level, colorScheme: ColorScheme): Color = when (level) {

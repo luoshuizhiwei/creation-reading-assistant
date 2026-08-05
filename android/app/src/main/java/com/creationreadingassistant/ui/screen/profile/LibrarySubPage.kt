@@ -16,13 +16,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Book
-import androidx.compose.material.icons.filled.BorderColor
-import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.ExpandLess
-import androidx.compose.material.icons.filled.ExpandMore
-import androidx.compose.material.icons.filled.Folder
-import androidx.compose.material.icons.filled.Sell
+import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.ExpandLess
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Sell
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -130,12 +131,12 @@ internal fun LibrarySubPage(
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = when (page) {
-                                        ProfileSubPage.TAGS -> Icons.Filled.Sell
-                                        ProfileSubPage.CATEGORIES -> Icons.Filled.Folder
-                                        else -> Icons.Filled.Book
+                                        ProfileSubPage.TAGS -> Icons.Outlined.Sell
+                                        ProfileSubPage.CATEGORIES -> Icons.Outlined.Folder
+                                        else -> Icons.Outlined.Book
                                     },
                                     contentDescription = null,
-                                    modifier = Modifier.size(24.dp),
+                                    modifier = Modifier.size(AppIconSize.Large),
                                     tint = MaterialTheme.colorScheme.primary,
                                 )
                                 Column(modifier = Modifier.weight(1f).padding(start = 12.dp)) {
@@ -145,7 +146,7 @@ internal fun LibrarySubPage(
                                     }
                                 }
                                 IconButton(onClick = { editingItem = id to name; editName = name }) {
-                                    Icon(Icons.Filled.BorderColor, contentDescription = "编辑", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    Icon(Icons.Outlined.BorderColor, contentDescription = "编辑", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                                 IconButton(onClick = {
                                     when (page) {
@@ -155,10 +156,10 @@ internal fun LibrarySubPage(
                                         else -> {}
                                     }
                                 }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "删除", modifier = Modifier.size(20.dp), tint = MaterialTheme.colorScheme.error)
+                                    Icon(Icons.Outlined.Delete, contentDescription = "删除", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.error)
                                 }
                                 Icon(
-                                    if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore,
+                                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
                                     contentDescription = if (expanded) "收起" else "展开",
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -221,7 +222,7 @@ internal fun LibrarySubPage(
                 SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                     Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Icon(
-                            when (page) { ProfileSubPage.TAGS -> Icons.Filled.Sell; ProfileSubPage.CATEGORIES -> Icons.Filled.Folder; else -> Icons.Filled.Book },
+                            when (page) { ProfileSubPage.TAGS -> Icons.Outlined.Sell; ProfileSubPage.CATEGORIES -> Icons.Outlined.Folder; else -> Icons.Outlined.Book },
                             contentDescription = null, modifier = Modifier.size(28.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                         Text(when (page) { ProfileSubPage.TAGS -> "还没有标签"; ProfileSubPage.CATEGORIES -> "还没有分类"; else -> "还没有书单" }, style = MaterialTheme.typography.titleMedium)

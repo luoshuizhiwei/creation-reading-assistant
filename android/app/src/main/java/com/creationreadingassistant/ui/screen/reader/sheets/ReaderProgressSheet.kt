@@ -6,8 +6,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -58,14 +58,14 @@ internal fun ProgressSheet(
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             IconButton(onClick = { onChapter(chapterIndex - 1) }, enabled = chapterIndex > 0) {
-                Icon(Icons.Filled.KeyboardArrowUp, contentDescription = "上一章")
+                Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章")
             }
             Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(currentChapterTitle.ifBlank { "正文" }, fontWeight = FontWeight.Bold)
                 Text("${progressPercent.toInt()}%", color = MaterialTheme.colorScheme.outline)
             }
             IconButton(onClick = { onChapter(chapterIndex + 1) }, enabled = chapterIndex < size - 1) {
-                Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "下一章")
+                Icon(Icons.Outlined.KeyboardArrowDown, contentDescription = "下一章")
             }
         }
         if (size > 0 || isTxt) {

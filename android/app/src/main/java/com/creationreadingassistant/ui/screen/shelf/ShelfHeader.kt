@@ -15,16 +15,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.List
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CheckCircle
-import androidx.compose.material.icons.filled.Cloud
-import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
-import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.Cloud
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.History
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Tune
+import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -79,7 +80,7 @@ internal fun ShelfHeader(
         navigationIcon = if (selectionMode) {
             {
                 IconButton(onClick = onExitSelection) {
-                    Icon(Icons.Filled.Close, contentDescription = "退出多选")
+                    Icon(Icons.Outlined.Close, contentDescription = "退出多选")
                 }
             }
         } else null,
@@ -101,7 +102,7 @@ internal fun ShelfHeader(
                     },
                 )
                 if (query.isNotEmpty()) {
-                    IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Filled.Close, contentDescription = "清空搜索", modifier = Modifier.size(18.dp)) }
+                    IconButton(onClick = { onQueryChange("") }) { Icon(Icons.Outlined.Close, contentDescription = "清空搜索", modifier = Modifier.size(AppIconSize.Small)) }
                 }
             }
         }) else null,
@@ -113,7 +114,7 @@ internal fun ShelfHeader(
                         Icon(Icons.Outlined.Search, contentDescription = "搜索书架", tint = MaterialTheme.colorScheme.onBackground)
                     }
                     IconButton(onClick = onImport, enabled = !hasActiveImports) {
-                        Icon(Icons.Filled.Add, contentDescription = "导入本地书籍", tint = MaterialTheme.colorScheme.onBackground)
+                        Icon(Icons.Outlined.Add, contentDescription = "导入本地书籍", tint = MaterialTheme.colorScheme.onBackground)
                     }
                     Box {
                         IconButton(onClick = onTogglePageMenu) {
@@ -123,17 +124,17 @@ internal fun ShelfHeader(
                             DropdownMenuItem(
                                 text = { Text("批量管理") },
                                 onClick = onEnterSelection,
-                                leadingIcon = { Icon(Icons.Filled.CheckCircle, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                leadingIcon = { Icon(Icons.Outlined.CheckCircle, contentDescription = null, modifier = Modifier.size(AppIconSize.Small)) },
                             )
                             DropdownMenuItem(
                                 text = { Text("从电脑下载") },
                                 onClick = onOpenDesktopBooks,
-                                leadingIcon = { Icon(Icons.Filled.Cloud, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                leadingIcon = { Icon(Icons.Outlined.Cloud, contentDescription = null, modifier = Modifier.size(AppIconSize.Small)) },
                             )
                             DropdownMenuItem(
                                 text = { Text("导入历史") },
                                 onClick = onOpenImportHistory,
-                                leadingIcon = { Icon(Icons.Filled.History, contentDescription = null, modifier = Modifier.size(18.dp)) },
+                                leadingIcon = { Icon(Icons.Outlined.History, contentDescription = null, modifier = Modifier.size(AppIconSize.Small)) },
                                 trailingIcon = if (importBadge > 0) ({ Text("$importBadge") }) else null,
                             )
                         }
@@ -161,7 +162,7 @@ internal fun ImportQueueCard(
     ) {
         Column {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Filled.Refresh, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.primary)
+                Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact), tint = MaterialTheme.colorScheme.primary)
                 Spacer(modifier = Modifier.width(6.dp))
                 Text(
                     when {
@@ -229,7 +230,7 @@ internal fun Toolbar(
         Spacer(modifier = Modifier.weight(1f))
         if (showFilterButton) {
             OutlinedButton(onClick = onOpenFilter, contentPadding = PaddingValues(horizontal = 10.dp, vertical = 4.dp)) {
-                Icon(Icons.Outlined.Tune, contentDescription = null, modifier = Modifier.size(16.dp))
+                Icon(Icons.Outlined.Tune, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
                 Spacer(modifier = Modifier.width(4.dp))
                 Text("筛选")
             }
@@ -241,10 +242,10 @@ internal fun Toolbar(
                 .background(MaterialTheme.colorScheme.surfaceVariant),
         ) {
             IconButton(onClick = { if (viewMode != ShelfViewMode.GRID) { haptic(HapticFeedbackType.TextHandleMove); onToggleView() } }) {
-                Icon(Icons.Outlined.GridView, contentDescription = "网格视图", tint = if (viewMode == ShelfViewMode.GRID) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Icon(Icons.Outlined.GridView, contentDescription = "网格视图", tint = if (viewMode == ShelfViewMode.GRID) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(AppIconSize.Small))
             }
             IconButton(onClick = { if (viewMode != ShelfViewMode.LIST) { haptic(HapticFeedbackType.TextHandleMove); onToggleView() } }) {
-                Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "列表视图", tint = if (viewMode == ShelfViewMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
+                Icon(Icons.AutoMirrored.Outlined.List, contentDescription = "列表视图", tint = if (viewMode == ShelfViewMode.LIST) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(AppIconSize.Small))
             }
         }
     }
