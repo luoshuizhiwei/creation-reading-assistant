@@ -299,12 +299,6 @@ internal fun ReaderScaffold(
         floatingActionButton = {
             if (!controlsVisible) {
                 ReaderCollapsedControl(
-                    autoPagingActive = autoPagingActive,
-                    pagerEngineOn = pagerEngineOn,
-                    onPauseAutoPaging = {
-                        autoPagingActive = false
-                        controlsVisible = true
-                    },
                     onShowControls = { controlsVisible = true },
                 )
             }

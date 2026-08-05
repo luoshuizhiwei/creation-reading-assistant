@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
+import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.components.SettingSliderRow
 import com.creationreadingassistant.ui.components.SettingSwitchRow
 import com.creationreadingassistant.ui.components.SettingsSection
@@ -90,7 +91,7 @@ internal fun ReaderSettingsSubPage(
 
         item {
             SettingsSection("显示", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                SettingSliderRow("亮度", settings.brightness.toFloat(), "${settings.brightness}%", { onAction(ProfileAction.UpdateReader { copy(brightness = it.toInt()) }) }, valueRange = 5f..100f, steps = 18)
+                SettingBrightnessRow(settings.brightness, { onAction(ProfileAction.UpdateReader { copy(brightness = it) }) })
                 SectionDivider()
                 SettingSwitchRow("沉浸模式", settings.immersiveMode, { onAction(ProfileAction.UpdateReader { copy(immersiveMode = it) }) })
                 SectionDivider()

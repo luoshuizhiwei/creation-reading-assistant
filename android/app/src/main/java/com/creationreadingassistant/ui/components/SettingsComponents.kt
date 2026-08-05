@@ -138,6 +138,37 @@ fun SettingSliderRow(
     }
 }
 
+/**
+ * 阅读亮度行：跟随系统（-1）与固定亮度（5..100）二选一。
+ * 默认跟随系统，避免阅读器强制把屏幕拉满刺眼。
+ */
+@Composable
+fun SettingBrightnessRow(
+    brightness: Int,
+    onBrightnessChange: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val followSystem = brightness < 0
+    Column(modifier.fillMaxWidth()) {
+        SettingSwitchRow(
+            title = "跟随系统亮度",
+            subtitle = if (followSystem) "阅读亮度与手机保持一致" else "关闭后使用下方固定亮度",
+            checked = followSystem,
+            onCheckedChange = { follow -> onBrightnessChange(if (follow) -1 else 65) },
+        )
+        if (!followSystem) {
+            SettingSliderRow(
+                title = "亮度",
+                value = brightness.toFloat(),
+                valueLabel = "$brightness%",
+                onValueChange = { onBrightnessChange(it.toInt()) },
+                valueRange = 5f..100f,
+                steps = 18,
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun <T> SettingSegmentedRow(

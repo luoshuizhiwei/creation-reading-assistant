@@ -547,7 +547,7 @@ fun ReaderScreen(
         controlsVisible = controlsVisible,
         paperIsLight = paper.isLight,
         appDark = appDark,
-        readerBrightness = readerSettings.brightness.coerceIn(5, 100),
+        readerBrightness = if (readerSettings.brightness < 0) -1 else readerSettings.brightness.coerceIn(5, 100),
         paperBgColor = paperBg,
         volumeKeyPaging = readerSettings.volumeKeyPaging,
         onVolumeUp = {

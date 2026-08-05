@@ -49,6 +49,7 @@ import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.components.SettingLinkRow
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SettingSliderRow
@@ -137,13 +138,9 @@ private fun SettingsRoot(
                     onSettingsChange(settings.copy(fontSize = it))
                 }
                 SectionDivider()
-                SettingSliderRow(
-                    title = "亮度",
-                    value = settings.brightness.toFloat(),
-                    valueLabel = "${settings.brightness}%",
-                    valueRange = 5f..100f,
-                    steps = 18,
-                    onValueChange = { onSettingsChange(settings.copy(brightness = it.toInt())) },
+                SettingBrightnessRow(
+                    brightness = settings.brightness,
+                    onBrightnessChange = { onSettingsChange(settings.copy(brightness = it)) },
                 )
                 SectionDivider()
                 SettingSwitchRow(
@@ -301,7 +298,7 @@ private fun PagingSettings(settings: ReaderSettings, onChange: (ReaderSettings) 
 private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
     item {
         SettingsSection("屏幕显示") {
-            SettingSliderRow("亮度", settings.brightness.toFloat(), "${settings.brightness}%", { onChange(settings.copy(brightness = it.toInt())) }, valueRange = 5f..100f, steps = 18)
+            SettingBrightnessRow(settings.brightness, { onChange(settings.copy(brightness = it)) })
             SectionDivider()
             SettingSwitchRow("沉浸模式", settings.immersiveMode, { onChange(settings.copy(immersiveMode = it)) })
             SectionDivider()

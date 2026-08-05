@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.screen.reader
 
 import android.app.Activity
 import android.os.Build
+import android.view.WindowManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -129,7 +130,12 @@ internal fun ReaderPlatformEffects(
         val original = window?.attributes?.screenBrightness ?: -1f
         if (window != null) {
             window.attributes = window.attributes.apply {
-                screenBrightness = readerBrightness / 100f
+                screenBrightness = if (readerBrightness < 0) {
+                    // 跟随系统亮度（不覆盖）
+                    WindowManager.LayoutParams.BRIGHTNESS_OVERRIDE_NONE
+                } else {
+                    readerBrightness / 100f
+                }
             }
         }
         onDispose {

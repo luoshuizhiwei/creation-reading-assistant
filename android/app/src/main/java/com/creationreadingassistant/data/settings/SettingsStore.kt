@@ -70,7 +70,7 @@ private val KEY_AUTO_HIDE = intPreferencesKey("reader_auto_hide_seconds")
 private val KEY_KEEP_AWAKE = booleanPreferencesKey("reader_keep_awake")
 private val KEY_SHOW_PROGRESS = booleanPreferencesKey("reader_show_progress")
 private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
-private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // 45..100，对照 web reader brightness（压暗遮罩）
+private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // -1 = 跟随系统；5..100 = 固定亮度（对照 web reader brightness）
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
 private val KEY_AUTO_PAGE_SPEED = intPreferencesKey("reader_auto_page_speed")
@@ -158,7 +158,7 @@ data class ReaderSettings(
     val keepAwake: Boolean = false,
     val showProgressBar: Boolean = true,
     val fontWeightBold: Boolean = false,
-    val brightness: Int = 100,             // 45..100，对照 web reader brightness（压暗遮罩）
+    val brightness: Int = -1,               // -1 = 跟随系统亮度；5..100 = 固定亮度（对照 web reader brightness）
     val volumeKeyPaging: Boolean = true,
     val volumeKeyPagingDuringTts: Boolean = false,
     val autoPageSpeed: Int = 5,            // 1..10；是否正在自动翻页仅为会话态，不持久化
@@ -244,7 +244,7 @@ class SettingsStore @Inject constructor(
             keepAwake = prefs[KEY_KEEP_AWAKE] ?: false,
             showProgressBar = prefs[KEY_SHOW_PROGRESS] ?: true,
             fontWeightBold = prefs[KEY_FONT_BOLD] ?: false,
-            brightness = prefs[KEY_READER_BRIGHTNESS] ?: 100,
+            brightness = prefs[KEY_READER_BRIGHTNESS] ?: -1,
             volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
             volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
             autoPageSpeed = (prefs[KEY_AUTO_PAGE_SPEED] ?: 5).coerceIn(1, 10),
