@@ -17,7 +17,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -38,7 +37,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 
 internal data class ReaderTocEntry(
@@ -116,9 +118,12 @@ internal fun TocSheet(
         },
     ) {
         if (entries.isEmpty()) {
-            Box(Modifier.fillMaxWidth().weight(1f), contentAlignment = Alignment.Center) {
-                Text("这本书暂未识别到目录。", color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
+            FullEmptyState(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                icon = { LineArtBook(sizeDp = 72.dp) },
+                title = "未发现目录",
+                body = "这本书暂未识别到章节结构，无法在此浏览。",
+            )
             return@ReaderSheetScaffold
         }
         LazyColumn(
@@ -221,7 +226,7 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
+            .clip(LocalComponentSpec.current.listItemShape)
             .background(if (entry.isCurrent) selectedColor else MaterialTheme.colorScheme.background)
             .clickable(onClick = onPick),
         verticalAlignment = Alignment.CenterVertically,

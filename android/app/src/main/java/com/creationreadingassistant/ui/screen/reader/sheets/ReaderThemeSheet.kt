@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.Icon
@@ -26,6 +25,7 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.paperPalette
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperOptions
 
 @OptIn(ExperimentalLayoutApi::class)
@@ -60,7 +60,7 @@ internal fun ThemeSheet(
                     Surface(
                         onClick = { haptic(HapticFeedbackType.TextHandleMove); onBackground(option.key) },
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(12.dp),
+                        shape = LocalComponentSpec.current.cardShape,
                         color = palette.bg,
                         contentColor = palette.fg,
                         border = BorderStroke(

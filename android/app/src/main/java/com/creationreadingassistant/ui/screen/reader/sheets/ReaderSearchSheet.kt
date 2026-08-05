@@ -5,7 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
@@ -19,7 +19,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.theme.listItemEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.screen.reader.BookSearchResult
 import com.creationreadingassistant.ui.screen.reader.computeBookSearch
 import com.creationreadingassistant.ui.screen.reader.computeEpubSearch
@@ -44,6 +48,7 @@ internal fun SearchSheet(
     onJump: (BookSearchResult) -> Unit,
 ) {
     var results by remember { mutableStateOf(emptyList<BookSearchResult>()) }
+    val reducedMotion = rememberReducedMotion()
     LaunchedEffect(query, document, txtDocument, plainContent) {
         delay(250)
         results = withContext(Dispatchers.IO) {
@@ -78,14 +83,23 @@ internal fun SearchSheet(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
         }
-        LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-            items(results, key = { it.occurrenceIndex }) { r ->
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .clickable { onJump(r) }
-                        .padding(horizontal = 16.dp, vertical = 10.dp),
-                ) {
+        if (query.isNotBlank() && results.isEmpty()) {
+            FullEmptyState(
+                modifier = Modifier.fillMaxWidth().weight(1f),
+                icon = { LineArtBook(sizeDp = 72.dp) },
+                title = "未找到匹配结果",
+                body = "换个关键词或检查拼写试试。",
+            )
+        } else {
+            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                itemsIndexed(results, key = { _, r -> r.occurrenceIndex }) { index, r ->
+                    Column(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onJump(r) }
+                            .padding(horizontal = 16.dp, vertical = 10.dp)
+                            .listItemEnter(index, reducedMotion),
+                    ) {
                     Text(r.snippet, style = MaterialTheme.typography.bodyMedium)
                     Text(
                         "${if (r.chapterIndex >= 0) r.chapterTitle else "全文"} · ${r.progressPercent.toInt()}%",
@@ -95,6 +109,7 @@ internal fun SearchSheet(
                     SectionDivider(Modifier.padding(top = 8.dp))
                 }
             }
+        }
         }
     }
 }

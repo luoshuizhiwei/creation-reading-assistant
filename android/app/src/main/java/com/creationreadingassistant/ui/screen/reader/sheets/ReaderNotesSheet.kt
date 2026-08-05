@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bookmark
@@ -40,9 +41,13 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.listItemEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -63,6 +68,7 @@ internal fun NotesSheet(
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
     var noteDraft by remember { mutableStateOf("") }
+    val reducedMotion = rememberReducedMotion()
 
     if (editingNote != null) {
         GlassAlertDialog(
@@ -109,8 +115,8 @@ internal fun NotesSheet(
                             modifier = Modifier.padding(vertical = 4.dp),
                         )
                     }
-                    items(items, key = { it.id }) { h ->
-                        SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                    itemsIndexed(items, key = { _, h -> h.id }) { index, h ->
+                        SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).listItemEnter(index, reducedMotion)) {
                             Column(Modifier.fillMaxWidth()) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.foundation.layout.Box(
@@ -154,8 +160,8 @@ internal fun NotesSheet(
             }
             if (notes.isNotEmpty()) {
                 item { Text("笔记 / 书签", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(notes, key = { it.id }) { n ->
-                    SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                itemsIndexed(notes, key = { _, n -> n.id }) { index, n ->
+                    SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).listItemEnter(index, reducedMotion)) {
                         Row(
                             Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically,
@@ -176,8 +182,8 @@ internal fun NotesSheet(
             }
             if (inspirations.isNotEmpty()) {
                 item { Text("灵感记录", style = MaterialTheme.typography.titleSmall, modifier = Modifier.padding(vertical = 4.dp)) }
-                items(inspirations, key = { it.id }) { ins ->
-                    SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+                itemsIndexed(inspirations, key = { _, ins -> ins.id }) { index, ins ->
+                    SectionCard(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp).listItemEnter(index, reducedMotion)) {
                         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Filled.Lightbulb, contentDescription = null, modifier = Modifier.padding(end = 8.dp))
                             Column(Modifier.weight(1f)) {
@@ -189,7 +195,13 @@ internal fun NotesSheet(
                 }
             }
             if (highlights.isEmpty() && notes.isEmpty() && inspirations.isEmpty()) {
-                item { Text("还没有笔记、标注或灵感。选中正文即可高亮、存笔记或记为灵感。", color = MaterialTheme.colorScheme.outline) }
+                item {
+                    FullEmptyState(
+                        icon = { LineArtBookmark(sizeDp = 72.dp) },
+                        title = "还没有笔记或灵感",
+                        body = "选中正文即可高亮、存笔记或记为灵感。",
+                    )
+                }
             }
         }
     }
