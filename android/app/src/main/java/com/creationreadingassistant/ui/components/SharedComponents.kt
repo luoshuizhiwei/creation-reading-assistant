@@ -330,7 +330,17 @@ fun FullEmptyState(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center,
     ) {
-        icon()
+        Box(
+            modifier = Modifier
+                .background(
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                    shape = LocalComponentSpec.current.pillShape,
+                )
+                .padding(layout.contentGap),
+            contentAlignment = Alignment.Center,
+        ) {
+            icon()
+        }
         Spacer(Modifier.height(layout.contentGap))
         Text(
             text = title,
