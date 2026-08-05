@@ -83,7 +83,7 @@ fun SectionCard(
             Box(
                 Modifier
                     .fillMaxSize()
-                    .background(Brush.verticalGradient(paperTop, paperBottom))
+                    .background(Brush.verticalGradient(listOf(paperTop, paperBottom)))
                     .background(PaperNoise.brush(), alpha = 0.035f),
             )
             Column(Modifier.fillMaxWidth().padding(pad), content = content)
