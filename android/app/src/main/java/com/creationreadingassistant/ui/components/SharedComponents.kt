@@ -30,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -72,6 +74,22 @@ fun SectionCard(
     val border = BorderStroke(spec.borderWidth, borderColor)
     val pad = contentPadding ?: LocalLayoutTokens.current.cardPadding
 
+    // 纸墨微质感：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在容器底色之上、内容之下；
+    // 不抬 tonalElevation（避免染绿调），纹理 alpha 极低，不破坏可读性对比度。
+    val paperTop = lerp(container, Color.White, 0.05f)
+    val paperBottom = lerp(container, Color.Black, 0.04f)
+    val texturedContent: @Composable () -> Unit = {
+        Box(Modifier.fillMaxSize()) {
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(paperTop, paperBottom))
+                    .background(PaperNoise.brush(), alpha = 0.035f),
+            )
+            Column(Modifier.fillMaxWidth().padding(pad), content = content)
+        }
+    }
+
     if (onClick != null) {
         Surface(
             onClick = onClick,
@@ -81,9 +99,8 @@ fun SectionCard(
             tonalElevation = spec.cardElevation,
             shadowElevation = spec.cardElevationAmbient,
             modifier = modifier,
-        ) {
-            Column(Modifier.padding(pad), content = content)
-        }
+            content = texturedContent,
+        )
     } else {
         Surface(
             shape = shape,
@@ -92,9 +109,8 @@ fun SectionCard(
             tonalElevation = spec.cardElevation,
             shadowElevation = spec.cardElevationAmbient,
             modifier = modifier,
-        ) {
-            Column(Modifier.padding(pad), content = content)
-        }
+            content = texturedContent,
+        )
     }
 }
 
