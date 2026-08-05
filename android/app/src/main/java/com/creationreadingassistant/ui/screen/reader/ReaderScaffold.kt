@@ -31,6 +31,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -39,6 +41,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.ui.components.PaperNoise
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
@@ -326,6 +329,14 @@ internal fun ReaderScaffold(
                 // 始终避让挖孔区域：无论是否沉浸模式，正文都不会被刘海/打孔遮挡
                 .windowInsetsPadding(WindowInsets.displayCutout),
         ) {
+            // 纸张层次：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在纸色之上、正文之下；
+            // 守对比度红线——绝不改 paper.fg，纹理 alpha≤0.04，亮/暗纸自适应。
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(Brush.verticalGradient(lerp(paper.bg, Color.White, 0.04f), lerp(paper.bg, Color.Black, 0.03f)))
+                    .background(PaperNoise.brush(), alpha = 0.04f),
+            )
             when {
                 isLoading || error != null -> ReaderDocumentStatus(
                     isLoading = isLoading,
