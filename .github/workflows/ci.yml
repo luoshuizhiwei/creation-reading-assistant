@@ -73,14 +73,15 @@ jobs:
         # Migration tests should be run locally on a connected device.
 
   # ---- Android Room 迁移测试 ----
-  # 已转正为必过 job（已移除 continue-on-error）。
+  # 必过 job（已移除 continue-on-error），按用户决策走"深度优化保必过"路线。
   # 转正依据：run 31087310807 首次在 CI 真实执行即成功，Room 6→7 与 1→7 迁移用例通过。
-  # 环境失败处置（run 31093576882）：CI runner 磁盘满（No space left on device）导致模拟器系统镜像下载失败、
-  #   模拟器未启动、测试未执行而失败——属环境失败非测试 bug。
-  #   修复：① job 开头用 maximize-build-space 清理磁盘（保留 Android SDK 以免破坏 emulator-runner）；
-  #         ② 测试 gradle 命令加 step 内重试循环吸收模拟器偶发抖动。
-  # 注：本仓库 GitHub Actions 不支持 job 级 retry 字段（加上会导致 workflow file issue，实测 7f79f36/d9c7c1f），
-  #     故用 step 级（gradle 命令重试）替代 job 级自动重试。
+  # 磁盘不足处置（run 31093576882 / 31095636717 均 No space left on device）：
+  #   ① 禁用 gradle 缓存（gradle-home-cache-enabled: false）省 ~3-8GB 峰值占用；
+  #   ② 移除 AVD cache（每次重建 AVD，省缓存占用，提高波动磁盘下的成功率）；
+  #   ③ 手动清理预装大目录（dotnet/CodeQL/ghcup/docker）真实释放根分区空间——
+  #      替代 maximize-build-space（实测它在该 runner 用 LVM 把盘撑到 100%，适得其反）。
+  #   注：GitHub free runner 磁盘占用波动（启动 50%~80% 满），以上措施提高成功率但非 100% 保证；
+  #       本仓库亦不支持 job 级 retry 字段（加它会致 workflow file issue，实测 7f79f36/d9c7c1f）。
   android-migration-tests:
     name: Android Room 迁移测试（模拟器，必过）
     runs-on: ubuntu-latest
@@ -89,22 +90,22 @@ jobs:
       run:
         working-directory: android
     steps:
-      - name: 清理磁盘空间（腾出空间装模拟器系统镜像，避免 No space left on device）
-        uses: easimon/maximize-build-space@master
-        with:
-          root-reserve-mb: 512
-          swap-size-mb: 1024
-          remove-dotnet: 'true'
-          remove-android: 'false'
-          remove-haskell: 'true'
-          remove-codeql: 'true'
-          remove-docker-images: 'true'
       - uses: actions/checkout@v4
+      - name: 清理预装大目录（释放根分区空间，规避 GitHub free runner 磁盘满）
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/local/share/ghcup 2>/dev/null || true
+          sudo docker system prune -a -f 2>/dev/null || true
+          echo "--- 清理后磁盘 ---"
+          df -h /
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-home-cache-enabled: false # 深度优化：不恢复/保存 gradle 缓存，省 ~3-8GB 峰值磁盘占用
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
       # GitHub Actions Linux runner 支持嵌套虚拟化，需开启 KVM（见 android-emulator-runner README）
@@ -113,20 +114,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: AVD cache
-        uses: actions/cache@v4
-        id: avd-cache
-        with:
-          path: |
-            ~/.android/adb*
-            ~/.android/debug.keystore
-            ~/.android/cache
-            ~/.android/cache.lock
-            ~/.android/avd/*
-            ~/.android/*.ini
-          key: avd-30-migration-tests
       - name: Create AVD and generate emulator snapshot
-        if: steps.avd-cache.outputs.cache-hit != 'true'
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 30
