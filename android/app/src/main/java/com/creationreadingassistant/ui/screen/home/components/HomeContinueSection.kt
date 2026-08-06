@@ -150,7 +150,7 @@ private fun ContinueCard(
                     )
                     if (!book.author.isNullOrBlank()) {
                         Text(
-                            book.author!!,
+                            book.author,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

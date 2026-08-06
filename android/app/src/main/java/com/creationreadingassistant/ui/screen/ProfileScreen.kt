@@ -110,9 +110,9 @@ internal fun ProfileScreen(
             ProfileSubPage.READER -> ReaderSettingsSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.AI -> AiSettingsSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.TAGS, ProfileSubPage.CATEGORIES, ProfileSubPage.SHELVES ->
-                LibrarySubPage(state, onAction, scaffoldPadding, state.currentSubPage!!)
+                LibrarySubPage(state, onAction, scaffoldPadding, state.currentSubPage)
             ProfileSubPage.NOTES ->
-                ReadingNotesSubPage(state, onAction, scaffoldPadding, state.currentSubPage!!)
+                ReadingNotesSubPage(state, onAction, scaffoldPadding, state.currentSubPage)
             ProfileSubPage.READING -> {} // navigates to "my-reading", never reaches here
             ProfileSubPage.STORAGE -> StorageSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.PRIVACY -> PrivacySubPage(state, onAction, scaffoldPadding)

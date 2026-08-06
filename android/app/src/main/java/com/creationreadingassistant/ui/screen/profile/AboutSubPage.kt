@@ -201,8 +201,9 @@ internal fun AboutSubPage(
                             modifier = Modifier.padding(start = 6.dp),
                         )
                     }
+                    val updateStatus = updateStatus
                     if (updateStatus != null) {
-                        Text(updateStatus!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(updateStatus, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (lastCheckAt != null) {
                         Text("上次检查：${formatDateTime(lastCheckAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

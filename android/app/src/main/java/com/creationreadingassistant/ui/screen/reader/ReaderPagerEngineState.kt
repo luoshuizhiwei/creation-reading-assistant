@@ -14,6 +14,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
@@ -126,7 +127,7 @@ internal fun rememberPagerEngineState(
                 preDetected
             } else {
                 // Fallback：规则切换或预检测缺失，同步检测（极少触发）
-                android.util.Log.d("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, ruleId=$txtTocRuleId, preRule=$preRule")
+                AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, ruleId=$txtTocRuleId, preRule=$preRule")
                 PlainTextDocument(plainContent, txtTocRuleId).chapters
             }
         } else {
@@ -173,7 +174,7 @@ internal fun rememberPagerEngineState(
                 MarkdownChapterSource(markdownDocument)
 
             txtStreamingDocument != null && txtChapters.isNotEmpty() ->
-                TxtChapterSource(txtStreamingDocument!!)
+                TxtChapterSource(txtStreamingDocument)
 
             plainContent.isNotBlank() && txtChapters.isNotEmpty() ->
                 TxtChapterSource(plainContent, txtChapters)

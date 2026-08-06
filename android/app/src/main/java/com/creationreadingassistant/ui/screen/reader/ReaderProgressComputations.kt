@@ -105,7 +105,7 @@ internal fun rememberReaderProgress(
 ): ReaderProgressState {
     // 进度计算
     val epubPercent = if (epubBook != null) {
-        val size = epubBook!!.chapters.size
+        val size = epubBook.chapters.size
         if (size <= 1) if (chapterIndex == 0) 100f else 0f else (chapterIndex.toFloat() / (size - 1)) * 100f
     } else 0f
 
@@ -184,7 +184,7 @@ internal fun rememberReaderProgress(
     // 顶栏副行与 TTS、书签都用它。TXT 此前恒为空串只能显示「正文」，
     // 现在有章节识别了就跟着滚动位置走。
     val currentChapterTitle = when {
-        epubBook != null -> epubBook!!.chapters.getOrNull(chapterIndex)?.title ?: ""
+        epubBook != null -> epubBook.chapters.getOrNull(chapterIndex)?.title ?: ""
         markdownDocument != null -> markdownDocument.chapters.getOrNull(chapterIndex)?.title ?: ""
         else -> txtChapters.getOrNull(txtChapterIndex)?.title ?: ""
     }
@@ -194,7 +194,7 @@ internal fun rememberReaderProgress(
         pagerEngineOn && pagedAbsOffset >= 0 -> pagedPercent
         plainListSnapshot.reachedEnd -> 100f
         txtStreamingDocument != null -> {
-            val total = txtStreamingDocument!!.totalChars.coerceAtLeast(1)
+            val total = txtStreamingDocument.totalChars.coerceAtLeast(1)
             (visiblePlainOffset * 100f / total).coerceIn(0f, 100f)
         }
         else -> (visiblePlainOffset * 100f / plainContent.length).coerceIn(0f, 100f)
@@ -232,7 +232,7 @@ internal fun rememberReaderProgress(
     val documentWordCount = when {
         epubBook != null -> bookIndex?.totalChars ?: 0
         markdownDocument != null -> markdownDocument.totalChars
-        txtStreamingDocument != null -> txtStreamingDocument!!.totalChars
+        txtStreamingDocument != null -> txtStreamingDocument.totalChars
         else -> plainWordCount
     }
     val sessionReadingMs = remember(sessions) { sessions.sumOf { it.duration_ms }.coerceAtLeast(0L) }

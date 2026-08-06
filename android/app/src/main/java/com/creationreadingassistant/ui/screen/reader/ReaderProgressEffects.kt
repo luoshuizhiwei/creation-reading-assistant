@@ -282,7 +282,7 @@ internal fun ReaderProgressEffects(
         val targetId = hl?.id ?: nt?.id.orEmpty()
         val targetExcerpt = hl?.text ?: nt?.excerpt ?: nt?.body
         if (epubBook != null) {
-            val book = epubBook!!
+            val book = epubBook
             if (decodedLocator != null && bookIndex != null) {
                 val cached = anchorCacheStore.get(targetKind, targetId, bid)
                 val resolved = cached ?: run {
@@ -334,7 +334,7 @@ internal fun ReaderProgressEffects(
                         ?: decodedLocator.legacyOffset
                         ?: 0
                     val windowStart = (targetOffset - 2000).coerceAtLeast(0)
-                    val windowText = txtStreamingDocument!!.readWindowAround(targetOffset, 2000, 2000)
+                    val windowText = txtStreamingDocument.readWindowAround(targetOffset, 2000, 2000)
                     if (windowText.isNotEmpty()) {
                         // 将 locator 偏移调整为窗口相对偏移，供 AnchorResolver 使用
                         val windowRelativeLocator = decodedLocator.copy(
