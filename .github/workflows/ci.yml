@@ -71,10 +71,15 @@ jobs:
         # Note: Running instrumented tests requires a device/emulator.
         # Migration tests should be run locally on a connected device.
 
+  # ---- Android Room 迁移测试 ----
+  # 已转正为必过 job（已移除 continue-on-error）。
+  # 转正依据：run 31087310807 首次在 CI 真实执行即成功，模拟器正常启动、Room 6→7 与 1→7 迁移用例通过，无模拟器环境性失败。
+  # retry.max-attempts=2 用于吸收模拟器偶发启动抖动（环境失败），不会掩盖测试断言错误。
   android-migration-tests:
-    name: Android Room 迁移测试（模拟器，试运行不阻塞）
+    name: Android Room 迁移测试（模拟器，必过）
     runs-on: ubuntu-latest
-    continue-on-error: true # 试运行阶段：失败不阻塞主 CI
+    retry:
+      max-attempts: 2
     timeout-minutes: 45
     defaults:
       run:
