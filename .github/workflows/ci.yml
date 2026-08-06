@@ -74,8 +74,13 @@ jobs:
 
   # ---- Android Room 迁移测试 ----
   # 已转正为必过 job（已移除 continue-on-error）。
-  # 转正依据：run 31087310807 首次在 CI 真实执行即成功，模拟器正常启动、Room 6→7 与 1→7 迁移用例通过，无模拟器环境性失败。
-  # 注：本仓库 GitHub Actions 不支持 job 级 retry 字段（加上会导致 workflow file issue，实测 7f79f36/d9c7c1f 两次失败），故未加自动重试；首发即成功且无模拟器环境失败观察，后续若发现偶发抖动再评估兼容重试方案（如 composite action）。
+  # 转正依据：run 31087310807 首次在 CI 真实执行即成功，Room 6→7 与 1→7 迁移用例通过。
+  # 环境失败处置（run 31093576882）：CI runner 磁盘满（No space left on device）导致模拟器系统镜像下载失败、
+  #   模拟器未启动、测试未执行而失败——属环境失败非测试 bug。
+  #   修复：① job 开头用 maximize-build-space 清理磁盘（保留 Android SDK 以免破坏 emulator-runner）；
+  #         ② 测试 gradle 命令加 step 内重试循环吸收模拟器偶发抖动。
+  # 注：本仓库 GitHub Actions 不支持 job 级 retry 字段（加上会导致 workflow file issue，实测 7f79f36/d9c7c1f），
+  #     故用 step 级（gradle 命令重试）替代 job 级自动重试。
   android-migration-tests:
     name: Android Room 迁移测试（模拟器，必过）
     runs-on: ubuntu-latest
@@ -84,6 +89,16 @@ jobs:
       run:
         working-directory: android
     steps:
+      - name: 清理磁盘空间（腾出空间装模拟器系统镜像，避免 No space left on device）
+        uses: easimon/maximize-build-space@master
+        with:
+          root-reserve-mb: 512
+          swap-size-mb: 1024
+          remove-dotnet: 'true'
+          remove-android: 'false'
+          remove-haskell: 'true'
+          remove-codeql: 'true'
+          remove-docker-images: 'true'
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
         with:
@@ -134,7 +149,14 @@ jobs:
           disable-animations: true
           working-directory: android
           channel: stable
-          script: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.creationreadingassistant.data.local.AppDatabaseMigrationTest
+          script: |
+            for i in 1 2 3; do
+              if ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.creationreadingassistant.data.local.AppDatabaseMigrationTest; then
+                break
+              fi
+              echo "::warning::迁移测试第 $i 次失败，15s 后重试（吸收模拟器偶发抖动）"
+              sleep 15
+            done
       - name: 上传测试报告
         if: always()
         uses: actions/upload-artifact@v4
