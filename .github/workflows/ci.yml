@@ -105,7 +105,7 @@ jobs:
           java-version: '17'
       - uses: gradle/actions/setup-gradle@v4
         with:
-          gradle-home-cache-enabled: false # 深度优化：不恢复/保存 gradle 缓存，省 ~3-8GB 峰值磁盘占用
+          cache-disabled: true # 深度优化：禁用 gradle 缓存，省 ~3-8GB 峰值磁盘占用（注：gradle-home-cache-enabled 非本 action 合法入参，已纠正）
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
       # GitHub Actions Linux runner 支持嵌套虚拟化，需开启 KVM（见 android-emulator-runner README）
@@ -137,14 +137,7 @@ jobs:
           disable-animations: true
           working-directory: android
           channel: stable
-          script: |
-            for i in 1 2 3; do
-              if ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.creationreadingassistant.data.local.AppDatabaseMigrationTest; then
-                break
-              fi
-              echo "::warning::迁移测试第 $i 次失败，15s 后重试（吸收模拟器偶发抖动）"
-              sleep 15
-            done
+          script: ./scripts/run-migration-test.sh
       - name: 上传测试报告
         if: always()
         uses: actions/upload-artifact@v4
