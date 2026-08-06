@@ -70,3 +70,71 @@ jobs:
         run: ./gradlew :app:compileDebugAndroidTestKotlin
         # Note: Running instrumented tests requires a device/emulator.
         # Migration tests should be run locally on a connected device.
+
+  android-migration-tests:
+    name: Android Room 迁移测试（模拟器，试运行不阻塞）
+    runs-on: ubuntu-latest
+    continue-on-error: true # 试运行阶段：失败不阻塞主 CI
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: android
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+      # GitHub Actions Linux runner 支持嵌套虚拟化，需开启 KVM（见 android-emulator-runner README）
+      - name: Enable KVM group perms
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: AVD cache
+        uses: actions/cache@v4
+        id: avd-cache
+        with:
+          path: |
+            ~/.android/adb*
+            ~/.android/debug.keystore
+            ~/.android/cache
+            ~/.android/cache.lock
+            ~/.android/avd/*
+            ~/.android/*.ini
+          key: avd-30-migration-tests
+      - name: Create AVD and generate emulator snapshot
+        if: steps.avd-cache.outputs.cache-hit != 'true'
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: false
+          working-directory: android
+          channel: stable
+          script: echo "Generated AVD snapshot for caching."
+      - name: 运行 Room 迁移测试（connectedDebugAndroidTest）
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 30
+          arch: x86_64
+          target: google_apis
+          force-avd-creation: false
+          emulator-options: -no-snapshot-save -no-window -gpu swiftshader_indirect -noaudio -no-boot-anim -camera-back none
+          disable-animations: true
+          working-directory: android
+          channel: stable
+          script: ./gradlew :app:connectedDebugAndroidTest -Pandroid.testInstrumentationRunnerArguments.class=com.creationreadingassistant.data.local.AppDatabaseMigrationTest
+      - name: 上传测试报告
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-migration-test-reports
+          path: android/app/build/reports/androidTests/
+          if-no-files-found: ignore
