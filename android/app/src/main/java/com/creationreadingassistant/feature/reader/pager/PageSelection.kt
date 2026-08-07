@@ -57,6 +57,54 @@ object PageSelection {
         return out
     }
 
+    /** 拖拽把手落点（页内坐标）。 */
+    data class Handle(val x: Float, val y: Float)
+
+    /** 一对把手；选区为空或与本页无交集时 [isActive] 为 false，两把手为 null。 */
+    data class Handles(val isActive: Boolean, val left: Handle?, val right: Handle?)
+
+    enum class HandleSide { LEFT, RIGHT }
+
+    /**
+     * 选区把手初始位置：左点取首行选中首字符矩形左侧、右点取末行选中末字符矩形右侧，
+     * 竖直居中于各行框。期望值一律与 [rectsForRange] 一致，避免与具体排版像素耦合。
+     */
+    fun calculateSelectionHandles(
+        page: ChapterPaginator.Page,
+        cfg: LayoutConfig,
+        sel: IntRange,
+    ): Handles {
+        if (sel.isEmpty()) return Handles(false, null, null)
+        val rects = rectsForRange(page, cfg, sel.first, sel.last + 1)
+        if (rects.isEmpty()) return Handles(false, null, null)
+        val first = rects.first()
+        val last = rects.last()
+        return Handles(
+            isActive = true,
+            left = Handle(first.left, (first.top + first.bottom) / 2f),
+            right = Handle(last.right, (last.top + last.bottom) / 2f),
+        )
+    }
+
+    /**
+     * 把手拖拽后的落库区间：新边界 = 指针经 [offsetAt] 换算后钳到对侧把手与页边界之间，
+     * 不越过对侧、不反转。LEFT 改 [sel.first]、RIGHT 改 [sel.last]。
+     */
+    fun adjustHandle(
+        page: ChapterPaginator.Page,
+        cfg: LayoutConfig,
+        sel: IntRange,
+        side: HandleSide,
+        pointerX: Float,
+        pointerY: Float,
+    ): IntRange {
+        val at = offsetAt(page, cfg, pointerX, pointerY)
+        return when (side) {
+            HandleSide.LEFT -> at.coerceIn(page.startCharOffset, sel.last)..sel.last
+            HandleSide.RIGHT -> sel.first..at.coerceIn(sel.first, page.endCharOffset)
+        }
+    }
+
     /** 中文句子边界（含闭合引号跟随）。长按选中「一句」比选中「一个词」更贴中文阅读习惯。 */
     private const val SENTENCE_ENDS = "。！？…；\r\n"
     private const val TRAILING = "”’」』）》〉】〕)\"'"

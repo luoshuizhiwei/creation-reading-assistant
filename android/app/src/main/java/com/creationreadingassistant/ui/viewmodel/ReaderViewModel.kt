@@ -5,22 +5,16 @@ import android.os.Trace
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.HighlightDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
-import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
-import com.creationreadingassistant.data.local.entity.mergeReaderProgress
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.NoteRepository
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.data.settings.TtsResume
 import com.creationreadingassistant.feature.reader.EpubRepository
@@ -30,12 +24,13 @@ import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
+import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
-import java.time.Instant
 import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import kotlinx.coroutines.CancellationException
@@ -65,19 +60,15 @@ import kotlinx.coroutines.launch
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
     private val documentLoader: ReaderDocumentLoader,
-    private val highlightDao: HighlightDao,
-    private val noteDao: NoteDao,
-    private val inspirationDao: InspirationDao,
-    private val readingProgressDao: ReadingProgressDao,
-    private val readingSessionDao: ReadingSessionDao,
-    private val categoryDao: CategoryDao,
-    private val tagDao: TagDao,
+    private val noteRepository: NoteRepository,
+    private val taxonomyRepository: TaxonomyRepository,
     private val bookRepository: BookRepository,
     private val epubRepository: EpubRepository,
     val settingsStore: SettingsStore,
     val anchorCacheStore: AnchorCacheStore,
     val pageIndexStore: PageIndexStore,
     val pagerHealthStore: PagerHealthStore,
+    val pageIndexManager: ReaderPageIndexManager,
     val aiClient: AiClient,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
@@ -119,10 +110,10 @@ class ReaderViewModel @Inject constructor(
                 flowOf(ReaderBookData())
             } else {
                 combine(
-                    highlightDao.observeByBook(bookId),
-                    noteDao.observeByBook(bookId),
-                    inspirationDao.observeByBook(bookId),
-                    readingSessionDao.observeByBook(bookId),
+                    noteRepository.observeHighlightsByBook(bookId),
+                    noteRepository.observeNotesByBook(bookId),
+                    noteRepository.observeInspirationsByBook(bookId),
+                    bookRepository.observeSessionsByBook(bookId),
                 ) { highlights, notes, inspirations, sessions ->
                     ReaderBookData(
                         highlights = highlights,
@@ -147,8 +138,8 @@ class ReaderViewModel @Inject constructor(
                 flowOf(ReaderTaxonomyData())
             } else {
                 combine(
-                    categoryDao.observeAllActive(),
-                    tagDao.observeAllActive(),
+                    taxonomyRepository.observeCategories(),
+                    taxonomyRepository.observeTags(),
                 ) { categories, tags -> ReaderTaxonomyData(categories, tags) }
             }
         }
@@ -218,109 +209,55 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.SetNoteOpen -> updateScreen { it.copy(noteOpen = action.open) }
             is ReaderAction.SetNoteBody -> updateScreen { it.copy(noteBody = action.body) }
             is ReaderAction.ToggleColorRow -> updateScreen { it.copy(showColorRow = !it.showColorRow) }
-            is ReaderAction.SetSheetOpenGuard -> updateScreen { it.copy(sheetOpenGuard = action.guard) }
 
-            // 数据写入（全部 IO 协程）
-            is ReaderAction.SaveHighlight -> io { highlightDao.upsert(action.highlight) }
-            is ReaderAction.DeleteHighlight -> io {
-                highlightDao.upsert(highlightDao.getById(action.highlightId)?.copy(deleted_at = nowIso()) ?: return@io)
-            }
+            // 数据写入（全部 IO 协程；高亮/笔记/灵感落库细节在 NoteRepository）
+            is ReaderAction.SaveHighlight -> io { noteRepository.saveHighlight(action.highlight) }
+            is ReaderAction.DeleteHighlight -> io { noteRepository.deleteHighlight(action.highlightId) }
             is ReaderAction.UpdateHighlightColor -> io {
-                val h = highlightDao.getById(action.highlightId) ?: return@io
-                highlightDao.upsert(h.copy(color = action.color, updated_at = nowIso(), revision = h.revision + 1))
+                noteRepository.updateHighlightColor(action.highlightId, action.color)
             }
             is ReaderAction.UpdateHighlightNote -> io {
-                val h = highlightDao.getById(action.highlightId) ?: return@io
-                highlightDao.upsert(h.copy(note = action.note.ifBlank { null }, updated_at = nowIso(), revision = h.revision + 1))
+                noteRepository.updateHighlightNote(action.highlightId, action.note)
             }
-            is ReaderAction.SaveNote -> io { noteDao.upsert(action.note) }
-            is ReaderAction.DeleteNote -> io {
-                noteDao.upsert(noteDao.getById(action.noteId)?.copy(deleted_at = nowIso()) ?: return@io)
-            }
+            is ReaderAction.SaveNote -> io { noteRepository.saveNote(action.note) }
+            is ReaderAction.DeleteNote -> io { noteRepository.deleteNote(action.noteId) }
             is ReaderAction.AddBookmark -> io {
-                noteDao.upsert(
-                    NoteEntity(
-                        id = java.util.UUID.randomUUID().toString(),
-                        book_id = action.bookId.ifBlank { null },
-                        title = "书签 · ${action.title}",
-                        body = "",
-                        excerpt = null,
-                        chapter_title = action.title.ifBlank { null },
-                        progress_percent = action.offset.toFloat(),
-                        kind = "bookmark",
-                        locator_json = null,
-                        payload = "{}",
-                        created_at = nowIso(),
-                        device_id = null,
-                        revision = 1,
-                        updated_at = nowIso(),
-                        deleted_at = null,
-                    ),
+                noteRepository.addBookmark(
+                    bookId = action.bookId,
+                    title = action.title,
+                    offset = action.offset,
+                    absOffset = action.absOffset,
+                    chapterIndex = action.chapterIndex,
+                    charOffset = action.charOffset,
+                    locatorJson = action.locatorJson,
                 )
             }
             is ReaderAction.ConvertHighlightToNote -> io {
-                val h = highlightDao.getById(action.highlightId) ?: return@io
-                noteDao.upsert(
-                    NoteEntity(
-                        id = java.util.UUID.randomUUID().toString(),
-                        book_id = h.book_id,
-                        title = "笔记：${h.chapter_title ?: ""}",
-                        body = if (h.note.isNullOrBlank()) h.text else "${h.text}\n\n${h.note}",
-                        excerpt = h.text,
-                        chapter_title = h.chapter_title,
-                        progress_percent = h.progress_percent ?: 0f,
-                        kind = "note",
-                        locator_json = h.locator_json,
-                        payload = "{}",
-                        created_at = nowIso(),
-                        device_id = null,
-                        revision = 1,
-                        updated_at = nowIso(),
-                        deleted_at = null,
-                    ),
-                )
+                noteRepository.convertHighlightToNote(action.highlightId)
             }
             is ReaderAction.ConvertHighlightToInspiration -> io {
-                val h = highlightDao.getById(action.highlightId) ?: return@io
-                inspirationDao.upsert(
-                    InspirationEntity(
-                        id = java.util.UUID.randomUUID().toString(),
-                        title = "高亮灵感：${h.text.take(24)}",
-                        body = if (h.note.isNullOrBlank()) h.text else "${h.text}\n\n${h.note}",
-                        type = "note",
-                        status = "inbox",
-                        source_book_id = h.book_id,
-                        payload = "{}",
-                        created_at = nowIso(),
-                        device_id = null,
-                        revision = 1,
-                        updated_at = nowIso(),
-                        deleted_at = null,
-                    ),
-                )
+                noteRepository.convertHighlightToInspiration(action.highlightId)
             }
-            is ReaderAction.SaveInspiration -> io { inspirationDao.upsert(action.inspiration) }
+            is ReaderAction.SaveInspiration -> io { noteRepository.saveInspiration(action.inspiration) }
             is ReaderAction.CreateCategory -> io {
                 val id = "mobile-category-${java.util.UUID.randomUUID()}"
-                categoryDao.upsert(CategoryEntity(id = id, name = action.name, created_at = nowIso(), updated_at = nowIso()))
+                taxonomyRepository.upsertCategory(CategoryEntity(id = id, name = action.name, created_at = nowIso(), updated_at = nowIso()))
             }
             is ReaderAction.CreateTag -> io {
                 val id = "mobile-tag-${java.util.UUID.randomUUID()}"
-                tagDao.upsert(TagEntity(id = id, name = action.name, type = "inspiration", created_at = nowIso(), updated_at = nowIso()))
+                taxonomyRepository.upsertTag(TagEntity(id = id, name = action.name, type = "inspiration", created_at = nowIso(), updated_at = nowIso()))
             }
             is ReaderAction.SaveProgress -> io {
-                val now = nowIso()
-                readingProgressDao.upsert(
-                    mergeReaderProgress(
-                        existing = readingProgressDao.getByBook(action.progress.book_id),
-                        incoming = action.progress,
-                        nowIso = now,
-                        nowMillis = System.currentTimeMillis(),
-                    ),
-                )
+                bookRepository.saveProgress(action.progress)
             }
             is ReaderAction.SaveEpubProgress -> io {
-                epubRepository.saveProgress(action.bookId, action.chapterIndex, action.percent, action.offsetInChapter)
+                epubRepository.saveProgress(
+                    bookId = action.bookId,
+                    chapterIndex = action.chapterIndex,
+                    percent = action.percent,
+                    offsetInChapter = action.offsetInChapter,
+                    absoluteOffset = action.absoluteOffset,
+                )
             }
             is ReaderAction.DeleteBook -> io { bookRepository.deleteBook(action.bookId) }
 
@@ -350,7 +287,7 @@ class ReaderViewModel @Inject constructor(
         viewModelScope.launch(ioDispatcher) { block() }
     }
 
-    private fun nowIso(): String = Instant.now().toString()
+    private fun nowIso(): String = com.creationreadingassistant.ui.util.nowIso()
 
     private fun openBook(bookId: String, force: Boolean) {
         activeBookId.value = bookId
@@ -466,7 +403,8 @@ class ReaderViewModel @Inject constructor(
         }
         return try {
             document.blocks(chapterIndex)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w("ReaderVM", "loadChapterBlocks failed: ${e.message}")
             emptyList()
         }
     }
@@ -482,7 +420,8 @@ class ReaderViewModel @Inject constructor(
         }
         return try {
             document.text(chapterIndex)
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLog.w("ReaderVM", "extractChapterText failed: ${e.message}")
             ""
         }
     }

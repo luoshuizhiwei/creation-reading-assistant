@@ -1,8 +1,8 @@
 package com.creationreadingassistant.ui.viewmodel
 
-import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
+import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import java.time.Instant
 import kotlinx.coroutines.flow.first
@@ -25,7 +25,7 @@ data class SyncRunOutcome(
 class ProfileSyncEngine(
     private val syncRepository: SyncRepository,
     private val configStore: SyncConfigStore,
-    private val bookDao: BookDao,
+    private val bookRepository: BookRepository,
 ) {
 
     /** 单次全量同步：pull → push →（可选）下载待同步正文，返回结果 + 展示消息 + 日志行。 */
@@ -122,14 +122,14 @@ class ProfileSyncEngine(
     /** 待下载书籍数：活跃书籍中未下载（或内容缺失/失败/下载中）的数量。 */
     suspend fun countPendingDownloads(): Int {
         return runCatching {
-            bookDao.observeAllActive().first().count { !isBookDownloaded(it) }
+            bookRepository.observeBooks().first().count { !isBookDownloaded(it) }
         }.getOrDefault(0)
     }
 
     /** 单本是否已下载（content_status=available 且有本地路径）。 */
     suspend fun isBookDownloadedById(id: String?): Boolean {
         if (id == null) return false
-        val b = runCatching { bookDao.getById(id) }.getOrNull() ?: return false
+        val b = runCatching { bookRepository.getById(id) }.getOrNull() ?: return false
         return b.content_status == "available" && (!b.local_content_path.isNullOrBlank() || !b.local_uri.isNullOrBlank())
     }
 

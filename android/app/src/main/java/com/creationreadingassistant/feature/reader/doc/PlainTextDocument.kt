@@ -102,14 +102,15 @@ class PlainTextDocument private constructor(
     } ?: precomputedChapters.orEmpty()
 
     override val totalChars: Int =
-        fileIndex?.let { it.totalCharCount.toInt() } ?: fullText.length
+        if (_isStreaming) fileIndex!!.totalCharCount.toInt()
+        else fullText.length
 
     override fun blocks(chapterIndex: Int): List<DocBlock> {
         if (_isStreaming) {
             val raw = readChapterString(chapterIndex)
             return splitParagraphs(raw)
         }
-        val c = detected?.getOrNull(chapterIndex) ?: return emptyList()
+        val c = detected!!.getOrNull(chapterIndex) ?: return emptyList()
         val raw = fullText.substring(c.startOffset, c.endOffset.coerceAtMost(fullText.length))
         return splitParagraphs(raw)
     }
@@ -143,28 +144,23 @@ class PlainTextDocument private constructor(
         }
 
         // 流式模式：通过 checkpoints 定位字节偏移
-        // fileSource/fileIndex/fileEncoding 在流式模式下三者同为空或同为非空（不变量）；
-        // 上方 !_isStreaming 早返已确保进入此流式分支。
-        val fi = fileIndex ?: return ""
-        val fs = fileSource ?: return ""
-        val enc = fileEncoding ?: return ""
-        val checkpoints = fi.checkpoints
-        val charset = charset(enc)
+        val checkpoints = fileIndex!!.checkpoints
+        val charset = charset(fileEncoding!!)
         val endChar = (start + clamped).coerceAtMost(totalChars)
 
         // 找到 start 的 floor checkpoint，从该字节偏移开始读取
-        val startCpInfo = findFloorCheckpoint(checkpoints, start.toLong(), fi)
+        val startCpInfo = findFloorCheckpoint(checkpoints, start.toLong(), fileIndex)
         // 找到 endChar 的 floor checkpoint，确定需要读取到的字节位置
-        val endCpInfo = findFloorCheckpoint(checkpoints, endChar.toLong(), fi)
+        val endCpInfo = findFloorCheckpoint(checkpoints, endChar.toLong(), fileIndex)
 
         // 从 floor checkpoint 的字节偏移开始读取
         val readStartByte = startCpInfo.byteOffset
         // 读取到 ceil checkpoint 的字节偏移（或文件末尾）
-        val readEndByte = (endCpInfo.ceilByteOffset + 16).coerceAtMost(fs.length())
+        val readEndByte = (endCpInfo.ceilByteOffset + 16).coerceAtMost(fileSource!!.length())
         val readLength = (readEndByte - readStartByte).toInt().coerceAtLeast(0)
         if (readLength <= 0) return ""
 
-        val bytes = RandomAccessFile(fs, "r").use { raf ->
+        val bytes = RandomAccessFile(fileSource, "r").use { raf ->
             raf.seek(readStartByte)
             val buf = ByteArray(readLength)
             raf.readFully(buf)
@@ -174,7 +170,7 @@ class PlainTextDocument private constructor(
         var decoded = String(bytes, charset)
 
         // 处理编码边界：确保不在多字节字符中间截断
-        decoded = trimToEncodingBoundary(decoded, enc)
+        decoded = trimToEncodingBoundary(decoded, fileEncoding!!)
 
         // 裁剪到请求的字符范围：跳过 floor checkpoint 到 start 之间的字符
         val skipChars = (start - startCpInfo.charOffset).toInt().coerceAtLeast(0)
@@ -395,7 +391,7 @@ class PlainTextDocument private constructor(
                 raf.seek(unit.byteStart)
                 val bytes = ByteArray(unit.byteLength)
                 raf.readFully(bytes)
-                val decoded = String(bytes, charset(requireNotNull(fileEncoding) { "流式模式 fileEncoding 必非空" }))
+                val decoded = String(bytes, charset(fileEncoding!!))
                 // Safety check: warn if decoding introduced replacement characters
                 val replacementCount = decoded.count { it == '\uFFFD' }
                 if (replacementCount > 0) {
@@ -421,14 +417,14 @@ class PlainTextDocument private constructor(
      * [ChapterEntry.byteLength] bytes, then decodes with the file's encoding.
      */
     private fun readChapterString(chapterIndex: Int): String {
-        val entry = requireNotNull(fileIndex) { "流式模式 fileIndex 必非空" }.chapters[chapterIndex]
+        val entry = fileIndex!!.chapters[chapterIndex]
         val bytes = readChapterBytes(chapterIndex)
-        return String(bytes, charset(requireNotNull(fileEncoding) { "流式模式 fileEncoding 必非空" }))
+        return String(bytes, charset(fileEncoding!!))
     }
 
     private fun readChapterBytes(chapterIndex: Int): ByteArray {
-        val entry = requireNotNull(fileIndex) { "流式模式 fileIndex 必非空" }.chapters[chapterIndex]
-        return RandomAccessFile(requireNotNull(fileSource) { "流式模式 fileSource 必非空" }, "r").use { raf ->
+        val entry = fileIndex!!.chapters[chapterIndex]
+        return RandomAccessFile(fileSource!!, "r").use { raf ->
             raf.seek(entry.byteStart)
             val bytes = ByteArray(entry.byteLength)
             raf.readFully(bytes)

@@ -2,8 +2,13 @@ package com.creationreadingassistant.data.repository
 
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
+import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.dao.StatsBookRow
+import com.creationreadingassistant.data.local.dao.StatsCreatedRow
+import com.creationreadingassistant.data.local.dao.StatsProgressRow
+import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
@@ -11,17 +16,47 @@ import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
+
+/**
+ * 将 ISO-8601 时间戳解析为系统时区的 epochDay；空值 / 解析失败返回 -1。
+ * 供统计聚合与 Home 页（最近完成排序）共用的唯一实现。
+ */
+internal fun epochDayOf(iso: String?): Long {
+    if (iso.isNullOrBlank()) return -1
+    return runCatching {
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
+    }.getOrElse { -1 }
+}
+
+/**
+ * 本地日历日零点（系统时区）的 epoch 秒边界，供聚合下推 SQL 使用。
+ * 与 [epochDayOf] 同一时区语义：`epochDayOf(iso) >= date.toEpochDay()`
+ * ⇔ `epochSecond(iso) >= startEpochSecondOf(date)`（日边界恰在整数秒上，
+ * 秒级向下取整不改变日历日归属，详见 ReadingSessionDao 聚合查询注释）。
+ */
+internal fun startEpochSecondOf(date: LocalDate): Long =
+    date.atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
+
+/**
+ * 索引加速用粗下界（ISO 串）：比精确边界早 2 天，供 created_at 部分索引预过滤。
+ * ISO 'Z' 串的字典序与时间序只在「整数秒边界后带小数秒」的串上不一致，
+ * 回退 2 天足以保证不会误杀任何应命中的行；最终结果仍由精确的 epoch 秒谓词决定。
+ */
+internal fun coarseLowerIso(startEpochSecond: Long): String =
+    Instant.ofEpochSecond(startEpochSecond - 2 * 86_400L).toString()
 
 /**
  * 阅读统计聚合（P4）：基于 reading_sessions / reading_progress / books / inspirations。
@@ -32,6 +67,7 @@ class StatsRepository @Inject constructor(
     private val progressDao: ReadingProgressDao,
     private val bookDao: BookDao,
     private val inspirationDao: InspirationDao,
+    private val noteDao: NoteDao,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) {
@@ -53,15 +89,21 @@ class StatsRepository @Inject constructor(
 
     /**
      * 实时观察统计：任意底层数据变化后自动重算。
+     *
+     * 今日/7日/30日时长不再拉全表逐行 Instant.parse，而是下推为 DAO 层
+     * SUM 聚合（见 [ReadingSessionDao.sumCreatedDurationBetween] 等）；
+     * 边界在每次发射时用 LocalDate.now() 现算，与旧实现的逐次重算语义一致。
      */
+    @OptIn(ExperimentalCoroutinesApi::class)
     fun observeStats(): Flow<Stats> = combine(
         sessionDao.observeAllActive(),
         progressDao.observeAllActive(),
         bookDao.observeAllActive(),
         inspirationDao.observeAllActive(),
     ) { sessions, progress, books, inspirations ->
-        computeFrom(sessions, progress, books, inspirations)
+        StatsSource(sessions, progress, books, inspirations)
     }
+        .mapLatest { src -> computeWithWindowAggregates(src) }
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
 
@@ -70,40 +112,79 @@ class StatsRepository @Inject constructor(
         val books = bookDao.observeAllActive().first()
         val progress = progressDao.observeAllActive().first()
         val inspirations = inspirationDao.observeAllActive().first()
-        computeFrom(sessions, progress, books, inspirations)
+        computeWithWindowAggregates(StatsSource(sessions, progress, books, inspirations))
     }
+
+    /** 活跃会话总时长（Home 页顶栏统计卡，等价于逐行求和）。 */
+    suspend fun sumAllActiveDuration(): Long = sessionDao.sumAllActiveDuration()
+
+    /** 发生时间落在 [startEpochSecond, endEpochSecond) 内的活跃会话时长之和（Home 今日窗口）。 */
+    suspend fun sumOccurredDurationBetween(
+        startEpochSecond: Long,
+        endEpochSecond: Long,
+        coarseIso: String,
+    ): Long = sessionDao.sumOccurredDurationBetween(startEpochSecond, endEpochSecond, coarseIso)
+
+    /** 统计看板数据源：会话明细（StatsDashboardViewModel 窄投影）。 */
+    fun observeStatsSessions(): Flow<List<StatsSessionRow>> = sessionDao.observeStatsRows()
+
+    /** 统计看板数据源：进度明细。 */
+    fun observeStatsProgress(): Flow<List<StatsProgressRow>> = progressDao.observeStatsRows()
+
+    /** 统计看板数据源：书籍明细。 */
+    fun observeStatsBooks(): Flow<List<StatsBookRow>> = bookDao.observeStatsRows()
+
+    /** 统计看板数据源：灵感创建记录。 */
+    fun observeStatsInspirations(): Flow<List<StatsCreatedRow>> = inspirationDao.observeStatsCreatedRows()
+
+    /** 统计看板数据源：笔记创建记录。 */
+    fun observeStatsNotes(): Flow<List<StatsCreatedRow>> = noteDao.observeStatsCreatedRows()
+
+    /** 时间窗口聚合下推：今日/7日/30日由 SQL SUM 计算，其余指标仍由 [computeFrom] 内存汇总。 */
+    private suspend fun computeWithWindowAggregates(src: StatsSource): Stats {
+        val today = LocalDate.now()
+        val todayStart = startEpochSecondOf(today)
+        val tomorrowStart = startEpochSecondOf(today.plusDays(1))
+        val last7Start = startEpochSecondOf(today.minusDays(7))
+        val last30Start = startEpochSecondOf(today.minusDays(30))
+
+        val todayMs = sessionDao.sumCreatedDurationBetween(
+            todayStart, tomorrowStart, coarseLowerIso(todayStart),
+        )
+        val last7Ms = sessionDao.sumCreatedDurationSince(last7Start, coarseLowerIso(last7Start))
+        val last30Ms = sessionDao.sumCreatedDurationSince(last30Start, coarseLowerIso(last30Start))
+
+        return computeFrom(
+            src.sessions, src.progress, src.books, src.inspirations,
+            todayMs = todayMs, last7Ms = last7Ms, last30Ms = last30Ms,
+        )
+    }
+
+    private data class StatsSource(
+        val sessions: List<ReadingSessionEntity>,
+        val progress: List<ReadingProgressEntity>,
+        val books: List<BookEntity>,
+        val inspirations: List<InspirationEntity>,
+    )
 
     private fun computeFrom(
         sessions: List<ReadingSessionEntity>,
         progress: List<ReadingProgressEntity>,
         books: List<BookEntity>,
         inspirations: List<InspirationEntity>,
+        todayMs: Long,
+        last7Ms: Long,
+        last30Ms: Long,
     ): Stats {
         val bookTitles = books.associate { it.id to it.title }
         val todayDay = LocalDate.now().toEpochDay()
-        val d7 = todayDay - 7
-        val d30 = todayDay - 30
 
-        fun epochDayOf(iso: String?): Long {
-            if (iso.isNullOrBlank()) return -1
-            return runCatching {
-                Instant.parse(iso).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
-            }.getOrElse { -1 }
-        }
-
-        var todayMs = 0L
-        var last7Ms = 0L
-        var last30Ms = 0L
         val activeDays = mutableSetOf<Long>()
         val byBookMap = mutableMapOf<String, Long>()
         for (s in sessions) {
             val day = epochDayOf(s.created_at)
-            val d = s.duration_ms
-            if (day == todayDay) todayMs += d
-            if (day >= d7) last7Ms += d
-            if (day >= d30) last30Ms += d
             if (day >= 0) activeDays.add(day)
-            byBookMap[s.book_id] = (byBookMap[s.book_id] ?: 0L) + d
+            byBookMap[s.book_id] = (byBookMap[s.book_id] ?: 0L) + s.duration_ms
         }
 
         // 连续阅读天数（从今天或昨天往前连续）

@@ -13,10 +13,12 @@ import org.junit.runner.RunWith
 import java.io.IOException
 
 /**
- * Room 迁移测试：覆盖全部迁移路径 1→2→3→4→5→6。
+ * Room 迁移测试：覆盖全部迁移路径 1→2→3→4→5→6→7。
  *
  * 使用 [MigrationTestHelper] 加载 schema JSON，逐步执行迁移 SQL 并校验表结构。
  * 每次迁移前插入测试数据，迁移后验证数据未丢失、新列/新表正确创建。
+ * 注：部分索引（含 v7 的 idx_sessions_created）由 CreateIndexCallback onOpen 重建，
+ * 不在迁移内建，因此迁移测试只验表结构与数据，索引存在性由开库路径保证。
  */
 @Suppress("DEPRECATION")
 @RunWith(AndroidJUnit4::class)
@@ -405,7 +407,74 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
-    // ─── 1 → 6 完整链路 ────────────────────────────────────────────────
+    // ─── 6 → 7：reading_sessions 补时间索引（不改表结构）─────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_6_to_7_preserves_sessions() {
+        // 1. 创建 v6 数据库并插入测试数据（表结构与 v7 完全一致，仅差索引）
+        var db = migrationTestHelper.createDatabase(TEST_DB, 6)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('book-6', '第六本书', '作者F', 'txt', 'book6.txt', 'hash006', " +
+                "1024, '/uri/f', '/content/f', 'ready', NULL, NULL, " +
+                "'2026-06-01T00:00:00Z', 'device-1', '{}', 1, '2026-06-01T00:00:00Z', NULL)",
+        )
+
+        // reading_sessions：活跃 + 软删各一条，验证迁移不碰任何行
+        db.execSQL(
+            "INSERT INTO reading_sessions (id, book_id, started_at, ended_at, duration_ms, " +
+                "progress_percent, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('session-6', 'book-6', '2026-06-02T10:00:00Z', '2026-06-02T11:00:00Z', " +
+                "3600000, 55.5, '2026-06-02T10:00:00Z', 'device-1', 1, '{}', " +
+                "'2026-06-02T11:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reading_sessions (id, book_id, started_at, ended_at, duration_ms, " +
+                "progress_percent, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('session-6-deleted', 'book-6', '2026-06-01T08:00:00Z', '2026-06-01T08:30:00Z', " +
+                "1800000, 10.0, '2026-06-01T08:00:00Z', 'device-1', 1, '{}', " +
+                "'2026-06-01T08:30:00Z', '2026-06-03T00:00:00Z')",
+        )
+
+        db.close()
+
+        // 2. 执行迁移 6 → 7（仅 dropPartialIndexes，索引由 onOpen 重建）
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 7, true, AppDatabase.MIGRATION_6_7,
+        )
+
+        // 3. 验证活跃会话数据未丢失
+        val sessionCursor = db.query(
+            "SELECT duration_ms, progress_percent, created_at FROM reading_sessions WHERE id = 'session-6'",
+        )
+        assertTrue("reading_sessions 数据应保留", sessionCursor.moveToFirst())
+        assertEquals(3600000, sessionCursor.getLong(0))
+        assertEquals(55.5, sessionCursor.getDouble(1), 0.001)
+        assertEquals("2026-06-02T10:00:00Z", sessionCursor.getString(2))
+        sessionCursor.close()
+
+        // 4. 验证软删会话同样保留（迁移不得碰 deleted_at）
+        val deletedCursor = db.query(
+            "SELECT deleted_at FROM reading_sessions WHERE id = 'session-6-deleted'",
+        )
+        assertTrue("软删会话应保留", deletedCursor.moveToFirst())
+        assertEquals("2026-06-03T00:00:00Z", deletedCursor.getString(0))
+        deletedCursor.close()
+
+        // 5. 验证 books 数据未丢失
+        val booksCursor = db.query("SELECT title FROM books WHERE id = 'book-6'")
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("第六本书", booksCursor.getString(0))
+        booksCursor.close()
+
+        db.close()
+    }
+
+    // ─── 1 → 6 历史链路（与既有 v6 数据盘配套保留）──────────────────
 
     @Test
     @Throws(IOException::class)
@@ -579,6 +648,116 @@ class AppDatabaseMigrationTest {
         fileCursor.close()
 
         // 11. 验证新表存在
+        val tablesCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name IN " +
+                "('reader_page_index', 'reader_anchor_cache') ORDER BY name",
+        )
+        assertTrue("reader_anchor_cache 应存在", tablesCursor.moveToFirst())
+        assertEquals("reader_anchor_cache", tablesCursor.getString(0))
+        assertTrue("reader_page_index 应存在", tablesCursor.moveToNext())
+        assertEquals("reader_page_index", tablesCursor.getString(0))
+        tablesCursor.close()
+
+        db.close()
+    }
+
+    // ─── 1 → 7 完整链路 ────────────────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_1_to_7_full_chain() {
+        // 1. 创建 v1 数据库并插入综合测试数据（仅使用 v1 列定义）
+        var db = migrationTestHelper.createDatabase(TEST_DB, 1)
+
+        // books (v1: 无 description)
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain7-book', '全链路v7 EPUB', '全链路作者', 'epub', 'chain7.epub', " +
+                "'hashchain7', 4096, '/uri/c7', '/content/c7', 'ready', NULL, " +
+                "'2026-07-01T00:00:00Z', 'device-3', '{}', 1, '2026-07-01T00:00:00Z', NULL)",
+        )
+
+        // reading_progress (v1: 无 completed_at)
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, deleted_at) " +
+                "VALUES ('chain7-book', 33.3, '2026-07-10T00:00:00Z', 4500000, 'in_progress', " +
+                "'{\"chapter\":2}', '{}', 1, 'device-3', '2026-07-10T00:00:00Z', NULL)",
+        )
+
+        // highlights (v1: 无 chapter_title, progress_percent)
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, locator_json, payload, " +
+                "created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('chain7-hl', 'chain7-book', '全链路v7高亮', '笔记', 'purple', " +
+                "'{\"cfi\":\"/2/2\"}', '{}', '2026-07-05T00:00:00Z', 'device-3', 1, " +
+                "'2026-07-05T00:00:00Z', NULL)",
+        )
+
+        // reading_sessions（v1 列已齐备，v7 仅加索引）
+        db.execSQL(
+            "INSERT INTO reading_sessions (id, book_id, started_at, ended_at, duration_ms, " +
+                "progress_percent, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('chain7-session', 'chain7-book', '2026-07-08T10:00:00Z', " +
+                "'2026-07-08T12:00:00Z', 7200000, 33.3, '2026-07-08T10:00:00Z', 'device-3', 1, " +
+                "'{}', '2026-07-08T12:00:00Z', NULL)",
+        )
+
+        db.close()
+
+        // 2. 执行完整迁移链 1 → 7（传入全部 6 个迁移）
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 7, true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+        )
+
+        // 3. 验证 books 数据完好（含 v3 新列 description）
+        val booksCursor = db.query(
+            "SELECT title, description FROM books WHERE id = 'chain7-book'",
+        )
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("全链路v7 EPUB", booksCursor.getString(0))
+        assertTrue("description 应为 NULL", booksCursor.isNull(1))
+        booksCursor.close()
+
+        // 4. 验证 reading_progress 数据完好（含 v4 新列 completed_at）
+        val progressCursor = db.query(
+            "SELECT progress_percent, completed_at FROM reading_progress WHERE book_id = 'chain7-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(33.3, progressCursor.getDouble(0), 0.001)
+        assertTrue("completed_at 应为 NULL", progressCursor.isNull(1))
+        progressCursor.close()
+
+        // 5. 验证 highlights 数据完好（含 v2 新列）
+        val hlCursor = db.query(
+            "SELECT text, chapter_title, progress_percent FROM highlights WHERE id = 'chain7-hl'",
+        )
+        assertTrue("highlights 数据应保留", hlCursor.moveToFirst())
+        assertEquals("全链路v7高亮", hlCursor.getString(0))
+        assertTrue("chapter_title 应为 NULL", hlCursor.isNull(1))
+        assertTrue("progress_percent 应为 NULL", hlCursor.isNull(2))
+        hlCursor.close()
+
+        // 6. 验证 reading_sessions 数据完好（v7 核心关注表）
+        val sessionCursor = db.query(
+            "SELECT duration_ms, progress_percent, created_at FROM reading_sessions WHERE id = 'chain7-session'",
+        )
+        assertTrue("reading_sessions 数据应保留", sessionCursor.moveToFirst())
+        assertEquals(7200000, sessionCursor.getLong(0))
+        assertEquals(33.3, sessionCursor.getDouble(1), 0.001)
+        assertEquals("2026-07-08T10:00:00Z", sessionCursor.getString(2))
+        sessionCursor.close()
+
+        // 7. 验证新表存在
         val tablesCursor = db.query(
             "SELECT name FROM sqlite_master WHERE type='table' AND name IN " +
                 "('reader_page_index', 'reader_anchor_cache') ORDER BY name",

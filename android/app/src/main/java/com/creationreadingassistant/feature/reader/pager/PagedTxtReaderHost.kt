@@ -53,6 +53,8 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import com.creationreadingassistant.ui.components.SizedAsyncImage
+import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
@@ -67,6 +69,7 @@ import java.util.Locale
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
 import com.creationreadingassistant.data.settings.HeaderFooterItem
+import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
 
 /** 页眉/页脚渲染所需的分页快照 */
 private data class PageInfo(
@@ -98,6 +101,8 @@ fun PagedReaderHost(
     pageMarginDp: Float,
     fontWeightBold: Boolean,
     showReaderInfo: Boolean,
+    /** 自定义正文字体路径（空 = 系统字体）。路径必须进排版签名，换字体后页索引失效重排。 */
+    customFontPath: String = "",
     /** 「中文排版优化」开关：关掉则不做两端对齐（禁则与标点挤压保留 —— 那是正确性不是风格）。 */
     chineseTypography: Boolean,
     /** 点按分区：three-zone 左右边缘；five-zone 追加上=上一页、下=下一页。 */
@@ -109,6 +114,8 @@ fun PagedReaderHost(
     jumpRequest: MutableState<Int?>,
     externalTurnRequest: MutableState<Int?>,
     onPositionChanged: (absOffset: Int, percent: Float) -> Unit,
+    onPageIndexChanged: (bookId: String, chapterIndex: Int, pageIndex: Int, pageCount: Int, absStart: Int, absEnd: Int, percent: Float) -> Unit = { _, _, _, _, _, _, _ -> },
+    bookId: String = "",
     onToggleControls: () -> Unit,
     onGesturePageTurn: () -> Unit,
     store: PageIndexStore?,
@@ -122,8 +129,8 @@ fun PagedReaderHost(
     selectionCleared: Boolean = true,
     /** 已存高亮（全书偏移区间 + 已带透明度的颜色），在页面上常驻绘制 */
     persistentHighlights: List<Pair<IntRange, Color>> = emptyList(),
-    selectionColor: Color = Color(0x40365B7E),
-    ttsHighlightColor: Color = Color(0x33365B7E),
+    selectionColor: Color = LocalReaderPaperPalette.current.selectionScrim,
+    ttsHighlightColor: Color = LocalReaderPaperPalette.current.ttsSentenceScrim,
     /** 非 null 时按该间隔自动翻到下一页；到全书末页后回调并停止。 */
     autoPageIntervalMillis: Long? = null,
     onAutoPagingFinished: () -> Unit = {},
@@ -146,17 +153,20 @@ fun PagedReaderHost(
     val fontPx = with(density) { fontSizeSp.sp.toPx() }
 
     // 绘制与测量必须用同一支 Paint 的配置，否则测出来的宽度与画出来的不一致
-    val paint = remember(fontPx, fontWeightBold, textColor) {
+    val paint = remember(fontPx, fontWeightBold, textColor, customFontPath) {
         TextPaint().apply {
             isAntiAlias = true
             textSize = fontPx
             color = textColor.toArgb()
             isFakeBoldText = fontWeightBold
+            if (customFontPath.isNotBlank()) {
+                typeface = ReaderFontManager.loadTypeface(customFontPath) ?: Typeface.DEFAULT
+            }
         }
     }
     val headingPaint = remember(paint) { TextPaint(paint).apply { isFakeBoldText = true } }
-    val typefaceKey = remember(paint) {
-        PaintTextRuler.typefaceKeyOf(paint.typeface, paint.textSize, paint.letterSpacing) +
+    val typefaceKey = remember(paint, customFontPath) {
+        PaintTextRuler.typefaceKeyOf(paint.typeface, paint.textSize, paint.letterSpacing, customFontPath) +
             "|b=$fontWeightBold"
     }
     val ruler = remember(paint, typefaceKey) { PaintTextRuler(paint, typefaceKey) }
@@ -263,6 +273,15 @@ fun PagedReaderHost(
                                     anchor.intValue = range.first
                                 }
                                 onPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                                onPageIndexChanged(
+                                    bookId,
+                                    controller.chapterIndex,
+                                    controller.pageIndex,
+                                    controller.pageCount,
+                                    controller.currentPageStartAbs,
+                                    controller.currentPageRangeAbs?.last ?: controller.currentPageStartAbs,
+                                    controller.progressPercent,
+                                )
                                 pageInfo.value = PageInfo(
                                     chapterIndex = controller.chapterIndex,
                                     pageIndex = controller.pageIndex,
@@ -298,7 +317,7 @@ fun PagedReaderHost(
                 LaunchedEffect(controller, autoPageIntervalMillis) {
                     val interval = autoPageIntervalMillis ?: return@LaunchedEffect
                     if (interval <= 0L) return@LaunchedEffect
-                    android.util.Log.d("AutoPagingDebug", "effect start: interval=$interval")
+                    AppLog.debug("AutoPagingDebug", "effect start: interval=$interval")
                     var previousFrame = withFrameNanos { it }
                     // 手动翻页 / 跨章 / 自动提交后（页或章变化）从新页从头揭
                     var lastSeen = controller.chapterIndex to controller.pageIndex
@@ -319,7 +338,7 @@ fun PagedReaderHost(
                         val elapsed = frame - previousFrame
                         previousFrame = frame
                         if (revealer.advance(elapsed, interval)) {
-                            android.util.Log.d("AutoPagingDebug", "turn: interval=$interval elapsed=$elapsed layoutSkip=$layoutCount progress=${revealer.value}")
+                            AppLog.debug("AutoPagingDebug", "turn: interval=$interval elapsed=$elapsed layoutSkip=$layoutCount progress=${revealer.value}")
                             layoutCount = 0
                             if (!controller.canGoNext) {
                                 finishAutoPaging()
@@ -556,6 +575,7 @@ private fun PageLayer(
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
     val density = LocalDensity.current
+    val paper = LocalReaderPaperPalette.current
     Box(modifier) {
         PageCanvas(
             page = page,
@@ -566,6 +586,7 @@ private fun PageLayer(
             underlays = underlays,
             modifier = Modifier.fillMaxSize(),
         )
+        val imagePlaceholderColor = paper.imagePlaceholder
         page.images.forEach { image ->
             val width = with(density) { image.width.toDp() }
             val height = with(density) { image.height.toDp() }
@@ -573,7 +594,7 @@ private fun PageLayer(
                 Modifier
                     .offset { IntOffset(image.left.roundToInt(), image.top.roundToInt()) }
                     .size(width, height)
-                    .background(Color(0x12000000)),
+                    .background(imagePlaceholderColor),
             ) {
                 val imageFile = remember(image.sourceKey) { File(image.sourceKey) }
                 SizedAsyncImage(
@@ -598,6 +619,7 @@ private fun PageCanvas(
     modifier: Modifier = Modifier,
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
+    val paper = LocalReaderPaperPalette.current
     val stylePaints = remember(paint, cfg) {
         Array(32) { mask ->
             TextPaint(paint).apply {
@@ -647,7 +669,7 @@ private fun PageCanvas(
 
                 if (line.role == BlockRole.CODE_BLOCK) {
                     drawRect(
-                        color = androidx.compose.ui.graphics.Color.LightGray.copy(alpha = 0.15f),
+                        color = paper.codeBlockBg,
                         topLeft = androidx.compose.ui.geometry.Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
                     )
@@ -655,7 +677,7 @@ private fun PageCanvas(
 
                 if (line.role == BlockRole.HORIZONTAL_RULE) {
                     drawLine(
-                        color = androidx.compose.ui.graphics.Color.Gray.copy(alpha = 0.5f),
+                        color = paper.horizontalRule,
                         start = androidx.compose.ui.geometry.Offset(0f, baseline),
                         end = androidx.compose.ui.geometry.Offset(cfg.contentWidthPx, baseline),
                         strokeWidth = 2f,

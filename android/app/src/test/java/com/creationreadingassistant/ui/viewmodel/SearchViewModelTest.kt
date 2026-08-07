@@ -2,10 +2,9 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import app.cash.turbine.test
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.HighlightDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.settings.SearchHistoryStore
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
@@ -36,10 +35,9 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class SearchViewModelTest {
-    private val bookDao = mockk<BookDao>()
-    private val inspirationDao = mockk<InspirationDao>()
-    private val noteDao = mockk<NoteDao>()
-    private val highlightDao = mockk<HighlightDao>()
+    private val bookRepository = mockk<BookRepository>()
+    private val inspirationRepository = mockk<InspirationRepository>()
+    private val noteRepository = mockk<NoteRepository>()
     private val historyStore = mockk<SearchHistoryStore>()
     private lateinit var vm: SearchViewModel
     private val testScheduler = TestCoroutineScheduler()
@@ -49,9 +47,9 @@ class SearchViewModelTest {
     fun setup() {
         Dispatchers.setMain(mainDispatcher)
         every { historyStore.history } returns MutableStateFlow(emptyList())
-        coEvery { highlightDao.search(any()) } returns emptyList()
-        coEvery { bookDao.getById(any()) } returns null
-        vm = SearchViewModel(bookDao, inspirationDao, noteDao, highlightDao, historyStore, ioDispatcher = UnconfinedTestDispatcher(testScheduler))
+        coEvery { noteRepository.searchHighlights(any()) } returns emptyList()
+        coEvery { bookRepository.getById(any()) } returns null
+        vm = SearchViewModel(bookRepository, inspirationRepository, noteRepository, historyStore, ioDispatcher = UnconfinedTestDispatcher(testScheduler))
     }
 
     @After
@@ -75,9 +73,9 @@ class SearchViewModelTest {
     @Test
     fun `valid query should return matching books`() = runTest(mainDispatcher) {
         val book = BookEntity(id = "b1", title = "三体", format = "epub", updated_at = "now")
-        coEvery { bookDao.search("三体") } returns listOf(book)
-        coEvery { inspirationDao.search("三体") } returns emptyList()
-        coEvery { noteDao.search("三体") } returns emptyList()
+        coEvery { bookRepository.search("三体") } returns listOf(book)
+        coEvery { inspirationRepository.search("三体") } returns emptyList()
+        coEvery { noteRepository.searchNotes("三体") } returns emptyList()
 
         vm.search("三体")
         advanceTimeBy(400) // 等 debounce
@@ -89,13 +87,13 @@ class SearchViewModelTest {
 
     @Test
     fun `concurrent search across three tables`() = runTest(mainDispatcher) {
-        coEvery { bookDao.search("关键词") } returns listOf(
+        coEvery { bookRepository.search("关键词") } returns listOf(
             BookEntity(id = "b1", title = "书A", format = "txt", updated_at = "n"),
         )
-        coEvery { inspirationDao.search("关键词") } returns listOf(
+        coEvery { inspirationRepository.search("关键词") } returns listOf(
             InspirationEntity(id = "i1", title = "灵感A", body = "...", type = "note", status = "inbox", created_at = "n", updated_at = "n"),
         )
-        coEvery { noteDao.search("关键词") } returns listOf(
+        coEvery { noteRepository.searchNotes("关键词") } returns listOf(
             NoteEntity(id = "n1", title = "笔记A", body = "原文", created_at = "n", updated_at = "n"),
         )
 
@@ -109,9 +107,9 @@ class SearchViewModelTest {
 
     @Test
     fun `loading state transitions correctly`() = runTest(mainDispatcher) {
-        coEvery { bookDao.search(any()) } returns emptyList()
-        coEvery { inspirationDao.search(any()) } returns emptyList()
-        coEvery { noteDao.search(any()) } returns emptyList()
+        coEvery { bookRepository.search(any()) } returns emptyList()
+        coEvery { inspirationRepository.search(any()) } returns emptyList()
+        coEvery { noteRepository.searchNotes(any()) } returns emptyList()
 
         vm.results.test {
             vm.search("test")

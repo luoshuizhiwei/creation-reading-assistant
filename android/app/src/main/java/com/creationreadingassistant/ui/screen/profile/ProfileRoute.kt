@@ -80,6 +80,7 @@ internal fun ProfileRoute(
     val webDavMsg by viewModel.webDavMsg.collectAsStateWithLifecycle()
     val webDavBackups by viewModel.webDavBackups.collectAsStateWithLifecycle()
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
+    val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
     val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
@@ -138,6 +139,7 @@ internal fun ProfileRoute(
         appearance = appearance,
         reader = reader,
         ai = ai,
+        aiHttpWarning = aiHttpWarning,
         aiKeyDraft = aiKeyDraft,
         libraryState = libraryState,
         pendingDownloadCount = books.count { !isBookDownloaded(it) },
@@ -232,7 +234,13 @@ private fun handleProfileAction(
         ProfileAction.UploadBackup -> viewModel.backupNow(context)
         ProfileAction.TestWebDav -> viewModel.testWebDav()
         ProfileAction.RefreshBackups -> viewModel.loadWebDavBackups()
-        is ProfileAction.DownloadRestore -> viewModel.downloadRestore(context, action.filename)
+        is ProfileAction.DownloadRestore -> onConfirmDialogChange(
+            ConfirmSpec(
+                title = "恢复备份",
+                message = "恢复将按版本规则合并覆写当前书籍、灵感、进度与会话数据。恢复前已自动备份数据库快照，若出问题可从快照找回。确认继续？",
+                onConfirm = { viewModel.downloadRestore(context, action.filename) },
+            )
+        )
         ProfileAction.ClearWebDav -> {
             viewModel.clearWebDav()
             showMsg("WebDAV 配置已清除")
@@ -256,7 +264,13 @@ private fun handleProfileAction(
 
         // ---- Storage ----
         ProfileAction.Export -> exportLauncher.launch("cra-export-${System.currentTimeMillis()}.json")
-        ProfileAction.Import -> importLauncher.launch(arrayOf("application/json", "*/*"))
+        ProfileAction.Import -> onConfirmDialogChange(
+            ConfirmSpec(
+                title = "导入数据",
+                message = "导入将按版本规则合并覆写当前书籍、灵感、进度与会话数据（旧版本记录不会覆盖新版本）。建议先导出备份。确认继续？",
+                onConfirm = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+            )
+        )
         ProfileAction.ClearReaderCache -> {
             onConfirmDialogChange(
                 ConfirmSpec(

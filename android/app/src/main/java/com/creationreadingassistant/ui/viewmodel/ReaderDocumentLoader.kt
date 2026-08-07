@@ -6,15 +6,11 @@ import android.os.Trace
 import android.os.SystemClock
 import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.entity.CategoryEntity
-import com.creationreadingassistant.data.local.entity.HighlightEntity
-import com.creationreadingassistant.data.local.entity.InspirationEntity
-import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
-import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
@@ -24,7 +20,7 @@ import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
-import com.creationreadingassistant.ui.screen.reader.ReaderSheet
+import com.creationreadingassistant.feature.reader.locator.LocatorCodec
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
@@ -134,7 +130,7 @@ class ReaderDocumentLoader @Inject constructor(
                         }
                     }
                     val traceEndNs = SystemClock.elapsedRealtimeNanos()
-                    android.util.Log.d("TxtPerfTrace", "TxtDocumentLoad: ${(traceEndNs - traceStartNs) / 1_000_000} ms")
+                    AppLog.debug("TxtPerfTrace", "TxtDocumentLoad: ${(traceEndNs - traceStartNs) / 1_000_000} ms")
                     result
                 }
                 val result = loadAttempt?.getOrNull()
@@ -158,7 +154,7 @@ class ReaderDocumentLoader @Inject constructor(
                         Trace.endSection()
                     }
                     val detectEndNs = SystemClock.elapsedRealtimeNanos()
-                    android.util.Log.d("TxtPerfSubTrace", "TxtChapterDetect: ${(detectEndNs - detectStartNs) / 1_000_000} ms, preDetect=true")
+                    AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: ${(detectEndNs - detectStartNs) / 1_000_000} ms, preDetect=true")
                     chapters.mapIndexed { i, c ->
                         DocChapter(
                             index = i,
@@ -265,8 +261,12 @@ sealed interface ReaderLoadedContent {
     }
 }
 
-internal fun parseStoredAbsoluteOffset(locationJson: String?): Int =
-    parseStoredOffset(locationJson).offset
+internal fun parseStoredAbsoluteOffset(locationJson: String?): Int {
+    // 优先读取统一 v2 locator 的绝对偏移（与写入时一致）；旧数据无 v2 时回退 legacy "offset"
+    val v2 = LocatorCodec.locatorFromProgress(locationJson)
+    if (v2?.legacyOffset != null) return v2.legacyOffset.coerceAtLeast(0)
+    return parseStoredOffset(locationJson).offset
+}
 
 internal data class StoredOffset(
     val offset: Int,
@@ -287,73 +287,4 @@ internal fun parseStoredOffset(locationJson: String?): StoredOffset {
         ?.groupValues
         ?.getOrNull(1)
     return StoredOffset(offset, space)
-}
-
-data class ReaderUiState(
-    val requestedBookId: String = "",
-    val isLoading: Boolean = false,
-    val errorMessage: String? = null,
-    val loadedBook: ReaderLoadedBook? = null,
-) {
-    val isReady: Boolean
-        get() = loadedBook != null && !isLoading && errorMessage == null
-}
-
-// ── 章节加载结果 ─────────────────────────────────────────────
-sealed interface ChapterLoadResult {
-    data class Loading(val bookId: String, val chapterIndex: Int) : ChapterLoadResult
-    data class Loaded(val bookId: String, val chapterIndex: Int, val blocks: List<DocBlock>) : ChapterLoadResult
-    data class Error(val bookId: String, val chapterIndex: Int, val message: String) : ChapterLoadResult
-}
-
-// ── TXT 规则扫描结果 ─────────────────────────────────────────
-data class TxtRuleScanResult(
-    val ruleId: String,
-    val fileIndex: TxtFileIndex? = null,
-    val document: PlainTextDocument? = null,
-    val error: String? = null,
-)
-
-sealed interface ReaderAction {
-    // ── 文档协调 ──
-    data class OpenBook(val bookId: String) : ReaderAction
-    data object Retry : ReaderAction
-    data class LoadChapter(val bookId: String, val chapterIndex: Int) : ReaderAction
-    data class ScanTxtTocRule(val filePath: String, val ruleId: String) : ReaderAction
-
-    // ── UI 状态变更 ──
-    data class ToggleControls(val visible: Boolean? = null) : ReaderAction
-    data class OpenSheet(val sheet: ReaderSheet) : ReaderAction
-    data object CloseSheet : ReaderAction
-    data class SetSelectedText(val text: String, val rangeStart: Int, val globalOffset: Int) : ReaderAction
-    data object ClearSelection : ReaderAction
-    data class SetShowTts(val show: Boolean) : ReaderAction
-    data class SetSearchQuery(val query: String) : ReaderAction
-    data class SetShowOverflow(val show: Boolean) : ReaderAction
-    data class SetNoteOpen(val open: Boolean) : ReaderAction
-    data class SetNoteBody(val body: String) : ReaderAction
-    data object ToggleColorRow : ReaderAction
-    data class SetSheetOpenGuard(val guard: Boolean) : ReaderAction
-
-    // ── 数据写入 ──
-    data class SaveHighlight(val highlight: HighlightEntity) : ReaderAction
-    data class DeleteHighlight(val highlightId: String) : ReaderAction
-    data class UpdateHighlightColor(val highlightId: String, val color: String) : ReaderAction
-    data class UpdateHighlightNote(val highlightId: String, val note: String) : ReaderAction
-    data class SaveNote(val note: NoteEntity) : ReaderAction
-    data class DeleteNote(val noteId: String) : ReaderAction
-    data class AddBookmark(val bookId: String, val offset: Int, val title: String) : ReaderAction
-    data class ConvertHighlightToNote(val highlightId: String) : ReaderAction
-    data class ConvertHighlightToInspiration(val highlightId: String) : ReaderAction
-    data class SaveInspiration(val inspiration: InspirationEntity) : ReaderAction
-    data class CreateCategory(val name: String) : ReaderAction
-    data class CreateTag(val name: String) : ReaderAction
-    data class SaveProgress(val progress: ReadingProgressEntity) : ReaderAction
-    data class SaveEpubProgress(val bookId: String, val chapterIndex: Int, val percent: Float, val offsetInChapter: Int = 0) : ReaderAction
-    data class DeleteBook(val bookId: String) : ReaderAction
-
-    // ── 设置 ──
-    data class LoadTxtTocRule(val bookId: String) : ReaderAction
-    data class SaveTxtTocRule(val bookId: String, val ruleId: String) : ReaderAction
-    data class SaveTtsResume(val bookId: String, val chapterIndex: Int, val offset: Int) : ReaderAction
 }

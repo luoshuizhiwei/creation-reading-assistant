@@ -174,7 +174,7 @@ internal fun rememberPagerEngineState(
                 MarkdownChapterSource(markdownDocument)
 
             txtStreamingDocument != null && txtChapters.isNotEmpty() ->
-                TxtChapterSource(txtStreamingDocument)
+                TxtChapterSource(txtStreamingDocument!!)
 
             plainContent.isNotBlank() && txtChapters.isNotEmpty() ->
                 TxtChapterSource(plainContent, txtChapters)

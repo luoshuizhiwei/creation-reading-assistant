@@ -12,6 +12,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.AnnotatedString
@@ -24,6 +25,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.MarkdownBlock
@@ -34,10 +36,19 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.ui.viewmodel.InspirationPayloadData
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import kotlinx.serialization.json.Json
-import java.time.Instant
 
-/** 时间戳 ISO-8601 字符串。 */
-internal fun nowIso(): String = Instant.now().toString()
+/** 时间戳 ISO-8601 字符串（委托 ui/util 公共实现）。 */
+internal fun nowIso(): String = com.creationreadingassistant.ui.util.nowIso()
+
+/**
+ * 按自定义字体路径解析正文 [FontFamily]（空 = 系统字体）。
+ * 加载失败回退 [FontFamily.Default]，阅读器各渲染路径共用同一个入口。
+ */
+@Composable
+internal fun rememberReaderFontFamily(customFontPath: String): FontFamily = remember(customFontPath) {
+    if (customFontPath.isBlank()) FontFamily.Default
+    else ReaderFontManager.loadTypeface(customFontPath)?.let { FontFamily(it) } ?: FontFamily.Default
+}
 
 /** 按阅读进度百分比推算最接近的章节索引（SE4 兜底定位用）。 */
 internal fun progressToChapterIndex(book: EpubBook, progressPercent: Float?): Int {
@@ -47,14 +58,9 @@ internal fun progressToChapterIndex(book: EpubBook, progressPercent: Float?): In
     return ((progressPercent / 100f * size - 1).toInt()).coerceIn(0, size - 1)
 }
 
-/** 毫秒格式化为「X 小时 Y 分」（对照 web formatDuration）。 */
-internal fun formatDuration(ms: Long): String {
-    val totalMin = (ms / 60_000).toInt()
-    if (totalMin <= 0) return "不到 1 分钟"
-    val h = totalMin / 60
-    val m = totalMin % 60
-    return if (h > 0) "${h} 小时 ${m} 分" else "${m} 分"
-}
+/** 毫秒时长格式化（委托 ui/util 公共实现，输出「天/小时/分钟」统一格式）。 */
+internal fun formatDuration(ms: Long): String =
+    com.creationreadingassistant.ui.util.formatDuration(ms)
 
 /** 构造标准灵感 payload，确保 InspirationViewModel 能正确解析来源（全字段对齐网页 I5）。 */
 internal fun buildInspirationPayload(
@@ -317,6 +323,7 @@ fun RenderMarkdownChapter(
     ttsSentenceRange: Pair<Int, Int>? = null,
     sentenceHighlightBg: Color = Color.Transparent,
     onSelectBlock: ((String, Int) -> Unit)? = null,
+    fontFamily: FontFamily = FontFamily.Default,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -325,7 +332,7 @@ fun RenderMarkdownChapter(
         chapter.blocks.forEach { block ->
             RenderMarkdownBlock(
                 block, fontSize, lineHeight, paperFg,
-                blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock,
+                blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock, fontFamily,
             )
         }
     }
@@ -342,6 +349,7 @@ private fun RenderMarkdownBlock(
     ttsSentenceRange: Pair<Int, Int>? = null,
     sentenceHighlightBg: Color = Color.Transparent,
     onSelectBlock: ((String, Int) -> Unit)? = null,
+    fontFamily: FontFamily = FontFamily.Default,
 ) {
     val gOff = if (blockGlobalOffset >= 0) blockGlobalOffset + block.canonicalRange.start else -1
     when (block) {
@@ -358,6 +366,7 @@ private fun RenderMarkdownBlock(
                 fontWeight = FontWeight.Bold,
                 color = paperFg,
                 lineHeight = (fontSize * scale * lineHeight).sp,
+                fontFamily = fontFamily,
                 modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)
                     .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(extractInlineText(block.inlines), gOff) } else Modifier),
             )
@@ -371,6 +380,7 @@ private fun RenderMarkdownBlock(
                 fontSize = fontSize.sp,
                 color = paperFg,
                 lineHeight = (fontSize * lineHeight).sp,
+                fontFamily = fontFamily,
                 modifier = Modifier.fillMaxWidth()
                     .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(extractInlineText(block.inlines), gOff) } else Modifier),
             )
@@ -425,7 +435,7 @@ private fun RenderMarkdownBlock(
                     .padding(start = 16.dp),
             ) {
                 block.blocks.forEach {
-                    RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock)
+                    RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock, fontFamily)
                 }
             }
         }
@@ -433,7 +443,7 @@ private fun RenderMarkdownBlock(
             Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp)) {
                 block.items.forEach { item ->
                     item.forEach {
-                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock)
+                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock, fontFamily)
                     }
                 }
             }
@@ -442,7 +452,7 @@ private fun RenderMarkdownBlock(
             Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp)) {
                 block.items.forEachIndexed { _, item ->
                     item.forEach {
-                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock)
+                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock, fontFamily)
                     }
                 }
             }
@@ -451,7 +461,7 @@ private fun RenderMarkdownBlock(
             Column(modifier = Modifier.fillMaxWidth().padding(start = 16.dp)) {
                 block.items.forEach { taskItem ->
                     taskItem.blocks.forEach {
-                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock)
+                        RenderMarkdownBlock(it, fontSize, lineHeight, paperFg, blockGlobalOffset, chapterBase, ttsSentenceRange, sentenceHighlightBg, onSelectBlock, fontFamily)
                     }
                 }
             }
@@ -468,7 +478,7 @@ private fun RenderMarkdownBlock(
                 if (block.header.isNotEmpty()) {
                     Row(modifier = Modifier.fillMaxWidth()) {
                         block.header.forEach { cell ->
-                            TableCellContent(cell, fontSize, lineHeight, paperFg, bold = true)
+                            TableCellContent(cell, fontSize, lineHeight, paperFg, bold = true, fontFamily = fontFamily)
                         }
                     }
                     HorizontalDivider(color = paperFg.copy(alpha = 0.3f))
@@ -477,7 +487,7 @@ private fun RenderMarkdownBlock(
                 block.rows.forEach { row ->
                     Row(modifier = Modifier.fillMaxWidth()) {
                         row.forEach { cell ->
-                            TableCellContent(cell, fontSize, lineHeight, paperFg, bold = false)
+                            TableCellContent(cell, fontSize, lineHeight, paperFg, bold = false, fontFamily = fontFamily)
                         }
                     }
                     HorizontalDivider(color = paperFg.copy(alpha = 0.12f))
@@ -494,6 +504,7 @@ private fun TableCellContent(
     lineHeight: Float,
     paperFg: Color,
     bold: Boolean,
+    fontFamily: FontFamily = FontFamily.Default,
 ) {
     val textAlign = when (cell.alignment) {
         MarkdownBlock.Table.TableAlignment.LEFT -> TextAlign.Left
@@ -509,6 +520,7 @@ private fun TableCellContent(
         textAlign = textAlign,
         color = paperFg,
         lineHeight = (fontSize * 0.85 * lineHeight).sp,
+        fontFamily = fontFamily,
         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
     )
 }

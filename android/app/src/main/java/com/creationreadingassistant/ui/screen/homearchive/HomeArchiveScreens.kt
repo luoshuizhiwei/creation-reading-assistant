@@ -52,9 +52,9 @@ import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.shelf.bookNotReadyLabel
 import com.creationreadingassistant.ui.screen.shelf.BookActionSheet
+import com.creationreadingassistant.ui.viewmodel.BookOperationsViewModel
 import com.creationreadingassistant.ui.viewmodel.CompletedArchiveItem
 import com.creationreadingassistant.ui.viewmodel.HomeArchiveViewModel
-import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
 import java.time.Instant
 import java.time.ZoneId
 
@@ -119,7 +119,7 @@ fun HomeInspirationDetailRoute(
 fun HomeCompletedRoute(
     navController: NavHostController,
     archiveViewModel: HomeArchiveViewModel = hiltViewModel(),
-    shelfViewModel: ShelfViewModel = hiltViewModel(),
+    bookOps: BookOperationsViewModel = hiltViewModel(),
 ) {
     val state by archiveViewModel.uiState.collectAsStateWithLifecycle()
     var query by rememberSaveable { mutableStateOf("") }
@@ -129,7 +129,7 @@ fun HomeCompletedRoute(
     var repairBookId by remember { mutableStateOf<String?>(null) }
     val repairLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val id = repairBookId
-        if (uri != null && id != null) shelfViewModel.reselectFile(id, uri) {}
+        if (uri != null && id != null) bookOps.reselectFile(id, uri) {}
         repairBookId = null
     }
     val visible = remember(state.completedBooks, query, sort) {
@@ -169,7 +169,7 @@ fun HomeCompletedRoute(
                 managedBook = null
                 if (bookNotReadyLabel(it) == null) navController.navigate("reader/${it.id}")
             },
-            onDownload = { shelfViewModel.downloadBookContent(it.id) {}; managedBook = null },
+            onDownload = { bookOps.downloadBookContent(it.id) {}; managedBook = null },
             onRepair = {
                 managedBook = null
                 repairBookId = it.id
@@ -186,7 +186,7 @@ fun HomeCompletedRoute(
             title = { Text("删除书籍？") },
             text = { Text("本地正文、阅读进度、笔记和灵感关联数据会一并移除，此操作不可撤销。") },
             confirmButton = {
-                TextButton(onClick = { deletePrompt = null; shelfViewModel.deleteBook(deleting.id) }) {
+                TextButton(onClick = { deletePrompt = null; bookOps.deleteBook(deleting.id) }) {
                     Text("删除", color = MaterialTheme.colorScheme.error)
                 }
             },

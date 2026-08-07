@@ -51,6 +51,18 @@ internal fun AiSettingsSubPage(
                 DegradedNote("手机端 AI Key 已持久化在应用本地沙箱，不会跨设备同步，也不参与 WebDAV 同步或数据导出；配置 OpenAI-compatible 接口后，灵感详情页可一键生成 AI 候选版本。")
             }
         }
+        // 非加密 http 接口的一次性警示（不拦截请求，仅提示风险）
+        state.aiHttpWarning?.let { warning ->
+            item {
+                Box(Modifier.fillMaxWidth().animateEnter(reducedMotion = reducedMotion)) {
+                    Text(
+                        warning,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
         item {
             SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {

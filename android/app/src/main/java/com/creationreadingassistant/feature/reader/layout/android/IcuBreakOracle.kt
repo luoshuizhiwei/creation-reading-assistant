@@ -28,7 +28,7 @@ class IcuBreakOracle : BreakOracle {
             out[0] = true
             return out
         }
-        val it = requireNotNull(iterator.get()) { "ThreadLocal BreakIterator 未初始化（应有初值）" }
+        val it = iterator.get()!!
         it.setText(text)
         var p = it.first()
         while (p != BreakIterator.DONE) {

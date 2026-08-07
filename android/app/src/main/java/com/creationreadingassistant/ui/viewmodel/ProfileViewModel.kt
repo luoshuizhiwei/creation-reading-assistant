@@ -5,12 +5,6 @@ import android.net.Uri
 import androidx.compose.runtime.Stable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.creationreadingassistant.data.local.dao.BookContentDao
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
@@ -19,6 +13,8 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.feature.sync.PairingManager
+import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.WebDavBackup
@@ -136,12 +132,8 @@ class ProfileViewModel @Inject constructor(
     private val webDavConfigStore: WebDavConfigStore,
     private val webDavBackup: WebDavBackup,
     private val aiClient: AiClient,
-    private val bookDao: BookDao,
-    readingProgressDao: ReadingProgressDao,
-    readingSessionDao: ReadingSessionDao,
-    noteDao: NoteDao,
-    inspirationDao: InspirationDao,
-    bookContentDao: BookContentDao,
+    private val bookRepository: BookRepository,
+    private val statsRepository: StatsRepository,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -149,7 +141,7 @@ class ProfileViewModel @Inject constructor(
     private val syncEngine = ProfileSyncEngine(
         syncRepository = syncRepository,
         configStore = configStore,
-        bookDao = bookDao,
+        bookRepository = bookRepository,
     )
 
     private val webDavManager = ProfileWebDavManager(
@@ -159,10 +151,10 @@ class ProfileViewModel @Inject constructor(
     )
 
     private val readingArchive = combine(
-        bookDao.observeAllActive(),
-        readingProgressDao.observeAllActive(),
-        readingSessionDao.observeAllActive(),
-        noteDao.observeAllActive(),
+        bookRepository.observeBooks(),
+        bookRepository.observeProgress(),
+        bookRepository.observeSessions(),
+        bookRepository.observeNotes(),
     ) { books, progress, sessions, notes ->
         ProfileReadingArchive(
             books = books,
@@ -177,8 +169,8 @@ class ProfileViewModel @Inject constructor(
         .flowOn(defaultDispatcher)
 
     private val cacheSummary = combine(
-        bookContentDao.observeCachedCount(),
-        bookContentDao.observeCachedBytes(),
+        bookRepository.observeCachedCount(),
+        bookRepository.observeCachedBytes(),
     ) { count, bytes ->
         ProfileCacheSummary(count = count, bytes = bytes)
     }.distinctUntilChanged()
@@ -211,9 +203,9 @@ class ProfileViewModel @Inject constructor(
      * 存储等子页查询（子页数据由 [libraryState] 在对应子页打开后单独加载）。
      */
     val homeSummary: StateFlow<ProfileHomeSummary> = combine(
-        readingSessionDao.observeStatsRows(),
-        readingProgressDao.observeStatsRows(),
-        inspirationDao.observeStatsCreatedRows(),
+        statsRepository.observeStatsSessions(),
+        statsRepository.observeStatsProgress(),
+        statsRepository.observeStatsInspirations(),
     ) { sessions, progress, inspirations ->
         ProfileHomeSummary(
             totalDurationMs = sessions.sumOf { it.duration_ms },
@@ -445,6 +437,9 @@ class ProfileViewModel @Inject constructor(
     // ---- AI 连接测试 ----
     private val _aiMsg = MutableStateFlow<String?>(null)
     val aiMsg: StateFlow<String?> = _aiMsg.asStateFlow()
+
+    /** 非加密 http AI 接口的一次性警示（由 AiClient 暴露，AI 设置页展示，不拦截请求）。 */
+    val aiHttpWarning: StateFlow<String?> = aiClient.insecureHttpWarning
 
     fun testAi() {
         viewModelScope.launch(ioDispatcher) {

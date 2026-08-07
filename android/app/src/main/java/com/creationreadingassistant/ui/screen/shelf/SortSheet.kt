@@ -9,12 +9,12 @@ import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -31,7 +31,11 @@ internal val SORT_OPTIONS = listOf(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SortSheet(current: ShelfSortMode, onSelect: (ShelfSortMode) -> Unit, onDismiss: () -> Unit) {
-    GlassModalBottomSheet(
+    // 排序下拉仅 4 个选项，属轻量菜单；去掉玻璃窗口模糊（GlassModalBottomSheet 的
+    // glassWindowBlur 会在弹层进场/退场动画期间对整窗实时模糊，在 Redmi 设备上造成
+    // 140ms+ 的 GPU 阻塞掉帧，详见 results/shelf-sort-performance-report.md §7）。
+    // 其余视觉/行为与普通 ModalBottomSheet 完全一致。
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
         shape = LocalComponentSpec.current.sheetShape,

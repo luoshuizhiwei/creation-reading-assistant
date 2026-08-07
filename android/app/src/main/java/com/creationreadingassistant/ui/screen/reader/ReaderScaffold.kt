@@ -51,6 +51,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.doc.ReadingUnitCache
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
@@ -74,11 +75,13 @@ import kotlinx.coroutines.CoroutineScope
  * 行为保真要点：
  * - 已被拆出的状态对象（[ReaderProgressState] / [ReaderDerivedState] / [PagerEngineState]）原样透传，
  *   内部按原 `progressState.xxx` / `derived.xxx` / `pagerEngine.xxx` 解构，零改动。
- * - 被块内写到的可变 var（controlsVisible / autoPagingActive / runtimeError / pagedAbsOffset /
- *   pagedPercent / pendingInitialPosition / showTts / selectedText / selectedGlobalOffset /
- *   selectedRangeStart / sheet / noteOpen / showReaderOverflow / showColorRow / searchQuery /
- *   txtTocRuleId / pendingTxtRuleAnchorOffset / navFocusBlockIndex / pendingHighlightId）全部打包进
- *   [ReaderScreenMutableHolders]，内部用 `var x by holders.xxxState` 重新委托，写操作直接落回
+ * - B2 后弹层/控件类 UI 状态（controlsVisible / showTts / selectedText / selectedGlobalOffset /
+ *   selectedRangeStart / sheet / noteOpen / showReaderOverflow / showColorRow / searchQuery）
+ *   不再持有本地副本，直接只读消费 inputs.screenState；写入全部经 onAction 回 VM。
+ *   剩余的会话局部可变 var（autoPagingActive / runtimeError / pagedAbsOffset /
+ *   pagedPercent / pendingInitialPosition / txtTocRuleId / pendingTxtRuleAnchorOffset /
+ *   navFocusBlockIndex / pendingHighlightId）仍打包在 [ReaderScreenMutableHolders]，
+ *   内部用 `var x by holders.xxxState` 重新委托，写操作直接落回
  *   ReaderScreen 持有的真实状态，与原 `var by` delegate 语义完全一致。
  * - context / scope / clipboard / onBack / onDocumentAction / onAction / onLoadChapterBlocks /
  *   pageIndexStore / highlights / bookTitle∘ 等从 inputs∘callbacks∘loadedBook 现场取，避免透传冗余。
@@ -86,19 +89,9 @@ import kotlinx.coroutines.CoroutineScope
  *   BoxScope.align 定位与调用顺序全部逐字保留，保证「显示菜单前后正文测量尺寸完全相同」。
  */
 internal data class ReaderScreenMutableHolders(
-    val controlsVisibleState: MutableState<Boolean>,
     val autoPagingActiveState: MutableState<Boolean>,
     val runtimeErrorState: MutableState<String?>,
     val pendingInitialPositionState: MutableState<Boolean>,
-    val showTtsState: MutableState<Boolean>,
-    val selectedTextState: MutableState<String>,
-    val selectedGlobalOffsetState: MutableState<Int>,
-    val selectedRangeStartState: MutableState<Int>,
-    val sheetValueState: MutableState<ReaderSheet?>,
-    val noteOpenState: MutableState<Boolean>,
-    val showReaderOverflowState: MutableState<Boolean>,
-    val showColorRowState: MutableState<Boolean>,
-    val searchQueryState: MutableState<String>,
     val txtTocRuleIdState: MutableState<String>,
     val pendingTxtRuleAnchorOffsetState: MutableIntState,
     val navFocusBlockIndexState: MutableState<Int?>,
@@ -106,52 +99,31 @@ internal data class ReaderScreenMutableHolders(
 )
 
 /**
- * 集中创建 [ReaderScreenMutableHolders] 的 17 个可变状态 holder，行为与原 ReaderScreen
+ * 集中创建 [ReaderScreenMutableHolders] 的会话局部可变状态 holder，行为与原 ReaderScreen
  * 内联的 `val xState = remember { ... }` 完全一致（key / 初始值 / 类型逐字保真）：
  * - runtimeError / pendingInitialPosition 以 `bookId` 为 remember key（与原文一致）；
  * - txtTocRuleId 以 `bid` 为 key，初始值来自 ViewModel 的 txtTocRuleIdFromVm；
- * - pendingHighlightId 初始值来自 inputs.highlightId；其余以 screenState 对应字段初始化。
- * 抽出后 ReaderScreen 仅保留 `var x by mutableHolders.xState` 重新委托，文件行数达验收线。
+ * - pendingHighlightId 初始值来自 inputs.highlightId。
+ * B2：弹层/控件类 UI 状态（原 10 个 holder）已改由 VM screenState 唯一持有，此处移除。
  */
 @Composable
 internal fun rememberReaderScreenMutableHolders(
-    screenState: ReaderScreenState,
     bookId: String?,
     bid: String,
     txtTocRuleIdFromVm: String,
     highlightId: String?,
 ): ReaderScreenMutableHolders {
-    val controlsVisibleState = remember { mutableStateOf(screenState.controlsVisible) }
     val autoPagingActiveState = remember { mutableStateOf(false) }
     val runtimeErrorState = remember(bookId) { mutableStateOf<String?>(null) }
     val pendingInitialPositionState = remember(bookId) { mutableStateOf(true) }
-    val showTtsState = remember { mutableStateOf(screenState.showTts) }
-    val selectedTextState = remember { mutableStateOf(screenState.selectedText) }
-    val selectedGlobalOffsetState = remember { mutableStateOf(screenState.selectedGlobalOffset) }
-    val selectedRangeStartState = remember { mutableStateOf(screenState.selectedRangeStart) }
-    val sheetValueState = remember { mutableStateOf(screenState.sheet) }
-    val noteOpenState = remember { mutableStateOf(screenState.noteOpen) }
-    val showReaderOverflowState = remember { mutableStateOf(screenState.showReaderOverflow) }
-    val showColorRowState = remember { mutableStateOf(screenState.showColorRow) }
-    val searchQueryState = remember { mutableStateOf(screenState.searchQuery) }
     val txtTocRuleIdState = remember(bid) { mutableStateOf(txtTocRuleIdFromVm) }
     val pendingTxtRuleAnchorOffsetState = remember { mutableIntStateOf(-1) }
     val navFocusBlockIndexState = remember { mutableStateOf<Int?>(null) }
     val pendingHighlightIdState = remember { mutableStateOf(highlightId) }
     return ReaderScreenMutableHolders(
-        controlsVisibleState = controlsVisibleState,
         autoPagingActiveState = autoPagingActiveState,
         runtimeErrorState = runtimeErrorState,
         pendingInitialPositionState = pendingInitialPositionState,
-        showTtsState = showTtsState,
-        selectedTextState = selectedTextState,
-        selectedGlobalOffsetState = selectedGlobalOffsetState,
-        selectedRangeStartState = selectedRangeStartState,
-        sheetValueState = sheetValueState,
-        noteOpenState = noteOpenState,
-        showReaderOverflowState = showReaderOverflowState,
-        showColorRowState = showColorRowState,
-        searchQueryState = searchQueryState,
         txtTocRuleIdState = txtTocRuleIdState,
         pendingTxtRuleAnchorOffsetState = pendingTxtRuleAnchorOffsetState,
         navFocusBlockIndexState = navFocusBlockIndexState,
@@ -262,25 +234,28 @@ internal fun ReaderScaffold(
     val paperFg: Color = paper.fg
 
     // 可变 var 从 holder 重新委托：写操作直接落回 ReaderScreen 持有的真实状态。
-    var controlsVisible by holders.controlsVisibleState
     var autoPagingActive by holders.autoPagingActiveState
     var runtimeError by holders.runtimeErrorState
     var pagedAbsOffset by pagedAbsOffsetState
     var pagedPercent by pagedPercentState
     var pendingInitialPosition by holders.pendingInitialPositionState
-    var showTts by holders.showTtsState
-    var selectedText by holders.selectedTextState
-    var selectedGlobalOffset by holders.selectedGlobalOffsetState
-    var selectedRangeStart by holders.selectedRangeStartState
-    var sheet by holders.sheetValueState
-    var noteOpen by holders.noteOpenState
-    var showReaderOverflow by holders.showReaderOverflowState
-    var showColorRow by holders.showColorRowState
-    var searchQuery by holders.searchQueryState
     var txtTocRuleId by holders.txtTocRuleIdState
     var pendingTxtRuleAnchorOffset by holders.pendingTxtRuleAnchorOffsetState
     var navFocusBlockIndex by holders.navFocusBlockIndexState
     var pendingHighlightId by holders.pendingHighlightIdState
+
+    // B2：弹层/控件类 UI 状态直接只读消费 VM 的 screenState（唯一真源），不再持有本地副本。
+    val screenState = inputs.screenState
+    val controlsVisible = screenState.controlsVisible
+    val showTts = screenState.showTts
+    val selectedText = screenState.selectedText
+    val selectedGlobalOffset = screenState.selectedGlobalOffset
+    val selectedRangeStart = screenState.selectedRangeStart
+    val sheet = screenState.sheet
+    val noteOpen = screenState.noteOpen
+    val showReaderOverflow = screenState.showReaderOverflow
+    val showColorRow = screenState.showColorRow
+    val searchQuery = screenState.searchQuery
 
     ReaderPaperTheme(paper) {
     Scaffold(
@@ -337,66 +312,72 @@ internal fun ReaderScaffold(
 
                 else -> ReaderContentHost(
                     state = buildReaderContentHostState(
-                        pagerEngineOn = pagerEngineOn,
-                        pagedSource = pagedSource,
-                        readerSettings = readerSettings,
-                        paper = paper,
-                        paperFg = paperFg,
-                        bid = bid,
-                        txtTocRuleId = txtTocRuleId,
-                        bookTitle = bookTitle,
-                        chapterStartOffsets = chapterStartOffsets,
-                        savedEpubOffsetInChapter = savedEpubOffsetInChapter,
-                        visiblePlainOffset = visiblePlainOffset,
-                        savedPlainOffset = savedPlainOffset,
-                        savedPlainPercent = savedPlainPercent,
-                        txtStreamingDocument = txtStreamingDocument,
-                        plainContent = plainContent,
-                        pagedAbsOffset = pagedAbsOffset,
-                        pagedPercent = pagedPercent,
-                        pendingInitialPosition = pendingInitialPosition,
-                        epubBook = epubBook,
-                        markdownDocument = markdownDocument,
-                        chapterIndex = chapterIndex,
-                        txtChapterIndex = txtChapterIndex,
-                        isChapterLoading = isChapterLoading,
-                        chapterBlocks = chapterBlocks,
-                        epubListState = epubListState,
-                        plainListState = plainListState,
-                        chapterFade = chapterFade,
-                        blockGlobalOffsets = blockGlobalOffsets,
-                        chapterBase = chapterBase,
-                        ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
-                        focusBlockIndex = focusBlockIndex,
-                        sentenceHighlightBg = sentenceHighlightBg,
-                        epubBringRequester = epubBringRequester,
-                        readingUnits = readingUnits,
-                        isTxt = isTxt,
-                        showTts = showTts,
-                        tts = tts,
-                        selectedText = selectedText,
-                        selectedGlobalOffset = selectedGlobalOffset,
-                        selectedRangeStart = selectedRangeStart,
-                        autoPagingActive = autoPagingActive,
-                        autoPagingPaused = autoPagingPaused,
-                        pagedJumpRequest = pagedJumpRequest,
-                        pagedHardwareTurnRequest = pagedHardwareTurnRequest,
-                        unitCache = unitCache,
-                        pageIndexStore = pageIndexStore,
-                        highlights = highlights,
+                        // B1 状态袋瘦身：按域组装 4 个分组对象，字段值与原平铺传参 1:1。
+                        settings = ReaderContentSettings(
+                            readerSettings = readerSettings,
+                            paper = paper,
+                            paperFg = paperFg,
+                            sentenceHighlightBg = sentenceHighlightBg,
+                        ),
+                        selection = ReaderSelectionState(
+                            selectedText = selectedText,
+                            selectedGlobalOffset = selectedGlobalOffset,
+                            selectedRangeStart = selectedRangeStart,
+                        ),
+                        paging = ReaderPagingState(
+                            pagerEngineOn = pagerEngineOn,
+                            pagedSource = pagedSource,
+                            pagedAbsOffset = pagedAbsOffset,
+                            pagedPercent = pagedPercent,
+                            pendingInitialPosition = pendingInitialPosition,
+                            savedEpubOffsetInChapter = savedEpubOffsetInChapter,
+                            visiblePlainOffset = visiblePlainOffset,
+                            savedPlainOffset = savedPlainOffset,
+                            savedPlainPercent = savedPlainPercent,
+                            autoPagingActive = autoPagingActive,
+                            autoPagingPaused = autoPagingPaused,
+                            pagedJumpRequest = pagedJumpRequest,
+                            pagedHardwareTurnRequest = pagedHardwareTurnRequest,
+                            pageIndexStore = pageIndexStore,
+                            pageIndexManager = callbacks.pageIndexManager,
+                        ),
+                        source = ReaderContentSourceState(
+                            bid = bid,
+                            txtTocRuleId = txtTocRuleId,
+                            bookTitle = bookTitle,
+                            chapterStartOffsets = chapterStartOffsets,
+                            txtStreamingDocument = txtStreamingDocument,
+                            plainContent = plainContent,
+                            epubBook = epubBook,
+                            markdownDocument = markdownDocument,
+                            chapterIndex = chapterIndex,
+                            txtChapterIndex = txtChapterIndex,
+                            isChapterLoading = isChapterLoading,
+                            chapterBlocks = chapterBlocks,
+                            epubListState = epubListState,
+                            plainListState = plainListState,
+                            chapterFade = chapterFade,
+                            blockGlobalOffsets = blockGlobalOffsets,
+                            chapterBase = chapterBase,
+                            ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
+                            focusBlockIndex = focusBlockIndex,
+                            epubBringRequester = epubBringRequester,
+                            readingUnits = readingUnits,
+                            isTxt = isTxt,
+                            showTts = showTts,
+                            tts = tts,
+                            unitCache = unitCache,
+                            highlights = highlights,
+                        ),
                     ),
                 callbacks = buildReaderContentHostCallbacks(
-                    controlsVisibleState = holders.controlsVisibleState,
-                        onControlsVisibleChange = { controlsVisible = it },
-                        onPagedAbsOffsetChange = { pagedAbsOffset = it },
-                        onPagedPercentChange = { pagedPercent = it },
-                        onPendingInitialPositionChange = { pendingInitialPosition = it },
-                        onSelectedTextChange = { selectedText = it },
-                        onSelectedGlobalOffsetChange = { selectedGlobalOffset = it },
-                        onSelectedRangeStartChange = { selectedRangeStart = it },
-                        onAutoPagingActiveChange = { autoPagingActive = it },
-                        goToChapter = goToChapter,
-                        showNotice = showNotice,
+                    onAction = onAction,
+                    onPagedAbsOffsetChange = { pagedAbsOffset = it },
+                    onPagedPercentChange = { pagedPercent = it },
+                    onPendingInitialPositionChange = { pendingInitialPosition = it },
+                    onAutoPagingActiveChange = { autoPagingActive = it },
+                    goToChapter = goToChapter,
+                    showNotice = showNotice,
                     ),
                 )
             }
@@ -426,22 +407,12 @@ internal fun ReaderScaffold(
                     chapterIndex = chapterIndex,
                     settingsVm = settingsVm,
                     tts = tts,
-                    showColorRow = showColorRow,
                     selectedText = selectedText,
                     bid = bid,
                     currentChapterTitle = currentChapterTitle,
                     progressPercent = progressPercent,
                     clipboard = clipboard,
                     onAction = onAction,
-                    onShowReaderOverflowChange = { showReaderOverflow = it },
-                    onShowTtsChange = { showTts = it },
-                    onShowColorRowChange = { showColorRow = it },
-                    onSheetChange = { sheet = it },
-                    onNoteOpenChange = { noteOpen = it },
-                    onSearchQueryChange = { searchQuery = it },
-                    onSelectedTextChange = { selectedText = it },
-                    onSelectedGlobalOffsetChange = { selectedGlobalOffset = it },
-                    onSelectedRangeStartChange = { selectedRangeStart = it },
                     handleChromeAction = handleChromeAction,
                     seekToChapterPercent = seekToPercent,
                     goToChapter = goToChapter,
@@ -511,9 +482,6 @@ internal fun ReaderScaffold(
                     bookAuthor = bookAuthor,
                     recentChapters = recentChapters,
                     pagedJumpRequest = pagedJumpRequest,
-                    onSheetChange = { sheet = it },
-                    onSearchQueryChange = { searchQuery = it },
-                    onSelectedTextChange = { selectedText = it },
                     onTxtTocRuleIdChange = { txtTocRuleId = it },
                     onPendingTxtRuleAnchorOffsetChange = { pendingTxtRuleAnchorOffset = it },
                     onNavFocusBlockIndexChange = { navFocusBlockIndex = it },

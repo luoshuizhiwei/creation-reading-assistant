@@ -4,6 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.layout.BreakOracle
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
@@ -214,7 +215,7 @@ class PagedReaderController(
             endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
             firstPageReadyTraceActive = false
             val readyEndNs = SystemClock.elapsedRealtimeNanos()
-            android.util.Log.d("TxtPerfTrace", "TxtFirstPageReady: ${(readyEndNs - firstPageReadyStartNs) / 1_000_000} ms")
+            AppLog.debug("TxtPerfTrace", "TxtFirstPageReady: ${(readyEndNs - firstPageReadyStartNs) / 1_000_000} ms")
         }
 
         prefetchNeighbors(chIdx)
@@ -253,7 +254,7 @@ class PagedReaderController(
                                     Trace.endSection()
                                 }
                                 val chapterEndNs = SystemClock.elapsedRealtimeNanos()
-                                android.util.Log.d("TxtPerfTrace", "TxtChapterRead: ${(chapterEndNs - chapterStartNs) / 1_000_000} ms")
+                                AppLog.debug("TxtPerfTrace", "TxtChapterRead: ${(chapterEndNs - chapterStartNs) / 1_000_000} ms")
                                 chapter
                             } else {
                                 source.loadChapter(chIdx)
@@ -270,7 +271,7 @@ class PagedReaderController(
                                     Trace.endSection()
                                 }
                                 val layoutEndNs = SystemClock.elapsedRealtimeNanos()
-                                android.util.Log.d("TxtPerfTrace", "TxtFirstPageLayout: ${(layoutEndNs - layoutStartNs) / 1_000_000} ms")
+                                AppLog.debug("TxtPerfTrace", "TxtFirstPageLayout: ${(layoutEndNs - layoutStartNs) / 1_000_000} ms")
                                 pages
                             } else {
                                 ChapterPaginator.paginateBlocks(loaded.blocks, cfg, ruler, oracle)

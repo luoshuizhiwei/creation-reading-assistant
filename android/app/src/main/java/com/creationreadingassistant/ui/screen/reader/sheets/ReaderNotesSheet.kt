@@ -64,6 +64,7 @@ internal fun NotesSheet(
     onHighlightToNote: (HighlightEntity) -> Unit,
     onHighlightToInspiration: (HighlightEntity) -> Unit,
     onJumpToHighlight: (HighlightEntity) -> Unit,
+    onJumpToBookmark: (NoteEntity) -> Unit,
     onExportHighlights: () -> Unit,
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
@@ -175,6 +176,7 @@ internal fun NotesSheet(
                                 Text(n.title, fontWeight = FontWeight.Bold)
                                 n.excerpt?.let { Text(it.take(50), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.outline) }
                             }
+                            TextButton(onClick = { onJumpToBookmark(n) }) { Text("跳转") }
                             IconButton(onClick = { onDeleteNote(n) }) { Icon(Icons.Outlined.Delete, contentDescription = "删除") }
                         }
                     }

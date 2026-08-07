@@ -65,7 +65,7 @@ internal fun rememberReaderDerivedState(
     val readingUnits: List<ReadingUnit> = remember(plainContent, txtStreamingDocument, txtStreamingFileIndex) {
         when {
             txtStreamingDocument != null -> {
-                ReadingUnitBuilder.buildUnits(txtStreamingDocument.chapters, txtStreamingFileIndex)
+                ReadingUnitBuilder.buildUnits(txtStreamingDocument!!.chapters, txtStreamingFileIndex)
             }
             plainContent.isNotEmpty() -> {
                 // 小文件：复用现有 chunkPlainText 的结果

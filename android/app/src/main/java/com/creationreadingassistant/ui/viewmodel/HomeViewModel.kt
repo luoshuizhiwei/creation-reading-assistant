@@ -2,27 +2,32 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.data.repository.StatsRepository
+import com.creationreadingassistant.data.repository.coarseLowerIso
+import com.creationreadingassistant.data.repository.epochDayOf
+import com.creationreadingassistant.data.repository.startEpochSecondOf
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
-import java.time.ZoneId
 import javax.inject.Inject
 import kotlin.math.exp
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 data class HomeUiState(
@@ -52,7 +57,8 @@ private data class HomeSource(
 class HomeViewModel @Inject constructor(
     repository: BookRepository,
     continueReadingStore: ContinueReadingStore,
-    inspirationDao: InspirationDao,
+    inspirationRepository: InspirationRepository,
+    private val statsRepository: StatsRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -65,12 +71,24 @@ class HomeViewModel @Inject constructor(
         HomeSource(books, progress, sessions, removedIds)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
     val uiState: StateFlow<HomeUiState> = combine(
         source,
-        inspirationDao.observeAllActive(),
+        inspirationRepository.observeAllActive(),
     ) { input, inspirations ->
-        buildHomeUiState(input, inspirations)
+        HomeAggregationInput(input, inspirations)
     }
+        .mapLatest { (input, inspirations) ->
+            // 总时长/今日时长下推为 SQL SUM，不再逐行 Instant.parse；
+            // 边界每次发射现算，与旧实现的逐次重算语义一致。
+            val todayStart = startEpochSecondOf(LocalDate.now())
+            val tomorrowStart = startEpochSecondOf(LocalDate.now().plusDays(1))
+            val totalReadingMs = statsRepository.sumAllActiveDuration()
+            val todayReadingMs = statsRepository.sumOccurredDurationBetween(
+                todayStart, tomorrowStart, coarseLowerIso(todayStart),
+            )
+            buildHomeUiState(input, inspirations, totalReadingMs, todayReadingMs)
+        }
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
         .stateIn(
@@ -80,13 +98,19 @@ class HomeViewModel @Inject constructor(
         )
 }
 
+private data class HomeAggregationInput(
+    val source: HomeSource,
+    val inspirations: List<InspirationEntity>,
+)
+
 private fun buildHomeUiState(
     input: HomeSource,
     inspirations: List<InspirationEntity>,
+    totalReadingMs: Long,
+    todayReadingMs: Long,
 ): HomeUiState {
     val progressById = input.progress.associateBy { it.book_id }
     val sessionsByBook = input.sessions.groupBy { it.book_id }
-    val today = LocalDate.now()
     val weekStart = LocalDate.now().minusDays(LocalDate.now().dayOfWeek.value.toLong() - 1).toEpochDay()
     val nowDay = LocalDate.now().toEpochDay()
 
@@ -123,10 +147,8 @@ private fun buildHomeUiState(
         readingCount = input.books.count {
             it.isDisplayable() && progressById[it.id]?.completion_state == "reading"
         },
-        totalReadingMs = input.sessions.sumOf { it.duration_ms },
-        todayReadingMs = input.sessions
-            .filter { epochDayOf(it.started_at ?: it.created_at) == today.toEpochDay() }
-            .sumOf { it.duration_ms },
+        totalReadingMs = totalReadingMs,
+        todayReadingMs = todayReadingMs,
         isReady = true,
     )
 }
@@ -149,13 +171,6 @@ private fun BookEntity.hasBeenRead(
     progress: ReadingProgressEntity?,
     sessions: List<ReadingSessionEntity>?,
 ): Boolean = (progress?.progress_percent ?: 0f) > 0f || sessions?.isNotEmpty() == true
-
-private fun epochDayOf(value: String?): Long {
-    if (value.isNullOrBlank()) return -1L
-    return runCatching {
-        Instant.parse(value).atZone(ZoneId.systemDefault()).toLocalDate().toEpochDay()
-    }.getOrDefault(-1L)
-}
 
 private fun buildContinueBooks(
     books: List<BookEntity>,

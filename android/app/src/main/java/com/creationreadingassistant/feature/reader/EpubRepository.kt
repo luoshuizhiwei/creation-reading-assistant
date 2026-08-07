@@ -188,14 +188,23 @@ class EpubRepository @Inject constructor(
         chapterIndex: Int,
         percent: Float,
         offsetInChapter: Int = 0,
+        absoluteOffset: Int = -1,
     ) {
         val now = Instant.now()
+        val legacyOffset = offsetInChapter.coerceAtLeast(0)
+        val globalOffset = if (absoluteOffset >= 0) absoluteOffset else legacyOffset
+        val currentLocationJson = com.creationreadingassistant.feature.reader.locator.LocatorBuilder.progressJson(
+            legacyOffset = legacyOffset,
+            chapterIndex = chapterIndex,
+            charOffset = legacyOffset,
+            globalOffset = globalOffset,
+            legacyChapter = chapterIndex,
+        )
         val incoming = ReadingProgressEntity(
             book_id = bookId,
             progress_percent = percent,
             completion_state = if (percent >= 99.9f) "finished" else "reading",
-            current_location_json =
-                """{"chapter":$chapterIndex,"offset":${offsetInChapter.coerceAtLeast(0)}}""",
+            current_location_json = currentLocationJson,
             updated_at = now.toString(),
         )
         readingProgressDao.upsert(
@@ -210,12 +219,16 @@ class EpubRepository @Inject constructor(
 
     suspend fun loadProgress(bookId: String): Int {
         val raw = readingProgressDao.getByBook(bookId)?.current_location_json ?: return 0
+        val v2 = com.creationreadingassistant.feature.reader.locator.LocatorCodec.locatorFromProgress(raw)
+        if (v2?.chapterIndex != null) return v2.chapterIndex
         val m = Regex("\"chapter\"\\s*:\\s*(\\d+)").find(raw)?.groupValues?.getOrNull(1)
         return m?.toIntOrNull() ?: 0
     }
 
     suspend fun loadProgressOffset(bookId: String): Int {
         val raw = readingProgressDao.getByBook(bookId)?.current_location_json ?: return 0
+        val v2 = com.creationreadingassistant.feature.reader.locator.LocatorCodec.locatorFromProgress(raw)
+        if (v2?.charOffset != null) return v2.charOffset.coerceAtLeast(0)
         val m = Regex("\"offset\"\\s*:\\s*(\\d+)").find(raw)?.groupValues?.getOrNull(1)
         return m?.toIntOrNull()?.coerceAtLeast(0) ?: 0
     }

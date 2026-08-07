@@ -129,35 +129,34 @@ fun HomeContinueSheet(
         sheetState = sheetState,
         modifier = Modifier.fillMaxHeight(0.92f),
     ) {
-        val ab = actionBook
         when {
-            ab != null -> ActionBookPage(
-                book = ab,
+            actionBook != null -> ActionBookPage(
+                book = actionBook!!,
                 onBack = { actionBook = null },
                 // H4：对齐网页「查看详情」→ 打开书籍详情面板（复用书架 BookDetailSheet）
                 onShowDetail = {
-                    val id = ab.id
+                    val id = actionBook!!.id
                     onDismiss()
                     navController.navigate("shelf/detail/$id")
                 },
                 onMarkRead = {
                     haptic(HapticFeedbackType.LongPress)
-                    viewModel.markRead(ab.id)
+                    viewModel.markRead(actionBook!!.id)
                     actionBook = null
                 },
                 onMarkUnread = {
-                    viewModel.markUnread(ab.id)
+                    viewModel.markUnread(actionBook!!.id)
                     actionBook = null
                 },
                 onRemoveFromContinue = {
-                    viewModel.removeFromContinue(ab.id)
+                    viewModel.removeFromContinue(actionBook!!.id)
                     actionBook = null
                 },
                 onShelve = {
-                    viewModel.shelve(ab.id)
+                    viewModel.shelve(actionBook!!.id)
                     actionBook = null
                 },
-                onDelete = { deleteTarget = ab; actionBook = null },
+                onDelete = { deleteTarget = actionBook; actionBook = null },
             )
             else -> ListPage(
                 items = items,
@@ -193,16 +192,15 @@ fun HomeContinueSheet(
         SnackbarHost(snackbarHostState)
     }
 
-    val dt = deleteTarget
-    if (dt != null) {
+    if (deleteTarget != null) {
         GlassAlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("删除书籍") },
-            text = { Text("确定从书架删除《${dt.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，此操作不可撤销。") },
+            text = { Text("确定从书架删除《${deleteTarget!!.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，此操作不可撤销。") },
             confirmButton = {
                 TextButton(
                     onClick = {
-                        viewModel.deleteBook(dt.id) {}
+                        viewModel.deleteBook(deleteTarget!!.id) {}
                         deleteTarget = null
                     },
                 ) { Text("删除", color = MaterialTheme.colorScheme.error) }

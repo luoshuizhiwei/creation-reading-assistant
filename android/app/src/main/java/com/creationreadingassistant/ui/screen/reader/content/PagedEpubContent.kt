@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextIndent
@@ -76,6 +77,7 @@ internal fun PagedEpubView(
     focusBlockIndex: Int?,
     sentenceHighlightBg: Color,
     bringRequester: BringIntoViewRequester,
+    fontFamily: FontFamily = FontFamily.Default,
 ) {
     val reducedMotion = rememberReducedMotion()
     val contentAlpha = remember { Animatable(1f) }
@@ -114,6 +116,7 @@ internal fun PagedEpubView(
                     focusBlockIndex = focusBlockIndex,
                     sentenceHighlightBg = sentenceHighlightBg,
                     bringRequester = bringRequester,
+                    fontFamily = fontFamily,
                 )
             }
             // 不在这里同时保留新旧整章 Composition。旧 AnimatedContent/Crossfade
@@ -195,6 +198,7 @@ internal fun PagedChapterContent(
     focusBlockIndex: Int?,
     sentenceHighlightBg: Color,
     bringRequester: BringIntoViewRequester,
+    fontFamily: FontFamily = FontFamily.Default,
 ) {
     LazyColumn(
         Modifier.fillMaxSize(),
@@ -213,13 +217,16 @@ internal fun PagedChapterContent(
             when (block) {
                 is DocBlock.Text -> {
                     val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
-                    val ann = buildSentenceHighlighted(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg)
+                    val ann = remember(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg) {
+                        buildSentenceHighlighted(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg)
+                    }
                     Text(
                         text = ann,
                         style = TextStyle(
                             textAlign = TextAlign.Justify,
                             lineHeight = (fontSize * lineHeight).sp,
                             textIndent = if (block.isHeading) TextIndent.None else TextIndent(firstLine = (fontSize * 2).sp),
+                            fontFamily = fontFamily,
                         ),
                         fontSize = fontSize.sp,
                         fontWeight = if (block.isHeading || fontWeightBold) FontWeight.Bold else FontWeight.Normal,
@@ -251,6 +258,7 @@ internal fun PagedChapterContent(
                         ttsSentenceRange = ttsSentenceRangeInChapter,
                         sentenceHighlightBg = sentenceHighlightBg,
                         onSelectBlock = { text, gOff -> onSelectBlock(text, gOff) },
+                        fontFamily = fontFamily,
                     )
                 }
             }

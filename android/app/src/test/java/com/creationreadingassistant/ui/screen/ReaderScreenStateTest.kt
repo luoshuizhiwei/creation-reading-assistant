@@ -14,7 +14,6 @@ class ReaderScreenStateTest {
         val state = ReaderScreenState()
 
         assertTrue(state.controlsVisible)
-        assertFalse(state.sheetOpenGuard)
         assertNull(state.sheet)
         assertTrue(state.selectedText.isEmpty())
         assertFalse(state.showTts)

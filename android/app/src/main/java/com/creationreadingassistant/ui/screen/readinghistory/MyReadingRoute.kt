@@ -16,14 +16,14 @@ import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.screen.shelf.bookNotReadyLabel
 import com.creationreadingassistant.ui.screen.shelf.BookActionSheet
+import com.creationreadingassistant.ui.viewmodel.BookOperationsViewModel
 import com.creationreadingassistant.ui.viewmodel.MyReadingViewModel
-import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
 
 @Composable
 fun MyReadingRoute(
     navController: NavHostController,
     viewModel: MyReadingViewModel = hiltViewModel(),
-    shelfViewModel: ShelfViewModel = hiltViewModel(),
+    bookOps: BookOperationsViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var managedBook by remember { mutableStateOf<BookEntity?>(null) }
@@ -32,7 +32,7 @@ fun MyReadingRoute(
     var repairBookId by remember { mutableStateOf<String?>(null) }
     val repairLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
         val id = repairBookId
-        if (uri != null && id != null) shelfViewModel.reselectFile(id, uri) {}
+        if (uri != null && id != null) bookOps.reselectFile(id, uri) {}
         repairBookId = null
     }
 
@@ -69,7 +69,7 @@ fun MyReadingRoute(
             progressById = progressById,
             onDismiss = { managedBook = null },
             onContinue = { managedBook = null; requestOpen(it) },
-            onDownload = { shelfViewModel.downloadBookContent(it.id) {}; managedBook = null },
+            onDownload = { bookOps.downloadBookContent(it.id) {}; managedBook = null },
             onRepair = {
                 managedBook = null
                 repairBookId = it.id
@@ -89,7 +89,7 @@ fun MyReadingRoute(
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     restorePrompt = null
-                    shelfViewModel.restoreReading(shelved.id) { success, _ ->
+                    bookOps.restoreReading(shelved.id) { success, _ ->
                         if (success && bookNotReadyLabel(shelved) == null) navController.navigate("reader/${shelved.id}")
                     }
                 }) { androidx.compose.material3.Text("恢复并阅读") }
@@ -111,7 +111,7 @@ fun MyReadingRoute(
             confirmButton = {
                 androidx.compose.material3.TextButton(onClick = {
                     deletePrompt = null
-                    shelfViewModel.deleteBook(deleting.id)
+                    bookOps.deleteBook(deleting.id)
                 }) { androidx.compose.material3.Text("删除", color = androidx.compose.material3.MaterialTheme.colorScheme.error) }
             },
             dismissButton = {

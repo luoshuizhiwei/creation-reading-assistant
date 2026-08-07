@@ -623,6 +623,12 @@ object EpubParser {
         Regex("cover|titlepage|title-page|frontmatter|copyright|colophon|dedication|frontispiece", RegexOption.IGNORE_CASE),
     )
 
+    /** 单张图片抽取上限：超限跳过该图（不崩溃不抛错），防御畸形书里的巨型图拖垮内存/磁盘。 */
+    private const val MAX_IMAGE_BYTES = 10L * 1024L * 1024L
+    
+    /** 全书图片总量上限：达到后剩余图片一律跳过。 */
+    private const val MAX_BOOK_IMAGE_BYTES = 200L * 1024L * 1024L
+    
     private fun extractImage(
         src: String,
         chapterDir: String,
@@ -644,7 +650,37 @@ object EpubParser {
         // 兜底断言：即使上面的过滤被绕过，也不允许写到缓存目录之外。
         if (!out.canonicalPath.startsWith(imgCacheDir.canonicalPath + File.separator)) return null
         if (!out.exists()) {
-            zip.getInputStream(entry).use { inp -> out.outputStream().use { outp -> inp.copyTo(outp) } }
+            // 图片限流：声明尺寸超限或全书配额用尽时直接跳过该图。
+            if (entry.size > MAX_IMAGE_BYTES) return null
+            val usedBytes = imgCacheDir.listFiles()?.sumOf { it.length() } ?: 0L
+            if (usedBytes >= MAX_BOOK_IMAGE_BYTES) return null
+            val budget = minOf(MAX_IMAGE_BYTES, MAX_BOOK_IMAGE_BYTES - usedBytes)
+            var written = 0L
+            var overflow = false
+            try {
+                zip.getInputStream(entry).use { inp ->
+                    out.outputStream().use { outp ->
+                        val buf = ByteArray(8192)
+                        while (true) {
+                            val n = inp.read(buf)
+                            if (n <= 0) break
+                            written += n
+                            if (written > budget) {
+                                overflow = true
+                                break
+                            }
+                            outp.write(buf, 0, n)
+                        }
+                    }
+                }
+            } catch (_: java.io.IOException) {
+                overflow = true
+            }
+            if (overflow) {
+                // 超限/写坏：清掉半截文件，当作没有这张图，不影响其余内容。
+                out.delete()
+                return null
+            }
         }
         return out.absolutePath
     }

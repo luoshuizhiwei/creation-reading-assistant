@@ -36,6 +36,10 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id AND deleted_at IS NULL")
     suspend fun getById(id: String): BookEntity?
 
+    /** 批量按 id 查询（调用方需保证 ids 非空），用于消除逐条 getById 的 N+1 查询。 */
+    @Query("SELECT * FROM books WHERE id IN (:ids) AND deleted_at IS NULL")
+    suspend fun getByIds(ids: Collection<String>): List<BookEntity>
+
     @Query(
         "SELECT * FROM books " +
             "WHERE deleted_at IS NULL AND LOWER(format) = 'epub' AND size <= 0 " +

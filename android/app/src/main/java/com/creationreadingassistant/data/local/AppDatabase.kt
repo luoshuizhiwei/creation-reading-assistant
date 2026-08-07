@@ -53,7 +53,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 6
+const val APP_DATABASE_SCHEMA_VERSION = 7
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -66,6 +66,10 @@ const val APP_DATABASE_SCHEMA_VERSION = 6
  *  - v1→v2：高亮表补 chapter_title / progress_percent（MIGRATION_1_2）
  *  - v2→v3：books 表补 description（MIGRATION_2_3）
  *  - v3→v4：reading_progress 表补 completed_at（MIGRATION_3_4，对应网页 completedAt）
+ *  - v4→v5：新增分页索引缓存表 reader_page_index（MIGRATION_4_5）
+ *  - v5→v6：新增 locator 懒解析缓存表 reader_anchor_cache（MIGRATION_5_6）
+ *  - v6→v7：reading_sessions 补时间索引 idx_sessions_created（MIGRATION_6_7，
+ *    部分索引，仅 onOpen 重建，不改任何表结构）
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -171,6 +175,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v6→v7：为 reading_sessions 补时间维度索引（idx_sessions_created，见 [PARTIAL_INDEX_SQL]），
+         * 支撑今日/7日/30日阅读时长的 SQL 聚合下推。**不 ALTER 任何表、不新增列。**
+         *
+         * 与 MIGRATION_1_2 同理：索引统一交给 [CreateIndexCallback] onOpen 重建 ——
+         * 在迁移里建会让紧随其后的 Room 表结构校验因「多出未知索引」而失败。
+         */
+        val MIGRATION_6_7 = object : Migration(6, 7) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+            }
+        }
+
         /** v1→v2：为高亮表补 chapter_title / progress_percent 两列（非破坏迁移，保留既有数据）。 */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -201,6 +218,7 @@ abstract class AppDatabase : RoomDatabase() {
         /** 与 [PARTIAL_INDEX_SQL] 一一对应，改一处必须改另一处。 */
         val PARTIAL_INDEX_NAMES: List<String> = listOf(
             "idx_books_updated", "idx_books_hash", "idx_sessions_book",
+            "idx_sessions_created",
             "idx_notes_book", "idx_notes_insp", "idx_highlights_book",
             "idx_insp_source", "idx_variants_insp", "idx_book_tag_tag",
             "idx_shelf_book_book",
@@ -211,6 +229,9 @@ abstract class AppDatabase : RoomDatabase() {
             "CREATE INDEX IF NOT EXISTS idx_books_updated ON books(updated_at) WHERE deleted_at IS NULL;",
             "CREATE INDEX IF NOT EXISTS idx_books_hash ON books(content_hash);",
             "CREATE INDEX IF NOT EXISTS idx_sessions_book ON reading_sessions(book_id) WHERE deleted_at IS NULL;",
+            // v7：时间维度索引，服务 created_at >= ? 的聚合下推；reading_sessions 有软删除，
+            // 与 idx_sessions_book 同样带 WHERE deleted_at IS NULL 条件。
+            "CREATE INDEX IF NOT EXISTS idx_sessions_created ON reading_sessions(created_at) WHERE deleted_at IS NULL;",
             "CREATE INDEX IF NOT EXISTS idx_notes_book ON notes(book_id) WHERE deleted_at IS NULL;",
             "CREATE INDEX IF NOT EXISTS idx_notes_insp ON notes(inspiration_id) WHERE deleted_at IS NULL;",
             "CREATE INDEX IF NOT EXISTS idx_highlights_book ON highlights(book_id) WHERE deleted_at IS NULL;",

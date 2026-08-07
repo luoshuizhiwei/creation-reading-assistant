@@ -53,6 +53,8 @@ import com.creationreadingassistant.feature.reader.pager.AutoPagingTiming
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedReaderHost
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
+import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.reader.pager.ReaderPagePosition
 import com.creationreadingassistant.ui.components.rememberViewportImageRequest
 import com.creationreadingassistant.ui.screen.reader.content.PagedEpubView
 import com.creationreadingassistant.ui.screen.reader.parseLocatorOffset
@@ -63,32 +65,55 @@ import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 
 /**
- * 正文内容宿主所需的只读展示数据。从 [com.creationreadingassistant.ui.screen.ReaderScreen] 主函数
- * 局部状态中提取，仅承载「读」数据；任何对主函数可变状态的写入都通过
- * [ReaderContentHostCallbacks] 回调上抛。
- *
- * 分页引擎、EPUB/Markdown/TXT 分支共用同一份 state；分支选择由 [pagerEngineOn] /
- * [epubBook] / [markdownDocument] 决定，与 ReaderScreen 主函数 `when` 块的分支条件 1:1 对应。
+ * 阅读设置与纸张调色板（B1 状态袋分组：设置域）。
  */
-internal data class ReaderContentHostState(
-    val pagerEngineOn: Boolean,
-    val pagedSource: PagedChapterSource?,
+internal data class ReaderContentSettings(
     val readerSettings: ReaderSettings,
     val paper: ReaderPaperPalette,
     val paperFg: Color,
-    val bid: String,
-    val txtTocRuleId: String,
-    val bookTitle: String,
-    val chapterStartOffsets: List<Int>,
+    val sentenceHighlightBg: Color,
+)
+
+/**
+ * 当前选区相关状态（B1 状态袋分组：选区域）。
+ */
+internal data class ReaderSelectionState(
+    val selectedText: String,
+    val selectedGlobalOffset: Int,
+    val selectedRangeStart: Int,
+)
+
+/**
+ * 分页引擎 / 自动翻页 / 阅读位置恢复（B1 状态袋分组：分页域）。
+ */
+internal data class ReaderPagingState(
+    val pagerEngineOn: Boolean,
+    val pagedSource: PagedChapterSource?,
+    val pagedAbsOffset: Int,
+    val pagedPercent: Float,
+    val pendingInitialPosition: Boolean,
     val savedEpubOffsetInChapter: Int,
     val visiblePlainOffset: Int,
     val savedPlainOffset: Int,
     val savedPlainPercent: Float,
+    val autoPagingActive: Boolean,
+    val autoPagingPaused: Boolean,
+    val pagedJumpRequest: MutableState<Int?>,
+    val pagedHardwareTurnRequest: MutableState<Int?>,
+    val pageIndexStore: PageIndexStore,
+    val pageIndexManager: ReaderPageIndexManager,
+)
+
+/**
+ * 文档内容 / 章节渲染 / TTS 朗读状态（B1 状态袋分组：内容源域）。
+ */
+internal data class ReaderContentSourceState(
+    val bid: String,
+    val txtTocRuleId: String,
+    val bookTitle: String,
+    val chapterStartOffsets: List<Int>,
     val txtStreamingDocument: PlainTextDocument?,
     val plainContent: String,
-    val pagedAbsOffset: Int,
-    val pagedPercent: Float,
-    val pendingInitialPosition: Boolean,
     val epubBook: EpubBook?,
     val markdownDocument: ReaderDocument?,
     val chapterIndex: Int,
@@ -102,22 +127,32 @@ internal data class ReaderContentHostState(
     val chapterBase: Int,
     val ttsSentenceRangeInChapter: Pair<Int, Int>?,
     val focusBlockIndex: Int?,
-    val sentenceHighlightBg: Color,
     val epubBringRequester: BringIntoViewRequester,
     val readingUnits: List<ReadingUnit>,
     val isTxt: Boolean,
     val showTts: Boolean,
     val tts: TtsController,
-    val selectedText: String,
-    val selectedGlobalOffset: Int,
-    val selectedRangeStart: Int,
-    val autoPagingActive: Boolean,
-    val autoPagingPaused: Boolean,
-    val pagedJumpRequest: MutableState<Int?>,
-    val pagedHardwareTurnRequest: MutableState<Int?>,
     val unitCache: ReadingUnitCache,
-    val pageIndexStore: PageIndexStore,
     val highlights: List<HighlightEntity>,
+)
+
+/**
+ * 正文内容宿主所需的只读展示数据。从 [com.creationreadingassistant.ui.screen.ReaderScreen] 主函数
+ * 局部状态中提取，仅承载「读」数据；任何对主函数可变状态的写入都通过
+ * [ReaderContentHostCallbacks] 回调上抛。
+ *
+ * B1 状态袋瘦身：原 48 个平铺字段按域分组为 4 个子对象（[settings] 设置+纸张 /
+ * [selection] 选区 / [paging] 分页与位置 / [source] 内容源与渲染），纯结构搬运。
+ *
+ * 分页引擎、EPUB/Markdown/TXT 分支共用同一份 state；分支选择由 [ReaderPagingState.pagerEngineOn] /
+ * [ReaderContentSourceState.epubBook] / [ReaderContentSourceState.markdownDocument] 决定，
+ * 与 ReaderScreen 主函数 `when` 块的分支条件 1:1 对应。
+ */
+internal data class ReaderContentHostState(
+    val settings: ReaderContentSettings,
+    val selection: ReaderSelectionState,
+    val paging: ReaderPagingState,
+    val source: ReaderContentSourceState,
 )
 
 /**
@@ -153,49 +188,70 @@ internal fun ReaderContentHost(
     state: ReaderContentHostState,
     callbacks: ReaderContentHostCallbacks,
 ) {
-    val s = state
+    // B1 状态袋瘦身：按域解构分组对象，字段访问与原平铺语义 1:1。
+    val settings = state.settings
+    val selectionState = state.selection
+    val paging = state.paging
+    val s = state.source
+    // 自定义正文字体（空 = 系统字体），非分页路径共用。
+    val readerFontFamily = rememberReaderFontFamily(settings.readerSettings.customFontPath)
     when {
-        s.pagerEngineOn && s.pagedSource != null -> {
+        paging.pagerEngineOn && paging.pagedSource != null -> {
             // 试验分页引擎：TXT 与 EPUB 共用排版/手势/高亮链路。
             // EPUB 首版只排文字块；图片分页与四档动画仍按 P4 后续刀次推进。
             PagedReaderHost(
-                source = s.pagedSource,
-                fontSizeSp = s.readerSettings.fontSize,
-                lineHeightMultiplier = s.readerSettings.lineHeight,
-                paragraphSpacing = s.readerSettings.paragraphSpacing,
-                pageMarginDp = s.readerSettings.pageMargin,
-                fontWeightBold = s.readerSettings.fontWeightBold,
-                showReaderInfo = s.readerSettings.showReaderInfo,
-                chineseTypography = s.readerSettings.chineseTypography,
-                tapZoneMode = s.readerSettings.tapZoneMode,
-                pageTurnEffect = s.readerSettings.pageTurnEffect,
-                textColor = s.paperFg,
-                pageBackground = s.paper.bg,
-                headerLeft = s.readerSettings.headerLeft,
-                headerRight = s.readerSettings.headerRight,
-                footerLeft = s.readerSettings.footerLeft,
-                footerRight = s.readerSettings.footerRight,
+                source = paging.pagedSource,
+                fontSizeSp = settings.readerSettings.fontSize,
+                lineHeightMultiplier = settings.readerSettings.lineHeight,
+                paragraphSpacing = settings.readerSettings.paragraphSpacing,
+                pageMarginDp = settings.readerSettings.pageMargin,
+                fontWeightBold = settings.readerSettings.fontWeightBold,
+                customFontPath = settings.readerSettings.customFontPath,
+                showReaderInfo = settings.readerSettings.showReaderInfo,
+                chineseTypography = settings.readerSettings.chineseTypography,
+                tapZoneMode = settings.readerSettings.tapZoneMode,
+                pageTurnEffect = settings.readerSettings.pageTurnEffect,
+                textColor = settings.paperFg,
+                pageBackground = settings.paper.bg,
+                headerLeft = settings.readerSettings.headerLeft,
+                headerRight = settings.readerSettings.headerRight,
+                footerLeft = settings.readerSettings.footerLeft,
+                footerRight = settings.readerSettings.footerRight,
                 bookName = s.bookTitle,
                 initialOffset = when {
-                    s.pagedAbsOffset >= 0 -> s.pagedAbsOffset
+                    paging.pagedAbsOffset >= 0 -> paging.pagedAbsOffset
                     s.epubBook != null ->
-                        s.chapterStartOffsets.getOrElse(s.chapterIndex) { 0 } + s.savedEpubOffsetInChapter
-                    s.visiblePlainOffset > 0 -> s.visiblePlainOffset
-                    s.savedPlainOffset > 0 -> s.savedPlainOffset
-                    else -> (s.savedPlainPercent.coerceIn(0f, 100f) / 100f * (s.txtStreamingDocument?.totalChars ?: s.plainContent.length)).toInt()
+                        s.chapterStartOffsets.getOrElse(s.chapterIndex) { 0 } + paging.savedEpubOffsetInChapter
+                    paging.visiblePlainOffset > 0 -> paging.visiblePlainOffset
+                    paging.savedPlainOffset > 0 -> paging.savedPlainOffset
+                    else -> (paging.savedPlainPercent.coerceIn(0f, 100f) / 100f * (s.txtStreamingDocument?.totalChars ?: s.plainContent.length)).toInt()
                 },
-                jumpRequest = s.pagedJumpRequest,
-                externalTurnRequest = s.pagedHardwareTurnRequest,
+                jumpRequest = paging.pagedJumpRequest,
+                externalTurnRequest = paging.pagedHardwareTurnRequest,
                 onPositionChanged = { off, pct ->
                     val chapterToGo = if (s.epubBook != null || s.markdownDocument != null) {
-                        val ci = s.pagedSource?.chapterIndexFor(off) ?: s.chapterIndex
+                        val ci = paging.pagedSource?.chapterIndexFor(off) ?: s.chapterIndex
                         if (ci != s.chapterIndex) ci else null
                     } else null
                     callbacks.onPagedPositionChanged(off, pct, chapterToGo)
                 },
                 onToggleControls = { callbacks.onToggleControls() },
+                onPageIndexChanged = { b, ci, pi, pc, start, end, pct ->
+                    paging.pageIndexManager.update(
+                        ReaderPagePosition(
+                            bookId = b,
+                            chapterIndex = ci,
+                            pageIndex = pi,
+                            pageCount = pc,
+                            absStart = start,
+                            absEnd = end,
+                            percent = pct,
+                        ),
+                    )
+                },
                 onGesturePageTurn = { callbacks.onHideControls() },
-                store = s.pageIndexStore,
+                store = paging.pageIndexStore,
+                bookId = s.bid,
                 contentKey = when {
                     s.epubBook != null -> s.bid
                     s.markdownDocument != null -> "${s.bid}|md"
@@ -208,7 +264,7 @@ internal fun ReaderContentHost(
                             (base + s.tts.currentSentenceRange.second)
                     } else if (s.markdownDocument != null) {
                         // Markdown：tts.currentSentenceRange 是章内规范文本偏移，转全书偏移
-                        val base = s.pagedSource?.chapterStartAbs(s.chapterIndex) ?: 0
+                        val base = paging.pagedSource?.chapterStartAbs(s.chapterIndex) ?: 0
                         (base + s.tts.currentSentenceRange.first) to
                             (base + s.tts.currentSentenceRange.second)
                     } else if (s.txtStreamingDocument != null) {
@@ -229,20 +285,20 @@ internal fun ReaderContentHost(
                         callbacks.onSelect(text, -1, absStart)
                     }
                 },
-                selectionCleared = s.selectedText.isBlank(),
-                selectionColor = s.paper.accent.copy(alpha = 0.30f),
-                ttsHighlightColor = s.sentenceHighlightBg,
+                selectionCleared = selectionState.selectedText.isBlank(),
+                selectionColor = settings.paper.accent.copy(alpha = 0.30f),
+                ttsHighlightColor = settings.sentenceHighlightBg,
                 persistentHighlights = remember(s.highlights) {
                     s.highlights.mapNotNull { h ->
                         val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
                         val len = h.text.length
                         if (len <= 0) return@mapNotNull null
                         (start until start + len) to
-                            s.paper.highlight(h.color ?: "yellow")
+                            settings.paper.highlight(h.color ?: "yellow")
                     }
                 },
-                autoPageIntervalMillis = if (s.autoPagingActive && !s.autoPagingPaused) {
-                    AutoPagingTiming.pageIntervalMillis(s.readerSettings.autoPageSpeed)
+                autoPageIntervalMillis = if (paging.autoPagingActive && !paging.autoPagingPaused) {
+                    AutoPagingTiming.pageIntervalMillis(settings.readerSettings.autoPageSpeed)
                 } else {
                     null
                 },
@@ -261,22 +317,22 @@ internal fun ReaderContentHost(
                         .semantics { contentDescription = "正在加载章节" },
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(color = s.paper.accent)
+                    CircularProgressIndicator(color = settings.paper.accent)
                 }
             } else if (chapter == null || s.chapterBlocks.isEmpty()) {
                 Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("本章暂无可读内容。", color = s.paperFg)
+                    Text("本章暂无可读内容。", color = settings.paperFg)
                 }
-            } else if (s.readerSettings.readerMode == "paged") {
+            } else if (settings.readerSettings.readerMode == "paged") {
                 PagedEpubView(
                     blocks = s.chapterBlocks,
-                    fontSize = s.readerSettings.fontSize,
-                    lineHeight = s.readerSettings.lineHeight,
-                    fontWeightBold = s.readerSettings.fontWeightBold,
-                    pageMargin = s.readerSettings.pageMargin,
-                    paperFg = s.paperFg,
-                    tapZoneMode = s.readerSettings.tapZoneMode,
-                    pageTurnEffect = s.readerSettings.pageTurnEffect,
+                    fontSize = settings.readerSettings.fontSize,
+                    lineHeight = settings.readerSettings.lineHeight,
+                    fontWeightBold = settings.readerSettings.fontWeightBold,
+                    pageMargin = settings.readerSettings.pageMargin,
+                    paperFg = settings.paperFg,
+                    tapZoneMode = settings.readerSettings.tapZoneMode,
+                    pageTurnEffect = settings.readerSettings.pageTurnEffect,
                     chapterIndex = s.chapterIndex,
                     canPrev = s.chapterIndex > 0,
                     canNext = s.chapterIndex < book.chapters.lastIndex,
@@ -293,13 +349,14 @@ internal fun ReaderContentHost(
                     chapterBase = s.chapterBase,
                     ttsSentenceRangeInChapter = s.ttsSentenceRangeInChapter,
                     focusBlockIndex = s.focusBlockIndex,
-                    sentenceHighlightBg = s.sentenceHighlightBg,
+                    sentenceHighlightBg = settings.sentenceHighlightBg,
                     bringRequester = s.epubBringRequester,
+                    fontFamily = readerFontFamily,
                 )
             } else {
                 LazyColumn(
                     state = s.epubListState,
-                    modifier = Modifier.fillMaxSize().padding(horizontal = s.readerSettings.pageMargin.dp, vertical = s.readerSettings.pageMargin.dp).graphicsLayer { alpha = s.chapterFade.value },
+                    modifier = Modifier.fillMaxSize().padding(horizontal = settings.readerSettings.pageMargin.dp, vertical = settings.readerSettings.pageMargin.dp).graphicsLayer { alpha = s.chapterFade.value },
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     itemsIndexed(
@@ -315,19 +372,22 @@ internal fun ReaderContentHost(
                         when (block) {
                             is DocBlock.Text -> {
                                 val gOff = s.blockGlobalOffsets.getOrElse(idx) { -1 }
-                                val ann = buildSentenceHighlighted(
-                                    block.text, gOff, s.chapterBase, s.ttsSentenceRangeInChapter, s.sentenceHighlightBg,
-                                )
+                                val ann = remember(block.text, gOff, s.chapterBase, s.ttsSentenceRangeInChapter, settings.sentenceHighlightBg) {
+                                    buildSentenceHighlighted(
+                                        block.text, gOff, s.chapterBase, s.ttsSentenceRangeInChapter, settings.sentenceHighlightBg,
+                                    )
+                                }
                                 Text(
                                     text = ann,
                                     style = TextStyle(
                                         textAlign = TextAlign.Justify,
-                                        lineHeight = (s.readerSettings.fontSize * s.readerSettings.lineHeight).sp,
-                                        textIndent = if (block.isHeading) TextIndent.None else TextIndent(firstLine = (s.readerSettings.fontSize * 2).sp),
+                                        lineHeight = (settings.readerSettings.fontSize * settings.readerSettings.lineHeight).sp,
+                                        textIndent = if (block.isHeading) TextIndent.None else TextIndent(firstLine = (settings.readerSettings.fontSize * 2).sp),
+                                        fontFamily = readerFontFamily,
                                     ),
-                                    fontSize = s.readerSettings.fontSize.sp,
-                                    fontWeight = if (block.isHeading || s.readerSettings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
-                                    color = s.paperFg,
+                                    fontSize = settings.readerSettings.fontSize.sp,
+                                    fontWeight = if (block.isHeading || settings.readerSettings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
+                                    color = settings.paperFg,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .then(if (idx == s.focusBlockIndex) Modifier.bringIntoViewRequester(s.epubBringRequester) else Modifier)
@@ -369,25 +429,26 @@ internal fun ReaderContentHost(
                         .semantics { contentDescription = "正在加载章节" },
                     contentAlignment = Alignment.Center,
                 ) {
-                    CircularProgressIndicator(color = s.paper.accent)
+                    CircularProgressIndicator(color = settings.paper.accent)
                 }
             } else if (markdownBlock == null) {
                 Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.Center) {
-                    Text("本章暂无可读内容。", color = s.paperFg)
+                    Text("本章暂无可读内容。", color = settings.paperFg)
                 }
             } else {
                 LazyColumn(
                     state = s.epubListState,
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(horizontal = s.readerSettings.pageMargin.dp, vertical = s.readerSettings.pageMargin.dp),
+                        .padding(horizontal = settings.readerSettings.pageMargin.dp, vertical = settings.readerSettings.pageMargin.dp),
                 ) {
                     item {
                         RenderMarkdownChapter(
                             chapter = markdownBlock.chapter,
-                            fontSize = s.readerSettings.fontSize,
-                            lineHeight = s.readerSettings.lineHeight,
-                            paperFg = s.paperFg,
+                            fontSize = settings.readerSettings.fontSize,
+                            lineHeight = settings.readerSettings.lineHeight,
+                            paperFg = settings.paperFg,
+                            fontFamily = readerFontFamily,
                         )
                     }
                 }
@@ -399,8 +460,8 @@ internal fun ReaderContentHost(
                 state = s.plainListState,
                 modifier = Modifier.fillMaxSize().graphicsLayer { alpha = s.chapterFade.value },
                 contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                    horizontal = s.readerSettings.pageMargin.dp,
-                    vertical = s.readerSettings.pageMargin.dp,
+                    horizontal = settings.readerSettings.pageMargin.dp,
+                    vertical = settings.readerSettings.pageMargin.dp,
                 ),
             ) {
                 itemsIndexed(
@@ -423,7 +484,7 @@ internal fun ReaderContentHost(
                         if (s.txtStreamingDocument != null) {
                             // 流式 TXT：contentText 是窗口，sentenceRange 是窗口内偏移
                             // 加 visiblePlainOffset 转全书偏移后再与 unit.charStart 做差
-                            val base = s.visiblePlainOffset
+                            val base = paging.visiblePlainOffset
                             (base + s.tts.currentSentenceRange.first) to (base + s.tts.currentSentenceRange.second)
                         } else {
                             s.tts.currentSentenceRange
@@ -433,11 +494,11 @@ internal fun ReaderContentHost(
                     }
                     val localStart = (ttsRange.first - unit.charStart).coerceIn(0, unitText.length)
                     val localEnd = (ttsRange.second - unit.charStart).coerceIn(0, unitText.length)
-                    val annotated = remember(unitText, localStart, localEnd, s.sentenceHighlightBg) {
+                    val annotated = remember(unitText, localStart, localEnd, settings.sentenceHighlightBg) {
                         if (localEnd > localStart) {
                             AnnotatedString.Builder(unitText).apply {
                                 addStyle(
-                                    SpanStyle(background = s.sentenceHighlightBg),
+                                    SpanStyle(background = settings.sentenceHighlightBg),
                                     localStart,
                                     localEnd,
                                 )
@@ -457,17 +518,18 @@ internal fun ReaderContentHost(
                                     -1,
                                     unit.charStart + value.selection.start,
                                 )
-                            } else if (s.selectedRangeStart in unit.charStart until (unit.charStart + unitText.length)) {
+                            } else if (selectionState.selectedRangeStart in unit.charStart until (unit.charStart + unitText.length)) {
                                 callbacks.onSelect("", -1, -1)
                             }
                         },
                         readOnly = true,
                         textStyle = TextStyle(
-                            fontSize = s.readerSettings.fontSize.sp,
-                            lineHeight = (s.readerSettings.fontSize * s.readerSettings.lineHeight).sp,
-                            color = s.paperFg,
+                            fontSize = settings.readerSettings.fontSize.sp,
+                            lineHeight = (settings.readerSettings.fontSize * settings.readerSettings.lineHeight).sp,
+                            color = settings.paperFg,
                             textAlign = TextAlign.Justify,
-                            fontWeight = if (s.readerSettings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
+                            fontWeight = if (settings.readerSettings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
+                            fontFamily = readerFontFamily,
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )

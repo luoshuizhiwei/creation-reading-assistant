@@ -1,9 +1,9 @@
-package com.creationreadingassistant.ui.viewmodel
+﻿package com.creationreadingassistant.ui.viewmodel
 
-import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.remote.SyncContract
+import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -22,9 +22,9 @@ class ProfileSyncEngineTest {
 
     private val syncRepository = mockk<SyncRepository>(relaxed = true)
     private val configStore = mockk<SyncConfigStore>(relaxed = true)
-    private val bookDao = mockk<BookDao>(relaxed = true)
+    private val bookRepository = mockk<BookRepository>(relaxed = true)
 
-    private fun engine() = ProfileSyncEngine(syncRepository, configStore, bookDao)
+    private fun engine() = ProfileSyncEngine(syncRepository, configStore, bookRepository)
 
     private fun book(
         id: String,
@@ -63,7 +63,7 @@ class ProfileSyncEngineTest {
         )
         coEvery { syncRepository.downloadPendingBooks(maxCount = 20) } returns
             SyncRepository.DownloadBooksResult(success = 6, failed = 0)
-        every { bookDao.observeAllActive() } returns flowOf(
+        every { bookRepository.observeBooks() } returns flowOf(
             listOf(
                 book(id = "b1", localUri = "/cache/b1.txt"),
                 book(id = "b2", status = "missing"),
@@ -122,7 +122,7 @@ class ProfileSyncEngineTest {
             SyncRepository.DownloadBooksResult(success = 0, failed = 1, failedItems = listOf(
                 SyncRepository.SyncFailedEntry(type = "book_file", id = "b2", title = "书-b2", reason = "HTTP 500"),
             ))
-        every { bookDao.observeAllActive() } returns flowOf(emptyList())
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
 
         val outcome = engine().runSync(autoDownloadBooks = true)
 
@@ -149,7 +149,7 @@ class ProfileSyncEngineTest {
                 ),
             ),
         )
-        every { bookDao.observeAllActive() } returns flowOf(emptyList())
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
 
         val outcome = engine().runSync(autoDownloadBooks = false)
 
@@ -164,7 +164,7 @@ class ProfileSyncEngineTest {
     @Test
     fun `runSync failure path returns failed result with sync item`() = runTest {
         coEvery { syncRepository.pull() } throws IllegalStateException("网络不可达")
-        every { bookDao.observeAllActive() } returns flowOf(emptyList())
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
 
         val outcome = engine().runSync(autoDownloadBooks = true)
 
@@ -190,7 +190,7 @@ class ProfileSyncEngineTest {
 
     @Test
     fun `countPendingDownloads counts books without local content`() = runTest {
-        every { bookDao.observeAllActive() } returns flowOf(
+        every { bookRepository.observeBooks() } returns flowOf(
             listOf(
                 book(id = "ok1", localUri = "/cache/ok1.txt"),
                 book(id = "ok2", status = "available", localPath = "/cache/ok2.txt"),
@@ -208,7 +208,7 @@ class ProfileSyncEngineTest {
 
     @Test
     fun `countPendingDownloads tolerates dao errors`() = runTest {
-        every { bookDao.observeAllActive() } throws RuntimeException("db closed")
+        every { bookRepository.observeBooks() } throws RuntimeException("db closed")
 
         assertEquals(0, engine().countPendingDownloads())
     }
@@ -237,10 +237,10 @@ class ProfileSyncEngineTest {
     @Test
     fun `isBookDownloadedById requires available status and local content`() = runTest {
         val engine = engine()
-        coEvery { bookDao.getById("available") } returns book(id = "available", localUri = "/c/a.txt")
-        coEvery { bookDao.getById("missing") } returns book(id = "missing", status = "missing", localUri = "/c/m.txt")
-        coEvery { bookDao.getById("noLocal") } returns book(id = "noLocal", status = "available")
-        coEvery { bookDao.getById("unknown") } returns null
+        coEvery { bookRepository.getById("available") } returns book(id = "available", localUri = "/c/a.txt")
+        coEvery { bookRepository.getById("missing") } returns book(id = "missing", status = "missing", localUri = "/c/m.txt")
+        coEvery { bookRepository.getById("noLocal") } returns book(id = "noLocal", status = "available")
+        coEvery { bookRepository.getById("unknown") } returns null
 
         assertTrue(engine.isBookDownloadedById("available"))
         assertFalse(engine.isBookDownloadedById("missing"))

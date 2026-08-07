@@ -158,9 +158,8 @@ internal fun DiagnosticsSubPage(
                     OutlinedButton(onClick = { exportLog() }) { Icon(Icons.Outlined.Download, contentDescription = null); Text("导出日志", modifier = Modifier.padding(start = 6.dp)) }
                     OutlinedButton(onClick = { AppLog.clear(); AppLog.event("Diagnostics", "已清空日志") }) { Icon(Icons.Outlined.Delete, contentDescription = null); Text("清空日志", modifier = Modifier.padding(start = 6.dp)) }
                 }
-                val exportMsg = exportMsg
                 if (exportMsg != null) {
-                    Text(exportMsg, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                    Text(exportMsg!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
                 }
                 SectionDivider(modifier = Modifier.padding(vertical = 4.dp))
                 Text("级别过滤", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

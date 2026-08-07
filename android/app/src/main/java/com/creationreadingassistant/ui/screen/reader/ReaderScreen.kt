@@ -135,7 +135,7 @@ fun ReaderScreen(
     inputs: ReaderScreenInputs,
     callbacks: ReaderScreenCallbacks,
 ) {
-    // ── 解构参数 ──
+    // ── 解构参数（B3 后仅保留主函数内实际消费的字段）──
     val bookId = inputs.bookId
     val highlightId = inputs.highlightId
     val documentUiState = inputs.documentUiState
@@ -143,24 +143,16 @@ fun ReaderScreen(
     val highlights = inputs.highlights
     val notes = inputs.notes
     val inspirations = inputs.inspirations
-    val categories = inputs.categories
-    val tags = inputs.tags
     val sessions = inputs.sessions
     val txtTocRuleIdFromVm = inputs.txtTocRuleIdFromVm
     val chapterLoadResult = inputs.chapterLoadResult
     val txtRuleScanResult = inputs.txtRuleScanResult
-    val onLoadChapterBlocks = callbacks.onLoadChapterBlocks
-    val onExtractChapterText = callbacks.onExtractChapterText
     val onAction = callbacks.onAction
-    val onDocumentAction = callbacks.onDocumentAction
     val onBack = callbacks.onBack
-    val settingsStore = callbacks.settingsStore
-    val aiClient = callbacks.aiClient
-    val pageIndexStore = callbacks.pageIndexStore
     val anchorCacheStore = callbacks.anchorCacheStore
     val pagerHealth = callbacks.pagerHealthStore
     val context = LocalContext.current
-    val mutableHolders = rememberReaderScreenMutableHolders(screenState, bookId, bookId ?: "", txtTocRuleIdFromVm, highlightId)
+    val mutableHolders = rememberReaderScreenMutableHolders(bookId, bookId ?: "", txtTocRuleIdFromVm, highlightId)
     val settingsVm: SettingsViewModel = hiltViewModel()
     val readerSettings by settingsVm.reader.collectAsStateWithLifecycle()
     // 外观模式（system/light/dark）用于「跟随外观」纸张映射：浅色外壳→白纸，深色外壳→夜读。
@@ -173,11 +165,9 @@ fun ReaderScreen(
     // 阅读器纸张调色板与外壳浅/深解耦；正文与 chrome 共同跟随 paper 的 light/dark。
     val paper = paperPalette(readerSettings.background, appDark)
     val paperBg = paper.bg
-    val paperFg = paper.fg
     val scope = rememberCoroutineScope()
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
-    val clipboard = LocalClipboardManager.current
     val snackbarHost = remember { SnackbarHostState() }
     val tts = rememberTts()
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -193,8 +183,6 @@ fun ReaderScreen(
     val bookIndex = remember(epubBook) { epubBook?.let(::buildBookIndex) }
     val plainContent = textContent?.fullText.orEmpty()
     val bookTitle = loadedBook?.title ?: "未命名书籍"
-    val bookAuthor = loadedBook?.author
-    val bookOriginalFile = loadedBook?.originalFileName
     val bookSize = loadedBook?.sizeBytes ?: 0
     val savedPlainPercent = if (textContent != null) loadedBook.initialProgressPercent else 0f
     val savedPlainOffset = textContent?.initialAbsoluteOffset ?: markdownContent?.initialAbsoluteOffset ?: 0
@@ -208,106 +196,66 @@ fun ReaderScreen(
     var chapterIndex by chapterIndexState
     var pendingInitialPosition by mutableHolders.pendingInitialPositionState
 
-    // 预加载状态（由 ViewModel 章节加载代次管理，主线程只读，杜绝主线程 Zip I/O 导致的 ANR / OOM）
-    val chapterBlocksState = remember { mutableStateOf<List<DocBlock>>(emptyList()) }
-    var chapterBlocks by chapterBlocksState
-    val isChapterLoadingState = remember { mutableStateOf(false) }
-    var isChapterLoading by isChapterLoadingState
+    // B3：预加载 / 流式 TXT 状态声明与「文档装载 / 章节加载代次」2 个 LaunchedEffect
+    // 抽到 reader/ReaderDocumentLoadEffects.kt，逐字保真（State-holder 模式）。
+    val docLoad = rememberReaderDocumentLoadState(
+        loadedBook = loadedBook,
+        epubContent = epubContent,
+        textContent = textContent,
+        markdownDocument = markdownDocument,
+        chapterLoadResult = chapterLoadResult,
+        runtimeErrorState = mutableHolders.runtimeErrorState,
+        pendingInitialPositionState = mutableHolders.pendingInitialPositionState,
+        chapterIndexState = chapterIndexState,
+    )
+    val chapterBlocks = docLoad.chapterBlocks
+    val isChapterLoading = docLoad.isChapterLoading
+    val txtStreamingDocument = docLoad.txtStreamingDocument
+    val txtStreamingFileIndex = docLoad.txtStreamingFileIndex
 
-    // 流式 TXT 大文件状态（统一加载器按实际字节数分流，plainContent 为空串）
-    val txtStreamingDocumentState = remember { mutableStateOf<PlainTextDocument?>(null) }
-    var txtStreamingDocument by txtStreamingDocumentState
-    val txtStreamingFileIndexState = remember { mutableStateOf<TxtFileIndex?>(null) }
-    var txtStreamingFileIndex by txtStreamingFileIndexState
-
-    LaunchedEffect(loadedBook) {
-        runtimeError = null
-        isChapterLoading = false
-        pendingInitialPosition = loadedBook != null
-        chapterIndex = epubContent?.initialChapterIndex ?: 0
-        chapterBlocks = epubContent?.initialChapterBlocks.orEmpty()
-        txtStreamingDocument = textContent?.streamingDocument
-        txtStreamingFileIndex = textContent?.fileIndex
-        // Markdown 滚动模式首章直接同步装载；分页模式由 pagedSource 按需读取
-        if (markdownDocument != null) {
-            chapterBlocks = markdownDocument.blocks(0)
-        }
-    }
-
-    // R6：观察 ViewModel 章节加载结果
-    LaunchedEffect(chapterLoadResult) {
-        when (val r = chapterLoadResult) {
-            is ChapterLoadResult.Loading -> {
-                isChapterLoading = true
-                chapterBlocks = emptyList()
-            }
-            is ChapterLoadResult.Loaded -> {
-                isChapterLoading = false
-                chapterBlocks = r.blocks
-            }
-            is ChapterLoadResult.Error -> {
-                isChapterLoading = false
-                runtimeError = r.message
-            }
-            null -> Unit
-        }
-    }
-
-    // screenState 来自 ViewModel（不可变 data class）
-    var controlsVisible by mutableHolders.controlsVisibleState
-    LaunchedEffect(screenState.controlsVisible) { controlsVisible = screenState.controlsVisible }
+    // B2：screenState 来自 ViewModel（不可变 data class），是弹层/控件类 UI 状态的唯一真源。
+    // 原 12 处「var x by remember + LaunchedEffect(screenState.x) { x = screenState.x }」双向同步
+    // 已全部移除：UI 只读消费下列值，任何写入一律经 onAction(ReaderAction.Xxx) 回 VM。
+    val controlsVisible = screenState.controlsVisible
     // 自动翻页是否运行只属于当前阅读会话；重进书籍不会擅自继续。
     var autoPagingActive by mutableHolders.autoPagingActiveState
     val lifecycleOwner = LocalLifecycleOwner.current
-    var readerResumed by remember {
+    val readerResumedState = remember {
         mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.RESUMED))
     }
 
-    var sheetOpenGuard by remember { mutableStateOf(screenState.sheetOpenGuard) }
-    LaunchedEffect(screenState.sheetOpenGuard) { sheetOpenGuard = screenState.sheetOpenGuard }
-
-    var selectedText by mutableHolders.selectedTextState
-    LaunchedEffect(screenState.selectedText) { selectedText = screenState.selectedText }
+    // 弹层打开时暂停「菜单自动隐藏」倒计时（否则调设置调到一半菜单没了）。
+    // 原由 LaunchedEffect(sheet) 派生 sheetOpenGuard = sheet != null；sheet 现已是 VM 状态，
+    // 直接纯派生，不再持有任何本地副本。
+    val sheet = screenState.sheet
+    val sheetOpenGuard = sheet != null
+    val selectedText = screenState.selectedText
     // T1：记录选区起点在本书全局文本中的偏移，用于写入 locator_json（TXT=plainContent 偏移，EPUB=block 全局偏移）
-    var selectedRangeStart by mutableHolders.selectedRangeStartState
-    LaunchedEffect(screenState.selectedRangeStart) { selectedRangeStart = screenState.selectedRangeStart }
-    var selectedGlobalOffset by mutableHolders.selectedGlobalOffsetState
-    LaunchedEffect(screenState.selectedGlobalOffset) { selectedGlobalOffset = screenState.selectedGlobalOffset }
-    var sheet by mutableHolders.sheetValueState
-    LaunchedEffect(screenState.sheet) { sheet = screenState.sheet }
-    // 弹层打开时暂停「菜单自动隐藏」倒计时（否则调设置调到一半菜单没了）
-    LaunchedEffect(sheet) {
-        sheetOpenGuard = sheet != null
-        onAction(
-            sheet?.let(ReaderAction::OpenSheet)
-                ?: ReaderAction.CloseSheet,
-        )
-    }
-    var showTts by mutableHolders.showTtsState
-    LaunchedEffect(screenState.showTts) { showTts = screenState.showTts }
-    var searchQuery by mutableHolders.searchQueryState
-    LaunchedEffect(screenState.searchQuery) { searchQuery = screenState.searchQuery }
+    val selectedRangeStart = screenState.selectedRangeStart
+    val selectedGlobalOffset = screenState.selectedGlobalOffset
+    val showTts = screenState.showTts
+    val searchQuery = screenState.searchQuery
     // R5：最近浏览章节（本会话记录，置顶于目录）；R8：顶栏「更多」菜单
     var recentChapters = remember { mutableStateListOf<Int>() }
-    var showReaderOverflow by mutableHolders.showReaderOverflowState
-    LaunchedEffect(screenState.showReaderOverflow) { showReaderOverflow = screenState.showReaderOverflow }
-    // R3：跨会话 TTS 续读句偏移
-    var ttsResumeOffset by remember { mutableIntStateOf(0) }
-    var ttsResumeChapter by remember { mutableIntStateOf(-1) }
+    val showReaderOverflow = screenState.showReaderOverflow
+    // R3：跨会话 TTS 续读句偏移（同步 effect 在 ReaderSessionEffects 内）
+    val ttsResumeOffsetState = remember { mutableIntStateOf(0) }
+    val ttsResumeChapterState = remember { mutableIntStateOf(-1) }
 
     // 阅读设置（来自持久化 SettingsStore，见 readerSettings）
 
     // 笔记对话框
-    var noteOpen by mutableHolders.noteOpenState
-    LaunchedEffect(screenState.noteOpen) { noteOpen = screenState.noteOpen }
-    var noteBody by remember { mutableStateOf(screenState.noteBody) }
-    LaunchedEffect(screenState.noteBody) { noteBody = screenState.noteBody }
+    val noteOpen = screenState.noteOpen
+    val noteBody = screenState.noteBody
     // 高亮颜色选择
-    var showColorRow by mutableHolders.showColorRowState
-    LaunchedEffect(screenState.showColorRow) { showColorRow = screenState.showColorRow }
+    val showColorRow = screenState.showColorRow
 
     // 返回键按“临时层级优先”处理：先关弹层/菜单/选区，再离开阅读器。
     // 这与正文导航解耦，避免误触返回直接丢失当前阅读上下文。
+    // B2：所有写入改走 onAction（优先级分支与原逻辑逐一对应）：
+    // 关弹层→CloseSheet；关笔记框→SetNoteOpen(false)；关更多菜单→SetShowOverflow(false)；
+    // 清选区→ClearSelection（reducer 置 text=""、两偏移 -1、showColorRow=false，与原四行写入一致）；
+    // 藏控件→ToggleControls(false)。
     BackHandler(
         enabled = sheet != null ||
             noteOpen ||
@@ -316,16 +264,11 @@ fun ReaderScreen(
             controlsVisible,
     ) {
         when {
-            sheet != null -> sheet = null
-            noteOpen -> noteOpen = false
-            showReaderOverflow -> showReaderOverflow = false
-            selectedText.isNotBlank() -> {
-                selectedText = ""
-                selectedRangeStart = -1
-                selectedGlobalOffset = -1
-                showColorRow = false
-            }
-            controlsVisible -> controlsVisible = false
+            sheet != null -> onAction(ReaderAction.CloseSheet)
+            noteOpen -> onAction(ReaderAction.SetNoteOpen(false))
+            showReaderOverflow -> onAction(ReaderAction.SetShowOverflow(false))
+            selectedText.isNotBlank() -> onAction(ReaderAction.ClearSelection)
+            controlsVisible -> onAction(ReaderAction.ToggleControls(false))
         }
     }
 
@@ -333,28 +276,11 @@ fun ReaderScreen(
     val activeReadingMsState = remember { mutableLongStateOf(0L) }
     var activeReadingMs by activeReadingMsState
     // 用可变 State 持有最新设置，避免提醒计时器因设置变化反复重建 / 捕获旧值
+    // （同步 effect 抽到 reader/ReaderSessionEffects.kt）
     val settingsRef = remember { mutableStateOf(readerSettings) }
-    LaunchedEffect(readerSettings) { settingsRef.value = readerSettings }
-
-    // TTS 高级项：首次将持久化的音调/音量/音色/定时停止载入控制器 → TtsSettingsSyncEffect
-    TtsSettingsSyncEffect(tts = tts, readerSettings = readerSettings)
 
     val bid = bookId ?: ""
     var txtTocRuleId by mutableHolders.txtTocRuleIdState
-    LaunchedEffect(bid, txtTocRuleIdFromVm) {
-        txtTocRuleId = txtTocRuleIdFromVm
-    }
-
-    // R3：跨会话 TTS 续读 → TtsResumeEffect
-    TtsResumeEffect(
-        tts = tts,
-        bookId = bid,
-        settingsStore = settingsStore,
-        isEpub = epubBook != null,
-        chapterIndex = chapterIndex,
-        onResumeOffsetChanged = { ttsResumeOffset = it },
-        onResumeChapterChanged = { ttsResumeChapter = it },
-    )
 
     // SE4：从搜索结果跳转时携带的 highlightId（高亮或笔记），消费后置空避免重复触发
     var pendingHighlightId by mutableHolders.pendingHighlightIdState
@@ -372,9 +298,7 @@ fun ReaderScreen(
         txtStreamingFileIndex = txtStreamingFileIndex,
     )
     val chapterStartOffsets = derived.chapterStartOffsets
-    val chapterTitles = derived.chapterTitles
     val readingUnits = derived.readingUnits
-    val unitCache = derived.unitCache
     // 暂时保留 plainChunks 用于进度/跳转兼容（Phase C 将完全替换）
     val plainChunks: List<PlainTextChunk> = remember(plainContent, readingUnits) {
         when {
@@ -413,7 +337,6 @@ fun ReaderScreen(
     var pagedAbsOffset by pagerEngine.pagedAbsOffsetState
     var pagedPercent by pagerEngine.pagedPercentState
     val txtChapters = pagerEngine.txtChapters
-    val txtRulePreviews = pagerEngine.txtRulePreviews
     val pagedSource = pagerEngine.pagedSource
 
     // Phase 5：进度计算抽到 reader/ReaderProgressComputations.kt，逐字保真。
@@ -446,74 +369,25 @@ fun ReaderScreen(
     val visiblePlainOffset = progressState.visiblePlainOffset
     val contentText = progressState.contentText
     val txtChapterIndex = progressState.txtChapterIndex
-    val chapterFade = progressState.chapterFade
-    val chapterFadeKey = progressState.chapterFadeKey
     val currentChapterTitle = progressState.currentChapterTitle
     val progressPercent = progressState.progressPercent
-    val chapterProgress = progressState.chapterProgress
-    val documentWordCount = progressState.documentWordCount
-    val savedBookReadingMs = progressState.savedBookReadingMs
-    val readerSpeed = progressState.readerSpeed
-    val estimatedRemainingMs = progressState.estimatedRemainingMs
-    val bookmarksCount = progressState.bookmarksCount
-    val inspirationsCount = progressState.inspirationsCount
 
-    val effectivePaperBg = paperBg
-
-    // 护眼时间 currentMinute 由 ReaderRuntimeEffects 每分钟写入
-    val currentMinuteState = remember { mutableIntStateOf(0) }
-    var currentMinute by currentMinuteState
-    val eyeCareActive = readerSettings.eyeCareFilterEnabled ||
-        (readerSettings.eyeCareScheduleEnabled && EyeCareSchedule.isActive(
-            currentMinute,
-            readerSettings.eyeCareStartMinute,
-            readerSettings.eyeCareEndMinute,
-        ))
-    val eyeRgb = remember(readerSettings.eyeCareTemperature) {
-        EyeCareSchedule.rgbForKelvin(readerSettings.eyeCareTemperature)
-    }
-    val eyeFilterColor = Color(eyeRgb.first, eyeRgb.second, eyeRgb.third)
-
-    // 朗读句高亮背景色（与 TXT 保持一致）：跟随纸张强调色（§4.3 accent @0.22）。
-    val sentenceHighlightBg = paper.accent.copy(alpha = 0.22f)
-
-    // T1/T2：当前章节各渲染块在全书文本中的全局偏移；以及 TTS 当前句在章节内的定位
-    val chapterBase = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
-    val blockGlobalOffsets = remember(epubBook, chapterStartOffsets, chapterIndex, chapterBlocks) {
-        if (epubBook != null) computeBlockGlobalOffsets(chapterBlocks, chapterBase) else emptyList()
-    }
-    val ttsSentenceRangeInChapter = if (showTts && tts.status != "idle" && epubBook != null && contentText.isNotBlank()) {
-        tts.currentSentenceRange
-    } else null
-    val ttsSentenceBlockIndex = remember(blockGlobalOffsets, ttsSentenceRangeInChapter) {
-        if (ttsSentenceRangeInChapter != null) {
-            val s = ttsSentenceRangeInChapter.first
-            var idx = -1
-            for (i in blockGlobalOffsets.indices) {
-                val o = blockGlobalOffsets[i]
-                if (o >= 0 && o <= s) idx = i else if (o > s) break
-            }
-            idx
-        } else null
-    }
-    // 滚动聚焦块：优先 TTS 当前句，否则导航精准定位（T1 跳转用）
-    var navFocusBlockIndex by mutableHolders.navFocusBlockIndexState
-    val focusBlockIndex = ttsSentenceBlockIndex ?: navFocusBlockIndex
-    val epubBringRequester = remember { BringIntoViewRequester() }
-
-    /** 依据当前选区生成 locator_json（T1）。 */
-    fun computeLocatorJson(): String? = com.creationreadingassistant.ui.screen.reader.computeLocatorJson(
-        epubBook, selectedGlobalOffset, chapterStartOffsets, selectedText, selectedRangeStart,
+    // B3：护眼调度 / 朗读句高亮 / 块全局偏移 / TTS 句定位 / 滚动焦点块派生组
+    // 抽到 reader/ReaderEyeCareFocusState.kt，逐字保真（State-holder 模式）。
+    val eyeCareFocus = rememberReaderEyeCareFocusState(
+        readerSettings = readerSettings,
+        paper = paper,
+        showTts = showTts,
+        tts = tts,
+        epubBook = epubBook,
+        contentText = contentText,
+        chapterStartOffsets = chapterStartOffsets,
+        chapterIndex = chapterIndex,
+        chapterBlocks = chapterBlocks,
+        navFocusBlockIndexState = mutableHolders.navFocusBlockIndexState,
     )
 
-    fun showNotice(msg: String) {
-        scope.launch { snackbarHost.showSnackbar(msg) }
-    }
-
-    // R6：pendingTxtRuleAnchorOffset 跨 effect 共享，由 ReaderRuntimeEffects 消费
-    var pendingTxtRuleAnchorOffset by mutableHolders.pendingTxtRuleAnchorOffsetState
-
-    val autoPagingPaused = !readerResumed ||
+    val autoPagingPaused = !readerResumedState.value ||
         sheet != null ||
         noteOpen ||
         selectedText.isNotBlank() ||
@@ -523,176 +397,68 @@ fun ReaderScreen(
     val autoPagingSupported = readerSettings.readerMode == "scroll" ||
         (pagerEngineOn && pagedSource != null)
 
-    fun goToChapter(i: Int) = com.creationreadingassistant.ui.screen.reader.goToChapter(
-        i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
-        pagedJumpRequest, chapterIndexState, tts, onAction, bid,
+    // ── B3：导航 / chrome 动作闭包组抽到 reader/ReaderActions.kt::buildReaderNavActions，
+    // 各闭包体逐字保真（原局部 fun 每次重组重建，顶层 builder 语义一致）。──
+    val nav = buildReaderNavActions(
+        epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets, pagedJumpRequest,
+        chapterIndexState, tts, onAction, onBack, bid, selectedGlobalOffset, selectedText,
+        selectedRangeStart, scope, snackbarHost, readingUnits, plainListState, loadedBook,
+        error, pendingInitialPosition, pagedAbsOffset, pagedSource, chapterIndex, epubListState,
+        eyeCareFocus.blockGlobalOffsets, eyeCareFocus.chapterBase, chapterBlocks, bookIndex,
+        visiblePlainOffset, txtStreamingDocument, plainContent, txtChapters,
+        txtChapterIndex, contentText, ttsResumeChapterState, ttsResumeOffsetState, bookTitle,
+        currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
     )
 
-    /** TXT 跳转统一入口：分页引擎开着走翻页定位，否则滚动列表。两条路都以全书字符偏移为准。 */
-    fun jumpToPlainOffset(offset: Int) = com.creationreadingassistant.ui.screen.reader.jumpToPlainOffset(
-        offset, pagerEngineOn, readingUnits, scope, plainListState, pagedJumpRequest,
-    )
-
-    fun persistCurrentProgress() = com.creationreadingassistant.ui.screen.reader.persistCurrentProgress(
-        bid, loadedBook, error, pendingInitialPosition, epubBook, pagerEngineOn,
-        pagedAbsOffset, pagedSource, chapterIndex, epubListState, blockGlobalOffsets,
-        chapterBase, chapterBlocks, bookIndex, chapterStartOffsets, visiblePlainOffset,
-        markdownDocument, txtStreamingDocument, plainContent, onAction,
-    )
-
-    // ── 平台 Effects（常亮、沉浸、亮度、窗口底色、音量键、自动隐藏、生命周期）────
-    ReaderPlatformEffects(
-        keepAwake = readerSettings.keepAwake,
-        immersiveMode = readerSettings.immersiveMode,
-        controlsVisible = controlsVisible,
-        paperIsLight = paper.isLight,
-        appDark = appDark,
-        readerBrightness = if (readerSettings.brightness < 0) -1 else readerSettings.brightness.coerceIn(5, 100),
-        paperBgColor = paperBg,
-        volumeKeyPaging = readerSettings.volumeKeyPaging,
-        onVolumeUp = {
-            if (!readerSettings.volumeKeyPaging) false
-            else if (screenState.showTts && !readerSettings.volumeKeyPagingDuringTts) false
-            else {
-                when {
-                    pagerEngineOn -> pagedHardwareTurnRequest.value = -1
-                    epubBook != null || markdownDocument != null -> goToChapter(chapterIndex - 1)
-                    else -> scope.launch {
-                        val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * -1
-                        plainListState.animateScrollBy(amount)
-                    }
-                }
-                true
-            }
-        },
-        onVolumeDown = {
-            if (!readerSettings.volumeKeyPaging) false
-            else if (screenState.showTts && !readerSettings.volumeKeyPagingDuringTts) false
-            else {
-                when {
-                    pagerEngineOn -> pagedHardwareTurnRequest.value = 1
-                    epubBook != null || markdownDocument != null -> goToChapter(chapterIndex + 1)
-                    else -> scope.launch {
-                        val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * 1
-                        plainListState.animateScrollBy(amount)
-                    }
-                }
-                true
-            }
-        },
-        onReaderResumed = { readerResumed = it },
-        onPersistProgress = ::persistCurrentProgress,
-        controlsVisibleForAutoHide = controlsVisible,
-        autoHideSeconds = readerSettings.autoHideSeconds,
-        sheetOpenGuard = sheetOpenGuard,
-        onAutoHide = { controlsVisible = false },
-    )
-
-    // R6：进度滑块跳转（TXT 定位到百分比；EPUB 跳到对应章节；分页引擎按全书偏移精确定位）
-    fun seekToPercent(p: Float) = com.creationreadingassistant.ui.screen.reader.seekToPercent(
-        p, epubBook, pagerEngineOn, bookIndex, txtStreamingDocument, plainContent,
-        pagedJumpRequest, ::goToChapter, ::jumpToPlainOffset,
-    )
-
-    // 章节内进度跳转：将章节内百分比转换为全书绝对偏移后定位
-    fun seekToChapterPercent(p: Float) = com.creationreadingassistant.ui.screen.reader.seekToChapterPercent(
-        p, epubBook, chapterStartOffsets, chapterIndex, contentText, pagerEngineOn,
-        txtChapters, txtChapterIndex, plainContent, pagedJumpRequest, ::jumpToPlainOffset,
-    )
-
-    // ── 会话计时 / 阅读提醒 / 进度持久化 / 位置恢复 / 高亮精确定位 ──────────────
-    // Phase 2：8 个 LaunchedEffect 抽到 reader/ReaderProgressEffects.kt，逐字保真。
-    // 6 个可变状态以 State-holder 形式传入（读 .value 拿当前快照，避免 effect 体捕获旧值）；
-    // 局部 fun（goToChapter/jumpToPlainOffset/showNotice）与挂起回调作为函数参数传入。
-    ReaderProgressEffects(
+    // ── B3：会话级 Effects 聚合 → reader/ReaderSessionEffects.kt（设置同步 / TTS 同步与续读 /
+    // 平台 Effects / 进度与位置 Effects / 运行时 Effects / TTS 跟读），调用实参逐字保真。──
+    ReaderSessionEffects(
+        inputs = inputs,
+        callbacks = callbacks,
+        progressState = progressState,
+        derived = derived,
+        pagerEngine = pagerEngine,
+        holders = mutableHolders,
+        docLoad = docLoad,
         bid = bid,
+        readerSettings = readerSettings,
         isLoading = isLoading,
         error = error,
         loadedBook = loadedBook,
         chapterIndex = chapterIndex,
         epubBook = epubBook,
-        readingUnits = readingUnits,
-        pagerEngineOn = pagerEngineOn,
-        plainListState = plainListState,
-        epubListState = epubListState,
-        txtStreamingDocument = txtStreamingDocument,
-        plainContent = plainContent,
         markdownDocument = markdownDocument,
-        pagedSource = pagedSource,
+        plainContent = plainContent,
+        chapterBlocks = chapterBlocks,
         savedPlainOffset = savedPlainOffset,
         savedPlainPercent = savedPlainPercent,
-        chapterBlocks = chapterBlocks,
         savedEpubOffsetInChapter = savedEpubOffsetInChapter,
-        chapterBase = chapterBase,
-        blockGlobalOffsets = blockGlobalOffsets,
-        highlights = highlights,
-        notes = notes,
+        chapterBase = eyeCareFocus.chapterBase,
+        blockGlobalOffsets = eyeCareFocus.blockGlobalOffsets,
         bookIndex = bookIndex,
-        chapterStartOffsets = chapterStartOffsets,
-        anchorCacheStore = anchorCacheStore,
         recentChapters = recentChapters,
         activeReadingMsState = activeReadingMsState,
-        pagedAbsOffsetState = pagerEngine.pagedAbsOffsetState,
-        pagedPercentState = pagerEngine.pagedPercentState,
-        pendingInitialPositionState = mutableHolders.pendingInitialPositionState,
-        pendingHighlightIdState = mutableHolders.pendingHighlightIdState,
-        navFocusBlockIndexState = mutableHolders.navFocusBlockIndexState,
+        currentMinuteState = eyeCareFocus.currentMinuteState,
         settingsRef = settingsRef,
-        pagedJumpRequest = pagedJumpRequest,
-        onAction = onAction,
-        showNotice = ::showNotice,
-        goToChapter = ::goToChapter,
-        jumpToPlainOffset = ::jumpToPlainOffset,
-        onLoadChapterBlocks = onLoadChapterBlocks,
-        onExtractChapterText = onExtractChapterText,
-    )
-
-    // ── 运行时 effect：章节淡入 / 护眼时间 / 焦点滚动 / TXT 规则 / 自动翻页 / 触感 ──
-    // Phase 4：6 个 LaunchedEffect 抽到 reader/ReaderRuntimeEffects.kt，逐字保真。
-    // autoPagingActiveState 既是 key 又在 while 循环里被读 / 被写：用 .value 既作 key
-    // （组合期快照读取，变化即重启）又作读写入口，与原 `var by` delegate 行为一致。
-    ReaderRuntimeEffects(
-        chapterFadeKey = chapterFadeKey,
-        chapterFade = chapterFade,
-        readerSettings = readerSettings,
-        currentMinuteState = currentMinuteState,
-        focusBlockIndex = focusBlockIndex,
-        epubBringRequester = epubBringRequester,
-        txtRuleScanResult = txtRuleScanResult,
-        pendingTxtRuleAnchorOffsetState = mutableHolders.pendingTxtRuleAnchorOffsetState,
-        pagedJumpRequest = pagedJumpRequest,
-        txtStreamingDocumentState = txtStreamingDocumentState,
-        txtStreamingFileIndexState = txtStreamingFileIndexState,
-        autoPagingActiveState = mutableHolders.autoPagingActiveState,
+        readerResumedState = readerResumedState,
+        ttsResumeOffsetState = ttsResumeOffsetState,
+        ttsResumeChapterState = ttsResumeChapterState,
         autoPagingPaused = autoPagingPaused,
-        epubListState = epubListState,
-        plainListState = plainListState,
-        epubBook = epubBook,
-        showNotice = ::showNotice,
-        haptic = haptic,
-    )
-
-    // 打开 TTS：从当前正文（或跨会话续读位置）开始
-    fun openTts() = com.creationreadingassistant.ui.screen.reader.openTts(
-        contentText, epubBook, ttsResumeChapter, chapterIndex, ttsResumeOffset,
-        tts, bookTitle, currentChapterTitle, context,
-        onShowTtsChange = { showTts = it }, showNotice = ::showNotice,
-    )
-
-    // R2：朗读时把正文跟到当前句 → TtsReaderSyncEffect
-    TtsReaderSyncEffect(
-        tts = tts,
-        showTts = showTts,
+        focusBlockIndex = eyeCareFocus.focusBlockIndex,
+        epubBringRequester = eyeCareFocus.epubBringRequester,
+        controlsVisible = controlsVisible,
+        sheetOpenGuard = sheetOpenGuard,
+        paperBg = paperBg,
+        paperIsLight = paper.isLight,
+        appDark = appDark,
         isTxt = isTxt,
-        plainContent = plainContent,
-        txtStreamingDocument = txtStreamingDocument,
-        visiblePlainOffset = visiblePlainOffset,
-        jumpToPlainOffset = ::jumpToPlainOffset,
-        pagerEngineOn = pagerEngineOn,
-        isEpub = epubBook != null,
-        pagedJumpTo = { pagedJumpRequest.value = it },
-        chapterStartOffsets = chapterStartOffsets,
-        chapterIndex = chapterIndex,
+        tts = tts,
+        haptic = haptic,
+        scope = scope,
+        showNotice = nav.showNotice,
+        goToChapter = nav.goToChapter,
+        jumpToPlainOffset = nav.jumpToPlainOffset,
+        persistCurrentProgress = nav.persistCurrentProgress,
     )
 
     // ── 笔记对话框（已提取到 ReaderNoteDialog）──────────────────────
@@ -700,58 +466,26 @@ fun ReaderScreen(
         com.creationreadingassistant.ui.screen.reader.sheets.ReaderNoteDialog(
             selectedText = selectedText,
             noteBody = noteBody,
-            onNoteBodyChange = { noteBody = it },
+            onNoteBodyChange = { onAction(ReaderAction.SetNoteBody(it)) },
             onSave = {
-                // 同高亮保存：先快照局部变量，避免下面同步清空后读到空串
-                val snapshotText = selectedText
-                val snapshotBody = noteBody
-                val snapshotLocator = computeLocatorJson()
-                onAction(ReaderAction.SaveNote(
-                    NoteEntity(
-                        id = UUID.randomUUID().toString(),
-                        book_id = bid.ifBlank { null },
-                        title = (snapshotBody.ifBlank { snapshotText }).take(40),
-                        body = snapshotBody,
-                        excerpt = snapshotText.takeIf { it.isNotBlank() },
-                        chapter_title = currentChapterTitle.ifBlank { null },
-                        progress_percent = progressPercent,
-                        kind = "note",
-                        locator_json = snapshotLocator,
-                        payload = "{}",
-                        created_at = nowIso(),
-                        device_id = null,
-                        revision = 1,
-                        updated_at = nowIso(),
-                        deleted_at = null,
-                    ),
-                ))
-                noteBody = ""
-                noteOpen = false
-                selectedText = ""
-                showNotice("已保存笔记")
+                // B3：保存逻辑抽到 reader/ReaderActions.kt::saveReaderNote，逐字保真。
+                saveReaderNote(
+                    onAction, bid, selectedText, noteBody, currentChapterTitle,
+                    progressPercent, nav.computeLocatorJson(),
+                )
+                nav.showNotice("已保存笔记")
             },
-            onDismiss = { noteOpen = false },
+            onDismiss = { onAction(ReaderAction.SetNoteOpen(false)) },
         )
     }
-
-    fun handleChromeAction(action: ReaderChromeAction) = com.creationreadingassistant.ui.screen.reader.handleChromeAction(
-        action, showTts, tts, mutableHolders.autoPagingActiveState, autoPagingSupported,
-        onShowTtsChange = { showTts = it },
-        onControlsVisibleChange = { controlsVisible = it },
-        onSelectedTextChange = { selectedText = it },
-        onSheetChange = { sheet = it },
-        onSearchQueryChange = { searchQuery = it },
-        onBack = onBack, openTts = ::openTts, showNotice = ::showNotice,
-    )
-
 
     ReaderScaffold(
         progressState = progressState,
         derived = derived,
         pagerEngine = pagerEngine,
         paper = paper,
-        eyeCareActive = eyeCareActive,
-        eyeFilterColor = eyeFilterColor,
+        eyeCareActive = eyeCareFocus.eyeCareActive,
+        eyeFilterColor = eyeCareFocus.eyeFilterColor,
         readerSettings = readerSettings,
         snackbarHost = snackbarHost,
         isLoading = isLoading,
@@ -772,23 +506,23 @@ fun ReaderScreen(
         recentChapters = recentChapters,
         chapterIndex = chapterIndex,
         chapterBlocks = chapterBlocks,
-        blockGlobalOffsets = blockGlobalOffsets,
-        chapterBase = chapterBase,
-        ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
-        focusBlockIndex = focusBlockIndex,
-        sentenceHighlightBg = sentenceHighlightBg,
-        epubBringRequester = epubBringRequester,
+        blockGlobalOffsets = eyeCareFocus.blockGlobalOffsets,
+        chapterBase = eyeCareFocus.chapterBase,
+        ttsSentenceRangeInChapter = eyeCareFocus.ttsSentenceRangeInChapter,
+        focusBlockIndex = eyeCareFocus.focusBlockIndex,
+        sentenceHighlightBg = eyeCareFocus.sentenceHighlightBg,
+        epubBringRequester = eyeCareFocus.epubBringRequester,
         isTxt = isTxt,
         tts = tts,
         autoPagingPaused = autoPagingPaused,
         appDark = appDark,
         activeReadingMs = activeReadingMs,
-        goToChapter = ::goToChapter,
-        showNotice = ::showNotice,
-        seekToPercent = ::seekToPercent,
-        jumpToPlainOffset = ::jumpToPlainOffset,
-        handleChromeAction = ::handleChromeAction,
-        computeLocatorJson = ::computeLocatorJson,
+        goToChapter = nav.goToChapter,
+        showNotice = nav.showNotice,
+        seekToPercent = nav.seekToPercent,
+        jumpToPlainOffset = nav.jumpToPlainOffset,
+        handleChromeAction = nav.handleChromeAction,
+        computeLocatorJson = nav.computeLocatorJson,
         inputs = inputs,
         callbacks = callbacks,
         settingsVm = settingsVm,

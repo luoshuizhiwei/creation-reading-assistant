@@ -54,6 +54,7 @@ fun ReaderRoute(
             pageIndexStore = viewModel.pageIndexStore,
             anchorCacheStore = viewModel.anchorCacheStore,
             pagerHealthStore = viewModel.pagerHealthStore,
+            pageIndexManager = viewModel.pageIndexManager,
         ),
     )
 }

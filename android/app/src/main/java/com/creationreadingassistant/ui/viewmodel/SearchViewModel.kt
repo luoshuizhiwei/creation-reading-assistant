@@ -2,16 +2,15 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.HighlightDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.settings.SearchHistoryStore
-import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Job
@@ -34,10 +33,9 @@ data class SearchResults(
 
 @HiltViewModel
 class SearchViewModel @Inject constructor(
-    private val bookDao: BookDao,
-    private val inspirationDao: InspirationDao,
-    private val noteDao: NoteDao,
-    private val highlightDao: HighlightDao,
+    private val bookRepository: BookRepository,
+    private val inspirationRepository: InspirationRepository,
+    private val noteRepository: NoteRepository,
     private val historyStore: SearchHistoryStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -61,15 +59,19 @@ class SearchViewModel @Inject constructor(
             _loading.value = true
             val query = q.trim()
             val results = withContext(ioDispatcher) {
-                val b = runCatching { bookDao.search(query) }.getOrDefault(emptyList())
-                val i = runCatching { inspirationDao.search(query) }.getOrDefault(emptyList())
-                val n = runCatching { noteDao.search(query) }.getOrDefault(emptyList())
-                val h = runCatching { highlightDao.search(query) }.getOrDefault(emptyList())
+                val b = runCatching { bookRepository.search(query) }.getOrDefault(emptyList())
+                val i = runCatching { inspirationRepository.search(query) }.getOrDefault(emptyList())
+                val n = runCatching { noteRepository.searchNotes(query) }.getOrDefault(emptyList())
+                val h = runCatching { noteRepository.searchHighlights(query) }.getOrDefault(emptyList())
                 // 收集笔记/高亮所属书籍名，供结果项展示来源（SE6）
+                // 用 IN 批量查询替代逐条 getById，消除 N+1
                 val neededIds = (n.map { it.book_id } + h.map { it.book_id }).filterNotNull().toSet()
-                val titles = neededIds.mapNotNull { id ->
-                    runCatching { bookDao.getById(id) }.getOrNull()?.let { it.id to it.title }
-                }.toMap()
+                val titles = if (neededIds.isEmpty()) {
+                    emptyMap()
+                } else {
+                    runCatching { bookRepository.getByIds(neededIds).associate { it.id to it.title } }
+                        .getOrDefault(emptyMap())
+                }
                 SearchResults(books = b, inspirations = i, notes = n, highlights = h, bookTitles = titles)
             }
             _results.value = results

@@ -1,10 +1,10 @@
 package com.creationreadingassistant.ui.viewmodel
 
-import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
 import io.mockk.every
 import io.mockk.mockk
 import kotlinx.coroutines.Dispatchers
@@ -30,13 +30,13 @@ class HomeArchiveViewModelTest {
     private val mainDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var repository: BookRepository
-    private lateinit var inspirationDao: InspirationDao
+    private lateinit var inspirationRepository: InspirationRepository
 
     @Before
     fun setUp() {
         Dispatchers.setMain(mainDispatcher)
         repository = mockk()
-        inspirationDao = mockk()
+        inspirationRepository = mockk()
     }
 
     @After
@@ -77,8 +77,8 @@ class HomeArchiveViewModelTest {
     ): HomeArchiveViewModel {
         every { repository.observeBooks() } returns flowOf(books)
         every { repository.observeProgress() } returns flowOf(progress)
-        every { inspirationDao.observeAllActive() } returns flowOf(inspirations)
-        return HomeArchiveViewModel(repository, inspirationDao, Dispatchers.Unconfined)
+        every { inspirationRepository.observeAllActive() } returns flowOf(inspirations)
+        return HomeArchiveViewModel(repository, inspirationRepository, Dispatchers.Unconfined)
     }
 
     @Test

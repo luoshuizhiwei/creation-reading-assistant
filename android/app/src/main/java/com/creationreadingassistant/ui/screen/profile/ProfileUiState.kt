@@ -101,6 +101,8 @@ internal data class ProfileUiState(
     val appearance: AppearanceSettings = AppearanceSettings(),
     val reader: ReaderSettings = ReaderSettings(),
     val ai: AISettings = AISettings(),
+    /** 非加密 http AI 接口的一次性警示文案（null 表示无需警示）。 */
+    val aiHttpWarning: String? = null,
     val aiKeyDraft: String = "",
     val libraryState: ProfileLibraryState = ProfileLibraryState(),
     val pendingDownloadCount: Int = 0,

@@ -4,15 +4,14 @@ import android.content.Context
 import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.ShelfDao
-import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.SyncRepository
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.data.settings.ShelfPrefs
+import com.creationreadingassistant.feature.library.ShelfImporter
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.ui.screen.shelf.ShelfSortMode
 import com.creationreadingassistant.ui.screen.shelf.ShelfStatusFilter
@@ -53,9 +52,7 @@ class ShelfViewModelTest {
     private lateinit var bookDao: BookDao
     private lateinit var bookContentDao: BookContentDao
     private lateinit var bookFileDao: BookFileDao
-    private lateinit var tagDao: TagDao
-    private lateinit var categoryDao: CategoryDao
-    private lateinit var shelfDao: ShelfDao
+    private lateinit var taxonomyRepository: TaxonomyRepository
     private lateinit var syncRepository: SyncRepository
     private lateinit var epubRepository: EpubRepository
     private lateinit var importHistoryStore: ImportHistoryStore
@@ -79,9 +76,11 @@ class ShelfViewModelTest {
         bookDao = mockk()
         bookContentDao = mockk()
         bookFileDao = mockk()
-        tagDao = mockk { every { observeAllActive() } returns flowOf(emptyList()) }
-        categoryDao = mockk { every { observeAllActive() } returns flowOf(emptyList()) }
-        shelfDao = mockk { every { observeAllActive() } returns flowOf(emptyList()) }
+        taxonomyRepository = mockk {
+            every { observeTags() } returns flowOf(emptyList())
+            every { observeCategories() } returns flowOf(emptyList())
+            every { observeShelves() } returns flowOf(emptyList())
+        }
         syncRepository = mockk()
         epubRepository = mockk { coEvery { repairMissingLocalFileSizes() } returns 1 }
         importHistoryStore = mockk { every { entries } returns MutableStateFlow(emptyList()) }
@@ -114,22 +113,28 @@ class ShelfViewModelTest {
         every { repository.observeNotes() } returns flowOf(emptyList())
         every { repository.observeHighlights() } returns flowOf(emptyList())
         every { repository.observeInspirations() } returns flowOf(emptyList())
-        return ShelfViewModel(
+        // 导入管线由 Hilt 注入；测试中用真实 ShelfImporter + mock DAO 构造，
+        // 仅作为 ViewModel 的依赖替身，本测试不断言其内部行为。
+        val importer = ShelfImporter(
             context = context,
             repository = repository,
             bookDao = bookDao,
             bookContentDao = bookContentDao,
             bookFileDao = bookFileDao,
-            tagDao = tagDao,
-            categoryDao = categoryDao,
-            shelfDao = shelfDao,
-            syncRepository = syncRepository,
             epubRepository = epubRepository,
             importHistoryStore = importHistoryStore,
+            ioDispatcher = Dispatchers.Unconfined,
+        )
+        return ShelfViewModel(
+            context = context,
+            repository = repository,
+            taxonomyRepository = taxonomyRepository,
+            syncRepository = syncRepository,
             shelfPrefs = shelfPrefs,
             continueReadingStore = continueReadingStore,
             ioDispatcher = Dispatchers.Unconfined,
             defaultDispatcher = Dispatchers.Unconfined,
+            shelfImporter = importer,
         )
     }
 

@@ -2,28 +2,20 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.creationreadingassistant.data.local.dao.BookCategoryDao
-import com.creationreadingassistant.data.local.dao.BookTagDao
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.ShelfBookDao
-import com.creationreadingassistant.data.local.dao.ShelfDao
-import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.local.entity.BookTagEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.ShelfBookEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
-import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import java.time.Instant
-import java.util.UUID
 import javax.inject.Inject
 
 /**
@@ -32,138 +24,116 @@ import javax.inject.Inject
  */
 @HiltViewModel
 class TaxonomyViewModel @Inject constructor(
-    private val tagDao: TagDao,
-    private val categoryDao: CategoryDao,
-    private val shelfDao: ShelfDao,
-    private val bookTagDao: BookTagDao,
-    private val bookCategoryDao: BookCategoryDao,
-    private val shelfBookDao: ShelfBookDao,
+    private val repository: TaxonomyRepository,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
     // ---- 全部列表 ----
-    val allTags: StateFlow<List<TagEntity>> = tagDao.observeAllActive()
+    val allTags: StateFlow<List<TagEntity>> = repository.observeTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allCategories: StateFlow<List<CategoryEntity>> = categoryDao.observeAllActive()
+    val allCategories: StateFlow<List<CategoryEntity>> = repository.observeCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val allShelves: StateFlow<List<ShelfEntity>> = shelfDao.observeAllActive()
+    val allShelves: StateFlow<List<ShelfEntity>> = repository.observeShelves()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     // ---- 按书的关联 ID ----
     fun observeTagIdsForBooks(bookIds: List<String>): Flow<List<String>> =
-        if (bookIds.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-        else bookTagDao.observeTagIdsForBooks(bookIds)
+        repository.observeTagIdsForBooks(bookIds)
 
     fun observeCategoryIdsForBooks(bookIds: List<String>): Flow<List<String>> =
-        if (bookIds.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-        else bookCategoryDao.observeCategoryIdsForBooks(bookIds)
+        repository.observeCategoryIdsForBooks(bookIds)
 
     fun observeShelfIdsForBooks(bookIds: List<String>): Flow<List<String>> =
-        if (bookIds.isEmpty()) kotlinx.coroutines.flow.flowOf(emptyList())
-        else shelfBookDao.observeShelfIdsForBooks(bookIds)
+        repository.observeShelfIdsForBooks(bookIds)
 
-    fun observeTagIdsForBook(bookId: String): Flow<List<String>> = bookTagDao.observeTagIds(bookId)
-    fun observeCategoryIdsForBook(bookId: String): Flow<List<String>> = bookCategoryDao.observeCategoryIds(bookId)
-    fun observeShelfIdsForBook(bookId: String): Flow<List<String>> = shelfBookDao.observeShelfIds(bookId)
+    fun observeTagIdsForBook(bookId: String): Flow<List<String>> = repository.observeTagIdsForBook(bookId)
+    fun observeCategoryIdsForBook(bookId: String): Flow<List<String>> = repository.observeCategoryIdsForBook(bookId)
+    fun observeShelfIdsForBook(bookId: String): Flow<List<String>> = repository.observeShelfIdsForBook(bookId)
 
-    suspend fun getBookIdsByShelf(shelfId: String): List<String> = shelfBookDao.getBookIds(shelfId)
-    suspend fun getBookIdsByCategory(categoryId: String): List<String> = bookCategoryDao.getBookIds(categoryId)
-    suspend fun getBookIdsByTag(tagId: String): List<String> = bookTagDao.getBookIds(tagId)
+    suspend fun getBookIdsByShelf(shelfId: String): List<String> = repository.getBookIdsByShelf(shelfId)
+    suspend fun getBookIdsByCategory(categoryId: String): List<String> = repository.getBookIdsByCategory(categoryId)
+    suspend fun getBookIdsByTag(tagId: String): List<String> = repository.getBookIdsByTag(tagId)
 
     // ---- 创建 ----
     fun createTag(name: String, type: String = "book") = viewModelScope.launch(ioDispatcher) {
-        createTagAndGetId(name, type)
+        repository.createTag(name, type)
     }
 
-    suspend fun createTagAndGetId(name: String, type: String = "book"): String {
-        val now = Instant.now().toString()
-        val id = "tag-${UUID.randomUUID()}"
-        tagDao.upsert(TagEntity(id = id, name = name.trim(), type = type.trim().takeIf { it.isNotBlank() } ?: "book", updated_at = now))
-        return id
-    }
+    suspend fun createTagAndGetId(name: String, type: String = "book"): String =
+        repository.createTag(name, type)
 
     fun createCategory(name: String) = viewModelScope.launch(ioDispatcher) {
-        createCategoryAndGetId(name)
+        repository.createCategory(name)
     }
 
-    suspend fun createCategoryAndGetId(name: String): String {
-        val now = Instant.now().toString()
-        val id = "cat-${UUID.randomUUID()}"
-        categoryDao.upsert(CategoryEntity(id = id, name = name.trim(), updated_at = now))
-        return id
-    }
+    suspend fun createCategoryAndGetId(name: String): String = repository.createCategory(name)
 
     fun createShelf(name: String) = viewModelScope.launch(ioDispatcher) {
-        createShelfAndGetId(name)
+        repository.createShelf(name)
     }
 
-    suspend fun createShelfAndGetId(name: String): String {
-        val now = Instant.now().toString()
-        val id = "shelf-${UUID.randomUUID()}"
-        shelfDao.upsert(ShelfEntity(id = id, name = name.trim(), updated_at = now))
-        return id
-    }
+    suspend fun createShelfAndGetId(name: String): String = repository.createShelf(name)
 
     // ---- 重命名 ----
     fun renameTag(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
-        tagDao.rename(id, newName.trim(), Instant.now().toString())
+        repository.renameTag(id, newName)
     }
 
     fun renameCategory(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
-        categoryDao.rename(id, newName.trim(), Instant.now().toString())
+        repository.renameCategory(id, newName)
     }
 
     fun renameShelf(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
-        shelfDao.rename(id, newName.trim(), Instant.now().toString())
+        repository.renameShelf(id, newName)
     }
 
     fun updateCategoryTone(id: String, tone: String) = viewModelScope.launch(ioDispatcher) {
-        categoryDao.updateCoverTone(id, tone.trim(), Instant.now().toString())
+        repository.updateCategoryTone(id, tone)
     }
 
     // ---- 软删除 ----
     fun deleteTag(id: String) = viewModelScope.launch(ioDispatcher) {
-        tagDao.softDelete(id, Instant.now().toString())
+        repository.deleteTag(id)
     }
 
     fun deleteCategory(id: String) = viewModelScope.launch(ioDispatcher) {
-        categoryDao.softDelete(id, Instant.now().toString())
+        repository.deleteCategory(id)
     }
 
     fun deleteShelf(id: String) = viewModelScope.launch(ioDispatcher) {
-        shelfDao.softDelete(id, Instant.now().toString())
+        repository.deleteShelf(id)
     }
 
     // ---- 书籍关联 ----
     fun addTagToBooks(bookIds: List<String>, tagId: String) = viewModelScope.launch(ioDispatcher) {
-        bookTagDao.upsertAll(bookIds.map { BookTagEntity(book_id = it, tag_id = tagId) })
+        repository.addTagToBooks(bookIds, tagId)
     }
 
     fun addTagToBook(bookId: String, tagId: String) = viewModelScope.launch(ioDispatcher) {
-        bookTagDao.upsert(BookTagEntity(book_id = bookId, tag_id = tagId))
+        repository.addTagToBook(bookId, tagId)
     }
 
     fun removeTagFromBook(bookId: String, tagId: String) = viewModelScope.launch(ioDispatcher) {
-        bookTagDao.remove(bookId, tagId)
+        repository.removeTagFromBook(bookId, tagId)
     }
 
     fun setCategoryForBooks(bookIds: List<String>, categoryId: String) = viewModelScope.launch(ioDispatcher) {
         if (bookIds.isEmpty()) return@launch
-        // 原子操作：clear + upsertAll 在同一事务中执行
-        bookCategoryDao.replaceForBooks(bookIds, categoryId)
+        repository.replaceCategoryForBooks(bookIds, categoryId)
     }
 
     fun removeCategoryFromBook(bookId: String, categoryId: String) = viewModelScope.launch(ioDispatcher) {
-        bookCategoryDao.remove(bookId, categoryId)
+        repository.removeCategoryFromBook(bookId, categoryId)
     }
 
     fun addBooksToShelf(bookIds: List<String>, shelfId: String) = viewModelScope.launch(ioDispatcher) {
-        shelfBookDao.upsertAll(bookIds.map { ShelfBookEntity(shelf_id = shelfId, book_id = it) })
+        repository.addBooksToShelf(bookIds, shelfId)
     }
 
     fun removeBookFromShelf(bookId: String, shelfId: String) = viewModelScope.launch(ioDispatcher) {
-        shelfBookDao.remove(shelfId, bookId)
+        repository.removeBookFromShelf(bookId, shelfId)
     }
 }
+

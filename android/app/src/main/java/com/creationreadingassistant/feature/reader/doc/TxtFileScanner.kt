@@ -49,8 +49,17 @@ object TxtFileScanner {
     /**
      * Scan a [File] on the local filesystem.
      * The file input stream is automatically closed after scanning.
+     *
+     * 章节字节长度以 Int 存储，超过 2GB 的文件会在各处 toInt() 溢出，
+     * 在入口直接给出可读错误而不是带伤扫描。
      */
     fun scan(file: File, ruleId: String = "builtin"): TxtFileIndex {
+        val length = file.length()
+        if (length > Int.MAX_VALUE.toLong()) {
+            throw IllegalArgumentException(
+                "TXT 文件过大（${"%.2f".format(length / 1024.0 / 1024.0 / 1024.0)} GB），超过 2GB 上限，无法打开"
+            )
+        }
         return FileInputStream(file).use { scan(it, ruleId) }
     }
 
@@ -226,7 +235,7 @@ object TxtFileScanner {
                     title = "全文",
                     charStart = 0,
                     byteStart = bomSkip.toLong(),
-                    byteLength = (totalBytes - bomSkip).toInt(),
+                    byteLength = (totalBytes - bomSkip).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
                     charCount = totalChars,
                 )
             )
@@ -243,7 +252,7 @@ object TxtFileScanner {
                     title = "开篇",
                     charStart = 0,
                     byteStart = bomSkip.toLong(),
-                    byteLength = (marks[0].byteStart - bomSkip).toInt(),
+                    byteLength = (marks[0].byteStart - bomSkip).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
                     charCount = marks[0].charStart,
                 )
             )
@@ -259,7 +268,7 @@ object TxtFileScanner {
                     title = mark.title,
                     charStart = mark.charStart,
                     byteStart = mark.byteStart,
-                    byteLength = (nextByteStart - mark.byteStart).toInt(),
+                    byteLength = (nextByteStart - mark.byteStart).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
                     charCount = nextCharStart - mark.charStart,
                 )
             )
@@ -275,7 +284,7 @@ object TxtFileScanner {
                         title = "全文",
                         charStart = 0,
                         byteStart = bomSkip.toLong(),
-                        byteLength = (totalBytes - bomSkip).toInt(),
+                        byteLength = (totalBytes - bomSkip).coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
                         charCount = totalChars,
                     )
                 )

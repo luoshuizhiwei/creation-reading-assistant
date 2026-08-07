@@ -53,122 +53,35 @@ import java.util.UUID
  */
 
 /**
- * 构造正文宿主所需的只读展示数据。字段值 1:1 来自 ReaderScreen 主函数的局部状态。
+ * 构造正文宿主所需的只读展示数据。B1 状态袋瘦身：原 49 个平铺参数按域分组为
+ * 4 个子对象（[ReaderContentSettings] / [ReaderSelectionState] / [ReaderPagingState] /
+ * [ReaderContentSourceState]）接收并组装，字段值仍 1:1 来自 ReaderScreen 主函数的局部状态。
  */
 internal fun buildReaderContentHostState(
-    pagerEngineOn: Boolean,
-    pagedSource: PagedChapterSource?,
-    readerSettings: ReaderSettings,
-    paper: ReaderPaperPalette,
-    paperFg: Color,
-    bid: String,
-    txtTocRuleId: String,
-    bookTitle: String,
-    chapterStartOffsets: List<Int>,
-    savedEpubOffsetInChapter: Int,
-    visiblePlainOffset: Int,
-    savedPlainOffset: Int,
-    savedPlainPercent: Float,
-    txtStreamingDocument: PlainTextDocument?,
-    plainContent: String,
-    pagedAbsOffset: Int,
-    pagedPercent: Float,
-    pendingInitialPosition: Boolean,
-    epubBook: EpubBook?,
-    markdownDocument: ReaderDocument?,
-    chapterIndex: Int,
-    txtChapterIndex: Int,
-    isChapterLoading: Boolean,
-    chapterBlocks: List<DocBlock>,
-    epubListState: LazyListState,
-    plainListState: LazyListState,
-    chapterFade: Animatable<Float, AnimationVector1D>,
-    blockGlobalOffsets: List<Int>,
-    chapterBase: Int,
-    ttsSentenceRangeInChapter: Pair<Int, Int>?,
-    focusBlockIndex: Int?,
-    sentenceHighlightBg: Color,
-    epubBringRequester: BringIntoViewRequester,
-    readingUnits: List<ReadingUnit>,
-    isTxt: Boolean,
-    showTts: Boolean,
-    tts: TtsController,
-    selectedText: String,
-    selectedGlobalOffset: Int,
-    selectedRangeStart: Int,
-    autoPagingActive: Boolean,
-    autoPagingPaused: Boolean,
-    pagedJumpRequest: MutableState<Int?>,
-    pagedHardwareTurnRequest: MutableState<Int?>,
-    unitCache: ReadingUnitCache,
-    pageIndexStore: PageIndexStore,
-    highlights: List<HighlightEntity>,
+    settings: ReaderContentSettings,
+    selection: ReaderSelectionState,
+    paging: ReaderPagingState,
+    source: ReaderContentSourceState,
 ): ReaderContentHostState = ReaderContentHostState(
-    pagerEngineOn = pagerEngineOn,
-    pagedSource = pagedSource,
-    readerSettings = readerSettings,
-    paper = paper,
-    paperFg = paperFg,
-    bid = bid,
-    txtTocRuleId = txtTocRuleId,
-    bookTitle = bookTitle,
-    chapterStartOffsets = chapterStartOffsets,
-    savedEpubOffsetInChapter = savedEpubOffsetInChapter,
-    visiblePlainOffset = visiblePlainOffset,
-    savedPlainOffset = savedPlainOffset,
-    savedPlainPercent = savedPlainPercent,
-    txtStreamingDocument = txtStreamingDocument,
-    plainContent = plainContent,
-    pagedAbsOffset = pagedAbsOffset,
-    pagedPercent = pagedPercent,
-    pendingInitialPosition = pendingInitialPosition,
-    epubBook = epubBook,
-    markdownDocument = markdownDocument,
-    chapterIndex = chapterIndex,
-    txtChapterIndex = txtChapterIndex,
-    isChapterLoading = isChapterLoading,
-    chapterBlocks = chapterBlocks,
-    epubListState = epubListState,
-    plainListState = plainListState,
-    chapterFade = chapterFade,
-    blockGlobalOffsets = blockGlobalOffsets,
-    chapterBase = chapterBase,
-    ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
-    focusBlockIndex = focusBlockIndex,
-    sentenceHighlightBg = sentenceHighlightBg,
-    epubBringRequester = epubBringRequester,
-    readingUnits = readingUnits,
-    isTxt = isTxt,
-    showTts = showTts,
-    tts = tts,
-    selectedText = selectedText,
-    selectedGlobalOffset = selectedGlobalOffset,
-    selectedRangeStart = selectedRangeStart,
-    autoPagingActive = autoPagingActive,
-    autoPagingPaused = autoPagingPaused,
-    pagedJumpRequest = pagedJumpRequest,
-    pagedHardwareTurnRequest = pagedHardwareTurnRequest,
-    unitCache = unitCache,
-    pageIndexStore = pageIndexStore,
-    highlights = highlights,
+    settings = settings,
+    selection = selection,
+    paging = paging,
+    source = source,
 )
 
 /**
  * 构造正文宿主所需的回调集合。lambda 体逐字搬运自 ReaderScreen，对局部 var 的写改为
  * setter 调用，局部 fun（[goToChapter] / [showNotice]）作为函数参数传入。
+ *
+ * B2：控件显隐与选区写入改走 [ReaderAction]（VM 唯一真源）。onToggleControls 用
+ * 无参 [ReaderAction.ToggleControls]（VM 侧取反），不捕获任何快照，天然规避
+ * PagedReaderHost pointerInput(controller) 冻结闭包导致的「只能关、不能开」问题。
  */
 internal fun buildReaderContentHostCallbacks(
-    // 传 MutableState 而非 Boolean 快照：PagedReaderHost 的 pointerInput(controller) 只在
-    // controller 变化时重建，闭包会冻结首个组合的 callbacks；若此处用 Boolean 快照，
-    // onToggleControls 将永远读到首次组合的 true，导致「只能关、不能开」控件。
-    controlsVisibleState: MutableState<Boolean>,
-    onControlsVisibleChange: (Boolean) -> Unit,
+    onAction: (ReaderAction) -> Unit,
     onPagedAbsOffsetChange: (Int) -> Unit,
     onPagedPercentChange: (Float) -> Unit,
     onPendingInitialPositionChange: (Boolean) -> Unit,
-    onSelectedTextChange: (String) -> Unit,
-    onSelectedGlobalOffsetChange: (Int) -> Unit,
-    onSelectedRangeStartChange: (Int) -> Unit,
     onAutoPagingActiveChange: (Boolean) -> Unit,
     goToChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
@@ -179,12 +92,10 @@ internal fun buildReaderContentHostCallbacks(
         onPendingInitialPositionChange(false)
         if (chapterToGo != null) goToChapter(chapterToGo)
     },
-    onToggleControls = { onControlsVisibleChange(!controlsVisibleState.value) },
-    onHideControls = { onControlsVisibleChange(false) },
+    onToggleControls = { onAction(ReaderAction.ToggleControls()) },
+    onHideControls = { onAction(ReaderAction.ToggleControls(false)) },
     onSelect = { text, globalOffset, rangeStart ->
-        onSelectedTextChange(text)
-        onSelectedGlobalOffsetChange(globalOffset)
-        onSelectedRangeStartChange(rangeStart)
+        onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset))
     },
     onAutoPagingFinished = {
         onAutoPagingActiveChange(false)
@@ -238,35 +149,31 @@ internal fun buildReaderInteractionLayerState(
 /**
  * 构造覆盖层所需的回调集合。`onPickColor` 的完整高亮保存逻辑逐字搬运：locator 快照、
  * 先存局部 `snapshotText` 再清选区、[HighlightEntity] 字段、[nowIso] 时间戳全部保持原样。
+ *
+ * B2：原对本地副本 var 的 setter 写入全部改走 [ReaderAction]（VM 唯一真源）：
+ * - onOverflowExpandedChange → SetShowOverflow；onCloseTts → SetShowTts(false)；
+ * - onToggleColor → ToggleColorRow（VM 侧取反，不捕获 showColorRow 快照）；
+ * - onPickColor / onClearSelection 尾部的「清选区+关颜色行」与 [ReaderAction.ClearSelection]
+ *   reducer 语义完全一致（text=""、两个偏移 -1、showColorRow=false），改为单个 action。
  */
 @Suppress("LongParameterList")
 internal fun buildReaderInteractionLayerCallbacks(
     chapterIndex: Int,
     settingsVm: SettingsViewModel,
     tts: TtsController,
-    showColorRow: Boolean,
     selectedText: String,
     bid: String,
     currentChapterTitle: String,
     progressPercent: Float,
     clipboard: ClipboardManager,
     onAction: (ReaderAction) -> Unit,
-    onShowReaderOverflowChange: (Boolean) -> Unit,
-    onShowTtsChange: (Boolean) -> Unit,
-    onShowColorRowChange: (Boolean) -> Unit,
-    onSheetChange: (ReaderSheet?) -> Unit,
-    onNoteOpenChange: (Boolean) -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    onSelectedTextChange: (String) -> Unit,
-    onSelectedGlobalOffsetChange: (Int) -> Unit,
-    onSelectedRangeStartChange: (Int) -> Unit,
     handleChromeAction: (ReaderChromeAction) -> Unit,
     seekToChapterPercent: (Float) -> Unit,
     goToChapter: (Int) -> Unit,
     computeLocatorJson: () -> String?,
     showNotice: (String) -> Unit,
 ): ReaderInteractionLayerCallbacks = ReaderInteractionLayerCallbacks(
-    onOverflowExpandedChange = { onShowReaderOverflowChange(it) },
+    onOverflowExpandedChange = { onAction(ReaderAction.SetShowOverflow(it)) },
     onChromeAction = handleChromeAction,
     onSeekChapterPercent = { seekToChapterPercent(it) },
     onPrevChapter = { goToChapter(chapterIndex - 1) },
@@ -281,8 +188,8 @@ internal fun buildReaderInteractionLayerCallbacks(
             )
         }
     },
-    onCloseTts = { tts.stop(); onShowTtsChange(false) },
-    onToggleColor = { onShowColorRowChange(!showColorRow) },
+    onCloseTts = { tts.stop(); onAction(ReaderAction.SetShowTts(false)) },
+    onToggleColor = { onAction(ReaderAction.ToggleColorRow) },
     onPickColor = { color ->
         val locator = computeLocatorJson()
         // 先快照局部变量：下面马上把 selectedText 清空，
@@ -306,18 +213,18 @@ internal fun buildReaderInteractionLayerCallbacks(
                 deleted_at = null,
             ),
         ))
-        onShowColorRowChange(false)
-        onSelectedTextChange("")
-        onSelectedGlobalOffsetChange(-1)
-        onSelectedRangeStartChange(-1)
+        onAction(ReaderAction.ClearSelection)
         showNotice("已高亮")
     },
-    onAiExplain = { onSheetChange(ReaderSheet.AI_EXPLAIN) },
-    onInspiration = { onSheetChange(ReaderSheet.INSPIRATION) },
-    onNote = { onNoteOpenChange(true) },
+    onAiExplain = { onAction(ReaderAction.OpenSheet(ReaderSheet.AI_EXPLAIN)) },
+    onInspiration = { onAction(ReaderAction.OpenSheet(ReaderSheet.INSPIRATION)) },
+    onNote = { onAction(ReaderAction.SetNoteOpen(true)) },
     onCopy = { clipboard.setText(AnnotatedString(selectedText)); showNotice("已复制") },
-    onSearch = { onSearchQueryChange(selectedText); onSheetChange(ReaderSheet.SEARCH) },
-    onClearSelection = { onSelectedTextChange(""); onShowColorRowChange(false); onSelectedGlobalOffsetChange(-1); onSelectedRangeStartChange(-1) },
+    onSearch = {
+        onAction(ReaderAction.SetSearchQuery(selectedText))
+        onAction(ReaderAction.OpenSheet(ReaderSheet.SEARCH))
+    },
+    onClearSelection = { onAction(ReaderAction.ClearSelection) },
 )
 
 /**
@@ -358,37 +265,46 @@ internal fun buildReaderSheetHostState(
     recentChapters: SnapshotStateList<Int>,
     appDark: Boolean,
 ): ReaderSheetHostState = ReaderSheetHostState(
-    epubBook = epubBook,
-    epubDocument = epubDocument,
-    txtStreamingDocument = txtStreamingDocument,
-    plainContent = plainContent,
-    chapterIndex = chapterIndex,
-    txtChapterIndex = txtChapterIndex,
-    txtChapterTitles = txtChapters.map { it.title },
-    currentChapterTitle = currentChapterTitle,
-    progressPercent = progressPercent,
-    bookTitle = bookTitle,
-    bookAuthor = bookAuthor,
-    bookOriginalFile = bookOriginalFile,
-    selectedText = selectedText,
-    contentText = contentText,
-    readerSettings = readerSettings,
-    activeReadingMs = activeReadingMs,
-    savedBookReadingMs = savedBookReadingMs,
-    estimatedRemainingMs = estimatedRemainingMs,
-    readerSpeed = readerSpeed,
-    inspirationsCount = inspirationsCount,
-    bookmarksCount = bookmarksCount,
-    documentWordCount = documentWordCount,
-    isTxt = isTxt,
-    searchQuery = searchQuery,
-    chapterStartOffsets = chapterStartOffsets,
-    chapterTitles = chapterTitles,
-    bookIndex = bookIndex,
-    txtTocRuleId = txtTocRuleId,
-    txtRulePreviews = txtRulePreviews,
-    recentChapters = recentChapters.toList(),
-    appDark = appDark,
+    // B1 状态袋瘦身：按域组装 4 个分组对象，字段值与原平铺 1:1。
+    document = ReaderSheetDocumentState(
+        epubBook = epubBook,
+        epubDocument = epubDocument,
+        txtStreamingDocument = txtStreamingDocument,
+        plainContent = plainContent,
+        chapterIndex = chapterIndex,
+        txtChapterIndex = txtChapterIndex,
+        txtChapterTitles = txtChapters.map { it.title },
+        currentChapterTitle = currentChapterTitle,
+        contentText = contentText,
+        isTxt = isTxt,
+        chapterStartOffsets = chapterStartOffsets,
+        chapterTitles = chapterTitles,
+        bookIndex = bookIndex,
+        txtTocRuleId = txtTocRuleId,
+        txtRulePreviews = txtRulePreviews,
+    ),
+    bookMeta = ReaderSheetBookMetaState(
+        bookTitle = bookTitle,
+        bookAuthor = bookAuthor,
+        bookOriginalFile = bookOriginalFile,
+    ),
+    stats = ReaderSheetStatsState(
+        progressPercent = progressPercent,
+        activeReadingMs = activeReadingMs,
+        savedBookReadingMs = savedBookReadingMs,
+        estimatedRemainingMs = estimatedRemainingMs,
+        readerSpeed = readerSpeed,
+        inspirationsCount = inspirationsCount,
+        bookmarksCount = bookmarksCount,
+        documentWordCount = documentWordCount,
+    ),
+    ui = ReaderSheetUiState(
+        selectedText = selectedText,
+        readerSettings = readerSettings,
+        searchQuery = searchQuery,
+        recentChapters = recentChapters.toList(),
+        appDark = appDark,
+    ),
 )
 
 /**
@@ -399,6 +315,11 @@ internal fun buildReaderSheetHostState(
  * - `pagedJumpRequest` 直接传 [MutableState] 引用，`.value =` 写保持原行为；
  * - `onSearchJump` 的 `scope.launch { onLoadChapterBlocks(...) }` 与
  *   [blockIndexForChapterOffset] 调用保持原样。
+ *
+ * B2：原对本地副本 var 的 setter 写入改走 [ReaderAction]：onSheetChange(null) →
+ * CloseSheet，onSheetChange(x) → OpenSheet(x)，onSearchQueryChange → SetSearchQuery，
+ * onSaveInspiration 尾部的 onSelectedTextChange("") → ClearSelection（选区已消费完毕，
+ * 附带重置偏移/showColorRow 无可观测差异）。
  */
 @Suppress("LongParameterList")
 internal fun buildReaderSheetHostCallbacks(
@@ -420,9 +341,6 @@ internal fun buildReaderSheetHostCallbacks(
     bookAuthor: String?,
     recentChapters: SnapshotStateList<Int>,
     pagedJumpRequest: MutableState<Int?>,
-    onSheetChange: (ReaderSheet?) -> Unit,
-    onSearchQueryChange: (String) -> Unit,
-    onSelectedTextChange: (String) -> Unit,
     onTxtTocRuleIdChange: (String) -> Unit,
     onPendingTxtRuleAnchorOffsetChange: (Int) -> Unit,
     onNavFocusBlockIndexChange: (Int?) -> Unit,
@@ -435,15 +353,15 @@ internal fun buildReaderSheetHostCallbacks(
     onAction: (ReaderAction) -> Unit,
     scope: CoroutineScope,
 ): ReaderSheetHostCallbacks = ReaderSheetHostCallbacks(
-    onDismiss = { onSheetChange(null) },
-    onOpenSettings = { onSheetChange(ReaderSheet.SETTINGS) },
-    onOpenBookInfo = { onSheetChange(ReaderSheet.BOOK_INFO) },
+    onDismiss = { onAction(ReaderAction.CloseSheet) },
+    onOpenSettings = { onAction(ReaderAction.OpenSheet(ReaderSheet.SETTINGS)) },
+    onOpenBookInfo = { onAction(ReaderAction.OpenSheet(ReaderSheet.BOOK_INFO)) },
     goToChapter = { goToChapter(it) },
     seekToPercent = { seekToPercent(it) },
     jumpToPlainOffset = { jumpToPlainOffset(it) },
     showNotice = { showNotice(it) },
-    onSearchQueryChange = onSearchQueryChange,
-    onClearSelectedText = { onSelectedTextChange("") },
+    onSearchQueryChange = { onAction(ReaderAction.SetSearchQuery(it)) },
+    onClearSelectedText = { onAction(ReaderAction.ClearSelection) },
     onPickChapter = {
         if (!recentChapters.contains(it)) {
             recentChapters.add(0, it)
@@ -454,7 +372,7 @@ internal fun buildReaderSheetHostCallbacks(
         } else {
             txtChapters.getOrNull(it)?.let { c -> jumpToPlainOffset(c.startOffset) }
         }
-        onSheetChange(null)
+        onAction(ReaderAction.CloseSheet)
     },
     onTxtRule = { ruleId ->
         val anchorOffset = visiblePlainOffset
@@ -486,11 +404,16 @@ internal fun buildReaderSheetHostCallbacks(
                 result.charOffset
             jumpToPlainOffset(globalOffset)
         }
-        onSheetChange(null)
+        onAction(ReaderAction.CloseSheet)
     },
     onJumpToHighlight = { id ->
         onPendingHighlightIdChange(id)
-        onSheetChange(null)
+        onAction(ReaderAction.CloseSheet)
+    },
+    onJumpToBookmark = { id ->
+        // 书签与高亮共用 SE4 的 locator 解析路径（pendingHighlightIdState 同时覆盖 notes）
+        onPendingHighlightIdChange(id)
+        onAction(ReaderAction.CloseSheet)
     },
     onExportHighlights = {
         val sb = StringBuilder()
@@ -529,7 +452,7 @@ internal fun buildReaderSheetHostCallbacks(
                 ),
             ),
         )
-        onSheetChange(null)
+        onAction(ReaderAction.CloseSheet)
         showNotice("已存入灵感")
     },
     onSaveInspiration = { title, body, tags, categoryIds ->
@@ -552,8 +475,8 @@ internal fun buildReaderSheetHostCallbacks(
                 ),
             ),
         )
-        onSelectedTextChange("")
-        onSheetChange(null)
+        onAction(ReaderAction.ClearSelection)
+        onAction(ReaderAction.CloseSheet)
         showNotice("已保存灵感，并记录来源阅读位置")
     },
     onCreateCategory = { name ->

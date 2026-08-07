@@ -3,15 +3,11 @@ package com.creationreadingassistant.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.StatsBookRow
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
+import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.ui.screen.stats.EMPTY_STATS
 import com.creationreadingassistant.ui.screen.stats.StatsPeriod
 import com.creationreadingassistant.ui.screen.stats.StatsUi
@@ -50,21 +46,17 @@ internal typealias StatsDashboardUiState = com.creationreadingassistant.ui.scree
 
 @HiltViewModel
 class StatsDashboardViewModel @Inject constructor(
-    sessionDao: ReadingSessionDao,
-    progressDao: ReadingProgressDao,
-    bookDao: BookDao,
-    inspirationDao: InspirationDao,
-    noteDao: NoteDao,
+    statsRepository: StatsRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val selection = MutableStateFlow(StatsSelection())
 
     private val tables = combine(
-        sessionDao.observeStatsRows(),
-        progressDao.observeStatsRows(),
-        bookDao.observeStatsRows(),
-        inspirationDao.observeStatsCreatedRows(),
-        noteDao.observeStatsCreatedRows(),
+        statsRepository.observeStatsSessions(),
+        statsRepository.observeStatsProgress(),
+        statsRepository.observeStatsBooks(),
+        statsRepository.observeStatsInspirations(),
+        statsRepository.observeStatsNotes(),
     ) { sessions, progress, books, inspirations, notes ->
         StatsTables(sessions, progress, books, inspirations, notes)
     }

@@ -12,6 +12,7 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.library.ShelfImporter
 import com.creationreadingassistant.feature.reader.EpubRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -88,8 +89,8 @@ class ShelfImporterTest {
             epubRepository = epubRepository,
             importHistoryStore = historyStore,
             ioDispatcher = io,
-            booksProvider = { shelfBooks.value },
         )
+        importer.booksProvider = { shelfBooks.value }
     }
 
     @After

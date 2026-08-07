@@ -225,7 +225,6 @@ class ReaderScreenTest {
     fun screen_state_default_values_are_correct() {
         val state = ReaderScreenState()
         assertTrue(state.controlsVisible)
-        assertFalse(state.sheetOpenGuard)
         assertEquals("", state.selectedText)
         assertEquals(-1, state.selectedRangeStart)
         assertEquals(-1, state.selectedGlobalOffset)
@@ -282,8 +281,7 @@ class ReaderScreenTest {
             ReaderAction.SetNoteOpen(true),
             ReaderAction.SetNoteBody("body"),
             ReaderAction.ToggleColorRow,
-            ReaderAction.SetSheetOpenGuard(true),
         )
-        assertEquals(17, actions.size)
+        assertEquals(16, actions.size)
     }
 }

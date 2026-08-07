@@ -4,6 +4,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Trace
 import android.os.SystemClock
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import java.io.File
 import java.io.InputStream
@@ -84,7 +85,7 @@ class TextStreamLoader(
                 Trace.endSection()
             }
             val indexEndNs = SystemClock.elapsedRealtimeNanos()
-            android.util.Log.d("TxtPerfTrace", "TxtIndexLoad: ${(indexEndNs - indexStartNs) / 1_000_000} ms")
+            AppLog.debug("TxtPerfTrace", "TxtIndexLoad: ${(indexEndNs - indexStartNs) / 1_000_000} ms")
             LoadResult(
                 document = PlainTextDocument.fromFileIndex(file, index),
                 tempFile = null,

@@ -5,7 +5,12 @@ import android.content.Context
 import android.os.Trace
 import android.util.Log
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.components.SingletonComponent
 import java.io.File
 
 /**
@@ -50,6 +55,10 @@ class App : Application() {
 
     override fun onCreate() {
         AppContextHolder.cacheDir = cacheDir
+        // 调试日志守卫：语义等同 BuildConfig.DEBUG（本工程 AGP 未启用 buildConfig 生成，
+        // 改用 FLAG_DEBUGGABLE 判定；release 包恒为 false）。
+        AppLog.debugEnabled =
+            (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
         // 在 profileable/benchmark 构建中强制启用应用级 atrace，使自定义 Trace section
         // 能被 Perfetto 捕获，用于性能分析；release 用户构建无影响（非 debuggable
         // 且非 profileable 时该方法无效果）。
@@ -67,6 +76,11 @@ class App : Application() {
             throw t
         }
         AppLog.i("App", "应用启动")
+        // EPUB size 修复：进程级一次性懒启动任务（替代此前每个 ShelfViewModel 实例
+        // init 各自触发一次的重复执行）。
+        EntryPointAccessors.fromApplication(this, EpubRepairEntryPoint::class.java)
+            .epubSizeRepairTask()
+            .startOnce()
         trace("App", "onCreate end")
     }
 
@@ -84,4 +98,11 @@ class App : Application() {
 /** 在 attachBaseContext 时缓存 cacheDir，供 companion 静态日志使用。 */
 internal object AppContextHolder {
     var cacheDir: File? = null
+}
+
+/** Application 级入口：获取进程级一次性任务实例，避免在 App 里直接注入依赖。 */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+internal interface EpubRepairEntryPoint {
+    fun epubSizeRepairTask(): EpubSizeRepairTask
 }

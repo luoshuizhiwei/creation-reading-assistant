@@ -67,6 +67,11 @@ android {
     testOptions {
         unitTests.isReturnDefaultValues = true
     }
+
+    lint {
+        abortOnError = true
+        checkDependencies = false
+    }
 }
 
 dependencies {
@@ -130,6 +135,7 @@ dependencies {
     testImplementation(libs.mockk)
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
+    testImplementation(libs.okhttp.mockwebserver)
 
     // Android 测试（Room 迁移测试）
     androidTestImplementation(libs.room.testing)

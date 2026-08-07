@@ -28,6 +28,9 @@ import com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
+/** 首屏骨架最小展示时长：避免数据秒回时骨架一闪而过。 */
+private const val SkeletonMinDisplayMillis = 350L
+
 /**
  * Shelf 页 View 层：收集 ViewModel Flow、维护 Activity Launcher、Snackbar、导航、
  * 删除确认、分类学(Taxonomy)、readiness 检查等所有副作用。
@@ -97,7 +100,7 @@ internal fun ShelfRoute(
     val sortMode = session.sortMode
     val statusFilter = session.statusFilter
     var firstLoad by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) { delay(350); firstLoad = false }
+    LaunchedEffect(Unit) { delay(SkeletonMinDisplayMillis); firstLoad = false }
     LaunchedEffect(books) { if (books.isNotEmpty()) firstLoad = false }
 
     // ======= 顶栏：搜索 / 菜单 / 选择模式 =======

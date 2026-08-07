@@ -3,12 +3,12 @@ package com.creationreadingassistant.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
-import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.CoroutineDispatcher
@@ -33,13 +33,13 @@ data class HomeArchiveUiState(
 @HiltViewModel
 class HomeArchiveViewModel @Inject constructor(
     repository: BookRepository,
-    inspirationDao: InspirationDao,
+    inspirationRepository: InspirationRepository,
     @DefaultDispatcher defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     val uiState: StateFlow<HomeArchiveUiState> = combine(
         repository.observeBooks(),
         repository.observeProgress(),
-        inspirationDao.observeAllActive(),
+        inspirationRepository.observeAllActive(),
     ) { books, progress, inspirations ->
         val progressByBook = progress.associateBy { it.book_id }
         HomeArchiveUiState(

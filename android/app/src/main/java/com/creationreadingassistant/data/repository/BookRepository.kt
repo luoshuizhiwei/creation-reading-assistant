@@ -19,6 +19,7 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
+import com.creationreadingassistant.data.local.entity.mergeReaderProgress
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.Mutex
@@ -49,13 +50,42 @@ class BookRepository @Inject constructor(
     fun observeBooks(): Flow<List<BookEntity>> = bookDao.observeAllActive()
     fun observeProgress(): Flow<List<ReadingProgressEntity>> = progressDao.observeAllActive()
     fun observeSessions(): Flow<List<ReadingSessionEntity>> = sessionDao.observeAllActive()
+    fun observeSessionsByBook(bookId: String): Flow<List<ReadingSessionEntity>> = sessionDao.observeByBook(bookId)
     fun observeNotes(): Flow<List<NoteEntity>> = noteDao.observeAllActive()
     fun observeHighlights(): Flow<List<HighlightEntity>> = highlightDao.observeAllActive()
     fun observeInspirations(): Flow<List<InspirationEntity>> = inspirationDao.observeAllActive()
 
+    /** 已缓存正文的书籍数量（Profile 存储页）。 */
+    fun observeCachedCount(): Flow<Int> = bookContentDao.observeCachedCount()
+
+    /** 已缓存正文的总字节数（Profile 存储页）。 */
+    fun observeCachedBytes(): Flow<Long> = bookContentDao.observeCachedBytes()
+
     suspend fun getById(id: String): BookEntity? = bookDao.getById(id)
 
+    /** 批量按 id 查询（仅活跃记录），供搜索结果收集来源书名等场景消除 N+1。 */
+    suspend fun getByIds(ids: Collection<String>): List<BookEntity> = bookDao.getByIds(ids)
+
+    /** 全局搜索：书名/作者/原始文件名/标签名模糊检索（BookDao.search）。 */
+    suspend fun search(q: String): List<BookEntity> = bookDao.search(q)
+
     suspend fun upsert(book: BookEntity) = bookDao.upsert(book)
+
+    /**
+     * 阅读器自动进度写入：用 mergeReaderProgress 合并现有业务状态（搁置/读完不回退），
+     * 只更新位置与百分比字段，保留累计时长、同步信息等已有数据。
+     */
+    suspend fun saveProgress(incoming: ReadingProgressEntity) {
+        val now = Instant.now().toString()
+        progressDao.upsert(
+            mergeReaderProgress(
+                existing = progressDao.getByBook(incoming.book_id),
+                incoming = incoming,
+                nowIso = now,
+                nowMillis = System.currentTimeMillis(),
+            ),
+        )
+    }
 
     /**
      * 删除书籍并级联清理相关记录（阅读进度、会话、笔记、高亮、正文、文件、书单/分类/标签关联）。
@@ -66,9 +96,9 @@ class BookRepository @Inject constructor(
             val now = Instant.now().toString()
             bookDao.softDelete(id, now)
             progressDao.getByBook(id)?.let { progressDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
-            sessionDao.observeByBook(id).first().forEach { sessionDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
-            noteDao.observeAllActive().first().filter { it.book_id == id }.forEach { noteDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
-            highlightDao.observeByBook(id).first().forEach { highlightDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
+            sessionDao.upsertAll(sessionDao.observeByBook(id).first().map { it.copy(deleted_at = now, updated_at = now) })
+            noteDao.upsertAll(noteDao.observeAllActive().first().filter { it.book_id == id }.map { it.copy(deleted_at = now, updated_at = now) })
+            highlightDao.upsertAll(highlightDao.observeByBook(id).first().map { it.copy(deleted_at = now, updated_at = now) })
             bookContentDao.getByBook(id)?.let { bookContentDao.upsert(it.copy(reader_preview = null, epub_json = null)) }
             bookFileDao.getByBook(id)?.let { bookFileDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
             bookTagDao.clearByBook(id)
@@ -194,18 +224,18 @@ class BookRepository @Inject constructor(
             progressDao.getDeleted().find { it.book_id == bookId }?.let {
                 progressDao.upsert(it.copy(deleted_at = null, updated_at = now))
             }
-            sessionDao.getDeleted().filter { it.book_id == bookId }.forEach {
-                sessionDao.upsert(it.copy(deleted_at = null, updated_at = now))
-            }
+            sessionDao.upsertAll(sessionDao.getDeleted().filter { it.book_id == bookId }.map {
+                it.copy(deleted_at = null, updated_at = now)
+            })
             bookFileDao.getDeleted().find { it.book_id == bookId }?.let {
                 bookFileDao.upsert(it.copy(deleted_at = null, updated_at = now))
             }
-            noteDao.getDeleted().filter { it.book_id == bookId }.forEach {
-                noteDao.upsert(it.copy(deleted_at = null, updated_at = now))
-            }
-            highlightDao.getDeleted().filter { it.book_id == bookId }.forEach {
-                highlightDao.upsert(it.copy(deleted_at = null, updated_at = now))
-            }
+            noteDao.upsertAll(noteDao.getDeleted().filter { it.book_id == bookId }.map {
+                it.copy(deleted_at = null, updated_at = now)
+            })
+            highlightDao.upsertAll(highlightDao.getDeleted().filter { it.book_id == bookId }.map {
+                it.copy(deleted_at = null, updated_at = now)
+            })
         }
     }
 

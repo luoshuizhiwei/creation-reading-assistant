@@ -139,7 +139,7 @@ private fun CompletedCard(
             )
             if (!book.author.isNullOrBlank()) {
                 Text(
-                    book.author,
+                    book.author!!,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

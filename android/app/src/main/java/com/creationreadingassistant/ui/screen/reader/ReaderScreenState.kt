@@ -22,7 +22,6 @@ enum class ReaderSheet {
  */
 data class ReaderScreenState(
     val controlsVisible: Boolean = true,
-    val sheetOpenGuard: Boolean = false,
     val selectedText: String = "",
     val selectedRangeStart: Int = -1,
     val selectedGlobalOffset: Int = -1,

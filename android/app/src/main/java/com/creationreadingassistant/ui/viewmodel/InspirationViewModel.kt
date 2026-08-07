@@ -3,12 +3,11 @@ package com.creationreadingassistant.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.InspirationVariantDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
@@ -53,8 +52,7 @@ data class InspirationDraft(
 
 @HiltViewModel
 class InspirationViewModel @Inject constructor(
-    private val inspirationDao: InspirationDao,
-    private val variantDao: InspirationVariantDao,
+    private val inspirationRepository: InspirationRepository,
     private val bookRepository: BookRepository,
     private val aiClient: AiClient,
     private val settings: SettingsStore,
@@ -65,7 +63,7 @@ class InspirationViewModel @Inject constructor(
         ): Boolean = size > 256
     }
 
-    val items: StateFlow<List<InspirationEntity>> = inspirationDao.observeAllActive()
+    val items: StateFlow<List<InspirationEntity>> = inspirationRepository.observeAllActive()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val books: StateFlow<List<BookEntity>> = bookRepository.observeBooks()
@@ -80,20 +78,17 @@ class InspirationViewModel @Inject constructor(
 
     /** 观察某条灵感的 AI 候选版本。 */
     fun observeVariants(inspirationId: String): Flow<List<InspirationVariantEntity>> =
-        variantDao.observeByInspiration(inspirationId)
+        inspirationRepository.observeVariants(inspirationId)
 
     /** 采用某个候选版本为正文。 */
     fun applyVariant(inspirationId: String, variant: InspirationVariantEntity) {
-        val content = variant.content ?: return
-        viewModelScope.launch {
-            val existing = inspirationDao.getById(inspirationId) ?: return@launch
-            inspirationDao.upsert(existing.copy(body = content, updated_at = java.time.Instant.now().toString()))
-        }
+        if (variant.content == null) return
+        viewModelScope.launch { inspirationRepository.applyVariant(inspirationId, variant) }
     }
 
     /** 删除某个候选版本。 */
     fun deleteVariant(variantId: String) {
-        viewModelScope.launch { variantDao.delete(variantId) }
+        viewModelScope.launch { inspirationRepository.deleteVariant(variantId) }
     }
 
     /** 灵感 AI 动作（对照网页 aiActions + buildPrompt）。 */
@@ -139,7 +134,7 @@ class InspirationViewModel @Inject constructor(
                 systemPrompt = "你是中文小说作者的灵感打磨助手。输出要自然、具体、可继续写，不要有 AI 腔。",
                 userPrompt = userPrompt,
             ).onSuccess { result ->
-                variantDao.upsert(
+                inspirationRepository.saveVariant(
                     InspirationVariantEntity(
                         id = java.util.UUID.randomUUID().toString(),
                         inspiration_id = inspirationId,
@@ -175,14 +170,11 @@ class InspirationViewModel @Inject constructor(
             updated_at = now,
             deleted_at = null,
         )
-        viewModelScope.launch { inspirationDao.upsert(entity) }
+        viewModelScope.launch { inspirationRepository.upsert(entity) }
     }
 
     fun deleteInspiration(id: String) {
-        viewModelScope.launch {
-            val existing = inspirationDao.getById(id) ?: return@launch
-            inspirationDao.upsert(existing.copy(deleted_at = java.time.Instant.now().toString()))
-        }
+        viewModelScope.launch { inspirationRepository.deleteInspiration(id) }
     }
 
     private fun parsePayload(json: String?): InspirationPayloadData {

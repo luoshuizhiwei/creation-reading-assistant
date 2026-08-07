@@ -31,8 +31,20 @@ object AppLog {
     private val fmt = DateTimeFormatter.ofPattern("MM-dd HH:mm:ss", Locale.US)
     private const val MAX = 500
 
+    /**
+     * 调试日志守卫（语义等同 BuildConfig.DEBUG；本工程 AGP 未启用 buildConfig 生成，
+     * 改由 App.onCreate 按 ApplicationInfo.FLAG_DEBUGGABLE 初始化，release 包恒为 false）。
+     */
+    @Volatile
+    var debugEnabled: Boolean = false
+
     private val _entries = MutableStateFlow<PersistentList<Entry>>(persistentListOf())
     val entries = _entries.asStateFlow()
+
+    /** 调试日志：仅 debug 构建输出到 logcat，不写入诊断环形缓冲（避免污染用户可见日志）。 */
+    fun debug(tag: String, msg: String) {
+        if (debugEnabled) android.util.Log.d(tag, msg)
+    }
 
     fun i(tag: String, msg: String) = push(Level.INFO, tag, msg)
     fun w(tag: String, msg: String) = push(Level.WARN, tag, msg)

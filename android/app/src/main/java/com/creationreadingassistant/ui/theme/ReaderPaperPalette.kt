@@ -2,6 +2,8 @@ package com.creationreadingassistant.ui.theme
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
 /**
@@ -53,6 +55,21 @@ data class ReaderPaperPalette(
 
     /** 高亮底实色（5 色 @1.0，用于色点 / 选取指示，不作文本背景）。 */
     fun highlightSolid(color: String): Color = indexOf(color).let { highlightColors.getOrElse(it) { highlightColors[0] } }
+
+    /** 长按选句底色：accent @0.25（收敛自原硬编码 0x40365B7E，随纸变化）。 */
+    val selectionScrim: Color get() = accent.copy(alpha = 0.25f)
+
+    /** TTS 朗读句高亮底：accent @0.20（收敛自原硬编码 0x33365B7E）。 */
+    val ttsSentenceScrim: Color get() = accent.copy(alpha = 0.2f)
+
+    /** 图片加载占位底：fg @0.07（收敛自原硬编码 0x12000000）。 */
+    val imagePlaceholder: Color get() = fg.copy(alpha = 0.07f)
+
+    /** 代码块行底色：fg @0.15（对齐 ReaderHelpers 的 paperFg 派生修法，夜读纸上不浑浊）。 */
+    val codeBlockBg: Color get() = fg.copy(alpha = 0.15f)
+
+    /** 分隔线（horizontal rule）：fg @0.3（对齐 ReaderHelpers 分隔线 alpha）。 */
+    val horizontalRule: Color get() = fg.copy(alpha = 0.3f)
 
     private fun indexOf(color: String): Int = when (color) {
         "yellow" -> 0
@@ -168,6 +185,14 @@ fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (ke
     else -> if (darkTheme) NIGHT else WHITE
 }
 
+/**
+ * 阅读器纸张调色板的 CompositionLocal：[ReaderPaperTheme] 子树内可直接读取，
+ * 供不方便透传 palette 参数的排版/绘制层（如分页引擎 host）消费语义令牌。
+ * 默认值为白纸，避免子树外访问时 null 处理。
+ */
+val LocalReaderPaperPalette: ProvidableCompositionLocal<ReaderPaperPalette> =
+    staticCompositionLocalOf { paperPalette("white", darkTheme = false) }
+
 data class ReaderPaperOption(val key: String, val label: String)
 
 val ReaderPaperOptions = listOf(
@@ -206,10 +231,12 @@ fun ReaderPaperTheme(
         outline = palette.outline,
         outlineVariant = palette.outlineVariant,
     )
-    MaterialTheme(
-        colorScheme = scheme,
-        typography = MaterialTheme.typography,
-        shapes = MaterialTheme.shapes,
-        content = content,
-    )
+    androidx.compose.runtime.CompositionLocalProvider(LocalReaderPaperPalette provides palette) {
+        MaterialTheme(
+            colorScheme = scheme,
+            typography = MaterialTheme.typography,
+            shapes = MaterialTheme.shapes,
+            content = content,
+        )
+    }
 }

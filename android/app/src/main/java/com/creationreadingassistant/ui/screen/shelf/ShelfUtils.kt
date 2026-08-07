@@ -12,17 +12,9 @@ internal fun formatBytes(size: Int): String {
     return if (kb < 1024) "%.1f KB".format(kb) else "%.2f MB".format(kb / 1024)
 }
 
-/** 将毫秒时长格式化为「X 天 Y 小时」/「X 小时 Y 分钟」/「Y 分钟」。 */
-internal fun formatDuration(ms: Long): String {
-    if (ms <= 0) return "0 分钟"
-    val minutes = ms / 60000
-    val hours = minutes / 60
-    return when {
-        hours >= 24 -> "${hours / 24} 天 ${hours % 24} 小时"
-        hours > 0 -> "$hours 小时 ${minutes % 60} 分钟"
-        else -> "$minutes 分钟"
-    }
-}
+/** 将毫秒时长格式化为「X 天 Y 小时」/「X 小时 Y 分钟」/「Y 分钟」（委托 ui/util 公共实现）。 */
+internal fun formatDuration(ms: Long): String =
+    com.creationreadingassistant.ui.util.formatDuration(ms)
 
 /**
  * 生成文字封面 DataURL（SVG），对齐网页版 BookDetailSheet.generateTextCoverDataUrl。

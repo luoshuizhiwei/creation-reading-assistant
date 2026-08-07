@@ -1,4 +1,4 @@
-package com.creationreadingassistant.ui.viewmodel
+package com.creationreadingassistant.feature.library
 
 import android.content.Context
 import android.content.Intent
@@ -14,18 +14,24 @@ import com.creationreadingassistant.data.local.entity.BookFileEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
-import com.creationreadingassistant.feature.library.SafBookSourceScanner
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.PlainTextDecoder
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
+import com.creationreadingassistant.ui.viewmodel.ImportBatchUiState
+import com.creationreadingassistant.ui.viewmodel.ImportFailureUi
+import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
+import com.creationreadingassistant.ui.viewmodel.markStopRequested
+import com.creationreadingassistant.ui.viewmodel.remainingImportCount
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
+import dagger.hilt.android.qualifiers.ApplicationContext
 import java.time.Instant
 import java.util.UUID
+import javax.inject.Inject
 
 /**
  * 书架导入管线 —— 真实 SAF 导入（EPUB/TXT/MD）、文件夹扫描、修复缺失正文，
@@ -35,8 +41,8 @@ import java.util.UUID
  * 负责 launch 调度；因此可以在 JVM 测试中用 runTest 直接驱动任务队列状态机，
  * 而不需要任何 Dispatcher / scope 样板。
  */
-class ShelfImporter(
-    private val context: Context,
+class ShelfImporter @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val repository: BookRepository,
     private val bookDao: BookDao,
     private val bookContentDao: BookContentDao,
@@ -44,9 +50,13 @@ class ShelfImporter(
     private val epubRepository: EpubRepository,
     private val importHistoryStore: ImportHistoryStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
-    /** 当前书架上的书籍列表（用于重复导入检测），由 ViewModel 提供最新值。 */
-    private val booksProvider: () -> List<BookEntity>,
 ) {
+
+    /**
+     * 当前书架上的书籍列表（用于重复导入检测），由 ViewModel 在使用前注入最新值来源。
+     * 不放构造参数是为了让本类可被 Hilt 直接注入（未加 scope，每个 ViewModel 仍是新实例）。
+     */
+    var booksProvider: () -> List<BookEntity> = { emptyList() }
 
     private val _importTasks = MutableStateFlow<List<ImportTaskUi>>(emptyList())
     val importTasks: StateFlow<List<ImportTaskUi>> = _importTasks.asStateFlow()

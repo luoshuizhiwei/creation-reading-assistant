@@ -1,12 +1,11 @@
 package com.creationreadingassistant.ui.viewmodel
 
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.InspirationVariantDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.data.settings.AISettings
 import io.mockk.coEvery
@@ -14,6 +13,7 @@ import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import io.mockk.slot
+import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -26,7 +26,6 @@ import kotlinx.coroutines.test.setMain
 import kotlinx.serialization.json.Json
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -34,14 +33,17 @@ import org.junit.Test
 
 /**
  * InspirationViewModel 灵感编辑/AI 动作/删除与 payload 解析测试。
+ *
+ * 分层收敛后 ViewModel 仅依赖 InspirationRepository：本测试验证 VM 的
+ * 草稿映射 / 委托调用 / AI 编排行为；软删除与候选版本采纳的落库细节
+ * 由 InspirationRepositoryTest 覆盖。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class InspirationViewModelTest {
 
     private val mainDispatcher = UnconfinedTestDispatcher()
 
-    private lateinit var inspirationDao: InspirationDao
-    private lateinit var variantDao: InspirationVariantDao
+    private lateinit var inspirationRepository: InspirationRepository
     private lateinit var bookRepository: BookRepository
     private lateinit var aiClient: AiClient
     private lateinit var settings: SettingsStore
@@ -50,8 +52,7 @@ class InspirationViewModelTest {
     @Before
     fun setUp() {
         Dispatchers.setMain(mainDispatcher)
-        inspirationDao = mockk()
-        variantDao = mockk()
+        inspirationRepository = mockk(relaxed = true)
         bookRepository = mockk()
         aiClient = mockk()
         inspirationSortFlow = MutableStateFlow("recent")
@@ -74,11 +75,10 @@ class InspirationViewModelTest {
         inspirations: List<InspirationEntity> = emptyList(),
         books: List<BookEntity> = emptyList(),
     ): InspirationViewModel {
-        every { inspirationDao.observeAllActive() } returns flowOf(inspirations)
+        every { inspirationRepository.observeAllActive() } returns flowOf(inspirations)
         every { bookRepository.observeBooks() } returns flowOf(books)
         return InspirationViewModel(
-            inspirationDao = inspirationDao,
-            variantDao = variantDao,
+            inspirationRepository = inspirationRepository,
             bookRepository = bookRepository,
             aiClient = aiClient,
             settings = settings,
@@ -96,7 +96,6 @@ class InspirationViewModelTest {
 
     @Test
     fun `saveInspiration new draft falls back title and encodes payload`() = runTest(mainDispatcher.scheduler) {
-        coEvery { inspirationDao.upsert(any()) } returns Unit
         val vm = createVm()
 
         val saved = slot<InspirationEntity>()
@@ -113,7 +112,7 @@ class InspirationViewModelTest {
         )
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        coVerify(exactly = 1) { inspirationRepository.upsert(capture(saved)) }
         val entity = saved.captured
         assertEquals("未命名灵感", entity.title)
         assertEquals("bk1", entity.source_book_id)
@@ -126,7 +125,6 @@ class InspirationViewModelTest {
 
     @Test
     fun `saveInspiration update keeps created_at and id`() = runTest(mainDispatcher.scheduler) {
-        coEvery { inspirationDao.upsert(any()) } returns Unit
         val existing = inspiration("i1", "2026-07-01T10:00:00Z")
         val vm = createVm(inspirations = listOf(existing))
         val job = launch { vm.items.collect { } }
@@ -146,7 +144,7 @@ class InspirationViewModelTest {
         testScheduler.advanceUntilIdle()
 
         val saved = slot<InspirationEntity>()
-        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
+        coVerify(exactly = 1) { inspirationRepository.upsert(capture(saved)) }
         assertEquals("i1", saved.captured.id)
         assertEquals("新标题", saved.captured.title)
         assertEquals("2026-07-01T10:00:00Z", saved.captured.created_at)
@@ -160,49 +158,30 @@ class InspirationViewModelTest {
     }
 
     @Test
-    fun `deleteInspiration soft deletes existing entry`() = runTest(mainDispatcher.scheduler) {
-        coEvery { inspirationDao.getById("i1") } returns inspiration("i1")
-        coEvery { inspirationDao.upsert(any()) } returns Unit
+    fun `deleteInspiration delegates to repository`() = runTest(mainDispatcher.scheduler) {
         val vm = createVm()
 
         vm.deleteInspiration("i1")
         testScheduler.advanceUntilIdle()
 
-        val saved = slot<InspirationEntity>()
-        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
-        assertTrue(saved.captured.deleted_at != null)
+        coVerify(exactly = 1) { inspirationRepository.deleteInspiration("i1") }
     }
 
     @Test
-    fun `deleteInspiration missing id is no-op`() = runTest(mainDispatcher.scheduler) {
-        coEvery { inspirationDao.getById("missing") } returns null
-        coEvery { inspirationDao.upsert(any()) } returns Unit
+    fun `applyVariant delegates to repository`() = runTest(mainDispatcher.scheduler) {
         val vm = createVm()
-
-        vm.deleteInspiration("missing")
-        testScheduler.advanceUntilIdle()
-
-        coVerify(exactly = 0) { inspirationDao.upsert(any()) }
-    }
-
-    @Test
-    fun `applyVariant updates body of existing inspiration`() = runTest(mainDispatcher.scheduler) {
-        coEvery { inspirationDao.getById("i1") } returns inspiration("i1")
-        coEvery { inspirationDao.upsert(any()) } returns Unit
-        val vm = createVm()
-
-        vm.applyVariant("i1", InspirationVariantEntity(
+        val variant = InspirationVariantEntity(
             id = "v1",
             inspiration_id = "i1",
             kind = "polish",
             content = "打磨后的正文",
             created_at = "2026-08-01T12:00:00Z",
-        ))
+        )
+
+        vm.applyVariant("i1", variant)
         testScheduler.advanceUntilIdle()
 
-        val saved = slot<InspirationEntity>()
-        coVerify(exactly = 1) { inspirationDao.upsert(capture(saved)) }
-        assertEquals("打磨后的正文", saved.captured.body)
+        coVerify(exactly = 1) { inspirationRepository.applyVariant("i1", variant) }
     }
 
     @Test
@@ -218,14 +197,32 @@ class InspirationViewModelTest {
         ))
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 0) { inspirationDao.getById(any()) }
-        coVerify(exactly = 0) { inspirationDao.upsert(any()) }
+        coVerify(exactly = 0) { inspirationRepository.applyVariant(any(), any()) }
+    }
+
+    @Test
+    fun `deleteVariant delegates to repository`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+
+        vm.deleteVariant("v1")
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { inspirationRepository.deleteVariant("v1") }
+    }
+
+    @Test
+    fun `observeVariants delegates to repository`() {
+        every { inspirationRepository.observeVariants("i1") } returns flowOf(emptyList())
+        val vm = createVm()
+
+        vm.observeVariants("i1")
+
+        verify(exactly = 1) { inspirationRepository.observeVariants("i1") }
     }
 
     @Test
     fun `runInspirationAction success stores variant with prompt and model`() = runTest(mainDispatcher.scheduler) {
         coEvery { aiClient.chat(any(), any()) } returns Result.success("候选文本")
-        coEvery { variantDao.upsert(any()) } returns Unit
         val vm = createVm()
 
         var done: Boolean? = null
@@ -234,7 +231,7 @@ class InspirationViewModelTest {
 
         assertEquals(true, done)
         val saved = slot<InspirationVariantEntity>()
-        coVerify(exactly = 1) { variantDao.upsert(capture(saved)) }
+        coVerify(exactly = 1) { inspirationRepository.saveVariant(capture(saved)) }
         assertEquals("polish", saved.captured.kind)
         assertEquals("候选文本", saved.captured.content)
         assertEquals("gpt-3.5-turbo", saved.captured.model)
@@ -245,7 +242,6 @@ class InspirationViewModelTest {
     @Test
     fun `runInspirationAction failure reports false without storing`() = runTest(mainDispatcher.scheduler) {
         coEvery { aiClient.chat(any(), any()) } returns Result.failure(IllegalStateException("api down"))
-        coEvery { variantDao.upsert(any()) } returns Unit
         val vm = createVm()
 
         var done: Boolean? = null
@@ -253,7 +249,7 @@ class InspirationViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertEquals(false, done)
-        coVerify(exactly = 0) { variantDao.upsert(any()) }
+        coVerify(exactly = 0) { inspirationRepository.saveVariant(any()) }
     }
 
     @Test

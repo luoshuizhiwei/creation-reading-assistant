@@ -25,17 +25,15 @@ import com.creationreadingassistant.ui.screen.reader.sheets.readerTocEntries
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
+import com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
+import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 
 /**
- * 阅读器底部弹层分发所需的只读展示数据。
- *
- * 从 [ReaderScreen] 主函数局部状态中提取，供 [ReaderSheetHost] 在各 sheet 分支内转发给
- * 具体 Sheet 组件。仅承载「读」数据；任何对主函数可变状态的写入都通过
- * [ReaderSheetHostCallbacks] 回调上抛，避免跨文件扩散状态耦合。
+ * 弹层所需文档内容与章节信息（B1 状态袋分组：文档域）。
  */
-internal data class ReaderSheetHostState(
+internal data class ReaderSheetDocumentState(
     val epubBook: EpubBook?,
     val epubDocument: ReaderDocument?,
     val txtStreamingDocument: PlainTextDocument?,
@@ -44,13 +42,29 @@ internal data class ReaderSheetHostState(
     val txtChapterIndex: Int,
     val txtChapterTitles: List<String>,
     val currentChapterTitle: String,
-    val progressPercent: Float,
+    val contentText: String,
+    val isTxt: Boolean,
+    val chapterStartOffsets: List<Int>,
+    val chapterTitles: List<String>,
+    val bookIndex: BookIndex?,
+    val txtTocRuleId: String,
+    val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
+)
+
+/**
+ * 弹层所需书籍元信息（B1 状态袋分组：书籍信息域）。
+ */
+internal data class ReaderSheetBookMetaState(
     val bookTitle: String,
     val bookAuthor: String?,
     val bookOriginalFile: String?,
-    val selectedText: String,
-    val contentText: String,
-    val readerSettings: ReaderSettings,
+)
+
+/**
+ * 弹层所需阅读统计与进度（B1 状态袋分组：统计域）。
+ */
+internal data class ReaderSheetStatsState(
+    val progressPercent: Float,
     val activeReadingMs: Long,
     val savedBookReadingMs: Long,
     val estimatedRemainingMs: Long,
@@ -58,15 +72,34 @@ internal data class ReaderSheetHostState(
     val inspirationsCount: Int,
     val bookmarksCount: Int,
     val documentWordCount: Int,
-    val isTxt: Boolean,
+)
+
+/**
+ * 弹层所需 UI 交互状态（B1 状态袋分组：UI 域）。
+ */
+internal data class ReaderSheetUiState(
+    val selectedText: String,
+    val readerSettings: ReaderSettings,
     val searchQuery: String,
-    val chapterStartOffsets: List<Int>,
-    val chapterTitles: List<String>,
-    val bookIndex: BookIndex?,
-    val txtTocRuleId: String,
-    val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
     val recentChapters: List<Int>,
     val appDark: Boolean,
+)
+
+/**
+ * 阅读器底部弹层分发所需的只读展示数据。
+ *
+ * 从 [ReaderScreen] 主函数局部状态中提取，供 [ReaderSheetHost] 在各 sheet 分支内转发给
+ * 具体 Sheet 组件。仅承载「读」数据；任何对主函数可变状态的写入都通过
+ * [ReaderSheetHostCallbacks] 回调上抛，避免跨文件扩散状态耦合。
+ *
+ * B1 状态袋瘦身：原 31 个平铺字段按域分组为 4 个子对象（[document] 文档与章节 /
+ * [bookMeta] 书籍信息 / [stats] 阅读统计 / [ui] UI 交互），纯结构搬运。
+ */
+internal data class ReaderSheetHostState(
+    val document: ReaderSheetDocumentState,
+    val bookMeta: ReaderSheetBookMetaState,
+    val stats: ReaderSheetStatsState,
+    val ui: ReaderSheetUiState,
 )
 
 /**
@@ -91,6 +124,7 @@ internal data class ReaderSheetHostCallbacks(
     val onTxtRule: (String) -> Unit,
     val onSearchJump: (BookSearchResult) -> Unit,
     val onJumpToHighlight: (String) -> Unit,
+    val onJumpToBookmark: (String) -> Unit,
     val onExportHighlights: () -> Unit,
     val onSaveAiExplainInspiration: (body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onSaveInspiration: (title: String, body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
@@ -130,16 +164,16 @@ internal fun ReaderSheetHost(
             when (type) {
                 ReaderSheet.TOC -> TocSheet(
                     entries = readerTocEntries(
-                        titles = state.epubBook?.chapters?.map { it.title } ?: state.txtChapterTitles,
-                        current = if (state.epubBook != null) state.chapterIndex else state.txtChapterIndex,
-                        recent = state.recentChapters,
+                        titles = state.document.epubBook?.chapters?.map { it.title } ?: state.document.txtChapterTitles,
+                        current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
+                        recent = state.ui.recentChapters,
                     ),
-                    current = if (state.epubBook != null) state.chapterIndex else state.txtChapterIndex,
-                    totalChapters = state.epubBook?.chapters?.size ?: state.txtChapterTitles.size,
+                    current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
+                    totalChapters = state.document.epubBook?.chapters?.size ?: state.document.txtChapterTitles.size,
                     onPick = sheetCallbacks.onPickChapter,
-                    txtRules = if (state.isTxt) TxtChapterDetector.rules else emptyList(),
-                    selectedTxtRule = state.txtTocRuleId,
-                    txtRulePreviews = state.txtRulePreviews,
+                    txtRules = if (state.document.isTxt) TxtChapterDetector.rules else emptyList(),
+                    selectedTxtRule = state.document.txtTocRuleId,
+                    txtRulePreviews = state.document.txtRulePreviews,
                     onTxtRule = sheetCallbacks.onTxtRule,
                 )
 
@@ -149,11 +183,28 @@ internal fun ReaderSheetHost(
                     notes = inputs.notes,
                     inspirations = inputs.inspirations,
                     onAddBookmark = {
+                        val pos = callbacks.pageIndexManager.position.value
+                        val cso = state.document.chapterStartOffsets
+                        val isEpub = state.document.epubBook != null
+                        val abs = pos?.absStart ?: -1
+                        val (ci, co) = if (pos != null && isEpub) {
+                            EpubLocatorMapping.toChapterOffset(pos.absStart, cso)
+                        } else {
+                            0 to (pos?.absStart ?: -1)
+                        }
+                        val locatorJson = if (pos != null) {
+                            if (isEpub) LocatorBuilder.forPosition(abs, ci, co, null)
+                            else LocatorBuilder.forPlain(abs, null)
+                        } else null
                         callbacks.onAction(
                             ReaderAction.AddBookmark(
-                                bid,
-                                state.progressPercent.toInt(),
-                                state.currentChapterTitle.ifBlank { "正文" },
+                                bookId = bid,
+                                offset = state.stats.progressPercent.toInt(),
+                                title = state.document.currentChapterTitle.ifBlank { "正文" },
+                                absOffset = abs,
+                                chapterIndex = ci,
+                                charOffset = co,
+                                locatorJson = locatorJson,
                             ),
                         )
                         sheetCallbacks.showNotice("已添加书签")
@@ -179,20 +230,21 @@ internal fun ReaderSheetHost(
                         sheetCallbacks.showNotice("已转为灵感")
                     },
                     onJumpToHighlight = { h -> sheetCallbacks.onJumpToHighlight(h.id) },
+                    onJumpToBookmark = { n -> sheetCallbacks.onJumpToBookmark(n.id) },
                     onExportHighlights = sheetCallbacks.onExportHighlights,
                 )
 
                 ReaderSheet.AI_ASSIST -> AiAssistSheet(
                     aiClient = callbacks.aiClient,
-                    bookTitle = state.bookTitle,
-                    chapterTitle = state.currentChapterTitle,
-                    contextText = state.selectedText.ifBlank { state.contentText },
+                    bookTitle = state.bookMeta.bookTitle,
+                    chapterTitle = state.document.currentChapterTitle,
+                    contextText = state.ui.selectedText.ifBlank { state.document.contentText },
                 )
 
                 ReaderSheet.AI_EXPLAIN -> AiExplainSheet(
                     aiClient = callbacks.aiClient,
-                    selectedText = state.selectedText,
-                    bookTitle = state.bookTitle,
+                    selectedText = state.ui.selectedText,
+                    bookTitle = state.bookMeta.bookTitle,
                     categories = inputs.categories,
                     tags = inputs.tags,
                     onCreateCategory = sheetCallbacks.onCreateCategory,
@@ -203,10 +255,10 @@ internal fun ReaderSheetHost(
                 )
 
                 ReaderSheet.INSPIRATION -> InspirationSheet(
-                    bookTitle = state.bookTitle,
-                    chapterTitle = state.currentChapterTitle,
-                    excerpt = state.selectedText,
-                    progressPercent = state.progressPercent,
+                    bookTitle = state.bookMeta.bookTitle,
+                    chapterTitle = state.document.currentChapterTitle,
+                    excerpt = state.ui.selectedText,
+                    progressPercent = state.stats.progressPercent,
                     categories = inputs.categories,
                     tags = inputs.tags,
                     onCreateCategory = sheetCallbacks.onCreateCategory,
@@ -218,59 +270,59 @@ internal fun ReaderSheetHost(
 
                 ReaderSheet.SETTINGS -> SettingsSheet(
                     paper = paper,
-                    settings = state.readerSettings,
+                    settings = state.ui.readerSettings,
                     onSettingsChange = { updated -> settingsVm.updateReader { updated } },
                     onBookInfo = sheetCallbacks.onOpenBookInfo,
                 )
 
                 ReaderSheet.THEME -> ThemeSheet(
-                    background = state.readerSettings.background,
-                    appDark = state.appDark,
+                    background = state.ui.readerSettings.background,
+                    appDark = state.ui.appDark,
                     onBackground = { settingsVm.updateReader { copy(background = it) } },
                 )
 
                 ReaderSheet.PROGRESS -> ProgressSheet(
-                    epubBook = state.epubBook,
-                    chapterIndex = state.chapterIndex,
-                    currentChapterTitle = state.currentChapterTitle,
-                    progressPercent = state.progressPercent,
-                    activeReadingMs = state.activeReadingMs,
-                    readerSpeed = state.readerSpeed,
-                    estimatedRemainingMs = state.estimatedRemainingMs,
-                    savedBookReadingMs = state.savedBookReadingMs,
-                    inspirationsCount = state.inspirationsCount,
-                    bookmarksCount = state.bookmarksCount,
+                    epubBook = state.document.epubBook,
+                    chapterIndex = state.document.chapterIndex,
+                    currentChapterTitle = state.document.currentChapterTitle,
+                    progressPercent = state.stats.progressPercent,
+                    activeReadingMs = state.stats.activeReadingMs,
+                    readerSpeed = state.stats.readerSpeed,
+                    estimatedRemainingMs = state.stats.estimatedRemainingMs,
+                    savedBookReadingMs = state.stats.savedBookReadingMs,
+                    inspirationsCount = state.stats.inspirationsCount,
+                    bookmarksCount = state.stats.bookmarksCount,
                     onChapter = { sheetCallbacks.goToChapter(it) },
                     onSeekPercent = { sheetCallbacks.seekToPercent(it) },
-                    isTxt = state.isTxt,
+                    isTxt = state.document.isTxt,
                 )
 
                 ReaderSheet.SEARCH -> SearchSheet(
-                    document = state.epubDocument,
-                    txtDocument = state.txtStreamingDocument,
-                    plainContent = state.plainContent,
-                    chapterStartOffsets = state.chapterStartOffsets,
-                    chapterTitles = state.chapterTitles,
-                    totalChars = state.bookIndex?.totalChars
-                        ?: state.txtStreamingDocument?.totalChars ?: 0,
-                    isTxt = state.isTxt,
-                    query = state.searchQuery,
+                    document = state.document.epubDocument,
+                    txtDocument = state.document.txtStreamingDocument,
+                    plainContent = state.document.plainContent,
+                    chapterStartOffsets = state.document.chapterStartOffsets,
+                    chapterTitles = state.document.chapterTitles,
+                    totalChars = state.document.bookIndex?.totalChars
+                        ?: state.document.txtStreamingDocument?.totalChars ?: 0,
+                    isTxt = state.document.isTxt,
+                    query = state.ui.searchQuery,
                     onQueryChange = sheetCallbacks.onSearchQueryChange,
                     onJump = sheetCallbacks.onSearchJump,
                 )
 
                 ReaderSheet.BOOK_INFO -> BookInfoSheet(
-                    bookTitle = state.bookTitle,
-                    bookAuthor = state.bookAuthor,
-                    bookFormat = if (state.epubBook != null) "EPUB" else "TXT",
-                    chapterCount = state.epubBook?.chapters?.size ?: 0,
-                    wordCount = state.documentWordCount,
-                    currentChapterTitle = state.currentChapterTitle,
-                    progressPercent = state.progressPercent,
-                    activeReadingMs = state.activeReadingMs,
-                    savedReadingMs = state.savedBookReadingMs,
+                    bookTitle = state.bookMeta.bookTitle,
+                    bookAuthor = state.bookMeta.bookAuthor,
+                    bookFormat = if (state.document.epubBook != null) "EPUB" else "TXT",
+                    chapterCount = state.document.epubBook?.chapters?.size ?: 0,
+                    wordCount = state.stats.documentWordCount,
+                    currentChapterTitle = state.document.currentChapterTitle,
+                    progressPercent = state.stats.progressPercent,
+                    activeReadingMs = state.stats.activeReadingMs,
+                    savedReadingMs = state.stats.savedBookReadingMs,
                     sessionsCount = inputs.sessions.size,
-                    sourceFile = state.bookOriginalFile,
+                    sourceFile = state.bookMeta.bookOriginalFile,
                     onOpenSettings = sheetCallbacks.onOpenSettings,
                     onDelete = {
                         callbacks.onAction(ReaderAction.DeleteBook(bid))

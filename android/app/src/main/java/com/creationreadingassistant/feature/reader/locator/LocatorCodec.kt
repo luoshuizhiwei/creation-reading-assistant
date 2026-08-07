@@ -52,6 +52,17 @@ object LocatorCodec {
         return ReaderLocator(legacy, chapter, charOffset, fp)
     }
 
+    /**
+     * 从进度 JSON 中提取嵌套的 v2 locator（"locator_v2":{...}），无则返回 null。
+     * 只解码内层对象，避免顶部 legacy "offset" 干扰。
+     */
+    fun locatorFromProgress(json: String?): ReaderLocator? {
+        if (json.isNullOrBlank()) return null
+        val v2 = Regex(""""locator_v2"\s*:\s*(\{[^{}]*\})""")
+            .find(json)?.groupValues?.getOrNull(1) ?: return null
+        return decode(v2)
+    }
+
     fun fingerprint(text: String): String {
         val normalized = normalizeExcerpt(text)
         val digest = MessageDigest.getInstance("SHA-256").digest(normalized.toByteArray(Charsets.UTF_8))

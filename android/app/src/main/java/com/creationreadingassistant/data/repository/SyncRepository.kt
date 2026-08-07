@@ -16,6 +16,7 @@ import com.creationreadingassistant.data.remote.SyncApiProvider
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.domain.model.SyncEnvelope
+import com.creationreadingassistant.feature.sync.SyncMergePolicy
 import android.content.Context
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -98,25 +99,28 @@ class SyncRepository @Inject constructor(
         var progressCount = 0
         var sessionCount = 0
 
-        resp.books.forEach { env ->
-            runCatching { applyBook(env) }
-                .onSuccess { bookCount++ }
-                .onFailure { failures.add(SyncFailedEntry("book", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
-        }
-        resp.inspirations.forEach { env ->
-            runCatching { applyInspiration(env) }
-                .onSuccess { inspirationCount++ }
-                .onFailure { failures.add(SyncFailedEntry("inspiration", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
-        }
-        resp.progress.forEach { env ->
-            runCatching { applyProgress(env) }
-                .onSuccess { progressCount++ }
-                .onFailure { failures.add(SyncFailedEntry("progress", env.id, null, it.message ?: "未知错误")) }
-        }
-        resp.sessions.forEach { env ->
-            runCatching { applySession(env) }
-                .onSuccess { sessionCount++ }
-                .onFailure { failures.add(SyncFailedEntry("session", env.id, null, it.message ?: "未知错误")) }
+        // 逐条 apply 包在单个事务里：要么整批落库，要么整体回滚，不留半同步状态。
+        bookDao.runInTransaction {
+            resp.books.forEach { env ->
+                runCatching { applyBook(env) }
+                    .onSuccess { bookCount++ }
+                    .onFailure { failures.add(SyncFailedEntry("book", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+            }
+            resp.inspirations.forEach { env ->
+                runCatching { applyInspiration(env) }
+                    .onSuccess { inspirationCount++ }
+                    .onFailure { failures.add(SyncFailedEntry("inspiration", env.id, env.payload["title"]?.toString(), it.message ?: "未知错误")) }
+            }
+            resp.progress.forEach { env ->
+                runCatching { applyProgress(env) }
+                    .onSuccess { progressCount++ }
+                    .onFailure { failures.add(SyncFailedEntry("progress", env.id, null, it.message ?: "未知错误")) }
+            }
+            resp.sessions.forEach { env ->
+                runCatching { applySession(env) }
+                    .onSuccess { sessionCount++ }
+                    .onFailure { failures.add(SyncFailedEntry("session", env.id, null, it.message ?: "未知错误")) }
+            }
         }
         configStore.markSyncedAt(Instant.now().toString())
         PullResult(bookCount, inspirationCount, progressCount, sessionCount, failures)
@@ -204,19 +208,13 @@ class SyncRepository @Inject constructor(
     }
 
     /**
-     * 冲突合并策略：
-     * 1. 远端 revision > 本地 revision → 接受远端
-     * 2. 远端 revision == 本地 revision → 比较 updated_at，取较新者
-     * 3. 远端 revision < 本地 revision → 保留本地（跳过）
+     * 冲突合并策略：委托给 [SyncMergePolicy]，与本地 JSON / WebDAV 恢复路径
+     * （[com.creationreadingassistant.feature.sync.JsonBridge]）共用同一纯函数，避免策略分叉。
      */
     private fun shouldAcceptRemote(
         remoteRevision: Int, localRevision: Int,
         remoteUpdatedAt: String, localUpdatedAt: String,
-    ): Boolean {
-        if (remoteRevision > localRevision) return true
-        if (remoteRevision < localRevision) return false
-        return remoteUpdatedAt > localUpdatedAt
-    }
+    ): Boolean = SyncMergePolicy.shouldAcceptRemote(remoteRevision, localRevision, remoteUpdatedAt, localUpdatedAt)
 
     // ---- 推送：本地库 → 服务端 ----
     suspend fun push(): PushResult = withContext(ioDispatcher) {
@@ -361,18 +359,27 @@ class SyncRepository @Inject constructor(
             val book = bookDao.getById(bookId) ?: error("书籍不存在：$bookId")
             val dir = File(context.cacheDir, "books/$bookId").apply { mkdirs() }
             val file = File(dir, "content.${book.format}")
-            body.byteStream().use { input ->
-                FileOutputStream(file).use { output -> input.copyTo(output) }
+            // 先写 .tmp 再 rename 原子落盘：中途中断不会留下半截坏文件。
+            val tmp = File(dir, file.name + ".tmp")
+            body.use { b ->
+                b.byteStream().use { input ->
+                    FileOutputStream(tmp).use { output -> input.copyTo(output) }
+                }
             }
+            if (!tmp.renameTo(file)) {
+                tmp.delete()
+                error("写入磁盘失败：重命名目标文件失败")
+            }
+            val size = file.length().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
             val now = Instant.now().toString()
             bookFileDao.upsert(
                 BookFileEntity(
                     book_id = bookId, file_name = "content.${book.format}",
-                    format = book.format, size = file.length().toInt(),
+                    format = book.format, size = size,
                     local_uri = file.absolutePath, updated_at = now,
                 )
             )
-            bookDao.upsert(book.copy(content_status = "available", size = file.length().toInt(), updated_at = now))
+            bookDao.upsert(book.copy(content_status = "available", size = size, updated_at = now))
         }.onFailure { e ->
             // 下载失败标记 failed
             runCatching {
@@ -414,18 +421,27 @@ class SyncRepository @Inject constructor(
                 val body = resp.body() ?: error("响应体为空")
                 val dir = File(context.cacheDir, "books/${book.id}").apply { mkdirs() }
                 val file = File(dir, "content.${book.format}")
-                body.byteStream().use { input ->
-                    FileOutputStream(file).use { output -> input.copyTo(output) }
+                // 先写 .tmp 再 rename 原子落盘：中途中断不会留下半截坏文件。
+                val tmp = File(dir, file.name + ".tmp")
+                body.use { b ->
+                    b.byteStream().use { input ->
+                        FileOutputStream(tmp).use { output -> input.copyTo(output) }
+                    }
                 }
+                if (!tmp.renameTo(file)) {
+                    tmp.delete()
+                    error("写入磁盘失败：重命名目标文件失败")
+                }
+                val size = file.length().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
                 val now = Instant.now().toString()
                 bookFileDao.upsert(
                     BookFileEntity(
                         book_id = book.id, file_name = "content.${book.format}",
-                        format = book.format, size = file.length().toInt(),
+                        format = book.format, size = size,
                         local_uri = file.absolutePath, updated_at = now,
                     )
                 )
-                bookDao.upsert(book.copy(content_status = "available", size = file.length().toInt(), updated_at = now))
+                bookDao.upsert(book.copy(content_status = "available", size = size, updated_at = now))
             }
             if (r.isSuccess) {
                 success++

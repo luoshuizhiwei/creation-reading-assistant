@@ -4,18 +4,22 @@ import android.app.Activity
 import android.content.Context
 import android.Manifest
 import android.os.Build
+import androidx.compose.foundation.gestures.animateScrollBy
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.ui.platform.ClipboardManager
+import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
@@ -24,6 +28,7 @@ import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import java.util.UUID
 
 /**
  * Phase 3 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 主函数抽出的 9 个
@@ -52,13 +57,10 @@ internal fun computeLocatorJson(
     selectedText: String,
     selectedRangeStart: Int,
 ): String? = when {
-    epubBook != null && selectedGlobalOffset >= 0 -> {
-        val ci = chapterStartOffsets.indexOfLast { it <= selectedGlobalOffset }.coerceAtLeast(0)
-        val co = selectedGlobalOffset - chapterStartOffsets.getOrElse(ci) { 0 }
-        LocatorCodec.encode(selectedGlobalOffset, ci, co, selectedText)
-    }
+    epubBook != null && selectedGlobalOffset >= 0 ->
+        LocatorBuilder.forEpub(selectedGlobalOffset, chapterStartOffsets, selectedText)
     epubBook == null && selectedRangeStart >= 0 ->
-        LocatorCodec.encode(selectedRangeStart, 0, selectedRangeStart, selectedText)
+        LocatorBuilder.forPlain(selectedRangeStart, selectedText)
     else -> null
 }
 
@@ -171,6 +173,7 @@ internal fun persistCurrentProgress(
                 chapterIndex = currentChapter,
                 percent = percent,
                 offsetInChapter = chapterOffset,
+                absoluteOffset = globalOffset,
             )
         )
     } else {
@@ -191,11 +194,12 @@ internal fun persistCurrentProgress(
                     book_id = bid,
                     progress_percent = percent,
                     completion_state = if (percent >= 99.9f) "finished" else "reading",
-                    current_location_json = if (markdownDocument != null) {
-                        """{"offset":$absoluteOffset,"space":"canonical"}"""
-                    } else {
-                        """{"offset":$absoluteOffset}"""
-                    },
+                    current_location_json = LocatorBuilder.progressJson(
+                        legacyOffset = absoluteOffset,
+                        chapterIndex = 0,
+                        charOffset = absoluteOffset,
+                        space = if (markdownDocument != null) "canonical" else null,
+                    ),
                     updated_at = nowIso(),
                 )
             )
@@ -295,7 +299,15 @@ internal fun openTts(
     onShowTtsChange(true)
 }
 
-/** 处理顶栏/底栏 chrome 动作。逐字搬运自 ReaderScreen 的 when 分支。 */
+/**
+ * 处理顶栏/底栏 chrome 动作。逐字搬运自 ReaderScreen 的 when 分支。
+ *
+ * B2：原对本地副本 var 的 setter 写入改走 [ReaderAction]（VM 唯一真源）：
+ * onShowTtsChange → SetShowTts；onControlsVisibleChange → ToggleControls(visible)；
+ * onSheetChange → OpenSheet；onSearchQueryChange → SetSearchQuery；
+ * onSelectedTextChange("") → ClearSelection（工具条以 selectedText 非空门控，
+ * 附带重置偏移/showColorRow 无可观测差异）。
+ */
 @Suppress("LongParameterList")
 internal fun handleChromeAction(
     action: ReaderChromeAction,
@@ -303,11 +315,7 @@ internal fun handleChromeAction(
     tts: TtsController,
     autoPagingActiveState: MutableState<Boolean>,
     autoPagingSupported: Boolean,
-    onShowTtsChange: (Boolean) -> Unit,
-    onControlsVisibleChange: (Boolean) -> Unit,
-    onSelectedTextChange: (String) -> Unit,
-    onSheetChange: (ReaderSheet) -> Unit,
-    onSearchQueryChange: (String) -> Unit,
+    onAction: (ReaderAction) -> Unit,
     onBack: () -> Unit,
     openTts: () -> Unit,
     showNotice: (String) -> Unit,
@@ -317,33 +325,235 @@ internal fun handleChromeAction(
         ReaderChromeAction.ToggleTts -> {
             if (showTts) {
                 tts.stop()
-                onShowTtsChange(false)
+                onAction(ReaderAction.SetShowTts(false))
             } else {
                 autoPagingActiveState.value = false
                 openTts()
             }
         }
         is ReaderChromeAction.OpenSheet -> {
-            if (action.sheet == ReaderSheet.SEARCH) onSearchQueryChange("")
-            onSheetChange(action.sheet)
+            if (action.sheet == ReaderSheet.SEARCH) onAction(ReaderAction.SetSearchQuery(""))
+            onAction(ReaderAction.OpenSheet(action.sheet))
         }
         ReaderChromeAction.ToggleAutoPaging -> {
-            android.util.Log.d("AutoPagingDebug", "toggle: active=${autoPagingActiveState.value} supported=$autoPagingSupported")
+            AppLog.debug("AutoPagingDebug", "toggle: active=${autoPagingActiveState.value} supported=$autoPagingSupported")
             if (autoPagingActiveState.value) {
                 autoPagingActiveState.value = false
-                onControlsVisibleChange(true)
+                onAction(ReaderAction.ToggleControls(true))
             } else if (!autoPagingSupported) {
-                android.util.Log.d("AutoPagingDebug", "branch: unsupported")
+                AppLog.debug("AutoPagingDebug", "branch: unsupported")
                 showNotice("左右翻页模式需先开启新分页引擎")
             } else {
-                android.util.Log.d("AutoPagingDebug", "branch: activate")
+                AppLog.debug("AutoPagingDebug", "branch: activate")
                 tts.stop()
-                onShowTtsChange(false)
-                onSelectedTextChange("")
+                onAction(ReaderAction.SetShowTts(false))
+                onAction(ReaderAction.ClearSelection)
                 autoPagingActiveState.value = true
-                onControlsVisibleChange(false)
+                onAction(ReaderAction.ToggleControls(false))
             }
         }
-        ReaderChromeAction.HideControls -> onControlsVisibleChange(false)
+        ReaderChromeAction.HideControls -> onAction(ReaderAction.ToggleControls(false))
     }
+}
+
+/**
+ * B3：音量键翻页统一处理（原 ReaderScreen 的 onVolumeUp / onVolumeDown 两个 lambda 体
+ * 逐字合并搬运，direction：-1=音量上/向前，1=音量下/向后）。返回值语义不变：
+ * true=已消费，false=交回系统。
+ */
+@Suppress("LongParameterList")
+internal fun readerVolumeKeyTurn(
+    direction: Int,
+    readerSettings: ReaderSettings,
+    showTts: Boolean,
+    pagerEngineOn: Boolean,
+    pagedHardwareTurnRequest: MutableState<Int?>,
+    epubBook: EpubBook?,
+    markdownDocument: ReaderDocument?,
+    chapterIndex: Int,
+    goToChapter: (Int) -> Unit,
+    scope: CoroutineScope,
+    plainListState: LazyListState,
+): Boolean {
+    if (!readerSettings.volumeKeyPaging) return false
+    if (showTts && !readerSettings.volumeKeyPagingDuringTts) return false
+    when {
+        pagerEngineOn -> pagedHardwareTurnRequest.value = direction
+        epubBook != null || markdownDocument != null -> goToChapter(chapterIndex + direction)
+        else -> scope.launch {
+            val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * direction
+            plainListState.animateScrollBy(amount)
+        }
+    }
+    return true
+}
+
+/**
+ * B3：笔记对话框保存动作（原 ReaderScreen onSave lambda 体逐字搬运）。
+ * 先快照选区/正文/locator 再派发 SaveNote，随后清空 noteBody / 关对话框 / 清选区，
+ * 与原顺序一致（ClearSelection 附带重置两偏移/showColorRow，工具条以 selectedText
+ * 非空门控，无可观测差异）。
+ */
+@Suppress("LongParameterList")
+internal fun saveReaderNote(
+    onAction: (ReaderAction) -> Unit,
+    bid: String,
+    selectedText: String,
+    noteBody: String,
+    currentChapterTitle: String,
+    progressPercent: Float,
+    locatorJson: String?,
+) {
+    // 同高亮保存：先快照局部变量，避免下面同步清空后读到空串
+    val snapshotText = selectedText
+    val snapshotBody = noteBody
+    val snapshotLocator = locatorJson
+    onAction(ReaderAction.SaveNote(
+        NoteEntity(
+            id = UUID.randomUUID().toString(),
+            book_id = bid.ifBlank { null },
+            title = (snapshotBody.ifBlank { snapshotText }).take(40),
+            body = snapshotBody,
+            excerpt = snapshotText.takeIf { it.isNotBlank() },
+            chapter_title = currentChapterTitle.ifBlank { null },
+            progress_percent = progressPercent,
+            kind = "note",
+            locator_json = snapshotLocator,
+            payload = "{}",
+            created_at = nowIso(),
+            device_id = null,
+            revision = 1,
+            updated_at = nowIso(),
+            deleted_at = null,
+        ),
+    ))
+    onAction(ReaderAction.SetNoteBody(""))
+    onAction(ReaderAction.SetNoteOpen(false))
+    onAction(ReaderAction.ClearSelection)
+}
+
+/**
+ * B3 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 主函数抽出的
+ * 「导航 / chrome 动作闭包组」。原局部 fun 均为普通闭包（非 @Composable），每次重组重建；
+ * 改为顶层 builder 后仍每次重组重建闭包，捕获的只读值与 State-holder 引用与原语义一致。
+ * 互相调用的 fun（seekToPercent → goToChapter / jumpToPlainOffset；handleChromeAction →
+ * openTts）在 builder 内部直接引用，与原局部 fun 互调关系一致。
+ */
+@Suppress("LongParameterList")
+internal data class ReaderNavActions(
+    val computeLocatorJson: () -> String?,
+    val showNotice: (String) -> Unit,
+    val goToChapter: (Int) -> Unit,
+    val jumpToPlainOffset: (Int) -> Unit,
+    val persistCurrentProgress: () -> Unit,
+    val seekToPercent: (Float) -> Unit,
+    val seekToChapterPercent: (Float) -> Unit,
+    val openTts: () -> Unit,
+    val handleChromeAction: (ReaderChromeAction) -> Unit,
+)
+
+@Suppress("LongParameterList")
+internal fun buildReaderNavActions(
+    epubBook: EpubBook?,
+    markdownDocument: ReaderDocument?,
+    pagerEngineOn: Boolean,
+    chapterStartOffsets: List<Int>,
+    pagedJumpRequest: MutableState<Int?>,
+    chapterIndexState: MutableIntState,
+    tts: TtsController,
+    onAction: (ReaderAction) -> Unit,
+    onBack: () -> Unit,
+    bid: String,
+    selectedGlobalOffset: Int,
+    selectedText: String,
+    selectedRangeStart: Int,
+    scope: CoroutineScope,
+    snackbarHost: androidx.compose.material3.SnackbarHostState,
+    readingUnits: List<ReadingUnit>,
+    plainListState: LazyListState,
+    loadedBook: ReaderLoadedBook?,
+    error: String?,
+    pendingInitialPosition: Boolean,
+    pagedAbsOffset: Int,
+    pagedSource: PagedChapterSource?,
+    chapterIndex: Int,
+    epubListState: LazyListState,
+    blockGlobalOffsets: List<Int>,
+    chapterBase: Int,
+    chapterBlocks: List<DocBlock>,
+    bookIndex: BookIndex?,
+    visiblePlainOffset: Int,
+    txtStreamingDocument: PlainTextDocument?,
+    plainContent: String,
+    txtChapters: List<com.creationreadingassistant.feature.reader.doc.DocChapter>,
+    txtChapterIndex: Int,
+    contentText: String,
+    ttsResumeChapterState: MutableIntState,
+    ttsResumeOffsetState: MutableIntState,
+    bookTitle: String,
+    currentChapterTitle: String,
+    context: Context,
+    showTts: Boolean,
+    autoPagingActiveState: MutableState<Boolean>,
+    autoPagingSupported: Boolean,
+): ReaderNavActions {
+    val showNoticeFn: (String) -> Unit = { msg ->
+        scope.launch { snackbarHost.showSnackbar(msg) }
+    }
+    val goToChapterFn: (Int) -> Unit = { i ->
+        goToChapter(
+            i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
+            pagedJumpRequest, chapterIndexState, tts, onAction, bid,
+        )
+    }
+    val jumpToPlainOffsetFn: (Int) -> Unit = { offset ->
+        jumpToPlainOffset(
+            offset, pagerEngineOn, readingUnits, scope, plainListState, pagedJumpRequest,
+        )
+    }
+    val openTtsFn: () -> Unit = {
+        openTts(
+            contentText, epubBook, ttsResumeChapterState.intValue, chapterIndex, ttsResumeOffsetState.intValue,
+            tts, bookTitle, currentChapterTitle, context,
+            onShowTtsChange = { onAction(ReaderAction.SetShowTts(it)) }, showNotice = showNoticeFn,
+        )
+    }
+    return ReaderNavActions(
+        computeLocatorJson = {
+            computeLocatorJson(
+                epubBook, selectedGlobalOffset, chapterStartOffsets, selectedText, selectedRangeStart,
+            )
+        },
+        showNotice = showNoticeFn,
+        goToChapter = goToChapterFn,
+        jumpToPlainOffset = jumpToPlainOffsetFn,
+        persistCurrentProgress = {
+            persistCurrentProgress(
+                bid, loadedBook, error, pendingInitialPosition, epubBook, pagerEngineOn,
+                pagedAbsOffset, pagedSource, chapterIndex, epubListState, blockGlobalOffsets,
+                chapterBase, chapterBlocks, bookIndex, chapterStartOffsets, visiblePlainOffset,
+                markdownDocument, txtStreamingDocument, plainContent, onAction,
+            )
+        },
+        seekToPercent = { p ->
+            seekToPercent(
+                p, epubBook, pagerEngineOn, bookIndex, txtStreamingDocument, plainContent,
+                pagedJumpRequest, goToChapterFn, jumpToPlainOffsetFn,
+            )
+        },
+        seekToChapterPercent = { p ->
+            seekToChapterPercent(
+                p, epubBook, chapterStartOffsets, chapterIndex, contentText, pagerEngineOn,
+                txtChapters, txtChapterIndex, plainContent, pagedJumpRequest, jumpToPlainOffsetFn,
+            )
+        },
+        openTts = openTtsFn,
+        handleChromeAction = { action ->
+            handleChromeAction(
+                action, showTts, tts, autoPagingActiveState, autoPagingSupported,
+                onAction = onAction,
+                onBack = onBack, openTts = openTtsFn, showNotice = showNoticeFn,
+            )
+        },
+    )
 }

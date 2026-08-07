@@ -24,6 +24,10 @@ interface InspirationDao {
     @Query("SELECT * FROM inspirations WHERE id = :id AND deleted_at IS NULL")
     suspend fun getById(id: String): InspirationEntity?
 
+    /** 批量按 id 查询（仅活跃记录），供导入合并建 Map 消除 N+1。 */
+    @Query("SELECT * FROM inspirations WHERE id IN (:ids) AND deleted_at IS NULL")
+    suspend fun getByIds(ids: Collection<String>): List<InspirationEntity>
+
     @Query("SELECT * FROM inspirations WHERE deleted_at IS NULL AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%') ORDER BY updated_at DESC LIMIT 20")
     suspend fun search(q: String): List<InspirationEntity>
 
@@ -51,6 +55,10 @@ interface NoteDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(note: NoteEntity)
 
+    /** 批量写入，供软删除/恢复等事务路径替代逐行 upsert。 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(notes: List<NoteEntity>)
+
     @Query("SELECT * FROM notes WHERE deleted_at IS NULL ORDER BY created_at DESC")
     fun observeAllActive(): Flow<List<NoteEntity>>
 
@@ -74,6 +82,10 @@ interface NoteDao {
 interface HighlightDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(highlight: HighlightEntity)
+
+    /** 批量写入，供软删除/恢复等事务路径替代逐行 upsert。 */
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertAll(highlights: List<HighlightEntity>)
 
     @Query("SELECT * FROM highlights WHERE book_id = :bookId AND deleted_at IS NULL ORDER BY created_at DESC")
     fun observeByBook(bookId: String): Flow<List<HighlightEntity>>

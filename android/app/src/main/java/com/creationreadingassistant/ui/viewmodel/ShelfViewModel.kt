@@ -7,12 +7,6 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import com.creationreadingassistant.data.local.dao.BookContentDao
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.BookFileDao
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.ShelfDao
-import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
@@ -23,13 +17,14 @@ import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.TaxonomyRepository
+import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.library.ShelfImporter
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
-import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.data.settings.ShelfPrefs
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.remote.SyncContract
-import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.ui.screen.shelf.ShelfSortMode
@@ -56,11 +51,11 @@ import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 /**
- * 书架页 ViewModel —— 仅复用已有仓库 / DAO，不新增 DB 列或查询方法。
+ * 书架页 ViewModel —— 仅依赖 Repository 层，不直接注入 DAO（APP_MODULE_PLAN §7.2）。
  *
  * 职责边界（2026-08 拆分后）：
  * - 会话状态（筛选/排序/搜索/多选）、书架列表聚合流、偏好持久化、下拉刷新、同步下载；
- * - 导入管线 / 修复文件 / 导入历史 → [ShelfImporter]；
+ * - 导入管线 / 修复文件 / 导入历史 → [ShelfImporter]（Hilt 注入，其内部 DAO 依赖属导入管线范围）；
  * - 书籍级写操作（删除/恢复/搁置/封面/缓存）→ [ShelfBookActions]。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -68,32 +63,16 @@ import javax.inject.Inject
 class ShelfViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val repository: BookRepository,
-    private val bookDao: BookDao,
-    private val bookContentDao: BookContentDao,
-    private val bookFileDao: BookFileDao,
-    private val tagDao: TagDao,
-    private val categoryDao: CategoryDao,
-    private val shelfDao: ShelfDao,
+    private val taxonomyRepository: TaxonomyRepository,
     private val syncRepository: SyncRepository,
-    private val epubRepository: EpubRepository,
-    private val importHistoryStore: ImportHistoryStore,
     private val shelfPrefs: ShelfPrefs,
     private val continueReadingStore: ContinueReadingStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
+    shelfImporter: ShelfImporter,
 ) : ViewModel() {
 
-    val importer: ShelfImporter = ShelfImporter(
-        context = context,
-        repository = repository,
-        bookDao = bookDao,
-        bookContentDao = bookContentDao,
-        bookFileDao = bookFileDao,
-        epubRepository = epubRepository,
-        importHistoryStore = importHistoryStore,
-        ioDispatcher = ioDispatcher,
-        booksProvider = { books.value },
-    )
+    val importer: ShelfImporter = shelfImporter
 
     private val bookActions: ShelfBookActions = ShelfBookActions(
         context = context,
@@ -151,13 +130,13 @@ class ShelfViewModel @Inject constructor(
     val books: StateFlow<List<BookEntity>> = repository.observeBooks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val tags: StateFlow<List<TagEntity>> = tagDao.observeAllActive()
+    val tags: StateFlow<List<TagEntity>> = taxonomyRepository.observeTags()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val categories: StateFlow<List<CategoryEntity>> = categoryDao.observeAllActive()
+    val categories: StateFlow<List<CategoryEntity>> = taxonomyRepository.observeCategories()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
-    val shelves: StateFlow<List<ShelfEntity>> = shelfDao.observeAllActive()
+    val shelves: StateFlow<List<ShelfEntity>> = taxonomyRepository.observeShelves()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     val progressById: StateFlow<Map<String, ReadingProgressEntity>> =
@@ -441,6 +420,7 @@ class ShelfViewModel @Inject constructor(
     }
 
     init {
+        importer.booksProvider = { books.value }
         viewModelScope.launch {
             shelfViewMode.collect { raw ->
                 val value = ShelfViewMode.entries.firstOrNull { it.name.equals(raw, ignoreCase = true) } ?: ShelfViewMode.GRID
@@ -457,15 +437,10 @@ class ShelfViewModel @Inject constructor(
             try {
                 repository.seedSampleIfEmpty()
             } catch (e: Throwable) {
-                android.util.Log.e("ShelfVM", "Init seed failed", e)
+                AppLog.e("ShelfVM", "Init seed failed: ${e.message}")
             }
         }
-        viewModelScope.launch(ioDispatcher) {
-            try {
-                epubRepository.repairMissingLocalFileSizes()
-            } catch (e: Throwable) {
-                android.util.Log.w("ShelfVM", "EPUB metadata repair failed", e)
-            }
-        }
+        // EPUB size 修复已收敛为进程级一次性任务（EpubSizeRepairTask，App.onCreate 启动），
+        // 不再由每个 ShelfViewModel 实例 init 重复触发。
     }
 }

@@ -2,12 +2,6 @@ package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.data.local.dao.BookContentDao
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
@@ -16,6 +10,8 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
+import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.PairingManager
@@ -56,12 +52,8 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProfileViewModelTest {
-    private val bookDao = mockk<BookDao>()
-    private val readingProgressDao = mockk<ReadingProgressDao>()
-    private val readingSessionDao = mockk<ReadingSessionDao>()
-    private val noteDao = mockk<NoteDao>()
-    private val inspirationDao = mockk<InspirationDao>()
-    private val bookContentDao = mockk<BookContentDao>()
+    private val bookRepository = mockk<BookRepository>()
+    private val statsRepository = mockk<StatsRepository>()
 
     // 子页专用实体流是否被收集的标记
     private val bookEntitiesCollected = AtomicBoolean(false)
@@ -83,23 +75,23 @@ class ProfileViewModelTest {
         Dispatchers.setMain(mainDispatcher)
 
         // 实体流：收集即置位标记
-        every { bookDao.observeAllActive() } returns
+        every { bookRepository.observeBooks() } returns
             flow<List<BookEntity>> { emit(emptyList()) }.onStart { bookEntitiesCollected.set(true) }
-        every { readingProgressDao.observeAllActive() } returns
+        every { bookRepository.observeProgress() } returns
             flow<List<ReadingProgressEntity>> { emit(emptyList()) }.onStart { progressEntitiesCollected.set(true) }
-        every { readingSessionDao.observeAllActive() } returns
+        every { bookRepository.observeSessions() } returns
             flow<List<ReadingSessionEntity>> { emit(emptyList()) }.onStart { sessionEntitiesCollected.set(true) }
-        every { noteDao.observeAllActive() } returns
+        every { bookRepository.observeNotes() } returns
             flow<List<NoteEntity>> { emit(emptyList()) }.onStart { noteEntitiesCollected.set(true) }
-        every { bookContentDao.observeCachedCount() } returns
+        every { bookRepository.observeCachedCount() } returns
             flow { emit(0) }.onStart { cacheCollected.set(true) }
-        every { bookContentDao.observeCachedBytes() } returns
+        every { bookRepository.observeCachedBytes() } returns
             flow { emit(0L) }.onStart { cacheCollected.set(true) }
 
         // 首页摘要用的窄投影流
-        every { readingSessionDao.observeStatsRows() } returns sessionRows
-        every { readingProgressDao.observeStatsRows() } returns progressRows
-        every { inspirationDao.observeStatsCreatedRows() } returns inspirationRows
+        every { statsRepository.observeStatsSessions() } returns sessionRows
+        every { statsRepository.observeStatsProgress() } returns progressRows
+        every { statsRepository.observeStatsInspirations() } returns inspirationRows
 
         val configStore = mockk<SyncConfigStore>(relaxed = true)
         every { configStore.config } returns null
@@ -114,12 +106,8 @@ class ProfileViewModelTest {
             webDavConfigStore = webDavConfigStore,
             webDavBackup = mockk<WebDavBackup>(relaxed = true),
             aiClient = mockk<AiClient>(relaxed = true),
-            bookDao = bookDao,
-            readingProgressDao = readingProgressDao,
-            readingSessionDao = readingSessionDao,
-            noteDao = noteDao,
-            inspirationDao = inspirationDao,
-            bookContentDao = bookContentDao,
+            bookRepository = bookRepository,
+            statsRepository = statsRepository,
             ioDispatcher = UnconfinedTestDispatcher(testScheduler),
             defaultDispatcher = UnconfinedTestDispatcher(testScheduler),
         )

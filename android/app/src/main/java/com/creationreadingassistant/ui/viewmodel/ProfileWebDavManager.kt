@@ -1,6 +1,8 @@
 package com.creationreadingassistant.ui.viewmodel
 
 import android.content.Context
+import com.creationreadingassistant.data.local.AppDatabase
+import com.creationreadingassistant.data.local.DatabaseSafetyNet
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
@@ -42,9 +44,12 @@ class ProfileWebDavManager(
         "WebDAV ${webDavBackup.test(cfg.url, cfg.user, cfg.pass).getOrThrow()}"
     }
 
-    /** 下载指定备份并恢复。成功消息「已从 WebDAV 恢复备份」。 */
+    /** 下载指定备份并恢复。执行前先做整库文件快照兜底；成功消息「已从 WebDAV 恢复备份」。 */
     suspend fun downloadRestore(context: Context, filename: String = "cra-backup-latest.json"): Result<String> = runCatching {
         val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
+        // 恢复会合并覆写当前数据：先留一份整库快照，万一恢复出问题可从快照捞回。
+        // 快照失败只记日志、不阻塞恢复（DatabaseSafetyNet 内部已吞异常）。
+        DatabaseSafetyNet.snapshotNow(context, AppDatabase.DB_NAME)
         val json = webDavBackup.get(cfg.url, cfg.user, cfg.pass, filename).getOrThrow()
         jsonBridge.importFromString(context, json)
         "已从 WebDAV 恢复备份"

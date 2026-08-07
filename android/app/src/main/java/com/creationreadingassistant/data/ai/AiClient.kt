@@ -2,7 +2,11 @@ package com.creationreadingassistant.data.ai
 
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.settings.SettingsStore
+import com.creationreadingassistant.feature.log.AppLog
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
@@ -11,7 +15,9 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.net.URI
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -20,15 +26,36 @@ import javax.inject.Singleton
  * 调用配置来自 SettingsStore（AI 启用、接口地址、模型、Key、温度、提示词）。
  */
 @Singleton
-class AiClient @Inject constructor(
+class AiClient(
     private val settings: SettingsStore,
-    @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val ioDispatcher: CoroutineDispatcher,
+    private val client: OkHttpClient,
 ) {
+    /** Hilt 注入入口：使用默认超时配置的 OkHttpClient，行为与历史版本一致。 */
+    @Inject
+    constructor(
+        settings: SettingsStore,
+        @IODispatcher ioDispatcher: CoroutineDispatcher,
+    ) : this(settings, ioDispatcher, defaultClient())
+
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val client = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS)
-        .readTimeout(60, TimeUnit.SECONDS)
-        .build()
+
+    private companion object {
+        fun defaultClient(): OkHttpClient = OkHttpClient.Builder()
+            .connectTimeout(30, TimeUnit.SECONDS)
+            .readTimeout(60, TimeUnit.SECONDS)
+            .writeTimeout(60, TimeUnit.SECONDS)
+            .build()
+    }
+
+    /**
+     * 非加密 http 接口警示（不硬拦截，尊重用户自配接口语义）：
+     * baseUrl 是 http:// 且目标不是局域网地址时，API Key 可能明文传输。
+     * 进程内只记录一次警示日志，并通过该 StateFlow 暴露给 UI 展示。
+     */
+    private val _insecureHttpWarning = MutableStateFlow<String?>(null)
+    val insecureHttpWarning: StateFlow<String?> = _insecureHttpWarning.asStateFlow()
+    private val httpWarned = AtomicBoolean(false)
 
     @Serializable
     data class ChatMessage(val role: String, val content: String)
@@ -54,6 +81,7 @@ class AiClient @Inject constructor(
             val ai = settings.ai.value
             if (!ai.enabled) error("AI 未启用，请在「我的 → AI 设置」中开启。")
             if (ai.baseUrl.isBlank()) error("AI 接口地址未配置。")
+            warnIfInsecureHttp(ai.baseUrl)
             val url = ai.baseUrl.trimEnd('/') + "/v1/chat/completions"
 
             val messages = listOf(
@@ -73,12 +101,38 @@ class AiClient @Inject constructor(
                 }
                 .build()
 
-            val resp = client.newCall(req).execute()
-            if (!resp.isSuccessful) error("AI 服务返回 HTTP ${resp.code}: ${resp.body?.string()?.take(200) ?: ""}")
-            val chatResp = json.decodeFromString<ChatResponse>(resp.body?.string() ?: error("空响应"))
-            chatResp.choices.firstOrNull()?.message?.content ?: error("AI 未返回内容")
+            client.newCall(req).execute().use { resp ->
+                if (!resp.isSuccessful) error("AI 服务返回 HTTP ${resp.code}: ${resp.body?.string()?.take(200) ?: ""}")
+                val chatResp = json.decodeFromString<ChatResponse>(resp.body?.string() ?: error("空响应"))
+                chatResp.choices.firstOrNull()?.message?.content ?: error("AI 未返回内容")
+            }
         }
     }
+
+    /**
+     * baseUrl 为 http:// 且主机不是局域网地址时，记录一次性警示日志并暴露 UI 可读状态。
+     * 不拦截请求：用户可能故意用自建明文接口，仅提示风险。
+     */
+    private fun warnIfInsecureHttp(baseUrl: String) {
+        if (!baseUrl.startsWith("http://")) return
+        val host = runCatching { URI(baseUrl).host }.getOrNull()?.lowercase()
+        if (host == null || isLanHost(host)) return
+        if (httpWarned.compareAndSet(false, true)) {
+            AppLog.w("AiClient", "AI 接口为非加密 http:// 且目标不是局域网地址，API Key 可能明文传输：$baseUrl")
+            _insecureHttpWarning.value =
+                "当前 AI 接口为非加密 http:// 且目标不是局域网地址，API Key 可能明文传输，建议改用 https:// 或局域网地址。"
+        }
+    }
+
+    /** 局域网/回环地址白名单：这些目标走明文 http 属常见自建部署场景，不警示。 */
+    private fun isLanHost(host: String): Boolean =
+        host == "localhost" || host == "0.0.0.0" ||
+            host.startsWith("127.") ||
+            host.startsWith("10.") ||
+            host.startsWith("192.168.") ||
+            LAN_172_REGEX.matches(host)
+
+    private val LAN_172_REGEX = Regex("^172\\.(1[6-9]|2\\d|3[01])\\.")
 
     /** 阅读辅助快捷入口。 */
     suspend fun summarize(text: String): Result<String> = chat(

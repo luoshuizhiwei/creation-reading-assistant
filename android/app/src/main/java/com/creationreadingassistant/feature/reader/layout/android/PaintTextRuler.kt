@@ -88,11 +88,16 @@ class PaintTextRuler(
         /**
          * 生成字体标识，进排版指纹。
          *
-         * 项目没有内置字体（assets/ 与 res/font 都不存在），全走系统 CJK 回退，
+         * 项目没有内置字体（assets/ 与 res/font 都不存在），默认全走系统 CJK 回退，
          * 所以 Android 12+ 用户换系统字体会在运行中改变排版。指纹必须能反映这一点，
          * 否则缓存的页边界会按旧字体算。
+         *
+         * [customFontPath] 为自定义正文字体路径（空 = 系统字体）。自定义字体必须把路径
+         * 写进指纹：换字体后排版签名变化，页索引整体失效重排，页码/锚点才不会错位。
          */
-        fun typefaceKeyOf(typeface: Typeface?, textSizePx: Float, letterSpacing: Float): String =
-            "tf=${typeface?.hashCode() ?: 0}|size=$textSizePx|ls=$letterSpacing"
+        fun typefaceKeyOf(typeface: Typeface?, textSizePx: Float, letterSpacing: Float, customFontPath: String = ""): String {
+            val tf = if (customFontPath.isNotBlank()) customFontPath else (typeface?.hashCode() ?: 0)
+            return "tf=$tf|size=$textSizePx|ls=$letterSpacing"
+        }
     }
 }

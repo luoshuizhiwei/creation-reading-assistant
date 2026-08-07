@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import com.creationreadingassistant.feature.log.AppLog
 import java.util.Locale
 
 /**
@@ -77,7 +78,6 @@ internal class TtsController(context: Context) {
                     }
                 }
 
-                @Deprecated("Deprecated in Java")
                 override fun onError(utteranceId: String?) {
                     status = "idle"
                     media.updateState(PlaybackState.STATE_STOPPED)
@@ -117,7 +117,9 @@ internal class TtsController(context: Context) {
                 if (originalVolume < 0) originalVolume = audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC)
                 audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, target, 0)
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            AppLog.w("Tts", "applyVolume failed: ${e.message}")
+        }
     }
 
     private fun restoreVolume() {
@@ -126,7 +128,9 @@ internal class TtsController(context: Context) {
                 audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC, originalVolume, 0)
                 originalVolume = -1
             }
-        } catch (_: Exception) { }
+        } catch (e: Exception) {
+            AppLog.w("Tts", "restoreVolume failed: ${e.message}")
+        }
     }
 
     private fun speakCurrent() {
@@ -357,17 +361,25 @@ internal class TtsMediaSession(
         @Suppress("DEPRECATION")
         a2.addAction(android.R.drawable.ic_media_next, "下一句", pending(ACTION_NEXT))
 
-        try { notificationManager.notify(notifId, builder.build()) } catch (_: Exception) { }
+        try { notificationManager.notify(notifId, builder.build()) } catch (e: Exception) {
+            AppLog.w("Tts", "showNotification failed: ${e.message}")
+        }
     }
 
     fun hideNotification() {
-        try { notificationManager.cancel(notifId) } catch (_: Exception) { }
+        try { notificationManager.cancel(notifId) } catch (e: Exception) {
+            AppLog.w("Tts", "hideNotification failed: ${e.message}")
+        }
     }
 
     fun release() {
-        try { appContext.unregisterReceiver(receiver) } catch (_: Exception) { }
+        try { appContext.unregisterReceiver(receiver) } catch (e: Exception) {
+            AppLog.w("Tts", "unregisterReceiver failed: ${e.message}")
+        }
         hideNotification()
-        try { mediaSession.release() } catch (_: Exception) { }
+        try { mediaSession.release() } catch (e: Exception) {
+            AppLog.w("Tts", "mediaSession.release failed: ${e.message}")
+        }
     }
 
     private fun pending(action: String): PendingIntent {

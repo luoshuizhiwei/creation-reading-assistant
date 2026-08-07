@@ -371,11 +371,7 @@ class MarkdownDocument private constructor(
             return listOf(DocBlock.Markdown(chapter))
         }
         val range = chapterSourceRanges.getOrNull(chapterIndex) ?: return emptyList()
-        val document = fileIndex?.let { idx ->
-            val fs = fileSource
-            requireNotNull(fs) { "fileIndex 非空时 fileSource 必非空（流式模式不变量）" }
-            PlainTextDocument.fromFileIndex(fs, idx)
-        }
+        val document = fileIndex?.let { PlainTextDocument.fromFileIndex(fileSource!!, it) }
             ?: return emptyList()
         val sourceText = readSourceText(document, range)
         val chapter = MarkdownParser.parse(sourceText, sourceOffsetShift = range.first)

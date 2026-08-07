@@ -22,6 +22,7 @@ import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.locator.AnchorConfidence
 import com.creationreadingassistant.feature.reader.locator.AnchorResolver
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
@@ -179,11 +180,12 @@ internal fun ReaderProgressEffects(
                         book_id = bid,
                         progress_percent = percent,
                         completion_state = if (percent >= 99.9f) "finished" else "reading",
-                        current_location_json = if (markdownDocument != null) {
-                            """{"offset":${offset.coerceAtLeast(0)},"space":"canonical"}"""
-                        } else {
-                            """{"offset":${offset.coerceAtLeast(0)}}"""
-                        },
+                        current_location_json = LocatorBuilder.progressJson(
+                            legacyOffset = offset.coerceAtLeast(0),
+                            chapterIndex = 0,
+                            charOffset = offset.coerceAtLeast(0),
+                            space = if (markdownDocument != null) "canonical" else null,
+                        ),
                         updated_at = nowIso(),
                     ),
                 ))
@@ -201,18 +203,19 @@ internal fun ReaderProgressEffects(
                 if (epubBook != null) {
                     val ci = source.chapterIndexFor(off)
                     val chapterOffset = off - source.chapterStartAbs(ci)
-                    onAction(ReaderAction.SaveEpubProgress(bid, ci, pct, chapterOffset))
+                    onAction(ReaderAction.SaveEpubProgress(bid, ci, pct, chapterOffset, absoluteOffset = off))
                 } else {
                     onAction(ReaderAction.SaveProgress(
                         ReadingProgressEntity(
                             book_id = bid,
                             progress_percent = pct,
                             completion_state = if (pct >= 99.9f) "finished" else "reading",
-                            current_location_json = if (markdownDocument != null) {
-                                """{"offset":${off.coerceAtLeast(0)},"space":"canonical"}"""
-                            } else {
-                                """{"offset":${off.coerceAtLeast(0)}}"""
-                            },
+                            current_location_json = LocatorBuilder.progressJson(
+                                legacyOffset = off.coerceAtLeast(0),
+                                chapterIndex = 0,
+                                charOffset = off.coerceAtLeast(0),
+                                space = if (markdownDocument != null) "canonical" else null,
+                            ),
                             updated_at = nowIso(),
                         ),
                     ))
@@ -282,7 +285,7 @@ internal fun ReaderProgressEffects(
         val targetId = hl?.id ?: nt?.id.orEmpty()
         val targetExcerpt = hl?.text ?: nt?.excerpt ?: nt?.body
         if (epubBook != null) {
-            val book = epubBook
+            val book = epubBook!!
             if (decodedLocator != null && bookIndex != null) {
                 val cached = anchorCacheStore.get(targetKind, targetId, bid)
                 val resolved = cached ?: run {
@@ -334,7 +337,7 @@ internal fun ReaderProgressEffects(
                         ?: decodedLocator.legacyOffset
                         ?: 0
                     val windowStart = (targetOffset - 2000).coerceAtLeast(0)
-                    val windowText = txtStreamingDocument.readWindowAround(targetOffset, 2000, 2000)
+                    val windowText = txtStreamingDocument!!.readWindowAround(targetOffset, 2000, 2000)
                     if (windowText.isNotEmpty()) {
                         // 将 locator 偏移调整为窗口相对偏移，供 AnchorResolver 使用
                         val windowRelativeLocator = decodedLocator.copy(

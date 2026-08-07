@@ -1,17 +1,6 @@
 package com.creationreadingassistant.ui.viewmodel
 
-import com.creationreadingassistant.data.local.dao.BookCategoryDao
-import com.creationreadingassistant.data.local.dao.BookTagDao
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.ShelfBookDao
-import com.creationreadingassistant.data.local.dao.ShelfDao
-import com.creationreadingassistant.data.local.dao.TagDao
-import com.creationreadingassistant.data.local.entity.BookCategoryEntity
-import com.creationreadingassistant.data.local.entity.BookTagEntity
-import com.creationreadingassistant.data.local.entity.CategoryEntity
-import com.creationreadingassistant.data.local.entity.ShelfBookEntity
-import com.creationreadingassistant.data.local.entity.ShelfEntity
-import com.creationreadingassistant.data.local.entity.TagEntity
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -26,67 +15,47 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
 /**
- * TaxonomyViewModel 分类/标签/书单 CRUD 委托与空列表短路测试。
+ * TaxonomyViewModel 分类/标签/书单 CRUD 转发测试（全部落到 TaxonomyRepository）。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class TaxonomyViewModelTest {
 
     private val mainDispatcher = UnconfinedTestDispatcher()
 
-    private lateinit var tagDao: TagDao
-    private lateinit var categoryDao: CategoryDao
-    private lateinit var shelfDao: ShelfDao
-    private lateinit var bookTagDao: BookTagDao
-    private lateinit var bookCategoryDao: BookCategoryDao
-    private lateinit var shelfBookDao: ShelfBookDao
+    private lateinit var repository: TaxonomyRepository
     private lateinit var vm: TaxonomyViewModel
 
     @Before
     fun setUp() {
         Dispatchers.setMain(mainDispatcher)
-        tagDao = mockk {
-            every { observeAllActive() } returns flowOf(emptyList())
-            coEvery { upsert(any()) } returns Unit
-            coEvery { rename(any(), any(), any()) } returns Unit
-            coEvery { softDelete(any(), any()) } returns Unit
-        }
-        categoryDao = mockk {
-            every { observeAllActive() } returns flowOf(emptyList())
-            coEvery { upsert(any()) } returns Unit
-            coEvery { rename(any(), any(), any()) } returns Unit
-            coEvery { softDelete(any(), any()) } returns Unit
-            coEvery { updateCoverTone(any(), any(), any()) } returns Unit
-        }
-        shelfDao = mockk {
-            every { observeAllActive() } returns flowOf(emptyList())
-            coEvery { upsert(any()) } returns Unit
-            coEvery { rename(any(), any(), any()) } returns Unit
-            coEvery { softDelete(any(), any()) } returns Unit
-        }
-        bookTagDao = mockk {
-            coEvery { upsertAll(any()) } returns Unit
-            coEvery { remove(any(), any()) } returns Unit
-            coEvery { getBookIds(any()) } returns listOf("b1")
-        }
-        bookCategoryDao = mockk {
-            coEvery { replaceForBooks(any(), any()) } returns Unit
-        }
-        shelfBookDao = mockk {
-            coEvery { upsertAll(any()) } returns Unit
-            coEvery { getBookIds(any()) } returns listOf("b2", "b3")
+        repository = mockk {
+            every { observeTags() } returns flowOf(emptyList())
+            every { observeCategories() } returns flowOf(emptyList())
+            every { observeShelves() } returns flowOf(emptyList())
+            coEvery { createTag(any(), any()) } returns "tag-x"
+            coEvery { createCategory(any()) } returns "cat-x"
+            coEvery { createShelf(any()) } returns "shelf-x"
+            coEvery { renameTag(any(), any()) } returns Unit
+            coEvery { renameCategory(any(), any()) } returns Unit
+            coEvery { renameShelf(any(), any()) } returns Unit
+            coEvery { updateCategoryTone(any(), any()) } returns Unit
+            coEvery { deleteTag(any()) } returns Unit
+            coEvery { deleteCategory(any()) } returns Unit
+            coEvery { deleteShelf(any()) } returns Unit
+            coEvery { addTagToBooks(any(), any()) } returns Unit
+            coEvery { addTagToBook(any(), any()) } returns Unit
+            coEvery { removeTagFromBook(any(), any()) } returns Unit
+            coEvery { replaceCategoryForBooks(any(), any()) } returns Unit
+            coEvery { removeCategoryFromBook(any(), any()) } returns Unit
+            coEvery { addBooksToShelf(any(), any()) } returns Unit
+            coEvery { removeBookFromShelf(any(), any()) } returns Unit
         }
         vm = TaxonomyViewModel(
-            tagDao = tagDao,
-            categoryDao = categoryDao,
-            shelfDao = shelfDao,
-            bookTagDao = bookTagDao,
-            bookCategoryDao = bookCategoryDao,
-            shelfBookDao = shelfBookDao,
+            repository = repository,
             ioDispatcher = Dispatchers.Unconfined,
         )
     }
@@ -97,119 +66,96 @@ class TaxonomyViewModelTest {
     }
 
     @Test
-    fun `createTagAndGetId trims name and uses tag prefix id`() = runTest(mainDispatcher.scheduler) {
-        val id = vm.createTagAndGetId("  悬疑  ", "  book ")
+    fun `createTagAndGetId delegates to repository and returns its id`() = runTest(mainDispatcher.scheduler) {
+        val id = vm.createTagAndGetId("悬疑", "book")
 
-        assertTrue(id.startsWith("tag-"))
-        val saved = io.mockk.slot<TagEntity>()
-        coVerify(exactly = 1) { tagDao.upsert(capture(saved)) }
-        assertEquals("悬疑", saved.captured.name)
-        assertEquals("book", saved.captured.type)
-        assertEquals(id, saved.captured.id)
+        assertEquals("tag-x", id)
+        coVerify(exactly = 1) { repository.createTag("悬疑", "book") }
     }
 
     @Test
-    fun `createCategoryAndGetId and createShelfAndGetId trim names`() = runTest(mainDispatcher.scheduler) {
-        val catId = vm.createCategoryAndGetId("  科幻  ")
-        val shelfId = vm.createShelfAndGetId("  待读  ")
+    fun `createCategoryAndGetId and createShelfAndGetId delegate`() = runTest(mainDispatcher.scheduler) {
+        assertEquals("cat-x", vm.createCategoryAndGetId("科幻"))
+        assertEquals("shelf-x", vm.createShelfAndGetId("待读"))
 
-        assertTrue(catId.startsWith("cat-"))
-        assertTrue(shelfId.startsWith("shelf-"))
-        val cat = io.mockk.slot<CategoryEntity>()
-        val shelf = io.mockk.slot<ShelfEntity>()
-        coVerify(exactly = 1) { categoryDao.upsert(capture(cat)) }
-        coVerify(exactly = 1) { shelfDao.upsert(capture(shelf)) }
-        assertEquals("科幻", cat.captured.name)
-        assertEquals("待读", shelf.captured.name)
+        coVerify(exactly = 1) { repository.createCategory("科幻") }
+        coVerify(exactly = 1) { repository.createShelf("待读") }
     }
 
     @Test
-    fun `rename methods trim names and pass non-empty timestamps`() = runTest(mainDispatcher.scheduler) {
-        vm.renameTag("t1", "  新标签  ")
-        vm.renameCategory("c1", "  新分类  ")
-        vm.renameShelf("s1", "  新书单  ")
+    fun `rename methods and updateCategoryTone delegate`() = runTest(mainDispatcher.scheduler) {
+        vm.renameTag("t1", "新标签")
+        vm.renameCategory("c1", "新分类")
+        vm.renameShelf("s1", "新书单")
+        vm.updateCategoryTone("c1", "warm")
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 1) { tagDao.rename("t1", "新标签", any()) }
-        coVerify(exactly = 1) { categoryDao.rename("c1", "新分类", any()) }
-        coVerify(exactly = 1) { shelfDao.rename("s1", "新书单", any()) }
+        coVerify(exactly = 1) { repository.renameTag("t1", "新标签") }
+        coVerify(exactly = 1) { repository.renameCategory("c1", "新分类") }
+        coVerify(exactly = 1) { repository.renameShelf("s1", "新书单") }
+        coVerify(exactly = 1) { repository.updateCategoryTone("c1", "warm") }
     }
 
     @Test
-    fun `updateCategoryTone trims tone value`() = runTest(mainDispatcher.scheduler) {
-        vm.updateCategoryTone("c1", "  warm  ")
-        testScheduler.advanceUntilIdle()
-
-        coVerify(exactly = 1) { categoryDao.updateCoverTone("c1", "warm", any()) }
-    }
-
-    @Test
-    fun `delete methods soft delete with timestamps`() = runTest(mainDispatcher.scheduler) {
+    fun `delete methods delegate`() = runTest(mainDispatcher.scheduler) {
         vm.deleteTag("t1")
         vm.deleteCategory("c1")
         vm.deleteShelf("s1")
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 1) { tagDao.softDelete("t1", any()) }
-        coVerify(exactly = 1) { categoryDao.softDelete("c1", any()) }
-        coVerify(exactly = 1) { shelfDao.softDelete("s1", any()) }
+        coVerify(exactly = 1) { repository.deleteTag("t1") }
+        coVerify(exactly = 1) { repository.deleteCategory("c1") }
+        coVerify(exactly = 1) { repository.deleteShelf("s1") }
     }
 
     @Test
-    fun `addTagToBooks maps to book tag entities`() = runTest(mainDispatcher.scheduler) {
+    fun `addTagToBooks and addBooksToShelf delegate`() = runTest(mainDispatcher.scheduler) {
         vm.addTagToBooks(listOf("b1", "b2"), "t9")
-        testScheduler.advanceUntilIdle()
-
-        val refs = io.mockk.slot<List<BookTagEntity>>()
-        coVerify(exactly = 1) { bookTagDao.upsertAll(capture(refs)) }
-        assertEquals(listOf(BookTagEntity("b1", "t9"), BookTagEntity("b2", "t9")), refs.captured)
-    }
-
-    @Test
-    fun `addBooksToShelf maps to shelf book entities`() = runTest(mainDispatcher.scheduler) {
         vm.addBooksToShelf(listOf("b1", "b2"), "sh1")
         testScheduler.advanceUntilIdle()
 
-        val refs = io.mockk.slot<List<ShelfBookEntity>>()
-        coVerify(exactly = 1) { shelfBookDao.upsertAll(capture(refs)) }
-        assertEquals(
-            listOf(ShelfBookEntity("sh1", "b1"), ShelfBookEntity("sh1", "b2")),
-            refs.captured,
-        )
+        coVerify(exactly = 1) { repository.addTagToBooks(listOf("b1", "b2"), "t9") }
+        coVerify(exactly = 1) { repository.addBooksToShelf(listOf("b1", "b2"), "sh1") }
     }
 
     @Test
-    fun `setCategoryForBooks empty list short circuits`() = runTest(mainDispatcher.scheduler) {
+    fun `setCategoryForBooks empty list short circuits before repository`() = runTest(mainDispatcher.scheduler) {
         vm.setCategoryForBooks(emptyList(), "c1")
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 0) { bookCategoryDao.replaceForBooks(any(), any()) }
+        coVerify(exactly = 0) { repository.replaceCategoryForBooks(any(), any()) }
     }
 
     @Test
-    fun `observe ids for books short circuit on empty list`() = runTest(mainDispatcher.scheduler) {
-        assertEquals(emptyList<String>(), vm.observeTagIdsForBooks(emptyList()).first())
-        assertEquals(emptyList<String>(), vm.observeCategoryIdsForBooks(emptyList()).first())
-        assertEquals(emptyList<String>(), vm.observeShelfIdsForBooks(emptyList()).first())
-        coVerify(exactly = 0) { bookTagDao.observeTagIdsForBooks(any()) }
-        coVerify(exactly = 0) { bookCategoryDao.observeCategoryIdsForBooks(any()) }
-        coVerify(exactly = 0) { shelfBookDao.observeShelfIdsForBooks(any()) }
+    fun `observe ids for books delegate and return repository results`() = runTest(mainDispatcher.scheduler) {
+        coEvery { repository.observeTagIdsForBooks(any()) } returns flowOf(listOf("t1"))
+        coEvery { repository.observeCategoryIdsForBooks(any()) } returns flowOf(listOf("c1"))
+        coEvery { repository.observeShelfIdsForBooks(any()) } returns flowOf(listOf("s1"))
+
+        assertEquals(listOf("t1"), vm.observeTagIdsForBooks(listOf("b1")).first())
+        assertEquals(listOf("c1"), vm.observeCategoryIdsForBooks(listOf("b1")).first())
+        assertEquals(listOf("s1"), vm.observeShelfIdsForBooks(listOf("b1")).first())
+        coVerify(exactly = 1) { repository.observeTagIdsForBooks(listOf("b1")) }
+        coVerify(exactly = 1) { repository.observeCategoryIdsForBooks(listOf("b1")) }
+        coVerify(exactly = 1) { repository.observeShelfIdsForBooks(listOf("b1")) }
     }
 
     @Test
-    fun `getBookIdsByShelf delegates to dao`() = runTest(mainDispatcher.scheduler) {
+    fun `getBookIdsByShelf and getBookIdsByTag delegate`() = runTest(mainDispatcher.scheduler) {
+        coEvery { repository.getBookIdsByShelf(any()) } returns listOf("b2", "b3")
+        coEvery { repository.getBookIdsByTag(any()) } returns listOf("b1")
+
         assertEquals(listOf("b2", "b3"), vm.getBookIdsByShelf("sh1"))
         assertEquals(listOf("b1"), vm.getBookIdsByTag("t1"))
     }
 
     @Test
     fun `remove tag and book from shelf delegate`() = runTest(mainDispatcher.scheduler) {
-        coEvery { shelfBookDao.remove(any(), any()) } returns Unit
         vm.removeTagFromBook("b1", "t1")
         vm.removeBookFromShelf("b1", "sh1")
         testScheduler.advanceUntilIdle()
 
-        coVerify(exactly = 1) { bookTagDao.remove("b1", "t1") }
-        coVerify(exactly = 1) { shelfBookDao.remove("sh1", "b1") }
+        coVerify(exactly = 1) { repository.removeTagFromBook("b1", "t1") }
+        coVerify(exactly = 1) { repository.removeBookFromShelf("b1", "sh1") }
     }
 }

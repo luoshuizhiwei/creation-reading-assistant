@@ -61,63 +61,6 @@ private fun PaddingValues.structurallyEquals(other: PaddingValues, layoutDirecti
 }
 
 /**
- * 旧版页面壳层 —— 待迁移，请勿在新页面中使用。
- *
- * ### 历史问题（为何要迁移）
- * 1. **双重 padding**：`Column.padding(padding)` 叠加 `Column.padding(pageHorizontal/pageVertical)`，
- *    语义上把「viewport 系统栏/顶部栏避让」与「内容边距」都扔进 Modifier.padding，
- *    导致内层无法区分，也无法直接嵌入 LazyColumn/Grid。
- * 2. **强制 ColumnScope**：内容必须是 Column children，无法放置需要接收 PaddingValues 的懒加载容器。
- *
- * ### 迁移指引
- * 替换为 [AppScreenScaffold]：
- * ```
- * AppScreenScaffold(title, ...) { padding ->
- *     PageLazyColumn(viewportPadding = padding) { ... }   // 懒加载场景
- *     // 或 Column(Modifier.padding(padding).padding(pageHorizontal, ...))  // 非懒加载
- * }
- * ```
- * 目前该函数内部已委托给 [AppScreenScaffold]，仅保留 ColumnScope API 兼容；迁移完所有调用点后删除。
- */
-@Deprecated(
-    message = "Use AppScreenScaffold which separates viewport insets from content padding.",
-    replaceWith = ReplaceWith("AppScreenScaffold"),
-    level = DeprecationLevel.WARNING,
-)
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-fun AppPageScaffold(
-    title: String,
-    modifier: Modifier = Modifier,
-    navigationIcon: @Composable () -> Unit = {},
-    actions: @Composable RowScope.() -> Unit = {},
-    snackbarHost: @Composable () -> Unit = {},
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val layout = LocalLayoutTokens.current
-    AppScreenScaffold(
-        title = title,
-        modifier = modifier,
-        navigationIcon = navigationIcon,
-        actions = actions,
-        snackbarHost = snackbarHost,
-    ) { viewportPadding ->
-        val ld = LocalLayoutDirection.current
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues = viewportPadding)
-                .padding(
-                    horizontal = layout.pageHorizontal,
-                    vertical = layout.pageVertical,
-                ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-            content = content,
-        )
-    }
-}
-
-/**
  * **统一页面壳层（唯一推荐）**。
  *
  * ## 职责边界（任何情况下不得越界消费同一 inset）

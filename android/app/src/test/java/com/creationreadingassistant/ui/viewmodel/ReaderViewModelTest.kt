@@ -2,14 +2,9 @@ package com.creationreadingassistant.ui.viewmodel
 
 import app.cash.turbine.test
 import com.creationreadingassistant.data.ai.AiClient
-import com.creationreadingassistant.data.local.dao.CategoryDao
-import com.creationreadingassistant.data.local.dao.HighlightDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
-import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.NoteRepository
+import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.data.settings.TtsResume
 import com.creationreadingassistant.domain.model.EpubBook
@@ -20,6 +15,7 @@ import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
+import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -47,19 +43,15 @@ class ReaderViewModelTest {
     private val testDispatcher = UnconfinedTestDispatcher()
 
     private lateinit var documentLoader: ReaderDocumentLoader
-    private lateinit var highlightDao: HighlightDao
-    private lateinit var noteDao: NoteDao
-    private lateinit var inspirationDao: InspirationDao
-    private lateinit var readingProgressDao: ReadingProgressDao
-    private lateinit var readingSessionDao: ReadingSessionDao
-    private lateinit var categoryDao: CategoryDao
-    private lateinit var tagDao: TagDao
+    private lateinit var noteRepository: NoteRepository
+    private lateinit var taxonomyRepository: TaxonomyRepository
     private lateinit var bookRepository: BookRepository
     private lateinit var epubRepository: EpubRepository
     private lateinit var settingsStore: SettingsStore
     private lateinit var anchorCacheStore: AnchorCacheStore
     private lateinit var pageIndexStore: PageIndexStore
     private lateinit var pagerHealthStore: PagerHealthStore
+    private lateinit var pageIndexManager: ReaderPageIndexManager
     private lateinit var aiClient: AiClient
 
     private lateinit var viewModel: ReaderViewModel
@@ -69,27 +61,20 @@ class ReaderViewModelTest {
         Dispatchers.setMain(testDispatcher)
 
         documentLoader = mockk(relaxed = true)
-        highlightDao = mockk(relaxed = true)
-        noteDao = mockk(relaxed = true)
-        inspirationDao = mockk(relaxed = true)
-        readingProgressDao = mockk(relaxed = true)
-        readingSessionDao = mockk(relaxed = true)
-        categoryDao = mockk(relaxed = true)
-        tagDao = mockk(relaxed = true)
+        noteRepository = mockk(relaxed = true)
+        taxonomyRepository = mockk(relaxed = true)
         bookRepository = mockk(relaxed = true)
         epubRepository = mockk(relaxed = true)
         settingsStore = mockk(relaxed = true)
         anchorCacheStore = mockk(relaxed = true)
         pageIndexStore = mockk(relaxed = true)
         pagerHealthStore = mockk(relaxed = true)
+        pageIndexManager = mockk(relaxed = true)
         aiClient = mockk(relaxed = true)
 
-        every { highlightDao.observeAllActive() } returns flowOf(emptyList())
-        every { noteDao.observeAllActive() } returns flowOf(emptyList())
-        every { inspirationDao.observeAllActive() } returns flowOf(emptyList())
-        every { categoryDao.observeAllActive() } returns flowOf(emptyList())
-        every { tagDao.observeAllActive() } returns flowOf(emptyList())
-        every { readingSessionDao.observeAllActive() } returns flowOf(emptyList())
+        every { taxonomyRepository.observeCategories() } returns flowOf(emptyList())
+        every { taxonomyRepository.observeTags() } returns flowOf(emptyList())
+        every { bookRepository.observeSessionsByBook(any()) } returns flowOf(emptyList())
 
         viewModel = createViewModel()
     }
@@ -102,19 +87,15 @@ class ReaderViewModelTest {
     private fun createViewModel(): ReaderViewModel {
         return ReaderViewModel(
             documentLoader = documentLoader,
-            highlightDao = highlightDao,
-            noteDao = noteDao,
-            inspirationDao = inspirationDao,
-            readingProgressDao = readingProgressDao,
-            readingSessionDao = readingSessionDao,
-            categoryDao = categoryDao,
-            tagDao = tagDao,
+            noteRepository = noteRepository,
+            taxonomyRepository = taxonomyRepository,
             bookRepository = bookRepository,
             epubRepository = epubRepository,
             settingsStore = settingsStore,
             anchorCacheStore = anchorCacheStore,
             pageIndexStore = pageIndexStore,
             pagerHealthStore = pagerHealthStore,
+            pageIndexManager = pageIndexManager,
             aiClient = aiClient,
             ioDispatcher = UnconfinedTestDispatcher(),
             defaultDispatcher = UnconfinedTestDispatcher(),

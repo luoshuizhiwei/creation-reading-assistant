@@ -104,40 +104,60 @@ class JsonBridge @Inject constructor(
         importFromString(context, text)
     }
 
-    /** 从 JSON 字符串导入整库（供 WebDAV 下载恢复复用）。逐条 revision 校验，避免旧数据覆盖新数据。 */
+    /**
+     * 从 JSON 字符串导入整库（供 WebDAV 下载恢复复用）。逐条 revision 校验，避免旧数据覆盖新数据。
+     *
+     * 全程包在单个数据库事务中：导入中途失败时整体回滚，不会留下半导入的脏状态。
+     * 合并策略与局域网同步拉取共用 [SyncMergePolicy]，消除两条路径的策略分叉。
+     * 每类数据先批量查询建 Map，循环内查 Map，消除逐条 getById 的 N+1。
+     */
     suspend fun importFromString(context: Context, text: String) = withContext(ioDispatcher) {
         val export = json.decodeFromString<LocalExport>(text)
 
-        // 书籍：逐条比较 revision，仅当导入记录 revision >= 本地时才覆盖
-        export.books.forEach { env ->
-            val local = bookDao.getById(env.payload.id)
-            if (local == null || env.revision >= local.revision) {
-                bookDao.upsert(env.payload)
+        bookDao.runInTransaction {
+            // 书籍：revision 高者胜；revision 相等时比较 updated_at
+            val localBooks = batchLoad(export.books.map { it.payload.id }) { bookDao.getByIds(it) }
+                .associateBy { it.id }
+            export.books.forEach { env ->
+                val local = localBooks[env.payload.id]
+                if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
+                    bookDao.upsert(env.payload)
+                }
             }
-        }
 
-        // 灵感
-        export.inspirations.forEach { env ->
-            val local = inspirationDao.getById(env.payload.id)
-            if (local == null || env.revision >= local.revision) {
-                inspirationDao.upsert(env.payload)
+            // 灵感
+            val localInspirations = batchLoad(export.inspirations.map { it.payload.id }) { inspirationDao.getByIds(it) }
+                .associateBy { it.id }
+            export.inspirations.forEach { env ->
+                val local = localInspirations[env.payload.id]
+                if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
+                    inspirationDao.upsert(env.payload)
+                }
             }
-        }
 
-        // 进度
-        export.progress.forEach { env ->
-            val local = progressDao.getByBook(env.payload.book_id)
-            if (local == null || env.revision >= local.revision) {
-                progressDao.upsert(env.payload)
+            // 进度
+            val localProgress = batchLoad(export.progress.map { it.payload.book_id }) { progressDao.getByBooks(it) }
+                .associateBy { it.book_id }
+            export.progress.forEach { env ->
+                val local = localProgress[env.payload.book_id]
+                if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
+                    progressDao.upsert(env.payload)
+                }
             }
-        }
 
-        // 会话
-        export.sessions.forEach { env ->
-            val local = sessionDao.getById(env.payload.id)
-            if (local == null || env.revision >= local.revision) {
-                sessionDao.upsert(env.payload)
+            // 会话
+            val localSessions = batchLoad(export.sessions.map { it.payload.id }) { sessionDao.getByIds(it) }
+                .associateBy { it.id }
+            export.sessions.forEach { env ->
+                val local = localSessions[env.payload.id]
+                if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
+                    sessionDao.upsert(env.payload)
+                }
             }
         }
     }
+
+    /** 空列表不走查询（Room 的 IN () 语法对空列表无意义），直接返回空。 */
+    private suspend fun <T> batchLoad(ids: List<String>, query: suspend (List<String>) -> List<T>): List<T> =
+        if (ids.isEmpty()) emptyList() else query(ids)
 }

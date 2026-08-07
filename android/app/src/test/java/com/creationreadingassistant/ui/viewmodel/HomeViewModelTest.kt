@@ -1,12 +1,16 @@
 package com.creationreadingassistant.ui.viewmodel
 
-import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.data.repository.StatsRepository
+import com.creationreadingassistant.data.repository.startEpochSecondOf
 import com.creationreadingassistant.data.settings.ContinueReadingStore
+import io.mockk.coEvery
+import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
 import java.time.DayOfWeek
@@ -35,7 +39,8 @@ class HomeViewModelTest {
 
     private lateinit var repository: BookRepository
     private lateinit var continueReadingStore: ContinueReadingStore
-    private lateinit var inspirationDao: InspirationDao
+    private lateinit var inspirationRepository: InspirationRepository
+    private lateinit var statsRepository: StatsRepository
 
     private val now: LocalDate = LocalDate.now()
 
@@ -46,7 +51,11 @@ class HomeViewModelTest {
         Dispatchers.setMain(mainDispatcher)
         repository = mockk()
         continueReadingStore = mockk { every { removedIds } returns flowOf(emptyMap()) }
-        inspirationDao = mockk()
+        inspirationRepository = mockk()
+        statsRepository = mockk {
+            coEvery { sumAllActiveDuration() } returns 0L
+            coEvery { sumOccurredDurationBetween(any(), any(), any()) } returns 0L
+        }
     }
 
     @After
@@ -63,11 +72,19 @@ class HomeViewModelTest {
         every { repository.observeBooks() } returns flowOf(books)
         every { repository.observeProgress() } returns flowOf(progress)
         every { repository.observeSessions() } returns flowOf(sessions)
-        every { inspirationDao.observeAllActive() } returns flowOf(inspirations)
+        every { inspirationRepository.observeAllActive() } returns flowOf(inspirations)
+        // 总时长/今日时长已下推为 SQL SUM：按传入的会话列表模拟与旧内存聚合一致的结果
+        val totalMs = sessions.sumOf { it.duration_ms }
+        val todayMs = sessions
+            .filter { it.started_at == ts(now) || (it.started_at == null && it.created_at == ts(now)) }
+            .sumOf { it.duration_ms }
+        coEvery { statsRepository.sumAllActiveDuration() } returns totalMs
+        coEvery { statsRepository.sumOccurredDurationBetween(any(), any(), any()) } returns todayMs
         return HomeViewModel(
             repository = repository,
             continueReadingStore = continueReadingStore,
-            inspirationDao = inspirationDao,
+            inspirationRepository = inspirationRepository,
+            statsRepository = statsRepository,
             defaultDispatcher = Dispatchers.Unconfined,
         )
     }
@@ -176,6 +193,14 @@ class HomeViewModelTest {
         assertEquals(960_000L, state.totalReadingMs)
         assertEquals(660_000L, state.todayReadingMs)
         assertEquals(listOf("b2"), state.completedBooks.map { it.id })
+        // 今日窗口必须恰好是 [本地今日零点, 本地明日零点)
+        coVerify {
+            statsRepository.sumOccurredDurationBetween(
+                startEpochSecondOf(LocalDate.now()),
+                startEpochSecondOf(LocalDate.now().plusDays(1)),
+                any(),
+            )
+        }
 
         job.cancel()
         testScheduler.advanceUntilIdle()

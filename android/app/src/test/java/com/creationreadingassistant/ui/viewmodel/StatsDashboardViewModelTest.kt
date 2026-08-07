@@ -1,15 +1,11 @@
 package com.creationreadingassistant.ui.viewmodel
 
 import androidx.lifecycle.viewModelScope
-import com.creationreadingassistant.data.local.dao.BookDao
-import com.creationreadingassistant.data.local.dao.InspirationDao
-import com.creationreadingassistant.data.local.dao.NoteDao
-import com.creationreadingassistant.data.local.dao.ReadingProgressDao
-import com.creationreadingassistant.data.local.dao.ReadingSessionDao
 import com.creationreadingassistant.data.local.dao.StatsBookRow
 import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
+import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.ui.screen.stats.EMPTY_STATS
 import com.creationreadingassistant.ui.screen.stats.StatsPeriod
 import io.mockk.every
@@ -48,11 +44,7 @@ import org.junit.Test
  */
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsDashboardViewModelTest {
-    private val sessionDao = mockk<ReadingSessionDao>()
-    private val progressDao = mockk<ReadingProgressDao>()
-    private val bookDao = mockk<BookDao>()
-    private val inspirationDao = mockk<InspirationDao>()
-    private val noteDao = mockk<NoteDao>()
+    private val statsRepository = mockk<StatsRepository>()
 
     // sessions 用 SharedFlow：MutableStateFlow 会按值相等吞掉等值发射，
     // 无法模拟 Room 无关表失效导致的「等价结果重查重发」。
@@ -73,18 +65,18 @@ class StatsDashboardViewModelTest {
     fun setup() {
         Dispatchers.setMain(mainDispatcher)
         sessionsFlow.tryEmit(emptyList())
-        every { sessionDao.observeStatsRows() } returns sessionsFlow
-        every { progressDao.observeStatsRows() } returns progressFlow
-        every { bookDao.observeStatsRows() } returns booksFlow
-        every { inspirationDao.observeStatsCreatedRows() } returns inspirationsFlow
-        every { noteDao.observeStatsCreatedRows() } returns notesFlow
+        every { statsRepository.observeStatsSessions() } returns sessionsFlow
+        every { statsRepository.observeStatsProgress() } returns progressFlow
+        every { statsRepository.observeStatsBooks() } returns booksFlow
+        every { statsRepository.observeStatsInspirations() } returns inspirationsFlow
+        every { statsRepository.observeStatsNotes() } returns notesFlow
         // 注意：这里不能用 UnconfinedTestDispatcher。
         // 两个缓存回归测试的语义前提是 flowOn 的 dispatcher 必须是独立异步线程池：
         // tables.distinctUntilChanged 与 computeStats 的缓存比较依赖跨上下文切换的发射顺序，
         // UnconfinedTestDispatcher 会把协程 inline 在调用者线程，合入/更新顺序被打乱，
         // 导致缓存失效判据与真实运行时不一致。
         vm = StatsDashboardViewModel(
-            sessionDao, progressDao, bookDao, inspirationDao, noteDao,
+            statsRepository,
             defaultDispatcher = Dispatchers.Default,
         )
     }
