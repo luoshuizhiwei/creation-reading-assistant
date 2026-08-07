@@ -49,6 +49,7 @@ import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.components.ReaderFontPickerRow
 import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.components.SettingLinkRow
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
@@ -228,6 +229,8 @@ private fun TypographySettings(
         SettingsSection("文字") {
             FontSizeStepper(settings.fontSize) { onChange(settings.copy(fontSize = it)) }
             SectionDivider()
+            ReaderFontPickerRow(settings, onChange)
+            SectionDivider()
             SettingSwitchRow("粗体文字", settings.fontWeightBold, { onChange(settings.copy(fontWeightBold = it)) })
         }
     }
@@ -372,7 +375,7 @@ private fun AdvancedSettings(settings: ReaderSettings, onChange: (ReaderSettings
     item {
         SettingsSection(
             title = "分页兼容",
-            description = "保持“自动”最稳妥。遇到特定书籍分页异常时，再按格式单独调整。",
+            description = "新版本默认开启自研分页引擎。特定书籍分页异常时，可临时切回“自动”或“关闭”。",
         ) {
             SettingSegmentedRow("TXT 分页兼容模式", listOf("off" to "关闭", "auto" to "自动", "on" to "强制"), settings.pagerEngineMode, { onChange(settings.copy(pagerEngineMode = it)) })
             SectionDivider()

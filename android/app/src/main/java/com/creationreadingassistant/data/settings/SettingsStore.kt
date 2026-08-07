@@ -59,6 +59,7 @@ private val KEY_EPUB_PAGER_ENGINE = stringPreferencesKey("epub_pager_engine_mode
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
 private val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
+private val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")  // 空 = 系统字体；否则为 filesDir/fonts 下的 .ttf/.otf 绝对路径
 private val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
 private val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
 private val KEY_PAGE_MARGIN = floatPreferencesKey("reader_page_margin")
@@ -139,15 +140,17 @@ data class AppearanceSettings(
 data class ReaderSettings(
     val readerMode: String = "paged",            // paged | scroll
     /**
-     * 自研分页引擎开关：off | on。默认 off —— 新内核先躲在开关后面灰度，
-     * 出问题用户可以自己关掉回到旧滚动视图（SIDECAR-ZH 的 P6 才逐步默认开）。
-     * TXT 与 EPUB 分开灰度，避免其中一种格式的问题迫使另一种一起回退。
+     * 自研分页引擎开关：off | auto | on（仅影响 TXT / Markdown；EPUB 由 epubPagerEngineMode 单独控制）。
+     * 默认 on —— TXT 默认走自研逐页引擎（SIDECAR-ZH P6 已默认开启）。
+     * 出问题可临时切回 auto（健康自愈）或 off（回退旧滚动视图）；TXT 与 EPUB 分开灰度，
+     * 避免其中一种格式的问题迫使另一种一起回退。
      */
-    val pagerEngineMode: String = "auto",
+    val pagerEngineMode: String = "on",
     val epubPagerEngineMode: String = "auto",
     val pageTurnEffect: String = "none",         // none | fade | slide | cover
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     val fontSize: Float = 25f,
+    val customFontPath: String = "",     // 空 = 系统字体；否则为 filesDir/fonts 下的 .ttf/.otf 绝对路径
     val lineHeight: Float = 1.85f,
     val paragraphSpacing: Float = 1.15f,
     val pageMargin: Float = 22f,
@@ -227,7 +230,7 @@ class SettingsStore @Inject constructor(
     val reader: StateFlow<ReaderSettings> = ds.data.map { prefs ->
         ReaderSettings(
             readerMode = prefs[KEY_READER_MODE] ?: "paged",
-            pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "auto",
+            pagerEngineMode = prefs[KEY_PAGER_ENGINE] ?: "on",
             epubPagerEngineMode = prefs[KEY_EPUB_PAGER_ENGINE] ?: "auto",
             pageTurnEffect = when (val effect = prefs[KEY_PAGE_TURN_EFFECT] ?: "none") {
                 "curl" -> "cover"
@@ -235,6 +238,7 @@ class SettingsStore @Inject constructor(
             },
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
+            customFontPath = prefs[KEY_CUSTOM_FONT_PATH] ?: "",
             lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
             pageMargin = prefs[KEY_PAGE_MARGIN] ?: 22f,
@@ -339,6 +343,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
             prefs[KEY_FONT_SIZE] = next.fontSize
+            prefs[KEY_CUSTOM_FONT_PATH] = next.customFontPath
             prefs[KEY_LINE_HEIGHT] = next.lineHeight
             prefs[KEY_PARAGRAPH_SPACING] = next.paragraphSpacing
             prefs[KEY_PAGE_MARGIN] = next.pageMargin

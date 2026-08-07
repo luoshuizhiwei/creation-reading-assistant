@@ -11,6 +11,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import com.creationreadingassistant.ui.components.PageLazyColumn
+import com.creationreadingassistant.ui.components.ReaderFontPickerRow
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SettingBrightnessRow
@@ -40,6 +41,8 @@ internal fun ReaderSettingsSubPage(
         item {
             SettingsSection("排版", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSliderRow("字号", settings.fontSize, "${settings.fontSize.toInt()} 字号", { onAction(ProfileAction.UpdateReader { copy(fontSize = it) }) }, valueRange = 12f..32f, steps = 19)
+                SectionDivider()
+                ReaderFontPickerRow(settings) { next -> onAction(ProfileAction.UpdateReader { next }) }
                 SectionDivider()
                 SettingSegmentedRow("行距", listOf(1.5f to "紧凑", 1.85f to "标准", 2.1f to "宽松"), nearest(settings.lineHeight, listOf(1.5f, 1.85f, 2.1f)), { onAction(ProfileAction.UpdateReader { copy(lineHeight = it) }) })
                 SectionDivider()
@@ -131,7 +134,7 @@ internal fun ReaderSettingsSubPage(
             SettingsSection(
                 modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
                 title = "高级兼容",
-                description = "保持'自动'最稳妥。只在特定书籍分页异常时调整。",
+                description = "新版本默认开启自研分页引擎。特定书籍分页异常时可临时切回'自动'或'关闭'。",
             ) {
                 SettingSegmentedRow("TXT 分页兼容模式", listOf("off" to "关闭", "auto" to "自动", "on" to "强制"), settings.pagerEngineMode, { onAction(ProfileAction.UpdateReader { copy(pagerEngineMode = it) }) })
                 SectionDivider()

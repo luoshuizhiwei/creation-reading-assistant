@@ -1,5 +1,7 @@
 package com.creationreadingassistant.ui.components
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
@@ -23,12 +25,16 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import java.io.File
 
 @Composable
 fun SettingsScreenScaffold(
@@ -252,4 +258,50 @@ fun SettingLinkRow(
             }
         },
     )
+}
+
+/**
+ * 正文字体选择行：跟随系统 / SAF 导入 .ttf/.otf / 恢复系统字体。
+ * 阅读器设置 sheet 与 Profile 阅读设置共用；导入失败静默（保持系统字体）。
+ */
+@Composable
+fun ReaderFontPickerRow(
+    settings: ReaderSettings,
+    onChange: (ReaderSettings) -> Unit,
+) {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri != null) {
+            val path = ReaderFontManager.installFont(context, uri)
+            if (path != null) {
+                ReaderFontManager.clearCache()
+                onChange(settings.copy(customFontPath = path))
+            }
+        }
+    }
+    val custom = settings.customFontPath
+    if (custom.isBlank()) {
+        SettingLinkRow(
+            title = "正文字体",
+            subtitle = "跟随系统字体；支持导入 .ttf / .otf 字体文件",
+            value = "跟随系统",
+            onClick = { launcher.launch(arrayOf("*/*")) },
+        )
+    } else {
+        SettingLinkRow(
+            title = "正文字体",
+            subtitle = "已使用自定义字体；点此可更换",
+            value = File(custom).name,
+            onClick = { launcher.launch(arrayOf("*/*")) },
+        )
+        SectionDivider()
+        SettingLinkRow(
+            title = "恢复系统字体",
+            subtitle = "换字体后阅读位置会自动保留",
+            onClick = {
+                ReaderFontManager.clearCache()
+                onChange(settings.copy(customFontPath = ""))
+            },
+        )
+    }
 }
