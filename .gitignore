@@ -41,6 +41,10 @@ Thumbs.db
 /android/v4_*.xml
 /android/verify_*.png
 
+# 真机 uiautomator 转储残留与 Windows 保留名误建文件（本地垃圾，不进版本库）
+/inst.xml
+/nul
+
 # 临时调研下载
 /icu4j-charset.jar
 /r8faq.html
