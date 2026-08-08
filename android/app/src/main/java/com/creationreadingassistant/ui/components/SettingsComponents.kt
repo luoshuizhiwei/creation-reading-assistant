@@ -23,12 +23,18 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import android.graphics.Typeface
+import android.widget.Toast
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -263,6 +269,7 @@ fun SettingLinkRow(
 /**
  * 正文字体选择行：跟随系统 / SAF 导入 .ttf/.otf / 恢复系统字体。
  * 阅读器设置 sheet 与 Profile 阅读设置共用；导入失败静默（保持系统字体）。
+ * 已配置的字体文件被删/损坏时自动清空设置并恢复系统字体（Toast 提示）。
  */
 @Composable
 fun ReaderFontPickerRow(
@@ -273,13 +280,24 @@ fun ReaderFontPickerRow(
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val path = ReaderFontManager.installFont(context, uri)
-            if (path != null) {
+            if (path != null && ReaderFontManager.isFontUsable(path)) {
                 ReaderFontManager.clearCache()
                 onChange(settings.copy(customFontPath = path))
+            } else {
+                Toast.makeText(context, "无法使用该字体文件（仅支持 .ttf / .otf）", Toast.LENGTH_SHORT).show()
             }
         }
     }
     val custom = settings.customFontPath
+    // 失效兜底：配置了字体但文件已被删除/损坏（卸载、清数据等）→ 清设置回退系统字体
+    LaunchedEffect(settings.customFontPath) {
+        val path = settings.customFontPath
+        if (path.isNotBlank() && !ReaderFontManager.isFontUsable(path)) {
+            ReaderFontManager.clearCache()
+            onChange(settings.copy(customFontPath = ""))
+            Toast.makeText(context, "自定义字体文件已失效，已恢复系统字体", Toast.LENGTH_SHORT).show()
+        }
+    }
     if (custom.isBlank()) {
         SettingLinkRow(
             title = "正文字体",
@@ -294,6 +312,27 @@ fun ReaderFontPickerRow(
             value = File(custom).name,
             onClick = { launcher.launch(arrayOf("*/*")) },
         )
+        // 字形预览：用当前自定义字体渲染示例文本，所见即所得
+        val customTypeface = remember(custom) {
+            if (custom.isNotBlank()) ReaderFontManager.loadTypeface(custom) else null
+        }
+        if (customTypeface != null) {
+            Row(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    "预览：天地玄黄，宇宙洪荒。山高水长，12345",
+                    fontFamily = FontFamily(customTypeface),
+                    fontSize = 16.sp,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
         SectionDivider()
         SettingLinkRow(
             title = "恢复系统字体",

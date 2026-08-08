@@ -66,6 +66,16 @@ object ReaderFontManager {
         }
     }
 
+    /**
+     * 字体文件当前是否可用（存在且可加载）。用于失效检测：文件被删/损坏时
+     * 调用方应清掉设置路径并回退系统字体。失败结果同样走缓存，可安全重复调用。
+     */
+    fun isFontUsable(path: String): Boolean {
+        if (path.isBlank()) return false
+        if (!File(path).exists()) return false
+        return loadTypeface(path) != null
+    }
+
     /** 清空缓存（换字体文件后防止旧对象残留）。 */
     fun clearCache() = typefaceCache.evictAll()
 }

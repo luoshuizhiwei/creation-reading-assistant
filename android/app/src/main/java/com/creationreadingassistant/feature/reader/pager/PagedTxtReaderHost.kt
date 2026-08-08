@@ -7,6 +7,8 @@ import android.os.BatteryManager
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -39,6 +41,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
@@ -67,6 +70,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import kotlinx.coroutines.delay
+import kotlin.math.hypot
 import kotlin.math.roundToInt
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
@@ -375,6 +379,10 @@ fun PagedReaderHost(
                         val r = selRange.value ?: return@remember emptyList()
                         PageSelection.rectsForRange(page, cfg, r.first, r.last + 1)
                     }
+                    val selectionHandles = remember(page, selRange.value) {
+                        val r = selRange.value ?: return@remember null
+                        PageSelection.calculateSelectionHandles(page, cfg, r)
+                    }
                     // 已存高亮：常驻底色。放最底层，TTS 句与活动选区盖在其上。
                     val hlUnderlays = remember(page, persistentHighlights, chStart) {
                         persistentHighlights.mapNotNull { (range, color) ->
@@ -389,7 +397,52 @@ fun PagedReaderHost(
                     // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
                     // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
                     val tapZone by rememberUpdatedState(tapZoneMode)
+                    val handleHitRadiusPx = with(density) { 24.dp.toPx() }
                     val gestures = Modifier
+                            .pointerInput(controller) {
+                                // 选区把手拖拽：down 命中把手圆点附近才接管（消费后续事件），
+                                // 其余点按/翻页手势不受影响。拖拽中实时钳制区间并同步外部待保存选区。
+                                // 注意：不能用 awaitEachGesture —— 长按选句时 down 已被 tap 手势消费，
+                                // awaitEachGesture 会因此永久退出；这里用常驻循环保持存活。
+                                awaitPointerEventScope {
+                                    while (true) {
+                                        val down = awaitFirstDown(requireUnconsumed = false)
+                                        val page = controller.currentPage ?: continue
+                                        val r = selRange.value ?: continue
+                                        if (r.isEmpty()) continue
+                                        val handles = PageSelection.calculateSelectionHandles(page, cfg, r)
+                                        if (!handles.isActive) continue
+                                    val side = when {
+                                        handles.left != null &&
+                                            handleDist(down.position, Offset(handles.left!!.x, handles.left!!.y)) <= handleHitRadiusPx ->
+                                            PageSelection.HandleSide.LEFT
+                                        handles.right != null &&
+                                            handleDist(down.position, Offset(handles.right!!.x, handles.right!!.y)) <= handleHitRadiusPx ->
+                                            PageSelection.HandleSide.RIGHT
+                                        else -> continue
+                                    }
+                                        var currentSel = r
+                                        while (true) {
+                                            val event = awaitPointerEvent()
+                                            val change = event.changes.firstOrNull() ?: break
+                                            change.consume()
+                                            val curPage = controller.currentPage ?: break
+                                            // 拖拽中重排/跨章：放弃拖拽（翻页路径会清选区，不残留）
+                                            if (curPage !== page) break
+                                            currentSel = PageSelection.adjustHandle(
+                                                curPage, cfg, currentSel, side, change.position.x, change.position.y,
+                                            )
+                                            selRange.value = currentSel
+                                            val chStart = controller.currentChapterStartAbs
+                                            onSelect(
+                                                controller.chapterText.substring(currentSel.first, currentSel.last + 1),
+                                                chStart + currentSel.first,
+                                            )
+                                            if (!change.pressed) break
+                                        }
+                                    }
+                                }
+                            }
                             .pointerInput(controller) {
                                 detectTapGestures(
                                     onLongPress = press@{ offset ->
@@ -483,6 +536,7 @@ fun PagedReaderHost(
                             paint = paint,
                             headingPaint = headingPaint,
                             underlays = if (isCurrent) underlays else emptyList(),
+                            handles = if (isCurrent) selectionHandles else null,
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -520,6 +574,8 @@ fun PagedReaderHost(
 }
 
 /** 根据配置条目解析出对应的显示文本 */
+private fun handleDist(a: Offset, b: Offset): Float = hypot(a.x - b.x, a.y - b.y)
+
 private fun resolveItemText(
     item: HeaderFooterItem,
     source: PagedChapterSource,
@@ -573,6 +629,8 @@ private fun PageLayer(
     modifier: Modifier = Modifier,
     /** 文字底下的色块层（TTS 句高亮、选区），先画色块再画字 */
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
+    /** 选区把手（仅当前页有选区时非空），画在文字与图片之上 */
+    handles: PageSelection.Handles? = null,
 ) {
     val density = LocalDensity.current
     val paper = LocalReaderPaperPalette.current
@@ -604,6 +662,18 @@ private fun PageLayer(
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+        }
+        // 选区把手圆点：主题色填充 + 纸色描边，深浅两种纸面下都可见
+        handles?.takeIf { it.isActive }?.let { h ->
+            val handleColor = MaterialTheme.colorScheme.primary
+            Canvas(Modifier.fillMaxSize()) {
+                val rPx = 9.dp.toPx()
+                val ringPx = 2.dp.toPx()
+                listOfNotNull(h.left, h.right).forEach { p ->
+                    drawCircle(color = paper.bg, radius = rPx + ringPx, center = Offset(p.x, p.y))
+                    drawCircle(color = handleColor, radius = rPx, center = Offset(p.x, p.y))
+                }
             }
         }
     }
