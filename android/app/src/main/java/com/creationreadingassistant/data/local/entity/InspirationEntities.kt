@@ -2,6 +2,7 @@ package com.creationreadingassistant.data.local.entity
 
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
@@ -11,6 +12,7 @@ import kotlinx.serialization.Serializable
 @Serializable
 @Entity(
     tableName = "inspirations",
+    indices = [Index("source_book_id")],
     foreignKeys = [ForeignKey(
         entity = BookEntity::class,
         parentColumns = ["id"],
@@ -39,6 +41,7 @@ data class InspirationEntity(
 @Serializable
 @Entity(
     tableName = "inspiration_variants",
+    indices = [Index("inspiration_id")],
     foreignKeys = [ForeignKey(
         entity = InspirationEntity::class,
         parentColumns = ["id"],
@@ -63,6 +66,7 @@ data class InspirationVariantEntity(
 @Serializable
 @Entity(
     tableName = "notes",
+    indices = [Index("book_id"), Index("inspiration_id")],
     foreignKeys = [
         ForeignKey(
             entity = BookEntity::class,
@@ -103,6 +107,7 @@ data class NoteEntity(
 @Serializable
 @Entity(
     tableName = "highlights",
+    indices = [Index("book_id")],
     foreignKeys = [ForeignKey(
         entity = BookEntity::class,
         parentColumns = ["id"],

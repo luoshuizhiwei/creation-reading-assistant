@@ -3,6 +3,7 @@ package com.creationreadingassistant.data.local.entity
 import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
@@ -71,6 +72,7 @@ data class ShelfEntity(
 @Entity(
     tableName = "book_tag",
     primaryKeys = ["book_id", "tag_id"],
+    indices = [Index("tag_id")],
     foreignKeys = [
         ForeignKey(entity = BookEntity::class, parentColumns = ["id"], childColumns = ["book_id"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = TagEntity::class, parentColumns = ["id"], childColumns = ["tag_id"], onDelete = ForeignKey.CASCADE),
@@ -87,6 +89,7 @@ data class BookTagEntity(
 @Entity(
     tableName = "book_category",
     primaryKeys = ["book_id", "category_id"],
+    indices = [Index("category_id")],
     foreignKeys = [
         ForeignKey(entity = BookEntity::class, parentColumns = ["id"], childColumns = ["book_id"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["category_id"], onDelete = ForeignKey.CASCADE),
@@ -103,6 +106,7 @@ data class BookCategoryEntity(
 @Entity(
     tableName = "shelf_book",
     primaryKeys = ["shelf_id", "book_id"],
+    indices = [Index("book_id")],
     foreignKeys = [
         ForeignKey(entity = ShelfEntity::class, parentColumns = ["id"], childColumns = ["shelf_id"], onDelete = ForeignKey.CASCADE),
         ForeignKey(entity = BookEntity::class, parentColumns = ["id"], childColumns = ["book_id"], onDelete = ForeignKey.CASCADE),

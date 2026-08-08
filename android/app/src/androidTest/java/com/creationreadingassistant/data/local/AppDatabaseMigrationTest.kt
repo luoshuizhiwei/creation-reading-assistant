@@ -13,7 +13,7 @@ import org.junit.runner.RunWith
 import java.io.IOException
 
 /**
- * Room 迁移测试：覆盖全部迁移路径 1→2→3→4→5→6→7。
+ * Room 迁移测试：覆盖全部迁移路径 1→2→3→4→5→6→7→8。
  *
  * 使用 [MigrationTestHelper] 加载 schema JSON，逐步执行迁移 SQL 并校验表结构。
  * 每次迁移前插入测试数据，迁移后验证数据未丢失、新列/新表正确创建。
@@ -474,6 +474,165 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    // ─── 7 → 8：为全部外键列补 Room 声明索引 ─────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_7_to_8_adds_fk_indexes() {
+        // 1. 创建 v7 数据库并插入覆盖全部外键关联的测试数据
+        var db = migrationTestHelper.createDatabase(TEST_DB, 7)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('book-8', '第八本书', '作者G', 'epub', 'book8.epub', 'hash008', " +
+                "1024, '/uri/g', '/content/g', 'ready', NULL, NULL, " +
+                "'2026-08-01T00:00:00Z', 'device-1', '{}', 1, '2026-08-01T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO tags (id, name, color, type, created_at, device_id, revision, payload, " +
+                "updated_at, deleted_at) " +
+                "VALUES ('tag-8', '测试标签', 'red', NULL, '2026-08-01T00:00:00Z', 'device-1', 1, " +
+                "'{}', '2026-08-01T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO categories (id, name, cover_tone, parent_id, sort_order, created_at, " +
+                "device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('cat-8', '测试分类', NULL, NULL, 0, '2026-08-01T00:00:00Z', 'device-1', 1, " +
+                "'{}', '2026-08-01T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO shelves (id, name, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('shelf-8', '测试书架', '2026-08-01T00:00:00Z', 'device-1', 1, '{}', " +
+                "'2026-08-01T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO inspirations (id, title, body, type, status, source_book_id, payload, " +
+                "created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('insp-8', '第八灵感', '灵感正文', 'note', 'inbox', 'book-8', '{}', " +
+                "'2026-08-02T00:00:00Z', 'device-1', 1, '2026-08-02T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO inspiration_variants (id, inspiration_id, kind, content, prompt, model, " +
+                "payload, created_at) " +
+                "VALUES ('var-8', 'insp-8', 'rewrite', '改写文本', NULL, NULL, '{}', " +
+                "'2026-08-02T01:00:00Z')",
+        )
+        db.execSQL(
+            "INSERT INTO reading_sessions (id, book_id, started_at, ended_at, duration_ms, " +
+                "progress_percent, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('session-8', 'book-8', '2026-08-03T10:00:00Z', '2026-08-03T11:00:00Z', " +
+                "3600000, 30.0, '2026-08-03T10:00:00Z', 'device-1', 1, '{}', " +
+                "'2026-08-03T11:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO notes (id, book_id, inspiration_id, title, body, excerpt, chapter_title, " +
+                "progress_percent, kind, locator_json, payload, created_at, device_id, revision, " +
+                "updated_at, deleted_at) " +
+                "VALUES ('note-8', 'book-8', 'insp-8', '第八笔记', '笔记正文', '摘录', '第三章', 30.0, " +
+                "'note', '{}', '{}', '2026-08-04T00:00:00Z', 'device-1', 1, " +
+                "'2026-08-04T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, chapter_title, progress_percent, " +
+                "locator_json, payload, created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('hl-8', 'book-8', '第八高亮', '备注', 'yellow', '第三章', 30.0, " +
+                "'{}', '{}', '2026-08-04T01:00:00Z', 'device-1', 1, '2026-08-04T01:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO book_tag (book_id, tag_id) VALUES ('book-8', 'tag-8')",
+        )
+        db.execSQL(
+            "INSERT INTO book_category (book_id, category_id) VALUES ('book-8', 'cat-8')",
+        )
+        db.execSQL(
+            "INSERT INTO shelf_book (shelf_id, book_id, position) VALUES ('shelf-8', 'book-8', 1)",
+        )
+
+        db.close()
+
+        // 2. 执行迁移 7 → 8（补 9 个外键列索引）
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 8, true, AppDatabase.MIGRATION_7_8,
+        )
+
+        // 3. 验证 9 个索引全部存在
+        val expectedIndexes = listOf(
+            "index_reading_sessions_book_id",
+            "index_inspirations_source_book_id",
+            "index_inspiration_variants_inspiration_id",
+            "index_notes_book_id",
+            "index_notes_inspiration_id",
+            "index_highlights_book_id",
+            "index_book_tag_tag_id",
+            "index_book_category_category_id",
+            "index_shelf_book_book_id",
+        )
+        for (indexName in expectedIndexes) {
+            val idxCursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name = ?",
+                arrayOf(indexName),
+            )
+            assertTrue("索引 $indexName 应存在", idxCursor.moveToFirst())
+            assertEquals(indexName, idxCursor.getString(0))
+            idxCursor.close()
+        }
+
+        // 4. 验证各关联表数据未丢失
+        val sessionCursor = db.query(
+            "SELECT duration_ms FROM reading_sessions WHERE id = 'session-8'",
+        )
+        assertTrue("reading_sessions 数据应保留", sessionCursor.moveToFirst())
+        assertEquals(3600000, sessionCursor.getLong(0))
+        sessionCursor.close()
+
+        val noteCursor = db.query(
+            "SELECT book_id, inspiration_id FROM notes WHERE id = 'note-8'",
+        )
+        assertTrue("notes 数据应保留", noteCursor.moveToFirst())
+        assertEquals("book-8", noteCursor.getString(0))
+        assertEquals("insp-8", noteCursor.getString(1))
+        noteCursor.close()
+
+        val inspCursor = db.query(
+            "SELECT source_book_id FROM inspirations WHERE id = 'insp-8'",
+        )
+        assertTrue("inspirations 数据应保留", inspCursor.moveToFirst())
+        assertEquals("book-8", inspCursor.getString(0))
+        inspCursor.close()
+
+        val variantCursor = db.query(
+            "SELECT inspiration_id FROM inspiration_variants WHERE id = 'var-8'",
+        )
+        assertTrue("inspiration_variants 数据应保留", variantCursor.moveToFirst())
+        assertEquals("insp-8", variantCursor.getString(0))
+        variantCursor.close()
+
+        val tagCursor = db.query(
+            "SELECT tag_id FROM book_tag WHERE book_id = 'book-8'",
+        )
+        assertTrue("book_tag 数据应保留", tagCursor.moveToFirst())
+        assertEquals("tag-8", tagCursor.getString(0))
+        tagCursor.close()
+
+        val catCursor = db.query(
+            "SELECT category_id FROM book_category WHERE book_id = 'book-8'",
+        )
+        assertTrue("book_category 数据应保留", catCursor.moveToFirst())
+        assertEquals("cat-8", catCursor.getString(0))
+        catCursor.close()
+
+        val shelfCursor = db.query(
+            "SELECT position FROM shelf_book WHERE book_id = 'book-8'",
+        )
+        assertTrue("shelf_book 数据应保留", shelfCursor.moveToFirst())
+        assertEquals(1, shelfCursor.getInt(0))
+        shelfCursor.close()
+
+        db.close()
+    }
+
     // ─── 1 → 6 历史链路（与既有 v6 数据盘配套保留）──────────────────
 
     @Test
@@ -661,11 +820,11 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
-    // ─── 1 → 7 完整链路 ────────────────────────────────────────────────
+    // ─── 1 → 8 完整链路 ────────────────────────────────────────────────
 
     @Test
     @Throws(IOException::class)
-    fun migrate_1_to_7_full_chain() {
+    fun migrate_1_to_8_full_chain() {
         // 1. 创建 v1 数据库并插入综合测试数据（仅使用 v1 列定义）
         var db = migrationTestHelper.createDatabase(TEST_DB, 1)
 
@@ -708,15 +867,16 @@ class AppDatabaseMigrationTest {
 
         db.close()
 
-        // 2. 执行完整迁移链 1 → 7（传入全部 6 个迁移）
+        // 2. 执行完整迁移链 1 → 8（传入全部 7 个迁移）
         db = migrationTestHelper.runMigrationsAndValidate(
-            TEST_DB, 7, true,
+            TEST_DB, 8, true,
             AppDatabase.MIGRATION_1_2,
             AppDatabase.MIGRATION_2_3,
             AppDatabase.MIGRATION_3_4,
             AppDatabase.MIGRATION_4_5,
             AppDatabase.MIGRATION_5_6,
             AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
         )
 
         // 3. 验证 books 数据完好（含 v3 新列 description）
@@ -767,6 +927,13 @@ class AppDatabaseMigrationTest {
         assertTrue("reader_page_index 应存在", tablesCursor.moveToNext())
         assertEquals("reader_page_index", tablesCursor.getString(0))
         tablesCursor.close()
+
+        // 8. 验证外键索引在完整迁移链末端存在（v8 核心新增）
+        val idxCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name = 'index_reading_sessions_book_id'",
+        )
+        assertTrue("索引 index_reading_sessions_book_id 应存在", idxCursor.moveToFirst())
+        idxCursor.close()
 
         db.close()
     }

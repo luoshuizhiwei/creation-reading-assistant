@@ -53,7 +53,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 7
+const val APP_DATABASE_SCHEMA_VERSION = 8
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -70,6 +70,8 @@ const val APP_DATABASE_SCHEMA_VERSION = 7
  *  - v5→v6：新增 locator 懒解析缓存表 reader_anchor_cache（MIGRATION_5_6）
  *  - v6→v7：reading_sessions 补时间索引 idx_sessions_created（MIGRATION_6_7，
  *    部分索引，仅 onOpen 重建，不改任何表结构）
+ *  - v7→v8：为全部外键列补 Room 声明索引（MIGRATION_7_8），消除 KSP
+ *    「外键未索引」警告与父表更新/删除时的全表扫描
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -185,6 +187,34 @@ abstract class AppDatabase : RoomDatabase() {
         val MIGRATION_6_7 = object : Migration(6, 7) {
             override fun migrate(db: SupportSQLiteDatabase) {
                 dropPartialIndexes(db)
+            }
+        }
+
+        /**
+         * v7→v8：为全部外键列补 Room 声明索引（A8）。
+         *
+         * 消除两类实际问题：
+         * 1. KSP 的「外键列未索引」警告 —— 父表更新/删除时 SQLite 外键约束需要
+         *    反向查子表，无索引就是全表扫描；
+         * 2. 手工部分索引（[PARTIAL_INDEX_SQL]）带 `WHERE deleted_at IS NULL`，
+         *    Room 校验不认，也不覆盖软删除行 —— 外键完整性不能依赖它们。
+         *
+         * 索引名必须与 Room 为 @Index 注解生成的完全一致（`index_<表>_<列>`），
+         * 否则迁移后的表结构校验会因「期望有索引但没建」而失败。
+         * 与既有迁移一致：先 [dropPartialIndexes] 再建，onOpen 会重建部分索引。
+         */
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reading_sessions_book_id` ON `reading_sessions` (`book_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inspirations_source_book_id` ON `inspirations` (`source_book_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_inspiration_variants_inspiration_id` ON `inspiration_variants` (`inspiration_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_book_id` ON `notes` (`book_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_notes_inspiration_id` ON `notes` (`inspiration_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_highlights_book_id` ON `highlights` (`book_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_book_tag_tag_id` ON `book_tag` (`tag_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_book_category_category_id` ON `book_category` (`category_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_shelf_book_book_id` ON `shelf_book` (`book_id`)")
             }
         }
 

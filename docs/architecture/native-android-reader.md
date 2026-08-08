@@ -57,7 +57,7 @@ ReaderDocument
 1. 大 TXT 流式已闭环（`TextStreamLoader` 5MB 阈值 + `TxtFileScanner` 索引 + 有界窗口读取），小文件路径保持整本解码；个别消费者（如导入预览、锚点跳转）仍需复核不整文件 `readText()`。
 2. AI 阅读辅助（A11）未闭环：`AiClient` 固定 `stream=false`、OkHttp `execute()` 阻塞调用不可协程取消、无 401/429/5xx 错误分类与响应脱敏，关闭 Sheet 后旧请求仍占用线程最长 60s。
 3. EPUB 全书搜索无进度与取消 UI（底层已逐章流式且可取消）。
-4. Room 外键索引（A8）未完成：schema v7 中 11 个带外键实体均未声明索引。
+4. Room 外键索引（A8）已完成：schema v8 为全部 9 个外键列声明索引（reading_sessions.book_id、inspirations.source_book_id、inspiration_variants.inspiration_id、notes.book_id/inspiration_id、highlights.book_id、book_tag.tag_id、book_category.category_id、shelf_book.book_id），7→8 迁移与 1→8 全链迁移测试已加入；1→8 真机复核待办。
 5. 自动化：JVM 单测 809 项全绿；设备侧已有 Room 迁移测试与 Compose 关键路径（ReaderScreen/ReaderAccessibilityLayout/EpubParser 等 androidTest 11 个文件），但 CI 只编译不执行设备测试。
 6. GitHub Release 已在 P0-A2（2026-07-29）退役旧 `mobile/android` APK 的构建与上传；原生 `android/` Release 迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
 

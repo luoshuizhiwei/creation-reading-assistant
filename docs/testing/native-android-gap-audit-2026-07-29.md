@@ -11,12 +11,12 @@
 
 - **B-1（已修，2026-07-31）CoroutineScope / CoroutineDispatcher 注入缺口**：已在 `CoroutineScopeModule.kt` 新增 `@IODispatcher / @DefaultDispatcher / @MainDispatcher` 三个 Qualifier，并把 `ShelfViewModel / PagerHealthStore` 等硬编码 `Dispatchers.*` 全部改为注入。测试里 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 也改为注入真实 `Dispatchers.Default`，保证缓存模型与生产环境调度一致。
 - **B-4（已修，2026-07-31）Hilt @EntryPoint 滥用**：原来报告的「大量分散 EntryPoint」实际只存在 `StatsScreen.kt` 一处，且使用方式已确认符合 Hilt 约束。本轮已经把 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 问题修正，不再用 EntryPoint 作伪装借口；严重度由原 P1 下调为「仅 1 处、已确认无副作用」，不再作为缺口派发。
-- **C-3（已修正版本号对照，2026-07-31）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。当前 `android/app/build.gradle.kts`：`versionCode = 1`、`versionName = 0.4.0-p4`；Room schema 已导出到 `android/app/schemas`：`1.json`~`6.json`（当前 v6，P0-A8 补外键索引时会生成 v7 和 6→7 迁移）。
+- **C-3（已修正版本号对照，2026-08-08）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。当前 `android/app/build.gradle.kts`：`versionCode = 1`、`versionName = 0.4.0-p4`；Room schema 已导出到 `android/app/schemas`：`1.json`~`8.json`（当前 v8）。
 - **A-2（已修，原「明确 Capacitor 去留」，2026-07-30 P0-A2 收尾）**：`mobile/` 已整体删除，仅保留许可证/上游归属存档于 `archives/frozen-mobile/`。`AGENTS.md` 已更新「移动端两条独立产品线」说明，后续所有改动都落在 `android/`，不要再出现 Capacitor、mobile/android 路径、或对已删除的 `MobileReaderView/ShelfPage.tsx` 的改造计划。
 - **A1（已基本完成，2026-08-08 复核）**：大 TXT 流式闭环已落地——`TextStreamLoader` 以 5MB 为阈值分流，大文件走 `TxtFileScanner` 索引 + `PlainTextDocument` 有界窗口，导入预览对 >10MB 文件使用 `readWindow(0, 20_000)`；搜索（`computeStreamingTxtSearch`）逐 ReadingUnit 读取。剩余复核点：个别消费者不得回退为整文件 `readText()`。
 - **A4（已完成，2026-08-08 复核）**：原生 Markdown 语义已落地（`MarkdownParser`/`MarkdownDocument`/`MarkdownPageSource`/`MarkdownOffsetMap`），支持标题、段落、列表、任务列表、引用、代码块、表格、链接，规范文本与源偏移双向映射，搜索/TTS/Locator/选区基于规范偏移。
 - **A5（已完成，2026-08-08 复核）**：`ReaderScreen.kt` 已从约 4,462 行拆至 502 行，文档加载、会话、进度、分页引擎状态、护眼/TTS、Sheet 均抽为独立文件与 State-holder；DAO/Repository 写入收敛到 `ReaderViewModel`。
-- **A8（状态更新，2026-08-08 复核）**：schema 已到 v7 且 1→7 迁移齐全，但 7.json 中 11 个带外键实体仍未声明索引（KSP 未索引外键警告未清零）。补索引将生成 v8 与 7→8 迁移。
+- **A8（已完成，2026-08-08 实现）**：为 9 个外键列补 Room 声明索引（reading_sessions.book_id、inspirations.source_book_id、inspiration_variants.inspiration_id、notes.book_id/inspiration_id、highlights.book_id、book_tag.tag_id、book_category.category_id、shelf_book.book_id），schema 已生成 v8，7→8 迁移与 1→8 全链迁移测试已加入；KSP 未索引外键警告清零。剩余复核点：1→8 全链迁移在真实手机通过。
 
 ## 结论
 
@@ -121,11 +121,11 @@
 
 验收：无静默丢数据、无重复记录、冲突可解释可重试；AI Key、WebDAV 密码和局域网 token 不进入导出、日志或备份。
 
-### A8. Room 外键索引与 schema v7
+### A8. Room 外键索引与 schema v8
 
-本轮构建由 Room/KSP 明确报告 9 个未索引外键，涉及阅读记录、灵感来源、灵感/书籍关联和标签/分类关联。父表更新或删除时可能触发全表扫描。为对应列补联合/单列索引，生成 schema v7 和 6→7 迁移，并扩展迁移测试；不能用破坏性迁移或只消掉警告。
+本轮构建由 Room/KSP 明确报告 9 个未索引外键，涉及阅读记录、灵感来源、灵感/书籍关联和标签/分类关联。父表更新或删除时可能触发全表扫描。**2026-08-08 已实现**：为对应列补单列索引，生成 schema v8 与 7→8 迁移，并扩展迁移测试（7→8 单步 + 1→8 全链）；不能用破坏性迁移或只消掉警告。
 
-验收：KSP 的 9 条外键索引警告清零；1→7 全链迁移在真实手机通过，原有书库、进度、笔记、灵感和分类关系不丢。
+验收：KSP 的 9 条外键索引警告清零（已达成）；1→8 全链迁移在真实手机通过，原有书库、进度、笔记、灵感和分类关系不丢（真机复核待办）。
 
 ### A9. EPUB 异常语料与性能基线
 

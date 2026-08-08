@@ -3,6 +3,7 @@ package com.creationreadingassistant.data.local.entity
 import androidx.compose.runtime.Immutable
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.PrimaryKey
 import kotlinx.serialization.Serializable
 
@@ -101,6 +102,7 @@ fun mergeReaderProgress(
 @Serializable
 @Entity(
     tableName = "reading_sessions",
+    indices = [Index("book_id")],
     foreignKeys = [ForeignKey(
         entity = BookEntity::class,
         parentColumns = ["id"],
