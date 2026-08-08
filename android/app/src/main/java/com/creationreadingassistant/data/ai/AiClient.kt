@@ -4,20 +4,31 @@ import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.log.AppLog
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import okhttp3.MediaType.Companion.toMediaType
+import okhttp3.Call
+import okhttp3.Callback
+import okhttp3.Response
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import java.io.IOException
+import java.net.ConnectException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import java.net.URI
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.coroutines.resume
+import kotlin.coroutines.resumeWithException
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -75,9 +86,40 @@ class AiClient(
     @Serializable
     data class ChatResponse(val choices: List<Choice>)
 
-    /** 通用对话：发送提示词 + 系统指令，返回助手回答。 */
-    suspend fun chat(systemPrompt: String, userPrompt: String): Result<String> = withContext(ioDispatcher) {
-        runCatching {
+    /** SSE 流式响应的单条 chunk（choices[0].delta.content 为增量）。 */
+    @Serializable
+    data class ChatChunk(val choices: List<ChunkChoice> = emptyList())
+
+    @Serializable
+    data class ChunkChoice(val delta: ChunkDelta = ChunkDelta())
+
+    @Serializable
+    data class ChunkDelta(val content: String? = null)
+
+    /**
+     * 通用对话（非流式）：发送提示词 + 系统指令，返回助手回答。
+     * 底层为可取消调用：协程取消时底层 HTTP 请求立即中止。
+     */
+    suspend fun chat(systemPrompt: String, userPrompt: String): Result<String> =
+        chatInternal(systemPrompt, userPrompt, stream = false, onDelta = null)
+
+    /**
+     * 流式对话：增量内容经 [onDelta] 回调（可能在 IO 线程），返回完整回答。
+     * 协程取消时底层 HTTP 请求立即中止；[CancellationException] 向上传播，不吞掉。
+     */
+    suspend fun chatStreaming(
+        systemPrompt: String,
+        userPrompt: String,
+        onDelta: (String) -> Unit,
+    ): Result<String> = chatInternal(systemPrompt, userPrompt, stream = true, onDelta = onDelta)
+
+    private suspend fun chatInternal(
+        systemPrompt: String,
+        userPrompt: String,
+        stream: Boolean,
+        onDelta: ((String) -> Unit)?,
+    ): Result<String> = try {
+        Result.success(withContext(ioDispatcher) {
             val ai = settings.ai.value
             if (!ai.enabled) error("AI 未启用，请在「我的 → AI 设置」中开启。")
             if (ai.baseUrl.isBlank()) error("AI 接口地址未配置。")
@@ -92,6 +134,7 @@ class AiClient(
                 model = ai.model.ifBlank { "gpt-3.5-turbo" },
                 messages = messages,
                 temperature = ai.temperature,
+                stream = stream,
             )
             val req = Request.Builder()
                 .url(url)
@@ -101,12 +144,97 @@ class AiClient(
                 }
                 .build()
 
-            client.newCall(req).execute().use { resp ->
-                if (!resp.isSuccessful) error("AI 服务返回 HTTP ${resp.code}: ${resp.body?.string()?.take(200) ?: ""}")
-                val chatResp = json.decodeFromString<ChatResponse>(resp.body?.string() ?: error("空响应"))
-                chatResp.choices.firstOrNull()?.message?.content ?: error("AI 未返回内容")
+            executeCancellable(req, stream, onDelta)
+        })
+    } catch (e: CancellationException) {
+        throw e
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+    /** 发起可取消请求：协程取消时调用 [Call.cancel] 立即中断底层连接。 */
+    private suspend fun executeCancellable(
+        request: Request,
+        stream: Boolean,
+        onDelta: ((String) -> Unit)?,
+    ): String {
+        val call = client.newCall(request)
+        return suspendCancellableCoroutine { cont ->
+            cont.invokeOnCancellation { call.cancel() }
+            call.enqueue(object : Callback {
+                override fun onFailure(call: Call, e: IOException) {
+                    if (cont.isCancelled) return
+                    cont.resumeWithException(classifyNetworkError(e))
+                }
+
+                override fun onResponse(call: Call, response: Response) {
+                    if (cont.isCancelled) {
+                        response.close()
+                        return
+                    }
+                    if (!response.isSuccessful) {
+                        // 不把响应体带进错误消息（可能回显 API Key / 敏感内容），只分类。
+                        response.close()
+                        cont.resumeWithException(IllegalStateException(classifyHttpError(response.code)))
+                        return
+                    }
+                    try {
+                        val text = if (stream) {
+                            parseSse(response, onDelta ?: { })
+                        } else {
+                            response.body?.string() ?: error("空响应")
+                        }
+                        if (!stream) {
+                            val chatResp = json.decodeFromString<ChatResponse>(text)
+                            cont.resume(chatResp.choices.firstOrNull()?.message?.content ?: error("AI 未返回内容"))
+                        } else {
+                            cont.resume(text)
+                        }
+                    } catch (e: Exception) {
+                        if (cont.isCancelled) return
+                        cont.resumeWithException(e)
+                    } finally {
+                        response.close()
+                    }
+                }
+            })
+        }
+    }
+
+    /** 解析 SSE 流：逐行读 `data: {...}`，增量经 [onDelta] 回调，返回拼好的完整文本。 */
+    private fun parseSse(response: Response, onDelta: (String) -> Unit): String {
+        val full = StringBuilder()
+        response.body?.charStream()?.buffered()?.use { reader ->
+            reader.forEachLine { raw ->
+                val line = raw.trim()
+                if (!line.startsWith("data:")) return@forEachLine
+                val data = line.removePrefix("data:").trim()
+                if (data.isEmpty() || data == "[DONE]") return@forEachLine
+                val chunk = json.decodeFromString<ChatChunk>(data)
+                val delta = chunk.choices.firstOrNull()?.delta?.content
+                if (!delta.isNullOrEmpty()) {
+                    full.append(delta)
+                    onDelta(delta)
+                }
             }
         }
+        return full.toString()
+    }
+
+    /** HTTP 状态码 → 用户可读的错误分类（不携带响应体，避免敏感信息外泄）。 */
+    private fun classifyHttpError(code: Int): String = when (code) {
+        401, 403 -> "AI 接口鉴权失败（HTTP $code），请检查 API Key 与接口地址。"
+        429 -> "AI 请求过于频繁（HTTP 429），请稍后重试或降低使用频率。"
+        in 500..599 -> "AI 服务暂时不可用（HTTP $code），请稍后重试。"
+        else -> "AI 服务返回错误（HTTP $code）。"
+    }
+
+    /** 网络异常 → 用户可读分类。 */
+    private fun classifyNetworkError(e: IOException): Exception = when (e) {
+        is SocketTimeoutException -> IllegalStateException("AI 请求超时，请检查接口地址与网络连接。", e)
+        is UnknownHostException -> IllegalStateException("无法连接 AI 接口（域名解析失败），请检查网络。", e)
+        is ConnectException -> IllegalStateException("无法连接 AI 接口，请检查接口地址与网络。", e)
+        else -> IllegalStateException("AI 网络请求失败：${e.message ?: "未知错误"}", e)
     }
 
     /**

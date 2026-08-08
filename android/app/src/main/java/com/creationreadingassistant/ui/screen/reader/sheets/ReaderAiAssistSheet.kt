@@ -26,7 +26,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.ui.components.SectionCard
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -44,20 +46,35 @@ internal fun AiAssistSheet(
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
     var question by remember { mutableStateOf("") }
+    var job by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val hasContext = contextText.isNotBlank()
 
     fun callAi() {
         if (!hasContext) return
         loading = true; error = null; result = ""
-        scope.launch(Dispatchers.IO) {
-            val r = when (tab) {
-                "summary" -> aiClient.summarize(contextText.take(4000))
-                "qa" -> aiClient.askQuestion(contextText.take(4000), question)
-                else -> aiClient.extractKeyPoints(contextText.take(4000))
+        job = scope.launch(Dispatchers.IO) {
+            try {
+                val r = when (tab) {
+                    "summary" -> aiClient.chatStreaming(
+                        "你是一个阅读助手。请用简洁的中文总结下面的文本，控制在 200 字以内，突出核心观点。",
+                        contextText.take(4000),
+                    ) { delta -> result += delta }
+                    "qa" -> aiClient.chatStreaming(
+                        "你是一个阅读助手。请基于提供的上下文来回答问题。如果上下文不足以回答，请诚实说明。",
+                        "上下文：${contextText.take(4000)}\n\n问题：$question",
+                    ) { delta -> result += delta }
+                    else -> aiClient.chatStreaming(
+                        "你是一个阅读助手。请从下面的文本中提取 3-5 个关键要点，每条要点以「- 」开头，简明扼要。",
+                        contextText.take(4000),
+                    ) { delta -> result += delta }
+                }
+                r.onSuccess { loading = false }
+                    .onFailure { error = it.message; loading = false }
+            } catch (e: CancellationException) {
+                loading = false
+                throw e
             }
-            r.onSuccess { result = it; loading = false }
-             .onFailure { error = it.message; loading = false }
         }
     }
 
@@ -86,14 +103,14 @@ internal fun AiAssistSheet(
         }
 
         Button(
-            onClick = { callAi() },
-            enabled = hasContext && !loading,
+            onClick = { if (loading) job?.cancel() else callAi() },
+            enabled = hasContext,
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         ) {
             if (loading) {
                 CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                 Spacer(modifier = Modifier.width(8.dp))
-                Text("思考中…")
+                Text("取消")
             } else {
                 Text(
                     when (tab) {

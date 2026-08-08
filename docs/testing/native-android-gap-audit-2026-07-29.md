@@ -13,6 +13,10 @@
 - **B-4（已修，2026-07-31）Hilt @EntryPoint 滥用**：原来报告的「大量分散 EntryPoint」实际只存在 `StatsScreen.kt` 一处，且使用方式已确认符合 Hilt 约束。本轮已经把 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 问题修正，不再用 EntryPoint 作伪装借口；严重度由原 P1 下调为「仅 1 处、已确认无副作用」，不再作为缺口派发。
 - **C-3（已修正版本号对照，2026-07-31）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。当前 `android/app/build.gradle.kts`：`versionCode = 1`、`versionName = 0.4.0-p4`；Room schema 已导出到 `android/app/schemas`：`1.json`~`6.json`（当前 v6，P0-A8 补外键索引时会生成 v7 和 6→7 迁移）。
 - **A-2（已修，原「明确 Capacitor 去留」，2026-07-30 P0-A2 收尾）**：`mobile/` 已整体删除，仅保留许可证/上游归属存档于 `archives/frozen-mobile/`。`AGENTS.md` 已更新「移动端两条独立产品线」说明，后续所有改动都落在 `android/`，不要再出现 Capacitor、mobile/android 路径、或对已删除的 `MobileReaderView/ShelfPage.tsx` 的改造计划。
+- **A1（已基本完成，2026-08-08 复核）**：大 TXT 流式闭环已落地——`TextStreamLoader` 以 5MB 为阈值分流，大文件走 `TxtFileScanner` 索引 + `PlainTextDocument` 有界窗口，导入预览对 >10MB 文件使用 `readWindow(0, 20_000)`；搜索（`computeStreamingTxtSearch`）逐 ReadingUnit 读取。剩余复核点：个别消费者不得回退为整文件 `readText()`。
+- **A4（已完成，2026-08-08 复核）**：原生 Markdown 语义已落地（`MarkdownParser`/`MarkdownDocument`/`MarkdownPageSource`/`MarkdownOffsetMap`），支持标题、段落、列表、任务列表、引用、代码块、表格、链接，规范文本与源偏移双向映射，搜索/TTS/Locator/选区基于规范偏移。
+- **A5（已完成，2026-08-08 复核）**：`ReaderScreen.kt` 已从约 4,462 行拆至 502 行，文档加载、会话、进度、分页引擎状态、护眼/TTS、Sheet 均抽为独立文件与 State-holder；DAO/Repository 写入收敛到 `ReaderViewModel`。
+- **A8（状态更新，2026-08-08 复核）**：schema 已到 v7 且 1→7 迁移齐全，但 7.json 中 11 个带外键实体仍未声明索引（KSP 未索引外键警告未清零）。补索引将生成 v8 与 7→8 迁移。
 
 ## 结论
 

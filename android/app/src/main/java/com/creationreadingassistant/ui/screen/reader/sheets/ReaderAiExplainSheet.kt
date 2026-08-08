@@ -34,7 +34,9 @@ import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -57,6 +59,7 @@ internal fun AiExplainSheet(
     var selectedTagNames by remember { mutableStateOf<List<String>>(listOf(bookTitle, "阅读灵感")) }
     var newCategoryInput by remember { mutableStateOf("") }
     var newTagInput by remember { mutableStateOf("") }
+    var job by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
     val inspirationTags = tags.filter { it.type == "inspiration" || it.type == null }
     // G 档：分类/标签 chips 离散选择加轻触感
@@ -65,10 +68,18 @@ internal fun AiExplainSheet(
     fun callExplain() {
         if (selectedText.isBlank()) return
         loading = true; error = null; result = ""
-        scope.launch(Dispatchers.IO) {
-            aiClient.explain(selectedText.take(4000))
-                .onSuccess { result = it; loading = false }
-                .onFailure { error = it.message; loading = false }
+        job = scope.launch(Dispatchers.IO) {
+            try {
+                aiClient.chatStreaming(
+                    "你是一个阅读助手。请对选中的文本进行深入解读：分析其含义、背景、写作手法或潜在寓意。保持专业但易懂。",
+                    "请解读这段文字：${selectedText.take(4000)}",
+                ) { delta -> result += delta }
+                    .onSuccess { loading = false }
+                    .onFailure { error = it.message; loading = false }
+            } catch (e: CancellationException) {
+                loading = false
+                throw e
+            }
         }
     }
 
@@ -82,11 +93,11 @@ internal fun AiExplainSheet(
             Text("请先选中一段正文，再使用 AI 解读。", color = MaterialTheme.colorScheme.outline)
         }
         Button(
-            onClick = { callExplain() },
-            enabled = selectedText.isNotBlank() && !loading,
+            onClick = { if (loading) job?.cancel() else callExplain() },
+            enabled = selectedText.isNotBlank(),
             modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
         ) {
-            if (loading) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text("思考中…") }
+            if (loading) { CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp); Spacer(modifier = Modifier.width(8.dp)); Text("取消") }
             else Text("解读选中文本")
         }
         error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp)) }

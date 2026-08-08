@@ -65,15 +65,18 @@ internal suspend fun computeEpubSearch(
     chapterStartOffsets: List<Int>,
     chapterTitles: List<String>,
     totalChars: Int,
+    onProgress: (searched: Int, total: Int) -> Unit = { _, _ -> },
 ): List<BookSearchResult> {
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
     val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
     val denom = totalChars.coerceAtLeast(1)
+    val total = document.chapters.size
     for (ci in document.chapters.indices) {
         if (results.size >= 80) break
         yield()
+        onProgress(ci + 1, total)
         val ct = document.text(ci)
         if (ct.isBlank()) continue
         val text = ct
@@ -107,6 +110,7 @@ internal suspend fun computeStreamingTxtSearch(
     readingUnits: List<ReadingUnit>,
     query: String,
     totalChars: Int,
+    onProgress: (searched: Int, total: Int) -> Unit = { _, _ -> },
 ): List<BookSearchResult> {
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
@@ -114,10 +118,12 @@ internal suspend fun computeStreamingTxtSearch(
     val results = mutableListOf<BookSearchResult>()
     val denom = totalChars.coerceAtLeast(1)
     var previousTail = ""
-    for (unit in readingUnits) {
+    val total = readingUnits.size
+    for ((i, unit) in readingUnits.withIndex()) {
         if (results.size >= 80) break
         yield()
         currentCoroutineContext().ensureActive()
+        onProgress(i + 1, total)
         val unitText = document.readUnit(unit)
         val searchInput = previousTail + unitText
         val lower = searchInput.lowercase()

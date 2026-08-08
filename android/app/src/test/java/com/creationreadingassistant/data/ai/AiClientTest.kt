@@ -4,7 +4,11 @@ import com.creationreadingassistant.data.settings.AISettings
 import com.creationreadingassistant.data.settings.SettingsStore
 import io.mockk.every
 import io.mockk.mockk
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -90,6 +94,103 @@ class AiClientTest {
         assertTrue(body.contains("\"model\":\"test-model\""))
         assertTrue(body.contains("系统指令"))
         assertTrue(body.contains("用户问题"))
+    }
+
+    @Test
+    fun `chat sends non-stream request body`() = runTest {
+        server.enqueue(MockResponse().setBody(chatJson()).setResponseCode(200))
+
+        newClient().chat("s", "u")
+
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue(body.contains("\"stream\":false"))
+    }
+
+    @Test
+    fun `chatStreaming parses sse deltas and returns full text`() = runTest {
+        val sse = """
+            data: {"choices":[{"delta":{"content":"你好"}}]}
+
+            data: {"choices":[{"delta":{"content":"世界"}}]}
+
+            data: {"choices":[{"delta":{"content":"。"}}]}
+
+            data: [DONE]
+        """.trimIndent()
+        server.enqueue(MockResponse().setBody(sse).setResponseCode(200))
+
+        val deltas = mutableListOf<String>()
+        val result = newClient().chatStreaming("s", "u") { deltas += it }
+
+        assertTrue(result.isSuccess)
+        assertEquals("你好世界。", result.getOrThrow())
+        assertEquals(listOf("你好", "世界", "。"), deltas)
+        assertTrue(server.takeRequest().body.readUtf8().contains("\"stream\":true"))
+    }
+
+    @Test
+    fun `chatStreaming ignores non-delta chunks`() = runTest {
+        val sse = """
+            data: {"choices":[]}
+
+            data: {"choices":[{"delta":{"role":"assistant"}}]}
+
+            data: {"choices":[{"delta":{"content":"ok"}}]}
+        """.trimIndent()
+        server.enqueue(MockResponse().setBody(sse).setResponseCode(200))
+
+        val deltas = mutableListOf<String>()
+        val result = newClient().chatStreaming("s", "u") { deltas += it }
+
+        assertTrue(result.isSuccess)
+        assertEquals("ok", result.getOrThrow())
+        assertEquals(listOf("ok"), deltas)
+    }
+
+    @Test
+    fun `chat failure on 401 gives auth error classification`() = runTest {
+        server.enqueue(MockResponse().setBody("""{"error":{"message":"bad key"}}""").setResponseCode(401))
+
+        val result = newClient().chat("s", "u")
+
+        assertTrue(result.isFailure)
+        val msg = result.exceptionOrNull()!!.message!!
+        assertTrue(msg.contains("鉴权失败"))
+        // 响应体不进入错误消息（防敏感信息外泄）
+        assertTrue(!msg.contains("bad key"))
+    }
+
+    @Test
+    fun `chat failure on 429 gives rate limit classification`() = runTest {
+        server.enqueue(MockResponse().setBody("rate limited").setResponseCode(429))
+
+        val result = newClient().chat("s", "u")
+
+        assertTrue(result.isFailure)
+        assertTrue(result.exceptionOrNull()!!.message!!.contains("过于频繁"))
+    }
+
+    @Test
+    fun `chat propagates cancellation when job cancelled`() = runTest {
+        server.enqueue(
+            MockResponse()
+                .setBody(chatJson())
+                .setResponseCode(200)
+                .setBodyDelay(5, TimeUnit.SECONDS),
+        )
+        val client = newClient(readTimeoutMs = 5000)
+        var thrown: Throwable? = null
+        val job = launch {
+            try {
+                client.chat("s", "u")
+            } catch (e: CancellationException) {
+                thrown = e
+            }
+        }
+        delay(50)
+        job.cancelAndJoin()
+
+        assertTrue(thrown is CancellationException)
     }
 
     @Test

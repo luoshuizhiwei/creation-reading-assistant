@@ -1,14 +1,18 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -16,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -29,6 +34,7 @@ import com.creationreadingassistant.ui.screen.reader.computeBookSearch
 import com.creationreadingassistant.ui.screen.reader.computeEpubSearch
 import com.creationreadingassistant.ui.screen.reader.computeStreamingTxtSearch
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 
@@ -48,22 +54,52 @@ internal fun SearchSheet(
     onJump: (BookSearchResult) -> Unit,
 ) {
     var results by remember { mutableStateOf(emptyList<BookSearchResult>()) }
+    var searching by remember { mutableStateOf(false) }
+    var progress by remember { mutableStateOf(0 to 0) } // 已扫描片段 / 总片段
+    var cancelled by remember { mutableStateOf(false) }
+    // 取消信号：自增后重启搜索协程（旧协程被 LaunchedEffect 取消）
+    var cancelToken by remember { mutableStateOf(0) }
     val reducedMotion = rememberReducedMotion()
-    LaunchedEffect(query, document, txtDocument, plainContent) {
+    LaunchedEffect(query, document, txtDocument, plainContent, cancelToken) {
+        if (query.isBlank()) {
+            results = emptyList()
+            searching = false
+            progress = 0 to 0
+            cancelled = false
+            return@LaunchedEffect
+        }
+        searching = true
+        cancelled = false
+        progress = 0 to 0
         delay(250)
-        results = withContext(Dispatchers.IO) {
-            when {
-                // 大文件流式 TXT：逐 ReadingUnit 流式搜索
-                txtDocument != null ->
-                    computeStreamingTxtSearch(txtDocument, txtDocument.readingUnits, query, totalChars)
-                // 小文件 TXT：全文搜索
-                isTxt ->
-                    computeBookSearch(plainContent, query, chapterStartOffsets, chapterTitles, isTxt)
-                // EPUB：逐章流式搜索
-                else ->
-                    document?.let { computeEpubSearch(it, query, chapterStartOffsets, chapterTitles, totalChars) }
-                        ?: emptyList()
+        try {
+            results = withContext(Dispatchers.IO) {
+                when {
+                    // 大文件流式 TXT：逐 ReadingUnit 流式搜索
+                    txtDocument != null ->
+                        computeStreamingTxtSearch(
+                            txtDocument, txtDocument.readingUnits, query, totalChars,
+                            onProgress = { done, total2 -> progress = done to total2 },
+                        )
+                    // 小文件 TXT：全文搜索
+                    isTxt ->
+                        computeBookSearch(plainContent, query, chapterStartOffsets, chapterTitles, isTxt)
+                    // EPUB：逐章流式搜索
+                    else ->
+                        document?.let {
+                            computeEpubSearch(
+                                it, query, chapterStartOffsets, chapterTitles, totalChars,
+                                onProgress = { done, total2 -> progress = done to total2 },
+                            )
+                        }
+                            ?: emptyList()
+                }
             }
+        } catch (e: CancellationException) {
+            cancelled = true
+            throw e
+        } finally {
+            searching = false
         }
     }
     ReaderSheetScaffold(title = "搜索本书") {
@@ -75,7 +111,36 @@ internal fun SearchSheet(
             singleLine = true,
             modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
         )
-        if (query.isNotBlank()) {
+        if (searching) {
+            Row(
+                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+                Arrangement.SpaceBetween,
+                Alignment.CenterVertically,
+            ) {
+                val total2 = progress.second
+                val progressText = if (total2 > 0) {
+                    "正在搜索… 已扫描 ${progress.first}/$total2"
+                } else {
+                    "正在搜索…"
+                }
+                Text(
+                    progressText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.outline,
+                )
+                TextButton(onClick = { cancelToken++ }) { Text("取消") }
+            }
+            LinearProgressIndicator(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            )
+        } else if (cancelled && query.isNotBlank()) {
+            Text(
+                "搜索已取消。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        } else if (query.isNotBlank()) {
             Text(
                 "找到 ${results.size} 处，最多显示前 80 条。",
                 style = MaterialTheme.typography.bodySmall,

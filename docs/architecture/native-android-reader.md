@@ -1,7 +1,7 @@
 # 独立原生 Android 阅读器架构
 
 状态：当前执行依据  
-更新日期：2026-07-29  
+更新日期：2026-08-08  
 范围：`android/`（Kotlin + Jetpack Compose + Room）
 
 ## 1. 运行边界
@@ -27,7 +27,7 @@ ReaderDocument / DocBlock / Chapter
 - `ReaderDocument` 定义章节、文本块和正文访问边界。
 - `EpubDocument` 按章加载 EPUB 文本与图片元数据，`DocumentCache` 控制章节缓存。
 - 小型 TXT/Markdown 仍可整本解码；大文件由 `TxtFileScanner` 建索引，再由 `PlainTextDocument` 按需读取。
-- Markdown 目前只复用纯文本路径和标题目录规则，尚无原生 Markdown 视觉语义层。
+- Markdown 已有原生语义层：`MarkdownParser`（commonmark-java + GFM 表格/任务列表/删除线扩展）产出语义块与规范文本，`MarkdownOffsetMap` 维护「规范偏移 ↔ 源偏移」双向映射，`MarkdownPageSource` / `MarkdownChapterSource` 负责分页与按章加载。搜索、TTS、Locator、选区、书签全部基于规范文本偏移。
 
 ## 3. 分页与定位
 
@@ -54,11 +54,12 @@ ReaderDocument
 
 ## 5. 当前已知边界
 
-1. 大 TXT 的流式改造尚未端到端闭合：部分锚点跳转仍会整文件 `readText()`，其他消费者也需要逐一确认有界读取。
-2. Markdown 被宣传为支持格式，但当前正文按纯文本显示，标题之外的列表、引用、代码、表格和链接没有原生样式。
-3. `ReaderScreen.kt` 超过 4,400 行，同时承担加载、会话、I/O、分页、TTS、AI、标注和大量 UI；后续应按职责拆分，但不能借重构改变 Locator 或数据语义。
-4. 自动化主要是 JVM 测试；设备侧只有 Room 迁移测试，缺少 Compose 关键路径回归。
-5. GitHub Release 已在 P0-A2（2026-07-29）退役旧 `mobile/android` APK 的构建与上传；原生 `android/` Release 迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
+1. 大 TXT 流式已闭环（`TextStreamLoader` 5MB 阈值 + `TxtFileScanner` 索引 + 有界窗口读取），小文件路径保持整本解码；个别消费者（如导入预览、锚点跳转）仍需复核不整文件 `readText()`。
+2. AI 阅读辅助（A11）未闭环：`AiClient` 固定 `stream=false`、OkHttp `execute()` 阻塞调用不可协程取消、无 401/429/5xx 错误分类与响应脱敏，关闭 Sheet 后旧请求仍占用线程最长 60s。
+3. EPUB 全书搜索无进度与取消 UI（底层已逐章流式且可取消）。
+4. Room 外键索引（A8）未完成：schema v7 中 11 个带外键实体均未声明索引。
+5. 自动化：JVM 单测 809 项全绿；设备侧已有 Room 迁移测试与 Compose 关键路径（ReaderScreen/ReaderAccessibilityLayout/EpubParser 等 androidTest 11 个文件），但 CI 只编译不执行设备测试。
+6. GitHub Release 已在 P0-A2（2026-07-29）退役旧 `mobile/android` APK 的构建与上传；原生 `android/` Release 迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
 
 完整任务与验收见 `docs/testing/native-android-gap-audit-2026-07-29.md`。
 
