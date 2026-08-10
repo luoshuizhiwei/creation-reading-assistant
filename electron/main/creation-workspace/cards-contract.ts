@@ -138,6 +138,52 @@ async function run(): Promise<void> {
       assert.equal((stale as CreationWorkspaceError).code, "revision-mismatch");
     });
 
+    await scenario("换卡片类型：可映射字段保留，必填缺失拒绝", async () => {
+      const characters = (await workspace!.read({ kind: "cards.list", projectId, cardKind: "character" })) as CardSummary[];
+      const linh = characters.find((c) => c.title === "林晚")!;
+      // 先给林晚加 note 字段，再换类型验证可映射字段保留
+      await workspace!.transact({
+        type: "card.update",
+        cardId: linh.id,
+        fields: { note: "主角" },
+        baseRevision: linh.revision
+      });
+      const withNote = (await workspace!.read({ kind: "card.read", cardId: linh.id })) as CardSummary;
+      const moved = await workspace!.transact({
+        type: "card.update",
+        cardId: linh.id,
+        kind: "item",
+        baseRevision: withNote.revision
+      }) as CreationStructureResult;
+      assert.equal(moved.entityId, linh.id);
+      const itemCards = (await workspace!.read({ kind: "cards.list", projectId, cardKind: "item" })) as CardSummary[];
+      const movedCard = itemCards.find((c) => c.id === linh.id)!;
+      assert.equal(movedCard.kind, "item");
+      assert.equal(movedCard.fields.note, "主角");
+      const types = (await workspace!.read({ kind: "cardTypes.list", projectId }))!;
+      const skill = types.find((t) => t.name === "技能")!;
+      let reject: unknown;
+      try {
+        await workspace!.transact({
+          type: "card.update",
+          cardId: linh.id,
+          kind: skill.kind,
+          baseRevision: movedCard.revision
+        });
+      } catch (error) {
+        reject = error;
+      }
+      assert.equal((reject as CreationWorkspaceError).code, "invalid-input");
+      // 改回 character，保持后续场景不变
+      const afterReject = (await workspace!.read({ kind: "card.read", cardId: linh.id })) as CardSummary;
+      await workspace!.transact({
+        type: "card.update",
+        cardId: linh.id,
+        kind: "character",
+        baseRevision: afterReject.revision
+      });
+    });
+
     await scenario("卡片关系：正向/反向与说明", async () => {
       const characters = (await workspace!.read({ kind: "cards.list", projectId, cardKind: "character" })) as CardSummary[];
       const locations = (await workspace!.read({ kind: "cards.list", projectId, cardKind: "location" })) as CardSummary[];

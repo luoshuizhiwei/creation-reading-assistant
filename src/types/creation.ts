@@ -481,6 +481,8 @@ export interface CardCreateCommand {
 export interface CardUpdateCommand {
   type: "card.update";
   cardId: string;
+  /** 换卡片类型（跨列移动）；省略表示保持原类型。 */
+  kind?: string;
   title?: string;
   aliases?: string[];
   fields?: Record<string, unknown>;

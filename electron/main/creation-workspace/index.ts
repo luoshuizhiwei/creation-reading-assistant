@@ -2518,20 +2518,34 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       if (card.revision !== baseRevision) {
         throw new CreationWorkspaceError("revision-mismatch", "卡片已被更新，请重新读取后再操作。");
       }
+      const nextKind = command.kind === undefined ? card.kind : validateId(command.kind, "卡片类型");
+      if (nextKind !== card.kind) {
+        // 换类型：目标类型必须存在
+        this.resolveCardTypeFields(card.project_id, nextKind);
+      }
+      const schemas = this.resolveCardTypeFields(card.project_id, nextKind);
+      let fields = card.fields;
+      if (command.fields !== undefined) {
+        fields = validateCardFieldValues(command.fields, schemas);
+      } else if (nextKind !== card.kind) {
+        // 换类型且未提供新字段：保留能被新 schema 识别的旧字段，其余丢弃，再补默认并校验必填
+        const allowed = new Set(schemas.map((schema) => schema.key));
+        const filtered: Record<string, unknown> = {};
+        for (const [key, value] of Object.entries(card.fields)) {
+          if (allowed.has(key)) filtered[key] = value;
+        }
+        fields = validateCardFieldValues(filtered, schemas);
+      }
       const title = command.title === undefined ? card.title : validateTitle(command.title, "卡片名称");
       const aliases =
         command.aliases === undefined ? card.aliases : validateStringList(command.aliases, "别名");
       const tags = command.tags === undefined ? card.tags : validateStringList(command.tags, "标签");
-      const fields =
-        command.fields === undefined
-          ? card.fields
-          : validateCardFieldValues(command.fields, this.resolveCardTypeFields(card.project_id, card.kind));
       const revision = card.revision + 1;
       this.database
         .prepare(
-          "UPDATE cards SET title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, updated_at = ?, revision = ? WHERE id = ?"
+          "UPDATE cards SET kind = ?, title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, updated_at = ?, revision = ? WHERE id = ?"
         )
-        .run(title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), timestamp, revision, cardId);
+        .run(nextKind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), timestamp, revision, cardId);
       this.touchProject(card.project_id, timestamp);
       return {
         projectId: card.project_id,

@@ -3580,3 +3580,156 @@ button:disabled {
   font-size: 13px;
   text-align: center;
 }
+
+/* 卡片看板（按类型分列 + 拖拽） */
+.cards-view-switch {
+  display: inline-flex;
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  overflow: hidden;
+}
+
+.cards-view-switch button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: var(--paper-panel);
+  color: var(--paper-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 11px;
+  cursor: pointer;
+}
+
+.cards-view-switch button.active {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 9%, transparent);
+}
+
+.cards-board-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cards-board-pane {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
+  padding: 12px;
+}
+
+.cards-board {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  min-height: 100%;
+}
+
+.cards-board-column {
+  min-width: 220px;
+  max-width: 280px;
+  flex: 1;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
+  align-self: stretch;
+}
+
+.cards-board-column-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 9px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 60%, transparent);
+}
+
+.cards-board-column-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--paper-ink);
+}
+
+.cards-board-column-head em {
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-style: normal;
+}
+
+.cards-board-column-head button {
+  display: inline-flex;
+  align-items: center;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 3px;
+  cursor: pointer;
+}
+
+.cards-board-column-head button:hover {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--paper-line) 22%, transparent);
+}
+
+.cards-board-column-body {
+  display: grid;
+  gap: 6px;
+  padding: 8px;
+  min-height: 60px;
+  align-content: start;
+}
+
+.cards-board-card {
+  display: grid;
+  gap: 3px;
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  background: var(--paper-panel);
+  padding: 9px 10px;
+  cursor: grab;
+  transition: border-color 0.12s ease;
+}
+
+.cards-board-card:hover {
+  border-color: color-mix(in srgb, var(--copper) 40%, transparent);
+}
+
+.cards-board-card.active {
+  border-color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 7%, transparent);
+}
+
+.cards-board-card:active {
+  cursor: grabbing;
+}
+
+.cards-board-card strong {
+  font-size: 13px;
+  color: var(--paper-ink);
+}
+
+.cards-board-aliases {
+  color: var(--paper-muted);
+  font-size: 11px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cards-board-tags {
+  color: var(--copper);
+  font-size: 11px;
+}
+
+.cards-board-empty {
+  color: var(--paper-muted);
+  font-size: 11px;
+  padding: 4px;
+}

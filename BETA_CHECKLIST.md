@@ -225,6 +225,20 @@ Automated Checks (appended):
 | Desktop full build | `npm run build` | Passed |
 | Renderer unit tests | `npm run test` | Passed (147) |
 
+## Creation cards board update (slice 7b follow-up): 2026-08-10
+
+- Card management upgraded to a **board view**: cards laid out in columns by type (8 built-in kinds), each card is a draggable visual card; drag a card to another column to change its type (list view kept as an alternative).
+- `card.update` now accepts an optional `kind` to move a card across types: target type must exist, old field values that match the new schema are preserved, others dropped, and required fields are re-validated (a card lacking a new type's required field is rejected).
+- CardsPage subscribes to the project watch channel, so card/relation changes (including board drag-to-move and changes made elsewhere) refresh the board live without reloading the page.
+- End-to-end verified on a real Electron instance: 8 type columns render with correct card distribution, and moving a card to another type updates the board within ~1.8s.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation cards guard (9 contracts) | `npm run verify:creation-cards` | Passed |
+| Renderer unit tests | `npm run test` | Passed (147) |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

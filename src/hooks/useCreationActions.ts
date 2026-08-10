@@ -219,6 +219,13 @@ export function useCreationActions() {
         void loadNavigation(projectId);
         // 若该项目已加载过大纲，结构命令（新建/改名/排序/拆并/状态）后同步刷新大纲树。
         if (state.outlines[projectId]) void loadOutline(projectId);
+        // 卡片/关系变更时刷新卡片列表（跨视图同步，如看板拖拽改类型、其他视图外部修改）。
+        if (
+          (state.cardTypes.length > 0 || state.cards.length > 0) &&
+          event.changes.some((change) => change.entity === "card" || change.entity === "cardRelation")
+        ) {
+          void loadCards({ projectId });
+        }
         for (const change of event.changes) {
           if (change.entity !== "scene") continue;
           if (change.action === "deleted") continue;
@@ -248,7 +255,7 @@ export function useCreationActions() {
         useCreationStore.getState().setWatchConnected(false);
       };
     },
-    [loadNavigation, loadOutline, loadScene, setError]
+    [loadNavigation, loadOutline, loadCards, loadScene, setError]
   );
 
   return {
