@@ -236,6 +236,39 @@ function isConstraintError(error: unknown): boolean {
   );
 }
 
+/** 回收站到期清理：永久删除超过 30 天的软删除实体（卷级联章节/场景，卡片级联关系）。 */
+function purgeExpiredTrash(database: Database): void {
+  const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const volumeRows = database
+    .prepare("SELECT id FROM volumes WHERE deleted_at IS NOT NULL AND deleted_at < ?")
+    .all(cutoff) as Array<{ id: string }>;
+  for (const volume of volumeRows) {
+    const chapterRows = database
+      .prepare("SELECT id FROM chapters WHERE volume_id = ?")
+      .all(volume.id) as Array<{ id: string }>;
+    for (const chapter of chapterRows) {
+      database.prepare("DELETE FROM scenes WHERE chapter_id = ?").run(chapter.id);
+    }
+    database.prepare("DELETE FROM chapters WHERE volume_id = ?").run(volume.id);
+    database.prepare("DELETE FROM volumes WHERE id = ?").run(volume.id);
+  }
+  const chapterRows = database
+    .prepare("SELECT id FROM chapters WHERE deleted_at IS NOT NULL AND deleted_at < ?")
+    .all(cutoff) as Array<{ id: string }>;
+  for (const chapter of chapterRows) {
+    database.prepare("DELETE FROM scenes WHERE chapter_id = ?").run(chapter.id);
+    database.prepare("DELETE FROM chapters WHERE id = ?").run(chapter.id);
+  }
+  database.prepare("DELETE FROM scenes WHERE deleted_at IS NOT NULL AND deleted_at < ?").run(cutoff);
+  const cardRows = database
+    .prepare("SELECT id FROM cards WHERE deleted_at IS NOT NULL AND deleted_at < ?")
+    .all(cutoff) as Array<{ id: string }>;
+  for (const card of cardRows) {
+    database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(card.id, card.id);
+    database.prepare("DELETE FROM cards WHERE id = ?").run(card.id);
+  }
+}
+
 function validateId(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new CreationWorkspaceError("invalid-input", `${label}不能为空。`);
@@ -3196,6 +3229,11 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
     } else if (existingVersion === 3) migrateSchemaV3ToV4(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
+    }
+    try {
+      purgeExpiredTrash(database);
+    } catch {
+      // 到期清理失败不应阻止工作区打开
     }
     return new SqliteCreationWorkspace(database);
   } catch (error) {

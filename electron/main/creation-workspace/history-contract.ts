@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import {
   CreationWorkspaceError,
   openCreationWorkspace,
@@ -172,6 +173,21 @@ async function run(): Promise<void> {
         notFound = error;
       }
       assert.equal((notFound as CreationWorkspaceError).code, "not-found");
+    });
+
+    await scenario("回收站到期自动清理（超过 30 天）", async () => {
+      const expired = await workspace!.transact({ type: "scene.create", chapterId: created.chapterId, title: "过期场景" }) as CreationStructureResult;
+      await workspace!.transact({ type: "scene.delete", sceneId: expired.entityId });
+      // 手工把 deleted_at 改到 40 天前，模拟到期
+      const raw = new Database(path.join(directory, "workspace.sqlite"));
+      const oldTime = new Date(Date.now() - 40 * 24 * 60 * 60 * 1000).toISOString();
+      raw.prepare("UPDATE scenes SET deleted_at = ? WHERE id = ?").run(oldTime, expired.entityId);
+      raw.close();
+      // 关闭后重新打开，触发到期清理
+      await workspace!.close();
+      workspace = await openCreationWorkspace({ directory });
+      const trash = (await workspace!.read({ kind: "trash.list", projectId: created.projectId })) as TrashItem[];
+      assert.equal(trash.some((item) => item.id === expired.entityId), false);
     });
 
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);

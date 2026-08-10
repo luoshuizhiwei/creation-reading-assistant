@@ -265,6 +265,18 @@ Automated Checks (appended):
 | Desktop full build | `npm run build` | Passed |
 | Renderer unit tests | `npm run test` | Passed (147) |
 
+## Creation trash expiry update (slice 8c): 2026-08-10
+
+- Recycle-bin items older than 30 days are permanently deleted automatically when the workspace opens (volumes cascade to chapters/scenes, cards cascade to relations). Open-time purge failures never block opening.
+- Contract test added: a soft-deleted scene back-dated 40 days disappears from `trash.list` after close/reopen (history guard now 10 contracts).
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation history guard (10 contracts) | `npm run verify:creation-history` | Passed |
+| Creation cards guard (re-verified) | `npm run verify:creation-cards` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.
