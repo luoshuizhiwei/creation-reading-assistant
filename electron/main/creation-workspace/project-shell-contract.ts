@@ -175,7 +175,7 @@ async function run(): Promise<void> {
       createV1Workspace(directory);
       const workspace = await openCreationWorkspace({ directory });
       const report = await workspace.check();
-      assert.equal(report.schemaVersion, 5);
+      assert.equal(report.schemaVersion, 6);
       const list = (await workspace.read({ kind: "projects.list" })) as CreationProjectSummary[];
       assert.equal(list.length, 1);
       assert.equal(list[0].id, "project-v1");
@@ -189,7 +189,7 @@ async function run(): Promise<void> {
       assert.deepEqual(tree?.project.setup, defaultSetup);
       await workspace.close();
       const raw = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(raw.pragma("user_version", { simple: true })), 5);
+      assert.equal(Number(raw.pragma("user_version", { simple: true })), 6);
       const columns = raw.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
       assert.equal(columns.some((column) => column.name === "setup_json"), true);
       raw.close();

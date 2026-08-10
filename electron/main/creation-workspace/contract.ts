@@ -149,7 +149,8 @@ async function run(): Promise<void> {
       relations: 0,
       resources: 0,
       snapshots: 1,
-      sessions: 0
+      sessions: 0,
+      inbox: 0
     });
     assert.equal(checkEvents, 0);
     unwatchCheck();

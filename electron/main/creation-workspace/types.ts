@@ -99,7 +99,14 @@ import type {
   ProofIssue,
   ProofQuery,
   ProofRule,
-  ProofView
+  ProofView,
+  InboxCreateCommand,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxItemResult,
+  InboxListQuery,
+  InboxReadQuery,
+  InboxUpdateCommand
 } from "../../../src/types/creation";
 
 export type {
@@ -203,7 +210,14 @@ export type {
   ProofIssue,
   ProofQuery,
   ProofRule,
-  ProofView
+  ProofView,
+  InboxCreateCommand,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxItemResult,
+  InboxListQuery,
+  InboxReadQuery,
+  InboxUpdateCommand
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -233,6 +247,7 @@ export interface CreationIntegrityReport {
     resources: number;
     snapshots: number;
     sessions: number;
+    inbox: number;
   };
   schema: IntegritySection;
   relations: IntegritySection;
@@ -278,7 +293,9 @@ export type CreationReadQuery =
   | ReplacePreviewQuery
   | StatsViewQuery
   | SessionListQuery
-  | ProofQuery;
+  | ProofQuery
+  | InboxListQuery
+  | InboxReadQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -298,6 +315,8 @@ export type CreationReadResult =
   | ProjectStatsView
   | SessionEntry[]
   | ProofView
+  | InboxItem[]
+  | InboxItem
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -315,7 +334,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -326,7 +345,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -353,6 +372,8 @@ export interface CreationWorkspace {
   read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
   read(query: SessionListQuery): Promise<SessionEntry[]>;
   read(query: ProofQuery): Promise<ProofView>;
+  read(query: InboxListQuery): Promise<InboxItem[]>;
+  read(query: InboxReadQuery): Promise<InboxItem | null>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -361,6 +382,7 @@ export interface CreationWorkspace {
   transact(command: HistoryCommand): Promise<CreationStructureResult>;
   transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
+  transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

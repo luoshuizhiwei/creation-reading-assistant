@@ -106,6 +106,13 @@ import {
   type ProofQuery,
   type ProofRule,
   type ProofView,
+  type InboxCreateCommand,
+  type InboxDeleteCommand,
+  type InboxItem,
+  type InboxItemResult,
+  type InboxListQuery,
+  type InboxReadQuery,
+  type InboxUpdateCommand,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -113,7 +120,7 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 
-const SCHEMA_VERSION = 5;
+const SCHEMA_VERSION = 6;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -214,6 +221,7 @@ const REQUIRED_TABLES = [
   "snapshots",
   "change_log",
   "writing_sessions",
+  "inbox_items",
   "scenes_fts"
 ] as const;
 
@@ -229,7 +237,8 @@ const REQUIRED_INDEXES = [
   "idx_card_relations_to",
   "idx_resources_project",
   "idx_snapshots_project_created",
-  "idx_writing_sessions_project_started"
+  "idx_writing_sessions_project_started",
+  "idx_inbox_items_updated"
 ] as const;
 
 function createSection(issues: Array<{ code: string; message: string }>) {
@@ -311,6 +320,16 @@ function extractSceneText(bodyJson: string): string {
     if (parts.length > 0) blocks.push(parts.join(""));
   }
   return blocks.join("\n\n");
+}
+
+/** 收件箱/卡片的 JSON 数组字段（tags 等）安全解析。 */
+function parseJsonArray(json: string): string[] {
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
+  } catch {
+    return [];
+  }
 }
 
 /** 卡片/字段/标签 JSON 的纯文本值（用于搜索上下文片段）。 */
@@ -904,6 +923,24 @@ function initializeSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_writing_sessions_project_started ON writing_sessions(project_id, started_at);
 
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      id TEXT PRIMARY KEY,
+      legacy_id TEXT,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'note',
+      status TEXT NOT NULL DEFAULT 'inbox',
+      tags_json TEXT NOT NULL DEFAULT '[]',
+      platform_tags_json TEXT NOT NULL DEFAULT '[]',
+      source_json TEXT,
+      variants_json TEXT NOT NULL DEFAULT '[]',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_items_updated ON inbox_items(updated_at);
+
     CREATE VIRTUAL TABLE IF NOT EXISTS scenes_fts USING fts5(
       title,
       body_json,
@@ -1077,6 +1114,31 @@ function migrateSchemaV4ToV5(database: Database): void {
   `);
 }
 
+function migrateSchemaV5ToV6(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      id TEXT PRIMARY KEY,
+      legacy_id TEXT,
+      title TEXT NOT NULL,
+      body TEXT NOT NULL,
+      type TEXT NOT NULL DEFAULT 'note',
+      status TEXT NOT NULL DEFAULT 'inbox',
+      tags_json TEXT NOT NULL DEFAULT '[]',
+      platform_tags_json TEXT NOT NULL DEFAULT '[]',
+      source_json TEXT,
+      variants_json TEXT NOT NULL DEFAULT '[]',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_items_updated ON inbox_items(updated_at);
+    PRAGMA user_version = 6;
+    COMMIT;
+  `);
+}
+
 function defaultProjectSetup(): CreationProjectSetup {
   return {
     template: "blank",
@@ -1211,6 +1273,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
   async read(query: SessionListQuery): Promise<SessionEntry[]>;
   async read(query: ProofQuery): Promise<ProofView>;
+  async read(query: InboxListQuery): Promise<InboxItem[]>;
+  async read(query: InboxReadQuery): Promise<InboxItem | null>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1274,6 +1338,50 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
+      }
+    }
+    if (runtimeQuery.kind === "inbox.list") {
+      const limit = (runtimeQuery as unknown as { limit?: unknown }).limit;
+      const resolvedLimit = limit === undefined ? 100 : limit;
+      if (!Number.isInteger(resolvedLimit) || (resolvedLimit as number) < 1 || (resolvedLimit as number) > 500) {
+        throw new CreationWorkspaceError("invalid-input", "收件箱返回上限必须为 1..500 的整数。");
+      }
+      try {
+        return this.runInboxList(resolvedLimit as number);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取收件箱。");
+      }
+    }
+    if (runtimeQuery.kind === "inbox.read") {
+      if (typeof (runtimeQuery as unknown as { itemId?: unknown }).itemId !== "string") {
+        throw new CreationWorkspaceError("invalid-input", "收件箱读取请求无效。");
+      }
+      try {
+        const itemId = (runtimeQuery as unknown as { itemId: string }).itemId;
+        const row = this.database
+          .prepare("SELECT id, legacy_id, title, body, type, status, tags_json, platform_tags_json, source_json, variants_json, revision, created_at, updated_at FROM inbox_items WHERE id = ? AND deleted_at IS NULL")
+          .get(itemId) as
+          | {
+              id: string;
+              legacy_id: string | null;
+              title: string;
+              body: string;
+              type: string;
+              status: string;
+              tags_json: string;
+              platform_tags_json: string;
+              source_json: string | null;
+              variants_json: string;
+              revision: number;
+              created_at: string;
+              updated_at: string;
+            }
+          | undefined;
+        return row ? this.inboxFromRow(row) : null;
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取收件箱条目。");
       }
     }
     if (runtimeQuery.kind === "stats.view") {
@@ -2441,6 +2549,214 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
+  private runInboxList(limit: number): InboxItem[] {
+    const rows = this.database
+      .prepare(
+        "SELECT id, legacy_id, title, body, type, status, tags_json, platform_tags_json, source_json, variants_json, revision, created_at, updated_at FROM inbox_items WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?"
+      )
+      .all(limit) as Array<{
+      id: string;
+      legacy_id: string | null;
+      title: string;
+      body: string;
+      type: string;
+      status: string;
+      tags_json: string;
+      platform_tags_json: string;
+      source_json: string | null;
+      variants_json: string;
+      revision: number;
+      created_at: string;
+      updated_at: string;
+    }>;
+    return rows.map((row) => this.inboxFromRow(row));
+  }
+
+  private inboxFromRow(row: {
+    id: string;
+    legacy_id: string | null;
+    title: string;
+    body: string;
+    type: string;
+    status: string;
+    tags_json: string;
+    platform_tags_json: string;
+    source_json: string | null;
+    variants_json: string;
+    revision: number;
+    created_at: string;
+    updated_at: string;
+  }): InboxItem {
+    return {
+      id: row.id,
+      legacyId: row.legacy_id,
+      title: row.title,
+      body: row.body,
+      type: row.type,
+      status: row.status,
+      tags: parseJsonArray(row.tags_json),
+      platformTags: parseJsonArray(row.platform_tags_json),
+      source: row.source_json ? (JSON.parse(row.source_json) as Record<string, unknown>) : null,
+      variants: JSON.parse(row.variants_json) as Array<Record<string, unknown>>,
+      revision: row.revision,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  private runInboxCreate(command: InboxCreateCommand): InboxItemResult {
+    const title = validateTitle(command.title, "标题", 200);
+    const body = typeof command.body === "string" ? command.body : "";
+    if (body.length > 1_000_000) throw new CreationWorkspaceError("invalid-input", "正文不能超过 1000000 个字符。");
+    const kind = typeof command.kind === "string" && command.kind.trim() ? command.kind.trim() : "note";
+    const status = typeof command.status === "string" && command.status.trim() ? command.status.trim() : "inbox";
+    const tags = Array.isArray(command.tags) ? command.tags.filter((tag): tag is string => typeof tag === "string") : [];
+    const platformTags = Array.isArray(command.platformTags)
+      ? command.platformTags.filter((tag): tag is string => typeof tag === "string")
+      : [];
+    const legacyId = typeof command.legacyId === "string" && command.legacyId.trim() ? command.legacyId.trim() : undefined;
+    const source = command.source === null || command.source === undefined ? null : command.source;
+    const variants = Array.isArray(command.variants) ? command.variants : [];
+    const itemId = `inbox-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      if (legacyId) {
+        const existing = this.database
+          .prepare("SELECT id FROM inbox_items WHERE legacy_id = ? AND deleted_at IS NULL")
+          .get(legacyId) as { id: string } | undefined;
+        if (existing) throw new CreationWorkspaceError("conflict", `收件箱已存在旧灵感 ${legacyId} 的迁移条目。`);
+      }
+      this.database
+        .prepare(
+          "INSERT INTO inbox_items(id, legacy_id, title, body, type, status, tags_json, platform_tags_json, source_json, variants_json, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?)"
+        )
+        .run(
+          itemId,
+          legacyId ?? null,
+          title,
+          body,
+          kind,
+          status,
+          JSON.stringify(tags),
+          JSON.stringify(platformTags),
+          source ? JSON.stringify(source) : null,
+          JSON.stringify(variants),
+          timestamp,
+          timestamp
+        );
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (NULL, ?, ?, ?)")
+        .run("inbox.create", JSON.stringify([{ entity: "inbox", id: itemId, action: "created", revision: 1 }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId: "",
+        commandType: "inbox.create",
+        changes: [{ entity: "inbox", id: itemId, action: "created", revision: 1 }]
+      });
+      return { commandType: "inbox.create", sequence: Number(logged.lastInsertRowid), itemId, revision: 1, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法创建收件箱条目。");
+    }
+  }
+
+  private runInboxUpdate(command: InboxUpdateCommand): InboxItemResult {
+    const itemId = validateId(command.itemId, "条目");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = this.database
+        .prepare("SELECT revision FROM inbox_items WHERE id = ? AND deleted_at IS NULL")
+        .get(itemId) as { revision: number } | undefined;
+      if (!current) throw new CreationWorkspaceError("not-found", "收件箱条目不存在。");
+      if (current.revision !== baseRevision) throw new CreationWorkspaceError("revision-mismatch", "收件箱条目已被其他修改更新。");
+      const sets: string[] = [];
+      const params: unknown[] = [];
+      if (command.title !== undefined) {
+        sets.push("title = ?");
+        params.push(validateTitle(command.title, "标题", 200));
+      }
+      if (command.body !== undefined) {
+        if (command.body.length > 1_000_000) throw new CreationWorkspaceError("invalid-input", "正文不能超过 1000000 个字符。");
+        sets.push("body = ?");
+        params.push(command.body);
+      }
+      if (command.status !== undefined) {
+        const status = typeof command.status === "string" && command.status.trim() ? command.status.trim() : "inbox";
+        sets.push("status = ?");
+        params.push(status);
+      }
+      if (command.tags !== undefined) {
+        sets.push("tags_json = ?");
+        params.push(JSON.stringify(command.tags.filter((tag): tag is string => typeof tag === "string")));
+      }
+      if (command.platformTags !== undefined) {
+        sets.push("platform_tags_json = ?");
+        params.push(JSON.stringify(command.platformTags.filter((tag): tag is string => typeof tag === "string")));
+      }
+      if (sets.length === 0) throw new CreationWorkspaceError("invalid-input", "没有要更新的字段。");
+      const revision = current.revision + 1;
+      sets.push("revision = ?");
+      params.push(revision);
+      sets.push("updated_at = ?");
+      params.push(timestamp);
+      params.push(itemId);
+      this.database.prepare(`UPDATE inbox_items SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (NULL, ?, ?, ?)")
+        .run("inbox.update", JSON.stringify([{ entity: "inbox", id: itemId, action: "updated", revision }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId: "",
+        commandType: "inbox.update",
+        changes: [{ entity: "inbox", id: itemId, action: "updated", revision }]
+      });
+      return { commandType: "inbox.update", sequence: Number(logged.lastInsertRowid), itemId, revision, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法更新收件箱条目。");
+    }
+  }
+
+  private runInboxDelete(command: InboxDeleteCommand): InboxItemResult {
+    const itemId = validateId(command.itemId, "条目");
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = this.database
+        .prepare("SELECT revision FROM inbox_items WHERE id = ? AND deleted_at IS NULL")
+        .get(itemId) as { revision: number } | undefined;
+      if (!current) throw new CreationWorkspaceError("not-found", "收件箱条目不存在。");
+      this.database.prepare("UPDATE inbox_items SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?").run(timestamp, itemId);
+      this.database.exec("COMMIT");
+      return { commandType: "inbox.delete", sequence: 0, itemId, revision: current.revision + 1, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法删除收件箱条目。");
+    }
+  }
+
   private runStatsView(projectId: string): ProjectStatsView | null {
     this.requireProject(projectId);
 
@@ -2772,6 +3088,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: HistoryCommand): Promise<CreationStructureResult>;
   async transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   async transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
+  async transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -2797,6 +3114,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "session.delete") {
       return this.sessionDelete(command as SessionDeleteCommand);
+    }
+    if (command.type === "inbox.create") {
+      return this.runInboxCreate(command as InboxCreateCommand);
+    }
+    if (command.type === "inbox.update") {
+      return this.runInboxUpdate(command as InboxUpdateCommand);
+    }
+    if (command.type === "inbox.delete") {
+      return this.runInboxDelete(command as InboxDeleteCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -4470,7 +4796,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         relations: count("card_relations"),
         resources: count("resources"),
         snapshots: count("snapshots"),
-        sessions: count("writing_sessions")
+        sessions: count("writing_sessions"),
+        inbox: count("inbox_items")
       },
       schema,
       relations,
@@ -4534,14 +4861,20 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
+      migrateSchemaV5ToV6(database);
     } else if (existingVersion === 2) {
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
+      migrateSchemaV5ToV6(database);
     } else if (existingVersion === 3) {
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
-    } else if (existingVersion === 4) migrateSchemaV4ToV5(database);
+      migrateSchemaV5ToV6(database);
+    } else if (existingVersion === 4) {
+      migrateSchemaV4ToV5(database);
+      migrateSchemaV5ToV6(database);
+    } else if (existingVersion === 5) migrateSchemaV5ToV6(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

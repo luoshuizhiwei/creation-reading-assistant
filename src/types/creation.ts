@@ -913,6 +913,79 @@ export interface ProofView {
   total: number;
 }
 
+// ---------------------------------------------------------------------------
+// 切片 11：全局收件箱（旧灵感迁移目标）
+// ---------------------------------------------------------------------------
+
+export interface InboxItem {
+  id: string;
+  /** 旧数据迁移时保留的原始灵感 ID；手工创建的条目为 null。 */
+  legacyId: string | null;
+  title: string;
+  body: string;
+  type: string;
+  status: string;
+  tags: string[];
+  platformTags: string[];
+  /** 来源快照（原灵感 source 字段的松散结构）。 */
+  source: Record<string, unknown> | null;
+  /** 全部 AI 候选版本。 */
+  variants: Array<Record<string, unknown>>;
+  revision: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface InboxListQuery {
+  kind: "inbox.list";
+  /** 返回上限，默认 100，最大 500。 */
+  limit?: number;
+}
+
+export interface InboxReadQuery {
+  kind: "inbox.read";
+  itemId: string;
+}
+
+export interface InboxCreateCommand {
+  type: "inbox.create";
+  title: string;
+  body: string;
+  /** 灵感类型（plot/character/world 等，缺省 note）。 */
+  kind?: string;
+  status?: string;
+  tags?: string[];
+  platformTags?: string[];
+  source?: Record<string, unknown> | null;
+  variants?: Array<Record<string, unknown>>;
+  /** 旧数据迁移时保留的原始灵感 ID；重复的 legacyId 拒绝创建。 */
+  legacyId?: string;
+}
+
+export interface InboxUpdateCommand {
+  type: "inbox.update";
+  itemId: string;
+  baseRevision: number;
+  title?: string;
+  body?: string;
+  status?: string;
+  tags?: string[];
+  platformTags?: string[];
+}
+
+export interface InboxDeleteCommand {
+  type: "inbox.delete";
+  itemId: string;
+}
+
+export interface InboxItemResult {
+  commandType: "inbox.create" | "inbox.update" | "inbox.delete";
+  sequence: number;
+  itemId: string;
+  revision: number;
+  updatedAt: string;
+}
+
 export interface SessionReportResult {
   commandType: "session.report" | "session.delete";
   sequence: number;
