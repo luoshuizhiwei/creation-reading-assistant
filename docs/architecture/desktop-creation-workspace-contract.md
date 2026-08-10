@@ -1,5 +1,6 @@
 # 桌面端创作工作台 — CreationWorkspace 模块契约（切片 2 现状）
 
+> ⚠️ 历史快照（2026-08-10）：切片 6 已将 schema 升级至 v3（volumes 表、章节/场景结构列）并扩展出 19 个结构命令与 `project.outline` 查询，本文件不再反映当前实现。当前契约见 [`desktop-creation-structure-contract.md`](desktop-creation-structure-contract.md)。
 > 状态：切片 2（CreationWorkspace module）实现完成，本契约按 2026-08-09 实际实现记录。
 > 本文是契约记录而非设计文档：以 `electron/main/creation-workspace/` 当前代码为准。
 > 新增 query/command/能力时，必须同步更新本文件与运行时契约测试 `contract.ts`。
