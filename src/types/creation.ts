@@ -546,3 +546,75 @@ export interface CardRelationsQuery {
   kind: "card.relations";
   cardId: string;
 }
+
+// ---------------------------------------------------------------------------
+// 切片 8：回收站与快照
+// ---------------------------------------------------------------------------
+
+export type TrashEntityKind = "volume" | "chapter" | "scene" | "card";
+
+export interface TrashItem {
+  entity: TrashEntityKind;
+  id: string;
+  projectId: string;
+  title: string;
+  deletedAt: string;
+  revision: number;
+}
+
+export interface TrashListQuery {
+  kind: "trash.list";
+  projectId: string;
+}
+
+export interface TrashRestoreCommand {
+  type: "trash.restore";
+  projectId: string;
+  entity: TrashEntityKind;
+  entityId: string;
+}
+
+export interface TrashPurgeCommand {
+  type: "trash.purge";
+  projectId: string;
+  entity: TrashEntityKind;
+  entityId: string;
+}
+
+export type SnapshotSubjectType = "scene" | "card";
+
+export interface SnapshotInfo {
+  id: string;
+  projectId: string;
+  subjectType: SnapshotSubjectType;
+  subjectId: string;
+  reason: string;
+  createdAt: string;
+}
+
+export interface SnapshotCreateCommand {
+  type: "snapshot.create";
+  projectId: string;
+  subjectType: SnapshotSubjectType;
+  subjectId: string;
+  reason: string;
+}
+
+export interface SnapshotRestoreCommand {
+  type: "snapshot.restore";
+  projectId: string;
+  snapshotId: string;
+}
+
+export interface SnapshotListQuery {
+  kind: "snapshot.list";
+  projectId: string;
+  subjectType?: SnapshotSubjectType;
+  subjectId?: string;
+}
+
+export type HistoryCommand =
+  | TrashRestoreCommand
+  | TrashPurgeCommand
+  | SnapshotCreateCommand
+  | SnapshotRestoreCommand;

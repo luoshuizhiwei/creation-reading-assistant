@@ -61,7 +61,18 @@ import type {
   CardsListQuery,
   RelationType,
   RelationTypeCreateCommand,
-  RelationTypesListQuery
+  RelationTypesListQuery,
+  HistoryCommand,
+  SnapshotCreateCommand,
+  SnapshotInfo,
+  SnapshotListQuery,
+  SnapshotRestoreCommand,
+  SnapshotSubjectType,
+  TrashEntityKind,
+  TrashItem,
+  TrashListQuery,
+  TrashPurgeCommand,
+  TrashRestoreCommand
 } from "../../../src/types/creation";
 
 export type {
@@ -127,7 +138,18 @@ export type {
   CardsListQuery,
   RelationType,
   RelationTypeCreateCommand,
-  RelationTypesListQuery
+  RelationTypesListQuery,
+  HistoryCommand,
+  SnapshotCreateCommand,
+  SnapshotInfo,
+  SnapshotListQuery,
+  SnapshotRestoreCommand,
+  SnapshotSubjectType,
+  TrashEntityKind,
+  TrashItem,
+  TrashListQuery,
+  TrashPurgeCommand,
+  TrashRestoreCommand
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -193,7 +215,9 @@ export type CreationReadQuery =
   | CardReadQuery
   | CardTypesListQuery
   | RelationTypesListQuery
-  | CardRelationsQuery;
+  | CardRelationsQuery
+  | TrashListQuery
+  | SnapshotListQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -205,6 +229,8 @@ export type CreationReadResult =
   | CardType[]
   | RelationType[]
   | { outgoing: CardRelation[]; incoming: CardRelation[] }
+  | TrashItem[]
+  | SnapshotInfo[]
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -222,7 +248,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -252,11 +278,14 @@ export interface CreationWorkspace {
   read(query: CardTypesListQuery): Promise<CardType[]>;
   read(query: RelationTypesListQuery): Promise<RelationType[]>;
   read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
+  read(query: TrashListQuery): Promise<TrashItem[]>;
+  read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   transact(command: StructureCommand): Promise<CreationStructureResult>;
   transact(command: CardCommand): Promise<CreationStructureResult>;
+  transact(command: HistoryCommand): Promise<CreationStructureResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

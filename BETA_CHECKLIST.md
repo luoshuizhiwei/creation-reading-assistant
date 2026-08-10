@@ -239,6 +239,19 @@ Automated Checks (appended):
 | Creation cards guard (9 contracts) | `npm run verify:creation-cards` | Passed |
 | Renderer unit tests | `npm run test` | Passed (147) |
 
+## Creation history update (slice 8a): 2026-08-10
+
+- Added trash/recycle-bin commands: `trash.list` (soft-deleted volumes/chapters/scenes/cards with title, deletion time and revision), `trash.restore` (restore a soft-deleted entity; restoring a volume also restores its chapters and scenes, restoring a chapter restores its scenes), and `trash.purge` (permanent delete including cascades; errors on already-persisted entities).
+- Added named snapshots: `snapshot.create` (a reason-labeled milestone capturing a scene body or a card's title/aliases/fields/tags), `snapshot.list` (per project with optional subject filter), and `snapshot.restore` (object-level restore of a scene body or card fields).
+- Added guard: `npm run verify:creation-history` (9 runtime contracts covering delete→restore cycles, cascade restore, purge, and scene/card snapshot round-trips); all creation guards and `npm run build` pass.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation history guard | `npm run verify:creation-history` | Passed |
+| Creation cards guard (re-verified) | `npm run verify:creation-cards` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.
