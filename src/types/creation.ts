@@ -774,3 +774,98 @@ export interface ReplaceApplyResult {
   snapshotIds: string[];
   updatedAt: string;
 }
+
+// ---------------------------------------------------------------------------
+// 切片 10：统计与创作目标
+// ---------------------------------------------------------------------------
+
+export interface ProjectWordCounts {
+  /** 汉字数。 */
+  han: number;
+  /** 非空白字符数（含标点、字母、数字）。 */
+  nonWhitespace: number;
+  /** 含标点字符数（汉字 + 标点符号，不含字母数字）。 */
+  withPunctuation: number;
+}
+
+export interface ProjectDailyStat {
+  /** 本地日期 YYYY-MM-DD。 */
+  date: string;
+  /** 当日净增字符（非空白，可为负）。 */
+  netChars: number;
+  /** 当日活动秒数。 */
+  activeSeconds: number;
+}
+
+export interface ProjectChapterStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface ProjectStatsView {
+  projectId: string;
+  words: ProjectWordCounts;
+  /** 活动会话时长（写入 sessions 的活动秒数）。 */
+  sessionMinutes: {
+    today: number;
+    week: number;
+    total: number;
+  };
+  /** 最近 14 天净增与活动时长（含今天）。 */
+  daily: ProjectDailyStat[];
+  /** 场景正文修订次数（保存 + 查找替换）。 */
+  revisionCount: number;
+  chapterStatusCounts: ProjectChapterStatusCount[];
+  /** 命名快照数（里程碑）。 */
+  snapshotCount: number;
+  /** 连续写作天数（按有会话记录的天数，含今天）。 */
+  streakDays: number;
+}
+
+export interface StatsViewQuery {
+  kind: "stats.view";
+  projectId: string;
+}
+
+export interface SessionReportCommand {
+  type: "session.report";
+  projectId: string;
+  sceneId?: string;
+  /** 会话段开始时间（ISO）。 */
+  startedAt: string;
+  /** 活动秒数（空闲暂停不计入）。 */
+  activeSeconds: number;
+  /** 净增字符（非空白，输入减删除，可为负）。 */
+  netChars: number;
+}
+
+export interface SessionDeleteCommand {
+  type: "session.delete";
+  projectId: string;
+  sessionId: string;
+}
+
+export interface SessionEntry {
+  id: string;
+  projectId: string;
+  sceneId: string | null;
+  startedAt: string;
+  activeSeconds: number;
+  netChars: number;
+  reportedAt: string;
+}
+
+export interface SessionListQuery {
+  kind: "session.list";
+  projectId: string;
+  /** 返回上限，默认 100，最大 500。 */
+  limit?: number;
+}
+
+export interface SessionReportResult {
+  commandType: "session.report" | "session.delete";
+  sequence: number;
+  projectId: string;
+  sessionId: string;
+  updatedAt: string;
+}

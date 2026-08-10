@@ -1,4 +1,4 @@
-@tailwind base;
+﻿@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -1404,7 +1404,7 @@ button:disabled {
   color: var(--paper-ink);
 }
 
-/* ===== 创作项目：书脊索�?+ 项目案头 ===== */
+/* ===== 鍒涗綔椤圭洰锛氫功鑴婄储锟?+ 椤圭洰妗堝ご ===== */
 .creation-workbench {
   display: grid;
   grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
@@ -1745,7 +1745,7 @@ button:disabled {
   opacity: 0.55;
 }
 
-/* ===== 新建项目向导 ===== */
+/* ===== 鏂板缓椤圭洰鍚戝 ===== */
 .creation-wizard-overlay {
   position: fixed;
   inset: 0;
@@ -2691,7 +2691,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：大纲树与卡片板（切片 6c�? * ------------------------------------------------------------------------- */
+ * 鍒涗綔宸ヤ綔鍙帮細澶х翰鏍戜笌鍗＄墖鏉匡紙鍒囩墖 6c锟? * ------------------------------------------------------------------------- */
 .writing-outline-view-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3129,7 +3129,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：卡片管理页（切片 7b�? * ------------------------------------------------------------------------- */
+ * 鍒涗綔宸ヤ綔鍙帮細鍗＄墖绠＄悊椤碉紙鍒囩墖 7b锟? * ------------------------------------------------------------------------- */
 .creation-project-tabs {
   display: inline-flex;
   gap: 4px;
@@ -3579,7 +3579,7 @@ button:disabled {
   text-align: center;
 }
 
-/* 卡片看板（按类型分列 + 拖拽�?*/
+/* 鍗＄墖鐪嬫澘锛堟寜绫诲瀷鍒嗗垪 + 鎷栨嫿锟?*/
 .cards-view-switch {
   display: inline-flex;
   border: 1px solid var(--paper-line);
@@ -3732,7 +3732,7 @@ button:disabled {
   padding: 4px;
 }
 
-/* 回收站与版本快照 */
+/* 鍥炴敹绔欎笌鐗堟湰蹇収 */
 .history-page {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr);
@@ -3843,7 +3843,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：搜索面板（切�?10b�? * ------------------------------------------------------------------------- */
+ * 鍒涗綔宸ヤ綔鍙帮細鎼滅储闈㈡澘锛堝垏锟?10b锟? * ------------------------------------------------------------------------- */
 .creation-search-overlay {
   position: fixed;
   inset: 0;
@@ -4057,8 +4057,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：查找替换面板（切片 10c）
- * ------------------------------------------------------------------------- */
+ * 鍒涗綔宸ヤ綔鍙帮細鏌ユ壘鏇挎崲闈㈡澘锛堝垏鐗?10c锛? * ------------------------------------------------------------------------- */
 .creation-replace-shell {
   width: min(680px, 100%);
 }
@@ -4183,4 +4182,163 @@ button:disabled {
   gap: 5px;
   color: var(--paper-muted);
   font-size: 11.5px;
+}
+
+/* ---------------------------------------------------------------------------
+ * 鍒涗綔宸ヤ綔鍙帮細缁熻椤碉紙鍒囩墖 10d锛? * ------------------------------------------------------------------------- */
+.stats-page {
+  display: grid;
+  gap: 12px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.stats-card {
+  border: 1px solid var(--paper-line);
+  border-radius: 14px;
+  background: var(--paper-panel);
+  padding: 14px 16px;
+  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);
+}
+
+.stats-card h3 {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--paper-muted);
+}
+
+.stats-card h3 svg {
+  color: var(--copper);
+}
+
+.stats-words {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.stats-words > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.stats-words dt {
+  color: var(--paper-muted);
+  font-size: 12.5px;
+}
+
+.stats-words dd {
+  margin: 0;
+  color: var(--paper-ink);
+  font-size: 15px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-streak {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--copper);
+  font-variant-numeric: tabular-nums;
+}
+
+.stats-note {
+  margin: 6px 0 0;
+  color: var(--paper-muted);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.stats-daily-card {
+  overflow: hidden;
+}
+
+.stats-daily {
+  display: flex;
+  align-items: flex-end;
+  gap: 6px;
+  height: 150px;
+  padding-top: 8px;
+}
+
+.stats-daily-col {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 4px;
+}
+
+.stats-daily-bar {
+  width: 70%;
+  max-width: 26px;
+  border-radius: 5px 5px 2px 2px;
+  background: color-mix(in srgb, var(--copper) 62%, var(--copper-soft));
+  min-height: 2px;
+}
+
+.stats-daily-label {
+  color: var(--paper-muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.stats-sessions-card ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.stats-session {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 9px;
+  background: var(--paper-soft);
+}
+
+.stats-session-when {
+  color: var(--paper-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.stats-session-main {
+  flex: 1;
+  min-width: 0;
+  color: var(--paper-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.stats-session-main em {
+  margin-left: 8px;
+  font-style: normal;
+  font-size: 12px;
+  color: var(--moss);
+}
+
+.stats-session-main em.negative {
+  color: #c0392b;
 }

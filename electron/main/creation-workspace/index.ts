@@ -94,6 +94,14 @@ import {
   type ReplacePreviewQuery,
   type ReplacePreviewView,
   type ReplaceScope,
+  type ProjectDailyStat,
+  type ProjectStatsView,
+  type SessionDeleteCommand,
+  type SessionEntry,
+  type SessionListQuery,
+  type SessionReportCommand,
+  type SessionReportResult,
+  type StatsViewQuery,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -101,7 +109,7 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 
-const SCHEMA_VERSION = 4;
+const SCHEMA_VERSION = 5;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -184,6 +192,7 @@ const REQUIRED_TABLES = [
   "resources",
   "snapshots",
   "change_log",
+  "writing_sessions",
   "scenes_fts"
 ] as const;
 
@@ -198,7 +207,8 @@ const REQUIRED_INDEXES = [
   "idx_card_relations_from",
   "idx_card_relations_to",
   "idx_resources_project",
-  "idx_snapshots_project_created"
+  "idx_snapshots_project_created",
+  "idx_writing_sessions_project_started"
 ] as const;
 
 function createSection(issues: Array<{ code: string; message: string }>) {
@@ -701,6 +711,17 @@ function initializeSchema(database: Database): void {
       committed_at TEXT NOT NULL
     );
 
+    CREATE TABLE IF NOT EXISTS writing_sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      scene_id TEXT,
+      started_at TEXT NOT NULL,
+      active_seconds INTEGER NOT NULL DEFAULT 0,
+      net_chars INTEGER NOT NULL DEFAULT 0,
+      reported_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_writing_sessions_project_started ON writing_sessions(project_id, started_at);
+
     CREATE VIRTUAL TABLE IF NOT EXISTS scenes_fts USING fts5(
       title,
       body_json,
@@ -856,6 +877,24 @@ function migrateSchemaV3ToV4(database: Database): void {
   seedBuiltinCardData(database);
 }
 
+function migrateSchemaV4ToV5(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS writing_sessions (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      scene_id TEXT,
+      started_at TEXT NOT NULL,
+      active_seconds INTEGER NOT NULL DEFAULT 0,
+      net_chars INTEGER NOT NULL DEFAULT 0,
+      reported_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_writing_sessions_project_started ON writing_sessions(project_id, started_at);
+    PRAGMA user_version = 5;
+    COMMIT;
+  `);
+}
+
 function defaultProjectSetup(): CreationProjectSetup {
   return {
     template: "blank",
@@ -987,6 +1026,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   async read(query: CreationSearchQuery): Promise<CreationSearchView>;
   async read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
+  async read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
+  async read(query: SessionListQuery): Promise<SessionEntry[]>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1042,6 +1083,33 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法生成查找替换预览。");
+      }
+    }
+    if (runtimeQuery.kind === "stats.view") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "统计读取请求无效。");
+      }
+      try {
+        return this.runStatsView(runtimeQuery.projectId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取创作统计。");
+      }
+    }
+    if (runtimeQuery.kind === "session.list") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "会话读取请求无效。");
+      }
+      const limit = (runtimeQuery as unknown as { limit?: unknown }).limit;
+      const resolvedLimit = limit === undefined ? 100 : limit;
+      if (!Number.isInteger(resolvedLimit) || (resolvedLimit as number) < 1 || (resolvedLimit as number) > 500) {
+        throw new CreationWorkspaceError("invalid-input", "会话返回上限必须为 1..500 的整数。");
+      }
+      try {
+        return this.runSessionList(runtimeQuery.projectId, resolvedLimit as number);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取写作会话。");
       }
     }
     if (
@@ -1999,6 +2067,206 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private sessionReport(command: SessionReportCommand): SessionReportResult {
+    const projectId = validateId(command.projectId, "作品");
+    this.requireProject(projectId);
+    const sceneId = typeof command.sceneId === "string" && command.sceneId.trim() ? command.sceneId.trim() : undefined;
+    const startedAt = typeof command.startedAt === "string" && !Number.isNaN(Date.parse(command.startedAt))
+      ? new Date(command.startedAt).toISOString()
+      : new Date().toISOString();
+    const activeSeconds = command.activeSeconds;
+    if (!Number.isFinite(activeSeconds) || activeSeconds < 0 || activeSeconds > 86_400) {
+      throw new CreationWorkspaceError("invalid-input", "活动时长必须在 0 至 86400 秒之间。");
+    }
+    const netChars = command.netChars;
+    if (!Number.isFinite(netChars) || netChars < -1_000_000 || netChars > 1_000_000) {
+      throw new CreationWorkspaceError("invalid-input", "净增字符数超出允许范围。");
+    }
+    const sessionId = `session-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      if (sceneId) {
+        this.database.prepare("SELECT id FROM scenes WHERE id = ? AND deleted_at IS NULL").get(sceneId);
+      }
+      this.database
+        .prepare(
+          "INSERT INTO writing_sessions(id, project_id, scene_id, started_at, active_seconds, net_chars, reported_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(sessionId, projectId, sceneId, startedAt, Math.round(activeSeconds), Math.round(netChars), timestamp);
+      this.touchProject(projectId, timestamp);
+      this.database.exec("COMMIT");
+      return { commandType: "session.report", sequence: 0, projectId, sessionId, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法写入写作会话。");
+    }
+  }
+
+  private sessionDelete(command: SessionDeleteCommand): SessionReportResult {
+    const projectId = validateId(command.projectId, "作品");
+    const sessionId = validateId(command.sessionId, "会话");
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const row = this.database
+        .prepare("SELECT id FROM writing_sessions WHERE id = ? AND project_id = ?")
+        .get(sessionId, projectId) as { id: string } | undefined;
+      if (!row) throw new CreationWorkspaceError("not-found", "会话不存在。");
+      this.database.prepare("DELETE FROM writing_sessions WHERE id = ?").run(sessionId);
+      this.touchProject(projectId, timestamp);
+      this.database.exec("COMMIT");
+      return { commandType: "session.delete", sequence: 0, projectId, sessionId, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法删除写作会话。");
+    }
+  }
+
+  private runSessionList(projectId: string, limit: number): SessionEntry[] {
+    this.requireProject(projectId);
+    const rows = this.database
+      .prepare(
+        "SELECT id, project_id, scene_id, started_at, active_seconds, net_chars, reported_at FROM writing_sessions WHERE project_id = ? ORDER BY reported_at DESC, id DESC LIMIT ?"
+      )
+      .all(projectId, limit) as Array<{
+      id: string;
+      project_id: string;
+      scene_id: string | null;
+      started_at: string;
+      active_seconds: number;
+      net_chars: number;
+      reported_at: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      sceneId: row.scene_id,
+      startedAt: row.started_at,
+      activeSeconds: row.active_seconds,
+      netChars: row.net_chars,
+      reportedAt: row.reported_at
+    }));
+  }
+
+  private runStatsView(projectId: string): ProjectStatsView | null {
+    this.requireProject(projectId);
+
+    const sceneRows = this.database
+      .prepare(
+        `SELECT s.body_json
+         FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+         WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?`
+      )
+      .all(projectId) as Array<{ body_json: string }>;
+    let han = 0;
+    let nonWhitespace = 0;
+    let withPunctuation = 0;
+    for (const row of sceneRows) {
+      const plain = extractSceneText(row.body_json);
+      for (const character of plain) {
+        if (/\p{Script=Han}/u.test(character)) {
+          han += 1;
+          withPunctuation += 1;
+        } else if (!/\s/u.test(character) && /[\p{P}\p{S}]/u.test(character)) {
+          withPunctuation += 1;
+        }
+        if (!/\s/u.test(character)) nonWhitespace += 1;
+      }
+    }
+
+    const sessionRows = this.database
+      .prepare(
+        "SELECT started_at, active_seconds, net_chars FROM writing_sessions WHERE project_id = ? ORDER BY started_at"
+      )
+      .all(projectId) as Array<{ started_at: string; active_seconds: number; net_chars: number }>;
+
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - ((now.getDay() + 6) % 7));
+    const dailyMap = new Map<string, { netChars: number; activeSeconds: number }>();
+    const localDateKey = (date: Date): string => {
+      const year = date.getFullYear();
+      const month = String(date.getMonth() + 1).padStart(2, "0");
+      const day = String(date.getDate()).padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    };
+    let todayMinutes = 0;
+    let weekMinutes = 0;
+    let totalMinutes = 0;
+    const daySet = new Set<string>();
+    for (const row of sessionRows) {
+      const started = new Date(row.started_at);
+      const key = localDateKey(started);
+      daySet.add(key);
+      const entry = dailyMap.get(key) ?? { netChars: 0, activeSeconds: 0 };
+      entry.netChars += row.net_chars;
+      entry.activeSeconds += row.active_seconds;
+      dailyMap.set(key, entry);
+      totalMinutes += row.active_seconds;
+      if (started >= startOfToday) todayMinutes += row.active_seconds;
+      if (started >= startOfWeek) weekMinutes += row.active_seconds;
+    }
+    const daily: ProjectDailyStat[] = [];
+    for (let offset = 13; offset >= 0; offset -= 1) {
+      const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
+      const key = localDateKey(date);
+      const entry = dailyMap.get(key);
+      daily.push({
+        date: key,
+        netChars: entry?.netChars ?? 0,
+        activeSeconds: entry?.activeSeconds ?? 0
+      });
+    }
+
+    let streakDays = 0;
+    const cursor = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    for (let offset = 0; offset < 3650; offset += 1) {
+      if (!daySet.has(localDateKey(cursor))) break;
+      streakDays += 1;
+      cursor.setDate(cursor.getDate() - 1);
+    }
+
+    const revisionRow = this.database
+      .prepare(
+        "SELECT count(*) AS count FROM change_log WHERE project_id = ? AND command_type IN ('scene.updateBody', 'replace.apply')"
+      )
+      .get(projectId) as { count: number };
+    const statusRows = this.database
+      .prepare(
+        "SELECT status, count(*) AS count FROM chapters WHERE project_id = ? AND deleted_at IS NULL GROUP BY status"
+      )
+      .all(projectId) as Array<{ status: string; count: number }>;
+    const snapshotRow = this.database
+      .prepare("SELECT count(*) AS count FROM snapshots WHERE project_id = ?")
+      .get(projectId) as { count: number };
+
+    return {
+      projectId,
+      words: { han, nonWhitespace, withPunctuation },
+      sessionMinutes: {
+        today: Math.round(todayMinutes / 60),
+        week: Math.round(weekMinutes / 60),
+        total: Math.round(totalMinutes / 60)
+      },
+      daily,
+      revisionCount: revisionRow.count,
+      chapterStatusCounts: statusRows.map((row) => ({ status: row.status, count: row.count })),
+      snapshotCount: snapshotRow.count,
+      streakDays
+    };
+  }
+
   private readCard(cardId: string): CardSummary | null {
     const row = this.database
       .prepare(
@@ -2221,6 +2489,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: CardCommand): Promise<CreationStructureResult>;
   async transact(command: HistoryCommand): Promise<CreationStructureResult>;
   async transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
+  async transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -2240,6 +2509,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "replace.apply") {
       return this.replaceApply(command as ReplaceApplyCommand);
+    }
+    if (command.type === "session.report") {
+      return this.sessionReport(command as SessionReportCommand);
+    }
+    if (command.type === "session.delete") {
+      return this.sessionDelete(command as SessionDeleteCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -3912,7 +4187,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         cards: count("cards"),
         relations: count("card_relations"),
         resources: count("resources"),
-        snapshots: count("snapshots")
+        snapshots: count("snapshots"),
+        sessions: count("writing_sessions")
       },
       schema,
       relations,
@@ -3975,10 +4251,15 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV1ToV2(database);
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
+      migrateSchemaV4ToV5(database);
     } else if (existingVersion === 2) {
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
-    } else if (existingVersion === 3) migrateSchemaV3ToV4(database);
+      migrateSchemaV4ToV5(database);
+    } else if (existingVersion === 3) {
+      migrateSchemaV3ToV4(database);
+      migrateSchemaV4ToV5(database);
+    } else if (existingVersion === 4) migrateSchemaV4ToV5(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

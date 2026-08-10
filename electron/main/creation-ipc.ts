@@ -22,6 +22,10 @@ import type {
   ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
+  SessionEntry,
+  SessionListQuery,
+  SessionReportCommand,
+  SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
   StructureCommand,
@@ -146,6 +150,26 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
     coordinator.withWorkspace(
       (workspace) => workspace.transact(command as ReplaceApplyCommand) as Promise<ReplaceApplyResult>
     )
+  );
+
+  ipcMain.handle("creation:statsView", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "stats.view", projectId }))
+  );
+
+  ipcMain.handle("creation:sessionList", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as SessionListQuery) as Promise<SessionEntry[]>
+    )
+  );
+
+  ipcMain.handle("creation:sessionReport", (_event, command: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.transact(command as SessionReportCommand) as Promise<SessionReportResult>
+    )
+  );
+
+  ipcMain.handle("creation:sessionDelete", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as SessionReportCommand))
   );
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {

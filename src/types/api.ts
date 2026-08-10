@@ -40,6 +40,7 @@ import type {
   CreationSearchView,
   CreationStructureResult,
   HistoryCommand,
+  ProjectStatsView,
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
@@ -47,6 +48,11 @@ import type {
   ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
+  SessionDeleteCommand,
+  SessionEntry,
+  SessionListQuery,
+  SessionReportCommand,
+  SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
   StructureCommand,
@@ -131,6 +137,10 @@ export interface DesktopApi {
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
     replacePreview: (query: ReplacePreviewQuery) => Promise<ReplacePreviewView>;
     replaceApply: (command: ReplaceApplyCommand) => Promise<ReplaceApplyResult>;
+    statsView: (projectId: string) => Promise<ProjectStatsView | null>;
+    sessionList: (query: SessionListQuery) => Promise<SessionEntry[]>;
+    sessionReport: (command: SessionReportCommand) => Promise<SessionReportResult>;
+    sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

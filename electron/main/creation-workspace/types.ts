@@ -87,7 +87,15 @@ import type {
   ReplacePreviewHit,
   ReplacePreviewQuery,
   ReplacePreviewView,
-  ReplaceScope
+  ReplaceScope,
+  ProjectDailyStat,
+  ProjectStatsView,
+  SessionDeleteCommand,
+  SessionReportCommand,
+  SessionReportResult,
+  SessionEntry,
+  SessionListQuery,
+  StatsViewQuery
 } from "../../../src/types/creation";
 
 export type {
@@ -116,7 +124,6 @@ export type {
   CreationProjectSummary,
   CreationProjectTemplate,
   CreationProjectTree,
-  CreationStructureResult,
   CreationVolume,
   CreateProjectInput,
   CreationWorkspaceErrorCode,
@@ -129,6 +136,7 @@ export type {
   SceneRenameCommand,
   SceneReorderCommand,
   StructureCommand,
+  CreationStructureResult,
   UpdateSceneBodyInput,
   UpdateSceneBodyResult,
   VolumeCreateCommand,
@@ -179,7 +187,15 @@ export type {
   ReplacePreviewHit,
   ReplacePreviewQuery,
   ReplacePreviewView,
-  ReplaceScope
+  ReplaceScope,
+  ProjectDailyStat,
+  ProjectStatsView,
+  SessionDeleteCommand,
+  SessionEntry,
+  SessionListQuery,
+  SessionReportCommand,
+  SessionReportResult,
+  StatsViewQuery
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -208,6 +224,7 @@ export interface CreationIntegrityReport {
     relations: number;
     resources: number;
     snapshots: number;
+    sessions: number;
   };
   schema: IntegritySection;
   relations: IntegritySection;
@@ -250,7 +267,9 @@ export type CreationReadQuery =
   | SnapshotListQuery
   | ProjectExportQuery
   | CreationSearchQuery
-  | ReplacePreviewQuery;
+  | ReplacePreviewQuery
+  | StatsViewQuery
+  | SessionListQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -267,6 +286,8 @@ export type CreationReadResult =
   | ProjectExportView
   | CreationSearchView
   | ReplacePreviewView
+  | ProjectStatsView
+  | SessionEntry[]
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -284,7 +305,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -295,7 +316,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -319,6 +340,8 @@ export interface CreationWorkspace {
   read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   read(query: CreationSearchQuery): Promise<CreationSearchView>;
   read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
+  read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
+  read(query: SessionListQuery): Promise<SessionEntry[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -326,6 +349,7 @@ export interface CreationWorkspace {
   transact(command: CardCommand): Promise<CreationStructureResult>;
   transact(command: HistoryCommand): Promise<CreationStructureResult>;
   transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
+  transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

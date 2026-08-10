@@ -4,6 +4,7 @@ import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
+import { StatsPage } from "@/features/creation/stats/StatsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
 import { SearchPanel } from "@/features/creation/search/SearchPanel";
@@ -25,7 +26,7 @@ export function CreationProjectsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
-  const [view, setView] = useState<"writing" | "cards" | "history">("writing");
+  const [view, setView] = useState<"writing" | "cards" | "history" | "stats">("writing");
 
   useEffect(() => {
     void loadProjects();
@@ -105,13 +106,15 @@ export function CreationProjectsPage() {
         <section className="desktop-page-hero motion-panel creation-writing-hero">
           <div>
             <div className="desktop-card-label">Creation desk</div>
-            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : "历史与回收站"}</h2>
+            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : view === "history" ? "历史与回收站" : "统计与创作目标"}</h2>
             <p>
               {view === "writing"
                 ? "在场景中连续写作；卷章结构在大纲树中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
                 : view === "cards"
                   ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
-                  : "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"}
+                  : view === "history"
+                    ? "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
+                    : "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"}
             </p>
           </div>
           <div className="desktop-page-actions">
@@ -168,11 +171,22 @@ export function CreationProjectsPage() {
               >
                 历史
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "stats"}
+                className={view === "stats" ? "active" : ""}
+                onClick={() => setView("stats")}
+              >
+                统计
+              </button>
             </div>
             {view === "cards" ? (
               <CardsPage project={selected} />
             ) : view === "history" ? (
               <HistoryPage project={selected} />
+            ) : view === "stats" ? (
+              <StatsPage projectId={selected.id} />
             ) : navigation ? (
               <WritingDesk
                 projects={projects}

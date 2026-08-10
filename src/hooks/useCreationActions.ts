@@ -15,7 +15,11 @@ import {
   replacePreview as replacePreviewRequest,
   runStructure as runStructureRequest,
   search as searchRequest,
+  sessionDelete as sessionDeleteRequest,
+  sessionList as sessionListRequest,
+  sessionReport as sessionReportRequest,
   snapshotList,
+  statsView as statsViewRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -38,6 +42,9 @@ import type {
   ReplacePreviewQuery,
   ReplacePreviewView,
   SceneSaveResponse,
+  SessionDeleteCommand,
+  SessionListQuery,
+  SessionReportCommand,
   SnapshotListQuery,
   StructureCommand,
   TrashEntityKind
@@ -277,6 +284,56 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadStats = useCallback(
+    async (projectId: string) => {
+      try {
+        return await statsViewRequest(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const loadSessions = useCallback(
+    async (query: Omit<SessionListQuery, "kind">) => {
+      try {
+        return await sessionListRequest({ kind: "session.list", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
+      }
+    },
+    [setError]
+  );
+
+  const reportSession = useCallback(
+    async (command: Omit<SessionReportCommand, "type">): Promise<boolean> => {
+      try {
+        await sessionReportRequest({ type: "session.report", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const deleteSession = useCallback(
+    async (command: Omit<SessionDeleteCommand, "type">): Promise<boolean> => {
+      try {
+        await sessionDeleteRequest({ type: "session.delete", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -387,6 +444,10 @@ export function useCreationActions() {
     search,
     replacePreview,
     replaceApply,
+    loadStats,
+    loadSessions,
+    reportSession,
+    deleteSession,
     subscribeProject
   };
 }

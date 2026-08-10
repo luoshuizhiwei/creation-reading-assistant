@@ -329,7 +329,7 @@ async function run(): Promise<void> {
       assert.equal(outline.volumes[0]?.chapters[0]?.scenes[0]?.id, "scene-v2");
       assert.equal(outline.looseChapters.length, 0);
       const report = await migrated.check();
-      assert.equal(report.schemaVersion, 4);
+      assert.equal(report.schemaVersion, 5);
       assert.equal(report.counts.volumes, 1);
       await migrated.close();
     });

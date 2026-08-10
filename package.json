@@ -35,6 +35,7 @@
     "verify:creation-export": "node scripts/verify-creation-export.mjs",
     "verify:creation-search": "node scripts/verify-creation-search.mjs",
     "verify:creation-replace": "node scripts/verify-creation-replace.mjs",
+    "verify:creation-stats": "node scripts/verify-creation-stats.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",

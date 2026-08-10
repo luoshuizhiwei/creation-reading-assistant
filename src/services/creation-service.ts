@@ -14,6 +14,7 @@ import type {
   CreationSearchView,
   CreationStructureResult,
   HistoryCommand,
+  ProjectStatsView,
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
@@ -21,6 +22,11 @@ import type {
   ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
+  SessionDeleteCommand,
+  SessionEntry,
+  SessionListQuery,
+  SessionReportCommand,
+  SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
   StructureCommand,
@@ -119,4 +125,20 @@ export async function replacePreview(query: ReplacePreviewQuery): Promise<Replac
 
 export async function replaceApply(command: ReplaceApplyCommand): Promise<ReplaceApplyResult> {
   return getCreationApi().replaceApply(command);
+}
+
+export async function statsView(projectId: string): Promise<ProjectStatsView | null> {
+  return getCreationApi().statsView(projectId);
+}
+
+export async function sessionList(query: SessionListQuery): Promise<SessionEntry[]> {
+  return getCreationApi().sessionList(query);
+}
+
+export async function sessionReport(command: SessionReportCommand): Promise<SessionReportResult> {
+  return getCreationApi().sessionReport(command);
+}
+
+export async function sessionDelete(command: SessionDeleteCommand): Promise<SessionReportResult> {
+  return getCreationApi().sessionDelete(command);
 }

@@ -9,6 +9,9 @@ import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { CreationProjectNavigation, CreationProjectSummary, StructureCommand } from "@/types/creation";
 
+/** 写作会话：空闲超过该时长（毫秒）即结算并上报当前段。 */
+const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
 interface WritingDeskProps {
   projects: CreationProjectSummary[];
   project: CreationProjectSummary;
@@ -26,13 +29,75 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const selectScene = useCreationStore((state) => state.selectScene);
   const dismissRecoveryNotice = useCreationStore((state) => state.dismissRecoveryNotice);
   const setLeaveGuard = useCreationStore((state) => state.setLeaveGuard);
-  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject } = useCreationActions();
+  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject, reportSession } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const editorRef = useRef<SceneEditorHandle>(null);
   const [outlineView, setOutlineView] = useState<"tree" | "board">("tree");
   const [focusMode, setFocusMode] = useState(() => window.matchMedia("(max-width: 920px)").matches);
   const [typewriter, setTypewriter] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
+
+  const sessionRef = useRef<{
+    sceneId: string | null;
+    startedAt: number;
+    startChars: number;
+    lastActivity: number;
+  } | null>(null);
+
+  const settleSession = useCallback(() => {
+    const session = sessionRef.current;
+    if (!session) return;
+    sessionRef.current = null;
+    const activeMs = Math.max(0, session.lastActivity - session.startedAt);
+    const activeSeconds = Math.round(activeMs / 1000);
+    if (activeSeconds < 1) return;
+    void reportSession({
+      projectId: project.id,
+      sceneId: session.sceneId ?? undefined,
+      startedAt: new Date(session.startedAt).toISOString(),
+      activeSeconds,
+      netChars: characterCountRef.current - session.startChars
+    });
+  }, [project.id, reportSession]);
+
+  const characterCountRef = useRef(0);
+  characterCountRef.current = characterCount;
+
+  const handleStatsChange = useCallback((count: number) => {
+    setCharacterCount(count);
+    const now = Date.now();
+    const session = sessionRef.current;
+    if (session && session.sceneId === selectedSceneIdRef.current) {
+      session.lastActivity = now;
+      return;
+    }
+    if (session) settleSession();
+    sessionRef.current = {
+      sceneId: selectedSceneIdRef.current ?? null,
+      startedAt: now,
+      startChars: count,
+      lastActivity: now
+    };
+  }, [settleSession]);
+
+  const selectedSceneIdRef = useRef<string | undefined>(undefined);
+  selectedSceneIdRef.current = selectedSceneId;
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const session = sessionRef.current;
+      if (session && Date.now() - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) settleSession();
+    }, 30_000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "hidden") settleSession();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      settleSession();
+    };
+  }, [settleSession]);
 
   const outline = outlines[project.id];
   const workflow = project.setup.chapterWorkflow;
@@ -159,7 +224,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
               view={sceneView}
               onSave={saveSceneBody}
               onReloadScene={() => loadScene(selectedSceneId)}
-              onStatsChange={setCharacterCount}
+              onStatsChange={handleStatsChange}
               focusMode={focusMode}
               onToggleFocusMode={() => setFocusMode((value) => !value)}
               typewriter={typewriter}
