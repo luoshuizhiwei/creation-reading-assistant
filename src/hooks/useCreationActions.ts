@@ -11,6 +11,8 @@ import {
   readProjectOutline,
   readSceneBody,
   relationTypesList,
+  replaceApply as replaceApplyRequest,
+  replacePreview as replacePreviewRequest,
   runStructure as runStructureRequest,
   search as searchRequest,
   snapshotList,
@@ -32,6 +34,9 @@ import type {
   CreationSearchView,
   CreationWorkspaceEvent,
   HistoryCommand,
+  ReplaceApplyCommand,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
   SceneSaveResponse,
   SnapshotListQuery,
   StructureCommand,
@@ -239,6 +244,39 @@ export function useCreationActions() {
     [setError]
   );
 
+  const replacePreview = useCallback(
+    async (query: Omit<ReplacePreviewQuery, "kind">): Promise<ReplacePreviewView> => {
+      try {
+        return await replacePreviewRequest({ kind: "replace.preview", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return {
+          projectId: query.projectId,
+          find: query.find,
+          replaceWith: query.replaceWith,
+          scope: query.scope,
+          sceneHits: [],
+          totalHits: 0,
+          matchedScenes: 0
+        };
+      }
+    },
+    [setError]
+  );
+
+  const replaceApply = useCallback(
+    async (command: ReplaceApplyCommand): Promise<boolean> => {
+      try {
+        await replaceApplyRequest(command);
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -347,6 +385,8 @@ export function useCreationActions() {
     loadSnapshots,
     exportDraft,
     search,
+    replacePreview,
+    replaceApply,
     subscribeProject
   };
 }

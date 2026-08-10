@@ -1404,7 +1404,7 @@ button:disabled {
   color: var(--paper-ink);
 }
 
-/* ===== 创作项目：书脊索�?+ 项目案头 ===== */
+/* ===== 创作项目：书脊索�?+ 项目案头 ===== */
 .creation-workbench {
   display: grid;
   grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);
@@ -2691,7 +2691,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：大纲树与卡片板（切片 6c�? * ------------------------------------------------------------------------- */
+ * 创作工作台：大纲树与卡片板（切片 6c�? * ------------------------------------------------------------------------- */
 .writing-outline-view-switch {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3129,7 +3129,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：卡片管理页（切片 7b�? * ------------------------------------------------------------------------- */
+ * 创作工作台：卡片管理页（切片 7b�? * ------------------------------------------------------------------------- */
 .creation-project-tabs {
   display: inline-flex;
   gap: 4px;
@@ -3579,7 +3579,7 @@ button:disabled {
   text-align: center;
 }
 
-/* 卡片看板（按类型分列 + 拖拽�?*/
+/* 卡片看板（按类型分列 + 拖拽�?*/
 .cards-view-switch {
   display: inline-flex;
   border: 1px solid var(--paper-line);
@@ -3843,7 +3843,7 @@ button:disabled {
 }
 
 /* ---------------------------------------------------------------------------
- * 创作工作台：搜索面板（切�?10b�? * ------------------------------------------------------------------------- */
+ * 创作工作台：搜索面板（切�?10b�? * ------------------------------------------------------------------------- */
 .creation-search-overlay {
   position: fixed;
   inset: 0;
@@ -4054,4 +4054,133 @@ button:disabled {
 
 .creation-search-hit:hover .creation-search-hit-arrow {
   color: var(--copper);
+}
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：查找替换面板（切片 10c）
+ * ------------------------------------------------------------------------- */
+.creation-replace-shell {
+  width: min(680px, 100%);
+}
+
+.creation-replace-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 16px 0;
+}
+
+.creation-replace-row .paper-input {
+  flex: 1;
+  min-width: 0;
+}
+
+.creation-replace-filters {
+  justify-content: space-between;
+}
+
+.creation-replace-regex {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-muted);
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.creation-replace-summary {
+  margin: 6px 8px 2px;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
+  border: 1px solid color-mix(in srgb, var(--copper) 22%, var(--paper-line));
+  color: var(--paper-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.creation-replace-list {
+  display: grid;
+  gap: 4px;
+  padding-top: 6px;
+}
+
+.creation-replace-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 9px 12px;
+  border-radius: 10px;
+  cursor: pointer;
+}
+
+.creation-replace-item:hover {
+  background: var(--paper-soft);
+}
+
+.creation-replace-item input {
+  margin-top: 4px;
+  accent-color: var(--copper);
+}
+
+.creation-replace-item-main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 3px;
+}
+
+.creation-replace-item-title {
+  color: var(--paper-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.creation-replace-item-title em {
+  margin-left: 8px;
+  color: var(--paper-muted);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 500;
+}
+
+.creation-replace-item-snippet {
+  color: var(--paper-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.creation-replace-item-count {
+  flex-shrink: 0;
+  margin-top: 2px;
+  min-width: 28px;
+  text-align: center;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
+  color: var(--copper);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 2px 8px;
+}
+
+.creation-replace-item input:not(:checked) ~ .creation-replace-item-main {
+  opacity: 0.55;
+}
+
+.creation-replace-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--paper-line);
+}
+
+.creation-replace-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--paper-muted);
+  font-size: 11.5px;
 }

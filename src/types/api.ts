@@ -41,6 +41,10 @@ import type {
   CreationStructureResult,
   HistoryCommand,
   RelationType,
+  ReplaceApplyCommand,
+  ReplaceApplyResult,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
   SnapshotInfo,
@@ -125,6 +129,8 @@ export interface DesktopApi {
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
+    replacePreview: (query: ReplacePreviewQuery) => Promise<ReplacePreviewView>;
+    replaceApply: (command: ReplaceApplyCommand) => Promise<ReplaceApplyResult>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

@@ -705,3 +705,72 @@ export interface CreationSearchView {
   hits: CreationSearchHit[];
   total: number;
 }
+
+export type ReplaceScope = "project" | "volume" | "chapter" | "scene";
+
+export interface ReplacePreviewHit {
+  sceneId: string;
+  chapterId: string;
+  chapterTitle: string;
+  sceneTitle: string;
+  /** 该场景命中次数。 */
+  count: number;
+  /** 命中上下文示例（最多 5 条，按出现顺序）。 */
+  snippets: string[];
+}
+
+export interface ReplacePreviewQuery {
+  kind: "replace.preview";
+  projectId: string;
+  /** 查找文本（普通文本或受限正则，见 regex）。 */
+  find: string;
+  /** 替换文本（普通字符串；regex 模式下支持 $1 引用捕获组）。 */
+  replaceWith: string;
+  /** 替换范围：项目 / 卷 / 章 / 场景。 */
+  scope: ReplaceScope;
+  /** scope 为 volume/chapter/scene 时对应的实体 ID。 */
+  scopeId?: string;
+  /** 高级模式：把 find 视为受限正则（禁用 lookaround/backreference，长度 ≤ 200）。 */
+  regex?: boolean;
+  /** 预览场景数上限，默认 200，最大 1000。 */
+  limit?: number;
+}
+
+export interface ReplacePreviewView {
+  projectId: string;
+  find: string;
+  replaceWith: string;
+  scope: ReplaceScope;
+  sceneHits: ReplacePreviewHit[];
+  /** 全部命中总数。 */
+  totalHits: number;
+  /** 命中场景数。 */
+  matchedScenes: number;
+}
+
+export interface ReplaceApplyCommand {
+  type: "replace.apply";
+  projectId: string;
+  find: string;
+  replaceWith: string;
+  scope: ReplaceScope;
+  scopeId?: string;
+  regex?: boolean;
+  /** 逐条排除的场景 ID（预览后由用户勾选）。 */
+  excludeSceneIds?: string[];
+}
+
+export interface ReplaceApplyResult {
+  commandType: "replace.apply";
+  sequence: number;
+  projectId: string;
+  /** 实际修改的场景数。 */
+  appliedScenes: number;
+  /** 实际替换的命中总数。 */
+  appliedHits: number;
+  /** 因排除而跳过的场景数。 */
+  skippedScenes: number;
+  /** 自动保护快照 ID（每修改场景一个）。 */
+  snapshotIds: string[];
+  updatedAt: string;
+}

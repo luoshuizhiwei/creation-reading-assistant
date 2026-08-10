@@ -15,6 +15,10 @@ import type {
   CreationStructureResult,
   HistoryCommand,
   RelationType,
+  ReplaceApplyCommand,
+  ReplaceApplyResult,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
   SnapshotInfo,
@@ -107,4 +111,12 @@ export async function watchProject(
 
 export async function search(query: CreationSearchQuery): Promise<CreationSearchView> {
   return getCreationApi().search(query);
+}
+
+export async function replacePreview(query: ReplacePreviewQuery): Promise<ReplacePreviewView> {
+  return getCreationApi().replacePreview(query);
+}
+
+export async function replaceApply(command: ReplaceApplyCommand): Promise<ReplaceApplyResult> {
+  return getCreationApi().replaceApply(command);
 }

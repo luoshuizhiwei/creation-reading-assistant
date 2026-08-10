@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { BookMarked, Download, Plus, Search } from "lucide-react";
+import { BookMarked, Download, Plus, Replace, Search } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
+import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
 import { SearchPanel } from "@/features/creation/search/SearchPanel";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
@@ -23,6 +24,7 @@ export function CreationProjectsPage() {
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [replaceOpen, setReplaceOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history">("writing");
 
   useEffect(() => {
@@ -36,6 +38,13 @@ export function CreationProjectsPage() {
 
   const selected = projects.find((project) => project.id === selectedId);
   const navigation = selectedId ? navigations[selectedId] : undefined;
+  const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
+  const selectedScene = navigation?.chapters.flatMap((chapter) => chapter.scenes).find(
+    (scene) => scene.id === selectedSceneId
+  );
+  const selectedChapter = selectedScene
+    ? navigation?.chapters.find((chapter) => chapter.scenes.some((scene) => scene.id === selectedScene.id))
+    : undefined;
 
   const handleExport = async () => {
     if (!selected) return;
@@ -111,6 +120,10 @@ export function CreationProjectsPage() {
                 <Button onClick={() => setSearchOpen(true)}>
                   <Search size={16} />
                   搜索
+                </Button>
+                <Button onClick={() => setReplaceOpen(true)}>
+                  <Replace size={16} />
+                  查找替换
                 </Button>
                 <Button onClick={() => void handleExport()}>
                   <Download size={16} />
@@ -193,6 +206,14 @@ export function CreationProjectsPage() {
           projectId={selected.id}
           onNavigate={(hit) => void navigateToHit(hit)}
           onClose={() => setSearchOpen(false)}
+        />
+      )}
+      {replaceOpen && selected && (
+        <ReplacePanel
+          projectId={selected.id}
+          chapterId={selectedChapter?.id}
+          sceneId={selectedScene?.id}
+          onClose={() => setReplaceOpen(false)}
         />
       )}
     </div>

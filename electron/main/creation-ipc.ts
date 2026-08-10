@@ -16,6 +16,10 @@ import type {
   CreationStructureResult,
   ProjectExportView,
   RelationType,
+  ReplaceApplyCommand,
+  ReplaceApplyResult,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
   SceneBodyView,
   SceneSaveResponse,
   SnapshotInfo,
@@ -129,6 +133,18 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
   ipcMain.handle("creation:search", (_event, query: unknown) =>
     coordinator.withWorkspace(
       (workspace) => workspace.read(query as CreationSearchQuery) as Promise<CreationSearchView>
+    )
+  );
+
+  ipcMain.handle("creation:replacePreview", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as ReplacePreviewQuery) as Promise<ReplacePreviewView>
+    )
+  );
+
+  ipcMain.handle("creation:replaceApply", (_event, command: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.transact(command as ReplaceApplyCommand) as Promise<ReplaceApplyResult>
     )
   );
 

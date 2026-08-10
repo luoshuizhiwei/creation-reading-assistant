@@ -81,7 +81,13 @@ import type {
   CreationSearchHit,
   CreationSearchQuery,
   CreationSearchScope,
-  CreationSearchView
+  CreationSearchView,
+  ReplaceApplyCommand,
+  ReplaceApplyResult,
+  ReplacePreviewHit,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
+  ReplaceScope
 } from "../../../src/types/creation";
 
 export type {
@@ -167,7 +173,13 @@ export type {
   CreationSearchHit,
   CreationSearchQuery,
   CreationSearchScope,
-  CreationSearchView
+  CreationSearchView,
+  ReplaceApplyCommand,
+  ReplaceApplyResult,
+  ReplacePreviewHit,
+  ReplacePreviewQuery,
+  ReplacePreviewView,
+  ReplaceScope
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -237,7 +249,8 @@ export type CreationReadQuery =
   | TrashListQuery
   | SnapshotListQuery
   | ProjectExportQuery
-  | CreationSearchQuery;
+  | CreationSearchQuery
+  | ReplacePreviewQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -253,6 +266,7 @@ export type CreationReadResult =
   | SnapshotInfo[]
   | ProjectExportView
   | CreationSearchView
+  | ReplacePreviewView
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -270,7 +284,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -281,7 +295,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -304,12 +318,14 @@ export interface CreationWorkspace {
   read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
   read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   read(query: CreationSearchQuery): Promise<CreationSearchView>;
+  read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   transact(command: StructureCommand): Promise<CreationStructureResult>;
   transact(command: CardCommand): Promise<CreationStructureResult>;
   transact(command: HistoryCommand): Promise<CreationStructureResult>;
+  transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;
