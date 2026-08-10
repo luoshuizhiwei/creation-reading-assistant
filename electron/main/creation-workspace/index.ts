@@ -4231,6 +4231,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     } catch {
       throw new CreationWorkspaceError("invalid-input", "场景正文无法序列化。");
     }
+    if (bodyJson.length > 5_000_000) {
+      throw new CreationWorkspaceError("invalid-input", "场景正文不能超过 5000000 个字符。");
+    }
     const timestamp = new Date().toISOString();
     try {
       this.database.exec("BEGIN IMMEDIATE");
@@ -5375,6 +5378,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private trashList(projectId: string): TrashItem[] {
+    this.requireProject(projectId);
     const items: TrashItem[] = [];
     const volumes = this.database
       .prepare(
@@ -5532,6 +5536,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private snapshotList(query: { projectId: string; subjectType?: SnapshotSubjectType; subjectId?: string }): SnapshotInfo[] {
+    this.requireProject(query.projectId);
     let sql = "SELECT id, project_id, subject_type, subject_id, payload_json, created_at FROM snapshots WHERE project_id = ?";
     const params: unknown[] = [query.projectId];
     if (query.subjectType) {

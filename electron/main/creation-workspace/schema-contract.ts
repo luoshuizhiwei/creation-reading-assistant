@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { removeWithRetry } from "./test-utils";
 import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -185,7 +186,7 @@ async function run(): Promise<void> {
   } finally {
     for (let attempt = 0; attempt < 5; attempt += 1) {
       try {
-        await rm(parent, { recursive: true, force: true });
+        await removeWithRetry(parent);
         break;
       } catch {
         await new Promise((resolve) => setTimeout(resolve, 300));

@@ -37,6 +37,8 @@ export function createCreationCoordinator(options: CreateCreationCoordinatorOpti
 
   const rebindWatchers = (workspace: CreationWorkspace): void => {
     for (const registration of watchRegistrations.values()) {
+      // 先退订旧 workspace 的 watcher 再注册到新 workspace，避免重复订阅导致事件双发。
+      registration.unwatchCurrent?.();
       registration.unwatchCurrent = workspace.watch(registration.scope, registration.listener);
     }
   };
@@ -121,9 +123,11 @@ export function createCreationCoordinator(options: CreateCreationCoordinatorOpti
       scope: runtimeScope.projectId === undefined ? {} : { projectId: runtimeScope.projectId as string },
       listener
     };
+    let cancelled = false;
     watchRegistrations.set(registration.id, registration);
     await enqueue(async () => {
       const workspace = await openWorkspace();
+      if (cancelled) return;
       if (!registration.unwatchCurrent) {
         registration.unwatchCurrent = workspace.watch(registration.scope, registration.listener);
       }
@@ -133,7 +137,8 @@ export function createCreationCoordinator(options: CreateCreationCoordinatorOpti
     });
     return () => {
       watchRegistrations.delete(registration.id);
-      registration.unwatchCurrent?.();
+      if (registration.unwatchCurrent) registration.unwatchCurrent();
+      else cancelled = true;
     };
   };
 

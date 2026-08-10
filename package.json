@@ -44,6 +44,8 @@
     "verify:creation-resource": "node scripts/verify-creation-resource.mjs",
     "verify:creation-scale": "node scripts/verify-creation-scale.mjs",
     "verify:creation-schema": "node scripts/verify-creation-schema.mjs",
+    "verify:creation-journey": "node scripts/verify-creation-journey.mjs",
+    "verify:creation-edge": "node scripts/verify-creation-edge.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",

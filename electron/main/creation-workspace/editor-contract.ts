@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { removeWithRetry } from "./test-utils";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -262,7 +263,7 @@ async function run(): Promise<void> {
       await coordinator.close();
     });
   } finally {
-    await rm(base, { recursive: true, force: true });
+    await removeWithRetry(base);
   }
 
   if (failures.length > 0) {

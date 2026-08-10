@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { removeWithRetry } from "./test-utils";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -151,7 +152,7 @@ async function run(): Promise<void> {
 
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
-    await rm(parent, { recursive: true, force: true });
+    await removeWithRetry(parent);
   }
 }
 
