@@ -84,6 +84,10 @@ import {
   type ProjectExportScene,
   type ProjectExportView,
   type ProjectExportVolume,
+  type CreationSearchHit,
+  type CreationSearchQuery,
+  type CreationSearchScope,
+  type CreationSearchView,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -150,6 +154,10 @@ const HISTORY_COMMAND_TYPES = new Set<string>([
 ]);
 
 const TRASH_ENTITY_KINDS = new Set<TrashEntityKind>(["volume", "chapter", "scene", "card"]);
+
+const SEARCH_SCOPES = new Set<CreationSearchScope>(["scene", "card", "chapter", "project"]);
+const DEFAULT_SEARCH_LIMIT = 50;
+const MAX_SEARCH_LIMIT = 200;
 
 const REQUIRED_TABLES = [
   "workspace_meta",
@@ -260,6 +268,38 @@ function extractSceneText(bodyJson: string): string {
     if (parts.length > 0) blocks.push(parts.join(""));
   }
   return blocks.join("\n\n");
+}
+
+/** 卡片/字段/标签 JSON 的纯文本值（用于搜索上下文片段）。 */
+function jsonStringValues(json: string): string[] {
+  const out: string[] = [];
+  const collect = (value: unknown): void => {
+    if (typeof value === "string") out.push(value);
+    else if (Array.isArray(value)) value.forEach(collect);
+    else if (isRecord(value)) Object.values(value).forEach(collect);
+  };
+  try {
+    collect(JSON.parse(json));
+  } catch {
+    out.push(json);
+  }
+  return out;
+}
+
+/** 命中上下文片段：围绕首个命中位置截取，超出部分以省略号标注。 */
+function makeSnippet(text: string, keyword: string, radius = 16): string | null {
+  const index = text.toLowerCase().indexOf(keyword.toLowerCase());
+  if (index < 0) return null;
+  const start = Math.max(0, index - radius);
+  const end = Math.min(text.length, index + keyword.length + radius * 2);
+  const before = start > 0 ? "…" : "";
+  const after = end < text.length ? "…" : "";
+  return `${before}${text.slice(start, end)}${after}`;
+}
+
+/** LIKE 通配符转义，避免用户输入中的 %/_ 影响匹配。 */
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, (ch) => `\\${ch}`);
 }
 
 function isConstraintError(error: unknown): boolean {
@@ -840,6 +880,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: TrashListQuery): Promise<TrashItem[]>;
   async read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
   async read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
+  async read(query: CreationSearchQuery): Promise<CreationSearchView>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -851,6 +892,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       search?: unknown;
       subjectType?: unknown;
       subjectId?: unknown;
+      text?: unknown;
+      scopes?: unknown;
+      filters?: unknown;
+      limit?: unknown;
     } | null;
     if (
       runtimeQuery === null ||
@@ -875,6 +920,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取场景正文。");
+      }
+    }
+    if (runtimeQuery.kind === "search.query") {
+      try {
+        return this.runSearch(query as CreationSearchQuery);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法搜索创作工作区数据。");
       }
     }
     if (
@@ -1366,6 +1419,244 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       revision: number;
     }>;
     return rows.map((row) => this.cardFromRow(row));
+  }
+
+  private runSearch(query: CreationSearchQuery): CreationSearchView {
+    const text = typeof query.text === "string" ? query.text.trim() : "";
+    if (!text) throw new CreationWorkspaceError("invalid-input", "搜索关键词不能为空。");
+    const limit = query.limit === undefined ? DEFAULT_SEARCH_LIMIT : query.limit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > MAX_SEARCH_LIMIT) {
+      throw new CreationWorkspaceError("invalid-input", `搜索返回上限必须为 1..${MAX_SEARCH_LIMIT} 的整数。`);
+    }
+    const scopes = Array.isArray(query.scopes) && query.scopes.length > 0
+      ? query.scopes.filter((scope): scope is CreationSearchScope => SEARCH_SCOPES.has(scope))
+      : [...SEARCH_SCOPES];
+    if (scopes.length === 0) return { query: text, hits: [], total: 0 };
+    const projectId = typeof query.projectId === "string" && query.projectId.trim() ? query.projectId.trim() : undefined;
+    const filters = isRecord(query.filters) ? query.filters : undefined;
+    const cardKinds = Array.isArray(filters?.cardKinds)
+      ? filters.cardKinds.filter((kind): kind is string => typeof kind === "string" && kind.length > 0)
+      : [];
+    const chapterStatuses = Array.isArray(filters?.chapterStatuses)
+      ? filters.chapterStatuses.filter((status): status is string => typeof status === "string" && status.length > 0)
+      : [];
+    const tags = Array.isArray(filters?.tags)
+      ? filters.tags.filter((tag): tag is string => typeof tag === "string" && tag.length > 0)
+      : [];
+    const hits: CreationSearchHit[] = [];
+    const remaining = (): number => limit - hits.length;
+    if (scopes.includes("scene")) this.searchScenes(text, projectId, chapterStatuses, remaining(), hits);
+    if (remaining() <= 0) return { query: text, hits, total: hits.length };
+    if (scopes.includes("card")) this.searchCards(text, projectId, cardKinds, tags, remaining(), hits);
+    if (remaining() <= 0) return { query: text, hits, total: hits.length };
+    if (scopes.includes("chapter")) this.searchChapters(text, projectId, chapterStatuses, remaining(), hits);
+    if (remaining() <= 0) return { query: text, hits, total: hits.length };
+    if (scopes.includes("project")) this.searchProjects(text, projectId, remaining(), hits);
+    return { query: text, hits, total: hits.length };
+  }
+
+  private searchScenes(
+    keyword: string,
+    projectId: string | undefined,
+    chapterStatuses: string[],
+    limit: number,
+    hits: CreationSearchHit[]
+  ): void {
+    const like = `%${escapeLike(keyword)}%`;
+    const params: unknown[] = [like, like];
+    let sql = `
+      SELECT s.id AS scene_id, s.title AS scene_title, s.body_json, s.updated_at,
+             c.id AS chapter_id, c.title AS chapter_title, c.status AS chapter_status,
+             p.id AS project_id, p.title AS project_title
+      FROM scenes s
+      JOIN chapters c ON c.id = s.chapter_id
+      JOIN projects p ON p.id = c.project_id
+      WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL
+        AND (s.title LIKE ? ESCAPE '\\' OR s.body_json LIKE ? ESCAPE '\\')`;
+    if (projectId) {
+      sql += " AND c.project_id = ?";
+      params.push(projectId);
+    }
+    if (chapterStatuses.length > 0) {
+      sql += ` AND c.status IN (${chapterStatuses.map(() => "?").join(", ")})`;
+      params.push(...chapterStatuses);
+    }
+    sql += " ORDER BY s.updated_at DESC, s.id DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      scene_id: string;
+      scene_title: string;
+      body_json: string;
+      updated_at: string;
+      chapter_id: string;
+      chapter_title: string;
+      chapter_status: string;
+      project_id: string;
+      project_title: string;
+    }>;
+    for (const row of rows) {
+      const plain = extractSceneText(row.body_json);
+      hits.push({
+        kind: "scene",
+        id: row.scene_id,
+        projectId: row.project_id,
+        projectTitle: row.project_title,
+        title: row.scene_title,
+        snippet: makeSnippet(plain, keyword) ?? makeSnippet(row.scene_title, keyword),
+        chapterId: row.chapter_id,
+        chapterTitle: row.chapter_title,
+        chapterStatus: row.chapter_status || undefined,
+        updatedAt: row.updated_at
+      });
+    }
+  }
+
+  private searchCards(
+    keyword: string,
+    projectId: string | undefined,
+    cardKinds: string[],
+    tags: string[],
+    limit: number,
+    hits: CreationSearchHit[]
+  ): void {
+    const like = `%${escapeLike(keyword)}%`;
+    const params: unknown[] = [like, like, like, like, like];
+    let sql = `
+      SELECT c.id, c.project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json, c.content_json, c.updated_at,
+             p.title AS project_title
+      FROM cards c
+      JOIN projects p ON p.id = c.project_id
+      WHERE c.deleted_at IS NULL
+        AND (c.title LIKE ? ESCAPE '\\' OR c.aliases_json LIKE ? ESCAPE '\\'
+             OR c.fields_json LIKE ? ESCAPE '\\' OR c.tags_json LIKE ? ESCAPE '\\'
+             OR c.content_json LIKE ? ESCAPE '\\')`;
+    if (projectId) {
+      sql += " AND c.project_id = ?";
+      params.push(projectId);
+    }
+    if (cardKinds.length > 0) {
+      sql += ` AND c.kind IN (${cardKinds.map(() => "?").join(", ")})`;
+      params.push(...cardKinds);
+    }
+    for (const tag of tags) {
+      sql += " AND c.tags_json LIKE ?";
+      params.push(`%"${escapeLike(tag)}"%`);
+    }
+    sql += " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      project_id: string;
+      kind: string;
+      title: string;
+      aliases_json: string;
+      fields_json: string;
+      tags_json: string;
+      content_json: string;
+      updated_at: string;
+      project_title: string;
+    }>;
+    for (const row of rows) {
+      const searchable = [
+        row.title,
+        ...jsonStringValues(row.aliases_json),
+        ...jsonStringValues(row.fields_json),
+        ...jsonStringValues(row.tags_json),
+        ...jsonStringValues(row.content_json)
+      ].join("");
+      let tagsOut: string[] | undefined;
+      try {
+        const parsed = JSON.parse(row.tags_json) as unknown;
+        if (Array.isArray(parsed)) tagsOut = parsed.filter((tag): tag is string => typeof tag === "string");
+      } catch {
+        tagsOut = undefined;
+      }
+      hits.push({
+        kind: "card",
+        id: row.id,
+        projectId: row.project_id,
+        projectTitle: row.project_title,
+        title: row.title,
+        snippet: makeSnippet(searchable, keyword),
+        cardKind: row.kind,
+        tags: tagsOut,
+        updatedAt: row.updated_at
+      });
+    }
+  }
+
+  private searchChapters(
+    keyword: string,
+    projectId: string | undefined,
+    chapterStatuses: string[],
+    limit: number,
+    hits: CreationSearchHit[]
+  ): void {
+    const like = `%${escapeLike(keyword)}%`;
+    const params: unknown[] = [like];
+    let sql = `
+      SELECT c.id, c.title, c.status, c.updated_at, p.id AS project_id, p.title AS project_title
+      FROM chapters c
+      JOIN projects p ON p.id = c.project_id
+      WHERE c.deleted_at IS NULL AND c.title LIKE ? ESCAPE '\\'`;
+    if (projectId) {
+      sql += " AND c.project_id = ?";
+      params.push(projectId);
+    }
+    if (chapterStatuses.length > 0) {
+      sql += ` AND c.status IN (${chapterStatuses.map(() => "?").join(", ")})`;
+      params.push(...chapterStatuses);
+    }
+    sql += " ORDER BY c.updated_at DESC, c.id DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      title: string;
+      status: string;
+      updated_at: string;
+      project_id: string;
+      project_title: string;
+    }>;
+    for (const row of rows) {
+      hits.push({
+        kind: "chapter",
+        id: row.id,
+        projectId: row.project_id,
+        projectTitle: row.project_title,
+        title: row.title,
+        snippet: null,
+        chapterStatus: row.status || undefined,
+        updatedAt: row.updated_at
+      });
+    }
+  }
+
+  private searchProjects(keyword: string, projectId: string | undefined, limit: number, hits: CreationSearchHit[]): void {
+    const like = `%${escapeLike(keyword)}%`;
+    const params: unknown[] = [like];
+    let sql = "SELECT id, title, updated_at FROM projects WHERE title LIKE ? ESCAPE '\\'";
+    if (projectId) {
+      sql += " AND id = ?";
+      params.push(projectId);
+    }
+    sql += " ORDER BY updated_at DESC, id DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      title: string;
+      updated_at: string;
+    }>;
+    for (const row of rows) {
+      hits.push({
+        kind: "project",
+        id: row.id,
+        projectId: row.id,
+        projectTitle: row.title,
+        title: row.title,
+        snippet: null,
+        updatedAt: row.updated_at
+      });
+    }
   }
 
   private readCard(cardId: string): CardSummary | null {

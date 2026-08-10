@@ -77,7 +77,11 @@ import type {
   ProjectExportQuery,
   ProjectExportScene,
   ProjectExportView,
-  ProjectExportVolume
+  ProjectExportVolume,
+  CreationSearchHit,
+  CreationSearchQuery,
+  CreationSearchScope,
+  CreationSearchView
 } from "../../../src/types/creation";
 
 export type {
@@ -159,7 +163,11 @@ export type {
   ProjectExportQuery,
   ProjectExportScene,
   ProjectExportView,
-  ProjectExportVolume
+  ProjectExportVolume,
+  CreationSearchHit,
+  CreationSearchQuery,
+  CreationSearchScope,
+  CreationSearchView
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -228,7 +236,8 @@ export type CreationReadQuery =
   | CardRelationsQuery
   | TrashListQuery
   | SnapshotListQuery
-  | ProjectExportQuery;
+  | ProjectExportQuery
+  | CreationSearchQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -243,6 +252,7 @@ export type CreationReadResult =
   | TrashItem[]
   | SnapshotInfo[]
   | ProjectExportView
+  | CreationSearchView
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -293,6 +303,7 @@ export interface CreationWorkspace {
   read(query: TrashListQuery): Promise<TrashItem[]>;
   read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
   read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
+  read(query: CreationSearchQuery): Promise<CreationSearchView>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;

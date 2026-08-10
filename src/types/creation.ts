@@ -653,3 +653,55 @@ export interface ProjectExportQuery {
   kind: "project.export";
   projectId: string;
 }
+
+// ---------------------------------------------------------------------------
+// 切片 10：搜索与查找替换
+// ---------------------------------------------------------------------------
+
+export type CreationSearchScope = "scene" | "card" | "chapter" | "project";
+
+export interface CreationSearchFilters {
+  /** 仅搜索指定卡片类型（kind）。 */
+  cardKinds?: string[];
+  /** 仅搜索指定章节工作流状态。 */
+  chapterStatuses?: string[];
+  /** 仅搜索带指定标签的卡片（标签全命中）。 */
+  tags?: string[];
+}
+
+export interface CreationSearchQuery {
+  kind: "search.query";
+  /** 搜索关键词（普通文本子串匹配，不做正则）。 */
+  text: string;
+  /** 限定单个项目；缺省时全局搜索所有项目。 */
+  projectId?: string;
+  /** 搜索范围；缺省覆盖全部四种。 */
+  scopes?: CreationSearchScope[];
+  filters?: CreationSearchFilters;
+  /** 返回上限，默认 50，最大 200。 */
+  limit?: number;
+}
+
+export interface CreationSearchHit {
+  kind: CreationSearchScope;
+  id: string;
+  projectId: string;
+  projectTitle: string;
+  title: string;
+  /** 命中上下文片段（可能为 null）。 */
+  snippet: string | null;
+  /** 场景/章节命中时给出父章节信息。 */
+  chapterId?: string;
+  chapterTitle?: string;
+  chapterStatus?: string;
+  /** 卡片命中时的卡片类型与标签。 */
+  cardKind?: string;
+  tags?: string[];
+  updatedAt: string;
+}
+
+export interface CreationSearchView {
+  query: string;
+  hits: CreationSearchHit[];
+  total: number;
+}
