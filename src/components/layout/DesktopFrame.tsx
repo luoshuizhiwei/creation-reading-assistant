@@ -1,12 +1,14 @@
 import type { ReactNode } from "react";
-import { BarChart3, BookOpen, Clock3, Home, Lightbulb, PanelRight, Search, Settings, Sparkles } from "lucide-react";
+import { BarChart3, BookMarked, BookOpen, Clock3, Home, Lightbulb, PanelRight, PenLine, Search, Settings, Sparkles } from "lucide-react";
 import { useAppStore, type AppScreen } from "@/stores/app-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 
 const navItems: Array<{ screen: AppScreen; label: string; hint: string; icon: typeof Home }> = [
   { screen: "start", label: "工作台", hint: "总览", icon: Home },
+  { screen: "projects", label: "创作项目", hint: "写作", icon: BookMarked },
   { screen: "inspiration", label: "灵感中心", hint: "素材/AI", icon: Lightbulb },
   { screen: "library", label: "本地书库", hint: "阅读", icon: BookOpen },
   { screen: "stats", label: "阅读统计", hint: "节奏", icon: BarChart3 },
@@ -18,6 +20,11 @@ const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: st
     eyebrow: "Desk overview",
     title: "创作阅读工作台",
     body: "桌面端用于深度整理：左侧导航，中间处理，右侧查看上下文。"
+  },
+  projects: {
+    eyebrow: "Creation desk",
+    title: "创作项目",
+    body: "本地优先的作品项目：创建作品、组织章与场景，并在写作台连续编辑正文。"
   },
   inspiration: {
     eyebrow: "Inspiration desk",
@@ -59,17 +66,24 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   const setScreen = useAppStore((state) => state.setScreen);
   const setSearchOpen = useSearchStore((state) => state.setOpen);
   const inspirations = useInspirationStore((state) => state.items);
+  const projects = useCreationStore((state) => state.projects);
+  const creationLeaveGuard = useCreationStore((state) => state.leaveGuard);
   const books = useLibraryStore((state) => state.books);
   const progress = useLibraryStore((state) => state.progress);
   const progressItems = Object.values(progress);
   const totalReadingMs = progressItems.reduce((sum, item) => sum + (item?.totalReadingTimeMs ?? 0), 0);
   const readingCount = progressItems.filter((item) => (item?.progressPercent ?? 0) > 0 && (item?.progressPercent ?? 0) < 100).length;
   const title = screenTitles[screen];
+  const navigate = async (target: AppScreen) => {
+    if (target === screen) return;
+    if (screen === "projects" && creationLeaveGuard && !(await creationLeaveGuard())) return;
+    setScreen(target);
+  };
 
   return (
     <div className="desktop-workbench paper-shell">
       <aside className="desktop-sidebar" aria-label="桌面端主导航">
-        <button className="desktop-brand" onClick={() => setScreen("start")}>
+        <button className="desktop-brand" onClick={() => void navigate("start")}>
           <span className="desktop-brand-mark">阅</span>
           <span>
             <strong>创作阅读助手</strong>
@@ -82,7 +96,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
             const Icon = item.icon;
             const active = screen === item.screen;
             return (
-              <button key={item.screen} className={active ? "active" : ""} onClick={() => setScreen(item.screen)}>
+              <button key={item.screen} className={active ? "active" : ""} onClick={() => void navigate(item.screen)}>
                 <Icon size={18} />
                 <span>
                   <strong>{item.label}</strong>
@@ -103,6 +117,10 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
             <span>
               <strong>{inspirations.length}</strong>
               <small>灵感</small>
+            </span>
+            <span>
+              <strong>{projects.length}</strong>
+              <small>项目</small>
             </span>
           </div>
         </section>
@@ -143,15 +161,19 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         </section>
 
         <section className="desktop-context-card desktop-context-actions">
-          <button onClick={() => setScreen("inspiration")}>
+          <button onClick={() => void navigate("projects")}>
+            <PenLine size={16} />
+            打开创作项目
+          </button>
+          <button onClick={() => void navigate("inspiration")}>
             <Sparkles size={16} />
             打开灵感中心
           </button>
-          <button onClick={() => setScreen("library")}>
+          <button onClick={() => void navigate("library")}>
             <BookOpen size={16} />
             打开本地书库
           </button>
-          <button onClick={() => setScreen("stats")}>
+          <button onClick={() => void navigate("stats")}>
             <Clock3 size={16} />
             查看阅读统计
           </button>

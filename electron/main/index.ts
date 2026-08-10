@@ -8,6 +8,8 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { parseEpubFile } from "./epub-metadata";
+import { createCreationCoordinator } from "./creation-coordinator";
+import { registerCreationIpc } from "./creation-ipc";
 import jschardet from "jschardet";
 import iconv from "iconv-lite";
 import type {
@@ -75,6 +77,10 @@ let syncServer: Server | undefined;
 let syncServerPort: number | undefined;
 let syncServerHost: string | undefined;
 let pairingToken: PairingTokenResult | undefined;
+
+const creationCoordinator = createCreationCoordinator({
+  resolveDirectory: () => path.join(appDataRoot(), "CreationWorkspace")
+});
 
 const EPUB_PROTOCOL_SCHEME = "novel-workbench-epub";
 const MAX_SEARCH_TEXT_FILE_BYTES = 5 * 1024 * 1024;
@@ -922,9 +928,11 @@ async function migrateDataDirectory(targetDirectory: string): Promise<AppSetting
   const target = requireString(targetDirectory, "数据目录");
   assertSafeMigrationTarget(appDataRoot(), target, "数据目录");
   if (!(await isDirectoryWritable(target))) throw new Error("选择的数据目录不可写，请换一个位置。");
-  await copyDirectory(appDataRoot(), target);
-  activeDataRoot = target;
-  await writeStoragePointer(target);
+  await creationCoordinator.withWorkspaceClosed(async () => {
+    await copyDirectory(appDataRoot(), target);
+    activeDataRoot = target;
+    await writeStoragePointer(target);
+  });
   const copiedSettings = normalizeAppSettings(await readJson<unknown>(appSettingsPath(), defaultAppSettings()), await readLegacyReaderSettings());
   const next = normalizeAppSettings({
     ...copiedSettings,
@@ -1184,7 +1192,9 @@ async function createBackup(): Promise<BackupResult | null> {
   const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
   await ensureDir(backupRoot);
   await writeLog("info", "Backup started.", { backupRoot });
-  await copyDirectory(appDataRoot(), appDataBackupPath);
+  await creationCoordinator.withWorkspaceClosed(async () => {
+    await copyDirectory(appDataRoot(), appDataBackupPath);
+  });
   if (shouldCopyExternalLibrary) {
     await copyDirectory(appLibraryRoot(), libraryBackupPath);
   }
@@ -1250,27 +1260,27 @@ async function restoreBackup(): Promise<RestoreResult | null> {
 
   const restoredAt = now();
   const checkpointPath = existsSync(appDataRoot()) ? path.join(path.dirname(appDataRoot()), `CreationReadingAssistant-before-restore-${timestampForFile()}`) : undefined;
-  if (checkpointPath) await copyDirectory(appDataRoot(), checkpointPath);
+  await creationCoordinator.withWorkspaceClosed(async () => {
+    if (checkpointPath) await copyDirectory(appDataRoot(), checkpointPath);
 
-  // Safer restore: copy to temp dir first, then atomic swap (rename)
-  const tempRestorePath = `${appDataRoot()}.restoring`;
-  if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
-  await copyDirectory(appDataBackupPath, tempRestorePath);
-
-  // Check available disk space before final swap (require at least 100 MB free)
-  try {
-    const tempStats = await stat(tempRestorePath);
-    // Simple heuristic: just verify temp dir was created successfully
-    if (!existsSync(tempRestorePath)) throw new Error("Temp restore directory missing after copy.");
-  } catch (spaceError) {
-    // If copy failed, clean up temp dir and abort
+    // Safer restore: copy to temp dir first, then atomic swap (rename)
+    const tempRestorePath = `${appDataRoot()}.restoring`;
     if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
-    throw new Error(`Restore aborted: failed to stage backup data. ${spaceError instanceof Error ? spaceError.message : String(spaceError)}`);
-  }
+    await copyDirectory(appDataBackupPath, tempRestorePath);
 
-  // Atomic swap: remove old data dir, rename temp to final path
-  if (existsSync(appDataRoot())) await rm(appDataRoot(), { recursive: true, force: true });
-  await rename(tempRestorePath, appDataRoot());
+    try {
+      // Simple heuristic: just verify temp dir was created successfully
+      if (!existsSync(tempRestorePath)) throw new Error("Temp restore directory missing after copy.");
+    } catch (spaceError) {
+      // If copy failed, clean up temp dir and abort
+      if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
+      throw new Error(`Restore aborted: failed to stage backup data. ${spaceError instanceof Error ? spaceError.message : String(spaceError)}`);
+    }
+
+    // Atomic swap: remove old data dir, rename temp to final path
+    if (existsSync(appDataRoot())) await rm(appDataRoot(), { recursive: true, force: true });
+    await rename(tempRestorePath, appDataRoot());
+  });
   if (manifest.libraryPath) {
     const libraryBackupPath = path.join(backupRoot, manifest.libraryPath);
     if (existsSync(libraryBackupPath)) {
@@ -3465,6 +3475,7 @@ function registerIpc(): void {
   ipcMain.handle("backup:create", async () => createBackup());
   ipcMain.handle("backup:restore", async () => restoreBackup());
   ipcMain.handle("diagnostics:exportDebugInfo", async () => exportDebugInfo());
+  registerCreationIpc(creationCoordinator);
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -3504,8 +3515,22 @@ process.on("unhandledRejection", (reason) => {
   void writeLog("error", "Unhandled rejection.", reason);
 });
 
-app.on("before-quit", () => {
+let creationWorkspaceReadyToQuit = false;
+let creationWorkspaceQuitPending = false;
+
+app.on("before-quit", (event) => {
   writeRuntimeStateSync(true);
+  if (creationWorkspaceReadyToQuit) return;
+  event.preventDefault();
+  if (creationWorkspaceQuitPending) return;
+  creationWorkspaceQuitPending = true;
+  void creationCoordinator
+    .close()
+    .catch((error) => writeLog("error", "Failed to close creation workspace before quit.", error))
+    .finally(() => {
+      creationWorkspaceReadyToQuit = true;
+      app.quit();
+    });
 });
 
 app.on("window-all-closed", () => {

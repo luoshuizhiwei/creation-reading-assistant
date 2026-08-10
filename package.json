@@ -6,6 +6,7 @@
   "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
   "main": "out/main/index.js",
   "scripts": {
+    "postinstall": "electron-builder install-app-deps",
     "dev": "electron-vite dev",
     "build": "tsc --noEmit -p tsconfig.main.json && tsc --noEmit -p tsconfig.renderer.json && tsc --noEmit -p tsconfig.node.json && electron-vite build",
     "verify:data-integrity": "node scripts/verify-data-integrity.mjs",
@@ -23,6 +24,11 @@
     "verify:reading-inspiration": "node scripts/verify-reading-inspiration.mjs",
     "verify:reader-formats": "node scripts/verify-reader-formats.mjs",
     "verify:interaction-polish": "node scripts/verify-interaction-polish.mjs",
+    "verify:creation-adapter-spike": "node scripts/verify-creation-adapter-spike.mjs",
+    "verify:creation-workspace": "node scripts/verify-creation-workspace.mjs",
+    "verify:creation-project-shell": "node scripts/verify-creation-project-shell.mjs",
+    "verify:creation-editor": "node scripts/verify-creation-editor.mjs",
+    "verify:creation-migration-audit": "node scripts/verify-creation-migration-audit.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",
@@ -41,7 +47,11 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "dompurify": "^3.4.11",
+    "@tiptap/core": "3.29.2",
+    "@tiptap/pm": "3.29.2",
+    "@tiptap/react": "3.29.2",
+    "better-sqlite3": "12.4.1",
+    "dompurify": "^3.4.13",
     "epubjs": "^0.3.93",
     "iconv-lite": "^0.7.3",
     "jschardet": "^3.1.4",
@@ -66,9 +76,10 @@
     "@types/react-dom": "^18.3.1",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.4.20",
-    "electron": "^33.2.1",
+    "electron": "33.4.11",
     "electron-builder": "^26.15.2",
     "electron-vite": "^2.3.0",
+    "esbuild": "0.21.5",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.16",
     "typescript": "^5.7.2",
@@ -86,6 +97,9 @@
       "package.json"
     ],
     "asar": true,
+    "asarUnpack": [
+      "node_modules/better-sqlite3/**"
+    ],
     "win": {
       "target": [
         {

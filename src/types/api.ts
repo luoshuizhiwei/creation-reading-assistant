@@ -25,6 +25,15 @@ import type {
   InspirationItem,
   UpdateInspirationInput
 } from "./inspiration";
+import type {
+  CreateProjectInput,
+  CreationProjectListener,
+  CreationProjectNavigation,
+  CreationProjectSummary,
+  SceneBodyView,
+  SceneSaveResponse,
+  UpdateSceneBodyInput
+} from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "./sync";
@@ -90,6 +99,14 @@ export interface DesktopApi {
     update: (id: string, input: UpdateInspirationInput) => Promise<InspirationItem>;
     delete: (id: string) => Promise<InspirationItem[]>;
     addVariant: (id: string, input: AddInspirationVariantInput) => Promise<InspirationItem>;
+  };
+  creation: {
+    listProjects: () => Promise<CreationProjectSummary[]>;
+    readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
+    createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
+    readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
+    updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;
+    watchProject: (projectId: string, listener: CreationProjectListener) => Promise<() => void>;
   };
   ai: {
     getSettings: () => Promise<AISettings>;

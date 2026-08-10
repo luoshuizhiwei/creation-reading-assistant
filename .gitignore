@@ -44,6 +44,10 @@ Thumbs.db
 # 真机 uiautomator 转储残留与 Windows 保留名误建文件（本地垃圾，不进版本库）
 /inst.xml
 /nul
+/android/trace_*.txt
+
+# 桌面端 QA 验证产物（隔离 userData 与截图，不进版本库）
+/output/
 
 # 临时调研下载
 /icu4j-charset.jar

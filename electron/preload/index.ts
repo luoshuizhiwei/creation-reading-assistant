@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from "electron";
+import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type { DesktopApi } from "../../src/types/api";
 import type {
   EndReadingSessionInput,
@@ -27,6 +27,16 @@ import type {
   InspirationItem,
   UpdateInspirationInput
 } from "../../src/types/inspiration";
+import type {
+  CreateProjectInput,
+  CreationProjectListener,
+  CreationProjectNavigation,
+  CreationProjectSummary,
+  CreationWorkspaceEvent,
+  SceneBodyView,
+  SceneSaveResponse,
+  UpdateSceneBodyInput
+} from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "../../src/types/sync";
@@ -94,6 +104,25 @@ const api: DesktopApi = {
     update: (id: string, input: UpdateInspirationInput) => invoke<InspirationItem>("inspiration:update", id, input),
     delete: (id: string) => invoke<InspirationItem[]>("inspiration:delete", id),
     addVariant: (id: string, input: AddInspirationVariantInput) => invoke<InspirationItem>("inspiration:addVariant", id, input)
+  },
+  creation: {
+    listProjects: () => invoke<CreationProjectSummary[]>("creation:listProjects"),
+    readProjectNavigation: (projectId: string) =>
+      invoke<CreationProjectNavigation | null>("creation:readProjectNavigation", projectId),
+    createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
+    readSceneBody: (sceneId: string) => invoke<SceneBodyView | null>("creation:readSceneBody", sceneId),
+    updateSceneBody: (input: UpdateSceneBodyInput) => invoke<SceneSaveResponse>("creation:updateSceneBody", input),
+    watchProject: async (projectId: string, listener: CreationProjectListener) => {
+      const { subscriptionId } = await invoke<{ subscriptionId: string }>("creation:watchProject", projectId);
+      const onEvent = (_event: IpcRendererEvent, payload: { subscriptionId: string; event: CreationWorkspaceEvent }) => {
+        if (payload.subscriptionId === subscriptionId) listener(payload.event);
+      };
+      ipcRenderer.on("creation:event", onEvent);
+      return () => {
+        ipcRenderer.removeListener("creation:event", onEvent);
+        void invoke<void>("creation:unwatchProject", { subscriptionId });
+      };
+    }
   },
   ai: {
     getSettings: () => invoke<AISettings>("ai:getSettings"),

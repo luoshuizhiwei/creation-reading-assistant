@@ -35,6 +35,11 @@ const DESKTOP_SCRIPTS = [
   "verify:reading-inspiration",
   "verify:reader-formats",
   "verify:interaction-polish",
+  "verify:creation-adapter-spike",
+  "verify:creation-workspace",
+  "verify:creation-project-shell",
+  "verify:creation-editor",
+  "verify:creation-migration-audit",
   "verify:clean-reposition",
   "verify:visual-polish",
   "verify:ux-polish"
@@ -107,6 +112,11 @@ function shouldRunScript(scriptName) {
 //   npm run verify:clean-reposition
 //   npm run verify:epub-restore
 //   npm run verify:ux-polish
+//   npm run verify:creation-adapter-spike
+//   npm run verify:creation-workspace
+//   npm run verify:creation-project-shell
+//   npm run verify:creation-editor
+//   npm run verify:creation-migration-audit
 function runScoped(scriptName) {
   if (!shouldRunScript(scriptName)) {
     console.log(`\n[beta-check] SKIP (scope=${resolvedScope}): npm run ${scriptName}`);
@@ -150,7 +160,14 @@ const requiredIpcChannels = [
   "search:global",
   "backup:create",
   "backup:restore",
-  "diagnostics:exportDebugInfo"
+  "diagnostics:exportDebugInfo",
+  "creation:listProjects",
+  "creation:readProjectNavigation",
+  "creation:createProject",
+  "creation:readSceneBody",
+  "creation:updateSceneBody",
+  "creation:watchProject",
+  "creation:unwatchProject"
 ];
 
 const suspiciousMojibakeCodePoints = new Set([
@@ -222,7 +239,7 @@ function assertRendererSecurity() {
 
 function assertIpcSurface() {
   logStep("Checking critical IPC surface");
-  const main = readText("electron/main/index.ts");
+  const main = `${readText("electron/main/index.ts")}\n${readText("electron/main/creation-ipc.ts")}`;
   const preload = readText("electron/preload/index.ts");
   const missing = requiredIpcChannels.filter((channel) => !main.includes(`"${channel}"`) || !preload.includes(`"${channel}"`));
   if (missing.length > 0) fail(`Missing IPC channels in main/preload:\n${missing.map((channel) => `  - ${channel}`).join("\n")}`);
@@ -301,6 +318,11 @@ runScoped("verify:portable-storage");
 runScoped("verify:reading-inspiration");
 runScoped("verify:reader-formats");
 runScoped("verify:interaction-polish");
+runScoped("verify:creation-adapter-spike");
+runScoped("verify:creation-workspace");
+runScoped("verify:creation-project-shell");
+runScoped("verify:creation-editor");
+runScoped("verify:creation-migration-audit");
 runScoped("verify:clean-reposition");
 runScoped("verify:sync-schema");
 runScoped("verify:sync-server");

@@ -6,6 +6,7 @@ import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useAppStore } from "@/stores/app-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import { messageFromError } from "@/utils/format";
 import type { SearchQuery, SearchResult } from "@/types/search";
@@ -53,6 +54,9 @@ export function useSearchActions() {
   const openResult = useCallback(
     async (result: SearchResult) => {
       try {
+        const appState = useAppStore.getState();
+        const leaveGuard = useCreationStore.getState().leaveGuard;
+        if (appState.screen === "projects" && leaveGuard && !(await leaveGuard())) return;
         if (result.target.bookId) {
           let books = useLibraryStore.getState().books;
           let book = books.find((item) => item.id === result.target.bookId);
@@ -90,4 +94,3 @@ export function useSearchActions() {
 
   return { runSearch, openResult };
 }
-

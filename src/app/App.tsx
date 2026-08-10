@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { AlertCircle } from "lucide-react";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
+import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
 import { InspirationPage } from "@/features/inspiration/InspirationPage";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { ReaderPage } from "@/features/library/ReaderPage";
@@ -12,6 +13,7 @@ import { useSettingsActions } from "@/hooks/useSettingsActions";
 import { StartPage } from "@/pages/StartPage";
 import { getStartupRecovery, markStartupRecoverySeen, writeRendererLog } from "@/services/maintenance-service";
 import { useSettingsStore } from "@/stores/settings-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { StartupRecoveryInfo } from "@/types/maintenance";
@@ -61,6 +63,7 @@ export default function App() {
   const setScreen = useAppStore((state) => state.setScreen);
   const settings = useSettingsStore((state) => state.settings);
   const showToast = useUIStore((state) => state.showToast);
+  const setCreationAbnormalExit = useCreationStore((state) => state.setAbnormalExit);
   const [recoveryInfo, setRecoveryInfo] = useState<StartupRecoveryInfo>();
   const { loadSettings } = useSettingsActions();
 
@@ -94,6 +97,7 @@ export default function App() {
     void getStartupRecovery()
       .then(async (info) => {
         setRecoveryInfo(info);
+        setCreationAbnormalExit(info.abnormalExit);
         if (info.recoveredSessionsCount > 0) {
           return;
         }
@@ -102,7 +106,7 @@ export default function App() {
         }
       })
       .catch((error) => setError(error instanceof Error ? error.message : String(error)));
-  }, [setError]);
+  }, [setCreationAbnormalExit, setError]);
 
   const closeRecoveryPrompt = () => {
     setRecoveryInfo(undefined);
@@ -155,6 +159,7 @@ export default function App() {
         <DesktopFrame>
           <PageTransition screenKey={screen}>
             {screen === "start" && <StartPage />}
+            {screen === "projects" && <CreationProjectsPage />}
             {screen === "inspiration" && <InspirationPage />}
             {screen === "library" && <LibraryPage />}
             {screen === "stats" && <ReadingStatsPage />}
@@ -165,4 +170,3 @@ export default function App() {
     </div>
   );
 }
-

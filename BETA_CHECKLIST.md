@@ -123,6 +123,39 @@ Beta cannot ship if any of these fail:
 - Backup/restore corrupts app-data.
 - Renderer directly imports privileged Node/Electron modules.
 
+## Creation project shell update: 2026-08-09
+
+- Desktop creation workspace schema upgraded to v2 (`projects.setup_json`) with an atomic v1→v2 migration; existing v1 data opens with a default setup.
+- Added `projects.list` query (updatedAt 倒序, per-project chapter/scene counts) and full-setup `project.create` (title + template + goals + 每周更新日 + 章节工作流), which atomically creates 项目 / “第一章” / “默认场景” and preserves created IDs.
+- Added `electron/main/creation-coordinator`：懒打开、并发首开只开一次、维护期 busy 拒绝、`withWorkspaceClosed` 先 checkpoint/close 再执行目录操作、动态数据根切换、close 幂等。
+- Backup/restore/data-directory migration now hold the coordinator maintenance lock; `before-quit` synchronously triggers workspace close.
+- Renderer project-shell surface uses `DesktopApi.creation.listProjects` / `readProjectNavigation` / `createProject`; navigation excludes scene bodies, which are read lazily through the typed editor surface.
+- Added guard: `npm run verify:creation-project-shell`.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation project shell guard | `npm run verify:creation-project-shell` | Passed |
+| Creation workspace guard (unchanged) | `npm run verify:creation-workspace` | Passed |
+
+## Creation scene editor update: 2026-08-09
+
+- Added the desktop writing desk: project switcher, chapter/scene outline, single-scene manuscript, margin metadata and focus mode.
+- Scene bodies load lazily through `readSceneBody`; saves use `updateSceneBody` with revision conflict detection. The renderer never receives raw SQL or database handles.
+- The structured editor permits paragraph, scene break, quote/letter, centered text and author note blocks, plus bold/italic marks. Unsupported structures are rejected again at the workspace boundary.
+- Chinese IME composition suppresses autosave until composition ends. Normal edits save after 800ms idle; `Ctrl+S` submits immediately and status is announced in the UI.
+- Complex or oversized paste opens a cleaned plain-text preview. `Ctrl+Shift+V` inserts cleaned plain text directly.
+- Each confirmed save keeps exactly one previous scene snapshot. After abnormal exit, the UI states that confirmed writes were restored and that the last sub-second unsubmitted input may be absent.
+- Project watches survive coordinator maintenance close/reopen and automatically unsubscribe when the renderer is destroyed.
+- Added guard: `npm run verify:creation-editor`; it runs editor unit tests, TypeScript contracts and the real SQLite/Electron runtime contract.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation scene editor guard | `npm run verify:creation-editor` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.
@@ -135,9 +168,9 @@ Beta cannot ship if any of these fail:
 ### Startup
 
 1. Close any existing `创作阅读助手.exe`, then start the packaged app from `release-beta/win-unpacked/创作阅读助手.exe`.
-2. Confirm the startup page shows 灵感中心 and 本地书库 as the main cards, with homepage search visible.
+2. Confirm the startup page shows 创作项目、灵感中心 and 本地书库 as the main cards, with homepage search visible.
 3. In Task Manager or PowerShell, confirm the running process path is the current `release-beta` candidate, not an older installed/test copy.
-4. Confirm there is no old project creation/opening/chapter writing entry.
+4. Confirm the new 创作项目 entry opens the local project shelf; legacy project creation/opening/chapter-writing screens remain absent.
 
 ### Inspiration and AI
 

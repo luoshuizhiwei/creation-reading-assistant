@@ -1,4 +1,4 @@
-import { BarChart3, BookOpen, ChevronRight, Lightbulb, Search, Settings, Sparkles } from "lucide-react";
+import { BarChart3, BookOpen, ChevronRight, Lightbulb, PenLine, Search, Settings, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useSearchActions } from "@/hooks/useSearchActions";
 import { useSearchStore } from "@/stores/search-store";
@@ -16,6 +16,15 @@ interface ModuleCard {
 }
 
 const modules: ModuleCard[] = [
+  {
+    screen: "projects",
+    eyebrow: "创作工作台",
+    title: "创作项目",
+    body: "创建本地优先的作品项目，组织章与场景结构，并在写作台连续编辑正文。",
+    foot: "适合：新建作品 / 结构规划 / 写作管理",
+    icon: PenLine,
+    className: "desktop-module-creation"
+  },
   {
     screen: "inspiration",
     eyebrow: "素材整理",
