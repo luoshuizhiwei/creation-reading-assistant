@@ -334,6 +334,76 @@ async function run(): Promise<void> {
       await migrated.close();
     });
 
+    await scenario("安全重组：拆章、并章、批量状态", async () => {
+      const chapter = await workspace!.transact({
+        type: "chapter.create",
+        projectId: created.projectId,
+        volumeId: created.volumeId,
+        title: "重组章"
+      }) as CreationStructureResult;
+      const sceneA = await workspace!.transact({
+        type: "scene.create",
+        chapterId: chapter.entityId,
+        title: "场景甲"
+      }) as CreationStructureResult;
+      const sceneB = await workspace!.transact({
+        type: "scene.create",
+        chapterId: chapter.entityId,
+        title: "场景乙"
+      }) as CreationStructureResult;
+      await workspace!.transact({
+        type: "scene.create",
+        chapterId: chapter.entityId,
+        title: "场景丙"
+      }) as CreationStructureResult;
+      const split = await workspace!.transact({
+        type: "chapter.split",
+        chapterId: chapter.entityId,
+        splitSceneId: sceneB.entityId,
+        newChapterTitle: "拆分章"
+      }) as CreationStructureResult;
+      let outline = (await workspace!.read({ kind: "project.outline", projectId: created.projectId }))!;
+      const source = outline.volumes.find((volume) => volume.id === created.volumeId)?.chapters.find(
+        (item) => item.id === chapter.entityId
+      );
+      const target = outline.volumes.find((volume) => volume.id === created.volumeId)?.chapters.find(
+        (item) => item.id === split.entityId
+      );
+      assert.equal(source?.scenes.map((scene) => scene.title).join(","), "场景甲");
+      assert.equal(target?.scenes.map((scene) => scene.title).join(","), "场景乙,场景丙");
+      assert.equal(target?.title, "拆分章");
+      assert.equal(typeof source?.displayNumber, "string");
+      assert.equal(typeof target?.displayNumber, "string");
+      // 并章：拆分章场景并入重组章末尾
+      await workspace!.transact({
+        type: "chapter.merge",
+        sourceChapterId: split.entityId,
+        targetChapterId: chapter.entityId
+      });
+      outline = (await workspace!.read({ kind: "project.outline", projectId: created.projectId }))!;
+      const merged = outline.volumes.find((volume) => volume.id === created.volumeId)?.chapters.find(
+        (item) => item.id === chapter.entityId
+      );
+      assert.equal(merged?.scenes.map((scene) => scene.title).join(","), "场景甲,场景乙,场景丙");
+      assert.equal(
+        outline.volumes.find((volume) => volume.id === created.volumeId)?.chapters.some(
+          (item) => item.id === split.entityId
+        ),
+        false
+      );
+      // 批量状态
+      await workspace!.transact({
+        type: "chapters.setStatus",
+        chapterIds: [chapter.entityId, secondChapterId],
+        status: "修订"
+      });
+      outline = (await workspace!.read({ kind: "project.outline", projectId: created.projectId }))!;
+      const chapters = outline.volumes.find((volume) => volume.id === created.volumeId)?.chapters;
+      assert.equal(chapters?.find((item) => item.id === chapter.entityId)?.status, "修订");
+      assert.equal(chapters?.find((item) => item.id === secondChapterId)?.status, "修订");
+      assert.equal(sceneA.entityId !== undefined, true);
+    });
+
     const report = await workspace.check();
     assert.equal(report.ok, true);
     // counts 统计表行数（含软删除）：created 默认卷 + created 第二卷（已软删除）+ other 默认卷

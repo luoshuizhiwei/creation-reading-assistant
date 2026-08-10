@@ -324,6 +324,28 @@ export interface SceneDeleteCommand {
   sceneId: string;
 }
 
+/** 按场景边界拆章：splitSceneId（含）及之后场景移入新章；原章必须至少保留一个场景。 */
+export interface ChapterSplitCommand {
+  type: "chapter.split";
+  chapterId: string;
+  splitSceneId: string;
+  newChapterTitle?: string;
+}
+
+/** 合并同卷相邻章节：源章节场景并入目标章节末尾，源章节软删除。 */
+export interface ChapterMergeCommand {
+  type: "chapter.merge";
+  sourceChapterId: string;
+  targetChapterId: string;
+}
+
+/** 批量修改章节工作流状态（必须属于同一作品）。 */
+export interface ChaptersSetStatusCommand {
+  type: "chapters.setStatus";
+  chapterIds: string[];
+  status: string;
+}
+
 /** 结构命令统一返回：entityId 为被操作的目标实体 id。 */
 export interface CreationStructureResult {
   commandType: string;
@@ -346,6 +368,9 @@ export type StructureCommand =
   | ChapterDeleteCommand
   | ChapterSetStatusCommand
   | ChapterSetNumberingCommand
+  | ChapterSplitCommand
+  | ChapterMergeCommand
+  | ChaptersSetStatusCommand
   | SceneCreateCommand
   | SceneRenameCommand
   | SceneReorderCommand

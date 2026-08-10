@@ -173,6 +173,20 @@ Automated Checks (appended):
 | Creation workspace guard (re-verified) | `npm run verify:creation-workspace` | Passed |
 | Creation project shell guard (re-verified) | `npm run verify:creation-project-shell` | Passed |
 
+## Creation safe-reorganize update (slice 6b): 2026-08-10
+
+- Added `chapter.split`: split a chapter at a scene boundary (the split scene onward moves into a new chapter placed right after the source; the source must keep at least one scene).
+- Added `chapter.merge`: merge two same-volume chapters, appending source scenes to the target's end and soft-deleting the source.
+- Added `chapters.setStatus` batch status change: validates all chapters belong to one project and the status is in its workflow.
+- All three reuse the revision-checked structure transaction envelope, emit typed `committed` events, and are covered by the `verify:creation-outline` runtime contracts (now 16).
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation outline guard (16 contracts) | `npm run verify:creation-outline` | Passed |
+| Desktop full build | `npm run build` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

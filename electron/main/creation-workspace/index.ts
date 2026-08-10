@@ -6,12 +6,15 @@ import {
   CreationWorkspaceError,
   type ChapterCreateCommand,
   type ChapterDeleteCommand,
+  type ChapterMergeCommand,
   type ChapterMoveCommand,
   type ChapterNumberingKind,
   type ChapterRenameCommand,
   type ChapterReorderCommand,
   type ChapterSetNumberingCommand,
   type ChapterSetStatusCommand,
+  type ChaptersSetStatusCommand,
+  type ChapterSplitCommand,
   type CreationCommand,
   type CreationDocument,
   type CreationIntegrityReport,
@@ -72,6 +75,9 @@ const STRUCTURE_COMMAND_TYPES = new Set<string>([
   "chapter.delete",
   "chapter.setStatus",
   "chapter.setNumbering",
+  "chapter.split",
+  "chapter.merge",
+  "chapters.setStatus",
   "scene.create",
   "scene.rename",
   "scene.reorder",
@@ -1098,6 +1104,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         return this.setChapterStatus(command);
       case "chapter.setNumbering":
         return this.setChapterNumbering(command);
+      case "chapter.split":
+        return this.splitChapter(command);
+      case "chapter.merge":
+        return this.mergeChapters(command);
+      case "chapters.setStatus":
+        return this.batchSetChapterStatus(command);
       case "scene.create":
         return this.createScene(command);
       case "scene.rename":
@@ -1237,13 +1249,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
-  private requireWorkflowStatus(projectId: string, status: string): void {
+  private readWorkflow(projectId: string): string[] {
     const project = this.database
       .prepare("SELECT setup_json FROM projects WHERE id = ?")
       .get(projectId) as { setup_json: string } | undefined;
     if (!project) throw new CreationWorkspaceError("not-found", "作品不存在。");
-    const setup = parseStoredSetup(project.setup_json);
-    if (!setup.chapterWorkflow.includes(status)) {
+    return parseStoredSetup(project.setup_json).chapterWorkflow;
+  }
+
+  private requireWorkflowStatus(projectId: string, status: string): void {
+    if (!this.readWorkflow(projectId).includes(status)) {
       throw new CreationWorkspaceError("invalid-input", `章节状态“${status}”不在作品工作流中。`);
     }
   }
@@ -1683,6 +1698,148 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         entityId: sceneId,
         revision,
         changes: [{ entity: "scene", id: sceneId, action: "deleted", revision }]
+      };
+    });
+  }
+
+  private splitChapter(command: ChapterSplitCommand): CreationStructureResult {
+    const chapterId = validateId(command.chapterId, "章节");
+    const splitSceneId = validateId(command.splitSceneId, "拆分场景");
+    const newChapterTitle =
+      command.newChapterTitle === undefined || command.newChapterTitle === null
+        ? "新章节"
+        : validateTitle(command.newChapterTitle, "新章节名");
+    const newChapterId = `chapter-${randomUUID()}`;
+    return this.runStructureTransaction("chapter.split", (timestamp) => {
+      const chapter = this.requireChapter(chapterId);
+      const splitScene = this.requireScene(splitSceneId);
+      if (splitScene.chapter_id !== chapterId) {
+        throw new CreationWorkspaceError("invalid-input", "拆分场景不属于该章节。");
+      }
+      const sceneRows = this.database
+        .prepare("SELECT id FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+        .all(chapterId) as Array<{ id: string }>;
+      const splitIndex = sceneRows.findIndex((row) => row.id === splitSceneId);
+      if (splitIndex <= 0) {
+        throw new CreationWorkspaceError("invalid-input", "拆分点必须至少保留一个场景在当前章节。");
+      }
+      const keepScenes = sceneRows.slice(0, splitIndex);
+      const movedScenes = sceneRows.slice(splitIndex);
+      this.database
+        .prepare("INSERT INTO chapters(id, project_id, volume_id, title, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(newChapterId, chapter.project_id, chapter.volume_id, newChapterTitle, 0, timestamp, timestamp);
+      const moveScene = this.database.prepare(
+        "UPDATE scenes SET chapter_id = ?, updated_at = ?, revision = revision + 1 WHERE id = ?"
+      );
+      for (const row of movedScenes) moveScene.run(newChapterId, timestamp, row.id);
+      const reorderScene = this.database.prepare("UPDATE scenes SET sort_order = ? WHERE id = ?");
+      keepScenes.forEach((row, index) => reorderScene.run(index, row.id));
+      movedScenes.forEach((row, index) => reorderScene.run(index, row.id));
+      const whereSql = chapter.volume_id ? "volume_id = ?" : "project_id = ? AND volume_id IS NULL";
+      const whereParam = chapter.volume_id ?? chapter.project_id;
+      const chapterRows = this.database
+        .prepare(`SELECT id FROM chapters WHERE ${whereSql} AND deleted_at IS NULL ORDER BY sort_order, id`)
+        .all(whereParam) as Array<{ id: string }>;
+      const order = chapterRows.map((row) => row.id).filter((id) => id !== newChapterId);
+      const at = order.indexOf(chapterId);
+      order.splice(at + 1, 0, newChapterId);
+      const reorderChapter = this.database.prepare("UPDATE chapters SET sort_order = ? WHERE id = ?");
+      order.forEach((id, index) => reorderChapter.run(index, id));
+      this.touchProject(chapter.project_id, timestamp);
+      return {
+        projectId: chapter.project_id,
+        entityId: newChapterId,
+        revision: 1,
+        changes: [
+          { entity: "chapter", id: newChapterId, action: "created", revision: 1 },
+          ...movedScenes.map((row) => ({ entity: "scene", id: row.id, action: "moved" as const, revision: 1 }))
+        ]
+      };
+    });
+  }
+
+  private mergeChapters(command: ChapterMergeCommand): CreationStructureResult {
+    const sourceChapterId = validateId(command.sourceChapterId, "源章节");
+    const targetChapterId = validateId(command.targetChapterId, "目标章节");
+    return this.runStructureTransaction("chapter.merge", (timestamp) => {
+      const source = this.requireChapter(sourceChapterId);
+      const target = this.requireChapter(targetChapterId);
+      if (source.id === target.id) {
+        throw new CreationWorkspaceError("invalid-input", "不能把章节合并到自身。");
+      }
+      if (source.project_id !== target.project_id || source.volume_id !== target.volume_id) {
+        throw new CreationWorkspaceError("invalid-input", "只能合并同一卷的章节。");
+      }
+      const sourceScenes = this.database
+        .prepare("SELECT id FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+        .all(sourceChapterId) as Array<{ id: string }>;
+      const targetScenes = this.database
+        .prepare("SELECT id FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+        .all(targetChapterId) as Array<{ id: string }>;
+      const moveScene = this.database.prepare(
+        "UPDATE scenes SET chapter_id = ?, updated_at = ?, revision = revision + 1 WHERE id = ?"
+      );
+      for (const row of sourceScenes) moveScene.run(targetChapterId, timestamp, row.id);
+      const reorderScene = this.database.prepare("UPDATE scenes SET sort_order = ? WHERE id = ?");
+      [...targetScenes.map((row) => row.id), ...sourceScenes.map((row) => row.id)].forEach((id, index) =>
+        reorderScene.run(index, id)
+      );
+      const revision = target.revision + 1;
+      this.database
+        .prepare("UPDATE chapters SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
+        .run(timestamp, timestamp, source.revision + 1, sourceChapterId);
+      this.database
+        .prepare("UPDATE chapters SET updated_at = ?, revision = ? WHERE id = ?")
+        .run(timestamp, revision, targetChapterId);
+      const whereSql = target.volume_id ? "volume_id = ?" : "project_id = ? AND volume_id IS NULL";
+      this.reorderEntityIds("chapters", whereSql, [target.volume_id ?? target.project_id], sourceChapterId, undefined);
+      this.touchProject(target.project_id, timestamp);
+      return {
+        projectId: target.project_id,
+        entityId: targetChapterId,
+        revision,
+        changes: [
+          { entity: "chapter", id: sourceChapterId, action: "deleted", revision: source.revision + 1 },
+          { entity: "chapter", id: targetChapterId, action: "updated", revision }
+        ]
+      };
+    });
+  }
+
+  private batchSetChapterStatus(command: ChaptersSetStatusCommand): CreationStructureResult {
+    if (!Array.isArray(command.chapterIds) || command.chapterIds.length === 0) {
+      throw new CreationWorkspaceError("invalid-input", "章节列表不能为空。");
+    }
+    const chapterIds = [...new Set(command.chapterIds.map((id) => validateId(id, "章节")))];
+    const status = validateTitle(command.status, "章节状态", 50);
+    return this.runStructureTransaction("chapters.setStatus", (timestamp) => {
+      let projectId: string | undefined;
+      const changes: CreationWorkspaceEvent["changes"] = [];
+      const updateChapter = this.database.prepare(
+        "UPDATE chapters SET status = ?, updated_at = ?, revision = revision + 1 WHERE id = ?"
+      );
+      for (const chapterId of chapterIds) {
+        const chapter = this.requireChapter(chapterId);
+        if (projectId === undefined) {
+          projectId = chapter.project_id;
+          if (!this.readWorkflow(projectId).includes(status)) {
+            throw new CreationWorkspaceError("invalid-input", `章节状态“${status}”不在作品工作流中。`);
+          }
+        } else if (projectId !== chapter.project_id) {
+          throw new CreationWorkspaceError("invalid-input", "批量状态只能作用于同一作品的章节。");
+        }
+        updateChapter.run(status, timestamp, chapterId);
+        changes.push({ entity: "chapter", id: chapterId, action: "updated", revision: chapter.revision + 1 });
+      }
+      if (projectId === undefined) {
+        throw new CreationWorkspaceError("invalid-input", "章节列表不能为空。");
+      }
+      this.touchProject(projectId, timestamp);
+      return {
+        projectId,
+        entityId: chapterIds[0] ?? projectId,
+        revision: changes[0]?.revision ?? 1,
+        changes
       };
     });
   }
