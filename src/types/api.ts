@@ -37,10 +37,15 @@ import type {
   CreationProjectOutline,
   CreationProjectSummary,
   CreationStructureResult,
+  HistoryCommand,
   RelationType,
   SceneBodyView,
   SceneSaveResponse,
+  SnapshotInfo,
+  SnapshotListQuery,
   StructureCommand,
+  TrashItem,
+  TrashListQuery,
   UpdateSceneBodyInput
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
@@ -114,7 +119,9 @@ export interface DesktopApi {
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
     readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
-    runStructure: (command: StructureCommand | CardCommand) => Promise<CreationStructureResult>;
+    runStructure: (command: StructureCommand | CardCommand | HistoryCommand) => Promise<CreationStructureResult>;
+    trashList: (projectId: string) => Promise<TrashItem[]>;
+    snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;
     cardTypesList: (projectId: string) => Promise<CardType[]>;

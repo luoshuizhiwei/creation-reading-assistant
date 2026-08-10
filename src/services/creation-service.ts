@@ -11,10 +11,14 @@ import type {
   CreationProjectListener,
   CreationProjectSummary,
   CreationStructureResult,
+  HistoryCommand,
   RelationType,
   SceneBodyView,
   SceneSaveResponse,
+  SnapshotInfo,
+  SnapshotListQuery,
   StructureCommand,
+  TrashItem,
   UpdateSceneBodyInput
 } from "@/types/creation";
 
@@ -42,8 +46,18 @@ export async function createProject(input: CreateProjectInput): Promise<Creation
   return getCreationApi().createProject(input);
 }
 
-export async function runStructure(command: StructureCommand | CardCommand): Promise<CreationStructureResult> {
+export async function runStructure(
+  command: StructureCommand | CardCommand | HistoryCommand
+): Promise<CreationStructureResult> {
   return getCreationApi().runStructure(command);
+}
+
+export async function trashList(projectId: string): Promise<TrashItem[]> {
+  return getCreationApi().trashList(projectId);
+}
+
+export async function snapshotList(query: SnapshotListQuery): Promise<SnapshotInfo[]> {
+  return getCreationApi().snapshotList(query);
 }
 
 export async function cardsList(query: CardsListQuery): Promise<CardSummary[]> {

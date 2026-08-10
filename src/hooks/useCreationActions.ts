@@ -11,6 +11,8 @@ import {
   readSceneBody,
   relationTypesList,
   runStructure as runStructureRequest,
+  snapshotList,
+  trashList,
   updateSceneBody,
   watchProject
 } from "@/services/creation-service";
@@ -25,8 +27,11 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationWorkspaceEvent,
+  HistoryCommand,
   SceneSaveResponse,
-  StructureCommand
+  SnapshotListQuery,
+  StructureCommand,
+  TrashEntityKind
 } from "@/types/creation";
 import { messageFromError } from "@/utils/format";
 
@@ -99,7 +104,7 @@ export function useCreationActions() {
   );
 
   const runStructure = useCallback(
-    async (command: StructureCommand | CardCommand): Promise<boolean> => {
+    async (command: StructureCommand | CardCommand | HistoryCommand): Promise<boolean> => {
       try {
         await runStructureRequest(command);
         return true;
@@ -165,6 +170,42 @@ export function useCreationActions() {
       } catch (error) {
         setError(messageFromError(error));
         return null;
+      }
+    },
+    [setError]
+  );
+
+  const loadTrash = useCallback(
+    async (projectId: string) => {
+      try {
+        return await trashList(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
+      }
+    },
+    [setError]
+  );
+
+  const restoreTrash = useCallback(
+    async (projectId: string, entity: TrashEntityKind, entityId: string): Promise<boolean> =>
+      runStructure({ type: "trash.restore", projectId, entity, entityId }),
+    [runStructure]
+  );
+
+  const purgeTrash = useCallback(
+    async (projectId: string, entity: TrashEntityKind, entityId: string): Promise<boolean> =>
+      runStructure({ type: "trash.purge", projectId, entity, entityId }),
+    [runStructure]
+  );
+
+  const loadSnapshots = useCallback(
+    async (query: SnapshotListQuery) => {
+      try {
+        return await snapshotList(query);
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
       }
     },
     [setError]
@@ -272,6 +313,10 @@ export function useCreationActions() {
     loadCards,
     loadCardRelations,
     readCard,
+    loadTrash,
+    restoreTrash,
+    purgeTrash,
+    loadSnapshots,
     subscribeProject
   };
 }

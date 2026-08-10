@@ -252,6 +252,19 @@ Automated Checks (appended):
 | Creation history guard | `npm run verify:creation-history` | Passed |
 | Creation cards guard (re-verified) | `npm run verify:creation-cards` | Passed |
 
+## Creation history UI update (slice 8b): 2026-08-10
+
+- Project view gained a **历史** tab with two panels: **回收站** (lists soft-deleted volumes/chapters/scenes/cards with type, title and deletion time; restore or two-click permanent delete) and **版本快照** (lists named snapshots with reason and time; restore a scene or card from a snapshot).
+- IPC: added `creation:trashList` / `creation:snapshotList` query channels and broadened `creation:runStructure` to accept history commands; wired through preload → `DesktopApi.creation` → `creation-service` → `useCreationActions`.
+- End-to-end verified on a real Electron instance: a deleted card appears in the trash list with type/time, and clicking 恢复 empties the trash.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Desktop full build | `npm run build` | Passed |
+| Renderer unit tests | `npm run test` | Passed (147) |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

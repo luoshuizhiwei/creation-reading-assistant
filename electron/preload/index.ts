@@ -40,10 +40,15 @@ import type {
   CreationProjectSummary,
   CreationStructureResult,
   CreationWorkspaceEvent,
+  HistoryCommand,
   RelationType,
   SceneBodyView,
   SceneSaveResponse,
+  SnapshotInfo,
+  SnapshotListQuery,
   StructureCommand,
+  TrashItem,
+  TrashListQuery,
   UpdateSceneBodyInput
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
@@ -121,8 +126,10 @@ const api: DesktopApi = {
     createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
     readProjectOutline: (projectId: string) =>
       invoke<CreationProjectOutline | null>("creation:readProjectOutline", projectId),
-    runStructure: (command: StructureCommand | CardCommand) =>
+    runStructure: (command: StructureCommand | CardCommand | HistoryCommand) =>
       invoke<CreationStructureResult>("creation:runStructure", command),
+    trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
+    snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
     cardRead: (cardId: string) => invoke<CardSummary | null>("creation:cardRead", cardId),
     cardTypesList: (projectId: string) => invoke<CardType[]>("creation:cardTypesList", projectId),

@@ -14,7 +14,10 @@ import type {
   RelationType,
   SceneBodyView,
   SceneSaveResponse,
+  SnapshotInfo,
+  SnapshotListQuery,
   StructureCommand,
+  TrashItem,
   UpdateSceneBodyInput
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
@@ -86,6 +89,16 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
     coordinator.withWorkspace(
       (workspace) =>
         workspace.read({ kind: "card.relations", cardId }) as Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>
+    )
+  );
+
+  ipcMain.handle("creation:trashList", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "trash.list", projectId }))
+  );
+
+  ipcMain.handle("creation:snapshotList", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as SnapshotListQuery) as Promise<SnapshotInfo[]>
     )
   );
 

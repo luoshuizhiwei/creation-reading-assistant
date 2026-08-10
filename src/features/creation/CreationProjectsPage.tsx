@@ -3,6 +3,7 @@ import { BookMarked, Plus } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
+import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
@@ -15,7 +16,7 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const { loadProjects, loadNavigation } = useCreationActions();
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [view, setView] = useState<"writing" | "cards">("writing");
+  const [view, setView] = useState<"writing" | "cards" | "history">("writing");
 
   useEffect(() => {
     void loadProjects();
@@ -35,11 +36,13 @@ export function CreationProjectsPage() {
         <section className="desktop-page-hero motion-panel creation-writing-hero">
           <div>
             <div className="desktop-card-label">Creation desk</div>
-            <h2>{view === "writing" ? "正文写作台" : "卡片管理"}</h2>
+            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : "历史与回收站"}</h2>
             <p>
               {view === "writing"
                 ? "在场景中连续写作；卷章结构在大纲树中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
-                : "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"}
+                : view === "cards"
+                  ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
+                  : "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"}
             </p>
           </div>
           <div className="desktop-page-actions">
@@ -71,9 +74,20 @@ export function CreationProjectsPage() {
               >
                 卡片
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "history"}
+                className={view === "history" ? "active" : ""}
+                onClick={() => setView("history")}
+              >
+                历史
+              </button>
             </div>
             {view === "cards" ? (
               <CardsPage project={selected} />
+            ) : view === "history" ? (
+              <HistoryPage project={selected} />
             ) : navigation ? (
               <WritingDesk
                 projects={projects}

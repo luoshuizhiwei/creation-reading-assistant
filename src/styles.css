@@ -3733,3 +3733,113 @@ button:disabled {
   font-size: 11px;
   padding: 4px;
 }
+
+/* 回收站与版本快照 */
+.history-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.history-tabs {
+  display: inline-flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
+  align-self: flex-start;
+}
+
+.history-tabs button {
+  min-width: 72px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.history-tabs button.active {
+  color: var(--paper-ink);
+  background: var(--paper-panel);
+  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.08);
+}
+
+.history-empty {
+  color: var(--paper-muted);
+  font-size: 13px;
+  padding: 18px;
+  border: 1px dashed color-mix(in srgb, var(--paper-line) 70%, transparent);
+  border-radius: 12px;
+}
+
+.history-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  background: var(--paper-panel);
+  padding: 10px 12px;
+}
+
+.history-item-type {
+  color: var(--copper);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 34px;
+}
+
+.history-item strong {
+  font-size: 13px;
+  color: var(--paper-ink);
+}
+
+.history-item small {
+  color: var(--paper-muted);
+  font-size: 11px;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.history-item-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.history-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.history-item-actions button:hover {
+  color: var(--copper);
+  border-color: var(--copper);
+}
+
+.history-item-actions button.confirming {
+  color: #c0392b;
+  border-color: #c0392b;
+  background: color-mix(in srgb, #c0392b 8%, transparent);
+}

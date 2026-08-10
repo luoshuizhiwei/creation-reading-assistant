@@ -40,6 +40,8 @@ try {
     "creation:cardTypesList",
     "creation:relationTypesList",
     "creation:cardRelations",
+    "creation:trashList",
+    "creation:snapshotList",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"
