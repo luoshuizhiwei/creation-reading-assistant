@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Library, Plus, Save, Sparkles, Trash2, Copy, X } from "lucide-react";
+import { ArrowLeft, Copy, Library, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import { AnimatedPanel } from "@/components/interaction";
 import { Button, EmptyState, Field, ShellPanel, TextArea, TextInput } from "@/components/ui";
+import { useCreationActions } from "@/hooks/useCreationActions";
 import { useInspirationActions } from "@/hooks/useInspirationActions";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { runAIAction } from "@/services/ai-service";
 import { useInspirationStore } from "@/stores/inspiration-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
@@ -82,11 +84,15 @@ export function InspirationPage() {
   const setSelectedId = useInspirationStore((state) => state.setSelectedId);
   const loading = useInspirationStore((state) => state.loading);
   const { loadInspirations, createItem, updateItem, deleteItem, addVariant } = useInspirationActions();
+  const { runStructure } = useCreationActions();
+  const creationProjects = useCreationStore((state) => state.projects);
+  const creationSelectedId = useCreationStore((state) => state.selectedId);
   const { openReader } = useLibraryActions();
   const [filter, setFilter] = useState("");
   const [draft, setDraft] = useState<InspirationDraft>(EMPTY_DRAFT);
   const [aiBusy, setAiBusy] = useState<AIRunAction | undefined>();
   const [isAIRunning, setIsAIRunning] = useState(false);
+  const [targetProjectId, setTargetProjectId] = useState<string>("");
   const isAIRunningRef = useRef(false);
   const userEditedDraftRef = useRef(false);
   const autoSaveTimerRef = useRef<number | undefined>();
@@ -286,6 +292,54 @@ export function InspirationPage() {
     }
   };
 
+  const excerptToProject = async () => {
+    if (!selected) return;
+    const projectId = targetProjectId || creationSelectedId || creationProjects[0]?.id;
+    if (!projectId || creationProjects.length === 0) {
+      showToast({ tone: "warning", title: "还没有创作项目", body: "请先在创作工作台新建项目，再摘录灵感。", });
+      return;
+    }
+    const source = selected.source
+      ? {
+          bookId: selected.source.bookId ?? selected.sourceBookId,
+          bookTitle: selected.source.bookTitle,
+          bookAuthor: selected.source.bookAuthor,
+          format: selected.source.format,
+          chapterTitle: selected.source.chapterTitle,
+          locationLabel: selected.source.locationLabel,
+          progressPercent: selected.source.progressPercent,
+          excerpt: selected.source.excerpt,
+          href: selected.source.href,
+          cfi: selected.source.cfi,
+          scrollTop: selected.source.scrollTop,
+          createdFrom: selected.source.createdFrom,
+          locator: selected.source.locator,
+          createdAt: selected.source.createdAt
+        }
+      : null;
+    const ok = await runStructure({
+      type: "card.create",
+      projectId,
+      kind: "reference",
+      title: selected.title,
+      tags: selected.tags,
+      fields: { note: selected.body.slice(0, 2000) },
+      content: {
+        excerpt: selected.body,
+        source,
+        inspirationId: selected.id,
+        excerptedAt: selected.updatedAt
+      }
+    });
+    if (ok) {
+      showToast({
+        tone: "success",
+        title: "已摘录到项目资料卡",
+        body: `「${selected.title}」已作为资料卡加入创作项目，来源快照（含书籍与阅读位置）随卡保存。`
+      });
+    }
+  };
+
   const adoptVariant = async (variantContent: string) => {
     if (!selected) return;
     const nextDraft = { ...draft, body: variantContent };
@@ -371,6 +425,25 @@ export function InspirationPage() {
                     <h2 className="paper-title mt-1 text-xl font-semibold">素材正文</h2>
                   </div>
                   <div className="flex gap-2">
+                    {creationProjects.length > 0 && (
+                      <>
+                        <select
+                          className="paper-input h-9 max-w-[160px]"
+                          value={targetProjectId || creationSelectedId || creationProjects[0]?.id || ""}
+                          onChange={(event) => setTargetProjectId(event.target.value)}
+                          aria-label="摘录目标项目"
+                          title="摘录到哪个创作项目"
+                        >
+                          {creationProjects.map((project) => (
+                            <option key={project.id} value={project.id}>{project.title}</option>
+                          ))}
+                        </select>
+                        <Button variant="secondary" onClick={() => void excerptToProject()}>
+                          <Library size={16} />
+                          摘录到项目
+                        </Button>
+                      </>
+                    )}
                     <Button variant="secondary" onClick={() => void deleteSelected()}>
                       <Trash2 size={16} />
                       删除

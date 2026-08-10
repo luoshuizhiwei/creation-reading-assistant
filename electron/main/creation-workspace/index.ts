@@ -4210,6 +4210,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const title = validateTitle(command.title, "卡片名称");
     const aliases = validateStringList(command.aliases, "别名");
     const tags = validateStringList(command.tags, "标签");
+    let contentJson = "{}";
+    if (command.content !== undefined && command.content !== null) {
+      if (typeof command.content !== "object" || Array.isArray(command.content)) {
+        throw new CreationWorkspaceError("invalid-input", "卡片内容必须为对象。");
+      }
+      contentJson = JSON.stringify(command.content);
+      if (contentJson.length > 1_000_000) {
+        throw new CreationWorkspaceError("invalid-input", "卡片内容不能超过 1MB。");
+      }
+    }
     const cardId = `card-${randomUUID()}`;
     return this.runStructureTransaction("card.create", (timestamp) => {
       this.requireProject(projectId);
@@ -4219,7 +4229,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         .prepare(
           "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
-        .run(cardId, projectId, kind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), "{}", timestamp, timestamp);
+        .run(cardId, projectId, kind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), contentJson, timestamp, timestamp);
       this.touchProject(projectId, timestamp);
       return {
         projectId,

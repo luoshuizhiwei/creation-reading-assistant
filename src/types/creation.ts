@@ -476,6 +476,8 @@ export interface CardCreateCommand {
   aliases?: string[];
   fields?: Record<string, unknown>;
   tags?: string[];
+  /** 自由结构内容（如摘录来源快照），最大 1MB。 */
+  content?: Record<string, unknown>;
 }
 
 export interface CardUpdateCommand {

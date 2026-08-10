@@ -115,6 +115,38 @@ async function run(): Promise<void> {
       assert.equal(searched.some((c) => c.title === "影袭"), true);
     });
 
+    await scenario("创建资料卡：content 来源快照随卡保存", async () => {
+      const card = await workspace!.transact({
+        type: "card.create",
+        projectId,
+        kind: "reference",
+        title: "摘录：河岸",
+        fields: { note: "正文预览" },
+        content: {
+          excerpt: "完整摘录正文",
+          source: { bookId: "book-1", bookTitle: "测试 TXT", locator: { bookId: "book-1", kind: "txt", offset: 123 }, createdAt: "2026-01-01T00:00:00.000Z" },
+          inspirationId: "insp-1",
+          excerptedAt: "2026-01-01T00:00:00.000Z"
+        }
+      }) as CreationStructureResult;
+      const summary = (await workspace!.read({ kind: "card.read", cardId: card.entityId })) as CardSummary;
+      assert.equal(summary.kind, "reference");
+      assert.equal(summary.title, "摘录：河岸");
+      let invalidContent: unknown;
+      try {
+        await workspace!.transact({
+          type: "card.create",
+          projectId,
+          kind: "reference",
+          title: "非法内容",
+          content: "not-an-object" as never
+        });
+      } catch (error) {
+        invalidContent = error;
+      }
+      assert.equal((invalidContent as CreationWorkspaceError).code, "invalid-input");
+    });
+
     await scenario("更新卡片：改名与改字段（revision 校验）", async () => {
       const all = (await workspace!.read({ kind: "cards.list", projectId, search: "影" })) as CardSummary[];
       const shadow = all[0]!;
