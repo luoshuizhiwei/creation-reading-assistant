@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -10,6 +10,7 @@ import {
   Scissors,
   Trash2
 } from "lucide-react";
+import { Button } from "@/components/ui";
 import type {
   CreationOutlineChapter,
   CreationOutlineScene,
@@ -35,6 +36,57 @@ type EditingTarget =
   | { kind: "volume"; id: string; title: string }
   | { kind: "chapter"; id: string; title: string }
   | { kind: "scene"; id: string; title: string };
+
+interface PromptState {
+  title: string;
+  defaultValue: string;
+  submit(title: string): void;
+}
+
+function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): void }) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const commit = () => {
+    const title = inputRef.current?.value ?? "";
+    if (!title.trim()) return;
+    prompt.submit(title.trim());
+  };
+
+  return (
+    <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={onCancel}>
+      <section
+        className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="outline-prompt-title"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="h-1 bg-copper" />
+        <div className="p-5">
+          <h2 id="outline-prompt-title" className="paper-title text-base font-semibold text-paper-ink">{prompt.title}</h2>
+          <input
+            ref={inputRef}
+            className="paper-input mt-3 h-9 w-full"
+            defaultValue={prompt.defaultValue}
+            onKeyDown={(event) => {
+              if (event.key === "Enter") commit();
+              if (event.key === "Escape") onCancel();
+            }}
+          />
+          <div className="mt-4 flex justify-end gap-2">
+            <Button variant="secondary" onClick={onCancel}>取消</Button>
+            <Button onClick={commit}>确定</Button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+}
 
 function volumeSiblingIds(outline: CreationProjectOutline): string[] {
   return outline.volumes.map((volume) => volume.id);
@@ -69,6 +121,7 @@ export function OutlineTree({
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => new Set(outline.volumes.flatMap((v) => v.chapters.map((c) => c.id))));
   const [confirm, setConfirm] = useState<ConfirmTarget>();
   const [editing, setEditing] = useState<EditingTarget>();
+  const [prompt, setPrompt] = useState<PromptState>();
 
   const toggleVolume = (id: string) =>
     setExpandedVolumes((current) => {
@@ -84,26 +137,38 @@ export function OutlineTree({
       return next;
     });
 
-  const addVolume = async () => {
-    const title = window.prompt("新卷名称", "新卷");
-    if (!title?.trim()) return;
-    await runStructure({ type: "volume.create", projectId: outline.project.id, title: title.trim() });
+  const addVolume = () => {
+    setPrompt({
+      title: "新卷名称",
+      defaultValue: "新卷",
+      submit: async (title) => {
+        await runStructure({ type: "volume.create", projectId: outline.project.id, title });
+      }
+    });
   };
 
-  const addChapter = async (volume: CreationOutlineVolume) => {
-    const title = window.prompt("新章节名", "新章节");
-    if (!title?.trim()) return;
-    await runStructure({ type: "chapter.create", projectId: outline.project.id, volumeId: volume.id, title: title.trim() });
-    setExpandedVolumes((current) => new Set(current).add(volume.id));
+  const addChapter = (volume: CreationOutlineVolume) => {
+    setPrompt({
+      title: "新章节名",
+      defaultValue: "新章节",
+      submit: async (title) => {
+        await runStructure({ type: "chapter.create", projectId: outline.project.id, volumeId: volume.id, title });
+        setExpandedVolumes((current) => new Set(current).add(volume.id));
+      }
+    });
   };
 
-  const addScene = async (chapter: CreationOutlineChapter) => {
-    const title = window.prompt("新场景名", "新场景");
-    if (!title?.trim()) return;
-    const volume = outline.volumes.find((item) => item.chapters.some((c) => c.id === chapter.id));
-    if (volume) setExpandedVolumes((current) => new Set(current).add(volume.id));
-    setExpandedChapters((current) => new Set(current).add(chapter.id));
-    await runStructure({ type: "scene.create", chapterId: chapter.id, title: title.trim() });
+  const addScene = (chapter: CreationOutlineChapter) => {
+    setPrompt({
+      title: "新场景名",
+      defaultValue: "新场景",
+      submit: async (title) => {
+        const volume = outline.volumes.find((item) => item.chapters.some((c) => c.id === chapter.id));
+        if (volume) setExpandedVolumes((current) => new Set(current).add(volume.id));
+        setExpandedChapters((current) => new Set(current).add(chapter.id));
+        await runStructure({ type: "scene.create", chapterId: chapter.id, title });
+      }
+    });
   };
 
   const confirmDelete = (target: ConfirmTarget) => {
@@ -166,14 +231,18 @@ export function OutlineTree({
     await runStructure({ type: "scene.move", sceneId: scene.id, targetChapterId });
   };
 
-  const splitChapterAtScene = async (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => {
-    const title = window.prompt("新章节名", "新章节");
-    if (!title?.trim()) return;
-    await runStructure({
-      type: "chapter.split",
-      chapterId: chapter.id,
-      splitSceneId: scene.id,
-      newChapterTitle: title.trim()
+  const splitChapterAtScene = (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => {
+    setPrompt({
+      title: "拆章后的新章节名",
+      defaultValue: "新章节",
+      submit: async (title) => {
+        await runStructure({
+          type: "chapter.split",
+          chapterId: chapter.id,
+          splitSceneId: scene.id,
+          newChapterTitle: title
+        });
+      }
     });
   };
 
@@ -395,6 +464,7 @@ export function OutlineTree({
           </div>
         )}
       </div>
+      {prompt && <PromptDialog prompt={prompt} onCancel={() => setPrompt(undefined)} />}
     </div>
   );
 }
