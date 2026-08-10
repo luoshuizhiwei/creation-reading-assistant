@@ -2022,7 +2022,10 @@ button:disabled {
 
 .creation-writing-stack {
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr);
+  /* 子项依次为 hero / 迁移横幅 / 工作台（横幅可关，行自动塌缩为 0）。
+     旧模板只有两行，横幅被 auto-placement 塞进 minmax(0,1fr) 行，
+     随工作台高低被垂直拉伸（实测 22px～285px 漂移）。补上第三行并让横幅行 auto。 */
+  grid-template-rows: auto auto minmax(0, 1fr);
   gap: 14px;
 }
 
