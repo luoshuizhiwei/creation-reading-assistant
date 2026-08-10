@@ -618,3 +618,38 @@ export type HistoryCommand =
   | TrashPurgeCommand
   | SnapshotCreateCommand
   | SnapshotRestoreCommand;
+
+// ---------------------------------------------------------------------------
+// 切片 9：成稿导出
+// ---------------------------------------------------------------------------
+
+export interface ProjectExportScene {
+  id: string;
+  title: string;
+  /** 场景正文纯文本（块间空行、场景分隔换行）。 */
+  text: string;
+}
+
+export interface ProjectExportChapter {
+  id: string;
+  title: string;
+  displayNumber: string | null;
+  scenes: ProjectExportScene[];
+}
+
+export interface ProjectExportVolume {
+  id: string;
+  title: string;
+  chapters: ProjectExportChapter[];
+}
+
+export interface ProjectExportView {
+  projectId: string;
+  title: string;
+  volumes: ProjectExportVolume[];
+}
+
+export interface ProjectExportQuery {
+  kind: "project.export";
+  projectId: string;
+}

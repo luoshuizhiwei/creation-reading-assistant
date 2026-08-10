@@ -79,6 +79,11 @@ import {
   type TrashListQuery,
   type TrashPurgeCommand,
   type TrashRestoreCommand,
+  type ProjectExportChapter,
+  type ProjectExportQuery,
+  type ProjectExportScene,
+  type ProjectExportView,
+  type ProjectExportVolume,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -225,6 +230,36 @@ function countSceneWords(bodyJson: string): number {
   };
   collect(document.content ?? []);
   return parts.join("").replace(/[\p{P}\p{S}\p{Z}\s]/gu, "").length;
+}
+
+/** 场景正文纯文本：每个块一段，块间空行，场景分隔占位。 */
+function extractSceneText(bodyJson: string): string {
+  let document: CreationDocument;
+  try {
+    document = JSON.parse(bodyJson) as CreationDocument;
+  } catch {
+    return "";
+  }
+  const blocks: string[] = [];
+  for (const block of document.content ?? []) {
+    if (!isRecord(block)) continue;
+    if (block.type === "sceneBreak") {
+      blocks.push("　　");
+      continue;
+    }
+    if (!Array.isArray(block.content)) continue;
+    const parts: string[] = [];
+    const collect = (nodes: unknown[]): void => {
+      for (const node of nodes) {
+        if (!isRecord(node)) continue;
+        if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
+        else if (Array.isArray(node.content)) collect(node.content);
+      }
+    };
+    collect(block.content);
+    if (parts.length > 0) blocks.push(parts.join(""));
+  }
+  return blocks.join("\n\n");
 }
 
 function isConstraintError(error: unknown): boolean {
@@ -804,6 +839,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
   async read(query: TrashListQuery): Promise<TrashItem[]>;
   async read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
+  async read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -917,7 +953,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     if (
       (runtimeQuery.kind !== "project.tree" &&
         runtimeQuery.kind !== "project.navigation" &&
-        runtimeQuery.kind !== "project.outline") ||
+        runtimeQuery.kind !== "project.outline" &&
+        runtimeQuery.kind !== "project.export") ||
       typeof runtimeQuery.projectId !== "string" ||
       !runtimeQuery.projectId.trim()
     ) {
@@ -929,6 +966,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       }
       if (runtimeQuery.kind === "project.outline") {
         return this.readProjectOutline(runtimeQuery.projectId);
+      }
+      if (runtimeQuery.kind === "project.export") {
+        return this.readProjectExport(runtimeQuery.projectId);
       }
       return this.readProjectTree(runtimeQuery.projectId);
     } catch (error) {
@@ -1400,6 +1440,83 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       }>
     ).map(mapRelation);
     return { outgoing, incoming };
+  }
+
+  private readProjectExport(projectId: string): ProjectExportView | null {
+    const project = this.database
+      .prepare("SELECT id, title FROM projects WHERE id = ?")
+      .get(projectId) as { id: string; title: string } | undefined;
+    if (!project) return null;
+
+    const volumeRows = this.database
+      .prepare("SELECT id, title FROM volumes WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+      .all(projectId) as Array<{ id: string; title: string }>;
+    const chapterRows = this.database
+      .prepare(
+        `SELECT id, volume_id, title, numbering_kind, custom_number FROM chapters
+         WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, id`
+      )
+      .all(projectId) as Array<{
+      id: string;
+      volume_id: string | null;
+      title: string;
+      numbering_kind: ChapterNumberingKind;
+      custom_number: string | null;
+    }>;
+    const sceneRows = this.database
+      .prepare(
+        `SELECT s.id, s.chapter_id, s.title, s.body_json FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+         WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id`
+      )
+      .all(projectId) as Array<{ id: string; chapter_id: string; title: string; body_json: string }>;
+
+    const scenesByChapter = new Map<string, ProjectExportScene[]>();
+    for (const scene of sceneRows) {
+      const list = scenesByChapter.get(scene.chapter_id);
+      const entry: ProjectExportScene = { id: scene.id, title: scene.title, text: extractSceneText(scene.body_json) };
+      if (list) list.push(entry);
+      else scenesByChapter.set(scene.chapter_id, [entry]);
+    }
+
+    const buildChapter = (chapter: (typeof chapterRows)[number], autoIndex: number): ProjectExportChapter => {
+      let displayNumber: string | null = null;
+      if (chapter.numbering_kind === "auto") displayNumber = `第${autoIndex}章`;
+      else if (chapter.numbering_kind === "prologue") displayNumber = "序章";
+      else if (chapter.numbering_kind === "extra") displayNumber = "番外";
+      else if (chapter.numbering_kind === "custom") displayNumber = chapter.custom_number;
+      return {
+        id: chapter.id,
+        title: chapter.title,
+        displayNumber,
+        scenes: scenesByChapter.get(chapter.id) ?? []
+      };
+    };
+
+    const chaptersByVolume = new Map<string, Array<(typeof chapterRows)[number]>>();
+    const looseChapters: ProjectExportChapter[] = [];
+    const volumeIds = new Set(volumeRows.map((volume) => volume.id));
+    for (const chapter of chapterRows) {
+      if (chapter.volume_id && volumeIds.has(chapter.volume_id)) {
+        const list = chaptersByVolume.get(chapter.volume_id);
+        if (list) list.push(chapter);
+        else chaptersByVolume.set(chapter.volume_id, [chapter]);
+      } else {
+        const autoIndex = looseChapters.filter((item) => item.displayNumber === null).length + 1;
+        looseChapters.push(buildChapter(chapter, autoIndex));
+      }
+    }
+    const volumes: ProjectExportVolume[] = volumeRows.map((volume) => {
+      let autoIndex = 0;
+      const chapters = (chaptersByVolume.get(volume.id) ?? []).map((chapter) => {
+        if (chapter.numbering_kind === "auto") autoIndex += 1;
+        return buildChapter(chapter, autoIndex);
+      });
+      return { id: volume.id, title: volume.title, chapters };
+    });
+    if (looseChapters.length > 0) {
+      volumes.push({ id: "loose", title: "未分卷", chapters: looseChapters });
+    }
+    return { projectId: project.id, title: project.title, volumes };
   }
 
   private readSceneBody(sceneId: string): SceneBodyView | null {

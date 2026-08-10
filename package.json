@@ -32,6 +32,7 @@
     "verify:creation-outline": "node scripts/verify-creation-outline.mjs",
     "verify:creation-cards": "node scripts/verify-creation-cards.mjs",
     "verify:creation-history": "node scripts/verify-creation-history.mjs",
+    "verify:creation-export": "node scripts/verify-creation-export.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",

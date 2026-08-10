@@ -277,6 +277,18 @@ Automated Checks (appended):
 | Creation history guard (10 contracts) | `npm run verify:creation-history` | Passed |
 | Creation cards guard (re-verified) | `npm run verify:creation-cards` | Passed |
 
+## Creation export update (slice 9a): 2026-08-10
+
+- Added `project.export` query: aggregates volumes → chapters → scenes with derived display numbers and per-scene plain-text body (blocks joined by blank lines, scene breaks as spacing). Soft-deleted entities are excluded. This is the data basis for final-draft export (platform-clean text / review draft) and project bundles.
+- Added guard: `npm run verify:creation-export` (10 runtime contracts covering text aggregation, multi-volume/multi-chapter structure, and soft-delete exclusion); all creation guards and `npm run build` pass.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation export guard | `npm run verify:creation-export` | Passed |
+| Creation history guard (re-verified) | `npm run verify:creation-history` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.
