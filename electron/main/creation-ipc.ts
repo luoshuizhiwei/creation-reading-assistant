@@ -11,6 +11,8 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationSearchQuery,
+  CreationSearchView,
   CreationStructureResult,
   ProjectExportView,
   RelationType,
@@ -121,6 +123,12 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
   ipcMain.handle("creation:snapshotList", (_event, query: unknown) =>
     coordinator.withWorkspace(
       (workspace) => workspace.read(query as SnapshotListQuery) as Promise<SnapshotInfo[]>
+    )
+  );
+
+  ipcMain.handle("creation:search", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as CreationSearchQuery) as Promise<CreationSearchView>
     )
   );
 

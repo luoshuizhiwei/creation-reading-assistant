@@ -1,13 +1,15 @@
 import { useEffect, useState } from "react";
-import { BookMarked, Download, Plus } from "lucide-react";
+import { BookMarked, Download, Plus, Search } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
+import { SearchPanel } from "@/features/creation/search/SearchPanel";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
+import type { CreationSearchHit } from "@/types/creation";
 
 export function CreationProjectsPage() {
   const projects = useCreationStore((state) => state.projects);
@@ -15,9 +17,12 @@ export function CreationProjectsPage() {
   const navigations = useCreationStore((state) => state.navigations);
   const loading = useCreationStore((state) => state.loading);
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
-  const { loadProjects, loadNavigation, exportDraft } = useCreationActions();
+  const selectScene = useCreationStore((state) => state.selectScene);
+  const selectCard = useCreationStore((state) => state.selectCard);
+  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history">("writing");
 
   useEffect(() => {
@@ -40,6 +45,51 @@ export function CreationProjectsPage() {
     }
   };
 
+  const navigateToHit = async (hit: CreationSearchHit) => {
+    setSearchOpen(false);
+    if (hit.kind === "project") {
+      setSelectedId(hit.id);
+      if (!navigations[hit.id]) await loadNavigation(hit.id);
+      setView("writing");
+      return;
+    }
+    if (hit.kind === "scene") {
+      if (hit.projectId !== selectedId) {
+        setSelectedId(hit.projectId);
+        await loadNavigation(hit.projectId);
+      }
+      selectScene(hit.id);
+      void loadScene(hit.id);
+      void loadOutline(hit.projectId);
+      setView("writing");
+      return;
+    }
+    if (hit.kind === "card") {
+      if (hit.projectId !== selectedId) {
+        setSelectedId(hit.projectId);
+        await loadNavigation(hit.projectId);
+      }
+      selectCard(hit.id);
+      void loadCards({ projectId: hit.projectId });
+      setView("cards");
+      return;
+    }
+    if (hit.kind === "chapter") {
+      if (hit.projectId !== selectedId) {
+        setSelectedId(hit.projectId);
+        await loadNavigation(hit.projectId);
+      }
+      const current = navigations[hit.projectId];
+      const firstScene = current?.chapters.find((chapter) => chapter.id === hit.id)?.scenes[0];
+      if (firstScene) {
+        selectScene(firstScene.id);
+        void loadScene(firstScene.id);
+      }
+      void loadOutline(hit.projectId);
+      setView("writing");
+    }
+  };
+
   return (
     <div className="desktop-page-scroll paper-shell creation-writing-page">
       <div className="desktop-page-stack creation-writing-stack">
@@ -57,10 +107,16 @@ export function CreationProjectsPage() {
           </div>
           <div className="desktop-page-actions">
             {selected && (
-              <Button onClick={() => void handleExport()}>
-                <Download size={16} />
-                导出成稿
-              </Button>
+              <>
+                <Button onClick={() => setSearchOpen(true)}>
+                  <Search size={16} />
+                  搜索
+                </Button>
+                <Button onClick={() => void handleExport()}>
+                  <Download size={16} />
+                  导出成稿
+                </Button>
+              </>
             )}
             <Button onClick={() => setWizardOpen(true)}>
               <Plus size={16} />
@@ -132,6 +188,13 @@ export function CreationProjectsPage() {
       </div>
 
       <CreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      {searchOpen && selected && (
+        <SearchPanel
+          projectId={selected.id}
+          onNavigate={(hit) => void navigateToHit(hit)}
+          onClose={() => setSearchOpen(false)}
+        />
+      )}
     </div>
   );
 }

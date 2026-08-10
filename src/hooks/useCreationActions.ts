@@ -12,6 +12,7 @@ import {
   readSceneBody,
   relationTypesList,
   runStructure as runStructureRequest,
+  search as searchRequest,
   snapshotList,
   trashList,
   updateSceneBody,
@@ -27,6 +28,8 @@ import type {
   CreationDocument,
   CreationProjectNavigation,
   CreationProjectOutline,
+  CreationSearchQuery,
+  CreationSearchView,
   CreationWorkspaceEvent,
   HistoryCommand,
   SceneSaveResponse,
@@ -224,6 +227,18 @@ export function useCreationActions() {
     [setError]
   );
 
+  const search = useCallback(
+    async (query: Omit<CreationSearchQuery, "kind">): Promise<CreationSearchView> => {
+      try {
+        return await searchRequest({ kind: "search.query", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return { query: query.text, hits: [], total: 0 };
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -331,6 +346,7 @@ export function useCreationActions() {
     purgeTrash,
     loadSnapshots,
     exportDraft,
+    search,
     subscribeProject
   };
 }

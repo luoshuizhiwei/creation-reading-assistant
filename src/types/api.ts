@@ -36,6 +36,8 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationSearchQuery,
+  CreationSearchView,
   CreationStructureResult,
   HistoryCommand,
   RelationType,
@@ -122,6 +124,7 @@ export interface DesktopApi {
     runStructure: (command: StructureCommand | CardCommand | HistoryCommand) => Promise<CreationStructureResult>;
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
+    search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

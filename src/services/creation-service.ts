@@ -10,6 +10,8 @@ import type {
   CreationProjectOutline,
   CreationProjectListener,
   CreationProjectSummary,
+  CreationSearchQuery,
+  CreationSearchView,
   CreationStructureResult,
   HistoryCommand,
   RelationType,
@@ -101,4 +103,8 @@ export async function watchProject(
   onEvent: CreationProjectListener
 ): Promise<() => void> {
   return getCreationApi().watchProject(projectId, onEvent);
+}
+
+export async function search(query: CreationSearchQuery): Promise<CreationSearchView> {
+  return getCreationApi().search(query);
 }

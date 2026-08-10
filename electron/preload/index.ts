@@ -38,6 +38,8 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationSearchQuery,
+  CreationSearchView,
   CreationStructureResult,
   CreationWorkspaceEvent,
   HistoryCommand,
@@ -130,6 +132,7 @@ const api: DesktopApi = {
       invoke<CreationStructureResult>("creation:runStructure", command),
     trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
     snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
+    search: (query: CreationSearchQuery) => invoke<CreationSearchView>("creation:search", query),
     exportDraft: (projectId: string) =>
       invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
