@@ -130,6 +130,8 @@ const api: DesktopApi = {
       invoke<CreationStructureResult>("creation:runStructure", command),
     trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
     snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
+    exportDraft: (projectId: string) =>
+      invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
     cardRead: (cardId: string) => invoke<CardSummary | null>("creation:cardRead", cardId),
     cardTypesList: (projectId: string) => invoke<CardType[]>("creation:cardTypesList", projectId),

@@ -122,6 +122,7 @@ export interface DesktopApi {
     runStructure: (command: StructureCommand | CardCommand | HistoryCommand) => Promise<CreationStructureResult>;
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
+    exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;
     cardTypesList: (projectId: string) => Promise<CardType[]>;

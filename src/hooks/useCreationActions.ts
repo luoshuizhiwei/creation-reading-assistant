@@ -5,6 +5,7 @@ import {
   cardsList,
   cardTypesList,
   createProject as createProjectRequest,
+  exportDraft as exportDraftRequest,
   listProjects,
   readProjectNavigation,
   readProjectOutline,
@@ -211,6 +212,18 @@ export function useCreationActions() {
     [setError]
   );
 
+  const exportDraft = useCallback(
+    async (projectId: string): Promise<{ canceled: boolean; filePath: string | null }> => {
+      try {
+        return await exportDraftRequest(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return { canceled: true, filePath: null };
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -317,6 +330,7 @@ export function useCreationActions() {
     restoreTrash,
     purgeTrash,
     loadSnapshots,
+    exportDraft,
     subscribeProject
   };
 }

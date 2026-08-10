@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookMarked, Plus } from "lucide-react";
+import { BookMarked, Download, Plus } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
@@ -7,6 +7,7 @@ import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
+import { useUIStore } from "@/stores/ui-store";
 
 export function CreationProjectsPage() {
   const projects = useCreationStore((state) => state.projects);
@@ -14,7 +15,8 @@ export function CreationProjectsPage() {
   const navigations = useCreationStore((state) => state.navigations);
   const loading = useCreationStore((state) => state.loading);
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
-  const { loadProjects, loadNavigation } = useCreationActions();
+  const { loadProjects, loadNavigation, exportDraft } = useCreationActions();
+  const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history">("writing");
 
@@ -29,6 +31,14 @@ export function CreationProjectsPage() {
 
   const selected = projects.find((project) => project.id === selectedId);
   const navigation = selectedId ? navigations[selectedId] : undefined;
+
+  const handleExport = async () => {
+    if (!selected) return;
+    const result = await exportDraft(selected.id);
+    if (!result.canceled && result.filePath) {
+      showToast({ tone: "success", title: "已导出成稿", body: result.filePath });
+    }
+  };
 
   return (
     <div className="desktop-page-scroll paper-shell creation-writing-page">
@@ -46,6 +56,12 @@ export function CreationProjectsPage() {
             </p>
           </div>
           <div className="desktop-page-actions">
+            {selected && (
+              <Button onClick={() => void handleExport()}>
+                <Download size={16} />
+                导出成稿
+              </Button>
+            )}
             <Button onClick={() => setWizardOpen(true)}>
               <Plus size={16} />
               新建项目

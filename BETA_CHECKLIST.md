@@ -289,6 +289,19 @@ Automated Checks (appended):
 | Creation export guard | `npm run verify:creation-export` | Passed |
 | Creation history guard (re-verified) | `npm run verify:creation-history` | Passed |
 
+## Creation draft export UI update (slice 9b): 2026-08-10
+
+- Added `creation:exportDraft` IPC: builds platform-clean text from `project.export` (volume/chapter headings + scene bodies, blank-line separated) and shows a native save dialog; on confirm the file is written by the main process. Renderer never touches the filesystem.
+- Project page gained an **导出成稿** button (shown when a project is selected); success shows a toast with the saved path.
+- The native save dialog cannot be automated by headless QA; text aggregation is covered by the `verify:creation-export` contracts, and the dialog + file-write path needs manual confirmation.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Desktop full build | `npm run build` | Passed |
+| Renderer unit tests | `npm run test` | Passed (147) |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

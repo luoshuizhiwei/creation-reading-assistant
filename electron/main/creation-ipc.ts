@@ -1,5 +1,6 @@
-import { ipcMain, type WebContents } from "electron";
+import { ipcMain, dialog, BrowserWindow, type WebContents } from "electron";
 import { randomUUID } from "node:crypto";
+import { writeFile } from "node:fs/promises";
 import type {
   CardRelation,
   CardSummary,
@@ -11,6 +12,7 @@ import type {
   CreationProjectOutline,
   CreationProjectSummary,
   CreationStructureResult,
+  ProjectExportView,
   RelationType,
   SceneBodyView,
   SceneSaveResponse,
@@ -22,6 +24,26 @@ import type {
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
+
+/** 把导出视图组装成平台发布净文本：卷/章标题 + 场景正文，空行分隔。 */
+function buildExportText(view: ProjectExportView): string {
+  const lines: string[] = [];
+  for (const volume of view.volumes) {
+    if (view.volumes.length > 1) {
+      lines.push(volume.title, "");
+    }
+    for (const chapter of volume.chapters) {
+      const heading = [chapter.displayNumber, chapter.title].filter(Boolean).join(" ");
+      lines.push(heading, "");
+      for (const scene of chapter.scenes) {
+        if (scene.title && scene.title !== "默认场景") lines.push(scene.title, "");
+        if (scene.text) lines.push(scene.text, "");
+      }
+      lines.push("");
+    }
+  }
+  return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
+}
 
 interface WatchEntry {
   subscriptionId: string;
@@ -101,6 +123,29 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
       (workspace) => workspace.read(query as SnapshotListQuery) as Promise<SnapshotInfo[]>
     )
   );
+
+  ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {
+    const projectId =
+      typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    const view = (await coordinator.withWorkspace((workspace) =>
+      workspace.read({ kind: "project.export", projectId })
+    )) as ProjectExportView | null;
+    if (!view) throw new CreationWorkspaceError("not-found", "作品不存在。");
+    const text = buildExportText(view);
+    const options = {
+      title: "导出成稿",
+      defaultPath: `${view.title}.txt`,
+      filters: [{ name: "文本文件", extensions: ["txt"] }]
+    };
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const { canceled, filePath } = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (canceled || !filePath) return { canceled: true, filePath: null };
+    await writeFile(filePath, text, "utf8");
+    return { canceled: false, filePath };
+  });
 
   ipcMain.handle("creation:updateSceneBody", (_event, input: UpdateSceneBodyInput) =>
     coordinator.withWorkspace(async (workspace): Promise<SceneSaveResponse> => {

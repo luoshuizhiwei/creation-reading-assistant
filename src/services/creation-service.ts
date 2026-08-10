@@ -60,6 +60,12 @@ export async function snapshotList(query: SnapshotListQuery): Promise<SnapshotIn
   return getCreationApi().snapshotList(query);
 }
 
+export async function exportDraft(
+  projectId: string
+): Promise<{ canceled: boolean; filePath: string | null }> {
+  return getCreationApi().exportDraft(projectId);
+}
+
 export async function cardsList(query: CardsListQuery): Promise<CardSummary[]> {
   return getCreationApi().cardsList(query);
 }
