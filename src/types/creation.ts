@@ -902,6 +902,52 @@ export interface AnnotationResult {
 }
 
 // ---------------------------------------------------------------------------
+// 切片 7 补：卡片附件（§5.6）
+// ---------------------------------------------------------------------------
+
+export interface ResourceInfo {
+  id: string;
+  projectId: string;
+  cardId: string | null;
+  /** 工作区 resources 目录内的相对路径（项目包可移植）。 */
+  relativePath: string;
+  sha256: string;
+  size: number;
+  originalName: string | null;
+  createdAt: string;
+}
+
+export interface ResourceListQuery {
+  kind: "resource.list";
+  projectId: string;
+  cardId?: string;
+}
+
+export interface ResourceAttachCommand {
+  type: "resource.attach";
+  projectId: string;
+  cardId?: string;
+  relativePath: string;
+  sha256: string;
+  size: number;
+  originalName?: string;
+}
+
+export interface ResourceDetachCommand {
+  type: "resource.detach";
+  resourceId: string;
+}
+
+export interface ResourceResult {
+  commandType: "resource.attach" | "resource.detach";
+  sequence: number;
+  resourceId: string;
+  /** detach 时返回相对路径（供主进程删除文件）。 */
+  relativePath?: string;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // 切片 10：搜索与查找替换
 // ---------------------------------------------------------------------------
 

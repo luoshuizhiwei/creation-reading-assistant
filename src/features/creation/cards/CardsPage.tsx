@@ -7,7 +7,8 @@ import { useUIStore } from "@/stores/ui-store";
 import type {
   CardFieldSchema,
   CardSummary,
-  CreationProjectSummary
+  CreationProjectSummary,
+  ResourceInfo
 } from "@/types/creation";
 
 interface CardsPageProps {
@@ -201,7 +202,10 @@ export function CardsPage({ project }: CardsPageProps) {
     loadCards,
     loadCardRelations,
     runStructure,
-    subscribeProject
+    subscribeProject,
+    loadResources,
+    attachResource,
+    detachResource
   } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
 
@@ -212,6 +216,8 @@ export function CardsPage({ project }: CardsPageProps) {
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [showRelationForm, setShowRelationForm] = useState(false);
   const [relationTypeId, setRelationTypeId] = useState("");
+  const [resources, setResources] = useState<ResourceInfo[]>([]);
+  const [confirmingResource, setConfirmingResource] = useState<string | null>(null);
   const [relationTargetId, setRelationTargetId] = useState("");
   const [relationNote, setRelationNote] = useState("");
 
@@ -244,6 +250,26 @@ export function CardsPage({ project }: CardsPageProps) {
   useEffect(() => {
     if (selectedCardId) void loadCardRelations(selectedCardId);
   }, [loadCardRelations, selectedCardId]);
+
+  useEffect(() => {
+    void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then(setResources);
+  }, [loadResources, project.id, selectedCardId]);
+
+  const handleAttach = async () => {
+    if (!selectedCardId) return;
+    const result = await attachResource(project.id, selectedCardId);
+    if (result.canceled || !result.resource) return;
+    showToast({ tone: "success", title: "附件已添加", body: "文件保存在项目工作区内。" });
+    void loadResources({ projectId: project.id, cardId: selectedCardId }).then(setResources);
+  };
+
+  const handleDetach = async (resource: ResourceInfo) => {
+    const ok = await detachResource(resource.id);
+    if (ok) {
+      showToast({ tone: "success", title: "附件已移除", body: `${resource.originalName ?? resource.relativePath}` });
+      void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then(setResources);
+    }
+  };
 
   const typeById = useMemo(() => new Map(cardTypes.map((type) => [type.kind, type])), [cardTypes]);
 
@@ -530,6 +556,43 @@ export function CardsPage({ project }: CardsPageProps) {
           </ul>
         ) : (
           <p className="cards-relations-empty">暂无关系。</p>
+        )}
+      </section>
+
+      <section className="cards-relations">
+        <header className="cards-relations-head">
+          <h4>附件</h4>
+          <button type="button" onClick={() => void handleAttach()}>
+            <Plus size={13} /> 添加附件
+          </button>
+        </header>
+        {resources.length === 0 ? (
+          <p className="cards-relations-empty">暂无附件。文件保存在项目工作区内，随项目包一起导出。</p>
+        ) : (
+          <ul className="cards-relation-list">
+            {resources.map((resource) => (
+              <li key={resource.id}>
+                <span>{resource.originalName ?? resource.relativePath.split("/").pop()}</span>
+                <em>{(resource.size / 1024).toFixed(1)} KB</em>
+                <small>{resource.sha256.slice(0, 12)}…</small>
+                <button
+                  type="button"
+                  className={confirmingResource === resource.id ? "confirming" : ""}
+                  onClick={() => {
+                    if (confirmingResource === resource.id) {
+                      void handleDetach(resource);
+                      setConfirmingResource(null);
+                    } else {
+                      setConfirmingResource(resource.id);
+                    }
+                  }}
+                >
+                  <Trash2 size={12} />
+                  {confirmingResource === resource.id ? "确认移除" : "移除"}
+                </button>
+              </li>
+            ))}
+          </ul>
         )}
       </section>
     </div>

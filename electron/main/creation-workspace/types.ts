@@ -121,7 +121,12 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceAttachCommand,
+  ResourceDetachCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "../../../src/types/creation";
 
 export type {
@@ -247,7 +252,12 @@ export type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceAttachCommand,
+  ResourceDetachCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -328,7 +338,8 @@ export type CreationReadQuery =
   | InboxListQuery
   | InboxReadQuery
   | ProjectBundleExportQuery
-  | AnnotationListQuery;
+  | AnnotationListQuery
+  | ResourceListQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -352,6 +363,7 @@ export type CreationReadResult =
   | InboxItem
   | ProjectBundleData
   | Annotation[]
+  | ResourceInfo[]
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -369,7 +381,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | ResourceAttachCommand | ResourceDetachCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -380,7 +392,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -411,6 +423,7 @@ export interface CreationWorkspace {
   read(query: InboxReadQuery): Promise<InboxItem | null>;
   read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   read(query: AnnotationListQuery): Promise<Annotation[]>;
+  read(query: ResourceListQuery): Promise<ResourceInfo[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -423,6 +436,7 @@ export interface CreationWorkspace {
   transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
   transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
+  transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

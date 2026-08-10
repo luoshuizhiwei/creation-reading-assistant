@@ -128,6 +128,11 @@ import {
   type AnnotationListQuery,
   type AnnotationResult,
   type AnnotationUpdateCommand,
+  type ResourceAttachCommand,
+  type ResourceDetachCommand,
+  type ResourceInfo,
+  type ResourceListQuery,
+  type ResourceResult,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -135,7 +140,7 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 
-const SCHEMA_VERSION = 7;
+const SCHEMA_VERSION = 8;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -256,7 +261,8 @@ const REQUIRED_INDEXES = [
   "idx_writing_sessions_project_started",
   "idx_inbox_items_updated",
   "idx_annotations_scene",
-  "idx_annotations_project"
+  "idx_annotations_project",
+  "idx_resources_card"
 ] as const;
 
 function createSection(issues: Array<{ code: string; message: string }>) {
@@ -957,11 +963,15 @@ function initializeSchema(database: Database): void {
     CREATE TABLE IF NOT EXISTS resources (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      card_id TEXT REFERENCES cards(id) ON DELETE CASCADE,
       relative_path TEXT NOT NULL,
       sha256 TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      original_name TEXT,
       created_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id);
+    CREATE INDEX IF NOT EXISTS idx_resources_card ON resources(card_id);
 
     CREATE TABLE IF NOT EXISTS snapshots (
       id TEXT PRIMARY KEY,
@@ -1247,6 +1257,44 @@ function migrateSchemaV6ToV7(database: Database): void {
   `);
 }
 
+function migrateSchemaV7ToV8(database: Database): void {
+  database.exec("BEGIN IMMEDIATE");
+  const tableExists = database
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'resources'")
+    .get();
+  if (!tableExists) {
+    database.exec(`
+      CREATE TABLE resources (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        card_id TEXT REFERENCES cards(id) ON DELETE CASCADE,
+        relative_path TEXT NOT NULL,
+        sha256 TEXT NOT NULL,
+        size INTEGER NOT NULL DEFAULT 0,
+        original_name TEXT,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_resources_project ON resources(project_id);
+      CREATE INDEX IF NOT EXISTS idx_resources_card ON resources(card_id);
+    `);
+  } else {
+    const columns = new Set(
+      (database.prepare("PRAGMA table_info(resources)").all() as Array<{ name: string }>).map((column) => column.name)
+    );
+    if (!columns.has("card_id")) {
+      database.exec("ALTER TABLE resources ADD COLUMN card_id TEXT REFERENCES cards(id) ON DELETE CASCADE");
+    }
+    if (!columns.has("size")) {
+      database.exec("ALTER TABLE resources ADD COLUMN size INTEGER NOT NULL DEFAULT 0");
+    }
+    if (!columns.has("original_name")) {
+      database.exec("ALTER TABLE resources ADD COLUMN original_name TEXT");
+    }
+    database.exec("CREATE INDEX IF NOT EXISTS idx_resources_card ON resources(card_id)");
+  }
+  database.exec("PRAGMA user_version = 8; COMMIT;");
+}
+
 function defaultProjectSetup(): CreationProjectSetup {
   return {
     template: "blank",
@@ -1385,6 +1433,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: InboxReadQuery): Promise<InboxItem | null>;
   async read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   async read(query: AnnotationListQuery): Promise<Annotation[]>;
+  async read(query: ResourceListQuery): Promise<ResourceInfo[]>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1448,6 +1497,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
+      }
+    }
+    if (runtimeQuery.kind === "resource.list") {
+      try {
+        return this.runResourceList(query as ResourceListQuery);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取附件列表。");
       }
     }
     if (runtimeQuery.kind === "annotation.list") {
@@ -3101,6 +3158,119 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runResourceList(query: ResourceListQuery): ResourceInfo[] {
+    const projectId = validateId(query.projectId, "作品");
+    this.requireProject(projectId);
+    const params: unknown[] = [projectId];
+    let sql = "SELECT id, project_id, card_id, relative_path, sha256, size, original_name, created_at FROM resources WHERE project_id = ?";
+    if (query.cardId) {
+      sql += " AND card_id = ?";
+      params.push(validateId(query.cardId, "卡片"));
+    }
+    sql += " ORDER BY created_at, id";
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      project_id: string;
+      card_id: string | null;
+      relative_path: string;
+      sha256: string;
+      size: number;
+      original_name: string | null;
+      created_at: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      cardId: row.card_id,
+      relativePath: row.relative_path,
+      sha256: row.sha256,
+      size: row.size,
+      originalName: row.original_name,
+      createdAt: row.created_at
+    }));
+  }
+
+  private runResourceAttach(command: ResourceAttachCommand): ResourceResult {
+    const projectId = validateId(command.projectId, "作品");
+    const cardId = typeof command.cardId === "string" && command.cardId.trim() ? command.cardId.trim() : undefined;
+    const relativePath = typeof command.relativePath === "string" ? command.relativePath.trim() : "";
+    if (!relativePath || relativePath.length > 500 || relativePath.includes("..") || path.isAbsolute(relativePath)) {
+      throw new CreationWorkspaceError("invalid-input", "附件相对路径无效（禁止路径穿越）。");
+    }
+    const sha256 = typeof command.sha256 === "string" && /^[0-9a-f]{64}$/i.test(command.sha256) ? command.sha256.toLowerCase() : "";
+    if (!sha256) throw new CreationWorkspaceError("invalid-input", "附件校验和不合法。");
+    const size = command.size;
+    if (!Number.isInteger(size) || size < 0 || size > 500 * 1024 * 1024) {
+      throw new CreationWorkspaceError("invalid-input", "附件大小超出允许范围。");
+    }
+    const originalName = typeof command.originalName === "string" && command.originalName.trim()
+      ? command.originalName.trim().slice(0, 255)
+      : null;
+    const resourceId = `resource-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      this.requireProject(projectId);
+      if (cardId) {
+        const card = this.database
+          .prepare("SELECT project_id FROM cards WHERE id = ? AND deleted_at IS NULL")
+          .get(cardId) as { project_id: string } | undefined;
+        if (!card) throw new CreationWorkspaceError("not-found", "卡片不存在。");
+        if (card.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "卡片不属于该作品。");
+      }
+      const existing = this.database
+        .prepare("SELECT id FROM resources WHERE project_id = ? AND relative_path = ?")
+        .get(projectId, relativePath);
+      if (existing) throw new CreationWorkspaceError("conflict", "相同路径的附件已存在。");
+      this.database
+        .prepare("INSERT INTO resources(id, project_id, card_id, relative_path, sha256, size, original_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(resourceId, projectId, cardId ?? null, relativePath, sha256, size, originalName, timestamp);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(projectId, "resource.attach", JSON.stringify([{ entity: "resource", id: resourceId, action: "created", revision: 1 }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId,
+        commandType: "resource.attach",
+        changes: [{ entity: "resource", id: resourceId, action: "created", revision: 1 }]
+      });
+      return { commandType: "resource.attach", sequence: Number(logged.lastInsertRowid), resourceId, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法登记附件。");
+    }
+  }
+
+  private runResourceDetach(command: ResourceDetachCommand): ResourceResult {
+    const resourceId = validateId(command.resourceId, "附件");
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = this.database
+        .prepare("SELECT project_id, relative_path FROM resources WHERE id = ?")
+        .get(resourceId) as { project_id: string; relative_path: string } | undefined;
+      if (!current) throw new CreationWorkspaceError("not-found", "附件不存在。");
+      this.database.prepare("DELETE FROM resources WHERE id = ?").run(resourceId);
+      this.database.exec("COMMIT");
+      return { commandType: "resource.detach", sequence: 0, resourceId, relativePath: current.relative_path, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法移除附件。");
+    }
+  }
+
   private runStatsView(projectId: string): ProjectStatsView | null {
     this.requireProject(projectId);
 
@@ -3436,6 +3606,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   async transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
   async transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
+  async transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -3485,6 +3656,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "annotation.delete") {
       return this.runAnnotationDelete(command as AnnotationDeleteCommand);
+    }
+    if (command.type === "resource.attach") {
+      return this.runResourceAttach(command as ResourceAttachCommand);
+    }
+    if (command.type === "resource.detach") {
+      return this.runResourceDetach(command as ResourceDetachCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -5699,25 +5876,33 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
     } else if (existingVersion === 2) {
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
     } else if (existingVersion === 3) {
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
     } else if (existingVersion === 4) {
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
     } else if (existingVersion === 5) {
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
-    } else if (existingVersion === 6) migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
+    } else if (existingVersion === 6) {
+      migrateSchemaV6ToV7(database);
+      migrateSchemaV7ToV8(database);
+    } else if (existingVersion === 7) migrateSchemaV7ToV8(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

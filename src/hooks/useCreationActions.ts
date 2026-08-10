@@ -33,6 +33,9 @@ import {
   annotationCreate as annotationCreateRequest,
   annotationUpdate as annotationUpdateRequest,
   annotationDelete as annotationDeleteRequest,
+  resourceList as resourceListRequest,
+  attachResource as attachResourceRequest,
+  detachResource as detachResourceRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -75,6 +78,9 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationUpdateCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -518,6 +524,43 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadResources = useCallback(
+    async (query: Omit<ResourceListQuery, "kind">): Promise<ResourceInfo[]> => {
+      try {
+        return await resourceListRequest({ kind: "resource.list", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
+      }
+    },
+    [setError]
+  );
+
+  const attachResource = useCallback(
+    async (projectId: string, cardId?: string): Promise<{ canceled: boolean; resource: ResourceResult | null }> => {
+      try {
+        return await attachResourceRequest(projectId, cardId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return { canceled: true, resource: null };
+      }
+    },
+    [setError]
+  );
+
+  const detachResource = useCallback(
+    async (resourceId: string): Promise<boolean> => {
+      try {
+        await detachResourceRequest(resourceId);
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -645,6 +688,9 @@ export function useCreationActions() {
     createAnnotation,
     updateAnnotation,
     deleteAnnotation,
+    loadResources,
+    attachResource,
+    detachResource,
     subscribeProject
   };
 }

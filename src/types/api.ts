@@ -76,7 +76,10 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -167,6 +170,9 @@ export interface DesktopApi {
     annotationCreate: (command: AnnotationCreateCommand) => Promise<AnnotationResult>;
     annotationUpdate: (command: AnnotationUpdateCommand) => Promise<AnnotationResult>;
     annotationDelete: (command: AnnotationDeleteCommand) => Promise<AnnotationResult>;
+    resourceList: (query: ResourceListQuery) => Promise<ResourceInfo[]>;
+    attachResource: (projectId: string, cardId?: string) => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
+    detachResource: (resourceId: string) => Promise<ResourceResult>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;

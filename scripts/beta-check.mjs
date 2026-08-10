@@ -196,6 +196,9 @@ const requiredIpcChannels = [
   "creation:annotationCreate",
   "creation:annotationUpdate",
   "creation:annotationDelete",
+  "creation:resourceList",
+  "creation:attachResource",
+  "creation:detachResource",
   "creation:watchProject",
   "creation:unwatchProject"
 ];

@@ -1,6 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, type WebContents } from "electron";
 import { randomUUID } from "node:crypto";
-import { writeFile, mkdir } from "node:fs/promises";
+import { writeFile, mkdir, rm, readFile, stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
 import path from "node:path";
 import type {
   CardRelation,
@@ -45,7 +46,12 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceAttachCommand,
+  ResourceDetachCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
@@ -239,6 +245,66 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
   ipcMain.handle("creation:annotationDelete", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as AnnotationDeleteCommand) as Promise<AnnotationResult>)
   );
+
+  ipcMain.handle("creation:resourceList", (_event, query: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.read(query as ResourceListQuery) as Promise<ResourceInfo[]>)
+  );
+
+  ipcMain.handle("creation:attachResource", async (event, input: { projectId?: unknown; cardId?: unknown }) => {
+    const projectId = typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
+    const cardId = typeof input?.cardId === "string" && input.cardId.trim() ? input.cardId : undefined;
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "选择附件",
+      properties: ["openFile" as const]
+    };
+    const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (canceled || filePaths.length === 0) return { canceled: true, resource: null };
+    const sourcePath = filePaths[0]!;
+    const sourceInfo = await stat(sourcePath);
+    if (!sourceInfo.isFile() || sourceInfo.size > 500 * 1024 * 1024) {
+      throw new CreationWorkspaceError("invalid-input", "附件大小超出允许范围（最大 500MB）。");
+    }
+    const buffer = await readFile(sourcePath);
+    const sha256 = createHash("sha256").update(buffer).digest("hex");
+    const fileName = path.basename(sourcePath);
+    const relativePath = `resources/${projectId}/${randomUUID()}-${fileName}`;
+    const targetPath = path.join(context.resolveDataRoot(), "CreationWorkspace", relativePath);
+    await mkdir(path.dirname(targetPath), { recursive: true });
+    await writeFile(targetPath, buffer);
+    try {
+      const result = await coordinator.withWorkspace((workspace) =>
+        workspace.transact({
+          type: "resource.attach",
+          projectId,
+          cardId,
+          relativePath,
+          sha256,
+          size: buffer.length,
+          originalName: fileName
+        } as ResourceAttachCommand) as Promise<ResourceResult>
+      );
+      return { canceled: false, resource: result };
+    } catch (error) {
+      await rm(targetPath, { force: true });
+      throw error;
+    }
+  });
+
+  ipcMain.handle("creation:detachResource", async (_event, command: unknown) => {
+    const resourceId = typeof (command as { resourceId?: unknown }).resourceId === "string"
+      ? (command as { resourceId: string }).resourceId
+      : "";
+    if (!resourceId) throw new CreationWorkspaceError("invalid-input", "附件读取请求无效。");
+    const result = await coordinator.withWorkspace((workspace) =>
+      workspace.transact({ type: "resource.detach", resourceId } as ResourceDetachCommand) as Promise<ResourceResult>
+    );
+    if (result.relativePath) {
+      await rm(path.join(context.resolveDataRoot(), "CreationWorkspace", result.relativePath), { force: true });
+    }
+    return result;
+  });
 
   ipcMain.handle("creation:importDraftPreview", async (event) => {
     const parent = BrowserWindow.fromWebContents(event.sender);

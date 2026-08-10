@@ -49,7 +49,10 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -193,6 +196,21 @@ export async function annotationUpdate(command: AnnotationUpdateCommand): Promis
 
 export async function annotationDelete(command: AnnotationDeleteCommand): Promise<AnnotationResult> {
   return getCreationApi().annotationDelete(command);
+}
+
+export async function resourceList(query: ResourceListQuery): Promise<ResourceInfo[]> {
+  return getCreationApi().resourceList(query);
+}
+
+export async function attachResource(
+  projectId: string,
+  cardId?: string
+): Promise<{ canceled: boolean; resource: ResourceResult | null }> {
+  return getCreationApi().attachResource(projectId, cardId);
+}
+
+export async function detachResource(resourceId: string): Promise<ResourceResult> {
+  return getCreationApi().detachResource(resourceId);
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {

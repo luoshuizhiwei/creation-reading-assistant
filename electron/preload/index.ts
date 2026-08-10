@@ -79,7 +79,12 @@ import type {
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
-  AnnotationUpdateCommand
+  AnnotationUpdateCommand,
+  ResourceAttachCommand,
+  ResourceDetachCommand,
+  ResourceInfo,
+  ResourceListQuery,
+  ResourceResult
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -177,6 +182,10 @@ const api: DesktopApi = {
     annotationCreate: (command: AnnotationCreateCommand) => invoke<AnnotationResult>("creation:annotationCreate", command),
     annotationUpdate: (command: AnnotationUpdateCommand) => invoke<AnnotationResult>("creation:annotationUpdate", command),
     annotationDelete: (command: AnnotationDeleteCommand) => invoke<AnnotationResult>("creation:annotationDelete", command),
+    resourceList: (query: ResourceListQuery) => invoke<ResourceInfo[]>("creation:resourceList", query),
+    attachResource: (projectId: string, cardId?: string) =>
+      invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId }),
+    detachResource: (resourceId: string) => invoke<ResourceResult>("creation:detachResource", { resourceId }),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),
