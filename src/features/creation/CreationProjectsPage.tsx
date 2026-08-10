@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { BookMarked, Download, FileWarning, Plus, Replace, Search } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
+import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
@@ -28,11 +29,24 @@ export function CreationProjectsPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [proofOpen, setProofOpen] = useState(false);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history" | "stats">("writing");
 
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
+
+  useEffect(() => {
+    const handleKeydown = (event: KeyboardEvent) => {
+      const modifier = event.ctrlKey || event.metaKey;
+      if (modifier && !event.altKey && event.key.toLowerCase() === "p") {
+        event.preventDefault();
+        setPaletteOpen((open) => !open);
+      }
+    };
+    window.addEventListener("keydown", handleKeydown);
+    return () => window.removeEventListener("keydown", handleKeydown);
+  }, []);
 
   useEffect(() => {
     if (!selectedId || navigations[selectedId]) return;
@@ -56,6 +70,52 @@ export function CreationProjectsPage() {
       showToast({ tone: "success", title: "已导出成稿", body: result.filePath });
     }
   };
+
+  const paletteCommands = useMemo(() => {
+    const commands: Array<{ id: string; label: string; group: string; keywords?: string[]; shortcut?: string; run(): void }> = [
+      { id: "view.writing", label: "正文写作台", group: "视图", keywords: ["写作", "manuscript"], run: () => setView("writing") },
+      { id: "view.cards", label: "卡片管理", group: "视图", keywords: ["卡片", "cards"], run: () => setView("cards") },
+      { id: "view.history", label: "历史与回收站", group: "视图", keywords: ["回收站", "快照", "history"], run: () => setView("history") },
+      { id: "view.stats", label: "统计与创作目标", group: "视图", keywords: ["字数", "统计", "stats"], run: () => setView("stats") },
+      { id: "action.search", label: "搜索", group: "操作", keywords: ["查找", "search"], run: () => setSearchOpen(true) },
+      { id: "action.replace", label: "查找替换", group: "操作", keywords: ["替换", "replace"], run: () => setReplaceOpen(true) },
+      { id: "action.proof", label: "本地校对", group: "操作", keywords: ["校对", "proof", "错别字"], run: () => setProofOpen(true) },
+      { id: "action.export", label: "导出成稿", group: "操作", keywords: ["导出", "export"], run: () => void handleExport() },
+      { id: "project.create", label: "新建项目", group: "项目", keywords: ["向导", "wizard"], run: () => setWizardOpen(true) }
+    ];
+    for (const project of projects) {
+      commands.push({
+        id: `project.open.${project.id}`,
+        label: `打开项目：${project.title}`,
+        group: "项目",
+        keywords: [project.title],
+        run: () => {
+          setSelectedId(project.id);
+          if (!navigations[project.id]) void loadNavigation(project.id);
+        }
+      });
+    }
+    for (const item of Object.values(navigations)) {
+      for (const chapter of item.chapters) {
+        for (const scene of chapter.scenes) {
+          commands.push({
+            id: `scene.goto.${scene.id}`,
+            label: `跳转场景：${scene.title}`,
+            group: "大纲",
+            keywords: [scene.title, chapter.title],
+            run: () => {
+              setSelectedId(item.project.id);
+              selectScene(scene.id);
+              void loadScene(scene.id);
+              void loadOutline(item.project.id);
+              setView("writing");
+            }
+          });
+        }
+      }
+    }
+    return commands;
+  }, [handleExport, loadNavigation, loadOutline, loadScene, navigations, projects, selectScene, setSelectedId]);
 
   const navigateToHit = async (hit: CreationSearchHit) => {
     setSearchOpen(false);
@@ -240,6 +300,12 @@ export function CreationProjectsPage() {
         <ProofPanel
           projectId={selected.id}
           onClose={() => setProofOpen(false)}
+        />
+      )}
+      {paletteOpen && (
+        <CommandPalette
+          commands={paletteCommands}
+          onClose={() => setPaletteOpen(false)}
         />
       )}
     </div>
