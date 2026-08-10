@@ -52,7 +52,8 @@ import type {
   AnnotationUpdateCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  ProjectExportView
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -211,6 +212,10 @@ export async function attachResource(
 
 export async function detachResource(resourceId: string): Promise<ResourceResult> {
   return getCreationApi().detachResource(resourceId);
+}
+
+export async function projectExport(projectId: string): Promise<ProjectExportView | null> {
+  return getCreationApi().readProjectExport(projectId);
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {

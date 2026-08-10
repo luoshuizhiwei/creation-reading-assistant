@@ -84,7 +84,8 @@ import type {
   ResourceDetachCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  ProjectExportView
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -186,6 +187,7 @@ const api: DesktopApi = {
     attachResource: (projectId: string, cardId?: string) =>
       invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId }),
     detachResource: (resourceId: string) => invoke<ResourceResult>("creation:detachResource", { resourceId }),
+    readProjectExport: (projectId: string) => invoke<ProjectExportView | null>("creation:readProjectExport", projectId),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),

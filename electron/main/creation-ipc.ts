@@ -365,6 +365,10 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     return { canceled: false, result };
   });
 
+  ipcMain.handle("creation:readProjectExport", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "project.export", projectId }) as Promise<ProjectExportView | null>)
+  );
+
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {
     const projectId =
       typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";

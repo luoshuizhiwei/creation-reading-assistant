@@ -79,7 +79,8 @@ import type {
   AnnotationUpdateCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  ProjectExportView
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -173,6 +174,7 @@ export interface DesktopApi {
     resourceList: (query: ResourceListQuery) => Promise<ResourceInfo[]>;
     attachResource: (projectId: string, cardId?: string) => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
     detachResource: (resourceId: string) => Promise<ResourceResult>;
+    readProjectExport: (projectId: string) => Promise<ProjectExportView | null>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;

@@ -4956,3 +4956,81 @@ button:disabled {
   opacity: 0.5;
   cursor: default;
 }
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：章内多场景连续预览（F03）
+ * ------------------------------------------------------------------------- */
+.writing-head-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.writing-preview-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.writing-preview-toggle:hover,
+.writing-preview-toggle.active {
+  color: var(--copper);
+  border-color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 8%, transparent);
+}
+
+.writing-continuous-preview {
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 32px 40px 64px;
+  font-size: 16.5px;
+  line-height: 2;
+  color: var(--paper-ink);
+}
+
+.writing-continuous-chapter {
+  margin: 0 0 28px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+}
+
+.writing-continuous-scene {
+  margin-top: 20px;
+}
+
+.writing-continuous-scene h3 {
+  margin: 0 0 14px;
+  text-align: center;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--copper);
+  letter-spacing: 0.12em;
+}
+
+.writing-continuous-paragraph {
+  margin: 0 0 1.1em;
+  text-indent: 2em;
+  text-align: justify;
+}
+
+.writing-continuous-empty {
+  color: var(--paper-muted);
+  text-align: center;
+}
+
+.writing-continuous-break {
+  margin: 30px 0;
+  text-align: center;
+  color: var(--copper-soft);
+  letter-spacing: 0.6em;
+  font-size: 13px;
+}

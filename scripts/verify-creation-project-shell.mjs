@@ -66,6 +66,7 @@ try {
     "creation:resourceList",
     "creation:attachResource",
     "creation:detachResource",
+    "creation:readProjectExport",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"

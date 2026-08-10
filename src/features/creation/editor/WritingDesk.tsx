@@ -29,7 +29,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const selectScene = useCreationStore((state) => state.selectScene);
   const dismissRecoveryNotice = useCreationStore((state) => state.dismissRecoveryNotice);
   const setLeaveGuard = useCreationStore((state) => state.setLeaveGuard);
-  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject, reportSession, loadAnnotations, createAnnotation, updateAnnotation, deleteAnnotation, loadCards } = useCreationActions();
+  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject, reportSession, loadAnnotations, createAnnotation, updateAnnotation, deleteAnnotation, loadCards, loadProjectExport } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const editorRef = useRef<SceneEditorHandle>(null);
   const [outlineView, setOutlineView] = useState<"tree" | "board">("tree");
@@ -41,6 +41,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const [annotationBlock, setAnnotationBlock] = useState(0);
   const [annotationCardId, setAnnotationCardId] = useState("");
   const [confirmingAnnotation, setConfirmingAnnotation] = useState<string | null>(null);
+  const [continuousPreview, setContinuousPreview] = useState(false);
+  const [exportView, setExportView] = useState<Awaited<ReturnType<typeof loadProjectExport>>>(null);
 
   const cardList = useCreationStore((state) => state.cards);
 
@@ -138,6 +140,16 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   useEffect(() => {
     void loadCards({ projectId: project.id });
   }, [loadCards, project.id]);
+
+  useEffect(() => {
+    if (continuousPreview) void loadProjectExport(project.id).then(setExportView);
+  }, [continuousPreview, loadProjectExport, project.id]);
+
+  const currentChapterScenes = useMemo(() => {
+    if (!continuousPreview || !exportView) return null;
+    const chapter = selectedChapter ? exportView.volumes.flatMap((volume) => volume.chapters).find((item) => item.id === selectedChapter.id) : undefined;
+    return chapter ?? null;
+  }, [continuousPreview, exportView, selectedChapter]);
 
   useEffect(() => {
     if (!selectedSceneId || sceneViews[selectedSceneId]) return;
@@ -243,11 +255,21 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
         <header className="writing-manuscript-head">
           <div>
             <p className="desktop-card-label">Manuscript</p>
-            <h2>{selectedScene?.title ?? "选择场景"}</h2>
-            <span>{selectedChapter?.title ?? project.title} · 单场景编辑</span>
+            <h2>{continuousPreview ? (currentChapterScenes ? `${currentChapterScenes.displayNumber ?? ""} ${currentChapterScenes.title}`.trim() : "章内连续预览") : (selectedScene?.title ?? "选择场景")}</h2>
+            <span>{selectedChapter?.title ?? project.title} · {continuousPreview ? "多场景连续预览" : "单场景编辑"}</span>
           </div>
-          <div className={`writing-watch ${watchConnected ? "connected" : ""}`} title={watchConnected ? "已订阅项目变更" : "正在连接项目变更"}>
-            <Radio size={12} /> {watchConnected ? "变更已连接" : "连接中"}
+          <div className="writing-head-actions">
+            <button
+              type="button"
+              className={`writing-preview-toggle ${continuousPreview ? "active" : ""}`}
+              onClick={() => setContinuousPreview((value) => !value)}
+              title="切换章内多场景连续预览"
+            >
+              <Eye size={13} /> {continuousPreview ? "返回编辑" : "连续预览"}
+            </button>
+            <div className={`writing-watch ${watchConnected ? "connected" : ""}`} title={watchConnected ? "已订阅项目变更" : "正在连接项目变更"}>
+              <Radio size={12} /> {watchConnected ? "变更已连接" : "连接中"}
+            </div>
           </div>
         </header>
 
@@ -259,7 +281,30 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
         )}
 
         <div className="writing-scroll">
-          {selectedSceneId && sceneView ? (
+          {continuousPreview ? (
+            currentChapterScenes ? (
+              <div className="writing-continuous-preview">
+                <h2 className="writing-continuous-chapter">
+                  {currentChapterScenes.displayNumber ? `${currentChapterScenes.displayNumber} ` : ""}{currentChapterScenes.title}
+                </h2>
+                {currentChapterScenes.scenes.map((scene, index) => (
+                  <section key={scene.id} className="writing-continuous-scene">
+                    {scene.title && scene.title !== "默认场景" && <h3>{scene.title}</h3>}
+                    {scene.text ? (
+                      scene.text.split(/\n{2,}/).map((paragraph, paragraphIndex) => (
+                        <p key={paragraphIndex} className="writing-continuous-paragraph">{paragraph}</p>
+                      ))
+                    ) : (
+                      <p className="writing-continuous-empty">（本场景暂无正文）</p>
+                    )}
+                    {index < currentChapterScenes.scenes.length - 1 && <div className="writing-continuous-break" aria-hidden="true">＊ ＊ ＊</div>}
+                  </section>
+                ))}
+              </div>
+            ) : (
+              <div className="scene-editor-placeholder">正在读取连续预览…</div>
+            )
+          ) : selectedSceneId && sceneView ? (
             <SceneEditor
               ref={editorRef}
               view={sceneView}

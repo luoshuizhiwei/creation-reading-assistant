@@ -21,6 +21,7 @@ import {
   snapshotList,
   statsView as statsViewRequest,
   proofQuery as proofQueryRequest,
+  projectExport as projectExportRequest,
   migrationStatus as migrationStatusRequest,
   migrationRun as migrationRunRequest,
   inboxList as inboxListRequest,
@@ -81,6 +82,7 @@ import type {
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
+  ProjectExportView,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -561,6 +563,18 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadProjectExport = useCallback(
+    async (projectId: string): Promise<ProjectExportView | null> => {
+      try {
+        return await projectExportRequest(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -691,6 +705,7 @@ export function useCreationActions() {
     loadResources,
     attachResource,
     detachResource,
+    loadProjectExport,
     subscribeProject
   };
 }
