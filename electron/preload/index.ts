@@ -31,10 +31,13 @@ import type {
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSummary,
+  CreationStructureResult,
   CreationWorkspaceEvent,
   SceneBodyView,
   SceneSaveResponse,
+  StructureCommand,
   UpdateSceneBodyInput
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
@@ -110,6 +113,10 @@ const api: DesktopApi = {
     readProjectNavigation: (projectId: string) =>
       invoke<CreationProjectNavigation | null>("creation:readProjectNavigation", projectId),
     createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
+    readProjectOutline: (projectId: string) =>
+      invoke<CreationProjectOutline | null>("creation:readProjectOutline", projectId),
+    runStructure: (command: StructureCommand) =>
+      invoke<CreationStructureResult>("creation:runStructure", command),
     readSceneBody: (sceneId: string) => invoke<SceneBodyView | null>("creation:readSceneBody", sceneId),
     updateSceneBody: (input: UpdateSceneBodyInput) => invoke<SceneSaveResponse>("creation:updateSceneBody", input),
     watchProject: async (projectId: string, listener: CreationProjectListener) => {

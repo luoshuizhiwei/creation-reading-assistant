@@ -3,7 +3,9 @@ import {
   createProject as createProjectRequest,
   listProjects,
   readProjectNavigation,
+  readProjectOutline,
   readSceneBody,
+  runStructure as runStructureRequest,
   updateSceneBody,
   watchProject
 } from "@/services/creation-service";
@@ -13,8 +15,10 @@ import type {
   CreateProjectInput,
   CreationDocument,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationWorkspaceEvent,
-  SceneSaveResponse
+  SceneSaveResponse,
+  StructureCommand
 } from "@/types/creation";
 import { messageFromError } from "@/utils/format";
 
@@ -72,6 +76,33 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadOutline = useCallback(
+    async (projectId: string): Promise<CreationProjectOutline | null | undefined> => {
+      try {
+        const outline = await readProjectOutline(projectId);
+        if (outline) useCreationStore.getState().setOutline(projectId, outline);
+        return outline;
+      } catch (error) {
+        setError(messageFromError(error));
+        return undefined;
+      }
+    },
+    [setError]
+  );
+
+  const runStructure = useCallback(
+    async (command: StructureCommand): Promise<boolean> => {
+      try {
+        await runStructureRequest(command);
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -119,6 +150,8 @@ export function useCreationActions() {
         const state = useCreationStore.getState();
         // 任何已提交变更都会刷新导航元数据（章节/场景标题、revision、项目 updatedAt）。
         void loadNavigation(projectId);
+        // 若该项目已加载过大纲，结构命令（新建/改名/排序/拆并/状态）后同步刷新大纲树。
+        if (state.outlines[projectId]) void loadOutline(projectId);
         for (const change of event.changes) {
           if (change.entity !== "scene") continue;
           if (change.action === "deleted") continue;
@@ -148,8 +181,18 @@ export function useCreationActions() {
         useCreationStore.getState().setWatchConnected(false);
       };
     },
-    [loadNavigation, loadScene, setError]
+    [loadNavigation, loadOutline, loadScene, setError]
   );
 
-  return { loadProjects, createProject, loadNavigation, loadScene, saveSceneBody, refreshProject, subscribeProject };
+  return {
+    loadProjects,
+    createProject,
+    loadNavigation,
+    loadOutline,
+    loadScene,
+    saveSceneBody,
+    refreshProject,
+    runStructure,
+    subscribeProject
+  };
 }

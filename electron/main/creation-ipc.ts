@@ -4,9 +4,12 @@ import type {
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSummary,
+  CreationStructureResult,
   SceneBodyView,
   SceneSaveResponse,
+  StructureCommand,
   UpdateSceneBodyInput
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
@@ -46,6 +49,14 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
 
   ipcMain.handle("creation:readSceneBody", (_event, sceneId: string) =>
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "scene.body", sceneId }))
+  );
+
+  ipcMain.handle("creation:readProjectOutline", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "project.outline", projectId }))
+  );
+
+  ipcMain.handle("creation:runStructure", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as StructureCommand) as Promise<CreationStructureResult>)
   );
 
   ipcMain.handle("creation:updateSceneBody", (_event, input: UpdateSceneBodyInput) =>

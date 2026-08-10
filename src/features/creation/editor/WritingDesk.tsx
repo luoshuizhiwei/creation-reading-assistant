@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Eye, FileText, Radio, X } from "lucide-react";
+import { Eye, Radio, X } from "lucide-react";
 import { InlineNotice } from "@/components/interaction";
 import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
+import { CardBoard } from "@/features/creation/outline/CardBoard";
+import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { CreationProjectNavigation, CreationProjectSummary } from "@/types/creation";
+import type { CreationProjectNavigation, CreationProjectSummary, StructureCommand } from "@/types/creation";
 
 interface WritingDeskProps {
   projects: CreationProjectSummary[];
@@ -17,19 +19,23 @@ interface WritingDeskProps {
 export function WritingDesk({ projects, project, navigation, onSelectProject }: WritingDeskProps) {
   const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
   const sceneViews = useCreationStore((state) => state.sceneViews);
+  const outlines = useCreationStore((state) => state.outlines);
   const abnormalExit = useCreationStore((state) => state.abnormalExit);
   const recoveryNoticeDismissed = useCreationStore((state) => state.recoveryNoticeDismissed);
   const watchConnected = useCreationStore((state) => state.watchConnected);
   const selectScene = useCreationStore((state) => state.selectScene);
   const dismissRecoveryNotice = useCreationStore((state) => state.dismissRecoveryNotice);
   const setLeaveGuard = useCreationStore((state) => state.setLeaveGuard);
-  const { loadScene, saveSceneBody, subscribeProject } = useCreationActions();
+  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const editorRef = useRef<SceneEditorHandle>(null);
-  const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => new Set(navigation.chapters.map((chapter) => chapter.id)));
+  const [outlineView, setOutlineView] = useState<"tree" | "board">("tree");
   const [focusMode, setFocusMode] = useState(() => window.matchMedia("(max-width: 920px)").matches);
   const [typewriter, setTypewriter] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
+
+  const outline = outlines[project.id];
+  const workflow = project.setup.chapterWorkflow;
 
   const selectedScene = useMemo(
     () => navigation.chapters.flatMap((chapter) => chapter.scenes).find((scene) => scene.id === selectedSceneId),
@@ -42,8 +48,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const sceneView = selectedSceneId ? sceneViews[selectedSceneId] : undefined;
 
   useEffect(() => {
-    setExpandedChapters(new Set(navigation.chapters.map((chapter) => chapter.id)));
-  }, [navigation.project.id]);
+    void loadOutline(project.id);
+  }, [loadOutline, project.id]);
 
   useEffect(() => {
     if (!selectedSceneId || sceneViews[selectedSceneId]) return;
@@ -81,54 +87,49 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     onSelectProject(projectId);
   };
 
+  const runStructureForTree = useCallback(
+    async (command: StructureCommand): Promise<boolean> => {
+      const ok = await runStructure(command);
+      if (ok) void loadOutline(project.id);
+      return ok;
+    },
+    [loadOutline, project.id, runStructure]
+  );
+
   return (
     <section className={`writing-desk ${focusMode ? "writing-desk--focus" : ""}`} aria-label="正文写作台">
-      <aside className="writing-outline" aria-label="项目与场景导航">
+      <aside className="writing-outline" aria-label="项目大纲">
         <label className="writing-project-switcher">
           <span>当前项目</span>
           <select value={project.id} onChange={(event) => void chooseProject(event.target.value)}>
             {projects.map((item) => <option key={item.id} value={item.id}>{item.title}</option>)}
           </select>
         </label>
+        <div className="writing-outline-view-switch" role="group" aria-label="大纲视图">
+          <button type="button" className={outlineView === "tree" ? "active" : ""} onClick={() => setOutlineView("tree")}>大纲树</button>
+          <button type="button" className={outlineView === "board" ? "active" : ""} onClick={() => setOutlineView("board")}>卡片板</button>
+        </div>
         <div className="writing-outline-scroll">
-          {navigation.chapters.map((chapter) => {
-            const expanded = expandedChapters.has(chapter.id);
-            return (
-              <section className="writing-chapter" key={chapter.id}>
-                <button
-                  type="button"
-                  className="writing-chapter-button"
-                  aria-expanded={expanded}
-                  onClick={() => setExpandedChapters((current) => {
-                    const next = new Set(current);
-                    if (expanded) next.delete(chapter.id); else next.add(chapter.id);
-                    return next;
-                  })}
-                >
-                  {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-                  <strong>{chapter.title}</strong>
-                  <span>{chapter.scenes.length}</span>
-                </button>
-                {expanded && (
-                  <div className="writing-scene-list">
-                    {chapter.scenes.map((scene) => (
-                      <button
-                        key={scene.id}
-                        type="button"
-                        className={`writing-scene-button ${scene.id === selectedSceneId ? "active" : ""}`}
-                        aria-pressed={scene.id === selectedSceneId}
-                        onClick={() => void chooseScene(scene.id)}
-                      >
-                        <FileText size={13} />
-                        <span>{scene.title}</span>
-                        <small>r{scene.revision}</small>
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </section>
-            );
-          })}
+          {outline ? (
+            outlineView === "tree" ? (
+              <OutlineTree
+                outline={outline}
+                workflow={workflow}
+                selectedSceneId={selectedSceneId}
+                onSelectScene={(sceneId) => void chooseScene(sceneId)}
+                runStructure={runStructureForTree}
+              />
+            ) : (
+              <CardBoard
+                outline={outline}
+                workflow={workflow}
+                selectedSceneId={selectedSceneId}
+                onSelectScene={(sceneId) => void chooseScene(sceneId)}
+              />
+            )
+          ) : (
+            <p className="outline-loading" role="status">正在读取大纲…</p>
+          )}
         </div>
       </aside>
 
@@ -180,7 +181,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
           <div><dt>保存方式</dt><dd>停止输入 800ms 后自动保存</dd></div>
         </dl>
         <div className="writing-margin-rule" />
-        <p className="writing-boundary"><Eye size={14} /> 当前只编辑单一场景。多场景连续聚合、卡片引用和批注将在后续切片接入。</p>
+        <p className="writing-boundary"><Eye size={14} /> 卷章结构可在左侧大纲树或卡片板中管理。当前只编辑单一场景；多场景连续聚合、卡片引用和批注将在后续切片接入。</p>
       </aside>
     </section>
   );

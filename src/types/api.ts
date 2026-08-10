@@ -29,9 +29,12 @@ import type {
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSummary,
+  CreationStructureResult,
   SceneBodyView,
   SceneSaveResponse,
+  StructureCommand,
   UpdateSceneBodyInput
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
@@ -104,6 +107,8 @@ export interface DesktopApi {
     listProjects: () => Promise<CreationProjectSummary[]>;
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
+    readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
+    runStructure: (command: StructureCommand) => Promise<CreationStructureResult>;
     readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
     updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;
     watchProject: (projectId: string, listener: CreationProjectListener) => Promise<() => void>;

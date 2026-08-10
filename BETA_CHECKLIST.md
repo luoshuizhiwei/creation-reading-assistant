@@ -187,6 +187,14 @@ Automated Checks (appended):
 | Creation outline guard (16 contracts) | `npm run verify:creation-outline` | Passed |
 | Desktop full build | `npm run build` | Passed |
 
+## Creation outline UI update (slice 6c): 2026-08-10
+
+- Added IPC channels `creation:readProjectOutline` and `creation:runStructure` (all 19 structure commands through one typed channel), wired through preload → `DesktopApi.creation` → `creation-service`.
+- Renderer store caches `project.outline` per project; `useCreationActions` gained `loadOutline` / `runStructure`; watch events now refresh both navigation and outline so the outline stays live without a page reload.
+- Writing desk left rail replaced with a two-view outline: the **outline tree** (volumes → chapters → scenes with derived numbers, workflow status select, per-scene word counts) and the **card board** (scenes grouped by chapter or by workflow status). Both views share the same outline data and scene selection.
+- Tree actions: new volume/chapter/scene, inline rename, two-click delete (cascade), up/down reorder, move chapter to another volume, move scene to another chapter, status select.
+- End-to-end verified on a real Electron instance: project creation, scene body write (word count 16), volume/chapter tree rendering, card-board grouping, and live outline refresh (a newly created volume appears within ~1.5s without reloading the page).
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

@@ -33,6 +33,8 @@ try {
     ...requiredChannels,
     "creation:readSceneBody",
     "creation:updateSceneBody",
+    "creation:readProjectOutline",
+    "creation:runStructure",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"

@@ -2689,3 +2689,442 @@ button:disabled {
     transition-duration: 1ms !important;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：大纲树与卡片板（切片 6c）
+ * ------------------------------------------------------------------------- */
+.writing-outline-view-switch {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  padding: 10px 16px 0;
+}
+
+.writing-outline-view-switch button {
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.writing-outline-view-switch button:hover {
+  color: var(--paper-ink);
+  background: color-mix(in srgb, var(--paper-line) 24%, transparent);
+}
+
+.writing-outline-view-switch button.active {
+  color: var(--copper);
+  border-color: color-mix(in srgb, var(--copper) 28%, transparent);
+  background: color-mix(in srgb, var(--copper) 8%, transparent);
+}
+
+.outline-loading {
+  padding: 12px;
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.outline-tree {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.outline-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 8px;
+}
+
+.outline-toolbar-label {
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.outline-add-volume {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--paper-panel);
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.outline-add-volume:hover {
+  color: var(--copper);
+  border-color: var(--copper);
+}
+
+.outline-tree-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.outline-volume + .outline-volume {
+  margin-top: 6px;
+}
+
+.outline-volume-row,
+.outline-chapter-row,
+.outline-scene {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.outline-volume-row {
+  padding: 6px 4px;
+  border-radius: 9px;
+}
+
+.outline-volume-row:hover {
+  background: color-mix(in srgb, var(--paper-line) 22%, transparent);
+}
+
+.outline-volume-toggle,
+.outline-chapter-toggle {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 2px;
+  cursor: pointer;
+}
+
+.outline-volume-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--paper-ink);
+}
+
+.outline-volume-count {
+  color: var(--paper-muted);
+  font-size: 10px;
+  margin-left: auto;
+}
+
+.outline-chapter-list,
+.outline-scene-list {
+  display: grid;
+  gap: 2px;
+  padding-left: 12px;
+}
+
+.outline-chapter-row {
+  padding: 5px 4px;
+  border-radius: 8px;
+}
+
+.outline-chapter-row:hover {
+  background: color-mix(in srgb, var(--paper-line) 22%, transparent);
+}
+
+.outline-chapter-number {
+  color: var(--copper);
+  font-size: 11px;
+  font-weight: 700;
+  min-width: 42px;
+  flex-shrink: 0;
+}
+
+.outline-chapter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--paper-ink);
+}
+
+.outline-status-select {
+  max-width: 66px;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 10px;
+  padding: 1px 2px;
+  cursor: pointer;
+}
+
+.outline-status-select:hover {
+  border-color: var(--paper-line);
+}
+
+.outline-node-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  opacity: 0;
+  margin-left: auto;
+}
+
+.outline-volume-row:hover .outline-node-actions,
+.outline-chapter-row:hover .outline-node-actions,
+.outline-scene:hover .outline-node-actions {
+  opacity: 1;
+}
+
+.outline-node-actions button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 5px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 3px;
+  cursor: pointer;
+}
+
+.outline-node-actions button:hover {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--paper-line) 26%, transparent);
+}
+
+.outline-node-actions button.confirming {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+
+.outline-move-select {
+  max-width: 42px;
+  border: 0;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.outline-scene {
+  padding: 4px;
+  border-radius: 8px;
+}
+
+.outline-scene.active {
+  background: color-mix(in srgb, var(--copper) 10%, transparent);
+}
+
+.outline-scene-main {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  text-align: left;
+  cursor: pointer;
+  padding: 0;
+}
+
+.outline-scene-main svg {
+  color: var(--paper-muted);
+  flex-shrink: 0;
+}
+
+.outline-scene-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.outline-word-count {
+  color: var(--paper-muted);
+  font-size: 10px;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.outline-grip {
+  color: var(--paper-line);
+  flex-shrink: 0;
+}
+
+.rotate-270 {
+  transform: rotate(-90deg);
+}
+
+.outline-inline-edit {
+  flex: 1;
+  min-width: 0;
+}
+
+.outline-inline-edit input {
+  width: 100%;
+  border: 1px solid var(--copper);
+  border-radius: 6px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  font-size: 12px;
+  padding: 2px 6px;
+  outline: none;
+}
+
+.outline-empty-hint {
+  color: var(--paper-muted);
+  font-size: 11px;
+  padding: 4px 6px;
+}
+
+.card-board {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  min-height: 0;
+}
+
+.card-board-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 2px 2px 8px;
+  gap: 6px;
+}
+
+.card-board-mode {
+  display: inline-flex;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.card-board-mode button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: var(--paper-panel);
+  color: var(--paper-muted);
+  font-size: 11px;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.card-board-mode button.active {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 9%, transparent);
+}
+
+.card-board-scroll {
+  min-height: 0;
+  overflow: auto;
+}
+
+.card-board-group + .card-board-group {
+  margin-top: 10px;
+}
+
+.card-board-group-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 4px 6px;
+}
+
+.card-board-chapter-key,
+.card-board-status-key {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--paper-ink);
+}
+
+.card-board-status-key {
+  color: var(--copper);
+}
+
+.card-board-group-head small {
+  color: var(--paper-muted);
+  font-size: 10px;
+}
+
+.card-board-group-head em {
+  margin-left: auto;
+  color: var(--paper-muted);
+  font-size: 10px;
+  font-style: normal;
+}
+
+.card-board-grid {
+  display: grid;
+  gap: 6px;
+}
+
+.card-board-card {
+  display: grid;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  background: var(--paper-panel);
+  padding: 9px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.card-board-card:hover {
+  border-color: color-mix(in srgb, var(--copper) 40%, transparent);
+}
+
+.card-board-card.active {
+  border-color: var(--copper);
+  background: color-mix(in srgb, var(--copper) 7%, transparent);
+}
+
+.card-board-card-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--paper-ink);
+}
+
+.card-board-card-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-muted);
+  font-size: 10px;
+}
+
+.card-board-card-meta em {
+  margin-left: auto;
+  font-style: normal;
+}
+
+.card-board-card-status {
+  align-self: flex-start;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-line) 40%, transparent);
+  color: var(--paper-muted);
+  font-size: 10px;
+  padding: 1px 7px;
+}
+
+.card-board-empty {
+  padding: 14px;
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.card-board-empty-hint {
+  color: var(--paper-muted);
+  font-size: 11px;
+}

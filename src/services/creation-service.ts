@@ -2,10 +2,13 @@ import { getDesktopApi } from "@/services/ipc-client";
 import type {
   CreateProjectInput,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectListener,
   CreationProjectSummary,
+  CreationStructureResult,
   SceneBodyView,
   SceneSaveResponse,
+  StructureCommand,
   UpdateSceneBodyInput
 } from "@/types/creation";
 
@@ -25,8 +28,16 @@ export async function readProjectNavigation(projectId: string): Promise<Creation
   return getCreationApi().readProjectNavigation(projectId);
 }
 
+export async function readProjectOutline(projectId: string): Promise<CreationProjectOutline | null> {
+  return getCreationApi().readProjectOutline(projectId);
+}
+
 export async function createProject(input: CreateProjectInput): Promise<CreationProjectNavigation> {
   return getCreationApi().createProject(input);
+}
+
+export async function runStructure(command: StructureCommand): Promise<CreationStructureResult> {
+  return getCreationApi().runStructure(command);
 }
 
 export async function readSceneBody(sceneId: string): Promise<SceneBodyView | null> {

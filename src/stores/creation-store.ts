@@ -2,6 +2,7 @@ import { create } from "zustand";
 import type {
   CreationDocument,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSummary,
   CreationProjectTree,
   SceneSaveResponse,
@@ -13,6 +14,8 @@ interface CreationState {
   selectedId?: string;
   /** 每个项目最近一次取得的章→场景导航（不含正文；正文按场景懒读）。 */
   navigations: Record<string, CreationProjectNavigation>;
+  /** 每个项目最近一次取得的卷→章→场景大纲（大纲树与卡片板共享数据）。 */
+  outlines: Record<string, CreationProjectOutline>;
   /** 当前选中的场景（属于 selectedId 对应的项目）。 */
   selectedSceneId?: string;
   /** 已读取的场景正文视图缓存，键为场景 ID。 */
@@ -31,6 +34,7 @@ interface CreationState {
   upsertProject: (tree: CreationProjectTree) => void;
   upsertNavigation: (navigation: CreationProjectNavigation) => void;
   setNavigation: (projectId: string, navigation: CreationProjectNavigation) => void;
+  setOutline: (projectId: string, outline: CreationProjectOutline) => void;
   selectScene: (sceneId: string) => void;
   setSceneView: (sceneId: string, view: SceneBodyView) => void;
   applySceneSaveResult: (result: Extract<SceneSaveResponse, { ok: true }>, body: CreationDocument) => void;
@@ -83,6 +87,7 @@ function sceneExists(navigation: CreationProjectNavigation, sceneId: string): bo
 export const useCreationStore = create<CreationState>((set) => ({
   projects: [],
   navigations: {},
+  outlines: {},
   selectedSceneId: undefined,
   sceneViews: {},
   abnormalExit: false,
@@ -163,6 +168,8 @@ export const useCreationStore = create<CreationState>((set) => ({
             : state.selectedSceneId;
       return { navigations: { ...state.navigations, [projectId]: navigation }, selectedSceneId };
     }),
+  setOutline: (projectId, outline) =>
+    set((state) => ({ outlines: { ...state.outlines, [projectId]: outline } })),
   selectScene: (selectedSceneId) => set({ selectedSceneId }),
   setSceneView: (sceneId, view) => set((state) => ({ sceneViews: { ...state.sceneViews, [sceneId]: view } })),
   applySceneSaveResult: (result, body) =>
