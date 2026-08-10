@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
-import { mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./index";
@@ -143,7 +143,99 @@ async function run(): Promise<void> {
     assert.equal(statusActivated.activation?.migrated, 2);
     assert.equal(statusActivated.report?.activated, true);
 
-    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 5 })}\n`);
+    // ---- 场景 6：真实形态数据——完整字段（来源/locator/多候选/书库资产）全部保留 ----
+    const realistic = path.join(parent, "realistic");
+    await mkdir(realistic, { recursive: true });
+    await writeJson(path.join(realistic, "inspirations.json"), {
+      version: 1,
+      items: [
+        {
+          id: "insp-real-1",
+          title: "真实灵感",
+          body: "真实正文_SENTINEL",
+          type: "plot",
+          status: "polished",
+          tags: ["剧情", "高亮"],
+          platformTags: ["番茄", "起点"],
+          source: {
+            bookId: "book-real-1",
+            bookTitle: "测试 TXT",
+            format: "txt",
+            chapterTitle: "第一章",
+            locationLabel: "12.3%",
+            progressPercent: 12.3,
+            excerpt: "来源摘录",
+            locator: { bookId: "book-real-1", kind: "txt", offset: 1234 },
+            createdAt: "2026-01-02T00:00:00.000Z"
+          },
+          revision: 5,
+          createdAt: "2026-01-01T00:00:00.000Z",
+          updatedAt: "2026-01-03T00:00:00.000Z",
+          variants: [
+            { id: "v1", kind: "polish", content: "候选一", prompt: "润色", model: "m1" },
+            { id: "v2", kind: "expand", content: "候选二", prompt: "扩写", model: "m2" },
+            { id: "v3", kind: "platform-style", content: "候选三", prompt: "平台风", model: "m3" }
+          ]
+        }
+      ]
+    });
+    await mkdir(path.join(realistic, "AppLibrary", "files"), { recursive: true });
+    await mkdir(path.join(realistic, "AppLibrary", "covers"), { recursive: true });
+    await writeFile(path.join(realistic, "AppLibrary", "files", "book-real-1.txt"), "测试书库文件内容", "utf8");
+    await writeFile(path.join(realistic, "AppLibrary", "covers", "book-real-1.jpg"), "cover", "utf8");
+    await writeJson(path.join(realistic, "AppLibrary", "library.json"), {
+      books: [{ id: "book-real-1", title: "测试 TXT", format: "txt" }]
+    });
+    const realisticReport = await runLegacyMigration({ dataRoot: realistic, minFreeBytes: 1 });
+    assert.equal(realisticReport.sources.migrated, 1);
+    const realisticWorkspace = await openCreationWorkspace({ directory: path.join(realistic, "CreationWorkspace") }) as CreationWorkspace;
+    const realisticInbox = (await realisticWorkspace.read({ kind: "inbox.list", limit: 10 })) as Array<{
+      legacyId: string | null;
+      title: string;
+      type: string;
+      status: string;
+      tags: string[];
+      platformTags: string[];
+      source: Record<string, unknown> | null;
+      variants: Array<Record<string, unknown>>;
+    }>;
+    const item = realisticInbox.find((entry) => entry.legacyId === "insp-real-1")!;
+    assert.equal(item.type, "plot");
+    assert.equal(item.status, "polished");
+    assert.deepEqual(item.tags, ["剧情", "高亮"]);
+    assert.deepEqual(item.platformTags, ["番茄", "起点"]);
+    assert.equal(item.variants.length, 3);
+    assert.equal(item.variants[2]!.kind, "platform-style");
+    assert.equal((item.source as { locator?: { offset?: number } }).locator?.offset, 1234);
+    assert.equal((item.source as { progressPercent?: number }).progressPercent, 12.3);
+    // 书库资产保留在备份中
+    const backupFiles = JSON.parse(await readFile(path.join(realisticReport.backup.directory, "manifest.json"), "utf8")) as {
+      files: Array<{ path: string }>;
+    };
+    assert.equal(backupFiles.files.some((file) => file.path === "AppLibrary/files/book-real-1.txt"), true);
+    assert.equal(backupFiles.files.some((file) => file.path === "AppLibrary/covers/book-real-1.jpg"), true);
+    await realisticWorkspace.close();
+
+    // ---- 场景 7：备份回退演练——删除激活状态后从备份恢复，可重新迁移 ----
+    const rollback = path.join(parent, "rollback");
+    await mkdir(rollback, { recursive: true });
+    await writeJson(path.join(rollback, "inspirations.json"), {
+      version: 1,
+      items: [{ id: "insp-rb-1", title: "回退灵感", body: "回退正文" }]
+    });
+    const rbReport = await runLegacyMigration({ dataRoot: rollback, minFreeBytes: 1 });
+    assert.equal(rbReport.activated, true);
+    // 模拟用户回退：删除激活指针与新建 store，从备份恢复旧数据
+    await rm(path.join(rollback, "CreationWorkspace"), { recursive: true, force: true });
+    const backupRoot = rbReport.backup.directory;
+    await cp(backupRoot, rollback, { recursive: true, filter: (source) => !path.basename(source).startsWith("manifest") });
+    const restoredInspirations = JSON.parse(await readFile(path.join(rollback, "inspirations.json"), "utf8")) as { items: unknown[] };
+    assert.equal(restoredInspirations.items.length, 1);
+    // 恢复后可重新迁移（原旧数据仍在）
+    const reRun = await runLegacyMigration({ dataRoot: rollback, minFreeBytes: 1 });
+    assert.equal(reRun.sources.migrated, 1);
+
+    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 7 })}\n`);
   } finally {
     await rm(parent, { recursive: true, force: true });
   }
