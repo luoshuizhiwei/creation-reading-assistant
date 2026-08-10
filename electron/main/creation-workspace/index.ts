@@ -133,6 +133,9 @@ import {
   type ResourceInfo,
   type ResourceListQuery,
   type ResourceResult,
+  type ScenePlanning,
+  type SceneUpdatePlanningCommand,
+  type SceneUpdatePlanningResult,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -353,6 +356,32 @@ function parseJsonArray(json: string): string[] {
     return Array.isArray(parsed) ? parsed.filter((item): item is string => typeof item === "string") : [];
   } catch {
     return [];
+  }
+}
+
+/** 场景任务卡字段解析（planning_json），非法结构返回空对象。 */
+function parseScenePlanning(json: string): ScenePlanning | undefined {
+  try {
+    const parsed = JSON.parse(json) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
+    const planning = parsed as Record<string, unknown>;
+    const result: ScenePlanning = {};
+    if (typeof planning.perspectiveCardId === "string" && planning.perspectiveCardId) result.perspectiveCardId = planning.perspectiveCardId;
+    if (typeof planning.time === "string" && planning.time.trim()) result.time = planning.time.trim();
+    if (typeof planning.locationCardId === "string" && planning.locationCardId) result.locationCardId = planning.locationCardId;
+    if (Array.isArray(planning.castCardIds)) {
+      result.castCardIds = planning.castCardIds.filter((item): item is string => typeof item === "string" && item.length > 0);
+    }
+    if (typeof planning.goal === "string" && planning.goal.trim()) result.goal = planning.goal.trim();
+    if (typeof planning.conflict === "string" && planning.conflict.trim()) result.conflict = planning.conflict.trim();
+    if (typeof planning.outcome === "string" && planning.outcome.trim()) result.outcome = planning.outcome.trim();
+    if (typeof planning.emotion === "string" && planning.emotion.trim()) result.emotion = planning.emotion.trim();
+    if (typeof planning.targetWords === "number" && Number.isInteger(planning.targetWords) && planning.targetWords > 0) {
+      result.targetWords = planning.targetWords;
+    }
+    return Object.keys(result).length > 0 ? result : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -1871,7 +1900,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
 
     const sceneRows = this.database
       .prepare(
-        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.created_at, s.updated_at, s.revision
+        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.planning_json, s.created_at, s.updated_at, s.revision
          FROM scenes s JOIN chapters c ON c.id = s.chapter_id
          WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id`
       )
@@ -1881,6 +1910,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       title: string;
       sort_order: number;
       body_json: string;
+      planning_json: string;
       created_at: string;
       updated_at: string;
       revision: number;
@@ -1918,6 +1948,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           title: scene.title,
           sortOrder: scene.sort_order,
           wordCount: countSceneWords(scene.body_json),
+          planning: parseScenePlanning(scene.planning_json),
           createdAt: scene.created_at,
           updatedAt: scene.updated_at,
           revision: scene.revision
@@ -3271,6 +3302,98 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runSceneUpdatePlanning(command: SceneUpdatePlanningCommand): SceneUpdatePlanningResult {
+    const sceneId = validateId(command.sceneId, "场景");
+    const planning = command.planning as unknown as ScenePlanning | null;
+    if (!planning || typeof planning !== "object") {
+      throw new CreationWorkspaceError("invalid-input", "场景规划字段无效。");
+    }
+    const cleaned: ScenePlanning = {};
+    if (planning.perspectiveCardId !== undefined) {
+      cleaned.perspectiveCardId = validateId(planning.perspectiveCardId, "视角卡片");
+    }
+    if (planning.time !== undefined) {
+      if (typeof planning.time !== "string" || planning.time.length > 200) {
+        throw new CreationWorkspaceError("invalid-input", "时间描述不能超过 200 个字符。");
+      }
+      const time = planning.time.trim();
+      if (time) cleaned.time = time;
+    }
+    if (planning.locationCardId !== undefined) {
+      cleaned.locationCardId = validateId(planning.locationCardId, "地点卡片");
+    }
+    if (planning.castCardIds !== undefined) {
+      if (!Array.isArray(planning.castCardIds) || planning.castCardIds.length > 100) {
+        throw new CreationWorkspaceError("invalid-input", "出场卡片数量超出允许范围。");
+      }
+      cleaned.castCardIds = planning.castCardIds.map((id) => validateId(id, "出场卡片"));
+    }
+    for (const key of ["goal", "conflict", "outcome", "emotion"] as const) {
+      const value = planning[key];
+      if (value === undefined) continue;
+      if (typeof value !== "string" || value.length > 2000) {
+        throw new CreationWorkspaceError("invalid-input", "场景规划文本不能超过 2000 个字符。");
+      }
+      const trimmed = value.trim();
+      if (trimmed) cleaned[key] = trimmed;
+    }
+    if (planning.targetWords !== undefined) {
+      if (!Number.isInteger(planning.targetWords) || planning.targetWords < 1 || planning.targetWords > 1_000_000) {
+        throw new CreationWorkspaceError("invalid-input", "目标字数必须为 1 至 1000000 的整数。");
+      }
+      cleaned.targetWords = planning.targetWords;
+    }
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const scene = this.database
+        .prepare("SELECT c.project_id, c.revision, s.planning_json FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE s.id = ? AND s.deleted_at IS NULL")
+        .get(sceneId) as { project_id: string; revision: number; planning_json: string } | undefined;
+      if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在。");
+      const projectId = scene.project_id;
+      // 合并语义：未提供的字段保留现有值
+      const merged: ScenePlanning = { ...parseScenePlanning(scene.planning_json), ...cleaned };
+      // 校验卡片引用都属于同一项目
+      const cardIds = new Set<string>();
+      if (merged.perspectiveCardId) cardIds.add(merged.perspectiveCardId);
+      if (merged.locationCardId) cardIds.add(merged.locationCardId);
+      for (const id of merged.castCardIds ?? []) cardIds.add(id);
+      if (cardIds.size > 0) {
+        const placeholders = [...cardIds].map(() => "?").join(", ");
+        const rows = this.database
+          .prepare(`SELECT id, project_id FROM cards WHERE id IN (${placeholders}) AND deleted_at IS NULL`)
+          .all(...cardIds) as Array<{ id: string; project_id: string }>;
+        if (rows.length !== cardIds.size) throw new CreationWorkspaceError("not-found", "引用的卡片不存在。");
+        for (const row of rows) {
+          if (row.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "引用的卡片不属于该作品。");
+        }
+      }
+      this.database
+        .prepare("UPDATE scenes SET planning_json = ?, updated_at = ? WHERE id = ?")
+        .run(JSON.stringify(merged), timestamp, sceneId);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(projectId, "scene.updatePlanning", JSON.stringify([{ entity: "scene", id: sceneId, action: "updated", revision: scene.revision }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId,
+        commandType: "scene.updatePlanning",
+        changes: [{ entity: "scene", id: sceneId, action: "updated", revision: scene.revision }]
+      });
+      return { commandType: "scene.updatePlanning", sequence: Number(logged.lastInsertRowid), projectId, sceneId, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法更新场景规划。");
+    }
+  }
+
   private runStatsView(projectId: string): ProjectStatsView | null {
     this.requireProject(projectId);
 
@@ -3607,6 +3730,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
   async transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   async transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
+  async transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -3662,6 +3786,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "resource.detach") {
       return this.runResourceDetach(command as ResourceDetachCommand);
+    }
+    if (command.type === "scene.updatePlanning") {
+      return this.runSceneUpdatePlanning(command as SceneUpdatePlanningCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }

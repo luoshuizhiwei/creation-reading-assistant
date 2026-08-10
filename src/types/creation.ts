@@ -175,6 +175,8 @@ export interface CreationOutlineScene {
   sortOrder: number;
   /** 场景非空白正文字数（不含标点），供大纲与卡片板显示。 */
   wordCount: number;
+  /** 场景任务卡字段（视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数）。 */
+  planning?: ScenePlanning;
   createdAt: string;
   updatedAt: string;
   revision: number;
@@ -685,6 +687,41 @@ export interface ProjectImportDraftResult {
   volumeCount: number;
   chapterCount: number;
   sceneCount: number;
+}
+
+// ---------------------------------------------------------------------------
+// 场景任务卡（蓝图 §5.3）：视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数
+// ---------------------------------------------------------------------------
+
+export interface ScenePlanning {
+  /** 视角角色卡片 ID。 */
+  perspectiveCardId?: string;
+  /** 时间或相对时间描述。 */
+  time?: string;
+  /** 地点卡片 ID。 */
+  locationCardId?: string;
+  /** 出场卡片 ID 列表。 */
+  castCardIds?: string[];
+  goal?: string;
+  conflict?: string;
+  outcome?: string;
+  emotion?: string;
+  /** 目标字数（非空白字符）。 */
+  targetWords?: number;
+}
+
+export interface SceneUpdatePlanningCommand {
+  type: "scene.updatePlanning";
+  sceneId: string;
+  planning: ScenePlanning;
+}
+
+export interface SceneUpdatePlanningResult {
+  commandType: "scene.updatePlanning";
+  sequence: number;
+  projectId: string;
+  sceneId: string;
+  updatedAt: string;
 }
 
 export type DraftImportFormat = "txt" | "markdown";

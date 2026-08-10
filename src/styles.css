@@ -3,29 +3,29 @@
 @tailwind utilities;
 
 :root {
-  --paper-bg: #f7f0e7;
-  --paper-panel: #fffaf2;
-  --paper-soft: #f2e4da;
-  --paper-line: #d9c9b8;
-  --paper-ink: #241b16;
-  --paper-muted: #7b6b5e;
-  --copper: #8a5a2b;
-  --copper-soft: #b48758;
-  --copper-dark: #69411f;
+  --paper-bg: #f2efe7;
+  --paper-panel: #fbf8f1;
+  --paper-soft: #e9e2d4;
+  --paper-line: #cfc5b2;
+  --paper-ink: #1f2421;
+  --paper-muted: #6d756f;
+  --copper: #365c4a;
+  --copper-soft: #8fa79d;
+  --copper-dark: #27453a;
   --moss: #506354;
   --moss-soft: #dce9dc;
 }
 
 :root[data-app-theme="dark"] {
-  --paper-bg: #17120f;
-  --paper-panel: #231b17;
-  --paper-soft: #2e241f;
-  --paper-line: #4a3a31;
-  --paper-ink: #f4eadf;
-  --paper-muted: #b8a89a;
-  --copper: #d19a5f;
-  --copper-soft: #e0b07b;
-  --copper-dark: #a9743d;
+  --paper-bg: #141a17;
+  --paper-panel: #1d2521;
+  --paper-soft: #27302b;
+  --paper-line: #3d4a43;
+  --paper-ink: #eef3ef;
+  --paper-muted: #a9b4ad;
+  --copper: #8fa79d;
+  --copper-soft: #a9c2b4;
+  --copper-dark: #6e8b7c;
   --moss: #9fb79e;
   --moss-soft: #263626;
 }

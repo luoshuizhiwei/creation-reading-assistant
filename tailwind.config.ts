@@ -6,17 +6,17 @@ export default {
     extend: {
       colors: {
         paper: {
-          bg: "#f7f0e7",
-          panel: "#fffaf2",
-          soft: "#f2e4da",
-          line: "#d9c9b8",
-          ink: "#241b16",
-          muted: "#7b6b5e"
+          bg: "#f2efe7",
+          panel: "#fbf8f1",
+          soft: "#e9e2d4",
+          line: "#cfc5b2",
+          ink: "#1f2421",
+          muted: "#6d756f"
         },
         copper: {
-          DEFAULT: "#8a5a2b",
-          soft: "#b48758",
-          dark: "#69411f"
+          DEFAULT: "#365c4a",
+          soft: "#8fa79d",
+          dark: "#27453a"
         },
         moss: {
           DEFAULT: "#506354",
