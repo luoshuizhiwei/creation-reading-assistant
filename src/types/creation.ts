@@ -986,6 +986,66 @@ export interface InboxItemResult {
   updatedAt: string;
 }
 
+// ---------------------------------------------------------------------------
+// 切片 11：旧数据激活迁移
+// ---------------------------------------------------------------------------
+
+export interface LegacyMigrationActivation {
+  formatVersion: 1;
+  activatedAt: string;
+  backupDirectory: string;
+  reportPath: string;
+  idMapPath: string;
+  discovered: number;
+  migrated: number;
+  skipped: number;
+  failed: number;
+}
+
+export interface LegacyMigrationReport {
+  reportVersion: 1;
+  generatedAt: string;
+  activated: boolean;
+  backup: {
+    directory: string;
+    manifestVersion: number;
+    manifestPath: string;
+    files: number;
+    bytes: number;
+    checksumVerified: boolean;
+  };
+  sources: {
+    discovered: number;
+    migrated: number;
+    skipped: number;
+    failed: number;
+  };
+  failures: Array<{ legacyId: string; reason: string; retryable: boolean }>;
+  idMap: {
+    path: string;
+    entries: number;
+  };
+  targetStore: {
+    directory: string;
+    integrityOk: boolean;
+    schemaVersion: number;
+    wasFresh: boolean;
+  };
+  rollback: {
+    how: string;
+    backupDirectory: string;
+  };
+}
+
+export interface LegacyMigrationStatus {
+  activated: boolean;
+  activation: LegacyMigrationActivation | null;
+  report: LegacyMigrationReport | null;
+  canProceed: boolean;
+  /** 审计阻断原因（canProceed=false 时的可读说明）。 */
+  blockingReasons: string[];
+}
+
 export interface SessionReportResult {
   commandType: "session.report" | "session.delete";
   sequence: number;

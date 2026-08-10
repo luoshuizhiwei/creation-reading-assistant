@@ -33,7 +33,14 @@ import type {
   TrashItem,
   UpdateSceneBodyInput,
   ProofQuery,
-  ProofView
+  ProofView,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxItemResult,
+  InboxListQuery,
+  InboxUpdateCommand,
+  LegacyMigrationReport,
+  LegacyMigrationStatus
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -147,4 +154,24 @@ export async function sessionDelete(command: SessionDeleteCommand): Promise<Sess
 
 export async function proofQuery(query: ProofQuery): Promise<ProofView> {
   return getCreationApi().proofQuery(query);
+}
+
+export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {
+  return getCreationApi().migrationStatus();
+}
+
+export async function migrationRun(): Promise<LegacyMigrationReport> {
+  return getCreationApi().migrationRun();
+}
+
+export async function inboxList(query: InboxListQuery): Promise<InboxItem[]> {
+  return getCreationApi().inboxList(query);
+}
+
+export async function inboxUpdate(command: InboxUpdateCommand): Promise<InboxItemResult> {
+  return getCreationApi().inboxUpdate(command);
+}
+
+export async function inboxDelete(command: InboxDeleteCommand): Promise<InboxItemResult> {
+  return getCreationApi().inboxDelete(command);
 }

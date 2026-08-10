@@ -63,7 +63,14 @@ import type {
   TrashListQuery,
   UpdateSceneBodyInput,
   ProofQuery,
-  ProofView
+  ProofView,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxItemResult,
+  InboxListQuery,
+  InboxUpdateCommand,
+  LegacyMigrationReport,
+  LegacyMigrationStatus
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -152,6 +159,11 @@ const api: DesktopApi = {
     sessionReport: (command: SessionReportCommand) => invoke<SessionReportResult>("creation:sessionReport", command),
     sessionDelete: (command: SessionDeleteCommand) => invoke<SessionReportResult>("creation:sessionDelete", command),
     proofQuery: (query: ProofQuery) => invoke<ProofView>("creation:proofQuery", query),
+    migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
+    migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
+    inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),
+    inboxUpdate: (command: InboxUpdateCommand) => invoke<InboxItemResult>("creation:inboxUpdate", command),
+    inboxDelete: (command: InboxDeleteCommand) => invoke<InboxItemResult>("creation:inboxDelete", command),
     exportDraft: (projectId: string) =>
       invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),

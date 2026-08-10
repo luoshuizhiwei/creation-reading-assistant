@@ -184,6 +184,11 @@ const requiredIpcChannels = [
   "creation:sessionReport",
   "creation:sessionDelete",
   "creation:proofQuery",
+  "creation:migrationStatus",
+  "creation:migrationRun",
+  "creation:inboxList",
+  "creation:inboxUpdate",
+  "creation:inboxDelete",
   "creation:watchProject",
   "creation:unwatchProject"
 ];

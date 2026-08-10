@@ -4551,3 +4551,235 @@ button:disabled {
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：旧数据迁移与收件箱（切片 11b）
+ * ------------------------------------------------------------------------- */
+.migration-banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--copper) 30%, var(--paper-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
+  color: var(--paper-ink);
+  font-size: 13px;
+}
+
+.migration-banner svg {
+  color: var(--copper);
+  flex-shrink: 0;
+}
+
+.migration-banner span {
+  flex: 1;
+  min-width: 0;
+}
+
+.migration-banner-dismiss {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper-muted);
+  cursor: pointer;
+}
+
+.migration-banner-dismiss:hover {
+  color: var(--paper-ink);
+  background: var(--paper-soft);
+}
+
+.migration-dialog {
+  width: min(560px, 100%);
+}
+
+.migration-body {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.migration-note {
+  margin: 0;
+  color: var(--paper-muted);
+  font-size: 12.5px;
+  line-height: 1.7;
+}
+
+.migration-error {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  margin: 0;
+  padding: 9px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #c0392b 8%, var(--paper-panel));
+  color: #c0392b;
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.migration-error svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.migration-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.migration-report-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--moss);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.migration-report dl {
+  display: grid;
+  gap: 5px;
+  margin: 0;
+}
+
+.migration-report dl > div {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 12.5px;
+}
+
+.migration-report dt {
+  color: var(--paper-muted);
+}
+
+.migration-report dd {
+  margin: 0;
+  color: var(--paper-ink);
+  font-weight: 650;
+  word-break: break-all;
+  text-align: right;
+}
+
+.migration-failures {
+  margin: 0;
+  padding: 8px 12px;
+  border-radius: 9px;
+  background: color-mix(in srgb, #c0392b 6%, var(--paper-panel));
+  color: #c0392b;
+  font-size: 12px;
+  line-height: 1.7;
+  list-style: none;
+}
+
+.inbox-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 8px;
+}
+
+.inbox-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.inbox-item--used {
+  opacity: 0.72;
+}
+
+.inbox-item-main {
+  min-width: 0;
+  flex: 1;
+  display: grid;
+  gap: 5px;
+}
+
+.inbox-item-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--paper-ink);
+  font-size: 13.5px;
+  font-weight: 700;
+  flex-wrap: wrap;
+}
+
+.inbox-item-title em {
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
+  color: var(--copper);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  padding: 1px 8px;
+}
+
+.inbox-item-title em.used {
+  background: color-mix(in srgb, var(--moss) 14%, var(--paper-panel));
+  color: var(--moss);
+}
+
+.inbox-item-body {
+  color: var(--paper-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+}
+
+.inbox-item-meta {
+  color: var(--paper-muted);
+  font-size: 11.5px;
+}
+
+.inbox-item-actions {
+  display: inline-flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+.inbox-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  padding: 5px 9px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.inbox-item-actions button:hover {
+  color: var(--copper);
+  border-color: var(--copper);
+}
+
+.inbox-item-actions button.confirming {
+  color: #c0392b;
+  border-color: #c0392b;
+  background: color-mix(in srgb, #c0392b 8%, transparent);
+}
+
+.spin {
+  animation: creation-spin 0.9s linear infinite;
+}
+
+@keyframes creation-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

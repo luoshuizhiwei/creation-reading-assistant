@@ -3475,7 +3475,10 @@ function registerIpc(): void {
   ipcMain.handle("backup:create", async () => createBackup());
   ipcMain.handle("backup:restore", async () => restoreBackup());
   ipcMain.handle("diagnostics:exportDebugInfo", async () => exportDebugInfo());
-  registerCreationIpc(creationCoordinator);
+  registerCreationIpc(creationCoordinator, {
+    resolveDataRoot: () => appDataRoot(),
+    resolveLibraryRoot: () => appLibraryRoot()
+  });
 }
 
 const hasSingleInstanceLock = app.requestSingleInstanceLock();

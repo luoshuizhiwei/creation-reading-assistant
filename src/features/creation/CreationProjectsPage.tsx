@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookMarked, Download, FileWarning, Plus, Replace, Search } from "lucide-react";
+import { ArchiveRestore, BookMarked, Download, FileWarning, Plus, Replace, Search, X } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
+import { InboxPage } from "@/features/creation/inbox/InboxPage";
+import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
 import { ProofPanel } from "@/features/creation/proof/ProofPanel";
 import { StatsPage } from "@/features/creation/stats/StatsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
@@ -23,18 +25,26 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const selectScene = useCreationStore((state) => state.selectScene);
   const selectCard = useCreationStore((state) => state.selectCard);
-  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft } = useCreationActions();
+  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft, loadMigrationStatus } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [proofOpen, setProofOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
-  const [view, setView] = useState<"writing" | "cards" | "history" | "stats">("writing");
+  const [migrationOpen, setMigrationOpen] = useState(false);
+  const [migrationNotice, setMigrationNotice] = useState(false);
+  const [view, setView] = useState<"writing" | "cards" | "history" | "stats" | "inbox">("writing");
 
   useEffect(() => {
     void loadProjects();
   }, [loadProjects]);
+
+  useEffect(() => {
+    void loadMigrationStatus().then((status) => {
+      setMigrationNotice(status !== null && !status.activated && status.canProceed);
+    });
+  }, [loadMigrationStatus]);
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
@@ -168,7 +178,7 @@ export function CreationProjectsPage() {
         <section className="desktop-page-hero motion-panel creation-writing-hero">
           <div>
             <div className="desktop-card-label">Creation desk</div>
-            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : view === "history" ? "历史与回收站" : "统计与创作目标"}</h2>
+            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : view === "history" ? "历史与回收站" : view === "stats" ? "统计与创作目标" : "全局收件箱"}</h2>
             <p>
               {view === "writing"
                 ? "在场景中连续写作；卷章结构在大纲树中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
@@ -176,7 +186,9 @@ export function CreationProjectsPage() {
                   ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
                   : view === "history"
                     ? "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
-                    : "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"}
+                    : view === "stats"
+                      ? "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"
+                      : "旧灵感迁移后的存放位置；可转为当前项目的资料卡，旧书库与阅读记录保持只读继续使用。"}
             </p>
           </div>
           <div className="desktop-page-actions">
@@ -207,6 +219,16 @@ export function CreationProjectsPage() {
           </div>
         </section>
 
+        {migrationNotice && (
+          <section className="migration-banner" role="status">
+            <ArchiveRestore size={15} />
+            <span>检测到旧数据（灵感/书库）尚未迁移，迁移后旧灵感会进入全局收件箱，书库保持只读继续使用。</span>
+            <Button onClick={() => setMigrationOpen(true)}>查看迁移</Button>
+            <button type="button" className="migration-banner-dismiss" onClick={() => setMigrationNotice(false)} aria-label="关闭迁移提示">
+              <X size={13} />
+            </button>
+          </section>
+        )}
         {selected ? (
           <>
             <div className="creation-project-tabs" role="tablist" aria-label="项目视图">
@@ -246,6 +268,15 @@ export function CreationProjectsPage() {
               >
                 统计
               </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "inbox"}
+                className={view === "inbox" ? "active" : ""}
+                onClick={() => setView("inbox")}
+              >
+                收件箱
+              </button>
             </div>
             {view === "cards" ? (
               <CardsPage project={selected} />
@@ -253,6 +284,8 @@ export function CreationProjectsPage() {
               <HistoryPage project={selected} />
             ) : view === "stats" ? (
               <StatsPage projectId={selected.id} />
+            ) : view === "inbox" ? (
+              <InboxPage projectId={selected.id} />
             ) : navigation ? (
               <WritingDesk
                 projects={projects}
@@ -306,6 +339,15 @@ export function CreationProjectsPage() {
         <CommandPalette
           commands={paletteCommands}
           onClose={() => setPaletteOpen(false)}
+        />
+      )}
+      {migrationOpen && (
+        <MigrationDialog
+          onClose={() => setMigrationOpen(false)}
+          onMigrated={() => {
+            setMigrationNotice(false);
+            void loadMigrationStatus();
+          }}
         />
       )}
     </div>

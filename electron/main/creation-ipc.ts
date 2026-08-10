@@ -32,10 +32,20 @@ import type {
   TrashItem,
   UpdateSceneBodyInput,
   ProofQuery,
-  ProofView
+  ProofView,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxListQuery,
+  InboxUpdateCommand
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
+import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
+
+export interface CreationIpcContext {
+  resolveDataRoot: () => string;
+  resolveLibraryRoot: () => string;
+}
 
 /** 把导出视图组装成平台发布净文本：卷/章标题 + 场景正文，空行分隔。 */
 function buildExportText(view: ProjectExportView): string {
@@ -67,8 +77,22 @@ interface WatchEntry {
  * creation 域的全部 IPC 通道。renderer 只拿到 invoke 面；watch 推送由主进程
  * 按 subscriptionId 转发 `creation:event`，订阅随 sender 销毁自动退订。
  */
-export function registerCreationIpc(coordinator: CreationCoordinator): void {
+export function registerCreationIpc(coordinator: CreationCoordinator, context: CreationIpcContext): void {
   const watchEntries = new Map<string, WatchEntry>();
+
+  ipcMain.handle("creation:migrationStatus", async () => {
+    const dataRoot = context.resolveDataRoot();
+    if (!dataRoot) return null;
+    return getLegacyMigrationStatus({ dataRoot, libraryRoot: context.resolveLibraryRoot() });
+  });
+
+  ipcMain.handle("creation:migrationRun", async () => {
+    const dataRoot = context.resolveDataRoot();
+    if (!dataRoot) throw new CreationWorkspaceError("invalid-input", "旧数据目录不可用。");
+    return coordinator.withWorkspaceClosed(() =>
+      runLegacyMigration({ dataRoot, libraryRoot: context.resolveLibraryRoot() })
+    );
+  });
 
   ipcMain.handle("creation:listProjects", () =>
     coordinator.withWorkspace(
@@ -176,6 +200,18 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
 
   ipcMain.handle("creation:proofQuery", (_event, query: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.read(query as ProofQuery) as Promise<ProofView>)
+  );
+
+  ipcMain.handle("creation:inboxList", (_event, query: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.read(query as InboxListQuery) as Promise<InboxItem[]>)
+  );
+
+  ipcMain.handle("creation:inboxUpdate", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as InboxUpdateCommand))
+  );
+
+  ipcMain.handle("creation:inboxDelete", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as InboxDeleteCommand))
   );
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {

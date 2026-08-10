@@ -60,7 +60,14 @@ import type {
   TrashListQuery,
   UpdateSceneBodyInput,
   ProofQuery,
-  ProofView
+  ProofView,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxItemResult,
+  InboxListQuery,
+  InboxUpdateCommand,
+  LegacyMigrationReport,
+  LegacyMigrationStatus
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -144,6 +151,11 @@ export interface DesktopApi {
     sessionReport: (command: SessionReportCommand) => Promise<SessionReportResult>;
     sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
     proofQuery: (query: ProofQuery) => Promise<ProofView>;
+    migrationStatus: () => Promise<LegacyMigrationStatus | null>;
+    migrationRun: () => Promise<LegacyMigrationReport>;
+    inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;
+    inboxUpdate: (command: InboxUpdateCommand) => Promise<InboxItemResult>;
+    inboxDelete: (command: InboxDeleteCommand) => Promise<InboxItemResult>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

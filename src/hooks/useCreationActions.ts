@@ -21,6 +21,11 @@ import {
   snapshotList,
   statsView as statsViewRequest,
   proofQuery as proofQueryRequest,
+  migrationStatus as migrationStatusRequest,
+  migrationRun as migrationRunRequest,
+  inboxList as inboxListRequest,
+  inboxUpdate as inboxUpdateRequest,
+  inboxDelete as inboxDeleteRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -49,6 +54,12 @@ import type {
   SnapshotListQuery,
   ProofQuery,
   ProofView,
+  InboxDeleteCommand,
+  InboxItem,
+  InboxListQuery,
+  InboxUpdateCommand,
+  LegacyMigrationReport,
+  LegacyMigrationStatus,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -355,6 +366,62 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadMigrationStatus = useCallback(async (): Promise<LegacyMigrationStatus | null> => {
+    try {
+      return await migrationStatusRequest();
+    } catch (error) {
+      setError(messageFromError(error));
+      return null;
+    }
+  }, [setError]);
+
+  const runMigration = useCallback(async (): Promise<LegacyMigrationReport | null> => {
+    try {
+      return await migrationRunRequest();
+    } catch (error) {
+      setError(messageFromError(error));
+      return null;
+    }
+  }, [setError]);
+
+  const loadInbox = useCallback(
+    async (query: Omit<InboxListQuery, "kind">): Promise<InboxItem[]> => {
+      try {
+        return await inboxListRequest({ kind: "inbox.list", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
+      }
+    },
+    [setError]
+  );
+
+  const updateInbox = useCallback(
+    async (command: Omit<InboxUpdateCommand, "type">): Promise<boolean> => {
+      try {
+        await inboxUpdateRequest({ type: "inbox.update", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const deleteInbox = useCallback(
+    async (command: Omit<InboxDeleteCommand, "type">): Promise<boolean> => {
+      try {
+        await inboxDeleteRequest({ type: "inbox.delete", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -470,6 +537,11 @@ export function useCreationActions() {
     reportSession,
     deleteSession,
     runProof,
+    loadMigrationStatus,
+    runMigration,
+    loadInbox,
+    updateInbox,
+    deleteInbox,
     subscribeProject
   };
 }
