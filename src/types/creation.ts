@@ -657,6 +657,58 @@ export interface ProjectExportQuery {
 }
 
 // ---------------------------------------------------------------------------
+// 切片 9：旧稿导入（TXT/Markdown）
+// ---------------------------------------------------------------------------
+
+export interface DraftImportChapterInput {
+  title: string;
+  /** 章节正文纯文本。 */
+  body: string;
+}
+
+export interface DraftImportVolumeInput {
+  title: string;
+  chapters: DraftImportChapterInput[];
+}
+
+export interface ProjectImportDraftCommand {
+  type: "project.importDraft";
+  title: string;
+  setup?: CreationProjectSetup;
+  volumes: DraftImportVolumeInput[];
+}
+
+export interface ProjectImportDraftResult {
+  commandType: "project.importDraft";
+  sequence: number;
+  projectId: string;
+  volumeCount: number;
+  chapterCount: number;
+  sceneCount: number;
+}
+
+export type DraftImportFormat = "txt" | "markdown";
+
+export interface DraftImportPreviewChapter extends DraftImportChapterInput {
+  wordCount: number;
+}
+
+export interface DraftImportPreviewVolume {
+  title: string;
+  chapters: DraftImportPreviewChapter[];
+}
+
+export interface DraftImportPreview {
+  format: DraftImportFormat;
+  fileName: string;
+  projectTitle: string;
+  volumes: DraftImportPreviewVolume[];
+  totalChapters: number;
+  totalWords: number;
+  warnings: string[];
+}
+
+// ---------------------------------------------------------------------------
 // 切片 10：搜索与查找替换
 // ---------------------------------------------------------------------------
 

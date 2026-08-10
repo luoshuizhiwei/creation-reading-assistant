@@ -38,6 +38,7 @@
     "verify:creation-stats": "node scripts/verify-creation-stats.mjs",
     "verify:creation-proof": "node scripts/verify-creation-proof.mjs",
     "verify:creation-migration": "node scripts/verify-creation-migration.mjs",
+    "verify:creation-import": "node scripts/verify-creation-import.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",

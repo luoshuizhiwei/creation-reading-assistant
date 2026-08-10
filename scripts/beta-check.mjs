@@ -189,6 +189,7 @@ const requiredIpcChannels = [
   "creation:inboxList",
   "creation:inboxUpdate",
   "creation:inboxDelete",
+  "creation:importDraftPreview",
   "creation:watchProject",
   "creation:unwatchProject"
 ];

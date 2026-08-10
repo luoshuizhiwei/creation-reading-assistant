@@ -26,6 +26,7 @@ import {
   inboxList as inboxListRequest,
   inboxUpdate as inboxUpdateRequest,
   inboxDelete as inboxDeleteRequest,
+  importDraftPreview as importDraftPreviewRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -60,6 +61,8 @@ import type {
   InboxUpdateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
+  DraftImportPreview,
+  ProjectImportDraftCommand,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -134,7 +137,7 @@ export function useCreationActions() {
   );
 
   const runStructure = useCallback(
-    async (command: StructureCommand | CardCommand | HistoryCommand): Promise<boolean> => {
+    async (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand): Promise<boolean> => {
       try {
         await runStructureRequest(command);
         return true;
@@ -422,6 +425,15 @@ export function useCreationActions() {
     [setError]
   );
 
+  const previewDraftImport = useCallback(async (): Promise<DraftImportPreview | null> => {
+    try {
+      return await importDraftPreviewRequest();
+    } catch (error) {
+      setError(messageFromError(error));
+      return null;
+    }
+  }, [setError]);
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -542,6 +554,7 @@ export function useCreationActions() {
     loadInbox,
     updateInbox,
     deleteInbox,
+    previewDraftImport,
     subscribeProject
   };
 }

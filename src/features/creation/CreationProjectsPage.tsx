@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveRestore, BookMarked, Download, FileWarning, Plus, Replace, Search, X } from "lucide-react";
+import { ArchiveRestore, BookMarked, Download, FileUp, FileWarning, Plus, Replace, Search, X } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
+import { ImportDraftDialog } from "@/features/creation/import/ImportDraftDialog";
 import { InboxPage } from "@/features/creation/inbox/InboxPage";
 import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
 import { ProofPanel } from "@/features/creation/proof/ProofPanel";
@@ -34,6 +35,7 @@ export function CreationProjectsPage() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [migrationNotice, setMigrationNotice] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history" | "stats" | "inbox">("writing");
 
   useEffect(() => {
@@ -216,6 +218,10 @@ export function CreationProjectsPage() {
               <Plus size={16} />
               新建项目
             </Button>
+            <Button variant="secondary" onClick={() => setImportOpen(true)}>
+              <FileUp size={16} />
+              导入旧稿
+            </Button>
           </div>
         </section>
 
@@ -348,6 +354,12 @@ export function CreationProjectsPage() {
             setMigrationNotice(false);
             void loadMigrationStatus();
           }}
+        />
+      )}
+      {importOpen && (
+        <ImportDraftDialog
+          onClose={() => setImportOpen(false)}
+          onImported={() => void loadProjects()}
         />
       )}
     </div>

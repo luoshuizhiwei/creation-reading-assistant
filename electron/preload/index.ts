@@ -70,7 +70,9 @@ import type {
   InboxListQuery,
   InboxUpdateCommand,
   LegacyMigrationReport,
-  LegacyMigrationStatus
+  LegacyMigrationStatus,
+  DraftImportPreview,
+  ProjectImportDraftCommand
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -147,7 +149,7 @@ const api: DesktopApi = {
     createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
     readProjectOutline: (projectId: string) =>
       invoke<CreationProjectOutline | null>("creation:readProjectOutline", projectId),
-    runStructure: (command: StructureCommand | CardCommand | HistoryCommand) =>
+    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand) =>
       invoke<CreationStructureResult>("creation:runStructure", command),
     trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
     snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
@@ -159,6 +161,7 @@ const api: DesktopApi = {
     sessionReport: (command: SessionReportCommand) => invoke<SessionReportResult>("creation:sessionReport", command),
     sessionDelete: (command: SessionDeleteCommand) => invoke<SessionReportResult>("creation:sessionDelete", command),
     proofQuery: (query: ProofQuery) => invoke<ProofView>("creation:proofQuery", query),
+    importDraftPreview: () => invoke<DraftImportPreview | null>("creation:importDraftPreview"),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),

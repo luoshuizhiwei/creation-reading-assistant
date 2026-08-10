@@ -67,7 +67,9 @@ import type {
   InboxListQuery,
   InboxUpdateCommand,
   LegacyMigrationReport,
-  LegacyMigrationStatus
+  LegacyMigrationStatus,
+  DraftImportPreview,
+  ProjectImportDraftCommand
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -140,7 +142,7 @@ export interface DesktopApi {
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
     readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
-    runStructure: (command: StructureCommand | CardCommand | HistoryCommand) => Promise<CreationStructureResult>;
+    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand) => Promise<CreationStructureResult>;
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
@@ -151,6 +153,7 @@ export interface DesktopApi {
     sessionReport: (command: SessionReportCommand) => Promise<SessionReportResult>;
     sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
     proofQuery: (query: ProofQuery) => Promise<ProofView>;
+    importDraftPreview: () => Promise<DraftImportPreview | null>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;

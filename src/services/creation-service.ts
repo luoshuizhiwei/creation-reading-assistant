@@ -40,7 +40,9 @@ import type {
   InboxListQuery,
   InboxUpdateCommand,
   LegacyMigrationReport,
-  LegacyMigrationStatus
+  LegacyMigrationStatus,
+  DraftImportPreview,
+  ProjectImportDraftCommand
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -68,7 +70,7 @@ export async function createProject(input: CreateProjectInput): Promise<Creation
 }
 
 export async function runStructure(
-  command: StructureCommand | CardCommand | HistoryCommand
+  command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand
 ): Promise<CreationStructureResult> {
   return getCreationApi().runStructure(command);
 }
@@ -154,6 +156,10 @@ export async function sessionDelete(command: SessionDeleteCommand): Promise<Sess
 
 export async function proofQuery(query: ProofQuery): Promise<ProofView> {
   return getCreationApi().proofQuery(query);
+}
+
+export async function importDraftPreview(): Promise<DraftImportPreview | null> {
+  return getCreationApi().importDraftPreview();
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {

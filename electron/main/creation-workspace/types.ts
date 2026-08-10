@@ -106,7 +106,11 @@ import type {
   InboxItemResult,
   InboxListQuery,
   InboxReadQuery,
-  InboxUpdateCommand
+  InboxUpdateCommand,
+  DraftImportChapterInput,
+  DraftImportVolumeInput,
+  ProjectImportDraftCommand,
+  ProjectImportDraftResult
 } from "../../../src/types/creation";
 
 export type {
@@ -217,7 +221,11 @@ export type {
   InboxItemResult,
   InboxListQuery,
   InboxReadQuery,
-  InboxUpdateCommand
+  InboxUpdateCommand,
+  DraftImportChapterInput,
+  DraftImportVolumeInput,
+  ProjectImportDraftCommand,
+  ProjectImportDraftResult
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -334,7 +342,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -345,7 +353,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -383,6 +391,7 @@ export interface CreationWorkspace {
   transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
+  transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

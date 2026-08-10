@@ -41,6 +41,7 @@ import type {
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
+import { previewLegacyDraft } from "./creation-import";
 
 export interface CreationIpcContext {
   resolveDataRoot: () => string;
@@ -213,6 +214,21 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
   ipcMain.handle("creation:inboxDelete", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as InboxDeleteCommand))
   );
+
+  ipcMain.handle("creation:importDraftPreview", async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "导入旧稿",
+      properties: ["openFile" as const],
+      filters: [
+        { name: "文本与 Markdown", extensions: ["txt", "md", "markdown"] },
+        { name: "所有文件", extensions: ["*"] }
+      ]
+    };
+    const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (canceled || filePaths.length === 0) return null;
+    return previewLegacyDraft({ filePath: filePaths[0]! });
+  });
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {
     const projectId =
