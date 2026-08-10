@@ -1,12 +1,17 @@
 import { ipcMain, type WebContents } from "electron";
 import { randomUUID } from "node:crypto";
 import type {
+  CardRelation,
+  CardSummary,
+  CardType,
+  CardsListQuery,
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
   CreationStructureResult,
+  RelationType,
   SceneBodyView,
   SceneSaveResponse,
   StructureCommand,
@@ -57,6 +62,31 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
 
   ipcMain.handle("creation:runStructure", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as StructureCommand) as Promise<CreationStructureResult>)
+  );
+
+  ipcMain.handle("creation:cardsList", (_event, query: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.read(query as CardsListQuery) as Promise<CardSummary[]>)
+  );
+
+  ipcMain.handle("creation:cardRead", (_event, cardId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "card.read", cardId }))
+  );
+
+  ipcMain.handle("creation:cardTypesList", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "cardTypes.list", projectId }) as Promise<CardType[]>)
+  );
+
+  ipcMain.handle("creation:relationTypesList", (_event, projectId: string) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read({ kind: "relationTypes.list", projectId }) as Promise<RelationType[]>
+    )
+  );
+
+  ipcMain.handle("creation:cardRelations", (_event, cardId: string) =>
+    coordinator.withWorkspace(
+      (workspace) =>
+        workspace.read({ kind: "card.relations", cardId }) as Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>
+    )
   );
 
   ipcMain.handle("creation:updateSceneBody", (_event, input: UpdateSceneBodyInput) =>

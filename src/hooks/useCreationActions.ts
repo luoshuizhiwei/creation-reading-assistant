@@ -1,10 +1,15 @@
 import { useCallback } from "react";
 import {
+  cardRead,
+  cardRelations,
+  cardsList,
+  cardTypesList,
   createProject as createProjectRequest,
   listProjects,
   readProjectNavigation,
   readProjectOutline,
   readSceneBody,
+  relationTypesList,
   runStructure as runStructureRequest,
   updateSceneBody,
   watchProject
@@ -12,6 +17,9 @@ import {
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import type {
+  CardCommand,
+  CardRelationCreateCommand,
+  CardsListQuery,
   CreateProjectInput,
   CreationDocument,
   CreationProjectNavigation,
@@ -91,13 +99,72 @@ export function useCreationActions() {
   );
 
   const runStructure = useCallback(
-    async (command: StructureCommand): Promise<boolean> => {
+    async (command: StructureCommand | CardCommand): Promise<boolean> => {
       try {
         await runStructureRequest(command);
         return true;
       } catch (error) {
         setError(messageFromError(error));
         return false;
+      }
+    },
+    [setError]
+  );
+
+  const loadCardTypes = useCallback(
+    async (projectId: string): Promise<void> => {
+      try {
+        useCreationStore.getState().setCardTypes(await cardTypesList(projectId));
+      } catch (error) {
+        setError(messageFromError(error));
+      }
+    },
+    [setError]
+  );
+
+  const loadRelationTypes = useCallback(
+    async (projectId: string): Promise<void> => {
+      try {
+        useCreationStore.getState().setRelationTypes(await relationTypesList(projectId));
+      } catch (error) {
+        setError(messageFromError(error));
+      }
+    },
+    [setError]
+  );
+
+  const loadCards = useCallback(
+    async (query: Omit<CardsListQuery, "kind">): Promise<void> => {
+      useCreationStore.getState().setCardsLoading(true);
+      try {
+        useCreationStore.getState().setCards(await cardsList({ kind: "cards.list", ...query }));
+      } catch (error) {
+        setError(messageFromError(error));
+      } finally {
+        useCreationStore.getState().setCardsLoading(false);
+      }
+    },
+    [setError]
+  );
+
+  const loadCardRelations = useCallback(
+    async (cardId: string): Promise<void> => {
+      try {
+        useCreationStore.getState().setCardRelations(cardId, await cardRelations(cardId));
+      } catch (error) {
+        setError(messageFromError(error));
+      }
+    },
+    [setError]
+  );
+
+  const readCard = useCallback(
+    async (cardId: string) => {
+      try {
+        return await cardRead(cardId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
       }
     },
     [setError]
@@ -193,6 +260,11 @@ export function useCreationActions() {
     saveSceneBody,
     refreshProject,
     runStructure,
+    loadCardTypes,
+    loadRelationTypes,
+    loadCards,
+    loadCardRelations,
+    readCard,
     subscribeProject
   };
 }

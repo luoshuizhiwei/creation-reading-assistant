@@ -1,10 +1,14 @@
 import { create } from "zustand";
 import type {
+  CardRelation,
+  CardSummary,
+  CardType,
   CreationDocument,
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
   CreationProjectTree,
+  RelationType,
   SceneSaveResponse,
   SceneBodyView
 } from "@/types/creation";
@@ -20,6 +24,17 @@ interface CreationState {
   selectedSceneId?: string;
   /** 已读取的场景正文视图缓存，键为场景 ID。 */
   sceneViews: Record<string, SceneBodyView>;
+  /** 当前项目的卡片类型（内置 + 自定义）。 */
+  cardTypes: CardType[];
+  /** 当前项目的关系类型（内置 + 自定义）。 */
+  relationTypes: RelationType[];
+  /** 当前项目的卡片列表（随筛选/搜索刷新）。 */
+  cards: CardSummary[];
+  /** 每张卡片的关系缓存（出/入），键为卡片 ID。 */
+  cardRelations: Record<string, { outgoing: CardRelation[]; incoming: CardRelation[] }>;
+  /** 当前选中的卡片。 */
+  selectedCardId?: string;
+  cardsLoading: boolean;
   /** 上次异常退出标记：写作台据此展示一次“已恢复已确认内容”的说明。 */
   abnormalExit: boolean;
   /** 恢复说明是否已在本会话内关闭。 */
@@ -43,6 +58,12 @@ interface CreationState {
   setLoading: (loading: boolean) => void;
   setWatchConnected: (watchConnected: boolean) => void;
   setLeaveGuard: (leaveGuard?: () => Promise<boolean>) => void;
+  setCardTypes: (cardTypes: CardType[]) => void;
+  setRelationTypes: (relationTypes: RelationType[]) => void;
+  setCards: (cards: CardSummary[]) => void;
+  setCardRelations: (cardId: string, relations: { outgoing: CardRelation[]; incoming: CardRelation[] }) => void;
+  selectCard: (cardId?: string) => void;
+  setCardsLoading: (cardsLoading: boolean) => void;
 }
 
 function countTree(tree: CreationProjectTree): { chapterCount: number; sceneCount: number } {
@@ -88,6 +109,12 @@ export const useCreationStore = create<CreationState>((set) => ({
   projects: [],
   navigations: {},
   outlines: {},
+  cardTypes: [],
+  relationTypes: [],
+  cards: [],
+  cardRelations: {},
+  selectedCardId: undefined,
+  cardsLoading: false,
   selectedSceneId: undefined,
   sceneViews: {},
   abnormalExit: false,
@@ -211,5 +238,12 @@ export const useCreationStore = create<CreationState>((set) => ({
   dismissRecoveryNotice: () => set({ recoveryNoticeDismissed: true }),
   setLoading: (loading) => set({ loading }),
   setWatchConnected: (watchConnected) => set({ watchConnected }),
-  setLeaveGuard: (leaveGuard) => set({ leaveGuard })
+  setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
+  setCardTypes: (cardTypes) => set({ cardTypes }),
+  setRelationTypes: (relationTypes) => set({ relationTypes }),
+  setCards: (cards) => set({ cards }),
+  setCardRelations: (cardId, relations) =>
+    set((state) => ({ cardRelations: { ...state.cardRelations, [cardId]: relations } })),
+  selectCard: (selectedCardId) => set({ selectedCardId }),
+  setCardsLoading: (cardsLoading) => set({ cardsLoading })
 }));

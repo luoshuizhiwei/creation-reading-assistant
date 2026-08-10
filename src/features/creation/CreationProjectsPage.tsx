@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { BookMarked, Plus } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
+import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
@@ -14,6 +15,7 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const { loadProjects, loadNavigation } = useCreationActions();
   const [wizardOpen, setWizardOpen] = useState(false);
+  const [view, setView] = useState<"writing" | "cards">("writing");
 
   useEffect(() => {
     void loadProjects();
@@ -33,8 +35,12 @@ export function CreationProjectsPage() {
         <section className="desktop-page-hero motion-panel creation-writing-hero">
           <div>
             <div className="desktop-card-label">Creation desk</div>
-            <h2>正文写作台</h2>
-            <p>在场景中连续写作；中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。</p>
+            <h2>{view === "writing" ? "正文写作台" : "卡片管理"}</h2>
+            <p>
+              {view === "writing"
+                ? "在场景中连续写作；卷章结构在大纲树中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
+                : "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"}
+            </p>
           </div>
           <div className="desktop-page-actions">
             <Button onClick={() => setWizardOpen(true)}>
@@ -44,14 +50,45 @@ export function CreationProjectsPage() {
           </div>
         </section>
 
-        {selected && navigation ? (
-          <WritingDesk
-            projects={projects}
-            project={selected}
-            navigation={navigation}
-            onSelectProject={setSelectedId}
-          />
-        ) : loading || selected ? (
+        {selected ? (
+          <>
+            <div className="creation-project-tabs" role="tablist" aria-label="项目视图">
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "writing"}
+                className={view === "writing" ? "active" : ""}
+                onClick={() => setView("writing")}
+              >
+                写作
+              </button>
+              <button
+                type="button"
+                role="tab"
+                aria-selected={view === "cards"}
+                className={view === "cards" ? "active" : ""}
+                onClick={() => setView("cards")}
+              >
+                卡片
+              </button>
+            </div>
+            {view === "cards" ? (
+              <CardsPage project={selected} />
+            ) : navigation ? (
+              <WritingDesk
+                projects={projects}
+                project={selected}
+                navigation={navigation}
+                onSelectProject={setSelectedId}
+              />
+            ) : (
+              <section className="creation-writing-loading" role="status">
+                <BookMarked size={24} />
+                <span>正在打开项目写作台…</span>
+              </section>
+            )}
+          </>
+        ) : loading ? (
           <section className="creation-writing-loading" role="status">
             <BookMarked size={24} />
             <span>正在打开项目写作台…</span>

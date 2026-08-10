@@ -3128,3 +3128,455 @@ button:disabled {
   color: var(--paper-muted);
   font-size: 11px;
 }
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：卡片管理页（切片 7b）
+ * ------------------------------------------------------------------------- */
+.creation-project-tabs {
+  display: inline-flex;
+  gap: 4px;
+  align-self: flex-start;
+  padding: 3px;
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
+}
+
+.creation-project-tabs button {
+  min-width: 68px;
+  height: 30px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.creation-project-tabs button.active {
+  color: var(--paper-ink);
+  background: var(--paper-panel);
+  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.08);
+}
+
+.cards-page {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cards-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 2px 0;
+}
+
+.cards-toolbar-left,
+.cards-toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.cards-kind-filter {
+  width: 150px;
+}
+
+.cards-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  background: var(--paper-panel);
+  color: var(--paper-muted);
+  padding: 0 10px;
+  height: 34px;
+}
+
+.cards-search input {
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  font-size: 13px;
+  outline: none;
+  width: 180px;
+}
+
+.cards-add {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--copper);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cards-add:hover {
+  background: var(--copper-dark);
+}
+
+.cards-layout {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 12px;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.cards-list-pane {
+  min-height: 0;
+  overflow: auto;
+  display: grid;
+  align-content: start;
+  gap: 4px;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper-soft) 45%, var(--paper-panel));
+  padding: 8px;
+}
+
+.cards-list-item {
+  display: grid;
+  gap: 2px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: transparent;
+  padding: 8px 10px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.cards-list-item:hover {
+  background: color-mix(in srgb, var(--paper-line) 22%, transparent);
+}
+
+.cards-list-item.active {
+  border-color: color-mix(in srgb, var(--copper) 35%, transparent);
+  background: color-mix(in srgb, var(--copper) 8%, transparent);
+}
+
+.cards-list-item strong {
+  font-size: 13px;
+  color: var(--paper-ink);
+}
+
+.cards-list-kind {
+  color: var(--copper);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.cards-list-tags {
+  color: var(--paper-muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cards-detail-pane {
+  min-height: 0;
+  overflow: auto;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
+  padding: 16px;
+}
+
+.cards-detail-card {
+  display: grid;
+  gap: 12px;
+}
+
+.cards-detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.cards-detail-head h3 {
+  margin: 2px 0 0;
+  font-size: 17px;
+  color: var(--paper-ink);
+}
+
+.cards-detail-kind {
+  color: var(--copper);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.cards-detail-actions {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.cards-detail-actions button {
+  display: inline-flex;
+  align-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 6px;
+  cursor: pointer;
+}
+
+.cards-detail-actions button:hover {
+  color: var(--copper);
+  background: color-mix(in srgb, var(--paper-line) 24%, transparent);
+}
+
+.cards-detail-actions button.confirming {
+  color: #c0392b;
+  background: color-mix(in srgb, #c0392b 12%, transparent);
+}
+
+.cards-close {
+  display: inline-flex;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 6px;
+  cursor: pointer;
+}
+
+.cards-close:hover {
+  color: var(--paper-ink);
+  background: color-mix(in srgb, var(--paper-line) 24%, transparent);
+}
+
+.cards-aliases,
+.cards-tags {
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.cards-fields-list {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+}
+
+.cards-field-row {
+  display: grid;
+  grid-template-columns: 110px minmax(0, 1fr);
+  gap: 10px;
+  align-items: baseline;
+  border-bottom: 1px dashed color-mix(in srgb, var(--paper-line) 55%, transparent);
+  padding-bottom: 6px;
+}
+
+.cards-field-row dt {
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.cards-field-row dd {
+  margin: 0;
+  color: var(--paper-ink);
+  font-size: 13px;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.cards-form {
+  display: grid;
+  gap: 12px;
+}
+
+.cards-field {
+  display: grid;
+  gap: 5px;
+}
+
+.cards-field-inline {
+  grid-template-columns: 120px auto;
+  align-items: center;
+}
+
+.cards-field-label {
+  color: var(--paper-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.cards-required {
+  color: #c0392b;
+  margin-left: 2px;
+}
+
+.cards-input {
+  height: 34px;
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  font-size: 13px;
+  padding: 0 10px;
+  outline: none;
+}
+
+.cards-input:focus {
+  border-color: var(--copper);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--copper) 13%, transparent);
+}
+
+.cards-textarea {
+  height: auto;
+  min-height: 72px;
+  padding: 8px 10px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.cards-checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.cards-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-ink);
+  font-size: 13px;
+}
+
+.cards-form-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.cards-save {
+  height: 34px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 9px;
+  background: var(--copper);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.cards-save:hover {
+  background: var(--copper-dark);
+}
+
+.cards-cancel {
+  height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cards-cancel:hover {
+  color: var(--paper-ink);
+  background: color-mix(in srgb, var(--paper-line) 18%, transparent);
+}
+
+.cards-relations {
+  border-top: 1px solid color-mix(in srgb, var(--paper-line) 60%, transparent);
+  padding-top: 10px;
+}
+
+.cards-relations-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.cards-relations-head h4 {
+  margin: 0;
+  color: var(--paper-ink);
+  font-size: 13px;
+}
+
+.cards-relations-head button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--copper);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.cards-relation-form {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cards-relation-list {
+  display: grid;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cards-relation-list li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--paper-ink);
+}
+
+.cards-relation-list em {
+  color: var(--copper);
+  font-style: normal;
+  font-weight: 650;
+}
+
+.cards-relation-list small {
+  color: var(--paper-muted);
+  font-size: 11px;
+}
+
+.cards-relations-empty,
+.cards-empty {
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.cards-empty {
+  padding: 12px;
+}
+
+.cards-detail-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  height: 100%;
+  min-height: 200px;
+  color: var(--paper-muted);
+  font-size: 13px;
+  text-align: center;
+}

@@ -26,12 +26,18 @@ import type {
   UpdateInspirationInput
 } from "./inspiration";
 import type {
+  CardCommand,
+  CardRelation,
+  CardSummary,
+  CardType,
+  CardsListQuery,
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
   CreationStructureResult,
+  RelationType,
   SceneBodyView,
   SceneSaveResponse,
   StructureCommand,
@@ -108,7 +114,12 @@ export interface DesktopApi {
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
     readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
-    runStructure: (command: StructureCommand) => Promise<CreationStructureResult>;
+    runStructure: (command: StructureCommand | CardCommand) => Promise<CreationStructureResult>;
+    cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
+    cardRead: (cardId: string) => Promise<CardSummary | null>;
+    cardTypesList: (projectId: string) => Promise<CardType[]>;
+    relationTypesList: (projectId: string) => Promise<RelationType[]>;
+    cardRelations: (cardId: string) => Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
     readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
     updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;
     watchProject: (projectId: string, listener: CreationProjectListener) => Promise<() => void>;

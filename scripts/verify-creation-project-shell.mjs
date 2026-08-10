@@ -35,6 +35,11 @@ try {
     "creation:updateSceneBody",
     "creation:readProjectOutline",
     "creation:runStructure",
+    "creation:cardsList",
+    "creation:cardRead",
+    "creation:cardTypesList",
+    "creation:relationTypesList",
+    "creation:cardRelations",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"

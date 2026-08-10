@@ -1,11 +1,17 @@
 import { getDesktopApi } from "@/services/ipc-client";
 import type {
+  CardCommand,
+  CardRelation,
+  CardSummary,
+  CardType,
+  CardsListQuery,
   CreateProjectInput,
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectListener,
   CreationProjectSummary,
   CreationStructureResult,
+  RelationType,
   SceneBodyView,
   SceneSaveResponse,
   StructureCommand,
@@ -36,8 +42,30 @@ export async function createProject(input: CreateProjectInput): Promise<Creation
   return getCreationApi().createProject(input);
 }
 
-export async function runStructure(command: StructureCommand): Promise<CreationStructureResult> {
+export async function runStructure(command: StructureCommand | CardCommand): Promise<CreationStructureResult> {
   return getCreationApi().runStructure(command);
+}
+
+export async function cardsList(query: CardsListQuery): Promise<CardSummary[]> {
+  return getCreationApi().cardsList(query);
+}
+
+export async function cardRead(cardId: string): Promise<CardSummary | null> {
+  return getCreationApi().cardRead(cardId);
+}
+
+export async function cardTypesList(projectId: string): Promise<CardType[]> {
+  return getCreationApi().cardTypesList(projectId);
+}
+
+export async function relationTypesList(projectId: string): Promise<RelationType[]> {
+  return getCreationApi().relationTypesList(projectId);
+}
+
+export async function cardRelations(
+  cardId: string
+): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> {
+  return getCreationApi().cardRelations(cardId);
 }
 
 export async function readSceneBody(sceneId: string): Promise<SceneBodyView | null> {

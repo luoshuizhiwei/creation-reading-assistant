@@ -211,6 +211,20 @@ Automated Checks (appended):
 | Creation workspace guard (re-verified) | `npm run verify:creation-workspace` | Passed |
 | Creation outline guard (re-verified) | `npm run verify:creation-outline` | Passed |
 
+## Creation cards UI update (slice 7b): 2026-08-10
+
+- Added 5 card query IPC channels (`cardsList` / `cardRead` / `cardTypesList` / `relationTypesList` / `cardRelations`) and broadened `creation:runStructure` to accept card commands; wired through preload → `DesktopApi.creation` → `creation-service`.
+- Renderer store caches card types, relation types, card list and per-card relations; `useCreationActions` gained `loadCardTypes` / `loadRelationTypes` / `loadCards` / `loadCardRelations` / `readCard`.
+- Project view now switches between 写作 and 卡片; the cards page provides type filter, title/alias search, new/edit card form with 10 field control kinds (text/multiline/number/date/select/multiSelect/boolean/cardRef/url/attachment), alias and tag inputs, and relation listing with an inline create-relation form.
+- End-to-end verified on a real Electron instance: tab switch, 3-card list rendering, 8 built-in type filter options, and field-value display (e.g. item 暗刃 with 备注 field).
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Desktop full build | `npm run build` | Passed |
+| Renderer unit tests | `npm run test` | Passed (147) |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

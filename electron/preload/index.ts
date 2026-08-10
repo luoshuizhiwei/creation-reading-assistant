@@ -28,6 +28,11 @@ import type {
   UpdateInspirationInput
 } from "../../src/types/inspiration";
 import type {
+  CardCommand,
+  CardRelation,
+  CardSummary,
+  CardType,
+  CardsListQuery,
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
@@ -35,6 +40,7 @@ import type {
   CreationProjectSummary,
   CreationStructureResult,
   CreationWorkspaceEvent,
+  RelationType,
   SceneBodyView,
   SceneSaveResponse,
   StructureCommand,
@@ -115,8 +121,14 @@ const api: DesktopApi = {
     createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
     readProjectOutline: (projectId: string) =>
       invoke<CreationProjectOutline | null>("creation:readProjectOutline", projectId),
-    runStructure: (command: StructureCommand) =>
+    runStructure: (command: StructureCommand | CardCommand) =>
       invoke<CreationStructureResult>("creation:runStructure", command),
+    cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
+    cardRead: (cardId: string) => invoke<CardSummary | null>("creation:cardRead", cardId),
+    cardTypesList: (projectId: string) => invoke<CardType[]>("creation:cardTypesList", projectId),
+    relationTypesList: (projectId: string) => invoke<RelationType[]>("creation:relationTypesList", projectId),
+    cardRelations: (cardId: string) =>
+      invoke<{ outgoing: CardRelation[]; incoming: CardRelation[] }>("creation:cardRelations", cardId),
     readSceneBody: (sceneId: string) => invoke<SceneBodyView | null>("creation:readSceneBody", sceneId),
     updateSceneBody: (input: UpdateSceneBodyInput) => invoke<SceneSaveResponse>("creation:updateSceneBody", input),
     watchProject: async (projectId: string, listener: CreationProjectListener) => {
