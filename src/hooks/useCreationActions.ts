@@ -45,6 +45,7 @@ import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import type {
   CardCommand,
+  CardRelation,
   CardRelationCreateCommand,
   CardsListQuery,
   CreateProjectInput,
@@ -206,11 +207,14 @@ export function useCreationActions() {
   );
 
   const loadCardRelations = useCallback(
-    async (cardId: string): Promise<void> => {
+    async (cardId: string): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> => {
       try {
-        useCreationStore.getState().setCardRelations(cardId, await cardRelations(cardId));
+        const relations = await cardRelations(cardId);
+        useCreationStore.getState().setCardRelations(cardId, relations);
+        return relations;
       } catch (error) {
         setError(messageFromError(error));
+        return { outgoing: [], incoming: [] };
       }
     },
     [setError]

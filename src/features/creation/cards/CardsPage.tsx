@@ -252,7 +252,13 @@ export function CardsPage({ project }: CardsPageProps) {
   }, [loadCardRelations, selectedCardId]);
 
   useEffect(() => {
-    void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then(setResources);
+    let cancelled = false;
+    void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then((list) => {
+      if (!cancelled) setResources(list);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [loadResources, project.id, selectedCardId]);
 
   const handleAttach = async () => {
