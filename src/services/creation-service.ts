@@ -44,6 +44,7 @@ import type {
   DraftImportPreview,
   ProjectImportDraftCommand,
   ProjectBundleImportResult,
+  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -81,7 +82,7 @@ export async function createProject(input: CreateProjectInput): Promise<Creation
 }
 
 export async function runStructure(
-  command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand
+  command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand
 ): Promise<CreationStructureResult> {
   return getCreationApi().runStructure(command);
 }

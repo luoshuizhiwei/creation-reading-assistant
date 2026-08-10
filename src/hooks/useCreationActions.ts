@@ -75,6 +75,7 @@ import type {
   DraftImportPreview,
   ProjectImportDraftCommand,
   ProjectBundleImportResult,
+  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -158,7 +159,7 @@ export function useCreationActions() {
   );
 
   const runStructure = useCallback(
-    async (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand): Promise<boolean> => {
+    async (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand): Promise<boolean> => {
       try {
         await runStructureRequest(command);
         return true;

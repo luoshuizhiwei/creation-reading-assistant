@@ -1,13 +1,33 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveRestore, BookMarked, Download, FileUp, FileWarning, FolderInput, FolderOutput, Plus, Replace, Search, X } from "lucide-react";
+import {
+  ArchiveRestore,
+  BookMarked,
+  Download,
+  FileUp,
+  FileWarning,
+  FolderInput,
+  FolderOutput,
+  Globe2,
+  Layers,
+  LayoutDashboard,
+  ListTree,
+  PenLine,
+  Plus,
+  Replace,
+  Search,
+  X
+} from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
+import { BackgroundPage } from "@/features/creation/background/BackgroundPage";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { ImportDraftDialog } from "@/features/creation/import/ImportDraftDialog";
 import { InboxPage } from "@/features/creation/inbox/InboxPage";
 import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
+import { OutlinePage } from "@/features/creation/outline/OutlinePage";
+import { OverviewPage } from "@/features/creation/overview/OverviewPage";
 import { ProofPanel } from "@/features/creation/proof/ProofPanel";
 import { StatsPage } from "@/features/creation/stats/StatsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
@@ -17,6 +37,18 @@ import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { CreationSearchHit } from "@/types/creation";
+
+type ProjectView = "overview" | "writing" | "outline" | "cards" | "background" | "stats" | "history" | "inbox";
+
+const PROJECT_NAV: Array<{ view: ProjectView; label: string; icon: typeof Layers }> = [
+  { view: "overview", label: "概览", icon: LayoutDashboard },
+  { view: "writing", label: "写作", icon: PenLine },
+  { view: "outline", label: "大纲", icon: ListTree },
+  { view: "cards", label: "卡片", icon: Layers },
+  { view: "background", label: "背景", icon: Globe2 },
+  { view: "stats", label: "统计", icon: BookMarked },
+  { view: "history", label: "版本历史", icon: ArchiveRestore }
+];
 
 export function CreationProjectsPage() {
   const projects = useCreationStore((state) => state.projects);
@@ -36,7 +68,7 @@ export function CreationProjectsPage() {
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [migrationNotice, setMigrationNotice] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
-  const [view, setView] = useState<"writing" | "cards" | "history" | "stats" | "inbox">("writing");
+  const [view, setView] = useState<ProjectView>("overview");
 
   useEffect(() => {
     void loadProjects();
@@ -199,17 +231,23 @@ export function CreationProjectsPage() {
         <section className="desktop-page-hero motion-panel creation-writing-hero">
           <div>
             <div className="desktop-card-label">Creation desk</div>
-            <h2>{view === "writing" ? "正文写作台" : view === "cards" ? "卡片管理" : view === "history" ? "历史与回收站" : view === "stats" ? "统计与创作目标" : "全局收件箱"}</h2>
+            <h2>{selected?.title ?? "创作项目"}</h2>
             <p>
-              {view === "writing"
-                ? "在场景中连续写作；卷章结构在大纲树中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
-                : view === "cards"
-                  ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
-                  : view === "history"
-                    ? "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
-                    : view === "stats"
-                      ? "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"
-                      : "旧灵感迁移后的存放位置；可转为当前项目的资料卡，旧书库与阅读记录保持只读继续使用。"}
+              {view === "overview"
+                ? "项目概览：写作目标、最近编辑与待处理事项。"
+                : view === "writing"
+                  ? "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
+                  : view === "outline"
+                    ? "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。"
+                    : view === "cards"
+                      ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
+                      : view === "background"
+                        ? "小说创作背景设定：地点、世界规则、组织与资料等背景类卡片的聚合。"
+                        : view === "stats"
+                          ? "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"
+                          : view === "history"
+                            ? "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
+                            : "旧灵感迁移后的存放位置；可转为当前项目的资料卡，旧书库与阅读记录保持只读继续使用。"}
             </p>
           </div>
           <div className="desktop-page-actions">
@@ -263,76 +301,58 @@ export function CreationProjectsPage() {
           </section>
         )}
         {selected ? (
-          <>
-            <div className="creation-project-tabs" role="tablist" aria-label="项目视图">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "writing"}
-                className={view === "writing" ? "active" : ""}
-                onClick={() => setView("writing")}
-              >
-                写作
+          <div className="project-workbench">
+            <aside className="project-nav" aria-label="项目导航">
+              {PROJECT_NAV.map(({ view: itemView, label, icon: Icon }) => (
+                <button
+                  key={itemView}
+                  type="button"
+                  className={view === itemView ? "active" : ""}
+                  onClick={() => setView(itemView)}
+                >
+                  <Icon size={15} /> {label}
+                </button>
+              ))}
+              <button type="button" className={view === "inbox" ? "active" : ""} onClick={() => setView("inbox")}>
+                <BookMarked size={15} /> 收件箱
               </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "cards"}
-                className={view === "cards" ? "active" : ""}
-                onClick={() => setView("cards")}
-              >
-                卡片
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "history"}
-                className={view === "history" ? "active" : ""}
-                onClick={() => setView("history")}
-              >
-                历史
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "stats"}
-                className={view === "stats" ? "active" : ""}
-                onClick={() => setView("stats")}
-              >
-                统计
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={view === "inbox"}
-                className={view === "inbox" ? "active" : ""}
-                onClick={() => setView("inbox")}
-              >
-                收件箱
-              </button>
+            </aside>
+            <div className="project-workbench-main">
+              {view === "cards" ? (
+                <CardsPage project={selected} />
+              ) : view === "history" ? (
+                <HistoryPage project={selected} />
+              ) : view === "stats" ? (
+                <StatsPage projectId={selected.id} />
+              ) : view === "inbox" ? (
+                <InboxPage projectId={selected.id} />
+              ) : view === "outline" ? (
+                <OutlinePage project={selected} />
+              ) : view === "background" ? (
+                <BackgroundPage projectId={selected.id} />
+              ) : view === "overview" ? (
+                <OverviewPage
+                  projectId={selected.id}
+                  onContinueWriting={() => setView("writing")}
+                  onOpenOutline={() => setView("outline")}
+                  onOpenStats={() => setView("stats")}
+                  onOpenInbox={() => setView("inbox")}
+                />
+              ) : navigation ? (
+                <WritingDesk
+                  projects={projects}
+                  project={selected}
+                  navigation={navigation}
+                  onSelectProject={setSelectedId}
+                />
+              ) : (
+                <section className="creation-writing-loading" role="status">
+                  <BookMarked size={24} />
+                  <span>正在打开项目写作台…</span>
+                </section>
+              )}
             </div>
-            {view === "cards" ? (
-              <CardsPage project={selected} />
-            ) : view === "history" ? (
-              <HistoryPage project={selected} />
-            ) : view === "stats" ? (
-              <StatsPage projectId={selected.id} />
-            ) : view === "inbox" ? (
-              <InboxPage projectId={selected.id} />
-            ) : navigation ? (
-              <WritingDesk
-                projects={projects}
-                project={selected}
-                navigation={navigation}
-                onSelectProject={setSelectedId}
-              />
-            ) : (
-              <section className="creation-writing-loading" role="status">
-                <BookMarked size={24} />
-                <span>正在打开项目写作台…</span>
-              </section>
-            )}
-          </>
+          </div>
         ) : loading ? (
           <section className="creation-writing-loading" role="status">
             <BookMarked size={24} />

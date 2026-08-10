@@ -71,6 +71,7 @@ import type {
   DraftImportPreview,
   ProjectImportDraftCommand,
   ProjectBundleImportResult,
+  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -153,7 +154,7 @@ export interface DesktopApi {
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
     readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
-    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand) => Promise<CreationStructureResult>;
+    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand) => Promise<CreationStructureResult>;
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
