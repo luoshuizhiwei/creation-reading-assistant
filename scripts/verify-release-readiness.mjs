@@ -19,20 +19,23 @@ function assertIncludes(file, needle, message) {
 }
 
 // --- Required files ---
-// Desktop release files + license tracking files (GPL compliance for mobile/ history).
+// Desktop release files + license tracking files (GPL compliance; mobile/ deleted,
+// license and upstream provenance archived under archives/frozen-mobile/).
 for (const file of [
   ".github/workflows/release.yml",
   "CHANGELOG.md",
   "docs/GITHUB_RELEASE_PROCESS.md",
   "package.json",
   "package-lock.json",
-  // License/notice files retained for GPL tracking of the frozen mobile/ line.
-  "mobile/LICENSE",
-  "mobile/NOTICE.md",
-  "mobile/THIRD_PARTY_NOTICES.md",
-  "mobile/android/legado-reader-core/LICENSE",
-  "mobile/android/legado-reader-core/UPSTREAM.md",
-  "mobile/android/legado-reader-core/PATCHES.md",
+  // License/notice/upstream files retained for GPL tracking of the deleted mobile/
+  // line, archived under archives/frozen-mobile/.
+  "archives/frozen-mobile/LICENSE",
+  "archives/frozen-mobile/NOTICE.md",
+  "archives/frozen-mobile/THIRD_PARTY_NOTICES.md",
+  "archives/frozen-mobile/FROZEN.md",
+  "archives/frozen-mobile/legado-reader-core/LICENSE",
+  "archives/frozen-mobile/legado-reader-core/UPSTREAM.md",
+  "archives/frozen-mobile/legado-reader-core/PATCHES.md",
   "scripts/dist-beta-offline.mjs"
 ]) {
   assertFile(file);
@@ -42,8 +45,9 @@ for (const file of [
 assertIncludes(".gitignore", "release*/", "Generated desktop release directories must stay out of Git.");
 assertIncludes(".gitignore", "mobile-release/", "Generated mobile APK directory must stay out of Git.");
 assertIncludes(".gitignore", ".github-release/", "Local release staging directory must stay out of Git.");
-assertIncludes("mobile/android/.gitignore", "*.jks", "Android keystores must stay out of Git.");
-assertIncludes("mobile/android/.gitignore", "keystore.properties", "Android signing properties must stay out of Git.");
+// mobile/ is deleted; native android/ signing file guards apply until P0-A3
+// restores Android Release (no keystore.properties signing config exists yet).
+assertIncludes("android/.gitignore", "*.jks", "Android keystores must stay out of Git.");
 
 // --- Release workflow guards (desktop-only until P0-A3) ---
 const workflow = read(".github/workflows/release.yml");
@@ -69,7 +73,7 @@ if (!offlineBuilder.includes('"--publish"') || !offlineBuilder.includes('"never"
   fail("Offline desktop packaging must disable electron-builder implicit tag publishing.");
 }
 
-// --- Version alignment (root only; mobile/ is frozen, no longer aligned) ---
+// --- Version alignment (root only; mobile/ is deleted, no longer aligned) ---
 const rootPackage = JSON.parse(read("package.json"));
 const rootLock = JSON.parse(read("package-lock.json"));
 if (rootPackage.version !== rootLock.version || rootPackage.version !== rootLock.packages?.[""]?.version) {
@@ -83,7 +87,7 @@ assertIncludes("docs/GITHUB_RELEASE_PROCESS.md", "私有源码仓库 + 公开下
 assertIncludes("docs/GITHUB_RELEASE_PROCESS.md", "完整对应源代码", "Release docs must describe GPL source distribution.");
 
 // --- Secret scan ---
-for (const file of ["CHANGELOG.md", "docs/GITHUB_RELEASE_PROCESS.md", "mobile/NOTICE.md", "mobile/THIRD_PARTY_NOTICES.md"]) {
+for (const file of ["CHANGELOG.md", "docs/GITHUB_RELEASE_PROCESS.md", "archives/frozen-mobile/NOTICE.md", "archives/frozen-mobile/THIRD_PARTY_NOTICES.md"]) {
   const content = read(file);
   if (/sk-[A-Za-z0-9]/.test(content)) fail(`${file} appears to contain an API key-like secret.`);
   if (/gh[opusr]_[A-Za-z0-9]{20,}/.test(content)) fail(`${file} appears to contain a GitHub token.`);
