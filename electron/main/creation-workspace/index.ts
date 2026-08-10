@@ -117,6 +117,10 @@ import {
   type DraftImportVolumeInput,
   type ProjectImportDraftCommand,
   type ProjectImportDraftResult,
+  type ProjectBundleData,
+  type ProjectBundleExportQuery,
+  type ProjectBundleImportCommand,
+  type ProjectBundleImportResult,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -1299,6 +1303,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: ProofQuery): Promise<ProofView>;
   async read(query: InboxListQuery): Promise<InboxItem[]>;
   async read(query: InboxReadQuery): Promise<InboxItem | null>;
+  async read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1362,6 +1367,17 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
+      }
+    }
+    if (runtimeQuery.kind === "project.bundle.export") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "项目包读取请求无效。");
+      }
+      try {
+        return this.runProjectBundleExport(runtimeQuery.projectId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取项目包数据。");
       }
     }
     if (runtimeQuery.kind === "inbox.list") {
@@ -3114,6 +3130,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   async transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   async transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
+  async transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -3151,6 +3168,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "project.importDraft") {
       return this.importDraftTransaction(command as ProjectImportDraftCommand);
+    }
+    if (command.type === "project.bundle.import") {
+      return this.importProjectBundle(command as ProjectBundleImportCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -3358,6 +3378,342 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         throw new CreationWorkspaceError("conflict", "无法创建作品，稳定标识发生冲突。");
       }
       throw new CreationWorkspaceError("integrity", "无法提交旧稿导入事务。");
+    }
+  }
+
+  private runProjectBundleExport(projectId: string): ProjectBundleData | null {
+    const project = this.database
+      .prepare("SELECT id, title, setup_json, created_at, updated_at, revision FROM projects WHERE id = ?")
+      .get(projectId) as
+      | { id: string; title: string; setup_json: string; created_at: string; updated_at: string; revision: number }
+      | undefined;
+    if (!project) return null;
+    const volumes = this.database
+      .prepare("SELECT id, title, sort_order, created_at, updated_at, revision FROM volumes WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+      .all(projectId) as Array<{ id: string; title: string; sort_order: number; created_at: string; updated_at: string; revision: number }>;
+    const chapters = this.database
+      .prepare("SELECT id, volume_id, title, sort_order, status, numbering_kind, custom_number, created_at, updated_at, revision FROM chapters WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, id")
+      .all(projectId) as Array<{
+      id: string;
+      volume_id: string | null;
+      title: string;
+      sort_order: number;
+      status: string;
+      numbering_kind: string;
+      custom_number: string | null;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    const scenes = this.database
+      .prepare(
+        "SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.planning_json, s.created_at, s.updated_at, s.revision FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id"
+      )
+      .all(projectId) as Array<{
+      id: string;
+      chapter_id: string;
+      title: string;
+      sort_order: number;
+      body_json: string;
+      planning_json: string;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    const cardTypes = this.database
+      .prepare("SELECT id, kind, name, fields_json, sort_order, created_at, updated_at, revision FROM card_types WHERE project_id = ? ORDER BY sort_order, id")
+      .all(projectId) as Array<{
+      id: string;
+      kind: string;
+      name: string;
+      fields_json: string;
+      sort_order: number;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    const relationTypes = this.database
+      .prepare("SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision FROM relation_types WHERE project_id = ? ORDER BY id")
+      .all(projectId) as Array<{
+      id: string;
+      name: string;
+      forward_name: string;
+      reverse_name: string;
+      from_kinds_json: string;
+      to_kinds_json: string;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    const cards = this.database
+      .prepare("SELECT id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at, revision FROM cards WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at, id")
+      .all(projectId) as Array<{
+      id: string;
+      kind: string;
+      title: string;
+      aliases_json: string;
+      fields_json: string;
+      tags_json: string;
+      content_json: string;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    const relations = this.database
+      .prepare("SELECT id, from_card_id, to_card_id, relation_type, note, created_at FROM card_relations WHERE project_id = ? ORDER BY id")
+      .all(projectId) as Array<{
+      id: string;
+      from_card_id: string;
+      to_card_id: string;
+      relation_type: string;
+      note: string | null;
+      created_at: string;
+    }>;
+    const snapshots = this.database
+      .prepare("SELECT id, subject_type, subject_id, payload_json, created_at FROM snapshots WHERE project_id = ? ORDER BY created_at, id")
+      .all(projectId) as Array<{
+      id: string;
+      subject_type: string;
+      subject_id: string;
+      payload_json: string;
+      created_at: string;
+    }>;
+    return {
+      formatVersion: 1,
+      project: {
+        id: project.id,
+        title: project.title,
+        setup: parseStoredSetup(project.setup_json),
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
+        revision: project.revision
+      },
+      volumes: volumes.map((row) => ({ id: row.id, title: row.title, sortOrder: row.sort_order, createdAt: row.created_at, updatedAt: row.updated_at, revision: row.revision })),
+      chapters: chapters.map((row) => ({
+        id: row.id,
+        volumeId: row.volume_id,
+        title: row.title,
+        sortOrder: row.sort_order,
+        status: row.status,
+        numberingKind: (row.numbering_kind as ChapterNumberingKind) ?? "auto",
+        customNumber: row.custom_number,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        revision: row.revision
+      })),
+      scenes: scenes.map((row) => ({
+        id: row.id,
+        chapterId: row.chapter_id,
+        title: row.title,
+        sortOrder: row.sort_order,
+        bodyJson: row.body_json,
+        planningJson: row.planning_json,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        revision: row.revision
+      })),
+      cardTypes: cardTypes.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        name: row.name,
+        fieldsJson: row.fields_json,
+        sortOrder: row.sort_order,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        revision: row.revision
+      })),
+      relationTypes: relationTypes.map((row) => ({
+        id: row.id,
+        name: row.name,
+        forwardName: row.forward_name,
+        reverseName: row.reverse_name,
+        fromKindsJson: row.from_kinds_json,
+        toKindsJson: row.to_kinds_json,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        revision: row.revision
+      })),
+      cards: cards.map((row) => ({
+        id: row.id,
+        kind: row.kind,
+        title: row.title,
+        aliasesJson: row.aliases_json,
+        fieldsJson: row.fields_json,
+        tagsJson: row.tags_json,
+        contentJson: row.content_json,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at,
+        revision: row.revision
+      })),
+      relations: relations.map((row) => ({
+        id: row.id,
+        fromCardId: row.from_card_id,
+        toCardId: row.to_card_id,
+        relationType: row.relation_type,
+        note: row.note,
+        createdAt: row.created_at
+      })),
+      snapshots: snapshots.map((row) => ({
+        id: row.id,
+        subjectType: row.subject_type,
+        subjectId: row.subject_id,
+        payloadJson: row.payload_json,
+        createdAt: row.created_at
+      })),
+      counts: {
+        volumes: volumes.length,
+        chapters: chapters.length,
+        scenes: scenes.length,
+        cards: cards.length,
+        relations: relations.length,
+        snapshots: snapshots.length
+      },
+      exportedAt: new Date().toISOString()
+    };
+  }
+
+  private importProjectBundle(command: ProjectBundleImportCommand): ProjectBundleImportResult {
+    const data = command.data as unknown as ProjectBundleData | null;
+    if (!data || typeof data !== "object" || data.formatVersion !== 1) {
+      throw new CreationWorkspaceError("invalid-input", "项目包格式无效或版本不受支持。");
+    }
+    const title = typeof data.project?.title === "string" && data.project.title.trim() ? data.project.title.trim() : "";
+    if (!title) throw new CreationWorkspaceError("invalid-input", "项目包缺少作品名称。");
+    const projectId = typeof data.project?.id === "string" && data.project.id.startsWith("project-") ? data.project.id : `project-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const existing = this.database.prepare("SELECT id FROM projects WHERE id = ?").get(projectId);
+      if (existing) throw new CreationWorkspaceError("conflict", `项目 ${projectId} 已存在，无法导入。`);
+      this.database
+        .prepare("INSERT INTO projects(id, title, setup_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?)")
+        .run(projectId, title, JSON.stringify(data.project.setup ?? defaultProjectSetup()), data.project.createdAt ?? timestamp, data.project.updatedAt ?? timestamp, data.project.revision ?? 1);
+
+      const insertVolume = this.database.prepare("INSERT INTO volumes(id, project_id, title, sort_order, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      const volumeIds = new Set<string>();
+      for (const volume of data.volumes ?? []) {
+        const id = typeof volume.id === "string" && volume.id.startsWith("volume-") ? volume.id : `volume-${randomUUID()}`;
+        if (volumeIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复卷 ID。");
+        volumeIds.add(id);
+        insertVolume.run(id, projectId, volume.title, volume.sortOrder ?? 0, volume.createdAt ?? timestamp, volume.updatedAt ?? timestamp, volume.revision ?? 1);
+      }
+      if (volumeIds.size === 0) throw new CreationWorkspaceError("invalid-input", "项目包不包含任何卷。");
+
+      const insertChapter = this.database.prepare("INSERT INTO chapters(id, project_id, volume_id, title, sort_order, status, numbering_kind, custom_number, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const chapterIds = new Set<string>();
+      for (const chapter of data.chapters ?? []) {
+        const id = typeof chapter.id === "string" && chapter.id.startsWith("chapter-") ? chapter.id : `chapter-${randomUUID()}`;
+        if (chapterIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复章节 ID。");
+        chapterIds.add(id);
+        if (!volumeIds.has(chapter.volumeId ?? "")) throw new CreationWorkspaceError("invalid-input", "项目包章节引用了不存在的卷。");
+        insertChapter.run(
+          id,
+          projectId,
+          chapter.volumeId,
+          chapter.title,
+          chapter.sortOrder ?? 0,
+          chapter.status ?? "",
+          chapter.numberingKind ?? "auto",
+          chapter.customNumber ?? null,
+          chapter.createdAt ?? timestamp,
+          chapter.updatedAt ?? timestamp,
+          chapter.revision ?? 1
+        );
+      }
+
+      const insertScene = this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, planning_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const sceneIds = new Set<string>();
+      for (const scene of data.scenes ?? []) {
+        const id = typeof scene.id === "string" && scene.id.startsWith("scene-") ? scene.id : `scene-${randomUUID()}`;
+        if (sceneIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复场景 ID。");
+        sceneIds.add(id);
+        if (!chapterIds.has(scene.chapterId)) throw new CreationWorkspaceError("invalid-input", "项目包场景引用了不存在的章节。");
+        let bodyJson = scene.bodyJson ?? '{"type":"doc","content":[]}';
+        try {
+          JSON.parse(bodyJson);
+        } catch {
+          bodyJson = '{"type":"doc","content":[]}';
+        }
+        insertScene.run(id, scene.chapterId, scene.title, scene.sortOrder ?? 0, bodyJson, scene.planningJson ?? "{}", scene.createdAt ?? timestamp, scene.updatedAt ?? timestamp, scene.revision ?? 1);
+      }
+
+      const insertCardType = this.database.prepare("INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const cardType of data.cardTypes ?? []) {
+        const id = typeof cardType.id === "string" && cardType.id.startsWith("card-type-") ? cardType.id : `card-type-${randomUUID()}`;
+        insertCardType.run(id, projectId, cardType.kind, cardType.name, cardType.fieldsJson ?? "[]", cardType.sortOrder ?? 0, cardType.createdAt ?? timestamp, cardType.updatedAt ?? timestamp, cardType.revision ?? 1);
+      }
+
+      const insertRelationType = this.database.prepare("INSERT INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      for (const relationType of data.relationTypes ?? []) {
+        const id = typeof relationType.id === "string" && relationType.id.startsWith("relation-type-") ? relationType.id : `relation-type-${randomUUID()}`;
+        insertRelationType.run(id, projectId, relationType.name, relationType.forwardName, relationType.reverseName, relationType.fromKindsJson ?? "[]", relationType.toKindsJson ?? "[]", relationType.createdAt ?? timestamp, relationType.updatedAt ?? timestamp, relationType.revision ?? 1);
+      }
+
+      const insertCard = this.database.prepare("INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const cardIds = new Set<string>();
+      for (const card of data.cards ?? []) {
+        const id = typeof card.id === "string" && card.id.startsWith("card-") ? card.id : `card-${randomUUID()}`;
+        if (cardIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复卡片 ID。");
+        cardIds.add(id);
+        insertCard.run(id, projectId, card.kind, card.title, card.aliasesJson ?? "[]", card.fieldsJson ?? "{}", card.tagsJson ?? "[]", card.contentJson ?? "{}", card.createdAt ?? timestamp, card.updatedAt ?? timestamp, card.revision ?? 1);
+      }
+
+      const insertRelation = this.database.prepare("INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      for (const relation of data.relations ?? []) {
+        const id = typeof relation.id === "string" && relation.id.startsWith("relation-") ? relation.id : `relation-${randomUUID()}`;
+        if (!cardIds.has(relation.fromCardId) || !cardIds.has(relation.toCardId)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包关系引用了不存在的卡片。");
+        }
+        insertRelation.run(id, projectId, relation.fromCardId, relation.toCardId, relation.relationType, relation.note ?? null, relation.createdAt ?? timestamp);
+      }
+
+      const insertSnapshot = this.database.prepare("INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+      for (const snapshot of data.snapshots ?? []) {
+        const id = typeof snapshot.id === "string" && snapshot.id.startsWith("snapshot-") ? snapshot.id : `snapshot-${randomUUID()}`;
+        insertSnapshot.run(id, projectId, snapshot.subjectType, snapshot.subjectId, snapshot.payloadJson ?? "{}", snapshot.createdAt ?? timestamp);
+      }
+
+      const changes: CreationWorkspaceEvent["changes"] = [
+        { entity: "project", id: projectId, action: "created", revision: 1 },
+        ...[...volumeIds].map((id) => ({ entity: "volume" as const, id, action: "created" as const, revision: 1 })),
+        ...[...chapterIds].map((id) => ({ entity: "chapter" as const, id, action: "created" as const, revision: 1 })),
+        ...[...sceneIds].map((id) => ({ entity: "scene" as const, id, action: "created" as const, revision: 1 })),
+        ...[...cardIds].map((id) => ({ entity: "card" as const, id, action: "created" as const, revision: 1 }))
+      ];
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(projectId, "project.bundle.import", JSON.stringify(changes), timestamp);
+      this.database.exec("COMMIT");
+      const counts: ProjectBundleData["counts"] = {
+        volumes: volumeIds.size,
+        chapters: chapterIds.size,
+        scenes: sceneIds.size,
+        cards: cardIds.size,
+        relations: data.relations?.length ?? 0,
+        snapshots: data.snapshots?.length ?? 0
+      };
+      const result: ProjectBundleImportResult = {
+        commandType: "project.bundle.import",
+        sequence: Number(logged.lastInsertRowid),
+        projectId,
+        counts
+      };
+      this.emitCommitted({
+        kind: "committed",
+        sequence: result.sequence,
+        projectId,
+        commandType: "project.bundle.import",
+        changes
+      });
+      return result;
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法导入项目包。");
     }
   }
 

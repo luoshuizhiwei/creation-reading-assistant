@@ -1,6 +1,7 @@
 import { ipcMain, dialog, BrowserWindow, type WebContents } from "electron";
 import { randomUUID } from "node:crypto";
-import { writeFile } from "node:fs/promises";
+import { writeFile, mkdir } from "node:fs/promises";
+import path from "node:path";
 import type {
   CardRelation,
   CardSummary,
@@ -36,7 +37,10 @@ import type {
   InboxDeleteCommand,
   InboxItem,
   InboxListQuery,
-  InboxUpdateCommand
+  InboxUpdateCommand,
+  ProjectBundleData,
+  ProjectBundleImportCommand,
+  ProjectBundleImportResult
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
@@ -228,6 +232,50 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     if (canceled || filePaths.length === 0) return null;
     return previewLegacyDraft({ filePath: filePaths[0]! });
+  });
+
+  ipcMain.handle("creation:exportProjectBundle", async (event, input: { projectId?: unknown }) => {
+    const projectId = typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    const data = (await coordinator.withWorkspace((workspace) =>
+      workspace.read({ kind: "project.bundle.export", projectId })
+    )) as ProjectBundleData | null;
+    if (!data) throw new CreationWorkspaceError("not-found", "作品不存在。");
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "导出项目包",
+      properties: ["openDirectory" as const, "createDirectory" as const]
+    };
+    const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (canceled || filePaths.length === 0) return { canceled: true, directory: null };
+    const directory = path.join(filePaths[0]!, `项目包-${data.project.title}`);
+    await mkdir(directory, { recursive: true });
+    await writeFile(path.join(directory, "manifest.json"), `${JSON.stringify({
+      formatVersion: 1,
+      projectTitle: data.project.title,
+      exportedAt: data.exportedAt,
+      counts: data.counts
+    }, null, 2)}\n`, "utf8");
+    await writeFile(path.join(directory, "project.json"), `${JSON.stringify(data, null, 2)}\n`, "utf8");
+    return { canceled: false, directory };
+  });
+
+  ipcMain.handle("creation:importProjectBundle", async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "导入项目包",
+      properties: ["openDirectory" as const]
+    };
+    const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (canceled || filePaths.length === 0) return { canceled: true, result: null };
+    const directory = filePaths[0]!;
+    const { readFile } = await import("node:fs/promises");
+    const data = JSON.parse(await readFile(path.join(directory, "project.json"), "utf8")) as ProjectBundleData;
+    if (data.formatVersion !== 1) throw new CreationWorkspaceError("invalid-input", "项目包格式版本不受支持。");
+    const result = await coordinator.withWorkspace((workspace) =>
+      workspace.transact({ type: "project.bundle.import", data } as ProjectBundleImportCommand) as Promise<ProjectBundleImportResult>
+    );
+    return { canceled: false, result };
   });
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {

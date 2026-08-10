@@ -72,7 +72,8 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand
+  ProjectImportDraftCommand,
+  ProjectBundleImportResult
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -162,6 +163,10 @@ const api: DesktopApi = {
     sessionDelete: (command: SessionDeleteCommand) => invoke<SessionReportResult>("creation:sessionDelete", command),
     proofQuery: (query: ProofQuery) => invoke<ProofView>("creation:proofQuery", query),
     importDraftPreview: () => invoke<DraftImportPreview | null>("creation:importDraftPreview"),
+    exportProjectBundle: (projectId: string) =>
+      invoke<{ canceled: boolean; directory: string | null }>("creation:exportProjectBundle", { projectId }),
+    importProjectBundle: () =>
+      invoke<{ canceled: boolean; result: ProjectBundleImportResult | null }>("creation:importProjectBundle"),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),

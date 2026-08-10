@@ -27,6 +27,8 @@ import {
   inboxUpdate as inboxUpdateRequest,
   inboxDelete as inboxDeleteRequest,
   importDraftPreview as importDraftPreviewRequest,
+  exportProjectBundle as exportProjectBundleRequest,
+  importProjectBundle as importProjectBundleRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -63,6 +65,7 @@ import type {
   LegacyMigrationStatus,
   DraftImportPreview,
   ProjectImportDraftCommand,
+  ProjectBundleImportResult,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -434,6 +437,27 @@ export function useCreationActions() {
     }
   }, [setError]);
 
+  const exportBundle = useCallback(
+    async (projectId: string): Promise<{ canceled: boolean; directory: string | null }> => {
+      try {
+        return await exportProjectBundleRequest(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return { canceled: true, directory: null };
+      }
+    },
+    [setError]
+  );
+
+  const importBundle = useCallback(async (): Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }> => {
+    try {
+      return await importProjectBundleRequest();
+    } catch (error) {
+      setError(messageFromError(error));
+      return { canceled: true, result: null };
+    }
+  }, [setError]);
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -555,6 +579,8 @@ export function useCreationActions() {
     updateInbox,
     deleteInbox,
     previewDraftImport,
+    exportBundle,
+    importBundle,
     subscribeProject
   };
 }

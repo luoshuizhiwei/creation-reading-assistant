@@ -709,6 +709,127 @@ export interface DraftImportPreview {
 }
 
 // ---------------------------------------------------------------------------
+// 切片 9：完整项目包（可校验重导入）
+// ---------------------------------------------------------------------------
+
+export interface ProjectBundleData {
+  formatVersion: 1;
+  project: {
+    id: string;
+    title: string;
+    setup: CreationProjectSetup;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  };
+  volumes: Array<{
+    id: string;
+    title: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  chapters: Array<{
+    id: string;
+    volumeId: string | null;
+    title: string;
+    sortOrder: number;
+    status: string;
+    numberingKind: ChapterNumberingKind;
+    customNumber: string | null;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  scenes: Array<{
+    id: string;
+    chapterId: string;
+    title: string;
+    sortOrder: number;
+    bodyJson: string;
+    planningJson: string;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  cardTypes: Array<{
+    id: string;
+    kind: string;
+    name: string;
+    fieldsJson: string;
+    sortOrder: number;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  relationTypes: Array<{
+    id: string;
+    name: string;
+    forwardName: string;
+    reverseName: string;
+    fromKindsJson: string;
+    toKindsJson: string;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  cards: Array<{
+    id: string;
+    kind: string;
+    title: string;
+    aliasesJson: string;
+    fieldsJson: string;
+    tagsJson: string;
+    contentJson: string;
+    createdAt: string;
+    updatedAt: string;
+    revision: number;
+  }>;
+  relations: Array<{
+    id: string;
+    fromCardId: string;
+    toCardId: string;
+    relationType: string;
+    note: string | null;
+    createdAt: string;
+  }>;
+  snapshots: Array<{
+    id: string;
+    subjectType: string;
+    subjectId: string;
+    payloadJson: string;
+    createdAt: string;
+  }>;
+  counts: {
+    volumes: number;
+    chapters: number;
+    scenes: number;
+    cards: number;
+    relations: number;
+    snapshots: number;
+  };
+  exportedAt: string;
+}
+
+export interface ProjectBundleExportQuery {
+  kind: "project.bundle.export";
+  projectId: string;
+}
+
+export interface ProjectBundleImportCommand {
+  type: "project.bundle.import";
+  data: ProjectBundleData;
+}
+
+export interface ProjectBundleImportResult {
+  commandType: "project.bundle.import";
+  sequence: number;
+  projectId: string;
+  counts: ProjectBundleData["counts"];
+}
+
+// ---------------------------------------------------------------------------
 // 切片 10：搜索与查找替换
 // ---------------------------------------------------------------------------
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArchiveRestore, BookMarked, Download, FileUp, FileWarning, Plus, Replace, Search, X } from "lucide-react";
+import { ArchiveRestore, BookMarked, Download, FileUp, FileWarning, FolderInput, FolderOutput, Plus, Replace, Search, X } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
@@ -26,7 +26,7 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const selectScene = useCreationStore((state) => state.selectScene);
   const selectCard = useCreationStore((state) => state.selectCard);
-  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft, loadMigrationStatus } = useCreationActions();
+  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft, loadMigrationStatus, exportBundle, importBundle } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -81,6 +81,25 @@ export function CreationProjectsPage() {
     if (!result.canceled && result.filePath) {
       showToast({ tone: "success", title: "已导出成稿", body: result.filePath });
     }
+  };
+
+  const handleExportBundle = async () => {
+    if (!selected) return;
+    const result = await exportBundle(selected.id);
+    if (!result.canceled && result.directory) {
+      showToast({ tone: "success", title: "已导出项目包", body: result.directory });
+    }
+  };
+
+  const handleImportBundle = async () => {
+    const result = await importBundle();
+    if (result.canceled || !result.result) return;
+    await loadProjects();
+    showToast({
+      tone: "success",
+      title: "项目包已导入",
+      body: `共 ${result.result.counts.volumes} 卷 ${result.result.counts.chapters} 章 ${result.result.counts.cards} 张卡片。`
+    });
   };
 
   const paletteCommands = useMemo(() => {
@@ -212,8 +231,16 @@ export function CreationProjectsPage() {
                   <Download size={16} />
                   导出成稿
                 </Button>
+                <Button variant="secondary" onClick={() => void handleExportBundle()}>
+                  <FolderOutput size={16} />
+                  导出项目包
+                </Button>
               </>
             )}
+            <Button variant="secondary" onClick={() => void handleImportBundle()}>
+              <FolderInput size={16} />
+              导入项目包
+            </Button>
             <Button onClick={() => setWizardOpen(true)}>
               <Plus size={16} />
               新建项目

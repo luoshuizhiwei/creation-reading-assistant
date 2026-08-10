@@ -110,7 +110,11 @@ import type {
   DraftImportChapterInput,
   DraftImportVolumeInput,
   ProjectImportDraftCommand,
-  ProjectImportDraftResult
+  ProjectImportDraftResult,
+  ProjectBundleData,
+  ProjectBundleExportQuery,
+  ProjectBundleImportCommand,
+  ProjectBundleImportResult
 } from "../../../src/types/creation";
 
 export type {
@@ -225,7 +229,11 @@ export type {
   DraftImportChapterInput,
   DraftImportVolumeInput,
   ProjectImportDraftCommand,
-  ProjectImportDraftResult
+  ProjectImportDraftResult,
+  ProjectBundleData,
+  ProjectBundleExportQuery,
+  ProjectBundleImportCommand,
+  ProjectBundleImportResult
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -303,7 +311,8 @@ export type CreationReadQuery =
   | SessionListQuery
   | ProofQuery
   | InboxListQuery
-  | InboxReadQuery;
+  | InboxReadQuery
+  | ProjectBundleExportQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -325,6 +334,7 @@ export type CreationReadResult =
   | ProofView
   | InboxItem[]
   | InboxItem
+  | ProjectBundleData
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -342,7 +352,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -353,7 +363,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -382,6 +392,7 @@ export interface CreationWorkspace {
   read(query: ProofQuery): Promise<ProofView>;
   read(query: InboxListQuery): Promise<InboxItem[]>;
   read(query: InboxReadQuery): Promise<InboxItem | null>;
+  read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -392,6 +403,7 @@ export interface CreationWorkspace {
   transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
+  transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

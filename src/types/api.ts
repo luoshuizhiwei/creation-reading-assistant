@@ -69,7 +69,8 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand
+  ProjectImportDraftCommand,
+  ProjectBundleImportResult
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -154,6 +155,8 @@ export interface DesktopApi {
     sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
     proofQuery: (query: ProofQuery) => Promise<ProofView>;
     importDraftPreview: () => Promise<DraftImportPreview | null>;
+    exportProjectBundle: (projectId: string) => Promise<{ canceled: boolean; directory: string | null }>;
+    importProjectBundle: () => Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;

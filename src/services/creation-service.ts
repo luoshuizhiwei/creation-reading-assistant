@@ -42,7 +42,8 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand
+  ProjectImportDraftCommand,
+  ProjectBundleImportResult
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -160,6 +161,16 @@ export async function proofQuery(query: ProofQuery): Promise<ProofView> {
 
 export async function importDraftPreview(): Promise<DraftImportPreview | null> {
   return getCreationApi().importDraftPreview();
+}
+
+export async function exportProjectBundle(
+  projectId: string
+): Promise<{ canceled: boolean; directory: string | null }> {
+  return getCreationApi().exportProjectBundle(projectId);
+}
+
+export async function importProjectBundle(): Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }> {
+  return getCreationApi().importProjectBundle();
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {
