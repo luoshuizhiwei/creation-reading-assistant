@@ -3,6 +3,7 @@ import { AlertCircle } from "lucide-react";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
 import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
+import { InboxPage } from "@/features/creation/inbox/InboxPage";
 import { InspirationPage } from "@/features/inspiration/InspirationPage";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { ReaderPage } from "@/features/library/ReaderPage";
@@ -10,7 +11,6 @@ import { ReadingStatsPage } from "@/features/library/ReadingStatsPage";
 import { SearchPanel } from "@/features/search/SearchPanel";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
-import { StartPage } from "@/pages/StartPage";
 import { getStartupRecovery, markStartupRecoverySeen, writeRendererLog } from "@/services/maintenance-service";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useCreationStore } from "@/stores/creation-store";
@@ -158,8 +158,8 @@ export default function App() {
       ) : (
         <DesktopFrame>
           <PageTransition screenKey={screen}>
-            {screen === "start" && <StartPage />}
             {screen === "projects" && <CreationProjectsPage />}
+            {screen === "inbox" && <InboxPage />}
             {screen === "inspiration" && <InspirationPage />}
             {screen === "library" && <LibraryPage />}
             {screen === "stats" && <ReadingStatsPage />}

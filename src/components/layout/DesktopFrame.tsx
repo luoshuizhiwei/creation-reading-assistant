@@ -7,49 +7,53 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 
 const navItems: Array<{ screen: AppScreen; label: string; hint: string; icon: typeof Home }> = [
-  { screen: "start", label: "工作台", hint: "总览", icon: Home },
-  { screen: "projects", label: "创作项目", hint: "写作", icon: BookMarked },
-  { screen: "inspiration", label: "灵感中心", hint: "素材/AI", icon: Lightbulb },
-  { screen: "library", label: "本地书库", hint: "阅读", icon: BookOpen },
-  { screen: "stats", label: "阅读统计", hint: "节奏", icon: BarChart3 },
+  { screen: "projects", label: "项目", hint: "写作", icon: BookMarked },
+  { screen: "inbox", label: "收件箱", hint: "待处理", icon: Lightbulb },
+  { screen: "library", label: "资料阅读", hint: "书库", icon: BookOpen },
+  { screen: "stats", label: "阅读统计", hint: "节律", icon: BarChart3 },
   { screen: "settings", label: "设置", hint: "偏好", icon: Settings }
 ];
 
 const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: string }> = {
   start: {
     eyebrow: "Desk overview",
-    title: "创作阅读工作台",
-    body: "桌面端用于深度整理：左侧导航，中间处理，右侧查看上下文。"
+    title: "创作阅读助手",
+    body: "启动页（兼容入口）。"
   },
   projects: {
     eyebrow: "Creation desk",
     title: "创作项目",
-    body: "本地优先的作品项目：创建作品、组织章与场景，并在写作台连续编辑正文。"
+    body: "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统计与版本历史。"
+  },
+  inbox: {
+    eyebrow: "Inbox",
+    title: "收件箱",
+    body: "旧灵感迁移与手动收集的内容；可转为创作项目的资料卡。"
   },
   inspiration: {
     eyebrow: "Inspiration desk",
     title: "灵感中心",
-    body: "把阅读摘录、剧情火花和 AI 候选版本集中管理。"
+    body: "旧数据兼容入口：阅读摘录、灵感花和 AI 候选版本。"
   },
   library: {
     eyebrow: "Local library",
-    title: "本地书库",
-    body: "导入、筛选和打开本地 TXT / Markdown / EPUB。"
+    title: "资料阅读",
+    body: "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。"
   },
   reader: {
     eyebrow: "Reading desk",
-    title: "深度阅读",
-    body: "正文、目录和阅读设置在桌面端并排工作。"
+    title: "资料阅读",
+    body: "正文、目录、阅读设置和灵感摘录，专注阅读。"
   },
   stats: {
     eyebrow: "Reading rhythm",
     title: "阅读统计",
-    body: "查看阅读时长、书籍进度和灵感沉淀。"
+    body: "查看阅读时长、书籍进度和节律总结。"
   },
   settings: {
     eyebrow: "Preferences",
     title: "设置",
-    body: "配置 AI、主题、书库路径、同步和数据维护。"
+    body: "配置 AI、外观、阅读、同步与数据维护。"
   }
 };
 
@@ -83,7 +87,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   return (
     <div className="desktop-workbench paper-shell">
       <aside className="desktop-sidebar" aria-label="桌面端主导航">
-        <button className="desktop-brand" onClick={() => void navigate("start")}>
+        <button className="desktop-brand" onClick={() => void navigate("projects")}>
           <span className="desktop-brand-mark">阅</span>
           <span>
             <strong>创作阅读助手</strong>

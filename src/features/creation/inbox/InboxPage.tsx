@@ -1,19 +1,23 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArchiveRestore, Inbox as InboxIcon, Library, Trash2 } from "lucide-react";
+import { ArchiveRestore, Inbox as InboxIcon, Library, Lightbulb, Trash2 } from "lucide-react";
+import { useAppStore } from "@/stores/app-store";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { InboxItem } from "@/types/creation";
 
 interface InboxPageProps {
-  /** 转为资料卡的目标项目 ID。 */
-  projectId: string;
+  /** 转资料卡的目标项目（可选；缺省用第一个项目并允许下拉切换）。 */
+  projectId?: string;
 }
 
 export function InboxPage({ projectId }: InboxPageProps) {
   const { loadInbox, deleteInbox, updateInbox, runStructure } = useCreationActions();
+  const projects = useCreationStore((state) => state.projects);
   const showToast = useUIStore((state) => state.showToast);
   const [items, setItems] = useState<InboxItem[]>([]);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [targetProjectId, setTargetProjectId] = useState(projectId ?? "");
 
   const refresh = useCallback(async () => {
     setItems(await loadInbox({ limit: 200 }));
@@ -33,9 +37,14 @@ export function InboxPage({ projectId }: InboxPageProps) {
   };
 
   const handleToCard = async (item: InboxItem) => {
+    const target = targetProjectId || projects[0]?.id;
+    if (!target) {
+      showToast({ tone: "warning", title: "还没有创作项目", body: "请先创建项目再转资料卡。" });
+      return;
+    }
     const ok = await runStructure({
       type: "card.create",
-      projectId,
+      projectId: target,
       kind: "reference",
       title: item.title,
       tags: item.tags,
@@ -43,7 +52,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
     });
     if (!ok) return;
     await updateInbox({ itemId: item.id, baseRevision: item.revision, status: "used" });
-    showToast({ tone: "success", title: "已转为资料卡", body: `「${item.title}」已加入当前项目的资料卡。` });
+    showToast({ tone: "success", title: "已转为资料卡", body: `「${item.title}」已加入创作项目的资料卡。` });
     await refresh();
   };
 
@@ -52,8 +61,25 @@ export function InboxPage({ projectId }: InboxPageProps) {
       <div className="stats-card inbox-summary">
         <h3><ArchiveRestore size={15} /> 全局收件箱</h3>
         <p className="stats-note">
-          旧灵感迁移后的存放位置（兼容期内旧数据保持只读）。可把条目转为当前项目的资料卡，或删除不再需要的内容。
+          旧灵感迁移后的存放位置（兼容期内旧数据保持只读）。可把条目转为项目的资料卡，或删除不再需要的内容。
         </p>
+        <button type="button" className="inbox-inspiration-link" onClick={() => useAppStore.getState().setScreen("inspiration")}>
+          <Lightbulb size={13} /> 打开灵感中心（旧数据兼容入口）
+        </button>
+        {!projectId && projects.length > 0 && (
+          <label className="inbox-target-project">
+            <span>转为资料卡的目标项目</span>
+            <select
+              className="paper-input h-9"
+              value={targetProjectId || projects[0]?.id || ""}
+              onChange={(event) => setTargetProjectId(event.target.value)}
+            >
+              {projects.map((project) => (
+                <option key={project.id} value={project.id}>{project.title}</option>
+              ))}
+            </select>
+          </label>
+        )}
       </div>
       {items.length === 0 ? (
         <div className="stats-card">

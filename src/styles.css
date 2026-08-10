@@ -5415,3 +5415,30 @@ button:disabled {
   color: #c0392b;
   border-color: #c0392b;
 }
+
+.inbox-target-project {
+  display: grid;
+  gap: 5px;
+  margin-top: 10px;
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.inbox-inspiration-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.inbox-inspiration-link:hover {
+  color: var(--copper);
+  border-color: var(--copper);
+}

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type AppScreen = "start" | "projects" | "inspiration" | "library" | "reader" | "stats" | "settings";
+export type AppScreen = "start" | "projects" | "inbox" | "inspiration" | "library" | "reader" | "stats" | "settings";
 
 export interface ReaderReturnState {
   bookId: string;
@@ -33,7 +33,7 @@ interface AppState {
 let errorIdCounter = 0;
 
 export const useAppStore = create<AppState>((set) => ({
-  screen: "start",
+  screen: "projects",
   loading: false,
   errors: [],
   setScreen: (screen, options) =>
