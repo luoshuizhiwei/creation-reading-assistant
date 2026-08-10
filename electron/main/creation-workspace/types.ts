@@ -42,7 +42,26 @@ import type {
   VolumeCreateCommand,
   VolumeDeleteCommand,
   VolumeRenameCommand,
-  VolumeReorderCommand
+  VolumeReorderCommand,
+  CardCommand,
+  CardCreateCommand,
+  CardDeleteCommand,
+  CardFieldKind,
+  CardFieldSchema,
+  CardReadQuery,
+  CardRelation,
+  CardRelationCreateCommand,
+  CardRelationDeleteCommand,
+  CardRelationsQuery,
+  CardSummary,
+  CardType,
+  CardTypeCreateCommand,
+  CardTypesListQuery,
+  CardUpdateCommand,
+  CardsListQuery,
+  RelationType,
+  RelationTypeCreateCommand,
+  RelationTypesListQuery
 } from "../../../src/types/creation";
 
 export type {
@@ -89,7 +108,26 @@ export type {
   VolumeCreateCommand,
   VolumeDeleteCommand,
   VolumeRenameCommand,
-  VolumeReorderCommand
+  VolumeReorderCommand,
+  CardCommand,
+  CardCreateCommand,
+  CardDeleteCommand,
+  CardFieldKind,
+  CardFieldSchema,
+  CardReadQuery,
+  CardRelation,
+  CardRelationCreateCommand,
+  CardRelationDeleteCommand,
+  CardRelationsQuery,
+  CardSummary,
+  CardType,
+  CardTypeCreateCommand,
+  CardTypesListQuery,
+  CardUpdateCommand,
+  CardsListQuery,
+  RelationType,
+  RelationTypeCreateCommand,
+  RelationTypesListQuery
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -150,13 +188,23 @@ export type CreationReadQuery =
   | ReadProjectNavigationQuery
   | ReadProjectOutlineQuery
   | ReadSceneBodyQuery
-  | ListProjectsQuery;
+  | ListProjectsQuery
+  | CardsListQuery
+  | CardReadQuery
+  | CardTypesListQuery
+  | RelationTypesListQuery
+  | CardRelationsQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
   | CreationProjectOutline
   | SceneBodyView
   | CreationProjectSummary[]
+  | CardSummary[]
+  | CardSummary
+  | CardType[]
+  | RelationType[]
+  | { outgoing: CardRelation[]; incoming: CardRelation[] }
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -174,7 +222,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -199,10 +247,16 @@ export interface CreationWorkspace {
   read(query: ReadProjectOutlineQuery): Promise<CreationProjectOutline | null>;
   read(query: ReadSceneBodyQuery): Promise<SceneBodyView | null>;
   read(query: ListProjectsQuery): Promise<CreationProjectSummary[]>;
+  read(query: CardsListQuery): Promise<CardSummary[]>;
+  read(query: CardReadQuery): Promise<CardSummary | null>;
+  read(query: CardTypesListQuery): Promise<CardType[]>;
+  read(query: RelationTypesListQuery): Promise<RelationType[]>;
+  read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   transact(command: StructureCommand): Promise<CreationStructureResult>;
+  transact(command: CardCommand): Promise<CreationStructureResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

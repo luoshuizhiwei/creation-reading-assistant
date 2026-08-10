@@ -49,6 +49,25 @@ import {
   type VolumeDeleteCommand,
   type VolumeRenameCommand,
   type VolumeReorderCommand,
+  type CardCommand,
+  type CardCreateCommand,
+  type CardDeleteCommand,
+  type CardFieldKind,
+  type CardFieldSchema,
+  type CardReadQuery,
+  type CardRelation,
+  type CardRelationCreateCommand,
+  type CardRelationDeleteCommand,
+  type CardRelationsQuery,
+  type CardSummary,
+  type CardType,
+  type CardTypeCreateCommand,
+  type CardTypesListQuery,
+  type CardUpdateCommand,
+  type CardsListQuery,
+  type RelationType,
+  type RelationTypeCreateCommand,
+  type RelationTypesListQuery,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -56,12 +75,24 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 
-const SCHEMA_VERSION = 3;
+const SCHEMA_VERSION = 4;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
 const SCENE_MARKS = new Set(["bold", "italic"]);
 const CHAPTER_NUMBERING_KINDS = new Set<ChapterNumberingKind>(["auto", "prologue", "extra", "custom"]);
+const CARD_FIELD_KINDS = new Set<CardFieldKind>([
+  "text",
+  "multiline",
+  "number",
+  "date",
+  "select",
+  "multiSelect",
+  "boolean",
+  "cardRef",
+  "url",
+  "attachment"
+]);
 
 const STRUCTURE_COMMAND_TYPES = new Set<string>([
   "volume.create",
@@ -85,6 +116,16 @@ const STRUCTURE_COMMAND_TYPES = new Set<string>([
   "scene.delete"
 ]);
 
+const CARD_COMMAND_TYPES = new Set<string>([
+  "cardType.create",
+  "relationType.create",
+  "card.create",
+  "card.update",
+  "card.delete",
+  "cardRelation.create",
+  "cardRelation.delete"
+]);
+
 const REQUIRED_TABLES = [
   "workspace_meta",
   "projects",
@@ -92,6 +133,8 @@ const REQUIRED_TABLES = [
   "chapters",
   "scenes",
   "cards",
+  "card_types",
+  "relation_types",
   "card_relations",
   "resources",
   "snapshots",
@@ -105,6 +148,8 @@ const REQUIRED_INDEXES = [
   "idx_chapters_project_order",
   "idx_scenes_chapter_order",
   "idx_cards_project_kind",
+  "idx_card_types_project",
+  "idx_relation_types_project",
   "idx_card_relations_from",
   "idx_card_relations_to",
   "idx_resources_project",
@@ -202,6 +247,83 @@ function validateBaseRevision(value: unknown): number {
   return value as number;
 }
 
+function validateStringList(value: unknown, label: string, maxLength = 20): string[] {
+  if (value === undefined) return [];
+  if (!Array.isArray(value)) throw new CreationWorkspaceError("invalid-input", `${label}必须为数组。`);
+  const result: string[] = [];
+  for (const item of value) {
+    if (typeof item !== "string") {
+      throw new CreationWorkspaceError("invalid-input", `${label}项必须为文本。`);
+    }
+    const trimmed = item.trim();
+    if (!trimmed || trimmed.length > 100) {
+      throw new CreationWorkspaceError("invalid-input", `${label}项必须为 1 至 100 个字符。`);
+    }
+    if (!result.includes(trimmed)) result.push(trimmed);
+  }
+  if (result.length > maxLength) {
+    throw new CreationWorkspaceError("invalid-input", `${label}最多 ${maxLength} 项。`);
+  }
+  return result;
+}
+
+function validateCardFieldSchemaList(value: unknown): CardFieldSchema[] {
+  if (!Array.isArray(value)) throw new CreationWorkspaceError("invalid-input", "卡片字段定义必须为数组。");
+  const fields: CardFieldSchema[] = [];
+  const seenKeys = new Set<string>();
+  for (const item of value) {
+    if (!isRecord(item)) throw new CreationWorkspaceError("invalid-input", "卡片字段定义无效。");
+    const key = typeof item.key === "string" ? item.key.trim() : "";
+    const label = typeof item.label === "string" ? item.label.trim() : "";
+    const kind = item.kind;
+    if (!key || seenKeys.has(key) || !/^[a-zA-Z][a-zA-Z0-9_]*$/.test(key)) {
+      throw new CreationWorkspaceError("invalid-input", "卡片字段 key 必须为唯一的字母数字标识。");
+    }
+    if (!label || label.length > 50) {
+      throw new CreationWorkspaceError("invalid-input", "卡片字段标签必须为 1 至 50 个字符。");
+    }
+    if (typeof kind !== "string" || !CARD_FIELD_KINDS.has(kind as CardFieldKind)) {
+      throw new CreationWorkspaceError("invalid-input", "卡片字段类型无效。");
+    }
+    seenKeys.add(key);
+    const schema: CardFieldSchema = { key, label, kind: kind as CardFieldKind };
+    if (item.required === true) schema.required = true;
+    if (item.defaultValue !== undefined) schema.defaultValue = item.defaultValue;
+    if (kind === "select" || kind === "multiSelect") {
+      if (!Array.isArray(item.options) || item.options.length === 0) {
+        throw new CreationWorkspaceError("invalid-input", "单选/多选字段必须提供选项。");
+      }
+      schema.options = item.options.map((option) => String(option));
+    }
+    fields.push(schema);
+  }
+  return fields;
+}
+
+function validateCardFieldValues(
+  fields: Record<string, unknown>,
+  schemas: CardFieldSchema[]
+): Record<string, unknown> {
+  const result: Record<string, unknown> = {};
+  const byKey = new Map(schemas.map((schema) => [schema.key, schema]));
+  for (const [key, value] of Object.entries(fields)) {
+    if (!byKey.has(key)) {
+      throw new CreationWorkspaceError("invalid-input", `卡片字段“${key}”不属于该类型。`);
+    }
+    result[key] = value;
+  }
+  for (const schema of schemas) {
+    const hasValue = Object.prototype.hasOwnProperty.call(result, schema.key);
+    if (schema.required && !hasValue) {
+      throw new CreationWorkspaceError("invalid-input", `必填字段“${schema.label}”未填写。`);
+    }
+    if (!hasValue && schema.defaultValue !== undefined) {
+      result[schema.key] = schema.defaultValue;
+    }
+  }
+  return result;
+}
+
 function initializeSchema(database: Database): void {
   database.exec(`
     BEGIN IMMEDIATE;
@@ -263,15 +385,46 @@ function initializeSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_scenes_chapter_order ON scenes(chapter_id, sort_order);
 
+    CREATE TABLE IF NOT EXISTS card_types (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      fields_json TEXT NOT NULL DEFAULT '[]',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_card_types_project ON card_types(project_id, sort_order);
+
+    CREATE TABLE IF NOT EXISTS relation_types (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      forward_name TEXT NOT NULL,
+      reverse_name TEXT NOT NULL,
+      from_kinds_json TEXT NOT NULL DEFAULT '[]',
+      to_kinds_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_relation_types_project ON relation_types(project_id);
+
     CREATE TABLE IF NOT EXISTS cards (
       id TEXT PRIMARY KEY,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
       kind TEXT NOT NULL,
       title TEXT NOT NULL,
+      aliases_json TEXT NOT NULL DEFAULT '[]',
+      fields_json TEXT NOT NULL DEFAULT '{}',
+      tags_json TEXT NOT NULL DEFAULT '[]',
       content_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
-      revision INTEGER NOT NULL DEFAULT 1
+      revision INTEGER NOT NULL DEFAULT 1,
+      deleted_at TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_cards_project_kind ON cards(project_id, kind);
 
@@ -281,6 +434,7 @@ function initializeSchema(database: Database): void {
       from_card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
       to_card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
       relation_type TEXT NOT NULL,
+      note TEXT,
       created_at TEXT NOT NULL,
       UNIQUE(from_card_id, to_card_id, relation_type)
     );
@@ -335,6 +489,58 @@ function initializeSchema(database: Database): void {
     PRAGMA user_version = ${SCHEMA_VERSION};
     COMMIT;
   `);
+  seedBuiltinCardData(database);
+}
+
+function seedBuiltinCardData(database: Database): void {
+  const seedTime = "2026-01-01T00:00:00.000Z";
+  const insertType = database.prepare(
+    "INSERT OR IGNORE INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+  );
+  const builtinTypes: Array<[string, string]> = [
+    ["character", "角色"],
+    ["location", "地点"],
+    ["organization", "组织"],
+    ["item", "物品"],
+    ["worldRule", "世界规则"],
+    ["plotEvent", "情节事件"],
+    ["foreshadow", "伏笔线索"],
+    ["reference", "资料"]
+  ];
+  builtinTypes.forEach(([kind, name], index) => {
+    insertType.run(
+      `card-type-${kind}`,
+      null,
+      kind,
+      name,
+      '[{"key":"note","label":"备注","kind":"multiline"}]',
+      index,
+      seedTime,
+      seedTime
+    );
+  });
+  const insertRelation = database.prepare(
+    "INSERT OR IGNORE INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+  );
+  const builtinRelations: Array<[string, string, string, string, string[], string[]]> = [
+    ["character-character", "knows", "认识", "认识", ["character"], ["character"]],
+    ["character-location", "appearsAt", "登场于", "登场角色", ["character"], ["location"]],
+    ["character-organization", "belongsTo", "隶属于", "成员", ["character"], ["organization"]],
+    ["item-character", "ownedBy", "持有", "持有者", ["item"], ["character"]]
+  ];
+  builtinRelations.forEach(([suffix, name, forward, reverse, fromKinds, toKinds]) => {
+    insertRelation.run(
+      `relation-type-${suffix}`,
+      null,
+      name,
+      forward,
+      reverse,
+      JSON.stringify(fromKinds),
+      JSON.stringify(toKinds),
+      seedTime,
+      seedTime
+    );
+  });
 }
 
 function migrateSchemaV1ToV2(database: Database): void {
@@ -376,6 +582,45 @@ function migrateSchemaV2ToV3(database: Database): void {
     PRAGMA user_version = 3;
     COMMIT;
   `);
+}
+
+function migrateSchemaV3ToV4(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS card_types (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      name TEXT NOT NULL,
+      fields_json TEXT NOT NULL DEFAULT '[]',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_card_types_project ON card_types(project_id, sort_order);
+    CREATE TABLE IF NOT EXISTS relation_types (
+      id TEXT PRIMARY KEY,
+      project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      forward_name TEXT NOT NULL,
+      reverse_name TEXT NOT NULL,
+      from_kinds_json TEXT NOT NULL DEFAULT '[]',
+      to_kinds_json TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 1
+    );
+    CREATE INDEX IF NOT EXISTS idx_relation_types_project ON relation_types(project_id);
+    ALTER TABLE cards ADD COLUMN aliases_json TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE cards ADD COLUMN fields_json TEXT NOT NULL DEFAULT '{}';
+    ALTER TABLE cards ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE cards ADD COLUMN deleted_at TEXT;
+    ALTER TABLE card_relations ADD COLUMN note TEXT;
+    PRAGMA user_version = 4;
+    COMMIT;
+  `);
+  seedBuiltinCardData(database);
 }
 
 function defaultProjectSetup(): CreationProjectSetup {
@@ -499,9 +744,21 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: ReadProjectOutlineQuery): Promise<CreationProjectOutline | null>;
   async read(query: ReadSceneBodyQuery): Promise<SceneBodyView | null>;
   async read(query: ListProjectsQuery): Promise<CreationProjectSummary[]>;
+  async read(query: CardsListQuery): Promise<CardSummary[]>;
+  async read(query: CardReadQuery): Promise<CardSummary | null>;
+  async read(query: CardTypesListQuery): Promise<CardType[]>;
+  async read(query: RelationTypesListQuery): Promise<RelationType[]>;
+  async read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
-    const runtimeQuery = query as unknown as { kind?: unknown; projectId?: unknown; sceneId?: unknown } | null;
+    const runtimeQuery = query as unknown as {
+      kind?: unknown;
+      projectId?: unknown;
+      sceneId?: unknown;
+      cardId?: unknown;
+      cardKind?: unknown;
+      search?: unknown;
+    } | null;
     if (
       runtimeQuery === null ||
       typeof runtimeQuery.kind !== "string"
@@ -525,6 +782,55 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取场景正文。");
+      }
+    }
+    if (
+      runtimeQuery.kind === "cards.list" ||
+      runtimeQuery.kind === "card.read" ||
+      runtimeQuery.kind === "cardTypes.list" ||
+      runtimeQuery.kind === "relationTypes.list" ||
+      runtimeQuery.kind === "card.relations"
+    ) {
+      try {
+        if (runtimeQuery.kind === "cards.list") {
+          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+            throw new CreationWorkspaceError("invalid-input", "卡片读取请求无效。");
+          }
+          return this.listCards({
+            projectId: runtimeQuery.projectId,
+            cardKind:
+              typeof runtimeQuery.cardKind === "string" && runtimeQuery.cardKind ? runtimeQuery.cardKind : undefined,
+            search:
+              typeof runtimeQuery.search === "string" && runtimeQuery.search.trim()
+                ? runtimeQuery.search.trim()
+                : undefined
+          });
+        }
+        if (runtimeQuery.kind === "cardTypes.list") {
+          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+            throw new CreationWorkspaceError("invalid-input", "卡片类型读取请求无效。");
+          }
+          return this.listCardTypes(runtimeQuery.projectId);
+        }
+        if (runtimeQuery.kind === "relationTypes.list") {
+          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+            throw new CreationWorkspaceError("invalid-input", "关系类型读取请求无效。");
+          }
+          return this.listRelationTypes(runtimeQuery.projectId);
+        }
+        if (runtimeQuery.kind === "card.relations") {
+          if (typeof runtimeQuery.cardId !== "string" || !runtimeQuery.cardId.trim()) {
+            throw new CreationWorkspaceError("invalid-input", "卡片关系读取请求无效。");
+          }
+          return this.readCardRelations(runtimeQuery.cardId);
+        }
+        if (typeof runtimeQuery.cardId !== "string" || !runtimeQuery.cardId.trim()) {
+          throw new CreationWorkspaceError("invalid-input", "卡片读取请求无效。");
+        }
+        return this.readCard(runtimeQuery.cardId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取创作工作区卡片数据。");
       }
     }
     if (
@@ -825,6 +1131,196 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
+  private cardFromRow(row: {
+    id: string;
+    project_id: string;
+    kind: string;
+    title: string;
+    aliases_json: string;
+    fields_json: string;
+    tags_json: string;
+    created_at: string;
+    updated_at: string;
+    revision: number;
+  }): CardSummary {
+    return {
+      id: row.id,
+      projectId: row.project_id,
+      kind: row.kind,
+      title: row.title,
+      aliases: JSON.parse(row.aliases_json) as string[],
+      fields: JSON.parse(row.fields_json) as Record<string, unknown>,
+      tags: JSON.parse(row.tags_json) as string[],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      revision: row.revision
+    };
+  }
+
+  private listCardTypes(projectId: string): CardType[] {
+    const rows = this.database
+      .prepare(
+        `SELECT id, project_id, kind, name, fields_json, sort_order, created_at, updated_at, revision
+         FROM card_types WHERE project_id IS NULL OR project_id = ? ORDER BY sort_order, id`
+      )
+      .all(projectId) as Array<{
+      id: string;
+      project_id: string | null;
+      kind: string;
+      name: string;
+      fields_json: string;
+      sort_order: number;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      kind: row.kind,
+      name: row.name,
+      fields: JSON.parse(row.fields_json) as CardFieldSchema[],
+      sortOrder: row.sort_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      revision: row.revision
+    }));
+  }
+
+  private listRelationTypes(projectId: string): RelationType[] {
+    const rows = this.database
+      .prepare(
+        `SELECT id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision
+         FROM relation_types WHERE project_id IS NULL OR project_id = ? ORDER BY created_at, id`
+      )
+      .all(projectId) as Array<{
+      id: string;
+      project_id: string | null;
+      name: string;
+      forward_name: string;
+      reverse_name: string;
+      from_kinds_json: string;
+      to_kinds_json: string;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: row.project_id,
+      name: row.name,
+      forwardName: row.forward_name,
+      reverseName: row.reverse_name,
+      fromKinds: JSON.parse(row.from_kinds_json) as string[],
+      toKinds: JSON.parse(row.to_kinds_json) as string[],
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      revision: row.revision
+    }));
+  }
+
+  private listCards(query: { projectId: string; cardKind?: string; search?: string }): CardSummary[] {
+    const params: unknown[] = [query.projectId];
+    let sql = `SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, created_at, updated_at, revision
+               FROM cards WHERE project_id = ? AND deleted_at IS NULL`;
+    if (query.cardKind) {
+      sql += " AND kind = ?";
+      params.push(query.cardKind);
+    }
+    if (query.search) {
+      sql += " AND (title LIKE ? OR aliases_json LIKE ?)";
+      params.push(`%${query.search}%`, `%${query.search}%`);
+    }
+    sql += " ORDER BY updated_at DESC, id DESC";
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      project_id: string;
+      kind: string;
+      title: string;
+      aliases_json: string;
+      fields_json: string;
+      tags_json: string;
+      created_at: string;
+      updated_at: string;
+      revision: number;
+    }>;
+    return rows.map((row) => this.cardFromRow(row));
+  }
+
+  private readCard(cardId: string): CardSummary | null {
+    const row = this.database
+      .prepare(
+        `SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, created_at, updated_at, revision
+         FROM cards WHERE id = ? AND deleted_at IS NULL`
+      )
+      .get(cardId) as
+      | {
+          id: string;
+          project_id: string;
+          kind: string;
+          title: string;
+          aliases_json: string;
+          fields_json: string;
+          tags_json: string;
+          created_at: string;
+          updated_at: string;
+          revision: number;
+        }
+      | undefined;
+    if (!row) return null;
+    return this.cardFromRow(row);
+  }
+
+  private readCardRelations(cardId: string): { outgoing: CardRelation[]; incoming: CardRelation[] } {
+    const mapRelation = (row: {
+      id: string;
+      project_id: string;
+      from_card_id: string;
+      to_card_id: string;
+      relation_type: string;
+      note: string | null;
+      created_at: string;
+      forward_name: string | null;
+    }): CardRelation => ({
+      id: row.id,
+      projectId: row.project_id,
+      fromCardId: row.from_card_id,
+      toCardId: row.to_card_id,
+      relationTypeId: row.relation_type,
+      forwardName: row.forward_name ?? row.relation_type,
+      note: row.note,
+      createdAt: row.created_at
+    });
+    const base = `
+      SELECT r.id, r.project_id, r.from_card_id, r.to_card_id, r.relation_type, r.note, r.created_at, rt.forward_name
+      FROM card_relations r LEFT JOIN relation_types rt ON rt.id = r.relation_type`;
+    const outgoing = (
+      this.database.prepare(`${base} WHERE r.from_card_id = ? ORDER BY r.created_at, r.id`).all(cardId) as Array<{
+        id: string;
+        project_id: string;
+        from_card_id: string;
+        to_card_id: string;
+        relation_type: string;
+        note: string | null;
+        created_at: string;
+        forward_name: string | null;
+      }>
+    ).map(mapRelation);
+    const incoming = (
+      this.database.prepare(`${base} WHERE r.to_card_id = ? ORDER BY r.created_at, r.id`).all(cardId) as Array<{
+        id: string;
+        project_id: string;
+        from_card_id: string;
+        to_card_id: string;
+        relation_type: string;
+        note: string | null;
+        created_at: string;
+        forward_name: string | null;
+      }>
+    ).map(mapRelation);
+    return { outgoing, incoming };
+  }
+
   private readSceneBody(sceneId: string): SceneBodyView | null {
     const scene = this.database
       .prepare(
@@ -893,6 +1389,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   async transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   async transact(command: StructureCommand): Promise<CreationStructureResult>;
+  async transact(command: CardCommand): Promise<CreationStructureResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -902,7 +1399,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       return this.createProjectTransaction(command);
     }
     if (STRUCTURE_COMMAND_TYPES.has(command.type)) {
-      return this.executeStructureCommand(command);
+      return this.executeStructureCommand(command as StructureCommand);
+    }
+    if (CARD_COMMAND_TYPES.has(command.type)) {
+      return this.executeCardCommand(command as CardCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -1844,6 +2344,277 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     });
   }
 
+  private executeCardCommand(command: CardCommand): CreationStructureResult {
+    switch (command.type) {
+      case "cardType.create":
+        return this.createCardType(command);
+      case "relationType.create":
+        return this.createRelationType(command);
+      case "card.create":
+        return this.createCard(command);
+      case "card.update":
+        return this.updateCard(command);
+      case "card.delete":
+        return this.deleteCard(command);
+      case "cardRelation.create":
+        return this.createCardRelation(command);
+      case "cardRelation.delete":
+        return this.deleteCardRelation(command);
+    }
+  }
+
+  private requireCard(cardId: string): {
+    id: string;
+    project_id: string;
+    kind: string;
+    title: string;
+    aliases: string[];
+    fields: Record<string, unknown>;
+    tags: string[];
+    revision: number;
+  } {
+    const card = this.database
+      .prepare(
+        "SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, revision FROM cards WHERE id = ? AND deleted_at IS NULL"
+      )
+      .get(cardId) as
+      | {
+          id: string;
+          project_id: string;
+          kind: string;
+          title: string;
+          aliases_json: string;
+          fields_json: string;
+          tags_json: string;
+          revision: number;
+        }
+      | undefined;
+    if (!card) throw new CreationWorkspaceError("not-found", "卡片不存在。");
+    return {
+      id: card.id,
+      project_id: card.project_id,
+      kind: card.kind,
+      title: card.title,
+      aliases: JSON.parse(card.aliases_json) as string[],
+      fields: JSON.parse(card.fields_json) as Record<string, unknown>,
+      tags: JSON.parse(card.tags_json) as string[],
+      revision: card.revision
+    };
+  }
+
+  private requireRelationType(relationTypeId: string): { id: string } {
+    const type = this.database
+      .prepare("SELECT id FROM relation_types WHERE id = ?")
+      .get(relationTypeId) as { id: string } | undefined;
+    if (!type) throw new CreationWorkspaceError("not-found", "关系类型不存在。");
+    return type;
+  }
+
+  private resolveCardTypeFields(projectId: string, kind: string): CardFieldSchema[] {
+    const type = this.database
+      .prepare(
+        "SELECT fields_json FROM card_types WHERE (project_id IS NULL OR project_id = ?) AND kind = ? ORDER BY project_id DESC LIMIT 1"
+      )
+      .get(projectId, kind) as { fields_json: string } | undefined;
+    if (!type) throw new CreationWorkspaceError("invalid-input", `卡片类型“${kind}”不存在。`);
+    try {
+      return JSON.parse(type.fields_json) as CardFieldSchema[];
+    } catch {
+      throw new CreationWorkspaceError("integrity", "卡片类型字段数据损坏。");
+    }
+  }
+
+  private createCardType(command: CardTypeCreateCommand): CreationStructureResult {
+    const projectId = validateId(command.projectId, "作品");
+    const name = validateTitle(command.name, "卡片类型名");
+    const fields = validateCardFieldSchemaList(command.fields);
+    const kind = `custom-${randomUUID().slice(0, 8)}`;
+    const typeId = `card-type-${randomUUID()}`;
+    return this.runStructureTransaction("cardType.create", (timestamp) => {
+      this.requireProject(projectId);
+      const maxOrder = this.database
+        .prepare("SELECT coalesce(max(sort_order), -1) AS m FROM card_types WHERE project_id = ?")
+        .get(projectId) as { m: number };
+      this.database
+        .prepare(
+          "INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(typeId, projectId, kind, name, JSON.stringify(fields), maxOrder.m + 1, timestamp, timestamp);
+      this.touchProject(projectId, timestamp);
+      return {
+        projectId,
+        entityId: typeId,
+        revision: 1,
+        changes: [{ entity: "cardType", id: typeId, action: "created", revision: 1 }]
+      };
+    });
+  }
+
+  private createRelationType(command: RelationTypeCreateCommand): CreationStructureResult {
+    const projectId = validateId(command.projectId, "作品");
+    const forwardName = validateTitle(command.forwardName, "关系名称", 50);
+    const reverseName = validateTitle(command.reverseName, "反向关系名称", 50);
+    const fromKinds = validateStringList(command.fromKinds, "起点卡片类型", 50);
+    const toKinds = validateStringList(command.toKinds, "终点卡片类型", 50);
+    const relationTypeId = `relation-type-${randomUUID()}`;
+    return this.runStructureTransaction("relationType.create", (timestamp) => {
+      this.requireProject(projectId);
+      this.database
+        .prepare(
+          "INSERT INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(
+          relationTypeId,
+          projectId,
+          `rel-${randomUUID().slice(0, 8)}`,
+          forwardName,
+          reverseName,
+          JSON.stringify(fromKinds),
+          JSON.stringify(toKinds),
+          timestamp,
+          timestamp
+        );
+      this.touchProject(projectId, timestamp);
+      return {
+        projectId,
+        entityId: relationTypeId,
+        revision: 1,
+        changes: [{ entity: "relationType", id: relationTypeId, action: "created", revision: 1 }]
+      };
+    });
+  }
+
+  private createCard(command: CardCreateCommand): CreationStructureResult {
+    const projectId = validateId(command.projectId, "作品");
+    const kind = validateId(command.kind, "卡片类型");
+    const title = validateTitle(command.title, "卡片名称");
+    const aliases = validateStringList(command.aliases, "别名");
+    const tags = validateStringList(command.tags, "标签");
+    const cardId = `card-${randomUUID()}`;
+    return this.runStructureTransaction("card.create", (timestamp) => {
+      this.requireProject(projectId);
+      const typeFields = this.resolveCardTypeFields(projectId, kind);
+      const fields = validateCardFieldValues(command.fields ?? {}, typeFields);
+      this.database
+        .prepare(
+          "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(cardId, projectId, kind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), "{}", timestamp, timestamp);
+      this.touchProject(projectId, timestamp);
+      return {
+        projectId,
+        entityId: cardId,
+        revision: 1,
+        changes: [{ entity: "card", id: cardId, action: "created", revision: 1 }]
+      };
+    });
+  }
+
+  private updateCard(command: CardUpdateCommand): CreationStructureResult {
+    const cardId = validateId(command.cardId, "卡片");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    return this.runStructureTransaction("card.update", (timestamp) => {
+      const card = this.requireCard(cardId);
+      if (card.revision !== baseRevision) {
+        throw new CreationWorkspaceError("revision-mismatch", "卡片已被更新，请重新读取后再操作。");
+      }
+      const title = command.title === undefined ? card.title : validateTitle(command.title, "卡片名称");
+      const aliases =
+        command.aliases === undefined ? card.aliases : validateStringList(command.aliases, "别名");
+      const tags = command.tags === undefined ? card.tags : validateStringList(command.tags, "标签");
+      const fields =
+        command.fields === undefined
+          ? card.fields
+          : validateCardFieldValues(command.fields, this.resolveCardTypeFields(card.project_id, card.kind));
+      const revision = card.revision + 1;
+      this.database
+        .prepare(
+          "UPDATE cards SET title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, updated_at = ?, revision = ? WHERE id = ?"
+        )
+        .run(title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), timestamp, revision, cardId);
+      this.touchProject(card.project_id, timestamp);
+      return {
+        projectId: card.project_id,
+        entityId: cardId,
+        revision,
+        changes: [{ entity: "card", id: cardId, action: "updated", revision }]
+      };
+    });
+  }
+
+  private deleteCard(command: CardDeleteCommand): CreationStructureResult {
+    const cardId = validateId(command.cardId, "卡片");
+    return this.runStructureTransaction("card.delete", (timestamp) => {
+      const card = this.requireCard(cardId);
+      const revision = card.revision + 1;
+      this.database
+        .prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?")
+        .run(cardId, cardId);
+      this.database
+        .prepare("UPDATE cards SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
+        .run(timestamp, timestamp, revision, cardId);
+      this.touchProject(card.project_id, timestamp);
+      return {
+        projectId: card.project_id,
+        entityId: cardId,
+        revision,
+        changes: [{ entity: "card", id: cardId, action: "deleted", revision }]
+      };
+    });
+  }
+
+  private createCardRelation(command: CardRelationCreateCommand): CreationStructureResult {
+    const projectId = validateId(command.projectId, "作品");
+    const fromCardId = validateId(command.fromCardId, "起点卡片");
+    const toCardId = validateId(command.toCardId, "终点卡片");
+    const relationTypeId = validateId(command.relationTypeId, "关系类型");
+    const note =
+      command.note === undefined || command.note === null ? null : String(command.note).trim() || null;
+    const relationId = `relation-${randomUUID()}`;
+    return this.runStructureTransaction("cardRelation.create", (timestamp) => {
+      this.requireProject(projectId);
+      const from = this.requireCard(fromCardId);
+      const to = this.requireCard(toCardId);
+      if (from.project_id !== projectId || to.project_id !== projectId) {
+        throw new CreationWorkspaceError("invalid-input", "关系卡片必须属于同一作品。");
+      }
+      if (fromCardId === toCardId) {
+        throw new CreationWorkspaceError("invalid-input", "不能建立卡片到自身的关系。");
+      }
+      this.requireRelationType(relationTypeId);
+      this.database
+        .prepare(
+          "INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        )
+        .run(relationId, projectId, fromCardId, toCardId, relationTypeId, note, timestamp);
+      this.touchProject(projectId, timestamp);
+      return {
+        projectId,
+        entityId: relationId,
+        revision: 1,
+        changes: [{ entity: "cardRelation", id: relationId, action: "created", revision: 1 }]
+      };
+    });
+  }
+
+  private deleteCardRelation(command: CardRelationDeleteCommand): CreationStructureResult {
+    const relationId = validateId(command.relationId, "关系");
+    return this.runStructureTransaction("cardRelation.delete", (timestamp) => {
+      const relation = this.database
+        .prepare("SELECT id, project_id FROM card_relations WHERE id = ?")
+        .get(relationId) as { id: string; project_id: string } | undefined;
+      if (!relation) throw new CreationWorkspaceError("not-found", "关系不存在。");
+      this.database.prepare("DELETE FROM card_relations WHERE id = ?").run(relationId);
+      this.touchProject(relation.project_id, timestamp);
+      return {
+        projectId: relation.project_id,
+        entityId: relationId,
+        revision: 1,
+        changes: [{ entity: "cardRelation", id: relationId, action: "deleted", revision: 1 }]
+      };
+    });
+  }
+
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void {
     this.assertOpen();
     const runtimeScope = scope as unknown as { projectId?: unknown } | null;
@@ -2037,7 +2808,11 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
     else if (existingVersion === 1) {
       migrateSchemaV1ToV2(database);
       migrateSchemaV2ToV3(database);
-    } else if (existingVersion === 2) migrateSchemaV2ToV3(database);
+      migrateSchemaV3ToV4(database);
+    } else if (existingVersion === 2) {
+      migrateSchemaV2ToV3(database);
+      migrateSchemaV3ToV4(database);
+    } else if (existingVersion === 3) migrateSchemaV3ToV4(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

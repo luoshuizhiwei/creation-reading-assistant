@@ -324,6 +324,7 @@ runScoped("verify:creation-project-shell");
 runScoped("verify:creation-editor");
 runScoped("verify:creation-migration-audit");
 runScoped("verify:creation-outline");
+runScoped("verify:creation-cards");
 runScoped("verify:clean-reposition");
 runScoped("verify:sync-schema");
 runScoped("verify:sync-server");

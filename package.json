@@ -30,6 +30,7 @@
     "verify:creation-editor": "node scripts/verify-creation-editor.mjs",
     "verify:creation-migration-audit": "node scripts/verify-creation-migration-audit.mjs",
     "verify:creation-outline": "node scripts/verify-creation-outline.mjs",
+    "verify:creation-cards": "node scripts/verify-creation-cards.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
     "verify:sync-server": "node scripts/verify-sync-server.mjs",

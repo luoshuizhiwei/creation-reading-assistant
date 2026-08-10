@@ -376,3 +376,171 @@ export type StructureCommand =
   | SceneReorderCommand
   | SceneMoveCommand
   | SceneDeleteCommand;
+
+// ---------------------------------------------------------------------------
+// 切片 7：卡片与关系
+// ---------------------------------------------------------------------------
+
+export type CardFieldKind =
+  | "text"
+  | "multiline"
+  | "number"
+  | "date"
+  | "select"
+  | "multiSelect"
+  | "boolean"
+  | "cardRef"
+  | "url"
+  | "attachment";
+
+export interface CardFieldSchema {
+  key: string;
+  label: string;
+  kind: CardFieldKind;
+  required?: boolean;
+  options?: string[];
+  defaultValue?: unknown;
+}
+
+export interface CardType {
+  id: string;
+  /** null = 全局内置类型；非 null = 项目自定义。 */
+  projectId: string | null;
+  kind: string;
+  name: string;
+  fields: CardFieldSchema[];
+  sortOrder: number;
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export interface RelationType {
+  id: string;
+  projectId: string | null;
+  name: string;
+  forwardName: string;
+  reverseName: string;
+  fromKinds: string[];
+  toKinds: string[];
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export interface CardSummary {
+  id: string;
+  projectId: string;
+  kind: string;
+  title: string;
+  aliases: string[];
+  fields: Record<string, unknown>;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  revision: number;
+}
+
+export interface CardRelation {
+  id: string;
+  projectId: string;
+  fromCardId: string;
+  toCardId: string;
+  relationTypeId: string;
+  forwardName: string;
+  note: string | null;
+  createdAt: string;
+}
+
+export interface CardTypeCreateCommand {
+  type: "cardType.create";
+  projectId: string;
+  name: string;
+  fields: CardFieldSchema[];
+}
+
+export interface RelationTypeCreateCommand {
+  type: "relationType.create";
+  projectId: string;
+  forwardName: string;
+  reverseName: string;
+  fromKinds?: string[];
+  toKinds?: string[];
+}
+
+export interface CardCreateCommand {
+  type: "card.create";
+  projectId: string;
+  kind: string;
+  title: string;
+  aliases?: string[];
+  fields?: Record<string, unknown>;
+  tags?: string[];
+}
+
+export interface CardUpdateCommand {
+  type: "card.update";
+  cardId: string;
+  title?: string;
+  aliases?: string[];
+  fields?: Record<string, unknown>;
+  tags?: string[];
+  baseRevision: number;
+}
+
+export interface CardDeleteCommand {
+  type: "card.delete";
+  cardId: string;
+}
+
+export interface CardRelationCreateCommand {
+  type: "cardRelation.create";
+  projectId: string;
+  fromCardId: string;
+  toCardId: string;
+  relationTypeId: string;
+  note?: string;
+}
+
+export interface CardRelationDeleteCommand {
+  type: "cardRelation.delete";
+  relationId: string;
+}
+
+export type CardCommand =
+  | CardTypeCreateCommand
+  | RelationTypeCreateCommand
+  | CardCreateCommand
+  | CardUpdateCommand
+  | CardDeleteCommand
+  | CardRelationCreateCommand
+  | CardRelationDeleteCommand;
+
+export interface CardsListQuery {
+  kind: "cards.list";
+  projectId: string;
+  /** 按卡片类型 kind 筛选（内置或自定义）。 */
+  cardKind?: string;
+  /** 标题/别名子串搜索。 */
+  search?: string;
+}
+
+export interface CardReadQuery {
+  kind: "card.read";
+  cardId: string;
+}
+
+export interface CardTypesListQuery {
+  kind: "cardTypes.list";
+  projectId: string;
+}
+
+export interface RelationTypesListQuery {
+  kind: "relationTypes.list";
+  projectId: string;
+}
+
+export interface CardRelationsQuery {
+  kind: "card.relations";
+  cardId: string;
+}

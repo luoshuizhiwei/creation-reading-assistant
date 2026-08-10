@@ -195,6 +195,22 @@ Automated Checks (appended):
 - Tree actions: new volume/chapter/scene, inline rename, two-click delete (cascade), up/down reorder, move chapter to another volume, move scene to another chapter, status select.
 - End-to-end verified on a real Electron instance: project creation, scene body write (word count 16), volume/chapter tree rendering, card-board grouping, and live outline refresh (a newly created volume appears within ~1.5s without reloading the page).
 
+## Creation cards update (slice 7a): 2026-08-10
+
+- Workspace schema upgraded to v4 with an atomic v3→v4 migration: new `card_types` and `relation_types` tables, `cards.aliases_json / fields_json / tags_json / deleted_at`, `card_relations.note`. Built-in seeds: 8 card types (角色/地点/组织/物品/世界规则/情节事件/伏笔线索/资料) and 4 relation types (认识/登场于/隶属于/持有), seeded idempotently for both fresh databases and migrations.
+- Added 7 card commands: `cardType.create` (custom type with field schema), `relationType.create` (forward/reverse names + allowed kinds), `card.create / update / delete` (soft delete cascades its relations), `cardRelation.create / delete`.
+- Added 5 card queries: `cards.list` (kind filter + title/alias search), `card.read`, `cardTypes.list`, `relationTypes.list`, `card.relations` (outgoing/incoming with forward names).
+- Field schema supports 10 kinds (text/multiline/number/date/select/multiSelect/boolean/cardRef/url/attachment) with required/options/defaults; card create/update validate values against the type's schema (unknown fields and missing required fields are rejected).
+- Added guard: `npm run verify:creation-cards` (8 runtime contracts); all creation guards and `npm run build` pass.
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation cards guard | `npm run verify:creation-cards` | Passed |
+| Creation workspace guard (re-verified) | `npm run verify:creation-workspace` | Passed |
+| Creation outline guard (re-verified) | `npm run verify:creation-outline` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.
