@@ -179,6 +179,11 @@ const requiredIpcChannels = [
   "creation:search",
   "creation:replacePreview",
   "creation:replaceApply",
+  "creation:statsView",
+  "creation:sessionList",
+  "creation:sessionReport",
+  "creation:sessionDelete",
+  "creation:proofQuery",
   "creation:watchProject",
   "creation:unwatchProject"
 ];

@@ -61,7 +61,9 @@ import type {
   StructureCommand,
   TrashItem,
   TrashListQuery,
-  UpdateSceneBodyInput
+  UpdateSceneBodyInput,
+  ProofQuery,
+  ProofView
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -149,6 +151,7 @@ const api: DesktopApi = {
     sessionList: (query: SessionListQuery) => invoke<SessionEntry[]>("creation:sessionList", query),
     sessionReport: (command: SessionReportCommand) => invoke<SessionReportResult>("creation:sessionReport", command),
     sessionDelete: (command: SessionDeleteCommand) => invoke<SessionReportResult>("creation:sessionDelete", command),
+    proofQuery: (query: ProofQuery) => invoke<ProofView>("creation:proofQuery", query),
     exportDraft: (projectId: string) =>
       invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),

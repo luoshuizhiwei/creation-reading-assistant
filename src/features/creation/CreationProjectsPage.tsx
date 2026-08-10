@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
-import { BookMarked, Download, Plus, Replace, Search } from "lucide-react";
+import { BookMarked, Download, FileWarning, Plus, Replace, Search } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
+import { ProofPanel } from "@/features/creation/proof/ProofPanel";
 import { StatsPage } from "@/features/creation/stats/StatsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
@@ -26,6 +27,7 @@ export function CreationProjectsPage() {
   const [wizardOpen, setWizardOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
+  const [proofOpen, setProofOpen] = useState(false);
   const [view, setView] = useState<"writing" | "cards" | "history" | "stats">("writing");
 
   useEffect(() => {
@@ -128,6 +130,10 @@ export function CreationProjectsPage() {
                   <Replace size={16} />
                   查找替换
                 </Button>
+                <Button onClick={() => setProofOpen(true)}>
+                  <FileWarning size={16} />
+                  校对
+                </Button>
                 <Button onClick={() => void handleExport()}>
                   <Download size={16} />
                   导出成稿
@@ -228,6 +234,12 @@ export function CreationProjectsPage() {
           chapterId={selectedChapter?.id}
           sceneId={selectedScene?.id}
           onClose={() => setReplaceOpen(false)}
+        />
+      )}
+      {proofOpen && selected && (
+        <ProofPanel
+          projectId={selected.id}
+          onClose={() => setProofOpen(false)}
         />
       )}
     </div>

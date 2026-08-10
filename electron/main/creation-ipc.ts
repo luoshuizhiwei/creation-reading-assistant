@@ -30,7 +30,9 @@ import type {
   SnapshotListQuery,
   StructureCommand,
   TrashItem,
-  UpdateSceneBodyInput
+  UpdateSceneBodyInput,
+  ProofQuery,
+  ProofView
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
@@ -170,6 +172,10 @@ export function registerCreationIpc(coordinator: CreationCoordinator): void {
 
   ipcMain.handle("creation:sessionDelete", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as SessionReportCommand))
+  );
+
+  ipcMain.handle("creation:proofQuery", (_event, query: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.read(query as ProofQuery) as Promise<ProofView>)
   );
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {

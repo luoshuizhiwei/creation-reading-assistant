@@ -31,7 +31,9 @@ import type {
   SnapshotListQuery,
   StructureCommand,
   TrashItem,
-  UpdateSceneBodyInput
+  UpdateSceneBodyInput,
+  ProofQuery,
+  ProofView
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -141,4 +143,8 @@ export async function sessionReport(command: SessionReportCommand): Promise<Sess
 
 export async function sessionDelete(command: SessionDeleteCommand): Promise<SessionReportResult> {
   return getCreationApi().sessionDelete(command);
+}
+
+export async function proofQuery(query: ProofQuery): Promise<ProofView> {
+  return getCreationApi().proofQuery(query);
 }

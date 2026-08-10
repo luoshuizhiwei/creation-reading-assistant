@@ -862,6 +862,57 @@ export interface SessionListQuery {
   limit?: number;
 }
 
+// ---------------------------------------------------------------------------
+// 切片 10：本地校对
+// ---------------------------------------------------------------------------
+
+export type ProofRule =
+  | "repeatedChar"
+  | "unbalancedPunctuation"
+  | "abnormalSpacing"
+  | "longParagraph"
+  | "bannedWord";
+
+export interface ProofIssue {
+  sceneId: string;
+  chapterId: string;
+  chapterTitle: string;
+  sceneTitle: string;
+  rule: ProofRule;
+  /** 人类可读说明。 */
+  message: string;
+  /** 上下文片段（可能为 null）。 */
+  snippet: string | null;
+  /** 该场景该规则下的问题数。 */
+  count: number;
+}
+
+export interface ProofQuery {
+  kind: "proof.query";
+  projectId: string;
+  /** 限定单个场景；缺省检查项目全部场景。 */
+  sceneId?: string;
+  /** 启用的规则；缺省全部启用。 */
+  rules?: ProofRule[];
+  /** 用户自定义禁用词（子串匹配）。 */
+  bannedWords?: string[];
+  /** 超长段落阈值（字符数），默认 500，范围 100..5000。 */
+  maxParagraphChars?: number;
+  /** 问题数上限（场景×规则聚合后），默认 200，最大 2000。 */
+  limit?: number;
+}
+
+export interface ProofView {
+  projectId: string;
+  issues: ProofIssue[];
+  /** 检查的场景数。 */
+  scannedScenes: number;
+  /** 命中问题的场景数。 */
+  affectedScenes: number;
+  /** 问题总数（等于 issues 条数）。 */
+  total: number;
+}
+
 export interface SessionReportResult {
   commandType: "session.report" | "session.delete";
   sequence: number;

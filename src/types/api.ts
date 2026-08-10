@@ -58,7 +58,9 @@ import type {
   StructureCommand,
   TrashItem,
   TrashListQuery,
-  UpdateSceneBodyInput
+  UpdateSceneBodyInput,
+  ProofQuery,
+  ProofView
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -141,6 +143,7 @@ export interface DesktopApi {
     sessionList: (query: SessionListQuery) => Promise<SessionEntry[]>;
     sessionReport: (command: SessionReportCommand) => Promise<SessionReportResult>;
     sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
+    proofQuery: (query: ProofQuery) => Promise<ProofView>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

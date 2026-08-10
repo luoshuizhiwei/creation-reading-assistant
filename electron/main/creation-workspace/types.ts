@@ -95,7 +95,11 @@ import type {
   SessionReportResult,
   SessionEntry,
   SessionListQuery,
-  StatsViewQuery
+  StatsViewQuery,
+  ProofIssue,
+  ProofQuery,
+  ProofRule,
+  ProofView
 } from "../../../src/types/creation";
 
 export type {
@@ -195,7 +199,11 @@ export type {
   SessionListQuery,
   SessionReportCommand,
   SessionReportResult,
-  StatsViewQuery
+  StatsViewQuery,
+  ProofIssue,
+  ProofQuery,
+  ProofRule,
+  ProofView
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -269,7 +277,8 @@ export type CreationReadQuery =
   | CreationSearchQuery
   | ReplacePreviewQuery
   | StatsViewQuery
-  | SessionListQuery;
+  | SessionListQuery
+  | ProofQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -288,6 +297,7 @@ export type CreationReadResult =
   | ReplacePreviewView
   | ProjectStatsView
   | SessionEntry[]
+  | ProofView
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -342,6 +352,7 @@ export interface CreationWorkspace {
   read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
   read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
   read(query: SessionListQuery): Promise<SessionEntry[]>;
+  read(query: ProofQuery): Promise<ProofView>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;

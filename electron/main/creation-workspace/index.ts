@@ -102,6 +102,10 @@ import {
   type SessionReportCommand,
   type SessionReportResult,
   type StatsViewQuery,
+  type ProofIssue,
+  type ProofQuery,
+  type ProofRule,
+  type ProofView,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -178,6 +182,23 @@ const DEFAULT_REPLACE_PREVIEW_LIMIT = 200;
 const MAX_REPLACE_PREVIEW_LIMIT = 1000;
 const MAX_REGEX_LENGTH = 200;
 const REGEX_FORBIDDEN_PATTERN = /\(\?[=<!]|\\[1-9]/;
+
+const PROOF_RULES = new Set<ProofRule>([
+  "repeatedChar",
+  "unbalancedPunctuation",
+  "abnormalSpacing",
+  "longParagraph",
+  "bannedWord"
+]);
+const DEFAULT_MAX_PARAGRAPH_CHARS = 500;
+const PROOF_PAIR_PUNCTUATION: Array<[string, string]> = [
+  ["「", "」"],
+  ["『", "』"],
+  ["（", "）"],
+  ["《", "》"],
+  ["【", "】"],
+  ["“", "”"]
+];
 
 const REQUIRED_TABLES = [
   "workspace_meta",
@@ -415,6 +436,167 @@ function countPlainHits(text: string, find: string): number {
     index += find.length;
   }
   return count;
+}
+
+/** 段落文本：把场景正文按块拆成段落（含 sceneBreak 分隔符）。 */
+function sceneParagraphs(bodyJson: string): string[] {
+  let document: CreationDocument;
+  try {
+    document = JSON.parse(bodyJson) as CreationDocument;
+  } catch {
+    return [];
+  }
+  const blocks: string[] = [];
+  for (const block of document.content ?? []) {
+    if (!isRecord(block)) continue;
+    if (block.type === "sceneBreak") {
+      blocks.push("");
+      continue;
+    }
+    if (!Array.isArray(block.content)) continue;
+    const parts: string[] = [];
+    const collect = (nodes: unknown[]): void => {
+      for (const node of nodes) {
+        if (!isRecord(node)) continue;
+        if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
+        else if (Array.isArray(node.content)) collect(node.content);
+      }
+    };
+    collect(block.content);
+    blocks.push(parts.join(""));
+  }
+  return blocks;
+}
+
+/** 连续重复字：同一汉字连续出现 ≥3 次。 */
+function findRepeatedChars(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+  const repeated = /([\p{Script=Han}])\1{2,}/gu;
+  let match: RegExpExecArray | null;
+  while ((match = repeated.exec(text)) !== null) {
+    const radius = 8;
+    const start = Math.max(0, match.index - radius);
+    const end = Math.min(text.length, match.index + match[0].length + radius * 2);
+    out.push({
+      rule: "repeatedChar",
+      message: `连续重复字「${match[0].slice(0, 6)}」`,
+      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+    });
+  }
+}
+
+/** 成对标点：括号/引号开闭数量不等。 */
+function findUnbalancedPunctuation(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+  for (const [open, close] of PROOF_PAIR_PUNCTUATION) {
+    let openCount = 0;
+    let closeCount = 0;
+    let firstIndex = -1;
+    for (let index = 0; index < text.length; index += 1) {
+      const character = text[index]!;
+      if (character === open) {
+        if (firstIndex < 0) firstIndex = index;
+        openCount += 1;
+      } else if (character === close) {
+        if (firstIndex < 0) firstIndex = index;
+        closeCount += 1;
+      }
+    }
+    if (openCount === closeCount) continue;
+    const radius = 8;
+    const start = Math.max(0, firstIndex - radius);
+    const end = Math.min(text.length, firstIndex + radius * 2);
+    out.push({
+      rule: "unbalancedPunctuation",
+      message: `「${open}${close}」不配对（开 ${openCount} 个、闭 ${closeCount} 个）`,
+      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+    });
+  }
+}
+
+/** 异常空格：段首半角空格、连续 2+ 全角空格、半角与全角空格混用。 */
+function findAbnormalSpacing(
+  paragraphs: string[],
+  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
+): void {
+  let leadingHalfWidth = 0;
+  let repeatedFullWidth = 0;
+  let mixedWidth = 0;
+  let mixedSnippet = "";
+  for (const paragraph of paragraphs) {
+    if (/^[ ]/.test(paragraph)) leadingHalfWidth += 1;
+    if (/　{2,}/u.test(paragraph)) repeatedFullWidth += 1;
+    if (/[ ]/.test(paragraph) && /　/.test(paragraph)) {
+      mixedWidth += 1;
+      if (!mixedSnippet) {
+        const index = Math.max(paragraph.indexOf(" "), paragraph.indexOf("　"));
+        mixedSnippet = paragraph.slice(Math.max(0, index - 6), index + 14);
+      }
+    }
+  }
+  if (leadingHalfWidth > 0) {
+    out.push({ rule: "abnormalSpacing", message: `${leadingHalfWidth} 个段落以半角空格开头`, snippet: null });
+  }
+  if (repeatedFullWidth > 0) {
+    out.push({
+      rule: "abnormalSpacing",
+      message: `${repeatedFullWidth} 个段落含连续两个以上全角空格`,
+      snippet: null
+    });
+  }
+  if (mixedWidth > 0) {
+    out.push({
+      rule: "abnormalSpacing",
+      message: `${mixedWidth} 个段落同时出现半角与全角空格`,
+      snippet: mixedSnippet ? `…${mixedSnippet}…` : null
+    });
+  }
+}
+
+/** 超长段落：单段字符数超过阈值。 */
+function findLongParagraphs(
+  paragraphs: string[],
+  maxChars: number,
+  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
+): void {
+  let count = 0;
+  let snippet: string | null = null;
+  for (const paragraph of paragraphs) {
+    if (paragraph.length > maxChars) {
+      count += 1;
+      if (!snippet) snippet = `…${paragraph.slice(0, 60)}…`;
+    }
+  }
+  if (count > 0) {
+    out.push({ rule: "longParagraph", message: `${count} 个段落超过 ${maxChars} 字符`, snippet });
+  }
+}
+
+/** 禁用词：子串命中。 */
+function findBannedWords(
+  text: string,
+  bannedWords: string[],
+  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
+): void {
+  for (const word of bannedWords) {
+    if (!word) continue;
+    let found = false;
+    let firstIndex = -1;
+    for (let index = 0; index < text.length; index += 1) {
+      if (text.startsWith(word, index)) {
+        if (firstIndex < 0) firstIndex = index;
+        found = true;
+        break;
+      }
+    }
+    if (!found) continue;
+    const radius = 8;
+    const start = Math.max(0, firstIndex - radius);
+    const end = Math.min(text.length, firstIndex + word.length + radius * 2);
+    out.push({
+      rule: "bannedWord",
+      message: `命中禁用词「${word}」`,
+      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+    });
+  }
 }
 
 function isConstraintError(error: unknown): boolean {
@@ -1028,6 +1210,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
   async read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
   async read(query: SessionListQuery): Promise<SessionEntry[]>;
+  async read(query: ProofQuery): Promise<ProofView>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1083,6 +1266,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法生成查找替换预览。");
+      }
+    }
+    if (runtimeQuery.kind === "proof.query") {
+      try {
+        return this.runProofQuery(query as ProofQuery);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
       }
     }
     if (runtimeQuery.kind === "stats.view") {
@@ -2157,6 +2348,97 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       netChars: row.net_chars,
       reportedAt: row.reported_at
     }));
+  }
+
+  private runProofQuery(query: ProofQuery): ProofView {
+    const projectId = validateId(query.projectId, "作品");
+    this.requireProject(projectId);
+    const rules = Array.isArray(query.rules) && query.rules.length > 0
+      ? query.rules.filter((rule): rule is ProofRule => PROOF_RULES.has(rule))
+      : [...PROOF_RULES];
+    const bannedWords = Array.isArray(query.bannedWords)
+      ? query.bannedWords
+          .map((word) => (typeof word === "string" ? word.trim() : ""))
+          .filter((word) => word.length > 0)
+      : [];
+    const maxParagraphChars = query.maxParagraphChars === undefined ? DEFAULT_MAX_PARAGRAPH_CHARS : query.maxParagraphChars;
+    if (!Number.isInteger(maxParagraphChars) || maxParagraphChars < 100 || maxParagraphChars > 5000) {
+      throw new CreationWorkspaceError("invalid-input", "超长段落阈值必须为 100..5000 的整数。");
+    }
+    const limit = query.limit === undefined ? 200 : query.limit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 2000) {
+      throw new CreationWorkspaceError("invalid-input", "校对问题上限必须为 1..2000 的整数。");
+    }
+
+    let sql: string;
+    const params: unknown[] = [];
+    if (query.sceneId) {
+      const sceneId = validateId(query.sceneId, "场景");
+      const scene = this.requireScene(sceneId);
+      this.assertSameProject(projectId, scene.project_id, "场景");
+      sql = `
+        SELECT s.id AS scene_id, s.chapter_id, s.title AS scene_title, s.body_json, c.title AS chapter_title
+        FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+        WHERE s.deleted_at IS NULL AND s.id = ?`;
+      params.push(sceneId);
+    } else {
+      sql = `
+        SELECT s.id AS scene_id, s.chapter_id, s.title AS scene_title, s.body_json, c.title AS chapter_title
+        FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+        WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?
+        ORDER BY s.sort_order, s.id`;
+      params.push(projectId);
+    }
+
+    const issues: ProofIssue[] = [];
+    let scannedScenes = 0;
+    const affectedScenes = new Set<string>();
+    for (const row of this.database.prepare(sql).all(...params) as Array<{
+      scene_id: string;
+      chapter_id: string;
+      scene_title: string;
+      body_json: string;
+      chapter_title: string;
+    }>) {
+      scannedScenes += 1;
+      const found: Array<{ rule: ProofRule; message: string; snippet: string | null }> = [];
+      const paragraphs = sceneParagraphs(row.body_json);
+      const plain = paragraphs.join("\n");
+      if (rules.includes("repeatedChar")) findRepeatedChars(plain, found);
+      if (rules.includes("unbalancedPunctuation")) findUnbalancedPunctuation(plain, found);
+      if (rules.includes("abnormalSpacing")) findAbnormalSpacing(paragraphs, found);
+      if (rules.includes("longParagraph")) findLongParagraphs(paragraphs, maxParagraphChars, found);
+      if (rules.includes("bannedWord") && bannedWords.length > 0) findBannedWords(plain, bannedWords, found);
+      if (found.length === 0) continue;
+      affectedScenes.add(row.scene_id);
+      const byRule = new Map<ProofRule, { message: string; snippet: string | null; count: number }>();
+      for (const item of found) {
+        const entry = byRule.get(item.rule) ?? { message: item.message, snippet: item.snippet, count: 0 };
+        entry.count += 1;
+        if (!entry.snippet && item.snippet) entry.snippet = item.snippet;
+        byRule.set(item.rule, entry);
+      }
+      for (const [rule, entry] of byRule) {
+        issues.push({
+          sceneId: row.scene_id,
+          chapterId: row.chapter_id,
+          chapterTitle: row.chapter_title,
+          sceneTitle: row.scene_title,
+          rule,
+          message: entry.count > 1 ? `${entry.message}（共 ${entry.count} 处）` : entry.message,
+          snippet: entry.snippet,
+          count: entry.count
+        });
+      }
+      if (issues.length >= limit) break;
+    }
+    return {
+      projectId,
+      issues,
+      scannedScenes,
+      affectedScenes: affectedScenes.size,
+      total: issues.length
+    };
   }
 
   private runStatsView(projectId: string): ProjectStatsView | null {

@@ -20,6 +20,7 @@ import {
   sessionReport as sessionReportRequest,
   snapshotList,
   statsView as statsViewRequest,
+  proofQuery as proofQueryRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -46,6 +47,8 @@ import type {
   SessionListQuery,
   SessionReportCommand,
   SnapshotListQuery,
+  ProofQuery,
+  ProofView,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -334,6 +337,24 @@ export function useCreationActions() {
     [setError]
   );
 
+  const runProof = useCallback(
+    async (query: Omit<ProofQuery, "kind">): Promise<ProofView> => {
+      try {
+        return await proofQueryRequest({ kind: "proof.query", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return {
+          projectId: query.projectId,
+          issues: [],
+          scannedScenes: 0,
+          affectedScenes: 0,
+          total: 0
+        };
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -448,6 +469,7 @@ export function useCreationActions() {
     loadSessions,
     reportSession,
     deleteSession,
+    runProof,
     subscribeProject
   };
 }

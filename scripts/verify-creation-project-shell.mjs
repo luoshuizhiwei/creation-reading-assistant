@@ -50,6 +50,7 @@ try {
     "creation:sessionList",
     "creation:sessionReport",
     "creation:sessionDelete",
+    "creation:proofQuery",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"
