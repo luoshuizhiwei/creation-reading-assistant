@@ -59,6 +59,10 @@ try {
     "creation:importDraftPreview",
     "creation:exportProjectBundle",
     "creation:importProjectBundle",
+    "creation:annotationList",
+    "creation:annotationCreate",
+    "creation:annotationUpdate",
+    "creation:annotationDelete",
     "creation:watchProject",
     "creation:unwatchProject",
     "creation:event"

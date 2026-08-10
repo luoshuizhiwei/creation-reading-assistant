@@ -114,7 +114,14 @@ import type {
   ProjectBundleData,
   ProjectBundleExportQuery,
   ProjectBundleImportCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  Annotation,
+  AnnotationAnchor,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "../../../src/types/creation";
 
 export type {
@@ -233,7 +240,14 @@ export type {
   ProjectBundleData,
   ProjectBundleExportQuery,
   ProjectBundleImportCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  Annotation,
+  AnnotationAnchor,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -264,6 +278,7 @@ export interface CreationIntegrityReport {
     snapshots: number;
     sessions: number;
     inbox: number;
+    annotations: number;
   };
   schema: IntegritySection;
   relations: IntegritySection;
@@ -312,7 +327,8 @@ export type CreationReadQuery =
   | ProofQuery
   | InboxListQuery
   | InboxReadQuery
-  | ProjectBundleExportQuery;
+  | ProjectBundleExportQuery
+  | AnnotationListQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -335,6 +351,7 @@ export type CreationReadResult =
   | InboxItem[]
   | InboxItem
   | ProjectBundleData
+  | Annotation[]
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -352,7 +369,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -363,7 +380,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -393,6 +410,7 @@ export interface CreationWorkspace {
   read(query: InboxListQuery): Promise<InboxItem[]>;
   read(query: InboxReadQuery): Promise<InboxItem | null>;
   read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
+  read(query: AnnotationListQuery): Promise<Annotation[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -404,6 +422,7 @@ export interface CreationWorkspace {
   transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
+  transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

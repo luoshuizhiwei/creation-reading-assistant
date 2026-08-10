@@ -150,7 +150,8 @@ async function run(): Promise<void> {
       resources: 0,
       snapshots: 1,
       sessions: 0,
-      inbox: 0
+      inbox: 0,
+      annotations: 0
     });
     assert.equal(checkEvents, 0);
     unwatchCheck();

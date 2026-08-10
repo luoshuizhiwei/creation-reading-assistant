@@ -70,7 +70,13 @@ import type {
   LegacyMigrationStatus,
   DraftImportPreview,
   ProjectImportDraftCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  Annotation,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -157,6 +163,10 @@ export interface DesktopApi {
     importDraftPreview: () => Promise<DraftImportPreview | null>;
     exportProjectBundle: (projectId: string) => Promise<{ canceled: boolean; directory: string | null }>;
     importProjectBundle: () => Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }>;
+    annotationList: (query: AnnotationListQuery) => Promise<Annotation[]>;
+    annotationCreate: (command: AnnotationCreateCommand) => Promise<AnnotationResult>;
+    annotationUpdate: (command: AnnotationUpdateCommand) => Promise<AnnotationResult>;
+    annotationDelete: (command: AnnotationDeleteCommand) => Promise<AnnotationResult>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;

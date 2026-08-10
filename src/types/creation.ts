@@ -830,6 +830,78 @@ export interface ProjectBundleImportResult {
 }
 
 // ---------------------------------------------------------------------------
+// 切片 7 补：批注与引用（§5.7）
+// ---------------------------------------------------------------------------
+
+/** 批注锚点：段落索引 + 段内文本偏移（编辑后可能失效，进入待重新定位）。 */
+export interface AnnotationAnchor {
+  /** 场景正文中的块索引（text 所在块）。 */
+  blockIndex: number;
+  /** 块内文本起始偏移。 */
+  textOffset: number;
+  /** 锚定文本长度。 */
+  textLength: number;
+  /** 创建时锚定文本快照（校验内容是否仍一致）。 */
+  text?: string;
+}
+
+export interface Annotation {
+  id: string;
+  projectId: string;
+  sceneId: string;
+  cardId: string | null;
+  /** 锚点；编辑导致失效时 anchorInvalid=true（不静默删除）。 */
+  anchor: AnnotationAnchor;
+  anchorInvalid: boolean;
+  note: string;
+  status: "open" | "resolved";
+  /** 锚定文本当前内容（失效时可能为空）。 */
+  anchoredText: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface AnnotationListQuery {
+  kind: "annotation.list";
+  projectId: string;
+  sceneId?: string;
+  /** 返回上限，默认 200，最大 2000。 */
+  limit?: number;
+}
+
+export interface AnnotationCreateCommand {
+  type: "annotation.create";
+  projectId: string;
+  sceneId: string;
+  cardId?: string;
+  anchor: AnnotationAnchor;
+  note: string;
+  status?: "open" | "resolved";
+}
+
+export interface AnnotationUpdateCommand {
+  type: "annotation.update";
+  annotationId: string;
+  baseRevision: number;
+  note?: string;
+  status?: "open" | "resolved";
+  cardId?: string | null;
+}
+
+export interface AnnotationDeleteCommand {
+  type: "annotation.delete";
+  annotationId: string;
+}
+
+export interface AnnotationResult {
+  commandType: "annotation.create" | "annotation.update" | "annotation.delete";
+  sequence: number;
+  annotationId: string;
+  revision: number;
+  updatedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // 切片 10：搜索与查找替换
 // ---------------------------------------------------------------------------
 

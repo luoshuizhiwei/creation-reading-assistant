@@ -29,6 +29,10 @@ import {
   importDraftPreview as importDraftPreviewRequest,
   exportProjectBundle as exportProjectBundleRequest,
   importProjectBundle as importProjectBundleRequest,
+  annotationList as annotationListRequest,
+  annotationCreate as annotationCreateRequest,
+  annotationUpdate as annotationUpdateRequest,
+  annotationDelete as annotationDeleteRequest,
   trashList,
   updateSceneBody,
   watchProject
@@ -66,6 +70,11 @@ import type {
   DraftImportPreview,
   ProjectImportDraftCommand,
   ProjectBundleImportResult,
+  Annotation,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationUpdateCommand,
   StructureCommand,
   TrashEntityKind
 } from "@/types/creation";
@@ -458,6 +467,57 @@ export function useCreationActions() {
     }
   }, [setError]);
 
+  const loadAnnotations = useCallback(
+    async (query: Omit<AnnotationListQuery, "kind">): Promise<Annotation[]> => {
+      try {
+        return await annotationListRequest({ kind: "annotation.list", ...query });
+      } catch (error) {
+        setError(messageFromError(error));
+        return [];
+      }
+    },
+    [setError]
+  );
+
+  const createAnnotation = useCallback(
+    async (command: Omit<AnnotationCreateCommand, "type">): Promise<boolean> => {
+      try {
+        await annotationCreateRequest({ type: "annotation.create", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const updateAnnotation = useCallback(
+    async (command: Omit<AnnotationUpdateCommand, "type">): Promise<boolean> => {
+      try {
+        await annotationUpdateRequest({ type: "annotation.update", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const deleteAnnotation = useCallback(
+    async (command: Omit<AnnotationDeleteCommand, "type">): Promise<boolean> => {
+      try {
+        await annotationDeleteRequest({ type: "annotation.delete", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
   const loadScene = useCallback(
     async (sceneId: string) => {
       try {
@@ -581,6 +641,10 @@ export function useCreationActions() {
     previewDraftImport,
     exportBundle,
     importBundle,
+    loadAnnotations,
+    createAnnotation,
+    updateAnnotation,
+    deleteAnnotation,
     subscribeProject
   };
 }

@@ -121,6 +121,13 @@ import {
   type ProjectBundleExportQuery,
   type ProjectBundleImportCommand,
   type ProjectBundleImportResult,
+  type Annotation,
+  type AnnotationAnchor,
+  type AnnotationCreateCommand,
+  type AnnotationDeleteCommand,
+  type AnnotationListQuery,
+  type AnnotationResult,
+  type AnnotationUpdateCommand,
   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
@@ -128,7 +135,7 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 
-const SCHEMA_VERSION = 6;
+const SCHEMA_VERSION = 7;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -230,6 +237,7 @@ const REQUIRED_TABLES = [
   "change_log",
   "writing_sessions",
   "inbox_items",
+  "annotations",
   "scenes_fts"
 ] as const;
 
@@ -246,7 +254,9 @@ const REQUIRED_INDEXES = [
   "idx_resources_project",
   "idx_snapshots_project_created",
   "idx_writing_sessions_project_started",
-  "idx_inbox_items_updated"
+  "idx_inbox_items_updated",
+  "idx_annotations_scene",
+  "idx_annotations_project"
 ] as const;
 
 function createSection(issues: Array<{ code: string; message: string }>) {
@@ -338,6 +348,37 @@ function parseJsonArray(json: string): string[] {
   } catch {
     return [];
   }
+}
+
+/** 解析批注锚点对应的当前文本；锚点越界或锚定文本已变化时标记失效（不静默删除）。 */
+function resolveAnnotationAnchor(bodyJson: string, anchor: AnnotationAnchor): { anchoredText: string; anchorInvalid: boolean } {
+  if (!bodyJson) return { anchoredText: "", anchorInvalid: true };
+  let document: CreationDocument;
+  try {
+    document = JSON.parse(bodyJson) as CreationDocument;
+  } catch {
+    return { anchoredText: "", anchorInvalid: true };
+  }
+  const block = document.content?.[anchor.blockIndex];
+  if (!isRecord(block) || !Array.isArray(block.content)) return { anchoredText: "", anchorInvalid: true };
+  const parts: string[] = [];
+  const collect = (nodes: unknown[]): void => {
+    for (const node of nodes) {
+      if (!isRecord(node)) continue;
+      if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
+      else if (Array.isArray(node.content)) collect(node.content);
+    }
+  };
+  collect(block.content);
+  const text = parts.join("");
+  if (anchor.textOffset < 0 || anchor.textOffset + anchor.textLength > text.length) {
+    return { anchoredText: "", anchorInvalid: true };
+  }
+  const anchoredText = text.slice(anchor.textOffset, anchor.textOffset + anchor.textLength);
+  if (anchor.text !== undefined && anchor.text !== anchoredText) {
+    return { anchoredText: "", anchorInvalid: true };
+  }
+  return { anchoredText, anchorInvalid: false };
 }
 
 /** 卡片/字段/标签 JSON 的纯文本值（用于搜索上下文片段）。 */
@@ -969,6 +1010,22 @@ function initializeSchema(database: Database): void {
     );
     CREATE INDEX IF NOT EXISTS idx_inbox_items_updated ON inbox_items(updated_at);
 
+    CREATE TABLE IF NOT EXISTS annotations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+      card_id TEXT REFERENCES cards(id) ON DELETE SET NULL,
+      anchor_json TEXT NOT NULL,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_annotations_scene ON annotations(scene_id);
+    CREATE INDEX IF NOT EXISTS idx_annotations_project ON annotations(project_id);
+
     CREATE VIRTUAL TABLE IF NOT EXISTS scenes_fts USING fts5(
       title,
       body_json,
@@ -1167,6 +1224,29 @@ function migrateSchemaV5ToV6(database: Database): void {
   `);
 }
 
+function migrateSchemaV6ToV7(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS annotations (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      scene_id TEXT NOT NULL REFERENCES scenes(id) ON DELETE CASCADE,
+      card_id TEXT REFERENCES cards(id) ON DELETE SET NULL,
+      anchor_json TEXT NOT NULL,
+      note TEXT,
+      status TEXT NOT NULL DEFAULT 'open',
+      revision INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      deleted_at TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_annotations_scene ON annotations(scene_id);
+    CREATE INDEX IF NOT EXISTS idx_annotations_project ON annotations(project_id);
+    PRAGMA user_version = 7;
+    COMMIT;
+  `);
+}
+
 function defaultProjectSetup(): CreationProjectSetup {
   return {
     template: "blank",
@@ -1304,6 +1384,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: InboxListQuery): Promise<InboxItem[]>;
   async read(query: InboxReadQuery): Promise<InboxItem | null>;
   async read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
+  async read(query: AnnotationListQuery): Promise<Annotation[]>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1367,6 +1448,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
+      }
+    }
+    if (runtimeQuery.kind === "annotation.list") {
+      try {
+        return this.runAnnotationList(query as AnnotationListQuery);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取批注。");
       }
     }
     if (runtimeQuery.kind === "project.bundle.export") {
@@ -2797,6 +2886,221 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runAnnotationList(query: AnnotationListQuery): Annotation[] {
+    const projectId = validateId(query.projectId, "作品");
+    this.requireProject(projectId);
+    const limit = query.limit === undefined ? 200 : query.limit;
+    if (!Number.isInteger(limit) || limit < 1 || limit > 2000) {
+      throw new CreationWorkspaceError("invalid-input", "批注返回上限必须为 1..2000 的整数。");
+    }
+    const params: unknown[] = [projectId];
+    let sql = "SELECT id, scene_id, card_id, anchor_json, note, status, created_at, updated_at FROM annotations WHERE project_id = ? AND deleted_at IS NULL";
+    if (query.sceneId) {
+      sql += " AND scene_id = ?";
+      params.push(validateId(query.sceneId, "场景"));
+    }
+    sql += " ORDER BY updated_at DESC, id DESC LIMIT ?";
+    params.push(limit);
+    const rows = this.database.prepare(sql).all(...params) as Array<{
+      id: string;
+      scene_id: string;
+      card_id: string | null;
+      anchor_json: string;
+      note: string;
+      status: string;
+      created_at: string;
+      updated_at: string;
+    }>;
+    const sceneBodies = new Map<string, string>();
+    return rows.map((row) => {
+      let anchor: AnnotationAnchor;
+      try {
+        anchor = JSON.parse(row.anchor_json) as AnnotationAnchor;
+      } catch {
+        anchor = { blockIndex: -1, textOffset: 0, textLength: 0 };
+      }
+      let bodyJson = sceneBodies.get(row.scene_id);
+      if (bodyJson === undefined) {
+        bodyJson =
+          (this.database
+            .prepare("SELECT body_json FROM scenes WHERE id = ? AND deleted_at IS NULL")
+            .get(row.scene_id) as { body_json: string } | undefined)?.body_json ?? "";
+        sceneBodies.set(row.scene_id, bodyJson);
+      }
+      const { anchoredText, anchorInvalid } = resolveAnnotationAnchor(bodyJson, anchor);
+      return {
+        id: row.id,
+        projectId,
+        sceneId: row.scene_id,
+        cardId: row.card_id,
+        anchor,
+        anchorInvalid,
+        note: row.note,
+        status: row.status === "resolved" ? "resolved" : "open",
+        anchoredText,
+        createdAt: row.created_at,
+        updatedAt: row.updated_at
+      };
+    });
+  }
+
+  private runAnnotationCreate(command: AnnotationCreateCommand): AnnotationResult {
+    const projectId = validateId(command.projectId, "作品");
+    const sceneId = validateId(command.sceneId, "场景");
+    const note = typeof command.note === "string" ? command.note : "";
+    if (note.length > 2000) throw new CreationWorkspaceError("invalid-input", "批注内容不能超过 2000 个字符。");
+    const cardId = typeof command.cardId === "string" && command.cardId.trim() ? command.cardId.trim() : undefined;
+    const anchor = command.anchor as unknown as AnnotationAnchor | null;
+    if (
+      !anchor ||
+      typeof anchor.blockIndex !== "number" ||
+      !Number.isInteger(anchor.blockIndex) ||
+      anchor.blockIndex < 0 ||
+      typeof anchor.textOffset !== "number" ||
+      anchor.textOffset < 0 ||
+      typeof anchor.textLength !== "number" ||
+      anchor.textLength < 1
+    ) {
+      throw new CreationWorkspaceError("invalid-input", "批注锚点无效。");
+    }
+    const status = command.status === "resolved" ? "resolved" : "open";
+    const annotationId = `annotation-${randomUUID()}`;
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const scene = this.database
+        .prepare("SELECT c.project_id, s.body_json FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE s.id = ? AND s.deleted_at IS NULL")
+        .get(sceneId) as { project_id: string; body_json: string } | undefined;
+      if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在。");
+      if (scene.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "场景不属于该作品。");
+      if (cardId) {
+        const card = this.database
+          .prepare("SELECT project_id FROM cards WHERE id = ? AND deleted_at IS NULL")
+          .get(cardId) as { project_id: string } | undefined;
+        if (!card) throw new CreationWorkspaceError("not-found", "关联卡片不存在。");
+        if (card.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
+      }
+      const anchored = resolveAnnotationAnchor(scene.body_json, anchor);
+      if (anchored.anchorInvalid) {
+        throw new CreationWorkspaceError("invalid-input", "批注锚点未命中正文文本。");
+      }
+      const storedAnchor: AnnotationAnchor = { ...anchor, text: anchored.anchoredText };
+      this.database
+        .prepare("INSERT INTO annotations(id, project_id, scene_id, card_id, anchor_json, note, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)")
+        .run(annotationId, projectId, sceneId, cardId ?? null, JSON.stringify(storedAnchor), note, status, timestamp, timestamp);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(projectId, "annotation.create", JSON.stringify([{ entity: "annotation", id: annotationId, action: "created", revision: 1 }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId,
+        commandType: "annotation.create",
+        changes: [{ entity: "annotation", id: annotationId, action: "created", revision: 1 }]
+      });
+      return { commandType: "annotation.create", sequence: Number(logged.lastInsertRowid), annotationId, revision: 1, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法创建批注。");
+    }
+  }
+
+  private runAnnotationUpdate(command: AnnotationUpdateCommand): AnnotationResult {
+    const annotationId = validateId(command.annotationId, "批注");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = this.database
+        .prepare("SELECT project_id, revision FROM annotations WHERE id = ? AND deleted_at IS NULL")
+        .get(annotationId) as { project_id: string; revision: number } | undefined;
+      if (!current) throw new CreationWorkspaceError("not-found", "批注不存在。");
+      if (current.revision !== baseRevision) throw new CreationWorkspaceError("revision-mismatch", "批注已被其他修改更新。");
+      const sets: string[] = [];
+      const params: unknown[] = [];
+      if (command.note !== undefined) {
+        if (command.note.length > 2000) throw new CreationWorkspaceError("invalid-input", "批注内容不能超过 2000 个字符。");
+        sets.push("note = ?");
+        params.push(command.note);
+      }
+      if (command.status !== undefined) {
+        if (command.status !== "open" && command.status !== "resolved") {
+          throw new CreationWorkspaceError("invalid-input", "批注状态无效。");
+        }
+        sets.push("status = ?");
+        params.push(command.status);
+      }
+      if (command.cardId !== undefined) {
+        if (command.cardId !== null) {
+          const card = this.database
+            .prepare("SELECT project_id FROM cards WHERE id = ? AND deleted_at IS NULL")
+            .get(command.cardId) as { project_id: string } | undefined;
+          if (!card) throw new CreationWorkspaceError("not-found", "关联卡片不存在。");
+          if (card.project_id !== current.project_id) throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
+        }
+        sets.push("card_id = ?");
+        params.push(command.cardId);
+      }
+      if (sets.length === 0) throw new CreationWorkspaceError("invalid-input", "没有要更新的字段。");
+      const revision = current.revision + 1;
+      sets.push("revision = ?");
+      params.push(revision);
+      sets.push("updated_at = ?");
+      params.push(timestamp);
+      params.push(annotationId);
+      this.database.prepare(`UPDATE annotations SET ${sets.join(", ")} WHERE id = ?`).run(...params);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(current.project_id, "annotation.update", JSON.stringify([{ entity: "annotation", id: annotationId, action: "updated", revision }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId: current.project_id,
+        commandType: "annotation.update",
+        changes: [{ entity: "annotation", id: annotationId, action: "updated", revision }]
+      });
+      return { commandType: "annotation.update", sequence: Number(logged.lastInsertRowid), annotationId, revision, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法更新批注。");
+    }
+  }
+
+  private runAnnotationDelete(command: AnnotationDeleteCommand): AnnotationResult {
+    const annotationId = validateId(command.annotationId, "批注");
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = this.database
+        .prepare("SELECT project_id, revision FROM annotations WHERE id = ? AND deleted_at IS NULL")
+        .get(annotationId) as { project_id: string; revision: number } | undefined;
+      if (!current) throw new CreationWorkspaceError("not-found", "批注不存在。");
+      this.database.prepare("UPDATE annotations SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?").run(timestamp, timestamp, annotationId);
+      this.database.exec("COMMIT");
+      return { commandType: "annotation.delete", sequence: 0, annotationId, revision: current.revision + 1, updatedAt: timestamp };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法删除批注。");
+    }
+  }
+
   private runStatsView(projectId: string): ProjectStatsView | null {
     this.requireProject(projectId);
 
@@ -3131,6 +3435,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   async transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   async transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
+  async transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -3171,6 +3476,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "project.bundle.import") {
       return this.importProjectBundle(command as ProjectBundleImportCommand);
+    }
+    if (command.type === "annotation.create") {
+      return this.runAnnotationCreate(command as AnnotationCreateCommand);
+    }
+    if (command.type === "annotation.update") {
+      return this.runAnnotationUpdate(command as AnnotationUpdateCommand);
+    }
+    if (command.type === "annotation.delete") {
+      return this.runAnnotationDelete(command as AnnotationDeleteCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -5318,7 +5632,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         resources: count("resources"),
         snapshots: count("snapshots"),
         sessions: count("writing_sessions"),
-        inbox: count("inbox_items")
+        inbox: count("inbox_items"),
+        annotations: count("annotations")
       },
       schema,
       relations,
@@ -5383,19 +5698,26 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
+      migrateSchemaV6ToV7(database);
     } else if (existingVersion === 2) {
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
+      migrateSchemaV6ToV7(database);
     } else if (existingVersion === 3) {
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
+      migrateSchemaV6ToV7(database);
     } else if (existingVersion === 4) {
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
-    } else if (existingVersion === 5) migrateSchemaV5ToV6(database);
+      migrateSchemaV6ToV7(database);
+    } else if (existingVersion === 5) {
+      migrateSchemaV5ToV6(database);
+      migrateSchemaV6ToV7(database);
+    } else if (existingVersion === 6) migrateSchemaV6ToV7(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

@@ -4828,3 +4828,131 @@ button:disabled {
 .migration-error-inline {
   color: #c0392b;
 }
+
+/* ---------------------------------------------------------------------------
+ * 创作工作台：批注与引用（F06）
+ * ------------------------------------------------------------------------- */
+.writing-annotations {
+  display: grid;
+  gap: 8px;
+}
+
+.writing-annotations ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 6px;
+}
+
+.writing-annotation {
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--paper-panel);
+  display: grid;
+  gap: 6px;
+}
+
+.writing-annotation.invalid {
+  border-color: #c0392b;
+}
+
+.writing-annotation.resolved {
+  opacity: 0.65;
+}
+
+.writing-annotation-main {
+  display: grid;
+  gap: 3px;
+}
+
+.writing-annotation-relocate {
+  border-radius: 999px;
+  background: color-mix(in srgb, #c0392b 12%, var(--paper-panel));
+  color: #c0392b;
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+  padding: 1px 8px;
+  justify-self: start;
+}
+
+.writing-annotation-text {
+  color: var(--copper);
+  font-size: 12px;
+  font-weight: 650;
+  border-left: 3px solid color-mix(in srgb, var(--copper) 45%, var(--paper-line));
+  padding-left: 7px;
+}
+
+.writing-annotation-note {
+  color: var(--paper-ink);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.writing-annotation-meta {
+  color: var(--paper-muted);
+  font-size: 11px;
+}
+
+.writing-annotation-actions {
+  display: inline-flex;
+  gap: 5px;
+}
+
+.writing-annotation-actions button {
+  border: 1px solid var(--paper-line);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 11px;
+  padding: 3px 8px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.writing-annotation-actions button:hover {
+  color: var(--copper);
+  border-color: var(--copper);
+}
+
+.writing-annotation-actions button.confirming {
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+.writing-annotation-empty {
+  margin: 0;
+  color: var(--paper-muted);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.writing-annotation-form {
+  display: grid;
+  gap: 6px;
+}
+
+.writing-annotation-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 1px solid var(--copper);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--copper) 10%, var(--paper-panel));
+  color: var(--copper);
+  font-size: 12px;
+  font-weight: 650;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.writing-annotation-add:disabled {
+  opacity: 0.5;
+  cursor: default;
+}

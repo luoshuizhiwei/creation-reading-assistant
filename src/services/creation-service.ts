@@ -43,7 +43,13 @@ import type {
   LegacyMigrationStatus,
   DraftImportPreview,
   ProjectImportDraftCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  Annotation,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -171,6 +177,22 @@ export async function exportProjectBundle(
 
 export async function importProjectBundle(): Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }> {
   return getCreationApi().importProjectBundle();
+}
+
+export async function annotationList(query: AnnotationListQuery): Promise<Annotation[]> {
+  return getCreationApi().annotationList(query);
+}
+
+export async function annotationCreate(command: AnnotationCreateCommand): Promise<AnnotationResult> {
+  return getCreationApi().annotationCreate(command);
+}
+
+export async function annotationUpdate(command: AnnotationUpdateCommand): Promise<AnnotationResult> {
+  return getCreationApi().annotationUpdate(command);
+}
+
+export async function annotationDelete(command: AnnotationDeleteCommand): Promise<AnnotationResult> {
+  return getCreationApi().annotationDelete(command);
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {

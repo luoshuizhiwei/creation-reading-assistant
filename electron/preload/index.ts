@@ -73,7 +73,13 @@ import type {
   LegacyMigrationStatus,
   DraftImportPreview,
   ProjectImportDraftCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  Annotation,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -167,6 +173,10 @@ const api: DesktopApi = {
       invoke<{ canceled: boolean; directory: string | null }>("creation:exportProjectBundle", { projectId }),
     importProjectBundle: () =>
       invoke<{ canceled: boolean; result: ProjectBundleImportResult | null }>("creation:importProjectBundle"),
+    annotationList: (query: AnnotationListQuery) => invoke<Annotation[]>("creation:annotationList", query),
+    annotationCreate: (command: AnnotationCreateCommand) => invoke<AnnotationResult>("creation:annotationCreate", command),
+    annotationUpdate: (command: AnnotationUpdateCommand) => invoke<AnnotationResult>("creation:annotationUpdate", command),
+    annotationDelete: (command: AnnotationDeleteCommand) => invoke<AnnotationResult>("creation:annotationDelete", command),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),

@@ -33,7 +33,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const report = await workspace.check();
     assert.equal(report.ok, true);
-    assert.equal(report.schemaVersion, 6);
+    assert.equal(report.schemaVersion, 7);
 
     await scenario("准备项目：写入带汉字/标点/字母的正文", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "统计测试项目" });
@@ -207,7 +207,7 @@ async function run(): Promise<void> {
       workspace = await openCreationWorkspace({ directory });
       const checked = await workspace!.check();
       assert.equal(checked.ok, true);
-      assert.equal(checked.schemaVersion, 6);
+      assert.equal(checked.schemaVersion, 7);
       assert.equal(checked.counts.sessions, 2);
     });
 

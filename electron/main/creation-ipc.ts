@@ -40,7 +40,12 @@ import type {
   InboxUpdateCommand,
   ProjectBundleData,
   ProjectBundleImportCommand,
-  ProjectBundleImportResult
+  ProjectBundleImportResult,
+  AnnotationCreateCommand,
+  AnnotationDeleteCommand,
+  AnnotationListQuery,
+  AnnotationResult,
+  AnnotationUpdateCommand
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
 import type { CreationCoordinator } from "./creation-coordinator";
@@ -217,6 +222,22 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
 
   ipcMain.handle("creation:inboxDelete", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as InboxDeleteCommand))
+  );
+
+  ipcMain.handle("creation:annotationList", (_event, query: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.read(query as AnnotationListQuery) as Promise<unknown>)
+  );
+
+  ipcMain.handle("creation:annotationCreate", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as AnnotationCreateCommand) as Promise<AnnotationResult>)
+  );
+
+  ipcMain.handle("creation:annotationUpdate", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as AnnotationUpdateCommand) as Promise<AnnotationResult>)
+  );
+
+  ipcMain.handle("creation:annotationDelete", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as AnnotationDeleteCommand) as Promise<AnnotationResult>)
   );
 
   ipcMain.handle("creation:importDraftPreview", async (event) => {
