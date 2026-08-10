@@ -142,6 +142,7 @@ async function run(): Promise<void> {
     assert.equal(finalReport.latestSequence, 3);
     assert.deepEqual(finalReport.counts, {
       projects: 2,
+      volumes: 2,
       chapters: 2,
       scenes: 2,
       cards: 0,

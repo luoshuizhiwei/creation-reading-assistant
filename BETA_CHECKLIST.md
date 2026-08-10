@@ -156,6 +156,23 @@ Automated Checks (appended):
 | --- | --- | --- |
 | Creation scene editor guard | `npm run verify:creation-editor` | Passed |
 
+## Creation outline update (slice 6a): 2026-08-10
+
+- Workspace schema upgraded to v3 with an atomic v2→v3 migration: new `volumes` table, `chapters.volume_id / status / numbering_kind / custom_number / deleted_at`, `scenes.planning_json / deleted_at`. Each existing v2 project gets a default volume「正文」and its chapters attach to it; v1 databases migrate through v2→v3 in one open.
+- Added 16 structure commands: `volume.create/rename/reorder/delete`, `chapter.create/rename/reorder/move/delete/setStatus/setNumbering`, `scene.create/rename/reorder/move/delete`. All use stable IDs, `beforeXxxId`-based insertion for reorder, revision-checked renames/status/numbering, and soft delete (deleted_at) with cascade for volume/chapter deletion.
+- `project.create` now also creates the default volume「正文」in the same transaction.
+- Added `project.outline` query: volumes → chapters → scenes tree with derived display numbers (`第N章`/`序章`/`番外`/custom), chapter workflow status, and per-scene non-whitespace word counts.
+- Default chapter workflow changed from `["起草"]` to the spec default `["规划","待写","写作中","初稿","修订","定稿","已发布"]`; `chapter.setStatus` validates against the project's configured workflow.
+- Added guard: `npm run verify:creation-outline` (15 runtime contracts covering structure commands, outline, reorder/move semantics, soft-delete cascade and the v2→v3 migration).
+
+Automated Checks (appended):
+
+| Check | Command | Result |
+| --- | --- | --- |
+| Creation outline guard | `npm run verify:creation-outline` | Passed |
+| Creation workspace guard (re-verified) | `npm run verify:creation-workspace` | Passed |
+| Creation project shell guard (re-verified) | `npm run verify:creation-project-shell` | Passed |
+
 ## Known P2 Issues
 
 - App icon is not configured, so the default Electron icon may be used.

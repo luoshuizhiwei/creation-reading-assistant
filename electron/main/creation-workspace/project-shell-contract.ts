@@ -160,18 +160,22 @@ async function test(name: string, fn: () => Promise<void> | void): Promise<void>
 }
 
 const minimalSetup = { template: "blank" as const, weeklyUpdateDays: [], chapterWorkflow: ["起草"] };
-const defaultSetup = { template: "blank" as const, weeklyUpdateDays: [], chapterWorkflow: ["起草"] };
+const defaultSetup = {
+  template: "blank" as const,
+  weeklyUpdateDays: [],
+  chapterWorkflow: ["规划", "待写", "写作中", "初稿", "修订", "定稿", "已发布"]
+};
 
 async function run(): Promise<void> {
   const base = await mkdtemp(path.join(os.tmpdir(), "creation-project-shell-"));
   try {
-    await test("v1 schema migrates atomically to v2 preserving data", async () => {
+    await test("v1 schema migrates atomically to v3 preserving data", async () => {
       const directory = path.join(base, "migrate-v1");
       await mkdir(directory, { recursive: true });
       createV1Workspace(directory);
       const workspace = await openCreationWorkspace({ directory });
       const report = await workspace.check();
-      assert.equal(report.schemaVersion, 2);
+      assert.equal(report.schemaVersion, 3);
       const list = (await workspace.read({ kind: "projects.list" })) as CreationProjectSummary[];
       assert.equal(list.length, 1);
       assert.equal(list[0].id, "project-v1");
@@ -185,7 +189,7 @@ async function run(): Promise<void> {
       assert.deepEqual(tree?.project.setup, defaultSetup);
       await workspace.close();
       const raw = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(raw.pragma("user_version", { simple: true })), 2);
+      assert.equal(Number(raw.pragma("user_version", { simple: true })), 3);
       const columns = raw.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
       assert.equal(columns.some((column) => column.name === "setup_json"), true);
       raw.close();

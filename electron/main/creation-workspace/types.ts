@@ -1,39 +1,89 @@
 import type {
+  ChapterNumberingKind,
+  ChapterCreateCommand,
+  ChapterDeleteCommand,
+  ChapterMoveCommand,
+  ChapterRenameCommand,
+  ChapterReorderCommand,
+  ChapterSetNumberingCommand,
+  ChapterSetStatusCommand,
   CreationChapter,
   CreationDocument,
   CreationNavigationChapter,
   CreationNavigationScene,
+  CreationOutlineChapter,
+  CreationOutlineScene,
+  CreationOutlineVolume,
   CreationProject,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSetup,
   CreationProjectSummary,
   CreationProjectTemplate,
   CreationProjectTree,
+  CreationStructureResult,
+  CreationVolume,
   CreateProjectInput,
   CreationWorkspaceErrorCode,
   CreationWorkspaceEvent,
+  ReadProjectOutlineQuery,
   SceneBodyView,
+  SceneCreateCommand,
+  SceneDeleteCommand,
+  SceneMoveCommand,
+  SceneRenameCommand,
+  SceneReorderCommand,
+  StructureCommand,
   UpdateSceneBodyInput,
-  UpdateSceneBodyResult
+  UpdateSceneBodyResult,
+  VolumeCreateCommand,
+  VolumeDeleteCommand,
+  VolumeRenameCommand,
+  VolumeReorderCommand
 } from "../../../src/types/creation";
 
 export type {
+  ChapterNumberingKind,
+  ChapterCreateCommand,
+  ChapterDeleteCommand,
+  ChapterMoveCommand,
+  ChapterRenameCommand,
+  ChapterReorderCommand,
+  ChapterSetNumberingCommand,
+  ChapterSetStatusCommand,
   CreationChapter,
   CreationDocument,
   CreationNavigationChapter,
   CreationNavigationScene,
+  CreationOutlineChapter,
+  CreationOutlineScene,
+  CreationOutlineVolume,
   CreationProject,
   CreationProjectNavigation,
+  CreationProjectOutline,
   CreationProjectSetup,
   CreationProjectSummary,
   CreationProjectTemplate,
   CreationProjectTree,
+  CreationStructureResult,
+  CreationVolume,
   CreateProjectInput,
   CreationWorkspaceErrorCode,
   CreationWorkspaceEvent,
+  ReadProjectOutlineQuery,
   SceneBodyView,
+  SceneCreateCommand,
+  SceneDeleteCommand,
+  SceneMoveCommand,
+  SceneRenameCommand,
+  SceneReorderCommand,
+  StructureCommand,
   UpdateSceneBodyInput,
-  UpdateSceneBodyResult
+  UpdateSceneBodyResult,
+  VolumeCreateCommand,
+  VolumeDeleteCommand,
+  VolumeRenameCommand,
+  VolumeReorderCommand
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -55,6 +105,7 @@ export interface CreationIntegrityReport {
   checkedAt: string;
   counts: {
     projects: number;
+    volumes: number;
     chapters: number;
     scenes: number;
     cards: number;
@@ -91,11 +142,13 @@ export interface ListProjectsQuery {
 export type CreationReadQuery =
   | ReadProjectTreeQuery
   | ReadProjectNavigationQuery
+  | ReadProjectOutlineQuery
   | ReadSceneBodyQuery
   | ListProjectsQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
+  | CreationProjectOutline
   | SceneBodyView
   | CreationProjectSummary[]
   | null;
@@ -115,17 +168,18 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
   sequence: number;
   projectId: string;
+  volumeId: string;
   chapterId: string;
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -136,11 +190,13 @@ export type CreationWorkspaceListener = (event: CreationWorkspaceEvent) => void;
 export interface CreationWorkspace {
   read(query: ReadProjectTreeQuery): Promise<CreationProjectTree | null>;
   read(query: ReadProjectNavigationQuery): Promise<CreationProjectNavigation | null>;
+  read(query: ReadProjectOutlineQuery): Promise<CreationProjectOutline | null>;
   read(query: ReadSceneBodyQuery): Promise<SceneBodyView | null>;
   read(query: ListProjectsQuery): Promise<CreationProjectSummary[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
+  transact(command: StructureCommand): Promise<CreationStructureResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;
