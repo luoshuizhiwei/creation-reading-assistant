@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
-import { ArrowLeft, BarChart3, BookOpen, Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, Copy, GripHorizontal, Highlighter, Lightbulb, List, Settings, Trash2, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, Copy, GripHorizontal, Highlighter, List, Quote, Settings, Trash2, X } from "lucide-react";
 import ePub from "epubjs";
 import type { Book, Location as EpubLocation, Rendition } from "epubjs";
 import { Button, EmptyState, ShellPanel } from "@/components/ui";
+import { ExcerptPicker } from "@/features/library/ExcerptPicker";
 import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
-import { createInspiration } from "@/services/inspiration-service";
+import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
+import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
 import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById, getBookmarksByBook, saveBookmark, deleteBookmark as removeBookmarkById } from "@/services/annotation-service";
 import { saveEpubLocation, updateReaderSettings } from "@/services/reader-service";
 import { resetReaderSettings } from "@/services/settings-service";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
-import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
-import type { InspirationItem } from "@/types/inspiration";
-import type { BookmarkItem, HighlightColor, HighlightItem, LibraryBook, ReaderSettings, ReadingLocation } from "@/types/library";
+import type { ExcerptResult, ExcerptTarget, BookmarkItem, HighlightColor, HighlightItem, LibraryBook, ReaderSettings, ReadingLocation } from "@/types/library";
 import { formatDuration, readerShellClass, readerBackgroundColor, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
 
@@ -199,14 +199,10 @@ export function EpubReaderPage() {
   const targetHref = useLibraryStore((state) => state.activeEpubTargetHref);
   const progress = useLibraryStore((state) => (state.activeBook ? state.progress[state.activeBook.id] : undefined));
   const settings = useLibraryStore((state) => state.readerSettings);
-  const activeSession = useLibraryStore((state) => state.activeSession);
-  const activity = useLibraryStore((state) => state.activity);
   const setProgress = useLibraryStore((state) => state.setProgress);
   const setReaderSettings = useLibraryStore((state) => state.setReaderSettings);
-  const setSelectedId = useInspirationStore((state) => state.setSelectedId);
   const setError = useAppStore((state) => state.setError);
   const setScreen = useAppStore((state) => state.setScreen);
-  const setReaderReturn = useAppStore((state) => state.setReaderReturn);
   const showToast = useUIStore((state) => state.showToast);
   const viewerRef = useRef<HTMLDivElement>(null);
   const bookRef = useRef<Book | undefined>(undefined);
@@ -224,10 +220,10 @@ export function EpubReaderPage() {
   const [loading, setLoading] = useState(true);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
-  const [createdInspiration, setCreatedInspiration] = useState<InspirationItem>();
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const [sidePanelTab, setSidePanelTab] = useState<SidePanelTab>("toc");
+  const excerpt = useReaderExcerpt();
   const highlightsRef = useRef<HighlightItem[]>([]);
   const viewerContainerRef = useRef<HTMLDivElement>(null);
   const [selectionToolbar, setSelectionToolbar] = useState<{
@@ -737,7 +733,7 @@ export function EpubReaderPage() {
   if (!activeBook || activeBook.format !== "epub" || !settings || !epubUrl) {
     return (
       <ShellPanel className="h-full border-0">
-        <EmptyState title="没有打开 EPUB" body="从书库中选择一本 EPUB 书籍后，会在这里打开阅读器。" />
+        <EmptyState title="没有打开 EPUB" body="从书库中选择一份 EPUB，即可浏览目录、复制选文或摘录到资料卡。" />
       </ShellPanel>
     );
   }
@@ -765,71 +761,53 @@ export function EpubReaderPage() {
 
   const selectedTextFromEpub = (): string | undefined => {
     const fallback = window.getSelection()?.toString().trim();
-    if (fallback) return fallback.slice(0, 800);
+    if (fallback) return fallback.slice(0, 2000);
     const renditionLike = renditionRef.current as unknown as { getContents?: () => Array<{ window?: Window }> };
     const contents = renditionLike.getContents?.() ?? [];
     for (const content of contents) {
       const selected = content.window?.getSelection?.()?.toString().trim();
-      if (selected) return selected.slice(0, 800);
+      if (selected) return selected.slice(0, 2000);
     }
     return undefined;
   };
 
-  const openCreatedInspiration = () => {
-    if (!createdInspiration) return;
-    setSelectedId(createdInspiration.id);
-    setReaderReturn({
-      bookId: activeBook.id,
-      label: `返回阅读：《${activeBook.title}》`,
-      fromScreen: "reader",
-      progressLabel: `EPUB 阅读进度 ${progressPercent}% 附近`
-    });
-    setScreen("inspiration", { preserveReturn: true });
-  };
-
-  const createReadingInspiration = async () => {
+  const openExcerptFromSelection = useCallback(() => {
+    const text = selectedTextFromEpub();
+    if (!text) {
+      showToast({ tone: "warning", title: "没有选中文字", body: "请先在书中选中一段文字再摘录。" });
+      return;
+    }
     const location = locationRef.current;
-    const excerpt = selectedTextFromEpub();
-    const sourceProgress = location?.progressPercent === undefined ? undefined : location.progressPercent * 100;
-    const item = await createInspiration({
-      title: `阅读灵感：${activeBook.title}`,
-      body: "",
-      type: "note",
-      status: "inbox",
-      tags: ["阅读札记", "EPUB"],
-      platformTags: [],
-      sourceBookId: activeBook.id,
-      sourceLocation: {
-        format: "epub",
-        progressPercent: sourceProgress,
-        href: location?.epub?.href,
-        cfi: location?.epub?.cfi,
-        excerpt,
-        createdFrom: excerpt ? "reader-selection" : "reader-note"
-      },
-      source: {
-        bookId: activeBook.id,
-        bookTitle: activeBook.title,
-        bookAuthor: activeBook.author,
-        format: "epub",
-        chapterTitle: currentTocItem?.label,
-        locationLabel: currentTocItem?.label ? `${currentTocItem.label} · ${progressPercent}% 附近` : `EPUB 阅读进度 ${progressPercent}% 附近`,
-        progressPercent: sourceProgress,
-        excerpt,
-        href: location?.epub?.href,
-        cfi: location?.epub?.cfi,
-        createdFrom: excerpt ? "reader-selection" : "reader-note",
-        createdAt: new Date().toISOString()
+    const ctx: ExcerptBuildContext = {
+      bookId: activeBook.id,
+      bookTitle: activeBook.title,
+      bookAuthor: activeBook.author,
+      format: "epub",
+      chapterTitle: currentTocItem?.label,
+      progressPercent: location?.progressPercent,
+      excerpt: text,
+      href: location?.epub?.href,
+      cfi: location?.epub?.cfi
+    };
+    void excerpt.openPicker(ctx);
+    setSelectionToolbar(null);
+    setShowColorPicker(false);
+  }, [activeBook, currentTocItem?.label, excerpt, showToast]);
+
+  const handleExcerptResult = useCallback(
+    (result: ExcerptResult, target: ExcerptTarget) => {
+      if (result.success) {
+        showToast({
+          tone: "success",
+          title: target.kind === "inbox" ? "已摘录到收件箱" : "已保存为资料卡",
+          body: "选文和来源已保存，可继续阅读。"
+        });
+      } else {
+        showToast({ tone: "error", title: "摘录失败", body: result.error });
       }
-    });
-    useInspirationStore.getState().upsertItem(item);
-    setCreatedInspiration(item);
-    showToast({
-      tone: "success",
-      title: "已记录为灵感",
-      body: excerpt ? "选中的 EPUB 文字已保存到来源摘录，可以继续阅读。" : "已记录当前章节和阅读进度，可以继续阅读。"
-    });
-  };
+    },
+    [showToast]
+  );
 
   return (
     <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
@@ -867,21 +845,11 @@ export function EpubReaderPage() {
         </Button>
         <Button
           variant="quiet"
-          onClick={() => void createReadingInspiration()}
+          onClick={() => void openExcerptFromSelection()}
+          title="摘录到资料"
         >
-          <Lightbulb size={16} />
-          记为灵感
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            await endTracking("leave-reader");
-            setScreen("stats");
-          }}
-        >
-          <BarChart3 size={16} />
-          统计
+          <Quote size={16} />
+          摘录
         </Button>
         <Button
           variant="quiet"
@@ -909,7 +877,7 @@ export function EpubReaderPage() {
           onClick={async () => {
             await flushProgress();
             await endTracking("leave-reader");
-            setScreen("start");
+            setScreen("projects");
           }}
         >
           返回首页
@@ -919,17 +887,6 @@ export function EpubReaderPage() {
       <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div ref={viewerContainerRef} className="relative min-h-0 overflow-hidden" onWheel={handleWheelPageTurn}>
           {loading && <div className="absolute inset-0 z-10 grid place-items-center bg-paper-panel/80 text-sm text-paper-muted">正在打开 EPUB...</div>}
-          {createdInspiration && (
-            <div className="motion-notice absolute left-1/2 top-4 z-20 flex w-[min(760px,calc(100%-32px))] -translate-x-1/2 items-center gap-3 rounded-xl border border-copper/25 bg-paper-panel/95 px-4 py-3 text-sm text-paper-muted shadow-paper">
-              <span className="flex-1">已记录为灵感。你可以继续阅读，也可以现在查看灵感。</span>
-              <Button variant="secondary" onClick={openCreatedInspiration}>
-                查看灵感
-              </Button>
-              <Button variant="quiet" onClick={() => setCreatedInspiration(undefined)}>
-                继续阅读
-              </Button>
-            </div>
-          )}
           {/* Floating selection toolbar */}
           {selectionToolbar?.visible && (
             <div
@@ -994,14 +951,11 @@ export function EpubReaderPage() {
                 <Copy size={14} />
               </button>
               <button
-                className="rounded px-2 py-1 hover:bg-stone-700 text-amber-400"
-                title="记为灵感"
-                onClick={() => {
-                  void createReadingInspiration();
-                  setSelectionToolbar(null);
-                }}
+                className="rounded px-2 py-1 hover:bg-stone-700 text-copper-300"
+                title="摘录到资料"
+                onClick={() => void openExcerptFromSelection()}
               >
-                <Lightbulb size={14} />
+                <Quote size={14} />
               </button>
               <button
                 className="rounded px-2 py-1 hover:bg-stone-700"
@@ -1107,15 +1061,6 @@ export function EpubReaderPage() {
                       </div>
                     )}
                   </div>
-                  {settings.tracking.showReadingStatsCards && (
-                    <div className="mt-5 rounded-xl border border-paper-line bg-paper-panel p-3 text-xs leading-6 text-paper-muted shadow-lift">
-                      <div className="font-semibold text-paper-ink">当前会话</div>
-                      <div>状态：{activity.isTracking ? (activity.isUserActive ? "计时中" : "已暂停") : "未追踪"}</div>
-                      <div>窗口：{activity.isWindowFocused ? "前台" : "后台"}</div>
-                      <div>有效时长：{formatDuration(activeSession?.activeDurationMs)}</div>
-                      <div>位置：{locationRef.current?.epub?.cfi ? "CFI 已记录" : "等待定位"}</div>
-                    </div>
-                  )}
                 </>
               )}
 
@@ -1267,6 +1212,16 @@ export function EpubReaderPage() {
             />
           </aside>
         </div>
+      )}
+      {excerpt.isPickerOpen && excerpt.pendingSource && (
+        <ExcerptPicker
+          source={excerpt.pendingSource}
+          projects={excerpt.projects}
+          isSubmitting={excerpt.isSubmitting}
+          onClose={excerpt.closePicker}
+          onSubmit={excerpt.submit}
+          onResult={handleExcerptResult}
+        />
       )}
     </div>
   );

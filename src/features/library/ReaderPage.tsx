@@ -1,22 +1,22 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BarChart3, BookOpen, Copy, Highlighter, Lightbulb, Settings, X } from "lucide-react";
+import { ArrowLeft, BookOpen, Copy, Highlighter, Quote, Settings, X } from "lucide-react";
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 import { Button, EmptyState, ShellPanel } from "@/components/ui";
 import { EpubReaderPage } from "@/features/library/EpubReaderPage";
+import { ExcerptPicker } from "@/features/library/ExcerptPicker";
 import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
+import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
+import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
 import { useReaderProgress } from "@/hooks/useReaderProgress";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
-import { createInspiration } from "@/services/inspiration-service";
 import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById } from "@/services/annotation-service";
 import { updateReaderSettings } from "@/services/reader-service";
 import { resetReaderSettings } from "@/services/settings-service";
-import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
-import type { InspirationItem } from "@/types/inspiration";
-import type { HighlightColor, HighlightItem } from "@/types/library";
+import type { ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
 import { formatDuration, readerShellClass, readerPaperClass, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
 
@@ -250,23 +250,14 @@ function findCurrentHeadingAnchor(scroller: HTMLDivElement | null): { id: string
   return { id: best.id, title: best.textContent?.trim() ?? "" };
 }
 
-function progressLabel(progressPercent: number): string {
-  return `阅读进度 ${Math.round(progressPercent)}% 附近`;
-}
-
 function TextReaderPage() {
   const activeBook = useLibraryStore((state) => state.activeBook);
   const content = useLibraryStore((state) => state.activeContent);
   const progress = useLibraryStore((state) => (state.activeBook ? state.progress[state.activeBook.id] : undefined));
   const settings = useLibraryStore((state) => state.readerSettings);
-  const activeSession = useLibraryStore((state) => state.activeSession);
-  const activity = useLibraryStore((state) => state.activity);
   const setReaderSettings = useLibraryStore((state) => state.setReaderSettings);
   const setScreen = useAppStore((state) => state.setScreen);
-  const setReaderReturn = useAppStore((state) => state.setReaderReturn);
-  const setSelectedId = useInspirationStore((state) => state.setSelectedId);
   const showToast = useUIStore((state) => state.showToast);
-  const [createdInspiration, setCreatedInspiration] = useState<InspirationItem>();
   const scrollerRef = useRef<HTMLDivElement>(null);
   const [selectionToolbar, setSelectionToolbar] = useState<{
     visible: boolean;
@@ -280,6 +271,7 @@ function TextReaderPage() {
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const highlightsRef = useRef<HighlightItem[]>([]);
   const { scheduleSave, flushProgress, getCurrentLocation } = useReaderProgress(scrollerRef);
+  const excerpt = useReaderExcerpt();
 
   // --- Annotations ---
   const loadAnnotations = useCallback(async (bookId: string) => {
@@ -439,7 +431,7 @@ function TextReaderPage() {
   if (!activeBook || !settings) {
     return (
       <ShellPanel className="h-full border-0">
-        <EmptyState title="没有打开书籍" body="从书库中选择一本 TXT、Markdown 或 EPUB，开始阅读并记录进度。" />
+        <EmptyState title="没有打开资料" body="从书库中选择一份 TXT、Markdown 或 EPUB，即可浏览目录、复制选文或摘录到资料卡。" />
       </ShellPanel>
     );
   }
@@ -463,63 +455,46 @@ function TextReaderPage() {
     handleActivity();
   };
 
-  const openCreatedInspiration = () => {
-    if (!createdInspiration) return;
-    setSelectedId(createdInspiration.id);
-    setReaderReturn({
-      bookId: activeBook.id,
-      label: `返回阅读：《${activeBook.title}》`,
-      fromScreen: "reader",
-      progressLabel: progressLabel(progressPercent)
-    });
-    setScreen("inspiration", { preserveReturn: true });
-  };
-
-  const createReadingInspiration = async () => {
+  const openExcerptFromSelection = useCallback(() => {
+    if (!selectionToolbar?.visible || !selectionToolbar.text.trim()) {
+      showToast({ tone: "warning", title: "没有选中文字", body: "请先在正文中选中一段文字再摘录。" });
+      return;
+    }
     const location = getCurrentLocation();
-    const selectedText = window.getSelection()?.toString().trim().slice(0, 800);
-    const sourceProgress = location?.progressPercent === undefined ? undefined : location.progressPercent * 100;
     const currentHeading = findCurrentHeadingAnchor(scrollerRef.current);
     const headingHref = currentHeading ? `#${currentHeading.id}` : undefined;
-    const item = await createInspiration({
-      title: `阅读灵感：${activeBook.title}`,
-      body: "",
-      type: "note",
-      status: "inbox",
-      tags: ["阅读札记", activeBook.format.toUpperCase()],
-      platformTags: [],
-      sourceBookId: activeBook.id,
-      sourceLocation: {
-        format: activeBook.format,
-        progressPercent: sourceProgress,
-        scrollTop: location?.scroll?.scrollTop,
-        href: headingHref,
-        excerpt: selectedText,
-        createdFrom: selectedText ? "reader-selection" : "reader-note"
-      },
-      source: {
-        bookId: activeBook.id,
-        bookTitle: activeBook.title,
-        bookAuthor: activeBook.author,
-        format: activeBook.format,
-        chapterTitle: currentHeading?.title,
-        locationLabel: progressLabel(sourceProgress ?? progressPercent),
-        progressPercent: sourceProgress,
-        excerpt: selectedText,
-        href: headingHref,
-        scrollTop: location?.scroll?.scrollTop,
-        createdFrom: selectedText ? "reader-selection" : "reader-note",
-        createdAt: new Date().toISOString()
+    const ctx: ExcerptBuildContext = {
+      bookId: activeBook.id,
+      bookTitle: activeBook.title,
+      bookAuthor: activeBook.author,
+      format: activeBook.format,
+      chapterTitle: currentHeading?.title,
+      progressPercent: location?.progressPercent,
+      excerpt: selectionToolbar.text,
+      href: headingHref,
+      charOffset: selectionToolbar.charOffset,
+      charLength: selectionToolbar.charLength,
+      scrollTop: location?.scroll?.scrollTop
+    };
+    void excerpt.openPicker(ctx);
+    setSelectionToolbar(null);
+    setShowColorPicker(false);
+  }, [selectionToolbar, activeBook, getCurrentLocation, excerpt, showToast]);
+
+  const handleExcerptResult = useCallback(
+    (result: ExcerptResult, target: ExcerptTarget) => {
+      if (result.success) {
+        showToast({
+          tone: "success",
+          title: target.kind === "inbox" ? "已摘录到收件箱" : "已保存为资料卡",
+          body: "选文和来源已保存，可继续阅读。"
+        });
+      } else {
+        showToast({ tone: "error", title: "摘录失败", body: result.error });
       }
-    });
-    useInspirationStore.getState().upsertItem(item);
-    setCreatedInspiration(item);
-    showToast({
-      tone: "success",
-      title: "已记录为灵感",
-      body: selectedText ? "选中的文字已保存到来源摘录，可以继续阅读。" : "已记录书名和当前位置，可以继续阅读。"
-    });
-  };
+    },
+    [showToast]
+  );
 
   return (
     <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
@@ -531,21 +506,6 @@ function TextReaderPage() {
             阅读进度：{progressPercent}% · 本书累计 {formatDuration(progress?.totalReadingTimeMs)}
           </div>
         </div>
-        <Button variant="quiet" onClick={() => void createReadingInspiration()}>
-          <Lightbulb size={16} />
-          记为灵感
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            await endTracking("leave-reader");
-            setScreen("stats");
-          }}
-        >
-          <BarChart3 size={16} />
-          统计
-        </Button>
         <Button
           variant="quiet"
           onClick={async () => {
@@ -573,7 +533,7 @@ function TextReaderPage() {
           onClick={async () => {
             await flushProgress();
             await endTracking("leave-reader");
-            setScreen("start");
+            setScreen("projects");
           }}
         >
           返回首页
@@ -621,17 +581,6 @@ function TextReaderPage() {
           }}
           tabIndex={0}
         >
-          {createdInspiration && (
-            <div className="motion-notice sticky top-4 z-10 mx-auto mt-4 flex w-[min(760px,calc(100%-32px))] items-center gap-3 rounded-xl border border-copper/25 bg-paper-panel/95 px-4 py-3 text-sm text-paper-muted shadow-paper">
-              <span className="flex-1">已记录为灵感。你可以继续阅读，也可以现在查看灵感。</span>
-              <Button variant="secondary" onClick={openCreatedInspiration}>
-                查看灵感
-              </Button>
-              <Button variant="quiet" onClick={() => setCreatedInspiration(undefined)}>
-                继续阅读
-              </Button>
-            </div>
-          )}
           {/* Floating selection toolbar */}
           {selectionToolbar?.visible && (
             <div
@@ -689,14 +638,11 @@ function TextReaderPage() {
                 <Copy size={14} />
               </button>
               <button
-                className="rounded px-2 py-1 hover:bg-stone-700 text-amber-400"
-                title="记为灵感"
-                onClick={() => {
-                  void createReadingInspiration();
-                  setSelectionToolbar(null);
-                }}
+                className="rounded px-2 py-1 hover:bg-stone-700 text-copper-300"
+                title="摘录到资料"
+                onClick={() => void openExcerptFromSelection()}
               >
-                <Lightbulb size={14} />
+                <Quote size={14} />
               </button>
               <button
                 className="rounded px-2 py-1 hover:bg-stone-700"
@@ -780,16 +726,18 @@ function TextReaderPage() {
             </div>
           )}
           <ReaderSettingsPanel settings={settings} onChange={(patch) => void handleSettingsChange(patch)} onReset={() => void resetInlineReaderSettings()} />
-          {settings.tracking.showReadingStatsCards && (
-            <div className="mt-5 rounded-xl border border-paper-line bg-paper-panel p-3 text-xs leading-6 text-paper-muted shadow-lift">
-              <div className="font-semibold text-paper-ink">当前会话</div>
-              <div>状态：{activity.isTracking ? (activity.isUserActive ? "计时中" : "已暂停") : "未追踪"}</div>
-              <div>窗口：{activity.isWindowFocused ? "前台" : "后台"}</div>
-              <div>有效时长：{formatDuration(activeSession?.activeDurationMs)}</div>
-            </div>
-          )}
         </ShellPanel>
       </div>
+      {excerpt.isPickerOpen && excerpt.pendingSource && (
+        <ExcerptPicker
+          source={excerpt.pendingSource}
+          projects={excerpt.projects}
+          isSubmitting={excerpt.isSubmitting}
+          onClose={excerpt.closePicker}
+          onSubmit={excerpt.submit}
+          onResult={handleExcerptResult}
+        />
+      )}
     </div>
   );
 }

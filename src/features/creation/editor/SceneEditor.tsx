@@ -16,6 +16,7 @@ import {
   type SceneDocumentSession,
   type SceneDocumentSessionState
 } from "@/features/creation/editor/scene-document-session";
+import { resolveSceneSelection, shouldTriggerMention, type SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { CreationDocument, SceneBodyView, SceneSaveResponse } from "@/types/creation";
 
 const INITIAL_SESSION_STATE: SceneDocumentSessionState = {
@@ -67,13 +68,20 @@ function updateCurrentBlock(editor: Editor, enabled: boolean): void {
 export interface SceneEditorHandle {
   saveNow(): Promise<boolean>;
   isDirty(): boolean;
+  /** 只读选区：从 ProseMirror 真实位置解析；无有效编辑器时返回 null。 */
+  getSelection(): SceneSelection | null;
 }
 
 interface SceneEditorProps {
   view?: SceneBodyView;
   onSave(sceneId: string, baseRevision: number, body: CreationDocument): Promise<SceneSaveResponse | undefined>;
-  onReloadScene(): Promise<SceneBodyView | null | undefined>;
+  /** 重新加载场景正文用于冲突恢复；连续模式下若父级未提供则隐藏「载入最新版本」按钮。 */
+  onReloadScene?(): Promise<SceneBodyView | null | undefined>;
   onStatsChange?(characters: number): void;
+  /** 选区变化（含折叠光标）：父级用它展示批注锚点摘要。 */
+  onSelectionChange?(selection: SceneSelection | null): void;
+  /** 非 IME 状态下输入 @ 触发卡片引用命令；编辑器不把 @ 写入正文。 */
+  onMentionTrigger?(selection: SceneSelection): void;
   focusMode: boolean;
   onToggleFocusMode(): void;
   typewriter: boolean;
@@ -81,7 +89,7 @@ interface SceneEditorProps {
 }
 
 export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(function SceneEditor(
-  { view, onSave, onReloadScene, onStatsChange, focusMode, onToggleFocusMode, typewriter, onToggleTypewriter },
+  { view, onSave, onReloadScene, onStatsChange, onSelectionChange, onMentionTrigger, focusMode, onToggleFocusMode, typewriter, onToggleTypewriter },
   ref
 ) {
   const [sessionState, setSessionState] = useState(INITIAL_SESSION_STATE);
@@ -95,9 +103,16 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   const plainPasteRef = useRef(false);
   const typewriterRef = useRef(typewriter);
   const lineFocusRef = useRef(lineFocus);
+  const composingRef = useRef(false);
+  const onSelectionChangeRef = useRef(onSelectionChange);
+  const onMentionTriggerRef = useRef(onMentionTrigger);
+  const sceneIdRef = useRef<string | undefined>(undefined);
   onSaveRef.current = onSave;
   typewriterRef.current = typewriter;
   lineFocusRef.current = lineFocus;
+  onSelectionChangeRef.current = onSelectionChange;
+  onMentionTriggerRef.current = onMentionTrigger;
+  sceneIdRef.current = view?.sceneId;
 
   if (!sessionRef.current) {
     sessionRef.current = createSceneDocumentSession({
@@ -137,6 +152,17 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           if (modifier && event.shiftKey && event.key.toLowerCase() === "v") plainPasteRef.current = true;
           return false;
         },
+        handleTextInput: (_view, _from, _to, text) => {
+          // IME 组合输入期间按 @ 不触发引用面板，也不破坏组合输入。
+          if (!shouldTriggerMention(text, composingRef.current)) return false;
+          const activeEditor = editorRef.current;
+          if (activeEditor && sceneIdRef.current) {
+            const selection = resolveSceneSelection(activeEditor, sceneIdRef.current);
+            if (selection) onMentionTriggerRef.current?.(selection);
+          }
+          // 阻止 @ 写入正文。
+          return true;
+        },
         handlePaste: (_view, event) => {
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const html = event.clipboardData?.getData("text/html") ?? "";
@@ -164,6 +190,9 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
       },
       onSelectionUpdate: ({ editor: activeEditor }) => {
         updateCurrentBlock(activeEditor, lineFocusRef.current);
+        if (sceneIdRef.current) {
+          onSelectionChangeRef.current?.(resolveSceneSelection(activeEditor, sceneIdRef.current));
+        }
         if (!typewriterRef.current) return;
         const container = activeEditor.view.dom.closest(".writing-scroll");
         if (!(container instanceof HTMLElement)) return;
@@ -192,16 +221,24 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
     session.open({ sceneId: view.sceneId, revision: view.revision, body });
     onStatsChange?.(countCharacters(body));
     updateCurrentBlock(editor, lineFocus);
+    onSelectionChangeRef.current?.(resolveSceneSelection(editor, view.sceneId));
   }, [editor, lineFocus, onStatsChange, session, view]);
 
   useEffect(() => {
     if (!editor) return undefined;
     const dom = editor.view.dom;
-    const start = () => session.compositionStart();
-    const end = () => session.compositionEnd();
+    const start = () => {
+      composingRef.current = true;
+      session.compositionStart();
+    };
+    const end = () => {
+      composingRef.current = false;
+      session.compositionEnd();
+    };
     dom.addEventListener("compositionstart", start);
     dom.addEventListener("compositionend", end);
     return () => {
+      composingRef.current = false;
       dom.removeEventListener("compositionstart", start);
       dom.removeEventListener("compositionend", end);
     };
@@ -223,12 +260,18 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
     ref,
     () => ({
       saveNow: () => session.saveNow(),
-      isDirty: () => session.getState().dirty
+      isDirty: () => session.getState().dirty,
+      getSelection: () => {
+        const activeEditor = editorRef.current;
+        if (!activeEditor || !sceneIdRef.current) return null;
+        return resolveSceneSelection(activeEditor, sceneIdRef.current);
+      }
     }),
     [session]
   );
 
   const reloadLatest = useCallback(async () => {
+    if (!onReloadScene) return;
     const latest = await onReloadScene();
     if (!latest || !editor) return;
     const body = editableDocument(latest.body);
@@ -294,7 +337,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           <div><strong>正文已在别处更新</strong><span>本地草稿仍在编辑器中，本切片不自动合并。</span></div>
           <div className="scene-conflict-actions">
             <Button variant="quiet" onClick={() => setConflictDismissed(true)}>保留本地草稿</Button>
-            <Button onClick={() => void reloadLatest()}>载入最新版本</Button>
+            {onReloadScene && <Button onClick={() => void reloadLatest()}>载入最新版本</Button>}
           </div>
         </div>
       )}

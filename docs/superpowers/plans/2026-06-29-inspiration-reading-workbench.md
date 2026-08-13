@@ -1,5 +1,7 @@
 # Inspiration Reading Workbench Implementation Plan
 
+> Status: **Superseded for future desktop work.** The completed historical tasks remain recorded here, but the current desktop direction is defined by [`../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](../../plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md).
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Reposition the app into a local-first inspiration, AI polishing, and reading-time workbench, and remove the legacy novel project workbench from the renderer/API surface.

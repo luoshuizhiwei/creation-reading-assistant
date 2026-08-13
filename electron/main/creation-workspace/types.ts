@@ -105,6 +105,8 @@ import type {
   InboxItem,
   InboxItemResult,
   InboxListQuery,
+  InboxCountQuery,
+  InboxCountView,
   InboxReadQuery,
   InboxUpdateCommand,
   DraftImportChapterInput,
@@ -129,7 +131,14 @@ import type {
   ResourceDetachCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  CreationRunCommand,
+  CreationRunResultOf,
+  InboxConvertToCardCommand,
+  InboxConvertToCardResult,
+  ProjectHomeEntry,
+  ProjectHomeQuery,
+  ProjectHomeView
 } from "../../../src/types/creation";
 
 export type {
@@ -239,6 +248,8 @@ export type {
   InboxItem,
   InboxItemResult,
   InboxListQuery,
+  InboxCountQuery,
+  InboxCountView,
   InboxReadQuery,
   InboxUpdateCommand,
   DraftImportChapterInput,
@@ -263,7 +274,14 @@ export type {
   ResourceDetachCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  CreationRunCommand,
+  CreationRunResultOf,
+  InboxConvertToCardCommand,
+  InboxConvertToCardResult,
+  ProjectHomeEntry,
+  ProjectHomeQuery,
+  ProjectHomeView
 } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
@@ -343,9 +361,11 @@ export type CreationReadQuery =
   | ProofQuery
   | InboxListQuery
   | InboxReadQuery
+  | InboxCountQuery
   | ProjectBundleExportQuery
   | AnnotationListQuery
-  | ResourceListQuery;
+  | ResourceListQuery
+  | ProjectHomeQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -367,9 +387,11 @@ export type CreationReadResult =
   | ProofView
   | InboxItem[]
   | InboxItem
+  | InboxCountView
   | ProjectBundleData
   | Annotation[]
   | ResourceInfo[]
+  | ProjectHomeView
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -387,7 +409,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | StructurePlanCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -398,7 +420,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | InboxConvertToCardResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult | StructurePlanResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -427,9 +449,11 @@ export interface CreationWorkspace {
   read(query: ProofQuery): Promise<ProofView>;
   read(query: InboxListQuery): Promise<InboxItem[]>;
   read(query: InboxReadQuery): Promise<InboxItem | null>;
+  read(query: InboxCountQuery): Promise<InboxCountView>;
   read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   read(query: AnnotationListQuery): Promise<Annotation[]>;
   read(query: ResourceListQuery): Promise<ResourceInfo[]>;
+  read(query: ProjectHomeQuery): Promise<ProjectHomeView>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -444,6 +468,10 @@ export interface CreationWorkspace {
   transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
+  previewStructure(command: StructurePreviewCommand): Promise<StructurePreviewView>;
+  applyStructure(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult>;
+  revertStructure(command: StructureRevertCommand): Promise<StructureRevertResult>;
+  transact<Command extends CreationRunCommand>(command: Command): Promise<CreationRunResultOf<Command>>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;
@@ -462,3 +490,32 @@ export class CreationWorkspaceError extends Error {
     this.code = code;
   }
 }
+
+// 大纲安全重组 seam（Part 2）——复用 renderer 类型定义。
+import type {
+  ProtectedStructureCommand,
+  StructureAffectedObject,
+  StructureApplyResult,
+  StructureApplyWithProtectionCommand,
+  StructurePlanCommand,
+  StructurePlanResult,
+  StructurePlanRow,
+  StructurePreviewCommand,
+  StructurePreviewView,
+  StructureRevertCommand,
+  StructureRevertResult
+} from "../../../src/types/creation";
+
+export type {
+  ProtectedStructureCommand,
+  StructureAffectedObject,
+  StructureApplyResult,
+  StructureApplyWithProtectionCommand,
+  StructurePlanCommand,
+  StructurePlanResult,
+  StructurePlanRow,
+  StructurePreviewCommand,
+  StructurePreviewView,
+  StructureRevertCommand,
+  StructureRevertResult
+};

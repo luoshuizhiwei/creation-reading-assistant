@@ -49,13 +49,21 @@ const search = read("src/features/search/SearchPanel.tsx");
 const searchActions = read("src/hooks/useSearchActions.ts");
 const epub = read("src/features/library/EpubReaderPage.tsx");
 const reader = read("src/features/library/ReaderPage.tsx");
-const startPage = read("src/pages/StartPage.tsx");
+const homePage = read("src/features/creation/home/ProjectHomePage.tsx");
 const libraryPage = read("src/features/library/LibraryPage.tsx");
 const statsPage = read("src/features/library/ReadingStatsPage.tsx");
 const settings = read("src/features/settings/SettingsPage.tsx");
 const libraryActions = read("src/hooks/useLibraryActions.ts");
-const clearTimeoutIndex = searchActions.indexOf("if (timerRef.current) window.clearTimeout(timerRef.current)");
-const emptyKeywordIndex = searchActions.indexOf("if (!keyword.trim())");
+
+/** 防抖 timer 必须在空关键词处理之前被清理（支持直接 clearTimeout 或集中式 cancelSearch 两种实现）。 */
+function debounceClearedBeforeEmpty(source) {
+  const emptyIndex = source.indexOf("if (!keyword.trim())");
+  if (emptyIndex < 0) return false;
+  const directClear = source.lastIndexOf("window.clearTimeout(timerRef.current)", emptyIndex);
+  if (directClear >= 0) return true;
+  const cancelSearch = source.lastIndexOf("cancelSearch()", emptyIndex);
+  return cancelSearch >= 0;
+}
 
 const checks = [
   [interaction.includes("ConfirmDialog"), "Interaction layer must provide ConfirmDialog."],
@@ -73,11 +81,11 @@ const checks = [
   [styles.includes(".motion-dialog"), "Styles must expose reusable motion-dialog class."],
   [styles.includes('input[type="checkbox"]') && styles.includes("accent-color: var(--copper)"), "Checkboxes must use the copper theme accent instead of the browser default blue."],
   [interaction.includes("motion-panel"), "AnimatedPanel must use non-hover motion-panel styling."],
-  [startPage.includes("motion-panel relative overflow-hidden"), "Homepage non-clickable hero panel must use motion-panel instead of hover card motion."],
+  [homePage.includes('className="project-home-hero motion-panel"'), "Homepage non-clickable hero panel must use motion-panel instead of hover card motion."],
   [libraryPage.includes("motion-panel overflow-hidden"), "Library table container must use motion-panel instead of hover card motion."],
   [statsPage.includes("motion-panel"), "Reading stats non-clickable panels must use motion-panel."],
   [search.includes("motion-dialog"), "Search dialog must use animated dialog styling."],
-  [clearTimeoutIndex >= 0 && emptyKeywordIndex >= 0 && clearTimeoutIndex < emptyKeywordIndex, "Search debounce timer must be cleared before handling an empty keyword."],
+  [debounceClearedBeforeEmpty(searchActions), "Search debounce timer must be cleared before handling an empty keyword."],
   [searchActions.includes("setLoading(false)") && searchActions.indexOf("setLoading(false)") < searchActions.indexOf("setResults([])"), "Clearing a search must immediately clear loading state before showing empty results."],
   [epub.includes("motion-drawer"), "EPUB settings drawer must slide in with motion-drawer."],
   [reader.includes("showToast"), "Text/Markdown reader must use toast feedback for inspiration capture."],

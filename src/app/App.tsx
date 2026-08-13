@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
@@ -8,6 +8,8 @@ import { InspirationPage } from "@/features/inspiration/InspirationPage";
 import { LibraryPage } from "@/features/library/LibraryPage";
 import { ReaderPage } from "@/features/library/ReaderPage";
 import { ReadingStatsPage } from "@/features/library/ReadingStatsPage";
+import { setReaderExcerptDestination } from "@/features/library/excerpt-destination";
+import { createReaderExcerptDestination } from "@/features/library/excerpt-destination-impl";
 import { SearchPanel } from "@/features/search/SearchPanel";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
@@ -16,7 +18,23 @@ import { useSettingsStore } from "@/stores/settings-store";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
+import type { AppScreen } from "@/stores/app-store";
 import type { StartupRecoveryInfo } from "@/types/maintenance";
+
+/**
+ * AppScreen → 正文组件 的穷尽映射：TypeScript 的 Record 强制每个可设置的
+ * AppScreen 都有合法渲染路径；新增屏幕而没有补充分支会在编译期直接报错，
+ * 不再可能出现「有状态、无正文」的空白页。
+ */
+export const screenContent: Record<AppScreen, ReactNode> = {
+  projects: <CreationProjectsPage />,
+  inbox: <InboxPage />,
+  inspiration: <InspirationPage />,
+  library: <LibraryPage />,
+  reader: <ReaderPage />,
+  stats: <ReadingStatsPage />,
+  settings: <SettingsPage />
+};
 
 function RecoveryPrompt({
   info,
@@ -69,6 +87,8 @@ export default function App() {
 
   useEffect(() => {
     void loadSettings();
+    // 注入摘录目的地：映射到 inbox.create 和 card.create IPC。
+    setReaderExcerptDestination(createReaderExcerptDestination());
   }, [loadSettings]);
 
   useEffect(() => {
@@ -152,19 +172,10 @@ export default function App() {
         <RecoveryPrompt info={recoveryInfo} onOpenLibrary={openRecoveredLibrary} onDismiss={closeRecoveryPrompt} />
       )}
       {screen === "reader" ? (
-        <PageTransition screenKey={screen}>
-          <ReaderPage />
-        </PageTransition>
+        <PageTransition screenKey={screen}>{screenContent.reader}</PageTransition>
       ) : (
         <DesktopFrame>
-          <PageTransition screenKey={screen}>
-            {screen === "projects" && <CreationProjectsPage />}
-            {screen === "inbox" && <InboxPage />}
-            {screen === "inspiration" && <InspirationPage />}
-            {screen === "library" && <LibraryPage />}
-            {screen === "stats" && <ReadingStatsPage />}
-            {screen === "settings" && <SettingsPage />}
-          </PageTransition>
+          <PageTransition screenKey={screen}>{screenContent[screen]}</PageTransition>
         </DesktopFrame>
       )}
     </div>

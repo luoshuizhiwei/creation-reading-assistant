@@ -1,8 +1,7 @@
 # 桌面端创作工作台 — 卷章结构与大纲契约（切片 6 现状）
 
-> 状态：切片 6（卷章与大纲）实现完成，本契约按 2026-08-10 实际实现记录。
-> 本文取代 `desktop-creation-workspace-contract.md` 中关于 schema 版本与能力面的描述（该文件仍保留为切片 2 历史快照）。
-> 以 `electron/main/creation-workspace/` 当前代码为准。新增查询/命令/能力时，必须同步更新本文件与运行时契约测试 `outline-contract.ts`。
+> 状态：切片 6（卷章与大纲）的历史快照，不代表当前 schema 或完整能力面。
+> 当前架构见 [`desktop-creation-current.md`](desktop-creation-current.md)；本文件只用于追溯 v3 结构切片和 `outline-contract.ts` 的设计背景。
 
 ## 1. 结论
 

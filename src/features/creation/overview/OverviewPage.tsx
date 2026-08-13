@@ -13,17 +13,16 @@ interface OverviewPageProps {
 }
 
 export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOpenStats, onOpenInbox }: OverviewPageProps) {
-  const { loadStats } = useCreationActions();
+  const { loadStats, loadInboxCount } = useCreationActions();
   const projects = useCreationStore((state) => state.projects);
   const navigations = useCreationStore((state) => state.navigations);
   const [stats, setStats] = useState<ProjectStatsView | null>(null);
   const [inboxCount, setInboxCount] = useState(0);
-  const { loadInbox } = useCreationActions();
 
   const refresh = useCallback(async () => {
     setStats(await loadStats(projectId));
-    setInboxCount((await loadInbox({ limit: 1 })).length);
-  }, [loadInbox, loadStats, projectId]);
+    setInboxCount((await loadInboxCount()).pending);
+  }, [loadInboxCount, loadStats, projectId]);
 
   useEffect(() => {
     void refresh();

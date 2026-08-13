@@ -1,16 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Eye, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
+import { AtSign, Eye, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
 import { InlineNotice } from "@/components/interaction";
 import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
+import { ContinuousChapterEditor, type ContinuousChapterEditorHandle } from "@/features/creation/editor/ContinuousChapterEditor";
+import { describeSelection, type SceneSelection } from "@/features/creation/editor/annotation-selection";
+import { CardReferencePicker } from "@/features/creation/editor/card-reference-picker";
+import "@/features/creation/editor/continuous-editor.css";
+import "@/features/creation/editor/writing-reference.css";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
 import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { Annotation, CreationProjectNavigation, CreationProjectSummary, StructureCommand } from "@/types/creation";
+import type { Annotation, CreationProjectNavigation, CreationProjectSummary, StructureApplyResult, StructureCommand } from "@/types/creation";
 
 /** 写作会话：空闲超过该时长（毫秒）即结算并上报当前段。 */
 const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+
+type EditMode = "scene" | "continuous";
 
 interface WritingDeskProps {
   projects: CreationProjectSummary[];
@@ -29,20 +36,42 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const selectScene = useCreationStore((state) => state.selectScene);
   const dismissRecoveryNotice = useCreationStore((state) => state.dismissRecoveryNotice);
   const setLeaveGuard = useCreationStore((state) => state.setLeaveGuard);
-  const { loadOutline, loadScene, runStructure, saveSceneBody, subscribeProject, reportSession, loadAnnotations, createAnnotation, updateAnnotation, deleteAnnotation, loadCards, loadProjectExport } = useCreationActions();
+  const {
+    loadOutline,
+    loadScene,
+    runStructure,
+    previewStructure,
+    applyStructureWithProtection,
+    revertStructure,
+    saveSceneBody,
+    subscribeProject,
+    reportSession,
+    loadAnnotations,
+    createAnnotation,
+    updateAnnotation,
+    deleteAnnotation,
+    loadCards
+  } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const editorRef = useRef<SceneEditorHandle>(null);
+  const continuousRef = useRef<ContinuousChapterEditorHandle>(null);
   const [outlineView, setOutlineView] = useState<"tree" | "board">("tree");
   const [focusMode, setFocusMode] = useState(() => window.matchMedia("(max-width: 920px)").matches);
   const [typewriter, setTypewriter] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
   const [annotationDraft, setAnnotationDraft] = useState("");
-  const [annotationBlock, setAnnotationBlock] = useState(0);
   const [annotationCardId, setAnnotationCardId] = useState("");
   const [confirmingAnnotation, setConfirmingAnnotation] = useState<string | null>(null);
-  const [continuousPreview, setContinuousPreview] = useState(false);
-  const [exportView, setExportView] = useState<Awaited<ReturnType<typeof loadProjectExport>>>(null);
+  const [editMode, setEditMode] = useState<EditMode>("scene");
+  /** 正文真实选区（含折叠光标）；批注锚点唯一来源。 */
+  const [selection, setSelection] = useState<SceneSelection | null>(null);
+  /** @ 触发的卡片引用选择器。 */
+  const [referencePickerOpen, setReferencePickerOpen] = useState(false);
+  const [lastProtectedApply, setLastProtectedApply] = useState<StructureApplyResult | null>(null);
+  const [revertBusy, setRevertBusy] = useState(false);
+  const [revertError, setRevertError] = useState<string | null>(null);
+  const annotationTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const cardList = useCreationStore((state) => state.cards);
 
@@ -101,6 +130,14 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     };
   }, [settleSession]);
 
+  const continuousCharCounts = useRef(new Map<string, number>());
+  const handleContinuousStatsChange = useCallback((_sceneId: string, chars: number) => {
+    continuousCharCounts.current.set(_sceneId, chars);
+    let total = 0;
+    for (const value of continuousCharCounts.current.values()) total += value;
+    setCharacterCount(total);
+  }, []);
+
   const selectedSceneIdRef = useRef<string | undefined>(undefined);
   selectedSceneIdRef.current = selectedSceneId;
 
@@ -133,39 +170,67 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   );
   const sceneView = selectedSceneId ? sceneViews[selectedSceneId] : undefined;
 
+  // 连续模式：仅确保「当前章节」的场景正文已加载（不加载整项目正文）。
+  // 正文始终来自 sceneViews（单一真相源），不产生第二份副本。
+  useEffect(() => {
+    if (editMode !== "continuous" || !selectedChapter) return;
+    for (const scene of selectedChapter.scenes) {
+      if (!sceneViews[scene.id]) void loadScene(scene.id);
+    }
+  }, [editMode, selectedChapter, sceneViews, loadScene]);
+
+  // 逐场景模式：确保当前选中场景正文已加载。
+  useEffect(() => {
+    if (editMode !== "scene") return;
+    if (!selectedSceneId || sceneViews[selectedSceneId]) return;
+    void loadScene(selectedSceneId);
+  }, [editMode, loadScene, sceneViews, selectedSceneId]);
+
   useEffect(() => {
     void loadOutline(project.id);
   }, [loadOutline, project.id]);
 
   useEffect(() => {
+    // 保护快照只属于创建它的项目；项目切换后不得携带旧项目撤回入口。
+    setLastProtectedApply(null);
+    setRevertError(null);
+  }, [project.id]);
+
+  useEffect(() => {
     void loadCards({ projectId: project.id });
   }, [loadCards, project.id]);
-
-  useEffect(() => {
-    if (continuousPreview) void loadProjectExport(project.id).then(setExportView);
-  }, [continuousPreview, loadProjectExport, project.id]);
-
-  const currentChapterScenes = useMemo(() => {
-    if (!continuousPreview || !exportView) return null;
-    const chapter = selectedChapter ? exportView.volumes.flatMap((volume) => volume.chapters).find((item) => item.id === selectedChapter.id) : undefined;
-    return chapter ?? null;
-  }, [continuousPreview, exportView, selectedChapter]);
-
-  useEffect(() => {
-    if (!selectedSceneId || sceneViews[selectedSceneId]) return;
-    void loadScene(selectedSceneId);
-  }, [loadScene, sceneViews, selectedSceneId]);
 
   useEffect(() => subscribeProject(project.id), [project.id, subscribeProject]);
 
   const saveBeforeLeaving = useCallback(async (): Promise<boolean> => {
+    if (editMode === "continuous") {
+      // ref 缺失时不得静默放行：连续编辑器尚未就绪意味着本地草稿可能未绑定保存通道。
+      if (!continuousRef.current) {
+        showToast({
+          tone: "warning",
+          title: "编辑器尚未就绪",
+          body: "连续编辑器正在初始化，请稍候再切换，以免丢失本地草稿。"
+        });
+        return false;
+      }
+      const ok = await continuousRef.current.saveAllDirty();
+      if (!ok) {
+        showToast({
+          tone: "warning",
+          title: "正文尚未全部保存",
+          body: "部分场景存在保存失败或正文冲突，请解决后再切换。"
+        });
+        return false;
+      }
+      return true;
+    }
     if (!editorRef.current?.isDirty()) return true;
     const saved = await editorRef.current.saveNow();
     if (!saved) {
       showToast({ tone: "warning", title: "正文尚未保存", body: "请解决保存失败或正文冲突后再切换场景。" });
     }
     return saved;
-  }, [showToast]);
+  }, [editMode, showToast]);
 
   useEffect(() => {
     setLeaveGuard(saveBeforeLeaving);
@@ -178,24 +243,67 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     if (sceneId === selectedSceneId) return;
     if (!(await saveBeforeLeaving())) return;
     selectScene(sceneId);
+    setSelection(null);
     await loadScene(sceneId);
   };
 
+  const toggleEditMode = async () => {
+    if (!(await saveBeforeLeaving())) return;
+    setEditMode((mode) => (mode === "scene" ? "continuous" : "scene"));
+    if (editMode === "continuous") continuousCharCounts.current.clear();
+  };
+
+  const handleSelectionChange = useCallback((next: SceneSelection | null) => {
+    setSelection(next);
+  }, []);
+
+  const handleMentionTrigger = useCallback((next: SceneSelection) => {
+    // 卡片引用基于当前选区建立非正文锚点；打开当前项目卡片搜索。
+    setSelection(next);
+    setReferencePickerOpen(true);
+  }, []);
+
+  const handleCardPicked = useCallback((card: { id: string }) => {
+    setAnnotationCardId(card.id);
+    setReferencePickerOpen(false);
+    // 引导用户补全批注内容（引用不写正文，只建立批注关联）。
+    window.setTimeout(() => annotationTextareaRef.current?.focus(), 0);
+  }, []);
+
   const submitAnnotation = async () => {
     if (!selectedSceneId || !annotationDraft.trim()) return;
-    const body = sceneView?.body;
-    const block = body?.content?.[annotationBlock] as { content?: Array<{ text?: string }> } | undefined;
-    const text = block?.content?.[0]?.text as string | undefined;
+    // 无真实选区时禁止提交：不悄悄锚到第一段。
+    if (!selection) {
+      showToast({
+        tone: "warning",
+        title: "请先定位正文",
+        body: "在正文中选中文字，或把光标放进目标段落后再添加批注。"
+      });
+      return;
+    }
+    const anchor = {
+      blockIndex: selection.blockIndex,
+      textOffset: selection.textOffset,
+      textLength: selection.textLength,
+      // 快照文本：编辑后由工作区校验锚点保持或进入待重新定位。
+      text: selection.selectedText || undefined
+    };
     const ok = await createAnnotation({
       projectId: project.id,
-      sceneId: selectedSceneId,
+      sceneId: selection.sceneId,
       cardId: annotationCardId || undefined,
-      anchor: { blockIndex: annotationBlock, textOffset: 0, textLength: Math.min(text?.length ?? 1, 40) || 1 },
+      anchor,
       note: annotationDraft.trim()
     });
     if (ok) {
       setAnnotationDraft("");
       await refreshAnnotations();
+    } else {
+      showToast({
+        tone: "error",
+        title: "批注创建失败",
+        body: "锚点未命中正文文本或关联卡片不可用，请重新选择正文位置后再试。"
+      });
     }
   };
 
@@ -214,6 +322,53 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     [loadOutline, project.id, runStructure]
   );
 
+  const applyStructureForOutline = useCallback(
+    async (command: Parameters<typeof applyStructureWithProtection>[0]) => {
+      const result = await applyStructureWithProtection(command);
+      if (result) await loadOutline(project.id);
+      return result;
+    },
+    [applyStructureWithProtection, loadOutline, project.id]
+  );
+
+  const handleProtectedApplied = useCallback((result: StructureApplyResult) => {
+    setLastProtectedApply(result);
+    setRevertError(null);
+  }, []);
+
+  const revertLastProtectedApply = useCallback(async () => {
+    if (!lastProtectedApply || revertBusy) return;
+    setRevertBusy(true);
+    setRevertError(null);
+    try {
+      const result = await revertStructure({
+        type: "structure.revert",
+        projectId: project.id,
+        protectionSnapshotId: lastProtectedApply.protectionSnapshotId,
+        expectedAppliedRevisions: lastProtectedApply.affected
+      });
+      if (!result) {
+        setRevertError("无法撤回：大纲可能已被后续修改。请保留当前内容并重新检查。");
+        return;
+      }
+      setLastProtectedApply(null);
+      await loadOutline(project.id);
+    } catch (error) {
+      setRevertError(error instanceof Error ? error.message : "无法撤回本次重组。");
+    } finally {
+      setRevertBusy(false);
+    }
+  }, [lastProtectedApply, loadOutline, project.id, revertBusy, revertStructure]);
+
+  const continuousScenes = useMemo(
+    () => (editMode === "continuous" && selectedChapter ? selectedChapter.scenes.map((scene) => ({
+      id: scene.id,
+      title: scene.title || "默认场景",
+      view: sceneViews[scene.id]
+    })) : []),
+    [editMode, selectedChapter, sceneViews]
+  );
+
   return (
     <section className={`writing-desk ${focusMode ? "writing-desk--focus" : ""}`} aria-label="正文写作台">
       <aside className="writing-outline" aria-label="项目大纲">
@@ -227,6 +382,25 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
           <button type="button" className={outlineView === "tree" ? "active" : ""} onClick={() => setOutlineView("tree")}>大纲树</button>
           <button type="button" className={outlineView === "board" ? "active" : ""} onClick={() => setOutlineView("board")}>卡片板</button>
         </div>
+        {lastProtectedApply && (
+          <div className="writing-outline-revert" role="status">
+            <span>安全重组已应用，并已创建保护快照。</span>
+            <div className="writing-outline-revert-actions">
+              <button type="button" aria-label="撤回本次重组" disabled={revertBusy} onClick={() => void revertLastProtectedApply()}>
+                {revertBusy ? "撤回中…" : "撤回"}
+              </button>
+              <button
+                type="button"
+                aria-label="关闭撤回提示"
+                disabled={revertBusy}
+                onClick={() => { setLastProtectedApply(null); setRevertError(null); }}
+              >
+                <X size={12} />
+              </button>
+            </div>
+            {revertError && <span className="writing-outline-revert-error" role="alert">{revertError}</span>}
+          </div>
+        )}
         <div className="writing-outline-scroll">
           {outline ? (
             outlineView === "tree" ? (
@@ -236,6 +410,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
                 selectedSceneId={selectedSceneId}
                 onSelectScene={(sceneId) => void chooseScene(sceneId)}
                 runStructure={runStructureForTree}
+                previewStructure={previewStructure}
+                applyStructureWithProtection={applyStructureForOutline}
+                onProtectedApplied={handleProtectedApplied}
               />
             ) : (
               <CardBoard
@@ -243,6 +420,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
                 workflow={workflow}
                 selectedSceneId={selectedSceneId}
                 onSelectScene={(sceneId) => void chooseScene(sceneId)}
+                previewStructure={previewStructure}
+                applyStructureWithProtection={applyStructureForOutline}
+                onProtectedApplied={handleProtectedApplied}
               />
             )
           ) : (
@@ -255,18 +435,32 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
         <header className="writing-manuscript-head">
           <div>
             <p className="desktop-card-label">Manuscript</p>
-            <h2>{continuousPreview ? (currentChapterScenes ? `${currentChapterScenes.displayNumber ?? ""} ${currentChapterScenes.title}`.trim() : "章内连续预览") : (selectedScene?.title ?? "选择场景")}</h2>
-            <span>{selectedChapter?.title ?? project.title} · {continuousPreview ? "多场景连续预览" : "单场景编辑"}</span>
+            <h2>{editMode === "continuous"
+              ? (selectedChapter ? selectedChapter.title : "整章连续编辑")
+              : (selectedScene?.title ?? "选择场景")}</h2>
+            <span>{selectedChapter?.title ?? project.title} · {editMode === "continuous" ? "整章连续编辑（可逐场景编辑）" : "逐场景编辑"}</span>
           </div>
           <div className="writing-head-actions">
-            <button
-              type="button"
-              className={`writing-preview-toggle ${continuousPreview ? "active" : ""}`}
-              onClick={() => setContinuousPreview((value) => !value)}
-              title="切换章内多场景连续预览"
-            >
-              <Eye size={13} /> {continuousPreview ? "返回编辑" : "连续预览"}
-            </button>
+            <div className="writing-mode-switch" role="group" aria-label="写作模式切换">
+              <button
+                type="button"
+                className={editMode === "scene" ? "active" : ""}
+                aria-pressed={editMode === "scene"}
+                onClick={() => { if (editMode !== "scene") void toggleEditMode(); }}
+                title="逐场景编辑：一次编辑一个场景"
+              >
+                逐场景
+              </button>
+              <button
+                type="button"
+                className={editMode === "continuous" ? "active" : ""}
+                aria-pressed={editMode === "continuous"}
+                onClick={() => { if (editMode !== "continuous") void toggleEditMode(); }}
+                title="整章连续编辑：当前章节所有场景连续排列、各自可编辑"
+              >
+                整章连续
+              </button>
+            </div>
             <div className={`writing-watch ${watchConnected ? "connected" : ""}`} title={watchConnected ? "已订阅项目变更" : "正在连接项目变更"}>
               <Radio size={12} /> {watchConnected ? "变更已连接" : "连接中"}
             </div>
@@ -281,28 +475,24 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
         )}
 
         <div className="writing-scroll">
-          {continuousPreview ? (
-            currentChapterScenes ? (
-              <div className="writing-continuous-preview">
-                <h2 className="writing-continuous-chapter">
-                  {currentChapterScenes.displayNumber ? `${currentChapterScenes.displayNumber} ` : ""}{currentChapterScenes.title}
-                </h2>
-                {currentChapterScenes.scenes.map((scene, index) => (
-                  <section key={scene.id} className="writing-continuous-scene">
-                    {scene.title && scene.title !== "默认场景" && <h3>{scene.title}</h3>}
-                    {scene.text ? (
-                      scene.text.split(/\n{2,}/).map((paragraph, paragraphIndex) => (
-                        <p key={paragraphIndex} className="writing-continuous-paragraph">{paragraph}</p>
-                      ))
-                    ) : (
-                      <p className="writing-continuous-empty">（本场景暂无正文）</p>
-                    )}
-                    {index < currentChapterScenes.scenes.length - 1 && <div className="writing-continuous-break" aria-hidden="true">＊ ＊ ＊</div>}
-                  </section>
-                ))}
-              </div>
+          {editMode === "continuous" ? (
+            selectedChapter && continuousScenes.length > 0 ? (
+              <ContinuousChapterEditor
+                ref={continuousRef}
+                chapterTitle={selectedChapter.title}
+                scenes={continuousScenes}
+                onSave={saveSceneBody}
+                onReloadScene={loadScene}
+                onStatsChange={handleContinuousStatsChange}
+                onSelectionChange={handleSelectionChange}
+                onMentionTrigger={handleMentionTrigger}
+                focusMode={focusMode}
+                onToggleFocusMode={() => setFocusMode((value) => !value)}
+                typewriter={typewriter}
+                onToggleTypewriter={() => setTypewriter((value) => !value)}
+              />
             ) : (
-              <div className="scene-editor-placeholder">正在读取连续预览…</div>
+              <div className="scene-editor-placeholder">正在读取章节场景…</div>
             )
           ) : selectedSceneId && sceneView ? (
             <SceneEditor
@@ -311,6 +501,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
               onSave={saveSceneBody}
               onReloadScene={() => loadScene(selectedSceneId)}
               onStatsChange={handleStatsChange}
+              onSelectionChange={handleSelectionChange}
+              onMentionTrigger={handleMentionTrigger}
               focusMode={focusMode}
               onToggleFocusMode={() => setFocusMode((value) => !value)}
               typewriter={typewriter}
@@ -352,7 +544,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
                     onClick={() => {
                       void updateAnnotation({
                         annotationId: annotation.id,
-                        baseRevision: 1,
+                        baseRevision: annotation.revision,
                         status: annotation.status === "resolved" ? "open" : "resolved"
                       }).then(() => refreshAnnotations());
                     }}
@@ -379,30 +571,43 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
             ))}
           </ul>
           <div className="writing-annotation-form">
-            <select
-              className="paper-input h-8 text-xs"
-              value={annotationBlock}
-              onChange={(event) => setAnnotationBlock(Number(event.target.value))}
-              aria-label="批注段落"
-            >
-              {Array.from({ length: Math.max(sceneView?.body?.content?.length ?? 1, 1) }, (_, index) => (
-                <option key={index} value={index}>第 {index + 1} 段</option>
-              ))}
-            </select>
-            <select
-              className="paper-input h-8 text-xs"
-              value={annotationCardId}
-              onChange={(event) => setAnnotationCardId(event.target.value)}
-              aria-label="关联卡片"
-            >
-              <option value="">不关联卡片</option>
-              {cardList.map((card) => (
-                <option key={card.id} value={card.id}>{card.title}</option>
-              ))}
-            </select>
+            <div className="writing-annotation-selection" aria-live="polite">
+              <span className="writing-annotation-selection-label">锚点</span>
+              <span className={`writing-annotation-selection-value ${selection && !selection.collapsed ? "has-selection" : ""}`}>
+                {describeSelection(selection)}
+              </span>
+            </div>
+            <div className="writing-annotation-card-row">
+              <select
+                className="paper-input h-8 text-xs"
+                value={annotationCardId}
+                onChange={(event) => setAnnotationCardId(event.target.value)}
+                aria-label="关联卡片"
+              >
+                <option value="">不关联卡片</option>
+                {cardList.filter((card) => card.projectId === project.id).map((card) => (
+                  <option key={card.id} value={card.id}>{card.title}{card.aliases.length > 0 ? `（${card.aliases.join("、")}）` : ""}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                className="writing-annotation-at"
+                onClick={() => {
+                  if (selection) {
+                    setReferencePickerOpen(true);
+                  } else {
+                    showToast({ tone: "warning", title: "请先定位正文", body: "在正文中定位光标后，再使用 @ 引用卡片。" });
+                  }
+                }}
+                title="在正文输入 @ 可直接打开卡片引用"
+              >
+                <AtSign size={13} /> @ 引用卡片
+              </button>
+            </div>
             <textarea
+              ref={annotationTextareaRef}
               className="paper-input min-h-[64px] resize-y text-xs"
-              placeholder="批注内容（引用锚点会记录该段开头文本）…"
+              placeholder="批注内容（引用锚点记录真实选区文本）…"
               value={annotationDraft}
               onChange={(event) => setAnnotationDraft(event.target.value)}
             />
@@ -410,9 +615,16 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
               <MessageSquarePlus size={13} /> 添加批注
             </button>
           </div>
+          {referencePickerOpen && (
+            <CardReferencePicker
+              cards={cardList.filter((card) => card.projectId === project.id)}
+              onSelect={handleCardPicked}
+              onClose={() => setReferencePickerOpen(false)}
+            />
+          )}
         </div>
         <div className="writing-margin-rule" />
-        <p className="writing-boundary"><Eye size={14} /> 卷章结构可在左侧大纲树或卡片板中管理。批注锚定段落开头文本，正文改动后失效会进入待重新定位，不会静默丢失。</p>
+        <p className="writing-boundary"><Eye size={14} /> 卷章结构可在左侧大纲树或卡片板中管理。批注锚定正文真实选区；正文改动后失效会进入待重新定位，不会静默丢失。在正文中输入 @ 可引用当前项目卡片。</p>
       </aside>
     </section>
   );

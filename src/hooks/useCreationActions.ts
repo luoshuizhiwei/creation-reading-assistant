@@ -7,6 +7,7 @@ import {
   createProject as createProjectRequest,
   exportDraft as exportDraftRequest,
   listProjects,
+  readProjectHome,
   readProjectNavigation,
   readProjectOutline,
   readSceneBody,
@@ -14,6 +15,9 @@ import {
   replaceApply as replaceApplyRequest,
   replacePreview as replacePreviewRequest,
   runStructure as runStructureRequest,
+  structureApply as structureApplyRequest,
+  structurePreview as structurePreviewRequest,
+  structureRevert as structureRevertRequest,
   search as searchRequest,
   sessionDelete as sessionDeleteRequest,
   sessionList as sessionListRequest,
@@ -25,8 +29,10 @@ import {
   migrationStatus as migrationStatusRequest,
   migrationRun as migrationRunRequest,
   inboxList as inboxListRequest,
+  inboxCount as inboxCountRequest,
   inboxUpdate as inboxUpdateRequest,
   inboxDelete as inboxDeleteRequest,
+  inboxCreate as inboxCreateRequest,
   importDraftPreview as importDraftPreviewRequest,
   exportProjectBundle as exportProjectBundleRequest,
   importProjectBundle as importProjectBundleRequest,
@@ -44,18 +50,18 @@ import {
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import type {
-  CardCommand,
   CardRelation,
   CardRelationCreateCommand,
+  CardSummary,
   CardsListQuery,
   CreateProjectInput,
   CreationDocument,
   CreationProjectNavigation,
   CreationProjectOutline,
+  CreationRunCommand,
   CreationSearchQuery,
   CreationSearchView,
   CreationWorkspaceEvent,
-  HistoryCommand,
   ReplaceApplyCommand,
   ReplacePreviewQuery,
   ReplacePreviewView,
@@ -69,13 +75,13 @@ import type {
   InboxDeleteCommand,
   InboxItem,
   InboxListQuery,
+  InboxCountView,
   InboxUpdateCommand,
+  InboxCreateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand,
   ProjectBundleImportResult,
-  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -85,10 +91,29 @@ import type {
   ResourceListQuery,
   ResourceResult,
   ProjectExportView,
-  StructureCommand,
-  TrashEntityKind
+  ProjectHomeView,
+  TrashEntityKind,
+  StructurePreviewCommand,
+  StructureApplyWithProtectionCommand,
+  StructureRevertCommand,
+  StructurePreviewView,
+  StructureApplyResult,
+  StructureRevertResult
 } from "@/types/creation";
 import { messageFromError } from "@/utils/format";
+
+/**
+ * loadCards 请求序列号：模块级共享，防止多个组件/项目并发加载时旧请求覆盖新结果。
+ * 每个 loadCards 调用递增并捕获当前 seq；只有响应到达时 seq 仍匹配才写 store。
+ */
+let cardsLoadSeq = 0;
+let cardsLoadLastProjectId = "";
+
+/**
+ * navigation 请求按 projectId 去重：同一项目同一时刻只允许一个 readProjectNavigation 请求。
+ * 普通页面加载与导航请求共享同一 in-flight Promise，避免重复读取。
+ */
+const navigationInFlight = new Map<string, Promise<CreationProjectNavigation | null | undefined>>();
 
 /**
  * 正在进行中的场景保存（场景 ID 集合）。
@@ -113,6 +138,15 @@ export function useCreationActions() {
     }
   }, [setError, setLoading, setProjects]);
 
+  const loadProjectHome = useCallback(async (): Promise<ProjectHomeView> => {
+    try {
+      return await readProjectHome();
+    } catch (error) {
+      setError(messageFromError(error));
+      return { projects: [] };
+    }
+  }, [setError]);
+
   const createProject = useCallback(
     async (input: CreateProjectInput): Promise<CreationProjectNavigation | undefined> => {
       setLoading(true);
@@ -131,15 +165,23 @@ export function useCreationActions() {
   );
 
   const loadNavigation = useCallback(
-    async (projectId: string): Promise<CreationProjectNavigation | null | undefined> => {
-      try {
-        const navigation = await readProjectNavigation(projectId);
-        if (navigation) useCreationStore.getState().setNavigation(projectId, navigation);
-        return navigation;
-      } catch (error) {
-        setError(messageFromError(error));
-        return undefined;
-      }
+    (projectId: string): Promise<CreationProjectNavigation | null | undefined> => {
+      const existing = navigationInFlight.get(projectId);
+      if (existing) return existing;
+      const promise = (async () => {
+        try {
+          const navigation = await readProjectNavigation(projectId);
+          if (navigation) useCreationStore.getState().setNavigation(projectId, navigation);
+          return navigation;
+        } catch (error) {
+          setError(messageFromError(error));
+          return undefined;
+        } finally {
+          navigationInFlight.delete(projectId);
+        }
+      })();
+      navigationInFlight.set(projectId, promise);
+      return promise;
     },
     [setError]
   );
@@ -159,7 +201,7 @@ export function useCreationActions() {
   );
 
   const runStructure = useCallback(
-    async (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand): Promise<boolean> => {
+    async (command: CreationRunCommand): Promise<boolean> => {
       try {
         await runStructureRequest(command);
         return true;
@@ -171,10 +213,47 @@ export function useCreationActions() {
     [setError]
   );
 
+  const previewStructure = useCallback(
+    async (command: StructurePreviewCommand): Promise<StructurePreviewView | null> => {
+      try {
+        return await structurePreviewRequest(command);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const applyStructureWithProtection = useCallback(
+    async (command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult | null> => {
+      try {
+        return await structureApplyRequest(command);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const revertStructure = useCallback(
+    async (command: StructureRevertCommand): Promise<StructureRevertResult | null> => {
+      try {
+        return await structureRevertRequest(command);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
   const loadCardTypes = useCallback(
     async (projectId: string): Promise<void> => {
+      useCreationStore.getState().activateCardProject(projectId);
       try {
-        useCreationStore.getState().setCardTypes(await cardTypesList(projectId));
+        useCreationStore.getState().setCardTypes(projectId, await cardTypesList(projectId));
       } catch (error) {
         setError(messageFromError(error));
       }
@@ -184,8 +263,9 @@ export function useCreationActions() {
 
   const loadRelationTypes = useCallback(
     async (projectId: string): Promise<void> => {
+      useCreationStore.getState().activateCardProject(projectId);
       try {
-        useCreationStore.getState().setRelationTypes(await relationTypesList(projectId));
+        useCreationStore.getState().setRelationTypes(projectId, await relationTypesList(projectId));
       } catch (error) {
         setError(messageFromError(error));
       }
@@ -194,24 +274,36 @@ export function useCreationActions() {
   );
 
   const loadCards = useCallback(
-    async (query: Omit<CardsListQuery, "kind">): Promise<void> => {
-      useCreationStore.getState().setCardsLoading(true);
+    async (query: Omit<CardsListQuery, "kind">): Promise<CardSummary[] | undefined> => {
+      useCreationStore.getState().activateCardProject(query.projectId);
+      useCreationStore.getState().setCardsLoading(query.projectId, true);
+      const seq = ++cardsLoadSeq;
+      cardsLoadLastProjectId = query.projectId;
       try {
-        useCreationStore.getState().setCards(await cardsList({ kind: "cards.list", ...query }));
+        const result = await cardsList({ kind: "cards.list", ...query });
+        if (seq === cardsLoadSeq && query.projectId === cardsLoadLastProjectId) {
+          useCreationStore.getState().setCards(query.projectId, result);
+          return result;
+        }
+        // 请求已过期：旧项目响应不得覆盖新项目，也不得被当成当前结果消费。
+        return undefined;
       } catch (error) {
         setError(messageFromError(error));
+        return undefined;
       } finally {
-        useCreationStore.getState().setCardsLoading(false);
+        if (seq === cardsLoadSeq && query.projectId === cardsLoadLastProjectId) {
+          useCreationStore.getState().setCardsLoading(query.projectId, false);
+        }
       }
     },
     [setError]
   );
 
   const loadCardRelations = useCallback(
-    async (cardId: string): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> => {
+    async (projectId: string, cardId: string): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> => {
       try {
         const relations = await cardRelations(cardId);
-        useCreationStore.getState().setCardRelations(cardId, relations);
+        useCreationStore.getState().setCardRelations(projectId, cardId, relations);
         return relations;
       } catch (error) {
         setError(messageFromError(error));
@@ -424,6 +516,15 @@ export function useCreationActions() {
     [setError]
   );
 
+  const loadInboxCount = useCallback(async (): Promise<InboxCountView> => {
+    try {
+      return await inboxCountRequest();
+    } catch (error) {
+      setError(messageFromError(error));
+      return { total: 0, pending: 0 };
+    }
+  }, [setError]);
+
   const updateInbox = useCallback(
     async (command: Omit<InboxUpdateCommand, "type">): Promise<boolean> => {
       try {
@@ -445,6 +546,19 @@ export function useCreationActions() {
       } catch (error) {
         setError(messageFromError(error));
         return false;
+      }
+    },
+    [setError]
+  );
+
+  const createInbox = useCallback(
+    async (command: Omit<InboxCreateCommand, "type">): Promise<string | undefined> => {
+      try {
+        const result = await inboxCreateRequest({ type: "inbox.create", ...command });
+        return result.itemId;
+      } catch (error) {
+        setError(messageFromError(error));
+        return undefined;
       }
     },
     [setError]
@@ -670,6 +784,7 @@ export function useCreationActions() {
 
   return {
     loadProjects,
+    loadProjectHome,
     createProject,
     loadNavigation,
     loadOutline,
@@ -677,6 +792,9 @@ export function useCreationActions() {
     saveSceneBody,
     refreshProject,
     runStructure,
+    previewStructure,
+    applyStructureWithProtection,
+    revertStructure,
     loadCardTypes,
     loadRelationTypes,
     loadCards,
@@ -698,8 +816,10 @@ export function useCreationActions() {
     loadMigrationStatus,
     runMigration,
     loadInbox,
+    loadInboxCount,
     updateInbox,
     deleteInbox,
+    createInbox,
     previewDraftImport,
     exportBundle,
     importBundle,

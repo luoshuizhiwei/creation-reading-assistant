@@ -3,6 +3,7 @@ import { randomUUID } from "node:crypto";
 import { writeFile, mkdir, rm, readFile, stat } from "node:fs/promises";
 import { createHash } from "node:crypto";
 import path from "node:path";
+import { isCreationRunCommandType } from "../../src/types/creation";
 import type {
   CardRelation,
   CardSummary,
@@ -13,9 +14,11 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationRunCommand,
+  CreationRunResult,
+  ProjectHomeView,
   CreationSearchQuery,
   CreationSearchView,
-  CreationStructureResult,
   ProjectExportView,
   RelationType,
   ReplaceApplyCommand,
@@ -30,15 +33,19 @@ import type {
   SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
-  StructureCommand,
   TrashItem,
   UpdateSceneBodyInput,
+  StructurePreviewCommand,
+  StructureApplyWithProtectionCommand,
+  StructureRevertCommand,
+  ProtectedStructureCommand,
   ProofQuery,
   ProofView,
   InboxDeleteCommand,
   InboxItem,
   InboxListQuery,
   InboxUpdateCommand,
+  InboxCreateCommand,
   ProjectBundleData,
   ProjectBundleImportCommand,
   ProjectBundleImportResult,
@@ -54,9 +61,172 @@ import type {
   ResourceResult
 } from "../../src/types/creation";
 import { CreationWorkspaceError } from "./creation-workspace";
+import type { CreationCommand } from "./creation-workspace/types";
 import type { CreationCoordinator } from "./creation-coordinator";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
 import { previewLegacyDraft } from "./creation-import";
+
+function assertRunCommand(value: unknown): CreationRunCommand {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new CreationWorkspaceError("invalid-input", "创作命令必须为对象。");
+  }
+  const type = (value as { type?: unknown }).type;
+  if (!isCreationRunCommandType(type)) {
+    throw new CreationWorkspaceError("invalid-input", `不支持的运行命令类型：${String(type)}。`);
+  }
+  return value as CreationRunCommand;
+}
+
+type RuntimeRecord = Record<string, unknown>;
+
+function assertRecord(value: unknown, label: string): RuntimeRecord {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    throw new CreationWorkspaceError("invalid-input", `${label}必须为对象。`);
+  }
+  return value as RuntimeRecord;
+}
+
+function assertRequiredText(value: unknown, label: string, maxLength = 256): string {
+  if (typeof value !== "string" || !value.trim() || value.length > maxLength) {
+    throw new CreationWorkspaceError("invalid-input", `${label}必须为非空字符串，且不得超过 ${maxLength} 个字符。`);
+  }
+  return value;
+}
+
+function assertOptionalText(value: unknown, label: string, maxLength = 256): string | undefined {
+  if (value === undefined) return undefined;
+  return assertRequiredText(value, label, maxLength);
+}
+
+function assertPositiveRevision(value: unknown, label: string): number {
+  if (!Number.isInteger(value) || (value as number) <= 0) {
+    throw new CreationWorkspaceError("invalid-input", `${label}必须为正整数。`);
+  }
+  return value as number;
+}
+
+function assertProtectedStructureCommand(value: unknown): ProtectedStructureCommand {
+  const command = assertRecord(value, "受保护的结构命令");
+  const type = command.type;
+  switch (type) {
+    case "chapter.split":
+      return {
+        type,
+        chapterId: assertRequiredText(command.chapterId, "章节 ID"),
+        splitSceneId: assertRequiredText(command.splitSceneId, "拆分场景 ID"),
+        newChapterTitle: assertOptionalText(command.newChapterTitle, "新章节标题", 500)
+      };
+    case "chapter.merge":
+      return {
+        type,
+        sourceChapterId: assertRequiredText(command.sourceChapterId, "源章节 ID"),
+        targetChapterId: assertRequiredText(command.targetChapterId, "目标章节 ID")
+      };
+    case "chapter.move":
+      return {
+        type,
+        chapterId: assertRequiredText(command.chapterId, "章节 ID"),
+        targetVolumeId: assertRequiredText(command.targetVolumeId, "目标卷 ID"),
+        beforeChapterId: assertOptionalText(command.beforeChapterId, "前置章节 ID")
+      };
+    case "scene.move":
+      return {
+        type,
+        sceneId: assertRequiredText(command.sceneId, "场景 ID"),
+        targetChapterId: assertRequiredText(command.targetChapterId, "目标章节 ID"),
+        beforeSceneId: assertOptionalText(command.beforeSceneId, "前置场景 ID")
+      };
+    case "chapters.setStatus": {
+      if (!Array.isArray(command.chapterIds) || command.chapterIds.length === 0) {
+        throw new CreationWorkspaceError("invalid-input", "章节 ID 列表必须为非空数组。");
+      }
+      const chapterIds = command.chapterIds.map((id) => assertRequiredText(id, "章节 ID"));
+      if (new Set(chapterIds).size !== chapterIds.length) {
+        throw new CreationWorkspaceError("invalid-input", "章节 ID 列表不得包含重复项。");
+      }
+      return {
+        type,
+        chapterIds,
+        status: assertRequiredText(command.status, "章节状态", 100)
+      };
+    }
+    case "chapter.setNumbering": {
+      const numbering = command.numbering;
+      if (numbering !== "auto" && numbering !== "prologue" && numbering !== "extra" && numbering !== "custom") {
+        throw new CreationWorkspaceError("invalid-input", "章节编号类型无效。");
+      }
+      const customNumber = assertOptionalText(command.customNumber, "自定义章节编号", 100);
+      if (numbering === "custom" && !customNumber) {
+        throw new CreationWorkspaceError("invalid-input", "自定义章节编号不能为空。");
+      }
+      return {
+        type,
+        chapterId: assertRequiredText(command.chapterId, "章节 ID"),
+        numbering,
+        customNumber,
+        baseRevision: assertPositiveRevision(command.baseRevision, "章节基础版本")
+      };
+    }
+    default:
+      throw new CreationWorkspaceError("invalid-input", `命令 ${String(type)} 不属于受保护的结构操作。`);
+  }
+}
+
+function assertStructurePreviewCommand(value: unknown): StructurePreviewCommand {
+  const command = assertRecord(value, "结构预览请求");
+  if (command.type !== "structure.preview") {
+    throw new CreationWorkspaceError("invalid-input", "结构预览请求类型必须为 structure.preview。");
+  }
+  return {
+    type: "structure.preview",
+    projectId: assertRequiredText(command.projectId, "作品 ID"),
+    command: assertProtectedStructureCommand(command.command)
+  };
+}
+
+function assertStructureApplyCommand(value: unknown): StructureApplyWithProtectionCommand {
+  const command = assertRecord(value, "结构应用请求");
+  if (command.type !== "structure.applyWithProtection") {
+    throw new CreationWorkspaceError("invalid-input", "结构应用请求类型必须为 structure.applyWithProtection。");
+  }
+  return {
+    type: "structure.applyWithProtection",
+    projectId: assertRequiredText(command.projectId, "作品 ID"),
+    planId: assertRequiredText(command.planId, "预览计划 ID"),
+    protectionReason: assertRequiredText(command.protectionReason, "保护原因", 200)
+  };
+}
+
+function assertStructureRevertCommand(value: unknown): StructureRevertCommand {
+  const command = assertRecord(value, "结构撤回请求");
+  if (command.type !== "structure.revert") {
+    throw new CreationWorkspaceError("invalid-input", "结构撤回请求类型必须为 structure.revert。");
+  }
+  if (!Array.isArray(command.expectedAppliedRevisions)) {
+    throw new CreationWorkspaceError("invalid-input", "应用版本集合必须为数组。");
+  }
+  const expectedAppliedRevisions: StructureRevertCommand["expectedAppliedRevisions"] = command.expectedAppliedRevisions.map((entry, index) => {
+    const revision = assertRecord(entry, `应用版本集合第 ${index + 1} 项`);
+    if (revision.type !== "volume" && revision.type !== "chapter" && revision.type !== "scene") {
+      throw new CreationWorkspaceError("invalid-input", `应用版本集合第 ${index + 1} 项的实体类型无效。`);
+    }
+    return {
+      type: revision.type,
+      id: assertRequiredText(revision.id, `应用版本集合第 ${index + 1} 项的实体 ID`),
+      revision: assertPositiveRevision(revision.revision, `应用版本集合第 ${index + 1} 项的版本`)
+    };
+  });
+  const keys = expectedAppliedRevisions.map((entry) => `${entry.type}:${entry.id}`);
+  if (new Set(keys).size !== keys.length) {
+    throw new CreationWorkspaceError("invalid-input", "应用版本集合不得包含重复实体。");
+  }
+  return {
+    type: "structure.revert",
+    projectId: assertRequiredText(command.projectId, "作品 ID"),
+    protectionSnapshotId: assertRequiredText(command.protectionSnapshotId, "保护快照 ID"),
+    expectedAppliedRevisions
+  };
+}
 
 export interface CreationIpcContext {
   resolveDataRoot: () => string;
@@ -116,6 +286,12 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     )
   );
 
+  ipcMain.handle("creation:readProjectHome", () =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read({ kind: "project.home" }) as Promise<ProjectHomeView>
+    )
+  );
+
   ipcMain.handle("creation:readProjectNavigation", (_event, projectId: string) =>
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "project.navigation", projectId }))
   );
@@ -138,8 +314,21 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
   );
 
   ipcMain.handle("creation:runStructure", (_event, command: unknown) =>
-    coordinator.withWorkspace((workspace) => workspace.transact(command as StructureCommand) as Promise<CreationStructureResult>)
+    coordinator.withWorkspace((workspace) => workspace.transact(assertRunCommand(command)) as Promise<CreationRunResult>)
   );
+
+  ipcMain.handle("creation:structurePreview", (_event, command: unknown) => {
+    const validated = assertStructurePreviewCommand(command);
+    return coordinator.withWorkspace((workspace) => workspace.previewStructure(validated));
+  });
+  ipcMain.handle("creation:structureApply", (_event, command: unknown) => {
+    const validated = assertStructureApplyCommand(command);
+    return coordinator.withWorkspace((workspace) => workspace.applyStructure(validated));
+  });
+  ipcMain.handle("creation:structureRevert", (_event, command: unknown) => {
+    const validated = assertStructureRevertCommand(command);
+    return coordinator.withWorkspace((workspace) => workspace.revertStructure(validated));
+  });
 
   ipcMain.handle("creation:cardsList", (_event, query: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.read(query as CardsListQuery) as Promise<CardSummary[]>)
@@ -222,12 +411,20 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     coordinator.withWorkspace((workspace) => workspace.read(query as InboxListQuery) as Promise<InboxItem[]>)
   );
 
+  ipcMain.handle("creation:inboxCount", () =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "inbox.count" }))
+  );
+
   ipcMain.handle("creation:inboxUpdate", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as InboxUpdateCommand))
   );
 
   ipcMain.handle("creation:inboxDelete", (_event, command: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.transact(command as InboxDeleteCommand))
+  );
+
+  ipcMain.handle("creation:inboxCreate", (_event, command: unknown) =>
+    coordinator.withWorkspace((workspace) => workspace.transact(command as InboxCreateCommand))
   );
 
   ipcMain.handle("creation:annotationList", (_event, query: unknown) =>

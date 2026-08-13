@@ -109,24 +109,39 @@ async function run(): Promise<void> {
         .prepare("INSERT INTO chapters(id, project_id, title, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
         .run("chapter-v1", "project-v1", "第一章", 0, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
       raw
-        .prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)")
-        .run("scene-v1", "chapter-v1", "默认场景", 0, "2026-01-01T00:00:00.000Z", "2026-01-01T00:00:00.000Z");
+        .prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)")
+        .run(
+          "scene-v1",
+          "chapter-v1",
+          "默认场景",
+          0,
+          JSON.stringify({ type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "旧稿正文，含标点与空白。  " }] }] }),
+          "2026-01-01T00:00:00.000Z",
+          "2026-01-01T00:00:00.000Z"
+        );
       raw.close();
 
       const workspace = await openCreationWorkspace({ directory }) as CreationWorkspace;
       try {
         const report = await workspace.check();
         assert.equal(report.ok, true);
-        assert.equal(report.schemaVersion, 8);
+        assert.equal(report.schemaVersion, 9);
         const list = (await workspace.read({ kind: "projects.list" })) as Array<{ title: string }>;
         assert.equal(list.some((project) => project.title === "旧项目v1"), true);
         const tree = await workspace.read({ kind: "project.tree", projectId: "project-v1" });
         assert.equal(tree?.chapters[0]?.scenes[0]?.id, "scene-v1");
+        // v8→v9 迁移回填：旧正文非空白字符数（10 汉字 + 2 标点 = 12，空白不计）必须进入 project.home。
+        const home = (await workspace.read({ kind: "project.home" })) as { projects: Array<{ id: string; currentChars: number }> };
+        const entry = home.projects.find((project) => project.id === "project-v1");
+        assert.equal(entry?.currentChars, 12);
+        const stats = (await workspace.read({ kind: "stats.view", projectId: "project-v1" })) as { words: { han: number; nonWhitespace: number } };
+        assert.equal(stats.words.han, 10);
+        assert.equal(stats.words.nonWhitespace, 12);
       } finally {
         await workspace.close();
       }
       const reopened = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(reopened.pragma("user_version", { simple: true })), 8);
+      assert.equal(Number(reopened.pragma("user_version", { simple: true })), 9);
       const requiredTables = [
         "projects", "volumes", "chapters", "scenes", "cards", "card_types",
         "relation_types", "card_relations", "resources", "snapshots", "change_log",
@@ -178,7 +193,7 @@ async function run(): Promise<void> {
         await workspace.close();
       }
       const after = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(after.pragma("user_version", { simple: true })), 8);
+      assert.equal(Number(after.pragma("user_version", { simple: true })), 9);
       after.close();
     });
 

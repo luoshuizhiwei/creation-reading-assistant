@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, BookOpen, FileText, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
-import { Button, EmptyState, ShellPanel } from "@/components/ui";
+import { BookOpen, FileText, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
+import { Button, EmptyState } from "@/components/ui";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAppStore } from "@/stores/app-store";
@@ -107,8 +107,8 @@ export function LibraryPage() {
         <section className="desktop-page-hero motion-panel">
           <div>
             <div className="desktop-card-label">Local documents</div>
-            <h2>本地书库工作区</h2>
-            <p>按格式、进度和最近阅读筛选本地 TXT / Markdown / EPUB，点击整行即可进入深度阅读。</p>
+            <h2>资料阅读与摘录</h2>
+            <p>导入并浏览本地 TXT / Markdown / EPUB 资料，选中文字即可摘录到全局收件箱或项目资料卡；沉浸阅读请在 Android 端进行。</p>
           </div>
           <div className="desktop-page-actions">
             <Button variant="secondary" onClick={importBooks}>
@@ -118,10 +118,6 @@ export function LibraryPage() {
             <Button variant="secondary" onClick={importEpubBooks}>
               <Import size={16} />
               导入 EPUB
-            </Button>
-            <Button variant="quiet" onClick={() => setScreen("stats")}>
-              <BarChart3 size={16} />
-              统计
             </Button>
             <Button variant="quiet" onClick={() => setScreen("settings")}>
               <Settings size={16} />
@@ -136,7 +132,7 @@ export function LibraryPage() {
           </div>
         ) : books.length === 0 ? (
           <div className="desktop-panel-card desktop-empty-wrap">
-            <EmptyState title="书库还是空的" body="导入 TXT、Markdown 或 EPUB 后，可以从这里打开阅读器并保存阅读进度。" />
+            <EmptyState title="书库还是空的" body="导入 TXT、Markdown 或 EPUB 后，可以从这里打开资料、浏览目录并摘录选文。" />
           </div>
         ) : (
           <div className="grid gap-4">
@@ -305,7 +301,7 @@ export function LibraryPage() {
                         <Button
                           className="px-2"
                           variant="secondary"
-                          aria-label="打开阅读"
+                          aria-label="打开资料"
                           onClick={(event) => {
                             event.stopPropagation();
                             openReader(book.id);

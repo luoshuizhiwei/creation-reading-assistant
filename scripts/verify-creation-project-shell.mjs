@@ -28,6 +28,21 @@ try {
       fail(`IPC channel must exist in both main and preload: ${channel}`);
     }
   }
+  const protectedStructureChannels = [
+    "creation:structurePreview",
+    "creation:structureApply",
+    "creation:structureRevert"
+  ];
+  for (const channel of protectedStructureChannels) {
+    if (!creationIpcSource.includes(`"${channel}"`) || !preloadSource.includes(`"${channel}"`)) {
+      fail(`Protected structure IPC must exist in both main and preload: ${channel}`);
+    }
+  }
+  for (const validator of ["assertStructurePreviewCommand", "assertStructureApplyCommand", "assertStructureRevertCommand"]) {
+    if (!creationIpcSource.includes(validator)) {
+      fail(`Protected structure IPC must validate renderer input: ${validator}`);
+    }
+  }
 
   const allowedChannels = [
     ...requiredChannels,
@@ -35,6 +50,7 @@ try {
     "creation:updateSceneBody",
     "creation:readProjectOutline",
     "creation:runStructure",
+    ...protectedStructureChannels,
     "creation:cardsList",
     "creation:cardRead",
     "creation:cardTypesList",
@@ -54,6 +70,8 @@ try {
     "creation:migrationStatus",
     "creation:migrationRun",
     "creation:inboxList",
+    "creation:inboxCount",
+    "creation:inboxCreate",
     "creation:inboxUpdate",
     "creation:inboxDelete",
     "creation:importDraftPreview",
@@ -69,6 +87,7 @@ try {
     "creation:readProjectExport",
     "creation:watchProject",
     "creation:unwatchProject",
+    "creation:readProjectHome",
     "creation:event"
   ];
   const preloadCreationChannels = [...preloadSource.matchAll(/"creation:[^"]+"/g)].map((match) => match[0].slice(1, -1));

@@ -20,5 +20,6 @@
     },
     "types": ["node"]
   },
-  "include": ["electron/**/*.ts", "src/types/**/*.ts"]
+  "include": ["electron/**/*.ts", "src/types/**/*.ts"],
+  "exclude": ["electron/**/__tests__/**"]
 }

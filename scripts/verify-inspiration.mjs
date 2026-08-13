@@ -29,7 +29,9 @@ const requiredSnippets = [
   [files.main, "inspirationsPath"],
   [files.main, 'ipcMain.handle("inspiration:addVariant"'],
   [files.page, "灵感中心"],
-  [files.page, "平台标签"],
+  // 阶段 6：InspirationPage 降级为兼容跳转，平台标签等创作管理 UI 已移除；
+  // 契约改为校验兼容层的迁移说明文本，不再要求主要灵感管理字段。
+  [files.page, "已并入全局收件箱"],
   [files.service, "createInspiration"],
   [files.store, "selectedId"]
 ];

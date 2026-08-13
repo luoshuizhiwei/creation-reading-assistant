@@ -59,7 +59,7 @@ git push origin main
 ## 本地生成 Android 正式包（历史 — P0-A3 待恢复）
 
 > 以下内容描述旧 `mobile/android` Capacitor 构建流程，保留为 P0-A3 迁移参考。
-> 当前 `mobile/` 已冻结（见 [`mobile/FROZEN.md`](../mobile/FROZEN.md)），这些命令不可用。
+> 当前 `mobile/` 已删除；冻结说明与上游归属见 [`archives/frozen-mobile/FROZEN.md`](../archives/frozen-mobile/FROZEN.md)，这些命令不可用。
 
 ```powershell
 npm run mobile:build

@@ -16,7 +16,8 @@ const files = {
   preload: read("electron/preload/index.ts"),
   main: read("electron/main/index.ts"),
   settingsPage: read("src/features/settings/SettingsPage.tsx"),
-  inspirationPage: read("src/features/inspiration/InspirationPage.tsx"),
+  // 阶段 6：InspirationPage 降级为兼容跳转，AI 候选与 runAIAction 入口移至 InboxPage。
+  inboxPage: read("src/features/creation/inbox/InboxPage.tsx"),
   service: read("src/services/ai-service.ts")
 };
 
@@ -32,8 +33,8 @@ const requiredSnippets = [
   [files.main, 'ipcMain.handle("ai:run"'],
   [files.settingsPage, "AI 助手"],
   [files.settingsPage, "API Key"],
-  [files.inspirationPage, "AI 候选版本"],
-  [files.inspirationPage, "runAIAction"],
+  [files.inboxPage, "AI 候选版本"],
+  [files.inboxPage, "runAIAction"],
   [files.service, "runAIAction"]
 ];
 

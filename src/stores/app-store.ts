@@ -1,6 +1,7 @@
 import { create } from "zustand";
 
-export type AppScreen = "start" | "projects" | "inbox" | "inspiration" | "library" | "reader" | "stats" | "settings";
+export const APP_SCREENS = ["projects", "inbox", "inspiration", "library", "reader", "stats", "settings"] as const;
+export type AppScreen = (typeof APP_SCREENS)[number];
 
 export interface ReaderReturnState {
   bookId: string;

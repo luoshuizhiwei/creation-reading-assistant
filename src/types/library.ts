@@ -341,3 +341,68 @@ export interface ReaderActivityState {
   lastPersistAt?: number;
   lastLocation?: ReadingLocation;
 }
+
+// ---------------------------------------------------------------------------
+// 资料摘录 (Excerpt) — 桌面端阅读器收敛为「资料阅读与摘录」后的数据结构。
+// 直接摘录到全局收件箱或项目资料卡，不再强制先创建旧灵感。
+// ---------------------------------------------------------------------------
+
+/**
+ * 资料摘录来源快照。跨 TXT / Markdown / EPUB 三种格式统一描述，
+ * 保留每种格式可用的定位字段（href / cfi / charOffset 等），
+ * 便于集成端映射到 InboxCreateCommand 或 CardCreateCommand.content。
+ */
+export interface ExcerptSourceSnapshot {
+  bookId: ID;
+  bookTitle: string;
+  bookAuthor?: string;
+  format: BookFormat;
+  /** 当前所在章节标题（EPUB 取 toc 匹配，TXT/MD 取当前 heading） */
+  chapterTitle?: string;
+  /** 0-1 之间的进度比例 */
+  progressPercent?: number;
+  /** 人类可读的位置标签，如「第三章 · 42% 附近」 */
+  locationLabel: string;
+  /** 已选中的正文文本（已 trim 且截断到上限） */
+  excerpt: string;
+  /** EPUB / Markdown 章节 href */
+  href?: string;
+  /** EPUB CFI 定位 */
+  cfi?: string;
+  /** TXT/MD 在正文中的字符偏移 */
+  charOffset?: number;
+  charLength?: number;
+  /** TXT/MD 滚动位置，兼容旧 ReadingLocation.scroll */
+  scrollTop?: number;
+  createdAt: ISODateString;
+}
+
+export type ExcerptTargetKind = "inbox" | "projectCard";
+
+/** 摘录目标：全局收件箱或某个项目的资料卡。 */
+export type ExcerptTarget =
+  | { kind: "inbox" }
+  | { kind: "projectCard"; projectId: string };
+
+/** 摘录操作结果。success=false 时必须给出 error，不得假成功。 */
+export interface ExcerptResult {
+  success: boolean;
+  /** 成功时返回创建的收件箱条目 ID 或资料卡 ID */
+  itemId?: string;
+  /** 失败原因 */
+  error?: string;
+}
+
+/**
+ * 资料摘录目的地接口。由集成端注入实际 IPC 实现；
+ * library 内只依赖此接口，不直接调用共享 IPC。
+ * 测试中注入 mock 实现即可验证摘录流程。
+ */
+export interface ReaderExcerptDestination {
+  /** 列出可选的目标项目（供摘录选择器渲染）。 */
+  listProjects(): Promise<Array<{ id: string; title: string }>>;
+  /** 摘录到全局收件箱：保存完整选文和来源。 */
+  saveToInbox(source: ExcerptSourceSnapshot): Promise<ExcerptResult>;
+  /** 摘录为指定项目的资料卡：保存 bookId、格式、章节、进度、href/cfi/offset 等定位。 */
+  saveToProjectCard(projectId: string, source: ExcerptSourceSnapshot): Promise<ExcerptResult>;
+}

@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { useCreationStore } from "@/stores/creation-store";
 import type {
+  CardSummary,
   CreationDocument,
   CreationProjectNavigation,
   CreationProjectSummary,
@@ -107,6 +108,21 @@ function makeSummary(overrides: Partial<CreationProjectSummary> = {}): CreationP
   };
 }
 
+function makeCard(projectId: string, id = `card-${projectId}`): CardSummary {
+  return {
+    id,
+    projectId,
+    kind: "character",
+    title: `卡片 ${projectId}`,
+    aliases: [],
+    fields: {},
+    tags: [],
+    createdAt: "2026-08-09T10:00:00.000Z",
+    updatedAt: "2026-08-09T10:00:00.000Z",
+    revision: 1
+  };
+}
+
 beforeEach(() => {
   useCreationStore.setState({
     projects: [],
@@ -118,17 +134,24 @@ beforeEach(() => {
     recoveryNoticeDismissed: false,
     loading: false,
     watchConnected: false,
-    leaveGuard: undefined
+    leaveGuard: undefined,
+    cardProjectId: undefined,
+    cardTypes: [],
+    relationTypes: [],
+    cards: [],
+    cardRelations: {},
+    selectedCardId: undefined,
+    cardsLoading: false
   });
 });
 
 describe("creation store", () => {
-  it("selects the first project when none is selected", () => {
+  it("刷新项目列表时不自动选中第一个项目，进入项目首页", () => {
     useCreationStore.getState().setProjects([makeSummary({ id: "a" }), makeSummary({ id: "b" })]);
-    expect(useCreationStore.getState().selectedId).toBe("a");
+    expect(useCreationStore.getState().selectedId).toBeUndefined();
   });
 
-  it("keeps the current selection when it still exists after refresh", () => {
+  it("刷新后保留仍存在的当前选择", () => {
     useCreationStore.getState().setProjects([makeSummary({ id: "a" }), makeSummary({ id: "b" })]);
     useCreationStore.getState().setSelectedId("b");
     useCreationStore.getState().setProjects([makeSummary({ id: "b" }), makeSummary({ id: "c" })]);
@@ -277,5 +300,68 @@ describe("creation store", () => {
     expect(useCreationStore.getState().recoveryNoticeDismissed).toBe(false);
     useCreationStore.getState().dismissRecoveryNotice();
     expect(useCreationStore.getState().recoveryNoticeDismissed).toBe(true);
+  });
+
+  it("切换卡片项目时立即清空旧项目卡片与选择", () => {
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().setCards("a", [makeCard("a")]);
+    useCreationStore.getState().selectCard("card-a");
+
+    useCreationStore.getState().activateCardProject("b");
+
+    expect(useCreationStore.getState()).toMatchObject({
+      cardProjectId: "b",
+      cards: [],
+      selectedCardId: undefined,
+      cardRelations: {}
+    });
+  });
+
+  it("拒绝迟到的旧项目卡片响应写入当前项目", () => {
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().activateCardProject("b");
+    useCreationStore.getState().setCards("a", [makeCard("a")]);
+
+    expect(useCreationStore.getState().cardProjectId).toBe("b");
+    expect(useCreationStore.getState().cards).toEqual([]);
+  });
+
+  it("setSelectedId 切换项目时立即清空卡片类型/关系类型/选中/加载标记", () => {
+    useCreationStore.getState().setProjects([makeSummary({ id: "a" }), makeSummary({ id: "b" })]);
+    useCreationStore.getState().setSelectedId("a");
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().setCardTypes("a", [{ id: "t1", projectId: null, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 }]);
+    useCreationStore.getState().setRelationTypes("a", []);
+    useCreationStore.getState().setCards("a", [makeCard("a")]);
+    useCreationStore.getState().selectCard("card-a");
+    useCreationStore.getState().setCardsLoading("a", true);
+
+    useCreationStore.getState().setSelectedId("b");
+
+    expect(useCreationStore.getState()).toMatchObject({
+      selectedId: "b",
+      cardProjectId: undefined,
+      cards: [],
+      cardTypes: [],
+      relationTypes: [],
+      selectedCardId: undefined,
+      cardRelations: {},
+      cardsLoading: false
+    });
+  });
+
+  it("setSelectedId 清空到项目首页时同样清空卡片作用域", () => {
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().setCards("a", [makeCard("a")]);
+    useCreationStore.getState().selectCard("card-a");
+
+    useCreationStore.getState().setSelectedId(undefined);
+
+    expect(useCreationStore.getState()).toMatchObject({
+      selectedId: undefined,
+      cards: [],
+      selectedCardId: undefined,
+      cardsLoading: false
+    });
   });
 });

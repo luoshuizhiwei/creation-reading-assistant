@@ -27,9 +27,9 @@ assertIncludes("src/features/library/EpubReaderPage.tsx", "epubStyleMode === \"p
 assertIncludes("src/features/library/EpubReaderPage.tsx", "publisher-preserve-night", "EPUB publisher-style night mode must inject a readable text-color fallback.");
 assertIncludes("src/features/library/EpubReaderPage.tsx", "readerTextColor(settings.readerBackground)", "EPUB night fallback must use the configured reader text color.");
 assertIncludes("src/features/search/SearchPanel.tsx", "HighlightedText", "Search results must visually highlight matching text.");
-assertIncludes("src/pages/StartPage.tsx", "首页搜索", "Start page must expose search as a visible primary action.");
-assertIncludes("src/pages/StartPage.tsx", "本地书库", "Start page must keep local library as a primary entry.");
-assertIncludes("src/pages/StartPage.tsx", "灵感中心", "Start page must keep inspiration center as a primary entry.");
+assertIncludes("src/features/search/SearchPanel.tsx", "全局搜索", "Global search must be exposed as a visible primary action.");
+assertIncludes("src/components/layout/DesktopFrame.tsx", "资料阅读", "App navigation must keep the library as a primary entry.");
+assertIncludes("src/features/inspiration/InspirationPage.tsx", "灵感", "Inspiration center must remain reachable.");
 
 // TXT smart chapter splitting
 assertIncludes("src/features/library/ReaderPage.tsx", "splitTxtChapters", "TXT reader must provide smart chapter splitting by heading regex.");

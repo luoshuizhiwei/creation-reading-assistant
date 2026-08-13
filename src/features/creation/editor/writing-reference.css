@@ -1,0 +1,203 @@
+/* 批注真实选区与 @ 卡片引用（局部样式，不影响全局） */
+
+.writing-margin .writing-annotations {
+  position: relative;
+}
+
+.writing-annotation-selection {
+  display: grid;
+  gap: 3px;
+}
+
+.writing-annotation-selection-label {
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.writing-annotation-selection-value {
+  border: 1px dashed color-mix(in srgb, var(--paper-line) 80%, transparent);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper-soft) 40%, transparent);
+  color: var(--paper-muted);
+  font-size: 11px;
+  line-height: 1.5;
+  padding: 5px 8px;
+}
+
+.writing-annotation-selection-value.has-selection {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line));
+  color: var(--paper-ink);
+}
+
+.writing-annotation-card-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.writing-annotation-card-row .paper-input {
+  min-width: 0;
+  flex: 1;
+}
+
+.writing-annotation-at {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  border: 1px solid color-mix(in srgb, var(--copper) 35%, var(--paper-line));
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--copper) 8%, var(--paper-panel));
+  color: var(--copper);
+  font-size: 11px;
+  font-weight: 650;
+  padding: 5px 8px;
+  cursor: pointer;
+}
+
+.writing-annotation-at:hover {
+  background: color-mix(in srgb, var(--copper) 14%, var(--paper-panel));
+}
+
+/* @ 卡片引用选择器 */
+.card-reference-picker {
+  position: absolute;
+  right: 14px;
+  bottom: 108px;
+  z-index: 30;
+  width: min(320px, calc(100% - 28px));
+  border: 1px solid var(--paper-line);
+  border-radius: 12px;
+  background: var(--paper-panel);
+  box-shadow: 0 16px 40px rgba(30, 20, 12, 0.16);
+  overflow: hidden;
+}
+
+.card-reference-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
+  padding: 8px 10px;
+  color: var(--paper-muted);
+}
+
+.card-reference-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  font-size: 12px;
+  outline: none;
+}
+
+.card-reference-close {
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 3px;
+  cursor: pointer;
+}
+
+.card-reference-close:hover {
+  background: var(--paper-soft);
+  color: var(--paper-ink);
+}
+
+.card-reference-list {
+  max-height: 240px;
+  overflow: auto;
+  padding: 4px;
+}
+
+.card-reference-empty {
+  margin: 0;
+  color: var(--paper-muted);
+  font-size: 11px;
+  padding: 12px 8px;
+}
+
+.card-reference-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-ink);
+  text-align: left;
+  padding: 7px 8px;
+  cursor: pointer;
+}
+
+.card-reference-item:hover,
+.card-reference-item.active {
+  border-color: color-mix(in srgb, var(--copper) 26%, var(--paper-line));
+  background: color-mix(in srgb, var(--copper) 8%, var(--paper-panel));
+}
+
+.card-reference-item svg {
+  flex-shrink: 0;
+  color: var(--copper);
+}
+
+.card-reference-item-main {
+  display: grid;
+  min-width: 0;
+  gap: 1px;
+}
+
+.card-reference-item-main strong {
+  font-size: 12px;
+  font-weight: 650;
+}
+
+.card-reference-item-main small {
+  color: var(--paper-muted);
+  font-size: 10px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.writing-outline-revert {
+  display: grid;
+  gap: 6px;
+  margin: 8px 10px 0;
+  border-left: 2px solid var(--copper);
+  background: color-mix(in srgb, var(--copper) 7%, transparent);
+  color: var(--paper-muted);
+  padding: 8px 9px;
+  font-size: 11px;
+}
+
+.writing-outline-revert-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.writing-outline-revert button {
+  border: 0;
+  background: transparent;
+  color: var(--copper);
+  padding: 2px 4px;
+  cursor: pointer;
+}
+
+.writing-outline-revert button:disabled {
+  cursor: wait;
+  opacity: 0.55;
+}
+
+.writing-outline-revert-error {
+  color: var(--danger, #b42318);
+  line-height: 1.45;
+}

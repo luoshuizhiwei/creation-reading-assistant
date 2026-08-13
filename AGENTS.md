@@ -60,6 +60,14 @@ npm run dist           # 构建 + 打包安装程序
 | `android/**` | 移动端 — 独立原生（当前主线） |
 | `docs/**` | 共享文档，不属于任一端的运行时 |
 
+## 共享工作区与并行 Agent
+
+- 工作区中的既有修改均视为用户资产；不得为了“清空状态”执行 reset、checkout、全仓格式化或全仓 renormalize。
+- 多个 coding agent 同时工作时必须预先分配互不重叠的文件所有权；发现需要修改他人所有文件时先交给集成者，不得直接越界。
+- `package.json`、`package-lock.json`、`scripts/beta-check.mjs`、公共类型和根文档默认由单一集成者维护。
+- 并行实现阶段只运行所属模块的定向测试；完整 build、desktop Beta、diff-check 和视觉验收由所有实现结束后的集成者串行执行。
+- 未经用户明确要求，不 commit、不 push，也不清理 Android 或冻结归档中的未提交改动。
+
 ---
 
 ## 权威架构文档

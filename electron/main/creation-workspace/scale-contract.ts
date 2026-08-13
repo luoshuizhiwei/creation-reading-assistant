@@ -4,10 +4,14 @@ import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { performance } from "node:perf_hooks";
+import Database from "better-sqlite3";
 import {
+  countSceneBodyStats,
   openCreationWorkspace,
   type CreationWorkspace,
   type CreationSearchView,
+  type ProjectHomeView,
+  type ProjectStatsView,
   type ReplacePreviewView
 } from "./index";
 
@@ -42,6 +46,7 @@ async function withWorkspace<T>(directory: string, fn: (workspace: CreationWorks
 async function run(): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "creation-scale-"));
   const results: Record<string, number> = {};
+  const statsSum = { han: 0, punct: 0, nonWhitespace: 0 };
   try {
     // ---- 生成规模数据（单事务批量 INSERT，含 FTS 同步） ----
     const start = performance.now();
@@ -59,7 +64,7 @@ async function run(): Promise<void> {
         "INSERT INTO chapters(id, project_id, volume_id, title, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
       );
       const insertScene = raw.database.prepare(
-        "INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
       const insertCard = raw.database.prepare(
         "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
@@ -80,15 +85,23 @@ async function run(): Promise<void> {
           insertChapter.run(chapterId, projectId, volumeId, `第${chapterIndex + 1}章`, chapterIndex, timestamp, timestamp);
           for (let sceneIndex = 0; sceneIndex < 10; sceneIndex += 1) {
             const sceneId = `scene-scale-${volumeIndex}-${chapterIndex}-${sceneIndex}`;
+            const sceneBodyJson = JSON.stringify({
+              type: "doc",
+              content: [{ type: "paragraph", content: [{ type: "text", text: sceneText(volumeIndex * 400 + chapterIndex * 10 + sceneIndex) }] }]
+            });
+            const sceneStats = countSceneBodyStats(sceneBodyJson);
+            statsSum.han += sceneStats.han;
+            statsSum.punct += sceneStats.punct;
+            statsSum.nonWhitespace += sceneStats.nonWhitespace;
             insertScene.run(
               sceneId,
               chapterId,
               `场景${sceneIndex + 1}`,
               sceneIndex,
-              JSON.stringify({
-                type: "doc",
-                content: [{ type: "paragraph", content: [{ type: "text", text: sceneText(volumeIndex * 400 + chapterIndex * 10 + sceneIndex) }] }]
-              }),
+              sceneBodyJson,
+              sceneStats.han,
+              sceneStats.punct,
+              sceneStats.nonWhitespace,
               timestamp,
               timestamp
             );
@@ -188,6 +201,68 @@ async function run(): Promise<void> {
       results.outlineMs = Math.round(performance.now() - outlineStart);
       assert.equal(outline?.volumes.length, 6);
       assert.equal(results.outlineMs < 2000, true, `大纲读取超时：${results.outlineMs}ms`);
+
+      // ---- P1-P08 项目首页聚合：计数正确、返回结构不携带正文 ----
+      const expectedTotal = statsSum.nonWhitespace;
+      const homeStart = performance.now();
+      const home = (await workspace.read({ kind: "project.home" })) as ProjectHomeView;
+      results.homeMs = Math.round(performance.now() - homeStart);
+      const entry = home.projects.find((project) => project.id === projectId);
+      assert.equal(entry !== undefined, true);
+      assert.equal(entry!.currentChars, expectedTotal, "project.home 非空白字符数应与逐场景统计一致");
+      const homeJson = JSON.stringify(home);
+      assert.equal(homeJson.includes("黄沙镇的风吹过街角"), false, "project.home 返回结构不得携带场景正文");
+      assert.equal(homeJson.includes(SENTINEL), false, "project.home 返回结构不得携带场景正文（哨兵）");
+
+      // ---- P1-P09 统计视图：三口径正确且与 project.home 一致 ----
+      const statsStart = performance.now();
+      const stats = (await workspace.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      results.statsMs = Math.round(performance.now() - statsStart);
+      assert.equal(stats.words.nonWhitespace, expectedTotal, "stats.nonWhitespace 应与 project.home.currentChars 一致");
+      assert.equal(stats.words.nonWhitespace, statsSum.nonWhitespace, "stats.nonWhitespace 应等于逐场景统计");
+      assert.equal(stats.words.han, statsSum.han, "stats.han 应等于逐场景统计");
+      assert.equal(stats.words.withPunctuation, statsSum.han + statsSum.punct, "stats.withPunctuation = han + punct");
+      const statsJson = JSON.stringify(stats);
+      assert.equal(statsJson.includes("黄沙镇的风吹过街角"), false, "stats 返回结构不得携带场景正文");
+      assert.equal(statsJson.includes(SENTINEL), false, "stats 返回结构不得携带场景正文（哨兵）");
+
+      // ---- P1-P10 项目列表：计数正确、不读取正文 ----
+      const listStart = performance.now();
+      const list = (await workspace.read({ kind: "projects.list" })) as Array<{ id: string; chapterCount: number; sceneCount: number }>;
+      results.listMs = Math.round(performance.now() - listStart);
+      const listEntry = list.find((project) => project.id === projectId)!;
+      assert.equal(listEntry.chapterCount, 201, "项目列表章节数应为 默认 1 章 + 5 卷 × 40 章");
+      assert.equal(listEntry.sceneCount, SCENE_COUNT + 1, "项目列表场景数应为 默认 1 场景 + 2000");
+      const listJson = JSON.stringify(list);
+      assert.equal(listJson.includes(SENTINEL), false, "projects.list 返回结构不得携带场景正文");
+
+      // ---- P1-P11 读路径不解析正文：损坏 body_json 不影响 home/stats 计数 ----
+      const rawVerify = new Database(path.join(directory, "workspace.sqlite"));
+      rawVerify.prepare("UPDATE scenes SET body_json = 'not-json' WHERE id = 'scene-scale-0-0-0'").run();
+      rawVerify.close();
+      const homeAfterCorrupt = (await workspace.read({ kind: "project.home" })) as ProjectHomeView;
+      const entryAfterCorrupt = homeAfterCorrupt.projects.find((project) => project.id === projectId)!;
+      assert.equal(entryAfterCorrupt.currentChars, expectedTotal, "正文损坏后 project.home 计数保持不变（读路径不解析 body_json）");
+      const statsAfterCorrupt = (await workspace.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      assert.equal(statsAfterCorrupt.words.nonWhitespace, expectedTotal, "正文损坏后 stats.nonWhitespace 保持不变（读路径不解析 body_json）");
+
+      // ---- P1-P12 查询计划：project.home/stats 无相关子查询、无 group_concat 聚合 ----
+      const planDatabase = new Database(path.join(directory, "workspace.sqlite"));
+      try {
+        const homePlan = planDatabase
+          .prepare("EXPLAIN QUERY PLAN SELECT p.id, sc.current_chars FROM projects p LEFT JOIN (SELECT c.project_id, count(*) AS scene_count, coalesce(sum(s.non_ws_count), 0) AS current_chars FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.deleted_at IS NULL AND s.deleted_at IS NULL GROUP BY c.project_id) sc ON sc.project_id = p.id LEFT JOIN (SELECT project_id, count(*) AS chapter_count FROM chapters WHERE deleted_at IS NULL GROUP BY project_id) ch ON ch.project_id = p.id")
+          .all() as Array<{ detail: string }>;
+        const homePlanText = homePlan.map((row) => row.detail).join("\n");
+        assert.equal(homePlanText.includes("CORRELATED"), false, "project.home 查询不得包含相关子查询（N+1）");
+        assert.equal(homePlanText.includes("SCAN scenes"), false, "project.home 对 scenes 的访问应使用索引");
+        const statsPlan = planDatabase
+          .prepare("EXPLAIN QUERY PLAN SELECT coalesce(sum(s.han_count), 0), coalesce(sum(s.punct_count), 0), coalesce(sum(s.non_ws_count), 0) FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?")
+          .all(projectId) as Array<{ detail: string }>;
+        const statsPlanText = statsPlan.map((row) => row.detail).join("\n");
+        assert.equal(statsPlanText.includes("CORRELATED"), false, "stats.view 查询不得包含相关子查询（N+1）");
+      } finally {
+        planDatabase.close();
+      }
     });
 
     console.log(
@@ -198,12 +273,15 @@ async function run(): Promise<void> {
         searchMs: results.searchMs,
         cardsListMs: results.cardsListMs,
         replacePreviewMs: results.replacePreviewMs,
-        outlineMs: results.outlineMs
+        outlineMs: results.outlineMs,
+        homeMs: results.homeMs,
+        statsMs: results.statsMs,
+        listMs: results.listMs
       })}`
     );
-    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 7 })}\n`);
+    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 10 })}\n`);
   } finally {
-    await removeWithRetry(directory);
+    await removeWithRetry(directory, 12);
   }
 }
 

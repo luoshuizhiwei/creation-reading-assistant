@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ChevronDown,
   ChevronRight,
@@ -12,12 +12,28 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import type {
+  ChapterNumberingKind,
   CreationOutlineChapter,
   CreationOutlineScene,
   CreationOutlineVolume,
   CreationProjectOutline,
-  StructureCommand
+  StructureCommand,
+  ProtectedStructureCommand,
+  StructurePreviewCommand,
+  StructurePreviewView,
+  StructureApplyWithProtectionCommand,
+  StructureApplyResult
 } from "@/types/creation";
+import {
+  computeChapterMoveImpact,
+  computeMergeImpact,
+  computeSplitImpact,
+  findChapterLocation,
+  findSceneLocation
+} from "./outline-impact";
+import { StructureImpactDialog } from "./StructureImpactDialog";
+import { reorderTarget } from "./outline-reorder";
+import "./outline-reorg.css";
 
 interface OutlineTreeProps {
   outline: CreationProjectOutline;
@@ -25,6 +41,9 @@ interface OutlineTreeProps {
   selectedSceneId?: string;
   onSelectScene: (sceneId: string) => void;
   runStructure: (command: StructureCommand) => Promise<boolean>;
+  previewStructure?: (command: StructurePreviewCommand) => Promise<StructurePreviewView | null>;
+  applyStructureWithProtection?: (command: StructureApplyWithProtectionCommand) => Promise<StructureApplyResult | null>;
+  onProtectedApplied?: (result: StructureApplyResult) => void;
 }
 
 type ConfirmTarget =
@@ -41,6 +60,38 @@ interface PromptState {
   title: string;
   defaultValue: string;
   submit(title: string): void;
+}
+
+type PendingOperation =
+  | { type: "split"; chapterId: string; sceneId: string; title: string }
+  | { type: "merge"; chapterId: string }
+  | { type: "chapterMove"; chapterId: string; targetVolumeId: string }
+  | { type: "sceneMove"; sceneId: string; targetChapterId: string }
+  | { type: "numbering"; chapterId: string; numbering: ChapterNumberingKind; customNumber?: string; baseRevision: number };
+
+function commandForPending(outline: CreationProjectOutline, pending: PendingOperation): ProtectedStructureCommand | null {
+  if (pending.type === "split") {
+    return { type: "chapter.split", chapterId: pending.chapterId, splitSceneId: pending.sceneId, newChapterTitle: pending.title };
+  }
+  if (pending.type === "merge") {
+    const impact = computeMergeImpact(outline, pending.chapterId);
+    return impact?.valid
+      ? { type: "chapter.merge", sourceChapterId: pending.chapterId, targetChapterId: impact.targetChapter.id }
+      : null;
+  }
+  if (pending.type === "sceneMove") {
+    return { type: "scene.move", sceneId: pending.sceneId, targetChapterId: pending.targetChapterId };
+  }
+  if (pending.type === "numbering") {
+    return {
+      type: "chapter.setNumbering",
+      chapterId: pending.chapterId,
+      numbering: pending.numbering,
+      customNumber: pending.customNumber,
+      baseRevision: pending.baseRevision
+    };
+  }
+  return { type: "chapter.move", chapterId: pending.chapterId, targetVolumeId: pending.targetVolumeId };
 }
 
 function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): void }) {
@@ -100,28 +151,50 @@ function sceneSiblingIds(chapter: CreationOutlineChapter | undefined): string[] 
   return chapter?.scenes.map((scene) => scene.id) ?? [];
 }
 
-/**
- * 把「上移/下移」转为 beforeId 语义：上移 → before 前一个；下移 → before 后一个的下一个。
- * 返回 undefined 表示不需要变化（已在边界）。
- */
-function shiftTarget(siblingIds: string[], id: string, direction: "up" | "down"): string | undefined {
-  const at = siblingIds.indexOf(id);
-  if (direction === "up") return at > 0 ? siblingIds[at - 1] : undefined;
-  return at >= 0 && at < siblingIds.length - 2 ? siblingIds[at + 2] : undefined;
-}
+
 
 export function OutlineTree({
   outline,
   workflow,
   selectedSceneId,
   onSelectScene,
-  runStructure
+  runStructure,
+  previewStructure,
+  applyStructureWithProtection,
+  onProtectedApplied
 }: OutlineTreeProps) {
   const [expandedVolumes, setExpandedVolumes] = useState<Set<string>>(() => new Set(outline.volumes.map((v) => v.id)));
   const [expandedChapters, setExpandedChapters] = useState<Set<string>>(() => new Set(outline.volumes.flatMap((v) => v.chapters.map((c) => c.id))));
   const [confirm, setConfirm] = useState<ConfirmTarget>();
   const [editing, setEditing] = useState<EditingTarget>();
   const [prompt, setPrompt] = useState<PromptState>();
+  const [pendingOp, setPendingOp] = useState<PendingOperation | null>(null);
+  const [impactBusy, setImpactBusy] = useState(false);
+  const [impactPreview, setImpactPreview] = useState<StructurePreviewView | null>(null);
+  const [impactError, setImpactError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setImpactPreview(null);
+    setImpactError(null);
+    if (!pendingOp || !previewStructure) return;
+    const command = commandForPending(outline, pendingOp);
+    if (!command) return;
+    let active = true;
+    setImpactBusy(true);
+    void previewStructure({ type: "structure.preview", projectId: outline.project.id, command })
+      .then((preview) => {
+        if (!active) return;
+        if (preview) setImpactPreview(preview);
+        else setImpactError("无法取得权威影响预览，请重试。");
+      })
+      .catch((error: unknown) => {
+        if (active) setImpactError(error instanceof Error ? error.message : "无法取得权威影响预览，请重试。");
+      })
+      .finally(() => {
+        if (active) setImpactBusy(false);
+      });
+    return () => { active = false; };
+  }, [outline, pendingOp, previewStructure]);
 
   const toggleVolume = (id: string) =>
     setExpandedVolumes((current) => {
@@ -196,75 +269,129 @@ export function OutlineTree({
       return;
     }
     if (editing.kind === "volume") {
-      await runStructure({ type: "volume.rename", volumeId: editing.id, title, baseRevision: 1 });
+      const revision = outline.volumes.find((item) => item.id === editing.id)?.revision ?? 1;
+      await runStructure({ type: "volume.rename", volumeId: editing.id, title, baseRevision: revision });
     } else if (editing.kind === "chapter") {
-      await runStructure({ type: "chapter.rename", chapterId: editing.id, title, baseRevision: 1 });
+      const revision = findChapterLocation(outline, editing.id)?.chapter.revision ?? 1;
+      await runStructure({ type: "chapter.rename", chapterId: editing.id, title, baseRevision: revision });
     } else {
-      await runStructure({ type: "scene.rename", sceneId: editing.id, title, baseRevision: 1 });
+      const revision = findSceneLocation(outline, editing.id)?.scene.revision ?? 1;
+      await runStructure({ type: "scene.rename", sceneId: editing.id, title, baseRevision: revision });
     }
     setEditing(undefined);
   };
 
   const moveVolume = async (volume: CreationOutlineVolume, direction: "up" | "down") => {
-    const before = shiftTarget(volumeSiblingIds(outline), volume.id, direction);
-    if (before === undefined) return;
-    await runStructure({ type: "volume.reorder", volumeId: volume.id, beforeVolumeId: before });
+    const target = reorderTarget(volumeSiblingIds(outline), volume.id, direction);
+    if (!target.canMove) return;
+    await runStructure({ type: "volume.reorder", volumeId: volume.id, beforeVolumeId: target.beforeId });
   };
 
   const moveChapter = async (volume: CreationOutlineVolume, chapter: CreationOutlineChapter, direction: "up" | "down") => {
-    const before = shiftTarget(chapterSiblingIds(volume), chapter.id, direction);
-    if (before === undefined) return;
-    await runStructure({ type: "chapter.reorder", chapterId: chapter.id, beforeChapterId: before });
+    const target = reorderTarget(chapterSiblingIds(volume), chapter.id, direction);
+    if (!target.canMove) return;
+    await runStructure({ type: "chapter.reorder", chapterId: chapter.id, beforeChapterId: target.beforeId });
   };
 
-  const moveChapterToVolume = async (chapter: CreationOutlineChapter, targetVolumeId: string) => {
-    await runStructure({ type: "chapter.move", chapterId: chapter.id, targetVolumeId });
+  const moveChapterToVolume = (chapter: CreationOutlineChapter, targetVolumeId: string) => {
+    setPendingOp({ type: "chapterMove", chapterId: chapter.id, targetVolumeId });
   };
 
   const moveScene = async (chapter: CreationOutlineChapter, scene: CreationOutlineScene, direction: "up" | "down") => {
-    const before = shiftTarget(sceneSiblingIds(chapter), scene.id, direction);
-    if (before === undefined) return;
-    await runStructure({ type: "scene.reorder", sceneId: scene.id, beforeSceneId: before });
+    const target = reorderTarget(sceneSiblingIds(chapter), scene.id, direction);
+    if (!target.canMove) return;
+    await runStructure({ type: "scene.reorder", sceneId: scene.id, beforeSceneId: target.beforeId });
   };
 
-  const moveSceneToChapter = async (scene: CreationOutlineScene, targetChapterId: string) => {
-    await runStructure({ type: "scene.move", sceneId: scene.id, targetChapterId });
+  const moveSceneToChapter = (scene: CreationOutlineScene, targetChapterId: string) => {
+    setPendingOp({ type: "sceneMove", sceneId: scene.id, targetChapterId });
   };
 
   const splitChapterAtScene = (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => {
     setPrompt({
       title: "拆章后的新章节名",
       defaultValue: "新章节",
-      submit: async (title) => {
-        await runStructure({
-          type: "chapter.split",
-          chapterId: chapter.id,
-          splitSceneId: scene.id,
-          newChapterTitle: title
-        });
+      submit: (title) => {
+        setPrompt(undefined);
+        setPendingOp({ type: "split", chapterId: chapter.id, sceneId: scene.id, title });
       }
     });
   };
 
-  const mergeChapterToPrevious = async (volume: CreationOutlineVolume, chapter: CreationOutlineChapter) => {
+  const mergeChapterToPrevious = (volume: CreationOutlineVolume, chapter: CreationOutlineChapter) => {
     const at = volume.chapters.findIndex((item) => item.id === chapter.id);
     if (at <= 0) return;
-    await runStructure({
-      type: "chapter.merge",
-      sourceChapterId: chapter.id,
-      targetChapterId: volume.chapters[at - 1].id
-    });
+    setPendingOp({ type: "merge", chapterId: chapter.id });
   };
 
   const setStatus = async (chapter: CreationOutlineChapter, status: string) => {
     await runStructure({ type: "chapter.setStatus", chapterId: chapter.id, status, baseRevision: chapter.revision });
   };
 
-  const volumeButtons = (volume: CreationOutlineVolume) => (
+  const setNumbering = (chapter: CreationOutlineChapter, mode: ChapterNumberingKind) => {
+    if (mode === "custom") {
+      setPrompt({
+        title: "自定义章节编号（例如：外传一、尾声）",
+        defaultValue: chapter.customNumber ?? "",
+        submit: (text) => {
+          setPrompt(undefined);
+          setPendingOp({
+            type: "numbering",
+            chapterId: chapter.id,
+            numbering: "custom",
+            customNumber: text.trim() || undefined,
+            baseRevision: chapter.revision
+          });
+        }
+      });
+      return;
+    }
+    setPendingOp({ type: "numbering", chapterId: chapter.id, numbering: mode, baseRevision: chapter.revision });
+  };
+
+  const confirmPending = async () => {
+    if (!pendingOp) return;
+    const command = commandForPending(outline, pendingOp);
+    if (!command) return;
+    if (previewStructure && (!impactPreview || impactPreview.stale)) return;
+    setImpactBusy(true);
+    setImpactError(null);
+    try {
+      if (applyStructureWithProtection) {
+        const result = await applyStructureWithProtection({
+          type: "structure.applyWithProtection",
+          projectId: outline.project.id,
+          planId: impactPreview?.planId ?? "",
+          protectionReason: `大纲安全重组：${pendingOp.type}`
+        });
+        if (!result) {
+          setImpactError("操作未成功，预览可能已过期，请取消后重试。");
+          return;
+        }
+        onProtectedApplied?.(result);
+      } else {
+        const ok = await runStructure(command as StructureCommand);
+        if (!ok) {
+          setImpactError("操作未成功，请重试。");
+          return;
+        }
+      }
+      setPendingOp(null);
+    } catch (error) {
+      setImpactError(error instanceof Error ? error.message : "操作失败，请重试。");
+    } finally {
+      setImpactBusy(false);
+    }
+  };
+
+  const volumeButtons = (volume: CreationOutlineVolume) => {
+    const up = reorderTarget(volumeSiblingIds(outline), volume.id, "up");
+    const down = reorderTarget(volumeSiblingIds(outline), volume.id, "down");
+    return (
     <span className="outline-node-actions">
       <button type="button" title="新建章节" onClick={() => void addChapter(volume)}><Plus size={12} /></button>
-      <button type="button" title="上移" onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveVolume(volume, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveVolume(volume, "down")}><ChevronDown size={12} /></button>
       <button type="button" title="改名" onClick={() => startEdit({ kind: "volume", id: volume.id, title: volume.title })}><Pencil size={12} /></button>
       <button
         type="button"
@@ -276,12 +403,16 @@ export function OutlineTree({
       </button>
     </span>
   );
+  };
 
-  const chapterButtons = (volume: CreationOutlineVolume, chapter: CreationOutlineChapter) => (
+  const chapterButtons = (volume: CreationOutlineVolume, chapter: CreationOutlineChapter) => {
+    const up = reorderTarget(chapterSiblingIds(volume), chapter.id, "up");
+    const down = reorderTarget(chapterSiblingIds(volume), chapter.id, "down");
+    return (
     <span className="outline-node-actions">
       <button type="button" title="新建场景" onClick={() => void addScene(chapter)}><Plus size={12} /></button>
-      <button type="button" title="上移" onClick={() => void moveChapter(volume, chapter, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" onClick={() => void moveChapter(volume, chapter, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveChapter(volume, chapter, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveChapter(volume, chapter, "down")}><ChevronDown size={12} /></button>
       {outline.volumes.length > 1 && (
         <select
           className="outline-move-select"
@@ -301,6 +432,17 @@ export function OutlineTree({
         <button type="button" title="并入上一章" onClick={() => void mergeChapterToPrevious(volume, chapter)}><Merge size={12} /></button>
       )}
       <button type="button" title="改名" onClick={() => startEdit({ kind: "chapter", id: chapter.id, title: chapter.title })}><Pencil size={12} /></button>
+      <select
+        className="outline-numbering-select"
+        aria-label="章节编号模式"
+        value={chapter.numbering}
+        onChange={(event) => setNumbering(chapter, event.target.value as ChapterNumberingKind)}
+      >
+        <option value="auto">自动</option>
+        <option value="prologue">序章</option>
+        <option value="extra">番外</option>
+        <option value="custom">自定义</option>
+      </select>
       <button
         type="button"
         title="删除章节（含其场景）"
@@ -311,11 +453,15 @@ export function OutlineTree({
       </button>
     </span>
   );
+  };
 
-  const sceneButtons = (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => (
+  const sceneButtons = (chapter: CreationOutlineChapter, scene: CreationOutlineScene) => {
+    const up = reorderTarget(sceneSiblingIds(chapter), scene.id, "up");
+    const down = reorderTarget(sceneSiblingIds(chapter), scene.id, "down");
+    return (
     <span className="outline-node-actions">
-      <button type="button" title="上移" onClick={() => void moveScene(chapter, scene, "up")}><ChevronRight size={12} className="rotate-270" /></button>
-      <button type="button" title="下移" onClick={() => void moveScene(chapter, scene, "down")}><ChevronDown size={12} /></button>
+      <button type="button" title="上移" disabled={!up.canMove} onClick={() => void moveScene(chapter, scene, "up")}><ChevronRight size={12} className="rotate-270" /></button>
+      <button type="button" title="下移" disabled={!down.canMove} onClick={() => void moveScene(chapter, scene, "down")}><ChevronDown size={12} /></button>
       {chapter.scenes.length > 0 && (
         <select
           className="outline-move-select"
@@ -343,6 +489,7 @@ export function OutlineTree({
       </button>
     </span>
   );
+  };
 
   const renderTitle = (target: EditingTarget) =>
     editing?.kind === target.kind && editing.id === target.id ? (
@@ -442,6 +589,78 @@ export function OutlineTree({
     );
   };
 
+  const renderPendingImpact = () => {
+    if (!pendingOp) return null;
+    if (pendingOp.type === "sceneMove" || pendingOp.type === "numbering") {
+      return (
+        <StructureImpactDialog
+          title={pendingOp.type === "sceneMove" ? "场景跨章移动影响预览" : "章节编号变更影响预览"}
+          description={pendingOp.type === "sceneMove" ? "场景将移动到目标章节。确认后才会写入。" : "章节编号规则将改变。确认后才会写入。"}
+          rows={impactPreview?.rows ?? []}
+          notice={impactPreview?.stale ? "预览已过期，请取消后重新发起操作。" : undefined}
+          error={impactError}
+          confirmDisabled={!impactPreview || impactPreview.stale}
+          confirmLabel={pendingOp.type === "sceneMove" ? "确认移动" : "确认修改"}
+          busy={impactBusy}
+          onCancel={() => setPendingOp(null)}
+          onConfirm={() => void confirmPending()}
+        />
+      );
+    }
+    if (pendingOp.type === "split") {
+      const impact = computeSplitImpact(outline, pendingOp.chapterId, pendingOp.sceneId, pendingOp.title);
+      if (!impact) return null;
+      return (
+        <StructureImpactDialog
+          title="拆章影响预览"
+          description="按场景边界拆分：原章保留拆分点之前的场景，其余移入新章。确认后才会写入。"
+          rows={impactPreview?.rows ?? []}
+          notice={impact.invalidReason ?? (impactPreview?.stale ? "预览已过期，请取消后重新发起操作。" : undefined)}
+          error={impactError}
+          confirmDisabled={!impact.valid || !impactPreview || impactPreview.stale}
+          confirmLabel="确认拆章"
+          busy={impactBusy}
+          onCancel={() => setPendingOp(null)}
+          onConfirm={() => void confirmPending()}
+        />
+      );
+    }
+    if (pendingOp.type === "merge") {
+      const impact = computeMergeImpact(outline, pendingOp.chapterId);
+      if (!impact) return null;
+      return (
+        <StructureImpactDialog
+          title="并入上一章影响预览"
+          description="源章的场景将并入目标章，源章被软删除。确认后才会写入。"
+          rows={impactPreview?.rows ?? []}
+          notice={impact.invalidReason ?? (impactPreview?.stale ? "预览已过期，请取消后重新发起操作。" : undefined)}
+          error={impactError}
+          confirmDisabled={!impact.valid || !impactPreview || impactPreview.stale}
+          confirmLabel="确认并入"
+          busy={impactBusy}
+          onCancel={() => setPendingOp(null)}
+          onConfirm={() => void confirmPending()}
+        />
+      );
+    }
+    const impact = computeChapterMoveImpact(outline, pendingOp.chapterId, pendingOp.targetVolumeId);
+    if (!impact) return null;
+    return (
+      <StructureImpactDialog
+        title="跨卷移动影响预览"
+        description="章节将移入目标卷，原卷与目标卷编号自动重排。确认后才会写入。"
+        rows={impactPreview?.rows ?? []}
+        notice={impactPreview?.stale ? "预览已过期，请取消后重新发起操作。" : undefined}
+        error={impactError}
+        confirmDisabled={!impactPreview || impactPreview.stale}
+        confirmLabel="确认移动"
+        busy={impactBusy}
+        onCancel={() => setPendingOp(null)}
+        onConfirm={() => void confirmPending()}
+      />
+    );
+  };
+
   return (
     <div className="outline-tree">
       <div className="outline-toolbar">
@@ -465,6 +684,7 @@ export function OutlineTree({
         )}
       </div>
       {prompt && <PromptDialog prompt={prompt} onCancel={() => setPrompt(undefined)} />}
+      {pendingOp && renderPendingImpact()}
     </div>
   );
 }

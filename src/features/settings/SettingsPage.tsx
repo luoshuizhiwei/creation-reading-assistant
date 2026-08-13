@@ -707,6 +707,29 @@ export function SettingsPage() {
           </Section>
 
           <Section title="AI 助手" section="ai" onReset={resetSection}>
+            <label className="col-span-2 flex items-center gap-2 text-sm text-paper-muted">
+              <input
+                type="checkbox"
+                checked={settings.ai.enabled}
+                onChange={(event) => void patchSettings({ ai: { enabled: event.target.checked } })}
+              />
+              启用 AI 助手（关闭时不会向任何服务发送内容，也不会出现 AI 操作）
+            </label>
+            {!settings.ai.enabled && (
+              <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3 text-xs leading-6 text-paper-muted">
+                AI 助手已关闭。开启后可用「润色 / 扩写 / 平台风格化」等本地灵感打磨，但开启前请先配置 API Key。
+              </div>
+            )}
+            {settings.ai.enabled && !settings.ai.hasApiKey && (
+              <InlineNotice tone="warning" className="col-span-2 p-2 text-xs">
+                已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。
+              </InlineNotice>
+            )}
+            {settings.ai.enabled && (
+              <div className="col-span-2 rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs leading-6 text-paper-muted">
+                开启 AI 后，你输入的正文、灵感标题与平台标签会发送到你配置的 AI 服务（Base URL）。API Key 仅在主进程加密保存，前端不读取明文。
+              </div>
+            )}
             <label className="grid gap-1.5 text-sm text-paper-muted">
               <span className="font-medium text-paper-ink">Provider</span>
               <select

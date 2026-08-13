@@ -1,0 +1,158 @@
+import { useCallback, useEffect, useState } from "react";
+import { ArrowRight, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus, Search } from "lucide-react";
+import { useCreationActions } from "@/hooks/useCreationActions";
+import { useSearchStore } from "@/stores/search-store";
+import type { ProjectHomeEntry } from "@/types/creation";
+
+interface ProjectHomePageProps {
+  onOpenProject(projectId: string): void;
+  onContinueWriting(projectId: string): void;
+  onOpenInbox(): void;
+  onCreateProject(): void;
+  onImportBundle(): void;
+  onImportDraft(): void;
+  /** 外部数据变化（如项目包/旧稿导入成功）后递增，触发重新读取 project.home。 */
+  refreshKey?: number;
+}
+
+function formatUpdatedAt(value?: string): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  const now = new Date();
+  const sameDay = date.toDateString() === now.toDateString();
+  return sameDay
+    ? `今天 ${date.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`
+    : date.toLocaleDateString("zh-CN");
+}
+
+function formatChars(count: number): string {
+  if (count < 1000) return `${count} 字`;
+  return `${(count / 1000).toFixed(1)}k 字`;
+}
+
+/** 项目首页（规格 §3.1）：最近项目（含真实字数进度）、继续写作、待处理收件箱。 */
+export function ProjectHomePage({
+  onOpenProject,
+  onContinueWriting,
+  onOpenInbox,
+  onCreateProject,
+  onImportBundle,
+  onImportDraft,
+  refreshKey = 0
+}: ProjectHomePageProps) {
+  const { loadProjectHome, loadInboxCount } = useCreationActions();
+  const setSearchOpen = useSearchStore((state) => state.setOpen);
+  const [entries, setEntries] = useState<ProjectHomeEntry[]>([]);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [loaded, setLoaded] = useState(false);
+
+  const refresh = useCallback(async () => {
+    const [home, inbox] = await Promise.all([loadProjectHome(), loadInboxCount()]);
+    setEntries(home.projects);
+    setPendingCount(inbox.pending);
+    setLoaded(true);
+  }, [loadProjectHome, loadInboxCount]);
+
+  useEffect(() => {
+    void refresh();
+  }, [refresh, refreshKey]);
+
+  return (
+    <section className="desktop-page-scroll paper-shell">
+      <div className="desktop-page-stack project-home">
+        <section className="project-home-hero motion-panel">
+          <p className="project-home-hero-copy">
+            从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作、大纲、卡片、统计与版本历史。
+          </p>
+          <div className="desktop-page-actions">
+            <button type="button" className="desktop-search-command" onClick={() => setSearchOpen(true)}>
+              <Search size={17} />
+              <span>全局搜索（Ctrl+K）</span>
+              <kbd>Ctrl K</kbd>
+            </button>
+            <button type="button" className="desktop-home-inbox" onClick={onOpenInbox}>
+              <InboxIcon size={16} />
+              待处理收件箱
+              {pendingCount > 0 && <em className="desktop-home-inbox-count">{pendingCount}</em>}
+            </button>
+            <button type="button" className="desktop-home-inbox" onClick={onImportBundle}>
+              <FolderInput size={16} />
+              导入项目包
+            </button>
+            <button type="button" className="desktop-home-inbox" onClick={onImportDraft}>
+              <FileUp size={16} />
+              导入旧稿
+            </button>
+          </div>
+        </section>
+
+        <section className="stats-card">
+          <h3>最近项目</h3>
+          {!loaded ? (
+            <p className="stats-note">加载中…</p>
+          ) : entries.length === 0 ? (
+            <div className="project-home-empty">
+              <p className="stats-note">还没有创作项目。新建一个项目后，会自动生成第一章与默认场景，你可以直接开始写作。</p>
+              <button type="button" className="project-home-create-first" onClick={onCreateProject}>
+                <Plus size={15} />
+                新建第一个项目
+              </button>
+            </div>
+          ) : (
+            <ul className="project-home-list">
+              {entries.map((project) => {
+                const goal = project.setup?.totalWordGoal;
+                const percent = goal && goal > 0 ? Math.min(100, Math.round((project.currentChars / goal) * 100)) : 0;
+                return (
+                  <li key={project.id} className="project-home-item">
+                    <button
+                      type="button"
+                      className="project-home-item-main hover:-translate-y-0.5 focus:ring-2 focus:outline-none"
+                      onClick={() => onOpenProject(project.id)}
+                      aria-label={`打开项目：${project.title}`}
+                    >
+                      <strong>{project.title}</strong>
+                      <span className="project-home-meta">
+                        更新于 {formatUpdatedAt(project.updatedAt)} · {project.chapterCount} 章 · {project.sceneCount} 场景
+                      </span>
+                      <span className="project-home-progress">
+                        <span className="project-home-chars">
+                          {formatChars(project.currentChars)}
+                          {goal ? ` / ${goal.toLocaleString("zh-CN")} 字` : ""}
+                        </span>
+                        {goal && goal > 0 ? (
+                          <span
+                            className="project-home-progressbar"
+                            role="progressbar"
+                            aria-valuenow={percent}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-label={`进度 ${percent}%`}
+                          >
+                            <span className="project-home-progressbar-fill" style={{ width: `${percent}%` }} />
+                          </span>
+                        ) : (
+                          <span className="project-home-no-goal">未设字数目标</span>
+                        )}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      className="project-home-continue"
+                      onClick={() => onContinueWriting(project.id)}
+                      aria-label={`继续写作：${project.title}`}
+                    >
+                      <PenLine size={14} />
+                      继续写作
+                    </button>
+                    <ArrowRight size={16} className="project-home-arrow" />
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </section>
+      </div>
+    </section>
+  );
+}

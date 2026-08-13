@@ -158,6 +158,15 @@ function fallbackDataRoot(): string {
   return path.join(app.getPath("userData"), "NovelWorkbench");
 }
 
+/**
+ * 视觉捕获隔离钩子：仅开发态（未打包）且显式设置 CREATION_READER_CAPTURE_PROFILE 时生效
+ * （自动化截图验收用）。打包环境即使继承该环境变量也必须继续使用正常 userData。
+ */
+const captureProfileDir = !app.isPackaged ? process.env.CREATION_READER_CAPTURE_PROFILE : undefined;
+if (captureProfileDir) {
+  app.setPath("userData", captureProfileDir);
+}
+
 function portableDataRoot(): string {
   const base = app.isPackaged ? path.dirname(app.getPath("exe")) : process.cwd();
   return path.join(base, "data");
@@ -526,6 +535,10 @@ async function writeStoragePointer(dataDirectory: string): Promise<void> {
 }
 
 async function resolveInitialDataRoot(): Promise<void> {
+  if (captureProfileDir) {
+    activeDataRoot = fallbackDataRoot();
+    return;
+  }
   const pointedRoot = await readStoragePointer();
   if (pointedRoot && (await isDirectoryWritable(pointedRoot))) {
     activeDataRoot = pointedRoot;
@@ -656,7 +669,8 @@ function defaultAISettings(): AISettings {
     baseUrl: "https://api.openai.com/v1",
     model: "gpt-4.1-mini",
     temperature: 0.7,
-    hasApiKey: false
+    hasApiKey: false,
+    enabled: false
   };
 }
 
@@ -768,7 +782,8 @@ function normalizeAISettings(value: unknown, hasApiKey = false): AISettings {
     baseUrl: typeof raw.baseUrl === "string" && raw.baseUrl.trim() ? raw.baseUrl.trim().replace(/\/+$/, "") : defaults.baseUrl,
     model: typeof raw.model === "string" && raw.model.trim() ? raw.model.trim() : defaults.model,
     temperature: typeof raw.temperature === "number" ? Math.min(1.5, Math.max(0, raw.temperature)) : defaults.temperature,
-    hasApiKey
+    hasApiKey,
+    enabled: raw.enabled === true
   };
 }
 
@@ -1024,6 +1039,8 @@ function buildAIPrompt(input: AIRunInput): string {
 
 async function runAIAction(input: AIRunInput): Promise<AIRunResult> {
   const settings = await getAISettings();
+  // 隐私边界：未显式启用时绝不发起任何网络请求，也不读取 Key。
+  if (!settings.enabled) throw new Error("AI 助手未启用。请在设置中心开启「启用 AI 助手」后再使用 AI 打磨。");
   const apiKey = await readAIApiKey();
   if (!apiKey) throw new Error("请先在设置中心配置 AI API Key。");
   const prompt = buildAIPrompt(input);
@@ -3319,8 +3336,7 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width: 1360,
     height: 860,
-    minWidth: 1080,
-    minHeight: 720,
+    ...(captureProfileDir ? {} : { minWidth: 1080, minHeight: 720 }),
     title: "创作阅读助手",
     backgroundColor: "#f5f5f4",
     autoHideMenuBar: true,

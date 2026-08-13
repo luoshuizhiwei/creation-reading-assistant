@@ -209,7 +209,8 @@ async function run(): Promise<void> {
         type: "session.report",
         projectId,
         sceneId,
-        startedAt: new Date(Date.now() - 3600_000).toISOString(),
+        // 使用当前时刻（本地"今天"），避免本地午夜后「1 小时前」落在昨天导致 streak 断言失败。
+        startedAt: new Date().toISOString(),
         activeSeconds: 600,
         netChars: 120
       });

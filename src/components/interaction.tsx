@@ -1,7 +1,64 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ButtonHTMLAttributes,
+  type CSSProperties,
+  type FocusEvent,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode
+} from "react";
 import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useUIStore, type ToastTone } from "@/stores/ui-store";
+
+/**
+ * 键盘焦点可见环（等价 :focus-visible 的常见降级实现）：
+ * 指针按下后聚焦不显示（鼠标点击），Tab / 脚本聚焦显示；
+ * 焦点元素上按任意键视为键盘交互并恢复显示。
+ * 用于无法改动样式表时给裸 button/input 提供可见焦点指示。
+ */
+export function useFocusRing() {
+  const [ringVisible, setRingVisible] = useState(false);
+  const pointerActiveRef = useRef(false);
+
+  const ringStyle: CSSProperties | undefined = ringVisible
+    ? { outline: "2px solid var(--copper)", outlineOffset: "2px" }
+    : undefined;
+
+  const handlers = {
+    onFocus: (event: FocusEvent<HTMLElement>) => {
+      if (!pointerActiveRef.current) setRingVisible(true);
+    },
+    onBlur: () => {
+      // 指针状态随失焦复位，避免下一次键盘聚焦被旧的 pointer 标记卡住。
+      pointerActiveRef.current = false;
+      setRingVisible(false);
+    },
+    onPointerDown: (event: ReactPointerEvent<HTMLElement>) => {
+      // 点击按钮任意后代（span/strong/svg）都属于指针操作，不显示键盘焦点环。
+      if (event.currentTarget.contains(event.target as Node)) pointerActiveRef.current = true;
+      setRingVisible(false);
+    },
+    onKeyDown: (event: ReactKeyboardEvent<HTMLElement>) => {
+      if (event.target === event.currentTarget) pointerActiveRef.current = false;
+      setRingVisible(true);
+    }
+  };
+
+  return { ringStyle, handlers };
+}
+
+/** 带键盘焦点环的按钮：替代裸 <button>，无需修改全局样式表。 */
+export function RingButton({ className, style, children, ...props }: ButtonHTMLAttributes<HTMLButtonElement>) {
+  const ring = useFocusRing();
+  return (
+    <button {...ring.handlers} {...props} style={{ ...ring.ringStyle, ...style }} className={className}>
+      {children}
+    </button>
+  );
+}
 
 const toastIcon: Record<ToastTone, typeof CheckCircle2> = {
   success: CheckCircle2,

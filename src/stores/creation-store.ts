@@ -12,6 +12,7 @@ import type {
   SceneSaveResponse,
   SceneBodyView
 } from "@/types/creation";
+import type { ProjectNavigationRequest } from "@/features/navigation/project-navigation";
 
 interface CreationState {
   projects: CreationProjectSummary[];
@@ -30,6 +31,8 @@ interface CreationState {
   relationTypes: RelationType[];
   /** 当前项目的卡片列表（随筛选/搜索刷新）。 */
   cards: CardSummary[];
+  /** 当前卡片数据所属项目；所有卡片写入都必须匹配该项目。 */
+  cardProjectId?: string;
   /** 每张卡片的关系缓存（出/入），键为卡片 ID。 */
   cardRelations: Record<string, { outgoing: CardRelation[]; incoming: CardRelation[] }>;
   /** 当前选中的卡片。 */
@@ -44,6 +47,17 @@ interface CreationState {
   watchConnected: boolean;
   /** 写作台注册的离开守卫；用于在切换桌面模块前确认脏正文已提交。 */
   leaveGuard?: () => Promise<boolean>;
+  /**
+   * 来自统一搜索/外部入口的项目导航请求；CreationProjectsPage 在挂载/selectedId
+   * 切换后用 consumeProjectNavigation 消费一次，消费即清除，避免重复跳转。
+   * 键为 projectId；同一项目只保留最后一次请求。
+   */
+  projectNavigationRequests: Record<string, ProjectNavigationRequest>;
+  /**
+   * 来自统一搜索的收件箱选中请求；InboxPage 在挂载/列表刷新后消费一次。
+   * 消费即清除；目标条目不存在时 InboxPage 给出明确提示。
+   */
+  inboxSelectionRequest?: string;
   setProjects: (projects: CreationProjectSummary[]) => void;
   setSelectedId: (selectedId?: string) => void;
   upsertProject: (tree: CreationProjectTree) => void;
@@ -58,12 +72,25 @@ interface CreationState {
   setLoading: (loading: boolean) => void;
   setWatchConnected: (watchConnected: boolean) => void;
   setLeaveGuard: (leaveGuard?: () => Promise<boolean>) => void;
-  setCardTypes: (cardTypes: CardType[]) => void;
-  setRelationTypes: (relationTypes: RelationType[]) => void;
-  setCards: (cards: CardSummary[]) => void;
-  setCardRelations: (cardId: string, relations: { outgoing: CardRelation[]; incoming: CardRelation[] }) => void;
+  /** 提交一次项目导航请求（覆盖该 projectId 上一次未消费的请求）。 */
+  requestProjectNavigation: (request: ProjectNavigationRequest) => void;
+  /** 取出并清除该项目的导航请求；不存在返回 undefined。 */
+  consumeProjectNavigation: (projectId: string) => ProjectNavigationRequest | undefined;
+  /** 清空全部未消费的导航请求（用于离开桌面模块）。 */
+  clearProjectNavigation: () => void;
+  /** 提交收件箱选中请求（覆盖上一次未消费的请求）。 */
+  requestInboxSelection: (itemId: string) => void;
+  /** 取出并清除收件箱选中请求；不存在返回 undefined。 */
+  consumeInboxSelection: () => string | undefined;
+  /** 清空收件箱选中请求。 */
+  clearInboxSelection: () => void;
+  activateCardProject: (projectId: string) => void;
+  setCardTypes: (projectId: string, cardTypes: CardType[]) => void;
+  setRelationTypes: (projectId: string, relationTypes: RelationType[]) => void;
+  setCards: (projectId: string, cards: CardSummary[]) => void;
+  setCardRelations: (projectId: string, cardId: string, relations: { outgoing: CardRelation[]; incoming: CardRelation[] }) => void;
   selectCard: (cardId?: string) => void;
-  setCardsLoading: (cardsLoading: boolean) => void;
+  setCardsLoading: (projectId: string, cardsLoading: boolean) => void;
 }
 
 function countTree(tree: CreationProjectTree): { chapterCount: number; sceneCount: number } {
@@ -105,13 +132,14 @@ function sceneExists(navigation: CreationProjectNavigation, sceneId: string): bo
   return navigation.chapters.some((chapter) => chapter.scenes.some((scene) => scene.id === sceneId));
 }
 
-export const useCreationStore = create<CreationState>((set) => ({
+export const useCreationStore = create<CreationState>((set, get) => ({
   projects: [],
   navigations: {},
   outlines: {},
   cardTypes: [],
   relationTypes: [],
   cards: [],
+  cardProjectId: undefined,
   cardRelations: {},
   selectedCardId: undefined,
   cardsLoading: false,
@@ -122,12 +150,15 @@ export const useCreationStore = create<CreationState>((set) => ({
   loading: false,
   watchConnected: false,
   leaveGuard: undefined,
+  projectNavigationRequests: {},
+  inboxSelectionRequest: undefined,
   setProjects: (projects) =>
     set((state) => {
+      // 启动进入项目首页：刷新列表不自动选中第一个项目，保留当前选择；被移除则回到首页。
       const selectedId =
         state.selectedId && projects.some((project) => project.id === state.selectedId)
           ? state.selectedId
-          : projects[0]?.id;
+          : undefined;
       const navigation = selectedId ? state.navigations[selectedId] : undefined;
       const selectedSceneId =
         navigation && state.selectedSceneId && sceneExists(navigation, state.selectedSceneId)
@@ -137,9 +168,20 @@ export const useCreationStore = create<CreationState>((set) => ({
     }),
   setSelectedId: (selectedId) =>
     set((state) => {
-      if (!selectedId) return { selectedId: undefined, selectedSceneId: undefined };
+      const resetCards = state.cardProjectId && state.cardProjectId !== selectedId
+        ? {
+            cardProjectId: undefined,
+            cardTypes: [],
+            relationTypes: [],
+            cards: [],
+            cardRelations: {},
+            selectedCardId: undefined,
+            cardsLoading: false
+          }
+        : {};
+      if (!selectedId) return { selectedId: undefined, selectedSceneId: undefined, ...resetCards };
       const navigation = state.navigations[selectedId];
-      return { selectedId, selectedSceneId: firstSceneId(navigation) };
+      return { selectedId, selectedSceneId: firstSceneId(navigation), ...resetCards };
     }),
   upsertProject: (tree) =>
     set((state) => {
@@ -239,11 +281,55 @@ export const useCreationStore = create<CreationState>((set) => ({
   setLoading: (loading) => set({ loading }),
   setWatchConnected: (watchConnected) => set({ watchConnected }),
   setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
-  setCardTypes: (cardTypes) => set({ cardTypes }),
-  setRelationTypes: (relationTypes) => set({ relationTypes }),
-  setCards: (cards) => set({ cards }),
-  setCardRelations: (cardId, relations) =>
-    set((state) => ({ cardRelations: { ...state.cardRelations, [cardId]: relations } })),
+  requestProjectNavigation: (request) =>
+    set((state) => ({
+      projectNavigationRequests: {
+        ...state.projectNavigationRequests,
+        [request.target.projectId]: request
+      }
+    })),
+  consumeProjectNavigation: (projectId) => {
+    const req = get().projectNavigationRequests[projectId];
+    if (!req) return undefined;
+    set((state) => {
+      const { [projectId]: _consumed, ...rest } = state.projectNavigationRequests;
+      void _consumed;
+      return { projectNavigationRequests: rest };
+    });
+    return req;
+  },
+  clearProjectNavigation: () => set({ projectNavigationRequests: {} }),
+  requestInboxSelection: (itemId) => set({ inboxSelectionRequest: itemId }),
+  consumeInboxSelection: () => {
+    const id = get().inboxSelectionRequest;
+    if (!id) return undefined;
+    set({ inboxSelectionRequest: undefined });
+    return id;
+  },
+  clearInboxSelection: () => set({ inboxSelectionRequest: undefined }),
+  activateCardProject: (projectId) =>
+    set((state) => state.cardProjectId === projectId
+      ? state
+      : {
+          cardProjectId: projectId,
+          cardTypes: [],
+          relationTypes: [],
+          cards: [],
+          cardRelations: {},
+          selectedCardId: undefined,
+          cardsLoading: false
+        }),
+  setCardTypes: (projectId, cardTypes) =>
+    set((state) => state.cardProjectId === projectId ? { cardTypes } : state),
+  setRelationTypes: (projectId, relationTypes) =>
+    set((state) => state.cardProjectId === projectId ? { relationTypes } : state),
+  setCards: (projectId, cards) =>
+    set((state) => state.cardProjectId === projectId ? { cards } : state),
+  setCardRelations: (projectId, cardId, relations) =>
+    set((state) => state.cardProjectId === projectId
+      ? { cardRelations: { ...state.cardRelations, [cardId]: relations } }
+      : state),
   selectCard: (selectedCardId) => set({ selectedCardId }),
-  setCardsLoading: (cardsLoading) => set({ cardsLoading })
+  setCardsLoading: (projectId, cardsLoading) =>
+    set((state) => state.cardProjectId === projectId ? { cardsLoading } : state)
 }));

@@ -109,9 +109,9 @@ function createHarness(options?: {
   };
 }
 
-function openSession(h: Harness, overrides?: { revision?: number; body?: CreationDocument }): void {
+function openSession(h: Harness, overrides?: { sceneId?: string; revision?: number; body?: CreationDocument }): void {
   h.session.open({
-    sceneId: "scene-1",
+    sceneId: overrides?.sceneId ?? "scene-1",
     revision: overrides?.revision ?? 3,
     body: overrides?.body ?? doc("初始")
   });
@@ -299,5 +299,91 @@ describe("createSceneDocumentSession", () => {
       currentRevision: null,
       lastSavedAt: 1_000
     });
+  });
+});
+
+describe("多场景独立会话隔离（逐场景 / 整章连续共用同一套会话机制）", () => {
+  it("场景 A 保存抛错失败，不影响场景 B 正常保存成功", async () => {
+    const a = createHarness();
+    const b = createHarness();
+    openSession(a, { sceneId: "scene-a", revision: 1, body: doc("A 初稿") });
+    openSession(b, { sceneId: "scene-b", revision: 1, body: doc("B 初稿") });
+
+    a.session.edit(doc("A 修改后"));
+    b.session.edit(doc("B 修改后"));
+
+    a.failNextSave(new Error("network"));
+
+    const aResult = await a.session.saveNow();
+    const bResult = await b.session.saveNow();
+
+    expect(aResult).toBe(false);
+    expect(a.session.getState()).toMatchObject({ status: "error", dirty: true });
+    expect(bResult).toBe(true);
+    expect(b.session.getState()).toMatchObject({ status: "saved", dirty: false, revision: 2 });
+    // A 的失败没有污染 B 的保存结果。
+    expect(b.saves).toHaveLength(1);
+  });
+
+  it("场景 A revision-mismatch 进入 conflict，场景 B 仍正常保存", async () => {
+    const a = createHarness({ save: async () => ({ ok: false, error: { code: "revision-mismatch", message: "正文已在别处更新", currentRevision: 2 } }) });
+    const b = createHarness();
+    openSession(a, { sceneId: "scene-a", revision: 1, body: doc("A 初稿") });
+    openSession(b, { sceneId: "scene-b", revision: 1, body: doc("B 初稿") });
+
+    a.session.edit(doc("A 修改后"));
+    b.session.edit(doc("B 修改后"));
+
+    const aResult = await a.session.saveNow();
+    const bResult = await b.session.saveNow();
+
+    expect(aResult).toBe(false);
+    expect(a.session.getState()).toMatchObject({ status: "conflict", currentRevision: 2, dirty: true });
+    expect(bResult).toBe(true);
+    expect(b.session.getState()).toMatchObject({ status: "saved", dirty: false });
+  });
+
+  it("每个场景各自持有独立会话，互不影响自动保存与冲突状态", async () => {
+    const a = createHarness();
+    const b = createHarness();
+    openSession(a, { sceneId: "scene-a", revision: 5, body: doc("A") });
+    openSession(b, { sceneId: "scene-b", revision: 5, body: doc("B") });
+    a.session.edit(doc("A2"));
+    // A 尚未保存，B 也未编辑；B 应处于 saved 且非脏。
+    expect(a.session.getState().dirty).toBe(true);
+    expect(b.session.getState().dirty).toBe(false);
+    expect(b.session.getState().status).toBe("saved");
+  });
+
+  it("IME 组合期间不自动提交，compositionend 后才保存", async () => {
+    const h = createHarness();
+    openSession(h, { sceneId: "scene-x", revision: 1, body: doc("你好") });
+
+    h.session.compositionStart();
+    h.session.edit(doc("你好世界"));
+    expect(h.timers.size).toBe(0);
+    expect(h.saves).toHaveLength(0);
+
+    h.session.compositionEnd();
+    expect(h.timers.size).toBe(1);
+    await h.flush();
+    expect(h.saves).toHaveLength(0);
+
+    await h.fireTimer([...h.timers.keys()][0]);
+    expect(h.saves).toHaveLength(1);
+    expect(h.states.at(-1)?.status).toBe("saved");
+  });
+
+  it("Ctrl+S（saveNow）只保存当前该场景会话，不影响其它场景", async () => {
+    const a = createHarness();
+    const b = createHarness();
+    openSession(a, { sceneId: "scene-a", revision: 1, body: doc("A") });
+    openSession(b, { sceneId: "scene-b", revision: 1, body: doc("B") });
+    a.session.edit(doc("A 焦点编辑"));
+    const ok = await a.session.saveNow();
+    expect(ok).toBe(true);
+    expect(a.saves).toHaveLength(1);
+    expect(a.saves[0].sceneId).toBe("scene-a");
+    expect(b.session.getState().dirty).toBe(false);
   });
 });

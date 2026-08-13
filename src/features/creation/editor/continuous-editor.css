@@ -1,0 +1,64 @@
+.chapter-continuous-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 24px 0 120px;
+}
+
+.chapter-continuous-title {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.4;
+  margin: 0 0 8px;
+  text-align: center;
+}
+
+.chapter-continuous-scene {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.chapter-continuous-scene-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.chapter-continuous-scene-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  border-radius: 999px;
+  background: var(--surface-2, rgba(127, 127, 127, 0.16));
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted-ink, #6b7280);
+}
+
+.chapter-continuous-scene-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.chapter-continuous-break {
+  user-select: none;
+  text-align: center;
+  letter-spacing: 0.5em;
+  color: var(--muted-ink, #9ca3af);
+  padding: 18px 0;
+  font-size: 14px;
+}
+
+.chapter-continuous-scene .writing-surface,
+.chapter-continuous-scene .writing-frame {
+  margin-top: 0;
+}

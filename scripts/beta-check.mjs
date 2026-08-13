@@ -1,7 +1,10 @@
 import { execSync, spawnSync } from "node:child_process";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { mkdtempSync, rmSync } from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { evaluateVitestRun, summarizeVitestJson, extractTestDetails, detectAbi, validateVitestJson } from "./vitest-summary.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -10,6 +13,7 @@ const args = new Set(argv);
 const requireArtifact = args.has("--require-artifact");
 const skipBuild = args.has("--skip-build");
 const skipAudit = args.has("--skip-audit");
+const skipVitest = args.has("--skip-vitest");
 
 // --scope=desktop|all|auto (default: all)
 // Note: mobile/Capacitor scope removed (P0-A2, 2026-07-29). mobile/ is frozen.
@@ -40,6 +44,19 @@ const DESKTOP_SCRIPTS = [
   "verify:creation-project-shell",
   "verify:creation-editor",
   "verify:creation-migration-audit",
+  "verify:creation-outline",
+  "verify:creation-cards",
+  "verify:creation-history",
+  "verify:creation-export",
+  "verify:creation-journey",
+  "verify:creation-planning",
+  "verify:creation-inbox-count",
+  "verify:creation-inbox-convert",
+  "verify:creation-project-home",
+  "verify:creation-migration",
+  "verify:creation-search",
+  "verify:reader-excerpt",
+  "verify:visual-evidence",
   "verify:clean-reposition",
   "verify:visual-polish",
   "verify:ux-polish"
@@ -287,7 +304,7 @@ function assertReadableUtf8() {
     "BETA_CHECKLIST.md",
     "src/app/App.tsx",
     "src/features/settings/SettingsPage.tsx",
-    "src/pages/StartPage.tsx",
+    "src/features/creation/home/ProjectHomePage.tsx",
     "src/features/inspiration/InspirationPage.tsx"
   ].filter((file) => existsSync(path.join(root, file)));
   const offenders = [];
@@ -299,6 +316,76 @@ function assertReadableUtf8() {
   }
   if (offenders.length > 0) fail(`Possible mojibake found:\n${offenders.map((file) => `  - ${file}`).join("\n")}`);
   console.log(`[ok] checked ${files.length} human-facing files`);
+}
+
+/**
+ * 运行完整 Vitest 套件并可靠解析结果。
+ *
+ * 通过 package script 实际执行 `npm test`，并用 Vitest JSON reporter 输出到临时文件：
+ * - JSON 缺失/解析失败 → Beta 直接失败（绝不假绿）；
+ * - 退出码非 0 → 失败；
+ * - failedTests > 0 → 失败；
+ * - skipped 从 JSON 动态读取（numPendingTests），不进入 passed；
+ * - skip 原因从 testResults 提取（或由 ABI 探测说明）；
+ * - ABI 信息动态生成（process.version / process.versions.modules / Electron 版本 / 真实 native 加载结果）。
+ */
+function runVitest() {
+  logStep("Running full Vitest suite (npm test)");
+  if (skipVitest) {
+    console.log(`\n[beta-check] WARNING: --skip-vitest 已启用，本轮跳过完整 Vitest 执行。此模式仅供调试，不得用于正式 Desktop Beta 报告。`);
+    return;
+  }
+  const outputDir = mkdtempSync(path.join(os.tmpdir(), "beta-vitest-"));
+  const outputFile = path.join(outputDir, "vitest.json");
+  try {
+    const result = spawnSync("npm", ["test", "--", "--reporter=json", `--outputFile=${outputFile}`], {
+      cwd: root,
+      shell: true,
+      encoding: "utf8",
+      env: { ...process.env },
+      maxBuffer: 50 * 1024 * 1024,
+      stdio: "pipe"
+    });
+    if (!existsSync(outputFile)) {
+      fail(`Vitest JSON 结果文件缺失：${outputFile}（stdout 末尾：${String(result.stdout ?? "").slice(-400)}）`);
+    }
+    let json;
+    try {
+      json = JSON.parse(readFileSync(outputFile, "utf8"));
+    } catch (error) {
+      fail(`Vitest JSON 解析失败（文件可能截断或未生成）：${error instanceof Error ? error.message : String(error)}`);
+    }
+    const jsonValid = validateVitestJson(json);
+    const summary = summarizeVitestJson(json);
+    const { failed, skipped } = extractTestDetails(json);
+    const abi = detectAbi();
+    const skippedReasons =
+      skipped.length > 0
+        ? skipped.map((title) => `skipped: ${title}`)
+        : abi.nativeLoad === "failed"
+          ? [`better-sqlite3 加载失败：${abi.nativeError ?? "未知"}`]
+          : [];
+
+    if (result.status !== 0) {
+      console.log(String(result.stdout ?? ""));
+      console.log(String(result.stderr ?? ""));
+      fail(`Vitest 退出码非 0（exit ${result.status}）。`);
+    }
+
+    const verdict = evaluateVitestRun({ summary, abi, skippedReasons, jsonValid });
+    console.log(`\n[beta-check] Vitest 结果（来自 JSON reporter）：`);
+    for (const note of verdict.notes) console.log(`  ${note}`);
+    if (jsonValid.ok && failed.length > 0) {
+      console.log(`  失败测试：`);
+      for (const title of failed.slice(0, 20)) console.log(`    - ${title}`);
+    }
+    if (!verdict.ok) {
+      console.log(String(result.stdout ?? ""));
+      fail(`Vitest 校验失败：${jsonValid.ok ? "存在失败测试" : "Reporter 数据无效"}。`);
+    }
+  } finally {
+    rmSync(outputDir, { recursive: true, force: true });
+  }
 }
 
 function candidateArtifacts() {
@@ -331,6 +418,22 @@ if (resolvedScope !== "all") {
   logStep(`Running in scoped mode: ${resolvedScope} (from --scope=${scopeValue})`);
 }
 
+{
+  const pkg = JSON.parse(readText("package.json"));
+  const definedScripts = new Set(Object.keys(pkg.scripts ?? {}));
+  const allScopedLists = new Set([...DESKTOP_SCRIPTS, ...MOBILE_SCRIPTS, ...SHARED_SCRIPTS]);
+  const missingFromPackage = [...allScopedLists].filter((name) => !definedScripts.has(name));
+  if (missingFromPackage.length > 0) {
+    fail(`Scope scripts missing from package.json scripts:\n${missingFromPackage.map((name) => `  - npm run ${name}`).join("\n")}`);
+  }
+  const selfSource = readText("scripts/beta-check.mjs");
+  const runScopedCalls = [...selfSource.matchAll(/runScoped\(["']([^"']+)["']\)/g)].map((match) => match[1]);
+  const unregistered = runScopedCalls.filter((name) => !allScopedLists.has(name));
+  if (unregistered.length > 0) {
+    fail(`runScoped scripts not in any scope list (DESKTOP_SCRIPTS / MOBILE_SCRIPTS / SHARED_SCRIPTS):\n${unregistered.map((name) => `  - ${name}`).join("\n")}`);
+  }
+}
+
 assertPackageMetadata();
 assertReadableUtf8();
 if (resolvedScope === "all" || resolvedScope === "desktop") {
@@ -361,6 +464,15 @@ runScoped("verify:creation-outline");
 runScoped("verify:creation-cards");
 runScoped("verify:creation-history");
 runScoped("verify:creation-export");
+runScoped("verify:creation-journey");
+runScoped("verify:creation-planning");
+runScoped("verify:creation-inbox-count");
+runScoped("verify:creation-inbox-convert");
+runScoped("verify:creation-project-home");
+runScoped("verify:creation-migration");
+runScoped("verify:creation-search");
+runScoped("verify:reader-excerpt");
+runScoped("verify:visual-evidence");
 runScoped("verify:clean-reposition");
 runScoped("verify:sync-schema");
 runScoped("verify:sync-server");
@@ -369,6 +481,9 @@ runScoped("verify:release-readiness");
 runScoped("verify:installer-release");
 runScoped("verify:visual-polish");
 runScoped("verify:ux-polish");
+// 全量 Vitest：Desktop Beta 必须实际运行完整 Vitest（通过 npm test + JSON reporter 可靠解析）。
+// skip 的测试（better-sqlite3 ABI 不匹配等）从 JSON 动态读取，不进入 passed。
+runVitest();
 if (!skipBuild) run("npm run build");
 if (!skipAudit) run("npm audit --omit=dev");
 assertArtifactIfRequested();

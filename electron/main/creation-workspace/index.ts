@@ -15,8 +15,8 @@ import {
   type ChapterSetStatusCommand,
   type ChaptersSetStatusCommand,
   type ChapterSplitCommand,
-  type CreationCommand,
-  type CreationDocument,
+   type CreationCommand,
+   type CreationDocument,
   type CreationIntegrityReport,
   type CreationOutlineChapter,
   type CreationProjectOutline,
@@ -43,6 +43,15 @@ import {
   type CreateProjectCommand,
   type CreateProjectResult,
   type StructureCommand,
+  type StructurePreviewCommand,
+  type StructureApplyWithProtectionCommand,
+  type StructureRevertCommand,
+  type StructurePreviewView,
+  type StructureApplyResult,
+  type StructureRevertResult,
+  type StructurePlanRow,
+  type ProtectedStructureCommand,
+  type StructureAffectedObject,
   type UpdateSceneBodyCommand,
   type UpdateSceneBodyResult,
   type VolumeCreateCommand,
@@ -111,6 +120,8 @@ import {
   type InboxItem,
   type InboxItemResult,
   type InboxListQuery,
+  type InboxCountQuery,
+  type InboxCountView,
   type InboxReadQuery,
   type InboxUpdateCommand,
   type DraftImportChapterInput,
@@ -132,18 +143,26 @@ import {
   type ResourceDetachCommand,
   type ResourceInfo,
   type ResourceListQuery,
-  type ResourceResult,
-  type ScenePlanning,
-  type SceneUpdatePlanningCommand,
-  type SceneUpdatePlanningResult,
-  type CreationWatchScope,
+   type ResourceResult,
+   type ScenePlanning,
+   type SceneUpdatePlanningCommand,
+   type SceneUpdatePlanningResult,
+   type CreationRunCommand,
+   type CreationRunResultOf,
+   type InboxConvertToCardCommand,
+   type InboxConvertToCardResult,
+   type ProjectHomeEntry,
+   type ProjectHomeQuery,
+   type ProjectHomeView,
+   type CreationWatchScope,
   type CreationWorkspace,
   type CreationWorkspaceEvent,
   type CreationWorkspaceListener,
   type OpenCreationWorkspaceOptions
 } from "./types";
+import { countSceneBodyStats } from "./scene-stats";
 
-const SCHEMA_VERSION = 8;
+const SCHEMA_VERSION = 9;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -299,25 +318,11 @@ function isValidSceneDocument(value: unknown): value is CreationDocument {
   return true;
 }
 
-/** 场景非空白正文字数（不含标点），供大纲与卡片板显示。 */
-function countSceneWords(bodyJson: string): number {
-  let document: CreationDocument;
-  try {
-    document = JSON.parse(bodyJson) as CreationDocument;
-  } catch {
-    return 0;
-  }
-  const parts: string[] = [];
-  const collect = (nodes: unknown[]): void => {
-    for (const node of nodes) {
-      if (!isRecord(node)) continue;
-      if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
-      else if (Array.isArray(node.content)) collect(node.content);
-    }
-  };
-  collect(document.content ?? []);
-  return parts.join("").replace(/[\p{P}\p{S}\p{Z}\s]/gu, "").length;
-}
+/**
+ * 场景正文三口径统计的权威实现在 ./scene-stats（workspace 与视觉 seed 共用，避免口径漂移）。
+ * 这里 re-export 保持历史导入（scale-contract 等）兼容。
+ */
+export { countSceneBodyStats } from "./scene-stats";
 
 /** 场景正文纯文本：每个块一段，块间空行，场景分隔占位。 */
 function extractSceneText(bodyJson: string): string {
@@ -359,24 +364,36 @@ function parseJsonArray(json: string): string[] {
   }
 }
 
-/** 场景任务卡字段解析（planning_json），非法结构返回空对象。 */
+/**
+ * 场景任务卡字段解析（planning_json），非法结构返回空对象。
+ * 保留明确的 null（表示已清空）与空数组（出场为空），以便清空后重新读取仍为空。
+ */
 function parseScenePlanning(json: string): ScenePlanning | undefined {
   try {
     const parsed = JSON.parse(json) as unknown;
     if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return undefined;
     const planning = parsed as Record<string, unknown>;
     const result: ScenePlanning = {};
-    if (typeof planning.perspectiveCardId === "string" && planning.perspectiveCardId) result.perspectiveCardId = planning.perspectiveCardId;
-    if (typeof planning.time === "string" && planning.time.trim()) result.time = planning.time.trim();
-    if (typeof planning.locationCardId === "string" && planning.locationCardId) result.locationCardId = planning.locationCardId;
-    if (Array.isArray(planning.castCardIds)) {
+    if (planning.perspectiveCardId === null) result.perspectiveCardId = null;
+    else if (typeof planning.perspectiveCardId === "string" && planning.perspectiveCardId) result.perspectiveCardId = planning.perspectiveCardId;
+    if (planning.time === null) result.time = null;
+    else if (typeof planning.time === "string" && planning.time.trim()) result.time = planning.time.trim();
+    if (planning.locationCardId === null) result.locationCardId = null;
+    else if (typeof planning.locationCardId === "string" && planning.locationCardId) result.locationCardId = planning.locationCardId;
+    if (planning.castCardIds === null) result.castCardIds = null;
+    else if (Array.isArray(planning.castCardIds)) {
       result.castCardIds = planning.castCardIds.filter((item): item is string => typeof item === "string" && item.length > 0);
     }
-    if (typeof planning.goal === "string" && planning.goal.trim()) result.goal = planning.goal.trim();
-    if (typeof planning.conflict === "string" && planning.conflict.trim()) result.conflict = planning.conflict.trim();
-    if (typeof planning.outcome === "string" && planning.outcome.trim()) result.outcome = planning.outcome.trim();
-    if (typeof planning.emotion === "string" && planning.emotion.trim()) result.emotion = planning.emotion.trim();
-    if (typeof planning.targetWords === "number" && Number.isInteger(planning.targetWords) && planning.targetWords > 0) {
+    if (planning.goal === null) result.goal = null;
+    else if (typeof planning.goal === "string" && planning.goal.trim()) result.goal = planning.goal.trim();
+    if (planning.conflict === null) result.conflict = null;
+    else if (typeof planning.conflict === "string" && planning.conflict.trim()) result.conflict = planning.conflict.trim();
+    if (planning.outcome === null) result.outcome = null;
+    else if (typeof planning.outcome === "string" && planning.outcome.trim()) result.outcome = planning.outcome.trim();
+    if (planning.emotion === null) result.emotion = null;
+    else if (typeof planning.emotion === "string" && planning.emotion.trim()) result.emotion = planning.emotion.trim();
+    if (planning.targetWords === null) result.targetWords = null;
+    else if (typeof planning.targetWords === "number" && Number.isInteger(planning.targetWords) && planning.targetWords > 0) {
       result.targetWords = planning.targetWords;
     }
     return Object.keys(result).length > 0 ? result : undefined;
@@ -925,6 +942,9 @@ function initializeSchema(database: Database): void {
       title TEXT NOT NULL,
       sort_order INTEGER NOT NULL,
       body_json TEXT NOT NULL DEFAULT '{"type":"doc","content":[]}',
+      han_count INTEGER NOT NULL DEFAULT 0,
+      punct_count INTEGER NOT NULL DEFAULT 0,
+      non_ws_count INTEGER NOT NULL DEFAULT 0,
       planning_json TEXT NOT NULL DEFAULT '{}',
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL,
@@ -1324,6 +1344,40 @@ function migrateSchemaV7ToV8(database: Database): void {
   database.exec("PRAGMA user_version = 8; COMMIT;");
 }
 
+/** v8→v9：scenes 增加持久化计数列 han_count/punct_count/non_ws_count，并对既有正文一次性回填。 */
+function migrateSchemaV8ToV9(database: Database): void {
+  database.exec("BEGIN IMMEDIATE");
+  const tableExists = database
+    .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'scenes'")
+    .get();
+  if (!tableExists) {
+    // 残缺库（缺 scenes 表）：不补列，由 check() 的 schema-table-missing 暴露；只升版本。
+    database.exec("PRAGMA user_version = 9; COMMIT;");
+    return;
+  }
+  const columns = new Set(
+    (database.prepare("PRAGMA table_info(scenes)").all() as Array<{ name: string }>).map((column) => column.name)
+  );
+  if (!columns.has("han_count")) {
+    database.exec("ALTER TABLE scenes ADD COLUMN han_count INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns.has("punct_count")) {
+    database.exec("ALTER TABLE scenes ADD COLUMN punct_count INTEGER NOT NULL DEFAULT 0");
+  }
+  if (!columns.has("non_ws_count")) {
+    database.exec("ALTER TABLE scenes ADD COLUMN non_ws_count INTEGER NOT NULL DEFAULT 0");
+  }
+  const rows = database
+    .prepare("SELECT id, body_json FROM scenes WHERE han_count = 0 AND punct_count = 0 AND non_ws_count = 0")
+    .all() as Array<{ id: string; body_json: string }>;
+  const update = database.prepare("UPDATE scenes SET han_count = ?, punct_count = ?, non_ws_count = ? WHERE id = ?");
+  for (const row of rows) {
+    const stats = countSceneBodyStats(row.body_json);
+    update.run(stats.han, stats.punct, stats.nonWhitespace, row.id);
+  }
+  database.exec("PRAGMA user_version = 9; COMMIT;");
+}
+
 function defaultProjectSetup(): CreationProjectSetup {
   return {
     template: "blank",
@@ -1434,11 +1488,58 @@ function parseStoredSetup(json: string): CreationProjectSetup {
   }
 }
 
+type StructuralEntityType = "volume" | "chapter" | "scene";
+
+type StructuralRow = {
+  type: StructuralEntityType;
+  id: string;
+  revision: number;
+  data: Record<string, string | number | null>;
+};
+
+type StructureState = StructuralRow[];
+
+type StructureStateChange = {
+  type: StructuralEntityType;
+  id: string;
+  before: StructuralRow | null;
+  after: StructuralRow | null;
+};
+
+type StructurePlanRecord = {
+  id: string;
+  projectId: string;
+  command: ProtectedStructureCommand;
+  beforeState: StructureState;
+  stale: boolean;
+  createdAt: number;
+};
+
+type StructureProtectionPayload = {
+  kind: "structure-operation";
+  reason: string;
+  command: ProtectedStructureCommand;
+  changes: StructureStateChange[];
+  appliedAt: string;
+  revertedAt?: string;
+};
+
 class SqliteCreationWorkspace implements CreationWorkspace {
   private closed = false;
   private readonly watchers = new Map<symbol, { scope: CreationWatchScope; listener: CreationWorkspaceListener }>();
+  private readonly structurePlans = new Map<string, StructurePlanRecord>();
+  private protectedStructureTransaction?: {
+    timestamp: string;
+    outcomes: Array<{
+      projectId: string;
+      entityId: string;
+      revision: number;
+      changes: CreationWorkspaceEvent["changes"];
+    }>;
+  };
 
-  constructor(private readonly database: Database) {}
+  constructor(private readonly database: Database) {
+  }
 
   async read(query: ReadProjectTreeQuery): Promise<CreationProjectTree | null>;
   async read(query: ReadProjectNavigationQuery): Promise<CreationProjectNavigation | null>;
@@ -1460,9 +1561,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: ProofQuery): Promise<ProofView>;
   async read(query: InboxListQuery): Promise<InboxItem[]>;
   async read(query: InboxReadQuery): Promise<InboxItem | null>;
+  async read(query: InboxCountQuery): Promise<InboxCountView>;
   async read(query: ProjectBundleExportQuery): Promise<ProjectBundleData | null>;
   async read(query: AnnotationListQuery): Promise<Annotation[]>;
   async read(query: ResourceListQuery): Promise<ResourceInfo[]>;
+  async read(query: ProjectHomeQuery): Promise<ProjectHomeView>;
   async read(query: CreationReadQuery): Promise<CreationReadResult> {
     this.assertOpen();
     const runtimeQuery = query as unknown as {
@@ -1491,6 +1594,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取创作工作区项目列表。");
+      }
+    }
+    if (runtimeQuery.kind === "project.home") {
+      try {
+        return this.readProjectHome();
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取项目首页聚合视图。");
       }
     }
     if (runtimeQuery.kind === "scene.body") {
@@ -1557,15 +1668,28 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (runtimeQuery.kind === "inbox.list") {
       const limit = (runtimeQuery as unknown as { limit?: unknown }).limit;
+      const offset = (runtimeQuery as unknown as { offset?: unknown }).offset;
       const resolvedLimit = limit === undefined ? 100 : limit;
       if (!Number.isInteger(resolvedLimit) || (resolvedLimit as number) < 1 || (resolvedLimit as number) > 500) {
         throw new CreationWorkspaceError("invalid-input", "收件箱返回上限必须为 1..500 的整数。");
       }
+      const resolvedOffset = offset === undefined ? 0 : offset;
+      if (!Number.isInteger(resolvedOffset) || (resolvedOffset as number) < 0) {
+        throw new CreationWorkspaceError("invalid-input", "收件箱偏移量必须为非负整数。");
+      }
       try {
-        return this.runInboxList(resolvedLimit as number);
+        return this.runInboxList(resolvedLimit as number, resolvedOffset as number);
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取收件箱。");
+      }
+    }
+    if (runtimeQuery.kind === "inbox.count") {
+      try {
+        return this.runInboxCount();
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法统计收件箱。");
       }
     }
     if (runtimeQuery.kind === "inbox.read") {
@@ -1900,7 +2024,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
 
     const sceneRows = this.database
       .prepare(
-        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.planning_json, s.created_at, s.updated_at, s.revision
+        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.non_ws_count, s.planning_json, s.created_at, s.updated_at, s.revision
          FROM scenes s JOIN chapters c ON c.id = s.chapter_id
          WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id`
       )
@@ -1909,7 +2033,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       chapter_id: string;
       title: string;
       sort_order: number;
-      body_json: string;
+      non_ws_count: number;
       planning_json: string;
       created_at: string;
       updated_at: string;
@@ -1947,7 +2071,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           chapterId: scene.chapter_id,
           title: scene.title,
           sortOrder: scene.sort_order,
-          wordCount: countSceneWords(scene.body_json),
+          wordCount: scene.non_ws_count,
           planning: parseScenePlanning(scene.planning_json),
           createdAt: scene.created_at,
           updatedAt: scene.updated_at,
@@ -2483,7 +2607,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       let skippedScenes = 0;
       const selectBody = this.database.prepare("SELECT body_json, revision FROM scenes WHERE id = ?");
       const updateScene = this.database.prepare(
-        "UPDATE scenes SET body_json = ?, updated_at = ?, revision = ? WHERE id = ?"
+        "UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, updated_at = ?, revision = ? WHERE id = ?"
       );
       const insertSnapshot = this.database.prepare(
         "INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
@@ -2527,7 +2651,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           JSON.stringify({ reason: "查找替换自动备份", revision: current.revision, body: JSON.parse(current.body_json) }),
           timestamp
         );
-        updateScene.run(JSON.stringify(document), timestamp, newRevision, scene.id);
+        const stats = countSceneBodyStats(JSON.stringify(document));
+        updateScene.run(JSON.stringify(document), stats.han, stats.punct, stats.nonWhitespace, timestamp, newRevision, scene.id);
         snapshotIds.push(snapshotId);
         appliedScenes += 1;
         appliedHits += sceneHits;
@@ -2766,12 +2891,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
-  private runInboxList(limit: number): InboxItem[] {
+  private runInboxList(limit: number, offset: number): InboxItem[] {
     const rows = this.database
       .prepare(
-        "SELECT id, legacy_id, title, body, type, status, tags_json, platform_tags_json, source_json, variants_json, revision, created_at, updated_at FROM inbox_items WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT ?"
+        "SELECT id, legacy_id, title, body, type, status, tags_json, platform_tags_json, source_json, variants_json, revision, created_at, updated_at FROM inbox_items WHERE deleted_at IS NULL ORDER BY updated_at DESC, id DESC LIMIT ? OFFSET ?"
       )
-      .all(limit) as Array<{
+      .all(limit, offset) as Array<{
       id: string;
       legacy_id: string | null;
       title: string;
@@ -2787,6 +2912,17 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       updated_at: string;
     }>;
     return rows.map((row) => this.inboxFromRow(row));
+  }
+
+  /** 收件箱计数：只统计未删除条目，pending 排除已转卡片的 used 状态，不加载正文。 */
+  private runInboxCount(): InboxCountView {
+    const totalRow = this.database
+      .prepare("SELECT count(*) AS count FROM inbox_items WHERE deleted_at IS NULL")
+      .get() as { count: number };
+    const pendingRow = this.database
+      .prepare("SELECT count(*) AS count FROM inbox_items WHERE deleted_at IS NULL AND status != 'used'")
+      .get() as { count: number };
+    return { total: totalRow.count, pending: pendingRow.count };
   }
 
   private inboxFromRow(row: {
@@ -2912,6 +3048,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         sets.push("status = ?");
         params.push(status);
       }
+      if (command.kind !== undefined) {
+        const kind = typeof command.kind === "string" && command.kind.trim() ? command.kind.trim() : "note";
+        sets.push("type = ?");
+        params.push(kind);
+      }
       if (command.tags !== undefined) {
         sets.push("tags_json = ?");
         params.push(JSON.stringify(command.tags.filter((tag): tag is string => typeof tag === "string")));
@@ -2919,6 +3060,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       if (command.platformTags !== undefined) {
         sets.push("platform_tags_json = ?");
         params.push(JSON.stringify(command.platformTags.filter((tag): tag is string => typeof tag === "string")));
+      }
+      if (command.variants !== undefined) {
+        // 整体覆盖候选列表：新增候选时由调用方携带既有候选，避免覆盖已有候选。
+        sets.push("variants_json = ?");
+        params.push(JSON.stringify(Array.isArray(command.variants) ? command.variants : []));
       }
       if (sets.length === 0) throw new CreationWorkspaceError("invalid-input", "没有要更新的字段。");
       const revision = current.revision + 1;
@@ -2960,7 +3106,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         .prepare("SELECT revision FROM inbox_items WHERE id = ? AND deleted_at IS NULL")
         .get(itemId) as { revision: number } | undefined;
       if (!current) throw new CreationWorkspaceError("not-found", "收件箱条目不存在。");
-      this.database.prepare("UPDATE inbox_items SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?").run(timestamp, itemId);
+      this.database
+        .prepare("UPDATE inbox_items SET deleted_at = ?, updated_at = ?, revision = revision + 1 WHERE id = ?")
+        .run(timestamp, timestamp, itemId);
       this.database.exec("COMMIT");
       return { commandType: "inbox.delete", sequence: 0, itemId, revision: current.revision + 1, updatedAt: timestamp };
     } catch (error) {
@@ -2974,6 +3122,71 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runInboxConvertToCard(command: InboxConvertToCardCommand): InboxConvertToCardResult {
+    const itemId = validateId(command.itemId, "条目");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    const projectId = validateId(command.projectId, "作品");
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      this.requireProject(projectId);
+      const inboxRow = this.database
+        .prepare("SELECT title, body, tags_json, revision, status FROM inbox_items WHERE id = ? AND deleted_at IS NULL")
+        .get(itemId) as { title: string; body: string; tags_json: string; revision: number; status: string } | undefined;
+      if (!inboxRow) throw new CreationWorkspaceError("not-found", "收件箱条目不存在。");
+      if (inboxRow.revision !== baseRevision) throw new CreationWorkspaceError("revision-mismatch", "收件箱条目已被其他修改更新。");
+      if (inboxRow.status === "used") throw new CreationWorkspaceError("conflict", "收件箱条目已转为资料卡。");
+
+      const title = validateTitle(inboxRow.title, "标题", 200);
+      const tags = parseJsonArray(inboxRow.tags_json);
+      const fieldsJson = JSON.stringify({ note: inboxRow.body.slice(0, 2000) });
+      const cardId = `card-${randomUUID()}`;
+      this.database
+        .prepare(
+          "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, 'reference', ?, '[]', ?, ?, '{}', ?, ?)"
+        )
+        .run(cardId, projectId, title, fieldsJson, JSON.stringify(tags), timestamp, timestamp);
+      this.touchProject(projectId, timestamp);
+
+      const nextRevision = inboxRow.revision + 1;
+      this.database
+        .prepare("UPDATE inbox_items SET status = 'used', revision = ?, updated_at = ? WHERE id = ?")
+        .run(nextRevision, timestamp, itemId);
+
+      const changes = JSON.stringify([
+        { entity: "card", id: cardId, action: "created", revision: 1 },
+        { entity: "inbox", id: itemId, action: "updated", revision: nextRevision }
+      ]);
+      const logged = this.database
+        .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+        .run(projectId, "inbox.convertToCard", changes, timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId,
+        commandType: "inbox.convertToCard",
+        changes: JSON.parse(changes) as CreationWorkspaceEvent["changes"]
+      });
+      return {
+        commandType: "inbox.convertToCard",
+        sequence: Number(logged.lastInsertRowid),
+        itemId,
+        cardId,
+        revision: nextRevision,
+        updatedAt: timestamp
+      };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // The transaction may already have been rolled back by SQLite.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法将收件箱条目转为资料卡。");
+    }
+  }
+
   private runAnnotationList(query: AnnotationListQuery): Annotation[] {
     const projectId = validateId(query.projectId, "作品");
     this.requireProject(projectId);
@@ -2982,7 +3195,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       throw new CreationWorkspaceError("invalid-input", "批注返回上限必须为 1..2000 的整数。");
     }
     const params: unknown[] = [projectId];
-    let sql = "SELECT id, scene_id, card_id, anchor_json, note, status, created_at, updated_at FROM annotations WHERE project_id = ? AND deleted_at IS NULL";
+    let sql = "SELECT id, scene_id, card_id, anchor_json, note, status, revision, created_at, updated_at FROM annotations WHERE project_id = ? AND deleted_at IS NULL";
     if (query.sceneId) {
       sql += " AND scene_id = ?";
       params.push(validateId(query.sceneId, "场景"));
@@ -2996,6 +3209,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       anchor_json: string;
       note: string;
       status: string;
+      revision: number;
       created_at: string;
       updated_at: string;
     }>;
@@ -3026,6 +3240,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         note: row.note,
         status: row.status === "resolved" ? "resolved" : "open",
         anchoredText,
+        revision: row.revision,
         createdAt: row.created_at,
         updatedAt: row.updated_at
       };
@@ -3308,21 +3523,22 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     if (!planning || typeof planning !== "object") {
       throw new CreationWorkspaceError("invalid-input", "场景规划字段无效。");
     }
+    // 语义：undefined = 保留旧值；null = 明确清空；字符串/数组/数字 = 写入新值。
     const cleaned: ScenePlanning = {};
-    if (planning.perspectiveCardId !== undefined) {
-      cleaned.perspectiveCardId = validateId(planning.perspectiveCardId, "视角卡片");
-    }
-    if (planning.time !== undefined) {
+    if (planning.perspectiveCardId === null) cleaned.perspectiveCardId = null;
+    else if (planning.perspectiveCardId !== undefined) cleaned.perspectiveCardId = validateId(planning.perspectiveCardId, "视角卡片");
+    if (planning.time === null) cleaned.time = null;
+    else if (planning.time !== undefined) {
       if (typeof planning.time !== "string" || planning.time.length > 200) {
         throw new CreationWorkspaceError("invalid-input", "时间描述不能超过 200 个字符。");
       }
       const time = planning.time.trim();
-      if (time) cleaned.time = time;
+      cleaned.time = time || null;
     }
-    if (planning.locationCardId !== undefined) {
-      cleaned.locationCardId = validateId(planning.locationCardId, "地点卡片");
-    }
-    if (planning.castCardIds !== undefined) {
+    if (planning.locationCardId === null) cleaned.locationCardId = null;
+    else if (planning.locationCardId !== undefined) cleaned.locationCardId = validateId(planning.locationCardId, "地点卡片");
+    if (planning.castCardIds === null) cleaned.castCardIds = null;
+    else if (planning.castCardIds !== undefined) {
       if (!Array.isArray(planning.castCardIds) || planning.castCardIds.length > 100) {
         throw new CreationWorkspaceError("invalid-input", "出场卡片数量超出允许范围。");
       }
@@ -3330,14 +3546,17 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     for (const key of ["goal", "conflict", "outcome", "emotion"] as const) {
       const value = planning[key];
-      if (value === undefined) continue;
-      if (typeof value !== "string" || value.length > 2000) {
-        throw new CreationWorkspaceError("invalid-input", "场景规划文本不能超过 2000 个字符。");
+      if (value === null) cleaned[key] = null;
+      else if (value !== undefined) {
+        if (typeof value !== "string" || value.length > 2000) {
+          throw new CreationWorkspaceError("invalid-input", "场景规划文本不能超过 2000 个字符。");
+        }
+        const trimmed = value.trim();
+        cleaned[key] = trimmed || null;
       }
-      const trimmed = value.trim();
-      if (trimmed) cleaned[key] = trimmed;
     }
-    if (planning.targetWords !== undefined) {
+    if (planning.targetWords === null) cleaned.targetWords = null;
+    else if (planning.targetWords !== undefined) {
       if (!Number.isInteger(planning.targetWords) || planning.targetWords < 1 || planning.targetWords > 1_000_000) {
         throw new CreationWorkspaceError("invalid-input", "目标字数必须为 1 至 1000000 的整数。");
       }
@@ -3351,13 +3570,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         .get(sceneId) as { project_id: string; revision: number; planning_json: string } | undefined;
       if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在。");
       const projectId = scene.project_id;
-      // 合并语义：未提供的字段保留现有值
+      // 合并语义：未提供的字段保留现有值；null 覆盖为清空。
       const merged: ScenePlanning = { ...parseScenePlanning(scene.planning_json), ...cleaned };
-      // 校验卡片引用都属于同一项目
+      // 校验卡片引用都属于同一项目（null / 空出场跳过）。
       const cardIds = new Set<string>();
-      if (merged.perspectiveCardId) cardIds.add(merged.perspectiveCardId);
-      if (merged.locationCardId) cardIds.add(merged.locationCardId);
-      for (const id of merged.castCardIds ?? []) cardIds.add(id);
+      if (typeof merged.perspectiveCardId === "string") cardIds.add(merged.perspectiveCardId);
+      if (typeof merged.locationCardId === "string") cardIds.add(merged.locationCardId);
+      if (Array.isArray(merged.castCardIds)) {
+        for (const id of merged.castCardIds) cardIds.add(id);
+      }
       if (cardIds.size > 0) {
         const placeholders = [...cardIds].map(() => "?").join(", ");
         const rows = this.database
@@ -3397,28 +3618,18 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private runStatsView(projectId: string): ProjectStatsView | null {
     this.requireProject(projectId);
 
-    const sceneRows = this.database
+    const wordRow = this.database
       .prepare(
-        `SELECT s.body_json
+        `SELECT coalesce(sum(s.han_count), 0) AS han,
+                coalesce(sum(s.punct_count), 0) AS punct,
+                coalesce(sum(s.non_ws_count), 0) AS non_ws
          FROM scenes s JOIN chapters c ON c.id = s.chapter_id
          WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?`
       )
-      .all(projectId) as Array<{ body_json: string }>;
-    let han = 0;
-    let nonWhitespace = 0;
-    let withPunctuation = 0;
-    for (const row of sceneRows) {
-      const plain = extractSceneText(row.body_json);
-      for (const character of plain) {
-        if (/\p{Script=Han}/u.test(character)) {
-          han += 1;
-          withPunctuation += 1;
-        } else if (!/\s/u.test(character) && /[\p{P}\p{S}]/u.test(character)) {
-          withPunctuation += 1;
-        }
-        if (!/\s/u.test(character)) nonWhitespace += 1;
-      }
-    }
+      .get(projectId) as { han: number; punct: number; non_ws: number };
+    const han = Number(wordRow.han);
+    const nonWhitespace = Number(wordRow.non_ws);
+    const withPunctuation = han + Number(wordRow.punct);
 
     const sessionRows = this.database
       .prepare(
@@ -3692,10 +3903,24 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private listProjects(): CreationProjectSummary[] {
     const rows = this.database
       .prepare(
-        `SELECT p.id, p.title, p.setup_json, p.updated_at, p.revision,
-          (SELECT count(*) FROM chapters c WHERE c.project_id = p.id) AS chapter_count,
-          (SELECT count(*) FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.project_id = p.id) AS scene_count
+        `WITH chapter_totals AS (
+           SELECT project_id, count(*) AS chapter_count
+           FROM chapters
+           WHERE deleted_at IS NULL
+           GROUP BY project_id
+         ), scene_totals AS (
+           SELECT c.project_id, count(*) AS scene_count
+           FROM scenes s
+           JOIN chapters c ON c.id = s.chapter_id
+           WHERE c.deleted_at IS NULL AND s.deleted_at IS NULL
+           GROUP BY c.project_id
+         )
+         SELECT p.id, p.title, p.setup_json, p.updated_at, p.revision,
+                coalesce(chapter_totals.chapter_count, 0) AS chapter_count,
+                coalesce(scene_totals.scene_count, 0) AS scene_count
          FROM projects p
+         LEFT JOIN chapter_totals ON chapter_totals.project_id = p.id
+         LEFT JOIN scene_totals ON scene_totals.project_id = p.id
          ORDER BY p.updated_at DESC, p.id DESC`
       )
       .all() as Array<{
@@ -3718,6 +3943,56 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }));
   }
 
+  /** 项目首页聚合视图：数据库只返回按项目聚合后的计数，不把场景正文加载到调用方。 */
+  private readProjectHome(): ProjectHomeView {
+    const rows = this.database
+      .prepare(
+        `WITH chapter_totals AS (
+           SELECT project_id, count(*) AS chapter_count
+           FROM chapters
+           WHERE deleted_at IS NULL
+           GROUP BY project_id
+         ), scene_totals AS (
+           SELECT c.project_id,
+                  count(*) AS scene_count,
+                  coalesce(sum(s.non_ws_count), 0) AS current_chars
+           FROM scenes s
+           JOIN chapters c ON c.id = s.chapter_id
+           WHERE c.deleted_at IS NULL AND s.deleted_at IS NULL
+           GROUP BY c.project_id
+         )
+         SELECT p.id, p.title, p.setup_json, p.updated_at, p.revision,
+                coalesce(chapter_totals.chapter_count, 0) AS chapter_count,
+                coalesce(scene_totals.scene_count, 0) AS scene_count,
+                coalesce(scene_totals.current_chars, 0) AS current_chars
+         FROM projects p
+         LEFT JOIN chapter_totals ON chapter_totals.project_id = p.id
+         LEFT JOIN scene_totals ON scene_totals.project_id = p.id
+         ORDER BY p.updated_at DESC, p.id DESC`
+      )
+      .all() as Array<{
+      id: string;
+      title: string;
+      setup_json: string;
+      updated_at: string;
+      revision: number;
+      chapter_count: number;
+      scene_count: number;
+      current_chars: number;
+    }>;
+    const projects: ProjectHomeEntry[] = rows.map((row) => ({
+      id: row.id,
+      title: row.title,
+      setup: parseStoredSetup(row.setup_json),
+      updatedAt: row.updated_at,
+      revision: row.revision,
+      chapterCount: row.chapter_count,
+      sceneCount: row.scene_count,
+      currentChars: row.current_chars
+    }));
+    return { projects };
+  }
+
   async transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   async transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   async transact(command: StructureCommand): Promise<CreationStructureResult>;
@@ -3731,6 +4006,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   async transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   async transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
+  async transact<Command extends CreationRunCommand>(command: Command): Promise<CreationRunResultOf<Command>>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
     if (command.type === "scene.updateBody") {
@@ -3739,6 +4015,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     if (command.type === "project.create") {
       return this.createProjectTransaction(command);
     }
+    if (command.type === "structure.preview") return this.previewStructure(command);
+    if (command.type === "structure.applyWithProtection") return this.applyStructure(command);
+    if (command.type === "structure.revert") return this.revertStructure(command);
     if (STRUCTURE_COMMAND_TYPES.has(command.type)) {
       return this.executeStructureCommand(command as StructureCommand);
     }
@@ -3789,6 +4068,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "scene.updatePlanning") {
       return this.runSceneUpdatePlanning(command as SceneUpdatePlanningCommand);
+    }
+    if (command.type === "inbox.convertToCard") {
+      return this.runInboxConvertToCard(command as InboxConvertToCardCommand);
     }
     throw new CreationWorkspaceError("invalid-input", "创作工作区命令无效。");
   }
@@ -3938,7 +4220,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         "INSERT INTO chapters(id, project_id, volume_id, title, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
       );
       const insertScene = this.database.prepare(
-        "INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
+        "INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
       const changes: CreationWorkspaceEvent["changes"] = [
         { entity: "project", id: projectId, action: "created", revision: 1 }
@@ -3959,7 +4241,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           changes.push({ entity: "chapter", id: chapterId, action: "created", revision: 1 });
           const sceneId = `scene-${randomUUID()}`;
           const bodyJson = JSON.stringify(plainTextToSceneDocument(chapter.body));
-          insertScene.run(sceneId, chapterId, "正文", 0, bodyJson, timestamp, timestamp);
+          const stats = countSceneBodyStats(bodyJson);
+          insertScene.run(sceneId, chapterId, "正文", 0, bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp);
           changes.push({ entity: "scene", id: sceneId, action: "created", revision: 1 });
         });
       });
@@ -4239,7 +4522,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         );
       }
 
-      const insertScene = this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, planning_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const insertScene = this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, planning_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
       const sceneIds = new Set<string>();
       for (const scene of data.scenes ?? []) {
         const id = typeof scene.id === "string" && scene.id.startsWith("scene-") ? scene.id : `scene-${randomUUID()}`;
@@ -4252,7 +4535,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         } catch {
           bodyJson = '{"type":"doc","content":[]}';
         }
-        insertScene.run(id, scene.chapterId, scene.title, scene.sortOrder ?? 0, bodyJson, scene.planningJson ?? "{}", scene.createdAt ?? timestamp, scene.updatedAt ?? timestamp, scene.revision ?? 1);
+        const stats = countSceneBodyStats(bodyJson);
+        insertScene.run(id, scene.chapterId, scene.title, scene.sortOrder ?? 0, bodyJson, stats.han, stats.punct, stats.nonWhitespace, scene.planningJson ?? "{}", scene.createdAt ?? timestamp, scene.updatedAt ?? timestamp, scene.revision ?? 1);
       }
 
       const insertCardType = this.database.prepare("INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
@@ -4374,6 +4658,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         throw new CreationWorkspaceError("revision-mismatch", "场景已被更新，请重新读取后再保存。");
       }
       const revision = current.revision + 1;
+      const stats = countSceneBodyStats(bodyJson);
       // 每场景只保留一条 scene-autosave 快照：先删旧、再写提交前的旧正文与旧 revision。
       this.database
         .prepare("DELETE FROM snapshots WHERE subject_type = 'scene-autosave' AND subject_id = ?")
@@ -4391,8 +4676,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           timestamp
         );
       this.database
-        .prepare("UPDATE scenes SET body_json = ?, updated_at = ?, revision = ? WHERE id = ?")
-        .run(bodyJson, timestamp, revision, command.sceneId);
+        .prepare("UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, updated_at = ?, revision = ? WHERE id = ?")
+        .run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, command.sceneId);
       this.database
         .prepare("UPDATE projects SET updated_at = ? WHERE id = ?")
         .run(timestamp, current.project_id);
@@ -4484,6 +4769,18 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       changes: CreationWorkspaceEvent["changes"];
     }
   ): CreationStructureResult {
+    if (this.protectedStructureTransaction) {
+      const outcome = op(this.protectedStructureTransaction.timestamp);
+      this.protectedStructureTransaction.outcomes.push(outcome);
+      return {
+        commandType,
+        sequence: 0,
+        projectId: outcome.projectId,
+        entityId: outcome.entityId,
+        revision: outcome.revision,
+        updatedAt: this.protectedStructureTransaction.timestamp
+      };
+    }
     const timestamp = new Date().toISOString();
     try {
       this.database.exec("BEGIN IMMEDIATE");
@@ -4524,9 +4821,494 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  // ------------------------------------------------------------------
+  // 大纲安全重组 workspace seam（Part 2）
+  // 权威预览 / 保护快照 / 单次应用 / 撤回，均基于真实 SQLite 状态，
+  // 不依赖 renderer 的本地 compute*Impact 作为最终事务依据。
+  // ------------------------------------------------------------------
+
+  private locateOutlineChapter(outline: CreationProjectOutline, chapterId: string) {
+    for (const volume of outline.volumes) {
+      const chapter = volume.chapters.find((c) => c.id === chapterId);
+      if (chapter) return { volume, chapter };
+    }
+    return undefined;
+  }
+
+  private locateOutlineScene(outline: CreationProjectOutline, sceneId: string) {
+    for (const volume of outline.volumes) {
+      for (const chapter of volume.chapters) {
+        const scene = chapter.scenes.find((s) => s.id === sceneId);
+        if (scene) return { volume, chapter, scene };
+      }
+    }
+    return undefined;
+  }
+
+  private computeStructurePlan(
+    outline: CreationProjectOutline,
+    command: ProtectedStructureCommand
+  ): {
+    affected: Array<{ type: "volume" | "chapter" | "scene"; id: string; before: unknown }>;
+    rows: StructurePlanRow[];
+    softDeletedChapter?: string;
+    numberingChange?: string;
+    affectedSceneCount: number;
+  } {
+    const rows: StructurePlanRow[] = [];
+    const affected: Array<{ type: "volume" | "chapter" | "scene"; id: string; before: unknown }> = [];
+    let softDeletedChapter: string | undefined;
+    let numberingChange: string | undefined;
+    let affectedSceneCount = 0;
+
+    if (command.type === "chapter.split") {
+      const found = this.locateOutlineScene(outline, command.splitSceneId);
+      if (!found) throw new CreationWorkspaceError("not-found", "拆章场景不存在。");
+      const { chapter } = found;
+      if (chapter.id !== command.chapterId) {
+        throw new CreationWorkspaceError("invalid-input", "拆章场景不属于指定章节。");
+      }
+      const idx = chapter.scenes.findIndex((s) => s.id === command.splitSceneId);
+      if (idx <= 0) throw new CreationWorkspaceError("invalid-input", "拆分点必须至少保留一个场景在当前章节。");
+      affectedSceneCount = chapter.scenes.slice(idx).length;
+      affected.push({ type: "chapter", id: chapter.id, before: chapter });
+      rows.push({ label: "源章节", value: chapter.title });
+      rows.push({ label: "新章节", value: "（拆分后生成）" });
+      rows.push({ label: "受影响场景数", value: String(affectedSceneCount) });
+    } else if (command.type === "chapter.merge") {
+      const found = this.locateOutlineChapter(outline, command.sourceChapterId);
+      if (!found) throw new CreationWorkspaceError("not-found", "合并源章节不存在。");
+      const { chapter } = found;
+      const target = this.locateOutlineChapter(outline, command.targetChapterId);
+      if (!target) throw new CreationWorkspaceError("not-found", "合并目标章节不存在。");
+      if (chapter.id === target.chapter.id || chapter.volumeId !== target.chapter.volumeId) {
+        throw new CreationWorkspaceError("invalid-input", "只能把章节合并到同一卷的其他章节。");
+      }
+      affectedSceneCount = chapter.scenes.length;
+      affected.push({ type: "chapter", id: chapter.id, before: chapter });
+      affected.push({ type: "chapter", id: target.chapter.id, before: target.chapter });
+      rows.push({ label: "源章节（将被并入）", value: chapter.title });
+      rows.push({ label: "目标章节", value: target.chapter.title });
+      rows.push({ label: "受影响场景数", value: String(affectedSceneCount) });
+      softDeletedChapter = chapter.title;
+      rows.push({ label: "软删除章节", value: chapter.title });
+    } else if (command.type === "chapter.move") {
+      const found = this.locateOutlineChapter(outline, command.chapterId);
+      if (!found) throw new CreationWorkspaceError("not-found", "移动章节不存在。");
+      const { chapter } = found;
+      const targetVolume = outline.volumes.find((volume) => volume.id === command.targetVolumeId);
+      if (!targetVolume) throw new CreationWorkspaceError("not-found", "目标卷不存在。");
+      affected.push({ type: "chapter", id: chapter.id, before: chapter });
+      for (const s of chapter.scenes) affected.push({ type: "scene", id: s.id, before: s });
+      affectedSceneCount = chapter.scenes.length;
+      rows.push({ label: "源章节", value: chapter.title });
+      rows.push({ label: "目标卷", value: targetVolume.title });
+      rows.push({ label: "受影响场景数", value: String(affectedSceneCount) });
+    } else if (command.type === "scene.move") {
+      const found = this.locateOutlineScene(outline, command.sceneId);
+      if (!found) throw new CreationWorkspaceError("not-found", "移动场景不存在。");
+      const { chapter, scene } = found;
+      const target = this.locateOutlineChapter(outline, command.targetChapterId);
+      if (!target) throw new CreationWorkspaceError("not-found", "目标章节不存在。");
+      affected.push({ type: "scene", id: scene.id, before: scene });
+      affected.push({ type: "chapter", id: chapter.id, before: chapter });
+      affectedSceneCount = 1;
+      rows.push({ label: "源场景", value: scene.title });
+      rows.push({ label: "目标章节", value: target.chapter.title });
+      rows.push({ label: "受影响场景数", value: "1" });
+    } else if (command.type === "chapters.setStatus") {
+      for (const id of command.chapterIds) {
+        const found = this.locateOutlineChapter(outline, id);
+        if (found) affected.push({ type: "chapter", id, before: found.chapter });
+      }
+      if (affected.length !== new Set(command.chapterIds).size) {
+        throw new CreationWorkspaceError("not-found", "批量状态中的章节不存在。");
+      }
+      affectedSceneCount = command.chapterIds.reduce(
+        (total, id) => total + (this.locateOutlineChapter(outline, id)?.chapter.scenes.length ?? 0),
+        0
+      );
+      rows.push({ label: "目标章节数", value: String(command.chapterIds.length) });
+      rows.push({ label: "新状态", value: command.status });
+    } else if (command.type === "chapter.setNumbering") {
+      const found = this.locateOutlineChapter(outline, command.chapterId);
+      if (!found) throw new CreationWorkspaceError("not-found", "编号章节不存在。");
+      const { chapter } = found;
+      affected.push({ type: "chapter", id: chapter.id, before: chapter });
+      numberingChange = `${chapter.displayNumber} → ${command.numbering}`;
+      rows.push({ label: "章节", value: chapter.title });
+      rows.push({ label: "编号变化", value: numberingChange });
+    }
+    return { affected, rows, softDeletedChapter, numberingChange, affectedSceneCount };
+  }
+
+  private readStructureState(projectId: string): StructureState {
+    const volumes = this.database
+      .prepare(
+        `SELECT id, title, sort_order, revision, deleted_at
+         FROM volumes WHERE project_id = ? ORDER BY id`
+      )
+      .all(projectId) as Array<{ id: string; title: string; sort_order: number; revision: number; deleted_at: string | null }>;
+    const chapters = this.database
+      .prepare(
+        `SELECT id, volume_id, title, sort_order, status, numbering_kind, custom_number, revision, deleted_at
+         FROM chapters WHERE project_id = ? ORDER BY id`
+      )
+      .all(projectId) as Array<{
+        id: string;
+        volume_id: string | null;
+        title: string;
+        sort_order: number;
+        status: string;
+        numbering_kind: string;
+        custom_number: string | null;
+        revision: number;
+        deleted_at: string | null;
+      }>;
+    const scenes = this.database
+      .prepare(
+        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.revision, s.deleted_at
+         FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+         WHERE c.project_id = ? ORDER BY s.id`
+      )
+      .all(projectId) as Array<{
+        id: string;
+        chapter_id: string;
+        title: string;
+        sort_order: number;
+        revision: number;
+        deleted_at: string | null;
+      }>;
+    return [
+      ...volumes.map((row): StructuralRow => ({
+        type: "volume",
+        id: row.id,
+        revision: row.revision,
+        data: { title: row.title, sortOrder: row.sort_order, deletedAt: row.deleted_at }
+      })),
+      ...chapters.map((row): StructuralRow => ({
+        type: "chapter",
+        id: row.id,
+        revision: row.revision,
+        data: {
+          volumeId: row.volume_id,
+          title: row.title,
+          sortOrder: row.sort_order,
+          status: row.status,
+          numberingKind: row.numbering_kind,
+          customNumber: row.custom_number,
+          deletedAt: row.deleted_at
+        }
+      })),
+      ...scenes.map((row): StructuralRow => ({
+        type: "scene",
+        id: row.id,
+        revision: row.revision,
+        data: {
+          chapterId: row.chapter_id,
+          title: row.title,
+          sortOrder: row.sort_order,
+          deletedAt: row.deleted_at
+        }
+      }))
+    ].sort((left, right) => `${left.type}:${left.id}`.localeCompare(`${right.type}:${right.id}`));
+  }
+
+  private structureStateEquals(left: StructureState, right: StructureState): boolean {
+    return JSON.stringify(left) === JSON.stringify(right);
+  }
+
+  private diffStructureState(before: StructureState, after: StructureState): StructureStateChange[] {
+    const beforeByKey = new Map(before.map((row) => [`${row.type}:${row.id}`, row]));
+    const afterByKey = new Map(after.map((row) => [`${row.type}:${row.id}`, row]));
+    const keys = [...new Set([...beforeByKey.keys(), ...afterByKey.keys()])].sort();
+    return keys.flatMap((key) => {
+      const oldRow = beforeByKey.get(key) ?? null;
+      const newRow = afterByKey.get(key) ?? null;
+      if (JSON.stringify(oldRow) === JSON.stringify(newRow)) return [];
+      const sample = newRow ?? oldRow;
+      return sample ? [{ type: sample.type, id: sample.id, before: oldRow, after: newRow }] : [];
+    });
+  }
+
+  private affectedRevisions(changes: StructureStateChange[]): StructureAffectedObject[] {
+    return changes.map((change) => {
+      const row = change.after ?? change.before;
+      if (!row) throw new CreationWorkspaceError("integrity", "结构变更缺少对象状态。");
+      return { type: change.type, id: change.id, revision: row.revision };
+    });
+  }
+
+  private structureEventChanges(changes: StructureStateChange[]): CreationWorkspaceEvent["changes"] {
+    return changes.map((change) => {
+      const beforeDeleted = change.before?.data.deletedAt ?? null;
+      const afterDeleted = change.after?.data.deletedAt ?? null;
+      const action: CreationWorkspaceEvent["changes"][number]["action"] =
+        change.before === null
+          ? "created"
+          : change.after === null || (beforeDeleted === null && afterDeleted !== null)
+            ? "deleted"
+            : beforeDeleted !== null && afterDeleted === null
+              ? "restored"
+              : change.before.data.sortOrder !== change.after.data.sortOrder ||
+                  change.before.data.volumeId !== change.after.data.volumeId ||
+                  change.before.data.chapterId !== change.after.data.chapterId
+                ? "moved"
+                : "updated";
+      const row = change.after ?? change.before;
+      if (!row) throw new CreationWorkspaceError("integrity", "结构事件缺少对象状态。");
+      return { entity: change.type, id: change.id, action, revision: row.revision };
+    });
+  }
+
+  private assertExpectedAffected(
+    expected: StructureAffectedObject[],
+    changes: StructureStateChange[]
+  ): void {
+    const normalized = (items: StructureAffectedObject[]) =>
+      [...items]
+        .map((item) => `${item.type}:${item.id}:${item.revision}`)
+        .sort();
+    const actual = this.affectedRevisions(changes);
+    if (JSON.stringify(normalized(expected)) !== JSON.stringify(normalized(actual))) {
+      throw new CreationWorkspaceError("conflict", "结构对象版本已变化，无法安全撤回。");
+    }
+  }
+
+  private restoreStructureChanges(changes: StructureStateChange[], timestamp: string): CreationWorkspaceEvent["changes"] {
+    const restored: CreationWorkspaceEvent["changes"] = [];
+    for (const change of changes) {
+      const current = change.after;
+      if (!current) throw new CreationWorkspaceError("integrity", "保护快照缺少应用后状态。");
+      const nextRevision = current.revision + 1;
+      if (change.type === "volume") {
+        const before = change.before;
+        if (!before) {
+          this.database.prepare("UPDATE volumes SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
+            .run(timestamp, timestamp, nextRevision, change.id);
+        } else {
+          this.database.prepare(
+            "UPDATE volumes SET title = ?, sort_order = ?, deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?"
+          ).run(before.data.title, before.data.sortOrder, before.data.deletedAt, timestamp, nextRevision, change.id);
+        }
+      } else if (change.type === "chapter") {
+        const before = change.before;
+        if (!before) {
+          this.database.prepare("UPDATE chapters SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
+            .run(timestamp, timestamp, nextRevision, change.id);
+        } else {
+          this.database.prepare(
+            `UPDATE chapters SET volume_id = ?, title = ?, sort_order = ?, status = ?, numbering_kind = ?,
+             custom_number = ?, deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?`
+          ).run(
+            before.data.volumeId,
+            before.data.title,
+            before.data.sortOrder,
+            before.data.status,
+            before.data.numberingKind,
+            before.data.customNumber,
+            before.data.deletedAt,
+            timestamp,
+            nextRevision,
+            change.id
+          );
+        }
+      } else {
+        const before = change.before;
+        if (!before) {
+          this.database.prepare("UPDATE scenes SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
+            .run(timestamp, timestamp, nextRevision, change.id);
+        } else {
+          this.database.prepare(
+            "UPDATE scenes SET chapter_id = ?, title = ?, sort_order = ?, deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?"
+          ).run(
+            before.data.chapterId,
+            before.data.title,
+            before.data.sortOrder,
+            before.data.deletedAt,
+            timestamp,
+            nextRevision,
+            change.id
+          );
+        }
+      }
+      restored.push({ entity: change.type, id: change.id, action: "restored", revision: nextRevision });
+    }
+    return restored;
+  }
+
+  async previewStructure(command: StructurePreviewCommand): Promise<StructurePreviewView> {
+    const projectId = validateId(command.projectId, "作品");
+    const outline = this.readProjectOutline(projectId);
+    if (!outline) throw new CreationWorkspaceError("not-found", "作品大纲不存在。");
+    const plan = this.computeStructurePlan(outline, command.command);
+    let stale = false;
+    const baseRev = (command.command as { baseRevision?: number }).baseRevision;
+    if (command.command.type === "chapter.setNumbering" && baseRev !== undefined) {
+      stale = this.requireChapter(command.command.chapterId).revision !== baseRev;
+    }
+    const planId = `structure-plan-${randomUUID()}`;
+    const beforeState = this.readStructureState(projectId);
+    this.structurePlans.set(planId, {
+      id: planId,
+      projectId,
+      command: command.command,
+      beforeState,
+      stale,
+      createdAt: Date.now()
+    });
+    for (const [id, existing] of this.structurePlans) {
+      if (Date.now() - existing.createdAt > 5 * 60_000) this.structurePlans.delete(id);
+    }
+    return {
+      ok: true,
+      planId,
+      command: command.command,
+      rows: plan.rows,
+      stale,
+      affectedSceneCount: plan.affectedSceneCount,
+      softDeletedChapter: plan.softDeletedChapter,
+      numberingChange: plan.numberingChange
+    };
+  }
+
+  async applyStructure(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult> {
+    const projectId = validateId(command.projectId, "作品");
+    const planId = validateId(command.planId, "重组计划");
+    const reason = validateTitle(command.protectionReason, "保护原因", 200);
+    const plan = this.structurePlans.get(planId);
+    if (!plan || plan.projectId !== projectId || Date.now() - plan.createdAt > 5 * 60_000) {
+      this.structurePlans.delete(planId);
+      throw new CreationWorkspaceError("conflict", "重组计划不存在或已过期，请重新预览。");
+    }
+    if (plan.stale || !this.structureStateEquals(this.readStructureState(projectId), plan.beforeState)) {
+      this.structurePlans.delete(planId);
+      throw new CreationWorkspaceError("conflict", "结构已变更（stale-plan），请重新预览后再应用。");
+    }
+    // planId 是一次性能力凭证：无论事务最终成功或失败，一次 apply 尝试后都必须重新预览。
+    this.structurePlans.delete(planId);
+    const timestamp = new Date().toISOString();
+    const snapshotId = `protective-${randomUUID()}`;
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      if (!this.structureStateEquals(this.readStructureState(projectId), plan.beforeState)) {
+        throw new CreationWorkspaceError("conflict", "结构已变更（stale-plan），请重新预览后再应用。");
+      }
+      const initialPayload: StructureProtectionPayload = {
+        kind: "structure-operation",
+        reason,
+        command: plan.command,
+        changes: [],
+        appliedAt: timestamp
+      };
+      this.database.prepare(
+        "INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+      ).run(snapshotId, projectId, "structure-operation", projectId, JSON.stringify(initialPayload), timestamp);
+      this.protectedStructureTransaction = { timestamp, outcomes: [] };
+      this.executeStructureCommand(plan.command as StructureCommand);
+      this.protectedStructureTransaction = undefined;
+      const afterState = this.readStructureState(projectId);
+      const changes = this.diffStructureState(plan.beforeState, afterState);
+      if (changes.length === 0) throw new CreationWorkspaceError("integrity", "重组未产生可保护的结构变更。");
+      const payload: StructureProtectionPayload = { ...initialPayload, changes };
+      this.database.prepare("UPDATE snapshots SET payload_json = ? WHERE id = ?")
+        .run(JSON.stringify(payload), snapshotId);
+      const eventChanges = this.structureEventChanges(changes);
+      const logged = this.database.prepare(
+        "INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)"
+      ).run(projectId, "structure.applyWithProtection", JSON.stringify(eventChanges), timestamp);
+      this.database.exec("COMMIT");
+      const sequence = Number(logged.lastInsertRowid);
+      this.emitCommitted({
+        kind: "committed",
+        sequence,
+        projectId,
+        commandType: "structure.applyWithProtection",
+        changes: eventChanges
+      });
+      return {
+        ok: true,
+        protectionSnapshotId: snapshotId,
+        affected: this.affectedRevisions(changes),
+        newRevision: this.projectRevision(projectId)
+      };
+    } catch (error) {
+      this.protectedStructureTransaction = undefined;
+      try { this.database.exec("ROLLBACK"); } catch { /* transaction may already be closed */ }
+      if (error instanceof CreationWorkspaceError) throw error;
+      if (isConstraintError(error)) throw new CreationWorkspaceError("conflict", "重组违反结构约束，未应用任何修改。");
+      throw new CreationWorkspaceError("integrity", "无法原子应用结构重组。");
+    }
+  }
+
+  async revertStructure(command: StructureRevertCommand): Promise<StructureRevertResult> {
+    const projectId = validateId(command.projectId, "作品");
+    if (!Array.isArray(command.expectedAppliedRevisions) || command.expectedAppliedRevisions.length === 0) {
+      throw new CreationWorkspaceError("invalid-input", "撤回需要应用后的对象版本集合。");
+    }
+    const row = this.database
+      .prepare("SELECT payload_json FROM snapshots WHERE id = ? AND project_id = ? AND subject_type = 'structure-operation'")
+      .get(command.protectionSnapshotId, projectId) as { payload_json: string } | undefined;
+    if (!row) throw new CreationWorkspaceError("not-found", "保护快照不存在或已被清理。");
+    let payload: StructureProtectionPayload;
+    try {
+      payload = JSON.parse(row.payload_json) as StructureProtectionPayload;
+    } catch {
+      throw new CreationWorkspaceError("integrity", "保护快照数据损坏。");
+    }
+    if (payload.kind !== "structure-operation" || !Array.isArray(payload.changes) || payload.changes.length === 0) {
+      throw new CreationWorkspaceError("integrity", "保护快照不包含可恢复结构。");
+    }
+    if (payload.revertedAt) throw new CreationWorkspaceError("conflict", "该保护快照已经撤回。");
+    this.assertExpectedAffected(command.expectedAppliedRevisions, payload.changes);
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const current = new Map(this.readStructureState(projectId).map((item) => [`${item.type}:${item.id}`, item]));
+      for (const change of payload.changes) {
+        const actual = current.get(`${change.type}:${change.id}`) ?? null;
+        if (JSON.stringify(actual) !== JSON.stringify(change.after)) {
+          throw new CreationWorkspaceError("conflict", "应用后的结构已被继续修改，无法安全撤回。");
+        }
+      }
+      const eventChanges = this.restoreStructureChanges(payload.changes, timestamp);
+      this.touchProject(projectId, timestamp);
+      payload.revertedAt = timestamp;
+      this.database.prepare("UPDATE snapshots SET payload_json = ? WHERE id = ?")
+        .run(JSON.stringify(payload), command.protectionSnapshotId);
+      const logged = this.database.prepare(
+        "INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)"
+      ).run(projectId, "structure.revert", JSON.stringify(eventChanges), timestamp);
+      this.database.exec("COMMIT");
+      const sequence = Number(logged.lastInsertRowid);
+      this.emitCommitted({ kind: "committed", sequence, projectId, commandType: "structure.revert", changes: eventChanges });
+      return { ok: true, restoredRevision: this.projectRevision(projectId) };
+    } catch (error) {
+      try { this.database.exec("ROLLBACK"); } catch { /* transaction may already be closed */ }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法原子撤回结构重组。");
+    }
+  }
+
   private requireProject(projectId: string): void {
     const project = this.database.prepare("SELECT id FROM projects WHERE id = ?").get(projectId) as { id: string } | undefined;
     if (!project) throw new CreationWorkspaceError("not-found", "作品不存在。");
+  }
+
+  private projectRevision(projectId: string): number {
+    const row = this.database
+      .prepare(
+        `SELECT COALESCE(MAX(r), 0) AS rev FROM (
+           SELECT revision AS r FROM volumes WHERE project_id = ? AND deleted_at IS NULL
+           UNION ALL
+           SELECT revision AS r FROM chapters WHERE project_id = ? AND deleted_at IS NULL
+           UNION ALL
+           SELECT s.revision AS r FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+           WHERE c.project_id = ? AND s.deleted_at IS NULL
+         )`
+      )
+      .get(projectId, projectId, projectId) as { rev: number };
+    return row.rev;
   }
 
   private requireVolume(volumeId: string): { id: string; project_id: string; title: string; revision: number } {
@@ -5773,9 +6555,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在，无法恢复。");
         if (!payload.body) throw new CreationWorkspaceError("integrity", "快照正文数据缺失。");
         const revision = scene.revision + 1;
+        const bodyJson = JSON.stringify(payload.body);
+        const stats = countSceneBodyStats(bodyJson);
         this.database
-          .prepare("UPDATE scenes SET body_json = ?, updated_at = ?, revision = ? WHERE id = ?")
-          .run(JSON.stringify(payload.body), timestamp, revision, snapshot.subject_id);
+          .prepare("UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, updated_at = ?, revision = ? WHERE id = ?")
+          .run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, snapshot.subject_id);
         this.touchProject(projectId, timestamp);
         return {
           projectId,
@@ -6009,6 +6793,7 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
     } else if (existingVersion === 2) {
       migrateSchemaV2ToV3(database);
       migrateSchemaV3ToV4(database);
@@ -6016,25 +6801,33 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
     } else if (existingVersion === 3) {
       migrateSchemaV3ToV4(database);
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
     } else if (existingVersion === 4) {
       migrateSchemaV4ToV5(database);
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
     } else if (existingVersion === 5) {
       migrateSchemaV5ToV6(database);
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
     } else if (existingVersion === 6) {
       migrateSchemaV6ToV7(database);
       migrateSchemaV7ToV8(database);
-    } else if (existingVersion === 7) migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
+    } else if (existingVersion === 7) {
+      migrateSchemaV7ToV8(database);
+      migrateSchemaV8ToV9(database);
+    } else if (existingVersion === 8) migrateSchemaV8ToV9(database);
     else if (existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }

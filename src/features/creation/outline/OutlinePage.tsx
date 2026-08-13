@@ -4,7 +4,8 @@ import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
 import { OutlineTree } from "@/features/creation/outline/OutlineTree";
-import type { CreationProjectOutline, ScenePlanning } from "@/types/creation";
+import { findChapterLocation } from "@/features/creation/outline/outline-impact";
+import type { CreationProjectOutline, ScenePlanning, StructureApplyResult } from "@/types/creation";
 
 interface OutlinePageProps {
   project: { id: string; title: string; setup: { chapterWorkflow: string[] } };
@@ -45,18 +46,18 @@ function ScenePlanningForm({ projectId, scene, onSaved }: { projectId: string; s
       <div className="scene-planning-grid">
         <label>
           <span>视角角色</span>
-          <select className={inputClass} value={planning.perspectiveCardId ?? ""} onChange={(event) => set({ perspectiveCardId: event.target.value || undefined })}>
+          <select className={inputClass} value={planning.perspectiveCardId ?? ""} onChange={(event) => set({ perspectiveCardId: event.target.value || null })}>
             <option value="">未设置</option>
             {characterCards.map((card) => <option key={card.id} value={card.id}>{card.title}</option>)}
           </select>
         </label>
         <label>
           <span>时间 / 相对时间</span>
-          <input className={inputClass} value={planning.time ?? ""} onChange={(event) => set({ time: event.target.value || undefined })} placeholder="例如：入夜后、三年前" />
+          <input className={inputClass} value={planning.time ?? ""} onChange={(event) => set({ time: event.target.value || null })} placeholder="例如：入夜后、三年前" />
         </label>
         <label>
           <span>地点（背景）</span>
-          <select className={inputClass} value={planning.locationCardId ?? ""} onChange={(event) => set({ locationCardId: event.target.value || undefined })}>
+          <select className={inputClass} value={planning.locationCardId ?? ""} onChange={(event) => set({ locationCardId: event.target.value || null })}>
             <option value="">未设置</option>
             {locationCards.map((card) => <option key={card.id} value={card.id}>{card.title}</option>)}
           </select>
@@ -69,7 +70,7 @@ function ScenePlanningForm({ projectId, scene, onSaved }: { projectId: string; s
             min={1}
             max={1000000}
             value={planning.targetWords ?? ""}
-            onChange={(event) => set({ targetWords: event.target.value ? Number(event.target.value) : undefined })}
+            onChange={(event) => set({ targetWords: event.target.value ? Number(event.target.value) : null })}
             placeholder="例如：2500"
           />
         </label>
@@ -89,7 +90,7 @@ function ScenePlanningForm({ projectId, scene, onSaved }: { projectId: string; s
         {(["goal", "conflict", "outcome", "emotion"] as const).map((key) => (
           <label key={key} className="scene-planning-full">
             <span>{key === "goal" ? "目标" : key === "conflict" ? "冲突" : key === "outcome" ? "结果" : "情绪"}</span>
-            <input className={inputClass} value={planning[key] ?? ""} onChange={(event) => set({ [key]: event.target.value || undefined })} />
+            <input className={inputClass} value={planning[key] ?? ""} onChange={(event) => set({ [key]: event.target.value || null })} />
           </label>
         ))}
       </div>
@@ -103,11 +104,21 @@ function ScenePlanningForm({ projectId, scene, onSaved }: { projectId: string; s
 }
 
 export function OutlinePage({ project }: OutlinePageProps) {
-  const { loadOutline, loadCards, runStructure } = useCreationActions();
+  const {
+    loadOutline,
+    loadCards,
+    runStructure,
+    previewStructure,
+    applyStructureWithProtection,
+    revertStructure
+  } = useCreationActions();
   const outlines = useCreationStore((state) => state.outlines);
   const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
   const selectScene = useCreationStore((state) => state.selectScene);
   const [view, setView] = useState<"tree" | "board">("tree");
+  const [lastProtectedApply, setLastProtectedApply] = useState<StructureApplyResult | null>(null);
+  const [revertBusy, setRevertBusy] = useState(false);
+  const [revertError, setRevertError] = useState<string | null>(null);
 
   useEffect(() => {
     void loadOutline(project.id);
@@ -141,6 +152,78 @@ export function OutlinePage({ project }: OutlinePageProps) {
     [refresh, runStructure]
   );
 
+  const applyStructureForTree = useCallback(
+    async (command: Parameters<typeof applyStructureWithProtection>[0]) => {
+      const result = await applyStructureWithProtection(command);
+      if (result) refresh();
+      return result;
+    },
+    [applyStructureWithProtection, refresh]
+  );
+
+  const handleProtectedApplied = useCallback((result: StructureApplyResult) => {
+    setLastProtectedApply(result);
+    setRevertError(null);
+  }, []);
+
+  const revertLastProtectedApply = useCallback(async () => {
+    if (!lastProtectedApply || revertBusy) return;
+    setRevertBusy(true);
+    setRevertError(null);
+    try {
+      const result = await revertStructure({
+        type: "structure.revert",
+        projectId: project.id,
+        protectionSnapshotId: lastProtectedApply.protectionSnapshotId,
+        expectedAppliedRevisions: lastProtectedApply.affected
+      });
+      if (!result) {
+        setRevertError("无法撤回：大纲可能已被后续修改。请保留当前内容并重新检查。");
+        return;
+      }
+      setLastProtectedApply(null);
+      refresh();
+    } catch (error) {
+      setRevertError(error instanceof Error ? error.message : "无法撤回本次重组。");
+    } finally {
+      setRevertBusy(false);
+    }
+  }, [lastProtectedApply, project.id, refresh, revertBusy, revertStructure]);
+
+  const [selectedChapterIds, setSelectedChapterIds] = useState<Set<string>>(new Set());
+  const toggleChapterSelected = useCallback((id: string) => {
+    setSelectedChapterIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const handleSceneReorder = useCallback(
+    (sceneId: string, beforeSceneId?: string) => runStructureForTree({ type: "scene.reorder", sceneId, beforeSceneId }),
+    [runStructureForTree]
+  );
+
+  const handleSceneMove = useCallback(
+    (sceneId: string, targetChapterId: string, beforeSceneId?: string) => runStructureForTree({ type: "scene.move", sceneId, targetChapterId, beforeSceneId }),
+    [runStructureForTree]
+  );
+
+  const handleChapterSetStatus = useCallback(
+    (chapterId: string, status: string) => {
+      if (!outline) return Promise.resolve(false);
+      const revision = findChapterLocation(outline, chapterId)?.chapter.revision ?? 1;
+      return runStructureForTree({ type: "chapter.setStatus", chapterId, status, baseRevision: revision });
+    },
+    [runStructureForTree, outline]
+  );
+
+  const handleChaptersSetStatus = useCallback(
+    (chapterIds: string[], status: string) => runStructureForTree({ type: "chapters.setStatus", chapterIds, status }),
+    [runStructureForTree]
+  );
+
   return (
     <section className="outline-page" aria-label="大纲">
       <header className="outline-page-head">
@@ -154,6 +237,18 @@ export function OutlinePage({ project }: OutlinePageProps) {
         </div>
         <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景可在右侧编辑任务卡。</p>
       </header>
+      {lastProtectedApply && (
+        <div className="outline-revert-bar" role="status">
+          <span>大纲安全重组已应用，并已创建保护快照。</span>
+          <button type="button" aria-label="撤回本次重组" disabled={revertBusy} onClick={() => void revertLastProtectedApply()}>
+            {revertBusy ? "撤回中…" : "撤回"}
+          </button>
+          <button type="button" aria-label="关闭撤回提示" disabled={revertBusy} onClick={() => { setLastProtectedApply(null); setRevertError(null); }}>
+            <X size={12} />
+          </button>
+          {revertError && <span className="outline-revert-error" role="alert">{revertError}</span>}
+        </div>
+      )}
       <div className="outline-page-body">
         <div className="outline-page-main">
           {outline ? (
@@ -164,6 +259,9 @@ export function OutlinePage({ project }: OutlinePageProps) {
                 selectedSceneId={selectedSceneId}
                 onSelectScene={selectScene}
                 runStructure={runStructureForTree}
+                previewStructure={previewStructure}
+                applyStructureWithProtection={applyStructureForTree}
+                onProtectedApplied={handleProtectedApplied}
               />
             ) : (
               <CardBoard
@@ -171,6 +269,15 @@ export function OutlinePage({ project }: OutlinePageProps) {
                 workflow={workflow}
                 selectedSceneId={selectedSceneId}
                 onSelectScene={selectScene}
+                onSceneReorder={handleSceneReorder}
+                onSceneMove={handleSceneMove}
+                onChapterSetStatus={handleChapterSetStatus}
+                onChaptersSetStatus={handleChaptersSetStatus}
+                previewStructure={previewStructure}
+                applyStructureWithProtection={applyStructureForTree}
+                onProtectedApplied={handleProtectedApplied}
+                selectedChapterIds={selectedChapterIds}
+                onToggleChapterSelected={toggleChapterSelected}
               />
             )
           ) : (

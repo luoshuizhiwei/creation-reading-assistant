@@ -26,7 +26,6 @@ import type {
   UpdateInspirationInput
 } from "./inspiration";
 import type {
-  CardCommand,
   CardRelation,
   CardSummary,
   CardType,
@@ -36,10 +35,10 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationRunCommand,
+  CreationRunResultOf,
   CreationSearchQuery,
   CreationSearchView,
-  CreationStructureResult,
-  HistoryCommand,
   ProjectStatsView,
   RelationType,
   ReplaceApplyCommand,
@@ -55,7 +54,6 @@ import type {
   SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
-  StructureCommand,
   TrashItem,
   TrashListQuery,
   UpdateSceneBodyInput,
@@ -65,13 +63,13 @@ import type {
   InboxItem,
   InboxItemResult,
   InboxListQuery,
+  InboxCountView,
   InboxUpdateCommand,
+  InboxCreateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand,
   ProjectBundleImportResult,
-  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -81,7 +79,14 @@ import type {
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
-  ProjectExportView
+  ProjectExportView,
+  ProjectHomeView,
+  StructurePreviewCommand,
+  StructureApplyWithProtectionCommand,
+  StructureRevertCommand,
+  StructurePreviewView,
+  StructureApplyResult,
+  StructureRevertResult
 } from "./creation";
 import type { SearchQuery, SearchResult } from "./search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
@@ -151,10 +156,14 @@ export interface DesktopApi {
   };
   creation: {
     listProjects: () => Promise<CreationProjectSummary[]>;
+    readProjectHome: () => Promise<ProjectHomeView>;
     readProjectNavigation: (projectId: string) => Promise<CreationProjectNavigation | null>;
     createProject: (input: CreateProjectInput) => Promise<CreationProjectNavigation>;
     readProjectOutline: (projectId: string) => Promise<CreationProjectOutline | null>;
-    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand) => Promise<CreationStructureResult>;
+    runStructure: <Command extends CreationRunCommand>(command: Command) => Promise<CreationRunResultOf<Command>>;
+    structurePreview: (command: StructurePreviewCommand) => Promise<StructurePreviewView>;
+    structureApply: (command: StructureApplyWithProtectionCommand) => Promise<StructureApplyResult>;
+    structureRevert: (command: StructureRevertCommand) => Promise<StructureRevertResult>;
     trashList: (projectId: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
@@ -179,8 +188,10 @@ export interface DesktopApi {
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;
+    inboxCount: () => Promise<InboxCountView>;
     inboxUpdate: (command: InboxUpdateCommand) => Promise<InboxItemResult>;
     inboxDelete: (command: InboxDeleteCommand) => Promise<InboxItemResult>;
+    inboxCreate: (command: InboxCreateCommand) => Promise<InboxItemResult>;
     exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;

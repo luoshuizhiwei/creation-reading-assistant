@@ -66,6 +66,26 @@ export interface CreationProjectSummary {
   sceneCount: number;
 }
 
+/** 项目首页行项目：含当前非空白字符数（单次聚合查询，不加载场景正文到渲染进程）。 */
+export interface ProjectHomeEntry {
+  id: string;
+  title: string;
+  setup: CreationProjectSetup;
+  updatedAt: string;
+  revision: number;
+  chapterCount: number;
+  sceneCount: number;
+  currentChars: number;
+}
+
+export interface ProjectHomeView {
+  projects: ProjectHomeEntry[];
+}
+
+export interface ProjectHomeQuery {
+  kind: "project.home";
+}
+
 /** 导航场景：仅元数据，不携带正文（正文通过 scene.body 查询懒读取）。 */
 export interface CreationNavigationScene {
   id: string;
@@ -693,21 +713,26 @@ export interface ProjectImportDraftResult {
 // 场景任务卡（蓝图 §5.3）：视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数
 // ---------------------------------------------------------------------------
 
+/**
+ * 场景任务卡字段（蓝图 §5.3）。
+ * 语义：字段未提供（undefined）= 保留旧值；字段为 null = 明确清空。
+ * JSON/IPC 会丢失 undefined，因此显式清空一律使用 null。
+ */
 export interface ScenePlanning {
   /** 视角角色卡片 ID。 */
-  perspectiveCardId?: string;
+  perspectiveCardId?: string | null;
   /** 时间或相对时间描述。 */
-  time?: string;
+  time?: string | null;
   /** 地点卡片 ID。 */
-  locationCardId?: string;
-  /** 出场卡片 ID 列表。 */
-  castCardIds?: string[];
-  goal?: string;
-  conflict?: string;
-  outcome?: string;
-  emotion?: string;
+  locationCardId?: string | null;
+  /** 出场卡片 ID 列表（清空用 [] 或 null）。 */
+  castCardIds?: string[] | null;
+  goal?: string | null;
+  conflict?: string | null;
+  outcome?: string | null;
+  emotion?: string | null;
   /** 目标字数（非空白字符）。 */
-  targetWords?: number;
+  targetWords?: number | null;
 }
 
 export interface SceneUpdatePlanningCommand {
@@ -723,6 +748,147 @@ export interface SceneUpdatePlanningResult {
   sceneId: string;
   updatedAt: string;
 }
+
+/**
+ * runStructure 通道接受的命令联合。结果类型按命令 type 推导：
+ * scene.updatePlanning → SceneUpdatePlanningResult；
+ * project.importDraft → ProjectImportDraftResult；
+ * 其余结构/卡片/回收站命令 → CreationStructureResult。
+ */
+export type CreationRunCommand =
+  | StructureCommand
+  | CardCommand
+  | HistoryCommand
+  | ProjectImportDraftCommand
+  | SceneUpdatePlanningCommand
+  | InboxConvertToCardCommand;
+
+/** runStructure 的唯一运行时命令目录；Record 保证新增联合成员时必须同步白名单。 */
+export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["type"], true>> = {
+  "volume.create": true,
+  "volume.rename": true,
+  "volume.reorder": true,
+  "volume.delete": true,
+  "chapter.create": true,
+  "chapter.rename": true,
+  "chapter.reorder": true,
+  "chapter.move": true,
+  "chapter.delete": true,
+  "chapter.setStatus": true,
+  "chapter.setNumbering": true,
+  "chapter.split": true,
+  "chapter.merge": true,
+  "chapters.setStatus": true,
+  "scene.create": true,
+  "scene.rename": true,
+  "scene.reorder": true,
+  "scene.move": true,
+  "scene.delete": true,
+  "cardType.create": true,
+  "relationType.create": true,
+  "card.create": true,
+  "card.update": true,
+  "card.delete": true,
+  "cardRelation.create": true,
+  "cardRelation.delete": true,
+  "trash.restore": true,
+  "trash.purge": true,
+  "snapshot.create": true,
+  "snapshot.restore": true,
+  "project.importDraft": true,
+  "scene.updatePlanning": true,
+  "inbox.convertToCard": true
+};
+
+export function isCreationRunCommandType(value: unknown): value is CreationRunCommand["type"] {
+  return typeof value === "string" && Object.prototype.hasOwnProperty.call(CREATION_RUN_COMMAND_TYPES, value);
+}
+
+type _RunStructureCommandTypes = StructureCommand["type"] | CardCommand["type"] | HistoryCommand["type"];
+
+export type CreationRunResultOf<Command extends CreationRunCommand> =
+  Command extends { type: "scene.updatePlanning" } ? SceneUpdatePlanningResult :
+  Command extends { type: "project.importDraft" } ? ProjectImportDraftResult :
+  Command extends { type: "inbox.convertToCard" } ? InboxConvertToCardResult :
+  Command extends { type: _RunStructureCommandTypes } ? CreationStructureResult :
+  never;
+
+export type CreationRunResult = CreationRunResultOf<CreationRunCommand>;
+
+// ---------------------------------------------------------------------------
+// 切片：大纲安全重组 workspace seam（Part 2）
+// 本地 compute*Impact 仅作即时 UI 预览；权威预览 / 保护快照 / 单次事务应用 / 撤回
+// 必须经由 workspace 的真实 SQLite 事务，不得仅依赖 renderer 本地计算。
+// ---------------------------------------------------------------------------
+
+/** 受保护重组覆盖的结构命令。 */
+export type ProtectedStructureCommand = Extract<
+  CreationRunCommand,
+  | { type: "chapter.split" }
+  | { type: "chapter.merge" }
+  | { type: "chapter.move" }
+  | { type: "scene.move" }
+  | { type: "chapters.setStatus" }
+  | { type: "chapter.setNumbering" }
+>;
+
+export type StructurePreviewCommand = {
+  type: "structure.preview";
+  projectId: string;
+  command: ProtectedStructureCommand;
+};
+
+export type StructureApplyWithProtectionCommand = {
+  type: "structure.applyWithProtection";
+  projectId: string;
+  /** 一次性权威预览计划；主进程只执行该计划中封存的命令。 */
+  planId: string;
+  protectionReason: string;
+};
+
+export type StructureRevertCommand = {
+  type: "structure.revert";
+  projectId: string;
+  protectionSnapshotId: string;
+  /** 应用完成时返回的精确版本集合；任一对象后来被改动即拒绝撤回。 */
+  expectedAppliedRevisions: StructureAffectedObject[];
+};
+
+export type StructurePlanCommand = StructurePreviewCommand | StructureApplyWithProtectionCommand | StructureRevertCommand;
+
+export type StructurePlanRow = { label: string; value: string };
+
+export type StructurePreviewView = {
+  ok: true;
+  planId: string;
+  command: ProtectedStructureCommand;
+  rows: StructurePlanRow[];
+  stale: boolean;
+  affectedSceneCount: number;
+  numberingChange?: string;
+  softDeletedChapter?: string;
+};
+
+export type StructureAffectedObject = {
+  type: "volume" | "chapter" | "scene";
+  id: string;
+  /** 应用后的精确对象版本；用于撤回前冲突检测，不是项目最大版本。 */
+  revision: number;
+};
+
+export type StructureApplyResult = {
+  ok: true;
+  protectionSnapshotId: string;
+  affected: StructureAffectedObject[];
+  newRevision: number;
+};
+
+export type StructureRevertResult = {
+  ok: true;
+  restoredRevision: number;
+};
+
+export type StructurePlanResult = StructurePreviewView | StructureApplyResult | StructureRevertResult;
 
 export type DraftImportFormat = "txt" | "markdown";
 
@@ -894,6 +1060,8 @@ export interface Annotation {
   status: "open" | "resolved";
   /** 锚定文本当前内容（失效时可能为空）。 */
   anchoredText: string;
+  /** 当前行的乐观并发 revision；更新批注时必须作为 baseRevision 提交，避免静默覆盖。 */
+  revision: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -1270,6 +1438,20 @@ export interface InboxListQuery {
   kind: "inbox.list";
   /** 返回上限，默认 100，最大 500。 */
   limit?: number;
+  /** 分页偏移量，默认 0。迁移全量校验使用分页读取超过 500 条的收件箱。 */
+  offset?: number;
+}
+
+/** 收件箱计数（不加载条目正文，供概览与项目首页共用）。 */
+export interface InboxCountQuery {
+  kind: "inbox.count";
+}
+
+export interface InboxCountView {
+  /** 未删除条目总数。 */
+  total: number;
+  /** 未删除且状态不是 used（已转卡片）的待处理条目数。 */
+  pending: number;
 }
 
 export interface InboxReadQuery {
@@ -1298,9 +1480,13 @@ export interface InboxUpdateCommand {
   baseRevision: number;
   title?: string;
   body?: string;
+  /** 灵感类型（plot/character/world 等）。 */
+  kind?: string;
   status?: string;
   tags?: string[];
   platformTags?: string[];
+  /** 全部 AI 候选版本（整体覆盖；新增候选需携带既有候选）。 */
+  variants?: Array<Record<string, unknown>>;
 }
 
 export interface InboxDeleteCommand {
@@ -1312,6 +1498,26 @@ export interface InboxItemResult {
   commandType: "inbox.create" | "inbox.update" | "inbox.delete";
   sequence: number;
   itemId: string;
+  revision: number;
+  updatedAt: string;
+}
+
+/**
+ * 收件箱条目原子转资料卡命令：同一事务内完成校验 → 建卡 → 标 used → 写 change_log。
+ * 任何一步失败整体回滚，不产生重复卡片或半更新条目。
+ */
+export interface InboxConvertToCardCommand {
+  type: "inbox.convertToCard";
+  itemId: string;
+  baseRevision: number;
+  projectId: string;
+}
+
+export interface InboxConvertToCardResult {
+  commandType: "inbox.convertToCard";
+  sequence: number;
+  itemId: string;
+  cardId: string;
   revision: number;
   updatedAt: string;
 }

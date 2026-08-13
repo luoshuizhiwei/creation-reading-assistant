@@ -1,0 +1,406 @@
+/* 历史页（回收站 + 快照里程碑）的局部样式。
+   视觉令牌沿用编辑出版工作室（copper / paper-*），不修改全局样式文件。 */
+
+.history-page {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+}
+
+.history-header-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.history-create-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  border: 1px solid rgba(176, 141, 87, 0.5);
+  background: rgba(176, 141, 87, 0.1);
+  color: #5c4a2a;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.history-create-btn:hover {
+  background: rgba(176, 141, 87, 0.18);
+}
+
+.history-create-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid rgba(43, 38, 32, 0.12);
+  padding-bottom: 0;
+}
+
+.history-tabs button {
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: #6b6256;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.history-tabs button:hover {
+  color: #2b2620;
+}
+
+.history-tabs button.active {
+  color: #8a5a16;
+  border-bottom-color: #b47828;
+  font-weight: 600;
+}
+
+.history-empty {
+  padding: 32px 16px;
+  text-align: center;
+  color: #8a8070;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.history-item {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-radius: 10px;
+  border: 1px solid rgba(43, 38, 32, 0.1);
+  background: rgba(255, 253, 248, 0.6);
+}
+
+.history-item-type {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 6px;
+  background: rgba(176, 141, 87, 0.15);
+  color: #6b5028;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.history-item strong {
+  font-size: 14px;
+  color: #2b2620;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item small {
+  font-size: 12px;
+  color: #8a8070;
+  white-space: nowrap;
+}
+
+.history-item-subject {
+  font-size: 12px;
+  color: #6b6256;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-item-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.history-item-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  border-radius: 6px;
+  border: 1px solid rgba(43, 38, 32, 0.15);
+  background: transparent;
+  color: #4a4338;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.history-item-actions button:hover {
+  background: rgba(43, 38, 32, 0.06);
+}
+
+.history-item-actions button.confirming {
+  border-color: #b4231f;
+  background: rgba(180, 35, 31, 0.08);
+  color: #b4231f;
+}
+
+/* ---------- 模态通用 ---------- */
+
+.history-modal-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 16px;
+  background: rgba(43, 38, 32, 0.45);
+  backdrop-filter: blur(2px);
+}
+
+.history-modal {
+  width: min(520px, 100%);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 12px;
+  border: 1px solid rgba(176, 141, 87, 0.35);
+  background: #fffdf8;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+}
+
+.history-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(43, 38, 32, 0.1);
+  background: linear-gradient(180deg, rgba(176, 141, 87, 0.08), transparent);
+}
+
+.history-modal-head h3 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #2b2620;
+}
+
+.history-modal-close {
+  padding: 4px 8px;
+  border: none;
+  background: transparent;
+  color: #6b6256;
+  font-size: 18px;
+  cursor: pointer;
+  line-height: 1;
+  border-radius: 6px;
+}
+
+.history-modal-close:hover {
+  background: rgba(43, 38, 32, 0.08);
+  color: #2b2620;
+}
+
+.history-modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.history-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid rgba(43, 38, 32, 0.1);
+  background: rgba(43, 38, 32, 0.02);
+}
+
+/* ---------- 表单字段 ---------- */
+
+.history-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.history-field label {
+  font-size: 13px;
+  color: #4a4338;
+  font-weight: 500;
+}
+
+.history-field select,
+.history-field input[type="text"] {
+  width: 100%;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(43, 38, 32, 0.18);
+  background: #ffffff;
+  color: #2b2620;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.history-field select:focus,
+.history-field input[type="text"]:focus {
+  border-color: #b47828;
+  box-shadow: 0 0 0 3px rgba(180, 120, 40, 0.15);
+}
+
+.history-field select:disabled,
+.history-field input[type="text"]:disabled {
+  background: rgba(43, 38, 32, 0.04);
+  color: #8a8070;
+  cursor: not-allowed;
+}
+
+.history-field-error {
+  font-size: 12px;
+  color: #b4231f;
+}
+
+/* ---------- 影响列表（恢复 / 永久删除） ---------- */
+
+.history-impact-list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(176, 141, 87, 0.06);
+}
+
+.history-impact-row {
+  display: grid;
+  grid-template-columns: 96px 1fr;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-impact-row dt {
+  margin: 0;
+  color: #6b6256;
+  font-weight: 500;
+}
+
+.history-impact-row dd {
+  margin: 0;
+  color: #2b2620;
+  word-break: break-word;
+}
+
+.history-impact-notice {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(180, 120, 40, 0.12);
+  color: #8a5a16;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-impact-danger {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(180, 35, 31, 0.1);
+  color: #9a1e1a;
+  font-size: 13px;
+  line-height: 1.5;
+  border: 1px solid rgba(180, 35, 31, 0.25);
+}
+
+.history-impact-error {
+  font-size: 13px;
+  color: #b4231f;
+  line-height: 1.5;
+}
+
+.history-modal-foot button {
+  padding: 7px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+
+.history-btn-cancel {
+  background: transparent;
+  border-color: rgba(43, 38, 32, 0.2);
+  color: #4a4338;
+}
+
+.history-btn-cancel:hover:not(:disabled) {
+  background: rgba(43, 38, 32, 0.06);
+}
+
+.history-btn-cancel:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-btn-confirm {
+  background: #b47828;
+  border-color: #b47828;
+  color: #ffffff;
+}
+
+.history-btn-confirm:hover:not(:disabled) {
+  background: #a06a22;
+  border-color: #a06a22;
+}
+
+.history-btn-confirm:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-btn-danger {
+  background: #b4231f;
+  border-color: #b4231f;
+  color: #ffffff;
+}
+
+.history-btn-danger:hover:not(:disabled) {
+  background: #9a1e1a;
+  border-color: #9a1e1a;
+}
+
+.history-btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.history-busy {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: history-spin 0.7s linear infinite;
+}
+
+@keyframes history-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

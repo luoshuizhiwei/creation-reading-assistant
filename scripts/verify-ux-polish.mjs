@@ -15,7 +15,7 @@ function fail(message) {
 }
 
 const app = read("src/app/App.tsx");
-const start = read("src/pages/StartPage.tsx");
+const home = read("src/features/creation/home/ProjectHomePage.tsx");
 const reader = read("src/features/library/ReaderPage.tsx");
 const search = read("src/features/search/SearchPanel.tsx");
 const betaCheck = read("scripts/beta-check.mjs");
@@ -30,9 +30,9 @@ const requiredSnippets = [
   [reader, "activeBook.format === \"md\"", "Reader should branch Markdown rendering by book format."],
   [reader, "markdown-reader", "Rendered Markdown should use a readable class hook."],
   [reader, "reader-heading-scale", "Markdown heading sizes should scale with reader font size."],
-  [start, "hover:-translate-y-1", "Start page module cards should have a smooth lifted hover state."],
-  [start, "focus:ring-2", "Start page cards should keep visible keyboard focus states."],
-  [start, "rounded-[2rem]", "Start page should use a softer dashboard shell."],
+  [home, "hover:-translate-y-0.5", "Project home cards should have a smooth lifted hover state."],
+  [home, "focus:ring-2", "Project home cards should keep visible keyboard focus states."],
+  [home, 'className="desktop-page-scroll paper-shell"', "Project home should use a softer dashboard shell."],
   [search, "function formatSourceLabel", "Search results should format technical source paths."],
   [search, "书库文件 ·", "Search source labels should hide AppLibrary internals."],
   [search, "text-paper-ink/70", "Search snippets/source labels should have stronger contrast."],

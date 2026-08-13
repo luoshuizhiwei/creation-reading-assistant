@@ -1,0 +1,142 @@
+/* 大纲重组相关的局部样式：仅作用于 OutlineTree / CardBoard 新增控件。
+   视觉令牌沿用编辑出版工作室（copper / paper-*），不修改全局样式文件。 */
+
+.outline-impact-list {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+}
+
+.outline-impact-row {
+  display: grid;
+  grid-template-columns: 9rem 1fr;
+  gap: 8px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.outline-impact-row dt {
+  margin: 0;
+  color: #6b6256;
+}
+
+.outline-impact-row dd {
+  margin: 0;
+  color: #2b2620;
+  word-break: break-word;
+}
+
+.outline-impact-notice {
+  margin: 10px 0 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(180, 120, 40, 0.12);
+  color: #8a5a16;
+  font-size: 13px;
+}
+
+.outline-impact-error {
+  margin: 10px 0 0;
+  color: #b4231f;
+  font-size: 13px;
+}
+
+.outline-numbering-select {
+  max-width: 8rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(43, 38, 32, 0.18);
+  background: transparent;
+  color: #4a4338;
+  font-size: 12px;
+}
+
+.card-board-batch-bar {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  margin-bottom: 8px;
+  border-radius: 10px;
+  border: 1px solid rgba(176, 141, 87, 0.4);
+  background: rgba(176, 141, 87, 0.1);
+  font-size: 13px;
+}
+
+.card-board-batch-bar .card-board-batch-count {
+  color: #6b5a3a;
+}
+
+.card-board-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 12px;
+  color: #4a4338;
+}
+
+.card-board-select input {
+  accent-color: #b08d57;
+}
+
+.card-board-move-select {
+  max-width: 9rem;
+  padding: 2px 6px;
+  border-radius: 6px;
+  border: 1px solid rgba(43, 38, 32, 0.18);
+  background: transparent;
+  color: #4a4338;
+  font-size: 12px;
+}
+
+.card-board-reorder {
+  display: inline-flex;
+  gap: 2px;
+}
+
+.card-board-card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.card-board-card-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  color: inherit;
+  font: inherit;
+}
+
+.card-board-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.outline-revert-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-block: 1px solid var(--border-subtle, #e5e5e5);
+  background: color-mix(in srgb, var(--accent-hover, #fee2e2) 45%, transparent);
+  padding: 0.5rem 0.75rem;
+  color: var(--text-main, #27272a);
+  font-size: 0.78rem;
+}
+
+.outline-revert-bar > span:first-child { margin-right: auto; }
+.outline-revert-bar button { border: 0; background: transparent; color: var(--accent-spine, #991b1b); cursor: pointer; }
+.outline-revert-bar button:disabled { cursor: wait; opacity: 0.55; }
+.outline-revert-error { color: var(--accent-spine, #991b1b); }

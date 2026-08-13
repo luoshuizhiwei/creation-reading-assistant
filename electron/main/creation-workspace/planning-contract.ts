@@ -91,6 +91,81 @@ async function run(): Promise<void> {
       });
     });
 
+    await scenario("九个字段完整写入后逐类明确清空，重新打开数据库仍保持清空", async () => {
+      const directory = path.join(parent, "ws-clear");
+      const created = await withWorkspace(directory, async (workspace) => {
+        const made = await workspace.transact({ type: "project.create", title: "清空测试" });
+        const viewpoint = await workspace.transact({ type: "card.create", projectId: made.projectId, kind: "character", title: "苏青" }) as { entityId: string };
+        const location = await workspace.transact({ type: "card.create", projectId: made.projectId, kind: "location", title: "黄沙镇" }) as { entityId: string };
+        const cast1 = await workspace.transact({ type: "card.create", projectId: made.projectId, kind: "character", title: "顾淮" }) as { entityId: string };
+        const cast2 = await workspace.transact({ type: "card.create", projectId: made.projectId, kind: "character", title: "沈砚" }) as { entityId: string };
+
+        await workspace.transact({
+          type: "scene.updatePlanning",
+          sceneId: made.sceneId,
+          planning: {
+            perspectiveCardId: viewpoint.entityId,
+            time: "入夜后",
+            locationCardId: location.entityId,
+            castCardIds: [cast1.entityId, cast2.entityId],
+            goal: "找到信",
+            conflict: "油灯将熄",
+            outcome: "信被风卷走",
+            emotion: "焦灼",
+            targetWords: 2500
+          }
+        });
+
+        // 逐类明确清空（null），一次一个字段，其余字段必须保持不变。
+        const clears: Array<{ patch: ScenePlanning; verify: (p: ScenePlanning | undefined) => void }> = [
+          { patch: { perspectiveCardId: null }, verify: (p) => assert.equal(p?.perspectiveCardId, null) },
+          { patch: { time: null }, verify: (p) => assert.equal(p?.time, null) },
+          { patch: { locationCardId: null }, verify: (p) => assert.equal(p?.locationCardId, null) },
+          { patch: { castCardIds: null }, verify: (p) => assert.equal(p?.castCardIds, null) },
+          { patch: { goal: null }, verify: (p) => assert.equal(p?.goal, null) },
+          { patch: { conflict: null }, verify: (p) => assert.equal(p?.conflict, null) },
+          { patch: { outcome: null }, verify: (p) => assert.equal(p?.outcome, null) },
+          { patch: { emotion: null }, verify: (p) => assert.equal(p?.emotion, null) },
+          { patch: { targetWords: null }, verify: (p) => assert.equal(p?.targetWords, null) }
+        ];
+        for (const { patch, verify } of clears) {
+          await workspace.transact({ type: "scene.updatePlanning", sceneId: made.sceneId, planning: patch });
+          const outline = await workspace.read({ kind: "project.outline", projectId: made.projectId });
+          const planning = outline?.volumes[0]?.chapters[0]?.scenes[0]?.planning as ScenePlanning | undefined;
+          verify(planning);
+        }
+
+        // 清空后重新写入单个字段，其余清空字段不得恢复。
+        await workspace.transact({
+          type: "scene.updatePlanning",
+          sceneId: made.sceneId,
+          planning: { goal: "重写目标" }
+        });
+        const outline = await workspace.read({ kind: "project.outline", projectId: made.projectId });
+        const planning = outline?.volumes[0]?.chapters[0]?.scenes[0]?.planning as ScenePlanning | undefined;
+        assert.equal(planning?.goal, "重写目标");
+        assert.equal(planning?.time, null);
+        assert.equal(planning?.emotion, null);
+        assert.equal(planning?.targetWords, null);
+        return { projectId: made.projectId, sceneId: made.sceneId };
+      });
+
+      // 重新打开数据库，验证清空持久化且未提交字段仍保留。
+      await withWorkspace(directory, async (workspace) => {
+        const outline = await workspace.read({ kind: "project.outline", projectId: created.projectId });
+        const planning = outline?.volumes[0]?.chapters[0]?.scenes[0]?.planning as ScenePlanning | undefined;
+        assert.equal(planning?.goal, "重写目标");
+        assert.equal(planning?.time, null);
+        assert.equal(planning?.locationCardId, null);
+        assert.equal(planning?.castCardIds, null);
+        assert.equal(planning?.perspectiveCardId, null);
+        assert.equal(planning?.conflict, null);
+        assert.equal(planning?.outcome, null);
+        assert.equal(planning?.emotion, null);
+        assert.equal(planning?.targetWords, null);
+      });
+    });
+
     await scenario("跨项目卡片引用与非法参数拒绝", async () => {
       await withWorkspace(path.join(parent, "ws"), async (workspace) => {
         const created = await workspace.transact({ type: "project.create", title: "校验测试" });
@@ -172,6 +247,44 @@ async function run(): Promise<void> {
         const after = await workspace.read({ kind: "scene.body", sceneId: created.sceneId });
         assert.equal(after?.revision, before?.revision);
         assert.equal(JSON.stringify(after?.body).includes("正文内容"), true);
+      });
+    });
+
+    await scenario("纯空格 trim 后视为清空（半角/全角/混合），而非省略更新", async () => {
+      const directory = path.join(parent, "ws-trim");
+      let projectId = "";
+      let sceneId = "";
+      await withWorkspace(directory, async (workspace) => {
+        const created = await workspace.transact({ type: "project.create", title: "trim 测试" });
+        projectId = created.projectId;
+        sceneId = created.sceneId;
+        await workspace.transact({
+          type: "scene.updatePlanning",
+          sceneId,
+          planning: { goal: "目标A", conflict: "冲突A", outcome: "结果A", emotion: "情绪A", time: "时间A" }
+        });
+
+        await workspace.transact({ type: "scene.updatePlanning", sceneId, planning: { goal: "   " } });
+        await workspace.transact({ type: "scene.updatePlanning", sceneId, planning: { conflict: "　　" } });
+        await workspace.transact({ type: "scene.updatePlanning", sceneId, planning: { outcome: " \u3000 " } });
+        await workspace.transact({ type: "scene.updatePlanning", sceneId, planning: { emotion: " \t " } });
+        await workspace.transact({ type: "scene.updatePlanning", sceneId, planning: { time: " " } });
+
+        const outline = await workspace.read({ kind: "project.outline", projectId });
+        const planning = outline?.volumes[0]?.chapters[0]?.scenes[0]?.planning as ScenePlanning | undefined;
+        assert.equal(planning?.goal, null);
+        assert.equal(planning?.conflict, null);
+        assert.equal(planning?.outcome, null);
+        assert.equal(planning?.emotion, null);
+        assert.equal(planning?.time, null);
+      });
+
+      await withWorkspace(directory, async (workspace) => {
+        const outline = await workspace.read({ kind: "project.outline", projectId });
+        const planning = outline?.volumes[0]?.chapters[0]?.scenes[0]?.planning as ScenePlanning | undefined;
+        assert.equal(planning?.goal, null);
+        assert.equal(planning?.conflict, null);
+        assert.equal(planning?.time, null);
       });
     });
 

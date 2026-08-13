@@ -1,6 +1,6 @@
 # 文档索引
 
-更新日期：2026-07-29
+更新日期：2026-08-11
 
 本仓库包含桌面端、独立原生 Android（当前移动端主线 `android/`）。旧 Capacitor `mobile/` 产品线已于 2026-07-30 删除，其许可证与上游存档见 `archives/frozen-mobile/`；历史文档里提到的 `mobile/` 是指该已删除产品线，不能当作当前 `android/` 的实现依据。
 
@@ -9,6 +9,10 @@
 | 文档 | 作用 |
 |---|---|
 | [`../AGENTS.md`](../AGENTS.md) | 产品线边界、构建命令和真机验证约束 |
+| [`plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md) | desktop 创作工作台第一阶段的正式功能规格、迁移要求、验收矩阵和实施切片 |
+| [`architecture/desktop-creation-current.md`](architecture/desktop-creation-current.md) | desktop 当前模块边界、SQLite/IPC 调用链、关键一致性规则与验证入口 |
+| [`architecture/desktop-creation-migration-audit-contract.md`](architecture/desktop-creation-migration-audit-contract.md) | desktop 旧数据只读审计、隐私边界与迁移分级 |
+| [`architecture/desktop-creation-adapter-decision.md`](architecture/desktop-creation-adapter-decision.md) | desktop 创作适配层的边界与技术决策 |
 | [`architecture/native-android-reader.md`](architecture/native-android-reader.md) | 当前独立原生 Android 阅读器架构与已知边界 |
 | [`testing/native-android-gap-audit-2026-07-29.md`](testing/native-android-gap-audit-2026-07-29.md) | 可直接分派给其他 agent 的缺口与验收标准 |
 | [`plans/legado-feature-backlog.md`](plans/legado-feature-backlog.md) | 阅读体验增强候选；不是已承诺路线图 |
@@ -20,8 +24,9 @@
 以下内容保留用于追溯设计与故障，不代表当前代码状态：
 
 - `architecture/reader-engine-v2.md`：2026-07-16 的 Capacitor/epub.js V2 方案。
+- `architecture/desktop-creation-workspace-contract.md`、`architecture/desktop-creation-structure-contract.md`：desktop 切片 2/6 的历史契约快照；当前完整能力面以 `desktop-creation-current.md` 为准。
 - `architecture/legado-reader-adoption.md`：2026-07-19 的 Capacitor + `archives/frozen-mobile/legado-reader-core` 方案（上游来源见该存档）。
-- `superpowers/plans/`、`superpowers/specs/`：已执行或被替代的阶段计划。
+- `superpowers/plans/`、`superpowers/specs/`：已执行或被替代的阶段计划。其中 2026-06-29 的“灵感与阅读工作台重定位”已被新的 desktop 创作工作台规格明确取代。
 - `code-review/2026-07-21-native-reader-review.md`、`testing/mobile-*.md`、`testing/native-reader-lazy-epub-regression-2026-07-19.md`、`testing/reader-bug-matrix.md`：旧 `mobile/` 产品线的审查与回归快照。
 - 根目录 `BETA_CHECKLIST.md`：v0.1.2 桌面/Capacitor Beta 的历史验收记录。
 - `移动端*.md`、`前端优化项目说明文档.md`：旧前端/Capacitor 审查与设计资料。

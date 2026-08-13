@@ -235,7 +235,107 @@ async function run(): Promise<void> {
     const reRun = await runLegacyMigration({ dataRoot: rollback, minFreeBytes: 1 });
     assert.equal(reRun.sources.migrated, 1);
 
-    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 7 })}\n`);
+    // ---- 场景 8：空正文旧灵感允许迁移（审计与执行契约一致） ----
+    const emptyBody = path.join(parent, "empty-body");
+    await mkdir(emptyBody, { recursive: true });
+    await writeJson(path.join(emptyBody, "inspirations.json"), {
+      version: 1,
+      items: [
+        {
+          id: "insp-empty-1",
+          title: "只有标题的灵感",
+          body: "",
+          type: "character",
+          status: "inbox",
+          tags: ["空正文"],
+          platformTags: ["番茄"],
+          variants: [{ id: "v1", kind: "polish", content: "候选仍然在", prompt: "p", model: "m" }],
+          source: { bookTitle: "测试书", createdAt: "2026-01-01T00:00:00.000Z" }
+        }
+      ]
+    });
+    const emptyReport = await runLegacyMigration({ dataRoot: emptyBody, minFreeBytes: 1 });
+    assert.equal(emptyReport.activated, true);
+    assert.equal(emptyReport.sources.migrated, 1);
+    assert.equal(emptyReport.sources.failed, 0);
+    const emptyWs = await openCreationWorkspace({ directory: path.join(emptyBody, "CreationWorkspace") }) as CreationWorkspace;
+    const emptyInbox = (await emptyWs.read({ kind: "inbox.list", limit: 10 })) as Array<{
+      legacyId: string | null;
+      title: string;
+      body: string;
+      type: string;
+      status: string;
+      tags: string[];
+      platformTags: string[];
+      source: Record<string, unknown> | null;
+      variants: Array<Record<string, unknown>>;
+    }>;
+    assert.equal(emptyInbox.length, 1);
+    const migratedEmpty = emptyInbox[0]!;
+    assert.equal(migratedEmpty.legacyId, "insp-empty-1");
+    assert.equal(migratedEmpty.title, "只有标题的灵感");
+    assert.equal(migratedEmpty.body, "");
+    assert.equal(migratedEmpty.type, "character");
+    assert.equal(migratedEmpty.status, "inbox");
+    assert.deepEqual(migratedEmpty.tags, ["空正文"]);
+    assert.deepEqual(migratedEmpty.platformTags, ["番茄"]);
+    assert.equal(migratedEmpty.variants.length, 1);
+    assert.equal((migratedEmpty.source as { bookTitle?: string }).bookTitle, "测试书");
+    await emptyWs.close();
+
+    // ---- 场景 9：超过 500 条旧灵感全量迁移（去重、分页校验、幂等） ----
+    const bigCount = 520;
+    const bigRoot = path.join(parent, "over-500");
+    await mkdir(bigRoot, { recursive: true });
+    const bigItems: Array<Record<string, unknown>> = [];
+    for (let i = 0; i < bigCount; i++) {
+      bigItems.push({
+        id: `insp-big-${i}`,
+        title: `超量灵感${i}`,
+        body: `正文_${i}_SENTINEL`,
+        type: "plot",
+        status: "inbox",
+        tags: [`标签${i % 5}`],
+        platformTags: [],
+        variants: i % 3 === 0 ? [{ id: `v-${i}`, kind: "polish", content: `候选${i}`, prompt: "p", model: "m" }] : [],
+        source: null
+      });
+    }
+    await writeJson(path.join(bigRoot, "inspirations.json"), { version: 1, items: bigItems });
+    const bigReport = await runLegacyMigration({ dataRoot: bigRoot, minFreeBytes: 1 });
+    assert.equal(bigReport.activated, true);
+    assert.equal(bigReport.sources.migrated, bigCount);
+    assert.equal(bigReport.sources.failed, 0);
+    // 重新打开后用分页读取全量，确认超过 500 条都在
+    const bigWs = await openCreationWorkspace({ directory: path.join(bigRoot, "CreationWorkspace") }) as CreationWorkspace;
+    const page1 = (await bigWs.read({ kind: "inbox.list", limit: 200, offset: 0 })) as InboxItem[];
+    const page2 = (await bigWs.read({ kind: "inbox.list", limit: 200, offset: 200 })) as InboxItem[];
+    const page3 = (await bigWs.read({ kind: "inbox.list", limit: 200, offset: 400 })) as InboxItem[];
+    assert.equal(page1.length, 200);
+    assert.equal(page2.length, 200);
+    assert.equal(page3.length, 120);
+    const all = [...page1, ...page2, ...page3];
+    assert.equal(all.length, bigCount);
+    // 正文哈希校验：随便挑几条对照
+    const sampled = [all[0]!, all[123]!, all[519]!];
+    for (const entry of sampled) {
+      const expected = `正文_${Number(entry.legacyId!.replace("insp-big-", ""))}_SENTINEL`;
+      assert.equal(createHash("sha256").update(entry.body).digest("hex"), createHash("sha256").update(expected).digest("hex"));
+    }
+    // 幂等：重跑不产生重复条目
+    const bigAgain = await runLegacyMigration({ dataRoot: bigRoot, minFreeBytes: 1 });
+    assert.equal(bigAgain.sources.migrated, bigCount);
+    const bigWs2 = await openCreationWorkspace({ directory: path.join(bigRoot, "CreationWorkspace") }) as CreationWorkspace;
+    const recheckPage1 = (await bigWs2.read({ kind: "inbox.list", limit: 200, offset: 0 })) as InboxItem[];
+    assert.equal(recheckPage1.length, 200);
+    const recheckPage2 = (await bigWs2.read({ kind: "inbox.list", limit: 200, offset: 200 })) as InboxItem[];
+    const recheckPage3 = (await bigWs2.read({ kind: "inbox.list", limit: 200, offset: 400 })) as InboxItem[];
+    const recheckAll = [...recheckPage1, ...recheckPage2, ...recheckPage3];
+    assert.equal(recheckAll.length, bigCount);
+    await bigWs.close();
+    await bigWs2.close();
+
+    process.stdout.write(`${JSON.stringify({ allPass: true, tests: 9 })}\n`);
   } finally {
     await rm(parent, { recursive: true, force: true });
   }

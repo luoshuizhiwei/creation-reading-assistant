@@ -1,0 +1,218 @@
+/* 统一全局搜索面板样式（自包含，不影响其他页面）。 */
+
+.uni-search-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  padding: 64px 24px 24px;
+  background: rgba(24, 20, 16, 0.18);
+  backdrop-filter: blur(10px);
+  overflow: auto;
+}
+
+:root[data-app-theme="dark"] .uni-search-overlay {
+  background: rgba(8, 10, 9, 0.42);
+}
+
+.uni-search-shell {
+  margin: 0 auto;
+  max-width: 720px;
+  overflow: hidden;
+  border: 1px solid var(--paper-line);
+  border-radius: 18px;
+  background: var(--paper-panel);
+  box-shadow: 0 24px 60px rgba(30, 20, 12, 0.18);
+}
+
+.uni-search-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
+}
+
+.uni-search-head-icon {
+  flex-shrink: 0;
+  color: var(--copper);
+}
+
+.uni-search-input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--paper-ink);
+  font-size: 15px;
+  outline: none;
+}
+
+.uni-search-input::placeholder {
+  color: color-mix(in srgb, var(--paper-muted) 70%, transparent);
+}
+
+.uni-search-close {
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--paper-muted);
+  padding: 5px;
+  cursor: pointer;
+}
+
+.uni-search-close:hover {
+  background: var(--paper-soft);
+  color: var(--paper-ink);
+}
+
+.uni-search-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
+}
+
+.uni-search-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.uni-search-filters button,
+.uni-search-global {
+  border: 1px solid transparent;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  cursor: pointer;
+}
+
+.uni-search-filters button:hover,
+.uni-search-global:hover {
+  color: var(--paper-ink);
+  background: var(--paper-soft);
+}
+
+.uni-search-filters button.active,
+.uni-search-global.active {
+  border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line));
+  background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
+  color: var(--copper);
+}
+
+.uni-search-results {
+  max-height: 460px;
+  overflow: auto;
+  padding: 6px 8px 10px;
+}
+
+.uni-search-state {
+  margin: 0;
+  padding: 26px 12px;
+  text-align: center;
+  color: var(--paper-muted);
+  font-size: 13px;
+}
+
+.uni-search-error {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin: 10px 8px 0;
+  border: 1px solid color-mix(in srgb, #c0392b 35%, var(--paper-line));
+  border-radius: 10px;
+  background: color-mix(in srgb, #c0392b 8%, var(--paper-panel));
+  color: #c0392b;
+  font-size: 12px;
+  padding: 8px 10px;
+}
+
+.uni-search-group {
+  margin-top: 8px;
+}
+
+.uni-search-group h3 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  padding: 6px 10px 4px;
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.uni-search-group ul {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.uni-search-group li button {
+  display: grid;
+  gap: 2px;
+  width: 100%;
+  border: 1px solid transparent;
+  border-radius: 11px;
+  background: transparent;
+  text-align: left;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
+.uni-search-group li button:hover,
+.uni-search-group li button.active {
+  border-color: color-mix(in srgb, var(--copper) 26%, var(--paper-line));
+  background: color-mix(in srgb, var(--copper) 8%, var(--paper-panel));
+}
+
+.uni-result-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--paper-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.uni-result-pending {
+  border: 1px solid color-mix(in srgb, #b9770e 45%, var(--paper-line));
+  border-radius: 999px;
+  background: color-mix(in srgb, #b9770e 12%, var(--paper-panel));
+  color: #b9770e;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+  padding: 1px 7px;
+}
+
+.uni-result-snippet {
+  color: var(--paper-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.uni-result-origin {
+  color: color-mix(in srgb, var(--paper-muted) 78%, transparent);
+  font-size: 11px;
+}
+
+.uni-hit {
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--copper) 22%, transparent);
+  color: var(--paper-ink);
+  padding: 0 1px;
+}

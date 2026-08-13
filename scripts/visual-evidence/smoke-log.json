@@ -1,0 +1,66 @@
+{
+  "generatedAt": "2026-08-12T23:26:41.759Z",
+  "allPass": true,
+  "items": [
+    {
+      "name": "UI 创建项目 A",
+      "ok": true,
+      "detail": "向导三步创建成功并返回首页"
+    },
+    {
+      "name": "IPC 准备项目 B + 卡片 + 1050 条收件箱",
+      "ok": true,
+      "detail": "{\"cards\":1,\"inboxTotal\":1050}"
+    },
+    {
+      "name": "reload 后项目列表包含 A 与 B",
+      "ok": true,
+      "detail": "首页显示项目 B"
+    },
+    {
+      "name": "IPC 准备项目 B 独特章节名",
+      "ok": true,
+      "detail": "{\"chapterId\":\"chapter-ba7fbe2c-aaf1-410d-97b4-db33e9e5567f\",\"chapterTitle\":\"项目B独特章节\",\"firstSceneId\":\"scene-89e9b518-af8c-4139-ab31-463412b185ad\",\"firstSceneTitle\":\"默认场景\"}"
+    },
+    {
+      "name": "未预载项目章节跳转（真实 chapter 结果）",
+      "ok": true,
+      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"hasProjectB\":true,\"hasWritingDesc\":true,\"hasChapterFirstScene\":true}"
+    },
+    {
+      "name": "搜索前切回项目 A",
+      "ok": true,
+      "detail": "已进入项目 A 工作台"
+    },
+    {
+      "name": "跨项目卡片跳转（A→B）",
+      "ok": true,
+      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"heroP\":\"管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。\",\"hasCardsDesc\":true,\"hasCardTitle\":true,\"activeCardTitle\":\"项目B独特角色卡\",\"detailTitle\":\"项目B独特角色卡\",\"cardContext\":\"只读继续使用。查看迁移 项目列表 概览 写作 大纲 卡片 统计 版本历史Cards 看板 列表 背景设定 新建卡片角色1项目B独特角色卡地点0暂无卡片组织0暂无卡片物品0暂无卡片世界规则0暂无卡片情节\"}"
+    },
+    {
+      "name": "第 1050 条收件箱搜索",
+      "ok": true,
+      "detail": "命中第 1050 条"
+    },
+    {
+      "name": "收件箱深链选中",
+      "ok": true,
+      "detail": "inbox 页 + 选中条目标题=第1050条独特搜索词条目"
+    },
+    {
+      "name": "摘录 IPC 持久化（收件箱 inbox.create）",
+      "ok": true,
+      "detail": "itemId=inbox-2ea2c018-d1ce-4222-a60d-c5ffc213feb3"
+    },
+    {
+      "name": "摘录 IPC 持久化（reference 资料卡 card.create）",
+      "ok": true,
+      "detail": "entityId=card-5d768de7-9319-419f-8452-85f7a8703d4c"
+    },
+    {
+      "name": "smoke 截图",
+      "ok": true,
+      "detail": "scripts/visual-evidence/smoke-final.png"
+    }
+  ]
+}

@@ -1,6 +1,5 @@
 import { getDesktopApi } from "@/services/ipc-client";
 import type {
-  CardCommand,
   CardRelation,
   CardSummary,
   CardType,
@@ -10,11 +9,10 @@ import type {
   CreationProjectOutline,
   CreationProjectListener,
   CreationProjectSummary,
+  CreationRunCommand,
+  CreationRunResultOf,
   CreationSearchQuery,
   CreationSearchView,
-  CreationStructureResult,
-  HistoryCommand,
-  ProjectStatsView,
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
@@ -29,7 +27,7 @@ import type {
   SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
-  StructureCommand,
+  ProjectStatsView,
   TrashItem,
   UpdateSceneBodyInput,
   ProofQuery,
@@ -38,13 +36,13 @@ import type {
   InboxItem,
   InboxItemResult,
   InboxListQuery,
+  InboxCountView,
   InboxUpdateCommand,
+  InboxCreateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand,
   ProjectBundleImportResult,
-  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -54,7 +52,14 @@ import type {
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
-  ProjectExportView
+  ProjectExportView,
+  ProjectHomeView,
+  StructurePreviewCommand,
+  StructureApplyWithProtectionCommand,
+  StructureRevertCommand,
+  StructurePreviewView,
+  StructureApplyResult,
+  StructureRevertResult
 } from "@/types/creation";
 
 function getCreationApi() {
@@ -69,6 +74,10 @@ export async function listProjects(): Promise<CreationProjectSummary[]> {
   return getCreationApi().listProjects();
 }
 
+export async function readProjectHome(): Promise<ProjectHomeView> {
+  return getCreationApi().readProjectHome();
+}
+
 export async function readProjectNavigation(projectId: string): Promise<CreationProjectNavigation | null> {
   return getCreationApi().readProjectNavigation(projectId);
 }
@@ -81,10 +90,22 @@ export async function createProject(input: CreateProjectInput): Promise<Creation
   return getCreationApi().createProject(input);
 }
 
-export async function runStructure(
-  command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand
-): Promise<CreationStructureResult> {
+export async function runStructure<Command extends CreationRunCommand>(
+  command: Command
+): Promise<CreationRunResultOf<Command>> {
   return getCreationApi().runStructure(command);
+}
+
+export async function structurePreview(command: StructurePreviewCommand): Promise<StructurePreviewView> {
+  return getCreationApi().structurePreview(command);
+}
+
+export async function structureApply(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult> {
+  return getCreationApi().structureApply(command);
+}
+
+export async function structureRevert(command: StructureRevertCommand): Promise<StructureRevertResult> {
+  return getCreationApi().structureRevert(command);
 }
 
 export async function trashList(projectId: string): Promise<TrashItem[]> {
@@ -231,10 +252,18 @@ export async function inboxList(query: InboxListQuery): Promise<InboxItem[]> {
   return getCreationApi().inboxList(query);
 }
 
+export async function inboxCount(): Promise<InboxCountView> {
+  return getCreationApi().inboxCount();
+}
+
 export async function inboxUpdate(command: InboxUpdateCommand): Promise<InboxItemResult> {
   return getCreationApi().inboxUpdate(command);
 }
 
 export async function inboxDelete(command: InboxDeleteCommand): Promise<InboxItemResult> {
   return getCreationApi().inboxDelete(command);
+}
+
+export async function inboxCreate(command: InboxCreateCommand): Promise<InboxItemResult> {
+  return getCreationApi().inboxCreate(command);
 }

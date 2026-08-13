@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   ArchiveRestore,
   BookMarked,
+  ChevronLeft,
   Download,
   FileUp,
   FileWarning,
   FolderInput,
   FolderOutput,
-  Globe2,
   Layers,
   LayoutDashboard,
   ListTree,
@@ -17,14 +17,13 @@ import {
   Search,
   X
 } from "lucide-react";
-import { Button, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui";
+import { RingButton } from "@/components/interaction";
 import { CommandPalette } from "@/features/creation/command/CommandPalette";
 import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
-import { BackgroundPage } from "@/features/creation/background/BackgroundPage";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { ImportDraftDialog } from "@/features/creation/import/ImportDraftDialog";
-import { InboxPage } from "@/features/creation/inbox/InboxPage";
 import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
 import { OutlinePage } from "@/features/creation/outline/OutlinePage";
 import { OverviewPage } from "@/features/creation/overview/OverviewPage";
@@ -32,28 +31,46 @@ import { ProofPanel } from "@/features/creation/proof/ProofPanel";
 import { StatsPage } from "@/features/creation/stats/StatsPage";
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
-import { SearchPanel } from "@/features/creation/search/SearchPanel";
+import { ProjectHomePage } from "@/features/creation/home/ProjectHomePage";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
+import { useSearchStore } from "@/stores/search-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { CreationSearchHit } from "@/types/creation";
+import { PROJECT_NAV_ITEMS, type ProjectView } from "@/features/navigation/project-nav";
+import type { ProjectNavigationRequest } from "@/features/navigation/project-navigation";
 
-type ProjectView = "overview" | "writing" | "outline" | "cards" | "background" | "stats" | "history" | "inbox";
+const PROJECT_NAV_ICONS: Record<ProjectView, typeof Layers> = {
+  overview: LayoutDashboard,
+  writing: PenLine,
+  outline: ListTree,
+  cards: Layers,
+  stats: BookMarked,
+  history: ArchiveRestore
+};
 
-const PROJECT_NAV: Array<{ view: ProjectView; label: string; icon: typeof Layers }> = [
-  { view: "overview", label: "概览", icon: LayoutDashboard },
-  { view: "writing", label: "写作", icon: PenLine },
-  { view: "outline", label: "大纲", icon: ListTree },
-  { view: "cards", label: "卡片", icon: Layers },
-  { view: "background", label: "背景", icon: Globe2 },
-  { view: "stats", label: "统计", icon: BookMarked },
-  { view: "history", label: "版本历史", icon: ArchiveRestore }
-];
+function viewDescription(view: ProjectView): string {
+  switch (view) {
+    case "overview":
+      return "项目概览：写作目标、最近编辑与待处理事项。";
+    case "writing":
+      return "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。";
+    case "outline":
+      return "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。";
+    case "cards":
+      return "管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。";
+    case "stats":
+      return "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。";
+    case "history":
+      return "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。";
+  }
+}
 
 export function CreationProjectsPage() {
   const projects = useCreationStore((state) => state.projects);
   const selectedId = useCreationStore((state) => state.selectedId);
   const navigations = useCreationStore((state) => state.navigations);
+  const projectNavigationRequests = useCreationStore((state) => state.projectNavigationRequests);
   const loading = useCreationStore((state) => state.loading);
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const selectScene = useCreationStore((state) => state.selectScene);
@@ -61,7 +78,6 @@ export function CreationProjectsPage() {
   const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft, loadMigrationStatus, exportBundle, importBundle } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [proofOpen, setProofOpen] = useState(false);
   const [paletteOpen, setPaletteOpen] = useState(false);
@@ -69,6 +85,8 @@ export function CreationProjectsPage() {
   const [migrationNotice, setMigrationNotice] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [view, setView] = useState<ProjectView>("overview");
+  /** 导入成功后递增，通知项目首页重新读取 project.home。 */
+  const [homeRefreshKey, setHomeRefreshKey] = useState(0);
 
   useEffect(() => {
     void loadProjects();
@@ -82,6 +100,8 @@ export function CreationProjectsPage() {
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
+      // IME 组合输入期间（中文拼音上屏等）不触发全局快捷键。
+      if (event.isComposing || event.keyCode === 229) return;
       const modifier = event.ctrlKey || event.metaKey;
       if (modifier && !event.altKey && event.key.toLowerCase() === "p") {
         event.preventDefault();
@@ -107,6 +127,17 @@ export function CreationProjectsPage() {
     ? navigation?.chapters.find((chapter) => chapter.scenes.some((scene) => scene.id === selectedScene.id))
     : undefined;
 
+  const openProject = (projectId: string, targetView: ProjectView = "overview") => {
+    setSelectedId(projectId);
+    setView(targetView);
+    if (!navigations[projectId]) void loadNavigation(projectId);
+  };
+
+  const backToProjectHome = () => {
+    setSelectedId(undefined);
+    setView("overview");
+  };
+
   const handleExport = async () => {
     if (!selected) return;
     const result = await exportDraft(selected.id);
@@ -127,6 +158,7 @@ export function CreationProjectsPage() {
     const result = await importBundle();
     if (result.canceled || !result.result) return;
     await loadProjects();
+    setHomeRefreshKey((key) => key + 1);
     showToast({
       tone: "success",
       title: "项目包已导入",
@@ -140,7 +172,7 @@ export function CreationProjectsPage() {
       { id: "view.cards", label: "卡片管理", group: "视图", keywords: ["卡片", "cards"], run: () => setView("cards") },
       { id: "view.history", label: "历史与回收站", group: "视图", keywords: ["回收站", "快照", "history"], run: () => setView("history") },
       { id: "view.stats", label: "统计与创作目标", group: "视图", keywords: ["字数", "统计", "stats"], run: () => setView("stats") },
-      { id: "action.search", label: "搜索", group: "操作", keywords: ["查找", "search"], run: () => setSearchOpen(true) },
+      { id: "action.search", label: "搜索", group: "操作", keywords: ["查找", "search"], run: () => openProjectSearch() },
       { id: "action.replace", label: "查找替换", group: "操作", keywords: ["替换", "replace"], run: () => setReplaceOpen(true) },
       { id: "action.proof", label: "本地校对", group: "操作", keywords: ["校对", "proof", "错别字"], run: () => setProofOpen(true) },
       { id: "action.export", label: "导出成稿", group: "操作", keywords: ["导出", "export"], run: () => void handleExport() },
@@ -153,8 +185,7 @@ export function CreationProjectsPage() {
         group: "项目",
         keywords: [project.title],
         run: () => {
-          setSelectedId(project.id);
-          if (!navigations[project.id]) void loadNavigation(project.id);
+          openProject(project.id);
         }
       });
     }
@@ -180,115 +211,173 @@ export function CreationProjectsPage() {
     return commands;
   }, [handleExport, loadNavigation, loadOutline, loadScene, navigations, projects, selectScene, setSelectedId]);
 
-  const navigateToHit = async (hit: CreationSearchHit) => {
-    setSearchOpen(false);
-    if (hit.kind === "project") {
-      setSelectedId(hit.id);
-      if (!navigations[hit.id]) await loadNavigation(hit.id);
+  /** 项目内打开搜索：调用统一全局 SearchPanel 并设置项目上下文。 */
+  const openProjectSearch = useCallback(() => {
+    if (!selectedId) return;
+    useSearchStore.getState().openSearch({ projectId: selectedId });
+  }, [selectedId]);
+
+  /**
+   * 消费来自统一搜索的导航请求。
+   *
+   * 关键不变量：
+   * 1. 请求只有在真正完成目标定位（找到目标章节/场景/卡片）后才被消费清除。
+   * 2. 只有 chapter 请求依赖 project navigation；navigation 缺失时先加载，
+   *    请求保留到 navigation 加载完成。
+   * 3. card 请求不依赖章节树，独立执行：activate → loadCards → 确认存在 → selectCard → 切视图 → 消费。
+   *    不得因为 navigation 缺失而消费 card 请求。
+   * 4. navigation 加载失败时：给出明确提示并清除请求（用户可重新搜索）；
+   *    失败与清除规则在注释、代码和测试中保持一致。
+   * 5. 目标章节/卡片不存在时给出明确提示，并安全清除无效请求。
+   * 6. 竞态保护：异步执行期间项目切换或请求被替换时放弃，绝不选择错误卡片。
+   */
+  useEffect(() => {
+    if (!selectedId) return;
+    // 使用订阅的 projectNavigationRequests：selectedId 不变时新请求也必须触发消费
+    // （例如连续两次搜索跳转都指向同一项目）。
+    const pending = projectNavigationRequests[selectedId];
+    if (!pending) return;
+    const target = pending.target;
+    // 仅处理指向当前 selectedId 的请求；其它项目的请求等切换后再消费
+    if (target.projectId !== selectedId) return;
+
+    // 场景请求：不需要 navigation，直接定位场景并切视图。
+    if (target.sceneId) {
+      selectScene(target.sceneId);
+      void loadScene(target.sceneId);
+      void loadOutline(selectedId);
       setView("writing");
+      useCreationStore.getState().consumeProjectNavigation(selectedId);
       return;
     }
-    if (hit.kind === "scene") {
-      if (hit.projectId !== selectedId) {
-        setSelectedId(hit.projectId);
-        await loadNavigation(hit.projectId);
-      }
-      selectScene(hit.id);
-      void loadScene(hit.id);
-      void loadOutline(hit.projectId);
-      setView("writing");
+
+    // 卡片请求：不依赖章节树，独立执行；navigation 缺失/加载失败都不影响卡片导航。
+    if (target.cardId) {
+      void (async () => {
+        // 竞态守卫：执行期间项目切换或请求被替换（新 createdAt）则放弃。
+        const isStillCurrent = () => {
+          const state = useCreationStore.getState();
+          return state.selectedId === selectedId && state.projectNavigationRequests[selectedId]?.createdAt === pending.createdAt;
+        };
+        // 1. 激活目标项目
+        useCreationStore.getState().activateCardProject(selectedId);
+        // 2. 加载目标项目卡片
+        const cards = await loadCards({ projectId: selectedId });
+        // 3. 竞态检查：stale/项目切换/请求被替换时不得选择错误卡片
+        if (!isStillCurrent()) return;
+        // 4. 确认返回值不是 undefined（失败或过期）且目标卡片存在
+        const exists = Array.isArray(cards) && cards.some((c) => c.id === target.cardId);
+        if (!exists) {
+          showToast({
+            tone: "warning",
+            title: "目标卡片不存在",
+            body: "该卡片可能已被删除或移动；请重新搜索。"
+          });
+          // 切到 cards 视图让用户看到结果，但 selectedCardId 保持空（不伪装成功）
+          setView("cards");
+          useCreationStore.getState().consumeProjectNavigation(selectedId);
+          return;
+        }
+        // 5. 选中目标卡片（loadCards 内部 activateCardProject 会清空选择，因此后置）
+        selectCard(target.cardId);
+        // 6. 切到 cards 视图
+        setView("cards");
+        // 7. 消费导航请求
+        useCreationStore.getState().consumeProjectNavigation(selectedId);
+      })();
       return;
     }
-    if (hit.kind === "card") {
-      if (hit.projectId !== selectedId) {
-        setSelectedId(hit.projectId);
-        await loadNavigation(hit.projectId);
-      }
-      selectCard(hit.id);
-      void loadCards({ projectId: hit.projectId });
-      setView("cards");
+
+    // chapter 请求：依赖 project navigation；未加载时先加载，加载完本 effect 重新执行。
+    const navigationForTarget = navigations[selectedId];
+    if (!navigationForTarget) {
+      void (async () => {
+        const loaded = await loadNavigation(selectedId);
+        if (!loaded) {
+          // navigation 加载失败：给出明确提示，并清除无效请求（避免重复触发）；
+          // 用户可重新搜索发起新请求。
+          showToast({
+            tone: "error",
+            title: "无法加载项目结构",
+            body: "项目导航树加载失败，请稍后重试。"
+          });
+          useCreationStore.getState().consumeProjectNavigation(selectedId);
+        }
+        // loaded 存在时，store 已更新 navigations[selectedId]，本 effect 会在 navigations 变化时重新执行
+      })();
       return;
     }
-    if (hit.kind === "chapter") {
-      if (hit.projectId !== selectedId) {
-        setSelectedId(hit.projectId);
-        await loadNavigation(hit.projectId);
+
+    if (target.chapterId) {
+      // 章节结果：定位到目标章节的第一个场景
+      const chapter = navigationForTarget.chapters.find((c) => c.id === target.chapterId);
+      if (!chapter) {
+        // 目标章节不存在：明确提示，安全清除无效请求
+        showToast({
+          tone: "warning",
+          title: "目标章节不存在",
+          body: "该章节可能已被删除或移动；请重新搜索。"
+        });
+        useCreationStore.getState().consumeProjectNavigation(selectedId);
+        return;
       }
-      const current = navigations[hit.projectId];
-      const firstScene = current?.chapters.find((chapter) => chapter.id === hit.id)?.scenes[0];
+      const firstScene = chapter.scenes[0];
       if (firstScene) {
         selectScene(firstScene.id);
         void loadScene(firstScene.id);
+        void loadOutline(selectedId);
       }
-      void loadOutline(hit.projectId);
       setView("writing");
+      useCreationStore.getState().consumeProjectNavigation(selectedId);
+      return;
     }
-  };
+
+    // project 意图（无具体 chapter/scene/card）：只切视图
+    setView(target.view);
+    useCreationStore.getState().consumeProjectNavigation(selectedId);
+  }, [loadCards, loadNavigation, loadOutline, loadScene, navigations, projectNavigationRequests, selectCard, selectScene, selectedId, showToast]);
 
   return (
     <div className="desktop-page-scroll paper-shell creation-writing-page">
       <div className="desktop-page-stack creation-writing-stack">
-        <section className="desktop-page-hero motion-panel creation-writing-hero">
-          <div>
-            <div className="desktop-card-label">Creation desk</div>
-            <h2>{selected?.title ?? "创作项目"}</h2>
-            <p>
-              {view === "overview"
-                ? "项目概览：写作目标、最近编辑与待处理事项。"
-                : view === "writing"
-                  ? "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。"
-                  : view === "outline"
-                    ? "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。"
-                    : view === "cards"
-                      ? "管理角色、地点、组织等创作卡片与它们之间的关系；字段、别名与标签都随项目保存在本地。"
-                      : view === "background"
-                        ? "小说创作背景设定：地点、世界规则、组织与资料等背景类卡片的聚合。"
-                        : view === "stats"
-                          ? "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。"
-                          : view === "history"
-                            ? "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
-                            : "旧灵感迁移后的存放位置；可转为当前项目的资料卡，旧书库与阅读记录保持只读继续使用。"}
-            </p>
-          </div>
-          <div className="desktop-page-actions">
-            {selected && (
-              <>
-                <Button onClick={() => setSearchOpen(true)}>
+        {selected ? (
+          <section className="desktop-page-hero motion-panel creation-writing-hero">
+            <div>
+              <h2>{selected.title}</h2>
+              <p>{viewDescription(view)}</p>
+            </div>
+            <div className="desktop-page-actions">
+                <Button className="project-action project-action--primary" aria-label="搜索项目" title="搜索项目" onClick={openProjectSearch}>
                   <Search size={16} />
-                  搜索
+                  <span>搜索</span>
                 </Button>
-                <Button onClick={() => setReplaceOpen(true)}>
+                <Button className="project-action project-action--utility" aria-label="查找替换" title="查找替换" onClick={() => setReplaceOpen(true)}>
                   <Replace size={16} />
-                  查找替换
+                  <span>查找替换</span>
                 </Button>
-                <Button onClick={() => setProofOpen(true)}>
+                <Button className="project-action project-action--utility" aria-label="本地校对" title="本地校对" onClick={() => setProofOpen(true)}>
                   <FileWarning size={16} />
-                  校对
+                  <span>校对</span>
                 </Button>
-                <Button onClick={() => void handleExport()}>
+                <Button className="project-action project-action--utility" aria-label="导出成稿" title="导出成稿" onClick={() => void handleExport()}>
                   <Download size={16} />
-                  导出成稿
+                  <span>导出成稿</span>
                 </Button>
-                <Button variant="secondary" onClick={() => void handleExportBundle()}>
+                <Button className="project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" onClick={() => void handleExportBundle()}>
                   <FolderOutput size={16} />
-                  导出项目包
+                  <span>导出项目包</span>
                 </Button>
-              </>
-            )}
-            <Button variant="secondary" onClick={() => void handleImportBundle()}>
-              <FolderInput size={16} />
-              导入项目包
-            </Button>
-            <Button onClick={() => setWizardOpen(true)}>
-              <Plus size={16} />
-              新建项目
-            </Button>
-            <Button variant="secondary" onClick={() => setImportOpen(true)}>
-              <FileUp size={16} />
-              导入旧稿
-            </Button>
-          </div>
-        </section>
+              <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" onClick={() => void handleImportBundle()}>
+                <FolderInput size={16} />
+                <span>导入项目包</span>
+              </Button>
+              <Button className="project-action project-action--utility" aria-label="导入旧稿" title="导入旧稿" variant="secondary" onClick={() => setImportOpen(true)}>
+                <FileUp size={16} />
+                <span>导入旧稿</span>
+              </Button>
+            </div>
+          </section>
+        ) : null}
 
         {migrationNotice && (
           <section className="migration-banner" role="status">
@@ -302,21 +391,26 @@ export function CreationProjectsPage() {
         )}
         {selected ? (
           <div className="project-workbench">
-            <aside className="project-nav" aria-label="项目导航">
-              {PROJECT_NAV.map(({ view: itemView, label, icon: Icon }) => (
-                <button
-                  key={itemView}
-                  type="button"
-                  className={view === itemView ? "active" : ""}
-                  onClick={() => setView(itemView)}
-                >
-                  <Icon size={15} /> {label}
-                </button>
-              ))}
-              <button type="button" className={view === "inbox" ? "active" : ""} onClick={() => setView("inbox")}>
-                <BookMarked size={15} /> 收件箱
-              </button>
-            </aside>
+            <nav className="project-nav" aria-label="项目导航">
+              <RingButton type="button" className="project-nav-back" onClick={backToProjectHome}>
+                <ChevronLeft size={14} /> 项目列表
+              </RingButton>
+              {PROJECT_NAV_ITEMS.map(({ view: itemView, label }) => {
+                const Icon = PROJECT_NAV_ICONS[itemView];
+                return (
+                  <RingButton
+                    key={itemView}
+                    type="button"
+                    className={view === itemView ? "active" : ""}
+                    aria-label={label}
+                    aria-current={view === itemView ? "page" : undefined}
+                    onClick={() => setView(itemView)}
+                  >
+                    <Icon size={15} /> {label}
+                  </RingButton>
+                );
+              })}
+            </nav>
             <div className="project-workbench-main">
               {view === "cards" ? (
                 <CardsPage project={selected} />
@@ -324,19 +418,15 @@ export function CreationProjectsPage() {
                 <HistoryPage project={selected} />
               ) : view === "stats" ? (
                 <StatsPage projectId={selected.id} />
-              ) : view === "inbox" ? (
-                <InboxPage projectId={selected.id} />
               ) : view === "outline" ? (
                 <OutlinePage project={selected} />
-              ) : view === "background" ? (
-                <BackgroundPage projectId={selected.id} />
               ) : view === "overview" ? (
                 <OverviewPage
                   projectId={selected.id}
                   onContinueWriting={() => setView("writing")}
                   onOpenOutline={() => setView("outline")}
                   onOpenStats={() => setView("stats")}
-                  onOpenInbox={() => setView("inbox")}
+                  onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
                 />
               ) : navigation ? (
                 <WritingDesk
@@ -359,21 +449,19 @@ export function CreationProjectsPage() {
             <span>正在打开项目写作台…</span>
           </section>
         ) : (
-          <section className="creation-desk creation-desk-empty creation-writing-empty">
-            <EmptyState title="还没有创作项目" body="新建一个项目后，会自动生成第一章与默认场景，你可以直接开始写作。" />
-            <Button onClick={() => setWizardOpen(true)}><Plus size={16} />新建第一个项目</Button>
-          </section>
+          <ProjectHomePage
+            onOpenProject={(projectId) => openProject(projectId, "overview")}
+            onContinueWriting={(projectId) => openProject(projectId, "writing")}
+            onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
+            onCreateProject={() => setWizardOpen(true)}
+            onImportBundle={() => void handleImportBundle()}
+            onImportDraft={() => setImportOpen(true)}
+            refreshKey={homeRefreshKey}
+          />
         )}
       </div>
 
       <CreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
-      {searchOpen && selected && (
-        <SearchPanel
-          projectId={selected.id}
-          onNavigate={(hit) => void navigateToHit(hit)}
-          onClose={() => setSearchOpen(false)}
-        />
-      )}
       {replaceOpen && selected && (
         <ReplacePanel
           projectId={selected.id}
@@ -406,7 +494,10 @@ export function CreationProjectsPage() {
       {importOpen && (
         <ImportDraftDialog
           onClose={() => setImportOpen(false)}
-          onImported={() => void loadProjects()}
+          onImported={() => {
+            void loadProjects();
+            setHomeRefreshKey((key) => key + 1);
+          }}
         />
       )}
     </div>

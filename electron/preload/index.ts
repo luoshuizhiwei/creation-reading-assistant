@@ -28,7 +28,6 @@ import type {
   UpdateInspirationInput
 } from "../../src/types/inspiration";
 import type {
-  CardCommand,
   CardRelation,
   CardSummary,
   CardType,
@@ -38,11 +37,11 @@ import type {
   CreationProjectNavigation,
   CreationProjectOutline,
   CreationProjectSummary,
+  CreationRunCommand,
+  CreationRunResultOf,
   CreationSearchQuery,
   CreationSearchView,
-  CreationStructureResult,
   CreationWorkspaceEvent,
-  HistoryCommand,
   ProjectStatsView,
   RelationType,
   ReplaceApplyCommand,
@@ -58,7 +57,6 @@ import type {
   SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
-  StructureCommand,
   TrashItem,
   TrashListQuery,
   UpdateSceneBodyInput,
@@ -68,13 +66,13 @@ import type {
   InboxItem,
   InboxItemResult,
   InboxListQuery,
+  InboxCountView,
   InboxUpdateCommand,
+  InboxCreateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
-  ProjectImportDraftCommand,
   ProjectBundleImportResult,
-  SceneUpdatePlanningCommand,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
@@ -86,7 +84,14 @@ import type {
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
-  ProjectExportView
+  ProjectExportView,
+  ProjectHomeView,
+  StructurePreviewCommand,
+  StructureApplyWithProtectionCommand,
+  StructureRevertCommand,
+  StructurePreviewView,
+  StructureApplyResult,
+  StructureRevertResult
 } from "../../src/types/creation";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
 import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
@@ -158,13 +163,17 @@ const api: DesktopApi = {
   },
   creation: {
     listProjects: () => invoke<CreationProjectSummary[]>("creation:listProjects"),
+    readProjectHome: () => invoke<ProjectHomeView>("creation:readProjectHome"),
     readProjectNavigation: (projectId: string) =>
       invoke<CreationProjectNavigation | null>("creation:readProjectNavigation", projectId),
     createProject: (input: CreateProjectInput) => invoke<CreationProjectNavigation>("creation:createProject", input),
     readProjectOutline: (projectId: string) =>
       invoke<CreationProjectOutline | null>("creation:readProjectOutline", projectId),
-    runStructure: (command: StructureCommand | CardCommand | HistoryCommand | ProjectImportDraftCommand | SceneUpdatePlanningCommand) =>
-      invoke<CreationStructureResult>("creation:runStructure", command),
+    runStructure: <Command extends CreationRunCommand>(command: Command) =>
+      invoke<CreationRunResultOf<Command>>("creation:runStructure", command),
+    structurePreview: (command: StructurePreviewCommand) => invoke<StructurePreviewView>("creation:structurePreview", command),
+    structureApply: (command: StructureApplyWithProtectionCommand) => invoke<StructureApplyResult>("creation:structureApply", command),
+    structureRevert: (command: StructureRevertCommand) => invoke<StructureRevertResult>("creation:structureRevert", command),
     trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
     snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
     search: (query: CreationSearchQuery) => invoke<CreationSearchView>("creation:search", query),
@@ -192,8 +201,10 @@ const api: DesktopApi = {
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),
+    inboxCount: () => invoke<InboxCountView>("creation:inboxCount"),
     inboxUpdate: (command: InboxUpdateCommand) => invoke<InboxItemResult>("creation:inboxUpdate", command),
     inboxDelete: (command: InboxDeleteCommand) => invoke<InboxItemResult>("creation:inboxDelete", command),
+    inboxCreate: (command: InboxCreateCommand) => invoke<InboxItemResult>("creation:inboxCreate", command),
     exportDraft: (projectId: string) =>
       invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),

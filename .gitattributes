@@ -1,0 +1,26 @@
+# Keep repository text deterministic across Windows, macOS, and Linux.
+* text=auto eol=lf
+
+# Native Windows entry points remain directly executable in cmd/PowerShell.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+*.ps1 text eol=crlf
+
+# Binary assets must never be line-ending normalized.
+*.7z binary
+*.db binary
+*.epub binary
+*.gif binary
+*.ico binary
+*.jar binary
+*.jpeg binary
+*.jpg binary
+*.pdf binary
+*.png binary
+*.sqlite binary
+*.sqlite3 binary
+*.ttf binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.zip binary

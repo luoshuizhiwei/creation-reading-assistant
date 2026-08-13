@@ -31,7 +31,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const initial = await workspace.check();
     assert.equal(initial.ok, true);
-    assert.equal(initial.schemaVersion, 8);
+    assert.equal(initial.schemaVersion, 9);
 
     await scenario("内置 8 类卡片与 4 种关系类型已 seed", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "测试项目" });
@@ -286,7 +286,7 @@ async function run(): Promise<void> {
 
       const migrated = await openCreationWorkspace({ directory: v3Directory });
       const report = await migrated.check();
-      assert.equal(report.schemaVersion, 8);
+      assert.equal(report.schemaVersion, 9);
       const types = (await migrated.read({ kind: "cardTypes.list", projectId: "project-v3" }))!;
       assert.equal(types.length, 8);
       const card = (await migrated.read({ kind: "card.read", cardId: "card-v3" })) as CardSummary;

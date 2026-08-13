@@ -235,13 +235,26 @@ export async function runLegacyMigration(options: LegacyMigrationOptions): Promi
     const failures: LegacyMigrationReport["failures"] = [];
     let migrated = 0;
     let skipped = 0;
-    const existing = (await workspace.read({ kind: "inbox.list", limit: 500 })) as InboxItem[];
-    const existingLegacyIds = new Set(existing.map((item) => item.legacyId).filter((id): id is string => id !== null));
+    // 分页读取全部已有条目（不依赖 500 上限），确保 legacyId 幂等检测覆盖全量。
+    const existingLegacyIds = new Set<string>();
+    {
+      let offset = 0;
+      const pageSize = 500;
+      for (;;) {
+        const page = (await workspace.read({ kind: "inbox.list", limit: pageSize, offset })) as InboxItem[];
+        for (const item of page) {
+          if (item.legacyId !== null) existingLegacyIds.add(item.legacyId);
+        }
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+    }
     for (let index = 0; index < rawItems.length; index += 1) {
       const item = rawItems[index]!;
       const legacyId = safeLegacyId(isRecord(item) ? item.id : undefined, index);
-      if (!isRecord(item) || typeof item.body !== "string" || !item.body) {
-        failures.push({ legacyId, reason: "缺少稳定 ID 或正文", retryable: true });
+      // 只拒绝非字符串正文；空字符串是合法的旧灵感正文，审计阶段允许 body: ""。
+      if (!isRecord(item) || typeof item.body !== "string") {
+        failures.push({ legacyId, reason: "缺少稳定 ID 或正文类型不合法", retryable: true });
         continue;
       }
       if (existingLegacyIds.has(legacyId)) {
@@ -272,8 +285,18 @@ export async function runLegacyMigration(options: LegacyMigrationOptions): Promi
       }
     }
 
-    // 5. 校验：数量 + 正文哈希 + 候选数 + 完整性
-    const migratedItems = (await workspace.read({ kind: "inbox.list", limit: 500 })) as InboxItem[];
+    // 5. 校验：数量 + 正文哈希 + 候选数 + 完整性（分页读取全量，不依赖 500 上限）
+    const migratedItems: InboxItem[] = [];
+    {
+      let offset = 0;
+      const pageSize = 500;
+      for (;;) {
+        const page = (await workspace.read({ kind: "inbox.list", limit: pageSize, offset })) as InboxItem[];
+        migratedItems.push(...page);
+        if (page.length < pageSize) break;
+        offset += pageSize;
+      }
+    }
     const byLegacy = new Map(migratedItems.filter((item) => item.legacyId !== null).map((item) => [item.legacyId!, item]));
     const plan = audit.inspirationPlan;
     const discovered = plan.discovered;

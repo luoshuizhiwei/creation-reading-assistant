@@ -1,6 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { Columns, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Columns, Flag, GitBranch, Globe2, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { BoardView } from "@/features/creation/cards/BoardView";
+import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
+import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor";
+import { BackgroundPage } from "@/features/creation/background/BackgroundPage";
+import "./cards-local.css";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -164,13 +168,9 @@ function FieldEditor({
       return (
         <div className="cards-field">
           {label}
-          <input
-            className="cards-input"
-            type="text"
-            value={typeof value === "string" ? value : ""}
-            placeholder="附件标识（文件上传后续切片接入）"
-            disabled
-          />
+          <p className="cards-attachment-note">
+            附件请在卡片「附件」区添加：按内容哈希去重、保存在项目工作区内，不占用该字段，也不会把绝对路径写入字段。
+          </p>
         </div>
       );
     default:
@@ -210,6 +210,7 @@ export function CardsPage({ project }: CardsPageProps) {
   const showToast = useUIStore((state) => state.showToast);
 
   const [view, setView] = useState<"board" | "list">("board");
+  const [mode, setMode] = useState<"cards" | "background">("cards");
   const [filterKind, setFilterKind] = useState("");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<CardSummary | null>(null);
@@ -220,22 +221,60 @@ export function CardsPage({ project }: CardsPageProps) {
   const [confirmingResource, setConfirmingResource] = useState<string | null>(null);
   const [relationTargetId, setRelationTargetId] = useState("");
   const [relationNote, setRelationNote] = useState("");
+  const [showCardTypeEditor, setShowCardTypeEditor] = useState(false);
+  const [showRelationTypeEditor, setShowRelationTypeEditor] = useState(false);
+  const [confirmingRelationId, setConfirmingRelationId] = useState<string | null>(null);
+  const [showMilestone, setShowMilestone] = useState(false);
+  const [milestoneReason, setMilestoneReason] = useState("");
+  const [milestoneBusy, setMilestoneBusy] = useState(false);
 
   useEffect(() => {
+    setDraft(null);
+    setConfirmDelete(false);
+    setShowRelationForm(false);
+    setRelationTargetId("");
+    setRelationTypeId("");
+    setResources([]);
+    setShowCardTypeEditor(false);
+    setShowRelationTypeEditor(false);
+    setConfirmingRelationId(null);
+    setShowMilestone(false);
+    setMilestoneReason("");
+  }, [project.id]);
+
+  useEffect(() => {
+    if (mode !== "cards") return;
     void loadCardTypes(project.id);
     void loadRelationTypes(project.id);
-  }, [loadCardTypes, loadRelationTypes, project.id]);
+  }, [loadCardTypes, loadRelationTypes, project.id, mode]);
 
   // 订阅项目已提交事件：卡片/关系变更（含看板拖拽改类型）实时刷新列表，跨视图保持一致。
-  useEffect(() => subscribeProject(project.id), [project.id, subscribeProject]);
+  useEffect(() => {
+    if (mode !== "cards") return undefined;
+    return subscribeProject(project.id);
+  }, [project.id, subscribeProject, mode]);
 
   useEffect(() => {
+    if (mode !== "cards") return;
     void loadCards({ projectId: project.id, cardKind: filterKind || undefined, search: search || undefined });
-  }, [loadCards, project.id, filterKind, search]);
+  }, [loadCards, project.id, filterKind, search, mode]);
+
+  const projectCards = useMemo(
+    () => cards.filter((card) => card.projectId === project.id),
+    [cards, project.id]
+  );
+
+  // 项目切换时 store 会先清空旧项目卡片；搜索深链则会先加载目标项目卡片再选中。
+  // 这里只清理确实不属于当前项目结果集的旧选择，避免挂载时抹掉合法的深链选择。
+  useEffect(() => {
+    if (selectedCardId && !projectCards.some((card) => card.id === selectedCardId)) {
+      selectCard(undefined);
+    }
+  }, [projectCards, selectCard, selectedCardId]);
 
   const selectedCard = useMemo(
-    () => cards.find((card) => card.id === selectedCardId),
-    [cards, selectedCardId]
+    () => projectCards.find((card) => card.id === selectedCardId),
+    [projectCards, selectedCardId]
   );
   const selectedType = useMemo(
     () => cardTypes.find((type) => type.kind === selectedCard?.kind),
@@ -245,35 +284,54 @@ export function CardsPage({ project }: CardsPageProps) {
     () => new Map(cardTypes.map((type) => [type.kind, type.name])),
     [cardTypes]
   );
-  const relations = selectedCardId ? cardRelations[selectedCardId] : undefined;
+  const relations = selectedCard ? cardRelations[selectedCard.id] : undefined;
+
+  // 建立关系时：按关系类型的起/终点类型约束过滤允许的目标，排除自身。
+  const relationTypeForForm = useMemo(
+    () => relationTypes.find((type) => type.id === relationTypeId),
+    [relationTypes, relationTypeId]
+  );
+  const fromKindAllowed = useMemo(() => {
+    if (!selectedCard || !relationTypeForForm) return true;
+    const { fromKinds } = relationTypeForForm;
+    return fromKinds.length === 0 || fromKinds.includes(selectedCard.kind);
+  }, [selectedCard, relationTypeForForm]);
+  const allowedTargets = useMemo(() => {
+    if (!selectedCard) return [];
+    const toKinds = relationTypeForForm?.toKinds ?? [];
+    return projectCards.filter(
+      (card) =>
+        card.id !== selectedCard.id && (toKinds.length === 0 || toKinds.includes(card.kind))
+    );
+  }, [projectCards, selectedCard, relationTypeForForm]);
 
   useEffect(() => {
-    if (selectedCardId) void loadCardRelations(selectedCardId);
-  }, [loadCardRelations, selectedCardId]);
+    if (selectedCard) void loadCardRelations(project.id, selectedCard.id);
+  }, [loadCardRelations, project.id, selectedCard]);
 
   useEffect(() => {
     let cancelled = false;
-    void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then((list) => {
+    void loadResources({ projectId: project.id, cardId: selectedCard?.id }).then((list) => {
       if (!cancelled) setResources(list);
     });
     return () => {
       cancelled = true;
     };
-  }, [loadResources, project.id, selectedCardId]);
+  }, [loadResources, project.id, selectedCard?.id]);
 
   const handleAttach = async () => {
-    if (!selectedCardId) return;
-    const result = await attachResource(project.id, selectedCardId);
+    if (!selectedCard) return;
+    const result = await attachResource(project.id, selectedCard.id);
     if (result.canceled || !result.resource) return;
     showToast({ tone: "success", title: "附件已添加", body: "文件保存在项目工作区内。" });
-    void loadResources({ projectId: project.id, cardId: selectedCardId }).then(setResources);
+    void loadResources({ projectId: project.id, cardId: selectedCard.id }).then(setResources);
   };
 
   const handleDetach = async (resource: ResourceInfo) => {
     const ok = await detachResource(resource.id);
     if (ok) {
       showToast({ tone: "success", title: "附件已移除", body: `${resource.originalName ?? resource.relativePath}` });
-      void loadResources({ projectId: project.id, cardId: selectedCardId || undefined }).then(setResources);
+      void loadResources({ projectId: project.id, cardId: selectedCard?.id }).then(setResources);
     }
   };
 
@@ -298,12 +356,27 @@ export function CardsPage({ project }: CardsPageProps) {
   };
 
   const saveDraft = async () => {
-    if (!draft) return;
+    if (!draft || draft.projectId !== project.id) return;
     const fields = { ...draft.fields };
     for (const field of typeById.get(draft.kind)?.fields ?? []) {
       if (fields[field.key] === undefined && field.defaultValue !== undefined) {
         fields[field.key] = field.defaultValue;
       }
+    }
+    // 必填字段未完成（且无默认值）时，禁止保存，避免把半成品写入库。
+    const missingRequired = (typeById.get(draft.kind)?.fields ?? []).filter((field) => {
+      if (!field.required) return false;
+      const value = fields[field.key];
+      if (Array.isArray(value)) return value.length === 0;
+      return value === undefined || value === null || value === "";
+    });
+    if (missingRequired.length > 0) {
+      showToast({
+        tone: "error",
+        title: "必填字段未完成",
+        body: missingRequired.map((field) => field.label).join("、")
+      });
+      return;
     }
     if (draft.id === "new") {
       const ok = await runStructure({
@@ -339,7 +412,7 @@ export function CardsPage({ project }: CardsPageProps) {
   };
 
   const moveCardKind = async (cardId: string, kind: string) => {
-    const card = cards.find((item) => item.id === cardId);
+    const card = projectCards.find((item) => item.id === cardId);
     if (!card || card.kind === kind) return;
     const ok = await runStructure({
       type: "card.update",
@@ -364,8 +437,42 @@ export function CardsPage({ project }: CardsPageProps) {
     }
   };
 
+  const removeRelation = async (relationId: string) => {
+    const ok = await runStructure({ type: "cardRelation.delete", relationId });
+    if (ok) {
+      showToast({ tone: "success", title: "关系已删除" });
+      setConfirmingRelationId(null);
+      if (selectedCard) void loadCardRelations(project.id, selectedCard.id);
+    }
+    // 失败时不重新加载：UI 仍保留原关系，不先从本地消失。
+  };
+
+  const createMilestone = async () => {
+    if (!selectedCard) return;
+    const reason = milestoneReason.trim();
+    if (!reason) {
+      showToast({ tone: "warning", title: "请填写里程碑说明" });
+      return;
+    }
+    setMilestoneBusy(true);
+    const ok = await runStructure({
+      type: "snapshot.create",
+      projectId: project.id,
+      subjectType: "card",
+      subjectId: selectedCard.id,
+      reason
+    });
+    setMilestoneBusy(false);
+    if (ok) {
+      showToast({ tone: "success", title: "已创建命名里程碑" });
+      setShowMilestone(false);
+      setMilestoneReason("");
+    }
+  };
+
   const createRelation = async () => {
-    if (!selectedCard || !relationTypeId || !relationTargetId) return;
+    if (!selectedCard || !relationTypeId || !fromKindAllowed) return;
+    if (!allowedTargets.some((card) => card.id === relationTargetId)) return;
     const ok = await runStructure({
       type: "cardRelation.create",
       projectId: project.id,
@@ -380,14 +487,14 @@ export function CardsPage({ project }: CardsPageProps) {
       setRelationTypeId("");
       setRelationTargetId("");
       setRelationNote("");
-      void loadCardRelations(selectedCard.id);
+      void loadCardRelations(project.id, selectedCard.id);
     }
   };
 
   const displayFieldValue = (field: CardFieldSchema, value: unknown): string => {
     if (value === undefined || value === null || value === "") return "—";
     if (field.kind === "cardRef" && typeof value === "string") {
-      return cards.find((card) => card.id === value)?.title ?? value;
+      return projectCards.find((card) => card.id === value)?.title ?? value;
     }
     if (Array.isArray(value)) return value.join("、");
     return String(value);
@@ -439,7 +546,7 @@ export function CardsPage({ project }: CardsPageProps) {
             schema={field}
             value={draft.fields[field.key]}
             onChange={(value) => setDraft({ ...draft, fields: { ...draft.fields, [field.key]: value } })}
-            allCards={cards}
+            allCards={projectCards}
           />
         ))}
         <div className="cards-field">
@@ -512,23 +619,41 @@ export function CardsPage({ project }: CardsPageProps) {
             <select
               className="cards-input"
               value={relationTypeId}
-              onChange={(event) => setRelationTypeId(event.target.value)}
+              onChange={(event) => {
+                setRelationTypeId(event.target.value);
+                setRelationTargetId("");
+              }}
             >
               <option value="">选择关系类型</option>
               {relationTypes.map((type) => (
-                <option key={type.id} value={type.id}>{type.forwardName}</option>
+                <option key={type.id} value={type.id}>{type.forwardName}（反向：{type.reverseName}）</option>
               ))}
             </select>
+            {relationTypeForForm && (
+              <p className="cards-relation-semantic">
+                语义：<strong>{selectedCard.title}</strong> <em>{relationTypeForForm.forwardName}</em> → 目标卡片
+                <small>（反向：{relationTypeForForm.reverseName}）</small>
+              </p>
+            )}
+            {relationTypeForForm && !fromKindAllowed && (
+              <p className="cards-form-error" role="alert">
+                当前卡片类型「{typeNameMap.get(selectedCard.kind) ?? selectedCard.kind}」不允许作为该关系的起点。
+              </p>
+            )}
             <select
               className="cards-input"
               value={relationTargetId}
+              disabled={!fromKindAllowed}
               onChange={(event) => setRelationTargetId(event.target.value)}
             >
               <option value="">选择目标卡片</option>
-              {cards.filter((card) => card.id !== selectedCard.id).map((card) => (
-                <option key={card.id} value={card.id}>{card.title}</option>
+              {allowedTargets.map((card) => (
+                <option key={card.id} value={card.id}>{card.title}（{typeNameMap.get(card.kind) ?? card.kind}）</option>
               ))}
             </select>
+            {relationTypeForForm && fromKindAllowed && allowedTargets.length === 0 && (
+              <p className="cards-relations-empty">没有符合该关系终点类型约束的卡片。</p>
+            )}
             <input
               className="cards-input"
               value={relationNote}
@@ -537,7 +662,7 @@ export function CardsPage({ project }: CardsPageProps) {
             />
             <div className="cards-form-actions">
               <button type="button" className="cards-save" onClick={() => void createRelation()}>建立</button>
-              <button type="button" className="cards-cancel" onClick={() => setShowRelationForm(false)}>取消</button>
+              <button type="button" className="cards-cancel" onClick={() => { setShowRelationForm(false); setRelationTypeId(""); setRelationTargetId(""); }}>取消</button>
             </div>
           </div>
         )}
@@ -547,16 +672,40 @@ export function CardsPage({ project }: CardsPageProps) {
               <li key={relation.id}>
                 <span>{selectedCard.title}</span>
                 <em>{relation.forwardName}</em>
-                <span>{cards.find((card) => card.id === relation.toCardId)?.title ?? relation.toCardId}</span>
+                <span>{projectCards.find((card) => card.id === relation.toCardId)?.title ?? relation.toCardId}</span>
                 {relation.note && <small>（{relation.note}）</small>}
+                <button
+                  type="button"
+                  className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
+                  onClick={() => {
+                    if (confirmingRelationId === relation.id) void removeRelation(relation.id);
+                    else setConfirmingRelationId(relation.id);
+                  }}
+                  title="删除关系"
+                >
+                  <Trash2 size={12} />
+                  {confirmingRelationId === relation.id ? "确认删除" : "删除"}
+                </button>
               </li>
             ))}
             {relations.incoming.map((relation) => (
               <li key={relation.id}>
-                <span>{cards.find((card) => card.id === relation.fromCardId)?.title ?? relation.fromCardId}</span>
+                <span>{projectCards.find((card) => card.id === relation.fromCardId)?.title ?? relation.fromCardId}</span>
                 <em>{relation.forwardName}</em>
                 <span>{selectedCard.title}</span>
                 {relation.note && <small>（{relation.note}）</small>}
+                <button
+                  type="button"
+                  className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
+                  onClick={() => {
+                    if (confirmingRelationId === relation.id) void removeRelation(relation.id);
+                    else setConfirmingRelationId(relation.id);
+                  }}
+                  title="删除关系"
+                >
+                  <Trash2 size={12} />
+                  {confirmingRelationId === relation.id ? "确认删除" : "删除"}
+                </button>
               </li>
             ))}
           </ul>
@@ -601,6 +750,30 @@ export function CardsPage({ project }: CardsPageProps) {
           </ul>
         )}
       </section>
+
+      <section className="cards-relations">
+        <header className="cards-relations-head">
+          <h4>里程碑</h4>
+          <button type="button" onClick={() => { setShowMilestone((value) => !value); setMilestoneReason(""); }}>
+            <Flag size={13} /> 创建命名里程碑
+          </button>
+        </header>
+        {showMilestone && (
+          <div className="cards-milestone-form">
+            <input
+              className="cards-input"
+              value={milestoneReason}
+              onChange={(event) => setMilestoneReason(event.target.value)}
+              placeholder="里程碑说明，例如：角色设定定稿 v1"
+            />
+            <div className="cards-form-actions">
+              <button type="button" className="cards-save" disabled={milestoneBusy} onClick={() => void createMilestone()}>保存里程碑</button>
+              <button type="button" className="cards-cancel" onClick={() => { setShowMilestone(false); setMilestoneReason(""); }}>取消</button>
+            </div>
+          </div>
+        )}
+        <p className="cards-relations-empty">命名里程碑会为当前卡片创建永久保留的快照，用于版本对比与恢复。</p>
+      </section>
     </div>
   ) : (
     <div className="cards-detail-empty">
@@ -614,51 +787,73 @@ export function CardsPage({ project }: CardsPageProps) {
       <header className="cards-toolbar">
         <div className="cards-toolbar-left">
           <span className="desktop-card-label">Cards</span>
-          <div className="cards-view-switch" role="group" aria-label="卡片视图">
-            <button type="button" className={view === "board" ? "active" : ""} onClick={() => setView("board")}>
-              <LayoutGrid size={13} /> 看板
-            </button>
-            <button type="button" className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
-              <Columns size={13} /> 列表
-            </button>
-          </div>
-          {view === "list" && (
-            <select
-              className="cards-input cards-kind-filter"
-              value={filterKind}
-              onChange={(event) => setFilterKind(event.target.value)}
-              aria-label="按类型筛选"
-            >
-              <option value="">全部类型</option>
-              {cardTypes.map((type) => (
-                <option key={type.id} value={type.kind}>{type.name}</option>
-              ))}
-            </select>
+          {mode === "cards" && (
+            <>
+              <div className="cards-view-switch" role="group" aria-label="卡片视图">
+                <button type="button" className={view === "board" ? "active" : ""} onClick={() => setView("board")}>
+                  <LayoutGrid size={13} /> 看板
+                </button>
+                <button type="button" className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
+                  <Columns size={13} /> 列表
+                </button>
+              </div>
+              {view === "list" && (
+                <select
+                  className="cards-input cards-kind-filter"
+                  value={filterKind}
+                  onChange={(event) => setFilterKind(event.target.value)}
+                  aria-label="按类型筛选"
+                >
+                  <option value="">全部类型</option>
+                  {cardTypes.map((type) => (
+                    <option key={type.id} value={type.kind}>{type.name}</option>
+                  ))}
+                </select>
+              )}
+            </>
           )}
-        </div>
-        <div className="cards-toolbar-right">
-          <span className="cards-search">
-            <Search size={14} />
-            <input
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-              placeholder="搜索名称或别名"
-            />
-          </span>
-          <button type="button" className="cards-add" onClick={() => newCardInKind(filterKind)}>
-            <Plus size={15} /> 新建卡片
+          <button
+            type="button"
+            className={`cards-view-switch-button ${mode === "background" ? "active" : ""}`}
+            onClick={() => setMode((current) => (current === "cards" ? "background" : "cards"))}
+            aria-pressed={mode === "background"}
+          >
+            <Globe2 size={13} /> 背景设定
           </button>
         </div>
+        {mode === "cards" && (
+          <div className="cards-toolbar-right">
+            <span className="cards-search">
+              <Search size={14} />
+              <input
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="搜索名称或别名"
+              />
+            </span>
+            <button type="button" className="cards-manage" onClick={() => setShowCardTypeEditor(true)}>
+              <Layers size={14} /> 卡片类型
+            </button>
+            <button type="button" className="cards-manage" onClick={() => setShowRelationTypeEditor(true)}>
+              <GitBranch size={14} /> 关系类型
+            </button>
+            <button type="button" className="cards-add" onClick={() => newCardInKind(filterKind)}>
+              <Plus size={15} /> 新建卡片
+            </button>
+          </div>
+        )}
       </header>
 
-      {cardsLoading && view === "board" ? (
+      {mode === "background" ? (
+        <BackgroundPage projectId={project.id} />
+      ) : cardsLoading && view === "board" ? (
         <p className="cards-empty" role="status">正在读取卡片…</p>
       ) : view === "board" ? (
         <div className="cards-board-layout">
           <div className="cards-board-pane">
             <BoardView
               cardTypes={cardTypes}
-              cards={cards}
+              cards={projectCards}
               selectedCardId={selectedCardId}
               onSelectCard={(cardId) => selectCard(cardId)}
               onMoveKind={(cardId, kind) => void moveCardKind(cardId, kind)}
@@ -672,10 +867,10 @@ export function CardsPage({ project }: CardsPageProps) {
           <aside className="cards-list-pane">
             {cardsLoading ? (
               <p className="cards-empty" role="status">正在读取卡片…</p>
-            ) : cards.length === 0 ? (
+            ) : projectCards.length === 0 ? (
               <p className="cards-empty">还没有卡片。点右上角「新建卡片」创建第一张。</p>
             ) : (
-              cards.map((card) => (
+              projectCards.map((card) => (
                 <button
                   type="button"
                   key={card.id}
@@ -693,6 +888,16 @@ export function CardsPage({ project }: CardsPageProps) {
           </aside>
           <main className="cards-detail-pane">{detailPane}</main>
         </div>
+      )}
+      {showCardTypeEditor && (
+        <CardTypeEditor projectId={project.id} onClose={() => setShowCardTypeEditor(false)} />
+      )}
+      {showRelationTypeEditor && (
+        <RelationTypeEditor
+          projectId={project.id}
+          cardTypes={cardTypes}
+          onClose={() => setShowRelationTypeEditor(false)}
+        />
       )}
     </section>
   );

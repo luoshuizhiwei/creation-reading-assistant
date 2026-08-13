@@ -9,6 +9,8 @@ import {
   openCreationWorkspace,
   type CreationProjectOutline,
   type CreationStructureResult,
+  type ProtectedStructureCommand,
+  type StructureAffectedObject,
   type CreationWorkspace
 } from "./index";
 
@@ -34,6 +36,104 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const initialReport = await workspace.check();
     assert.equal(initialReport.ok, true);
+
+    const expectWorkspaceError = async (
+      operation: () => Promise<unknown>,
+      code: CreationWorkspaceError["code"]
+    ): Promise<void> => {
+      let received: unknown;
+      try {
+        await operation();
+      } catch (error) {
+        received = error;
+      }
+      assert.equal(received instanceof CreationWorkspaceError, true);
+      assert.equal((received as CreationWorkspaceError).code, code);
+    };
+
+    const outlineShape = (outline: CreationProjectOutline): unknown => ({
+      volumes: outline.volumes.map((volume) => ({
+        id: volume.id,
+        title: volume.title,
+        sortOrder: volume.sortOrder,
+        chapters: volume.chapters.map((chapter) => ({
+          id: chapter.id,
+          title: chapter.title,
+          sortOrder: chapter.sortOrder,
+          status: chapter.status,
+          numbering: chapter.numbering,
+          customNumber: chapter.customNumber,
+          scenes: chapter.scenes.map((scene) => ({
+            id: scene.id,
+            title: scene.title,
+            sortOrder: scene.sortOrder
+          }))
+        }))
+      })),
+      looseChapters: outline.looseChapters.map((chapter) => ({
+        id: chapter.id,
+        title: chapter.title,
+        sortOrder: chapter.sortOrder,
+        status: chapter.status,
+        numbering: chapter.numbering,
+        customNumber: chapter.customNumber,
+        scenes: chapter.scenes.map((scene) => ({
+          id: scene.id,
+          title: scene.title,
+          sortOrder: scene.sortOrder
+        }))
+      }))
+    });
+
+    const previewAndApply = async (
+      projectId: string,
+      command: ProtectedStructureCommand,
+      reason: string
+    ) => {
+      const preview = await workspace!.previewStructure({
+        type: "structure.preview",
+        projectId,
+        command
+      });
+      assert.equal(preview.ok, true);
+      assert.equal(preview.command.type, command.type);
+      assert.equal(preview.stale, false);
+      assert.ok(preview.rows.length > 0);
+      assert.equal(typeof preview.planId, "string");
+      assert.ok(preview.planId.length > 0);
+      const applied = await workspace!.applyStructure({
+        type: "structure.applyWithProtection",
+        projectId,
+        planId: preview.planId,
+        protectionReason: reason
+      });
+      assert.equal(applied.ok, true);
+      assert.ok(applied.protectionSnapshotId.length > 0);
+      assert.ok(applied.affected.length > 0);
+      assert.equal(
+        applied.affected.every(
+          (item) =>
+            (item.type === "volume" || item.type === "chapter" || item.type === "scene") &&
+            item.id.length > 0 &&
+            Number.isInteger(item.revision) &&
+            item.revision > 0
+        ),
+        true
+      );
+      return { preview, applied };
+    };
+
+    const revertApplied = async (
+      projectId: string,
+      protectionSnapshotId: string,
+      expectedAppliedRevisions: StructureAffectedObject[]
+    ) =>
+      workspace!.revertStructure({
+        type: "structure.revert",
+        projectId,
+        protectionSnapshotId,
+        expectedAppliedRevisions
+      });
 
     await scenario("创建项目生成默认卷/章/场景，outline 正确", async () => {
       const result = await workspace!.transact({ type: "project.create", title: "测试项目" });
@@ -90,7 +190,7 @@ async function run(): Promise<void> {
       });
       const outline = (await workspace!.read({ kind: "project.outline", projectId: created.projectId }))!;
       const scene = outline.volumes[0]?.chapters[0]?.scenes[0];
-      assert.equal(scene?.wordCount, 7);
+      assert.equal(scene?.wordCount, 8);
       assert.equal(scene?.revision, 2);
     });
 
@@ -330,7 +430,7 @@ async function run(): Promise<void> {
       assert.equal(outline.volumes[0]?.chapters[0]?.scenes[0]?.id, "scene-v2");
       assert.equal(outline.looseChapters.length, 0);
       const report = await migrated.check();
-      assert.equal(report.schemaVersion, 8);
+      assert.equal(report.schemaVersion, 9);
       assert.equal(report.counts.volumes, 1);
       await migrated.close();
     });
@@ -405,10 +505,425 @@ async function run(): Promise<void> {
       assert.equal(sceneA.entityId !== undefined, true);
     });
 
+    await scenario("保护重组 chapter.split：权威预览、一次性应用、精确撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "拆章合约" });
+      const sourceScene = (await workspace!.transact({
+        type: "scene.create",
+        chapterId: project.chapterId,
+        title: "拆分起点"
+      })) as CreationStructureResult;
+      const trailingScene = (await workspace!.transact({
+        type: "scene.create",
+        chapterId: project.chapterId,
+        title: "拆分后场景"
+      })) as CreationStructureResult;
+      const sourceBeforeEdit = (await workspace!.read({ kind: "scene.body", sceneId: sourceScene.entityId }))!;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: sourceScene.entityId,
+        baseRevision: sourceBeforeEdit.revision,
+        body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "提高版本后再拆章" }] }] }
+      });
+      const committedEvents: Array<{ commandType: string; changes: Array<{ entity: string; id: string; revision: number }> }> = [];
+      const stopWatching = workspace!.watch({ projectId: project.projectId }, (event) => {
+        committedEvents.push(event);
+      });
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { preview, applied } = await previewAndApply(
+        project.projectId,
+        {
+          type: "chapter.split",
+          chapterId: project.chapterId,
+          splitSceneId: sourceScene.entityId,
+          newChapterTitle: "拆分结果"
+        },
+        "拆章保护"
+      );
+      assert.equal(preview.affectedSceneCount, 2);
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const chapters = changed.volumes[0]?.chapters ?? [];
+      const splitChapter = chapters.find((chapter) => chapter.title === "拆分结果");
+      assert.equal(chapters.find((chapter) => chapter.id === project.chapterId)?.scenes.length, 1);
+      assert.deepEqual(splitChapter?.scenes.map((scene) => scene.id), [sourceScene.entityId, trailingScene.entityId]);
+      const protectedEvent = committedEvents.find((event) => event.commandType === "structure.applyWithProtection");
+      assert.ok(protectedEvent);
+      assert.deepEqual(
+        protectedEvent!.changes.map((change) => `${change.entity}:${change.id}`).sort(),
+        applied.affected.map((change) => `${change.type}:${change.id}`).sort()
+      );
+      const movedSourceEvent = protectedEvent!.changes.find((change) => change.entity === "scene" && change.id === sourceScene.entityId);
+      const movedSource = splitChapter?.scenes.find((scene) => scene.id === sourceScene.entityId);
+      assert.equal(movedSourceEvent?.revision, movedSource?.revision);
+      assert.ok((movedSourceEvent?.revision ?? 0) > 1);
+      const raw = new Database(path.join(directory, "workspace.sqlite"));
+      const logged = raw.prepare(
+        "SELECT changes_json FROM change_log WHERE project_id = ? AND command_type = 'structure.applyWithProtection' ORDER BY sequence DESC LIMIT 1"
+      ).get(project.projectId) as { changes_json: string };
+      raw.close();
+      assert.deepEqual(JSON.parse(logged.changes_json), protectedEvent!.changes);
+      stopWatching();
+      const reverted = await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      assert.equal(reverted.ok, true);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护重组 chapter.merge：软删源章可完整撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "并章合约" });
+      const source = (await workspace!.transact({
+        type: "chapter.create",
+        projectId: project.projectId,
+        volumeId: project.volumeId,
+        title: "待并章节"
+      })) as CreationStructureResult;
+      await workspace!.transact({ type: "scene.create", chapterId: source.entityId, title: "待并场景" });
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { preview, applied } = await previewAndApply(
+        project.projectId,
+        { type: "chapter.merge", sourceChapterId: source.entityId, targetChapterId: project.chapterId },
+        "并章保护"
+      );
+      assert.ok(preview.softDeletedChapter?.length);
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.equal(changed.volumes[0]?.chapters.some((chapter) => chapter.id === source.entityId), false);
+      assert.equal(changed.volumes[0]?.chapters[0]?.scenes.length, 2);
+      await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护重组 chapter.move：跨卷顺序可完整撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "移章合约" });
+      const volume = (await workspace!.transact({
+        type: "volume.create",
+        projectId: project.projectId,
+        title: "目标卷"
+      })) as CreationStructureResult;
+      const targetChapter = (await workspace!.transact({
+        type: "chapter.create",
+        projectId: project.projectId,
+        volumeId: volume.entityId,
+        title: "目标章"
+      })) as CreationStructureResult;
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { applied } = await previewAndApply(
+        project.projectId,
+        {
+          type: "chapter.move",
+          chapterId: project.chapterId,
+          targetVolumeId: volume.entityId,
+          beforeChapterId: targetChapter.entityId
+        },
+        "移章保护"
+      );
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.equal(changed.volumes[0]?.chapters.length, 0);
+      assert.deepEqual(changed.volumes[1]?.chapters.map((chapter) => chapter.id), [project.chapterId, targetChapter.entityId]);
+      await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护重组 scene.move：跨章顺序可完整撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "移场景合约" });
+      const targetChapter = (await workspace!.transact({
+        type: "chapter.create",
+        projectId: project.projectId,
+        volumeId: project.volumeId,
+        title: "目标章"
+      })) as CreationStructureResult;
+      const targetScene = (await workspace!.transact({
+        type: "scene.create",
+        chapterId: targetChapter.entityId,
+        title: "目标场景"
+      })) as CreationStructureResult;
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { applied } = await previewAndApply(
+        project.projectId,
+        {
+          type: "scene.move",
+          sceneId: project.sceneId,
+          targetChapterId: targetChapter.entityId,
+          beforeSceneId: targetScene.entityId
+        },
+        "移场景保护"
+      );
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(changed.volumes[0]?.chapters[1]?.scenes.map((scene) => scene.id), [project.sceneId, targetScene.entityId]);
+      await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护重组 chapters.setStatus：批量状态可完整撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "状态合约" });
+      const chapter = (await workspace!.transact({
+        type: "chapter.create",
+        projectId: project.projectId,
+        volumeId: project.volumeId,
+        title: "第二章"
+      })) as CreationStructureResult;
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { preview, applied } = await previewAndApply(
+        project.projectId,
+        { type: "chapters.setStatus", chapterIds: [project.chapterId, chapter.entityId], status: "定稿" },
+        "批量状态保护"
+      );
+      assert.ok(preview.rows.some((row) => row.value.includes("定稿")));
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(changed.volumes[0]?.chapters.map((item) => item.status), ["定稿", "定稿"]);
+      await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护重组 chapter.setNumbering：编号可完整撤回", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "编号合约" });
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const { preview, applied } = await previewAndApply(
+        project.projectId,
+        {
+          type: "chapter.setNumbering",
+          chapterId: project.chapterId,
+          numbering: "custom",
+          customNumber: "楔子",
+          baseRevision: before.volumes[0]!.chapters[0]!.revision
+        },
+        "编号保护"
+      );
+      assert.ok(preview.numberingChange?.length);
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.equal(changed.volumes[0]?.chapters[0]?.displayNumber, "楔子");
+      await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("保护计划不可伪造、重复消费或过期使用", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "计划令牌合约" });
+      await expectWorkspaceError(
+        () =>
+          workspace!.applyStructure({
+            type: "structure.applyWithProtection",
+            projectId: project.projectId,
+            planId: "forged-plan-id",
+            protectionReason: "伪造计划"
+          }),
+        "conflict"
+      );
+
+      const once = await workspace!.previewStructure({
+        type: "structure.preview",
+        projectId: project.projectId,
+        command: { type: "chapters.setStatus", chapterIds: [project.chapterId], status: "修订" }
+      });
+      await workspace!.applyStructure({
+        type: "structure.applyWithProtection",
+        projectId: project.projectId,
+        planId: once.planId,
+        protectionReason: "一次性计划"
+      });
+      await expectWorkspaceError(
+        () =>
+          workspace!.applyStructure({
+            type: "structure.applyWithProtection",
+            projectId: project.projectId,
+            planId: once.planId,
+            protectionReason: "重复消费"
+          }),
+        "conflict"
+      );
+
+      const expiring = await workspace!.previewStructure({
+        type: "structure.preview",
+        projectId: project.projectId,
+        command: { type: "chapters.setStatus", chapterIds: [project.chapterId], status: "定稿" }
+      });
+      const actualNow = Date.now;
+      const simulatedExpiry = actualNow() + 60 * 60 * 1000;
+      Date.now = () => simulatedExpiry;
+      try {
+        await expectWorkspaceError(
+          () =>
+            workspace!.applyStructure({
+              type: "structure.applyWithProtection",
+              projectId: project.projectId,
+              planId: expiring.planId,
+              protectionReason: "过期计划"
+            }),
+          "conflict"
+        );
+      } finally {
+        Date.now = actualNow;
+      }
+    });
+
+    await scenario("预览后相关结构变化会使旧 plan 冲突", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "过期预览合约" });
+      const preview = await workspace!.previewStructure({
+        type: "structure.preview",
+        projectId: project.projectId,
+        command: { type: "chapters.setStatus", chapterIds: [project.chapterId], status: "定稿" }
+      });
+      const outline = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      await workspace!.transact({
+        type: "chapter.rename",
+        chapterId: project.chapterId,
+        title: "预览后已变化",
+        baseRevision: outline.volumes[0]!.chapters[0]!.revision
+      });
+      await expectWorkspaceError(
+        () =>
+          workspace!.applyStructure({
+            type: "structure.applyWithProtection",
+            projectId: project.projectId,
+            planId: preview.planId,
+            protectionReason: "旧计划"
+          }),
+        "conflict"
+      );
+    });
+
+    await scenario("apply 失败时保护快照、change_log 与结构一起回滚", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "原子回滚合约" });
+      const splitScene = (await workspace!.transact({
+        type: "scene.create",
+        chapterId: project.chapterId,
+        title: "故障拆分点"
+      })) as CreationStructureResult;
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const preview = await workspace!.previewStructure({
+        type: "structure.preview",
+        projectId: project.projectId,
+        command: {
+          type: "chapter.split",
+          chapterId: project.chapterId,
+          splitSceneId: splitScene.entityId,
+          newChapterTitle: "不应残留的半成品"
+        }
+      });
+      const raw = new Database(path.join(directory, "workspace.sqlite"));
+      const snapshotCountBefore = (
+        raw.prepare("SELECT count(*) AS count FROM snapshots WHERE project_id = ? AND subject_type = 'structure-operation'").get(project.projectId) as {
+          count: number;
+        }
+      ).count;
+      const changeCountBefore = (
+        raw.prepare("SELECT count(*) AS count FROM change_log WHERE project_id = ?").get(project.projectId) as { count: number }
+      ).count;
+      raw.exec(`
+        CREATE TRIGGER fail_protected_split_apply
+        BEFORE UPDATE OF chapter_id ON scenes
+        WHEN OLD.id = '${splitScene.entityId}' AND NEW.chapter_id <> OLD.chapter_id
+        BEGIN
+          SELECT RAISE(ABORT, 'injected protected apply failure');
+        END;
+      `);
+      try {
+        let applyError: unknown;
+        try {
+          await workspace!.applyStructure({
+            type: "structure.applyWithProtection",
+            projectId: project.projectId,
+            planId: preview.planId,
+            protectionReason: "事务故障注入"
+          });
+        } catch (error) {
+          applyError = error;
+        }
+        assert.ok(applyError);
+      } finally {
+        raw.exec("DROP TRIGGER IF EXISTS fail_protected_split_apply");
+      }
+      const snapshotCountAfter = (
+        raw.prepare("SELECT count(*) AS count FROM snapshots WHERE project_id = ? AND subject_type = 'structure-operation'").get(project.projectId) as {
+          count: number;
+        }
+      ).count;
+      const changeCountAfter = (
+        raw.prepare("SELECT count(*) AS count FROM change_log WHERE project_id = ?").get(project.projectId) as { count: number }
+      ).count;
+      raw.close();
+      assert.equal(snapshotCountAfter, snapshotCountBefore);
+      assert.equal(changeCountAfter, changeCountBefore);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.deepEqual(outlineShape(after), outlineShape(before));
+    });
+
+    await scenario("apply 后受影响对象再修改会阻止 revert", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "撤回冲突合约" });
+      const { applied } = await previewAndApply(
+        project.projectId,
+        { type: "chapters.setStatus", chapterIds: [project.chapterId], status: "定稿" },
+        "撤回冲突保护"
+      );
+      const changed = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      await workspace!.transact({
+        type: "chapter.rename",
+        chapterId: project.chapterId,
+        title: "应用后人工修改",
+        baseRevision: changed.volumes[0]!.chapters[0]!.revision
+      });
+      await expectWorkspaceError(
+        () => revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected),
+        "conflict"
+      );
+    });
+
+    await scenario("revert 校验版本集合，不覆盖不相关修改且快照仅能撤回一次", async () => {
+      const project = await workspace!.transact({ type: "project.create", title: "精确撤回合约" });
+      const unrelated = (await workspace!.transact({
+        type: "chapter.create",
+        projectId: project.projectId,
+        volumeId: project.volumeId,
+        title: "不相关章节"
+      })) as CreationStructureResult;
+      const before = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const target = before.volumes[0]!.chapters.find((chapter) => chapter.id === project.chapterId)!;
+      const { applied } = await previewAndApply(
+        project.projectId,
+        {
+          type: "chapter.setNumbering",
+          chapterId: project.chapterId,
+          numbering: "prologue",
+          baseRevision: target.revision
+        },
+        "精确撤回保护"
+      );
+      const forgedRevisions = applied.affected.map((item, index) =>
+        index === 0 ? { ...item, revision: item.revision + 1 } : item
+      );
+      await expectWorkspaceError(
+        () => revertApplied(project.projectId, applied.protectionSnapshotId, forgedRevisions),
+        "conflict"
+      );
+
+      const beforeUnrelatedRename = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      const unrelatedNow = beforeUnrelatedRename.volumes[0]!.chapters.find((chapter) => chapter.id === unrelated.entityId)!;
+      await workspace!.transact({
+        type: "chapter.rename",
+        chapterId: unrelated.entityId,
+        title: "必须保留的人工修改",
+        baseRevision: unrelatedNow.revision
+      });
+      const reverted = await revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected);
+      assert.equal(reverted.ok, true);
+      const after = (await workspace!.read({ kind: "project.outline", projectId: project.projectId }))!;
+      assert.equal(after.volumes[0]?.chapters.find((chapter) => chapter.id === project.chapterId)?.numbering, target.numbering);
+      assert.equal(
+        after.volumes[0]?.chapters.find((chapter) => chapter.id === unrelated.entityId)?.title,
+        "必须保留的人工修改"
+      );
+      await expectWorkspaceError(
+        () => revertApplied(project.projectId, applied.protectionSnapshotId, applied.affected),
+        "conflict"
+      );
+    });
+
     const report = await workspace.check();
     assert.equal(report.ok, true);
-    // counts 统计表行数（含软删除）：created 默认卷 + created 第二卷（已软删除）+ other 默认卷
-    assert.equal(report.counts.volumes, 3);
+    // counts 统计表行数（含软删除）：基础流程 3 卷 + 保护重组合约各自的独立 fixture。
+    assert.equal(report.counts.volumes, 15);
 
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
