@@ -25,9 +25,10 @@ internal val ProfileSubPage.routeSegment: String
 internal fun profileSubPageFromRoute(value: String?): ProfileSubPage? =
     ProfileSubPage.entries.firstOrNull { it.routeSegment == value }
 
-// 与网页版 mobile-updates.ts 保持一致的发布链接
+// releases 仓库同时承载桌面端与 Android 发布：Android 用 android-v 前缀 tag。
+// 检查更新走列表接口后按前缀过滤（/releases/latest 会命中桌面端发布）。
 internal const val MOBILE_RELEASES_URL = "https://github.com/luoshuizhiwei/creation-reading-assistant-releases/releases"
-internal const val MOBILE_RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant-releases/releases/latest"
+internal const val MOBILE_RELEASE_API_URL = "https://api.github.com/repos/luoshuizhiwei/creation-reading-assistant-releases/releases?per_page=30"
 
 // ============================== 辅助数据类 ==============================
 

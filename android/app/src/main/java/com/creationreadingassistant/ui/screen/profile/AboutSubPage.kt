@@ -64,19 +64,11 @@ internal fun AboutSubPage(
     var lastCheckAt by remember { mutableStateOf<String?>(null) }
     var latestVersion by remember { mutableStateOf<String?>(null) }
     var releaseNotes by remember { mutableStateOf<String?>(null) }
+    var downloadUrl by remember { mutableStateOf<String?>(null) }
 
     fun openUrl(url: String) {
         runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
             .onFailure { AppLog.e("About", "打开链接失败：$url") }
-    }
-
-    fun unescapeJsonString(raw: String): String {
-        return raw
-            .replace("\\n", "\n")
-            .replace("\\r", "\r")
-            .replace("\\t", "\t")
-            .replace("\\\"", "\"")
-            .replace("\\\\", "\\")
     }
 
     fun checkUpdate() {
@@ -91,23 +83,23 @@ internal fun AboutSubPage(
                 conn.setRequestProperty("Accept", "application/vnd.github+json")
                 val text = conn.inputStream.bufferedReader().readText()
                 conn.disconnect()
-                val tag = Regex("\"tag_name\"\\s*:\\s*\"([^\"]+)\"").find(text)?.groupValues?.getOrNull(1) ?: ""
-                val bodyRaw = Regex("\"body\"\\s*:\\s*\"((?:\\\\.|[^\"\\\\])*)\"").find(text)?.groupValues?.getOrNull(1)
+                val release = UpdateCheck.latestAndroidRelease(text)
                 val current = versionName.toString().trimStart('v', 'V')
-                val body = bodyRaw?.let { unescapeJsonString(it).trim().takeIf { s -> s.isNotBlank() } }
                 when {
-                    tag.isBlank() -> "未获取到版本信息"
-                    tag.trimStart('v', 'V') == current -> {
+                    release == null -> "未获取到版本信息"
+                    UpdateCheck.compareVersions(release.version, current) <= 0 -> {
                         hasUpdate = false
                         latestVersion = null
                         releaseNotes = null
+                        downloadUrl = null
                         "已是最新版本（当前 $versionName）"
                     }
                     else -> {
                         hasUpdate = true
-                        latestVersion = tag
-                        releaseNotes = body
-                        "发现新版本 $tag（当前 $versionName）"
+                        latestVersion = release.tag
+                        releaseNotes = release.notes
+                        downloadUrl = release.pageUrl
+                        "发现新版本 ${release.tag}（当前 $versionName）"
                     }
                 }
             }.onSuccess {
@@ -176,7 +168,7 @@ internal fun AboutSubPage(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        Button(onClick = { openUrl(MOBILE_RELEASES_URL) }) {
+                        Button(onClick = { openUrl(downloadUrl ?: MOBILE_RELEASES_URL) }) {
                             Icon(Icons.Outlined.Download, contentDescription = null)
                             Text("前往下载", modifier = Modifier.padding(start = 6.dp))
                         }
@@ -191,7 +183,7 @@ internal fun AboutSubPage(
                     Text("检查新版本", style = MaterialTheme.typography.titleMedium)
                     Text("发布新版后可在此检查并前往安装包下载页；Android 仍会要求你确认安装。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Button(
-                        onClick = { if (hasUpdate) openUrl(MOBILE_RELEASES_URL) else checkUpdate() },
+                        onClick = { if (hasUpdate) openUrl(downloadUrl ?: MOBILE_RELEASES_URL) else checkUpdate() },
                         enabled = !checking,
                     ) {
                         if (checking) CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
