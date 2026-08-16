@@ -17,6 +17,7 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -124,10 +125,118 @@ class InspirationViewModelTest {
     }
 
     @Test
+    fun `saveInspiration new draft with editor id keeps same id`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+
+        vm.saveInspiration(
+            InspirationDraft(
+                id = "editor-id-A",
+                title = "新灵感",
+                body = "今天想到一个转折",
+                type = "note",
+                status = "inbox",
+                tags = emptyList(),
+                source = null,
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationRepository.upsert(capture(saved)) }
+        assertEquals("editor-id-A", saved.captured.id)
+    }
+
+    @Test
+    fun `itemsState stays Loading until repository emits`() = runTest(mainDispatcher.scheduler) {
+        every { inspirationRepository.observeAllActive() } returns flow { }
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
+        val vm = InspirationViewModel(
+            inspirationRepository = inspirationRepository,
+            bookRepository = bookRepository,
+            aiClient = aiClient,
+            settings = settings,
+        )
+
+        val job = launch { vm.itemsState.collect { } }
+        testScheduler.advanceUntilIdle()
+
+        assertTrue("无 emission 时保持 Loading", vm.itemsState.value is InspirationItemsState.Loading)
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `itemsState first emission empty list becomes Loaded(empty) immediately`() = runTest(mainDispatcher.scheduler) {
+        val repoFlow = MutableStateFlow<List<InspirationEntity>>(emptyList())
+        every { inspirationRepository.observeAllActive() } returns repoFlow
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
+        val vm = InspirationViewModel(
+            inspirationRepository = inspirationRepository,
+            bookRepository = bookRepository,
+            aiClient = aiClient,
+            settings = settings,
+        )
+
+        assertTrue("订阅前为 Loading", vm.itemsState.value is InspirationItemsState.Loading)
+        val observed = mutableListOf<InspirationItemsState>()
+        val job = launch { vm.itemsState.collect { observed += it } }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(
+            "首发空列表立即 Loaded(empty)，无固定延时",
+            InspirationItemsState.Loaded(emptyList()),
+            vm.itemsState.value,
+        )
+        assertTrue(
+            "observed 中包含首发 Loaded(empty)",
+            observed.any { it == InspirationItemsState.Loaded(emptyList()) },
+        )
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `saveInspiration tracks new id as pending until list emission includes it`() = runTest(mainDispatcher.scheduler) {
+        val repoFlow = MutableStateFlow<List<InspirationEntity>>(emptyList())
+        every { inspirationRepository.observeAllActive() } returns repoFlow
+        every { bookRepository.observeBooks() } returns flowOf(emptyList())
+        val vm = InspirationViewModel(
+            inspirationRepository = inspirationRepository,
+            bookRepository = bookRepository,
+            aiClient = aiClient,
+            settings = settings,
+        )
+
+        val job = launch { vm.itemsState.collect { } }
+        testScheduler.advanceUntilIdle()
+
+        vm.saveInspiration(
+            InspirationDraft(
+                id = "A",
+                title = "新灵感",
+                body = "正文",
+                type = "note",
+                status = "inbox",
+                tags = emptyList(),
+                source = null,
+            )
+        )
+        testScheduler.advanceUntilIdle()
+        assertTrue("刚保存尚未被观察到的 id 处于待解析", "A" in vm.pendingSavedIds.value)
+
+        repoFlow.value = listOf(inspiration("A"))
+        testScheduler.advanceUntilIdle()
+        assertTrue("列表 emission 命中后清除待解析", vm.pendingSavedIds.value.isEmpty())
+
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
+
+    @Test
     fun `saveInspiration update keeps created_at and id`() = runTest(mainDispatcher.scheduler) {
         val existing = inspiration("i1", "2026-07-01T10:00:00Z")
         val vm = createVm(inspirations = listOf(existing))
-        val job = launch { vm.items.collect { } }
+        val job = launch { vm.itemsState.collect { } }
         testScheduler.advanceUntilIdle()
 
         vm.saveInspiration(

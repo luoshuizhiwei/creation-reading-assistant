@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -209,7 +209,10 @@ fun AppNavigation() {
                                     Spacer(
                                         Modifier
                                             .fillMaxWidth()
-                                            .windowInsetsBottomHeight(WindowInsets.navigationBars),
+                                            // 系统导航栏已由全局策略隐藏：底部只需避开手势区
+                                            // （mandatorySystemGestures 恒定，不随 transient swipe 跳动，
+                                            // 三键导航下为 0，不会留空白系统栏）。
+                                            .windowInsetsBottomHeight(WindowInsets.mandatorySystemGestures),
                                     )
                                 }
                             }
@@ -304,7 +307,10 @@ private fun AppNavHost(
             ),
         ) { backStackEntry ->
             val inspId = backStackEntry.arguments?.getString("inspId")
-            InspirationScreen(initialSelectedId = inspId)
+            InspirationScreen(
+                initialSelectedId = inspId,
+                onOpenBook = { bookId -> navController.navigate("reader/$bookId") },
+            )
         }
         composable(TopLevelRoute.Stats.route) { StatsScreen() }
         composable(TopLevelRoute.Profile.route) {

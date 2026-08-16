@@ -24,10 +24,12 @@ fun InspirationScreen(
     viewModel: InspirationViewModel = hiltViewModel(),
     initialSelectedId: String? = null,
     modifier: Modifier = Modifier,
+    onOpenBook: (String) -> Unit = {},
 ) {
     InspirationRoute(
         viewModel = viewModel,
         initialSelectedId = initialSelectedId,
         modifier = modifier,
+        onOpenBook = onOpenBook,
     )
 }

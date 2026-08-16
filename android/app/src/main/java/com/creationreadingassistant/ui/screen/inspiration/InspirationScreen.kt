@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
@@ -24,6 +25,7 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.SortByAlpha
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -69,8 +71,12 @@ internal fun InspirationScreen(
     filteredItems: List<InspirationEntity>,
     availableTypes: List<Pair<String, String>>,
     typeCounts: Map<String, Int>,
+    availableStatuses: List<Pair<String, String>>,
+    statusCounts: Map<String, Int>,
     sortMode: String,
+    showSkeleton: Boolean,
     selectedEntity: InspirationEntity?,
+    detailResolving: Boolean,
     editingEntity: InspirationEntity?,
     actionSheetItem: InspirationEntity?,
     viewModel: InspirationViewModel,
@@ -101,6 +107,7 @@ internal fun InspirationScreen(
         onMore = {
             selectedEntity?.id?.let { id -> onAction(InspirationAction.OpenItemActions(id)) }
         },
+        actionsEnabled = !detailResolving && selectedEntity != null,
     )
 
     val editorToolbar = rememberEditorToolbar(
@@ -141,10 +148,13 @@ internal fun InspirationScreen(
                         items = items,
                         filtered = filteredItems,
                         typeFilter = state.typeFilter,
+                        statusFilter = state.statusFilter,
                         availableTypes = availableTypes,
                         typeCounts = typeCounts,
+                        availableStatuses = availableStatuses,
+                        statusCounts = statusCounts,
                         sortMode = sortMode,
-                        showSkeleton = state.showSkeleton,
+                        showSkeleton = showSkeleton,
                         sourceOf = sourceOf,
                         tagsOf = tagsOf,
                         onAction = onAction,
@@ -159,9 +169,37 @@ internal fun InspirationScreen(
                             viewModel = viewModel,
                             onAction = onAction,
                         )
+                    } else if (detailResolving) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("inspiration-detail-loading"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                CircularProgressIndicator()
+                                Spacer(Modifier.height(12.dp))
+                                Text(
+                                    "加载中…",
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
                     } else {
-                        // 详情加载不到：退回列表
-                        Box(Modifier.fillMaxSize()) { /* 空，等下一帧 Route 处理 */ }
+                        // 持久 id 不存在：Route 下一帧会安全返回列表，这里先给明确反馈，不留空白。
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .testTag("inspiration-detail-missing"),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                "灵感不存在，正在返回列表…",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
                 is InspirationPage.Editor -> {

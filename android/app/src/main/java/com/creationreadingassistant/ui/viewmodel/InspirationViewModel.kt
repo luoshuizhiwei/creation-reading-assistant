@@ -11,9 +11,13 @@ import com.creationreadingassistant.data.repository.InspirationRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -50,6 +54,12 @@ data class InspirationDraft(
     val source: InspirationSourceInfo?,
 )
 
+/** 灵感列表加载状态：由 repository flow 第一次真实 emission 驱动，Route 不再自行猜测 firstLoad。 */
+sealed interface InspirationItemsState {
+    data object Loading : InspirationItemsState
+    data class Loaded(val items: List<InspirationEntity>) : InspirationItemsState
+}
+
 @HiltViewModel
 class InspirationViewModel @Inject constructor(
     private val inspirationRepository: InspirationRepository,
@@ -63,8 +73,19 @@ class InspirationViewModel @Inject constructor(
         ): Boolean = size > 256
     }
 
-    val items: StateFlow<List<InspirationEntity>> = inspirationRepository.observeAllActive()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _pendingSavedIds = MutableStateFlow<Set<String>>(emptySet())
+
+    /** 已保存但尚未被列表 flow 观察到的草稿 id：详情解析据此保持 Loading，避免误判为不存在。 */
+    val pendingSavedIds: StateFlow<Set<String>> = _pendingSavedIds.asStateFlow()
+
+    val itemsState: StateFlow<InspirationItemsState> = inspirationRepository.observeAllActive()
+        .map { list ->
+            if (_pendingSavedIds.value.isNotEmpty()) {
+                _pendingSavedIds.update { pending -> pending - list.mapTo(HashSet()) { it.id } }
+            }
+            InspirationItemsState.Loaded(list)
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspirationItemsState.Loading)
 
     val books: StateFlow<List<BookEntity>> = bookRepository.observeBooks()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -156,10 +177,15 @@ class InspirationViewModel @Inject constructor(
 
     fun saveInspiration(draft: InspirationDraft) {
         val now = java.time.Instant.now().toString()
-        val existing = draft.id?.let { id -> items.value.firstOrNull { it.id == id } }
+        val loadedItems = (itemsState.value as? InspirationItemsState.Loaded)?.items ?: emptyList()
+        val existing = draft.id?.let { id -> loadedItems.firstOrNull { it.id == id } }
+        val id = existing?.id ?: draft.id ?: java.util.UUID.randomUUID().toString()
+        if (existing == null) {
+            _pendingSavedIds.update { it + id }
+        }
         val payload = InspirationPayloadData(tags = draft.tags, source = draft.source)
         val entity = InspirationEntity(
-            id = existing?.id ?: java.util.UUID.randomUUID().toString(),
+            id = id,
             title = draft.title.ifBlank { "未命名灵感" },
             body = draft.body,
             type = draft.type,

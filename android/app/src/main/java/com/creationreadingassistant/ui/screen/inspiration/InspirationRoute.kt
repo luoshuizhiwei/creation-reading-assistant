@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.screen.inspiration
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -13,6 +14,7 @@ import androidx.compose.ui.text.AnnotatedString
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.ui.viewmodel.InspirationItemsState
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 import kotlinx.coroutines.launch
@@ -22,8 +24,11 @@ internal fun InspirationRoute(
     modifier: Modifier = Modifier,
     viewModel: InspirationViewModel = hiltViewModel(),
     initialSelectedId: String? = null,
+    onOpenBook: (String) -> Unit = {},
 ) {
-    val items by viewModel.items.collectAsStateWithLifecycle()
+    val itemsState by viewModel.itemsState.collectAsStateWithLifecycle()
+    val pendingSavedIds by viewModel.pendingSavedIds.collectAsStateWithLifecycle()
+    val items = (itemsState as? InspirationItemsState.Loaded)?.items ?: emptyList()
     val books by viewModel.books.collectAsStateWithLifecycle()
     val sortMode by viewModel.inspirationSort.collectAsStateWithLifecycle()
 
@@ -40,13 +45,13 @@ internal fun InspirationRoute(
         )
     }
 
-    val firstLoad = remember { mutableStateOf(true) }
-    androidx.compose.runtime.LaunchedEffect(Unit) {
-        kotlinx.coroutines.delay(350)
-        firstLoad.value = false
+    // 骨架屏只由 repository flow 首次真实 emission 驱动：Loading → 骨架，Loaded(空) → 空状态。
+    val showSkeleton = itemsState is InspirationItemsState.Loading
+
+    val detailResolution = (state.page as? InspirationPage.Detail)?.let { page ->
+        resolveDetail(page.inspirationId, itemsState, pendingSavedIds)
     }
-    androidx.compose.runtime.LaunchedEffect(items) { if (items.isNotEmpty()) firstLoad.value = false }
-    state = state.copy(showSkeleton = firstLoad.value && items.isEmpty())
+    val selectedEntity = (detailResolution as? DetailResolution.Found)?.entity
 
     val sourceOf: (InspirationEntity) -> InspirationSourceInfo? = remember(viewModel) {
         { viewModel.sourceOf(it) }
@@ -55,9 +60,16 @@ internal fun InspirationRoute(
         { viewModel.tagsOf(it) }
     }
 
-    val filtered = remember(items, state.query, state.typeFilter, sortMode) {
+    val filtered = remember(items, state.query, state.typeFilter, state.statusFilter, sortMode) {
         val needle = state.query.trim().lowercase()
-        filterAndSortItems(items, needle, state.typeFilter, sortMode, sourceOf, tagsOf)
+        filterAndSortItems(items, needle, state.typeFilter, state.statusFilter, sortMode, sourceOf, tagsOf)
+    }
+    val availableStatuses = remember(items) {
+        val counts = items.groupingBy { it.status ?: "inbox" }.eachCount()
+        STATUS_OPTIONS.filter { counts.containsKey(it.first) }
+    }
+    val statusCounts = remember(items) {
+        items.groupingBy { it.status ?: "inbox" }.eachCount()
     }
     val availableTypes = remember(items) {
         val counts = items.groupingBy { it.type ?: "note" }.eachCount()
@@ -71,8 +83,14 @@ internal fun InspirationRoute(
         scope.launch { snackbarHostState.showSnackbar(text) }
     }
 
-    val selectedEntity = (state.page as? InspirationPage.Detail)?.inspirationId
-        ?.let { id -> items.firstOrNull { it.id == id } }
+    // 列表已加载但详情 id 不存在且无 pending：安全返回列表，避免永久空白。
+    LaunchedEffect(state.page, detailResolution) {
+        if (state.page is InspirationPage.Detail && detailResolution is DetailResolution.NotFound) {
+            message("灵感不存在。")
+            state = state.copy(page = InspirationPage.List)
+        }
+    }
+
     val editingId = (state.page as? InspirationPage.Editor)?.inspirationId
     val editingEntity = editingId?.let { id -> items.firstOrNull { it.id == id } }
     val actionItem = (state.sheet as? InspirationSheet.ItemActions)?.inspirationId
@@ -171,8 +189,11 @@ internal fun InspirationRoute(
             is InspirationAction.UpdateTypeFilter ->
                 state = state.copy(typeFilter = action.type)
 
+            is InspirationAction.UpdateStatusFilter ->
+                state = state.copy(statusFilter = action.status)
+
             InspirationAction.ResetFilter ->
-                state = state.copy(query = "", typeFilter = "all")
+                state = state.copy(query = "", typeFilter = "all", statusFilter = "all")
 
             is InspirationAction.ChangeSort -> {
                 viewModel.setInspirationSort(action.value)
@@ -196,7 +217,8 @@ internal fun InspirationRoute(
                 if (book == null) {
                     message("来源书籍已不可用，这条灵感仍会保留。")
                 } else {
-                    message("已定位来源：《${book.title}》")
+                    // 真跳转：打开来源书（阅读器按已存进度续读定位）
+                    onOpenBook(book.id)
                 }
             }
 
@@ -290,8 +312,12 @@ internal fun InspirationRoute(
             filteredItems = filtered,
             availableTypes = availableTypes,
             typeCounts = typeCounts,
+            availableStatuses = availableStatuses,
+            statusCounts = statusCounts,
             sortMode = sortMode,
+            showSkeleton = showSkeleton,
             selectedEntity = selectedEntity,
+            detailResolving = detailResolution is DetailResolution.Loading,
             editingEntity = editingEntity,
             actionSheetItem = actionItem,
             viewModel = viewModel,

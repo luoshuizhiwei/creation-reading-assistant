@@ -76,6 +76,9 @@ internal fun InspirationList(
     typeFilter: String,
     availableTypes: List<Pair<String, String>>,
     typeCounts: Map<String, Int>,
+    statusFilter: String = "all",
+    availableStatuses: List<Pair<String, String>> = emptyList(),
+    statusCounts: Map<String, Int> = emptyMap(),
     sortMode: String,
     showSkeleton: Boolean,
     sourceOf: (InspirationEntity) -> InspirationSourceInfo?,
@@ -92,7 +95,7 @@ internal fun InspirationList(
         false
     }
     val needle = run { "" }
-    val hasFilter = typeFilter != "all"
+    val hasFilter = typeFilter != "all" || statusFilter != "all"
     val emptyKind: String? = if (filtered.isEmpty()) {
         when {
             !hasAny -> "empty"
@@ -120,8 +123,11 @@ internal fun InspirationList(
             ) {
                 SelectablePill(
                     text = "全部",
-                    selected = typeFilter == "all",
-                    onClick = { onAction(InspirationAction.UpdateTypeFilter("all")) },
+                    selected = typeFilter == "all" && statusFilter == "all",
+                    onClick = {
+                        onAction(InspirationAction.UpdateTypeFilter("all"))
+                        onAction(InspirationAction.UpdateStatusFilter("all"))
+                    },
                 )
                 availableTypes.forEach { (value, label) ->
                     val count = typeCounts[value] ?: 0
@@ -130,6 +136,29 @@ internal fun InspirationList(
                         selected = typeFilter == value,
                         onClick = { onAction(InspirationAction.UpdateTypeFilter(value)) },
                     )
+                }
+            }
+            // 状态筛选行（第二行）：按 STATUS_OPTIONS 中实际存在的状态过滤
+            if (availableStatuses.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = layout.pageHorizontal)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(7.dp),
+                ) {
+                    SelectablePill(
+                        text = "全部状态",
+                        selected = statusFilter == "all",
+                        onClick = { onAction(InspirationAction.UpdateStatusFilter("all")) },
+                    )
+                    availableStatuses.forEach { (value, label) ->
+                        SelectablePill(
+                            text = "$label ${statusCounts[value] ?: 0}",
+                            selected = statusFilter == value,
+                            onClick = { onAction(InspirationAction.UpdateStatusFilter(value)) },
+                        )
+                    }
                 }
             }
             Surface(

@@ -66,9 +66,7 @@ internal data class InspirationUiState(
     val searchOpen: Boolean = false,
     val query: String = "",
     val typeFilter: String = "all",
-
-    /** 首屏骨架：仅用于 firstLoad && items.isEmpty()。 */
-    val showSkeleton: Boolean = true,
+    val statusFilter: String = "all",
 ) {
     /** 返回顺序检查：弹层 → 编辑确认 → 详情 → 列表。（true = 还有可消费的"回"动作） */
     val canConsumeBack: Boolean
@@ -100,6 +98,7 @@ internal sealed interface InspirationAction {
     data object CloseSearch : InspirationAction
     data class UpdateQuery(val query: String) : InspirationAction
     data class UpdateTypeFilter(val type: String) : InspirationAction
+    data class UpdateStatusFilter(val status: String) : InspirationAction
     data object ResetFilter : InspirationAction
 
     /* 排序 */
@@ -212,12 +211,14 @@ internal fun filterAndSortItems(
     items: List<InspirationEntity>,
     needle: String,
     typeFilter: String,
+    statusFilter: String,
     sortMode: String,
     sourceOf: (InspirationEntity) -> com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo?,
     tagsOf: (InspirationEntity) -> List<String>,
 ): List<InspirationEntity> {
     val filtered = items.filter { item ->
         if (typeFilter != "all" && (item.type ?: "note") != typeFilter) return@filter false
+        if (statusFilter != "all" && (item.status ?: "inbox") != statusFilter) return@filter false
         if (needle.isBlank()) return@filter true
         val src = sourceOf(item)
         val hay = listOf(

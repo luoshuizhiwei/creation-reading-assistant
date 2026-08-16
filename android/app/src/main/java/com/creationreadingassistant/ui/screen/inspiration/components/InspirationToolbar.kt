@@ -94,7 +94,8 @@ internal fun rememberDetailToolbar(
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onMore: () -> Unit,
-): ToolbarConfig = androidx.compose.runtime.remember(onBack, onEdit, onMore) {
+    actionsEnabled: Boolean,
+): ToolbarConfig = androidx.compose.runtime.remember(onBack, onEdit, onMore, actionsEnabled) {
     ToolbarConfig(
         title = "灵感详情",
         compact = true,
@@ -104,10 +105,10 @@ internal fun rememberDetailToolbar(
             }
         },
         actions = {
-            IconButton(onClick = onEdit) {
+            IconButton(onClick = onEdit, enabled = actionsEnabled) {
                 Icon(Icons.Outlined.Edit, contentDescription = "编辑灵感")
             }
-            IconButton(onClick = onMore) {
+            IconButton(onClick = onMore, enabled = actionsEnabled) {
                 Icon(Icons.Outlined.MoreHoriz, contentDescription = "更多操作")
             }
         },
