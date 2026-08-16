@@ -16,14 +16,28 @@ android {
         applicationId = "com.creationreadingassistant"
         minSdk = 24
         targetSdk = 35
-        versionCode = 1
-        versionName = "0.4.0-p4"
+
+        // 版本号可由 CI 注入（./gradlew assembleRelease -PcraVersionName=1.2.3 -PcraVersionCode=10203）；
+        // 本地缺省值仅为开发占位，正式发布一律走 release.yml 的 android-v tag 流程。
+        versionCode = providers.gradleProperty("craVersionCode").orNull?.toInt() ?: 2
+        versionName = providers.gradleProperty("craVersionName").orNull ?: "0.5.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
     }
+
+    // 发布签名只从环境变量 / gradle property 读取，绝不硬编码、绝不提交密钥（docs/release/ANDROID_RELEASE.md §2）。
+    val keystoreFile = providers.environmentVariable("CRA_ANDROID_KEYSTORE_FILE")
+        .orElse(providers.gradleProperty("craAndroidKeystoreFile")).orNull?.takeIf { it.isNotBlank() }
+    val keystorePassword = providers.environmentVariable("CRA_ANDROID_KEYSTORE_PASSWORD")
+        .orElse(providers.gradleProperty("craAndroidKeystorePassword")).orNull?.takeIf { it.isNotBlank() }
+    val keyAlias = providers.environmentVariable("CRA_ANDROID_KEY_ALIAS")
+        .orElse(providers.gradleProperty("craAndroidKeyAlias")).orNull?.takeIf { it.isNotBlank() }
+    val keyPassword = providers.environmentVariable("CRA_ANDROID_KEY_PASSWORD")
+        .orElse(providers.gradleProperty("craAndroidKeyPassword")).orNull?.takeIf { it.isNotBlank() }
+    val releaseSigningReady = listOf(keystoreFile, keystorePassword, keyAlias, keyPassword).all { it != null }
 
     buildTypes {
         create("benchmark") {
@@ -41,6 +55,27 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            if (releaseSigningReady) {
+                signingConfig = signingConfigs.create("craRelease") {
+                    storeFile = file(keystoreFile!!)
+                    storePassword = keystorePassword
+                    this.keyAlias = keyAlias
+                    this.keyPassword = keyPassword
+                }
+                logger.lifecycle("✅ assembleRelease 使用正式签名（${keystoreFile!!.substringAfterLast('/')}）。")
+            } else {
+                val buildingRelease = gradle.startParameter.taskNames.any {
+                    it.contains("Release", ignoreCase = true)
+                }
+                if (System.getenv("GITHUB_ACTIONS") != null && buildingRelease) {
+                    // CI 缺签名必须失败，绝不退回 debug 签名冒充正式包。
+                    throw GradleException(
+                        "CI 环境缺少 Android 发布签名（CRA_ANDROID_KEYSTORE_* 四个变量必须齐全），已中止 release 构建。",
+                    )
+                }
+                signingConfig = signingConfigs.getByName("debug")
+                logger.lifecycle("⚠️ 未配置正式签名，使用 debug 密钥兜底签名；产物仅可用于本地验证，绝不可发布！")
+            }
         }
     }
 
@@ -136,6 +171,9 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.okhttp.mockwebserver)
+    // JVM 单测的 XmlPullParser 实现（WebDavBackup PROPFIND 解析测试用；android.jar 桩返回 null）
+    testImplementation(libs.kxml2)
+    testImplementation(libs.xmlpull)
 
     // Android 测试（Room 迁移测试）
     androidTestImplementation(libs.room.testing)

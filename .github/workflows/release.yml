@@ -4,21 +4,23 @@ on:
   push:
     tags:
       - "v*"
+      - "android-v*"
   workflow_dispatch:
 
 permissions:
   contents: read
 
-# P0-A3 TODO: 原生 android/ Release APK 迁移尚未完成。
-# 当前工作流只构建桌面端（Windows 安装版 + 免安装版）。
-# 完成 P0-A3 后，在此恢复原生 android/ 的签名、版本号、R8、源码包、
-# SHA-256 和更新清单，并移除本注释。
+# 两条发布流共用本工作流，按 tag 前缀分流（发布目标均为 luoshuizhiwei/creation-reading-assistant-releases）：
+# - v*          → 桌面端（Windows 安装版 + 免安装版）
+# - android-v*  → 原生 Android 签名 APK + GPL 源码包 + SHA-256
+# 应用内「检查更新」按 android-v 前缀过滤 releases 列表，桌面端发布不会误报为 Android 更新。
 # 旧 mobile/android Capacitor APK 的构建与上传已在 P0-A2（2026-07-29）退役。
 
 jobs:
   build-release-assets:
     name: 构建 Windows 正式发布包
     runs-on: windows-latest
+    if: ${{ !startsWith(github.ref, 'refs/tags/android-') }}
 
     steps:
       - name: 拉取源码
@@ -93,3 +95,120 @@ jobs:
         run: |
           if (-not $env:GH_TOKEN) { throw "缺少 PUBLIC_RELEASE_TOKEN，不能发布到公开下载仓库。" }
           gh release create $env:GITHUB_REF_NAME --repo luoshuizhiwei/creation-reading-assistant-releases --title "创作阅读助手 $env:GITHUB_REF_NAME" --notes-file release-artifacts/RELEASE_NOTES_zh-CN.md release-artifacts/*
+
+  build-android-release:
+    name: 构建 Android 正式发布包
+    runs-on: ubuntu-latest
+    if: ${{ startsWith(github.ref, 'refs/tags/android-') }}
+
+    steps:
+      - name: 拉取源码
+        uses: actions/checkout@v4
+
+      - name: 设置 JDK
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 设置 Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: 解析 Android 版本号
+        run: |
+          set -euo pipefail
+          TAG="${GITHUB_REF_NAME#android-v}"
+          if ! [[ "$TAG" =~ ^([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::tag 必须形如 android-v主.次.修订（如 android-v1.2.3），当前：$GITHUB_REF_NAME"
+            exit 1
+          fi
+          MAJOR="${BASH_REMATCH[1]}"; MINOR="${BASH_REMATCH[2]}"; PATCH="${BASH_REMATCH[3]}"
+          if [ "$MINOR" -gt 99 ] || [ "$PATCH" -gt 99 ]; then
+            echo "::error::次版本/修订号超过 99 会与 versionCode 算法（主*10000+次*100+修订）碰撞，请递增主或次版本。"
+            exit 1
+          fi
+          echo "CRA_ANDROID_VERSION=$TAG" >> "$GITHUB_ENV"
+          echo "CRA_ANDROID_VERSION_CODE=$(( MAJOR*10000 + MINOR*100 + PATCH ))" >> "$GITHUB_ENV"
+
+      - name: 还原签名密钥
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ] || [ -z "$ANDROID_KEYSTORE_PASSWORD" ] || [ -z "$ANDROID_KEY_ALIAS" ] || [ -z "$ANDROID_KEY_PASSWORD" ]; then
+            echo "::error::缺少 Android 签名 Secrets（ANDROID_KEYSTORE_BASE64 / ANDROID_KEYSTORE_PASSWORD / ANDROID_KEY_ALIAS / ANDROID_KEY_PASSWORD），不能构建正式包。"
+            exit 1
+          fi
+          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release-keystore.jks"
+          {
+            echo "CRA_ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release-keystore.jks"
+            echo "CRA_ANDROID_KEYSTORE_PASSWORD=$ANDROID_KEYSTORE_PASSWORD"
+            echo "CRA_ANDROID_KEY_ALIAS=$ANDROID_KEY_ALIAS"
+            echo "CRA_ANDROID_KEY_PASSWORD=$ANDROID_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      - name: 单元测试与 Lint 门禁
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:testDebugUnitTest :app:lintDebug
+
+      - name: 构建签名 Release APK
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew :app:assembleRelease \
+            -PcraVersionName="$CRA_ANDROID_VERSION" \
+            -PcraVersionCode="$CRA_ANDROID_VERSION_CODE"
+
+      - name: 校验 APK 签名
+        working-directory: android
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          if [ ! -f "$APK" ]; then echo "::error::未找到 Release APK：$APK"; exit 1; fi
+          APKSIGNER="$(find "$ANDROID_HOME/build-tools" -name apksigner | sort -V | tail -1)"
+          if [ -z "$APKSIGNER" ]; then echo "::error::未找到 apksigner，无法校验 APK 签名。"; exit 1; fi
+          "$APKSIGNER" verify --print-certs "$APK"
+
+      - name: 整理产物与 GPL 源码包
+        run: |
+          set -euo pipefail
+          VERSION="$CRA_ANDROID_VERSION"
+          mkdir -p release-artifacts
+          cp android/app/build/outputs/apk/release/app-release.apk \
+            "release-artifacts/creation-reading-assistant-$VERSION-android.apk"
+          # GPL 对应完整源码：android/ 全部源码 + 上游归属存档，排除构建产物
+          zip -r -q "release-artifacts/creation-reading-assistant-$VERSION-android-source.zip" \
+            android archives/frozen-mobile \
+            -x "*/build/*" "*/.gradle/*" "*/.cxx/*" "*/.idea/*" "*.log"
+          # GPL 许可证与第三方声明（与桌面端产物保持同源）
+          cp archives/frozen-mobile/LICENSE release-artifacts/LICENSE
+          cp archives/frozen-mobile/NOTICE.md release-artifacts/NOTICE.md
+          cp archives/frozen-mobile/THIRD_PARTY_NOTICES.md release-artifacts/THIRD_PARTY_NOTICES.md
+          cp CHANGELOG.md release-artifacts/RELEASE_NOTES_zh-CN.md
+
+          cd release-artifacts
+          sha256sum $(ls -1 | grep -v '^SHA256SUMS-android.txt$') > SHA256SUMS-android.txt
+
+      - name: 上传工作流构建产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: creation-reading-assistant-android-release-assets
+          path: release-artifacts/*
+          if-no-files-found: error
+
+      - name: 发布到公开下载仓库
+        env:
+          GH_TOKEN: ${{ secrets.PUBLIC_RELEASE_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "$GH_TOKEN" ]; then echo "::error::缺少 PUBLIC_RELEASE_TOKEN，不能发布到公开下载仓库。"; exit 1; fi
+          gh release create "$GITHUB_REF_NAME" \
+            --repo luoshuizhiwei/creation-reading-assistant-releases \
+            --title "创作阅读助手 Android $CRA_ANDROID_VERSION" \
+            --notes-file release-artifacts/RELEASE_NOTES_zh-CN.md \
+            release-artifacts/*
