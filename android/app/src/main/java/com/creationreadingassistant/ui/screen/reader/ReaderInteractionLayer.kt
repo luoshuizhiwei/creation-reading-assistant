@@ -8,10 +8,12 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
@@ -39,6 +41,7 @@ internal data class ReaderInteractionLayerState(
     val showTts: Boolean,
     val showReaderOverflow: Boolean,
     val autoPagingActive: Boolean,
+    val autoPageSpeed: Int,
     val progressPercent: Float,
     val bookTitle: String,
     val currentChapterTitle: String,
@@ -63,6 +66,7 @@ internal data class ReaderInteractionLayerCallbacks(
     val onSeekChapterPercent: (Float) -> Unit,
     val onPrevChapter: () -> Unit,
     val onNextChapter: () -> Unit,
+    val onAutoPageSpeedChange: (Int) -> Unit,
     val onPersistTts: (Float, Float, String, Int) -> Unit,
     val onCloseTts: () -> Unit,
     val onToggleColor: () -> Unit,
@@ -131,7 +135,9 @@ internal fun BoxScope.ReaderInteractionLayer(
         Surface(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 6.dp)
-                .navigationBarsPadding(),
+                // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
+                // 三键导航下为 0，不产生空白系统栏）。
+                .windowInsetsPadding(WindowInsets.mandatorySystemGestures),
             shape = LocalComponentSpec.current.floatingBarShape,
             color = state.paper.panel.copy(alpha = 0.98f),
             contentColor = state.paper.fg,
@@ -156,6 +162,9 @@ internal fun BoxScope.ReaderInteractionLayer(
                     onNextChapter = callbacks.onNextChapter,
                     isFirstChapter = state.isFirstChapter,
                     isLastChapter = state.isLastChapter,
+                    autoPagingActive = state.autoPagingActive,
+                    autoPageSpeed = state.autoPageSpeed,
+                    onAutoPageSpeedChange = callbacks.onAutoPageSpeedChange,
                     paper = state.paper,
                 )
             }

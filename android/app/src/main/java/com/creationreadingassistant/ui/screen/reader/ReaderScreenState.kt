@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.screen.reader
 /** 阅读页纯 UI 弹层类型；不参与 Locator、分页或文档加载。 */
 enum class ReaderSheet {
     TOC,
+    RULES,
     NOTES,
     AI_ASSIST,
     AI_EXPLAIN,

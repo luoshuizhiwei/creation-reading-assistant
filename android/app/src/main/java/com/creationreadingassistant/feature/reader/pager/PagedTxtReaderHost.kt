@@ -27,6 +27,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -50,6 +51,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.text
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
@@ -62,6 +65,7 @@ import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.MarkdownStyleMap
+import com.creationreadingassistant.feature.reader.layout.pageAccessibleText
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import com.creationreadingassistant.feature.reader.layout.isHeading
@@ -74,6 +78,7 @@ import kotlin.math.hypot
 import kotlin.math.roundToInt
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
+import com.creationreadingassistant.ui.screen.reader.searchHighlightColor
 
 /** 页眉/页脚渲染所需的分页快照 */
 private data class PageInfo(
@@ -135,6 +140,10 @@ fun PagedReaderHost(
     persistentHighlights: List<Pair<IntRange, Color>> = emptyList(),
     selectionColor: Color = LocalReaderPaperPalette.current.selectionScrim,
     ttsHighlightColor: Color = LocalReaderPaperPalette.current.ttsSentenceScrim,
+    /** 搜索命中临时高亮（全书偏移区间，含首不含尾），null = 无当前命中。不落库。 */
+    searchHitRangeAbs: Pair<Int, Int>? = null,
+    /** 搜索命中高亮底色（与滚动路径同色约定）。 */
+    searchHighlightColor: Color = searchHighlightColor(LocalReaderPaperPalette.current),
     /** 非 null 时按该间隔自动翻到下一页；到全书末页后回调并停止。 */
     autoPageIntervalMillis: Long? = null,
     onAutoPagingFinished: () -> Unit = {},
@@ -262,6 +271,10 @@ fun PagedReaderHost(
                     )
                 }
 
+                DisposableEffect(controller) {
+                    onDispose { controller.close() }
+                }
+
                 // 新 controller（首开 / 配置变化重建）→ 回到锚点所在句
                 LaunchedEffect(controller) { controller.open(anchor.intValue) }
 
@@ -360,8 +373,20 @@ fun PagedReaderHost(
 
                 val page = controller.currentPage
                 if (page == null) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        val message = controller.loadError
+                    val message = controller.loadError
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .then(
+                                if (message == null) {
+                                    // 与既有「正在加载章节」约定一致：加载框给明确的加载语义
+                                    Modifier.semantics { contentDescription = "正在加载正文" }
+                                } else {
+                                    Modifier
+                                }
+                            ),
+                        contentAlignment = Alignment.Center,
+                    ) {
                         if (message == null) {
                             CircularProgressIndicator()
                         } else {
@@ -392,7 +417,17 @@ fun PagedReaderHost(
                             if (rects.isEmpty()) null else color to rects
                         }
                     }
-                    val underlays = hlUnderlays + listOf(ttsHighlightColor to ttsRects, selectionColor to selRects)
+                    // 搜索命中：命中所在章未加载时 page==null 不绘制；跳转完成后
+                    // 本页渲染时才有 rects，天然满足「先完成跳转/加载，再显示高亮」。
+                    val searchRects = remember(page, searchHitRangeAbs, chStart) {
+                        val r = searchHitRangeAbs ?: return@remember emptyList()
+                        PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
+                    }
+                    val underlays = hlUnderlays + listOf(
+                        searchHighlightColor to searchRects,
+                        ttsHighlightColor to ttsRects,
+                        selectionColor to selRects,
+                    )
                     // 手势协程只随 controller 重启，闭包捕获的组合期快照会冻结在首次触摸前
                     // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
                     // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
@@ -529,6 +564,11 @@ fun PagedReaderHost(
                             .semantics { contentDescription = "分页正文已就绪" }
                             .then(gestures),
                     ) { rendered, isCurrent ->
+                        // 语义文本与绘制切片同源；非当前帧（动画过渡中的邻页）不暴露，
+                        // 避免 TalkBack 读到上一页 stale 文本或动画中间帧的重复正文。
+                        val accessibleText = remember(rendered.page, rendered.chapterText) {
+                            pageAccessibleText(rendered.page, rendered.chapterText)
+                        }
                         PageLayer(
                             page = rendered.page,
                             chapterText = rendered.chapterText,
@@ -537,6 +577,11 @@ fun PagedReaderHost(
                             headingPaint = headingPaint,
                             underlays = if (isCurrent) underlays else emptyList(),
                             handles = if (isCurrent) selectionHandles else null,
+                            accessibleText = if (isCurrent) {
+                                if (accessibleText.isEmpty()) "本页无正文" else accessibleText
+                            } else {
+                                null
+                            },
                             modifier = Modifier.fillMaxSize(),
                         )
                     }
@@ -627,6 +672,8 @@ private fun PageLayer(
     paint: TextPaint,
     headingPaint: TextPaint,
     modifier: Modifier = Modifier,
+    /** TalkBack 朗读的当前页正文；null = 非当前页（动画过渡帧）不暴露文本。 */
+    accessibleText: String? = null,
     /** 文字底下的色块层（TTS 句高亮、选区），先画色块再画字 */
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
     /** 选区把手（仅当前页有选区时非空），画在文字与图片之上 */
@@ -634,7 +681,16 @@ private fun PageLayer(
 ) {
     val density = LocalDensity.current
     val paper = LocalReaderPaperPalette.current
-    Box(modifier) {
+    Box(
+        modifier.then(
+            if (accessibleText != null) {
+                // 用 text 语义而非 contentDescription：正文是可读文本，不是控件的描述
+                Modifier.semantics { text = AnnotatedString(accessibleText) }
+            } else {
+                Modifier
+            }
+        )
+    ) {
         PageCanvas(
             page = page,
             chapterText = chapterText,

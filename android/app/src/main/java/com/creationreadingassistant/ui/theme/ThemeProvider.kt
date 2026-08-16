@@ -51,8 +51,9 @@ fun VisualStyleProvider(
     CompositionLocalProvider(
         LocalVisualStyle provides style,
         LocalComponentSpec provides componentSpec,
-        // T1：玻璃系统休眠，LocalGlassPalette 恒为 null（Apple 特判已移除）。
-        LocalGlassPalette provides null,
+        // 默认「墨韵·素笺」：提供中性纸感调色板（2026-08-11 经用户批准覆盖冻结）。
+        // 其它视觉样式（APPLE/WEB 已收敛回退）维持 null，行为不变。
+        LocalGlassPalette provides if (style == VisualStyle.DEFAULT) DefaultGlassPalette else null,
     ) {
         MaterialTheme(
             colorScheme = params.colorScheme ?: MaterialTheme.colorScheme,

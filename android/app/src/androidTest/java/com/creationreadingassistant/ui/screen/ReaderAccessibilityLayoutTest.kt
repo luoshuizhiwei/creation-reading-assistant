@@ -99,6 +99,9 @@ class ReaderAccessibilityLayoutTest {
                             onNextChapter = {},
                             isFirstChapter = false,
                             isLastChapter = false,
+                            autoPagingActive = false,
+                            autoPageSpeed = 5,
+                            onAutoPageSpeedChange = {},
                         )
                     }
                 }

@@ -22,7 +22,9 @@ import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.pager.AutoScrollAccumulator
 import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.viewmodel.PendingTxtRuleAnchor
 import com.creationreadingassistant.ui.viewmodel.TxtRuleScanResult
+import com.creationreadingassistant.ui.viewmodel.matchesSession
 import kotlinx.coroutines.delay
 
 /**
@@ -36,7 +38,7 @@ import kotlinx.coroutines.delay
  *
  * effect 体内被读 / 被写的可变状态以 State-holder 形式传入（读 `.value` 拿当前快照）：
  * - [currentMinuteState]：eyeCare effect 每分钟写；
- * - [pendingTxtRuleAnchorOffsetState]：txtRule effect 读写；
+ * - [pendingTxtRuleAnchorState]：txtRule effect 读写；
  * - [txtStreamingDocumentState] / [txtStreamingFileIndexState]：txtRule effect 写；
  * - [autoPagingActiveState]：autoPaging effect 的 key + while 循环条件 + 体内写。
  *
@@ -52,9 +54,12 @@ internal fun ReaderRuntimeEffects(
     currentMinuteState: MutableIntState,
     focusBlockIndex: Int?,
     epubBringRequester: BringIntoViewRequester,
+    bookId: String,
     txtRuleScanResult: TxtRuleScanResult?,
-    pendingTxtRuleAnchorOffsetState: MutableIntState,
+    pendingTxtRuleAnchorState: MutableState<PendingTxtRuleAnchor?>,
+    pagerEngineOn: Boolean,
     pagedJumpRequest: MutableState<Int?>,
+    jumpToPlainOffset: (Int) -> Unit,
     txtStreamingDocumentState: MutableState<PlainTextDocument?>,
     txtStreamingFileIndexState: MutableState<TxtFileIndex?>,
     autoPagingActiveState: MutableState<Boolean>,
@@ -95,15 +100,27 @@ internal fun ReaderRuntimeEffects(
     // R6：观察 TXT 规则扫描结果（放在 showNotice / pagedJumpRequest 之后）
     LaunchedEffect(txtRuleScanResult) {
         val r = txtRuleScanResult ?: return@LaunchedEffect
+        // P1-A：跨书迟到结果直接丢弃，不得覆盖新书状态、不得消费锚点、不得提示
+        if (!r.matchesSession(bookId)) return@LaunchedEffect
         if (r.error != null) {
             showNotice(r.error)
         } else {
             r.document?.let { txtStreamingDocumentState.value = it }
             r.fileIndex?.let { txtStreamingFileIndexState.value = it }
             // 重建完成后再跳转，确保 readingUnits 已是新数据
-            if (pendingTxtRuleAnchorOffsetState.value >= 0) {
-                pagedJumpRequest.value = pendingTxtRuleAnchorOffsetState.value
-                pendingTxtRuleAnchorOffsetState.value = -1
+            val pending = pendingTxtRuleAnchorState.value
+            val restoreTarget = txtRuleRestoreTarget(
+                pagerEngineOn = pagerEngineOn,
+                bookId = bookId,
+                result = r,
+                pending = pending,
+            )
+            if (restoreTarget != null && pending != null) {
+                when (restoreTarget) {
+                    TxtRuleRestoreTarget.PagedJump -> pagedJumpRequest.value = pending.offset
+                    TxtRuleRestoreTarget.ScrollJump -> jumpToPlainOffset(pending.offset)
+                }
+                pendingTxtRuleAnchorState.value = null
             }
         }
     }

@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.material.icons.Icons
@@ -43,6 +45,7 @@ import coil.compose.AsyncImage
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.ui.components.rememberViewportImageRequest
 import com.creationreadingassistant.ui.screen.reader.RenderMarkdownChapter
+import com.creationreadingassistant.ui.screen.reader.readerCenterTapToToggle
 import com.creationreadingassistant.ui.screen.reader.tts.buildSentenceHighlighted
 import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -70,14 +73,23 @@ internal fun PagedEpubView(
     canNext: Boolean,
     onPrev: () -> Unit,
     onNext: () -> Unit,
+    onToggleControls: () -> Unit,
     onSelectBlock: (String, Int) -> Unit,
     blockGlobalOffsets: List<Int>,
     chapterBase: Int,
     ttsSentenceRangeInChapter: Pair<Int, Int>?,
     focusBlockIndex: Int?,
     sentenceHighlightBg: Color,
+    /** 统一搜索命中高亮底色（P1-B）：分页与滚动共用，随纸自适应。 */
+    searchHighlightBg: Color,
     bringRequester: BringIntoViewRequester,
+    searchHitRangeAbs: Pair<Int, Int>?,
     fontFamily: FontFamily = FontFamily.Default,
+    /**
+     * 注入的 LazyListState（S2：搜索命中聚焦滚动定位同一状态；调用方可在消费
+     * SearchScrollFocusRequest 后 scrollToItem 命中块）。默认自建，保持原行为。
+     */
+    listState: LazyListState = rememberLazyListState(),
 ) {
     val reducedMotion = rememberReducedMotion()
     val contentAlpha = remember { Animatable(1f) }
@@ -95,7 +107,13 @@ internal fun PagedEpubView(
     val haptic = rememberHaptic(reducedMotion)
     val onPrevHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onPrev() }
     val onNextHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onNext() }
-    Box(Modifier.fillMaxSize()) {
+    // 父级 tap observation：左/右（及 five-zone 上/下）翻页分区点击优先消费；
+    // 中央空白等未消费轻点统一唤出/隐藏菜单，不覆盖正文选择（Text 点击仍走选区）。
+    Box(
+        Modifier
+            .fillMaxSize()
+            .readerCenterTapToToggle(onCenterTap = onToggleControls),
+    ) {
         Box(
             Modifier
                 .fillMaxSize()
@@ -115,8 +133,11 @@ internal fun PagedEpubView(
                     ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
                     focusBlockIndex = focusBlockIndex,
                     sentenceHighlightBg = sentenceHighlightBg,
+                    searchHighlightBg = searchHighlightBg,
                     bringRequester = bringRequester,
+                    searchHitRangeAbs = searchHitRangeAbs,
                     fontFamily = fontFamily,
+                    listState = listState,
                 )
             }
             // 不在这里同时保留新旧整章 Composition。旧 AnimatedContent/Crossfade
@@ -197,11 +218,15 @@ internal fun PagedChapterContent(
     ttsSentenceRangeInChapter: Pair<Int, Int>?,
     focusBlockIndex: Int?,
     sentenceHighlightBg: Color,
+    searchHighlightBg: Color,
     bringRequester: BringIntoViewRequester,
+    searchHitRangeAbs: Pair<Int, Int>?,
     fontFamily: FontFamily = FontFamily.Default,
+    listState: LazyListState = rememberLazyListState(),
 ) {
     LazyColumn(
-        Modifier.fillMaxSize(),
+        state = listState,
+        modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         itemsIndexed(
@@ -217,8 +242,14 @@ internal fun PagedChapterContent(
             when (block) {
                 is DocBlock.Text -> {
                     val gOff = blockGlobalOffsets.getOrElse(idx) { -1 }
-                    val ann = remember(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg) {
-                        buildSentenceHighlighted(block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg)
+                    val ann = remember(
+                        block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg, searchHighlightBg, searchHitRangeAbs,
+                    ) {
+                        buildSentenceHighlighted(
+                            block.text, gOff, chapterBase, ttsSentenceRangeInChapter, sentenceHighlightBg,
+                            searchRangeAbs = searchHitRangeAbs,
+                            searchBg = searchHighlightBg,
+                        )
                     }
                     Text(
                         text = ann,

@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.navigation.LocalAppChrome
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 
 // —————————————————————————————————————————————————————————————————
 // 工具：PaddingValues 相加 / 判等 （纯函数，防重复叠加）
@@ -211,7 +212,8 @@ fun SectionHeader(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.headlineSmall,
+            // 区块标题用展示衬线（书卷气），与正文黑体形成层次；字号沿用 headlineSmall 节奏。
+            style = MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily),
             modifier = Modifier.weight(1f),
         )
         action?.invoke(this)
@@ -273,7 +275,7 @@ fun AppTopBar(
         ) {
             titleContent?.invoke() ?: Text(
                 text = title,
-                style = titleStyle,
+                style = titleStyle.copy(fontFamily = DisplayFontFamily),
                 maxLines = 1,
             )
         }

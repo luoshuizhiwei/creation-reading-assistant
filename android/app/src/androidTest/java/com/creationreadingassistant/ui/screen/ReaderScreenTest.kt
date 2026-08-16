@@ -268,7 +268,7 @@ class ReaderScreenTest {
             ReaderAction.OpenBook("book-1"),
             ReaderAction.Retry,
             ReaderAction.LoadChapter("book-1", 0),
-            ReaderAction.ScanTxtTocRule("/path", "rule"),
+            ReaderAction.ScanTxtTocRule("book-1", "/path", "rule"),
             ReaderAction.ToggleControls(),
             ReaderAction.ToggleControls(visible = true),
             ReaderAction.OpenSheet(ReaderSheet.TOC),

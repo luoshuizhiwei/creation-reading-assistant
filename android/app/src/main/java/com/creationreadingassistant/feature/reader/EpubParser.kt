@@ -106,7 +106,10 @@ object EpubParser {
 
             val opfEntry = zip.getEntry(opfPath)
                 ?: throw IllegalStateException("OPF 文件缺失：$opfPath")
-            val (title, creator, manifest, spine, spineTocId) = zip.getInputStream(opfEntry).use { parseOpf(it) }
+            val (title, creator, manifest, spine, spineTocId, metaCoverId) = zip.getInputStream(opfEntry).use { parseOpf(it) }
+
+            // 封面条目：EPUB2 meta 指定 > EPUB3 properties=cover-image > href 含 cover 的首图
+            val coverEntryPath = resolveCoverEntryPath(zip, opfDir, manifest, metaCoverId)
 
             val chapterRefs = spine.mapNotNull { idref -> manifest[idref] }
                 .ifEmpty {
@@ -139,6 +142,7 @@ object EpubParser {
                 chapters = chapters,
                 localUri = uri.toString(),
                 cachedEpubPath = cachedPath,
+                coverEntryPath = coverEntryPath,
             )
         } finally {
             zip.close()
@@ -369,6 +373,8 @@ object EpubParser {
         val manifest: Map<String, ManifestItem>,
         val spine: List<String>,
         val toc: String?,
+        /** EPUB2 `<meta name="cover" content="manifestId"/>` 指向的封面图 id。 */
+        val metaCoverId: String?,
     )
 
     private fun parseContainer(stream: java.io.InputStream): String {
@@ -393,12 +399,18 @@ object EpubParser {
         val manifest = mutableMapOf<String, ManifestItem>()
         val spine = mutableListOf<String>()
         var spineToc: String? = null
+        var metaCoverId: String? = null
         var event = parser.next()
         while (event != XmlPullParser.END_DOCUMENT) {
             if (event == XmlPullParser.START_TAG) {
                 when (parser.local()) {
                     "title" -> title = parser.nextText().trim().ifBlank { title }
                     "creator" -> creator = parser.nextText().trim().ifBlank { creator }
+                    "meta" -> {
+                        if (parser.getAttributeValue(null, "name")?.equals("cover", ignoreCase = true) == true) {
+                            parser.getAttributeValue(null, "content")?.takeIf { it.isNotBlank() }?.let { metaCoverId = it }
+                        }
+                    }
                     "item" -> {
                         val id = parser.getAttributeValue(null, "id")
                         val href = parser.getAttributeValue(null, "href")
@@ -419,7 +431,53 @@ object EpubParser {
             }
             event = parser.next()
         }
-        return OpfData(title, creator, manifest, spine, spineToc)
+        return OpfData(title, creator, manifest, spine, spineToc, metaCoverId)
+    }
+
+    // ── 封面 ──────────────────────────────────────────────────────────
+
+    /** 封面条目超过此大小直接放弃提取（防畸形/超大图拖垮导入）。 */
+    private const val MAX_COVER_ENTRY_BYTES = 8L * 1024 * 1024
+
+    /**
+     * 定位封面图片的 zip 条目路径。解析优先级：
+     * 1. EPUB2 `<meta name="cover" content="id"/>` 指定的 manifest 项；
+     * 2. EPUB3 manifest `properties` 含 `cover-image` 的项；
+     * 3. 兜底：href 路径含 `cover` 的第一张图片。
+     * 候选必须是图片且 zip 中真实存在，否则继续下一优先级；都失败返回 null。
+     */
+    private fun resolveCoverEntryPath(
+        zip: ZipFile,
+        opfDir: String,
+        manifest: Map<String, ManifestItem>,
+        metaCoverId: String?,
+    ): String? {
+        fun candidate(item: ManifestItem?): String? {
+            if (item == null || !item.mediaType.startsWith("image/", ignoreCase = true)) return null
+            val path = resolvePath(opfDir, item.href)
+            return if (findEntry(zip, path) != null) path else null
+        }
+
+        candidate(manifest[metaCoverId])?.let { return it }
+        manifest.values
+            .firstOrNull { item -> item.properties.split(WHITESPACE_REGEX).any { it.equals("cover-image", ignoreCase = true) } }
+            ?.let { item -> candidate(item)?.let { return it } }
+        manifest.values
+            .firstOrNull { item -> item.href.substringBefore('#').substringBefore('?').contains("cover", ignoreCase = true) }
+            ?.let { item -> candidate(item)?.let { return it } }
+        return null
+    }
+
+    /** 读取封面图片原始字节；无条目 / 超过 [MAX_COVER_ENTRY_BYTES] / IO 失败返回 null。调用方自行降采样。 */
+    fun loadCoverBytes(cachedEpubPath: String, entryPath: String): ByteArray? {
+        if (entryPath.isEmpty()) return null
+        return runCatching {
+            ZipFile(cachedEpubPath).use { zip ->
+                val entry = findEntry(zip, entryPath) ?: return null
+                if (entry.size > MAX_COVER_ENTRY_BYTES) return null
+                zip.getInputStream(entry).use { it.readBytes() }
+            }
+        }.getOrNull()
     }
 
     // ── 目录（TOC）解析 ────────────────────────────────────────────────

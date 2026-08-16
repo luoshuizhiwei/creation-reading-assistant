@@ -41,13 +41,16 @@ class AiClient(
     private val settings: SettingsStore,
     private val ioDispatcher: CoroutineDispatcher,
     private val client: OkHttpClient,
+    /** 无网预检用；测试直连构造时为 null（预检跳过）。 */
+    private val appContext: android.content.Context? = null,
 ) {
     /** Hilt 注入入口：使用默认超时配置的 OkHttpClient，行为与历史版本一致。 */
     @Inject
     constructor(
         settings: SettingsStore,
         @IODispatcher ioDispatcher: CoroutineDispatcher,
-    ) : this(settings, ioDispatcher, defaultClient())
+        @dagger.hilt.android.qualifiers.ApplicationContext appContext: android.content.Context,
+    ) : this(settings, ioDispatcher, defaultClient(), appContext)
 
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -123,6 +126,7 @@ class AiClient(
             val ai = settings.ai.value
             if (!ai.enabled) error("AI 未启用，请在「我的 → AI 设置」中开启。")
             if (ai.baseUrl.isBlank()) error("AI 接口地址未配置。")
+            if (!isNetworkAvailable()) error("当前无网络连接，请检查网络后重试。")
             warnIfInsecureHttp(ai.baseUrl)
             val url = ai.baseUrl.trimEnd('/') + "/v1/chat/completions"
 
@@ -235,6 +239,21 @@ class AiClient(
         is UnknownHostException -> IllegalStateException("无法连接 AI 接口（域名解析失败），请检查网络。", e)
         is ConnectException -> IllegalStateException("无法连接 AI 接口，请检查接口地址与网络。", e)
         else -> IllegalStateException("AI 网络请求失败：${e.message ?: "未知错误"}", e)
+    }
+
+    /**
+     * 无网预检：完全断网时立即返回可读错误，不必等连接超时。
+     * 只判「有没有可用网络」而不判「是否真正联外网」（NET_CAPABILITY_INTERNET），
+     * 局域网自建接口（无外网）不会被误拦。
+     */
+    private fun isNetworkAvailable(): Boolean {
+        val ctx = appContext ?: return true
+        return runCatching {
+            val cm = ctx.getSystemService(android.content.Context.CONNECTIVITY_SERVICE)
+                as? android.net.ConnectivityManager ?: return true
+            val network = cm.activeNetwork ?: return false
+            cm.getNetworkCapabilities(network)?.hasCapability(android.net.NetworkCapabilities.NET_CAPABILITY_INTERNET) != false
+        }.getOrDefault(true)
     }
 
     /**

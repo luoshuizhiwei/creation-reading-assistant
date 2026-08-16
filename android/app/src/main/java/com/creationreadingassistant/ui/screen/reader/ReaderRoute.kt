@@ -42,6 +42,9 @@ fun ReaderRoute(
             txtTocRuleIdFromVm = routeState.txtTocRuleId,
             chapterLoadResult = routeState.chapterLoadResult,
             txtRuleScanResult = routeState.txtRuleScanResult,
+            txtRuleScanStatus = routeState.txtRuleScanStatus,
+            ruleSnapshot = routeState.ruleSnapshot,
+            ruleMutationResult = routeState.ruleMutationResult,
         ),
         callbacks = ReaderScreenCallbacks(
             onLoadChapterBlocks = viewModel::loadChapterBlocks,

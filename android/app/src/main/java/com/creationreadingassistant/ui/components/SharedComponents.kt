@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -38,9 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import com.creationreadingassistant.ui.theme.CardContainer
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.LocalGlassPalette
 import com.creationreadingassistant.ui.theme.ProgressBarShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.resolve
@@ -68,7 +71,15 @@ fun SectionCard(
 ) {
     val spec = LocalComponentSpec.current
     val scheme = MaterialTheme.colorScheme
-    val container = spec.cardContainer.resolve()
+    val palette = LocalGlassPalette.current
+    // 表面材质（Path B）：开启玻璃且默认主题提供调色板时，容器色用暖纸 glassTintColor，
+    // 让首页/分区卡从「中性表面色」变成「素笺纸感」，与 GlassSurface 行为一致。
+    val container = if (spec.glassEnabled && palette != null) {
+        val tokens = if (isSystemInDarkTheme()) palette.dark else palette.light
+        tokens.glassTintColor.copy(alpha = spec.glassTint)
+    } else {
+        spec.cardContainer.resolve()
+    }
     val borderColor = if (spec.borderSubtle) scheme.outlineVariant else scheme.outline
     val shape = spec.cardShape
     val border = BorderStroke(spec.borderWidth, borderColor)
@@ -90,27 +101,31 @@ fun SectionCard(
         }
     }
 
-    if (onClick != null) {
-        Surface(
-            onClick = onClick,
-            shape = shape,
-            color = container,
-            border = border,
-            tonalElevation = spec.cardElevation,
-            shadowElevation = spec.cardElevationAmbient,
-            modifier = modifier,
-            content = texturedContent,
-        )
-    } else {
-        Surface(
-            shape = shape,
-            color = container,
-            border = border,
-            tonalElevation = spec.cardElevation,
-            shadowElevation = spec.cardElevationAmbient,
-            modifier = modifier,
-            content = texturedContent,
-        )
+    // 用 Box 包裹，便于在玻璃开启时于卡片之上叠加 specular 高光层（与 GlassSurface 同款）。
+    Box(modifier) {
+        if (onClick != null) {
+            Surface(
+                onClick = onClick,
+                shape = shape,
+                color = container,
+                border = border,
+                tonalElevation = spec.cardElevation,
+                shadowElevation = spec.cardElevationAmbient,
+                content = texturedContent,
+            )
+        } else {
+            Surface(
+                shape = shape,
+                color = container,
+                border = border,
+                tonalElevation = spec.cardElevation,
+                shadowElevation = spec.cardElevationAmbient,
+                content = texturedContent,
+            )
+        }
+        if (palette != null && spec.glassEnabled) {
+            GlassOverlays(shape = shape, palette = palette)
+        }
     }
 }
 
@@ -360,7 +375,7 @@ fun FullEmptyState(
         Spacer(Modifier.height(layout.contentGap))
         Text(
             text = title,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleMedium.copy(fontFamily = DisplayFontFamily),
         )
         Spacer(Modifier.height(layout.relatedGap))
         Text(

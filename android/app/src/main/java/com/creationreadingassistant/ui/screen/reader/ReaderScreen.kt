@@ -82,6 +82,8 @@ import com.creationreadingassistant.ui.screen.reader.nowIso
 import com.creationreadingassistant.ui.screen.reader.progressToChapterIndex
 import com.creationreadingassistant.ui.screen.reader.unitIndexForOffset
 import com.creationreadingassistant.ui.screen.reader.tts.rememberTts
+import com.creationreadingassistant.ui.screen.reader.tts.TtsErrorNoticeEffect
+import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticeAdapter
 import com.creationreadingassistant.ui.screen.reader.tts.TtsSettingsSyncEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsResumeEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsReaderSyncEffect
@@ -170,6 +172,9 @@ fun ReaderScreen(
     val haptic = rememberHaptic(reducedMotion)
     val snackbarHost = remember { SnackbarHostState() }
     val tts = rememberTts()
+    // TTS 引擎错误 → 现有 notice（含「去设置」动作），不持有 Activity
+    val ttsNotice = remember(context) { TtsNoticeAdapter(scope, snackbarHost, context) }
+    TtsErrorNoticeEffect(tts = tts, adapter = ttsNotice)
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     // ── 文档状态只从 ReaderViewModel 输入；页面不再打开 URI 或拥有文件资源。────────
@@ -282,6 +287,10 @@ fun ReaderScreen(
     val bid = bookId ?: ""
     var txtTocRuleId by mutableHolders.txtTocRuleIdState
 
+    // 书内搜索会话按书持有：关闭/重开面板不清空 query/results/current hit；
+    // 切书（bid 变化）自动重建，用户清空查询由会话内 onQueryChanged 处理。
+    val searchSession = remember(bid) { BookSearchSession(bookKey = bid) }
+
     // SE4：从搜索结果跳转时携带的 highlightId（高亮或笔记），消费后置空避免重复触发
     var pendingHighlightId by mutableHolders.pendingHighlightIdState
 
@@ -289,7 +298,8 @@ fun ReaderScreen(
     // 这里只暴露各章偏移与标题，供跳章 / 命中映射使用。
     val isTxt = epubBook == null && markdownDocument == null
     // Phase 7：纯计算派生状态抽到 reader/ReaderScreenDerivedState.kt，逐字保真。
-    // LaunchedEffect(txtStreamingDocument, readingUnits) 生命周期与原位一致（同一 Composition 子组合）。
+    // readingUnits 的单一真相在文档构造层（fromFileIndex 构造时构建，首帧即就绪），
+    // 组合层只读裁决（ReadingUnitsResolver），不再写回 txtStreamingDocument。
     val derived = rememberReaderDerivedState(
         bookIndex = bookIndex,
         markdownDocument = markdownDocument,
@@ -328,8 +338,9 @@ fun ReaderScreen(
         error = error,
         textContent = textContent,
         plainContent = plainContent,
-        txtTocRuleId = txtTocRuleId,
+        tocProfile = inputs.ruleSnapshot.effectiveTocProfile,
         txtStreamingDocument = txtStreamingDocument,
+        readingUnits = readingUnits,
     )
     val pagerEngineOn = pagerEngine.pagerEngineOn
     val pagedJumpRequest = pagerEngine.pagedJumpRequest
@@ -439,6 +450,7 @@ fun ReaderScreen(
         recentChapters = recentChapters,
         activeReadingMsState = activeReadingMsState,
         currentMinuteState = eyeCareFocus.currentMinuteState,
+        chapterIndexState = chapterIndexState,
         settingsRef = settingsRef,
         readerResumedState = readerResumedState,
         ttsResumeOffsetState = ttsResumeOffsetState,
@@ -452,6 +464,8 @@ fun ReaderScreen(
         paperIsLight = paper.isLight,
         appDark = appDark,
         isTxt = isTxt,
+        isChapterLoading = isChapterLoading,
+        searchSession = searchSession,
         tts = tts,
         haptic = haptic,
         scope = scope,
@@ -459,6 +473,7 @@ fun ReaderScreen(
         goToChapter = nav.goToChapter,
         jumpToPlainOffset = nav.jumpToPlainOffset,
         persistCurrentProgress = nav.persistCurrentProgress,
+        openTts = nav.openTts,
     )
 
     // ── 笔记对话框（已提取到 ReaderNoteDialog）──────────────────────
@@ -486,6 +501,7 @@ fun ReaderScreen(
         paper = paper,
         eyeCareActive = eyeCareFocus.eyeCareActive,
         eyeFilterColor = eyeCareFocus.eyeFilterColor,
+        paperTexture = appearance.paperTexture,
         readerSettings = readerSettings,
         snackbarHost = snackbarHost,
         isLoading = isLoading,
@@ -511,6 +527,7 @@ fun ReaderScreen(
         ttsSentenceRangeInChapter = eyeCareFocus.ttsSentenceRangeInChapter,
         focusBlockIndex = eyeCareFocus.focusBlockIndex,
         sentenceHighlightBg = eyeCareFocus.sentenceHighlightBg,
+        searchHighlightBg = eyeCareFocus.searchHighlightBg,
         epubBringRequester = eyeCareFocus.epubBringRequester,
         isTxt = isTxt,
         tts = tts,
@@ -527,6 +544,7 @@ fun ReaderScreen(
         callbacks = callbacks,
         settingsVm = settingsVm,
         sheetState = sheetState,
+        searchSession = searchSession,
         holders = mutableHolders,
     )
 

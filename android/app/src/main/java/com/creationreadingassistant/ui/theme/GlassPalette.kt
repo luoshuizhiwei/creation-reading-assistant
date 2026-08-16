@@ -49,3 +49,26 @@ val AppleGlassPalette = LiquidGlassPalette(
         blurRadius = 28.dp,
     ),
 )
+
+/**
+ * 默认「墨韵·素笺」主题的中性纸感调色板（非 Apple 蓝调）。
+ *
+ * 与 [AppleGlassPalette] 不同：这里用暖白纸色 + 极低 specularAlpha，只给卡片一层
+ * 极淡的顶部光泽与底部厚度边（"纸"的材质感），不引入任何色相偏移的玻璃观感。
+ * `blurRadius = 0.dp`：不触发 Dialog 真实窗口模糊（[GlassWindow.glassWindowBlur] 据此设 0），
+ * 保持弹层现状与流畅度。
+ */
+val DefaultGlassPalette = LiquidGlassPalette(
+    light = GlassTokens(
+        highlightColor = Color(0xFFFFFFFF),    // 中性高光（纸面反光，无色相）
+        glassTintColor = Color(0xF6F2EA),       // 暖白纸色，卡片呈素笺质感
+        specularAlpha = 0.10f,
+        blurRadius = 0.dp,
+    ),
+    dark = GlassTokens(
+        highlightColor = Color(0xFFE9E2D4),     // 暖白高光（暗纸面反光）
+        glassTintColor = Color(0x262320),        // 暖黑纸色
+        specularAlpha = 0.08f,
+        blurRadius = 0.dp,
+    ),
+)

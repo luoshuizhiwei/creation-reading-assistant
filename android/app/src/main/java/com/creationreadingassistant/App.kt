@@ -59,6 +59,16 @@ class App : Application() {
         // 改用 FLAG_DEBUGGABLE 判定；release 包恒为 false）。
         AppLog.debugEnabled =
             (applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0
+        // A5 主线程 I/O 探测工具：仅调试构建启用 StrictMode，violation 只记日志不崩溃
+        // （penaltyLog），release 无影响。日志 tag 为 StrictMode，可通过 adb logcat 过滤。
+        if (AppLog.debugEnabled) {
+            android.os.StrictMode.setThreadPolicy(
+                android.os.StrictMode.ThreadPolicy.Builder().detectAll().penaltyLog().build(),
+            )
+            android.os.StrictMode.setVmPolicy(
+                android.os.StrictMode.VmPolicy.Builder().detectAll().penaltyLog().build(),
+            )
+        }
         // 在 profileable/benchmark 构建中强制启用应用级 atrace，使自定义 Trace section
         // 能被 Perfetto 捕获，用于性能分析；release 用户构建无影响（非 debuggable
         // 且非 profileable 时该方法无效果）。

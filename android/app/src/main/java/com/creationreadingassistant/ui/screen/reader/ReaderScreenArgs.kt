@@ -14,10 +14,13 @@ import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
+import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
 import com.creationreadingassistant.ui.viewmodel.ChapterLoadResult
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderUiState
 import com.creationreadingassistant.ui.viewmodel.TxtRuleScanResult
+import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
 
 /**
  * ReaderScreen 数据参数封装。
@@ -38,6 +41,9 @@ data class ReaderScreenInputs(
     val txtTocRuleIdFromVm: String,
     val chapterLoadResult: ChapterLoadResult?,
     val txtRuleScanResult: TxtRuleScanResult?,
+    val txtRuleScanStatus: TxtRuleScanStatus? = null,
+    val ruleSnapshot: RuleSnapshot = RuleSnapshot.empty(),
+    val ruleMutationResult: RuleMutationResult? = null,
 )
 
 data class ReaderScreenCallbacks(

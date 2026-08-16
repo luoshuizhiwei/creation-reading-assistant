@@ -15,12 +15,17 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
+import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
+import com.creationreadingassistant.ui.screen.reader.tts.TtsAutoNextChapterEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.screen.reader.tts.TtsReaderSyncEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsResumeEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsSettingsSyncEffect
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
+import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
+import com.creationreadingassistant.ui.viewmodel.PendingTxtRuleAnchor
 import kotlinx.coroutines.CoroutineScope
 
 /**
@@ -68,6 +73,7 @@ internal fun ReaderSessionEffects(
     recentChapters: SnapshotStateList<Int>,
     activeReadingMsState: MutableLongState,
     currentMinuteState: MutableIntState,
+    chapterIndexState: MutableIntState,
     settingsRef: MutableState<ReaderSettings>,
     readerResumedState: MutableState<Boolean>,
     ttsResumeOffsetState: MutableIntState,
@@ -81,6 +87,8 @@ internal fun ReaderSessionEffects(
     paperIsLight: Boolean,
     appDark: Boolean,
     isTxt: Boolean,
+    isChapterLoading: Boolean,
+    searchSession: BookSearchSession,
     tts: TtsController,
     haptic: (HapticFeedbackType) -> Unit,
     scope: CoroutineScope,
@@ -88,6 +96,7 @@ internal fun ReaderSessionEffects(
     goToChapter: (Int) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
     persistCurrentProgress: () -> Unit,
+    openTts: () -> Unit,
 ) {
     // 状态袋解构（与原 ReaderScreen 局部取值一致）
     val screenState = inputs.screenState
@@ -95,6 +104,8 @@ internal fun ReaderSessionEffects(
     val notes = inputs.notes
     val txtTocRuleIdFromVm = inputs.txtTocRuleIdFromVm
     val txtRuleScanResult = inputs.txtRuleScanResult
+    val ruleSnapshot = inputs.ruleSnapshot
+    val ruleMutationResult = inputs.ruleMutationResult
     val onLoadChapterBlocks = callbacks.onLoadChapterBlocks
     val onExtractChapterText = callbacks.onExtractChapterText
     val onAction = callbacks.onAction
@@ -130,15 +141,64 @@ internal fun ReaderSessionEffects(
         holders.txtTocRuleIdState.value = txtTocRuleIdFromVm
     }
 
+    // P1-A：规则写入成功后重新识别当前流式 TXT（多规则目录接入实际管线）。
+    // 只处理会改变有效目录身份（profile.key）的 Success/Saved/Migrated（快速单选）；
+    // REPLACE 净化、校验失败 / NotFound、非 TXT 与身份未变化的写入一律不触发；
+    // 切书后快照 bookId 不匹配自动跳过。锚点保留用户当前 source 绝对偏移，
+    // 重建完成后由 ReaderRuntimeEffects 恢复最近章节 / 位置。
+    val currentTxtTocKey = docLoad.txtStreamingFileIndex?.detectedRuleId
+        ?: (loadedBook?.content as? ReaderLoadedContent.Text)?.preDetectedRuleId
+    LaunchedEffect(ruleMutationResult, ruleSnapshot.effectiveTocProfile.key, currentTxtTocKey) {
+        if (!TxtRuleRescanPolicy.shouldRescanStreamingTxt(
+                mutationResult = ruleMutationResult,
+                snapshot = ruleSnapshot,
+                bid = bid,
+                isTxt = isTxt,
+                currentTocKey = currentTxtTocKey,
+            )
+        ) {
+            return@LaunchedEffect
+        }
+        if (ruleMutationResult is RuleMutationResult.Migrated) {
+            // 快速单选（Migrated）不在规则管理面板展示反馈，消费后立即清除
+            onAction(ReaderAction.ClearRuleMutationResult)
+        }
+        val textContent = loadedBook?.content as? ReaderLoadedContent.Text ?: return@LaunchedEffect
+        if (textContent.streamingDocument == null) return@LaunchedEffect
+        // 可重扫的 backing/source（直接 file:// 源文件或 cache 临时副本）——
+        // ownedTempFile 只描述 release 时可删除的资源，直接源文件场景下恒为 null。
+        val sourcePath = textContent.sourceFile?.absolutePath ?: return@LaunchedEffect
+        val profileKey = ruleSnapshot.effectiveTocProfile.key
+        holders.pendingTxtRuleAnchorState.value = PendingTxtRuleAnchor(bid, profileKey, visiblePlainOffset)
+        onAction(ReaderAction.RescanTxtToc(bid, sourcePath, profileKey))
+    }
+
     // R3：跨会话 TTS 续读
     TtsResumeEffect(
         tts = tts,
         bookId = bid,
         settingsStore = settingsStore,
         isEpub = epubBook != null,
+        isMarkdown = markdownDocument != null,
         chapterIndex = chapterIndex,
         onResumeOffsetChanged = { ttsResumeOffsetState.intValue = it },
         onResumeChapterChanged = { ttsResumeChapterState.intValue = it },
+    )
+
+    // 听书连续朗读：EPUB / Markdown 按章接续（播放文本=章文本，翻章语义明确）。
+    // TXT 的播放文本是整本/窗口，双语义下自动接续容易整本重读，暂不启用（count=0 即禁用）。
+    TtsAutoNextChapterEffect(
+        tts = tts,
+        showTts = screenState.showTts,
+        chapterIndex = chapterIndex,
+        chapterCount = when {
+            epubBook != null -> epubBook.chapters.size
+            markdownDocument != null -> markdownDocument.chapters.size
+            else -> 0
+        },
+        contentReady = contentText.isNotBlank() && !isChapterLoading,
+        goToChapter = goToChapter,
+        replayTts = openTts,
     )
 
     // ── 平台 Effects（常亮、沉浸、亮度、窗口底色、音量键、自动隐藏、生命周期）────
@@ -151,6 +211,7 @@ internal fun ReaderSessionEffects(
         readerBrightness = if (readerSettings.brightness < 0) -1 else readerSettings.brightness.coerceIn(5, 100),
         paperBgColor = paperBg,
         volumeKeyPaging = readerSettings.volumeKeyPaging,
+        screenOrientation = readerSettings.screenOrientation,
         // 音量键翻页统一处理 → reader/ReaderActions.kt::readerVolumeKeyTurn
         onVolumeUp = {
             readerVolumeKeyTurn(
@@ -169,7 +230,8 @@ internal fun ReaderSessionEffects(
         controlsVisibleForAutoHide = controlsVisible,
         autoHideSeconds = readerSettings.autoHideSeconds,
         sheetOpenGuard = sheetOpenGuard,
-        onAutoHide = { onAction(ReaderAction.ToggleControls(false)) },
+        // 自动隐藏到点走状态机 AutoHideElapsed（与翻页隐藏同结果、不同事件语义）。
+        onAutoHide = { onAction(ReaderAction.AutoHideElapsed(readerSettings.autoHideSeconds)) },
     )
 
     // ── 会话计时 / 阅读提醒 / 进度持久化 / 位置恢复 / 高亮精确定位 ──────────────
@@ -217,6 +279,28 @@ internal fun ReaderSessionEffects(
         onExtractChapterText = onExtractChapterText,
     )
 
+    // ── 书内搜索：统一 target 消费（命中选择 / 上一处 / 下一处）──────────
+    // 文档上下文（章文档/纯文本）+ 渲染模式 + 阅读器状态一次性接入导航模块；
+    // 章切换、paged jump、scroll block 定位、stale guard 与 TXT/EPUB/Markdown
+    // 分派全部集中在 ReaderSearchEffects.kt 的 SearchHitNavigationExecutor。
+    SearchHitNavigationEffect(
+        searchNav = buildSearchHitNavigation(
+            session = searchSession,
+            bid = bid,
+            chaptered = epubBook != null || markdownDocument != null,
+            pagerEngineOn = pagerEngineOn,
+            chapterStartOffsets = chapterStartOffsets,
+            readingUnits = readingUnits,
+            pagedJumpRequest = pagedJumpRequest,
+            chapterIndexState = chapterIndexState,
+            plainListState = plainListState,
+            searchScrollFocusRequestState = holders.searchScrollFocusRequestState,
+            markdownBlocksGlobal = (markdownDocument as? MarkdownDocument)?.isWholeDocumentParse == true,
+            goToChapter = goToChapter,
+            onLoadChapterBlocks = onLoadChapterBlocks,
+        ),
+    )
+
     // ── 运行时 effect：章节淡入 / 护眼时间 / 焦点滚动 / TXT 规则 / 自动翻页 / 触感 ──
     ReaderRuntimeEffects(
         chapterFadeKey = chapterFadeKey,
@@ -225,9 +309,12 @@ internal fun ReaderSessionEffects(
         currentMinuteState = currentMinuteState,
         focusBlockIndex = focusBlockIndex,
         epubBringRequester = epubBringRequester,
+        bookId = bid,
         txtRuleScanResult = txtRuleScanResult,
-        pendingTxtRuleAnchorOffsetState = holders.pendingTxtRuleAnchorOffsetState,
+        pendingTxtRuleAnchorState = holders.pendingTxtRuleAnchorState,
+        pagerEngineOn = pagerEngineOn,
         pagedJumpRequest = pagedJumpRequest,
+        jumpToPlainOffset = jumpToPlainOffset,
         txtStreamingDocumentState = docLoad.txtStreamingDocumentState,
         txtStreamingFileIndexState = docLoad.txtStreamingFileIndexState,
         autoPagingActiveState = holders.autoPagingActiveState,
@@ -244,6 +331,7 @@ internal fun ReaderSessionEffects(
         tts = tts,
         showTts = screenState.showTts,
         isTxt = isTxt,
+        isMarkdown = markdownDocument != null,
         plainContent = plainContent,
         txtStreamingDocument = txtStreamingDocument,
         visiblePlainOffset = visiblePlainOffset,

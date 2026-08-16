@@ -26,6 +26,22 @@ class ReaderTapActionTest {
         assertEquals(ReaderTapAction.NEXT_PAGE, action(450f, 950f, "five-zone"))
     }
 
+    @Test fun centerZoneTogglesControlsInEveryTapZoneMode() {
+        listOf("three-zone", "five-zone", "unknown-mode").forEach { mode ->
+            assertEquals(
+                "mode=$mode center should toggle controls",
+                ReaderTapAction.TOGGLE_CONTROLS,
+                action(450f, 500f, mode),
+            )
+        }
+    }
+
+    @Test fun fiveZoneCenterVerticalBandStillTogglesControls() {
+        // five-zone 只把顶/底 12% 划给翻页；中央竖带（含 25%/75% 高度）仍是唤出。
+        assertEquals(ReaderTapAction.TOGGLE_CONTROLS, action(450f, 250f, "five-zone"))
+        assertEquals(ReaderTapAction.TOGGLE_CONTROLS, action(450f, 750f, "five-zone"))
+    }
+
     @Test fun unavailablePageDoesNothingInsteadOfHidingControls() {
         assertEquals(ReaderTapAction.NONE, action(100f, canPrevious = false))
         assertEquals(ReaderTapAction.NONE, action(800f, canNext = false))

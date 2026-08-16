@@ -19,10 +19,8 @@ import androidx.compose.material3.SheetState
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,7 +46,6 @@ import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
-import com.creationreadingassistant.feature.reader.doc.ReadingUnitCache
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
@@ -60,6 +57,7 @@ import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
+import com.creationreadingassistant.ui.viewmodel.PendingTxtRuleAnchor
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
@@ -93,9 +91,15 @@ internal data class ReaderScreenMutableHolders(
     val runtimeErrorState: MutableState<String?>,
     val pendingInitialPositionState: MutableState<Boolean>,
     val txtTocRuleIdState: MutableState<String>,
-    val pendingTxtRuleAnchorOffsetState: MutableIntState,
+    val pendingTxtRuleAnchorState: MutableState<PendingTxtRuleAnchor?>,
     val navFocusBlockIndexState: MutableState<Int?>,
     val pendingHighlightIdState: MutableState<String?>,
+    /**
+     * 搜索滚动聚焦的一次性请求（P1 修复）：与 navFocusBlockIndexState（SE4
+     * 高亮/笔记恢复等非搜索用途）分离，按书 remember，切书自动清空；
+     * ReaderContentHost 消费后经回调 ack 清空。
+     */
+    val searchScrollFocusRequestState: MutableState<SearchScrollFocusRequest?>,
 )
 
 /**
@@ -117,17 +121,21 @@ internal fun rememberReaderScreenMutableHolders(
     val runtimeErrorState = remember(bookId) { mutableStateOf<String?>(null) }
     val pendingInitialPositionState = remember(bookId) { mutableStateOf(true) }
     val txtTocRuleIdState = remember(bid) { mutableStateOf(txtTocRuleIdFromVm) }
-    val pendingTxtRuleAnchorOffsetState = remember { mutableIntStateOf(-1) }
+    // P1-A：pending anchor 绑定书会话；切书自动清空，防止旧书锚点被新书扫描消费
+    val pendingTxtRuleAnchorState = remember(bid) { mutableStateOf<PendingTxtRuleAnchor?>(null) }
     val navFocusBlockIndexState = remember { mutableStateOf<Int?>(null) }
     val pendingHighlightIdState = remember { mutableStateOf(highlightId) }
+    // P1：搜索滚动聚焦请求按书持有；切书自动清空，跨书残留由消费侧身份匹配兜底丢弃
+    val searchScrollFocusRequestState = remember(bid) { mutableStateOf<SearchScrollFocusRequest?>(null) }
     return ReaderScreenMutableHolders(
         autoPagingActiveState = autoPagingActiveState,
         runtimeErrorState = runtimeErrorState,
         pendingInitialPositionState = pendingInitialPositionState,
         txtTocRuleIdState = txtTocRuleIdState,
-        pendingTxtRuleAnchorOffsetState = pendingTxtRuleAnchorOffsetState,
+        pendingTxtRuleAnchorState = pendingTxtRuleAnchorState,
         navFocusBlockIndexState = navFocusBlockIndexState,
         pendingHighlightIdState = pendingHighlightIdState,
+        searchScrollFocusRequestState = searchScrollFocusRequestState,
     )
 }
 
@@ -143,6 +151,7 @@ internal fun ReaderScaffold(
     paper: ReaderPaperPalette,
     eyeCareActive: Boolean,
     eyeFilterColor: Color,
+    paperTexture: Boolean,
     readerSettings: ReaderSettings,
     snackbarHost: SnackbarHostState,
     isLoading: Boolean,
@@ -168,6 +177,7 @@ internal fun ReaderScaffold(
     ttsSentenceRangeInChapter: Pair<Int, Int>?,
     focusBlockIndex: Int?,
     sentenceHighlightBg: Color,
+    searchHighlightBg: Color,
     epubBringRequester: BringIntoViewRequester,
     isTxt: Boolean,
     tts: TtsController,
@@ -184,6 +194,7 @@ internal fun ReaderScaffold(
     callbacks: ReaderScreenCallbacks,
     settingsVm: SettingsViewModel,
     sheetState: SheetState,
+    searchSession: BookSearchSession,
     // ── 可变状态 holder 包（块内写操作落回 ReaderScreen 的真实状态）──
     holders: ReaderScreenMutableHolders,
 ) {
@@ -207,7 +218,6 @@ internal fun ReaderScaffold(
     val chapterStartOffsets = derived.chapterStartOffsets
     val chapterTitles = derived.chapterTitles
     val readingUnits = derived.readingUnits
-    val unitCache = derived.unitCache
 
     val pagerEngineOn = pagerEngine.pagerEngineOn
     val pagedJumpRequest = pagerEngine.pagedJumpRequest
@@ -240,8 +250,7 @@ internal fun ReaderScaffold(
     var pagedPercent by pagedPercentState
     var pendingInitialPosition by holders.pendingInitialPositionState
     var txtTocRuleId by holders.txtTocRuleIdState
-    var pendingTxtRuleAnchorOffset by holders.pendingTxtRuleAnchorOffsetState
-    var navFocusBlockIndex by holders.navFocusBlockIndexState
+    var pendingTxtRuleAnchor by holders.pendingTxtRuleAnchorState
     var pendingHighlightId by holders.pendingHighlightIdState
 
     // B2：弹层/控件类 UI 状态直接只读消费 VM 的 screenState（唯一真源），不再持有本地副本。
@@ -256,14 +265,20 @@ internal fun ReaderScaffold(
     val showReaderOverflow = screenState.showReaderOverflow
     val showColorRow = screenState.showColorRow
     val searchQuery = screenState.searchQuery
+    // 搜索命中临时高亮（全书字符区间，含首不含尾）；随 currentTarget 变化，null = 无高亮
+    val searchHitRangeAbs = searchSession.currentTarget?.let {
+        it.absoluteRange.first to it.absoluteRange.last + 1
+    }
 
     ReaderPaperTheme(paper) {
     Scaffold(
         modifier = Modifier.drawWithContent {
             drawContent()
             if (eyeCareActive) {
+                // 滤镜色来自色温设置（EyeCareSchedule.rgbForKelvin）：暖色 Multiply 叠层，
+                // alpha 由强度控制；此前误用 paper.fg 导致色温滑条无视觉效果。
                 drawRect(
-                    color = paper.fg,
+                    color = eyeFilterColor,
                     alpha = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f,
                     blendMode = BlendMode.Multiply,
                 )
@@ -292,11 +307,12 @@ internal fun ReaderScaffold(
         ) {
             // 纸张层次：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在纸色之上、正文之下；
             // 守对比度红线——绝不改 paper.fg，纹理 alpha≤0.04，亮/暗纸自适应。
+            // 噪点纹理受外观设置「纸张纹理」开关控制（渐变恒在）。
             Box(
                 Modifier
                     .fillMaxSize()
                     .background(Brush.verticalGradient(listOf(lerp(paper.bg, Color.White, 0.04f), lerp(paper.bg, Color.Black, 0.03f))))
-                    .background(PaperNoise.brush(), alpha = 0.04f),
+                    .then(if (paperTexture) Modifier.background(PaperNoise.brush(), alpha = 0.04f) else Modifier),
             )
             when {
                 isLoading || error != null -> ReaderDocumentStatus(
@@ -318,6 +334,7 @@ internal fun ReaderScaffold(
                             paper = paper,
                             paperFg = paperFg,
                             sentenceHighlightBg = sentenceHighlightBg,
+                            searchHighlightBg = searchHighlightBg,
                         ),
                         selection = ReaderSelectionState(
                             selectedText = selectedText,
@@ -343,7 +360,7 @@ internal fun ReaderScaffold(
                         ),
                         source = ReaderContentSourceState(
                             bid = bid,
-                            txtTocRuleId = txtTocRuleId,
+                            txtTocProfileKey = inputs.ruleSnapshot.effectiveTocProfile.key,
                             bookTitle = bookTitle,
                             chapterStartOffsets = chapterStartOffsets,
                             txtStreamingDocument = txtStreamingDocument,
@@ -366,8 +383,9 @@ internal fun ReaderScaffold(
                             isTxt = isTxt,
                             showTts = showTts,
                             tts = tts,
-                            unitCache = unitCache,
                             highlights = highlights,
+                            searchHitRangeAbs = searchHitRangeAbs,
+                            searchScrollFocusRequest = holders.searchScrollFocusRequestState.value,
                         ),
                     ),
                 callbacks = buildReaderContentHostCallbacks(
@@ -378,6 +396,9 @@ internal fun ReaderScaffold(
                     onAutoPagingActiveChange = { autoPagingActive = it },
                     goToChapter = goToChapter,
                     showNotice = showNotice,
+                    onSearchScrollFocusRequestConsumed = {
+                        holders.searchScrollFocusRequestState.value = null
+                    },
                     ),
                 )
             }
@@ -392,6 +413,7 @@ internal fun ReaderScaffold(
                     showTts = showTts,
                     showReaderOverflow = showReaderOverflow,
                     autoPagingActive = autoPagingActive,
+                    autoPageSpeed = readerSettings.autoPageSpeed,
                     progressPercent = progressPercent,
                     bookTitle = bookTitle,
                     currentChapterTitle = currentChapterTitle,
@@ -416,6 +438,11 @@ internal fun ReaderScaffold(
                     handleChromeAction = handleChromeAction,
                     seekToChapterPercent = seekToPercent,
                     goToChapter = goToChapter,
+                    onAutoPageSpeedChange = { speed ->
+                        settingsVm.updateReader {
+                            copy(autoPageSpeed = clampAutoPageSpeed(speed))
+                        }
+                    },
                     computeLocatorJson = computeLocatorJson,
                     showNotice = showNotice,
                 ),
@@ -426,6 +453,7 @@ internal fun ReaderScaffold(
             ReaderSheetHost(
                 sheet = sheet,
                 sheetState = sheetState,
+                searchSession = searchSession,
                 paper = paper,
                 inputs = inputs,
                 callbacks = callbacks,
@@ -433,6 +461,7 @@ internal fun ReaderScaffold(
                 state = buildReaderSheetHostState(
                     epubBook = epubBook,
                     epubDocument = epubDocument,
+                    markdownDocument = markdownDocument,
                     txtStreamingDocument = txtStreamingDocument,
                     plainContent = plainContent,
                     chapterIndex = chapterIndex,
@@ -460,6 +489,7 @@ internal fun ReaderScaffold(
                     bookIndex = bookIndex,
                     txtTocRuleId = txtTocRuleId,
                     txtRulePreviews = txtRulePreviews,
+                    txtRuleScanStatus = inputs.txtRuleScanStatus,
                     recentChapters = recentChapters,
                     appDark = appDark,
                 ),
@@ -470,9 +500,6 @@ internal fun ReaderScaffold(
                     textContent = textContent,
                     txtStreamingDocument = txtStreamingDocument,
                     bid = bid,
-                    pagerEngineOn = pagerEngineOn,
-                    plainContent = plainContent,
-                    chapterStartOffsets = chapterStartOffsets,
                     bookTitle = bookTitle,
                     highlights = highlights,
                     context = context,
@@ -483,16 +510,14 @@ internal fun ReaderScaffold(
                     recentChapters = recentChapters,
                     pagedJumpRequest = pagedJumpRequest,
                     onTxtTocRuleIdChange = { txtTocRuleId = it },
-                    onPendingTxtRuleAnchorOffsetChange = { pendingTxtRuleAnchorOffset = it },
-                    onNavFocusBlockIndexChange = { navFocusBlockIndex = it },
+                    onPendingTxtRuleAnchorOffsetChange = { pendingTxtRuleAnchor = it },
                     onPendingHighlightIdChange = { pendingHighlightId = it },
                     goToChapter = goToChapter,
                     seekToPercent = seekToPercent,
                     jumpToPlainOffset = jumpToPlainOffset,
                     showNotice = showNotice,
-                    onLoadChapterBlocks = onLoadChapterBlocks,
                     onAction = onAction,
-                    scope = scope,
+                    onCancelTxtScan = { onAction(ReaderAction.CancelTxtTocScan) },
                 ),
             )
         }

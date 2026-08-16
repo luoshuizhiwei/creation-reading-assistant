@@ -38,6 +38,7 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.io.File
@@ -74,7 +75,7 @@ fun SettingsSection(
     ) {
         Text(
             text = title,
-            style = MaterialTheme.typography.titleSmall,
+            style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         if (description != null) {

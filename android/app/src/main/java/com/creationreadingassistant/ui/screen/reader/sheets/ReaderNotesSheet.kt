@@ -1,5 +1,9 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
+import android.content.Intent
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -36,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.HighlightEntity
@@ -48,11 +53,14 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NotesSheet(
     paper: ReaderPaperPalette,
+    bookTitle: String,
     highlights: List<HighlightEntity>,
     notes: List<NoteEntity>,
     inspirations: List<InspirationEntity>,
@@ -65,11 +73,47 @@ internal fun NotesSheet(
     onHighlightToInspiration: (HighlightEntity) -> Unit,
     onJumpToHighlight: (HighlightEntity) -> Unit,
     onJumpToBookmark: (NoteEntity) -> Unit,
-    onExportHighlights: () -> Unit,
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
     var noteDraft by remember { mutableStateOf("") }
     val reducedMotion = rememberReducedMotion()
+    val context = LocalContext.current
+
+    // SAF 写文件导出：点击时先固定导出内容，系统对话框返回 uri 后写出。
+    var pendingExportMarkdown by remember { mutableStateOf<String?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri ->
+        val markdown = pendingExportMarkdown
+        pendingExportMarkdown = null
+        if (uri == null || markdown == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                os.write(markdown.toByteArray(Charsets.UTF_8))
+            } ?: throw IllegalStateException("无法写入目标文件")
+        }.onSuccess {
+            Toast.makeText(context, "已导出笔记", Toast.LENGTH_SHORT).show()
+        }.onFailure {
+            Toast.makeText(context, "导出失败：${it.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    fun currentExportMarkdown(): String = buildNotesExportMarkdown(
+        bookTitle = bookTitle,
+        highlights = highlights,
+        notes = notes,
+        inspirations = inspirations,
+        exportedAt = LocalDateTime.now(),
+    )
+
+    fun shareExport() {
+        val intent = Intent(Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》阅读笔记")
+            putExtra(Intent.EXTRA_TEXT, currentExportMarkdown())
+        }
+        runCatching { context.startActivity(Intent.createChooser(intent, "分享阅读笔记")) }
+    }
 
     if (editingNote != null) {
         GlassAlertDialog(
@@ -96,8 +140,14 @@ internal fun NotesSheet(
     ReaderSheetScaffold(
         title = "笔记与标注",
         trailing = {
-            if (highlights.isNotEmpty()) {
-                TextButton(onClick = onExportHighlights) { Text("导出") }
+            if (highlights.isNotEmpty() || notes.isNotEmpty() || inspirations.isNotEmpty()) {
+                Row {
+                    TextButton(onClick = { shareExport() }) { Text("分享") }
+                    TextButton(onClick = {
+                        pendingExportMarkdown = currentExportMarkdown()
+                        exportLauncher.launch(notesExportFileName(bookTitle, LocalDateTime.now()))
+                    }) { Text("导出") }
+                }
             }
         },
     ) {
@@ -245,4 +295,82 @@ internal fun ReaderNoteDialog(
             TextButton(onClick = onDismiss) { Text("取消") }
         },
     )
+}
+
+// ============================== 导出 ==============================
+
+/** 导出时间戳格式（文件名与文档头共用，保持一致）。 */
+private val EXPORT_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
+
+/** SAF 建议文件名：`《书名》笔记-yyyyMMdd-HHmm.md`，非法文件名字符替换为下划线。 */
+internal fun notesExportFileName(bookTitle: String, now: LocalDateTime): String {
+    val safeTitle = bookTitle.replace(Regex("""[\\/:*?"<>|]"""), "_").ifBlank { "未命名" }
+    val stamp = now.format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
+    return "《${safeTitle}》笔记-$stamp.md"
+}
+
+/**
+ * 组装全书阅读笔记的 Markdown 导出内容：书摘（按章节分组，含批注）、
+ * 笔记、书签、灵感四节；空节整体省略。纯函数，JVM 单测锁定结构。
+ */
+internal fun buildNotesExportMarkdown(
+    bookTitle: String,
+    highlights: List<HighlightEntity>,
+    notes: List<NoteEntity>,
+    inspirations: List<InspirationEntity>,
+    exportedAt: LocalDateTime,
+): String = buildString {
+    appendLine("# 《${bookTitle.ifBlank { "未命名" } }》阅读笔记")
+    appendLine()
+    appendLine("> 导出于 ${exportedAt.format(EXPORT_TIME_FORMAT)}")
+    appendLine()
+
+    if (highlights.isNotEmpty()) {
+        appendLine("## 书摘（共 ${highlights.size} 条）")
+        appendLine()
+        highlights.groupBy { it.chapter_title ?: "" }.toSortedMap().forEach { (chapter, items) ->
+            appendLine("### ${if (chapter.isBlank()) "未分类" else chapter}")
+            appendLine()
+            items.forEachIndexed { i, h ->
+                appendLine("${i + 1}. ${h.text}")
+                h.note?.takeIf { it.isNotBlank() }?.let { appendLine("   批注：$it") }
+            }
+            appendLine()
+        }
+    }
+
+    val plainNotes = notes.filter { it.kind != "bookmark" }
+    if (plainNotes.isNotEmpty()) {
+        appendLine("## 笔记（共 ${plainNotes.size} 条）")
+        appendLine()
+        plainNotes.forEach { n ->
+            appendLine("- **${n.title}**${if (n.body.isNotBlank()) "：${n.body}" else ""}")
+            n.excerpt?.takeIf { it.isNotBlank() }?.let { appendLine("  > 摘录：$it") }
+        }
+        appendLine()
+    }
+
+    val bookmarks = notes.filter { it.kind == "bookmark" }
+    if (bookmarks.isNotEmpty()) {
+        appendLine("## 书签（共 ${bookmarks.size} 条）")
+        appendLine()
+        bookmarks.forEach { b ->
+            appendLine("- ${b.title}")
+            b.excerpt?.takeIf { it.isNotBlank() }?.let { appendLine("  > ${it}") }
+        }
+        appendLine()
+    }
+
+    if (inspirations.isNotEmpty()) {
+        appendLine("## 灵感（共 ${inspirations.size} 条）")
+        appendLine()
+        inspirations.forEach { ins ->
+            appendLine("### ${ins.title}")
+            appendLine()
+            if (ins.body.isNotBlank()) {
+                appendLine(ins.body)
+                appendLine()
+            }
+        }
+    }
 }

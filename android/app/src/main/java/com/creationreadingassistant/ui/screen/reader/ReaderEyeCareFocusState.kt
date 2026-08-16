@@ -18,6 +18,16 @@ import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 
 /**
+ * 统一搜索命中高亮底色（P1-B）：TXT 滚动、EPUB 滚动、legacy 分页、分页引擎与
+ * Markdown 全部从这一来源取色，随纸 5 色批注「黄」@0.18（正文对比度 AA），
+ * 与 TTS 句高亮（[ttsSentenceHighlightColor]）语义区分，避免无法辨认。
+ */
+internal fun searchHighlightColor(paper: ReaderPaperPalette): Color = paper.highlight("yellow")
+
+/** TTS 朗读句高亮底色（统一来源）：accent @0.22，与搜索命中高亮区分。 */
+internal fun ttsSentenceHighlightColor(paper: ReaderPaperPalette): Color = paper.accent.copy(alpha = 0.22f)
+
+/**
  * B3 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 主函数抽出的
  * 「护眼调度 / 朗读句高亮 / 块全局偏移 / TTS 句定位 / 滚动焦点块」派生状态组。
  *
@@ -32,6 +42,8 @@ internal data class ReaderEyeCareFocusState(
     val eyeCareActive: Boolean,
     val eyeFilterColor: Color,
     val sentenceHighlightBg: Color,
+    /** 统一搜索命中高亮底色（随纸自适应，供所有格式/分页/滚动共用）。 */
+    val searchHighlightBg: Color,
     val chapterBase: Int,
     val blockGlobalOffsets: List<Int>,
     val ttsSentenceRangeInChapter: Pair<Int, Int>?,
@@ -69,7 +81,9 @@ internal fun rememberReaderEyeCareFocusState(
     val eyeFilterColor = Color(eyeRgb.first, eyeRgb.second, eyeRgb.third)
 
     // 朗读句高亮背景色（与 TXT 保持一致）：跟随纸张强调色（§4.3 accent @0.22）。
-    val sentenceHighlightBg = paper.accent.copy(alpha = 0.22f)
+    val sentenceHighlightBg = ttsSentenceHighlightColor(paper)
+    // 搜索命中高亮与 TTS 句高亮语义区分（P1-B），全部格式共用同一来源。
+    val searchHighlightBg = searchHighlightColor(paper)
 
     // T1/T2：当前章节各渲染块在全书文本中的全局偏移；以及 TTS 当前句在章节内的定位
     val chapterBase = chapterStartOffsets.getOrElse(chapterIndex) { 0 }
@@ -100,6 +114,7 @@ internal fun rememberReaderEyeCareFocusState(
         eyeCareActive = eyeCareActive,
         eyeFilterColor = eyeFilterColor,
         sentenceHighlightBg = sentenceHighlightBg,
+        searchHighlightBg = searchHighlightBg,
         chapterBase = chapterBase,
         blockGlobalOffsets = blockGlobalOffsets,
         ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,

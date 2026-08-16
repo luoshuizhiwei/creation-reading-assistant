@@ -145,6 +145,15 @@ fun Modifier.listItemEnter(
 }
 
 /**
+ * 错落入场（基于序号的渐进延迟）。语义同 [listItemEnter]，仅以「错落」命名表达意图，便于阅读。
+ * 用于区块 / 卡片的依次淡入，消除"整块啪出现"的生硬感。尊重 reducedMotion。
+ */
+fun Modifier.staggerEnter(
+    index: Int,
+    reducedMotion: Boolean = false,
+): Modifier = listItemEnter(index, reducedMotion)
+
+/**
  * 数字滚动（count-up）。返回随动画推进的整数，调用方负责格式化显示。
  *
  * @param target 目标值；变化时从上一个值平滑过渡到新值（如切换统计周期时重新滚动）。

@@ -21,6 +21,8 @@ data class EpubBook(
     val localUri: String,
     /** 解析时落盘的缓存 epub 路径，供按章懒加载正文块。 */
     val cachedEpubPath: String,
+    /** 封面图片的 zip 条目路径（OPF meta / cover-image 解析所得），无封面为 null。 */
+    val coverEntryPath: String? = null,
 )
 
 /**

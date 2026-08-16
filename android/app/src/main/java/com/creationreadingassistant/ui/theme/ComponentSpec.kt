@@ -105,8 +105,12 @@ fun CardContainer.resolve(): Color {
 // ── 单套主题（默认外壳）的组件规格 ──
 
 /**
- * 默认「墨韵·素笺」：扁平 + 1px 发丝线 + 无投影 + 克制小圆角。
- * 与现有视觉完全一致，不引入任何新观感。圆角刻意压到 14dp，明显区别于 Apple 的大圆角。
+ * 默认「墨韵·素笺」：1px 发丝线 + 轻投影 + 中性纸感玻璃 + 克制小圆角。
+ *
+ * ⚠️ 2026-08-11 用户明确批准覆盖 2026-07-28 设计冻结（[docs/WorkBuddy/theme_visual_plan.md]）：
+ * 此前为「扁平 + 无投影」的冻结态；本次为提质感（层级阴影 + 表面材质）主动开启
+ * `cardElevation`(1dp) / `cardElevationAmbient`(2dp) 与 `glassEnabled`(true)。
+ * 改动仅此一处、可一处回退；阴影为静态 GPU 合成零逐帧开销，不影响流畅度。
  */
 val DefaultComponentSpec = ComponentSpec(
     cardRadius = 18.dp,
@@ -123,9 +127,9 @@ val DefaultComponentSpec = ComponentSpec(
     pressScale = 0.96f,
     bounceStiffness = Spring.StiffnessMedium,
     bounceDamping = Spring.DampingRatioMediumBouncy,
-    cardElevation = 0.dp,
-    cardElevationAmbient = 0.dp,
-    glassEnabled = false,
+    cardElevation = 1.dp,
+    cardElevationAmbient = 2.dp,
+    glassEnabled = true,
     glassTint = 1f,
     borderWidth = 1.dp,
     borderSubtle = true,

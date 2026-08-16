@@ -42,6 +42,7 @@ import com.creationreadingassistant.ui.theme.SealMark
  * @param showBadge      是否显示格式角标
  * @param showSheen      是否显示斜向实体书高光
  * @param fallback       无封面时的回退内容
+ * @param overlay        覆盖在最上层的内容槽（如「已收藏」状态印章），由调用方自行定位
  */
 @Composable
 fun BookCover(
@@ -53,6 +54,7 @@ fun BookCover(
     showBadge: Boolean = true,
     showSheen: Boolean = true,
     fallback: @Composable BoxScope.() -> Unit,
+    overlay: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
     val hasImage = !book.cover_data_url.isNullOrBlank()
@@ -119,5 +121,7 @@ fun BookCover(
                     .padding(4.dp),
             )
         }
+        // 调用方叠加层（如「已收藏」状态印章），画在所有内置层之上。
+        overlay?.invoke(this)
     }
 }

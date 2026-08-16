@@ -3,11 +3,13 @@ package com.creationreadingassistant.ui.screen.reader.sheets
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
-import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.HorizontalDivider
@@ -34,7 +36,9 @@ internal fun ReaderSheetScaffold(
         modifier = modifier
             .fillMaxWidth()
             .fillMaxHeight(0.92f)
-            .navigationBarsPadding()
+            // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
+            // 三键导航下为 0，不产生空白系统栏）。
+            .windowInsetsPadding(WindowInsets.mandatorySystemGestures)
             .imePadding(),
     ) {
         Row(

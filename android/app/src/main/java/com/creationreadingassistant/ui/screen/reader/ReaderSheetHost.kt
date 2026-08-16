@@ -17,6 +17,7 @@ import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.InspirationSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ProgressSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.RulesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SearchSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
@@ -29,6 +30,8 @@ import com.creationreadingassistant.feature.reader.locator.EpubLocatorMapping
 import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
+import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
+import com.creationreadingassistant.ui.viewmodel.matchesSession
 
 /**
  * 弹层所需文档内容与章节信息（B1 状态袋分组：文档域）。
@@ -36,6 +39,7 @@ import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 internal data class ReaderSheetDocumentState(
     val epubBook: EpubBook?,
     val epubDocument: ReaderDocument?,
+    val markdownDocument: ReaderDocument?,
     val txtStreamingDocument: PlainTextDocument?,
     val plainContent: String,
     val chapterIndex: Int,
@@ -49,6 +53,7 @@ internal data class ReaderSheetDocumentState(
     val bookIndex: BookIndex?,
     val txtTocRuleId: String,
     val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
+    val txtRuleScanStatus: TxtRuleScanStatus?,
 )
 
 /**
@@ -122,10 +127,9 @@ internal data class ReaderSheetHostCallbacks(
     val onClearSelectedText: () -> Unit,
     val onPickChapter: (Int) -> Unit,
     val onTxtRule: (String) -> Unit,
-    val onSearchJump: (BookSearchResult) -> Unit,
+    val onCancelTxtScan: () -> Unit,
     val onJumpToHighlight: (String) -> Unit,
     val onJumpToBookmark: (String) -> Unit,
-    val onExportHighlights: () -> Unit,
     val onSaveAiExplainInspiration: (body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onSaveInspiration: (title: String, body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onCreateCategory: (String) -> String,
@@ -144,6 +148,7 @@ internal data class ReaderSheetHostCallbacks(
 internal fun ReaderSheetHost(
     sheet: ReaderSheet?,
     sheetState: SheetState,
+    searchSession: BookSearchSession,
     paper: ReaderPaperPalette,
     inputs: ReaderScreenInputs,
     callbacks: ReaderScreenCallbacks,
@@ -172,13 +177,34 @@ internal fun ReaderSheetHost(
                     totalChapters = state.document.epubBook?.chapters?.size ?: state.document.txtChapterTitles.size,
                     onPick = sheetCallbacks.onPickChapter,
                     txtRules = if (state.document.isTxt) TxtChapterDetector.rules else emptyList(),
-                    selectedTxtRule = state.document.txtTocRuleId,
+                    // P1-A：选中态从 Room 生效目录身份（profile.key）推导；
+                    // 多规则组合（指纹 key）不命中任何单选 chip，显示为空。
+                    selectedTxtRule = inputs.ruleSnapshot.effectiveTocProfile.key
+                        .takeIf { key -> TxtChapterDetector.rules.any { it.id == key } }
+                        .orEmpty(),
                     txtRulePreviews = state.document.txtRulePreviews,
+                    txtRuleScanStatus = state.document.txtRuleScanStatus?.takeIf { it.matchesSession(bid) },
+                    bookmarks = inputs.notes.filter { it.kind == "bookmark" },
+                    onPickBookmark = { bm -> sheetCallbacks.onJumpToBookmark(bm.id) },
                     onTxtRule = sheetCallbacks.onTxtRule,
+                    onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
+                    onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
+                )
+
+                ReaderSheet.RULES -> RulesSheet(
+                    snapshot = inputs.ruleSnapshot,
+                    previewText = state.document.contentText,
+                    mutationResult = inputs.ruleMutationResult,
+                    onCommand = { callbacks.onAction(ReaderAction.ExecuteRuleCommand(bid, it)) },
+                    onBack = {
+                        callbacks.onAction(ReaderAction.ClearRuleMutationResult)
+                        callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.TOC))
+                    },
                 )
 
                 ReaderSheet.NOTES -> NotesSheet(
                     paper = paper,
+                    bookTitle = state.bookMeta.bookTitle,
                     highlights = inputs.highlights,
                     notes = inputs.notes,
                     inspirations = inputs.inspirations,
@@ -231,7 +257,6 @@ internal fun ReaderSheetHost(
                     },
                     onJumpToHighlight = { h -> sheetCallbacks.onJumpToHighlight(h.id) },
                     onJumpToBookmark = { n -> sheetCallbacks.onJumpToBookmark(n.id) },
-                    onExportHighlights = sheetCallbacks.onExportHighlights,
                 )
 
                 ReaderSheet.AI_ASSIST -> AiAssistSheet(
@@ -298,17 +323,21 @@ internal fun ReaderSheetHost(
                 )
 
                 ReaderSheet.SEARCH -> SearchSheet(
-                    document = state.document.epubDocument,
+                    document = state.document.epubDocument ?: state.document.markdownDocument,
                     txtDocument = state.document.txtStreamingDocument,
                     plainContent = state.document.plainContent,
                     chapterStartOffsets = state.document.chapterStartOffsets,
                     chapterTitles = state.document.chapterTitles,
                     totalChars = state.document.bookIndex?.totalChars
-                        ?: state.document.txtStreamingDocument?.totalChars ?: 0,
+                        ?: state.document.txtStreamingDocument?.totalChars
+                        ?: state.document.markdownDocument?.totalChars
+                        ?: 0,
                     isTxt = state.document.isTxt,
                     query = state.ui.searchQuery,
                     onQueryChange = sheetCallbacks.onSearchQueryChange,
-                    onJump = sheetCallbacks.onSearchJump,
+                    session = searchSession,
+                    // 点击具体搜索结果：选中后关闭 Sheet，让正文命中可见（上一处/下一处留在 Sheet 内）
+                    onResultSelected = { sheetCallbacks.onDismiss() },
                 )
 
                 ReaderSheet.BOOK_INFO -> BookInfoSheet(

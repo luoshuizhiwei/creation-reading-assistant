@@ -1,46 +1,43 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
-import com.creationreadingassistant.feature.reader.doc.ReadingUnitBuilder
-import com.creationreadingassistant.feature.reader.doc.ReadingUnitCache
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 
 /**
  * Phase 7 结构拆分：[rememberReaderDerivedState] 的返回值。
  *
  * 仅暴露下游 [com.creationreadingassistant.ui.screen.ReaderScreen] 仍需消费的纯派生值
- * （chapterStartOffsets / chapterTitles / readingUnits / unitCache）。
+ * （chapterStartOffsets / chapterTitles / readingUnits）。
  * `plainChunks` 为兼容遗留字段，当前未消费，保留在原位不迁移。
  */
 internal data class ReaderDerivedState(
     val chapterStartOffsets: List<Int>,
     val chapterTitles: List<String>,
     val readingUnits: List<ReadingUnit>,
-    val unitCache: ReadingUnitCache,
 )
 
 /**
  * Phase 7 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 抽出的「纯计算派生状态」
- * 逻辑（原 L365-402 的 chapterStartOffsets / chapterTitles / readingUnits / unitCache 块）。
+ * 逻辑（原 L365-402 的 chapterStartOffsets / chapterTitles / readingUnits 块）。
  *
- * 包含：chapterStartOffsets / chapterTitles（val 派生）、readingUnits（remember 计算 +
- * 同步到 PlainTextDocument 的 LaunchedEffect）、unitCache（remember 构造）。
+ * 包含：chapterStartOffsets / chapterTitles（val 派生）、readingUnits（身份绑定裁决，
+ * 只读，不再写回 document）。
  *
- * ## 行为保真
+ * ## readingUnits 的单一真相
  *
- * 每个 `remember` / `LaunchedEffect` 逐字搬运自 ReaderScreen，不改任何 key 与参数。本函数是
- * ReaderScreen 组合树内的子组合，effect 组合位置与原文一致，生命周期完全等价。
+ * 流式 TXT 的 units 由文档构造层（[PlainTextDocument.fromFileIndex]）在构造时构建，
+ * 文档到达组合层即已就绪（首帧可用）。组合层通过 [ReadingUnitsResolver] 只读裁决：
+ * - 文档在场 → 使用文档自有 units（同帧 TxtChapterSource / 搜索 / 滚动读到同一份）；
+ * - 文档缺席（小文件 plainContent）→ 使用 chunkPlainText 派生的 units。
  *
- * ## 注意
- *
- * `txtStreamingDocument?.readingUnits = readingUnits` 的写入发生在 LaunchedEffect 内（首帧后），
- * 与原位写法语义一致；readingUnits 的 remember key（plainContent / txtStreamingDocument /
- * txtStreamingFileIndex）保持不变。
+ * 原实现（remember 计算块内 `txtStreamingDocument?.readingUnits = readingUnits`）在
+ * composition 期间修改可变文档状态，已移除：首帧就绪不再依赖该写副作用，文档切换 /
+ * units 替换由文档实例身份天然绑定，不会读旧快照。派生 remember 的 key（plainContent /
+ * txtStreamingDocument / txtStreamingFileIndex）保持原样。
  */
 @Suppress("LongParameterList")
 @Composable
@@ -61,40 +58,34 @@ internal fun rememberReaderDerivedState(
         ?: markdownDocument?.chapters?.map { it.title }
         ?: txtStreamingDocument?.chapters?.map { it.title }
         ?: emptyList()
-    // 读取单元：惰性加载的元数据列表，不持有文本
-    val readingUnits: List<ReadingUnit> = remember(plainContent, txtStreamingDocument, txtStreamingFileIndex) {
-        when {
-            txtStreamingDocument != null -> {
-                ReadingUnitBuilder.buildUnits(txtStreamingDocument!!.chapters, txtStreamingFileIndex)
+    // 读取单元：惰性加载的元数据列表，不持有文本。
+    // 流式 TXT 的单一真相在文档构造层（fromFileIndex 构造时构建），组合层只读查询，
+    // 不在 composition 期间写回 document；小文件路径由 chunkPlainText 派生
+    // （remember key 保持原样：plainContent / txtStreamingDocument / txtStreamingFileIndex）。
+    val externallyDerivedUnits = remember(plainContent, txtStreamingDocument, txtStreamingFileIndex) {
+        if (txtStreamingDocument == null && plainContent.isNotEmpty()) {
+            // 小文件：复用现有 chunkPlainText 的结果
+            chunkPlainText(plainContent).mapIndexed { i, chunk ->
+                ReadingUnit(
+                    unitIndex = i,
+                    chapterIndex = 0,
+                    title = "全文",
+                    charStart = chunk.startOffset,
+                    charCount = chunk.text.length,
+                )
             }
-            plainContent.isNotEmpty() -> {
-                // 小文件：复用现有 chunkPlainText 的结果
-                chunkPlainText(plainContent).mapIndexed { i, chunk ->
-                    ReadingUnit(
-                        unitIndex = i,
-                        chapterIndex = 0,
-                        title = "全文",
-                        charStart = chunk.startOffset,
-                        charCount = chunk.text.length,
-                    )
-                }
-            }
-            else -> emptyList()
+        } else {
+            emptyList()
         }
     }
-    // 将 readingUnits 同步到 PlainTextDocument，供 unitIndexForOffset 等方法使用
-    LaunchedEffect(txtStreamingDocument, readingUnits) {
-        txtStreamingDocument?.readingUnits = readingUnits
-    }
-    // LRU 缓存：流式模式下缓存已解码的 ReadingUnit 文本（最多 5 个）
-    val unitCache = remember(txtStreamingDocument) {
-        ReadingUnitCache()
-    }
-
+    val readingUnits: List<ReadingUnit> = ReadingUnitsResolver.resolve(
+        document = txtStreamingDocument,
+        documentOwnedUnits = txtStreamingDocument?.readingUnits ?: emptyList(),
+        externallyDerivedUnits = externallyDerivedUnits,
+    )
     return ReaderDerivedState(
         chapterStartOffsets = chapterStartOffsets,
         chapterTitles = chapterTitles,
         readingUnits = readingUnits,
-        unitCache = unitCache,
     )
 }

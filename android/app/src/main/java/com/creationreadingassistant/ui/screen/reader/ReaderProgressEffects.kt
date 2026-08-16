@@ -7,6 +7,8 @@ import androidx.compose.runtime.MutableFloatState
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.State
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
@@ -107,11 +109,10 @@ internal fun ReaderProgressEffects(
     onExtractChapterText: suspend (String, Int) -> String,
 ) {
     // 本次阅读计时（对照 web useReaderSession.activeReadingMs）
+    val currentIsLoading = rememberUpdatedState(isLoading)
+    val currentError = rememberUpdatedState(error)
     LaunchedEffect(bid) {
-        while (true) {
-            delay(1000)
-            if (!isLoading && error == null) activeReadingMsState.longValue += 1000
-        }
+        trackActiveReadingTime(currentIsLoading, currentError, activeReadingMsState)
     }
 
     // 阅读提醒：护眼提醒 + 阅读节奏提示（对照 web useReaderReminders）
@@ -376,5 +377,21 @@ internal fun ReaderProgressEffects(
             }
         }
         pendingHighlightIdState.value = null
+    }
+}
+
+/**
+ * 读取 State-holder 而非组合时的值，保证长生命周期的计时协程会响应加载与错误状态变更。
+ */
+internal suspend fun trackActiveReadingTime(
+    isLoadingState: State<Boolean>,
+    errorState: State<String?>,
+    activeReadingMsState: MutableLongState,
+) {
+    while (true) {
+        delay(1_000)
+        if (!isLoadingState.value && errorState.value == null) {
+            activeReadingMsState.longValue += 1_000
+        }
     }
 }

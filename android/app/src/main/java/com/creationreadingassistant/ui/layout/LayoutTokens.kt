@@ -3,7 +3,11 @@ package com.creationreadingassistant.ui.layout
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
@@ -66,11 +70,32 @@ data class LayoutTokens(
     val wideScreenBreakpoint: Dp = 600.dp,
     /** 断言 320dp 小屏时仍应显示的内容宽度（水平 padding × 2 的余量）。 */
     val compactScreenMinWidth: Dp = 320.dp,
+    /**
+     * 内容最大宽度（宽屏居中用）。≥ [wideScreenBreakpoint] 时，页面主体内容约束在此宽度内并水平居中，
+     * 避免平板/折叠屏上文字与控件被拉得过宽。窄屏不约束。
+     */
+    val contentMaxWidth: Dp = 720.dp,
 )
 
 val DefaultLayoutTokens = LayoutTokens()
 
 val LocalLayoutTokens = staticCompositionLocalOf { DefaultLayoutTokens }
+
+/**
+ * 宽屏居中：把内容约束在 [contentMaxWidth] 内并水平居中。
+ *
+ * 用法：在页面主体内容（Column / 卡片列表）的最外层 `Modifier` 上调用，
+ * 配合满宽父容器即可在平板 / 折叠屏上获得居中的阅读栏宽，窄屏下退化为满宽。
+ *
+ * ```kotlin
+ * Column(Modifier.fillMaxWidth().maxContentWidth()) { ... }
+ * ```
+ */
+fun Modifier.maxContentWidth(
+    maxWidth: Dp = DefaultLayoutTokens.contentMaxWidth,
+): Modifier = this
+    .widthIn(max = maxWidth)
+    .wrapContentWidth(Alignment.CenterHorizontally)
 
 // —————————————————————————————————————————————————————————————————
 // PaddingValues 纯函数工具（可在 JVM 单测中直接调用）

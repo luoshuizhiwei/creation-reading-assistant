@@ -179,6 +179,23 @@ class PagedReaderController(
         }
     }
 
+    /**
+     * 终止此 controller 派生出的排版和预取工作。
+     *
+     * 宿主会在 source / 配置 / ruler 变化导致 controller 重建时调用；否则旧实例会继续
+     * 占用后台线程，并可能保留未结束的首屏 trace。
+     */
+    fun close() {
+        layoutJob?.cancel()
+        layoutJob = null
+        prefetchJob?.cancel()
+        prefetchJob = null
+        if (firstPageReadyTraceActive) {
+            endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
+            firstPageReadyTraceActive = false
+        }
+    }
+
     fun nextPage() {
         val l = layout ?: return
         when {

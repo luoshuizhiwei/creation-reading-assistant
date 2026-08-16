@@ -18,24 +18,23 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
-import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
-import com.creationreadingassistant.feature.reader.doc.ReadingUnitCache
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
+import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
+import com.creationreadingassistant.ui.viewmodel.PendingTxtRuleAnchor
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.launch
+import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
 import java.util.UUID
 
 /**
@@ -85,6 +84,7 @@ internal fun buildReaderContentHostCallbacks(
     onAutoPagingActiveChange: (Boolean) -> Unit,
     goToChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
+    onSearchScrollFocusRequestConsumed: () -> Unit,
 ): ReaderContentHostCallbacks = ReaderContentHostCallbacks(
     onPagedPositionChanged = { off, pct, chapterToGo ->
         onPagedAbsOffsetChange(off)
@@ -93,7 +93,8 @@ internal fun buildReaderContentHostCallbacks(
         if (chapterToGo != null) goToChapter(chapterToGo)
     },
     onToggleControls = { onAction(ReaderAction.ToggleControls()) },
-    onHideControls = { onAction(ReaderAction.ToggleControls(false)) },
+    // 翻页后立即隐藏菜单：走状态机 PageTurn，与 autoHideSeconds 是否 0 无关。
+    onHideControls = { onAction(ReaderAction.PageTurn) },
     onSelect = { text, globalOffset, rangeStart ->
         onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset))
     },
@@ -103,6 +104,7 @@ internal fun buildReaderContentHostCallbacks(
     },
     onStopAutoPaging = { onAutoPagingActiveChange(false) },
     onGoToChapter = { goToChapter(it) },
+    onSearchScrollFocusRequestConsumed = onSearchScrollFocusRequestConsumed,
 )
 
 /**
@@ -116,6 +118,7 @@ internal fun buildReaderInteractionLayerState(
     showTts: Boolean,
     showReaderOverflow: Boolean,
     autoPagingActive: Boolean,
+    autoPageSpeed: Int,
     progressPercent: Float,
     bookTitle: String,
     currentChapterTitle: String,
@@ -133,6 +136,7 @@ internal fun buildReaderInteractionLayerState(
     showTts = showTts,
     showReaderOverflow = showReaderOverflow,
     autoPagingActive = autoPagingActive,
+    autoPageSpeed = autoPageSpeed,
     progressPercent = progressPercent,
     bookTitle = bookTitle,
     currentChapterTitle = currentChapterTitle,
@@ -170,6 +174,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     handleChromeAction: (ReaderChromeAction) -> Unit,
     seekToChapterPercent: (Float) -> Unit,
     goToChapter: (Int) -> Unit,
+    onAutoPageSpeedChange: (Int) -> Unit,
     computeLocatorJson: () -> String?,
     showNotice: (String) -> Unit,
 ): ReaderInteractionLayerCallbacks = ReaderInteractionLayerCallbacks(
@@ -178,6 +183,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     onSeekChapterPercent = { seekToChapterPercent(it) },
     onPrevChapter = { goToChapter(chapterIndex - 1) },
     onNextChapter = { goToChapter(chapterIndex + 1) },
+    onAutoPageSpeedChange = onAutoPageSpeedChange,
     onPersistTts = { p, v, id, t ->
         settingsVm.updateReader {
             copy(
@@ -235,6 +241,7 @@ internal fun buildReaderInteractionLayerCallbacks(
 internal fun buildReaderSheetHostState(
     epubBook: EpubBook?,
     epubDocument: ReaderDocument?,
+    markdownDocument: ReaderDocument?,
     txtStreamingDocument: PlainTextDocument?,
     plainContent: String,
     chapterIndex: Int,
@@ -262,6 +269,7 @@ internal fun buildReaderSheetHostState(
     bookIndex: BookIndex?,
     txtTocRuleId: String,
     txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
+    txtRuleScanStatus: TxtRuleScanStatus?,
     recentChapters: SnapshotStateList<Int>,
     appDark: Boolean,
 ): ReaderSheetHostState = ReaderSheetHostState(
@@ -269,6 +277,7 @@ internal fun buildReaderSheetHostState(
     document = ReaderSheetDocumentState(
         epubBook = epubBook,
         epubDocument = epubDocument,
+        markdownDocument = markdownDocument,
         txtStreamingDocument = txtStreamingDocument,
         plainContent = plainContent,
         chapterIndex = chapterIndex,
@@ -282,6 +291,7 @@ internal fun buildReaderSheetHostState(
         bookIndex = bookIndex,
         txtTocRuleId = txtTocRuleId,
         txtRulePreviews = txtRulePreviews,
+        txtRuleScanStatus = txtRuleScanStatus,
     ),
     bookMeta = ReaderSheetBookMetaState(
         bookTitle = bookTitle,
@@ -308,18 +318,20 @@ internal fun buildReaderSheetHostState(
 )
 
 /**
- * 构造底部弹层分发所需的回调集合。`onPickChapter` / `onTxtRule` / `onSearchJump` /
+ * 构造底部弹层分发所需的回调集合。`onPickChapter` / `onTxtRule` /
  * `onExportHighlights` / `onSaveAiExplainInspiration` / `onSaveInspiration` /
  * `onCreateCategory` / `onCreateTag` 的完整逻辑体逐字搬运：
  * - `recentChapters` 直接传 [SnapshotStateList] 引用，`.add/.remove` 保持原行为；
  * - `pagedJumpRequest` 直接传 [MutableState] 引用，`.value =` 写保持原行为；
- * - `onSearchJump` 的 `scope.launch { onLoadChapterBlocks(...) }` 与
- *   [blockIndexForChapterOffset] 调用保持原样。
  *
  * B2：原对本地副本 var 的 setter 写入改走 [ReaderAction]：onSheetChange(null) →
  * CloseSheet，onSheetChange(x) → OpenSheet(x)，onSearchQueryChange → SetSearchQuery，
  * onSaveInspiration 尾部的 onSelectedTextChange("") → ClearSelection（选区已消费完毕，
  * 附带重置偏移/showColorRow 无可观测差异）。
+ *
+ * 搜索跳转已从本层移除：命中选择/上一处/下一处由 SearchSheet 直接驱动
+ * BookSearchSession（ReaderScreen 持有的 seam），统一 target 的消费在
+ * SearchHitNavigationEffect（reader/ReaderSearchEffects.kt）完成，不再在此拼 offset。
  */
 @Suppress("LongParameterList")
 internal fun buildReaderSheetHostCallbacks(
@@ -329,9 +341,6 @@ internal fun buildReaderSheetHostCallbacks(
     textContent: ReaderLoadedContent.Text?,
     txtStreamingDocument: PlainTextDocument?,
     bid: String,
-    pagerEngineOn: Boolean,
-    plainContent: String,
-    chapterStartOffsets: List<Int>,
     bookTitle: String,
     highlights: List<HighlightEntity>,
     context: Context,
@@ -342,16 +351,14 @@ internal fun buildReaderSheetHostCallbacks(
     recentChapters: SnapshotStateList<Int>,
     pagedJumpRequest: MutableState<Int?>,
     onTxtTocRuleIdChange: (String) -> Unit,
-    onPendingTxtRuleAnchorOffsetChange: (Int) -> Unit,
-    onNavFocusBlockIndexChange: (Int?) -> Unit,
+    onPendingTxtRuleAnchorOffsetChange: (PendingTxtRuleAnchor) -> Unit,
     onPendingHighlightIdChange: (String?) -> Unit,
     goToChapter: (Int) -> Unit,
     seekToPercent: (Float) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
     showNotice: (String) -> Unit,
-    onLoadChapterBlocks: suspend (String, Int) -> List<DocBlock>,
     onAction: (ReaderAction) -> Unit,
-    scope: CoroutineScope,
+    onCancelTxtScan: () -> Unit,
 ): ReaderSheetHostCallbacks = ReaderSheetHostCallbacks(
     onDismiss = { onAction(ReaderAction.CloseSheet) },
     onOpenSettings = { onAction(ReaderAction.OpenSheet(ReaderSheet.SETTINGS)) },
@@ -375,37 +382,14 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.CloseSheet)
     },
     onTxtRule = { ruleId ->
-        val anchorOffset = visiblePlainOffset
         onTxtTocRuleIdChange(ruleId)
-        val streamingTempFilePath = textContent?.ownedTempFile?.absolutePath
-        if (txtStreamingDocument != null && streamingTempFilePath != null) {
-            onPendingTxtRuleAnchorOffsetChange(anchorOffset)
-            onAction(ReaderAction.ScanTxtTocRule(streamingTempFilePath!!, ruleId))
-        } else {
-            pagedJumpRequest.value = anchorOffset
-        }
+        // P1-A：快速单选收敛到 Room（单一状态源）。归一化绑定后由统一的
+        // 重扫策略（TxtRuleRescanPolicy）按新 profile.key 重新识别当前 TXT，
+        // 保留当前 source 绝对偏移；这里不再直接发起扫描，避免与 Room 身份分叉。
+        onAction(ReaderAction.ExecuteRuleCommand(bid, RuleCommand.SelectSingleTocRule(ruleId)))
         onAction(ReaderAction.SaveTxtTocRule(bid, ruleId))
     },
-    onSearchJump = { result ->
-        if (result.chapterIndex >= 0 && epubBook != null) {
-            goToChapter(result.chapterIndex)
-            val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex) { 0 } +
-                result.charOffset
-            if (pagerEngineOn) {
-                pagedJumpRequest.value = globalOffset
-            } else {
-                scope.launch {
-                    val blocks = onLoadChapterBlocks(bid, result.chapterIndex)
-                    onNavFocusBlockIndexChange(blockIndexForChapterOffset(blocks, result.charOffset))
-                }
-            }
-        } else if (plainContent.isNotEmpty() || txtStreamingDocument != null) {
-            val globalOffset = chapterStartOffsets.getOrElse(result.chapterIndex.coerceAtLeast(0)) { 0 } +
-                result.charOffset
-            jumpToPlainOffset(globalOffset)
-        }
-        onAction(ReaderAction.CloseSheet)
-    },
+    onCancelTxtScan = onCancelTxtScan,
     onJumpToHighlight = { id ->
         onPendingHighlightIdChange(id)
         onAction(ReaderAction.CloseSheet)
@@ -415,23 +399,8 @@ internal fun buildReaderSheetHostCallbacks(
         onPendingHighlightIdChange(id)
         onAction(ReaderAction.CloseSheet)
     },
-    onExportHighlights = {
-        val sb = StringBuilder()
-        sb.appendLine("# 《${bookTitle}》书摘")
-        highlights.groupBy { it.chapter_title ?: "" }.forEach { (chapter, items) ->
-            sb.appendLine()
-            sb.appendLine("## ${if (chapter.isBlank()) "未分类" else chapter}")
-            items.forEachIndexed { i, h ->
-                sb.appendLine("${i + 1}. ${h.text}")
-                h.note?.takeIf { it.isNotBlank() }?.let { sb.appendLine("   批注：$it") }
-            }
-        }
-        val intent = Intent(Intent.ACTION_SEND)
-        intent.type = "text/plain"
-        intent.putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》书摘")
-        intent.putExtra(Intent.EXTRA_TEXT, sb.toString())
-        context.startActivity(Intent.createChooser(intent, "导出书摘"))
-    },
+    // 书摘/笔记/书签/灵感的导出（SAF 写 .md + 分享）已内聚在 NotesSheet，
+    // 不再经由回调上抛组装。
     onSaveAiExplainInspiration = { body, tags, categoryIds ->
         val snapshotText = selectedText
         onAction(

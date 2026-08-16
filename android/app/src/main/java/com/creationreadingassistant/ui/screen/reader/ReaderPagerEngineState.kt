@@ -19,7 +19,9 @@ import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
+import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
+import com.creationreadingassistant.feature.reader.doc.TxtTocProfile
 import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
 import com.creationreadingassistant.feature.reader.pager.MarkdownChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
@@ -81,8 +83,9 @@ internal fun rememberPagerEngineState(
     error: String?,
     textContent: ReaderLoadedContent.Text?,
     plainContent: String,
-    txtTocRuleId: String,
+    tocProfile: TxtTocProfile,
     txtStreamingDocument: PlainTextDocument?,
+    readingUnits: List<ReadingUnit>,
 ): PagerEngineState {
     // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
     val configuredPagerMode = if (epubBook != null) {
@@ -114,21 +117,22 @@ internal fun rememberPagerEngineState(
 
     // TXT 章节识别：此前 TXT 完全没有章节概念，目录永远是「暂未识别到目录」。
     // P0 优化：优先使用 ReaderDocumentLoader 在 IO 线程预检测的结果，避免阻塞主线程。
-    // 规则 ID 不匹配（用户在目录面板切换了规则）或预检测为空时 fallback 到同步检测。
-    val txtChapters = remember(plainContent, txtTocRuleId, txtStreamingDocument, textContent) {
+    // P1-A：身份改为 TxtTocProfile.key —— 规则集合 / 顺序 / 内容变化后 key 变化，
+    // 旧预检测不匹配即回退同步检测（极少触发）。
+    val txtChapters = remember(plainContent, tocProfile.key, txtStreamingDocument, textContent) {
         val streamDoc = txtStreamingDocument
         if (epubBook == null && streamDoc != null) {
             streamDoc.chapters
         } else if (epubBook == null && plainContent.isNotBlank()) {
             val preDetected = textContent?.preDetectedChapters
             val preRule = textContent?.preDetectedRuleId
-            if (!preDetected.isNullOrEmpty() && preRule == txtTocRuleId) {
+            if (!preDetected.isNullOrEmpty() && preRule == tocProfile.key) {
                 // 快速路径：使用 IO 线程预检测结果，不阻塞主线程
                 preDetected
             } else {
                 // Fallback：规则切换或预检测缺失，同步检测（极少触发）
-                AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, ruleId=$txtTocRuleId, preRule=$preRule")
-                PlainTextDocument(plainContent, txtTocRuleId).chapters
+                AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, key=${tocProfile.key}, preRule=$preRule")
+                PlainTextDocument(plainContent, tocProfile).chapters
             }
         } else {
             emptyList()
@@ -157,6 +161,7 @@ internal fun rememberPagerEngineState(
         plainContent,
         txtChapters,
         txtStreamingDocument,
+        readingUnits,
         markdownDocument,
     ) {
         val index = bookIndex
