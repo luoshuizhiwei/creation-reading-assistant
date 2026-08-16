@@ -5,6 +5,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.SettingsStore
@@ -41,18 +42,21 @@ internal fun TtsResumeEffect(
     bookId: String,
     settingsStore: SettingsStore,
     isEpub: Boolean,
+    isMarkdown: Boolean,
     chapterIndex: Int,
     onResumeOffsetChanged: (Int) -> Unit,
     onResumeChapterChanged: (Int) -> Unit,
 ) {
     val bid = bookId
+    // P1-B：长生命周期 onSentence 回调读取最新章号，跨章朗读不再保存旧章
+    val currentChapterIndex by rememberUpdatedState(chapterIndex)
     LaunchedEffect(bid) {
         val r = runCatching { settingsStore.loadTtsResume() }.getOrNull()
         onResumeOffsetChanged(if (r?.bookId == bid) r.offset else 0)
         onResumeChapterChanged(if (r?.bookId == bid) r.chapterIndex else -1)
         tts.onSentence = { start, _ ->
             onResumeOffsetChanged(start)
-            val resumeChapter = if (isEpub) chapterIndex else -1
+            val resumeChapter = ttsResumeChapterFor(isEpub, isMarkdown, currentChapterIndex)
             onResumeChapterChanged(resumeChapter)
             launch(Dispatchers.IO) {
                 runCatching { settingsStore.saveTtsResume(bid, resumeChapter, start) }
@@ -69,6 +73,7 @@ internal fun TtsReaderSyncEffect(
     tts: TtsController,
     showTts: Boolean,
     isTxt: Boolean,
+    isMarkdown: Boolean,
     plainContent: String,
     txtStreamingDocument: PlainTextDocument?,
     visiblePlainOffset: Int,
@@ -82,20 +87,113 @@ internal fun TtsReaderSyncEffect(
     LaunchedEffect(tts.status, tts.currentSentenceRange) {
         if (showTts && tts.status != "idle") {
             val start = tts.currentSentenceRange.first
-            if (isTxt && (plainContent.isNotEmpty() || txtStreamingDocument != null)) {
-                val ttsTotalLen = txtStreamingDocument?.totalChars ?: plainContent.length
-                // 流式 TXT：contentText 是 readWindowAround(visiblePlainOffset, 0, 8000) 的窗口
-                // currentSentenceRange 是窗口内偏移，加 visiblePlainOffset 转全书偏移
-                val ttsBase = if (txtStreamingDocument != null) {
-                    visiblePlainOffset
-                } else 0
-                val globalStart = ttsBase + start
-                if (globalStart in 0 until ttsTotalLen) {
-                    jumpToPlainOffset(globalStart)
-                }
-            } else if (pagerEngineOn && isEpub) {
-                pagedJumpTo(chapterStartOffsets.getOrElse(chapterIndex) { 0 } + start)
+            val target = ttsFollowGlobalOffset(
+                isTxt = isTxt,
+                isMarkdown = isMarkdown,
+                isEpub = isEpub,
+                pagerEngineOn = pagerEngineOn,
+                plainContent = plainContent,
+                txtStreamingDocument = txtStreamingDocument,
+                visiblePlainOffset = visiblePlainOffset,
+                sentenceStart = start,
+                chapterStartOffsets = chapterStartOffsets,
+                chapterIndex = chapterIndex,
+            ) ?: return@LaunchedEffect
+            if (isTxt) {
+                // 兼容旧路径：TXT 小文件/流式窗口统一经 jumpToPlainOffset（内部处理分页/滚动）
+                jumpToPlainOffset(target)
+            } else {
+                pagedJumpTo(target)
             }
         }
     }
+}
+
+/**
+ * 章末自动接续（听书连续朗读）：末句播完且仍有后章时翻到下一章，章正文就绪后
+ * 从头继续朗读；末章播完或朗读已关闭时不动作（保持「读完即停」）。
+ *
+ * 实现要点：[TtsController.onFinished] 只负责翻章；重播等 [contentReady] 变为
+ * true（新章加载完成）再触发，避免对加载中的空文本发起朗读。
+ */
+@Composable
+internal fun TtsAutoNextChapterEffect(
+    tts: TtsController,
+    showTts: Boolean,
+    chapterIndex: Int,
+    chapterCount: Int,
+    contentReady: Boolean,
+    goToChapter: (Int) -> Unit,
+    replayTts: () -> Unit,
+) {
+    val advancing = remember { mutableStateOf(false) }
+    val latestChapterIndex by rememberUpdatedState(chapterIndex)
+    val latestChapterCount by rememberUpdatedState(chapterCount)
+    LaunchedEffect(tts, showTts) {
+        tts.onFinished = if (showTts) {
+            {
+                if (latestChapterIndex < latestChapterCount - 1) {
+                    advancing.value = true
+                    goToChapter(latestChapterIndex + 1)
+                }
+            }
+        } else {
+            null
+        }
+    }
+    LaunchedEffect(contentReady, chapterIndex) {
+        if (advancing.value && contentReady) {
+            advancing.value = false
+            replayTts()
+        }
+    }
+}
+
+/** 跨会话续读应保存的章号：EPUB / Markdown 按章跟踪，TXT 保持无章号语义。 */
+internal fun ttsResumeChapterFor(
+    isEpub: Boolean,
+    isMarkdown: Boolean,
+    chapterIndex: Int,
+): Int = if (isEpub || isMarkdown) chapterIndex else -1
+
+/**
+ * 打开 TTS 时的续读起点：TXT 沿用「始终用保存偏移」的既有语义；
+ * EPUB / Markdown 的朗读文本以章为单位，只有保存章与当前章一致时才使用偏移。
+ */
+internal fun ttsResumeStartAt(
+    isEpub: Boolean,
+    isMarkdown: Boolean,
+    ttsResumeChapter: Int,
+    chapterIndex: Int,
+    ttsResumeOffset: Int,
+): Int = if ((!isEpub && !isMarkdown) || ttsResumeChapter == chapterIndex) ttsResumeOffset else 0
+
+/**
+ * 把 TTS 当前句在播放文本中的偏移映射回全书偏移；无法映射返回 null。
+ * - TXT 小文件：播放文本即全文，偏移即全局；
+ * - 流式 TXT：播放文本是可见位置窗口，偏移需加窗口基址；
+ * - EPUB / Markdown 分页：播放文本是当前章规范文本，偏移需加章起始偏移。
+ */
+internal fun ttsFollowGlobalOffset(
+    isTxt: Boolean,
+    isMarkdown: Boolean,
+    isEpub: Boolean,
+    pagerEngineOn: Boolean,
+    plainContent: String,
+    txtStreamingDocument: PlainTextDocument?,
+    visiblePlainOffset: Int,
+    sentenceStart: Int,
+    chapterStartOffsets: List<Int>,
+    chapterIndex: Int,
+): Int? {
+    if (isTxt && (plainContent.isNotEmpty() || txtStreamingDocument != null)) {
+        val ttsTotalLen = txtStreamingDocument?.totalChars ?: plainContent.length
+        val ttsBase = if (txtStreamingDocument != null) visiblePlainOffset else 0
+        val globalStart = ttsBase + sentenceStart
+        return if (globalStart in 0 until ttsTotalLen) globalStart else null
+    }
+    if (pagerEngineOn && (isEpub || isMarkdown)) {
+        return chapterStartOffsets.getOrElse(chapterIndex) { 0 } + sentenceStart
+    }
+    return null
 }

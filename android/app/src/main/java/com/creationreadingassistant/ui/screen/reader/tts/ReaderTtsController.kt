@@ -32,13 +32,37 @@ import java.util.Locale
  * 句级续读（R3）：暂停记忆当前句索引，恢复从当前句续读；跨会话续读通过外部持久化句首偏移实现
  * （见 ReaderScreen 中的 ttsResumeOffset / SettingsStore.saveTtsResume）。
  */
-internal class TtsController(context: Context) {
+internal class TtsController(context: Context) : TtsStatus {
     private val appContext = context.applicationContext
     private val audioManager = appContext.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager
     private val handler = android.os.Handler(android.os.Looper.getMainLooper())
     private var tts: TextToSpeech? = null
-    var isReady by mutableStateOf(false)
-    var status by mutableStateOf("idle") // idle / playing / paused
+    private val statusHolder = TtsStatusHolder()
+
+    /** 引擎可用性（Compose 可观察），透传 [TtsStatusHolder]。 */
+    override val availability: TtsAvailability get() = statusHolder.availability
+    /** 播放态（Compose 可观察）。 */
+    override val playback: TtsPlayback get() = statusHolder.playback
+    override val errorSeq: Int get() = statusHolder.errorSeq
+    override fun consumeError(): TtsFailure? = statusHolder.consumeError()
+
+    /**
+     * 用户主动打开听书但引擎不可用：发布一次可消费错误（snackbar 带去设置）。
+     * 由 [TtsNoticePolicy] 决策调用（ReinitializeWithNotice 分支）。
+     */
+    fun notifyUnavailable() {
+        statusHolder.notifyUnavailable(MSG_INIT_FAILED)
+    }
+
+    /** 兼容旧读取方：引擎是否已就绪。 */
+    val isReady: Boolean get() = availability is TtsAvailability.Ready
+    /** 兼容旧读取方：idle / playing / paused。 */
+    val status: String
+        get() = when (playback) {
+            TtsPlayback.Idle -> "idle"
+            TtsPlayback.Playing -> "playing"
+            TtsPlayback.Paused -> "paused"
+        }
     var progressPercent by mutableFloatStateOf(0f)
     var rate by mutableFloatStateOf(1f)
     var pitch by mutableFloatStateOf(1f)
@@ -50,6 +74,12 @@ internal class TtsController(context: Context) {
     var currentSentenceRange by mutableStateOf(0 to 0)
     /** 句变化回调：用于高亮/滚动与跨会话续读持久化（R2/R3）。 */
     var onSentence: ((offset: Int, end: Int) -> Unit)? = null
+    /**
+     * 末句播完回调（听书连续朗读）：播放文本全部读完时触发一次，调用方据此翻到
+     * 下一章继续朗读；不设置或返回后不再播放时保持原「读完即停」行为。
+     * 触发时播放态已置 idle，重播需调用方重新 [play]。
+     */
+    var onFinished: (() -> Unit)? = null
     private var sentences: List<Pair<String, Int>> = emptyList() // (句文本, 句首偏移)
     private var index = 0
     private var originalVolume = -1
@@ -61,7 +91,7 @@ internal class TtsController(context: Context) {
             tts?.language = Locale.CHINESE
             tts?.setOnUtteranceProgressListener(object : UtteranceProgressListener() {
                 override fun onStart(utteranceId: String?) {
-                    status = "playing"
+                    statusHolder.markPlaying()
                     media.updateState(PlaybackState.STATE_PLAYING)
                 }
 
@@ -70,27 +100,50 @@ internal class TtsController(context: Context) {
                         index += 1
                         speakCurrent()
                     } else {
-                        status = "idle"
+                        statusHolder.markIdle()
                         progressPercent = 100f
                         media.updateState(PlaybackState.STATE_STOPPED)
                         media.hideNotification()
                         clearTimedStop()
+                        restoreVolume()
+                        onFinished?.invoke()
                     }
                 }
 
+                @Suppress("DEPRECATION")
                 override fun onError(utteranceId: String?) {
-                    status = "idle"
-                    media.updateState(PlaybackState.STATE_STOPPED)
-                    media.hideNotification()
+                    failPlayback(MSG_ENGINE_ERROR)
+                }
+
+                override fun onError(utteranceId: String?, errorCode: Int) {
+                    failPlayback(MSG_ENGINE_ERROR)
                 }
             })
             availableVoices = tts?.voices?.toList() ?: emptyList()
-            isReady = true
+            statusHolder.onInitSuccess()
+        } else {
+            statusHolder.onInitFailure(MSG_INIT_FAILED)
+        }
+    }
+
+    // 拔出耳机/断开蓝牙时自动暂停（AUDIO_BECOMING_NOISY），避免朗读突然外放。
+    // 系统广播不受 exported 标志影响；NOT_EXPORTED 拒绝其他 App 伪造同名广播。
+    private val noisyReceiver = object : BroadcastReceiver() {
+        override fun onReceive(c: Context?, intent: Intent?) {
+            if (intent?.action == android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY && status == "playing") {
+                pause()
+            }
         }
     }
 
     init {
         tts = TextToSpeech(appContext, initListener)
+        ContextCompat.registerReceiver(
+            appContext,
+            noisyReceiver,
+            IntentFilter(android.media.AudioManager.ACTION_AUDIO_BECOMING_NOISY),
+            ContextCompat.RECEIVER_NOT_EXPORTED,
+        )
     }
 
     /** 媒体通知「播放」：仅暂停态可续读；空闲态（无文本）不动作。 */
@@ -98,15 +151,20 @@ internal class TtsController(context: Context) {
         if (status == "paused") resume()
     }
 
-    fun play(text: String, bookTitle: String = "", chapterLabel: String = "朗读", startOffset: Int = 0) {
+    fun play(text: String, bookTitle: String = "", chapterLabel: String = "朗读", startOffset: Int = 0): TtsPlayResult {
+        when (val gate = statusHolder.gatePlay()) {
+            is TtsPlayResult.Rejected -> return gate
+            is TtsPlayResult.Accepted -> Unit
+        }
         sentences = splitSentencesWithOffsets(text)
-        if (sentences.isEmpty()) return
+        if (sentences.isEmpty()) return TtsPlayResult.Rejected("当前没有可朗读的文字。")
         index = sentences.indexOfFirst { it.second >= startOffset }.coerceAtLeast(0)
         media.updateMetadata(chapterLabel.ifBlank { "朗读" }, bookTitle.ifBlank { "创作阅读助手" })
         media.updateState(PlaybackState.STATE_PLAYING)
         media.showNotification()
         speakCurrent()
         scheduleTimedStop()
+        return TtsPlayResult.Accepted
     }
 
     private fun applyVolume() {
@@ -145,7 +203,23 @@ internal class TtsController(context: Context) {
             tts?.voices?.firstOrNull { it.name == voiceId }?.let { tts?.setVoice(it) }
         }
         applyVolume()
-        tts?.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "tts-$index")
+        val engine = tts
+        if (engine == null) {
+            failPlayback(MSG_ENGINE_ERROR)
+            return
+        }
+        try {
+            engine.speak(sentence, TextToSpeech.QUEUE_FLUSH, null, "tts-$index")
+        } catch (e: Exception) {
+            AppLog.w("Tts", "speak failed: ${e.message}")
+            failPlayback(MSG_ENGINE_ERROR)
+        }
+    }
+
+    /** 引擎错误统一出口：发布一次用户可消费错误并完全停止播放态（同 [stop]）。 */
+    private fun failPlayback(message: String) {
+        statusHolder.onEngineError(message)
+        stop()
     }
 
     private fun scheduleTimedStop() {
@@ -187,25 +261,31 @@ internal class TtsController(context: Context) {
     fun pause() {
         clearTimedStop()
         tts?.stop()
-        status = "paused"
+        statusHolder.markPaused()
         media.updateState(PlaybackState.STATE_PAUSED)
         media.showNotification()
     }
 
     fun resume() {
-        if (sentences.isNotEmpty()) {
-            media.updateState(PlaybackState.STATE_PLAYING)
-            media.showNotification()
-            speakCurrent()
-            scheduleTimedStop()
+        if (sentences.isEmpty()) return
+        when (val gate = statusHolder.gatePlay()) {
+            is TtsPlayResult.Rejected -> {
+                statusHolder.publishError(gate.reason)
+                return
+            }
+            is TtsPlayResult.Accepted -> Unit
         }
+        media.updateState(PlaybackState.STATE_PLAYING)
+        media.showNotification()
+        speakCurrent()
+        scheduleTimedStop()
     }
 
     fun stop() {
         clearTimedStop()
         tts?.stop()
         restoreVolume()
-        status = "idle"
+        statusHolder.markIdle()
         progressPercent = 0f
         currentSentenceRange = 0 to 0
         media.updateState(PlaybackState.STATE_STOPPED)
@@ -232,6 +312,27 @@ internal class TtsController(context: Context) {
         restoreVolume()
         tts?.shutdown()
         media.release()
+        runCatching { appContext.unregisterReceiver(noisyReceiver) }
+    }
+
+    /**
+     * 显式重新初始化引擎：init failure / 引擎不可用后的进程内恢复路径（不要求重启 App）。
+     * 关闭旧引擎对象 → 回到 Initializing → 重新创建 TextToSpeech，由 [initListener] 决定
+     * Ready（成功）或 Unavailable（再次失败，可再调本方法重试）。
+     */
+    fun reinitialize() {
+        clearTimedStop()
+        tts?.stop()
+        restoreVolume()
+        tts?.shutdown()
+        statusHolder.reinitialize()
+        media.updateState(PlaybackState.STATE_STOPPED)
+        tts = TextToSpeech(appContext, initListener)
+    }
+
+    companion object {
+        private const val MSG_INIT_FAILED = "系统语音引擎初始化失败，请到系统设置检查文字转语音。"
+        private const val MSG_ENGINE_ERROR = "朗读播放出错，请检查系统语音引擎。"
     }
 }
 

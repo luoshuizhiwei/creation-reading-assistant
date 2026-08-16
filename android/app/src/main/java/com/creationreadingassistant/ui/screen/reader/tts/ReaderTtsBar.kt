@@ -44,6 +44,7 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
+import com.creationreadingassistant.ui.components.SettingSliderRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -59,9 +60,13 @@ internal fun rememberTts(): TtsController {
 }
 
 /**
- * 为单个文本块构造带「当前朗读句」高亮背景的 AnnotatedString（EPUB 逐句高亮，对照 TXT 机制）。
- * [blockGlobalOffset] 为该块在全书文本中的全局偏移；[chapterBase] 为所在章节在全书中的起始偏移，
- * 二者之差即为块在章节内（= TTS contentText）的偏移。
+ * 为单个文本块构造带「当前朗读句」/「搜索命中」高亮背景的 AnnotatedString
+ * （EPUB 逐句高亮，对照 TXT 机制；搜索命中为同一字符空间的临时高亮）。
+ * [blockGlobalOffset] 为该块在全书文本中的全局偏移；[chapterBase] 为所在章节在全书中的起始偏移。
+ * 两个入参的基准不同：TTS 句区间是章内偏移（相对章节 TTS contentText），须按「块在章内偏移」
+ * （= [blockGlobalOffset] - [chapterBase]）换算；[searchRangeAbs] 是搜索命中的全书偏移区间
+ * （含首不含尾，与 [com.creationreadingassistant.ui.screen.reader.SearchHitTarget] 同一基准），
+ * 必须按 [blockGlobalOffset] 换算——旧实现误减章内偏移，导致非首章搜索高亮全部越界。
  */
 internal fun buildSentenceHighlighted(
     text: String,
@@ -69,13 +74,28 @@ internal fun buildSentenceHighlighted(
     chapterBase: Int,
     ttsSentenceRange: Pair<Int, Int>?,
     bg: Color,
+    searchRangeAbs: Pair<Int, Int>? = null,
+    searchBg: Color = bg,
 ): AnnotatedString {
-    if (ttsSentenceRange == null || blockGlobalOffset < 0) return AnnotatedString(text)
-    val s = ttsSentenceRange.first - (blockGlobalOffset - chapterBase)
-    val e = ttsSentenceRange.second - (blockGlobalOffset - chapterBase)
-    if (s < 0 || s >= text.length || e <= s) return AnnotatedString(text)
+    if ((ttsSentenceRange == null && searchRangeAbs == null) || blockGlobalOffset < 0) return AnnotatedString(text)
     return AnnotatedString.Builder(text).apply {
-        addStyle(SpanStyle(background = bg), s, e.coerceAtMost(text.length))
+        ttsSentenceRange?.let { (s0, e0) ->
+            // TTS 句区间：章内偏移 → 块内偏移
+            val blockLocalBase = blockGlobalOffset - chapterBase
+            val s = s0 - blockLocalBase
+            val e = e0 - blockLocalBase
+            if (s >= 0 && s < text.length && e > s) {
+                addStyle(SpanStyle(background = bg), s, e.coerceAtMost(text.length))
+            }
+        }
+        searchRangeAbs?.let { (s0, e0) ->
+            // 搜索命中区间：全书偏移 → 块内偏移
+            val s = s0 - blockGlobalOffset
+            val e = e0 - blockGlobalOffset
+            if (s >= 0 && s < text.length && e > s) {
+                addStyle(SpanStyle(background = searchBg), s, e.coerceAtMost(text.length))
+            }
+        }
     }.toAnnotatedString()
 }
 
@@ -89,8 +109,8 @@ internal fun TtsBar(
     onClose: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
-    val speeds = listOf(0.75f, 1f, 1.25f, 1.5f)
     var showSettings by remember { mutableStateOf(false) }
+    var rateDraft by remember { mutableStateOf(tts.rate) }
     Column(
         Modifier
             .fillMaxWidth()
@@ -146,11 +166,12 @@ internal fun TtsBar(
                 Icon(Icons.Outlined.Stop, contentDescription = "停止")
             }
         }
-        SettingSegmentedRow(
+        SettingSliderRow(
             title = "语速",
-            options = speeds.map { it to "${it}x" },
-            selected = speeds.minByOrNull { kotlin.math.abs(it - tts.rate) } ?: 1f,
-            onSelect = { tts.rate = it },
+            value = rateDraft,
+            valueLabel = "${"%.2f".format(rateDraft)}x",
+            onValueChange = { rateDraft = it; tts.rate = it },
+            valueRange = 0.5f..2f,
             modifier = Modifier.padding(top = layout.microGap),
         )
     }
