@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.ResponseBody.Companion.toResponseBody
@@ -322,6 +323,113 @@ class SyncRepositoryTest {
         // 成功条目不受影响
         coVerify(exactly = 1) { bookDao.upsert(withArg { assertEquals("ok", it.id) }) }
         coVerify(exactly = 1) { inspirationDao.upsert(any()) }
+    }
+
+    // ── push：墓碑删除传播与冲突映射（P1-A7）──────────────────────
+
+    private fun pushOk(vararg conflicts: SyncEnvelope<JsonObject>) = SyncContract.SyncPushResult(
+        ok = true,
+        applied = SyncContract.SyncPushResult.AppliedCount(books = 1),
+        conflicts = conflicts.toList(),
+        manifest = emptyManifest(),
+    )
+
+    @Test
+    fun `push includes deleted records as tombstones`() = runTest {
+        val active = BookEntity(
+            id = "alive", title = "活跃书", format = "txt", revision = 3,
+            updated_at = "2026-06-01T00:00:00Z",
+        )
+        val deleted = BookEntity(
+            id = "gone", title = "已删书", format = "txt", revision = 7,
+            updated_at = "2026-05-01T00:00:00Z", deleted_at = "2026-05-01T00:00:00Z",
+        )
+        every { bookDao.observeAllActive() } returns flowOf(listOf(active))
+        coEvery { bookDao.getDeleted() } returns listOf(deleted)
+        every { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { inspirationDao.getDeleted() } returns emptyList()
+        every { readingProgressDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingProgressDao.getDeleted() } returns emptyList()
+        every { readingSessionDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingSessionDao.getDeleted() } returns emptyList()
+        val payloadSlot = slot<SyncContract.SyncPushPayload>()
+        coEvery { api.push(capture(payloadSlot)) } returns pushOk()
+
+        repository.push()
+
+        val pushed = payloadSlot.captured.books.associateBy { it.id }
+        // 活跃 + 软删除记录都要推送，删除操作才能传播到对端
+        assertEquals(setOf("alive", "gone"), pushed.keys)
+        assertEquals("2026-05-01T00:00:00Z", pushed.getValue("gone").deletedAt)
+        assertEquals(null, pushed.getValue("alive").deletedAt)
+        assertEquals(7, pushed.getValue("gone").revision)
+        verify { configStore.markSyncedAt(any()) }
+    }
+
+    @Test
+    fun `push backfills payload from promoted columns when payload column empty`() = runTest {
+        // 老数据可能没有 payload 真相源列内容；推送前应从提升列回填，避免发空对象
+        val legacy = BookEntity(
+            id = "legacy", title = "旧版书", author = "作者", format = "epub",
+            revision = 1, updated_at = "2026-01-01T00:00:00Z", payload = null,
+        )
+        every { bookDao.observeAllActive() } returns flowOf(listOf(legacy))
+        coEvery { bookDao.getDeleted() } returns emptyList()
+        every { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { inspirationDao.getDeleted() } returns emptyList()
+        every { readingProgressDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingProgressDao.getDeleted() } returns emptyList()
+        every { readingSessionDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingSessionDao.getDeleted() } returns emptyList()
+        val payloadSlot = slot<SyncContract.SyncPushPayload>()
+        coEvery { api.push(capture(payloadSlot)) } returns pushOk()
+
+        repository.push()
+
+        val pushed = payloadSlot.captured.books.single()
+        assertEquals("旧版书", pushed.payload["title"]?.jsonPrimitive?.content)
+        assertEquals("作者", pushed.payload["author"]?.jsonPrimitive?.content)
+        assertEquals("epub", pushed.payload["format"]?.jsonPrimitive?.content)
+    }
+
+    @Test
+    fun `push maps server conflicts to explainable entries`() = runTest {
+        val local = BookEntity(
+            id = "b1", title = "本地书", format = "txt", revision = 2,
+            updated_at = "2026-06-01T00:00:00Z",
+        )
+        every { bookDao.observeAllActive() } returns flowOf(listOf(local))
+        coEvery { bookDao.getDeleted() } returns emptyList()
+        every { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { inspirationDao.getDeleted() } returns emptyList()
+        every { readingProgressDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingProgressDao.getDeleted() } returns emptyList()
+        every { readingSessionDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { readingSessionDao.getDeleted() } returns emptyList()
+        val serverConflict = bookEnvelope("b1", revision = 9, updatedAt = "2026-06-02T00:00:00Z", title = "服务端新版")
+        coEvery { api.push(any()) } returns pushOk(serverConflict)
+
+        val result = repository.push()
+
+        val conflict = result.conflicts.single()
+        assertEquals("book", conflict.type)
+        assertEquals("b1", conflict.id)
+        // 冲突标题取自服务端信封的 payload
+        assertEquals("服务端新版", conflict.title)
+        assertEquals("2026-06-02T00:00:00Z", conflict.remoteUpdatedAt)
+        assertEquals("2026-06-01T00:00:00Z", conflict.localUpdatedAt)
+        assertEquals("服务端保留", conflict.resolution)
+    }
+
+    @Test
+    fun `push without pairing fails with clear message`() = runTest {
+        every { apiProvider.current() } returns null
+
+        val error = runCatching { repository.push() }.exceptionOrNull()
+
+        assertTrue(error is IllegalStateException)
+        assertTrue(error!!.message!!.contains("尚未配对"))
+        coVerify(exactly = 0) { api.push(any()) }
     }
 
     // ── 正文下载：tmp + rename 原子落盘 ──────────────────────────

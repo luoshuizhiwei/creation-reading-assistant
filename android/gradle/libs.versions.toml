@@ -31,6 +31,9 @@ desugarJdkLibs = "2.0.4"
 androidxTestExtJunit = "1.1.5"
 androidxTestRunner = "1.5.2"
 turbine = "1.1.0"
+# JVM 单测里给 XmlPullParserFactory 提供真实现（android.jar 桩只会返回 null）
+kxml2 = "2.3.0"
+xmlpull = "1.1.3.4a"
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
@@ -93,6 +96,8 @@ junit = { group = "junit", name = "junit", version.ref = "junit" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-coroutines-test", version.ref = "coroutinesTest" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+kxml2 = { group = "net.sf.kxml", name = "kxml2", version.ref = "kxml2" }
+xmlpull = { group = "xmlpull", name = "xmlpull", version.ref = "xmlpull" }
 androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-profileinstaller = { group = "androidx.profileinstaller", name = "profileinstaller", version.ref = "profileinstaller" }
 androidx-test-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }

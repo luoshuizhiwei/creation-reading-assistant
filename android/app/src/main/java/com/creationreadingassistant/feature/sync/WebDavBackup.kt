@@ -117,9 +117,18 @@ class WebDavBackup @Inject constructor() {
             val xml = resp.body?.string() ?: throw IllegalStateException("空响应")
             parsePropFind(xml, baseUrl = target)
                 .filter { it.name.endsWith(".json", ignoreCase = true) }
-                .sortedByDescending { it.lastModified }
+                // RFC1123 时间以英文星期缩写开头，字典序 ≠ 时间序；解析成 epoch 再排，失败按 0 兜底
+                .sortedWith(
+                    compareByDescending<BackupFile> { parseHttpDateMillis(it.lastModified) }
+                        .thenByDescending { it.lastModified },
+                )
         }
     }
+
+    /** 解析 `getlastmodified` 的 RFC1123 时间为 epoch millis；无法解析返回 0（视为最旧）。 */
+    private fun parseHttpDateMillis(value: String): Long = runCatching {
+        java.time.Instant.from(DateTimeFormatter.RFC_1123_DATE_TIME.parse(value)).toEpochMilli()
+    }.getOrDefault(0L)
 
     private fun resolveTarget(url: String, filename: String): String {
         val base = if (url.endsWith("/")) url else "$url/"

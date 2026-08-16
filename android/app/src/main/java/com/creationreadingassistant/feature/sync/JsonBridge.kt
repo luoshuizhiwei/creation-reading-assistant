@@ -34,14 +34,19 @@ import javax.inject.Inject
  */
 @Serializable
 data class LocalExport(
-    val schemaVersion: Int = 1,
+    val schemaVersion: Int = CURRENT_SCHEMA_VERSION,
     val exportedAt: String,
     val deviceId: String,
     val books: List<SyncEnvelope<BookEntity>>,
     val inspirations: List<SyncEnvelope<InspirationEntity>>,
     val progress: List<SyncEnvelope<ReadingProgressEntity>>,
     val sessions: List<SyncEnvelope<ReadingSessionEntity>>,
-)
+) {
+    companion object {
+        /** 当前导出结构版本；导入侧拒绝不认识的版本，防止未来 schema 被按旧结构静默导入。 */
+        const val CURRENT_SCHEMA_VERSION = 1
+    }
+}
 
 class JsonBridge @Inject constructor(
     private val bookDao: BookDao,
@@ -113,6 +118,10 @@ class JsonBridge @Inject constructor(
      */
     suspend fun importFromString(context: Context, text: String) = withContext(ioDispatcher) {
         val export = json.decodeFromString<LocalExport>(text)
+        // 未来 schema 演进时在这里按版本分派解析；未知版本宁可拒绝也不能静默按旧结构导入。
+        if (export.schemaVersion != LocalExport.CURRENT_SCHEMA_VERSION) {
+            error("备份格式版本不受支持（schemaVersion=${export.schemaVersion}，当前支持 ${LocalExport.CURRENT_SCHEMA_VERSION}），已拒绝导入")
+        }
 
         bookDao.runInTransaction {
             // 书籍：revision 高者胜；revision 相等时比较 updated_at
