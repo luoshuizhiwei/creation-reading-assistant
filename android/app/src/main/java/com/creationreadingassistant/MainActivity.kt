@@ -28,6 +28,8 @@ import com.creationreadingassistant.ui.onboarding.OnboardingOverlay
 import com.creationreadingassistant.ui.onboarding.isOnboardingCompleted
 import com.creationreadingassistant.ui.theme.AppPalette
 import com.creationreadingassistant.ui.theme.AppTheme
+import com.creationreadingassistant.ui.window.SystemBarsEffect
+import com.creationreadingassistant.ui.window.SystemBarsPolicy
 import dagger.hilt.android.AndroidEntryPoint
 import java.io.File
 import javax.inject.Inject
@@ -59,6 +61,12 @@ class MainActivity : ComponentActivity() {
                     "light" -> false
                     else -> isSystemInDarkTheme()
                 }
+                // 全局系统栏策略 base：普通页显示状态栏、隐藏导航栏（transient swipe）。
+                // 阅读器内部由 SystemBarsEffect 覆盖注册；退出后宿主自动回退本策略。
+                SystemBarsEffect(
+                    policy = SystemBarsPolicy.normal(appDark = darkTheme),
+                    base = true,
+                )
                 AppTheme(
                     darkTheme = darkTheme,
                     palette = AppPalette.fromStored(appearance.colorPalette),
@@ -104,8 +112,18 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean =
-        ReaderHardwareKeys.dispatch(event) || super.onKeyDown(keyCode, event)
+    // 公开稳定 seam：repeat DOWN 会进入 onKeyDown，UP（含系统取消的 FLAG_CANCELED）
+    // 会进入 onKeyUp；按键桥消费后不再交回系统（音量键翻页），否则交回 super
+    // 保证系统音量等默认行为正常。
+    override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
+        if (ReaderHardwareKeys.dispatch(event)) return true
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (ReaderHardwareKeys.dispatch(event)) return true
+        return super.onKeyUp(keyCode, event)
+    }
 
     /** 本次启动失败兜底：直接把异常类型 + 完整栈显示出来。 */
     private fun showErrorScreen(e: Throwable) {
