@@ -937,4 +937,207 @@ class AppDatabaseMigrationTest {
 
         db.close()
     }
+
+    // ─── 8 → 9：新建 reader_text_rules 表 ─────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_8_to_9_creates_reader_text_rules() {
+        // 1. 创建 v8 数据库并插入一本书
+        var db = migrationTestHelper.createDatabase(TEST_DB, 8)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('rule-book', '测试 TXT', '测试作者', 'txt', 'rule.txt', 'hashrule', " +
+                "2048, '/uri/rule', '/content/rule', 'ready', NULL, NULL, " +
+                "'2026-08-01T00:00:00Z', 'device-1', '{}', 1, '2026-08-01T00:00:00Z', NULL)",
+        )
+
+        db.close()
+
+        // 2. 执行迁移 8 → 9
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 9, true, AppDatabase.MIGRATION_8_9,
+        )
+
+        // 3. 验证 books 数据保留
+        val booksCursor = db.query("SELECT title FROM books WHERE id = 'rule-book'")
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("测试 TXT", booksCursor.getString(0))
+        booksCursor.close()
+
+        // 4. 新表存在且可插入全局规则与按书规则
+        db.execSQL(
+            "INSERT INTO reader_text_rules (id, kind, name, pattern, replacement, builtin, " +
+                "enabled, scope, book_id, position, created_at, updated_at) " +
+                "VALUES ('rule-global', 'TOC', '全局目录规则', NULL, '', 0, 1, 'GLOBAL', NULL, 1, " +
+                "1780000000000, 1780000000000)",
+        )
+        db.execSQL(
+            "INSERT INTO reader_text_rules (id, kind, name, pattern, replacement, builtin, " +
+                "enabled, scope, book_id, position, created_at, updated_at) " +
+                "VALUES ('rule-per-book', 'REPLACE', '按书替换', '旧词', '新词', 0, 1, 'PER_BOOK', " +
+                "'rule-book', 2, 1780000000000, 1780000000000)",
+        )
+
+        val rulesCursor = db.query(
+            "SELECT kind, scope, book_id FROM reader_text_rules ORDER BY position",
+        )
+        assertTrue("reader_text_rules 应有数据", rulesCursor.moveToFirst())
+        assertEquals("TOC", rulesCursor.getString(0))
+        assertEquals("GLOBAL", rulesCursor.getString(1))
+        assertTrue("全局规则的 book_id 应为 NULL", rulesCursor.isNull(2))
+        assertTrue("第二条规则应存在", rulesCursor.moveToNext())
+        assertEquals("REPLACE", rulesCursor.getString(0))
+        assertEquals("PER_BOOK", rulesCursor.getString(1))
+        assertEquals("rule-book", rulesCursor.getString(2))
+        rulesCursor.close()
+
+        // 5. 外键存在：PRAGMA foreign_key_list 应包含 book_id → books（ON DELETE CASCADE）
+        val fkCursor = db.query("PRAGMA foreign_key_list('reader_text_rules')")
+        var fkFound = false
+        while (fkCursor.moveToNext()) {
+            val from = fkCursor.getString(fkCursor.getColumnIndexOrThrow("from"))
+            val refTable = fkCursor.getString(fkCursor.getColumnIndexOrThrow("table"))
+            if (from == "book_id" && refTable == "books") {
+                fkFound = true
+                assertEquals(
+                    "CASCADE",
+                    fkCursor.getString(fkCursor.getColumnIndexOrThrow("on_delete")),
+                )
+            }
+        }
+        fkCursor.close()
+        assertTrue("reader_text_rules.book_id 外键应指向 books", fkFound)
+
+        // 6. 四个显式索引存在
+        val expectedIndexes = listOf(
+            "index_reader_text_rules_kind",
+            "index_reader_text_rules_scope",
+            "index_reader_text_rules_book_id",
+            "index_reader_text_rules_position",
+        )
+        for (indexName in expectedIndexes) {
+            val idxCursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type='index' AND name = ?",
+                arrayOf(indexName),
+            )
+            assertTrue("索引 $indexName 应存在", idxCursor.moveToFirst())
+            assertEquals(indexName, idxCursor.getString(0))
+            idxCursor.close()
+        }
+
+        // 7. 级联删除：删除书籍后其按书规则应被清掉
+        db.execSQL("DELETE FROM books WHERE id = 'rule-book'")
+        val orphanCursor = db.query(
+            "SELECT COUNT(*) FROM reader_text_rules WHERE book_id = 'rule-book'",
+        )
+        assertTrue(orphanCursor.moveToFirst())
+        assertEquals(0, orphanCursor.getInt(0))
+        orphanCursor.close()
+
+        db.close()
+    }
+
+    // ─── 1 → 9 完整链路 ────────────────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_1_to_9_full_chain() {
+        // 1. 创建 v1 数据库并插入综合测试数据（仅使用 v1 列定义）
+        var db = migrationTestHelper.createDatabase(TEST_DB, 1)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain9-book', '全链路测试 EPUB', '全链路作者', 'epub', 'chain9.epub', " +
+                "'hashchain9', 4096, '/uri/c9', '/content/c9', 'ready', NULL, " +
+                "'2026-09-01T00:00:00Z', 'device-1', '{}', 1, '2026-09-01T00:00:00Z', NULL)",
+        )
+
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, deleted_at) " +
+                "VALUES ('chain9-book', 42.0, '2026-09-02T00:00:00Z', 3600000, 'in_progress', " +
+                "'{\"chapter\":1}', '{}', 1, 'device-1', '2026-09-02T00:00:00Z', NULL)",
+        )
+
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, locator_json, payload, " +
+                "created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('chain9-hl', 'chain9-book', '全链路高亮', '笔记', 'yellow', " +
+                "'{\"cfi\":\"/2/2\"}', '{}', '2026-09-03T00:00:00Z', 'device-1', 1, " +
+                "'2026-09-03T00:00:00Z', NULL)",
+        )
+
+        db.close()
+
+        // 2. 执行完整迁移链 1 → 9
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 9, true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
+            AppDatabase.MIGRATION_8_9,
+        )
+
+        // 3. 验证 books 数据完好
+        val booksCursor = db.query(
+            "SELECT title, description FROM books WHERE id = 'chain9-book'",
+        )
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("全链路测试 EPUB", booksCursor.getString(0))
+        assertTrue("description 应为 NULL", booksCursor.isNull(1))
+        booksCursor.close()
+
+        // 4. 验证 reading_progress 数据完好
+        val progressCursor = db.query(
+            "SELECT progress_percent, completed_at FROM reading_progress WHERE book_id = 'chain9-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(42.0, progressCursor.getDouble(0), 0.001)
+        assertTrue("completed_at 应为 NULL", progressCursor.isNull(1))
+        progressCursor.close()
+
+        // 5. 验证 highlights 数据完好
+        val hlCursor = db.query(
+            "SELECT text, chapter_title FROM highlights WHERE id = 'chain9-hl'",
+        )
+        assertTrue("highlights 数据应保留", hlCursor.moveToFirst())
+        assertEquals("全链路高亮", hlCursor.getString(0))
+        assertTrue("chapter_title 应为 NULL", hlCursor.isNull(1))
+        hlCursor.close()
+
+        // 6. 验证 reader_text_rules 表存在且可插入
+        db.execSQL(
+            "INSERT INTO reader_text_rules (id, kind, name, pattern, replacement, builtin, " +
+                "enabled, scope, book_id, position, created_at, updated_at) " +
+                "VALUES ('chain9-rule', 'TOC', '全链路目录规则', NULL, '', 0, 1, 'GLOBAL', NULL, 1, " +
+                "1780000000000, 1780000000000)",
+        )
+        val ruleCursor = db.query(
+            "SELECT kind, scope FROM reader_text_rules WHERE id = 'chain9-rule'",
+        )
+        assertTrue("reader_text_rules 数据应存在", ruleCursor.moveToFirst())
+        assertEquals("TOC", ruleCursor.getString(0))
+        assertEquals("GLOBAL", ruleCursor.getString(1))
+        ruleCursor.close()
+
+        // 7. 验证 reader_text_rules 的索引在完整迁移链末端存在
+        val ruleIdxCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name = 'index_reader_text_rules_kind'",
+        )
+        assertTrue("索引 index_reader_text_rules_kind 应存在", ruleIdxCursor.moveToFirst())
+        ruleIdxCursor.close()
+
+        db.close()
+    }
 }

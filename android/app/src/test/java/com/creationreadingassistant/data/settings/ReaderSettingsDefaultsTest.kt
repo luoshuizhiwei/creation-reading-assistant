@@ -17,6 +17,16 @@ class ReaderSettingsDefaultsTest {
     }
 
     @Test
+    fun `默认字号为 25`() {
+        assertEquals(25f, ReaderSettings().fontSize)
+    }
+
+    @Test
+    fun `全新安装默认沉浸模式为 true`() {
+        assertEquals(true, ReaderSettings().immersiveMode)
+    }
+
+    @Test
     fun `默认上次固定亮度为 65`() {
         assertEquals(65, ReaderSettings().lastFixedBrightness)
     }

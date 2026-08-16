@@ -2,6 +2,8 @@ package com.creationreadingassistant.data.settings
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.datastore.core.DataStore
+import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
@@ -17,6 +19,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -58,20 +61,21 @@ private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       /
 private val KEY_EPUB_PAGER_ENGINE = stringPreferencesKey("epub_pager_engine_mode")
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
-private val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
+private val KEY_SCREEN_ORIENTATION = stringPreferencesKey("reader_screen_orientation")
+internal val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
 private val KEY_CUSTOM_FONT_PATH = stringPreferencesKey("reader_custom_font_path")  // 空 = 系统字体；否则为 filesDir/fonts 下的 .ttf/.otf 绝对路径
 private val KEY_LINE_HEIGHT = floatPreferencesKey("reader_line_height")
 private val KEY_PARAGRAPH_SPACING = floatPreferencesKey("reader_paragraph_spacing")
 private val KEY_PAGE_MARGIN = floatPreferencesKey("reader_page_margin")
 private val KEY_READER_BG = stringPreferencesKey("reader_background")          // white | warm | green | night | follow
-private val KEY_IMMERSIVE = booleanPreferencesKey("reader_immersive")
+internal val KEY_IMMERSIVE = booleanPreferencesKey("reader_immersive")
 private val KEY_SHOW_READER_INFO = booleanPreferencesKey("reader_show_info")
 private val KEY_CHINESE_TYPO = booleanPreferencesKey("reader_chinese_typo")
 private val KEY_AUTO_HIDE = intPreferencesKey("reader_auto_hide_seconds")
 private val KEY_KEEP_AWAKE = booleanPreferencesKey("reader_keep_awake")
 private val KEY_SHOW_PROGRESS = booleanPreferencesKey("reader_show_progress")
 private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
-private val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // -1 = 跟随系统；5..100 = 固定亮度（对照 web reader brightness）
+internal val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // -1 = 跟随系统；5..100 = 固定亮度（对照 web reader brightness）
 private val KEY_LAST_FIXED_BRIGHTNESS = intPreferencesKey("reader_last_fixed_brightness")  // 上次手动固定的亮度（5..100）
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
@@ -134,7 +138,8 @@ private fun migrateReaderBg(v: String?): String = when (v) {
 data class AppearanceSettings(
     val themeMode: String = "system",   // system | light | dark
     val colorPalette: String = "paper_ink",
-    val paperTexture: Boolean = false,
+    /** 纸张噪点纹理开关（阅读器 PaperNoise 层）；默认开 = 纸墨视觉基线。 */
+    val paperTexture: Boolean = true,
 )
 
 data class ReaderSettings(
@@ -149,13 +154,15 @@ data class ReaderSettings(
     val epubPagerEngineMode: String = "auto",
     val pageTurnEffect: String = "none",         // none | fade | slide | cover
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
+    /** 屏幕方向锁定：system 跟随系统 | portrait 竖屏 | landscape 横屏（仅阅读器内生效）。 */
+    val screenOrientation: String = "system",
     val fontSize: Float = 25f,
     val customFontPath: String = "",     // 空 = 系统字体；否则为 filesDir/fonts 下的 .ttf/.otf 绝对路径
     val lineHeight: Float = 1.85f,
     val paragraphSpacing: Float = 1.15f,
     val pageMargin: Float = 22f,
     val background: String = "follow",           // white | warm | green | night | follow
-    val immersiveMode: Boolean = false,
+    val immersiveMode: Boolean = true,
     val showReaderInfo: Boolean = true,
     val chineseTypography: Boolean = true,
     val autoHideSeconds: Int = 4,
@@ -207,6 +214,14 @@ class SettingsStore @Inject constructor(
 ) {
     private val ds = context.dataStore
 
+    /** 暴露底层 DataStore（与生产读写同一实例），供迁移/集成测试预置旧值。 */
+    internal val preferencesDataStore: DataStore<Preferences> get() = ds
+
+    init {
+        // 一次性旧默认迁移（marker 幂等，DataStore 单事务原子）；异步执行不阻塞启动。
+        scope.launch { migrateLegacyReaderDefaultsOnce() }
+    }
+
     /** AI API Key 加密存储，与 SyncConfigStore 同机制（EncryptedSharedPreferences + AES256）。 */
     private val aiSecretsPrefs: SharedPreferences by lazy {
         SecurePrefs.open(context, AI_SECRETS_PREFS_NAME)
@@ -223,7 +238,7 @@ class SettingsStore @Inject constructor(
         AppearanceSettings(
             themeMode = prefs[KEY_THEME] ?: "system",
             colorPalette = prefs[KEY_COLOR_PALETTE] ?: "paper_ink",
-            paperTexture = prefs[KEY_PAPER_TEXTURE] ?: false,
+            paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), AppearanceSettings())
 
@@ -237,13 +252,14 @@ class SettingsStore @Inject constructor(
                 else -> effect
             },
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
+            screenOrientation = prefs[KEY_SCREEN_ORIENTATION] ?: "system",
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
             customFontPath = prefs[KEY_CUSTOM_FONT_PATH] ?: "",
             lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
             pageMargin = prefs[KEY_PAGE_MARGIN] ?: 22f,
             background = migrateReaderBg(prefs[KEY_READER_BG]),
-            immersiveMode = prefs[KEY_IMMERSIVE] ?: false,
+            immersiveMode = prefs[KEY_IMMERSIVE] ?: true,
             showReaderInfo = prefs[KEY_SHOW_READER_INFO] ?: true,
             chineseTypography = prefs[KEY_CHINESE_TYPO] ?: true,
             autoHideSeconds = prefs[KEY_AUTO_HIDE] ?: 4,
@@ -325,6 +341,22 @@ class SettingsStore @Inject constructor(
         return value?.takeIf { it in TxtChapterRuleIds.allowed } ?: "builtin"
     }
 
+    /**
+     * 旧 txt_toc_rule_<bookId> 是否已迁移到 Room 规则表（P1-A）。
+     * 迁移只执行一次：标记后不再重放旧值，避免覆盖用户后续的规则管理
+     * （如禁用宽松内置、新增自定义规则）。
+     */
+    suspend fun isTxtTocRuleMigrated(bookId: String): Boolean {
+        if (bookId.isBlank()) return true
+        return ds.data.first()[booleanPreferencesKey("txt_toc_rule_migrated_$bookId")] == true
+    }
+
+    /** 标记旧 txt_toc_rule_<bookId> 已迁移。 */
+    suspend fun markTxtTocRuleMigrated(bookId: String) {
+        if (bookId.isBlank()) return
+        ds.edit { it[booleanPreferencesKey("txt_toc_rule_migrated_$bookId")] = true }
+    }
+
     suspend fun updateAppearance(block: AppearanceSettings.() -> AppearanceSettings) {
         val next = appearance.value.block()
         ds.edit { prefs ->
@@ -342,6 +374,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_EPUB_PAGER_ENGINE] = next.epubPagerEngineMode
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
+            prefs[KEY_SCREEN_ORIENTATION] = next.screenOrientation
             prefs[KEY_FONT_SIZE] = next.fontSize
             prefs[KEY_CUSTOM_FONT_PATH] = next.customFontPath
             prefs[KEY_LINE_HEIGHT] = next.lineHeight
@@ -379,6 +412,17 @@ class SettingsStore @Inject constructor(
             prefs[KEY_HEADER_RIGHT] = next.headerRight.name
             prefs[KEY_FOOTER_LEFT] = next.footerLeft.name
             prefs[KEY_FOOTER_RIGHT] = next.footerRight.name
+        }
+    }
+
+    /**
+     * 一次性旧默认迁移：marker 未设置时迁移特征值（brightness=100→-1、fontSize=18→25、
+     * immersive=false→true），其他自定义亮度/字号保留；写 marker 后幂等。
+     * 判断与写入在同一 [androidx.datastore.preferences.core.edit] 事务内，并发原子。
+     */
+    suspend fun migrateLegacyReaderDefaultsOnce() {
+        ds.edit { prefs ->
+            migrateLegacyReaderDefaults(prefs)
         }
     }
 

@@ -24,6 +24,7 @@ import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.SyncAccountDao
 import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
 import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
+import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.entity.BookContentEntity
@@ -43,6 +44,7 @@ import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.SyncAccountEntity
 import com.creationreadingassistant.data.local.entity.ReaderPageIndexEntity
 import com.creationreadingassistant.data.local.entity.ReaderAnchorCacheEntity
+import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 
@@ -53,7 +55,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 8
+const val APP_DATABASE_SCHEMA_VERSION = 9
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -72,6 +74,8 @@ const val APP_DATABASE_SCHEMA_VERSION = 8
  *    部分索引，仅 onOpen 重建，不改任何表结构）
  *  - v7→v8：为全部外键列补 Room 声明索引（MIGRATION_7_8），消除 KSP
  *    「外键未索引」警告与父表更新/删除时的全表扫描
+ *  - v8→v9：新增阅读器文本规则表 reader_text_rules（MIGRATION_8_9），
+ *    目录/替换规则的持久化底座，不接入任何读取路径
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -85,6 +89,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 8
         SyncAccountEntity::class, SyncStateEntity::class,
         ReaderPageIndexEntity::class,
         ReaderAnchorCacheEntity::class,
+        ReaderTextRuleEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -109,6 +114,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncStateDao(): SyncStateDao
     abstract fun readerPageIndexDao(): ReaderPageIndexDao
     abstract fun readerAnchorCacheDao(): ReaderAnchorCacheDao
+    abstract fun readerTextRuleDao(): ReaderTextRuleDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -215,6 +221,42 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_book_tag_tag_id` ON `book_tag` (`tag_id`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_book_category_category_id` ON `book_category` (`category_id`)")
                 db.execSQL("CREATE INDEX IF NOT EXISTS `index_shelf_book_book_id` ON `shelf_book` (`book_id`)")
+            }
+        }
+
+        /**
+         * v8→v9：新增阅读器文本规则表 reader_text_rules。
+         *
+         * 只建新表，不 ALTER 任何现有表。建表语句必须与 Room 为
+         * [ReaderTextRuleEntity] 生成的完全一致（列顺序、NOT NULL、主键、外键、
+         * 索引），否则迁移后的表结构校验会失败。索引名与 @Index 注解生成的
+         * `index_<表>_<列>` 完全一致。
+         */
+        val MIGRATION_8_9 = object : Migration(8, 9) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `reader_text_rules` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`kind` TEXT NOT NULL, " +
+                        "`name` TEXT NOT NULL, " +
+                        "`pattern` TEXT, " +
+                        "`replacement` TEXT NOT NULL, " +
+                        "`builtin` INTEGER NOT NULL, " +
+                        "`enabled` INTEGER NOT NULL, " +
+                        "`scope` TEXT NOT NULL, " +
+                        "`book_id` TEXT, " +
+                        "`position` INTEGER NOT NULL, " +
+                        "`created_at` INTEGER NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`), " +
+                        "FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reader_text_rules_kind` ON `reader_text_rules` (`kind`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reader_text_rules_scope` ON `reader_text_rules` (`scope`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reader_text_rules_book_id` ON `reader_text_rules` (`book_id`)")
+                db.execSQL("CREATE INDEX IF NOT EXISTS `index_reader_text_rules_position` ON `reader_text_rules` (`position`)")
             }
         }
 

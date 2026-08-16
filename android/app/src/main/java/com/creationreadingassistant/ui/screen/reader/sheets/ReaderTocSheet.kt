@@ -18,12 +18,17 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
+import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -33,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -42,6 +49,30 @@ import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
+
+/**
+ * 规则 pill 后缀：扫描中 →「扫描中…」，完成 →「N章」，取消/失败 → 可解释文案；
+ * 其他规则回退到预览章数；无预览时不显示「0章」（大型流式 TXT 未扫描前的错误展示）。
+ */
+internal fun txtRulePillSuffix(
+    status: TxtRuleScanStatus?,
+    ruleId: String,
+    previewCount: Int,
+): String? = when (status) {
+    is TxtRuleScanStatus.Running ->
+        if (status.ruleId == ruleId) "扫描中…" else previewSuffix(previewCount)
+    is TxtRuleScanStatus.Completed ->
+        if (status.ruleId == ruleId) "${status.chapterCount}章" else previewSuffix(previewCount)
+    is TxtRuleScanStatus.Cancelled ->
+        if (status.ruleId == ruleId) "已取消" else previewSuffix(previewCount)
+    is TxtRuleScanStatus.Failed ->
+        if (status.ruleId == ruleId) "扫描失败" else previewSuffix(previewCount)
+    TxtRuleScanStatus.Idle, null -> previewSuffix(previewCount)
+}
+
+private fun previewSuffix(previewCount: Int): String? =
+    if (previewCount > 0) "${previewCount}章" else null
 
 internal data class ReaderTocEntry(
     val index: Int,
@@ -77,7 +108,13 @@ internal fun TocSheet(
     txtRules: List<TxtChapterDetector.Rule> = emptyList(),
     selectedTxtRule: String = "builtin",
     txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>> = emptyMap(),
+    txtRuleScanStatus: TxtRuleScanStatus? = null,
     onTxtRule: (String) -> Unit = {},
+    onCancelTxtScan: () -> Unit = {},
+    onManageRules: () -> Unit = {},
+    /** 本书书签（kind == "bookmark" 的笔记）；内嵌展示并可直接跳转。 */
+    bookmarks: List<com.creationreadingassistant.data.local.entity.NoteEntity> = emptyList(),
+    onPickBookmark: (com.creationreadingassistant.data.local.entity.NoteEntity) -> Unit = {},
 ) {
     val layout = LocalLayoutTokens.current
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
@@ -117,6 +154,46 @@ internal fun TocSheet(
             }
         },
     ) {
+        if (txtRules.isNotEmpty()) {
+            TocRulesEntryRow(onClick = onManageRules)
+        }
+        if (bookmarks.isNotEmpty()) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap / 2),
+            ) {
+                Text("书签", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                bookmarks.take(8).forEach { bm ->
+                    Row(
+                        Modifier
+                            .fillMaxWidth()
+                            .clickable { onPickBookmark(bm) }
+                            .padding(vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Bookmark,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(end = 8.dp),
+                        )
+                        Column(Modifier.weight(1f)) {
+                            Text(bm.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
+                            bm.excerpt?.takeIf { it.isNotBlank() }?.let {
+                                Text(
+                                    it,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.outline,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
         if (entries.isEmpty()) {
             FullEmptyState(
                 modifier = Modifier.fillMaxWidth().weight(1f),
@@ -125,6 +202,18 @@ internal fun TocSheet(
                 body = "这本书暂未识别到章节结构，无法在此浏览。",
             )
             return@ReaderSheetScaffold
+        }
+        if (txtRules.isNotEmpty()) {
+            TocRecognitionSection(
+                txtRules = txtRules,
+                selectedTxtRule = selectedTxtRule,
+                txtRulePreviews = txtRulePreviews,
+                txtRuleScanStatus = txtRuleScanStatus,
+                expanded = rulesExpanded,
+                onToggleExpanded = { rulesExpanded = !rulesExpanded },
+                onTxtRule = onTxtRule,
+                onCancelTxtScan = onCancelTxtScan,
+            )
         }
         LazyColumn(
             state = listState,
@@ -185,37 +274,128 @@ internal fun TocSheet(
                     }
                 }
             }
-            if (txtRules.isNotEmpty()) {
-                item("txt_rules") {
-                    Column(Modifier.fillMaxWidth().padding(top = layout.relatedGap)) {
-                        Row(
-                            Modifier.fillMaxWidth().clickable { rulesExpanded = !rulesExpanded }.padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Column(Modifier.weight(1f)) {
-                                Text("目录识别", style = MaterialTheme.typography.titleSmall)
-                                Text("仅在目录不准确时调整", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                            Icon(
-                                if (rulesExpanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
-                                contentDescription = if (rulesExpanded) "收起目录识别" else "展开目录识别",
-                            )
-                        }
-                        if (rulesExpanded) {
-                            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                txtRules.forEach { rule ->
-                                    val preview = txtRulePreviews[rule.id].orEmpty()
-                                    OptionPill(
-                                        selected = selectedTxtRule == rule.id,
-                                        label = "${rule.label} · ${preview.size}章",
-                                        onClick = { onTxtRule(rule.id) },
-                                    )
-                                }
-                            }
-                        }
-                    }
+        }
+    }
+}
+
+/** 目录页顶部「目录与净化规则」管理入口：始终可见，点击交给宿主打开规则管理 Sheet。 */
+@Composable
+private fun TocRulesEntryRow(onClick: () -> Unit) {
+    val layout = LocalLayoutTokens.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap)
+            .clip(LocalComponentSpec.current.listItemShape)
+            .clickable(onClick = onClick)
+            .semantics { contentDescription = "管理目录与净化规则" }
+            .padding(horizontal = layout.cardPadding, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.Tune,
+            contentDescription = "目录与净化规则",
+            tint = MaterialTheme.colorScheme.primary,
+        )
+        Spacer(Modifier.width(layout.contentGap))
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = "目录与净化规则",
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = "管理目录识别与替换净化",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            Icons.Outlined.KeyboardArrowRight,
+            contentDescription = "进入规则管理",
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
+}
+
+/** 「目录识别」快捷区：从章节列表末尾移到顶部管理入口附近；保留快速单选与扫描进度。 */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TocRecognitionSection(
+    txtRules: List<TxtChapterDetector.Rule>,
+    selectedTxtRule: String,
+    txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
+    txtRuleScanStatus: TxtRuleScanStatus?,
+    expanded: Boolean,
+    onToggleExpanded: () -> Unit,
+    onTxtRule: (String) -> Unit,
+    onCancelTxtScan: () -> Unit,
+) {
+    val layout = LocalLayoutTokens.current
+    Column(Modifier.fillMaxWidth().padding(horizontal = layout.pageHorizontal)) {
+        Row(
+            Modifier.fillMaxWidth().clickable(onClick = onToggleExpanded).padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text("目录识别", style = MaterialTheme.typography.titleSmall)
+                Text("仅在目录不准确时调整", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(
+                if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                contentDescription = if (expanded) "收起目录识别" else "展开目录识别",
+            )
+        }
+        (txtRuleScanStatus as? TxtRuleScanStatus.Running)?.let { running ->
+            TxtScanProgressRow(status = running, onCancel = onCancelTxtScan)
+        }
+        if (expanded) {
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                txtRules.forEach { rule ->
+                    val preview = txtRulePreviews[rule.id].orEmpty()
+                    val suffix = txtRulePillSuffix(txtRuleScanStatus, rule.id, preview.size)
+                    OptionPill(
+                        selected = selectedTxtRule == rule.id,
+                        label = if (suffix == null) rule.label else "${rule.label} · $suffix",
+                        onClick = { onTxtRule(rule.id) },
+                    )
                 }
             }
+        }
+    }
+}
+
+/** 扫描中的进度 + 取消行：进度未知时 indeterminate，已知时 0..1。 */
+@Composable
+private fun TxtScanProgressRow(
+    status: TxtRuleScanStatus.Running,
+    onCancel: () -> Unit,
+) {
+    val percent = status.progress?.let { "${(it * 100).toInt()}%" } ?: "…"
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+            .semantics { contentDescription = "正在扫描目录，$percent" },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        val progress = status.progress
+        if (progress != null) {
+            LinearProgressIndicator(
+                progress = { progress },
+                modifier = Modifier.weight(1f),
+            )
+        } else {
+            LinearProgressIndicator(modifier = Modifier.weight(1f))
+        }
+        Text(
+            text = "扫描中…",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        TextButton(onClick = onCancel) {
+            Text("取消")
         }
     }
 }

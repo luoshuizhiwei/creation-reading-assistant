@@ -104,6 +104,19 @@ class ReaderSettingsSheetTest {
     }
 
     @Test
+    fun autoHideShowsExactCurrentValueIncludingDefaultFour() {
+        // 默认 4 秒必须明确显示且可选（用户反馈 2），0 = 不定时隐藏。
+        renderSettings(initial = ReaderSettings(autoHideSeconds = 4))
+
+        composeRule.onNodeWithText("显示与页眉页脚").performScrollTo().performClick()
+
+        listOf("不隐藏", "3 秒", "4 秒", "5 秒", "8 秒").forEach { option ->
+            composeRule.onNodeWithText(option).performScrollTo().assertIsDisplayed()
+        }
+        composeRule.onNodeWithText("4 秒").performClick()
+    }
+
+    @Test
     fun nightSettingsRemainUsableAt320DpWithLargeFont() {
         renderSettings(
             width = 320.dp,

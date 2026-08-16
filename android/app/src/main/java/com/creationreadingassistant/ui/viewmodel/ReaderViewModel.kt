@@ -22,11 +22,24 @@ import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
+import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
+import com.creationreadingassistant.feature.reader.doc.TxtScanMonitor
+import com.creationreadingassistant.feature.reader.doc.TxtTocProfile
+import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
+import com.creationreadingassistant.feature.reader.rules.RuleCommand
+import com.creationreadingassistant.feature.reader.rules.RuleEngine
+import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
+import com.creationreadingassistant.feature.reader.rules.RulesRepository
+import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
+import com.creationreadingassistant.ui.screen.reader.ReaderChromeEvent
+import com.creationreadingassistant.ui.screen.reader.into
+import com.creationreadingassistant.ui.screen.reader.readerChromeReducer
+import com.creationreadingassistant.ui.screen.reader.toReaderChromeState
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -43,6 +56,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -70,6 +84,7 @@ class ReaderViewModel @Inject constructor(
     val pagerHealthStore: PagerHealthStore,
     val pageIndexManager: ReaderPageIndexManager,
     val aiClient: AiClient,
+    private val rulesRepository: RulesRepository,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -89,6 +104,24 @@ class ReaderViewModel @Inject constructor(
     // ── TXT 规则扫描结果 ──────────────────────────────────────
     private val _txtRuleScanResult = MutableStateFlow<TxtRuleScanResult?>(null)
     val txtRuleScanResult: StateFlow<TxtRuleScanResult?> = _txtRuleScanResult.asStateFlow()
+    private val txtRuleScanCoordinator = TxtRuleScanCoordinator()
+
+    // ── TXT 规则扫描状态（进度 / 取消 / 完成章数）──────────────
+    private val _txtRuleScanStatus = MutableStateFlow<TxtRuleScanStatus>(TxtRuleScanStatus.Idle)
+    val txtRuleScanStatus: StateFlow<TxtRuleScanStatus> = _txtRuleScanStatus.asStateFlow()
+    private var txtScanJob: Job? = null
+
+    /**
+     * 测试 seam：默认走真实扫描器；测试可注入受控实现来验证取消 / 进度时序。
+     */
+    internal var txtFileScanner: (File, String, TxtScanMonitor?) -> TxtFileIndex =
+        { file, ruleId, monitor -> TxtFileScanner.scan(file, ruleId, monitor) }
+
+    /**
+     * 测试 seam：按显式 [TxtTocProfile] 扫描（多规则目录重扫入口）。
+     */
+    internal var txtFileScannerProfile: (File, TxtTocProfile, TxtScanMonitor?) -> TxtFileIndex =
+        { file, profile, monitor -> TxtFileScanner.scan(file, profile, monitor) }
 
     private val _uiState = MutableStateFlow(ReaderUiState())
     val uiState: StateFlow<ReaderUiState> = _uiState.asStateFlow()
@@ -103,6 +136,27 @@ class ReaderViewModel @Inject constructor(
     // ── 设置：TXT 目录规则 ───────────────────────────────────────
     private val _txtTocRuleId = MutableStateFlow("builtin")
     val txtTocRuleId: StateFlow<String> = _txtTocRuleId.asStateFlow()
+
+    // ── 规则：当前书快照 + 最近一次写入反馈 ──────────────────────
+    private val _ruleMutationResult = MutableStateFlow<RuleMutationResult?>(null)
+    val ruleMutationResult: StateFlow<RuleMutationResult?> = _ruleMutationResult.asStateFlow()
+
+    private val ruleData = activeBookId
+        .flatMapLatest { bookId ->
+            if (bookId.isBlank()) {
+                // 无书身份：安全空快照，不触达 Room
+                flowOf(RuleUiState())
+            } else {
+                combine(
+                    rulesRepository.observe(bookId),
+                    _ruleMutationResult,
+                ) { snapshot, mutationResult ->
+                    RuleUiState(snapshot = snapshot, mutationResult = mutationResult)
+                }
+            }
+        }
+        .distinctUntilChanged()
+        .flowOn(defaultDispatcher)
 
     private val bookData = activeBookId
         .flatMapLatest { bookId ->
@@ -149,29 +203,41 @@ class ReaderViewModel @Inject constructor(
         txtTocRuleId,
         chapterLoadState,
         txtRuleScanResult,
-    ) { tocRuleId, chapterLoad, ruleScan ->
-        ReaderAuxiliaryState(tocRuleId, chapterLoad, ruleScan)
+        txtRuleScanStatus,
+    ) { tocRuleId, chapterLoad, ruleScan, ruleScanStatus ->
+        ReaderAuxiliaryState(tocRuleId, chapterLoad, ruleScan, ruleScanStatus)
     }.distinctUntilChanged()
 
-    val routeUiState: StateFlow<ReaderRouteUiState> = combine(
+    /** 路由渲染的前 5 路状态源（typed combine 上限为 5，故先聚合再与规则状态合并）。 */
+    private val routeSources = combine(
         uiState,
         screenState,
         bookData,
         taxonomyData,
         auxiliaryState,
     ) { document, screen, book, taxonomy, auxiliary ->
+        ReaderRouteSources(document, screen, book, taxonomy, auxiliary)
+    }
+
+    val routeUiState: StateFlow<ReaderRouteUiState> = combine(
+        routeSources,
+        ruleData,
+    ) { sources, rule ->
         ReaderRouteUiState(
-            document = document,
-            screen = screen,
-            highlights = book.highlights,
-            notes = book.notes,
-            inspirations = book.inspirations,
-            sessions = book.sessions,
-            categories = taxonomy.categories,
-            tags = taxonomy.tags,
-            txtTocRuleId = auxiliary.txtTocRuleId,
-            chapterLoadResult = auxiliary.chapterLoadResult,
-            txtRuleScanResult = auxiliary.txtRuleScanResult,
+            document = sources.document,
+            screen = sources.screen,
+            highlights = sources.book.highlights,
+            notes = sources.book.notes,
+            inspirations = sources.book.inspirations,
+            sessions = sources.book.sessions,
+            categories = sources.taxonomy.categories,
+            tags = sources.taxonomy.tags,
+            txtTocRuleId = sources.auxiliary.txtTocRuleId,
+            chapterLoadResult = sources.auxiliary.chapterLoadResult,
+            txtRuleScanResult = sources.auxiliary.txtRuleScanResult,
+            txtRuleScanStatus = sources.auxiliary.txtRuleScanStatus,
+            ruleSnapshot = rule.snapshot,
+            ruleMutationResult = rule.mutationResult,
         )
     }
         .distinctUntilChanged()
@@ -189,14 +255,38 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.OpenBook -> openBook(action.bookId, force = false)
             is ReaderAction.Retry -> openBook(_uiState.value.requestedBookId, force = true)
             is ReaderAction.LoadChapter -> loadChapter(action.bookId, action.chapterIndex)
-            is ReaderAction.ScanTxtTocRule -> scanTxtTocRule(action.filePath, action.ruleId)
+            is ReaderAction.ScanTxtTocRule -> scanTxtTocRule(action.bookId, action.filePath, action.ruleId)
+            is ReaderAction.RescanTxtToc -> rescanTxtToc(action.bookId, action.filePath, action.profileKeyHint)
+            is ReaderAction.CancelTxtTocScan -> cancelTxtTocScan()
 
-            // UI 状态
-            is ReaderAction.ToggleControls -> updateScreen {
-                it.copy(controlsVisible = action.visible ?: !it.controlsVisible)
+            // UI 状态：chrome 显隐统一走 ReaderChromeReducer 状态机
+            is ReaderAction.ToggleControls -> {
+                val event = when {
+                    action.visible == null -> ReaderChromeEvent.CenterTap
+                    action.visible == true -> ReaderChromeEvent.Enter
+                    else -> ReaderChromeEvent.PageTurn
+                }
+                updateScreen {
+                    readerChromeReducer(it.toReaderChromeState(), event).into(it)
+                }
             }
-            is ReaderAction.OpenSheet -> updateScreen { it.copy(sheet = action.sheet) }
-            is ReaderAction.CloseSheet -> updateScreen { it.copy(sheet = null) }
+            is ReaderAction.PageTurn -> updateScreen {
+                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.PageTurn).into(it)
+            }
+            is ReaderAction.AutoHideElapsed -> updateScreen {
+                readerChromeReducer(
+                    it.toReaderChromeState(),
+                    ReaderChromeEvent.AutoHideElapsed(action.autoHideSeconds),
+                ).into(it)
+            }
+            is ReaderAction.OpenSheet -> updateScreen {
+                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetOpen).into(it)
+                    .copy(sheet = action.sheet)
+            }
+            is ReaderAction.CloseSheet -> updateScreen {
+                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetClose).into(it)
+                    .copy(sheet = null)
+            }
             is ReaderAction.SetSelectedText -> updateScreen {
                 it.copy(selectedText = action.text, selectedRangeStart = action.rangeStart, selectedGlobalOffset = action.globalOffset)
             }
@@ -261,9 +351,39 @@ class ReaderViewModel @Inject constructor(
             }
             is ReaderAction.DeleteBook -> io { bookRepository.deleteBook(action.bookId) }
 
+            // 规则写入（RulesRepository；校验/迁移失败不落库，结果原样发布）
+            is ReaderAction.ExecuteRuleCommand -> io {
+                val result = rulesRepository.execute(action.bookId, action.command)
+                if (result is RuleMutationResult.Migrated) {
+                    // 快速单选 / 迁移：同步旧单选显示 id，并发布结果供统一重扫策略消费
+                    _txtTocRuleId.value = result.effectiveRuleId
+                }
+                _ruleMutationResult.value = result
+            }
+            is ReaderAction.ClearRuleMutationResult -> _ruleMutationResult.value = null
+
             // 设置
             is ReaderAction.LoadTxtTocRule -> io {
-                _txtTocRuleId.value = settingsStore.loadTxtTocRule(action.bookId)
+                val legacy = settingsStore.loadTxtTocRule(action.bookId)
+                if (settingsStore.isTxtTocRuleMigrated(action.bookId)) {
+                    // 已迁移：Room 是唯一状态源，旧值只作显示参考，不再写回
+                    val key = rulesRepository.observe(action.bookId).first().effectiveTocProfile.key
+                    _txtTocRuleId.value = if (
+                        key == BuiltinTocRules.STANDARD_ID || key in BuiltinTocRules.byId
+                    ) {
+                        key
+                    } else {
+                        BuiltinTocRules.STANDARD_ID
+                    }
+                } else {
+                    val migrated = rulesRepository.execute(
+                        action.bookId,
+                        RuleCommand.MigrateLegacyTocRule(legacy),
+                    )
+                    settingsStore.markTxtTocRuleMigrated(action.bookId)
+                    _txtTocRuleId.value = (migrated as? RuleMutationResult.Migrated)?.effectiveRuleId
+                        ?: BuiltinTocRules.STANDARD_ID
+                }
             }
             is ReaderAction.SaveTxtTocRule -> io {
                 settingsStore.saveTxtTocRule(action.bookId, action.ruleId)
@@ -290,11 +410,30 @@ class ReaderViewModel @Inject constructor(
     private fun nowIso(): String = com.creationreadingassistant.ui.util.nowIso()
 
     private fun openBook(bookId: String, force: Boolean) {
-        activeBookId.value = bookId
         val current = _uiState.value
-        if (!force && current.requestedBookId == bookId && (current.isLoading || current.isReady)) {
+        val sameBookNoop = !force && current.requestedBookId == bookId && (current.isLoading || current.isReady)
+        if (sameBookNoop) {
+            // 同书冗余打开：不切换书身份，不得作废该书合法的在途 TXT 规则扫描
             return
         }
+        // 书内搜索查询按书持有：书身份变化（切书）清空旧 query，避免旧词自动搜索新书；
+        // 同书重开/force 重载不清空——只有用户清空查询或切书才清空。
+        if (current.requestedBookId != bookId) {
+            // 切书重置 chrome：菜单回到可见（用户反馈 4）；同时清空旧书搜索词。
+            updateScreen {
+                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.BookSwitched).into(it)
+                    .copy(searchQuery = "")
+            }
+            // 切书清空旧书规则写入反馈，避免新书会话展示上一本书的结果
+            _ruleMutationResult.value = null
+        }
+        activeBookId.value = bookId
+        // P1-A：切书后，上一本书在途的规则扫描一律失效，迟到结果不得发布
+        txtRuleScanCoordinator.invalidate()
+        // 切书同时取消旧扫描 Job，状态不残留到新书会话
+        txtScanJob?.cancel()
+        txtScanJob = null
+        _txtRuleScanStatus.value = TxtRuleScanStatus.Idle
 
         loadJob?.cancel()
         val generation = loadGeneration.incrementAndGet()
@@ -427,29 +566,140 @@ class ReaderViewModel @Inject constructor(
     }
 
     // ── TXT 规则扫描 ──────────────────────────────────────────
-    private fun scanTxtTocRule(filePath: String, ruleId: String) {
-        viewModelScope.launch(ioDispatcher) {
+    private fun scanTxtTocRule(bookId: String, filePath: String, ruleId: String) {
+        // 新请求立即取消旧 Job；阻塞中的旧扫描靠 monitor 探针协作退出
+        txtScanJob?.cancel()
+        val requestId = txtRuleScanCoordinator.begin(bookId, ruleId)
+        _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, ruleId, progress = null)
+        txtScanJob = viewModelScope.launch(ioDispatcher) {
             try {
                 val file = File(filePath)
-                val newIndex = TxtFileScanner.scan(file, ruleId)
+                val monitor = object : TxtScanMonitor {
+                    override fun isCancelled(): Boolean =
+                        !txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)
+
+                    override fun onProgress(fraction: Float?) {
+                        // 迟到进度（取消 / 切书 / 换规则后）一律不发布
+                        if (txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) {
+                            _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, ruleId, fraction)
+                        }
+                    }
+                }
+                val newIndex = txtFileScanner(file, ruleId, monitor)
+                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
                 val newDocument = PlainTextDocument.fromFileIndex(file, newIndex)
+                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
                 _txtRuleScanResult.value = TxtRuleScanResult(
+                    bookId = bookId,
                     ruleId = ruleId,
+                    requestId = requestId,
                     fileIndex = newIndex,
                     document = newDocument,
                 )
+                _txtRuleScanStatus.value = TxtRuleScanStatus.Completed(bookId, ruleId, newIndex.chapters.size)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
             } catch (e: Exception) {
+                if (!txtRuleScanCoordinator.isCurrent(bookId, ruleId, requestId)) return@launch
                 _txtRuleScanResult.value = TxtRuleScanResult(
+                    bookId = bookId,
                     ruleId = ruleId,
+                    requestId = requestId,
                     error = e.message ?: "切换目录规则失败",
+                )
+                _txtRuleScanStatus.value = TxtRuleScanStatus.Failed(
+                    bookId = bookId,
+                    ruleId = ruleId,
+                    message = e.message ?: "切换目录规则失败",
                 )
             }
         }
     }
 
+    /**
+     * 多规则目录重扫（P1-A）：规则写入成功后重新识别当前流式 TXT。
+     *
+     * - 权威身份来自 Room 生效规则（effectiveToc → TxtTocProfile.key）；
+     * - [profileKeyHint] 仅作竞态校验：与权威 key 不一致说明规则又变了 / UI
+     *   快照过期，直接丢弃本次请求；
+     * - 协程启动时再核对当前书身份：切书（openBook 已 invalidate）后晚到的
+     *   请求不得重新激活旧书，防止跨书发布。
+     */
+    private fun rescanTxtToc(bookId: String, filePath: String, profileKeyHint: String) {
+        txtScanJob?.cancel()
+        txtScanJob = viewModelScope.launch(ioDispatcher) {
+            var requestId = 0L
+            var activeKey: String? = null
+            try {
+                if (activeBookId.value != bookId) return@launch
+                val snapshot = rulesRepository.observe(bookId).first()
+                val profile = RuleEngine.tocProfile(snapshot.effectiveToc)
+                if (profile.key != profileKeyHint) return@launch
+
+                activeKey = profile.key
+                requestId = txtRuleScanCoordinator.begin(bookId, profile.key)
+                _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, profile.key, progress = null)
+                val file = File(filePath)
+                val monitor = object : TxtScanMonitor {
+                    override fun isCancelled(): Boolean =
+                        !txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)
+
+                    override fun onProgress(fraction: Float?) {
+                        if (txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) {
+                            _txtRuleScanStatus.value = TxtRuleScanStatus.Running(bookId, profile.key, fraction)
+                        }
+                    }
+                }
+                val newIndex = txtFileScannerProfile(file, profile, monitor)
+                if (!txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) return@launch
+                val newDocument = PlainTextDocument.fromFileIndex(file, newIndex)
+                if (!txtRuleScanCoordinator.isCurrent(bookId, profile.key, requestId)) return@launch
+                _txtRuleScanResult.value = TxtRuleScanResult(
+                    bookId = bookId,
+                    ruleId = profile.key,
+                    requestId = requestId,
+                    fileIndex = newIndex,
+                    document = newDocument,
+                )
+                _txtRuleScanStatus.value = TxtRuleScanStatus.Completed(bookId, profile.key, newIndex.chapters.size)
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (e: Exception) {
+                val key = activeKey ?: return@launch
+                if (!txtRuleScanCoordinator.isCurrent(bookId, key, requestId)) return@launch
+                _txtRuleScanResult.value = TxtRuleScanResult(
+                    bookId = bookId,
+                    ruleId = key,
+                    requestId = requestId,
+                    error = e.message ?: "切换目录规则失败",
+                )
+                _txtRuleScanStatus.value = TxtRuleScanStatus.Failed(
+                    bookId = bookId,
+                    ruleId = key,
+                    message = e.message ?: "切换目录规则失败",
+                )
+            }
+        }
+    }
+
+    /** 显式取消当前 TXT 规则扫描。 */
+    private fun cancelTxtTocScan() {
+        val inFlight = txtScanJob?.isActive == true
+        txtScanJob?.cancel()
+        txtScanJob = null
+        val active = txtRuleScanCoordinator.invalidate()
+        _txtRuleScanStatus.value = if (inFlight && active != null) {
+            TxtRuleScanStatus.Cancelled(active.first, active.second)
+        } else {
+            TxtRuleScanStatus.Idle
+        }
+        // 不发布 result：原 document/fileIndex 保持不变，pending anchor 不被消费
+    }
+
     override fun onCleared() {
         loadJob?.cancel()
         chapterLoadJob?.cancel()
+        txtScanJob?.cancel()
         loadGeneration.incrementAndGet()
         chapterLoadGeneration.incrementAndGet()
         release(_uiState.value.loadedBook)
@@ -479,6 +729,14 @@ private data class ReaderBookData(
     val sessions: List<ReadingSessionEntity> = emptyList(),
 )
 
+private data class ReaderRouteSources(
+    val document: ReaderUiState,
+    val screen: ReaderScreenState,
+    val book: ReaderBookData,
+    val taxonomy: ReaderTaxonomyData,
+    val auxiliary: ReaderAuxiliaryState,
+)
+
 private data class ReaderTaxonomyData(
     val categories: List<CategoryEntity> = emptyList(),
     val tags: List<TagEntity> = emptyList(),
@@ -488,6 +746,7 @@ private data class ReaderAuxiliaryState(
     val txtTocRuleId: String = "builtin",
     val chapterLoadResult: ChapterLoadResult? = null,
     val txtRuleScanResult: TxtRuleScanResult? = null,
+    val txtRuleScanStatus: TxtRuleScanStatus = TxtRuleScanStatus.Idle,
 )
 
 data class ReaderRouteUiState(
@@ -502,4 +761,7 @@ data class ReaderRouteUiState(
     val txtTocRuleId: String = "builtin",
     val chapterLoadResult: ChapterLoadResult? = null,
     val txtRuleScanResult: TxtRuleScanResult? = null,
+    val txtRuleScanStatus: TxtRuleScanStatus = TxtRuleScanStatus.Idle,
+    val ruleSnapshot: RuleSnapshot = RuleSnapshot.empty(),
+    val ruleMutationResult: RuleMutationResult? = null,
 )

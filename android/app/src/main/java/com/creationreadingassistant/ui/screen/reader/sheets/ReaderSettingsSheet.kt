@@ -47,6 +47,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.ui.screen.reader.AUTO_HIDE_SECOND_OPTIONS
+import com.creationreadingassistant.ui.screen.reader.autoHideSecondsLabel
+import com.creationreadingassistant.ui.screen.reader.nearestAutoHideOption
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.ReaderFontPickerRow
@@ -276,6 +279,13 @@ private fun PagingSettings(settings: ReaderSettings, onChange: (ReaderSettings) 
             )
             SectionDivider()
             SettingSegmentedRow("点击区域", listOf("three-zone" to "左中右", "five-zone" to "上下扩展"), settings.tapZoneMode, { onChange(settings.copy(tapZoneMode = it)) })
+            SectionDivider()
+            SettingSegmentedRow(
+                "屏幕方向",
+                listOf("system" to "跟随系统", "portrait" to "竖屏", "landscape" to "横屏"),
+                settings.screenOrientation,
+                { onChange(settings.copy(screenOrientation = it)) },
+            )
         }
     }
     item {
@@ -319,9 +329,10 @@ private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings)
         SettingsSection("菜单") {
             SettingSegmentedRow(
                 "自动隐藏",
-                listOf(0 to "不隐藏", 3 to "3 秒", 5 to "5 秒", 8 to "8 秒"),
-                listOf(0, 3, 5, 8).minByOrNull { abs(it - settings.autoHideSeconds) } ?: 0,
+                AUTO_HIDE_SECOND_OPTIONS.map { it to autoHideSecondsLabel(it) },
+                nearestAutoHideOption(settings.autoHideSeconds),
                 { onChange(settings.copy(autoHideSeconds = it)) },
+                subtitle = "0 秒 = 不定时隐藏",
             )
         }
     }

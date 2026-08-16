@@ -1,6 +1,7 @@
 package com.creationreadingassistant.data.settings
 
 import android.content.SharedPreferences
+import androidx.datastore.preferences.core.edit
 import com.creationreadingassistant.data.security.SecurePrefs
 import com.creationreadingassistant.testutil.InMemorySharedPreferences
 import com.creationreadingassistant.testutil.testDataStoreContext
@@ -109,6 +110,39 @@ class SettingsStoreTest {
         val loaded = store.reader.first { it.brightness == 75 }
         assertEquals(75, loaded.brightness)
         assertEquals(75, loaded.lastFixedBrightness)
+    }
+
+    @Test
+    fun `legacy defaults migration converts characteristic values via store seam`() = runTest {
+        val ctx = testDataStoreContext()
+        val fresh = SettingsStore(ctx, scope)
+        fresh.reader.first()
+        // 预置升级设备残留的旧默认特征值并清除 marker，随后经正式迁移 seam 收敛
+        fresh.preferencesDataStore.edit {
+            it[KEY_READER_BRIGHTNESS] = 100
+            it[KEY_FONT_SIZE] = 18f
+            it[KEY_IMMERSIVE] = false
+            it.remove(KEY_LEGACY_DEFAULTS_MIGRATED)
+        }
+        fresh.migrateLegacyReaderDefaultsOnce()
+
+        val loaded = fresh.reader.first { it.brightness == -1 }
+        assertEquals(-1, loaded.brightness)
+        assertEquals(25f, loaded.fontSize)
+        assertEquals(true, loaded.immersiveMode)
+    }
+
+    @Test
+    fun `legacy defaults migration is idempotent and preserves later custom values`() = runTest {
+        store.reader.first()
+        store.updateReader { copy(brightness = 42, fontSize = 20f, immersiveMode = false) }
+        // 已迁移（marker）后再跑一次不得覆盖用户后来的自定义值
+        store.migrateLegacyReaderDefaultsOnce()
+
+        val loaded = store.reader.first { it.brightness == 42 }
+        assertEquals(42, loaded.brightness)
+        assertEquals(20f, loaded.fontSize)
+        assertEquals(false, loaded.immersiveMode)
     }
 
     @Test
