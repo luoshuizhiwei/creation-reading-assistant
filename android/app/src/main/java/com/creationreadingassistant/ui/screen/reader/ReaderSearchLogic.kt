@@ -15,7 +15,20 @@ internal data class BookSearchResult(
     val chapterTitle: String,
     /** TXT 为全书偏移；EPUB 为章内真实字符偏移。 */
     val charOffset: Int,
+    /** 命中在全书文本中的字符区间（含首不含尾）；TXT=原始字符空间，EPUB/Markdown=估算/规范字符空间。 */
+    val absoluteRange: IntRange,
 )
+
+/**
+ * 搜索运行绑定的文档上下文键（身份维度，不含文本内容）：
+ * 同一批文档实例重开面板时结果可直接复用；文档重建（TXT 目录规则切换、
+ * 书籍重载）即使查询未变也必须重新搜索。
+ */
+internal fun searchContextKeyOf(
+    document: com.creationreadingassistant.feature.reader.doc.ReaderDocument?,
+    txtDocument: PlainTextDocument?,
+    plainContent: String,
+): String = "${System.identityHashCode(document)}|${System.identityHashCode(txtDocument)}|${System.identityHashCode(plainContent)}"
 
 /** 对照 web createReaderSearchResults：全本拼接文本上做不区分大小写检索，最多 80 处，片断取 28 前 +42 后。 */
 internal fun computeBookSearch(
@@ -47,7 +60,12 @@ internal fun computeBookSearch(
             chapterStartOffsets.indexOfLast { it <= hit }.coerceIn(0, chapterTitles.lastIndex)
         }
         val chTitle = if (isTxt || chIdx < 0) "全文" else chapterTitles.getOrNull(chIdx) ?: "正文"
-        results.add(BookSearchResult(occurrence, snippet, progress, chIdx, chTitle, hit))
+        results.add(
+            BookSearchResult(
+                occurrence, snippet, progress, chIdx, chTitle, hit,
+                absoluteRange = hit until hit + keyword.length,
+            ),
+        )
         occurrence += 1
         from = hit + lowerKw.length
     }
@@ -93,7 +111,12 @@ internal suspend fun computeEpubSearch(
             val globalHit = base + hit
             val progress = (globalHit.toFloat() / denom) * 100f
             val chTitle = chapterTitles.getOrNull(ci) ?: "正文"
-            results.add(BookSearchResult(results.size, snippet, progress, ci, chTitle, hit))
+            results.add(
+                BookSearchResult(
+                    results.size, snippet, progress, ci, chTitle, hit,
+                    absoluteRange = globalHit until globalHit + keyword.length,
+                ),
+            )
             from = hit + lowerKw.length
         }
     }
@@ -138,7 +161,12 @@ internal suspend fun computeStreamingTxtSearch(
             val excerpt = searchInput.substring(start, end).replace(Regex("\\s+"), " ")
             val snippet = "${if (start > 0) "…" else ""}$excerpt${if (end < searchInput.length) "…" else ""}"
             val progress = (globalHit.toFloat() / denom) * 100f
-            results.add(BookSearchResult(results.size, snippet, progress, -1, "全文", globalHit))
+            results.add(
+                BookSearchResult(
+                    results.size, snippet, progress, -1, "全文", globalHit,
+                    absoluteRange = globalHit until globalHit + keyword.length,
+                ),
+            )
             from = hit + lowerKw.length
         }
         previousTail = if (unitText.length >= 200) {
