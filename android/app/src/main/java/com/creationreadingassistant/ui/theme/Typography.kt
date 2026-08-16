@@ -2,13 +2,15 @@ package com.creationreadingassistant.ui.theme
 
 import androidx.compose.material3.Typography
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.LineHeightStyle
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.R
 
 /**
- * 应用外壳字阶。大标题（display/headlineLarge）用系统宋体，其余用无衬线；阅读正文使用独立 ReaderSettings。
+ * 应用外壳字阶。大标题（display/headlineLarge）用展示衬线（[DisplayFontFamily]），其余用无衬线；阅读正文使用独立 ReaderSettings。
  *
  * 为什么要覆盖 MD3 默认型录：
  *
@@ -25,8 +27,24 @@ import androidx.compose.ui.unit.sp
  * 行高裁剪统一用 Trim.None：中文首末行的 half-leading 被裁会让卡片内文字贴边。
  */
 
+/**
+ * 展示字体（Display Font）——子集化后的思源宋体 Noto Serif SC（SIL OFL 授权，可随 APK 再分发）。
+ *
+ * 由 `android/scripts/build_display_font.py` 从系统可变字体实例化 Regular/Medium 两档、
+ * 转为 TrueType 轮廓并子集化到应用真实字符集，落地于 `res/font/`。标题与统计数字统一走它，
+ * 形成可被记住的「纸墨签名」。缺失字形由 Android 字体回退兜底，绝不出现豆腐块。
+ *
+ * 如需重新生成或扩充字符集：改脚本里的字符收集逻辑后重跑即可，[DisplayFontFamily]
+ * 与下方所有 typography 调用**无需改动**。
+ */
+val DisplayFontFamily: FontFamily =
+    FontFamily(
+        Font(R.font.noto_serif_sc_regular),
+        Font(R.font.noto_serif_sc_medium, FontWeight.Medium),
+    )
+
 private val Sans = FontFamily.Default
-private val Serif = FontFamily.Serif
+private val Serif = DisplayFontFamily
 
 /** 中文正文不裁首末行行距，避免文字贴住容器边缘。 */
 private val CjkLineHeightStyle = LineHeightStyle(

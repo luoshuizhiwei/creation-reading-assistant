@@ -40,6 +40,7 @@ import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.listItemEnter
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.util.formatBookProgressForCard
 
@@ -143,7 +144,7 @@ private fun ContinueCard(
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(
                         book.title,
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(fontFamily = DisplayFontFamily),
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,

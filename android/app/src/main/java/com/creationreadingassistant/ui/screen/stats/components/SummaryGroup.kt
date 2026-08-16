@@ -29,6 +29,7 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -105,7 +106,8 @@ private fun SummaryMetricCell(
         Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
         androidx.compose.foundation.layout.Column {
             val display = rememberCountUp(item.value, reducedMotion)
-            Text(item.format(display), style = MaterialTheme.typography.headlineSmall)
+            // 统计数字用展示衬线，做成可被记住的「纸墨签名」数字。
+            Text(item.format(display), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily))
             Text(
                 item.label,
                 style = MaterialTheme.typography.labelMedium,
