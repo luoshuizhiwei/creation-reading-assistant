@@ -21,9 +21,12 @@ import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.feature.reader.rules.RuleCommand
+import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import javax.inject.Inject
+import kotlinx.coroutines.flow.first
 
 /**
  * 阅读器唯一的文档打开入口。
@@ -38,7 +41,15 @@ class ReaderDocumentLoader @Inject constructor(
     private val bookContentDao: BookContentDao,
     private val readingProgressDao: ReadingProgressDao,
     private val settingsStore: SettingsStore,
+    private val rulesRepository: RulesRepository,
 ) {
+    /**
+     * 测试 seam：JVM 单测里 android.net.Uri.parse 恒返回 null
+     * （`unitTests.isReturnDefaultValues = true`），注入受控 Uri 以便
+     * 验证 TXT 加载的迁移 / profile 链路。
+     */
+    internal var uriParser: (String) -> Uri = Uri::parse
+
     suspend fun load(bookId: String): ReaderLoadedBook {
         require(bookId.isNotBlank()) { "未指定书籍" }
         val metadata = bookRepository.getById(bookId)
@@ -78,7 +89,7 @@ class ReaderDocumentLoader @Inject constructor(
                         try {
                             TextStreamLoader(context.cacheDir).load(
                                 context = context,
-                                uri = Uri.parse(value),
+                                uri = uriParser(value),
                                 reportedSize = metadata.size.toLong(),
                             )
                         } finally {
@@ -115,6 +126,16 @@ class ReaderDocumentLoader @Inject constructor(
             else -> {
                 val localUri = metadata.local_uri
                     ?: metadata.local_content_path?.let { Uri.fromFile(File(it)).toString() }
+
+                // P1-A：旧 DataStore 单选一次性迁移到 Room（marker 防重复重放旧值），
+                // Room 是目录状态的唯一来源；effectiveToc → TxtTocProfile。
+                if (!settingsStore.isTxtTocRuleMigrated(bookId)) {
+                    val legacy = settingsStore.loadTxtTocRule(bookId)
+                    rulesRepository.execute(bookId, RuleCommand.MigrateLegacyTocRule(legacy))
+                    settingsStore.markTxtTocRuleMigrated(bookId)
+                }
+                val profile = rulesRepository.observe(bookId).first().effectiveTocProfile
+
                 val loadAttempt = localUri?.let { value ->
                     val traceStartNs = SystemClock.elapsedRealtimeNanos()
                     val result = runCatching {
@@ -122,8 +143,9 @@ class ReaderDocumentLoader @Inject constructor(
                         try {
                             TextStreamLoader(context.cacheDir).load(
                                 context = context,
-                                uri = Uri.parse(value),
+                                uri = uriParser(value),
                                 reportedSize = metadata.size.toLong(),
+                                profile = profile,
                             )
                         } finally {
                             Trace.endSection()
@@ -144,17 +166,20 @@ class ReaderDocumentLoader @Inject constructor(
                 }
 
                 // ── P0 优化：在 IO 线程预检测章节，避免 ReaderScreen 组合时同步阻塞主线程 ──
-                val ruleId = settingsStore.loadTxtTocRule(bookId)
+                // 预检测身份 = profile.key：规则变化后与快照 key 不一致，组合层自动回退重检。
                 val preDetected: List<DocChapter> = if (fullText.isNotEmpty() && streamingDocument == null) {
                     val detectStartNs = SystemClock.elapsedRealtimeNanos()
                     Trace.beginSection("TxtChapterDetect")
                     val chapters = try {
-                        TxtChapterDetector.detect(fullText, ruleId)
+                        TxtChapterDetector.detect(fullText, profile.patterns, profile.densityGuard)
                     } finally {
                         Trace.endSection()
                     }
                     val detectEndNs = SystemClock.elapsedRealtimeNanos()
-                    AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: ${(detectEndNs - detectStartNs) / 1_000_000} ms, preDetect=true")
+                    AppLog.debug(
+                        "TxtPerfSubTrace",
+                        "TxtChapterDetect: ${(detectEndNs - detectStartNs) / 1_000_000} ms, preDetect=true, key=${profile.key}",
+                    )
                     chapters.mapIndexed { i, c ->
                         DocChapter(
                             index = i,
@@ -172,12 +197,13 @@ class ReaderDocumentLoader @Inject constructor(
                     fullText = fullText,
                     streamingDocument = streamingDocument,
                     fileIndex = result?.takeIf { it.isStreaming }?.fileIndex,
+                    sourceFile = result?.takeIf { it.isStreaming }?.sourceFile,
                     ownedTempFile = result?.takeIf { it.isStreaming }?.tempFile,
                     initialAbsoluteOffset = parseStoredAbsoluteOffset(
                         progress?.current_location_json,
                     ),
                     preDetectedChapters = preDetected,
-                    preDetectedRuleId = ruleId,
+                    preDetectedRuleId = profile.key,
                 )
             }
         }
@@ -238,6 +264,12 @@ sealed interface ReaderLoadedContent {
         val fullText: String,
         val streamingDocument: PlainTextDocument?,
         val fileIndex: TxtFileIndex?,
+        /**
+         * 可重扫的 backing/source 文件：直接 file:// 源文件或复制到 cache 的临时副本。
+         * 仅流式大文件保留；release 绝不删除它（直接源文件归用户所有）。
+         */
+        internal val sourceFile: File?,
+        /** release 时可删除的 owned 临时文件；只有 cache 临时副本非空，直接源文件恒为 null。 */
         internal val ownedTempFile: File?,
         val initialAbsoluteOffset: Int,
         /** 在 IO 线程预检测的章节列表（仅小文件路径非空）。 */

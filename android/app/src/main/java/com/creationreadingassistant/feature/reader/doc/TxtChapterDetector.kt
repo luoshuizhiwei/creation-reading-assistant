@@ -130,7 +130,26 @@ object TxtChapterDetector {
      * 识别不出来时返回单章「全文」，而不是空列表 —— 调用方永远能拿到至少一章，
      * 不必到处判空。
      */
-    fun detect(text: String, ruleId: String = "builtin"): List<Chapter> {
+    fun detect(text: String, ruleId: String = "builtin"): List<Chapter> = detect(text, listOf(ruleId))
+
+    /**
+     * 多规则并集识别：标准四类恒参与，另取 [ruleIds] 对应规则的正则。
+     * density 保护（平均章节过短整体作废）仅在规则全部为内置标准
+     * （空集合或仅 ["builtin"]）时启用 —— 用户手选规则 = 用户背书，不再自动兜底。
+     */
+    fun detect(text: String, ruleIds: Collection<String>): List<Chapter> {
+        val ids = ruleIds.toSet()
+        return detect(text, { isChapterTitle(it, ids) }, densityGuard = ids.all { it == "builtin" })
+    }
+
+    /**
+     * 用显式正则列表识别章节（RuleEngine 自定义规则并集入口）。
+     * [densityGuard] 控制是否启用「平均章节过短整体作废」。
+     */
+    fun detect(text: String, patterns: List<Regex>, densityGuard: Boolean): List<Chapter> =
+        detect(text, { title -> patterns.any { it.matches(title) } }, densityGuard)
+
+    private fun detect(text: String, matcher: (String) -> Boolean, densityGuard: Boolean): List<Chapter> {
         if (text.isEmpty()) return listOf(Chapter("全文", 0, 0))
 
         val marks = ArrayList<Pair<Int, String>>() // (标题行起始偏移, 标题)
@@ -142,7 +161,7 @@ object TxtChapterDetector {
             if (atEnd || text[i] == '\n') {
                 val rawLine = text.substring(lineStart, i)
                 val title = rawLine.trim()
-                if (title.length in 1..MAX_TITLE_LENGTH && isChapterTitle(title, ruleId)) {
+                if (title.length in 1..MAX_TITLE_LENGTH && matcher(title)) {
                     // 用 trim 之后的标题，但偏移仍指向原始行首，保证偏移连续、无空洞
                     marks.add(lineStart to title)
                 }
@@ -166,17 +185,28 @@ object TxtChapterDetector {
         // 合理性检查：真实小说的章节平均长度远大于几百字。
         // 平均值过小说明匹配到的多半是正文里的目录列表或诗歌，宁可没有目录。
         val average = n.toDouble() / chapters.size
-        if (ruleId == "builtin" && average < MIN_AVERAGE_CHAPTER_CHARS) {
+        if (densityGuard && average < MIN_AVERAGE_CHAPTER_CHARS) {
             return listOf(Chapter("全文", 0, n))
         }
         return chapters
     }
 
     /** 单行是否构成章节标题。抽出来便于单测与复用。 */
-    fun isChapterTitle(line: String, ruleId: String = "builtin"): Boolean {
+    fun isChapterTitle(line: String, ruleId: String = "builtin"): Boolean = isChapterTitle(line, setOf(ruleId))
+
+    /** 多规则版本：标准四类恒参与，另取 [ruleIds] 对应规则的模式。 */
+    fun isChapterTitle(line: String, ruleIds: Collection<String>): Boolean {
         val t = line.trim()
         if (t.isEmpty() || t.length > MAX_TITLE_LENGTH) return false
         if (PATTERNS.any { it.matches(t) }) return true
-        return rules.firstOrNull { it.id == ruleId }?.patterns?.any { it.matches(t) } == true
+        if (ruleIds.isEmpty()) return false
+        return rules.any { rule -> rule.id in ruleIds && rule.patterns.any { it.matches(t) } }
     }
+
+    /**
+     * 标准四类 + [ruleIds] 对应具名规则正则的并集（供 RuleEngine 多规则并集复用；
+     * 自定义规则的正则由引擎自行编译拼接）。
+     */
+    fun unionPatterns(ruleIds: Collection<String>): List<Regex> =
+        PATTERNS + rules.filter { it.id in ruleIds }.flatMap { it.patterns }
 }

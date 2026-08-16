@@ -469,8 +469,19 @@ class StreamingPlainTextDocumentTest {
     fun `unitIndexForOffset returns -1 for empty reading units`() {
         val (file, _, index) = createMultiChapterFile()
         val doc = PlainTextDocument.fromFileIndex(file, index)
-        // readingUnits is emptyList() by default
+        // 流式文档构造时预建 readingUnits（单一真相，首帧可用）；显式置空锁定
+        // 「空 units → -1」契约，与 BoundedReadApiTest 的 empty-list 用例一致。
+        doc.readingUnits = emptyList()
         assertEquals(-1, doc.unitIndexForOffset(0))
+    }
+
+    @Test
+    fun `streaming document precomputes reading units at construction`() {
+        val (file, _, index) = createMultiChapterFile()
+        val doc = PlainTextDocument.fromFileIndex(file, index)
+        // P1-A 单一真相：构造期即构建 units（首帧可用，组合层不再 composition 写回）
+        assertTrue(doc.readingUnits.isNotEmpty())
+        assertEquals(0, doc.unitIndexForOffset(doc.readingUnits.first().charStart))
     }
 
     @Test
@@ -1246,5 +1257,63 @@ class StreamingPlainTextDocumentTest {
         } finally {
             file.delete()
         }
+    }
+
+    // ── profile 流式：自定义规则 + key + 首标题 heading ───────────────
+
+    @Test
+    fun `streaming profile scan detects custom chapters and reports key`() {
+        val profile = TxtTocProfile(
+            key = "stream-custom-1",
+            patterns = listOf(Regex("^foo-\\d+ 测试$")),
+            densityGuard = false,
+        )
+        val file = File.createTempFile("test_stream_profile_", ".txt")
+        tempFiles.add(file)
+        val body = "测试正文内容。".repeat(70)
+        val content = "foo-1 测试\n$body\nfoo-2 测试\n$body"
+        RandomAccessFile(file, "rw").use { it.write(content.toByteArray(Charsets.UTF_8)) }
+
+        val index = TxtFileScanner.scan(file, profile)
+
+        assertEquals("stream-custom-1", index.detectedRuleId)
+        assertEquals(listOf("foo-1 测试", "foo-2 测试"), index.chapters.map { it.title })
+    }
+
+    @Test
+    fun `streaming profile document marks first heading equal to chapter title`() {
+        val profile = TxtTocProfile(
+            key = "stream-custom-2",
+            patterns = listOf(Regex("^foo-\\d+ 测试$")),
+            densityGuard = false,
+        )
+        val file = File.createTempFile("test_stream_profile_doc_", ".txt")
+        tempFiles.add(file)
+        val body = "测试正文内容。".repeat(70)
+        val content = "foo-1 测试\n$body\nfoo-2 测试\n$body"
+        RandomAccessFile(file, "rw").use { it.write(content.toByteArray(Charsets.UTF_8)) }
+
+        val index = TxtFileScanner.scan(file, profile)
+        val doc = PlainTextDocument.fromFileIndex(file, index)
+
+        val first = doc.blocks(0).filterIsInstance<DocBlock.Text>().first()
+        assertTrue("首标题应标为 heading", first.isHeading)
+        assertEquals("foo-1 测试", first.text)
+        // 接口不变式：text() == blocks() joined
+        assertEquals(
+            doc.text(0),
+            doc.blocks(0).filterIsInstance<DocBlock.Text>().joinToString("\n") { it.text },
+        )
+    }
+
+    @Test
+    fun `streaming legacy builtin document heading still equals chapter title`() {
+        // 回归：legacy 扫描（detectedRuleId=builtin）首块 heading 语义不变
+        val (file, _, index) = createMultiChapterFile()
+        val doc = PlainTextDocument.fromFileIndex(file, index)
+        val first = doc.blocks(0).filterIsInstance<DocBlock.Text>().first()
+        assertTrue(first.isHeading)
+        assertEquals("第1章 测试", first.text)
+        assertEquals("第1章 测试", index.chapters[0].title)
     }
 }

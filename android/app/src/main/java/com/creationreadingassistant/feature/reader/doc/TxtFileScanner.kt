@@ -10,6 +10,23 @@ import java.io.FileInputStream
 import java.io.InputStream
 import java.io.InputStreamReader
 import java.nio.charset.Charset
+import kotlinx.coroutines.CancellationException
+
+/**
+ * TXT 扫描的协作取消 / 进度监视器。
+ *
+ * 扫描循环每处理 [TxtFileScanner.PROBE_INTERVAL_CHARS] 个字符探测一次：
+ * - [isCancelled] 返回 true 时立即抛出 [CancellationException]，停止继续读取
+ *   （底层同步 API 无法中断，协作探针保证取消后最多再多读一小块）；
+ * - [onProgress] 上报 0..1 进度；总大小未知（如 InputStream）时上报 null（indeterminate）。
+ */
+interface TxtScanMonitor {
+    /** 是否应中止扫描。 */
+    fun isCancelled(): Boolean
+
+    /** 进度回调；fraction 为 0..1，未知总大小时为 null。 */
+    fun onProgress(fraction: Float?)
+}
 
 /**
  * Streaming scanner for large TXT / Markdown files.
@@ -34,16 +51,26 @@ object TxtFileScanner {
     /** Maximum bytes to read for encoding detection header. */
     private const val HEADER_SIZE = 8192
 
+    /** 协作取消 / 进度探测的字符间隔。 */
+    internal const val PROBE_INTERVAL_CHARS = 8192
+
     // ── Public API ──────────────────────────────────────────────────────
 
     /**
      * Scan a file identified by [Uri] via [ContentResolver][Context.contentResolver].
      * The input stream is automatically closed after scanning.
      */
-    fun scan(context: Context, uri: Uri, ruleId: String = "builtin"): TxtFileIndex {
+    fun scan(context: Context, uri: Uri, ruleId: String = "builtin"): TxtFileIndex =
+        scan(context, uri, TxtTocProfile.fromRuleId(ruleId))
+
+    /**
+     * 用显式 [TxtTocProfile] 扫描 [Uri] 文件（自定义 / 多规则目录入口）。
+     * 输入流扫描后自动关闭；detectedRuleId 为 profile.key。
+     */
+    fun scan(context: Context, uri: Uri, profile: TxtTocProfile): TxtFileIndex {
         val rawStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalArgumentException("Cannot open input stream for uri: $uri")
-        return rawStream.use { scan(it, ruleId) }
+        return rawStream.use { scan(it, profile) }
     }
 
     /**
@@ -53,14 +80,21 @@ object TxtFileScanner {
      * 章节字节长度以 Int 存储，超过 2GB 的文件会在各处 toInt() 溢出，
      * 在入口直接给出可读错误而不是带伤扫描。
      */
-    fun scan(file: File, ruleId: String = "builtin"): TxtFileIndex {
+    fun scan(file: File, ruleId: String = "builtin", monitor: TxtScanMonitor? = null): TxtFileIndex =
+        scan(file, TxtTocProfile.fromRuleId(ruleId), monitor)
+
+    /**
+     * 用显式 [TxtTocProfile] 扫描本地 [File]。
+     * 章节字节长度以 Int 存储，超过 2GB 的文件直接拒绝（同 ruleId 入口）。
+     */
+    fun scan(file: File, profile: TxtTocProfile, monitor: TxtScanMonitor? = null): TxtFileIndex {
         val length = file.length()
         if (length > Int.MAX_VALUE.toLong()) {
             throw IllegalArgumentException(
                 "TXT 文件过大（${"%.2f".format(length / 1024.0 / 1024.0 / 1024.0)} GB），超过 2GB 上限，无法打开"
             )
         }
-        return FileInputStream(file).use { scan(it, ruleId) }
+        return FileInputStream(file).use { scan(it, profile, monitor, length) }
     }
 
     /**
@@ -70,7 +104,39 @@ object TxtFileScanner {
      * **Note:** The caller is responsible for closing [inputStream] after this
      * method returns. This method fully consumes the stream but does NOT close it.
      */
-    fun scan(inputStream: InputStream, ruleId: String = "builtin"): TxtFileIndex {
+    fun scan(inputStream: InputStream, ruleId: String = "builtin", monitor: TxtScanMonitor? = null): TxtFileIndex =
+        scan(inputStream, TxtTocProfile.fromRuleId(ruleId), monitor)
+
+    /**
+     * 用显式 [TxtTocProfile] 扫描输入流。
+     * 与 [scan] 一样不负责关闭 [inputStream]。
+     */
+    fun scan(inputStream: InputStream, profile: TxtTocProfile, monitor: TxtScanMonitor? = null): TxtFileIndex =
+        scan(inputStream, profile, monitor, knownTotalBytes = null)
+
+    /**
+     * 带总大小提示的核心扫描入口（测试 / 已知大小的调用方可用）。
+     * 总大小已知时 [TxtScanMonitor.onProgress] 上报 0..1，未知时上报 null。
+     * 与 [scan] 一样不负责关闭 [inputStream]。
+     */
+    internal fun scan(
+        inputStream: InputStream,
+        ruleId: String,
+        monitor: TxtScanMonitor?,
+        knownTotalBytes: Long?,
+    ): TxtFileIndex = scan(inputStream, TxtTocProfile.fromRuleId(ruleId), monitor, knownTotalBytes)
+
+    /**
+     * 带总大小提示的 profile 核心扫描入口（测试 / 已知大小的调用方可用）。
+     * 与 ruleId 入口共享同一实现：标题匹配走 profile.patterns，density 保护走
+     * profile.densityGuard，detectedRuleId 落 profile.key。
+     */
+    internal fun scan(
+        inputStream: InputStream,
+        profile: TxtTocProfile,
+        monitor: TxtScanMonitor?,
+        knownTotalBytes: Long?,
+    ): TxtFileIndex {
         // 1. Buffer the stream so we can mark/reset for header inspection
         val buffered = if (inputStream is BufferedInputStream) inputStream
                        else BufferedInputStream(inputStream, HEADER_SIZE)
@@ -90,7 +156,7 @@ object TxtFileScanner {
             val skipped = buffered.skip(bomSkip.toLong())
             if (skipped < bomSkip) {
                 // File is shorter than BOM — treat as empty
-                return emptyIndex(encodingResult.encoding, ruleId)
+                return emptyIndex(encodingResult.encoding, profile.key)
             }
         }
 
@@ -109,6 +175,7 @@ object TxtFileScanner {
         var byteOffset = bomSkip.toLong() // absolute file position (BOM included)
         val lineBuf = StringBuilder()
         var eof = false
+        var charsSinceProbe = 0
 
         // Checkpoint collection — recorded at actual line boundary positions
         // so that byte ranges between consecutive checkpoints decode to exactly
@@ -130,6 +197,13 @@ object TxtFileScanner {
                     break
                 }
                 lineBuf.append(ch.toChar())
+                // 协作取消 / 进度探测放在字符循环内：巨型单行也必须能及时停止，
+                // 不能等整行处理完才响应取消。
+                charsSinceProbe++
+                if (charsSinceProbe >= PROBE_INTERVAL_CHARS) {
+                    charsSinceProbe = 0
+                    probe(monitor, knownTotalBytes, byteOffset)
+                }
             }
             // 文件读尽且本轮没有任何内容（例如文件以换行结尾）：不产生虚假的空行。
             if (eof && lineBuf.isEmpty() && terminator.isEmpty()) break
@@ -140,7 +214,7 @@ object TxtFileScanner {
             val trimmed = line.trim()
             if (trimmed.isNotEmpty()
                 && trimmed.length <= MAX_TITLE_LENGTH
-                && TxtChapterDetector.isChapterTitle(trimmed, ruleId)
+                && profile.matches(trimmed)
             ) {
                 chapterMarks.add(
                     ChapterMark(
@@ -175,6 +249,9 @@ object TxtFileScanner {
         val totalBytes = byteOffset // absolute end position (BOM included)
         val totalChars = charOffset
 
+        // 收尾探测：上报最终进度（已知大小时为 1.0），并给取消最后一次机会
+        probe(monitor, knownTotalBytes, totalBytes)
+
         // Add initial checkpoint at text start (before any content).
         // Done after the loop so we can skip it when the first line is a
         // chapter title (which already added a checkpoint at charOffset=0).
@@ -192,16 +269,30 @@ object TxtFileScanner {
             totalChars = totalChars,
             totalBytes = totalBytes,
             bomSkip = bomSkip,
-            ruleId = ruleId,
+            densityGuard = profile.densityGuard,
         )
 
         return TxtFileIndex(
             chapters = chapters,
             totalCharCount = totalChars,
             encoding = encodingResult.encoding,
-            detectedRuleId = ruleId,
+            detectedRuleId = profile.key,
             checkpoints = checkpoints,
         )
+    }
+
+    /** 探测取消并上报进度；取消时抛出 [CancellationException] 停止扫描。 */
+    private fun probe(monitor: TxtScanMonitor?, totalBytes: Long?, bytesRead: Long) {
+        if (monitor == null) return
+        if (monitor.isCancelled()) {
+            throw CancellationException("TXT 扫描已取消")
+        }
+        val fraction = if (totalBytes != null && totalBytes > 0) {
+            (bytesRead.toDouble() / totalBytes.toDouble()).toFloat().coerceIn(0f, 1f)
+        } else {
+            null
+        }
+        monitor.onProgress(fraction)
     }
 
     // ── Internal helpers ────────────────────────────────────────────────
@@ -224,7 +315,7 @@ object TxtFileScanner {
         totalChars: Long,
         totalBytes: Long,
         bomSkip: Int,
-        ruleId: String,
+        densityGuard: Boolean,
     ): List<ChapterEntry> {
         // byteStart/byteLength 均为绝对文件位置（正文起点在 BOM 之后），
         // 与 PlainTextDocument.readChapterBytes 的 RandomAccessFile.seek 语义一致。
@@ -275,7 +366,7 @@ object TxtFileScanner {
         }
 
         // Density protection: too many chapters means false positives
-        if (ruleId == "builtin" && entries.isNotEmpty()) {
+        if (densityGuard && entries.isNotEmpty()) {
             val avgChars = totalChars.toDouble() / entries.size
             if (avgChars < MIN_AVERAGE_CHAPTER_CHARS) {
                 return listOf(
@@ -294,7 +385,7 @@ object TxtFileScanner {
         return entries
     }
 
-    private fun emptyIndex(encoding: String, ruleId: String): TxtFileIndex {
+    private fun emptyIndex(encoding: String, key: String): TxtFileIndex {
         return TxtFileIndex(
             chapters = listOf(
                 ChapterEntry(
@@ -308,7 +399,7 @@ object TxtFileScanner {
             ),
             totalCharCount = 0,
             encoding = encoding,
-            detectedRuleId = ruleId,
+            detectedRuleId = key,
         )
     }
 

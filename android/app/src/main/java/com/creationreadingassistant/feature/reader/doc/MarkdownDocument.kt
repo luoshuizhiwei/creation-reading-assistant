@@ -30,6 +30,16 @@ class MarkdownDocument private constructor(
 ) : ReaderDocument {
 
     /**
+     * 小文件模式整本解析的惰性缓存。
+     *
+     * 章节表构建时已解析过一次；首次 [blocks] / [migrateLegacyOffset] 访问时再次解析
+     * 并缓存，之后所有章节切片与旧进度迁移复用同一份产物，避免每章重复解析全书。
+     */
+    private val wholeBookChapter: MarkdownParser.MarkdownChapter? by lazy {
+        fullText?.let { MarkdownParser.parse(it) }
+    }
+
+    /**
      * 小文件路径：全文 + 按 H1/H2 切章。
      */
     constructor(fullText: String) : this(
@@ -150,6 +160,7 @@ class MarkdownDocument private constructor(
          * 扫描文件，识别 Markdown ATX 标题（H1），返回源字符偏移区间列表。
          *
          * 仅按 H1 分章；H2-H6 作为章内标题保留，仍可通过解析后的 headings 进入目录。
+         * 逐行维护 fenced code block 局部状态：围栏内的行（包括 `# ...`）不参与标题匹配；
          * 超长章节会被切分为多个源单元，确保后续有界读取不溢出。
          */
         private fun scanSourceChapters(file: File, index: TxtFileIndex): List<SourceChapter> {
@@ -159,6 +170,7 @@ class MarkdownDocument private constructor(
 
             val marks = ArrayList<HeadingMark>()
             var charOffset = 0L
+            var fence: FenceState? = null
 
             FileInputStream(file).use { fis ->
                 if (bomSkip > 0) fis.skip(bomSkip.toLong())
@@ -183,15 +195,30 @@ class MarkdownDocument private constructor(
                         if (eof && lineBuf.isEmpty() && terminator.isEmpty()) break
                         val line = lineBuf.toString()
 
-                        val headingMatch = matchAtxHeading(line)
-                        if (headingMatch != null && headingMatch.level == 1) {
-                            marks.add(
-                                HeadingMark(
-                                    level = headingMatch.level,
-                                    title = headingMatch.title,
-                                    charStart = charOffset,
-                                ),
-                            )
+                        val currentFence = fence
+                        if (currentFence != null) {
+                            // 围栏内：只接受同字符、长度 >= opener 且 marker 后仅空白的行关闭；
+                            // 其他行（包括 # 标题）一律不做 heading 匹配。
+                            if (isFenceCloser(line, currentFence.marker, currentFence.openerLength)) {
+                                fence = null
+                            }
+                        } else {
+                            val opener = matchFenceOpener(line)
+                            if (opener != null) {
+                                // 进入围栏，且该行不做 heading 匹配；未闭合围栏持续到 EOF。
+                                fence = opener
+                            } else {
+                                val headingMatch = matchAtxHeading(line)
+                                if (headingMatch != null && headingMatch.level == 1) {
+                                    marks.add(
+                                        HeadingMark(
+                                            level = headingMatch.level,
+                                            title = headingMatch.title,
+                                            charStart = charOffset,
+                                        ),
+                                    )
+                                }
+                            }
                         }
                         charOffset += line.length + terminator.length
                     }
@@ -345,6 +372,45 @@ class MarkdownDocument private constructor(
             return HeadingMatch(level, title)
         }
 
+        /**
+         * Fenced code block 局部状态：marker 为围栏字符（` 或 ~），openerLength 为 opener 的连续 marker 长度。
+         * 仅在逐行扫描时维护，不参与解析产物。
+         */
+        private data class FenceState(
+            val marker: Char,
+            val openerLength: Int,
+        )
+
+        /**
+         * 识别围栏 opener：行首最多 3 个空格后，连续 >=3 个相同 ` 或 ~。
+         * 4 空格缩进不是围栏；marker 后允许任意 info string。
+         */
+        private fun matchFenceOpener(line: String): FenceState? {
+            val markerIndex = line.indexOfFirst { it != ' ' }.let { if (it < 0) return null else it }
+            if (markerIndex > 3) return null
+            val marker = line[markerIndex]
+            if (marker != '`' && marker != '~') return null
+            var end = markerIndex
+            while (end < line.length && line[end] == marker) end++
+            val length = end - markerIndex
+            if (length < 3) return null
+            return FenceState(marker, length)
+        }
+
+        /**
+         * 围栏关闭判定：同字符、连续 marker 长度 >= opener，且 marker 后仅空白。
+         * 与 opener 一致，行首最多允许 3 个空格。
+         */
+        private fun isFenceCloser(line: String, marker: Char, openerLength: Int): Boolean {
+            val markerIndex = line.indexOfFirst { it != ' ' }.let { if (it < 0) return false else it }
+            if (markerIndex > 3) return false
+            if (line[markerIndex] != marker) return false
+            var end = markerIndex
+            while (end < line.length && line[end] == marker) end++
+            if (end - markerIndex < openerLength) return false
+            return line.substring(end).isBlank()
+        }
+
         private fun List<MdInline>.joinCanonicalText(): String = buildString {
             for (inline in this@joinCanonicalText) append(inline.canonicalText())
         }
@@ -365,9 +431,41 @@ class MarkdownDocument private constructor(
     override val totalChars: Int
         get() = chapters.sumOf { it.charCount.toLong() }.toInt()
 
+    /**
+     * 解析坐标空间：true = 小文件整本解析（[blocks] 的 canonicalRange 已是全书全局坐标）；
+     * false = 流式逐章解析（[blocks] 的 canonicalRange 为章内局部坐标，需加章节全书起点换算）。
+     * 搜索命中换算（[com.creationreadingassistant.ui.screen.reader.markdownScrollSearchHits]）
+     * 依赖此基准选择 blockGlobalBase。
+     */
+    val isWholeDocumentParse: Boolean get() = fullText != null
+
     override fun blocks(chapterIndex: Int): List<DocBlock> {
         if (fullText != null) {
-            val chapter = MarkdownParser.parse(fullText)
+            val docChapter = chapters.getOrNull(chapterIndex) ?: return emptyList()
+            val whole = wholeBookChapter ?: return emptyList()
+
+            // 本章在整本规范文本中的 canonical 区间 [startOffset, startOffset + charCount)。
+            val start = docChapter.startOffset
+            val endExclusive = start + docChapter.charCount
+
+            // 只取落在本章区间内的顶层块；块/标题的 canonicalRange/canonicalOffset
+            // 保持整本解析的全书全局坐标（isWholeDocumentParse 仍为 true）。
+            val chapterBlocks = whole.blocks.filter {
+                it.canonicalRange.first >= start && it.canonicalRange.first < endExclusive
+            }
+            val chapterHeadings = whole.headings.filter {
+                it.canonicalOffset >= start && it.canonicalOffset < endExclusive
+            }
+            val chapterCanonicalText = whole.canonicalText.substring(
+                start.coerceIn(0, whole.canonicalText.length),
+                endExclusive.coerceIn(start, whole.canonicalText.length),
+            )
+            val chapter = MarkdownParser.MarkdownChapter(
+                blocks = chapterBlocks,
+                canonicalText = chapterCanonicalText,
+                offsetMap = MarkdownOffsetMap.fromBlocks(chapterBlocks),
+                headings = chapterHeadings,
+            )
             return listOf(DocBlock.Markdown(chapter))
         }
         val range = chapterSourceRanges.getOrNull(chapterIndex) ?: return emptyList()
@@ -399,7 +497,7 @@ class MarkdownDocument private constructor(
     fun migrateLegacyOffset(sourceOffset: Int): Int {
         val clamped = sourceOffset.coerceAtLeast(0)
         if (fullText != null) {
-            val chapter = MarkdownParser.parse(fullText)
+            val chapter = wholeBookChapter ?: return clamped.coerceAtMost(totalChars)
             return chapter.offsetMap.toCanonical(clamped).coerceIn(0, totalChars)
         }
         val file = fileSource ?: return clamped.coerceAtMost(totalChars)

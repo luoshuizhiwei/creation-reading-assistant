@@ -1,13 +1,15 @@
 package com.creationreadingassistant.feature.reader.pager
 
+import com.creationreadingassistant.feature.reader.doc.MarkdownParser
+import com.creationreadingassistant.feature.reader.doc.MarkdownRenderContent
+import com.creationreadingassistant.feature.reader.doc.MarkdownRenderModel
+import com.creationreadingassistant.feature.reader.doc.MarkdownRenderSpan
+import com.creationreadingassistant.feature.reader.doc.MarkdownRenderUnit
+import com.creationreadingassistant.feature.reader.doc.MdInlineKind
+import com.creationreadingassistant.feature.reader.doc.MdInlineSpan
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.LayoutBlock
 import com.creationreadingassistant.feature.reader.layout.LayoutParagraph
-import com.creationreadingassistant.feature.reader.doc.MdInline
-import com.creationreadingassistant.feature.reader.doc.MdInlineKind
-import com.creationreadingassistant.feature.reader.doc.MdInlineSpan
-import com.creationreadingassistant.feature.reader.doc.MarkdownBlock
-import com.creationreadingassistant.feature.reader.doc.MarkdownParser
 
 /**
  * Markdown 语义章 → 排版引擎可消费的 [LayoutBlock] 序列。
@@ -15,6 +17,10 @@ import com.creationreadingassistant.feature.reader.doc.MarkdownParser
  * 关键纪律与 [TxtPageSource] 一致：**段落文本必须是 [MarkdownChapter.canonicalText]
  * 的原样切片，偏移必须可逆。** 搜索、TTS、Locator、选区、高亮、书签全部建立在
  * [canonicalText] 的字符偏移之上，排版层只负责把同一文本空间画出来。
+ *
+ * 结构与滚动端共享唯一语义输入：先经 [MarkdownRenderModel.flatten] 得到统一的
+ * 扁平渲染单元，再由纯适配 seam [LayoutBlockAdapter] 生成 [LayoutBlock]；
+ * **不再直接递归 Markdown AST**。
  *
  * 图片不占字符；它挂在图片说明（alt）文本的起点，与 EPUB 图片挂载策略一致。
  */
@@ -24,260 +30,225 @@ object MarkdownPageSource {
     fun chapterTextOf(chapter: MarkdownParser.MarkdownChapter): String = chapter.canonicalText
 
     /** 将 Markdown 语义章转换为排版块序列。 */
-    fun layoutBlocksOf(chapter: MarkdownParser.MarkdownChapter): List<LayoutBlock> {
-        val ctx = RenderContext(chapter.canonicalText)
-        for (block in chapter.blocks) {
-            ctx.renderBlock(block, indentLevel = 0)
+    fun layoutBlocksOf(chapter: MarkdownParser.MarkdownChapter): List<LayoutBlock> =
+        LayoutBlockAdapter.toLayoutBlocks(
+            units = MarkdownRenderModel.flatten(chapter),
+            canonicalText = chapter.canonicalText,
+        )
+}
+
+/**
+ * 纯适配 seam：统一渲染模型 → [LayoutBlock]。
+ *
+ * 只消费 [MarkdownRenderUnit] 与 canonical 文本切片，不读 AST。与旧逐块实现对齐：
+ * - 标题 → HEADING_x（参与 keep-with-next，不做首行缩进/两端对齐）；
+ * - 段落 → BODY；引用中的普通段落 → QUOTE（indentLevel 已包含引用层级）；
+ * - 无序列表项 → LIST_ITEM_BULLET，有序列表项 → LIST_ITEM_NUMBER；
+ *   任务项 → TASK_ITEM_UNCHECKED / TASK_ITEM_CHECKED；
+ *   引用中的列表保留列表角色，marker 不占 text 偏移；
+ * - 图片不占字符，按 Image span 的 canonical 起点挂 anchor；
+ * - 代码块逐非空行 → CODE_BLOCK + codeLanguage；
+ * - 表格逐行 → TABLE_HEADER（首行）/ TABLE_ROW（其余行）；
+ * - 分隔线 → HORIZONTAL_RULE。
+ */
+internal object LayoutBlockAdapter {
+
+    fun toLayoutBlocks(
+        units: List<MarkdownRenderUnit>,
+        canonicalText: String,
+    ): List<LayoutBlock> {
+        val out = mutableListOf<LayoutBlock>()
+        for (unit in units) {
+            emitUnit(unit, canonicalText, out)
         }
-        return ctx.blocks
+        return out
     }
 
-    private class RenderContext(private val canonicalText: String) {
-        val blocks = mutableListOf<LayoutBlock>()
+    private fun emitUnit(
+        unit: MarkdownRenderUnit,
+        canonicalText: String,
+        out: MutableList<LayoutBlock>,
+    ) {
+        when (val content = unit.content) {
+            is MarkdownRenderContent.Heading -> out += textBlock(
+                text = canonicalText.sliceRange(unit.canonicalRange),
+                role = headingRole(content.level),
+                charOffset = unit.canonicalRange.first,
+                indentLevel = unit.depth,
+                inlineSpans = content.spans.toLayoutSpans(),
+            )
 
-        /** 列表项前缀标记，将挂在下一个生成的文本段落上。 */
-        private var pendingMarker: String? = null
+            is MarkdownRenderContent.Paragraph ->
+                emitParagraph(
+                    unit,
+                    canonicalText,
+                    content.spans,
+                    role = paragraphRole(unit),
+                    marker = null,
+                    out,
+                )
 
-        fun renderBlock(block: MarkdownBlock, indentLevel: Int) {
-            val marker = pendingMarker
-            pendingMarker = null
-            when (block) {
-                is MarkdownBlock.Heading -> renderHeading(block, marker)
-                is MarkdownBlock.Paragraph -> renderParagraph(block, indentLevel, marker)
-                is MarkdownBlock.BlockQuote -> renderQuote(block, indentLevel)
-                is MarkdownBlock.UnorderedList -> renderUnorderedList(block, indentLevel)
-                is MarkdownBlock.OrderedList -> renderOrderedList(block, indentLevel)
-                is MarkdownBlock.TaskList -> renderTaskList(block, indentLevel)
-                is MarkdownBlock.FencedCodeBlock -> renderCodeBlock(block)
-                is MarkdownBlock.IndentedCodeBlock -> renderCodeBlock(block)
-                is MarkdownBlock.Table -> renderTable(block)
-                is MarkdownBlock.HorizontalRule -> renderHorizontalRule(block)
-            }
-        }
+            is MarkdownRenderContent.ListItem -> emitParagraph(
+                unit,
+                canonicalText,
+                content.spans,
+                role = if (content.ordinal != null) {
+                    BlockRole.LIST_ITEM_NUMBER
+                } else {
+                    BlockRole.LIST_ITEM_BULLET
+                },
+                marker = content.marker,
+                out,
+            )
 
-        private fun slice(range: IntRange): String {
-            val start = range.first.coerceIn(0, canonicalText.length)
-            val end = (range.last + 1).coerceIn(start, canonicalText.length)
-            return canonicalText.substring(start, end)
-        }
+            is MarkdownRenderContent.TaskItem -> emitParagraph(
+                unit,
+                canonicalText,
+                content.spans,
+                role = if (content.checked) {
+                    BlockRole.TASK_ITEM_CHECKED
+                } else {
+                    BlockRole.TASK_ITEM_UNCHECKED
+                },
+                marker = if (content.checked) "[x] " else "[ ] ",
+                out,
+            )
 
-        private fun renderHeading(block: MarkdownBlock.Heading, marker: String?) {
-            blocks += LayoutBlock.Text(
-                LayoutParagraph(
-                    text = slice(block.canonicalRange),
-                    role = headingRole(block.level),
-                    charOffset = block.canonicalRange.first,
-                    listMarker = marker,
-                    inlineSpans = collectInlineSpans(block.inlines, block.canonicalRange.first),
-                ),
+            is MarkdownRenderContent.CodeBlock ->
+                emitCodeLines(canonicalText, unit, content.language, out)
+
+            is MarkdownRenderContent.Table ->
+                emitTableLines(canonicalText, unit, out)
+
+            MarkdownRenderContent.HorizontalRule -> out += textBlock(
+                text = canonicalText.sliceRange(unit.canonicalRange),
+                role = BlockRole.HORIZONTAL_RULE,
+                charOffset = unit.canonicalRange.first,
             )
         }
+    }
 
-        private fun renderParagraph(block: MarkdownBlock.Paragraph, indentLevel: Int, marker: String?) {
-            // 图片作为独立 Image 块挂在 alt 文本起点；alt 文本仍保留在段落内供 TTS/搜索使用。
-            for (image in extractImages(block.inlines, block.canonicalRange.first)) {
-                blocks += LayoutBlock.Image(
-                    sourceKey = image.url,
-                    widthPx = 0f,
-                    heightPx = 0f,
-                    anchorOffset = image.canonicalOffset,
+    private fun emitParagraph(
+        unit: MarkdownRenderUnit,
+        canonicalText: String,
+        spans: List<MarkdownRenderSpan>,
+        role: BlockRole,
+        marker: String?,
+        out: MutableList<LayoutBlock>,
+    ) {
+        // 图片作为独立 Image 块挂在 alt 文本起点；alt 文本仍保留在段落内供 TTS/搜索使用。
+        for (image in spans.filterIsInstance<MarkdownRenderSpan.Image>()) {
+            out += LayoutBlock.Image(
+                sourceKey = image.source,
+                widthPx = 0f,
+                heightPx = 0f,
+                anchorOffset = unit.canonicalRange.first + image.start,
+            )
+        }
+        out += textBlock(
+            text = canonicalText.sliceRange(unit.canonicalRange),
+            role = role,
+            charOffset = unit.canonicalRange.first,
+            indentLevel = unit.depth,
+            listMarker = marker,
+            inlineSpans = spans.toLayoutSpans(),
+        )
+    }
+
+    /** 引用中的普通段落用 QUOTE；非引用段落保持 BODY。 */
+    private fun paragraphRole(unit: MarkdownRenderUnit): BlockRole =
+        if (unit.blockquoteDepth > 0) BlockRole.QUOTE else BlockRole.BODY
+
+    private fun emitCodeLines(
+        canonicalText: String,
+        unit: MarkdownRenderUnit,
+        language: String?,
+        out: MutableList<LayoutBlock>,
+    ) {
+        val text = canonicalText.sliceRange(unit.canonicalRange)
+        var lineStart = 0
+        while (lineStart <= text.length) {
+            val nl = text.indexOf('\n', lineStart)
+            val lineEnd = if (nl >= 0) nl else text.length
+            if (lineEnd > lineStart) {
+                out += textBlock(
+                    text = text.substring(lineStart, lineEnd),
+                    role = BlockRole.CODE_BLOCK,
+                    charOffset = unit.canonicalRange.first + lineStart,
+                    codeLanguage = language,
                 )
             }
-            blocks += LayoutBlock.Text(
-                LayoutParagraph(
-                    text = slice(block.canonicalRange),
-                    role = BlockRole.BODY,
-                    charOffset = block.canonicalRange.first,
-                    indentLevel = indentLevel,
-                    listMarker = marker,
-                    inlineSpans = collectInlineSpans(block.inlines, block.canonicalRange.first),
-                ),
-            )
-        }
-
-        private fun renderQuote(block: MarkdownBlock.BlockQuote, indentLevel: Int) {
-            var first = true
-            for (b in block.blocks) {
-                if (first) {
-                    pendingMarker = null // 引用块本身不需要标记，但保留层级
-                    first = false
-                }
-                renderBlock(b, indentLevel + 1)
-            }
-        }
-
-        private fun renderUnorderedList(block: MarkdownBlock.UnorderedList, indentLevel: Int) {
-            for (item in block.items) {
-                renderListItem(item, indentLevel + 1, "• ")
-            }
-        }
-
-        private fun renderOrderedList(block: MarkdownBlock.OrderedList, indentLevel: Int) {
-            for ((i, item) in block.items.withIndex()) {
-                val number = block.startNumber + i
-                renderListItem(item, indentLevel + 1, "$number. ")
-            }
-        }
-
-        private fun renderTaskList(block: MarkdownBlock.TaskList, indentLevel: Int) {
-            for (item in block.items) {
-                val marker = if (item.checked) "[x] " else "[ ] "
-                renderListItem(item.blocks, indentLevel + 1, marker)
-            }
-        }
-
-        private fun renderListItem(itemBlocks: List<MarkdownBlock>, indentLevel: Int, marker: String) {
-            if (itemBlocks.isEmpty()) return
-            pendingMarker = marker
-            renderBlock(itemBlocks.first(), indentLevel)
-            for (b in itemBlocks.drop(1)) {
-                renderBlock(b, indentLevel)
-            }
-        }
-
-        private fun renderCodeBlock(block: MarkdownBlock.FencedCodeBlock) {
-            val language = block.language
-            renderCodeLines(slice(block.canonicalRange), block.canonicalRange.first, language)
-        }
-
-        private fun renderCodeBlock(block: MarkdownBlock.IndentedCodeBlock) {
-            renderCodeLines(slice(block.canonicalRange), block.canonicalRange.first, language = null)
-        }
-
-        private fun renderCodeLines(text: String, baseOffset: Int, language: String?) {
-            var lineStart = 0
-            while (lineStart <= text.length) {
-                val nl = text.indexOf('\n', lineStart)
-                val lineEnd = if (nl >= 0) nl else text.length
-                if (lineEnd > lineStart) {
-                    blocks += LayoutBlock.Text(
-                        LayoutParagraph(
-                            text = text.substring(lineStart, lineEnd),
-                            role = BlockRole.CODE_BLOCK,
-                            charOffset = baseOffset + lineStart,
-                            codeLanguage = language,
-                        ),
-                    )
-                }
-                if (nl < 0) break
-                lineStart = nl + 1
-            }
-        }
-
-        private fun renderTable(block: MarkdownBlock.Table) {
-            val text = slice(block.canonicalRange)
-            var lineStart = 0
-            var isHeader = true
-            while (lineStart <= text.length) {
-                val nl = text.indexOf('\n', lineStart)
-                val lineEnd = if (nl >= 0) nl else text.length
-                if (lineEnd > lineStart) {
-                    blocks += LayoutBlock.Text(
-                        LayoutParagraph(
-                            text = text.substring(lineStart, lineEnd),
-                            role = if (isHeader) BlockRole.TABLE_HEADER else BlockRole.TABLE_ROW,
-                            charOffset = block.canonicalRange.first + lineStart,
-                        ),
-                    )
-                    isHeader = false
-                }
-                if (nl < 0) break
-                lineStart = nl + 1
-            }
-        }
-
-        private fun renderHorizontalRule(block: MarkdownBlock.HorizontalRule) {
-            blocks += LayoutBlock.Text(
-                LayoutParagraph(
-                    text = slice(block.canonicalRange),
-                    role = BlockRole.HORIZONTAL_RULE,
-                    charOffset = block.canonicalRange.first,
-                ),
-            )
-        }
-
-        private fun headingRole(level: Int): BlockRole = when (level.coerceIn(1, 6)) {
-            1 -> BlockRole.HEADING_1
-            2 -> BlockRole.HEADING_2
-            3 -> BlockRole.HEADING_3
-            4 -> BlockRole.HEADING_4
-            5 -> BlockRole.HEADING_5
-            else -> BlockRole.HEADING_6
+            if (nl < 0) break
+            lineStart = nl + 1
         }
     }
 
-    private data class InlineImage(
-        val url: String,
-        val canonicalOffset: Int,
+    private fun emitTableLines(
+        canonicalText: String,
+        unit: MarkdownRenderUnit,
+        out: MutableList<LayoutBlock>,
+    ) {
+        val text = canonicalText.sliceRange(unit.canonicalRange)
+        var lineStart = 0
+        var isHeader = true
+        while (lineStart <= text.length) {
+            val nl = text.indexOf('\n', lineStart)
+            val lineEnd = if (nl >= 0) nl else text.length
+            if (lineEnd > lineStart) {
+                out += textBlock(
+                    text = text.substring(lineStart, lineEnd),
+                    role = if (isHeader) BlockRole.TABLE_HEADER else BlockRole.TABLE_ROW,
+                    charOffset = unit.canonicalRange.first + lineStart,
+                )
+                isHeader = false
+            }
+            if (nl < 0) break
+            lineStart = nl + 1
+        }
+    }
+
+    private fun textBlock(
+        text: String,
+        role: BlockRole,
+        charOffset: Int,
+        indentLevel: Int = 0,
+        listMarker: String? = null,
+        inlineSpans: List<MdInlineSpan> = emptyList(),
+        codeLanguage: String? = null,
+    ): LayoutBlock.Text = LayoutBlock.Text(
+        LayoutParagraph(
+            text = text,
+            role = role,
+            charOffset = charOffset,
+            indentLevel = indentLevel,
+            listMarker = listMarker,
+            inlineSpans = inlineSpans,
+            codeLanguage = codeLanguage,
+        ),
     )
 
-    private fun extractImages(inlines: List<MdInline>, baseOffset: Int): List<InlineImage> {
-        val out = mutableListOf<InlineImage>()
-        fun walk(nodes: List<MdInline>) {
-            for (node in nodes) {
-                when (node) {
-                    is MdInline.Image -> out += InlineImage(
-                        url = node.url,
-                        canonicalOffset = baseOffset + node.canonicalRange.first,
-                    )
-                    is MdInline.Strong -> walk(node.children)
-                    is MdInline.Emphasis -> walk(node.children)
-                    is MdInline.Strikethrough -> walk(node.children)
-                    is MdInline.Link -> walk(node.children)
-                    else -> Unit
-                }
-            }
-        }
-        walk(inlines)
-        return out
-    }
-
-    private fun collectInlineSpans(inlines: List<MdInline>, baseOffset: Int): List<MdInlineSpan> {
-        val out = mutableListOf<MdInlineSpan>()
-        fun walk(nodes: List<MdInline>) {
-            for (node in nodes) {
-                when (node) {
-                    is MdInline.Strong -> emitSpan(node, MdInlineKind.STRONG, baseOffset, out)
-                    is MdInline.Emphasis -> emitSpan(node, MdInlineKind.EMPHASIS, baseOffset, out)
-                    is MdInline.Strikethrough -> emitSpan(node, MdInlineKind.STRIKETHROUGH, baseOffset, out)
-                    is MdInline.Link -> emitSpan(node, MdInlineKind.LINK, baseOffset, out)
-                    is MdInline.Code -> {
-                        out += MdInlineSpan(
-                            start = node.canonicalRange.first - baseOffset,
-                            end = node.canonicalRange.last + 1 - baseOffset,
-                            kind = MdInlineKind.CODE,
-                        )
-                    }
-                    is MdInline.Text,
-                    is MdInline.Image,
-                    is MdInline.HardLineBreak,
-                    is MdInline.SoftLineBreak -> Unit
-                }
-            }
-        }
-        walk(inlines)
-        return out
-    }
-
-    private fun emitSpan(
-        node: MdInline,
-        kind: MdInlineKind,
-        baseOffset: Int,
-        out: MutableList<MdInlineSpan>,
-    ) {
-        out += MdInlineSpan(
-            start = node.canonicalRange.first - baseOffset,
-            end = node.canonicalRange.last + 1 - baseOffset,
-            kind = kind,
-        )
-        val children = when (node) {
-            is MdInline.Strong -> node.children
-            is MdInline.Emphasis -> node.children
-            is MdInline.Strikethrough -> node.children
-            is MdInline.Link -> node.children
-            else -> emptyList()
-        }
-        collectInlineSpans(children, baseOffset)
-            .mapTo(out) { it }
+    private fun headingRole(level: Int): BlockRole = when (level.coerceIn(1, 6)) {
+        1 -> BlockRole.HEADING_1
+        2 -> BlockRole.HEADING_2
+        3 -> BlockRole.HEADING_3
+        4 -> BlockRole.HEADING_4
+        5 -> BlockRole.HEADING_5
+        else -> BlockRole.HEADING_6
     }
 }
+
+private fun String.sliceRange(range: IntRange): String =
+    substring(range.first, range.last + 1)
+
+private fun MarkdownRenderSpan.toLayoutSpan(): MdInlineSpan? = when (this) {
+    is MarkdownRenderSpan.Strong -> MdInlineSpan(start, end, MdInlineKind.STRONG)
+    is MarkdownRenderSpan.Emphasis -> MdInlineSpan(start, end, MdInlineKind.EMPHASIS)
+    is MarkdownRenderSpan.Strikethrough -> MdInlineSpan(start, end, MdInlineKind.STRIKETHROUGH)
+    is MarkdownRenderSpan.Code -> MdInlineSpan(start, end, MdInlineKind.CODE)
+    is MarkdownRenderSpan.Link -> MdInlineSpan(start, end, MdInlineKind.LINK)
+    is MarkdownRenderSpan.Plain,
+    is MarkdownRenderSpan.Image -> null
+}
+
+private fun List<MarkdownRenderSpan>.toLayoutSpans(): List<MdInlineSpan> =
+    mapNotNull { it.toLayoutSpan() }

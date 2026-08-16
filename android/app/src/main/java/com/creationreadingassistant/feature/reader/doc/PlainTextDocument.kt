@@ -17,13 +17,18 @@ import java.util.logging.Logger
  */
 class PlainTextDocument private constructor(
     private val fullText: String,
-    private val tocRuleId: String,
+    /** 小文件模式的规则快照（流式模式为 null）。 */
+    private val tocProfile: TxtTocProfile?,
+    /** 流式模式首标题的兜底匹配器（旧 ruleId 扫描的 isChapterTitle 语义）。 */
+    private val streamingTitleMatcher: ((String) -> Boolean)?,
     // Streaming mode properties (all null for small-file path)
     private val fileSource: File?,
     private val fileIndex: TxtFileIndex?,
     private val fileEncoding: String?,
     /** Pre-computed chapter list for streaming mode (null for small-file mode). */
     precomputedChapters: List<DocChapter>?,
+    /** 流式模式构造时即构建的读取单元（单一真相，首帧可用）。小文件模式为 null。 */
+    precomputedReadingUnits: List<ReadingUnit>?,
 ) : ReaderDocument {
 
     /**
@@ -34,11 +39,31 @@ class PlainTextDocument private constructor(
         tocRuleId: String = "builtin",
     ) : this(
         fullText = fullText,
-        tocRuleId = tocRuleId,
+        tocProfile = TxtTocProfile.fromRuleId(tocRuleId),
+        streamingTitleMatcher = null,
         fileSource = null,
         fileIndex = null,
         fileEncoding = null,
         precomputedChapters = null,
+        precomputedReadingUnits = null,
+    )
+
+    /**
+     * 小文件路径：全文 + 显式 [TxtTocProfile]（自定义 / 多规则目录）。
+     * 章节识别使用 profile.patterns 并集，density 保护由 profile.densityGuard 控制。
+     */
+    constructor(
+        fullText: String,
+        profile: TxtTocProfile,
+    ) : this(
+        fullText = fullText,
+        tocProfile = profile,
+        streamingTitleMatcher = null,
+        fileSource = null,
+        fileIndex = null,
+        fileEncoding = null,
+        precomputedChapters = null,
+        precomputedReadingUnits = null,
     )
 
     companion object {
@@ -66,11 +91,19 @@ class PlainTextDocument private constructor(
             }
             return PlainTextDocument(
                 fullText = "",
-                tocRuleId = index.detectedRuleId ?: "builtin",
+                tocProfile = null,
+                // 旧 ruleId 索引保留 isChapterTitle 兜底；profile 索引（key 为 fingerprint）
+                // 无法反推正则，首标题识别优先走与 ChapterEntry.title 相等。
+                streamingTitleMatcher = { line ->
+                    TxtChapterDetector.isChapterTitle(line, index.detectedRuleId ?: "builtin")
+                },
                 fileSource = file,
                 fileIndex = index,
                 fileEncoding = index.encoding,
                 precomputedChapters = docChapters,
+                // 单一真相在文档构造层：units 随文档一起就绪，组合层只读查询，
+                // 不再依赖 composition 期间写回 document。
+                precomputedReadingUnits = ReadingUnitBuilder.buildUnits(docChapters, index),
             )
         }
     }
@@ -79,15 +112,23 @@ class PlainTextDocument private constructor(
 
     /** Non-null only in small-file mode. */
     private val detected: List<TxtChapterDetector.Chapter>? =
-        if (fileIndex == null) TxtChapterDetector.detect(fullText, tocRuleId) else null
+        if (fileIndex == null) {
+            val profile = requireNotNull(tocProfile)
+            TxtChapterDetector.detect(fullText, profile.patterns, profile.densityGuard)
+        } else {
+            null
+        }
 
     private val _isStreaming: Boolean get() = fileSource != null
 
     /**
-     * 读取单元列表，由外部（如 ReaderViewModel）在构建后设置。
-     * 用于 [unitIndexForOffset] 等需要全局读取单元元数据的方法。
+     * 读取单元列表，用于 [unitIndexForOffset] 等需要全局读取单元元数据的方法。
+     *
+     * 单一真相在文档构造层：流式模式由 [fromFileIndex] 在构造时构建（首帧即就绪，
+     * 组合层只读查询，不在 composition 期间写回）；小文件模式保持空列表
+     * （滚动/搜索由组合层从 plainContent 派生，见 ReaderScreenDerivedState）。
      */
-    var readingUnits: List<ReadingUnit> = emptyList()
+    var readingUnits: List<ReadingUnit> = precomputedReadingUnits ?: emptyList()
 
     // ── ReaderDocument implementation ──────────────────────────────────
 
@@ -108,11 +149,13 @@ class PlainTextDocument private constructor(
     override fun blocks(chapterIndex: Int): List<DocBlock> {
         if (_isStreaming) {
             val raw = readChapterString(chapterIndex)
-            return splitParagraphs(raw)
+            val entry = fileIndex!!.chapters[chapterIndex]
+            return splitParagraphs(raw, chapterTitle = entry.title, titleMatcher = streamingTitleMatcher)
         }
         val c = detected!!.getOrNull(chapterIndex) ?: return emptyList()
         val raw = fullText.substring(c.startOffset, c.endOffset.coerceAtMost(fullText.length))
-        return splitParagraphs(raw)
+        val profile = requireNotNull(tocProfile)
+        return splitParagraphs(raw, chapterTitle = null, titleMatcher = profile::matches)
     }
 
     /** 章内纯文本。这里直接复用与 [blocks] 相同的切分，保证接口的不变式成立。 */
@@ -432,7 +475,11 @@ class PlainTextDocument private constructor(
         }
     }
 
-    private fun splitParagraphs(raw: String): List<DocBlock> {
+    private fun splitParagraphs(
+        raw: String,
+        chapterTitle: String?,
+        titleMatcher: ((String) -> Boolean)?,
+    ): List<DocBlock> {
         val out = ArrayList<DocBlock>()
         val sb = StringBuilder()
         var pendingBlank = false
@@ -451,7 +498,9 @@ class PlainTextDocument private constructor(
                 continue
             }
             // 章节标题独占块，并标记为 heading —— 排版层据此加大字号、做 keep-with-next
-            if (first && TxtChapterDetector.isChapterTitle(trimmed, tocRuleId)) {
+            // 流式模式优先与 ChapterEntry.title 相等（profile key 无法反推正则），
+            // 小文件模式用 profile.matches；旧 ruleId 流式保留 isChapterTitle 兜底。
+            if (first && (trimmed == chapterTitle || titleMatcher?.invoke(trimmed) == true)) {
                 flush(false)
                 out.add(DocBlock.Text(trimmed, isHeading = true))
                 first = false

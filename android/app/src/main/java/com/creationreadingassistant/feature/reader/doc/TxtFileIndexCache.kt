@@ -14,24 +14,36 @@ import java.security.MessageDigest
 class TxtFileIndexCache(private val cacheDir: File) {
     private val indexDir = File(cacheDir, "txt_index_v1")
 
-    fun getOrBuild(source: File, ruleId: String = "builtin"): TxtFileIndex {
-        val target = cacheFile(source, ruleId)
-        read(target, source, ruleId)?.let { return it }
-        val index = TxtFileScanner.scan(source, ruleId)
-        write(target, source, ruleId, index)
+    /**
+     * 旧 ruleId 入口：委托 [TxtTocProfile.fromRuleId]，缓存身份与既有
+     * ruleId 键完全一致（key == ruleId），不漂移。
+     */
+    fun getOrBuild(source: File, ruleId: String): TxtFileIndex =
+        getOrBuild(source, TxtTocProfile.fromRuleId(ruleId))
+
+    /**
+     * 显式 profile 入口（P1-A）：缓存身份跟随 profile.key —— 同一源文件
+     * 换规则后不复用旧索引；规则集合 / 顺序 / 内容变化（key 变化）即失效。
+     */
+    fun getOrBuild(source: File, profile: TxtTocProfile = TxtTocProfile.fromRuleId("builtin")): TxtFileIndex {
+        val identity = profile.key
+        val target = cacheFile(source, identity)
+        read(target, source, identity)?.let { return it }
+        val index = TxtFileScanner.scan(source, profile)
+        write(target, source, identity, index)
         return index
     }
 
-    private fun cacheFile(source: File, ruleId: String): File {
+    private fun cacheFile(source: File, identity: String): File {
         indexDir.mkdirs()
-        val identity = "${source.canonicalPath}\u0000$ruleId"
+        val cacheIdentity = "${source.canonicalPath}\u0000$identity"
         val digest = MessageDigest.getInstance("SHA-256")
-            .digest(identity.toByteArray())
+            .digest(cacheIdentity.toByteArray())
             .joinToString("") { "%02x".format(it) }
         return File(indexDir, "$digest.idx")
     }
 
-    private fun read(target: File, source: File, ruleId: String): TxtFileIndex? {
+    private fun read(target: File, source: File, identity: String): TxtFileIndex? {
         if (!target.isFile) return null
         return runCatching {
             DataInputStream(BufferedInputStream(target.inputStream())).use { input ->
@@ -40,7 +52,7 @@ class TxtFileIndexCache(private val cacheDir: File) {
                 require(input.readUTF() == source.canonicalPath)
                 require(input.readLong() == source.length())
                 require(input.readLong() == source.lastModified())
-                require(input.readUTF() == ruleId)
+                require(input.readUTF() == identity)
                 val encoding = input.readUTF()
                 val detectedRule = input.readNullableUtf()
                 val totalChars = input.readLong()
@@ -81,7 +93,7 @@ class TxtFileIndexCache(private val cacheDir: File) {
     private fun write(
         target: File,
         source: File,
-        ruleId: String,
+        identity: String,
         index: TxtFileIndex,
     ) {
         runCatching {
@@ -92,7 +104,7 @@ class TxtFileIndexCache(private val cacheDir: File) {
                 output.writeUTF(source.canonicalPath)
                 output.writeLong(source.length())
                 output.writeLong(source.lastModified())
-                output.writeUTF(ruleId)
+                output.writeUTF(identity)
                 output.writeUTF(index.encoding)
                 output.writeNullableUtf(index.detectedRuleId)
                 output.writeLong(index.totalCharCount)

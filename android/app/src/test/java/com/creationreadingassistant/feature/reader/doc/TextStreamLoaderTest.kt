@@ -67,6 +67,28 @@ class TextStreamLoaderTest {
         result.tempFile?.delete()
     }
 
+    @Test
+    fun `streaming input stream temp file is both source and owned`() {
+        val bytes = generateBytes((testThreshold + 50).toInt())
+        val result = loader().load(ByteArrayInputStream(bytes), reportedSize = null)
+
+        assertTrue(result.isStreaming)
+        assertNotNull(result.tempFile)
+        assertEquals("cache 临时副本既是 source 又是 owned", result.tempFile, result.sourceFile)
+        assertTrue(result.tempFile!!.exists())
+        result.tempFile?.delete()
+    }
+
+    @Test
+    fun `small input stream load does not retain source after temp cleanup`() {
+        val bytes = "第一章\n正文".toByteArray(Charsets.UTF_8)
+        val result = loader().load(ByteArrayInputStream(bytes), reportedSize = null)
+
+        assertFalse(result.isStreaming)
+        assertNull("小文件无需保留可重扫 source", result.sourceFile)
+        assertNull(result.tempFile)
+    }
+
     // ── 2. Zero SIZE: actual > threshold → streaming ─────────────────────
 
     @Test

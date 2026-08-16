@@ -88,4 +88,59 @@ class PlainTextDocumentTest {
         assertEquals("全文", doc.chapters[0].title)
         assertTrue(doc.blocks(0).isNotEmpty())
     }
+
+    // ── profile 小文件：自定义模式 + density 语义 ─────────────────────
+
+    @Test
+    fun `small file with custom profile detects custom chapters and marks heading`() {
+        val profile = TxtTocProfile(
+            key = "custom-small",
+            patterns = listOf(Regex("^foo-\\d+ 起$"), Regex("^第\\d+章 承$")),
+            densityGuard = false,
+        )
+        val text = "foo-1 起\n" + body() + "\n第2章 承\n" + body()
+        val doc = PlainTextDocument(text, profile)
+
+        assertEquals(listOf("foo-1 起", "第2章 承"), doc.chapters.map { it.title })
+        val first = doc.blocks(0).filterIsInstance<DocBlock.Text>().first()
+        assertTrue("章节标题应标为 heading", first.isHeading)
+        assertEquals("foo-1 起", first.text)
+        // 接口不变式：text() == blocks() joined
+        assertEquals(
+            doc.text(0),
+            doc.blocks(0).filterIsInstance<DocBlock.Text>().joinToString("\n") { it.text },
+        )
+    }
+
+    @Test
+    fun `small file profile with density guard off keeps dense headings`() {
+        val profile = TxtTocProfile(
+            key = "loose-small",
+            patterns = listOf(Regex("^\\d+\\. 小标题\\d+$")),
+            densityGuard = false,
+        )
+        val text = (1..20).joinToString("\n") { "$it. 小标题$it" }
+        val doc = PlainTextDocument(text, profile)
+        assertEquals(20, doc.chapters.size)
+    }
+
+    @Test
+    fun `small file profile with density guard on falls back to full text`() {
+        val profile = TxtTocProfile(
+            key = "dense-small",
+            patterns = listOf(Regex("^第\\d+章$")),
+            densityGuard = true,
+        )
+        val text = (1..20).joinToString("\n") { "第${it}章" }
+        val doc = PlainTextDocument(text, profile)
+        assertEquals(1, doc.chapters.size)
+        assertEquals("全文", doc.chapters[0].title)
+    }
+
+    @Test
+    fun `small file legacy non-builtin ruleId keeps density off semantics`() {
+        val text = (1..20).joinToString("\n") { "第${it}章" }
+        assertEquals("标准密度保护：密集目录整体作废", 1, PlainTextDocument(text).chapters.size)
+        assertEquals("非 builtin ruleId 关闭 density：20 章保留", 20, PlainTextDocument(text, "num-dot").chapters.size)
+    }
 }

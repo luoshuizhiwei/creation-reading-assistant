@@ -398,6 +398,99 @@ class MarkdownParserTest {
         assertFalse(text.contains("**"))
     }
 
+    // ── GFM 表格 canonical 去重 ─────────────────────────────────
+
+    @Test
+    fun `gfm table cells appear exactly once in canonical`() {
+        val source = """
+            | Name | Age |
+            |------|-----|
+            | Alice | 30 |
+            | Bob | 25 |
+        """.trimIndent()
+        val chapter = MarkdownParser.parse(source)
+        // 每个单元格只进入 canonical 一次：不能先被 cellsOf 写入、又被表格行拼接再写一次。
+        assertEquals(
+            "| Name | Age |\n| Alice | 30 |\n| Bob | 25 |",
+            chapter.canonicalText,
+        )
+        for (cell in listOf("Name", "Age", "Alice", "30", "Bob", "25")) {
+            assertEquals("单元格 $cell 应恰好出现一次", 1, countOccurrences(chapter.canonicalText, cell))
+        }
+        // 顺序稳定：表头在前，数据行按源顺序
+        val canonical = chapter.canonicalText
+        assertTrue("表头应位于数据行之前", canonical.indexOf("Name") < canonical.indexOf("Alice"))
+        assertTrue("数据行顺序应稳定", canonical.indexOf("Alice") < canonical.indexOf("Bob"))
+    }
+
+    // ── 列表项与引用块的稳定分隔 ────────────────────────────────
+
+    @Test
+    fun `list items separated by newline in canonical`() {
+        val source = "- Apple\n- Banana\n- Cherry"
+        val chapter = MarkdownParser.parse(source)
+        assertEquals("Apple\nBanana\nCherry", chapter.canonicalText)
+    }
+
+    @Test
+    fun `list item inner paragraphs separated by newline`() {
+        val source = "- 第一段\n\n  第二段"
+        val chapter = MarkdownParser.parse(source)
+        assertEquals("第一段\n第二段", chapter.canonicalText)
+    }
+
+    @Test
+    fun `blockquote paragraphs separated by newline in canonical`() {
+        val source = "> 第一段\n>\n> 第二段"
+        val chapter = MarkdownParser.parse(source)
+        assertEquals("第一段\n第二段", chapter.canonicalText)
+    }
+
+    @Test
+    fun `nested blockquote separated by newline`() {
+        val source = "> Outer\n>> Inner"
+        val chapter = MarkdownParser.parse(source)
+        assertEquals("Outer\nInner", chapter.canonicalText)
+    }
+
+    @Test
+    fun `list followed by blockquote not glued`() {
+        val source = "- 列表项\n\n> 引用段落"
+        val chapter = MarkdownParser.parse(source)
+        assertTrue("列表项与引用段之间应有换行", chapter.canonicalText.contains("列表项\n引用段落"))
+    }
+
+    // ── HTML 内容保留为可读纯文本 ───────────────────────────────
+
+    @Test
+    fun `html block preserved as readable plain text`() {
+        val source = "正文段落。\n\n<div>\n<p>HTML 内容</p>\n</div>\n\n结尾段落。"
+        val chapter = MarkdownParser.parse(source)
+        val text = chapter.canonicalText
+        assertTrue("HTML 块文本不应丢失", text.contains("HTML 内容"))
+        assertFalse("标签应被移除", text.contains("<div>"))
+        assertFalse("闭合标签应被移除", text.contains("</p>"))
+        assertTrue(text.contains("正文段落。"))
+        assertTrue(text.contains("结尾段落。"))
+    }
+
+    @Test
+    fun `html inline preserved as readable plain text`() {
+        val source = "前面 <b>加粗内容</b> 后面。"
+        val chapter = MarkdownParser.parse(source)
+        val text = chapter.canonicalText
+        assertTrue("HTML 行内文本不应丢失", text.contains("加粗内容"))
+        assertFalse("标签应被移除", text.contains("<b>"))
+        assertFalse("闭合标签应被移除", text.contains("</b>"))
+    }
+
+    @Test
+    fun `html entities decoded in preserved text`() {
+        val source = "<p>Tom &amp; Jerry</p>"
+        val chapter = MarkdownParser.parse(source)
+        assertTrue(chapter.canonicalText.contains("Tom & Jerry"))
+    }
+
     // ── 辅助 ──────────────────────────────────────────────────
 
     private fun List<MdInline>.joinCanonicalText(): String = buildString {
@@ -420,5 +513,17 @@ class MarkdownParserTest {
         val p = filterIsInstance<MarkdownBlock.Paragraph>().firstOrNull()
             ?: error("Expected at least one paragraph")
         return p.inlines.joinCanonicalText()
+    }
+
+    private fun countOccurrences(haystack: String, needle: String): Int {
+        var count = 0
+        var from = 0
+        while (true) {
+            val i = haystack.indexOf(needle, from)
+            if (i < 0) break
+            count++
+            from = i + needle.length
+        }
+        return count
     }
 }

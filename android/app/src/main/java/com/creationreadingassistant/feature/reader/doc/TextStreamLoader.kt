@@ -39,48 +39,64 @@ class TextStreamLoader(
         val actualSizeBytes: Long, // actual file size in bytes
         val fileIndex: TxtFileIndex? = null, // non-null for streaming mode
         val fullText: String? = null, // non-null for small-file mode
-        /** 实际被读取的源文件；InputStream 模式为临时文件，file URI 模式为原文件。 */
+        /**
+         * 可重扫的 backing/source 文件：仅流式模式非空（InputStream 模式为 cache
+         * 临时副本，file URI 模式为原文件）；小文件模式恒为 null（无需保留 source）。
+         */
         val sourceFile: File? = null,
     )
 
     /**
      * Load from URI using ContentResolver.
      */
-    fun load(context: Context, uri: Uri, reportedSize: Long?): LoadResult {
+    /**
+     * 从 [uri] 加载 TXT / Markdown。小文件路径用 [profile] 构建目录，大文件
+     * 流式扫描也用 [profile]（detectedRuleId 落 profile.key）。默认旧语义
+     * 标准内置（[TxtTocProfile.fromRuleId]("builtin")），兼容既有调用方。
+     */
+    fun load(
+        context: Context,
+        uri: Uri,
+        reportedSize: Long?,
+        profile: TxtTocProfile = TxtTocProfile.fromRuleId("builtin"),
+    ): LoadResult {
         if (uri.scheme.equals("file", ignoreCase = true)) {
             val directFile = uri.path?.let(::File)
             if (directFile != null && directFile.isFile && directFile.canRead()) {
-                return loadDirectFile(directFile)
+                return loadDirectFile(directFile, profile)
             }
         }
         val inputStream = context.contentResolver.openInputStream(uri)
             ?: throw IllegalArgumentException("无法打开文件")
-        return inputStream.use { load(it, reportedSize) }
+        return inputStream.use { load(it, reportedSize, profile) }
     }
 
     /**
      * 应用内部文件无需先复制到 cache。小文件直接解码，大文件直接建立流式索引；
      * 返回结果不拥有源文件，关闭阅读器时不会删除它。
      */
-    fun loadDirectFile(file: File): LoadResult {
+    fun loadDirectFile(
+        file: File,
+        profile: TxtTocProfile = TxtTocProfile.fromRuleId("builtin"),
+    ): LoadResult {
         require(file.isFile && file.canRead()) { "无法读取文件" }
         val actualSize = file.length()
         require(actualSize > 0L) { "文件内容为空" }
         return if (actualSize <= streamingThresholdBytes) {
             val decoded = PlainTextDecoder.decode(file.readBytes())
             LoadResult(
-                document = PlainTextDocument(decoded.text),
+                document = PlainTextDocument(decoded.text, profile),
                 tempFile = null,
                 isStreaming = false,
                 actualSizeBytes = actualSize,
                 fullText = decoded.text,
-                sourceFile = file,
+                sourceFile = null,
             )
         } else {
             val indexStartNs = SystemClock.elapsedRealtimeNanos()
             val index = try {
                 Trace.beginSection("TxtIndexLoad")
-                TxtFileIndexCache(cacheDir).getOrBuild(file)
+                TxtFileIndexCache(cacheDir).getOrBuild(file, profile)
             } finally {
                 Trace.endSection()
             }
@@ -103,7 +119,11 @@ class TextStreamLoader(
      * The caller is responsible for closing [inputStream]; this method does NOT
      * close it — use a `.use {}` block at the call site.
      */
-    fun load(inputStream: InputStream, reportedSize: Long?): LoadResult {
+    fun load(
+        inputStream: InputStream,
+        reportedSize: Long?,
+        profile: TxtTocProfile = TxtTocProfile.fromRuleId("builtin"),
+    ): LoadResult {
         val tempFile = File(cacheDir, "${TEMP_PREFIX}${System.nanoTime()}${TEMP_SUFFIX}")
         try {
             // Always stream-copy to temp file first, counting actual bytes
@@ -121,7 +141,7 @@ class TextStreamLoader(
                 // Small-file path: read entire temp file into memory
                 val bytes = tempFile.readBytes()
                 val decoded = PlainTextDecoder.decode(bytes)
-                val document = PlainTextDocument(decoded.text)
+                val document = PlainTextDocument(decoded.text, profile)
                 // Delete temp file — small-file mode doesn't need it
                 tempFile.delete()
                 LoadResult(
@@ -130,11 +150,11 @@ class TextStreamLoader(
                     isStreaming = false,
                     actualSizeBytes = actualSize,
                     fullText = decoded.text,
-                    sourceFile = tempFile,
+                    sourceFile = null,
                 )
             } else {
                 // Streaming path: scan with TxtFileScanner
-                val index = TxtFileScanner.scan(tempFile)
+                val index = TxtFileScanner.scan(tempFile, profile)
                 val document = PlainTextDocument.fromFileIndex(tempFile, index)
                 LoadResult(
                     document = document,

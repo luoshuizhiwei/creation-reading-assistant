@@ -94,6 +94,92 @@ class PagedChapterSourceTest {
         assertEquals(com.creationreadingassistant.feature.reader.layout.BlockRole.HEADING, paragraphs.first().role)
     }
 
+    @Test
+    fun `streaming source sees construction-time units on first frame and uses bounded raw ranges`() {
+        val raw = buildString {
+            append("第1章\n")
+            append("  raw first line keeps its whitespace  \n")
+            append("alpha\nbeta\n\n")
+            // 注意：ReadingUnitBuilder 的 nearCeiling 规则会把距 hardEnd 1000 字符内的
+            // checkpoint 并入当前 unit，MAX*2+137 只会得到 2 个 unit；用 MAX*3+137
+            // 保证首章必然拆成 ≥3 个虚拟 unit。
+            repeat(ReadingUnitBuilder.MAX_UNIT_CHARS * 3 + 137) { append('甲') }
+        }
+        val file = track(File.createTempFile("test_streaming_units_", ".txt").apply {
+            writeText(raw, Charsets.UTF_8)
+        })
+        val index = TxtFileScanner.scan(file)
+        val document = PlainTextDocument.fromFileIndex(file, index)
+
+        // 单一真相在文档构造层：fromFileIndex 构造时即构建 readingUnits，
+        // 首个组合帧 TxtChapterSource 构造时 units 已就绪，不依赖组合层写回。
+        val units = document.readingUnits
+        assertTrue("Expected a long chapter to split into multiple units", units.size > 2)
+        val source = TxtChapterSource(document)
+        assertEquals(units.size, source.chapterCount)
+
+        // 首帧即可按 ReadingUnit 有界读取，绝不回退整章规范化路径。
+        val first = source.loadChapter(0)
+        assertEquals(units[0].charStart, source.chapterStartAbs(0))
+        assertEquals(document.readUnit(units[0]), first.text)
+        assertTrue(first.text.contains("  raw first line keeps its whitespace  \n"))
+
+        first.blocks.filterIsInstance<LayoutBlock.Text>().forEach { block ->
+            val paragraph = block.paragraph
+            assertEquals(
+                paragraph.text,
+                first.text.substring(paragraph.charOffset, paragraph.charOffset + paragraph.text.length),
+            )
+        }
+
+        val boundedUnit = units[1]
+        val bounded = source.loadChapter(1)
+        assertEquals(boundedUnit.charStart, source.chapterStartAbs(1))
+        assertEquals(boundedUnit.charCount, bounded.text.length)
+        assertTrue(bounded.text.length <= ReadingUnitBuilder.MAX_UNIT_CHARS)
+        assertEquals(document.readUnit(boundedUnit), bounded.text)
+    }
+
+    @Test
+    fun `document-backed source with empty units never falls back to whole chapter text`() {
+        // 防御不变式：document 在场但 readingUnits 为空时，source 必须保持空
+        // （chapterCount == 0 / loadChapter 返回空内容），不得回退 document.text(index)
+        // 整章规范化路径 —— 那会 trim/重排段落、破坏 raw 字符偏移，
+        // 与渲染/搜索/TTS/Locator 的原始字符空间不一致。
+        val document = PlainTextDocument("第一章\n甲乙\n第二章\n丙丁")
+        assertTrue("fixture must expose loadable whole-chapter text", document.text(0).isNotEmpty())
+
+        val source = TxtChapterSource(document)
+
+        assertEquals(0, source.chapterCount)
+        assertEquals("", source.loadChapterText(0))
+    }
+
+    @Test
+    fun `streaming source follows later reading unit replacements`() {
+        val file = track(TestFileGenerator.generateLargeUtf8(5L * 1024 * 1024, 10))
+        val index = TxtFileScanner.scan(file)
+        val doc = PlainTextDocument.fromFileIndex(file, index)
+        val units = ReadingUnitBuilder.buildUnits(doc.chapters, index)
+        doc.readingUnits = units
+
+        val source = TxtChapterSource(doc)
+        assertEquals(units.size, source.chapterCount)
+
+        // 发布后的 units 被整体替换（例如重新扫描）时，同一 source 实例必须跟随新列表，
+        // 而不是保留构造时的快照。
+        val replaced = units.take(3)
+        assertTrue("Expected fixture with at least 3 units", replaced.size >= 3)
+        doc.readingUnits = replaced
+
+        assertEquals(replaced.size, source.chapterCount)
+        for (i in replaced.indices) {
+            assertEquals(replaced[i].charStart, source.chapterStartAbs(i))
+            assertEquals(doc.readUnit(replaced[i]), source.loadChapterText(i))
+        }
+        assertEquals("", source.loadChapterText(replaced.size))
+    }
+
     // ── G5 Category 4: Paging Tests ─────────────────────────────────────
 
     @Test

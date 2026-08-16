@@ -79,6 +79,51 @@ class MarkdownDocumentTest {
     }
 
     @Test
+    fun `small file multi chapter texts are isolated and exact length`() {
+        val source = """
+            # 第一章
+
+            第一章正文，仅属于第一章。内容足够长以避免章节密度保护干扰：${"正文".repeat(80)}
+
+            # 第二章
+
+            第二章正文，仅属于第二章。内容足够长以避免章节密度保护干扰：${"正文".repeat(80)}
+        """.trimIndent()
+        val doc = MarkdownDocument(source)
+
+        assertEquals(2, doc.chapters.size)
+
+        val text0 = doc.text(0)
+        val text1 = doc.text(1)
+        assertTrue("第一章应包含第一章正文", text0.contains("第一章正文"))
+        assertFalse("第一章不应包含第二章正文", text0.contains("第二章正文"))
+        assertTrue("第二章应包含第二章正文", text1.contains("第二章正文"))
+        assertFalse("第二章不应包含第一章正文", text1.contains("第一章正文"))
+        assertEquals("第一章 text.length 应等于 charCount", doc.chapters[0].charCount, text0.length)
+        assertEquals("第二章 text.length 应等于 charCount", doc.chapters[1].charCount, text1.length)
+
+        // blocks 只含该章 canonicalRange 内的顶层块，且 canonicalRange 保持全书全局坐标
+        val c0 = doc.chapters[0]
+        val c1 = doc.chapters[1]
+        val blocks0 = doc.blocks(0).filterIsInstance<DocBlock.Markdown>().single().chapter.blocks
+        val blocks1 = doc.blocks(1).filterIsInstance<DocBlock.Markdown>().single().chapter.blocks
+        assertTrue("第 0 章块列表不应为空", blocks0.isNotEmpty())
+        assertTrue("第 1 章块列表不应为空", blocks1.isNotEmpty())
+        assertTrue("小文件应为整本解析", doc.isWholeDocumentParse)
+        for (block in blocks0) {
+            assertTrue("第 0 章块起点应在本章范围内", block.canonicalRange.first >= c0.startOffset)
+            assertTrue("第 0 章块终点应在本章范围内", block.canonicalRange.last < c0.startOffset + c0.charCount)
+        }
+        for (block in blocks1) {
+            assertTrue("第 1 章块起点应在本章范围内", block.canonicalRange.first >= c1.startOffset)
+            assertTrue("第 1 章块终点应在本章范围内", block.canonicalRange.last < c1.startOffset + c1.charCount)
+        }
+        // 全局坐标：第二章首块（H1）的 canonicalRange 起点应等于章节全书起点
+        val firstHeading1 = blocks1.filterIsInstance<MarkdownBlock.Heading>().first()
+        assertEquals("块 canonicalRange 应保持全书全局坐标", c1.startOffset, firstHeading1.canonicalRange.first)
+    }
+
+    @Test
     fun `small file without headings becomes single chapter`() {
         val source = "没有标题，只有正文。**粗体** 内容。"
         val doc = MarkdownDocument(source)
@@ -144,6 +189,43 @@ class MarkdownDocumentTest {
             val firstBlock = mdChapter.blocks.first()
             assertTrue("第 $ci 章首块源范围应 >= 章节源起点", firstBlock.sourceRange.first >= 0)
         }
+    }
+
+    @Test
+    fun `streaming fenced fake headings do not split chapters`() {
+        val file = File.createTempFile("test_md_fence_", ".md")
+        tempFiles.add(file)
+        file.writeText(
+            """
+            # 第一章
+
+            第一章正文内容，足够长以避免章节密度保护干扰：${"正文".repeat(100)}
+
+            ```
+            # fake heading in backtick fence
+            ```
+
+            # 第二章
+
+            第二章正文内容，足够长以避免章节密度保护干扰：${"正文".repeat(100)}
+
+            ~~~
+            # fake heading in tilde fence
+            ~~~
+
+            ```kotlin
+            # fake heading in unclosed fence
+            """.trimIndent() + "\n",
+            Charsets.UTF_8,
+        )
+
+        val index = TxtFileScanner.scan(file)
+        val doc = MarkdownDocument.fromFileIndex(file, index)
+
+        assertEquals("围栏内的 # 不应分章", 2, doc.chapters.size)
+        assertEquals("第一章", doc.chapters[0].title)
+        assertEquals("第二章", doc.chapters[1].title)
+        assertFalse("不应出现 fake 标题章节", doc.chapters.any { it.title.contains("fake") })
     }
 
     @Test
@@ -240,7 +322,7 @@ class MarkdownDocumentTest {
     // ── 安全 / 降级 ──────────────────────────────────────────────────
 
     @Test
-    fun `html block is excluded from canonical text`() {
+    fun `html block tags stripped but content preserved`() {
         val source = """
             正文段落。
 
@@ -251,6 +333,7 @@ class MarkdownDocumentTest {
         val chapter = MarkdownParser.parse(source)
         val text = chapter.canonicalText
         assertFalse("不应包含 script 标签", text.contains("<script>"))
+        assertTrue("HTML 内容不应整段丢失", text.contains("alert(1)"))
         assertTrue("应保留可见段落", text.contains("正文段落"))
         assertTrue("应保留后续段落", text.contains("后续段落"))
     }

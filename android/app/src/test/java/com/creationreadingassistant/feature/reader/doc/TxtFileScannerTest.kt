@@ -2,10 +2,15 @@ package com.creationreadingassistant.feature.reader.doc
 
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayInputStream
 import java.io.File
+import java.io.FilterInputStream
+import java.io.InputStream
 import java.io.RandomAccessFile
+import kotlinx.coroutines.CancellationException
 
 class TxtFileScannerTest {
 
@@ -376,5 +381,179 @@ class TxtFileScannerTest {
         assertEquals("GB18030", index.encoding)
         assertTrue("Should have positive char count", index.totalCharCount > 0)
         assertTrue("Should have chapters", index.chapters.isNotEmpty())
+    }
+
+    // ── 10. 扫描监视器：进度上报与协作取消 ───────────────────────────
+
+    @Test
+    fun `monitor receives monotonic progress and scan completes`() {
+        val file = track(File.createTempFile("test_progress_", ".txt"))
+        val body = "测试正文内容。".repeat(70) // ~560 chars per chapter
+        val content = buildString {
+            repeat(20) { append("第${it}章 测试\n").append(body).append("\n") }
+        }
+        file.writeText(content, Charsets.UTF_8)
+        val progresses = mutableListOf<Float?>()
+        val monitor = object : TxtScanMonitor {
+            override fun isCancelled() = false
+            override fun onProgress(fraction: Float?) {
+                progresses.add(fraction)
+            }
+        }
+
+        val index = TxtFileScanner.scan(file, "builtin", monitor)
+
+        assertTrue("Should detect chapters", index.chapters.size > 5)
+        assertTrue("Should report progress", progresses.isNotEmpty())
+        assertTrue(
+            "Progress must be monotonic: $progresses",
+            progresses.zipWithNext().all { (a, b) -> (a ?: 0f) <= (b ?: 0f) },
+        )
+        assertTrue("Final progress should reach 1.0", (progresses.lastOrNull() ?: 0f) >= 0.99f)
+    }
+
+    @Test
+    fun `scan stops early when monitor is cancelled`() {
+        // ~840 KB 正文：若取消不生效，扫描会读完整个文件
+        val content = "第1章 测试\n" + "测试正文内容。".repeat(120_000)
+        val counting = CountingInputStream(ByteArrayInputStream(content.toByteArray(Charsets.UTF_8)))
+        val monitor = object : TxtScanMonitor {
+            override fun isCancelled() = true
+            override fun onProgress(fraction: Float?) = Unit
+        }
+
+        assertThrows(CancellationException::class.java) {
+            TxtFileScanner.scan(counting, "builtin", monitor, content.length.toLong())
+        }
+
+        assertTrue(
+            "取消后不得继续读完整文件 (read=${counting.bytesRead}, total=${content.length})",
+            counting.bytesRead < content.length.toLong() / 2,
+        )
+    }
+
+    @Test
+    fun `monitor progress is indeterminate when total size unknown`() {
+        val stream = ByteArrayInputStream("第1章 测试\n测试正文内容。".toByteArray(Charsets.UTF_8))
+        val fractions = mutableListOf<Float?>()
+        val monitor = object : TxtScanMonitor {
+            override fun isCancelled() = false
+            override fun onProgress(fraction: Float?) {
+                fractions.add(fraction)
+            }
+        }
+
+        TxtFileScanner.scan(stream, "builtin", monitor)
+
+        assertTrue(
+            "未知总大小时应上报 null（indeterminate）: $fractions",
+            fractions.isNotEmpty() && fractions.all { it == null },
+        )
+    }
+
+    // ── 11. profile 扫描：自定义模式并集 + key + density 语义 ─────────
+
+    @Test
+    fun `profile scan detects custom chapter formats and reports profile key`() {
+        val profile = TxtTocProfile(
+            key = "custom-toc-1",
+            patterns = listOf(Regex("^foo-\\d+ 测试$"), Regex("^第\\d+章 测试$")),
+            densityGuard = false,
+        )
+        val file = track(File.createTempFile("test_profile_", ".txt"))
+        val body = "测试正文内容。".repeat(70) // ~490 chars per chapter
+        file.writeText("foo-1 测试\n$body\n第2章 测试\n$body", Charsets.UTF_8)
+
+        val index = TxtFileScanner.scan(file, profile)
+
+        assertEquals(listOf("foo-1 测试", "第2章 测试"), index.chapters.map { it.title })
+        assertEquals("custom-toc-1", index.detectedRuleId)
+        assertEquals(2, index.chapters.size)
+    }
+
+    @Test
+    fun `profile scan with density guard falls back to single chapter`() {
+        val profile = TxtTocProfile(
+            key = "dense-std",
+            patterns = listOf(Regex("^第\\d+章$")),
+            densityGuard = true,
+        )
+        val file = track(File.createTempFile("test_profile_dense_", ".txt"))
+        file.writeText((1..20).joinToString("\n") { "第${it}章" }, Charsets.UTF_8)
+
+        val index = TxtFileScanner.scan(file, profile)
+
+        assertEquals(1, index.chapters.size)
+        assertEquals("全文", index.chapters[0].title)
+        assertEquals("dense-std", index.detectedRuleId)
+    }
+
+    @Test
+    fun `profile scan without density guard keeps dense chapters`() {
+        val profile = TxtTocProfile(
+            key = "dense-custom",
+            patterns = listOf(Regex("^第\\d+章$")),
+            densityGuard = false,
+        )
+        val file = track(File.createTempFile("test_profile_loose_", ".txt"))
+        file.writeText((1..20).joinToString("\n") { "第${it}章" }, Charsets.UTF_8)
+
+        val index = TxtFileScanner.scan(file, profile)
+
+        assertEquals(20, index.chapters.size)
+    }
+
+    @Test
+    fun `legacy ruleId scan delegates to the equivalent profile`() {
+        val file = track(File.createTempFile("test_legacy_profile_", ".txt"))
+        val body = "测试正文内容。".repeat(70)
+        file.writeText("第一章 初见\n$body\n1. 序幕\n$body", Charsets.UTF_8)
+
+        val legacy = TxtFileScanner.scan(file, "num-dot")
+        val viaProfile = TxtFileScanner.scan(file, TxtTocProfile.fromRuleId("num-dot"))
+
+        assertEquals(legacy.chapters.map { it.title }, viaProfile.chapters.map { it.title })
+        assertEquals(legacy.detectedRuleId, viaProfile.detectedRuleId)
+        assertEquals(legacy.totalCharCount, viaProfile.totalCharCount)
+        assertEquals(legacy.chapters.map { it.charStart }, viaProfile.chapters.map { it.charStart })
+    }
+
+    @Test
+    fun `input stream profile overload detects chapters and reports key`() {
+        val profile = TxtTocProfile(
+            key = "stream-profile",
+            patterns = listOf(Regex("^章节\\d+$")),
+            densityGuard = false,
+        )
+        val body = "测试正文内容。".repeat(70)
+        val content = "章节1\n$body\n章节2\n$body"
+        val index = TxtFileScanner.scan(ByteArrayInputStream(content.toByteArray(Charsets.UTF_8)), profile)
+
+        assertEquals(listOf("章节1", "章节2"), index.chapters.map { it.title })
+        assertEquals("stream-profile", index.detectedRuleId)
+    }
+
+    /** 统计底层流被读取的字节数（用于验证取消后没有继续读完文件）。 */
+    private class CountingInputStream(delegate: InputStream) : FilterInputStream(delegate) {
+        var bytesRead: Long = 0
+            private set
+
+        override fun read(): Int {
+            val b = super.read()
+            if (b >= 0) bytesRead++
+            return b
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            val n = super.read(b, off, len)
+            if (n > 0) bytesRead += n
+            return n
+        }
+
+        override fun skip(n: Long): Long {
+            val skipped = super.skip(n)
+            bytesRead += skipped
+            return skipped
+        }
     }
 }

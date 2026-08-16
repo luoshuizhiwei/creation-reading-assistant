@@ -32,13 +32,23 @@ class ReadingUnitCache(private val maxEntries: Int = MAX_ENTRIES) {
     fun getOrLoad(unitIndex: Int, loader: (Int) -> String): String {
         cache[unitIndex]?.let { return it }
         val value = loader(unitIndex)
-        cache[unitIndex] = value
+        put(unitIndex, value)
+        return value
+    }
+
+    /** 只读查询，不触发加载（组合阶段安全）。 */
+    @Synchronized
+    fun get(unitIndex: Int): String? = cache[unitIndex]
+
+    /** 显式写入（异步加载成功后由加载器回填）。 */
+    @Synchronized
+    fun put(unitIndex: Int, text: String) {
+        cache[unitIndex] = text
         // 如果超出容量，移除最久未使用的条目（LRU 头部）
         if (cache.size > maxEntries) {
             val eldest = cache.entries.first()
             cache.remove(eldest.key)
         }
-        return value
     }
 
     /** 主动驱逐指定 [unitIndex] 的缓存条目。 */

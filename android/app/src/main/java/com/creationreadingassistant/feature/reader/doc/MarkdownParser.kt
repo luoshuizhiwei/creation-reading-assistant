@@ -58,6 +58,17 @@ object MarkdownParser {
         TaskListItemsExtension.create(),
     )
 
+    private val htmlCommentRegex = Regex("<!--.*?-->", RegexOption.DOT_MATCHES_ALL)
+    private val htmlBreakRegex = Regex("(?i)<br\\s*/?>")
+    private val htmlBlockTagRegex = Regex(
+        "(?i)</?(?:address|article|aside|blockquote|dd|details|dialog|div|dl|dt|" +
+            "fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|" +
+            "ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)\\b[^>]*>",
+    )
+    private val htmlTagRegex = Regex("<[^>]*>")
+    private val htmlNumericDecRegex = Regex("&#(\\d{1,7});")
+    private val htmlNumericHexRegex = Regex("&#[xX]([0-9a-fA-F]{1,6});")
+
     private val parser: Parser = Parser.builder()
         .extensions(extensions)
         .includeSourceSpans(IncludeSourceSpans.BLOCKS_AND_INLINES)
@@ -142,19 +153,20 @@ object MarkdownParser {
                     headings.add(MdHeading(block.level, title, blockStartCanonical))
                 }
             }
+        }
 
-            private fun canProduceBlock(node: Node): Boolean = when (node) {
-                is Heading,
-                is Paragraph,
-                is BulletList,
-                is OrderedList,
-                is BlockQuote,
-                is FencedCodeBlock,
-                is IndentedCodeBlock,
-                is ThematicBreak,
-                is TableBlock -> true
-                else -> false
-            }
+        private fun canProduceBlock(node: Node): Boolean = when (node) {
+            is Heading,
+            is Paragraph,
+            is BulletList,
+            is OrderedList,
+            is BlockQuote,
+            is FencedCodeBlock,
+            is IndentedCodeBlock,
+            is ThematicBreak,
+            is HtmlBlock,
+            is TableBlock -> true
+            else -> false
         }
 
         private fun buildBlock(node: Node): MarkdownBlock? {
@@ -169,7 +181,7 @@ object MarkdownParser {
                 is IndentedCodeBlock -> buildIndentedCodeBlock(node, sourceRange)
                 is ThematicBreak -> buildHorizontalRule(node, sourceRange)
                 is TableBlock -> buildTable(node, sourceRange)
-                is HtmlBlock -> null // 原始 HTML 按安全文本处理：不进入规范阅读文本
+                is HtmlBlock -> buildHtmlBlock(node, sourceRange)
                 else -> null
             }
         }
@@ -236,18 +248,32 @@ object MarkdownParser {
         )
 
         private fun buildBlockQuote(node: BlockQuote, sourceRange: IntRange): MarkdownBlock {
-            val innerBlocks = mutableListOf<MarkdownBlock>()
-            var child = node.firstChild
-            while (child != null) {
-                buildBlock(child)?.let { innerBlocks.add(it) }
-                child = child.next
-            }
+            val innerBlocks = buildInnerBlocks(node.firstChild)
             val canonicalRange = blocksCanonicalRange(innerBlocks)
             return MarkdownBlock.BlockQuote(
                 blocks = innerBlocks,
                 sourceRange = sourceRange,
                 canonicalRange = canonicalRange,
             )
+        }
+
+        /** 构建容器内块列表；相邻块之间插入 1 个换行，保证 canonical 文本不黏连。 */
+        private fun buildInnerBlocks(start: Node?): List<MarkdownBlock> {
+            val out = mutableListOf<MarkdownBlock>()
+            var node = start
+            var first = true
+            while (node != null) {
+                if (canProduceBlock(node)) {
+                    if (!first) appendCanonical("\n")
+                    val block = buildBlock(node)
+                    if (block != null) {
+                        first = false
+                        out.add(block)
+                    }
+                }
+                node = node.next
+            }
+            return out
         }
 
         private fun buildFencedCodeBlock(node: FencedCodeBlock, sourceRange: IntRange): MarkdownBlock {
@@ -288,35 +314,35 @@ object MarkdownParser {
         private fun buildTable(node: TableBlock, sourceRange: IntRange): MarkdownBlock {
             val header = mutableListOf<MarkdownBlock.Table.TableCell>()
             val rows = mutableListOf<List<MarkdownBlock.Table.TableCell>>()
+            val canonicalStart = canonicalOffset()
+            var firstRow = true
             var child = node.firstChild
             while (child != null) {
                 when (child) {
                     is TableHead -> {
                         var row = child.firstChild
                         while (row != null) {
-                            if (row is TableRow) header.addAll(cellsOf(row))
+                            if (row is TableRow) {
+                                if (!firstRow) appendCanonical("\n")
+                                firstRow = false
+                                header.addAll(cellsOf(row))
+                            }
                             row = row.next
                         }
                     }
                     is TableBody -> {
                         var row = child.firstChild
                         while (row != null) {
-                            if (row is TableRow) rows.add(cellsOf(row))
+                            if (row is TableRow) {
+                                if (!firstRow) appendCanonical("\n")
+                                firstRow = false
+                                rows.add(cellsOf(row))
+                            }
                             row = row.next
                         }
                     }
                 }
                 child = child.next
-            }
-            val canonicalStart = canonicalOffset()
-            val headerTexts = header.map { it.inlines.joinCanonicalText() }
-            if (headerTexts.isNotEmpty()) {
-                appendCanonical(headerTexts.joinToString(" | ", "| ", " |"))
-            }
-            for (row in rows) {
-                appendCanonical("\n")
-                val texts = row.map { it.inlines.joinCanonicalText() }
-                appendCanonical(texts.joinToString(" | ", "| ", " |"))
             }
             val canonicalEnd = canonicalOffset()
             return MarkdownBlock.Table(
@@ -330,8 +356,12 @@ object MarkdownParser {
         private fun cellsOf(row: TableRow): List<MarkdownBlock.Table.TableCell> {
             val out = mutableListOf<MarkdownBlock.Table.TableCell>()
             var cell = row.firstChild
+            var first = true
             while (cell != null) {
                 if (cell is TableCell) {
+                    // 单元格行内文本在此一次性写入 canonical；不得再在 buildTable 中二次拼接。
+                    if (first) appendCanonical("| ") else appendCanonical(" | ")
+                    first = false
                     val inlines = processInlines(cell)
                     out.add(
                         MarkdownBlock.Table.TableCell(
@@ -347,6 +377,7 @@ object MarkdownParser {
                 }
                 cell = cell.next
             }
+            if (!first) appendCanonical(" |")
             return out
         }
 
@@ -364,15 +395,84 @@ object MarkdownParser {
                         checked = inner.isChecked
                         inner = inner.next
                     }
-                    while (inner != null) {
-                        buildBlock(inner)?.let { innerBlocks.add(it) }
-                        inner = inner.next
-                    }
+                    // 相邻列表项之间插入换行，避免 canonical 文本把两项黏在一起。
+                    if (items.isNotEmpty()) appendCanonical("\n")
+                    innerBlocks.addAll(buildInnerBlocks(inner))
                     items.add(ListItemData(innerBlocks, isTask, checked))
                 }
                 child = child.next
             }
             return items
+        }
+
+        /** HTML 块以去标签后的可读纯文本保留，不执行任何 HTML。 */
+        private fun buildHtmlBlock(node: HtmlBlock, sourceRange: IntRange): MarkdownBlock? {
+            val text = stripHtml(node.literal ?: "")
+            if (text.isEmpty()) return null
+            val canonicalStart = canonicalOffset()
+            appendCanonical(text)
+            val canonicalEnd = canonicalOffset()
+            return MarkdownBlock.Paragraph(
+                inlines = listOf(
+                    MdInline.Text(
+                        text = text,
+                        sourceRange = sourceRange,
+                        canonicalRange = canonicalStart until canonicalEnd,
+                    ),
+                ),
+                sourceRange = sourceRange,
+                canonicalRange = canonicalStart until canonicalEnd,
+            )
+        }
+
+        /** HTML 行内片段以去标签后的可读纯文本保留。 */
+        private fun buildHtmlInline(node: HtmlInline): MdInline? {
+            val text = stripHtml(node.literal ?: "")
+            if (text.isEmpty()) return null
+            val canonicalStart = canonicalOffset()
+            appendCanonical(text)
+            val canonicalEnd = canonicalOffset()
+            return MdInline.Text(
+                text = text,
+                sourceRange = sourceRangeOf(node),
+                canonicalRange = canonicalStart until canonicalEnd,
+            )
+        }
+
+        /**
+         * 最小的 HTML→纯文本转换：去注释/标签、`<br>` 与块级标签转换行、解码常见实体。
+         * 只提取可读文本，绝不执行 HTML。
+         */
+        private fun stripHtml(raw: String): String {
+            var s = raw
+            s = s.replace(htmlCommentRegex, "")
+            s = s.replace(htmlBreakRegex, "\n")
+            s = s.replace(htmlBlockTagRegex, "\n")
+            s = s.replace(htmlTagRegex, "")
+            s = decodeHtmlEntities(s)
+            s = s.replace(Regex("\n{2,}"), "\n")
+            return s.trim('\n', '\r', ' ', '\t')
+        }
+
+        private fun decodeHtmlEntities(s: String): String {
+            var out = s
+            out = out.replace("&lt;", "<")
+            out = out.replace("&gt;", ">")
+            out = out.replace("&quot;", "\"")
+            out = out.replace("&#39;", "'")
+            out = out.replace("&nbsp;", " ")
+            out = htmlNumericDecRegex.replace(out) { m ->
+                m.groupValues[1].toIntOrNull()?.let { cp ->
+                    runCatching { String(Character.toChars(cp)) }.getOrNull()
+                } ?: m.value
+            }
+            out = htmlNumericHexRegex.replace(out) { m ->
+                m.groupValues[1].toIntOrNull(16)?.let { cp ->
+                    runCatching { String(Character.toChars(cp)) }.getOrNull()
+                } ?: m.value
+            }
+            out = out.replace("&amp;", "&")
+            return out
         }
 
         private fun processInlines(parent: Node): List<MdInline> {
@@ -396,7 +496,7 @@ object MarkdownParser {
                 is Image -> buildImage(node)
                 is SoftLineBreak -> buildSoftLineBreak(node)
                 is HardLineBreak -> buildHardLineBreak(node)
-                is HtmlInline -> null
+                is HtmlInline -> buildHtmlInline(node)
                 else -> null
             }
         }
