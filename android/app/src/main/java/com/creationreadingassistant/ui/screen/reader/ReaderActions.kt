@@ -25,7 +25,12 @@ import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
+import com.creationreadingassistant.ui.screen.reader.tts.TtsPlayResult
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsAvailability
+import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticeAction
+import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticePolicy
+import com.creationreadingassistant.ui.screen.reader.tts.ttsResumeStartAt
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.util.UUID
@@ -273,6 +278,7 @@ internal fun seekToChapterPercent(
 internal fun openTts(
     contentText: String,
     epubBook: EpubBook?,
+    isMarkdown: Boolean,
     ttsResumeChapter: Int,
     chapterIndex: Int,
     ttsResumeOffset: Int,
@@ -294,8 +300,27 @@ internal fun openTts(
             androidx.core.app.ActivityCompat.requestPermissions(act, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
         }
     }
-    val resumeAt = if (epubBook == null || ttsResumeChapter == chapterIndex) ttsResumeOffset else 0
-    tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, resumeAt)
+    val resumeAt = ttsResumeStartAt(
+        isEpub = epubBook != null,
+        isMarkdown = isMarkdown,
+        ttsResumeChapter = ttsResumeChapter,
+        chapterIndex = chapterIndex,
+        ttsResumeOffset = ttsResumeOffset,
+    )
+    val result = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, resumeAt)
+    if (result is TtsPlayResult.Rejected) {
+        // 提示策略：被动 init failure 静默；用户主动打开听书且引擎不可用时恰好提示一次
+        //（snackbar 带去设置）并进程内 reinitialize；未就绪显示可解释原因；主动错误不被吞。
+        when (val decision = TtsNoticePolicy.onOpenTtsRejected(tts.availability)) {
+            TtsNoticeAction.None -> Unit
+            TtsNoticeAction.ReinitializeWithNotice -> {
+                tts.notifyUnavailable()
+                tts.reinitialize()
+            }
+            is TtsNoticeAction.ShowMessage -> showNotice(decision.message)
+        }
+        return
+    }
     onShowTtsChange(true)
 }
 
@@ -332,7 +357,8 @@ internal fun handleChromeAction(
             }
         }
         is ReaderChromeAction.OpenSheet -> {
-            if (action.sheet == ReaderSheet.SEARCH) onAction(ReaderAction.SetSearchQuery(""))
+            // 打开搜索面板不得清空查询：query/results/current hit 由 BookSearchSession
+            // 按书保留，只有用户清空查询或切书才会清空。
             onAction(ReaderAction.OpenSheet(action.sheet))
         }
         ReaderChromeAction.ToggleAutoPaging -> {
@@ -352,7 +378,6 @@ internal fun handleChromeAction(
                 onAction(ReaderAction.ToggleControls(false))
             }
         }
-        ReaderChromeAction.HideControls -> onAction(ReaderAction.ToggleControls(false))
     }
 }
 
@@ -513,7 +538,8 @@ internal fun buildReaderNavActions(
     }
     val openTtsFn: () -> Unit = {
         openTts(
-            contentText, epubBook, ttsResumeChapterState.intValue, chapterIndex, ttsResumeOffsetState.intValue,
+            contentText, epubBook, markdownDocument != null,
+            ttsResumeChapterState.intValue, chapterIndex, ttsResumeOffsetState.intValue,
             tts, bookTitle, currentChapterTitle, context,
             onShowTtsChange = { onAction(ReaderAction.SetShowTts(it)) }, showNotice = showNoticeFn,
         )

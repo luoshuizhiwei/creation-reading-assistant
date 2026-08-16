@@ -8,17 +8,18 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Headphones
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -46,6 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 
@@ -54,7 +56,6 @@ internal sealed interface ReaderChromeAction {
     data object ToggleTts : ReaderChromeAction
     data class OpenSheet(val sheet: ReaderSheet) : ReaderChromeAction
     data object ToggleAutoPaging : ReaderChromeAction
-    data object HideControls : ReaderChromeAction
 }
 
 @Composable
@@ -66,6 +67,9 @@ internal fun ReaderBottomActions(
     onNextChapter: () -> Unit,
     isFirstChapter: Boolean,
     isLastChapter: Boolean,
+    autoPagingActive: Boolean,
+    autoPageSpeed: Int,
+    onAutoPageSpeedChange: (Int) -> Unit,
     paper: ReaderPaperPalette? = null,
 ) {
     val layout = LocalLayoutTokens.current
@@ -83,6 +87,17 @@ internal fun ReaderBottomActions(
             .fillMaxWidth()
             .padding(horizontal = layout.relatedGap),
     ) {
+        // 拖动预览：拖动中实时显示目标百分比，松手才真正跳转
+        if (isDragging) {
+            Text(
+                "跳到 ${sliderValue.toInt()}%",
+                style = MaterialTheme.typography.labelMedium,
+                color = accentColor,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .padding(bottom = 2.dp),
+            )
+        }
         // 进度条行：[上一章] ──── Slider ──── [下一章]
         Row(
             modifier = Modifier
@@ -133,6 +148,49 @@ internal fun ReaderBottomActions(
                     contentDescription = "下一章",
                     tint = if (isLastChapter) accentColor.copy(alpha = 0.3f) else accentColor,
                 )
+            }
+        }
+
+        // 自动翻页进行中：在当前工具栏直接看到并调整速度（1-10 档），无需退出到深层设置。
+        if (autoPagingActive) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = layout.relatedGap),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.Center,
+            ) {
+                Text(
+                    text = "自动翻页",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = accentColor,
+                )
+                IconButton(
+                    onClick = { onAutoPageSpeedChange(clampAutoPageSpeed(autoPageSpeed - 1)) },
+                    modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
+                ) {
+                    Icon(
+                        Icons.Outlined.Remove,
+                        contentDescription = "放慢自动翻页",
+                        tint = accentColor,
+                    )
+                }
+                Text(
+                    text = "$autoPageSpeed 档",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = accentColor,
+                    modifier = Modifier.padding(horizontal = layout.relatedGap),
+                )
+                IconButton(
+                    onClick = { onAutoPageSpeedChange(clampAutoPageSpeed(autoPageSpeed + 1)) },
+                    modifier = Modifier.heightIn(min = layout.minimumTouchTarget),
+                ) {
+                    Icon(
+                        Icons.Outlined.Add,
+                        contentDescription = "加快自动翻页",
+                        tint = accentColor,
+                    )
+                }
             }
         }
 
@@ -283,16 +341,6 @@ internal fun ReaderTopChrome(
                         onClick = {
                             onOverflowExpandedChange(false)
                             onAction(ReaderChromeAction.ToggleAutoPaging)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text("隐藏工具栏") },
-                        leadingIcon = {
-                            Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = null)
-                        },
-                        onClick = {
-                            onOverflowExpandedChange(false)
-                            onAction(ReaderChromeAction.HideControls)
                         },
                     )
                 }
