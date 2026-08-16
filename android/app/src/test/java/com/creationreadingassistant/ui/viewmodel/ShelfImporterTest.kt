@@ -142,7 +142,8 @@ class ShelfImporterTest {
     private fun stubTxtContent(name: String, content: String) {
         val size = content.toByteArray().size
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor(name, size.toLong())
-        every { resolver.openInputStream(any()) } returns ByteArrayInputStream(content.toByteArray())
+        // answers 每次返回全新流：导入前的内容哈希预读会消费一次流，导入读取需要新实例（真实 SAF 行为）
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(content.toByteArray()) }
         every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
         coEvery { bookDao.upsert(any()) } returns Unit
         coEvery { bookContentDao.upsert(any()) } returns Unit
@@ -347,25 +348,13 @@ class ShelfImporterTest {
         assertEquals(1, importer.importBatch.value.failed)
         val firstBatchId = importer.importBatch.value.id
 
-        every { resolver.openInputStream(any()) } returns ByteArrayInputStream("x".toByteArray())
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream("x".toByteArray()) }
         importer.retryFailedImports()
 
         val batch = importer.importBatch.value
         assertNotEquals(firstBatchId, batch.id)
         assertEquals("重试失败项", batch.sourceLabel)
         assertEquals(1, batch.succeeded)
-    }
-
-    @Test
-    fun `sample import adds book and records history`() = runTest {
-        coEvery { repository.addSampleBook("导入·新卷") } returns book("s1", format = "txt", title = "导入·新卷")
-        coEvery { historyStore.addEntry(any()) } returns Unit
-
-        importer.runSampleImport()
-
-        coVerify(exactly = 1) {
-            historyStore.addEntry(match { it.status == "success" && it.bookTitle == "导入·新卷" })
-        }
     }
 
     @Test

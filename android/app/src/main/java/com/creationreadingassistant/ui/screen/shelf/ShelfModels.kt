@@ -64,10 +64,11 @@ internal fun filterItems(
     statusFilter: ShelfStatusFilter,
     progressById: Map<String, ReadingProgressEntity>,
     allowedBookIds: Set<String>?,
+    formatFilter: String = "",
 ): List<ShelfBookItem> {
     val trimmed = query.trim()
     // 常见路径快速返回：避免遍历整库，排序切换时直接复用 ViewModel 后台已排序的列表。
-    if (trimmed.isEmpty() && statusFilter == ShelfStatusFilter.ALL && allowedBookIds == null) {
+    if (trimmed.isEmpty() && statusFilter == ShelfStatusFilter.ALL && allowedBookIds == null && formatFilter.isEmpty()) {
         return items
     }
     val lower = trimmed.lowercase()
@@ -78,7 +79,8 @@ internal fun filterItems(
         val matchesFilter = allowedBookIds?.contains(book.id) ?: true
         val matchesStatus = statusFilter == ShelfStatusFilter.ALL ||
             bookStatus(book, progressFor(progressById, book.id)) == statusFilter
-        matchesQuery && matchesFilter && matchesStatus
+        val matchesFormat = formatFilter.isEmpty() || book.format.equals(formatFilter, ignoreCase = true)
+        matchesQuery && matchesFilter && matchesStatus && matchesFormat
     }
 }
 

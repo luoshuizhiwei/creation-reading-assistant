@@ -41,6 +41,8 @@ internal data class ShelfUiState(
     val viewMode: ShelfViewMode = ShelfViewMode.GRID,
     val sortMode: ShelfSortMode = ShelfSortMode.RECENT,
     val statusFilter: ShelfStatusFilter = ShelfStatusFilter.ALL,
+    /** 格式筛选："" = 全部；epub / txt / md。 */
+    val formatFilter: String = "",
 
     // ========= 顶栏：搜索 / 多选 / 菜单 =========
     val searchActive: Boolean = false,
@@ -74,6 +76,7 @@ internal data class ShelfUiState(
             items = shelfBooks,
             query = debouncedQuery,
             statusFilter = statusFilter,
+            formatFilter = formatFilter,
             progressById = library.progressById,
             allowedBookIds = filteredBookIds,
         )
@@ -92,6 +95,7 @@ internal data class ShelfUiState(
         get() {
             val labels = buildList {
                 if (statusFilter != ShelfStatusFilter.ALL) add(statusFilter.label())
+                if (formatFilter.isNotEmpty()) add(formatLabel(formatFilter))
                 selectedShelfId.takeIf(String::isNotEmpty)?.let { id ->
                     add(library.shelves.firstOrNull { it.id == id }?.name ?: "书单")
                 }
@@ -117,6 +121,13 @@ internal data class ShelfUiState(
 }
 
 /** 同一标签维度取并集，不同筛选维度取交集。 */
+internal fun formatLabel(format: String): String = when (format) {
+    "epub" -> "EPUB"
+    "txt" -> "TXT"
+    "md" -> "Markdown"
+    else -> format
+}
+
 internal fun combineTaxonomyFilterIds(
     shelfIds: Set<String>?,
     categoryIds: Set<String>?,

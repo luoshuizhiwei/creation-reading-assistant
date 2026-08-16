@@ -48,12 +48,6 @@ class BookViewModel @Inject constructor(
     val removedContinueIds: StateFlow<Map<String, String>> = continueStore.removedIds
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
-    init {
-        viewModelScope.launch { repository.seedSampleIfEmpty() }
-    }
-
-    fun addSample() = viewModelScope.launch { repository.addSampleBook() }
-
     fun deleteBook(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
         runCatching { repository.deleteBook(id) }
             .onSuccess { onResult("已删除") }

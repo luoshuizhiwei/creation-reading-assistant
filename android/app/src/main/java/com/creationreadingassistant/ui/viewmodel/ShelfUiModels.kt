@@ -53,6 +53,8 @@ internal data class ShelfSessionState(
     val viewMode: ShelfViewMode = ShelfViewMode.GRID,
     val sortMode: ShelfSortMode = ShelfSortMode.RECENT,
     val statusFilter: ShelfStatusFilter = ShelfStatusFilter.ALL,
+    /** 格式筛选："" = 全部；epub / txt / md。 */
+    val formatFilter: String = "",
     val selectedShelfId: String = "",
     val selectedCategoryId: String = "",
     val selectedTagIds: Set<String> = emptySet(),
@@ -60,6 +62,7 @@ internal data class ShelfSessionState(
     /** 清除临时筛选，但保留用户长期选择的排序和视图。 */
     fun clearFilters(): ShelfSessionState = copy(
         statusFilter = ShelfStatusFilter.ALL,
+        formatFilter = "",
         selectedShelfId = "",
         selectedCategoryId = "",
         selectedTagIds = emptySet(),

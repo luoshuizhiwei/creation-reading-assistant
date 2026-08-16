@@ -66,7 +66,6 @@ class ShelfViewModelTest {
         Dispatchers.setMain(mainDispatcher)
         context = mockk()
         repository = mockk {
-            coEvery { seedSampleIfEmpty() } returns Unit
             coEvery { restoreBook(any()) } returns Unit
             coEvery { deleteBook(any()) } returns Unit
             coEvery { clearBookCache(any()) } returns Unit

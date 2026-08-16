@@ -74,7 +74,10 @@ interface BookDao {
             "b.title LIKE '%' || :q || '%' OR " +
             "b.author LIKE '%' || :q || '%' OR " +
             "b.original_file_name LIKE '%' || :q || '%' OR " +
-            "t.name LIKE '%' || :q || '%'" +
+            "t.name LIKE '%' || :q || '%' OR " +
+            // 正文预览（导入时入库的开头 2 万字）：支持「按内容找书」；
+            // 命中前 2 万字的书籍也能出现在全局搜索结果里。
+            "EXISTS (SELECT 1 FROM book_content bc WHERE bc.book_id = b.id AND bc.reader_preview LIKE '%' || :q || '%')" +
             ") ORDER BY b.updated_at DESC LIMIT 20"
     )
     suspend fun search(q: String): List<BookEntity>

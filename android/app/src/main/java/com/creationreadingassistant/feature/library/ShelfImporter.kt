@@ -68,19 +68,6 @@ class ShelfImporter @Inject constructor(
 
     private var stopImportAfterCurrent = false
 
-    /** 空书架时导入一本示例书（保留原兜底行为）。 */
-    suspend fun runSampleImport() {
-        if (_importTasks.value.any { it.status == "processing" }) return
-        val book = repository.addSampleBook("导入·新卷")
-        recordImport(
-            fileName = "${book.title}.txt",
-            format = "txt",
-            fileSize = 0,
-            status = "success",
-            bookTitle = book.title,
-        )
-    }
-
     /** 导入文件选择器返回的多本书（统一顺序批处理，避免同时解析多本大书抢占内存）。 */
     suspend fun importFiles(uris: List<Uri>, sourceLabel: String = "所选文件") {
         val uniqueUris = uris.distinctBy(Uri::toString)
@@ -282,7 +269,8 @@ class ShelfImporter @Inject constructor(
                 val fileName = uriFileName(uri)
                 val rawFormat = fileName.substringAfterLast('.', "").lowercase()
                 val format = if (rawFormat == "markdown") "md" else rawFormat
-                ImportCandidate(uri, fileName, format, uriSize(uri))
+                val size = uriSize(uri)
+                ImportCandidate(uri, fileName, format, size, contentHashOrNull(uri, size))
             }
             if (metadata.format !in SUPPORTED_FORMATS) {
                 val reason = "不支持的格式"
@@ -299,10 +287,17 @@ class ShelfImporter @Inject constructor(
                             book.format.lowercase() == metadata.format &&
                             book.original_file_name.equals(metadata.fileName, ignoreCase = true) &&
                             book.size == metadata.fileSize
+                        ) ||
+                    // 内容哈希：改名 / 移动后的同内容文件也能识别（仅对已落哈希的书生效）
+                    (
+                        metadata.contentHash != null &&
+                            book.content_hash != null &&
+                            book.content_hash == metadata.contentHash
                         )
             }
             if (duplicate) {
                 batchFingerprints += fingerprint
+                metadata.contentHash?.let { batchFingerprints += "hash|$it" }
                 updateTaskResult(taskId, metadata.fileName, "已存在，未重复导入", "duplicate")
                 recordImport(
                     metadata.fileName,
@@ -323,6 +318,17 @@ class ShelfImporter @Inject constructor(
                 ResolvedImport(book, metadata.format, metadata.fileSize, metadata.fileName)
             }
             batchFingerprints += fingerprint
+            metadata.contentHash?.let { batchFingerprints += "hash|$it" }
+            // 首次导入落内容哈希（不动 updated_at，避免扰动同步修订号）；best-effort，失败不阻断导入
+            metadata.contentHash?.let { hash ->
+                runCatching {
+                    bookDao.getById(resolved.book.id)?.let { row ->
+                        if (row.content_hash.isNullOrBlank()) {
+                            bookDao.update(row.copy(content_hash = hash))
+                        }
+                    }
+                }
+            }
             updateTaskResult(taskId, resolved.fileName, "导入完成", "done")
             recordImport(
                 resolved.fileName,
@@ -409,6 +415,13 @@ class ShelfImporter @Inject constructor(
             context.contentResolver.takePersistableUriPermission(
                 uri, Intent.FLAG_GRANT_READ_URI_PERMISSION
             )
+        }
+        // EPUB 内嵌封面：仅当书架记录还没有封面时提取（用户手动设置的封面优先，不覆盖）。
+        val stored = bookDao.getById(book.id)
+        if (stored?.cover_data_url.isNullOrBlank() && !book.coverEntryPath.isNullOrBlank()) {
+            runCatching { extractEpubCoverDataUrl(book) }.getOrNull()?.let { dataUrl ->
+                bookDao.update(stored!!.copy(cover_data_url = dataUrl, updated_at = now))
+            }
         }
         return bookDao.getById(book.id) ?: BookEntity(
             id = book.id,
@@ -609,6 +622,27 @@ class ShelfImporter @Inject constructor(
         return name ?: uri.lastPathSegment ?: "unknown"
     }
 
+    /**
+     * 全量内容 MD5：识别改名/移动后的同内容文件。书籍普遍 ≤32MB，顺序读一遍的
+     * 成本相对随后的解析/复制可忽略；超限（如超大 TXT）返回 null 回退弱指纹。
+     * 必须在 IO 线程调用。
+     */
+    private fun contentHashOrNull(uri: Uri, size: Int): String? {
+        if (size <= 0 || size > MAX_HASH_BYTES) return null
+        return runCatching {
+            val md = java.security.MessageDigest.getInstance("MD5")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val buf = ByteArray(64 * 1024)
+                while (true) {
+                    val n = input.read(buf)
+                    if (n < 0) break
+                    md.update(buf, 0, n)
+                }
+            } ?: return null
+            md.digest().joinToString("") { "%02x".format(it) }
+        }.getOrNull()
+    }
+
     private fun uriSize(uri: Uri): Int {
         var size = 0
         context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
@@ -616,6 +650,31 @@ class ShelfImporter @Inject constructor(
             if (idx >= 0 && cursor.moveToFirst()) size = cursor.getLong(idx).toInt()
         }
         return size
+    }
+
+    /**
+     * 提取 EPUB 内嵌封面为 JPEG data URL：按最长边 [COVER_TARGET_EDGE_PX] 降采样后
+     * 重压缩，控制入库体积（书架封面显示尺寸远小于原图，无需保留全尺寸位图）。
+     * 必须在 IO 线程调用（zip + 位图解码）。
+     */
+    private fun extractEpubCoverDataUrl(book: com.creationreadingassistant.domain.model.EpubBook): String? {
+        val entryPath = book.coverEntryPath ?: return null
+        val bytes = com.creationreadingassistant.feature.reader.EpubParser
+            .loadCoverBytes(book.cachedEpubPath, entryPath) ?: return null
+        val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
+        val maxSide = maxOf(bmp.width, bmp.height)
+        var sample = 1
+        while (maxSide / (sample * 2) >= COVER_TARGET_EDGE_PX) sample *= 2
+        val scaled = if (sample > 1) {
+            android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width / sample).coerceAtLeast(1), (bmp.height / sample).coerceAtLeast(1), true)
+        } else {
+            bmp
+        }
+        val out = java.io.ByteArrayOutputStream()
+        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
+        if (scaled !== bmp) bmp.recycle()
+        val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
+        return "data:image/jpeg;base64,$b64"
     }
 
     private data class ResolvedImport(
@@ -630,6 +689,8 @@ class ShelfImporter @Inject constructor(
         val fileName: String,
         val format: String,
         val fileSize: Int,
+        /** 全量内容 MD5（≤32MB 时计算；超限为 null，查重回退文件名+大小）。 */
+        val contentHash: String? = null,
     ) {
         val fingerprint: String
             get() = "${format.lowercase()}|${fileName.lowercase()}|$fileSize"
@@ -643,6 +704,12 @@ class ShelfImporter @Inject constructor(
     }
 
     private companion object {
+        /** 封面降采样目标最长边（px）：书架封面卡片足够清晰的最小尺寸。 */
+        const val COVER_TARGET_EDGE_PX = 600
+
+        /** 内容哈希的文件大小上限（字节）：超限不计算，避免超大文件双倍 IO。 */
+        const val MAX_HASH_BYTES = 32 * 1024 * 1024
+
         val SUPPORTED_FORMATS = setOf("epub", "txt", "md")
         val IMPORT_PHASES = listOf(
             "正在校验文件",

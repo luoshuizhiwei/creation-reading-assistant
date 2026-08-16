@@ -118,46 +118,6 @@ class BookRepository @Inject constructor(
         bookFileDao.getByBook(id)?.let { bookFileDao.upsert(it.copy(deleted_at = now, updated_at = now)) }
     }
 
-    /** 播种锁：防止多个 ViewModel 同时调用 seedSampleIfEmpty() 产生重复示例书。 */
-    private val seedMutex = Mutex()
-
-    /** 首次启动播种一本示例书，方便真机自测（仅当书架为空时）。 */
-    suspend fun seedSampleIfEmpty() {
-        try {
-            App.trace("Seed", "start countActive")
-            seedMutex.withLock {
-                val count = bookDao.countActive()
-                App.trace("Seed", "count=$count")
-                if (count > 0) return
-                addSampleBook("示例·墨韵小札")
-            }
-        } catch (e: Throwable) {
-            android.util.Log.e("BookRepo", "seedSampleIfEmpty failed", e)
-        }
-    }
-
-    /** 新增一本示例书（FAB / 手动触发）。返回创建后的书籍实体（导入历史记录用）。 */
-    suspend fun addSampleBook(title: String = "示例书"): BookEntity {
-        val now = nowIso()
-        val shortId = java.util.UUID.randomUUID().toString().take(8)
-        val book = BookEntity(
-            id = "sample-${java.util.UUID.randomUUID()}",
-            title = "$title $shortId",
-            author = "创作阅读助手",
-            format = "txt",
-            size = 0,
-            content_status = "available",
-            payload = "{}",
-            updated_at = now,
-        )
-        try {
-            bookDao.upsert(book)
-        } catch (e: Throwable) {
-            android.util.Log.e("BookRepo", "addSampleBook failed", e)
-        }
-        return book
-    }
-
     /**
      * 更新书籍阅读进度与完成状态（用于首页继续阅读面板的「标记已读完 / 标记未读」）。
      */

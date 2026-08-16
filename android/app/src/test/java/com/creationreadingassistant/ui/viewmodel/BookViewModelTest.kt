@@ -39,16 +39,9 @@ class BookViewModelTest {
     fun setUp() {
         Dispatchers.setMain(mainDispatcher)
         repository = mockk {
-            coEvery { seedSampleIfEmpty() } returns Unit
             coEvery { deleteBook(any()) } returns Unit
             coEvery { updateReadingProgress(any(), any(), any()) } returns Unit
             coEvery { setReadingState(any(), any()) } returns Unit
-            coEvery { addSampleBook(any()) } returns BookEntity(
-                id = "sample-1",
-                title = "示例书",
-                format = "txt",
-                updated_at = "2026-08-01T12:00:00Z",
-            )
         }
         continueStore = mockk {
             every { removedIds } returns flowOf(emptyMap())
@@ -71,14 +64,6 @@ class BookViewModelTest {
         every { repository.observeProgress() } returns flowOf(progressRows)
         every { repository.observeSessions() } returns flowOf(sessions)
         return BookViewModel(repository, continueStore, Dispatchers.Unconfined)
-    }
-
-    @Test
-    fun `init seeds sample books when library empty`() = runTest(mainDispatcher.scheduler) {
-        createVm()
-        testScheduler.advanceUntilIdle()
-
-        coVerify(exactly = 1) { repository.seedSampleIfEmpty() }
     }
 
     @Test
@@ -150,16 +135,6 @@ class BookViewModelTest {
 
         coVerify(exactly = 1) { continueStore.remove("b1") }
         coVerify(exactly = 1) { continueStore.clear("b2") }
-    }
-
-    @Test
-    fun `addSample delegates to repository`() = runTest(mainDispatcher.scheduler) {
-        val vm = createVm()
-
-        vm.addSample()
-        testScheduler.advanceUntilIdle()
-
-        coVerify(exactly = 1) { repository.addSampleBook(any()) }
     }
 
     @Test

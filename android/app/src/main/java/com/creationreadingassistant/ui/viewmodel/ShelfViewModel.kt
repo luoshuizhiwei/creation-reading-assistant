@@ -98,6 +98,9 @@ class ShelfViewModel @Inject constructor(
 
     internal fun setStatusFilter(value: ShelfStatusFilter) { _session.value = _session.value.copy(statusFilter = value) }
     internal fun setSelectedShelf(value: String) { _session.value = _session.value.copy(selectedShelfId = value) }
+    internal fun setFormatFilter(value: String) {
+        _session.value = _session.value.copy(formatFilter = if (_session.value.formatFilter == value) "" else value)
+    }
     internal fun setSelectedCategory(value: String) { _session.value = _session.value.copy(selectedCategoryId = value) }
     internal fun setSelectedTag(value: String) {
         _session.value = _session.value.copy(selectedTagIds = value.takeIf(String::isNotBlank)?.let(::setOf).orEmpty())
@@ -238,9 +241,6 @@ class ShelfViewModel @Inject constructor(
     val importTasks: StateFlow<List<ImportTaskUi>> = importer.importTasks
     val importBatch: StateFlow<ImportBatchUiState> = importer.importBatch
     val importHistory: StateFlow<List<ImportHistoryEntry>> = importer.importHistory
-
-    /** 空书架时导入一本示例书（保留原兜底行为）。 */
-    fun importSampleBook() = viewModelScope.launch { importer.runSampleImport() }
 
     /** 兼容单文件入口；实际统一走顺序批处理，避免同时解析多本大书抢占内存。 */
     fun importFile(uri: Uri) = importFiles(listOf(uri))
@@ -433,13 +433,7 @@ class ShelfViewModel @Inject constructor(
                 _session.value = _session.value.copy(sortMode = value)
             }
         }
-        viewModelScope.launch {
-            try {
-                repository.seedSampleIfEmpty()
-            } catch (e: Throwable) {
-                AppLog.e("ShelfVM", "Init seed failed: ${e.message}")
-            }
-        }
+
         // EPUB size 修复已收敛为进程级一次性任务（EpubSizeRepairTask，App.onCreate 启动），
         // 不再由每个 ShelfViewModel 实例 init 重复触发。
     }

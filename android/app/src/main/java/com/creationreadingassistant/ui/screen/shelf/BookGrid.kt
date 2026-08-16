@@ -33,6 +33,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MoreHoriz
 import com.creationreadingassistant.ui.theme.AppIconSize
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -256,7 +257,7 @@ internal fun BookTile(
             }
             Text(
                 text = book.title,
-                style = MaterialTheme.typography.titleSmall,
+                style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
                 minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

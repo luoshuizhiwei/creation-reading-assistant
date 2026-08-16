@@ -167,6 +167,7 @@ internal fun ShelfRoute(
         viewMode = viewMode,
         sortMode = sortMode,
         statusFilter = statusFilter,
+        formatFilter = session.formatFilter,
         searchActive = false,
         showPageMenu = showPageMenu,
         selectionMode = selectionMode,
@@ -355,10 +356,12 @@ internal fun ShelfRoute(
             tags = tags,
             selectedShelfId = selectedShelfId,
             selectedCategoryId = selectedCategoryId,
-            selectedTagId = selectedTagIds.firstOrNull().orEmpty(),
+            selectedTagIds = selectedTagIds,
+            formatFilter = session.formatFilter,
             onSelectShelf = { viewModel.setSelectedShelf(if (selectedShelfId == it) "" else it) },
             onSelectCategory = { viewModel.setSelectedCategory(if (selectedCategoryId == it) "" else it) },
-            onSelectTag = viewModel::toggleSelectedTag,
+            onToggleTag = viewModel::toggleSelectedTag,
+            onSelectFormat = viewModel::setFormatFilter,
             onDismiss = { showFilterPanel = false },
         )
     }
@@ -465,8 +468,8 @@ internal fun ShelfRoute(
             title = { androidx.compose.material3.Text(if (delIds.size > 1) "批量删除书籍" else "删除书籍") },
             text = {
                 androidx.compose.material3.Text(
-                    if (delIds.size > 1) "确定从书架删除选中的 ${delIds.size} 本书吗？本地正文与阅读数据会一并移除。"
-                    else "确定从书架删除这本书吗？本地正文与阅读数据会一并移除，此操作不可撤销。"
+                    if (delIds.size > 1) "确定从书架删除选中的 ${delIds.size} 本书吗？本地正文与阅读数据会一并移除，删除后短时间内可在提示中撤销。"
+                    else "确定从书架删除这本书吗？本地正文与阅读数据会一并移除，删除后短时间内可在提示中撤销。"
                 )
             },
             confirmButton = {
@@ -675,8 +678,6 @@ private fun handleShelfAction(
             setConfirmDeleteIds(null)
             ids.forEach { viewModel.deleteBook(it) }
         }
-        ShelfAction.UndoLastDelete -> { }
-
         is ShelfAction.ReselectFileResult -> viewModel.reselectFile(action.bookId, action.uri) { showMessage(it) }
         is ShelfAction.CoverChangeResult -> viewModel.updateBookCover(action.bookId, action.uri) { showMessage(it) }
 
