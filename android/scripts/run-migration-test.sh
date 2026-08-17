@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 在已启动的 Android 模拟器上运行 Room 迁移测试（6->7 / 1->7）。
+# 在已启动的 Android 模拟器上运行 Room 迁移测试（单跳 1→2 … 8→9，全链 1→6 / 1→8 / 1→9，当前库版本 v9）。
 # 用 step 内重试循环吸收模拟器偶发抖动（emulator-runner 不支持 job 级 retry）。
 # 注意：reactivecircus/android-emulator-runner 的 `script:` 多行块标量会被
 # `sh -c` 截断（见项目 .workbuddy/memory 的 CI 纪律），故抽到独立 .sh 文件执行。

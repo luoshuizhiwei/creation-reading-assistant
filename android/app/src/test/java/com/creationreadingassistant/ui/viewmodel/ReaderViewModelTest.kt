@@ -58,6 +58,9 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 @OptIn(ExperimentalCoroutinesApi::class)
+// ScanTxtTocRule 为生产零派发死路径（已 @Deprecated），
+// 但扫描状态机的取消/竞争/进度语义仅由本类经它覆盖，故保留驱动并抑制告警。
+@Suppress("DEPRECATION")
 class ReaderViewModelTest {
 
     private val testDispatcher = UnconfinedTestDispatcher()

@@ -55,6 +55,8 @@ fun Modifier.glassWindowBlur(enabled: Boolean): Modifier {
                                 .getMethod("setBlurBehindRadius", Int::class.javaPrimitiveType)
                                 .invoke(win, 0)
                         } catch (_: Throwable) {
+                            // 与进入路径同源的反射兜底：个别 ROM / 低版本无此方法，
+                            // 清零失败不影响退出，静默降级可接受
                         }
                     }
                 }

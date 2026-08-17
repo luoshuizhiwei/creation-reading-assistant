@@ -101,6 +101,16 @@ sealed interface ReaderAction {
     data class OpenBook(val bookId: String) : ReaderAction
     data object Retry : ReaderAction
     data class LoadChapter(val bookId: String, val chapterIndex: Int) : ReaderAction
+    /**
+     * 死路径（任务 #15 小清理）：生产代码零派发，TOC 规则切换已改走
+     * [com.creationreadingassistant.ui.viewmodel.RuleCommand]（ExecuteRuleCommand）+
+     * [RescanTxtToc]。仅保留实现与测试驱动（扫描状态机的取消/竞争/进度语义
+     * 仍由本入口覆盖），不得新增调用方。
+     */
+    @Deprecated(
+        message = "生产零派发：TOC 规则扫描请走 ExecuteRuleCommand + RescanTxtToc",
+        replaceWith = ReplaceWith("RescanTxtToc(bookId, filePath, profileKeyHint)"),
+    )
     data class ScanTxtTocRule(val bookId: String, val filePath: String, val ruleId: String) : ReaderAction
     /**
      * 规则写入成功后按当前 Room 生效规则重新识别流式 TXT（P1-A）。

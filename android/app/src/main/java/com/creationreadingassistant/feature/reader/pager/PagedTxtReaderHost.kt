@@ -1,92 +1,54 @@
 package com.creationreadingassistant.feature.reader.pager
 
-import android.content.Intent
-import android.content.IntentFilter
 import android.graphics.Typeface
-import android.os.BatteryManager
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.gestures.awaitEachGesture
-import androidx.compose.foundation.gestures.awaitFirstDown
-import androidx.compose.foundation.gestures.detectTapGestures
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.rememberUpdatedState
-import androidx.compose.runtime.setValue
-import androidx.compose.runtime.snapshotFlow
-import androidx.compose.runtime.withFrameNanos
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.drawIntoCanvas
 import androidx.compose.ui.graphics.nativeCanvas
 import androidx.compose.ui.graphics.toArgb
-import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import com.creationreadingassistant.ui.components.SizedAsyncImage
-import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.MarkdownStyleMap
-import com.creationreadingassistant.feature.reader.layout.pageAccessibleText
 import com.creationreadingassistant.feature.reader.layout.android.IcuBreakOracle
 import com.creationreadingassistant.feature.reader.layout.android.PaintTextRuler
 import com.creationreadingassistant.feature.reader.layout.isHeading
 import java.io.File
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
-import kotlinx.coroutines.delay
-import kotlin.math.hypot
 import kotlin.math.roundToInt
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
 import com.creationreadingassistant.ui.screen.reader.searchHighlightColor
-
-/** 页眉/页脚渲染所需的分页快照 */
-private data class PageInfo(
-    val chapterIndex: Int = 0,
-    val pageIndex: Int = 0,
-    val pageCount: Int = 0,
-    val progressPercent: Float = 0f,
-)
 
 /**
  * 左右翻页宿主（pagerEngineMode = on 时替换原视图；TXT 与 EPUB 共用，
@@ -96,6 +58,11 @@ private data class PageInfo(
  * [PageCanvas]（逐簇绘制）→ 手势（左/右点按翻页、水平滑动翻页、中央点按呼出菜单）。
  *
  * P2 边界（后续阶段补）：无翻页动画（P4）、无选区/高亮/TTS 句高亮（P3）。
+ *
+ * 任务 #15 结构拆分：时钟 effect → [PagedReaderClockEffects]；页眉/页脚 →
+ * [PagedReaderHeader]/[PagedReaderFooter]；控制器 effect 组 →
+ * [PagedReaderControllerEffects]；页面渲染与手势 → [PagedReaderPageSurface]。
+ * 纯结构搬运，effect key 与启动条件逐字保留。
  *
  * @param jumpRequest 外部跳转请求（进度条拖动、目录跳章）。消费后置回 null。
  * @param onPositionChanged 页变化回调：全书偏移 + 进度百分比。
@@ -190,51 +157,31 @@ fun PagedReaderHost(
     val context = androidx.compose.ui.platform.LocalContext.current
     val currentTime = remember { mutableStateOf(formatCurrentTime()) }
     val batteryLevel = remember { mutableIntStateOf(getBatteryLevel(context)) }
-    // 每分钟刷新时间
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(60_000L)
-            currentTime.value = formatCurrentTime()
-        }
-    }
-    // 每 30 秒刷新电量
-    LaunchedEffect(Unit) {
-        while (true) {
-            delay(30_000L)
-            batteryLevel.intValue = getBatteryLevel(context)
-        }
-    }
+    PagedReaderClockEffects(currentTime = currentTime, batteryLevel = batteryLevel, context = context)
 
     // 位置锚点：当前页首字符的全书偏移。改字号/转屏/菜单导致重排后，靠它回到同一句。
     val anchor = remember(source) { mutableIntStateOf(initialOffset) }
     // 页眉/页脚需要的分页信息（章号、页号、总页数、进度）
     val pageInfo = remember { mutableStateOf(PageInfo()) }
+    // 选区（章内偏移区间）。翻页/外部清除时撤掉。
+    val selRange = remember { mutableStateOf<IntRange?>(null) }
+    val turnRequest = remember { mutableIntStateOf(0) }
+    // 自动翻页揭动画进度（0..1）：主函数持有，effect 组写、页面层读。
+    val revealProgress = remember { mutableFloatStateOf(0f) }
 
     Column(modifier.fillMaxSize().padding(horizontal = pageMarginDp.dp)) {
-        // 页眉
-        if (showReaderInfo && (headerLeft != HeaderFooterItem.NONE || headerRight != HeaderFooterItem.NONE)) {
-            Row(
-                Modifier.fillMaxWidth().height(24.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                val headerColor = textColor.copy(alpha = 0.45f)
-                Text(
-                    resolveItemText(headerLeft, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
-                    fontSize = 11.sp,
-                    color = headerColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Text(
-                    resolveItemText(headerRight, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
-                    fontSize = 11.sp,
-                    color = headerColor,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
-            }
-        }
+        PagedReaderHeader(
+            showReaderInfo = showReaderInfo,
+            headerLeft = headerLeft,
+            headerRight = headerRight,
+            source = source,
+            anchorValue = anchor.intValue,
+            pageInfo = pageInfo.value,
+            currentTime = currentTime.value,
+            batteryLevel = batteryLevel.intValue,
+            bookName = bookName,
+            textColor = textColor,
+        )
 
         Box(Modifier.weight(1f).fillMaxWidth().padding(top = pageMarginDp.dp)) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
@@ -275,386 +222,68 @@ fun PagedReaderHost(
                     onDispose { controller.close() }
                 }
 
-                // 新 controller（首开 / 配置变化重建）→ 回到锚点所在句
-                LaunchedEffect(controller) { controller.open(anchor.intValue) }
+                PagedReaderControllerEffects(
+                    controller = controller,
+                    anchor = anchor,
+                    pageInfo = pageInfo,
+                    onPositionChanged = onPositionChanged,
+                    onPageIndexChanged = onPageIndexChanged,
+                    bookId = bookId,
+                    jumpRequest = jumpRequest,
+                    selectionCleared = selectionCleared,
+                    selRange = selRange,
+                    externalTurnRequest = externalTurnRequest,
+                    turnRequest = turnRequest,
+                    autoPageIntervalMillis = autoPageIntervalMillis,
+                    onAutoPagingFinished = onAutoPagingFinished,
+                    revealProgressState = revealProgress,
+                )
 
-                // 页变化 → 上报进度；锚点只在「用户真的离开了锚点所在页」时才移动。
-                // 改字号/转屏引发的重排会让页首前移，若无条件把锚点改成新页首，
-                // 连续几次重排锚点就会一路往回漂（每次退小半页）。
-                LaunchedEffect(controller) {
-                    snapshotFlow { Triple(controller.chapterIndex, controller.pageIndex, controller.pageCount) }
-                        .collect { (_, _, count) ->
-                            if (count > 0 && !controller.isLayingOut) {
-                                val range = controller.currentPageRangeAbs
-                                if (range != null && anchor.intValue !in range) {
-                                    anchor.intValue = range.first
-                                }
-                                onPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
-                                onPageIndexChanged(
-                                    bookId,
-                                    controller.chapterIndex,
-                                    controller.pageIndex,
-                                    controller.pageCount,
-                                    controller.currentPageStartAbs,
-                                    controller.currentPageRangeAbs?.last ?: controller.currentPageStartAbs,
-                                    controller.progressPercent,
-                                )
-                                pageInfo.value = PageInfo(
-                                    chapterIndex = controller.chapterIndex,
-                                    pageIndex = controller.pageIndex,
-                                    pageCount = controller.pageCount,
-                                    progressPercent = controller.progressPercent,
-                                )
-                            }
-                        }
-                }
-
-                // 外部跳转（进度条 / 目录）
-                LaunchedEffect(jumpRequest.value) {
-                    val j = jumpRequest.value ?: return@LaunchedEffect
-                    controller.open(j)
-                    jumpRequest.value = null
-                }
-
-                // 选区（章内偏移区间）。翻页/外部清除时撤掉。
-                val selRange = remember { mutableStateOf<IntRange?>(null) }
-                val turnRequest = remember { mutableIntStateOf(0) }
-                val finishAutoPaging by rememberUpdatedState(onAutoPagingFinished)
-                val stopAutoPaging by rememberUpdatedState(onStopAutoPaging)
-                LaunchedEffect(selectionCleared) { if (selectionCleared) selRange.value = null }
-                LaunchedEffect(externalTurnRequest.value) {
-                    val direction = externalTurnRequest.value ?: return@LaunchedEffect
-                    turnRequest.intValue = direction
-                    externalTurnRequest.value = null
-                }
-                // 自动翻页揭动画进度（0..1）。remember 存活跨 effect 重启：
-                // 暂停（interval→null）再恢复（interval 恢复）时从原进度续跑（冻结续跑）。
-                val revealer = remember { AutoRevealProgress() }
-                var revealProgress by remember { mutableFloatStateOf(0f) }
-                LaunchedEffect(controller, autoPageIntervalMillis) {
-                    val interval = autoPageIntervalMillis ?: return@LaunchedEffect
-                    if (interval <= 0L) return@LaunchedEffect
-                    AppLog.debug("AutoPagingDebug", "effect start: interval=$interval")
-                    var previousFrame = withFrameNanos { it }
-                    // 手动翻页 / 跨章 / 自动提交后（页或章变化）从新页从头揭
-                    var lastSeen = controller.chapterIndex to controller.pageIndex
-                    var layoutCount = 0
-                    while (true) {
-                        val frame = withFrameNanos { it }
-                        val now = controller.chapterIndex to controller.pageIndex
-                        if (now != lastSeen) {
-                            revealer.reset()
-                            lastSeen = now
-                        }
-                        // 排版中不推进揭动画（当前页尚未稳定），帧时间交给 250ms 上限兜底
-                        if (controller.isLayingOut) {
-                            layoutCount++
-                            revealProgress = revealer.value
-                            continue
-                        }
-                        val elapsed = frame - previousFrame
-                        previousFrame = frame
-                        if (revealer.advance(elapsed, interval)) {
-                            AppLog.debug("AutoPagingDebug", "turn: interval=$interval elapsed=$elapsed layoutSkip=$layoutCount progress=${revealer.value}")
-                            layoutCount = 0
-                            if (!controller.canGoNext) {
-                                finishAutoPaging()
-                                break
-                            } else if (controller.frameAt(1) != null) {
-                                turnRequest.intValue = 1
-                            } else {
-                                // 相邻章尚未预排完成时直接发起加载，不让自动翻页空等一整个周期。
-                                controller.nextPage()
-                            }
-                        }
-                        revealProgress = revealer.value
-                    }
-                }
-
-                val page = controller.currentPage
-                if (page == null) {
-                    val message = controller.loadError
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .then(
-                                if (message == null) {
-                                    // 与既有「正在加载章节」约定一致：加载框给明确的加载语义
-                                    Modifier.semantics { contentDescription = "正在加载正文" }
-                                } else {
-                                    Modifier
-                                }
-                            ),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (message == null) {
-                            CircularProgressIndicator()
-                        } else {
-                            Text(message, color = textColor)
-                        }
-                    }
-                } else {
-                    // TTS 当前句：全书偏移 → 章内偏移
-                    val chStart = controller.currentChapterStartAbs
-                    val ttsRects = remember(page, ttsRangeAbs, chStart) {
-                        val r = ttsRangeAbs ?: return@remember emptyList()
-                        PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
-                    }
-                    val selRects = remember(page, selRange.value) {
-                        val r = selRange.value ?: return@remember emptyList()
-                        PageSelection.rectsForRange(page, cfg, r.first, r.last + 1)
-                    }
-                    val selectionHandles = remember(page, selRange.value) {
-                        val r = selRange.value ?: return@remember null
-                        PageSelection.calculateSelectionHandles(page, cfg, r)
-                    }
-                    // 已存高亮：常驻底色。放最底层，TTS 句与活动选区盖在其上。
-                    val hlUnderlays = remember(page, persistentHighlights, chStart) {
-                        persistentHighlights.mapNotNull { (range, color) ->
-                            val rects = PageSelection.rectsForRange(
-                                page, cfg, range.first - chStart, range.last + 1 - chStart,
-                            )
-                            if (rects.isEmpty()) null else color to rects
-                        }
-                    }
-                    // 搜索命中：命中所在章未加载时 page==null 不绘制；跳转完成后
-                    // 本页渲染时才有 rects，天然满足「先完成跳转/加载，再显示高亮」。
-                    val searchRects = remember(page, searchHitRangeAbs, chStart) {
-                        val r = searchHitRangeAbs ?: return@remember emptyList()
-                        PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
-                    }
-                    val underlays = hlUnderlays + listOf(
-                        searchHighlightColor to searchRects,
-                        ttsHighlightColor to ttsRects,
-                        selectionColor to selRects,
-                    )
-                    // 手势协程只随 controller 重启，闭包捕获的组合期快照会冻结在首次触摸前
-                    // （对抗性复核反编译 compose-ui 1.7 证实：key 不变时 update 不重启协程）。
-                    // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
-                    val tapZone by rememberUpdatedState(tapZoneMode)
-                    val handleHitRadiusPx = with(density) { 24.dp.toPx() }
-                    val gestures = Modifier
-                            .pointerInput(controller) {
-                                // 选区把手拖拽：down 命中把手圆点附近才接管（消费后续事件），
-                                // 其余点按/翻页手势不受影响。拖拽中实时钳制区间并同步外部待保存选区。
-                                // 注意：不能用 awaitEachGesture —— 长按选句时 down 已被 tap 手势消费，
-                                // awaitEachGesture 会因此永久退出；这里用常驻循环保持存活。
-                                awaitPointerEventScope {
-                                    while (true) {
-                                        val down = awaitFirstDown(requireUnconsumed = false)
-                                        val page = controller.currentPage ?: continue
-                                        val r = selRange.value ?: continue
-                                        if (r.isEmpty()) continue
-                                        val handles = PageSelection.calculateSelectionHandles(page, cfg, r)
-                                        if (!handles.isActive) continue
-                                    val side = when {
-                                        handles.left != null &&
-                                            handleDist(down.position, Offset(handles.left!!.x, handles.left!!.y)) <= handleHitRadiusPx ->
-                                            PageSelection.HandleSide.LEFT
-                                        handles.right != null &&
-                                            handleDist(down.position, Offset(handles.right!!.x, handles.right!!.y)) <= handleHitRadiusPx ->
-                                            PageSelection.HandleSide.RIGHT
-                                        else -> continue
-                                    }
-                                        var currentSel = r
-                                        while (true) {
-                                            val event = awaitPointerEvent()
-                                            val change = event.changes.firstOrNull() ?: break
-                                            change.consume()
-                                            val curPage = controller.currentPage ?: break
-                                            // 拖拽中重排/跨章：放弃拖拽（翻页路径会清选区，不残留）
-                                            if (curPage !== page) break
-                                            currentSel = PageSelection.adjustHandle(
-                                                curPage, cfg, currentSel, side, change.position.x, change.position.y,
-                                            )
-                                            selRange.value = currentSel
-                                            val chStart = controller.currentChapterStartAbs
-                                            onSelect(
-                                                controller.chapterText.substring(currentSel.first, currentSel.last + 1),
-                                                chStart + currentSel.first,
-                                            )
-                                            if (!change.pressed) break
-                                        }
-                                    }
-                                }
-                            }
-                            .pointerInput(controller) {
-                                detectTapGestures(
-                                    onLongPress = press@{ offset ->
-                                        // 长按选中一句，交给外部工具条做高亮/笔记/灵感。
-                                        // 不可用外层捕获的 page/chStart：那是冻结快照，
-                                        // 翻页后会按旧页几何选错句、跨章后偏移错位入库。
-                                        val curPage = controller.currentPage ?: return@press
-                                        val curChStart = controller.currentChapterStartAbs
-                                        val ch = PageSelection.offsetAt(curPage, cfg, offset.x, offset.y)
-                                        val sent = PageSelection.sentenceAround(controller.chapterText, ch)
-                                        if (!sent.isEmpty()) {
-                                            selRange.value = sent
-                                            onSelect(
-                                                controller.chapterText.substring(sent.first, sent.last + 1),
-                                                curChStart + sent.first,
-                                            )
-                                        }
-                                    },
-                                    onTap = { offset ->
-                                        if (selRange.value != null) {
-                                            // 有选区时，任何点按先撤选区，不翻页
-                                            selRange.value = null
-                                            onSelect("", -1)
-                                        } else {
-                                            when (
-                                                resolveReaderTapAction(
-                                                    x = offset.x,
-                                                    y = offset.y,
-                                                    width = size.width.toFloat(),
-                                                    height = size.height.toFloat(),
-                                                    tapZoneMode = tapZone,
-                                                    canPrevious = controller.frameAt(-1) != null,
-                                                    canNext = controller.frameAt(1) != null,
-                                                )
-                                            ) {
-                                                ReaderTapAction.PREVIOUS_PAGE -> {
-                                                    stopAutoPaging()
-                                                    onGesturePageTurn()
-                                                    turnRequest.intValue = -1
-                                                }
-                                                ReaderTapAction.NEXT_PAGE -> {
-                                                    stopAutoPaging()
-                                                    onGesturePageTurn()
-                                                    turnRequest.intValue = 1
-                                                }
-                                                ReaderTapAction.TOGGLE_CONTROLS -> {
-                                                    stopAutoPaging()
-                                                    onToggleControls()
-                                                }
-                                                ReaderTapAction.NONE -> Unit
-                                            }
-                                        }
-                                    },
-                                )
-                            }
-                    // 读取 revision 让相邻章预排完成后触发重组，跨章拖动立即拿到邻帧。
-                    @Suppress("UNUSED_VARIABLE")
-                    val cacheRevision = controller.cacheRevision
-                    val frame = controller.frameAt(0) ?: return@BoxWithConstraints
-                    val previous = controller.frameAt(-1)
-                    val next = controller.frameAt(1)
-                    PageTurner(
-                        currentFrame = frame,
-                        previousFrame = previous,
-                        nextFrame = next,
-                        effect = if (autoPageIntervalMillis != null) "reveal" else pageTurnEffect,
-                        turnRequest = turnRequest.intValue,
-                        onTurnRequestConsumed = { turnRequest.intValue = 0 },
-                        onPrevious = {
-                            selRange.value = null
-                            controller.prevPage()
-                        },
-                        onNext = {
-                            selRange.value = null
-                            controller.nextPage()
-                        },
-                        revealProgress = revealProgress,
-                        revealDividerColor = MaterialTheme.colorScheme.primary,
-                        revealBackground = pageBackground,
-                        modifier = Modifier
-                            .offset(x = horizontalInsetDp)
-                            .width(contentWidthDp)
-                            .fillMaxHeight()
-                            .semantics { contentDescription = "分页正文已就绪" }
-                            .then(gestures),
-                    ) { rendered, isCurrent ->
-                        // 语义文本与绘制切片同源；非当前帧（动画过渡中的邻页）不暴露，
-                        // 避免 TalkBack 读到上一页 stale 文本或动画中间帧的重复正文。
-                        val accessibleText = remember(rendered.page, rendered.chapterText) {
-                            pageAccessibleText(rendered.page, rendered.chapterText)
-                        }
-                        PageLayer(
-                            page = rendered.page,
-                            chapterText = rendered.chapterText,
-                            cfg = cfg,
-                            paint = paint,
-                            headingPaint = headingPaint,
-                            underlays = if (isCurrent) underlays else emptyList(),
-                            handles = if (isCurrent) selectionHandles else null,
-                            accessibleText = if (isCurrent) {
-                                if (accessibleText.isEmpty()) "本页无正文" else accessibleText
-                            } else {
-                                null
-                            },
-                            modifier = Modifier.fillMaxSize(),
-                        )
-                    }
-                }
+                PagedReaderPageSurface(
+                    controller = controller,
+                    cfg = cfg,
+                    paint = paint,
+                    headingPaint = headingPaint,
+                    textColor = textColor,
+                    selRange = selRange,
+                    turnRequest = turnRequest,
+                    revealProgress = revealProgress.floatValue,
+                    tapZoneMode = tapZoneMode,
+                    density = density,
+                    horizontalInsetDp = horizontalInsetDp,
+                    contentWidthDp = contentWidthDp,
+                    autoPageIntervalMillis = autoPageIntervalMillis,
+                    pageTurnEffect = pageTurnEffect,
+                    pageBackground = pageBackground,
+                    ttsRangeAbs = ttsRangeAbs,
+                    ttsHighlightColor = ttsHighlightColor,
+                    selectionColor = selectionColor,
+                    persistentHighlights = persistentHighlights,
+                    searchHitRangeAbs = searchHitRangeAbs,
+                    searchHighlightColor = searchHighlightColor,
+                    onSelect = onSelect,
+                    onGesturePageTurn = onGesturePageTurn,
+                    onToggleControls = onToggleControls,
+                    onStopAutoPaging = onStopAutoPaging,
+                )
 
                 // 页脚信息行占位在 Column 外层，这里只负责正文
             }
         }
 
-        // 页脚：可配置内容。安静阅读信息关闭时只留空隙保持正文位置稳定。
-        Row(
-            Modifier.fillMaxWidth().height(28.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            val footerColor = textColor.copy(alpha = 0.45f)
-            if (showReaderInfo) {
-                Text(
-                    resolveItemText(footerLeft, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
-                    fontSize = 11.sp,
-                    color = footerColor,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Text(
-                    resolveItemText(footerRight, source, anchor.intValue, pageInfo.value, currentTime.value, batteryLevel.intValue, bookName),
-                    fontSize = 11.sp,
-                    color = footerColor,
-                    modifier = Modifier.padding(start = 12.dp),
-                )
-            }
-        }
+        PagedReaderFooter(
+            showReaderInfo = showReaderInfo,
+            footerLeft = footerLeft,
+            footerRight = footerRight,
+            source = source,
+            anchorValue = anchor.intValue,
+            pageInfo = pageInfo.value,
+            currentTime = currentTime.value,
+            batteryLevel = batteryLevel.intValue,
+            bookName = bookName,
+            textColor = textColor,
+        )
     }
-}
-
-/** 根据配置条目解析出对应的显示文本 */
-private fun handleDist(a: Offset, b: Offset): Float = hypot(a.x - b.x, a.y - b.y)
-
-private fun resolveItemText(
-    item: HeaderFooterItem,
-    source: PagedChapterSource,
-    absOffset: Int,
-    pageInfo: PageInfo,
-    currentTime: String,
-    batteryLevel: Int,
-    bookName: String,
-): String = when (item) {
-    HeaderFooterItem.NONE -> ""
-    HeaderFooterItem.CHAPTER_TITLE -> {
-        if (source.chapterCount > 0) source.chapterTitle(source.chapterIndexFor(absOffset)) else ""
-    }
-    HeaderFooterItem.BOOK_NAME -> bookName
-    HeaderFooterItem.TIME -> currentTime
-    HeaderFooterItem.BATTERY -> if (batteryLevel >= 0) "$batteryLevel%" else ""
-    HeaderFooterItem.PAGE_NUMBER -> if (pageInfo.pageCount > 0) "${pageInfo.pageIndex + 1}/${pageInfo.pageCount}" else ""
-    HeaderFooterItem.PROGRESS -> {
-        val total = source.totalChars
-        val percent = if (total <= 0) 0f else (absOffset * 100f / total).coerceIn(0f, 100f)
-        "%.1f%%".format(percent)
-    }
-}
-
-private fun formatCurrentTime(): String {
-    return SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date())
-}
-
-private fun getBatteryLevel(context: android.content.Context): Int {
-    val ifilter = IntentFilter(Intent.ACTION_BATTERY_CHANGED)
-    val batteryStatus = context.registerReceiver(null, ifilter)
-    val level = batteryStatus?.getIntExtra(BatteryManager.EXTRA_LEVEL, -1) ?: -1
-    val scale = batteryStatus?.getIntExtra(BatteryManager.EXTRA_SCALE, -1) ?: -1
-    return if (level >= 0 && scale > 0) (level * 100 / scale) else -1
 }
 
 /**
@@ -665,7 +294,7 @@ private fun getBatteryLevel(context: android.content.Context): Int {
  * 排版层算出什么就画什么 —— 这是「排版可单测、绘制只是搬运」分层的关键。
  */
 @Composable
-private fun PageLayer(
+internal fun PageLayer(
     page: ChapterPaginator.Page,
     chapterText: String,
     cfg: LayoutConfig,

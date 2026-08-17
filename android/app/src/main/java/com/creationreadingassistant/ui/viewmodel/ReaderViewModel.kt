@@ -249,6 +249,7 @@ class ReaderViewModel @Inject constructor(
         )
 
     // ── Action 路由 ──────────────────────────────────────────────
+    @Suppress("DEPRECATION") // ScanTxtTocRule 分支：死路径保留期，仅测试驱动
     fun onAction(action: ReaderAction) {
         when (action) {
             // 文档协调
@@ -566,6 +567,12 @@ class ReaderViewModel @Inject constructor(
     }
 
     // ── TXT 规则扫描 ──────────────────────────────────────────
+    /**
+     * 死路径（任务 #15 小清理）：生产零派发，TOC 规则切换已改走
+     * ExecuteRuleCommand + [rescanTxtToc]。保留实现仅为扫描状态机
+     * （取消/竞争/进度）的测试驱动入口，与 [rescanTxtToc] 共用同一套
+     * txtScanJob / txtRuleScanCoordinator / 状态发布链路。
+     */
     private fun scanTxtTocRule(bookId: String, filePath: String, ruleId: String) {
         // 新请求立即取消旧 Job；阻塞中的旧扫描靠 monitor 探针协作退出
         txtScanJob?.cancel()

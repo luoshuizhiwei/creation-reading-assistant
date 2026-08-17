@@ -262,6 +262,7 @@ class ReaderScreenTest {
     }
 
     @Test
+    @Suppress("DEPRECATION") // ScanTxtTocRule 为已废弃死路径，本用例只验证 Action 可构造
     fun action_types_cover_all_UI_interactions() {
         // 验证所有 Action 类型可以正确构造
         val actions = listOf<ReaderAction>(
