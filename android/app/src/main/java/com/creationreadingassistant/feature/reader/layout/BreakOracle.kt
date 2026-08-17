@@ -38,7 +38,8 @@ class JdkBreakOracle : BreakOracle {
             out[0] = true
             return out
         }
-        val it = iterator.get()!!
+        // ThreadLocal.withInitial 保证 get() 永不为 null，构造期断言固化成非空局部
+        val it = requireNotNull(iterator.get()) { "ThreadLocal.withInitial 保证非空" }
         it.setText(text)
         var p = it.first()
         while (p != BreakIterator.DONE) {

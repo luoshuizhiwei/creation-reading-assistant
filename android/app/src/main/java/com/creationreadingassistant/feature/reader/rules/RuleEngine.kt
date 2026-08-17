@@ -50,7 +50,9 @@ object RuleEngine {
             .filter { it.builtin && it.id != BuiltinTocRules.STANDARD_ID }
             .map { it.id }
         val base = TxtChapterDetector.unionPatterns(seedIds)
-        val custom = enabled.filter { !it.builtin }.map { Regex(it.pattern!!) }
+        val custom = enabled.filter { !it.builtin }.map { rule ->
+            Regex(requireNotNull(rule.pattern) { "自定义 TOC 规则 ${rule.id} 缺少 pattern（保存前已经 validateTocRule 校验）" })
+        }
         return base + custom
     }
 

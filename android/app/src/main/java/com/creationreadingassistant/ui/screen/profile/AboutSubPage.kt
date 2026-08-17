@@ -193,8 +193,8 @@ internal fun AboutSubPage(
                             modifier = Modifier.padding(start = 6.dp),
                         )
                     }
-                    if (updateStatus != null) {
-                        Text(updateStatus!!, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    updateStatus?.let { status ->
+                        Text(status, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     if (lastCheckAt != null) {
                         Text("上次检查：${formatDateTime(lastCheckAt)}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)

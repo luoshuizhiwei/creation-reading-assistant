@@ -225,8 +225,9 @@ internal class TtsController(context: Context) : TtsStatus {
     private fun scheduleTimedStop() {
         clearTimedStop()
         if (timedStopMinutes > 0) {
-            timedStopRunnable = Runnable { stop() }
-            handler.postDelayed(timedStopRunnable!!, timedStopMinutes * 60_000L)
+            val runnable = Runnable { stop() }
+            timedStopRunnable = runnable
+            handler.postDelayed(runnable, timedStopMinutes * 60_000L)
         }
     }
 

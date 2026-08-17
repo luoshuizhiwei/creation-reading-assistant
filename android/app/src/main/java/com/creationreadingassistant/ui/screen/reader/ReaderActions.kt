@@ -86,7 +86,7 @@ internal fun goToChapter(
     bid: String,
 ) {
     val maxIndex = when {
-        epubBook != null -> epubBook!!.chapters.lastIndex
+        epubBook != null -> epubBook.chapters.lastIndex
         markdownDocument != null -> markdownDocument.chapters.lastIndex
         else -> return
     }
@@ -189,7 +189,7 @@ internal fun persistCurrentProgress(
         }.coerceAtLeast(0)
         val totalChars = when {
             markdownDocument != null -> markdownDocument.totalChars
-            txtStreamingDocument != null -> txtStreamingDocument!!.totalChars
+            txtStreamingDocument != null -> txtStreamingDocument.totalChars
             else -> plainContent.length
         }.coerceAtLeast(1)
         val percent = (absoluteOffset * 100f / totalChars).coerceIn(0f, 100f)
@@ -230,11 +230,11 @@ internal fun seekToPercent(
             val total = bookIndex?.totalChars ?: 0
             if (total > 0) pagedJumpRequest.value = (p.coerceIn(0f, 100f) / 100f * total).toInt()
         } else {
-            val sz = epubBook!!.chapters.size
+            val sz = epubBook.chapters.size
             if (sz > 0) goToChapter((p / 100f * sz).toInt().coerceIn(0, sz - 1))
         }
     } else if (plainContent.isNotEmpty() || txtStreamingDocument != null) {
-        val totalLen = if (txtStreamingDocument != null) txtStreamingDocument!!.totalChars else plainContent.length
+        val totalLen = txtStreamingDocument?.totalChars ?: plainContent.length
         jumpToPlainOffset((p.coerceIn(0f, 100f) / 100f * totalLen).toInt())
     }
 }

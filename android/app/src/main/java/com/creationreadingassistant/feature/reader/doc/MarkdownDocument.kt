@@ -469,8 +469,9 @@ class MarkdownDocument private constructor(
             return listOf(DocBlock.Markdown(chapter))
         }
         val range = chapterSourceRanges.getOrNull(chapterIndex) ?: return emptyList()
-        val document = fileIndex?.let { PlainTextDocument.fromFileIndex(fileSource!!, it) }
-            ?: return emptyList()
+        val file = fileSource ?: return emptyList()
+        val index = fileIndex ?: return emptyList()
+        val document = PlainTextDocument.fromFileIndex(file, index)
         val sourceText = readSourceText(document, range)
         val chapter = MarkdownParser.parse(sourceText, sourceOffsetShift = range.first)
         return listOf(DocBlock.Markdown(chapter))

@@ -166,6 +166,7 @@ internal fun rememberPagerEngineState(
     ) {
         val index = bookIndex
         val document = epubDocument
+        val streamingDoc = txtStreamingDocument
         when {
             epubBook != null && index != null && document != null ->
                 EpubChapterSource(
@@ -178,8 +179,8 @@ internal fun rememberPagerEngineState(
             markdownDocument != null ->
                 MarkdownChapterSource(markdownDocument)
 
-            txtStreamingDocument != null && txtChapters.isNotEmpty() ->
-                TxtChapterSource(txtStreamingDocument!!)
+            streamingDoc != null && txtChapters.isNotEmpty() ->
+                TxtChapterSource(streamingDoc)
 
             plainContent.isNotBlank() && txtChapters.isNotEmpty() ->
                 TxtChapterSource(plainContent, txtChapters)

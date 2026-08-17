@@ -149,9 +149,10 @@ private fun ContinueCard(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    if (!book.author.isNullOrBlank()) {
+                    val author = book.author
+                    if (!author.isNullOrBlank()) {
                         Text(
-                            book.author!!,
+                            author,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,

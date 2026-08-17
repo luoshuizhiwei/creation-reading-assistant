@@ -102,7 +102,9 @@ internal fun ProfileScreen(
             LocalProfileSnackbar.current?.let { SnackbarHost(it) }
         },
     ) { scaffoldPadding ->
-        when (state.currentSubPage) {
+        // 局部捕获：when 分支内直接拿到已匹配的非空枚举值，无需强解包
+        val subPage = state.currentSubPage
+        when (subPage) {
             null -> ProfileHomeScreen(state, onAction, scaffoldPadding)
             ProfileSubPage.SYNC -> SyncSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.WEBDAV -> WebDavSubPage(state, onAction, scaffoldPadding)
@@ -110,9 +112,9 @@ internal fun ProfileScreen(
             ProfileSubPage.READER -> ReaderSettingsSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.AI -> AiSettingsSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.TAGS, ProfileSubPage.CATEGORIES, ProfileSubPage.SHELVES ->
-                LibrarySubPage(state, onAction, scaffoldPadding, state.currentSubPage!!)
+                LibrarySubPage(state, onAction, scaffoldPadding, subPage)
             ProfileSubPage.NOTES ->
-                ReadingNotesSubPage(state, onAction, scaffoldPadding, state.currentSubPage!!)
+                ReadingNotesSubPage(state, onAction, scaffoldPadding, subPage)
             ProfileSubPage.READING -> {} // navigates to "my-reading", never reaches here
             ProfileSubPage.STORAGE -> StorageSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.PRIVACY -> PrivacySubPage(state, onAction, scaffoldPadding)

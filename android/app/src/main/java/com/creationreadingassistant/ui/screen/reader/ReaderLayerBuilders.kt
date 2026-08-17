@@ -142,7 +142,7 @@ internal fun buildReaderInteractionLayerState(
     currentChapterTitle = currentChapterTitle,
     chapterProgress = chapterProgress,
     isFirstChapter = chapterIndex <= 0,
-    isLastChapter = epubBook == null || chapterIndex >= epubBook!!.chapters.lastIndex,
+    isLastChapter = epubBook == null || chapterIndex >= epubBook.chapters.lastIndex,
     isEpub = epubBook != null,
     isLoading = isLoading,
     error = error,

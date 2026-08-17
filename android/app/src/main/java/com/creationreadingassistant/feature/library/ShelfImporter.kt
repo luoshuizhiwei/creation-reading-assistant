@@ -418,9 +418,9 @@ class ShelfImporter @Inject constructor(
         }
         // EPUB 内嵌封面：仅当书架记录还没有封面时提取（用户手动设置的封面优先，不覆盖）。
         val stored = bookDao.getById(book.id)
-        if (stored?.cover_data_url.isNullOrBlank() && !book.coverEntryPath.isNullOrBlank()) {
+        if (stored != null && stored.cover_data_url.isNullOrBlank() && !book.coverEntryPath.isNullOrBlank()) {
             runCatching { extractEpubCoverDataUrl(book) }.getOrNull()?.let { dataUrl ->
-                bookDao.update(stored!!.copy(cover_data_url = dataUrl, updated_at = now))
+                bookDao.update(stored.copy(cover_data_url = dataUrl, updated_at = now))
             }
         }
         return bookDao.getById(book.id) ?: BookEntity(

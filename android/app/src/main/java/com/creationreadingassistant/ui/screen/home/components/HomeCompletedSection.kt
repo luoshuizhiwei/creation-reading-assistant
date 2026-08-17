@@ -137,9 +137,10 @@ private fun CompletedCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            if (!book.author.isNullOrBlank()) {
+            val author = book.author
+            if (!author.isNullOrBlank()) {
                 Text(
-                    book.author!!,
+                    author,
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,

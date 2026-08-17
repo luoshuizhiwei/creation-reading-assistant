@@ -395,8 +395,7 @@ private fun fillMonthly(valid: List<StatsSessionRow>, range: Pair<LocalDate, Loc
 
 private fun fillTotal(valid: List<StatsSessionRow>): List<TrendItem> {
     val dates = valid.mapNotNull { parseDate(it.occurred_at) }
-    if (dates.isEmpty()) return emptyList()
-    val start = dates.minOrNull()!!.withDayOfMonth(1)
-    val end = dates.maxOrNull()!!.withDayOfMonth(1).plusMonths(1)
+    val start = dates.minOrNull()?.withDayOfMonth(1) ?: return emptyList()
+    val end = dates.maxOrNull()?.withDayOfMonth(1)?.plusMonths(1) ?: return emptyList()
     return fillMonthly(valid, start to end)
 }
