@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import type { CreationProjectSetup, ProjectStatsView } from "@/types/creation";
 import {
   computeDailyActiveSeconds,
@@ -72,11 +72,13 @@ describe("stats-calculator 字数指标切换", () => {
 
 describe("stats-calculator 本地日/周边界", () => {
   it("localDateKey 使用本地日历而非 UTC 截断", () => {
-    // 本地 2026-08-14 00:30；UTC 仍是 2026-08-13。
-    const local = new Date(2026, 7, 14, 0, 30, 0);
+    // 固定 UTC 时间，再模拟东八区的本地日历 getter，避免测试依赖 runner 时区。
+    const local = new Date("2026-08-13T16:30:00.000Z");
+    vi.spyOn(local, "getFullYear").mockReturnValue(2026);
+    vi.spyOn(local, "getMonth").mockReturnValue(7);
+    vi.spyOn(local, "getDate").mockReturnValue(14);
     expect(localDateKey(local)).toBe("2026-08-14");
-    // 时区为东八区时 UTC 键会不同，这里直接断言本地语义。
-    expect(local.toISOString().slice(0, 10)).not.toBe("2026-08-14");
+    expect(local.toISOString().slice(0, 10)).toBe("2026-08-13");
   });
 
   it("startOfLocalWeek 返回本地周一 0 点（周五 → 本周一）", () => {

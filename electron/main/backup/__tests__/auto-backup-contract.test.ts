@@ -85,7 +85,8 @@ describe("目标目录安全", () => {
   const library = path.join("C:", "data-lib", "lib");
 
   it("拒绝磁盘根目录", () => {
-    expect(() => assertSafeBackupTarget("C:\\", appData, library)).toThrow(/磁盘根目录/);
+    const diskRoot = path.parse(path.resolve(path.sep)).root;
+    expect(() => assertSafeBackupTarget(diskRoot, appData, library)).toThrow(/磁盘根目录/);
   });
 
   it("拒绝位于应用数据目录内", () => {
