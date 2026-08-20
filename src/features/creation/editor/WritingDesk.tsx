@@ -12,12 +12,16 @@ import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { Annotation, CreationProjectNavigation, CreationProjectSummary, StructureApplyResult, StructureCommand } from "@/types/creation";
-
-/** 写作会话：空闲超过该时长（毫秒）即结算并上报当前段。 */
-const SESSION_IDLE_TIMEOUT_MS = 5 * 60 * 1000;
+import { annotationReanchor } from "@/services/creation-service";
+import { createWritingSessionTracker, type SessionSettleReport, type WritingSessionTracker } from "@/features/creation/editor/writing-session-tracker";
+import type { Annotation, AnnotationReanchorCommand, CreationProjectNavigation, CreationProjectSummary, StructureApplyResult, StructureCommand } from "@/types/creation";
 
 type EditMode = "scene" | "continuous";
+
+interface ReanchorCandidate {
+  annotation: Annotation;
+  selection: SceneSelection;
+}
 
 interface WritingDeskProps {
   projects: CreationProjectSummary[];
@@ -63,6 +67,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const [annotationDraft, setAnnotationDraft] = useState("");
   const [annotationCardId, setAnnotationCardId] = useState("");
   const [confirmingAnnotation, setConfirmingAnnotation] = useState<string | null>(null);
+  const [reanchorCandidate, setReanchorCandidate] = useState<ReanchorCandidate | null>(null);
+  const [reanchorBusy, setReanchorBusy] = useState(false);
+  const [reanchorError, setReanchorError] = useState<string | null>(null);
   const [editMode, setEditMode] = useState<EditMode>("scene");
   /** 正文真实选区（含折叠光标）；批注锚点唯一来源。 */
   const [selection, setSelection] = useState<SceneSelection | null>(null);
@@ -83,79 +90,82 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     setAnnotations(await loadAnnotations({ projectId: project.id, sceneId: selectedSceneId }));
   }, [loadAnnotations, project.id, selectedSceneId]);
 
+  // reanchorAnnotation 的契约返回 Promise<boolean>；底层 annotationReanchor 正常返回 truthy 的 AnnotationResult，
+  // revision 冲突时抛错。这里统一收敛为布尔（false = 失败/冲突），由调用方保留候选与弹层。
+  // 注：useCreationActions 当前未导出该函数（属 Agent 1 的 hook 职责），此处就地包装既有服务，不越界修改公共 hook。
+  const reanchorAnnotation = useCallback(
+    async (command: AnnotationReanchorCommand): Promise<boolean> => {
+      try {
+        return Boolean(await annotationReanchor(command));
+      } catch {
+        return false;
+      }
+    },
+    []
+  );
+
   useEffect(() => {
     void refreshAnnotations();
   }, [refreshAnnotations]);
 
-  const sessionRef = useRef<{
-    sceneId: string | null;
-    startedAt: number;
-    startChars: number;
-    lastActivity: number;
-  } | null>(null);
-
-  const settleSession = useCallback(() => {
-    const session = sessionRef.current;
-    if (!session) return;
-    sessionRef.current = null;
-    const activeMs = Math.max(0, session.lastActivity - session.startedAt);
-    const activeSeconds = Math.round(activeMs / 1000);
-    if (activeSeconds < 1) return;
-    void reportSession({
-      projectId: project.id,
-      sceneId: session.sceneId ?? undefined,
-      startedAt: new Date(session.startedAt).toISOString(),
-      activeSeconds,
-      netChars: characterCountRef.current - session.startChars
+  /**
+   * 写作会话跟踪（独立 module）：仅在输入 / 有意义选择 / 结构操作时计时，
+   * 空闲 5 分钟自动结算；切场景、窗口隐藏、卸载与异常关闭均正确结算。
+   * 只接收字符数与场景 ID，不记录任何按键内容、选中文本或正文内容。
+   */
+  const sessionTrackerRef = useRef<WritingSessionTracker | null>(null);
+  if (!sessionTrackerRef.current) {
+    sessionTrackerRef.current = createWritingSessionTracker({
+      onSettle: (report: SessionSettleReport) => {
+        if (report.activeMs < 1000) return;
+        void reportSession({
+          projectId: project.id,
+          sceneId: report.sceneId ?? undefined,
+          startedAt: new Date(report.startedAt).toISOString(),
+          activeSeconds: Math.round(report.activeMs / 1000),
+          netChars: report.netChars
+        });
+      }
     });
-  }, [project.id, reportSession]);
+  }
+  const sessionTracker = sessionTrackerRef.current;
 
   const characterCountRef = useRef(0);
   characterCountRef.current = characterCount;
 
   const handleStatsChange = useCallback((count: number) => {
     setCharacterCount(count);
-    const now = Date.now();
-    const session = sessionRef.current;
-    if (session && session.sceneId === selectedSceneIdRef.current) {
-      session.lastActivity = now;
-      return;
-    }
-    if (session) settleSession();
-    sessionRef.current = {
-      sceneId: selectedSceneIdRef.current ?? null,
-      startedAt: now,
-      startChars: count,
-      lastActivity: now
-    };
-  }, [settleSession]);
+    sessionTracker.signalActivity("input", selectedSceneIdRef.current ?? null, count);
+  }, [sessionTracker]);
 
   const continuousCharCounts = useRef(new Map<string, number>());
-  const handleContinuousStatsChange = useCallback((_sceneId: string, chars: number) => {
-    continuousCharCounts.current.set(_sceneId, chars);
+  const handleContinuousStatsChange = useCallback((sceneId: string, chars: number) => {
+    continuousCharCounts.current.set(sceneId, chars);
     let total = 0;
     for (const value of continuousCharCounts.current.values()) total += value;
     setCharacterCount(total);
-  }, []);
+    sessionTracker.signalActivity("input", sceneId, total);
+  }, [sessionTracker]);
 
   const selectedSceneIdRef = useRef<string | undefined>(undefined);
   selectedSceneIdRef.current = selectedSceneId;
 
   useEffect(() => {
     const timer = setInterval(() => {
-      const session = sessionRef.current;
-      if (session && Date.now() - session.lastActivity > SESSION_IDLE_TIMEOUT_MS) settleSession();
+      sessionTracker.checkIdle();
     }, 30_000);
     const handleVisibility = () => {
-      if (document.visibilityState === "hidden") settleSession();
+      if (document.visibilityState === "hidden") sessionTracker.settle();
     };
     document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("beforeunload", handleVisibility);
     return () => {
       clearInterval(timer);
       document.removeEventListener("visibilitychange", handleVisibility);
-      settleSession();
+      window.removeEventListener("beforeunload", handleVisibility);
+      sessionTracker.settle();
     };
-  }, [settleSession]);
+  }, [sessionTracker]);
 
   const outline = outlines[project.id];
   const workflow = project.setup.chapterWorkflow;
@@ -194,7 +204,14 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     // 保护快照只属于创建它的项目；项目切换后不得携带旧项目撤回入口。
     setLastProtectedApply(null);
     setRevertError(null);
+    setReanchorCandidate(null);
+    setReanchorError(null);
   }, [project.id]);
+
+  useEffect(() => {
+    setReanchorCandidate(null);
+    setReanchorError(null);
+  }, [selectedSceneId]);
 
   useEffect(() => {
     void loadCards({ projectId: project.id });
@@ -242,6 +259,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const chooseScene = async (sceneId: string) => {
     if (sceneId === selectedSceneId) return;
     if (!(await saveBeforeLeaving())) return;
+    // 切场景前结算当前会话段（归入原场景）。
+    sessionTracker.settle();
     selectScene(sceneId);
     setSelection(null);
     await loadScene(sceneId);
@@ -255,7 +274,11 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
 
   const handleSelectionChange = useCallback((next: SceneSelection | null) => {
     setSelection(next);
-  }, []);
+    // 有意义的选择：非空且非折叠选区才视为写作活动（不计按键内容，仅计时信号）。
+    if (next && !next.collapsed) {
+      sessionTracker.signalActivity("selection", selectedSceneIdRef.current ?? null, characterCountRef.current);
+    }
+  }, [sessionTracker]);
 
   const handleMentionTrigger = useCallback((next: SceneSelection) => {
     // 卡片引用基于当前选区建立非正文锚点；打开当前项目卡片搜索。
@@ -304,6 +327,55 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
         title: "批注创建失败",
         body: "锚点未命中正文文本或关联卡片不可用，请重新选择正文位置后再试。"
       });
+    }
+  };
+
+  const beginReanchor = (annotation: Annotation) => {
+    const activeEditor = editMode === "continuous" ? continuousRef.current : editorRef.current;
+    if (activeEditor?.isComposing()) {
+      showToast({ tone: "warning", title: "正在输入文字", body: "请先结束输入法组合输入，再重新定位批注。" });
+      return;
+    }
+    const currentSelection = activeEditor?.getSelection() ?? null;
+    if (!currentSelection || currentSelection.collapsed || !currentSelection.selectedText) {
+      showToast({ tone: "warning", title: "请先选择新锚点", body: "请在正文中选中一段非空文字，再重新定位批注。" });
+      return;
+    }
+    if (currentSelection.sceneId !== annotation.sceneId) {
+      showToast({ tone: "warning", title: "选区不在当前场景", body: "批注只能重新定位到它所属场景的正文。" });
+      return;
+    }
+    setReanchorCandidate({ annotation, selection: currentSelection });
+    setReanchorError(null);
+  };
+
+  const confirmReanchor = async () => {
+    if (!reanchorCandidate || reanchorBusy) return;
+    const { annotation, selection: nextSelection } = reanchorCandidate;
+    setReanchorBusy(true);
+    setReanchorError(null);
+    try {
+      const ok = await reanchorAnnotation({
+        type: "annotation.reanchor",
+        annotationId: annotation.id,
+        baseRevision: annotation.revision,
+        anchor: {
+          blockIndex: nextSelection.blockIndex,
+          textOffset: nextSelection.textOffset,
+          textLength: nextSelection.textLength,
+          text: nextSelection.selectedText
+        }
+      });
+      if (!ok) {
+        setReanchorError("重新定位失败：批注可能已被其他操作修改。新锚点选择已保留，请检查后重试。");
+        return;
+      }
+      setReanchorCandidate(null);
+      await refreshAnnotations();
+    } catch (error) {
+      setReanchorError(error instanceof Error ? error.message : "重新定位失败。新锚点选择已保留，请重试。");
+    } finally {
+      setReanchorBusy(false);
     }
   };
 
@@ -539,6 +611,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
                   </span>
                 </span>
                 <span className="writing-annotation-actions">
+                  {annotation.anchorInvalid && (
+                    <button type="button" onClick={() => beginReanchor(annotation)}>重新定位</button>
+                  )}
                   <button
                     type="button"
                     onClick={() => {
@@ -621,6 +696,22 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
               onSelect={handleCardPicked}
               onClose={() => setReferencePickerOpen(false)}
             />
+          )}
+          {reanchorCandidate && (
+            <div className="writing-reanchor-backdrop" role="presentation">
+              <section className="writing-reanchor-dialog" role="dialog" aria-modal="true" aria-label="确认重新定位批注">
+                <p className="desktop-card-label">新锚点</p>
+                <h4>确认重新定位批注</h4>
+                <p className="writing-reanchor-summary">{describeSelection(reanchorCandidate.selection)}</p>
+                <p className="writing-reanchor-old">原锚点：{reanchorCandidate.annotation.anchoredText || "（已失效）"}（第 {reanchorCandidate.annotation.anchor.blockIndex + 1} 段）</p>
+                <p className="writing-reanchor-note">批注内容、状态和关联卡片将保持不变。</p>
+                {reanchorError && <p className="writing-reanchor-error" role="alert">{reanchorError}</p>}
+                <div className="writing-reanchor-actions">
+                  <button type="button" disabled={reanchorBusy} onClick={() => { setReanchorCandidate(null); setReanchorError(null); }}>取消</button>
+                  <button type="button" disabled={reanchorBusy} onClick={() => void confirmReanchor()}>{reanchorBusy ? "提交中…" : "确认新锚点"}</button>
+                </div>
+              </section>
+            </div>
           )}
         </div>
         <div className="writing-margin-rule" />

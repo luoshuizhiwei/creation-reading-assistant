@@ -48,6 +48,24 @@ android {
             isDebuggable = false
             isProfileable = true
         }
+        create("benchmarkRelease") {
+            // 显式声明，杜绝 baselineProfile 插件自动生成的同名变体缺少 applicationIdSuffix：
+            // 插件默认 maybeCreate("benchmarkRelease") 时 applicationId 与主包一致，
+            // connected 基准安装会覆盖主应用（见 results/shelf-sort-performance-report.md §8.6）。
+            // 不用 initWith(release)：它连带拷贝 release 源集的 manifest.srcFile，导致
+            // benchmarkRelease 丢失种子 Activity 声明（BenchmarkSeedActivity）。
+            applicationIdSuffix = ".benchmarktarget"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += listOf("release")
+            isDebuggable = false
+            isJniDebuggable = false
+            isMinifyEnabled = true
+            isShrinkResources = true
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true
@@ -79,6 +97,16 @@ android {
         }
     }
 
+    // benchmarkRelease 变体复用 benchmark 源集的 java 源码（BenchmarkSeedActivity）。
+    // 该变体的 manifest 用专用文件 src/benchmarkRelease/AndroidManifest.xml（见下方
+    // androidComponents.finalizeDsl 重置：插件会把 release 源集的 manifest.srcFile 拷过来）。
+    // 不共享时 benchmarkRelease 包缺少种子 Activity，宏基准的种子步骤会静默失败（空书架）。
+    sourceSets {
+        getByName("benchmarkRelease") {
+            java.srcDir("src/benchmark/java")
+        }
+    }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
@@ -106,6 +134,16 @@ android {
     lint {
         abortOnError = true
         checkDependencies = false
+    }
+}
+
+// baselineProfile 插件在 finalizeDsl 阶段把 release 源集拷贝进 benchmarkRelease 源集（含
+// manifest.srcFile），导致该变体丢失种子 Activity 声明。这里用注册顺序更晚的
+// finalizeDsl 回调（在变体创建前执行）把 manifest 重置回专用文件。
+androidComponents {
+    finalizeDsl { ext ->
+        ext.sourceSets.getByName("benchmarkRelease")
+            .manifest.srcFile("src/benchmarkRelease/AndroidManifest.xml")
     }
 }
 

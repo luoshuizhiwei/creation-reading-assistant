@@ -1,0 +1,271 @@
+/**
+ * 项目概览页本地样式（overview-page）。
+ *
+ * 沿用 paper-ink 编辑工作室设计令牌（与 stats-page / history-page 同族），
+ * 不复用 editorial-studio.css 的统计类，而是固定为概览仪表板结构：
+ * hero 标题栏 → 4 张信息卡 → 14 天净增柱状图 → 最近编辑场景列表 → 操作行。
+ */
+
+.overview-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 2px 8px;
+}
+
+/* ----------------------------- hero ----------------------------- */
+
+.overview-hero {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.overview-hero-title h2 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--paper-ink, currentColor);
+  letter-spacing: 0.02em;
+}
+
+.overview-hero-title p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: var(--paper-muted, inherit);
+  line-height: 1.6;
+}
+
+.overview-hero-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.overview-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-line, rgba(0, 0, 0, 0.08));
+  background: var(--paper-soft, rgba(250, 245, 235, 0.55));
+  color: var(--paper-muted, inherit);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ----------------------------- grid ----------------------------- */
+
+.overview-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+/* ----------------------------- goal progress ----------------------------- */
+
+.overview-goal-card .overview-goal-bar {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--paper-line, rgba(0, 0, 0, 0.08));
+  overflow: hidden;
+  margin: 12px 0 6px;
+}
+
+.overview-goal-card .overview-goal-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--copper, #8a5a2b), var(--copper-dark, #6e4322));
+  transition: width 0.3s ease;
+}
+
+.overview-goal-card .overview-goal-numbers {
+  margin: 0;
+  font-size: 14px;
+  color: var(--paper-ink, currentColor);
+}
+
+.overview-goal-card .overview-goal-numbers em {
+  margin-left: 4px;
+  font-style: normal;
+  color: var(--paper-muted, inherit);
+  font-size: 12px;
+}
+
+/* ----------------------------- chapter status ----------------------------- */
+
+.overview-status-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.overview-status-list li {
+  display: grid;
+  grid-template-columns: 88px 1fr 32px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.overview-status-name {
+  color: var(--paper-muted, inherit);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-status-bar {
+  position: relative;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--paper-line, rgba(0, 0, 0, 0.06));
+  overflow: hidden;
+}
+
+.overview-status-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--copper-soft, rgba(138, 90, 43, 0.35));
+}
+
+.overview-status-count {
+  text-align: right;
+  color: var(--paper-ink, currentColor);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------- pending ----------------------------- */
+
+.overview-pending-card .overview-action {
+  margin-top: 12px;
+}
+
+/* ----------------------------- daily chart ----------------------------- */
+
+.overview-daily-card {
+  padding-bottom: 12px;
+}
+
+.overview-daily {
+  display: grid;
+  grid-template-columns: repeat(14, 1fr);
+  gap: 4px;
+  align-items: end;
+  height: 120px;
+  margin-top: 8px;
+}
+
+.overview-daily-col.loss .overview-daily-bar {
+  background: var(--paper-line, rgba(0, 0, 0, 0.25));
+}
+
+.overview-daily-col.gain .overview-daily-bar {
+  background: linear-gradient(180deg, var(--copper, #8a5a2b), var(--copper-soft, rgba(138, 90, 43, 0.6)));
+}
+
+.overview-daily-bar {
+  display: block;
+  width: 100%;
+  border-radius: 4px 4px 0 0;
+  min-height: 2px;
+  transition: height 0.2s ease;
+}
+
+.overview-daily-label {
+  display: block;
+  margin-top: 4px;
+  font-size: 10px;
+  color: var(--paper-muted, inherit);
+  text-align: center;
+}
+
+/* ----------------------------- recent list ----------------------------- */
+
+.overview-recent-card h3 {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.overview-recent-all {
+  font-size: 12px;
+  color: var(--copper, #8a5a2b);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.overview-recent-list {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.overview-recent-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  background: var(--paper-soft, rgba(250, 245, 235, 0.45));
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.overview-recent-item:hover,
+.overview-recent-item:focus-visible {
+  background: var(--paper-panel, rgba(250, 245, 235, 0.85));
+  border-color: var(--copper-soft, rgba(138, 90, 43, 0.35));
+}
+
+.overview-recent-scene {
+  font-size: 13px;
+  color: var(--paper-ink, currentColor);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-recent-chapter {
+  font-size: 12px;
+  color: var(--paper-muted, inherit);
+  white-space: nowrap;
+}
+
+.overview-recent-when {
+  font-size: 11px;
+  color: var(--paper-muted, inherit);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------- actions row ----------------------------- */
+
+.overview-actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding-top: 4px;
+}
+
+@media (max-width: 720px) {
+  .overview-status-list li {
+    grid-template-columns: 64px 1fr 28px;
+  }
+  .overview-recent-item {
+    grid-template-columns: 1fr auto;
+  }
+  .overview-recent-chapter {
+    display: none;
+  }
+}

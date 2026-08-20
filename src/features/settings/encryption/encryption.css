@@ -1,0 +1,98 @@
+.pe-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 1000;
+}
+
+.pe-modal {
+  width: min(420px, 92vw);
+  background: var(--pe-surface, #ffffff);
+  color: var(--pe-text, #1f2329);
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.pe-title {
+  margin: 0;
+  font-size: 16px;
+}
+
+.pe-warning {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(220, 38, 38, 0.1);
+  color: #b91c1c;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.pe-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+}
+
+.pe-input {
+  padding: 8px 10px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.pe-ack {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.pe-error {
+  margin: 0;
+  color: #b91c1c;
+  font-size: 12px;
+}
+
+.pe-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.pe-btn {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+.pe-btn-primary {
+  background: #2563eb;
+  color: #fff;
+}
+
+.pe-btn-primary:disabled {
+  background: #93c0fd;
+  cursor: not-allowed;
+}
+
+.pe-btn-secondary {
+  background: transparent;
+  border-color: #cbd5e1;
+  color: #475569;
+}
+
+.pe-btn-secondary:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}

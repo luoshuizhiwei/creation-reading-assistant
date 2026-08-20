@@ -69,7 +69,7 @@ Baseline Profile 嵌入后，主页面切换的 `frameOverrunMs` P95 从 26.8 ms
 
 - 仅保留当前原生主应用 `com.creationreadingassistant`；仪器测试包与 benchmark 包均已卸载。
 - 历史 Capacitor 应用 `local.creationReadingAssistant.mobile` 未触碰。
-- 当前原生版本：`0.4.0-p4`（versionCode 1）。
+- 当前原生版本：`0.4.0-p4`（versionCode 1）。（注：2026-07-30 测试时点快照；当前版本见 `docs/release/ANDROID_RELEASE.md`，发布经 `-PcraVersionCode/-PcraVersionName` 注入。）
 - 主应用可启动，书架数据仍在；常亮与 MIUI 临时权限均已恢复。
 
 ## 后续性能重点

@@ -1,5 +1,5 @@
 /* 历史页（回收站 + 快照里程碑）的局部样式。
-   视觉令牌沿用编辑出版工作室（copper / paper-*），不修改全局样式文件。 */
+   视觉令牌沿用砚席 Ink Studio（accent-spine / paper-*），不修改全局样式文件。 */
 
 .history-page {
   display: flex;
@@ -19,18 +19,19 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 12px;
+  padding: 7px 13px;
   border-radius: 8px;
-  border: 1px solid rgba(176, 141, 87, 0.5);
-  background: rgba(176, 141, 87, 0.1);
-  color: #5c4a2a;
+  border: 1px solid color-mix(in srgb, var(--accent-spine) 40%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-spine) 8%, var(--bg-surface));
+  color: var(--accent-spine);
   font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background-color 0.15s;
 }
 
 .history-create-btn:hover {
-  background: rgba(176, 141, 87, 0.18);
+  background: color-mix(in srgb, var(--accent-spine) 14%, var(--bg-surface));
 }
 
 .history-create-btn:disabled {
@@ -41,7 +42,7 @@
 .history-tabs {
   display: flex;
   gap: 4px;
-  border-bottom: 1px solid rgba(43, 38, 32, 0.12);
+  border-bottom: 1px solid var(--border-subtle);
   padding-bottom: 0;
 }
 
@@ -50,26 +51,26 @@
   background: transparent;
   border: none;
   border-bottom: 2px solid transparent;
-  color: #6b6256;
+  color: var(--text-muted);
   font-size: 14px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .history-tabs button:hover {
-  color: #2b2620;
+  color: var(--text-main);
 }
 
 .history-tabs button.active {
-  color: #8a5a16;
-  border-bottom-color: #b47828;
+  color: var(--accent-spine);
+  border-bottom-color: var(--studio-seal);
   font-weight: 600;
 }
 
 .history-empty {
   padding: 32px 16px;
   text-align: center;
-  color: #8a8070;
+  color: var(--text-muted);
   font-size: 14px;
   line-height: 1.6;
 }
@@ -84,30 +85,76 @@
 }
 
 .history-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 11px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+}
+
+.history-item-head {
   display: grid;
   grid-template-columns: auto auto 1fr auto auto;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
-  border-radius: 10px;
-  border: 1px solid rgba(43, 38, 32, 0.1);
-  background: rgba(255, 253, 248, 0.6);
 }
 
 .history-item-type {
   display: inline-block;
   padding: 2px 8px;
   border-radius: 6px;
-  background: rgba(176, 141, 87, 0.15);
-  color: #6b5028;
+  background: color-mix(in srgb, var(--accent-spine) 10%, var(--bg-surface));
+  color: var(--accent-spine);
   font-size: 12px;
   font-weight: 500;
   white-space: nowrap;
 }
 
+/* 快照分类徽标：颜色按类别区分（自动 / 里程碑 / 保护）。 */
+.snapshot-category-badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  border: 1px solid transparent;
+  font-size: 11.5px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.snapshot-category-auto {
+  background: color-mix(in srgb, var(--accent-spine) 10%, var(--bg-surface));
+  color: var(--accent-spine);
+  border-color: color-mix(in srgb, var(--accent-spine) 32%, transparent);
+}
+
+.snapshot-category-milestone {
+  background: color-mix(in srgb, var(--studio-seal) 10%, var(--bg-surface));
+  color: var(--studio-seal);
+  border-color: color-mix(in srgb, var(--studio-seal) 32%, transparent);
+}
+
+.snapshot-category-protected {
+  background: color-mix(in srgb, var(--moss) 12%, var(--bg-surface));
+  color: var(--moss);
+  border-color: color-mix(in srgb, var(--moss) 36%, transparent);
+}
+
+/* 分层留存说明：整宽提示，置于快照条目底部。 */
+.history-item-retention {
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--text-meta);
+  border-top: 1px dashed var(--border-subtle);
+  padding-top: 6px;
+  margin-top: 2px;
+}
+
 .history-item strong {
   font-size: 14px;
-  color: #2b2620;
+  color: var(--text-main);
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -116,13 +163,13 @@
 
 .history-item small {
   font-size: 12px;
-  color: #8a8070;
+  color: var(--text-meta);
   white-space: nowrap;
 }
 
 .history-item-subject {
   font-size: 12px;
-  color: #6b6256;
+  color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -139,22 +186,24 @@
   gap: 4px;
   padding: 5px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(43, 38, 32, 0.15);
+  border: 1px solid var(--border-subtle);
   background: transparent;
-  color: #4a4338;
+  color: var(--text-muted);
   font-size: 12px;
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .history-item-actions button:hover {
-  background: rgba(43, 38, 32, 0.06);
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  color: var(--text-main);
 }
 
 .history-item-actions button.confirming {
-  border-color: #b4231f;
-  background: rgba(180, 35, 31, 0.08);
-  color: #b4231f;
+  border-color: #c0392b;
+  background: color-mix(in srgb, #c0392b 8%, var(--bg-surface));
+  color: #c0392b;
 }
 
 /* ---------- 模态通用 ---------- */
@@ -166,8 +215,8 @@
   display: grid;
   place-items: center;
   padding: 16px;
-  background: rgba(43, 38, 32, 0.45);
-  backdrop-filter: blur(2px);
+  background: color-mix(in srgb, var(--studio-cloth) 48%, transparent);
+  backdrop-filter: blur(3px);
 }
 
 .history-modal {
@@ -176,33 +225,34 @@
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 12px;
-  border: 1px solid rgba(176, 141, 87, 0.35);
-  background: #fffdf8;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
+  border-radius: 14px;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.32), 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
 .history-modal-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 12px 16px;
-  border-bottom: 1px solid rgba(43, 38, 32, 0.1);
-  background: linear-gradient(180deg, rgba(176, 141, 87, 0.08), transparent);
+  padding: 13px 16px;
+  border-bottom: 1px solid var(--border-subtle);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 4%, transparent), transparent);
 }
 
 .history-modal-head h3 {
   margin: 0;
+  font-family: var(--font-serif);
   font-size: 15px;
-  font-weight: 600;
-  color: #2b2620;
+  font-weight: 650;
+  color: var(--text-main);
 }
 
 .history-modal-close {
   padding: 4px 8px;
   border: none;
   background: transparent;
-  color: #6b6256;
+  color: var(--text-muted);
   font-size: 18px;
   cursor: pointer;
   line-height: 1;
@@ -210,8 +260,8 @@
 }
 
 .history-modal-close:hover {
-  background: rgba(43, 38, 32, 0.08);
-  color: #2b2620;
+  background: var(--bg-subtle);
+  color: var(--text-main);
 }
 
 .history-modal-body {
@@ -227,8 +277,8 @@
   justify-content: flex-end;
   gap: 8px;
   padding: 12px 16px;
-  border-top: 1px solid rgba(43, 38, 32, 0.1);
-  background: rgba(43, 38, 32, 0.02);
+  border-top: 1px solid var(--border-subtle);
+  background: var(--bg-subtle);
 }
 
 /* ---------- 表单字段 ---------- */
@@ -241,7 +291,7 @@
 
 .history-field label {
   font-size: 13px;
-  color: #4a4338;
+  color: var(--text-main);
   font-weight: 500;
 }
 
@@ -250,9 +300,9 @@
   width: 100%;
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid rgba(43, 38, 32, 0.18);
-  background: #ffffff;
-  color: #2b2620;
+  border: 1px solid var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-main);
   font-size: 14px;
   outline: none;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -260,20 +310,20 @@
 
 .history-field select:focus,
 .history-field input[type="text"]:focus {
-  border-color: #b47828;
-  box-shadow: 0 0 0 3px rgba(180, 120, 40, 0.15);
+  border-color: var(--accent-spine);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-spine) 16%, transparent);
 }
 
 .history-field select:disabled,
 .history-field input[type="text"]:disabled {
-  background: rgba(43, 38, 32, 0.04);
-  color: #8a8070;
+  background: var(--bg-subtle);
+  color: var(--text-meta);
   cursor: not-allowed;
 }
 
 .history-field-error {
   font-size: 12px;
-  color: #b4231f;
+  color: #c0392b;
 }
 
 /* ---------- 影响列表（恢复 / 永久删除） ---------- */
@@ -284,7 +334,7 @@
   margin: 0;
   padding: 12px;
   border-radius: 10px;
-  background: rgba(176, 141, 87, 0.06);
+  background: var(--bg-subtle);
 }
 
 .history-impact-row {
@@ -297,20 +347,20 @@
 
 .history-impact-row dt {
   margin: 0;
-  color: #6b6256;
+  color: var(--text-muted);
   font-weight: 500;
 }
 
 .history-impact-row dd {
   margin: 0;
-  color: #2b2620;
+  color: var(--text-main);
   word-break: break-word;
 }
 
 .history-impact-notice {
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(180, 120, 40, 0.12);
+  background: color-mix(in srgb, #b9770e 11%, var(--bg-surface));
   color: #8a5a16;
   font-size: 13px;
   line-height: 1.5;
@@ -319,17 +369,101 @@
 .history-impact-danger {
   padding: 10px 12px;
   border-radius: 8px;
-  background: rgba(180, 35, 31, 0.1);
-  color: #9a1e1a;
+  background: color-mix(in srgb, #c0392b 8%, var(--bg-surface));
+  color: #a5281b;
   font-size: 13px;
   line-height: 1.5;
-  border: 1px solid rgba(180, 35, 31, 0.25);
+  border: 1px solid color-mix(in srgb, #c0392b 26%, transparent);
 }
 
 .history-impact-error {
   font-size: 13px;
-  color: #b4231f;
+  color: #c0392b;
   line-height: 1.5;
+}
+
+.history-authoritative-preview {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-subtle);
+}
+
+.history-authoritative-preview h4 {
+  margin: 0;
+  font-size: 13px;
+}
+
+.history-diff-table {
+  display: grid;
+  gap: 8px;
+}
+
+.history-diff-row {
+  display: grid;
+  grid-template-columns: minmax(90px, 0.55fr) minmax(0, 1fr) minmax(0, 1fr);
+  gap: 8px;
+  padding: 8px;
+  border-radius: 8px;
+  background: var(--bg-surface);
+}
+
+.history-diff-row.changed {
+  box-shadow: inset 3px 0 var(--studio-seal);
+}
+
+.history-diff-row span {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.history-diff-row small {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--text-meta);
+}
+
+.history-impact-summary,
+.history-impact-warnings {
+  margin: 0;
+  padding-left: 20px;
+}
+
+.history-impact-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 22px;
+}
+
+.history-impact-warnings {
+  color: #8a5a16;
+}
+
+.history-confirm-name {
+  display: grid;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.history-confirm-name input {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid var(--border-strong);
+  border-radius: 8px;
+  padding: 9px 10px;
+  color: var(--text-main);
+  background: var(--bg-surface);
+}
+
+.history-confirm-name small,
+.history-impact-loading,
+.history-impact-empty {
+  color: var(--text-meta);
+  font-weight: 400;
 }
 
 .history-modal-foot button {
@@ -343,13 +477,15 @@
 }
 
 .history-btn-cancel {
-  background: transparent;
-  border-color: rgba(43, 38, 32, 0.2);
-  color: #4a4338;
+  background: var(--bg-surface);
+  border-color: var(--border-subtle);
+  color: var(--text-muted);
 }
 
 .history-btn-cancel:hover:not(:disabled) {
-  background: rgba(43, 38, 32, 0.06);
+  border-color: var(--border-strong);
+  background: var(--bg-subtle);
+  color: var(--text-main);
 }
 
 .history-btn-cancel:disabled {
@@ -358,14 +494,14 @@
 }
 
 .history-btn-confirm {
-  background: #b47828;
-  border-color: #b47828;
+  background: var(--accent-spine);
+  border-color: var(--accent-spine);
   color: #ffffff;
 }
 
 .history-btn-confirm:hover:not(:disabled) {
-  background: #a06a22;
-  border-color: #a06a22;
+  background: var(--copper-dark);
+  border-color: var(--copper-dark);
 }
 
 .history-btn-confirm:disabled {
@@ -374,19 +510,60 @@
 }
 
 .history-btn-danger {
-  background: #b4231f;
-  border-color: #b4231f;
+  background: #c0392b;
+  border-color: #c0392b;
   color: #ffffff;
 }
 
 .history-btn-danger:hover:not(:disabled) {
-  background: #9a1e1a;
-  border-color: #9a1e1a;
+  background: #a5281b;
+  border-color: #a5281b;
 }
 
 .history-btn-danger:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* 键盘可达性：统一 focus-visible 焦点环 */
+.history-modal-close:focus-visible,
+.history-btn-cancel:focus-visible,
+.history-btn-confirm:focus-visible,
+.history-btn-danger:focus-visible,
+.history-item-actions button:focus-visible,
+.history-tabs button:focus-visible,
+.history-create-btn:focus-visible,
+.history-field select:focus-visible,
+.history-field input:focus-visible {
+  outline: 2px solid var(--accent-spine);
+  outline-offset: 2px;
+}
+
+/* 恢复成功：展示恢复前保护快照 ID */
+.history-restore-success {
+  display: grid;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid color-mix(in srgb, var(--moss) 36%, transparent);
+  background: color-mix(in srgb, var(--moss) 10%, var(--bg-surface));
+  color: var(--moss);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.history-restore-success-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.history-protection-id {
+  font-family: var(--font-mono);
+  background: var(--bg-subtle);
+  padding: 1px 6px;
+  border-radius: 6px;
+  word-break: break-all;
 }
 
 .history-busy {

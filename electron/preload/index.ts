@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer, type IpcRendererEvent } from "electron";
 import type { DesktopApi } from "../../src/types/api";
+import type { OperationState, OperationStartRequest } from "../../src/types/operation";
 import type {
   EndReadingSessionInput,
   GetReadingSessionsInput,
@@ -72,13 +73,21 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
+  DraftExportPreset,
   ProjectBundleImportResult,
   Annotation,
   AnnotationCreateCommand,
+  AnnotationReanchorCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
   AnnotationUpdateCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
+  TrashImpactQuery,
+  TrashImpactView,
   ResourceAttachCommand,
   ResourceDetachCommand,
   ResourceInfo,
@@ -91,16 +100,45 @@ import type {
   StructureRevertCommand,
   StructurePreviewView,
   StructureApplyResult,
-  StructureRevertResult
+  StructureRevertResult,
+  SessionUpdateCommand,
+  ProjectUpdateGoalCommand,
+  ProjectGoalResult,
+  SnapshotRetentionResult,
+  ReplacePlanQuery,
+  ReplacePlan,
+  ReplaceApplyOutcome
 } from "../../src/types/creation";
+import type {
+  CardExportFilter,
+  CardExportResult,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "../../src/types/card-io";
 import type { SearchQuery, SearchResult } from "../../src/types/search";
-import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
+import type { AutoBackupRunResult, BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "../../src/types/maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "../../src/types/sync";
 import type { AppUpdateInfo } from "../../src/types/updates";
 
 const invoke = <T>(channel: string, ...args: unknown[]): Promise<T> => ipcRenderer.invoke(channel, ...args);
 
 const api: DesktopApi = {
+  window: {
+    minimize: () => invoke<void>("window:minimize"),
+    toggleMaximize: () => invoke<void>("window:toggleMaximize"),
+    close: () => invoke<void>("window:close"),
+    onMaximizedChange: (callback: (maximized: boolean) => void) => {
+      const onEvent = (_event: IpcRendererEvent, maximized: boolean) => callback(maximized);
+      ipcRenderer.on("window:maximized-changed", onEvent);
+      return () => {
+        ipcRenderer.removeListener("window:maximized-changed", onEvent);
+      };
+    }
+  },
   app: {
     getBuildInfo: () => invoke<BuildInfo>("app:getBuildInfo"),
     getStartupRecovery: () => invoke<StartupRecoveryInfo>("app:getStartupRecovery"),
@@ -147,6 +185,7 @@ const api: DesktopApi = {
     resetReaderSettings: () => invoke<AppSettings>("settings:resetReaderSettings"),
     chooseDataDirectory: () => invoke<string | null>("settings:chooseDataDirectory"),
     chooseLibraryDirectory: () => invoke<string | null>("settings:chooseLibraryDirectory"),
+    chooseBackupDirectory: () => invoke<string | null>("settings:chooseBackupDirectory"),
     migrateDataDirectory: (targetDirectory: string) => invoke<AppSettings>("settings:migrateDataDirectory", targetDirectory),
     migrateLibraryDirectory: (targetDirectory: string) => invoke<AppSettings>("settings:migrateLibraryDirectory", targetDirectory)
   },
@@ -193,6 +232,11 @@ const api: DesktopApi = {
     annotationCreate: (command: AnnotationCreateCommand) => invoke<AnnotationResult>("creation:annotationCreate", command),
     annotationUpdate: (command: AnnotationUpdateCommand) => invoke<AnnotationResult>("creation:annotationUpdate", command),
     annotationDelete: (command: AnnotationDeleteCommand) => invoke<AnnotationResult>("creation:annotationDelete", command),
+    annotationReanchor: (command: AnnotationReanchorCommand) => invoke<AnnotationResult>("creation:annotationReanchor", command),
+    snapshotPreview: (query: SnapshotPreviewQuery) => invoke<SnapshotPreviewView | null>("creation:snapshotPreview", query),
+    snapshotRestoreWithProtection: (command: SnapshotRestoreWithProtectionCommand) =>
+      invoke<SnapshotRestoreWithProtectionResult>("creation:snapshotRestoreWithProtection", command),
+    trashImpact: (query: TrashImpactQuery) => invoke<TrashImpactView | null>("creation:trashImpact", query),
     resourceList: (query: ResourceListQuery) => invoke<ResourceInfo[]>("creation:resourceList", query),
     attachResource: (projectId: string, cardId?: string) =>
       invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId }),
@@ -205,8 +249,8 @@ const api: DesktopApi = {
     inboxUpdate: (command: InboxUpdateCommand) => invoke<InboxItemResult>("creation:inboxUpdate", command),
     inboxDelete: (command: InboxDeleteCommand) => invoke<InboxItemResult>("creation:inboxDelete", command),
     inboxCreate: (command: InboxCreateCommand) => invoke<InboxItemResult>("creation:inboxCreate", command),
-    exportDraft: (projectId: string) =>
-      invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId }),
+    exportDraft: (projectId: string, preset: DraftExportPreset) =>
+      invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId, preset }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
     cardRead: (cardId: string) => invoke<CardSummary | null>("creation:cardRead", cardId),
     cardTypesList: (projectId: string) => invoke<CardType[]>("creation:cardTypesList", projectId),
@@ -225,7 +269,22 @@ const api: DesktopApi = {
         ipcRenderer.removeListener("creation:event", onEvent);
         void invoke<void>("creation:unwatchProject", { subscriptionId });
       };
-    }
+    },
+    // ---- Phase 1 P1 深模块 seam 接入 ----
+    snapshotRetentionRun: () => invoke<SnapshotRetentionResult>("creation:snapshotRetentionRun"),
+    cardImportOpenAndParse: () => invoke<CardImportSource | null>("creation:cardImportOpenAndParse"),
+    cardImportParse: (input: { text: string; format: "csv" | "markdown" }) =>
+      invoke<CardImportPreview>("creation:cardImportParse", input),
+    cardImportSchema: (projectId: string) => invoke<CardImportSchemaContext>("creation:cardImportSchema", projectId),
+    cardImportPlan: (input: CardImportApplyInput) => invoke<CardImportPlan>("creation:cardImportPlan", input),
+    cardImportApply: (input: CardImportApplyInput) => invoke<CardImportApplyResult>("creation:cardImportApply", input),
+    cardExportOpenAndWrite: (input: { projectId: string; filter: CardExportFilter; format: "csv" | "markdown" }) =>
+      invoke<CardExportResult>("creation:cardExportOpenAndWrite", input),
+    replacePlanCreate: (query: ReplacePlanQuery) => invoke<ReplacePlan>("creation:replacePlanCreate", query),
+    replacePlanApply: (input: { planId: string; excludedHitIds: string[] }) =>
+      invoke<ReplaceApplyOutcome>("creation:replacePlanApply", input),
+    sessionUpdate: (command: SessionUpdateCommand) => invoke<SessionReportResult>("creation:sessionUpdate", command),
+    projectUpdateGoal: (command: ProjectUpdateGoalCommand) => invoke<ProjectGoalResult>("creation:projectUpdateGoal", command)
   },
   ai: {
     getSettings: () => invoke<AISettings>("ai:getSettings"),
@@ -248,7 +307,8 @@ const api: DesktopApi = {
   },
   backup: {
     create: () => invoke<BackupResult | null>("backup:create"),
-    restore: () => invoke<RestoreResult | null>("backup:restore")
+    restore: () => invoke<RestoreResult | null>("backup:restore"),
+    runAuto: () => invoke<AutoBackupRunResult>("backup:runAuto")
   },
   diagnostics: {
     exportDebugInfo: () => invoke<DebugExportResult | null>("diagnostics:exportDebugInfo")
@@ -260,6 +320,29 @@ const api: DesktopApi = {
     getBookmarksByBook: (bookId: string) => invoke<BookmarkItem[]>("bookmarks:getByBook", bookId),
     saveBookmark: (item: BookmarkItem) => invoke<BookmarkItem>("bookmarks:save", item),
     deleteBookmark: (id: string) => invoke<void>("bookmarks:delete", id)
+  },
+  operation: {
+    start: (request: OperationStartRequest) => invoke<OperationState | null>("operation:start", request),
+    getState: (operationId: string) => invoke<OperationState | null>("operation:getState", operationId),
+    cancel: (operationId: string) => invoke<void>("operation:cancel", operationId),
+    subscribe: async (
+      operationId: string,
+      listener: (state: OperationState) => void
+    ): Promise<() => void> => {
+      const { subscriptionId } = await invoke<{ subscriptionId: string }>("operation:subscribe", operationId);
+      const onEvent = (
+        _event: IpcRendererEvent,
+        payload: { subscriptionId: string; state: OperationState }
+      ): void => {
+        if (payload.subscriptionId === subscriptionId) listener(payload.state);
+      };
+      ipcRenderer.on("operation:event", onEvent);
+      // 返回退订函数：移除事件监听并向主进程注销 subscription（避免泄漏）。
+      return () => {
+        ipcRenderer.removeListener("operation:event", onEvent);
+        void invoke<void>("operation:unsubscribe", { subscriptionId });
+      };
+    }
   }
 };
 

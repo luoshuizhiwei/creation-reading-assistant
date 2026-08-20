@@ -1,10 +1,47 @@
-import type { ReactNode } from "react";
-import { BookMarked, BookOpen, Inbox as InboxIcon, Search, Settings } from "lucide-react";
+import { useEffect, useState, type ReactNode } from "react";
+import { BookMarked, BookOpen, Copy, Inbox as InboxIcon, Minus, Search, Settings, Square, X } from "lucide-react";
 import { RingButton } from "@/components/interaction";
 import { useAppStore, type AppScreen } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import { useSearchStore } from "@/stores/search-store";
 import { APP_NAV_ITEMS } from "@/features/navigation/app-nav";
+
+function WindowControls() {
+  const [maximized, setMaximized] = useState(false);
+  useEffect(() => {
+    const dispose = window.api?.window?.onMaximizedChange(setMaximized);
+    return () => dispose?.();
+  }, []);
+  const controls = [
+    {
+      key: "minimize",
+      label: "最小化窗口",
+      Icon: Minus,
+      onClick: () => window.api?.window?.minimize()
+    },
+    {
+      key: "maximize",
+      label: maximized ? "还原窗口" : "最大化窗口",
+      Icon: maximized ? Copy : Square,
+      onClick: () => window.api?.window?.toggleMaximize()
+    },
+    {
+      key: "close",
+      label: "关闭窗口",
+      Icon: X,
+      onClick: () => window.api?.window?.close()
+    }
+  ];
+  return (
+    <div className="desktop-window-controls" role="group" aria-label="窗口控制">
+      {controls.map(({ key, label, Icon, onClick }) => (
+        <button key={key} type="button" className={`desktop-window-control ${key}`} aria-label={label} title={label} onClick={onClick}>
+          <Icon size={key === "minimize" ? 16 : key === "close" ? 15 : 13} strokeWidth={key === "close" ? 2.2 : 2} />
+        </button>
+      ))}
+    </div>
+  );
+}
 
 const navIcons: Record<string, typeof Settings> = {
   projects: BookMarked,
@@ -66,7 +103,15 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="desktop-workbench paper-shell">
+    <div className="desktop-root paper-shell">
+      <header className="desktop-titlebar" aria-label="窗口标题栏">
+        <div className="desktop-titlebar-title">
+          <span className="desktop-titlebar-mark">阅</span>
+          <span>创作阅读助手</span>
+        </div>
+        <WindowControls />
+      </header>
+      <div className="desktop-workbench">
       <aside className="desktop-sidebar" aria-label="桌面端主导航">
         <RingButton
           className="desktop-brand nav-spine-item"
@@ -141,6 +186,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         </header>
         <div className="desktop-canvas">{children}</div>
       </section>
+      </div>
     </div>
   );
 }

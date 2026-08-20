@@ -103,76 +103,29 @@ export function snapshotSubjectTitle(
     const t = findSceneTitle(navigation, snapshot.subjectId);
     return t ?? "(场景已删除或未加载)";
   }
-  const t = findCardTitle(cards, snapshot.subjectId);
-  return t ?? "(卡片已删除或未加载)";
+  if (snapshot.subjectType === "card") {
+    const t = findCardTitle(cards, snapshot.subjectId);
+    return t ?? "(卡片已删除或未加载)";
+  }
+  // 章/卷通常已不在导航树中，列表回退到快照名称；权威名称由预览接口给出。
+  return snapshot.subjectType === "chapter"
+    ? snapshot.reason || "(章)"
+    : snapshot.reason || "(卷)";
 }
 
-/**
- * 恢复流程编排：仅描述调用顺序，不直接执行 IPC。
- * 返回调用序列，以便测试断言顺序正确性。
- *
- * 不变量：
- * - 若 createProtection=false，返回 actions=[]（零写入）。
- * - 若保护失败，绝不在 actions 中包含 restore。
- * - 保护成功后，actions 中 restore 才出现且位于 createProtection 之后。
- */
-export interface RestorePlanStep {
-  kind: "create-protection" | "restore-target";
-  command: object;
+/** 原子恢复确认结果：成功时回传保护快照 ID，供 UI 展示。 */
+export interface RestoreSnapshotConfirmResult {
+  ok: boolean;
+  error?: string | null;
+  /** 后端在恢复前自动创建的保护快照 ID，成功时必须回传以便 UI 展示。 */
+  protectionSnapshotId?: string;
 }
 
-export interface RestorePlan {
-  actions: RestorePlanStep[];
-  protectionReason: string;
-}
-
-export function planRestoreWithProtection(input: {
-  projectId: string;
-  snapshot: SnapshotInfo;
-  /** 测试用：是否允许创建保护（用户确认 = true，用户取消 = false） */
-  userConfirmed: boolean;
-  /** 测试用：保护是否会成功（仅影响错误分支说明，不改变顺序不变量） */
-  protectionWillSucceed?: boolean;
-}): RestorePlan {
-  const snapshot = input.snapshot;
-  const protectionReason = `恢复前保护：${snapshot.reason || "目标快照"}（${new Date(
+/** 原子恢复命令中用于命名恢复前保护快照的可读原因。 */
+export function buildSnapshotProtectionReason(snapshot: SnapshotInfo): string {
+  return `恢复前保护：${snapshot.reason || "目标快照"}（${new Date(
     snapshot.createdAt
   ).toLocaleString("zh-CN")}）`;
-
-  if (!input.userConfirmed) {
-    // 用户取消：零写入
-    return { actions: [], protectionReason };
-  }
-
-  const actions: RestorePlanStep[] = [];
-
-  // Step 1: 先创建保护快照（无条件放入 plan；执行时若失败则后续 restore 不被调用）
-  actions.push({
-    kind: "create-protection",
-    command: {
-      type: "snapshot.create",
-      projectId: input.projectId,
-      subjectType: snapshot.subjectType,
-      subjectId: snapshot.subjectId,
-      reason: protectionReason
-    }
-  });
-
-  // Step 2: 仅当保护预计成功时，restore 才出现在 plan 中；
-  // 实际执行时由调用方在 protection 成功后再调用 restore。
-  // 这里为了测试顺序不变量，protectionWillSucceed=true（默认）时才添加 restore。
-  if (input.protectionWillSucceed !== false) {
-    actions.push({
-      kind: "restore-target",
-      command: {
-        type: "snapshot.restore",
-        projectId: input.projectId,
-        snapshotId: snapshot.id
-      }
-    });
-  }
-
-  return { actions, protectionReason };
 }
 
 /**
@@ -225,3 +178,36 @@ export function buildRestoreErrorMessage(phase: "protection-failed" | "restore-f
   }
   return "恢复失败。保护快照已创建并保留，当前内容未被目标快照覆盖。可从列表中选择该保护快照重新恢复。";
 }
+
+/**
+ * 快照分类（渲染端）：必须与主进程 classifySnapshotMeta 保持一致（需求 1）。
+ * 只依据系统受控字段（id 前缀 + subjectType），绝不读取 reason 文本。
+ * 注意：运行时的 subjectType 是快照表的原始 subject_type（如 "scene-autosave" /
+ * "structure-operation"），可能超出 SnapshotSubjectType 的收窄联合；此处按字符串处理。
+ */
+export type SnapshotCategory = "auto" | "milestone" | "protected";
+
+export function classifySnapshotCategory(snapshot: SnapshotInfo): SnapshotCategory {
+  const subjectType = snapshot.subjectType as string;
+  if (snapshot.id.startsWith("protective") || subjectType === "structure-operation") {
+    return "protected";
+  }
+  if (subjectType === "scene-autosave") {
+    return "auto";
+  }
+  return "milestone";
+}
+
+/** 分类徽标文案。 */
+export const SNAPSHOT_CATEGORY_LABEL: Record<SnapshotCategory, string> = {
+  auto: "自动快照",
+  milestone: "里程碑",
+  protected: "保护快照"
+};
+
+/** 分类对应的留存规则说明，供历史 UI 展示（需求 10：展示分层留存规则）。 */
+export const SNAPSHOT_RETENTION_HINT: Record<SnapshotCategory, string> = {
+  auto: "自动快照按分层留存：创建后 24 小时内全部保留；超过 24 小时每 UTC 日保留最新一份；超过 30 天每 UTC 周保留最新一份。",
+  milestone: "命名里程碑永久保留。",
+  protected: "保护快照（重组 / 替换 / 恢复前创建）永久保留，不会被自动清理删除。"
+};

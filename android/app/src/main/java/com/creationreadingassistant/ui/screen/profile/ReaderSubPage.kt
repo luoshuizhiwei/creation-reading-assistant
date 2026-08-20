@@ -10,9 +10,11 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.ReaderFontPickerRow
 import com.creationreadingassistant.ui.components.SectionDivider
+import com.creationreadingassistant.ui.components.SettingLinkRow
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.components.SettingSliderRow
@@ -22,7 +24,38 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.ReaderPaperOptions
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import java.util.Calendar
 import kotlin.math.abs
+
+private fun readerSubPageFormatMin(minute: Int): String {
+    val clamped = minute.coerceIn(0, 1439)
+    return "%02d:%02d".format(clamped / 60, clamped % 60)
+}
+
+@Composable
+private fun ReaderSettingsTimeRow(
+    label: String,
+    minute: Int,
+    onChange: (Int) -> Unit,
+) {
+    val ctx = LocalContext.current
+    SettingLinkRow(
+        title = label,
+        value = readerSubPageFormatMin(minute),
+        onClick = {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, minute / 60)
+            cal.set(Calendar.MINUTE, minute % 60)
+            android.app.TimePickerDialog(
+                ctx,
+                { _, h, m -> onChange((h * 60 + m).coerceIn(0, 1439)) },
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                true,
+            ).show()
+        },
+    )
+}
 
 /** Full-screen reader settings. The in-reader sheet reuses the same row language. */
 @Composable
@@ -116,12 +149,33 @@ internal fun ReaderSettingsSubPage(
             SettingsSection("护眼与提醒", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingSwitchRow("护眼滤镜", settings.eyeCareFilterEnabled, { onAction(ProfileAction.UpdateReader { copy(eyeCareFilterEnabled = it) }) })
                 SectionDivider()
-                SettingSwitchRow("夜间自动开启", settings.eyeCareScheduleEnabled, { onAction(ProfileAction.UpdateReader { copy(eyeCareScheduleEnabled = it) }) }, subtitle = "默认时段 22:00–07:00")
+                SettingSwitchRow("夜间自动开启", settings.eyeCareScheduleEnabled, { onAction(ProfileAction.UpdateReader { copy(eyeCareScheduleEnabled = it) }) }, subtitle = "可自定义每日自动生效时段")
+                if (settings.eyeCareScheduleEnabled) {
+                    SectionDivider()
+                    ReaderSettingsTimeRow(
+                        label = "开始时间",
+                        minute = settings.eyeCareStartMinute,
+                        onChange = { onAction(ProfileAction.UpdateReader { copy(eyeCareStartMinute = it) }) },
+                    )
+                    SectionDivider()
+                    ReaderSettingsTimeRow(
+                        label = "结束时间",
+                        minute = settings.eyeCareEndMinute,
+                        onChange = { onAction(ProfileAction.UpdateReader { copy(eyeCareEndMinute = it) }) },
+                    )
+                }
                 if (settings.eyeCareFilterEnabled || settings.eyeCareScheduleEnabled) {
                     SectionDivider()
                     SettingSliderRow("色温", settings.eyeCareTemperature.toFloat(), "${settings.eyeCareTemperature} K", { onAction(ProfileAction.UpdateReader { copy(eyeCareTemperature = ((it / 100).toInt() * 100)) }) }, valueRange = 2600f..5500f, steps = 28)
                     SectionDivider()
                     SettingSliderRow("滤镜强度", settings.eyeCareIntensity.toFloat(), "${settings.eyeCareIntensity}%", { onAction(ProfileAction.UpdateReader { copy(eyeCareIntensity = it.toInt()) }) }, valueRange = 0f..100f, steps = 19)
+                    SectionDivider()
+                    SettingSwitchRow(
+                        "OLED 纯黑兼容",
+                        settings.eyeCareOledBlackCompat,
+                        { onAction(ProfileAction.UpdateReader { copy(eyeCareOledBlackCompat = it) }) },
+                        subtitle = "夜读模式下保持纯黑像素不被暖色染色，更省电",
+                    )
                 }
                 SectionDivider()
                 SettingSliderRow("护眼提醒", settings.eyeCareReminderMinutes.toFloat(), "${settings.eyeCareReminderMinutes} 分钟", { onAction(ProfileAction.UpdateReader { copy(eyeCareReminderMinutes = it.toInt()) }) }, valueRange = 5f..60f, steps = 54)

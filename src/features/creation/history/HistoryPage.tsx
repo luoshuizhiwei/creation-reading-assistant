@@ -6,7 +6,9 @@ import { useUIStore } from "@/stores/ui-store";
 import type {
   CreationProjectSummary,
   SnapshotInfo,
+  SnapshotPreviewView,
   SnapshotSubjectType,
+  TrashImpactView,
   TrashItem
 } from "@/types/creation";
 import { CreateMilestoneDialog } from "./CreateMilestoneDialog";
@@ -14,10 +16,12 @@ import { RestoreSnapshotDialog } from "./RestoreSnapshotDialog";
 import { PurgeTrashDialog } from "./PurgeTrashDialog";
 import {
   buildMilestoneCommand,
-  buildRestoreErrorMessage,
-  estimateTrashChildCount,
-  planRestoreWithProtection,
-  snapshotSubjectTitle
+  buildSnapshotProtectionReason,
+  classifySnapshotCategory,
+  SNAPSHOT_CATEGORY_LABEL,
+  SNAPSHOT_RETENTION_HINT,
+  snapshotSubjectTitle,
+  type RestoreSnapshotConfirmResult
 } from "./history-models";
 import "./history-local.css";
 
@@ -32,9 +36,15 @@ const ENTITY_LABEL: Record<string, string> = {
   card: "卡片"
 };
 
-const SNAPSHOT_SUBJECT_LABEL: Record<SnapshotSubjectType, string> = {
+// 同时映射运行时的原始 subject_type（scene-autosave / structure-operation），
+// 避免自动快照 / 保护快照在列表里显示原始枚举值。
+const SNAPSHOT_SUBJECT_LABEL: Record<string, string> = {
+  volume: "卷",
+  chapter: "章",
   scene: "场景",
-  card: "卡片"
+  card: "卡片",
+  "scene-autosave": "场景",
+  "structure-operation": "结构"
 };
 
 export function HistoryPage({ project }: HistoryPageProps) {
@@ -45,11 +55,20 @@ export function HistoryPage({ project }: HistoryPageProps) {
   const [showCreateMilestone, setShowCreateMilestone] = useState(false);
   const [creatingMilestone, setCreatingMilestone] = useState(false);
   const [restoringSnapshot, setRestoringSnapshot] = useState<SnapshotInfo | null>(null);
+  const [snapshotPreview, setSnapshotPreview] = useState<SnapshotPreviewView | null>(null);
+  const [snapshotPreviewBusy, setSnapshotPreviewBusy] = useState(false);
+  const [snapshotPreviewError, setSnapshotPreviewError] = useState<string | null>(null);
   const [purgingItem, setPurgingItem] = useState<TrashItem | null>(null);
+  const [trashImpact, setTrashImpact] = useState<TrashImpactView | null>(null);
+  const [trashImpactBusy, setTrashImpactBusy] = useState(false);
+  const [trashImpactError, setTrashImpactError] = useState<string | null>(null);
 
-  const { loadTrash, restoreTrash, purgeTrash, loadSnapshots, runStructure, loadNavigation, loadCards } =
-    useCreationActions();
+  const {
+    loadTrash, restoreTrash, purgeTrash, loadSnapshots, previewSnapshot,
+    restoreSnapshotWithProtection, loadTrashImpact, runStructure, loadNavigation, loadCards, loadOutline
+  } = useCreationActions();
   const navigation = useCreationStore((state) => state.navigations[project.id]);
+  const outline = useCreationStore((state) => state.outlines?.[project.id]);
   const cards = useCreationStore((state) =>
     state.cardProjectId === project.id ? state.cards : []
   );
@@ -96,6 +115,27 @@ export function HistoryPage({ project }: HistoryPageProps) {
     return { ok: false, error: "永久删除失败，请稍后重试。" };
   };
 
+  const handleOpenPurge = async (item: TrashItem) => {
+    setPurgingItem(item);
+    setTrashImpact(null);
+    setTrashImpactError(null);
+    setTrashImpactBusy(true);
+    try {
+      const impact = await loadTrashImpact({
+        kind: "trash.impact",
+        projectId: project.id,
+        entity: item.entity,
+        entityId: item.id
+      });
+      if (impact) setTrashImpact(impact);
+      else setTrashImpactError("无法读取永久删除影响，已禁止删除。请稍后重试。");
+    } catch (error) {
+      setTrashImpactError(error instanceof Error ? error.message : "无法读取永久删除影响，已禁止删除。");
+    } finally {
+      setTrashImpactBusy(false);
+    }
+  };
+
   // ---------- 快照：创建命名里程碑 ----------
   const handleCreateMilestone = async (
     subjectType: SnapshotSubjectType,
@@ -122,50 +162,52 @@ export function HistoryPage({ project }: HistoryPageProps) {
   };
 
   // ---------- 快照：先保护再恢复 ----------
-  const handleConfirmRestore = async (): Promise<{ ok: boolean; error?: string | null }> => {
+  const handleConfirmRestore = async (): Promise<RestoreSnapshotConfirmResult> => {
     const snapshot = restoringSnapshot;
     if (!snapshot) return { ok: false, error: "快照无效。" };
 
-    const plan = planRestoreWithProtection({
-      projectId: project.id,
-      snapshot,
-      userConfirmed: true
-    });
-    const protectionCmd = plan.actions.find((a) => a.kind === "create-protection")?.command as
-      | { type: "snapshot.create"; projectId: string; subjectType: SnapshotSubjectType; subjectId: string; reason: string }
-      | undefined;
-    if (!protectionCmd) {
-      return { ok: false, error: "无法生成恢复计划，请重试。" };
-    }
-
-    // Step 1: 创建保护快照
-    const protectionOk = await runStructure(protectionCmd);
-
-    if (!protectionOk) {
-      // 保护失败：中止恢复
-      return { ok: false, error: buildRestoreErrorMessage("protection-failed") };
-    }
-
-    // Step 2: 保护成功后，执行目标快照恢复
     try {
-      const restoreCmd = plan.actions.find((a) => a.kind === "restore-target")?.command as
-        | { type: "snapshot.restore"; projectId: string; snapshotId: string }
-        | undefined;
-      if (!restoreCmd) {
-        return { ok: false, error: buildRestoreErrorMessage("restore-failed") };
-      }
-      const restoreOk = await runStructure(restoreCmd);
-      if (restoreOk) {
-        showToast({ tone: "success", title: "已恢复到目标版本（保护快照已保留）" });
+      const result = await restoreSnapshotWithProtection({
+        type: "snapshot.restoreWithProtection",
+        projectId: project.id,
+        snapshotId: snapshot.id,
+        protectionReason: buildSnapshotProtectionReason(snapshot)
+      });
+      if (result?.ok) {
+        showToast({ tone: "success", title: "已恢复到目标版本（恢复前保护已保留）" });
+        // 刷新快照列表与项目视图（导航 / 卡片 / 大纲），保持各视图一致。
         if (tab === "snapshots") await refreshSnapshots();
-        return { ok: true };
+        void loadNavigation(project.id);
+        void loadCards({ projectId: project.id });
+        void loadOutline(project.id);
+        return { ok: true, protectionSnapshotId: result.protectionSnapshotId };
       }
-      return { ok: false, error: buildRestoreErrorMessage("restore-failed") };
+      return { ok: false, error: "恢复失败，当前内容未被覆盖。对话框与预览已保留，请重试。" };
     } catch (e) {
       return {
         ok: false,
-        error: buildRestoreErrorMessage("restore-failed") + (e instanceof Error ? ` 原因：${e.message}` : "")
+        error: "恢复失败，当前内容未被覆盖。" + (e instanceof Error ? ` 原因：${e.message}` : "")
       };
+    }
+  };
+
+  const handleOpenRestore = async (snapshot: SnapshotInfo) => {
+    setRestoringSnapshot(snapshot);
+    setSnapshotPreview(null);
+    setSnapshotPreviewError(null);
+    setSnapshotPreviewBusy(true);
+    try {
+      const preview = await previewSnapshot({
+        kind: "snapshot.preview",
+        projectId: project.id,
+        snapshotId: snapshot.id
+      });
+      if (preview) setSnapshotPreview(preview);
+      else setSnapshotPreviewError("无法读取权威恢复预览，已禁止恢复。请稍后重试。");
+    } catch (error) {
+      setSnapshotPreviewError(error instanceof Error ? error.message : "无法读取权威恢复预览，已禁止恢复。");
+    } finally {
+      setSnapshotPreviewBusy(false);
     }
   };
 
@@ -232,7 +274,7 @@ export function HistoryPage({ project }: HistoryPageProps) {
                   <button
                     type="button"
                     className="confirming"
-                    onClick={() => setPurgingItem(item)}
+                    onClick={() => void handleOpenPurge(item)}
                     title="永久删除"
                   >
                     <Trash2 size={14} /> 永久删除
@@ -250,23 +292,32 @@ export function HistoryPage({ project }: HistoryPageProps) {
         <ul className="history-list">
           {snapshots.map((snapshot) => {
             const subjectTitle = getSubjectTitle(snapshot);
+            const category = classifySnapshotCategory(snapshot);
             return (
               <li key={snapshot.id} className="history-item">
-                <span className="history-item-type">
-                  {SNAPSHOT_SUBJECT_LABEL[snapshot.subjectType] ?? snapshot.subjectType}
-                </span>
-                <strong>{snapshot.reason || "(未命名里程碑)"}</strong>
-                <small>{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</small>
-                <span className="history-item-subject">对象：{subjectTitle}</span>
-                <div className="history-item-actions">
-                  <button
-                    type="button"
-                    onClick={() => setRestoringSnapshot(snapshot)}
-                    title="从快照恢复（会先创建保护快照）"
-                  >
-                    <RotateCcw size={14} /> 恢复
-                  </button>
+                <div className="history-item-head">
+                  <span className="history-item-type">
+                    {SNAPSHOT_SUBJECT_LABEL[snapshot.subjectType] ?? snapshot.subjectType}
+                    <span
+                      className={`snapshot-category-badge snapshot-category-${category}`}
+                    >
+                      {SNAPSHOT_CATEGORY_LABEL[category]}
+                    </span>
+                  </span>
+                  <strong>{snapshot.reason || "(未命名里程碑)"}</strong>
+                  <small>{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</small>
+                  <span className="history-item-subject">对象：{subjectTitle}</span>
+                  <div className="history-item-actions">
+                    <button
+                      type="button"
+                      onClick={() => void handleOpenRestore(snapshot)}
+                      title="从快照恢复（会先创建保护快照）"
+                    >
+                      <RotateCcw size={14} /> 恢复
+                    </button>
+                  </div>
                 </div>
+                <span className="history-item-retention">{SNAPSHOT_RETENTION_HINT[category]}</span>
               </li>
             );
           })}
@@ -277,6 +328,7 @@ export function HistoryPage({ project }: HistoryPageProps) {
         <CreateMilestoneDialog
           projectId={project.id}
           navigation={navigation}
+          outline={outline}
           cards={cards}
           onCancel={() => setShowCreateMilestone(false)}
           onSubmit={handleCreateMilestone}
@@ -288,6 +340,9 @@ export function HistoryPage({ project }: HistoryPageProps) {
         <RestoreSnapshotDialog
           snapshot={restoringSnapshot}
           subjectTitle={getSubjectTitle(restoringSnapshot)}
+          preview={snapshotPreview}
+          previewBusy={snapshotPreviewBusy}
+          previewError={snapshotPreviewError}
           onCancel={() => setRestoringSnapshot(null)}
           onConfirm={handleConfirmRestore}
         />
@@ -296,7 +351,9 @@ export function HistoryPage({ project }: HistoryPageProps) {
       {purgingItem && (
         <PurgeTrashDialog
           item={purgingItem}
-          childCount={estimateTrashChildCount(navigation, purgingItem)}
+          impact={trashImpact}
+          impactBusy={trashImpactBusy}
+          impactError={trashImpactError}
           onCancel={() => setPurgingItem(null)}
           onConfirm={handleConfirmPurge}
         />

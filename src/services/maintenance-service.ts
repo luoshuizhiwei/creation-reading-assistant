@@ -1,5 +1,5 @@
 import { getDesktopApi } from "@/services/ipc-client";
-import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "@/types/maintenance";
+import type { AutoBackupRunResult, BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "@/types/maintenance";
 
 export async function getBuildInfo(): Promise<BuildInfo> {
   return getDesktopApi().app.getBuildInfo();
@@ -27,6 +27,10 @@ export async function writeRendererLog(input: RendererLogInput): Promise<void> {
 
 export async function createBackup(): Promise<BackupResult | null> {
   return getDesktopApi().backup.create();
+}
+
+export async function runAutoBackup(): Promise<AutoBackupRunResult> {
+  return getDesktopApi().backup.runAuto();
 }
 
 export async function restoreBackup(): Promise<RestoreResult | null> {

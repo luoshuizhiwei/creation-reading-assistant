@@ -18,6 +18,7 @@ import type {
   UpdateReadingSessionInput
 } from "./library";
 import type { AppSettings, AppSettingsPatch, SettingsSection, StorageLocations } from "./settings";
+import type { OperationState, OperationStartRequest } from "./operation";
 import type { AISettings, AISettingsPatch, AIRunInput, AIRunResult, SaveAIApiKeyInput } from "./ai";
 import type {
   AddInspirationVariantInput,
@@ -69,13 +70,21 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
+  DraftExportPreset,
   ProjectBundleImportResult,
   Annotation,
   AnnotationCreateCommand,
+  AnnotationReanchorCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
   AnnotationUpdateCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
+  TrashImpactQuery,
+  TrashImpactView,
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
@@ -86,14 +95,39 @@ import type {
   StructureRevertCommand,
   StructurePreviewView,
   StructureApplyResult,
-  StructureRevertResult
+  StructureRevertResult,
+  SessionUpdateCommand,
+  ProjectUpdateGoalCommand,
+  ProjectGoalResult,
+  SnapshotRetentionResult,
+  ReplacePlanQuery,
+  ReplacePlan,
+  ReplaceApplyOutcome
 } from "./creation";
+import type {
+  CardExportFilter,
+  CardExportResult,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportMapping,
+  CardImportOptions,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "./card-io";
 import type { SearchQuery, SearchResult } from "./search";
-import type { BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
+import type { AutoBackupRunResult, BackupResult, BuildInfo, DebugExportResult, RendererLogInput, RestoreResult, StartupRecoveryInfo } from "./maintenance";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "./sync";
 import type { AppUpdateInfo } from "./updates";
 
 export interface DesktopApi {
+  window: {
+    minimize: () => void;
+    toggleMaximize: () => void;
+    close: () => void;
+    onMaximizedChange: (callback: (maximized: boolean) => void) => () => void;
+  };
   app: {
     getBuildInfo: () => Promise<BuildInfo>;
     getStartupRecovery: () => Promise<StartupRecoveryInfo>;
@@ -140,6 +174,7 @@ export interface DesktopApi {
     resetReaderSettings: () => Promise<AppSettings>;
     chooseDataDirectory: () => Promise<string | null>;
     chooseLibraryDirectory: () => Promise<string | null>;
+    chooseBackupDirectory: () => Promise<string | null>;
     migrateDataDirectory: (targetDirectory: string) => Promise<AppSettings>;
     migrateLibraryDirectory: (targetDirectory: string) => Promise<AppSettings>;
   };
@@ -181,6 +216,10 @@ export interface DesktopApi {
     annotationCreate: (command: AnnotationCreateCommand) => Promise<AnnotationResult>;
     annotationUpdate: (command: AnnotationUpdateCommand) => Promise<AnnotationResult>;
     annotationDelete: (command: AnnotationDeleteCommand) => Promise<AnnotationResult>;
+    annotationReanchor: (command: AnnotationReanchorCommand) => Promise<AnnotationResult>;
+    snapshotPreview: (query: SnapshotPreviewQuery) => Promise<SnapshotPreviewView | null>;
+    snapshotRestoreWithProtection: (command: SnapshotRestoreWithProtectionCommand) => Promise<SnapshotRestoreWithProtectionResult>;
+    trashImpact: (query: TrashImpactQuery) => Promise<TrashImpactView | null>;
     resourceList: (query: ResourceListQuery) => Promise<ResourceInfo[]>;
     attachResource: (projectId: string, cardId?: string) => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
     detachResource: (resourceId: string) => Promise<ResourceResult>;
@@ -192,7 +231,7 @@ export interface DesktopApi {
     inboxUpdate: (command: InboxUpdateCommand) => Promise<InboxItemResult>;
     inboxDelete: (command: InboxDeleteCommand) => Promise<InboxItemResult>;
     inboxCreate: (command: InboxCreateCommand) => Promise<InboxItemResult>;
-    exportDraft: (projectId: string) => Promise<{ canceled: boolean; filePath: string | null }>;
+    exportDraft: (projectId: string, preset: DraftExportPreset) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;
     cardTypesList: (projectId: string) => Promise<CardType[]>;
@@ -201,6 +240,18 @@ export interface DesktopApi {
     readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
     updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;
     watchProject: (projectId: string, listener: CreationProjectListener) => Promise<() => void>;
+    // ---- Phase 1 P1 深模块 seam 接入 ----
+    snapshotRetentionRun: () => Promise<SnapshotRetentionResult>;
+    cardImportOpenAndParse: () => Promise<CardImportSource | null>;
+    cardImportParse: (input: { text: string; format: "csv" | "markdown" }) => Promise<CardImportPreview>;
+    cardImportSchema: (projectId: string) => Promise<CardImportSchemaContext>;
+    cardImportPlan: (input: CardImportApplyInput) => Promise<CardImportPlan>;
+    cardImportApply: (input: CardImportApplyInput) => Promise<CardImportApplyResult>;
+    cardExportOpenAndWrite: (input: { projectId: string; filter: CardExportFilter; format: "csv" | "markdown" }) => Promise<CardExportResult>;
+    replacePlanCreate: (query: ReplacePlanQuery) => Promise<ReplacePlan>;
+    replacePlanApply: (input: { planId: string; excludedHitIds: string[] }) => Promise<ReplaceApplyOutcome>;
+    sessionUpdate: (command: SessionUpdateCommand) => Promise<SessionReportResult>;
+    projectUpdateGoal: (command: ProjectUpdateGoalCommand) => Promise<ProjectGoalResult>;
   };
   ai: {
     getSettings: () => Promise<AISettings>;
@@ -224,6 +275,7 @@ export interface DesktopApi {
   backup: {
     create: () => Promise<BackupResult | null>;
     restore: () => Promise<RestoreResult | null>;
+    runAuto: () => Promise<AutoBackupRunResult>;
   };
   diagnostics: {
     exportDebugInfo: () => Promise<DebugExportResult | null>;
@@ -235,5 +287,11 @@ export interface DesktopApi {
     getBookmarksByBook: (bookId: string) => Promise<BookmarkItem[]>;
     saveBookmark: (item: BookmarkItem) => Promise<BookmarkItem>;
     deleteBookmark: (id: string) => Promise<void>;
+  };
+  operation: {
+    start: (request: OperationStartRequest) => Promise<OperationState | null>;
+    getState: (operationId: string) => Promise<OperationState | null>;
+    cancel: (operationId: string) => Promise<void>;
+    subscribe: (operationId: string, listener: (state: OperationState) => void) => Promise<() => void>;
   };
 }

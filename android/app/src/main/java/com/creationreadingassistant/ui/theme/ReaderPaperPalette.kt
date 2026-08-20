@@ -81,10 +81,10 @@ data class ReaderPaperPalette(
     }
 }
 
-/** 白纸（默认，light） */
+/** 白纸（默认，light）——偏冷的纸张白，与暖纸/护眼拉开色相距离 */
 private val WHITE = ReaderPaperPalette(
     key = "white",
-    bg = Color(0xFFFAF8F2),
+    bg = Color(0xFFFBFAF7),
     fg = Color(0xFF1B1E23),
     fgMuted = Color(0xFF5C606A),
     accent = Color(0xFF365C4A),
@@ -103,17 +103,17 @@ private val WHITE = ReaderPaperPalette(
     ),
 )
 
-/** 暖纸（light） */
+/** 暖纸（light）——明显偏牛皮纸黄，一眼能看出和白纸的色温差 */
 private val WARM = ReaderPaperPalette(
     key = "warm",
-    bg = Color(0xFFF3ECDC),
+    bg = Color(0xFFF5E6C8),
     fg = Color(0xFF2B231A),
-    fgMuted = Color(0xFF5C606A),
-    accent = Color(0xFF365C4A),
-    outlineVariant = Color(0xFFE6D8C4),
-    outline = Color(0xFFCDBBA0),
-    panel = Color(0xFFEDE3D2),
-    panelStrong = Color(0xFFE0D1BA),
+    fgMuted = Color(0xFF867255),
+    accent = Color(0xFF8B5E3C),
+    outlineVariant = Color(0xFFE6D4AC),
+    outline = Color(0xFFCDB17E),
+    panel = Color(0xFFEEDFB8),
+    panelStrong = Color(0xFFE3CE9A),
     onAccent = Color.White,
     isLight = true,
     highlightColors = listOf(
@@ -125,17 +125,17 @@ private val WARM = ReaderPaperPalette(
     ),
 )
 
-/** 护眼（light） */
+/** 护眼（light）——淡豆绿，hue≈120° 的浅冷绿，长时间阅读更放松（豆绿色 = 国人熟悉的护眼色） */
 private val GREEN = ReaderPaperPalette(
     key = "green",
-    bg = Color(0xFFE8F0DF),
+    bg = Color(0xFFCFE5D0),
     fg = Color(0xFF1F291A),
-    fgMuted = Color(0xFF5C606A),
+    fgMuted = Color(0xFF5D7352),
     accent = Color(0xFF2E6B57),
-    outlineVariant = Color(0xFFD8E4CC),
-    outline = Color(0xFFBCD0AC),
-    panel = Color(0xFFE0E9D6),
-    panelStrong = Color(0xFFD1DFC4),
+    outlineVariant = Color(0xFFBEDDBF),
+    outline = Color(0xFF9FBFA1),
+    panel = Color(0xFFC3DCC4),
+    panelStrong = Color(0xFFB3D1B4),
     onAccent = Color.White,
     isLight = true,
     highlightColors = listOf(
@@ -147,18 +147,40 @@ private val GREEN = ReaderPaperPalette(
     ),
 )
 
-/** 夜读（dark） */
+/** 跟随深色（dark）——温和深灰，不 OLED 黑，适合跟随系统深色外壳的常规夜读 */
+private val DARK_FOLLOW = ReaderPaperPalette(
+    key = "follow",
+    bg = Color(0xFF1C1E23),
+    fg = Color(0xFFD8DCE3),
+    fgMuted = Color(0xFF9AA0AA),
+    accent = Color(0xFF7D98CB),
+    outlineVariant = Color(0xFF2A2D33),
+    outline = Color(0xFF3E4148),
+    panel = Color(0xFF24272D),
+    panelStrong = Color(0xFF30333A),
+    onAccent = Color(0xFF111318),
+    isLight = false,
+    highlightColors = listOf(
+        Color(0xFFD8BD56),
+        Color(0xFFC38172),
+        Color(0xFF86A064),
+        Color(0xFF869BC4),
+        Color(0xFFB496BC),
+    ),
+)
+
+/** 夜读（dark）——接近 OLED 纯黑，顶栏状态栏整屏统一漆黑 */
 private val NIGHT = ReaderPaperPalette(
     key = "night",
-    bg = Color(0xFF15171C),
+    bg = Color(0xFF0F1014),
     fg = Color(0xFFDEE2E9),
     fgMuted = Color(0xFF9AA0AA),
     accent = Color(0xFF8AA6D8),
-    outlineVariant = Color(0xFF24262C),
-    outline = Color(0xFF383B42),
-    panel = Color(0xFF1D2026),
-    panelStrong = Color(0xFF292D35),
-    onAccent = Color(0xFF111318),
+    outlineVariant = Color(0xFF1E2127),
+    outline = Color(0xFF30333A),
+    panel = Color(0xFF16191F),
+    panelStrong = Color(0xFF202329),
+    onAccent = Color(0xFF0B0C0F),
     isLight = false,
     highlightColors = listOf(
         Color(0xFFE6C95A), // 黄
@@ -173,7 +195,7 @@ private val NIGHT = ReaderPaperPalette(
  * 按 key 解析阅读器纸张调色板。
  *
  * - `white` / `warm` / `green` / `night`：固定档。
- * - `follow`（跟随应用外观）：浅色外壳 → 白纸，深色外壳 → 夜读（仅默认映射，不撕裂）。
+ * - `follow`（跟随应用外观）：浅色外壳 → 白纸；深色外壳 → **独立 DARK_FOLLOW 温和深灰**（比 night 更柔和，用户选 night 才切到 OLED 近纯黑）。
  * - 未知值（理论上 migration 后不会出现）：按 [darkTheme] 回退到白纸 / 夜读。
  */
 fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (key) {
@@ -181,7 +203,7 @@ fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (ke
     "warm" -> WARM
     "green" -> GREEN
     "night" -> NIGHT
-    "follow" -> if (darkTheme) NIGHT else WHITE
+    "follow" -> if (darkTheme) DARK_FOLLOW else WHITE
     else -> if (darkTheme) NIGHT else WHITE
 }
 

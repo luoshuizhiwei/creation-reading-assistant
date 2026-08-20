@@ -288,6 +288,13 @@ object EpubParser {
             // 属性值里可以合法出现 '>'，例如 <img alt="a > b" src="x.png"/>；
             // 不跟踪引号就会在 alt 的 '>' 处提前闭合标签，把后半截当正文渲染出来。
             var attrQuote = NO_QUOTE
+            // UTF-8 BOM（EF BB BF）被 UTF_8 解码器解码为 U+FEFF。JDK 的 InputStreamReader
+            // 不会自动跳过它，若不手动摘除，BOM 会泄漏为正文首字符。
+            reader.mark(1)
+            val first = reader.read()
+            if (first == -1 || first.toChar() != '\uFEFF') {
+                reader.reset()
+            }
             var c: Int
             while (reader.read().also { c = it } != -1) {
                 // 上限保护：超大单章只取前若干万字，好过 OOM 或整章空白。

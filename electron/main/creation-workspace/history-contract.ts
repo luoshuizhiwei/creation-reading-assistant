@@ -150,7 +150,12 @@ async function run(): Promise<void> {
         baseRevision: after!.revision,
         body: { type: "doc", content: [] }
       });
-      await workspace!.transact({ type: "snapshot.restore", projectId: created.projectId, snapshotId: snapshots[0]!.id });
+      await workspace!.restoreSnapshotWithProtection({
+        type: "snapshot.restoreWithProtection",
+        projectId: created.projectId,
+        snapshotId: snapshots[0]!.id,
+        protectionReason: "恢复前保护"
+      });
       const bodyView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
       assert.equal(JSON.stringify(bodyView?.body).includes("修改后的稿子"), true);
     });
@@ -160,7 +165,12 @@ async function run(): Promise<void> {
       await workspace!.transact({ type: "snapshot.create", projectId: created.projectId, subjectType: "card", subjectId: card.entityId, reason: "定稿" });
       const snapshots = (await workspace!.read({ kind: "snapshot.list", projectId: created.projectId, subjectType: "card", subjectId: card.entityId })) as Array<{ id: string }>;
       await workspace!.transact({ type: "card.update", cardId: card.entityId, title: "顾淮·改", baseRevision: 1 });
-      await workspace!.transact({ type: "snapshot.restore", projectId: created.projectId, snapshotId: snapshots[0]!.id });
+      await workspace!.restoreSnapshotWithProtection({
+        type: "snapshot.restoreWithProtection",
+        projectId: created.projectId,
+        snapshotId: snapshots[0]!.id,
+        protectionReason: "恢复前保护"
+      });
       const restored = (await workspace!.read({ kind: "card.read", cardId: card.entityId })) as CardSummary;
       assert.equal(restored.title, "顾淮");
       assert.equal(restored.fields.note, "原名");

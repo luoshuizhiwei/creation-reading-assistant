@@ -18,8 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Remove
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -27,8 +25,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -42,9 +38,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import java.util.Calendar
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.screen.reader.AUTO_HIDE_SECOND_OPTIONS
@@ -138,9 +138,14 @@ private fun SettingsRoot(
         }
         item(key = "quick") {
             SettingsSection(title = "快捷调整") {
-                FontSizeStepper(settings.fontSize) {
-                    onSettingsChange(settings.copy(fontSize = it))
-                }
+                SettingSliderRow(
+                    title = "字号",
+                    value = settings.fontSize,
+                    valueLabel = "${settings.fontSize.toInt()} 号",
+                    onValueChange = { onSettingsChange(settings.copy(fontSize = it)) },
+                    valueRange = 12f..40f,
+                    steps = 27,
+                )
                 SectionDivider()
                 SettingBrightnessRow(
                     brightness = settings.brightness,
@@ -180,43 +185,40 @@ private fun SettingsRoot(
 
 @Composable
 private fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSettings) {
+    val size = settings.fontSize.coerceIn(12f, 40f)
+    val lineHeightSp = (size * settings.lineHeight).sp
+    val paragraphDp: Dp = with(LocalDensity.current) {
+        (size * 0.4f * settings.paragraphSpacing).sp.toDp()
+    }
+    val weight = if (settings.fontWeightBold) FontWeight.Bold else FontWeight.Normal
     SectionCard(contentPadding = 0.dp) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(paper.bg)
-                .padding(18.dp),
+                .padding(horizontal = 18.dp, vertical = 16.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("排版预览", style = MaterialTheme.typography.labelMedium, color = paper.fgMuted)
             Text(
-                "窗前的纸页安静展开，文字留下恰好的呼吸。",
-                color = paper.fg,
-                fontSize = settings.fontSize.coerceIn(12f, 32f).sp,
-                lineHeight = (settings.fontSize * settings.lineHeight).sp,
-                fontWeight = if (settings.fontWeightBold) FontWeight.Bold else FontWeight.Normal,
-                maxLines = 2,
+                "排版预览",
+                style = MaterialTheme.typography.labelMedium,
+                color = paper.fgMuted,
             )
-        }
-    }
-}
-
-@Composable
-private fun FontSizeStepper(value: Float, onChange: (Float) -> Unit) {
-    val layout = LocalLayoutTokens.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text("字号", style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        IconButton(onClick = { onChange((value - 1f).coerceAtLeast(12f)) }) {
-            Icon(Icons.Outlined.Remove, contentDescription = "减小字号")
-        }
-        Text("${value.toInt()} 字号", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary)
-        IconButton(onClick = { onChange((value + 1f).coerceAtMost(32f)) }) {
-            Icon(Icons.Outlined.Add, contentDescription = "增大字号")
+            Text(
+                "窗前的纸页安静展开，每一个字都落在恰好的位置，行与行之间留出呼吸的余地，读起来就不费眼睛。",
+                color = paper.fg,
+                fontSize = size.sp,
+                lineHeight = lineHeightSp,
+                fontWeight = weight,
+            )
+            androidx.compose.foundation.layout.Spacer(Modifier.height(paragraphDp))
+            Text(
+                "段落之间的空隙也会按当前设置自动拉开，让段落边界看得清、又不至于断开节奏。",
+                color = paper.fg,
+                fontSize = size.sp,
+                lineHeight = lineHeightSp,
+                fontWeight = weight,
+            )
         }
     }
 }
@@ -230,7 +232,14 @@ private fun TypographySettings(
     item { ReaderTypePreview(paper, settings) }
     item {
         SettingsSection("文字") {
-            FontSizeStepper(settings.fontSize) { onChange(settings.copy(fontSize = it)) }
+            SettingSliderRow(
+                title = "字号",
+                value = settings.fontSize,
+                valueLabel = "${settings.fontSize.toInt()} 号",
+                onValueChange = { onChange(settings.copy(fontSize = it)) },
+                valueRange = 12f..40f,
+                steps = 27,
+            )
             SectionDivider()
             ReaderFontPickerRow(settings, onChange)
             SectionDivider()
@@ -353,18 +362,73 @@ private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings)
     }
 }
 
+private fun formatEyeCareMinute(minute: Int): String {
+    val clamped = minute.coerceIn(0, 1439)
+    return "%02d:%02d".format(clamped / 60, clamped % 60)
+}
+
+@Composable
+private fun EyeCareTimeRow(
+    label: String,
+    minute: Int,
+    onChange: (Int) -> Unit,
+) {
+    val ctx = LocalContext.current
+    SettingLinkRow(
+        title = label,
+        value = formatEyeCareMinute(minute),
+        onClick = {
+            val cal = Calendar.getInstance()
+            cal.set(Calendar.HOUR_OF_DAY, minute / 60)
+            cal.set(Calendar.MINUTE, minute % 60)
+            android.app.TimePickerDialog(
+                ctx,
+                { _, h, m -> onChange((h * 60 + m).coerceIn(0, 1439)) },
+                cal.get(Calendar.HOUR_OF_DAY),
+                cal.get(Calendar.MINUTE),
+                true,
+            ).show()
+        },
+    )
+}
+
 @Composable
 private fun EyeCareSettings(settings: ReaderSettings, onChange: (ReaderSettings) -> Unit) = SettingsList {
     item {
         SettingsSection("护眼滤镜") {
             SettingSwitchRow("开启护眼滤镜", settings.eyeCareFilterEnabled, { onChange(settings.copy(eyeCareFilterEnabled = it)) })
             SectionDivider()
-            SettingSwitchRow("夜间自动开启（22:00–07:00）", settings.eyeCareScheduleEnabled, { onChange(settings.copy(eyeCareScheduleEnabled = it)) })
+            SettingSwitchRow(
+                "夜间自动开启",
+                settings.eyeCareScheduleEnabled,
+                { onChange(settings.copy(eyeCareScheduleEnabled = it)) },
+            )
+            if (settings.eyeCareScheduleEnabled) {
+                SectionDivider()
+                EyeCareTimeRow(
+                    label = "开始时间",
+                    minute = settings.eyeCareStartMinute,
+                    onChange = { onChange(settings.copy(eyeCareStartMinute = it)) },
+                )
+                SectionDivider()
+                EyeCareTimeRow(
+                    label = "结束时间",
+                    minute = settings.eyeCareEndMinute,
+                    onChange = { onChange(settings.copy(eyeCareEndMinute = it)) },
+                )
+            }
             if (settings.eyeCareFilterEnabled || settings.eyeCareScheduleEnabled) {
                 SectionDivider()
                 SettingSliderRow("色温", settings.eyeCareTemperature.toFloat(), "${settings.eyeCareTemperature} K", { onChange(settings.copy(eyeCareTemperature = ((it / 100).toInt() * 100))) }, valueRange = 2600f..5500f, steps = 28)
                 SectionDivider()
                 SettingSliderRow("强度", settings.eyeCareIntensity.toFloat(), "${settings.eyeCareIntensity}%", { onChange(settings.copy(eyeCareIntensity = it.toInt())) }, valueRange = 0f..100f, steps = 19)
+                SectionDivider()
+                SettingSwitchRow(
+                    "OLED 纯黑兼容",
+                    settings.eyeCareOledBlackCompat,
+                    { onChange(settings.copy(eyeCareOledBlackCompat = it)) },
+                    subtitle = "夜读模式下保持纯黑像素不被暖色染色，更省电",
+                )
             }
         }
     }

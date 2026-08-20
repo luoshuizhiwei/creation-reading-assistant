@@ -373,4 +373,74 @@ class EpubParserTextTest {
         assertFalse(pattern.containsMatchIn("text/chapter1.xhtml"))
         assertFalse(pattern.containsMatchIn("OEBPS/第一章.xhtml"))
     }
+
+    // ── 异常语料补充 ──────────────────────────────────────────────────────
+
+    @Test
+    fun `empty body xhtml yields empty text`() {
+        val t = textOf("<html><head></head><body></body></html>")
+        assertTrue("空 body 应返回空串或纯空白，实际=<$t>", t.isBlank())
+    }
+
+    @Test
+    fun `nested divs inside paragraph preserve order`() {
+        val blocks = blocksOf("<html><head></head><body><p>外层<div><div><div>内层</div></div></div></p></body></html>")
+        val text = blocks.filterIsInstance<EpubBlock.Text>().joinToString("\n") { it.text }
+        val idxInner = text.indexOf("内层")
+        val idxOuter = text.indexOf("外层")
+        assertTrue(
+            "内层应出现在外层后面，实际文本=<$text> inner@$idxInner outer@$idxOuter",
+            idxInner >= 0 && idxOuter >= 0 && idxInner > idxOuter,
+        )
+    }
+
+    @Test
+    fun `BOM marker at file head does not leak into first char`() {
+        val html = "<html><head></head><body><p>开头的字</p></body></html>"
+        val htmlBytes = html.toByteArray(Charsets.UTF_8)
+        val bytesWithBom = ByteArray(3 + htmlBytes.size)
+        bytesWithBom[0] = 0xEF.toByte()
+        bytesWithBom[1] = 0xBB.toByte()
+        bytesWithBom[2] = 0xBF.toByte()
+        htmlBytes.copyInto(bytesWithBom, 3)
+        val path = zipWithBytes("OEBPS/ch1.xhtml" to bytesWithBom)
+        val blocks = EpubParser.loadChapterBlocks(path, "OEBPS/ch1.xhtml", "OEBPS")
+        val text = blocks.filterIsInstance<EpubBlock.Text>().joinToString("") { it.text }
+        assertTrue("应包含开头的字，实际=<$text>", text.contains("开头的字"))
+        if (text.isNotEmpty()) {
+            assertTrue("首字符不应是 BOM，实际首字符=U+${text[0].code.toString(16)}", text[0] != '\uFEFF')
+        }
+    }
+
+    @Test
+    fun `CDATA section inside script does not leak`() {
+        val t = textOf(
+            "<html><head></head><body><script>/*<![CDATA[*/ if (1<2 && 2>1) {} /*]]>*/</script><p>正文</p></body></html>",
+        )
+        assertTrue(t.contains("正文"))
+        assertTrue("不应泄漏 CDATA 字面量，实际=<$t>", !t.contains("CDATA"))
+        assertTrue("不应泄漏脚本条件 1<2，实际=<$t>", !t.contains("1<2"))
+    }
+
+    @Test
+    fun `deeply nested tables with rowspan`() {
+        val blocks = blocksOf(
+            "<html><head></head><body><table><tr><td rowspan=\"2\">A</td><td>B</td></tr><tr><td>C</td></tr></table></body></html>",
+        )
+        val text = blocks.filterIsInstance<EpubBlock.Text>().joinToString(" ") { it.text }
+        assertTrue("应包含 A，实际=<$text>", text.contains("A"))
+        assertTrue("应包含 B，实际=<$text>", text.contains("B"))
+        assertTrue("应包含 C，实际=<$text>", text.contains("C"))
+    }
+
+    @Test
+    fun `whitespace-only paragraphs are preserved as empty blocks or skipped but don't crash`() {
+        val blocks = runCatching {
+            blocksOf("<html><head></head><body><p>   </p><p>有字</p></body></html>")
+        }.getOrElse {
+            throw AssertionError("方法不应抛异常，但抛出了 $it")
+        }
+        val texts = blocks.filterIsInstance<EpubBlock.Text>().filter { it.text.isNotBlank() }
+        assertTrue("过滤非空后应出现'有字'，实际 texts=${texts.map { it.text }}", texts.any { it.text.contains("有字") })
+    }
 }

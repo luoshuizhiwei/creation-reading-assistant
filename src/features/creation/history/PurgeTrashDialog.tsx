@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { TrashItem } from "@/types/creation";
+import type { TrashImpactView, TrashItem } from "@/types/creation";
 
 const ENTITY_LABEL: Record<string, string> = {
   volume: "卷",
@@ -10,19 +10,24 @@ const ENTITY_LABEL: Record<string, string> = {
 
 interface PurgeTrashDialogProps {
   item: TrashItem;
-  childCount?: number;
+  impact: TrashImpactView | null;
+  impactBusy: boolean;
+  impactError: string | null;
   onCancel: () => void;
   onConfirm: () => Promise<{ ok: boolean; error?: string | null }>;
 }
 
 export function PurgeTrashDialog({
   item,
-  childCount,
+  impact,
+  impactBusy,
+  impactError,
   onCancel,
   onConfirm
 }: PurgeTrashDialogProps) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmation, setConfirmation] = useState("");
 
   const entityLabel = ENTITY_LABEL[item.entity] ?? item.entity;
 
@@ -78,23 +83,51 @@ export function PurgeTrashDialog({
               <dt>实体名称</dt>
               <dd>{item.title}</dd>
             </div>
-            {typeof childCount === "number" && childCount > 0 && (
-              <div className="history-impact-row">
-                <dt>下级条目</dt>
-                <dd>共 {childCount} 项（已从回收站移除后将一并永久删除）</dd>
-              </div>
-            )}
             <div className="history-impact-row">
               <dt>删除时间</dt>
               <dd>{new Date(item.deletedAt).toLocaleString("zh-CN")}</dd>
             </div>
           </dl>
 
+          {impactBusy && <p className="history-impact-loading">正在统计永久删除影响…</p>}
+          {impactError && <p className="history-impact-error">{impactError}</p>}
+          {impact && (
+            <div className="history-authoritative-preview" aria-label="永久删除影响">
+              <h4>将被永久移除的内容</h4>
+              <ul className="history-impact-summary">
+                {impact.childVolumeCount > 0 && <li>{impact.childVolumeCount} 个子卷</li>}
+                {impact.childChapterCount > 0 && <li>{impact.childChapterCount} 个章节</li>}
+                {impact.childSceneCount > 0 && <li>{impact.childSceneCount} 个场景</li>}
+                {impact.approxChars > 0 && <li>约 {impact.approxChars.toLocaleString("zh-CN")} 字</li>}
+                {impact.relatedCardCount > 0 && <li>{impact.relatedCardCount} 张关联卡片</li>}
+                {impact.resourceCount > 0 && <li>{impact.resourceCount} 个资源</li>}
+              </ul>
+              {impact.warnings.length > 0 && (
+                <ul className="history-impact-warnings">
+                  {impact.warnings.map((warning, index) => <li key={`${warning}-${index}`}>{warning}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
+
           <div className="history-impact-danger">
             <strong>警告：</strong>此操作<strong>永久不可恢复</strong>。
             该{entityLabel}及其所有内容（正文、字段、关系等）将从数据库中彻底移除，
             无法通过回收站或其他方式找回。
           </div>
+
+          <label className="history-confirm-name">
+            输入对象名称确认
+            <input
+              aria-label="输入对象名称确认"
+              value={confirmation}
+              onChange={(event) => setConfirmation(event.target.value)}
+              disabled={busy}
+              placeholder={item.title}
+              autoComplete="off"
+            />
+            <small>请输入“{item.title}”后才能永久删除。</small>
+          </label>
 
           {error && <p className="history-impact-error">{error}</p>}
         </div>
@@ -111,7 +144,7 @@ export function PurgeTrashDialog({
             type="button"
             className="history-btn-danger"
             onClick={() => void handleConfirm()}
-            disabled={busy}
+            disabled={busy || impactBusy || !impact || confirmation !== item.title}
           >
             {busy ? (
               <>

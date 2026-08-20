@@ -1,4 +1,5 @@
 import { strict as assert } from "node:assert";
+import { createHash } from "node:crypto";
 import { removeWithRetry } from "./test-utils";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
@@ -35,6 +36,10 @@ async function run(): Promise<void> {
     let sourceProjectId = "";
     let sourceSceneId = "";
     let exported: ProjectBundleData | undefined;
+    let sourceCardId = "";
+    let sourceResourcePath = "";
+    let sourceResourceSha = "";
+    let exportedWithResource: ProjectBundleData | undefined;
 
     await scenario("准备源项目：卷章场景 + 卡片关系 + 快照", async () => {
       await withWorkspace(path.join(parent, "source"), async (workspace) => {
@@ -51,6 +56,7 @@ async function run(): Promise<void> {
         await workspace.transact({ type: "chapter.create", projectId: sourceProjectId, volumeId: volume.entityId, title: "第四章" });
         const card = await workspace.transact({ type: "card.create", projectId: sourceProjectId, kind: "character", title: "苏青", tags: ["主角"] }) as { entityId: string };
         const card2 = await workspace.transact({ type: "card.create", projectId: sourceProjectId, kind: "character", title: "顾淮" }) as { entityId: string };
+        sourceCardId = card.entityId;
         await workspace.transact({
           type: "cardRelation.create",
           projectId: sourceProjectId,
@@ -68,6 +74,31 @@ async function run(): Promise<void> {
         assert.equal(exported.relations.length, 1);
         assert.equal(exported.snapshots.length, 2);
         assert.equal(exported.project.setup.template, "long-form");
+      });
+    });
+
+    await scenario("导出包含附件元数据（resources + counts）", async () => {
+      await withWorkspace(path.join(parent, "source"), async (workspace) => {
+        const content = Buffer.from("材料文件内容-PDF-二进制-12345", "utf8");
+        const sha256 = createHash("sha256").update(content).digest("hex");
+        sourceResourcePath = `resources/${sourceProjectId}/ref-材料.pdf`;
+        sourceResourceSha = sha256;
+        await workspace.transact({
+          type: "resource.attach",
+          projectId: sourceProjectId,
+          cardId: sourceCardId,
+          relativePath: sourceResourcePath,
+          sha256,
+          size: content.length,
+          originalName: "材料.pdf"
+        });
+        exportedWithResource = (await workspace.read({ kind: "project.bundle.export", projectId: sourceProjectId }))!;
+        assert.equal(exportedWithResource.resources.length, 1);
+        assert.equal(exportedWithResource.counts.resources, 1);
+        assert.equal(exportedWithResource.resources[0]!.cardId, sourceCardId);
+        assert.equal(exportedWithResource.resources[0]!.relativePath, sourceResourcePath);
+        assert.equal(exportedWithResource.resources[0]!.sha256, sha256);
+        assert.equal(exportedWithResource.resources[0]!.size, content.length);
       });
     });
 
@@ -99,6 +130,127 @@ async function run(): Promise<void> {
         assert.equal(snapshots.some((snapshot) => snapshot.reason === "里程碑"), true);
         const integrity = await workspace.check();
         assert.equal(integrity.ok, true);
+      });
+    });
+
+    await scenario("导入后附件元数据重映射（resourceFiles）", async () => {
+      await withWorkspace(path.join(parent, "target-resource"), async (workspace) => {
+        const resource = exportedWithResource!.resources[0]!;
+        const targetPath = `resources/project-imported-${resource.id}/材料-副本.pdf`;
+        const result = (await workspace.transact({
+          type: "project.bundle.import",
+          data: exportedWithResource!,
+          resourceFiles: [
+            {
+              relativePath: resource.relativePath,
+              targetRelativePath: targetPath,
+              sha256: resource.sha256,
+              size: resource.size
+            }
+          ]
+        })) as ProjectBundleImportResult;
+        assert.equal(result.counts.resources, 1);
+        const resources = (await workspace.read({ kind: "resource.list", projectId: result.projectId })) as Array<{
+          id: string;
+          cardId: string | null;
+          relativePath: string;
+          sha256: string;
+          size: number;
+          originalName: string | null;
+        }>;
+        assert.equal(resources.length, 1);
+        assert.equal(resources[0]!.relativePath, targetPath);
+        assert.equal(resources[0]!.cardId, sourceCardId);
+        assert.equal(resources[0]!.sha256, sourceResourceSha);
+        assert.equal(resources[0]!.size, resource.size);
+        assert.equal(resources[0]!.originalName, "材料.pdf");
+      });
+    });
+
+    await scenario("DB 层导入（无映射）沿用原相对路径", async () => {
+      await withWorkspace(path.join(parent, "target-resource-plain"), async (workspace) => {
+        const result = (await workspace.transact({
+          type: "project.bundle.import",
+          data: exportedWithResource!
+        })) as ProjectBundleImportResult;
+        assert.equal(result.counts.resources, 1);
+        const resources = (await workspace.read({ kind: "resource.list", projectId: result.projectId })) as Array<{ relativePath: string }>;
+        assert.equal(resources.length, 1);
+        assert.equal(resources[0]!.relativePath, sourceResourcePath);
+      });
+    });
+
+    await scenario("附件坏引用/重复 ID/映射不一致均被拒绝且零写入", async () => {
+      await withWorkspace(path.join(parent, "target-resource-bad"), async (workspace) => {
+        const resource = exportedWithResource!.resources[0]!;
+        const capture = async (build: () => Promise<unknown>): Promise<string | undefined> => {
+          try {
+            await build();
+            return undefined;
+          } catch (error) {
+            return (error as { code?: string }).code;
+          }
+        };
+
+        assert.equal(
+          await capture(() => workspace.transact({
+            type: "project.bundle.import",
+            data: { ...exportedWithResource!, resources: [{ ...resource, cardId: "card-missing" }] }
+          })),
+          "invalid-input"
+        );
+
+        assert.equal(
+          await capture(() => workspace.transact({
+            type: "project.bundle.import",
+            data: {
+              ...exportedWithResource!,
+              project: { ...exportedWithResource!.project, id: "project-resource-dup-id" },
+              resources: [resource, { ...resource, size: resource.size + 1 }]
+            }
+          })),
+          "invalid-input"
+        );
+
+        assert.equal(
+          await capture(() => workspace.transact({
+            type: "project.bundle.import",
+            data: {
+              ...exportedWithResource!,
+              project: { ...exportedWithResource!.project, id: "project-resource-dup-target" },
+              resources: [resource, { ...resource, id: "resource-second" }]
+            },
+            resourceFiles: [
+              { relativePath: resource.relativePath, targetRelativePath: "resources/project-x/a.pdf", sha256: resource.sha256, size: resource.size },
+              { relativePath: resource.relativePath, targetRelativePath: "resources/project-x/a.pdf", sha256: resource.sha256, size: resource.size }
+            ]
+          })),
+          "invalid-input"
+        );
+
+        assert.equal(
+          await capture(() => workspace.transact({
+            type: "project.bundle.import",
+            data: { ...exportedWithResource!, project: { ...exportedWithResource!.project, id: "project-resource-no-map" } },
+            resourceFiles: []
+          })),
+          "invalid-input"
+        );
+
+        assert.equal(
+          await capture(() => workspace.transact({
+            type: "project.bundle.import",
+            data: { ...exportedWithResource!, project: { ...exportedWithResource!.project, id: "project-resource-extra-map" } },
+            resourceFiles: [
+              { relativePath: resource.relativePath, targetRelativePath: "resources/project-x/a.pdf", sha256: resource.sha256, size: resource.size },
+              { relativePath: "resources/extra/other.pdf", targetRelativePath: "resources/project-x/b.pdf", sha256: resource.sha256, size: resource.size }
+            ]
+          })),
+          "invalid-input"
+        );
+
+        const projects = (await workspace.read({ kind: "projects.list" })) as Array<{ id: string }>;
+        assert.equal(projects.length, 0);
       });
     });
 

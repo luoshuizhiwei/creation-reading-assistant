@@ -40,12 +40,27 @@ import {
   annotationCreate as annotationCreateRequest,
   annotationUpdate as annotationUpdateRequest,
   annotationDelete as annotationDeleteRequest,
+  annotationReanchor as annotationReanchorRequest,
+  snapshotPreview as snapshotPreviewRequest,
+  snapshotRestoreWithProtection as snapshotRestoreWithProtectionRequest,
+  trashImpact as trashImpactRequest,
   resourceList as resourceListRequest,
   attachResource as attachResourceRequest,
   detachResource as detachResourceRequest,
   trashList,
   updateSceneBody,
-  watchProject
+  watchProject,
+  snapshotRetentionRun,
+  cardImportOpenAndParse,
+  cardImportParse,
+  cardImportSchema,
+  cardImportPlan,
+  cardImportApply,
+  cardExportOpenAndWrite,
+  replacePlanCreate,
+  replacePlanApply,
+  sessionUpdate as sessionUpdateRequest,
+  projectUpdateGoal as projectUpdateGoalRequest
 } from "@/services/creation-service";
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
@@ -80,13 +95,21 @@ import type {
   InboxCreateCommand,
   LegacyMigrationReport,
   LegacyMigrationStatus,
+  DraftExportPreset,
   DraftImportPreview,
   ProjectBundleImportResult,
   Annotation,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
+  AnnotationReanchorCommand,
   AnnotationUpdateCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
+  TrashImpactQuery,
+  TrashImpactView,
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
@@ -98,8 +121,25 @@ import type {
   StructureRevertCommand,
   StructurePreviewView,
   StructureApplyResult,
-  StructureRevertResult
+  StructureRevertResult,
+  SessionUpdateCommand,
+  ProjectUpdateGoalCommand,
+  ProjectGoalResult,
+  SnapshotRetentionResult,
+  ReplacePlanQuery,
+  ReplacePlan,
+  ReplaceApplyOutcome
 } from "@/types/creation";
+import type {
+  CardExportFilter,
+  CardExportResult,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "@/types/card-io";
 import { messageFromError } from "@/utils/format";
 
 /**
@@ -362,9 +402,9 @@ export function useCreationActions() {
   );
 
   const exportDraft = useCallback(
-    async (projectId: string): Promise<{ canceled: boolean; filePath: string | null }> => {
+    async (projectId: string, preset: DraftExportPreset): Promise<{ canceled: boolean; filePath: string | null }> => {
       try {
-        return await exportDraftRequest(projectId);
+        return await exportDraftRequest(projectId, preset);
       } catch (error) {
         setError(messageFromError(error));
         return { canceled: true, filePath: null };
@@ -645,6 +685,79 @@ export function useCreationActions() {
     [setError]
   );
 
+  const reanchorAnnotation = useCallback(
+    async (command: AnnotationReanchorCommand): Promise<boolean> => {
+      try {
+        await annotationReanchorRequest(command);
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const updateCardType = useCallback(
+    async (command: Extract<CreationRunCommand, { type: "cardType.update" }>): Promise<boolean> =>
+      runStructure(command),
+    [runStructure]
+  );
+
+  const deleteCardType = useCallback(
+    async (command: Extract<CreationRunCommand, { type: "cardType.delete" }>): Promise<boolean> =>
+      runStructure(command),
+    [runStructure]
+  );
+
+  const updateRelationType = useCallback(
+    async (command: Extract<CreationRunCommand, { type: "relationType.update" }>): Promise<boolean> =>
+      runStructure(command),
+    [runStructure]
+  );
+
+  const deleteRelationType = useCallback(
+    async (command: Extract<CreationRunCommand, { type: "relationType.delete" }>): Promise<boolean> =>
+      runStructure(command),
+    [runStructure]
+  );
+
+  const previewSnapshot = useCallback(
+    async (query: SnapshotPreviewQuery): Promise<SnapshotPreviewView | null> => {
+      try {
+        return await snapshotPreviewRequest(query);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const restoreSnapshotWithProtection = useCallback(
+    async (command: SnapshotRestoreWithProtectionCommand): Promise<SnapshotRestoreWithProtectionResult | null> => {
+      try {
+        return await snapshotRestoreWithProtectionRequest(command);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const loadTrashImpact = useCallback(
+    async (query: TrashImpactQuery): Promise<TrashImpactView | null> => {
+      try {
+        return await trashImpactRequest(query);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
   const loadResources = useCallback(
     async (query: Omit<ResourceListQuery, "kind">): Promise<ResourceInfo[]> => {
       try {
@@ -782,6 +895,139 @@ export function useCreationActions() {
     [loadNavigation, loadOutline, loadCards, loadScene, setError]
   );
 
+  // ---- Phase 1 P1 深模块 seam 接入 ----
+
+  const runSnapshotRetention = useCallback(async (): Promise<SnapshotRetentionResult | null> => {
+    try {
+      return await snapshotRetentionRun();
+    } catch (error) {
+      setError(messageFromError(error));
+      return null;
+    }
+  }, [setError]);
+
+  const openCardImport = useCallback(async (): Promise<CardImportSource | null> => {
+    try {
+      return await cardImportOpenAndParse();
+    } catch (error) {
+      setError(messageFromError(error));
+      return null;
+    }
+  }, [setError]);
+
+  const parseCardImport = useCallback(
+    async (input: { text: string; format: "csv" | "markdown" }): Promise<CardImportPreview | null> => {
+      try {
+        return await cardImportParse(input);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const loadCardImportSchema = useCallback(
+    async (projectId: string): Promise<CardImportSchemaContext | null> => {
+      try {
+        return await cardImportSchema(projectId);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const planCardImport = useCallback(
+    async (input: CardImportApplyInput): Promise<CardImportPlan | null> => {
+      try {
+        return await cardImportPlan(input);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const applyCardImport = useCallback(
+    async (input: CardImportApplyInput): Promise<CardImportApplyResult | null> => {
+      try {
+        return await cardImportApply(input);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const exportCards = useCallback(
+    async (input: {
+      projectId: string;
+      filter: CardExportFilter;
+      format: "csv" | "markdown";
+    }): Promise<CardExportResult | null> => {
+      try {
+        return await cardExportOpenAndWrite(input);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const createReplacePlan = useCallback(
+    async (query: ReplacePlanQuery): Promise<ReplacePlan | null> => {
+      try {
+        return await replacePlanCreate(query);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const applyReplacePlan = useCallback(
+    async (input: { planId: string; excludedHitIds: string[] }): Promise<ReplaceApplyOutcome | null> => {
+      try {
+        return await replacePlanApply(input);
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
+  const updateSession = useCallback(
+    async (command: Omit<SessionUpdateCommand, "type">): Promise<boolean> => {
+      try {
+        await sessionUpdateRequest({ type: "session.update", ...command });
+        return true;
+      } catch (error) {
+        setError(messageFromError(error));
+        return false;
+      }
+    },
+    [setError]
+  );
+
+  const updateProjectGoal = useCallback(
+    async (command: Omit<ProjectUpdateGoalCommand, "type">): Promise<ProjectGoalResult | null> => {
+      try {
+        return await projectUpdateGoalRequest({ type: "project.updateGoal", ...command });
+      } catch (error) {
+        setError(messageFromError(error));
+        return null;
+      }
+    },
+    [setError]
+  );
+
   return {
     loadProjects,
     loadProjectHome,
@@ -827,10 +1073,30 @@ export function useCreationActions() {
     createAnnotation,
     updateAnnotation,
     deleteAnnotation,
+    reanchorAnnotation,
+    updateCardType,
+    deleteCardType,
+    updateRelationType,
+    deleteRelationType,
+    previewSnapshot,
+    restoreSnapshotWithProtection,
+    loadTrashImpact,
     loadResources,
     attachResource,
     detachResource,
     loadProjectExport,
-    subscribeProject
+    subscribeProject,
+    // ---- Phase 1 P1 深模块 seam 接入 ----
+    runSnapshotRetention,
+    openCardImport,
+    parseCardImport,
+    loadCardImportSchema,
+    planCardImport,
+    applyCardImport,
+    exportCards,
+    createReplacePlan,
+    applyReplacePlan,
+    updateSession,
+    updateProjectGoal
   };
 }

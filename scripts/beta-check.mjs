@@ -47,7 +47,14 @@ const DESKTOP_SCRIPTS = [
   "verify:creation-outline",
   "verify:creation-cards",
   "verify:creation-history",
+  "verify:creation-annotation",
+  "verify:creation-p1-lifecycle",
+  "verify:backup-restore",
+  "verify:auto-backup",
   "verify:creation-export",
+  "verify:creation-import",
+  "verify:creation-bundle",
+  "verify:creation-bundle-files",
   "verify:creation-journey",
   "verify:creation-planning",
   "verify:creation-inbox-count",
@@ -463,7 +470,14 @@ runScoped("verify:creation-migration-audit");
 runScoped("verify:creation-outline");
 runScoped("verify:creation-cards");
 runScoped("verify:creation-history");
+runScoped("verify:creation-annotation");
+runScoped("verify:creation-p1-lifecycle");
+runScoped("verify:backup-restore");
+runScoped("verify:auto-backup");
 runScoped("verify:creation-export");
+runScoped("verify:creation-import");
+runScoped("verify:creation-bundle");
+runScoped("verify:creation-bundle-files");
 runScoped("verify:creation-journey");
 runScoped("verify:creation-planning");
 runScoped("verify:creation-inbox-count");

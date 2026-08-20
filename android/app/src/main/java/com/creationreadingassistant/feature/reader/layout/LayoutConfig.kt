@@ -17,8 +17,8 @@ data class LayoutConfig(
     /** 正文可用高度（px），已扣除上下边距 */
     val contentHeightPx: Float,
     val fontSizePx: Float,
-    /** 行高倍数。中文正文 1.6~1.8 才透气，拉丁文的 1.5 偏挤 */
-    val lineHeightMultiplier: Float = 1.7f,
+    /** 行高倍数。中文正文 1.75~1.85 透气且不会太散；与 ReaderSettings 默认一致 */
+    val lineHeightMultiplier: Float = 1.80f,
     /** 段间距，单位 em */
     val paragraphSpacingEm: Float = 0.4f,
     /** 首行缩进，单位 em。中文标准是 2 字 */

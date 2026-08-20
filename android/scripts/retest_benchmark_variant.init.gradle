@@ -1,0 +1,19 @@
+// 临时复测用 init 脚本（不改动仓库源码）：
+// baselineProfile 插件在 :app 自动生成了 benchmarkRelease 构建类型（applicationId 无
+// .benchmarktarget 后缀），导致 :benchmark:connectedBenchmarkReleaseAndroidTest 安装的是
+// 主应用包名而非 benchmarktarget。这里给 :benchmark 测试模块补上 benchmark 构建类型，
+// 使 connectedBenchmarkAndroidTest 对应到 :app 正确的 benchmark 变体。
+allprojects { p ->
+    if (p.name == 'benchmark') {
+        p.plugins.withId('com.android.test') {
+            def ac = p.extensions.getByName('androidComponents')
+            ac.finalizeDsl { android ->
+                if (android.buildTypes.findByName('benchmark') == null) {
+                    android.buildTypes.create('benchmark') { bt ->
+                        bt.matchingFallbacks = ['release']
+                    }
+                }
+            }
+        }
+    }
+}

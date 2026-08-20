@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
-import type { CardFieldKind, CardFieldSchema } from "@/types/creation";
+import type { CardFieldKind, CardFieldSchema, CardSummary, CardType, RelationType } from "@/types/creation";
 
 const FIELD_KINDS: { value: CardFieldKind; label: string }[] = [
   { value: "text", label: "单行文本" },
@@ -27,6 +27,7 @@ interface DraftField {
   optionsText: string;
   defaultText: string;
   defaultBool: boolean;
+  existing: boolean;
 }
 
 function emptyField(): DraftField {
@@ -37,7 +38,21 @@ function emptyField(): DraftField {
     required: false,
     optionsText: "",
     defaultText: "",
-    defaultBool: false
+    defaultBool: false,
+    existing: false
+  };
+}
+
+function fieldToDraft(field: CardFieldSchema): DraftField {
+  return {
+    key: field.key,
+    label: field.label,
+    kind: field.kind,
+    required: field.required === true,
+    optionsText: field.options?.join("\n") ?? "",
+    defaultText: field.defaultValue === undefined || typeof field.defaultValue === "boolean" ? "" : String(field.defaultValue),
+    defaultBool: field.defaultValue === true,
+    existing: true
   };
 }
 
@@ -71,17 +86,23 @@ function parseDefault(field: DraftField): { value?: unknown; error?: string } {
 
 interface CardTypeEditorProps {
   projectId: string;
+  cardTypes?: CardType[];
+  cards?: CardSummary[];
+  relationTypes?: RelationType[];
   onClose: () => void;
 }
 
-export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
-  const { runStructure, loadCardTypes } = useCreationActions();
+export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relationTypes = [], onClose }: CardTypeEditorProps) {
+  const actions = useCreationActions();
+  const { runStructure, loadCardTypes, loadCards } = actions;
   const showToast = useUIStore((state) => state.showToast);
 
   const [name, setName] = useState("");
   const [fields, setFields] = useState<DraftField[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [editingType, setEditingType] = useState<CardType | null>(null);
+  const [confirmingDeleteId, setConfirmingDeleteId] = useState<string | null>(null);
 
   const updateField = (index: number, patch: Partial<DraftField>) => {
     setFields((current) => current.map((field, i) => (i === index ? { ...field, ...patch } : field)));
@@ -99,6 +120,55 @@ export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
       [next[index], next[target]] = [next[target], next[index]];
       return next;
     });
+  };
+
+  const resetDraft = () => {
+    setEditingType(null);
+    setName("");
+    setFields([]);
+    setError(null);
+    setConfirmingDeleteId(null);
+  };
+
+  const editType = (type: CardType) => {
+    if (type.projectId === null) return;
+    setEditingType(type);
+    setName(type.name);
+    setFields(type.fields.map(fieldToDraft));
+    setError(null);
+    setConfirmingDeleteId(null);
+  };
+
+  const impactFor = (type: CardType) => ({
+    cards: cards.filter((card) => card.kind === type.kind).length,
+    relationTypes: relationTypes.filter(
+      (relationType) => relationType.fromKinds.includes(type.kind) || relationType.toKinds.includes(type.kind)
+    ).length
+  });
+
+  const deleteType = async (type: CardType) => {
+    const impact = impactFor(type);
+    if (type.projectId === null || impact.cards > 0 || impact.relationTypes > 0) return;
+    if (confirmingDeleteId !== type.id) {
+      setConfirmingDeleteId(type.id);
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    const ok = await actions.deleteCardType({
+      type: "cardType.delete",
+      cardTypeId: type.id,
+      baseRevision: type.revision
+    });
+    setSubmitting(false);
+    if (!ok) {
+      setError("删除卡片类型失败，请刷新后重试。");
+      return;
+    }
+    showToast({ tone: "success", title: "卡片类型已删除" });
+    resetDraft();
+    void loadCardTypes(projectId);
+    void loadCards({ projectId });
   };
 
   const submit = async () => {
@@ -146,28 +216,86 @@ export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
     }
 
     setSubmitting(true);
-    const ok = await runStructure({
-      type: "cardType.create",
-      projectId,
-      name: trimmedName,
-      fields: schema
-    });
+    const ok = editingType
+      ? await actions.updateCardType({
+          type: "cardType.update",
+          cardTypeId: editingType.id,
+          name: trimmedName,
+          fields: schema,
+          baseRevision: editingType.revision
+        })
+      : await runStructure({
+          type: "cardType.create",
+          projectId,
+          name: trimmedName,
+          fields: schema
+        });
     setSubmitting(false);
-    if (ok) {
+    if (!ok) {
+      setError(editingType ? "保存卡片类型失败，请刷新后重试。" : "创建卡片类型失败，请重试。");
+      return;
+    }
+    if (editingType) {
+      showToast({ tone: "success", title: "卡片类型已更新" });
+      void loadCardTypes(projectId);
+      void loadCards({ projectId });
+      resetDraft();
+    } else {
       showToast({ tone: "success", title: "卡片类型已创建", body: "稳定标识由系统生成，可在卡片类型列表中查看。" });
       void loadCardTypes(projectId);
+      void loadCards({ projectId });
       onClose();
     }
   };
 
   return (
-    <div className="cards-modal-overlay" role="dialog" aria-label="新建卡片类型">
+    <div className="cards-modal-overlay" role="dialog" aria-label="管理卡片类型">
       <div className="cards-modal">
         <header className="cards-modal-head">
-          <h3>新建卡片类型</h3>
+          <h3>管理卡片类型</h3>
           <button type="button" className="cards-close" onClick={onClose} title="关闭"><X size={15} /></button>
         </header>
         <div className="cards-modal-body">
+          {cardTypes.length > 0 && (
+            <section className="cards-type-list" aria-label="现有卡片类型">
+              {cardTypes.map((type) => {
+                const impact = impactFor(type);
+                const builtin = type.projectId === null;
+                const blocked = impact.cards > 0 || impact.relationTypes > 0;
+                return (
+                  <article key={type.id} className="cards-type-list-item">
+                    <div>
+                      <strong>{type.name}</strong>
+                      <code>{type.kind}</code>
+                      <small>{builtin ? "内置类型，不可编辑或删除" : `引用影响：${impact.cards} 张卡片，${impact.relationTypes} 个关系类型`}</small>
+                    </div>
+                    <div className="cards-type-list-actions">
+                      <button type="button" className="cards-icon-btn" disabled={builtin} onClick={() => editType(type)} aria-label={`编辑${type.name}`}>
+                        <Pencil size={13} />
+                      </button>
+                      <button
+                        type="button"
+                        className={`cards-icon-btn cards-danger ${confirmingDeleteId === type.id ? "confirming" : ""}`}
+                        disabled={builtin || blocked || submitting}
+                        title={blocked ? `仍被 ${impact.cards} 张卡片和 ${impact.relationTypes} 个关系类型引用` : builtin ? "内置类型不可删除" : "删除类型"}
+                        aria-label={confirmingDeleteId === type.id ? `确认删除${type.name}` : `删除${type.name}`}
+                        onClick={() => void deleteType(type)}
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  </article>
+                );
+              })}
+            </section>
+          )}
+          <h4 className="cards-type-editor-title">{editingType ? `编辑：${editingType.name}` : "新建卡片类型"}</h4>
+          {editingType && (
+            <div className="cards-field">
+              <label className="cards-field-label">稳定 kind</label>
+              <input className="cards-input" value={editingType.kind} disabled />
+            </div>
+          )}
           <div className="cards-field">
             <label className="cards-field-label">类型名称<span className="cards-required">*</span></label>
             <input
@@ -207,7 +335,7 @@ export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
                   >
                     <ArrowDown size={13} />
                   </button>
-                  <button type="button" className="cards-icon-btn cards-danger" onClick={() => removeField(index)} title="删除字段">
+                  <button type="button" className="cards-icon-btn cards-danger" disabled={field.existing} onClick={() => removeField(index)} title={field.existing ? "既有字段 key 必须保持稳定" : "删除字段"}>
                     <Trash2 size={13} />
                   </button>
                 </div>
@@ -218,7 +346,7 @@ export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">稳定 key<span className="cards-required">*</span></label>
-                    <input className="cards-input" value={field.key} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
+                    <input className="cards-input" value={field.key} disabled={field.existing} onChange={(e) => updateField(index, { key: e.target.value })} placeholder="如 magic_name" />
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">类型</label>
@@ -268,8 +396,8 @@ export function CardTypeEditor({ projectId, onClose }: CardTypeEditorProps) {
           {error && <p className="cards-form-error" role="alert">{error}</p>}
         </div>
         <footer className="cards-form-actions cards-modal-foot">
-          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>创建类型</button>
-          <button type="button" className="cards-cancel" onClick={onClose}>取消</button>
+          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建类型"}</button>
+          <button type="button" className="cards-cancel" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</button>
         </footer>
       </div>
     </div>

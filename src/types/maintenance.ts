@@ -28,6 +28,12 @@ export interface BackupResult {
   appDataCopied: boolean;
 }
 
+export interface AutoBackupRunResult {
+  backupRoot: string;
+  manifestPath: string;
+  createdAt: string;
+}
+
 export interface RestoreResult {
   backupRoot: string;
   restoredAt: string;

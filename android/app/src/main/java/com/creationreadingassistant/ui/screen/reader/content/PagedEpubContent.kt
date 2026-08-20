@@ -50,6 +50,8 @@ import com.creationreadingassistant.ui.screen.reader.tts.buildSentenceHighlighte
 import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * EPUB 翻页模式视图（从 ReaderScreen.kt 拆出，纯结构搬运，不改语义）。
@@ -267,9 +269,16 @@ internal fun PagedChapterContent(
                 }
                 is DocBlock.Image -> {
                     val imageFile = remember(block.path) { java.io.File(block.path) }
+                    // StrictMode-safe：lastModified() 放到 IO 线程，避免组合期主线程 I/O。
+                    var imageModTs by remember(block.path) { mutableStateOf(0L) }
+                    LaunchedEffect(block.path) {
+                        imageModTs = withContext(Dispatchers.IO) {
+                            runCatching { imageFile.lastModified() }.getOrDefault(0L)
+                        }
+                    }
                     val imageRequest = rememberViewportImageRequest(
                         data = imageFile,
-                        cacheKey = "reader:${block.path}:${imageFile.lastModified()}",
+                        cacheKey = "reader:${block.path}:$imageModTs",
                     )
                     AsyncImage(
                         model = imageRequest,

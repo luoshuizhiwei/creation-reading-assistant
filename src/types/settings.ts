@@ -14,6 +14,16 @@ export interface StorageSettings {
   libraryDirectory: string;
   storageMode: "portable" | "custom" | "fallback";
   lastMigratedAt?: string;
+  /** 自动备份保存目录（v2 校验备份的父目录）。 */
+  backupDirectory?: string;
+  /** 每日 / 升级前自动备份开关。 */
+  autoBackupEnabled?: boolean;
+  /** 最近一次自动备份成功时间（ISO）。 */
+  lastAutoBackupAt?: string;
+  /** 最近一次自动备份失败时间（ISO）。 */
+  lastAutoBackupFailedAt?: string;
+  /** 最近一次自动备份失败的可读原因（不含内部堆栈）。 */
+  lastAutoBackupError?: string;
 }
 
 export interface StorageLocations {

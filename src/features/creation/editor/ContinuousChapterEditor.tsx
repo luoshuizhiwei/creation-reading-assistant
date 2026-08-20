@@ -12,6 +12,8 @@ export interface ContinuousSceneRef {
 export interface ContinuousChapterEditorHandle {
   /** 保存所有脏场景；任一失败时返回 false（但不阻塞其它场景）。 */
   saveAllDirty: () => Promise<boolean>;
+  getSelection: () => SceneSelection | null;
+  isComposing: () => boolean;
 }
 
 export interface ContinuousChapterEditorProps {
@@ -49,6 +51,7 @@ export const ContinuousChapterEditor = forwardRef<ContinuousChapterEditorHandle,
 
     // 每个场景一个独立句柄（各自持有 session，保证自动保存 / IME / 冲突互不影响）。
     const handles = useRef(new Map<string, SceneEditorHandle>());
+    const activeSceneId = useRef<string | null>(null);
 
     const register = useCallback((sceneId: string, handle: SceneEditorHandle | null) => {
       if (handle) {
@@ -74,7 +77,9 @@ export const ContinuousChapterEditor = forwardRef<ContinuousChapterEditorHandle,
             }
           }
           return allOk;
-        }
+        },
+        getSelection: () => activeSceneId.current ? handles.current.get(activeSceneId.current)?.getSelection() ?? null : null,
+        isComposing: () => activeSceneId.current ? handles.current.get(activeSceneId.current)?.isComposing() ?? false : false
       }),
       []
     );
@@ -97,8 +102,14 @@ export const ContinuousChapterEditor = forwardRef<ContinuousChapterEditorHandle,
                 onSave={onSave}
                 onReloadScene={onReloadScene ? () => onReloadScene(scene.id) : undefined}
                 onStatsChange={onStatsChange ? (chars) => onStatsChange(scene.id, chars) : undefined}
-                onSelectionChange={onSelectionChange}
-                onMentionTrigger={onMentionTrigger}
+                onSelectionChange={(selection) => {
+                  if (selection) activeSceneId.current = selection.sceneId;
+                  onSelectionChange?.(selection);
+                }}
+                onMentionTrigger={(selection) => {
+                  activeSceneId.current = selection.sceneId;
+                  onMentionTrigger?.(selection);
+                }}
                 focusMode={focusMode}
                 onToggleFocusMode={onToggleFocusMode}
                 typewriter={typewriter}

@@ -55,6 +55,8 @@ fun <Frame : Any> PageTurner(
     revealProgress: Float = 0f,
     revealDividerColor: Color? = null,
     revealBackground: Color = Color.Transparent,
+    /** 真实触发翻页（onPrevious / onNext 已被调用）后回调；用于通知外层隐藏阅读菜单栏。 */
+    onPageTurned: () -> Unit = {},
     content: @Composable BoxScope.(frame: Frame, isCurrent: Boolean) -> Unit,
 ) {
     BoxWithConstraints(modifier) {
@@ -80,6 +82,7 @@ fun <Frame : Any> PageTurner(
                     dx.animateTo(if (direction < 0) width else -width, tween(220))
                 }
                 if (direction < 0) onPrevious() else onNext()
+                onPageTurned()
                 // 两段式提交：让新 currentFrame 先进入 Composition，再撤掉旧位移。
                 withFrameNanos { }
                 dx.snapTo(0f)
@@ -92,9 +95,25 @@ fun <Frame : Any> PageTurner(
             if (turnRequest == 0) return@LaunchedEffect
             val direction = turnRequest
             onTurnRequestConsumed()
-            // 使用 remember scope，让 request 被消费或 currentFrame 换新时不会取消
-            // 已经开始的 settle；否则恰好会卡在提交后的旧位移上。
-            scope.launch { settle(direction, animate = true) }
+            val neighborFrame = if (direction < 0) previousFrame else nextFrame
+            if (neighborFrame != null) {
+                scope.launch { settle(direction, animate = true) }
+            } else {
+                // 相邻页尚未预排（典型场景：跨章后新章第 1 页，controller.canGoNext 真但 frameAt(1) 还没 build）。
+                // 直接落 onNext/onPrevious，让 PagedReaderController 先推进 layout，再把锚点跳到新页；
+                // 不播放翻页动画，避免视觉上「旧页弹回原位 + 跳页」的割裂感。
+                if (!turning) {
+                    turning = true
+                    try {
+                        if (direction < 0) onPrevious() else onNext()
+                        onPageTurned()
+                        // 两段式提交：等新 frame 先入 Composition，再解锁 turning 防重入锁。
+                        withFrameNanos { }
+                    } finally {
+                        turning = false
+                    }
+                }
+            }
         }
 
         val dragModifier = Modifier.pointerInput(

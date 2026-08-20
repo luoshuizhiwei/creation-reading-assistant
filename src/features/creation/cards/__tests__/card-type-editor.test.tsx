@@ -4,9 +4,28 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, render, screen, cleanup, fireEvent, waitFor } from "@testing-library/react";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
 import { useUIStore } from "@/stores/ui-store";
-import * as creationService from "@/services/creation-service";
-import type { CardFieldKind } from "@/types/creation";
+import type { CardFieldKind, CardSummary, CardType, RelationType } from "@/types/creation";
 
+// Agent 1 提供的公共 Hook；在本测试中直接桩接，避免绕过 Hook 直接调用 IPC。
+const actions = vi.hoisted(() => ({
+  runStructure: vi.fn(),
+  updateCardType: vi.fn(),
+  deleteCardType: vi.fn(),
+  loadCardTypes: vi.fn(),
+  loadCards: vi.fn()
+}));
+
+vi.mock("@/hooks/useCreationActions", () => ({
+  useCreationActions: () => ({
+    runStructure: actions.runStructure,
+    updateCardType: actions.updateCardType,
+    deleteCardType: actions.deleteCardType,
+    loadCardTypes: actions.loadCardTypes,
+    loadCards: actions.loadCards
+  })
+}));
+
+// 保留 creationService 桩以免 store 引入真实主进程模块；编辑器经 Hook 调用，不会触达真实服务。
 vi.mock("@/services/creation-service", () => ({
   inboxList: vi.fn(),
   inboxCount: vi.fn(),
@@ -93,15 +112,130 @@ function addFieldAndConfigure(
 }
 
 beforeEach(() => {
-  vi.mocked(creationService.runStructure).mockReset();
-  vi.mocked(creationService.runStructure).mockResolvedValue(true);
-  vi.mocked(creationService.cardTypesList).mockResolvedValue([]);
+  actions.runStructure.mockReset();
+  actions.runStructure.mockResolvedValue(true);
+  actions.updateCardType.mockReset();
+  actions.updateCardType.mockResolvedValue(true);
+  actions.deleteCardType.mockReset();
+  actions.deleteCardType.mockResolvedValue(true);
+  actions.loadCardTypes.mockResolvedValue(undefined);
+  actions.loadCards.mockResolvedValue(undefined);
   useUIStore.setState({ toasts: [] });
 });
 
 afterEach(() => cleanup());
 
 describe("CardTypeEditor 自定义卡片类型", () => {
+  it("编辑自定义类型时锁定 kind 与既有字段 key，并携带 baseRevision 提交", async () => {
+    const customType: CardType = {
+      id: "type-magic",
+      projectId: "p1",
+      kind: "custom_magic",
+      name: "功法",
+      fields: [{ key: "grade", label: "品阶", kind: "text" }],
+      sortOrder: 8,
+      createdAt: "",
+      updatedAt: "",
+      revision: 7
+    };
+    const { container } = render(
+      <CardTypeEditor
+        projectId="p1"
+        cardTypes={[customType]}
+        cards={[] as CardSummary[]}
+        relationTypes={[] as RelationType[]}
+        onClose={() => {}}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "编辑功法" }));
+    expect(screen.getByDisplayValue("custom_magic").disabled).toBe(true);
+    expect(screen.getByDisplayValue("grade").disabled).toBe(true);
+    fireEvent.change(screen.getByDisplayValue("功法"), { target: { value: "绝学" } });
+    fireEvent.change(screen.getByDisplayValue("品阶"), { target: { value: "境界" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(actions.updateCardType).toHaveBeenCalledTimes(1));
+    expect(actions.updateCardType.mock.calls[0][0]).toMatchObject({
+      type: "cardType.update",
+      cardTypeId: "type-magic",
+      name: "绝学",
+      fields: [{ key: "grade", label: "境界", kind: "text" }],
+      baseRevision: 7
+    });
+  });
+
+  it("删除自定义类型需二次确认，无引用时携带 revision 删除", async () => {
+    const customType: CardType = {
+      id: "type-unused",
+      projectId: "p1",
+      kind: "custom_unused",
+      name: "未使用类型",
+      fields: [],
+      sortOrder: 8,
+      createdAt: "",
+      updatedAt: "",
+      revision: 4
+    };
+    render(<CardTypeEditor projectId="p1" cardTypes={[customType]} cards={[]} relationTypes={[]} onClose={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "删除未使用类型" }));
+    expect(actions.deleteCardType).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "确认删除未使用类型" }));
+
+    await waitFor(() =>
+      expect(actions.deleteCardType).toHaveBeenCalledWith({
+        type: "cardType.delete",
+        cardTypeId: "type-unused",
+        baseRevision: 4
+      })
+    );
+  });
+
+  it("卡片或关系类型仍引用时说明影响并禁用删除，内置类型不可编辑删除", () => {
+    const customType: CardType = {
+      id: "type-used",
+      projectId: "p1",
+      kind: "custom_used",
+      name: "被引用类型",
+      fields: [],
+      sortOrder: 8,
+      createdAt: "",
+      updatedAt: "",
+      revision: 2
+    };
+    const builtinType = { ...customType, id: "type-builtin", projectId: null, kind: "character", name: "角色" };
+    const card = {
+      id: "card-1", projectId: "p1", kind: "custom_used", title: "卡片", aliases: [], fields: {}, tags: [], createdAt: "", updatedAt: "", revision: 1
+    } satisfies CardSummary;
+    const relationType = {
+      id: "rel-type", projectId: "p1", name: "rel", forwardName: "关联", reverseName: "被关联", fromKinds: ["custom_used"], toKinds: [], createdAt: "", updatedAt: "", revision: 1
+    } satisfies RelationType;
+    render(<CardTypeEditor projectId="p1" cardTypes={[customType, builtinType]} cards={[card]} relationTypes={[relationType]} onClose={() => {}} />);
+
+    expect(screen.getByText("引用影响：1 张卡片，1 个关系类型")).toBeDefined();
+    expect(screen.getByRole("button", { name: "删除被引用类型" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "编辑角色" }).disabled).toBe(true);
+    expect(screen.getByRole("button", { name: "删除角色" }).disabled).toBe(true);
+    expect(screen.getByText("内置类型，不可编辑或删除")).toBeDefined();
+  });
+
+  it("更新失败时保留编辑内容与错误提示", async () => {
+    actions.updateCardType.mockResolvedValue(false);
+    const customType: CardType = {
+      id: "type-fail", projectId: "p1", kind: "custom_fail", name: "旧名称", fields: [], sortOrder: 8, createdAt: "", updatedAt: "", revision: 3
+    };
+    render(<CardTypeEditor projectId="p1" cardTypes={[customType]} cards={[]} relationTypes={[]} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "编辑旧名称" }));
+    fireEvent.change(screen.getByDisplayValue("旧名称"), { target: { value: "未保存名称" } });
+    fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
+
+    await waitFor(() => expect(screen.getByRole("alert").textContent).toContain("保存卡片类型失败"));
+    expect(screen.getByDisplayValue("未保存名称")).toBeDefined();
+    expect(screen.getByRole("button", { name: "保存修改" })).toBeDefined();
+    expect(actions.updateCardType).toHaveBeenCalledTimes(1);
+  });
+
   it("可创建包含全部 10 种字段声明类型的自定义 CardType", async () => {
     const { container } = render(<CardTypeEditor projectId="p1" onClose={() => {}} />);
 
@@ -117,10 +251,8 @@ describe("CardTypeEditor 自定义卡片类型", () => {
 
     fireEvent.click(screen.getByText("创建类型"));
 
-    await waitFor(() =>
-      expect(creationService.runStructure).toHaveBeenCalledTimes(1)
-    );
-    const command = vi.mocked(creationService.runStructure).mock.calls[0][0] as Record<string, unknown>;
+    await waitFor(() => expect(actions.runStructure).toHaveBeenCalledTimes(1));
+    const command = actions.runStructure.mock.calls[0][0] as Record<string, unknown>;
     expect(command.type).toBe("cardType.create");
     expect(command.name).toBe("测试类型");
     const fields = command.fields as Array<{ key: string; kind: string; options?: string[] }>;
@@ -144,7 +276,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     fireEvent.click(screen.getByText("创建类型"));
 
     await waitFor(() => expect(screen.getByText(/重复/)).toBeDefined());
-    expect(creationService.runStructure).not.toHaveBeenCalled();
+    expect(actions.runStructure).not.toHaveBeenCalled();
   });
 
   it("空名称或空 key 不提交", async () => {
@@ -154,7 +286,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     addFieldAndConfigure(container, 0, { label: "字段甲", key: "k1", kind: "text" });
     fireEvent.click(screen.getByText("创建类型"));
     await waitFor(() => expect(screen.getByText(/请填写类型名称/)).toBeDefined());
-    expect(creationService.runStructure).not.toHaveBeenCalled();
+    expect(actions.runStructure).not.toHaveBeenCalled();
 
     fireEvent.change(screen.getByPlaceholderText("例如：功法、神兵"), { target: { value: "有名称" } });
     // 把字段 key 清空
@@ -162,7 +294,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     fireEvent.change(inputs[1], { target: { value: "" } });
     fireEvent.click(screen.getByText("创建类型"));
     await waitFor(() => expect(screen.getByText(/字段 key/)).toBeDefined());
-    expect(creationService.runStructure).not.toHaveBeenCalled();
+    expect(actions.runStructure).not.toHaveBeenCalled();
   });
 
   it("选项字段没有有效选项不提交", async () => {
@@ -171,16 +303,17 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     addFieldAndConfigure(container, 0, { label: "单选字段", key: "sel", kind: "select", options: "" });
     fireEvent.click(screen.getByText("创建类型"));
     await waitFor(() => expect(screen.getByText(/至少需要一个有效选项/)).toBeDefined());
-    expect(creationService.runStructure).not.toHaveBeenCalled();
+    expect(actions.runStructure).not.toHaveBeenCalled();
   });
 
-  it("创建成功后回调 onClose 并刷新卡片类型列表", async () => {
+  it("创建成功后回调 onClose 并刷新卡片类型与卡片列表", async () => {
     const onClose = vi.fn();
     const { container } = render(<CardTypeEditor projectId="p1" onClose={onClose} />);
     fireEvent.change(screen.getByPlaceholderText("例如：功法、神兵"), { target: { value: "关闭测试" } });
     addFieldAndConfigure(container, 0, { label: "字段甲", key: "k1", kind: "text" });
     fireEvent.click(screen.getByText("创建类型"));
     await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
-    expect(creationService.cardTypesList).toHaveBeenCalledWith("p1");
+    expect(actions.loadCardTypes).toHaveBeenCalledWith("p1");
+    expect(actions.loadCards).toHaveBeenCalledWith({ projectId: "p1" });
   });
 });

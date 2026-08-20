@@ -1,8 +1,20 @@
-import { useCallback, useEffect, useState } from "react";
-import { Clock3, Flame, Hash, History, Library, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { CalendarClock, Clock3, Edit3, Flame, Library, PencilLine, Target, Trash2 } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
-import type { ProjectStatsView, SessionEntry } from "@/types/creation";
+import type { CreationProjectSetup, ProjectHomeEntry, ProjectStatsView, ProjectUpdateGoalCommand, SessionEntry } from "@/types/creation";
+import { GoalEditorDialog, type GoalUpdatePatch } from "./GoalEditorDialog";
+import { SessionEditDialog, type SessionUpdatePatch } from "./SessionEditDialog";
+import {
+  computeDailyNetChars,
+  computeGoalDeadline,
+  computeGoalProgress,
+  computeWeekSummary,
+  DEFAULT_WORD_METRIC,
+  WORD_METRIC_LABELS,
+  wordsForMetric,
+  type WordMetric
+} from "./stats-calculator";
 
 interface StatsPageProps {
   projectId: string;
@@ -15,17 +27,162 @@ function formatMinutes(minutes: number): string {
   return rest > 0 ? `${hours} 小时 ${rest} 分钟` : `${hours} 小时`;
 }
 
+/**
+ * 目标进度卡：按项目主指标（seam 接入前默认非空白字符）展示总字数目标进度、
+ * 今日/本周净增、目标日期倒计时与每周更新日平均。指标可本地预览切换（不写项目）。
+ */
+function GoalProgressCard({
+  setup,
+  stats,
+  projectId,
+  onUpdateGoal
+}: {
+  setup: CreationProjectSetup | null;
+  stats: ProjectStatsView;
+  projectId: string;
+  onUpdateGoal: (command: Omit<ProjectUpdateGoalCommand, "type">) => Promise<boolean>;
+}) {
+  const [metric, setMetric] = useState<WordMetric>(DEFAULT_WORD_METRIC);
+  const progress = useMemo(() => computeGoalProgress(stats, setup ?? { template: "blank", weeklyUpdateDays: [], chapterWorkflow: [] }, metric), [metric, setup, stats]);
+  const week = useMemo(() => computeWeekSummary(stats), [stats]);
+  const deadline = useMemo(() => computeGoalDeadline(stats, setup ?? { template: "blank", weeklyUpdateDays: [], chapterWorkflow: [] }, metric), [metric, setup, stats]);
+  const [goalOpen, setGoalOpen] = useState(false);
+  const [goalBusy, setGoalBusy] = useState(false);
+  const [goalError, setGoalError] = useState<string | null>(null);
+
+  const handleSaveGoal = useCallback(
+    async (patch: GoalUpdatePatch): Promise<boolean> => {
+      setGoalBusy(true);
+      setGoalError(null);
+      try {
+        const ok = await onUpdateGoal({
+          projectId,
+          totalWordGoal: patch.totalWordGoal ?? null,
+          dailyWordGoal: patch.dailyWordGoal ?? null,
+          weeklyWordGoal: patch.weeklyWordGoal ?? null,
+          targetDate: patch.targetDate ?? null,
+          weeklyUpdateDays: patch.weeklyUpdateDays
+        });
+        if (!ok) setGoalError("目标已被其他会话更新，请刷新后重试。");
+        return ok;
+      } catch (error) {
+        setGoalError(error instanceof Error ? error.message : String(error));
+        return false;
+      } finally {
+        setGoalBusy(false);
+      }
+    },
+    [onUpdateGoal, projectId]
+  );
+
+  return (
+    <div className="stats-card stats-goal-card">
+      <h3>
+        <Target size={15} /> 目标进度
+        {setup ? (
+          <button
+            type="button"
+            className="stats-goal-edit"
+            onClick={() => {
+              setGoalError(null);
+              setGoalOpen(true);
+            }}
+          >
+            <Edit3 size={13} /> 编辑目标
+          </button>
+        ) : null}
+      </h3>
+      <div className="stats-metric-switch" role="group" aria-label="字数指标预览">
+        {(Object.keys(WORD_METRIC_LABELS) as WordMetric[]).map((item) => (
+          <button
+            key={item}
+            type="button"
+            className={metric === item ? "active" : ""}
+            aria-pressed={metric === item}
+            title="指标预览（保存为项目主指标需目标更新接口）"
+            onClick={() => setMetric(item)}
+          >
+            {WORD_METRIC_LABELS[item]}
+          </button>
+        ))}
+      </div>
+
+      {progress ? (
+        <div className="stats-goal-progress">
+          <div className="stats-goal-bar" role="img" aria-label={`总字数目标进度 ${progress.percent}%`}>
+            <div className="stats-goal-bar-fill" style={{ width: `${progress.percent}%` }} />
+          </div>
+          <p className="stats-goal-numbers">
+            {progress.current.toLocaleString("zh-CN")} / {progress.target.toLocaleString("zh-CN")} {WORD_METRIC_LABELS[metric]}（{progress.percent}%）
+          </p>
+          <p className="stats-note">
+            {progress.reached
+              ? "已达到总字数目标。"
+              : `距离目标还差 ${progress.remaining.toLocaleString("zh-CN")} ${WORD_METRIC_LABELS[metric]}。`}
+          </p>
+        </div>
+      ) : (
+        <p className="stats-note">尚未设置总字数目标。</p>
+      )}
+
+      <dl className="stats-words">
+        <div><dt>今日净增</dt><dd>{computeDailyNetChars(stats).toLocaleString("zh-CN")} 字</dd></div>
+        <div><dt>本周净增</dt><dd>{week.netChars.toLocaleString("zh-CN")} 字</dd></div>
+        <div><dt>本周时长</dt><dd>{formatMinutes(Math.round(week.activeSeconds / 60))}</dd></div>
+      </dl>
+
+      {deadline ? (
+        <p className="stats-note">
+          <CalendarClock size={13} /> 距目标日期还有 {deadline.daysLeft} 天，日均需 {deadline.perDayNeeded.toLocaleString("zh-CN")} 字。
+        </p>
+      ) : null}
+      {setup?.weeklyWordGoal !== undefined && setup.weeklyWordGoal > 0 && setup.weeklyUpdateDays.length > 0 ? (
+        <p className="stats-note">
+          每周目标 {setup.weeklyWordGoal.toLocaleString("zh-CN")} 字，更新日 {setup.weeklyUpdateDays.length} 天，平均每日{" "}
+          {Math.ceil(setup.weeklyWordGoal / setup.weeklyUpdateDays.length).toLocaleString("zh-CN")} 字。
+        </p>
+      ) : null}
+      {setup && goalOpen ? (
+        <GoalEditorDialog
+          open={goalOpen}
+          initial={setup}
+          onClose={() => setGoalOpen(false)}
+          onSave={handleSaveGoal}
+          busy={goalBusy}
+          error={goalError}
+          metricLocked
+        />
+      ) : null}
+    </div>
+  );
+}
+
 export function StatsPage({ projectId }: StatsPageProps) {
-  const { loadStats, loadSessions, deleteSession } = useCreationActions();
+  const { loadProjectHome, loadStats, loadSessions, deleteSession, updateProjectGoal, updateSession } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const [stats, setStats] = useState<ProjectStatsView | null>(null);
   const [sessions, setSessions] = useState<SessionEntry[]>([]);
+  const [setup, setSetup] = useState<CreationProjectSetup | null>(null);
   const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const [editingSession, setEditingSession] = useState<SessionEntry | null>(null);
+  const [sessionBusy, setSessionBusy] = useState(false);
+  const [sessionError, setSessionError] = useState<string | null>(null);
 
-  const refresh = useCallback(async () => {
+    const refresh = useCallback(async () => {
     setStats(await loadStats(projectId));
     setSessions(await loadSessions({ projectId, limit: 100 }));
-  }, [loadSessions, loadStats, projectId]);
+    const home = await loadProjectHome();
+    const entry: ProjectHomeEntry | undefined = home.projects.find((item) => item.id === projectId);
+    setSetup(entry?.setup ?? null);
+  }, [loadProjectHome, loadSessions, loadStats, projectId]);
+
+  const handleUpdateGoal = useCallback(
+    async (command: Omit<ProjectUpdateGoalCommand, "type">): Promise<boolean> => {
+      const result = await updateProjectGoal(command);
+      return result !== null;
+    },
+    [updateProjectGoal]
+  );
 
   useEffect(() => {
     void refresh();
@@ -40,24 +197,38 @@ export function StatsPage({ projectId }: StatsPageProps) {
     setConfirmingId(null);
   };
 
+  const handleSaveSession = async (patch: SessionUpdatePatch): Promise<boolean> => {
+    if (!editingSession) return false;
+    setSessionBusy(true);
+    setSessionError(null);
+    try {
+      const ok = await updateSession({ projectId, sessionId: editingSession.id, ...patch });
+      if (ok) {
+        setEditingSession(null);
+        await refresh();
+      } else {
+        setSessionError("会话已被其他会话更新，请刷新后重试。");
+      }
+      return ok;
+    } catch (error) {
+      setSessionError(error instanceof Error ? error.message : String(error));
+      return false;
+    } finally {
+      setSessionBusy(false);
+    }
+  };
+
   if (!stats) {
-    return <section className="creation-writing-loading" role="status"><History size={24} /><span>正在读取统计…</span></section>;
+    return <section className="creation-writing-loading" role="status"><Library size={24} /><span>正在读取统计…</span></section>;
   }
 
   const maxDaily = Math.max(...stats.daily.map((item) => Math.abs(item.netChars)), 1);
-  const { words, sessionMinutes, revisionCount, snapshotCount, streakDays, chapterStatusCounts, daily } = stats;
+  const { sessionMinutes, revisionCount, snapshotCount, streakDays, chapterStatusCounts, daily } = stats;
 
   return (
     <section className="stats-page" aria-label="创作统计">
       <div className="stats-grid">
-        <div className="stats-card">
-          <h3><Hash size={15} /> 字数（当前全稿）</h3>
-          <dl className="stats-words">
-            <div><dt>汉字</dt><dd>{words.han.toLocaleString("zh-CN")}</dd></div>
-            <div><dt>含标点</dt><dd>{words.withPunctuation.toLocaleString("zh-CN")}</dd></div>
-            <div><dt>非空白字符</dt><dd>{words.nonWhitespace.toLocaleString("zh-CN")}</dd></div>
-          </dl>
-        </div>
+        <GoalProgressCard setup={setup} stats={stats} projectId={projectId} onUpdateGoal={handleUpdateGoal} />
         <div className="stats-card">
           <h3><Clock3 size={15} /> 写作时长</h3>
           <dl className="stats-words">
@@ -72,7 +243,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
           <p className="stats-note">按有写作会话的连续天数计算（含今天）。</p>
         </div>
         <div className="stats-card">
-          <h3><Library size={15} /> 进度</h3>
+          <h3><Library size={15} /> 修订与结构</h3>
           <dl className="stats-words">
             <div><dt>正文修订</dt><dd>{revisionCount.toLocaleString("zh-CN")} 次</dd></div>
             <div><dt>命名快照</dt><dd>{snapshotCount.toLocaleString("zh-CN")} 个</dd></div>
@@ -97,9 +268,9 @@ export function StatsPage({ projectId }: StatsPageProps) {
       </div>
 
       <div className="stats-card stats-sessions-card">
-        <h3>写作会话（可修正）</h3>
+        <h3><PencilLine size={15} /> 写作会话（可修正）</h3>
         {sessions.length === 0 ? (
-          <p className="stats-note">在写作台输入内容时才会计时；空闲超过 5 分钟自动暂停，不记录具体按键内容。</p>
+          <p className="stats-note">在写作台输入、选择或结构操作时才会计时；空闲超过 5 分钟自动暂停，不记录具体按键内容。</p>
         ) : (
           <ul className="stats-sessions">
             {sessions.map((session) => (
@@ -112,6 +283,17 @@ export function StatsPage({ projectId }: StatsPageProps) {
                   </em>
                 </span>
                 <span className="history-item-actions">
+                  <button
+                    type="button"
+                    className="stats-session-edit"
+                    onClick={() => {
+                      setSessionError(null);
+                      setEditingSession(session);
+                    }}
+                  >
+                    <Edit3 size={13} />
+                    修正
+                  </button>
                   <button
                     type="button"
                     className={confirmingId === session.id ? "confirming" : ""}
@@ -129,6 +311,17 @@ export function StatsPage({ projectId }: StatsPageProps) {
           </ul>
         )}
       </div>
+
+      {editingSession ? (
+        <SessionEditDialog
+          open={editingSession !== null}
+          session={editingSession}
+          onClose={() => setEditingSession(null)}
+          onSave={handleSaveSession}
+          busy={sessionBusy}
+          error={sessionError}
+        />
+      ) : null}
     </section>
   );
 }

@@ -62,6 +62,52 @@
   font-size: 13px;
 }
 
+.cards-type-list {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.cards-type-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid var(--border, #e2e2ea);
+  border-radius: 8px;
+  background: var(--surface-alt, #fafafe);
+}
+
+.cards-type-list-item > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.cards-type-list-item code,
+.cards-type-list-item small {
+  color: var(--text-dim, #6b6b78);
+  font-size: 11px;
+}
+
+.cards-type-list-actions {
+  display: flex;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+.cards-type-editor-title {
+  margin: 0 0 10px;
+  font-size: 13px;
+}
+
+.cards-icon-btn.confirming {
+  background: #c0392b;
+  color: #fff;
+  border-color: #c0392b;
+}
+
 .cards-fields-manager {
   border: 1px solid var(--border, #e2e2ea);
   border-radius: 8px;

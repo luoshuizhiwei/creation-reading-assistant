@@ -192,7 +192,12 @@ async function run(): Promise<void> {
         body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "第一章被改坏的内容。" }] }] }
       });
       const snapshots = (await workspace!.read({ kind: "snapshot.list", projectId, subjectType: "scene", subjectId: sceneId })) as SnapshotInfo[];
-      await workspace!.transact({ type: "snapshot.restore", projectId, snapshotId: snapshots.find((item) => item.reason === "发布前")!.id });
+      await workspace!.restoreSnapshotWithProtection({
+        type: "snapshot.restoreWithProtection",
+        projectId,
+        snapshotId: snapshots.find((item) => item.reason === "发布前")!.id,
+        protectionReason: "恢复前保护"
+      });
       const restored = await workspace!.read({ kind: "scene.body", sceneId });
       assert.equal(JSON.stringify(restored?.body).includes("第一章的开头"), true);
       // 回收站

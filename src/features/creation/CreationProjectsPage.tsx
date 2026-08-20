@@ -24,6 +24,7 @@ import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
 import { CardsPage } from "@/features/creation/cards/CardsPage";
 import { HistoryPage } from "@/features/creation/history/HistoryPage";
 import { ImportDraftDialog } from "@/features/creation/import/ImportDraftDialog";
+import { ExportDraftDialog } from "@/features/creation/export/ExportDraftDialog";
 import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
 import { OutlinePage } from "@/features/creation/outline/OutlinePage";
 import { OverviewPage } from "@/features/creation/overview/OverviewPage";
@@ -33,6 +34,8 @@ import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
 import { ProjectHomePage } from "@/features/creation/home/ProjectHomePage";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { useOperation } from "@/hooks/useOperation";
+import { OperationProgressDialog } from "@/features/creation/operation/OperationProgressDialog";
 import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import { useSearchStore } from "@/stores/search-store";
@@ -75,7 +78,8 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const selectScene = useCreationStore((state) => state.selectScene);
   const selectCard = useCreationStore((state) => state.selectCard);
-  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, exportDraft, loadMigrationStatus, exportBundle, importBundle } = useCreationActions();
+  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, loadMigrationStatus } = useCreationActions();
+  const operation = useOperation();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
@@ -84,6 +88,7 @@ export function CreationProjectsPage() {
   const [migrationOpen, setMigrationOpen] = useState(false);
   const [migrationNotice, setMigrationNotice] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const [view, setView] = useState<ProjectView>("overview");
   /** 导入成功后递增，通知项目首页重新读取 project.home。 */
   const [homeRefreshKey, setHomeRefreshKey] = useState(0);
@@ -140,31 +145,33 @@ export function CreationProjectsPage() {
 
   const handleExport = async () => {
     if (!selected) return;
-    const result = await exportDraft(selected.id);
-    if (!result.canceled && result.filePath) {
-      showToast({ tone: "success", title: "已导出成稿", body: result.filePath });
-    }
+    setExportOpen(true);
   };
 
   const handleExportBundle = async () => {
     if (!selected) return;
-    const result = await exportBundle(selected.id);
-    if (!result.canceled && result.directory) {
-      showToast({ tone: "success", title: "已导出项目包", body: result.directory });
+    try {
+      await operation.start({ kind: "bundle.export", projectId: selected.id });
+    } catch (error) {
+      showToast({ tone: "error", title: "导出项目包失败", body: error instanceof Error ? error.message : String(error) });
     }
   };
 
   const handleImportBundle = async () => {
-    const result = await importBundle();
-    if (result.canceled || !result.result) return;
-    await loadProjects();
-    setHomeRefreshKey((key) => key + 1);
-    showToast({
-      tone: "success",
-      title: "项目包已导入",
-      body: `共 ${result.result.counts.volumes} 卷 ${result.result.counts.chapters} 章 ${result.result.counts.cards} 张卡片。`
-    });
+    try {
+      await operation.start({ kind: "bundle.import" });
+    } catch (error) {
+      showToast({ tone: "error", title: "导入项目包失败", body: error instanceof Error ? error.message : String(error) });
+    }
   };
+
+  // 导入完成后刷新项目列表与首页（替代旧 importBundle 的同步回调）。
+  useEffect(() => {
+    if (operation.state?.status === "completed" && operation.state.kind === "bundle.import") {
+      void loadProjects();
+      setHomeRefreshKey((key) => key + 1);
+    }
+  }, [operation.state?.status, operation.state?.kind, loadProjects]);
 
   const paletteCommands = useMemo(() => {
     const commands: Array<{ id: string; label: string; group: string; keywords?: string[]; shortcut?: string; run(): void }> = [
@@ -363,11 +370,11 @@ export function CreationProjectsPage() {
                   <Download size={16} />
                   <span>导出成稿</span>
                 </Button>
-                <Button className="project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" onClick={() => void handleExportBundle()}>
+                <Button className="project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
                   <FolderOutput size={16} />
                   <span>导出项目包</span>
                 </Button>
-              <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" onClick={() => void handleImportBundle()}>
+              <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
                 <span>导入项目包</span>
               </Button>
@@ -498,6 +505,22 @@ export function CreationProjectsPage() {
             void loadProjects();
             setHomeRefreshKey((key) => key + 1);
           }}
+        />
+      )}
+      {exportOpen && selected && (
+        <ExportDraftDialog
+          projectId={selected.id}
+          projectTitle={selected.title}
+          onClose={() => setExportOpen(false)}
+        />
+      )}
+      {operation.state && (
+        <OperationProgressDialog
+          state={operation.state}
+          isCommitting={operation.isCommitting}
+          onCancel={operation.cancel}
+          onClose={operation.reset}
+          onReset={operation.retry}
         />
       )}
     </div>

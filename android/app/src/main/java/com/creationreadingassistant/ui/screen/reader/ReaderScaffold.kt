@@ -243,6 +243,10 @@ internal fun ReaderScaffold(
     val bookOriginalFile: String? = loadedBook?.originalFileName
     val paperFg: Color = paper.fg
 
+    // ── 边缘亮度手势 HUD（起点同款：左/右边缘上下滑调亮度 → 中央弹 HUD 显示百分比）──
+    // 手势开始时 true，结束 false；HUD 自己会在结束后延迟 1.2s 再淡出。
+    var brightnessHudVisible by remember { mutableStateOf(false) }
+
     // 可变 var 从 holder 重新委托：写操作直接落回 ReaderScreen 持有的真实状态。
     var autoPagingActive by holders.autoPagingActiveState
     var runtimeError by holders.runtimeErrorState
@@ -272,18 +276,43 @@ internal fun ReaderScaffold(
 
     ReaderPaperTheme(paper) {
     Scaffold(
-        modifier = Modifier.drawWithContent {
-            drawContent()
-            if (eyeCareActive) {
-                // 滤镜色来自色温设置（EyeCareSchedule.rgbForKelvin）：暖色 Multiply 叠层，
-                // alpha 由强度控制；此前误用 paper.fg 导致色温滑条无视觉效果。
-                drawRect(
-                    color = eyeFilterColor,
-                    alpha = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f,
-                    blendMode = BlendMode.Multiply,
-                )
+        modifier = Modifier
+            .drawWithContent {
+                drawContent()
+                // ── 1/2：护眼色温滤镜（暖色 Multiply 叠层，OLED 纯黑兼容降强度）──
+                if (eyeCareActive) {
+                    val base = readerSettings.eyeCareIntensity.coerceIn(0, 100) / 100f
+                    val intensity = if (readerSettings.eyeCareOledBlackCompat && !paper.isLight) {
+                        base * 0.45f
+                    } else base
+                    drawRect(
+                        color = eyeFilterColor,
+                        alpha = intensity,
+                        blendMode = BlendMode.Multiply,
+                    )
+                }
+                // ── 2/2：额外压暗遮罩（补 0–4% 范围的屏幕亮度缺口）──
+                // readerBrightness ≥ 5 时此层完全透明；0–4 时用黑色 SrcOver 继续压暗，
+                // 达到「拉到 0% 真的很暗」的效果。置于护眼滤镜之后，保证压暗同时色温仍然生效。
+                val dimming = ReaderWindowPolicy.overlayDimmingAlpha(readerSettings.brightness)
+                if (dimming > 0f) {
+                    drawRect(
+                        color = Color.Black,
+                        alpha = dimming,
+                    )
+                }
             }
-        },
+            // ── 边缘上下滑调亮度手势（左/右 18dp 窄条，起点同款）──
+            // 只有按下命中边缘窄条时才进入亮度调节，其余位置完全不拦截事件，
+            // 让三区点击翻页、长按选区、滚动照常工作。
+            .readerBrightnessEdgeGesture(
+                readerBrightness = readerSettings.brightness,
+                lastFixedBrightness = readerSettings.lastFixedBrightness,
+                onBrightnessChange = { next ->
+                    settingsVm.updateReader { copy(brightness = next) }
+                },
+                onGestureActiveChange = { brightnessHudVisible = it },
+            ),
         snackbarHost = { SnackbarHost(snackbarHost) },
     ) {
         // Scaffold padding intentionally ignored: reader is full-screen immersive.
@@ -519,6 +548,12 @@ internal fun ReaderScaffold(
                     onAction = onAction,
                     onCancelTxtScan = { onAction(ReaderAction.CancelTxtTocScan) },
                 ),
+            )
+
+            // 最上层：边缘上下滑调亮度 HUD；松手后延迟 1.2s 再淡出
+            ReaderBrightnessHUD(
+                visible = brightnessHudVisible,
+                brightness = readerSettings.brightness,
             )
         }
     }

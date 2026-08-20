@@ -256,6 +256,7 @@ internal fun PagedReaderPageSurface(
                 selRange.value = null
                 controller.nextPage()
             },
+            onPageTurned = onGesturePageTurn,
             revealProgress = revealProgress,
             revealDividerColor = MaterialTheme.colorScheme.primary,
             revealBackground = pageBackground,

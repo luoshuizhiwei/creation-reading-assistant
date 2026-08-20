@@ -481,6 +481,20 @@ export interface CardTypeCreateCommand {
   fields: CardFieldSchema[];
 }
 
+export interface CardTypeUpdateCommand {
+  type: "cardType.update";
+  cardTypeId: string;
+  name: string;
+  fields: CardFieldSchema[];
+  baseRevision: number;
+}
+
+export interface CardTypeDeleteCommand {
+  type: "cardType.delete";
+  cardTypeId: string;
+  baseRevision: number;
+}
+
 export interface RelationTypeCreateCommand {
   type: "relationType.create";
   projectId: string;
@@ -488,6 +502,24 @@ export interface RelationTypeCreateCommand {
   reverseName: string;
   fromKinds?: string[];
   toKinds?: string[];
+}
+
+export interface RelationTypeUpdateCommand {
+  type: "relationType.update";
+  relationTypeId: string;
+  /** 稳定内部 key；更新时必须与当前值一致。 */
+  name: string;
+  forwardName: string;
+  reverseName: string;
+  fromKinds?: string[];
+  toKinds?: string[];
+  baseRevision: number;
+}
+
+export interface RelationTypeDeleteCommand {
+  type: "relationType.delete";
+  relationTypeId: string;
+  baseRevision: number;
 }
 
 export interface CardCreateCommand {
@@ -535,7 +567,11 @@ export interface CardRelationDeleteCommand {
 
 export type CardCommand =
   | CardTypeCreateCommand
+  | CardTypeUpdateCommand
+  | CardTypeDeleteCommand
   | RelationTypeCreateCommand
+  | RelationTypeUpdateCommand
+  | RelationTypeDeleteCommand
   | CardCreateCommand
   | CardUpdateCommand
   | CardDeleteCommand
@@ -605,7 +641,7 @@ export interface TrashPurgeCommand {
   entityId: string;
 }
 
-export type SnapshotSubjectType = "scene" | "card";
+export type SnapshotSubjectType = "scene" | "card" | "chapter" | "volume";
 
 export interface SnapshotInfo {
   id: string;
@@ -624,12 +660,6 @@ export interface SnapshotCreateCommand {
   reason: string;
 }
 
-export interface SnapshotRestoreCommand {
-  type: "snapshot.restore";
-  projectId: string;
-  snapshotId: string;
-}
-
 export interface SnapshotListQuery {
   kind: "snapshot.list";
   projectId: string;
@@ -637,11 +667,63 @@ export interface SnapshotListQuery {
   subjectId?: string;
 }
 
-export type HistoryCommand =
-  | TrashRestoreCommand
-  | TrashPurgeCommand
-  | SnapshotCreateCommand
-  | SnapshotRestoreCommand;
+export interface SnapshotPreviewQuery {
+  kind: "snapshot.preview";
+  projectId: string;
+  snapshotId: string;
+}
+
+export interface SnapshotDiffRow {
+  label: string;
+  before: string;
+  after: string;
+  changed: boolean;
+}
+
+export interface SnapshotPreviewView {
+  snapshotId: string;
+  subjectType: SnapshotSubjectType;
+  subjectId: string;
+  title: string;
+  rows: SnapshotDiffRow[];
+  warnings: string[];
+  canRestore: boolean;
+}
+
+export interface SnapshotRestoreWithProtectionCommand {
+  type: "snapshot.restoreWithProtection";
+  projectId: string;
+  snapshotId: string;
+  protectionReason: string;
+}
+
+export interface SnapshotRestoreWithProtectionResult {
+  ok: true;
+  protectionSnapshotId: string;
+  restoredSubjectType: SnapshotSubjectType;
+  restoredSubjectId: string;
+  revision: number;
+}
+
+export interface TrashImpactQuery {
+  kind: "trash.impact";
+  projectId: string;
+  entity: TrashEntityKind;
+  entityId: string;
+}
+
+export interface TrashImpactView {
+  title: string;
+  childVolumeCount: number;
+  childChapterCount: number;
+  childSceneCount: number;
+  relatedCardCount: number;
+  resourceCount: number;
+  approxChars: number;
+  warnings: string[];
+}
+
+export type HistoryCommand = TrashRestoreCommand | TrashPurgeCommand | SnapshotCreateCommand;
 
 // ---------------------------------------------------------------------------
 // 切片 9：成稿导出
@@ -651,6 +733,14 @@ export interface ProjectExportScene {
   id: string;
   title: string;
   /** 场景正文纯文本（块间空行、场景分隔换行）。 */
+  text: string;
+  /** 最小块级视图（仅 kind + 文本，不包含 marks/完整 bodyJson），供审阅稿等需要区分块类型的导出使用。 */
+  blocks?: ProjectExportBlock[];
+}
+
+/** 场景导出最小块：kind 为块类型（paragraph/quoteLetter/centeredText/authorNote/sceneBreak）。 */
+export interface ProjectExportBlock {
+  kind: string;
   text: string;
 }
 
@@ -676,6 +766,18 @@ export interface ProjectExportView {
 export interface ProjectExportQuery {
   kind: "project.export";
   projectId: string;
+  /** 为 true 时场景附带 blocks（kind + 文本）；默认只返回 text。 */
+  includeBlocks?: boolean;
+}
+
+/** 成稿导出预设。 */
+export type DraftExportPreset = "platform-plain" | "standard-review";
+
+export interface DraftExportBuildResult {
+  preset: DraftExportPreset;
+  /** 目标文件扩展名（不带点）。 */
+  extension: "txt" | "md";
+  text: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -785,7 +887,11 @@ export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["typ
   "scene.move": true,
   "scene.delete": true,
   "cardType.create": true,
+  "cardType.update": true,
+  "cardType.delete": true,
   "relationType.create": true,
+  "relationType.update": true,
+  "relationType.delete": true,
   "card.create": true,
   "card.update": true,
   "card.delete": true,
@@ -794,7 +900,6 @@ export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["typ
   "trash.restore": true,
   "trash.purge": true,
   "snapshot.create": true,
-  "snapshot.restore": true,
   "project.importDraft": true,
   "scene.updatePlanning": true,
   "inbox.convertToCard": true
@@ -890,7 +995,7 @@ export type StructureRevertResult = {
 
 export type StructurePlanResult = StructurePreviewView | StructureApplyResult | StructureRevertResult;
 
-export type DraftImportFormat = "txt" | "markdown";
+export type DraftImportFormat = "txt" | "markdown" | "docx";
 
 export interface DraftImportPreviewChapter extends DraftImportChapterInput {
   wordCount: number;
@@ -916,7 +1021,8 @@ export interface DraftImportPreview {
 // ---------------------------------------------------------------------------
 
 export interface ProjectBundleData {
-  formatVersion: 1;
+  /** v1 不含批注；v2 增加 annotations 数组（导入端同时接受 v1 与 v2）。 */
+  formatVersion: 1 | 2;
   project: {
     id: string;
     title: string;
@@ -1004,6 +1110,29 @@ export interface ProjectBundleData {
     payloadJson: string;
     createdAt: string;
   }>;
+  /** 附件元数据（文件实体位于项目包 resources/** 目录，由文件层负责校验与落盘）。 */
+  resources: Array<{
+    id: string;
+    cardId: string | null;
+    /** 工作区 resources 目录内的相对路径（项目包内对应 resources/<去前缀路径>）。 */
+    relativePath: string;
+    sha256: string;
+    size: number;
+    originalName: string | null;
+    createdAt: string;
+  }>;
+  /** v2 起导出全部未删除批注（scene/card 引用保持包内 ID，导入时随目标 ID 映射重映射）。 */
+  annotations: Array<{
+    id: string;
+    sceneId: string;
+    cardId: string | null;
+    anchor: AnnotationAnchor;
+    note: string;
+    status: "open" | "resolved";
+    revision: number;
+    createdAt: string;
+    updatedAt: string;
+  }>;
   counts: {
     volumes: number;
     chapters: number;
@@ -1011,6 +1140,8 @@ export interface ProjectBundleData {
     cards: number;
     relations: number;
     snapshots: number;
+    resources: number;
+    annotations: number;
   };
   exportedAt: string;
 }
@@ -1023,6 +1154,19 @@ export interface ProjectBundleExportQuery {
 export interface ProjectBundleImportCommand {
   type: "project.bundle.import";
   data: ProjectBundleData;
+  /** 可选：目标项目 ID（文件层预先生成，保证不与现有项目冲突；缺省时沿用包内 ID 或自动生成）。 */
+  targetProjectId?: string;
+  /** 可选：资源文件落盘映射。提供时必须与 data.resources 一一对应（路径/哈希/大小均匹配）；缺省时按原 relativePath 登记（仅 DB 层导入）。 */
+  resourceFiles?: ProjectBundleResourceFile[];
+}
+
+export interface ProjectBundleResourceFile {
+  /** 项目包内资源相对路径（resources/**）。 */
+  relativePath: string;
+  /** 导入后工作区内的新相对路径（resources/<新项目ID>/<文件名>）。 */
+  targetRelativePath: string;
+  sha256: string;
+  size: number;
 }
 
 export interface ProjectBundleImportResult {
@@ -1098,8 +1242,15 @@ export interface AnnotationDeleteCommand {
   annotationId: string;
 }
 
+export interface AnnotationReanchorCommand {
+  type: "annotation.reanchor";
+  annotationId: string;
+  baseRevision: number;
+  anchor: AnnotationAnchor;
+}
+
 export interface AnnotationResult {
-  commandType: "annotation.create" | "annotation.update" | "annotation.delete";
+  commandType: "annotation.create" | "annotation.update" | "annotation.delete" | "annotation.reanchor";
   sequence: number;
   annotationId: string;
   revision: number;
@@ -1274,6 +1425,84 @@ export interface ReplaceApplyResult {
 }
 
 // ---------------------------------------------------------------------------
+// 切片：全项目替换计划（P1-F08 / P1-P07）seam 类型
+// 跨越 IPC 边界（主进程 / 预加载 / 渲染端三套 tsc 均可见），故定义于本文件；
+// 深层模块 replace-plan.ts 复用并 re-export。注意 scope 与既有 ReplaceScope
+// （"project" | "volume" | "chapter" | "scene"）不同，这里独立为 ReplacePlanScope。
+// ---------------------------------------------------------------------------
+
+export type ReplacePlanScope = "all" | "chapter" | "scene";
+export type ReplacePlanMode = "plain" | "regex";
+
+export interface ReplacePlanQuery {
+  projectId: string;
+  scope: ReplacePlanScope;
+  scopeId?: string;
+  find: string;
+  replaceWith: string;
+  mode: ReplacePlanMode;
+  limit?: number;
+  createdBy?: string;
+}
+
+export interface ReplaceTextRange {
+  start: number;
+  end: number;
+}
+
+export interface ReplaceHit {
+  hitId: string;
+  sceneId: string;
+  blockIndex: number;
+  range: ReplaceTextRange;
+  before: string;
+  after: string;
+  context: string;
+}
+
+export interface ReplacePlanSceneSummary {
+  sceneId: string;
+  chapterId: string;
+  chapterTitle: string;
+  title: string;
+  hitCount: number;
+}
+
+export interface ReplacePlanSceneSeal {
+  sceneId: string;
+  revision: number;
+  hash: string;
+}
+
+export interface ReplacePlan {
+  planId: string;
+  projectId: string;
+  scope: ReplacePlanScope;
+  scopeId?: string;
+  find: string;
+  replaceWith: string;
+  mode: ReplacePlanMode;
+  scenes: ReplacePlanSceneSummary[];
+  hits: ReplaceHit[];
+  totalHits: number;
+  limit: number;
+  truncated: boolean;
+  seals: Record<string, ReplacePlanSceneSeal>;
+  sealedAt: string;
+  expiresAt: string;
+  contentHash: string;
+}
+
+export interface ReplaceApplyOutcome {
+  planId: string;
+  sequence: number;
+  appliedHitCount: number;
+  modifiedSceneIds: string[];
+  snapshotIds: string[];
+  committedAt: string;
+}
+
+// ---------------------------------------------------------------------------
 // 切片 10：统计与创作目标
 // ---------------------------------------------------------------------------
 
@@ -1341,6 +1570,45 @@ export interface SessionDeleteCommand {
   type: "session.delete";
   projectId: string;
   sessionId: string;
+}
+
+/**
+ * 修正已存在的写作会话（编辑开始时间 / 活动秒数 / 净增字符）。
+ * 仅允许更新这三个可修正字段；其余元数据（id、projectId、reportedAt）不可变。
+ */
+export interface SessionUpdateCommand {
+  type: "session.update";
+  projectId: string;
+  sessionId: string;
+  startedAt?: string;
+  activeSeconds?: number;
+  netChars?: number;
+}
+
+/** 项目目标设置更新命令（写入 setup_json，不新增表列）。 */
+export interface ProjectUpdateGoalCommand {
+  type: "project.updateGoal";
+  projectId: string;
+  dailyWordGoal?: number | null;
+  weeklyWordGoal?: number | null;
+  totalWordGoal?: number | null;
+  targetDate?: string | null;
+  description?: string | null;
+  genre?: string | null;
+  weeklyUpdateDays?: number[];
+}
+
+/** 项目目标更新后的结果（返回最新 setup 供 UI 直接刷新）。 */
+export interface ProjectGoalResult {
+  projectId: string;
+  setup: CreationProjectSetup;
+}
+
+/** 分层快照留存执行结果（system 受控，不给渲染端任何 reason）。 */
+export interface SnapshotRetentionResult {
+  keepIds: string[];
+  deleteIds: string[];
+  deletedCount: number;
 }
 
 export interface SessionEntry {
@@ -1583,7 +1851,7 @@ export interface LegacyMigrationStatus {
 }
 
 export interface SessionReportResult {
-  commandType: "session.report" | "session.delete";
+  commandType: "session.report" | "session.delete" | "session.update";
   sequence: number;
   projectId: string;
   sessionId: string;

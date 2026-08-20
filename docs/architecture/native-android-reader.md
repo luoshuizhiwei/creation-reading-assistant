@@ -1,7 +1,7 @@
 # 独立原生 Android 阅读器架构
 
 状态：当前执行依据  
-更新日期：2026-08-08  
+更新日期：2026-08-20
 范围：`android/`（Kotlin + Jetpack Compose + Room）
 
 ## 1. 运行边界
@@ -46,20 +46,22 @@ ReaderDocument
 
 ## 4. 阅读工具
 
-- 系统 TTS + MediaSession 通知控制、续读、句级高亮。
-- 书签、笔记、高亮、阅读灵感和书摘导出。
-- 书内搜索、目录、进度跳转、自动翻页、音量键翻页。
-- 用户自配 OpenAI-compatible AI 阅读辅助；Key 单独加密保存，不进入同步和导出。
-- 阅读纸张与应用外观分离，最终视觉规范见 `docs/WorkBuddy/theme_visual_plan.md`。
+- 系统 TTS + MediaSession 通知控制、续读、句级高亮；章末自动接续（EPUB/MD）、拔耳机自动暂停、语速 0.5–2.0x 连续调节。
+- 书签、笔记、高亮、阅读灵感和书摘导出（SAF 写 `.md` + 系统分享，四类内容）。
+- 书内搜索（进度+取消）、全局搜索（含正文预览命中）、目录（卷分组/最近浏览/内嵌书签）、进度跳转（拖动百分比预览 + 精确输入）、自动翻页/滚动、音量键翻页、屏幕方向锁定。
+- 灵感中心：类型/状态筛选、排序、AI 变体、定位来源跳转。
+- 书架：格式/状态/书单/分类/标签多维筛选（标签多选）、批量管理、导入内容哈希查重、EPUB 内嵌封面提取。
+- 用户自配 OpenAI-compatible AI 阅读辅助（流式+取消+无网预检）；Key 单独加密保存，不进入同步和导出。
+- 阅读纸张与应用外观分离（色温滤镜/纸张纹理可调），最终视觉规范见 `docs/WorkBuddy/theme_visual_plan.md`。
 
 ## 5. 当前已知边界
 
-1. 大 TXT 流式已闭环（`TextStreamLoader` 5MB 阈值 + `TxtFileScanner` 索引 + 有界窗口读取），小文件路径保持整本解码；个别消费者（如导入预览、锚点跳转）仍需复核不整文件 `readText()`。
-2. AI 阅读辅助（A11）未闭环：`AiClient` 固定 `stream=false`、OkHttp `execute()` 阻塞调用不可协程取消、无 401/429/5xx 错误分类与响应脱敏，关闭 Sheet 后旧请求仍占用线程最长 60s。
-3. EPUB 全书搜索无进度与取消 UI（底层已逐章流式且可取消）。
-4. Room 外键索引（A8）已完成：schema v8 为全部 9 个外键列声明索引（reading_sessions.book_id、inspirations.source_book_id、inspiration_variants.inspiration_id、notes.book_id/inspiration_id、highlights.book_id、book_tag.tag_id、book_category.category_id、shelf_book.book_id），7→8 迁移与 1→8 全链迁移测试已加入；1→8 真机复核待办。
-5. 自动化：JVM 单测 809 项全绿；设备侧已有 Room 迁移测试与 Compose 关键路径（ReaderScreen/ReaderAccessibilityLayout/EpubParser 等 androidTest 11 个文件），但 CI 只编译不执行设备测试。
-6. GitHub Release 已在 P0-A2（2026-07-29）退役旧 `mobile/android` APK 的构建与上传；原生 `android/` Release 迁移属于后续 P0-A3，完成前 Release 工作流只构建桌面端。
+1. 大 TXT 流式已闭环（`TextStreamLoader` 5MB 阈值 + `TxtFileScanner` 索引 + 有界窗口读取），小文件路径保持整本解码。2026-08-16 复核：生产路径已无整文件 `readText()`（仅存崩溃日志/EPUB nav/整库导入/更新检查 4 处合理使用）；剩余为 50MB 级真机压力验证。
+2. AI 阅读辅助（A11）已闭环：`AiClient` 支持 SSE 流式（`chatStreaming`）与协程取消（`executeCancellable` + `invokeOnCancellation`），401/429/5xx/网络错误分类、错误消息不携带响应体（防 API Key 回显）、非加密 http 一次性警示（局域网白名单）；`AiClientTest` 16 个用例锁定。
+3. EPUB 全书搜索已有进度与取消 UI：`ReaderSearchLogic` 逐章流式检索带 `onProgress` 回调与 `yield()` 协作取消，`ReaderSearchSheet` 展示「已扫描 X/Y」进度条并可取消在途搜索。
+4. Room schema 已演进到 v10：外键索引（A8）保持完整；v9→v10 新增本地体验态表 `chapter_reads`，并为 tags/shelves 增加 `sort_order`。迁移会为分类/标签/书单旧数据生成稳定唯一序号，避免同值交换无效；9→10 与 1→10 全链迁移已在真实手机通过。
+5. 自动化：JVM 全量单测、`lintDebug`、`assembleDebug` 与 androidTest 编译于 2026-08-20 通过；真实手机定向执行 28 项（全部迁移、ChapterRead DAO、三类真实 Room 排序）0 失败。CI 的 `android-migration-tests` 模拟器 job 仍只执行迁移测试一个类；调试构建已启用 StrictMode（penaltyLog，release 无影响）。
+6. 原生 Android 发布（P0-A3）已收口（2026-08-16）：`release.yml` 按 tag 前缀分流（`v*` 桌面端 / `android-v*` Android 签名 APK + GPL 源码包 + SHA-256），版本注入与签名兜底/CI 缺签名即失败已落在 `android/app/build.gradle.kts`；应用内「检查更新」按 `android-v` 前缀过滤 releases 列表并做语义化版本比较（`UpdateCheck` + JVM 单测）。首次发版前需按 `docs/release/ANDROID_RELEASE.md` §2.4 配置签名 Secrets。
 
 完整任务与验收见 `docs/testing/native-android-gap-audit-2026-07-29.md`。
 

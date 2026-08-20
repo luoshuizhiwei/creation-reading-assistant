@@ -152,8 +152,8 @@ fun SettingSliderRow(
 }
 
 /**
- * 阅读亮度行：跟随系统（-1）与固定亮度（5..100）二选一。
- * 默认跟随系统，避免阅读器强制把屏幕拉满刺眼。
+ * 阅读亮度行：跟随系统（-1）与固定亮度（0..100）二选一。
+ * 默认跟随系统，避免阅读器强制把屏幕拉满刺眼；固定亮度 0–4% 靠黑色压暗遮罩补足。
  */
 @Composable
 fun SettingBrightnessRow(
@@ -169,7 +169,7 @@ fun SettingBrightnessRow(
             subtitle = if (followSystem) "阅读亮度与手机保持一致" else "关闭后使用下方固定亮度",
             checked = followSystem,
             onCheckedChange = { follow ->
-                onBrightnessChange(if (follow) -1 else fixedDefault.coerceIn(5, 100))
+                onBrightnessChange(if (follow) -1 else fixedDefault.coerceIn(0, 100))
             },
         )
         if (!followSystem) {
@@ -178,8 +178,8 @@ fun SettingBrightnessRow(
                 value = brightness.toFloat(),
                 valueLabel = "$brightness%",
                 onValueChange = { onBrightnessChange(it.toInt()) },
-                valueRange = 5f..100f,
-                steps = 18,
+                valueRange = 0f..100f,
+                steps = 99,
             )
         }
     }

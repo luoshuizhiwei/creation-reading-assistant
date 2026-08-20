@@ -1,4 +1,8 @@
 declare module "better-sqlite3" {
+  interface DatabaseOptions {
+    readonly?: boolean;
+  }
+
   interface RunResult {
     changes: number;
     lastInsertRowid: number | bigint;
@@ -11,7 +15,7 @@ declare module "better-sqlite3" {
   }
 
   export default class Database {
-    constructor(filename: string);
+    constructor(filename: string, options?: DatabaseOptions);
     close(): void;
     exec(sql: string): this;
     function(

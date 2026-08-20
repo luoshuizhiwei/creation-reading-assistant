@@ -53,6 +53,21 @@ const service = vi.hoisted(() => ({
 
 vi.mock("@/services/creation-service", () => service);
 
+// 长任务以 operation 系统驱动：导入按钮通过 operation:start + 进度事件完成。
+const operation = vi.hoisted(() => ({
+  startOperation: vi.fn(),
+  getOperationState: vi.fn(),
+  cancelOperation: vi.fn(),
+  subscribeOperation: vi.fn()
+}));
+
+vi.mock("@/services/operation-service", () => ({
+  startOperation: (request: Parameters<typeof operation.startOperation>[0]) => operation.startOperation(request),
+  getOperationState: (id: string) => operation.getOperationState(id),
+  cancelOperation: (id: string) => operation.cancelOperation(id),
+  subscribeOperation: (id: string, listener: (state: unknown) => void) => operation.subscribeOperation(id, listener)
+}));
+
 vi.mock("@/features/creation/import/ImportDraftDialog", () => ({
   ImportDraftDialog: ({ onImported, onClose }: { onImported: () => void; onClose: () => void }) => (
     <div data-testid="import-draft-dialog">
@@ -158,15 +173,32 @@ beforeEach(() => {
   service.inboxCount.mockResolvedValue({ total: 0, pending: 0 });
   service.migrationStatus.mockResolvedValue(null);
   service.readProjectNavigation.mockResolvedValue(null);
+  operation.startOperation.mockResolvedValue({
+    operationId: "op-import",
+    kind: "bundle.import",
+    status: "running",
+    progress: { phase: "validating", completed: 0, total: 1, bytesCompleted: null, bytesTotal: null, indeterminate: false },
+    startedAt: 0,
+    deferredCancel: false
+  });
+  operation.subscribeOperation.mockImplementation((_id: string, listener: (state: unknown) => void) => {
+    listener({
+      operationId: "op-import",
+      kind: "bundle.import",
+      status: "completed",
+      progress: { phase: "done", completed: 1, total: 1, bytesCompleted: null, bytesTotal: null, indeterminate: false },
+      startedAt: 0,
+      finishedAt: 1,
+      deferredCancel: false,
+      result: { status: "completed", result: { projectId: "p9", projectName: "导入包", counts: { volumes: 1, chapters: 1, scenes: 1, cards: 0, relations: 0, snapshots: 0, resources: 0, annotations: 0 } } }
+    });
+    return vi.fn();
+  });
 });
 afterEach(() => cleanup());
 
 describe("CreationProjectsPage 导入后首页刷新", () => {
-  it("项目包导入成功后重新读取 project.home", async () => {
-    service.importProjectBundle.mockResolvedValue({
-      canceled: false,
-      result: { commandType: "project.bundle.import", sequence: 1, projectId: "p9", counts: { volumes: 1, chapters: 1, scenes: 1, cards: 0, relations: 0, snapshots: 0 } }
-    });
+  it("项目包导入成功后重新读取 project.home（operation 系统）", async () => {
     service.readProjectHome.mockResolvedValue({
       projects: [{
         id: "p9", title: "导入包", setup: { template: "blank", weeklyUpdateDays: [], chapterWorkflow: ["规划"] },
@@ -179,18 +211,30 @@ describe("CreationProjectsPage 导入后首页刷新", () => {
     const beforeImport = service.readProjectHome.mock.calls.length;
 
     fireEvent.click(screen.getByRole("button", { name: /导入项目包/ }));
+    await waitFor(() => expect(operation.startOperation).toHaveBeenCalledWith(expect.objectContaining({ kind: "bundle.import" })));
     await waitFor(() => expect(service.readProjectHome.mock.calls.length).toBeGreaterThan(beforeImport));
     expect(await screen.findByText("导入包")).toBeDefined();
   });
 
   it("项目包导入取消时不得重新读取 project.home", async () => {
-    service.importProjectBundle.mockResolvedValue({ canceled: true, result: null });
+    operation.subscribeOperation.mockImplementation((_id: string, listener: (state: unknown) => void) => {
+      listener({
+        operationId: "op-import",
+        kind: "bundle.import",
+        status: "cancelled",
+        progress: { phase: "done", completed: 1, total: 1, bytesCompleted: null, bytesTotal: null, indeterminate: false },
+        startedAt: 0,
+        finishedAt: 1,
+        deferredCancel: false
+      });
+      return vi.fn();
+    });
     render(<CreationProjectsPage />);
     await waitFor(() => expect(service.readProjectHome.mock.calls.length).toBeGreaterThanOrEqual(1));
     await new Promise((resolve) => setTimeout(resolve, 50));
     const beforeImport = service.readProjectHome.mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: /导入项目包/ }));
-    await waitFor(() => expect(service.importProjectBundle).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(operation.startOperation).toHaveBeenCalledWith(expect.objectContaining({ kind: "bundle.import" })));
     await new Promise((resolve) => setTimeout(resolve, 50));
     expect(service.readProjectHome.mock.calls.length).toBe(beforeImport);
   });

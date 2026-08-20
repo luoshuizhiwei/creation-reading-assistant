@@ -258,7 +258,7 @@ export function ReadingStatsPage() {
                   ) : (
                     <div className="grid gap-2">
                       {stats.byBook.map((book) => (
-                        <div key={book.bookId} className="grid grid-cols-[1fr_120px_70px] items-center gap-3 rounded-lg border border-paper-line bg-white/50 px-3 py-2 text-sm">
+                        <div key={book.bookId} className="grid grid-cols-[1fr_120px_70px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                           <div className="min-w-0">
                             <div className="truncate font-medium text-paper-ink">{book.title}</div>
                             <div className="text-xs uppercase text-paper-muted">{book.format}</div>
@@ -278,7 +278,7 @@ export function ReadingStatsPage() {
                   ) : (
                     <div className="grid gap-2">
                       {stats.recentBooks.map((book) => (
-                        <div key={book.bookId} className="grid grid-cols-[1fr_100px_80px] items-center gap-3 rounded-lg border border-paper-line bg-white/50 px-3 py-2 text-sm">
+                        <div key={book.bookId} className="grid grid-cols-[1fr_100px_80px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                           <div className="min-w-0">
                             <div className="truncate font-medium text-paper-ink">{book.title}</div>
                             <div className="text-xs text-paper-muted">{formatDate(book.lastReadAt)}</div>
@@ -317,7 +317,7 @@ export function ReadingStatsPage() {
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">阅读器产生有效时长后会出现在这里。</div>
                   ) : (
                     stats.recentSessions.map((session) => (
-                      <div key={session.id} className="rounded-lg border border-paper-line bg-white/50 px-3 py-2 text-sm">
+                      <div key={session.id} className="rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-paper-muted">{formatDate(session.startAt)}</span>
                           <span className="font-medium text-paper-ink">{formatDuration(session.activeDurationMs)}</span>

@@ -47,24 +47,57 @@ import type {
   InboxUpdateCommand,
   InboxCreateCommand,
   ProjectBundleData,
-  ProjectBundleImportCommand,
   ProjectBundleImportResult,
   AnnotationCreateCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
   AnnotationUpdateCommand,
+  AnnotationReanchorCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
+  TrashImpactQuery,
+  TrashImpactView,
   ResourceAttachCommand,
   ResourceDetachCommand,
   ResourceInfo,
   ResourceListQuery,
-  ResourceResult
+  ResourceResult,
+  SessionUpdateCommand,
+  ProjectUpdateGoalCommand,
+  ProjectGoalResult,
+  SnapshotRetentionResult,
+  ReplacePlanQuery,
+  ReplacePlan,
+  ReplaceApplyOutcome
 } from "../../src/types/creation";
+import type {
+  CardExportFilter,
+  CardExportResult,
+  CardExportRow,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "../../src/types/card-io";
+import {
+  collectExportFieldKeys,
+  exportCardsToCsv,
+  exportCardsToMarkdown,
+  parseCardSource
+} from "./creation-card-io/card-io-index";
 import { CreationWorkspaceError } from "./creation-workspace";
+import { exportProjectBundleDirectory, importProjectBundleDirectory } from "./creation-bundle";
 import type { CreationCommand } from "./creation-workspace/types";
 import type { CreationCoordinator } from "./creation-coordinator";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
 import { previewLegacyDraft } from "./creation-import";
+import { buildDraftExport, DRAFT_EXPORT_PRESET_META, isDraftExportPreset } from "./creation-export";
+import type { DraftExportPreset } from "../../src/types/creation";
 
 function assertRunCommand(value: unknown): CreationRunCommand {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -197,8 +230,78 @@ function assertStructureApplyCommand(value: unknown): StructureApplyWithProtecti
   };
 }
 
-function assertStructureRevertCommand(value: unknown): StructureRevertCommand {
-  const command = assertRecord(value, "结构撤回请求");
+function assertAnnotationReanchorCommand(value: unknown): AnnotationReanchorCommand {
+  const command = assertRecord(value, "批注重新定位请求");
+  if (command.type !== "annotation.reanchor") {
+    throw new CreationWorkspaceError("invalid-input", "批注重新定位请求类型必须为 annotation.reanchor。");
+  }
+  const anchor = assertRecord(command.anchor, "批注锚点");
+  if (
+    !Number.isInteger(anchor.blockIndex) ||
+    (anchor.blockIndex as number) < 0 ||
+    !Number.isInteger(anchor.textOffset) ||
+    (anchor.textOffset as number) < 0 ||
+    !Number.isInteger(anchor.textLength) ||
+    (anchor.textLength as number) < 1
+  ) {
+    throw new CreationWorkspaceError("invalid-input", "批注锚点无效。");
+  }
+  return {
+    type: "annotation.reanchor",
+    annotationId: assertRequiredText(command.annotationId, "批注 ID"),
+    baseRevision: assertPositiveRevision(command.baseRevision, "批注基础版本"),
+    anchor: {
+      blockIndex: anchor.blockIndex as number,
+      textOffset: anchor.textOffset as number,
+      textLength: anchor.textLength as number,
+      text: typeof anchor.text === "string" ? anchor.text : undefined
+    }
+  };
+}
+
+function assertSnapshotPreviewQuery(value: unknown): SnapshotPreviewQuery {
+  const query = assertRecord(value, "快照预览请求");
+  if (query.kind !== "snapshot.preview") {
+    throw new CreationWorkspaceError("invalid-input", "快照预览请求类型必须为 snapshot.preview。");
+  }
+  return {
+    kind: "snapshot.preview",
+    projectId: assertRequiredText(query.projectId, "作品 ID"),
+    snapshotId: assertRequiredText(query.snapshotId, "快照 ID")
+  };
+}
+
+function assertSnapshotRestoreWithProtectionCommand(value: unknown): SnapshotRestoreWithProtectionCommand {
+  const command = assertRecord(value, "快照安全恢复请求");
+  if (command.type !== "snapshot.restoreWithProtection") {
+    throw new CreationWorkspaceError("invalid-input", "快照安全恢复请求类型必须为 snapshot.restoreWithProtection。");
+  }
+  return {
+    type: "snapshot.restoreWithProtection",
+    projectId: assertRequiredText(command.projectId, "作品 ID"),
+    snapshotId: assertRequiredText(command.snapshotId, "快照 ID"),
+    protectionReason: assertRequiredText(command.protectionReason, "保护原因", 200)
+  };
+}
+
+function assertTrashImpactQuery(value: unknown): TrashImpactQuery {
+  const query = assertRecord(value, "回收站影响请求");
+  if (query.kind !== "trash.impact") {
+    throw new CreationWorkspaceError("invalid-input", "回收站影响请求类型必须为 trash.impact。");
+  }
+  const entity = query.entity;
+  if (entity !== "volume" && entity !== "chapter" && entity !== "scene" && entity !== "card") {
+    throw new CreationWorkspaceError("invalid-input", "回收站实体类型无效。");
+  }
+  return {
+    kind: "trash.impact",
+    projectId: assertRequiredText(query.projectId, "作品 ID"),
+    entity,
+    entityId: assertRequiredText(query.entityId, "实体 ID")
+  };
+}
+
+function assertStructureRevertCommand(value: unknown): StructureRevertCommand {  const command = assertRecord(value, "结构撤回请求");
   if (command.type !== "structure.revert") {
     throw new CreationWorkspaceError("invalid-input", "结构撤回请求类型必须为 structure.revert。");
   }
@@ -231,26 +334,6 @@ function assertStructureRevertCommand(value: unknown): StructureRevertCommand {
 export interface CreationIpcContext {
   resolveDataRoot: () => string;
   resolveLibraryRoot: () => string;
-}
-
-/** 把导出视图组装成平台发布净文本：卷/章标题 + 场景正文，空行分隔。 */
-function buildExportText(view: ProjectExportView): string {
-  const lines: string[] = [];
-  for (const volume of view.volumes) {
-    if (view.volumes.length > 1) {
-      lines.push(volume.title, "");
-    }
-    for (const chapter of volume.chapters) {
-      const heading = [chapter.displayNumber, chapter.title].filter(Boolean).join(" ");
-      lines.push(heading, "");
-      for (const scene of chapter.scenes) {
-        if (scene.title && scene.title !== "默认场景") lines.push(scene.title, "");
-        if (scene.text) lines.push(scene.text, "");
-      }
-      lines.push("");
-    }
-  }
-  return `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n`;
 }
 
 interface WatchEntry {
@@ -443,6 +526,26 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     coordinator.withWorkspace((workspace) => workspace.transact(command as AnnotationDeleteCommand) as Promise<AnnotationResult>)
   );
 
+  ipcMain.handle("creation:annotationReanchor", (_event, command: unknown) => {
+    const validated = assertAnnotationReanchorCommand(command);
+    return coordinator.withWorkspace((workspace) => workspace.transact(validated) as Promise<AnnotationResult>);
+  });
+
+  ipcMain.handle("creation:snapshotPreview", (_event, query: unknown) => {
+    const validated = assertSnapshotPreviewQuery(query);
+    return coordinator.withWorkspace((workspace) => workspace.read(validated) as Promise<SnapshotPreviewView | null>);
+  });
+
+  ipcMain.handle("creation:snapshotRestoreWithProtection", (_event, command: unknown) => {
+    const validated = assertSnapshotRestoreWithProtectionCommand(command);
+    return coordinator.withWorkspace((workspace) => workspace.restoreSnapshotWithProtection(validated));
+  });
+
+  ipcMain.handle("creation:trashImpact", (_event, query: unknown) => {
+    const validated = assertTrashImpactQuery(query);
+    return coordinator.withWorkspace((workspace) => workspace.read(validated) as Promise<TrashImpactView | null>);
+  });
+
   ipcMain.handle("creation:resourceList", (_event, query: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.read(query as ResourceListQuery) as Promise<ResourceInfo[]>)
   );
@@ -509,7 +612,7 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
       title: "导入旧稿",
       properties: ["openFile" as const],
       filters: [
-        { name: "文本与 Markdown", extensions: ["txt", "md", "markdown"] },
+        { name: "旧稿文件（TXT / Markdown / DOCX）", extensions: ["txt", "md", "markdown", "docx"] },
         { name: "所有文件", extensions: ["*"] }
       ]
     };
@@ -532,15 +635,12 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     };
     const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     if (canceled || filePaths.length === 0) return { canceled: true, directory: null };
-    const directory = path.join(filePaths[0]!, `项目包-${data.project.title}`);
-    await mkdir(directory, { recursive: true });
-    await writeFile(path.join(directory, "manifest.json"), `${JSON.stringify({
-      formatVersion: 1,
-      projectTitle: data.project.title,
-      exportedAt: data.exportedAt,
-      counts: data.counts
-    }, null, 2)}\n`, "utf8");
-    await writeFile(path.join(directory, "project.json"), `${JSON.stringify(data, null, 2)}\n`, "utf8");
+    const workspaceDirectory = path.join(context.resolveDataRoot(), "CreationWorkspace");
+    const { directory } = await exportProjectBundleDirectory({
+      workspaceDirectory,
+      data,
+      targetDirectory: filePaths[0]!
+    });
     return { canceled: false, directory };
   });
 
@@ -553,12 +653,13 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     if (canceled || filePaths.length === 0) return { canceled: true, result: null };
     const directory = filePaths[0]!;
-    const { readFile } = await import("node:fs/promises");
-    const data = JSON.parse(await readFile(path.join(directory, "project.json"), "utf8")) as ProjectBundleData;
-    if (data.formatVersion !== 1) throw new CreationWorkspaceError("invalid-input", "项目包格式版本不受支持。");
-    const result = await coordinator.withWorkspace((workspace) =>
-      workspace.transact({ type: "project.bundle.import", data } as ProjectBundleImportCommand) as Promise<ProjectBundleImportResult>
-    );
+    const workspaceDirectory = path.join(context.resolveDataRoot(), "CreationWorkspace");
+    const result = await importProjectBundleDirectory({
+      workspaceDirectory,
+      bundleDirectory: directory,
+      transact: async (command) =>
+        coordinator.withWorkspace((workspace) => workspace.transact(command) as Promise<ProjectBundleImportResult>)
+    });
     return { canceled: false, result };
   });
 
@@ -566,26 +667,32 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "project.export", projectId }) as Promise<ProjectExportView | null>)
   );
 
-  ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown }) => {
+  ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown; preset?: unknown }) => {
     const projectId =
       typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
     if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    if (!isDraftExportPreset(input?.preset)) {
+      throw new CreationWorkspaceError("invalid-input", "导出预设无效。");
+    }
+    const preset = input.preset as DraftExportPreset;
     const view = (await coordinator.withWorkspace((workspace) =>
-      workspace.read({ kind: "project.export", projectId })
+      workspace.read({ kind: "project.export", projectId, includeBlocks: true })
     )) as ProjectExportView | null;
     if (!view) throw new CreationWorkspaceError("not-found", "作品不存在。");
-    const text = buildExportText(view);
+    const built = buildDraftExport(view, preset);
+    if (!built) throw new CreationWorkspaceError("invalid-input", "导出预设无效。");
+    const meta = DRAFT_EXPORT_PRESET_META[built.preset];
     const options = {
-      title: "导出成稿",
-      defaultPath: `${view.title}.txt`,
-      filters: [{ name: "文本文件", extensions: ["txt"] }]
+      title: `导出成稿（${meta.label}）`,
+      defaultPath: `${view.title}.${built.extension}`,
+      filters: [{ name: meta.extension === "md" ? "Markdown 文档" : "文本文件", extensions: [built.extension] }]
     };
     const parent = BrowserWindow.fromWebContents(event.sender);
     const { canceled, filePath } = parent
       ? await dialog.showSaveDialog(parent, options)
       : await dialog.showSaveDialog(options);
     if (canceled || !filePath) return { canceled: true, filePath: null };
-    await writeFile(filePath, text, "utf8");
+    await writeFile(filePath, built.text, "utf8");
     return { canceled: false, filePath };
   });
 
@@ -638,4 +745,97 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     watchEntries.delete(subscriptionId);
     entry.unsubscribe();
   });
+
+  // ---- Phase 1 P1 深模块 seam 接入 ----
+
+  ipcMain.handle("creation:snapshotRetentionRun", () =>
+    coordinator.withWorkspace((workspace) => workspace.runSnapshotRetention())
+  );
+
+  ipcMain.handle("creation:cardImportOpenAndParse", async (event) => {
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "导入卡片",
+      properties: ["openFile" as const],
+      filters: [
+        { name: "卡片文件（CSV / Markdown）", extensions: ["csv", "md", "markdown"] },
+        { name: "所有文件", extensions: ["*"] }
+      ]
+    };
+    const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
+    if (canceled || filePaths.length === 0) return null;
+    const filePath = filePaths[0]!;
+    const ext = path.extname(filePath).toLowerCase();
+    const format: CardImportSource["format"] = ext === ".csv" ? "csv" : "markdown";
+    const text = await readFile(filePath, "utf8");
+    return { format, text } as CardImportSource;
+  });
+
+  ipcMain.handle("creation:cardImportParse", (_event, input: { text: string; format: "csv" | "markdown" }) => {
+    if (typeof input?.text !== "string" || (input.format !== "csv" && input.format !== "markdown")) {
+      throw new CreationWorkspaceError("invalid-input", "卡片解析请求无效。");
+    }
+    return parseCardSource(input.text, input.format) as CardImportPreview;
+  });
+
+  ipcMain.handle("creation:cardImportSchema", (_event, projectId: string) =>
+    coordinator.withWorkspace((workspace) => workspace.cardImportSchema(projectId))
+  );
+
+  ipcMain.handle("creation:cardImportPlan", (_event, input: CardImportApplyInput) =>
+    coordinator.withWorkspace((workspace) => workspace.cardImportPlan(input))
+  );
+
+  ipcMain.handle("creation:cardImportApply", (_event, input: CardImportApplyInput) =>
+    coordinator.withWorkspace((workspace) => workspace.cardImportApply(input))
+  );
+
+  ipcMain.handle("creation:cardExportOpenAndWrite", async (event, input: { projectId?: unknown; filter?: unknown; format?: unknown }) => {
+    const projectId = typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    const filter = (input?.filter as CardExportFilter) ?? {};
+    const format = input?.format === "csv" ? "csv" : "markdown";
+    const rows = await coordinator.withWorkspace((workspace) =>
+      workspace.cardExportRows(projectId, filter) as Promise<CardExportRow[]>
+    );
+    const fieldKeys = collectExportFieldKeys(rows);
+    const text = format === "csv" ? exportCardsToCsv(rows, fieldKeys) : exportCardsToMarkdown(rows, fieldKeys);
+    const parent = BrowserWindow.fromWebContents(event.sender);
+    const options = {
+      title: "导出卡片",
+      defaultPath: `cards.${format}`,
+      filters: [{ name: format === "csv" ? "CSV 文档" : "Markdown 文档", extensions: [format] }]
+    };
+    const { canceled, filePath } = parent
+      ? await dialog.showSaveDialog(parent, options)
+      : await dialog.showSaveDialog(options);
+    if (canceled || !filePath) return { canceled: true, written: 0 } as CardExportResult;
+    await writeFile(filePath, text, "utf8");
+    return { canceled: false, written: rows.length } as CardExportResult;
+  });
+
+  ipcMain.handle("creation:replacePlanCreate", (_event, query: ReplacePlanQuery) =>
+    coordinator.withWorkspace((workspace) => workspace.createReplacePlan(query))
+  );
+
+  ipcMain.handle("creation:replacePlanApply", (_event, input: { planId?: unknown; excludedHitIds?: unknown }) => {
+    const planId = typeof input?.planId === "string" && input.planId.trim() ? input.planId : "";
+    if (!planId) throw new CreationWorkspaceError("invalid-input", "替换计划读取请求无效。");
+    const excludedHitIds = Array.isArray(input?.excludedHitIds)
+      ? (input!.excludedHitIds as unknown[]).filter((id): id is string => typeof id === "string")
+      : [];
+    return coordinator.withWorkspace((workspace) => workspace.applyReplacePlan(planId, excludedHitIds));
+  });
+
+  ipcMain.handle("creation:sessionUpdate", (_event, command: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.sessionUpdate(command as SessionUpdateCommand) as Promise<SessionReportResult>
+    )
+  );
+
+  ipcMain.handle("creation:projectUpdateGoal", (_event, command: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.projectUpdateGoal(command as ProjectUpdateGoalCommand) as Promise<ProjectGoalResult>
+    )
+  );
 }

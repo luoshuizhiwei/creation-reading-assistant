@@ -1,0 +1,242 @@
+/* ===========================================================================
+ * 长任务进度对话（operation）与资源完整性扫描面板样式
+ * 视觉延续 paper-ink / editorial-studio：暖纸底、铜色脊线、克制阴影。
+ * 复用 history-modal 的结构类，这里只补充 operation 专属元素。
+ * ======================================================================== */
+
+.operation-progress {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.operation-phase {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--paper-ink);
+  letter-spacing: 0.02em;
+}
+
+.operation-bar {
+  position: relative;
+  width: 100%;
+  height: 14px;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-soft) 64%, transparent);
+  overflow: hidden;
+}
+
+.operation-bar-fill {
+  height: 100%;
+  min-width: 2px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--copper) 78%, transparent), var(--copper));
+  transition: width 220ms ease;
+}
+
+.operation-bar-text {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  transform: translateY(-50%);
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--paper-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.operation-count {
+  margin: 0;
+  font-size: 13px;
+  color: var(--paper-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.operation-indeterminate {
+  margin: 0;
+  font-size: 13px;
+  color: var(--paper-muted);
+  font-style: italic;
+}
+
+.operation-message {
+  margin: 0;
+  font-size: 12px;
+  color: var(--paper-muted);
+  line-height: 1.6;
+}
+
+.operation-commit-note {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in srgb, var(--copper) 36%, var(--paper-line));
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--copper) 10%, transparent);
+  color: color-mix(in srgb, var(--copper) 88%, var(--paper-ink));
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+.operation-result {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper-soft) 42%, transparent);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.operation-success {
+  border-color: color-mix(in srgb, var(--moss) 36%, var(--paper-line));
+  background: color-mix(in srgb, var(--moss) 10%, transparent);
+}
+
+.operation-cancelled {
+  border-color: color-mix(in srgb, var(--paper-muted) 36%, var(--paper-line));
+}
+
+.operation-failed {
+  border-color: color-mix(in srgb, var(--copper-soft) 44%, var(--paper-line));
+  background: color-mix(in srgb, var(--copper-soft) 8%, transparent);
+}
+
+.operation-error-title {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--copper-dark);
+}
+
+.operation-error-message {
+  margin: 0;
+  color: var(--paper-ink);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.operation-error-code {
+  margin: 0;
+  font-size: 11px;
+  color: var(--paper-muted);
+  font-family: var(--font-mono);
+}
+
+/* ----------------------------- 资源完整性扫描 ----------------------------- */
+
+.resource-scan {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.resource-scan-summary {
+  margin: 0;
+  font-size: 13px;
+  color: var(--paper-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-scan-categories {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resource-scan-category {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-soft) 54%, transparent);
+  font-size: 12px;
+}
+
+.resource-scan-category-label {
+  color: var(--paper-ink);
+}
+
+.resource-scan-category-count {
+  color: var(--copper-dark);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.resource-scan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 280px;
+  overflow: auto;
+  margin: 0;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--paper-soft) 40%, transparent);
+}
+
+.resource-scan-item {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-areas:
+    "category path"
+    "category message";
+  gap: 2px 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--paper-panel) 64%, transparent);
+}
+
+.resource-scan-item-category {
+  grid-area: category;
+  align-self: center;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  color: color-mix(in srgb, var(--copper) 90%, var(--paper-ink));
+  background: color-mix(in srgb, var(--copper) 12%, transparent);
+  white-space: nowrap;
+}
+
+.resource-scan-item-path {
+  grid-area: path;
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--paper-ink);
+  word-break: break-all;
+}
+
+.resource-scan-item-message {
+  grid-area: message;
+  font-size: 11px;
+  color: var(--paper-muted);
+  line-height: 1.5;
+}
+
+.resource-scan-note {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--paper-muted);
+}
+
+.resource-scan-empty {
+  margin: 0;
+  padding: 14px;
+  border: 1px dashed color-mix(in srgb, var(--moss) 44%, var(--paper-line));
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--moss) 8%, transparent);
+  color: color-mix(in srgb, var(--moss) 92%, var(--paper-ink));
+  font-size: 13px;
+  text-align: center;
+}

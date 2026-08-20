@@ -1,0 +1,129 @@
+/**
+ * 收件箱页本地样式（inbox-page）。
+ *
+ * 与 stats-page 解耦：hero 标题区 + 状态筛选 chip 行 + 左列表/右详情网格。
+ * 沿用 paper-ink 编辑工作室设计令牌；既有 inbox-* 类由 editorial-studio.css
+ * 继续提供，本文件只补充新增的 hero / filter / page 外壳样式。
+ */
+
+.inbox-page {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 4px 2px 8px;
+}
+
+/* ----------------------------- hero ----------------------------- */
+
+.inbox-hero {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.inbox-hero-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 4px 0 0;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--paper-ink, currentColor);
+  letter-spacing: 0.02em;
+}
+
+.inbox-hero-title p {
+  margin: 6px 0 0;
+  font-size: 13px;
+  color: var(--paper-muted, inherit);
+  line-height: 1.7;
+  max-width: 60ch;
+}
+
+.inbox-hero-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+.inbox-hero-actions .inbox-target-project {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--paper-muted, inherit);
+}
+
+.inbox-hero-actions .inbox-target-project select {
+  min-width: 180px;
+}
+
+/* ----------------------------- status filter ----------------------------- */
+
+.inbox-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 2px 0;
+}
+
+.inbox-filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--paper-line, rgba(0, 0, 0, 0.08));
+  background: var(--paper-soft, rgba(250, 245, 235, 0.55));
+  color: var(--paper-muted, inherit);
+  font-size: 12px;
+  line-height: 1.6;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+
+.inbox-filter-chip:hover {
+  background: var(--paper-panel, rgba(250, 245, 235, 0.85));
+  color: var(--paper-ink, currentColor);
+}
+
+.inbox-filter-chip.active {
+  background: var(--copper, #8a5a2b);
+  border-color: var(--copper, #8a5a2b);
+  color: #fff;
+}
+
+.inbox-filter-chip em {
+  font-style: normal;
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: var(--paper-line, rgba(0, 0, 0, 0.08));
+  color: inherit;
+}
+
+.inbox-filter-chip.active em {
+  background: rgba(255, 255, 255, 0.22);
+}
+
+@media (max-width: 720px) {
+  .inbox-hero {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .inbox-hero-actions {
+    flex-direction: row;
+    align-items: center;
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+  .inbox-hero-actions .inbox-target-project select {
+    min-width: 0;
+    flex: 1;
+  }
+}

@@ -5,10 +5,13 @@ import QRCode from "qrcode";
 import { AnimatedPanel, InlineNotice } from "@/components/interaction";
 import { Button, Field, TextInput } from "@/components/ui";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
+import { useOperation } from "@/hooks/useOperation";
 import { clearAIApiKey, saveAIApiKey, testAIConnection, updateAISettings } from "@/services/ai-service";
-import { createBackup, exportDebugInfo, openDataDirectory, openLogDirectory, restoreBackup } from "@/services/maintenance-service";
+import { exportDebugInfo, openDataDirectory, openLogDirectory, runAutoBackup } from "@/services/maintenance-service";
+import { OperationProgressDialog } from "@/features/creation/operation/OperationProgressDialog";
 import {
   chooseDataDirectory,
+  chooseBackupDirectory,
   chooseLibraryDirectory,
   getStorageLocations,
   migrateDataDirectory,
@@ -70,11 +73,13 @@ export function SettingsPage() {
   const [syncMessage, setSyncMessage] = useState("");
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>();
   const [updateBusy, setUpdateBusy] = useState(false);
+  const [backupBusy, setBackupBusy] = useState(false);
   const setScreen = useAppStore((state) => state.setScreen);
   const setError = useAppStore((state) => state.setError);
   const confirmAction = useUIStore((state) => state.confirmAction);
   const showToast = useUIStore((state) => state.showToast);
   const { applySettings, loadSettings, patchSettings, resetSection } = useSettingsActions();
+  const operation = useOperation();
 
   useEffect(() => {
     void loadSettings();
@@ -268,19 +273,29 @@ export function SettingsPage() {
     }
   };
 
-  const restoreData = async () => {
-    const confirmed = await confirmAction({
-      title: "恢复数据？",
-      body: "恢复前会先备份当前数据目录，然后用你选择的备份替换应用数据。恢复后建议重启应用。",
-      confirmLabel: "恢复数据",
-      tone: "danger"
-    });
-    if (!confirmed) return;
-    await runMaintenance("恢复", restoreBackup, (result) => {
-      const restore = result as Awaited<ReturnType<typeof restoreBackup>>;
-      return restore ? `恢复完成，建议重启应用。安全快照：${restore.checkpointPath ?? "无"}` : "恢复已取消";
-    });
-  };
+  const handleBackupCreate = useCallback(async () => {
+    try {
+      await operation.start({ kind: "backup.create" });
+    } catch (error) {
+      showToast({ tone: "error", title: "创建备份失败", body: error instanceof Error ? error.message : String(error) });
+    }
+  }, [operation, showToast]);
+
+  const handleBackupRestore = useCallback(async () => {
+    try {
+      await operation.start({ kind: "backup.restore" });
+    } catch (error) {
+      showToast({ tone: "error", title: "恢复数据失败", body: error instanceof Error ? error.message : String(error) });
+    }
+  }, [operation, showToast]);
+
+  const handleResourceScan = useCallback(async () => {
+    try {
+      await operation.start({ kind: "resource.scan" });
+    } catch (error) {
+      showToast({ tone: "error", title: "资源扫描失败", body: error instanceof Error ? error.message : String(error) });
+    }
+  }, [operation, showToast]);
 
   const enableSync = async () => {
     setSyncMessage("正在开启手机同步服务...");
@@ -364,7 +379,36 @@ export function SettingsPage() {
       showToast({ tone: "info", title: "暂无可用下载链接", body: "当前更新信息里没有可打开的安装包或 Release 页面。" });
       return;
     }
-    await openAppUpdateDownload(url);
+    try {
+      await openAppUpdateDownload(url);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const chooseAndSetBackupDirectory = async () => {
+    try {
+      const directory = await chooseBackupDirectory();
+      if (!directory) return;
+      await patchSettings({ storage: { backupDirectory: directory } });
+      showToast({ tone: "success", title: "备份目录已设置", body: "自动备份将使用该目录。" });
+    } catch (error) {
+      setError(error instanceof Error ? error.message : String(error));
+    }
+  };
+
+  const runAutoBackupNow = async () => {
+    setBackupBusy(true);
+    try {
+      const result = await runAutoBackup();
+      await loadSettings();
+      showToast({ tone: "success", title: "自动备份完成", body: result.backupRoot });
+    } catch (error) {
+      await loadSettings();
+      setError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBackupBusy(false);
+    }
   };
 
   return (
@@ -825,21 +869,72 @@ export function SettingsPage() {
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() =>
-                    void runMaintenance("备份", createBackup, (result) => {
-                      const backup = result as Awaited<ReturnType<typeof createBackup>>;
-                      return backup ? `备份完成：${backup.backupRoot}` : "备份已取消";
-                    })
-                  }
+                  disabled={operation.isActive}
+                  onClick={() => void handleBackupCreate()}
                 >
                   备份数据
                 </Button>
                 <Button
                   variant="secondary"
-                  onClick={() => void restoreData()}
+                  disabled={operation.isActive}
+                  onClick={() => void handleBackupRestore()}
                 >
                   恢复数据
                 </Button>
+                <Button
+                  variant="secondary"
+                  disabled={operation.isActive}
+                  onClick={() => void handleResourceScan()}
+                >
+                  扫描资源完整性
+                </Button>
+              </div>
+              <div className="mt-3 rounded-md border border-paper-line bg-paper-panel/60 p-3">
+                <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
+                <div className="grid gap-1 text-xs leading-5 text-paper-muted">
+                  <div>备份目录：{settings.storage.backupDirectory ?? "未配置"}</div>
+                  <div>
+                    最近成功：
+                    {settings.storage.lastAutoBackupAt ? new Date(settings.storage.lastAutoBackupAt).toLocaleString() : "暂无"}
+                  </div>
+                  <div>
+                    最近失败：
+                    {settings.storage.lastAutoBackupFailedAt ? new Date(settings.storage.lastAutoBackupFailedAt).toLocaleString() : "暂无"}
+                  </div>
+                </div>
+                {settings.storage.lastAutoBackupError && (
+                  <InlineNotice tone="error" className="mt-2 break-all p-2 text-xs">
+                    {settings.storage.lastAutoBackupError}
+                  </InlineNotice>
+                )}
+                <label className="mt-2 flex items-center gap-2 text-xs text-paper-muted">
+                  <input
+                    type="checkbox"
+                    checked={settings.storage.autoBackupEnabled === true}
+                    disabled={!settings.storage.backupDirectory}
+                    onChange={(event) => {
+                      if (!settings.storage.backupDirectory) {
+                        setError("请先选择自动备份目录。");
+                        return;
+                      }
+                      void patchSettings({ storage: { autoBackupEnabled: event.target.checked } });
+                    }}
+                  />
+                  启用每日 / 升级前自动备份（间隔至少 24 小时；升级下载前会立即备份）
+                </label>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={() => void chooseAndSetBackupDirectory()}>
+                    <FolderOpen size={15} />
+                    选择备份目录
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    disabled={!settings.storage.backupDirectory || !settings.storage.autoBackupEnabled || backupBusy}
+                    onClick={() => void runAutoBackupNow()}
+                  >
+                    {backupBusy ? "备份中..." : "立即备份"}
+                  </Button>
+                </div>
               </div>
             </div>
           </Section>
@@ -1036,6 +1131,15 @@ export function SettingsPage() {
               )}
             </div>
           </Section>
+          {operation.state && (
+            <OperationProgressDialog
+              state={operation.state}
+              isCommitting={operation.isCommitting}
+              onCancel={operation.cancel}
+              onClose={operation.reset}
+              onReset={operation.retry}
+            />
+          )}
           </div>
         </div>
       </div>

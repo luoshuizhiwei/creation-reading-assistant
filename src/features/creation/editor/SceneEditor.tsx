@@ -70,6 +70,8 @@ export interface SceneEditorHandle {
   isDirty(): boolean;
   /** 只读选区：从 ProseMirror 真实位置解析；无有效编辑器时返回 null。 */
   getSelection(): SceneSelection | null;
+  /** 是否仍在 IME 组合输入；外部命令必须在此期间停用。 */
+  isComposing(): boolean;
 }
 
 interface SceneEditorProps {
@@ -265,7 +267,8 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
         const activeEditor = editorRef.current;
         if (!activeEditor || !sceneIdRef.current) return null;
         return resolveSceneSelection(activeEditor, sceneIdRef.current);
-      }
+      },
+      isComposing: () => composingRef.current
     }),
     [session]
   );

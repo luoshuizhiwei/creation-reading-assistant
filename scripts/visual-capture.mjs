@@ -257,13 +257,24 @@ async function main() {
     tests += 1;
   };
 
+  let currentWidth = 1440;
+  let currentHeight = 900;
   const setViewport = async (width, height) => {
-    await app.evaluate(({ BrowserWindow }, size) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.setContentSize(size.width, size.height);
-      }
-    }, { width, height });
-    await page.waitForTimeout(500);
+    // 无边框窗口在部分缩放下 setContentSize 会有 ±2 DIP 的取整偏差；
+    // 读回 clientHeight 并修正一次，保证截图命名与矩阵一致。
+    currentWidth = width;
+    currentHeight = height;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await app.evaluate(({ BrowserWindow }, size) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.setContentSize(size.width, size.height);
+        }
+      }, { width: currentWidth, height: currentHeight });
+      await page.waitForTimeout(500);
+      const actual = await page.evaluate(() => document.documentElement.clientHeight);
+      if (actual === height) return;
+      currentHeight += height - actual;
+    }
   };
 
   const setTheme = async (theme) => {
@@ -356,12 +367,18 @@ async function main() {
   const second = await launchApp();
   const page2 = second.page;
   for (const { width, height } of SIZES) {
-    await second.app.evaluate(({ BrowserWindow }, size) => {
-      for (const window of BrowserWindow.getAllWindows()) {
-        window.setContentSize(size.width, size.height);
-      }
-    }, { width, height });
-    await page2.waitForTimeout(500);
+    let resizeHeight = height;
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await second.app.evaluate(({ BrowserWindow }, size) => {
+        for (const window of BrowserWindow.getAllWindows()) {
+          window.setContentSize(size.width, size.height);
+        }
+      }, { width, height: resizeHeight });
+      await page2.waitForTimeout(500);
+      const actual = await page2.evaluate(() => document.documentElement.clientHeight);
+      if (actual === height) break;
+      resizeHeight += height - actual;
+    }
     for (const theme of THEMES) {
       await page2.evaluate((value) => {
         document.documentElement.dataset.appTheme = value;

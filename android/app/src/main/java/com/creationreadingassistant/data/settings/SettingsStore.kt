@@ -54,6 +54,10 @@ private val Context.dataStore by preferencesDataStore(name = "app_settings")
 private val KEY_THEME = stringPreferencesKey("appearance_theme_mode")          // system | light | dark
 private val KEY_COLOR_PALETTE = stringPreferencesKey("appearance_color_palette")
 private val KEY_PAPER_TEXTURE = booleanPreferencesKey("appearance_paper_texture")
+/** Android 12+ 壁纸动态取色；低于 12 时即使开启也静默回退到配置的 palette。 */
+private val KEY_USE_DYNAMIC_COLOR = booleanPreferencesKey("appearance_use_dynamic_color")
+/** 仅暗模式下生效：把应用外壳背景/表面收敛为纯黑，AMOLED 屏省电且对比度更高。 */
+private val KEY_AMOLED_PURE_BLACK = booleanPreferencesKey("appearance_amoled_pure_black")
 
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
@@ -88,6 +92,7 @@ private val KEY_EYE_FILTER_INTENSITY = intPreferencesKey("reader_eye_filter_inte
 private val KEY_EYE_FILTER_SCHEDULE = booleanPreferencesKey("reader_eye_filter_schedule")
 private val KEY_EYE_FILTER_START = intPreferencesKey("reader_eye_filter_start")
 private val KEY_EYE_FILTER_END = intPreferencesKey("reader_eye_filter_end")
+private val KEY_EYE_FILTER_OLED = booleanPreferencesKey("reader_eye_filter_oled")
 private val KEY_RHYTHM_ENABLED = booleanPreferencesKey("reader_rhythm_enabled")
 private val KEY_RHYTHM_MIN = intPreferencesKey("reader_rhythm_minutes")
 // TTS 高级（对照 web TTSSettings：pitch / volume / voiceId / 定时停止）
@@ -140,6 +145,10 @@ data class AppearanceSettings(
     val colorPalette: String = "paper_ink",
     /** 纸张噪点纹理开关（阅读器 PaperNoise 层）；默认开 = 纸墨视觉基线。 */
     val paperTexture: Boolean = true,
+    /** Android 12+ 壁纸动态取色；低于 12 时即使开启也静默回退到配置的 palette。 */
+    val useDynamicColor: Boolean = false,
+    /** 仅暗模式下生效：把应用外壳背景/表面收敛为纯黑，AMOLED 屏省电且对比度更高。 */
+    val amoledPureBlack: Boolean = false,
 )
 
 data class ReaderSettings(
@@ -169,8 +178,8 @@ data class ReaderSettings(
     val keepAwake: Boolean = false,
     val showProgressBar: Boolean = true,
     val fontWeightBold: Boolean = false,
-    val brightness: Int = -1,               // -1 = 跟随系统亮度；5..100 = 固定亮度（对照 web reader brightness）
-    val lastFixedBrightness: Int = 65,      // 关闭「跟随系统」时回退到的上次固定亮度（5..100）
+    val brightness: Int = -1,               // -1 = 跟随系统亮度；0..100 = 固定亮度（<5% 靠额外压暗遮罩实现）
+    val lastFixedBrightness: Int = 65,      // 关闭「跟随系统」时回退到的上次固定亮度（0..100）
     val volumeKeyPaging: Boolean = true,
     val volumeKeyPagingDuringTts: Boolean = false,
     val autoPageSpeed: Int = 5,            // 1..10；是否正在自动翻页仅为会话态，不持久化
@@ -182,6 +191,7 @@ data class ReaderSettings(
     val eyeCareScheduleEnabled: Boolean = false,
     val eyeCareStartMinute: Int = 1320,
     val eyeCareEndMinute: Int = 420,
+    val eyeCareOledBlackCompat: Boolean = true,
     val readingRhythmReminderEnabled: Boolean = true,
     val readingRhythmReminderMinutes: Int = 30,
     // TTS 高级
@@ -239,6 +249,8 @@ class SettingsStore @Inject constructor(
             themeMode = prefs[KEY_THEME] ?: "system",
             colorPalette = prefs[KEY_COLOR_PALETTE] ?: "paper_ink",
             paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
+            useDynamicColor = prefs[KEY_USE_DYNAMIC_COLOR] ?: false,
+            amoledPureBlack = prefs[KEY_AMOLED_PURE_BLACK] ?: false,
         )
     }.stateIn(scope, SharingStarted.WhileSubscribed(5000), AppearanceSettings())
 
@@ -254,11 +266,11 @@ class SettingsStore @Inject constructor(
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             screenOrientation = prefs[KEY_SCREEN_ORIENTATION] ?: "system",
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
+            background = migrateReaderBg(prefs[KEY_READER_BG]),
             customFontPath = prefs[KEY_CUSTOM_FONT_PATH] ?: "",
-            lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
+            lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.80f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
             pageMargin = prefs[KEY_PAGE_MARGIN] ?: 22f,
-            background = migrateReaderBg(prefs[KEY_READER_BG]),
             immersiveMode = prefs[KEY_IMMERSIVE] ?: true,
             showReaderInfo = prefs[KEY_SHOW_READER_INFO] ?: true,
             chineseTypography = prefs[KEY_CHINESE_TYPO] ?: true,
@@ -267,7 +279,7 @@ class SettingsStore @Inject constructor(
             showProgressBar = prefs[KEY_SHOW_PROGRESS] ?: true,
             fontWeightBold = prefs[KEY_FONT_BOLD] ?: false,
             brightness = prefs[KEY_READER_BRIGHTNESS] ?: -1,
-            lastFixedBrightness = (prefs[KEY_LAST_FIXED_BRIGHTNESS] ?: 65).coerceIn(5, 100),
+            lastFixedBrightness = (prefs[KEY_LAST_FIXED_BRIGHTNESS] ?: 65).coerceIn(0, 100),
             volumeKeyPaging = prefs[KEY_VOLUME_PAGE] ?: true,
             volumeKeyPagingDuringTts = prefs[KEY_VOLUME_PAGE_DURING_TTS] ?: false,
             autoPageSpeed = (prefs[KEY_AUTO_PAGE_SPEED] ?: 5).coerceIn(1, 10),
@@ -278,6 +290,7 @@ class SettingsStore @Inject constructor(
             eyeCareScheduleEnabled = prefs[KEY_EYE_FILTER_SCHEDULE] ?: false,
             eyeCareStartMinute = prefs[KEY_EYE_FILTER_START] ?: 1320,
             eyeCareEndMinute = prefs[KEY_EYE_FILTER_END] ?: 420,
+            eyeCareOledBlackCompat = prefs[KEY_EYE_FILTER_OLED] ?: true,
             readingRhythmReminderEnabled = prefs[KEY_RHYTHM_ENABLED] ?: true,
             readingRhythmReminderMinutes = prefs[KEY_RHYTHM_MIN] ?: 30,
             ttsPitch = prefs[KEY_TTS_PITCH] ?: 1f,
@@ -363,6 +376,8 @@ class SettingsStore @Inject constructor(
             prefs[KEY_THEME] = next.themeMode
             prefs[KEY_COLOR_PALETTE] = next.colorPalette
             prefs[KEY_PAPER_TEXTURE] = next.paperTexture
+            prefs[KEY_USE_DYNAMIC_COLOR] = next.useDynamicColor
+            prefs[KEY_AMOLED_PURE_BLACK] = next.amoledPureBlack
         }
     }
 
@@ -390,7 +405,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_FONT_BOLD] = next.fontWeightBold
             prefs[KEY_READER_BRIGHTNESS] = next.brightness
             if (next.brightness >= 0) {
-                prefs[KEY_LAST_FIXED_BRIGHTNESS] = next.brightness.coerceIn(5, 100)
+                prefs[KEY_LAST_FIXED_BRIGHTNESS] = next.brightness.coerceIn(0, 100)
             }
             prefs[KEY_VOLUME_PAGE] = next.volumeKeyPaging
             prefs[KEY_VOLUME_PAGE_DURING_TTS] = next.volumeKeyPagingDuringTts
@@ -402,6 +417,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_EYE_FILTER_SCHEDULE] = next.eyeCareScheduleEnabled
             prefs[KEY_EYE_FILTER_START] = next.eyeCareStartMinute
             prefs[KEY_EYE_FILTER_END] = next.eyeCareEndMinute
+            prefs[KEY_EYE_FILTER_OLED] = next.eyeCareOledBlackCompat
             prefs[KEY_RHYTHM_ENABLED] = next.readingRhythmReminderEnabled
             prefs[KEY_RHYTHM_MIN] = next.readingRhythmReminderMinutes
             prefs[KEY_TTS_PITCH] = next.ttsPitch

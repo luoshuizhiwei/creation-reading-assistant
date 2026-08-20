@@ -468,3 +468,48 @@ describe("InboxPage 分页（移除 200 条上限）", () => {
     consoleError.mockRestore();
   });
 });
+
+describe("InboxPage 状态分组筛选", () => {
+  it("状态筛选 chip 显示各状态计数，点击后列表只显示对应状态条目", async () => {
+    const items = [
+      { ...item, id: "i-inbox-1", title: "未整理A", status: "inbox" },
+      { ...item, id: "i-used-1", title: "已使用B", status: "used" },
+      { ...item, id: "i-archived-1", title: "归档C", status: "archived" },
+      { ...item, id: "i-inbox-2", title: "未整理D", status: "inbox" }
+    ];
+    vi.mocked(creationService.inboxList).mockResolvedValue(items as never);
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getByText("未整理A")).toBeDefined());
+
+    // 全部 chip 显示总数 4
+    const allChip = screen.getByRole("button", { name: /全部/ });
+    expect(allChip.textContent).toMatch(/4/);
+    expect(screen.getByText("已使用B")).toBeDefined();
+    expect(screen.getByText("归档C")).toBeDefined();
+
+    // 点击"未整理"：只剩两条
+    fireEvent.click(screen.getByRole("button", { name: /未整理/ }));
+    await waitFor(() => expect(screen.queryByText("已使用B")).toBeNull());
+    expect(screen.queryByText("归档C")).toBeNull();
+    expect(screen.getByText("未整理A")).toBeDefined();
+    expect(screen.getByText("未整理D")).toBeDefined();
+
+    // 点击"已使用"：只剩一条
+    fireEvent.click(screen.getByRole("button", { name: /已使用/ }));
+    await waitFor(() => expect(screen.queryByText("未整理A")).toBeNull());
+    expect(screen.getByText("已使用B")).toBeDefined();
+
+    // 切回全部
+    fireEvent.click(screen.getByRole("button", { name: /全部/ }));
+    await waitFor(() => expect(screen.getByText("未整理A")).toBeDefined());
+    expect(screen.getByText("已使用B")).toBeDefined();
+  });
+
+  it("筛选下无条目时显示空提示，且不与收件箱为空混淆", async () => {
+    vi.mocked(creationService.inboxList).mockResolvedValue([{ ...item, id: "i1", status: "used" }] as never);
+    render(<InboxPage />);
+    await waitFor(() => expect(screen.getByText("测试灵感")).toBeDefined());
+    fireEvent.click(screen.getByRole("button", { name: /归档/ }));
+    expect(screen.getByText(/当前筛选下没有条目/)).toBeDefined();
+  });
+});

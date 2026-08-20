@@ -1,4 +1,5 @@
 import { mkdir } from "node:fs/promises";
+import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import Database from "better-sqlite3";
@@ -70,25 +71,36 @@ import {
   type CardRelationsQuery,
   type CardSummary,
   type CardType,
-  type CardTypeCreateCommand,
+   type CardTypeCreateCommand,
+   type CardTypeUpdateCommand,
+   type CardTypeDeleteCommand,
   type CardTypesListQuery,
   type CardUpdateCommand,
   type CardsListQuery,
   type RelationType,
-  type RelationTypeCreateCommand,
+   type RelationTypeCreateCommand,
+   type RelationTypeUpdateCommand,
+   type RelationTypeDeleteCommand,
   type RelationTypesListQuery,
   type HistoryCommand,
   type SnapshotCreateCommand,
   type SnapshotInfo,
   type SnapshotListQuery,
-  type SnapshotRestoreCommand,
+   type SnapshotPreviewQuery,
+   type SnapshotPreviewView,
+   type SnapshotDiffRow,
+   type SnapshotRestoreWithProtectionCommand,
+   type SnapshotRestoreWithProtectionResult,
   type SnapshotSubjectType,
   type TrashEntityKind,
   type TrashItem,
   type TrashListQuery,
   type TrashPurgeCommand,
-  type TrashRestoreCommand,
+   type TrashRestoreCommand,
+   type TrashImpactQuery,
+   type TrashImpactView,
   type ProjectExportChapter,
+  type ProjectExportBlock,
   type ProjectExportQuery,
   type ProjectExportScene,
   type ProjectExportView,
@@ -138,7 +150,8 @@ import {
   type AnnotationDeleteCommand,
   type AnnotationListQuery,
   type AnnotationResult,
-  type AnnotationUpdateCommand,
+   type AnnotationUpdateCommand,
+   type AnnotationReanchorCommand,
   type ResourceAttachCommand,
   type ResourceDetachCommand,
   type ResourceInfo,
@@ -161,6 +174,36 @@ import {
   type OpenCreationWorkspaceOptions
 } from "./types";
 import { countSceneBodyStats } from "./scene-stats";
+import { classifySnapshotMeta, planSnapshotRetention } from "./snapshot-retention";
+import { applyReplacePlan as runApplyReplacePlan, createReplacePlan as runCreateReplacePlan } from "./replace-plan";
+import {
+  applyCardImportPlan,
+  generateCardImportPlanId,
+  planCardImport,
+  readCardImportSchemaContext,
+  readCardsForExport
+} from "../creation-card-io/card-io-index";
+import type {
+  CardExportFilter,
+  CardExportRow,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportPlan,
+  CardImportSchemaContext
+} from "../../../src/types/card-io";
+import type {
+  ProjectGoalResult,
+  ProjectUpdateGoalCommand,
+  SessionUpdateCommand,
+  SnapshotRetentionResult
+} from "../../../src/types/creation";
+import type {
+  ReplaceApplyOutcome,
+  ReplacePlan,
+  ReplacePlanController,
+  ReplacePlanQuery,
+  ReplacePlanStore
+} from "./replace-plan";
 
 const SCHEMA_VERSION = 9;
 
@@ -205,7 +248,11 @@ const STRUCTURE_COMMAND_TYPES = new Set<string>([
 
 const CARD_COMMAND_TYPES = new Set<string>([
   "cardType.create",
+  "cardType.update",
+  "cardType.delete",
   "relationType.create",
+  "relationType.update",
+  "relationType.delete",
   "card.create",
   "card.update",
   "card.delete",
@@ -216,8 +263,7 @@ const CARD_COMMAND_TYPES = new Set<string>([
 const HISTORY_COMMAND_TYPES = new Set<string>([
   "trash.restore",
   "trash.purge",
-  "snapshot.create",
-  "snapshot.restore"
+  "snapshot.create"
 ]);
 
 const TRASH_ENTITY_KINDS = new Set<TrashEntityKind>(["volume", "chapter", "scene", "card"]);
@@ -295,6 +341,16 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
+/** 项目包/附件相对路径安全检查：仅接受 POSIX 风格相对路径，禁止绝对路径、穿越、盘符与反斜杠。 */
+function isSafeBundleRelativePath(value: unknown): value is string {
+  if (typeof value !== "string" || !value.trim()) return false;
+  if (value.length > 500) return false;
+  if (path.isAbsolute(value)) return false;
+  if (value.includes("..") || value.includes("\\") || value.includes(":")) return false;
+  if (value.includes("\0")) return false;
+  return true;
+}
+
 function isValidSceneDocument(value: unknown): value is CreationDocument {
   if (!isRecord(value) || value.type !== "doc" || !Array.isArray(value.content)) return false;
   for (const block of value.content) {
@@ -323,6 +379,15 @@ function isValidSceneDocument(value: unknown): value is CreationDocument {
  * 这里 re-export 保持历史导入（scale-contract 等）兼容。
  */
 export { countSceneBodyStats } from "./scene-stats";
+export {
+  scanResourceConsistencyCore,
+  readResourceRecords,
+  type ResourceIssue,
+  type ResourceIssueType,
+  type ResourceRecord,
+  type ResourceScanResult,
+  type ScanResourceOptions
+} from "./resource-scan";
 
 /** 场景正文纯文本：每个块一段，块间空行，场景分隔占位。 */
 function extractSceneText(bodyJson: string): string {
@@ -352,6 +417,36 @@ function extractSceneText(bodyJson: string): string {
     if (parts.length > 0) blocks.push(parts.join(""));
   }
   return blocks.join("\n\n");
+}
+
+/** 场景正文最小块视图（kind + 文本，不携带 marks/完整结构），供审阅稿导出使用。 */
+function extractSceneBlocks(bodyJson: string): ProjectExportBlock[] {
+  let document: CreationDocument;
+  try {
+    document = JSON.parse(bodyJson) as CreationDocument;
+  } catch {
+    return [];
+  }
+  const result: ProjectExportBlock[] = [];
+  for (const block of document.content ?? []) {
+    if (!isRecord(block)) continue;
+    if (block.type === "sceneBreak") {
+      result.push({ kind: "sceneBreak", text: "" });
+      continue;
+    }
+    if (!Array.isArray(block.content)) continue;
+    const parts: string[] = [];
+    const collect = (nodes: unknown[]): void => {
+      for (const node of nodes) {
+        if (!isRecord(node)) continue;
+        if (node.type === "text" && typeof node.text === "string") parts.push(node.text);
+        else if (Array.isArray(node.content)) collect(node.content);
+      }
+    };
+    collect(block.content);
+    result.push({ kind: typeof block.type === "string" ? block.type : "paragraph", text: parts.join("") });
+  }
+  return result;
 }
 
 /** 收件箱/卡片的 JSON 数组字段（tags 等）安全解析。 */
@@ -1538,7 +1633,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }>;
   };
 
-  constructor(private readonly database: Database) {
+  constructor(
+    private readonly database: Database,
+    private readonly workspaceDirectory: string
+  ) {
   }
 
   async read(query: ReadProjectTreeQuery): Promise<CreationProjectTree | null>;
@@ -1553,6 +1651,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
   async read(query: TrashListQuery): Promise<TrashItem[]>;
   async read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
+  async read(query: SnapshotPreviewQuery): Promise<SnapshotPreviewView | null>;
+  async read(query: TrashImpactQuery): Promise<TrashImpactView | null>;
   async read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   async read(query: CreationSearchQuery): Promise<CreationSearchView>;
   async read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
@@ -1581,6 +1681,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       scopes?: unknown;
       filters?: unknown;
       limit?: unknown;
+      snapshotId?: unknown;
+      entity?: unknown;
+      entityId?: unknown;
     } | null;
     if (
       runtimeQuery === null ||
@@ -1653,6 +1756,38 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取批注。");
+      }
+    }
+    if (runtimeQuery.kind === "snapshot.preview") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "快照预览请求无效。");
+      }
+      if (typeof runtimeQuery.snapshotId !== "string" || !runtimeQuery.snapshotId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "快照预览请求无效。");
+      }
+      try {
+        return this.readSnapshotPreview(runtimeQuery.projectId, runtimeQuery.snapshotId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法预览快照差异。");
+      }
+    }
+    if (runtimeQuery.kind === "trash.impact") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "回收站影响请求无效。");
+      }
+      const entity = runtimeQuery.entity;
+      if (entity !== "volume" && entity !== "chapter" && entity !== "scene" && entity !== "card") {
+        throw new CreationWorkspaceError("invalid-input", "回收站实体类型无效。");
+      }
+      if (typeof runtimeQuery.entityId !== "string" || !runtimeQuery.entityId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "回收站影响请求无效。");
+      }
+      try {
+        return this.readTrashImpact(runtimeQuery.projectId, entity, runtimeQuery.entityId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取回收站影响。");
       }
     }
     if (runtimeQuery.kind === "project.bundle.export") {
@@ -1841,7 +1976,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         return this.readProjectOutline(runtimeQuery.projectId);
       }
       if (runtimeQuery.kind === "project.export") {
-        return this.readProjectExport(runtimeQuery.projectId);
+        return this.readProjectExport(runtimeQuery.projectId, (runtimeQuery as { includeBlocks?: boolean }).includeBlocks === true);
       }
       return this.readProjectTree(runtimeQuery.projectId);
     } catch (error) {
@@ -3404,6 +3539,55 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runAnnotationReanchor(command: AnnotationReanchorCommand): AnnotationResult {
+    const annotationId = validateId(command.annotationId, "批注");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    const anchor = command.anchor as unknown as AnnotationAnchor | null;
+    if (!anchor || typeof anchor.blockIndex !== "number" || !Number.isInteger(anchor.blockIndex) || anchor.blockIndex < 0 || typeof anchor.textOffset !== "number" || anchor.textOffset < 0 || typeof anchor.textLength !== "number" || anchor.textLength < 1) {
+        throw new CreationWorkspaceError("invalid-input", "批注锚点无效。");
+    }
+    const timestamp = new Date().toISOString();
+    try {
+        this.database.exec("BEGIN IMMEDIATE");
+        const current = this.database.prepare("SELECT project_id, scene_id, revision FROM annotations WHERE id = ? AND deleted_at IS NULL").get(annotationId) as {
+            project_id: string;
+            scene_id: string;
+            revision: number;
+        } | undefined;
+        if (!current)
+            throw new CreationWorkspaceError("not-found", "批注不存在。");
+        if (current.revision !== baseRevision) {
+            throw new CreationWorkspaceError("revision-mismatch", "批注已被其他修改更新。");
+        }
+        const scene = this.database.prepare("SELECT body_json FROM scenes WHERE id = ? AND deleted_at IS NULL").get(current.scene_id) as {
+            body_json: string;
+        } | undefined;
+        if (!scene)
+            throw new CreationWorkspaceError("not-found", "批注所属场景不存在。");
+        const anchored = resolveAnnotationAnchor(scene.body_json, anchor);
+        if (anchored.anchorInvalid) {
+            throw new CreationWorkspaceError("invalid-input", "新锚点未命中当前正文文本。");
+        }
+        const storedAnchor: AnnotationAnchor = { ...anchor, text: anchored.anchoredText };
+        const revision = current.revision + 1;
+        this.database.prepare("UPDATE annotations SET anchor_json = ?, updated_at = ?, revision = ? WHERE id = ?").run(JSON.stringify(storedAnchor), timestamp, revision, annotationId);
+        const logged = this.database.prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)").run(current.project_id, "annotation.reanchor", JSON.stringify([{ entity: "annotation", id: annotationId, action: "updated", revision }]), timestamp);
+        this.database.exec("COMMIT");
+        this.emitCommitted({ kind: "committed", sequence: Number(logged.lastInsertRowid), projectId: current.project_id, commandType: "annotation.reanchor", changes: [{ entity: "annotation", id: annotationId, action: "updated", revision }] });
+        return { commandType: "annotation.reanchor", sequence: Number(logged.lastInsertRowid), annotationId, revision, updatedAt: timestamp };
+    }
+    catch (error) {
+        try {
+            this.database.exec("ROLLBACK");
+        }
+        catch { // The transaction may already have been rolled back by SQLite.
+        }
+        if (error instanceof CreationWorkspaceError)
+            throw error;
+        throw new CreationWorkspaceError("integrity", "无法重新定位批注。");
+    }
+}
+
   private runResourceList(query: ResourceListQuery): ResourceInfo[] {
     const projectId = validateId(query.projectId, "作品");
     this.requireProject(projectId);
@@ -3787,7 +3971,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return { outgoing, incoming };
   }
 
-  private readProjectExport(projectId: string): ProjectExportView | null {
+  private readProjectExport(projectId: string, includeBlocks = false): ProjectExportView | null {
     const project = this.database
       .prepare("SELECT id, title FROM projects WHERE id = ?")
       .get(projectId) as { id: string; title: string } | undefined;
@@ -3818,7 +4002,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const scenesByChapter = new Map<string, ProjectExportScene[]>();
     for (const scene of sceneRows) {
       const list = scenesByChapter.get(scene.chapter_id);
-      const entry: ProjectExportScene = { id: scene.id, title: scene.title, text: extractSceneText(scene.body_json) };
+      const entry: ProjectExportScene = {
+        id: scene.id,
+        title: scene.title,
+        text: extractSceneText(scene.body_json),
+        ...(includeBlocks ? { blocks: extractSceneBlocks(scene.body_json) } : {})
+      };
       if (list) list.push(entry);
       else scenesByChapter.set(scene.chapter_id, [entry]);
     }
@@ -4059,6 +4248,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "annotation.delete") {
       return this.runAnnotationDelete(command as AnnotationDeleteCommand);
+    }
+    if (command.type === "annotation.reanchor") {
+      return this.runAnnotationReanchor(command as AnnotationReanchorCommand);
     }
     if (command.type === "resource.attach") {
       return this.runResourceAttach(command as ResourceAttachCommand);
@@ -4379,8 +4571,32 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       payload_json: string;
       created_at: string;
     }>;
+    const resources = this.database
+      .prepare("SELECT id, card_id, relative_path, sha256, size, original_name, created_at FROM resources WHERE project_id = ? ORDER BY relative_path, id")
+      .all(projectId) as Array<{
+      id: string;
+      card_id: string | null;
+      relative_path: string;
+      sha256: string;
+      size: number;
+      original_name: string | null;
+      created_at: string;
+    }>;
+    const annotations = this.database
+      .prepare("SELECT id, scene_id, card_id, anchor_json, note, status, revision, created_at, updated_at FROM annotations WHERE project_id = ? AND deleted_at IS NULL ORDER BY created_at, id")
+      .all(projectId) as Array<{
+      id: string;
+      scene_id: string;
+      card_id: string | null;
+      anchor_json: string;
+      note: string | null;
+      status: string;
+      revision: number;
+      created_at: string;
+      updated_at: string;
+    }>;
     return {
-      formatVersion: 1,
+      formatVersion: 2,
       project: {
         id: project.id,
         title: project.title,
@@ -4461,27 +4677,91 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         payloadJson: row.payload_json,
         createdAt: row.created_at
       })),
+      resources: resources.map((row) => ({
+        id: row.id,
+        cardId: row.card_id,
+        relativePath: row.relative_path,
+        sha256: row.sha256,
+        size: row.size,
+        originalName: row.original_name,
+        createdAt: row.created_at
+      })),
+      annotations: annotations.map((row) => {
+        let anchor: AnnotationAnchor;
+        try {
+          anchor = JSON.parse(row.anchor_json) as AnnotationAnchor;
+        } catch {
+          throw new CreationWorkspaceError("integrity", "批注锚点数据损坏。");
+        }
+        if (
+          !anchor ||
+          typeof anchor !== "object" ||
+          !Number.isInteger(anchor.blockIndex) ||
+          anchor.blockIndex < 0 ||
+          !Number.isInteger(anchor.textOffset) ||
+          anchor.textOffset < 0 ||
+          !Number.isInteger(anchor.textLength) ||
+          anchor.textLength < 1 ||
+          (anchor.text !== undefined && typeof anchor.text !== "string") ||
+          (row.status !== "open" && row.status !== "resolved") ||
+          !Number.isInteger(row.revision) ||
+          row.revision < 1
+        ) {
+          throw new CreationWorkspaceError("integrity", "批注锚点数据损坏。");
+        }
+        return {
+          id: row.id,
+          sceneId: row.scene_id,
+          cardId: row.card_id,
+          anchor,
+          note: row.note ?? "",
+          status: row.status,
+          revision: row.revision,
+          createdAt: row.created_at,
+          updatedAt: row.updated_at
+        };
+      }),
       counts: {
         volumes: volumes.length,
         chapters: chapters.length,
         scenes: scenes.length,
         cards: cards.length,
         relations: relations.length,
-        snapshots: snapshots.length
+        snapshots: snapshots.length,
+        resources: resources.length,
+        annotations: annotations.length
       },
       exportedAt: new Date().toISOString()
     };
   }
 
   private importProjectBundle(command: ProjectBundleImportCommand): ProjectBundleImportResult {
-    const data = command.data as unknown as ProjectBundleData | null;
-    if (!data || typeof data !== "object" || data.formatVersion !== 1) {
+    const runtimeCommand = command as unknown as {
+      data?: unknown;
+      targetProjectId?: unknown;
+      resourceFiles?: unknown;
+    };
+    const data = runtimeCommand.data as unknown as ProjectBundleData | null;
+    if (!data || typeof data !== "object" || (data.formatVersion !== 1 && data.formatVersion !== 2)) {
       throw new CreationWorkspaceError("invalid-input", "项目包格式无效或版本不受支持。");
     }
     const title = typeof data.project?.title === "string" && data.project.title.trim() ? data.project.title.trim() : "";
     if (!title) throw new CreationWorkspaceError("invalid-input", "项目包缺少作品名称。");
-    const projectId = typeof data.project?.id === "string" && data.project.id.startsWith("project-") ? data.project.id : `project-${randomUUID()}`;
+    const targetProjectId =
+      typeof runtimeCommand.targetProjectId === "string" && runtimeCommand.targetProjectId.startsWith("project-") && runtimeCommand.targetProjectId.length <= 128
+        ? runtimeCommand.targetProjectId
+        : undefined;
+    const projectId =
+      targetProjectId ??
+      (typeof data.project?.id === "string" && data.project.id.startsWith("project-") ? data.project.id : `project-${randomUUID()}`);
     const timestamp = new Date().toISOString();
+    const annotationEntries = (data as unknown as Record<string, unknown>).annotations;
+    if (data.formatVersion === 2 && !Array.isArray(annotationEntries)) {
+      throw new CreationWorkspaceError("invalid-input", "v2 项目包缺少批注数据。");
+    }
+    const annotationsToImport = Array.isArray(annotationEntries)
+      ? annotationEntries as ProjectBundleData["annotations"]
+      : [];
     try {
       this.database.exec("BEGIN IMMEDIATE");
       const existing = this.database.prepare("SELECT id FROM projects WHERE id = ?").get(projectId);
@@ -4575,12 +4855,159 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         insertSnapshot.run(id, projectId, snapshot.subjectType, snapshot.subjectId, snapshot.payloadJson ?? "{}", snapshot.createdAt ?? timestamp);
       }
 
+      // 附件元数据：校验路径/哈希/大小/引用，并按资源文件映射写入新路径。
+      const resourceFilesRaw = Array.isArray(runtimeCommand.resourceFiles) ? runtimeCommand.resourceFiles : undefined;
+      const resourceFileMap = new Map<string, { targetRelativePath: string; sha256: string; size: number }>();
+      if (resourceFilesRaw) {
+        const seenTargets = new Set<string>();
+        for (const entry of resourceFilesRaw) {
+          const file = isRecord(entry)
+            ? {
+                relativePath: entry.relativePath,
+                targetRelativePath: entry.targetRelativePath,
+                sha256: entry.sha256,
+                size: entry.size
+              }
+            : null;
+          if (
+            !file ||
+            !isSafeBundleRelativePath(file.relativePath) ||
+            !isSafeBundleRelativePath(file.targetRelativePath) ||
+            typeof file.sha256 !== "string" ||
+            !/^[0-9a-f]{64}$/i.test(file.sha256) ||
+            !Number.isInteger(file.size) ||
+            Number(file.size) < 0 ||
+            Number(file.size) > 500 * 1024 * 1024
+          ) {
+            throw new CreationWorkspaceError("invalid-input", "项目包资源文件映射无效。");
+          }
+          if (seenTargets.has(file.targetRelativePath)) {
+            throw new CreationWorkspaceError("invalid-input", "项目包资源文件映射包含重复目标路径。");
+          }
+          seenTargets.add(file.targetRelativePath);
+          resourceFileMap.set(file.relativePath, {
+            targetRelativePath: file.targetRelativePath,
+            sha256: file.sha256.toLowerCase(),
+            size: Number(file.size)
+          });
+        }
+        if (resourceFileMap.size !== (data.resources?.length ?? 0)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包资源文件映射与附件元数据不一致。");
+        }
+      }
+
+      const insertResource = this.database.prepare(
+        "INSERT INTO resources(id, project_id, card_id, relative_path, sha256, size, original_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      );
+      const resourceIds = new Set<string>();
+      const resourceTargets = new Set<string>();
+      for (const resource of data.resources ?? []) {
+        const id = typeof resource.id === "string" && resource.id.startsWith("resource-") ? resource.id : `resource-${randomUUID()}`;
+        if (resourceIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复附件 ID。");
+        resourceIds.add(id);
+        if (!isSafeBundleRelativePath(resource.relativePath)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件相对路径无效（禁止绝对路径/穿越）。");
+        }
+        if (typeof resource.sha256 !== "string" || !/^[0-9a-f]{64}$/i.test(resource.sha256)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件校验和不合法。");
+        }
+        if (!Number.isInteger(resource.size) || Number(resource.size) < 0 || Number(resource.size) > 500 * 1024 * 1024) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件大小超出允许范围。");
+        }
+        const cardId = resource.cardId === null || resource.cardId === undefined ? null : resource.cardId;
+        if (cardId !== null && !cardIds.has(cardId)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件引用了不存在的卡片。");
+        }
+        const mapped = resourceFileMap.get(resource.relativePath);
+        if (resourceFilesRaw) {
+          if (!mapped) throw new CreationWorkspaceError("invalid-input", "项目包附件缺少文件落盘映射。");
+          if (mapped.sha256 !== resource.sha256.toLowerCase() || mapped.size !== Number(resource.size)) {
+            throw new CreationWorkspaceError("invalid-input", "项目包附件文件映射与元数据不一致。");
+          }
+        }
+        const targetRelativePath = mapped?.targetRelativePath ?? resource.relativePath;
+        if (resourceTargets.has(targetRelativePath)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件目标路径重复。");
+        }
+        resourceTargets.add(targetRelativePath);
+        insertResource.run(
+          id,
+          projectId,
+          cardId,
+          targetRelativePath,
+          resource.sha256.toLowerCase(),
+          Number(resource.size),
+          typeof resource.originalName === "string" && resource.originalName.trim()
+            ? resource.originalName.trim().slice(0, 255)
+            : null,
+          typeof resource.createdAt === "string" && resource.createdAt ? resource.createdAt : timestamp
+        );
+      }
+
+      // 批注（v2）：scene/card 引用必须落在本包导入的实体上；锚点形状/状态/版本非法或重复 ID 一律拒绝（单事务回滚，零写入）。
+      // 锚点与当前正文不再匹配时仍须保留；annotation.list 会将其标记为待重新定位。
+      const insertAnnotation = this.database.prepare(
+        "INSERT INTO annotations(id, project_id, scene_id, card_id, anchor_json, note, status, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+      );
+      const annotationIds = new Set<string>();
+      for (const annotation of annotationsToImport) {
+        const id = typeof annotation.id === "string" && annotation.id.startsWith("annotation-") ? annotation.id : `annotation-${randomUUID()}`;
+        if (annotationIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复批注 ID。");
+        annotationIds.add(id);
+        if (!sceneIds.has(annotation.sceneId)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包批注引用了不存在的场景。");
+        }
+        const cardId = annotation.cardId === null || annotation.cardId === undefined ? null : annotation.cardId;
+        if (cardId !== null && !cardIds.has(cardId)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包批注引用了不存在的卡片。");
+        }
+        const anchor = annotation.anchor;
+        if (
+          !anchor ||
+          typeof anchor !== "object" ||
+          !Number.isInteger(anchor.blockIndex) ||
+          anchor.blockIndex < 0 ||
+          !Number.isInteger(anchor.textOffset) ||
+          anchor.textOffset < 0 ||
+          !Number.isInteger(anchor.textLength) ||
+          anchor.textLength < 1 ||
+          (anchor.text !== undefined && anchor.text !== null && typeof anchor.text !== "string")
+        ) {
+          throw new CreationWorkspaceError("invalid-input", "项目包批注锚点无效。");
+        }
+        const status = annotation.status === "resolved" ? "resolved" : annotation.status === "open" ? "open" : "";
+        if (!status) throw new CreationWorkspaceError("invalid-input", "项目包批注状态无效。");
+        if (!Number.isInteger(annotation.revision) || Number(annotation.revision) < 1) {
+          throw new CreationWorkspaceError("invalid-input", "项目包批注版本无效。");
+        }
+        const storedAnchor: AnnotationAnchor = {
+          blockIndex: Number(anchor.blockIndex),
+          textOffset: Number(anchor.textOffset),
+          textLength: Number(anchor.textLength),
+          ...(typeof anchor.text === "string" && anchor.text ? { text: anchor.text } : {})
+        };
+        insertAnnotation.run(
+          id,
+          projectId,
+          annotation.sceneId,
+          cardId,
+          JSON.stringify(storedAnchor),
+          typeof annotation.note === "string" && annotation.note ? annotation.note.slice(0, 20_000) : "",
+          status,
+          Number(annotation.revision),
+          typeof annotation.createdAt === "string" && annotation.createdAt ? annotation.createdAt : timestamp,
+          typeof annotation.updatedAt === "string" && annotation.updatedAt ? annotation.updatedAt : timestamp
+        );
+      }
+
       const changes: CreationWorkspaceEvent["changes"] = [
         { entity: "project", id: projectId, action: "created", revision: 1 },
         ...[...volumeIds].map((id) => ({ entity: "volume" as const, id, action: "created" as const, revision: 1 })),
         ...[...chapterIds].map((id) => ({ entity: "chapter" as const, id, action: "created" as const, revision: 1 })),
         ...[...sceneIds].map((id) => ({ entity: "scene" as const, id, action: "created" as const, revision: 1 })),
-        ...[...cardIds].map((id) => ({ entity: "card" as const, id, action: "created" as const, revision: 1 }))
+        ...[...cardIds].map((id) => ({ entity: "card" as const, id, action: "created" as const, revision: 1 })),
+        ...[...resourceIds].map((id) => ({ entity: "resource" as const, id, action: "created" as const, revision: 1 })),
+        ...[...annotationIds].map((id) => ({ entity: "annotation" as const, id, action: "created" as const, revision: 1 }))
       ];
       const logged = this.database
         .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
@@ -4592,7 +5019,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         scenes: sceneIds.size,
         cards: cardIds.size,
         relations: data.relations?.length ?? 0,
-        snapshots: data.snapshots?.length ?? 0
+        snapshots: data.snapshots?.length ?? 0,
+        resources: resourceIds.size,
+        annotations: annotationIds.size
       };
       const result: ProjectBundleImportResult = {
         commandType: "project.bundle.import",
@@ -5978,25 +6407,19 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     });
   }
 
-  private executeCardCommand(command: CardCommand): CreationStructureResult {
-    switch (command.type) {
-      case "cardType.create":
-        return this.createCardType(command);
-      case "relationType.create":
-        return this.createRelationType(command);
-      case "card.create":
-        return this.createCard(command);
-      case "card.update":
-        return this.updateCard(command);
-      case "card.delete":
-        return this.deleteCard(command);
-      case "cardRelation.create":
-        return this.createCardRelation(command);
-      case "cardRelation.delete":
-        return this.deleteCardRelation(command);
-    }
-  }
-
+  private executeCardCommand(command: CardCommand): CreationStructureResult { switch (command.type) {
+    case "cardType.create": return this.createCardType(command);
+    case "cardType.update": return this.updateCardType(command);
+    case "cardType.delete": return this.deleteCardType(command);
+    case "relationType.create": return this.createRelationType(command);
+    case "relationType.update": return this.updateRelationType(command);
+    case "relationType.delete": return this.deleteRelationType(command);
+    case "card.create": return this.createCard(command);
+    case "card.update": return this.updateCard(command);
+    case "card.delete": return this.deleteCard(command);
+    case "cardRelation.create": return this.createCardRelation(command);
+    case "cardRelation.delete": return this.deleteCardRelation(command);
+} throw new CreationWorkspaceError("invalid-input", "不支持的卡片命令。"); }
   private requireCard(cardId: string): {
     id: string;
     project_id: string;
@@ -6083,6 +6506,160 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       };
     });
   }
+
+  private requireCardTypeRow(cardTypeId: string): {
+    id: string;
+    project_id: string | null;
+    kind: string;
+    name: string;
+    fields_json: string;
+    revision: number;
+} { const type = this.database.prepare("SELECT id, project_id, kind, name, fields_json, revision FROM card_types WHERE id = ?").get(cardTypeId) as {
+    id: string;
+    project_id: string | null;
+    kind: string;
+    name: string;
+    fields_json: string;
+    revision: number;
+} | undefined; if (!type)
+    throw new CreationWorkspaceError("not-found", "卡片类型不存在。"); return type; }
+
+  private updateCardType(command: CardTypeUpdateCommand): CreationStructureResult {
+    const cardTypeId = validateId(command.cardTypeId, "卡片类型");
+    const name = validateTitle(command.name, "卡片类型名");
+    const fields = validateCardFieldSchemaList(command.fields);
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    return this.runStructureTransaction("cardType.update", (timestamp) => {
+        const type = this.requireCardTypeRow(cardTypeId);
+        if (type.project_id === null) {
+            throw new CreationWorkspaceError("conflict", "内置卡片类型为只读，不可修改。");
+        }
+        if (type.revision !== baseRevision) {
+            throw new CreationWorkspaceError("revision-mismatch", "卡片类型已被更新，请重新读取后再操作。");
+        } // 已存在字段 key 不允许重命名/删除：新 schema 必须覆盖旧 schema 的全部 key。
+        let oldFields: CardFieldSchema[];
+        try {
+            oldFields = JSON.parse(type.fields_json) as CardFieldSchema[];
+        }
+        catch {
+            throw new CreationWorkspaceError("integrity", "卡片类型字段数据损坏。");
+        }
+        const oldKeys = new Set(oldFields.map((field) => field.key));
+        const newKeys = new Set(fields.map((field) => field.key));
+        for (const key of oldKeys) {
+            if (!newKeys.has(key)) {
+                throw new CreationWorkspaceError("invalid-input", `字段 key「${key}」不允许重命名或删除。`);
+            }
+        } // 新 schema 必须能验证现有卡片数据，禁止静默丢字段。
+        const cards = this.database.prepare("SELECT fields_json FROM cards WHERE project_id = ? AND kind = ? AND deleted_at IS NULL").all(type.project_id, type.kind) as Array<{
+            fields_json: string;
+        }>;
+        for (const row of cards) {
+            let existing: Record<string, unknown>;
+            try {
+                existing = JSON.parse(row.fields_json) as Record<string, unknown>;
+            }
+            catch {
+                throw new CreationWorkspaceError("integrity", "卡片字段数据损坏。");
+            }
+            validateCardFieldValues(existing, fields);
+        }
+        const revision = type.revision + 1;
+        this.database.prepare("UPDATE card_types SET name = ?, fields_json = ?, updated_at = ?, revision = ? WHERE id = ?").run(name, JSON.stringify(fields), timestamp, revision, cardTypeId);
+        this.touchProject(type.project_id, timestamp);
+        return { projectId: type.project_id, entityId: cardTypeId, revision, changes: [{ entity: "cardType", id: cardTypeId, action: "updated", revision }] };
+    });
+}
+
+  private deleteCardType(command: CardTypeDeleteCommand): CreationStructureResult { const cardTypeId = validateId(command.cardTypeId, "卡片类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("cardType.delete", (timestamp) => { const type = this.requireCardTypeRow(cardTypeId); if (type.project_id === null) {
+    throw new CreationWorkspaceError("conflict", "内置卡片类型为只读，不可删除。");
+} if (type.revision !== baseRevision) {
+    throw new CreationWorkspaceError("revision-mismatch", "卡片类型已被更新，请重新读取后再操作。");
+} const used = this.database.prepare("SELECT count(*) AS count FROM cards WHERE project_id = ? AND kind = ? AND deleted_at IS NULL").get(type.project_id, type.kind) as {
+    count: number;
+}; if (used.count > 0) {
+    throw new CreationWorkspaceError("conflict", "卡片类型仍被卡片使用，不可删除。");
+} this.database.prepare("DELETE FROM card_types WHERE id = ?").run(cardTypeId); this.touchProject(type.project_id, timestamp); return { projectId: type.project_id, entityId: cardTypeId, revision: type.revision + 1, changes: [{ entity: "cardType", id: cardTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
+
+  private requireRelationTypeRow(relationTypeId: string): {
+    id: string;
+    project_id: string | null;
+    name: string;
+    from_kinds_json: string;
+    to_kinds_json: string;
+    revision: number;
+} { const type = this.database.prepare("SELECT id, project_id, name, from_kinds_json, to_kinds_json, revision FROM relation_types WHERE id = ?").get(relationTypeId) as {
+    id: string;
+    project_id: string | null;
+    name: string;
+    from_kinds_json: string;
+    to_kinds_json: string;
+    revision: number;
+} | undefined; if (!type)
+    throw new CreationWorkspaceError("not-found", "关系类型不存在。"); return type; }
+
+  private updateRelationType(command: RelationTypeUpdateCommand): CreationStructureResult {
+    const relationTypeId = validateId(command.relationTypeId, "关系类型");
+    const stableName = validateId(command.name, "关系类型稳定标识");
+    const forwardName = validateTitle(command.forwardName, "关系名称", 50);
+    const reverseName = validateTitle(command.reverseName, "反向关系名称", 50);
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    const fromKinds = command.fromKinds === undefined ? undefined : validateStringList(command.fromKinds, "起点卡片类型", 50);
+    const toKinds = command.toKinds === undefined ? undefined : validateStringList(command.toKinds, "终点卡片类型", 50);
+    return this.runStructureTransaction("relationType.update", (timestamp) => {
+        const type = this.requireRelationTypeRow(relationTypeId);
+        if (type.project_id === null) {
+            throw new CreationWorkspaceError("conflict", "内置关系类型为只读，不可修改。");
+        }
+        if (type.name !== stableName) {
+            throw new CreationWorkspaceError("invalid-input", "关系类型的稳定标识不可修改。");
+        }
+        if (type.revision !== baseRevision) {
+            throw new CreationWorkspaceError("revision-mismatch", "关系类型已被更新，请重新读取后再操作。");
+        }
+        let oldFrom: string[];
+        let oldTo: string[];
+        try {
+            oldFrom = JSON.parse(type.from_kinds_json) as string[];
+            oldTo = JSON.parse(type.to_kinds_json) as string[];
+        }
+        catch {
+            throw new CreationWorkspaceError("integrity", "关系类型约束数据损坏。");
+        }
+        const nextFrom = fromKinds ?? oldFrom;
+        const nextTo = toKinds ?? oldTo;
+        const fromChanged = JSON.stringify(nextFrom) !== JSON.stringify(oldFrom);
+        const toChanged = JSON.stringify(nextTo) !== JSON.stringify(oldTo);
+        if (fromChanged || toChanged) { // 修改两端 kind 约束时，必须检查已有关系实例是否合法。
+            const relations = this.database.prepare(`SELECT cr.id, f.kind AS from_kind, t.kind AS to_kind FROM card_relations cr             JOIN cards f ON f.id = cr.from_card_id             JOIN cards t ON t.id = cr.to_card_id             WHERE cr.relation_type = ?`).all(relationTypeId) as Array<{
+                id: string;
+                from_kind: string;
+                to_kind: string;
+            }>;
+            for (const relation of relations) {
+                const fromOk = nextFrom.length === 0 || nextFrom.includes(relation.from_kind);
+                const toOk = nextTo.length === 0 || nextTo.includes(relation.to_kind);
+                if (!fromOk || !toOk) {
+                    throw new CreationWorkspaceError("conflict", `已有关系（${relation.from_kind}→${relation.to_kind}）不符合新约束，无法更新。`);
+                }
+            }
+        }
+        const revision = type.revision + 1;
+        this.database.prepare("UPDATE relation_types SET forward_name = ?, reverse_name = ?, from_kinds_json = ?, to_kinds_json = ?, updated_at = ?, revision = ? WHERE id = ?").run(forwardName, reverseName, JSON.stringify(nextFrom), JSON.stringify(nextTo), timestamp, revision, relationTypeId);
+        this.touchProject(type.project_id, timestamp);
+        return { projectId: type.project_id, entityId: relationTypeId, revision, changes: [{ entity: "relationType", id: relationTypeId, action: "updated", revision }] };
+    });
+}
+
+  private deleteRelationType(command: RelationTypeDeleteCommand): CreationStructureResult { const relationTypeId = validateId(command.relationTypeId, "关系类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("relationType.delete", (timestamp) => { const type = this.requireRelationTypeRow(relationTypeId); if (type.project_id === null) {
+    throw new CreationWorkspaceError("conflict", "内置关系类型为只读，不可删除。");
+} if (type.revision !== baseRevision) {
+    throw new CreationWorkspaceError("revision-mismatch", "关系类型已被更新，请重新读取后再操作。");
+} const used = this.database.prepare("SELECT count(*) AS count FROM card_relations WHERE relation_type = ?").get(relationTypeId) as {
+    count: number;
+}; if (used.count > 0) {
+    throw new CreationWorkspaceError("conflict", "关系类型仍被关系实例使用，不可删除。");
+} this.database.prepare("DELETE FROM relation_types WHERE id = ?").run(relationTypeId); this.touchProject(type.project_id, timestamp); return { projectId: type.project_id, entityId: relationTypeId, revision: type.revision + 1, changes: [{ entity: "relationType", id: relationTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
 
   private createRelationType(command: RelationTypeCreateCommand): CreationStructureResult {
     const projectId = validateId(command.projectId, "作品");
@@ -6281,9 +6858,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         return this.trashPurge(command);
       case "snapshot.create":
         return this.snapshotCreate(command);
-      case "snapshot.restore":
-        return this.snapshotRestore(command);
     }
+    throw new CreationWorkspaceError("invalid-input", "不支持的历史命令。");
   }
 
   private trashList(projectId: string): TrashItem[] {
@@ -6485,7 +7061,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
 
   private snapshotCreate(command: SnapshotCreateCommand): CreationStructureResult {
     const projectId = validateId(command.projectId, "作品");
-    if (command.subjectType !== "scene" && command.subjectType !== "card") {
+    const supported: SnapshotSubjectType[] = ["scene", "card", "chapter", "volume"];
+    if (!supported.includes(command.subjectType)) {
       throw new CreationWorkspaceError("invalid-input", "快照对象类型无效。");
     }
     const subjectId = validateId(command.subjectId, "对象");
@@ -6493,26 +7070,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const snapshotId = `snapshot-${randomUUID()}`;
     return this.runStructureTransaction("snapshot.create", (timestamp) => {
       this.requireProject(projectId);
-      let payload: { reason: string; revision: number; body?: CreationDocument; card?: unknown };
-      if (command.subjectType === "scene") {
-        const scene = this.database
-          .prepare("SELECT body_json, revision FROM scenes WHERE id = ? AND deleted_at IS NULL")
-          .get(subjectId) as { body_json: string; revision: number } | undefined;
-        if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在。");
-        let body: CreationDocument;
-        try {
-          body = JSON.parse(scene.body_json) as CreationDocument;
-        } catch {
-          throw new CreationWorkspaceError("integrity", "场景正文数据损坏。");
-        }
-        payload = { reason, revision: scene.revision, body };
-      } else {
-        const card = this.requireCard(subjectId);
-        payload = {
-          reason,
-          revision: card.revision,
-          card: { title: card.title, aliases: card.aliases, fields: card.fields, tags: card.tags }
-        };
+      this.assertSnapshotSubjectOwned(projectId, command.subjectType, subjectId);
+      const payload = this.captureSubjectPayload(command.subjectType, subjectId, reason);
+      if (!payload) {
+        throw new CreationWorkspaceError("not-found", "快照对象不存在或已删除。");
       }
       this.database
         .prepare("INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)")
@@ -6527,71 +7088,559 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     });
   }
 
-  private snapshotRestore(command: SnapshotRestoreCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
-    const snapshotId = validateId(command.snapshotId, "快照");
-    return this.runStructureTransaction("snapshot.restore", (timestamp) => {
-      const snapshot = this.database
-        .prepare("SELECT id, project_id, subject_type, subject_id, payload_json FROM snapshots WHERE id = ? AND project_id = ?")
-        .get(snapshotId, projectId) as
-        | { id: string; project_id: string; subject_type: string; subject_id: string; payload_json: string }
-        | undefined;
-      if (!snapshot) throw new CreationWorkspaceError("not-found", "快照不存在。");
-      let payload: {
-        reason?: string;
-        revision?: number;
-        body?: CreationDocument;
-        card?: { title?: string; aliases?: string[]; fields?: Record<string, unknown>; tags?: string[] };
-      };
-      try {
-        payload = JSON.parse(snapshot.payload_json);
-      } catch {
-        throw new CreationWorkspaceError("integrity", "快照数据损坏。");
-      }
-      if (snapshot.subject_type === "scene") {
-        const scene = this.database
-          .prepare("SELECT revision FROM scenes WHERE id = ? AND deleted_at IS NULL")
-          .get(snapshot.subject_id) as { revision: number } | undefined;
-        if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在，无法恢复。");
-        if (!payload.body) throw new CreationWorkspaceError("integrity", "快照正文数据缺失。");
-        const revision = scene.revision + 1;
-        const bodyJson = JSON.stringify(payload.body);
-        const stats = countSceneBodyStats(bodyJson);
-        this.database
-          .prepare("UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, updated_at = ?, revision = ? WHERE id = ?")
-          .run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, snapshot.subject_id);
-        this.touchProject(projectId, timestamp);
-        return {
-          projectId,
-          entityId: snapshot.subject_id,
-          revision,
-          changes: [{ entity: "scene", id: snapshot.subject_id, action: "restored", revision }]
-        };
-      }
-      const card = this.requireCard(snapshot.subject_id);
-      if (!payload.card) throw new CreationWorkspaceError("integrity", "快照卡片数据缺失。");
-      const revision = card.revision + 1;
-      this.database
-        .prepare("UPDATE cards SET title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, updated_at = ?, revision = ? WHERE id = ?")
-        .run(
-          payload.card.title ?? card.title,
-          JSON.stringify(payload.card.aliases ?? card.aliases),
-          JSON.stringify(payload.card.fields ?? card.fields),
-          JSON.stringify(payload.card.tags ?? card.tags),
-          timestamp,
-          revision,
-          snapshot.subject_id
-        );
-      this.touchProject(projectId, timestamp);
-      return {
-        projectId,
-        entityId: snapshot.subject_id,
-        revision,
-        changes: [{ entity: "card", id: snapshot.subject_id, action: "restored", revision }]
-      };
-    });
+  /** 校验快照对象属于指定项目：对象不存在（永久删除）抛 not-found，跨项目抛 invalid-input。 */
+  private assertSnapshotSubjectOwned(projectId: string, subjectType: SnapshotSubjectType, subjectId: string): void {
+    const ownerProject = this.findSnapshotSubjectProject(subjectType, subjectId);
+    if (ownerProject === null) {
+      throw new CreationWorkspaceError("not-found", "快照对象不存在或已删除。");
+    }
+    if (ownerProject !== projectId) {
+      throw new CreationWorkspaceError("invalid-input", "快照对象不属于当前作品。");
+    }
   }
 
+  /** 返回快照对象所属项目 ID；对象已永久删除（行不存在）时返回 null。 */
+  private findSnapshotSubjectProject(subjectType: SnapshotSubjectType, subjectId: string): string | null {
+    if (subjectType === "scene") {
+      const row = this.database
+        .prepare("SELECT c.project_id AS project_id FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE s.id = ?")
+        .get(subjectId) as { project_id: string } | undefined;
+      return row?.project_id ?? null;
+    }
+    if (subjectType === "card") {
+      const row = this.database
+        .prepare("SELECT project_id FROM cards WHERE id = ?")
+        .get(subjectId) as { project_id: string } | undefined;
+      return row?.project_id ?? null;
+    }
+    if (subjectType === "chapter") {
+      const row = this.database
+        .prepare("SELECT project_id FROM chapters WHERE id = ?")
+        .get(subjectId) as { project_id: string } | undefined;
+      return row?.project_id ?? null;
+    }
+    const row = this.database
+      .prepare("SELECT project_id FROM volumes WHERE id = ?")
+      .get(subjectId) as { project_id: string } | undefined;
+    return row?.project_id ?? null;
+  }
+
+  /** 读取某对象当前状态为快照 payload（快照创建与保护快照共用）。对象不存在返回 null。 */
+
+  private captureSubjectPayload(subjectType: SnapshotSubjectType, subjectId: string, reason: string): Record<string, unknown> | null { if (subjectType === "scene") {
+    const scene = this.database.prepare("SELECT body_json, revision, deleted_at FROM scenes WHERE id = ?").get(subjectId) as {
+        body_json: string;
+        revision: number;
+        deleted_at: string | null;
+    } | undefined;
+    if (!scene || scene.deleted_at !== null)
+        return null;
+    let body: CreationDocument;
+    try {
+        body = JSON.parse(scene.body_json) as CreationDocument;
+    }
+    catch {
+        throw new CreationWorkspaceError("integrity", "场景正文数据损坏。");
+    }
+    return { reason, revision: scene.revision, body };
+} if (subjectType === "card") {
+    const card = this.database.prepare("SELECT title, aliases_json, fields_json, tags_json, revision, deleted_at FROM cards WHERE id = ?").get(subjectId) as {
+        title: string;
+        aliases_json: string;
+        fields_json: string;
+        tags_json: string;
+        revision: number;
+        deleted_at: string | null;
+    } | undefined;
+    if (!card || card.deleted_at !== null)
+        return null;
+    return { reason, revision: card.revision, card: { title: card.title, aliases: JSON.parse(card.aliases_json) as string[], fields: JSON.parse(card.fields_json) as Record<string, unknown>, tags: JSON.parse(card.tags_json) as string[] } };
+} if (subjectType === "chapter") {
+    const chapter = this.database.prepare("SELECT title, status, numbering_kind, custom_number, revision, deleted_at FROM chapters WHERE id = ?").get(subjectId) as {
+        title: string;
+        status: string;
+        numbering_kind: string;
+        custom_number: string | null;
+        revision: number;
+        deleted_at: string | null;
+    } | undefined;
+    if (!chapter || chapter.deleted_at !== null)
+        return null;
+    const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(subjectId) as Array<{
+        id: string;
+        title: string;
+        sort_order: number;
+        body_json: string;
+        revision: number;
+    }>;
+    return { reason, revision: chapter.revision, chapter: { title: chapter.title, status: chapter.status, numberingKind: chapter.numbering_kind, customNumber: chapter.custom_number, scenes } };
+} const volume = this.database.prepare("SELECT title, revision, deleted_at FROM volumes WHERE id = ?").get(subjectId) as {
+    title: string;
+    revision: number;
+    deleted_at: string | null;
+} | undefined; if (!volume || volume.deleted_at !== null)
+    return null; const chapters = this.database.prepare("SELECT id, title, status, numbering_kind, custom_number, revision FROM chapters WHERE volume_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(subjectId) as Array<{
+    id: string;
+    title: string;
+    status: string;
+    numbering_kind: string;
+    custom_number: string | null;
+    revision: number;
+}>; const chaptersWithScenes = chapters.map((chapter) => { const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(chapter.id) as Array<{
+    id: string;
+    title: string;
+    sort_order: number;
+    body_json: string;
+    revision: number;
+}>; return { ...chapter, scenes }; }); return { reason, revision: volume.revision, volume: { title: volume.title, chapters: chaptersWithScenes } }; }
+
+  private static readonly SNAPSHOT_SUBJECT_TYPES = new Set<SnapshotSubjectType>(["scene", "card", "chapter", "volume"]);
+
+  private requireSnapshot(projectId: string, snapshotId: string): {
+    subject_type: string;
+    subject_id: string;
+    payload_json: string;
+} { const snapshot = this.database.prepare("SELECT subject_type, subject_id, payload_json FROM snapshots WHERE id = ? AND project_id = ?").get(snapshotId, projectId) as {
+    subject_type: string;
+    subject_id: string;
+    payload_json: string;
+} | undefined; if (!snapshot)
+    throw new CreationWorkspaceError("not-found", "快照不存在。"); return snapshot; }
+
+  private parseSnapshotPayload(payloadJson: string): Record<string, unknown> { try {
+    const parsed = JSON.parse(payloadJson) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) {
+        throw new Error("not an object");
+    }
+    return parsed as Record<string, unknown>;
+}
+catch {
+    throw new CreationWorkspaceError("integrity", "快照数据损坏。");
+} }
+
+  private clampDiffText(value: string, max = 400): string { if (value.length <= max)
+    return value; return `${value.slice(0, max)}…（共 ${value.length} 字）`; } /** 快照差异预览：rows 中 before=当前值、after=快照值。数据缺失/损坏时给 warnings 并置 canRestore=false。 */
+
+  private readSnapshotPreview(projectId: string, snapshotId: string): SnapshotPreviewView | null { this.requireProject(projectId); const snapshot = this.requireSnapshot(projectId, snapshotId); const warnings: string[] = []; let payload: Record<string, unknown>; try {
+    payload = this.parseSnapshotPayload(snapshot.payload_json);
+}
+catch (error) {
+    warnings.push(error instanceof Error ? error.message : String(error));
+    return { snapshotId, subjectType: snapshot.subject_type as SnapshotSubjectType, subjectId: snapshot.subject_id, title: "", rows: [], warnings, canRestore: false };
+} const rows: SnapshotDiffRow[] = []; const pushRow = (label: string, before: string, after: string) => { rows.push({ label, before: this.clampDiffText(before), after: this.clampDiffText(after), changed: before !== after }); }; let title = ""; let complete = true; if (SqliteCreationWorkspace.SNAPSHOT_SUBJECT_TYPES.has(snapshot.subject_type as SnapshotSubjectType)) {
+    const ownerProject = this.findSnapshotSubjectProject(snapshot.subject_type as SnapshotSubjectType, snapshot.subject_id);
+    if (ownerProject === null) {
+        warnings.push("目标对象已永久删除，无法恢复。");
+        complete = false;
+    }
+    else if (ownerProject !== projectId) {
+        throw new CreationWorkspaceError("invalid-input", "快照对象不属于当前作品。");
+    }
+} if (snapshot.subject_type === "scene") {
+    const current = this.database.prepare("SELECT title, body_json FROM scenes WHERE id = ?").get(snapshot.subject_id) as {
+        title: string;
+        body_json: string;
+    } | undefined;
+    title = current?.title ?? "";
+    if (payload.body === undefined) {
+        warnings.push("快照缺少场景正文。");
+        complete = false;
+    }
+    else {
+        const beforeText = current ? extractSceneText(current.body_json) : "（对象不存在）";
+        pushRow("正文", beforeText, extractSceneText(JSON.stringify(payload.body)));
+    }
+}
+else if (snapshot.subject_type === "card") {
+    const current = this.database.prepare("SELECT title, aliases_json, fields_json, tags_json FROM cards WHERE id = ?").get(snapshot.subject_id) as {
+        title: string;
+        aliases_json: string;
+        fields_json: string;
+        tags_json: string;
+    } | undefined;
+    title = current?.title ?? "";
+    if (payload.card === undefined) {
+        warnings.push("快照缺少卡片数据。");
+        complete = false;
+    }
+    else {
+        const card = payload.card as {
+            title?: string;
+            aliases?: string[];
+            fields?: Record<string, unknown>;
+            tags?: string[];
+        };
+        if (current) {
+            pushRow("标题", current.title, card.title ?? "");
+            pushRow("别名", (JSON.parse(current.aliases_json) as string[]).join("、"), (card.aliases ?? []).join("、"));
+            pushRow("字段", JSON.stringify(JSON.parse(current.fields_json)), JSON.stringify(card.fields ?? {}));
+            pushRow("标签", (JSON.parse(current.tags_json) as string[]).join("、"), (card.tags ?? []).join("、"));
+        }
+        else {
+            pushRow("标题", "（对象不存在）", card.title ?? "");
+            pushRow("别名", "（对象不存在）", (card.aliases ?? []).join("、"));
+            pushRow("字段", "（对象不存在）", JSON.stringify(card.fields ?? {}));
+            pushRow("标签", "（对象不存在）", (card.tags ?? []).join("、"));
+        }
+    }
+}
+else if (snapshot.subject_type === "chapter") {
+    const current = this.database.prepare("SELECT title, status, numbering_kind, custom_number FROM chapters WHERE id = ?").get(snapshot.subject_id) as {
+        title: string;
+        status: string;
+        numbering_kind: string;
+        custom_number: string | null;
+    } | undefined;
+    title = current?.title ?? "";
+    if (payload.chapter === undefined) {
+        warnings.push("快照缺少章节数据。");
+        complete = false;
+    }
+    else {
+        const chapter = payload.chapter as {
+            title?: string;
+            status?: string;
+            numberingKind?: string;
+            customNumber?: string | null;
+            scenes?: unknown[];
+        };
+        const sceneCount = Array.isArray(chapter.scenes) ? chapter.scenes.length : 0;
+        // 已移出本章的快照场景：恢复时跳过，不覆盖其在其他章节的新内容。
+        const movedSceneIds: string[] = [];
+        if (Array.isArray(chapter.scenes)) {
+            for (const item of chapter.scenes) {
+                if (!isRecord(item) || typeof item.id !== "string") continue;
+                const sceneRow = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(item.id) as {
+                    chapter_id: string;
+                } | undefined;
+                if (sceneRow && sceneRow.chapter_id !== snapshot.subject_id) movedSceneIds.push(item.id);
+            }
+        }
+        if (current) {
+            pushRow("标题", current.title, chapter.title ?? "");
+            pushRow("状态", current.status, chapter.status ?? "");
+            pushRow("编号方式", current.numbering_kind, chapter.numberingKind ?? "");
+            pushRow("场景数", `${this.countChapterScenes(snapshot.subject_id)}`, `${sceneCount}`);
+            pushRow("已移出本章的场景（跳过）", "0", `${movedSceneIds.length}`);
+        }
+        else {
+            pushRow("标题", "（对象不存在）", chapter.title ?? "");
+            pushRow("状态", "（对象不存在）", chapter.status ?? "");
+            pushRow("场景数", "（对象不存在）", `${sceneCount}`);
+        }
+        if (movedSceneIds.length > 0) {
+            warnings.push(`${movedSceneIds.length} 个快照场景已移出本章，恢复时将跳过，不会覆盖其在其他章节的新内容。`);
+        }
+    }
+}
+else if (snapshot.subject_type === "volume") {
+    const current = this.database.prepare("SELECT title FROM volumes WHERE id = ?").get(snapshot.subject_id) as {
+        title: string;
+    } | undefined;
+    title = current?.title ?? "";
+    if (payload.volume === undefined) {
+        warnings.push("快照缺少卷数据。");
+        complete = false;
+    }
+    else {
+        const volume = payload.volume as {
+            title?: string;
+            chapters?: unknown[];
+        };
+        const chapterCount = Array.isArray(volume.chapters) ? volume.chapters.length : 0;
+        // 已移出本卷的快照章节：恢复时跳过，不覆盖其在其他卷的新修改；对保留章节统计已移出该章的场景。
+        const movedChapterIds: string[] = [];
+        let movedSceneCount = 0;
+        if (Array.isArray(volume.chapters)) {
+            for (const item of volume.chapters) {
+                if (!isRecord(item) || typeof item.id !== "string") continue;
+                const chapterRow = this.database.prepare("SELECT volume_id FROM chapters WHERE id = ?").get(item.id) as {
+                    volume_id: string | null;
+                } | undefined;
+                if (chapterRow && chapterRow.volume_id !== snapshot.subject_id) {
+                    movedChapterIds.push(item.id);
+                    continue;
+                }
+                const chapterScenes = Array.isArray(item.scenes) ? item.scenes : [];
+                for (const sceneItem of chapterScenes) {
+                    if (!isRecord(sceneItem) || typeof sceneItem.id !== "string") continue;
+                    const sceneRow = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(sceneItem.id) as {
+                        chapter_id: string;
+                    } | undefined;
+                    if (sceneRow && sceneRow.chapter_id !== item.id) movedSceneCount += 1;
+                }
+            }
+        }
+        if (current) {
+            pushRow("标题", current.title, volume.title ?? "");
+            pushRow("章节数", `${this.countVolumeChapters(snapshot.subject_id)}`, `${chapterCount}`);
+            pushRow("已移出本卷的章节（跳过）", "0", `${movedChapterIds.length}`);
+            pushRow("已移出所在章节的场景（跳过）", "0", `${movedSceneCount}`);
+        }
+        else {
+            pushRow("标题", "（对象不存在）", volume.title ?? "");
+            pushRow("章节数", "（对象不存在）", `${chapterCount}`);
+        }
+        if (movedChapterIds.length > 0) {
+            warnings.push(`${movedChapterIds.length} 个快照章节已移出本卷，恢复时将跳过，不会覆盖其在其他卷的新修改。`);
+        }
+        if (movedSceneCount > 0) {
+            warnings.push(`${movedSceneCount} 个快照场景已移出所在章节，恢复时将跳过，不会覆盖其在其他章节的新内容。`);
+        }
+    }
+}
+else {
+    warnings.push("该快照类型不支持恢复。");
+    complete = false;
+} return { snapshotId, subjectType: snapshot.subject_type as SnapshotSubjectType, subjectId: snapshot.subject_id, title, rows, warnings, canRestore: complete && SqliteCreationWorkspace.SNAPSHOT_SUBJECT_TYPES.has(snapshot.subject_type as SnapshotSubjectType) }; }
+
+  private countChapterScenes(chapterId: string): number { const row = this.database.prepare("SELECT count(*) AS count FROM scenes WHERE chapter_id = ?").get(chapterId) as {
+    count: number;
+}; return row.count; }
+
+  private countVolumeChapters(volumeId: string): number { const row = this.database.prepare("SELECT count(*) AS count FROM chapters WHERE volume_id = ?").get(volumeId) as {
+    count: number;
+}; return row.count; } /** 恢复目标快照内容（restoreWithProtection 事务内调用）。返回最新 revision 与事件 changes。 */
+
+  private applySnapshotPayload(subjectType: string, subjectId: string, payload: Record<string, unknown>, timestamp: string): {
+    revision: number;
+    changes: CreationWorkspaceEvent["changes"];
+} {
+    if (subjectType === "scene") {
+        const body = payload.body as CreationDocument | undefined;
+        if (!body)
+            throw new CreationWorkspaceError("integrity", "快照正文数据缺失。");
+        const current = this.database.prepare("SELECT revision FROM scenes WHERE id = ?").get(subjectId) as {
+            revision: number;
+        } | undefined;
+        if (!current)
+            throw new CreationWorkspaceError("not-found", "场景已永久删除，无法恢复。");
+        const revision = current.revision + 1;
+        const bodyJson = JSON.stringify(body);
+        const stats = countSceneBodyStats(bodyJson);
+        this.database.prepare("UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, subjectId);
+        return { revision, changes: [{ entity: "scene", id: subjectId, action: "restored", revision }] };
+    }
+    if (subjectType === "card") {
+        const card = payload.card as {
+            title?: string;
+            aliases?: string[];
+            fields?: Record<string, unknown>;
+            tags?: string[];
+        } | undefined;
+        if (!card)
+            throw new CreationWorkspaceError("integrity", "快照卡片数据缺失。");
+        const current = this.database.prepare("SELECT revision FROM cards WHERE id = ?").get(subjectId) as {
+            revision: number;
+        } | undefined;
+        if (!current)
+            throw new CreationWorkspaceError("not-found", "卡片已永久删除，无法恢复。");
+        const revision = current.revision + 1;
+        this.database.prepare("UPDATE cards SET title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(card.title ?? "", JSON.stringify(card.aliases ?? []), JSON.stringify(card.fields ?? {}), JSON.stringify(card.tags ?? []), timestamp, revision, subjectId);
+        return { revision, changes: [{ entity: "card", id: subjectId, action: "restored", revision }] };
+    }
+    if (subjectType === "chapter") {
+        const chapter = payload.chapter as {
+            title?: string;
+            status?: string;
+            numberingKind?: string;
+            customNumber?: string | null;
+            scenes?: Array<{
+                id: string;
+                title: string;
+                sort_order: number;
+                body_json: string;
+                revision: number;
+            }>;
+        } | undefined;
+        if (!chapter)
+            throw new CreationWorkspaceError("integrity", "快照章节数据缺失。");
+        const current = this.database.prepare("SELECT revision FROM chapters WHERE id = ?").get(subjectId) as {
+            revision: number;
+        } | undefined;
+        if (!current)
+            throw new CreationWorkspaceError("not-found", "章节已永久删除，无法恢复。");
+        const revision = current.revision + 1;
+        this.database.prepare("UPDATE chapters SET title = ?, status = ?, numbering_kind = ?, custom_number = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(chapter.title ?? "", chapter.status ?? "", chapter.numberingKind ?? "auto", chapter.customNumber ?? null, timestamp, revision, subjectId);
+        const changes: CreationWorkspaceEvent["changes"] = [{ entity: "chapter", id: subjectId, action: "restored", revision }];
+        for (const scene of chapter.scenes ?? []) {
+            // 场景已移出本章：跳过，不覆盖其在其他章节的新内容。
+            const existing = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(scene.id) as {
+                chapter_id: string;
+            } | undefined;
+            if (existing && existing.chapter_id !== subjectId)
+                continue;
+            const sceneRevision = (scene.revision ?? 0) + 1;
+            const stats = countSceneBodyStats(scene.body_json);
+            if (existing) {
+                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
+            }
+            else {
+                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, subjectId, scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
+            }
+            changes.push({ entity: "scene", id: scene.id, action: "restored", revision: sceneRevision });
+        }
+        return { revision, changes };
+    }
+    const volume = payload.volume as {
+        title?: string;
+        chapters?: Array<{
+            id: string;
+            title: string;
+            status: string;
+            numbering_kind: string;
+            custom_number: string | null;
+            revision: number;
+            scenes?: Array<{
+                id: string;
+                title: string;
+                sort_order: number;
+                body_json: string;
+                revision: number;
+            }>;
+        }>;
+    } | undefined;
+    if (!volume)
+        throw new CreationWorkspaceError("integrity", "快照卷数据缺失。");
+    const current = this.database.prepare("SELECT revision FROM volumes WHERE id = ?").get(subjectId) as {
+        revision: number;
+    } | undefined;
+    const volumeProject = this.database.prepare("SELECT project_id FROM volumes WHERE id = ?").get(subjectId) as {
+        project_id: string;
+    } | undefined;
+    if (!volumeProject)
+        throw new CreationWorkspaceError("not-found", "卷不存在，无法恢复。");
+    const revision = (current?.revision ?? 0) + 1;
+    this.database.prepare("UPDATE volumes SET title = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(volume.title ?? "", timestamp, revision, subjectId);
+    const changes: CreationWorkspaceEvent["changes"] = [{ entity: "volume", id: subjectId, action: "restored", revision }];
+    for (const chapter of volume.chapters ?? []) {
+        const chapterRevision = (chapter.revision ?? 0) + 1;
+        // 章节已移出本卷：跳过，不覆盖其在其他卷的新修改、不改归属。
+        const existingChapter = this.database.prepare("SELECT volume_id FROM chapters WHERE id = ?").get(chapter.id) as {
+            volume_id: string | null;
+        } | undefined;
+        if (existingChapter && existingChapter.volume_id !== subjectId)
+            continue;
+        if (existingChapter) {
+            this.database.prepare("UPDATE chapters SET title = ?, status = ?, numbering_kind = ?, custom_number = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(chapter.title, chapter.status, chapter.numbering_kind, chapter.custom_number ?? null, timestamp, chapterRevision, chapter.id);
+        }
+        else {
+            this.database.prepare("INSERT INTO chapters(id, project_id, volume_id, title, sort_order, status, numbering_kind, custom_number, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(chapter.id, volumeProject.project_id, subjectId, chapter.title, 0, chapter.status, chapter.numbering_kind, chapter.custom_number ?? null, timestamp, timestamp, chapterRevision);
+        }
+        changes.push({ entity: "chapter", id: chapter.id, action: "restored", revision: chapterRevision });
+        for (const scene of chapter.scenes ?? []) {
+            const sceneRevision = (scene.revision ?? 0) + 1;
+            // 场景已移出本章：跳过，不覆盖其在其他章节的新内容、不改归属。
+            const existingScene = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(scene.id) as {
+                chapter_id: string;
+            } | undefined;
+            if (existingScene && existingScene.chapter_id !== chapter.id)
+                continue;
+            const stats = countSceneBodyStats(scene.body_json);
+            if (existingScene) {
+                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
+            }
+            else {
+                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, chapter.id, scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
+            }
+            changes.push({ entity: "scene", id: scene.id, action: "restored", revision: sceneRevision });
+        }
+    }
+    return { revision, changes };
+} /**   * 快照安全恢复：同一 BEGIN IMMEDIATE 事务内 保护快照 → 恢复目标 → change_log → COMMIT。   * 任一步失败整体回滚（保护快照不落库、对象不变）。   */
+
+  async restoreSnapshotWithProtection(command: SnapshotRestoreWithProtectionCommand): Promise<SnapshotRestoreWithProtectionResult> {
+    const projectId = validateId(command.projectId, "作品");
+    const snapshotId = validateId(command.snapshotId, "快照");
+    const protectionReason = validateTitle(command.protectionReason, "保护原因", 200);
+    const timestamp = new Date().toISOString();
+    const protectionSnapshotId = `protective-snapshot-${randomUUID()}`;
+    try {
+        this.database.exec("BEGIN IMMEDIATE");
+        this.requireProject(projectId);
+        const snapshot = this.requireSnapshot(projectId, snapshotId);
+        const subjectType = snapshot.subject_type as SnapshotSubjectType;
+        if (!SqliteCreationWorkspace.SNAPSHOT_SUBJECT_TYPES.has(subjectType)) {
+            throw new CreationWorkspaceError("invalid-input", "快照对象类型不支持安全恢复。");
+        }
+        // 归属校验：对象已永久删除或不属于当前项目时，在写入保护快照前稳定失败（整体回滚、零写入）。
+        this.assertSnapshotSubjectOwned(projectId, subjectType, snapshot.subject_id);
+        const payload = this.parseSnapshotPayload(snapshot.payload_json); // a. 捕获恢复前保护快照（对象不存在时记录 absent 标记，仍可用于回退）。
+        const protectionPayload = this.captureSubjectPayload(subjectType, snapshot.subject_id, protectionReason);
+        this.database.prepare("INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(protectionSnapshotId, projectId, subjectType, snapshot.subject_id, JSON.stringify(protectionPayload ?? { reason: protectionReason, revision: 0, absent: true }), timestamp); // b. 恢复目标快照
+        const restored = this.applySnapshotPayload(subjectType, snapshot.subject_id, payload, timestamp);
+        this.touchProject(projectId, timestamp); // c. change_log
+        const logged = this.database.prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)").run(projectId, "snapshot.restoreWithProtection", JSON.stringify(restored.changes), timestamp); // d. COMMIT
+        this.database.exec("COMMIT");
+        this.emitCommitted({ kind: "committed", sequence: Number(logged.lastInsertRowid), projectId, commandType: "snapshot.restoreWithProtection", changes: restored.changes });
+        return { ok: true, protectionSnapshotId, restoredSubjectType: subjectType, restoredSubjectId: snapshot.subject_id, revision: restored.revision };
+    }
+    catch (error) {
+        try {
+            this.database.exec("ROLLBACK");
+        }
+        catch { // The transaction may already have been rolled back by SQLite.
+        }
+        if (error instanceof CreationWorkspaceError)
+            throw error;
+        if (isConstraintError(error))
+            throw new CreationWorkspaceError("conflict", "快照恢复违反结构约束，未应用任何修改。");
+        throw new CreationWorkspaceError("integrity", "无法安全恢复快照。");
+    }
+} /** 回收站影响预览：对象不存在或不在回收站时返回稳定 not-found 错误。 */
+
+  private readTrashImpact(projectId: string, entity: TrashEntityKind, entityId: string): TrashImpactView { this.requireProject(projectId); const warnings: string[] = []; if (entity === "volume") {
+    const volume = this.database.prepare("SELECT title, deleted_at FROM volumes WHERE id = ? AND project_id = ?").get(entityId, projectId) as {
+        title: string;
+        deleted_at: string | null;
+    } | undefined;
+    if (!volume)
+        throw new CreationWorkspaceError("not-found", "对象不存在。");
+    if (volume.deleted_at === null)
+        throw new CreationWorkspaceError("conflict", "对象不在回收站。");
+    const chapters = this.database.prepare("SELECT count(*) AS count FROM chapters WHERE volume_id = ?").get(entityId) as {
+        count: number;
+    };
+    const scenes = this.database.prepare("SELECT coalesce(sum(s.non_ws_count), 0) AS chars, count(*) AS count FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.volume_id = ?").get(entityId) as {
+        chars: number;
+        count: number;
+    };
+    return { title: volume.title, childVolumeCount: 0, childChapterCount: chapters.count, childSceneCount: scenes.count, relatedCardCount: 0, resourceCount: 0, approxChars: scenes.chars, warnings };
+} if (entity === "chapter") {
+    const chapter = this.database.prepare("SELECT title, deleted_at FROM chapters WHERE id = ? AND project_id = ?").get(entityId, projectId) as {
+        title: string;
+        deleted_at: string | null;
+    } | undefined;
+    if (!chapter)
+        throw new CreationWorkspaceError("not-found", "对象不存在。");
+    if (chapter.deleted_at === null)
+        throw new CreationWorkspaceError("conflict", "对象不在回收站。");
+    const scenes = this.database.prepare("SELECT coalesce(sum(non_ws_count), 0) AS chars, count(*) AS count FROM scenes WHERE chapter_id = ?").get(entityId) as {
+        chars: number;
+        count: number;
+    };
+    return { title: chapter.title, childVolumeCount: 0, childChapterCount: 0, childSceneCount: scenes.count, relatedCardCount: 0, resourceCount: 0, approxChars: scenes.chars, warnings };
+} if (entity === "scene") {
+    const scene = this.database.prepare(`SELECT s.title, s.deleted_at, s.non_ws_count FROM scenes s JOIN chapters c ON c.id = s.chapter_id           WHERE s.id = ? AND c.project_id = ?`).get(entityId, projectId) as {
+        title: string;
+        deleted_at: string | null;
+        non_ws_count: number;
+    } | undefined;
+    if (!scene)
+        throw new CreationWorkspaceError("not-found", "对象不存在。");
+    if (scene.deleted_at === null)
+        throw new CreationWorkspaceError("conflict", "对象不在回收站。");
+    return { title: scene.title, childVolumeCount: 0, childChapterCount: 0, childSceneCount: 0, relatedCardCount: 0, resourceCount: 0, approxChars: scene.non_ws_count, warnings };
+} const card = this.database.prepare("SELECT title, deleted_at FROM cards WHERE id = ? AND project_id = ?").get(entityId, projectId) as {
+    title: string;
+    deleted_at: string | null;
+} | undefined; if (!card)
+    throw new CreationWorkspaceError("not-found", "对象不存在。"); if (card.deleted_at === null)
+    throw new CreationWorkspaceError("conflict", "对象不在回收站。"); const relations = this.database.prepare("SELECT count(*) AS count FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").get(entityId, entityId) as {
+    count: number;
+}; const resources = this.database.prepare("SELECT count(*) AS count FROM resources WHERE card_id = ?").get(entityId) as {
+    count: number;
+}; return { title: card.title, childVolumeCount: 0, childChapterCount: 0, childSceneCount: 0, relatedCardCount: relations.count, resourceCount: resources.count, approxChars: 0, warnings }; }
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void {
     this.assertOpen();
     const runtimeScope = scope as unknown as { projectId?: unknown } | null;
@@ -6736,6 +7785,293 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
+  // ---- Phase 1 P1 深模块 seam 接入实现 ----
+
+  /** 分层快照留存：system 受控分类 + 单事务删除；绝不读取 reason。 */
+  async runSnapshotRetention(): Promise<SnapshotRetentionResult> {
+    this.assertOpen();
+    const rows = this.database
+      .prepare("SELECT id, project_id, subject_type, subject_id, created_at FROM snapshots")
+      .all() as Array<{ id: string; project_id: string; subject_type: string; subject_id: string; created_at: string }>;
+    const metas = rows.map((r) => ({
+      id: r.id,
+      projectId: r.project_id,
+      subjectType: r.subject_type,
+      subjectId: r.subject_id,
+      kind: classifySnapshotMeta({ id: r.id, subjectType: r.subject_type, subjectId: r.subject_id }),
+      createdAt: r.created_at
+    }));
+    const plan = planSnapshotRetention(metas, new Date());
+    if (plan.deleteIds.length > 0) {
+      this.database.exec("BEGIN IMMEDIATE");
+      try {
+        const del = this.database.prepare("DELETE FROM snapshots WHERE id = ?");
+        for (const id of plan.deleteIds) del.run(id);
+        this.database.exec("COMMIT");
+      } catch (error) {
+        try {
+          this.database.exec("ROLLBACK");
+        } catch {
+          /* 已回滚 */
+        }
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法执行分层快照留存删除。");
+      }
+    }
+    return { keepIds: plan.keepIds, deleteIds: plan.deleteIds, deletedCount: plan.deleteIds.length };
+  }
+
+  /** 读取导入所需的项目模式上下文（类型 / 关系类型 / 现有卡片标题）。 */
+  async cardImportSchema(projectId: string): Promise<CardImportSchemaContext> {
+    this.assertOpen();
+    validateId(projectId, "作品");
+    return readCardImportSchemaContext(this.database, projectId);
+  }
+
+  /** 读模式上下文 -> 规划（纯，不写库），供 UI 预览可应用结果。 */
+  async cardImportPlan(input: CardImportApplyInput): Promise<CardImportPlan> {
+    this.assertOpen();
+    validateId(input.projectId, "作品");
+    const schema = readCardImportSchemaContext(this.database, input.projectId);
+    return planCardImport(input.text, input.format, input.mapping, schema, input.options);
+  }
+
+  /** 读模式 -> 规划 -> 单事务 apply；失败回滚零写入。 */
+  async cardImportApply(input: CardImportApplyInput): Promise<CardImportApplyResult> {
+    this.assertOpen();
+    validateId(input.projectId, "作品");
+    const schema = readCardImportSchemaContext(this.database, input.projectId);
+    const plan = planCardImport(input.text, input.format, input.mapping, schema, input.options);
+    const planId = generateCardImportPlanId();
+    return applyCardImportPlan(this.database, plan, planId);
+  }
+
+  /** 按筛选范围读取可导出卡片行（不携带内部 id；cardRef 已转为标题）。 */
+  async cardExportRows(projectId: string, filter: CardExportFilter): Promise<CardExportRow[]> {
+    this.assertOpen();
+    validateId(projectId, "作品");
+    return readCardsForExport(this.database, projectId, filter);
+  }
+
+  /** 全项目替换计划 store：scenes/snapshots/change_log 走 DB，计划本体落 JSON 文件。 */
+  private buildReplacePlanStore(): ReplacePlanStore {
+    const deleteScene = this.database.prepare("DELETE FROM scenes WHERE id = ? AND deleted_at IS NULL");
+    const listSql = `
+      SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+      FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+      WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?`;
+    const getSceneStmt = this.database.prepare(
+      "SELECT body_json, revision, updated_at FROM scenes WHERE id = ? AND deleted_at IS NULL"
+    );
+    const updateScene = this.database.prepare(
+      "UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, updated_at = ?, revision = ? WHERE id = ?"
+    );
+    const insertSnapshot = this.database.prepare(
+      "INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)"
+    );
+    const insertChangeLog = this.database.prepare(
+      "INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)"
+    );
+    const plansDir = path.join(this.workspaceDirectory, "replace-plans");
+    mkdirSync(plansDir, { recursive: true });
+    const usedPlanIds = new Set<string>();
+    const readPlanFile = (planId: string): ReplacePlan | undefined => {
+      try {
+        const raw = readFileSync(path.join(plansDir, `${planId}.json`), "utf8");
+        return JSON.parse(raw) as ReplacePlan;
+      } catch {
+        return undefined;
+      }
+    };
+    return {
+      listScopeScenes: (projectId, scope, scopeId) => {
+        let sql = listSql;
+        const params: unknown[] = [projectId];
+        if (scope === "chapter" && scopeId) {
+          sql = `
+            SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+            FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+            WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND s.chapter_id = ?`;
+          params[0] = scopeId;
+        } else if (scope === "scene" && scopeId) {
+          sql = `
+            SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
+            FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+            WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND s.id = ?`;
+          params[0] = scopeId;
+        }
+        const rows = this.database.prepare(sql).all(...params) as Array<{
+          id: string;
+          project_id: string;
+          chapter_id: string;
+          chapter_title: string;
+          title: string;
+          body_json: string;
+          revision: number;
+          updated_at: string;
+        }>;
+        return rows.map((r) => ({
+          id: r.id,
+          projectId: r.project_id,
+          chapterId: r.chapter_id,
+          chapterTitle: r.chapter_title,
+          title: r.title,
+          bodyJson: r.body_json,
+          revision: r.revision,
+          updatedAt: r.updated_at
+        }));
+      },
+      getScene: (id) => {
+        const row = getSceneStmt.get(id) as { body_json: string; revision: number; updated_at: string } | undefined;
+        if (!row) return undefined;
+        return { bodyJson: row.body_json, revision: row.revision, updatedAt: row.updated_at };
+      },
+      savePlan: (plan) => {
+        writeFileSync(path.join(plansDir, `${plan.planId}.json`), JSON.stringify(plan), "utf8");
+      },
+      loadPlan: (planId) => readPlanFile(planId),
+      deletePlan: (planId) => {
+        try {
+          unlinkSync(path.join(plansDir, `${planId}.json`));
+        } catch {
+          /* 已不存在 */
+        }
+      },
+      isPlanUsed: (planId) => usedPlanIds.has(planId),
+      markPlanUsed: (planId) => {
+        usedPlanIds.add(planId);
+        try {
+          unlinkSync(path.join(plansDir, `${planId}.json`));
+        } catch {
+          /* 已不存在 */
+        }
+      },
+      beginTransaction: () => this.database.exec("BEGIN IMMEDIATE"),
+      commitTransaction: () => this.database.exec("COMMIT"),
+      rollbackTransaction: () => this.database.exec("ROLLBACK"),
+      updateSceneBody: (id, bodyJson, newRevision, timestamp) => {
+        const stats = countSceneBodyStats(bodyJson);
+        updateScene.run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, newRevision, id);
+      },
+      insertSnapshot: (id, projectId, subjectId, payloadJson, createdAt) =>
+        insertSnapshot.run(id, projectId, "scene", subjectId, payloadJson, createdAt),
+      insertChangeLog: (projectId, commandType, changesJson, committedAt) =>
+        Number(insertChangeLog.run(projectId, commandType, changesJson, committedAt).lastInsertRowid)
+    };
+  }
+
+  async createReplacePlan(query: ReplacePlanQuery, controller?: ReplacePlanController): Promise<ReplacePlan> {
+    this.assertOpen();
+    return runCreateReplacePlan(this.buildReplacePlanStore(), query, controller);
+  }
+
+  async applyReplacePlan(
+    planId: string,
+    excludedHitIds: string[],
+    controller?: ReplacePlanController
+  ): Promise<ReplaceApplyOutcome> {
+    this.assertOpen();
+    const store = this.buildReplacePlanStore();
+    const plan = store.loadPlan(planId);
+    const projectId = plan?.projectId ?? "";
+    const outcome = await runApplyReplacePlan(store, planId, excludedHitIds, controller);
+    if (projectId && outcome.modifiedSceneIds.length > 0) {
+      const timestamp = outcome.committedAt;
+      this.touchProject(projectId, timestamp);
+      const changes = outcome.modifiedSceneIds.flatMap((sceneId, index) => [
+        { entity: "scene" as const, id: sceneId, action: "updated" as const, revision: 0 },
+        {
+          entity: "snapshot" as const,
+          id: outcome.snapshotIds[index] ?? "",
+          action: "created" as const,
+          revision: 1
+        }
+      ]);
+      this.emitCommitted({
+        kind: "committed",
+        sequence: outcome.sequence,
+        projectId,
+        commandType: "replace.applyPlan",
+        changes
+      });
+    }
+    return outcome;
+  }
+
+  /** 修正已有写作会话（仅 startedAt/activeSeconds/netChars 可改）。 */
+  async sessionUpdate(command: SessionUpdateCommand): Promise<SessionReportResult> {
+    this.assertOpen();
+    const projectId = validateId(command.projectId, "作品");
+    this.requireProject(projectId);
+    const sessionId = validateId(command.sessionId, "会话");
+    const row = this.database
+      .prepare("SELECT id, started_at, active_seconds, net_chars FROM writing_sessions WHERE id = ? AND project_id = ?")
+      .get(sessionId, projectId) as { id: string; started_at: string; active_seconds: number; net_chars: number } | undefined;
+    if (!row) throw new CreationWorkspaceError("not-found", "会话不存在或不属于该项目。");
+
+    const startedAt =
+      typeof command.startedAt === "string" && !Number.isNaN(Date.parse(command.startedAt))
+        ? new Date(command.startedAt).toISOString()
+        : row.started_at;
+    const activeSeconds =
+      command.activeSeconds === undefined ? row.active_seconds : command.activeSeconds;
+    if (!Number.isFinite(activeSeconds) || activeSeconds < 0 || activeSeconds > 86_400) {
+      throw new CreationWorkspaceError("invalid-input", "活动时长必须在 0 至 86400 秒之间。");
+    }
+    const netChars = command.netChars === undefined ? row.net_chars : command.netChars;
+    if (!Number.isFinite(netChars) || netChars < -1_000_000 || netChars > 1_000_000) {
+      throw new CreationWorkspaceError("invalid-input", "净增字符数超出允许范围。");
+    }
+    const timestamp = new Date().toISOString();
+    this.database
+      .prepare("UPDATE writing_sessions SET started_at = ?, active_seconds = ?, net_chars = ? WHERE id = ?")
+      .run(startedAt, Math.round(activeSeconds), Math.round(netChars), sessionId);
+    this.emitCommitted({
+      kind: "committed",
+      sequence: -1,
+      projectId,
+      commandType: "session.update",
+      changes: [{ entity: "session", id: sessionId, action: "updated", revision: 0 }]
+    });
+    return { commandType: "session.update", sequence: -1, projectId, sessionId, updatedAt: timestamp };
+  }
+
+  /** 更新项目目标（写入 setup_json，不新增表列）。 */
+  async projectUpdateGoal(command: ProjectUpdateGoalCommand): Promise<ProjectGoalResult> {
+    this.assertOpen();
+    const projectId = validateId(command.projectId, "作品");
+    const row = this.database
+      .prepare("SELECT setup_json, revision FROM projects WHERE id = ?")
+      .get(projectId) as { setup_json: string; revision: number } | undefined;
+    if (!row) throw new CreationWorkspaceError("not-found", "作品不存在。");
+    const setup = parseStoredSetup(row.setup_json);
+    if (command.dailyWordGoal !== undefined) setup.dailyWordGoal = command.dailyWordGoal ?? undefined;
+    if (command.weeklyWordGoal !== undefined) setup.weeklyWordGoal = command.weeklyWordGoal ?? undefined;
+    if (command.totalWordGoal !== undefined) setup.totalWordGoal = command.totalWordGoal ?? undefined;
+    if (command.targetDate !== undefined) setup.targetDate = command.targetDate ?? undefined;
+    if (command.description !== undefined) setup.description = command.description ?? undefined;
+    if (command.genre !== undefined) setup.genre = command.genre ?? undefined;
+    if (command.weeklyUpdateDays !== undefined) {
+      setup.weeklyUpdateDays = command.weeklyUpdateDays.filter(
+        (day) => Number.isInteger(day) && day >= 1 && day <= 7
+      );
+    }
+    const newRevision = row.revision + 1;
+    const timestamp = new Date().toISOString();
+    this.database
+      .prepare("UPDATE projects SET setup_json = ?, revision = ?, updated_at = ? WHERE id = ?")
+      .run(JSON.stringify(setup), newRevision, timestamp, projectId);
+    this.touchProject(projectId, timestamp);
+    this.emitCommitted({
+      kind: "committed",
+      sequence: -1,
+      projectId,
+      commandType: "project.updateGoal",
+      changes: [{ entity: "project", id: projectId, action: "updated", revision: newRevision }]
+    });
+    return { projectId, setup };
+  }
+
   async close(): Promise<void> {
     if (this.closed) return;
     this.watchers.clear();
@@ -6836,7 +8172,7 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
     } catch {
       // 到期清理失败不应阻止工作区打开
     }
-    return new SqliteCreationWorkspace(database);
+    return new SqliteCreationWorkspace(database, options.directory);
   } catch (error) {
     try {
       database?.close();

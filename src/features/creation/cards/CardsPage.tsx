@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
-import { Columns, Flag, GitBranch, Globe2, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { Columns, Download, Flag, GitBranch, Globe2, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
 import { BoardView } from "@/features/creation/cards/BoardView";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
 import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor";
 import { BackgroundPage } from "@/features/creation/background/BackgroundPage";
+import { CardImportDialog } from "@/features/creation/cards/import-export/CardImportDialog";
+import { CardExportDialog } from "@/features/creation/cards/import-export/CardExportDialog";
 import "./cards-local.css";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
@@ -227,6 +229,8 @@ export function CardsPage({ project }: CardsPageProps) {
   const [showMilestone, setShowMilestone] = useState(false);
   const [milestoneReason, setMilestoneReason] = useState("");
   const [milestoneBusy, setMilestoneBusy] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [showExportDialog, setShowExportDialog] = useState(false);
 
   useEffect(() => {
     setDraft(null);
@@ -837,6 +841,12 @@ export function CardsPage({ project }: CardsPageProps) {
             <button type="button" className="cards-manage" onClick={() => setShowRelationTypeEditor(true)}>
               <GitBranch size={14} /> 关系类型
             </button>
+            <button type="button" className="cards-manage" onClick={() => setShowImportDialog(true)}>
+              <Upload size={14} /> 导入
+            </button>
+            <button type="button" className="cards-manage" onClick={() => setShowExportDialog(true)}>
+              <Download size={14} /> 导出
+            </button>
             <button type="button" className="cards-add" onClick={() => newCardInKind(filterKind)}>
               <Plus size={15} /> 新建卡片
             </button>
@@ -890,13 +900,38 @@ export function CardsPage({ project }: CardsPageProps) {
         </div>
       )}
       {showCardTypeEditor && (
-        <CardTypeEditor projectId={project.id} onClose={() => setShowCardTypeEditor(false)} />
+        <CardTypeEditor
+          projectId={project.id}
+          cardTypes={cardTypes}
+          cards={projectCards}
+          relationTypes={relationTypes}
+          onClose={() => setShowCardTypeEditor(false)}
+        />
       )}
       {showRelationTypeEditor && (
         <RelationTypeEditor
           projectId={project.id}
           cardTypes={cardTypes}
+          relationTypes={relationTypes}
+          relations={Object.values(cardRelations).flatMap((value) => [...value.outgoing, ...value.incoming])}
           onClose={() => setShowRelationTypeEditor(false)}
+        />
+      )}
+      {showImportDialog && (
+        <CardImportDialog
+          projectId={project.id}
+          onClose={() => setShowImportDialog(false)}
+          onImported={() => {
+            setShowImportDialog(false);
+            refreshCards();
+          }}
+        />
+      )}
+      {showExportDialog && (
+        <CardExportDialog
+          projectId={project.id}
+          filter={{ cardKind: filterKind || undefined, search: search || undefined }}
+          onClose={() => setShowExportDialog(false)}
         />
       )}
     </section>

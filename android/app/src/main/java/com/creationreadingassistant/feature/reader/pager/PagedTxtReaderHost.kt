@@ -15,12 +15,17 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
@@ -340,9 +345,17 @@ internal fun PageLayer(
                     .background(imagePlaceholderColor),
             ) {
                 val imageFile = remember(image.sourceKey) { File(image.sourceKey) }
+                // StrictMode-safe：lastModified() 放到 IO 线程，避免组合期主线程 I/O。
+                // 0L 兜底：Coil 仍会按 file data 的磁盘缓存命中；新文件算出真实时间戳后自动刷新。
+                var imageModTs by remember(image.sourceKey) { mutableStateOf(0L) }
+                LaunchedEffect(image.sourceKey) {
+                    imageModTs = withContext(Dispatchers.IO) {
+                        runCatching { imageFile.lastModified() }.getOrDefault(0L)
+                    }
+                }
                 SizedAsyncImage(
                     data = imageFile,
-                    cacheKey = "reader:${image.sourceKey}:${imageFile.lastModified()}",
+                    cacheKey = "reader:${image.sourceKey}:$imageModTs",
                     contentDescription = null,
                     contentScale = ContentScale.Fit,
                     modifier = Modifier.fillMaxSize(),

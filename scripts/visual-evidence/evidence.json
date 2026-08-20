@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-12T08:08:10.362Z",
+  "generatedAt": "2026-08-16T12:43:02.132Z",
   "matrix": [
     "1440x900-light-empty.png",
     "1440x900-light-plain.png",
@@ -35,13 +35,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -49,41 +49,41 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
         "itemBg": null,
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -108,13 +108,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -122,41 +122,41 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
         "itemBg": null,
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -181,13 +181,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -195,41 +195,41 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
         "itemBg": null,
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -254,13 +254,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -268,41 +268,41 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
         "itemBg": null,
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -327,13 +327,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -341,53 +341,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-        "itemBg": "rgb(251, 248, 241)",
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(255, 255, 255)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "测试项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(102, 110, 104)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 4.955663022486266
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -412,13 +412,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -426,53 +426,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-        "itemBg": "rgb(29, 37, 33)",
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(27, 30, 37)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "测试项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(169, 180, 173)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 7.333963000336418
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -497,13 +497,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -511,53 +511,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-        "itemBg": "rgb(251, 248, 241)",
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(255, 255, 255)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "测试项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(102, 110, 104)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 4.955663022486266
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -582,13 +582,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -596,53 +596,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-        "itemBg": "rgb(29, 37, 33)",
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(27, 30, 37)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "测试项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(169, 180, 173)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 7.333963000336418
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -667,13 +667,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -681,53 +681,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-        "itemBg": "rgb(251, 248, 241)",
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(255, 255, 255)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "测试项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(102, 110, 104)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 4.955663022486266
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -752,13 +752,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 1168,
-        "height": 769
+        "width": 1224,
+        "height": 792
       },
       "sidebar": {
-        "width": 236
+        "width": 216
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -766,53 +766,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 1150,
-        "height": 106
+        "width": 1104,
+        "height": 133
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-        "itemBg": "rgb(29, 37, 33)",
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(27, 30, 37)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "测试项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(169, 180, 173)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 7.333963000336418
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -837,13 +837,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -851,53 +851,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(31, 36, 33)",
-        "heroBg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-        "itemBg": "rgb(251, 248, 241)",
-        "commandbarBg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
+        "bodyBg": "rgb(241, 240, 235)",
+        "bodyColor": "rgb(37, 40, 48)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(255, 255, 255)",
+        "commandbarBg": "color(srgb 1 1 1 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "测试项目",
-            "color": "rgb(31, 36, 33)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 14.85771006480177
+            "color": "rgb(37, 40, 48)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 14.738292877319912
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.74)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "color(srgb 1 1 1 / 0.88)",
+            "ratio": 5.369024660401396
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(102, 110, 104)",
-            "bg": "rgb(251, 248, 241)",
-            "ratio": 4.955663022486266
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgb(255, 255, 255)",
+            "ratio": 5.369024660401396
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(102, 110, 104)",
-            "bg": "color(srgb 0.984314 0.972549 0.945098 / 0.72)",
-            "ratio": 4.955663022486266
+            "color": "rgb(100, 107, 119)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }
@@ -922,13 +922,13 @@
       },
       "overflowX": false,
       "mainContent": {
-        "width": 792,
-        "height": 653
+        "width": 960,
+        "height": 660
       },
       "sidebar": {
-        "width": 208
+        "width": 64
       },
-      "contextPanelVisible": false,
+      "contextPanelVisible": null,
       "contextPanelWidth": 0,
       "offenders": [],
       "headings": [
@@ -936,53 +936,53 @@
       ],
       "duplicateHeadings": [],
       "hero": {
-        "width": 774,
-        "height": 106
+        "width": 888,
+        "height": 101
       },
       "colors": {
-        "bodyBg": "rgba(0, 0, 0, 0)",
-        "bodyColor": "rgb(238, 243, 239)",
-        "heroBg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-        "itemBg": "rgb(29, 37, 33)",
-        "commandbarBg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
+        "bodyBg": "rgb(20, 22, 27)",
+        "bodyColor": "rgb(233, 235, 239)",
+        "heroBg": "rgba(0, 0, 0, 0)",
+        "itemBg": "rgb(27, 30, 37)",
+        "commandbarBg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
         "inkSamples": [
           {
             "text": "创作项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "测试项目",
-            "color": "rgb(238, 243, 239)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 13.968957179249418
+            "color": "rgb(233, 235, 239)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 13.974659702110603
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ],
         "mutedSamples": [
           {
             "text": "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.74)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "color(srgb 0.105882 0.117647 0.145098 / 0.88)",
+            "ratio": 7.117920419845095
           },
           {
-            "text": "更新于 今天 16:08 · 1 章 · 1 场景",
-            "color": "rgb(169, 180, 173)",
-            "bg": "rgb(29, 37, 33)",
-            "ratio": 7.333963000336418
+            "text": "更新于 今天 20:42 · 1 章 · 1 场景",
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgb(27, 30, 37)",
+            "ratio": 7.117920419845095
           },
           {
             "text": "从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作",
-            "color": "rgb(169, 180, 173)",
-            "bg": "color(srgb 0.113725 0.145098 0.129412 / 0.72)",
-            "ratio": 7.333963000336418
+            "color": "rgb(162, 170, 182)",
+            "bg": "rgba(0, 0, 0, 0)",
+            "ratio": null
           }
         ]
       }

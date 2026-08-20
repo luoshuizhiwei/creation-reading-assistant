@@ -3,11 +3,11 @@ import {
   buildMilestoneCommand,
   buildPurgeImpact,
   buildRestoreErrorMessage,
+  buildSnapshotProtectionReason,
   estimateTrashChildCount,
   findCardTitle,
   findSceneTitle,
   listSelectableObjects,
-  planRestoreWithProtection,
   snapshotSubjectTitle,
   validateMilestoneInput
 } from "@/features/creation/history/history-models";
@@ -234,9 +234,9 @@ describe("对象列表与真实标题查询", () => {
   });
 });
 
-// ---------- planRestoreWithProtection：恢复流程顺序不变量 ----------
+// ---------- 原子恢复保护原因 ----------
 
-describe("planRestoreWithProtection（恢复流程顺序）", () => {
+describe("buildSnapshotProtectionReason", () => {
   const targetSnapshot = makeSnapshot({
     id: "snap-target",
     subjectId: "sc-1",
@@ -244,68 +244,10 @@ describe("planRestoreWithProtection（恢复流程顺序）", () => {
     reason: "初稿完成"
   });
 
-  it("用户取消恢复时零写入（actions 为空）", () => {
-    const plan = planRestoreWithProtection({
-      projectId: "p1",
-      snapshot: targetSnapshot,
-      userConfirmed: false
-    });
-    expect(plan.actions).toEqual([]);
-  });
-
-  it("恢复前先调用 snapshot.create（保护快照是第一个 action）", () => {
-    const plan = planRestoreWithProtection({
-      projectId: "p1",
-      snapshot: targetSnapshot,
-      userConfirmed: true
-    });
-    expect(plan.actions.length).toBeGreaterThanOrEqual(1);
-    expect(plan.actions[0]?.kind).toBe("create-protection");
-    expect((plan.actions[0]?.command as { type?: string }).type).toBe("snapshot.create");
-  });
-
-  it("保护失败时绝不调用 snapshot.restore（actions 中无 restore）", () => {
-    const plan = planRestoreWithProtection({
-      projectId: "p1",
-      snapshot: targetSnapshot,
-      userConfirmed: true,
-      protectionWillSucceed: false
-    });
-    const kinds = plan.actions.map((a) => a.kind);
-    expect(kinds).not.toContain("restore-target");
-    expect(kinds).toEqual(["create-protection"]);
-  });
-
-  it("保护成功后才恢复目标快照（create 在前，restore 在后）", () => {
-    const plan = planRestoreWithProtection({
-      projectId: "p1",
-      snapshot: targetSnapshot,
-      userConfirmed: true,
-      protectionWillSucceed: true
-    });
-    const kinds = plan.actions.map((a) => a.kind);
-    expect(kinds).toEqual(["create-protection", "restore-target"]);
-    // 检查 restore 的目标快照 ID 是否正确
-    const restoreCmd = plan.actions[1]?.command as { type: string; snapshotId: string };
-    expect(restoreCmd.snapshotId).toBe("snap-target");
-  });
-
-  it("保护快照命令携带正确 subjectType/subjectId", () => {
-    const plan = planRestoreWithProtection({
-      projectId: "p1",
-      snapshot: targetSnapshot,
-      userConfirmed: true
-    });
-    const cmd = plan.actions[0]?.command as {
-      type: string;
-      subjectType: string;
-      subjectId: string;
-      projectId: string;
-    };
-    expect(cmd.type).toBe("snapshot.create");
-    expect(cmd.projectId).toBe("p1");
-    expect(cmd.subjectType).toBe("scene");
-    expect(cmd.subjectId).toBe("sc-1");
+  it("名称包含目标里程碑与恢复前保护标识", () => {
+    const reason = buildSnapshotProtectionReason(targetSnapshot);
+    expect(reason).toContain("恢复前保护");
+    expect(reason).toContain("初稿完成");
   });
 });
 

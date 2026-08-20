@@ -55,7 +55,7 @@ class ShelfBenchmark {
         ) {
             val existingField = device.findObject(By.clazz("android.widget.EditText"))
             if (existingField == null) {
-                val search = device.wait(Until.findObject(By.desc("搜索书架")), 3_000)
+                val search = device.wait(Until.findObject(By.desc("搜索")), 3_000)
                 checkNotNull(search) { "找不到书架搜索入口" }
                 search.click()
             }
@@ -78,6 +78,14 @@ class ShelfBenchmark {
         }
     }
 
+    /**
+     * 书架排序切换基准（新交互链等效版）。
+     *
+     * 旧口径：书架页排序 chip（“最近阅读”）→ 排序弹层 → 选“书名”。
+     * 新交互已改版为全屏导航：书架页标题区“打开书架整理”→ 书架整理页“排序”行 →
+     * 排序选择页（ShelfSelectionRoute）选“书名”，随后逐层返回书架页。
+     * 测量指标口径不变（FrameTimingMetric → frameOverrunMs / frameDurationCpuMs）。
+     */
     @Test
     fun sortLargeShelfByTitle() {
         benchmarkRule.measureRepeated(
@@ -88,20 +96,11 @@ class ShelfBenchmark {
             setupBlock = {
                 seedBenchmarkLibrary()
                 openShelfForBenchmark()
-                if (device.findObject(By.text("最近阅读")) == null) {
-                    device.findObject(By.text("书名"))?.click()
-                    device.wait(Until.findObject(By.text("最近阅读")), 3_000)?.click()
-                    device.waitForIdle()
-                }
+                // 与旧基准 setup 对齐：确保起点排序为“最近阅读”，使每个迭代都是真实重排。
+                applyShelfSortMode("最近阅读")
             },
         ) {
-            val sort = device.wait(Until.findObject(By.text("最近阅读")), 3_000)
-            checkNotNull(sort) { "找不到书架排序入口" }
-            sort.click()
-            val titleSort = device.wait(Until.findObject(By.text("书名")), 3_000)
-            checkNotNull(titleSort) { "找不到书名排序选项" }
-            titleSort.click()
-            device.waitForIdle()
+            applyShelfSortMode("书名")
         }
     }
 

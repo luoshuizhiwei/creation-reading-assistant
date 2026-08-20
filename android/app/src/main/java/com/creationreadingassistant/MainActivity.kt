@@ -70,6 +70,8 @@ class MainActivity : ComponentActivity() {
                 AppTheme(
                     darkTheme = darkTheme,
                     palette = AppPalette.fromStored(appearance.colorPalette),
+                    useDynamicColor = appearance.useDynamicColor,
+                    amoledPureBlack = appearance.amoledPureBlack,
                 ) {
                     Box(Modifier.fillMaxSize()) {
                         AppNavigation()

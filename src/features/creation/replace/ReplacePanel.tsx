@@ -1,205 +1,269 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Replace, ShieldCheck, X } from "lucide-react";
-import { Button } from "@/components/ui";
-import { useCreationActions } from "@/hooks/useCreationActions";
-import { useUIStore } from "@/stores/ui-store";
-import type { ReplacePreviewHit, ReplacePreviewView, ReplaceScope } from "@/types/creation";
+import React, { useMemo, useRef, useState } from "react";
+import { ReplacePlanView } from "./ReplacePlanView";
+import { ReplaceProgressDialog } from "./ReplaceProgressDialog";
+import { createReplacePlanService } from "./replace-service";
+import type {
+  ReplaceApplyResultView,
+  ReplaceErrorView,
+  ReplacePlanProgress,
+  ReplacePlanService,
+  ReplacePlanView as PlanView
+} from "./types";
+import "./replace.css";
 
 interface ReplacePanelProps {
   projectId: string;
   chapterId?: string;
   sceneId?: string;
-  onClose(): void;
+  onClose: () => void;
+  service?: ReplacePlanService;
 }
 
-const SCOPE_OPTIONS: Array<{ scope: ReplaceScope; label: string; needs: "none" | "chapter" | "scene" }> = [
-  { scope: "project", label: "整个项目", needs: "none" },
-  { scope: "chapter", label: "当前章节", needs: "chapter" },
-  { scope: "scene", label: "当前场景", needs: "scene" }
-];
+type PanelPhase = "idle" | "previewing" | "applying" | "done" | "error";
 
-export function ReplacePanel({ projectId, chapterId, sceneId, onClose }: ReplacePanelProps) {
-  const { replacePreview, replaceApply } = useCreationActions();
-  const showToast = useUIStore((state) => state.showToast);
-  const findRef = useRef<HTMLInputElement>(null);
-  const [find, setFind] = useState("");
-  const [replaceWith, setReplaceWith] = useState("");
-  const [scope, setScope] = useState<ReplaceScope>("project");
-  const [regex, setRegex] = useState(false);
-  const [preview, setPreview] = useState<ReplacePreviewView | null>(null);
-  const [previewing, setPreviewing] = useState(false);
+interface PreviewQuery {
+  find: string;
+  replaceWith: string;
+  mode: "plain" | "regex";
+}
+
+function toErrorView(error: unknown): ReplaceErrorView {
+  if (
+    error &&
+    typeof error === "object" &&
+    "code" in error &&
+    typeof (error as ReplaceErrorView).code === "string"
+  ) {
+    const candidate = error as ReplaceErrorView;
+    return { code: candidate.code, message: candidate.message ?? String(error) };
+  }
+  return { code: "transaction-failed", message: error instanceof Error ? error.message : String(error) };
+}
+
+export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }: ReplacePanelProps) {
+  const svc = useMemo(() => service ?? createReplacePlanService(), [service]);
+  const scope = sceneId ? "scene" : chapterId ? "chapter" : "all";
+  const scopeId = sceneId ?? chapterId;
+
+  const [query, setQuery] = useState<PreviewQuery>({ find: "", replaceWith: "", mode: "plain" });
+  const [plan, setPlan] = useState<PlanView | null>(null);
   const [excluded, setExcluded] = useState<Set<string>>(new Set());
-  const [applying, setApplying] = useState(false);
+  const [progress, setProgress] = useState<ReplacePlanProgress | null>(null);
+  const [phase, setPhase] = useState<PanelPhase>("idle");
+  const [error, setError] = useState<ReplaceErrorView | null>(null);
+  const [result, setResult] = useState<ReplaceApplyResultView | null>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    findRef.current?.focus();
-  }, []);
+  const remaining = plan ? plan.totalHits - excluded.size : 0;
+  const busy = phase === "previewing" || phase === "applying";
 
-  const runPreview = useCallback(async () => {
-    const trimmed = find.trim();
-    if (!trimmed) {
-      setPreview(null);
+  const handlePreview = async (): Promise<void> => {
+    if (!query.find) {
+      setError({ code: "invalid-input", message: "查找内容不能为空。" });
+      setPhase("error");
       return;
     }
-    setPreviewing(true);
-    const view = await replacePreview({
-      projectId,
-      find: trimmed,
-      replaceWith,
-      scope,
-      scopeId: scope === "scene" ? sceneId : scope === "chapter" ? chapterId : undefined,
-      regex
-    });
-    setPreview(view);
+    const controller = new AbortController();
+    abortRef.current = controller;
+    setPlan(null);
     setExcluded(new Set());
-    setPreviewing(false);
-  }, [chapterId, find, projectId, regex, replacePreview, replaceWith, sceneId, scope]);
-
-  const runApply = async () => {
-    if (!preview || preview.totalHits === 0) return;
-    setApplying(true);
-    const ok = await replaceApply({
-      type: "replace.apply",
-      projectId,
-      find: preview.find,
-      replaceWith: preview.replaceWith,
-      scope: preview.scope,
-      scopeId: preview.scope === "scene" ? sceneId : preview.scope === "chapter" ? chapterId : undefined,
-      regex,
-      excludeSceneIds: [...excluded]
-    });
-    setApplying(false);
-    if (!ok) return;
-    const included = preview.matchedScenes - excluded.size;
-    showToast({
-      tone: "success",
-      title: `已替换 ${preview.totalHits} 处命中`,
-      body: `修改 ${included} 个场景（排除 ${excluded.size} 个），每个场景已自动创建保护快照，可在历史页恢复。`
-    });
-    onClose();
+    setResult(null);
+    setError(null);
+    setProgress(null);
+    setPhase("previewing");
+    try {
+      const created = await svc.createPlan(
+        { projectId, scope, scopeId, find: query.find, replaceWith: query.replaceWith, mode: query.mode },
+        { onProgress: setProgress, signal: controller.signal }
+      );
+      setPlan(created);
+      setPhase("idle");
+    } catch (e) {
+      const err = toErrorView(e);
+      if (err.code === "cancelled") {
+        setPhase("idle");
+      } else {
+        setError(err);
+        setPhase("error");
+      }
+    } finally {
+      abortRef.current = null;
+    }
   };
 
-  const toggleExcluded = (sceneId: string) => {
-    setExcluded((current) => {
-      const next = new Set(current);
-      if (next.has(sceneId)) next.delete(sceneId);
-      else next.add(sceneId);
+  const handleApply = async (): Promise<void> => {
+    if (!plan) return;
+    setError(null);
+    setResult(null);
+    setPhase("applying");
+    try {
+      const applied = await svc.applyPlan(plan.planId, [...excluded]);
+      setResult(applied);
+      setPlan(null);
+      setExcluded(new Set());
+      setPhase("done");
+    } catch (e) {
+      const err = toErrorView(e);
+      if (err.code === "cancelled") {
+        setPhase("idle");
+      } else {
+        setError(err);
+        setPhase("error");
+      }
+    }
+  };
+
+  const handleCancel = (): void => {
+    abortRef.current?.abort();
+    svc.cancel();
+  };
+
+  const handleToggleHit = (hitId: string): void => {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      if (next.has(hitId)) next.delete(hitId);
+      else next.add(hitId);
       return next;
     });
   };
 
+  const handleToggleScene = (sceneIdArg: string, hitIds: string[], excludeAll: boolean): void => {
+    setExcluded((prev) => {
+      const next = new Set(prev);
+      for (const id of hitIds) {
+        if (excludeAll) next.add(id);
+        else next.delete(id);
+      }
+      void sceneIdArg;
+      return next;
+    });
+  };
+
+  const handleReset = (): void => {
+    setPlan(null);
+    setExcluded(new Set());
+    setError(null);
+    setResult(null);
+    setProgress(null);
+    setPhase("idle");
+  };
+
+  const scopeLabel = scope === "scene" ? "当前场景" : scope === "chapter" ? "当前章节" : "整个项目";
+
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="查找替换" aria-modal="true">
-      <div className="creation-search-shell creation-replace-shell" role="search">
-        <div className="creation-search-head">
-          <Replace size={16} className="creation-search-head-icon" />
+    <div className="replace-panel" data-testid="replace-panel">
+      <header className="replace-panel-header">
+        <h2>查找替换</h2>
+        <span className="replace-scope-label" data-testid="replace-scope">
+          范围：{scopeLabel}
+        </span>
+        <button type="button" onClick={onClose} aria-label="关闭" data-testid="replace-panel-close">
+          关闭
+        </button>
+      </header>
+
+      <div className="replace-query-form">
+        <label>
+          查找
           <input
-            ref={findRef}
-            className="creation-search-input"
-            placeholder="查找文本…"
-            value={find}
-            onChange={(event) => setFind(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void runPreview();
-              if (event.key === "Escape") onClose();
-            }}
+            type="text"
+            value={query.find}
+            aria-label="查找内容"
+            data-testid="replace-find"
+            onChange={(e) => setQuery((q) => ({ ...q, find: e.target.value }))}
           />
-          <button type="button" className="creation-search-close" onClick={onClose} aria-label="关闭查找替换">
-            <X size={16} />
+        </label>
+        <label>
+          替换为
+          <input
+            type="text"
+            value={query.replaceWith}
+            aria-label="替换内容"
+            data-testid="replace-replace"
+            onChange={(e) => setQuery((q) => ({ ...q, replaceWith: e.target.value }))}
+          />
+        </label>
+        <div className="replace-mode-toggle" role="group" aria-label="替换模式">
+          <button
+            type="button"
+            aria-pressed={query.mode === "plain"}
+            data-testid="replace-mode-plain"
+            onClick={() => setQuery((q) => ({ ...q, mode: "plain" }))}
+          >
+            普通文本
+          </button>
+          <button
+            type="button"
+            aria-pressed={query.mode === "regex"}
+            data-testid="replace-mode-regex"
+            onClick={() => setQuery((q) => ({ ...q, mode: "regex" }))}
+          >
+            正则
           </button>
         </div>
-
-        <div className="creation-replace-row">
-          <input
-            className="paper-input h-9"
-            placeholder="替换为…"
-            value={replaceWith}
-            onChange={(event) => setReplaceWith(event.target.value)}
-            onKeyDown={(event) => {
-              if (event.key === "Enter") void runPreview();
-            }}
-          />
-          <Button onClick={() => void runPreview()} disabled={previewing}>
-            预览
-          </Button>
-        </div>
-
-        <div className="creation-search-filters creation-replace-filters">
-          <div className="creation-search-scopes" role="group" aria-label="替换范围">
-            {SCOPE_OPTIONS.map(({ scope: option, label, needs }) => (
-              <button
-                key={option}
-                type="button"
-                disabled={needs === "chapter" && !chapterId}
-                className={scope === option ? "active" : ""}
-                onClick={() => setScope(option)}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-          <label className="creation-replace-regex">
-            <input
-              type="checkbox"
-              checked={regex}
-              onChange={(event) => setRegex(event.target.checked)}
-            />
-            正则（受限）
-          </label>
-        </div>
-
-        <div className="creation-search-results">
-          {previewing && <p className="creation-search-state" role="status">正在扫描场景正文…</p>}
-          {!previewing && preview && preview.totalHits === 0 && (
-            <p className="creation-search-state">没有找到与「{preview.find}」匹配的内容。</p>
-          )}
-          {!previewing && !preview && (
-            <p className="creation-search-state">
-              输入查找与替换文本后点「预览」；项目级替换会自动为每个修改场景创建保护快照。
-            </p>
-          )}
-          {!previewing && preview && preview.totalHits > 0 && (
-            <>
-              <div className="creation-replace-summary">
-                共 {preview.matchedScenes} 个场景命中 {preview.totalHits} 处；可勾选排除不想修改的场景。
-                {excluded.size > 0 && <> 已排除 {excluded.size} 个。</>}
-              </div>
-              <div className="creation-replace-list">
-                {preview.sceneHits.map((hit: ReplacePreviewHit) => (
-                  <label key={hit.sceneId} className="creation-replace-item">
-                    <input
-                      type="checkbox"
-                      checked={!excluded.has(hit.sceneId)}
-                      onChange={() => toggleExcluded(hit.sceneId)}
-                    />
-                    <span className="creation-replace-item-main">
-                      <span className="creation-replace-item-title">
-                        {hit.sceneTitle} <em>{hit.chapterTitle}</em>
-                      </span>
-                      {hit.snippets.map((snippet, index) => (
-                        <span key={index} className="creation-replace-item-snippet">{snippet}</span>
-                      ))}
-                    </span>
-                    <span className="creation-replace-item-count">{hit.count}</span>
-                  </label>
-                ))}
-              </div>
-            </>
-          )}
-        </div>
-
-        {preview && preview.totalHits > 0 && (
-          <div className="creation-replace-actions">
-            <span className="creation-replace-hint"><ShieldCheck size={13} /> 替换前自动快照，可在历史页恢复</span>
-            <Button
-              onClick={() => void runApply()}
-              disabled={applying || excluded.size === preview.matchedScenes}
-            >
-              {applying ? "替换中…" : `替换 ${preview.totalHits} 处`}
-            </Button>
-          </div>
-        )}
+        <button
+          type="button"
+          onClick={() => void handlePreview()}
+          disabled={busy}
+          data-testid="replace-preview"
+        >
+          预览替换
+        </button>
       </div>
+
+      {error && phase === "error" && (
+        <div className="replace-error-banner" data-testid="replace-error-banner">
+          <p>{error.message}</p>
+          <button type="button" onClick={handleReset} data-testid="replace-error-reset">
+            重新预览
+          </button>
+        </div>
+      )}
+
+      {plan && phase === "idle" && (
+        <div className="replace-plan-container">
+          <ReplacePlanView
+            plan={plan}
+            excluded={excluded}
+            onToggleHit={handleToggleHit}
+            onToggleScene={handleToggleScene}
+          />
+          <div className="replace-actions">
+            <button
+              type="button"
+              onClick={() => void handleApply()}
+              disabled={remaining === 0}
+              data-testid="replace-apply"
+            >
+              应用替换（{remaining} 处）
+            </button>
+            <button type="button" onClick={handleReset} data-testid="replace-replan">
+              重新预览
+            </button>
+          </div>
+        </div>
+      )}
+
+      {phase === "done" && result && (
+        <div className="replace-done-banner" data-testid="replace-done-banner">
+          <p>
+            替换完成：应用 {result.appliedHitCount} 处命中，影响 {result.modifiedSceneIds.length} 个场景（已创建保护快照与变更记录）。
+          </p>
+          <button type="button" onClick={handleReset} data-testid="replace-done-reset">
+            继续
+          </button>
+        </div>
+      )}
+
+      <ReplaceProgressDialog
+        open={busy}
+        progress={progress}
+        isApplying={phase === "applying"}
+        error={phase === "error" ? error : null}
+        result={phase === "done" ? result : null}
+        onCancel={handleCancel}
+        onClose={handleReset}
+      />
     </div>
   );
 }

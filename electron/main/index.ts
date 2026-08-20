@@ -1,5 +1,5 @@
-import { app, BrowserWindow, dialog, ipcMain, protocol, safeStorage, session, shell } from "electron";
-import type { OpenDialogOptions } from "electron";
+import { app, BrowserWindow, dialog, ipcMain, Notification, protocol, safeStorage, session, shell } from "electron";
+import type { OpenDialogOptions, SaveDialogOptions } from "electron";
 import { appendFile, copyFile, cp, mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { createReadStream, existsSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -10,6 +10,18 @@ import { networkInterfaces } from "node:os";
 import { parseEpubFile } from "./epub-metadata";
 import { createCreationCoordinator } from "./creation-coordinator";
 import { registerCreationIpc } from "./creation-ipc";
+import { createOperationCoordinator } from "./operation/coordinator";
+import { registerOperationIpc, disposeAllOperations, type OperationOrchestrator } from "./operation/ipc";
+import { BackupError, createBackupSnapshot, readBackupManifest, restoreBackupFromDirectory } from "./backup";
+import { openCreationWorkspace } from "./creation-workspace";
+import {
+  AutoBackupError,
+  assertSafeBackupTarget,
+  assertSafeExistingBackupTarget,
+  createAutoBackupScheduler,
+  uniqueAutoBackupRoot,
+  type AutoBackupScheduler
+} from "./backup/auto-backup";
 import jschardet from "jschardet";
 import iconv from "iconv-lite";
 import type {
@@ -81,6 +93,9 @@ let pairingToken: PairingTokenResult | undefined;
 const creationCoordinator = createCreationCoordinator({
   resolveDirectory: () => path.join(appDataRoot(), "CreationWorkspace")
 });
+
+// 长任务协调器：备份 / 项目包 / 资源扫描的统一进度、取消与结果载体。
+const operationCoordinator = createOperationCoordinator();
 
 const EPUB_PROTOCOL_SCHEME = "novel-workbench-epub";
 const MAX_SEARCH_TEXT_FILE_BYTES = 5 * 1024 * 1024;
@@ -809,7 +824,13 @@ function normalizeAppSettings(value: unknown, legacyReader?: Partial<ReaderSetti
         storage.storageMode === "portable" || storage.storageMode === "custom" || storage.storageMode === "fallback"
           ? storage.storageMode
           : storageModeForDataRoot(typeof storage.dataDirectory === "string" ? storage.dataDirectory : defaults.storage.dataDirectory),
-      lastMigratedAt: typeof storage.lastMigratedAt === "string" ? storage.lastMigratedAt : undefined
+      lastMigratedAt: typeof storage.lastMigratedAt === "string" ? storage.lastMigratedAt : undefined,
+      backupDirectory:
+        typeof storage.backupDirectory === "string" && storage.backupDirectory.trim() ? storage.backupDirectory : undefined,
+      autoBackupEnabled: storage.autoBackupEnabled === true,
+      lastAutoBackupAt: typeof storage.lastAutoBackupAt === "string" ? storage.lastAutoBackupAt : undefined,
+      lastAutoBackupFailedAt: typeof storage.lastAutoBackupFailedAt === "string" ? storage.lastAutoBackupFailedAt : undefined,
+      lastAutoBackupError: typeof storage.lastAutoBackupError === "string" ? storage.lastAutoBackupError : undefined
     },
     debug: {
       appVersion: app.getVersion(),
@@ -891,13 +912,86 @@ async function getAppSettings(): Promise<AppSettings> {
 }
 
 async function updateAppSettings(patch: AppSettingsPatch): Promise<AppSettings> {
-  const next = mergeSettings(await getAppSettings(), isRecord(patch) ? patch : {});
-  next.ai = normalizeAISettings(next.ai, await hasAIApiKey());
-  await setActiveStorageFromSettings(next);
-  await writeJson<AppSettings>(appSettingsPath(), next);
-  await writeJson<ReaderSettings>(readerSettingsPath(), next.reader);
-  return next;
+  if (isRecord(patch.storage) && typeof patch.storage.backupDirectory === "string") {
+    await assertSafeExistingBackupTarget(patch.storage.backupDirectory, appDataRoot(), appLibraryRoot());
+  }
+  return withFileLock(appSettingsPath(), async () => {
+    const next = mergeSettings(await getAppSettings(), isRecord(patch) ? patch : {});
+    if (next.storage.autoBackupEnabled && !next.storage.backupDirectory) {
+      throw new Error("请先选择自动备份目录，再启用自动备份。");
+    }
+    next.ai = normalizeAISettings(next.ai, await hasAIApiKey());
+    await setActiveStorageFromSettings(next);
+    await writeJson<AppSettings>(appSettingsPath(), next);
+    await writeJson<ReaderSettings>(readerSettingsPath(), next.reader);
+    return next;
+  });
 }
+
+async function persistAutoBackupState(patch: Partial<StorageSettings>): Promise<void> {
+  await withFileLock(appSettingsPath(), async () => {
+    const current = await getAppSettings();
+    const next = mergeSettings(current, { storage: patch });
+    await writeJson<AppSettings>(appSettingsPath(), next);
+  });
+}
+
+const autoBackupScheduler: AutoBackupScheduler = createAutoBackupScheduler({
+  readState: async () => {
+    const raw = await readJson<unknown>(appSettingsPath(), {});
+    const settings = normalizeAppSettings(raw);
+    return {
+      enabled: settings.storage.autoBackupEnabled === true,
+      backupDirectory: settings.storage.backupDirectory,
+      lastAutoBackupAt: settings.storage.lastAutoBackupAt
+    };
+  },
+  resolveRoots: () => ({ appDataRoot: appDataRoot(), libraryRoot: appLibraryRoot() }),
+  validateTarget: assertSafeExistingBackupTarget,
+  runBackup: async ({ backupRoot, createdAt }) => {
+    try {
+      await ensureDir(backupRoot);
+      await writeLog("info", "Auto backup started.", { backupRoot });
+      const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
+      await creationCoordinator.withWorkspaceClosed(async () => {
+        await createBackupSnapshot({
+          backupRoot,
+          appDataDirectory: appDataRoot(),
+          libraryDirectory: shouldCopyExternalLibrary ? appLibraryRoot() : undefined,
+          appVersion: app.getVersion(),
+          platform: process.platform,
+          arch: process.arch,
+          createdAt,
+          logger: (level, message, meta) => writeLog(level, message, meta)
+        });
+      });
+      await writeLog("info", "Auto backup completed.", { backupRoot });
+    } catch (error) {
+      await rm(backupRoot, { recursive: true, force: true });
+      await writeLog("error", "Auto backup failed.", error);
+      if (error instanceof BackupError) throw new AutoBackupError(error.message);
+      throw new AutoBackupError("自动备份失败，请检查备份目录是否可写并重试。");
+    }
+  },
+  onSuccess: (at) =>
+    persistAutoBackupState({
+      lastAutoBackupAt: at,
+      lastAutoBackupFailedAt: undefined,
+      lastAutoBackupError: undefined
+    }),
+  onFailure: async (at, errorMessage) => {
+    const previous = await getAppSettings();
+    const shouldNotify = !previous.storage.lastAutoBackupError;
+    await writeLog("error", "Auto backup status recorded as failed.", { at, errorMessage });
+    await persistAutoBackupState({ lastAutoBackupFailedAt: at, lastAutoBackupError: errorMessage });
+    if (shouldNotify && Notification.isSupported()) {
+      new Notification({
+        title: "自动备份失败",
+        body: "数据尚未完成自动备份，请打开设置检查备份目录并重试。"
+      }).show();
+    }
+  }
+});
 
 async function resetSettingsSection(section: SettingsSection): Promise<AppSettings> {
   const current = await getAppSettings();
@@ -1144,6 +1238,8 @@ async function openUpdateDownload(url: string): Promise<void> {
   if (!/^https:\/\/github\.com\/luoshuizhiwei\/creation-reading-assistant\/releases\//i.test(url)) {
     throw new Error("只能打开本项目 GitHub Release 下载地址。");
   }
+  // 升级前自动备份：启用且已配置目录时必须先成功创建备份，失败则阻止打开下载。
+  await autoBackupScheduler.backupBeforeUpgrade();
   await shell.openExternal(url);
 }
 
@@ -1178,144 +1274,144 @@ async function writeRendererLog(input: RendererLogInput): Promise<void> {
   });
 }
 
-interface BackupManifest {
-  version: 1;
-  createdAt: string;
-  appVersion: string;
-  platform: string;
-  arch: string;
-  dataRoot: string;
-  appDataPath: "app-data";
-  libraryPath?: "library";
-  libraryCopied?: boolean;
-}
-
 async function chooseDirectory(title: string): Promise<string | null> {
   const options: OpenDialogOptions = { title, properties: ["openDirectory", "createDirectory"] };
   const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
   return result.canceled ? null : result.filePaths[0] ?? null;
 }
 
+/** 选择加密容器保存路径（单文件）。取消返回 null。 */
+async function chooseSaveFile(title: string, defaultName: string, extensions: string[]): Promise<string | null> {
+  let defaultPath: string;
+  try {
+    defaultPath = path.join(app.getPath("downloads"), defaultName);
+  } catch {
+    defaultPath = path.join(appDataRoot(), defaultName);
+  }
+  const options: SaveDialogOptions = {
+    title,
+    defaultPath,
+    filters: [{ name: "加密容器", extensions }]
+  };
+  const result = mainWindow ? await dialog.showSaveDialog(mainWindow, options) : await dialog.showSaveDialog(options);
+  return result.canceled ? null : result.filePath ?? null;
+}
+
+/** 选择加密容器文件（单文件，打开对话框）。取消返回 null。 */
+async function chooseEncryptedContainer(title: string, extensions: string[]): Promise<string | null> {
+  const options: OpenDialogOptions = {
+    title,
+    properties: ["openFile"],
+    filters: [{ name: "加密容器", extensions }]
+  };
+  const result = mainWindow ? await dialog.showOpenDialog(mainWindow, options) : await dialog.showOpenDialog(options);
+  return result.canceled ? null : result.filePaths[0] ?? null;
+}
+
+/** 生成文件名安全的本地时间戳（不含冒号等非法字符）。 */
+function fileTimestamp(date: Date): string {
+  const pad = (value: number): string => String(value).padStart(2, "0");
+  return `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}-${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
+}
+
 async function createBackup(): Promise<BackupResult | null> {
   const selectedDir = await chooseDirectory("选择备份保存目录");
   if (!selectedDir) return null;
-  if (isInsidePath(appDataRoot(), selectedDir)) {
-    throw new Error("Backup directory cannot be inside the app data directory.");
-  }
+  const safeSelectedDir = await assertSafeExistingBackupTarget(selectedDir, appDataRoot(), appLibraryRoot());
   const createdAt = now();
-  const backupRoot = path.join(selectedDir, `CreationReadingAssistant-backup-${timestampForFile()}`);
-  const appDataBackupPath = path.join(backupRoot, "app-data");
-  const libraryBackupPath = path.join(backupRoot, "library");
+  const backupRoot = uniqueAutoBackupRoot(safeSelectedDir, new Date(createdAt));
   const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
-  await ensureDir(backupRoot);
-  await writeLog("info", "Backup started.", { backupRoot });
-  await creationCoordinator.withWorkspaceClosed(async () => {
-    await copyDirectory(appDataRoot(), appDataBackupPath);
-  });
-  if (shouldCopyExternalLibrary) {
-    await copyDirectory(appLibraryRoot(), libraryBackupPath);
+  await persistAutoBackupState({ backupDirectory: safeSelectedDir });
+  try {
+    await ensureDir(backupRoot);
+    await writeLog("info", "Backup started.", { backupRoot });
+    await creationCoordinator.withWorkspaceClosed(async () => {
+      await createBackupSnapshot({
+        backupRoot,
+        appDataDirectory: appDataRoot(),
+        libraryDirectory: shouldCopyExternalLibrary ? appLibraryRoot() : undefined,
+        appVersion: app.getVersion(),
+        platform: process.platform,
+        arch: process.arch,
+        createdAt,
+        logger: (level, message, meta) => writeLog(level, message, meta)
+      });
+    });
+  } catch (error) {
+    await rm(backupRoot, { recursive: true, force: true });
+    throw error;
   }
-
-  const manifest: BackupManifest = {
-    version: 1,
-    createdAt,
-    appVersion: app.getVersion(),
-    platform: process.platform,
-    arch: process.arch,
-    dataRoot: appDataRoot(),
-    appDataPath: "app-data",
-    libraryPath: shouldCopyExternalLibrary ? "library" : undefined,
-    libraryCopied: shouldCopyExternalLibrary
-  };
-  const manifestPath = path.join(backupRoot, "backup-manifest.json");
-  await writeJson<BackupManifest>(manifestPath, manifest);
   await writeLog("info", "Backup completed.", { backupRoot });
   return {
     backupRoot,
-    manifestPath,
+    manifestPath: path.join(backupRoot, "backup-manifest.json"),
     createdAt,
     appDataCopied: true
   };
 }
 
-function normalizeBackupManifest(value: unknown): BackupManifest {
-  if (!isRecord(value) || value.version !== 1 || value.appDataPath !== "app-data") {
-    throw new Error("Invalid backup manifest.");
-  }
-  return {
-    version: 1,
-    createdAt: typeof value.createdAt === "string" ? value.createdAt : now(),
-    appVersion: typeof value.appVersion === "string" ? value.appVersion : "",
-    platform: typeof value.platform === "string" ? value.platform : "",
-    arch: typeof value.arch === "string" ? value.arch : "",
-    dataRoot: typeof value.dataRoot === "string" ? value.dataRoot : "",
-    appDataPath: "app-data",
-    libraryPath: value.libraryPath === "library" ? "library" : undefined,
-    libraryCopied: value.libraryCopied === true
-  };
-}
-
-function assertSafeRestoreSource(backupRoot: string, appDataBackupPath: string): void {
-  const currentAppData = appDataRoot();
-  if (isInsidePath(currentAppData, backupRoot)) {
-    throw new Error("Backup directory cannot be inside the current app data directory.");
-  }
-  if (isInsidePath(currentAppData, appDataBackupPath) || isInsidePath(appDataBackupPath, currentAppData)) {
-    throw new Error("Backup app-data source cannot overlap the current app data directory.");
-  }
-}
-
 async function restoreBackup(): Promise<RestoreResult | null> {
   const backupRoot = await chooseDirectory("选择备份目录");
   if (!backupRoot) return null;
-  const manifestPath = path.join(backupRoot, "backup-manifest.json");
-  const appDataBackupPath = path.join(backupRoot, "app-data");
-  if (!existsSync(manifestPath) || !existsSync(appDataBackupPath)) throw new Error("Selected directory is not a valid CreationReadingAssistant backup.");
-  assertSafeRestoreSource(backupRoot, appDataBackupPath);
-  const manifest = normalizeBackupManifest(await readJson<unknown>(manifestPath, {}));
-  await writeLog("warn", "Restore started.", { backupRoot });
-
-  const restoredAt = now();
-  const checkpointPath = existsSync(appDataRoot()) ? path.join(path.dirname(appDataRoot()), `CreationReadingAssistant-before-restore-${timestampForFile()}`) : undefined;
-  await creationCoordinator.withWorkspaceClosed(async () => {
-    if (checkpointPath) await copyDirectory(appDataRoot(), checkpointPath);
-
-    // Safer restore: copy to temp dir first, then atomic swap (rename)
-    const tempRestorePath = `${appDataRoot()}.restoring`;
-    if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
-    await copyDirectory(appDataBackupPath, tempRestorePath);
-
-    try {
-      // Simple heuristic: just verify temp dir was created successfully
-      if (!existsSync(tempRestorePath)) throw new Error("Temp restore directory missing after copy.");
-    } catch (spaceError) {
-      // If copy failed, clean up temp dir and abort
-      if (existsSync(tempRestorePath)) await rm(tempRestorePath, { recursive: true, force: true });
-      throw new Error(`Restore aborted: failed to stage backup data. ${spaceError instanceof Error ? spaceError.message : String(spaceError)}`);
+  try {
+    const manifest = await readBackupManifest(backupRoot);
+    const currentLibraryRoot = appLibraryRoot();
+    if (manifest.libraryFiles) {
+      const confirmation = mainWindow
+        ? await dialog.showMessageBox(mainWindow, {
+            type: "warning",
+            buttons: ["取消", "确认恢复"],
+            defaultId: 0,
+            cancelId: 0,
+            title: "确认恢复外置资料库",
+            message: "备份包含外置资料库文件。",
+            detail: `恢复将替换当前资料库目录中的内容：\n${currentLibraryRoot}`
+          })
+        : await dialog.showMessageBox({
+            type: "warning",
+            buttons: ["取消", "确认恢复"],
+            defaultId: 0,
+            cancelId: 0,
+            title: "确认恢复外置资料库",
+            message: "备份包含外置资料库文件。",
+            detail: `恢复将替换当前资料库目录中的内容：\n${currentLibraryRoot}`
+          });
+      if (confirmation.response !== 1) return null;
     }
-
-    // Atomic swap: remove old data dir, rename temp to final path
-    if (existsSync(appDataRoot())) await rm(appDataRoot(), { recursive: true, force: true });
-    await rename(tempRestorePath, appDataRoot());
-  });
-  if (manifest.libraryPath) {
-    const libraryBackupPath = path.join(backupRoot, manifest.libraryPath);
-    if (existsSync(libraryBackupPath)) {
-      const restoredSettings = normalizeAppSettings(await readJson<unknown>(appSettingsPath(), defaultAppSettings()), await readLegacyReaderSettings());
-      await setActiveStorageFromSettings(restoredSettings);
-      await copyDirectory(libraryBackupPath, appLibraryRoot());
+    const restored = await creationCoordinator.withWorkspaceClosed(() =>
+      restoreBackupFromDirectory({
+        backupRoot,
+        currentAppDataRoot: appDataRoot(),
+        resolveLibraryTarget: async () => currentLibraryRoot,
+        logger: (level, message, meta) => writeLog(level, message, meta)
+      })
+    );
+    await ensureDir(logsRoot());
+    await writeLog("warn", "Restore completed.", { backupRoot, checkpointPath: restored.checkpointPath });
+    const restoredSettings = normalizeAppSettings(await readJson<unknown>(appSettingsPath(), defaultAppSettings()), await readLegacyReaderSettings());
+    restoredSettings.storage = {
+      ...restoredSettings.storage,
+      dataDirectory: appDataRoot(),
+      libraryDirectory: manifest.libraryFiles ? currentLibraryRoot : path.join(appDataRoot(), "AppLibrary"),
+      storageMode: storageModeForDataRoot(appDataRoot())
+    };
+    await writeJson<AppSettings>(appSettingsPath(), restoredSettings);
+    await setActiveStorageFromSettings(restoredSettings);
+    writeRuntimeStateSync(true);
+    return {
+      backupRoot,
+      restoredAt: restored.restoredAt,
+      checkpointPath: restored.checkpointPath,
+      restartRecommended: true
+    };
+  } catch (error) {
+    if (error instanceof BackupError) {
+      await writeLog("error", "Restore aborted.", { backupRoot, code: error.code, message: error.message, detail: error.detail });
+      throw new Error(error.message);
     }
+    await writeLog("error", "Restore aborted.", { backupRoot, detail: error instanceof Error ? error.message : String(error) });
+    throw new Error("恢复失败。");
   }
-  await ensureDir(logsRoot());
-
-  await writeLog("warn", "Restore completed.", { backupRoot, checkpointPath });
-  writeRuntimeStateSync(true);
-  return {
-    backupRoot,
-    restoredAt,
-    checkpointPath,
-    restartRecommended: true
-  };
 }
 
 async function exportDebugInfo(): Promise<DebugExportResult | null> {
@@ -3338,7 +3434,8 @@ function createWindow(): void {
     height: 860,
     ...(captureProfileDir ? {} : { minWidth: 1080, minHeight: 720 }),
     title: "创作阅读助手",
-    backgroundColor: "#f5f5f4",
+    backgroundColor: "#f1f0eb",
+    frame: false,
     autoHideMenuBar: true,
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
@@ -3347,6 +3444,11 @@ function createWindow(): void {
     }
   });
   mainWindow.setMenuBarVisibility(false);
+  const broadcastMaximized = () => {
+    mainWindow?.webContents.send("window:maximized-changed", mainWindow.isMaximized());
+  };
+  mainWindow.on("maximize", broadcastMaximized);
+  mainWindow.on("unmaximize", broadcastMaximized);
   const rendererUrl = process.env.ELECTRON_RENDERER_URL;
   if (rendererUrl) mainWindow.loadURL(rendererUrl);
   else mainWindow.loadFile(path.join(__dirname, "../renderer/index.html"));
@@ -3359,6 +3461,17 @@ function createWindow(): void {
 }
 
 function registerIpc(): void {
+  ipcMain.handle("window:minimize", () => {
+    mainWindow?.minimize();
+  });
+  ipcMain.handle("window:toggleMaximize", () => {
+    if (!mainWindow) return;
+    if (mainWindow.isMaximized()) mainWindow.unmaximize();
+    else mainWindow.maximize();
+  });
+  ipcMain.handle("window:close", () => {
+    mainWindow?.close();
+  });
   ipcMain.handle("app:getBuildInfo", async () => getBuildInfo());
   ipcMain.handle("app:getStartupRecovery", async () =>
     startupRecoverySeen ? { ...startupRecoveryInfo, abnormalExit: false, recoveredSessionsCount: 0 } : startupRecoveryInfo
@@ -3432,6 +3545,7 @@ function registerIpc(): void {
   });
   ipcMain.handle("settings:get", async () => getAppSettings());
   ipcMain.handle("settings:update", async (_event, patch: AppSettingsPatch) => updateAppSettings(patch));
+  ipcMain.handle("settings:chooseBackupDirectory", async () => chooseDirectory("选择自动备份目录"));
   ipcMain.handle("settings:resetSection", async (_event, section: SettingsSection) => resetSettingsSection(section));
   ipcMain.handle("settings:resetReaderSettings", async () => resetReaderSettingsOnly());
   ipcMain.handle("settings:chooseDataDirectory", async () => chooseDataDirectory());
@@ -3490,10 +3604,158 @@ function registerIpc(): void {
   ipcMain.handle("sync:removeDevice", async (_event, deviceId: string) => removePairedDevice(deviceId));
   ipcMain.handle("backup:create", async () => createBackup());
   ipcMain.handle("backup:restore", async () => restoreBackup());
+  ipcMain.handle("backup:runAuto", async () => {
+    const result = await autoBackupScheduler.runNow();
+    return {
+      backupRoot: result.backupRoot,
+      manifestPath: path.join(result.backupRoot, "backup-manifest.json"),
+      createdAt: result.createdAt
+    };
+  });
   ipcMain.handle("diagnostics:exportDebugInfo", async () => exportDebugInfo());
   registerCreationIpc(creationCoordinator, {
     resolveDataRoot: () => appDataRoot(),
     resolveLibraryRoot: () => appLibraryRoot()
+  });
+
+  // 长任务（备份 / 项目包 / 资源扫描）的编排：把目录选择、校验、外置资料库确认、
+  // 恢复后设置回写等主进程副作用收口到 index.ts，operation IPC 只负责调度 runner。
+  registerOperationIpc(operationCoordinator, {
+    resolveDataRoot: () => appDataRoot(),
+    resolveLibraryRoot: () => appLibraryRoot(),
+    appVersion: app.getVersion(),
+    platform: process.platform,
+    arch: process.arch,
+    now: () => Date.now(),
+    prepareBackupCreate: async () => {
+      const selectedDir = await chooseDirectory("选择备份保存目录");
+      if (!selectedDir) return null;
+      await assertSafeExistingBackupTarget(selectedDir, appDataRoot(), appLibraryRoot());
+      const backupRoot = uniqueAutoBackupRoot(selectedDir, new Date());
+      await persistAutoBackupState({ backupDirectory: selectedDir });
+      const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
+      return {
+        backupRoot,
+        libraryDirectory: shouldCopyExternalLibrary ? appLibraryRoot() : undefined,
+        createdAt: new Date().toISOString()
+      };
+    },
+    prepareBackupRestore: async () => {
+      const backupRoot = await chooseDirectory("选择备份目录");
+      if (!backupRoot) return null;
+      const manifest = await readBackupManifest(backupRoot);
+      const currentLibraryRoot = appLibraryRoot();
+      if (manifest.libraryFiles) {
+        const detail = `恢复将替换当前资料库目录中的内容：\n${currentLibraryRoot}`;
+        const confirmation = mainWindow
+          ? await dialog.showMessageBox(mainWindow, {
+              type: "warning",
+              buttons: ["取消", "确认恢复"],
+              defaultId: 0,
+              cancelId: 0,
+              title: "确认恢复外置资料库",
+              message: "备份包含外置资料库文件。",
+              detail
+            })
+          : await dialog.showMessageBox({
+              type: "warning",
+              buttons: ["取消", "确认恢复"],
+              defaultId: 0,
+              cancelId: 0,
+              title: "确认恢复外置资料库",
+              message: "备份包含外置资料库文件。",
+              detail
+            });
+        if (confirmation.response !== 1) return null;
+      }
+      return { backupRoot, manifest };
+    },
+    finalizeBackupRestore: async (manifest, backupRoot) => {
+      const restoredSettings = normalizeAppSettings(
+        await readJson<unknown>(appSettingsPath(), defaultAppSettings()),
+        await readLegacyReaderSettings()
+      );
+      restoredSettings.storage = {
+        ...restoredSettings.storage,
+        dataDirectory: appDataRoot(),
+        libraryDirectory: manifest.libraryFiles ? appLibraryRoot() : path.join(appDataRoot(), "AppLibrary"),
+        storageMode: storageModeForDataRoot(appDataRoot())
+      };
+      await writeJson<AppSettings>(appSettingsPath(), restoredSettings);
+      await setActiveStorageFromSettings(restoredSettings);
+      writeRuntimeStateSync(true);
+      await writeLog("warn", "Restore completed via operation.", { backupRoot });
+    },
+    pickBundleImportDirectory: async () => chooseDirectory("选择项目包导入目录"),
+    prepareBackupExportEncrypted: async () => {
+      const targetFile = await chooseSaveFile(
+        "保存加密备份",
+        `creation-backup-${fileTimestamp(new Date())}.crbackup`,
+        ["crbackup"]
+      );
+      if (!targetFile) return null;
+      const shouldCopyExternalLibrary = !isInsidePath(appDataRoot(), appLibraryRoot()) && existsSync(appLibraryRoot());
+      return {
+        targetFile,
+        libraryDirectory: shouldCopyExternalLibrary ? appLibraryRoot() : undefined,
+        createdAt: new Date().toISOString()
+      };
+    },
+    prepareBackupImportEncrypted: async () => {
+      const containerFile = await chooseEncryptedContainer("选择加密备份容器", ["crbackup"]);
+      return containerFile ? { containerFile } : null;
+    },
+    prepareBundleExportEncrypted: async (projectId: string) => {
+      const targetFile = await chooseSaveFile(
+        "保存加密项目包",
+        `creation-bundle-${fileTimestamp(new Date())}.crbundle`,
+        ["crbundle"]
+      );
+      if (!targetFile) return null;
+      // 读取项目包导出数据需要打开工作区；读取完成后关闭，避免与后续文件复制冲突。
+      const workspace = await openCreationWorkspace({ directory: appDataRoot() });
+      try {
+        const data = await workspace.read({ kind: "project.bundle.export", projectId });
+        if (!data) return null;
+        return { workspaceDirectory: appDataRoot(), data, targetFile };
+      } finally {
+        await workspace.close();
+      }
+    },
+    prepareBundleImportEncrypted: async () => {
+      const containerFile = await chooseEncryptedContainer("选择加密项目包容器", ["crbundle"]);
+      return containerFile ? { containerFile } : null;
+    },
+    finalizeEncryptedBackupRestore: async () => {
+      const restoredSettings = normalizeAppSettings(
+        await readJson<unknown>(appSettingsPath(), defaultAppSettings()),
+        await readLegacyReaderSettings()
+      );
+      restoredSettings.storage = {
+        ...restoredSettings.storage,
+        dataDirectory: appDataRoot(),
+        libraryDirectory: appLibraryRoot(),
+        storageMode: storageModeForDataRoot(appDataRoot())
+      };
+      await writeJson<AppSettings>(appSettingsPath(), restoredSettings);
+      await setActiveStorageFromSettings(restoredSettings);
+      writeRuntimeStateSync(true);
+      await writeLog("warn", "Encrypted restore completed via operation.", {});
+    },
+    prepareBundleExport: async (projectId: string) => {
+      const targetDirectory = await chooseDirectory("选择项目包导出目录");
+      if (!targetDirectory) return null;
+      // 读取项目包导出数据需要打开工作区；读取完成后关闭，避免与后续文件复制冲突。
+      const workspace = await openCreationWorkspace({ directory: appDataRoot() });
+      try {
+        const data = await workspace.read({ kind: "project.bundle.export", projectId });
+        if (!data) return null;
+        return { workspaceDirectory: appDataRoot(), data, targetDirectory };
+      } finally {
+        await workspace.close();
+      }
+    },
+    withWorkspaceClosed: (fn) => creationCoordinator.withWorkspaceClosed(fn)
   });
 }
 
@@ -3517,6 +3779,7 @@ app.whenReady().then(async () => {
   await getAppSettings();
   await prepareStartupRecovery();
   registerIpc();
+  autoBackupScheduler.start();
   createWindow();
   await writeLog("info", "Application ready.", getBuildInfo());
   app.on("activate", () => {
@@ -3539,6 +3802,8 @@ let creationWorkspaceQuitPending = false;
 
 app.on("before-quit", (event) => {
   writeRuntimeStateSync(true);
+  autoBackupScheduler.dispose();
+  disposeAllOperations(operationCoordinator);
   if (creationWorkspaceReadyToQuit) return;
   event.preventDefault();
   if (creationWorkspaceQuitPending) return;

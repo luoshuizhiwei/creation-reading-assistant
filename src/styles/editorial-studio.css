@@ -1,19 +1,73 @@
 /*
- * Desktop visual system: modern editorial studio.
+ * Desktop visual system: 砚席 Ink Studio.
  *
- * This file is intentionally imported after the legacy renderer stylesheet. It
- * owns only the desktop presentation layer and keeps the existing business DOM,
- * state and IPC contracts intact while the older theme remains available to the
- * standalone reader surfaces.
+ * A luminous writing study for long-form authors: a warm gray desk, white
+ * manuscript sheets, ink-indigo instruments, and a single vermilion seal that
+ * marks where the writer is. Imported after the legacy renderer stylesheet;
+ * owns only the presentation layer and keeps business DOM, state and IPC
+ * contracts intact.
+ *
+ * Roles:
+ *   --accent-spine  indigo  · actions, focus, selection instruments
+ *   --studio-seal   vermilion · position marks only (brand, active spine,
+ *                    progress, margin rule) — never a button fill
  */
+
+/* --------------------------------------------------------------------------
+ * Base interactions
+ * ----------------------------------------------------------------------- */
+
+button,
+input,
+textarea,
+select {
+  accent-color: var(--accent-spine);
+}
+
+button:focus-visible,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent-spine);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--accent-spine) 22%, transparent);
+}
+
+/* Legacy local stylesheets reference bare tokens that were never defined;
+ * bridge them onto the studio system so they follow the theme. */
+:root {
+  --surface: var(--bg-surface);
+  --surface-alt: var(--bg-subtle);
+  --surface-base: var(--bg-subtle);
+  --surface-raised: var(--bg-surface);
+  --border: var(--border-subtle);
+  --border-default: var(--border-subtle);
+  --text: var(--text-main);
+  --text-primary: var(--text-main);
+  --text-dim: var(--text-muted);
+  --text-tertiary: var(--text-meta);
+  --accent: var(--accent-spine);
+  --accent-primary: var(--accent-spine);
+  --warning-text: #8a5a16;
+}
+
+/* --------------------------------------------------------------------------
+ * Workbench shell: ink-cloth sidebar on a warm desk
+ * ----------------------------------------------------------------------- */
 
 .desktop-workbench {
   display: grid;
-  grid-template-columns: 208px minmax(0, 1fr);
+  grid-template-columns: 216px minmax(0, 1fr);
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  background: var(--bg-app);
+  background:
+    linear-gradient(90deg, var(--studio-cloth) 0 216px, transparent 216px),
+    var(--bg-app);
   color: var(--text-main);
 }
 
@@ -21,32 +75,40 @@
   position: relative;
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  gap: 20px;
+  gap: 18px;
   min-height: 0;
-  padding: 20px 12px 14px;
-  border-right: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  padding: 18px 12px 14px;
+  border-right: 1px solid color-mix(in srgb, var(--studio-cloth) 70%, var(--border-strong));
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 34%),
+    var(--studio-cloth);
+  color: var(--studio-cloth-text);
 }
 
+/* The vermilion seal edge: one quiet mark where the cloth meets the desk. */
 .desktop-sidebar::before {
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: color-mix(in srgb, var(--accent-spine) 78%, var(--bg-app));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--studio-seal) 85%, transparent), color-mix(in srgb, var(--studio-seal) 35%, transparent) 72%, transparent);
   content: "";
 }
 
 .nav-spine-item {
   position: relative;
   border-left: 3px solid transparent !important;
-  border-radius: 0 !important;
+  border-radius: 9px !important;
 }
 
+/* Brand: a carved seal stamp — 阅 in vermilion. */
 .desktop-brand.nav-spine-item {
-  gap: 10px;
-  min-height: 48px;
-  padding: 6px 10px;
-  color: var(--text-main);
+  gap: 11px;
+  min-height: 52px;
+  margin: 0 2px 4px;
+  padding: 6px 9px 14px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.09) !important;
+  border-radius: 0 !important;
+  color: var(--studio-cloth-text);
 }
 
 .desktop-brand.nav-spine-item:hover {
@@ -55,86 +117,99 @@
 
 .desktop-brand-mark {
   display: grid;
-  width: 34px;
-  height: 34px;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
   place-items: center;
-  border: 1px solid var(--border-strong);
-  border-radius: 2px;
-  background: var(--bg-surface);
-  box-shadow: none;
-  color: var(--accent-spine);
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 9px;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--studio-seal) 82%, #fff), var(--studio-seal));
+  box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--studio-cloth) 88%, transparent), inset 0 0 0 3px color-mix(in srgb, var(--studio-seal) 55%, transparent), 0 3px 10px rgba(0, 0, 0, 0.28);
+  color: #fff;
   font-family: var(--font-serif);
-  font-size: 17px;
+  font-size: 18px;
   font-weight: 700;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
 }
 
 .desktop-brand strong {
+  color: var(--studio-cloth-text);
   font-family: var(--font-serif);
-  font-size: 14px;
-  letter-spacing: .02em;
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
 }
 
 .desktop-brand small {
   margin-top: 3px;
-  color: var(--text-meta);
-  font-size: 10px;
-  letter-spacing: .04em;
-  text-transform: none;
+  color: var(--studio-cloth-muted);
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
 }
 
 .desktop-nav {
   display: grid;
   align-content: start;
-  gap: 2px;
+  gap: 3px;
+  padding: 0 2px;
 }
 
 .desktop-nav button.nav-spine-item {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: 24px minmax(0, 1fr);
+  gap: 10px;
   min-height: 44px;
   padding: 7px 10px;
   border: 0;
   background: transparent;
-  color: var(--text-muted);
+  color: var(--studio-cloth-muted);
   text-align: left;
-  transition: background-color 140ms ease, color 140ms ease, border-color 140ms ease;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
 }
 
 .desktop-nav button.nav-spine-item:hover {
-  background: color-mix(in srgb, var(--accent-hover) 58%, transparent);
-  color: var(--text-main);
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--studio-cloth-text);
+}
+
+.desktop-nav button.nav-spine-item:hover svg {
+  color: #c6d6f2;
 }
 
 .desktop-nav button.nav-spine-item.active,
 .desktop-nav button.nav-spine-item[data-active="true"] {
-  border-left-color: var(--accent-spine) !important;
-  background: var(--bg-surface);
-  box-shadow: none;
-  color: var(--text-main);
+  border-left-color: var(--studio-seal) !important;
+  background: rgba(255, 255, 255, 0.12);
+  color: var(--studio-cloth-text);
 }
 
 .desktop-nav svg {
   justify-self: center;
   color: currentColor;
+  opacity: 0.92;
+}
+
+.desktop-nav button.nav-spine-item.active svg,
+.desktop-nav button.nav-spine-item[data-active="true"] svg {
+  color: #a9c3ec;
 }
 
 .desktop-nav strong {
   font-size: 13px;
   font-weight: 600;
+  letter-spacing: 0.01em;
 }
 
 .desktop-nav small {
-  margin-top: 1px;
-  color: var(--text-meta);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  margin-top: 2px;
+  color: var(--studio-cloth-muted);
+  font-size: 11px;
 }
 
 .desktop-sidebar-card {
-  padding: 11px 10px 9px;
-  border: 0;
-  border-top: 1px solid var(--border-subtle);
+  margin: 0 2px;
+  padding: 12px 11px 10px;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 0;
   background: transparent;
   box-shadow: none;
@@ -142,17 +217,20 @@
 
 .desktop-card-label,
 .paper-label {
-  color: var(--text-meta);
-  font-family: var(--font-mono);
-  font-size: 10px;
+  color: var(--studio-cloth-muted);
+  font-family: var(--font-sans);
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: .08em;
-  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.paper-label {
+  color: var(--text-meta);
 }
 
 .desktop-sidebar-stats {
   display: block;
-  margin-top: 7px;
+  margin-top: 8px;
 }
 
 .desktop-sidebar-stats span {
@@ -164,20 +242,25 @@
 }
 
 .desktop-sidebar-stats strong {
-  color: var(--text-main);
+  color: var(--studio-cloth-text);
   font-family: var(--font-mono);
-  font-size: 18px;
+  font-size: 20px;
   font-weight: 600;
+  font-variant-numeric: tabular-nums;
 }
 
 .desktop-sidebar-stats small {
-  color: var(--text-muted);
-  font-size: 11px;
+  color: var(--studio-cloth-muted);
+  font-size: 11.5px;
 }
+
+/* --------------------------------------------------------------------------
+ * Command bar: quiet glass strip above the desk
+ * ----------------------------------------------------------------------- */
 
 .desktop-stage {
   display: grid;
-  grid-template-rows: 64px minmax(0, 1fr);
+  grid-template-rows: 68px minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
   background: var(--bg-app);
@@ -188,10 +271,11 @@
   grid-template-columns: minmax(0, 1fr) minmax(260px, 360px);
   align-items: center;
   gap: 20px;
-  min-height: 64px;
-  padding: 10px 20px;
+  min-height: 68px;
+  padding: 10px 26px;
   border-bottom: 1px solid var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
+  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.05), 0 6px 18px rgba(34, 38, 48, 0.04);
   backdrop-filter: blur(14px);
 }
 
@@ -201,9 +285,9 @@
   color: var(--text-main);
   font-family: var(--font-serif);
   font-size: 20px;
-  font-weight: 650;
-  letter-spacing: -.02em;
-  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -213,7 +297,7 @@
   margin-top: 3px;
   overflow: hidden;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -222,42 +306,51 @@
   display: grid;
   grid-template-columns: 18px minmax(0, 1fr) auto;
   align-items: center;
-  gap: 9px;
-  min-height: 36px;
-  padding: 0 8px 0 11px;
-  border: 1px solid var(--border-strong);
-  border-radius: 4px;
-  background: var(--bg-surface);
-  box-shadow: none;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px 0 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-surface) 82%, var(--bg-subtle));
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.04);
   color: var(--text-muted);
   text-align: left;
+  transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 
 .desktop-search-command:hover {
-  border-color: var(--accent-spine);
+  border-color: color-mix(in srgb, var(--accent-spine) 55%, var(--border-strong));
+  background: var(--bg-surface);
+  box-shadow: 0 2px 8px rgba(34, 38, 48, 0.08);
   color: var(--text-main);
 }
 
 .desktop-search-command span {
   margin: 0;
-  font-size: 12px;
+  font-size: 12.5px;
 }
 
 .desktop-search-command kbd {
+  padding: 3px 7px;
   border: 1px solid var(--border-subtle);
-  border-radius: 3px;
+  border-radius: 6px;
   background: var(--bg-subtle);
   color: var(--text-meta);
   font-family: var(--font-mono);
-  font-size: 10px;
-  padding: 2px 5px;
+  font-size: 10.5px;
 }
+
+/* --------------------------------------------------------------------------
+ * Canvas, page rhythm and shared actions
+ * ----------------------------------------------------------------------- */
 
 .desktop-canvas {
   min-height: 0;
   overflow: hidden;
   padding: 0;
-  background: var(--bg-app);
+  background:
+    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.5), transparent 34%),
+    var(--bg-app);
 }
 
 .desktop-canvas > .motion-page {
@@ -273,22 +366,22 @@
   height: 100%;
   min-height: 0;
   overflow: auto;
-  padding: 18px 20px 24px;
+  padding: 26px 30px 36px;
 }
 
 .desktop-page-stack {
-  gap: 14px;
-  max-width: 1600px;
+  gap: 16px;
+  max-width: 1520px;
   margin: 0 auto;
 }
 
 .desktop-page-hero,
 .project-home-hero {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 4px 0 14px;
+  padding: 6px 4px 18px;
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -300,40 +393,57 @@
   margin: 0;
   color: var(--text-main);
   font-family: var(--font-serif);
-  font-size: 25px;
-  font-weight: 650;
-  letter-spacing: -.025em;
+  font-size: clamp(22px, 2vw, 27px);
+  font-weight: 700;
+  letter-spacing: 0;
 }
 
 .desktop-page-hero p,
 .project-home-hero-copy {
   max-width: 680px;
-  margin: 5px 0 0;
+  margin: 6px 0 0;
   color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.65;
+  font-size: 13px;
+  line-height: 1.7;
 }
 
 .desktop-page-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 5px;
+  gap: 8px;
 }
 
+/* One button system: quiet surface default, indigo primary. */
 .desktop-page-actions button,
 .desktop-home-inbox,
 .overview-action,
 .project-home-create-first,
 .project-home-continue {
-  min-height: 32px;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
   background: var(--bg-surface);
-  box-shadow: none;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 600;
+  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.desktop-page-actions button:hover,
+.desktop-home-inbox:hover,
+.overview-action:hover,
+.project-home-continue:hover {
+  border-color: color-mix(in srgb, var(--accent-spine) 45%, var(--border-strong));
+  background: var(--accent-hover);
+  color: var(--text-main);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(34, 38, 48, 0.08);
 }
 
 .desktop-page-actions button:first-child,
@@ -341,8 +451,8 @@
 .cards-add,
 .cards-save,
 .scene-planning-save {
-  border-color: var(--accent-spine);
-  background: var(--accent-spine);
+  border-color: color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth));
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth)));
   color: #fff;
 }
 
@@ -354,25 +464,31 @@
   border-color: var(--copper-dark);
   background: var(--copper-dark);
   color: #fff;
+  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);
 }
 
-.desktop-page-actions button:hover,
-.desktop-home-inbox:hover,
-.overview-action:hover,
-.project-home-create-first:hover,
-.project-home-continue:hover {
-  border-color: var(--accent-spine);
-  background: var(--accent-hover);
-  color: var(--text-main);
-}
+/* --------------------------------------------------------------------------
+ * Panels: white sheets resting on the desk
+ * ----------------------------------------------------------------------- */
 
 .stats-card,
 .desktop-panel-card,
 .paper-panel,
-.paper-panel-soft {
+.paper-panel-soft,
+.settings-card,
+.stats-panel,
+.desktop-library-panel,
+.desktop-editor-card,
+.desktop-source-card,
+.desktop-ai-card {
   border-color: var(--border-subtle) !important;
-  border-radius: 3px !important;
+  border-radius: 12px !important;
   background: var(--bg-surface) !important;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05) !important;
+}
+
+.paper-panel-soft {
+  background: var(--bg-subtle) !important;
   box-shadow: none !important;
 }
 
@@ -381,46 +497,57 @@
 .background-page-title {
   color: var(--text-main);
   font-family: var(--font-serif);
+  font-size: 15px;
   font-weight: 650;
+  letter-spacing: 0.01em;
 }
 
-/* Project home: projects read as a manuscript index, not dashboard cards. */
+.stats-card h3 svg {
+  color: var(--text-meta);
+}
+
+/* --------------------------------------------------------------------------
+ * Project home: the manuscript index
+ * ----------------------------------------------------------------------- */
+
 .project-home {
   gap: 18px;
   padding-bottom: 16px;
 }
 
 .project-home > .stats-card {
-  padding: 0;
-  border: 0 !important;
-  background: transparent !important;
+  padding: 18px 6px 8px !important;
 }
 
 .project-home > .stats-card > h3 {
   margin: 0;
-  padding: 0 0 9px;
-  border-bottom: 1px solid var(--border-strong);
-  font-size: 14px;
+  padding: 0 14px 13px;
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .project-home-list {
   gap: 0;
   margin: 0;
   padding: 0;
-  border-bottom: 1px solid var(--border-subtle);
+  list-style: none;
 }
 
 .project-home-item {
   position: relative;
   gap: 12px;
-  min-height: 74px;
-  padding: 12px 10px 12px 15px;
+  min-height: 78px;
+  padding: 14px 16px 14px 50px;
   border: 0;
   border-bottom: 1px solid var(--border-subtle);
   border-radius: 0;
   background: var(--bg-surface);
   box-shadow: none;
   transform: none;
+  transition: background-color 150ms ease;
+}
+
+.project-home-item:last-child {
+  border-bottom: 0;
 }
 
 .project-home-item::before {
@@ -431,21 +558,42 @@
   content: "";
 }
 
+/* Folio numerals: the index marker of each manuscript. */
+.project-home-item::after {
+  position: absolute;
+  top: 50%;
+  left: 16px;
+  counter-increment: project-folio;
+  transform: translateY(-50%);
+  color: color-mix(in srgb, var(--accent-spine) 72%, var(--text-meta));
+  content: counter(project-folio, decimal-leading-zero);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+.project-home-list {
+  counter-reset: project-folio;
+}
+
 .project-home-item:hover {
   border-color: var(--border-subtle);
-  background: color-mix(in srgb, var(--accent-hover) 36%, var(--bg-surface));
+  background: var(--bg-subtle);
   box-shadow: none;
   transform: none;
 }
 
 .project-home-item:hover::before {
-  background: var(--accent-spine);
+  background: var(--studio-seal);
 }
 
 .project-home-item-main strong {
+  color: var(--text-main);
   font-family: var(--font-serif);
-  font-size: 15px;
+  font-size: 16px;
   font-weight: 650;
+  letter-spacing: 0.01em;
 }
 
 .project-home-meta,
@@ -453,48 +601,83 @@
 .project-home-chars,
 .project-home-no-goal {
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12px;
 }
 
 .project-home-chars {
   font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
 }
 
 .project-home-progressbar {
-  height: 3px;
-  border-radius: 0;
-  background: var(--border-subtle);
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 46%, transparent);
 }
 
+/* Progress is written in seal red: the author's own mark of distance. */
 .project-home-progressbar-fill {
-  border-radius: 0;
-  background: var(--accent-spine);
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--studio-seal), color-mix(in srgb, var(--studio-seal) 68%, var(--accent-spine)));
+}
+
+.project-home-arrow {
+  color: var(--text-meta);
+  opacity: 0.6;
+  transition: color 150ms ease, opacity 150ms ease, transform 150ms ease;
+}
+
+.project-home-item:hover .project-home-arrow {
+  color: var(--accent-spine);
+  opacity: 1;
+  transform: translateX(2px);
+}
+
+/* Continue-writing answers the row hover: it wakes when the row does. */
+.project-home-item .project-home-continue {
+  opacity: 0.82;
+  transition: opacity 150ms ease, border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
+}
+
+.project-home-item:hover .project-home-continue {
+  opacity: 1;
+  border-color: color-mix(in srgb, var(--accent-spine) 52%, var(--border-strong));
+  background: var(--bg-surface);
+  color: var(--accent-spine);
+  box-shadow: 0 3px 10px rgba(34, 38, 48, 0.1);
 }
 
 .desktop-home-inbox-count {
-  border-radius: 2px;
-  background: var(--accent-spine);
+  border-radius: 999px;
+  background: var(--studio-seal);
+  box-shadow: 0 2px 6px color-mix(in srgb, var(--studio-seal) 35%, transparent);
 }
 
-/* Project navigation is the second-level manuscript index. */
+/* --------------------------------------------------------------------------
+ * Project workbench: second-level navigation
+ * ----------------------------------------------------------------------- */
+
 .project-workbench {
   display: grid;
-  grid-template-columns: 132px minmax(0, 1fr);
+  grid-template-columns: 140px minmax(0, 1fr);
   gap: 0;
   flex: 1;
   min-height: 0;
   overflow: hidden;
   border: 1px solid var(--border-subtle);
+  border-radius: 12px;
   background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
 }
 
 .project-nav {
   position: static;
   display: flex;
   flex-direction: column;
-  gap: 0;
+  gap: 2px;
   align-self: stretch;
-  padding: 8px 0;
+  padding: 10px 8px;
   border: 0;
   border-right: 1px solid var(--border-subtle);
   border-radius: 0;
@@ -504,37 +687,40 @@
 .project-nav button {
   position: relative;
   display: flex;
-  gap: 7px;
+  gap: 8px;
   min-height: 38px;
-  padding: 7px 10px 7px 13px;
+  padding: 7px 10px 7px 12px;
   border: 0;
   border-left: 3px solid transparent;
-  border-radius: 0;
+  border-radius: 8px;
   background: transparent;
   color: var(--text-muted);
-  font-size: 11px;
+  font-size: 12.5px;
   font-weight: 550;
+  transition: background-color 140ms ease, color 140ms ease;
 }
 
 .project-nav button:hover {
-  background: color-mix(in srgb, var(--accent-hover) 42%, transparent);
+  background: color-mix(in srgb, var(--bg-surface) 72%, transparent);
   color: var(--text-main);
 }
 
 .project-nav button.active {
-  border-left-color: var(--accent-spine);
+  border-left-color: var(--studio-seal);
   background: var(--bg-surface);
+  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.08);
   color: var(--text-main);
   font-weight: 650;
 }
 
 .project-nav-back {
-  margin: 0 7px 8px;
-  padding-left: 7px !important;
+  margin: 0 0 10px;
+  padding-left: 10px !important;
   border: 1px solid var(--border-subtle) !important;
   border-left: 1px solid var(--border-subtle) !important;
-  border-radius: 3px !important;
+  border-radius: 8px !important;
   background: var(--bg-surface) !important;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
 }
 
 .project-workbench-main {
@@ -543,7 +729,10 @@
   overflow: hidden;
 }
 
-/* Writing desk: quiet three-column editing instrument. */
+/* --------------------------------------------------------------------------
+ * Writing desk: the manuscript is the only elevated object
+ * ----------------------------------------------------------------------- */
+
 .writing-desk {
   display: grid;
   grid-template-columns: 192px minmax(470px, 1fr) 204px;
@@ -552,7 +741,7 @@
   overflow: hidden;
   border: 0;
   border-radius: 0;
-  background: var(--bg-surface);
+  background: var(--bg-app);
   box-shadow: none;
 }
 
@@ -563,7 +752,7 @@
 .writing-outline,
 .writing-margin {
   min-width: 0;
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 55%, var(--bg-app));
 }
 
 .writing-outline {
@@ -575,15 +764,14 @@
   min-height: 0;
   overflow: auto;
   border-left: 1px solid var(--border-subtle);
-  padding: 14px;
+  padding: 16px 14px;
 }
 
 .writing-project-switcher {
-  padding: 12px;
+  padding: 12px 12px 10px;
   border-bottom: 1px solid var(--border-subtle);
   color: var(--text-meta);
-  font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 11px;
 }
 
 .writing-project-switcher select,
@@ -591,43 +779,48 @@
 .paper-input,
 .cards-input {
   border-color: var(--border-strong);
-  border-radius: 3px;
+  border-radius: 8px;
   background: var(--bg-surface);
   color: var(--text-main);
   box-shadow: none;
 }
 
 .writing-outline-scroll {
-  padding: 7px;
+  padding: 8px;
 }
 
 .writing-chapter-button,
 .writing-scene-button,
 .outline-scene {
-  border-radius: 0;
+  border-radius: 7px;
 }
 
 .writing-scene-button.active,
 .outline-scene.active {
-  box-shadow: inset 3px 0 0 var(--accent-spine);
+  box-shadow: inset 2px 0 0 var(--studio-seal);
 }
 
 .writing-manuscript {
-  background: var(--bg-surface);
+  background: transparent;
 }
 
 .writing-manuscript-head {
   min-height: 66px;
-  padding: 11px 16px;
+  padding: 12px 20px;
   border-bottom: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
 }
 
 .writing-manuscript-head h2,
 .writing-margin h3 {
   color: var(--text-main);
   font-family: var(--font-serif);
-  font-weight: 650;
+  font-weight: 680;
+}
+
+.writing-manuscript-head h2 {
+  font-size: 22px;
+  letter-spacing: 0;
 }
 
 .writing-manuscript-head span,
@@ -636,137 +829,244 @@
   color: var(--text-muted);
 }
 
+/* Segmented controls share one pill system. */
 .writing-mode-switch,
 .writing-outline-view-switch,
 .cards-view-switch,
 .history-tabs {
+  display: inline-flex;
+  gap: 2px;
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 3px;
-  background: var(--bg-surface);
+  padding: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: var(--bg-subtle);
 }
 
 .writing-mode-switch button,
 .writing-outline-view-switch button,
 .cards-view-switch button,
 .history-tabs button {
-  border-radius: 0;
+  border-radius: 6px;
 }
 
 .writing-mode-switch button.active,
 .writing-outline-view-switch button.active,
 .cards-view-switch button.active,
 .history-tabs button.active {
-  background: var(--accent-hover);
-  box-shadow: inset 0 -2px 0 var(--accent-spine);
+  background: var(--bg-surface);
+  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.12);
   color: var(--text-main);
 }
 
 .writing-scroll {
-  background: var(--bg-app);
-  padding: 16px clamp(14px, 4vw, 54px);
+  position: relative;
+  padding: 24px clamp(18px, 4vw, 60px) 44px;
+  background:
+    radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.34), transparent 46%),
+    var(--bg-app);
 }
 
 .scene-editor,
 .writing-continuous {
+  position: relative;
   max-width: 920px;
   margin: 0 auto;
-  border: 1px solid var(--border-subtle);
-  border-radius: 1px;
-  background: var(--bg-surface);
-  box-shadow: 0 1px 2px rgba(0, 0, 0, .04);
+  border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
+  border-radius: 4px;
+  background: var(--studio-paper);
+  box-shadow: 0 24px 60px var(--studio-paper-shadow), 0 2px 6px rgba(34, 38, 48, 0.06);
+}
+
+/* The vermilion margin rule of a ruled manuscript sheet. */
+.scene-editor::before,
+.writing-continuous::before {
+  position: absolute;
+  top: 0;
+  left: 56px;
+  z-index: 0;
+  width: 1px;
+  height: 100%;
+  background: color-mix(in srgb, var(--studio-seal) 26%, transparent);
+  pointer-events: none;
+  content: "";
 }
 
 .scene-editor-content,
 .ProseMirror,
 .writing-continuous-scene .ProseMirror {
+  position: relative;
   font-family: var(--font-serif);
 }
 
-.writing-margin dd,
+.scene-editor-content,
+.writing-continuous-scene .ProseMirror {
+  background:
+    repeating-linear-gradient(to bottom, transparent 0, transparent 33px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 34px);
+  font-size: 17px;
+  line-height: 2;
+}
+
+.scene-editor-toolbar,
+.editor-toolbar {
+  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent) !important;
+  border-radius: 10px !important;
+  background: color-mix(in srgb, var(--bg-surface) 96%, transparent) !important;
+  box-shadow: 0 2px 6px rgba(34, 38, 48, 0.1), 0 14px 36px rgba(34, 38, 48, 0.14) !important;
+  backdrop-filter: blur(12px);
+}
+
+.scene-editor-toolbar .scene-tool {
+  color: color-mix(in srgb, var(--text-main) 78%, var(--text-muted));
+}
+
+.scene-editor-toolbar .scene-tool:hover {
+  background: var(--accent-hover);
+  color: var(--accent-spine);
+}
+
+.scene-editor-toolbar .scene-tool.active {
+  background: var(--accent-hover);
+  color: var(--accent-spine);
+}
+
+.writing-margin h3 {
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--border-subtle);
+  font-size: 14px;
+}
+
+/* Margin rail reads at a glance: labels 11.5px sans, values tabular mono. */
+.writing-margin dt {
+  color: var(--text-muted);
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+}
+
+.writing-margin dd {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
 .writing-watch,
 .scene-save-status,
 .writing-annotation-meta {
+  color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 10.5px;
 }
 
 .writing-annotation,
 .writing-annotation-form,
 .writing-recovery-notice {
-  border-radius: 2px;
+  border-radius: 8px;
   box-shadow: none;
 }
 
-.writing-margin-rule,
+.writing-margin-rule {
+  border-color: var(--border-subtle);
+  border-style: dashed;
+}
+
 .cards-relations {
   border-color: var(--border-subtle);
 }
 
-/* Cards and outline: index tables with a restrained detail pane. */
+/* --------------------------------------------------------------------------
+ * Cards, outline, history, overview: planning trays beside a detail sheet
+ * ----------------------------------------------------------------------- */
+
 .cards-page,
 .outline-page,
 .history-page,
 .overview-page {
   height: 100%;
   min-height: 0;
-  padding: 14px;
-  background: var(--bg-surface);
+  padding: 18px;
+  background: var(--bg-app);
 }
 
 .cards-toolbar,
 .outline-page-head {
-  padding-bottom: 10px;
+  padding-bottom: 13px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
-.cards-board-layout {
-  grid-template-columns: minmax(0, 1fr) 320px;
+.cards-board-layout,
+.outline-page-body {
   gap: 0;
   border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
+  overflow: hidden;
 }
 
 .cards-board-pane,
 .outline-page-main {
   border: 0;
   border-radius: 0;
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 46%, var(--bg-app));
 }
 
 .cards-detail-pane,
 .outline-page-side {
   border-left: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  background: var(--studio-paper);
 }
 
-.cards-board-column,
+.outline-page-side {
+  position: static;
+  max-height: none;
+  border: 0;
+  border-left: 1px solid var(--border-subtle);
+  border-radius: 0;
+}
+
+.cards-board-column {
+  border-color: var(--border-subtle);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--bg-surface) 62%, var(--bg-subtle));
+}
+
+.cards-board-column > header,
+.cards-column-head {
+  background: color-mix(in srgb, var(--bg-subtle) 82%, var(--studio-paper));
+}
+
 .cards-board-card,
 .background-card,
 .cards-detail-card,
 .history-empty {
-  border-radius: 2px;
-  box-shadow: none;
-}
-
-.cards-board-column {
-  background: var(--bg-surface);
+  border-radius: 8px;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
 }
 
 .cards-board-card {
   border-left: 3px solid transparent;
+  background: var(--studio-paper);
+  transition: transform 150ms ease, box-shadow 150ms ease, border-color 150ms ease;
 }
 
 .cards-board-card:hover {
-  border-color: var(--border-strong);
-  border-left-color: var(--text-meta);
+  border-color: var(--border-subtle);
+  border-left-color: color-mix(in srgb, var(--studio-seal) 55%, var(--border-strong));
+  box-shadow: 0 6px 16px rgba(34, 38, 48, 0.09);
+  transform: translateY(-1px);
 }
 
+/* The vermilion spine marks the card on the desk right now. */
 .cards-board-card.active,
 .cards-list-item.active,
 .background-card.active {
-  border-color: var(--border-subtle);
-  border-left: 3px solid var(--accent-spine);
-  background: var(--accent-hover);
+  border-color: color-mix(in srgb, var(--studio-seal) 30%, var(--border-subtle));
+  border-left: 3px solid var(--studio-seal);
+  background: color-mix(in srgb, var(--studio-seal-soft) 55%, var(--studio-paper));
 }
 
 .cards-detail-card h3,
@@ -781,32 +1081,24 @@
 .cards-form-actions button,
 .outline-page button,
 .history-page button {
-  border-radius: 3px;
+  border-radius: 8px;
 }
 
-.outline-page-body {
-  gap: 0;
-  border: 1px solid var(--border-subtle);
-}
+/* --------------------------------------------------------------------------
+ * Inbox: the slush pile beside the active manuscript
+ * ----------------------------------------------------------------------- */
 
-.outline-page-side {
-  position: static;
-  max-height: none;
-  border: 0;
-  border-left: 1px solid var(--border-subtle);
-  border-radius: 0;
-}
-
-/* Inbox: editorial queue and detail, with explicit active manuscript strip. */
 .inbox-editor-grid {
   display: grid;
-  grid-template-columns: minmax(300px, .78fr) minmax(460px, 1.22fr);
+  grid-template-columns: minmax(300px, 0.78fr) minmax(460px, 1.22fr);
   gap: 0;
   min-height: 520px;
   max-height: calc(100vh - 270px);
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  background: var(--bg-surface);
+  border-radius: 12px;
+  background: var(--studio-paper);
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
 }
 
 .inbox-list {
@@ -816,13 +1108,13 @@
   margin: 0;
   padding: 0;
   border-right: 1px solid var(--border-subtle);
-  background: var(--bg-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 46%, var(--bg-app));
 }
 
 .inbox-item {
   position: relative;
   margin: 0;
-  padding: 11px 10px 11px 14px;
+  padding: 13px 12px 13px 17px;
   border: 0 !important;
   border-bottom: 1px solid var(--border-subtle) !important;
   border-radius: 0 !important;
@@ -838,26 +1130,29 @@
 }
 
 .inbox-item:hover {
-  background: color-mix(in srgb, var(--accent-hover) 35%, transparent) !important;
+  background: color-mix(in srgb, var(--accent-hover) 55%, transparent) !important;
 }
 
 .inbox-item--selected {
-  background: var(--bg-surface) !important;
+  background: var(--studio-paper) !important;
+  box-shadow: 0 4px 14px rgba(34, 38, 48, 0.07);
 }
 
 .inbox-item--selected::before {
-  background: var(--accent-spine);
+  background: var(--studio-seal);
 }
 
 .inbox-item-title {
   color: var(--text-main);
   font-family: var(--font-serif);
+  font-size: 14px;
   font-weight: 650;
 }
 
 .inbox-item-meta,
 .inbox-item-body {
   color: var(--text-muted);
+  font-size: 12px;
 }
 
 .inbox-editor-grid > section,
@@ -870,9 +1165,33 @@
 .inbox-detail-empty {
   min-height: 0;
   overflow: auto;
-  padding: 16px !important;
+  padding: 22px !important;
   border: 0 !important;
   border-radius: 0 !important;
+}
+
+.inbox-detail-empty {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  text-align: center;
+  font-size: 13px;
+}
+
+.inbox-detail-empty::before {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--text-meta);
+  content: "✎";
+  font-family: var(--font-serif);
+  font-size: 20px;
 }
 
 .inbox-detail-head {
@@ -881,26 +1200,31 @@
   justify-content: space-between;
   gap: 14px;
   margin-bottom: 16px;
-  padding-bottom: 11px;
+  padding-bottom: 13px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
 .inbox-detail-head h2 {
   font-family: var(--font-serif);
-  font-weight: 650;
+  font-size: 22px;
+  font-weight: 680;
 }
 
 .inbox-detail > .rounded-xl,
 .inbox-detail > .rounded-2xl,
 .inbox-detail blockquote,
 .inbox-detail article {
-  border-radius: 3px !important;
+  border-radius: 10px !important;
   box-shadow: none !important;
 }
 
+/* AI digest reads as an editor's note pinned to the page. */
 .inbox-summary {
-  padding: 14px 16px !important;
-  border-left: 3px solid var(--accent-spine) !important;
+  padding: 15px 17px !important;
+  border: 0 !important;
+  border-left: 3px solid var(--studio-seal) !important;
+  border-radius: 0 10px 10px 0 !important;
+  background: color-mix(in srgb, var(--studio-seal-soft) 72%, var(--bg-surface)) !important;
 }
 
 .inbox-summary h3 {
@@ -916,37 +1240,59 @@
 .settings-card input,
 .settings-card select,
 .settings-card textarea {
-  border-radius: 3px;
+  border-radius: 8px;
 }
 
 .inbox-item-actions button,
 .inbox-inspiration-link,
 .inbox-target-project select {
-  border-radius: 3px;
+  border-radius: 8px;
 }
 
-/* Search is a command surface, not another card page. */
+/* --------------------------------------------------------------------------
+ * Global search: a command tray over a dimmed study
+ * ----------------------------------------------------------------------- */
+
 .uni-search-overlay {
-  background: color-mix(in srgb, #000 38%, transparent);
-  backdrop-filter: blur(4px);
+  background: color-mix(in srgb, var(--studio-cloth) 52%, transparent);
+  backdrop-filter: blur(7px) saturate(0.85);
 }
 
 .uni-search-shell {
   overflow: hidden;
-  border: 1px solid var(--border-strong);
-  border-radius: 5px;
-  background: var(--bg-surface);
-  box-shadow: 0 24px 70px rgba(0, 0, 0, .22);
+  border: 1px solid color-mix(in srgb, var(--studio-cloth) 32%, var(--border-subtle));
+  border-radius: 14px;
+  background: var(--studio-paper);
+  box-shadow: 0 30px 90px color-mix(in srgb, var(--studio-cloth) 30%, transparent), 0 6px 20px rgba(15, 17, 22, 0.14);
 }
 
-.uni-search-head,
-.uni-search-bar {
-  border-color: var(--border-subtle);
+.uni-search-head {
+  border-bottom-color: var(--border-subtle);
   background: var(--bg-subtle);
 }
 
+.uni-search-head-icon {
+  color: var(--accent-spine);
+}
+
+.uni-search-input {
+  font-size: 14.5px;
+}
+
+.uni-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.uni-search-bar {
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 60%, var(--studio-paper));
+}
+
 .uni-search-group h3 {
-  font-family: var(--font-serif);
+  font-family: var(--font-sans);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
 }
 
 .uni-search-input,
@@ -959,69 +1305,74 @@
 .uni-search-global,
 .uni-search-close,
 .uni-search-error {
-  border-radius: 3px;
+  border-radius: 8px;
 }
 
 .uni-search-filters button.active,
 .uni-search-global.active {
   border-color: var(--accent-spine);
-  background: var(--accent-hover);
-  color: var(--text-main);
+  background: var(--accent-spine);
+  color: #fff;
 }
 
 .uni-search-group li button {
-  border-radius: 0;
+  border-radius: 8px;
 }
 
 .uni-search-group li button[data-active="true"],
 .uni-search-group li button:hover {
   background: var(--accent-hover);
-  box-shadow: inset 3px 0 0 var(--accent-spine);
+  box-shadow: inset 2px 0 0 var(--studio-seal);
 }
 
-/* Library, stats, history and settings use rows and rules, not floating tiles. */
-.desktop-library-panel,
-.desktop-editor-card,
-.desktop-source-card,
-.desktop-ai-card,
-.settings-card,
-.stats-panel {
-  border-radius: 3px !important;
-  box-shadow: none !important;
+.uni-result-origin {
+  color: var(--text-muted);
 }
+
+/* --------------------------------------------------------------------------
+ * Library, stats, settings, inspiration
+ * ----------------------------------------------------------------------- */
 
 .desktop-settings-grid {
-  gap: 10px;
+  gap: 12px;
 }
 
 .desktop-settings-grid > *,
 .desktop-stats-grid > * {
-  border-radius: 3px !important;
-  box-shadow: none !important;
+  border-radius: 12px !important;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05) !important;
 }
 
 .desktop-library-grid-head {
   background: var(--bg-subtle);
   color: var(--text-meta);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .04em;
-  text-transform: uppercase;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
 }
 
 .desktop-library-row {
   background: var(--bg-surface);
+  transition: background-color 140ms ease;
 }
 
 .desktop-library-row:last-child {
-  border-bottom: 1px solid var(--border-subtle);
+  border-bottom: 0;
+}
+
+.desktop-library-row:hover {
+  transform: none;
+  background: color-mix(in srgb, var(--accent-hover) 55%, var(--bg-surface));
+  box-shadow: inset 2px 0 0 var(--studio-seal);
 }
 
 .desktop-inspiration-page {
   gap: 0;
   padding: 0;
   border: 1px solid var(--border-subtle);
+  border-radius: 12px;
   background: var(--bg-surface);
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
 }
 
 .desktop-inspiration-list,
@@ -1043,44 +1394,495 @@
 
 .desktop-inspiration-card.active {
   border-color: var(--border-subtle);
-  background: var(--accent-hover);
-  box-shadow: inset 3px 0 0 var(--accent-spine);
+  background: color-mix(in srgb, var(--accent-hover) 70%, var(--bg-surface));
+  box-shadow: inset 2px 0 0 var(--studio-seal);
 }
+
+/* --------------------------------------------------------------------------
+ * Floating layers: dialogs, toasts, banners
+ * ----------------------------------------------------------------------- */
 
 .migration-banner,
 .motion-dialog,
 .motion-toast,
 .motion-drawer,
 .confirm-dialog {
-  border-radius: 4px !important;
+  border-radius: 12px !important;
+}
+
+.motion-dialog,
+.confirm-dialog {
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+}
+
+.motion-toast {
+  background: var(--studio-cloth);
+  color: var(--studio-cloth-text);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;
 }
 
 .migration-banner {
-  border-color: color-mix(in srgb, var(--accent-spine) 38%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-hover) 48%, var(--bg-surface));
+  border: 1px solid color-mix(in srgb, var(--studio-seal) 26%, var(--border-subtle)) !important;
+  border-left: 3px solid var(--studio-seal) !important;
+  background: color-mix(in srgb, var(--studio-seal-soft) 62%, var(--bg-surface)) !important;
   box-shadow: none;
 }
 
-.desktop-library-row:hover {
-  transform: none;
-  box-shadow: inset 3px 0 0 var(--accent-spine);
+/* --------------------------------------------------------------------------
+ * Refinement layer II — material & craft.
+ *
+ * The first pass set the palette and structure; this layer gives the studio
+ * its physics: a fibrous desk, woven cloth, sheets that catch the lamp,
+ * buttons you can press, and lists that settle onto the desk one by one.
+ * ----------------------------------------------------------------------- */
+
+/* The desk reads as matter, not a flat fill: a faint paper fiber. */
+.desktop-canvas {
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.032'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
+    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.5), transparent 34%),
+    var(--bg-app);
 }
 
-button,
-input,
-textarea,
-select {
-  accent-color: var(--accent-spine);
+/* Book cloth: a fine crosshatch weave over the ink. */
+.desktop-sidebar {
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 3px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.035), transparent 36%),
+    var(--studio-cloth);
 }
 
-button:focus-visible,
-input:focus-visible,
-textarea:focus-visible,
-select:focus-visible,
-[tabindex]:focus-visible {
+/* Sheets catch the lamp along their top edge and press a contact shadow. */
+.scene-editor,
+.writing-continuous {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 7%),
+    var(--studio-paper);
+  box-shadow:
+    0 1px 2px rgba(34, 38, 48, 0.08),
+    0 24px 60px var(--studio-paper-shadow),
+    0 2px 6px rgba(34, 38, 48, 0.06);
+}
+
+/* Cards gain a hair of top light so they sit on, not stick to, the desk. */
+.stats-card,
+.desktop-panel-card,
+.paper-panel,
+.settings-card,
+.stats-panel,
+.desktop-library-panel,
+.desktop-editor-card,
+.desktop-source-card,
+.desktop-ai-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    0 1px 2px rgba(34, 38, 48, 0.04),
+    0 10px 30px rgba(34, 38, 48, 0.05) !important;
+}
+
+:root[data-app-theme="dark"] .stats-card,
+:root[data-app-theme="dark"] .desktop-panel-card,
+:root[data-app-theme="dark"] .paper-panel,
+:root[data-app-theme="dark"] .settings-card,
+:root[data-app-theme="dark"] .stats-panel,
+:root[data-app-theme="dark"] .desktop-library-panel,
+:root[data-app-theme="dark"] .desktop-editor-card,
+:root[data-app-theme="dark"] .desktop-source-card,
+:root[data-app-theme="dark"] .desktop-ai-card {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.045),
+    0 10px 30px rgba(0, 0, 0, 0.38) !important;
+}
+
+/* Buttons are physical: a lit crown, a pressed state. */
+.desktop-page-actions button,
+.desktop-home-inbox,
+.overview-action,
+.project-home-create-first,
+.project-home-continue {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(34, 38, 48, 0.06);
+}
+
+.desktop-page-actions button:active,
+.desktop-home-inbox:active,
+.overview-action:active,
+.project-home-continue:active {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
+}
+
+.desktop-page-actions button:first-child,
+.project-home-create-first,
+.cards-add,
+.cards-save,
+.scene-planning-save {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
+}
+
+.desktop-page-actions button:first-child:active,
+.project-home-create-first:active,
+.cards-add:active,
+.cards-save:active,
+.scene-planning-save:active {
+  transform: translateY(0);
+  box-shadow: inset 0 2px 4px rgba(15, 17, 22, 0.22);
+}
+
+/* Keycaps rise off the surface. */
+.desktop-search-command kbd,
+.uni-search-shell kbd {
+  box-shadow: 0 1px 0 var(--border-strong);
+}
+
+/* Numerals hold their columns while values tick. */
+.paper-input,
+.cards-input,
+input[type="number"],
+input[type="text"],
+.stats-words,
+.writing-watch,
+.scene-save-status {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Editorial measure for hero copy. */
+.desktop-page-hero p,
+.project-home-hero-copy {
+  max-width: 40em;
+}
+
+/* Lists settle onto the desk one row at a time. */
+@keyframes ink-settle {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.desktop-page-stack > * {
+  animation: ink-settle 340ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.desktop-page-stack > *:nth-child(2) {
+  animation-delay: 45ms;
+}
+
+.desktop-page-stack > *:nth-child(3) {
+  animation-delay: 90ms;
+}
+
+.desktop-page-stack > *:nth-child(4) {
+  animation-delay: 135ms;
+}
+
+.project-home-list .project-home-item,
+.cards-board-column .cards-board-card,
+.inbox-list .inbox-item {
+  animation: ink-settle 360ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
+}
+
+.project-home-list .project-home-item:nth-child(2),
+.cards-board-column .cards-board-card:nth-child(2),
+.inbox-list .inbox-item:nth-child(2) {
+  animation-delay: 40ms;
+}
+
+.project-home-list .project-home-item:nth-child(3),
+.cards-board-column .cards-board-card:nth-child(3),
+.inbox-list .inbox-item:nth-child(3) {
+  animation-delay: 80ms;
+}
+
+.project-home-list .project-home-item:nth-child(4),
+.cards-board-column .cards-board-card:nth-child(4),
+.inbox-list .inbox-item:nth-child(4) {
+  animation-delay: 120ms;
+}
+
+.project-home-list .project-home-item:nth-child(5),
+.cards-board-column .cards-board-card:nth-child(5),
+.inbox-list .inbox-item:nth-child(5) {
+  animation-delay: 160ms;
+}
+
+.project-home-list .project-home-item:nth-child(n+6),
+.cards-board-column .cards-board-card:nth-child(n+6),
+.inbox-list .inbox-item:nth-child(n+6) {
+  animation-delay: 200ms;
+}
+
+/* Empty states share one invitation: a dashed tray, a glyph, a quiet line. */
+.project-home-empty {
+  align-items: center;
+  margin: 8px 14px 14px;
+  padding: 30px 20px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  text-align: center;
+}
+
+.project-home-empty .stats-note {
+  max-width: 34em;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.7;
+}
+
+.history-empty {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+}
+
+.history-empty::before {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--text-meta);
+  content: "⟲";
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+
+.uni-search-state {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 30px 12px;
+}
+
+.uni-search-state::before {
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  margin-bottom: 6px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 12px;
+  color: var(--text-meta);
+  content: "⌕";
+  font-family: var(--font-serif);
+  font-size: 20px;
+}
+
+/* Library header row reads as a caption, not a shout. */
+.desktop-library-grid-head {
+  text-transform: none;
+}
+
+/* Progress sits in a groove, like a rule pressed into the sheet. */
+.project-home-progressbar {
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
+}
+
+/* Quiet scrollbars: thin, rounded, only assertive on approach. */
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  border: 2px solid transparent;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 78%, transparent);
+  background-clip: padding-box;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-meta);
+  background-clip: padding-box;
+}
+
+/* The wizard joins the studio: dimmer cloth, softer geometry. */
+.creation-wizard-overlay {
+  background: color-mix(in srgb, var(--studio-cloth) 46%, transparent);
+  backdrop-filter: blur(4px);
+}
+
+.creation-wizard {
+  border-radius: 16px;
+  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);
+}
+
+.creation-wizard-head h2 {
+  font-family: var(--font-serif);
+}
+
+/* --------------------------------------------------------------------------
+ * Refinement layer III — the frame.
+ *
+ * The window itself joins the studio: a cloth titlebar with the seal mark,
+ * quiet window controls, and settings forms rebuilt on one switch anatomy.
+ * ----------------------------------------------------------------------- */
+
+.desktop-root {
+  display: grid;
+  grid-template-rows: 40px minmax(0, 1fr);
+  height: 100vh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--studio-cloth);
+}
+
+.desktop-workbench {
+  height: 100%;
+}
+
+/* The cloth titlebar: one continuous surface with the sidebar below it,
+ * and the seal line running the full height of the left edge. */
+.desktop-titlebar {
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
+  gap: 12px;
+  position: relative;
+  padding-left: 14px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 3px),
+    repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.015) 0 1px, transparent 1px 3px),
+    var(--studio-cloth);
+  color: var(--studio-cloth-muted);
+  -webkit-app-region: drag;
+  user-select: none;
+  box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.08);
+}
+
+.desktop-titlebar::before {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--studio-seal) 85%, transparent), color-mix(in srgb, var(--studio-seal) 45%, transparent));
+  content: "";
+}
+
+.desktop-titlebar-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.desktop-titlebar-mark {
+  display: grid;
+  width: 18px;
+  height: 18px;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 5px;
+  background: var(--studio-seal);
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.desktop-window-controls {
+  display: flex;
+  align-items: stretch;
+  -webkit-app-region: no-drag;
+}
+
+.desktop-window-control {
+  display: grid;
+  width: 44px;
+  place-items: center;
+  border: 0;
+  background: transparent;
+  color: var(--studio-cloth-muted);
+  transition: background-color 130ms ease, color 130ms ease;
+}
+
+.desktop-window-control:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--studio-cloth-text);
+}
+
+.desktop-window-control.close:hover {
+  background: var(--studio-seal);
+  color: #fff;
+}
+
+.desktop-window-control:focus-visible {
+  outline: 2px solid var(--accent-spine);
+  outline-offset: -2px;
+}
+
+/* Settings forms: one switch anatomy, sized to the type scale. */
+.desktop-settings-grid input[type="checkbox"] {
+  position: relative;
+  width: 34px;
+  height: 20px;
+  margin: 0;
+  border-radius: 999px;
+  appearance: none;
+  background: var(--border-strong);
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.12);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background-color 160ms ease;
+}
+
+.desktop-settings-grid input[type="checkbox"]::after {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.28);
+  content: "";
+  transition: transform 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.desktop-settings-grid input[type="checkbox"]:checked {
+  background: var(--accent-spine);
+}
+
+.desktop-settings-grid input[type="checkbox"]:checked::after {
+  transform: translateX(14px);
+}
+
+.desktop-settings-grid input[type="checkbox"]:focus-visible {
   outline: 2px solid var(--accent-spine);
   outline-offset: 2px;
 }
+
+/* Settings card headers carry the section voice. */
+.desktop-settings-grid h2 {
+  color: var(--text-main);
+  font-family: var(--font-serif);
+  font-size: 14.5px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+}
+
+.desktop-settings-grid label {
+  font-size: 13px;
+}
+
+.desktop-settings-grid input[type="range"] {
+  accent-color: var(--accent-spine);
+}
+
+/* --------------------------------------------------------------------------
+ * Responsive
+ * ----------------------------------------------------------------------- */
 
 @media (max-width: 1180px) {
   .writing-desk {
@@ -1095,6 +1897,9 @@ select:focus-visible,
 @media (max-width: 1024px) {
   .desktop-workbench {
     grid-template-columns: 64px minmax(0, 1fr);
+    background:
+      linear-gradient(90deg, var(--studio-cloth) 0 64px, transparent 64px),
+      var(--bg-app);
   }
 
   .desktop-sidebar {
@@ -1104,7 +1909,9 @@ select:focus-visible,
 
   .desktop-brand.nav-spine-item {
     justify-content: center;
+    margin: 0;
     padding: 5px;
+    border-bottom: 0 !important;
   }
 
   .desktop-brand > span:last-child,
@@ -1122,7 +1929,7 @@ select:focus-visible,
 
   .desktop-commandbar {
     grid-template-columns: minmax(0, 1fr) auto;
-    padding: 9px 13px;
+    padding: 9px 16px;
   }
 
   .desktop-commandbar > div > span,
@@ -1135,7 +1942,7 @@ select:focus-visible,
   }
 
   .desktop-page-scroll {
-    padding: 12px;
+    padding: 18px 18px 26px;
   }
 
   .desktop-page-hero {
@@ -1186,13 +1993,13 @@ select:focus-visible,
   }
 
   .project-workbench {
-    grid-template-columns: 104px minmax(0, 1fr);
+    grid-template-columns: 108px minmax(0, 1fr);
   }
 
   .project-nav button {
-    min-height: 35px;
+    min-height: 36px;
     padding: 6px 6px 6px 9px;
-    font-size: 10px;
+    font-size: 11.5px;
   }
 
   .writing-desk {
@@ -1204,7 +2011,7 @@ select:focus-visible,
   }
 
   .writing-scroll {
-    padding: 12px;
+    padding: 14px;
   }
 
   .cards-board-layout {
@@ -1216,629 +2023,8 @@ select:focus-visible,
   }
 
   .inbox-editor-grid {
-    grid-template-columns: minmax(280px, .72fr) minmax(400px, 1.28fr);
+    grid-template-columns: minmax(280px, 0.72fr) minmax(400px, 1.28fr);
     max-height: calc(100vh - 285px);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    scroll-behavior: auto !important;
-    animation-duration: .01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: .01ms !important;
-  }
-}
-
-/* --------------------------------------------------------------------------
- * Editorial studio refinement
- *
- * The first pass established the information architecture. This layer gives
- * it a tactile publishing-studio character: book-cloth navigation, mineral
- * work surfaces, numbered manuscript indexes and a quiet ruled writing sheet.
- * ----------------------------------------------------------------------- */
-
-.desktop-workbench {
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--studio-cloth) 96%, #000) 0 208px, transparent 208px),
-    var(--bg-app);
-}
-
-.desktop-sidebar {
-  gap: 22px;
-  padding: 22px 13px 15px;
-  border-right-color: color-mix(in srgb, var(--studio-cloth) 72%, var(--border-strong));
-  background:
-    linear-gradient(90deg, rgba(255,255,255,.025), transparent 42%),
-    var(--studio-cloth);
-  color: var(--studio-cloth-text);
-}
-
-.desktop-sidebar::before {
-  width: 4px;
-  background: var(--accent-spine);
-  box-shadow: 1px 0 rgba(255,255,255,.08);
-}
-
-.desktop-brand.nav-spine-item {
-  gap: 12px;
-  padding: 4px 8px 14px;
-  border-bottom: 1px solid rgba(255,255,255,.1) !important;
-  color: var(--studio-cloth-text);
-}
-
-.desktop-brand-mark {
-  width: 38px;
-  height: 38px;
-  border-color: color-mix(in srgb, var(--accent-spine) 72%, white);
-  border-radius: 1px;
-  background: transparent;
-  box-shadow: inset 0 0 0 3px var(--studio-cloth), inset 0 0 0 4px color-mix(in srgb, var(--accent-spine) 45%, transparent);
-  color: #f3b9be;
-  font-size: 18px;
-}
-
-.desktop-brand strong {
-  color: var(--studio-cloth-text);
-  font-size: 14px;
-  letter-spacing: .04em;
-}
-
-.desktop-brand small,
-.desktop-nav small,
-.desktop-sidebar .desktop-card-label {
-  color: var(--studio-cloth-muted);
-}
-
-.desktop-nav {
-  gap: 4px;
-}
-
-.desktop-nav button.nav-spine-item {
-  min-height: 48px;
-  padding: 8px 10px;
-  color: var(--studio-cloth-muted);
-}
-
-.desktop-nav button.nav-spine-item:hover {
-  background: rgba(255,255,255,.065);
-  color: var(--studio-cloth-text);
-}
-
-.desktop-nav button.nav-spine-item.active,
-.desktop-nav button.nav-spine-item[data-active="true"] {
-  border-left-color: #ef8992 !important;
-  background: linear-gradient(90deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
-  color: var(--studio-cloth-text);
-}
-
-.desktop-nav button.nav-spine-item.active::after,
-.desktop-nav button.nav-spine-item[data-active="true"]::after {
-  position: absolute;
-  inset: 9px 7px 9px auto;
-  width: 2px;
-  background: rgba(255,255,255,.13);
-  content: "";
-}
-
-.desktop-sidebar-card {
-  border-top-color: rgba(255,255,255,.11);
-}
-
-.desktop-sidebar-stats strong {
-  color: var(--studio-cloth-text);
-}
-
-.desktop-sidebar-stats small {
-  color: var(--studio-cloth-muted);
-}
-
-.desktop-stage {
-  background:
-    radial-gradient(circle at 88% -8%, color-mix(in srgb, var(--studio-jade) 7%, transparent), transparent 34%),
-    var(--bg-app);
-}
-
-.desktop-commandbar {
-  min-height: 68px;
-  padding: 10px 24px;
-  border-bottom-color: var(--border-strong);
-  background: color-mix(in srgb, var(--bg-surface) 93%, transparent);
-  box-shadow: 0 1px 12px rgba(45, 50, 44, .045);
-}
-
-.desktop-commandbar h1 {
-  font-size: 21px;
-  letter-spacing: -.01em;
-}
-
-.desktop-commandbar > div > span {
-  color: var(--text-meta);
-  font-size: 10px;
-  letter-spacing: .015em;
-}
-
-.desktop-search-command {
-  min-height: 38px;
-  border-color: var(--border-subtle);
-  border-radius: 7px;
-  background: color-mix(in srgb, var(--bg-surface) 86%, var(--bg-subtle));
-  box-shadow: inset 0 1px rgba(255,255,255,.35);
-}
-
-.desktop-search-command:hover {
-  border-color: color-mix(in srgb, var(--accent-spine) 55%, var(--border-strong));
-  background: var(--bg-surface);
-}
-
-.desktop-canvas {
-  background:
-    linear-gradient(rgba(255,255,255,.1), rgba(255,255,255,0) 130px),
-    transparent;
-}
-
-.desktop-page-scroll {
-  padding: 22px 26px 30px;
-}
-
-.desktop-page-stack {
-  gap: 18px;
-}
-
-.desktop-page-hero,
-.project-home-hero {
-  position: relative;
-  padding: 5px 0 17px 14px;
-  border-bottom-color: var(--border-strong);
-}
-
-.desktop-page-hero::before,
-.project-home-hero::before {
-  position: absolute;
-  inset: 3px auto 17px 0;
-  width: 3px;
-  background: var(--accent-spine);
-  content: "";
-}
-
-.desktop-page-hero h2 {
-  font-size: clamp(24px, 2.1vw, 31px);
-  font-weight: 680;
-  letter-spacing: -.035em;
-}
-
-.desktop-page-hero p,
-.project-home-hero-copy {
-  color: var(--text-muted);
-  font-size: 12px;
-  line-height: 1.75;
-}
-
-.desktop-page-actions {
-  gap: 7px;
-}
-
-.desktop-page-actions button,
-.desktop-home-inbox,
-.overview-action,
-.project-home-create-first,
-.project-home-continue {
-  min-height: 34px;
-  border-radius: 6px;
-  background: color-mix(in srgb, var(--bg-surface) 88%, var(--bg-subtle));
-  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, transform 140ms ease;
-}
-
-.desktop-page-actions button:hover,
-.desktop-home-inbox:hover,
-.overview-action:hover,
-.project-home-continue:hover {
-  border-color: color-mix(in srgb, var(--accent-spine) 58%, var(--border-strong));
-  background: color-mix(in srgb, var(--accent-hover) 58%, var(--bg-surface));
-  transform: translateY(-1px);
-}
-
-.desktop-page-actions button:first-child,
-.project-home-create-first,
-.cards-add,
-.cards-save,
-.scene-planning-save {
-  box-shadow: 0 3px 10px color-mix(in srgb, var(--accent-spine) 19%, transparent);
-}
-
-/* Numbered folios turn the project list into a manuscript index. */
-.project-home > .stats-card {
-  padding: 16px 18px 4px !important;
-  border: 1px solid var(--border-subtle) !important;
-  background: color-mix(in srgb, var(--bg-surface) 92%, transparent) !important;
-  box-shadow: 0 12px 34px var(--studio-paper-shadow) !important;
-}
-
-.project-home > .stats-card > h3 {
-  padding-bottom: 12px;
-  color: var(--text-main);
-  font-size: 15px;
-  letter-spacing: .02em;
-}
-
-.project-home > .stats-card > h3::after {
-  float: right;
-  color: var(--text-meta);
-  content: "MANUSCRIPT INDEX";
-  font-family: var(--font-mono);
-  font-size: 9px;
-  font-weight: 500;
-  letter-spacing: .13em;
-}
-
-.project-home-list {
-  counter-reset: project-folio;
-  border-bottom: 0;
-}
-
-.project-home-item {
-  counter-increment: project-folio;
-  min-height: 82px;
-  padding: 14px 12px 14px 52px;
-  background: color-mix(in srgb, var(--studio-paper) 94%, var(--bg-subtle));
-}
-
-.project-home-item::before {
-  inset: 12px auto 12px 0;
-  width: 3px;
-  background: var(--border-strong);
-}
-
-.project-home-item::after {
-  position: absolute;
-  top: 18px;
-  left: 16px;
-  color: var(--text-meta);
-  content: counter(project-folio, decimal-leading-zero);
-  font-family: var(--font-mono);
-  font-size: 10px;
-  letter-spacing: .08em;
-}
-
-.project-home-item:hover {
-  background: color-mix(in srgb, var(--accent-hover) 38%, var(--studio-paper));
-}
-
-.project-home-item:hover::before {
-  background: var(--accent-spine);
-}
-
-.project-home-item-main strong {
-  font-size: 17px;
-  letter-spacing: -.01em;
-}
-
-.project-home-meta {
-  margin-top: 2px;
-}
-
-.project-home-progressbar {
-  height: 4px;
-  background: color-mix(in srgb, var(--border-strong) 70%, transparent);
-}
-
-.project-home-progressbar-fill {
-  background: linear-gradient(90deg, var(--accent-spine), color-mix(in srgb, var(--accent-spine) 62%, var(--studio-jade)));
-}
-
-.project-home-continue {
-  border-color: color-mix(in srgb, var(--studio-jade) 50%, var(--border-strong));
-  color: var(--studio-jade);
-}
-
-.project-workbench {
-  border-color: var(--border-strong);
-  background: var(--bg-surface);
-  box-shadow: 0 12px 34px var(--studio-paper-shadow);
-}
-
-.project-nav {
-  padding: 10px 0;
-  background:
-    linear-gradient(90deg, color-mix(in srgb, var(--bg-subtle) 88%, var(--studio-cloth)) 0, var(--bg-subtle) 4px, var(--bg-subtle) 100%);
-}
-
-.project-nav button {
-  min-height: 40px;
-  padding-left: 15px;
-  transition: background-color 130ms ease, color 130ms ease;
-}
-
-.project-nav button.active {
-  background: var(--bg-surface);
-  box-shadow: 0 1px 0 var(--border-subtle), 0 -1px 0 var(--border-subtle);
-}
-
-.project-nav-back {
-  margin: 0 9px 10px;
-  border-radius: 6px !important;
-}
-
-/* The manuscript is the only elevated object: a physical sheet on a desk. */
-.writing-desk {
-  background: var(--bg-app);
-}
-
-.writing-outline,
-.writing-margin {
-  background: color-mix(in srgb, var(--bg-subtle) 88%, var(--bg-app));
-}
-
-.writing-manuscript {
-  background: var(--bg-app);
-}
-
-.writing-manuscript-head {
-  padding: 13px 20px;
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent);
-}
-
-.writing-manuscript-head h2 {
-  font-size: 23px;
-  letter-spacing: -.025em;
-}
-
-.writing-scroll {
-  position: relative;
-  padding: 22px clamp(18px, 4vw, 60px) 40px;
-  background:
-    radial-gradient(circle at 50% 0, rgba(255,255,255,.32), transparent 48%),
-    var(--bg-app);
-}
-
-.scene-editor,
-.writing-continuous {
-  position: relative;
-  border-color: color-mix(in srgb, var(--border-strong) 85%, transparent);
-  border-radius: 2px;
-  background: var(--studio-paper);
-  box-shadow: 0 16px 42px var(--studio-paper-shadow), 0 2px 4px rgba(32,36,31,.06);
-}
-
-.scene-editor::before,
-.writing-continuous::before {
-  position: absolute;
-  top: 0;
-  left: 58px;
-  z-index: 0;
-  width: 1px;
-  height: 100%;
-  background: color-mix(in srgb, var(--accent-spine) 18%, transparent);
-  pointer-events: none;
-  content: "";
-}
-
-.scene-editor-content,
-.writing-continuous-scene .ProseMirror {
-  position: relative;
-  background:
-    repeating-linear-gradient(to bottom, transparent 0, transparent 33px, color-mix(in srgb, var(--border-subtle) 35%, transparent) 34px);
-  font-size: 17px;
-  line-height: 2;
-}
-
-.scene-editor-toolbar,
-.editor-toolbar {
-  border-radius: 8px !important;
-  background: color-mix(in srgb, var(--bg-surface) 95%, transparent) !important;
-  box-shadow: 0 8px 22px rgba(36,40,35,.1) !important;
-  backdrop-filter: blur(12px);
-}
-
-.writing-margin {
-  padding: 18px 16px;
-}
-
-.writing-margin h3 {
-  padding-bottom: 9px;
-  border-bottom: 1px solid var(--border-strong);
-  font-size: 14px;
-  letter-spacing: .02em;
-}
-
-.writing-margin-rule {
-  border-style: dashed;
-}
-
-/* Planning surfaces use soft trays while keeping the detail sheet dominant. */
-.cards-page,
-.outline-page,
-.history-page,
-.overview-page {
-  padding: 18px;
-  background: var(--bg-app);
-}
-
-.cards-toolbar,
-.outline-page-head {
-  padding: 0 0 13px;
-}
-
-.cards-board-layout,
-.outline-page-body {
-  border-color: var(--border-strong);
-  box-shadow: 0 10px 28px var(--studio-paper-shadow);
-}
-
-.cards-board-pane,
-.outline-page-main {
-  background: color-mix(in srgb, var(--bg-subtle) 82%, var(--bg-app));
-}
-
-.cards-board-column {
-  border-color: var(--border-subtle);
-  background: color-mix(in srgb, var(--bg-surface) 86%, var(--bg-subtle));
-}
-
-.cards-board-column > header,
-.cards-column-head {
-  background: color-mix(in srgb, var(--bg-subtle) 84%, var(--studio-paper));
-}
-
-.cards-board-card {
-  border-radius: 5px;
-  background: var(--studio-paper);
-  box-shadow: 0 2px 8px rgba(45,49,44,.045);
-}
-
-.cards-board-card:hover {
-  box-shadow: 0 6px 16px rgba(45,49,44,.08);
-  transform: translateY(-1px);
-}
-
-.cards-board-card.active,
-.cards-list-item.active,
-.background-card.active {
-  background: color-mix(in srgb, var(--accent-hover) 72%, var(--studio-paper));
-}
-
-.cards-detail-pane,
-.outline-page-side {
-  background: var(--studio-paper);
-}
-
-/* Inbox reads like an editor's slush pile beside the active manuscript. */
-.inbox-editor-grid {
-  border-color: var(--border-strong);
-  background: var(--studio-paper);
-  box-shadow: 0 12px 34px var(--studio-paper-shadow);
-}
-
-.inbox-list {
-  background: color-mix(in srgb, var(--bg-subtle) 84%, var(--bg-app));
-}
-
-.inbox-item {
-  padding: 14px 12px 14px 18px;
-}
-
-.inbox-item:hover {
-  background: color-mix(in srgb, var(--accent-hover) 38%, var(--bg-subtle)) !important;
-}
-
-.inbox-item--selected {
-  background: var(--studio-paper) !important;
-  box-shadow: 0 5px 16px rgba(40,44,39,.055);
-}
-
-.inbox-item--selected::before {
-  width: 4px;
-}
-
-.inbox-item-title {
-  font-size: 14px;
-}
-
-.inbox-detail,
-.inbox-detail-empty {
-  padding: 20px !important;
-  background: var(--studio-paper);
-}
-
-.inbox-detail-head h2 {
-  font-size: 23px;
-  letter-spacing: -.02em;
-}
-
-.inbox-summary {
-  border-radius: 0 6px 6px 0 !important;
-  background: color-mix(in srgb, var(--accent-hover) 36%, var(--bg-surface)) !important;
-}
-
-/* Search resembles a typesetter's command tray rather than a blank dialog. */
-.uni-search-overlay {
-  background: color-mix(in srgb, var(--studio-cloth) 62%, transparent);
-  backdrop-filter: blur(7px) saturate(.8);
-}
-
-.uni-search-shell {
-  border-color: color-mix(in srgb, var(--accent-spine) 42%, var(--border-strong));
-  border-radius: 8px;
-  background: var(--studio-paper);
-  box-shadow: 0 30px 90px rgba(0,0,0,.3);
-}
-
-.uni-search-shell::before {
-  display: block;
-  width: 100%;
-  height: 3px;
-  background: var(--accent-spine);
-  content: "";
-}
-
-.uni-search-head,
-.uni-search-bar {
-  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--studio-paper));
-}
-
-.uni-search-group li button[data-active="true"],
-.uni-search-group li button:hover {
-  background: color-mix(in srgb, var(--accent-hover) 62%, var(--studio-paper));
-}
-
-.desktop-library-panel,
-.desktop-editor-card,
-.desktop-source-card,
-.desktop-ai-card,
-.settings-card,
-.stats-panel {
-  border-color: var(--border-subtle) !important;
-  border-radius: 6px !important;
-  background: color-mix(in srgb, var(--bg-surface) 94%, transparent) !important;
-  box-shadow: 0 8px 24px rgba(41,45,40,.045) !important;
-}
-
-.desktop-library-grid-head {
-  background: color-mix(in srgb, var(--bg-subtle) 78%, var(--studio-cloth));
-}
-
-.desktop-library-row:hover {
-  background: color-mix(in srgb, var(--accent-hover) 30%, var(--bg-surface));
-}
-
-.migration-banner {
-  border-left: 4px solid var(--accent-spine) !important;
-  border-radius: 6px !important;
-  background: color-mix(in srgb, var(--accent-hover) 42%, var(--studio-paper));
-}
-
-@media (max-width: 1024px) {
-  .desktop-workbench {
-    background:
-      linear-gradient(90deg, var(--studio-cloth) 0 64px, transparent 64px),
-      var(--bg-app);
-  }
-
-  .desktop-sidebar {
-    padding: 13px 7px;
-  }
-
-  .desktop-brand.nav-spine-item {
-    padding: 4px 2px 13px;
-  }
-
-  .desktop-commandbar {
-    min-height: 64px;
-    padding: 9px 15px;
-  }
-
-  .desktop-page-scroll {
-    padding: 15px;
-  }
-
-  .project-home > .stats-card {
-    padding: 13px 14px 3px !important;
-  }
-
-  .project-home-item {
-    padding-left: 46px;
   }
 
   .cards-page,
@@ -1848,8 +2034,23 @@ select:focus-visible,
     padding: 12px;
   }
 
+  .project-home-item {
+    padding-left: 44px;
+  }
+
   .scene-editor::before,
   .writing-continuous::before {
-    left: 42px;
+    left: 40px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

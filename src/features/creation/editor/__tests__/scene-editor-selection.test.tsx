@@ -113,3 +113,34 @@ describe("@ 卡片引用触发（IME 保护）", () => {
     expect(shouldTriggerMention("", false)).toBe(false);
   });
 });
+
+describe("SceneEditor 外部命令的 IME 状态", () => {
+  it("compositionstart 到 compositionend 之间 handle.isComposing 为 true", async () => {
+    let handle: SceneEditorHandle | null = null;
+    let container: HTMLElement;
+    await act(async () => {
+      ({ container } = render(
+        <SceneEditor
+          ref={(value) => { handle = value; }}
+          view={viewOf("测试正文")}
+          onSave={async () => undefined}
+          focusMode={false}
+          onToggleFocusMode={noop}
+          typewriter={false}
+          onToggleTypewriter={noop}
+        />
+      ));
+    });
+    const editor = container!.querySelector(".scene-editor-content") as HTMLElement;
+
+    expect(handle?.isComposing()).toBe(false);
+    await act(async () => {
+      editor.dispatchEvent(new CompositionEvent("compositionstart", { bubbles: true }));
+    });
+    expect(handle?.isComposing()).toBe(true);
+    await act(async () => {
+      editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
+    });
+    expect(handle?.isComposing()).toBe(false);
+  });
+});

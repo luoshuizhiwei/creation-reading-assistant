@@ -238,9 +238,28 @@ internal fun LibrarySubPage(
         item {
             if (showCreate) {
                 Row(modifier = Modifier.animateEnter(reducedMotion = reducedMotion), verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(value = newName, onValueChange = { newName = it }, placeholder = { Text("输入名称") }, singleLine = true, modifier = Modifier.weight(1f))
+                    OutlinedTextField(
+                        value = newName,
+                        onValueChange = { newName = it },
+                        placeholder = { Text("输入名称") },
+                        singleLine = true,
+                        modifier = Modifier.weight(1f),
+                    )
                     Spacer(modifier = Modifier.width(8.dp))
-                    TextButton(onClick = { if (newName.isNotBlank()) { when (page) { ProfileSubPage.TAGS -> taxonomyVm.createTag(newName.trim()); ProfileSubPage.CATEGORIES -> taxonomyVm.createCategory(newName.trim()); ProfileSubPage.SHELVES -> taxonomyVm.createShelf(newName.trim()); else -> {} }; showCreate = false; newName = "" } }) { Text("创建") }
+                    val nameOk = newName.isNotBlank()
+                    TextButton(
+                        enabled = nameOk,
+                        onClick = {
+                            when (page) {
+                                ProfileSubPage.TAGS -> taxonomyVm.createTag(newName.trim())
+                                ProfileSubPage.CATEGORIES -> taxonomyVm.createCategory(newName.trim())
+                                ProfileSubPage.SHELVES -> taxonomyVm.createShelf(newName.trim())
+                                else -> {}
+                            }
+                            showCreate = false
+                            newName = ""
+                        },
+                    ) { Text("创建") }
                     TextButton(onClick = { showCreate = false; newName = "" }) { Text("取消") }
                 }
             } else {
@@ -254,19 +273,29 @@ internal fun LibrarySubPage(
         GlassAlertDialog(
             onDismissRequest = { editingItem = null },
             title = { Text("重命名") },
-            text = { OutlinedTextField(value = editName, onValueChange = { editName = it }, singleLine = true) },
+            text = {
+                OutlinedTextField(
+                    value = editName,
+                    onValueChange = { editName = it },
+                    singleLine = true,
+                )
+            },
             confirmButton = {
-                TextButton(onClick = {
-                    if (editName.isNotBlank() && editName != name) {
-                        when (page) {
-                            ProfileSubPage.TAGS -> taxonomyVm.renameTag(id, editName.trim())
-                            ProfileSubPage.CATEGORIES -> taxonomyVm.renameCategory(id, editName.trim())
-                            ProfileSubPage.SHELVES -> taxonomyVm.renameShelf(id, editName.trim())
-                            else -> {}
+                val editOk = editName.isNotBlank() && editName.trim() != name
+                TextButton(
+                    enabled = editOk,
+                    onClick = {
+                        if (editOk) {
+                            when (page) {
+                                ProfileSubPage.TAGS -> taxonomyVm.renameTag(id, editName.trim())
+                                ProfileSubPage.CATEGORIES -> taxonomyVm.renameCategory(id, editName.trim())
+                                ProfileSubPage.SHELVES -> taxonomyVm.renameShelf(id, editName.trim())
+                                else -> {}
+                            }
                         }
-                    }
-                    editingItem = null
-                }) { Text("保存") }
+                        editingItem = null
+                    },
+                ) { Text("保存") }
             },
             dismissButton = { TextButton(onClick = { editingItem = null }) { Text("取消") } },
         )

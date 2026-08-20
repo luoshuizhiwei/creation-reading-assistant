@@ -16,7 +16,10 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
@@ -34,6 +37,8 @@ import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.ui.components.rememberViewportImageRequest
 import com.creationreadingassistant.ui.screen.reader.content.PagedEpubView
 import com.creationreadingassistant.ui.screen.reader.tts.buildSentenceHighlighted
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 /**
  * ReaderContentHost 分支 2：EPUB（epubBook != null）。
@@ -197,9 +202,16 @@ internal fun ReaderContentHostEpubBranch(
 
                         is DocBlock.Image -> {
                             val imageFile = remember(block.path) { java.io.File(block.path) }
+                            // StrictMode-safe：lastModified() 放到 IO 线程，避免组合期主线程 I/O。
+                            var imageModTs by remember(block.path) { mutableStateOf(0L) }
+                            LaunchedEffect(block.path) {
+                                imageModTs = withContext(Dispatchers.IO) {
+                                    runCatching { imageFile.lastModified() }.getOrDefault(0L)
+                                }
+                            }
                             val imageRequest = rememberViewportImageRequest(
                                 data = imageFile,
-                                cacheKey = "reader:${block.path}:${imageFile.lastModified()}",
+                                cacheKey = "reader:${block.path}:$imageModTs",
                             )
                             AsyncImage(
                                 model = imageRequest,

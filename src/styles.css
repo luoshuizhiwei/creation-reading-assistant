@@ -3,25 +3,27 @@
 @tailwind utilities;
 
 :root {
-  /* Modern editorial studio — light */
-  --bg-app: #eef0ed;
-  --bg-surface: #fbfbfa;
-  --bg-subtle: #f4f5f2;
-  --text-main: #252824;
-  --text-muted: #666b66;
-  --text-meta: #6d746d;
-  --accent-spine: #9f2938;
-  --accent-hover: #f6e7e8;
-  --border-subtle: #dde0da;
-  --border-strong: #c9cdc6;
-  --studio-cloth: #252925;
-  --studio-cloth-soft: #303530;
-  --studio-cloth-text: #f4f2eb;
-  --studio-cloth-muted: #aeb4ac;
-  --studio-paper: #fffefb;
-  --studio-paper-shadow: rgba(48, 51, 46, 0.1);
-  --studio-jade: #315f52;
-  --studio-jade-soft: #e4eee9;
+  /* Ink studio — light: warm desk, white sheets, indigo instruments, one vermilion seal. */
+  --bg-app: #f1f0eb;
+  --bg-surface: #ffffff;
+  --bg-subtle: #f6f5f1;
+  --text-main: #252830;
+  --text-muted: #646b77;
+  --text-meta: #858b96;
+  --accent-spine: #33538f;
+  --accent-hover: #e9eef8;
+  --border-subtle: #e4e2db;
+  --border-strong: #cbc8bf;
+  --studio-cloth: #22252d;
+  --studio-cloth-soft: #2c303a;
+  --studio-cloth-text: #edeff3;
+  --studio-cloth-muted: #9aa2b1;
+  --studio-paper: #fffdf9;
+  --studio-paper-shadow: rgba(34, 38, 48, 0.09);
+  --studio-seal: #bc3f2b;
+  --studio-seal-soft: #f7e8e4;
+  --studio-jade: #33538f;
+  --studio-jade-soft: #e9eef8;
   --font-sans: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
   --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
@@ -34,35 +36,38 @@
   --paper-ink: var(--text-main);
   --paper-muted: var(--text-muted);
   --copper: var(--accent-spine);
-  --copper-soft: #b45353;
-  --copper-dark: #7f1d1d;
-  --moss: #3f5f54;
-  --moss-soft: #e7efeb;
+  --copper-soft: #7e9cd6;
+  --copper-dark: #27436f;
+  --moss: #3e7a5e;
+  --moss-soft: #e4f0e9;
 }
 
 :root[data-app-theme="dark"] {
-  --bg-app: #141715;
-  --bg-surface: #1b1f1c;
-  --bg-subtle: #171a18;
-  --text-main: #eceeea;
-  --text-muted: #a8ada7;
-  --text-meta: #929a92;
-  --accent-spine: #e15b67;
-  --accent-hover: #3b2025;
-  --border-subtle: #303530;
-  --border-strong: #454b45;
-  --studio-cloth: #0c0f0d;
-  --studio-cloth-soft: #171b18;
-  --studio-cloth-text: #f4f2eb;
-  --studio-cloth-muted: #8d958c;
-  --studio-paper: #202420;
-  --studio-paper-shadow: rgba(0, 0, 0, 0.34);
-  --studio-jade: #80aa9b;
-  --studio-jade-soft: #1d3029;
-  --copper-soft: #ed7a84;
-  --copper-dark: #c64654;
-  --moss: #a8c3b5;
-  --moss-soft: #17221d;
+  /* Ink studio — dark: night study, lamp-lit sheets. */
+  --bg-app: #14161b;
+  --bg-surface: #1b1e25;
+  --bg-subtle: #171a20;
+  --text-main: #e9ebef;
+  --text-muted: #a2aab6;
+  --text-meta: #87919f;
+  --accent-spine: #6e97dd;
+  --accent-hover: #232e44;
+  --border-subtle: #2a2e37;
+  --border-strong: #3a404c;
+  --studio-cloth: #0f1116;
+  --studio-cloth-soft: #1a1e26;
+  --studio-cloth-text: #edeff3;
+  --studio-cloth-muted: #9aa4b4;
+  --studio-paper: #20242c;
+  --studio-paper-shadow: rgba(0, 0, 0, 0.4);
+  --studio-seal: #e0654c;
+  --studio-seal-soft: #33211c;
+  --studio-jade: #6e97dd;
+  --studio-jade-soft: #232e44;
+  --copper-soft: #8fb0e6;
+  --copper-dark: #44679f;
+  --moss: #7fb899;
+  --moss-soft: #1a2a22;
 }
 
 * {
@@ -5833,4 +5838,82 @@ button:disabled {
   .desktop-canvas > .motion-page {
     border-radius: 18px;
   }
+}
+
+/* ---- 旧稿导入：卷章调整 ---- */
+.import-volume-title input {
+  font-weight: 600;
+  width: min(320px, 100%);
+}
+
+.import-volume ul li input {
+  width: min(260px, 70%);
+}
+
+.import-volume ul li .import-chapter-toggle {
+  margin-left: 8px;
+  padding: 2px 8px;
+  border: 1px solid var(--paper-line, rgba(60, 48, 32, 0.18));
+  border-radius: 6px;
+  background: transparent;
+  color: var(--paper-ink, #3c3020);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.import-volume ul li.import-chapter--excluded input {
+  opacity: 0.45;
+  text-decoration: line-through;
+}
+
+/* ---- 成稿导出：预设选择 ---- */
+.export-preset-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.export-preset-option {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border: 1px solid var(--paper-line, rgba(60, 48, 32, 0.18));
+  border-radius: 10px;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.export-preset-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.export-preset-option--active {
+  border-color: var(--paper-accent, #8a6d3b);
+  background: rgba(138, 109, 59, 0.06);
+}
+
+.export-preset-option-head {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.export-preset-option-head strong {
+  font-size: 14px;
+}
+
+.export-preset-option-head em {
+  font-style: normal;
+  font-size: 12px;
+  color: rgba(60, 48, 32, 0.55);
+}
+
+.export-preset-option-desc {
+  font-size: 12px;
+  line-height: 1.6;
+  color: rgba(60, 48, 32, 0.72);
 }

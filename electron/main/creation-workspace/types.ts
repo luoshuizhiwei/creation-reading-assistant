@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   ChapterNumberingKind,
   ChapterCreateCommand,
   ChapterDeleteCommand,
@@ -56,24 +56,35 @@ import type {
   CardSummary,
   CardType,
   CardTypeCreateCommand,
+  CardTypeUpdateCommand,
+  CardTypeDeleteCommand,
   CardTypesListQuery,
   CardUpdateCommand,
   CardsListQuery,
   RelationType,
   RelationTypeCreateCommand,
+  RelationTypeUpdateCommand,
+  RelationTypeDeleteCommand,
   RelationTypesListQuery,
   HistoryCommand,
   SnapshotCreateCommand,
   SnapshotInfo,
   SnapshotListQuery,
-  SnapshotRestoreCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotDiffRow,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
   SnapshotSubjectType,
   TrashEntityKind,
   TrashItem,
   TrashListQuery,
   TrashPurgeCommand,
+  TrashImpactQuery,
+  TrashImpactView,
   TrashRestoreCommand,
   ProjectExportChapter,
+  ProjectExportBlock,
   ProjectExportQuery,
   ProjectExportScene,
   ProjectExportView,
@@ -123,6 +134,7 @@ import type {
   Annotation,
   AnnotationAnchor,
   AnnotationCreateCommand,
+  AnnotationReanchorCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
@@ -140,6 +152,33 @@ import type {
   ProjectHomeQuery,
   ProjectHomeView
 } from "../../../src/types/creation";
+
+import type {
+  ProjectGoalResult,
+  ProjectUpdateGoalCommand,
+  SessionUpdateCommand,
+  SnapshotRetentionResult
+} from "../../../src/types/creation";
+
+import type {
+  CardExportFilter,
+  CardExportRow,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportMapping,
+  CardImportOptions,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "../../../src/types/card-io";
+
+import type {
+  ReplaceApplyOutcome,
+  ReplacePlan,
+  ReplacePlanController,
+  ReplacePlanQuery
+} from "./replace-plan";
 
 export type {
   ChapterNumberingKind,
@@ -199,24 +238,35 @@ export type {
   CardSummary,
   CardType,
   CardTypeCreateCommand,
+  CardTypeUpdateCommand,
+  CardTypeDeleteCommand,
   CardTypesListQuery,
   CardUpdateCommand,
   CardsListQuery,
   RelationType,
   RelationTypeCreateCommand,
+  RelationTypeUpdateCommand,
+  RelationTypeDeleteCommand,
   RelationTypesListQuery,
   HistoryCommand,
   SnapshotCreateCommand,
   SnapshotInfo,
   SnapshotListQuery,
-  SnapshotRestoreCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotDiffRow,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
   SnapshotSubjectType,
   TrashEntityKind,
   TrashItem,
   TrashListQuery,
   TrashPurgeCommand,
+  TrashImpactQuery,
+  TrashImpactView,
   TrashRestoreCommand,
   ProjectExportChapter,
+  ProjectExportBlock,
   ProjectExportQuery,
   ProjectExportScene,
   ProjectExportView,
@@ -266,6 +316,7 @@ export type {
   Annotation,
   AnnotationAnchor,
   AnnotationCreateCommand,
+  AnnotationReanchorCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
@@ -353,6 +404,8 @@ export type CreationReadQuery =
   | CardRelationsQuery
   | TrashListQuery
   | SnapshotListQuery
+  | SnapshotPreviewQuery
+  | TrashImpactQuery
   | ProjectExportQuery
   | CreationSearchQuery
   | ReplacePreviewQuery
@@ -379,6 +432,8 @@ export type CreationReadResult =
   | { outgoing: CardRelation[]; incoming: CardRelation[] }
   | TrashItem[]
   | SnapshotInfo[]
+  | SnapshotPreviewView
+  | TrashImpactView
   | ProjectExportView
   | CreationSearchView
   | ReplacePreviewView
@@ -409,7 +464,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | StructurePlanCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | StructurePlanCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -441,6 +496,8 @@ export interface CreationWorkspace {
   read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
   read(query: TrashListQuery): Promise<TrashItem[]>;
   read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
+  read(query: SnapshotPreviewQuery): Promise<SnapshotPreviewView | null>;
+  read(query: TrashImpactQuery): Promise<TrashImpactView | null>;
   read(query: ProjectExportQuery): Promise<ProjectExportView | null>;
   read(query: CreationSearchQuery): Promise<CreationSearchView>;
   read(query: ReplacePreviewQuery): Promise<ReplacePreviewView>;
@@ -465,13 +522,33 @@ export interface CreationWorkspace {
   transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
-  transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
+  transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand): Promise<AnnotationResult>;
   transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
   previewStructure(command: StructurePreviewCommand): Promise<StructurePreviewView>;
   applyStructure(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult>;
   revertStructure(command: StructureRevertCommand): Promise<StructureRevertResult>;
+  restoreSnapshotWithProtection(command: SnapshotRestoreWithProtectionCommand): Promise<SnapshotRestoreWithProtectionResult>;
   transact<Command extends CreationRunCommand>(command: Command): Promise<CreationRunResultOf<Command>>;
+  // ---- Phase 1 P1 深模块 seam 接入（与 creation:* IPC / preload / service / hook 同一接口） ----
+  /** 分层快照留存：按 system 受控分类计算 keep/delete 并在单事务内执行删除。 */
+  runSnapshotRetention(): Promise<SnapshotRetentionResult>;
+  /** 读取导入所需项目模式上下文（类型 / 关系类型 / 现有卡片）。 */
+  cardImportSchema(projectId: string): Promise<CardImportSchemaContext>;
+  /** 读模式上下文 -> 规划（纯，不写库），供 UI 预览可应用结果。 */
+  cardImportPlan(input: CardImportApplyInput): Promise<CardImportPlan>;
+  /** 读模式上下文 -> 规划 -> 单事务 apply；失败回滚零写入。 */
+  cardImportApply(input: CardImportApplyInput): Promise<CardImportApplyResult>;
+  /** 按筛选范围读取可导出卡片行（不携带内部 id）。 */
+  cardExportRows(projectId: string, filter: CardExportFilter): Promise<CardExportRow[]>;
+  /** 全项目替换计划：封存命中场景 revision/哈希后生成一次性 planId。 */
+  createReplacePlan(query: ReplacePlanQuery, controller?: ReplacePlanController): Promise<ReplacePlan>;
+  /** 应用替换计划（逐命中可排除）：单事务内建保护快照 + 改正文 + 写 change_log。 */
+  applyReplacePlan(planId: string, excludedHitIds: string[], controller?: ReplacePlanController): Promise<ReplaceApplyOutcome>;
+  /** 修正已有写作会话（仅 startedAt/activeSeconds/netChars 可改）。 */
+  sessionUpdate(command: SessionUpdateCommand): Promise<SessionReportResult>;
+  /** 更新项目目标（写入 setup_json，不新增表列）。 */
+  projectUpdateGoal(command: ProjectUpdateGoalCommand): Promise<ProjectGoalResult>;
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void;
   check(): Promise<CreationIntegrityReport>;
   close(): Promise<void>;

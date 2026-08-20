@@ -9,6 +9,7 @@ import {
   type CreationWorkspace,
   type ProjectExportView
 } from "./index";
+import { buildDraftExport } from "../creation-export";
 
 async function run(): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "creation-export-"));
@@ -87,6 +88,75 @@ async function run(): Promise<void> {
       const exportAfter = (await workspace!.read({ kind: "project.export", projectId })) as ProjectExportView;
       assert.equal(exportAfter.volumes[1]?.chapters[0]?.scenes.length, 0);
       await workspace!.transact({ type: "trash.restore", projectId, entity: "scene", entityId: secondScene!.id });
+    });
+
+    await scenario("成稿预设：平台净文本与审阅稿差异（authorNote/场景标题/无引用标记）", async () => {
+      const created = (await workspace!.transact({ type: "project.create", title: "预设导出" })) as {
+        projectId: string;
+        sceneId: string;
+      };
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: created.sceneId,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "雨落旧城。" }] },
+            { type: "authorNote", content: [{ type: "text", text: "这里改一下语气。" }] },
+            { type: "sceneBreak" },
+            { type: "quoteLetter", content: [{ type: "text", text: "以剑为誓。" }] },
+            { type: "centeredText", content: [{ type: "text", text: "终章" }] }
+          ]
+        }
+      });
+      const namedScene = (await workspace!.transact({
+        type: "scene.create",
+        chapterId: (await workspace!.read({ kind: "project.export", projectId: created.projectId }))!.volumes[0]!.chapters[0]!.id,
+        title: "山道"
+      })) as CreationStructureResult;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: namedScene.entityId,
+        baseRevision: 1,
+        body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "风急人未至。" }] }] }
+      });
+      const view = (await workspace!.read({
+        kind: "project.export",
+        projectId: created.projectId,
+        includeBlocks: true
+      })) as ProjectExportView;
+      const firstScene = view.volumes[0]!.chapters[0]!.scenes[0]!;
+      assert.equal(firstScene.blocks !== undefined, true);
+      assert.equal(firstScene.blocks!.some((block) => block.kind === "authorNote"), true);
+
+      const plain = buildDraftExport(view, "platform-plain");
+      assert.equal(plain?.extension, "txt");
+      assert.equal(plain!.text.includes("这里改一下语气"), false);
+      assert.equal(plain!.text.includes("作者按"), false);
+      assert.equal(plain!.text.includes("雨落旧城"), true);
+      assert.equal(plain!.text.includes("以剑为誓"), true);
+      assert.equal(plain!.text.includes("终章"), true);
+      // 平台净文本不含内部场景标题（含非默认场景「山道」）
+      assert.equal(plain!.text.includes("山道"), false);
+      assert.equal(plain!.text.includes("card-"), false);
+      assert.equal(plain!.text.includes("annotation-"), false);
+
+      const review = buildDraftExport(view, "standard-review");
+      assert.equal(review?.extension, "md");
+      assert.equal(review!.text.includes("# 预设导出"), true);
+      assert.equal(review!.text.includes("> 作者按：这里改一下语气。"), true);
+      assert.equal(review!.text.includes("> 以剑为誓。"), true);
+      assert.equal(review!.text.includes("**居中：** 终章"), true);
+      assert.equal(review!.text.includes("<center>"), false);
+      assert.equal(review!.text.includes("* * *"), true);
+      // 非默认场景标题保留层级；引用与批注元数据不进入审阅稿
+      assert.equal(review!.text.includes("#### 山道"), true);
+      assert.equal(review!.text.includes("card-"), false);
+      assert.equal(review!.text.includes("annotation-"), false);
+
+      assert.equal(buildDraftExport(view, "unknown-preset"), null);
+      assert.equal(buildDraftExport(view, undefined), null);
     });
 
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);

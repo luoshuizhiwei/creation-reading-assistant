@@ -213,17 +213,24 @@ internal fun ReaderSessionEffects(
         volumeKeyPaging = readerSettings.volumeKeyPaging,
         screenOrientation = readerSettings.screenOrientation,
         // 音量键翻页统一处理 → reader/ReaderActions.kt::readerVolumeKeyTurn
+        // 消费成功后派发 ReaderAction.PageTurn：
+        // - 分页引擎路径：PageTurner.onPageTurned 会再派发一次（同结果，无副作用）；
+        // - 非分页引擎路径（EPUB/TXT 滚动列表、或整章跳转）：PageTurner 不参与，必须在这里派发才会 hide chrome。
         onVolumeUp = {
-            readerVolumeKeyTurn(
+            val consumed = readerVolumeKeyTurn(
                 -1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
                 epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState,
             )
+            if (consumed) onAction(ReaderAction.PageTurn)
+            consumed
         },
         onVolumeDown = {
-            readerVolumeKeyTurn(
+            val consumed = readerVolumeKeyTurn(
                 1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
                 epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState,
             )
+            if (consumed) onAction(ReaderAction.PageTurn)
+            consumed
         },
         onReaderResumed = { readerResumedState.value = it },
         onPersistProgress = persistCurrentProgress,

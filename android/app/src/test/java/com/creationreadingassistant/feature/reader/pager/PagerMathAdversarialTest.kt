@@ -290,7 +290,7 @@ class PageSelectionAdversarialTest {
         contentHeightPx = 17 * em,  // 1700px，恰好 10 行正文
         fontSizePx = em,
     )
-    private val lineH = 1.7f * em          // 170
+    private val lineH = 1.80f * em         // 180，与 LayoutConfig 默认 lineHeightMultiplier=1.80 对齐
     private val paraGap = 0.4f * em        // 40
     private val indent = 2f * em           // 200
     private val eps = 0.01f

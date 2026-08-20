@@ -42,13 +42,21 @@ import type {
   LegacyMigrationReport,
   LegacyMigrationStatus,
   DraftImportPreview,
+  DraftExportPreset,
   ProjectBundleImportResult,
   Annotation,
   AnnotationCreateCommand,
+  AnnotationReanchorCommand,
   AnnotationDeleteCommand,
   AnnotationListQuery,
   AnnotationResult,
   AnnotationUpdateCommand,
+  SnapshotPreviewQuery,
+  SnapshotPreviewView,
+  SnapshotRestoreWithProtectionCommand,
+  SnapshotRestoreWithProtectionResult,
+  TrashImpactQuery,
+  TrashImpactView,
   ResourceInfo,
   ResourceListQuery,
   ResourceResult,
@@ -59,8 +67,25 @@ import type {
   StructureRevertCommand,
   StructurePreviewView,
   StructureApplyResult,
-  StructureRevertResult
+  StructureRevertResult,
+  SessionUpdateCommand,
+  ProjectUpdateGoalCommand,
+  ProjectGoalResult,
+  SnapshotRetentionResult,
+  ReplacePlanQuery,
+  ReplacePlan,
+  ReplaceApplyOutcome
 } from "@/types/creation";
+import type {
+  CardExportFilter,
+  CardExportResult,
+  CardImportApplyInput,
+  CardImportApplyResult,
+  CardImportPlan,
+  CardImportPreview,
+  CardImportSchemaContext,
+  CardImportSource
+} from "@/types/card-io";
 
 function getCreationApi() {
   const api = getDesktopApi().creation;
@@ -117,9 +142,10 @@ export async function snapshotList(query: SnapshotListQuery): Promise<SnapshotIn
 }
 
 export async function exportDraft(
-  projectId: string
+  projectId: string,
+  preset: DraftExportPreset
 ): Promise<{ canceled: boolean; filePath: string | null }> {
-  return getCreationApi().exportDraft(projectId);
+  return getCreationApi().exportDraft(projectId, preset);
 }
 
 export async function cardsList(query: CardsListQuery): Promise<CardSummary[]> {
@@ -221,6 +247,24 @@ export async function annotationDelete(command: AnnotationDeleteCommand): Promis
   return getCreationApi().annotationDelete(command);
 }
 
+export async function annotationReanchor(command: AnnotationReanchorCommand): Promise<AnnotationResult> {
+  return getCreationApi().annotationReanchor(command);
+}
+
+export async function snapshotPreview(query: SnapshotPreviewQuery): Promise<SnapshotPreviewView | null> {
+  return getCreationApi().snapshotPreview(query);
+}
+
+export async function snapshotRestoreWithProtection(
+  command: SnapshotRestoreWithProtectionCommand
+): Promise<SnapshotRestoreWithProtectionResult> {
+  return getCreationApi().snapshotRestoreWithProtection(command);
+}
+
+export async function trashImpact(query: TrashImpactQuery): Promise<TrashImpactView | null> {
+  return getCreationApi().trashImpact(query);
+}
+
 export async function resourceList(query: ResourceListQuery): Promise<ResourceInfo[]> {
   return getCreationApi().resourceList(query);
 }
@@ -266,4 +310,60 @@ export async function inboxDelete(command: InboxDeleteCommand): Promise<InboxIte
 
 export async function inboxCreate(command: InboxCreateCommand): Promise<InboxItemResult> {
   return getCreationApi().inboxCreate(command);
+}
+
+// ---- Phase 1 P1 深模块 seam 接入 ----
+
+export async function snapshotRetentionRun(): Promise<SnapshotRetentionResult> {
+  return getCreationApi().snapshotRetentionRun();
+}
+
+export async function cardImportOpenAndParse(): Promise<CardImportSource | null> {
+  return getCreationApi().cardImportOpenAndParse();
+}
+
+export async function cardImportParse(input: {
+  text: string;
+  format: "csv" | "markdown";
+}): Promise<CardImportPreview> {
+  return getCreationApi().cardImportParse(input);
+}
+
+export async function cardImportSchema(projectId: string): Promise<CardImportSchemaContext> {
+  return getCreationApi().cardImportSchema(projectId);
+}
+
+export async function cardImportPlan(input: CardImportApplyInput): Promise<CardImportPlan> {
+  return getCreationApi().cardImportPlan(input);
+}
+
+export async function cardImportApply(input: CardImportApplyInput): Promise<CardImportApplyResult> {
+  return getCreationApi().cardImportApply(input);
+}
+
+export async function cardExportOpenAndWrite(input: {
+  projectId: string;
+  filter: CardExportFilter;
+  format: "csv" | "markdown";
+}): Promise<CardExportResult> {
+  return getCreationApi().cardExportOpenAndWrite(input);
+}
+
+export async function replacePlanCreate(query: ReplacePlanQuery): Promise<ReplacePlan> {
+  return getCreationApi().replacePlanCreate(query);
+}
+
+export async function replacePlanApply(input: {
+  planId: string;
+  excludedHitIds: string[];
+}): Promise<ReplaceApplyOutcome> {
+  return getCreationApi().replacePlanApply(input);
+}
+
+export async function sessionUpdate(command: SessionUpdateCommand): Promise<SessionReportResult> {
+  return getCreationApi().sessionUpdate(command);
+}
+
+export async function projectUpdateGoal(command: ProjectUpdateGoalCommand): Promise<ProjectGoalResult> {
+  return getCreationApi().projectUpdateGoal(command);
 }

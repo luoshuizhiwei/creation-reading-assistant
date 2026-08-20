@@ -25,6 +25,10 @@ export async function chooseLibraryDirectory(): Promise<string | null> {
   return getDesktopApi().settings.chooseLibraryDirectory();
 }
 
+export async function chooseBackupDirectory(): Promise<string | null> {
+  return getDesktopApi().settings.chooseBackupDirectory();
+}
+
 export async function migrateDataDirectory(targetDirectory: string): Promise<AppSettings> {
   return getDesktopApi().settings.migrateDataDirectory(targetDirectory);
 }

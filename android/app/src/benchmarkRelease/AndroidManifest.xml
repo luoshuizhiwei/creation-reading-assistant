@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 与 src/benchmark/AndroidManifest.xml 保持一致：benchmarkRelease 变体同样需要种子 Activity。
+     两份 manifest 内容必须同步维护（java 源码通过 sourceSets 共享 src/benchmark/java）。 -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <activity
+            android:name=".benchmark.BenchmarkSeedActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:noHistory="true"
+            android:theme="@style/Theme.CreationReadingAssistant" />
+    </application>
+</manifest>

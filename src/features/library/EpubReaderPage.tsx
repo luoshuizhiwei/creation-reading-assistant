@@ -1,21 +1,23 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type WheelEvent } from "react";
-import { ArrowLeft, BookOpen, Bookmark, BookmarkCheck, ChevronLeft, ChevronRight, Copy, GripHorizontal, Highlighter, List, Quote, Settings, Trash2, X } from "lucide-react";
 import ePub from "epubjs";
 import type { Book, Location as EpubLocation, Rendition } from "epubjs";
-import { Button, EmptyState, ShellPanel } from "@/components/ui";
 import { ExcerptPicker } from "@/features/library/ExcerptPicker";
-import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
 import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
 import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
+import { EpubEmptyState } from "@/features/library/epub-reader/EpubEmptyState";
+import { EpubPageTurnButtons } from "@/features/library/epub-reader/EpubPageTurnButtons";
+import { EpubReaderToolbar } from "@/features/library/epub-reader/EpubReaderToolbar";
+import { EpubSelectionToolbar, type SelectionToolbarState } from "@/features/library/epub-reader/EpubSelectionToolbar";
+import { EpubSettingsDrawer } from "@/features/library/epub-reader/EpubSettingsDrawer";
+import { EpubSidePanel } from "@/features/library/epub-reader/EpubSidePanel";
 import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById, getBookmarksByBook, saveBookmark, deleteBookmark as removeBookmarkById } from "@/services/annotation-service";
-import { saveEpubLocation, updateReaderSettings } from "@/services/reader-service";
-import { resetReaderSettings } from "@/services/settings-service";
+import { saveEpubLocation } from "@/services/reader-service";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { ExcerptResult, ExcerptTarget, BookmarkItem, HighlightColor, HighlightItem, LibraryBook, ReaderSettings, ReadingLocation } from "@/types/library";
-import { formatDuration, readerShellClass, readerBackgroundColor, readerTextColor } from "@/utils/format";
+import { readerBackgroundColor, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
 
 const EPUB_INITIAL_DISPLAY_TIMEOUT_MS = 8_000;
@@ -28,14 +30,6 @@ const HIGHLIGHT_COLOR_FILL: Record<HighlightColor, string> = {
   blue: "rgba(33, 150, 243, 0.3)",
   purple: "rgba(156, 39, 176, 0.3)",
 };
-
-const HIGHLIGHT_COLORS: { value: HighlightColor; label: string; tw: string; hex: string }[] = [
-  { value: "yellow", label: "黄色", tw: "bg-yellow-300", hex: "#fde047" },
-  { value: "red", label: "红色", tw: "bg-red-300", hex: "#fca5a5" },
-  { value: "green", label: "绿色", tw: "bg-green-300", hex: "#86efac" },
-  { value: "blue", label: "蓝色", tw: "bg-blue-300", hex: "#93c5fd" },
-  { value: "purple", label: "紫色", tw: "bg-purple-300", hex: "#d8b4fe" },
-];
 
 type SidePanelTab = "toc" | "highlights" | "bookmarks";
 
@@ -731,11 +725,7 @@ export function EpubReaderPage() {
   }, [selectionToolbar?.visible]);
 
   if (!activeBook || activeBook.format !== "epub" || !settings || !epubUrl) {
-    return (
-      <ShellPanel className="h-full border-0">
-        <EmptyState title="没有打开 EPUB" body="从书库中选择一份 EPUB，即可浏览目录、复制选文或摘录到资料卡。" />
-      </ShellPanel>
-    );
+    return <EpubEmptyState onBackToLibrary={() => setScreen("library")} onBackToHome={() => setScreen("projects")} />;
   }
 
   const progressPercent = Math.round((locationRef.current?.progressPercent ?? progress?.progressPercent ?? 0) * 100);
@@ -811,408 +801,116 @@ export function EpubReaderPage() {
 
   return (
     <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
-      <header className="paper-topbar flex items-center gap-3 px-5">
-        <BookOpen size={18} />
-        <div className="min-w-0 flex-1">
-          <div className="truncate text-sm font-semibold text-paper-ink">{activeBook.title}</div>
-          <div className="text-xs text-paper-muted">
-            EPUB 阅读进度：{progressPercent}% · 本书累计 {formatDuration(progress?.totalReadingTimeMs)}
-          </div>
-        </div>
-        <Button
-          variant="quiet"
-          onClick={() => void toggleBookmark()}
-          title={isCurrentBookmarked ? "移除书签" : "添加书签"}
-        >
-          {isCurrentBookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
-          {isCurrentBookmarked ? "已书签" : "书签"}
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            const cfiRange = (window as any).__epubSelectedCfiRange;
-            const text = selectedTextFromEpub();
-            if (cfiRange && text) {
-              await addHighlight(cfiRange, text, "yellow");
-            } else {
-              showToast({ tone: "error", title: "无法高亮", body: "请先在书中选中一段文字。" });
-            }
-          }}
-          title="高亮选中文字（黄色）"
-        >
-          <Highlighter size={16} />
-          高亮
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={() => void openExcerptFromSelection()}
-          title="摘录到资料"
-        >
-          <Quote size={16} />
-          摘录
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            setSettingsDrawerOpen(true);
-          }}
-        >
-          <Settings size={16} />
-          设置
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            await endTracking("leave-reader");
-            setScreen("library");
-          }}
-        >
-          <ArrowLeft size={16} />
-          返回书库
-        </Button>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            await endTracking("leave-reader");
-            setScreen("projects");
-          }}
-        >
-          返回首页
-        </Button>
-      </header>
+      <EpubReaderToolbar
+        title={activeBook.title}
+        progressPercent={progressPercent}
+        totalReadingTimeMs={progress?.totalReadingTimeMs}
+        isCurrentBookmarked={isCurrentBookmarked}
+        onToggleBookmark={() => void toggleBookmark()}
+        onHighlightSelection={async () => {
+          const cfiRange = (window as any).__epubSelectedCfiRange;
+          const text = selectedTextFromEpub();
+          if (cfiRange && text) {
+            await addHighlight(cfiRange, text, "yellow");
+          } else {
+            showToast({ tone: "error", title: "无法高亮", body: "请先在书中选中一段文字。" });
+          }
+        }}
+        onExcerpt={() => void openExcerptFromSelection()}
+        onOpenSettings={async () => {
+          await flushProgress();
+          setSettingsDrawerOpen(true);
+        }}
+        onBackToLibrary={async () => {
+          await flushProgress();
+          await endTracking("leave-reader");
+          setScreen("library");
+        }}
+        onBackToHome={async () => {
+          await flushProgress();
+          await endTracking("leave-reader");
+          setScreen("projects");
+        }}
+      />
 
       <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div ref={viewerContainerRef} className="relative min-h-0 overflow-hidden" onWheel={handleWheelPageTurn}>
           {loading && <div className="absolute inset-0 z-10 grid place-items-center bg-paper-panel/80 text-sm text-paper-muted">正在打开 EPUB...</div>}
-          {/* Floating selection toolbar */}
-          {selectionToolbar?.visible && (
-            <div
-              className="absolute z-50 flex items-center gap-0.5 rounded-lg bg-stone-800 px-2 py-1.5 text-sm text-white shadow-xl"
-              style={{ left: selectionToolbar.x + toolbarOffsetRef.current.x, top: selectionToolbar.y + toolbarOffsetRef.current.y, transform: "translate(-50%, -100%)" }}
-              onMouseDown={(e) => e.stopPropagation()}
-            >
-              <span
-                className="mr-0.5 cursor-grab rounded px-0.5 py-0.5 text-stone-400 hover:text-white active:cursor-grabbing"
-                onMouseDown={handleToolbarDragStart}
-                title="拖动"
-              >
-                <GripHorizontal size={12} />
-              </span>
-              {/* Highlight with color picker */}
-              <div className="relative">
-                <button
-                  className="rounded px-2 py-1 hover:bg-stone-700 text-yellow-400"
-                  title="高亮"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setShowColorPicker((v) => !v);
-                  }}
-                >
-                  <Highlighter size={14} />
-                </button>
-                {showColorPicker && (
-                  <div
-                    className="absolute top-full left-1/2 mt-1 flex -translate-x-1/2 gap-1 rounded-lg bg-stone-800 p-1.5 shadow-xl"
-                    onMouseDown={(e) => e.stopPropagation()}
-                  >
-                    {HIGHLIGHT_COLORS.map((c) => (
-                      <button
-                        key={c.value}
-                        className="h-5 w-5 rounded-full border border-stone-600 transition-transform hover:scale-110"
-                        style={{ background: c.hex }}
-                        title={c.label}
-                        onClick={async (e) => {
-                          e.stopPropagation();
-                          await addHighlight(selectionToolbar.cfiRange, selectionToolbar.text, c.value);
-                          setSelectionToolbar(null);
-                          setShowColorPicker(false);
-                        }}
-                      />
-                    ))}
-                  </div>
-                )}
-              </div>
-              <button
-                className="rounded px-2 py-1 hover:bg-stone-700"
-                title="复制"
-                onClick={async () => {
-                  try {
-                    await navigator.clipboard.writeText(selectionToolbar.text);
-                    showToast({ tone: "success", title: "已复制", body: `${selectionToolbar.text.length} 字` });
-                  } catch {
-                    showToast({ tone: "error", title: "复制失败" });
-                  }
-                  setSelectionToolbar(null);
-                }}
-              >
-                <Copy size={14} />
-              </button>
-              <button
-                className="rounded px-2 py-1 hover:bg-stone-700 text-copper-300"
-                title="摘录到资料"
-                onClick={() => void openExcerptFromSelection()}
-              >
-                <Quote size={14} />
-              </button>
-              <button
-                className="rounded px-2 py-1 hover:bg-stone-700"
-                title="关闭"
-                onClick={() => {
-                  try {
-                    const contents = (renditionRef.current as any)?.getContents?.();
-                    contents?.forEach((c: any) => c.window?.getSelection?.()?.removeAllRanges());
-                  } catch { /* ignore */ }
-                  setSelectionToolbar(null);
-                  setShowColorPicker(false);
-                }}
-              >
-                <X size={14} />
-              </button>
-            </div>
-          )}
+          <EpubSelectionToolbar
+            toolbar={selectionToolbar as SelectionToolbarState | null}
+            toolbarOffset={toolbarOffsetRef.current}
+            showColorPicker={showColorPicker}
+            onToggleColorPicker={() => setShowColorPicker((v) => !v)}
+            onDragStart={handleToolbarDragStart}
+            onHighlight={async (color) => {
+              if (selectionToolbar) await addHighlight(selectionToolbar.cfiRange, selectionToolbar.text, color);
+              setSelectionToolbar(null);
+              setShowColorPicker(false);
+            }}
+            onCopy={async (text) => {
+              try {
+                await navigator.clipboard.writeText(text);
+                showToast({ tone: "success", title: "已复制", body: `${text.length} 字` });
+              } catch {
+                showToast({ tone: "error", title: "复制失败" });
+              }
+              setSelectionToolbar(null);
+            }}
+            onExcerpt={() => void openExcerptFromSelection()}
+            onClose={() => {
+              try {
+                const contents = (renditionRef.current as any)?.getContents?.();
+                contents?.forEach((c: any) => c.window?.getSelection?.()?.removeAllRanges());
+              } catch { /* ignore */ }
+              setSelectionToolbar(null);
+              setShowColorPicker(false);
+            }}
+          />
           <div
             ref={viewerRef}
             className="h-full w-full px-8 py-6"
             style={{ background: readerBackgroundColor(settings.readerBackground) }}
             onPointerDown={handleActivity}
           />
-          <div className="pointer-events-none absolute inset-x-6 bottom-4 flex justify-between">
-            <button
-              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-paper-line bg-paper-panel/90 text-paper-muted shadow-lift hover:text-copper"
-              onClick={() => void turnPage("prev")}
-              title="上一页"
-              aria-label="上一页"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              className="pointer-events-auto inline-flex h-10 w-10 items-center justify-center rounded-full border border-paper-line bg-paper-panel/90 text-paper-muted shadow-lift hover:text-copper"
-              onClick={() => void turnPage("next")}
-              title="下一页"
-              aria-label="下一页"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
+          <EpubPageTurnButtons onPrev={() => void turnPage("prev")} onNext={() => void turnPage("next")} />
         </div>
 
-        <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
-          {tocCollapsed ? (
-            <div className="grid gap-3">
-              <button className="rounded-md border border-paper-line bg-paper-panel p-2 text-xs text-paper-muted hover:text-paper-ink" onClick={() => setTocCollapsed(false)}>
-                目录
-              </button>
-              <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
-            </div>
-          ) : (
-            <>
-              {/* Tab bar */}
-              <div className="mb-3 flex items-center gap-1 border-b border-paper-line pb-2">
-                <button
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "toc" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
-                  onClick={() => setSidePanelTab("toc")}
-                >
-                  <List size={13} className="mr-1 inline" />目录
-                </button>
-                <button
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "highlights" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
-                  onClick={() => setSidePanelTab("highlights")}
-                >
-                  <Highlighter size={13} className="mr-1 inline" />高亮{highlights.length > 0 ? ` (${highlights.length})` : ""}
-                </button>
-                <button
-                  className={`rounded-md px-2.5 py-1 text-xs font-medium transition ${sidePanelTab === "bookmarks" ? "bg-copper/10 text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"}`}
-                  onClick={() => setSidePanelTab("bookmarks")}
-                >
-                  <Bookmark size={13} className="mr-1 inline" />书签{bookmarks.length > 0 ? ` (${bookmarks.length})` : ""}
-                </button>
-                <span className="flex-1" />
-                <Button variant="quiet" className="h-7 px-2 text-xs" onClick={() => setTocCollapsed(true)}>
-                  收起
-                </Button>
-              </div>
-
-              {/* TOC tab */}
-              {sidePanelTab === "toc" && (
-                <>
-                  <div className="mb-3 text-xs text-paper-muted">
-                    当前位置：{currentTocItem?.label ?? `${progressPercent}% 附近`}
-                  </div>
-                  <div className="mb-5">
-                    {toc.length === 0 ? (
-                      <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">未检测到目录</div>
-                    ) : (
-                      <div className="grid gap-1">
-                        {toc.map((item) => (
-                          <button
-                            key={item.id}
-                            type="button"
-                            className="rounded px-2 py-1.5 text-left text-sm text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
-                            style={{ paddingLeft: `${8 + Math.max(0, item.level) * 12}px` }}
-                            title={item.label}
-                            onClick={() => void jumpToToc(item.href)}
-                          >
-                            <span className="line-clamp-2">{item.label}</span>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Highlights tab */}
-              {sidePanelTab === "highlights" && (
-                <div className="grid gap-2">
-                  {highlights.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
-                      暂无高亮。在书中选中文字后点击“高亮”按钮即可添加。
-                    </div>
-                  ) : (
-                    highlights.map((hl) => (
-                      <div
-                        key={hl.id}
-                        className="group rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:shadow-lift"
-                      >
-                        <div className="mb-1.5 flex items-center gap-2">
-                          <span
-                            className="inline-block h-3 w-3 rounded-full"
-                            style={{ background: HIGHLIGHT_COLORS.find((c) => c.value === hl.color)?.hex ?? "#fde047" }}
-                          />
-                          {hl.chapterTitle && (
-                            <span className="flex-1 truncate text-[11px] text-paper-muted">{hl.chapterTitle}</span>
-                          )}
-                          <button
-                            className="rounded p-1 text-paper-muted opacity-0 transition hover:text-red-500 group-hover:opacity-100"
-                            onClick={() => void removeHighlight(hl.id)}
-                            title="删除高亮"
-                          >
-                            <Trash2 size={12} />
-                          </button>
-                        </div>
-                        <button
-                          className="w-full text-left text-sm leading-5 text-paper-ink hover:text-copper"
-                          onClick={() => void jumpToHighlight(hl)}
-                        >
-                          <span className="line-clamp-3">{hl.text}</span>
-                        </button>
-                        {hl.note && (
-                          <div className="mt-1.5 text-xs italic text-paper-muted">{hl.note}</div>
-                        )}
-                        {/* Color picker for this highlight */}
-                        <div className="mt-2 flex items-center gap-1">
-                          {HIGHLIGHT_COLORS.map((c) => (
-                            <button
-                              key={c.value}
-                              className={`h-4 w-4 rounded-full border transition ${hl.color === c.value ? "border-paper-ink ring-1 ring-paper-ink/30" : "border-transparent opacity-60 hover:opacity-100"}`}
-                              style={{ background: c.hex }}
-                              title={c.label}
-                              onClick={async () => {
-                                if (hl.color !== c.value) {
-                                  const updated = { ...hl, color: c.value, updatedAt: new Date().toISOString() };
-                                  await saveHighlight(updated);
-                                  setHighlights((prev) => {
-                                    const next = prev.map((h) => (h.id === hl.id ? updated : h));
-                                    highlightsRef.current = next;
-                                    return next;
-                                  });
-                                }
-                              }}
-                            />
-                          ))}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-
-              {/* Bookmarks tab */}
-              {sidePanelTab === "bookmarks" && (
-                <div className="grid gap-2">
-                  <Button
-                    variant="secondary"
-                    className="h-8 text-xs"
-                    onClick={() => void addBookmark()}
-                  >
-                    <Bookmark size={14} />
-                    在当前位置添加书签
-                  </Button>
-                  {bookmarks.length === 0 ? (
-                    <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
-                      暂无书签。
-                    </div>
-                  ) : (
-                    bookmarks.map((bm) => (
-                      <div
-                        key={bm.id}
-                        className="group flex items-center gap-2 rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:shadow-lift"
-                      >
-                        <Bookmark size={14} className="shrink-0 text-copper/60" />
-                        <button
-                          className="min-w-0 flex-1 text-left"
-                          onClick={() => void jumpToBookmark(bm)}
-                        >
-                          <div className="truncate text-sm text-paper-ink hover:text-copper">{bm.label}</div>
-                          <div className="mt-0.5 text-[11px] text-paper-muted">
-                            {bm.chapterTitle ? `${bm.chapterTitle} · ` : ""}
-                            {bm.progressPercent !== undefined ? `${Math.round(bm.progressPercent * 100)}%` : ""}
-                            {" · "}{new Date(bm.createdAt).toLocaleDateString()}
-                          </div>
-                        </button>
-                        <button
-                          className="rounded p-1 text-paper-muted opacity-0 transition hover:text-red-500 group-hover:opacity-100"
-                          onClick={async () => {
-                            await removeBookmarkById(bm.id);
-                            setBookmarks((prev) => prev.filter((b) => b.id !== bm.id));
-                          }}
-                          title="删除书签"
-                        >
-                          <Trash2 size={12} />
-                        </button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </>
-          )}
-        </ShellPanel>
+        <EpubSidePanel
+          tocCollapsed={tocCollapsed}
+          onExpand={() => setTocCollapsed(false)}
+          onCollapse={() => setTocCollapsed(true)}
+          sidePanelTab={sidePanelTab}
+          onTabChange={setSidePanelTab}
+          progressPercent={progressPercent}
+          currentTocItem={currentTocItem}
+          toc={toc}
+          onJumpToToc={(href) => void jumpToToc(href)}
+          highlights={highlights}
+          onRemoveHighlight={(id) => void removeHighlight(id)}
+          onJumpToHighlight={(hl) => void jumpToHighlight(hl)}
+          onHighlightsChange={(next) => {
+            highlightsRef.current = next;
+            setHighlights(next);
+          }}
+          bookmarks={bookmarks}
+          onAddBookmark={() => void addBookmark()}
+          onJumpToBookmark={(bm) => void jumpToBookmark(bm)}
+          onRemoveBookmark={async (id) => {
+            await removeBookmarkById(id);
+            setBookmarks((prev) => prev.filter((b) => b.id !== id));
+          }}
+        />
       </div>
-      {settingsDrawerOpen && (
-        <div className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]" onMouseDown={() => setSettingsDrawerOpen(false)}>
-          <aside
-            className="motion-drawer absolute right-0 top-0 h-full w-[360px] overflow-auto border-l border-paper-line bg-paper-panel p-5 shadow-paper"
-            onMouseDown={(event) => event.stopPropagation()}
-          >
-            <div className="mb-4 flex items-center justify-between">
-              <div>
-                <div className="paper-title text-lg font-semibold">阅读设置</div>
-                <div className="mt-1 text-xs text-paper-muted">EPUB 默认保留原书样式，需要统一排版时再切换。</div>
-              </div>
-              <button className="rounded-md p-2 text-paper-muted hover:bg-paper-soft hover:text-paper-ink" onClick={() => setSettingsDrawerOpen(false)}>
-                <X size={17} />
-              </button>
-            </div>
-            <ReaderSettingsPanel
-              settings={settings}
-              onReset={async () => {
-                const next = await resetReaderSettings();
-                setReaderSettings(next.reader);
-                handleActivity();
-              }}
-              onChange={async (patch) => {
-                const next = await updateReaderSettings(patch);
-                setReaderSettings(next);
-                void updateLocation();
-              }}
-            />
-          </aside>
-        </div>
-      )}
+      <EpubSettingsDrawer
+        open={settingsDrawerOpen}
+        settings={settings}
+        onClose={() => setSettingsDrawerOpen(false)}
+        onSettingsChange={setReaderSettings}
+        onAfterChange={() => {
+          handleActivity();
+          void updateLocation();
+        }}
+      />
       {excerpt.isPickerOpen && excerpt.pendingSource && (
         <ExcerptPicker
           source={excerpt.pendingSource}

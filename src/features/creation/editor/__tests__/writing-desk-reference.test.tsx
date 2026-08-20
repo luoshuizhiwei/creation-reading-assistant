@@ -18,6 +18,7 @@ const actions = vi.hoisted(() => ({
   loadAnnotations: vi.fn(async () => []),
   createAnnotation: vi.fn(async () => true),
   updateAnnotation: vi.fn(async () => true),
+  reanchorAnnotation: vi.fn(async () => true),
   deleteAnnotation: vi.fn(async () => true),
   loadCards: vi.fn(async () => undefined),
   loadProjectExport: vi.fn(async () => undefined)
@@ -40,6 +41,11 @@ vi.mock("@/hooks/useCreationActions", () => ({
   })
 }));
 
+// reanchorAnnotation 在 WritingDesk 内就地包装自服务的 annotationReanchor（useCreationActions 未导出该函数）。
+vi.mock("@/services/creation-service", () => ({
+  annotationReanchor: actions.reanchorAnnotation
+}));
+
 interface StubProps {
   view?: SceneBodyView;
   onSave: (sceneId: string, baseRevision: number, body: unknown) => Promise<unknown>;
@@ -53,9 +59,14 @@ interface StubProps {
   onToggleTypewriter?: () => void;
 }
 
+const editorControl = vi.hoisted(() => ({
+  selection: null as SceneSelection | null,
+  composing: false
+}));
+
 vi.mock("@/features/creation/editor/SceneEditor", async () => {
   const ReactActual = await vi.importActual<typeof import("react")>("react");
-  const Stub = ReactActual.forwardRef<{ isDirty: () => boolean; saveNow: () => Promise<boolean>; getSelection: () => SceneSelection | null }, StubProps>(
+  const Stub = ReactActual.forwardRef<{ isDirty: () => boolean; saveNow: () => Promise<boolean>; getSelection: () => SceneSelection | null; isComposing: () => boolean }, StubProps>(
     (props, ref) => {
       const [text, setText] = ReactActual.useState(() => props.view?.body.content?.[0]?.content?.[0]?.text ?? "");
       const dirty = ReactActual.useRef(false);
@@ -68,7 +79,8 @@ vi.mock("@/features/creation/editor/SceneEditor", async () => {
           dirty.current = false;
           return Boolean(ok);
         },
-        getSelection: () => selectionRef.current
+        getSelection: () => editorControl.selection ?? selectionRef.current,
+        isComposing: () => editorControl.composing
       }));
       const reportSelection = (selection: SceneSelection | null) => {
         selectionRef.current = selection;
@@ -203,6 +215,8 @@ beforeEach(() => {
     });
   }
   vi.clearAllMocks();
+  editorControl.selection = null;
+  editorControl.composing = false;
   resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "A 初稿") } });
   actions.loadScene.mockImplementation(async (id: string) => {
     const v = viewOf(id, `${id} 初稿`);
@@ -364,5 +378,111 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
 
     expect(await screen.findByText("待重新定位")).toBeDefined();
     expect(screen.getByText("旧批注")).toBeDefined();
+  });
+
+  function invalidAnnotation(overrides: Partial<Annotation> = {}): Annotation {
+    return {
+      id: "a1",
+      projectId: "p1",
+      sceneId: "scene-a",
+      cardId: "card-1",
+      anchor: { blockIndex: 0, textOffset: 0, textLength: 2 },
+      anchorInvalid: true,
+      note: "原批注内容",
+      status: "open",
+      anchoredText: "旧锚点",
+      revision: 7,
+      createdAt: "",
+      updatedAt: "",
+      ...overrides
+    };
+  }
+
+  it("失效批注用当前真实选区二次确认，并携带 revision command 成功重定位", async () => {
+    const annotation = invalidAnnotation();
+    actions.loadAnnotations.mockResolvedValue([annotation]);
+    editorControl.selection = {
+      sceneId: "scene-a",
+      blockIndex: 2,
+      textOffset: 4,
+      textLength: 5,
+      selectedText: "新的锚点",
+      collapsed: false
+    };
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    const dialog = screen.getByRole("dialog", { name: "确认重新定位批注" });
+    expect(dialog.textContent).toContain("选中「新的锚点」");
+    expect(dialog.textContent).toContain("原锚点：旧锚点");
+    expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "确认新锚点" }));
+    await waitFor(() => expect(actions.reanchorAnnotation).toHaveBeenCalledWith({
+      type: "annotation.reanchor",
+      annotationId: "a1",
+      baseRevision: 7,
+      anchor: { blockIndex: 2, textOffset: 4, textLength: 5, text: "新的锚点" }
+    }));
+    await waitFor(() => expect(actions.loadAnnotations).toHaveBeenCalledTimes(2));
+  });
+
+  it("无非空真实选区时禁止重新定位", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    const showToast = vi.fn();
+    useUIStore.setState({ toasts: [], showToast });
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: "确认重新定位批注" })).toBeNull();
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ title: "请先选择新锚点" }));
+  });
+
+  it("跨场景选区禁止重新定位", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    editorControl.selection = {
+      sceneId: "scene-b", blockIndex: 0, textOffset: 0, textLength: 2, selectedText: "别处", collapsed: false
+    };
+    const showToast = vi.fn();
+    useUIStore.setState({ toasts: [], showToast });
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ title: "选区不在当前场景" }));
+  });
+
+  it("IME composing 期间禁止重新定位", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    editorControl.selection = {
+      sceneId: "scene-a", blockIndex: 0, textOffset: 0, textLength: 2, selectedText: "新址", collapsed: false
+    };
+    editorControl.composing = true;
+    const showToast = vi.fn();
+    useUIStore.setState({ toasts: [], showToast });
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith(expect.objectContaining({ title: "正在输入文字" }));
+  });
+
+  it("重定位失败保留确认弹层和已采样的新锚点", async () => {
+    actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
+    actions.reanchorAnnotation.mockResolvedValue(false);
+    editorControl.selection = {
+      sceneId: "scene-a", blockIndex: 1, textOffset: 3, textLength: 4, selectedText: "保留选择", collapsed: false
+    };
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认新锚点" }));
+
+    await waitFor(() => expect(actions.reanchorAnnotation).toHaveBeenCalledTimes(1));
+    const dialog = screen.getByRole("dialog", { name: "确认重新定位批注" });
+    expect(dialog.textContent).toContain("选中「保留选择」");
+    expect(dialog.textContent).toContain("批注可能已被其他操作修改");
+    expect(actions.loadAnnotations).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,15 +1,22 @@
 package com.creationreadingassistant.ui.theme
 
+import android.content.Context
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 
 /**
  * 「纸墨」配色：暖纸承载内容，墨绿只负责可操作与选中状态。
- * 阅读器纸张/夜读使用独立的 ReaderPaperPalette，不与应用配色绑定。
+ * 阅读器纸张与夜读仍由 ReaderSettings 独立管理，不与应用配色绑定。
  */
 
 // 浅色令牌（来自 md3-base.css :root）
@@ -24,6 +31,13 @@ private val Hairline = Color(0xFFD8D2C7)
 private val PaperInkGreen = Color(0xFF365C4A)
 private val PaperInkGreenContainer = Color(0xFFDCE8DF)
 private val PaperInkGreenOnContainer = Color(0xFF1D392B)
+
+// AMOLED 纯黑专用令牌：把暗色的"纸面"整层收敛到绝对黑，仅表面层级差保留极细层次
+private val AmoledBlack = Color(0xFF000000)
+private val AmoledNearBlack = Color(0xFF070807)
+private val AmoledSurfaceLow = Color(0xFF0B0C0B)
+private val AmoledSurface = Color(0xFF0F100F)
+private val AmoledSurfaceHigh = Color(0xFF161716)
 
 // 语义强调色（来自 md3-base.css）
 val AppSuccess = Color(0xFF4A6E3F)           // --md3-success
@@ -118,14 +132,39 @@ private val PaperInkDarkColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF9DEDC),
 )
 
+/**
+ * 把暗色方案转成 AMOLED 纯黑：只压暗容器色阶，主色/强调色/语义色全部保留，
+ * 保证可读性和可交互元素的对比度。
+ */
+private fun ColorScheme.asAmoledPureBlack(): ColorScheme = copy(
+    background = AmoledBlack,
+    surface = AmoledSurface,
+    surfaceBright = AmoledSurfaceHigh,
+    surfaceDim = AmoledNearBlack,
+    surfaceContainerLowest = AmoledBlack,
+    surfaceContainerLow = AmoledNearBlack,
+    surfaceContainer = AmoledSurface,
+    surfaceContainerHigh = AmoledSurfaceHigh,
+    surfaceContainerHighest = AmoledSurfaceHigh,
+)
+
 @Composable
 fun AppTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     palette: AppPalette = AppPalette.default,
+    useDynamicColor: Boolean = false,
+    amoledPureBlack: Boolean = false,
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = when (palette) {
-        AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
+    val context = LocalContext.current
+    val colorScheme = remember(darkTheme, palette, useDynamicColor, amoledPureBlack, context) {
+        buildColorScheme(
+            context = context,
+            darkTheme = darkTheme,
+            palette = palette,
+            useDynamicColor = useDynamicColor,
+            amoledPureBlack = amoledPureBlack,
+        )
     }
     MaterialTheme(
         colorScheme = colorScheme,
@@ -133,4 +172,21 @@ fun AppTheme(
         shapes = AppShapes,
         content = content,
     )
+}
+
+private fun buildColorScheme(
+    context: Context,
+    darkTheme: Boolean,
+    palette: AppPalette,
+    useDynamicColor: Boolean,
+    amoledPureBlack: Boolean,
+): ColorScheme {
+    val base = if (useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+        if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    } else {
+        when (palette) {
+            AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
+        }
+    }
+    return if (darkTheme && amoledPureBlack) base.asAmoledPureBlack() else base
 }

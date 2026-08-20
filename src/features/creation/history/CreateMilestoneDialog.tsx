@@ -23,6 +23,8 @@ interface CreateMilestoneDialogProps {
 }
 
 const ENTITY_LABEL: Record<SnapshotSubjectType, string> = {
+  volume: "卷",
+  chapter: "章",
   scene: "场景",
   card: "卡片"
 };
@@ -30,6 +32,7 @@ const ENTITY_LABEL: Record<SnapshotSubjectType, string> = {
 export function CreateMilestoneDialog({
   navigation,
   cards,
+  outline,
   onCancel,
   onSubmit,
   busy = false
@@ -52,8 +55,25 @@ export function CreateMilestoneDialog({
       }
       return list;
     }
+    if (subjectType === "volume") {
+      return (outline?.volumes ?? []).map((volume) => ({
+        type: "volume" as const,
+        id: volume.id,
+        title: volume.title
+      }));
+    }
+    if (subjectType === "chapter") {
+      return [
+        ...(outline?.volumes ?? []).flatMap((volume) => volume.chapters),
+        ...(outline?.looseChapters ?? [])
+      ].map((chapter) => ({
+        type: "chapter" as const,
+        id: chapter.id,
+        title: chapter.title
+      }));
+    }
     return cards.map((c) => ({ type: "card", id: c.id, title: c.title }));
-  }, [subjectType, navigation, cards]);
+  }, [subjectType, navigation, cards, outline]);
 
   useEffect(() => {
     setSubjectId("");
@@ -112,6 +132,8 @@ export function CreateMilestoneDialog({
               onChange={(e) => setSubjectType(e.target.value as SnapshotSubjectType)}
               disabled={isBusy}
             >
+              <option value="volume">卷</option>
+              <option value="chapter">章</option>
               <option value="scene">场景</option>
               <option value="card">卡片</option>
             </select>

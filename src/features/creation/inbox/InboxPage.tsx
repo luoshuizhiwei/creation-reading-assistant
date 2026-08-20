@@ -9,6 +9,7 @@ import { resolveTargetProject } from "@/features/creation/inbox/inbox-target";
 import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
 import type { InspirationStatus, InspirationType } from "@/types/inspiration";
 import type { InboxItem } from "@/types/creation";
+import "./inbox-local.css";
 
 const TYPE_LABELS: Record<InspirationType, string> = {
   plot: "剧情点子",
@@ -125,6 +126,21 @@ export function InboxPage({ projectId }: InboxPageProps) {
   const requestSeqRef = useRef(0);
 
   const aiAvailable = isAIAvailable(aiSettings);
+
+  /** 状态分组筛选：all = 全部；其余按 InspirationStatus 过滤已加载条目（纯前端过滤）。 */
+  const [statusFilter, setStatusFilter] = useState<InspirationStatus | "all">("all");
+  const STATUS_FILTER_OPTIONS: Array<{ value: InspirationStatus | "all"; label: string }> = [
+    { value: "all", label: "全部" },
+    { value: "inbox", label: "未整理" },
+    { value: "reviewing", label: "待整理" },
+    { value: "usable", label: "可用" },
+    { value: "used", label: "已使用" },
+    { value: "archived", label: "归档" }
+  ];
+  const filteredItems = useMemo(
+    () => (statusFilter === "all" ? items : items.filter((item) => item.status === statusFilter)),
+    [items, statusFilter]
+  );
 
   useEffect(() => {
     setTargetProjectId((current) => resolveTargetProject(projects, projectId, current) ?? "");
@@ -508,37 +524,61 @@ export function InboxPage({ projectId }: InboxPageProps) {
     | undefined;
 
   return (
-    <section className="stats-page" aria-label="全局收件箱">
-      <div className="stats-card inbox-summary">
-        <h3><InboxIcon size={15} /> 全局收件箱</h3>
-        <p className="stats-note">
-          旧灵感已并入此处，作为唯一的想法收集入口。新建想法、编辑、转资料卡、软删除都在这里完成；AI 打磨默认关闭，需手动开启并配置 Key。
-        </p>
-        <button type="button" className="inbox-inspiration-link" onClick={handleCreate}>
-          <Plus size={13} /> 新建想法
-        </button>
-        {!projectId && projects.length > 0 && (
-          <label className="inbox-target-project">
-            <span>转为资料卡的目标项目</span>
-            <select
-              className="paper-input h-9"
-              value={targetProjectId || projects[0]?.id || ""}
-              onChange={(event) => setTargetProjectId(event.target.value)}
+    <section className="inbox-page" aria-label="全局收件箱">
+      <section className="desktop-page-hero motion-panel inbox-hero">
+        <div className="inbox-hero-title">
+          <div className="desktop-card-label">Inbox</div>
+          <h2><InboxIcon size={16} /> 全局收件箱</h2>
+          <p>
+            旧灵感已并入此处，作为唯一的想法收集入口。新建想法、编辑、转资料卡、软删除都在这里完成；AI 打磨默认关闭，需手动开启并配置 Key。
+          </p>
+        </div>
+        <div className="inbox-hero-actions">
+          <button type="button" className="inbox-inspiration-link" onClick={handleCreate}>
+            <Plus size={13} /> 新建想法
+          </button>
+          {!projectId && projects.length > 0 && (
+            <label className="inbox-target-project">
+              <span>转为资料卡的目标项目</span>
+              <select
+                className="paper-input h-9"
+                value={targetProjectId || projects[0]?.id || ""}
+                onChange={(event) => setTargetProjectId(event.target.value)}
+              >
+                {projects.map((project) => (
+                  <option key={project.id} value={project.id}>{project.title}</option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+      </section>
+
+      <div className="inbox-filter-row" role="group" aria-label="按状态筛选收件箱">
+        {STATUS_FILTER_OPTIONS.map((option) => {
+          const count = option.value === "all" ? items.length : items.filter((item) => item.status === option.value).length;
+          const active = statusFilter === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              className={`inbox-filter-chip ${active ? "active" : ""}`}
+              aria-pressed={active}
+              onClick={() => setStatusFilter(option.value)}
             >
-              {projects.map((project) => (
-                <option key={project.id} value={project.id}>{project.title}</option>
-              ))}
-            </select>
-          </label>
-        )}
+              {option.label}
+              <em>{count}</em>
+            </button>
+          );
+        })}
       </div>
 
       <div className="inbox-editor-grid">
         <ul className="inbox-list">
-          {items.length === 0 ? (
-            <li className="stats-card"><p className="stats-note">收件箱为空。点击「新建想法」开始收集，旧灵感迁移后也会出现在这里。</p></li>
+          {filteredItems.length === 0 ? (
+            <li className="stats-card"><p className="stats-note">{items.length === 0 ? "收件箱为空。点击「新建想法」开始收集，旧灵感迁移后也会出现在这里。" : "当前筛选下没有条目，切换筛选或新建想法。"}</p></li>
           ) : (
-            items.map((item) => (
+            filteredItems.map((item) => (
               <li
                 key={item.id}
                 className={`stats-card inbox-item ${item.status === "used" ? "inbox-item--used" : ""} ${item.id === selectedId ? "inbox-item--selected" : ""}`}
