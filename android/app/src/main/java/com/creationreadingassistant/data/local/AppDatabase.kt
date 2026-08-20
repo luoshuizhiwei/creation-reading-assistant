@@ -27,6 +27,7 @@ import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookFileEntity
@@ -47,6 +48,7 @@ import com.creationreadingassistant.data.local.entity.ReaderAnchorCacheEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
+import com.creationreadingassistant.data.local.entity.ChapterReadEntity
 
 /**
  * 数据库 schema 版本。唯一真源 —— [AppDatabase] 的 `@Database(version)` 与
@@ -55,7 +57,7 @@ import com.creationreadingassistant.data.local.entity.TagEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 9
+const val APP_DATABASE_SCHEMA_VERSION = 10
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -76,6 +78,8 @@ const val APP_DATABASE_SCHEMA_VERSION = 9
  *    「外键未索引」警告与父表更新/删除时的全表扫描
  *  - v8→v9：新增阅读器文本规则表 reader_text_rules（MIGRATION_8_9），
  *    目录/替换规则的持久化底座，不接入任何读取路径
+ *  - v9→v10：新增章节已读表 chapter_reads（片 1）；tags/shelves 两表补
+ *    sort_order 列并统一 ORDER BY sort_order ASC, created_at ASC 兜底排序（片 3）
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -90,6 +94,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 9
         ReaderPageIndexEntity::class,
         ReaderAnchorCacheEntity::class,
         ReaderTextRuleEntity::class,
+        ChapterReadEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -115,6 +120,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun readerPageIndexDao(): ReaderPageIndexDao
     abstract fun readerAnchorCacheDao(): ReaderAnchorCacheDao
     abstract fun readerTextRuleDao(): ReaderTextRuleDao
+    abstract fun chapterReadDao(): ChapterReadDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -260,6 +266,42 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v9→v10：P3.3 片 1 + 片 3 合并迁移包。
+         *
+         * 片 1：新增 chapter_reads 表（EPUB/Markdown 章节已读持久化）。
+         * 列顺序、主键、索引名必须与 [ChapterReadEntity] + Room KSP 生成一致，
+         * 否则 schema 校验失败。
+         *
+         * 片 3：为 tags/shelves 补 sort_order 列，并为三类既有数据生成稳定且唯一的顺序。
+         * SQLite ALTER TABLE ADD COLUMN 带 NOT NULL 必须有 DEFAULT，
+         * 故 DEFAULT 0 与 [TagEntity]/[ShelfEntity] 构造默认值对齐。
+         * 若只保留 DEFAULT 0，相邻项交换两个相同值不会改变顺序；因此迁移时按旧
+         * `sort_order`（分类）/ `created_at` + `id`（标签、书单）一次性生成稠密序号。
+         * 日常上移/下移仍然只交换相邻两项，不做全表重排。
+         */
+        val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                // 片 3：tags/shelves 补排序列
+                db.execSQL("ALTER TABLE tags ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE shelves ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0")
+                backfillLegacyTaxonomySortOrders(db)
+                // 片 1：chapter_reads 建表 + 索引
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `chapter_reads` (" +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`chapter_index` INTEGER NOT NULL, " +
+                        "`read_at` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`book_id`, `chapter_index`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_chapter_reads_book_id` " +
+                        "ON `chapter_reads` (`book_id`)",
+                )
+            }
+        }
+
         /** v1→v2：为高亮表补 chapter_title / progress_percent 两列（非破坏迁移，保留既有数据）。 */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
@@ -285,6 +327,56 @@ abstract class AppDatabase : RoomDatabase() {
                 runCatching { db.execSQL("DROP INDEX IF EXISTS $name") }
                     .onFailure { e -> Log.e("AppDatabase", "删索引失败（已忽略）: $name", e) }
             }
+        }
+
+        /**
+         * 为 v9 既有标签、书单、分类快照稳定顺序，再写回唯一的 0..N-1 序号。
+         *
+         * 使用临时表是为了避免直接 UPDATE categories 时，相关子查询读到同一语句
+         * 已经更新过的 sort_order。相关 COUNT 子查询不依赖窗口函数，可覆盖项目支持
+         * 的旧 Android SQLite 版本。
+         */
+        private fun backfillLegacyTaxonomySortOrders(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TEMP TABLE `_migration_taxonomy_sort_order` (" +
+                    "`kind` TEXT NOT NULL, `id` TEXT NOT NULL, `target_order` INTEGER NOT NULL, " +
+                    "PRIMARY KEY(`kind`, `id`))",
+            )
+            db.execSQL(
+                "INSERT INTO `_migration_taxonomy_sort_order` (`kind`, `id`, `target_order`) " +
+                    "SELECT 'tag', current.id, (SELECT COUNT(*) FROM tags preceding " +
+                    "WHERE preceding.created_at < current.created_at " +
+                    "OR (preceding.created_at = current.created_at AND preceding.id < current.id)) " +
+                    "FROM tags current",
+            )
+            db.execSQL(
+                "INSERT INTO `_migration_taxonomy_sort_order` (`kind`, `id`, `target_order`) " +
+                    "SELECT 'shelf', current.id, (SELECT COUNT(*) FROM shelves preceding " +
+                    "WHERE preceding.created_at < current.created_at " +
+                    "OR (preceding.created_at = current.created_at AND preceding.id < current.id)) " +
+                    "FROM shelves current",
+            )
+            db.execSQL(
+                "INSERT INTO `_migration_taxonomy_sort_order` (`kind`, `id`, `target_order`) " +
+                    "SELECT 'category', current.id, (SELECT COUNT(*) FROM categories preceding " +
+                    "WHERE preceding.sort_order < current.sort_order " +
+                    "OR (preceding.sort_order = current.sort_order AND preceding.created_at < current.created_at) " +
+                    "OR (preceding.sort_order = current.sort_order AND preceding.created_at = current.created_at " +
+                    "AND preceding.id < current.id)) FROM categories current",
+            )
+            db.execSQL(
+                "UPDATE tags SET sort_order = (SELECT target_order FROM `_migration_taxonomy_sort_order` " +
+                    "WHERE kind = 'tag' AND id = tags.id)",
+            )
+            db.execSQL(
+                "UPDATE shelves SET sort_order = (SELECT target_order FROM `_migration_taxonomy_sort_order` " +
+                    "WHERE kind = 'shelf' AND id = shelves.id)",
+            )
+            db.execSQL(
+                "UPDATE categories SET sort_order = (SELECT target_order FROM `_migration_taxonomy_sort_order` " +
+                    "WHERE kind = 'category' AND id = categories.id)",
+            )
+            db.execSQL("DROP TABLE `_migration_taxonomy_sort_order`")
         }
 
         /** 与 [PARTIAL_INDEX_SQL] 一一对应，改一处必须改另一处。 */

@@ -1029,7 +1029,15 @@ class AppDatabaseMigrationTest {
             idxCursor.close()
         }
 
-        // 7. 级联删除：删除书籍后其按书规则应被清掉
+        // 7. MigrationTestHelper 的原始 SQLite 连接不会替 Room 自动开启外键执行。
+        // 显式开启后再验证 ON DELETE CASCADE 的运行时语义。
+        db.execSQL("PRAGMA foreign_keys = ON")
+        val fkEnabledCursor = db.query("PRAGMA foreign_keys")
+        assertTrue(fkEnabledCursor.moveToFirst())
+        assertEquals(1, fkEnabledCursor.getInt(0))
+        fkEnabledCursor.close()
+
+        // 删除书籍后其按书规则应被清掉
         db.execSQL("DELETE FROM books WHERE id = 'rule-book'")
         val orphanCursor = db.query(
             "SELECT COUNT(*) FROM reader_text_rules WHERE book_id = 'rule-book'",
@@ -1039,6 +1047,210 @@ class AppDatabaseMigrationTest {
         orphanCursor.close()
 
         db.close()
+    }
+
+    // ─── 9 → 10：chapter_reads 新表 + tags/shelves 补 sort_order ──────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_9_to_10_adds_chapter_reads_and_sort_orders() {
+        // 1. 创建 v9 数据库并插入覆盖 tags/shelves/categories 的数据（v9 tags/shelves 无 sort_order，categories 有）
+        var db = migrationTestHelper.createDatabase(TEST_DB, 9)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('mig10-book', 'P3.3书籍', '作者', 'epub', 'mig10.epub', 'hashmig10', " +
+                "4096, '/uri/m10', '/content/m10', 'ready', NULL, NULL, " +
+                "'2026-08-15T00:00:00Z', 'device-1', '{}', 1, '2026-08-15T00:00:00Z', NULL)",
+        )
+        // v9 tags：无 sort_order 列
+        db.execSQL(
+            "INSERT INTO tags (id, name, color, type, created_at, device_id, revision, payload, " +
+                "updated_at, deleted_at) " +
+                "VALUES ('mig10-tag', 'P3.3标签', NULL, 'book', '2026-08-15T00:00:00Z', 'device-1', 1, " +
+                "'{}', '2026-08-15T00:00:00Z', NULL)",
+        )
+        // v9 categories：已有 sort_order 列（NOT NULL，必须显式给值）
+        db.execSQL(
+            "INSERT INTO categories (id, name, cover_tone, parent_id, sort_order, created_at, " +
+                "device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('mig10-cat', 'P3.3分类', NULL, NULL, 0, '2026-08-15T00:00:00Z', 'device-1', 1, " +
+                "'{}', '2026-08-15T00:00:00Z', NULL)",
+        )
+        // v9 shelves：无 sort_order 列
+        db.execSQL(
+            "INSERT INTO shelves (id, name, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                "VALUES ('mig10-shelf', 'P3.3书架', '2026-08-15T00:00:00Z', 'device-1', 1, '{}', " +
+                "'2026-08-15T00:00:00Z', NULL)",
+        )
+
+        db.close()
+
+        // 2. 执行迁移 9 → 10
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 10, true, AppDatabase.MIGRATION_9_10,
+        )
+
+        // 3. 验证既有数据未丢失
+        val booksCursor = db.query("SELECT title FROM books WHERE id = 'mig10-book'")
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("P3.3书籍", booksCursor.getString(0))
+        booksCursor.close()
+
+        val tagCursor = db.query("SELECT name FROM tags WHERE id = 'mig10-tag'")
+        assertTrue("tags 数据应保留", tagCursor.moveToFirst())
+        assertEquals("P3.3标签", tagCursor.getString(0))
+        tagCursor.close()
+
+        val catCursor = db.query("SELECT name, sort_order FROM categories WHERE id = 'mig10-cat'")
+        assertTrue("categories 数据应保留", catCursor.moveToFirst())
+        assertEquals("P3.3分类", catCursor.getString(0))
+        assertEquals(0, catCursor.getInt(1))
+        catCursor.close()
+
+        val shelfCursor = db.query("SELECT name FROM shelves WHERE id = 'mig10-shelf'")
+        assertTrue("shelves 数据应保留", shelfCursor.moveToFirst())
+        assertEquals("P3.3书架", shelfCursor.getString(0))
+        shelfCursor.close()
+
+        // 4. 验证 tags.sort_order / shelves.sort_order 新列存在且默认值 0
+        val tagSortCursor = db.query(
+            "SELECT sort_order FROM tags WHERE id = 'mig10-tag'",
+        )
+        assertTrue("tags.sort_order 应存在", tagSortCursor.moveToFirst())
+        assertEquals(0, tagSortCursor.getInt(0))
+        tagSortCursor.close()
+
+        val shelfSortCursor = db.query(
+            "SELECT sort_order FROM shelves WHERE id = 'mig10-shelf'",
+        )
+        assertTrue("shelves.sort_order 应存在", shelfSortCursor.moveToFirst())
+        assertEquals(0, shelfSortCursor.getInt(0))
+        shelfSortCursor.close()
+
+        // 5. 验证 chapter_reads 表存在 + 主键(book_id, chapter_index) + book_id 索引
+        val tableCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='chapter_reads'",
+        )
+        assertTrue("chapter_reads 表应存在", tableCursor.moveToFirst())
+        tableCursor.close()
+
+        db.execSQL(
+            "INSERT INTO chapter_reads (book_id, chapter_index, read_at) " +
+                "VALUES ('mig10-book', 0, '2026-08-15T10:00:00Z')",
+        )
+        db.execSQL(
+            "INSERT INTO chapter_reads (book_id, chapter_index, read_at) " +
+                "VALUES ('mig10-book', 1, '2026-08-15T10:05:00Z')",
+        )
+        // 主键冲突：(book_id, chapter_index) 重复应抛（先尝试 REPLACE 语义，不失败就证明 UNIQUE）
+        db.execSQL(
+            "INSERT OR REPLACE INTO chapter_reads (book_id, chapter_index, read_at) " +
+                "VALUES ('mig10-book', 0, '2026-08-15T11:00:00Z')",
+        )
+
+        val readsCursor = db.query(
+            "SELECT chapter_index, read_at FROM chapter_reads WHERE book_id = 'mig10-book' " +
+                "ORDER BY chapter_index ASC",
+        )
+        assertTrue("chapter_reads 应有 2 行", readsCursor.moveToFirst())
+        assertEquals(0, readsCursor.getInt(0))
+        assertEquals("2026-08-15T11:00:00Z", readsCursor.getString(1)) // REPLACE 后应是更新值
+        assertTrue("第 2 行应存在", readsCursor.moveToNext())
+        assertEquals(1, readsCursor.getInt(0))
+        readsCursor.close()
+
+        val chReadsIdxCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name = 'index_chapter_reads_book_id'",
+        )
+        assertTrue("chapter_reads.book_id 索引应存在", chReadsIdxCursor.moveToFirst())
+        chReadsIdxCursor.close()
+
+        db.close()
+    }
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_9_to_10_assigns_distinct_stable_sort_orders_to_legacy_taxonomy_rows() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 9)
+
+        listOf(
+            Triple("tag-late", "标签 C", "2026-08-15T03:00:00Z"),
+            Triple("tag-early", "标签 A", "2026-08-15T01:00:00Z"),
+            Triple("tag-middle", "标签 B", "2026-08-15T02:00:00Z"),
+        ).forEach { (id, name, createdAt) ->
+            db.execSQL(
+                "INSERT INTO tags (id, name, color, type, created_at, device_id, revision, payload, " +
+                    "updated_at, deleted_at) VALUES (?, ?, NULL, 'book', ?, 'device-1', 1, '{}', ?, NULL)",
+                arrayOf(id, name, createdAt, createdAt),
+            )
+        }
+        listOf(
+            Triple("shelf-late", "书单 C", "2026-08-15T03:00:00Z"),
+            Triple("shelf-early", "书单 A", "2026-08-15T01:00:00Z"),
+            Triple("shelf-middle", "书单 B", "2026-08-15T02:00:00Z"),
+        ).forEach { (id, name, createdAt) ->
+            db.execSQL(
+                "INSERT INTO shelves (id, name, created_at, device_id, revision, payload, updated_at, deleted_at) " +
+                    "VALUES (?, ?, ?, 'device-1', 1, '{}', ?, NULL)",
+                arrayOf(id, name, createdAt, createdAt),
+            )
+        }
+        listOf(
+            Triple("category-late", "分类 C", "2026-08-15T03:00:00Z"),
+            Triple("category-early", "分类 A", "2026-08-15T01:00:00Z"),
+            Triple("category-middle", "分类 B", "2026-08-15T02:00:00Z"),
+        ).forEach { (id, name, createdAt) ->
+            db.execSQL(
+                "INSERT INTO categories (id, name, cover_tone, parent_id, sort_order, created_at, device_id, " +
+                    "revision, payload, updated_at, deleted_at) " +
+                    "VALUES (?, ?, NULL, NULL, 0, ?, 'device-1', 1, '{}', ?, NULL)",
+                arrayOf(id, name, createdAt, createdAt),
+            )
+        }
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 10, true, AppDatabase.MIGRATION_9_10,
+        )
+
+        assertStableDenseOrder(
+            db = db,
+            table = "tags",
+            expectedIds = listOf("tag-early", "tag-middle", "tag-late"),
+        )
+        assertStableDenseOrder(
+            db = db,
+            table = "shelves",
+            expectedIds = listOf("shelf-early", "shelf-middle", "shelf-late"),
+        )
+        assertStableDenseOrder(
+            db = db,
+            table = "categories",
+            expectedIds = listOf("category-early", "category-middle", "category-late"),
+        )
+
+        db.close()
+    }
+
+    private fun assertStableDenseOrder(
+        db: androidx.sqlite.db.SupportSQLiteDatabase,
+        table: String,
+        expectedIds: List<String>,
+    ) {
+        val cursor = db.query("SELECT id, sort_order FROM $table ORDER BY sort_order ASC, created_at ASC, id ASC")
+        val actualIds = mutableListOf<String>()
+        val actualOrders = mutableListOf<Int>()
+        while (cursor.moveToNext()) {
+            actualIds += cursor.getString(0)
+            actualOrders += cursor.getInt(1)
+        }
+        cursor.close()
+
+        assertEquals(expectedIds, actualIds)
+        assertEquals(expectedIds.indices.toList(), actualOrders)
     }
 
     // ─── 1 → 9 完整链路 ────────────────────────────────────────────────
@@ -1137,6 +1349,120 @@ class AppDatabaseMigrationTest {
         )
         assertTrue("索引 index_reader_text_rules_kind 应存在", ruleIdxCursor.moveToFirst())
         ruleIdxCursor.close()
+
+        db.close()
+    }
+
+    // ─── 1 → 10 完整链路 ────────────────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_1_to_10_full_chain() {
+        // 1. 创建 v1 数据库并插入综合测试数据（仅使用 v1 列定义）
+        var db = migrationTestHelper.createDatabase(TEST_DB, 1)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain10-book', '全链路v10 EPUB', '全链路作者', 'epub', 'chain10.epub', " +
+                "'hashchain10', 4096, '/uri/c10', '/content/c10', 'ready', NULL, " +
+                "'2026-10-01T00:00:00Z', 'device-x', '{}', 1, '2026-10-01T00:00:00Z', NULL)",
+        )
+
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, deleted_at) " +
+                "VALUES ('chain10-book', 55.0, '2026-10-02T00:00:00Z', 5400000, 'in_progress', " +
+                "'{\"chapter\":3}', '{}', 1, 'device-x', '2026-10-02T00:00:00Z', NULL)",
+        )
+
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, locator_json, payload, " +
+                "created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('chain10-hl', 'chain10-book', '全链路v10高亮', '笔记', 'blue', " +
+                "'{\"cfi\":\"/4/2\"}', '{}', '2026-10-03T00:00:00Z', 'device-x', 1, " +
+                "'2026-10-03T00:00:00Z', NULL)",
+        )
+
+        db.close()
+
+        // 2. 执行完整迁移链 1 → 10（传入全部 9 个迁移）
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 10, true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
+            AppDatabase.MIGRATION_8_9,
+            AppDatabase.MIGRATION_9_10,
+        )
+
+        // 3. 验证 books / reading_progress / highlights 历史数据完好
+        val booksCursor = db.query(
+            "SELECT title, description FROM books WHERE id = 'chain10-book'",
+        )
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("全链路v10 EPUB", booksCursor.getString(0))
+        assertTrue("description 应为 NULL", booksCursor.isNull(1))
+        booksCursor.close()
+
+        val progressCursor = db.query(
+            "SELECT progress_percent, completed_at FROM reading_progress WHERE book_id = 'chain10-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(55.0, progressCursor.getDouble(0), 0.001)
+        assertTrue("completed_at 应为 NULL", progressCursor.isNull(1))
+        progressCursor.close()
+
+        val hlCursor = db.query(
+            "SELECT text, chapter_title, progress_percent FROM highlights WHERE id = 'chain10-hl'",
+        )
+        assertTrue("highlights 数据应保留", hlCursor.moveToFirst())
+        assertEquals("全链路v10高亮", hlCursor.getString(0))
+        assertTrue("chapter_title 应为 NULL", hlCursor.isNull(1))
+        assertTrue("progress_percent 应为 NULL", hlCursor.isNull(2))
+        hlCursor.close()
+
+        // 4. 验证 chapter_reads 表存在（P3.3 片 1 新增）
+        val tablesCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name = 'chapter_reads'",
+        )
+        assertTrue("chapter_reads 应存在于 1→10 全链末端", tablesCursor.moveToFirst())
+        tablesCursor.close()
+
+        // 5. 验证 tags/shelves 可写入且带 sort_order
+        db.execSQL(
+            "INSERT INTO tags (id, name, color, type, sort_order, created_at, device_id, " +
+                "revision, payload, updated_at, deleted_at) " +
+                "VALUES ('chain10-tag', 'v10标签', NULL, 'book', 5, '2026-10-04T00:00:00Z', " +
+                "'device-x', 1, '{}', '2026-10-04T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO shelves (id, name, sort_order, created_at, device_id, revision, " +
+                "payload, updated_at, deleted_at) " +
+                "VALUES ('chain10-shelf', 'v10书架', 7, '2026-10-04T00:00:00Z', 'device-x', 1, " +
+                "'{}', '2026-10-04T00:00:00Z', NULL)",
+        )
+        val tagSort = db.query("SELECT sort_order FROM tags WHERE id = 'chain10-tag'")
+        assertTrue("tag 应插入", tagSort.moveToFirst())
+        assertEquals(5, tagSort.getInt(0))
+        tagSort.close()
+        val shelfSort = db.query("SELECT sort_order FROM shelves WHERE id = 'chain10-shelf'")
+        assertTrue("shelf 应插入", shelfSort.moveToFirst())
+        assertEquals(7, shelfSort.getInt(0))
+        shelfSort.close()
+
+        // 6. 验证 chapter_reads.book_id 索引存在（全链末端）
+        val chIdx = db.query(
+            "SELECT name FROM sqlite_master WHERE type='index' AND name = 'index_chapter_reads_book_id'",
+        )
+        assertTrue("chapter_reads.book_id 索引应存在", chIdx.moveToFirst())
+        chIdx.close()
 
         db.close()
     }

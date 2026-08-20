@@ -57,35 +57,45 @@ class TaxonomyViewModel @Inject constructor(
     suspend fun getBookIdsByTag(tagId: String): List<String> = repository.getBookIdsByTag(tagId)
 
     // ---- 创建 ----
+    // 禁止写入空/纯空白名称，避免 TextField IME 合成文本未提交时创建出空名脏数据。
     fun createTag(name: String, type: String = "book") = viewModelScope.launch(ioDispatcher) {
+        if (name.isBlank()) return@launch
         repository.createTag(name, type)
     }
 
     suspend fun createTagAndGetId(name: String, type: String = "book"): String =
-        repository.createTag(name, type)
+        if (name.isBlank()) "" else repository.createTag(name, type)
 
     fun createCategory(name: String) = viewModelScope.launch(ioDispatcher) {
+        if (name.isBlank()) return@launch
         repository.createCategory(name)
     }
 
-    suspend fun createCategoryAndGetId(name: String): String = repository.createCategory(name)
+    suspend fun createCategoryAndGetId(name: String): String =
+        if (name.isBlank()) "" else repository.createCategory(name)
 
     fun createShelf(name: String) = viewModelScope.launch(ioDispatcher) {
+        if (name.isBlank()) return@launch
         repository.createShelf(name)
     }
 
-    suspend fun createShelfAndGetId(name: String): String = repository.createShelf(name)
+    suspend fun createShelfAndGetId(name: String): String =
+        if (name.isBlank()) "" else repository.createShelf(name)
 
     // ---- 重命名 ----
+    // 重命名同样禁止空名（留空时保持原名，防止误操作把条目改成"无标题"）。
     fun renameTag(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
+        if (newName.isBlank()) return@launch
         repository.renameTag(id, newName)
     }
 
     fun renameCategory(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
+        if (newName.isBlank()) return@launch
         repository.renameCategory(id, newName)
     }
 
     fun renameShelf(id: String, newName: String) = viewModelScope.launch(ioDispatcher) {
+        if (newName.isBlank()) return@launch
         repository.renameShelf(id, newName)
     }
 
@@ -135,5 +145,31 @@ class TaxonomyViewModel @Inject constructor(
     fun removeBookFromShelf(bookId: String, shelfId: String) = viewModelScope.launch(ioDispatcher) {
         repository.removeBookFromShelf(bookId, shelfId)
     }
-}
 
+    // ---- 排序：仅上移/下移一位（Repository 内部只交换相邻两项 sort_order，事务内完成） ----
+    // 不提供拖拽、置顶、置底、稠密重排入口；遵循审核约束。
+
+    fun moveTagUp(tagId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveTagUp(tagId)
+    }
+
+    fun moveTagDown(tagId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveTagDown(tagId)
+    }
+
+    fun moveCategoryUp(categoryId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveCategoryUp(categoryId)
+    }
+
+    fun moveCategoryDown(categoryId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveCategoryDown(categoryId)
+    }
+
+    fun moveShelfUp(shelfId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveShelfUp(shelfId)
+    }
+
+    fun moveShelfDown(shelfId: String) = viewModelScope.launch(ioDispatcher) {
+        repository.moveShelfDown(shelfId)
+    }
+}

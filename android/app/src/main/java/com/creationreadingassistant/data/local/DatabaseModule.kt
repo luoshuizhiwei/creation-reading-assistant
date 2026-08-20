@@ -22,6 +22,7 @@ import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.SyncAccountDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -41,8 +42,8 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         // 必须在 build() 之前：build() 不打开库，但第一次查询就会触发 onUpgrade，
         // 所以下面的 snapshotIfUpgrading 会在升级前备份数据库快照。
-        // 迁移 1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9 均已定义；
-        // 测试覆盖：1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9、1→9 全链路。
+        // 迁移 1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9、9→10 均已定义；
+        // 测试覆盖：1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9、9→10、1→10 全链路。
         // 迁移失败时应崩溃并报明确错误，而非静默擦除用户数据。
         DatabaseSafetyNet.snapshotIfUpgrading(context, AppDatabase.DB_NAME, AppDatabase.SCHEMA_VERSION)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
@@ -56,6 +57,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_6_7,
                 AppDatabase.MIGRATION_7_8,
                 AppDatabase.MIGRATION_8_9,
+                AppDatabase.MIGRATION_9_10,
             )
             .build()
     }
@@ -80,4 +82,5 @@ object DatabaseModule {
     @Provides fun provideReaderPageIndexDao(db: AppDatabase): ReaderPageIndexDao = db.readerPageIndexDao()
     @Provides fun provideReaderAnchorCacheDao(db: AppDatabase): ReaderAnchorCacheDao = db.readerAnchorCacheDao()
     @Provides fun provideReaderTextRuleDao(db: AppDatabase): ReaderTextRuleDao = db.readerTextRuleDao()
+    @Provides fun provideChapterReadDao(db: AppDatabase): ChapterReadDao = db.chapterReadDao()
 }

@@ -19,6 +19,7 @@ data class TagEntity(
     val name: String,
     val color: String? = null,
     val type: String? = null,
+    val sort_order: Int = 0,
     val created_at: String? = null,
     val device_id: String? = null,
     val revision: Int = 1,
@@ -58,6 +59,7 @@ data class CategoryEntity(
 data class ShelfEntity(
     @PrimaryKey val id: String,
     val name: String,
+    val sort_order: Int = 0,
     val created_at: String? = null,
     val device_id: String? = null,
     val revision: Int = 1,

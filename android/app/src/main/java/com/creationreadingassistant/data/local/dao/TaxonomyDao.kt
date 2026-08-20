@@ -18,10 +18,10 @@ interface TagDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(tag: TagEntity)
 
-    @Query("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY name ASC")
+    @Query("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     fun observeAllActive(): Flow<List<TagEntity>>
 
-    @Query("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY name ASC")
+    @Query("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     suspend fun getAllActive(): List<TagEntity>
 
     @Query("SELECT * FROM tags WHERE id = :id AND deleted_at IS NULL LIMIT 1")
@@ -32,6 +32,15 @@ interface TagDao {
 
     @Query("UPDATE tags SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id")
     suspend fun softDelete(id: String, deletedAt: String)
+
+    @Query("UPDATE tags SET sort_order = :sortOrder, updated_at = :now WHERE id = :id")
+    suspend fun updateSortOrder(id: String, sortOrder: Int, now: String)
+
+    /** 拖动排序后批量落库；调用方保证 ids 与 sortOrders 长度一致。 */
+    @Transaction
+    suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
+        updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
+    }
 }
 
 @Dao
@@ -39,10 +48,10 @@ interface CategoryDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(category: CategoryEntity)
 
-    @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC")
+    @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     fun observeAllActive(): Flow<List<CategoryEntity>>
 
-    @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC")
+    @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     suspend fun getAllActive(): List<CategoryEntity>
 
     @Query("SELECT * FROM categories WHERE id = :id AND deleted_at IS NULL LIMIT 1")
@@ -56,6 +65,15 @@ interface CategoryDao {
 
     @Query("UPDATE categories SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id")
     suspend fun softDelete(id: String, deletedAt: String)
+
+    @Query("UPDATE categories SET sort_order = :sortOrder, updated_at = :now WHERE id = :id")
+    suspend fun updateSortOrder(id: String, sortOrder: Int, now: String)
+
+    /** 拖动排序后批量落库；调用方保证 ids 与 sortOrders 长度一致。 */
+    @Transaction
+    suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
+        updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
+    }
 }
 
 @Dao
@@ -63,10 +81,10 @@ interface ShelfDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsert(shelf: ShelfEntity)
 
-    @Query("SELECT * FROM shelves WHERE deleted_at IS NULL ORDER BY created_at ASC")
+    @Query("SELECT * FROM shelves WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     fun observeAllActive(): Flow<List<ShelfEntity>>
 
-    @Query("SELECT * FROM shelves WHERE deleted_at IS NULL ORDER BY created_at ASC")
+    @Query("SELECT * FROM shelves WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
     suspend fun getAllActive(): List<ShelfEntity>
 
     @Query("SELECT * FROM shelves WHERE id = :id AND deleted_at IS NULL LIMIT 1")
@@ -77,6 +95,15 @@ interface ShelfDao {
 
     @Query("UPDATE shelves SET deleted_at = :deletedAt, updated_at = :deletedAt WHERE id = :id")
     suspend fun softDelete(id: String, deletedAt: String)
+
+    @Query("UPDATE shelves SET sort_order = :sortOrder, updated_at = :now WHERE id = :id")
+    suspend fun updateSortOrder(id: String, sortOrder: Int, now: String)
+
+    /** 拖动排序后批量落库；调用方保证 ids 与 sortOrders 长度一致。 */
+    @Transaction
+    suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
+        updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
+    }
 }
 
 @Dao

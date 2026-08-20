@@ -66,21 +66,49 @@ class TaxonomyRepository @Inject constructor(
     suspend fun createTag(name: String, type: String = "book"): String {
         val now = Instant.now().toString()
         val id = "tag-${UUID.randomUUID()}"
-        tagDao.upsert(TagEntity(id = id, name = name.trim(), type = type.trim().takeIf { it.isNotBlank() } ?: "book", updated_at = now))
+        val maxOrder = tagDao.getAllActive().maxOfOrNull { it.sort_order } ?: -1
+        tagDao.upsert(
+            TagEntity(
+                id = id,
+                name = name.trim(),
+                type = type.trim().takeIf { it.isNotBlank() } ?: "book",
+                sort_order = maxOrder + 1,
+                updated_at = now,
+                created_at = now,
+            ),
+        )
         return id
     }
 
     suspend fun createCategory(name: String): String {
         val now = Instant.now().toString()
         val id = "cat-${UUID.randomUUID()}"
-        categoryDao.upsert(CategoryEntity(id = id, name = name.trim(), updated_at = now))
+        val maxOrder = categoryDao.getAllActive().maxOfOrNull { it.sort_order } ?: -1
+        categoryDao.upsert(
+            CategoryEntity(
+                id = id,
+                name = name.trim(),
+                sort_order = maxOrder + 1,
+                updated_at = now,
+                created_at = now,
+            ),
+        )
         return id
     }
 
     suspend fun createShelf(name: String): String {
         val now = Instant.now().toString()
         val id = "shelf-${UUID.randomUUID()}"
-        shelfDao.upsert(ShelfEntity(id = id, name = name.trim(), updated_at = now))
+        val maxOrder = shelfDao.getAllActive().maxOfOrNull { it.sort_order } ?: -1
+        shelfDao.upsert(
+            ShelfEntity(
+                id = id,
+                name = name.trim(),
+                sort_order = maxOrder + 1,
+                updated_at = now,
+                created_at = now,
+            ),
+        )
         return id
     }
 
@@ -125,4 +153,117 @@ class TaxonomyRepository @Inject constructor(
 
     suspend fun removeBookFromShelf(bookId: String, shelfId: String) =
         shelfBookDao.remove(shelfId, bookId)
+
+    // ---- 排序：仅上移/下移一位，只交换相邻两项的 sort_order（同一事务） ----
+    //
+    // 设计约束（审核要求）：
+    // 1. 只实现上移一位 / 下移一位
+    // 2. 每次只交换当前项与相邻项的 sort_order
+    // 3. 不做全表 0..N-1 稠密重排
+    // 4. 不增加置顶、置底、拖拽
+    // 5. 首项上移 / 末项下移安全无操作
+    // 6. 不使用 runCatching 静默吞错
+    // 7. 两项交换处于同一事务（DAO 的 updateSortOrders 天然是 @Transaction）
+
+    private inline fun <T> List<T>.indexByIdOrThrow(id: String, idOf: (T) -> String, targetName: String): Int {
+        val idx = indexOfFirst { idOf(it) == id }
+        require(idx >= 0) { "$targetName 找不到 id=$id" }
+        return idx
+    }
+
+    /** 标签上移一位；已是第一项则安全无操作。 */
+    suspend fun moveTagUp(tagId: String) {
+        val all = tagDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(tagId, { it.id }, "moveTagUp")
+        if (current == 0) return
+        val prev = all[current - 1]
+        val self = all[current]
+        tagDao.updateSortOrders(
+            updates = listOf(
+                prev.id to self.sort_order,
+                self.id to prev.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
+
+    /** 标签下移一位；已是最后一项则安全无操作。 */
+    suspend fun moveTagDown(tagId: String) {
+        val all = tagDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(tagId, { it.id }, "moveTagDown")
+        if (current >= all.size - 1) return
+        val next = all[current + 1]
+        val self = all[current]
+        tagDao.updateSortOrders(
+            updates = listOf(
+                next.id to self.sort_order,
+                self.id to next.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
+
+    /** 分类上移一位；已是第一项则安全无操作。 */
+    suspend fun moveCategoryUp(categoryId: String) {
+        val all = categoryDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(categoryId, { it.id }, "moveCategoryUp")
+        if (current == 0) return
+        val prev = all[current - 1]
+        val self = all[current]
+        categoryDao.updateSortOrders(
+            updates = listOf(
+                prev.id to self.sort_order,
+                self.id to prev.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
+
+    /** 分类下移一位；已是最后一项则安全无操作。 */
+    suspend fun moveCategoryDown(categoryId: String) {
+        val all = categoryDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(categoryId, { it.id }, "moveCategoryDown")
+        if (current >= all.size - 1) return
+        val next = all[current + 1]
+        val self = all[current]
+        categoryDao.updateSortOrders(
+            updates = listOf(
+                next.id to self.sort_order,
+                self.id to next.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
+
+    /** 书单上移一位；已是第一项则安全无操作。 */
+    suspend fun moveShelfUp(shelfId: String) {
+        val all = shelfDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(shelfId, { it.id }, "moveShelfUp")
+        if (current == 0) return
+        val prev = all[current - 1]
+        val self = all[current]
+        shelfDao.updateSortOrders(
+            updates = listOf(
+                prev.id to self.sort_order,
+                self.id to prev.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
+
+    /** 书单下移一位；已是最后一项则安全无操作。 */
+    suspend fun moveShelfDown(shelfId: String) {
+        val all = shelfDao.getAllActive().sortedWith(compareBy({ it.sort_order }, { it.created_at }))
+        val current = all.indexByIdOrThrow(shelfId, { it.id }, "moveShelfDown")
+        if (current >= all.size - 1) return
+        val next = all[current + 1]
+        val self = all[current]
+        shelfDao.updateSortOrders(
+            updates = listOf(
+                next.id to self.sort_order,
+                self.id to next.sort_order,
+            ),
+            now = Instant.now().toString(),
+        )
+    }
 }
