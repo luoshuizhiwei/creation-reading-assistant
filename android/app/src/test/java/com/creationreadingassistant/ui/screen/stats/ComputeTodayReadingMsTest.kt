@@ -38,9 +38,11 @@ class ComputeTodayReadingMsTest {
 
     @Test
     fun `occurred 为空回退今天并计入`() {
-        // sessionDateKey 对 null occurred_at 回退 today（与统计页同语义）
+        // sessionDateKey 对 null occurred_at 回退「真实 LocalDate.now()」（生产语义），
+        // 因此用当前日期断言，避免固定日期跨日后失配。
+        val now = LocalDate.now()
         val sessions = listOf(session("", 15).let { it.copy(occurred_at = null) })
-        assertEquals(15 * 60_000L, computeTodayReadingMs(sessions, today))
+        assertEquals(15 * 60_000L, computeTodayReadingMs(sessions, now))
     }
 
     @Test

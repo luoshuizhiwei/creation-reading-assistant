@@ -35,6 +35,7 @@ class WebDavBackup @Inject constructor() {
         content: String,
     ): Result<Unit> = runCatching {
         requireSafeTarget(url)
+        requireSafeFilename(filename)
         val target = if (url.endsWith("/")) "$url$filename" else "$url/$filename"
         val body = content.toRequestBody("application/json".toMediaType())
         val request = Request.Builder()
@@ -70,6 +71,7 @@ class WebDavBackup @Inject constructor() {
     /** 下载恢复：GET 指定备份文件，返回其 JSON 文本。 */
     suspend fun get(url: String, user: String, pass: String, filename: String): Result<String> = runCatching {
         requireSafeTarget(url)
+        requireSafeFilename(filename)
         val target = resolveTarget(url, filename)
         val request = Request.Builder()
             .url(target)
@@ -161,6 +163,18 @@ class WebDavBackup @Inject constructor() {
             else -> throw IllegalArgumentException("WebDAV 地址协议不受支持：$scheme")
         }
     }
+
+    /**
+     * 文件名白名单：只允许普通文件名，拒绝含路径分隔符 / 或 .. 的注入，
+     * 避免服务器返回的恶意 displayname 把请求导向错误路径。
+     */
+    private fun requireSafeFilename(filename: String) {
+        if (!FILENAME_RE.matches(filename)) {
+            throw IllegalArgumentException("非法备份文件名：$filename")
+        }
+    }
+
+    private val FILENAME_RE = Regex("[A-Za-z0-9._-]+")
 
     private fun parsePropFind(xml: String, baseUrl: String): List<BackupFile> {
         val factory = XmlPullParserFactory.newInstance()

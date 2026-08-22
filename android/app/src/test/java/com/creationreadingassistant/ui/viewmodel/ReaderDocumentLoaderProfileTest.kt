@@ -26,6 +26,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.Dispatchers
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -55,6 +59,8 @@ class ReaderDocumentLoaderProfileTest {
 
     @Before
     fun setUp() {
+        // 显式设置 Main：消除对 runTest 自动 Main 替换的执行顺序依赖（间歇性 Dispatchers.Main 未设置）
+        Dispatchers.setMain(UnconfinedTestDispatcher())
         tempRoot = Files.createTempDirectory("reader-loader-profile-").toFile()
         context = mockk(relaxed = true)
         every { context.cacheDir } returns File(tempRoot, "cache")
@@ -80,6 +86,7 @@ class ReaderDocumentLoaderProfileTest {
 
     @After
     fun tearDown() {
+        Dispatchers.resetMain()
         tempRoot.deleteRecursively()
     }
 
