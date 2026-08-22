@@ -20,8 +20,10 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -48,7 +50,10 @@ class ReaderSettingsSheetTest {
             "高级兼容" to "分页兼容",
         )
         groups.forEach { (entry, pageContent) ->
-            composeRule.onNodeWithText(entry).performScrollTo().performClick()
+            scrollToText(entry)
+            composeRule.onNodeWithText(entry).performClick()
+            // 页面内容区块可能在折叠线下（排版页首屏是字号预览），先滚到位再断言
+            scrollToText(pageContent)
             composeRule.onNodeWithText(pageContent).assertIsDisplayed()
             composeRule.onNodeWithContentDescription("返回")
                 .assertIsDisplayed()
@@ -70,22 +75,31 @@ class ReaderSettingsSheetTest {
             ),
         )
 
-        composeRule.onNodeWithText("翻页与操作").performScrollTo().performClick()
+        scrollToText("翻页与操作")
+        composeRule.onNodeWithText("翻页与操作").performClick()
         composeRule.onAllNodesWithText("朗读时音量键仍翻页").assertCountEquals(0)
-        composeRule.onNodeWithText("音量键翻页").performScrollTo().performClick()
-        composeRule.onNodeWithText("朗读时音量键仍翻页").performScrollTo().assertIsDisplayed()
+        scrollToText("音量键翻页")
+        composeRule.onNodeWithText("音量键翻页").performClick()
+        scrollToText("朗读时音量键仍翻页")
+        composeRule.onNodeWithText("朗读时音量键仍翻页").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("返回").performClick()
 
-        composeRule.onNodeWithText("显示与页眉页脚").performScrollTo().performClick()
+        scrollToText("显示与页眉页脚")
+        composeRule.onNodeWithText("显示与页眉页脚").performClick()
         composeRule.onAllNodesWithText("页眉左侧").assertCountEquals(0)
-        composeRule.onNodeWithText("显示安静阅读信息").performScrollTo().performClick()
-        composeRule.onNodeWithText("页眉左侧").performScrollTo().assertIsDisplayed()
+        scrollToText("显示安静阅读信息")
+        composeRule.onNodeWithText("显示安静阅读信息").performClick()
+        scrollToText("页眉左侧")
+        composeRule.onNodeWithText("页眉左侧").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("返回").performClick()
 
-        composeRule.onNodeWithText("护眼与提醒").performScrollTo().performClick()
+        scrollToText("护眼与提醒")
+        composeRule.onNodeWithText("护眼与提醒").performClick()
         composeRule.onAllNodesWithText("色温").assertCountEquals(0)
-        composeRule.onNodeWithText("开启护眼滤镜").performScrollTo().performClick()
-        composeRule.onNodeWithText("色温").performScrollTo().assertIsDisplayed()
+        scrollToText("开启护眼滤镜")
+        composeRule.onNodeWithText("开启护眼滤镜").performClick()
+        scrollToText("色温")
+        composeRule.onNodeWithText("色温").assertIsDisplayed()
     }
 
     @Test
@@ -93,7 +107,8 @@ class ReaderSettingsSheetTest {
         val visible = mutableStateOf(true)
         renderSettings(visible = visible)
 
-        composeRule.onNodeWithText("高级兼容").performScrollTo().performClick()
+        scrollToText("高级兼容")
+        composeRule.onNodeWithText("高级兼容").performClick()
         composeRule.onNodeWithText("分页兼容").assertIsDisplayed()
         composeRule.runOnIdle { visible.value = false }
         composeRule.onAllNodesWithText("分页兼容").assertCountEquals(0)
@@ -108,10 +123,12 @@ class ReaderSettingsSheetTest {
         // 默认 4 秒必须明确显示且可选（用户反馈 2），0 = 不定时隐藏。
         renderSettings(initial = ReaderSettings(autoHideSeconds = 4))
 
-        composeRule.onNodeWithText("显示与页眉页脚").performScrollTo().performClick()
+        scrollToText("显示与页眉页脚")
+        composeRule.onNodeWithText("显示与页眉页脚").performClick()
 
         listOf("不隐藏", "3 秒", "4 秒", "5 秒", "8 秒").forEach { option ->
-            composeRule.onNodeWithText(option).performScrollTo().assertIsDisplayed()
+            scrollToText(option)
+            composeRule.onNodeWithText(option).assertIsDisplayed()
         }
         composeRule.onNodeWithText("4 秒").performClick()
     }
@@ -128,11 +145,23 @@ class ReaderSettingsSheetTest {
 
         val rootBounds = composeRule.onNodeWithTag("settings-root").fetchSemanticsNode().boundsInRoot
         composeRule.onNodeWithText("阅读设置").assertIsDisplayed()
+        // 大字号下快捷调整可能在折叠线下方，先惰性滚动到位再断言
+        scrollToText("快捷调整")
         composeRule.onNodeWithText("快捷调整").assertIsDisplayed()
-        composeRule.onNodeWithText("高级兼容").performScrollTo().assertIsDisplayed()
+        scrollToText("高级兼容")
+        composeRule.onNodeWithText("高级兼容").assertIsDisplayed()
         val advancedBounds = composeRule.onNodeWithText("高级兼容").fetchSemanticsNode().boundsInRoot
         assertTrue(advancedBounds.left >= rootBounds.left)
         assertTrue(advancedBounds.right <= rootBounds.right)
+    }
+
+    /**
+     * 惰性容器感知的滚动：LazyColumn 折叠屏外的 item 尚未组合，直接
+     * onNodeWithText(x).performScrollTo() 会因节点不存在而失败；
+     * 必须对容器执行 performScrollToNode 让其边滚边组合。
+     */
+    private fun scrollToText(text: String) {
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasText(text))
     }
 
     private fun renderSettings(

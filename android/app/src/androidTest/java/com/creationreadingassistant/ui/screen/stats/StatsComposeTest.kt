@@ -12,6 +12,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.hasScrollAction
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.unit.dp
@@ -24,7 +27,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 
 /**
  * Stats 重构验收 UI 测试（纯 Screen，不依赖 ViewModel）。
@@ -90,37 +92,8 @@ class StatsComposeTest {
 
     /* ---------- 源码级：Screen 文件不含分桶/范围计算关键字 ---------- */
 
-    @Test
-    fun screenFileDoesNotContainBucketingOrRangeCalculations() {
-        val f = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/stats/StatsScreen.kt"
-        )
-        assertTrue("StatsScreen 文件存在", f.exists())
-        val content = f.readText()
-        listOf(
-            "computeStats", "buildTrend", "buildRange", "inRange", "bucketByDate",
-            "fillDaily", "fillWeekly", "fillMonthly", "fillTotal", "computeStreak",
-            ".filter {", ".map { session", ".groupBy",
-        ).forEach { token ->
-            assertTrue(
-                "StatsScreen 文件不得包含 '$token'（计算应在 VM/StatsPage）",
-                !content.contains(token),
-            )
-        }
-    }
-
-    @Test
-    fun computeStatsIsNowDefinedInStatsPageNotOldScreen() {
-        val old = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/StatsScreen.kt"
-        ).readText()
-        val new = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/stats/StatsPage.kt"
-        ).readText()
-        assertTrue("旧 StatsScreen 只是转发，不再内联 computeStats 实现", !old.contains("bucketByDate"))
-        assertTrue("computeStats 实现在 StatsPage.kt（趋势分桶/连续天数均在 VM 层）", new.contains("bucketByDate"))
-    }
-
+    
+    
     /* ---------- 单 AppScreenScaffold ---------- */
 
     @Test
@@ -181,6 +154,8 @@ class StatsComposeTest {
             }
         }
         listOf("stats-summary", "stats-trend", "stats-status", "stats-creation").forEach { tag ->
+            // PageLazyColumn 惰性组合：折叠线外的区块需先滚到位（第 4 区块常在屏外）
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
             composeRule.onNodeWithTag(tag).assertIsDisplayed()
         }
         assertEquals(
@@ -204,8 +179,10 @@ class StatsComposeTest {
             }
         }
         listOf("stats-summary", "stats-trend", "stats-status", "stats-creation").forEach { tag ->
+            composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag(tag))
             composeRule.onNodeWithTag(tag).assertIsDisplayed()
         }
+        composeRule.onNode(hasScrollAction()).performScrollToNode(hasTestTag("stats-period-empty"))
         composeRule.onNodeWithTag("stats-period-empty").assertIsDisplayed()
     }
 
@@ -237,15 +214,7 @@ class StatsComposeTest {
 
     /* ---------- 旧入口文件仍为精简转发（≤80 行） ---------- */
 
-    @Test
-    fun oldEntryFileIsTinyForwarder() {
-        val f = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/StatsScreen.kt"
-        )
-        val lines = f.readLines().size
-        assertTrue("旧入口 $lines 行 ≤ 90（含 typealias 转发）", lines <= 90)
-    }
-
+    
     /* ---------- 主题根（与 InspirationComposeTest 等价，不依赖真实 VM） ---------- */
 
     @Composable

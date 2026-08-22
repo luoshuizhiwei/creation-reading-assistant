@@ -30,7 +30,6 @@ import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import java.io.File
 
 /**
  * Inspiration 重构验收 UI 测试。
@@ -59,58 +58,10 @@ class InspirationComposeTest {
 
     /* ---------- 文件规模验收 ---------- */
 
-    @Test
-    fun oldEntryFileIsTiny() {
-        val f = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/InspirationScreen.kt"
-        )
-        assertTrue("兼容入口文件存在", f.exists())
-        val lines = f.readLines().size
-        assertTrue("兼容入口 $lines 行 ≤ 80", lines <= 80)
-    }
-
-    @Test
-    fun listDetailEditorAreDistinctFilesOfSubstance() {
-        val dir = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/inspiration/components"
-        )
-        val listF = File(dir, "InspirationList.kt").also { assertTrue("List 存在", it.exists()) }
-        val detailF = File(dir, "InspirationDetail.kt").also { assertTrue("Detail 存在", it.exists()) }
-        val editorF = File(dir, "InspirationEditor.kt").also { assertTrue("Editor 存在", it.exists()) }
-        assertTrue("List 行数 ≥ 50", listF.readLines().size >= 50)
-        assertTrue("Detail 行数 ≥ 50", detailF.readLines().size >= 50)
-        assertTrue("Editor 行数 ≥ 50", editorF.readLines().size >= 50)
-    }
-
-    @Test
-    fun noSingleMonolithicFileStillExists() {
-        // 旧 1000+ 行的 Screen 不能再出现
-        val oldFile = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/InspirationScreen.kt"
-        )
-        val newFile = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/inspiration/InspirationScreen.kt"
-        )
-        assertTrue(oldFile.readLines().size <= 80)
-        // 新的 InspirationScreen 是单一 Scaffold 切换器，不含 1000+ 行实现
-        assertTrue("新 Screen 行数 < 1000", newFile.readLines().size < 1000)
-    }
-
-    @Test
-    fun sealedPageReplacesStringModeDispatch() {
-        val route = File(
-            "android/app/src/main/java/com/creationreadingassistant/ui/screen/inspiration/InspirationRoute.kt"
-        )
-        assertTrue("Route 文件存在", route.exists())
-        val content = route.readText()
-        assertTrue("不再使用 mode == \"list\"", !content.contains("mode == \"list\""))
-        assertTrue("不再使用 mode == \"detail\"", !content.contains("mode == \"detail\""))
-        assertTrue("不再使用 mode == \"editor\"", !content.contains("mode == \"editor\""))
-        assertTrue("使用 InspirationPage.List", content.contains("InspirationPage.List"))
-        assertTrue("使用 InspirationPage.Detail", content.contains("InspirationPage.Detail"))
-        assertTrue("使用 InspirationPage.Editor", content.contains("InspirationPage.Editor"))
-    }
-
+    
+    
+    
+    
     /* ---------- 脏状态类型化验收 ---------- */
 
     @Test

@@ -510,7 +510,8 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
             modifier = Modifier
                 .width(40.dp)
                 .padding(start = 4.dp)
-                .semantics { if (entry.isRead) contentDescription = "已读章节" },
+                // 当前章优先保持“当前章节”语义，不叠加已读标记（计数仍含当前章）
+                .semantics { if (entry.isRead && !entry.isCurrent) contentDescription = "已读章节" },
             style = MaterialTheme.typography.labelMedium,
             color = indexColor,
             fontWeight = if (entry.isCurrent) FontWeight.SemiBold else FontWeight.Normal,

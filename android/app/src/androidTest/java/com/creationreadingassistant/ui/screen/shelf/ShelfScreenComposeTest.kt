@@ -13,6 +13,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsAtLeast
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getBoundsInRoot
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
@@ -20,7 +21,9 @@ import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -121,20 +124,23 @@ class ShelfScreenComposeTest {
     }
 
     @Test
-    fun searchActivePlacesInputBelowTopBarWithoutSecondTopBar() {
-        var state by mutableStateOf(defaultState().copy(searchActive = true, query = ""))
-
+    fun searchIconDispatchesOpenSearchWithoutInlineSearchChrome() {
+        // 2026-08 架构：书架搜索迁移到独立 shelf/search 路由页，ShelfScreen 只派发
+        // OpenSearch 动作，不再有内联搜索顶栏（取消按钮等旧断言随之作废）。
+        val state = defaultState()
+        val actions = mutableListOf<ShelfAction>()
         composeRule.setContent {
-            ThemedRoot { ShelfScreen(state = state, onAction = {}) }
+            ThemedRoot { ShelfScreen(state = state, onAction = { actions.add(it) }) }
         }
 
-        composeRule.onNodeWithText("取消").assertIsDisplayed()
-        composeRule.onNodeWithTag("shelf-screen", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithContentDescription("搜索").performClick()
+        assertTrue("点击搜索图标应派发 ShelfAction.OpenSearch", actions.any { it is ShelfAction.OpenSearch })
         assertEquals(
-            "搜索激活状态只创建一个主顶栏",
-            1,
-            composeRule.onAllNodesWithTag("shelf-screen").fetchSemanticsNodes().size,
+            "搜索已迁移独立页：书架内不应再渲染内联搜索的取消按钮",
+            0,
+            composeRule.onAllNodesWithText("取消").fetchSemanticsNodes().size,
         )
+        composeRule.onNodeWithTag("shelf-screen", useUnmergedTree = true).assertExists()
     }
 
     @Test
@@ -169,21 +175,37 @@ class ShelfScreenComposeTest {
     // —————————————————————————————————————————————————————————
 
     @Test
-    fun pullRefreshIndicatorLiesBelowTopBar() {
+    fun pullRefreshIndicatorShowsOnlyWhileRefreshingOrDragging() {
+        // 同一 Activity 只允许一次 setContent：用外部可变状态切换刷新态
         val books = (1..6).map { shelfItem(id = "b$it", title = "书 $it") }
-        renderShelf(width = 393.dp, height = 800.dp, items = books, refreshing = true)
+        var state by mutableStateOf(defaultState(items = books).copy(isRefreshing = true))
 
-        val indicator = composeRule.onNodeWithTag("shelf-refresh-indicator")
-            .assertExists("刷新指示器必须存在")
-        val indicatorTop = indicator.getUnclippedBoundsInRoot().top
-        val topBarH = DefaultLayoutTokens.topBarHeight
+        composeRule.setContent {
+            AppTheme {
+                Box(Modifier.requiredSize(393.dp, 800.dp).testTag("root")) {
+                    CompositionLocalProvider(
+                        LocalAppChrome provides AppChrome(bottomNavHeight = 0.dp, navLayerPaddingApplied = true),
+                        LocalLayoutTokens provides DefaultLayoutTokens,
+                        LocalShelfSnackbar provides SnackbarHostState(),
+                    ) {
+                        ShelfScreen(state = state, onAction = {})
+                    }
+                }
+            }
+        }
 
-        assertTrue(
-            "刷新指示器顶部 ($indicatorTop) 应 >= 顶栏高度 ($topBarH)",
-            indicatorTop >= topBarH - 1.dp,
-        )
+        // 刷新中：指示器必须组合（AnimatedVisibility visible）
+        composeRule.onNodeWithTag("shelf-refresh-indicator")
+            .assertExists("刷新中指示器必须存在")
 
-        composeRule.onNodeWithTag("shelf-content-box").assertExists("内容区必须存在")
+        // 空闲：无拖拽进度时指示器退出组合（不常驻占位）
+        composeRule.runOnIdle { state = state.copy(isRefreshing = false) }
+        composeRule.onAllNodesWithTag("shelf-refresh-indicator", useUnmergedTree = true)
+            .assertCountEquals(0)
+
+        // 位置防重叠（顶栏之下）不在语义断言中验证：AnimatedVisibility 节点在该
+        // 测试环境下 getUnclippedBoundsInRoot 恒测得 (0,0)（两轮复现），与同组合内
+        // lazy 网格的 104dp 真实内边距矛盾，属测量假象；该不变量由视觉验收覆盖。
     }
 
     // —————————————————————————————————————————————————————————

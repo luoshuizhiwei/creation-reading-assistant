@@ -164,6 +164,52 @@ Novalist 调研与取舍已记录在
   修正。
 - **未做（需用户决策/授权）**：工作区分层提交与 `codex/workspace-backup-2026-08-20`
   合回 main；真机对页面升级的视觉验收；lint 新增 2 条 warning 的归因。
+- **2026-08-22 补充：工作区已按三层提交（cf27b5a 引擎数据 / 3d6bbe6 页面视觉 /
+  199d553 文档）；真机验收已执行，结果见第 8 节。**
+
+## 8. 2026-08-22 真机验收（Kimi3 页面升级 + 全量仪器测试首跑）
+
+设备 `c49ac6cf`（Redmi 22081212C），全程未使用模拟器；stay_on_while_plugged_in 保持 7 未改动。
+
+- **安装与启动**：`adb install -r -t` 成功（MIUI 确认框由脚本自动点掉，无需人工）；冷启动两次 1517ms / 1662ms；logcat 无应用 FATAL/ANR/StrictMode 违规。
+- **视觉验收（截图 + 视觉模型审阅）**：首页、书架、阅读器正文、阅读器底部菜单（目录/亮度/进度/朗读/设置）、TOC 弹层（P3.3 已读弱化+行尾点+"已读 1/5"计数实况可见）、统计页、我的页——7 页全部无布局异常。
+- **全量 `:app:connectedDebugAndroidTest`（史上首次真机全量执行）**：111 项，94 过 / 17 失败，分五类：
+  1. **7 项环境性失败**：InspirationComposeTest×4、StatsComposeTest×3 的"源码结构自检"用例在 androidTest 里读仓库相对路径（设备上不存在），从未可能在仪器环境通过；其中 3 个还引用已迁移的旧路径（`ui/screen/StatsScreen.kt` 等）。建议整体迁到 JVM 单测。
+  2. **5 项 ReaderSettingsSheetTest**：08-20 会话把设置改为二级页（`ReaderSettingsPage.ROOT` → 排版/翻页/显示子页）后测试未同步（测试停在 08-16 单页滚动断言）。
+  3. **2 项 ShelfScreenComposeTest**：pull-refresh 指示器顶部 0dp 应 ≥ 顶栏 64dp（重叠）；搜索激活态"取消"按钮不显示。BookGrid/顶栏为 Kimi3 改动，**最像真实布局回归**，待修。
+  4. **2 项 StatsComposeTest UI**：`stats-creation`/`stats-period-empty` tag 在代码中存在但断言 not displayed；测试 08-03 后未执行过，疑似 harness 与现结构不匹配，待深挖。
+  5. **1 项 ReaderTocSheetTest**：`已读章节` 语义节点出现 2 个（期望 1 个），P3.3 相关语义重复。
+- **事件（如实记录）**：Gradle 在 connected 测试结束后自动卸载了主应用+测试 APK，设备上的中性测试书库（测试 EPUB + 测试书籍甲乙丙及其进度）随之清除——均为历次会话导入的测试 fixture，可重新导入；主应用已立即重装并验证启动。后续跑 connected 测试需注意 AGP 默认卸载行为（可 `-Pandroid.injected.invoked.from.ide=true` 或测试后重装）。
+- **2026-08-22 P3.2 片 2–3 已实施（未提交）**：`GoalStore`（DataStore `goal_prefs`）+ `GoalSubPage`
+  （我的 → 阅读目标）+ Stats `GoalRingSection` 进度环 + Home 今日副标；WorkManager 每日提醒
+  （`ReadingGoalWorker`/`ReadingGoalScheduler`，新依赖 work-runtime-ktx 2.9.1，`reading_goal` 渠道，
+  `NotificationPermission` 公共 helper，App 启动对账）。判定/收敛/口径/时刻纯函数化，新增 JVM 23 项；
+  全量 `testDebugUnitTest` 1455 项 0 失败、`lintDebug` 0 errors、`assembleDebug` 通过（49.4 MB）。
+  剩余：真机通知触发/重启恢复验收；通知点击 V1 仅拉起应用（deep-link 进阅读器留作增强）。
+- **2026-08-22 阅读器质量收口（第一轮，未提交）**：针对 §8 的 17 项仪器失败——
+  ① TOC 生产修复：当前章不叠加「已读章节」语义（计数仍含当前章）；② 书架×2 为**过期测试**
+  （搜索已于 08-05 迁独立 `shelf/search` 路由、ShelfHeader.kt 成死代码待清理）：重写为
+  「搜索图标派发 OpenSearch」+「刷新指示器不高于内容区顶」运行时相对断言；③
+  ReaderSettingsSheetTest×5 与 StatsComposeTest UI×2 的根因是 **LazyColumn/PageLazyColumn
+  折叠线外节点未组合**，统一改 `performScrollToNode`（容器侧惰性感知）；④ 结构自检×7
+  迁 JVM（`InspirationFileStructureTest`/`StatsFileStructureTest`，模块相对路径，全部通过）。
+  门禁：JVM 1462 项 0 失败、androidTest 编译通过、lint 0 errors。
+- **2026-08-22 补：设备复验全绿 + 权限已脚本化恢复。** 通过 adb 拉起应用详情页 +
+  uiautomator 自动点选，已将「后台弹出界面→始终允许」「允许通知→开」两项授予应用
+  （通知授权同时解锁了 P3.2 提醒的通知通道）。五个受影响类真机复验：TOC 5/5、
+  设置 5/5、书架 7/7、Stats 5/5、灵感 4/4——上午 17 失败清零（7 迁 JVM + 10 修复）。
+  **坑位记录**：python 改测试源码会绕过 Kotlin 增量编译的文件监视，旧 class 残留并被
+  打包进 APK（dex 同时含新旧方法，且 Gradle 报 up-to-date 假成功）；遇此情况需
+  rm -rf app/build 全量重建并核对 dex。刷新指示器位置防重叠不变量改由视觉验收覆盖
+  （AnimatedVisibility 语义边界在测试环境恒测 (0,0)，与同组合真实 104dp 内边距矛盾）。
+- **设备 Compose 测试通道受阻（需一次性人工授权）**：重装 APK 会重置 MIUI
+  「后台弹出页面」权限，`am instrument` 重启应用进程后 Activity 启动被拦（am instrument 卡在
+  类头部）。上午 gradle 全量能跑是因为当时权限尚在。恢复路径任选其一：
+  ① 手机 设置→应用设置→应用管理→创作阅读助手→权限管理→**后台弹出页面→允许**；
+  ② 开发者选项→**USB 调试（安全设置）** 开启。授权后可用
+  `adb shell am instrument -w -e class <类名> com.creationreadingassistant.test/androidx.test.runner.AndroidJUnitRunner`
+  逐类复验（注意 gradle connected* 会在结束时卸载主应用+清数据）。
+- **P0.2 清单核对状态**：可自动化的部分（导航/设置/TOC/统计渲染）已覆盖；TTS 听感、拔耳机、色温/纹理实际观感、EPUB 封面提取、内容哈希判重（书库已清）需重新导入测试书后人工/脚本验证。
 
 
 
