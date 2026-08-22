@@ -127,6 +127,7 @@ fun HomeScreen(
                         readingCount = state.readingCount,
                         completedCount = state.completedCount,
                         todayReadingMs = state.todayReadingMs,
+                        dailyGoalMinutes = state.dailyGoalMinutes,
                     )
                 }
 

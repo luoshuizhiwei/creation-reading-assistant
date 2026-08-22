@@ -14,7 +14,7 @@ import com.creationreadingassistant.ui.viewmodel.SyncResultDetail
 // ============================== 枚举与常量 ==============================
 
 internal enum class ProfileSubPage {
-    SYNC, WEBDAV, APPEARANCE, READER, AI,
+    SYNC, WEBDAV, APPEARANCE, READER, AI, GOAL,
     TAGS, CATEGORIES, SHELVES, READING, NOTES,
     STORAGE, PRIVACY, ABOUT, DIAGNOSTICS
 }
@@ -51,6 +51,7 @@ internal fun subPageTitle(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.WEBDAV -> "WebDAV 设置"
     ProfileSubPage.APPEARANCE -> "应用外观"
     ProfileSubPage.READER -> "阅读设置"
+    ProfileSubPage.GOAL -> "阅读目标"
     ProfileSubPage.AI -> "AI 助手"
     ProfileSubPage.TAGS -> "标签管理"
     ProfileSubPage.CATEGORIES -> "分类管理"
@@ -69,6 +70,7 @@ internal fun subPageEyebrow(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.WEBDAV -> "跨设备备份"
     ProfileSubPage.APPEARANCE -> "外观"
     ProfileSubPage.READER -> "阅读体验"
+    ProfileSubPage.GOAL -> "目标"
     ProfileSubPage.AI -> "工具"
     ProfileSubPage.TAGS -> "数据管理"
     ProfileSubPage.CATEGORIES -> "数据管理"
@@ -85,6 +87,18 @@ internal fun subPageEyebrow(page: ProfileSubPage?): String = when (page) {
 // ============================== UI 状态 ==============================
 
 @Immutable
+/** 阅读目标子页状态（P3.2 片 2/3）：目标、提醒与 streak/今日进度的一站式投影。 */
+internal data class GoalPageState(
+    val dailyMinutes: Int = 0,
+    val reminderEnabled: Boolean = false,
+    val reminderMinuteOfDay: Int = 21 * 60,
+    val streakDays: Int = 0,
+    val todayReadingMs: Long = 0L,
+) {
+    val goalEnabled: Boolean get() = dailyMinutes > 0
+    val todayMinutes: Int get() = (todayReadingMs / 60_000L).toInt()
+}
+
 internal data class ProfileUiState(
     val currentSubPage: ProfileSubPage? = null,
     val paired: Boolean = false,
@@ -108,6 +122,7 @@ internal data class ProfileUiState(
     val libraryState: ProfileLibraryState = ProfileLibraryState(),
     val pendingDownloadCount: Int = 0,
     val indexBytes: Long = 0L,
+    val goal: GoalPageState = GoalPageState(),
 )
 
 // ============================== Action ==============================
@@ -142,6 +157,11 @@ internal sealed interface ProfileAction {
     data object SaveAiKey : ProfileAction
     data object ClearAiKey : ProfileAction
     data class UpdateAiKeyDraft(val value: String) : ProfileAction
+
+    // Reading goal (P3.2)
+    data class UpdateGoalMinutes(val minutes: Int) : ProfileAction
+    data class UpdateGoalReminderEnabled(val enabled: Boolean) : ProfileAction
+    data class UpdateGoalReminderMinuteOfDay(val minute: Int) : ProfileAction
 
     // Storage
     data object Export : ProfileAction

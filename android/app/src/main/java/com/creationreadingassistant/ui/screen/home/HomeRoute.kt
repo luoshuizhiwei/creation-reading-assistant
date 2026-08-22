@@ -92,6 +92,7 @@ fun HomeRoute(
         totalReadBooksCount = data.totalReadBooksCount,
         totalReadingMs = data.totalReadingMs,
         todayReadingMs = data.todayReadingMs,
+        dailyGoalMinutes = data.dailyGoalMinutes,
     )
 
     // —— 纯 Screen 只拿 HomeUiState + onAction，不感知本 Route 的任何副作用 ——

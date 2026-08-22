@@ -103,7 +103,34 @@ internal data class StatsUiState(
     val hasAnyData: Boolean = false,
     val showGlobalEmpty: Boolean = false,
     val showPeriodEmpty: Boolean = false,
+    /** 今日目标投影；null = 目标关闭（进度环整体不组合）。 */
+    val goal: GoalUi? = null,
 )
+
+/**
+ * 今日阅读目标投影（P3.2 片 2）。由 VM 派生好，Screen 零计算。
+ */
+internal data class GoalUi(
+    val todayReadingMs: Long,
+    val dailyGoalMinutes: Int,
+    val streakDays: Int,
+) {
+    val achieved: Boolean get() = dailyGoalMinutes > 0 && todayReadingMs >= dailyGoalMinutes * 60_000L
+}
+
+/**
+ * 今日有效阅读时长（occurred 口径 + 片 1 的异常时长过滤），目标进度环与提醒判定共用。
+ * 纯函数：与 [computeStats] 同一套日期解析与有效性判定。
+ */
+internal fun computeTodayReadingMs(
+    sessions: List<StatsSessionRow>,
+    today: LocalDate = LocalDate.now(),
+): Long {
+    val key = toDateKey(today)
+    return sessions.sumOf { s ->
+        if (sessionDateKey(s) == key) sessionDuration(s) else 0L
+    }
+}
 
 /* ========== 格式化函数（保留在 stats 子包，仍属于"日期范围/分桶/连续天数之外"的纯格式） ========== */
 

@@ -294,11 +294,10 @@ internal fun openTts(
         return
     }
     // R1：API 33+ 运行时申请通知权限，否则锁屏媒体控制无法显示
-    if (Build.VERSION.SDK_INT >= 33) {
-        val act = context as? Activity
-        if (act != null && androidx.core.content.ContextCompat.checkSelfPermission(act, Manifest.permission.POST_NOTIFICATIONS) != android.content.pm.PackageManager.PERMISSION_GRANTED) {
-            androidx.core.app.ActivityCompat.requestPermissions(act, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 1001)
-        }
+    (context as? Activity)?.let { act ->
+        com.creationreadingassistant.ui.components.NotificationPermission.requestIfNeeded(
+            act, com.creationreadingassistant.ui.components.NotificationPermission.REQUEST_TTS,
+        )
     }
     val resumeAt = ttsResumeStartAt(
         isEpub = epubBook != null,

@@ -43,6 +43,7 @@ data class HomeUiState(
     val readingCount: Int = 0,
     val totalReadingMs: Long = 0L,
     val todayReadingMs: Long = 0L,
+    val dailyGoalMinutes: Int = 0,
     val isReady: Boolean = false,
 )
 
@@ -58,6 +59,7 @@ class HomeViewModel @Inject constructor(
     repository: BookRepository,
     continueReadingStore: ContinueReadingStore,
     inspirationRepository: InspirationRepository,
+    goalStore: com.creationreadingassistant.data.settings.GoalStore,
     private val statsRepository: StatsRepository,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -75,10 +77,11 @@ class HomeViewModel @Inject constructor(
     val uiState: StateFlow<HomeUiState> = combine(
         source,
         inspirationRepository.observeAllActive(),
-    ) { input, inspirations ->
-        HomeAggregationInput(input, inspirations)
+        goalStore.prefs,
+    ) { input, inspirations, goalPrefs ->
+        HomeAggregationInput(input, inspirations, goalPrefs.dailyMinutes)
     }
-        .mapLatest { (input, inspirations) ->
+        .mapLatest { (input, inspirations, dailyGoalMinutes) ->
             // 总时长/今日时长下推为 SQL SUM，不再逐行 Instant.parse；
             // 边界每次发射现算，与旧实现的逐次重算语义一致。
             val todayStart = startEpochSecondOf(LocalDate.now())
@@ -87,7 +90,7 @@ class HomeViewModel @Inject constructor(
             val todayReadingMs = statsRepository.sumOccurredDurationBetween(
                 todayStart, tomorrowStart, coarseLowerIso(todayStart),
             )
-            buildHomeUiState(input, inspirations, totalReadingMs, todayReadingMs)
+            buildHomeUiState(input, inspirations, totalReadingMs, todayReadingMs, dailyGoalMinutes)
         }
         .distinctUntilChanged()
         .flowOn(defaultDispatcher)
@@ -101,6 +104,7 @@ class HomeViewModel @Inject constructor(
 private data class HomeAggregationInput(
     val source: HomeSource,
     val inspirations: List<InspirationEntity>,
+    val dailyGoalMinutes: Int,
 )
 
 private fun buildHomeUiState(
@@ -108,6 +112,7 @@ private fun buildHomeUiState(
     inspirations: List<InspirationEntity>,
     totalReadingMs: Long,
     todayReadingMs: Long,
+    dailyGoalMinutes: Int,
 ): HomeUiState {
     val progressById = input.progress.associateBy { it.book_id }
     val sessionsByBook = input.sessions.groupBy { it.book_id }
@@ -149,6 +154,7 @@ private fun buildHomeUiState(
         },
         totalReadingMs = totalReadingMs,
         todayReadingMs = todayReadingMs,
+        dailyGoalMinutes = dailyGoalMinutes,
         isReady = true,
     )
 }

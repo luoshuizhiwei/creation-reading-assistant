@@ -40,6 +40,7 @@ fun HomeMetricsSection(
     readingCount: Int,
     completedCount: Int,
     todayReadingMs: Long,
+    dailyGoalMinutes: Int = 0,
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
@@ -88,7 +89,8 @@ fun HomeMetricsSection(
                     Modifier
                         .weight(1f)
                         .testTag("metric-today"),
-                    label = stringResource(R.string.home_today),
+                    label = stringResource(R.string.home_today) +
+                        if (dailyGoalMinutes > 0) " · / $dailyGoalMinutes 分" else "",
                     value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
                 )
             }

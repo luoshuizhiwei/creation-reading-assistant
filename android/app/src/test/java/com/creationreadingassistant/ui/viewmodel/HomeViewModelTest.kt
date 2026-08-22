@@ -41,6 +41,7 @@ class HomeViewModelTest {
     private lateinit var continueReadingStore: ContinueReadingStore
     private lateinit var inspirationRepository: InspirationRepository
     private lateinit var statsRepository: StatsRepository
+    private lateinit var goalStore: com.creationreadingassistant.data.settings.GoalStore
 
     private val now: LocalDate = LocalDate.now()
 
@@ -56,6 +57,7 @@ class HomeViewModelTest {
             coEvery { sumAllActiveDuration() } returns 0L
             coEvery { sumOccurredDurationBetween(any(), any(), any()) } returns 0L
         }
+        goalStore = mockk { every { prefs } returns kotlinx.coroutines.flow.flowOf(com.creationreadingassistant.data.settings.ReadingGoalPrefs()) }
     }
 
     @After
@@ -85,6 +87,7 @@ class HomeViewModelTest {
             continueReadingStore = continueReadingStore,
             inspirationRepository = inspirationRepository,
             statsRepository = statsRepository,
+            goalStore = goalStore,
             defaultDispatcher = Dispatchers.Unconfined,
         )
     }

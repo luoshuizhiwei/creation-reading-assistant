@@ -8,11 +8,14 @@ import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.repository.StatsRepository
+import com.creationreadingassistant.data.repository.computeReadingStreak
 import com.creationreadingassistant.ui.screen.stats.EMPTY_STATS
+import com.creationreadingassistant.ui.screen.stats.GoalUi
 import com.creationreadingassistant.ui.screen.stats.StatsPeriod
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.StatsUiState
 import com.creationreadingassistant.ui.screen.stats.computeStats
+import com.creationreadingassistant.ui.screen.stats.computeTodayReadingMs
 import com.creationreadingassistant.ui.screen.stats.isCurrentPeriod
 import com.creationreadingassistant.ui.screen.stats.periodTitle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -47,6 +50,7 @@ internal typealias StatsDashboardUiState = com.creationreadingassistant.ui.scree
 @HiltViewModel
 class StatsDashboardViewModel @Inject constructor(
     statsRepository: StatsRepository,
+    goalStore: com.creationreadingassistant.data.settings.GoalStore,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
     private val selection = MutableStateFlow(StatsSelection())
@@ -61,6 +65,33 @@ class StatsDashboardViewModel @Inject constructor(
         StatsTables(sessions, progress, books, inspirations, notes)
     }
         .distinctUntilChanged()
+
+    /** 目标投影（P3.2 片 2）：目标关闭时恒为 null（UI 全隐藏），开启时今日已读分钟随 sessions 流动。 */
+    private val goalProjection = combine(
+        goalStore.prefs,
+        statsRepository.observeStatsSessions(),
+    ) { prefs, sessions ->
+        if (!prefs.goalEnabled) null
+        else GoalUi(
+            todayReadingMs = computeTodayReadingMs(sessions),
+            dailyGoalMinutes = prefs.dailyMinutes,
+            streakDays = streakDaysOf(sessions),
+        )
+    }
+        .distinctUntilChanged()
+        .flowOn(defaultDispatcher)
+
+    /** streak 只依赖 sessions，独立缓存避免 sessions 未变时重复计算。 */
+    private var cachedStreakTables: List<StatsSessionRow>? = null
+    private var cachedStreakDays = -1
+
+    private fun streakDaysOf(sessions: List<StatsSessionRow>): Int {
+        if (cachedStreakTables !== sessions) {
+            cachedStreakDays = computeReadingStreak(sessions).current
+            cachedStreakTables = sessions
+        }
+        return cachedStreakDays
+    }
 
     /**
      * 图表模型缓存：key = (period, anchor)。
@@ -77,7 +108,8 @@ class StatsDashboardViewModel @Inject constructor(
     internal val uiState: StateFlow<StatsUiState> = combine(
         tables,
         selection,
-    ) { data, selected ->
+        goalProjection,
+    ) { data, selected, goal ->
         if (cachedTables !== data) {
             statsCache.clear()
             cachedTables = data
@@ -110,6 +142,7 @@ class StatsDashboardViewModel @Inject constructor(
             hasAnyData = hasAny,
             showGlobalEmpty = globalEmpty,
             showPeriodEmpty = periodEmpty,
+            goal = goal,
         )
     }
         .distinctUntilChanged()

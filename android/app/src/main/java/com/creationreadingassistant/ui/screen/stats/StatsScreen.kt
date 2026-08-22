@@ -22,6 +22,7 @@ import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.components.CreationSection
+import com.creationreadingassistant.ui.screen.stats.components.GoalRingSection
 import com.creationreadingassistant.ui.screen.stats.components.PeriodSelector
 import com.creationreadingassistant.ui.screen.stats.components.StatusSection
 import com.creationreadingassistant.ui.screen.stats.components.SummaryGroup
@@ -54,6 +55,17 @@ internal fun StatsScreen(
                     onAction = onAction,
                     modifier = Modifier.testTag("stats-period"),
                 )
+            }
+
+            // 今日目标环：目标开启时始终组合（含 global-empty），关闭时隐藏（P3.2 片 2）
+            state.goal?.let { goal ->
+                item(key = "goal") {
+                    GoalRingSection(
+                        todayMs = goal.todayReadingMs,
+                        goalMinutes = goal.dailyGoalMinutes,
+                        streakDays = goal.streakDays,
+                    )
+                }
             }
 
             if (state.showGlobalEmpty) {

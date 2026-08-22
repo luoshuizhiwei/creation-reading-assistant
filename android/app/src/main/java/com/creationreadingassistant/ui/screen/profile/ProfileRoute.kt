@@ -83,6 +83,7 @@ internal fun ProfileRoute(
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
     val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
+    val goal by viewModel.goalState.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
 
@@ -142,6 +143,7 @@ internal fun ProfileRoute(
         aiHttpWarning = aiHttpWarning,
         aiKeyDraft = aiKeyDraft,
         libraryState = libraryState,
+        goal = goal,
         pendingDownloadCount = books.count { !isBookDownloaded(it) },
         indexBytes = books.sumOf { it.size.toLong() },
     )
@@ -261,6 +263,11 @@ private fun handleProfileAction(
             showMsg("已清除 API Key")
         }
         is ProfileAction.UpdateAiKeyDraft -> onAiKeyDraftChange(action.value)
+
+        // ---- Reading goal ----
+        is ProfileAction.UpdateGoalMinutes -> viewModel.setGoalMinutes(action.minutes)
+        is ProfileAction.UpdateGoalReminderEnabled -> viewModel.setGoalReminderEnabled(action.enabled)
+        is ProfileAction.UpdateGoalReminderMinuteOfDay -> viewModel.setGoalReminderMinuteOfDay(action.minute)
 
         // ---- Storage ----
         ProfileAction.Export -> exportLauncher.launch("cra-export-${System.currentTimeMillis()}.json")

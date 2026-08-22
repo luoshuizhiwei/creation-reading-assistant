@@ -1,6 +1,15 @@
 # 阅读目标 + streak 打卡 + 提醒通知 — 设计
 
-> 状态：**片 0–1 已实施并验收；片 2–3 待决策/实施**（2026-08-20）。对应路线图 P3.2。
+> 状态：**四片全部实施**（片 0–1 于 2026-08-20，片 2–3 于 2026-08-22）。对应路线图 P3.2。
+> 片 2–3 实施纪要（2026-08-22）：`GoalStore`（DataStore `goal_prefs`，0=关闭/5–600 收敛）、
+> `GoalSubPage`（预设 15/30/60/90 + 5 分钟步进自定义、提醒开关与 30 分钟步进时刻、streak 展示、
+> 通知权限申请）、Stats 页 `GoalRingSection` 进度环（period-tabs 后、空态前，目标关闭不组合）、
+> Home 今日格 "/ N 分" 副标；`ReadingGoalWorker` + `ReadingGoalScheduler`（WorkManager 每日
+> PeriodicWork，初始延迟对齐提醒时刻，REPLACE 语义用 UPDATE，启动对账），`reading_goal` 渠道
+> IMPORTANCE_DEFAULT，`NotificationPermission` 公共 helper（TTS 1001 / 目标 2002）。
+> 判定与文案全部纯函数化（`ReadingGoalDecision`），新增 JVM 23 项（判定/收敛/口径/时刻），
+> 全量 1455 项 0 失败。**V1 简化**：通知点击仅拉起应用（直达阅读器 deep-link 留作后续增强）；
+> 真机通知触发/重启恢复验证待做（见验收表第 3 条）。
 > 前置：P0 收口与真机验证完成；实施可与 P3.1（替换规则接线）并行（文件面不重叠）。
 
 ## 0. 关键现状发现（决定本设计的前提）

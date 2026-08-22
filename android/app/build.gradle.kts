@@ -153,6 +153,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.lifecycle.viewmodel.compose)
     implementation(libs.androidx.activity.compose)
+    implementation(libs.androidx.work.runtime.ktx)
 
     // Compose BOM：统一管理 Compose 相关库版本
     implementation(platform(libs.androidx.compose.bom))

@@ -92,6 +92,11 @@ class ProfileViewModelTest {
         every { statsRepository.observeStatsSessions() } returns sessionRows
         every { statsRepository.observeStatsProgress() } returns progressRows
         every { statsRepository.observeStatsInspirations() } returns inspirationRows
+        val goalStore = mockk<com.creationreadingassistant.data.settings.GoalStore>()
+        every { goalStore.prefs } returns kotlinx.coroutines.flow.flowOf(
+            com.creationreadingassistant.data.settings.ReadingGoalPrefs(),
+        )
+        val goalScheduler = mockk<com.creationreadingassistant.feature.goal.ReadingGoalScheduler>(relaxed = true)
 
         val configStore = mockk<SyncConfigStore>(relaxed = true)
         every { configStore.config } returns null
@@ -108,6 +113,8 @@ class ProfileViewModelTest {
             aiClient = mockk<AiClient>(relaxed = true),
             bookRepository = bookRepository,
             statsRepository = statsRepository,
+            goalStore = goalStore,
+            goalScheduler = goalScheduler,
             ioDispatcher = UnconfinedTestDispatcher(testScheduler),
             defaultDispatcher = UnconfinedTestDispatcher(testScheduler),
         )

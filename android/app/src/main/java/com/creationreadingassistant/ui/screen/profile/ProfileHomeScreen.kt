@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Refresh
@@ -96,6 +97,12 @@ internal fun ProfileHomeScreen(
                 MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
                 MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
                 MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
+                MenuItem(
+                    Icons.Outlined.Flag,
+                    "阅读目标",
+                    if (state.goal.goalEnabled) "每天 ${state.goal.dailyMinutes} 分钟" else "设定每日目标与提醒",
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.GOAL)) },
+                )
             }
         }
 

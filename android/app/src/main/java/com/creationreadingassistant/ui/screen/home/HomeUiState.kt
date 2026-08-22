@@ -33,6 +33,7 @@ data class HomeUiState(
     val totalReadBooksCount: Int = 0,
     val totalReadingMs: Long = 0L,
     val todayReadingMs: Long = 0L,
+    val dailyGoalMinutes: Int = 0,
 ) {
     companion object {
         val Empty = HomeUiState(

@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -134,6 +135,8 @@ class ProfileViewModel @Inject constructor(
     private val aiClient: AiClient,
     private val bookRepository: BookRepository,
     private val statsRepository: StatsRepository,
+    private val goalStore: com.creationreadingassistant.data.settings.GoalStore,
+    private val goalScheduler: com.creationreadingassistant.feature.goal.ReadingGoalScheduler,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -275,6 +278,51 @@ class ProfileViewModel @Inject constructor(
     }
 
     // ---- 配对 ----
+    // ---- 阅读目标（P3.2 片 2/3） ----
+
+    /** 目标子页一站式投影：偏好 + streak + 今日已读（occurred 口径）。 */
+    internal val goalState: kotlinx.coroutines.flow.StateFlow<com.creationreadingassistant.ui.screen.profile.GoalPageState> =
+        combine(
+            goalStore.prefs,
+            statsRepository.observeStatsSessions(),
+        ) { prefs, sessions ->
+            com.creationreadingassistant.ui.screen.profile.GoalPageState(
+                dailyMinutes = prefs.dailyMinutes,
+                reminderEnabled = prefs.reminderEnabled,
+                reminderMinuteOfDay = prefs.reminderMinuteOfDay,
+                streakDays = com.creationreadingassistant.data.repository.computeReadingStreak(sessions).current,
+                todayReadingMs = com.creationreadingassistant.ui.screen.stats.computeTodayReadingMs(sessions),
+            )
+        }
+            .distinctUntilChanged()
+            .flowOn(defaultDispatcher)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = com.creationreadingassistant.ui.screen.profile.GoalPageState(),
+            )
+
+    fun setGoalMinutes(minutes: Int) {
+        viewModelScope.launch(ioDispatcher) {
+            goalStore.setDailyMinutes(minutes)
+            goalScheduler.syncScheduling(goalStore.prefs.first())
+        }
+    }
+
+    fun setGoalReminderEnabled(enabled: Boolean) {
+        viewModelScope.launch(ioDispatcher) {
+            goalStore.setReminderEnabled(enabled)
+            goalScheduler.syncScheduling(goalStore.prefs.first())
+        }
+    }
+
+    fun setGoalReminderMinuteOfDay(minute: Int) {
+        viewModelScope.launch(ioDispatcher) {
+            goalStore.setReminderMinuteOfDay(minute)
+            goalScheduler.syncScheduling(goalStore.prefs.first())
+        }
+    }
+
     fun startPairing(rawQr: String) {
         viewModelScope.launch(ioDispatcher) {
             _pairing.value = true

@@ -45,6 +45,7 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class StatsDashboardViewModelTest {
     private val statsRepository = mockk<StatsRepository>()
+    private val goalStore = mockk<com.creationreadingassistant.data.settings.GoalStore>()
 
     // sessions 用 SharedFlow：MutableStateFlow 会按值相等吞掉等值发射，
     // 无法模拟 Room 无关表失效导致的「等价结果重查重发」。
@@ -75,8 +76,12 @@ class StatsDashboardViewModelTest {
         // tables.distinctUntilChanged 与 computeStats 的缓存比较依赖跨上下文切换的发射顺序，
         // UnconfinedTestDispatcher 会把协程 inline 在调用者线程，合入/更新顺序被打乱，
         // 导致缓存失效判据与真实运行时不一致。
+        every { goalStore.prefs } returns kotlinx.coroutines.flow.flowOf(
+            com.creationreadingassistant.data.settings.ReadingGoalPrefs(),
+        )
         vm = StatsDashboardViewModel(
             statsRepository,
+            goalStore,
             defaultDispatcher = Dispatchers.Default,
         )
     }

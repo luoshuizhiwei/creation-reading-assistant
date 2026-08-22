@@ -91,6 +91,12 @@ class App : Application() {
         EntryPointAccessors.fromApplication(this, EpubRepairEntryPoint::class.java)
             .epubSizeRepairTask()
             .startOnce()
+        // 阅读目标提醒（P3.2 片 3）：注册渠道 + 对账 WorkManager 调度（内部异步，不阻塞首帧）
+        runCatching {
+            EntryPointAccessors.fromApplication(this, com.creationreadingassistant.feature.goal.GoalSchedulerEntryPoint::class.java)
+                .scheduler()
+                .start()
+        }
         trace("App", "onCreate end")
     }
 
