@@ -51,6 +51,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -230,7 +232,12 @@ private fun SearchResultRow(
         else -> "匹配文件名：${book.original_file_name.orEmpty()}"
     }
     Row(
-        modifier = Modifier.fillMaxWidth().combinedClickable(onClick = onOpen, onLongClick = onManage).padding(vertical = 10.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            // 与书架 BookTile 一致的打开语义：供无障碍/自动化（benchmark 找书）识别
+            .semantics { contentDescription = "打开书籍" }
+            .combinedClickable(onClick = onOpen, onLongClick = onManage)
+            .padding(vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         BookCover(
