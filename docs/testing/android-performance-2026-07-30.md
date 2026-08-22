@@ -165,3 +165,21 @@ Baseline Profile 嵌入后，主页面切换的 `frameOverrunMs` P95 从 26.8 ms
 - 每轮书架压力测试先停止隔离目标包并显式启动 `MainActivity`，清除搜索页、键盘和旧返回栈对下一轮的干扰；这些操作都在测量区外。
 
 测试结束后已卸载 `com.creationreadingassistant.test`、`com.creationreadingassistant.benchmark` 和 `com.creationreadingassistant.benchmarktarget`；202 本压力数据随隔离包删除。`stay_on_while_plugged_in` 已恢复为 `0`，MIUI AppOp `10021` 已恢复为 `ignore`。未使用 MuMu，未向用户日常书库写入压力数据。
+
+
+## 基线复测（2026-08-22，分页引擎重写后）
+
+设备同 `c49ac6cf`（Redmi 22081212C），`:benchmark:connectedBenchmarkReleaseAndroidTest`，10 次迭代，Baseline Profile 已嵌入。当日书架为空库（上午数据被清），读场景 6 项因种子未落地跳过，见下。
+
+| 场景 | 指标 | 2026-08-22 | 2026-07-30 参考 |
+|---|---|---:|---:|
+| 冷启动 | 首帧 P50 | 554.6 ms | 543.3 ms |
+| 冷启动 | fully drawn P50 | 723.4 ms | 781.1 ms |
+| 热启动 | 首帧 P50 | 210.6 ms | 172.4 ms |
+| 热启动 | fully drawn P50 | 340.5 ms | 279.7 ms |
+
+结论：冷启动与 07-30 基本持平（首帧 +2%，fully drawn −7%），分页引擎重写未伤启动路径；热启动略升（数据/条件不同，趋势参考）。
+
+**本机 benchmark 库无法从该设备提取 frameOverrunMs 百分位**（perfetto trace 无 expect/actual slice，`switchHomeToStats` 即因此失败）；07-30 的 frameOverrun 数字继续作为流畅度参照。本轮捕获 frameCount P50：页面切换 27–30 帧、书架滚动 83.5、搜索 123、按名排序 83（空库+种子前，仅供同条件回归对比）。
+
+**待办**：① 读场景 6 项（打开 TXT/EPUB、翻页、跳章、菜单）——书架空导致 `BenchmarkSeedActivity` 种子后仍搜不到书，需在下一轮真机 session 排查种子落地与 08-05 后搜索路由交互（`filterShelfForBenchmark` 依赖的搜索流已迁独立页）；② `switchHomeToStats` 的 perfetto 提取失败需升级 benchmark 库或换 trace 解析。

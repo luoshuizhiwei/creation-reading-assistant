@@ -209,6 +209,10 @@ Novalist 调研与取舍已记录在
   ② 开发者选项→**USB 调试（安全设置）** 开启。授权后可用
   `adb shell am instrument -w -e class <类名> com.creationreadingassistant.test/androidx.test.runner.AndroidJUnitRunner`
   逐类复验（注意 gradle connected* 会在结束时卸载主应用+清数据）。
+- **2026-08-22 基线复测（C1）**：冷启动 554.6/723.4ms（首帧/fully drawn P50，与 07-30 持平），
+  热启动 210.6/340.5ms；frameOverrun 百分位在本设备不可提取（benchmark 库 perfetto 兼容问题）。
+  读场景 6 项因空书架+种子未落地跳过（见性能文档新增节）。质量收口两提交：
+  `1e3238f`（仪器测试债清零）+ `8baba68`（P3.2 片 2–3）。
 - **P0.2 清单核对状态**：可自动化的部分（导航/设置/TOC/统计渲染）已覆盖；TTS 听感、拔耳机、色温/纹理实际观感、EPUB 封面提取、内容哈希判重（书库已清）需重新导入测试书后人工/脚本验证。
 
 
