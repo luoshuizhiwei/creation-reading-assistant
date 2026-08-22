@@ -431,6 +431,7 @@ internal fun ReaderScaffold(
                     onSearchScrollFocusRequestConsumed = {
                         holders.searchScrollFocusRequestState.value = null
                     },
+                    onPersistProgress = onPersistProgress,
                     ),
                 )
             }

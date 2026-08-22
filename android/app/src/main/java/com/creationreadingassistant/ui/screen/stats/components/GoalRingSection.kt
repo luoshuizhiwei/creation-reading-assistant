@@ -84,6 +84,7 @@ internal fun GoalRingSection(
                         text = if (achieved) "达成" else "$todayMinutes",
                         style = MaterialTheme.typography.titleLarge,
                         fontWeight = FontWeight.Bold,
+                        maxLines = 1,
                     )
                     if (!achieved) {
                         Text(

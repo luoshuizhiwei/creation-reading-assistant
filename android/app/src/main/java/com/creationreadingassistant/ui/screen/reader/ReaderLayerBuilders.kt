@@ -86,11 +86,21 @@ internal fun buildReaderContentHostCallbacks(
     goToChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
     onSearchScrollFocusRequestConsumed: () -> Unit,
-): ReaderContentHostCallbacks = ReaderContentHostCallbacks(
+    onPersistProgress: () -> Unit,
+): ReaderContentHostCallbacks {
+    var lastPersistAt = 0L
+    return ReaderContentHostCallbacks(
     onPagedPositionChanged = { off, pct, chapterToGo ->
         onPagedAbsOffsetChange(off)
         onPagedPercentChange(pct)
         onPendingInitialPositionChange(false)
+        // 翻页节流保存（问题5 补全）：跨章立即落库；同章 ≥5 秒存一次，防频繁写库。
+        // 进程被杀/切后台被回收时，最多丢最近 5 秒内的翻页，不再回到上次暂停的旧进度。
+        val now = android.os.SystemClock.elapsedRealtime()
+        if (chapterToGo != null || now - lastPersistAt >= THROTTLE_SAVE_MS) {
+            lastPersistAt = now
+            onPersistProgress()
+        }
         if (chapterToGo != null) goToChapter(chapterToGo)
     },
     onToggleControls = { onAction(ReaderAction.ToggleControls()) },
@@ -107,6 +117,10 @@ internal fun buildReaderContentHostCallbacks(
     onGoToChapter = { goToChapter(it) },
     onSearchScrollFocusRequestConsumed = onSearchScrollFocusRequestConsumed,
 )
+}
+
+/** 翻页节流保存间隔：同章 ≥ 5 秒落库一次；跨章立即落库。 */
+private const val THROTTLE_SAVE_MS = 5_000L
 
 /**
  * 构造覆盖层所需的只读展示数据。`isFirstChapter` / `isLastChapter` / `isEpub` /
