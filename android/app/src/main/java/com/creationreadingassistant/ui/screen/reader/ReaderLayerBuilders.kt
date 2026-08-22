@@ -363,6 +363,7 @@ internal fun buildReaderSheetHostCallbacks(
     showNotice: (String) -> Unit,
     onAction: (ReaderAction) -> Unit,
     onCancelTxtScan: () -> Unit,
+    onPersistProgress: () -> Unit,
 ): ReaderSheetHostCallbacks = ReaderSheetHostCallbacks(
     onDismiss = { onAction(ReaderAction.CloseSheet) },
     onOpenSettings = { onAction(ReaderAction.OpenSheet(ReaderSheet.SETTINGS)) },
@@ -394,6 +395,7 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.SaveTxtTocRule(bid, ruleId))
     },
     onCancelTxtScan = onCancelTxtScan,
+    onPersistProgress = onPersistProgress,
     onJumpToHighlight = { id ->
         onPendingHighlightIdChange(id)
         onAction(ReaderAction.CloseSheet)

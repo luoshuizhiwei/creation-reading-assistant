@@ -134,6 +134,8 @@ internal data class ReaderSheetHostCallbacks(
     val onJumpToHighlight: (String) -> Unit,
     val onJumpToBookmark: (String) -> Unit,
     val onSaveAiExplainInspiration: (body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
+    /** 设置/主题变更前先持久化当前阅读进度（防重排回退到旧进度）。 */
+    val onPersistProgress: () -> Unit,
     val onSaveInspiration: (title: String, body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onCreateCategory: (String) -> String,
     val onCreateTag: (String) -> String,
@@ -311,14 +313,21 @@ internal fun ReaderSheetHost(
                 ReaderSheet.SETTINGS -> SettingsSheet(
                     paper = paper,
                     settings = state.ui.readerSettings,
-                    onSettingsChange = { updated -> settingsVm.updateReader { updated } },
+                    onSettingsChange = { updated ->
+                        // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复
+                        sheetCallbacks.onPersistProgress()
+                        settingsVm.updateReader { updated }
+                    },
                     onBookInfo = sheetCallbacks.onOpenBookInfo,
                 )
 
                 ReaderSheet.THEME -> ThemeSheet(
                     background = state.ui.readerSettings.background,
                     appDark = state.ui.appDark,
-                    onBackground = { settingsVm.updateReader { copy(background = it) } },
+                    onBackground = {
+                        sheetCallbacks.onPersistProgress()
+                        settingsVm.updateReader { copy(background = it) }
+                    },
                 )
 
                 ReaderSheet.PROGRESS -> ProgressSheet(

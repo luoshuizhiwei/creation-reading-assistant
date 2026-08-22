@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChatBubble
 import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material.icons.outlined.TextFields
@@ -23,6 +25,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
+import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.screen.stats.formatThousands
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
@@ -48,16 +51,16 @@ internal fun CreationSection(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 CreationItem(
-                    Icons.Outlined.TextFields,
-                    formatThousands(stats.words),
-                    "阅读字数",
+                    Icons.Outlined.AccessTime,
+                    formatCompactDuration(stats.totalReadingMs),
+                    "阅读时长",
                     Modifier.weight(1f),
                     reducedMotion = reducedMotion,
                 )
                 CreationItem(
-                    Icons.Outlined.Speed,
-                    "${stats.speed}",
-                    "字/分钟",
+                    Icons.Outlined.CalendarMonth,
+                    "${stats.readingDays}",
+                    "阅读天数",
                     Modifier.weight(1f),
                     reducedMotion = reducedMotion,
                 )

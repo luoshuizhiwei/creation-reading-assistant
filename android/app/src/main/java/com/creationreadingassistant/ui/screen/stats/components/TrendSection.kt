@@ -104,6 +104,14 @@ private fun TrendChart(items: List<TrendItem>) {
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Bottom,
             ) {
+                // 柱顶数值：有阅读日显示分钟数，无阅读日留空（避免 0 噪音）
+                if (item.durationMs > 0L) {
+                    Text(
+                        "${item.durationMs / 60_000L}",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                }
                 val h = max(4f, targetH * grow.value).dp
                 Box(
                     modifier = Modifier

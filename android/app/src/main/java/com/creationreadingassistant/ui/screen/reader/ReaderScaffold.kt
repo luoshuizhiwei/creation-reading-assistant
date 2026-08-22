@@ -190,6 +190,7 @@ internal fun ReaderScaffold(
     jumpToPlainOffset: (Int) -> Unit,
     handleChromeAction: (ReaderChromeAction) -> Unit,
     computeLocatorJson: () -> String?,
+    onPersistProgress: () -> Unit,
     inputs: ReaderScreenInputs,
     callbacks: ReaderScreenCallbacks,
     settingsVm: SettingsViewModel,
@@ -556,6 +557,7 @@ internal fun ReaderScaffold(
                     showNotice = showNotice,
                     onAction = onAction,
                     onCancelTxtScan = { onAction(ReaderAction.CancelTxtTocScan) },
+                    onPersistProgress = onPersistProgress,
                 ),
             )
 

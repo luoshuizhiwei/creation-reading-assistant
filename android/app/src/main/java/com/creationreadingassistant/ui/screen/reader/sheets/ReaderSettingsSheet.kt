@@ -133,33 +133,6 @@ private fun SettingsRoot(
         contentPadding = androidx.compose.foundation.layout.PaddingValues(layout.cardPadding),
         verticalArrangement = Arrangement.spacedBy(layout.contentGap),
     ) {
-        item(key = "preview") {
-            ReaderTypePreview(paper, settings)
-        }
-        item(key = "quick") {
-            SettingsSection(title = "快捷调整") {
-                SettingSliderRow(
-                    title = "字号",
-                    value = settings.fontSize,
-                    valueLabel = "${settings.fontSize.toInt()} 号",
-                    onValueChange = { onSettingsChange(settings.copy(fontSize = it)) },
-                    valueRange = 12f..40f,
-                    steps = 27,
-                )
-                SectionDivider()
-                SettingBrightnessRow(
-                    brightness = settings.brightness,
-                    onBrightnessChange = { onSettingsChange(settings.copy(brightness = it)) },
-                    fixedDefault = settings.lastFixedBrightness,
-                )
-                SectionDivider()
-                SettingSwitchRow(
-                    title = "粗体文字",
-                    checked = settings.fontWeightBold,
-                    onCheckedChange = { onSettingsChange(settings.copy(fontWeightBold = it)) },
-                )
-            }
-        }
         item(key = "groups") {
             SettingsSection(title = "更多设置") {
                 val entries = listOf(
@@ -244,6 +217,12 @@ private fun TypographySettings(
             ReaderFontPickerRow(settings, onChange)
             SectionDivider()
             SettingSwitchRow("粗体文字", settings.fontWeightBold, { onChange(settings.copy(fontWeightBold = it)) })
+            SectionDivider()
+            SettingBrightnessRow(
+                brightness = settings.brightness,
+                onBrightnessChange = { onChange(settings.copy(brightness = it)) },
+                fixedDefault = settings.lastFixedBrightness,
+            )
         }
     }
     item {

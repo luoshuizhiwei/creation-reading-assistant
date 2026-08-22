@@ -562,6 +562,7 @@ fun ReaderScreen(
         jumpToPlainOffset = nav.jumpToPlainOffset,
         handleChromeAction = nav.handleChromeAction,
         computeLocatorJson = nav.computeLocatorJson,
+        onPersistProgress = nav.persistCurrentProgress,
         inputs = inputs,
         callbacks = callbacks,
         settingsVm = settingsVm,

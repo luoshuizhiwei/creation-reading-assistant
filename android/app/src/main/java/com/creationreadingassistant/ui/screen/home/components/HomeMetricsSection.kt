@@ -89,8 +89,11 @@ fun HomeMetricsSection(
                     Modifier
                         .weight(1f)
                         .testTag("metric-today"),
-                    label = stringResource(R.string.home_today) +
-                        if (dailyGoalMinutes > 0) " · / $dailyGoalMinutes 分" else "",
+                    label = if (dailyGoalMinutes > 0) {
+                        "今日 /${dailyGoalMinutes}分"
+                    } else {
+                        stringResource(R.string.home_today)
+                    },
                     value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
                 )
             }
@@ -119,7 +122,8 @@ private fun GridStat(modifier: Modifier, label: String, value: String) {
             label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 1,
+            maxLines = 2,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
         )
     }
 }

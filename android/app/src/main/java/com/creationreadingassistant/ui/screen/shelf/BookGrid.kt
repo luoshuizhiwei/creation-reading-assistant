@@ -309,7 +309,12 @@ internal fun BookTile(
                 }
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(book.title, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(
+                        book.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                     Text(book.author ?: "作者未知", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
                     Spacer(modifier = Modifier.height(4.dp))
                     ProgressLine(percent = percent)

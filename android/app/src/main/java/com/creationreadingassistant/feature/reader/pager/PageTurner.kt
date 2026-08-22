@@ -55,6 +55,8 @@ fun <Frame : Any> PageTurner(
     revealProgress: Float = 0f,
     revealDividerColor: Color? = null,
     revealBackground: Color = Color.Transparent,
+    /** slide/cover 模式的页面底色：页面图层透明，叠加时须铺不透明纸色，否则下层文字透出重叠。 */
+    pageBackground: Color = Color.Transparent,
     /** 真实触发翻页（onPrevious / onNext 已被调用）后回调；用于通知外层隐藏阅读菜单栏。 */
     onPageTurned: () -> Unit = {},
     content: @Composable BoxScope.(frame: Frame, isCurrent: Boolean) -> Unit,
@@ -83,8 +85,9 @@ fun <Frame : Any> PageTurner(
                 }
                 if (direction < 0) onPrevious() else onNext()
                 onPageTurned()
-                // 两段式提交：让新 currentFrame 先进入 Composition，再撤掉旧位移。
-                withFrameNanos { }
+                // 两段式提交：让新 currentFrame 先完成组合/布局再撤旧位移。
+                // 懒布局页面可能跨多帧才就绪，只等 1 帧会以错位位置画一帧造成「闪一下」。
+                repeat(3) { withFrameNanos { } }
                 dx.snapTo(0f)
             } finally {
                 turning = false
@@ -171,6 +174,7 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
+                            .background(pageBackground)
                             .graphicsLayer {
                                 translationX = if (normalizedEffect == "slide") width + offset else 0f
                             },
@@ -179,6 +183,7 @@ fun <Frame : Any> PageTurner(
                 Box(
                     Modifier
                         .fillMaxSize()
+                        .background(pageBackground)
                         .graphicsLayer {
                             translationX = when {
                                 normalizedEffect == "cover" && offset > 0f -> 0f
@@ -191,6 +196,7 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
+                            .background(pageBackground)
                             .graphicsLayer { translationX = -width + offset },
                     ) { content(previousFrame, false) }
                 }

@@ -266,6 +266,7 @@ internal fun PagedReaderPageSurface(
             revealProgress = revealProgress,
             revealDividerColor = MaterialTheme.colorScheme.primary,
             revealBackground = pageBackground,
+            pageBackground = pageBackground,
             modifier = Modifier
                 .offset(x = horizontalInsetDp)
                 .width(contentWidthDp)
