@@ -109,12 +109,9 @@ class ReadingGoalScheduler @Inject constructor(
         decision
     }
 
-    private fun statsReminderTodayStartEpochSecond(plusDays: Long = 0): Long {
-        // Home 口径同源：本地时区当日 0 点的 epoch 秒（StatsRepository.startEpochSecondOf 为 internal，
-        // 这里按同公式计算，避免跨模块 internal 可见性问题）。
-        val date = LocalDate.now().plusDays(plusDays)
-        return date.atStartOfDay(java.time.ZoneId.systemDefault()).toEpochSecond()
-    }
+    private fun statsReminderTodayStartEpochSecond(plusDays: Long = 0): Long =
+        // 与 Home/Stats 聚合完全同源（同模块 internal，直接复用防公式漂移）
+        com.creationreadingassistant.data.repository.startEpochSecondOf(LocalDate.now().plusDays(plusDays))
 
     private fun isAppInForeground(): Boolean {
         // 拿不到进程信息时按前台处理（宁可少打扰）；TTS 前台服务等同前台。

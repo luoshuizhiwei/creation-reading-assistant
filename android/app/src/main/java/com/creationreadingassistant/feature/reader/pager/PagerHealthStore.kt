@@ -35,7 +35,7 @@ class PagerHealthStore @Inject constructor(
         val closed = AtomicBoolean(false)
         val guard = Thread.UncaughtExceptionHandler { thread, throwable ->
             val count = prefs.getInt(KEY_CRASH_COUNT, 0)
-            prefs.edit().putInt(KEY_CRASH_COUNT, (count + 1).coerceAtMost(2)).commit()
+            prefs.edit().putInt(KEY_CRASH_COUNT, (count + 1).coerceAtMost(2)).apply()
             previous?.uncaughtException(thread, throwable)
         }
         Thread.setDefaultUncaughtExceptionHandler(guard)

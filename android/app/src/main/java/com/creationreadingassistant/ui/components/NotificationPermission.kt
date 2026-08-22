@@ -22,17 +22,26 @@ object NotificationPermission {
 
     fun isGranted(context: Context): Boolean {
         if (Build.VERSION.SDK_INT < 33) return true
-        return ContextCompat.checkSelfPermission(
+        return checkPostNotificationsGranted(context)
+    }
+
+    /** API 33+ 才引用该权限字段（lint InlinedApi 需版本守卫内联才能识别）。 */
+    private fun checkPostNotificationsGranted(context: Context): Boolean =
+        ContextCompat.checkSelfPermission(
             context, Manifest.permission.POST_NOTIFICATIONS,
         ) == PackageManager.PERMISSION_GRANTED
-    }
 
     /** 已授予返回 true；发起申请或无法申请返回 false。 */
     fun requestIfNeeded(activity: Activity, requestCode: Int): Boolean {
         if (isGranted(activity)) return true
+        requestPostNotifications(activity, requestCode)
+        return false
+    }
+
+    @Suppress("InlinedApi") // 调用方仅在 isGranted() 已确认 API 33+ 时到达此处
+    private fun requestPostNotifications(activity: Activity, requestCode: Int) {
         ActivityCompat.requestPermissions(
             activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), requestCode,
         )
-        return false
     }
 }

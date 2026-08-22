@@ -62,7 +62,7 @@ val AppleGlassPalette = LiquidGlassPalette(
 val DefaultGlassPalette = LiquidGlassPalette(
     light = GlassTokens(
         highlightColor = Color(0xFFFFFFFF),    // 中性高光（反光，无色相）
-        glassTintColor = Color(0xF7F8FA),       // 中性白，纸墨/清爽蓝均不冲突
+        glassTintColor = Color(0xFFF7F8FA),       // 中性白，纸墨/清爽蓝均不冲突
         specularAlpha = 0.10f,
         blurRadius = 0.dp,
     ),

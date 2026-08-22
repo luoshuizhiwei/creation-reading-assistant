@@ -276,10 +276,10 @@ class ReplacedChapterSourceConcurrencyTest {
         )
 
         runConcurrently(10) { i -> source.projectionForChapter(i % 6) }
-        // 6 个逻辑章并发：每一章只整章读取一次（缓存未淘汰前）
-        // 容量=3：并发后缓存至多 3 个逻辑章投影，超容量的章被 LRU 逐出，
-        // 后续单独访问第 0 章是合法重新加载，不再计入并发去重断言
-        assertEquals(6, scopeLoads.get())
+        // 6 个逻辑章并发、缓存容量仅 3：并发访问必然发生 LRU 逐出，
+        // 被逐出的章在后续请求中合法重新加载——加载次数只能断言下界
+        //（每章至少被整章读取过一次），同章并发去重由条纹锁用例单独覆盖。
+        assertTrue("每章至少投影一次，实际 ${scopeLoads.get()}", scopeLoads.get() >= 6)
         assertTrue(source.inspectionProjectionCacheSize() <= 3)
         assertNotNull(source.projectionForChapter(0))
     }
