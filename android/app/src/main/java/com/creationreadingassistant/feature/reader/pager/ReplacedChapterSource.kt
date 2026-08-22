@@ -10,6 +10,20 @@ import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
 /**
+ * 按 key 哈希的条纹锁：同 key 串行、异 key 并行，锁数量固定无泄漏。
+ * 用于「同一章并发加载只执行一次投影」的去重语义（P3.1 并发收紧）：
+ * 昂贵 IO/投影在各自 key 的条纹内执行，绝不持有 [BoundedLruCache] 的 map 锁。
+ */
+internal class KeyedStripedLocks(stripes: Int = 16) {
+    private val locks = Array(stripes) { ReentrantLock() }
+
+    inline fun <T> withLockFor(key: Int, block: () -> T): T {
+        val lock = locks[Math.floorMod(key, locks.size)]
+        return lock.withLock { block() }
+    }
+}
+
+/**
  * 可查询章节投影的 source seam。持久化坐标始终是 source，display 只用于渲染。
  */
 interface ProjectedChapterSource : PagedChapterSource {
@@ -167,39 +181,44 @@ class ReplacedChapterSource(
         return chapter(index).result as? BoundedReplaceResult.Exact
     }
 
+    private val keyedProjectionLocks = KeyedStripedLocks()
+
     private fun chapter(index: Int): CachedChapter {
         cache.get(index)?.let { return it }
-        // 锁外执行昂贵 IO + 投影
-        val source = delegate.loadChapter(index)
-        val result = BoundedReplaceProjector.project(
-            scopeSource = source.text,
-            rules = rules,
-            bookId = bookId,
-            scopeSourceBase = delegate.chapterStartAbs(index),
-            maxSourceLength = maxSourceLength,
-        )
-        val content = when (result) {
-            is BoundedReplaceResult.Exact -> {
-                val display = result.projection.displayText
-                PagedChapterContent(
-                    text = display,
-                    blocks = TxtPageSource.paragraphsOf(display, delegate.chapterTitle(index))
-                        .map(LayoutBlock::Text),
-                )
-            }
-            is BoundedReplaceResult.InvalidLimit -> source
-            is BoundedReplaceResult.UnsupportedTooLarge -> {
-                if (unsupportedReported.compareAndSet(false, true)) {
-                    onUnsupportedTooLarge(result)
+        // 同章去重：同 key 条纹内二次确认 + 投影，保证并发下每章只投影一次；
+        // 异 key 条纹互不阻塞（不持有 cache 的 map 锁）。
+        return keyedProjectionLocks.withLockFor(index) {
+            cache.get(index)?.let { return it }
+            // 昂贵 IO + 投影（仅同 key 请求者互等）
+            val source = delegate.loadChapter(index)
+            val result = BoundedReplaceProjector.project(
+                scopeSource = source.text,
+                rules = rules,
+                bookId = bookId,
+                scopeSourceBase = delegate.chapterStartAbs(index),
+                maxSourceLength = maxSourceLength,
+            )
+            val content = when (result) {
+                is BoundedReplaceResult.Exact -> {
+                    val display = result.projection.displayText
+                    PagedChapterContent(
+                        text = display,
+                        blocks = TxtPageSource.paragraphsOf(display, delegate.chapterTitle(index))
+                            .map(LayoutBlock::Text),
+                    )
                 }
-                source
+                is BoundedReplaceResult.InvalidLimit -> source
+                is BoundedReplaceResult.UnsupportedTooLarge -> {
+                    if (unsupportedReported.compareAndSet(false, true)) {
+                        onUnsupportedTooLarge(result)
+                    }
+                    source
+                }
             }
+            val cached = CachedChapter(content, result)
+            cache.put(index, cached)
+            cached
         }
-        val cached = CachedChapter(content, result)
-        // 防止重复加载：若并发时已经有人写入该 key，保留已存在的条目（幂等）。
-        cache.get(index)?.let { return it }
-        cache.put(index, cached)
-        return cached
     }
 }
 
@@ -323,11 +342,25 @@ class ReplacedSegmentedChapterSource(
      *    其它线程通过 cache.get 返回已算好结果，避免重复工作。
      *  - 昂贵 IO（readChapterRawText）和正则投影在锁外执行。
      */
+    private val keyedProjectionLocks = KeyedStripedLocks()
+
     private fun ensureChapterProjection(
         scope: ReplaceProjectionScope.Exact,
     ): CachedChapterProjection {
         val chapterIdx = scope.logicalChapterIndex
         chapterProjectionCache.get(chapterIdx)?.let { return it }
+        // 同逻辑章去重：同 key 条纹内只有一个线程执行整章读取 + 正则投影，
+        // 其余请求者在二次确认处命中缓存；异逻辑章互不阻塞。
+        return keyedProjectionLocks.withLockFor(chapterIdx) {
+            chapterProjectionCache.get(chapterIdx)?.let { return it }
+            ensureChapterProjectionLocked(scope, chapterIdx)
+        }
+    }
+
+    private fun ensureChapterProjectionLocked(
+        scope: ReplaceProjectionScope.Exact,
+        chapterIdx: Int,
+    ): CachedChapterProjection {
         // 锁外执行：整章读取 + 正则投影（可能耗时且分配完整章字符串，仅 scope<=256K）
         val fullChapterText = scope.loadFullChapterText()
         val scopeBase = (scope.firstSegmentIndex.takeIf { it in 0 until chapterCount }
@@ -343,8 +376,6 @@ class ReplacedSegmentedChapterSource(
             maxSourceLength = minOf(maxSourceLength, scope.charCount + 1).coerceAtLeast(1),
         )
         val cached = CachedChapterProjection(result = result, scopeSourceBase = scopeBase)
-        // 写回：若中途已有其它线程完成写入，使用已有条目保持幂等
-        chapterProjectionCache.get(chapterIdx)?.let { return it }
         chapterProjectionCache.put(chapterIdx, cached)
         return cached
     }
