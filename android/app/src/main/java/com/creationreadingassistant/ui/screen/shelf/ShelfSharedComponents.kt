@@ -27,4 +27,5 @@ internal fun statusLabel(value: ShelfStatusFilter): String = when (value) {
     ShelfStatusFilter.READABLE -> "本机可读"
     ShelfStatusFilter.COMPLETED -> "已完成"
     ShelfStatusFilter.UNREAD -> "未开始"
+    ShelfStatusFilter.SHELVED -> "搁置"
 }

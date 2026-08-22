@@ -43,7 +43,7 @@ internal fun BookInfoSheet(
         GlassAlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = { Text("删除本书") },
-            text = { Text("确定从书架移除《${bookTitle}》吗？本地正文文件、阅读进度和笔记将一并移除，此操作不可撤销。") },
+            text = { Text("确定从书架移除《${bookTitle}》吗？本地正文文件、阅读进度和笔记将一并移除，删除后可随时从书架恢复。") },
             confirmButton = { TextButton(onClick = { confirmDelete = false; onDelete() }) { Text("删除") } },
             dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("取消") } },
         )

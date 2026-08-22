@@ -200,7 +200,7 @@ fun HomeContinueSheet(
         GlassAlertDialog(
             onDismissRequest = { deleteTarget = null },
             title = { Text("删除书籍") },
-            text = { Text("确定从书架删除《${pendingDelete.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，此操作不可撤销。") },
+            text = { Text("确定从书架删除《${pendingDelete.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，删除后可随时从书架恢复。") },
             confirmButton = {
                 TextButton(
                     onClick = {

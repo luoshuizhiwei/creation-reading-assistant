@@ -53,7 +53,12 @@ class SearchViewModel @Inject constructor(
 
     fun search(q: String) {
         searchJob?.cancel()
-        if (q.isBlank()) { _results.value = SearchResults(); return }
+        if (q.isBlank()) {
+            // 搜索中清空查询：取消在途 job 且显式复位 loading，避免永久转圈
+            _results.value = SearchResults()
+            _loading.value = false
+            return
+        }
         searchJob = viewModelScope.launch {
             delay(300) // debounce
             _loading.value = true

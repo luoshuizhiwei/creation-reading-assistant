@@ -167,7 +167,8 @@ private fun ContinueCard(
             }
             Spacer(Modifier.height(10.dp))
             LinearProgressIndicator(
-                progress = { pct.coerceIn(0f, 1f) },
+                // progress_percent 为 0-100，进度条需 0-1
+                progress = { pct.coerceIn(0f, 100f) / 100f },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.dp)

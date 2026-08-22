@@ -74,7 +74,7 @@ internal fun ShelfSelectionRoute(
                         .combinedClickable(
                             onClick = {
                                 when (kind) {
-                                    "status" -> viewModel.setStatusFilter(ShelfStatusFilter.valueOf(id))
+                                    "status" -> ShelfStatusFilter.entries.firstOrNull { it.name == id }?.let(viewModel::setStatusFilter)
                                     "shelf" -> viewModel.setSelectedShelf(id)
                                     "category" -> viewModel.setSelectedCategory(id)
                                     "tag" -> if (id.isEmpty()) viewModel.clearSelectedTags() else viewModel.toggleSelectedTag(id)

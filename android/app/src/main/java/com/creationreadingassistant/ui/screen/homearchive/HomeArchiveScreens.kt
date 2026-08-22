@@ -184,7 +184,7 @@ fun HomeCompletedRoute(
         GlassAlertDialog(
             onDismissRequest = { deletePrompt = null },
             title = { Text("删除书籍？") },
-            text = { Text("本地正文、阅读进度、笔记和灵感关联数据会一并移除，此操作不可撤销。") },
+            text = { Text("本地正文、阅读进度、笔记和灵感关联数据会一并移除，删除后可随时从书架恢复。") },
             confirmButton = {
                 TextButton(onClick = { deletePrompt = null; bookOps.deleteBook(deleting.id) }) {
                     Text("删除", color = MaterialTheme.colorScheme.error)

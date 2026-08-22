@@ -223,6 +223,8 @@ internal fun ShelfRoute(
                         clearSelected = { selectedIds.clear() },
                         addSelectedAll = { ids -> selectedIds.clear(); selectedIds.addAll(ids) },
                         toggleSelectedId = ::toggleSelected,
+                        visibleBookIds = { uiState.filtered.map { it.bookId } },
+                        currentActionBookId = { actionBookId },
                         setSelectedShelfId = viewModel::setSelectedShelf,
                         setSelectedCategoryId = viewModel::setSelectedCategory,
                         setSelectedTagId = viewModel::setSelectedTag,
@@ -523,6 +525,8 @@ private fun handleShelfAction(
     clearSelected: () -> Unit,
     addSelectedAll: (Collection<String>) -> Unit,
     toggleSelectedId: (String) -> Unit,
+    visibleBookIds: () -> Collection<String>,
+    currentActionBookId: () -> String?,
     setSelectedShelfId: (String) -> Unit,
     setSelectedCategoryId: (String) -> Unit,
     setSelectedTagId: (String) -> Unit,
@@ -571,7 +575,10 @@ private fun handleShelfAction(
         is ShelfAction.UpdateStatusFilter -> setStatusFilter(action.status)
         ShelfAction.ResetAllFilters -> resetFilters()
 
-        ShelfAction.SelectAllVisible -> { }
+        ShelfAction.SelectAllVisible -> {
+            // 全选当前筛选可见的书（聚合后 uiState.filtered 已按筛选/查询计算）
+            addSelectedAll(visibleBookIds())
+        }
         ShelfAction.ClearSelection -> clearSelected()
         is ShelfAction.ToggleSelected -> toggleSelectedId(action.bookId)
 
@@ -581,7 +588,8 @@ private fun handleShelfAction(
             else showMessage("《${action.book.title}》${label}，暂时无法打开。请检查文件状态或重新导入/下载正文。")
         }
         is ShelfAction.ToggleActions -> {
-            setActionBookId(if (action.bookId == setActionBookId.javaClass.name) null else action.bookId)
+            // 原实现误用 lambda 类名比较恒 false：改为同书点击关闭弹层
+            setActionBookId(if (action.bookId == currentActionBookId()) null else action.bookId)
         }
         is ShelfAction.DismissActionSheet -> setActionBookId(null)
         is ShelfAction.ContinueFromActionSheet -> {

@@ -4,6 +4,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.feature.reader.hasLocalBookSource
 import com.creationreadingassistant.ui.theme.AppError
@@ -18,7 +19,7 @@ internal enum class ShelfViewMode { GRID, LIST }
 internal enum class BatchSheetKind { SHELF, CATEGORY, TAG }
 
 /** 对齐 web shelfStatusOptions（全部/在读/已完成/未开始/本机可读）。 */
-internal enum class ShelfStatusFilter { ALL, READING, COMPLETED, UNREAD, READABLE }
+internal enum class ShelfStatusFilter { ALL, READING, COMPLETED, UNREAD, READABLE, SHELVED }
 
 /** 对齐 book-status.ts 的就绪状态判定（原生仅用已存在字段）。 */
 internal enum class ReadinessTone { READY, CLOUD, ERROR }
@@ -47,9 +48,14 @@ internal fun progressFor(map: Map<String, ReadingProgressEntity>, id: String): F
     (map[id]?.progress_percent ?: 0f).coerceIn(0f, 100f)
 
 /** 对齐 book-status.ts 的「阅读状态」判定，用于状态筛选条。 */
-internal fun bookStatus(book: BookEntity, percent: Float): ShelfStatusFilter {
+internal fun bookStatus(
+    book: BookEntity,
+    percent: Float,
+    completionState: String? = null,
+): ShelfStatusFilter {
     val p = percent.coerceIn(0f, 100f)
     return when {
+        ReadingCompletionState.fromStorage(completionState) == ReadingCompletionState.SHELVED -> ShelfStatusFilter.SHELVED
         book.isDownloaded() -> ShelfStatusFilter.READABLE
         p >= 99.5f -> ShelfStatusFilter.COMPLETED
         p > 0f -> ShelfStatusFilter.READING
@@ -78,7 +84,7 @@ internal fun filterItems(
             "${book.title} ${book.author ?: ""} ${book.original_file_name ?: ""}".lowercase().contains(lower)
         val matchesFilter = allowedBookIds?.contains(book.id) ?: true
         val matchesStatus = statusFilter == ShelfStatusFilter.ALL ||
-            bookStatus(book, progressFor(progressById, book.id)) == statusFilter
+            bookStatus(book, progressFor(progressById, book.id), progressById[book.id]?.completion_state) == statusFilter
         val matchesFormat = formatFilter.isEmpty() || book.format.equals(formatFilter, ignoreCase = true)
         matchesQuery && matchesFilter && matchesStatus && matchesFormat
     }

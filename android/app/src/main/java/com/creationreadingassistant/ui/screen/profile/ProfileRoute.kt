@@ -98,8 +98,9 @@ internal fun ProfileRoute(
     var aiKeyDraft by remember(ai.apiKey) { mutableStateOf(ai.apiKey) }
 
     // ---- 子页专用的完整档案数据:仅在进入某个子页后(currentSubPage != null)才订阅 ----
-    val libraryState by produceState(initialValue = ProfileLibraryState()) {
-        viewModel.libraryState.collect { value = it }
+    //（首页不物化整库 books/progress/sessions/notes，避免任何 DB 变化都重算整库 + 排序）
+    val libraryState by produceState(initialValue = ProfileLibraryState(), key1 = subPage != null) {
+        if (subPage != null) viewModel.libraryState.collect { value = it }
     }
     val books = libraryState.books
 
@@ -254,7 +255,12 @@ private fun handleProfileAction(
         ProfileAction.ResetReader -> settingsVm.updateReader { ReaderSettings() }
         is ProfileAction.UpdateAi -> settingsVm.updateAi(action.block)
         ProfileAction.SaveAiKey -> {
-            settingsVm.updateAi { copy(apiKey = aiKeyDraft) }
+            // API Key 留空且已有存值 = 不修改 Key（占位文案已承诺此语义）
+            val aiSettings = settingsVm.ai.value
+            settingsVm.updateAi {
+                if (aiKeyDraft.isBlank() && aiSettings.apiKey.isNotBlank()) this
+                else copy(apiKey = aiKeyDraft.trim())
+            }
             showMsg("AI 设置已保存")
         }
         ProfileAction.ClearAiKey -> {

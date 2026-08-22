@@ -252,8 +252,17 @@ internal fun InspirationDetail(
                 FilledTonalButton(
                     enabled = entity.body.isNotBlank() && generatingAction == null,
                     onClick = {
+                        // 直接经 ViewModel 执行并在完成回调里重置，避免按钮永久卡死
+                        //（原实现只派发 action，Route 完成后无路径把 generatingAction 置回 null）
                         generatingAction = action
-                        onAction(InspirationAction.RunInspirationAi(entity.id, action))
+                        viewModel.runInspirationAction(entity.id, action, entity.title, entity.body) { ok ->
+                            generatingAction = null
+                            onAction(
+                                InspirationAction.ShowMessage(
+                                    if (ok) "AI 候选已保存，原文没有被覆盖。" else "生成失败，请检查 AI 设置",
+                                ),
+                            )
+                        }
                     },
                 ) {
                     if (generatingAction == action) {

@@ -427,7 +427,10 @@ class ProfileViewModel @Inject constructor(
     val webDavBackups: StateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>> = _webDavBackups.asStateFlow()
 
     fun saveWebDav(url: String, user: String, pass: String) {
-        webDavConfigStore.config = WebDavConfigStore.Config(url.trim(), user.trim(), pass)
+        // 密码留空 = 继续使用已保存的密码（占位文案已承诺此语义，不得清空凭证）
+        val keepPass = pass.isBlank() && (webDavConfigStore.config?.pass?.isNotBlank() == true)
+        val effectivePass = if (keepPass) webDavConfigStore.config!!.pass else pass
+        webDavConfigStore.config = WebDavConfigStore.Config(url.trim(), user.trim(), effectivePass)
         _webDavConfig.value = webDavConfigStore.config
         _webDavMsg.value = "WebDAV 配置已保存"
         loadWebDavBackups()
