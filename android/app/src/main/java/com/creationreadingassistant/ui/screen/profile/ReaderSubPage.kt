@@ -73,7 +73,7 @@ internal fun ReaderSettingsSubPage(
     ) {
         item {
             SettingsSection("排版", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
-                SettingSliderRow("字号", settings.fontSize, "${settings.fontSize.toInt()} 字号", { onAction(ProfileAction.UpdateReader { copy(fontSize = it) }) }, valueRange = 12f..32f, steps = 19)
+                SettingSliderRow("字号", settings.fontSize, "${settings.fontSize.toInt()} 字号", { onAction(ProfileAction.UpdateReader { copy(fontSize = it) }) }, valueRange = 12f..40f, steps = 27)
                 SectionDivider()
                 ReaderFontPickerRow(settings) { next -> onAction(ProfileAction.UpdateReader { next }) }
                 SectionDivider()
@@ -129,7 +129,9 @@ internal fun ReaderSettingsSubPage(
             SettingsSection("显示", modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
                 SettingBrightnessRow(
                     settings.brightness,
-                    { onAction(ProfileAction.UpdateReader { copy(brightness = it) }) },
+                    { v ->
+                        onAction(ProfileAction.UpdateReader { copy(brightness = v, lastFixedBrightness = if (v >= 0) v else lastFixedBrightness) })
+                    },
                     fixedDefault = settings.lastFixedBrightness,
                 )
                 SectionDivider()
@@ -181,6 +183,10 @@ internal fun ReaderSettingsSubPage(
                 SettingSliderRow("护眼提醒", settings.eyeCareReminderMinutes.toFloat(), "${settings.eyeCareReminderMinutes} 分钟", { onAction(ProfileAction.UpdateReader { copy(eyeCareReminderMinutes = it.toInt()) }) }, valueRange = 5f..60f, steps = 54)
                 SectionDivider()
                 SettingSwitchRow("阅读节奏提示", settings.readingRhythmReminderEnabled, { onAction(ProfileAction.UpdateReader { copy(readingRhythmReminderEnabled = it) }) })
+                if (settings.readingRhythmReminderEnabled) {
+                    SectionDivider()
+                    SettingSliderRow("提示间隔", settings.readingRhythmReminderMinutes.toFloat(), "${settings.readingRhythmReminderMinutes} 分钟", { onAction(ProfileAction.UpdateReader { copy(readingRhythmReminderMinutes = it.toInt()) }) }, valueRange = 5f..60f, steps = 54)
+                }
             }
         }
 

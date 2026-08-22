@@ -220,7 +220,10 @@ private fun TypographySettings(
             SectionDivider()
             SettingBrightnessRow(
                 brightness = settings.brightness,
-                onBrightnessChange = { onChange(settings.copy(brightness = it)) },
+                onBrightnessChange = { v ->
+                    // 拖动固定亮度时同步记住，供下次从跟随系统切回时恢复（lastFixedBrightness 无独立写入点）
+                    onChange(settings.copy(brightness = v, lastFixedBrightness = if (v >= 0) v else settings.lastFixedBrightness))
+                },
                 fixedDefault = settings.lastFixedBrightness,
             )
         }
@@ -302,7 +305,9 @@ private fun DisplaySettings(settings: ReaderSettings, onChange: (ReaderSettings)
         SettingsSection("屏幕显示") {
             SettingBrightnessRow(
                 settings.brightness,
-                { onChange(settings.copy(brightness = it)) },
+                { v ->
+                    onChange(settings.copy(brightness = v, lastFixedBrightness = if (v >= 0) v else settings.lastFixedBrightness))
+                },
                 fixedDefault = settings.lastFixedBrightness,
             )
             SectionDivider()
