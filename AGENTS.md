@@ -74,6 +74,7 @@ npm run dist           # 构建 + 打包安装程序
 
 深入了解阅读器引擎设计与技术选型，请参阅：
 
+- [`docs/handoff/current.md`](docs/handoff/current.md) — 当前 Agent 交接入口、活动主线与开放项
 - [`docs/architecture/native-android-reader.md`](docs/architecture/native-android-reader.md) — 当前独立原生 Android 阅读器架构
 - [`docs/plans/legado-feature-backlog.md`](docs/plans/legado-feature-backlog.md) — 面向阅读体验的候选功能清单
 - [`docs/README.md`](docs/README.md) — 当前文档、历史快照与归档边界

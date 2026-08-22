@@ -1,4 +1,4 @@
-# 原生 Android 后续路线图（2026-08-16）
+# 原生 Android 后续路线图（2026-08-21 会话追加：流式大 TXT 三件套回归修复通过验收）
 
 > 状态：**现行计划**。覆盖 2026-08-16 两批功能交付（R1 假功能修复+快赢、R2 中型功能）
 > 之后的工作安排。前置事实：
@@ -80,25 +80,43 @@
 | CI 设备测试 | 评估把 `android-migration-tests` 模拟器 job 扩展到 Compose 关键路径类（分批，控制时长） | 至少 Reader 关键路径类在 CI 执行 |
 | A7 剩余 | 同步/WebDAV 两端真机↔桌面冒烟；UI 层重复点击/离线重试场景 | 无静默丢数据；冲突可解释 |
 | A9 剩余 | EPUB 异常语料矩阵（无 TOC/坏 ZIP/路径穿越/超大图等）+ 首屏/翻页/内存基线记录 | 异常均进可退出错误态；基线入档 |
-| A12 | 无障碍与资源化：约 337 处硬编码中文收口到 `strings.xml`、补 `contentDescription`、清 85 lint warnings | 正式对外分发前必须完成 |
+| A12 | 无障碍与资源化：约 337 处硬编码中文收口到 `strings.xml`、补 `contentDescription`、清剩余 lint warnings（2026-08-16 实测 16，08-20 后代码大幅变更，以当次复跑为准） | 正式对外分发前必须完成 |
 | StrictMode 违规 | 按 0.2 收集的清单清零主线程 I/O | 调试构建 logcat 无 StrictMode 违规 |
-| 桌面端 A10 | 修 4 个失败的 `splitTxtChapters` 用例并把桌面单测/构建加入 CI | 75 测试全绿（非移动端，同仓债务） |
+| ~~桌面端 A10~~ | **已完成（2026-08-22 复核）**：`splitTxtChapters` 59 用例全过（原 4 失败已在创作工作台开发中修复）；桌面 689 项测试全绿；`ci.yml` desktop job 自 2026-07-30 起含类型检查+`npm test`+`npm run build`+verify，2026-08-20 实跑全绿 | ✅ 已达成 |
 
 ---
 
 ## P3：功能深化（按性价比排序，P0 后可开始）
 
-1. **替换净化规则接入正文** —— 设计已就绪（`replace-rules-render-integration-design.md`
-   四片方案）。**前置：reader WIP 收口合并后**（文件所有权冲突）。工作量 3–5 天，
-   真机验收（既有高亮不错位）是硬门槛。
-2. **阅读目标 + streak 打卡 + 提醒通知** —— 设计已就绪（`2026-08-16-reading-goal-streak-design.md`：
-   片 0 本地会话写入补齐、片 1 统计口径统一、片 2 `GoalStore` + 进度环、片 3 WorkManager 提醒通知）。
-   streak 已算好；补每日/每周目标设置、Stats/Home 进度环、提醒通知
-   （`POST_NOTIFICATIONS` 权限已申请未用）。通知渠道行为需真机验证。工作量 3.5–4.5 天。
-3. **TOC 已读标记持久化 + 分类/标签/书单手动排序** —— **数据底座已于 2026-08-20 验收**：
-   schema v10、`chapter_reads` Entity/DAO、9→10 与 1→10 迁移、三类 `sort_order`
-   DAO/Repository 均已通过 JVM 与真实手机测试。后续仍需接章节到达写入、删书/手动清理、
-   TOC 弱化样式与计数，以及分类/标签/书单三个完整管理入口；不实现书单内书籍排序。
+1. **替换净化规则接入正文** —— **首期（片 0 双轨 + Provider + 片 1–3 + 能力边界）已于
+   2026-08-21 通过完整验收**：2026-08-20 首轮"流式章节 source"因三项回归
+   （无目录大 TXT 整本退化、投影缓存无上限、UI 能力判断虚假）未通过；
+   2026-08-21 会话采用双轨 + Provider 架构重写片 0：
+   - 有界分页：TxtChapterSource.fromStreaming 以 ReadingUnit segment 为 chapterCount
+     （≤PlainTextDocument.MAX_WINDOW_CHARS，50MB 无目录≥100 段，偏移连续）
+   - 完整作用域：`ReplaceProjectionScopeProvider.scopeForSegment`，
+     用 TxtFileIndex 元数据在读取整章前判定 Exact(≤256K) / UnsupportedTooLarge(>256K)
+     / Incomplete；超限不读整章；同一逻辑章内 segments 共享同一投影；
+   - ReplacedChapterSource：LRU 3-chapter 有界容量、锁外投影、规则 key 变化不复用；
+   - UI：`PagedReplacementAvailability` 由集成层输出，不再靠 isTxt+pagerEngineOn 反推。
+   JVM 定向 suites=5/tests=58 0 failures；全量 153 suites / 1432 tests 0 failures；
+   lintDebug/assembleDebug/compileDebugAndroidTestKotlin 全绿；
+   真机 serial=c49ac6cf：安装/冷启动/无 FATAL-ANR 通过；
+   ReaderRulesSheetTest 6/6 PASS（numtests=6 OK (6 tests)）。
+   剩余开放项：legacy/滚动实际正文投影、EPUB/Markdown 结构保真设计、
+   并发线程下的重复投影去重收紧、授权导入中性测试 TXT 后的带书真机矩阵
+   （正文替换/规则启停/重分页/搜索/高亮/选区/TTS/超限提示一次性/坐标持久化）。
+   当前不支持路径已隐藏替换入口并解释保留原文；禁止按 ReadingUnit 或 overlap 近似替换。
+2. **阅读目标 + streak 打卡 + 提醒通知** —— **片 0–1 已于 2026-08-20 收口**：本地会话
+   状态机、前后台有效计时、30 秒门槛、5 分钟切段、同步 payload 与 Room 聚合链均已通过
+   JVM、Lint、构建和真实手机临时数据库测试；阅读日、今日聚合、异常时长过滤与 streak 已统一。
+   后续为片 2 `GoalStore` + 进度环、片 3 WorkManager 提醒通知（详见设计文档），进入片 2 前需
+   再确认“每日阅读目标”仍符合当前产品方向。`POST_NOTIFICATIONS` 权限已申请未用，通知渠道行为
+   仍需真机验证。剩余工作量约 2.5–3 天。
+3. **TOC 已读标记持久化 + 分类/标签/书单手动排序** —— **已于 2026-08-20 收口**：
+   schema v10、`chapter_reads`、迁移、到达章写入、删书/手动清理、TOC 弱化与计数，
+   以及分类/标签/书单独立排序模式均已通过 JVM、Lint、构建和真实手机定向测试；
+   TXT 已读和书单内书籍排序仍明确不在本期范围。
 4. **backlog 候选池**（`plans/legado-feature-backlog.md`，候选非承诺）：
    热力图增强、全书页码/剩余页数（等 A9 排版性能基线后评估）、简繁转换、
    主题三件套、点击区域动作自定义、AI 批注层、共享元素转场、手柄/滚轮。
@@ -113,13 +131,18 @@
 
 ---
 
-## 建议节奏
+## 当前优先顺序（2026-08-20 会话）
 
-```
-本周      P0.1 收口提交 + P0.2/P0.3 真机验证（一场真机 session 可完成大部分）
-下周      P1 发版闭环（Secrets → 首发 tag → 安装升级验证）
-并行      P2 按表推进（A12 资源化建议拆成每日一小批，避免单次大 PR）
-WIP 合并后 P3.1 替换规则接线（最优先）、随后 P3.2 阅读目标
-```
+1. 保全并审查当前未提交工作区，不依据旧文件数量拆提交；提交、暂存和推送均需用户授权。
+2. 继续 P3.1：先在屏幕解锁 + MIUI 弹窗点允许后复跑 ReaderRulesSheetTest（6/6）；
+   授权后导入测试 TXT（小型 + 流式大 TXT）完成带书真机矩阵。
+3. legacy/滚动路径片 4：先写投影映射 + 持久化坐标测试，再逐个接入消费点；
+   禁止 display 坐标写数据库。
+4. EPUB/Markdown 先评估 DOM/结构保真性与源↔渲染映射语义，未出设计前保持入口隐藏。
+5. P3.2 片 2–3 在用户重新确认每日目标方向后启动。
+6. P1 首发依赖签名 Secrets 与用户授权的 tag；P2 质量项可按互斥文件面分片推进。
+
+最新接手入口见 `docs/handoff/current.md`；本路线图提供全景，不替代交接页的活动任务顺序。
 
 维护规则：完成一项后回填本文件状态；被新计划取代时移入历史参考。
+

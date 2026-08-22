@@ -1,19 +1,18 @@
 # 阅读目标 + streak 打卡 + 提醒通知 — 设计
 
-> 状态：**设计完成，未实施**（2026-08-16）。对应路线图 P3.2。
+> 状态：**片 0–1 已实施并验收；片 2–3 待决策/实施**（2026-08-20）。对应路线图 P3.2。
 > 前置：P0 收口与真机验证完成；实施可与 P3.1（替换规则接线）并行（文件面不重叠）。
 
 ## 0. 关键现状发现（决定本设计的前提）
 
-1. **`reading_sessions` 本地零写入**：`sessionDao.upsert` 的调用方只有同步拉取
-   （`SyncRepository.applySession`）、备份导入（`JsonBridge`）与软删恢复。本地阅读只写
-   `reading_progress`（单行/书，仅当前位置）。而 Stats 页的今日/趋势/streak、Home 的
-   「今日阅读」全部聚合 `reading_sessions` —— **纯本地阅读的时长根本不进统计**。
-   这既是本功能的数据地基，也是一个应顺带修复的统计盲区。
-2. **三套口径不一致**：`StatsRepository.streakDays` 按 `created_at` 归日；
-   `StatsPage.computeStreak` 按 `COALESCE(started_at, created_at)` 且过滤异常时长；
-   Home 今日用 `sumOccurredDurationBetween`（started_at 口径）而 Stats 用
-   `sumCreatedDurationBetween`（created_at 口径）。目标进度必须先统一口径。
+1. **历史缺口（片 0 已修复）—— `reading_sessions` 本地零写入**：此前 `sessionDao.upsert` 的调用方只有同步拉取
+   （`SyncRepository.applySession`）、备份导入（`JsonBridge`）与软删恢复，本地阅读只写
+   `reading_progress`。由于 Stats/Home 聚合 `reading_sessions`，纯本地时长当时无法进入统计。
+   现在 Reader 已通过 `ReadingSessionRecorder` 写入本地会话。
+2. **历史口径分裂（片 1 已修复）**：此前 Repository streak 按 `created_at`，统计页按
+   `COALESCE(started_at, created_at)`，Home 与 Stats 今日窗口也各用一套字段。现在阅读日统一为
+   occurred 口径，连续阅读算法与 24 小时异常上限集中在 `ReadingStatsPolicy`，SQL 聚合与统计页均排除
+   非正数和超过 24 小时的异常会话。
 3. **无后台调度基础设施**：项目无 WorkManager 依赖、无 AlarmManager 先例、无静态
    receiver；唯一 NotificationChannel 是 TTS 播放（`tts_playback`，懒创建）。
    `POST_NOTIFICATIONS` 权限已声明且 TTS 路径有运行时申请先例。
@@ -29,6 +28,10 @@
 ## 2. 分片设计（四片，独立交付）
 
 ### 片 0 — 本地会话写入（数据地基，先行）
+
+> **已于 2026-08-20 完成。** 实现采用单一 `ReadingSessionRecorder` 状态机：
+> 前台、正文就绪且无错误时才计时；时长用 `SystemClock.elapsedRealtime()`，墙上时间仅生成
+> ISO 时间戳；30 秒门槛、5 分钟滚动切段、24 小时异常上限、切书隔离与重复暂停去重均有 JVM 测试。
 
 在阅读器生命周期落一条会话记录，字段对齐同步信封（`revision=1`、`device_id`
 本机 id、`payload` 存提升列 JSON），确保后续能被 push 同步：
@@ -46,15 +49,25 @@
 验收：本地阅读 30 分钟（真机，可临时调短切段阈值）后，Stats 今日/趋势图出现数据、
 Home「今日阅读」非零；无阅读时不产生记录；切书/退出重进不丢已计时长。
 
+实施验收（2026-08-20）：全量 JVM 145 套件 / 1387 项、Lint、Debug APK、AndroidTest
+编译均通过；真实手机 `c49ac6cf` 以临时内存数据库执行 1 项端到端测试，确认 30 秒会话
+经 Recorder → Repository → Room 后，可被总时长和 Home 今日口径查询到。设备没有测试书籍，
+因此未擅自导入书籍做 UI 长读；测试未写入用户书库或生产数据库。
+
 ### 片 1 — 口径统一
+
+> **已于 2026-08-20 完成。** 阅读日统一为 `COALESCE(started_at, created_at)`；
+> `ReadingStatsPolicy` 成为 Repository 与 Stats 页共用的连续阅读/时长有效性策略。
 
 - 「阅读日」统一为 `COALESCE(started_at, created_at)`（与 `StatsPage.computeStreak`
   一致）；`StatsRepository.streakDays` 与 Home/Stats 今日时长全部切到 occurred 口径。
 - 旧 `created_at` SQL（`sumCreatedDurationBetween/Since`）保留但不再被 UI 消费
   （同步侧如有依赖另行核对），迁移期在代码注释标注口径。
 
-验收：Home 今日与 Stats 今日同源同值；streak 两处实现合一（保留
-`StatsPage.computeStreak` 为唯一实现，Repository 委托之）。
+验收：Home 今日与 Stats 今日同为 occurred 口径；streak 两处实现合一。实现时将纯算法下沉为
+`ReadingStatsPolicy`，避免数据层反向依赖 UI 层。真实手机 Room 测试覆盖 started/created 跨日、
+started 为空回退、零时长与超过 24 小时异常记录；全量 JVM 147 套件 / 1392 项、Lint、Debug APK
+和 AndroidTest 编译均通过，真机口径聚合与 Recorder 持久化 2 项通过，测试未写入用户书库。
 
 ### 片 2 — 目标设置与进度环
 

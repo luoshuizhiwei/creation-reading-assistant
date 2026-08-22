@@ -11,12 +11,12 @@
 
 - **B-1（已修，2026-07-31）CoroutineScope / CoroutineDispatcher 注入缺口**：已在 `CoroutineScopeModule.kt` 新增 `@IODispatcher / @DefaultDispatcher / @MainDispatcher` 三个 Qualifier，并把 `ShelfViewModel / PagerHealthStore` 等硬编码 `Dispatchers.*` 全部改为注入。测试里 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 也改为注入真实 `Dispatchers.Default`，保证缓存模型与生产环境调度一致。
 - **B-4（已修，2026-07-31）Hilt @EntryPoint 滥用**：原来报告的「大量分散 EntryPoint」实际只存在 `StatsScreen.kt` 一处，且使用方式已确认符合 Hilt 约束。本轮已经把 `StatsDashboardViewModelTest` 的 `UnconfinedTestDispatcher` 问题修正，不再用 EntryPoint 作伪装借口；严重度由原 P1 下调为「仅 1 处、已确认无副作用」，不再作为缺口派发。
-- **C-3（已修正版本号对照，2026-08-16）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。当前 `android/app/build.gradle.kts`：`versionCode = 2`、`versionName = 0.5.0`（缺省由本地默认值兜底，发布时经 `-PcraVersionCode/-PcraVersionName` 注入）；Room schema 已导出到 `android/app/schemas`：`1.json`~`9.json`（当前 v9）。
+- **C-3（已修正版本号对照，2026-08-22）**：原「旧 mobile/android v0.1.26 / v0.2.0 → 对照 native `0.4.0-p4`」不再适用。`android/app/build.gradle.kts`：`versionCode = 2`、`versionName = 0.5.0`（缺省由本地默认值兜底，发布时经 `-PcraVersionCode/-PcraVersionName` 注入）；Room schema 已导出到 `android/app/schemas`：`1.json`~`10.json`（当前 v10，含 `chapter_reads` 与 taxonomy 排序；注意 v10 目前只存在于 `codex/workspace-backup-2026-08-20` 分支，main 尚停留在 v9 时代）。
 - **A-2（已修，原「明确 Capacitor 去留」，2026-07-30 P0-A2 收尾）**：`mobile/` 已整体删除，仅保留许可证/上游归属存档于 `archives/frozen-mobile/`。`AGENTS.md` 已更新「移动端两条独立产品线」说明，后续所有改动都落在 `android/`，不要再出现 Capacitor、mobile/android 路径、或对已删除的 `MobileReaderView/ShelfPage.tsx` 的改造计划。
 - **A1（已基本完成，2026-08-08 复核）**：大 TXT 流式闭环已落地——`TextStreamLoader` 以 5MB 为阈值分流，大文件走 `TxtFileScanner` 索引 + `PlainTextDocument` 有界窗口，导入预览对 >10MB 文件使用 `readWindow(0, 20_000)`；搜索（`computeStreamingTxtSearch`）逐 ReadingUnit 读取。剩余复核点：个别消费者不得回退为整文件 `readText()`。
 - **A4（已完成，2026-08-08 复核）**：原生 Markdown 语义已落地（`MarkdownParser`/`MarkdownDocument`/`MarkdownPageSource`/`MarkdownOffsetMap`），支持标题、段落、列表、任务列表、引用、代码块、表格、链接，规范文本与源偏移双向映射，搜索/TTS/Locator/选区基于规范偏移。
 - **A5（已完成，2026-08-08 复核）**：`ReaderScreen.kt` 已从约 4,462 行拆至 502 行，文档加载、会话、进度、分页引擎状态、护眼/TTS、Sheet 均抽为独立文件与 State-holder；DAO/Repository 写入收敛到 `ReaderViewModel`。
-- **A8（已完成，2026-08-08 实现）**：为 9 个外键列补 Room 声明索引（reading_sessions.book_id、inspirations.source_book_id、inspiration_variants.inspiration_id、notes.book_id/inspiration_id、highlights.book_id、book_tag.tag_id、book_category.category_id、shelf_book.book_id），schema 已生成 v8，7→8 迁移与 1→8 全链迁移测试已加入；KSP 未索引外键警告清零。**2026-08-16 跟进**：schema 已演进到 v9（1→9 真机复核待办）。
+- **A8（已完成，2026-08-08 实现）**：为 9 个外键列补 Room 声明索引（reading_sessions.book_id、inspirations.source_book_id、inspiration_variants.inspiration_id、notes.book_id/inspiration_id、highlights.book_id、book_tag.tag_id、book_category.category_id、shelf_book.book_id），schema 已生成 v8，7→8 迁移与 1→8 全链迁移测试已加入；KSP 未索引外键警告清零。**2026-08-22 跟进**：schema 已演进到 v10（`chapter_reads` 表 + taxonomy 排序，位于 `codex/workspace-backup-2026-08-20` 分支；1→最新 真机复核待办）。
 - **A3（已完成，2026-08-16 收口）**：原生 Android 发布链路与检查更新已闭环——`.github/workflows/release.yml` 新增 `build-android-release` job，按 tag 前缀分流（`v*` 桌面端 / `android-v*` Android 签名 APK + GPL 源码包 + SHA-256，versionCode 由 tag 按「主×10000+次×100+修订」计算且修订 >99 直接失败）；版本注入与签名兜底/CI 缺签名即失败已落在 `android/app/build.gradle.kts`；应用内「检查更新」改为按 `android-v` 前缀过滤 releases 列表并做语义化版本比较（`UpdateCheck` + JVM 单测）。首次发版前需按 `docs/release/ANDROID_RELEASE.md` §2.4 配置签名 Secrets；发布工作流本身的实际链路待首次发版时验证。
 
 ## 结论
@@ -146,9 +146,9 @@
 
 ### A10. 桌面端真实质量门禁
 
-当前 CI 只对桌面端做 TypeScript 类型检查，没有执行根目录 `npm test` 或完整 `npm run build`。本轮实跑确认生产构建成功，但 75 个测试中 4 个 `splitTxtChapters` 用例失败（卷标题、前言空行和混合章节规则会多切章节）。先修算法或纠正有证据错误的断言，再把桌面单测和 Electron 构建加入 CI，并优先补 IPC 权限、数据导入导出、同步协议和更新检查。
+**2026-08-22 复核：已完成，原描述已过时。** `splitTxtChapters` 现为 59 个用例全部通过（原"75 测试中 4 个失败"为 2026-07-29 时点数据，后续创作工作台开发中已修复）；桌面测试套件已增长到 689 项全绿（本地实测，4 项 skipped 为本地 better-sqlite3 ABI 与 Node 版本不匹配的环境问题，CI 的 Node 24 全量执行）。CI 侧：`.github/workflows/ci.yml` 的 desktop job 自 2026-07-30（`83e56cf`）起就包含三份 tsconfig 类型检查 + `npm test` + `npm run build` + verify 脚本，push/PR 均触发；2026-08-20 实际运行全绿。原「优先补 IPC 权限、数据导入导出、同步协议和更新检查」测试仍可作为后续增强，不阻塞验收。
 
-验收：75 个现有测试全绿，桌面端测试与生产构建成为 PR 必过项，失败不会被字符串型 verify 脚本掩盖。
+验收：75 个现有测试全绿（现况 689 全绿），桌面端测试与生产构建成为 PR 必过项（已达成），失败不会被字符串型 verify 脚本掩盖。
 
 ## P2：体验增强
 

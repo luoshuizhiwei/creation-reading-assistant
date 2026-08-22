@@ -1,6 +1,6 @@
 # 文档索引
 
-更新日期：2026-08-20
+更新日期：2026-08-21
 
 本仓库包含桌面端、独立原生 Android（当前移动端主线 `android/`）。旧 Capacitor `mobile/` 产品线已于 2026-07-30 删除，其许可证与上游存档见 `archives/frozen-mobile/`；历史文档里提到的 `mobile/` 是指该已删除产品线，不能当作当前 `android/` 的实现依据。
 
@@ -9,6 +9,7 @@
 | 文档 | 作用 |
 |---|---|
 | [`../AGENTS.md`](../AGENTS.md) | 产品线边界、构建命令和真机验证约束 |
+| [`handoff/current.md`](handoff/current.md) | 当前 Agent 单一交接入口：活动主线、工作区边界、下一步、验证命令与 desktop 停放项 |
 | [`plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md) | desktop 创作工作台第一阶段的正式功能规格、迁移要求、验收矩阵和实施切片 |
 | [`architecture/desktop-creation-current.md`](architecture/desktop-creation-current.md) | desktop 当前模块边界、SQLite/IPC 调用链、关键一致性规则与验证入口 |
 | [`architecture/desktop-creation-migration-audit-contract.md`](architecture/desktop-creation-migration-audit-contract.md) | desktop 旧数据只读审计、隐私边界与迁移分级 |
@@ -17,9 +18,9 @@
 | [`testing/native-android-gap-audit-2026-07-29.md`](testing/native-android-gap-audit-2026-07-29.md) | 可直接分派给其他 agent 的缺口与验收标准；P0 已全部收口（2026-08-16），剩余为真机复核、EPUB 语料/基线、桌面门禁与同步冒烟 |
 | [`plans/legado-feature-backlog.md`](plans/legado-feature-backlog.md) | 阅读体验增强候选；不是已承诺路线图 |
 | [`plans/2026-08-16-android-followup-roadmap.md`](plans/2026-08-16-android-followup-roadmap.md) | 现行后续计划：收口与真机验证 → 首次发版 → 质量门禁 → 功能深化 |
-| [`plans/2026-08-16-reading-goal-streak-design.md`](plans/2026-08-16-reading-goal-streak-design.md) | P3.2 阅读目标 + 连续阅读 + 提醒设计（未实施；切片与验收见文内） |
-| [`plans/2026-08-16-toc-read-mark-manual-sort-design.md`](plans/2026-08-16-toc-read-mark-manual-sort-design.md) | P3.3 目录已读标记 + 分类/标签/书单手动排序设计；schema v10 与排序数据底座已验收，阅读写入/清理、TOC 展示和管理 UI 待实施 |
-| [`plans/replace-rules-render-integration-design.md`](plans/replace-rules-render-integration-design.md) | 替换净化规则接入正文渲染的接线设计（未实施；须与 reader WIP 协调） |
+| [`plans/2026-08-16-reading-goal-streak-design.md`](plans/2026-08-16-reading-goal-streak-design.md) | P3.2 阅读目标 + 连续阅读 + 提醒设计（片 0–1 会话写入与统计口径统一已完成；片 2–3 待决策/实施） |
+| [`plans/2026-08-16-toc-read-mark-manual-sort-design.md`](plans/2026-08-16-toc-read-mark-manual-sort-design.md) | P3.3 目录已读标记 + 分类/标签/书单手动排序（已完成并真机验收） |
+| [`plans/replace-rules-render-integration-design.md`](plans/replace-rules-render-integration-design.md) | 替换净化规则接入正文渲染：小型 TXT + 新分页引擎及不支持路径能力边界已接线，流式/旧渲染及其他格式仍待实施与带书真机验收 |
 | [`WorkBuddy/theme_visual_plan.md`](WorkBuddy/theme_visual_plan.md) | 已冻结并真机验收的主题视觉规范 |
 | [`GITHUB_RELEASE_PROCESS.md`](GITHUB_RELEASE_PROCESS.md) | 现有桌面端发布流程；旧 Capacitor APK 发布已在 P0-A2 退役，原生 Android 发布（P0-A3）见 [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md)（2026-08-16 已收口，`android-v*` tag 流） |
 | [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md) | 原生 Android 发布操作指南：签名、版本注入、GPL 源码包、检查更新 |
@@ -39,6 +40,7 @@
 - `移动端*.md`、`前端优化项目说明文档.md`：旧前端/Capacitor 审查与设计资料。
 - `theme_visual_audit.md`、`PRD_add_four_visual_themes.md`、`system_design.md`：主题方案形成过程；最终视觉以 `WorkBuddy/theme_visual_plan.md` 为准。
 - `legado-with-md3-analysis.md`、`research/`：上游调研资料，不是本项目实现说明。
+- `research/novalist-desktop-adoption-2026-08-21.md`：desktop 创作雷达与 AI 上下文候选的取舍记录；不是当前 Android 任务，也不是已承诺路线图。
 
 ## 维护规则
 

@@ -1,8 +1,13 @@
 # TOC 章节已读标记 + 书单/分类/标签手动排序 — 设计
 
-> 状态：**实施中**。2026-08-20 已完成并真机验收数据底座：schema v10、
+> 状态：**已完成**。2026-08-20 已完成并真机验收数据底座：schema v10、
 > `chapter_reads` Entity/DAO、9→10 与 1→10 迁移、分类/标签/书单排序 DAO/Repository。
-> 阅读到达写入、删书/手动清理、TOC 展示和管理页排序 UI 尚未实施。对应路线图 P3.3。
+> EPUB/Markdown 首次打开与切章到达写入、删书事务清理、TOC 已读弱化/行尾点、
+> 分卷与全书计数、手动清理入口均已实现；TXT 不展示已读状态。分类、标签、书单
+> 管理页已接独立排序模式与相邻上移/下移。全量 JVM 1381 项、
+> lint/assemble 与 androidTest 编译通过；真实手机定向执行 ChapterRead DAO 13 项、
+> TOC 展示与清理交互 5 项、Repository 文件型 Room 跨重开持久化 1 项，合计 19 项
+> 0 失败；排序模式 Compose 真机测试 2 项 0 失败。对应路线图 P3.3 已收口。
 > 前置：P0 收口完成（涉及 reader 文件与 WIP 重叠区）；与 P3.2 无文件冲突可并行。
 
 ## 0. 关键现状发现
@@ -52,23 +57,27 @@ CREATE INDEX IF NOT EXISTS index_chapter_reads_book_id ON chapter_reads(book_id)
   `clearForBook(bookId)`、`countForBook`。挂到既有 BookDao 或独立 `ChapterReadDao`
   （推荐独立，`AppDatabase` v10 + `DatabaseModule.MIGRATION_9_10` +
   `AppDatabaseMigrationTest` 补 9→10 与 1→10 全链）。
-- 写入点：`ReaderViewModel` 处理 `ReaderAction.LoadChapter` 时（bid + chapterIndex）
-  upsert 一条 `chapter_reads`（幂等，已存在则只刷 `read_at`）。该 Action 是
-  `goToChapter` 的必经下游，天然覆盖所有入口。
+- 写入点：`ReaderViewModel` 在成功打开 EPUB/Markdown 时记录初始章，并在处理
+  `ReaderAction.LoadChapter` 成功后（bid + chapterIndex）upsert 一条 `chapter_reads`
+  （幂等，已存在则只刷 `read_at`）。后者是 `goToChapter` 的必经下游，覆盖切章入口；
+  加上初始打开写入后，首次进入也不会漏记。
 - 语义：**到达即已读**（不做读完判定 —— 翻到最后一句的精确判定成本高且口径
   争议大；legado 同样是到访语义）。
-- 清理：`BookRepository.deleteBook` 事务内 `clearForBook`；TOC 头部加
-  「清除已读标记」溢出项。
+- 清理：`BookRepository.deleteBook` 事务内 `clearForBook`；TOC 头部已有
+  「清除已读标记」溢出项及确认对话框，不影响阅读进度、书签或笔记。
 
 ### 片 2 — TOC 展示
 
 - `ReaderTocEntry` 加 `isRead: Boolean = false`；`ReaderSheetHost` 的 TOC 分支把
-  `observe(bid)` 快照传入 `readerTocEntries`（仅 EPUB/Markdown 传实际值，TXT 恒 false）。
+  `observeReadChapters(bid)` 快照传入 `readerTocEntries`（仅 EPUB/Markdown 传实际值，TXT 恒 false）。
 - `TocRow`：已读章标题色降为 `onSurfaceVariant`（弱化）+ 行尾小圆点；当前章样式
   不变（优先级最高）。
 - 卷头行显示「已读 x/y」（`entries` 分组内统计）；TOC 头部 pill 旁加全书
   「已读 n/总」。
 - `currentListPosition` 滚动定位逻辑不受影响（行数不变）。
+
+> 2026-08-20 已实施并验收：已读 Flow 进入 `ReaderRouteUiState`，清空后计数即时归零；
+> 自动滚动只监听当前章和稳定章节索引，不因已读状态变化重置目录浏览位置。
 
 ### 片 3 — 分类/标签/书单手动排序（同 v10 迁移包）
 
@@ -83,9 +92,14 @@ CREATE INDEX IF NOT EXISTS index_chapter_reads_book_id ON chapter_reads(book_id)
 - Repository：`createTag/createShelf/createCategory` 时 `sort_order = max+1`
   （查询一次 max）；新增 `moveTag/moveShelf/moveCategory(id, delta: Int)` ——
   与相邻项交换 sort_order（避免全表重排）。
-- UI：`LibrarySubPage` 行展开区加「上移/下移」两个 IconButton（对齐 ReaderRulesSheet
-  的先例样式），点击发 Action → ViewModel 调 `move*`；列表项顺序由 stateIn 流自动刷新。
+- UI：`LibrarySubPage` 使用独立「调整顺序」模式，避免普通行同时出现编辑、删除、
+  展开、上移、下移五个操作；排序模式显示两位位置编号与「上移/下移」IconButton，
+  首项上移、末项下移禁用。点击后 ViewModel 调 `move*`，列表顺序由 stateIn Flow 自动刷新。
 - 消费面零改动（FilterSheet/Organizer/Selection 均按传入顺序渲染）。
+
+> 2026-08-20 已实施并验收：独立排序模式由用户确认采用；普通管理操作与排序操作
+> 互斥展示，减少窄屏拥挤及误删风险。三类六方向 ViewModel 转发已有 JVM 回归，
+> 模式切换、命名操作和首尾边界已有真实手机 Compose 回归。
 
 ## 3. 验收
 
