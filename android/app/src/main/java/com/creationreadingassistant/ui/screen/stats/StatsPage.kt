@@ -5,10 +5,11 @@ import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
+import com.creationreadingassistant.data.repository.computeReadingStreak
+import com.creationreadingassistant.data.repository.isValidReadingSessionDuration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-import java.time.temporal.ChronoUnit
 import java.util.Locale
 import kotlin.math.max
 import kotlin.math.min
@@ -139,9 +140,7 @@ private fun sessionDateKey(s: StatsSessionRow): String {
 
 private fun sessionDuration(s: StatsSessionRow): Long {
     val d = s.duration_ms
-    if (d <= 0) return 0
-    if (d > 24L * 60 * 60 * 1000) return 0
-    return d
+    return if (isValidReadingSessionDuration(d)) d else 0
 }
 
 internal fun buildRange(period: StatsPeriod, anchor: LocalDate): Pair<LocalDate, LocalDate> =
@@ -258,7 +257,7 @@ internal fun computeStats(
     val noteCount = notes.count { parseDate(it.created_at)?.let { d -> inRange(rs to re, d) } == true }
     val inspirationCount = inspirations.count { parseDate(it.created_at)?.let { d -> inRange(rs to re, d) } == true }
 
-    val (streakCurrent, streakLongest) = computeStreak(valid)
+    val streak = computeReadingStreak(valid)
     val trend = buildTrend(period, anchor, valid)
 
     return StatsUi(
@@ -267,8 +266,8 @@ internal fun computeStats(
         readBooks = readBooks,
         completed = completed,
         sessionCount = sessionCount,
-        streakCurrent = streakCurrent,
-        streakLongest = streakLongest,
+        streakCurrent = streak.current,
+        streakLongest = streak.longest,
         status = status,
         words = words,
         speed = speed,
@@ -276,34 +275,6 @@ internal fun computeStats(
         inspirationCount = inspirationCount,
         trend = trend,
     )
-}
-
-private fun computeStreak(valid: List<StatsSessionRow>): Pair<Int, Int> {
-    val keys = valid.map { sessionDateKey(it) }.toSet().toList().sorted()
-    if (keys.isEmpty()) return 0 to 0
-    var longest = 1
-    var temp = 1
-    for (i in 1..keys.lastIndex) {
-        val prev = runCatching { LocalDate.parse(keys[i - 1]) }.getOrNull()
-        val curr = runCatching { LocalDate.parse(keys[i]) }.getOrNull()
-        if (prev != null && curr != null) {
-            val diff = ChronoUnit.DAYS.between(prev, curr)
-            if (diff == 1L) {
-                temp++
-                longest = max(longest, temp)
-            } else {
-                temp = 1
-            }
-        }
-    }
-    val t = today()
-    var current = 0
-    var cursor = if (keys.contains(toDateKey(t))) t else t.minusDays(1)
-    while (keys.contains(toDateKey(cursor))) {
-        current++
-        cursor = cursor.minusDays(1)
-    }
-    return current to longest
 }
 
 /* --- 趋势分桶（属于"日期范围/趋势分桶"，保留在子包；Screen 不调用这些） --- */

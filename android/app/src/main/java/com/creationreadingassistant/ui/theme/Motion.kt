@@ -104,6 +104,32 @@ fun rememberHaptic(reducedMotion: Boolean = false): HapticTrigger {
 }
 
 /**
+ * 整页进入淡入（页面级转场）。
+ *
+ * navigation-compose 锁定 2.5.x、无 NavHost 转场 API（2.7+ 才有），故在统一页壳
+ * （AppScreenScaffold）层做整页 fade，作为页面切换的过渡。**只 fade、不位移**：
+ * 页面内区块已有各自的 stagger 上浮（[animateEnter]），整页再上浮会叠加出双重位移。
+ * reducedMotion 时直接显示。
+ */
+fun Modifier.pageEnter(
+    reducedMotion: Boolean = false,
+): Modifier = composed {
+    val alpha = remember { Animatable(if (reducedMotion) 1f else 0f) }
+    LaunchedEffect(Unit) {
+        if (!reducedMotion) {
+            alpha.animateTo(
+                1f,
+                animationSpec = tween(
+                    durationMillis = MotionTokens.Fast,
+                    easing = MotionTokens.StandardEasing,
+                ),
+            )
+        }
+    }
+    this.then(Modifier.alpha(alpha.value))
+}
+
+/**
  * 入场错落：淡入 + 轻微上移（最多 10dp）。
  *
  * @param delayMillis 错落延迟，让多个区块依次入场。

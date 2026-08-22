@@ -30,8 +30,8 @@ import com.creationreadingassistant.R
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
-import com.creationreadingassistant.ui.components.FullEmptyState
-import com.creationreadingassistant.ui.components.LineArtBook
+import com.creationreadingassistant.ui.components.MutedCoverFallback
+import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.listItemEnter
@@ -73,12 +73,9 @@ fun HomeCompletedSection(
             },
         )
         if (completedBooks.isEmpty()) {
-            FullEmptyState(
-                icon = { LineArtBook(sizeDp = 72.dp) },
-                title = "还没有读完的书",
-                body = "继续阅读吧，读完的书会陈列在这里。",
+            SectionEmptyHint(
+                text = "读完的书会陈列在这里。",
                 modifier = Modifier
-                    .fillMaxWidth()
                     .animateEnter(240, reducedMotion)
                     .testTag("completed-empty"),
             )
@@ -121,13 +118,7 @@ private fun CompletedCard(
             book = book,
             modifier = Modifier.size(84.dp, 112.dp),
             percent = null,
-            fallback = {
-                Text(
-                    book.title.take(2),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            },
+            fallback = { MutedCoverFallback(book = book, maxTitleChars = 8, showFormat = false) },
         )
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(

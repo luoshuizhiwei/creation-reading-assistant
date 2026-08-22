@@ -3,17 +3,24 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <!-- 简化的"书 + 印章"标识：宣白书页 + 靛青圆印 -->
+    <!-- 创作阅读助手：翻开的书页上升起一颗灵感星（阅读 -> 灵感 -> 创作） -->
+    <!-- 打开的书：左右两页自书脊向外舒展 -->
     <path
-        android:fillColor="#F5F1E8"
-        android:pathData="M30,24h34a6,6 0 0 1 6,6v54a6,6 0 0 1 -6,6H30a6,6 0 0 1 -6,-6V30a6,6 0 0 1 6,-6z" />
+        android:fillColor="#FDFDFB"
+        android:pathData="M54,42 C48,38 40,37 33,39 L33,64 C40,62 48,63 54,67 Z" />
     <path
-        android:fillColor="#2B2B2B"
-        android:pathData="M34,36h26v3H34zM34,46h26v3H34zM34,56h18v3H34z" />
+        android:fillColor="#F4F2EC"
+        android:pathData="M54,42 C60,38 68,37 75,39 L75,64 C68,62 60,63 54,67 Z" />
+    <!-- 书脊底部 -->
     <path
-        android:fillColor="#3A4A8C"
-        android:pathData="M74,70m-16,0a16,16 0 1 1 32,0a16,16 0 1 1 -32,0" />
+        android:fillColor="#E8E5DC"
+        android:pathData="M33,64 C40,62 48,63 54,67 C60,63 68,62 75,64 L75,66 C68,64 60,65 54,69 C48,65 40,64 33,66 Z" />
+    <!-- 灵感星：书页右上方 -->
     <path
-        android:fillColor="#F5F1E8"
-        android:pathData="M74,62v16M66,70h16" />
+        android:fillColor="#F5C451"
+        android:pathData="M66,20 C66.9,24.4 69.6,27.1 74,28 C69.6,28.9 66.9,31.6 66,36 C65.1,31.6 62.4,28.9 58,28 C62.4,27.1 65.1,24.4 66,20 Z" />
+    <!-- 小伴星 -->
+    <path
+        android:fillColor="#F5C451"
+        android:pathData="M45,26 C45.5,28.4 47.1,30 49.5,30.5 C47.1,31 45.5,32.6 45,35 C44.5,32.6 42.9,31 40.5,30.5 C42.9,30 44.5,28.4 45,26 Z" />
 </vector>

@@ -11,7 +11,7 @@ class AppPaletteTest {
     }
 
     @Test fun missingOrUnknownPaletteUsesBuiltInDefault() {
-        assertEquals(AppPalette.PAPER_INK, AppPalette.fromStored(null))
-        assertEquals(AppPalette.PAPER_INK, AppPalette.fromStored("future_palette"))
+        assertEquals(AppPalette.CLEAR_BLUE, AppPalette.fromStored(null))
+        assertEquals(AppPalette.CLEAR_BLUE, AppPalette.fromStored("future_palette"))
     }
 }

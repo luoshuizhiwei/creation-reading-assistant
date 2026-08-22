@@ -45,7 +45,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -55,6 +57,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
+import com.creationreadingassistant.ui.components.MutedCoverFallback
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -333,26 +336,8 @@ internal fun BookTile(
 
 @Composable
 internal fun ShelfCoverFallback(book: BookEntity) {
-    val scheme = MaterialTheme.colorScheme
-    // 无封面回退：取主题 surface 容器色做柔和渐变（永不用土黄/羊皮纸色），与主题一致
-    val coverFallback = Brush.linearGradient(
-        colorStops = arrayOf(
-            0.0f to scheme.surfaceContainerHigh,
-            1.0f to scheme.surfaceVariant,
-        ),
-    )
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(coverFallback)
-            .padding(8.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(book.title.take(4), color = scheme.onSurface, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
-        Spacer(modifier = Modifier.height(4.dp))
-        Text(book.format.uppercase(), color = scheme.onSurfaceVariant, style = MaterialTheme.typography.labelSmall)
-    }
+    // 统一委托共享多色占位封面（书架/首页同一语言）
+    MutedCoverFallback(book = book)
 }
 
 @Composable

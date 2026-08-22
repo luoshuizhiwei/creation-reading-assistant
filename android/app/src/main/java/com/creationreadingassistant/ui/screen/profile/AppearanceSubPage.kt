@@ -46,7 +46,7 @@ internal fun AppearanceSubPage(
                 Text("应用外壳配色仅影响首页、书架、灵感、统计和设置；阅读页正文纸张与夜读仍在阅读器里单独控制。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 SettingRow(
                     title = "配色主题",
-                    subtitle = "当前配色会长期保存；加入更多配色后可在这里切换",
+                    subtitle = "纸墨（米黄纸底+墨绿）与清爽蓝（白底+蓝）可随时切换，立即生效",
                     trailing = {
                         Text(
                             AppPalette.fromStored(state.appearance.colorPalette).displayName,

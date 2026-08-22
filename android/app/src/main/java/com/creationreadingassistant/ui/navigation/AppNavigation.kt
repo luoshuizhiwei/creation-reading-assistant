@@ -1,5 +1,10 @@
 package com.creationreadingassistant.ui.navigation
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,14 +19,14 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.windowInsetsBottomHeight
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.selection.selectable
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.tween
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
@@ -45,6 +50,7 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
@@ -249,6 +255,8 @@ fun AppNavigation() {
 private fun AppNavHost(
     navController: NavHostController,
 ) {
+    // 注：navigation-compose 锁定 2.5.1，NavHost 级转场 API（2.7+）不可用；
+    // 页面进入动效在 AppScreenScaffold 层统一实现（整页 fade + 轻微上浮）。
     NavHost(
         navController = navController,
         startDestination = TopLevelRoute.Home.route,
@@ -364,7 +372,7 @@ private fun AppNavHost(
     }
 }
 
-/** 底栏五个 Tab 的共享内容（Apple 下使用自绘 1.5px 线性图标 + 强化选中态）。 */
+/** 底栏五个 Tab 的共享内容。选中态 = 图标背后展开淡色胶囊指示 + 主色过渡 + 选中轻弹。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RowScope.BottomBarItems(
@@ -381,13 +389,30 @@ fun RowScope.BottomBarItems(
         } == true
         val interactionSource = remember { MutableInteractionSource() }
         val pressed by interactionSource.collectIsPressedAsState()
+        val motionMs = if (reducedMotion) 0 else 90
         val targetScale = if (pressed) 0.96f else 1f
         val animatedScale by animateFloatAsState(
             targetValue = targetScale,
-            animationSpec = tween(if (reducedMotion) 0 else 90),
+            animationSpec = tween(motionMs),
             label = "bottom-tab-press",
         )
-        val tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
+        // 选中色过渡：避免瞬切带来的生硬感
+        val tint by animateColorAsState(
+            targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+            animationSpec = tween(if (reducedMotion) 0 else 180),
+            label = "bottom-tab-tint",
+        )
+        // 选中胶囊指示：从 0 宽展开到包裹图标的胶囊，取消时收起
+        val indicatorWidth by animateDpAsState(
+            targetValue = if (selected) 56.dp else 0.dp,
+            animationSpec = tween(if (reducedMotion) 0 else 220),
+            label = "bottom-tab-indicator-w",
+        )
+        val indicatorAlpha by animateFloatAsState(
+            targetValue = if (selected) 1f else 0f,
+            animationSpec = tween(if (reducedMotion) 0 else 180),
+            label = "bottom-tab-indicator-a",
+        )
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -413,12 +438,25 @@ fun RowScope.BottomBarItems(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
         ) {
-            Icon(
-                imageVector = top.icon,
-                contentDescription = null,
-                modifier = Modifier.size(AppIconSize.Medium),
-                tint = tint,
-            )
+            Box(contentAlignment = Alignment.Center) {
+                if (indicatorAlpha > 0f) {
+                    Box(
+                        Modifier
+                            .width(indicatorWidth)
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(999.dp))
+                            .background(
+                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = indicatorAlpha),
+                            ),
+                    )
+                }
+                Icon(
+                    imageVector = top.icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(AppIconSize.Medium),
+                    tint = tint,
+                )
+            }
             Spacer(Modifier.height(3.dp))
             Text(
                 text = stringResource(top.labelRes),

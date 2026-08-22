@@ -35,7 +35,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
@@ -140,7 +142,12 @@ internal fun ProfileHomeScreen(
 @Composable
 private fun HomeStat(label: String, value: Int, format: (Int) -> String = { "$it" }, reducedMotion: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(rememberCountUp(value, reducedMotion).let { format(it) }, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
+        Text(
+            rememberCountUp(value, reducedMotion).let { format(it) },
+            style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp),
+            fontWeight = FontWeight.Bold,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

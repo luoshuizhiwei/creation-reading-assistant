@@ -41,6 +41,8 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.navigation.LocalAppChrome
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.pageEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 // —————————————————————————————————————————————————————————————————
 // 工具：PaddingValues 相加 / 判等 （纯函数，防重复叠加）
@@ -130,7 +132,11 @@ fun AppScreenScaffold(
                 val navOnly = PaddingValues(bottom = chrome.bottomNavHeight)
                 scaffoldInset.plusTokensLocal(navOnly, layoutDirection)
             }
-            content(viewportPadding)
+            // 整页进入淡入：页面切换的统一过渡（只 fade 不位移，区块级 stagger 另行叠加）。
+            val reducedMotion = rememberReducedMotion()
+            Box(Modifier.fillMaxSize().pageEnter(reducedMotion)) {
+                content(viewportPadding)
+            }
         },
     )
 }

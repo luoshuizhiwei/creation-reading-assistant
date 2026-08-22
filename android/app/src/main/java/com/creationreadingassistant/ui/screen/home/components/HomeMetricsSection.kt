@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -15,7 +14,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.R
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -23,8 +25,14 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 /**
  * 本周概览指标组（首页第二块）。
  *
- * 只负责自己的布局：标题 + 四列一行的指标。**不**嵌套外层 Card/Scaffold；
- * 指标数值使用共享的 rememberCountUp（reducedMotion 友好）。
+ * 视觉规格（2026-08-21 审美体检后修订）：
+ * - 四个指标统一收进一张 [SectionCard]，与「累计阅读」「继续阅读」卡片同语言，
+ *   不再裸摆在页面背景上（碎片感的来源）。
+ * - 数字放大到 22sp Bold（统计大数用 Sans，不用展示衬线），label 降饱和；
+ *   列间不设竖 divider，靠等宽留白分隔——更干净，微信读书式统计条。
+ * - 数值仍走共享 rememberCountUp（reducedMotion 友好）。
+ *
+ * 只负责自己的布局：标题 + 指标卡。**不**嵌套外层 Scaffold。
  */
 @Composable
 fun HomeMetricsSection(
@@ -36,52 +44,54 @@ fun HomeMetricsSection(
 ) {
     val reducedMotion = rememberReducedMotion()
     Column(modifier) {
-        Text(
-            "本周概览",
-            style = MaterialTheme.typography.headlineSmall,
+        SectionHeader(
+            title = "本周概览",
             modifier = Modifier
                 .animateEnter(120, reducedMotion)
                 .testTag("metrics-title"),
         )
-        Row(
+        SectionCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateEnter(120, reducedMotion)
-                .testTag("metrics-row"),
-            verticalAlignment = Alignment.CenterVertically,
+                .animateEnter(120, reducedMotion),
         ) {
-            GridStat(
-                Modifier
-                    .weight(1f)
-                    .testTag("metric-week"),
-                label = stringResource(R.string.home_this_week),
-                value = rememberCountUp(thisWeekNew, reducedMotion).toString(),
-            )
-            VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            GridStat(
-                Modifier
-                    .weight(1f)
-                    .testTag("metric-reading"),
-                label = stringResource(R.string.home_reading),
-                value = rememberCountUp(readingCount, reducedMotion).toString(),
-            )
-            VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            GridStat(
-                Modifier
-                    .weight(1f)
-                    .testTag("metric-completed"),
-                label = stringResource(R.string.home_finished),
-                value = rememberCountUp(completedCount, reducedMotion).toString(),
-            )
-            VerticalDivider(thickness = 1.dp, color = MaterialTheme.colorScheme.outlineVariant)
-            val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), reducedMotion)
-            GridStat(
-                Modifier
-                    .weight(1f)
-                    .testTag("metric-today"),
-                label = stringResource(R.string.home_today),
-                value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp)
+                    .testTag("metrics-row"),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GridStat(
+                    Modifier
+                        .weight(1f)
+                        .testTag("metric-week"),
+                    label = stringResource(R.string.home_this_week),
+                    value = rememberCountUp(thisWeekNew, reducedMotion).toString(),
+                )
+                GridStat(
+                    Modifier
+                        .weight(1f)
+                        .testTag("metric-reading"),
+                    label = stringResource(R.string.home_reading),
+                    value = rememberCountUp(readingCount, reducedMotion).toString(),
+                )
+                GridStat(
+                    Modifier
+                        .weight(1f)
+                        .testTag("metric-completed"),
+                    label = stringResource(R.string.home_finished),
+                    value = rememberCountUp(completedCount, reducedMotion).toString(),
+                )
+                val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), reducedMotion)
+                GridStat(
+                    Modifier
+                        .weight(1f)
+                        .testTag("metric-today"),
+                    label = stringResource(R.string.home_today),
+                    value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
+                )
+            }
         }
     }
 }
@@ -89,20 +99,25 @@ fun HomeMetricsSection(
 @Composable
 private fun GridStat(modifier: Modifier, label: String, value: String) {
     Column(
-        modifier = modifier.padding(10.dp, 8.dp),
+        modifier = modifier.padding(horizontal = 4.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(4.dp),
+        verticalArrangement = Arrangement.spacedBy(2.dp),
     ) {
         Text(
             value,
-            style = MaterialTheme.typography.titleMedium,
+            style = MaterialTheme.typography.titleLarge.copy(
+            fontSize = 22.sp,
+            lineHeight = 28.sp,
+        ),
             fontWeight = FontWeight.Bold,
             color = MaterialTheme.colorScheme.onSurface,
+            maxLines = 1,
         )
         Text(
             label,
             style = MaterialTheme.typography.labelSmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
         )
     }
 }

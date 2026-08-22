@@ -10,8 +10,12 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextContains
+import androidx.compose.ui.test.hasAnyDescendant
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
@@ -66,15 +70,23 @@ class HomeScreenComposeTest {
         // metrics 行（即使全 0 也应该渲染）
         composeRule.onNodeWithTag("metrics-title").assertIsDisplayed()
         composeRule.onNodeWithTag("metrics-row").assertIsDisplayed()
-        composeRule.onNodeWithTag("metric-week").assertTextContains("0", substring = true)
-        composeRule.onNodeWithTag("metric-completed").assertTextContains("0", substring = true)
-        composeRule.onNodeWithTag("metric-today").assertTextContains("0", substring = true)
+        // 数值在 GridStat Column 的子 Text 里，用 hasAnyDescendant 匹配（assertTextContains 不读子节点文本）
+        composeRule.onNode(hasTestTag("metric-week") and hasAnyDescendant(hasText("0", substring = true))).assertExists()
+        composeRule.onNode(hasTestTag("metric-completed") and hasAnyDescendant(hasText("0", substring = true))).assertExists()
+        composeRule.onNode(hasTestTag("metric-today") and hasAnyDescendant(hasText("0", substring = true))).assertExists()
 
         // inspiration 空态
         composeRule.onNodeWithTag("home-insp-empty").assertIsDisplayed()
 
-        // completed 空态
-        composeRule.onNodeWithTag("completed-empty").assertIsDisplayed()
+        // completed 空态（首页卡片化后整体变高，320dp 极限视口下该区块在屏外，先滚动到位再断言）
+        composeRule.onNodeWithTag("home-lazy-column")
+            .performScrollToNode(hasTestTag("completed-empty"))
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            kotlin.runCatching {
+                composeRule.onNodeWithTag("completed-empty").fetchSemanticsNode()
+            }.isSuccess
+        }
+        composeRule.onNodeWithTag("completed-empty").assertExists()
     }
 
     // ============================================
@@ -104,8 +116,16 @@ class HomeScreenComposeTest {
 
         // ContinueCard 应该被渲染（testTag 存在即可，证明不崩）
         composeRule.onNodeWithTag("continue-card-long-1").assertIsDisplayed()
-        // CompletedCard 同样
-        composeRule.onNodeWithTag("completed-card-long-1").assertIsDisplayed()
+        // CompletedCard 同样（卡片化后首页变高，320dp 极限视口下需先滚动到该节点；
+        // 按本用例注释的原始意图「存在即可」，用 assertExists 而非 assertIsDisplayed）
+        composeRule.onNodeWithTag("home-lazy-column")
+            .performScrollToNode(hasTestTag("completed-card-long-1"))
+        composeRule.waitUntil(timeoutMillis = 5_000) {
+            kotlin.runCatching {
+                composeRule.onNodeWithTag("completed-card-long-1").fetchSemanticsNode()
+            }.isSuccess
+        }
+        composeRule.onNodeWithTag("completed-card-long-1").assertExists()
         // 灵感 item 渲染，长标题 Ellipsis 不崩
         composeRule.onNodeWithTag("insp-item-long-insp-1").assertIsDisplayed()
     }
@@ -143,10 +163,10 @@ class HomeScreenComposeTest {
             }
             // 验证首屏首卡可见
             composeRule.onNodeWithTag("continue-card-many-1").assertIsDisplayed()
-            // 验证 metrics
-            composeRule.onNodeWithTag("metric-week").assertTextContains("12", substring = true)
-            composeRule.onNodeWithTag("metric-completed").assertTextContains("42", substring = true)
-            composeRule.onNodeWithTag("metric-today").assertTextContains("1h 8m", substring = true, ignoreCase = true)
+            // 验证 metrics（数值在子 Text 节点里，用 hasAnyDescendant 匹配）
+            composeRule.onNode(hasTestTag("metric-week") and hasAnyDescendant(hasText("12", substring = true))).assertExists()
+            composeRule.onNode(hasTestTag("metric-completed") and hasAnyDescendant(hasText("42", substring = true))).assertExists()
+            composeRule.onNode(hasTestTag("metric-today") and hasAnyDescendant(hasText("1h 8m", substring = true, ignoreCase = true))).assertExists()
         } catch (t: Throwable) {
             didCrash = true
         }

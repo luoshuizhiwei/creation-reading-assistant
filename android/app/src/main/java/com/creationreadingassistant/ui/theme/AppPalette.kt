@@ -13,10 +13,14 @@ enum class AppPalette(
     PAPER_INK(
         storageId = "paper_ink",
         displayName = "纸墨",
+    ),
+    CLEAR_BLUE(
+        storageId = "clear_blue",
+        displayName = "清爽蓝",
     );
 
     companion object {
-        val default: AppPalette = PAPER_INK
+        val default: AppPalette = CLEAR_BLUE
 
         fun fromStored(value: String?): AppPalette =
             entries.firstOrNull { it.storageId == value } ?: default

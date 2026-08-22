@@ -39,6 +39,11 @@ private val AmoledSurfaceLow = Color(0xFF0B0C0B)
 private val AmoledSurface = Color(0xFF0F100F)
 private val AmoledSurfaceHigh = Color(0xFF161716)
 
+// 「清爽蓝」专用令牌：冷白底 + 平静蓝，微信读书 / 起点一类主流阅读 App 的观感。
+private val ClearBlue = Color(0xFF2762BF)
+private val ClearBlueContainer = Color(0xFFD9E3FF)
+private val ClearBlueOnContainer = Color(0xFF0C2A63)
+
 // 语义强调色（来自 md3-base.css）
 val AppSuccess = Color(0xFF4A6E3F)           // --md3-success
 val AppWarning = Color(0xFFA05F12)           // --md3-warning
@@ -132,6 +137,86 @@ private val PaperInkDarkColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF9DEDC),
 )
 
+/** 「清爽蓝」浅色：冷白页面 + 纯白卡片，蓝只负责可操作与选中状态。 */
+private val ClearBlueLightColorScheme = lightColorScheme(
+    primary = ClearBlue,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = ClearBlueContainer,
+    onPrimaryContainer = ClearBlueOnContainer,
+    secondary = ClearBlue,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = ClearBlueContainer,
+    onSecondaryContainer = ClearBlueOnContainer,
+    tertiary = ClearBlue,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = ClearBlueContainer,
+    onTertiaryContainer = ClearBlueOnContainer,
+    background = Color(0xFFF7F8FA),
+    onBackground = Color(0xFF191D24),
+    surface = Color(0xFFFFFFFF),
+    onSurface = Color(0xFF191D24),
+    surfaceVariant = Color(0xFFEDF0F5),
+    onSurfaceVariant = Color(0xFF5B6472),
+    surfaceTint = ClearBlue,
+    surfaceBright = Color(0xFFF9F9FD),
+    surfaceDim = Color(0xFFD9DAE0),
+    surfaceContainerLowest = Color(0xFFFFFFFF),
+    surfaceContainerLow = Color(0xFFF6F7FB),
+    surfaceContainer = Color(0xFFF1F3F8),
+    surfaceContainerHigh = Color(0xFFEBEEF3),
+    surfaceContainerHighest = Color(0xFFE5E9EF),
+    inverseSurface = Color(0xFF2E3138),
+    inverseOnSurface = Color(0xFFF0F1F7),
+    inversePrimary = Color(0xFFA8C6FF),
+    outline = Color(0xFFD3D8E0),
+    outlineVariant = Color(0xFFE3E7ED),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFC2413B),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+/** 「清爽蓝」深色：冷灰蓝暗面，避免纸墨深色方案的绿相残留。 */
+private val ClearBlueDarkColorScheme = darkColorScheme(
+    primary = Color(0xFFA8C6FF),
+    onPrimary = Color(0xFF0B2D6B),
+    primaryContainer = Color(0xFF24478F),
+    onPrimaryContainer = Color(0xFFD9E3FF),
+    secondary = Color(0xFFA8C6FF),
+    onSecondary = Color(0xFF0B2D6B),
+    secondaryContainer = Color(0xFF24478F),
+    onSecondaryContainer = Color(0xFFD9E3FF),
+    tertiary = Color(0xFFA8C6FF),
+    onTertiary = Color(0xFF0B2D6B),
+    tertiaryContainer = Color(0xFF24478F),
+    onTertiaryContainer = Color(0xFFD9E3FF),
+    background = Color(0xFF101419),
+    onBackground = Color(0xFFE2E6ED),
+    surface = Color(0xFF161A20),
+    onSurface = Color(0xFFE2E6ED),
+    surfaceVariant = Color(0xFF22272F),
+    onSurfaceVariant = Color(0xFFA9B2C0),
+    surfaceTint = Color(0xFFA8C6FF),
+    surfaceBright = Color(0xFF363A42),
+    surfaceDim = Color(0xFF101419),
+    surfaceContainerLowest = Color(0xFF0B0E13),
+    surfaceContainerLow = Color(0xFF14181E),
+    surfaceContainer = Color(0xFF181C23),
+    surfaceContainerHigh = Color(0xFF22262D),
+    surfaceContainerHighest = Color(0xFF2C3138),
+    inverseSurface = Color(0xFFE2E6ED),
+    inverseOnSurface = Color(0xFF2E3138),
+    inversePrimary = ClearBlue,
+    outline = Color(0xFF59616E),
+    outlineVariant = Color(0xFF333945),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFE57373),
+    onError = Color(0xFF410E0B),
+    errorContainer = Color(0xFF5C1A14),
+    onErrorContainer = Color(0xFFF9DEDC),
+)
+
 /**
  * 把暗色方案转成 AMOLED 纯黑：只压暗容器色阶，主色/强调色/语义色全部保留，
  * 保证可读性和可交互元素的对比度。
@@ -186,6 +271,7 @@ private fun buildColorScheme(
     } else {
         when (palette) {
             AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
+            AppPalette.CLEAR_BLUE -> if (darkTheme) ClearBlueDarkColorScheme else ClearBlueLightColorScheme
         }
     }
     return if (darkTheme && amoledPureBlack) base.asAmoledPureBlack() else base

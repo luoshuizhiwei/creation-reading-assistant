@@ -200,17 +200,10 @@ private fun InspirationHeaderRow(onSeeAll: () -> Unit, isEmpty: Boolean) {
 @Composable
 private fun EmptyInspirationHint() {
     val reducedMotion = rememberReducedMotion()
-    androidx.compose.foundation.layout.Column(
-        Modifier
-            .fillMaxWidth()
+    com.creationreadingassistant.ui.components.SectionEmptyHint(
+        text = "还没有灵感，阅读时选中文字即可保存为灵感。",
+        modifier = Modifier
             .animateEnter(180, reducedMotion)
             .testTag("home-insp-empty"),
-    ) {
-        Text(
-            "还没有灵感，阅读时选中文字即可保存为灵感。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(Modifier.height(12.dp))
-    }
+    )
 }

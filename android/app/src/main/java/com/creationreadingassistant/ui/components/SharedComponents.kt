@@ -25,6 +25,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -94,6 +95,10 @@ fun SectionCard(
     val shape = spec.cardShape
     val border = BorderStroke(spec.borderWidth, borderColor)
     val pad = contentPadding ?: LocalLayoutTokens.current.cardPadding
+    // 按压手感统一：与 SettingRow / SelectablePill 共享同一套 bounceable 弹簧 + 轻触感。
+    val cardInteraction = remember { MutableInteractionSource() }
+    val haptic = rememberHaptic(rememberReducedMotion())
+    val cardModifier = if (onClick != null) modifier.bounceable(cardInteraction) else modifier
 
     // 纸墨微质感：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在容器底色之上、内容之下；
     // 不抬 tonalElevation（避免染绿调），纹理 alpha 极低，不破坏可读性对比度。
@@ -112,10 +117,11 @@ fun SectionCard(
     }
 
     // 用 Box 包裹，便于在玻璃开启时于卡片之上叠加 specular 高光层（与 GlassSurface 同款）。
-    Box(modifier) {
+    Box(cardModifier) {
         if (onClick != null) {
             Surface(
-                onClick = onClick,
+                onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
+                interactionSource = cardInteraction,
                 shape = shape,
                 color = container,
                 border = border,
@@ -337,6 +343,52 @@ fun SettingRow(
     }
 }
 
+
+/**
+ * 区块级紧凑空态（页面内嵌 section 用，如首页各区块）。
+ *
+ * 与 [FullEmptyState] 的分工：FullEmptyState 面向整页空态（大图标 + 标题 + CTA），
+ * 本组件面向页面内单个区块的空态——一行弱化提示 + 可选文字按钮，低视觉权重、
+ * 不抢占整屏。容器用 listItemShape + 半淡 surfaceContainerLow，比卡片更轻。
+ *
+ * @param text 提示文案
+ * @param actionText 可选行动文案（如「去书架」）；与 [onAction] 成对出现
+ */
+@Composable
+fun SectionEmptyHint(
+    text: String,
+    modifier: Modifier = Modifier,
+    actionText: String? = null,
+    onAction: (() -> Unit)? = null,
+) {
+    val scheme = MaterialTheme.colorScheme
+    val layout = LocalLayoutTokens.current
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = LocalComponentSpec.current.listItemShape,
+        color = scheme.surfaceContainerLow.copy(alpha = 0.55f),
+        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.7f)),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = text,
+                style = MaterialTheme.typography.bodySmall,
+                color = scheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            if (actionText != null && onAction != null) {
+                TextButton(onClick = onAction) {
+                    Text(actionText)
+                }
+            }
+        }
+    }
+}
 
 /**
  * 统一「全幅空状态」（大图标 + 标题 + 描述 + CTA 按钮）。

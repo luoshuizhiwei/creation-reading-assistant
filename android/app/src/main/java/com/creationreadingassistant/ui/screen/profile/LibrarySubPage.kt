@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.BorderColor
+import androidx.compose.material.icons.outlined.ArrowDownward
+import androidx.compose.material.icons.outlined.ArrowUpward
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -83,6 +85,7 @@ internal fun LibrarySubPage(
     var editName by remember { mutableStateOf("") }
     var expandedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var linkedBookIds by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+    var sorting by remember(page) { mutableStateOf(false) }
     val bookMap = remember(books) { books.associateBy { it.id } }
 
     fun loadLinkedBooks(id: String) {
@@ -106,6 +109,15 @@ internal fun LibrarySubPage(
         }
     }
 
+    fun moveItem(id: String, up: Boolean) {
+        when (page) {
+            ProfileSubPage.TAGS -> if (up) taxonomyVm.moveTagUp(id) else taxonomyVm.moveTagDown(id)
+            ProfileSubPage.CATEGORIES -> if (up) taxonomyVm.moveCategoryUp(id) else taxonomyVm.moveCategoryDown(id)
+            ProfileSubPage.SHELVES -> if (up) taxonomyVm.moveShelfUp(id) else taxonomyVm.moveShelfDown(id)
+            else -> Unit
+        }
+    }
+
     val items: List<Pair<String, String>> = when (page) {
         ProfileSubPage.TAGS -> allTags.map { it.id to it.name }
         ProfileSubPage.CATEGORIES -> allCategories.map { it.id to it.name }
@@ -117,15 +129,26 @@ internal fun LibrarySubPage(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
     ) {
+        if (items.size > 1) {
+            item(key = "library_sort_mode") {
+                LibrarySortModeHeader(
+                    sorting = sorting,
+                    itemCount = items.size,
+                    onToggle = { sorting = !sorting },
+                )
+            }
+        }
         if (items.isNotEmpty()) {
-            items.forEach { (id, name) ->
+            items.forEachIndexed { index, (id, name) ->
                 item(key = id) {
                     val expanded = expandedIds.contains(id)
                     val entityTag = if (page == ProfileSubPage.TAGS) allTags.find { it.id == id } else null
                     val entityCategory = if (page == ProfileSubPage.CATEGORIES) allCategories.find { it.id == id } else null
                     SectionCard(
                         modifier = Modifier.animateEnter(reducedMotion = reducedMotion),
-                        onClick = { haptic(HapticFeedbackType.TextHandleMove); toggleExpanded(id) },
+                        onClick = if (sorting) null else {
+                            { haptic(HapticFeedbackType.TextHandleMove); toggleExpanded(id) }
+                        },
                     ) {
                         Column(modifier = Modifier.fillMaxWidth()) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
@@ -145,26 +168,42 @@ internal fun LibrarySubPage(
                                         Text("类型：${entityTag?.type}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
                                 }
-                                IconButton(onClick = { editingItem = id to name; editName = name }) {
-                                    Icon(Icons.Outlined.BorderColor, contentDescription = "编辑", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                                }
-                                IconButton(onClick = {
-                                    when (page) {
-                                        ProfileSubPage.TAGS -> taxonomyVm.deleteTag(id)
-                                        ProfileSubPage.CATEGORIES -> taxonomyVm.deleteCategory(id)
-                                        ProfileSubPage.SHELVES -> taxonomyVm.deleteShelf(id)
-                                        else -> {}
+                                if (sorting) {
+                                    TaxonomyOrderControls(
+                                        name = name,
+                                        position = index,
+                                        total = items.size,
+                                        onMoveUp = {
+                                            haptic(HapticFeedbackType.TextHandleMove)
+                                            moveItem(id, up = true)
+                                        },
+                                        onMoveDown = {
+                                            haptic(HapticFeedbackType.TextHandleMove)
+                                            moveItem(id, up = false)
+                                        },
+                                    )
+                                } else {
+                                    IconButton(onClick = { editingItem = id to name; editName = name }) {
+                                        Icon(Icons.Outlined.BorderColor, contentDescription = "编辑", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                     }
-                                }) {
-                                    Icon(Icons.Outlined.Delete, contentDescription = "删除", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.error)
+                                    IconButton(onClick = {
+                                        when (page) {
+                                            ProfileSubPage.TAGS -> taxonomyVm.deleteTag(id)
+                                            ProfileSubPage.CATEGORIES -> taxonomyVm.deleteCategory(id)
+                                            ProfileSubPage.SHELVES -> taxonomyVm.deleteShelf(id)
+                                            else -> {}
+                                        }
+                                    }) {
+                                        Icon(Icons.Outlined.Delete, contentDescription = "删除", modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.error)
+                                    }
+                                    Icon(
+                                        if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
+                                        contentDescription = if (expanded) "收起" else "展开",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
                                 }
-                                Icon(
-                                    if (expanded) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore,
-                                    contentDescription = if (expanded) "收起" else "展开",
-                                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
                             }
-                            if (expanded) {
+                            if (expanded && !sorting) {
                                 Spacer(modifier = Modifier.height(8.dp))
                                 if (page == ProfileSubPage.CATEGORIES) {
                                     Text("分类色调", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -299,5 +338,72 @@ internal fun LibrarySubPage(
             },
             dismissButton = { TextButton(onClick = { editingItem = null }) { Text("取消") } },
         )
+    }
+}
+
+@Composable
+internal fun LibrarySortModeHeader(
+    sorting: Boolean,
+    itemCount: Int,
+    onToggle: () -> Unit,
+) {
+    SectionCard {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (sorting) "正在调整顺序" else "列表顺序",
+                    style = MaterialTheme.typography.titleSmall,
+                )
+                Text(
+                    text = if (sorting) "使用箭头调整，修改会立即保存" else "共 $itemCount 项 · 顺序同步到书架筛选与选择页",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            TextButton(onClick = onToggle) {
+                Text(if (sorting) "完成排序" else "调整顺序")
+            }
+        }
+    }
+}
+
+@Composable
+internal fun TaxonomyOrderControls(
+    name: String,
+    position: Int,
+    total: Int,
+    onMoveUp: () -> Unit,
+    onMoveDown: () -> Unit,
+) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Text(
+            text = (position + 1).toString().padStart(2, '0'),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        IconButton(
+            onClick = onMoveUp,
+            enabled = position > 0,
+        ) {
+            Icon(
+                Icons.Outlined.ArrowUpward,
+                contentDescription = "上移$name",
+                modifier = Modifier.size(AppIconSize.Medium),
+            )
+        }
+        IconButton(
+            onClick = onMoveDown,
+            enabled = position < total - 1,
+        ) {
+            Icon(
+                Icons.Outlined.ArrowDownward,
+                contentDescription = "下移$name",
+                modifier = Modifier.size(AppIconSize.Medium),
+            )
+        }
     }
 }
