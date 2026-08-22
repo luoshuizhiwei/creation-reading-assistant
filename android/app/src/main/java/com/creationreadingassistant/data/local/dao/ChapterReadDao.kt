@@ -33,4 +33,12 @@ interface ChapterReadDao {
 
     @Query("DELETE FROM chapter_reads WHERE book_id = :bookId")
     suspend fun clearForBook(bookId: String)
+
+    /** 备份导出：全量已读标记。 */
+    @Query("SELECT * FROM chapter_reads")
+    suspend fun getAll(): List<ChapterReadEntity>
+
+    /** 备份恢复：清空后重建。 */
+    @Query("DELETE FROM chapter_reads")
+    suspend fun clearAll()
 }

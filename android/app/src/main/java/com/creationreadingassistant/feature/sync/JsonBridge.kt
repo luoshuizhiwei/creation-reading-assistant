@@ -4,13 +4,31 @@ import android.content.Context
 import android.net.Uri
 import android.provider.Settings
 import com.creationreadingassistant.data.local.dao.BookDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
+import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
+import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.dao.CategoryDao
+import com.creationreadingassistant.data.local.dao.ShelfDao
+import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.BookCategoryDao
+import com.creationreadingassistant.data.local.dao.ShelfBookDao
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.BookCategoryEntity
+import com.creationreadingassistant.data.local.entity.BookTagEntity
+import com.creationreadingassistant.data.local.entity.CategoryEntity
+import com.creationreadingassistant.data.local.entity.ChapterReadEntity
+import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
+import com.creationreadingassistant.data.local.entity.ShelfBookEntity
+import com.creationreadingassistant.data.local.entity.ShelfEntity
+import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.domain.model.SyncEnvelope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -41,6 +59,18 @@ data class LocalExport(
     val inspirations: List<SyncEnvelope<InspirationEntity>>,
     val progress: List<SyncEnvelope<ReadingProgressEntity>>,
     val sessions: List<SyncEnvelope<ReadingSessionEntity>>,
+    // —— 2026-08-22 补齐：此前导出只含四类实体，笔记/高亮/标签/分类/书单/已读标记
+    //    在备份恢复时全部丢失（与 StorageSubPage 承诺不符）。以下字段带默认空列表，
+    //    旧备份（无这些字段）仍可读；新备份对旧 App 同样兼容（ignoreUnknownKeys）。
+    val notes: List<SyncEnvelope<NoteEntity>> = emptyList(),
+    val highlights: List<SyncEnvelope<HighlightEntity>> = emptyList(),
+    val tags: List<SyncEnvelope<TagEntity>> = emptyList(),
+    val categories: List<SyncEnvelope<CategoryEntity>> = emptyList(),
+    val shelves: List<SyncEnvelope<ShelfEntity>> = emptyList(),
+    val bookTags: List<BookTagEntity> = emptyList(),
+    val bookCategories: List<BookCategoryEntity> = emptyList(),
+    val shelfBooks: List<ShelfBookEntity> = emptyList(),
+    val chapterReads: List<ChapterReadEntity> = emptyList(),
 ) {
     companion object {
         /** 当前导出结构版本；导入侧拒绝不认识的版本，防止未来 schema 被按旧结构静默导入。 */
@@ -53,6 +83,15 @@ class JsonBridge @Inject constructor(
     private val inspirationDao: InspirationDao,
     private val progressDao: ReadingProgressDao,
     private val sessionDao: ReadingSessionDao,
+    private val noteDao: NoteDao,
+    private val highlightDao: HighlightDao,
+    private val tagDao: TagDao,
+    private val categoryDao: CategoryDao,
+    private val shelfDao: ShelfDao,
+    private val bookTagDao: BookTagDao,
+    private val bookCategoryDao: BookCategoryDao,
+    private val shelfBookDao: ShelfBookDao,
+    private val chapterReadDao: ChapterReadDao,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
@@ -79,6 +118,21 @@ class JsonBridge @Inject constructor(
         val sessions = sessionDao.observeAllActive().first().map {
             envelope("session", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
         }
+        val notes = noteDao.observeAllActive().first().map {
+            envelope("note", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
+        }
+        val highlights = highlightDao.observeAllActive().first().map {
+            envelope("highlight", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
+        }
+        val tags = tagDao.getAllActive().map {
+            envelope("tag", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
+        }
+        val categories = categoryDao.getAllActive().map {
+            envelope("category", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
+        }
+        val shelves = shelfDao.getAllActive().map {
+            envelope("shelf", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
+        }
         return LocalExport(
             exportedAt = Instant.now().toString(),
             deviceId = dev,
@@ -86,6 +140,15 @@ class JsonBridge @Inject constructor(
             inspirations = inspirations,
             progress = progress,
             sessions = sessions,
+            notes = notes,
+            highlights = highlights,
+            tags = tags,
+            categories = categories,
+            shelves = shelves,
+            bookTags = bookTagDao.getAllActive(),
+            bookCategories = bookCategoryDao.getAllActive(),
+            shelfBooks = shelfBookDao.getAllActive(),
+            chapterReads = chapterReadDao.getAll(),
         )
     }
 
@@ -163,7 +226,64 @@ class JsonBridge @Inject constructor(
                     sessionDao.upsert(env.payload)
                 }
             }
+
+            // —— 2026-08-22 补齐：笔记/高亮/标签/分类/书单按 revision 合并（与四类一致）——
+            mergeEntities(export.notes, localId = { it.payload.id }, query = { noteDao.getById(it) }, upsert = { noteDao.upsert(it) })
+            mergeEntities(export.highlights, localId = { it.payload.id }, query = { highlightDao.getById(it) }, upsert = { highlightDao.upsert(it) })
+            mergeEntities(export.tags, localId = { it.payload.id }, query = { tagDao.getById(it) }, upsert = { tagDao.upsert(it) })
+            mergeEntities(export.categories, localId = { it.payload.id }, query = { categoryDao.getById(it) }, upsert = { categoryDao.upsert(it) })
+            mergeEntities(export.shelves, localId = { it.payload.id }, query = { shelfDao.getById(it) }, upsert = { shelfDao.upsert(it) })
+
+            // 关联表与已读标记：整表重建（派生关系无独立 revision，备份为准）
+            if (export.bookTags.isNotEmpty() || export.bookCategories.isNotEmpty() ||
+                export.shelfBooks.isNotEmpty() || export.chapterReads.isNotEmpty()
+            ) {
+                bookTagDao.clearAll()
+                bookCategoryDao.clearAll()
+                shelfBookDao.clearAll()
+                chapterReadDao.clearAll()
+                bookTagDao.upsertAll(export.bookTags)
+                bookCategoryDao.upsertAll(export.bookCategories)
+                shelfBookDao.upsertAll(export.shelfBooks)
+                chapterReadDao.upsertAll(export.chapterReads)
+            }
         }
+    }
+
+    /**
+     * 按 revision 合并单类实体：本地缺失或远端更新时覆盖（与局域网同步同一策略）。
+     */
+    private suspend fun <T> mergeEntities(
+        envelopes: List<SyncEnvelope<T>>,
+        localId: (SyncEnvelope<T>) -> String,
+        query: suspend (String) -> T?,
+        upsert: suspend (T) -> Unit,
+    ) {
+        envelopes.forEach { env ->
+            val id = localId(env)
+            val local = id?.let { query(it) }
+            if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, revisionOf(local), env.updatedAt, updatedAtOf(local))) {
+                upsert(env.payload)
+            }
+        }
+    }
+
+    private fun <T> revisionOf(entity: T): Int = when (entity) {
+        is NoteEntity -> entity.revision
+        is HighlightEntity -> entity.revision
+        is TagEntity -> entity.revision
+        is CategoryEntity -> entity.revision
+        is ShelfEntity -> entity.revision
+        else -> 1
+    }
+
+    private fun <T> updatedAtOf(entity: T): String = when (entity) {
+        is NoteEntity -> entity.updated_at
+        is HighlightEntity -> entity.updated_at
+        is TagEntity -> entity.updated_at
+        is CategoryEntity -> entity.updated_at
+        is ShelfEntity -> entity.updated_at
+        else -> ""
     }
 
     /** 空列表不走查询（Room 的 IN () 语法对空列表无意义），直接返回空。 */

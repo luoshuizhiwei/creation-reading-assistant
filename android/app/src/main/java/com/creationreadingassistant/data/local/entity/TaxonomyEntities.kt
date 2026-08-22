@@ -80,6 +80,7 @@ data class ShelfEntity(
         ForeignKey(entity = TagEntity::class, parentColumns = ["id"], childColumns = ["tag_id"], onDelete = ForeignKey.CASCADE),
     ],
 )
+@kotlinx.serialization.Serializable
 data class BookTagEntity(
     val book_id: String,
     val tag_id: String,
@@ -97,6 +98,7 @@ data class BookTagEntity(
         ForeignKey(entity = CategoryEntity::class, parentColumns = ["id"], childColumns = ["category_id"], onDelete = ForeignKey.CASCADE),
     ],
 )
+@kotlinx.serialization.Serializable
 data class BookCategoryEntity(
     val book_id: String,
     val category_id: String,
@@ -114,6 +116,7 @@ data class BookCategoryEntity(
         ForeignKey(entity = BookEntity::class, parentColumns = ["id"], childColumns = ["book_id"], onDelete = ForeignKey.CASCADE),
     ],
 )
+@kotlinx.serialization.Serializable
 data class ShelfBookEntity(
     val shelf_id: String,
     val book_id: String,

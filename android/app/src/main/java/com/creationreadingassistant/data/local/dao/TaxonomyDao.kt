@@ -41,6 +41,9 @@ interface TagDao {
     suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
         updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
     }
+
+    @Query("SELECT * FROM tags WHERE id IN (:ids)")
+    suspend fun getByIds(ids: Collection<String>): List<TagEntity>
 }
 
 @Dao
@@ -74,6 +77,9 @@ interface CategoryDao {
     suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
         updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
     }
+
+    @Query("SELECT * FROM categories WHERE id IN (:ids)")
+    suspend fun getByIds(ids: Collection<String>): List<CategoryEntity>
 }
 
 @Dao
@@ -104,6 +110,9 @@ interface ShelfDao {
     suspend fun updateSortOrders(updates: List<Pair<String, Int>>, now: String) {
         updates.forEach { (id, order) -> updateSortOrder(id, order, now) }
     }
+
+    @Query("SELECT * FROM shelves WHERE id IN (:ids)")
+    suspend fun getByIds(ids: Collection<String>): List<ShelfEntity>
 }
 
 @Dao
@@ -128,6 +137,13 @@ interface BookTagDao {
 
     @Query("SELECT book_id FROM book_tag WHERE tag_id = :tagId")
     suspend fun getBookIds(tagId: String): List<String>
+
+    @Query("SELECT * FROM book_tag")
+    suspend fun getAllActive(): List<BookTagEntity>
+
+    /** 备份恢复用：清空整张关联表后重建。 */
+    @Query("DELETE FROM book_tag")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -159,6 +175,13 @@ interface BookCategoryDao {
 
     @Query("SELECT book_id FROM book_category WHERE category_id = :categoryId")
     suspend fun getBookIds(categoryId: String): List<String>
+
+    @Query("SELECT * FROM book_category")
+    suspend fun getAllActive(): List<BookCategoryEntity>
+
+    /** 备份恢复用：清空整张关联表后重建。 */
+    @Query("DELETE FROM book_category")
+    suspend fun clearAll()
 }
 
 @Dao
@@ -183,4 +206,11 @@ interface ShelfBookDao {
 
     @Query("SELECT book_id FROM shelf_book WHERE shelf_id = :shelfId")
     suspend fun getBookIds(shelfId: String): List<String>
+
+    @Query("SELECT * FROM shelf_book")
+    suspend fun getAllActive(): List<ShelfBookEntity>
+
+    /** 备份恢复用：清空整张关联表后重建。 */
+    @Query("DELETE FROM shelf_book")
+    suspend fun clearAll()
 }

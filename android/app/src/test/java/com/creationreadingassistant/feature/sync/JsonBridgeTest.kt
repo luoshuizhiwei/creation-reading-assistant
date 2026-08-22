@@ -5,6 +5,15 @@ import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
+import com.creationreadingassistant.data.local.dao.ShelfBookDao
+import com.creationreadingassistant.data.local.dao.BookCategoryDao
+import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.ShelfDao
+import com.creationreadingassistant.data.local.dao.CategoryDao
+import com.creationreadingassistant.data.local.dao.TagDao
+import com.creationreadingassistant.data.local.dao.HighlightDao
+import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
@@ -43,16 +52,33 @@ class JsonBridgeTest {
     private val inspirationDao = mockk<InspirationDao>(relaxed = true)
     private val progressDao = mockk<ReadingProgressDao>(relaxed = true)
     private val sessionDao = mockk<ReadingSessionDao>(relaxed = true)
+    private val noteDao = mockk<NoteDao>(relaxed = true)
+    private val highlightDao = mockk<HighlightDao>(relaxed = true)
+    private val tagDao = mockk<TagDao>(relaxed = true)
+    private val categoryDao = mockk<CategoryDao>(relaxed = true)
+    private val shelfDao = mockk<ShelfDao>(relaxed = true)
+    private val bookTagDao = mockk<BookTagDao>(relaxed = true)
+    private val bookCategoryDao = mockk<BookCategoryDao>(relaxed = true)
+    private val shelfBookDao = mockk<ShelfBookDao>(relaxed = true)
+    private val chapterReadDao = mockk<ChapterReadDao>(relaxed = true)
     private val context = mockk<Context>(relaxed = true)
 
     private val json = Json { ignoreUnknownKeys = true }
 
-    private fun bridge() = JsonBridge(bookDao, inspirationDao, progressDao, sessionDao, Dispatchers.Unconfined)
+    private fun bridge() = JsonBridge(
+        bookDao, inspirationDao, progressDao, sessionDao,
+        noteDao, highlightDao, tagDao, categoryDao, shelfDao,
+        bookTagDao, bookCategoryDao, shelfBookDao, chapterReadDao,
+        Dispatchers.Unconfined,
+    )
 
     @Before
     fun setUp() {
         // 事务桩：直接执行块本身，不依赖真实 Room。
         coEvery { bookDao.runInTransaction(any()) } coAnswers { firstArg<suspend () -> Unit>().invoke() }
+        // 新增实体：relaxed mock 对 Flow 返回空流，first() 会抛 NoSuchElement——补空列表桩
+        coEvery { noteDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { highlightDao.observeAllActive() } returns flowOf(emptyList())
     }
 
     private fun book(
@@ -67,6 +93,22 @@ class JsonBridgeTest {
 
     private fun progress(bookId: String, revision: Int, updatedAt: String, percent: Float = 50f) =
         ReadingProgressEntity(book_id = bookId, progress_percent = percent, revision = revision, updated_at = updatedAt)
+
+
+    private fun noteEntity(id: String, revision: Int, updatedAt: String) =
+        com.creationreadingassistant.data.local.entity.NoteEntity(
+            id = id, title = "笔记$id", body = "正文", kind = "note", created_at = updatedAt, updated_at = updatedAt, revision = revision,
+        )
+
+    private fun highlightEntity(id: String, revision: Int, updatedAt: String) =
+        com.creationreadingassistant.data.local.entity.HighlightEntity(
+            id = id, book_id = "b1", text = "高亮", created_at = updatedAt, updated_at = updatedAt, revision = revision,
+        )
+
+    private fun tagEntity(id: String, revision: Int, updatedAt: String) =
+        com.creationreadingassistant.data.local.entity.TagEntity(
+            id = id, name = "标签$id", type = "book", created_at = updatedAt, updated_at = updatedAt, revision = revision,
+        )
 
     private fun session(id: String, bookId: String, revision: Int, updatedAt: String) =
         ReadingSessionEntity(id = id, book_id = bookId, revision = revision, updated_at = updatedAt)
@@ -326,6 +368,46 @@ class JsonBridgeTest {
         coVerify(exactly = 1) { inspirationDao.upsert(i) }
         coVerify(exactly = 1) { progressDao.upsert(p) }
         coVerify(exactly = 1) { sessionDao.upsert(s) }
+    }
+
+    @Test
+    fun `export includes notes taxonomy and readmarks then rebuilds associations`() = runTest {
+        // 2026-08-22 回归：备份必须包含笔记/高亮/标签/分类/书单/已读标记，
+        // 否则恢复后这些数据全部丢失（此前导出仅四类实体，与文案承诺不符）。
+        val n = noteEntity("n1", revision = 1, updatedAt = "2026-01-01T00:00:00Z")
+        val h = highlightEntity("h1", revision = 1, updatedAt = "2026-01-01T00:00:00Z")
+        val t = tagEntity("t1", revision = 1, updatedAt = "2026-01-01T00:00:00Z")
+        // 原有四类在导出前先被收集：relaxed 空流会 first() 抛——补空列表
+        coEvery { bookDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { inspirationDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { progressDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { sessionDao.observeAllActive() } returns flowOf(emptyList())
+        coEvery { noteDao.observeAllActive() } returns flowOf(listOf(n))
+        coEvery { highlightDao.observeAllActive() } returns flowOf(listOf(h))
+        coEvery { tagDao.getAllActive() } returns listOf(t)
+        coEvery { bookTagDao.getAllActive() } returns listOf(com.creationreadingassistant.data.local.entity.BookTagEntity("b1", "t1"))
+        coEvery { chapterReadDao.getAll() } returns listOf(com.creationreadingassistant.data.local.entity.ChapterReadEntity("b1", 3, "2026-01-01T00:00:00Z"))
+
+        val exported = bridge().exportToString(context)
+
+        assertTrue("导出应含 notes", exported.contains("\"notes\""))
+        assertTrue("导出应含 highlights", exported.contains("\"highlights\""))
+        assertTrue("导出应含 tags", exported.contains("\"tags\""))
+        assertTrue("导出应含 bookTags", exported.contains("\"bookTags\""))
+        assertTrue("导出应含 chapterReads", exported.contains("\"chapterReads\""))
+
+        // 导入：实体按 revision 合并、关联整表重建
+        coEvery { noteDao.getById(any()) } returns null
+        coEvery { highlightDao.getById(any()) } returns null
+        coEvery { tagDao.getById(any()) } returns null
+        bridge().importFromString(context, exported)
+
+        coVerify(exactly = 1) { noteDao.upsert(n) }
+        coVerify(exactly = 1) { highlightDao.upsert(h) }
+        coVerify(exactly = 1) { tagDao.upsert(t) }
+        coVerify(exactly = 1) { bookTagDao.clearAll() }
+        coVerify(exactly = 1) { chapterReadDao.clearAll() }
+        coVerify(exactly = 1) { chapterReadDao.upsertAll(any()) }
     }
 
     @Test

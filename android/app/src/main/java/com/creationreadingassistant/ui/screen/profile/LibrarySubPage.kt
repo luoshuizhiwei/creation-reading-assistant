@@ -84,7 +84,8 @@ internal fun LibrarySubPage(
     var editingItem by remember { mutableStateOf<Pair<String, String>?>(null) }
     var editName by remember { mutableStateOf("") }
     var expandedIds by remember { mutableStateOf<Set<String>>(emptySet()) }
-    var linkedBookIds by remember { mutableStateOf<Map<String, List<String>>>(emptyMap()) }
+    // SnapshotStateMap：并发 put 原子，避免快速展开多项时读-写竞态丢项
+    val linkedBookIds = remember { androidx.compose.runtime.snapshots.SnapshotStateMap<String, List<String>>() }
     var sorting by remember(page) { mutableStateOf(false) }
     val bookMap = remember(books) { books.associateBy { it.id } }
 
@@ -96,7 +97,7 @@ internal fun LibrarySubPage(
                 ProfileSubPage.SHELVES -> taxonomyVm.getBookIdsByShelf(id)
                 else -> emptyList()
             }
-            linkedBookIds = linkedBookIds + (id to ids)
+            linkedBookIds[id] = ids
         }
     }
 
