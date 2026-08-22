@@ -4,12 +4,14 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithContentDescription
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
+import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
 import com.creationreadingassistant.ui.theme.AppTheme
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
 import com.creationreadingassistant.ui.theme.paperPalette
@@ -26,7 +28,9 @@ class ReaderRulesSheetTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private fun renderRulesSheet() {
+    private fun renderRulesSheet(
+        replacementCapability: ReaderReplacementCapability = ReaderReplacementCapability.Available,
+    ) {
         composeRule.setContent {
             AppTheme(darkTheme = false) {
                 ReaderPaperTheme(paperPalette("white", false)) {
@@ -40,6 +44,7 @@ class ReaderRulesSheetTest {
                         ),
                         previewText = "第一章 起点\n第二章 转折",
                         mutationResult = null,
+                        replacementCapability = replacementCapability,
                         onCommand = {},
                         onBack = {},
                     )
@@ -73,6 +78,17 @@ class ReaderRulesSheetTest {
         composeRule.onNodeWithText("新增规则").assertIsDisplayed()
         composeRule.onNodeWithText("规则名称").assertIsDisplayed()
         composeRule.onNodeWithText("正则表达式").assertIsDisplayed()
+    }
+
+    @Test
+    fun unsupportedReaderHidesReplaceTabAndExplainsSourceTextIsPreserved() {
+        val message = "正文替换净化仅在新分页引擎的左右翻页模式生效，当前模式将保留原文。"
+
+        renderRulesSheet(ReaderReplacementCapability.Unavailable(message))
+
+        composeRule.onAllNodesWithText("替换净化").assertCountEquals(0)
+        composeRule.onNodeWithText("替换净化当前不可用").assertIsDisplayed()
+        composeRule.onNodeWithText(message).assertIsDisplayed()
     }
 
     @Test

@@ -43,6 +43,11 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.ui.viewmodel.InspirationPayloadData
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.intOrNull
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.put
 
 /** 时间戳 ISO-8601 字符串（委托 ui/util 公共实现）。 */
 internal fun nowIso(): String = com.creationreadingassistant.ui.util.nowIso()
@@ -98,6 +103,23 @@ internal fun buildInspirationPayload(
 
 /** 从 locator_json 解析全局字符偏移（容错：不依赖完整 JSON 解析）。 */
 internal fun parseLocatorOffset(json: String?): Int? = LocatorCodec.decode(json)?.legacyOffset
+
+/** 新高亮记录投影选区对应的 source 长度；旧记录保持空 payload 兼容。 */
+internal fun buildHighlightPayload(sourceLength: Int?): String =
+    sourceLength?.takeIf { it >= 0 }?.let { length ->
+        buildJsonObject { put("source_length", length) }.toString()
+    } ?: "{}"
+
+/** 读取 source 长度；旧记录、损坏 payload 或非法值均回退到既有文本长度语义。 */
+internal fun highlightSourceLength(payload: String?, fallbackTextLength: Int): Int {
+    val stored = runCatching {
+        Json.parseToJsonElement(payload.orEmpty())
+            .jsonObject["source_length"]
+            ?.jsonPrimitive
+            ?.intOrNull
+    }.getOrNull()
+    return stored?.takeIf { it >= 0 } ?: fallbackTextLength
+}
 
 /**
  * 计算每章各渲染块（含图片，图片记为 -1）在全书文本中的全局字符偏移。

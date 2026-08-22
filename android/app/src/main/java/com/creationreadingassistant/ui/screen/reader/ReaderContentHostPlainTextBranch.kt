@@ -271,9 +271,10 @@ private fun ReaderUnitTextItem(
                     unitText.substring(value.selection.start, value.selection.end),
                     -1,
                     unit.charStart + value.selection.start,
+                    unit.charStart + value.selection.end,
                 )
             } else if (selectionState.selectedRangeStart in unit.charStart until (unit.charStart + unitText.length)) {
-                callbacks.onSelect("", -1, -1)
+                callbacks.onSelect("", -1, -1, -1)
             }
         },
         readOnly = true,

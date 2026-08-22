@@ -73,6 +73,7 @@ internal fun ReaderPlatformEffects(
         }
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose {
+            latestOnReaderResumed.value(false)
             latestOnPersistProgress.value()
             lifecycleOwner.lifecycle.removeObserver(observer)
         }

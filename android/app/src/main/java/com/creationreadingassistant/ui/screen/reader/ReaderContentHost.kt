@@ -42,6 +42,7 @@ internal data class ReaderSelectionState(
     val selectedText: String,
     val selectedGlobalOffset: Int,
     val selectedRangeStart: Int,
+    val selectedSourceEnd: Int,
 )
 
 /**
@@ -134,7 +135,7 @@ internal data class ReaderContentHostCallbacks(
     val onPagedPositionChanged: (offset: Int, percent: Float, chapterToGo: Int?) -> Unit,
     val onToggleControls: () -> Unit,
     val onHideControls: () -> Unit,
-    val onSelect: (text: String, globalOffset: Int, rangeStart: Int) -> Unit,
+    val onSelect: (text: String, globalOffset: Int, rangeStart: Int, sourceEnd: Int) -> Unit,
     val onAutoPagingFinished: () -> Unit,
     val onStopAutoPaging: () -> Unit,
     val onGoToChapter: (chapterIndex: Int) -> Unit,

@@ -63,10 +63,15 @@ class StatsRepositoryTest {
         )
     }
 
-    private fun session(id: String, createdAt: String?, durationMs: Long) = ReadingSessionEntity(
+    private fun session(
+        id: String,
+        createdAt: String?,
+        durationMs: Long,
+        startedAt: String? = null,
+    ) = ReadingSessionEntity(
         id = id,
         book_id = "b1",
-        started_at = null,
+        started_at = startedAt,
         ended_at = null,
         duration_ms = durationMs,
         progress_percent = null,
@@ -82,8 +87,8 @@ class StatsRepositoryTest {
 
     @Test
     fun `aggregates are zero when there is no data`() = runTest(testDispatcher.scheduler) {
-        coEvery { sessionDao.sumCreatedDurationBetween(any(), any(), any()) } returns 0L
-        coEvery { sessionDao.sumCreatedDurationSince(any(), any()) } returns 0L
+        coEvery { sessionDao.sumOccurredDurationBetween(any(), any(), any()) } returns 0L
+        coEvery { sessionDao.sumOccurredDurationSince(any(), any()) } returns 0L
 
         val stats = repo.observeStats().first()
 
@@ -106,10 +111,10 @@ class StatsRepositoryTest {
 
             val sinceStarts = mutableListOf<Long>()
             coEvery {
-                sessionDao.sumCreatedDurationBetween(any(), any(), any())
+                sessionDao.sumOccurredDurationBetween(any(), any(), any())
             } returns 100L
             coEvery {
-                sessionDao.sumCreatedDurationSince(capture(sinceStarts), any())
+                sessionDao.sumOccurredDurationSince(capture(sinceStarts), any())
             } returnsMany listOf(200L, 300L)
 
             val stats = repo.observeStats().first()
@@ -123,7 +128,7 @@ class StatsRepositoryTest {
 
             val today = LocalDate.now()
             coVerify {
-                sessionDao.sumCreatedDurationBetween(
+                sessionDao.sumOccurredDurationBetween(
                     startEpochSecondOf(today),
                     startEpochSecondOf(today.plusDays(1)),
                     coarseLowerIso(startEpochSecondOf(today)),
@@ -134,6 +139,48 @@ class StatsRepositoryTest {
             assertEquals(startEpochSecondOf(today.minusDays(7)), sinceStarts[0])
             assertEquals(startEpochSecondOf(today.minusDays(30)), sinceStarts[1])
         }
+
+    @Test
+    fun `repository streak uses started at before created at`() = runTest(testDispatcher.scheduler) {
+        val today = LocalDate.now()
+        sessionsFlow.value = listOf(
+            session(
+                id = "cross-midnight",
+                createdAt = today.minusDays(2).atStartOfDay(ZoneId.systemDefault()).toInstant().toString(),
+                startedAt = today.atStartOfDay(ZoneId.systemDefault()).plusHours(1).toInstant().toString(),
+                durationMs = 30_000,
+            ),
+        )
+        coEvery { sessionDao.sumOccurredDurationBetween(any(), any(), any()) } returns 30_000L
+        coEvery { sessionDao.sumOccurredDurationSince(any(), any()) } returns 30_000L
+
+        val stats = repo.observeStats().first()
+
+        assertEquals(1, stats.streakDays)
+    }
+
+    @Test
+    fun `repository totals exclude non-positive and overlong sessions`() = runTest(testDispatcher.scheduler) {
+        val occurredAt = LocalDate.now()
+            .atStartOfDay(ZoneId.systemDefault())
+            .plusHours(1)
+            .toInstant()
+            .toString()
+        sessionsFlow.value = listOf(
+            session("valid", occurredAt, 30_000, startedAt = occurredAt),
+            session("zero", occurredAt, 0, startedAt = occurredAt),
+            session("overlong", occurredAt, MAX_READING_SESSION_DURATION_MS + 1, startedAt = occurredAt),
+        )
+        coEvery { sessionDao.sumOccurredDurationBetween(any(), any(), any()) } returns 30_000L
+        coEvery { sessionDao.sumOccurredDurationSince(any(), any()) } returns 30_000L
+
+        val stats = repo.observeStats().first()
+
+        assertEquals(1, stats.totalSessions)
+        assertEquals(30_000L, stats.totalDurationMs)
+        assertEquals(30_000L, stats.byBook.single().totalMs)
+        assertEquals(1, stats.streakDays)
+    }
 
     // ─── 情形三：跨日 —— 今日窗口恰为 [本地今日零点, 本地明日零点) ─────
 

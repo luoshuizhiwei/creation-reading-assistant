@@ -5,6 +5,7 @@ import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.NoteDao
@@ -52,6 +53,7 @@ class BookRepositoryTest {
     private lateinit var bookTagDao: BookTagDao
     private lateinit var bookCategoryDao: BookCategoryDao
     private lateinit var shelfBookDao: ShelfBookDao
+    private lateinit var chapterReadDao: ChapterReadDao
 
     private lateinit var repository: BookRepository
 
@@ -73,6 +75,7 @@ class BookRepositoryTest {
         bookTagDao = mockk(relaxed = true)
         bookCategoryDao = mockk(relaxed = true)
         shelfBookDao = mockk(relaxed = true)
+        chapterReadDao = mockk(relaxed = true)
         repository = BookRepository(
             bookDao = bookDao,
             bookContentDao = bookContentDao,
@@ -85,6 +88,7 @@ class BookRepositoryTest {
             bookTagDao = bookTagDao,
             bookCategoryDao = bookCategoryDao,
             shelfBookDao = shelfBookDao,
+            chapterReadDao = chapterReadDao,
         )
     }
 
@@ -148,6 +152,7 @@ class BookRepositoryTest {
         coVerify(exactly = 1) { progressDao.upsert(withArg { assertEquals("b1", it.book_id); assertTrue(it.deleted_at != null) }) }
         coVerify(exactly = 1) { bookTagDao.clearByBook("b1") }
         coVerify(exactly = 1) { bookCategoryDao.clearByBook("b1") }
+        coVerify(exactly = 1) { chapterReadDao.clearForBook("b1") }
         coVerify(exactly = 1) { shelfBookDao.clearByBook("b1") }
         // 批量路径不应再逐行调用单条 upsert
         coVerify(exactly = 0) { sessionDao.upsert(any()) }
@@ -348,6 +353,7 @@ class BookRepositoryTest {
         coVerify(exactly = 1) {
             bookFileDao.upsert(withArg { assertTrue(it.deleted_at != null) })
         }
+        coVerify(exactly = 0) { chapterReadDao.clearForBook(any()) }
     }
 
     @Test

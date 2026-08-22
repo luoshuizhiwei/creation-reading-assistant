@@ -14,13 +14,13 @@ import org.junit.Test
 class ReaderSessionTimerTest {
 
     @Test
-    fun `timer observes loading and error changes after it starts`() = runTest {
-        val isLoading = mutableStateOf(true)
-        val error = mutableStateOf<String?>(null)
+    fun `timer only counts effective foreground reading and emits heartbeats`() = runTest {
+        val readingActive = mutableStateOf(false)
         val activeReadingMs = mutableLongStateOf(0L)
+        var heartbeats = 0
 
         backgroundScope.launch {
-            trackActiveReadingTime(isLoading, error, activeReadingMs)
+            trackActiveReadingTime(readingActive, activeReadingMs) { heartbeats++ }
         }
         runCurrent()
 
@@ -28,19 +28,22 @@ class ReaderSessionTimerTest {
         runCurrent()
         assertEquals(0L, activeReadingMs.longValue)
 
-        isLoading.value = false
+        readingActive.value = true
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(1_000L, activeReadingMs.longValue)
+        assertEquals(1, heartbeats)
 
-        error.value = "load failed"
+        readingActive.value = false
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(1_000L, activeReadingMs.longValue)
+        assertEquals(1, heartbeats)
 
-        error.value = null
+        readingActive.value = true
         advanceTimeBy(1_000)
         runCurrent()
         assertEquals(2_000L, activeReadingMs.longValue)
+        assertEquals(2, heartbeats)
     }
 }

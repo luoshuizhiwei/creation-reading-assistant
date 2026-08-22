@@ -1,0 +1,53 @@
+package com.creationreadingassistant.ui.screen.reader
+
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
+
+/** 当前阅读路径能否安全管理并应用正文替换规则。 */
+internal sealed interface ReaderReplacementCapability {
+    data object Available : ReaderReplacementCapability
+
+    data class Unavailable(val message: String) : ReaderReplacementCapability
+}
+
+/**
+ * 直接消费 [PagedReplacementAvailability]（由 PagerEngineState 已根据真实 source 能力裁决），
+ * 不再自行猜测 isTxt / pagerEngineOn 的组合。RulesSheet 据此显式展示文案或启用 UI。
+ */
+internal fun readerReplacementCapability(
+    availability: PagedReplacementAvailability,
+): ReaderReplacementCapability = when (availability) {
+    PagedReplacementAvailability.APPLIED -> ReaderReplacementCapability.Available
+    PagedReplacementAvailability.NO_EFFECTIVE_RULES -> ReaderReplacementCapability.Unavailable(
+        "当前没有启用的正文替换规则，可在规则管理中添加并启用。",
+    )
+    PagedReplacementAvailability.ESTIMATED_COORDINATES -> ReaderReplacementCapability.Unavailable(
+        "当前文档格式（EPUB/估算坐标）暂不支持正文替换净化，正文将保留原文。",
+    )
+    PagedReplacementAvailability.INCOMPLETE_SCOPE -> ReaderReplacementCapability.Unavailable(
+        "当前章节视图无法提供完整可投影作用域，正文将保留原文。",
+    )
+    PagedReplacementAvailability.OVERSIZED_CURRENT_CHAPTER -> ReaderReplacementCapability.Unavailable(
+        "当前章节过大，已保留原文，暂不执行替换净化。",
+    )
+    PagedReplacementAvailability.SOURCE_UNAVAILABLE -> ReaderReplacementCapability.Unavailable(
+        "正文 source 尚未构建或章节为空，暂不支持替换净化。",
+    )
+}
+
+/**
+ * 兼容旧调用点（单元测试还没有 PagerEngineState 的场景）：
+ * 显式把「source 尚不可用 / isTxt=false / pagerEngineOff」情形转成对应 availability，
+ * 避免逐处 if/else 蔓延。真实生产路径一律使用单参数 availability 版本。
+ */
+internal fun readerReplacementCapability(
+    isTxt: Boolean,
+    hasStreamingDocument: Boolean,
+    readerMode: String,
+    pagerEngineOn: Boolean,
+    replaceProjectionScopeIsComplete: Boolean = false,
+): ReaderReplacementCapability {
+    if (!isTxt) return readerReplacementCapability(PagedReplacementAvailability.ESTIMATED_COORDINATES)
+    if (readerMode != "paged" || !pagerEngineOn) return readerReplacementCapability(PagedReplacementAvailability.SOURCE_UNAVAILABLE)
+    if (!replaceProjectionScopeIsComplete) return readerReplacementCapability(PagedReplacementAvailability.INCOMPLETE_SCOPE)
+    return readerReplacementCapability(PagedReplacementAvailability.APPLIED)
+}

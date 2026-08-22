@@ -8,6 +8,7 @@ import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
@@ -85,9 +86,11 @@ internal data class ReaderSheetStatsState(
 internal data class ReaderSheetUiState(
     val selectedText: String,
     val readerSettings: ReaderSettings,
+    val pagerEngineOn: Boolean,
     val searchQuery: String,
     val recentChapters: List<Int>,
     val appDark: Boolean,
+    val replacementAvailability: PagedReplacementAvailability = PagedReplacementAvailability.SOURCE_UNAVAILABLE,
 )
 
 /**
@@ -172,6 +175,11 @@ internal fun ReaderSheetHost(
                         titles = state.document.epubBook?.chapters?.map { it.title } ?: state.document.txtChapterTitles,
                         current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
                         recent = state.ui.recentChapters,
+                        read = if (state.document.epubBook != null || state.document.markdownDocument != null) {
+                            inputs.readChapters.toSet()
+                        } else {
+                            emptySet()
+                        },
                     ),
                     current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
                     totalChapters = state.document.epubBook?.chapters?.size ?: state.document.txtChapterTitles.size,
@@ -189,12 +197,19 @@ internal fun ReaderSheetHost(
                     onTxtRule = sheetCallbacks.onTxtRule,
                     onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
                     onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
+                    showReadStatus = state.document.epubBook != null || state.document.markdownDocument != null,
+                    showClearReadMarks = state.document.epubBook != null || state.document.markdownDocument != null,
+                    onClearReadMarks = {
+                        callbacks.onAction(ReaderAction.ClearChapterReads(bid))
+                        sheetCallbacks.showNotice("已清除已读标记")
+                    },
                 )
 
                 ReaderSheet.RULES -> RulesSheet(
                     snapshot = inputs.ruleSnapshot,
                     previewText = state.document.contentText,
                     mutationResult = inputs.ruleMutationResult,
+                    replacementCapability = readerReplacementCapability(state.ui.replacementAvailability),
                     onCommand = { callbacks.onAction(ReaderAction.ExecuteRuleCommand(bid, it)) },
                     onBack = {
                         callbacks.onAction(ReaderAction.ClearRuleMutationResult)
@@ -363,3 +378,7 @@ internal fun ReaderSheetHost(
         }
     }
 }
+
+
+
+

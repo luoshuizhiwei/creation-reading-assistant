@@ -51,7 +51,7 @@ internal fun startEpochSecondOf(date: LocalDate): Long =
     date.atStartOfDay(ZoneId.systemDefault()).toEpochSecond()
 
 /**
- * 索引加速用粗下界（ISO 串）：比精确边界早 2 天，供 created_at 部分索引预过滤。
+ * 索引加速用粗下界（ISO 串）：比精确边界早 2 天，供时间字段预过滤。
  * ISO 'Z' 串的字典序与时间序只在「整数秒边界后带小数秒」的串上不一致，
  * 回退 2 天足以保证不会误杀任何应命中的行；最终结果仍由精确的 epoch 秒谓词决定。
  */
@@ -91,7 +91,7 @@ class StatsRepository @Inject constructor(
      * 实时观察统计：任意底层数据变化后自动重算。
      *
      * 今日/7日/30日时长不再拉全表逐行 Instant.parse，而是下推为 DAO 层
-     * SUM 聚合（见 [ReadingSessionDao.sumCreatedDurationBetween] 等）；
+     * SUM 聚合（见 [ReadingSessionDao.sumOccurredDurationBetween] 等）；
      * 边界在每次发射时用 LocalDate.now() 现算，与旧实现的逐次重算语义一致。
      */
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -115,7 +115,7 @@ class StatsRepository @Inject constructor(
         computeWithWindowAggregates(StatsSource(sessions, progress, books, inspirations))
     }
 
-    /** 活跃会话总时长（Home 页顶栏统计卡，等价于逐行求和）。 */
+    /** 有效活跃会话总时长（Home 页顶栏统计卡，排除异常时长）。 */
     suspend fun sumAllActiveDuration(): Long = sessionDao.sumAllActiveDuration()
 
     /** 发生时间落在 [startEpochSecond, endEpochSecond) 内的活跃会话时长之和（Home 今日窗口）。 */
@@ -148,11 +148,11 @@ class StatsRepository @Inject constructor(
         val last7Start = startEpochSecondOf(today.minusDays(7))
         val last30Start = startEpochSecondOf(today.minusDays(30))
 
-        val todayMs = sessionDao.sumCreatedDurationBetween(
+        val todayMs = sessionDao.sumOccurredDurationBetween(
             todayStart, tomorrowStart, coarseLowerIso(todayStart),
         )
-        val last7Ms = sessionDao.sumCreatedDurationSince(last7Start, coarseLowerIso(last7Start))
-        val last30Ms = sessionDao.sumCreatedDurationSince(last30Start, coarseLowerIso(last30Start))
+        val last7Ms = sessionDao.sumOccurredDurationSince(last7Start, coarseLowerIso(last7Start))
+        val last30Ms = sessionDao.sumOccurredDurationSince(last30Start, coarseLowerIso(last30Start))
 
         return computeFrom(
             src.sessions, src.progress, src.books, src.inspirations,
@@ -177,20 +177,22 @@ class StatsRepository @Inject constructor(
         last30Ms: Long,
     ): Stats {
         val bookTitles = books.associate { it.id to it.title }
-        val todayDay = LocalDate.now().toEpochDay()
-
-        val activeDays = mutableSetOf<Long>()
+        val validSessions = sessions.filter { isValidReadingSessionDuration(it.duration_ms) }
         val byBookMap = mutableMapOf<String, Long>()
-        for (s in sessions) {
-            val day = epochDayOf(s.created_at)
-            if (day >= 0) activeDays.add(day)
+        for (s in validSessions) {
             byBookMap[s.book_id] = (byBookMap[s.book_id] ?: 0L) + s.duration_ms
         }
 
-        // 连续阅读天数（从今天或昨天往前连续）
-        var streak = 0
-        var cursor = if (activeDays.contains(todayDay)) todayDay else todayDay - 1
-        while (activeDays.contains(cursor)) { streak++; cursor-- }
+        val streak = computeReadingStreak(
+            validSessions.map { session ->
+                StatsSessionRow(
+                    book_id = session.book_id,
+                    occurred_at = session.started_at ?: session.created_at,
+                    duration_ms = session.duration_ms,
+                    progress_percent = session.progress_percent,
+                )
+            },
+        ).current
 
         val byBook = byBookMap.entries.sortedByDescending { it.value }.map {
             ByBook(it.key, bookTitles[it.key] ?: "(未知)", it.value)
@@ -203,8 +205,8 @@ class StatsRepository @Inject constructor(
         }
 
         return Stats(
-            totalSessions = sessions.size,
-            totalDurationMs = sessions.sumOf { it.duration_ms },
+            totalSessions = validSessions.size,
+            totalDurationMs = validSessions.sumOf { it.duration_ms },
             todayMs = todayMs,
             last7Ms = last7Ms,
             last30Ms = last30Ms,

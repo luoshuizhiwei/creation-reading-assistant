@@ -5,6 +5,7 @@ import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
 import com.creationreadingassistant.data.local.dao.NoteDao
@@ -46,6 +47,7 @@ class BookRepository @Inject constructor(
     private val bookTagDao: BookTagDao,
     private val bookCategoryDao: BookCategoryDao,
     private val shelfBookDao: ShelfBookDao,
+    private val chapterReadDao: ChapterReadDao,
 ) {
     fun observeBooks(): Flow<List<BookEntity>> = bookDao.observeAllActive()
     fun observeProgress(): Flow<List<ReadingProgressEntity>> = progressDao.observeAllActive()
@@ -87,6 +89,11 @@ class BookRepository @Inject constructor(
         )
     }
 
+    /** 写入阅读器生成的本地会话；切段与门槛策略由 ReadingSessionRecorder 统一负责。 */
+    suspend fun saveReadingSession(session: ReadingSessionEntity) {
+        sessionDao.upsert(session)
+    }
+
     /**
      * 删除书籍并级联清理相关记录（阅读进度、会话、笔记、高亮、正文、文件、书单/分类/标签关联）。
      * 所有操作在事务中执行，确保软删除的原子性。
@@ -104,6 +111,7 @@ class BookRepository @Inject constructor(
             bookTagDao.clearByBook(id)
             bookCategoryDao.clearByBook(id)
             shelfBookDao.clearByBook(id)
+            chapterReadDao.clearForBook(id)
         }
     }
 

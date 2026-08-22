@@ -26,6 +26,8 @@ data class ReaderScreenState(
     val selectedText: String = "",
     val selectedRangeStart: Int = -1,
     val selectedGlobalOffset: Int = -1,
+    /** 分页投影选区的全书 source 半开终点；旧路径不提供时为 -1。 */
+    val selectedSourceEnd: Int = -1,
     val sheet: ReaderSheet? = null,
     val showTts: Boolean = false,
     val searchQuery: String = "",

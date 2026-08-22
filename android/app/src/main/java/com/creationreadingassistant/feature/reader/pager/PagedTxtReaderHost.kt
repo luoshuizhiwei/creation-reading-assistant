@@ -104,8 +104,8 @@ fun PagedReaderHost(
     modifier: Modifier = Modifier,
     /** TTS 当前句（全书偏移区间），null = 不朗读 */
     ttsRangeAbs: Pair<Int, Int>? = null,
-    /** 长按选句回调：(选中文本, 全书起始偏移)。空文本 = 选区清除 */
-    onSelect: (String, Int) -> Unit = { _, _ -> },
+    /** 长按选句回调：(显示文本, source 全书起点, source 全书半开终点)。空文本 = 选区清除 */
+    onSelect: (String, Int, Int) -> Unit = { _, _, _ -> },
     /** 外部（工具条动作后）已清空选区的信号，host 据此撤掉选区底色 */
     selectionCleared: Boolean = true,
     /** 已存高亮（全书偏移区间 + 已带透明度的颜色），在页面上常驻绘制 */
@@ -188,7 +188,9 @@ fun PagedReaderHost(
             textColor = textColor,
         )
 
-        Box(Modifier.weight(1f).fillMaxWidth().padding(top = pageMarginDp.dp)) {
+        // 顶部留白 = 页眉行高 + 固定小间距，与底部页脚（28dp）视觉对称；
+        // 不再叠加完整页边距，避免「上宽下窄」的头重感。
+        Box(Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp)) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
                 // 平板横屏仍保持中文正文每行不超过约 42 字，超出的空间左右留白。
                 val widthPx = minOf(constraints.maxWidth.toFloat(), fontPx * 42f)

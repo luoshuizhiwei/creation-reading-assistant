@@ -22,6 +22,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 
+internal fun pageIndexContentKey(contentKey: String, source: PagedChapterSource): String {
+    if (contentKey.isBlank()) return ""
+    val profileKey = (source as? ProjectedChapterSource)?.replaceProfileKey ?: return contentKey
+    return "$contentKey|replace=$profileKey"
+}
+
 /**
  * 左右翻页的状态机：持有「当前章的整章排版 + 当前页号」。
  *
@@ -46,6 +52,8 @@ class PagedReaderController(
     private val store: PageIndexStore? = null,
     private val contentKey: String = "",
 ) {
+    private val effectivePageIndexContentKey = pageIndexContentKey(contentKey, source)
+
     data class ReaderPageFrame(
         val page: ChapterPaginator.Page,
         val chapterText: String,
@@ -80,9 +88,10 @@ class PagedReaderController(
     /** 当前页首字符的全书偏移。进度持久化以它为准。 */
     val currentPageStartAbs: Int
         get() {
-            val chStart = source.chapterStartAbs(chapterIndex)
-            val l = layout ?: return chStart
-            return chStart + (l.pageStarts.getOrNull(pageIndex) ?: 0)
+            val chapterStart = source.chapterStartAbs(chapterIndex)
+            val l = layout ?: return chapterStart
+            val localDisplay = l.pageStarts.getOrNull(pageIndex) ?: 0
+            return localDisplayToGlobalSource(chapterIndex, localDisplay)
         }
 
     /**
@@ -95,15 +104,29 @@ class PagedReaderController(
     val currentPageRangeAbs: IntRange?
         get() {
             val page = currentPage ?: return null
-            val chStart = source.chapterStartAbs(chapterIndex)
-            val start = chStart + page.startCharOffset
-            val end = chStart + page.endCharOffset
+            val start = localDisplayToGlobalSource(chapterIndex, page.startCharOffset)
+            val end = localDisplayToGlobalSource(chapterIndex, page.endCharOffset)
             return start until (if (end > start) end else start + 1)
         }
 
     /** 当前章起始的全书偏移（选区/TTS 的章内↔全书换算用）。 */
     val currentChapterStartAbs: Int
         get() = source.chapterStartAbs(chapterIndex)
+
+    /** 当前章 display 局部偏移 → 持久化用的全书 source 偏移。 */
+    fun currentChapterLocalDisplayToGlobalSource(localDisplayOffset: Int): Int =
+        localDisplayToGlobalSource(chapterIndex, localDisplayOffset)
+
+    /**
+     * 持久化层的 source 半开区间 → 当前章 display 局部半开区间。
+     * 无投影时保持既有的 `- chapterStart` 语义。
+     */
+    fun currentChapterSourceRangeToLocalDisplay(
+        globalSourceStart: Int,
+        globalSourceEnd: Int,
+    ): Pair<Int, Int> =
+        globalSourceToLocalDisplay(chapterIndex, globalSourceStart) to
+            globalSourceToLocalDisplay(chapterIndex, globalSourceEnd)
 
     val canGoPrev: Boolean get() = pageIndex > 0 || chapterIndex > 0
     val canGoNext: Boolean
@@ -174,9 +197,20 @@ class PagedReaderController(
         val target = absOffset.coerceIn(0, (source.totalChars - 1).coerceAtLeast(0))
         val chIdx = source.chapterIndexFor(target)
         loadChapter(chIdx, isFirstOpen = true) { l ->
-            val inChapter = target - source.chapterStartAbs(chIdx)
-            l.pageIndexFor(inChapter)
+            l.pageIndexFor(globalSourceToLocalDisplay(chIdx, target))
         }
+    }
+
+    private fun localDisplayToGlobalSource(chapter: Int, localDisplayOffset: Int): Int {
+        val projection = (source as? ProjectedChapterSource)?.projectionForChapter(chapter)
+        return projection?.localDisplayToGlobalSource(localDisplayOffset)
+            ?: (source.chapterStartAbs(chapter) + localDisplayOffset)
+    }
+
+    private fun globalSourceToLocalDisplay(chapter: Int, globalSourceOffset: Int): Int {
+        val projection = (source as? ProjectedChapterSource)?.projectionForChapter(chapter)
+        return projection?.globalSourceToLocalDisplay(globalSourceOffset)
+            ?: (globalSourceOffset - source.chapterStartAbs(chapter))
     }
 
     /**
@@ -253,8 +287,10 @@ class PagedReaderController(
                 if (source.chapterLengthsAreEstimated && !persistedMetricsLoaded) {
                     persistedMetricsLoaded = true
                     val s = store
-                    if (s != null && contentKey.isNotBlank()) {
-                        actualCharCounts.putAll(withContext(Dispatchers.IO) { s.knownCharCounts(contentKey) })
+                    if (s != null && effectivePageIndexContentKey.isNotBlank()) {
+                        actualCharCounts.putAll(
+                            withContext(Dispatchers.IO) { s.knownCharCounts(effectivePageIndexContentKey) },
+                        )
                     }
                 }
                 // 章文本加载走 IO（EPUB 解压），排版走 Default（纯计算）
@@ -307,10 +343,16 @@ class PagedReaderController(
 
                 // 写通缓存：pageStarts 落库（失败无所谓，见 PageIndexStore 的纪律）
                 val s = store
-                if (s != null && contentKey.isNotBlank()) {
+                if (s != null && effectivePageIndexContentKey.isNotBlank()) {
                     launch(Dispatchers.IO) {
-                        s.save(contentKey, chIdx, cfg.fingerprint, l.pageStarts, cached.content.text.length)
-                        s.prune(contentKey)
+                        s.save(
+                            effectivePageIndexContentKey,
+                            chIdx,
+                            cfg.fingerprint,
+                            l.pageStarts,
+                            cached.content.text.length,
+                        )
+                        s.prune(effectivePageIndexContentKey)
                     }
                 }
             } catch (cancelled: CancellationException) {
@@ -355,9 +397,15 @@ class PagedReaderController(
                     chapterCache.keys.toList().filterNot { it in keep }.forEach(chapterCache::remove)
                     cacheRevision++
                     val s = store
-                    if (s != null && contentKey.isNotBlank()) {
+                    if (s != null && effectivePageIndexContentKey.isNotBlank()) {
                         withContext(Dispatchers.IO) {
-                            s.save(contentKey, index, cfg.fingerprint, chapterLayout.pageStarts, content.text.length)
+                            s.save(
+                                effectivePageIndexContentKey,
+                                index,
+                                cfg.fingerprint,
+                                chapterLayout.pageStarts,
+                                content.text.length,
+                            )
                         }
                     }
                 } catch (cancelled: CancellationException) {

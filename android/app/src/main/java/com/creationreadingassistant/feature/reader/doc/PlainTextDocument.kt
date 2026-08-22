@@ -460,6 +460,27 @@ class PlainTextDocument private constructor(
     }
 
     /**
+     * 按章节索引读取**完整逻辑章节的原始文本**（流式 + 小文件通用）。
+     *
+     * 流式模式：使用 [RandomAccessFile] 精确读取该章在文件中的字节区间
+     * [ChapterEntry.byteStart, byteStart+byteLength) 并按文件编码解码。
+     * 小文件模式：直接从 fullText 切片，与 TxtPageSource.chapterTextOf 语义一致。
+     *
+     * 返回文本保持原文不经过 splitParagraphs 的 trim/段落重排，保证 String.length
+     * 与 ChapterEntry.charCount、DocChapter.startOffset 精确一致，可直接作为
+     * 持久化坐标空间下的 source 文本。
+     */
+    fun readChapterRawText(chapterIndex: Int): String {
+        val c = chapters.getOrNull(chapterIndex) ?: return ""
+        if (streaming == null) {
+            val start = c.startOffset.coerceIn(0, fullText.length)
+            val end = (start + c.charCount).coerceIn(start, fullText.length)
+            return fullText.substring(start, end)
+        }
+        return readChapterString(chapterIndex)
+    }
+
+    /**
      * Read a chapter's text from the file as a String.
      * Uses [RandomAccessFile] to seek to the chapter's byte offset and read exactly
      * [ChapterEntry.byteLength] bytes, then decodes with the file's encoding.

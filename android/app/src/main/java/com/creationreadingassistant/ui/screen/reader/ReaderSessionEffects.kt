@@ -130,6 +130,16 @@ internal fun ReaderSessionEffects(
     val pagedSource = pagerEngine.pagedSource
 
     val txtStreamingDocument = docLoad.txtStreamingDocument
+    val readingActive = bid.isNotBlank() &&
+        loadedBook?.id == bid &&
+        readerResumedState.value &&
+        !isLoading &&
+        error == null
+
+    // 加载状态或生命周期变化时立即开启/收口会话；每秒心跳由 ReaderProgressEffects 驱动。
+    LaunchedEffect(bid, readingActive) {
+        onAction(ReaderAction.UpdateReadingActivity(bid, readingActive, progressState.progressPercent))
+    }
 
     // 用可变 State 持有最新设置，避免提醒计时器因设置变化反复重建 / 捕获旧值
     LaunchedEffect(readerSettings) { settingsRef.value = readerSettings }
@@ -232,7 +242,16 @@ internal fun ReaderSessionEffects(
             if (consumed) onAction(ReaderAction.PageTurn)
             consumed
         },
-        onReaderResumed = { readerResumedState.value = it },
+        onReaderResumed = { resumed ->
+            readerResumedState.value = resumed
+            onAction(
+                ReaderAction.UpdateReadingActivity(
+                    bookId = bid,
+                    active = bid.isNotBlank() && loadedBook?.id == bid && resumed && !isLoading && error == null,
+                    progressPercent = progressState.progressPercent,
+                ),
+            )
+        },
         onPersistProgress = persistCurrentProgress,
         controlsVisibleForAutoHide = controlsVisible,
         autoHideSeconds = readerSettings.autoHideSeconds,
@@ -247,6 +266,8 @@ internal fun ReaderSessionEffects(
         bid = bid,
         isLoading = isLoading,
         error = error,
+        readingActive = readingActive,
+        progressPercent = progressState.progressPercent,
         loadedBook = loadedBook,
         chapterIndex = chapterIndex,
         epubBook = epubBook,

@@ -264,6 +264,7 @@ internal fun ReaderScaffold(
     val selectedText = screenState.selectedText
     val selectedGlobalOffset = screenState.selectedGlobalOffset
     val selectedRangeStart = screenState.selectedRangeStart
+    val selectedSourceEnd = screenState.selectedSourceEnd
     val sheet = screenState.sheet
     val noteOpen = screenState.noteOpen
     val showReaderOverflow = screenState.showReaderOverflow
@@ -369,6 +370,7 @@ internal fun ReaderScaffold(
                             selectedText = selectedText,
                             selectedGlobalOffset = selectedGlobalOffset,
                             selectedRangeStart = selectedRangeStart,
+                            selectedSourceEnd = selectedSourceEnd,
                         ),
                         paging = ReaderPagingState(
                             pagerEngineOn = pagerEngineOn,
@@ -459,6 +461,12 @@ internal fun ReaderScaffold(
                     settingsVm = settingsVm,
                     tts = tts,
                     selectedText = selectedText,
+                    selectedSourceLength = when {
+                        selectedSourceEnd < 0 -> null
+                        selectedRangeStart >= 0 -> selectedSourceEnd - selectedRangeStart
+                        selectedGlobalOffset >= 0 -> selectedSourceEnd - selectedGlobalOffset
+                        else -> null
+                    }?.takeIf { it >= 0 },
                     bid = bid,
                     currentChapterTitle = currentChapterTitle,
                     progressPercent = progressPercent,
@@ -487,7 +495,7 @@ internal fun ReaderScaffold(
                 inputs = inputs,
                 callbacks = callbacks,
                 settingsVm = settingsVm,
-                state = buildReaderSheetHostState(
+                state = buildReaderSheetHostState(pagerReplacementAvailability = pagerEngine.replacementAvailability,
                     epubBook = epubBook,
                     epubDocument = epubDocument,
                     markdownDocument = markdownDocument,
@@ -504,6 +512,7 @@ internal fun ReaderScaffold(
                     selectedText = selectedText,
                     contentText = contentText,
                     readerSettings = readerSettings,
+                    pagerEngineOn = pagerEngineOn,
                     activeReadingMs = activeReadingMs,
                     savedBookReadingMs = savedBookReadingMs,
                     estimatedRemainingMs = estimatedRemainingMs,
@@ -559,3 +568,4 @@ internal fun ReaderScaffold(
     }
     }
 }
+

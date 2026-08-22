@@ -25,6 +25,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
@@ -95,8 +96,8 @@ internal fun buildReaderContentHostCallbacks(
     onToggleControls = { onAction(ReaderAction.ToggleControls()) },
     // 翻页后立即隐藏菜单：走状态机 PageTurn，与 autoHideSeconds 是否 0 无关。
     onHideControls = { onAction(ReaderAction.PageTurn) },
-    onSelect = { text, globalOffset, rangeStart ->
-        onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset))
+    onSelect = { text, globalOffset, rangeStart, sourceEnd ->
+        onAction(ReaderAction.SetSelectedText(text, rangeStart, globalOffset, sourceEnd))
     },
     onAutoPagingFinished = {
         onAutoPagingActiveChange(false)
@@ -166,6 +167,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     settingsVm: SettingsViewModel,
     tts: TtsController,
     selectedText: String,
+    selectedSourceLength: Int?,
     bid: String,
     currentChapterTitle: String,
     progressPercent: Float,
@@ -211,7 +213,7 @@ internal fun buildReaderInteractionLayerCallbacks(
                 chapter_title = currentChapterTitle.ifBlank { null },
                 progress_percent = progressPercent,
                 locator_json = locator,
-                payload = "{}",
+                payload = buildHighlightPayload(selectedSourceLength),
                 created_at = nowIso(),
                 device_id = null,
                 revision = 1,
@@ -238,8 +240,7 @@ internal fun buildReaderInteractionLayerCallbacks(
  * `recentChapters` 由 [SnapshotStateList] 现场转 `List`，与原内联构造一致。
  */
 @Suppress("LongParameterList")
-internal fun buildReaderSheetHostState(
-    epubBook: EpubBook?,
+internal fun buildReaderSheetHostState(pagerReplacementAvailability: PagedReplacementAvailability, epubBook: EpubBook?,
     epubDocument: ReaderDocument?,
     markdownDocument: ReaderDocument?,
     txtStreamingDocument: PlainTextDocument?,
@@ -255,6 +256,7 @@ internal fun buildReaderSheetHostState(
     selectedText: String,
     contentText: String,
     readerSettings: ReaderSettings,
+    pagerEngineOn: Boolean,
     activeReadingMs: Long,
     savedBookReadingMs: Long,
     estimatedRemainingMs: Long,
@@ -311,9 +313,11 @@ internal fun buildReaderSheetHostState(
     ui = ReaderSheetUiState(
         selectedText = selectedText,
         readerSettings = readerSettings,
+        pagerEngineOn = pagerEngineOn,
         searchQuery = searchQuery,
         recentChapters = recentChapters.toList(),
         appDark = appDark,
+        replacementAvailability = pagerReplacementAvailability,
     ),
 )
 
@@ -459,3 +463,6 @@ internal fun buildReaderSheetHostCallbacks(
         id
     },
 )
+
+
+

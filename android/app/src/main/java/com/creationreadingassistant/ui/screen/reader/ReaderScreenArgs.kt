@@ -38,6 +38,7 @@ data class ReaderScreenInputs(
     val categories: List<CategoryEntity>,
     val tags: List<TagEntity>,
     val sessions: List<ReadingSessionEntity>,
+    val readChapters: List<Int>,
     val txtTocRuleIdFromVm: String,
     val chapterLoadResult: ChapterLoadResult?,
     val txtRuleScanResult: TxtRuleScanResult?,

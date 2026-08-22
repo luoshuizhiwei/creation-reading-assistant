@@ -74,17 +74,21 @@ interface ReadingSessionDao {
     //     的取整不改变日历日归属，因此秒级比较与 epochDay 比较等价；
     //  3. GLOB 限定 ISO 'T' 分隔、秒级时刻、'Z' 结尾，与 Instant.parse 失败
     //     返回 -1 被排除的语义对齐（带时区偏移/空格分隔的串两边都被排除）；
-    //  4. :coarseIso 是供 idx_sessions_created 部分索引加速的粗下界
-    //     （比精确边界早 2 天），只做预过滤，不影响结果正确性。
+    //  4. :coarseIso 是比精确边界早 2 天的粗下界，只做预过滤，不影响结果正确性；
+    //  5. duration_ms 仅接受 (0, 24h]，与统计页共享的会话有效性策略一致。
 
-    /** 活跃会话总时长（等价于 observeAllActive().sumOf { duration_ms }）。 */
-    @Query("SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions WHERE deleted_at IS NULL")
+    /** 有效活跃会话总时长（排除非正数及超过 24 小时的异常记录）。 */
+    @Query(
+        "SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions " +
+            "WHERE deleted_at IS NULL AND duration_ms > 0 AND duration_ms <= 86400000"
+    )
     suspend fun sumAllActiveDuration(): Long
 
     /** created_at 落在 [startEpochSecond, endEpochSecond) 内的活跃会话时长之和（今日窗口）。 */
     @Query(
         "SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions " +
             "WHERE deleted_at IS NULL " +
+            "AND duration_ms > 0 AND duration_ms <= 86400000 " +
             "AND created_at >= :coarseIso " +
             "AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*Z' " +
             "AND CAST(strftime('%s', created_at) AS INTEGER) >= :startEpochSecond " +
@@ -100,6 +104,7 @@ interface ReadingSessionDao {
     @Query(
         "SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions " +
             "WHERE deleted_at IS NULL " +
+            "AND duration_ms > 0 AND duration_ms <= 86400000 " +
             "AND created_at >= :coarseIso " +
             "AND created_at GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*Z' " +
             "AND CAST(strftime('%s', created_at) AS INTEGER) >= :startEpochSecond"
@@ -110,6 +115,7 @@ interface ReadingSessionDao {
     @Query(
         "SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions " +
             "WHERE deleted_at IS NULL " +
+            "AND duration_ms > 0 AND duration_ms <= 86400000 " +
             "AND COALESCE(started_at, created_at) >= :coarseIso " +
             "AND COALESCE(started_at, created_at) GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*Z' " +
             "AND CAST(strftime('%s', COALESCE(started_at, created_at)) AS INTEGER) >= :startEpochSecond " +
@@ -120,4 +126,15 @@ interface ReadingSessionDao {
         endEpochSecond: Long,
         coarseIso: String,
     ): Long
+
+    /** 发生时间 COALESCE(started_at, created_at) 在边界之后的时长之和（7日/30日窗口）。 */
+    @Query(
+        "SELECT COALESCE(SUM(duration_ms), 0) FROM reading_sessions " +
+            "WHERE deleted_at IS NULL " +
+            "AND duration_ms > 0 AND duration_ms <= 86400000 " +
+            "AND COALESCE(started_at, created_at) >= :coarseIso " +
+            "AND COALESCE(started_at, created_at) GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9][0-9]:[0-9][0-9]:[0-9][0-9]*Z' " +
+            "AND CAST(strftime('%s', COALESCE(started_at, created_at)) AS INTEGER) >= :startEpochSecond"
+    )
+    suspend fun sumOccurredDurationSince(startEpochSecond: Long, coarseIso: String): Long
 }

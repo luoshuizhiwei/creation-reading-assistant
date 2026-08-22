@@ -104,11 +104,11 @@ internal fun ReaderContentHostPagedBranch(
         } else {
             null
         },
-        onSelect = { text, absStart ->
+        onSelect = { text, absStart, absEnd ->
             if (s.epubBook != null) {
-                callbacks.onSelect(text, absStart, -1)
+                callbacks.onSelect(text, absStart, -1, absEnd)
             } else {
-                callbacks.onSelect(text, -1, absStart)
+                callbacks.onSelect(text, -1, absStart, absEnd)
             }
         },
         selectionCleared = selectionState.selectedText.isBlank(),
@@ -119,7 +119,7 @@ internal fun ReaderContentHostPagedBranch(
         persistentHighlights = remember(s.highlights) {
             s.highlights.mapNotNull { h ->
                 val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
-                val len = h.text.length
+                val len = highlightSourceLength(h.payload, h.text.length)
                 if (len <= 0) return@mapNotNull null
                 (start until start + len) to
                     settings.paper.highlight(h.color ?: "yellow")

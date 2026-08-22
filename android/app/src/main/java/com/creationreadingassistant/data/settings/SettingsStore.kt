@@ -142,7 +142,7 @@ private fun migrateReaderBg(v: String?): String = when (v) {
 
 data class AppearanceSettings(
     val themeMode: String = "system",   // system | light | dark
-    val colorPalette: String = "paper_ink",
+    val colorPalette: String = "clear_blue",
     /** 纸张噪点纹理开关（阅读器 PaperNoise 层）；默认开 = 纸墨视觉基线。 */
     val paperTexture: Boolean = true,
     /** Android 12+ 壁纸动态取色；低于 12 时即使开启也静默回退到配置的 palette。 */
@@ -247,7 +247,7 @@ class SettingsStore @Inject constructor(
     val appearance: StateFlow<AppearanceSettings> = ds.data.map { prefs ->
         AppearanceSettings(
             themeMode = prefs[KEY_THEME] ?: "system",
-            colorPalette = prefs[KEY_COLOR_PALETTE] ?: "paper_ink",
+            colorPalette = prefs[KEY_COLOR_PALETTE] ?: "clear_blue",
             paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
             useDynamicColor = prefs[KEY_USE_DYNAMIC_COLOR] ?: false,
             amoledPureBlack = prefs[KEY_AMOLED_PURE_BLACK] ?: false,

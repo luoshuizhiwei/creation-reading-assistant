@@ -328,6 +328,7 @@ fun ReaderScreen(
     // 可写状态以 State-holder 形式传出（pagedAbsOffsetState / pagedPercentState），
     // 用 `var by` 还原原 delegate 语义，下游读写零改动。
     val pagerEngine = rememberPagerEngineState(
+        bookId = bid,
         epubBook = epubBook,
         epubDocument = epubDocument,
         markdownDocument = markdownDocument,
@@ -339,6 +340,7 @@ fun ReaderScreen(
         textContent = textContent,
         plainContent = plainContent,
         tocProfile = inputs.ruleSnapshot.effectiveTocProfile,
+        replaceRules = inputs.ruleSnapshot.effectiveReplace,
         txtStreamingDocument = txtStreamingDocument,
         readingUnits = readingUnits,
     )
@@ -420,6 +422,26 @@ fun ReaderScreen(
         txtChapterIndex, contentText, ttsResumeChapterState, ttsResumeOffsetState, bookTitle,
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
     )
+
+    LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn) {
+        when (pagerEngine.replacementAvailability) {
+            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.APPLIED ->
+                if (!pagerEngineOn) {
+                    nav.showNotice("正文替换净化目前仅在新分页引擎中生效，当前模式已保留原文。")
+                }
+            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.ESTIMATED_COORDINATES ->
+                nav.showNotice("当前文档格式暂不支持正文替换净化。")
+            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.INCOMPLETE_SCOPE ->
+                nav.showNotice("流式大文件暂不支持正文替换净化，已保留原文。")
+            else -> Unit
+        }
+    }
+    val replaceProjectionNotice = pagerEngine.replaceProjectionNotice.value
+    LaunchedEffect(replaceProjectionNotice) {
+        val message = replaceProjectionNotice ?: return@LaunchedEffect
+        nav.showNotice(message)
+        pagerEngine.replaceProjectionNotice.value = null
+    }
 
     // ── B3：会话级 Effects 聚合 → reader/ReaderSessionEffects.kt（设置同步 / TTS 同步与续读 /
     // 平台 Effects / 进度与位置 Effects / 运行时 Effects / TTS 跟读），调用实参逐字保真。──

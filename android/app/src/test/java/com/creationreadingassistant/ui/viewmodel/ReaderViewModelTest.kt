@@ -5,6 +5,7 @@ import com.creationreadingassistant.data.ai.AiClient
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
@@ -14,6 +15,7 @@ import com.creationreadingassistant.domain.model.EpubChapter
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.EpubDocument
+import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.doc.TxtFileScanner
 import com.creationreadingassistant.feature.reader.locator.AnchorCacheStore
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
@@ -23,11 +25,14 @@ import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RuleKind
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
+import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
+import com.creationreadingassistant.feature.reader.session.ReadingActivity
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
 import io.mockk.mockk
+import io.mockk.verify
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -69,6 +74,8 @@ class ReaderViewModelTest {
     private lateinit var noteRepository: NoteRepository
     private lateinit var taxonomyRepository: TaxonomyRepository
     private lateinit var bookRepository: BookRepository
+    private lateinit var chapterReadRepository: ChapterReadRepository
+    private lateinit var readingSessionRecorder: ReadingSessionRecorder
     private lateinit var epubRepository: EpubRepository
     private lateinit var settingsStore: SettingsStore
     private lateinit var anchorCacheStore: AnchorCacheStore
@@ -89,6 +96,8 @@ class ReaderViewModelTest {
         noteRepository = mockk(relaxed = true)
         taxonomyRepository = mockk(relaxed = true)
         bookRepository = mockk(relaxed = true)
+        chapterReadRepository = mockk(relaxed = true)
+        readingSessionRecorder = mockk(relaxed = true)
         epubRepository = mockk(relaxed = true)
         settingsStore = mockk(relaxed = true)
         anchorCacheStore = mockk(relaxed = true)
@@ -102,7 +111,11 @@ class ReaderViewModelTest {
 
         every { taxonomyRepository.observeCategories() } returns flowOf(emptyList())
         every { taxonomyRepository.observeTags() } returns flowOf(emptyList())
+        every { noteRepository.observeHighlightsByBook(any()) } returns flowOf(emptyList())
+        every { noteRepository.observeNotesByBook(any()) } returns flowOf(emptyList())
+        every { noteRepository.observeInspirationsByBook(any()) } returns flowOf(emptyList())
         every { bookRepository.observeSessionsByBook(any()) } returns flowOf(emptyList())
+        every { chapterReadRepository.observeReadChapters(any()) } returns flowOf(emptyList())
 
         viewModel = createViewModel()
     }
@@ -120,6 +133,8 @@ class ReaderViewModelTest {
             noteRepository = noteRepository,
             taxonomyRepository = taxonomyRepository,
             bookRepository = bookRepository,
+            chapterReadRepository = chapterReadRepository,
+            readingSessionRecorder = readingSessionRecorder,
             epubRepository = epubRepository,
             settingsStore = settingsStore,
             anchorCacheStore = anchorCacheStore,
@@ -131,6 +146,21 @@ class ReaderViewModelTest {
             ioDispatcher = ioDispatcher,
             defaultDispatcher = UnconfinedTestDispatcher(),
         )
+    }
+
+    @Test
+    fun `reading activity action is routed to the session recorder`() {
+        viewModel.onAction(
+            ReaderAction.UpdateReadingActivity(
+                bookId = "book-1",
+                active = true,
+                progressPercent = 42f,
+            ),
+        )
+
+        verify(exactly = 1) {
+            readingSessionRecorder.update(ReadingActivity("book-1", active = true, progressPercent = 42f))
+        }
     }
 
     // ── 辅助 ─────────────────────────────────────────────────────
@@ -306,6 +336,92 @@ class ReaderViewModelTest {
 
         // 进度应为 (2+1)/5 * 100 ≈ 60%（浮点精度）
         coVerify(timeout = 2000) { epubRepository.saveProgress("book-1", 2, any()) }
+    }
+
+    @Test
+    fun `loadChapter marks successful epub and markdown arrivals as read`() = runTest {
+        val epubDocument = mockk<EpubDocument>(relaxed = true)
+        every { epubDocument.blocks(1) } returns listOf(DocBlock.Text("epub"))
+        coEvery { documentLoader.load("book-1") } returns fakeLoadedBook(
+            content = fakeEpubContent(document = epubDocument),
+        )
+
+        viewModel.onAction(ReaderAction.OpenBook("book-1"))
+        awaitIo()
+        viewModel.onAction(ReaderAction.LoadChapter("book-1", 1))
+        awaitIo()
+
+        coVerify(exactly = 1) { chapterReadRepository.markRead("book-1", 1) }
+
+        val markdown = MarkdownDocument("# One\nfirst\n# Two\nsecond")
+        coEvery { documentLoader.load("book-2") } returns fakeLoadedBook(
+            id = "book-2",
+            content = ReaderLoadedContent.Markdown(
+                document = markdown,
+                ownedTempFile = null,
+                initialAbsoluteOffset = 0,
+            ),
+        )
+        viewModel.onAction(ReaderAction.OpenBook("book-2"))
+        awaitIo()
+        viewModel.onAction(ReaderAction.LoadChapter("book-2", 1))
+        awaitIo()
+
+        coVerify(exactly = 1) { chapterReadRepository.markRead("book-2", 1) }
+    }
+
+    @Test
+    fun `openBook marks the initial epub chapter as read`() = runTest {
+        coEvery { documentLoader.load("book-1") } returns fakeLoadedBook(
+            content = fakeEpubContent(chapterIndex = 2),
+        )
+
+        viewModel.onAction(ReaderAction.OpenBook("book-1"))
+        awaitIo()
+
+        coVerify(exactly = 1) { chapterReadRepository.markRead("book-1", 2) }
+    }
+
+    @Test
+    fun `failed chapter load does not mark the chapter as read`() = runTest {
+        val document = mockk<EpubDocument>(relaxed = true)
+        every { document.blocks(1) } throws IllegalStateException("broken chapter")
+        coEvery { documentLoader.load("book-1") } returns fakeLoadedBook(
+            content = fakeEpubContent(document = document),
+        )
+
+        viewModel.onAction(ReaderAction.OpenBook("book-1"))
+        awaitIo()
+        viewModel.onAction(ReaderAction.LoadChapter("book-1", 1))
+        awaitIo()
+
+        coVerify(exactly = 0) { chapterReadRepository.markRead("book-1", 1) }
+    }
+
+    @Test
+    fun `clear chapter reads action delegates to repository`() = runTest {
+        viewModel.onAction(ReaderAction.ClearChapterReads("book-1"))
+        awaitIo()
+
+        coVerify(exactly = 1) { chapterReadRepository.clearForBook("book-1") }
+    }
+
+    @Test
+    fun `route state observes read chapters for the active book`() = runTest {
+        val reads = MutableStateFlow(listOf(0, 2))
+        every { chapterReadRepository.observeReadChapters("book-1") } returns reads
+        coEvery { documentLoader.load("book-1") } returns fakeLoadedBook()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            viewModel.routeUiState.collect { }
+        }
+
+        viewModel.onAction(ReaderAction.OpenBook("book-1"))
+        awaitIo()
+        assertEquals(listOf(0, 2), viewModel.routeUiState.value.readChapters)
+
+        reads.value = emptyList()
+        advanceUntilIdle()
+        assertTrue(viewModel.routeUiState.value.readChapters.isEmpty())
     }
 
     // ── 6. TTS 安全 — TTS 相关操作在 ViewModel 层正确处理 ─────────
@@ -854,15 +970,17 @@ class ReaderViewModelTest {
 
     @Test
     fun `setSelectedText and clearSelection actions`() {
-        viewModel.onAction(ReaderAction.SetSelectedText("hello", 5, 100))
+        viewModel.onAction(ReaderAction.SetSelectedText("hello", 5, 100, 120))
         assertEquals("hello", viewModel.screenState.value.selectedText)
         assertEquals(5, viewModel.screenState.value.selectedRangeStart)
         assertEquals(100, viewModel.screenState.value.selectedGlobalOffset)
+        assertEquals(120, viewModel.screenState.value.selectedSourceEnd)
 
         viewModel.onAction(ReaderAction.ClearSelection)
         assertEquals("", viewModel.screenState.value.selectedText)
         assertEquals(-1, viewModel.screenState.value.selectedRangeStart)
         assertEquals(-1, viewModel.screenState.value.selectedGlobalOffset)
+        assertEquals(-1, viewModel.screenState.value.selectedSourceEnd)
     }
 
     @Test

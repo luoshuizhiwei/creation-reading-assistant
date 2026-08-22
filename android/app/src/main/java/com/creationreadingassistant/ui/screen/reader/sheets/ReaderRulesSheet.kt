@@ -53,6 +53,7 @@ import com.creationreadingassistant.feature.reader.rules.TocPreviewResult
 import com.creationreadingassistant.feature.reader.rules.TocRule
 import com.creationreadingassistant.ui.components.SettingRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 纯 JVM 可测的编辑/校验/预览逻辑（TDD seam）
@@ -259,12 +260,25 @@ internal fun RulesSheet(
     snapshot: RuleSnapshot,
     previewText: String,
     mutationResult: RuleMutationResult?,
+    replacementCapability: ReaderReplacementCapability,
     onCommand: (RuleCommand) -> Unit,
     onBack: () -> Unit,
 ) {
     var tab by remember { mutableStateOf(RuleKind.TOC) }
     var editing by remember { mutableStateOf<RuleEditorDraft?>(null) }
     var saveEpoch by remember { mutableStateOf(0) }
+    val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
+    val visibleTab = if (replacementAvailable) tab else RuleKind.TOC
+
+    LaunchedEffect(replacementCapability) {
+        if (!replacementAvailable) {
+            tab = RuleKind.TOC
+            if (editing?.kind == RuleKind.REPLACE) {
+                editing = null
+                saveEpoch = 0
+            }
+        }
+    }
 
     // 保存成功（Saved）后关闭编辑器回到列表；epoch 防止陈旧 Saved 误关新打开的编辑器。
     LaunchedEffect(mutationResult) {
@@ -305,13 +319,14 @@ internal fun RulesSheet(
             )
         } else {
             RulesList(
-                tab = tab,
+                tab = visibleTab,
                 onTabChange = { tab = it },
                 snapshot = snapshot,
                 mutationResult = mutationResult,
+                replacementCapability = replacementCapability,
                 onCommand = onCommand,
                 onAdd = {
-                    editing = RuleEditorDraft(kind = tab)
+                    editing = RuleEditorDraft(kind = visibleTab)
                     saveEpoch = 0
                 },
                 onEditToc = {
@@ -333,12 +348,14 @@ private fun ColumnScope.RulesList(
     onTabChange: (RuleKind) -> Unit,
     snapshot: RuleSnapshot,
     mutationResult: RuleMutationResult?,
+    replacementCapability: ReaderReplacementCapability,
     onCommand: (RuleCommand) -> Unit,
     onAdd: () -> Unit,
     onEditToc: (TocRule) -> Unit,
     onEditReplace: (ReplaceRule) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
     Column(Modifier.fillMaxWidth().weight(1f)) {
         Row(
             modifier = Modifier
@@ -347,7 +364,12 @@ private fun ColumnScope.RulesList(
             horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
         ) {
             OptionPill(selected = tab == RuleKind.TOC, label = "目录规则", onClick = { onTabChange(RuleKind.TOC) })
-            OptionPill(selected = tab == RuleKind.REPLACE, label = "替换净化", onClick = { onTabChange(RuleKind.REPLACE) })
+            if (replacementAvailable) {
+                OptionPill(selected = tab == RuleKind.REPLACE, label = "替换净化", onClick = { onTabChange(RuleKind.REPLACE) })
+            }
+        }
+        if (replacementCapability is ReaderReplacementCapability.Unavailable) {
+            ReplacementUnavailableNotice(replacementCapability.message)
         }
         mutationResult?.let { MutationFeedbackRow(it) }
         when (tab) {
@@ -372,6 +394,27 @@ private fun ColumnScope.RulesList(
             Spacer(Modifier.width(layout.relatedGap))
             Text("新增规则")
         }
+    }
+}
+
+@Composable
+private fun ReplacementUnavailableNotice(message: String) {
+    val layout = LocalLayoutTokens.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
+    ) {
+        Text(
+            text = "替换净化当前不可用",
+            style = MaterialTheme.typography.titleSmall,
+        )
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = layout.microGap),
+        )
     }
 }
 

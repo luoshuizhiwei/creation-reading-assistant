@@ -13,6 +13,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
@@ -30,6 +31,8 @@ import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RuleEngine
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
+import com.creationreadingassistant.feature.reader.session.ReadingActivity
+import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
@@ -77,6 +80,8 @@ class ReaderViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val taxonomyRepository: TaxonomyRepository,
     private val bookRepository: BookRepository,
+    private val chapterReadRepository: ChapterReadRepository,
+    private val readingSessionRecorder: ReadingSessionRecorder,
     private val epubRepository: EpubRepository,
     val settingsStore: SettingsStore,
     val anchorCacheStore: AnchorCacheStore,
@@ -168,12 +173,14 @@ class ReaderViewModel @Inject constructor(
                     noteRepository.observeNotesByBook(bookId),
                     noteRepository.observeInspirationsByBook(bookId),
                     bookRepository.observeSessionsByBook(bookId),
-                ) { highlights, notes, inspirations, sessions ->
+                    chapterReadRepository.observeReadChapters(bookId),
+                ) { highlights, notes, inspirations, sessions, readChapters ->
                     ReaderBookData(
                         highlights = highlights,
                         notes = notes,
                         inspirations = inspirations,
                         sessions = sessions,
+                        readChapters = readChapters,
                     )
                 }
             }
@@ -230,6 +237,7 @@ class ReaderViewModel @Inject constructor(
             notes = sources.book.notes,
             inspirations = sources.book.inspirations,
             sessions = sources.book.sessions,
+            readChapters = sources.book.readChapters,
             categories = sources.taxonomy.categories,
             tags = sources.taxonomy.tags,
             txtTocRuleId = sources.auxiliary.txtTocRuleId,
@@ -289,10 +297,21 @@ class ReaderViewModel @Inject constructor(
                     .copy(sheet = null)
             }
             is ReaderAction.SetSelectedText -> updateScreen {
-                it.copy(selectedText = action.text, selectedRangeStart = action.rangeStart, selectedGlobalOffset = action.globalOffset)
+                it.copy(
+                    selectedText = action.text,
+                    selectedRangeStart = action.rangeStart,
+                    selectedGlobalOffset = action.globalOffset,
+                    selectedSourceEnd = action.sourceEnd,
+                )
             }
             is ReaderAction.ClearSelection -> updateScreen {
-                it.copy(selectedText = "", selectedRangeStart = -1, selectedGlobalOffset = -1, showColorRow = false)
+                it.copy(
+                    selectedText = "",
+                    selectedRangeStart = -1,
+                    selectedGlobalOffset = -1,
+                    selectedSourceEnd = -1,
+                    showColorRow = false,
+                )
             }
             is ReaderAction.SetShowTts -> updateScreen { it.copy(showTts = action.show) }
             is ReaderAction.SetSearchQuery -> updateScreen { it.copy(searchQuery = action.query) }
@@ -341,6 +360,13 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.SaveProgress -> io {
                 bookRepository.saveProgress(action.progress)
             }
+            is ReaderAction.UpdateReadingActivity -> readingSessionRecorder.update(
+                ReadingActivity(
+                    bookId = action.bookId,
+                    active = action.active,
+                    progressPercent = action.progressPercent,
+                ),
+            )
             is ReaderAction.SaveEpubProgress -> io {
                 epubRepository.saveProgress(
                     bookId = action.bookId,
@@ -351,6 +377,9 @@ class ReaderViewModel @Inject constructor(
                 )
             }
             is ReaderAction.DeleteBook -> io { bookRepository.deleteBook(action.bookId) }
+            is ReaderAction.ClearChapterReads -> io {
+                chapterReadRepository.clearForBook(action.bookId)
+            }
 
             // 规则写入（RulesRepository；校验/迁移失败不落库，结果原样发布）
             is ReaderAction.ExecuteRuleCommand -> io {
@@ -458,8 +487,19 @@ class ReaderViewModel @Inject constructor(
                     requestedBookId = bookId,
                     loadedBook = loaded,
                 )
+                val initialReadChapter = when (val content = loaded.content) {
+                    is ReaderLoadedContent.Epub -> content.initialChapterIndex
+                    is ReaderLoadedContent.Markdown -> content.document.chapters
+                        .indexOfLast { it.startOffset <= content.initialAbsoluteOffset }
+                        .coerceAtLeast(0)
+                    is ReaderLoadedContent.Text -> null
+                }
                 loaded = null
                 endReaderOpenTrace(generation)
+                if (initialReadChapter != null) {
+                    runCatching { chapterReadRepository.markRead(bookId, initialReadChapter) }
+                        .onFailure { AppLog.w("ReaderVM", "mark initial chapter read failed: ${it.message}") }
+                }
             } catch (cancelled: CancellationException) {
                 release(loaded)
                 endReaderOpenTrace(generation)
@@ -512,6 +552,8 @@ class ReaderViewModel @Inject constructor(
                 }
                 if (gen != chapterLoadGeneration.get()) return@launch
                 _chapterLoadState.value = ChapterLoadResult.Loaded(bookId, chapterIndex, blocks)
+                runCatching { chapterReadRepository.markRead(bookId, chapterIndex) }
+                    .onFailure { AppLog.w("ReaderVM", "mark chapter read failed: ${it.message}") }
                 // 保存 epub 进度
                 if (book.content is ReaderLoadedContent.Epub) {
                     val epub = book.content
@@ -704,6 +746,13 @@ class ReaderViewModel @Inject constructor(
     }
 
     override fun onCleared() {
+        readingSessionRecorder.update(
+            ReadingActivity(
+                bookId = _uiState.value.requestedBookId,
+                active = false,
+                progressPercent = null,
+            ),
+        )
         loadJob?.cancel()
         chapterLoadJob?.cancel()
         txtScanJob?.cancel()
@@ -734,6 +783,7 @@ private data class ReaderBookData(
     val notes: List<NoteEntity> = emptyList(),
     val inspirations: List<InspirationEntity> = emptyList(),
     val sessions: List<ReadingSessionEntity> = emptyList(),
+    val readChapters: List<Int> = emptyList(),
 )
 
 private data class ReaderRouteSources(
@@ -765,6 +815,7 @@ data class ReaderRouteUiState(
     val categories: List<CategoryEntity> = emptyList(),
     val tags: List<TagEntity> = emptyList(),
     val sessions: List<ReadingSessionEntity> = emptyList(),
+    val readChapters: List<Int> = emptyList(),
     val txtTocRuleId: String = "builtin",
     val chapterLoadResult: ChapterLoadResult? = null,
     val txtRuleScanResult: TxtRuleScanResult? = null,

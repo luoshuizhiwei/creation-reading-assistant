@@ -39,6 +39,7 @@ fun ReaderRoute(
             categories = routeState.categories,
             tags = routeState.tags,
             sessions = routeState.sessions,
+            readChapters = routeState.readChapters,
             txtTocRuleIdFromVm = routeState.txtTocRuleId,
             chapterLoadResult = routeState.chapterLoadResult,
             txtRuleScanResult = routeState.txtRuleScanResult,

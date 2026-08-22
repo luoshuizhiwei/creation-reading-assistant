@@ -126,7 +126,7 @@ internal fun ReaderContentHostEpubBranch(
                 callbacks.onGoToChapter(s.chapterIndex + 1)
             },
             onToggleControls = { callbacks.onToggleControls() },
-            onSelectBlock = { text, off -> callbacks.onSelect(text, off, -1) },
+            onSelectBlock = { text, off -> callbacks.onSelect(text, off, -1, -1) },
             blockGlobalOffsets = s.blockGlobalOffsets,
             chapterBase = s.chapterBase,
             ttsSentenceRangeInChapter = s.ttsSentenceRangeInChapter,
@@ -195,7 +195,7 @@ internal fun ReaderContentHostEpubBranch(
                                         },
                                     )
                                     .clickable {
-                                        callbacks.onSelect(block.text, gOff, -1)
+                                        callbacks.onSelect(block.text, gOff, -1, -1)
                                     },
                             )
                         }

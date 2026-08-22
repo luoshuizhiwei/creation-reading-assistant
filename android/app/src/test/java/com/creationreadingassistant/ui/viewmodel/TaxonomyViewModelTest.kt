@@ -53,6 +53,12 @@ class TaxonomyViewModelTest {
             coEvery { removeCategoryFromBook(any(), any()) } returns Unit
             coEvery { addBooksToShelf(any(), any()) } returns Unit
             coEvery { removeBookFromShelf(any(), any()) } returns Unit
+            coEvery { moveTagUp(any()) } returns Unit
+            coEvery { moveTagDown(any()) } returns Unit
+            coEvery { moveCategoryUp(any()) } returns Unit
+            coEvery { moveCategoryDown(any()) } returns Unit
+            coEvery { moveShelfUp(any()) } returns Unit
+            coEvery { moveShelfDown(any()) } returns Unit
         }
         vm = TaxonomyViewModel(
             repository = repository,
@@ -157,5 +163,23 @@ class TaxonomyViewModelTest {
 
         coVerify(exactly = 1) { repository.removeTagFromBook("b1", "t1") }
         coVerify(exactly = 1) { repository.removeBookFromShelf("b1", "sh1") }
+    }
+
+    @Test
+    fun `move methods delegate all taxonomy kinds and directions`() = runTest(mainDispatcher.scheduler) {
+        vm.moveTagUp("t1")
+        vm.moveTagDown("t2")
+        vm.moveCategoryUp("c1")
+        vm.moveCategoryDown("c2")
+        vm.moveShelfUp("s1")
+        vm.moveShelfDown("s2")
+        testScheduler.advanceUntilIdle()
+
+        coVerify(exactly = 1) { repository.moveTagUp("t1") }
+        coVerify(exactly = 1) { repository.moveTagDown("t2") }
+        coVerify(exactly = 1) { repository.moveCategoryUp("c1") }
+        coVerify(exactly = 1) { repository.moveCategoryDown("c2") }
+        coVerify(exactly = 1) { repository.moveShelfUp("s1") }
+        coVerify(exactly = 1) { repository.moveShelfDown("s2") }
     }
 }

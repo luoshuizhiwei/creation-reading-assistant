@@ -133,7 +133,12 @@ sealed interface ReaderAction {
     data class AutoHideElapsed(val autoHideSeconds: Int) : ReaderAction
     data class OpenSheet(val sheet: ReaderSheet) : ReaderAction
     data object CloseSheet : ReaderAction
-    data class SetSelectedText(val text: String, val rangeStart: Int, val globalOffset: Int) : ReaderAction
+    data class SetSelectedText(
+        val text: String,
+        val rangeStart: Int,
+        val globalOffset: Int,
+        val sourceEnd: Int = -1,
+    ) : ReaderAction
     data object ClearSelection : ReaderAction
     data class SetShowTts(val show: Boolean) : ReaderAction
     data class SetSearchQuery(val query: String) : ReaderAction
@@ -169,6 +174,11 @@ sealed interface ReaderAction {
     data class CreateCategory(val name: String) : ReaderAction
     data class CreateTag(val name: String) : ReaderAction
     data class SaveProgress(val progress: ReadingProgressEntity) : ReaderAction
+    data class UpdateReadingActivity(
+        val bookId: String,
+        val active: Boolean,
+        val progressPercent: Float?,
+    ) : ReaderAction
     data class SaveEpubProgress(
         val bookId: String,
         val chapterIndex: Int,
@@ -177,6 +187,7 @@ sealed interface ReaderAction {
         val absoluteOffset: Int = -1,
     ) : ReaderAction
     data class DeleteBook(val bookId: String) : ReaderAction
+    data class ClearChapterReads(val bookId: String) : ReaderAction
 
     // ── 规则（RulesRepository）──
     /** 执行规则写入命令；结果经 Repository 校验/迁移后发布到 ruleMutationResult。 */

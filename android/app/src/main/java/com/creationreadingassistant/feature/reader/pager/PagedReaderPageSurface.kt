@@ -64,7 +64,7 @@ internal fun PagedReaderPageSurface(
     persistentHighlights: List<Pair<IntRange, Color>>,
     searchHitRangeAbs: Pair<Int, Int>?,
     searchHighlightColor: Color,
-    onSelect: (String, Int) -> Unit,
+    onSelect: (String, Int, Int) -> Unit,
     onGesturePageTurn: () -> Unit,
     onToggleControls: () -> Unit,
     onStopAutoPaging: () -> Unit,
@@ -95,9 +95,10 @@ internal fun PagedReaderPageSurface(
     } else {
         // TTS 当前句：全书偏移 → 章内偏移
         val chStart = controller.currentChapterStartAbs
-        val ttsRects = remember(page, ttsRangeAbs, chStart) {
+        val ttsRects = remember(page, ttsRangeAbs, chStart, controller) {
             val r = ttsRangeAbs ?: return@remember emptyList()
-            PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
+            val (start, end) = controller.currentChapterSourceRangeToLocalDisplay(r.first, r.second)
+            PageSelection.rectsForRange(page, cfg, start, end)
         }
         val selRects = remember(page, selRange.value) {
             val r = selRange.value ?: return@remember emptyList()
@@ -108,19 +109,24 @@ internal fun PagedReaderPageSurface(
             PageSelection.calculateSelectionHandles(page, cfg, r)
         }
         // 已存高亮：常驻底色。放最底层，TTS 句与活动选区盖在其上。
-        val hlUnderlays = remember(page, persistentHighlights, chStart) {
+        val hlUnderlays = remember(page, persistentHighlights, chStart, controller) {
             persistentHighlights.mapNotNull { (range, color) ->
+                val (start, end) = controller.currentChapterSourceRangeToLocalDisplay(
+                    range.first,
+                    range.last + 1,
+                )
                 val rects = PageSelection.rectsForRange(
-                    page, cfg, range.first - chStart, range.last + 1 - chStart,
+                    page, cfg, start, end,
                 )
                 if (rects.isEmpty()) null else color to rects
             }
         }
         // 搜索命中：命中所在章未加载时 page==null 不绘制；跳转完成后
         // 本页渲染时才有 rects，天然满足「先完成跳转/加载，再显示高亮」。
-        val searchRects = remember(page, searchHitRangeAbs, chStart) {
+        val searchRects = remember(page, searchHitRangeAbs, chStart, controller) {
             val r = searchHitRangeAbs ?: return@remember emptyList()
-            PageSelection.rectsForRange(page, cfg, r.first - chStart, r.second - chStart)
+            val (start, end) = controller.currentChapterSourceRangeToLocalDisplay(r.first, r.second)
+            PageSelection.rectsForRange(page, cfg, start, end)
         }
         val underlays: List<Pair<Color, List<PageHitTest.Rect>>> = hlUnderlays + listOf(
             searchHighlightColor to searchRects,
@@ -170,10 +176,10 @@ internal fun PagedReaderPageSurface(
                                     curPage, cfg, currentSel, side, change.position.x, change.position.y,
                                 )
                                 selRange.value = currentSel
-                                val chStart = controller.currentChapterStartAbs
                                 onSelect(
                                     controller.chapterText.substring(currentSel.first, currentSel.last + 1),
-                                    chStart + currentSel.first,
+                                    controller.currentChapterLocalDisplayToGlobalSource(currentSel.first),
+                                    controller.currentChapterLocalDisplayToGlobalSource(currentSel.last + 1),
                                 )
                                 if (!change.pressed) break
                             }
@@ -187,14 +193,14 @@ internal fun PagedReaderPageSurface(
                             // 不可用外层捕获的 page/chStart：那是冻结快照，
                             // 翻页后会按旧页几何选错句、跨章后偏移错位入库。
                             val curPage = controller.currentPage ?: return@press
-                            val curChStart = controller.currentChapterStartAbs
                             val ch = PageSelection.offsetAt(curPage, cfg, offset.x, offset.y)
                             val sent = PageSelection.sentenceAround(controller.chapterText, ch)
                             if (!sent.isEmpty()) {
                                 selRange.value = sent
                                 onSelect(
                                     controller.chapterText.substring(sent.first, sent.last + 1),
-                                    curChStart + sent.first,
+                                    controller.currentChapterLocalDisplayToGlobalSource(sent.first),
+                                    controller.currentChapterLocalDisplayToGlobalSource(sent.last + 1),
                                 )
                             }
                         },
@@ -202,7 +208,7 @@ internal fun PagedReaderPageSurface(
                             if (selRange.value != null) {
                                 // 有选区时，任何点按先撤选区，不翻页
                                 selRange.value = null
-                                onSelect("", -1)
+                                onSelect("", -1, -1)
                             } else {
                                 when (
                                     resolveReaderTapAction(

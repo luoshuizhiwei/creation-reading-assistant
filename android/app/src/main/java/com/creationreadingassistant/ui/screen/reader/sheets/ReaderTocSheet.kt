@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -19,11 +20,16 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -38,6 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -45,6 +52,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -80,12 +88,14 @@ internal data class ReaderTocEntry(
     val volume: String,
     val isCurrent: Boolean,
     val isRecent: Boolean,
+    val isRead: Boolean = false,
 )
 
 internal fun readerTocEntries(
     titles: List<String>,
     current: Int,
     recent: List<Int>,
+    read: Set<Int> = emptySet(),
 ): List<ReaderTocEntry> {
     var volume = "正文"
     return titles.mapIndexedNotNull { index, title ->
@@ -93,7 +103,14 @@ internal fun readerTocEntries(
             volume = title
             null
         } else {
-            ReaderTocEntry(index, title.ifBlank { "未命名章节" }, volume, index == current, index in recent)
+            ReaderTocEntry(
+                index = index,
+                title = title.ifBlank { "未命名章节" },
+                volume = volume,
+                isCurrent = index == current,
+                isRecent = index in recent,
+                isRead = index in read,
+            )
         }
     }
 }
@@ -115,12 +132,19 @@ internal fun TocSheet(
     /** 本书书签（kind == "bookmark" 的笔记）；内嵌展示并可直接跳转。 */
     bookmarks: List<com.creationreadingassistant.data.local.entity.NoteEntity> = emptyList(),
     onPickBookmark: (com.creationreadingassistant.data.local.entity.NoteEntity) -> Unit = {},
+    showReadStatus: Boolean = false,
+    showClearReadMarks: Boolean = false,
+    onClearReadMarks: () -> Unit = {},
 ) {
     val layout = LocalLayoutTokens.current
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     var rulesExpanded by remember { mutableStateOf(false) }
+    var clearMenuExpanded by remember { mutableStateOf(false) }
+    var confirmClearReads by remember { mutableStateOf(false) }
     val groups = remember(entries) { entries.groupBy { it.volume }.toList() }
     val recentEntries = remember(entries) { entries.filter { it.isRecent }.take(5) }
+    val readCount = remember(entries) { entries.count { it.isRead } }
+    val chapterIndices = remember(entries) { entries.map { it.index } }
     val listState = rememberLazyListState()
     val currentListPosition = remember(groups, current, recentEntries) {
         var position = if (recentEntries.isEmpty()) 0 else 2
@@ -137,20 +161,74 @@ internal fun TocSheet(
         }
         position
     }
-    LaunchedEffect(current, entries) {
+    LaunchedEffect(current, chapterIndices) {
         if (entries.any { it.index == current }) listState.scrollToItem(currentListPosition.coerceAtLeast(0))
+    }
+
+    if (confirmClearReads) {
+        GlassAlertDialog(
+            onDismissRequest = { confirmClearReads = false },
+            title = { Text("清除已读标记") },
+            text = { Text("确定清除本书全部章节的已读标记吗？此操作不会删除阅读进度、书签或笔记。") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmClearReads = false
+                        onClearReadMarks()
+                    },
+                ) { Text("清除") }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmClearReads = false }) { Text("取消") }
+            },
+        )
     }
 
     ReaderSheetScaffold(
         title = "目录",
         trailing = {
-            Surface(shape = PillShape, color = MaterialTheme.colorScheme.surfaceVariant) {
-                Text(
-                    text = "${(current + 1).coerceAtLeast(1)} / ${totalChapters.coerceAtLeast(0)}",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
-                )
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = PillShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Text(
+                        text = "${(current + 1).coerceAtLeast(1)} / ${totalChapters.coerceAtLeast(0)}",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    )
+                }
+                if (showReadStatus) {
+                    Spacer(Modifier.width(8.dp))
+                    Surface(shape = PillShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+                        Text(
+                            text = "已读 $readCount/${entries.size}",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                }
+                if (showClearReadMarks) {
+                    Box {
+                        IconButton(onClick = { clearMenuExpanded = true }) {
+                            Icon(Icons.Outlined.MoreVert, contentDescription = "目录更多操作")
+                        }
+                        DropdownMenu(
+                            expanded = clearMenuExpanded,
+                            onDismissRequest = { clearMenuExpanded = false },
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("清除已读标记") },
+                                leadingIcon = {
+                                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
+                                },
+                                onClick = {
+                                    clearMenuExpanded = false
+                                    confirmClearReads = true
+                                },
+                            )
+                        }
+                    }
+                }
             }
         },
     ) {
@@ -252,7 +330,7 @@ internal fun TocSheet(
             }
             groups.forEach { (volume, chapterEntries) ->
                 val isCollapsed = volume in collapsed.value
-                item("volume_$volume") {
+                item("volume_$volume", contentType = "volume_header") {
                     Row(
                         Modifier.fillMaxWidth().clickable {
                             collapsed.value = if (isCollapsed) collapsed.value - volume else collapsed.value + volume
@@ -260,7 +338,15 @@ internal fun TocSheet(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Text(volume, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("${chapterEntries.size}章", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            if (showReadStatus) {
+                                "已读 ${chapterEntries.count { it.isRead }}/${chapterEntries.size}"
+                            } else {
+                                "${chapterEntries.size}章"
+                            },
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
                         Icon(
                             if (isCollapsed) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.KeyboardArrowUp,
                             contentDescription = if (isCollapsed) "展开" else "收起",
@@ -269,7 +355,7 @@ internal fun TocSheet(
                     }
                 }
                 if (!isCollapsed) {
-                    items(chapterEntries, key = { "chapter_${it.index}" }) { entry ->
+                    items(chapterEntries, key = { "chapter_${it.index}" }, contentType = { "toc_row" }) { entry ->
                         TocRow(entry = entry, onPick = { onPick(entry.index) })
                     }
                 }
@@ -402,38 +488,51 @@ private fun TxtScanProgressRow(
 
 @Composable
 internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
-    val selectedColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.72f)
+    // 简洁目录行：序号 + 标题两栏。当前章仅用主色文字标识（无色块/竖条/徽章），
+    // 已读章节降为 outline 色；整行高度紧凑，快速滑动时的重组与测量成本也更低。
+    val indexColor = if (entry.isCurrent) MaterialTheme.colorScheme.primary
+    else if (entry.isRead) MaterialTheme.colorScheme.outline
+    else MaterialTheme.colorScheme.onSurfaceVariant
+    val titleColor = when {
+        entry.isCurrent -> MaterialTheme.colorScheme.primary
+        entry.isRead -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> MaterialTheme.colorScheme.onSurface
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(LocalComponentSpec.current.listItemShape)
-            .background(if (entry.isCurrent) selectedColor else MaterialTheme.colorScheme.background)
             .clickable(onClick = onPick),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
-            Modifier.width(3.dp).fillMaxHeight().background(
-                if (entry.isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.background,
-            ),
-        )
         Text(
-            text = (entry.index + 1).toString().padStart(2, '0'),
-            modifier = Modifier.width(48.dp).padding(start = 12.dp),
+            text = (entry.index + 1).toString(),
+            modifier = Modifier
+                .width(40.dp)
+                .padding(start = 4.dp)
+                .semantics { if (entry.isRead) contentDescription = "已读章节" },
             style = MaterialTheme.typography.labelMedium,
-            color = if (entry.isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Normal,
+            color = indexColor,
+            fontWeight = if (entry.isCurrent) FontWeight.SemiBold else FontWeight.Normal,
         )
         Text(
             text = entry.title,
-            modifier = Modifier.weight(1f).padding(vertical = 12.dp, horizontal = 8.dp),
-            maxLines = 2,
+            modifier = Modifier.weight(1f).padding(vertical = 11.dp, horizontal = 4.dp),
+            maxLines = 1,
             overflow = TextOverflow.Ellipsis,
             style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = titleColor,
             fontWeight = if (entry.isCurrent) FontWeight.SemiBold else FontWeight.Normal,
         )
         if (entry.isCurrent) {
-            Text("当前", modifier = Modifier.padding(end = 12.dp), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier
+                    .padding(end = 8.dp)
+                    .size(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primary)
+                    .semantics { contentDescription = "当前章节" },
+            )
         }
     }
 }

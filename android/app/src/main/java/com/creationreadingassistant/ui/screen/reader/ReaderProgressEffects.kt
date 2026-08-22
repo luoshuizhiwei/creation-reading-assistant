@@ -70,6 +70,8 @@ internal fun ReaderProgressEffects(
     bid: String,
     isLoading: Boolean,
     error: String?,
+    readingActive: Boolean,
+    progressPercent: Float,
     loadedBook: ReaderLoadedBook?,
     chapterIndex: Int,
     epubBook: EpubBook?,
@@ -109,10 +111,18 @@ internal fun ReaderProgressEffects(
     onExtractChapterText: suspend (String, Int) -> String,
 ) {
     // 本次阅读计时（对照 web useReaderSession.activeReadingMs）
-    val currentIsLoading = rememberUpdatedState(isLoading)
-    val currentError = rememberUpdatedState(error)
+    val currentReadingActive = rememberUpdatedState(readingActive)
+    val currentProgressPercent = rememberUpdatedState(progressPercent)
     LaunchedEffect(bid) {
-        trackActiveReadingTime(currentIsLoading, currentError, activeReadingMsState)
+        trackActiveReadingTime(currentReadingActive, activeReadingMsState) {
+            onAction(
+                ReaderAction.UpdateReadingActivity(
+                    bookId = bid,
+                    active = true,
+                    progressPercent = currentProgressPercent.value,
+                ),
+            )
+        }
     }
 
     // 阅读提醒：护眼提醒 + 阅读节奏提示（对照 web useReaderReminders）
@@ -381,17 +391,18 @@ internal fun ReaderProgressEffects(
 }
 
 /**
- * 读取 State-holder 而非组合时的值，保证长生命周期的计时协程会响应加载与错误状态变更。
+ * 读取统一的有效阅读 State-holder，保证长生命周期计时协程会响应前后台、加载与错误状态变更。
  */
 internal suspend fun trackActiveReadingTime(
-    isLoadingState: State<Boolean>,
-    errorState: State<String?>,
+    readingActiveState: State<Boolean>,
     activeReadingMsState: MutableLongState,
+    onHeartbeat: () -> Unit,
 ) {
     while (true) {
         delay(1_000)
-        if (!isLoadingState.value && errorState.value == null) {
+        if (readingActiveState.value) {
             activeReadingMsState.longValue += 1_000
+            onHeartbeat()
         }
     }
 }

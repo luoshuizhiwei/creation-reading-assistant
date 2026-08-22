@@ -25,8 +25,12 @@ import com.creationreadingassistant.feature.reader.doc.TxtTocProfile
 import com.creationreadingassistant.feature.reader.pager.EpubChapterSource
 import com.creationreadingassistant.feature.reader.pager.MarkdownChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
+import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
+import com.creationreadingassistant.feature.reader.pager.preparePagedReplacement
+import com.creationreadingassistant.feature.reader.rules.ReplaceProfile
+import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -47,6 +51,8 @@ internal data class PagerEngineState(
     val txtChapters: List<DocChapter>,
     val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
     val pagedSource: PagedChapterSource?,
+    val replacementAvailability: PagedReplacementAvailability,
+    val replaceProjectionNotice: MutableState<String?>,
 )
 
 /**
@@ -73,6 +79,7 @@ internal data class PagerEngineState(
 @Suppress("LongParameterList")
 @Composable
 internal fun rememberPagerEngineState(
+    bookId: String,
     epubBook: EpubBook?,
     epubDocument: ReaderDocument?,
     markdownDocument: MarkdownDocument?,
@@ -84,6 +91,7 @@ internal fun rememberPagerEngineState(
     textContent: ReaderLoadedContent.Text?,
     plainContent: String,
     tocProfile: TxtTocProfile,
+    replaceRules: List<ReplaceRule>,
     txtStreamingDocument: PlainTextDocument?,
     readingUnits: List<ReadingUnit>,
 ): PagerEngineState {
@@ -153,8 +161,17 @@ internal fun rememberPagerEngineState(
             }
         }
     }
+    val replaceProfileKey = remember(bookId, replaceRules) {
+        ReplaceProfile.key(bookId, replaceRules)
+    }
+    val replaceProjectionNotice = remember(bookId, replaceProfileKey) {
+        mutableStateOf<String?>(null)
+    }
+
     // EPUB 文档缓存与流式 TXT 临时文件均由 ReaderViewModel 独占并释放。
-    val pagedSource: PagedChapterSource? = remember(
+    // 替换规则只在 source 明确保证「精确坐标 + 完整章节作用域」时接入；规则 key
+    // 参与 remember，启停、增删、改序后会重建 source 与 controller。
+    val preparedPagedSource = remember(
         epubBook,
         epubDocument,
         bookIndex,
@@ -163,11 +180,13 @@ internal fun rememberPagerEngineState(
         txtStreamingDocument,
         readingUnits,
         markdownDocument,
+        bookId,
+        replaceProfileKey,
     ) {
         val index = bookIndex
         val document = epubDocument
         val streamingDoc = txtStreamingDocument
-        when {
+        val baseSource = when {
             epubBook != null && index != null && document != null ->
                 EpubChapterSource(
                     titles = index.chapterTitles,
@@ -187,7 +206,20 @@ internal fun rememberPagerEngineState(
 
             else -> null
         }
+        baseSource?.let { source ->
+            preparePagedReplacement(
+                delegate = source,
+                bookId = bookId,
+                rules = replaceRules,
+                onUnsupportedTooLarge = {
+                    replaceProjectionNotice.value = "当前章节过大，已保留原文，暂不执行替换净化。"
+                },
+            )
+        }
     }
+    val pagedSource = preparedPagedSource?.source
+    val replacementAvailability = preparedPagedSource?.availability
+        ?: PagedReplacementAvailability.NO_EFFECTIVE_RULES
 
     return PagerEngineState(
         pagerEngineOn = pagerEngineOn,
@@ -198,5 +230,7 @@ internal fun rememberPagerEngineState(
         txtChapters = txtChapters,
         txtRulePreviews = rulePreviews,
         pagedSource = pagedSource,
+        replacementAvailability = replacementAvailability,
+        replaceProjectionNotice = replaceProjectionNotice,
     )
 }
