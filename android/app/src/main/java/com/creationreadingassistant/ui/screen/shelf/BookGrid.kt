@@ -260,7 +260,8 @@ internal fun BookTile(
             }
             Text(
                 text = book.title,
-                style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
+                // 书名统一常规字重：titleSmall 默认 Medium 视觉偏粗，用户要求不加粗
+                style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Normal),
                 minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
@@ -311,7 +312,7 @@ internal fun BookTile(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         book.title,
-                        style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
+                        style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Normal),
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
