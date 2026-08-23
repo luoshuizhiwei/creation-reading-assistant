@@ -210,11 +210,12 @@ fun <Frame : Any> PageTurner(
                 val showSnapshot = snapshot != null && snapshotFrame === currentFrame
 
                 if (offset < 0f && nextFrame != null) {
-                    // 下一页：cover 在下层静止（当前页揭开露出）；slide 并排进入
+                    // 下一页：cover 在下层静止（当前页揭开露出）；slide 并排进入。
+                    // 页面背景透明：直接透出阅读器容器背景（渐变+噪点），
+                    // 避免页面纯色与页边距背景的亮度差造成「纸中纸」分离感。
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(pageBackground)
                             .graphicsLayer {
                                 translationX = if (normalizedEffect == "slide") width + offset else 0f
                             },
@@ -238,7 +239,6 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(pageBackground)
                             // 记录当前页到 graphicsLayer：供 onDragStart 捕获为静态快照
                             .drawWithContent {
                                 currentLayer.record { this@drawWithContent.drawContent() }
@@ -257,7 +257,6 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
-                            .background(pageBackground)
                             .graphicsLayer { translationX = -width + offset },
                     ) { content(previousFrame, false) }
                 }
