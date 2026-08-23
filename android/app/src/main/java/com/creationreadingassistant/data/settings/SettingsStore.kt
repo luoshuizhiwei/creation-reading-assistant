@@ -199,8 +199,9 @@ data class ReaderSettings(
     val ttsVolume: Float = 1f,
     val ttsVoiceId: String = "",
     val ttsTimedStopMinutes: Int = 0,
-    // 页眉页脚
-    val headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
+    // 页眉页脚：页眉显示书名、页脚显示章节+进度，避免章节名上下重复
+    // （对照起点/番茄等主流：页眉信息栏、页脚进度栏）。
+    val headerLeft: HeaderFooterItem = HeaderFooterItem.BOOK_NAME,
     val headerRight: HeaderFooterItem = HeaderFooterItem.NONE,
     val footerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     val footerRight: HeaderFooterItem = HeaderFooterItem.PROGRESS,
@@ -297,7 +298,7 @@ class SettingsStore @Inject constructor(
             ttsVolume = prefs[KEY_TTS_VOLUME] ?: 1f,
             ttsVoiceId = prefs[KEY_TTS_VOICE] ?: "",
             ttsTimedStopMinutes = prefs[KEY_TTS_TIMED_STOP] ?: 0,
-            headerLeft = HeaderFooterItem.fromString(prefs[KEY_HEADER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
+            headerLeft = HeaderFooterItem.fromString(prefs[KEY_HEADER_LEFT] ?: HeaderFooterItem.BOOK_NAME.name),
             headerRight = HeaderFooterItem.fromString(prefs[KEY_HEADER_RIGHT] ?: HeaderFooterItem.NONE.name),
             footerLeft = HeaderFooterItem.fromString(prefs[KEY_FOOTER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
             footerRight = HeaderFooterItem.fromString(prefs[KEY_FOOTER_RIGHT] ?: HeaderFooterItem.PROGRESS.name),

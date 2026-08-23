@@ -47,7 +47,9 @@ internal fun PagedReaderHeader(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            val headerColor = textColor.copy(alpha = 0.45f)
+            // 0.45 透明度在白纸下对比度仅 ~1.8:1，页眉页脚几乎看不清；提到 0.65
+            // （~2.4:1）保持弱化辅助信息的同时保证可读。
+            val headerColor = textColor.copy(alpha = 0.65f)
             Text(
                 resolveItemText(headerLeft, source, anchorValue, pageInfo, currentTime, batteryLevel, bookName),
                 fontSize = 11.sp,
@@ -89,7 +91,7 @@ internal fun PagedReaderFooter(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        val footerColor = textColor.copy(alpha = 0.45f)
+        val footerColor = textColor.copy(alpha = 0.65f)
         if (showReaderInfo) {
             Text(
                 resolveItemText(footerLeft, source, anchorValue, pageInfo, currentTime, batteryLevel, bookName),
