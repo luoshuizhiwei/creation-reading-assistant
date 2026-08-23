@@ -6,7 +6,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -28,6 +29,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun SelectionToolbar(
     paper: ReaderPaperPalette,
@@ -60,10 +62,10 @@ internal fun SelectionToolbar(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                Row(
+                FlowRow(
                     Modifier.fillMaxWidth().padding(top = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                    verticalAlignment = Alignment.CenterVertically,
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     if (showColorRow) {
                         HIGHLIGHT_COLORS.forEach { c ->

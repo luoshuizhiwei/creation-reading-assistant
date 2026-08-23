@@ -27,7 +27,6 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-import kotlin.math.roundToInt
 
 @Composable
 fun HomeReadingArchiveSection(
@@ -97,7 +96,8 @@ fun HomeReadingArchiveSection(
 
 internal fun formatArchiveDuration(durationMs: Long): String {
     if (durationMs <= 0L) return "0 分钟"
-    val totalMinutes = (durationMs / 60_000.0).roundToInt().coerceAtLeast(1)
+    // 与统计页/我的页/首页今日格保持一致：向下取整，避免 2.7 分钟被显示成 3 分钟。
+    val totalMinutes = (durationMs / 60_000L).toInt().coerceAtLeast(1)
     val hours = totalMinutes / 60
     val minutes = totalMinutes % 60
     return when {
