@@ -39,6 +39,11 @@ internal fun PagedReaderControllerEffects(
     revealProgressState: MutableFloatState,
 ) {
     val finishAutoPaging by rememberUpdatedState(onAutoPagingFinished)
+    // 上报回调必须在每次重组后取最新：LaunchedEffect(controller) 只启动一次，
+    // 若直接捕获 onPositionChanged 会冻结首次 callbacks（首次 nav 的旧偏移），
+    // 导致翻页节流保存一直落库旧进度（进度看似保存了实为旧值）。
+    val latestOnPositionChanged by rememberUpdatedState(onPositionChanged)
+    val latestOnPageIndexChanged by rememberUpdatedState(onPageIndexChanged)
     var revealProgress by revealProgressState
 
     // 新 controller（首开 / 配置变化重建）→ 回到锚点所在句
@@ -55,8 +60,8 @@ internal fun PagedReaderControllerEffects(
                     if (range != null && anchor.intValue !in range) {
                         anchor.intValue = range.first
                     }
-                    onPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
-                    onPageIndexChanged(
+                    latestOnPositionChanged(controller.currentPageStartAbs, controller.progressPercent)
+                    latestOnPageIndexChanged(
                         bookId,
                         controller.chapterIndex,
                         controller.pageIndex,
