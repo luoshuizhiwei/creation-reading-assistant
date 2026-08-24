@@ -132,18 +132,16 @@ internal fun ShelfRoute(
     var confirmDeleteIds by remember { mutableStateOf<List<String>?>(null) }
     var restorePromptBookId by remember { mutableStateOf<String?>(null) }
 
-    var notifiedBatchId by remember { mutableStateOf("") }
     LaunchedEffect(importBatch.id, importBatch.isRunning) {
-        if (importBatch.id.isNotBlank() && !importBatch.isRunning && importBatch.hasResult) {
-            if (notifiedBatchId != importBatch.id) {
-                notifiedBatchId = importBatch.id
-                val summary = if (importBatch.stopped > 0) {
-                    "导入已停止：成功 ${importBatch.succeeded} 本，未处理 ${importBatch.stopped} 本"
-                } else {
-                    "导入完成：成功 ${importBatch.succeeded} 本，失败 ${importBatch.failed} 本"
-                }
-                snackbarHostState.showSnackbar(summary)
-            }
+        if (
+            importBatch.id.isNotBlank() &&
+            !importBatch.isRunning &&
+            importBatch.hasResult &&
+            !importBatch.summaryNotified
+        ) {
+            val summary = importBatchSnackbarMessage(importBatch)
+            viewModel.markImportBatchSummaryNotified(importBatch.id)
+            snackbarHostState.showSnackbar(summary)
         }
     }
 

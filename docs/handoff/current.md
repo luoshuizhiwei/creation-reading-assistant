@@ -417,5 +417,31 @@ Novalist 调研与取舍已记录在
 下一刀：进入导入/书架/书架搜索/图书详情 UX 审查。开始前先完成本轮最终门禁、提交、正常推送并等待 CI；
 不得因 RUX-009/RUX-014 的外部阻塞而伪造通过。
 
+## 16. 2026-08-24 导入、书架搜索与图书详情第一轮 UX 收口
+
+- **导入结果只提示一次**：书架不再用路由局部 `remember` 记录已提示批次。`ImportBatchUiState`
+  新增会话内消费标记，按 batch id 在展示前标记；离开书架再返回不会重复遮挡内容，导入页仍保留本批结果。
+- **导入反馈不再漏报重复项**：Snackbar 摘要统一由纯策略生成，成功、重复、跳过、失败、未处理、
+  不可读文件夹和扫描截断按实际状态组合。真机重复导入测试 TXT 显示“成功 0 本，重复 1 本，失败 0 本”，
+  往返首页后 `repeat_count=0`。
+- **搜索页键盘时序**：输入框请求焦点后等待 Compose 帧与页面入场稳定，再请求软键盘；最新 APK 在
+  `c49ac6cf` 上进入书架搜索后 `mInputShown=true`。空查询显示最近搜索，输入关键词可按书名、作者和文件名返回结果。
+- **详情统计口径统一**：总阅读时长取进度累计值与会话明细合计的较大值，避免旧进度字段为 0 时与
+  阅读记录互相矛盾，也避免把两路数据直接相加造成双计。最新真机测试 TXT 的 8 条会话合计在详情中显示 36 分钟。
+- **触控目标**：封面更换按钮由 24dp 恢复为 48dp，图标保持紧凑；最新 UI dump 点击区为
+  144×144px（density 3，即 48dp），不再牺牲可点击区域。
+- **测试先行**：新增 `BookDetailStatsPolicyTest`、`ShelfImportSummaryPolicyTest`，并扩充
+  `ShelfImporterTest` 的一次性消费契约；三组定向测试均完成红—绿闭环。
+- **完整门禁**：`:app:testDebugUnitTest` 1531/1531，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 0 errors / 12 warnings；`:app:assembleDebug`、
+  `:app:compileDebugAndroidTestKotlin` 均通过，Gradle 最终 `BUILD SUCCESSFUL`。
+- **自动安装与设备纪律**：最新 Debug APK 由 `android/scripts/install_with_confirm.ps1` 自动完成 MIUI
+  全流程确认，无用户手动点击、无安全设置修改；仅使用真机 `c49ac6cf`，`stay_on_while_plugged_in` 保持原值 `7`。
+- **本地截图**：`cra-import-duplicate-summary-fixed.png`、`cra-import-summary-not-repeated.png`、
+  `cra-shelf-search-ime-fixed.png`、`cra-book-detail-stats-fixed.png`，均只留本地临时目录。
+
+下一刀：进入首页继续阅读、阅读历史和全局搜索的用户旅程审查；导入文件夹的大目录扫描、权限拒绝、
+不可读目录和中途停止仍需作为导入第二轮异常矩阵，不应把本轮常规/重复导入验收扩写成全部导入场景通过。
+
 
 

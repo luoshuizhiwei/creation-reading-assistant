@@ -261,6 +261,9 @@ class ShelfViewModel @Inject constructor(
 
     fun dismissImportBatchSummary() = importer.dismissImportBatchSummary()
 
+    fun markImportBatchSummaryNotified(batchId: String) =
+        importer.markImportBatchSummaryNotified(batchId)
+
     /** 安全停止：不取消当前解析/写库，只在当前文件完成后停止剩余队列。 */
     fun requestStopImport() = importer.requestStopImport()
 

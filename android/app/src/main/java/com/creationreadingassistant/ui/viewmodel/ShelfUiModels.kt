@@ -43,6 +43,7 @@ data class ImportBatchUiState(
     val isScanning: Boolean = false,
     val isRunning: Boolean = false,
     val stopRequested: Boolean = false,
+    val summaryNotified: Boolean = false,
     val failures: List<ImportFailureUi> = emptyList(),
 ) {
     val hasResult: Boolean

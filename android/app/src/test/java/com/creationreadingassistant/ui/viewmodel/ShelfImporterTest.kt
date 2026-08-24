@@ -176,6 +176,26 @@ class ShelfImporterTest {
     }
 
     @Test
+    fun `completed import summary is consumed once without clearing batch result`() = runTest {
+        stubTxtContent("a.txt", "第一章 你好\n这是正文")
+        importer.importFiles(listOf(uri("a.txt")))
+
+        val completed = importer.importBatch.value
+        assertTrue(completed.hasResult)
+        assertFalse(completed.summaryNotified)
+
+        importer.markImportBatchSummaryNotified("another-batch")
+        assertFalse(importer.importBatch.value.summaryNotified)
+
+        importer.markImportBatchSummaryNotified(completed.id)
+        val notified = importer.importBatch.value
+        assertTrue(notified.summaryNotified)
+        assertTrue(notified.hasResult)
+        assertEquals(completed.id, notified.id)
+        assertEquals(completed.succeeded, notified.succeeded)
+    }
+
+    @Test
     fun `epub import creates book entry and book file record`() = runTest {
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("a.epub", 100L)
         every { resolver.takePersistableUriPermission(any(), any()) } returns Unit

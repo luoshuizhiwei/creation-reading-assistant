@@ -47,6 +47,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -65,6 +66,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -90,6 +92,9 @@ internal fun ShelfSearchRoute(
     BackHandler(onBack = closeSearch)
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+        // 等待焦点提交和页面入场结束；部分 MIUI 设备会忽略过渡期内的 show()。
+        withFrameNanos { }
+        delay(300)
         keyboard?.show()
     }
     val normalized = query.trim().lowercase()

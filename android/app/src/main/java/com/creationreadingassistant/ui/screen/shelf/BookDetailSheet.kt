@@ -52,6 +52,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -121,13 +123,26 @@ internal fun BookDetailSheet(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box {
                     BookCover(book = book, percent = percent, modifier = Modifier.size(64.dp, 90.dp), fallback = { ShelfCoverFallback(book) })
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
-                        shape = AppShapes.small,
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(2.dp).size(24.dp),
+                    IconButton(
+                        onClick = onChangeCover,
+                        modifier = Modifier
+                            .align(Alignment.BottomEnd)
+                            .size(48.dp)
+                            .semantics { contentDescription = "更换封面" },
                     ) {
-                        IconButton(onClick = onChangeCover, modifier = Modifier.size(24.dp)) {
-                            Icon(Icons.Outlined.PhotoLibrary, contentDescription = "更换封面", modifier = Modifier.size(14.dp), tint = MaterialTheme.colorScheme.primary)
+                        Surface(
+                            color = MaterialTheme.colorScheme.surface.copy(alpha = 0.9f),
+                            shape = AppShapes.small,
+                            modifier = Modifier.size(24.dp),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                Icon(
+                                    Icons.Outlined.PhotoLibrary,
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                    tint = MaterialTheme.colorScheme.primary,
+                                )
+                            }
                         }
                     }
                 }
@@ -214,7 +229,10 @@ internal fun BookDetailSheet(
 
             SectionCard(modifier = Modifier.fillMaxWidth()) {
                 SectionTitle("阅读统计")
-                InfoRow("总阅读时长", formatDuration(progress?.total_reading_time_ms ?: 0L))
+                InfoRow(
+                    "总阅读时长",
+                    formatDuration(bookDetailReadingTimeMs(progress?.total_reading_time_ms ?: 0L, sessions)),
+                )
                 InfoRow("上次阅读", (progress?.last_read_at ?: "从未阅读").take(19).replace("T", " "))
                 InfoRow("阅读进度", "${"%.1f".format(percent)}%")
                 InfoRow("阅读次数", "${sessions.size} 次")

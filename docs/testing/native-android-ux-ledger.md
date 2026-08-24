@@ -25,6 +25,9 @@
 | RUX-012 | P2 | 分页 Markdown 表格显示为无层级的普通竖线文本 | 分页适配层已有 TABLE 角色，但 Canvas 未消费。新增纯视觉策略：表头/数据行使用随纸面板，等宽绘制，表头加粗；不改 canonical 文本和可逆坐标 | `PagedMarkdownVisualPolicyTest`；测试 Markdown 真机表格与代码页截图 | DEVICE_VERIFIED |
 | RUX-013 | P2 | Markdown 被误提示为“流式大文件不支持净化”，旋转后提示重复遮挡页脚 | INCOMPLETE_SCOPE 被硬编码猜成大文件，且提示消费状态未跨配置变化保存。改为按真实 capability 文案，并以 `rememberSaveable(bookId)` 保证同一阅读会话仅提示一次 | `ReaderReplacementCapabilityTest`；测试 Markdown 不再误报，测试 EPUB 横屏不重复弹出 | DEVICE_VERIFIED |
 | RUX-014 | P1 | 当前真机无法完成 TTS 听感、跟读和跨章验收 | 当前设备系统语音引擎初始化失败；已确认不是本轮排版修复造成，但没有可用引擎就不能判应用通过 | 当前设备现场错误；需换系统语音引擎可用真机复验 | BLOCKED |
+| RUX-015 | P1 | 同一批导入完成提示在离开书架、重进后反复出现并遮挡下方内容，重复导入还误报为“成功 0、失败 0” | 页面级 `remember` 在路由重建后丢失。将一次性提示消费状态放入批次状态，提示前按 batch id 原子标记，同时保留导入页批次结果；摘要补充重复、跳过和未处理数量 | `ShelfImporterTest`、`ShelfImportSummaryPolicyTest`；真机重复导入测试 TXT 后只提示一次，往返首页不复发，文案显示“重复 1 本” | DEVICE_VERIFIED |
+| RUX-016 | P1 | 进入书架搜索后输入框虽获得焦点，MIUI 首次不显示软键盘 | 键盘显示请求早于页面过渡和平台输入连接稳定。请求焦点后等待一帧及短暂入场稳定期再调用输入法显示 | 真机进入搜索页后 `dumpsys input_method` 为 `mInputShown=true`；搜索结果、最近搜索和清空入口复核正常 | DEVICE_VERIFIED |
+| RUX-017 | P1 | 图书详情已有多条阅读会话，却把总阅读时长显示为 0；封面更换按钮触控区仅 24dp | 详情只读取可能滞后的进度累计值，未与会话明细兜底；封面按钮显式缩小。总时长改取进度累计与非负会话合计的较大值，避免重复相加；触控区恢复 48dp | `BookDetailStatsPolicyTest`；最新真机测试 TXT 从错误的 0 分钟恢复为 36 分钟，与 8 条记录一致；UI dump 点击区 144×144px（48dp） | DEVICE_VERIFIED |
 
 ## 2026-08-24 截图证据（本地临时文件）
 
@@ -46,6 +49,10 @@
 - 测试 EPUB 图片横屏分页：`C:\Users\23254\AppData\Local\Temp\cra-epub-landscape-no-repeat.png`、`C:\Users\23254\AppData\Local\Temp\cra-epub-landscape-next.png`
 - 测试 TXT 多章流式分页与恢复：`C:\Users\23254\AppData\Local\Temp\cra-large-reader-open.png`、`C:\Users\23254\AppData\Local\Temp\cra-large-page4.png`、`C:\Users\23254\AppData\Local\Temp\cra-large-restored.png`
 - 测试 TXT 超长单章：`C:\Users\23254\AppData\Local\Temp\cra-long-reader-ready.png`
+- 书架初始审查：`C:\Users\23254\AppData\Local\Temp\cra-shelf-current.png`
+- 重复导入摘要与返回不复发：`C:\Users\23254\AppData\Local\Temp\cra-import-duplicate-summary-fixed.png`、`C:\Users\23254\AppData\Local\Temp\cra-import-summary-not-repeated.png`
+- 书架搜索自动输入法：`C:\Users\23254\AppData\Local\Temp\cra-shelf-search-ime-fixed.png`
+- 图书详情统计修复：`C:\Users\23254\AppData\Local\Temp\cra-book-detail-stats-fixed.png`
 
 这些截图不进入 Git；后续持久化视觉回归应使用仓库内中性 fixture。
 
@@ -54,4 +61,4 @@
 - 已满足：普通栏不永久挤压正文、控制栏开关不重分页、横向翻页无移动白色纸片、滑动中间帧无文字透叠、行高默认值统一为 `1.85`。
 - 尚未宣称：所有设备尺寸、厂商字体、分屏/折叠屏、TTS 听感与完整无障碍矩阵均已通过。
 - 当前设备的系统语音引擎初始化失败，TTS 记为设备环境阻塞，不作为应用通过或失败证据。
-- 下一轮顺序：阅读器核心跨格式矩阵已收口；RUX-009 仪器测试通道和 RUX-014 TTS 设备环境分别追踪，随后进入导入/书架 UX。
+- 下一轮顺序：阅读器核心跨格式矩阵已收口；导入/书架/搜索/详情第一轮 P1 已修复。RUX-009 仪器测试通道和 RUX-014 TTS 设备环境分别追踪，随后扩展到首页继续阅读、历史和全局搜索。

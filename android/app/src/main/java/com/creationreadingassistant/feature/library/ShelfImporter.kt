@@ -137,6 +137,19 @@ class ShelfImporter @Inject constructor(
         if (!_importBatch.value.isRunning) _importBatch.value = ImportBatchUiState()
     }
 
+    /** 标记书架的一次性完成提示已消费，同时保留导入页需要展示的批次结果。 */
+    fun markImportBatchSummaryNotified(batchId: String) {
+        val current = _importBatch.value
+        if (
+            current.id == batchId &&
+            !current.isRunning &&
+            current.hasResult &&
+            !current.summaryNotified
+        ) {
+            _importBatch.value = current.copy(summaryNotified = true)
+        }
+    }
+
     /** 安全停止：不取消当前解析/写库，只在当前文件完成后停止剩余队列。 */
     fun requestStopImport() {
         if (!_importBatch.value.isRunning) return
