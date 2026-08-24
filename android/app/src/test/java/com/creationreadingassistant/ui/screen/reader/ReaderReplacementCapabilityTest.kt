@@ -28,6 +28,29 @@ class ReaderReplacementCapabilityTest {
     }
 
     @Test
+    fun `startup notice for incomplete scope describes document capability instead of assuming large file`() {
+        val notice = readerReplacementStartupNotice(
+            availability = PagedReplacementAvailability.INCOMPLETE_SCOPE,
+            pagerEngineOn = true,
+        )
+
+        assertEquals("当前章节视图暂不支持正文替换净化，正文已保留原文。", notice)
+        assertTrue(notice?.contains("流式大文件") == false)
+    }
+
+    @Test
+    fun `startup replacement notice is not repeated after rotation restores consumed state`() {
+        assertEquals(
+            null,
+            readerReplacementStartupNoticeIfNeeded(
+                availability = PagedReplacementAvailability.ESTIMATED_COORDINATES,
+                pagerEngineOn = true,
+                alreadyShown = true,
+            ),
+        )
+    }
+
+    @Test
     fun `availability ESTIMATED_COORDINATES is blocked for EPUB and Markdown`() {
         val cap = readerReplacementCapability(PagedReplacementAvailability.ESTIMATED_COORDINATES)
         assertTrue(cap is ReaderReplacementCapability.Unavailable)

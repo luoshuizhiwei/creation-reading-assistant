@@ -390,5 +390,32 @@ Novalist 调研与取舍已记录在
 下一刀建议：先用仓库中性 Markdown fixture 补代码块/表格，再用测试 EPUB 补图片章节，随后完成
 长/大 TXT 与后台、旋转、快速翻页恢复压力。TTS 应换到具备可用系统语音引擎的真机后再验收。
 
+## 15. 2026-08-24 跨格式真机验收收口
+
+- **Markdown 分页结构**：测试 Markdown 的代码块原有等宽面板保持正常；分页表格此前虽有
+  `TABLE_HEADER/TABLE_ROW` 角色，却未被 Canvas 消费。新增 `PagedMarkdownVisualPolicy`，表头与数据行
+  使用随纸低对比面板和等宽绘制，表头加粗；canonical 文本、搜索、选区和持久化坐标均未改变。
+- **替换净化提示**：`INCOMPLETE_SCOPE` 不再被硬编码误称为“流式大文件”；能力提示按真实文档能力描述。
+  提示消费状态以 `rememberSaveable(bookId)` 保存，测试 EPUB 旋转后不再重复弹出遮挡页脚。
+- **测试 EPUB 图片**：含图片样本在竖屏首屏及横屏相邻页均按比例显示；旋转重新分页后图片没有丢失、
+  遮字或越界，手机自动旋转设置已恢复原值。
+- **测试 TXT 多章流式路径**：新增可复用中性生成脚本 `android/scripts/generate_large_txt_fixture.ps1`。
+  约 6 MB 多章样本触发流式路径，正文约 3.4 秒就绪，目录识别 136 章，规则管理中的替换净化入口可用；
+  跳到第 10 章、连续翻页、强停并重开后，恢复到第 10 章 6.5% 的同一段落。
+- **测试 TXT 超长单章**：约 6 MB 单章样本目录为 1/1，完整分页正文约 6.5 秒就绪；无崩溃、ANR、
+  裁切或文字重叠。超长章的替换净化仍遵循既有“保留原文/限制投影”契约，不把显示坐标写入数据库。
+- **剩余阻塞**：当前 `c49ac6cf` 系统语音引擎初始化失败，TTS 听感、跟读与跨章只能记为
+  RUX-014 设备阻塞；RUX-009 Compose 仪器测试启动通道仍是独立基础设施问题。其余 RUX-008
+  跨格式分页、图片、旋转、快速翻页和恢复矩阵已完成真机验收。
+- **设备纪律**：所有 ADB 命令均显式使用 `-s c49ac6cf`，未使用 MuMu；APK 由
+  `install_with_confirm.ps1` 自动完成两次 MIUI 确认，无用户手动点击、无安全设置修改；
+  `stay_on_while_plugged_in` 保持原值 `7`。
+- **最终门禁**：`:app:testDebugUnitTest` 1526/1526，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 0 errors / 12 warnings；`:app:assembleDebug` 与
+  `:app:compileDebugAndroidTestKotlin` 均通过。
+
+下一刀：进入导入/书架/书架搜索/图书详情 UX 审查。开始前先完成本轮最终门禁、提交、正常推送并等待 CI；
+不得因 RUX-009/RUX-014 的外部阻塞而伪造通过。
+
 
 

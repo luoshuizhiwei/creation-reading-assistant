@@ -38,6 +38,39 @@ internal fun readerReplacementCapability(
 }
 
 /**
+ * 阅读器首次进入时的轻量能力提示。
+ *
+ * 这里必须按真实 capability 描述，不能把 INCOMPLETE_SCOPE 一律猜成“流式大文件”：
+ * Markdown 等章文档也可能因为当前投影作用域不完整而落入该状态。
+ */
+internal fun readerReplacementStartupNotice(
+    availability: PagedReplacementAvailability,
+    pagerEngineOn: Boolean,
+): String? = when (availability) {
+    PagedReplacementAvailability.APPLIED -> if (!pagerEngineOn) {
+        "正文替换净化目前仅在新分页引擎中生效，当前模式已保留原文。"
+    } else {
+        null
+    }
+    PagedReplacementAvailability.ESTIMATED_COORDINATES ->
+        "当前文档格式暂不支持正文替换净化，正文已保留原文。"
+    PagedReplacementAvailability.INCOMPLETE_SCOPE ->
+        "当前章节视图暂不支持正文替换净化，正文已保留原文。"
+    else -> null
+}
+
+/** 旋转会恢复 alreadyShown；同一阅读会话内不重复遮挡正文。 */
+internal fun readerReplacementStartupNoticeIfNeeded(
+    availability: PagedReplacementAvailability,
+    pagerEngineOn: Boolean,
+    alreadyShown: Boolean,
+): String? = if (alreadyShown) {
+    null
+} else {
+    readerReplacementStartupNotice(availability, pagerEngineOn)
+}
+
+/**
  * 兼容旧调用点（单元测试还没有 PagerEngineState 的场景）：
  * 显式把「source 尚不可用 / isTxt=false / pagerEngineOff」情形转成对应 availability，
  * 避免逐处 if/else 蔓延。真实生产路径一律使用单参数 availability 版本。

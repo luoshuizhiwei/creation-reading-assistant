@@ -422,6 +422,15 @@ private fun PageCanvas(
     underlays: List<Pair<Color, List<com.creationreadingassistant.feature.reader.layout.PageHitTest.Rect>>> = emptyList(),
 ) {
     val paper = LocalReaderPaperPalette.current
+    val tablePaint = remember(paint) {
+        TextPaint(paint).apply { typeface = Typeface.MONOSPACE }
+    }
+    val tableHeaderPaint = remember(paint) {
+        TextPaint(paint).apply {
+            typeface = Typeface.MONOSPACE
+            isFakeBoldText = true
+        }
+    }
     val stylePaints = remember(paint, cfg) {
         Array(32) { mask ->
             TextPaint(paint).apply {
@@ -457,7 +466,13 @@ private fun PageCanvas(
             page.lines.forEachIndexed { li, line ->
                 val paraOff = page.lineParaOffsets.getOrElse(li) { 0 }
                 val isHeading = line.role.isHeading()
-                val basePaint = if (isHeading) headingPaint else paint
+                val blockStyle = PagedMarkdownVisualPolicy.styleFor(line.role)
+                val basePaint = when {
+                    isHeading -> headingPaint
+                    blockStyle.monospace && blockStyle.emphasized -> tableHeaderPaint
+                    blockStyle.monospace -> tablePaint
+                    else -> paint
+                }
                 val boxH = when (line.role) {
                     BlockRole.HEADING -> cfg.lineHeightPx * cfg.headingScale
                     BlockRole.HEADING_1 -> cfg.lineHeightPx * cfg.headingScale * 1.15f
@@ -472,6 +487,14 @@ private fun PageCanvas(
                 if (line.role == BlockRole.CODE_BLOCK) {
                     drawRect(
                         color = paper.codeBlockBg,
+                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
+                        size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
+                    )
+                }
+
+                if (blockStyle.drawPanel) {
+                    drawRect(
+                        color = paper.fg.copy(alpha = if (blockStyle.emphasized) 0.12f else 0.055f),
                         topLeft = androidx.compose.ui.geometry.Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
                     )

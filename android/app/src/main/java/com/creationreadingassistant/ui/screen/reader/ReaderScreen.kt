@@ -32,6 +32,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.BlendMode
@@ -288,6 +289,7 @@ fun ReaderScreen(
     val settingsRef = remember { mutableStateOf(readerSettings) }
 
     val bid = bookId ?: ""
+    var replacementStartupNoticeShown by rememberSaveable(bid) { mutableStateOf(false) }
     var txtTocRuleId by mutableHolders.txtTocRuleIdState
 
     // 书内搜索会话按书持有：关闭/重开面板不清空 query/results/current hit；
@@ -426,17 +428,14 @@ fun ReaderScreen(
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
     )
 
-    LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn) {
-        when (pagerEngine.replacementAvailability) {
-            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.APPLIED ->
-                if (!pagerEngineOn) {
-                    nav.showNotice("正文替换净化目前仅在新分页引擎中生效，当前模式已保留原文。")
-                }
-            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.ESTIMATED_COORDINATES ->
-                nav.showNotice("当前文档格式暂不支持正文替换净化。")
-            com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability.INCOMPLETE_SCOPE ->
-                nav.showNotice("流式大文件暂不支持正文替换净化，已保留原文。")
-            else -> Unit
+    LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {
+        readerReplacementStartupNoticeIfNeeded(
+            availability = pagerEngine.replacementAvailability,
+            pagerEngineOn = pagerEngineOn,
+            alreadyShown = replacementStartupNoticeShown,
+        )?.let { message ->
+            replacementStartupNoticeShown = true
+            nav.showNotice(message)
         }
     }
     val replaceProjectionNotice = pagerEngine.replaceProjectionNotice.value
