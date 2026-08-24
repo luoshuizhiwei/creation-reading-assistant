@@ -269,7 +269,7 @@ class SettingsStore @Inject constructor(
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
             background = migrateReaderBg(prefs[KEY_READER_BG]),
             customFontPath = prefs[KEY_CUSTOM_FONT_PATH] ?: "",
-            lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.80f,
+            lineHeight = prefs[KEY_LINE_HEIGHT] ?: 1.85f,
             paragraphSpacing = prefs[KEY_PARAGRAPH_SPACING] ?: 1.15f,
             pageMargin = prefs[KEY_PAGE_MARGIN] ?: 22f,
             immersiveMode = prefs[KEY_IMMERSIVE] ?: true,

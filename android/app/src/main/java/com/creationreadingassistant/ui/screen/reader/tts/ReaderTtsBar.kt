@@ -1,6 +1,5 @@
 package com.creationreadingassistant.ui.screen.reader.tts
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -17,7 +16,6 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
-import androidx.compose.material.icons.outlined.Stop
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,7 +42,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
-import com.creationreadingassistant.ui.components.SettingSliderRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -110,70 +107,49 @@ internal fun TtsBar(
 ) {
     val layout = LocalLayoutTokens.current
     var showSettings by remember { mutableStateOf(false) }
-    var rateDraft by remember { mutableStateOf(tts.rate) }
-    Column(
+    Row(
         Modifier
             .fillMaxWidth()
             .padding(horizontal = layout.relatedGap, vertical = layout.microGap),
+        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(
-                Icons.Outlined.Headphones,
-                contentDescription = null,
-                modifier = Modifier.padding(layout.relatedGap),
-            )
-            Column(Modifier.weight(1f)) {
-                Text(chapterLabel, style = MaterialTheme.typography.titleSmall)
-                Text(
-                    "段落进度 ${tts.progressPercent.toInt()}%",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.outline,
-                )
-            }
-            IconButton(onClick = { showSettings = true }) {
-                Icon(Icons.Outlined.Settings, contentDescription = "朗读设置")
-            }
-            IconButton(onClick = onClose) {
-                Icon(Icons.Outlined.Close, contentDescription = "关闭朗读")
-            }
-        }
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.Center,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = tts::prev, enabled = tts.status != "idle") {
-                Icon(Icons.Outlined.SkipPrevious, contentDescription = "上一段")
-            }
-            IconButton(
-                onClick = {
-                    when (tts.status) {
-                        "playing" -> tts.pause()
-                        "paused" -> tts.resume()
-                        else -> tts.resume()
-                    }
-                },
-            ) {
-                Icon(
-                    if (tts.status == "playing") Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                    contentDescription = if (tts.status == "playing") "暂停" else "播放",
-                )
-            }
-            IconButton(onClick = tts::next, enabled = tts.status != "idle") {
-                Icon(Icons.Outlined.SkipNext, contentDescription = "下一段")
-            }
-            IconButton(onClick = tts::stop, enabled = tts.status != "idle") {
-                Icon(Icons.Outlined.Stop, contentDescription = "停止")
-            }
-        }
-        SettingSliderRow(
-            title = "语速",
-            value = rateDraft,
-            valueLabel = "${"%.2f".format(rateDraft)}x",
-            onValueChange = { rateDraft = it; tts.rate = it },
-            valueRange = 0.5f..2f,
-            modifier = Modifier.padding(top = layout.microGap),
+        Icon(
+            Icons.Outlined.Headphones,
+            contentDescription = null,
+            modifier = Modifier.padding(horizontal = layout.microGap),
         )
+        Text(
+            "$chapterLabel · ${tts.progressPercent.toInt()}%",
+            style = MaterialTheme.typography.labelLarge,
+            maxLines = 1,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = tts::prev, enabled = tts.status != "idle") {
+            Icon(Icons.Outlined.SkipPrevious, contentDescription = "上一段")
+        }
+        IconButton(
+            onClick = {
+                when (tts.status) {
+                    "playing" -> tts.pause()
+                    "paused" -> tts.resume()
+                    else -> tts.resume()
+                }
+            },
+        ) {
+            Icon(
+                if (tts.status == "playing") Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                contentDescription = if (tts.status == "playing") "暂停" else "播放",
+            )
+        }
+        IconButton(onClick = tts::next, enabled = tts.status != "idle") {
+            Icon(Icons.Outlined.SkipNext, contentDescription = "下一段")
+        }
+        IconButton(onClick = { showSettings = true }) {
+            Icon(Icons.Outlined.Settings, contentDescription = "朗读设置")
+        }
+        IconButton(onClick = onClose) {
+            Icon(Icons.Outlined.Close, contentDescription = "关闭朗读")
+        }
     }
     if (showSettings) {
         GlassModalBottomSheet(

@@ -140,6 +140,40 @@ class ReplacedChapterSourceTest {
         assertSame(incomplete, unsupported.source)
     }
 
+    @Test
+    fun `no rules keeps only projection-capable sources manageable`() {
+        val completeTxt = TxtChapterSource(
+            fullText = "正文",
+            chapters = listOf(DocChapter(0, "", 0, 2)),
+        )
+        val estimatedEpub = EpubChapterSource(
+            titles = listOf("章节"),
+            chapterStartOffsets = listOf(0),
+            totalChars = 2,
+            loadBlocks = { emptyList() },
+        )
+        val incomplete = object : PagedChapterSource {
+            override val chapterCount: Int = 1
+            override val totalChars: Int = 2
+            override fun chapterTitle(index: Int): String = "章节"
+            override fun chapterStartAbs(index: Int): Int = 0
+            override fun loadChapter(index: Int) = PagedChapterContent("正文", emptyList())
+        }
+
+        assertEquals(
+            PagedReplacementAvailability.NO_EFFECTIVE_RULES,
+            preparePagedReplacement(completeTxt, "book-1", emptyList()).availability,
+        )
+        assertEquals(
+            PagedReplacementAvailability.ESTIMATED_COORDINATES,
+            preparePagedReplacement(estimatedEpub, "book-1", emptyList()).availability,
+        )
+        assertEquals(
+            PagedReplacementAvailability.INCOMPLETE_SCOPE,
+            preparePagedReplacement(incomplete, "book-1", emptyList()).availability,
+        )
+    }
+
     private fun replaceRule(pattern: String, replacement: String) = ReplaceRule(
         id = "replace-1",
         name = "测试规则",

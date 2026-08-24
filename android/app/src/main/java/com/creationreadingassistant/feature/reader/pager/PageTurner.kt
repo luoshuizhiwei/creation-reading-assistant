@@ -35,6 +35,8 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.launch
 import kotlin.math.abs
+import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
+import com.creationreadingassistant.ui.theme.readerPaperSurface
 
 /**
  * 翻页容器（2026-08-23 重写）：参考主流阅读器（微信读书 / legado）的交互模型。
@@ -65,8 +67,8 @@ fun <Frame : Any> PageTurner(
     revealProgress: Float = 0f,
     revealDividerColor: Color? = null,
     revealBackground: Color = Color.Transparent,
-    /** slide/cover 模式的页面底色：页面图层透明，叠加时须铺不透明纸色，否则下层文字透出重叠。 */
-    pageBackground: Color = Color.Transparent,
+    /** Moving and adjacent frames use the exact same opaque paper surface as the settled reader. */
+    pageSurface: ReaderPaperSurfaceSpec = ReaderPaperSurfaceSpec.solid(Color.Transparent),
     /** 真实触发翻页（onPrevious / onNext 已被调用）后回调；用于通知外层隐藏阅读菜单栏。 */
     onPageTurned: () -> Unit = {},
     content: @Composable BoxScope.(frame: Frame, isCurrent: Boolean) -> Unit,
@@ -201,10 +203,14 @@ fun <Frame : Any> PageTurner(
                 label = "pageFade",
                 modifier = Modifier.fillMaxSize().then(dragModifier),
             ) { frame ->
-                Box(Modifier.fillMaxSize()) { content(frame, frame == currentFrame) }
+                Box(
+                    Modifier
+                        .fillMaxSize()
+                        .clipToBounds(),
+                ) { content(frame, frame == currentFrame) }
             }
         } else if (normalizedEffect == "slide" || normalizedEffect == "cover") {
-            Box(Modifier.fillMaxSize().then(dragModifier)) {
+            Box(Modifier.fillMaxSize().clipToBounds().then(dragModifier)) {
                 val offset = dx.value
                 // 拖动中：当前页用静态快照（快照就绪后），否则回退实时组合
                 val showSnapshot = snapshot != null && snapshotFrame === currentFrame
@@ -216,6 +222,8 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
+                            .readerPaperSurface(pageSurface)
+                            .clipToBounds()
                             .graphicsLayer {
                                 translationX = if (normalizedEffect == "slide") width + offset else 0f
                             },
@@ -223,11 +231,13 @@ fun <Frame : Any> PageTurner(
                 }
                 // 当前页（或快照）：上层，按 offset 平移
                 if (showSnapshot) {
-                    Image(
-                        bitmap = snapshot!!,
-                        contentDescription = null,
-                        modifier = Modifier
-                            .fillMaxSize()
+                        Image(
+                            bitmap = snapshot!!,
+                            contentDescription = null,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .readerPaperSurface(pageSurface)
+                            .clipToBounds()
                             .graphicsLayer {
                                 translationX = when {
                                     normalizedEffect == "cover" && offset > 0f -> 0f
@@ -239,6 +249,10 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
+                            // 静止页透出阅读器外层的渐变/纸张纹理；只有发生位移时
+                            // 才铺遮罩，避免静止状态出现一整块“纸中纸”。
+                            .then(if (offset != 0f) Modifier.readerPaperSurface(pageSurface) else Modifier)
+                            .clipToBounds()
                             // 记录当前页到 graphicsLayer：供 onDragStart 捕获为静态快照
                             .drawWithContent {
                                 currentLayer.record { this@drawWithContent.drawContent() }
@@ -257,6 +271,8 @@ fun <Frame : Any> PageTurner(
                     Box(
                         Modifier
                             .fillMaxSize()
+                            .readerPaperSurface(pageSurface)
+                            .clipToBounds()
                             .graphicsLayer { translationX = -width + offset },
                     ) { content(previousFrame, false) }
                 }
@@ -268,6 +284,14 @@ fun <Frame : Any> PageTurner(
                 Box(
                     Modifier
                         .fillMaxSize()
+                        .then(
+                            if (offset != 0f || revealProgress > 0f) {
+                                Modifier.readerPaperSurface(pageSurface)
+                            } else {
+                                Modifier
+                            },
+                        )
+                        .clipToBounds()
                         .graphicsLayer { translationX = offset },
                 ) { content(currentFrame, true) }
                 if (offset <= 0f && nextFrame != null && revealProgress > 0f) {
@@ -279,6 +303,7 @@ fun <Frame : Any> PageTurner(
                             .align(Alignment.TopCenter)
                             // 页面图层本身透明：叠加时须铺纸色，否则下层当前页文字透过
                             // 笔画间隙露出来，形成文字重叠。
+                            .readerPaperSurface(pageSurface)
                             .background(revealBackground)
                             .clipToBounds(),
                     ) { content(nextFrame, false) }
@@ -295,7 +320,12 @@ fun <Frame : Any> PageTurner(
                 }
             }
         } else {
-            Box(Modifier.fillMaxSize().then(dragModifier)) { content(currentFrame, true) }
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .clipToBounds()
+                    .then(dragModifier),
+            ) { content(currentFrame, true) }
         }
     }
 }

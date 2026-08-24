@@ -56,6 +56,19 @@ internal data class PagerEngineState(
 )
 
 /**
+ * 替换管理入口必须与实际渲染路径一致：分页引擎关闭时，即使为了预热或目录计算已经
+ * 构造了 paged source，也不能把规则入口暴露给滚动/legacy 正文。
+ */
+internal fun effectiveReplacementAvailability(
+    pagerEngineOn: Boolean,
+    prepared: PagedReplacementAvailability?,
+): PagedReplacementAvailability = when {
+    !pagerEngineOn -> PagedReplacementAvailability.PAGER_ENGINE_DISABLED
+    prepared != null -> prepared
+    else -> PagedReplacementAvailability.SOURCE_UNAVAILABLE
+}
+
+/**
  * Phase 6 结构拆分：从 [com.creationreadingassistant.ui.screen.ReaderScreen] 抽出的「分页引擎状态」
  * 逻辑（原自研分页引擎块）。
  *
@@ -218,8 +231,12 @@ internal fun rememberPagerEngineState(
         }
     }
     val pagedSource = preparedPagedSource?.source
-    val replacementAvailability = preparedPagedSource?.availability
-        ?: PagedReplacementAvailability.NO_EFFECTIVE_RULES
+    // 没有 source 与“source 存在但没有生效规则”是两个不同状态：前者必须隐藏
+    // 替换管理入口，后者要保留空列表和“新增规则”入口。
+    val replacementAvailability = effectiveReplacementAvailability(
+        pagerEngineOn = pagerEngineOn,
+        prepared = preparedPagedSource?.availability,
+    )
 
     return PagerEngineState(
         pagerEngineOn = pagerEngineOn,

@@ -16,6 +16,8 @@ data class LayoutConfig(
     val contentWidthPx: Float,
     /** 正文可用高度（px），已扣除上下边距 */
     val contentHeightPx: Float,
+    /** 页面顶部为字体上溢预留的安全区（px），同时参与分页与命中坐标。 */
+    val contentTopPaddingPx: Float = 0f,
     val fontSizePx: Float,
     /** 行高倍数。中文正文 1.75~1.85 透气且不会太散；与 ReaderSettings 默认一致 */
     val lineHeightMultiplier: Float = 1.80f,
@@ -65,6 +67,7 @@ data class LayoutConfig(
         get() {
             var r = contentWidthPx.toBits()
             r = 31 * r + contentHeightPx.toBits()
+            r = 31 * r + contentTopPaddingPx.toBits()
             r = 31 * r + fontSizePx.toBits()
             r = 31 * r + lineHeightMultiplier.toBits()
             r = 31 * r + paragraphSpacingEm.toBits()

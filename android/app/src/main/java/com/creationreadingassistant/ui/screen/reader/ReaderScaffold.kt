@@ -7,6 +7,7 @@ import androidx.compose.animation.core.AnimationVector1D
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.fillMaxSize
@@ -29,8 +30,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.ClipboardManager
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -39,7 +38,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
-import com.creationreadingassistant.ui.components.PaperNoise
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
@@ -57,6 +55,8 @@ import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
+import com.creationreadingassistant.ui.theme.readerPaperSurface
+import com.creationreadingassistant.ui.theme.surfaceSpec
 import com.creationreadingassistant.ui.viewmodel.PendingTxtRuleAnchor
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
@@ -248,6 +248,8 @@ internal fun ReaderScaffold(
     // 手势开始时 true，结束 false；HUD 自己会在结束后延迟 1.2s 再淡出。
     var brightnessHudVisible by remember { mutableStateOf(false) }
 
+    val paperSurface = remember(paper, paperTexture) { paper.surfaceSpec(paperTexture) }
+
     // 可变 var 从 holder 重新委托：写操作直接落回 ReaderScreen 持有的真实状态。
     var autoPagingActive by holders.autoPagingActiveState
     var runtimeError by holders.runtimeErrorState
@@ -325,7 +327,7 @@ internal fun ReaderScaffold(
                 .fillMaxSize()
                 // 背景必须在 padding 之前铺：沉浸模式藏掉系统栏后，腾出的区域
                 // 也要是纸色，否则那里露出的是窗口底色（黑条）
-                .background(paper.bg)
+                .readerPaperSurface(paperSurface)
                 .semantics {
                     if (!isLoading && !isChapterLoading && error == null && loadedBook != null) {
                         contentDescription = "阅读正文已就绪"
@@ -339,12 +341,6 @@ internal fun ReaderScaffold(
             // 纸张层次：极淡上亮下暗渐变 + 中性灰度轻噪点，叠在纸色之上、正文之下；
             // 守对比度红线——绝不改 paper.fg，纹理 alpha≤0.04，亮/暗纸自适应。
             // 噪点纹理受外观设置「纸张纹理」开关控制（渐变恒在）。
-            Box(
-                Modifier
-                    .fillMaxSize()
-                    .background(Brush.verticalGradient(listOf(lerp(paper.bg, Color.White, 0.04f), lerp(paper.bg, Color.Black, 0.03f))))
-                    .then(if (paperTexture) Modifier.background(PaperNoise.brush(), alpha = 0.04f) else Modifier),
-            )
             when {
                 isLoading || error != null -> ReaderDocumentStatus(
                     isLoading = isLoading,
@@ -357,83 +353,90 @@ internal fun ReaderScaffold(
                     },
                 )
 
-                else -> ReaderContentHost(
-                    state = buildReaderContentHostState(
-                        // B1 状态袋瘦身：按域组装 4 个分组对象，字段值与原平铺传参 1:1。
-                        settings = ReaderContentSettings(
-                            readerSettings = readerSettings,
-                            paper = paper,
-                            paperFg = paperFg,
-                            sentenceHighlightBg = sentenceHighlightBg,
-                            searchHighlightBg = searchHighlightBg,
-                        ),
-                        selection = ReaderSelectionState(
-                            selectedText = selectedText,
-                            selectedGlobalOffset = selectedGlobalOffset,
-                            selectedRangeStart = selectedRangeStart,
-                            selectedSourceEnd = selectedSourceEnd,
-                        ),
-                        paging = ReaderPagingState(
-                            pagerEngineOn = pagerEngineOn,
-                            pagedSource = pagedSource,
-                            pagedAbsOffset = pagedAbsOffset,
-                            pagedPercent = pagedPercent,
-                            pendingInitialPosition = pendingInitialPosition,
-                            savedEpubOffsetInChapter = savedEpubOffsetInChapter,
-                            visiblePlainOffset = visiblePlainOffset,
-                            savedPlainOffset = savedPlainOffset,
-                            savedPlainPercent = savedPlainPercent,
-                            autoPagingActive = autoPagingActive,
-                            autoPagingPaused = autoPagingPaused,
-                            pagedJumpRequest = pagedJumpRequest,
-                            pagedHardwareTurnRequest = pagedHardwareTurnRequest,
-                            pageIndexStore = pageIndexStore,
-                            pageIndexManager = callbacks.pageIndexManager,
-                        ),
-                        source = ReaderContentSourceState(
-                            bid = bid,
-                            txtTocProfileKey = inputs.ruleSnapshot.effectiveTocProfile.key,
-                            bookTitle = bookTitle,
-                            chapterStartOffsets = chapterStartOffsets,
-                            txtStreamingDocument = txtStreamingDocument,
-                            plainContent = plainContent,
-                            epubBook = epubBook,
-                            markdownDocument = markdownDocument,
-                            chapterIndex = chapterIndex,
-                            txtChapterIndex = txtChapterIndex,
-                            isChapterLoading = isChapterLoading,
-                            chapterBlocks = chapterBlocks,
-                            epubListState = epubListState,
-                            plainListState = plainListState,
-                            chapterFade = chapterFade,
-                            blockGlobalOffsets = blockGlobalOffsets,
-                            chapterBase = chapterBase,
-                            ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
-                            focusBlockIndex = focusBlockIndex,
-                            epubBringRequester = epubBringRequester,
-                            readingUnits = readingUnits,
-                            isTxt = isTxt,
-                            showTts = showTts,
-                            tts = tts,
-                            highlights = highlights,
-                            searchHitRangeAbs = searchHitRangeAbs,
-                            searchScrollFocusRequest = holders.searchScrollFocusRequestState.value,
-                        ),
-                    ),
-                callbacks = buildReaderContentHostCallbacks(
-                    onAction = onAction,
-                    onPagedAbsOffsetChange = { pagedAbsOffset = it },
-                    onPagedPercentChange = { pagedPercent = it },
-                    onPendingInitialPositionChange = { pendingInitialPosition = it },
-                    onAutoPagingActiveChange = { autoPagingActive = it },
-                    goToChapter = goToChapter,
-                    showNotice = showNotice,
-                    onSearchScrollFocusRequestConsumed = {
-                        holders.searchScrollFocusRequestState.value = null
-                    },
-                    onPersistProgress = onPersistProgress,
-                    ),
-                )
+                else -> BoxWithConstraints(Modifier.fillMaxSize()) {
+                    val viewportReaderSettings = remember(readerSettings, maxWidth, maxHeight) {
+                        readerSettings.forReaderViewport(maxWidth.value, maxHeight.value)
+                    }
+
+                    ReaderContentHost(
+                            state = buildReaderContentHostState(
+                                // B1 状态袋瘦身：按域组装 4 个分组对象，字段值与原平铺传参 1:1。
+                                settings = ReaderContentSettings(
+                                    readerSettings = viewportReaderSettings,
+                                    paper = paper,
+                                    paperSurface = paperSurface,
+                                    paperFg = paperFg,
+                                    sentenceHighlightBg = sentenceHighlightBg,
+                                    searchHighlightBg = searchHighlightBg,
+                                ),
+                                selection = ReaderSelectionState(
+                                    selectedText = selectedText,
+                                    selectedGlobalOffset = selectedGlobalOffset,
+                                    selectedRangeStart = selectedRangeStart,
+                                    selectedSourceEnd = selectedSourceEnd,
+                                ),
+                                paging = ReaderPagingState(
+                                    pagerEngineOn = pagerEngineOn,
+                                    pagedSource = pagedSource,
+                                    pagedAbsOffset = pagedAbsOffset,
+                                    pagedPercent = pagedPercent,
+                                    pendingInitialPosition = pendingInitialPosition,
+                                    savedEpubOffsetInChapter = savedEpubOffsetInChapter,
+                                    visiblePlainOffset = visiblePlainOffset,
+                                    savedPlainOffset = savedPlainOffset,
+                                    savedPlainPercent = savedPlainPercent,
+                                    autoPagingActive = autoPagingActive,
+                                    autoPagingPaused = autoPagingPaused,
+                                    pagedJumpRequest = pagedJumpRequest,
+                                    pagedHardwareTurnRequest = pagedHardwareTurnRequest,
+                                    pageIndexStore = pageIndexStore,
+                                    pageIndexManager = callbacks.pageIndexManager,
+                                ),
+                                source = ReaderContentSourceState(
+                                    bid = bid,
+                                    txtTocProfileKey = inputs.ruleSnapshot.effectiveTocProfile.key,
+                                    bookTitle = bookTitle,
+                                    chapterStartOffsets = chapterStartOffsets,
+                                    txtStreamingDocument = txtStreamingDocument,
+                                    plainContent = plainContent,
+                                    epubBook = epubBook,
+                                    markdownDocument = markdownDocument,
+                                    chapterIndex = chapterIndex,
+                                    txtChapterIndex = txtChapterIndex,
+                                    isChapterLoading = isChapterLoading,
+                                    chapterBlocks = chapterBlocks,
+                                    epubListState = epubListState,
+                                    plainListState = plainListState,
+                                    chapterFade = chapterFade,
+                                    blockGlobalOffsets = blockGlobalOffsets,
+                                    chapterBase = chapterBase,
+                                    ttsSentenceRangeInChapter = ttsSentenceRangeInChapter,
+                                    focusBlockIndex = focusBlockIndex,
+                                    epubBringRequester = epubBringRequester,
+                                    readingUnits = readingUnits,
+                                    isTxt = isTxt,
+                                    showTts = showTts,
+                                    tts = tts,
+                                    highlights = highlights,
+                                    searchHitRangeAbs = searchHitRangeAbs,
+                                    searchScrollFocusRequest = holders.searchScrollFocusRequestState.value,
+                                ),
+                            ),
+                            callbacks = buildReaderContentHostCallbacks(
+                                onAction = onAction,
+                                onPagedAbsOffsetChange = { pagedAbsOffset = it },
+                                onPagedPercentChange = { pagedPercent = it },
+                                onPendingInitialPositionChange = { pendingInitialPosition = it },
+                                onAutoPagingActiveChange = { autoPagingActive = it },
+                                goToChapter = goToChapter,
+                                showNotice = showNotice,
+                                onSearchScrollFocusRequestConsumed = {
+                                    holders.searchScrollFocusRequestState.value = null
+                                },
+                                onPersistProgress = onPersistProgress,
+                            ),
+                    )
+                }
             }
 
             // 正文覆盖层（进度条 / 顶栏 / 底栏+TTS / 选中工具条）→ reader/ReaderInteractionLayer.kt
@@ -453,6 +456,7 @@ internal fun ReaderScaffold(
                     chapterProgress = chapterProgress,
                     chapterIndex = chapterIndex,
                     epubBook = epubBook,
+                    isMarkdown = markdownDocument != null,
                     isLoading = isLoading,
                     error = error,
                     readerSettings = readerSettings,

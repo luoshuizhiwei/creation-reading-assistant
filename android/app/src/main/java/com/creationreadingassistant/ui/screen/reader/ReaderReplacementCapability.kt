@@ -17,8 +17,11 @@ internal fun readerReplacementCapability(
     availability: PagedReplacementAvailability,
 ): ReaderReplacementCapability = when (availability) {
     PagedReplacementAvailability.APPLIED -> ReaderReplacementCapability.Available
-    PagedReplacementAvailability.NO_EFFECTIVE_RULES -> ReaderReplacementCapability.Unavailable(
-        "当前没有启用的正文替换规则，可在规则管理中添加并启用。",
+    // source 已经具备精确投影能力，只是当前还没有规则；必须保留替换 tab，
+    // 否则 UI 会提示“可新增”却把唯一的新增入口隐藏掉。
+    PagedReplacementAvailability.NO_EFFECTIVE_RULES -> ReaderReplacementCapability.Available
+    PagedReplacementAvailability.PAGER_ENGINE_DISABLED -> ReaderReplacementCapability.Unavailable(
+        "当前阅读模式未启用新分页引擎，正文替换净化仅在可精确投影的翻页正文中生效，正文将保留原文。",
     )
     PagedReplacementAvailability.ESTIMATED_COORDINATES -> ReaderReplacementCapability.Unavailable(
         "当前文档格式（EPUB/估算坐标）暂不支持正文替换净化，正文将保留原文。",
@@ -47,7 +50,9 @@ internal fun readerReplacementCapability(
     replaceProjectionScopeIsComplete: Boolean = false,
 ): ReaderReplacementCapability {
     if (!isTxt) return readerReplacementCapability(PagedReplacementAvailability.ESTIMATED_COORDINATES)
-    if (readerMode != "paged" || !pagerEngineOn) return readerReplacementCapability(PagedReplacementAvailability.SOURCE_UNAVAILABLE)
+    if (readerMode != "paged" || !pagerEngineOn) {
+        return readerReplacementCapability(PagedReplacementAvailability.PAGER_ENGINE_DISABLED)
+    }
     if (!replaceProjectionScopeIsComplete) return readerReplacementCapability(PagedReplacementAvailability.INCOMPLETE_SCOPE)
     return readerReplacementCapability(PagedReplacementAvailability.APPLIED)
 }

@@ -30,10 +30,12 @@ import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -53,11 +55,26 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
+/** 旧 EPUB 分页宿主使用单层内容实现的轻量翻页效果。 */
+internal enum class LegacyEpubPageTurnEffect {
+    NONE,
+    FADE,
+    SLIDE,
+    COVER,
+}
+
+internal fun legacyEpubPageTurnEffect(value: String): LegacyEpubPageTurnEffect = when (value) {
+    "fade" -> LegacyEpubPageTurnEffect.FADE
+    "slide" -> LegacyEpubPageTurnEffect.SLIDE
+    "cover" -> LegacyEpubPageTurnEffect.COVER
+    else -> LegacyEpubPageTurnEffect.NONE
+}
+
 /**
  * EPUB 翻页模式视图（从 ReaderScreen.kt 拆出，纯结构搬运，不改语义）。
  *
- * 单章分页渲染 + 三区/五区点击翻页。翻页淡入动效只动 alpha，不复制整章组件树
- * （守住 OOM 内存纪律）。
+ * 单章分页渲染 + 三区/五区点击翻页。翻页效果只作用于当前章节的单层 Composition，
+ * 不复制整章组件树（守住 OOM 内存纪律）。
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
@@ -95,16 +112,48 @@ internal fun PagedEpubView(
 ) {
     val reducedMotion = rememberReducedMotion()
     val contentAlpha = remember { Animatable(1f) }
+    val contentOffset = remember { Animatable(0f) }
+    val configuredEffect = legacyEpubPageTurnEffect(pageTurnEffect)
+    var contentWidthPx by remember { mutableStateOf(0f) }
+    var previousChapter by remember { mutableStateOf(chapterIndex) }
     var firstRun by remember { mutableStateOf(true) }
-    LaunchedEffect(chapterIndex) {
-        if (reducedMotion || firstRun) {
+    LaunchedEffect(chapterIndex, configuredEffect, reducedMotion, contentWidthPx) {
+        if (firstRun) {
             firstRun = false
+            previousChapter = chapterIndex
             contentAlpha.snapTo(1f)
+            contentOffset.snapTo(0f)
             return@LaunchedEffect
         }
-        // 轻量翻页淡入：单 Composition、只动 alpha，绝不复制整章组件树（守住 OOM 内存纪律）。
-        contentAlpha.snapTo(0.35f)
-        contentAlpha.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
+        val direction = when {
+            chapterIndex > previousChapter -> 1f
+            chapterIndex < previousChapter -> -1f
+            else -> 0f
+        }
+        previousChapter = chapterIndex
+        if (reducedMotion || direction == 0f || configuredEffect == LegacyEpubPageTurnEffect.NONE) {
+            contentAlpha.snapTo(1f)
+            contentOffset.snapTo(0f)
+            return@LaunchedEffect
+        }
+        when (configuredEffect) {
+            LegacyEpubPageTurnEffect.FADE -> {
+                contentOffset.snapTo(0f)
+                contentAlpha.snapTo(0.35f)
+                contentAlpha.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
+            }
+
+            LegacyEpubPageTurnEffect.SLIDE,
+            LegacyEpubPageTurnEffect.COVER,
+            -> {
+                // 只移动当前章节的单层 Composition；不同时保留前后两章，避免大章 OOM。
+                contentAlpha.snapTo(1f)
+                contentOffset.snapTo(direction)
+                contentOffset.animateTo(0f, tween(durationMillis = MotionTokens.Fast))
+            }
+
+            LegacyEpubPageTurnEffect.NONE -> Unit
+        }
     }
     val haptic = rememberHaptic(reducedMotion)
     val onPrevHaptic: () -> Unit = { haptic(HapticFeedbackType.TextHandleMove); onPrev() }
@@ -119,8 +168,14 @@ internal fun PagedEpubView(
         Box(
             Modifier
                 .fillMaxSize()
+                .clipToBounds()
                 .padding(horizontal = pageMargin.dp, vertical = pageMargin.dp)
-                .graphicsLayer { alpha = contentAlpha.value },
+                .onSizeChanged { contentWidthPx = it.width.toFloat() }
+                .graphicsLayer {
+                    alpha = contentAlpha.value
+                    translationX = contentOffset.value * contentWidthPx
+                    clip = configuredEffect == LegacyEpubPageTurnEffect.COVER
+                },
         ) {
             val content: @Composable () -> Unit = {
                 PagedChapterContent(
@@ -145,10 +200,6 @@ internal fun PagedEpubView(
             // 不在这里同时保留新旧整章 Composition。旧 AnimatedContent/Crossfade
             // 会在大章节翻页时让两章文本布局同时驻留，显著放大峰值内存。
             // 翻页动效后续应基于轻量截图/页面缓存实现，而不是复制整章组件树。
-            @Suppress("UNUSED_VARIABLE")
-            val configuredEffect = pageTurnEffect
-            @Suppress("UNUSED_VARIABLE")
-            val currentChapter = chapterIndex
             content()
         }
         // 点击翻页分区：three-zone=左右边缘；five-zone=再加上下边缘（对照 web tapZoneMode）

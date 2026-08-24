@@ -156,6 +156,43 @@ class ChapterPaginatorTest {
     }
 
     @Test
+    fun `page content starts after configured top padding`() {
+        val topPadding = 32f
+        val layout = ChapterPaginator.paginate(
+            paragraphs("首行需要避开页面上边界。".repeat(60)),
+            cfg(heightEm = 20f).copy(contentTopPaddingPx = topPadding),
+            ruler,
+            oracle,
+        )
+
+        assertEquals(topPadding, layout.pages.first().lineTops.first(), 0.001f)
+    }
+
+    @Test
+    fun `full height image is scaled into the space below top padding`() {
+        val c = cfg(heightEm = 10f).copy(contentTopPaddingPx = 200f)
+        val layout = ChapterPaginator.paginateBlocks(
+            blocks = listOf(
+                LayoutBlock.Image(
+                    sourceKey = "fixture-image",
+                    widthPx = 100f,
+                    heightPx = c.contentHeightPx,
+                    anchorOffset = 0,
+                ),
+            ),
+            cfg = c,
+            ruler = ruler,
+            oracle = oracle,
+        )
+
+        val image = layout.pages.single().images.single()
+        assertTrue(
+            "image bottom ${image.top + image.height} must stay inside ${c.contentHeightPx}",
+            image.top + image.height <= c.contentHeightPx + 0.001f,
+        )
+    }
+
+    @Test
     fun `line tops are strictly increasing within a page`() {
         val layout = ChapterPaginator.paginate(
             paragraphs("这是正文内容。".repeat(40)),

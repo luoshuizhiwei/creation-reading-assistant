@@ -53,6 +53,8 @@ import java.io.File
 import kotlin.math.roundToInt
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.ui.theme.LocalReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
+import com.creationreadingassistant.ui.screen.reader.pagedReaderContentTopPaddingDp
 import com.creationreadingassistant.ui.screen.reader.searchHighlightColor
 
 /**
@@ -121,8 +123,8 @@ fun PagedReaderHost(
     onAutoPagingFinished: () -> Unit = {},
     /** 自动翻页期间用户点按（任意分区动作）时调用，用于停止自动翻页。 */
     onStopAutoPaging: () -> Unit = {},
-    /** 页面图层本身透明：自动翻页揭动画叠加时用它铺底，避免两层文字互相透叠。 */
-    pageBackground: Color = Color.Transparent,
+    /** 静止页、相邻页、快照页和自动揭页共用的完整纸张表面。 */
+    pageSurface: ReaderPaperSurfaceSpec = ReaderPaperSurfaceSpec.solid(Color.Transparent),
     /** 页眉左侧内容条目 */
     headerLeft: HeaderFooterItem = HeaderFooterItem.CHAPTER_TITLE,
     /** 页眉右侧内容条目 */
@@ -174,7 +176,7 @@ fun PagedReaderHost(
     // 自动翻页揭动画进度（0..1）：主函数持有，effect 组写、页面层读。
     val revealProgress = remember { mutableFloatStateOf(0f) }
 
-    Column(modifier.fillMaxSize().padding(horizontal = pageMarginDp.dp)) {
+    Column(modifier.fillMaxSize()) {
         PagedReaderHeader(
             showReaderInfo = showReaderInfo,
             headerLeft = headerLeft,
@@ -186,24 +188,53 @@ fun PagedReaderHost(
             batteryLevel = batteryLevel.intValue,
             bookName = bookName,
             textColor = textColor,
+            modifier = Modifier.padding(horizontal = pageMarginDp.dp),
         )
 
-        // 顶部留白 = 页眉行高 + 固定小间距，与底部页脚（28dp）视觉对称；
+        // 顶部留白 = 自适应页眉行高 + 固定小间距，与自适应页脚视觉对称；
         // 不再叠加完整页边距，避免「上宽下窄」的头重感。
         Box(Modifier.weight(1f).fillMaxWidth().padding(top = 8.dp)) {
             BoxWithConstraints(Modifier.fillMaxSize()) {
-                // 平板横屏仍保持中文正文每行不超过约 42 字，超出的空间左右留白。
-                val widthPx = minOf(constraints.maxWidth.toFloat(), fontPx * 42f)
-                val heightPx = constraints.maxHeight.toFloat()
-                val horizontalInsetDp = with(density) {
-                    ((constraints.maxWidth.toFloat() - widthPx) / 2f).coerceAtLeast(0f).toDp()
+                // 翻页层保持完整阅读视口；正文列宽与页边距只属于页内容内部。
+                val geometry = remember(constraints.maxWidth, pageMarginDp, fontPx) {
+                    pagedReaderViewportGeometry(
+                        viewportWidthPx = constraints.maxWidth.toFloat(),
+                        requestedMarginPx = with(density) { pageMarginDp.dp.toPx() },
+                        maxTextWidthPx = fontPx * 42f,
+                    )
                 }
+                val widthPx = geometry.contentWidthPx
+                val heightPx = constraints.maxHeight.toFloat()
+                val horizontalInsetDp = with(density) { geometry.contentInsetPx.toDp() }
                 val contentWidthDp = with(density) { widthPx.toDp() }
 
-                val cfg = remember(widthPx, heightPx, fontPx, lineHeightMultiplier, paragraphSpacing, typefaceKey, chineseTypography) {
+                // Android 字体的实际 ascent 可能超出行框；给页内首行留出独立安全区，
+                // 否则首行会被 PageCanvas 顶边裁掉。该值进入 LayoutConfig，
+                // 分页、绘制和选区命中共用同一坐标。
+                // ReaderTopChrome 占用 64dp；有页眉时由「自适应页眉高度 + 间距 8dp +
+                // 正文安全区」共同避让，关闭页眉后补回缺少的页眉空间，避免首行被覆盖。
+                val contentTopPaddingPx = with(density) {
+                    pagedReaderContentTopPaddingDp(
+                        fontSizeSp = fontSizeSp,
+                        headerVisible = showReaderInfo &&
+                            (headerLeft != HeaderFooterItem.NONE || headerRight != HeaderFooterItem.NONE),
+                        fontScale = density.fontScale,
+                    ).dp.toPx()
+                }
+                val cfg = remember(
+                    widthPx,
+                    heightPx,
+                    fontPx,
+                    lineHeightMultiplier,
+                    paragraphSpacing,
+                    typefaceKey,
+                    chineseTypography,
+                    contentTopPaddingPx,
+                ) {
                     LayoutConfig(
                         contentWidthPx = widthPx,
                         contentHeightPx = heightPx,
+                        contentTopPaddingPx = contentTopPaddingPx,
                         fontSizePx = fontPx,
                         lineHeightMultiplier = lineHeightMultiplier,
                         // 设置里的段距是 0.8/1.1/1.5 的倍率档，映射到 em 值
@@ -261,7 +292,7 @@ fun PagedReaderHost(
                     contentWidthDp = contentWidthDp,
                     autoPageIntervalMillis = autoPageIntervalMillis,
                     pageTurnEffect = pageTurnEffect,
-                    pageBackground = pageBackground,
+                    pageSurface = pageSurface,
                     ttsRangeAbs = ttsRangeAbs,
                     ttsHighlightColor = ttsHighlightColor,
                     selectionColor = selectionColor,
@@ -289,6 +320,7 @@ fun PagedReaderHost(
             batteryLevel = batteryLevel.intValue,
             bookName = bookName,
             textColor = textColor,
+            modifier = Modifier.padding(horizontal = pageMarginDp.dp),
         )
     }
 }

@@ -40,9 +40,31 @@ class ReaderReplacementCapabilityTest {
     }
 
     @Test
-    fun `availability NO_EFFECTIVE_RULES still opens sheet but prompts`() {
+    fun `availability NO_EFFECTIVE_RULES keeps replacement management available`() {
         val cap = readerReplacementCapability(PagedReplacementAvailability.NO_EFFECTIVE_RULES)
-        assertTrue(cap is ReaderReplacementCapability.Unavailable)
+        assertEquals(ReaderReplacementCapability.Available, cap)
+    }
+
+    @Test
+    fun `scroll path hides replacement even when a paged source was prepared`() {
+        assertEquals(
+            PagedReplacementAvailability.PAGER_ENGINE_DISABLED,
+            effectiveReplacementAvailability(
+                pagerEngineOn = false,
+                prepared = PagedReplacementAvailability.APPLIED,
+            ),
+        )
+        assertEquals(
+            PagedReplacementAvailability.APPLIED,
+            effectiveReplacementAvailability(
+                pagerEngineOn = true,
+                prepared = PagedReplacementAvailability.APPLIED,
+            ),
+        )
+        assertEquals(
+            PagedReplacementAvailability.SOURCE_UNAVAILABLE,
+            effectiveReplacementAvailability(pagerEngineOn = true, prepared = null),
+        )
     }
 
     // ── 兼容旧入口（带 isTxt / readerMode / pagerEngineOn 显式参数的派生版） ──

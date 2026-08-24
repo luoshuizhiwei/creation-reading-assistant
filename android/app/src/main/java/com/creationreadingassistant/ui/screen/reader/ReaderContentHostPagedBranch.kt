@@ -38,7 +38,7 @@ internal fun ReaderContentHostPagedBranch(
         tapZoneMode = settings.readerSettings.tapZoneMode,
         pageTurnEffect = settings.readerSettings.pageTurnEffect,
         textColor = settings.paperFg,
-        pageBackground = settings.paper.bg,
+        pageSurface = settings.paperSurface,
         headerLeft = settings.readerSettings.headerLeft,
         headerRight = settings.readerSettings.headerRight,
         footerLeft = settings.readerSettings.footerLeft,

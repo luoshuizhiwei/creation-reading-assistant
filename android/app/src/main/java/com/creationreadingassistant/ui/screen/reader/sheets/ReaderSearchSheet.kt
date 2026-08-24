@@ -23,7 +23,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -73,7 +76,13 @@ internal fun SearchSheet(
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val reducedMotion = rememberReducedMotion()
+    val focusRequester = remember { FocusRequester() }
+    val keyboardController = LocalSoftwareKeyboardController.current
     val searchContextKey = searchContextKeyOf(document, txtDocument, plainContent)
+    LaunchedEffect(Unit) {
+        focusRequester.requestFocus()
+        keyboardController?.show()
+    }
     // 查询/文档变化 → 会话。面板重开（同一 query 且 COMPLETED/CANCELLED）不重启搜索，
     // 保留上一次的 query/results/current hit；取消只取消 searchJob，不再进入 LaunchedEffect key。
     LaunchedEffect(query, document, txtDocument, plainContent) {
@@ -134,7 +143,11 @@ internal fun SearchSheet(
             label = { Text("搜索本书") },
             placeholder = { Text("输入人名、设定或句子片段") },
             singleLine = true,
-            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .focusRequester(focusRequester)
+                .testTag("reader-search-field"),
         )
         val phase = session.phase
         if (phase == BookSearchPhase.SEARCHING) {

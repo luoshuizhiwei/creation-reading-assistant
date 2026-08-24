@@ -123,7 +123,7 @@ object ChapterPaginator {
         while (i < items.size) {
             val pageLines = ArrayList<LayoutLine>()
             val pageItems = ArrayList<Item>()
-            var used = 0f
+            var used = cfg.contentTopPaddingPx
 
             while (i < items.size) {
                 val it = items[i]
@@ -208,10 +208,13 @@ object ChapterPaginator {
                         intrinsicW = cfg.contentWidthPx
                         intrinsicH = cfg.contentWidthPx * 0.75f
                     }
+                    val availableImageHeight = (
+                        cfg.contentHeightPx - cfg.contentTopPaddingPx
+                    ).coerceAtLeast(1f)
                     val scale = minOf(
                         1f,
                         cfg.contentWidthPx / intrinsicW,
-                        cfg.contentHeightPx / intrinsicH,
+                        availableImageHeight / intrinsicH,
                     )
                     items += BlockItem.Image(block, intrinsicW * scale, intrinsicH * scale)
                 }
@@ -250,7 +253,7 @@ object ChapterPaginator {
         var cursor = 0
         while (cursor < items.size) {
             val pageItems = ArrayList<BlockItem>()
-            var used = 0f
+            var used = cfg.contentTopPaddingPx
 
             while (cursor < items.size) {
                 val item = items[cursor]
@@ -278,7 +281,7 @@ object ChapterPaginator {
             val lineTops = ArrayList<Float>()
             val paraOffsets = ArrayList<Int>()
             val images = ArrayList<PlacedImage>()
-            var y = 0f
+            var y = cfg.contentTopPaddingPx
 
             pageItems.forEachIndexed { index, item ->
                 when (item) {
@@ -345,7 +348,7 @@ object ChapterPaginator {
         // 只在剩余不多时才摊；剩太多说明是章末短页，摊开反而怪
         val perGap = if (slack < cfg.lineHeightPx) slack / gaps else 0f
 
-        var y = 0f
+        var y = cfg.contentTopPaddingPx
         for (idx in lines.indices) {
             tops[idx] = y
             y += lineHeight(lines[idx], cfg)

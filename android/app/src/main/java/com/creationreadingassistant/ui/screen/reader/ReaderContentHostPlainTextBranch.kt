@@ -126,8 +126,10 @@ internal fun ReaderContentHostPlainTextBranch(
                             ShimmerBlock(
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    // LazyColumn 已在 contentPadding 统一扣除页边距；
+                                    // 这里不能再扣一次，否则加载中占位比真实正文窄一层，
+                                    // 单元完成后会出现跨设备可见的宽度跳变。
                                     .padding(
-                                        horizontal = settings.readerSettings.pageMargin.dp,
                                         vertical = 6.dp,
                                     )
                                     .height(loadingPlaceholderHeight)

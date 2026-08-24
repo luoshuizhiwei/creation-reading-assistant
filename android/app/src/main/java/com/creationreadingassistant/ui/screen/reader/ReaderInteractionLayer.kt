@@ -20,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.screen.reader.ReaderBottomActions
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
@@ -49,6 +50,7 @@ internal data class ReaderInteractionLayerState(
     val isFirstChapter: Boolean,
     val isLastChapter: Boolean,
     val isEpub: Boolean,
+    val isMarkdown: Boolean,
     val isLoading: Boolean,
     val error: String?,
     val showProgressBar: Boolean,
@@ -78,6 +80,38 @@ internal data class ReaderInteractionLayerCallbacks(
     val onSearch: () -> Unit,
     val onClearSelection: () -> Unit,
 )
+
+/** 顶部阅读器标题栏展示的文档格式标签。 */
+internal fun readerFormatLabel(isEpub: Boolean, isMarkdown: Boolean): String =
+    when {
+        isEpub -> "EPUB"
+        isMarkdown -> "MD"
+        else -> "TXT"
+    }
+
+/**
+ * 正文视口需要避开的底部浮层高度。
+ *
+ * 安全区只随底栏内容形态变化，不随 controlsVisible 变化：显示/隐藏同一种底栏时
+ * 不触发分页重排或滚动位置跳动；打开 TTS/自动翻页这种明确改变底栏形态的动作，
+ * 才使用对应的更高安全区。
+ */
+@Suppress("UNUSED_PARAMETER")
+internal fun readerContentBottomReserve(
+    showTts: Boolean,
+    autoPagingActive: Boolean,
+    fontScale: Float = 1f,
+): Dp = 0.dp
+
+/**
+ * Legacy/滚动正文没有分页宿主自己的页眉行；始终预留 TopAppBar 的高度，避免控制栏
+ * 显示时覆盖首段。分页宿主内部已经管理页眉/首行安全区，因此不重复扣除空间。
+ */
+@Suppress("UNUSED_PARAMETER")
+internal fun readerContentTopReserve(
+    usesPagedContent: Boolean,
+    measuredTopChrome: Dp? = null,
+): Dp = 0.dp
 
 /**
  * 正文之上的覆盖层集合（进度条 / 顶栏 / 底栏+TTS / 选中工具条）。
@@ -115,7 +149,7 @@ internal fun BoxScope.ReaderInteractionLayer(
     ) {
         ReaderTopChrome(
             bookTitle = state.bookTitle,
-            formatLabel = if (state.isEpub) "EPUB" else "TXT",
+            formatLabel = readerFormatLabel(state.isEpub, state.isMarkdown),
             chapterTitle = state.currentChapterTitle,
             progressPercent = state.progressPercent,
             paper = state.paper,
@@ -143,8 +177,8 @@ internal fun BoxScope.ReaderInteractionLayer(
             contentColor = state.paper.fg,
             border = BorderStroke(1.dp, state.paper.outlineVariant),
         ) {
-            if (state.showTts) {
-                TtsBar(
+            when (readerBottomChromeMode(state.showTts, state.autoPagingActive)) {
+                ReaderBottomChromeMode.TTS -> TtsBar(
                     paper = state.paper,
                     tts = tts,
                     chapterLabel = state.currentChapterTitle.ifBlank { "正文" },
@@ -153,8 +187,15 @@ internal fun BoxScope.ReaderInteractionLayer(
                     tts.stop()
                     callbacks.onCloseTts()
                 }
-            } else {
-                ReaderBottomActions(
+
+                ReaderBottomChromeMode.AUTO_PAGING -> AutoPagingBar(
+                    onAction = callbacks.onChromeAction,
+                    speed = state.autoPageSpeed,
+                    onSpeedChange = callbacks.onAutoPageSpeedChange,
+                    paper = state.paper,
+                )
+
+                ReaderBottomChromeMode.NORMAL -> ReaderBottomActions(
                     onAction = callbacks.onChromeAction,
                     chapterProgress = state.chapterProgress,
                     onSeekProgress = { callbacks.onSeekChapterPercent(it) },
@@ -162,7 +203,7 @@ internal fun BoxScope.ReaderInteractionLayer(
                     onNextChapter = callbacks.onNextChapter,
                     isFirstChapter = state.isFirstChapter,
                     isLastChapter = state.isLastChapter,
-                    autoPagingActive = state.autoPagingActive,
+                    autoPagingActive = false,
                     autoPageSpeed = state.autoPageSpeed,
                     onAutoPageSpeedChange = callbacks.onAutoPageSpeedChange,
                     paper = state.paper,

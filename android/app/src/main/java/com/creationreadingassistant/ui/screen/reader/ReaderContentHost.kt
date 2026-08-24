@@ -22,6 +22,7 @@ import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
 
 /**
  * 阅读设置与纸张调色板（B1 状态袋分组：设置域）。
@@ -29,6 +30,7 @@ import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 internal data class ReaderContentSettings(
     val readerSettings: ReaderSettings,
     val paper: ReaderPaperPalette,
+    val paperSurface: ReaderPaperSurfaceSpec,
     val paperFg: Color,
     val sentenceHighlightBg: Color,
     /** 统一搜索命中高亮底色（P1-B）：TXT/EPUB/Markdown 滚动与分页共用，随纸自适应。 */

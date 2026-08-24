@@ -30,6 +30,31 @@ internal fun searchContextKeyOf(
     plainContent: String,
 ): String = "${System.identityHashCode(document)}|${System.identityHashCode(txtDocument)}|${System.identityHashCode(plainContent)}"
 
+/**
+ * Case-insensitive lookup that reports indices in the original UTF-16 string.
+ * Building a lowercased copy is unsafe because Unicode case conversion can change its length.
+ */
+private fun String.indexOfIgnoreCaseStable(needle: String, startIndex: Int): Int {
+    if (needle.isEmpty()) return startIndex.coerceIn(0, length)
+    val first = startIndex.coerceAtLeast(0)
+    val last = length - needle.length
+    if (first > last) return -1
+    for (index in first..last) {
+        if (
+            regionMatches(
+                thisOffset = index,
+                other = needle,
+                otherOffset = 0,
+                length = needle.length,
+                ignoreCase = true,
+            )
+        ) {
+            return index
+        }
+    }
+    return -1
+}
+
 /** 对照 web createReaderSearchResults：全本拼接文本上做不区分大小写检索，最多 80 处，片断取 28 前 +42 后。 */
 internal fun computeBookSearch(
     fullText: String,
@@ -41,13 +66,11 @@ internal fun computeBookSearch(
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
     val text = fullText
-    val lower = text.lowercase()
-    val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
     var from = 0
     var occurrence = 0
     while (results.size < 80) {
-        val hit = lower.indexOf(lowerKw, from)
+        val hit = text.indexOfIgnoreCaseStable(keyword, from)
         if (hit < 0) break
         val start = (hit - 28).coerceAtLeast(0)
         val end = (hit + keyword.length + 42).coerceAtMost(text.length)
@@ -67,7 +90,7 @@ internal fun computeBookSearch(
             ),
         )
         occurrence += 1
-        from = hit + lowerKw.length
+        from = hit + keyword.length
     }
     return results
 }
@@ -87,7 +110,6 @@ internal suspend fun computeEpubSearch(
 ): List<BookSearchResult> {
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
-    val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
     val denom = totalChars.coerceAtLeast(1)
     val total = document.chapters.size
@@ -98,11 +120,10 @@ internal suspend fun computeEpubSearch(
         val ct = document.text(ci)
         if (ct.isBlank()) continue
         val text = ct
-        val lower = text.lowercase()
         val base = chapterStartOffsets.getOrElse(ci) { 0 }
         var from = 0
         while (results.size < 80) {
-            val hit = lower.indexOf(lowerKw, from)
+            val hit = text.indexOfIgnoreCaseStable(keyword, from)
             if (hit < 0) break
             val start = (hit - 28).coerceAtLeast(0)
             val end = (hit + keyword.length + 42).coerceAtMost(text.length)
@@ -117,7 +138,7 @@ internal suspend fun computeEpubSearch(
                     absoluteRange = globalHit until globalHit + keyword.length,
                 ),
             )
-            from = hit + lowerKw.length
+            from = hit + keyword.length
         }
     }
     return results
@@ -137,9 +158,11 @@ internal suspend fun computeStreamingTxtSearch(
 ): List<BookSearchResult> {
     val keyword = query.trim()
     if (keyword.isBlank()) return emptyList()
-    val lowerKw = keyword.lowercase()
     val results = mutableListOf<BookSearchResult>()
     val denom = totalChars.coerceAtLeast(1)
+    // 跨 ReadingUnit 的命中最多需要保留 keyword.length - 1 个前缀字符；
+    // 200 只是短关键词的默认窗口，不能让超长查询在单元边界被截断。
+    val overlapLength = (keyword.length - 1).coerceAtLeast(200)
     var previousTail = ""
     val total = readingUnits.size
     for ((i, unit) in readingUnits.withIndex()) {
@@ -149,13 +172,18 @@ internal suspend fun computeStreamingTxtSearch(
         onProgress(i + 1, total)
         val unitText = document.readUnit(unit)
         val searchInput = previousTail + unitText
-        val lower = searchInput.lowercase()
         val offsetAdjust = unit.charStart - previousTail.length
         var from = 0
         while (results.size < 80) {
-            val hit = lower.indexOf(lowerKw, from)
+            val hit = searchInput.indexOfIgnoreCaseStable(keyword, from)
             if (hit < 0) break
             val globalHit = hit + offsetAdjust
+            // previousTail 仅用于发现跨 ReadingUnit 边界的匹配。完全落在重叠尾部的
+            // 命中已经在上一单元报告过，必须跳过；若命中延伸到当前单元，则保留它。
+            if (globalHit + keyword.length <= unit.charStart) {
+                from = hit + keyword.length
+                continue
+            }
             val start = (hit - 28).coerceAtLeast(0)
             val end = (hit + keyword.length + 42).coerceAtMost(searchInput.length)
             val excerpt = searchInput.substring(start, end).replace(Regex("\\s+"), " ")
@@ -167,12 +195,12 @@ internal suspend fun computeStreamingTxtSearch(
                     absoluteRange = globalHit until globalHit + keyword.length,
                 ),
             )
-            from = hit + lowerKw.length
+            from = hit + keyword.length
         }
-        previousTail = if (unitText.length >= 200) {
-            unitText.takeLast(200)
+        previousTail = if (unitText.length >= overlapLength) {
+            unitText.takeLast(overlapLength)
         } else {
-            (previousTail + unitText).takeLast(200)
+            (previousTail + unitText).takeLast(overlapLength)
         }
     }
     return results

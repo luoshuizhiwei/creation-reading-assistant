@@ -1,6 +1,7 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -92,6 +93,13 @@ class ReaderSearchSheetTest {
         assertTrue("点击结果必须关闭 Sheet（正文可见）", dismissed)
         assertEquals(1, session.currentIndex)
         assertEquals(1, session.currentTarget?.resultIndex)
+    }
+
+    @Test
+    fun openingSearch_focusesQueryField() {
+        setSearchSheet(sessionWith(0))
+
+        composeRule.onNodeWithTag("reader-search-field").assertIsFocused()
     }
 
     @Test

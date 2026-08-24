@@ -58,6 +58,54 @@ internal sealed interface ReaderChromeAction {
     data object ToggleAutoPaging : ReaderChromeAction
 }
 
+internal enum class ReaderBottomChromeMode { NORMAL, AUTO_PAGING, TTS }
+
+internal fun readerBottomChromeMode(showTts: Boolean, autoPagingActive: Boolean): ReaderBottomChromeMode = when {
+    showTts -> ReaderBottomChromeMode.TTS
+    autoPagingActive -> ReaderBottomChromeMode.AUTO_PAGING
+    else -> ReaderBottomChromeMode.NORMAL
+}
+
+@Composable
+internal fun AutoPagingBar(
+    onAction: (ReaderChromeAction) -> Unit,
+    speed: Int,
+    onSpeedChange: (Int) -> Unit,
+    paper: ReaderPaperPalette,
+) {
+    val minimumTouchTarget = LocalLayoutTokens.current.minimumTouchTarget
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Center,
+    ) {
+        Text(
+            text = "自动翻页 · $speed 档",
+            style = MaterialTheme.typography.labelLarge,
+            color = paper.accent,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(
+            onClick = { onSpeedChange(clampAutoPageSpeed(speed - 1)) },
+            modifier = Modifier.heightIn(min = minimumTouchTarget),
+        ) { Icon(Icons.Outlined.Remove, contentDescription = "放慢自动翻页", tint = paper.accent) }
+        IconButton(
+            onClick = { onAction(ReaderChromeAction.ToggleAutoPaging) },
+            modifier = Modifier.heightIn(min = minimumTouchTarget),
+        ) { Icon(Icons.Outlined.Pause, contentDescription = "暂停自动翻页", tint = paper.accent) }
+        IconButton(
+            onClick = { onSpeedChange(clampAutoPageSpeed(speed + 1)) },
+            modifier = Modifier.heightIn(min = minimumTouchTarget),
+        ) { Icon(Icons.Outlined.Add, contentDescription = "加快自动翻页", tint = paper.accent) }
+        IconButton(
+            onClick = { onAction(ReaderChromeAction.OpenSheet(ReaderSheet.SETTINGS)) },
+            modifier = Modifier.heightIn(min = minimumTouchTarget),
+        ) { Icon(Icons.Outlined.Settings, contentDescription = "自动翻页设置", tint = paper.accent) }
+    }
+}
+
 @Composable
 internal fun ReaderBottomActions(
     onAction: (ReaderChromeAction) -> Unit,

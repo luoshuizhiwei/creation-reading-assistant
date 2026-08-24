@@ -36,6 +36,22 @@ class SearchResultOffsetTest {
     }
 
     @Test
+    fun `case insensitive search keeps offsets in the original unicode text`() {
+        val text = "A\u0130B"
+
+        val result = computeBookSearch(
+            fullText = text,
+            query = "B",
+            chapterStartOffsets = emptyList(),
+            chapterTitles = emptyList(),
+            isTxt = true,
+        ).single()
+
+        assertEquals(2 until 3, result.absoluteRange)
+        assertEquals("B", text.substring(result.absoluteRange))
+    }
+
+    @Test
     fun `streaming txt search maps cross unit boundary hit to global range`() = runTest {
         // 单元 1：前 6 字符；单元 2：后 6 字符；匹配「123456」跨越单元边界
         val unit1 = ReadingUnit(unitIndex = 0, chapterIndex = 0, title = "全文", charStart = 0, charCount = 6)
@@ -55,6 +71,59 @@ class SearchResultOffsetTest {
 
         // 跨边界命中起点在单元 1 尾部（全局 3..9），不是单元 2 起点
         assertEquals(listOf(3 until 9), results.map { it.absoluteRange })
+    }
+
+    @Test
+    fun `streaming txt search does not duplicate a hit carried in the overlap tail`() = runTest {
+        val unit1 = ReadingUnit(unitIndex = 0, chapterIndex = 0, title = "全文", charStart = 0, charCount = 6)
+        val unit2 = ReadingUnit(unitIndex = 1, chapterIndex = 0, title = "全文", charStart = 6, charCount = 4)
+        val document = PlainTextDocument("needle tail").apply {
+            readingUnits = listOf(unit1, unit2)
+        }
+
+        val results = computeStreamingTxtSearch(
+            document = document,
+            readingUnits = listOf(unit1, unit2),
+            query = "needle",
+            totalChars = 10,
+        )
+
+        // 第二单元携带了第一单元的末尾重叠区，但该命中不是新出现的结果。
+        assertEquals(listOf(0 until 6), results.map { it.absoluteRange })
+    }
+
+    @Test
+    fun `streaming txt search keeps a long cross unit query discoverable`() = runTest {
+        val keyword = "长".repeat(240)
+        val text = "前缀".repeat(100) + keyword + "后缀"
+        val firstCount = 400
+        val unit1 = ReadingUnit(
+            unitIndex = 0,
+            chapterIndex = 0,
+            title = "全文",
+            charStart = 0,
+            charCount = firstCount,
+        )
+        val unit2 = ReadingUnit(
+            unitIndex = 1,
+            chapterIndex = 0,
+            title = "全文",
+            charStart = firstCount,
+            charCount = text.length - firstCount,
+        )
+        val document = PlainTextDocument(text).apply {
+            readingUnits = listOf(unit1, unit2)
+        }
+
+        val results = computeStreamingTxtSearch(
+            document = document,
+            readingUnits = listOf(unit1, unit2),
+            query = keyword,
+            totalChars = text.length,
+        )
+
+        val start = text.indexOf(keyword)
+        assertEquals(listOf(start until (start + keyword.length)), results.map { it.absoluteRange })
     }
 
     @Test

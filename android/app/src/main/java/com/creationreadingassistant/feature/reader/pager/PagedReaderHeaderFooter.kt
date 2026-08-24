@@ -10,10 +10,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.HeaderFooterItem
+import com.creationreadingassistant.ui.screen.reader.pagedReaderFooterHeightDp
+import com.creationreadingassistant.ui.screen.reader.pagedReaderHeaderHeightDp
 
 /** 页眉/页脚渲染所需的分页快照 */
 internal data class PageInfo(
@@ -39,11 +42,13 @@ internal fun PagedReaderHeader(
     batteryLevel: Int,
     bookName: String,
     textColor: Color,
+    modifier: Modifier = Modifier,
 ) {
     // 页眉
     if (showReaderInfo && (headerLeft != HeaderFooterItem.NONE || headerRight != HeaderFooterItem.NONE)) {
+        val headerHeight = pagedReaderHeaderHeightDp(LocalDensity.current.fontScale).dp
         Row(
-            Modifier.fillMaxWidth().height(24.dp),
+            modifier.fillMaxWidth().height(headerHeight),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -62,7 +67,9 @@ internal fun PagedReaderHeader(
                 resolveItemText(headerRight, source, anchorValue, pageInfo, currentTime, batteryLevel, bookName),
                 fontSize = 11.sp,
                 color = headerColor,
-                modifier = Modifier.padding(start = 12.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(start = 12.dp),
             )
         }
     }
@@ -84,10 +91,12 @@ internal fun PagedReaderFooter(
     batteryLevel: Int,
     bookName: String,
     textColor: Color,
+    modifier: Modifier = Modifier,
 ) {
     // 页脚：可配置内容。安静阅读信息关闭时只留空隙保持正文位置稳定。
+    val footerHeight = pagedReaderFooterHeightDp(LocalDensity.current.fontScale).dp
     Row(
-        Modifier.fillMaxWidth().height(28.dp),
+        modifier.fillMaxWidth().height(footerHeight),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -105,7 +114,9 @@ internal fun PagedReaderFooter(
                 resolveItemText(footerRight, source, anchorValue, pageInfo, currentTime, batteryLevel, bookName),
                 fontSize = 11.sp,
                 color = footerColor,
-                modifier = Modifier.padding(start = 12.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f, fill = false).padding(start = 12.dp),
             )
         }
     }

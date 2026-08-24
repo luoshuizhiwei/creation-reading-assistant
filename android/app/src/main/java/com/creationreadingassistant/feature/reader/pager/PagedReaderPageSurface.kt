@@ -31,6 +31,7 @@ import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
 import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.PageHitTest
 import com.creationreadingassistant.feature.reader.layout.pageAccessibleText
+import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
 import kotlin.math.hypot
 
 /**
@@ -57,7 +58,7 @@ internal fun PagedReaderPageSurface(
     contentWidthDp: Dp,
     autoPageIntervalMillis: Long?,
     pageTurnEffect: String,
-    pageBackground: Color,
+    pageSurface: ReaderPaperSurfaceSpec,
     ttsRangeAbs: Pair<Int, Int>?,
     ttsHighlightColor: Color,
     selectionColor: Color,
@@ -138,6 +139,7 @@ internal fun PagedReaderPageSurface(
         // 因此分区模式经 rememberUpdatedState 透传，页面/章起点在闭包内现读 controller。
         val tapZone by rememberUpdatedState(tapZoneMode)
         val handleHitRadiusPx = with(density) { 24.dp.toPx() }
+        val contentInsetPx = with(density) { horizontalInsetDp.toPx() }
         val gestures = Modifier
                 .pointerInput(controller) {
                     // 选区把手拖拽：down 命中把手圆点附近才接管（消费后续事件），
@@ -157,10 +159,10 @@ internal fun PagedReaderPageSurface(
                             val rightHandle = handles.right
                         val side = when {
                             leftHandle != null &&
-                                handleDist(down.position, Offset(leftHandle.x, leftHandle.y)) <= handleHitRadiusPx ->
+                                handleDist(down.position, Offset(leftHandle.x + contentInsetPx, leftHandle.y)) <= handleHitRadiusPx ->
                                 PageSelection.HandleSide.LEFT
                             rightHandle != null &&
-                                handleDist(down.position, Offset(rightHandle.x, rightHandle.y)) <= handleHitRadiusPx ->
+                                handleDist(down.position, Offset(rightHandle.x + contentInsetPx, rightHandle.y)) <= handleHitRadiusPx ->
                                 PageSelection.HandleSide.RIGHT
                             else -> continue
                         }
@@ -173,7 +175,7 @@ internal fun PagedReaderPageSurface(
                                 // 拖拽中重排/跨章：放弃拖拽（翻页路径会清选区，不残留）
                                 if (curPage !== page) break
                                 currentSel = PageSelection.adjustHandle(
-                                    curPage, cfg, currentSel, side, change.position.x, change.position.y,
+                                    curPage, cfg, currentSel, side, change.position.x - contentInsetPx, change.position.y,
                                 )
                                 selRange.value = currentSel
                                 onSelect(
@@ -193,7 +195,7 @@ internal fun PagedReaderPageSurface(
                             // 不可用外层捕获的 page/chStart：那是冻结快照，
                             // 翻页后会按旧页几何选错句、跨章后偏移错位入库。
                             val curPage = controller.currentPage ?: return@press
-                            val ch = PageSelection.offsetAt(curPage, cfg, offset.x, offset.y)
+                            val ch = PageSelection.offsetAt(curPage, cfg, offset.x - contentInsetPx, offset.y)
                             val sent = PageSelection.sentenceAround(controller.chapterText, ch)
                             if (!sent.isEmpty()) {
                                 selRange.value = sent
@@ -265,12 +267,9 @@ internal fun PagedReaderPageSurface(
             onPageTurned = onGesturePageTurn,
             revealProgress = revealProgress,
             revealDividerColor = MaterialTheme.colorScheme.primary,
-            revealBackground = pageBackground,
-            pageBackground = pageBackground,
+            pageSurface = pageSurface,
             modifier = Modifier
-                .offset(x = horizontalInsetDp)
-                .width(contentWidthDp)
-                .fillMaxHeight()
+                .fillMaxSize()
                 .semantics { contentDescription = "分页正文已就绪" }
                 .then(gestures),
         ) { rendered, isCurrent ->
@@ -279,21 +278,28 @@ internal fun PagedReaderPageSurface(
             val accessibleText = remember(rendered.page, rendered.chapterText) {
                 pageAccessibleText(rendered.page, rendered.chapterText)
             }
-            PageLayer(
-                page = rendered.page,
-                chapterText = rendered.chapterText,
-                cfg = cfg,
-                paint = paint,
-                headingPaint = headingPaint,
-                underlays = if (isCurrent) underlays else emptyList(),
-                handles = if (isCurrent) selectionHandles else null,
-                accessibleText = if (isCurrent) {
-                    if (accessibleText.isEmpty()) "本页无正文" else accessibleText
-                } else {
-                    null
-                },
-                modifier = Modifier.fillMaxSize(),
-            )
+            Box(
+                Modifier
+                    .offset(x = horizontalInsetDp)
+                    .width(contentWidthDp)
+                    .fillMaxHeight(),
+            ) {
+                PageLayer(
+                    page = rendered.page,
+                    chapterText = rendered.chapterText,
+                    cfg = cfg,
+                    paint = paint,
+                    headingPaint = headingPaint,
+                    underlays = if (isCurrent) underlays else emptyList(),
+                    handles = if (isCurrent) selectionHandles else null,
+                    accessibleText = if (isCurrent) {
+                        if (accessibleText.isEmpty()) "本页无正文" else accessibleText
+                    } else {
+                        null
+                    },
+                    modifier = Modifier.fillMaxSize(),
+                )
+            }
         }
     }
 }

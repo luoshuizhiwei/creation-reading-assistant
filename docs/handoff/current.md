@@ -1,6 +1,6 @@
 # 当前 Agent 交接入口
 
-更新日期：2026-08-22 集成验证（Kimi3 页面升级收工后全量门禁通过；此前 2026-08-21 会话收尾记录见第 2 节）  
+更新日期：2026-08-24 集成验证（阅读器跨屏自适应、跨格式翻页与分页覆盖层收口；此前会话收尾记录见第 2 节）
 仓库：`D:\develop\Code\Codex\creation-reading-assistant`  
 当前对话主线：**独立原生 Android `android/`**；desktop 候选已停放，不是当前实施任务。
 
@@ -179,7 +179,7 @@ Novalist 调研与取舍已记录在
   3. **2 项 ShelfScreenComposeTest**：pull-refresh 指示器顶部 0dp 应 ≥ 顶栏 64dp（重叠）；搜索激活态"取消"按钮不显示。BookGrid/顶栏为 Kimi3 改动，**最像真实布局回归**，待修。
   4. **2 项 StatsComposeTest UI**：`stats-creation`/`stats-period-empty` tag 在代码中存在但断言 not displayed；测试 08-03 后未执行过，疑似 harness 与现结构不匹配，待深挖。
   5. **1 项 ReaderTocSheetTest**：`已读章节` 语义节点出现 2 个（期望 1 个），P3.3 相关语义重复。
-- **事件（如实记录）**：Gradle 在 connected 测试结束后自动卸载了主应用+测试 APK，设备上的中性测试书库（测试 EPUB + 测试书籍甲乙丙及其进度）随之清除——均为历次会话导入的测试 fixture，可重新导入；主应用已立即重装并验证启动。后续跑 connected 测试需注意 AGP 默认卸载行为（可 `-Pandroid.injected.invoked.from.ide=true` 或测试后重装）。
+- **事件（如实记录）**：Gradle 在 connected 测试结束后自动卸载了主应用+测试 APK，设备上的中性测试书库（测试 EPUB/测试 TXT 及其进度）随之清除——均为历次会话导入的测试 fixture，可重新导入；主应用已立即重装并验证启动。后续跑 connected 测试需注意 AGP 默认卸载行为（可 `-Pandroid.injected.invoked.from.ide=true` 或测试后重装）。
 - **2026-08-22 P3.2 片 2–3 已实施（未提交）**：`GoalStore`（DataStore `goal_prefs`）+ `GoalSubPage`
   （我的 → 阅读目标）+ Stats `GoalRingSection` 进度环 + Home 今日副标；WorkManager 每日提醒
   （`ReadingGoalWorker`/`ReadingGoalScheduler`，新依赖 work-runtime-ktx 2.9.1，`reading_goal` 渠道，
@@ -214,6 +214,115 @@ Novalist 调研与取舍已记录在
   读场景 6 项因空书架+种子未落地跳过（见性能文档新增节）。质量收口两提交：
   `1e3238f`（仪器测试债清零）+ `8baba68`（P3.2 片 2–3）。
 - **P0.2 清单核对状态**：可自动化的部分（导航/设置/TOC/统计渲染）已覆盖；TTS 听感、拔耳机、色温/纹理实际观感、EPUB 封面提取、内容哈希判重（书库已清）需重新导入测试书后人工/脚本验证。
+
+## 9. 2026-08-23 阅读器分页与覆盖层收口
+
+设备 `c49ac6cf`（真实 Android 手机），本轮未使用模拟器；`stay_on_while_plugged_in` 实测为 `7`，未修改。
+
+- **首行被顶栏覆盖**：真机截图确认 ReaderTopChrome 是全屏覆盖层，分页宿主仍从 `y=0` 开始绘制，导致大字号正文首行被裁掉。已将 `contentTopPaddingPx` 纳入 `LayoutConfig.fingerprint`、`ChapterPaginator` 的文本/块分页、绘制和底部留白分配；Paged TXT 宿主固定预留 32dp，分页与选区坐标保持一致。
+- **控制栏遮住末行**：真机截图确认底部普通栏会覆盖分页正文末行。ReaderScaffold 现在为正文视口按底栏形态保留固定安全区：普通栏 160dp、自动翻页栏 216dp、TTS 栏 232dp；同一底栏的显示/隐藏不改变正文视口，避免页码重排和滚动跳动。
+- **格式标签错误**：Markdown 原先沿用 TXT 分支标签，现改为 `MD`；EPUB/TXT 标签保持原语义。
+- **翻页透叠修复保持有效**：PageTurner 的页面背景与边界裁剪修复未被本轮覆盖层改动回退。
+- **静止页“纸中纸”修复**：真机截图确认 `none` 静止态仍把 `pageBackground` 铺满整页，
+  与外层渐变/纸张纹理形成白色矩形。现在仅在 slide/cover/reveal 的实际过渡帧铺遮罩，
+  静止页透出阅读器外层纸张；新增 `PageTurnerStaticSurfaceTest` 锁定该像素契约，
+  同时保留相邻页文字不穿透的覆盖测试。
+- **当前排版参数核对**：真机当前使用字号 25sp、行高 1.85、段距 1.15 倍（映射为 0.46em）、
+  页边距 22dp。截图中首行/末行未裁切，正文段首缩进与段间距按配置生效；因此不能把“大字号宽行距”
+  误判成排版算法重叠。是否将默认视觉改为更紧凑的字号/行距，仍应作为设计决策，不在本轮擅自改默认值。
+- **书内搜索入口补齐输入准备**：搜索面板打开时现在同时请求焦点并主动唤起软键盘，输入框带
+  `reader-search-field` 测试语义；新增 `ReaderSearchSheetTest.openingSearch_focusesQueryField`，
+  真机类测试 4/4 通过。真机 UI dump 确认输入框 `focused=true`，输入法服务报告
+  `mInputShown=true`。
+- **阅读交互复核**：测试 TXT 的长按选区可显示高亮、选区把手和操作栏；普通横向滑动的中间态、
+  自动翻页揭页和停止后的稳定态均未见两份正文透出或文字重叠。自动翻页的揭页分界线会短暂
+  横穿字形，这是当前效果的视觉特征，不是正文重复；后续可作为单独的视觉优化项评估。
+
+验收证据（2026-08-23 新鲜执行）：
+
+- `:app:testDebugUnitTest`：1490/1490，通过 0 失败、0 error、0 skipped。
+- `:app:lintDebug`：0 errors、12 warnings（均为既有依赖/平台 API/颜色与设备标识提示）。
+- `:app:assembleDebug`、`:app:compileDebugAndroidTestKotlin`：通过。
+- 真机 `PageTurnerTest#coverTurnKeepsUnderlyingPageTextFromShowingThroughCurrentPage`、
+  `PageTurnerStaticSurfaceTest#settledNoneEffectDoesNotPaintASeparatePaperCard`：`OK (2 tests)`。
+- 全量 JVM `:app:testDebugUnitTest`：`BUILD SUCCESSFUL`（本轮未新增 JVM 用例，沿用当前 1490 项基线）。
+- 真机静止态截图：`C:\Users\23254\AppData\Local\Temp\reader-layout-after-background-fix.png`；
+  白色页面矩形已消失，正文仍保持段首缩进、行距和页脚安全区。
+- 真机截图已复核：`creation-reading-top-padding-fixed32.png`、`creation-reading-markdown-format-fixed.png`、
+  `creation-reading-bottom-reserve-normal-final.png`、`creation-reading-final-swipe-mid.png` /
+  `creation-reading-final-swipe-settled.png`、`reader-search-keyboard-fixed-final2.png`、
+  `reader-selection-after-search-fix2.png`、`reader-page-swipe-mid1.png` /
+  `reader-page-swipe-mid2.png` / `reader-page-swipe-mid3.png`、`reader-auto-page-after2s.png` /
+  `reader-auto-page-stopped-final.png`；正文首行、末行与普通翻页中间态均未见文字透叠。
+
+仍未覆盖的下一刀：重新导入中性测试 EPUB/TXT 后执行替换/搜索/高亮/选区/TTS/大章提示带书矩阵；
+  legacy/滚动路径的替换净化和 EPUB/Markdown 结构保真替换仍按当前能力边界保留原文。自动翻页揭页线
+  横穿字形的视觉取舍也可在下一轮决定是否优化。
+
+## 10. 2026-08-24 阅读器跨屏自适应与跨路径收口
+
+- **自适应尺度已接入共同内容入口**：`ReaderViewportProfile` 在 `ReaderScaffold` 的
+  `BoxWithConstraints` 中按当前窗口最短边（dp）生成派生阅读设置，TXT、Markdown、EPUB、
+  滚动和分页共用同一份结果；旋转屏幕使用短边，不会因横屏长边把字号误放大。
+- **用户偏好不会被覆盖**：DataStore 中保存的字号和页边距仍是用户基准值，视口派生值只在
+  当前窗口内使用，不写回设置。尺度以 411dp 短边为参考，限制在 0.88–1.08：示例为
+  320dp → 约 22sp、411dp → 保持 25sp、600dp → 约 27sp；同时按字号计算分页首行安全区
+  24–40dp，避免小屏大字或宽屏换行后首行裁切。
+- **自动化契约**：`ReaderViewportProfileTest` 覆盖参考手机、小屏、宽屏、横竖屏等价、行为
+  设置不变和无障碍字号下元信息栏增高 6 项；当前真机 1220×2712、density 480（约 407dp 短边）派生字号约 24.7sp，
+  与保存的 25sp 基准一致。
+- **配置变化防旧测量**：`ReaderScaffold` 的顶部/底部覆盖层测量现在以 density 与 fontScale 为 key；
+  换屏幕密度或系统字号后先丢弃旧 px→dp 结果，再用当前窗口重新测量，避免首/末行沿用旧设备高度。
+- **跨格式行为补齐**：legacy EPUB 分页不再忽略“无/淡入/滑动/覆盖”设置；滑动与覆盖只移动当前章节
+  的单层 Composition，未知历史值回退为无动画，不同时保留两章布局。
+- **分页元信息自适应**：新分页页眉/页脚高度随系统 fontScale 增长，左右内容均单行省略；正文首行安全区
+  与同一套动态页眉高度计算，窄屏和大字体不会互相挤压或裁切。
+- **正文流式搜索/占位稳定性**：超长关键词跨 ReadingUnit 时按关键词长度保留重叠尾部；TXT 滚动加载
+  占位不再重复扣除页边距，避免加载态与完成态出现宽度跳变。
+- **替换规则入口状态修正**：有精确正文 source 但尚无启用规则时，
+  `NO_EFFECTIVE_RULES` 现在保持规则管理可用，显示“替换净化”空列表和“新增规则”；
+  只有 source 尚未构建/不可投影时才返回 `SOURCE_UNAVAILABLE` 并隐藏入口，避免出现“可以新增”
+  却没有新增入口的死路。`ReaderReplacementCapabilityTest` 已覆盖该映射，
+  `ReaderRulesSheetTest` 真机 Compose 6/6 通过。
+- **真机证据边界**：此前一次成功安装时的 7 项回归证据只属于当时 APK，不能作为本轮最新源码的真机通过证据。
+  本轮目标设备 `c49ac6cf` 在线，但安装当前 `app-debug.apk` 返回
+  `INSTALL_FAILED_USER_RESTRICTED: Install canceled by user`，主应用与测试包当前均未安装；未改变手机安全设置，
+  也未把 0 项 instrumentation 误报为通过。`stay_on_while_plugged_in` 复核仍为 `7`。
+  **后续状态**：该安装阻塞已由第 11 节的自动确认脚本解决；这段保留为故障时间线，不代表当前安装状态。
+- **最新门禁**：全量 `:app:testDebugUnitTest` 为 1506 项，0 failures、0 errors、0 skipped；
+  `:app:lintDebug` 为 0 errors / 12 warnings；`:app:assembleDebug`、`:app:compileDebugAndroidTestKotlin` 均通过。
+
+这证明了自适应计算、跨路径接线和代码级回归，但不等同于已经在每一种厂商字体、折叠屏和分屏组合上
+完成实机覆盖；下一次设备允许安装后，应复用 320/411/600dp 契约并补一轮不同窗口截图验收。
+
+本轮仍未完成的设备矩阵：重新导入中性测试 EPUB/TXT 后执行“新增替换规则 → 预览命中 → 保存 → 正文重分页”，
+以及搜索/高亮/选区/TTS/大章提示带书验证；legacy/滚动路径的替换净化和 EPUB/Markdown 结构保真替换仍按当前能力边界保留原文。
+
+## 11. 2026-08-24 阅读画布、翻页纸面与自动安装检查点
+
+- **正文与覆盖层解耦**：普通控制栏、自动翻页栏和 TTS 栏不再改变正文分页视口。普通栏覆盖当前页；
+  自动翻页和 TTS 使用紧凑单行控制区，扩展参数继续放在 Sheet。控制栏显示/隐藏不会改变页起止字符。
+- **完整阅读视口翻页**：新增 `PagedReaderViewportGeometry`，横向翻页覆盖完整阅读视口，正文页边距只作用于页内文本列；
+  页眉、页脚、选区坐标和选区把手均使用同一几何换算。
+- **统一纸张表面**：新增 `ReaderPaperSurfaceSpec`，静止页、相邻页、快照页和自动揭页共用纸色、渐变与纹理；
+  真机滑动中间帧未见移动白色矩形或两份正文透叠。
+- **排版与搜索根因修复**：满高图片会扣除分页顶部安全区；DataStore 行高默认值统一为 `1.85`；
+  忽略大小写搜索改在原文坐标上扫描，避免 Unicode 大小写映射改变长度后污染高亮/跳转位置。
+- **APK 自动安装**：`android/scripts/install_with_confirm.ps1` 已改为自动驱动 MIUI 安装器，并对主 APK 与测试 APK
+  各完成一次真实安装。以后不得要求用户手动点击确认；脚本失败时应报告阻塞，且不得擅自改变手机安全设置。
+- **真机截图（仅本地临时目录）**：`cra-reader-hidden-before.png`、`cra-reader-hidden-after.png`、
+  `cra-reader-controls-after.png`、`cra-reader-swipe-after.png`。仓库未保存真实书名或真实书籍截图。
+- **仪器测试边界**：三个 PageTurner 定向 Compose 测试及单个静止纸面测试都在进入测试类后挂起，未返回断言结果；
+  已强停并清理测试进程。不要把这次运行写成通过。AndroidTest 编译、JVM、Lint 和 APK 构建均可正常完成。
+- **提交前门禁**：`:app:testDebugUnitTest` 汇总 1511 项，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 为 0 errors / 12 warnings；`:app:assembleDebug` 与
+  `:app:compileDebugAndroidTestKotlin` 均通过。
+- **当前 UX 台账**：见 `docs/testing/native-android-ux-ledger.md`。旧 `reader-bug-matrix.md` 仅作历史资料，
+  不再混用已删除的 Capacitor 与 MuMu 记录。
+
+下一刀：先完成紧凑选区工具栏（高亮、笔记、复制、更多），再完善搜索空状态/结果计数，随后执行
+测试 TXT、测试 EPUB、测试 Markdown 的跨格式真机矩阵。替换净化继续遵守 source/display 双坐标，
+不把 display 坐标写入数据库；尚无结构保真契约的 EPUB/Markdown 不强行接入替换。
 
 
 

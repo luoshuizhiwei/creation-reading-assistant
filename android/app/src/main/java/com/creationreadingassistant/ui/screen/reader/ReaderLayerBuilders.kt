@@ -123,7 +123,7 @@ internal fun buildReaderContentHostCallbacks(
 private const val THROTTLE_SAVE_MS = 5_000L
 
 /**
- * 构造覆盖层所需的只读展示数据。`isFirstChapter` / `isLastChapter` / `isEpub` /
+ * 构造覆盖层所需的只读展示数据。`isFirstChapter` / `isLastChapter` / `isEpub` / `isMarkdown` /
  * `showProgressBar` 在此处由传入的原始值计算，与原内联构造完全一致。
  */
 internal fun buildReaderInteractionLayerState(
@@ -140,6 +140,7 @@ internal fun buildReaderInteractionLayerState(
     chapterProgress: Float,
     chapterIndex: Int,
     epubBook: EpubBook?,
+    isMarkdown: Boolean,
     isLoading: Boolean,
     error: String?,
     readerSettings: ReaderSettings,
@@ -159,6 +160,7 @@ internal fun buildReaderInteractionLayerState(
     isFirstChapter = chapterIndex <= 0,
     isLastChapter = epubBook == null || chapterIndex >= epubBook.chapters.lastIndex,
     isEpub = epubBook != null,
+    isMarkdown = isMarkdown,
     isLoading = isLoading,
     error = error,
     showProgressBar = readerSettings.showProgressBar,
