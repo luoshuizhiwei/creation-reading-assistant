@@ -539,6 +539,7 @@ internal fun ReaderScaffold(
                 ),
                 sheetCallbacks = buildReaderSheetHostCallbacks(
                     epubBook = epubBook,
+                    markdownDocument = markdownDocument,
                     txtChapters = txtChapters,
                     visiblePlainOffset = visiblePlainOffset,
                     textContent = textContent,

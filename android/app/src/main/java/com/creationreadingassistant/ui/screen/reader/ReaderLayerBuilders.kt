@@ -356,6 +356,7 @@ internal fun buildReaderSheetHostState(pagerReplacementAvailability: PagedReplac
 @Suppress("LongParameterList")
 internal fun buildReaderSheetHostCallbacks(
     epubBook: EpubBook?,
+    markdownDocument: ReaderDocument?,
     txtChapters: List<DocChapter>,
     visiblePlainOffset: Int,
     textContent: ReaderLoadedContent.Text?,
@@ -395,10 +396,17 @@ internal fun buildReaderSheetHostCallbacks(
             recentChapters.add(0, it)
             if (recentChapters.size > 5) recentChapters.removeAt(recentChapters.lastIndex)
         }
-        if (epubBook != null) {
-            goToChapter(it)
-        } else {
-            txtChapters.getOrNull(it)?.let { c -> jumpToPlainOffset(c.startOffset) }
+        when (
+            val target = readerTocPickTarget(
+                isEpub = epubBook != null,
+                isMarkdown = markdownDocument != null,
+                txtChapters = txtChapters,
+                selectedIndex = it,
+            )
+        ) {
+            is ReaderTocPickTarget.Chapter -> goToChapter(target.index)
+            is ReaderTocPickTarget.PlainOffset -> jumpToPlainOffset(target.offset)
+            ReaderTocPickTarget.None -> Unit
         }
         onAction(ReaderAction.CloseSheet)
     },

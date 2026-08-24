@@ -172,40 +172,45 @@ internal fun ReaderSheetHost(
         ) {
             ReaderPaperTheme(paper) {
             when (type) {
-                ReaderSheet.TOC -> TocSheet(
-                    entries = readerTocEntries(
-                        titles = state.document.epubBook?.chapters?.map { it.title } ?: state.document.txtChapterTitles,
-                        current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
-                        recent = state.ui.recentChapters,
-                        read = if (state.document.epubBook != null || state.document.markdownDocument != null) {
-                            inputs.readChapters.toSet()
-                        } else {
-                            emptySet()
+                ReaderSheet.TOC -> {
+                    val tocState = readerTocState(
+                        epubTitles = state.document.epubBook?.chapters?.map { it.title },
+                        markdownTitles = state.document.markdownDocument?.chapters?.map { it.title },
+                        txtTitles = state.document.txtChapterTitles,
+                        chapterIndex = state.document.chapterIndex,
+                        txtChapterIndex = state.document.txtChapterIndex,
+                    )
+                    TocSheet(
+                        entries = readerTocEntries(
+                            titles = tocState.titles,
+                            current = tocState.current,
+                            recent = state.ui.recentChapters,
+                            read = if (tocState.isChapteredDocument) inputs.readChapters.toSet() else emptySet(),
+                        ),
+                        current = tocState.current,
+                        totalChapters = tocState.total,
+                        onPick = sheetCallbacks.onPickChapter,
+                        txtRules = if (state.document.isTxt) TxtChapterDetector.rules else emptyList(),
+                        // P1-A：选中态从 Room 生效目录身份（profile.key）推导；
+                        // 多规则组合（指纹 key）不命中任何单选 chip，显示为空。
+                        selectedTxtRule = inputs.ruleSnapshot.effectiveTocProfile.key
+                            .takeIf { key -> TxtChapterDetector.rules.any { it.id == key } }
+                            .orEmpty(),
+                        txtRulePreviews = state.document.txtRulePreviews,
+                        txtRuleScanStatus = state.document.txtRuleScanStatus?.takeIf { it.matchesSession(bid) },
+                        bookmarks = inputs.notes.filter { it.kind == "bookmark" },
+                        onPickBookmark = { bm -> sheetCallbacks.onJumpToBookmark(bm.id) },
+                        onTxtRule = sheetCallbacks.onTxtRule,
+                        onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
+                        onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
+                        showReadStatus = tocState.isChapteredDocument,
+                        showClearReadMarks = tocState.isChapteredDocument,
+                        onClearReadMarks = {
+                            callbacks.onAction(ReaderAction.ClearChapterReads(bid))
+                            sheetCallbacks.showNotice("已清除已读标记")
                         },
-                    ),
-                    current = if (state.document.epubBook != null) state.document.chapterIndex else state.document.txtChapterIndex,
-                    totalChapters = state.document.epubBook?.chapters?.size ?: state.document.txtChapterTitles.size,
-                    onPick = sheetCallbacks.onPickChapter,
-                    txtRules = if (state.document.isTxt) TxtChapterDetector.rules else emptyList(),
-                    // P1-A：选中态从 Room 生效目录身份（profile.key）推导；
-                    // 多规则组合（指纹 key）不命中任何单选 chip，显示为空。
-                    selectedTxtRule = inputs.ruleSnapshot.effectiveTocProfile.key
-                        .takeIf { key -> TxtChapterDetector.rules.any { it.id == key } }
-                        .orEmpty(),
-                    txtRulePreviews = state.document.txtRulePreviews,
-                    txtRuleScanStatus = state.document.txtRuleScanStatus?.takeIf { it.matchesSession(bid) },
-                    bookmarks = inputs.notes.filter { it.kind == "bookmark" },
-                    onPickBookmark = { bm -> sheetCallbacks.onJumpToBookmark(bm.id) },
-                    onTxtRule = sheetCallbacks.onTxtRule,
-                    onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
-                    onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
-                    showReadStatus = state.document.epubBook != null || state.document.markdownDocument != null,
-                    showClearReadMarks = state.document.epubBook != null || state.document.markdownDocument != null,
-                    onClearReadMarks = {
-                        callbacks.onAction(ReaderAction.ClearChapterReads(bid))
-                        sheetCallbacks.showNotice("已清除已读标记")
-                    },
-                )
+                    )
+                }
 
                 ReaderSheet.RULES -> RulesSheet(
                     snapshot = inputs.ruleSnapshot,

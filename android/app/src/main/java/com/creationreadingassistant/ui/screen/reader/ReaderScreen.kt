@@ -197,7 +197,10 @@ fun ReaderScreen(
     val isLoading = documentUiState.isLoading
     var runtimeError by mutableHolders.runtimeErrorState
     val error = runtimeError ?: documentUiState.errorMessage
-    val chapterIndexState = remember(bookId) { mutableIntStateOf(0) }
+    val savedEpubChapterIndex = epubContent?.initialChapterIndex
+    val chapterIndexState = remember(bookId, savedEpubChapterIndex) {
+        mutableIntStateOf(initialReaderChapterIndex(savedEpubChapterIndex))
+    }
     var chapterIndex by chapterIndexState
     var pendingInitialPosition by mutableHolders.pendingInitialPositionState
 
@@ -416,7 +419,7 @@ fun ReaderScreen(
         epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets, pagedJumpRequest,
         chapterIndexState, tts, onAction, onBack, bid, selectedGlobalOffset, selectedText,
         selectedRangeStart, scope, snackbarHost, readingUnits, plainListState, loadedBook,
-        error, pendingInitialPosition, pagedAbsOffset, pagedSource, chapterIndex, epubListState,
+        error, pendingInitialPosition, pagerEngine.pagedAbsOffsetState, pagedSource, chapterIndex, epubListState,
         eyeCareFocus.blockGlobalOffsets, eyeCareFocus.chapterBase, chapterBlocks, bookIndex,
         visiblePlainOffset, txtStreamingDocument, plainContent, txtChapters,
         txtChapterIndex, contentText, ttsResumeChapterState, ttsResumeOffsetState, bookTitle,

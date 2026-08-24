@@ -117,6 +117,23 @@ internal fun jumpToPlainOffset(
 }
 
 /**
+ * 进度持久化触发点可能来自分页回调、生命周期或 DisposableEffect。它们持有的闭包可能早于
+ * 最近一次重组，因此这里必须在真正执行保存时读取 State-holder，而不能捕获组合期的 Int 快照。
+ */
+internal data class ReaderProgressSnapshot(
+    val pagedAbsOffset: Int,
+    val chapterIndex: Int,
+)
+
+internal fun currentReaderProgressSnapshot(
+    pagedAbsOffsetState: MutableIntState,
+    chapterIndexState: MutableIntState,
+): ReaderProgressSnapshot = ReaderProgressSnapshot(
+    pagedAbsOffset = pagedAbsOffsetState.intValue,
+    chapterIndex = chapterIndexState.intValue,
+)
+
+/**
  * 持久化当前阅读进度。EPUB 走 SaveEpubProgress，TXT/Markdown 走 SaveProgress。
  * 逐字搬运自 ReaderScreen，不改任何偏移计算或落库字段。
  */
@@ -498,7 +515,7 @@ internal fun buildReaderNavActions(
     loadedBook: ReaderLoadedBook?,
     error: String?,
     pendingInitialPosition: Boolean,
-    pagedAbsOffset: Int,
+    pagedAbsOffsetState: MutableIntState,
     pagedSource: PagedChapterSource?,
     chapterIndex: Int,
     epubListState: LazyListState,
@@ -553,9 +570,14 @@ internal fun buildReaderNavActions(
         goToChapter = goToChapterFn,
         jumpToPlainOffset = jumpToPlainOffsetFn,
         persistCurrentProgress = {
+            val progressSnapshot = currentReaderProgressSnapshot(
+                pagedAbsOffsetState = pagedAbsOffsetState,
+                chapterIndexState = chapterIndexState,
+            )
             persistCurrentProgress(
                 bid, loadedBook, error, pendingInitialPosition, epubBook, pagerEngineOn,
-                pagedAbsOffset, pagedSource, chapterIndex, epubListState, blockGlobalOffsets,
+                progressSnapshot.pagedAbsOffset, pagedSource, progressSnapshot.chapterIndex,
+                epubListState, blockGlobalOffsets,
                 chapterBase, chapterBlocks, bookIndex, chapterStartOffsets, visiblePlainOffset,
                 markdownDocument, txtStreamingDocument, plainContent, onAction,
             )

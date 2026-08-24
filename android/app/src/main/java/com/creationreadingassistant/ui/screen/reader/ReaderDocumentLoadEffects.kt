@@ -39,6 +39,13 @@ internal data class ReaderDocumentLoadState(
     val txtStreamingFileIndexState: MutableState<TxtFileIndex?>,
 )
 
+/**
+ * EPUB 的已保存章节必须在分页宿主首帧创建前就进入本地 State。若先以 0 创建分页宿主、
+ * 再由 LaunchedEffect 改章节，分页宿主会先上报并持久化第 0 章，覆盖正确的恢复位置。
+ */
+internal fun initialReaderChapterIndex(savedEpubChapterIndex: Int?): Int =
+    savedEpubChapterIndex?.coerceAtLeast(0) ?: 0
+
 @Composable
 internal fun rememberReaderDocumentLoadState(
     loadedBook: ReaderLoadedBook?,

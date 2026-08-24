@@ -363,5 +363,32 @@ Novalist 调研与取舍已记录在
 下一刀：RUX-008 测试 TXT、测试 EPUB、测试 Markdown 跨格式真机矩阵；阅读设置的渐进披露可作为后续独立 UX 切片，
 不要与跨格式坐标验收混在同一个提交中。
 
+## 14. 2026-08-24 跨格式真机验收（第一轮）与恢复竞态修复
+
+- **样本与隐私边界**：只读使用手机指定目录中的原文件，并以中性名称导入测试 TXT、测试 EPUB、
+  测试 Markdown；未修改、重命名或删除设备原文件。设备仍为 `c49ac6cf`，未使用模拟器，
+  `stay_on_while_plugged_in` 保持原值 `7`。
+- **Markdown 目录修复**：真机发现目录显示 `0 / 0`。根因是 `ReaderSheetHost` 漏传 Markdown
+  章节标题，点击回调也只区分 EPUB/TXT。新增统一 `ReaderTocState` 与跳转目标，修复后测试 Markdown
+  目录显示 `1 / 1`，点击章节可正常返回正文。
+- **EPUB 进度 P0 修复**：真机先确认画面已到第 2 章 `32.5%`，退出后数据库却曾被写回 0。
+  第一层根因是持久化闭包使用组合期旧偏移，现改为保存执行时读取 `MutableIntState`；第二层根因是
+  分页宿主首帧以章节 0 创建、随后才由 `LaunchedEffect` 设置恢复章节，现让保存章节在首帧前同步进入
+  `chapterIndexState`。最终数据库保持 `chapter=1`、`32.46%`，返回、强停、重开后画面仍为第 2 章 `32.5%`。
+- **三格式已验证部分**：测试 TXT 的分页、选区、搜索与结果跳转；测试 EPUB 的正文、分页、目录跨章、
+  选区、搜索、横竖屏和强停恢复；测试 Markdown 的标题、列表、引用、分页、选区、搜索和目录。
+- **明确未通过/未覆盖**：当前设备提示系统语音引擎初始化失败，TTS 为设备环境阻塞；Markdown 代码与
+  表格、EPUB 图片、长/大 TXT、旋转后精确恢复、后台/锁屏及快速翻页压力仍未形成完整证据，RUX-008
+  因此保持 OPEN。EPUB/Markdown 替换净化继续维持不可用边界，不强行接入显示坐标。
+- **自动化与安装**：新增 `ReaderTocStateTest`、`ReaderProgressSnapshotTest`、
+  `ReaderInitialChapterStateTest`，均先红后绿。APK 两次由 `scripts/install_with_confirm.ps1` 自动完成
+  MIUI 确认，无用户手动点击、无安全设置修改。
+- **完整门禁**：`:app:testDebugUnitTest` 1522/1522，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 0 errors / 12 warnings；`:app:assembleDebug`、
+  `:app:compileDebugAndroidTestKotlin` 通过。RUX-009 的 Compose 仪器运行阻塞仍单独保留，未冒充通过。
+
+下一刀建议：先用仓库中性 Markdown fixture 补代码块/表格，再用测试 EPUB 补图片章节，随后完成
+长/大 TXT 与后台、旋转、快速翻页恢复压力。TTS 应换到具备可用系统语音引擎的真机后再验收。
+
 
 
