@@ -324,5 +324,23 @@ Novalist 调研与取舍已记录在
 测试 TXT、测试 EPUB、测试 Markdown 的跨格式真机矩阵。替换净化继续遵守 source/display 双坐标，
 不把 display 坐标写入数据库；尚无结构保真契约的 EPUB/Markdown 不强行接入替换。
 
+## 12. 2026-08-24 紧凑选区工具栏
+
+- 原两行七按钮主栏收敛为单行“高亮、笔记、复制、更多”，常用操作可直接单手触达。
+- “更多”菜单包含 AI 解读、记为灵感、搜索、取消选择；旧“清除”文案已移除，避免与删除高亮混淆。
+- 高亮颜色作为独立二级状态，五个颜色触控区均为 48dp，并提供“高亮颜色 `<name>`”无障碍语义；
+  返回主操作使用“返回”，不再复用含混的“取消”。
+- `ReaderSelectionToolbarModelTest` 先红后绿，锁定四主操作和四个更多操作；
+  `ReaderSelectionToolbarTest` 覆盖主/次操作分层、回调与颜色语义，当前 AndroidTest 编译通过。
+- 真机 `c49ac6cf` 上使用测试 TXT 自动长按选区，UI dump 确认主栏四项、更多菜单四项和五个 48dp 色点；
+  截图为 `cra-reader-selection-toolbar.png`、`cra-reader-selection-more.png`、
+  `cra-reader-selection-colors.png`（均在本地临时目录，不提交）。
+- 主 APK 与测试 APK 均由 `install_with_confirm.ps1` 自动完成 MIUI 确认，无用户手动点击、无安全设置修改；
+  `stay_on_while_plugged_in` 始终为 `7`，本轮未修改。
+- 定向 Compose 仪器测试仍停在首个测试入口，30 秒没有断言结果；已强停清理，继续归入 RUX-009，
+  不冒充通过。业务 UI 已用真实应用路径、截图和 UI dump 交叉验证。
+
+下一刀：RUX-007 搜索面板空状态、结果计数和结果列表体验。
+
 
 
