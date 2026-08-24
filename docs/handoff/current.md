@@ -342,5 +342,26 @@ Novalist 调研与取舍已记录在
 
 下一刀：RUX-007 搜索面板空状态、结果计数和结果列表体验。
 
+## 13. 2026-08-24 搜索面板状态与结果反馈
+
+- 搜索正文区新增显式状态模型，区分空查询引导、搜索中、已取消、无结果和结果列表，避免搜索中或取消后
+  过早显示“未找到匹配结果”。这次只调整 UI 状态和文案，没有修改搜索算法、source/display 坐标或数据库。
+- 空查询不再显示整片空白，改为“输入关键词开始搜索”与一行搜索范围说明；输入框仍在面板打开时自动聚焦，
+  真机输入法服务确认 `mInputShown=true`。
+- 有结果时显示“共 N 处结果 · 最多显示前 80 条”；点上一处/下一处后显示“当前位置 X / N”。结果列表仍保留
+  原有点击跳转、选中语义和 80 条上限。
+- 测试先行新增 `ReaderSearchSheetBodyStateTest`，锁定五种正文状态；`ReaderSearchSheetTest` 补空查询、搜索中
+  不误报、结果总数与当前位置契约。Compose 仪器测试仍受 RUX-009 阻塞，因此只记编译通过，不冒充真机测试通过。
+- 真机 `c49ac6cf` 使用测试 TXT 验收：空查询引导、输入框焦点和软键盘通过；从选区进入搜索得到 80 条结果，
+  点击“下一处”后 UI dump 为“当前位置 1 / 80”，且不存在“未找到匹配结果”。截图仅保存在本地临时目录：
+  `cra-reader-search-prompt.png`、`cra-reader-search-results.png`。
+- 主 APK 继续由 `install_with_confirm.ps1` 自动完成 MIUI 安装确认，无用户手动点击、无安全设置修改；
+  `stay_on_while_plugged_in` 保持原值 `7`。
+- 完整门禁：`:app:testDebugUnitTest` 1516/1516，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 0 errors / 12 warnings；`:app:assembleDebug`、`:app:compileDebugAndroidTestKotlin` 通过。
+
+下一刀：RUX-008 测试 TXT、测试 EPUB、测试 Markdown 跨格式真机矩阵；阅读设置的渐进披露可作为后续独立 UX 切片，
+不要与跨格式坐标验收混在同一个提交中。
+
 
 

@@ -53,6 +53,26 @@ import kotlinx.coroutines.withContext
 
 // BookSearchResult, computeBookSearch, computeEpubSearch, computeStreamingTxtSearch → reader/ReaderSearchLogic.kt
 
+internal enum class SearchSheetBodyState {
+    PROMPT,
+    SEARCHING,
+    CANCELLED,
+    EMPTY_RESULTS,
+    RESULTS,
+}
+
+internal fun searchSheetBodyState(
+    query: String,
+    phase: BookSearchPhase,
+    resultCount: Int,
+): SearchSheetBodyState = when {
+    query.isBlank() -> SearchSheetBodyState.PROMPT
+    resultCount > 0 -> SearchSheetBodyState.RESULTS
+    phase == BookSearchPhase.SEARCHING -> SearchSheetBodyState.SEARCHING
+    phase == BookSearchPhase.CANCELLED -> SearchSheetBodyState.CANCELLED
+    else -> SearchSheetBodyState.EMPTY_RESULTS
+}
+
 @Composable
 internal fun SearchSheet(
     document: ReaderDocument?,
@@ -186,9 +206,9 @@ internal fun SearchSheet(
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
             )
-        } else if (query.isNotBlank()) {
+        } else if (query.isNotBlank() && session.results.isNotEmpty()) {
             Text(
-                "找到 ${session.results.size} 处，最多显示前 80 条。",
+                "共 ${session.results.size} 处结果 · 最多显示前 80 条",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.outline,
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -203,50 +223,77 @@ internal fun SearchSheet(
                 TextButton(onClick = { session.previous() }) { Text("上一处") }
                 val current = session.currentIndex
                 Text(
-                    if (current >= 0) "第 ${current + 1} / ${session.results.size} 处" else "共 ${session.results.size} 处",
+                    if (current >= 0) "当前位置 ${current + 1} / ${session.results.size}" else "共 ${session.results.size} 处",
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.outline,
                 )
                 TextButton(onClick = { session.next() }) { Text("下一处") }
             }
         }
-        if (query.isNotBlank() && session.results.isEmpty()) {
-            FullEmptyState(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                icon = { LineArtBook(sizeDp = 72.dp) },
-                title = "未找到匹配结果",
-                body = "换个关键词或检查拼写试试。",
-            )
-        } else {
-            LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
-                itemsIndexed(session.results, key = { _, r -> r.occurrenceIndex }) { index, r ->
-                    val isCurrent = index == session.currentIndex
-                    Column(
-                        Modifier
-                            .fillMaxWidth()
-                            .background(
-                                if (isCurrent) {
-                                    MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
-                                } else {
-                                    Color.Transparent
-                                },
+        when (searchSheetBodyState(query, phase, session.results.size)) {
+            SearchSheetBodyState.PROMPT -> {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                ) {
+                    Text(
+                        "输入关键词开始搜索",
+                        style = MaterialTheme.typography.titleSmall,
+                    )
+                    Text(
+                        "可搜索人名、设定或句子片段。",
+                        modifier = Modifier.padding(top = 4.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.outline,
+                    )
+                }
+            }
+
+            SearchSheetBodyState.SEARCHING,
+            SearchSheetBodyState.CANCELLED,
+            -> Unit
+
+            SearchSheetBodyState.EMPTY_RESULTS -> {
+                FullEmptyState(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    icon = { LineArtBook(sizeDp = 72.dp) },
+                    title = "未找到匹配结果",
+                    body = "换个关键词或检查拼写试试。",
+                )
+            }
+
+            SearchSheetBodyState.RESULTS -> {
+                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                    itemsIndexed(session.results, key = { _, r -> r.occurrenceIndex }) { index, r ->
+                        val isCurrent = index == session.currentIndex
+                        Column(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    if (isCurrent) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                                    } else {
+                                        Color.Transparent
+                                    },
+                                )
+                                .clickable {
+                                    session.select(index)
+                                    onResultSelected(index)
+                                }
+                                .semantics { this.selected = isCurrent }
+                                .testTag("search-result-$index")
+                                .padding(horizontal = 16.dp, vertical = 10.dp)
+                                .listItemEnter(index, reducedMotion),
+                        ) {
+                            Text(r.snippet, style = MaterialTheme.typography.bodyMedium)
+                            Text(
+                                "${if (r.chapterIndex >= 0) r.chapterTitle else "全文"} · ${r.progressPercent.toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.outline,
                             )
-                            .clickable {
-                                session.select(index)
-                                onResultSelected(index)
-                            }
-                            .semantics { this.selected = isCurrent }
-                            .testTag("search-result-$index")
-                            .padding(horizontal = 16.dp, vertical = 10.dp)
-                            .listItemEnter(index, reducedMotion),
-                    ) {
-                        Text(r.snippet, style = MaterialTheme.typography.bodyMedium)
-                        Text(
-                            "${if (r.chapterIndex >= 0) r.chapterTitle else "全文"} · ${r.progressPercent.toInt()}%",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.outline,
-                        )
-                        SectionDivider(Modifier.padding(top = 8.dp))
+                            SectionDivider(Modifier.padding(top = 8.dp))
+                        }
                     }
                 }
             }

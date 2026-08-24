@@ -54,6 +54,7 @@ class ReaderSearchSheetTest {
 
     private fun setSearchSheet(
         session: BookSearchSession,
+        query: String = "测试",
         onResultSelected: (Int) -> Unit = {},
     ) {
         composeRule.setContent {
@@ -67,7 +68,7 @@ class ReaderSearchSheetTest {
                         chapterTitles = emptyList(),
                         totalChars = 0,
                         isTxt = true,
-                        query = "测试",
+                        query = query,
                         onQueryChange = {},
                         session = session,
                         onResultSelected = onResultSelected,
@@ -100,6 +101,35 @@ class ReaderSearchSheetTest {
         setSearchSheet(sessionWith(0))
 
         composeRule.onNodeWithTag("reader-search-field").assertIsFocused()
+    }
+
+    @Test
+    fun blankQuery_showsShortGuidanceInsteadOfAnEmptyCanvas() {
+        setSearchSheet(BookSearchSession(bookKey = "book-1"), query = "")
+
+        composeRule.onNodeWithText("输入关键词开始搜索").assertIsDisplayed()
+        composeRule.onNodeWithText("可搜索人名、设定或句子片段。").assertIsDisplayed()
+        composeRule.onNodeWithText("未找到匹配结果").assertDoesNotExist()
+    }
+
+    @Test
+    fun searchingWithoutResults_doesNotClaimThereAreNoMatches() {
+        val session = BookSearchSession(bookKey = "book-1")
+        session.onQueryChanged("测试")
+        setSearchSheet(session)
+
+        composeRule.onNodeWithText("正在搜索…").assertIsDisplayed()
+        composeRule.onNodeWithText("未找到匹配结果").assertDoesNotExist()
+    }
+
+    @Test
+    fun completedResults_showTotalAndCurrentPosition() {
+        setSearchSheet(sessionWith(3))
+
+        composeRule.onNodeWithText("共 3 处结果 · 最多显示前 80 条").assertIsDisplayed()
+        composeRule.onNodeWithText("共 3 处").assertIsDisplayed()
+        composeRule.onNodeWithText("下一处").performClick()
+        composeRule.onNodeWithText("当前位置 1 / 3").assertIsDisplayed()
     }
 
     @Test
