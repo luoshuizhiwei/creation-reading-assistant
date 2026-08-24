@@ -6,6 +6,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -71,6 +72,8 @@ import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -106,6 +109,7 @@ internal fun BookDetailSheet(
     onResetCover: () -> Unit,
 ) {
     val spec = LocalComponentSpec.current
+    val layout = LocalLayoutTokens.current
     val percent = progressFor(progressById, book.id)
     val readiness = book.readiness()
     val progress = progressById[book.id]
@@ -116,10 +120,19 @@ internal fun BookDetailSheet(
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        sheetMaxWidth = layout.contentMaxWidth,
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
     ) {
-        Column(modifier = Modifier.padding(horizontal = 16.dp).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val adaptive = adaptivePageMetrics(maxWidth, layout)
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = adaptive.horizontalPadding)
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Box {
                     BookCover(book = book, percent = percent, modifier = Modifier.size(64.dp, 90.dp), fallback = { ShelfCoverFallback(book) })
@@ -411,6 +424,7 @@ internal fun BookDetailSheet(
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
+        }
         }
     }
 }

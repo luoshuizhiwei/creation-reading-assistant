@@ -6,6 +6,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -37,6 +38,8 @@ import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -180,74 +183,131 @@ fun AppNavigation() {
 
     CompositionLocalProvider(LocalVisualStyleState provides visualStyleState) {
         VisualStyleProvider(style = visualStyleState.value) {
-            val style = LocalVisualStyle.current
             val spec = LocalComponentSpec.current
             // Apple 风格下强化底部栏选中态（默认 indicator 在浅底上几乎不可见），其余主题走常规。
             // 注意：毛玻璃浮层方案已移除——Apple 与非 Apple 共用同一套实心 NavigationBar，
             // 区别由各自 colorScheme（冷灰底/白卡/系统蓝）自然体现，层次分明、不糊进背景。
 
-            Scaffold(
-                // 外层不消费系统窗口 inset。每个页面自己的 AppScreenScaffold 负责 status/nav bars；
-                // 外层只管理应用底部导航栏（NavigationBar composable）的 innerPadding。
-                contentWindowInsets = WindowInsets(0, 0, 0, 0),
-                bottomBar = {
-                    if (showBottomBar) {
-                        // 系统「减少动态效果」：开启时瞬切
-                        val reducedMotion = rememberReducedMotion()
-                        Column {
-                            // 底部栏顶部一条 1dp 发丝线，让底栏与页面底分界分明（§2.2 / §3.2）
-                            HorizontalDivider(
-                                thickness = spec.dividerThickness,
-                                color = MaterialTheme.colorScheme.outlineVariant,
-                            )
-                            Surface(color = MaterialTheme.colorScheme.surface) {
-                                Column {
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(64.dp),
-                                    ) {
-                                        BottomBarItems(
-                                            navBackStackEntry = navBackStackEntry,
-                                            navController = navController,
-                                        )
-                                    }
-                                    Spacer(
-                                        Modifier
-                                            .fillMaxWidth()
-                                            // 系统导航栏已由全局策略隐藏：底部只需避开手势区
-                                            // （mandatorySystemGestures 恒定，不随 transient swipe 跳动，
-                                            // 三键导航下为 0，不会留空白系统栏）。
-                                            .windowInsetsBottomHeight(WindowInsets.mandatorySystemGestures),
-                                    )
-                                }
-                            }
-                        }
-                    }
-                },
-            ) { innerPadding ->
-                // innerPadding：Scaffold 仅根据 bottomBar 生成 bottom 非零，top/start/end=0。
-                // 直接作为 NavHost 的 padding，让尚未迁移的页面不被应用底部栏遮挡。
-                // 同时通过 LocalAppChrome 把外层的 bottomNavHeight + "已应用"标志暴露给 AppScreenScaffold，
-                // 避免迁移后的壳层再次叠加同一 padding。
-                val bottomNavHeight = innerPadding.calculateBottomPadding()
-                val chrome = AppChrome(
-                    bottomNavHeight = bottomNavHeight,
-                    navLayerPaddingApplied = true,
-                )
-                CompositionLocalProvider(LocalAppChrome provides chrome) {
-                    Box(
-                        Modifier
-                            .fillMaxSize()
-                            .padding(paddingValues = innerPadding),
-                    ) {
-                        AppNavHost(
+            BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+                val navigationMode = topLevelNavigationMode(maxWidth)
+                Row(modifier = Modifier.fillMaxSize()) {
+                    if (showBottomBar && navigationMode == TopLevelNavigationMode.RAIL) {
+                        AppNavigationRail(
+                            navBackStackEntry = navBackStackEntry,
                             navController = navController,
                         )
+                    }
+                    Scaffold(
+                        modifier = Modifier
+                            .weight(1f)
+                            .fillMaxHeight(),
+                        // 外层不消费系统窗口 inset。每个页面自己的 AppScreenScaffold 负责 status/nav bars；
+                        // 外层只管理应用底部导航栏（NavigationBar composable）的 innerPadding。
+                        contentWindowInsets = WindowInsets(0, 0, 0, 0),
+                        bottomBar = {
+                            if (showBottomBar && navigationMode == TopLevelNavigationMode.BOTTOM_BAR) {
+                                // 系统「减少动态效果」：开启时瞬切
+                                val reducedMotion = rememberReducedMotion()
+                                Column {
+                                    // 底部栏顶部一条 1dp 发丝线，让底栏与页面底分界分明（§2.2 / §3.2）
+                                    HorizontalDivider(
+                                        thickness = spec.dividerThickness,
+                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                    )
+                                    Surface(color = MaterialTheme.colorScheme.surface) {
+                                        Column {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(64.dp),
+                                            ) {
+                                                BottomBarItems(
+                                                    navBackStackEntry = navBackStackEntry,
+                                                    navController = navController,
+                                                )
+                                            }
+                                            Spacer(
+                                                Modifier
+                                                    .fillMaxWidth()
+                                                    // 系统导航栏已由全局策略隐藏：底部只需避开手势区
+                                                    // （mandatorySystemGestures 恒定，不随 transient swipe 跳动，
+                                                    // 三键导航下为 0，不会留空白系统栏）。
+                                                    .windowInsetsBottomHeight(WindowInsets.mandatorySystemGestures),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        },
+                    ) { innerPadding ->
+                        // innerPadding：Scaffold 仅根据 bottomBar 生成 bottom 非零，top/start/end=0。
+                        // 直接作为 NavHost 的 padding，让尚未迁移的页面不被应用底部栏遮挡。
+                        // 同时通过 LocalAppChrome 把外层的 bottomNavHeight + "已应用"标志暴露给 AppScreenScaffold，
+                        // 避免迁移后的壳层再次叠加同一 padding。
+                        val bottomNavHeight = innerPadding.calculateBottomPadding()
+                        val chrome = AppChrome(
+                            bottomNavHeight = bottomNavHeight,
+                            navLayerPaddingApplied = true,
+                        )
+                        CompositionLocalProvider(LocalAppChrome provides chrome) {
+                            Box(
+                                Modifier
+                                    .fillMaxSize()
+                                    .padding(paddingValues = innerPadding),
+                            ) {
+                                AppNavHost(
+                                    navController = navController,
+                                )
+                            }
+                        }
                     }
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun AppNavigationRail(
+    navBackStackEntry: NavBackStackEntry?,
+    navController: NavHostController,
+) {
+    val current = navBackStackEntry?.destination
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
+    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+        Spacer(Modifier.height(8.dp))
+        TOP_LEVEL_ROUTES.forEach { top ->
+            val selected = current?.hierarchy?.any {
+                it.route?.substringBefore('?') == top.route
+            } == true
+            NavigationRailItem(
+                selected = selected,
+                onClick = {
+                    if (!selected) haptic(HapticFeedbackType.TextHandleMove)
+                    navigateToTopLevel(navController, top.route)
+                },
+                icon = {
+                    Icon(
+                        imageVector = top.icon,
+                        contentDescription = null,
+                        modifier = Modifier.size(AppIconSize.Medium),
+                    )
+                },
+                label = { Text(stringResource(top.labelRes), maxLines = 1) },
+                alwaysShowLabel = true,
+            )
+        }
+    }
+}
+
+private fun navigateToTopLevel(navController: NavHostController, route: String) {
+    navController.navigate(route) {
+        popUpTo(navController.graph.findStartDestination().id) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
     }
 }
 
@@ -423,14 +483,8 @@ fun RowScope.BottomBarItems(
                     interactionSource = interactionSource,
                     indication = null,
                     onClick = {
-                if (!selected) haptic(HapticFeedbackType.TextHandleMove)
-                navController.navigate(top.route) {
-                    popUpTo(navController.graph.findStartDestination().id) {
-                        saveState = true
-                    }
-                    launchSingleTop = true
-                    restoreState = true
-                }
+                        if (!selected) haptic(HapticFeedbackType.TextHandleMove)
+                        navigateToTopLevel(navController, top.route)
                     },
                 )
                 .scale(animatedScale)

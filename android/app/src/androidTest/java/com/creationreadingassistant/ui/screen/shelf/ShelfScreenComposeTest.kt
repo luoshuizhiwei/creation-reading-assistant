@@ -92,6 +92,40 @@ class ShelfScreenComposeTest {
         }
     }
 
+    @Test
+    fun shelfAt600dpShowsFourColumns() {
+        val books = (1..8).map { i -> shelfItem(id = "tablet$i", title = "书名 $i") }
+
+        renderShelf(width = 600.dp, height = 900.dp, items = books, viewMode = ShelfViewMode.GRID)
+
+        fun top(id: Int): Dp = composeRule
+            .onAllNodesWithTag("book-tile-tablet$id")[0]
+            .getBoundsInRoot()
+            .top
+
+        assertDpEquals("600dp 第 1-4 本应在同一行", top(1), top(4), 2.dp)
+        assertTrue("600dp 第 5 本应进入下一行", top(5) > top(1) + 20.dp)
+    }
+
+    @Test
+    fun largeTabletCapsShelfAtFiveColumnsAnd720dpContentWidth() {
+        val books = (1..10).map { i -> shelfItem(id = "wide$i", title = "书名 $i") }
+
+        renderShelf(width = 1200.dp, height = 900.dp, items = books, viewMode = ShelfViewMode.GRID)
+
+        fun top(id: Int): Dp = composeRule
+            .onAllNodesWithTag("book-tile-wide$id")[0]
+            .getBoundsInRoot()
+            .top
+
+        assertDpEquals("横屏平板第 1-5 本应在同一行", top(1), top(5), 2.dp)
+        assertTrue("横屏平板第 6 本应进入下一行", top(6) > top(1) + 20.dp)
+
+        val grid = composeRule.onNodeWithTag("shelf-main-lazy").getBoundsInRoot()
+        assertTrue("横屏平板书架内容不应超过 720dp，实际 ${grid.right - grid.left}", grid.right - grid.left <= 720.dp)
+        assertDpEquals("书架内容应水平居中", 600.dp, (grid.left + grid.right) / 2f, 2.dp)
+    }
+
     // —————————————————————————————————————————————————————————
     // 验收 2：搜索 / 多选状态只替换顶栏内容，不创建第二个顶栏
     // —————————————————————————————————————————————————————————

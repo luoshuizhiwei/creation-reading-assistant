@@ -6,16 +6,19 @@ import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -65,6 +68,8 @@ import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.BookCover
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -127,37 +132,54 @@ internal fun ShelfSearchRoute(
         },
         snackbarHost = { SnackbarHost(snackbar) },
         topBarSupportingContent = {
-            Column(modifier = Modifier.fillMaxWidth()) {
-                OutlinedTextField(
-                    value = query,
-                    onValueChange = viewModel::setSearchQuery,
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp).focusRequester(focusRequester),
-                    placeholder = { Text("搜索书名、作者或文件名") },
-                    leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    keyboardActions = KeyboardActions(onSearch = { viewModel.recordSearch() }),
-                    shape = LocalComponentSpec.current.listItemShape,
-                )
-                if (privateMode) {
-                    Surface(
-                        onClick = { viewModel.setPrivateSearch(false) },
-                        color = MaterialTheme.colorScheme.primaryContainer,
-                        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                        shape = LocalComponentSpec.current.pillShape,
-                        modifier = Modifier.padding(start = 16.dp, bottom = 8.dp),
-                    ) {
-                        Text("无痕搜索已开启 · 点按关闭", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)
+                Column(
+                    modifier = Modifier
+                        .widthIn(max = adaptive.contentWidth)
+                        .fillMaxWidth()
+                        .align(Alignment.TopCenter),
+                ) {
+                    OutlinedTextField(
+                        value = query,
+                        onValueChange = viewModel::setSearchQuery,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = adaptive.horizontalPadding, vertical = 8.dp)
+                            .focusRequester(focusRequester),
+                        placeholder = { Text("搜索书名、作者或文件名") },
+                        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                        keyboardActions = KeyboardActions(onSearch = { viewModel.recordSearch() }),
+                        shape = LocalComponentSpec.current.listItemShape,
+                    )
+                    if (privateMode) {
+                        Surface(
+                            onClick = { viewModel.setPrivateSearch(false) },
+                            color = MaterialTheme.colorScheme.primaryContainer,
+                            contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+                            shape = LocalComponentSpec.current.pillShape,
+                            modifier = Modifier.padding(start = adaptive.horizontalPadding, bottom = 8.dp),
+                        ) {
+                            Text("无痕搜索已开启 · 点按关闭", style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp))
+                        }
                     }
                 }
             }
         },
     ) { viewport ->
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize().padding(viewport),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-        ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(viewport)) {
+            val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = adaptive.contentWidth)
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+                contentPadding = PaddingValues(horizontal = adaptive.horizontalPadding, vertical = 8.dp),
+            ) {
             if (normalized.isEmpty()) {
                 if (recent.isNotEmpty()) {
                     item {
@@ -219,6 +241,7 @@ internal fun ShelfSearchRoute(
                     )
                     HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
                 }
+            }
             }
         }
     }

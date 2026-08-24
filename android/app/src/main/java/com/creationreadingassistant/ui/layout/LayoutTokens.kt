@@ -81,6 +81,26 @@ val DefaultLayoutTokens = LayoutTokens()
 
 val LocalLayoutTokens = staticCompositionLocalOf { DefaultLayoutTokens }
 
+data class AdaptivePageMetrics(
+    val isWide: Boolean,
+    val contentWidth: Dp,
+    val horizontalPadding: Dp,
+)
+
+/** 手机保持满宽；平板/折叠屏将正文栏限制在可读宽度并增加页面边距。 */
+fun adaptivePageMetrics(
+    windowWidth: Dp,
+    tokens: LayoutTokens = DefaultLayoutTokens,
+): AdaptivePageMetrics {
+    val safeWidth = windowWidth.coerceAtLeast(0.dp)
+    val isWide = safeWidth >= tokens.wideScreenBreakpoint
+    return AdaptivePageMetrics(
+        isWide = isWide,
+        contentWidth = if (isWide) minOf(safeWidth, tokens.contentMaxWidth) else safeWidth,
+        horizontalPadding = if (isWide) tokens.pageHorizontalWide else tokens.pageHorizontal,
+    )
+}
+
 /**
  * 宽屏居中：把内容约束在 [contentMaxWidth] 内并水平居中。
  *

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -70,6 +72,7 @@ import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.theme.ListSkeleton
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -345,20 +348,23 @@ private fun ShelfContent(
             .pullRefresh(pullRefreshState)
             .testTag("shelf-content-box"),
     ) {
+        val adaptive = adaptivePageMetrics(maxWidth, layout)
         val columns = when {
             state.viewMode == ShelfViewMode.LIST -> GridCells.Fixed(1)
-            maxWidth >= layout.wideScreenBreakpoint -> GridCells.Adaptive(112.dp)
-            else -> GridCells.Fixed(3)
+            else -> GridCells.Fixed(shelfGridColumnCount(maxWidth, layout))
         }
         CompositionLocalProvider(LocalViewConfiguration provides longPressConfig) {
             LazyVerticalGrid(
                 columns = columns,
                 modifier = Modifier
-                    .fillMaxSize()
+                    .fillMaxHeight()
+                    .widthIn(max = adaptive.contentWidth)
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter)
                     .padding(viewportPadding)
                     .testTag("shelf-main-lazy"),
                 contentPadding = PaddingValues(
-                    horizontal = layout.pageHorizontal,
+                    horizontal = adaptive.horizontalPadding,
                     vertical = layout.pageVertical,
                 ),
                 verticalArrangement = Arrangement.spacedBy(layout.contentGap),

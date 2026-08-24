@@ -13,6 +13,22 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LayoutTokensTest {
+    @Test
+    fun adaptivePageMetricsKeepPhoneFullWidthAndCapTabletContent() {
+        val phone = adaptivePageMetrics(430.dp)
+        assertFalse(phone.isWide)
+        assertEquals(430.dp, phone.contentWidth)
+        assertEquals(16.dp, phone.horizontalPadding)
+
+        val tablet = adaptivePageMetrics(840.dp)
+        assertTrue(tablet.isWide)
+        assertEquals(720.dp, tablet.contentWidth)
+        assertEquals(24.dp, tablet.horizontalPadding)
+
+        val landscapeTablet = adaptivePageMetrics(1200.dp)
+        assertEquals(720.dp, landscapeTablet.contentWidth)
+    }
+
     // —————————————————————————————————————————————————————————
     // 1. 顶部栏最小内容高度一致（状态栏 inset 可在此基础上增加整体高度）
     // —————————————————————————————————————————————————————————

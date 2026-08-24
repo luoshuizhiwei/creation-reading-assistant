@@ -3,15 +3,18 @@ package com.creationreadingassistant.ui.screen.shelf
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -44,6 +47,8 @@ import androidx.navigation.NavHostController
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppSuccess
 import com.creationreadingassistant.ui.theme.AppWarning
@@ -78,11 +83,20 @@ internal fun ShelfImportRoute(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { viewport ->
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(viewport),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
+        BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(viewport)) {
+            val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxHeight()
+                    .widthIn(max = adaptive.contentWidth)
+                    .fillMaxWidth()
+                    .align(Alignment.TopCenter),
+                contentPadding = PaddingValues(
+                    horizontal = adaptive.horizontalPadding,
+                    vertical = LocalLayoutTokens.current.pageVertical,
+                ),
+                verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
+            ) {
             item {
                 SectionCard(modifier = Modifier.fillMaxWidth()) {
                     ImportSourceRow(
@@ -145,6 +159,7 @@ internal fun ShelfImportRoute(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(vertical = 8.dp),
                 )
+            }
             }
         }
     }

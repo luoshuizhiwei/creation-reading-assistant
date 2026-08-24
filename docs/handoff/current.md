@@ -443,5 +443,31 @@ Novalist 调研与取舍已记录在
 下一刀：进入首页继续阅读、阅读历史和全局搜索的用户旅程审查；导入文件夹的大目录扫描、权限拒绝、
 不可读目录和中途停止仍需作为导入第二轮异常矩阵，不应把本轮常规/重复导入验收扩写成全部导入场景通过。
 
+## 17. 2026-08-24 书架旅程的平板自适应收口
+
+- **响应式契约不是单纯放大组件**：窗口宽度低于 600dp 时保留手机底部导航；600dp 起顶层页面改用
+  `NavigationRail`。书架在 320/393/430dp 保持 3 列，600dp 为 4 列，720dp 及以上最多 5 列，
+  避免平板上继续堆列导致封面和文字过窄。
+- **统一可读宽度**：新增 `adaptivePageMetrics`，宽屏内容最大 720dp、水平居中并使用 24dp 页边距；
+  书架搜索、导入记录和图书详情共享该策略，不再横向铺满整块平板。手机仍使用满宽内容和 16dp 页边距。
+- **测试契约**：`LayoutTokensTest` 锁定手机满宽与平板 720dp 上限；
+  `ShelfAdaptiveLayoutPolicyTest` 锁定 320/393/430/600/720/840/1200dp 列数；
+  `AdaptiveNavigationPolicyTest` 锁定 600dp 导航切换；`ShelfScreenComposeTest` 覆盖 600dp 四列和
+  1200dp 五列居中上限，AndroidTest 编译通过。
+- **真机宽窗口验证**：仅使用 `c49ac6cf`，临时把显示密度从 480 调为 240，得到约 813dp 的窗口来验证
+  断点和重排。侧边导航、书架 5 列、搜索输入区、导入列表和详情面板的 720dp 居中上限均符合预期；
+  验收后已恢复物理密度 480，`stay_on_while_plugged_in` 仍为 `7`。这是同一真机的宽 dp 模拟，
+  不能冒充实体平板的厂商窗口、键盘、分屏或折叠姿态硬件验收。
+- **最终门禁**：`:app:testDebugUnitTest` 1536/1536，0 failures / 0 errors / 0 skipped；
+  `:app:lintDebug` 0 errors / 12 warnings；`:app:assembleDebug` 与
+  `:app:compileDebugAndroidTestKotlin` 均通过，Gradle 最终 `BUILD SUCCESSFUL`。
+- **明确边界**：本轮完成全局顶层导航和导入/书架/搜索/详情旅程的自适应，不代表首页、灵感、统计、
+  我的都已完成平板专属信息架构；它们目前能使用侧边导航，但仍需后续逐页检查是否应该采用双栏或主从布局。
+- **本地证据**：`cra-tablet-home-wide.png`、`cra-tablet-shelf-wide.png`、
+  `cra-tablet-search-wide.png`、`cra-tablet-import-wide.png`、`cra-tablet-detail-wide.png`，仅保存在本地临时目录。
+
+下一刀仍按用户旅程进入首页继续阅读、阅读历史和全局搜索，同时把这些页面的手机、平板和横屏布局
+作为同一验收矩阵；实体平板或折叠屏可用时再补真实硬件复验。
+
 
 
