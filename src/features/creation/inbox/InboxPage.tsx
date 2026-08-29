@@ -546,7 +546,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
           content={draft.body || draft.title}
           target={[aiSettings?.model, aiSettings?.baseUrl].filter((part) => typeof part === "string" && part.trim() !== "").join(" · ") || "你配置的 AI 服务"}
           busy={isAIRunning}
-          onConfirm={(remember) => {
+          onConfirm={(_finalContent, remember) => {
             if (remember) rememberAiSendOptOut();
             const action = aiConfirm;
             setAiConfirm(null);
