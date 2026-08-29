@@ -71,3 +71,7 @@ Thumbs.db
 
 # 归档冻结区（archives/frozen-mobile）内的构建缓存，绝不进版本库
 /archives/frozen-mobile/**/.gradle/
+
+# 截图巡检产物：任务完成后即弃，不入库（capture 脚本可随时重新生成）
+scripts/visual-evidence-r4-pages/
+scripts/visual-evidence-r4/
