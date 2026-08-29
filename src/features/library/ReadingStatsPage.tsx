@@ -79,6 +79,22 @@ function isFutureStatsAnchor(anchor: Date, range: Exclude<StatsRange, "all">): b
   return next > today;
 }
 
+/** 会话状态/结束原因的用户措辞（内部枚举不直接暴露）。 */
+const SESSION_STATUS_LABELS: Record<string, string> = {
+  active: "正在阅读",
+  paused: "已暂停",
+  ended: "已结束",
+  recovered: "已恢复"
+};
+
+const SESSION_END_REASON_LABELS: Record<string, string> = {
+  "leave-reader": "离开阅读器",
+  "switch-book": "切换书籍",
+  "window-close": "关闭窗口",
+  "idle-timeout": "空闲超时",
+  "crash-recovered": "异常恢复"
+};
+
 export function ReadingStatsPage() {
   const stats = useLibraryStore((state) => state.stats);
   const activeBook = useLibraryStore((state) => state.activeBook);
@@ -347,7 +363,8 @@ export function ReadingStatsPage() {
                           <span className="font-medium text-paper-ink">{formatDuration(session.activeDurationMs)}</span>
                         </div>
                         <div className="mt-1 text-xs text-paper-muted">
-                          {session.status} · {session.endReason ?? "进行中"}
+                          {SESSION_STATUS_LABELS[session.status]}
+                          {session.status === "active" ? " · 进行中" : session.endReason ? ` · ${SESSION_END_REASON_LABELS[session.endReason]}` : ""}
                         </div>
                       </div>
                     ))
