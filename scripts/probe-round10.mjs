@@ -102,7 +102,7 @@ const aiRow = await page.evaluate(() => {
   return {
     exists: !!row,
     hint: row?.querySelector(".scene-radar-ai-hint")?.textContent ?? null,
-    allDisabled: buttons.length === 2 && buttons.every((button) => button.disabled)
+    allDisabled: buttons.length === 3 && buttons.every((button) => button.disabled)
   };
 });
 check("AI 助手行渲染且未启用时禁用", aiRow.exists && aiRow.allDisabled && (aiRow.hint ?? "").includes("AI"), JSON.stringify(aiRow));
