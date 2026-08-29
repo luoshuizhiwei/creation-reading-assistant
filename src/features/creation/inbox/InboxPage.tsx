@@ -6,6 +6,7 @@ import { useAppStore } from "@/stores/app-store";
 import { useUIStore } from "@/stores/ui-store";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { resolveTargetProject } from "@/features/creation/inbox/inbox-target";
+import { AiSendConfirmDialog, rememberAiSendOptOut, shouldConfirmAiSend } from "@/features/creation/inbox/ai-send-confirm";
 import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
 import type { InspirationStatus, InspirationType } from "@/types/inspiration";
 import type { InboxItem } from "@/types/creation";
@@ -393,6 +394,19 @@ export function InboxPage({ projectId }: InboxPageProps) {
     setConfirmingId(null);
   };
 
+  /** D-C2 lite：发送前确认门控。未勾选「记住选择」时，每次 AI 调用先展示将发送的内容。 */
+  const [aiConfirm, setAiConfirm] = useState<AIRunAction | null>(null);
+
+  const requestAI = (action: AIRunAction) => {
+    if (!selected) return;
+    if (!aiAvailable) return;
+    if (!shouldConfirmAiSend()) {
+      void runAI(action);
+      return;
+    }
+    setAiConfirm(action);
+  };
+
   const runAI = async (action: AIRunAction) => {
     if (!selected) return;
     if (!aiAvailable) return;
@@ -525,6 +539,22 @@ export function InboxPage({ projectId }: InboxPageProps) {
 
   return (
     <section className="inbox-page" aria-label="全局收件箱">
+      {aiConfirm && (
+        <AiSendConfirmDialog
+          actionLabel={AI_LABELS[aiConfirm]}
+          title={draft.title}
+          content={draft.body || draft.title}
+          target={[aiSettings?.model, aiSettings?.baseUrl].filter((part) => typeof part === "string" && part.trim() !== "").join(" · ") || "你配置的 AI 服务"}
+          busy={isAIRunning}
+          onConfirm={(remember) => {
+            if (remember) rememberAiSendOptOut();
+            const action = aiConfirm;
+            setAiConfirm(null);
+            if (action) void runAI(action);
+          }}
+          onCancel={() => setAiConfirm(null)}
+        />
+      )}
       <section className="desktop-page-hero motion-panel inbox-hero">
         <div className="inbox-hero-title">
           <div className="desktop-card-label">Inbox</div>
@@ -749,7 +779,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
                       key={action}
                       type="button"
                       disabled={isAIRunning || Boolean(aiBusy)}
-                      onClick={() => void runAI(action)}
+                      onClick={() => requestAI(action)}
                     >
                       <Sparkles size={15} />
                       {aiBusy === action ? "生成中..." : label}

@@ -109,6 +109,8 @@ async function renderAndSelect(item: Record<string, unknown>, aiSettings: unknow
 beforeEach(() => {
   resetStores();
   aiSettingsValue = null;
+  // 既有用例聚焦 runAI 通道行为：默认记住「不再询问」，确认流单独测。
+  window.localStorage.setItem("creation.ai.sendConfirmOptOut.v1", "1");
   vi.mocked(aiService.getAISettings).mockReset();
   vi.mocked(aiService.getAISettings).mockImplementation(() => Promise.resolve(aiSettingsValue as never));
   vi.mocked(creationService.inboxList).mockReset();
@@ -120,7 +122,10 @@ beforeEach(() => {
   vi.mocked(creationService.inboxUpdate).mockResolvedValue(undefined);
   vi.mocked(aiService.runAIAction).mockReset();
 });
-afterEach(() => cleanup());
+afterEach(() => {
+  cleanup();
+  window.localStorage.removeItem("creation.ai.sendConfirmOptOut.v1");
+});
 
 describe("isAIAvailable 边界（默认关闭）", () => {
   it("enabled 为 false 时即使已配置 Key 也不可用", () => {
@@ -305,5 +310,51 @@ describe("InboxPage AI 候选生成与采纳", () => {
     });
     // 正文保持原值
     expect((screen.getByDisplayValue("原始正文内容") as HTMLTextAreaElement).value).toBe("原始正文内容");
+  });
+});
+
+describe("AI 发送前确认（D-C2 lite）", () => {
+  it("未记住选择时先弹确认：取消不发送，确认后才调用 runAIAction", async () => {
+    window.localStorage.removeItem("creation.ai.sendConfirmOptOut.v1");
+    await renderAndSelect(makeItem(), { enabled: true, hasApiKey: true, provider: "openai-compatible", baseUrl: "https://api.example.com", model: "test-model", temperature: 0.7 });
+    vi.mocked(aiService.runAIAction).mockResolvedValue({ kind: "polish", content: "候选", prompt: "p", model: "test-model" });
+
+    fireEvent.click(screen.getByText("润色"));
+    const dialog = await screen.findByTestId("ai-send-confirm");
+    expect(dialog).toBeDefined();
+    // 展示字符数与目标（模型/服务地址），且尚未发起请求
+    expect(dialog.textContent).toContain("非空白字符");
+    expect(dialog.textContent).toContain("test-model");
+    expect(vi.mocked(aiService.runAIAction)).not.toHaveBeenCalled();
+
+    // 取消：不发送
+    fireEvent.click(screen.getByRole("button", { name: "取消" }));
+    await waitFor(() => expect(screen.queryByTestId("ai-send-confirm")).toBeNull());
+    expect(vi.mocked(aiService.runAIAction)).not.toHaveBeenCalled();
+
+    // 再次点击并确认：发送
+    fireEvent.click(screen.getByText("润色"));
+    await screen.findByTestId("ai-send-confirm");
+    fireEvent.click(screen.getByTestId("ai-send-confirm-go"));
+    await waitFor(() => expect(vi.mocked(aiService.runAIAction)).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(aiService.runAIAction).mock.calls[0]?.[0]?.content).toContain("原始正文内容");
+  });
+
+  it("勾选「记住选择」后写入 opt-out，后续点击不再询问", async () => {
+    window.localStorage.removeItem("creation.ai.sendConfirmOptOut.v1");
+    await renderAndSelect(makeItem(), { enabled: true, hasApiKey: true, provider: "openai-compatible", baseUrl: "", model: "", temperature: 0.7 });
+    vi.mocked(aiService.runAIAction).mockResolvedValue({ kind: "polish", content: "候选", prompt: "p", model: "gpt" });
+
+    fireEvent.click(screen.getByText("润色"));
+    await screen.findByTestId("ai-send-confirm");
+    fireEvent.click(screen.getByLabelText(/记住我的选择/));
+    fireEvent.click(screen.getByTestId("ai-send-confirm-go"));
+    await waitFor(() => expect(vi.mocked(aiService.runAIAction)).toHaveBeenCalledTimes(1));
+    expect(window.localStorage.getItem("creation.ai.sendConfirmOptOut.v1")).toBe("1");
+
+    // 第二次点击直发，不再弹确认
+    fireEvent.click(screen.getByText("扩写"));
+    await waitFor(() => expect(vi.mocked(aiService.runAIAction)).toHaveBeenCalledTimes(2));
+    expect(screen.queryByTestId("ai-send-confirm")).toBeNull();
   });
 });
