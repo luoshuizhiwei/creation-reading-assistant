@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Clock3 } from "lucide-react";
+import { BookOpen, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Clock3, Library, Minus, Sunrise, TrendingDown, TrendingUp } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { getReadingStats } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
@@ -143,10 +143,16 @@ export function ReadingStatsPage() {
             const pct = label === "天数" ? null : pctChange(currentVal, prevVal);
             if (prevVal <= 0 && currentVal <= 0) return null;
             const trendClass = diff > 0 ? "text-moss" : diff < 0 ? "text-red-600" : "text-paper-muted opacity-50";
+            const TrendIcon = diff > 0 ? TrendingUp : diff < 0 ? TrendingDown : Minus;
+            const valueText =
+              label === "天数"
+                ? `${diff > 0 ? "多" : diff < 0 ? "少" : ""}${absDiff} 天`
+                : `${diff > 0 ? "+" : diff < 0 ? "-" : ""}${formatDuration(absDiff)}`;
             return (
-              <span key={label} className={`flex items-center gap-1 text-sm ${trendClass}`}>
+              <span key={label} className={`flex items-center gap-1.5 text-sm ${trendClass}`}>
+                <TrendIcon size={13} className="shrink-0" />
                 <span className="text-xs text-paper-muted">{label}</span>
-                <span>{label === "天数" ? `${diff > 0 ? "多" : diff < 0 ? "少" : ""}${absDiff} 天` : `${diff > 0 ? "+" : ""}${absDiff}`}</span>
+                <span>{valueText}</span>
                 {pct !== null && <span className="text-xs opacity-70">({diff > 0 ? "+" : ""}{pct}%)</span>}
               </span>
             );
@@ -204,11 +210,12 @@ export function ReadingStatsPage() {
                     <Button
                       variant="quiet"
                       className="px-2"
+                      aria-label="上一周期"
                       onClick={() => setAnchorDate((d) => {
                         return shiftStatsAnchor(d, selectedRange, -1);
                       })}
                     >
-                      ◀
+                      <ChevronLeft size={15} />
                     </Button>
                     <span className="text-sm font-medium text-paper-ink min-w-[100px] text-center">
                       {new Intl.DateTimeFormat("zh-CN", { year: "numeric", month: "long", day: "numeric" }).format(anchorDate)}
@@ -216,12 +223,13 @@ export function ReadingStatsPage() {
                     <Button
                       variant="quiet"
                       className="px-2"
+                      aria-label="下一周期"
                       disabled={nextPeriodIsFuture}
                       onClick={() => setAnchorDate((d) => {
                         return shiftStatsAnchor(d, selectedRange, 1);
                       })}
                     >
-                      ▶
+                      <ChevronRight size={15} />
                     </Button>
                   </div>
                 )}
@@ -230,15 +238,18 @@ export function ReadingStatsPage() {
 
             <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
               {[
-                ["今日", stats.todayDurationMs],
-                ["近 7 天", stats.last7DaysDurationMs],
-                ["近 30 天", stats.last30DaysDurationMs],
-                ["全部", stats.totalDurationMs],
-                [activeBook ? `当前书：${activeBook.title}` : "当前书", activeProgress?.totalReadingTimeMs ?? 0]
-              ].map(([label, value]) => (
-                <div key={label} className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
-                  <div className="truncate text-xs font-medium text-paper-muted">{label}</div>
-                  <div className="mt-2 font-mono text-2xl font-semibold text-copper">{formatDuration(Number(value))}</div>
+                ["今日", stats.todayDurationMs, <Sunrise size={14} key="i" />],
+                ["近 7 天", stats.last7DaysDurationMs, <CalendarDays size={14} key="i" />],
+                ["近 30 天", stats.last30DaysDurationMs, <CalendarRange size={14} key="i" />],
+                ["全部", stats.totalDurationMs, <Library size={14} key="i" />],
+                [activeBook ? `当前书：${activeBook.title}` : "当前书", activeProgress?.totalReadingTimeMs ?? 0, <BookOpen size={14} key="i" />]
+              ].map(([label, value, icon]) => (
+                <div key={label as string} className="stats-card reading-stat-tile motion-panel">
+                  <div className="reading-stat-head">
+                    {icon}
+                    <span className="truncate">{label}</span>
+                  </div>
+                  <div className="reading-stat-value font-mono">{formatDuration(Number(value))}</div>
                 </div>
               ))}
             </section>
@@ -257,16 +268,24 @@ export function ReadingStatsPage() {
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">还没有可统计的阅读时长。</div>
                   ) : (
                     <div className="grid gap-2">
-                      {stats.byBook.map((book) => (
-                        <div key={book.bookId} className="grid grid-cols-[1fr_120px_70px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
-                          <div className="min-w-0">
-                            <div className="truncate font-medium text-paper-ink">{book.title}</div>
-                            <div className="text-xs uppercase text-paper-muted">{book.format}</div>
+                      {stats.byBook.map((book) => {
+                        const pct = Math.round((book.progressPercent ?? 0) * 100);
+                        return (
+                          <div key={book.bookId} className="grid grid-cols-[1fr_110px_100px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <div className="truncate font-medium text-paper-ink">{book.title}</div>
+                              <div className="text-xs uppercase text-paper-muted">{book.format}</div>
+                            </div>
+                            <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="stats-mini-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+                                <div className="stats-mini-bar-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="w-8 shrink-0 text-right text-xs text-paper-muted">{pct}%</span>
+                            </div>
                           </div>
-                          <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
-                          <div className="text-right text-xs text-paper-muted">{Math.round((book.progressPercent ?? 0) * 100)}%</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
@@ -277,28 +296,35 @@ export function ReadingStatsPage() {
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">打开并阅读书籍后会出现在这里。</div>
                   ) : (
                     <div className="grid gap-2">
-                      {stats.recentBooks.map((book) => (
-                        <div key={book.bookId} className="grid grid-cols-[1fr_100px_80px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
-                          <div className="min-w-0">
-                            <div className="truncate font-medium text-paper-ink">{book.title}</div>
-                            <div className="text-xs text-paper-muted">{formatDate(book.lastReadAt)}</div>
+                      {stats.recentBooks.map((book) => {
+                        const pct = Math.round(book.progressPercent * 100);
+                        return (
+                          <div key={book.bookId} className="grid grid-cols-[1fr_100px_100px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
+                            <div className="min-w-0">
+                              <div className="truncate font-medium text-paper-ink">{book.title}</div>
+                              <div className="text-xs text-paper-muted">{formatDate(book.lastReadAt)}</div>
+                            </div>
+                            <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="stats-mini-bar" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct}>
+                                <div className="stats-mini-bar-fill" style={{ width: `${pct}%` }} />
+                              </div>
+                              <span className="w-8 shrink-0 text-right text-xs text-paper-muted">{pct}%</span>
+                            </div>
                           </div>
-                          <div className="text-right text-paper-muted">{formatDuration(book.totalDurationMs)}</div>
-                          <div className="text-right text-xs text-paper-muted">{Math.round(book.progressPercent * 100)}%</div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>
 
                 <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
                   <h2 className="paper-title mb-3 text-base font-semibold">近 30 天节律</h2>
-                  <div className="flex h-36 items-end justify-start gap-2 overflow-hidden rounded-lg border-b border-paper-line bg-paper-soft/25 px-3 pb-2">
+                  <div className="stats-rhythm-chart">
                     {stats.daily.slice(-30).map((day) => (
-                      <div key={day.dateKey} className="flex h-full w-4 shrink-0 flex-col items-center justify-end gap-1">
+                      <div key={day.dateKey} className="stats-rhythm-col" title={`${day.dateKey} · ${formatDuration(day.durationMs)}`}>
                         <div
-                          className="w-3 rounded-t bg-copper/75 shadow-[0_-6px_18px_rgba(138,90,43,0.12)]"
-                          title={`${day.dateKey} · ${formatDuration(day.durationMs)}`}
+                          className="stats-rhythm-bar"
                           style={{ height: `${Math.max(4, (day.durationMs / maxDailyDuration) * 120)}px` }}
                         />
                       </div>

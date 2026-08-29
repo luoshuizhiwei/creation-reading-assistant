@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ReplacePlanView } from "./ReplacePlanView";
 import { ReplaceProgressDialog } from "./ReplaceProgressDialog";
 import { createReplacePlanService } from "./replace-service";
@@ -53,6 +53,32 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
   const [error, setError] = useState<ReplaceErrorView | null>(null);
   const [result, setResult] = useState<ReplaceApplyResultView | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  // 浮动面板 top 跟随页面 hero 底部（写作台操作行会换行、宽度变化会变高），
+  // 保证面板永不遮住 hero 里的查找/校对/导出等操作按钮。
+  const [floatingTop, setFloatingTop] = useState(96);
+
+  useLayoutEffect(() => {
+    const measure = (): void => {
+      const hero = document.querySelector(".desktop-page-hero");
+      const next = hero ? Math.max(96, Math.ceil(hero.getBoundingClientRect().bottom) + 16) : 96;
+      setFloatingTop((prev) => (prev === next ? prev : next));
+    };
+    measure();
+    window.addEventListener("resize", measure);
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      const hero = document.querySelector(".desktop-page-hero");
+      if (hero) {
+        observer = new ResizeObserver(measure);
+        observer.observe(hero);
+      }
+    }
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer?.disconnect();
+    };
+  }, []);
 
   const remaining = plan ? plan.totalHits - excluded.size : 0;
   const busy = phase === "previewing" || phase === "applying";
@@ -151,7 +177,11 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
   const scopeLabel = scope === "scene" ? "当前场景" : scope === "chapter" ? "当前章节" : "整个项目";
 
   return (
-    <div className="replace-panel" data-testid="replace-panel">
+    <div
+      className="replace-panel"
+      data-testid="replace-panel"
+      style={{ top: floatingTop, maxHeight: `calc(100vh - ${floatingTop + 20}px)` }}
+    >
       <header className="replace-panel-header">
         <h2>查找替换</h2>
         <span className="replace-scope-label" data-testid="replace-scope">

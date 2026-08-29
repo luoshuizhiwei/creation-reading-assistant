@@ -1,4 +1,4 @@
-import { ArrowLeft, BookOpen, Bookmark, BookmarkCheck, Highlighter, Quote, Settings } from "lucide-react";
+import { ArrowLeft, BookOpen, Bookmark, BookmarkCheck, ChartColumn, Highlighter, Quote, Settings } from "lucide-react";
 import { Button } from "@/components/ui";
 import { formatDuration } from "@/utils/format";
 
@@ -11,6 +11,7 @@ export interface EpubReaderToolbarProps {
   onHighlightSelection(): void;
   onExcerpt(): void;
   onOpenSettings(): void;
+  onOpenStats(): void;
   onBackToLibrary(): void;
   onBackToHome(): void;
 }
@@ -24,6 +25,7 @@ export function EpubReaderToolbar({
   onHighlightSelection,
   onExcerpt,
   onOpenSettings,
+  onOpenStats,
   onBackToLibrary,
   onBackToHome
 }: EpubReaderToolbarProps) {
@@ -51,6 +53,10 @@ export function EpubReaderToolbar({
       <Button variant="quiet" onClick={onOpenSettings}>
         <Settings size={16} />
         设置
+      </Button>
+      <Button variant="quiet" onClick={onOpenStats}>
+        <ChartColumn size={16} />
+        统计
       </Button>
       <Button variant="quiet" onClick={onBackToLibrary}>
         <ArrowLeft size={16} />

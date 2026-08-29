@@ -800,7 +800,7 @@ export function EpubReaderPage() {
   );
 
   return (
-    <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
+    <div className="reader-root grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
       <EpubReaderToolbar
         title={activeBook.title}
         progressPercent={progressPercent}
@@ -820,6 +820,11 @@ export function EpubReaderPage() {
         onOpenSettings={async () => {
           await flushProgress();
           setSettingsDrawerOpen(true);
+        }}
+        onOpenStats={async () => {
+          await flushProgress();
+          await endTracking("leave-reader");
+          setScreen("stats");
         }}
         onBackToLibrary={async () => {
           await flushProgress();

@@ -16,8 +16,8 @@ const requiredSnippets = [
   "recentSessions",
   "averageSessionDurationMs",
   "基于有效阅读会话聚合",
-  "w-4 shrink-0",
-  "w-3 rounded-t"
+  "stats-rhythm-chart",
+  "stats-rhythm-bar"
 ];
 
 const missing = requiredSnippets.filter((snippet) => !statsPage.includes(snippet));

@@ -181,7 +181,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
 
       <div className="stats-card overview-daily-card">
         <h3><Flame size={15} /> 最近 14 天净增字数</h3>
-        {stats ? (
+        {stats && stats.daily.some((item) => item.netChars !== 0) ? (
           <div className="stats-daily overview-daily" role="img" aria-label="最近十四天净增字数柱状图">
             {stats.daily.map((item) => {
               const height = Math.max(2, Math.round((Math.abs(item.netChars) / maxDaily) * 100));
@@ -198,7 +198,9 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
               );
             })}
           </div>
-        ) : null}
+        ) : (
+          <p className="stats-note">最近 14 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
+        )}
       </div>
 
       <div className="stats-card overview-recent-card">

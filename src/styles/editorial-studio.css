@@ -446,7 +446,7 @@ select:focus-visible,
   box-shadow: 0 4px 12px rgba(34, 38, 48, 0.08);
 }
 
-.desktop-page-actions button:first-child,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]),
 .project-home-create-first,
 .cards-add,
 .cards-save,
@@ -456,7 +456,7 @@ select:focus-visible,
   color: #fff;
 }
 
-.desktop-page-actions button:first-child:hover,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):hover,
 .project-home-create-first:hover,
 .cards-add:hover,
 .cards-save:hover,
@@ -1249,6 +1249,147 @@ select:focus-visible,
   border-radius: 8px;
 }
 
+/* Load-more footer: a quiet tray edge at the end of the slush pile. */
+.inbox-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 8px;
+  padding: 10px 14px !important;
+  border: 1px dashed var(--border-strong) !important;
+  border-radius: 9px !important;
+  background: transparent !important;
+}
+
+.inbox-load-more button {
+  border: 1px solid color-mix(in srgb, var(--accent-spine) 40%, var(--border-strong));
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--accent-spine);
+  font-size: 12px;
+  font-weight: 650;
+  padding: 6px 13px;
+  cursor: pointer;
+}
+
+.inbox-load-more button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.inbox-load-more button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* Save state reads as a status lamp beside the manuscript head. */
+.inbox-save-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 34%, transparent);
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 650;
+  padding: 3px 9px;
+}
+
+.inbox-save-status--saving {
+  color: var(--accent-spine);
+  background: color-mix(in srgb, var(--accent-spine) 12%, transparent);
+}
+
+.inbox-save-status--saved {
+  color: var(--moss);
+  background: color-mix(in srgb, var(--moss) 14%, transparent);
+}
+
+.inbox-save-status--unsaved {
+  color: #8a5a16;
+  background: color-mix(in srgb, #b9770e 15%, transparent);
+}
+
+.inbox-detail-head button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--accent-spine) 42%, var(--border-strong));
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--accent-spine);
+  font-size: 12.5px;
+  font-weight: 650;
+  padding: 6px 13px;
+  cursor: pointer;
+  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
+}
+
+.inbox-detail-head button:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.inbox-detail-head button:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
+}
+
+.inbox-detail-head button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+/* AI actions: a column of quiet instruments under the editor's note. */
+.inbox-detail div.mt-3.grid button,
+.inbox-detail div.mt-3.flex button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 8px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 7px 10px;
+  cursor: pointer;
+  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.inbox-detail div.mt-3.grid button {
+  justify-content: flex-start;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
+}
+
+.inbox-detail div.mt-3.grid button svg {
+  color: var(--accent-spine);
+}
+
+.inbox-detail div.mt-3.grid button:hover:not(:disabled),
+.inbox-detail div.mt-3.flex button:hover {
+  border-color: color-mix(in srgb, var(--accent-spine) 38%, var(--border-subtle));
+  background: var(--accent-hover);
+}
+
+.inbox-detail div.mt-3.grid button:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.inbox-detail div.mt-3.flex button:first-child svg {
+  color: var(--text-muted);
+}
+
+.inbox-detail div.mt-3.flex button:last-child {
+  color: var(--accent-spine);
+}
+
+.inbox-detail div.mt-3.flex button:last-child svg {
+  color: var(--accent-spine);
+}
+
 /* --------------------------------------------------------------------------
  * Global search: a command tray over a dimmed study
  * ----------------------------------------------------------------------- */
@@ -1366,6 +1507,318 @@ select:focus-visible,
   box-shadow: inset 2px 0 0 var(--studio-seal);
 }
 
+/* Format chips: per-format ink, one quiet family. */
+.format-chip {
+  display: inline-grid;
+  place-items: center;
+  min-width: 44px;
+  border-radius: 6px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+}
+
+.format-chip--epub {
+  border: 1px solid color-mix(in srgb, var(--studio-seal) 34%, var(--border-subtle));
+  background: color-mix(in srgb, var(--studio-seal) 9%, var(--bg-surface));
+  color: var(--studio-seal);
+}
+
+.format-chip--txt {
+  border: 1px solid color-mix(in srgb, var(--accent-spine) 32%, var(--border-subtle));
+  background: color-mix(in srgb, var(--accent-spine) 9%, var(--bg-surface));
+  color: var(--accent-spine);
+}
+
+.format-chip--md {
+  border: 1px solid color-mix(in srgb, var(--studio-jade) 32%, var(--border-subtle));
+  background: color-mix(in srgb, var(--moss) 9%, var(--bg-surface));
+  color: var(--moss);
+}
+
+/* The book cover block: a small bound volume standing on the shelf row. */
+.library-cover {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 50px;
+  flex-shrink: 0;
+  border-radius: 4px 8px 8px 4px;
+  background:
+    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--accent-spine) 88%, #000) 0 5px,
+      color-mix(in srgb, var(--accent-spine) 74%, var(--bg-app)) 5px);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    0 2px 5px rgba(34, 38, 48, 0.18);
+}
+
+[data-format="md"] .library-cover {
+  background:
+    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--moss) 82%, #000) 0 5px,
+      color-mix(in srgb, var(--moss) 68%, var(--bg-app)) 5px);
+}
+
+[data-format="epub"] .library-cover {
+  background:
+    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--studio-seal) 84%, #000) 0 5px,
+      color-mix(in srgb, var(--studio-seal) 70%, var(--bg-app)) 5px);
+}
+
+.library-cover-glyph {
+  color: #fff;
+  font-family: var(--font-serif);
+  font-size: 15px;
+  font-weight: 700;
+  opacity: 0.94;
+}
+
+/* Reading progress: seal red in a pressed groove, matching the project shelf. */
+.library-progress-percent {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.library-progress-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--studio-seal), color-mix(in srgb, var(--studio-seal) 68%, var(--accent-spine)));
+  transition: width 260ms ease;
+}
+
+/* Reading stat tiles carry the section voice like studio cards elsewhere. */
+.reading-stat-tile {
+  padding: 13px 14px !important;
+}
+
+.reading-stat-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.reading-stat-head svg {
+  color: var(--accent-spine);
+  flex-shrink: 0;
+}
+
+.reading-stat-value {
+  margin-top: 7px;
+  color: var(--text-main);
+  font-size: 19px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The 30-day rhythm chart reads as a skyline in ink, grounded by a baseline. */
+.stats-rhythm-chart {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  height: 144px;
+  padding: 4px 10px 0;
+  border-bottom: 1px solid var(--border-strong);
+  overflow: hidden;
+}
+
+.stats-rhythm-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  transition: filter 140ms ease;
+}
+
+.stats-rhythm-col:hover .stats-rhythm-bar {
+  filter: brightness(1.12);
+}
+
+.stats-rhythm-bar {
+  width: 100%;
+  max-width: 18px;
+  border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, var(--accent-spine), color-mix(in srgb, var(--accent-spine) 58%, transparent));
+  min-height: 2px;
+}
+
+/* Per-book rows carry a miniature of the shelf progressbar. */
+.stats-mini-bar {
+  flex: 1;
+  min-width: 34px;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 46%, transparent);
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
+  overflow: hidden;
+}
+
+.stats-mini-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--studio-seal), color-mix(in srgb, var(--studio-seal) 68%, var(--accent-spine)));
+}
+
+/* Overview chapter-status rows: name · share bar · count on one line. */
+.overview-status-list {
+  display: grid;
+  gap: 9px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.overview-status-list li {
+  display: grid;
+  grid-template-columns: 76px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 10px;
+}
+
+.overview-status-name {
+  color: var(--text-muted);
+  font-size: 12.5px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.overview-status-bar {
+  display: block;
+  height: 6px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 46%, transparent);
+  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
+  overflow: hidden;
+}
+
+.overview-status-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-spine), color-mix(in srgb, var(--accent-spine) 58%, var(--studio-cloth)));
+}
+
+.overview-status-count {
+  color: var(--text-main);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 650;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Goal card: the edit action docks right of the section voice. */
+.stats-goal-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--accent-spine);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 8px;
+  cursor: pointer;
+}
+
+.stats-goal-edit:hover {
+  background: var(--accent-hover);
+}
+
+/* Cards toolbar holds one line of instruments; never squeeze to stack.
+ * The row itself may wrap when the desk is narrow. */
+.cards-toolbar {
+  flex-wrap: wrap;
+}
+
+.cards-toolbar button {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* --------------------------------------------------------------------------
+ * Reader chrome: the full-screen reader renders outside the workbench, so
+ * its topbar / sidebar / settings panel need the token bridge directly.
+ * The reading paper itself keeps the user-chosen book theme on purpose.
+ * ----------------------------------------------------------------------- */
+
+.reader-root {
+  background: var(--bg-app);
+}
+
+.reader-root .paper-topbar {
+  border-bottom: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  box-shadow: none;
+}
+
+.reader-root .text-paper-ink {
+  color: var(--text-main);
+}
+
+.reader-root .text-paper-muted {
+  color: var(--text-muted);
+}
+
+.reader-root .paper-input {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+.reader-root .paper-input:focus {
+  border-color: var(--accent-spine);
+}
+
+.reader-root .paper-panel {
+  border-color: var(--border-subtle);
+  background: color-mix(in srgb, var(--bg-subtle) 55%, var(--bg-app));
+}
+
+/* Settings panel: a quiet instrument column beside the paper. */
+.reader-root input[type="range"] {
+  accent-color: var(--accent-spine);
+}
+
+.reader-root input[type="checkbox"] {
+  accent-color: var(--accent-spine);
+}
+
+.reader-root select {
+  accent-color: var(--accent-spine);
+}
+
+.reader-root .border-paper-line {
+  border-color: var(--border-subtle);
+}
+
+.reader-root .border-dashed {
+  border-color: var(--border-strong);
+}
+
+.reader-root button {
+  color: var(--text-main);
+}
+
 .desktop-inspiration-page {
   gap: 0;
   padding: 0;
@@ -1436,11 +1889,12 @@ select:focus-visible,
  * buttons you can press, and lists that settle onto the desk one by one.
  * ----------------------------------------------------------------------- */
 
-/* The desk reads as matter, not a flat fill: a faint paper fiber. */
+/* The desk reads as matter, not a flat fill: a faint paper fiber.
+ * The lamp glow rides on a token so the night desk stays matte. */
 .desktop-canvas {
   background:
     url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.032'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
-    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.5), transparent 34%),
+    radial-gradient(circle at 50% -12%, var(--studio-desk-toplight), transparent 34%),
     var(--bg-app);
 }
 
@@ -1512,7 +1966,7 @@ select:focus-visible,
   box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
 }
 
-.desktop-page-actions button:first-child,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]),
 .project-home-create-first,
 .cards-add,
 .cards-save,
@@ -1520,7 +1974,7 @@ select:focus-visible,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
 }
 
-.desktop-page-actions button:first-child:active,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):active,
 .project-home-create-first:active,
 .cards-add:active,
 .cards-save:active,
@@ -1874,6 +2328,11 @@ input[type="text"],
 
 .desktop-settings-grid label {
   font-size: 13px;
+}
+
+/* Settings actions hold one line; the description wraps instead. */
+.desktop-settings-grid button {
+  white-space: nowrap;
 }
 
 .desktop-settings-grid input[type="range"] {

@@ -48,6 +48,7 @@ const styles = read("src/styles.css");
 const search = read("src/features/search/SearchPanel.tsx");
 const searchActions = read("src/hooks/useSearchActions.ts");
 const epub = read("src/features/library/EpubReaderPage.tsx");
+const epubDrawer = read("src/features/library/epub-reader/EpubSettingsDrawer.tsx");
 const reader = read("src/features/library/ReaderPage.tsx");
 const homePage = read("src/features/creation/home/ProjectHomePage.tsx");
 const libraryPage = read("src/features/library/LibraryPage.tsx");
@@ -87,7 +88,7 @@ const checks = [
   [search.includes("motion-dialog"), "Search dialog must use animated dialog styling."],
   [debounceClearedBeforeEmpty(searchActions), "Search debounce timer must be cleared before handling an empty keyword."],
   [searchActions.includes("setLoading(false)") && searchActions.indexOf("setLoading(false)") < searchActions.indexOf("setResults([])"), "Clearing a search must immediately clear loading state before showing empty results."],
-  [epub.includes("motion-drawer"), "EPUB settings drawer must slide in with motion-drawer."],
+  [epub.includes("EpubSettingsDrawer") && epubDrawer.includes("motion-drawer"), "EPUB settings drawer must slide in with motion-drawer."],
   [reader.includes("showToast"), "Text/Markdown reader must use toast feedback for inspiration capture."],
   [epub.includes("showToast"), "EPUB reader must use toast feedback for inspiration capture."],
   [settings.includes("confirmAction"), "Settings page must use custom confirmation flow."],

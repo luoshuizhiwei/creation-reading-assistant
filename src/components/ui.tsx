@@ -14,7 +14,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
     quiet: "text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink"
   };
   return (
-    <button ref={ref} className={`${base} ${variants[variant]} ${className}`} {...props}>
+    <button ref={ref} data-variant={variant} className={`${base} ${variants[variant]} ${className}`} {...props}>
       {children}
     </button>
   );

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, FileText, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
+import { BookOpen, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryStore } from "@/stores/library-store";
@@ -118,6 +118,10 @@ export function LibraryPage() {
             <Button variant="secondary" onClick={importEpubBooks}>
               <Import size={16} />
               导入 EPUB
+            </Button>
+            <Button variant="quiet" onClick={() => setScreen("stats")}>
+              <BookOpen size={16} />
+              阅读统计
             </Button>
             <Button variant="quiet" onClick={() => setScreen("settings")}>
               <Settings size={16} />
@@ -259,6 +263,7 @@ export function LibraryPage() {
                       role="button"
                       tabIndex={0}
                       className="desktop-library-row group"
+                      data-format={book.format}
                       onClick={() => openReader(book.id)}
                       onKeyDown={(event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -268,12 +273,12 @@ export function LibraryPage() {
                       }}
                     >
                       <div>
-                        <span className="moss-chip uppercase">{book.format}</span>
+                        <span className={`format-chip format-chip--${book.format}`}>{book.format}</span>
                       </div>
                       <div className="min-w-0 text-left">
                         <div className="flex items-center gap-3">
-                          <div className="grid h-10 w-10 shrink-0 place-items-center rounded-lg border border-paper-line bg-paper-soft/70 text-copper">
-                            <FileText size={18} />
+                          <div className="library-cover" aria-hidden="true">
+                            <span className="library-cover-glyph">{book.format === "epub" ? "书" : book.format === "md" ? "M" : "文"}</span>
                           </div>
                           <div className="min-w-0">
                             <div className="flex min-w-0 items-center gap-2">
@@ -289,11 +294,11 @@ export function LibraryPage() {
                       </div>
                       <div className="grid gap-1">
                         <div className="flex items-center justify-between text-xs text-paper-muted">
-                          <span>{percent}%</span>
+                          <span className="library-progress-percent">{percent}%</span>
                           <span>{formatDuration(itemProgress?.totalReadingTimeMs)}</span>
                         </div>
                         <div className="h-1.5 overflow-hidden rounded-full bg-paper-soft" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={percent}>
-                          <div className="h-full rounded-full bg-moss" style={{ width: `${percent}%` }} />
+                          <div className="library-progress-fill" style={{ width: `${percent}%` }} />
                         </div>
                       </div>
                       <div className="font-mono text-xs text-paper-muted">{formatDate(itemProgress?.lastReadAt)}</div>

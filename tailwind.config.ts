@@ -2,6 +2,9 @@ import type { Config } from "tailwindcss";
 
 export default {
   content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  // 阅读器主题类名在运行时拼接（reader-shell-${background}），内容扫描看不到字面量；
+  // 不 safelist 会被 @layer components 整块清除，阅读主题背景在生产构建中丢失。
+  safelist: [{ pattern: /^reader-(bg|shell)-(white|warm|green|night|amber|parchment|beans)$/ }],
   theme: {
     extend: {
       colors: {

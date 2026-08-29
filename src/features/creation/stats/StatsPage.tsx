@@ -254,17 +254,21 @@ export function StatsPage({ projectId }: StatsPageProps) {
 
       <div className="stats-card stats-daily-card">
         <h3>最近 14 天净增字数与写作时长</h3>
-        <div className="stats-daily" role="img" aria-label="最近十四天净增字数柱状图">
-          {daily.map((item) => {
-            const height = Math.max(2, Math.round((Math.abs(item.netChars) / maxDaily) * 100));
-            return (
-              <div key={item.date} className="stats-daily-col" title={`${item.date}：净增 ${item.netChars} 字 · ${Math.round(item.activeSeconds / 60)} 分钟`}>
-                <span className="stats-daily-bar" style={{ height: `${height}%` }} />
-                <span className="stats-daily-label">{item.date.slice(5)}</span>
-              </div>
-            );
-          })}
-        </div>
+        {daily.every((item) => item.netChars === 0) ? (
+          <p className="stats-note">最近 14 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
+        ) : (
+          <div className="stats-daily" role="img" aria-label="最近十四天净增字数柱状图">
+            {daily.map((item) => {
+              const height = Math.max(2, Math.round((Math.abs(item.netChars) / maxDaily) * 100));
+              return (
+                <div key={item.date} className="stats-daily-col" title={`${item.date}：净增 ${item.netChars} 字 · ${Math.round(item.activeSeconds / 60)} 分钟`}>
+                  <span className="stats-daily-bar" style={{ height: `${height}%` }} />
+                  <span className="stats-daily-label">{item.date.slice(5)}</span>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       <div className="stats-card stats-sessions-card">

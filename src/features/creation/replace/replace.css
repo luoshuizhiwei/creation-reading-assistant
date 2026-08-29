@@ -1,14 +1,24 @@
 .replace-panel {
+  /* 浮动工具面板：非模态，悬于工作台右上，正文仍可滚动操作。 */
+  position: fixed;
+  top: 96px;
+  right: 28px;
+  z-index: 60;
   display: flex;
   flex-direction: column;
   gap: 12px;
   padding: 18px;
+  width: min(600px, calc(100vw - 56px));
+  max-height: calc(100vh - 132px);
+  overflow: auto;
   color: var(--text-main);
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: 12px;
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05);
-  max-width: 720px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 6px 18px rgba(15, 17, 22, 0.1),
+    0 24px 70px rgba(15, 17, 22, 0.22);
 }
 
 .replace-panel-header {

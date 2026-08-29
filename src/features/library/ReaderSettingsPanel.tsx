@@ -79,7 +79,7 @@ export function ReaderSettingsPanel({
             onChange({ presets: [...(settings.presets || []), preset] });
             setPresetName("");
           }}
-          className="px-2 py-1.5 text-sm bg-paper-panel border border-paper-line rounded-md hover:bg-paper-soft"
+          className="whitespace-nowrap px-2.5 py-1.5 text-sm bg-paper-panel border border-paper-line rounded-md hover:bg-paper-soft"
           title="保存当前设置为预设"
         >
           保存
@@ -102,9 +102,9 @@ export function ReaderSettingsPanel({
             step={1}
             value={settings.fontSize}
             onChange={(e) => onChange({ fontSize: Number(e.target.value) })}
-            className="flex-1 accent-amber-700"
+            className="flex-1"
           />
-          <span className="text-sm text-stone-600 w-8 text-center">{settings.fontSize}</span>
+          <span className="text-sm text-paper-muted w-8 text-center">{settings.fontSize}</span>
         </div>
       </Field>
       {/* 字体选择 */}
@@ -138,7 +138,7 @@ export function ReaderSettingsPanel({
               void refreshFonts();
             }
           }}
-          className="px-2 py-1.5 text-sm bg-paper-panel border border-paper-line rounded-md hover:bg-paper-soft"
+          className="whitespace-nowrap px-2.5 py-1.5 text-sm bg-paper-panel border border-paper-line rounded-md hover:bg-paper-soft"
           title="导入字体文件"
         >
           导入
@@ -153,9 +153,9 @@ export function ReaderSettingsPanel({
             step={0.1}
             value={settings.lineHeight}
             onChange={(e) => onChange({ lineHeight: Number(e.target.value) })}
-            className="flex-1 accent-amber-700"
+            className="flex-1"
           />
-          <span className="text-sm text-stone-600 w-10 text-center">{settings.lineHeight.toFixed(1)}</span>
+          <span className="text-sm text-paper-muted w-10 text-center">{settings.lineHeight.toFixed(1)}</span>
         </div>
       </Field>
       <Field label="段间距">
@@ -167,9 +167,9 @@ export function ReaderSettingsPanel({
             step={0.1}
             value={settings.paragraphSpacing ?? 1.0}
             onChange={(e) => onChange({ paragraphSpacing: Number(e.target.value) })}
-            className="flex-1 accent-amber-700"
+            className="flex-1"
           />
-          <span className="text-sm text-stone-600 w-10 text-center">{(settings.paragraphSpacing ?? 1.0).toFixed(1)}</span>
+          <span className="text-sm text-paper-muted w-10 text-center">{(settings.paragraphSpacing ?? 1.0).toFixed(1)}</span>
         </div>
       </Field>
       <Field label="字间距">
@@ -181,9 +181,9 @@ export function ReaderSettingsPanel({
             step={0.01}
             value={settings.letterSpacing ?? 0}
             onChange={(e) => onChange({ letterSpacing: Number(e.target.value) })}
-            className="flex-1 accent-amber-700"
+            className="flex-1"
           />
-          <span className="text-sm text-stone-600 w-10 text-center">{(settings.letterSpacing ?? 0).toFixed(2)}</span>
+          <span className="text-sm text-paper-muted w-10 text-center">{(settings.letterSpacing ?? 0).toFixed(2)}</span>
         </div>
       </Field>
       <Field label="页边距">

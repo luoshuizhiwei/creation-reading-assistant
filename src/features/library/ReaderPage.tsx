@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, Copy, Highlighter, Quote, Settings, X } from "lucide-react";
+import { ArrowLeft, BookOpen, ChartColumn, Copy, Highlighter, Quote, Settings, X } from "lucide-react";
 import MarkdownIt from "markdown-it";
 import DOMPurify from "dompurify";
 import { Button, EmptyState, ShellPanel } from "@/components/ui";
@@ -497,7 +497,7 @@ function TextReaderPage() {
   );
 
   return (
-    <div className="grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
+    <div className="reader-root grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
       <header className="paper-topbar flex items-center gap-3 px-5">
         <BookOpen size={18} />
         <div className="min-w-0 flex-1">
@@ -516,6 +516,17 @@ function TextReaderPage() {
         >
           <Settings size={16} />
           设置
+        </Button>
+        <Button
+          variant="quiet"
+          onClick={async () => {
+            await flushProgress();
+            await endTracking("leave-reader");
+            setScreen("stats");
+          }}
+        >
+          <ChartColumn size={16} />
+          统计
         </Button>
         <Button
           variant="quiet"
