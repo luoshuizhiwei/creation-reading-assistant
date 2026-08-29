@@ -507,3 +507,31 @@ Novalist 调研与取舍仍记录在
 
 
 
+
+## 20. 2026-08-29 桌面端创作深度五轮（对照 Novalist 取精，独立 desktop 会话）
+
+- **① 创作雷达 v1（调研 D-C1）**：写作台右栏升级为「场景雷达 / 批注与引用」双页签。雷达只读聚合
+  场景任务卡（视角/时间/地点/目标/冲突/结果/情绪/出场）、字数目标进度 + 预计阅读时长、批注概览
+  （待处理/已解决/失效锚点/修订）与引用卡片；空态一键跳大纲页填任务卡。纯聚合不加表不调 AI。
+  核心：`src/features/creation/editor/scene-radar.ts`（纯派生）+ `SceneRadar.tsx`。
+- **② 伏笔生命周期 v1（调研 D-C3 前置）**：内置 `foreshadow` 卡片类型 schema 扩展
+  `status(未回收/已回收)/plantedIn/resolution`；语义「未标记 = 未回收」兜底，**零迁移**。
+  雷达引用 chip 带类型徽标与伏笔状态，新增「待回收伏笔：本场 N · 全书 M」。
+- **③ AI 发送前确认（调研 D-C2 lite + Novalist 数据告知）**：收件箱 AI 每次调用前弹确认——
+  非空白字符数、正文预览、去向（模型 · baseUrl）、「结果只进候选版本」告知；可勾选记住选择。
+  `src/features/creation/inbox/ai-send-confirm.tsx`；完整上下文包见第 21 节。
+- **④ 校对规则 5→8**：新增 `mixedPunctuation`（汉字贴半角标点，数字间小数点排除）、
+  `crutchWord`（突然/顿时等 10 词单场景 ≥3 次）、`paragraphStartRepeat`（连续 ≥3 段同字开头）。
+  引擎在 `electron/main/creation-workspace/index.ts`；ProofPanel 规则开关与说明同步。
+- **⑤ 演示项目（Novalist demo_novel 对标）**：项目首页空态「载入演示项目」一键创建
+  《演示·雨夜图书馆》：3 场景正文 + 任务卡 + 5 卡片 + 1 关系 + 2 条锚定批注（伏笔一开一收），
+  全走既有命令通道编排（`src/features/creation/demo/create-demo-project.ts`），零新增 IPC。
+- **关键坑位（防回归）**：
+  - `useCreationActions.runStructure` 返回 boolean 并丢弃 `entityId`；需要创建结果 ID 的编排
+    必须用 `@/services/creation-service` 的 `runStructure`（返回 CreationStructureResult）。
+  - 内置关系类型 ID 带 `relation-type-` 前缀（如 `relation-type-character-location`）；
+    内置卡片类型 ID 为 `card-type-<kind>`；自定义卡片类型 kind 为 `custom-<random>` 不可预测，
+    识别自定义类型只能靠类型名。
+  - 批注锚点 `textLength` 必须与 `text` 字符数一致（汉字逐字数），否则「批注锚点未命中正文文本」。
+- **验证（2026-08-29 实跑）**：700 unit tests / 0 failed；15 个 verify 脚本全过；
+  `probe-round9`（雷达端到端 8 项）、`probe-round10`（演示项目端到端 9 项）全过。
