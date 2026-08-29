@@ -535,3 +535,24 @@ Novalist 调研与取舍仍记录在
   - 批注锚点 `textLength` 必须与 `text` 字符数一致（汉字逐字数），否则「批注锚点未命中正文文本」。
 - **验证（2026-08-29 实跑）**：700 unit tests / 0 failed；15 个 verify 脚本全过；
   `probe-round9`（雷达端到端 8 项）、`probe-round10`（演示项目端到端 9 项）全过。
+
+## 21. 2026-08-29 桌面端重型项 D-C2 全量三切片（AI 上下文包 / 场景候选 / 一致性检查）
+
+- **切片 1——上下文包构建器**：`src/features/creation/ai/build-ai-context.ts` 纯模块，按
+  正文/任务卡/关联卡片/批注四组建模，每组带非空白字符数与 token 估算（约 1.6 字/token，量级参考），
+  `compose(excluded)` 按组排除合成最终发送文本；共享量化口径在 `ai/context-pack-format.ts`。
+  `AiSendConfirmDialog` 升级分组模式（逐组勾选排除、全排除禁发），收件箱单内容模式不变，
+  `onConfirm` 升级为 `(finalContent, remember)`。
+- **切片 2——写作台 AI 入口与场景候选评审**：场景雷达底部 AI 助手行（润色/扩写/一致性检查）。
+  上下文包只取与场景相关的卡片（任务卡引用 + 批注关联去重子集）。AI 输出永不直接改正文：
+  `SceneCandidateReview` 以段落级 LCS diff 呈现（`ai/diff-paragraphs.ts`：diff + 统计 + doc→纯文本），
+  采纳 = `snapshot.create`（保护快照）→ `saveSceneBody`（revision 校验，冲突保留候选）。
+- **切片 3——AI 一致性检查**：`AIRunAction` 扩展 `"consistency"`（收件箱 variant 校验仍限
+  InspirationVariantKind，InboxPage 类型收窄到 `Exclude<AIRunAction,"consistency">`）；
+  主进程 `buildAIPrompt` 增加证据化报告指令（类型限：事实矛盾/时间线冲突/人物设定冲突/
+  称谓地名不一致/伏笔未回收/逻辑漏洞 + 严重度 + 位置证据 + 建议 + 总体结论）。
+  输出走 `SceneAiReport` 只读报告弹层，不落库不改正文——与前两片共用确认对话框与样式骨架。
+- **验证（2026-08-29 实跑）**：720 unit tests / 0 failed；15 个 verify 全过；
+  `probe-round10` 10 项含 AI 助手行未启用态。至此调研文档 D-C1/D-C2/D-C3 全部落地
+  （D-C3 完整版连续性台账仍为长期候选）；提交 900b185→本节对应提交按序在
+  `codex/workspace-backup-2026-08-20` 分支。

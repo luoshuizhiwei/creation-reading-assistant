@@ -1119,7 +1119,9 @@ function buildAIPrompt(input: AIRunInput): string {
   const platform = input.platform?.trim() ? `目标平台/风格：${input.platform.trim()}\n` : "";
   const content = requireString(input.content, "灵感内容");
   const instruction =
-    input.action === "expand"
+    input.action === "consistency"
+      ? "对下面的场景做一致性检查：只输出问题报告，不要改写正文。每条问题按「【类型】严重度(高/中/低) 位置/证据 → 建议」一行列出，类型限：事实矛盾、时间线冲突、人物设定冲突、称谓/地名不一致、伏笔未回收、逻辑漏洞；没有问题的方面不要罗列，结尾给一行「总体结论」。"
+      : input.action === "expand"
       ? "把这条小说灵感扩展成可执行的剧情方案，保留钩子、冲突、角色动机和下一步写法。"
       : input.action === "platform-style"
         ? "按目标平台读者口味重写这条灵感，让它更像可直接拿去写正文前的桥段设计。"

@@ -32,7 +32,7 @@ const STATUS_LABELS: Record<InspirationStatus, string> = {
   archived: "归档"
 };
 
-const AI_LABELS: Record<AIRunAction, string> = {
+const AI_LABELS: Record<Exclude<AIRunAction, "consistency">, string> = {
   polish: "润色",
   expand: "扩写",
   "platform-style": "平台风格化",
@@ -395,9 +395,9 @@ export function InboxPage({ projectId }: InboxPageProps) {
   };
 
   /** D-C2 lite：发送前确认门控。未勾选「记住选择」时，每次 AI 调用先展示将发送的内容。 */
-  const [aiConfirm, setAiConfirm] = useState<AIRunAction | null>(null);
+  const [aiConfirm, setAiConfirm] = useState<Exclude<AIRunAction, "consistency"> | null>(null);
 
-  const requestAI = (action: AIRunAction) => {
+  const requestAI = (action: Exclude<AIRunAction, "consistency">) => {
     if (!selected) return;
     if (!aiAvailable) return;
     if (!shouldConfirmAiSend()) {
@@ -407,7 +407,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
     setAiConfirm(action);
   };
 
-  const runAI = async (action: AIRunAction) => {
+  const runAI = async (action: Exclude<AIRunAction, "consistency">) => {
     if (!selected) return;
     if (!aiAvailable) return;
     if (isAIRunningRef.current) return;
@@ -774,7 +774,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
               )}
               {aiAvailable && (
                 <div className="mt-3 grid gap-2">
-                  {(Object.entries(AI_LABELS) as Array<[AIRunAction, string]>).map(([action, label]) => (
+                  {(Object.entries(AI_LABELS) as Array<[Exclude<AIRunAction, "consistency">, string]>).map(([action, label]) => (
                     <button
                       key={action}
                       type="button"
@@ -795,7 +795,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
                   </div>
                 ) : (
                   selected.variants.map((variant) => {
-                    const kind = String(variant.kind ?? "polish") as AIRunAction;
+                    const kind = String(variant.kind ?? "polish") as Exclude<AIRunAction, "consistency">;
                     const model = typeof variant.model === "string" ? variant.model : "AI";
                     const createdAt = typeof variant.createdAt === "string" ? new Date(variant.createdAt).toLocaleString("zh-CN") : "";
                     const content = typeof variant.content === "string" ? variant.content : "";

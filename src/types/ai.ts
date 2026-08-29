@@ -1,7 +1,14 @@
 import type { InspirationVariantKind } from "./inspiration";
 
 export type AIProvider = "openai-compatible";
-export type AIRunAction = InspirationVariantKind;
+/**
+ * AI 运行动作：灵感侧沿用 InspirationVariantKind（收件箱候选版本）；
+ * "consistency" 为场景一致性检查（输出问题报告，不产出候选，不落库）。
+ */
+export type AIRunAction = InspirationVariantKind | "consistency";
+export function isSceneAiAction(action: AIRunAction): action is "polish" | "expand" | "consistency" {
+  return action === "polish" || action === "expand" || action === "consistency";
+}
 
 export interface AISettings {
   provider: AIProvider;
