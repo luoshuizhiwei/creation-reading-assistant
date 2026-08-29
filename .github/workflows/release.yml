@@ -15,6 +15,8 @@ permissions:
 # - android-v*  → 原生 Android 签名 APK + GPL 源码包 + SHA-256
 # 应用内「检查更新」按 android-v 前缀过滤 releases 列表，桌面端发布不会误报为 Android 更新。
 # 旧 mobile/android Capacitor APK 的构建与上传已在 P0-A2（2026-07-29）退役。
+# P0-A3 TODO: 原生 android/ 的签名 keystore 尚未配置（keystore.properties 不存在），
+# android-v* 发布在签名注入就绪前不可用；P0-A3 完成后移除本行。
 
 jobs:
   build-release-assets:

@@ -1,8 +1,8 @@
 # 当前 Agent 交接入口
 
-更新日期：2026-08-24 集成验证（阅读器跨屏自适应、跨格式翻页与分页覆盖层收口；此前会话收尾记录见第 2 节）
+更新日期：2026-08-29（桌面端 UI 第 7-8 轮收口与应用图标，见第 19 节；2026-08-25 Android 阅读器引擎收口见第 18 节）
 仓库：`D:\develop\Code\Codex\creation-reading-assistant`  
-当前对话主线：**独立原生 Android `android/`**；desktop 候选已停放，不是当前实施任务。
+当前对话主线：**双线并行**——独立原生 Android `android/`（本文件第 2、18 节）与桌面端 Electron `src/`+`electron/`（第 19 节，独立会话）。两线不共享运行时代码，跨线改动需各自会话的文件所有权。
 
 ## 1. 接手前必须知道
 
@@ -132,12 +132,13 @@ Compose 测试 Activity 自动前台启动；在测试请求中的精确 `MAIN +
 Intent 启动后仍卡死则需要真机手动点「允许」弹窗，或先补 Room 等非 Activity 类 instrumentation
 作为证据。**0 项 instrumentation 不是通过证据。**
 
-## 5. Desktop 停放项
+## 5. Desktop 状态（2026-08-29 更新）
 
-Novalist 调研与取舍已记录在
+桌面端已在独立会话重新激活并完成 8 轮 UI 收口（设计系统 token、页面深化、阅读器审查、
+弹窗巡检、应用图标），记录见第 19 节；当前桌面端 UI 无已知未修缺陷。
+Novalist 调研与取舍仍记录在
 `docs/research/novalist-desktop-adoption-2026-08-21.md`。最高价值候选是只读「创作雷达 v1」；
-不要把其 Markdown/JSON、PySide6 或 DeepSeek Harness 架构搬入项目。该候选需在独立 desktop
-任务中启动，不能占用本 Android 对话的文件所有权。
+不要把其 Markdown/JSON、PySide6 或 DeepSeek Harness 架构搬入项目。
 
 ## 6. 交付纪律
 
@@ -468,6 +469,41 @@ Novalist 调研与取舍已记录在
 
 下一刀仍按用户旅程进入首页继续阅读、阅读历史和全局搜索，同时把这些页面的手机、平板和横屏布局
 作为同一验收矩阵；实体平板或折叠屏可用时再补真实硬件复验。
+
+## 18. 2026-08-25 阅读器引擎与界面坐标收口
+
+- **滚动进度真源统一**：短 TXT 单项列表在文档末尾不再保持 0%；EPUB/Markdown 滚动模式改为监听实际章节列表，按渲染块/Markdown 单元换算全书 canonical 偏移，并同步保存章节内偏移与完成状态。Markdown 跨章进度跳转会等待目标章块装载后再定位到对应渲染单元。
+- **Markdown 恢复与分页坐标**：重开时在首帧前由保存的全书偏移确定章节，滚动列表再定位到当前渲染单元；分页多章节从整本解析切出的章节将 canonical 坐标转换为章内局部坐标，避免 `StringIndexOutOfBoundsException` 和跨章选区偏移漂移。
+- **章节交互**：TXT/Markdown 不再复用 EPUB 的“末章”判断；底部章节按钮、进度弹层和书籍信息分别使用真实章节列表。音量键在滚动模式先按视口滚动，到边界才切章；分页首屏排版期间的快速下一页意图会在首屏就绪后重放。
+- **自动化证据**：新增 `ReaderScrollPositionTest`、Markdown 多章分页回归和分页控制器排版期间翻页回归；本轮完整 JVM 1545 项 0 失败，`lintDebug`、`assembleDebug`、`compileDebugAndroidTestKotlin` 均通过。
+- **设备边界**：仅安装并冷启动真实手机 `c49ac6cf` 的 Debug APK，当前没有导入新的中性测试书，因此本轮代码修复标记为 `FIXED_CODE`，不把内容矩阵宣称为真机已验证；RUX-009/RUX-014 仍按既有记录处理。
+
+下一刀：用仓库中性 Markdown/EPUB/TXT fixture 做滚动进度恢复、进度弹层、音量键、旋转和后台恢复的真机矩阵；确认跨章目标的章内落点与不同内容块高度，再处理首页继续阅读/历史/全局搜索旅程。
+
+## 19. 2026-08-29 桌面端 UI 第 7-8 轮收口与应用图标（独立 desktop 会话）
+
+- **关键修复（生产级）**：
+  - Tailwind `@layer components` purge 会移除运行时拼接的阅读主题类（`reader-shell-*`/`reader-bg-*`），
+    生产构建下阅读背景全部丢失——`tailwind.config.ts` 以 `safelist` 修复；这是第 7 轮最重要的 bug。
+  - 查找替换面板此前渲染在文档流里（视口外不可见）→ `replace.css` 改 `position: fixed`，
+    `ReplacePanel.tsx` 挂载时实测 `.desktop-page-hero` 底部动态设 `top`（`max(96, heroBottom+16)` +
+    ResizeObserver），任意宽度不再遮住写作台操作行。
+  - 阅读器 chrome（顶栏/面板/输入框/滑块）补 `.reader-root` token 桥接，暗色对比修复。
+  - TXT/EPUB 阅读器顶栏新增「统计」入口；统计对比行毫秒误显改 `formatDuration`。
+- **应用图标**：`scripts/make-icon.mjs` 用 Electron 离屏 canvas 绘制朱砂「阅」图标（与应用内
+  `desktop-brand-mark` 同源），按 ICO 规范打包（16-64 DIB / 128-256 PNG）；`build/icon.ico`
+  接入 electron-builder `win.icon`，开发模式 BrowserWindow 显式挂图标。已 `dist:dir` 验证
+  打包 exe 图标与 Electron 默认逐像素不同、主色朱砂。
+- **验证基建**：`scripts/round4-capture.mjs`（38 张全矩阵巡检：16 页 × 双主题 + 4 张 1024px，
+  `npm run visual:capture:r4`）、`scripts/probe-round7.mjs`/`probe-round8.mjs`（几何/样式断言探针，
+  因模型无法读截图，改用 computed-style + boundingRect 验证）。
+- **守卫修复**：`verify-release-readiness` 要求 release.yml 含 P0-A3 TODO 标记（main 上已坏），
+  已补注释说明 Android 签名 keystore 未配置。
+- **回归（2026-08-29 实跑）**：`npm run build` 通过；689 unit tests / 0 failed；10 个 verify 脚本
+  与 release 两个守卫全绿；`probe-round7`（替换面板几何/暗色对话框对比/1024px 无横向溢出）与
+  `probe-round8`（阅读器无横向溢出、工具栏不截断）全部通过。
+- **已知边界**：桌面截图证据无法由模型视觉复核（截图仅存档于 `scripts/visual-evidence-r4-pages/`，
+  供人工查看）；`docs/design/desktop-frontend-redesign-2026.md` 为本轮设计基准文档。
 
 
 
