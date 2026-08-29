@@ -8,22 +8,23 @@ export default {
   theme: {
     extend: {
       colors: {
+        // 全部走 styles.css 的主题变量：换肤只改 token，不改这里。
         paper: {
-          bg: "#f1f0eb",
-          panel: "#ffffff",
-          soft: "#f6f5f1",
-          line: "#e4e2db",
-          ink: "#252830",
-          muted: "#646b77"
+          bg: "rgb(var(--rgb-app) / <alpha-value>)",
+          panel: "rgb(var(--rgb-surface) / <alpha-value>)",
+          soft: "rgb(var(--rgb-subtle) / <alpha-value>)",
+          line: "rgb(var(--rgb-line) / <alpha-value>)",
+          ink: "rgb(var(--rgb-ink) / <alpha-value>)",
+          muted: "rgb(var(--rgb-muted) / <alpha-value>)"
         },
         copper: {
-          DEFAULT: "#33538f",
-          soft: "#7e9cd6",
-          dark: "#27436f"
+          DEFAULT: "rgb(var(--rgb-accent) / <alpha-value>)",
+          soft: "var(--copper-soft)",
+          dark: "var(--copper-dark)"
         },
         moss: {
-          DEFAULT: "#3e7a5e",
-          soft: "#e4f0e9"
+          DEFAULT: "rgb(var(--rgb-moss) / <alpha-value>)",
+          soft: "var(--moss-soft)"
         }
       },
       fontFamily: {

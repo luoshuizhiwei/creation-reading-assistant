@@ -9,7 +9,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
   const base =
     "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper/40";
   const variants = {
-    primary: "bg-copper text-white shadow-[0_6px_16px_rgba(138,90,43,0.18)] hover:-translate-y-0.5 hover:bg-copper-dark hover:shadow-lift",
+    primary: "bg-copper text-white shadow-[0_6px_16px_rgba(184,64,26,0.22)] hover:-translate-y-0.5 hover:bg-copper-dark hover:shadow-lift",
     secondary: "border border-paper-line bg-paper-panel text-paper-ink hover:-translate-y-0.5 hover:border-copper/50 hover:bg-paper-soft/60 hover:shadow-lift",
     quiet: "text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink"
   };

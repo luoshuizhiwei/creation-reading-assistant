@@ -3440,6 +3440,9 @@ function createWindow(): void {
     // 打包后任务栏/资源管理器图标来自 exe（electron-builder 用 build/icon.ico）；
     // 开发模式 exe 是 electron.exe，需要显式给窗口挂上品牌图标。
     icon: app.isPackaged ? undefined : path.join(app.getAppPath(), "build", "icon.ico"),
+    // 截图巡检模式（CREATION_READER_CAPTURE_PROFILE）：窗口放到屏幕外 + 不进任务栏，
+    // showInactive 不抢焦点；正常绘制保证 CDP 截图可用，且不打扰用户正在做的事。
+    ...(captureProfileDir ? { skipTaskbar: true } : {}),
     frame: false,
     autoHideMenuBar: true,
     webPreferences: {
@@ -3449,6 +3452,11 @@ function createWindow(): void {
     }
   });
   mainWindow.setMenuBarVisibility(false);
+  if (captureProfileDir) {
+    mainWindow.webContents.setBackgroundThrottling(false);
+    mainWindow.setPosition(-20000, -20000);
+    mainWindow.showInactive();
+  }
   const broadcastMaximized = () => {
     mainWindow?.webContents.send("window:maximized-changed", mainWindow.isMaximized());
   };

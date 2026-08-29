@@ -3,28 +3,38 @@
 @tailwind utilities;
 
 :root {
-  /* Ink studio — light: warm desk, white sheets, indigo instruments, one vermilion seal. */
-  --bg-app: #f1f0eb;
-  --bg-surface: #ffffff;
-  --bg-subtle: #f6f5f1;
-  --text-main: #252830;
-  --text-muted: #646b77;
-  --text-meta: #858b96;
-  --accent-spine: #33538f;
-  --accent-hover: #e9eef8;
-  --border-subtle: #e4e2db;
-  --border-strong: #cbc8bf;
-  --studio-cloth: #22252d;
-  --studio-cloth-soft: #2c303a;
-  --studio-cloth-text: #edeff3;
-  --studio-cloth-muted: #9aa2b1;
-  --studio-paper: #fffdf9;
-  --studio-paper-shadow: rgba(34, 38, 48, 0.09);
-  --studio-seal: #bc3f2b;
-  --studio-seal-soft: #f7e8e4;
-  --studio-jade: #33538f;
-  --studio-jade-soft: #e9eef8;
-  --studio-desk-toplight: rgba(255, 255, 255, 0.5);
+  /* 朱砚 — light「晨纸」：做旧纸桌面、松烟绿黑侧栏、朱砂交互主色、石青信息点缀。
+   * 语义：AI 辅助/校对/批注 = 编辑的朱批，故交互主色即朱砂（accent-spine 名字沿用历史值，勿被误导）。 */
+  --bg-app: #e9e5da;
+  --bg-surface: #fffdf8;
+  --bg-subtle: #f0ebe0;
+  --text-main: #26241f;
+  --text-muted: #6b675c;
+  --text-meta: #8b867a;
+  --accent-spine: #b7401a;
+  --accent-hover: #f6e3d8;
+  --border-subtle: #ded8c8;
+  --border-strong: #c2baa8;
+  --studio-cloth: #20281f;
+  --studio-cloth-soft: #2b3529;
+  --studio-cloth-text: #efeee6;
+  --studio-cloth-muted: #97a08f;
+  --studio-paper: #fffdf6;
+  --studio-paper-shadow: rgba(38, 40, 32, 0.1);
+  --studio-seal: #c8451f;
+  --studio-seal-soft: #f8e7dc;
+  --studio-jade: #3e5c76;
+  --studio-jade-soft: #e3ebf0;
+  --studio-desk-toplight: rgba(255, 252, 240, 0.5);
+  /* Tailwind alpha 修饰符通道（bg-copper/40 等） */
+  --rgb-app: 233 229 218;
+  --rgb-surface: 255 253 248;
+  --rgb-subtle: 240 235 224;
+  --rgb-line: 222 216 200;
+  --rgb-ink: 38 36 31;
+  --rgb-muted: 107 103 92;
+  --rgb-accent: 183 64 26;
+  --rgb-moss: 62 122 94;
   --font-sans: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
   --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
@@ -37,37 +47,45 @@
   --paper-ink: var(--text-main);
   --paper-muted: var(--text-muted);
   --copper: var(--accent-spine);
-  --copper-soft: #7e9cd6;
-  --copper-dark: #27436f;
+  --copper-soft: #efbfa6;
+  --copper-dark: #8c2f0f;
   --moss: #3e7a5e;
   --moss-soft: #e4f0e9;
 }
 
 :root[data-app-theme="dark"] {
-  /* Ink studio — dark: night study, lamp-lit sheets. */
-  --bg-app: #14161b;
-  --bg-surface: #1b1e25;
-  --bg-subtle: #171a20;
-  --text-main: #e9ebef;
-  --text-muted: #a2aab6;
-  --text-meta: #87919f;
-  --accent-spine: #6e97dd;
-  --accent-hover: #232e44;
-  --border-subtle: #2a2e37;
-  --border-strong: #3a404c;
-  --studio-cloth: #0f1116;
-  --studio-cloth-soft: #1a1e26;
-  --studio-cloth-text: #edeff3;
-  --studio-cloth-muted: #9aa4b4;
-  --studio-paper: #20242c;
-  --studio-paper-shadow: rgba(0, 0, 0, 0.4);
-  --studio-seal: #e0654c;
-  --studio-seal-soft: #33211c;
-  --studio-jade: #6e97dd;
-  --studio-jade-soft: #232e44;
-  --studio-desk-toplight: rgba(255, 255, 255, 0.045);
-  --copper-soft: #8fb0e6;
-  --copper-dark: #44679f;
+  /* 朱砚 — dark「夜写」：松烟夜桌、暖绿黑纸、夜朱提亮。 */
+  --bg-app: #121712;
+  --bg-surface: #1a201a;
+  --bg-subtle: #161c16;
+  --text-main: #eceae2;
+  --text-muted: #a8a99b;
+  --text-meta: #8b8c7f;
+  --accent-spine: #c65427;
+  --accent-hover: #33241c;
+  --border-subtle: #272d26;
+  --border-strong: #3a4038;
+  --studio-cloth: #0d110d;
+  --studio-cloth-soft: #1a211b;
+  --studio-cloth-text: #eceae2;
+  --studio-cloth-muted: #8f978a;
+  --studio-paper: #1e241d;
+  --studio-paper-shadow: rgba(0, 0, 0, 0.45);
+  --studio-seal: #e0603a;
+  --studio-seal-soft: #362219;
+  --studio-jade: #7fa3b8;
+  --studio-jade-soft: #202a30;
+  --studio-desk-toplight: rgba(255, 248, 230, 0.05);
+  --rgb-app: 18 23 18;
+  --rgb-surface: 26 32 26;
+  --rgb-subtle: 22 28 22;
+  --rgb-line: 39 45 38;
+  --rgb-ink: 236 234 226;
+  --rgb-muted: 168 169 155;
+  --rgb-accent: 198 84 39;
+  --rgb-moss: 127 184 153;
+  --copper-soft: #efaf8f;
+  --copper-dark: #c9532c;
   --moss: #7fb899;
   --moss-soft: #1a2a22;
 }
