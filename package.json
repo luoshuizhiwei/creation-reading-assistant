@@ -57,7 +57,9 @@
     "verify:creation-inbox-convert": "node scripts/verify-creation-inbox-convert.mjs",
     "verify:creation-project-home": "node scripts/verify-creation-project-home.mjs",
     "verify:reader-excerpt": "node scripts/verify-reader-excerpt.mjs",
+    "make-icon": "node scripts/make-icon.mjs",
     "visual:capture": "node scripts/visual-capture.mjs",
+    "visual:capture:r4": "node scripts/round4-capture.mjs",
     "verify:visual-evidence": "node scripts/verify-visual-evidence.mjs",
     "verify:clean-reposition": "node scripts/verify-clean-reposition.mjs",
     "verify:sync-schema": "node scripts/verify-sync-schema.mjs",
@@ -135,6 +137,7 @@
       "node_modules/better-sqlite3/**"
     ],
     "win": {
+      "icon": "build/icon.ico",
       "target": [
         {
           "target": "nsis",

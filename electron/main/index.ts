@@ -3435,6 +3435,9 @@ function createWindow(): void {
     ...(captureProfileDir ? {} : { minWidth: 1080, minHeight: 720 }),
     title: "创作阅读助手",
     backgroundColor: "#f1f0eb",
+    // 打包后任务栏/资源管理器图标来自 exe（electron-builder 用 build/icon.ico）；
+    // 开发模式 exe 是 electron.exe，需要显式给窗口挂上品牌图标。
+    icon: app.isPackaged ? undefined : path.join(app.getAppPath(), "build", "icon.ico"),
     frame: false,
     autoHideMenuBar: true,
     webPreferences: {
