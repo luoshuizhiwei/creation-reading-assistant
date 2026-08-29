@@ -349,7 +349,7 @@ select:focus-visible,
   overflow: hidden;
   padding: 0;
   background:
-    radial-gradient(circle at 50% -12%, rgba(255, 255, 255, 0.5), transparent 34%),
+    radial-gradient(circle at 50% -12%, var(--studio-desk-toplight), transparent 34%),
     var(--bg-app);
 }
 
@@ -1490,6 +1490,7 @@ select:focus-visible,
 
 .desktop-settings-grid {
   gap: 12px;
+  align-items: start;
 }
 
 .desktop-settings-grid > *,
@@ -1729,6 +1730,10 @@ select:focus-visible,
   background: linear-gradient(90deg, var(--accent-spine), color-mix(in srgb, var(--accent-spine) 58%, var(--studio-cloth)));
 }
 
+.overview-status-bar-fill--unset {
+  background: color-mix(in srgb, var(--text-meta) 55%, transparent);
+}
+
 .overview-status-count {
   color: var(--text-main);
   font-family: var(--font-mono);
@@ -1925,7 +1930,7 @@ select:focus-visible,
 .scene-editor,
 .writing-continuous {
   background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.5), transparent 7%),
+    linear-gradient(180deg, var(--studio-desk-toplight), transparent 240px),
     var(--studio-paper);
   box-shadow:
     0 1px 2px rgba(34, 38, 48, 0.08),

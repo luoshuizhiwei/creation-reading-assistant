@@ -98,7 +98,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
     <section className="overview-page" aria-label="项目概览">
       <section className="desktop-page-hero motion-panel overview-hero">
         <div className="overview-hero-title">
-          <h2>{project?.title ?? "—"}</h2>
+          <h2>项目概览</h2>
           <p>
             {chapters.length} 章 · {sceneCount} 场景
             {setup?.description ? ` · ${setup.description}` : ""}
@@ -159,7 +159,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
                   <li key={item.status || "未设置"} title={`${item.status || "未设置"}：${item.count} 章`}>
                     <span className="overview-status-name">{item.status || "未设置"}</span>
                     <span className="overview-status-bar" role="img" aria-label={`${item.status || "未设置"} 占比 ${ratio}%`}>
-                      <span className="overview-status-bar-fill" style={{ width: `${ratio}%` }} />
+                      <span className={`overview-status-bar-fill ${item.status ? "" : "overview-status-bar-fill--unset"}`} style={{ width: `${ratio}%` }} />
                     </span>
                     <span className="overview-status-count">{item.count}</span>
                   </li>

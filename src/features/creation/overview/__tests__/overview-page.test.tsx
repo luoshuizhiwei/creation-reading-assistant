@@ -92,9 +92,9 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("OverviewPage 项目仪表板", () => {
-  it("hero 展示标题、章节数与场景数；徽章显示今日/连续/本周净增", async () => {
+  it("hero 展示功能标签（项目名由外层页面 hero 呈现，避免重复）、章节数与场景数；徽章显示今日/连续/本周净增", async () => {
     renderOverview();
-    expect(await screen.findByText("示例项目")).toBeDefined();
+    expect(await screen.findByText("项目概览")).toBeDefined();
     const hero = screen.getByText(/2 章 · 3 场景/);
     expect(hero).toBeDefined();
     expect(await screen.findByText((content) => content.includes("今日") && content.includes("25"))).toBeDefined();

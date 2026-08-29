@@ -133,10 +133,8 @@ export function ReadingStatsPage() {
     ];
     return (
       <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-3 shadow-lift">
-        <div className="flex items-center gap-2 text-xs font-semibold text-paper-muted mb-2">
-          <span>较上一周期</span>
-        </div>
-        <div className="flex flex-wrap gap-x-6 gap-y-2 overflow-x-auto">
+        <div className="flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto">
+          <span className="text-xs font-semibold text-paper-muted">较上一周期</span>
           {metrics.map(([label, currentVal, prevVal]) => {
             const diff = currentVal - prevVal;
             const absDiff = diff < 0 ? -diff : diff;

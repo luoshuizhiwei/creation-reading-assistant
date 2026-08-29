@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AtSign, Eye, MessageSquarePlus, Radio, Trash2, X } from "lucide-react";
+import { AtSign, Eye, MessageSquarePlus, Radio, Sparkles, Trash2, X } from "lucide-react";
 import { InlineNotice } from "@/components/interaction";
 import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
 import { ContinuousChapterEditor, type ContinuousChapterEditorHandle } from "@/features/creation/editor/ContinuousChapterEditor";
@@ -7,6 +7,15 @@ import { describeSelection, type SceneSelection } from "@/features/creation/edit
 import { CardReferencePicker } from "@/features/creation/editor/card-reference-picker";
 import { SceneRadar } from "@/features/creation/editor/SceneRadar";
 import { deriveSceneRadar } from "@/features/creation/editor/scene-radar";
+import { buildAiContextPack, type AiContextPack } from "@/features/creation/ai/build-ai-context";
+import { SceneCandidateReview, type SceneCandidate } from "@/features/creation/ai/SceneCandidateReview";
+import { SceneAiReport } from "@/features/creation/ai/SceneAiReport";
+import { creationDocumentToPlainText } from "@/features/creation/ai/diff-paragraphs";
+import { plainTextToCreationDocument } from "@/features/creation/editor/paste-clean";
+import { AiSendConfirmDialog, rememberAiSendOptOut, shouldConfirmAiSend } from "@/features/creation/inbox/ai-send-confirm";
+import { getAISettings, runAIAction } from "@/services/ai-service";
+import { runStructure as runStructureRequest } from "@/services/creation-service";
+import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
 import "@/features/creation/editor/continuous-editor.css";
 import "@/features/creation/editor/writing-reference.css";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
@@ -190,6 +199,17 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
 
   // 场景雷达（调研 D-C1 v1）：纯只读聚合，数据全部来自已加载状态，自身无异步。
   const [marginTab, setMarginTab] = useState<MarginTab>("radar");
+
+  // AI 场景助手（D-C2 切片 2）：上下文包预览 → 候选评审 → 保护快照 + revision 校验采纳。
+  const [aiSettings, setAiSettings] = useState<AISettings | undefined>();
+  const [aiPackDialog, setAiPackDialog] = useState<{ action: AIRunAction; pack: AiContextPack } | null>(null);
+  const [aiCandidate, setAiCandidate] = useState<SceneCandidate | null>(null);
+  const [aiReport, setAiReport] = useState<{ content: string; model: string } | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+  useEffect(() => {
+    void getAISettings().then(setAiSettings).catch(() => setAiSettings(undefined));
+  }, []);
+  const aiReady = isAIAvailable(aiSettings);
   const radar = useMemo(
     () =>
       deriveSceneRadar({
@@ -281,6 +301,98 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
       if (useCreationStore.getState().leaveGuard === saveBeforeLeaving) setLeaveGuard(undefined);
     };
   }, [saveBeforeLeaving, setLeaveGuard]);
+
+  // ---- AI 场景助手（D-C2 切片 2）----
+  const requestSceneAI = (action: AIRunAction) => {
+    if (!selectedScene || !aiReady) {
+      showToast({
+        tone: "warning",
+        title: "AI 未就绪",
+        body: aiSettings?.enabled
+          ? "已启用 AI 助手但尚未配置 API Key，请先到设置中心保存 Key。"
+          : "AI 助手未启用。开启并配置 Key 后，可为当前场景生成候选版本。"
+      });
+      return;
+    }
+    if (aiBusy || aiCandidate || !sceneView) return;
+    // 与场景相关的卡片：任务卡引用 + 批注关联（去重），避免全书卡片全量发送。
+    const relevantIds = new Set<string>();
+    const planning = radar.planning;
+    if (planning?.perspectiveCardId) relevantIds.add(planning.perspectiveCardId);
+    if (planning?.locationCardId) relevantIds.add(planning.locationCardId);
+    for (const id of planning?.castCardIds ?? []) relevantIds.add(id);
+    for (const annotation of annotations) {
+      if (annotation.cardId) relevantIds.add(annotation.cardId);
+    }
+    const pack = buildAiContextPack({
+      sceneTitle: selectedScene.title,
+      sceneBodyText: creationDocumentToPlainText(sceneView.body),
+      planning: planning ?? null,
+      cards: cardList.filter((card) => card.projectId === project.id && relevantIds.has(card.id)),
+      cardTypes,
+      annotations
+    });
+    setAiPackDialog({ action, pack });
+  };
+
+  const confirmSceneAI = async (finalContent: string | null, remember: boolean): Promise<void> => {
+    const dialog = aiPackDialog;
+    if (!dialog || !selectedScene) return;
+    if (remember) rememberAiSendOptOut();
+    setAiPackDialog(null);
+    const content = finalContent ?? dialog.pack.compose(new Set());
+    if (content.trim() === "") return;
+    setAiBusy(true);
+    try {
+      const result = await runAIAction({ action: dialog.action, title: selectedScene.title, content });
+      if (dialog.action === "consistency") {
+        setAiReport({ content: result.content, model: result.model });
+      } else {
+        setAiCandidate({ action: dialog.action, content: result.content, model: result.model });
+      }
+    } catch (error) {
+      showToast({
+        tone: "error",
+        title: "AI 请求失败",
+        body: error instanceof Error ? error.message : String(error)
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const acceptSceneCandidate = async (candidateText: string): Promise<void> => {
+    if (!selectedSceneId || !sceneView) return;
+    setAiBusy(true);
+    try {
+      // 保护快照（snapshot.create）→ 正文保存（revision 校验）。
+      const snapshotted = await runStructureRequest({
+        type: "snapshot.create",
+        projectId: project.id,
+        subjectType: "scene",
+        subjectId: selectedSceneId,
+        reason: "AI 候选采纳前保护快照"
+      });
+      if (!snapshotted) throw new Error("保护快照创建失败，已取消采纳。");
+      const saved = await saveSceneBody(selectedSceneId, sceneView.revision, plainTextToCreationDocument(candidateText));
+      if (!saved?.ok) {
+        throw new Error("body-save-failed");
+      }
+      setAiCandidate(null);
+      showToast({ tone: "success", title: "已采纳 AI 候选", body: "采纳前已创建保护快照，可在版本历史找回原正文。" });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showToast({
+        tone: "error",
+        title: "采纳失败",
+        body: message === "body-save-failed"
+          ? "正文保存未成功（可能存在修订冲突），候选已保留，请刷新场景后重试。"
+          : message
+      });
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const chooseScene = async (sceneId: string) => {
     if (sceneId === selectedSceneId) return;
@@ -634,7 +746,28 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
           </button>
         </div>
         {marginTab === "radar" ? (
-          <SceneRadar radar={radar} onOpenOutline={() => onOpenOutline?.()} />
+          <>
+            <SceneRadar radar={radar} onOpenOutline={() => onOpenOutline?.()} />
+            <div className="scene-radar-ai" data-testid="scene-ai-row">
+              <p className="desktop-card-label">AI 助手</p>
+              <div className="scene-radar-ai-buttons">
+                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("polish")}>
+                  <Sparkles size={13} /> 润色场景
+                </button>
+                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("expand")}>
+                  <Sparkles size={13} /> 扩写场景
+                </button>
+                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("consistency")}>
+                  <Sparkles size={13} /> 一致性检查
+                </button>
+              </div>
+              {!aiReady && (
+                <p className="scene-radar-ai-hint">
+                  {aiSettings?.enabled ? "已启用 AI 但尚未配置 API Key。" : "AI 未启用；输出只会进入候选评审，不会直接改正文。"}
+                </p>
+              )}
+            </div>
+          </>
         ) : (
         <div className="writing-annotations">
           <p className="desktop-card-label">批注与引用</p>
@@ -735,6 +868,35 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
               cards={cardList.filter((card) => card.projectId === project.id)}
               onSelect={handleCardPicked}
               onClose={() => setReferencePickerOpen(false)}
+            />
+          )}
+          {aiPackDialog && (
+            <AiSendConfirmDialog
+              actionLabel={aiPackDialog.action === "polish" ? "润色场景" : aiPackDialog.action === "expand" ? "扩写场景" : "一致性检查"}
+              title={selectedScene?.title ?? ""}
+              content=""
+              pack={aiPackDialog.pack}
+              target={[aiSettings?.model, aiSettings?.baseUrl].filter((part) => typeof part === "string" && part.trim() !== "").join(" · ") || "你配置的 AI 服务"}
+              busy={aiBusy}
+              onConfirm={(finalContent, remember) => void confirmSceneAI(finalContent, remember)}
+              onCancel={() => setAiPackDialog(null)}
+            />
+          )}
+          {aiReport && (
+            <SceneAiReport
+              actionLabel="一致性检查"
+              content={aiReport.content}
+              model={aiReport.model}
+              onClose={() => setAiReport(null)}
+            />
+          )}
+          {aiCandidate && sceneView && (
+            <SceneCandidateReview
+              candidate={aiCandidate}
+              currentBodyText={creationDocumentToPlainText(sceneView.body)}
+              busy={aiBusy}
+              onAccept={(text) => void acceptSceneCandidate(text)}
+              onDiscard={() => setAiCandidate(null)}
             />
           )}
           {reanchorCandidate && (

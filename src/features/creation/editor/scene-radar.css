@@ -190,3 +190,48 @@
   color: var(--studio-seal);
   font-style: normal;
 }
+
+/* AI 助手行（D-C2 切片 2）。 */
+.scene-radar-ai {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.scene-radar-ai-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.scene-radar-ai-buttons button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.scene-radar-ai-buttons button:hover:not(:disabled) {
+  border-color: var(--accent-spine);
+  color: var(--accent-spine);
+}
+
+.scene-radar-ai-buttons button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.scene-radar-ai-hint {
+  margin: 0;
+  color: var(--text-meta);
+  font-size: 11px;
+  line-height: 1.6;
+}

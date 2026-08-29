@@ -177,6 +177,19 @@
   background: var(--copper-dark);
 }
 
+/* 关闭是次要动作：描边幽灵样式，不与「预览替换」争层级。 */
+.replace-panel-header .replace-panel-close {
+  border-color: var(--border-strong);
+  background: var(--bg-surface);
+  color: var(--text-muted);
+}
+
+.replace-panel-header .replace-panel-close:hover {
+  border-color: var(--accent-spine);
+  background: var(--bg-surface);
+  color: var(--accent-spine);
+}
+
 .replace-actions button:disabled {
   opacity: 0.5;
   cursor: not-allowed;

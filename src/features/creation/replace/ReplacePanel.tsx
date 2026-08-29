@@ -187,7 +187,7 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
         <span className="replace-scope-label" data-testid="replace-scope">
           范围：{scopeLabel}
         </span>
-        <button type="button" onClick={onClose} aria-label="关闭" data-testid="replace-panel-close">
+        <button type="button" className="replace-panel-close" onClick={onClose} aria-label="关闭" data-testid="replace-panel-close">
           关闭
         </button>
       </header>
