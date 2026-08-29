@@ -217,11 +217,17 @@ select:focus-visible,
 
 .desktop-card-label,
 .paper-label {
-  color: var(--studio-cloth-muted);
+  color: var(--accent-spine);
   font-family: var(--font-sans);
   font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.05em;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+/* 页首大标题：衬线收字距，压住眉标后的第一眼层级。 */
+.desktop-page-hero h2,
+.project-home-hero h2 {
+  letter-spacing: -0.015em;
 }
 
 .paper-label {
@@ -2532,4 +2538,124 @@ input[type="text"],
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* --------------------------------------------------------------------------
+ * 2026-08-29 视觉审查修复 II（用户六图批注：概览/写作台/大纲/卡片/统计/历史）
+ * ----------------------------------------------------------------------- */
+
+/* 写作台左栏：grid 行模板把 1fr 给了页签行，树被挤到底部 —— 改 flex 让树填满面板。 */
+.writing-outline {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.writing-outline-view-switch,
+.writing-outline-revert {
+  flex-shrink: 0;
+}
+
+.writing-outline-scroll {
+  flex: 1;
+  min-height: 0;
+}
+
+/* 工具栏停靠纸面顶部：不再作为浮层悬在空白纸中央。 */
+.scene-editor-toolbar,
+.editor-toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 8;
+  margin: 0;
+  border: 0 !important;
+  border-bottom: 1px solid var(--border-subtle) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+  backdrop-filter: none;
+  background: var(--studio-paper) !important;
+}
+
+/* 大纲页：双栏各自内滚，树卡不再被任务卡拉出大空洞。 */
+.outline-page {
+  display: flex;
+  flex-direction: column;
+}
+
+.outline-page-body {
+  flex: 1;
+  min-height: 320px;
+}
+
+.outline-page-main,
+.outline-page-side {
+  min-height: 0;
+  overflow: auto;
+}
+
+/* 场景任务卡：出场卡片多选加高，不再截断候选行。 */
+.scene-planning-cast select {
+  height: 108px;
+}
+
+/* 卡片看板：详情栏收窄、双栏内部滚动，第三列不再被裁出「重叠」观感。 */
+.cards-board-layout {
+  grid-template-columns: minmax(0, 1fr) 320px;
+  align-items: start;
+}
+
+.cards-board-pane,
+.cards-detail-pane {
+  max-height: calc(100vh - 300px);
+}
+
+.cards-board-column {
+  min-width: 196px;
+  max-width: 260px;
+}
+
+/* 概览指标行：固定 4 等宽 + 内容可断行，长文案不再把第 4 卡挤出视口。 */
+.overview-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.overview-grid > * {
+  min-width: 0;
+}
+
+@media (max-width: 1180px) {
+  .overview-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.overview-goal-numbers {
+  overflow-wrap: anywhere;
+}
+
+.stats-grid > * {
+  min-width: 0;
+}
+
+.stats-streak {
+  font-size: 22px;
+}
+
+/* 目标进度条空槽弱化：0% 不再像加载中。 */
+.overview-goal-bar,
+.stats-goal-bar {
+  background: color-mix(in srgb, var(--border-subtle) 45%, transparent);
+}
+
+/* 版本历史空态：图标与文案聚拢居中，不再上下分离。 */
+.history-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  min-height: 200px;
+  max-width: 560px;
+  margin: 24px auto;
+  text-align: center;
 }

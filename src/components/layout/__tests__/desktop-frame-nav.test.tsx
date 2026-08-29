@@ -30,12 +30,13 @@ beforeEach(() => resetStores());
 afterEach(() => cleanup());
 
 describe("DesktopFrame 应用级导航（真实渲染）", () => {
-  it("渲染恰好五个一级导航项，顺序正确，且不包含阅读统计", () => {
+  it("渲染恰好四个一级导航项，顺序正确；全局搜索由顶部搜索框与 Ctrl+K 承担，不再重复", () => {
     render(<DesktopFrame><div data-testid="content" /></DesktopFrame>);
     const buttons = navButtons();
-    expect(buttons.length).toBe(5);
-    expect(buttons.map(labelOf)).toEqual(["项目", "收件箱", "资料阅读", "全局搜索", "设置"]);
+    expect(buttons.length).toBe(4);
+    expect(buttons.map(labelOf)).toEqual(["项目", "收件箱", "资料阅读", "设置"]);
     expect(navButtons()[0].closest("nav")!.textContent).not.toContain("阅读统计");
+    expect(navButtons()[0].closest("nav")!.textContent).not.toContain("全局搜索");
     expect(screen.getByRole("button", { name: /创作阅读助手/ })).toBeDefined();
   });
 
@@ -61,16 +62,6 @@ describe("DesktopFrame 应用级导航（真实渲染）", () => {
     render(<DesktopFrame><div /></DesktopFrame>);
     fireEvent.click(screen.getByRole("button", { name: /创作阅读助手/ }));
     expect(useAppStore.getState().screen).toBe("projects");
-  });
-
-  it("点击全局搜索不切换 screen，而是打开 SearchPanel", () => {
-    useAppStore.setState({ screen: "projects" });
-    render(<DesktopFrame><div /></DesktopFrame>);
-    const searchButton = navButtons().find((button) => labelOf(button) === "全局搜索");
-    expect(searchButton).toBeDefined();
-    fireEvent.click(searchButton!);
-    expect(useAppStore.getState().screen).toBe("projects");
-    expect(useSearchStore.getState().open).toBe(true);
   });
 
   it("点击其他屏幕切换 screen", () => {
