@@ -1,0 +1,192 @@
+/* 场景雷达（调研 D-C1 v1）——写作台右栏「场景雷达」页签的只读聚合样式。 */
+
+.writing-margin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 14px;
+  padding: 3px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-subtle) 65%, transparent);
+}
+
+.writing-margin-tabs button {
+  flex: 1;
+  padding: 5px 8px;
+  border: none;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text-meta);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.writing-margin-tabs button.active {
+  background: var(--bg-surface);
+  color: var(--text-main);
+  box-shadow: 0 1px 3px rgba(15, 17, 22, 0.12);
+}
+
+.scene-radar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.scene-radar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 12px;
+  border: 1px dashed var(--border-strong);
+  border-radius: 10px;
+  color: var(--text-meta);
+  font-size: 12px;
+  line-height: 1.7;
+}
+
+.scene-radar-empty svg {
+  color: var(--studio-seal);
+}
+
+.scene-radar-empty button {
+  padding: 4px 10px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.scene-radar-empty button:hover {
+  border-color: var(--studio-seal);
+  color: var(--studio-seal);
+}
+
+.scene-radar-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 8px;
+  margin: 0;
+}
+
+.scene-radar-item {
+  display: grid;
+  grid-template-columns: 58px minmax(0, 1fr);
+  gap: 8px;
+  align-items: baseline;
+}
+
+.scene-radar-item dt,
+.scene-radar-block dt {
+  color: var(--text-meta);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.scene-radar-item dd {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--text-main);
+  overflow-wrap: anywhere;
+}
+
+.scene-radar-item dd.unset {
+  color: var(--text-meta);
+  opacity: 0.7;
+}
+
+.scene-radar-block {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.scene-radar-block dd {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-main);
+}
+
+.scene-radar-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+
+.scene-radar-tag {
+  padding: 2px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 11px;
+}
+
+.scene-radar-tag em {
+  font-style: normal;
+  color: var(--text-meta);
+  margin-right: 4px;
+}
+
+.scene-radar-tag b {
+  font-weight: 600;
+  margin-left: 4px;
+}
+
+.scene-radar-tag.foreshadow-open {
+  border-color: color-mix(in srgb, var(--studio-seal) 55%, transparent);
+  color: var(--studio-seal);
+}
+
+.scene-radar-tag.foreshadow-resolved {
+  opacity: 0.72;
+}
+
+.scene-radar-tag.foreshadow-resolved b {
+  color: var(--text-meta);
+}
+
+.scene-radar-foreshadow {
+  color: var(--studio-seal);
+}
+
+.scene-radar-words-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.scene-radar-words-row dd {
+  font-variant-numeric: tabular-nums;
+}
+
+.scene-radar-progressbar {
+  display: block;
+  height: 5px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--border-strong) 45%, transparent);
+  overflow: hidden;
+}
+
+.scene-radar-progressbar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--studio-seal), color-mix(in srgb, var(--studio-seal) 68%, var(--accent-spine)));
+}
+
+.scene-radar-note {
+  color: var(--text-meta);
+}
+
+.scene-radar-invalid {
+  color: var(--studio-seal);
+  font-style: normal;
+}

@@ -34,7 +34,8 @@ const actions = vi.hoisted(() => ({
   createAnnotation: vi.fn(async () => true),
   updateAnnotation: vi.fn(async () => true),
   deleteAnnotation: vi.fn(async () => true),
-  loadCards: vi.fn(async () => undefined)
+  loadCards: vi.fn(async () => undefined),
+  loadCardTypes: vi.fn(async () => undefined)
 }));
 
 vi.mock("@/hooks/useCreationActions", () => ({
@@ -52,7 +53,8 @@ vi.mock("@/hooks/useCreationActions", () => ({
     createAnnotation: actions.createAnnotation,
     updateAnnotation: actions.updateAnnotation,
     deleteAnnotation: actions.deleteAnnotation,
-    loadCards: actions.loadCards
+    loadCards: actions.loadCards,
+    loadCardTypes: actions.loadCardTypes
   })
 }));
 

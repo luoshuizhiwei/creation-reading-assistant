@@ -51,7 +51,12 @@ async function run(): Promise<void> {
             { type: "paragraph", content: [{ type: "text", text: "他说：「这件事（我们明天再说。" }] },
             { type: "paragraph", content: [{ type: "text", text: " 段首半角空格。" }] },
             { type: "paragraph", content: [{ type: "text", text: longParagraph }] },
-            { type: "paragraph", content: [{ type: "text", text: "这里有个禁用词汇测试。" }] }
+            { type: "paragraph", content: [{ type: "text", text: "这里有个禁用词汇测试。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "他笑了笑,说声再见." }] },
+            { type: "paragraph", content: [{ type: "text", text: "突然他停住。顿时风起。瞬间云散。突然天黑。突然他笑了。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "他们向前走。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "他们看见灯火。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "他们决定过河。" }] }
           ]
         }
       });
@@ -95,6 +100,34 @@ async function run(): Promise<void> {
       assert.equal(banned.message.includes("禁用词"), true);
       const after = await workspace!.read({ kind: "scene.body", sceneId: sceneA });
       assert.equal(JSON.stringify(after?.body), JSON.stringify(bodyA));
+    });
+
+    await scenario("新增强化规则：混用标点/口头禅/段落开头重复", async () => {
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: sceneA,
+        rules: ["mixedPunctuation", "crutchWord", "paragraphStartRepeat"]
+      })) as ProofView;
+      const byRule = new Map(view.issues.map((issue) => [issue.rule, issue]));
+      const mixed = byRule.get("mixedPunctuation");
+      assert.ok(mixed, "应命中中英混用标点");
+      assert.equal(mixed!.message.includes("半角标点"), true);
+      assert.ok(mixed!.snippet!.includes("笑了笑"));
+      const crutch = byRule.get("crutchWord");
+      assert.ok(crutch, "应命中口头禅");
+      assert.equal(crutch!.message.includes("突然"), true);
+      const startRepeat = byRule.get("paragraphStartRepeat");
+      assert.ok(startRepeat, "应命中段落开头重复");
+      assert.equal(startRepeat!.message.includes("连续段落"), true);
+      // 干净场景在新规则下仍然干净
+      const clean = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: sceneB,
+        rules: ["mixedPunctuation", "crutchWord", "paragraphStartRepeat"]
+      })) as ProofView;
+      assert.equal(clean.total, 0);
     });
 
     await scenario("范围限定单场景与规则裁剪", async () => {

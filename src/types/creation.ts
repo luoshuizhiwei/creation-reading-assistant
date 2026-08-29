@@ -1637,7 +1637,10 @@ export type ProofRule =
   | "unbalancedPunctuation"
   | "abnormalSpacing"
   | "longParagraph"
-  | "bannedWord";
+  | "bannedWord"
+  | "mixedPunctuation"
+  | "crutchWord"
+  | "paragraphStartRepeat";
 
 export interface ProofIssue {
   sceneId: string;

@@ -14,7 +14,10 @@ const RULE_LABELS: Array<{ rule: ProofRule; label: string }> = [
   { rule: "unbalancedPunctuation", label: "成对标点" },
   { rule: "abnormalSpacing", label: "异常空格" },
   { rule: "longParagraph", label: "超长段落" },
-  { rule: "bannedWord", label: "禁用词" }
+  { rule: "bannedWord", label: "禁用词" },
+  { rule: "mixedPunctuation", label: "中英混用标点" },
+  { rule: "crutchWord", label: "口头禅" },
+  { rule: "paragraphStartRepeat", label: "段落开头重复" }
 ];
 
 const RULE_DESCRIPTIONS: Record<ProofRule, string> = {
@@ -22,7 +25,10 @@ const RULE_DESCRIPTIONS: Record<ProofRule, string> = {
   unbalancedPunctuation: "「」（）《》等成对标点开闭数量不等",
   abnormalSpacing: "段首半角空格、连续全角空格、半角全角混用",
   longParagraph: "单段超过 500 字符（可调）",
-  bannedWord: "命中你输入的禁用词列表"
+  bannedWord: "命中你输入的禁用词列表",
+  mixedPunctuation: "汉字紧邻半角标点（,.!?;:），常见于网页粘贴",
+  crutchWord: "突然/顿时/仿佛等叙述词单场景出现 ≥3 次",
+  paragraphStartRepeat: "连续 3 段以上以同一字开头（刻意排比可忽略）"
 };
 
 export function ProofPanel({ projectId, onClose }: ProofPanelProps) {

@@ -21,6 +21,7 @@ const actions = vi.hoisted(() => ({
   reanchorAnnotation: vi.fn(async () => true),
   deleteAnnotation: vi.fn(async () => true),
   loadCards: vi.fn(async () => undefined),
+  loadCardTypes: vi.fn(async () => undefined),
   loadProjectExport: vi.fn(async () => undefined)
 }));
 
@@ -37,6 +38,7 @@ vi.mock("@/hooks/useCreationActions", () => ({
     updateAnnotation: actions.updateAnnotation,
     deleteAnnotation: actions.deleteAnnotation,
     loadCards: actions.loadCards,
+    loadCardTypes: actions.loadCardTypes,
     loadProjectExport: actions.loadProjectExport
   })
 }));
@@ -226,10 +228,16 @@ beforeEach(() => {
 });
 afterEach(() => cleanup());
 
+/** 批注 UI 位于「批注与引用」页签（默认页签为场景雷达），挂载后先切换过去。 */
+function mountDesk() {
+  render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+  fireEvent.click(screen.getByRole("tab", { name: "批注与引用" }));
+}
+
 describe("WritingDesk 真实选区与 @ 卡片引用", () => {
   it("@ 触发打开当前项目卡片搜索；主名称命中", async () => {
     resetStores({ cards: [card("c1", "p1", "苏青"), card("c2", "p1", "顾淮")], sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(screen.getByTestId("stub-mention"));
 
@@ -247,7 +255,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
       ],
       sceneViews: { "scene-a": viewOf("scene-a", "正文") }
     });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(screen.getByTestId("stub-mention"));
     const input = await screen.findByPlaceholderText("搜索卡片（标题或别名）…");
@@ -276,7 +284,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
       return true;
     });
     resetStores({ cards: [card("c1", "p1", "苏青")], sceneViews: { "scene-a": viewOf("scene-a", "正文内容") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     // 触发 @ 并选择卡片（picker 内的按钮）
     fireEvent.click(screen.getByTestId("stub-mention"));
@@ -310,7 +318,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     const showToastSpy = vi.fn();
     resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
     useUIStore.setState({ toasts: [], showToast: showToastSpy });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     // 不聚焦正文（无选区上报）直接填写批注提交
     const textarea = screen.getByPlaceholderText(/批注内容/);
@@ -326,7 +334,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
 
   it("批注表单显示当前选区摘要（选中文字）", async () => {
     resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     // 点击 @ 按钮模拟选区（Stub onMentionTrigger 带 "选中文字"）
     fireEvent.click(screen.getByTestId("stub-mention"));
@@ -335,7 +343,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
 
   it("连续模式下选区正确关联所属 sceneId", async () => {
     resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "A"), "scene-b": viewOf("scene-b", "B") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
     fireEvent.click(screen.getByRole("button", { name: "整章连续" }));
     await waitFor(() => expect(screen.getAllByTestId("scene-editor")).toHaveLength(2));
 
@@ -350,7 +358,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
 
   it("批注关联卡片下拉只显示当前项目卡片", async () => {
     resetStores({ cards: [card("c1", "p1", "苏青"), card("foreign", "p9", "异项目角色")], sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
     const select = screen.getByLabelText("关联卡片") as HTMLSelectElement;
     const options = Array.from(select.options).map((option) => option.textContent);
     expect(options).toContain("苏青");
@@ -374,7 +382,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     };
     actions.loadAnnotations.mockResolvedValue([annotation]);
     resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     expect(await screen.findByText("待重新定位")).toBeDefined();
     expect(screen.getByText("旧批注")).toBeDefined();
@@ -409,7 +417,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
       selectedText: "新的锚点",
       collapsed: false
     };
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
     const dialog = screen.getByRole("dialog", { name: "确认重新定位批注" });
@@ -431,7 +439,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     actions.loadAnnotations.mockResolvedValue([invalidAnnotation()]);
     const showToast = vi.fn();
     useUIStore.setState({ toasts: [], showToast });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
     expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
@@ -446,7 +454,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     };
     const showToast = vi.fn();
     useUIStore.setState({ toasts: [], showToast });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
     expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
@@ -461,7 +469,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     editorControl.composing = true;
     const showToast = vi.fn();
     useUIStore.setState({ toasts: [], showToast });
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
     expect(actions.reanchorAnnotation).not.toHaveBeenCalled();
@@ -474,7 +482,7 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     editorControl.selection = {
       sceneId: "scene-a", blockIndex: 1, textOffset: 3, textLength: 4, selectedText: "保留选择", collapsed: false
     };
-    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    mountDesk();
 
     fireEvent.click(await screen.findByRole("button", { name: "重新定位" }));
     fireEvent.click(screen.getByRole("button", { name: "确认新锚点" }));

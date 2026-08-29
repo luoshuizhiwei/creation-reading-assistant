@@ -283,7 +283,10 @@ const PROOF_RULES = new Set<ProofRule>([
   "unbalancedPunctuation",
   "abnormalSpacing",
   "longParagraph",
-  "bannedWord"
+  "bannedWord",
+  "mixedPunctuation",
+  "crutchWord",
+  "paragraphStartRepeat"
 ]);
 const DEFAULT_MAX_PARAGRAPH_CHARS = 500;
 const PROOF_PAIR_PUNCTUATION: Array<[string, string]> = [
@@ -814,6 +817,82 @@ function findBannedWords(
   }
 }
 
+/** 中英混用标点：汉字紧邻半角标点（网页粘贴/输入法残留的高频问题）。 */
+function findMixedPunctuation(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+  // 数字间的半角点（3.5、1,000）不算；只抓汉字直接贴半角标点。
+  const mixed = /[\p{Script=Han}][,.!?;:]|[,.!?;:][\p{Script=Han}]/gu;
+  let count = 0;
+  let firstSnippet: string | null = null;
+  let match: RegExpExecArray | null;
+  while ((match = mixed.exec(text)) !== null) {
+    count += 1;
+    if (!firstSnippet) {
+      const radius = 8;
+      const start = Math.max(0, match.index - radius);
+      const end = Math.min(text.length, match.index + match[0].length + radius * 2);
+      firstSnippet = `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
+    }
+  }
+  if (count > 0) {
+    out.push({
+      rule: "mixedPunctuation",
+      message: `${count} 处汉字紧邻半角标点（,.!?;:），疑似中英标点混用`,
+      snippet: firstSnippet
+    });
+  }
+}
+
+/** 口头禅：叙述类高频副词在单个场景内出现过多（每词 ≥3 次才提示，避免噪声）。 */
+const PROOF_CRUTCH_WORDS = ["突然", "顿时", "瞬间", "竟然", "居然", "仿佛", "似乎", "显然", "几乎", "一阵"];
+function findCrutchWords(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+  for (const word of PROOF_CRUTCH_WORDS) {
+    let count = 0;
+    let index = text.indexOf(word);
+    while (index >= 0) {
+      count += 1;
+      index = text.indexOf(word, index + word.length);
+    }
+    if (count >= 3) {
+      out.push({
+        rule: "crutchWord",
+        message: `「${word}」出现 ${count} 次，注意口头禅化`,
+        snippet: null
+      });
+    }
+  }
+}
+
+/** 连续段落同字开头：≥3 个连续非空段落首字相同（刻意排比可忽略）。 */
+function findParagraphStartRepeat(paragraphs: string[], out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+  const meaningful = paragraphs
+    .map((paragraph) => paragraph.trim())
+    .filter((paragraph) => paragraph.length > 0);
+  let runStart = 0;
+  let count = 0;
+  let snippet: string | null = null;
+  for (let index = 1; index <= meaningful.length; index += 1) {
+    const sameHead =
+      index < meaningful.length &&
+      meaningful[index]![0] === meaningful[runStart]![0];
+    if (sameHead) continue;
+    const runLength = index - runStart;
+    if (runLength >= 3) {
+      count += 1;
+      if (!snippet) {
+        snippet = meaningful.slice(runStart, runStart + 2).map((paragraph) => paragraph.slice(0, 16)).join(" / ");
+      }
+    }
+    runStart = index;
+  }
+  if (count > 0) {
+    out.push({
+      rule: "paragraphStartRepeat",
+      message: `${count} 处连续段落以同一字开头（如为刻意排比可忽略）`,
+      snippet
+    });
+  }
+}
+
 /** 纯文本 → 场景 doc：空行分段，无空行时按行分段。 */
 function plainTextToSceneDocument(text: string): CreationDocument {
   const cleaned = text.replace(/\r\n/g, "\n").trim();
@@ -1209,23 +1288,33 @@ function seedBuiltinCardData(database: Database): void {
   const insertType = database.prepare(
     "INSERT OR IGNORE INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
   );
-  const builtinTypes: Array<[string, string]> = [
-    ["character", "角色"],
-    ["location", "地点"],
-    ["organization", "组织"],
-    ["item", "物品"],
-    ["worldRule", "世界规则"],
-    ["plotEvent", "情节事件"],
-    ["foreshadow", "伏笔线索"],
-    ["reference", "资料"]
+  const builtinTypes: Array<[string, string, string]> = [
+    ["character", "角色", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    ["location", "地点", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    ["organization", "组织", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    ["item", "物品", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    ["worldRule", "世界规则", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    ["plotEvent", "情节事件", '[{"key":"note","label":"备注","kind":"multiline"}]'],
+    [
+      "foreshadow",
+      "伏笔线索",
+      // D-C3 伏笔生命周期 v1：status 由「未标记 = 未回收」兜底，无需数据迁移。
+      JSON.stringify([
+        { key: "note", label: "伏笔内容", kind: "multiline" },
+        { key: "status", label: "状态", kind: "select", options: ["未回收", "已回收"], defaultValue: "未回收" },
+        { key: "plantedIn", label: "埋设位置", kind: "text" },
+        { key: "resolution", label: "回收说明", kind: "multiline" }
+      ])
+    ],
+    ["reference", "资料", '[{"key":"note","label":"备注","kind":"multiline"}]']
   ];
-  builtinTypes.forEach(([kind, name], index) => {
+  builtinTypes.forEach(([kind, name, fieldsJson], index) => {
     insertType.run(
       `card-type-${kind}`,
       null,
       kind,
       name,
-      '[{"key":"note","label":"备注","kind":"multiline"}]',
+      fieldsJson,
       index,
       seedTime,
       seedTime
@@ -2994,6 +3083,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       if (rules.includes("abnormalSpacing")) findAbnormalSpacing(paragraphs, found);
       if (rules.includes("longParagraph")) findLongParagraphs(paragraphs, maxParagraphChars, found);
       if (rules.includes("bannedWord") && bannedWords.length > 0) findBannedWords(plain, bannedWords, found);
+      if (rules.includes("mixedPunctuation")) findMixedPunctuation(plain, found);
+      if (rules.includes("crutchWord")) findCrutchWords(plain, found);
+      if (rules.includes("paragraphStartRepeat")) findParagraphStartRepeat(paragraphs, found);
       if (found.length === 0) continue;
       affectedScenes.add(row.scene_id);
       const byRule = new Map<ProofRule, { message: string; snippet: string | null; count: number }>();

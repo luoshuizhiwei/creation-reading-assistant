@@ -5,6 +5,8 @@ import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/
 import { ContinuousChapterEditor, type ContinuousChapterEditorHandle } from "@/features/creation/editor/ContinuousChapterEditor";
 import { describeSelection, type SceneSelection } from "@/features/creation/editor/annotation-selection";
 import { CardReferencePicker } from "@/features/creation/editor/card-reference-picker";
+import { SceneRadar } from "@/features/creation/editor/SceneRadar";
+import { deriveSceneRadar } from "@/features/creation/editor/scene-radar";
 import "@/features/creation/editor/continuous-editor.css";
 import "@/features/creation/editor/writing-reference.css";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
@@ -28,9 +30,13 @@ interface WritingDeskProps {
   project: CreationProjectSummary;
   navigation: CreationProjectNavigation;
   onSelectProject(projectId: string): void;
+  /** 场景雷达空态引导跳大纲页（由项目壳提供视图切换）。 */
+  onOpenOutline?(): void;
 }
 
-export function WritingDesk({ projects, project, navigation, onSelectProject }: WritingDeskProps) {
+type MarginTab = "radar" | "notes";
+
+export function WritingDesk({ projects, project, navigation, onSelectProject, onOpenOutline }: WritingDeskProps) {
   const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
   const sceneViews = useCreationStore((state) => state.sceneViews);
   const outlines = useCreationStore((state) => state.outlines);
@@ -54,7 +60,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
     createAnnotation,
     updateAnnotation,
     deleteAnnotation,
-    loadCards
+    loadCards,
+    loadCardTypes
   } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
   const editorRef = useRef<SceneEditorHandle>(null);
@@ -81,6 +88,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   const annotationTextareaRef = useRef<HTMLTextAreaElement>(null);
 
   const cardList = useCreationStore((state) => state.cards);
+  const cardTypes = useCreationStore((state) => state.cardTypes);
 
   const refreshAnnotations = useCallback(async () => {
     if (!selectedSceneId) {
@@ -180,6 +188,22 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
   );
   const sceneView = selectedSceneId ? sceneViews[selectedSceneId] : undefined;
 
+  // 场景雷达（调研 D-C1 v1）：纯只读聚合，数据全部来自已加载状态，自身无异步。
+  const [marginTab, setMarginTab] = useState<MarginTab>("radar");
+  const radar = useMemo(
+    () =>
+      deriveSceneRadar({
+        outline,
+        selectedSceneId,
+        cards: cardList.filter((card) => card.projectId === project.id),
+        cardTypes,
+        annotations,
+        characterCount,
+        revision: sceneView?.revision ?? selectedScene?.revision ?? 0
+      }),
+    [annotations, cardList, cardTypes, characterCount, outline, project.id, sceneView?.revision, selectedScene?.revision, selectedSceneId]
+  );
+
   // 连续模式：仅确保「当前章节」的场景正文已加载（不加载整项目正文）。
   // 正文始终来自 sceneViews（单一真相源），不产生第二份副本。
   useEffect(() => {
@@ -215,7 +239,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
 
   useEffect(() => {
     void loadCards({ projectId: project.id });
-  }, [loadCards, project.id]);
+    // 卡片类型定义用于雷达的类型徽标与伏笔识别（D-C3）。
+    void loadCardTypes(project.id);
+  }, [loadCards, loadCardTypes, project.id]);
 
   useEffect(() => subscribeProject(project.id), [project.id, subscribeProject]);
 
@@ -587,15 +613,29 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
       </main>
 
       <aside className="writing-margin" aria-label="场景信息">
-        <p className="desktop-card-label">Margin notes</p>
-        <h3>场景信息</h3>
-        <dl>
-          <div><dt>所属章节</dt><dd>{selectedChapter?.title ?? "—"}</dd></div>
-          <div><dt>场景修订</dt><dd>r{sceneView?.revision ?? selectedScene?.revision ?? 0}</dd></div>
-          <div><dt>非空白字符</dt><dd>{characterCount.toLocaleString("zh-CN")}</dd></div>
-          <div><dt>保存方式</dt><dd>停止输入 800ms 后自动保存</dd></div>
-        </dl>
-        <div className="writing-margin-rule" />
+        <div className="writing-margin-tabs" role="tablist" aria-label="场景信息页签">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={marginTab === "radar"}
+            className={marginTab === "radar" ? "active" : ""}
+            onClick={() => setMarginTab("radar")}
+          >
+            场景雷达
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={marginTab === "notes"}
+            className={marginTab === "notes" ? "active" : ""}
+            onClick={() => setMarginTab("notes")}
+          >
+            批注与引用
+          </button>
+        </div>
+        {marginTab === "radar" ? (
+          <SceneRadar radar={radar} onOpenOutline={() => onOpenOutline?.()} />
+        ) : (
         <div className="writing-annotations">
           <p className="desktop-card-label">批注与引用</p>
           {annotations.length === 0 && <p className="writing-annotation-empty">暂无批注。可关联卡片标记引用，正文编辑后失效的锚点会显示「待重新定位」。</p>}
@@ -714,6 +754,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject }: 
             </div>
           )}
         </div>
+        )}
         <div className="writing-margin-rule" />
         <p className="writing-boundary"><Eye size={14} /> 卷章结构可在左侧大纲树或卡片板中管理。批注锚定正文真实选区；正文改动后失效会进入待重新定位，不会静默丢失。在正文中输入 @ 可引用当前项目卡片。</p>
       </aside>

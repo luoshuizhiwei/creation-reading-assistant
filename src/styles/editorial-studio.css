@@ -414,11 +414,24 @@ select:focus-visible,
   gap: 8px;
 }
 
+/* 演示项目按钮与创建行布局。 */
+.project-home-create-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.project-home-create-demo {
+  border-style: dashed;
+}
+
 /* One button system: quiet surface default, indigo primary. */
 .desktop-page-actions button,
 .desktop-home-inbox,
 .overview-action,
 .project-home-create-first,
+.project-home-create-demo,
 .project-home-continue {
   display: inline-flex;
   align-items: center;
@@ -438,6 +451,7 @@ select:focus-visible,
 .desktop-page-actions button:hover,
 .desktop-home-inbox:hover,
 .overview-action:hover,
+.project-home-create-demo:hover,
 .project-home-continue:hover {
   border-color: color-mix(in srgb, var(--accent-spine) 45%, var(--border-strong));
   background: var(--accent-hover);
@@ -1954,6 +1968,7 @@ select:focus-visible,
 .desktop-home-inbox,
 .overview-action,
 .project-home-create-first,
+.project-home-create-demo,
 .project-home-continue {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(34, 38, 48, 0.06);
 }

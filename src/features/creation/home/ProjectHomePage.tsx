@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus, Search } from "lucide-react";
+import { ArrowRight, BookOpen, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus, Search } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useSearchStore } from "@/stores/search-store";
 import type { ProjectHomeEntry } from "@/types/creation";
@@ -11,6 +11,8 @@ interface ProjectHomePageProps {
   onCreateProject(): void;
   onImportBundle(): void;
   onImportDraft(): void;
+  /** 载入预置演示项目（新用户引导），返回项目 ID。 */
+  onCreateDemoProject?(): Promise<string | undefined>;
   /** 外部数据变化（如项目包/旧稿导入成功）后递增，触发重新读取 project.home。 */
   refreshKey?: number;
 }
@@ -38,6 +40,7 @@ export function ProjectHomePage({
   onCreateProject,
   onImportBundle,
   onImportDraft,
+  onCreateDemoProject,
   refreshKey = 0
 }: ProjectHomePageProps) {
   const { loadProjectHome, loadInboxCount } = useCreationActions();
@@ -93,10 +96,26 @@ export function ProjectHomePage({
           ) : entries.length === 0 ? (
             <div className="project-home-empty">
               <p className="stats-note">还没有创作项目。新建一个项目后，会自动生成第一章与默认场景，你可以直接开始写作。</p>
-              <button type="button" className="project-home-create-first" onClick={onCreateProject}>
-                <Plus size={15} />
-                新建第一个项目
-              </button>
+              <div className="project-home-create-row">
+                <button type="button" className="project-home-create-first" onClick={onCreateProject}>
+                  <Plus size={15} />
+                  新建第一个项目
+                </button>
+                {onCreateDemoProject && (
+                  <button
+                    type="button"
+                    className="project-home-create-demo"
+                    onClick={() => {
+                      void onCreateDemoProject().then((projectId) => {
+                        if (projectId) onOpenProject(projectId);
+                      });
+                    }}
+                  >
+                    <BookOpen size={15} />
+                    载入演示项目
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <ul className="project-home-list">

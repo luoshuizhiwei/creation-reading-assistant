@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { createDemoProject } from "@/features/creation/demo/create-demo-project";
 import {
   ArchiveRestore,
   BookMarked,
@@ -78,7 +79,7 @@ export function CreationProjectsPage() {
   const setSelectedId = useCreationStore((state) => state.setSelectedId);
   const selectScene = useCreationStore((state) => state.selectScene);
   const selectCard = useCreationStore((state) => state.selectCard);
-  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, loadMigrationStatus } = useCreationActions();
+  const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, loadMigrationStatus, createProject, saveSceneBody } = useCreationActions();
   const operation = useOperation();
   const showToast = useUIStore((state) => state.showToast);
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -92,6 +93,28 @@ export function CreationProjectsPage() {
   const [view, setView] = useState<ProjectView>("overview");
   /** 导入成功后递增，通知项目首页重新读取 project.home。 */
   const [homeRefreshKey, setHomeRefreshKey] = useState(0);
+  const [creatingDemo, setCreatingDemo] = useState(false);
+
+  /** 演示项目：一键载入预置正文/任务卡/卡片/伏笔的迷你项目（新用户引导）。 */
+  const handleCreateDemoProject = useCallback(async (): Promise<string | undefined> => {
+    if (creatingDemo) return undefined;
+    setCreatingDemo(true);
+    try {
+      const projectId = await createDemoProject({ createProject, saveSceneBody });
+      if (projectId) {
+        await loadProjects();
+        setHomeRefreshKey((key) => key + 1);
+        showToast({
+          tone: "success",
+          title: "演示项目已载入",
+          body: "已预置场景正文、任务卡、卡片与伏笔，可在写作台查看场景雷达、在大纲页编辑任务卡。"
+        });
+      }
+      return projectId;
+    } finally {
+      setCreatingDemo(false);
+    }
+  }, [createProject, creatingDemo, loadProjects, saveSceneBody, showToast]);
 
   useEffect(() => {
     void loadProjects();
@@ -441,6 +464,7 @@ export function CreationProjectsPage() {
                   project={selected}
                   navigation={navigation}
                   onSelectProject={setSelectedId}
+                  onOpenOutline={() => setView("outline")}
                 />
               ) : (
                 <section className="creation-writing-loading" role="status">
@@ -463,6 +487,7 @@ export function CreationProjectsPage() {
             onCreateProject={() => setWizardOpen(true)}
             onImportBundle={() => void handleImportBundle()}
             onImportDraft={() => setImportOpen(true)}
+            onCreateDemoProject={handleCreateDemoProject}
             refreshKey={homeRefreshKey}
           />
         )}
