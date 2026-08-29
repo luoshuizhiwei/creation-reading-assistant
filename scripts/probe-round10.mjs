@@ -95,6 +95,18 @@ check("雷达有字数目标进度条", radar.hasProgress);
 check("伏笔「未回收」chip 高亮（场景1）", radar.foreshadowOpenChip);
 check("全书待回收统计出现", radar.text.includes("待回收伏笔"));
 
+// AI 助手行（D-C2 切片 2）：未启用时按钮禁用并给引导
+const aiRow = await page.evaluate(() => {
+  const row = document.querySelector('[data-testid="scene-ai-row"]');
+  const buttons = row ? [...row.querySelectorAll("button")] : [];
+  return {
+    exists: !!row,
+    hint: row?.querySelector(".scene-radar-ai-hint")?.textContent ?? null,
+    allDisabled: buttons.length === 2 && buttons.every((button) => button.disabled)
+  };
+});
+check("AI 助手行渲染且未启用时禁用", aiRow.exists && aiRow.allDisabled && (aiRow.hint ?? "").includes("AI"), JSON.stringify(aiRow));
+
 // 切到场景 3（已回收伏笔的批注所在场景）验证「已回收」chip（轮询等待 store 刷新）
 await page.locator(".writing-outline .outline-scene-main").nth(2).click();
 let resolvedSeen = false;

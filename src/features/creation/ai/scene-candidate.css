@@ -1,0 +1,92 @@
+/* 场景候选评审（D-C2 切片 2）——复用 writing-reanchor 弹层骨架的 diff 专属样式。 */
+
+.scene-candidate-dialog {
+  width: min(680px, 100%);
+  max-height: calc(100vh - 120px);
+  display: flex;
+  flex-direction: column;
+}
+
+.scene-candidate-dialog h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.scene-candidate-summary {
+  margin: 4px 0 10px;
+  color: var(--text-meta);
+  font-size: 12px;
+}
+
+.scene-candidate-diff {
+  min-height: 0;
+  flex: 1;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--bg-subtle) 55%, var(--bg-app));
+  padding: 8px;
+}
+
+.scene-candidate-line {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 6px;
+  padding: 4px 8px;
+  border-radius: 7px;
+  font-size: 12.5px;
+  line-height: 1.7;
+  color: var(--text-main);
+  white-space: pre-wrap;
+}
+
+.scene-candidate-line em {
+  flex-shrink: 0;
+  font-style: normal;
+  font-weight: 700;
+  width: 14px;
+  text-align: center;
+}
+
+.scene-candidate-line span {
+  min-width: 0;
+  flex: 1;
+  overflow-wrap: anywhere;
+}
+
+.scene-candidate-line.add {
+  background: color-mix(in srgb, var(--accent-spine) 12%, transparent);
+}
+
+.scene-candidate-line.add em {
+  color: var(--accent-spine);
+}
+
+.scene-candidate-line.remove {
+  background: color-mix(in srgb, var(--studio-seal) 10%, transparent);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--studio-seal) 55%, transparent);
+}
+
+.scene-candidate-line.remove em {
+  color: var(--studio-seal);
+}
+
+.scene-candidate-line.same em {
+  color: var(--text-meta);
+}
+
+.scene-candidate-note {
+  margin: 8px 0 0;
+  color: var(--text-meta);
+  font-size: 11.5px;
+  line-height: 1.6;
+}
+
+.scene-candidate-accept {
+  border-color: var(--accent-spine) !important;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), var(--accent-spine)) !important;
+  color: #fff !important;
+}
