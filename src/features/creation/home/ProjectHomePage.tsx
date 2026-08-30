@@ -63,15 +63,15 @@ export function ProjectHomePage({
   return (
     <section className="desktop-page-scroll paper-shell">
       <div className="desktop-page-stack project-home">
-        <section className="project-home-hero motion-panel">
-          <p className="project-home-hero-copy">
-            从最近的项目继续写作，或新建一个作品。每个项目包含概览、写作、大纲、卡片、统计与版本历史。
-          </p>
+        <div className="project-home-toolbar">
           <div className="desktop-page-actions">
-            <button type="button" className="desktop-search-command" onClick={() => setSearchOpen(true)}>
-              <Search size={17} />
-              <span>全局搜索（Ctrl+K）</span>
-              <kbd>Ctrl K</kbd>
+            <button type="button" className="project-home-new" onClick={onCreateProject}>
+              <Plus size={16} />
+              新建项目
+            </button>
+            <button type="button" className="desktop-home-inbox" onClick={() => setSearchOpen(true)}>
+              <Search size={16} />
+              搜索
             </button>
             <button type="button" className="desktop-home-inbox" onClick={onOpenInbox}>
               <InboxIcon size={16} />
@@ -87,7 +87,7 @@ export function ProjectHomePage({
               导入旧稿
             </button>
           </div>
-        </section>
+        </div>
 
         <section className="stats-card">
           <h3>最近项目</h3>

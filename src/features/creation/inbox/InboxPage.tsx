@@ -555,14 +555,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
           onCancel={() => setAiConfirm(null)}
         />
       )}
-      <section className="desktop-page-hero motion-panel inbox-hero">
-        <div className="inbox-hero-title">
-          <div className="desktop-card-label">Inbox</div>
-          <h2><InboxIcon size={16} /> 全局收件箱</h2>
-          <p>
-            旧灵感已并入此处，作为唯一的想法收集入口。新建想法、编辑、转资料卡、软删除都在这里完成；AI 打磨默认关闭，需手动开启并配置 Key。
-          </p>
-        </div>
+      <section className="inbox-toolbar">
         <div className="inbox-hero-actions">
           <button type="button" className="inbox-inspiration-link" onClick={handleCreate}>
             <Plus size={13} /> 新建想法

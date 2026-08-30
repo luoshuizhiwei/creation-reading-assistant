@@ -45,7 +45,7 @@ describe("GoalEditorDialog 目标编辑", () => {
     expect((screen.getByLabelText(/目标日期/) as HTMLInputElement).value).toBe("2026-12-31");
     expect(screen.getByRole("button", { name: "周一" }).getAttribute("aria-pressed")).toBe("true");
     expect(screen.getByRole("button", { name: "周日" }).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getByRole("button", { name: "非空白字符" }).getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByRole("button", { name: "字" }).getAttribute("aria-pressed")).toBe("true");
   });
 
   it("提交合法修改：onSave 收到局部更新载荷", async () => {
@@ -91,7 +91,7 @@ describe("GoalEditorDialog 目标编辑", () => {
 
   it("主指标可切换并进入 patch", async () => {
     const { onSave } = renderDialog();
-    fireEvent.click(screen.getByRole("button", { name: "含标点字符" }));
+    fireEvent.click(screen.getByRole("button", { name: "字（含标点）" }));
     fireEvent.click(screen.getByRole("button", { name: "保存目标" }));
     await vi.waitFor(() => expect(onSave).toHaveBeenCalledTimes(1));
     expect((onSave.mock.calls[0][0] as GoalUpdatePatch).mainMetric).toBe("withPunctuation");

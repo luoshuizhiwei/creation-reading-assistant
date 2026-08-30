@@ -104,12 +104,7 @@ export function LibraryPage() {
   return (
     <div className="desktop-page-scroll paper-shell">
       <div className="desktop-page-stack">
-        <section className="desktop-page-hero motion-panel">
-          <div>
-            <div className="desktop-card-label">Local documents</div>
-            <h2>资料阅读与摘录</h2>
-            <p>导入并浏览本地 TXT / Markdown / EPUB 资料，选中文字即可摘录到全局收件箱或项目资料卡；沉浸阅读请在 Android 端进行。</p>
-          </div>
+        <div className="library-toolbar">
           <div className="desktop-page-actions">
             <Button variant="secondary" onClick={importBooks}>
               <Import size={16} />
@@ -128,7 +123,7 @@ export function LibraryPage() {
               设置
             </Button>
           </div>
-        </section>
+        </div>
 
         {loading ? (
           <div className="desktop-panel-card desktop-empty-wrap">

@@ -22,8 +22,8 @@ export const DEFAULT_WORD_METRIC: WordMetric = "nonWhitespace";
 
 export const WORD_METRIC_LABELS: Record<WordMetric, string> = {
   han: "汉字",
-  nonWhitespace: "非空白字符",
-  withPunctuation: "含标点字符"
+  nonWhitespace: "字",
+  withPunctuation: "字（含标点）"
 };
 
 /** 本地日历日期键 YYYY-MM-DD（不依赖 UTC）。 */
