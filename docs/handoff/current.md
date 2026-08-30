@@ -569,3 +569,26 @@ Novalist 调研与取舍仍记录在
 - **配套**：截图巡检改为无窗口模式（capture 环境窗口移到屏幕外 + skipTaskbar + showInactive，
   不再打扰用户）；本轮截图即产即弃（.gitignore 已含目录）。
 - **验证**：720 unit tests / 15 verify 全过；关键页双主题截图人工复核（浅色库页、暗色写作台）。
+
+## 23. 2026-08-30 桌面端视觉重设计「清样工作台 / Galley Desk」（四轮完成）
+
+- **规格来源**：用户提供的《桌面端清样工作台改造方案-Zcode交接.md》（原文件在用户桌面）。
+  方向：从暖纸卡片/AI 仪表盘观感改为现代编辑出版工作台；印刷蓝 #315F9B=交互主色、
+  校样红 #B64A3B=批注/校对/修订/危险专用；界面一律无衬线、宋体只代表作品内容；
+  核心工作区禁渐变/毛玻璃；卡片 hover 不上浮；签名元素=正文右侧校样通道。
+- **实现**：新增 `src/styles/tokens.css` 语义令牌（--app-bg/--surface-1/--surface-paper/
+  --text-primary/--action-primary/--proof-mark + 双主题「晨校/夜校」）；styles.css 旧 token
+  全部转兼容别名映射；tailwind.config.ts 色板改绑 CSS 变量（--rgb-* 通道支持 alpha）；
+  hero 全站压平（项目首页/资料库/收件箱均改工具栏行）；项目态全局侧栏收窄 64px 图标栏；
+  检查器可折叠（≤1100px 默认收起）；设置改左分类右表单（5 分类切换）；大纲树行加
+  「目标」列按表格对齐；统计/历史数据等宽字体；卡片看板去外框铺满。
+- **坑位**：tailwind.config.ts 的 copper/paper 色板曾是硬编码 hex——所有 bg-copper 类绕过
+  主题变量，换肤必须同步该文件（已改绑 --rgb-* 通道）；verify-reposition/interaction-polish/
+  electron-smoke 的断言随 §6.1/§6.8 结构调整同步更新；verify-creation-project-shell 白名单
+  已程序化对齐 preload 全部 64 条 creation: 通道。
+- **验证（2026-08-30 实跑）**：renderer tsc ✅；vitest 719/0 ✅；build ✅；
+  verify:beta --scope=desktop exit 0 ✅；electron-smoke 12 checks ALL PASS ✅；
+  16+1 个 verify 守卫全绿 ✅；git diff --check 仅 Android 线预存空行告警。
+- **未完成**：大纲「摘要」列无数据源按 §5 隐藏；styles.css→styles/ 目录完全拆分未做；
+  专注模式的全局侧栏隐藏需跨层状态未做；「朱砚」方案（第 22 节）被本方案取代，
+  其 tokens.css 层已被覆盖，仅 git 历史可考。
