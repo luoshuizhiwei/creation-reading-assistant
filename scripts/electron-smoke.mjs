@@ -221,7 +221,7 @@ async function main() {
   if (inboxHit) {
     await inboxResult.click();
     await page.waitForTimeout(800);
-    const onInbox = await page.evaluate(() => document.body.textContent?.includes("全局收件箱") ?? false);
+    const onInbox = await page.evaluate(() => !!document.querySelector(".inbox-page"));
     const selectedTitle = await page.evaluate(() => document.querySelector(".inbox-item--selected .inbox-item-title")?.textContent?.trim() ?? "");
     const selected = selectedTitle === "第1050条独特搜索词条目";
     record("收件箱深链选中", onInbox && selected, `inbox 页 + 选中条目标题=${selectedTitle || "未选中"}`);

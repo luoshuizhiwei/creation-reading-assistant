@@ -82,7 +82,7 @@ const checks = [
   [styles.includes(".motion-dialog"), "Styles must expose reusable motion-dialog class."],
   [styles.includes('input[type="checkbox"]') && styles.includes("accent-color: var(--copper)"), "Checkboxes must use the copper theme accent instead of the browser default blue."],
   [interaction.includes("motion-panel"), "AnimatedPanel must use non-hover motion-panel styling."],
-  [homePage.includes('className="project-home-hero motion-panel"'), "Homepage non-clickable hero panel must use motion-panel instead of hover card motion."],
+  [homePage.includes('className="project-home-toolbar"') && !homePage.includes("project-home-hero"), "Homepage uses the flat toolbar row (Galley Desk spec 6.1: hero removed)."],
   [libraryPage.includes("motion-panel overflow-hidden"), "Library table container must use motion-panel instead of hover card motion."],
   [statsPage.includes("motion-panel"), "Reading stats non-clickable panels must use motion-panel."],
   [search.includes("motion-dialog"), "Search dialog must use animated dialog styling."],

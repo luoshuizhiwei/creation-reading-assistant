@@ -105,7 +105,7 @@ async function captureStats(page, name) {
 
 async function captureSettings(page, name) {
   await goto(page, "设置");
-  await page.waitForSelector(".desktop-settings-grid", { timeout: 10000 });
+  await page.waitForSelector(".settings-nav", { timeout: 10000 });
   await page.waitForTimeout(700);
   await shot(page, name);
 }

@@ -29,7 +29,7 @@ const checks = [
   ["App does not render legacy WorkbenchPage", !files.app.includes("WorkbenchPage")],
   ["App renders project home page", files.app.includes("CreationProjectsPage")],
   ["Project home leads with recent projects and pending inbox", files.home.includes("最近项目") && files.home.includes("待处理")],
-  ["Project home exposes global search", files.home.includes("全局搜索")],
+  ["Project home exposes global search", files.home.includes("setSearchOpen")],
   ["Project home leads with creation focus (continue writing)", files.home.includes("继续写作")],
   ["DesktopApi exposes inspiration namespace", files.api.includes("inspiration: {")],
   ["DesktopApi exposes ai namespace", files.api.includes("ai: {")],
