@@ -1,0 +1,78 @@
+/* --------------------------------------------------------------------------
+ * 清样工作台 / Galley Desk — 语义令牌（规格 §3）
+ * 浅色「晨校」/ 深色「夜校」；印刷蓝=交互主色，校样红=批注/校对/修订/危险专用。
+ * 旧 token（paper-*、copper-*、moss-*、studio-*）在本文件底部作为兼容别名映射到语义令牌，
+ * 迁移期内继续可用；新增代码一律使用语义名。
+ * ----------------------------------------------------------------------- */
+
+:root {
+  /* 表面与文字 */
+  --app-bg: #eceff2;
+  --surface-1: #f8f9fa;
+  --surface-2: #f1f3f5;
+  --surface-paper: #fefefc;
+  --text-primary: #20242a;
+  --text-secondary: #68707a;
+  --text-tertiary: #8b939d;
+  --separator: #ced3da;
+  --separator-subtle: #e0e4e9;
+
+  /* 交互与语义 */
+  --action-primary: #315f9b;
+  --action-primary-hover: #274d7e;
+  --action-tint: #e7eef6;
+  --proof-mark: #b64a3b;
+  --proof-tint: #f7e9e6;
+  --info: #315f9b;
+  --success: #3e7a5e;
+  --warning: #a8742c;
+
+  /* 字体（规格 §3.2：界面一律无衬线；宋体只代表作品内容；数据用等宽） */
+  --font-ui: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Noto Sans SC", system-ui, sans-serif;
+  --font-content: "Source Han Serif SC", "Noto Serif SC", "Songti SC", SimSun, serif;
+  --font-data: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
+
+  /* 圆角与阴影（规格 §3.4） */
+  --radius-control: 5px;
+  --radius-panel: 8px;
+  --shadow-dialog: 0 24px 64px rgba(15, 20, 28, 0.18), 0 4px 14px rgba(15, 20, 28, 0.1);
+  --shadow-none: none;
+
+  /* Tailwind alpha 通道 */
+  --rgb-app: 236 239 242;
+  --rgb-surface: 248 249 250;
+  --rgb-subtle: 241 243 245;
+  --rgb-line: 206 211 218;
+  --rgb-ink: 32 36 42;
+  --rgb-muted: 104 112 122;
+  --rgb-accent: 49 95 155;
+  --rgb-moss: 62 122 94;
+}
+
+:root[data-app-theme="dark"] {
+  --app-bg: #15181c;
+  --surface-1: #1b1f24;
+  --surface-2: #181c21;
+  --surface-paper: #22262c;
+  --text-primary: #eaedf1;
+  --text-secondary: #a7afb9;
+  --text-tertiary: #87919d;
+  --separator: #343a42;
+  --separator-subtle: #2a3038;
+
+  --action-primary: #7fa5d9;
+  --action-primary-hover: #94b4e0;
+  --action-tint: #232c38;
+  --proof-mark: #e07965;
+  --proof-tint: #33221e;
+  --info: #7fa5d9;
+
+  --rgb-app: 21 24 28;
+  --rgb-surface: 27 31 36;
+  --rgb-subtle: 24 28 33;
+  --rgb-line: 52 58 66;
+  --rgb-ink: 234 237 241;
+  --rgb-muted: 167 175 185;
+  --rgb-accent: 127 165 217;
+  --rgb-moss: 127 184 153;
+}

@@ -516,6 +516,7 @@ export function OutlineTree({
       <button type="button" className="outline-scene-main" onClick={() => onSelectScene(scene.id)}>
         <FileText size={12} />
         <span className="outline-scene-title">{scene.title}</span>
+        <small className="outline-scene-goal">{scene.planning?.targetWords ? `目标 ${scene.planning.targetWords.toLocaleString("zh-CN")}` : ""}</small>
         <small className="outline-word-count">{scene.wordCount.toLocaleString("zh-CN")}字</small>
       </button>
       {renderTitle({ kind: "scene", id: scene.id, title: scene.title })}

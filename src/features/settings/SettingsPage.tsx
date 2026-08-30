@@ -55,6 +55,7 @@ function Section({
 }
 
 export function SettingsPage() {
+  const [activeCategory, setActiveCategory] = useState<SettingsSection>("appearance");
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.loading);
   const settingsError = useSettingsStore((state) => state.error);
@@ -414,15 +415,28 @@ export function SettingsPage() {
   return (
     <div className="desktop-page-scroll paper-shell">
       <div className="desktop-page-stack">
-        <section className="desktop-page-hero motion-panel">
-          <div>
-            <div className="desktop-card-label">Preferences</div>
-            <h2>设置中心</h2>
-            <p>设置保存在本地数据目录；桌面端把外观、阅读器、AI、同步和数据维护分区管理。</p>
-          </div>
-        </section>
-
-        <div className="desktop-settings-grid">
+        <div className="settings-layout">
+        <nav className="settings-nav" aria-label="设置分类">
+          {([
+            ["appearance", "外观"],
+            ["reader", "阅读器"],
+            ["ai", "AI 助手"],
+            ["storage", "数据与存储"],
+            ["debug", "关于 / 调试"]
+          ] as Array<[SettingsSection, string]>).map(([section, label]) => (
+            <button
+              key={section}
+              type="button"
+              className={activeCategory === section ? "active" : ""}
+              aria-current={activeCategory === section ? "true" : undefined}
+              onClick={() => setActiveCategory(section)}
+            >
+              {label}
+            </button>
+          ))}
+        </nav>
+        <div className="settings-forms">
+          {activeCategory === "appearance" && (
           <Section title="外观" section="appearance" onReset={resetSection}>
             <label className="grid gap-1.5 text-sm text-paper-muted">
               <span className="font-medium text-paper-ink">应用主题</span>
@@ -455,7 +469,9 @@ export function SettingsPage() {
               显示右侧属性栏
             </label>
           </Section>
+          )}
 
+          {activeCategory === "reader" && (
           <Section title="阅读器" section="reader" onReset={resetSection}>
             <div className="col-span-2 flex items-center justify-between rounded-xl border border-paper-line bg-paper-soft/35 p-3">
               <div>
@@ -749,7 +765,9 @@ export function SettingsPage() {
               />
             </Field>
           </Section>
+          )}
 
+          {activeCategory === "ai" && (
           <Section title="AI 助手" section="ai" onReset={resetSection}>
             <label className="col-span-2 flex items-center gap-2 text-sm text-paper-muted">
               <input
@@ -832,7 +850,9 @@ export function SettingsPage() {
               )}
             </div>
           </Section>
+          )}
 
+          {activeCategory === "storage" && (
           <Section title="数据与存储" section="storage" onReset={resetSection}>
             <Field label="数据目录">
               <TextInput value={settings.storage.dataDirectory} readOnly />
@@ -938,6 +958,7 @@ export function SettingsPage() {
               </div>
             </div>
           </Section>
+          )}
 
           <AnimatedPanel className="settings-wide rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
             <div className="mb-4 flex items-center justify-between">
@@ -1091,6 +1112,7 @@ export function SettingsPage() {
             </div>
           </AnimatedPanel>
 
+          {activeCategory === "debug" && (
           <Section title="关于 / 调试" section="debug" onReset={resetSection}>
             <Field label="应用版本">
               <TextInput value={settings.debug.appVersion} readOnly />
@@ -1131,6 +1153,7 @@ export function SettingsPage() {
               )}
             </div>
           </Section>
+          )}
           {operation.state && (
             <OperationProgressDialog
               state={operation.state}
@@ -1140,6 +1163,7 @@ export function SettingsPage() {
               onReset={operation.retry}
             />
           )}
+          </div>
           </div>
         </div>
       </div>

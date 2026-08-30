@@ -1614,7 +1614,7 @@ select:focus-visible,
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--studio-seal), color-mix(in srgb, var(--studio-seal) 68%, var(--accent-spine)));
+  background: var(--action-primary);
   transition: width 260ms ease;
 }
 
@@ -2659,4 +2659,520 @@ input[type="text"],
   max-width: 560px;
   margin: 24px auto;
   text-align: center;
+}
+
+/* --------------------------------------------------------------------------
+ * 清样工作台 Round 1 — 壳层（规格 §3/§4/§6.1）
+ * 扁平工作台：无渐变、无毛玻璃、界面无衬线、层级靠底色与 1px 分隔线。
+ * ----------------------------------------------------------------------- */
+
+/* 桌面画布：扁平底色，去掉纸纹噪声与径向灯带。 */
+.desktop-canvas {
+  background: var(--app-bg);
+}
+
+/* 侧栏：一级表面（浅色主题下为浅侧栏），去掉织物纹理。 */
+.desktop-sidebar {
+  background: var(--surface-1);
+  border-right: 1px solid var(--separator);
+}
+
+.desktop-sidebar .desktop-brand strong,
+.desktop-sidebar .nav-spine-item strong {
+  font-family: var(--font-ui);
+  letter-spacing: 0;
+}
+
+/* 页面 hero：去卡片化与衬线，标题=无衬线 600（规格 §3.3）。 */
+.desktop-page-hero,
+.project-home-hero {
+  border: 0;
+  border-bottom: 1px solid var(--separator-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  padding: 4px 4px 16px;
+}
+
+.desktop-page-hero h2,
+.project-home-hero h2,
+.paper-title {
+  font-family: var(--font-ui);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.desktop-page-hero h2 {
+  font-size: clamp(20px, 1.8vw, 23px);
+}
+
+/* 眉标：次级文字小字距，不再是彩色装饰。 */
+.desktop-card-label,
+.paper-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  letter-spacing: 0.1em;
+}
+
+/* 顶栏与面板：去毛玻璃与白浮影。 */
+.paper-topbar {
+  background: var(--surface-1);
+  box-shadow: none;
+  backdrop-filter: none;
+}
+
+/* 主按钮阴影中性化；圆角收敛到规格值。 */
+.desktop-page-actions button,
+.desktop-home-inbox,
+.project-home-create-first,
+.project-home-create-demo,
+.project-home-continue {
+  border-radius: var(--radius-control);
+}
+
+.stats-card,
+.paper-panel,
+.settings-card,
+.stats-panel,
+.desktop-library-panel,
+.desktop-editor-card,
+.desktop-source-card,
+.desktop-ai-card {
+  border-radius: var(--radius-panel) !important;
+  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;
+}
+
+/* 卡片 hover 不再统一上浮（规格 §3.4）。 */
+.desktop-page-actions button:hover,
+.desktop-home-inbox:hover,
+.overview-action:hover,
+.project-home-continue:hover,
+.project-home-create-demo:hover {
+  transform: none;
+  box-shadow: none;
+}
+
+/* 校样红只属于校样通道：品牌印章/标题栏标记/导航脊线回归印刷蓝或墨。 */
+.desktop-titlebar-mark,
+.desktop-brand-mark {
+  background: var(--action-primary);
+  border-color: rgba(255, 255, 255, 0.28);
+}
+
+.nav-spine-item.active,
+.desktop-nav .nav-spine-item.active {
+  box-shadow: inset 2px 0 0 var(--action-primary);
+}
+
+/* 侧栏暗红辉光（::before 旧灯带）移除。 */
+.desktop-sidebar::before {
+  display: none;
+}
+
+/* 迁移横幅是「提示」不是校对：改中性警示，退出校样红语义。 */
+.migration-banner {
+  border: 1px solid var(--separator) !important;
+  border-left: 3px solid var(--warning) !important;
+  background: var(--surface-1) !important;
+}
+
+.migration-banner Button {
+  background: var(--action-primary) !important;
+  border-color: var(--action-primary) !important;
+}
+
+/* 写作区背景扁平化：去掉纸面上方硬编码白辉光（规格：核心工作区无渐变）。 */
+.writing-scroll {
+  background: var(--app-bg);
+}
+
+/* --------------------------------------------------------------------------
+ * 清样工作台 Round 2 — 写作垂直切片
+ * ----------------------------------------------------------------------- */
+
+/* 项目态：全局侧栏收窄为 64px 图标栏（文字隐藏，aria-label 保留）。 */
+.desktop-sidebar--rail {
+  width: 64px;
+  min-width: 64px;
+}
+
+.desktop-sidebar--rail .desktop-brand,
+.desktop-sidebar--rail .nav-spine-item {
+  justify-content: center;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+.desktop-sidebar--rail .desktop-brand > span:not(.desktop-brand-mark),
+.desktop-sidebar--rail .nav-spine-item > span:not(.desktop-brand-mark),
+.desktop-sidebar--rail .desktop-sidebar-card {
+  display: none;
+}
+
+.desktop-sidebar--rail .desktop-nav {
+  gap: 4px;
+}
+
+/* 检查器折叠态：右栏退场，正文吃满剩余宽度。 */
+.writing-desk--no-margin {
+  grid-template-columns: 192px minmax(470px, 1fr);
+}
+
+.writing-desk--no-margin .writing-margin {
+  display: none;
+}
+
+.writing-margin-collapse {
+  margin-left: auto;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--separator);
+  border-radius: 4px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.writing-margin-expand {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 20;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--separator);
+  border-radius: 5px;
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.writing-margin-expand:hover,
+.writing-margin-collapse:hover {
+  color: var(--action-primary);
+  border-color: var(--action-primary);
+}
+
+/* 校样边栏视觉：批注条目与概览中的校对语义用 proof-mark，红不出此栏。 */
+.writing-annotation {
+  border-left: 2px solid var(--proof-mark);
+}
+
+.writing-annotation.resolved {
+  border-left-color: var(--separator);
+}
+
+.writing-annotation-meta,
+.writing-radar-note {
+  color: var(--text-secondary);
+}
+
+/* 页签行：折叠钮入行尾，页签压缩不竖排。 */
+.writing-margin-tabs {
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.writing-margin-tabs button:not(.writing-margin-collapse) {
+  flex: 1;
+  min-width: 0;
+  padding: 4px 4px;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
+ * 清样工作台 Round 3 — 模块迁移（规格 §6）
+ * ----------------------------------------------------------------------- */
+
+/* 项目首页：工具栏行 + 紧凑列表；不再有 Hero 卡。 */
+.project-home-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px 12px;
+  border-bottom: 1px solid var(--separator-subtle);
+}
+
+.project-home-new {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 34px;
+  padding: 0 14px;
+  border: 1px solid var(--action-primary);
+  border-radius: var(--radius-control);
+  background: var(--action-primary);
+  color: #fff;
+  font-size: 12.5px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.project-home-new:hover {
+  background: var(--action-primary-hover);
+}
+
+/* 资料库：单行工具栏。 */
+.library-toolbar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 2px 4px 12px;
+  border-bottom: 1px solid var(--separator-subtle);
+}
+
+/* 统计：一排核心数据条（去独立卡片，列间分隔线）。 */
+.stats-page .stats-grid {
+  gap: 0;
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+  overflow: hidden;
+}
+
+.stats-page .stats-grid > * {
+  border: 0;
+  border-left: 1px solid var(--separator-subtle);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.stats-page .stats-grid > *:first-child {
+  border-left: 0;
+}
+
+/* 卡片看板：直接铺满，去掉外层大面板容器与浮层卡。 */
+.cards-board-layout {
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+}
+
+.cards-board-pane {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.cards-detail-pane {
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+}
+
+.cards-board-card {
+  border-radius: 4px;
+}
+
+/* 版本历史/大纲：数据用等宽（规格 §3.2）。 */
+.history-page .font-mono,
+.outline-page .outline-scene-meta,
+.stats-words dd {
+  font-family: var(--font-data);
+}
+
+/* 设置：卡片网格压平为分区面板（左分类右表单的结构改造留待后续，先去卡片化）。 */
+.desktop-settings-grid > * {
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+}
+
+/* 收件箱：状态点样式（列表内状态以点+文字表达）。 */
+.inbox-item-status-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--action-primary);
+}
+
+/* --------------------------------------------------------------------------
+ * 清样工作台 — 细节打磨（2026-08-30）
+ * ----------------------------------------------------------------------- */
+
+/* 1) 资料库：书封统一墨色系（不再三原色），格式徽章中性等宽。 */
+.library-cover {
+  background: linear-gradient(160deg, #3a4148, #23272c) !important;
+  color: #f2f3f5 !important;
+}
+
+.library-cover[data-format="epub"] { background: linear-gradient(160deg, #3d4a63, #26303f) !important; }
+.library-cover[data-format="txt"] { background: linear-gradient(160deg, #3a4148, #23272c) !important; }
+.library-cover[data-format="md"] { background: linear-gradient(160deg, #35443c, #222b26) !important; }
+
+.format-chip {
+  border: 1px solid var(--separator);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  font-family: var(--font-data);
+  font-size: 10px;
+}
+
+/* 阅读进度：fill 一律印刷蓝（进度≠批注语义），行内紧凑。 */
+.desktop-library-row [class*="progress"] span[class*="fill"],
+.desktop-library-row [class*="progress"] > span {
+  background: var(--action-primary) !important;
+}
+
+/* 2) 概览：指标卡等高、章节状态空态收敛、目标文案单行。 */
+.overview-grid {
+  align-items: stretch;
+}
+
+.overview-grid .stats-card {
+  display: flex;
+  flex-direction: column;
+}
+
+.overview-grid .stats-card > p.stats-note:last-child {
+  margin-top: auto;
+}
+
+.overview-status-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  color: var(--text-tertiary);
+  font-size: 12px;
+}
+
+/* 迁移横幅关闭钮：描边幽灵，不再吃主按钮样式。 */
+.migration-banner-dismiss {
+  border: 1px solid var(--separator) !important;
+  border-radius: var(--radius-control) !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.migration-banner-dismiss:hover {
+  color: var(--text-primary) !important;
+  border-color: var(--text-secondary) !important;
+}
+
+/* 印刷蓝描边型徽章/命令钮统一控制圆角。 */
+.desktop-search-command {
+  border-radius: var(--radius-control);
+}
+
+/* 收件箱：hero 压平为工具栏行（标题左、动作右）。 */
+.inbox-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 2px 4px 12px;
+  border-bottom: 1px solid var(--separator-subtle);
+}
+
+.inbox-toolbar .inbox-hero-title h2 {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+}
+
+.inbox-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+/* --------------------------------------------------------------------------
+ * 清样工作台 Round 3 结构性改造收尾（§6.3 / §6.8）
+ * ----------------------------------------------------------------------- */
+
+/* 设置：左分类 + 右当前分类表单（§6.8）。 */
+.settings-layout {
+  display: grid;
+  grid-template-columns: 190px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.settings-nav {
+  position: sticky;
+  top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  border: 1px solid var(--separator-subtle);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+}
+
+.settings-nav button {
+  padding: 8px 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 13px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.settings-nav button:hover {
+  color: var(--text-primary);
+  background: var(--surface-2);
+}
+
+.settings-nav button.active {
+  background: var(--action-tint);
+  color: var(--action-primary);
+  font-weight: 600;
+}
+
+.desktop-settings-grid {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 16px;
+}
+
+/* 大纲树表格化（§6.3）：行按「标题｜目标｜字数」三列对齐，细分隔线分行。 */
+.outline-scene-main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  gap: 8px;
+  align-items: baseline;
+}
+
+.outline-scene-goal {
+  color: var(--text-tertiary);
+  font-family: var(--font-data);
+  font-size: 10.5px;
+  white-space: nowrap;
+}
+
+.outline-scene + .outline-scene {
+  border-top: 1px solid var(--separator-subtle);
+}
+
+.outline-scene {
+  border-radius: 0;
+}
+
+.outline-scene.active {
+  border-radius: 7px;
+}
+
+.settings-forms {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
 }

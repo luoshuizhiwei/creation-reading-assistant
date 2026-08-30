@@ -94,6 +94,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   const setScreen = useAppStore((state) => state.setScreen);
   const setSearchOpen = useSearchStore((state) => state.setOpen);
   const projects = useCreationStore((state) => state.projects);
+  const workbenchActive = useCreationStore((state) => state.selectedId != null);
   const creationLeaveGuard = useCreationStore((state) => state.leaveGuard);
   const title = screenTitles[screen];
   const navigate = async (target: AppScreen) => {
@@ -112,7 +113,10 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         <WindowControls />
       </header>
       <div className="desktop-workbench">
-      <aside className="desktop-sidebar" aria-label="桌面端主导航">
+      <aside
+        className={`desktop-sidebar ${screen === "projects" && workbenchActive ? "desktop-sidebar--rail" : ""}`}
+        aria-label="桌面端主导航"
+      >
         <RingButton
           className="desktop-brand nav-spine-item"
           aria-label="创作阅读助手：回到项目首页"

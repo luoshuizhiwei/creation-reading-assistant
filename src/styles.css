@@ -1,92 +1,49 @@
-﻿@tailwind base;
+﻿@import "./styles/tokens.css";
+
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  /* 朱砚 — light「晨纸」：做旧纸桌面、松烟绿黑侧栏、朱砂交互主色、石青信息点缀。
-   * 语义：AI 辅助/校对/批注 = 编辑的朱批，故交互主色即朱砂（accent-spine 名字沿用历史值，勿被误导）。 */
-  --bg-app: #e9e5da;
-  --bg-surface: #fffdf8;
-  --bg-subtle: #f0ebe0;
-  --text-main: #26241f;
-  --text-muted: #6b675c;
-  --text-meta: #8b867a;
-  --accent-spine: #b7401a;
-  --accent-hover: #f6e3d8;
-  --border-subtle: #ded8c8;
-  --border-strong: #c2baa8;
-  --studio-cloth: #20281f;
-  --studio-cloth-soft: #2b3529;
-  --studio-cloth-text: #efeee6;
-  --studio-cloth-muted: #97a08f;
-  --studio-paper: #fffdf6;
-  --studio-paper-shadow: rgba(38, 40, 32, 0.1);
-  --studio-seal: #c8451f;
-  --studio-seal-soft: #f8e7dc;
-  --studio-jade: #3e5c76;
-  --studio-jade-soft: #e3ebf0;
-  --studio-desk-toplight: rgba(255, 252, 240, 0.5);
-  /* Tailwind alpha 修饰符通道（bg-copper/40 等） */
-  --rgb-app: 233 229 218;
-  --rgb-surface: 255 253 248;
-  --rgb-subtle: 240 235 224;
-  --rgb-line: 222 216 200;
-  --rgb-ink: 38 36 31;
-  --rgb-muted: 107 103 92;
-  --rgb-accent: 183 64 26;
-  --rgb-moss: 62 122 94;
-  --font-sans: Inter, "Noto Sans SC", "Microsoft YaHei", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", SimSun, serif;
-  --font-mono: "JetBrains Mono", Consolas, "Courier New", monospace;
-
-  /* Compatibility aliases used by existing renderer components. */
-  --paper-bg: var(--bg-app);
-  --paper-panel: var(--bg-surface);
-  --paper-soft: var(--bg-subtle);
-  --paper-line: var(--border-subtle);
-  --paper-ink: var(--text-main);
-  --paper-muted: var(--text-muted);
-  --copper: var(--accent-spine);
-  --copper-soft: #efbfa6;
-  --copper-dark: #8c2f0f;
-  --moss: #3e7a5e;
-  --moss-soft: #e4f0e9;
+  /* 清样工作台兼容别名：映射到 src/styles/tokens.css 的语义令牌（规格 §7 迁移期） */
+  --app-bg: var(--surface-app, #eceff2);
+  --bg-app: var(--app-bg);
+  --bg-surface: var(--surface-1);
+  --bg-subtle: var(--surface-2);
+  --text-main: var(--text-primary);
+  --text-muted: var(--text-secondary);
+  --text-meta: var(--text-tertiary);
+  --accent-spine: var(--action-primary);
+  --accent-hover: var(--action-tint);
+  --border-subtle: var(--separator-subtle);
+  --border-strong: var(--separator);
+  --studio-cloth: var(--surface-1);
+  --studio-cloth-soft: var(--surface-2);
+  --studio-cloth-text: var(--text-primary);
+  --studio-cloth-muted: var(--text-secondary);
+  --studio-paper: var(--surface-paper);
+  --studio-paper-shadow: rgba(15, 20, 28, 0.08);
+  --studio-seal: var(--proof-mark);
+  --studio-seal-soft: var(--proof-tint);
+  --studio-jade: var(--action-primary);
+  --studio-jade-soft: var(--action-tint);
+  --studio-desk-toplight: rgba(255, 255, 255, 0);
+  --paper-bg: var(--app-bg);
+  --paper-panel: var(--surface-1);
+  --paper-soft: var(--surface-2);
+  --paper-line: var(--separator-subtle);
+  --paper-ink: var(--text-primary);
+  --paper-muted: var(--text-secondary);
+  --copper: var(--action-primary);
+  --copper-soft: var(--proof-tint);
+  --copper-dark: var(--action-primary-hover);
+  --moss: var(--success);
+  --moss-soft: #e2efe8;
+  --surface-app: #eceff2;
 }
 
 :root[data-app-theme="dark"] {
-  /* 朱砚 — dark「夜写」：松烟夜桌、暖绿黑纸、夜朱提亮。 */
-  --bg-app: #121712;
-  --bg-surface: #1a201a;
-  --bg-subtle: #161c16;
-  --text-main: #eceae2;
-  --text-muted: #a8a99b;
-  --text-meta: #8b8c7f;
-  --accent-spine: #c65427;
-  --accent-hover: #33241c;
-  --border-subtle: #272d26;
-  --border-strong: #3a4038;
-  --studio-cloth: #0d110d;
-  --studio-cloth-soft: #1a211b;
-  --studio-cloth-text: #eceae2;
-  --studio-cloth-muted: #8f978a;
-  --studio-paper: #1e241d;
-  --studio-paper-shadow: rgba(0, 0, 0, 0.45);
-  --studio-seal: #e0603a;
-  --studio-seal-soft: #362219;
-  --studio-jade: #7fa3b8;
-  --studio-jade-soft: #202a30;
-  --studio-desk-toplight: rgba(255, 248, 230, 0.05);
-  --rgb-app: 18 23 18;
-  --rgb-surface: 26 32 26;
-  --rgb-subtle: 22 28 22;
-  --rgb-line: 39 45 38;
-  --rgb-ink: 236 234 226;
-  --rgb-muted: 168 169 155;
-  --rgb-accent: 198 84 39;
-  --rgb-moss: 127 184 153;
-  --copper-soft: #efaf8f;
-  --copper-dark: #c9532c;
-  --moss: #7fb899;
+  --surface-app: #15181c;
   --moss-soft: #1a2a22;
 }
 

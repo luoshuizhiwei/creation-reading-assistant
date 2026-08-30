@@ -199,6 +199,10 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
 
   // 场景雷达（调研 D-C1 v1）：纯只读聚合，数据全部来自已加载状态，自身无异步。
   const [marginTab, setMarginTab] = useState<MarginTab>("radar");
+  // 检查器折叠（规格 §4.2）：窄窗默认折叠，可手动开合。
+  const [marginCollapsed, setMarginCollapsed] = useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 1100px)").matches
+  );
 
   // AI 场景助手（D-C2 切片 2）：上下文包预览 → 候选评审 → 保护快照 + revision 校验采纳。
   const [aiSettings, setAiSettings] = useState<AISettings | undefined>();
@@ -580,7 +584,10 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
   );
 
   return (
-    <section className={`writing-desk ${focusMode ? "writing-desk--focus" : ""}`} aria-label="正文写作台">
+    <section
+      className={`writing-desk ${focusMode ? "writing-desk--focus" : ""} ${marginCollapsed ? "writing-desk--no-margin" : ""}`}
+      aria-label="正文写作台"
+    >
       <aside className="writing-outline" aria-label="项目大纲">
         <label className="writing-project-switcher">
           <span>当前项目</span>
@@ -641,6 +648,17 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
         </div>
       </aside>
 
+      {marginCollapsed && !focusMode && (
+        <button
+          type="button"
+          className="writing-margin-expand"
+          aria-label="展开检查器"
+          title="展开检查器"
+          onClick={() => setMarginCollapsed(false)}
+        >
+          «
+        </button>
+      )}
       <main className="writing-manuscript">
         <header className="writing-manuscript-head">
           <div>
@@ -726,6 +744,15 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
 
       <aside className="writing-margin" aria-label="场景信息">
         <div className="writing-margin-tabs" role="tablist" aria-label="场景信息页签">
+          <button
+            type="button"
+            className="writing-margin-collapse"
+            aria-label="收起检查器"
+            title="收起检查器"
+            onClick={() => setMarginCollapsed(true)}
+          >
+            »
+          </button>
           <button
             type="button"
             role="tab"
