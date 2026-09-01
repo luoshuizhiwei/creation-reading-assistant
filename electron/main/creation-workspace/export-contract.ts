@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { removeWithRetry } from "./test-utils";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import {

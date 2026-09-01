@@ -5,12 +5,9 @@ import * as iconv from "iconv-lite";
 import mammoth from "mammoth";
 import { DocxPreflightError, preflightDocxArchive } from "./docx-preflight";
 import type {
-  DraftImportChapterInput,
   DraftImportFormat,
   DraftImportPreview,
-  DraftImportPreviewChapter,
   DraftImportPreviewVolume,
-  DraftImportVolumeInput
 } from "../../../src/types/creation";
 
 export type { DraftImportFormat, DraftImportPreview, DraftImportPreviewChapter, DraftImportPreviewVolume } from "../../../src/types/creation";

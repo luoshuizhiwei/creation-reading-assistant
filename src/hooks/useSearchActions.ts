@@ -1,7 +1,6 @@
 import { useCallback, useRef } from "react";
 import { listBooks } from "@/services/library-service";
 import { openBook, openEpub } from "@/services/reader-service";
-import { useCreationActions } from "@/hooks/useCreationActions";
 import { sourcesForFilter, sortEntries } from "@/features/search/aggregate";
 import { useInspirationStore } from "@/stores/inspiration-store";
 import { useLibraryStore } from "@/stores/library-store";

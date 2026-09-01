@@ -4,7 +4,6 @@ import {
   useState,
   type ButtonHTMLAttributes,
   type CSSProperties,
-  type FocusEvent,
   type KeyboardEvent as ReactKeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode
@@ -28,7 +27,7 @@ export function useFocusRing() {
     : undefined;
 
   const handlers = {
-    onFocus: (event: FocusEvent<HTMLElement>) => {
+    onFocus: () => {
       if (!pointerActiveRef.current) setRingVisible(true);
     },
     onBlur: () => {

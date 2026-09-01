@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { removeWithRetry } from "./test-utils";
-import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -392,7 +392,7 @@ async function run(): Promise<void> {
       const coordinator = createCreationCoordinator({ resolveDirectory: () => root });
       await expectWorkspaceError("integrity", () => coordinator.getWorkspace());
       root = path.join(baseDir, "open");
-      const workspace = await coordinator.getWorkspace();
+      await coordinator.getWorkspace();
       assert.equal(existsSync(root), true);
       await coordinator.close();
     });

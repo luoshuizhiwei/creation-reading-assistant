@@ -12,7 +12,7 @@ import { SceneCandidateReview, type SceneCandidate } from "@/features/creation/a
 import { SceneAiReport } from "@/features/creation/ai/SceneAiReport";
 import { creationDocumentToPlainText } from "@/features/creation/ai/diff-paragraphs";
 import { plainTextToCreationDocument } from "@/features/creation/editor/paste-clean";
-import { AiSendConfirmDialog, rememberAiSendOptOut, shouldConfirmAiSend } from "@/features/creation/inbox/ai-send-confirm";
+import { AiSendConfirmDialog, rememberAiSendOptOut } from "@/features/creation/inbox/ai-send-confirm";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { runStructure as runStructureRequest } from "@/services/creation-service";
 import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";

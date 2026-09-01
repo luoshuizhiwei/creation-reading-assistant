@@ -1,4 +1,4 @@
-import React, { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react";
+import  { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from "react";
 import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
 import type { SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { CreationDocument, SceneBodyView, SceneSaveResponse } from "@/types/creation";

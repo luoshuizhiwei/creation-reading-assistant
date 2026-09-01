@@ -1,4 +1,3 @@
-import React from "react";
 import { Button } from "@/components/ui";
 import type { ImpactRow } from "./outline-impact";
 import "./outline-reorg.css";

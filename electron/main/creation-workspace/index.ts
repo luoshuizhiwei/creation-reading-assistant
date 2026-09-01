@@ -136,8 +136,6 @@ import {
   type InboxCountView,
   type InboxReadQuery,
   type InboxUpdateCommand,
-  type DraftImportChapterInput,
-  type DraftImportVolumeInput,
   type ProjectImportDraftCommand,
   type ProjectImportDraftResult,
   type ProjectBundleData,
@@ -7947,7 +7945,6 @@ else {
 
   /** 全项目替换计划 store：scenes/snapshots/change_log 走 DB，计划本体落 JSON 文件。 */
   private buildReplacePlanStore(): ReplacePlanStore {
-    const deleteScene = this.database.prepare("DELETE FROM scenes WHERE id = ? AND deleted_at IS NULL");
     const listSql = `
       SELECT s.id, s.project_id, s.chapter_id, c.title AS chapter_title, s.title, s.body_json, s.revision, s.updated_at
       FROM scenes s JOIN chapters c ON c.id = s.chapter_id

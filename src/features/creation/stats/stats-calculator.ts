@@ -143,7 +143,7 @@ export function computeGoalDeadline(
 /** 每周更新日平均目标：每周目标字数 ÷ 每周更新日数（未设置时返回 null）。 */
 export function computeWeeklyUpdateDayTarget(
   setup: CreationProjectSetup,
-  metric: WordMetric = DEFAULT_WORD_METRIC
+  _metric: WordMetric = DEFAULT_WORD_METRIC
 ): { weeklyGoal: number; days: number; perUpdateDay: number } | null {
   if (setup.weeklyWordGoal === undefined || setup.weeklyWordGoal <= 0) return null;
   const days = setup.weeklyUpdateDays.length;

@@ -1,5 +1,4 @@
 import type { OperationKind, OperationPhase, OperationState, ResourceIntegrityReport } from "../../../types/operation";
-import { NON_INTERRUPTIBLE_PHASES, RESOURCE_INTEGRITY_CATEGORY_LABEL, RESOURCE_INTEGRITY_CATEGORY_ORDER } from "../../../types/operation";
 import { ResourceIntegrityScanPanel } from "./ResourceIntegrityScanPanel";
 import "./operation.css";
 

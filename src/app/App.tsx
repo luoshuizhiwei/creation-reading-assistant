@@ -42,6 +42,14 @@ const ReadingStatsPage = lazy(() =>
 const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 /**
+ * 错误/未处理拒绝日志可能携带本机绝对路径（栈帧里的 `C:\Users\23254\...` / `/Users/...`）。
+ * 写盘前剥离，避免本地路径泄露到日志文件。
+ */
+function redactPaths(value: string): string {
+  return value.replace(/(?:[A-Za-z]:[\\/]|[/\\](?:Users|home|Volumes|root)[/\\])[^"\s'()`]+/g, "<redacted-path>");
+}
+
+/**
  * AppScreen → 正文组件 的穷尽映射：TypeScript 的 Record 强制每个可设置的
  * AppScreen 都有合法渲染路径；新增屏幕而没有补充分支会在编译期直接报错，
  * 不再可能出现「有状态、无正文」的空白页。
@@ -162,8 +170,8 @@ export default function App() {
     const handleError = (event: ErrorEvent) => {
       void writeRendererLog({
         level: "error",
-        message: event.message,
-        detail: event.error?.stack ?? `${event.filename}:${event.lineno}:${event.colno}`,
+        message: redactPaths(event.message),
+        detail: redactPaths(event.error?.stack ?? `${event.filename}:${event.lineno}:${event.colno}`),
         source: "window.error"
       });
     };
@@ -171,7 +179,7 @@ export default function App() {
       void writeRendererLog({
         level: "error",
         message: "Unhandled promise rejection",
-        detail: event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason),
+        detail: redactPaths(event.reason instanceof Error ? event.reason.stack ?? event.reason.message : String(event.reason)),
         source: "window.unhandledrejection"
       });
     };

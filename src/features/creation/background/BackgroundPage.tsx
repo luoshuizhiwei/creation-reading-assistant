@@ -3,9 +3,7 @@ import { BookOpen, Globe2, Landmark, Users } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
-import type { CardSummary } from "@/types/creation";
 import {
-  BACKGROUND_KINDS,
   canDeleteBackgroundCard,
   isBackgroundCard,
   resolveBackgroundSelection

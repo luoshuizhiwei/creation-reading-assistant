@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Inbox as InboxIcon, Library, Lightbulb, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { Check, Copy, Inbox as  Library, Lightbulb, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useAppStore } from "@/stores/app-store";
@@ -117,7 +117,6 @@ export function InboxPage({ projectId }: InboxPageProps) {
   const [hasMore, setHasMore] = useState(true);
   /** 正在加载更多。 */
   const [loadingMore, setLoadingMore] = useState(false);
-  const [pendingSelectId, setPendingSelectId] = useState<string | undefined>();
 
   /**
    * 请求序列号：用于取消旧请求，禁止旧请求覆盖新列表。

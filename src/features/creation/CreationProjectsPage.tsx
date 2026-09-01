@@ -13,7 +13,6 @@ import {
   LayoutDashboard,
   ListTree,
   PenLine,
-  Plus,
   Replace,
   Search,
   X
@@ -53,7 +52,6 @@ import { useCreationStore } from "@/stores/creation-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useUIStore } from "@/stores/ui-store";
 import { PROJECT_NAV_ITEMS, type ProjectView } from "@/features/navigation/project-nav";
-import type { ProjectNavigationRequest } from "@/features/navigation/project-navigation";
 
 const PROJECT_NAV_ICONS: Record<ProjectView, typeof Layers> = {
   overview: LayoutDashboard,

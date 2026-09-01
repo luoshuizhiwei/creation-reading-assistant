@@ -11,7 +11,7 @@ function isWindowReadable(): boolean {
   return document.visibilityState === "visible" && document.hasFocus();
 }
 
-export function useReadingSessionTracker(scrollerRef: RefObject<HTMLDivElement>, getCurrentLocation: () => ReadingLocation | undefined) {
+export function useReadingSessionTracker(_scrollerRef: RefObject<HTMLDivElement>, getCurrentLocation: () => ReadingLocation | undefined) {
   const activeBook = useLibraryStore((state) => state.activeBook);
   const settings = useLibraryStore((state) => state.readerSettings);
   const setActiveSession = useLibraryStore((state) => state.setActiveSession);

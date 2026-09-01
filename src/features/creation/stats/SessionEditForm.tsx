@@ -34,7 +34,7 @@ export interface SessionEditFormProps {
   error?: string | null;
 }
 
-export function SessionEditForm({ session, projectId, onCancel, onSave, busy, error }: SessionEditFormProps) {
+export function SessionEditForm({ session, projectId, onCancel, onSave, error }: SessionEditFormProps) {
   const [startedAt, setStartedAt] = useState(() => toLocalDateTimeInput(session.startedAt));
   const [activeSeconds, setActiveSeconds] = useState(() => String(session.activeSeconds));
   const [netChars, setNetChars] = useState(() => String(session.netChars));
@@ -61,7 +61,6 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, busy, er
   }, [activeSeconds, netChars, projectId, session, startedAt]);
 
   const issues = validation.ok ? [] : validation.issues;
-  const canSubmit = !busy && !submitting;
 
   const handleSave = async () => {
     if (!validation.ok) {

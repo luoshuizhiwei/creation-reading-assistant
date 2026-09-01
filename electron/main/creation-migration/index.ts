@@ -1,5 +1,5 @@
 import { constants } from "node:fs";
-import { access, cp, mkdir, readFile, readdir, rename, rm, stat, writeFile, statfs } from "node:fs/promises";
+import { access, cp, mkdir, readFile, readdir, rm, stat, writeFile, statfs } from "node:fs/promises";
 import path from "node:path";
 import { createHash, randomUUID } from "node:crypto";
 import { auditLegacyDesktopData } from "../creation-migration-audit";

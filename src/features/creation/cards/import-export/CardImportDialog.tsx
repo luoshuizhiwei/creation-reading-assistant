@@ -47,7 +47,7 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
   const [schema, setSchema] = useState<CardImportSchemaContext | null>(null);
   const [mapping, setMapping] = useState<CardImportMapping | null>(null);
   const [options, setOptions] = useState<CardImportOptions>({ duplicatePolicy: "add" });
-  const [plan, setPlan] = useState<CardImportPlan | null>(null);
+  const [, setPlan] = useState<CardImportPlan | null>(null);
   const [summary, setSummary] = useState<PlanSummary | null>(null);
   const [appliedInfo, setAppliedInfo] = useState<{ cards: number; relations: number } | null>(null);
 

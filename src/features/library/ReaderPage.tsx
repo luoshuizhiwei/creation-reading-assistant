@@ -10,7 +10,7 @@ import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
 import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
 import { useReaderProgress } from "@/hooks/useReaderProgress";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
-import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById } from "@/services/annotation-service";
+import { getHighlightsByBook, saveHighlight } from "@/services/annotation-service";
 import { updateReaderSettings } from "@/services/reader-service";
 import { resetReaderSettings } from "@/services/settings-service";
 import { useLibraryStore } from "@/stores/library-store";
@@ -306,15 +306,6 @@ function TextReaderPage() {
     });
     showToast({ tone: "success", title: "已添加高亮", body: text.slice(0, 50) });
   }, [showToast]);
-
-  const removeHighlight = useCallback(async (id: string) => {
-    await removeHighlightById(id);
-    setHighlights((prev) => {
-      const next = prev.filter((h) => h.id !== id);
-      highlightsRef.current = next;
-      return next;
-    });
-  }, []);
 
 
   const { recordInteraction, endTracking } = useReadingSessionTracker(scrollerRef, getCurrentLocation);

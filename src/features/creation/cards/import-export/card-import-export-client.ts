@@ -12,7 +12,6 @@ import {
   type CardImportApplyInput,
   type CardImportApplyResult,
   type CardImportMapping,
-  type CardImportOptions,
   type CardImportPlan,
   type CardImportPreview,
   type CardImportSchemaContext,

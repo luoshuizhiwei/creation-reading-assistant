@@ -75,7 +75,6 @@ export function SettingsPage() {
   const [updateInfo, setUpdateInfo] = useState<AppUpdateInfo>();
   const [updateBusy, setUpdateBusy] = useState(false);
   const [backupBusy, setBackupBusy] = useState(false);
-  const setScreen = useAppStore((state) => state.setScreen);
   const setError = useAppStore((state) => state.setError);
   const confirmAction = useUIStore((state) => state.confirmAction);
   const showToast = useUIStore((state) => state.showToast);

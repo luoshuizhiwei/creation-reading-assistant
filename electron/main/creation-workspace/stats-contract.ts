@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { removeWithRetry } from "./test-utils";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -19,7 +19,6 @@ async function run(): Promise<void> {
   let tests = 0;
   let projectId = "";
   let sceneId = "";
-  let extraSceneId = "";
   try {
     const scenario = async <T>(name: string, fn: () => Promise<T>): Promise<T> => {
       try {
@@ -51,12 +50,11 @@ async function run(): Promise<void> {
           ]
         }
       });
-      const extra = await workspace!.transact({
+      await workspace!.transact({
         type: "scene.create",
         chapterId: created.chapterId,
         title: "第二场景"
-      }) as { entityId: string };
-      extraSceneId = extra.entityId;
+      });
     });
 
     await scenario("字数三口径：汉字/非空白/含标点", async () => {

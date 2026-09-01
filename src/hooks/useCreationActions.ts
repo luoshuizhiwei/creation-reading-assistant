@@ -66,7 +66,6 @@ import { useAppStore } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
 import type {
   CardRelation,
-  CardRelationCreateCommand,
   CardSummary,
   CardsListQuery,
   CreateProjectInput,

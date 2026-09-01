@@ -18,9 +18,6 @@ import {
 } from "../../../src/features/library/excerpt-commands";
 import {
   buildExcerptSource,
-  isDuplicateExcerpt,
-  makeExcerptSignature,
-  EXCERPT_DEDUP_WINDOW_MS,
   type ExcerptBuildContext
 } from "../../../src/features/library/excerpt-source";
 

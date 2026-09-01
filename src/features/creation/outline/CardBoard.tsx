@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import  { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileText, LayoutGrid, ListTree } from "lucide-react";
 import type {
   CreationOutlineChapter,

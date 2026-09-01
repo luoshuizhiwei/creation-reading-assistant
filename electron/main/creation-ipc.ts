@@ -12,7 +12,6 @@ import type {
   CreateProjectInput,
   CreationProjectListener,
   CreationProjectNavigation,
-  CreationProjectOutline,
   CreationProjectSummary,
   CreationRunCommand,
   CreationRunResult,
@@ -25,7 +24,6 @@ import type {
   ReplaceApplyResult,
   ReplacePreviewQuery,
   ReplacePreviewView,
-  SceneBodyView,
   SceneSaveResponse,
   SessionEntry,
   SessionListQuery,
@@ -33,7 +31,6 @@ import type {
   SessionReportResult,
   SnapshotInfo,
   SnapshotListQuery,
-  TrashItem,
   UpdateSceneBodyInput,
   StructurePreviewCommand,
   StructureApplyWithProtectionCommand,
@@ -57,7 +54,6 @@ import type {
   SnapshotPreviewQuery,
   SnapshotPreviewView,
   SnapshotRestoreWithProtectionCommand,
-  SnapshotRestoreWithProtectionResult,
   TrashImpactQuery,
   TrashImpactView,
   ResourceAttachCommand,
@@ -68,20 +64,14 @@ import type {
   SessionUpdateCommand,
   ProjectUpdateGoalCommand,
   ProjectGoalResult,
-  SnapshotRetentionResult,
   ReplacePlanQuery,
-  ReplacePlan,
-  ReplaceApplyOutcome
 } from "../../src/types/creation";
 import type {
   CardExportFilter,
   CardExportResult,
   CardExportRow,
   CardImportApplyInput,
-  CardImportApplyResult,
-  CardImportPlan,
   CardImportPreview,
-  CardImportSchemaContext,
   CardImportSource
 } from "../../src/types/card-io";
 import {
@@ -92,7 +82,6 @@ import {
 } from "./creation-card-io/card-io-index";
 import { CreationWorkspaceError } from "./creation-workspace";
 import { exportProjectBundleDirectory, importProjectBundleDirectory } from "./creation-bundle";
-import type { CreationCommand } from "./creation-workspace/types";
 import type { CreationCoordinator } from "./creation-coordinator";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
 import { previewLegacyDraft } from "./creation-import";

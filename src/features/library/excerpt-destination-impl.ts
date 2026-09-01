@@ -1,8 +1,6 @@
 import { getDesktopApi } from "@/services/ipc-client";
 import type { ExcerptResult, ExcerptSourceSnapshot, ReaderExcerptDestination } from "@/types/library";
 import {
-  buildInboxCreateCommand,
-  buildCardCreateCommand,
   type ExcerptCommandExecutor,
   executeSaveToInbox,
   executeSaveToProjectCard

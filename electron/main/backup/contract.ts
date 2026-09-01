@@ -1,7 +1,7 @@
 import { strict as assert } from "node:assert";
 import { createHash } from "node:crypto";
 import { existsSync } from "node:fs";
-import { cp, mkdir, mkdtemp, readFile, readdir, rm, stat, symlink, writeFile } from "node:fs/promises";
+import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -12,7 +12,6 @@ import {
   inventoryTree,
   readBackupManifest,
   restoreBackupFromDirectory,
-  type BackupFileEntry,
   type BackupManifest
 } from "./index";
 
@@ -381,7 +380,7 @@ async function run(): Promise<void> {
       const currentRoot = path.join(parent, "s7-current");
       await makeAppDataFixture(currentRoot);
       const beforeHash = await hashDir(currentRoot);
-      const rejection = await expectReject("S7 损坏 SQLite 被拒绝", { backupRoot, currentAppDataRoot: currentRoot, currentLibraryRoot: path.join(currentRoot, "AppLibrary") }, "sqlite-integrity");
+      await expectReject("S7 损坏 SQLite 被拒绝", { backupRoot, currentAppDataRoot: currentRoot, currentLibraryRoot: path.join(currentRoot, "AppLibrary") }, "sqlite-integrity");
       check("S7 当前数据未动", async () => assert.equal(await hashDir(currentRoot), beforeHash));
       check("S7 备份原件未被改写", async () => {
         assert.equal(await readFile(path.join(backupRoot, "app-data", "CreationWorkspace", "workspace.sqlite"), "utf8"), "NOT_A_DATABASE");

@@ -34,7 +34,6 @@ import {
   exportProjectBundleDirectory,
   importProjectBundleDirectory,
   type ExportProjectBundleOptions,
-  type ImportProjectBundleOptions,
   type ProjectBundleManifest
 } from "../creation-bundle";
 import {

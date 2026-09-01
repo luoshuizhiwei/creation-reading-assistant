@@ -12,7 +12,7 @@ interface OutlinePageProps {
 }
 
 /** 场景任务卡表单：视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数（蓝图 §5.3）。 */
-function ScenePlanningForm({ projectId, scene, onSaved }: { projectId: string; scene: { id: string; planning?: ScenePlanning } | null; onSaved(): void }) {
+function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id: string; planning?: ScenePlanning } | null; onSaved(): void }) {
   const { runStructure } = useCreationActions();
   const cards = useCreationStore((state) => state.cards);
   const [planning, setPlanning] = useState<ScenePlanning>({});

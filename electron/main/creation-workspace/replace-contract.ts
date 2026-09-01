@@ -1,6 +1,6 @@
 import { strict as assert } from "node:assert";
 import { removeWithRetry } from "./test-utils";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
@@ -337,7 +337,7 @@ async function runReplacePlanTests(
 
   await scenario("重叠命中：稳定拒绝，不重复替换", async () => {
     store = new MemoryReplacePlanStore();
-    const s = store.insertScene(projectId, chapterId, "G", makeBody("啊啊啊"));
+    store.insertScene(projectId, chapterId, "G", makeBody("啊啊啊"));
     const plan = await createReplacePlan(store, {
       projectId,
       scope: "all",

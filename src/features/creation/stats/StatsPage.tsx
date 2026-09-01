@@ -12,7 +12,6 @@ import {
   computeWeekSummary,
   DEFAULT_WORD_METRIC,
   WORD_METRIC_LABELS,
-  wordsForMetric,
   type WordMetric
 } from "./stats-calculator";
 

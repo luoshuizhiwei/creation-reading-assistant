@@ -18,16 +18,14 @@ import {
   runBackupRestore,
   runBackupExportEncrypted,
   runBackupImportEncrypted,
-  runBundleExport,
   runBundleExportEncrypted,
   runBundleImport,
   runBundleImportEncrypted,
-  OperationCancelledError,
   OperationInvariantError
 } from "./index";
 import type { OperationCoordinator } from "./coordinator";
 import type { OperationState } from "./types";
-import { createBackupSnapshot, restoreBackupFromDirectory, type BackupManifest } from "../backup";
+import { createBackupSnapshot, type BackupManifest } from "../backup";
 import { exportProjectBundleDirectory } from "../creation-bundle";
 import { openCreationWorkspace, scanResourceConsistencyCore } from "../creation-workspace";
 import { CONTAINER_MAGIC } from "../portable-encryption";

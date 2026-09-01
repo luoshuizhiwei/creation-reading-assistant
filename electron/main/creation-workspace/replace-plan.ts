@@ -25,7 +25,6 @@ import type {
   ReplacePlanSceneSeal,
   ReplacePlanSceneSummary,
   ReplacePlanScope,
-  ReplaceTextRange
 } from "../../../src/types/creation";
 
 // 兼容 re-export：供主进程内部模块按原路径（./replace-plan）引用这些 seam 类型。
@@ -222,7 +221,7 @@ function walkDocument(doc: CreationDocument | null): { concat: string; nodes: Wa
   return { concat, nodes };
 }
 
-function computeAfter(mode: ReplacePlanMode, before: string, find: string, replaceWith: string, regex?: RegExp): string {
+function computeAfter(mode: ReplacePlanMode, before: string, _find: string, replaceWith: string, regex?: RegExp): string {
   if (mode === "regex" && regex) return before.replace(regex, replaceWith);
   return replaceWith;
 }

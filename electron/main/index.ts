@@ -11,12 +11,11 @@ import { parseEpubFile } from "./epub-metadata";
 import { createCreationCoordinator } from "./creation-coordinator";
 import { registerCreationIpc } from "./creation-ipc";
 import { createOperationCoordinator } from "./operation/coordinator";
-import { registerOperationIpc, disposeAllOperations, type OperationOrchestrator } from "./operation/ipc";
+import { registerOperationIpc, disposeAllOperations } from "./operation/ipc";
 import { BackupError, createBackupSnapshot, readBackupManifest, restoreBackupFromDirectory } from "./backup";
 import { openCreationWorkspace } from "./creation-workspace";
 import {
   AutoBackupError,
-  assertSafeBackupTarget,
   assertSafeExistingBackupTarget,
   createAutoBackupScheduler,
   uniqueAutoBackupRoot,
@@ -35,7 +34,6 @@ import type {
   LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
-  ReaderPreset,
   ReaderSettings,
   ReadingLocation,
   ReadingProgress,
@@ -47,7 +45,7 @@ import type {
   UpdateReadingSessionInput
 } from "../../src/types/library";
 import type { AppSettings, AppSettingsPatch, SettingsSection, StorageLocations, StorageSettings } from "../../src/types/settings";
-import type { AISettings, AISettingsPatch, AIRunInput, AIRunResult, AIRunAction, SaveAIApiKeyInput } from "../../src/types/ai";
+import type { AISettings, AISettingsPatch, AIRunInput, AIRunResult, SaveAIApiKeyInput } from "../../src/types/ai";
 import type {
   AddInspirationVariantInput,
   CreateInspirationInput,
@@ -3478,6 +3476,12 @@ function createWindow(): void {
     }
   });
   mainWindow.setMenuBarVisibility(false);
+  // 渲染进程禁止自行打开新窗口：外链统一走 shell.openExternal 白名单（src 全仓无 window.open 用法）。
+  // 缺失此处理器时 Electron 默认会弹一个无限制的 BrowserWindow，构成安全缺口。
+  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+    void writeLog("warn", "Blocked renderer window.open; external links must use shell.openExternal whitelist.", { url });
+    return { action: "deny" };
+  });
   if (captureProfileDir) {
     mainWindow.webContents.setBackgroundThrottling(false);
     mainWindow.setPosition(-20000, -20000);
@@ -3547,7 +3551,7 @@ function registerIpc(): void {
     const idx = presets.findIndex((p: any) => p.id === preset.id);
     if (idx >= 0) presets[idx] = preset;
     else presets.push(preset);
-    const next = await updateAppSettings({ reader: { ...current, presets } });
+    await updateAppSettings({ reader: { ...current, presets } });
     return preset;
   });
   ipcMain.handle("reader:deletePreset", async (_e, presetId: string) => {
