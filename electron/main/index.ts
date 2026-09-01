@@ -3476,7 +3476,11 @@ function createWindow(): void {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
       nodeIntegration: false,
-      sandbox: true,
+      // Electron 20+ 的 sandbox:true 会启用 OS 级渲染沙箱。在装有 HIPS 类主动防御软件
+      // 的 Windows 上，该沙箱进程会被外部终止，表现为启动即白屏（应用日志
+      // "Renderer process gone" reason:killed exitCode:1）。禁用 OS 级沙箱后仍保留
+      // contextIsolation + nodeIntegration:false + preload 白名单 IPC 的安全模型。
+      sandbox: false,
       devTools: !app.isPackaged
     }
   });
