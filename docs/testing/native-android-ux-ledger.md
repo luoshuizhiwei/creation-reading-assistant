@@ -1,6 +1,6 @@
 # 原生 Android UX 问题台账
 
-更新日期：2026-08-24
+更新日期：2026-08-25
 
 适用范围：`android/` 独立原生 Android 产品线。真机验证只使用当前连接设备；记录统一使用
 “测试 TXT”“测试 EPUB”“测试 Markdown”等中性名称。真实书籍截图只保留在本地临时目录，
@@ -29,6 +29,7 @@
 | RUX-016 | P1 | 进入书架搜索后输入框虽获得焦点，MIUI 首次不显示软键盘 | 键盘显示请求早于页面过渡和平台输入连接稳定。请求焦点后等待一帧及短暂入场稳定期再调用输入法显示 | 真机进入搜索页后 `dumpsys input_method` 为 `mInputShown=true`；搜索结果、最近搜索和清空入口复核正常 | DEVICE_VERIFIED |
 | RUX-017 | P1 | 图书详情已有多条阅读会话，却把总阅读时长显示为 0；封面更换按钮触控区仅 24dp | 详情只读取可能滞后的进度累计值，未与会话明细兜底；封面按钮显式缩小。总时长改取进度累计与非负会话合计的较大值，避免重复相加；触控区恢复 48dp | `BookDetailStatsPolicyTest`；最新真机测试 TXT 从错误的 0 分钟恢复为 36 分钟，与 8 条记录一致；UI dump 点击区 144×144px（48dp） | DEVICE_VERIFIED |
 | RUX-018 | P1 | 书架及其子页面只有手机布局；平板会继续使用底部导航、书格列数无上限，搜索/导入/详情内容被横向拉伸 | 新增窗口宽度策略：600dp 起顶层导航切换为侧边栏；书架手机固定 3 列、600dp 为 4 列、720dp 起最多 5 列；列表与详情内容最大 720dp 并居中 | `LayoutTokensTest`、`ShelfAdaptiveLayoutPolicyTest`、`AdaptiveNavigationPolicyTest`、`ShelfScreenComposeTest`；真机临时 240dpi 得到约 813dp 宽窗口，书架 5 列、侧栏及搜索/导入/详情限宽均通过，随后恢复 480dpi | DEVICE_VERIFIED |
+| RUX-019 | P1 | 阅读位置在短 TXT、EPUB/Markdown 滚动、Markdown 重开和章节边界上不稳定；Markdown 进度弹层还会被当成 TXT | 根因是单项列表末尾被判为 0%、EPUB/Markdown 监听了错误的 TXT 列表、Markdown 首帧章节固定为 0、TXT 章节按钮没有真实偏移路由，音量键在滚动模式直接跳整章；统一全书字符偏移计算、Markdown 章节初始化/滚动恢复、TXT/Markdown 章节路由、音量键按视口滚动，并让分页引擎缓存布局期间重放一次翻页意图；同时修正 Markdown 多章分页的局部 canonical 坐标及进度/书籍信息弹层；跨章 Markdown 目标现在会等目标章块加载后再定位到对应渲染单元 | `ReaderScrollPositionTest`、`ReaderInitialChapterStateTest`、`MarkdownPageSourceTest`、`PagedReaderControllerCrossChapterNavTest`；全量 JVM 1545 项 0 失败、Lint/assemble/AndroidTest 编译通过；真实手机仅冷启动验收 | FIXED_CODE |
 
 ## 2026-08-24 截图证据（本地临时文件）
 

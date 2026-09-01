@@ -2,6 +2,7 @@
   "name": "creation-reading-assistant",
   "version": "0.2.1",
   "private": true,
+  "license": "MIT",
   "author": "Creation Reading Assistant Contributors",
   "description": "Local-first desktop assistant for inspiration capture, AI polishing, local novel reading, and reading-time tracking.",
   "main": "out/main/index.js",

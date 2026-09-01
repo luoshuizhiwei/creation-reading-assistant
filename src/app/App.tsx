@@ -1,17 +1,11 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
+import { ScreenFallback } from "@/components/ScreenFallback";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
-import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
-import { InboxPage } from "@/features/creation/inbox/InboxPage";
-import { InspirationPage } from "@/features/inspiration/InspirationPage";
-import { LibraryPage } from "@/features/library/LibraryPage";
-import { ReaderPage } from "@/features/library/ReaderPage";
-import { ReadingStatsPage } from "@/features/library/ReadingStatsPage";
 import { setReaderExcerptDestination } from "@/features/library/excerpt-destination";
 import { createReaderExcerptDestination } from "@/features/library/excerpt-destination-impl";
 import { SearchPanel } from "@/features/search/SearchPanel";
-import { SettingsPage } from "@/features/settings/SettingsPage";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
 import { getStartupRecovery, markStartupRecoverySeen, writeRendererLog } from "@/services/maintenance-service";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -20,6 +14,32 @@ import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { AppScreen } from "@/stores/app-store";
 import type { StartupRecoveryInfo } from "@/types/maintenance";
+
+/**
+ * 屏级代码分割：7 个屏全部改为按需加载，首屏只需解析当前屏那一份 chunk。
+ *
+ * 这些模块目前都是 named export，因此统一用 `.then((m) => ({ default: m.X }))`
+ * 适配 React.lazy 要求的 default 形状——不必为了做分割去改 7 个页面的导出方式。
+ *
+ * 变量名刻意与原静态 import 保持一致，下方 screenContent 的 7 个 JSX 值因此无需改动，
+ * Record<AppScreen, ReactNode> 的编译期穷尽约束也原样保留。
+ *
+ * 注意：lazy() 只是"声明"如何加载，真正发起 import 发生在 React 渲染该元素时。
+ * 所以模块顶层构造 screenContent 里的 7 个 React element 不会触发任何加载。
+ */
+const CreationProjectsPage = lazy(() =>
+  import("@/features/creation/CreationProjectsPage").then((m) => ({ default: m.CreationProjectsPage }))
+);
+const InboxPage = lazy(() => import("@/features/creation/inbox/InboxPage").then((m) => ({ default: m.InboxPage })));
+const InspirationPage = lazy(() =>
+  import("@/features/inspiration/InspirationPage").then((m) => ({ default: m.InspirationPage }))
+);
+const LibraryPage = lazy(() => import("@/features/library/LibraryPage").then((m) => ({ default: m.LibraryPage })));
+const ReaderPage = lazy(() => import("@/features/library/ReaderPage").then((m) => ({ default: m.ReaderPage })));
+const ReadingStatsPage = lazy(() =>
+  import("@/features/library/ReadingStatsPage").then((m) => ({ default: m.ReadingStatsPage }))
+);
+const SettingsPage = lazy(() => import("@/features/settings/SettingsPage").then((m) => ({ default: m.SettingsPage })));
 
 /**
  * AppScreen → 正文组件 的穷尽映射：TypeScript 的 Record 强制每个可设置的
@@ -172,10 +192,14 @@ export default function App() {
         <RecoveryPrompt info={recoveryInfo} onOpenLibrary={openRecoveredLibrary} onDismiss={closeRecoveryPrompt} />
       )}
       {screen === "reader" ? (
-        <PageTransition screenKey={screen}>{screenContent.reader}</PageTransition>
+        <PageTransition screenKey={screen}>
+          <Suspense fallback={<ScreenFallback />}>{screenContent.reader}</Suspense>
+        </PageTransition>
       ) : (
         <DesktopFrame>
-          <PageTransition screenKey={screen}>{screenContent[screen]}</PageTransition>
+          <PageTransition screenKey={screen}>
+            <Suspense fallback={<ScreenFallback />}>{screenContent[screen]}</Suspense>
+          </PageTransition>
         </DesktopFrame>
       )}
     </div>

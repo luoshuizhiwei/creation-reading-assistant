@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from "react";
 import { createDemoProject } from "@/features/creation/demo/create-demo-project";
 import {
   ArchiveRestore,
@@ -20,19 +20,30 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { RingButton } from "@/components/interaction";
-import { CommandPalette } from "@/features/creation/command/CommandPalette";
-import { CreateProjectWizard } from "@/features/creation/CreateProjectWizard";
-import { CardsPage } from "@/features/creation/cards/CardsPage";
-import { HistoryPage } from "@/features/creation/history/HistoryPage";
-import { ImportDraftDialog } from "@/features/creation/import/ImportDraftDialog";
-import { ExportDraftDialog } from "@/features/creation/export/ExportDraftDialog";
-import { MigrationDialog } from "@/features/creation/migration/MigrationDialog";
-import { OutlinePage } from "@/features/creation/outline/OutlinePage";
-import { OverviewPage } from "@/features/creation/overview/OverviewPage";
-import { ProofPanel } from "@/features/creation/proof/ProofPanel";
-import { StatsPage } from "@/features/creation/stats/StatsPage";
-import { WritingDesk } from "@/features/creation/editor/WritingDesk";
-import { ReplacePanel } from "@/features/creation/replace/ReplacePanel";
+import { ScreenFallback } from "@/components/ScreenFallback";
+// creation 子系统子页面：tab 级 / dialog 级 lazy 分割（C2 轨道）。
+// 均为 named export，用 .then(m => ({ default: m.X })) 适配 React.lazy 的 default 形状。
+// 默认视图 overview（OverviewPage）属高频路径仍 lazy（打开项目时短暂骨架可接受）；
+// 初始首页 ProjectHomePage 保持静态，避开启动双骨架（见下方渲染处）。
+const LazyCommandPalette = lazy(() => import("@/features/creation/command/CommandPalette").then((m) => ({ default: m.CommandPalette })));
+const LazyCreateProjectWizard = lazy(() => import("@/features/creation/CreateProjectWizard").then((m) => ({ default: m.CreateProjectWizard })));
+const LazyCardsPage = lazy(() => import("@/features/creation/cards/CardsPage").then((m) => ({ default: m.CardsPage })));
+const LazyHistoryPage = lazy(() => import("@/features/creation/history/HistoryPage").then((m) => ({ default: m.HistoryPage })));
+const LazyImportDraftDialog = lazy(() => import("@/features/creation/import/ImportDraftDialog").then((m) => ({ default: m.ImportDraftDialog })));
+const LazyExportDraftDialog = lazy(() => import("@/features/creation/export/ExportDraftDialog").then((m) => ({ default: m.ExportDraftDialog })));
+const LazyMigrationDialog = lazy(() => import("@/features/creation/migration/MigrationDialog").then((m) => ({ default: m.MigrationDialog })));
+const LazyOutlinePage = lazy(() => import("@/features/creation/outline/OutlinePage").then((m) => ({ default: m.OutlinePage })));
+const LazyOverviewPage = lazy(() => import("@/features/creation/overview/OverviewPage").then((m) => ({ default: m.OverviewPage })));
+const LazyProofPanel = lazy(() => import("@/features/creation/proof/ProofPanel").then((m) => ({ default: m.ProofPanel })));
+const LazyStatsPage = lazy(() => import("@/features/creation/stats/StatsPage").then((m) => ({ default: m.StatsPage })));
+// 编辑器栈（prosemirror / tiptap）占项目屏闭包约 68%，但默认视图是 overview，
+// 写界面并非首屏必需。改为 lazy 拆出独立 chunk，并在浏览器空闲时预加载，
+// 消除「继续写作」的感知延迟。WritingDesk 是 named export，需适配 default 包装。
+const LazyWritingDesk = lazy(() =>
+  import("@/features/creation/editor/WritingDesk").then((m) => ({ default: m.WritingDesk }))
+);
+const preloadWritingDesk = () => import("@/features/creation/editor/WritingDesk");
+const LazyReplacePanel = lazy(() => import("@/features/creation/replace/ReplacePanel").then((m) => ({ default: m.ReplacePanel })));
 import { ProjectHomePage } from "@/features/creation/home/ProjectHomePage";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useOperation } from "@/hooks/useOperation";
@@ -125,6 +136,29 @@ export function CreationProjectsPage() {
       setMigrationNotice(status !== null && !status.activated && status.canProceed);
     });
   }, [loadMigrationStatus]);
+
+  // 编辑器栈是项目屏最重的部分，默认视图却是 overview，写界面非首屏必需。
+  // 组件挂载（即用户已进入创作屏）后，借浏览器空闲窗口预加载编辑器 chunk，
+  // 缩短后续「继续写作」的感知延迟。带 cancelIdleCallback 清理与降级回退。
+  useEffect(() => {
+    let idleHandle: number | undefined;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const warmUp = () => {
+      void preloadWritingDesk();
+    };
+    const ric = typeof window !== "undefined" ? window.requestIdleCallback : undefined;
+    if (typeof ric === "function") {
+      idleHandle = ric(warmUp, { timeout: 2000 });
+    } else {
+      timer = setTimeout(warmUp, 1200);
+    }
+    return () => {
+      if (idleHandle !== undefined && typeof window.cancelIdleCallback === "function") {
+        window.cancelIdleCallback(idleHandle);
+      }
+      if (timer !== undefined) clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     const handleKeydown = (event: KeyboardEvent) => {
@@ -443,29 +477,41 @@ export function CreationProjectsPage() {
             </nav>
             <div className="project-workbench-main">
               {view === "cards" ? (
-                <CardsPage project={selected} />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyCardsPage project={selected} />
+                </Suspense>
               ) : view === "history" ? (
-                <HistoryPage project={selected} />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyHistoryPage project={selected} />
+                </Suspense>
               ) : view === "stats" ? (
-                <StatsPage projectId={selected.id} />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyStatsPage projectId={selected.id} />
+                </Suspense>
               ) : view === "outline" ? (
-                <OutlinePage project={selected} />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyOutlinePage project={selected} />
+                </Suspense>
               ) : view === "overview" ? (
-                <OverviewPage
-                  projectId={selected.id}
-                  onContinueWriting={() => setView("writing")}
-                  onOpenOutline={() => setView("outline")}
-                  onOpenStats={() => setView("stats")}
-                  onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
-                />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyOverviewPage
+                    projectId={selected.id}
+                    onContinueWriting={() => setView("writing")}
+                    onOpenOutline={() => setView("outline")}
+                    onOpenStats={() => setView("stats")}
+                    onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
+                  />
+                </Suspense>
               ) : navigation ? (
-                <WritingDesk
-                  projects={projects}
-                  project={selected}
-                  navigation={navigation}
-                  onSelectProject={setSelectedId}
-                  onOpenOutline={() => setView("outline")}
-                />
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyWritingDesk
+                    projects={projects}
+                    project={selected}
+                    navigation={navigation}
+                    onSelectProject={setSelectedId}
+                    onOpenOutline={() => setView("outline")}
+                  />
+                </Suspense>
               ) : (
                 <section className="creation-writing-loading" role="status">
                   <BookMarked size={24} />
@@ -493,51 +539,65 @@ export function CreationProjectsPage() {
         )}
       </div>
 
-      <CreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      <Suspense fallback={<ScreenFallback />}>
+        <LazyCreateProjectWizard open={wizardOpen} onClose={() => setWizardOpen(false)} />
+      </Suspense>
       {replaceOpen && selected && (
-        <ReplacePanel
-          projectId={selected.id}
-          chapterId={selectedChapter?.id}
-          sceneId={selectedScene?.id}
-          onClose={() => setReplaceOpen(false)}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyReplacePanel
+            projectId={selected.id}
+            chapterId={selectedChapter?.id}
+            sceneId={selectedScene?.id}
+            onClose={() => setReplaceOpen(false)}
+          />
+        </Suspense>
       )}
       {proofOpen && selected && (
-        <ProofPanel
-          projectId={selected.id}
-          onClose={() => setProofOpen(false)}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyProofPanel
+            projectId={selected.id}
+            onClose={() => setProofOpen(false)}
+          />
+        </Suspense>
       )}
       {paletteOpen && (
-        <CommandPalette
-          commands={paletteCommands}
-          onClose={() => setPaletteOpen(false)}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyCommandPalette
+            commands={paletteCommands}
+            onClose={() => setPaletteOpen(false)}
+          />
+        </Suspense>
       )}
       {migrationOpen && (
-        <MigrationDialog
-          onClose={() => setMigrationOpen(false)}
-          onMigrated={() => {
-            setMigrationNotice(false);
-            void loadMigrationStatus();
-          }}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyMigrationDialog
+            onClose={() => setMigrationOpen(false)}
+            onMigrated={() => {
+              setMigrationNotice(false);
+              void loadMigrationStatus();
+            }}
+          />
+        </Suspense>
       )}
       {importOpen && (
-        <ImportDraftDialog
-          onClose={() => setImportOpen(false)}
-          onImported={() => {
-            void loadProjects();
-            setHomeRefreshKey((key) => key + 1);
-          }}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyImportDraftDialog
+            onClose={() => setImportOpen(false)}
+            onImported={() => {
+              void loadProjects();
+              setHomeRefreshKey((key) => key + 1);
+            }}
+          />
+        </Suspense>
       )}
       {exportOpen && selected && (
-        <ExportDraftDialog
-          projectId={selected.id}
-          projectTitle={selected.title}
-          onClose={() => setExportOpen(false)}
-        />
+        <Suspense fallback={<ScreenFallback />}>
+          <LazyExportDraftDialog
+            projectId={selected.id}
+            projectTitle={selected.title}
+            onClose={() => setExportOpen(false)}
+          />
+        </Suspense>
       )}
       {operation.state && (
         <OperationProgressDialog

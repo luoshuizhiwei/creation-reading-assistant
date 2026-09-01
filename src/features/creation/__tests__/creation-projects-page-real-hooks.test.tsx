@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, screen, cleanup } from "@testing-library/react";
+import { act, render, screen, cleanup, waitFor } from "@testing-library/react";
 import { CreationProjectsPage } from "@/features/creation/CreationProjectsPage";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -191,8 +191,11 @@ describe("跨项目卡片导航（当前项目 A，搜索目标属于项目 B）
     expect(useCreationStore.getState().selectedCardId).toBe("ca-p2-1");
     expect(useCreationStore.getState().cardProjectId).toBe("p2");
     // 真实 CardsPage 保持目标卡片 active，并显示对应详情。
-    expect(document.querySelector(".cards-board-card.active")?.textContent).toContain("角色 ca-p2-1");
-    expect(document.querySelector(".cards-detail-card h3")?.textContent).toBe("角色 ca-p2-1");
+    // CardsPage 现为 tab 级 lazy（Suspense），需等待动态 import 解析后再断言 DOM。
+    await waitFor(() => {
+      expect(document.querySelector(".cards-board-card.active")?.textContent).toContain("角色 ca-p2-1");
+      expect(document.querySelector(".cards-detail-card h3")?.textContent).toBe("角色 ca-p2-1");
+    });
   });
 
   it("目标卡片不存在时提示且不选中（不伪装成功），请求被消费", async () => {
@@ -251,8 +254,11 @@ describe("跨项目卡片导航（当前项目 A，搜索目标属于项目 B）
     expect(useCreationStore.getState().selectedCardId).toBe("ca-p2-1");
     expect(useCreationStore.getState().projectNavigationRequests["p2"]).toBeUndefined();
     expect(service.cardsList).toHaveBeenCalledWith(expect.objectContaining({ projectId: "p2" }));
-    expect(document.querySelector(".cards-board-card.active")?.textContent).toContain("角色 ca-p2-1");
-    expect(document.querySelector(".cards-detail-card h3")?.textContent).toBe("角色 ca-p2-1");
+    // CardsPage 现为 tab 级 lazy（Suspense），需等待动态 import 解析后再断言 DOM。
+    await waitFor(() => {
+      expect(document.querySelector(".cards-board-card.active")?.textContent).toContain("角色 ca-p2-1");
+      expect(document.querySelector(".cards-detail-card h3")?.textContent).toBe("角色 ca-p2-1");
+    });
   });
 
   it("竞态：卡片加载挂起期间请求被替换，旧请求不得选择旧卡片", async () => {
