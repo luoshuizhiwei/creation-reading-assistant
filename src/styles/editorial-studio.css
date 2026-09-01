@@ -90,7 +90,7 @@ select:focus-visible,
   position: absolute;
   inset: 0 auto 0 0;
   width: 3px;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--studio-seal) 85%, transparent), color-mix(in srgb, var(--studio-seal) 35%, transparent) 72%, transparent);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--action-primary) 85%, transparent), color-mix(in srgb, var(--action-primary) 35%, transparent) 72%, transparent);
   content: "";
 }
 
@@ -755,9 +755,10 @@ select:focus-visible,
 
 .writing-desk {
   display: grid;
-  grid-template-columns: 192px minmax(470px, 1fr) 204px;
+  grid-template-columns: 208px minmax(500px, 1fr) 248px;
   height: 100%;
   min-height: 0;
+  min-width: 0;
   overflow: hidden;
   border: 0;
   border-radius: 0;
@@ -784,7 +785,7 @@ select:focus-visible,
   min-height: 0;
   overflow: auto;
   border-left: 1px solid var(--border-subtle);
-  padding: 16px 14px;
+  padding: 16px 14px 28px;
 }
 
 .writing-project-switcher {
@@ -881,7 +882,7 @@ select:focus-visible,
 
 .writing-scroll {
   position: relative;
-  padding: 24px clamp(18px, 4vw, 60px) 44px;
+  padding: 20px clamp(14px, 2vw, 28px) 44px;
   background:
     radial-gradient(circle at 50% 0, rgba(255, 255, 255, 0.34), transparent 46%),
     var(--bg-app);
@@ -890,7 +891,7 @@ select:focus-visible,
 .scene-editor,
 .writing-continuous {
   position: relative;
-  max-width: 920px;
+  max-width: none;
   margin: 0 auto;
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-radius: 4px;
@@ -921,20 +922,16 @@ select:focus-visible,
 
 .scene-editor-content,
 .writing-continuous-scene .ProseMirror {
+  max-width: 760px;
+  margin-inline: auto;
+  padding-inline: 32px;
   background:
     repeating-linear-gradient(to bottom, transparent 0, transparent 33px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 34px);
   font-size: 17px;
   line-height: 2;
 }
 
-.scene-editor-toolbar,
-.editor-toolbar {
-  border-color: color-mix(in srgb, var(--border-strong) 72%, transparent) !important;
-  border-radius: 10px !important;
-  background: color-mix(in srgb, var(--bg-surface) 96%, transparent) !important;
-  box-shadow: 0 2px 6px rgba(34, 38, 48, 0.1), 0 14px 36px rgba(34, 38, 48, 0.14) !important;
-  backdrop-filter: blur(12px);
-}
+
 
 .scene-editor-toolbar .scene-tool {
   color: color-mix(in srgb, var(--text-main) 78%, var(--text-muted));
@@ -1560,6 +1557,10 @@ select:focus-visible,
 }
 
 /* The book cover block: a small bound volume standing on the shelf row. */
+.library-cover-glyph {
+  font-family: var(--font-content);
+}
+
 .library-cover {
   display: grid;
   place-items: center;
@@ -1578,7 +1579,11 @@ select:focus-visible,
     0 2px 5px rgba(34, 38, 48, 0.18);
 }
 
-[data-format="md"] .library-cover {
+[data-format="md"] .library-cover-glyph {
+  font-family: var(--font-content);
+}
+
+.library-cover {
   background:
     linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
@@ -1587,7 +1592,11 @@ select:focus-visible,
       color-mix(in srgb, var(--moss) 68%, var(--bg-app)) 5px);
 }
 
-[data-format="epub"] .library-cover {
+[data-format="epub"] .library-cover-glyph {
+  font-family: var(--font-content);
+}
+
+.library-cover {
   background:
     linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
     linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
@@ -2563,19 +2572,7 @@ input[type="text"],
 }
 
 /* 工具栏停靠纸面顶部：不再作为浮层悬在空白纸中央。 */
-.scene-editor-toolbar,
-.editor-toolbar {
-  position: sticky;
-  top: 0;
-  z-index: 8;
-  margin: 0;
-  border: 0 !important;
-  border-bottom: 1px solid var(--border-subtle) !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-  backdrop-filter: none;
-  background: var(--studio-paper) !important;
-}
+
 
 /* 大纲页：双栏各自内滚，树卡不再被任务卡拉出大空洞。 */
 .outline-page {
@@ -2883,6 +2880,8 @@ input[type="text"],
   padding: 4px 4px;
   font-size: 11px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* --------------------------------------------------------------------------
@@ -2997,6 +2996,10 @@ input[type="text"],
  * ----------------------------------------------------------------------- */
 
 /* 1) 资料库：书封统一墨色系（不再三原色），格式徽章中性等宽。 */
+.library-cover-glyph {
+  font-family: var(--font-content);
+}
+
 .library-cover {
   background: linear-gradient(160deg, #3a4148, #23272c) !important;
   color: #f2f3f5 !important;
@@ -3175,4 +3178,53 @@ input[type="text"],
   flex-direction: column;
   gap: 16px;
   min-width: 0;
+}
+
+
+/* P7: 资料库进度格三列（百分比｜条｜时长）。 */
+.desktop-library-row div:has(> [role="progressbar"]) {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 10px;
+  align-items: center;
+}
+
+/* P8: 迁移横幅关闭钮（特异性升级 + 固定方形）。 */
+.migration-banner .migration-banner-dismiss {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--separator) !important;
+  border-radius: var(--radius-control) !important;
+  background: transparent !important;
+  color: var(--text-secondary) !important;
+}
+
+.migration-banner .migration-banner-dismiss:hover {
+  color: var(--text-primary) !important;
+  border-color: var(--text-secondary) !important;
+}
+
+/* P4: 稿件树行高统一与卷名省略。 */
+.writing-outline .outline-volume-title,
+.writing-outline .outline-chapter-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* 右栏内容防溢出（窗口右缘裁切保护）。 */
+.writing-margin {
+  min-width: 0;
+  overflow-x: hidden;
+}
+
+.writing-margin-tabs,
+.scene-radar,
+.writing-annotations {
+  max-width: 100%;
+  overflow-wrap: anywhere;
 }

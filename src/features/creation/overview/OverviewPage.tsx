@@ -152,6 +152,9 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
         <div className="stats-card">
           <h3><Layers size={15} /> 章节状态</h3>
           {stats && statusTotal > 0 ? (
+            stats.chapterStatusCounts.length === 1 && !stats.chapterStatusCounts[0].status ? (
+              <div className="overview-status-empty">全部 {statusTotal} 章尚未设置状态。在大纲页或章节列表中标记章节状态后，这里会显示分布。</div>
+            ) : (
             <ul className="overview-status-list">
               {stats.chapterStatusCounts.map((item) => {
                 const ratio = Math.round((item.count / statusTotal) * 100);
@@ -166,6 +169,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
                 );
               })}
             </ul>
+            )
           ) : (
             <p className="stats-note">暂无章节状态数据。</p>
           )}
