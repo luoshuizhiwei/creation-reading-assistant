@@ -585,12 +585,27 @@ function storageModeForDataRoot(dataDirectory: string): StorageSettings["storage
   return "custom";
 }
 
+function isSystemProtectedDirectory(target: string): boolean {
+  if (process.platform !== "win32") return false;
+  const t = path.resolve(target).toLowerCase();
+  const sysRoots = [
+    (process.env.WINDIR || "c:\\windows").toLowerCase(),
+    (process.env.ProgramFiles || "c:\\program files").toLowerCase(),
+    (process.env.ProgramFilesX86 || "c:\\program files (x86)").toLowerCase(),
+    (process.env.ProgramData || "c:\\programdata").toLowerCase()
+  ];
+  return sysRoots.some((root) => t === root || isInsidePath(root, t));
+}
+
 function assertSafeMigrationTarget(currentRoot: string, targetRoot: string, label: string): void {
   const current = path.resolve(currentRoot);
   const target = path.resolve(targetRoot);
   if (current === target) throw new Error(`${label}已经在这个位置。`);
   if (isInsidePath(current, target) || isInsidePath(target, current)) {
     throw new Error(`${label}不能迁移到当前目录内部或父目录，请选择一个独立目录。`);
+  }
+  if (isSystemProtectedDirectory(target)) {
+    throw new Error(`${label}不能迁移到系统受保护目录，请选择用户数据目录。`);
   }
 }
 
@@ -1270,9 +1285,12 @@ async function openPathOrThrow(targetPath: string): Promise<void> {
 
 async function writeRendererLog(input: RendererLogInput): Promise<void> {
   const level = input.level === "warn" || input.level === "error" ? input.level : "info";
-  await writeLog(level, input.message || "Renderer log", {
+  const MAX_LOG_LEN = 4096;
+  const message = (input.message || "Renderer log").slice(0, MAX_LOG_LEN);
+  const detail = typeof input.detail === "string" ? input.detail.slice(0, MAX_LOG_LEN) : input.detail;
+  await writeLog(level, message, {
     source: input.source,
-    detail: input.detail
+    detail
   });
 }
 
@@ -2047,10 +2065,9 @@ function registerEpubProtocol(): void {
         callback({ error: -6 });
         return;
       }
-      const libraryRoot = path.resolve(appLibraryFilesRoot()).toLowerCase();
+      const libraryRoot = path.resolve(appLibraryFilesRoot());
       const filePath = path.resolve(book.filePath);
-      const filePathKey = filePath.toLowerCase();
-      if (!filePathKey.startsWith(`${libraryRoot}${path.sep}`) || !existsSync(filePath)) {
+      if (!isInsidePath(libraryRoot, filePath) || !existsSync(filePath)) {
         callback({ error: -6 });
         return;
       }
@@ -3409,8 +3426,8 @@ function contentSecurityPolicy(): string {
     "default-src 'self'",
     scriptPolicy,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: file: novel-workbench-epub:",
-    "font-src 'self' data:",
+    "img-src 'self' data: blob: novel-workbench-epub:",
+    "font-src 'self' data: file:",
     "connect-src 'self' novel-workbench-epub: http://localhost:* ws://localhost:*",
     "frame-src 'self' novel-workbench-epub:",
     "object-src 'none'",
@@ -3427,6 +3444,13 @@ function installContentSecurityPolicy(): void {
         "Content-Security-Policy": [contentSecurityPolicy()]
       }
     });
+  });
+}
+
+function installPermissionHandler(): void {
+  session.defaultSession.setPermissionRequestHandler((_webContents, permission, callback) => {
+    // 仅允许桌面通知；地理/媒体/剪贴板等权限默认拒绝，降低渲染进程被 XSS 滥用的攻击面。
+    callback(permission === "notifications");
   });
 }
 
@@ -3448,7 +3472,9 @@ function createWindow(): void {
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      sandbox: true,
+      devTools: !app.isPackaged
     }
   });
   mainWindow.setMenuBarVisibility(false);
@@ -3553,8 +3579,14 @@ function registerIpc(): void {
     } catch { return []; }
   });
   ipcMain.handle("reader:deleteFont", async (_e, fileName: string) => {
-    const fontsDir = path.join(appDataRoot(), "fonts");
-    try { await unlink(path.join(fontsDir, fileName)); } catch {}
+    if (typeof fileName !== "string" || fileName.length === 0) return;
+    const fontsDir = path.resolve(appDataRoot(), "fonts");
+    const targetPath = path.resolve(fontsDir, path.basename(fileName));
+    if (!isInsidePath(fontsDir, targetPath)) {
+      await writeLog("warn", "Font deletion skipped: target escapes fonts directory.", { fileName, targetPath });
+      return;
+    }
+    try { await unlink(targetPath); } catch {}
   });
   ipcMain.handle("settings:get", async () => getAppSettings());
   ipcMain.handle("settings:update", async (_event, patch: AppSettingsPatch) => updateAppSettings(patch));
@@ -3786,6 +3818,7 @@ app.on("second-instance", () => {
 
 app.whenReady().then(async () => {
   installContentSecurityPolicy();
+  installPermissionHandler();
   registerEpubProtocol();
   await resolveInitialDataRoot();
   await ensureAppStorage();

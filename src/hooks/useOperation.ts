@@ -37,6 +37,13 @@ export function useOperation(): UseOperationResult {
   const statusRef = useRef<OperationStatus | null>(null);
   const startingRef = useRef(false);
   const lastRequestRef = useRef<OperationStartRequest | null>(null);
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
 
   const cleanupSubscription = useCallback(() => {
     if (unsubscribeRef.current) {
@@ -62,6 +69,7 @@ export function useOperation(): UseOperationResult {
         setState(null);
         lastRequestRef.current = request;
         const initial = await startOperation(request);
+        if (!mountedRef.current) return;
         if (!initial) return; // 用户取消目录选择等前置步骤
         activeOpIdRef.current = initial.operationId;
         statusRef.current = initial.status;

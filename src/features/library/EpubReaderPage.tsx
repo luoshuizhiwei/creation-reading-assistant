@@ -731,6 +731,15 @@ export function EpubReaderPage() {
   const progressPercent = Math.round((locationRef.current?.progressPercent ?? progress?.progressPercent ?? 0) * 100);
   const currentTocItem = toc.find((item) => normalizeEpubHref(item.href) === normalizeEpubHref(locationRef.current?.epub?.href));
 
+  const dragHandlersRef = useRef<{ onMove?: (ev: MouseEvent) => void; onUp?: () => void } | null>(null);
+  useEffect(() => {
+    return () => {
+      const handlers = dragHandlersRef.current;
+      if (handlers?.onMove) document.removeEventListener("mousemove", handlers.onMove);
+      if (handlers?.onUp) document.removeEventListener("mouseup", handlers.onUp);
+    };
+  }, []);
+
   const handleToolbarDragStart = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -744,7 +753,9 @@ export function EpubReaderPage() {
     const onUp = () => {
       document.removeEventListener("mousemove", onMove);
       document.removeEventListener("mouseup", onUp);
+      dragHandlersRef.current = null;
     };
+    dragHandlersRef.current = { onMove, onUp };
     document.addEventListener("mousemove", onMove);
     document.addEventListener("mouseup", onUp);
   };

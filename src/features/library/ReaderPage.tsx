@@ -319,12 +319,23 @@ function TextReaderPage() {
 
   const { recordInteraction, endTracking } = useReadingSessionTracker(scrollerRef, getCurrentLocation);
 
+  const didRestoreScrollRef = useRef(false);
+  const restoreTimerRef = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    didRestoreScrollRef.current = false;
+    restoreTimerRef.current = undefined;
+    return () => {
+      if (restoreTimerRef.current !== undefined) window.clearTimeout(restoreTimerRef.current);
+    };
+  }, [activeBook?.id]);
+
   useEffect(() => {
     const scroller = scrollerRef.current;
-    const location = progress?.currentLocation;
-    const scrollTop = location?.scroll?.scrollTop;
+    const scrollTop = progress?.currentLocation?.scroll?.scrollTop;
     if (!settings?.restoreLastPosition || !scroller || typeof scrollTop !== "number") return;
-    window.setTimeout(() => {
+    if (didRestoreScrollRef.current) return;
+    didRestoreScrollRef.current = true;
+    restoreTimerRef.current = window.setTimeout(() => {
       scroller.scrollTop = scrollTop;
     }, 80);
   }, [activeBook?.id, progress?.currentLocation?.scroll?.scrollTop, settings?.restoreLastPosition]);
