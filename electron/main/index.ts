@@ -3420,13 +3420,18 @@ function contentSecurityPolicy(): string {
   const scriptPolicy = app.isPackaged
     ? "script-src 'self'"
     : "script-src 'self' 'unsafe-inline'";
+  // 生产环境渲染进程仅经 IPC 与主进程通信，从不直连 localhost；localhost 通配仅 dev 模式（Vite/HMR）需要。
+  // 收窄生产 CSP 可降低渲染进程被 XSS 后向内网/本机服务发起横向请求的面。
+  const connectPolicy = app.isPackaged
+    ? "connect-src 'self' novel-workbench-epub:"
+    : "connect-src 'self' novel-workbench-epub: http://localhost:* ws://localhost:*";
   return [
     "default-src 'self'",
     scriptPolicy,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: novel-workbench-epub:",
     "font-src 'self' data: file:",
-    "connect-src 'self' novel-workbench-epub: http://localhost:* ws://localhost:*",
+    connectPolicy,
     "frame-src 'self' novel-workbench-epub:",
     "object-src 'none'",
     "base-uri 'none'",
