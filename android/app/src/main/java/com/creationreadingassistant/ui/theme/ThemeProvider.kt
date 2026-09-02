@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.Typography
@@ -48,12 +49,34 @@ fun VisualStyleProvider(
     val darkTheme = isSystemInDarkTheme()
     val params = resolveThemeParams(style, darkTheme)
     val componentSpec = componentSpecForStyle(style)
+    // 卡片容器色跟随主题：从当前 ColorScheme 动态派生玻璃底色，避免切换暖色主题
+    // （纸墨 / 暖杏等）时卡片固定中性色与页面背景色相割裂。
+    // glassTintColor 取 surfaceContainerLowest——浅色模式下最亮的表面容器（各主题各自的纸白），
+    // 深色模式下最暗的容器；highlight / specular / blur 与色相无关，沿用 DefaultGlassPalette。
+    // 注：params.colorScheme 恒为 null，故此处读到的 MaterialTheme.colorScheme 与子树内部一致。
+    val scheme = MaterialTheme.colorScheme
+    val dynamicGlassPalette = remember(scheme) {
+        LiquidGlassPalette(
+            light = GlassTokens(
+                highlightColor = DefaultGlassPalette.light.highlightColor,
+                glassTintColor = scheme.surfaceContainerLowest,
+                specularAlpha = DefaultGlassPalette.light.specularAlpha,
+                blurRadius = DefaultGlassPalette.light.blurRadius,
+            ),
+            dark = GlassTokens(
+                highlightColor = DefaultGlassPalette.dark.highlightColor,
+                glassTintColor = scheme.surfaceContainerLowest,
+                specularAlpha = DefaultGlassPalette.dark.specularAlpha,
+                blurRadius = DefaultGlassPalette.dark.blurRadius,
+            ),
+        )
+    }
     CompositionLocalProvider(
         LocalVisualStyle provides style,
         LocalComponentSpec provides componentSpec,
-        // 默认「墨韵·素笺」：提供中性纸感调色板（2026-08-11 经用户批准覆盖冻结）。
+        // 默认「墨韵·素笺」：提供随主题动态派生的纸感调色板（容器色跟随当前 ColorScheme）。
         // 其它视觉样式（APPLE/WEB 已收敛回退）维持 null，行为不变。
-        LocalGlassPalette provides if (style == VisualStyle.DEFAULT) DefaultGlassPalette else null,
+        LocalGlassPalette provides if (style == VisualStyle.DEFAULT) dynamicGlassPalette else null,
     ) {
         MaterialTheme(
             colorScheme = params.colorScheme ?: MaterialTheme.colorScheme,
