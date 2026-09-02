@@ -261,6 +261,14 @@ fun PagedReaderHost(
                     onDispose { controller.close() }
                 }
 
+                // 媒体按钮桥：蓝牙翻页器/耳机线控 NEXT/PREVIOUS → 翻页。
+                // TTS 激活时其 MediaSession 优先级更高自动接管（见 Bridge 类注释）。
+                val mediaBridge = remember { ReaderMediaButtonBridge(context) }
+                DisposableEffect(mediaBridge) {
+                    mediaBridge.activate()
+                    onDispose { mediaBridge.release() }
+                }
+
                 PagedReaderControllerEffects(
                     controller = controller,
                     anchor = anchor,
