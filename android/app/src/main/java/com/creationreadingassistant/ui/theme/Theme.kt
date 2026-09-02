@@ -44,6 +44,32 @@ private val ClearBlue = Color(0xFF2762BF)
 private val ClearBlueContainer = Color(0xFFD9E3FF)
 private val ClearBlueOnContainer = Color(0xFF0C2A63)
 
+// 「雾青」专用令牌（primary 不在此声明——单一真源在 AppPalette.SOFT_MIST.accentLight/accentDark）
+private val SoftMistContainer = Color(0xFFD4E3EB)
+private val SoftMistOnContainer = Color(0xFF1A3040)
+private val SoftMistBg = Color(0xFFF5F6F4)
+private val SoftMistSurface = Color(0xFFFAFBF9)
+private val SoftMistLow = Color(0xFFF2F4F1)
+private val SoftMistMid = Color(0xFFECEFEA)
+private val SoftMistHigh = Color(0xFFE5E8E3)
+private val SoftMistInk = Color(0xFF1A1F1C)
+private val SoftMistMuted = Color(0xFF4A5550)
+private val SoftMistHairline = Color(0xFFC5CCC7)
+private val SoftMistHairlineSoft = Color(0xFFDDE2DC)
+
+// 「暖杏」专用令牌（primary 不在此声明——单一真源在 AppPalette.WARM_APRICOT.accentLight/accentDark）
+private val WarmApricotContainer = Color(0xFFF0DFC8)
+private val WarmApricotOnContainer = Color(0xFF3A2A18)
+private val WarmApricotBg = Color(0xFFFAF7F2)
+private val WarmApricotSurface = Color(0xFFFFFCF8)
+private val WarmApricotLow = Color(0xFFF6F2EB)
+private val WarmApricotMid = Color(0xFFF0EBE3)
+private val WarmApricotHigh = Color(0xFFE9E3D9)
+private val WarmApricotInk = Color(0xFF1E1A15)
+private val WarmApricotMuted = Color(0xFF5C5245)
+private val WarmApricotHairline = Color(0xFFD4C9BA)
+private val WarmApricotHairlineSoft = Color(0xFFE5DDD2)
+
 // 语义强调色（来自 md3-base.css）
 val AppSuccess = Color(0xFF4A6E3F)           // --md3-success
 val AppWarning = Color(0xFFA05F12)           // --md3-warning
@@ -217,6 +243,166 @@ private val ClearBlueDarkColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF9DEDC),
 )
 
+/** 「雾青」浅色：冷灰绿纸底 + 低饱和青灰蓝，微信读书式素雅观感。 */
+private val SoftMistLightColorScheme = lightColorScheme(
+    primary = AppPalette.SOFT_MIST.accentLight,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = SoftMistContainer,
+    onPrimaryContainer = SoftMistOnContainer,
+    secondary = AppPalette.SOFT_MIST.accentLight,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = SoftMistContainer,
+    onSecondaryContainer = SoftMistOnContainer,
+    tertiary = AppPalette.SOFT_MIST.accentLight,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = SoftMistContainer,
+    onTertiaryContainer = SoftMistOnContainer,
+    background = SoftMistBg,
+    onBackground = SoftMistInk,
+    surface = SoftMistSurface,
+    onSurface = SoftMistInk,
+    surfaceVariant = SoftMistMid,
+    onSurfaceVariant = SoftMistMuted,
+    surfaceTint = AppPalette.SOFT_MIST.accentLight,
+    surfaceBright = SoftMistSurface,
+    surfaceDim = SoftMistHigh,
+    surfaceContainerLowest = SoftMistSurface,
+    surfaceContainerLow = Color(0xFFF7F8F6),
+    surfaceContainer = SoftMistLow,
+    surfaceContainerHigh = SoftMistMid,
+    surfaceContainerHighest = SoftMistHigh,
+    inverseSurface = SoftMistInk,
+    inverseOnSurface = Color(0xFFEFF2EE),
+    inversePrimary = AppPalette.SOFT_MIST.accentDark,
+    outline = SoftMistHairline,
+    outlineVariant = SoftMistHairlineSoft,
+    scrim = Color(0xFF000000),
+    error = Color(0xFFC2413B),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+/** 「雾青」深色：冷灰绿暗面，5 级 surface 台阶。 */
+private val SoftMistDarkColorScheme = darkColorScheme(
+    primary = AppPalette.SOFT_MIST.accentDark,
+    onPrimary = Color(0xFF0F2530),
+    primaryContainer = Color(0xFF1F4050),
+    onPrimaryContainer = Color(0xFFD0E4EE),
+    secondary = AppPalette.SOFT_MIST.accentDark,
+    onSecondary = Color(0xFF0F2530),
+    secondaryContainer = Color(0xFF1F4050),
+    onSecondaryContainer = Color(0xFFD0E4EE),
+    tertiary = AppPalette.SOFT_MIST.accentDark,
+    onTertiary = Color(0xFF0F2530),
+    tertiaryContainer = Color(0xFF1F4050),
+    onTertiaryContainer = Color(0xFFD0E4EE),
+    background = Color(0xFF121614),
+    onBackground = Color(0xFFE2E8E4),
+    surface = Color(0xFF181D1A),
+    onSurface = Color(0xFFE2E8E4),
+    surfaceVariant = Color(0xFF2A302C),
+    onSurfaceVariant = Color(0xFFA8B4AC),
+    surfaceTint = AppPalette.SOFT_MIST.accentDark,
+    surfaceBright = Color(0xFF2E3430),
+    surfaceDim = Color(0xFF121614),
+    surfaceContainerLowest = Color(0xFF0E1210),
+    surfaceContainerLow = Color(0xFF151A17),
+    surfaceContainer = Color(0xFF1A1F1C),
+    surfaceContainerHigh = Color(0xFF242A26),
+    surfaceContainerHighest = Color(0xFF2E3430),
+    inverseSurface = Color(0xFFE2E8E4),
+    inverseOnSurface = Color(0xFF1A1F1C),
+    inversePrimary = AppPalette.SOFT_MIST.accentLight,
+    outline = Color(0xFF4E5A54),
+    outlineVariant = Color(0xFF2E3830),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFE57373),
+    onError = Color(0xFF410E0B),
+    errorContainer = Color(0xFF5C1A14),
+    onErrorContainer = Color(0xFFF9DEDC),
+)
+
+/** 「暖杏」浅色：暖米白底 + 柔和杏棕强调，番茄小说式温暖纸感。 */
+private val WarmApricotLightColorScheme = lightColorScheme(
+    primary = AppPalette.WARM_APRICOT.accentLight,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = WarmApricotContainer,
+    onPrimaryContainer = WarmApricotOnContainer,
+    secondary = AppPalette.WARM_APRICOT.accentLight,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = WarmApricotContainer,
+    onSecondaryContainer = WarmApricotOnContainer,
+    tertiary = AppPalette.WARM_APRICOT.accentLight,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = WarmApricotContainer,
+    onTertiaryContainer = WarmApricotOnContainer,
+    background = WarmApricotBg,
+    onBackground = WarmApricotInk,
+    surface = WarmApricotSurface,
+    onSurface = WarmApricotInk,
+    surfaceVariant = WarmApricotMid,
+    onSurfaceVariant = WarmApricotMuted,
+    surfaceTint = AppPalette.WARM_APRICOT.accentLight,
+    surfaceBright = WarmApricotSurface,
+    surfaceDim = WarmApricotHigh,
+    surfaceContainerLowest = WarmApricotSurface,
+    surfaceContainerLow = Color(0xFFFBF8F3),
+    surfaceContainer = WarmApricotLow,
+    surfaceContainerHigh = WarmApricotMid,
+    surfaceContainerHighest = WarmApricotHigh,
+    inverseSurface = WarmApricotInk,
+    inverseOnSurface = Color(0xFFF5F0E8),
+    inversePrimary = AppPalette.WARM_APRICOT.accentDark,
+    outline = WarmApricotHairline,
+    outlineVariant = WarmApricotHairlineSoft,
+    scrim = Color(0xFF000000),
+    error = Color(0xFFC2413B),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+/** 「暖杏」深色：暖灰棕暗面，5 级 surface 台阶。 */
+private val WarmApricotDarkColorScheme = darkColorScheme(
+    primary = AppPalette.WARM_APRICOT.accentDark,
+    onPrimary = Color(0xFF3A2A18),
+    primaryContainer = Color(0xFF503A22),
+    onPrimaryContainer = Color(0xFFF0DFC8),
+    secondary = AppPalette.WARM_APRICOT.accentDark,
+    onSecondary = Color(0xFF3A2A18),
+    secondaryContainer = Color(0xFF503A22),
+    onSecondaryContainer = Color(0xFFF0DFC8),
+    tertiary = AppPalette.WARM_APRICOT.accentDark,
+    onTertiary = Color(0xFF3A2A18),
+    tertiaryContainer = Color(0xFF503A22),
+    onTertiaryContainer = Color(0xFFF0DFC8),
+    background = Color(0xFF16120E),
+    onBackground = Color(0xFFEDE6DC),
+    surface = Color(0xFF1C1814),
+    onSurface = Color(0xFFEDE6DC),
+    surfaceVariant = Color(0xFF2A231B),
+    onSurfaceVariant = Color(0xFFBEB0A0),
+    surfaceTint = AppPalette.WARM_APRICOT.accentDark,
+    surfaceBright = Color(0xFF322B22),
+    surfaceDim = Color(0xFF16120E),
+    surfaceContainerLowest = Color(0xFF110F0B),
+    surfaceContainerLow = Color(0xFF191510),
+    surfaceContainer = Color(0xFF1E1A15),
+    surfaceContainerHigh = Color(0xFF282219),
+    surfaceContainerHighest = Color(0xFF322B22),
+    inverseSurface = Color(0xFFEDE6DC),
+    inverseOnSurface = Color(0xFF1E1A15),
+    inversePrimary = AppPalette.WARM_APRICOT.accentLight,
+    outline = Color(0xFF5C5040),
+    outlineVariant = Color(0xFF362E24),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFE57373),
+    onError = Color(0xFF410E0B),
+    errorContainer = Color(0xFF5C1A14),
+    onErrorContainer = Color(0xFFF9DEDC),
+)
+
 /**
  * 把暗色方案转成 AMOLED 纯黑：只压暗容器色阶，主色/强调色/语义色全部保留，
  * 保证可读性和可交互元素的对比度。
@@ -232,6 +418,14 @@ private fun ColorScheme.asAmoledPureBlack(): ColorScheme = copy(
     surfaceContainerHigh = AmoledSurfaceHigh,
     surfaceContainerHighest = AmoledSurfaceHigh,
 )
+
+/** palette → scheme 映射（不依赖 Context，可单元测试）。仅供 [buildColorScheme] 内部调用 + 测试入口。 */
+internal fun paletteScheme(palette: AppPalette, darkTheme: Boolean): ColorScheme = when (palette) {
+    AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
+    AppPalette.CLEAR_BLUE -> if (darkTheme) ClearBlueDarkColorScheme else ClearBlueLightColorScheme
+    AppPalette.SOFT_MIST -> if (darkTheme) SoftMistDarkColorScheme else SoftMistLightColorScheme
+    AppPalette.WARM_APRICOT -> if (darkTheme) WarmApricotDarkColorScheme else WarmApricotLightColorScheme
+}
 
 @Composable
 fun AppTheme(
@@ -269,10 +463,7 @@ private fun buildColorScheme(
     val base = if (useDynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
         if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
     } else {
-        when (palette) {
-            AppPalette.PAPER_INK -> if (darkTheme) PaperInkDarkColorScheme else PaperInkLightColorScheme
-            AppPalette.CLEAR_BLUE -> if (darkTheme) ClearBlueDarkColorScheme else ClearBlueLightColorScheme
-        }
+        paletteScheme(palette, darkTheme)
     }
     return if (darkTheme && amoledPureBlack) base.asAmoledPureBlack() else base
 }

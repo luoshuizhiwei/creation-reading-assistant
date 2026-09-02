@@ -1,5 +1,7 @@
 package com.creationreadingassistant.ui.theme
 
+import androidx.compose.ui.graphics.Color
+
 /**
  * 应用外壳的配色主题。
  *
@@ -9,14 +11,34 @@ package com.creationreadingassistant.ui.theme
 enum class AppPalette(
     val storageId: String,
     val displayName: String,
+    /** 该配色在浅色模式下的主色（用于色卡预览 + buildColorScheme primary 槽位） */
+    val accentLight: Color,
+    /** 该配色在深色模式下的主色 */
+    val accentDark: Color,
 ) {
     PAPER_INK(
         storageId = "paper_ink",
         displayName = "纸墨",
+        accentLight = Color(0xFF365C4A),
+        accentDark = Color(0xFF8FAF9D),
     ),
     CLEAR_BLUE(
         storageId = "clear_blue",
         displayName = "清爽蓝",
+        accentLight = Color(0xFF2762BF),
+        accentDark = Color(0xFFA8C6FF),
+    ),
+    SOFT_MIST(
+        storageId = "soft_mist",
+        displayName = "雾青",
+        accentLight = Color(0xFF4A6878),
+        accentDark = Color(0xFFA3C4D4),
+    ),
+    WARM_APRICOT(
+        storageId = "warm_apricot",
+        displayName = "暖杏",
+        accentLight = Color(0xFF806245),
+        accentDark = Color(0xFFD4B896),
     );
 
     companion object {

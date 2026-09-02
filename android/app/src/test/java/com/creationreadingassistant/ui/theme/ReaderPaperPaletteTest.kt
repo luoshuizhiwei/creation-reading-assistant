@@ -12,13 +12,13 @@ class ReaderPaperPaletteTest {
     }
 
     @Test fun fixedPaperDoesNotChangeWithApplicationTheme() {
-        listOf("white", "warm", "green", "night").forEach { key ->
+        listOf("white", "warm", "green", "night", "sepia_dark").forEach { key ->
             assertEquals(paperPalette(key, false), paperPalette(key, true))
         }
     }
 
     @Test fun sharedOptionsContainEverySupportedChoiceOnce() {
-        assertEquals(listOf("follow", "white", "warm", "green", "night"), ReaderPaperOptions.map { it.key })
+        assertEquals(listOf("follow", "white", "warm", "green", "night", "sepia_dark"), ReaderPaperOptions.map { it.key })
         assertEquals(ReaderPaperOptions.size, ReaderPaperOptions.distinctBy { it.key }.size)
     }
 }

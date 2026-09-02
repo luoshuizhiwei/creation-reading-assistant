@@ -1,11 +1,16 @@
 package com.creationreadingassistant.ui.screen.profile
 
 import android.os.Build
+import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
@@ -18,6 +23,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
@@ -46,7 +53,7 @@ internal fun AppearanceSubPage(
                 Text("应用外壳配色仅影响首页、书架、灵感、统计和设置；阅读页正文纸张与夜读仍在阅读器里单独控制。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(8.dp))
                 SettingRow(
                     title = "配色主题",
-                    subtitle = "纸墨（米黄纸底+墨绿）与清爽蓝（白底+蓝）可随时切换，立即生效",
+                    subtitle = "纸墨、清爽蓝、雾青、暖杏四套配色随时切换，立即生效",
                     trailing = {
                         Text(
                             AppPalette.fromStored(state.appearance.colorPalette).displayName,
@@ -92,9 +99,25 @@ internal fun AppearanceSubPage(
             title = { Text("选择配色主题") },
             text = {
                 Column {
+                    val isDark = when (state.appearance.themeMode) {
+                        "dark" -> true
+                        "light" -> false
+                        else -> isSystemInDarkTheme()
+                    }
+                    val dynamicColorActive = state.appearance.useDynamicColor &&
+                        Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
                     AppPalette.entries.forEach { palette ->
                         SettingRow(
                             title = palette.displayName,
+                            leading = {
+                                Box(
+                                    Modifier
+                                        .size(16.dp)
+                                        .then(if (dynamicColorActive) Modifier.alpha(0.38f) else Modifier)
+                                        .clip(CircleShape)
+                                        .background(if (isDark) palette.accentDark else palette.accentLight)
+                                )
+                            },
                             trailing = {
                                 RadioButton(
                                     selected = palette == selected,
@@ -105,6 +128,14 @@ internal fun AppearanceSubPage(
                                 onAction(ProfileAction.UpdateAppearance { copy(colorPalette = palette.storageId) })
                                 showPalettePicker = false
                             },
+                        )
+                    }
+                    if (dynamicColorActive) {
+                        Text(
+                            "已开启跟随壁纸取色，配色主题暂不生效",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 8.dp),
                         )
                     }
                 }

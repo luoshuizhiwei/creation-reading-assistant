@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.theme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
@@ -25,7 +26,7 @@ import androidx.compose.ui.graphics.Color
  * 本文件不保留未消费的 Token。
  */
 data class ReaderPaperPalette(
-    /** 内部 key：white / warm / green / night / follow */
+    /** 内部 key：white / warm / green / night / sepia_dark / follow */
     val key: String,
     /** 纸张背景 */
     val bg: Color,
@@ -191,10 +192,33 @@ private val NIGHT = ReaderPaperPalette(
     ),
 )
 
+/** 暮棕（dark）——暖色深色纸张，比 DARK_FOLLOW 更有"旧书"纸感、比 night 更柔和不刺眼 */
+private val SEPIA_DARK = ReaderPaperPalette(
+    key = "sepia_dark",
+    bg = Color(0xFF2A2118),
+    fg = Color(0xFFDDD4C8),
+    fgMuted = Color(0xFFA89880),
+    accent = Color(0xFFC89060),
+    outlineVariant = Color(0xFF362D22),
+    outline = Color(0xFF4E4235),
+    panel = Color(0xFF352B20),
+    panelStrong = Color(0xFF403528),
+    onAccent = Color(0xFF1A1008),
+    isLight = false,
+    highlightColors = listOf(
+        Color(0xFFD8B850),  // 黄（暖调适配）
+        Color(0xFFC88070),  // 红
+        Color(0xFF90A868),  // 绿（橄榄绿）
+        Color(0xFF8898B8),  // 蓝（灰蓝）
+        Color(0xFFB090A0),  // 紫（暖紫）
+    ),
+)
+
 /**
  * 按 key 解析阅读器纸张调色板。
  *
- * - `white` / `warm` / `green` / `night`：固定档。
+ * - `white` / `warm` / `green` / `night` / `sepia_dark`：固定档。
+ * - `sepia_dark`（暮棕）：暖色深色纸张，比 DARK_FOLLOW 更有纸感、比 night 更柔和。
  * - `follow`（跟随应用外观）：浅色外壳 → 白纸；深色外壳 → **独立 DARK_FOLLOW 温和深灰**（比 night 更柔和，用户选 night 才切到 OLED 近纯黑）。
  * - 未知值（理论上 migration 后不会出现）：按 [darkTheme] 回退到白纸 / 夜读。
  */
@@ -203,6 +227,7 @@ fun paperPalette(key: String, darkTheme: Boolean): ReaderPaperPalette = when (ke
     "warm" -> WARM
     "green" -> GREEN
     "night" -> NIGHT
+    "sepia_dark" -> SEPIA_DARK
     "follow" -> if (darkTheme) DARK_FOLLOW else WHITE
     else -> if (darkTheme) NIGHT else WHITE
 }
@@ -223,6 +248,7 @@ val ReaderPaperOptions = listOf(
     ReaderPaperOption("warm", "暖纸"),
     ReaderPaperOption("green", "护眼"),
     ReaderPaperOption("night", "夜读"),
+    ReaderPaperOption("sepia_dark", "暮棕"),
 )
 
 /**
@@ -234,7 +260,8 @@ fun ReaderPaperTheme(
     palette: ReaderPaperPalette,
     content: @Composable () -> Unit,
 ) {
-    val scheme = MaterialTheme.colorScheme.copy(
+    val baseScheme = MaterialTheme.colorScheme
+    val scheme = remember(palette, baseScheme) { baseScheme.copy(
         primary = palette.accent,
         onPrimary = palette.onAccent,
         primaryContainer = palette.panelStrong,
@@ -252,7 +279,7 @@ fun ReaderPaperTheme(
         surfaceContainerHighest = palette.panelStrong,
         outline = palette.outline,
         outlineVariant = palette.outlineVariant,
-    )
+    ) }
     androidx.compose.runtime.CompositionLocalProvider(LocalReaderPaperPalette provides palette) {
         MaterialTheme(
             colorScheme = scheme,

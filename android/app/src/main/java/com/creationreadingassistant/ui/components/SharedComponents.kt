@@ -78,11 +78,9 @@ fun SectionCard(
     // "浅色/深色/跟随系统"枚举（Theme.kt darkTheme 参数）并不保证一致，
     // 会导致 AMOLED 纯黑背景下误用 palette.light 的暖白纸色（F6F2EA），
     // 出现"浅卡 + 白字"不可读。
-    fun Color.isDark(): Boolean {
-        val luma = 0.299f * red + 0.587f * green + 0.114f * blue
-        return luma < 0.5f
+    val themeDark = remember(scheme.surface) {
+        0.299f * scheme.surface.red + 0.587f * scheme.surface.green + 0.114f * scheme.surface.blue < 0.5f
     }
-    val themeDark = scheme.surface.isDark()
     // 表面材质（Path B）：开启玻璃且默认主题提供调色板时，容器色用暖纸 glassTintColor，
     // 让首页/分区卡从「中性表面色」变成「素笺纸感」，与 GlassSurface 行为一致。
     val container = if (spec.glassEnabled && palette != null) {

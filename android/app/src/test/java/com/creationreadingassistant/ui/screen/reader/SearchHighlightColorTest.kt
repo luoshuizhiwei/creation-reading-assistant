@@ -19,6 +19,7 @@ class SearchHighlightColorTest {
         paperPalette("warm", darkTheme = false),
         paperPalette("green", darkTheme = false),
         paperPalette("night", darkTheme = true),
+        paperPalette("sepia_dark", darkTheme = true),
     )
 
     @Test

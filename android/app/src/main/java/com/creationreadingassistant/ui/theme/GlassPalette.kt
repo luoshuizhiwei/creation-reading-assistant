@@ -68,7 +68,7 @@ val DefaultGlassPalette = LiquidGlassPalette(
     ),
     dark = GlassTokens(
         highlightColor = Color(0xFFE4E8EF),     // 中性白高光（暗面反光）
-        glassTintColor = Color(0x1A1D22),        // 中性黑
+        glassTintColor = Color(0xFF1A1D22),     // 中性黑
         specularAlpha = 0.08f,
         blurRadius = 0.dp,
     ),
