@@ -4,8 +4,10 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -70,6 +72,16 @@ fun MutedCoverFallback(
         verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        // 书脊纹理：左缘 4dp，按书籍 id 稳定分配（布纹/皮纹/毛边/烫金/麻面）；
+        // 墨色按封面底色明度取反，保证可读。
+        SpineTexture(
+            kind = spineKindOf(book.id),
+            baseInk = if (coverLuma(base) > 0.5f) Color.Black.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.30f),
+            modifier = Modifier
+                .align(Alignment.Start)
+                .fillMaxHeight()
+                .width(4.dp),
+        )
         Text(
             book.title.take(maxTitleChars),
             color = ink,
