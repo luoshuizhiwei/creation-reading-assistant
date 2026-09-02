@@ -110,7 +110,7 @@ internal fun ReaderSettingsSubPage(
                 SettingSwitchRow(
                     title = "跟随应用外观",
                     checked = settings.background == "follow",
-                    subtitle = "浅色使用白纸，深色自动切换夜读",
+                    subtitle = "浅色使用白纸，深色自动切换为温和深灰（非纯黑）",
                     onCheckedChange = { follow -> onAction(ProfileAction.UpdateReader { copy(background = if (follow) "follow" else "warm") }) },
                 )
                 if (settings.background != "follow") {
@@ -201,6 +201,7 @@ internal fun ReaderSettingsSubPage(
                 SettingSegmentedRow("EPUB 分页兼容模式", listOf("off" to "关闭", "auto" to "自动", "on" to "强制"), settings.epubPagerEngineMode, { onAction(ProfileAction.UpdateReader { copy(epubPagerEngineMode = it) }) })
                 SectionDivider()
                 SettingSwitchRow("中文排版优化", settings.chineseTypography, { onAction(ProfileAction.UpdateReader { copy(chineseTypography = it) }) }, subtitle = "优化中文标点与行首行尾")
+                SettingSwitchRow("繁体显示", settings.traditionalChinese, { onAction(ProfileAction.UpdateReader { copy(traditionalChinese = it) }) }, subtitle = "仅显示为繁体；书签、高亮与进度仍按原文定位")
             }
         }
 

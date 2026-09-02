@@ -82,6 +82,7 @@ private val KEY_FONT_BOLD = booleanPreferencesKey("reader_font_bold")
 internal val KEY_READER_BRIGHTNESS = intPreferencesKey("reader_brightness")  // -1 = 跟随系统；5..100 = 固定亮度（对照 web reader brightness）
 private val KEY_LAST_FIXED_BRIGHTNESS = intPreferencesKey("reader_last_fixed_brightness")  // 上次手动固定的亮度（5..100）
 private val KEY_VOLUME_PAGE = booleanPreferencesKey("reader_volume_page")
+private val KEY_TRADITIONAL_CHINESE = booleanPreferencesKey("reader_traditional_chinese")
 private val KEY_VOLUME_PAGE_DURING_TTS = booleanPreferencesKey("reader_volume_page_during_tts")
 private val KEY_AUTO_PAGE_SPEED = intPreferencesKey("reader_auto_page_speed")
 // 阅读提醒（对照 web eyeCareReminderMinutes / readingRhythmReminder*）
@@ -174,6 +175,8 @@ data class ReaderSettings(
     val immersiveMode: Boolean = true,
     val showReaderInfo: Boolean = true,
     val chineseTypography: Boolean = true,
+    /** 繁体显示：仅渲染层 1:1 字形转换，底层文本/书签/高亮/进度保持原文（HanConvert 契约）。 */
+    val traditionalChinese: Boolean = false,
     val autoHideSeconds: Int = 4,
     val keepAwake: Boolean = false,
     val showProgressBar: Boolean = true,
@@ -275,6 +278,7 @@ class SettingsStore @Inject constructor(
             immersiveMode = prefs[KEY_IMMERSIVE] ?: true,
             showReaderInfo = prefs[KEY_SHOW_READER_INFO] ?: true,
             chineseTypography = prefs[KEY_CHINESE_TYPO] ?: true,
+            traditionalChinese = prefs[KEY_TRADITIONAL_CHINESE] ?: false,
             autoHideSeconds = prefs[KEY_AUTO_HIDE] ?: 4,
             keepAwake = prefs[KEY_KEEP_AWAKE] ?: false,
             showProgressBar = prefs[KEY_SHOW_PROGRESS] ?: true,
@@ -400,6 +404,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_IMMERSIVE] = next.immersiveMode
             prefs[KEY_SHOW_READER_INFO] = next.showReaderInfo
             prefs[KEY_CHINESE_TYPO] = next.chineseTypography
+            prefs[KEY_TRADITIONAL_CHINESE] = next.traditionalChinese
             prefs[KEY_AUTO_HIDE] = next.autoHideSeconds
             prefs[KEY_KEEP_AWAKE] = next.keepAwake
             prefs[KEY_SHOW_PROGRESS] = next.showProgressBar

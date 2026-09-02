@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.layout.ContentScale
 import com.creationreadingassistant.ui.components.SizedAsyncImage
+import com.creationreadingassistant.feature.text.HanConvert
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.feature.reader.layout.BlockRole
 import com.creationreadingassistant.feature.reader.layout.ChapterPaginator
@@ -336,6 +337,7 @@ fun PagedReaderHost(
 internal fun PageLayer(
     page: ChapterPaginator.Page,
     chapterText: String,
+    traditionalChinese: Boolean = false,
     cfg: LayoutConfig,
     paint: TextPaint,
     headingPaint: TextPaint,
@@ -347,6 +349,11 @@ internal fun PageLayer(
     /** 选区把手（仅当前页有选区时非空），画在文字与图片之上 */
     handles: PageSelection.Handles? = null,
 ) {
+    // 繁体显示：在绘制入口对章节文本做 1:1 字形转换（长度不变，排版产物 offset 对齐）。
+    // 底层文本、书签、高亮、进度不受影响——只有画到画布上的字形改变。
+    val displayText = remember(chapterText, traditionalChinese) {
+        HanConvert.display(chapterText, traditionalChinese)
+    }
     val density = LocalDensity.current
     val paper = LocalReaderPaperPalette.current
     Box(
@@ -361,7 +368,7 @@ internal fun PageLayer(
     ) {
         PageCanvas(
             page = page,
-            chapterText = chapterText,
+            chapterText = displayText,
             cfg = cfg,
             paint = paint,
             headingPaint = headingPaint,
