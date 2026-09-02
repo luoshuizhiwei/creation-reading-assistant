@@ -166,6 +166,8 @@ internal sealed interface ProfileAction {
     // Storage
     data object Export : ProfileAction
     data object Import : ProfileAction
+    data object ExportZip : ProfileAction
+    data object ImportZip : ProfileAction
     data object ClearReaderCache : ProfileAction
 
     // AI

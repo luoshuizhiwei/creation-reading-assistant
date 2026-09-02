@@ -1,6 +1,7 @@
 package com.creationreadingassistant.ui.screen.profile
 
 import android.net.Uri
+import com.creationreadingassistant.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.SnackbarHostState
@@ -15,6 +16,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
@@ -82,6 +84,7 @@ internal fun ProfileRoute(
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
+    val zipStatus by viewModel.zipStatus.collectAsStateWithLifecycle()
     val homeSummary by viewModel.homeSummary.collectAsStateWithLifecycle()
     val goal by viewModel.goalState.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
@@ -111,6 +114,12 @@ internal fun ProfileRoute(
     val importLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri: Uri? -> uri?.let { viewModel.import(context, it) } }
+    val zipExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri: Uri? -> uri?.let { viewModel.zipExport(context, it) } }
+    val zipImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? -> uri?.let { viewModel.zipImport(context, it) } }
 
     val showMsg: (String) -> Unit = { scope.launch { snackbarHostState.showSnackbar(it) } }
 
@@ -120,6 +129,7 @@ internal fun ProfileRoute(
     LaunchedEffect(webDavMsg) { webDavMsg?.let { showMsg(it) } }
     LaunchedEffect(aiMsg) { aiMsg?.let { showMsg(it) } }
     LaunchedEffect(bridgeStatus) { bridgeStatus?.let { showMsg(it) } }
+    LaunchedEffect(zipStatus) { zipStatus?.let { showMsg(it) } }
 
     // ---- 构建 ProfileUiState ----
     val webDavConfigured = !webDavConfig?.url.isNullOrBlank()
@@ -161,6 +171,8 @@ internal fun ProfileRoute(
             snackbarHostState = snackbarHostState,
             exportLauncher = exportLauncher,
             importLauncher = importLauncher,
+            zipExportLauncher = zipExportLauncher,
+            zipImportLauncher = zipImportLauncher,
             aiKeyDraft = aiKeyDraft,
             onAiKeyDraftChange = { aiKeyDraft = it },
             onConfirmDialogChange = { confirmDialog = it },
@@ -204,6 +216,8 @@ private fun handleProfileAction(
     snackbarHostState: SnackbarHostState,
     exportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
     importLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
+    zipExportLauncher: androidx.activity.result.ActivityResultLauncher<String>,
+    zipImportLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
     aiKeyDraft: String,
     onAiKeyDraftChange: (String) -> Unit,
     onConfirmDialogChange: (ConfirmSpec?) -> Unit,
@@ -282,6 +296,14 @@ private fun handleProfileAction(
                 title = "导入数据",
                 message = "导入将按版本规则合并覆写当前书籍、灵感、进度与会话数据（旧版本记录不会覆盖新版本）。建议先导出备份。确认继续？",
                 onConfirm = { importLauncher.launch(arrayOf("application/json", "*/*")) },
+            )
+        )
+        ProfileAction.ExportZip -> zipExportLauncher.launch("cra-backup-${System.currentTimeMillis()}.zip")
+        ProfileAction.ImportZip -> onConfirmDialogChange(
+            ConfirmSpec(
+                title = "导入整包备份",
+                message = "导入将解包并覆盖当前书籍源文件与数据库（按版本规则合并）。ZIP 不含 AI Key / WebDAV 密码。建议先导出备份。确认继续？",
+                onConfirm = { zipImportLauncher.launch(arrayOf("application/zip", "*/*")) },
             )
         )
         ProfileAction.ClearReaderCache -> {

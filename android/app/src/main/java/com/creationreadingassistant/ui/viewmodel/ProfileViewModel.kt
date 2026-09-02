@@ -17,6 +17,7 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LocalZipBackup
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
 import com.creationreadingassistant.data.ai.AiClient
@@ -127,6 +128,7 @@ private data class ProfileCacheSummary(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val jsonBridge: JsonBridge,
+    private val localZipBackup: LocalZipBackup,
     private val pairingManager: PairingManager,
     private val syncRepository: SyncRepository,
     private val configStore: SyncConfigStore,
@@ -228,6 +230,10 @@ class ProfileViewModel @Inject constructor(
     private val _bridgeStatus = MutableStateFlow<String?>(null)
     val bridgeStatus: StateFlow<String?> = _bridgeStatus
 
+    // ---- ZIP 整包备份 ----
+    private val _zipStatus = MutableStateFlow<String?>(null)
+    val zipStatus: StateFlow<String?> = _zipStatus
+
     // ---- 配对 / 同步 ----
     private val _config = MutableStateFlow<SyncConfigStore.Config?>(configStore.config)
     val config: StateFlow<SyncConfigStore.Config?> = _config.asStateFlow()
@@ -274,6 +280,25 @@ class ProfileViewModel @Inject constructor(
             runCatching { jsonBridge.importFrom(context, uri) }
                 .onSuccess { _bridgeStatus.value = "导入成功"; AppLog.event("Import", "导入成功") }
                 .onFailure { _bridgeStatus.value = "导入失败：${it.message}"; AppLog.e("Import", it.message ?: "未知错误") }
+        }
+    }
+
+    // ---- ZIP 整包备份（backup.json + books/ 源文件）----
+    fun zipExport(context: Context, uri: Uri) {
+        viewModelScope.launch(ioDispatcher) {
+            _zipStatus.value = null
+            runCatching { localZipBackup.exportZip(context, uri) }
+                .onSuccess { _zipStatus.value = "整包导出成功"; AppLog.event("ZipBackup", "导出成功") }
+                .onFailure { _zipStatus.value = "整包导出失败：${it.message}"; AppLog.e("ZipBackup", it.message ?: "未知错误") }
+        }
+    }
+
+    fun zipImport(context: Context, uri: Uri) {
+        viewModelScope.launch(ioDispatcher) {
+            _zipStatus.value = null
+            runCatching { localZipBackup.importZip(context, uri) }
+                .onSuccess { _zipStatus.value = "整包导入成功"; AppLog.event("ZipBackup", "导入成功") }
+                .onFailure { _zipStatus.value = "整包导入失败：${it.message}"; AppLog.e("ZipBackup", it.message ?: "未知错误") }
         }
     }
 

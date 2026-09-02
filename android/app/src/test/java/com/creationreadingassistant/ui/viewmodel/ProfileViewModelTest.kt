@@ -14,6 +14,7 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LocalZipBackup
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
@@ -105,6 +106,7 @@ class ProfileViewModelTest {
 
         vm = ProfileViewModel(
             jsonBridge = mockk<JsonBridge>(relaxed = true),
+            localZipBackup = mockk<LocalZipBackup>(relaxed = true),
             pairingManager = mockk<PairingManager>(relaxed = true),
             syncRepository = mockk<SyncRepository>(relaxed = true),
             configStore = configStore,

@@ -22,4 +22,8 @@
     <string name="heatmap_weekday_sun">日</string>
     <string name="heatmap_intensity_less">少</string>
     <string name="heatmap_intensity_more">多</string>
+    <string name="backup_zip_title">本地整包备份（ZIP）</string>
+    <string name="backup_zip_desc">ZIP 在 JSON 基础上额外打包书籍源文件（TXT / MD / EPUB），适合整机迁移；JSON 仅含元数据。ZIP 不含 AI Key 与 WebDAV 密码。</string>
+    <string name="backup_zip_export">导出整包</string>
+    <string name="backup_zip_import">导入整包</string>
 </resources>

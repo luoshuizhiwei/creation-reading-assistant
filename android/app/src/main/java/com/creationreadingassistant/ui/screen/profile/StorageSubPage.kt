@@ -1,6 +1,8 @@
 package com.creationreadingassistant.ui.screen.profile
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.res.stringResource
+import com.creationreadingassistant.R
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -73,6 +75,21 @@ internal fun StorageSubPage(
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Button(onClick = { onAction(ProfileAction.Export) }) { Icon(Icons.Outlined.Download, contentDescription = null); Text("导出数据", modifier = Modifier.padding(start = 6.dp)) }
                         OutlinedButton(onClick = { onAction(ProfileAction.Import) }) { Icon(Icons.Outlined.Upload, contentDescription = null); Text("导入数据", modifier = Modifier.padding(start = 6.dp)) }
+                    }
+                }
+            }
+        }
+        item {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    Text(stringResource(R.string.backup_zip_title), style = MaterialTheme.typography.titleSmall)
+                    Text(stringResource(R.string.backup_zip_desc), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Button(onClick = { onAction(ProfileAction.ExportZip) }) { Icon(Icons.Outlined.Download, contentDescription = null); Text(stringResource(R.string.backup_zip_export), modifier = Modifier.padding(start = 6.dp)) }
+                        OutlinedButton(onClick = { onAction(ProfileAction.ImportZip) }) { Icon(Icons.Outlined.Upload, contentDescription = null); Text(stringResource(R.string.backup_zip_import), modifier = Modifier.padding(start = 6.dp)) }
                     }
                 }
             }
