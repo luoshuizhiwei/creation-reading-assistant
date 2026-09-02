@@ -1,6 +1,7 @@
 package com.creationreadingassistant.ui.screen.profile
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -34,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
@@ -76,7 +78,21 @@ internal fun ProfileHomeScreen(
                         .padding(top = 12.dp),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    HomeStat("阅读时长", (summary.totalDurationMs / 60000).toInt(), { formatDuration(it.toLong() * 60000) }, reducedMotion = reducedMotion)
+                    // count-up 滚动过程按最终值的单位档位（天/小时/分钟）格式化：
+                    // 若随过程值跨档（分钟→小时），字符串形状突变会让本列宽度跳动。
+                    val totalMinutes = (summary.totalDurationMs / 60000).toInt()
+                    HomeStat(
+                        "阅读时长",
+                        totalMinutes,
+                        { v ->
+                            when {
+                                totalMinutes >= 1440 -> "${v / 1440} 天 ${(v % 1440) / 60} 小时"
+                                totalMinutes >= 60 -> "${v / 60} 小时 ${v % 60} 分钟"
+                                else -> "$v 分钟"
+                            }
+                        },
+                        reducedMotion = reducedMotion,
+                    )
                     HomeStat("累计读完", summary.completedBookCount, reducedMotion = reducedMotion)
                     HomeStat("灵感数量", summary.inspirationCount, reducedMotion = reducedMotion)
                 }
@@ -149,12 +165,27 @@ internal fun ProfileHomeScreen(
 @Composable
 private fun HomeStat(label: String, value: Int, format: (Int) -> String = { "$it" }, reducedMotion: Boolean = false) {
     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            rememberCountUp(value, reducedMotion).let { format(it) },
-            style = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
+        Box(contentAlignment = Alignment.Center) {
+            val valueStyle = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
+            // 隐形占位文本按最终值定宽：count-up 从 0 滚动时槽位宽度恒定，
+            // 相邻统计项不再被滚动过程挤来挤去（真机反馈）。
+            Text(
+                format(value),
+                style = valueStyle,
+                fontWeight = FontWeight.Bold,
+                color = Color.Transparent,
+                maxLines = 1,
+                softWrap = false,
+            )
+            Text(
+                rememberCountUp(value, reducedMotion).let { format(it) },
+                style = valueStyle,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                softWrap = false,
+            )
+        }
         Text(label, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
