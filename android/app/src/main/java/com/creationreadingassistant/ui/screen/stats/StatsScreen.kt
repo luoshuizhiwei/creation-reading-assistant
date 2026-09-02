@@ -28,6 +28,7 @@ import com.creationreadingassistant.ui.screen.stats.components.StatusSection
 import com.creationreadingassistant.ui.screen.stats.components.SummaryGroup
 import com.creationreadingassistant.ui.screen.stats.components.TrendSection
 import com.creationreadingassistant.ui.screen.stats.components.HeatmapSection
+import com.creationreadingassistant.ui.screen.stats.components.YearBillHeroCard
 
 /**
  * 纯 StatsScreen：单一 AppScreenScaffold + 唯一 PageLazyColumn，
@@ -82,6 +83,15 @@ internal fun StatsScreen(
                 }
             } else {
                 // 只在非空态组合 4 个区块：空时不组合空图表和大卡片占位。
+                // 年度账单 Hero：仅本年且有数据时组合（其余周期不展示）。
+                if (state.period == StatsPeriod.YEAR && !state.showPeriodEmpty) {
+                    item(key = "year-bill-hero") {
+                        YearBillHeroCard(
+                            stats = stats,
+                            anchorYear = state.anchor.year,
+                        )
+                    }
+                }
                 item(key = "summary") {
                     SummaryGroup(stats = stats)
                 }
