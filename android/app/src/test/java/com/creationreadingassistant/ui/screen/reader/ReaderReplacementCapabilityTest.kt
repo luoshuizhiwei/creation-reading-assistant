@@ -57,6 +57,12 @@ class ReaderReplacementCapabilityTest {
     }
 
     @Test
+    fun `availability NON_SOURCE_COORDINATES is blocked for rendered Markdown`() {
+        val cap = readerReplacementCapability(PagedReplacementAvailability.NON_SOURCE_COORDINATES)
+        assertTrue(cap is ReaderReplacementCapability.Unavailable)
+    }
+
+    @Test
     fun `availability OVERSIZED_CURRENT_CHAPTER is blocked with message`() {
         val cap = readerReplacementCapability(PagedReplacementAvailability.OVERSIZED_CURRENT_CHAPTER)
         assertTrue(cap is ReaderReplacementCapability.Unavailable)
@@ -69,12 +75,28 @@ class ReaderReplacementCapabilityTest {
     }
 
     @Test
-    fun `scroll path hides replacement even when a paged source was prepared`() {
+    fun `legacy scroll stays blocked while complete-projection scroll uses prepared capability`() {
         assertEquals(
             PagedReplacementAvailability.PAGER_ENGINE_DISABLED,
             effectiveReplacementAvailability(
                 pagerEngineOn = false,
                 prepared = PagedReplacementAvailability.APPLIED,
+            ),
+        )
+        assertEquals(
+            PagedReplacementAvailability.APPLIED,
+            effectiveReplacementAvailability(
+                pagerEngineOn = false,
+                prepared = PagedReplacementAvailability.APPLIED,
+                scrollProjectionOn = true,
+            ),
+        )
+        assertEquals(
+            PagedReplacementAvailability.NO_EFFECTIVE_RULES,
+            effectiveReplacementAvailability(
+                pagerEngineOn = false,
+                prepared = PagedReplacementAvailability.NO_EFFECTIVE_RULES,
+                scrollProjectionOn = true,
             ),
         )
         assertEquals(
@@ -87,6 +109,17 @@ class ReaderReplacementCapabilityTest {
         assertEquals(
             PagedReplacementAvailability.SOURCE_UNAVAILABLE,
             effectiveReplacementAvailability(pagerEngineOn = true, prepared = null),
+        )
+    }
+
+    @Test
+    fun `applied scrolling projection never shows a pager-only startup notice`() {
+        assertEquals(
+            null,
+            readerReplacementStartupNotice(
+                availability = PagedReplacementAvailability.APPLIED,
+                pagerEngineOn = false,
+            ),
         )
     }
 

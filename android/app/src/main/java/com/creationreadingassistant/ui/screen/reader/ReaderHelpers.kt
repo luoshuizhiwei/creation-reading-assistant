@@ -151,6 +151,29 @@ internal data class BookIndex(
     val totalChars: Int,
 )
 
+/** Locate a book-level character offset without assuming chapters have equal length. */
+internal fun chapterIndexForBookOffset(
+    chapterStartOffsets: List<Int>,
+    targetOffset: Int,
+    totalChars: Int,
+): Int? {
+    if (chapterStartOffsets.isEmpty()) return null
+    val target = targetOffset.coerceIn(0, totalChars.coerceAtLeast(0))
+    var low = 0
+    var high = chapterStartOffsets.lastIndex
+    var result = 0
+    while (low <= high) {
+        val middle = (low + high) ushr 1
+        if (chapterStartOffsets[middle] <= target) {
+            result = middle
+            low = middle + 1
+        } else {
+            high = middle - 1
+        }
+    }
+    return result
+}
+
 internal const val PLAIN_TEXT_CHUNK_CHARS = 3_000
 
 internal data class PlainTextChunk(

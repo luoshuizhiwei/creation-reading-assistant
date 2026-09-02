@@ -38,6 +38,8 @@ enum class PagedReplacementAvailability {
     /** 当前阅读模式没有启用新分页引擎；正文 source 可能存在，但不会走投影渲染。 */
     PAGER_ENGINE_DISABLED,
     ESTIMATED_COORDINATES,
+    /** 渲染文本不是持久化 source 字符空间，禁止用近似映射应用替换。 */
+    NON_SOURCE_COORDINATES,
     INCOMPLETE_SCOPE,
     OVERSIZED_CURRENT_CHAPTER,
     SOURCE_UNAVAILABLE,
@@ -58,6 +60,18 @@ fun preparePagedReplacement(
     maxSourceLength: Int = BoundedReplaceProjector.DEFAULT_MAX_SOURCE_CHARS,
     onUnsupportedTooLarge: (BoundedReplaceResult.UnsupportedTooLarge) -> Unit = {},
 ): PreparedPagedReplacement {
+    when (delegate.replacementCoordinateSpace) {
+        ReplacementCoordinateSpace.ESTIMATED -> return PreparedPagedReplacement(
+            delegate,
+            PagedReplacementAvailability.ESTIMATED_COORDINATES,
+        )
+        ReplacementCoordinateSpace.CANONICAL_DISPLAY -> return PreparedPagedReplacement(
+            delegate,
+            PagedReplacementAvailability.NON_SOURCE_COORDINATES,
+        )
+        ReplacementCoordinateSpace.SOURCE -> Unit
+    }
+    // 兼容尚未声明 coordinate space 的旧 source：估算章节坐标永远不能投影。
     if (delegate.chapterLengthsAreEstimated) {
         return PreparedPagedReplacement(delegate, PagedReplacementAvailability.ESTIMATED_COORDINATES)
     }
@@ -405,7 +419,5 @@ class ReplacedSegmentedChapterSource(
         }
     }
 }
-
-
 
 

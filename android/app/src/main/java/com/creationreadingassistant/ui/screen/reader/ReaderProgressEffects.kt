@@ -160,28 +160,24 @@ internal fun ReaderProgressEffects(
     LaunchedEffect(bid, epubBook, readingUnits, pagerEngineOn) {
         if (bid.isBlank() || epubBook != null || readingUnits.isEmpty() || pagerEngineOn) return@LaunchedEffect
         snapshotFlow {
-            Triple(
+            listOf(
                 plainListState.firstVisibleItemIndex,
                 plainListState.firstVisibleItemScrollOffset,
-                plainListState.canScrollForward,
+                if (plainListState.canScrollForward) 1 else 0,
+                if (pendingInitialPositionState.value) 1 else 0,
             )
         }
             .debounce(500)
-            .collect {
+            .collect { snapshot ->
+                val initialPositionPending = snapshot[3] == 1
+                if (!canPersistPlainScrollPosition(!initialPositionPending)) return@collect
                 val index = plainListState.firstVisibleItemIndex
-                val unit = readingUnits.getOrNull(index)
-                val item = plainListState.layoutInfo.visibleItemsInfo.firstOrNull()
-                val fraction = if (item != null && item.size > 0) {
-                    plainListState.firstVisibleItemScrollOffset.toFloat() / item.size
-                } else {
-                    0f
-                }
-                val offset = if (unit != null) {
-                    unit.charStart + (unit.charCount * fraction).toInt()
-                } else {
-                    0
-                }
                 val totalChars = txtStreamingDocument?.totalChars ?: plainContent.length.coerceAtLeast(1)
+                val offset = if (!plainListState.canScrollForward) {
+                    totalChars
+                } else {
+                    currentPlainListOffset(plainListState, readingUnits, fallbackOffset = 0)
+                }
                 val percent = when {
                     !plainListState.canScrollForward && index > 0 -> 100f
                     else -> (offset * 100f / totalChars).coerceIn(0f, 100f)
@@ -206,10 +202,16 @@ internal fun ReaderProgressEffects(
     // 翻页进度落库（分页引擎侧），与滚动侧同样 500ms 防抖、同一张表同一套字段
     LaunchedEffect(bid, epubBook, pagerEngineOn, pagedSource) {
         if (bid.isBlank() || !pagerEngineOn) return@LaunchedEffect
-        snapshotFlow { pagedAbsOffsetState.intValue to pagedPercentState.floatValue }
+        snapshotFlow {
+            Triple(
+                pagedAbsOffsetState.intValue,
+                pagedPercentState.floatValue,
+                pendingInitialPositionState.value,
+            )
+        }
             .debounce(500)
-            .collect { (off, pct) ->
-                if (off < 0) return@collect
+            .collect { (off, pct, initialPositionPending) ->
+                if (off < 0 || !canPersistPagedPosition(initialPositionPending)) return@collect
                 val source = pagedSource ?: return@collect
                 if (epubBook != null) {
                     val ci = source.chapterIndexFor(off)

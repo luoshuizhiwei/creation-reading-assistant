@@ -245,8 +245,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     onNote = { onAction(ReaderAction.SetNoteOpen(true)) },
     onCopy = { clipboard.setText(AnnotatedString(selectedText)); showNotice("已复制") },
     onSearch = {
-        onAction(ReaderAction.SetSearchQuery(selectedText))
-        onAction(ReaderAction.OpenSheet(ReaderSheet.SEARCH))
+        readerSelectionSearchActions(selectedText).forEach(onAction)
     },
     onClearSelection = { onAction(ReaderAction.ClearSelection) },
 )
@@ -489,6 +488,5 @@ internal fun buildReaderSheetHostCallbacks(
         id
     },
 )
-
 
 

@@ -160,7 +160,12 @@ internal fun persistCurrentProgress(
     plainContent: String,
     onAction: (ReaderAction) -> Unit,
 ) {
-    if (bid.isBlank() || loadedBook == null || error != null || pendingInitialPosition) return
+    if (
+        bid.isBlank() ||
+        loadedBook == null ||
+        error != null ||
+        !canPersistLegacyScrollPosition(pendingInitialPosition)
+    ) return
     if (epubBook != null) {
         val chapterOffset = if (pagerEngineOn && pagedAbsOffset >= 0) {
             val currentChapter = pagedSource?.chapterIndexFor(pagedAbsOffset) ?: chapterIndex
@@ -234,6 +239,7 @@ internal fun persistCurrentProgress(
 internal fun seekToPercent(
     p: Float,
     epubBook: EpubBook?,
+    markdownDocument: ReaderDocument? = null,
     pagerEngineOn: Boolean,
     bookIndex: BookIndex?,
     txtStreamingDocument: PlainTextDocument?,
@@ -241,18 +247,29 @@ internal fun seekToPercent(
     pagedJumpRequest: MutableState<Int?>,
     goToChapter: (Int) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
+    jumpToMarkdownOffset: (Int) -> Unit = {},
 ) {
+    val percent = p.coerceIn(0f, 100f)
     if (epubBook != null) {
+        val total = bookIndex?.totalChars?.coerceAtLeast(0) ?: 0
+        val targetOffset = (percent / 100f * total).toInt()
         if (pagerEngineOn) {
-            val total = bookIndex?.totalChars ?: 0
-            if (total > 0) pagedJumpRequest.value = (p.coerceIn(0f, 100f) / 100f * total).toInt()
+            if (total > 0) pagedJumpRequest.value = targetOffset
         } else {
             val sz = epubBook.chapters.size
-            if (sz > 0) goToChapter((p / 100f * sz).toInt().coerceIn(0, sz - 1))
+            val targetChapter = chapterIndexForBookOffset(
+                chapterStartOffsets = bookIndex?.chapterStartOffsets.orEmpty(),
+                targetOffset = targetOffset,
+                totalChars = total,
+            ) ?: (percent / 100f * sz).toInt()
+            if (sz > 0) goToChapter(targetChapter.coerceIn(0, sz - 1))
         }
+    } else if (markdownDocument != null) {
+        val targetOffset = (percent / 100f * markdownDocument.totalChars.coerceAtLeast(0)).toInt()
+        if (pagerEngineOn) pagedJumpRequest.value = targetOffset else jumpToMarkdownOffset(targetOffset)
     } else if (plainContent.isNotEmpty() || txtStreamingDocument != null) {
         val totalLen = txtStreamingDocument?.totalChars ?: plainContent.length
-        jumpToPlainOffset((p.coerceIn(0f, 100f) / 100f * totalLen).toInt())
+        jumpToPlainOffset((percent / 100f * totalLen).toInt())
     }
 }
 
@@ -261,6 +278,7 @@ internal fun seekToPercent(
 internal fun seekToChapterPercent(
     p: Float,
     epubBook: EpubBook?,
+    markdownDocument: ReaderDocument? = null,
     chapterStartOffsets: List<Int>,
     chapterIndex: Int,
     contentText: String,
@@ -270,6 +288,8 @@ internal fun seekToChapterPercent(
     plainContent: String,
     pagedJumpRequest: MutableState<Int?>,
     jumpToPlainOffset: (Int) -> Unit,
+    jumpToEpubOffset: (Int) -> Unit = {},
+    jumpToMarkdownOffset: (Int) -> Unit = {},
 ) {
     val clamped = p.coerceIn(0f, 100f)
     if (epubBook != null) {
@@ -279,8 +299,14 @@ internal fun seekToChapterPercent(
         if (pagerEngineOn) {
             pagedJumpRequest.value = absOffset
         } else {
-            jumpToPlainOffset(absOffset)
+            jumpToEpubOffset(absOffset)
         }
+    } else if (markdownDocument != null) {
+        val chapter = markdownDocument.chapters.getOrNull(chapterIndex)
+        val base = chapter?.startOffset ?: 0
+        val chapterLength = chapter?.charCount?.coerceAtLeast(1) ?: 1
+        val absOffset = base + (clamped / 100f * chapterLength).toInt()
+        if (pagerEngineOn) pagedJumpRequest.value = absOffset else jumpToMarkdownOffset(absOffset)
     } else {
         val ch = txtChapters.getOrNull(txtChapterIndex)
         val base = ch?.startOffset ?: 0
@@ -402,6 +428,43 @@ internal fun handleChromeAction(
  * 逐字合并搬运，direction：-1=音量上/向前，1=音量下/向后）。返回值语义不变：
  * true=已消费，false=交回系统。
  */
+internal sealed interface ReaderVolumeTurnPlan {
+    data object UseSystemVolume : ReaderVolumeTurnPlan
+    data class Paged(val direction: Int) : ReaderVolumeTurnPlan
+    data class Scroll(val direction: Int) : ReaderVolumeTurnPlan
+    data class Chapter(val targetIndex: Int) : ReaderVolumeTurnPlan
+}
+
+/**
+ * Decides whether a hardware volume press has an actionable reader operation.
+ * At a boundary, returning system-volume avoids swallowing a key that cannot turn a page.
+ */
+@Suppress("LongParameterList")
+internal fun readerVolumeTurnPlan(
+    direction: Int,
+    volumeKeyPaging: Boolean,
+    allowDuringTts: Boolean,
+    ttsVisible: Boolean,
+    pagerEngineOn: Boolean,
+    scrollLayoutReady: Boolean,
+    canScroll: Boolean,
+    chapterIndex: Int,
+    chapterCount: Int,
+): ReaderVolumeTurnPlan {
+    if (direction !in setOf(-1, 1) || !volumeKeyPaging || (ttsVisible && !allowDuringTts)) {
+        return ReaderVolumeTurnPlan.UseSystemVolume
+    }
+    if (pagerEngineOn) return ReaderVolumeTurnPlan.Paged(direction)
+    if (!scrollLayoutReady) return ReaderVolumeTurnPlan.UseSystemVolume
+    if (canScroll) return ReaderVolumeTurnPlan.Scroll(direction)
+    val targetIndex = chapterIndex + direction
+    return if (targetIndex in 0 until chapterCount) {
+        ReaderVolumeTurnPlan.Chapter(targetIndex)
+    } else {
+        ReaderVolumeTurnPlan.UseSystemVolume
+    }
+}
+
 @Suppress("LongParameterList")
 internal fun readerVolumeKeyTurn(
     direction: Int,
@@ -415,16 +478,32 @@ internal fun readerVolumeKeyTurn(
     goToChapter: (Int) -> Unit,
     scope: CoroutineScope,
     plainListState: LazyListState,
+    epubListState: LazyListState? = null,
 ): Boolean {
-    if (!readerSettings.volumeKeyPaging) return false
-    if (showTts && !readerSettings.volumeKeyPagingDuringTts) return false
-    when {
-        pagerEngineOn -> pagedHardwareTurnRequest.value = direction
-        epubBook != null || markdownDocument != null -> goToChapter(chapterIndex + direction)
-        else -> scope.launch {
-            val amount = plainListState.layoutInfo.viewportSize.height * 0.88f * direction
-            plainListState.animateScrollBy(amount)
+    val activeScrollState = if (epubBook != null || markdownDocument != null) {
+        epubListState ?: plainListState
+    } else {
+        plainListState
+    }
+    val plan = readerVolumeTurnPlan(
+        direction = direction,
+        volumeKeyPaging = readerSettings.volumeKeyPaging,
+        allowDuringTts = readerSettings.volumeKeyPagingDuringTts,
+        ttsVisible = showTts,
+        pagerEngineOn = pagerEngineOn,
+        scrollLayoutReady = activeScrollState.layoutInfo.viewportSize.height > 0,
+        canScroll = if (direction > 0) activeScrollState.canScrollForward else activeScrollState.canScrollBackward,
+        chapterIndex = chapterIndex,
+        chapterCount = epubBook?.chapters?.size ?: markdownDocument?.chapters?.size ?: 0,
+    )
+    when (plan) {
+        is ReaderVolumeTurnPlan.Paged -> pagedHardwareTurnRequest.value = plan.direction
+        is ReaderVolumeTurnPlan.Scroll -> scope.launch {
+            val amount = activeScrollState.layoutInfo.viewportSize.height * 0.88f * plan.direction
+            activeScrollState.animateScrollBy(amount)
         }
+        is ReaderVolumeTurnPlan.Chapter -> goToChapter(plan.targetIndex)
+        ReaderVolumeTurnPlan.UseSystemVolume -> return false
     }
     return true
 }
@@ -552,6 +631,35 @@ internal fun buildReaderNavActions(
             offset, pagerEngineOn, readingUnits, scope, plainListState, pagedJumpRequest,
         )
     }
+    val jumpToEpubOffsetFn: (Int) -> Unit = { absoluteOffset ->
+        val itemIndex = blockGlobalOffsets
+            .indexOfLast { it in 0..absoluteOffset }
+            .coerceAtLeast(0)
+        scope.launch { epubListState.scrollToItem(itemIndex) }
+    }
+    val jumpToMarkdownOffsetFn: (Int) -> Unit = { absoluteOffset ->
+        val document = markdownDocument
+        if (document != null) {
+            val (targetChapter, inChapter) = document.locate(absoluteOffset)
+            if (targetChapter != chapterIndex) {
+                // The chapter load is asynchronous. Keep this branch conservative rather than
+                // applying a stale LazyList index to the previous chapter.
+                goToChapterFn(targetChapter)
+            } else {
+                val markdownBlock = chapterBlocks.filterIsInstance<DocBlock.Markdown>().firstOrNull()
+                val targetUnit = markdownBlock?.let {
+                    markdownRenderUnitIndexForChapterOffset(
+                        chapter = it.chapter,
+                        inChapter = inChapter,
+                        chapterBase = chapterBase,
+                        blocksGlobal = (document as? com.creationreadingassistant.feature.reader.doc.MarkdownDocument)
+                            ?.isWholeDocumentParse == true,
+                    )
+                }
+                if (targetUnit != null) scope.launch { epubListState.scrollToItem(targetUnit) }
+            }
+        }
+    }
     val openTtsFn: () -> Unit = {
         openTts(
             contentText, epubBook, markdownDocument != null,
@@ -584,14 +692,15 @@ internal fun buildReaderNavActions(
         },
         seekToPercent = { p ->
             seekToPercent(
-                p, epubBook, pagerEngineOn, bookIndex, txtStreamingDocument, plainContent,
-                pagedJumpRequest, goToChapterFn, jumpToPlainOffsetFn,
+                p, epubBook, markdownDocument, pagerEngineOn, bookIndex, txtStreamingDocument, plainContent,
+                pagedJumpRequest, goToChapterFn, jumpToPlainOffsetFn, jumpToMarkdownOffsetFn,
             )
         },
         seekToChapterPercent = { p ->
             seekToChapterPercent(
-                p, epubBook, chapterStartOffsets, chapterIndex, contentText, pagerEngineOn,
+                p, epubBook, markdownDocument, chapterStartOffsets, chapterIndex, contentText, pagerEngineOn,
                 txtChapters, txtChapterIndex, plainContent, pagedJumpRequest, jumpToPlainOffsetFn,
+                jumpToEpubOffsetFn, jumpToMarkdownOffsetFn,
             )
         },
         openTts = openTtsFn,

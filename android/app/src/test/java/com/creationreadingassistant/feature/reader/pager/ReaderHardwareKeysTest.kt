@@ -95,4 +95,19 @@ class ReaderHardwareKeysTest {
         assertFalse(up(KeyEvent.KEYCODE_VOLUME_UP))
         assertFalse(down(KeyEvent.KEYCODE_VOLUME_UP))
     }
+
+    @Test
+    fun `媒体按钮方向转发复用阅读器 handler 且不会制造音量键序列`() {
+        val directions = mutableListOf<Int>()
+        ReaderHardwareKeys.handler = { direction -> directions += direction; true }
+        try {
+            assertTrue(ReaderHardwareKeys.triggerDirection(1))
+            assertTrue(ReaderHardwareKeys.triggerDirection(-1))
+            assertEquals(listOf(1, -1), directions)
+            // 媒体按钮不会将音量键 UP 标记为已消费。
+            assertFalse(up(KeyEvent.KEYCODE_VOLUME_UP))
+        } finally {
+            ReaderHardwareKeys.handler = null
+        }
+    }
 }

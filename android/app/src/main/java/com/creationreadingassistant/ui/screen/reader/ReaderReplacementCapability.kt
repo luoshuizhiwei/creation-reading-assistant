@@ -26,6 +26,9 @@ internal fun readerReplacementCapability(
     PagedReplacementAvailability.ESTIMATED_COORDINATES -> ReaderReplacementCapability.Unavailable(
         "当前文档格式（EPUB/估算坐标）暂不支持正文替换净化，正文将保留原文。",
     )
+    PagedReplacementAvailability.NON_SOURCE_COORDINATES -> ReaderReplacementCapability.Unavailable(
+        "当前 Markdown 正文使用渲染坐标，尚未形成完整 source 定位契约，正文将保留原文。",
+    )
     PagedReplacementAvailability.INCOMPLETE_SCOPE -> ReaderReplacementCapability.Unavailable(
         "当前章节视图无法提供完整可投影作用域，正文将保留原文。",
     )
@@ -45,15 +48,14 @@ internal fun readerReplacementCapability(
  */
 internal fun readerReplacementStartupNotice(
     availability: PagedReplacementAvailability,
-    pagerEngineOn: Boolean,
+    @Suppress("UNUSED_PARAMETER") pagerEngineOn: Boolean,
 ): String? = when (availability) {
-    PagedReplacementAvailability.APPLIED -> if (!pagerEngineOn) {
-        "正文替换净化目前仅在新分页引擎中生效，当前模式已保留原文。"
-    } else {
-        null
-    }
+    // APPLIED 表示当前实际渲染路径已经使用精确投影；不应根据是否分页引擎反向否定它。
+    PagedReplacementAvailability.APPLIED -> null
     PagedReplacementAvailability.ESTIMATED_COORDINATES ->
         "当前文档格式暂不支持正文替换净化，正文已保留原文。"
+    PagedReplacementAvailability.NON_SOURCE_COORDINATES ->
+        "当前 Markdown 正文尚未形成完整 source 定位契约，正文已保留原文。"
     PagedReplacementAvailability.INCOMPLETE_SCOPE ->
         "当前章节视图暂不支持正文替换净化，正文已保留原文。"
     else -> null

@@ -153,6 +153,9 @@ class PagedReaderController(
 
     private var layoutJob: Job? = null
     private var prefetchJob: Job? = null
+    // 排版期间也要接住用户翻页。否则首屏或跨章加载的短窗口中一次点按会被静默丢弃。
+    // 用队列而非最后一次方向，保证连续点按仍按输入顺序执行。
+    private val pendingPageTurns = ArrayDeque<Int>()
     private val layoutMutex = Mutex()
     private val chapterCache = LinkedHashMap<Int, CachedChapter>(3, 0.75f, true)
     private val actualCharCounts = LinkedHashMap<Int, Int>()
@@ -184,6 +187,7 @@ class PagedReaderController(
 
     /** 打开到全书偏移 [absOffset] 所在的页。幂等，可反复调。 */
     fun open(absOffset: Int) {
+        pendingPageTurns.clear()
         // ── TxtFirstPageReady: 结束旧的异步 trace（竞态保护） ──
         if (firstPageReadyTraceActive) {
             endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
@@ -224,6 +228,7 @@ class PagedReaderController(
         layoutJob = null
         prefetchJob?.cancel()
         prefetchJob = null
+        pendingPageTurns.clear()
         if (firstPageReadyTraceActive) {
             endAsyncTrace("TxtFirstPageReady", firstPageReadyCookie)
             firstPageReadyTraceActive = false
@@ -231,6 +236,10 @@ class PagedReaderController(
     }
 
     fun nextPage() {
+        if (isLayingOut || layout == null) {
+            pendingPageTurns.addLast(1)
+            return
+        }
         val l = layout ?: return
         when {
             pageIndex < l.pages.size - 1 -> pageIndex++
@@ -243,6 +252,10 @@ class PagedReaderController(
     }
 
     fun prevPage() {
+        if (isLayingOut || layout == null) {
+            pendingPageTurns.addLast(-1)
+            return
+        }
         when {
             pageIndex > 0 -> pageIndex--
             chapterIndex > 0 -> {
@@ -270,6 +283,16 @@ class PagedReaderController(
         }
 
         prefetchNeighbors(chIdx)
+        replayPendingPageTurns()
+    }
+
+    private fun replayPendingPageTurns() {
+        while (!isLayingOut && pendingPageTurns.isNotEmpty()) {
+            when (pendingPageTurns.removeFirst()) {
+                -1 -> prevPage()
+                1 -> nextPage()
+            }
+        }
     }
 
     /**
@@ -370,6 +393,7 @@ class PagedReaderController(
                 }
                 loadError = t.message ?: "章节排版失败"
                 isLayingOut = false
+                pendingPageTurns.clear()
             }
         }
     }

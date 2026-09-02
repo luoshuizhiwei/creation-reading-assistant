@@ -20,6 +20,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
+import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.ui.screen.reader.tts.TtsController
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
@@ -94,6 +95,8 @@ internal data class ReaderContentSourceState(
     val focusBlockIndex: Int?,
     val epubBringRequester: BringIntoViewRequester,
     val readingUnits: List<ReadingUnit>,
+    /** 只供 TXT 完整逻辑章投影使用；display 文本绝不能成为持久化坐标真源。 */
+    val replaceRules: List<ReplaceRule>,
     val isTxt: Boolean,
     val showTts: Boolean,
     val tts: TtsController,

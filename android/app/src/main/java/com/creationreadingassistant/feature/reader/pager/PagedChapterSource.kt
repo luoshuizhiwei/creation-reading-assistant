@@ -12,6 +12,16 @@ data class PagedChapterContent(
     val blocks: List<LayoutBlock>,
 )
 
+/** 坐标是否能作为持久化 source locator 的真源。 */
+enum class ReplacementCoordinateSpace {
+    /** TXT 等路径：章节偏移、选择与持久化 locator 均以原始 source 为准。 */
+    SOURCE,
+    /** EPUB 提取文本的章节长度/偏移仅用于展示与估算。 */
+    ESTIMATED,
+    /** Markdown 已渲染为 canonical display，尚未形成完整持久化 source 契约。 */
+    CANONICAL_DISPLAY,
+}
+
 interface PagedChapterSource {
 
     val chapterCount: Int
@@ -21,6 +31,9 @@ interface PagedChapterSource {
     fun chapterStartAbs(index: Int): Int
 
     val totalChars: Int
+
+    val replacementCoordinateSpace: ReplacementCoordinateSpace
+        get() = ReplacementCoordinateSpace.SOURCE
 
     val chapterLengthsAreEstimated: Boolean get() = false
 
@@ -211,6 +224,8 @@ class EpubChapterSource(
 ) : PagedChapterSource {
 
     override val chapterCount: Int get() = titles.size
+    override val replacementCoordinateSpace: ReplacementCoordinateSpace
+        get() = ReplacementCoordinateSpace.ESTIMATED
     override val chapterLengthsAreEstimated: Boolean get() = true
     override fun chapterTitle(index: Int): String = titles.getOrNull(index) ?: ""
     override fun chapterStartAbs(index: Int): Int = chapterStartOffsets.getOrNull(index) ?: 0

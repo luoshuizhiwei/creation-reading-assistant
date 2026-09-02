@@ -16,6 +16,8 @@ class MarkdownChapterSource(
 
     override val chapterCount: Int get() = document.chapters.size
     override val totalChars: Int get() = document.totalChars
+    override val replacementCoordinateSpace: ReplacementCoordinateSpace
+        get() = ReplacementCoordinateSpace.CANONICAL_DISPLAY
 
     override fun chapterTitle(index: Int): String =
         document.chapters.getOrNull(index)?.title ?: ""

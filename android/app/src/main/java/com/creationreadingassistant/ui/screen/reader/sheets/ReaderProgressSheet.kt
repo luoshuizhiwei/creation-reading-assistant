@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.ui.screen.reader.formatDuration
 
+/** Progress-sheet input is always a book percentage, never an inferred chapter number. */
+internal fun progressSheetTargetPercent(percent: Float): Float = percent.coerceIn(0f, 100f)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun ProgressSheet(
@@ -54,9 +57,7 @@ internal fun ProgressSheet(
     val size = epubBook?.chapters?.size ?: 0
 
     fun seekTo(percent: Float) {
-        val p = percent.coerceIn(0f, 100f)
-        if (size > 0) onChapter((p / 100f * size).toInt().coerceIn(0, size - 1))
-        else onSeekPercent(p)
+        onSeekPercent(progressSheetTargetPercent(percent))
     }
 
     ReaderSheetScaffold(title = "阅读进度", modifier = Modifier) {

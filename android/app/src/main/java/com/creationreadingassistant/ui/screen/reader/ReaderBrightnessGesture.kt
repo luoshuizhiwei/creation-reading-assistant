@@ -45,6 +45,27 @@ import androidx.compose.foundation.gestures.awaitVerticalDragOrCancellation
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.Dp
+import com.creationreadingassistant.data.settings.ReaderSettings
+
+/** The fixed value used when an edge gesture leaves follow-system mode. */
+internal fun brightnessGestureInitialValue(
+    readerBrightness: Int,
+    lastFixedBrightness: Int,
+): Int = if (readerBrightness < 0) {
+    lastFixedBrightness.coerceIn(0, 100)
+} else {
+    readerBrightness.coerceIn(0, 100)
+}
+
+/** Avoid writing DataStore again when a gesture leaves a fixed value unchanged. */
+internal fun shouldCommitBrightnessGesture(startBrightness: Int, finalBrightness: Int): Boolean =
+    startBrightness < 0 || startBrightness.coerceIn(0, 100) != finalBrightness.coerceIn(0, 100)
+
+/** A manual gesture always keeps the active and remembered fixed values together. */
+internal fun ReaderSettings.withCommittedGestureBrightness(brightness: Int): ReaderSettings {
+    val fixedBrightness = brightness.coerceIn(0, 100)
+    return copy(brightness = fixedBrightness, lastFixedBrightness = fixedBrightness)
+}
 
 /**
  * 阅读器左/右边缘上下滑调亮度的 Modifier（起点读书同款交互）。
@@ -95,16 +116,13 @@ internal fun Modifier.readerBrightnessEdgeGesture(
             if (!inLeftEdge && !inRightEdge) return@awaitEachGesture
 
             // 判定命中亮度手势 → 记录初始亮度，进入纵向拖拽监听。
-            val initial = if (currentReaderBrightness < 0) {
-                // 从跟随系统跳出：用上次固定亮度作为起点；回调时一并切出去。
-                currentLastFixed.coerceIn(0, 100).also { currentOnChange(it) }
-            } else {
-                currentReaderBrightness.coerceIn(0, 100)
-            }
+            val startingBrightness = currentReaderBrightness
+            val initial = brightnessGestureInitialValue(startingBrightness, currentLastFixed)
             // 小震动：告诉用户「已经进入亮度调节模式」。
             scope.launch { haptic(HapticFeedbackType.TextHandleMove) }
             currentOnActive(true)
             var running = initial.toFloat()
+            var lastReported: Int? = null
             @Suppress("UNUSED_VARIABLE")
             val velocityTracker = VelocityTracker()
 
@@ -118,8 +136,13 @@ internal fun Modifier.readerBrightnessEdgeGesture(
                     val deltaPercent = -(dy / h.coerceAtLeast(1f)) * 100f
                     running = (running + deltaPercent).coerceIn(0f, 100f)
                     val next = running.toInt()
-                    if (next != currentReaderBrightness) {
+                    if (
+                        next != lastReported &&
+                        next != initial &&
+                        shouldCommitBrightnessGesture(startingBrightness, next)
+                    ) {
                         currentOnChange(next)
+                        lastReported = next
                     }
                     // 防止事件继续被下一层 scrollable / clickable 消费（滚动 TXT 分支特别容易抢）。
                     event.consume()

@@ -39,8 +39,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
-import com.creationreadingassistant.feature.reader.doc.UnitTextLoader
-import com.creationreadingassistant.feature.reader.doc.UnitTextState
+import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentLoader
+import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentState
+import com.creationreadingassistant.feature.reader.pager.ScrollingTxtChapterSource
+import com.creationreadingassistant.feature.reader.pager.loadScrollUnitContent
+import com.creationreadingassistant.feature.reader.pager.preparePagedReplacement
+import com.creationreadingassistant.feature.reader.rules.ScrollUnitProjection
 import com.creationreadingassistant.ui.theme.ShimmerBlock
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.launch
@@ -66,12 +70,34 @@ internal fun ReaderContentHostPlainTextBranch(
     val loadingPlaceholderHeight = with(LocalDensity.current) {
         (settings.readerSettings.fontSize * settings.readerSettings.lineHeight * 3).sp.toDp()
     }
-    // 流式 TXT：组合路径只读 UnitTextLoader 的可观察状态，阻塞 readUnit
-    // 在 loader 的 IO dispatcher 上执行；文档变化时 switchDocument 作废旧请求。
-    val unitTextLoader = remember { UnitTextLoader() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(txtDoc) {
-        if (txtDoc != null) unitTextLoader.switchDocument(txtDoc)
+    // 滚动 TXT 的显示文本必须来自完整逻辑章投影。ReadingUnit 仅作为有界渲染
+    // 单元，所有选择、搜索、高亮和 TTS 的持久化坐标都由 projection 映射回 source。
+    val scrollSource = remember(
+        s.bid,
+        txtDoc,
+        s.plainContent,
+        s.readingUnits,
+        s.replaceRules,
+    ) {
+        val delegate = if (txtDoc != null) {
+            ScrollingTxtChapterSource.fromDocument(txtDoc)
+        } else {
+            ScrollingTxtChapterSource.fromText(s.plainContent, s.readingUnits)
+        }
+        if (s.bid.isBlank()) {
+            delegate
+        } else {
+            preparePagedReplacement(
+                delegate = delegate,
+                bookId = s.bid,
+                rules = s.replaceRules,
+            ).source
+        }
+    }
+    val unitContentLoader = remember { ScrollUnitContentLoader() }
+    LaunchedEffect(scrollSource) {
+        unitContentLoader.switchSource(scrollSource)
     }
     // 单次轻点手势仲裁门：readOnly 文本域观察器按下时 claim，父级抬起时
     // consumeClaimIfAny；正文轻点走子路径，父层只负责空白/边距，避免双切换。
@@ -99,74 +125,45 @@ internal fun ReaderContentHostPlainTextBranch(
                 items = s.readingUnits,
                 key = { _, unit -> unit.unitIndex },
             ) { _, unit ->
-                if (txtDoc != null) {
-                    // 异步加载：Loading/Loaded/Failed 状态可观察；快速切章/换书时
-                    // 旧请求被 LaunchedEffect 取消 + switchDocument 代次守卫丢弃。
-                    val unitState = unitTextLoader.stateFor(txtDoc, unit.unitIndex)
-                    LaunchedEffect(txtDoc, unit) {
-                        unitTextLoader.load(txtDoc, unit.unitIndex) { txtDoc.readUnit(unit) }
+                val unitState = unitContentLoader.stateFor(scrollSource, unit.unitIndex)
+                LaunchedEffect(scrollSource, unit) {
+                    unitContentLoader.load(scrollSource, unit.unitIndex) {
+                        scrollSource.loadScrollUnitContent(unit)
                     }
-                    DisposableEffect(txtDoc, unit.unitIndex) {
-                        onDispose { unitTextLoader.release(txtDoc, unit.unitIndex) }
-                    }
-                    when (val st = unitState.value) {
-                        is UnitTextState.Loaded -> ReaderUnitTextItem(
-                            unitText = st.text,
-                            unit = unit,
-                            state = state,
-                            callbacks = callbacks,
-                            fontFamily = readerFontFamily,
-                            searchHitRangeAbs = s.searchHitRangeAbs,
-                            tapGate = tapGate,
-                        )
-
-                        UnitTextState.Loading -> {
-                            // 最小高度占位 + 加载语义：避免内容完成时零高→全高的跳动，
-                            // 高度按 3 行正文估算（与正文行高同源）。
-                            ShimmerBlock(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    // LazyColumn 已在 contentPadding 统一扣除页边距；
-                                    // 这里不能再扣一次，否则加载中占位比真实正文窄一层，
-                                    // 单元完成后会出现跨设备可见的宽度跳变。
-                                    .padding(
-                                        vertical = 6.dp,
-                                    )
-                                    .height(loadingPlaceholderHeight)
-                                    .semantics { contentDescription = "正在加载正文" },
-                                reducedMotion = reducedMotion,
-                            )
-                        }
-
-                        is UnitTextState.Failed -> UnitTextFailedItem(
-                            cause = st.cause,
-                            paperFg = settings.paperFg,
-                            // 仅显式点击触发重试；不靠滚走/重组碰运气
-                            onRetry = {
-                                scope.launch {
-                                    unitTextLoader.retry(txtDoc, unit.unitIndex) {
-                                        txtDoc.readUnit(unit)
-                                    }
-                                }
-                            },
-                        )
-                    }
-                } else {
-                    // 小文件 TXT：全文已在内存，组合阶段直接切片（无 I/O）
-                    val unitText = remember(unit.unitIndex, s.plainContent) {
-                        s.plainContent.substring(
-                            unit.charStart,
-                            (unit.charStart + unit.charCount).coerceAtMost(s.plainContent.length),
-                        )
-                    }
-                    ReaderUnitTextItem(
-                        unitText = unitText,
+                }
+                DisposableEffect(scrollSource, unit.unitIndex) {
+                    onDispose { unitContentLoader.release(scrollSource, unit.unitIndex) }
+                }
+                when (val loaded = unitState.value) {
+                    is ScrollUnitContentState.Loaded -> ReaderUnitTextItem(
+                        content = loaded.content,
                         unit = unit,
                         state = state,
                         callbacks = callbacks,
                         fontFamily = readerFontFamily,
                         searchHitRangeAbs = s.searchHitRangeAbs,
                         tapGate = tapGate,
+                    )
+
+                    ScrollUnitContentState.Loading -> ShimmerBlock(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 6.dp)
+                            .height(loadingPlaceholderHeight)
+                            .semantics { contentDescription = "正在加载正文" },
+                        reducedMotion = reducedMotion,
+                    )
+
+                    is ScrollUnitContentState.Failed -> UnitTextFailedItem(
+                        cause = loaded.cause,
+                        paperFg = settings.paperFg,
+                        onRetry = {
+                            scope.launch {
+                                unitContentLoader.retry(scrollSource, unit.unitIndex) {
+                                    scrollSource.loadScrollUnitContent(unit)
+                                }
+                            }
+                        },
                     )
                 }
             }
@@ -208,11 +205,12 @@ private fun UnitTextFailedItem(
 
 /**
  * 滚动 TXT 单条 ReadingUnit 的纯渲染（TTS 高亮 + 选区 + BasicTextField）。
- * 文本由调用方提供（流式模式来自 [UnitTextLoader]，小文件模式来自内存切片）。
+ * 文本和坐标映射由 [ScrollUnitContentLoader] 在 IO 线程加载。display 仅用于
+ * 渲染；持久化定位始终映射回 source 全局坐标。
  */
 @Composable
 private fun ReaderUnitTextItem(
-    unitText: String,
+    content: ScrollUnitProjection,
     unit: ReadingUnit,
     state: ReaderContentHostState,
     callbacks: ReaderContentHostCallbacks,
@@ -224,6 +222,8 @@ private fun ReaderUnitTextItem(
     val selectionState = state.selection
     val paging = state.paging
     val s = state.source
+    val effectiveText = content.displayText
+    val effectiveLength = effectiveText.length
     val ttsRange = if (s.showTts && s.tts.status != "idle" && s.isTxt) {
         if (s.txtStreamingDocument != null) {
             // 流式 TXT：contentText 是窗口，sentenceRange 是窗口内偏移
@@ -236,14 +236,44 @@ private fun ReaderUnitTextItem(
     } else {
         0 to 0
     }
-    val localStart = (ttsRange.first - unit.charStart).coerceIn(0, unitText.length)
-    val localEnd = (ttsRange.second - unit.charStart).coerceIn(0, unitText.length)
-    val searchLocal = searchHitRangeAbs?.let {
-        intersectTextRange(unit.charStart, unitText.length, it.first until it.second)
+    val localStart = content.globalSourceToLocalDisplay(ttsRange.first)
+    val localEnd = content.globalSourceToLocalDisplay(ttsRange.second)
+    val searchLocal = searchHitRangeAbs?.let { abs ->
+        intersectTextRange(unit.charStart, unit.charCount, abs.first until abs.second)
+            ?.let { content.globalSourceRangeToLocalDisplay(it.first, it.last + 1) }
     }
-    val annotated = remember(unitText, localStart, localEnd, settings.sentenceHighlightBg, settings.searchHighlightBg, searchLocal) {
-        if (localEnd > localStart || searchLocal != null) {
-            AnnotatedString.Builder(unitText).apply {
+    val persistentHighlightSpans = remember(s.highlights, content, settings.paper) {
+        s.highlights.mapNotNull { highlight ->
+            val start = parseLocatorOffset(highlight.locator_json) ?: return@mapNotNull null
+            val length = highlightSourceLength(highlight.payload, highlight.text.length)
+            if (length <= 0) return@mapNotNull null
+            val end = (start.toLong() + length.toLong()).coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
+            val intersectionStart = maxOf(start, content.sourceStartAbs)
+            val intersectionEnd = minOf(end, content.sourceEndAbs)
+            if (intersectionEnd <= intersectionStart) return@mapNotNull null
+            val displayRange = content.globalSourceRangeToLocalDisplay(intersectionStart, intersectionEnd)
+            if (displayRange.second <= displayRange.first) return@mapNotNull null
+            Triple(
+                displayRange.first,
+                displayRange.second,
+                settings.paper.highlight(highlight.color ?: "yellow"),
+            )
+        }
+    }
+    val annotated = remember(
+        effectiveText,
+        localStart,
+        localEnd,
+        settings.sentenceHighlightBg,
+        settings.searchHighlightBg,
+        searchLocal,
+        persistentHighlightSpans,
+    ) {
+        if (localEnd > localStart || searchLocal != null || persistentHighlightSpans.isNotEmpty()) {
+            AnnotatedString.Builder(effectiveText).apply {
+                persistentHighlightSpans.forEach { (start, end, color) ->
+                    addStyle(SpanStyle(background = color), start, end)
+                }
                 if (localEnd > localStart) {
                     addStyle(
                         SpanStyle(background = settings.sentenceHighlightBg),
@@ -255,27 +285,31 @@ private fun ReaderUnitTextItem(
                     addStyle(
                         SpanStyle(background = settings.searchHighlightBg),
                         searchLocal.first,
-                        searchLocal.last + 1,
+                        searchLocal.second,
                     )
                 }
             }.toAnnotatedString()
         } else {
-            AnnotatedString(unitText)
+            AnnotatedString(effectiveText)
         }
     }
-    var selection by remember(unit.charStart) { mutableStateOf(TextRange.Zero) }
+    var selection by remember(content.sourceStartAbs) { mutableStateOf(TextRange.Zero) }
     BasicTextField(
         value = TextFieldValue(annotatedString = annotated, selection = selection),
         onValueChange = { value ->
             selection = value.selection
             if (value.selection != TextRange.Zero && value.selection.length > 0) {
+                val selectionStart = minOf(value.selection.start, value.selection.end)
+                    .coerceIn(0, effectiveLength)
+                val selectionEnd = maxOf(value.selection.start, value.selection.end)
+                    .coerceIn(0, effectiveLength)
                 callbacks.onSelect(
-                    unitText.substring(value.selection.start, value.selection.end),
+                    effectiveText.substring(selectionStart, selectionEnd),
                     -1,
-                    unit.charStart + value.selection.start,
-                    unit.charStart + value.selection.end,
+                    content.localDisplayToGlobalSource(selectionStart),
+                    content.localDisplayToGlobalSource(selectionEnd),
                 )
-            } else if (selectionState.selectedRangeStart in unit.charStart until (unit.charStart + unitText.length)) {
+            } else if (selectionState.selectedRangeStart in content.sourceStartAbs until content.sourceEndAbs) {
                 callbacks.onSelect("", -1, -1, -1)
             }
         },

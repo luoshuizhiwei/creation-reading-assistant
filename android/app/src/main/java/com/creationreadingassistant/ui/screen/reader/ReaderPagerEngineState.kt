@@ -56,14 +56,15 @@ internal data class PagerEngineState(
 )
 
 /**
- * 替换管理入口必须与实际渲染路径一致：分页引擎关闭时，即使为了预热或目录计算已经
- * 构造了 paged source，也不能把规则入口暴露给滚动/legacy 正文。
+ * 替换管理入口必须与实际渲染路径一致。传统滚动正文只有在完整逻辑章投影已接入时
+ * 才可使用规则；其余 legacy 路径仍不得因为预热 source 而误开放入口。
  */
 internal fun effectiveReplacementAvailability(
     pagerEngineOn: Boolean,
     prepared: PagedReplacementAvailability?,
+    scrollProjectionOn: Boolean = false,
 ): PagedReplacementAvailability = when {
-    !pagerEngineOn -> PagedReplacementAvailability.PAGER_ENGINE_DISABLED
+    !pagerEngineOn && !scrollProjectionOn -> PagedReplacementAvailability.PAGER_ENGINE_DISABLED
     prepared != null -> prepared
     else -> PagedReplacementAvailability.SOURCE_UNAVAILABLE
 }
@@ -236,6 +237,9 @@ internal fun rememberPagerEngineState(
     val replacementAvailability = effectiveReplacementAvailability(
         pagerEngineOn = pagerEngineOn,
         prepared = preparedPagedSource?.availability,
+        // 与 ReaderContentHost 的 TXT else 分支一致：只有有界 ReadingUnit 存在时，
+        // 滚动正文才会走完整逻辑章投影；空内容和非 TXT 继续维持不可用。
+        scrollProjectionOn = !pagerEngineOn && txtChapters.isNotEmpty() && readingUnits.isNotEmpty(),
     )
 
     return PagerEngineState(

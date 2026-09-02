@@ -24,6 +24,13 @@ internal data class MarkdownScrollHit(
 )
 
 /**
+ * Converts a rendered Markdown unit's canonical position to the owning document position.
+ * Invalid coordinates must stay invalid: persisting a guessed zero would corrupt restore anchors.
+ */
+internal fun markdownUnitGlobalOffset(blockGlobalOffset: Int, canonicalStart: Int): Int =
+    if (blockGlobalOffset < 0 || canonicalStart < 0) -1 else blockGlobalOffset + canonicalStart
+
+/**
  * 找到包含命中（或紧邻其前）的 Markdown 渲染单元索引（P1-A 精确滚动定位）。
  *
  * 与 [markdownScrollSearchHits] 使用同一 parser canonical mapping：

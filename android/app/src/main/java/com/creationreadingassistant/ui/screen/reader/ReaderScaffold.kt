@@ -313,7 +313,7 @@ internal fun ReaderScaffold(
                 readerBrightness = readerSettings.brightness,
                 lastFixedBrightness = readerSettings.lastFixedBrightness,
                 onBrightnessChange = { next ->
-                    settingsVm.updateReader { copy(brightness = next) }
+                    settingsVm.updateReader { withCommittedGestureBrightness(next) }
                 },
                 onGestureActiveChange = { brightnessHudVisible = it },
             ),
@@ -414,6 +414,7 @@ internal fun ReaderScaffold(
                                     focusBlockIndex = focusBlockIndex,
                                     epubBringRequester = epubBringRequester,
                                     readingUnits = readingUnits,
+                                    replaceRules = inputs.ruleSnapshot.effectiveReplace,
                                     isTxt = isTxt,
                                     showTts = showTts,
                                     tts = tts,
@@ -576,4 +577,3 @@ internal fun ReaderScaffold(
     }
     }
 }
-

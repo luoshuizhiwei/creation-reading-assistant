@@ -26,6 +26,9 @@ object ReaderHardwareKeys {
     fun dispatch(event: KeyEvent): Boolean =
         dispatch(event.action, event.keyCode, event.repeatCount)
 
+    /** 媒体按钮没有音量键的 DOWN/UP 序列，直接复用当前阅读器方向处理器。 */
+    internal fun triggerDirection(direction: Int): Boolean = handler?.invoke(direction) == true
+
     /** 纯参数版本（JVM 可测）：action/keyCode/repeatCount 由 [dispatch] 从 KeyEvent 提取。 */
     internal fun dispatch(action: Int, keyCode: Int, repeatCount: Int): Boolean {
         val direction = when (keyCode) {

@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.screen.reader.sheets.HIGHLIGHT_COLORS
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.viewmodel.ReaderAction
 
 internal data class SelectionToolbarActionSpec(
     val id: String,
@@ -54,6 +55,13 @@ internal val selectionMoreActions = listOf(
     SelectionToolbarActionSpec("inspiration", "记为灵感"),
     SelectionToolbarActionSpec("search", "搜索"),
     SelectionToolbarActionSpec("cancel", "取消选择"),
+)
+
+/** Snapshot the selection before clearing it so the search field never receives an empty query. */
+internal fun readerSelectionSearchActions(selectedText: String): List<ReaderAction> = listOf(
+    ReaderAction.SetSearchQuery(selectedText),
+    ReaderAction.ClearSelection,
+    ReaderAction.OpenSheet(ReaderSheet.SEARCH),
 )
 
 @Composable

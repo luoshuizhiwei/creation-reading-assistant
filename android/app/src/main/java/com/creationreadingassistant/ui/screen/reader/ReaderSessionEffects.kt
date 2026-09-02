@@ -229,7 +229,7 @@ internal fun ReaderSessionEffects(
         onVolumeUp = {
             val consumed = readerVolumeKeyTurn(
                 -1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
-                epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState,
+                epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState, epubListState,
             )
             if (consumed) onAction(ReaderAction.PageTurn)
             consumed
@@ -237,7 +237,7 @@ internal fun ReaderSessionEffects(
         onVolumeDown = {
             val consumed = readerVolumeKeyTurn(
                 1, readerSettings, screenState.showTts, pagerEngineOn, pagedHardwareTurnRequest,
-                epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState,
+                epubBook, markdownDocument, chapterIndex, goToChapter, scope, plainListState, epubListState,
             )
             if (consumed) onAction(ReaderAction.PageTurn)
             consumed
