@@ -16,4 +16,10 @@
     <string name="home_see_all">全部</string>
     <string name="home_open_search">搜索</string>
     <string name="back">返回</string>
+    <string name="heatmap_weekday_mon">一</string>
+    <string name="heatmap_weekday_wed">三</string>
+    <string name="heatmap_weekday_fri">五</string>
+    <string name="heatmap_weekday_sun">日</string>
+    <string name="heatmap_intensity_less">少</string>
+    <string name="heatmap_intensity_more">多</string>
 </resources>

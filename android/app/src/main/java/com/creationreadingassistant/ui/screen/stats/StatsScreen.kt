@@ -27,6 +27,7 @@ import com.creationreadingassistant.ui.screen.stats.components.PeriodSelector
 import com.creationreadingassistant.ui.screen.stats.components.StatusSection
 import com.creationreadingassistant.ui.screen.stats.components.SummaryGroup
 import com.creationreadingassistant.ui.screen.stats.components.TrendSection
+import com.creationreadingassistant.ui.screen.stats.components.HeatmapSection
 
 /**
  * 纯 StatsScreen：单一 AppScreenScaffold + 唯一 PageLazyColumn，
@@ -92,6 +93,9 @@ internal fun StatsScreen(
                 }
                 item(key = "creation") {
                     CreationSection(stats = stats)
+                }
+                item(key = "heatmap") {
+                    HeatmapSection(heatmap = state.heatmap)
                 }
                 if (state.showPeriodEmpty) {
                     item(key = "period-empty") {

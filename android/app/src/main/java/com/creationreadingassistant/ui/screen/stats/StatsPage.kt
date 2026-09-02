@@ -105,6 +105,8 @@ internal data class StatsUiState(
     val showPeriodEmpty: Boolean = false,
     /** 今日目标投影；null = 目标关闭（进度环整体不组合）。 */
     val goal: GoalUi? = null,
+    /** 全年阅读热力图（GitHub 贡献图风格），与周期无关；空列表 = 无数据。 */
+    val heatmap: List<HeatmapCell> = emptyList(),
 )
 
 /**
@@ -135,6 +137,40 @@ internal fun computeTodayReadingMs(
 /* ========== 格式化函数（保留在 stats 子包，仍属于"日期范围/分桶/连续天数之外"的纯格式） ========== */
 
 internal fun formatThousands(value: Int): String = String.format(Locale.US, "%,d", value)
+
+/** 统计页热力图的单日聚合结果；时长为真源，intensity 仅供渲染着色。 */
+internal data class HeatmapCell(
+    val date: LocalDate,
+    val durationMs: Long,
+    val intensity: Float,
+)
+
+/**
+ * 全年阅读热力图数据（GitHub 贡献图风格）。
+ * 与周期无关：始终基于全部 sessions 生成「截至 today 往前 365 天」的连续窗口，
+ * 每格携带当日有效阅读时长与归一化 intensity（0~1，供着色）。
+ * 无阅读记录时返回 365 个 durationMs=0 的占位 cell，HeatmapSection 渲染为空网格。
+ */
+internal fun buildHeatmap(
+    sessions: List<StatsSessionRow>,
+    today: LocalDate = LocalDate.now(),
+): List<HeatmapCell> {
+    val valid = sessions.filter { sessionDuration(it) > 0L }
+    val byDate = valid.groupingBy { sessionDateKey(it) }
+        .fold(0L) { acc, s -> acc + sessionDuration(s) }
+    val end = today
+    val start = end.minusDays(364)
+    val maxMs = (byDate.values.maxOrNull() ?: 0L).coerceAtLeast(1L)
+    val cells = ArrayList<HeatmapCell>(365)
+    var d = start
+    while (!d.isAfter(end)) {
+        val ms = byDate[toDateKey(d)] ?: 0L
+        val intensity = if (ms <= 0L) 0f else (ms.toFloat() / maxMs).coerceIn(0f, 1f)
+        cells += HeatmapCell(date = d, durationMs = ms, intensity = intensity)
+        d = d.plusDays(1)
+    }
+    return cells
+}
 
 internal fun formatCompactDuration(ms: Long): String {
     if (ms <= 0) return "0 分钟"

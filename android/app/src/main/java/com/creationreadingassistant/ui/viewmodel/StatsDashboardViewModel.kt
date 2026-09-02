@@ -17,6 +17,8 @@ import com.creationreadingassistant.ui.screen.stats.StatsUiState
 import com.creationreadingassistant.ui.screen.stats.computeStats
 import com.creationreadingassistant.ui.screen.stats.computeTodayReadingMs
 import com.creationreadingassistant.ui.screen.stats.isCurrentPeriod
+import com.creationreadingassistant.ui.screen.stats.HeatmapCell
+import com.creationreadingassistant.ui.screen.stats.buildHeatmap
 import com.creationreadingassistant.ui.screen.stats.periodTitle
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.LocalDate
@@ -100,6 +102,8 @@ class StatsDashboardViewModel @Inject constructor(
      */
     private var cachedTables: StatsTables? = null
     private val statsCache = HashMap<Pair<StatsPeriod, LocalDate>, StatsUi>()
+    /** 热力图与周期无关，随 tables 变化整体失效复用（与 statsCache 同生命周期）。 */
+    private var cachedHeatmap: List<HeatmapCell>? = null
 
     /**
      * ViewModel 输出完整 [StatsUiState]。
