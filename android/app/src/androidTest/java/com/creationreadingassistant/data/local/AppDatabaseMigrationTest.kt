@@ -1235,6 +1235,55 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    // ─── 10 → 11：全文搜索派生索引表 ─────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_10_to_11_adds_search_index_tables_without_touching_books() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 10)
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-11-book', '测试 TXT', NULL, 'txt', 'sample.txt', 'hash-11', " +
+                "1024, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-01T00:00:00Z', NULL)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 11, true, AppDatabase.MIGRATION_10_11,
+        )
+
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-11-book'")
+        assertTrue("既有书库数据应保留", bookCursor.moveToFirst())
+        assertEquals("测试 TXT", bookCursor.getString(0))
+        bookCursor.close()
+
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, hits, offsets) " +
+                "VALUES ('测试', 'migration-11-book', 0, 2, '0:2')",
+        )
+        db.execSQL(
+            "INSERT INTO search_index_state (id, tokenizer_version, last_scanned_book_id, " +
+                "last_scanned_chapter_index, built_at) VALUES (1, 2, 'migration-11-book', 0, 1)",
+        )
+        val indexCursor = db.query(
+            "SELECT hits FROM search_terms WHERE term = '测试' AND book_id = 'migration-11-book'",
+        )
+        assertTrue("search_terms 应可读写", indexCursor.moveToFirst())
+        assertEquals(2, indexCursor.getInt(0))
+        indexCursor.close()
+
+        val indexNames = listOf("index_search_terms_term", "index_search_terms_book")
+        indexNames.forEach { name ->
+            val cursor = db.query("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?", arrayOf(name))
+            assertTrue("索引 $name 应存在", cursor.moveToFirst())
+            cursor.close()
+        }
+        db.close()
+    }
+
     private fun assertStableDenseOrder(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         table: String,

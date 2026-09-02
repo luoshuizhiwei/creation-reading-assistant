@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Context
 import android.os.Trace
 import android.util.Log
+import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
 import dagger.hilt.EntryPoint
@@ -121,4 +122,11 @@ internal object AppContextHolder {
 @InstallIn(SingletonComponent::class)
 internal interface EpubRepairEntryPoint {
     fun epubSizeRepairTask(): EpubSizeRepairTask
+}
+
+/** WorkManager 进程外重建时获取全文搜索索引仓储的 Hilt 入口。 */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface SearchIndexEntryPoint {
+    fun repository(): SearchIndexRepository
 }

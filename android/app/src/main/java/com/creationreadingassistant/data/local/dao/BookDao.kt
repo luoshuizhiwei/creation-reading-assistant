@@ -91,6 +91,10 @@ interface BookContentDao {
     @Query("SELECT * FROM book_content WHERE book_id = :bookId")
     suspend fun getByBook(bookId: String): BookContentEntity?
 
+    /** 搜索结果批量读取预览，避免按 bookId 循环查询造成 N+1 I/O。 */
+    @Query("SELECT * FROM book_content WHERE book_id IN (:bookIds)")
+    suspend fun getPreviewsByBookIds(bookIds: List<String>): List<BookContentEntity>
+
     @Query("SELECT COUNT(*) FROM book_content WHERE reader_preview IS NOT NULL OR epub_json IS NOT NULL")
     fun observeCachedCount(): Flow<Int>
 

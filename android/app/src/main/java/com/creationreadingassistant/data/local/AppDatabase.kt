@@ -28,6 +28,10 @@ import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.dao.ChapterReadDao
+import com.creationreadingassistant.data.local.dao.SearchIndexStateDao
+import com.creationreadingassistant.data.local.dao.SearchIndexStateRow
+import com.creationreadingassistant.data.local.dao.SearchTermDao
+import com.creationreadingassistant.data.local.dao.SearchTermRow
 import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookFileEntity
@@ -57,7 +61,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 10
+const val APP_DATABASE_SCHEMA_VERSION = 11
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -80,6 +84,8 @@ const val APP_DATABASE_SCHEMA_VERSION = 10
  *    目录/替换规则的持久化底座，不接入任何读取路径
  *  - v9→v10：新增章节已读表 chapter_reads（片 1）；tags/shelves 两表补
  *    sort_order 列并统一 ORDER BY sort_order ASC, created_at ASC 兜底排序（片 3）
+ *  - v10→v11：新增本地全文索引表 search_terms 与断点表 search_index_state；
+ *    只新增派生数据，绝不修改书库、进度或阅读批注
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -95,6 +101,8 @@ const val APP_DATABASE_SCHEMA_VERSION = 10
         ReaderAnchorCacheEntity::class,
         ReaderTextRuleEntity::class,
         ChapterReadEntity::class,
+        SearchTermRow::class,
+        SearchIndexStateRow::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -121,6 +129,8 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun readerAnchorCacheDao(): ReaderAnchorCacheDao
     abstract fun readerTextRuleDao(): ReaderTextRuleDao
     abstract fun chapterReadDao(): ChapterReadDao
+    abstract fun searchTermDao(): SearchTermDao
+    abstract fun searchIndexStateDao(): SearchIndexStateDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -298,6 +308,44 @@ abstract class AppDatabase : RoomDatabase() {
                 db.execSQL(
                     "CREATE INDEX IF NOT EXISTS `index_chapter_reads_book_id` " +
                         "ON `chapter_reads` (`book_id`)",
+                )
+            }
+        }
+
+        /**
+         * v10→v11：本地全文搜索的派生索引与增量扫描断点。
+         *
+         * 两表均不持有用户正文：search_terms 只存分词、命中次数和可选短偏移；
+         * search_index_state 只存构建进度。迁移仅 CREATE TABLE/INDEX，不触碰既有数据。
+         */
+        val MIGRATION_10_11 = object : Migration(10, 11) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `search_terms` (" +
+                        "`term` TEXT NOT NULL, " +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`chapter_index` INTEGER NOT NULL, " +
+                        "`hits` INTEGER NOT NULL DEFAULT 0, " +
+                        "`offsets` TEXT, " +
+                        "PRIMARY KEY(`term`, `book_id`, `chapter_index`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_search_terms_term` " +
+                        "ON `search_terms` (`term`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_search_terms_book` " +
+                        "ON `search_terms` (`book_id`)",
+                )
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `search_index_state` (" +
+                        "`id` INTEGER NOT NULL, " +
+                        "`tokenizer_version` INTEGER NOT NULL DEFAULT 0, " +
+                        "`last_scanned_book_id` TEXT, " +
+                        "`last_scanned_chapter_index` INTEGER NOT NULL DEFAULT 0, " +
+                        "`built_at` INTEGER NOT NULL DEFAULT 0, " +
+                        "PRIMARY KEY(`id`))",
                 )
             }
         }
