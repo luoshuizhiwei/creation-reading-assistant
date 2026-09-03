@@ -56,4 +56,15 @@ describe("renderMarkdownWithToc", () => {
     const { toc } = renderMarkdownWithToc("## ***\n\n内容");
     expect(toc).toEqual([{ id: "heading-1", title: "标题 1", level: 2 }]);
   });
+
+  it("reuses original toc ids positionally for converted re-renders (繁简转换锚点稳定)", () => {
+    const original = renderMarkdownWithToc("## 开端\n\n正文\n\n## 讨论\n\n内容\n\n## 讨论\n\n更多");
+    const converted = renderMarkdownWithToc("## 開端\n\n正文\n\n## 討論\n\n內容\n\n## 討論\n\n更多", original.toc);
+    // 转换后渲染的 id 与原文目录严格一致（跳转/当前章跟踪不因转换失效）
+    expect(converted.toc).toEqual(original.toc);
+    expect(converted.html).toContain('<h2 id="开端">');
+    expect(converted.html).toContain('<h2 id="讨论">');
+    expect(converted.html).toContain('<h2 id="讨论-2">');
+    expect(converted.html).toContain("討論");
+  });
 });

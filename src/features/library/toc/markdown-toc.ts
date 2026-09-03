@@ -46,6 +46,7 @@ function uniqueSlug(value: string, ordinal: number, used: Set<string>): string {
 
 /** markdown-it 渲染是同步的，用模块级变量在单次 render 内传递目录结果。 */
 let currentRunToc: MarkdownTocItem[] = [];
+let currentFixedToc: MarkdownTocItem[] | null = null;
 
 markdown.core.ruler.push("cra_assign_heading_ids", (state) => {
   const used = new Set<string>();
@@ -55,17 +56,30 @@ markdown.core.ruler.push("cra_assign_heading_ids", (state) => {
     if (token.type !== "heading_open") continue;
     const inline = state.tokens[i + 1];
     ordinal += 1;
+    // 固定目录（繁简转换的二次渲染）：按位置复用原文目录的 id，保证转换前后锚点一致
+    const fixed = currentFixedToc ? currentFixedToc[ordinal - 1] : undefined;
+    if (fixed) {
+      token.attrSet("id", fixed.id);
+      currentRunToc.push(fixed);
+      continue;
+    }
     const cleaned = (inline?.content ?? "").replace(/[*_`~[\]()]/g, "").trim();
     const title = cleaned || `标题 ${ordinal}`;
     const id = uniqueSlug(cleaned, ordinal, used);
     token.attrSet("id", id);
-    currentRunToc.push({ id, title: title || `标题 ${ordinal}`, level: Number(token.tag.slice(1)) });
+    currentRunToc.push({ id, title, level: Number(token.tag.slice(1)) });
   }
 });
 
-/** 渲染 Markdown 并提取目录；返回的 HTML 中每个 <h1>-<h6> 都带有目录对应的唯一 id。 */
-export function renderMarkdownWithToc(content: string): { html: string; toc: MarkdownTocItem[] } {
+/**
+ * 渲染 Markdown 并提取目录；返回的 HTML 中每个 <h1>-<h6> 都带有目录对应的唯一 id。
+ * `fixedToc`：对"同结构、文本被替换"（繁简转换）的二次渲染，按位置复用原目录 id，
+ * 避免转换后的 slug 与目录/锚点错位。
+ */
+export function renderMarkdownWithToc(content: string, fixedToc?: MarkdownTocItem[]): { html: string; toc: MarkdownTocItem[] } {
   currentRunToc = [];
+  currentFixedToc = fixedToc ?? null;
   const html = markdown.render(content, {});
+  currentFixedToc = null;
   return { html, toc: currentRunToc };
 }

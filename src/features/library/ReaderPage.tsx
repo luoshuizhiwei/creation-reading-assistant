@@ -16,7 +16,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { BookmarkItem, ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
 import { formatDuration, readerShellClass, readerPaperClass, readerTextColor } from "@/utils/format";
-import { getConverter } from "@/utils/text-conversion";
+import { getConverter, convertTextSync } from "@/utils/text-conversion";
 import { renderMarkdownWithToc } from "@/features/library/toc/markdown-toc";
 import { computeAnchorScrollTop, computeTextAnchor, currentAnchorIdFromSpans, type AnchorSpan } from "@/features/library/toc/anchor";
 import type { TocEntry } from "@/features/library/toc/tree";
@@ -500,6 +500,7 @@ function TextReaderPage() {
 
   // --- 繁简转换 ---
   const [convertedContent, setConvertedContent] = useState(content);
+  const [converterTick, setConverterTick] = useState(0);
   useEffect(() => {
     if (!settings?.textConversion || settings.textConversion === "none") {
       setConvertedContent(content);
@@ -507,14 +508,29 @@ function TextReaderPage() {
     }
     let cancelled = false;
     getConverter(settings.textConversion).then((convert) => {
-      if (!cancelled) setConvertedContent(convert(content));
+      if (!cancelled) {
+        setConvertedContent(convert(content));
+        setConverterTick((tick) => tick + 1);
+      }
     });
     return () => { cancelled = true; };
   }, [content, settings?.textConversion]);
 
+  // 分章正文的转换：切片基于原文偏移、逐章转换，避免整本转换字长变化让
+  // 章节边界漂移（opencc 存在少量 1→多字映射）。转换器异步就绪后 tick 触发重渲染。
+  const txtChapterBodies = useMemo(() => {
+    if (activeBook?.format !== "txt" || txtChapters.length <= 1) return null;
+    const mode = settings?.textConversion ?? "none";
+    if (mode === "none") return null;
+    return txtChapters.map((ch) => convertTextSync(content.slice(ch.contentStart, ch.endIndex), mode));
+    // converterTick 参与依赖：转换器异步加载完成后重算
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBook?.format, txtChapters, content, settings?.textConversion, converterTick]);
+
   const convertedMd = useMemo(
-    () => (activeBook?.format === "md" ? renderMarkdownWithToc(convertedContent) : { html: "", toc: [] }),
-    [activeBook?.format, convertedContent]
+    // 繁简转换只替换文本不改变标题结构：按位置复用原文目录 id，锚点跨转换稳定
+    () => (activeBook?.format === "md" ? renderMarkdownWithToc(convertedContent, md.toc) : { html: "", toc: [] }),
+    [activeBook?.format, convertedContent, md.toc]
   );
   const convertedMarkdownHtml = convertedMd.html;
 
@@ -1006,7 +1022,9 @@ function TextReaderPage() {
                     </h2>
                   )}
                   {renderChapterParagraphs(
-                    convertedContent.slice(chapter.contentStart, chapter.endIndex)
+                    txtChapterBodies
+                      ? txtChapterBodies[idx]
+                      : convertedContent.slice(chapter.contentStart, chapter.endIndex)
                   )}
                 </div>
               ))
