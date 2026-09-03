@@ -592,3 +592,87 @@ Novalist 调研与取舍仍记录在
 - **未完成**：大纲「摘要」列无数据源按 §5 隐藏；styles.css→styles/ 目录完全拆分未做；
   专注模式的全局侧栏隐藏需跨层状态未做；「朱砚」方案（第 22 节）被本方案取代，
   其 tokens.css 层已被覆盖，仅 git 历史可考。
+
+## 24. 2026-09-03 Android 体验修复轮（趋势图/足迹/顶卡/封面/角标/字体）
+
+本轮为用户真机反馈集中修复（6 项），未提交，待用户统一验收后打包。
+
+- **教训记录（已两犯，禁止三犯）：书名等「书籍标题」一律用默认无衬线字体，
+  禁止 `DisplayFontFamily`。** 展示衬线是字形子集（按需生成的字符集），
+  覆盖不了全部汉字，缺字形回退到系统字体后同一标题内忽粗忽细。
+  2026-08 下旬修过一次，2026-09-03 又在书架/首页/占位封面复发并被用户再次指出。
+  本次清除点：`BookGrid`（网格+列表行）、`BookCover.MutedCoverFallback`、
+  `HomeContinueSection` 续读卡。`DisplayFontFamily` 仅保留在 App 级品牌位
+  （外壳大标题、空态组件、统计 hero 数字），**新增书籍标题 UI 时不得引入**。
+- 阅读趋势图（TrendSection）：柱区与日期行拆分为两个 Row，柱子上限 92→84dp，
+  修复长时长柱子溢出压住日期。
+- 统计页「365 天阅读足迹」空白根因：`StatsDashboardViewModel` 组装 `StatsUiState`
+  从未填 `heatmap` 字段（`cachedHeatmap` 声明后从未使用）→ 永远空列表。
+  已接入 `buildHeatmap(data.sessions)` 并按 tables 变化缓存失效。
+- 「我的」页顶卡可点击进入「我的阅读」（按书查看累计时长/进度/最近阅读），
+  副标题改「本地优先 · 点击查看阅读档案」并加 chevron。
+- 产品口径收敛（用户确认：规划中无独立「笔记」，只有灵感）：「我的」页「笔记」磁贴
+  改为「灵感」直达底部导航灵感中心（新增 `ProfileAction.OpenInspirations`）；
+  删除「我的书评 / 笔记」菜单项；阅读器选中工具条一级动作「笔记」移除，
+  「记为灵感」从更多菜单提升为一级（高亮/记为灵感/复制/更多）。
+  阅读器「笔记与标注」弹层保留（承载高亮/书签），未改名。
+- EPUB 封面：导入链路本有提取，但旧书记录不会补。新增启动补扫
+  `EpubRepository.backfillMissingEpubCovers()`（挂 `EpubSizeRepairTask.startOnce`，
+  与 size repair 各自独立 try），DAO 新增 `getEpubBooksMissingCover()`；
+  `EpubParser` 新增轻量 `resolveCoverEntry`（只读 container+OPF）与
+  `loadCoverDataUrl`（降采样→JPEG data URL，600px 口径与导入共用）。
+- 书架封面 TXT/EPUB 角标移除（用户反馈压封面碍眼）；`BookCover.showBadge`
+  参数删除，占位封面 `MutedCoverFallback` 的居中格式标注保留。
+- 热力图二次打磨（用户指定「像 agent 用量统计的网状图」）：放弃横向滚动方案，
+  改为整年铺满卡片宽度的自适应网格——格子 = (可用宽-(列数-1)×间隙)/列数，
+  手机上约 5dp/格、间隙 1dp，平板封顶 13dp 居中；格子 <8dp 时隐藏星期标签，
+  月份标签仅在距上一标签 ≥22dp 的列上绘制（防重叠）。图例恒在滚动区外可见。
+  此前一版「横向滚动 + 自动定位到最新周」已废弃，见 HeatmapSection.kt 重写。
+
+## 25. 2026-09-03 TXT 目录识别跨平台增强（用户需求：整合主流站点规则）
+
+- **验证先行**：新增 `TxtChapterDetectorPlatformCorpusTest`（起点/晋江/番茄/刺猬猫轻小说/
+  传统章回/英文 60+ 标题语料 + 12 条正文反例），跑在旧识别器上实测出 4 处缺陷后修复：
+  1. 漏检「上架感言/完本感言/新书感言」（起点系感言章）；
+  2. 漏检「最终话/最终章/最終話/间章/間章/幕间/末章」（刺猬猫/轻小说系）——新增平台专属
+     正则，与具名章同等弱单位待遇（副标题前必须有分隔符，「最终章节里」「间章的写法」仍是正文）；
+  3. 漏检「第廿三回」（NUM 补入 廿/卅）；
+  4. **误报**「第两百章之后的内容更精彩」被强单位模式吞成标题——强单位副标题加
+     `(?!$WS*[之的])` 负向断言（真实标题不会以「之/的」开头）。
+- **自动嗅探**：builtin 兜底成「全文」且正文 ≥3000 字时，按 num-dot → cn-num-dot →
+  bracketed → num-bare 顺序尝试编号样式候选（晋江/豆瓣/盐选系），每个候选独立过密度
+  验证（≥3 章 + 平均章长 ≥300），取通过者中章节数最多者；全部不过维持「全文」。
+  候选探测走 `allowSniff=false` 入口防递归。三个兜底路径（无命中/过密）统一收口
+  `fallbackOrSniff`。
+- **缓存失效**：`TxtTocProfile.fromRuleId` 的 builtin key 升为 `"builtin:s2"`——
+  旧磁盘索引/分页缓存（contentKey 含 profile key）自动失效重建。
+- 过程坑：嗅探首版把整本 text 当数字 `toDouble()`（NumberFormatException）+ 候选探测
+  未断开嗅探入口（StackOverflow 无限递归），已修并补
+  `TxtChapterDetectorAutoSniffTest`（6 条：正例 3 平台 + 风暴兜底 + 标准书不受影响 + 短文不嗅探）。
+
+## 26. 2026-09-03 桌面端目录（TOC）升级 P0-A + P0-B（独立 desktop 会话）
+
+设计与实施记录详见 `docs/plans/2026-09-03-desktop-toc-upgrade-design.md`（§9 实施记录）。
+
+- **结构分离（用户明确要求）**：TXT/MD 阅读器右侧"目录+设置"混合列拆开——目录成为
+  独立可收起侧栏（对齐 EPUB 的 56px/320px 形态），设置移入新组件
+  `ReaderSettingsDrawer`（与 `EpubSettingsDrawer` 同构）。
+- **共享目录模块** `src/features/library/toc/`：树派生（不改 EpubTocItem 落盘 schema）、
+  搜索过滤、当前章高亮 + 挂起式跟随（hover/focus 挂起，只滚目录不滚正文）、
+  >200 项默认折叠到顶层并自动展开当前路径；EPUB 当前项匹配升级为 fragment 优先
+  （`findCurrentTocItem`），TXT/MD 滚动锚点 rAF 节流跟踪、打开即计算一次。
+- **识别质量**：`txt-chapters.ts` 移植 Android 09-03 规则（强/弱单位、具名+平台章型、
+  感言/间章/最终话、廿/卅、负向断言、编号样式自动嗅探+密度守卫，≥3000 字才启用守卫/嗅探）；
+  `markdown-toc.ts` 改为 markdown-it token 流提取标题并注入 id（Setext 支持、代码块伪标题
+  排除、slug 唯一序号），目录与渲染标题严格对齐。
+- **坑位**：Android 具名表的「结局/大結局」未引入——桌面既有回归把独立成行「结局」判为
+  正文；`verify-reader-formats.mjs` 多条断言锚定 ReaderPage 内部实现，逻辑抽模块后必须
+  同步指向；TocList 在 flex 侧栏中需 `className="min-h-0 flex-1"` 否则长目录被
+  overflow-hidden 裁掉无滚动条。
+- **验证（2026-09-03 实跑）**：vitest 全量 766/0（新增 46 项：平台语料/嗅探/MD/tree/
+  current/filter）；`npm run build` ✅；`verify-reader-formats` ✅；probe-round7/8 ✅
+  （TXT/EPUB 新布局无横向溢出）；electron-smoke 12 checks ✅。
+- **既有问题（非本轮）**：`verify:beta --scope=desktop` 在 main 上报缺
+  `verify:reposition` 等 scope 脚本——547801c 清理一次性 QA 脚本时未同步 beta-check.mjs，
+  属集成者修复范围。
+- **未做**：P1 TXT 目录修正（编辑模式 + tocOverrides 持久化 + 导出链核对）待用户排期。

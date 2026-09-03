@@ -1,24 +1,28 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, ChartColumn, Copy, Highlighter, Quote, Settings, X } from "lucide-react";
-import MarkdownIt from "markdown-it";
+import { ArrowLeft, BookOpen, ChartColumn, Copy, Highlighter, List, Quote, Settings, X } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Button, EmptyState, ShellPanel } from "@/components/ui";
 import { EpubReaderPage } from "@/features/library/EpubReaderPage";
 import { ExcerptPicker } from "@/features/library/ExcerptPicker";
-import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
+import { ReaderSettingsDrawer } from "@/features/library/ReaderSettingsDrawer";
 import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
 import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
 import { useReaderProgress } from "@/hooks/useReaderProgress";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
 import { getHighlightsByBook, saveHighlight } from "@/services/annotation-service";
-import { updateReaderSettings } from "@/services/reader-service";
-import { resetReaderSettings } from "@/services/settings-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
 import { formatDuration, readerShellClass, readerPaperClass, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
+import { renderMarkdownWithToc } from "@/features/library/toc/markdown-toc";
+import { lastAnchorBeforeThreshold } from "@/features/library/toc/current";
+import { TocList } from "@/features/library/toc/TocList";
+import type { TocEntry } from "@/features/library/toc/tree";
+import { splitTxtChapters } from "@/features/library/toc/txt-chapters";
+export { splitTxtChapters } from "@/features/library/toc/txt-chapters";
+export type { TxtChapter } from "@/features/library/toc/txt-chapters";
 
 
 const HIGHLIGHT_COLORS_TXT: { value: HighlightColor; label: string; hex: string }[] = [
@@ -81,151 +85,12 @@ function sanitizeMarkdownHtml(html: string): string {
   });
 }
 
-const markdown = new MarkdownIt({
-  html: false,
-  linkify: true,
-  typographer: true
-});
-
-interface MarkdownTocItem {
-  id: string;
-  title: string;
-  level: number;
-}
-
-function slugify(value: string, index: number): string {
-  const slug = value
-    .trim()
-    .toLowerCase()
-    .replace(/[^\p{L}\p{N}]+/gu, "-")
-    .replace(/^-+|-+$/g, "");
-  return slug || `heading-${index + 1}`;
-}
-
-function markdownToc(content: string): MarkdownTocItem[] {
-  return content
-    .replace(/\r\n/g, "\n")
-    .split("\n")
-    .map((line, index) => {
-      const match = line.trim().match(/^(#{1,6})\s+(.+)$/);
-      if (!match) return undefined;
-      const title = match[2].replace(/[*_`~[\]()]/g, "").trim();
-      return {
-        id: slugify(title, index),
-        title,
-        level: match[1].length
-      };
-    })
-    .filter((item): item is MarkdownTocItem => Boolean(item));
-}
-
-function renderMarkdownHtml(content: string, toc: MarkdownTocItem[]): string {
-  const raw = markdown.render(content);
-  let tocIdx = 0;
-  return raw.replace(/<(h[1-6])(\s[^>]*)?>/gi, (_match, tag, attrs) => {
-    const tocItem = toc[tocIdx];
-    tocIdx += 1;
-    const id = tocItem ? tocItem.id : `heading-${tocIdx}`;
-    const existing = (attrs ?? "").trim();
-    return existing ? `<${tag} id="${id}" ${existing}>` : `<${tag} id="${id}">`;
-  });
-}
-
 function renderPlainText(content: string) {
   return content.split(/\n{2,}/).map((paragraph, index) => (
     <p key={index} className="mb-5 whitespace-pre-wrap">
       {paragraph}
     </p>
   ));
-}
-
-export interface TxtChapter {
-  title: string;
-  startIndex: number;
-  endIndex: number;
-  contentStart: number;
-}
-
-export function splitTxtChapters(content: string): TxtChapter[] {
-  // Pattern 1: 第X章/回/节/卷/部/集/篇/幕 — require a separator (space / colon / dash)
-  // or end-of-line after the marker, so body text like "第一章的内容" is NOT treated
-  // as a heading. Free subtitle is still captured when a separator is present.
-  const chapterPattern = /^(第[一二三四五六七八九十百千万零〇○两壹贰叁肆伍陆柒捌玖拾\d]+[章节回卷部集篇幕](?:$|[\s:：\-—].{0,80}))$/gim;
-  // Pattern 2: special keywords — require end-of-line or separator (space / colon / dash)
-  // to avoid matching ordinary paragraphs like "序位骑士冲了过来" or "番外的人来到了城里"
-  // "正文" is included as a valid section heading for single-section novels
-  const specialChapterPattern = /^(序言?|前言|后记|附录|引子|楔子|尾声|番外|正文|prologue|epilogue|preface|introduction|afterword)(?:$|[\s:：\-—].{0,50})$/gim;
-  // Pattern 3: reversed volume format — 卷一, 卷二, etc. (volume word before number)
-  const reversedVolumePattern = /^([卷部篇集][一二三四五六七八九十百千两].{0,50})$/gim;
-
-  const combinedPattern = new RegExp(
-    `(?:${chapterPattern.source})|(?:${specialChapterPattern.source})|(?:${reversedVolumePattern.source})`,
-    "gim"
-  );
-
-  const chapters: TxtChapter[] = [];
-  let match: RegExpExecArray | null;
-
-  while ((match = combinedPattern.exec(content)) !== null) {
-    // Title line skip: use raw match position + find next \n (handles both \n and \r\n)
-    const rawEnd = match.index + match[0].length;
-    const nl = content.indexOf("\n", rawEnd);
-    // nl === -1: title is the last line, content starts after raw match
-    // otherwise: skip past the \n (for \r\n the \r is before \n so already skipped)
-    const contentStart = nl === -1 ? rawEnd : nl + 1;
-    chapters.push({
-      title: match[0].trim(),
-      startIndex: match.index,
-      contentStart,
-      endIndex: 0,
-    });
-  }
-
-  // Set endIndex for each chapter, trimming trailing blank lines at boundary
-  for (let i = 0; i < chapters.length; i++) {
-    const rawEnd = i + 1 < chapters.length
-      ? chapters[i + 1].startIndex
-      : content.length;
-    // Walk backwards from boundary to exclude trailing \r\n / \n blank lines
-    let trimmed = rawEnd;
-    while (trimmed > (chapters[i].contentStart)) {
-      if (content[trimmed - 1] === "\n" || content[trimmed - 1] === "\r") {
-        trimmed--;
-      } else {
-        break;
-      }
-    }
-    chapters[i].endIndex = trimmed;
-  }
-
-  // Prepend a synthetic prologue if there is content before the first heading
-  if (chapters.length > 0 && chapters[0].startIndex > 0) {
-    // Trim trailing whitespace/newlines from prologue end
-    let prologueEnd = chapters[0].startIndex;
-    while (prologueEnd > 0 && (content[prologueEnd - 1] === "\n" || content[prologueEnd - 1] === "\r")) {
-      prologueEnd--;
-    }
-    if (prologueEnd > 0) {
-      chapters.unshift({
-        title: "",
-        startIndex: 0,
-        contentStart: 0,
-        endIndex: prologueEnd,
-      });
-    }
-  }
-
-  // "正文" is a fallback section marker for single-section books. Keep it as a heading
-  // only when no explicit chapter heading exists; otherwise treat it as body text
-  // (e.g. between "第一章" and "尾声", "正文" is body, not a separate chapter).
-  const hasExplicitHeading = chapters.some((c) => c.title !== "" && c.title !== "正文");
-  if (hasExplicitHeading) {
-    for (let i = chapters.length - 1; i >= 0; i--) {
-      if (chapters[i].title === "正文") chapters.splice(i, 1);
-    }
-  }
-
-  return chapters;
 }
 
 function renderChapterParagraphs(text: string) {
@@ -270,6 +135,9 @@ function TextReaderPage() {
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
   const highlightsRef = useRef<HighlightItem[]>([]);
+  const [tocCollapsed, setTocCollapsed] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
+  const [currentAnchorId, setCurrentAnchorId] = useState<string | undefined>(undefined);
   const { scheduleSave, flushProgress, getCurrentLocation } = useReaderProgress(scrollerRef);
   const excerpt = useReaderExcerpt();
 
@@ -351,8 +219,35 @@ function TextReaderPage() {
     };
   }, [selectionToolbar?.visible]);
 
-  const toc = useMemo(() => (activeBook?.format === "md" ? markdownToc(content) : []), [activeBook?.format, content]);
-  const markdownHtml = useMemo(() => (activeBook?.format === "md" ? renderMarkdownHtml(content, toc) : ""), [activeBook?.format, content, toc]);
+  // --- 目录数据：MD 从 token 流提取，TXT 从章节切分派生 ---
+  const md = useMemo(
+    () => (activeBook?.format === "md" ? renderMarkdownWithToc(content) : { html: "", toc: [] }),
+    [activeBook?.format, content]
+  );
+  const markdownHtml = md.html;
+  const mdToc = md.toc;
+
+  const txtChapters = useMemo(() => {
+    if (activeBook?.format !== "txt") return [];
+    return splitTxtChapters(content);
+  }, [activeBook?.format, content]);
+
+  const txtToc = useMemo(() => {
+    if (txtChapters.length <= 1) return [];
+    return txtChapters
+      .map((ch, idx) => ({ level: 1, title: ch.title, id: `txt-chapter-${idx}` }))
+      .filter((item) => item.title !== "");
+  }, [txtChapters]);
+
+  const tocEntries: TocEntry[] = useMemo(() => {
+    if (activeBook?.format === "md") {
+      return mdToc.map((item) => ({ id: item.id, label: item.title, level: item.level }));
+    }
+    if (activeBook?.format === "txt") {
+      return txtToc.map((item) => ({ id: item.id, label: item.title, level: item.level }));
+    }
+    return [];
+  }, [activeBook?.format, mdToc, txtToc]);
 
   // Render highlights as <mark> tags in the DOM
   useEffect(() => {
@@ -399,18 +294,6 @@ function TextReaderPage() {
     };
   }, [highlights, content, activeBook?.format, markdownHtml]);
 
-  const txtChapters = useMemo(() => {
-    if (activeBook?.format !== "txt") return [];
-    return splitTxtChapters(content);
-  }, [activeBook?.format, content]);
-
-  const txtToc = useMemo(() => {
-    if (txtChapters.length <= 1) return [];
-    return txtChapters
-      .map((ch, idx) => ({ level: 1, title: ch.title, id: `txt-chapter-${idx}` }))
-      .filter((item) => item.title !== "");
-  }, [txtChapters]);
-
   // --- 繁简转换 ---
   const [convertedContent, setConvertedContent] = useState(content);
   useEffect(() => {
@@ -425,10 +308,79 @@ function TextReaderPage() {
     return () => { cancelled = true; };
   }, [content, settings?.textConversion]);
 
-  const convertedMarkdownHtml = useMemo(
-    () => (activeBook?.format === "md" ? renderMarkdownHtml(convertedContent, toc) : ""),
-    [activeBook?.format, convertedContent, toc]
+  const convertedMd = useMemo(
+    () => (activeBook?.format === "md" ? renderMarkdownWithToc(convertedContent) : { html: "", toc: [] }),
+    [activeBook?.format, convertedContent]
   );
+  const convertedMarkdownHtml = convertedMd.html;
+
+  // --- 当前章锚点跟踪（滚动模式）：缓存的锚点元素取"视口顶之上最近者" ---
+  const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
+  const anchorRafRef = useRef<number | undefined>(undefined);
+  const tocAnchorKey = useMemo(() => tocEntries.map((entry) => entry.id).join("\n"), [tocEntries]);
+
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || !tocAnchorKey) {
+      anchorsRef.current = new Map();
+      setCurrentAnchorId(undefined);
+      return;
+    }
+    const map = new Map<string, HTMLElement>();
+    for (const id of tocAnchorKey.split("\n")) {
+      const el = scroller.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
+      if (el) map.set(id, el);
+    }
+    anchorsRef.current = map;
+    // 打开即计算一次当前章（恢复滚动位置后首屏就有高亮，不必等首次滚动）
+    const containerTop = scroller.getBoundingClientRect().top;
+    const offsets = Array.from(map, ([id, el]) => ({
+      id,
+      offsetTop: el.getBoundingClientRect().top - containerTop
+    }));
+    setCurrentAnchorId((prev) => {
+      const current = lastAnchorBeforeThreshold(offsets, 40);
+      return prev === current ? prev : current;
+    });
+  }, [tocAnchorKey, markdownHtml, convertedMarkdownHtml, content, activeBook?.format]);
+
+  const updateCurrentAnchor = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || anchorsRef.current.size === 0) return;
+    const containerTop = scroller.getBoundingClientRect().top;
+    const offsets = Array.from(anchorsRef.current, ([id, el]) => ({
+      id,
+      offsetTop: el.getBoundingClientRect().top - containerTop
+    }));
+    // anchorsRef 按目录顺序插入，即文档顺序，可安全地做"最后一个已越过阈值"
+    const current = lastAnchorBeforeThreshold(offsets, 40);
+    setCurrentAnchorId((prev) => (prev === current ? prev : current));
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (anchorRafRef.current !== undefined) window.cancelAnimationFrame(anchorRafRef.current);
+    };
+  }, []);
+
+  const handleActivity = useCallback(() => {
+    recordInteraction();
+    scheduleSave();
+  }, [recordInteraction, scheduleSave]);
+
+  const handleScrollActivity = useCallback(() => {
+    handleActivity();
+    if (anchorRafRef.current === undefined) {
+      anchorRafRef.current = window.requestAnimationFrame(() => {
+        anchorRafRef.current = undefined;
+        updateCurrentAnchor();
+      });
+    }
+  }, [handleActivity, updateCurrentAnchor]);
+
+  const jumpToTocEntry = useCallback((id: string) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
 
   if (!activeBook || !settings) {
     return (
@@ -439,23 +391,6 @@ function TextReaderPage() {
   }
 
   const progressPercent = Math.round((progress?.progressPercent ?? 0) * 100);
-
-  const handleActivity = useCallback(() => {
-    recordInteraction();
-    scheduleSave();
-  }, [recordInteraction, scheduleSave]);
-
-  const handleSettingsChange = async (patch: Partial<typeof settings>) => {
-    const next = await updateReaderSettings(patch);
-    setReaderSettings(next);
-    handleActivity();
-  };
-
-  const resetInlineReaderSettings = async () => {
-    const next = await resetReaderSettings();
-    setReaderSettings(next.reader);
-    handleActivity();
-  };
 
   const openExcerptFromSelection = useCallback(() => {
     if (!selectionToolbar?.visible || !selectionToolbar.text.trim()) {
@@ -508,14 +443,11 @@ function TextReaderPage() {
             阅读进度：{progressPercent}% · 本书累计 {formatDuration(progress?.totalReadingTimeMs)}
           </div>
         </div>
-        <Button
-          variant="quiet"
-          onClick={async () => {
-            await flushProgress();
-            await endTracking("leave-reader");
-            setScreen("settings");
-          }}
-        >
+        <Button variant="quiet" onClick={() => setTocCollapsed((value) => !value)}>
+          <List size={16} />
+          目录
+        </Button>
+        <Button variant="quiet" onClick={() => setSettingsDrawerOpen(true)}>
           <Settings size={16} />
           设置
         </Button>
@@ -553,11 +485,11 @@ function TextReaderPage() {
         </Button>
       </header>
 
-      <div className="grid min-h-0 grid-cols-[1fr_320px]">
+      <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div
           ref={scrollerRef}
           className={`min-h-0 overflow-auto ${readerShellClass(settings.readerBackground)}`}
-          onScroll={handleActivity}
+          onScroll={handleScrollActivity}
           onWheel={handleActivity}
           onKeyDown={handleActivity}
           onPointerDown={handleActivity}
@@ -714,33 +646,45 @@ function TextReaderPage() {
             )}
           </article>
         </div>
-        <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
-          {(activeBook.format === "md" || (activeBook.format === "txt" && txtToc.length > 0)) && (
-            <div className="mb-5">
-              <div className="mb-3 text-sm font-semibold text-paper-ink">
+        {tocCollapsed ? (
+          <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
+            <div className="grid gap-3">
+              <button
+                className="rounded-md border border-paper-line bg-paper-panel p-2 text-xs text-paper-muted hover:text-paper-ink"
+                onClick={() => setTocCollapsed(false)}
+              >
+                目录
+              </button>
+              <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
+            </div>
+          </ShellPanel>
+        ) : (
+          <ShellPanel className="flex min-h-0 flex-col overflow-hidden border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
+            <div className="mb-3 flex items-center justify-between border-b border-paper-line pb-2">
+              <div className="text-sm font-semibold text-paper-ink">
                 {activeBook.format === "md" ? "Markdown 目录" : "章节目录"}
               </div>
-              {activeBook.format === "md" && toc.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">未检测到标题</div>
-              ) : (
-                <div className="grid gap-1">
-                  {(activeBook.format === "md" ? toc : txtToc).map((item) => (
-                    <button
-                      key={item.id}
-                      className="rounded px-2 py-1.5 text-left text-sm text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
-                      style={{ paddingLeft: `${8 + Math.max(0, item.level - 1) * 12}px` }}
-                      onClick={() => document.getElementById(item.id)?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                    >
-                      {item.title}
-                    </button>
-                  ))}
-                </div>
-              )}
+              <Button variant="quiet" className="h-7 px-2 text-xs" onClick={() => setTocCollapsed(true)}>
+                收起
+              </Button>
             </div>
-          )}
-          <ReaderSettingsPanel settings={settings} onChange={(patch) => void handleSettingsChange(patch)} onReset={() => void resetInlineReaderSettings()} />
-        </ShellPanel>
+            <TocList
+              className="min-h-0 flex-1"
+              entries={tocEntries}
+              currentId={currentAnchorId}
+              onJump={jumpToTocEntry}
+              emptyText={activeBook.format === "md" ? "未检测到标题" : "未检测到章节"}
+            />
+          </ShellPanel>
+        )}
       </div>
+      <ReaderSettingsDrawer
+        open={settingsDrawerOpen}
+        settings={settings}
+        onClose={() => setSettingsDrawerOpen(false)}
+        onSettingsChange={setReaderSettings}
+        onAfterChange={() => handleActivity()}
+      />
       {excerpt.isPickerOpen && excerpt.pendingSource && (
         <ExcerptPicker
           source={excerpt.pendingSource}

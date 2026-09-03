@@ -10,6 +10,7 @@ import { EpubReaderToolbar } from "@/features/library/epub-reader/EpubReaderTool
 import { EpubSelectionToolbar, type SelectionToolbarState } from "@/features/library/epub-reader/EpubSelectionToolbar";
 import { EpubSettingsDrawer } from "@/features/library/epub-reader/EpubSettingsDrawer";
 import { EpubSidePanel } from "@/features/library/epub-reader/EpubSidePanel";
+import { findCurrentTocItem, normalizeEpubHref } from "@/features/library/toc/current";
 import { getHighlightsByBook, saveHighlight, deleteHighlight as removeHighlightById, getBookmarksByBook, saveBookmark, deleteBookmark as removeBookmarkById } from "@/services/annotation-service";
 import { saveEpubLocation } from "@/services/reader-service";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
@@ -50,10 +51,6 @@ function initialEpubLocation(book: LibraryBook, existing?: ReadingLocation): Rea
 
 function safePercent(value: unknown, fallback = 0): number {
   return typeof value === "number" && Number.isFinite(value) ? Math.max(0, Math.min(1, value)) : fallback;
-}
-
-function normalizeEpubHref(value?: string): string | undefined {
-  return value?.split("#")[0];
 }
 
 function hrefMatchesLocation(location: ReadingLocation | undefined, expectedHref?: string): boolean {
@@ -729,7 +726,7 @@ export function EpubReaderPage() {
   }
 
   const progressPercent = Math.round((locationRef.current?.progressPercent ?? progress?.progressPercent ?? 0) * 100);
-  const currentTocItem = toc.find((item) => normalizeEpubHref(item.href) === normalizeEpubHref(locationRef.current?.epub?.href));
+  const currentTocItem = findCurrentTocItem(toc, locationRef.current?.epub?.href);
 
   const dragHandlersRef = useRef<{ onMove?: (ev: MouseEvent) => void; onUp?: () => void } | null>(null);
   useEffect(() => {

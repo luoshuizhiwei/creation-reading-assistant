@@ -1,6 +1,8 @@
+import { useMemo } from "react";
 import { Bookmark, Highlighter, List, Trash2 } from "lucide-react";
 import { Button, ShellPanel } from "@/components/ui";
 import { saveHighlight } from "@/services/annotation-service";
+import { TocList } from "@/features/library/toc/TocList";
 import type { BookmarkItem, EpubTocItem, HighlightItem } from "@/types/library";
 import { HIGHLIGHT_COLORS, highlightHex } from "./highlight-colors";
 
@@ -45,6 +47,10 @@ export function EpubSidePanel({
   onJumpToBookmark,
   onRemoveBookmark
 }: EpubSidePanelProps) {
+  const tocEntries = useMemo(
+    () => toc.map((item) => ({ id: item.id, label: item.label, level: item.level })),
+    [toc]
+  );
   if (tocCollapsed) {
     return (
       <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
@@ -91,24 +97,15 @@ export function EpubSidePanel({
             当前位置：{currentTocItem?.label ?? `${progressPercent}% 附近`}
           </div>
           <div className="mb-5">
-            {toc.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">未检测到目录</div>
-            ) : (
-              <div className="grid gap-1">
-                {toc.map((item) => (
-                  <button
-                    key={item.id}
-                    type="button"
-                    className="rounded px-2 py-1.5 text-left text-sm text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
-                    style={{ paddingLeft: `${8 + Math.max(0, item.level) * 12}px` }}
-                    title={item.label}
-                    onClick={() => onJumpToToc(item.href)}
-                  >
-                    <span className="line-clamp-2">{item.label}</span>
-                  </button>
-                ))}
-              </div>
-            )}
+            <TocList
+              entries={tocEntries}
+              currentId={currentTocItem?.id}
+              onJump={(id) => {
+                const item = toc.find((entry) => entry.id === id);
+                if (item) onJumpToToc(item.href);
+              }}
+              emptyText="未检测到目录"
+            />
           </div>
         </>
       )}
