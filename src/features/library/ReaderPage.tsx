@@ -250,9 +250,10 @@ function TextReaderPage() {
 
   const getTextAnchor = useCallback(() => {
     const scroller = scrollerRef.current;
-    if (!scroller || tocEntriesRef.current.length === 0) return undefined;
+    if (!scroller) return undefined;
     const spans = ensureSpansRef.current();
-    if (spans.length === 0) return undefined;
+    // 有目录但锚点未就绪时不写锚点（等渲染完成）；无章节书用全局字符比例锚定
+    if (tocEntriesRef.current.length > 0 && spans.length === 0) return undefined;
     return computeTextAnchor(spans, scroller.scrollTop, scroller.scrollHeight, scroller.clientHeight, contentLengthRef.current);
   }, []);
 

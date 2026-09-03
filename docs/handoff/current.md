@@ -697,3 +697,10 @@ Novalist 调研与取舍仍记录在
 - **验证**：vitest 782/0；三份 tsc ✅；verify-reader-formats（+11 守卫）/verify-hardening/
   probe-round7/8/electron-smoke/verify:beta --scope=desktop 全绿。
 - **搁置项**：虚拟滚动、跳转历史、桌面 TTS/翻页模式、已读手动标记（理由见方案 §10）。
+- **端到端验收（2026-09-04，全部通过）**：新增 `scripts/probe-toc-acceptance.mjs`
+  （24 项断言，无窗口模式，launch→seed→驱动→重启断言），覆盖进度锚定（字号 12→26
+  后重启仍恢复原章原位，无章节书按全局比例 0.500 恢复）、书签/高亮面板全流程、
+  目录编辑（重命名/拆分/合并/持久化/恢复自动识别/剪刀设起点/取消不保存）、已读标记
+  （弱化+对勾+计数）、代码分包。**抓到并修复一个真 bug**：无章节 TXT 保存路径未写
+  文本锚点（getTextAnchor 在无目录时提前返回），恢复退回原始像素导致排版变更后漂移
+  ——现无章节书也写全局 charOffset 锚点。该探针留作阅读器回归工具（与 probe-round7/8 同位）。
