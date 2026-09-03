@@ -197,7 +197,11 @@ function entryFromInspiration(item: { id: string; title: string; body: string; t
   };
 }
 
-/** 旧灵感源（兼容期）：尚未迁移到收件箱，明确标记"待迁移"。 */
+/**
+ * 旧灵感源（兼容期）：尚未迁移到收件箱。
+ * 已从 sourcesForFilter("all") 摘除——旧灵感页只能提示"去收件箱"，无法定位
+ * 命中条目，出现在结果里是断链体验；保留定义供数据迁移前的回归测试。
+ */
 export const inspirationSearchSource: SearchSource = {
   id: "inspiration",
   label: "旧灵感（待迁移）",

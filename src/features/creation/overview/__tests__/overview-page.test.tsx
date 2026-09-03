@@ -66,13 +66,11 @@ function statsOf(overrides: Partial<ProjectStatsView> = {}): ProjectStatsView {
   } as ProjectStatsView;
 }
 
-function renderOverview(callbacks?: { onContinueWriting?: () => void; onOpenOutline?: () => void; onOpenStats?: () => void; onOpenInbox?: () => void }) {
+function renderOverview(callbacks?: { onContinueWriting?: () => void; onOpenInbox?: () => void }) {
   return render(
     <OverviewPage
       projectId="p1"
       onContinueWriting={callbacks?.onContinueWriting ?? vi.fn()}
-      onOpenOutline={callbacks?.onOpenOutline ?? vi.fn()}
-      onOpenStats={callbacks?.onOpenStats ?? vi.fn()}
       onOpenInbox={callbacks?.onOpenInbox ?? vi.fn()}
     />
   );
@@ -128,7 +126,7 @@ describe("OverviewPage 项目仪表板", () => {
 
   it("待处理卡显示真实未处理与总数", async () => {
     renderOverview();
-    expect(await screen.findByText((c) => c.includes("5") && c.includes("12") && c.includes("未整理"))).toBeDefined();
+    expect(await screen.findByText((c) => c.includes("5") && c.includes("12") && c.includes("待处理"))).toBeDefined();
   });
 
   it("最近编辑按 updatedAt 倒序排列，点击跳到对应场景并进入写作", async () => {
@@ -146,21 +144,19 @@ describe("OverviewPage 项目仪表板", () => {
     expect(onContinueWriting).toHaveBeenCalled();
   });
 
-  it("操作行四个入口分别触发对应回调", async () => {
+  it("底部操作行已收敛：大纲/写作统计/收件箱不再重复，仅保留卡片内入口", async () => {
     const onContinueWriting = vi.fn();
-    const onOpenOutline = vi.fn();
-    const onOpenStats = vi.fn();
     const onOpenInbox = vi.fn();
-    renderOverview({ onContinueWriting, onOpenOutline, onOpenStats, onOpenInbox });
-    // 操作行：继续写作 / 大纲 / 统计 / 收件箱（用语义 aria-label 与文本匹配）
-    const allButtons = await screen.findAllByRole("button");
-    const findByText = (text: string) =>
-      allButtons.find((el) => (el.textContent ?? "").includes(text));
-    fireEvent.click(findByText("大纲")!);
-    fireEvent.click(findByText("统计")!);
-    fireEvent.click(findByText("收件箱")!);
-    expect(onOpenOutline).toHaveBeenCalled();
-    expect(onOpenStats).toHaveBeenCalled();
+    renderOverview({ onContinueWriting, onOpenInbox });
+    await screen.findAllByRole("button");
+    // 与项目二级导航逐项重复的底部整排按钮已移除
+    const allButtons = screen.getAllByRole("button");
+    const findActionRow = (text: string) =>
+      allButtons.find((el) => (el.textContent ?? "").includes(text) && el.className.includes("overview-action"));
+    expect(findActionRow("大纲")).toBeUndefined();
+    expect(findActionRow("写作统计")).toBeUndefined();
+    // 收件箱入口保留在"待处理"卡片内
+    fireEvent.click(allButtons.find((el) => (el.textContent ?? "") === "打开收件箱")!);
     expect(onOpenInbox).toHaveBeenCalled();
   });
 });

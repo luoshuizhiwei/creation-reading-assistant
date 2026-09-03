@@ -787,7 +787,7 @@ export function CardsPage({ project }: CardsPageProps) {
   );
 
   return (
-    <section className="cards-page" aria-label="卡片管理">
+    <section className="cards-page" aria-label="设定卡管理">
       <header className="cards-toolbar">
         <div className="cards-toolbar-left">
           <span className="desktop-card-label">Cards</span>

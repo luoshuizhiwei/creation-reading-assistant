@@ -7,6 +7,8 @@ export interface EpubReaderToolbarProps {
   progressPercent: number;
   totalReadingTimeMs?: number;
   isCurrentBookmarked: boolean;
+  /** 当前书中是否有选中文字：无选区时高亮/摘录置灰（替代点击后的报错） */
+  hasSelection?: boolean;
   onToggleBookmark(): void;
   onHighlightSelection(): void;
   onExcerpt(): void;
@@ -21,6 +23,7 @@ export function EpubReaderToolbar({
   progressPercent,
   totalReadingTimeMs,
   isCurrentBookmarked,
+  hasSelection = false,
   onToggleBookmark,
   onHighlightSelection,
   onExcerpt,
@@ -42,11 +45,11 @@ export function EpubReaderToolbar({
         {isCurrentBookmarked ? <BookmarkCheck size={16} /> : <Bookmark size={16} />}
         {isCurrentBookmarked ? "已书签" : "书签"}
       </Button>
-      <Button variant="quiet" onClick={onHighlightSelection} title="高亮选中文字（黄色）">
+      <Button variant="quiet" disabled={!hasSelection} onClick={onHighlightSelection} title={hasSelection ? "高亮选中文字（黄色）" : "先在书中选中文字"}>
         <Highlighter size={16} />
         高亮
       </Button>
-      <Button variant="quiet" onClick={onExcerpt} title="摘录到资料">
+      <Button variant="quiet" disabled={!hasSelection} onClick={onExcerpt} title={hasSelection ? "摘录到资料" : "先在书中选中文字"}>
         <Quote size={16} />
         摘录
       </Button>
@@ -56,7 +59,7 @@ export function EpubReaderToolbar({
       </Button>
       <Button variant="quiet" onClick={onOpenStats}>
         <ChartColumn size={16} />
-        统计
+        阅读统计
       </Button>
       <Button variant="quiet" onClick={onBackToLibrary}>
         <ArrowLeft size={16} />

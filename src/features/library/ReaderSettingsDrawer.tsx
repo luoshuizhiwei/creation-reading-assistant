@@ -35,6 +35,7 @@ export function ReaderSettingsDrawer({ open, settings, onClose, onSettingsChange
         </div>
         <ReaderSettingsPanel
           settings={settings}
+          format="txt"
           onReset={async () => {
             const next = await resetReaderSettings();
             onSettingsChange(next.reader);

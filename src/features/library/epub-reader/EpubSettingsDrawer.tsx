@@ -31,6 +31,7 @@ export function EpubSettingsDrawer({ open, settings, onClose, onSettingsChange, 
         </div>
         <ReaderSettingsPanel
           settings={settings}
+          format="epub"
           onReset={async () => {
             const next = await resetReaderSettings();
             onSettingsChange(next.reader);

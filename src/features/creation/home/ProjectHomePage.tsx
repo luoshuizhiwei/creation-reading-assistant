@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { ArrowRight, BookOpen, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus, Search } from "lucide-react";
+import { ArrowRight, BookOpen, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
-import { useSearchStore } from "@/stores/search-store";
 import type { ProjectHomeEntry } from "@/types/creation";
 
 interface ProjectHomePageProps {
@@ -44,7 +43,6 @@ export function ProjectHomePage({
   refreshKey = 0
 }: ProjectHomePageProps) {
   const { loadProjectHome, loadInboxCount } = useCreationActions();
-  const setSearchOpen = useSearchStore((state) => state.setOpen);
   const [entries, setEntries] = useState<ProjectHomeEntry[]>([]);
   const [pendingCount, setPendingCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -68,10 +66,6 @@ export function ProjectHomePage({
             <button type="button" className="project-home-new" onClick={onCreateProject}>
               <Plus size={16} />
               新建项目
-            </button>
-            <button type="button" className="desktop-home-inbox" onClick={() => setSearchOpen(true)}>
-              <Search size={16} />
-              搜索
             </button>
             <button type="button" className="desktop-home-inbox" onClick={onOpenInbox}>
               <InboxIcon size={16} />

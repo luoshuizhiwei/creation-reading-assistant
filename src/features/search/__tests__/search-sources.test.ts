@@ -216,9 +216,9 @@ async function act0(): Promise<void> {
 }
 
 describe("统一搜索聚合", () => {
-  it("筛选 → 数据源映射完整", () => {
+  it("筛选 → 数据源映射完整（旧灵感已从全部结果摘除）", () => {
     const cases: Array<[UnifiedSearchFilter, string[]]> = [
-      ["all", ["创作项目", "全局收件箱", "资料书库", "旧灵感（待迁移）"]],
+      ["all", ["创作项目", "全局收件箱", "资料书库"]],
       ["project", ["创作项目"]],
       ["body", ["创作项目", "资料书库"]],
       ["card", ["创作项目"]],
@@ -230,12 +230,11 @@ describe("统一搜索聚合", () => {
     }
   });
 
-  it("排序按固定来源顺序：项目、章节、场景、卡片、收件箱、资料、旧灵感", () => {
+  it("排序按固定来源顺序：项目、章节、场景、卡片、收件箱、资料", () => {
     const entries = [
       { source: "inbox" as const },
       { source: "scene" as const },
       { source: "project" as const },
-      { source: "inspiration" as const },
       { source: "card" as const },
       { source: "chapter" as const },
       { source: "library" as const }

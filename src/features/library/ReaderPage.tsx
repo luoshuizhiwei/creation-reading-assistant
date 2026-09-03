@@ -859,7 +859,7 @@ function TextReaderPage() {
           }}
         >
           <ChartColumn size={16} />
-          统计
+          阅读统计
         </Button>
         <Button
           variant="quiet"

@@ -154,13 +154,13 @@ describe("SearchPanel 统一搜索界面", () => {
     }
   });
 
-  it("旧灵感结果标记「待迁移」且来源标签明确", async () => {
+  it("旧灵感源已摘除：即使服务返回旧灵感数据也不出现在结果中", async () => {
     setupAllSourcesMock();
     render(<SearchPanel />);
     await typeAndFlush("词");
-    expect(screen.getByRole("button", { name: /旧灵感词条/ })).toBeDefined();
-    expect(screen.getByText("待迁移")).toBeDefined();
-    expect(screen.getByText("旧灵感 · 待迁移")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /旧灵感词条/ })).toBeNull();
+    expect(screen.queryByText("待迁移")).toBeNull();
+    expect(screen.queryByText("旧灵感 · 待迁移")).toBeNull();
   });
 
   it("绝对本地路径不会显示", async () => {

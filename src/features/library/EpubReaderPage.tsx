@@ -821,6 +821,7 @@ export function EpubReaderPage() {
         progressPercent={progressPercent}
         totalReadingTimeMs={progress?.totalReadingTimeMs}
         isCurrentBookmarked={isCurrentBookmarked}
+        hasSelection={selectionToolbar?.visible === true}
         onToggleBookmark={() => void toggleBookmark()}
         onHighlightSelection={async () => {
           const cfiRange = (window as any).__epubSelectedCfiRange;

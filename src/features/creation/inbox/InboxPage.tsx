@@ -24,11 +24,11 @@ const TYPE_LABELS: Record<InspirationType, string> = {
 };
 
 const STATUS_LABELS: Record<InspirationStatus, string> = {
-  inbox: "未整理",
-  reviewing: "待整理",
+  inbox: "待处理",
+  reviewing: "整理中",
   usable: "可用",
   polished: "已润色",
-  used: "已使用",
+  used: "已转卡片",
   archived: "归档"
 };
 
@@ -131,10 +131,11 @@ export function InboxPage({ projectId }: InboxPageProps) {
   const [statusFilter, setStatusFilter] = useState<InspirationStatus | "all">("all");
   const STATUS_FILTER_OPTIONS: Array<{ value: InspirationStatus | "all"; label: string }> = [
     { value: "all", label: "全部" },
-    { value: "inbox", label: "未整理" },
-    { value: "reviewing", label: "待整理" },
+    { value: "inbox", label: "待处理" },
+    { value: "reviewing", label: "整理中" },
     { value: "usable", label: "可用" },
-    { value: "used", label: "已使用" },
+    { value: "polished", label: "已润色" },
+    { value: "used", label: "已转卡片" },
     { value: "archived", label: "归档" }
   ];
   const filteredItems = useMemo(
@@ -671,14 +672,14 @@ export function InboxPage({ projectId }: InboxPageProps) {
 
         {!selected ? (
           <div className="stats-card inbox-detail-empty">
-            <p className="stats-note"><Lightbulb size={14} /> 从左侧选择一条想法查看与编辑，或新建一条。</p>
+            <p className="stats-note"><Lightbulb size={14} /> 从左侧选择一个条目查看与编辑，或新建一条想法。</p>
           </div>
         ) : (
           <div className="stats-card inbox-detail">
             <div className="inbox-detail-head">
               <div>
                 <div className="desktop-card-label">Editor</div>
-                <h2 className="paper-title mt-1 text-xl font-semibold">素材正文</h2>
+                <h2 className="paper-title mt-1 text-xl font-semibold">条目正文</h2>
               </div>
               <div className="flex items-center gap-2">
                 <span className={`inbox-save-status inbox-save-status--${saveStatus}`}>

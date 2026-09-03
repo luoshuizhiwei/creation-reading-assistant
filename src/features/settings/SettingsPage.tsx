@@ -459,14 +459,6 @@ export function SettingsPage() {
                 onChange={(event) => patchNumericSetting(event.target.value, 0.85, 1.4, (appFontScale) => ({ appearance: { appFontScale } }))}
               />
             </Field>
-            <label className="flex items-center gap-2 text-sm text-paper-muted">
-              <input
-                type="checkbox"
-                checked={settings.appearance.showRightPanel}
-                onChange={(event) => void patchSettings({ appearance: { showRightPanel: event.target.checked } })}
-              />
-              显示右侧属性栏
-            </label>
           </Section>
           )}
 
@@ -708,14 +700,6 @@ export function SettingsPage() {
                 onChange={(event) => patchReaderTracking({ trackReadingSessions: event.target.checked })}
               />
               自动记录阅读会话
-            </label>
-            <label className="flex items-center gap-2 text-sm text-paper-muted">
-              <input
-                type="checkbox"
-                checked={settings.reader.tracking.showReadingStatsCards}
-                onChange={(event) => patchReaderTracking({ showReadingStatsCards: event.target.checked })}
-              />
-              显示阅读统计卡片
             </label>
             <Field label="空闲超时秒数">
               <p className="text-xs leading-5 text-paper-muted">多久没有翻页、滚动或点击后，暂停计入有效阅读时间。</p>
@@ -959,6 +943,7 @@ export function SettingsPage() {
           </Section>
           )}
 
+          {activeCategory === "storage" && (
           <AnimatedPanel className="settings-wide rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
@@ -1080,9 +1065,47 @@ export function SettingsPage() {
               )}
             </div>
           </AnimatedPanel>
+          )}
 
           <div className="settings-wide">
-          <AnimatedPanel className="mb-4 rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+
+          {activeCategory === "debug" && (
+          <Section title="关于 / 调试" section="debug" onReset={resetSection}>
+            <Field label="应用版本">
+              <TextInput value={settings.debug.appVersion} readOnly />
+            </Field>
+            <Field label="数据目录">
+              <TextInput value={settings.debug.dataRoot} readOnly />
+            </Field>
+            <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3">
+              <div className="mb-3 text-sm font-semibold text-paper-ink">诊断工具</div>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="secondary" onClick={() => void openLogDirectory()}>
+                  打开日志目录
+                </Button>
+                <Button
+                  variant="secondary"
+                  onClick={() =>
+                    void runMaintenance("导出调试信息", exportDebugInfo, (result) => {
+                      const debug = result as Awaited<ReturnType<typeof exportDebugInfo>>;
+                      return debug ? `调试信息已导出：${debug.outputRoot}` : "导出已取消";
+                    })
+                  }
+                >
+                  导出调试信息
+                </Button>
+              </div>
+              {maintenanceMessage && (
+                <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
+                  {maintenanceMessage}
+                </InlineNotice>
+              )}
+            </div>
+          </Section>
+          )}
+
+          {activeCategory === "debug" && (
+          <AnimatedPanel className="rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
             <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
               <div>
                 <div className="desktop-card-label">Update</div>
@@ -1110,48 +1133,6 @@ export function SettingsPage() {
               </div>
             </div>
           </AnimatedPanel>
-
-          {activeCategory === "debug" && (
-          <Section title="关于 / 调试" section="debug" onReset={resetSection}>
-            <Field label="应用版本">
-              <TextInput value={settings.debug.appVersion} readOnly />
-            </Field>
-            <Field label="数据目录">
-              <TextInput value={settings.debug.dataRoot} readOnly />
-            </Field>
-            <label className="flex items-center gap-2 text-sm text-paper-muted">
-              <input
-                type="checkbox"
-                checked={settings.debug.showStatsCards}
-                onChange={(event) => void patchSettings({ debug: { showStatsCards: event.target.checked } })}
-              />
-              显示调试卡片
-            </label>
-            <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3">
-              <div className="mb-3 text-sm font-semibold text-paper-ink">诊断工具</div>
-              <div className="flex flex-wrap gap-2">
-                <Button variant="secondary" onClick={() => void openLogDirectory()}>
-                  打开日志目录
-                </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() =>
-                    void runMaintenance("导出调试信息", exportDebugInfo, (result) => {
-                      const debug = result as Awaited<ReturnType<typeof exportDebugInfo>>;
-                      return debug ? `调试信息已导出：${debug.outputRoot}` : "导出已取消";
-                    })
-                  }
-                >
-                  导出调试信息
-                </Button>
-              </div>
-              {maintenanceMessage && (
-                <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
-                  {maintenanceMessage}
-                </InlineNotice>
-              )}
-            </div>
-          </Section>
           )}
           {operation.state && (
             <OperationProgressDialog

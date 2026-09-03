@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { BookOpen, Filter, Import, Search, Settings, Trash2, X } from "lucide-react";
+import { BookOpen, Filter, Import, Search, Trash2, X } from "lucide-react";
 import { Button, EmptyState } from "@/components/ui";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryStore } from "@/stores/library-store";
@@ -118,10 +118,6 @@ export function LibraryPage() {
               <BookOpen size={16} />
               阅读统计
             </Button>
-            <Button variant="quiet" onClick={() => setScreen("settings")}>
-              <Settings size={16} />
-              设置
-            </Button>
           </div>
         </div>
 
@@ -138,7 +134,7 @@ export function LibraryPage() {
             {/* Top bar: heading + controls */}
             <div className="desktop-panel-card flex flex-col gap-3 p-4 sm:flex-row sm:items-end sm:justify-between">
               <div>
-                <h1 className="paper-title text-2xl font-semibold">本地文档</h1>
+                <h1 className="paper-title text-2xl font-semibold">书库</h1>
                 <p className="mt-1 text-sm text-paper-muted">共 {filteredAndSorted.length} / {books.length} 本，进度和有效阅读时长保存在本地。</p>
               </div>
               <div className="flex items-center gap-2 shrink-0">
@@ -195,7 +191,7 @@ export function LibraryPage() {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="按书名、作者或导入标签搜索..."
+                placeholder="筛选书名、作者或导入标签…"
                 className="paper-input w-full pl-9 pr-8 text-sm"
               />
               {searchQuery && (

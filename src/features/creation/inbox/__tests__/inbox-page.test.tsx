@@ -487,15 +487,15 @@ describe("InboxPage 状态分组筛选", () => {
     expect(screen.getByText("已使用B")).toBeDefined();
     expect(screen.getByText("归档C")).toBeDefined();
 
-    // 点击"未整理"：只剩两条
-    fireEvent.click(screen.getByRole("button", { name: /未整理/ }));
+    // 点击"待处理"：只剩两条
+    fireEvent.click(screen.getByRole("button", { name: /待处理/ }));
     await waitFor(() => expect(screen.queryByText("已使用B")).toBeNull());
     expect(screen.queryByText("归档C")).toBeNull();
     expect(screen.getByText("未整理A")).toBeDefined();
     expect(screen.getByText("未整理D")).toBeDefined();
 
-    // 点击"已使用"：只剩一条
-    fireEvent.click(screen.getByRole("button", { name: /已使用/ }));
+    // 点击"已转卡片"：只剩一条
+    fireEvent.click(screen.getByRole("button", { name: /已转卡片/ }));
     await waitFor(() => expect(screen.queryByText("未整理A")).toBeNull());
     expect(screen.getByText("已使用B")).toBeDefined();
 

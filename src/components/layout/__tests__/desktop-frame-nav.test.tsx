@@ -34,7 +34,7 @@ describe("DesktopFrame 应用级导航（真实渲染）", () => {
     render(<DesktopFrame><div data-testid="content" /></DesktopFrame>);
     const buttons = navButtons();
     expect(buttons.length).toBe(4);
-    expect(buttons.map(labelOf)).toEqual(["项目", "收件箱", "资料阅读", "设置"]);
+    expect(buttons.map(labelOf)).toEqual(["项目", "收件箱", "书库", "设置"]);
     expect(navButtons()[0].closest("nav")!.textContent).not.toContain("阅读统计");
     expect(navButtons()[0].closest("nav")!.textContent).not.toContain("全局搜索");
     expect(screen.getByRole("button", { name: /创作阅读助手/ })).toBeDefined();
@@ -67,7 +67,7 @@ describe("DesktopFrame 应用级导航（真实渲染）", () => {
   it("点击其他屏幕切换 screen", () => {
     useAppStore.setState({ screen: "projects" });
     render(<DesktopFrame><div /></DesktopFrame>);
-    const libraryButton = navButtons().find((button) => labelOf(button) === "资料阅读");
+    const libraryButton = navButtons().find((button) => labelOf(button) === "书库");
     fireEvent.click(libraryButton!);
     expect(useAppStore.getState().screen).toBe("library");
   });

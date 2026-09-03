@@ -69,7 +69,7 @@ const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: st
   },
   library: {
     eyebrow: "Local library",
-    title: "资料阅读",
+    title: "书库",
     body: "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。"
   },
   reader: {

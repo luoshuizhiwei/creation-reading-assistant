@@ -62,7 +62,7 @@ export const EXCERPT_CARD_KIND = "reference";
 /** 收件箱条目类型：note（札记）。 */
 export const EXCERPT_INBOX_KIND = "note";
 
-/** 收件箱条目状态：inbox（未整理）。 */
+/** 收件箱条目状态：inbox（待处理）。 */
 export const EXCERPT_INBOX_STATUS = "inbox";
 
 /**

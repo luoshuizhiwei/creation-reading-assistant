@@ -6,13 +6,15 @@ import type { ReaderPreset, ReaderSettings } from "@/types/library";
 export function ReaderSettingsPanel({
   settings,
   onChange,
-  onReset
+  onReset,
+  format
 }: {
   settings: ReaderSettings;
   onChange: (patch: Partial<ReaderSettings>) => void;
   onReset?: () => void;
+  /** 当前阅读格式：EPUB 样式选项只对 EPUB 生效，其余格式的抽屉里隐藏 */
+  format?: "txt" | "md" | "epub";
 }) {
-  const tracking = settings.tracking;
   const [installedFonts, setInstalledFonts] = useState<string[]>([]);
   const [presetName, setPresetName] = useState("");
 
@@ -205,7 +207,7 @@ export function ReaderSettingsPanel({
           <option value="beans">绿豆沙</option>
         </select>
       </label>
-      <label className="grid gap-1.5 text-sm text-paper-muted">
+      <label className="grid gap-1.5 text-sm text-paper-muted" style={format && format !== "epub" ? { display: "none" } : undefined}>
         <span className="font-medium text-paper-ink">EPUB 样式</span>
         <select
           className="paper-input h-9"
@@ -228,61 +230,6 @@ export function ReaderSettingsPanel({
           <option value="t2s">繁体 → 简体</option>
         </select>
       </label>
-
-      <div className="mt-2 border-t border-paper-line pt-4">
-        <div className="mb-1 text-sm font-semibold text-paper-ink">高级阅读记录</div>
-        <p className="mb-3 text-xs leading-5 text-paper-muted">这些选项只影响计时和进度保存，不会改变正文内容。</p>
-        <label className="mb-3 flex items-center gap-2 text-sm text-paper-muted">
-          <input type="checkbox" checked={settings.restoreLastPosition} onChange={(event) => onChange({ restoreLastPosition: event.target.checked })} />
-          自动恢复上次位置
-        </label>
-        <label className="mb-3 flex items-center gap-2 text-sm text-paper-muted">
-          <input
-            type="checkbox"
-            checked={tracking.trackReadingSessions}
-            onChange={(event) => onChange({ tracking: { ...tracking, trackReadingSessions: event.target.checked } })}
-          />
-          自动记录阅读会话
-        </label>
-        <label className="mb-3 flex items-center gap-2 text-sm text-paper-muted">
-          <input
-            type="checkbox"
-            checked={tracking.showReadingStatsCards}
-            onChange={(event) => onChange({ tracking: { ...tracking, showReadingStatsCards: event.target.checked } })}
-          />
-          显示当前会话卡片
-        </label>
-        <Field label="空闲暂停秒数">
-          <p className="text-xs leading-5 text-paper-muted">多久没有翻页、滚动或点击后，暂停计入有效阅读时间。</p>
-          <TextInput
-            type="number"
-            min={15}
-            max={600}
-            value={Math.round(tracking.idleTimeoutMs / 1000)}
-            onChange={(event) => onChange({ tracking: { ...tracking, idleTimeoutMs: Number(event.target.value) * 1000 } })}
-          />
-        </Field>
-        <Field label="进度保存间隔秒数">
-          <p className="text-xs leading-5 text-paper-muted">阅读时多久自动保存一次当前位置，数值越小越不容易丢进度。</p>
-          <TextInput
-            type="number"
-            min={1}
-            max={60}
-            value={Math.round(tracking.progressSaveIntervalMs / 1000)}
-            onChange={(event) => onChange({ tracking: { ...tracking, progressSaveIntervalMs: Number(event.target.value) * 1000 } })}
-          />
-        </Field>
-        <Field label="会话持久化秒数">
-          <p className="text-xs leading-5 text-paper-muted">阅读计时多久写入一次本地文件，用来防止异常退出后时长丢失。</p>
-          <TextInput
-            type="number"
-            min={5}
-            max={300}
-            value={Math.round(tracking.sessionPersistIntervalMs / 1000)}
-            onChange={(event) => onChange({ tracking: { ...tracking, sessionPersistIntervalMs: Number(event.target.value) * 1000 } })}
-          />
-        </Field>
-      </div>
     </div>
   );
 }

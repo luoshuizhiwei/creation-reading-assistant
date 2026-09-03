@@ -3,13 +3,6 @@ import { create } from "zustand";
 export const APP_SCREENS = ["projects", "inbox", "inspiration", "library", "reader", "stats", "settings"] as const;
 export type AppScreen = (typeof APP_SCREENS)[number];
 
-export interface ReaderReturnState {
-  bookId: string;
-  label: string;
-  fromScreen: AppScreen;
-  progressLabel?: string;
-}
-
 export interface AppError {
   id: string;
   message: string;
@@ -19,12 +12,9 @@ export interface AppError {
 interface AppState {
   screen: AppScreen;
   previousScreen?: AppScreen;
-  readerReturn?: ReaderReturnState;
   loading: boolean;
   errors: AppError[];
-  setScreen: (screen: AppScreen, options?: { preserveReturn?: boolean }) => void;
-  setReaderReturn: (readerReturn?: ReaderReturnState) => void;
-  clearReaderReturn: () => void;
+  setScreen: (screen: AppScreen) => void;
   setLoading: (loading: boolean) => void;
   setError: (error?: string) => void;
   dismissError: (id: string) => void;
@@ -37,14 +27,7 @@ export const useAppStore = create<AppState>((set) => ({
   screen: "projects",
   loading: false,
   errors: [],
-  setScreen: (screen, options) =>
-    set((state) => ({
-      previousScreen: state.screen,
-      screen,
-      readerReturn: options?.preserveReturn ? state.readerReturn : screen === "reader" ? undefined : state.readerReturn
-    })),
-  setReaderReturn: (readerReturn) => set({ readerReturn }),
-  clearReaderReturn: () => set({ readerReturn: undefined }),
+  setScreen: (screen) => set((state) => ({ previousScreen: state.screen, screen })),
   setLoading: (loading) => set({ loading }),
   setError: (error) => {
     if (!error) return;

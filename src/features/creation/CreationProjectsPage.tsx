@@ -231,9 +231,9 @@ export function CreationProjectsPage() {
   const paletteCommands = useMemo(() => {
     const commands: Array<{ id: string; label: string; group: string; keywords?: string[]; shortcut?: string; run(): void }> = [
       { id: "view.writing", label: "正文写作台", group: "视图", keywords: ["写作", "manuscript"], run: () => setView("writing") },
-      { id: "view.cards", label: "卡片管理", group: "视图", keywords: ["卡片", "cards"], run: () => setView("cards") },
+      { id: "view.cards", label: "设定卡管理", group: "视图", keywords: ["卡片", "设定卡", "cards"], run: () => setView("cards") },
       { id: "view.history", label: "历史与回收站", group: "视图", keywords: ["回收站", "快照", "history"], run: () => setView("history") },
-      { id: "view.stats", label: "统计与创作目标", group: "视图", keywords: ["字数", "统计", "stats"], run: () => setView("stats") },
+      { id: "view.stats", label: "写作统计", group: "视图", keywords: ["字数", "统计", "创作目标", "stats"], run: () => setView("stats") },
       { id: "action.search", label: "搜索", group: "操作", keywords: ["查找", "search"], run: () => openProjectSearch() },
       { id: "action.replace", label: "查找替换", group: "操作", keywords: ["替换", "replace"], run: () => setReplaceOpen(true) },
       { id: "action.proof", label: "本地校对", group: "操作", keywords: ["校对", "proof", "错别字"], run: () => setProofOpen(true) },
@@ -495,8 +495,6 @@ export function CreationProjectsPage() {
                   <LazyOverviewPage
                     projectId={selected.id}
                     onContinueWriting={() => setView("writing")}
-                    onOpenOutline={() => setView("outline")}
-                    onOpenStats={() => setView("stats")}
                     onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
                   />
                 </Suspense>

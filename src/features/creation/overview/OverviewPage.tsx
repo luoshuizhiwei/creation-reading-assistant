@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BookOpen, CalendarClock, Clock3, FileText, Flame, Inbox, Layers, PenLine, Target } from "lucide-react";
+import { CalendarClock, Clock3, FileText, Flame, Inbox, Layers, PenLine, Target } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import type { CreationProjectSetup, InboxCountView, ProjectStatsView } from "@/types/creation";
@@ -16,8 +16,6 @@ import "./overview-local.css";
 interface OverviewPageProps {
   projectId: string;
   onContinueWriting(): void;
-  onOpenOutline(): void;
-  onOpenStats(): void;
   onOpenInbox(): void;
 }
 
@@ -41,7 +39,7 @@ function relativeTime(iso: string): string {
   return new Date(iso).toLocaleDateString("zh-CN");
 }
 
-export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOpenStats, onOpenInbox }: OverviewPageProps) {
+export function OverviewPage({ projectId, onContinueWriting, onOpenInbox }: OverviewPageProps) {
   const { loadStats, loadInboxCount } = useCreationActions();
   const selectScene = useCreationStore((state) => state.selectScene);
   const projects = useCreationStore((state) => state.projects);
@@ -178,7 +176,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
         <div className="stats-card overview-pending-card">
           <h3><Inbox size={15} /> 待处理</h3>
           <p className="stats-streak">{inbox.pending}</p>
-          <p className="stats-note">收件箱中 {inbox.pending.toLocaleString("zh-CN")} 条未整理（共 {inbox.total.toLocaleString("zh-CN")}）</p>
+          <p className="stats-note">收件箱中 {inbox.pending.toLocaleString("zh-CN")} 条待处理（共 {inbox.total.toLocaleString("zh-CN")}）</p>
           <button type="button" className="overview-action" onClick={onOpenInbox}>打开收件箱</button>
         </div>
       </div>
@@ -238,21 +236,6 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenOutline, onOp
             ))}
           </ul>
         )}
-      </div>
-
-      <div className="overview-actions-row">
-        <button type="button" className="overview-action" onClick={onContinueWriting}>
-          <PenLine size={15} /> 继续写作
-        </button>
-        <button type="button" className="overview-action" onClick={onOpenOutline}>
-          <BookOpen size={15} /> 大纲
-        </button>
-        <button type="button" className="overview-action" onClick={onOpenStats}>
-          <Target size={15} /> 统计
-        </button>
-        <button type="button" className="overview-action" onClick={onOpenInbox}>
-          <Inbox size={15} /> 收件箱
-        </button>
       </div>
     </section>
   );

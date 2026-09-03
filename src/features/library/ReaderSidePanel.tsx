@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { Bookmark, Highlighter, List, Trash2 } from "lucide-react";
 import { Button, ShellPanel } from "@/components/ui";
 import { saveHighlight } from "@/services/annotation-service";
@@ -44,6 +44,21 @@ export interface ReaderSidePanelProps {
   onRemoveBookmark(id: string): void;
 }
 
+/**
+ * 删除确认（两步点击，与收件箱"移出"一致）：
+ * 第一次点击进入确认态，再次点击才执行删除；点击其它条目时自动重置。
+ */
+function useConfirmDelete() {
+  const [confirmingId, setConfirmingId] = useState<string | null>(null);
+  const request = (id: string) => {
+    if (confirmingId === id) return true;
+    setConfirmingId(id);
+    return false;
+  };
+  const reset = () => setConfirmingId(null);
+  return { confirmingId, request, reset };
+}
+
 export function ReaderSidePanel({
   sidePanelTab,
   onTabChange,
@@ -67,6 +82,8 @@ export function ReaderSidePanel({
   onJumpToBookmark,
   onRemoveBookmark
 }: ReaderSidePanelProps) {
+  const highlightDelete = useConfirmDelete();
+  const bookmarkDelete = useConfirmDelete();
   return (
     <ShellPanel className="flex min-h-0 flex-col overflow-hidden border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
       <div className="mb-3 flex items-center gap-1 border-b border-paper-line pb-2">
@@ -130,11 +147,16 @@ export function ReaderSidePanel({
                     <span className="inline-block h-3 w-3 rounded-full" style={{ background: highlightHex(hl.color) }} />
                     {hl.chapterTitle && <span className="flex-1 truncate text-[11px] text-paper-muted">{hl.chapterTitle}</span>}
                     <button
-                      className="rounded p-1 text-paper-muted opacity-0 transition hover:text-red-500 group-hover:opacity-100"
-                      onClick={() => onRemoveHighlight(hl.id)}
-                      title="删除高亮"
+                      className={`rounded p-1 text-paper-muted transition hover:text-red-500 group-hover:opacity-100 ${highlightDelete.confirmingId === hl.id ? "opacity-100 bg-red-50 text-red-600" : "opacity-0"}`}
+                      onClick={() => {
+                        if (highlightDelete.request(hl.id)) {
+                          onRemoveHighlight(hl.id);
+                          highlightDelete.reset();
+                        }
+                      }}
+                      title={highlightDelete.confirmingId === hl.id ? "再次点击确认删除" : "删除高亮"}
                     >
-                      <Trash2 size={12} />
+                      {highlightDelete.confirmingId === hl.id ? "确认?" : <Trash2 size={12} />}
                     </button>
                   </div>
                   <button
@@ -192,11 +214,16 @@ export function ReaderSidePanel({
                     </div>
                   </button>
                   <button
-                    className="rounded p-1 text-paper-muted opacity-0 transition hover:text-red-500 group-hover:opacity-100"
-                    onClick={() => onRemoveBookmark(bm.id)}
-                    title="删除书签"
+                    className={`rounded p-1 text-paper-muted transition hover:text-red-500 group-hover:opacity-100 ${bookmarkDelete.confirmingId === bm.id ? "opacity-100 bg-red-50 text-red-600" : "opacity-0"}`}
+                    onClick={() => {
+                      if (bookmarkDelete.request(bm.id)) {
+                        onRemoveBookmark(bm.id);
+                        bookmarkDelete.reset();
+                      }
+                    }}
+                    title={bookmarkDelete.confirmingId === bm.id ? "再次点击确认删除" : "删除书签"}
                   >
-                    <Trash2 size={12} />
+                    {bookmarkDelete.confirmingId === bm.id ? "确认?" : <Trash2 size={12} />}
                   </button>
                 </div>
               ))

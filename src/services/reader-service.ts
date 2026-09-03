@@ -2,6 +2,7 @@ import { getDesktopApi } from "@/services/ipc-client";
 import type {
   EndReadingSessionInput,
   GetReadingSessionsInput,
+  LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
   ReaderSettings,
@@ -12,6 +13,7 @@ import type {
   RecoverReadingSessionsResult,
   SaveProgressInput,
   StartReadingSessionInput,
+  TxtTocOverrides,
   UpdateReadingSessionInput
 } from "@/types/library";
 
@@ -33,6 +35,10 @@ export async function getProgress(bookId: string): Promise<ReadingProgress | und
 
 export async function saveEpubLocation(input: SaveProgressInput): Promise<ReadingProgress> {
   return getDesktopApi().reader.saveEpubLocation(input);
+}
+
+export async function saveTxtTocOverrides(input: { bookId: string; overrides: TxtTocOverrides | null }): Promise<LibraryBook> {
+  return getDesktopApi().reader.saveTxtTocOverrides(input);
 }
 
 export async function getEpubLocation(bookId: string): Promise<ReadingLocation | undefined> {
