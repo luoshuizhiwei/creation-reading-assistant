@@ -45,7 +45,7 @@ for (const snippet of [
 }
 
 const betaCheck = read("scripts/beta-check.mjs");
-for (const snippet of ["npm run verify:hardening", "npm run verify:stats-ui"]) {
+for (const snippet of ["npm run verify:hardening", "npm run verify:reader-formats"]) {
   if (!betaCheck.includes(snippet)) missing.push(`verify:beta should run ${snippet}.`);
 }
 

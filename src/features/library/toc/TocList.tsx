@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronRight, Search, X } from "lucide-react";
+import { ChevronDown, ChevronRight, Check, Search, X } from "lucide-react";
 import { buildTocTree, flattenVisibleTree, collectAncestorIds, collectParentIds, treeMaxDepth, type TocEntry } from "./tree";
 
 /**
@@ -21,9 +21,11 @@ export interface TocListProps {
   disableSearch?: boolean;
   /** 附加到根节点的类（如在 flex 侧栏中传 min-h-0 flex-1 以获得内部滚动） */
   className?: string;
+  /** 已读章节 id 集合（派生自当前进度），行内弱化并标记 */
+  readIds?: ReadonlySet<string>;
 }
 
-export function TocList({ entries, currentId, onJump, emptyText, disableSearch, className }: TocListProps) {
+export function TocList({ entries, currentId, onJump, emptyText, disableSearch, className, readIds }: TocListProps) {
   const listRef = useRef<HTMLDivElement>(null);
   const userBrowsingRef = useRef(false);
   const [query, setQuery] = useState("");
@@ -158,6 +160,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
                   key={entry.id}
                   entry={entry}
                   active={entry.id === currentId}
+                  read={readIds?.has(entry.id) ?? false}
                   indent={8 + Math.max(0, entry.level - 1) * 12}
                   onJump={onJump}
                 />
@@ -174,6 +177,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
                   key={node.entry.id}
                   entry={node.entry}
                   active={node.entry.id === currentId}
+                  read={readIds?.has(node.entry.id) ?? false}
                   indent={8 + Math.max(0, node.entry.level - 1) * 12}
                   onJump={onJump}
                   hasChildren={hasKids}
@@ -196,6 +200,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
 interface TocRowProps {
   entry: TocEntry;
   active: boolean;
+  read: boolean;
   indent: number;
   onJump(id: string): void;
   hasChildren?: boolean;
@@ -203,7 +208,7 @@ interface TocRowProps {
   onToggle?: () => void;
 }
 
-function TocRow({ entry, active, indent, onJump, hasChildren, expanded, onToggle }: TocRowProps) {
+function TocRow({ entry, active, read, indent, onJump, hasChildren, expanded, onToggle }: TocRowProps) {
   return (
     <div
       data-toc-row-id={entry.id}
@@ -211,7 +216,11 @@ function TocRow({ entry, active, indent, onJump, hasChildren, expanded, onToggle
       tabIndex={0}
       aria-current={active ? "true" : undefined}
       className={`group flex items-start rounded text-left text-sm transition-colors ${
-        active ? "bg-copper/10 font-medium text-copper" : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
+        active
+          ? "bg-copper/10 font-medium text-copper"
+          : read
+            ? "text-paper-muted/55 hover:bg-paper-panel hover:text-paper-ink"
+            : "text-paper-muted hover:bg-paper-panel hover:text-paper-ink"
       }`}
       style={{ paddingLeft: `${indent}px` }}
       onClick={() => onJump(entry.id)}
@@ -221,7 +230,7 @@ function TocRow({ entry, active, indent, onJump, hasChildren, expanded, onToggle
           onJump(entry.id);
         }
       }}
-      title={entry.label}
+      title={read ? `${entry.label}（已读）` : entry.label}
     >
       {hasChildren ? (
         <button
@@ -238,6 +247,7 @@ function TocRow({ entry, active, indent, onJump, hasChildren, expanded, onToggle
         <span className="w-[18px] shrink-0" />
       )}
       <span className="line-clamp-2 py-1.5 pr-2">{entry.label}</span>
+      {read && !active && <Check size={12} className="ml-auto mr-2 mt-2 shrink-0 text-paper-muted/50" aria-hidden />}
     </div>
   );
 }

@@ -23,6 +23,13 @@ export interface EpubBookMetadata {
   searchIndexPath?: string;
 }
 
+/** 用户手动修正后的 TXT 章节表（目录编辑模式产物）。存在时完全取代启发式识别。 */
+export interface TxtTocOverrides {
+  version: 1;
+  /** 按文档顺序排列；startIndex 为章节标题行首字符在全文字符中的偏移。 */
+  chapters: Array<{ title: string; startIndex: number }>;
+}
+
 export interface EpubSearchIndexItem {
   id: ID;
   title: string;
@@ -88,6 +95,8 @@ export interface BookmarkItem {
   href?: string;
   /** TXT/MD 定位 */
   scrollTop?: number;
+  /** TXT：章节标题行在全文字符中的偏移；MD：标题锚点 id（配合 href="#id"） */
+  charOffset?: number;
   progressPercent?: number;
   chapterTitle?: string;
   createdAt: ISODateString;
@@ -116,6 +125,10 @@ export interface LibraryBook {
   publisher?: string;
   coverPath?: string;
   epub?: EpubBookMetadata;
+  /** TXT 专属持久化数据（如手动修正的章节表）。 */
+  text?: {
+    tocOverrides?: TxtTocOverrides;
+  };
   revision: number;
   deviceId: ID;
   deletedAt?: ISODateString;

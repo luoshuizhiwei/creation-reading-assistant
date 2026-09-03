@@ -6,24 +6,31 @@ import { useAppStore } from "@/stores/app-store";
 import type { ReadingLocation } from "@/types/library";
 import { computeScrollLocation } from "@/utils/reading-progress";
 
-export function buildScrollLocation(scroller: HTMLDivElement | null, book = useLibraryStore.getState().activeBook): ReadingLocation | undefined {
+export function buildScrollLocation(
+  scroller: HTMLDivElement | null,
+  book = useLibraryStore.getState().activeBook,
+  textAnchor?: { chapterRef?: string; headingPath?: string[]; charOffset?: number }
+): ReadingLocation | undefined {
   if (!book || !scroller) return undefined;
-  return computeScrollLocation(scroller, book);
+  return computeScrollLocation(scroller, book, textAnchor);
 }
 
-export function useReaderProgress(scrollerRef: RefObject<HTMLDivElement>) {
+export function useReaderProgress(
+  scrollerRef: RefObject<HTMLDivElement>,
+  getTextAnchor?: () => { chapterRef?: string; headingPath?: string[]; charOffset?: number } | undefined
+) {
   const activeBook = useLibraryStore((state) => state.activeBook);
   const setProgress = useLibraryStore((state) => state.setProgress);
   const setError = useAppStore((state) => state.setError);
   const lastSaveRef = useRef<number | null>(null);
 
   const getCurrentLocation = useCallback(
-    () => buildScrollLocation(scrollerRef.current),
-    [scrollerRef]
+    () => buildScrollLocation(scrollerRef.current, undefined, getTextAnchor?.()),
+    [scrollerRef, getTextAnchor]
   );
 
   const flushProgressForBook = useCallback(async (book = useLibraryStore.getState().activeBook) => {
-    const location = buildScrollLocation(scrollerRef.current, book);
+    const location = buildScrollLocation(scrollerRef.current, book, getTextAnchor?.());
     if (!book || !location) return undefined;
     try {
       const progress = await saveProgress({ bookId: book.id, location });
@@ -33,7 +40,7 @@ export function useReaderProgress(scrollerRef: RefObject<HTMLDivElement>) {
       setError(error instanceof Error ? error.message : String(error));
       return undefined;
     }
-  }, [scrollerRef, setProgress, setError]);
+  }, [scrollerRef, setProgress, setError, getTextAnchor]);
 
   const flushProgress = useCallback(async () => flushProgressForBook(useLibraryStore.getState().activeBook), [flushProgressForBook]);
 

@@ -676,3 +676,24 @@ Novalist 调研与取舍仍记录在
   `verify:reposition` 等 scope 脚本——547801c 清理一次性 QA 脚本时未同步 beta-check.mjs，
   属集成者修复范围。
 - **未做**：P1 TXT 目录修正（编辑模式 + tocOverrides 持久化 + 导出链核对）待用户排期。
+
+## 27. 2026-09-03 桌面端目录升级第二批（进度锚定/书签面板/代码分割/P1 目录修正/已读标记）
+
+实施记录详见 `docs/plans/2026-09-03-desktop-toc-upgrade-design.md` §10。
+
+- **TXT/MD 进度按章锚定**：`toc/anchor.ts` 纯函数；`ReadingLocation.text` 双写
+  chapterRef/charOffset（scrollTop 保留兼容），恢复按新布局反解，排版参数变更不再漂移。
+- **共享 ReaderSidePanel**：EpubSidePanel 变薄壳；TXT/MD 补齐书签（顶栏「加书签」+
+  charOffset/href 锚点）与高亮管理（MD 首次写 locator.chapterId V2 锚点）。
+- **代码分割**：ReaderPage 懒加载 EPUB 分支，chunk 1249kB→363kB，epubjs 只随 EPUB 加载。
+- **P1 TXT 目录修正**：`LibraryBook.text.tocOverrides` + `reader:saveTxtTocOverrides`
+  IPC + 目录 Tab 编辑模式（重命名/拆分/合并/选区设为章起点）+「恢复自动识别」。
+  **坑位：normalizeLibraryBook 逐字段重建，新字段必须在 normalize 登记才能活过重载与
+  备份**——`normalizeTxtTocOverrides` 已锁定并有 verify 断言。
+- **目录已读标记**：派生式（当前章之前 = 已读），零存储；跳章翻阅会把中间章计为已读，
+  接受该近似，手动标记留待后续。
+- **beta-check.mjs 修复**：547801c 清理脚本后清单未同步导致 `verify:beta --scope=desktop`
+  在 main 上必挂——已清理 8 处死引用 + verify-hardening 锚点改指活脚本，守卫恢复可用。
+- **验证**：vitest 782/0；三份 tsc ✅；verify-reader-formats（+11 守卫）/verify-hardening/
+  probe-round7/8/electron-smoke/verify:beta --scope=desktop 全绿。
+- **搁置项**：虚拟滚动、跳转历史、桌面 TTS/翻页模式、已读手动标记（理由见方案 §10）。

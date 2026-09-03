@@ -21,7 +21,7 @@
 | [`plans/2026-08-16-reading-goal-streak-design.md`](plans/2026-08-16-reading-goal-streak-design.md) | P3.2 阅读目标 + 连续阅读 + 提醒设计（片 0–1 会话写入与统计口径统一已完成；片 2–3 待决策/实施） |
 | [`plans/2026-08-16-toc-read-mark-manual-sort-design.md`](plans/2026-08-16-toc-read-mark-manual-sort-design.md) | P3.3 目录已读标记 + 分类/标签/书单手动排序（已完成并真机验收） |
 | [`plans/replace-rules-render-integration-design.md`](plans/replace-rules-render-integration-design.md) | 替换净化规则接入正文渲染：小型 TXT + 新分页引擎及不支持路径能力边界已接线，流式/旧渲染及其他格式仍待实施与带书真机验收 |
-| [`plans/2026-09-03-desktop-toc-upgrade-design.md`](plans/2026-09-03-desktop-toc-upgrade-design.md) | desktop 阅读目录升级：目录/设置分离 + 共享 TocList（折叠/搜索/当前章高亮跟随）+ TXT/MD 识别对齐 Android 语料——P0 已实施，P1 TXT 目录修正待排期 |
+| [`plans/2026-09-03-desktop-toc-upgrade-design.md`](plans/2026-09-03-desktop-toc-upgrade-design.md) | desktop 阅读目录升级：目录/设置分离 + 共享 ReaderSidePanel（折叠/搜索/高亮跟随/已读标记）+ TXT/MD 识别对齐 + 进度按章锚定 + TXT 目录手动修正——P0/P1 均已实施（§9/§10） |
 | [`WorkBuddy/theme_visual_plan.md`](WorkBuddy/theme_visual_plan.md) | 已冻结并真机验收的主题视觉规范 |
 | [`GITHUB_RELEASE_PROCESS.md`](GITHUB_RELEASE_PROCESS.md) | 现有桌面端发布流程；旧 Capacitor APK 发布已在 P0-A2 退役，原生 Android 发布（P0-A3）见 [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md)（2026-08-16 已收口，`android-v*` tag 流） |
 | [`release/ANDROID_RELEASE.md`](release/ANDROID_RELEASE.md) | 原生 Android 发布操作指南：签名、版本注入、GPL 源码包、检查更新 |

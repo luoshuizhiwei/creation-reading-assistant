@@ -42,6 +42,7 @@ import type {
   RecoverReadingSessionsResult,
   SaveProgressInput,
   StartReadingSessionInput,
+  TxtTocOverrides,
   UpdateReadingSessionInput
 } from "../../src/types/library";
 import type { AppSettings, AppSettingsPatch, SettingsSection, StorageLocations, StorageSettings } from "../../src/types/settings";
@@ -1736,6 +1737,21 @@ async function writeBookmarks(items: BookmarkItem[]): Promise<void> {
   await writeJson(bookmarksPath(), { version: 1, updatedAt: now(), items });
 }
 
+/** 严格解析用户手动修正的 TXT 章节表；非法/空数据一律丢弃，防止脏数据进索引。 */
+function normalizeTxtTocOverrides(value: unknown): TxtTocOverrides | undefined {
+  if (!isRecord(value) || value.version !== 1 || !Array.isArray(value.chapters)) return undefined;
+  const chapters: Array<{ title: string; startIndex: number }> = [];
+  let prevStart = -1;
+  for (const raw of value.chapters) {
+    if (!isRecord(raw)) continue;
+    const startIndex = typeof raw.startIndex === "number" && Number.isInteger(raw.startIndex) && raw.startIndex >= 0 ? raw.startIndex : -1;
+    if (startIndex <= prevStart) continue;
+    prevStart = startIndex;
+    chapters.push({ title: optionalString(raw.title) ?? "", startIndex });
+  }
+  return chapters.length > 0 ? { version: 1, chapters } : undefined;
+}
+
 function normalizeLibraryBook(value: unknown): LibraryBook | null {
   if (!isRecord(value)) return null;
   const id = optionalString(value.id);
@@ -1765,6 +1781,11 @@ function normalizeLibraryBook(value: unknown): LibraryBook | null {
       publisher: optionalString(value.publisher),
       coverPath: optionalString(value.coverPath),
       epub: isRecord(value.epub) ? (value.epub as LibraryBook["epub"]) : undefined,
+      text: isRecord(value.text)
+        ? {
+            tocOverrides: normalizeTxtTocOverrides(value.text.tocOverrides)
+          }
+        : undefined,
       revision: typeof value.revision === "number" ? value.revision : undefined,
       deviceId: optionalString(value.deviceId),
       deletedAt: optionalString(value.deletedAt)
@@ -3541,6 +3562,23 @@ function registerIpc(): void {
   ipcMain.handle("library:listBooks", async () => readLibraryIndex());
   ipcMain.handle("library:removeBook", async (_event, bookId: string) => removeBook(bookId));
   ipcMain.handle("reader:openBook", async (_event, bookId: string) => openBook(bookId));
+  // TXT 目录手动修正：overrides=null 表示清除修正、恢复自动识别。
+  ipcMain.handle("reader:saveTxtTocOverrides", async (_event, input: { bookId: string; overrides: TxtTocOverrides | null }) => {
+    const bookId = optionalString(input?.bookId);
+    if (!bookId) throw new Error("缺少书籍 ID。");
+    const books = await readLibraryIndex({ includeDeleted: true });
+    const book = books.find((item) => item.id === bookId);
+    if (!book) throw new Error("书籍不存在或已删除。");
+    if (book.format !== "txt") throw new Error("只有 TXT 支持手动修正章节目录。");
+    const overrides = input.overrides === null ? undefined : normalizeTxtTocOverrides(input.overrides);
+    const next: LibraryBook = {
+      ...book,
+      text: overrides ? { ...book.text, tocOverrides: overrides } : undefined,
+      updatedAt: now()
+    };
+    await writeLibraryIndex(books.map((item) => (item.id === bookId ? next : item)));
+    return next;
+  });
   ipcMain.handle("reader:openEpub", async (_event, bookId: string) => openEpub(bookId));
   ipcMain.handle("reader:saveProgress", async (_event, input: SaveProgressInput) => saveProgress(input));
   ipcMain.handle("reader:getProgress", async (_event, bookId: string) => getProgress(bookId));

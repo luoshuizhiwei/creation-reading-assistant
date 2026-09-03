@@ -28,18 +28,14 @@ if (!["desktop", "all", "auto"].includes(scopeValue)) {
 const DESKTOP_SCRIPTS = [
   "verify:data-integrity",
   "verify:hardening",
-  "verify:reposition",
   "verify:inspiration",
   "verify:ai-settings",
   "verify:search-overlay",
-  "verify:stats-ui",
   "verify:epub-restore",
   "verify:reader-settings",
   "verify:portable-storage",
   "verify:reading-inspiration",
   "verify:reader-formats",
-  "verify:interaction-polish",
-  "verify:creation-adapter-spike",
   "verify:creation-workspace",
   "verify:creation-project-shell",
   "verify:creation-editor",
@@ -62,11 +58,7 @@ const DESKTOP_SCRIPTS = [
   "verify:creation-project-home",
   "verify:creation-migration",
   "verify:creation-search",
-  "verify:reader-excerpt",
-  "verify:visual-evidence",
-  "verify:clean-reposition",
-  "verify:visual-polish",
-  "verify:ux-polish"
+  "verify:reader-excerpt"
 ];
 
 // Mobile/Capacitor verify scripts removed (P0-A2, 2026-07-29). mobile/ is frozen.
@@ -132,11 +124,8 @@ function shouldRunScript(scriptName) {
 // Self-check anchors (do not remove — verify scripts assert these literals exist):
 //   npm run verify:data-integrity
 //   npm run verify:hardening
-//   npm run verify:stats-ui
-//   npm run verify:clean-reposition
 //   npm run verify:epub-restore
-//   npm run verify:ux-polish
-//   npm run verify:creation-adapter-spike
+//   npm run verify:reader-formats
 //   npm run verify:creation-workspace
 //   npm run verify:creation-project-shell
 //   npm run verify:creation-editor
@@ -157,6 +146,7 @@ const requiredIpcChannels = [
   "reader:openBook",
   "reader:openEpub",
   "reader:saveProgress",
+  "reader:saveTxtTocOverrides",
   "reader:startSession",
   "reader:updateSession",
   "reader:endSession",
@@ -451,18 +441,14 @@ if (resolvedScope === "all" || resolvedScope === "desktop") {
 }
 runScoped("verify:data-integrity");
 runScoped("verify:hardening");
-runScoped("verify:reposition");
 runScoped("verify:inspiration");
 runScoped("verify:ai-settings");
 runScoped("verify:search-overlay");
-runScoped("verify:stats-ui");
 runScoped("verify:epub-restore");
 runScoped("verify:reader-settings");
 runScoped("verify:portable-storage");
 runScoped("verify:reading-inspiration");
 runScoped("verify:reader-formats");
-runScoped("verify:interaction-polish");
-runScoped("verify:creation-adapter-spike");
 runScoped("verify:creation-workspace");
 runScoped("verify:creation-project-shell");
 runScoped("verify:creation-editor");
@@ -486,15 +472,11 @@ runScoped("verify:creation-project-home");
 runScoped("verify:creation-migration");
 runScoped("verify:creation-search");
 runScoped("verify:reader-excerpt");
-runScoped("verify:visual-evidence");
-runScoped("verify:clean-reposition");
 runScoped("verify:sync-schema");
 runScoped("verify:sync-server");
 runScoped("verify:sync-conflicts");
 runScoped("verify:release-readiness");
 runScoped("verify:installer-release");
-runScoped("verify:visual-polish");
-runScoped("verify:ux-polish");
 // 全量 Vitest：Desktop Beta 必须实际运行完整 Vitest（通过 npm test + JSON reporter 可靠解析）。
 // skip 的测试（better-sqlite3 ABI 不匹配等）从 JSON 动态读取，不进入 passed。
 runVitest();

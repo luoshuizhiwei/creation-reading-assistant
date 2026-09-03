@@ -727,6 +727,13 @@ export function EpubReaderPage() {
 
   const progressPercent = Math.round((locationRef.current?.progressPercent ?? progress?.progressPercent ?? 0) * 100);
   const currentTocItem = findCurrentTocItem(toc, locationRef.current?.epub?.href);
+  // 已读派生：目录顺序中位于当前项之前的章节（零存储；跳章翻阅会把中间章节计为已读，接受该近似）
+  const currentTocIndex = currentTocItem ? toc.findIndex((item) => item.id === currentTocItem.id) : -1;
+  const tocReadIds = useMemo(
+    () => (currentTocIndex > 0 ? new Set(toc.slice(0, currentTocIndex).map((item) => item.id)) : new Set<string>()),
+    [toc, currentTocIndex]
+  );
+  const tocSummary = currentTocIndex >= 0 ? `已读 ${currentTocIndex}/${toc.length}` : undefined;
 
   const dragHandlersRef = useRef<{ onMove?: (ev: MouseEvent) => void; onUp?: () => void } | null>(null);
   useEffect(() => {
@@ -897,6 +904,8 @@ export function EpubReaderPage() {
           progressPercent={progressPercent}
           currentTocItem={currentTocItem}
           toc={toc}
+          readIds={tocReadIds}
+          tocSummary={tocSummary}
           onJumpToToc={(href) => void jumpToToc(href)}
           highlights={highlights}
           onRemoveHighlight={(id) => void removeHighlight(id)}

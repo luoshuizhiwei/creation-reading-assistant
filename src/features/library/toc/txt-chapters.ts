@@ -152,7 +152,7 @@ function collectMarks(content: string, isTitle: (line: string) => boolean): Chap
   return marks;
 }
 
-function buildChapters(content: string, marks: ChapterMark[]): TxtChapter[] {
+function buildChapters(content: string, marks: ChapterMark[], options: { builtinNormalization?: boolean } = {}): TxtChapter[] {
   if (marks.length === 0) return [];
   const n = content.length;
   const chapters: TxtChapter[] = marks.map((mark) => {
@@ -165,9 +165,14 @@ function buildChapters(content: string, marks: ChapterMark[]): TxtChapter[] {
     };
   });
 
-  // 「正文」是单卷本书的降级章节标记：存在任何显式章节词时按正文处理
-  const hasExplicitHeading = chapters.some((c) => c.title !== "正文");
-  const kept = hasExplicitHeading ? chapters.filter((c) => c.title !== "正文") : chapters;
+  // 「正文」是单卷本书的降级章节标记：存在任何显式章节词时按正文处理。
+  // 用户手动修正的章节表不做此归一化——用户明确要的章节就是章节。
+  const applyBuiltin = options.builtinNormalization !== false;
+  let kept = chapters;
+  if (applyBuiltin) {
+    const hasExplicitHeading = chapters.some((c) => c.title !== "正文");
+    if (hasExplicitHeading) kept = chapters.filter((c) => c.title !== "正文");
+  }
 
   // 第一个章节前若有内容（书名页、简介），单独成序章，否则会丢失
   if (kept.length > 0 && kept[0].startIndex > 0) {
@@ -223,4 +228,28 @@ export function splitTxtChapters(content: string): TxtChapter[] {
     if (best.length > 0) return best;
   }
   return [];
+}
+
+/**
+ * 用户手动修正的章节表（TxtTocOverrides）→ 章节列表。
+ * startIndex 规范化到所在行行首；丢弃非递增/越界的条目；title 原样保留（允许「正文」）。
+ * 与启发式识别共用同一组装逻辑（序章、endIndex 收尾裁剪），保证锚点契约一致。
+ */
+export function chaptersFromOverrides(content: string, chapters: Array<{ title: string; startIndex: number }>): TxtChapter[] {
+  if (!content || chapters.length === 0) return [];
+  const marks: ChapterMark[] = [];
+  let prevLineStart = -1;
+  for (const entry of chapters) {
+    const startIndex = typeof entry.startIndex === "number" && Number.isInteger(entry.startIndex) ? entry.startIndex : -1;
+    if (startIndex < 0 || startIndex >= content.length) continue;
+    // 规范化到行首：选择设为章节起点时可能落在行中间；同一行只保留最早一条
+    const lineStart = content.lastIndexOf("\n", startIndex - 1) + 1;
+    if (lineStart <= prevLineStart) continue;
+    prevLineStart = lineStart;
+    const nl = content.indexOf("\n", startIndex);
+    const titleLine = content.slice(lineStart, nl === -1 ? content.length : nl).trim();
+    const title = entry.title.trim() || titleLine || "未命名章节";
+    marks.push({ start: lineStart, title: title.slice(0, MAX_TITLE_LENGTH + 20) });
+  }
+  return buildChapters(content, marks, { builtinNormalization: false });
 }

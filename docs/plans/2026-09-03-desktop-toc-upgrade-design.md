@@ -2,7 +2,7 @@
 
 - 日期：2026-09-03
 - 范围：桌面端 Electron（`src/` + `electron/`），不影响 `android/`
-- 状态：**P0-A / P0-B 已实施**（2026-09-03，见 §9 实施记录）；P1（TXT 目录修正）待排期
+- 状态：**P0-A / P0-B / P1 及全部候选优化已实施**（2026-09-03，见 §9/§10）；候选清单中虚拟滚动/跳转历史/TTS/翻页模式经评估搁置
 
 ## 1. 现状诊断
 
@@ -207,3 +207,43 @@ interface TxtTocOverrides {
 
 **未做（后续）：** P1 TXT 目录修正（编辑模式 + tocOverrides 持久化 + 导出链核对）；
 §6 候选项全部未动。
+
+## 10. 实施记录二（2026-09-03 晚，P1 + 候选优化五项）
+
+**① TXT/MD 进度按章锚定（正确性）**：新增 `toc/anchor.ts` 纯函数（保存：滚动位置 →
+章节 id + 章内比例 + 字符偏移；恢复：反解新布局滚动位；含 40px 阈值的当前章判定）。
+`ReadingLocation.text` 双写 `chapterRef/charOffset/headingPath`（主进程 sanitize 早已支持），
+`scrollTop` 继续保存作兼容回退。恢复优先锚点换算，锚点不可用（换书/纯文本/锚点丢失）回退
+scrollTop；章节锚点晚于首帧渲染时带 25×100ms 重试。字号/行距/页边距变化后恢复位置不再漂移
+（纯函数测试锁定"布局翻倍仍落原章 50% 处"）。
+
+**② TXT/MD 书签与高亮面板**：`EpubSidePanel` 泛化为共享 `ReaderSidePanel`
+（目录/高亮/书签三 Tab，EPUB 变薄壳委托）。TXT/MD 补齐：顶栏「加书签」、面板书签列表、
+高亮列表（改色/删除/跳转）。TXT 定位用 `charOffset`（经 anchor 反解滚动），MD 用标题锚点
+`href="#id"`（书签）/`locator.chapterId`（高亮 V2 锚点首次写入）。
+
+**③ ReaderPage 代码分割**：EPUB 分支改 `React.lazy`，epubjs 隔离进独立 chunk。
+ReaderPage 1249kB → 363kB（-71%），TXT/MD 不再下载解析 epubjs。
+
+**④ P1 TXT 目录修正**：`LibraryBook.text.tocOverrides`（`{version:1, chapters:[{title,startIndex}]}`）
++ 主进程 `normalizeTxtTocOverrides` 严格校验（行去重/递增/越界丢弃——normalize 逐字段重建，
+新字段必须在此登记才能活过重载与备份）+ IPC `reader:saveTxtTocOverrides`（null=恢复自动识别）。
+渲染端 `chaptersFromOverrides` 与启发式共用组装逻辑（序章/endIndex 裁剪同契约，但保留
+「正文」章节名不降级）。目录 Tab「编辑章节」：重命名/拆分（点选标题行）/合并到上一章/
+选区工具条「设为章节起点」（剪刀按钮），改动经 IPC 落盘并热更新 store。
+
+**⑤ 目录已读标记（派生式）**：零存储——目录顺序中位于当前章之前的章节视为已读，
+行内弱化 + 对勾 + 头部「已读 N/M」（EPUB/TXT/MD 同规则）。跳章翻阅会把中间章节计为
+已读，接受该近似；手动标记留待后续。
+
+**工程**：`beta-check.mjs` 清单与 8 处 runScoped 死引用清理（547801c 遗留），
+`verify-hardening` 锚点改指活脚本，`verify-reader-formats` 新增 11 条结构守卫
+（含 tocOverrides 主进程 normalize 锁定）。`verify:beta --scope=desktop` 恢复可用。
+
+**验证（2026-09-03 实跑）**：vitest 全量 782/0（新增 16 项：锚定往返/布局漂移/边界、
+overrides 行首规范化/去重/重命名语义）；三份 tsconfig ✅；`verify-reader-formats`/
+`verify-hardening`/`probe-round7`/`probe-round8`/`electron-smoke`（12 checks）✅；
+`verify:beta --scope=desktop` ✅。
+
+**仍搁置**：虚拟滚动（折叠后千章目录未实测卡顿）、目录跳转历史、桌面 TTS/翻页模式
+（收益存疑）、已读手动标记。

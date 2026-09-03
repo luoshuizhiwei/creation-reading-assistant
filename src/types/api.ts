@@ -15,6 +15,7 @@ import type {
   RecoverReadingSessionsResult,
   SaveProgressInput,
   StartReadingSessionInput,
+  TxtTocOverrides,
   UpdateReadingSessionInput
 } from "./library";
 import type { AppSettings, AppSettingsPatch, SettingsSection, StorageLocations } from "./settings";
@@ -150,6 +151,7 @@ export interface DesktopApi {
     getProgress: (bookId: string) => Promise<ReadingProgress | undefined>;
     saveEpubLocation: (input: SaveProgressInput) => Promise<ReadingProgress>;
     getEpubLocation: (bookId: string) => Promise<ReadingLocation | undefined>;
+    saveTxtTocOverrides: (input: { bookId: string; overrides: TxtTocOverrides | null }) => Promise<LibraryBook>;
     startSession: (input: StartReadingSessionInput) => Promise<ReadingSession>;
     updateSession: (input: UpdateReadingSessionInput) => Promise<ReadingSession>;
     endSession: (input: EndReadingSessionInput) => Promise<ReadingSession>;

@@ -1,26 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, BookOpen, ChartColumn, Copy, Highlighter, List, Quote, Settings, X } from "lucide-react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowLeft, BookOpen, Bookmark, ChartColumn, Copy, Highlighter, List, Quote, Scissors, Settings, X } from "lucide-react";
 import DOMPurify from "dompurify";
-import { Button, EmptyState, ShellPanel } from "@/components/ui";
-import { EpubReaderPage } from "@/features/library/EpubReaderPage";
+import { Button, EmptyState, ShellPanel, TextInput } from "@/components/ui";
 import { ExcerptPicker } from "@/features/library/ExcerptPicker";
 import { ReaderSettingsDrawer } from "@/features/library/ReaderSettingsDrawer";
+import { ReaderSidePanel, type SidePanelTab } from "@/features/library/ReaderSidePanel";
 import { useReaderExcerpt } from "@/features/library/useReaderExcerpt";
 import type { ExcerptBuildContext } from "@/features/library/useReaderExcerpt";
 import { useReaderProgress } from "@/hooks/useReaderProgress";
 import { useReadingSessionTracker } from "@/hooks/useReadingSessionTracker";
-import { getHighlightsByBook, saveHighlight } from "@/services/annotation-service";
+import { getBookmarksByBook, getHighlightsByBook, saveBookmark, saveHighlight, deleteBookmark as removeBookmarkById, deleteHighlight } from "@/services/annotation-service";
+import { saveTxtTocOverrides } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
-import type { ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
+import type { BookmarkItem, ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
 import { formatDuration, readerShellClass, readerPaperClass, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
 import { renderMarkdownWithToc } from "@/features/library/toc/markdown-toc";
-import { lastAnchorBeforeThreshold } from "@/features/library/toc/current";
-import { TocList } from "@/features/library/toc/TocList";
+import { computeAnchorScrollTop, computeTextAnchor, currentAnchorIdFromSpans, type AnchorSpan } from "@/features/library/toc/anchor";
 import type { TocEntry } from "@/features/library/toc/tree";
-import { splitTxtChapters } from "@/features/library/toc/txt-chapters";
+import { chaptersFromOverrides, splitTxtChapters } from "@/features/library/toc/txt-chapters";
 export { splitTxtChapters } from "@/features/library/toc/txt-chapters";
 export type { TxtChapter } from "@/features/library/toc/txt-chapters";
 
@@ -115,6 +115,11 @@ function findCurrentHeadingAnchor(scroller: HTMLDivElement | null): { id: string
   return { id: best.id, title: best.textContent?.trim() ?? "" };
 }
 
+interface DraftChapter {
+  title: string;
+  startIndex: number;
+}
+
 function TextReaderPage() {
   const activeBook = useLibraryStore((state) => state.activeBook);
   const content = useLibraryStore((state) => state.activeContent);
@@ -134,19 +139,152 @@ function TextReaderPage() {
   } | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const [highlights, setHighlights] = useState<HighlightItem[]>([]);
+  const [bookmarks, setBookmarks] = useState<BookmarkItem[]>([]);
   const highlightsRef = useRef<HighlightItem[]>([]);
   const [tocCollapsed, setTocCollapsed] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
+  const [sidePanelTab, setSidePanelTab] = useState<SidePanelTab>("toc");
   const [currentAnchorId, setCurrentAnchorId] = useState<string | undefined>(undefined);
-  const { scheduleSave, flushProgress, getCurrentLocation } = useReaderProgress(scrollerRef);
   const excerpt = useReaderExcerpt();
+
+  // --- 目录编辑模式（TXT 手动修正章节表） ---
+  const [tocEditMode, setTocEditMode] = useState(false);
+  const [draftChapters, setDraftChapters] = useState<DraftChapter[]>([]);
+  const [splitIndex, setSplitIndex] = useState<number | null>(null);
+  const [renamingIndex, setRenamingIndex] = useState<number | null>(null);
+  const [renameValue, setRenameValue] = useState("");
+  const [savingOverrides, setSavingOverrides] = useState(false);
+
+  // --- 目录数据：MD 从 token 流提取，TXT 从章节切分（或用户修正表）派生 ---
+  const md = useMemo(
+    () => (activeBook?.format === "md" ? renderMarkdownWithToc(content) : { html: "", toc: [] }),
+    [activeBook?.format, content]
+  );
+  const markdownHtml = md.html;
+
+  const tocOverrides = activeBook?.format === "txt" ? activeBook.text?.tocOverrides : undefined;
+  const txtChapters = useMemo(() => {
+    if (activeBook?.format !== "txt") return [];
+    if (tocOverrides && tocOverrides.chapters.length > 0) return chaptersFromOverrides(content, tocOverrides.chapters);
+    return splitTxtChapters(content);
+  }, [activeBook?.format, content, tocOverrides]);
+
+  const tocEntries: TocEntry[] = useMemo(() => {
+    if (activeBook?.format === "md") {
+      return md.toc.map((item) => ({ id: item.id, label: item.title, level: item.level }));
+    }
+    if (activeBook?.format === "txt") {
+      if (txtChapters.length <= 1) return [];
+      return txtChapters
+        .map((ch, idx) => ({ level: 1, label: ch.title, id: `txt-chapter-${idx}` }))
+        .filter((item) => item.label !== "");
+    }
+    return [];
+  }, [activeBook?.format, md.toc, txtChapters]);
+
+  const tocEntriesRef = useRef(tocEntries);
+  tocEntriesRef.current = tocEntries;
+  const txtChaptersRef = useRef(txtChapters);
+  txtChaptersRef.current = txtChapters;
+  const contentLengthRef = useRef(content.length);
+  contentLengthRef.current = content.length;
+
+  // --- 锚点 span 采集与缓存（进度锚定 / 当前章 / 书签跳转共用） ---
+  const spansCacheRef = useRef<AnchorSpan[]>([]);
+  const spansVersionRef = useRef("");
+
+  const ensureSpans = useCallback((): AnchorSpan[] => {
+    const scroller = scrollerRef.current;
+    const format = activeBook?.format;
+    if (!scroller || (format !== "txt" && format !== "md")) return [];
+    const versionKey = [
+      activeBook?.id,
+      format,
+      content.length,
+      txtChapters.length,
+      tocEntries.length,
+      settings?.fontSize,
+      settings?.lineHeight,
+      settings?.letterSpacing,
+      settings?.paragraphSpacing,
+      settings?.pageMargin,
+      settings?.fontFamily,
+      settings?.textConversion,
+      tocCollapsed,
+      window.innerWidth
+    ].join("|");
+    if (spansVersionRef.current === versionKey && spansCacheRef.current.length > 0) return spansCacheRef.current;
+    const scrollerTop = scroller.getBoundingClientRect().top;
+    const scrollTopNow = scroller.scrollTop;
+    const spans: AnchorSpan[] = [];
+    if (format === "txt" && txtChapters.length > 1) {
+      txtChapters.forEach((ch, idx) => {
+        if (!ch.title) return;
+        const el = document.getElementById(`txt-chapter-${idx}`);
+        if (!el) return;
+        spans.push({
+          id: `txt-chapter-${idx}`,
+          top: el.getBoundingClientRect().top - scrollerTop + scrollTopNow,
+          title: ch.title,
+          charStart: ch.startIndex,
+          charEnd: ch.endIndex
+        });
+      });
+    } else if (format === "md") {
+      for (const entry of tocEntries) {
+        const el = document.getElementById(entry.id);
+        if (!el) continue;
+        spans.push({ id: entry.id, top: el.getBoundingClientRect().top - scrollerTop + scrollTopNow, title: entry.label });
+      }
+    }
+    // 空结果不缓存（DOM 可能尚未渲染完成），让下次调用重试
+    if (spans.length > 0) {
+      spansCacheRef.current = spans;
+      spansVersionRef.current = versionKey;
+    }
+    return spans;
+  }, [activeBook?.id, activeBook?.format, content.length, txtChapters, tocEntries, settings?.fontSize, settings?.lineHeight, settings?.letterSpacing, settings?.paragraphSpacing, settings?.pageMargin, settings?.fontFamily, settings?.textConversion, tocCollapsed]);
+
+  const ensureSpansRef = useRef(ensureSpans);
+  ensureSpansRef.current = ensureSpans;
+
+  const getTextAnchor = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller || tocEntriesRef.current.length === 0) return undefined;
+    const spans = ensureSpansRef.current();
+    if (spans.length === 0) return undefined;
+    return computeTextAnchor(spans, scroller.scrollTop, scroller.scrollHeight, scroller.clientHeight, contentLengthRef.current);
+  }, []);
+
+  const updateCurrentAnchor = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (tocEntriesRef.current.length === 0) {
+      setCurrentAnchorId((prev) => (prev === undefined ? prev : undefined));
+      return;
+    }
+    const spans = ensureSpansRef.current();
+    if (spans.length === 0) return;
+    const current = currentAnchorIdFromSpans(spans, scroller.scrollTop);
+    setCurrentAnchorId((prev) => (prev === current ? prev : current));
+  }, []);
+
+  // 布局参数变化（字号/收起/换书等）后重算当前章，首屏即有高亮
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => updateCurrentAnchor());
+    return () => window.cancelAnimationFrame(frame);
+  }, [updateCurrentAnchor, txtChapters, markdownHtml, tocCollapsed, activeBook?.id, settings?.fontSize, settings?.lineHeight, settings?.letterSpacing, settings?.paragraphSpacing, settings?.pageMargin, settings?.fontFamily]);
+
+  const { scheduleSave, flushProgress, getCurrentLocation } = useReaderProgress(scrollerRef, getTextAnchor);
+  const { recordInteraction, endTracking } = useReadingSessionTracker(scrollerRef, getCurrentLocation);
 
   // --- Annotations ---
   const loadAnnotations = useCallback(async (bookId: string) => {
     try {
-      const hl = await getHighlightsByBook(bookId);
+      const [hl, bm] = await Promise.all([getHighlightsByBook(bookId), getBookmarksByBook(bookId)]);
       setHighlights(hl);
       highlightsRef.current = hl;
+      setBookmarks(bm);
     } catch {
       // ignore
     }
@@ -156,6 +294,7 @@ function TextReaderPage() {
     const bookId = useLibraryStore.getState().activeBook?.id;
     if (!bookId || !text.trim()) return;
     const now = new Date().toISOString();
+    const currentHeading = findCurrentHeadingAnchor(scrollerRef.current);
     const item: HighlightItem = {
       id: crypto.randomUUID(),
       bookId,
@@ -163,6 +302,16 @@ function TextReaderPage() {
       charLength,
       text: text.slice(0, 2000),
       color,
+      chapterTitle: currentHeading?.title,
+      // 稳定锚点：TXT 记字符偏移，MD 记标题锚点 id（跨布局可跳回）
+      locator: {
+        version: 2,
+        bookId,
+        format: useLibraryStore.getState().activeBook?.format === "md" ? "markdown" : "txt",
+        chapterId: currentHeading?.id,
+        textOffset: charOffset,
+        updatedAt: Date.now()
+      },
       createdAt: now,
       updatedAt: now,
     };
@@ -175,8 +324,76 @@ function TextReaderPage() {
     showToast({ tone: "success", title: "已添加高亮", body: text.slice(0, 50) });
   }, [showToast]);
 
+  const scrollToCharOffset = useCallback((charOffset: number) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    const target = computeAnchorScrollTop(ensureSpansRef.current(), { charOffset }, scroller.scrollHeight, scroller.clientHeight, contentLengthRef.current);
+    if (typeof target === "number") {
+      scroller.scrollTop = target;
+    } else {
+      // 锚点不可用（无章节/未渲染）：退回全局比例
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      if (contentLengthRef.current > 0) scroller.scrollTop = Math.round((charOffset / contentLengthRef.current) * maxScroll);
+    }
+    window.requestAnimationFrame(() => updateCurrentAnchor());
+  }, [updateCurrentAnchor]);
 
-  const { recordInteraction, endTracking } = useReadingSessionTracker(scrollerRef, getCurrentLocation);
+  const jumpToBookmark = useCallback((bm: BookmarkItem) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (bm.href?.startsWith("#")) {
+      document.getElementById(bm.href.slice(1))?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (typeof bm.charOffset === "number" && txtChaptersRef.current.length > 1) {
+      scrollToCharOffset(bm.charOffset);
+      return;
+    }
+    if (typeof bm.scrollTop === "number") {
+      scroller.scrollTop = bm.scrollTop;
+      window.requestAnimationFrame(() => updateCurrentAnchor());
+    }
+  }, [scrollToCharOffset, updateCurrentAnchor]);
+
+  const addBookmarkAtCurrent = useCallback(async () => {
+    const bookId = useLibraryStore.getState().activeBook?.id;
+    if (!bookId) return;
+    const location = getCurrentLocation();
+    const anchor = getTextAnchor();
+    const chapterTitle = anchor?.headingPath?.[0];
+    const item: BookmarkItem = {
+      id: crypto.randomUUID(),
+      bookId,
+      label: chapterTitle || `书签 ${Math.round((location?.progressPercent ?? 0) * 100)}%`,
+      chapterTitle,
+      charOffset: anchor?.charOffset,
+      scrollTop: location?.scroll?.scrollTop,
+      href: anchor?.chapterRef ? `#${anchor.chapterRef}` : undefined,
+      progressPercent: location?.progressPercent,
+      createdAt: new Date().toISOString(),
+    };
+    const saved = await saveBookmark(item);
+    setBookmarks((prev) => [saved, ...prev]);
+    showToast({ tone: "success", title: "已添加书签", body: item.label });
+  }, [getCurrentLocation, getTextAnchor, showToast]);
+
+  const jumpToHighlight = useCallback((hl: HighlightItem) => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    if (typeof hl.charOffset === "number" && txtChaptersRef.current.length > 1) {
+      scrollToCharOffset(hl.charOffset);
+      return;
+    }
+    const anchorId = hl.locator?.chapterId ?? (hl.locator?.fragment ? hl.locator.fragment.replace(/^#/, "") : undefined);
+    if (anchorId && document.getElementById(anchorId)) {
+      document.getElementById(anchorId)?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    if (typeof hl.charOffset === "number" && contentLengthRef.current > 0) {
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      scroller.scrollTop = Math.round((hl.charOffset / contentLengthRef.current) * maxScroll);
+    }
+  }, [scrollToCharOffset]);
 
   const didRestoreScrollRef = useRef(false);
   const restoreTimerRef = useRef<number | undefined>(undefined);
@@ -188,16 +405,32 @@ function TextReaderPage() {
     };
   }, [activeBook?.id]);
 
+  // 恢复阅读位置：优先按文本锚点（章节+章内比例）换算新布局下的位置，
+  // 锚点不可用时回退保存的 scrollTop；章节锚点可能晚于首帧渲染，带重试。
   useEffect(() => {
-    const scroller = scrollerRef.current;
-    const scrollTop = progress?.currentLocation?.scroll?.scrollTop;
-    if (!settings?.restoreLastPosition || !scroller || typeof scrollTop !== "number") return;
-    if (didRestoreScrollRef.current) return;
+    if (!settings?.restoreLastPosition) return;
+    const loc = progress?.currentLocation;
+    if (!loc || didRestoreScrollRef.current) return;
+    const savedScrollTop = loc.scroll?.scrollTop;
+    if (!loc.text?.chapterRef && typeof savedScrollTop !== "number") return;
     didRestoreScrollRef.current = true;
-    restoreTimerRef.current = window.setTimeout(() => {
-      scroller.scrollTop = scrollTop;
-    }, 80);
-  }, [activeBook?.id, progress?.currentLocation?.scroll?.scrollTop, settings?.restoreLastPosition]);
+    const tryRestore = (attempt: number) => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+      const needsSpans = Boolean(loc.text?.chapterRef) && tocEntriesRef.current.length > 0;
+      const spans = needsSpans ? ensureSpansRef.current() : [];
+      if (needsSpans && spans.length === 0) {
+        if (attempt < 25) restoreTimerRef.current = window.setTimeout(() => tryRestore(attempt + 1), 100);
+        return;
+      }
+      const anchorTarget = loc.text ? computeAnchorScrollTop(spans, loc.text, scroller.scrollHeight, scroller.clientHeight, contentLengthRef.current) : undefined;
+      const target = anchorTarget ?? savedScrollTop;
+      if (typeof target === "number") scroller.scrollTop = target;
+      window.requestAnimationFrame(() => updateCurrentAnchor());
+    };
+    restoreTimerRef.current = window.setTimeout(() => tryRestore(0), 80);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeBook?.id, progress?.currentLocation, settings?.restoreLastPosition]);
 
   useEffect(() => {
     if (activeBook?.id) loadAnnotations(activeBook.id);
@@ -218,36 +451,6 @@ function TextReaderPage() {
       document.removeEventListener("click", handleClickOutside);
     };
   }, [selectionToolbar?.visible]);
-
-  // --- 目录数据：MD 从 token 流提取，TXT 从章节切分派生 ---
-  const md = useMemo(
-    () => (activeBook?.format === "md" ? renderMarkdownWithToc(content) : { html: "", toc: [] }),
-    [activeBook?.format, content]
-  );
-  const markdownHtml = md.html;
-  const mdToc = md.toc;
-
-  const txtChapters = useMemo(() => {
-    if (activeBook?.format !== "txt") return [];
-    return splitTxtChapters(content);
-  }, [activeBook?.format, content]);
-
-  const txtToc = useMemo(() => {
-    if (txtChapters.length <= 1) return [];
-    return txtChapters
-      .map((ch, idx) => ({ level: 1, title: ch.title, id: `txt-chapter-${idx}` }))
-      .filter((item) => item.title !== "");
-  }, [txtChapters]);
-
-  const tocEntries: TocEntry[] = useMemo(() => {
-    if (activeBook?.format === "md") {
-      return mdToc.map((item) => ({ id: item.id, label: item.title, level: item.level }));
-    }
-    if (activeBook?.format === "txt") {
-      return txtToc.map((item) => ({ id: item.id, label: item.title, level: item.level }));
-    }
-    return [];
-  }, [activeBook?.format, mdToc, txtToc]);
 
   // Render highlights as <mark> tags in the DOM
   useEffect(() => {
@@ -314,55 +517,6 @@ function TextReaderPage() {
   );
   const convertedMarkdownHtml = convertedMd.html;
 
-  // --- 当前章锚点跟踪（滚动模式）：缓存的锚点元素取"视口顶之上最近者" ---
-  const anchorsRef = useRef<Map<string, HTMLElement>>(new Map());
-  const anchorRafRef = useRef<number | undefined>(undefined);
-  const tocAnchorKey = useMemo(() => tocEntries.map((entry) => entry.id).join("\n"), [tocEntries]);
-
-  useEffect(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller || !tocAnchorKey) {
-      anchorsRef.current = new Map();
-      setCurrentAnchorId(undefined);
-      return;
-    }
-    const map = new Map<string, HTMLElement>();
-    for (const id of tocAnchorKey.split("\n")) {
-      const el = scroller.querySelector<HTMLElement>(`#${CSS.escape(id)}`);
-      if (el) map.set(id, el);
-    }
-    anchorsRef.current = map;
-    // 打开即计算一次当前章（恢复滚动位置后首屏就有高亮，不必等首次滚动）
-    const containerTop = scroller.getBoundingClientRect().top;
-    const offsets = Array.from(map, ([id, el]) => ({
-      id,
-      offsetTop: el.getBoundingClientRect().top - containerTop
-    }));
-    setCurrentAnchorId((prev) => {
-      const current = lastAnchorBeforeThreshold(offsets, 40);
-      return prev === current ? prev : current;
-    });
-  }, [tocAnchorKey, markdownHtml, convertedMarkdownHtml, content, activeBook?.format]);
-
-  const updateCurrentAnchor = useCallback(() => {
-    const scroller = scrollerRef.current;
-    if (!scroller || anchorsRef.current.size === 0) return;
-    const containerTop = scroller.getBoundingClientRect().top;
-    const offsets = Array.from(anchorsRef.current, ([id, el]) => ({
-      id,
-      offsetTop: el.getBoundingClientRect().top - containerTop
-    }));
-    // anchorsRef 按目录顺序插入，即文档顺序，可安全地做"最后一个已越过阈值"
-    const current = lastAnchorBeforeThreshold(offsets, 40);
-    setCurrentAnchorId((prev) => (prev === current ? prev : current));
-  }, []);
-
-  useEffect(() => {
-    return () => {
-      if (anchorRafRef.current !== undefined) window.cancelAnimationFrame(anchorRafRef.current);
-    };
-  }, []);
-
   const handleActivity = useCallback(() => {
     recordInteraction();
     scheduleSave();
@@ -370,17 +524,109 @@ function TextReaderPage() {
 
   const handleScrollActivity = useCallback(() => {
     handleActivity();
-    if (anchorRafRef.current === undefined) {
-      anchorRafRef.current = window.requestAnimationFrame(() => {
-        anchorRafRef.current = undefined;
-        updateCurrentAnchor();
-      });
-    }
+    updateCurrentAnchor();
   }, [handleActivity, updateCurrentAnchor]);
 
   const jumpToTocEntry = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  // --- 目录编辑模式操作 ---
+  const enterTocEditMode = useCallback(() => {
+    const draft = txtChapters
+      .filter((ch) => ch.title !== "")
+      .map((ch) => ({ title: ch.title, startIndex: ch.startIndex }));
+    setDraftChapters(draft);
+    setSplitIndex(null);
+    setRenamingIndex(null);
+    setTocEditMode(true);
+  }, [txtChapters]);
+
+  const persistTocOverrides = useCallback(async (chapters: DraftChapter[] | null) => {
+    const bookId = useLibraryStore.getState().activeBook?.id;
+    if (!bookId) return;
+    setSavingOverrides(true);
+    try {
+      const updated = await saveTxtTocOverrides({ bookId, overrides: chapters ? { version: 1, chapters } : null });
+      useLibraryStore.setState({ activeBook: updated });
+      showToast({
+        tone: "success",
+        title: chapters ? "章节目录已更新" : "已恢复自动识别",
+        body: chapters ? `共 ${chapters.length} 章，全书跳转与进度章节已按新目录生效。` : "章节表已还原为自动识别结果。"
+      });
+      setTocEditMode(false);
+      setSplitIndex(null);
+      setRenamingIndex(null);
+    } catch (error) {
+      showToast({ tone: "error", title: "章节目录保存失败", body: error instanceof Error ? error.message : String(error) });
+    } finally {
+      setSavingOverrides(false);
+    }
+  }, [showToast]);
+
+  const addChapterStartFromSelection = useCallback((charOffset: number) => {
+    const text = content;
+    if (!text || charOffset < 0 || charOffset >= text.length) return;
+    const lineStart = text.lastIndexOf("\n", charOffset - 1) + 1;
+    const nl = text.indexOf("\n", charOffset);
+    const lineText = text.slice(lineStart, nl === -1 ? text.length : nl).trim();
+    if (!lineText) {
+      showToast({ tone: "warning", title: "无法设为章节起点", body: "请选中一行有内容的文字。" });
+      return;
+    }
+    const entry: DraftChapter = { title: lineText.slice(0, 40), startIndex: lineStart };
+    setTocEditMode((editing) => {
+      if (editing) {
+        setDraftChapters((prev) => {
+          const withoutSameLine = prev.filter((ch) => ch.startIndex !== lineStart);
+          const insertAt = withoutSameLine.findIndex((ch) => ch.startIndex > lineStart);
+          const next = insertAt === -1 ? [...withoutSameLine, entry] : [...withoutSameLine.slice(0, insertAt), entry, ...withoutSameLine.slice(insertAt)];
+          setRenamingIndex(next.findIndex((ch) => ch.startIndex === lineStart));
+          return next;
+        });
+        return true;
+      }
+      const base = txtChaptersRef.current.filter((ch) => ch.title !== "").map((ch) => ({ title: ch.title, startIndex: ch.startIndex }));
+      const withoutSameLine = base.filter((ch) => ch.startIndex !== lineStart);
+      const insertAt = withoutSameLine.findIndex((ch) => ch.startIndex > lineStart);
+      const next = insertAt === -1 ? [...withoutSameLine, entry] : [...withoutSameLine.slice(0, insertAt), entry, ...withoutSameLine.slice(insertAt)];
+      setDraftChapters(next);
+      setRenamingIndex(next.findIndex((ch) => ch.startIndex === lineStart));
+      setSplitIndex(null);
+      return true;
+    });
+    showToast({ tone: "info", title: "已加入新章节起点", body: "可在目录编辑中重命名，保存后生效。" });
+  }, [content, showToast]);
+
+  // 拆分目标章节内的行（含偏移），供"设为章节起点"挑选
+  const splitLines = useMemo(() => {
+    if (splitIndex === null) return [];
+    const chapters = chaptersFromOverrides(content, draftChapters);
+    const titled = chapters.filter((ch) => ch.title !== "");
+    const chapter = titled[splitIndex];
+    if (!chapter) return [];
+    const lines: Array<{ start: number; text: string }> = [];
+    let cursor = chapter.contentStart;
+    const end = Math.min(chapter.endIndex, content.length);
+    while (cursor < end && lines.length < 80) {
+      const nl = content.indexOf("\n", cursor);
+      const lineEnd = nl === -1 ? content.length : nl;
+      const lineText = content.slice(cursor, lineEnd).trim();
+      if (lineText) lines.push({ start: cursor, text: lineText });
+      cursor = lineEnd + 1;
+    }
+    return lines.slice(1); // 第一行是章标题本身，不能再拆
+  }, [splitIndex, draftChapters, content]);
+
+  // 已读派生：目录顺序中位于当前章之前的章节（零存储；跳章翻阅会把中间章节计为已读，接受该近似）
+  const currentTocIndexForRead = currentAnchorId ? tocEntries.findIndex((entry) => entry.id === currentAnchorId) : -1;
+  const readIds = useMemo(
+    () =>
+      currentTocIndexForRead > 0
+        ? new Set(tocEntries.slice(0, currentTocIndexForRead).map((entry) => entry.id))
+        : new Set<string>(),
+    [tocEntries, currentTocIndexForRead]
+  );
 
   if (!activeBook || !settings) {
     return (
@@ -391,6 +637,11 @@ function TextReaderPage() {
   }
 
   const progressPercent = Math.round((progress?.progressPercent ?? 0) * 100);
+  const isTxt = activeBook.format === "txt";
+  const isMd = activeBook.format === "md";
+
+  const currentTocIndex = currentAnchorId ? tocEntries.findIndex((entry) => entry.id === currentAnchorId) : -1;
+  const tocSummary = currentTocIndex >= 0 ? `已读 ${currentTocIndex}/${tocEntries.length}` : undefined;
 
   const openExcerptFromSelection = useCallback(() => {
     if (!selectionToolbar?.visible || !selectionToolbar.text.trim()) {
@@ -433,6 +684,107 @@ function TextReaderPage() {
     [showToast]
   );
 
+  // --- 目录编辑面板体 ---
+  const tocEditBody = (
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
+      <div className="rounded-md border border-copper/30 bg-copper/5 p-2 text-xs leading-5 text-paper-muted">
+        修改后点「保存并完成」，全书目录、跳转与进度章节按新章节表生效；改动会随书籍保留。
+      </div>
+      <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
+        <div className="grid gap-1">
+          {draftChapters.map((ch, i) => (
+            <div key={`${ch.startIndex}-${i}`} className="rounded border border-paper-line bg-paper-panel px-2 py-1.5">
+              {renamingIndex === i ? (
+                <div className="flex items-center gap-1.5">
+                  <TextInput
+                    value={renameValue}
+                    onChange={(event) => setRenameValue(event.target.value)}
+                    className="h-7 flex-1 text-sm"
+                    aria-label="章节标题"
+                    autoFocus
+                  />
+                  <Button
+                    variant="secondary"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => {
+                      const next = [...draftChapters];
+                      next[i] = { ...next[i], title: renameValue.trim() || next[i].title };
+                      setDraftChapters(next);
+                      setRenamingIndex(null);
+                    }}
+                  >
+                    确定
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-start gap-1">
+                  <span className="min-w-0 flex-1 break-all text-sm text-paper-ink">
+                    <span className="mr-1.5 text-[11px] text-paper-muted">{i + 1}</span>
+                    {ch.title}
+                  </span>
+                  <button className="shrink-0 rounded px-1 py-0.5 text-[11px] text-paper-muted hover:bg-paper-soft hover:text-paper-ink" onClick={() => { setRenamingIndex(i); setRenameValue(ch.title); }}>
+                    重命名
+                  </button>
+                  <button className="shrink-0 rounded px-1 py-0.5 text-[11px] text-paper-muted hover:bg-paper-soft hover:text-paper-ink" onClick={() => setSplitIndex(splitIndex === i ? null : i)}>
+                    拆分
+                  </button>
+                  <button
+                    className="shrink-0 rounded px-1 py-0.5 text-[11px] text-paper-muted hover:bg-paper-soft hover:text-paper-ink disabled:opacity-40"
+                    disabled={i === 0}
+                    onClick={() => {
+                      setDraftChapters((prev) => prev.filter((_, idx) => idx !== i));
+                      setSplitIndex(null);
+                    }}
+                  >
+                    合并到上一章
+                  </button>
+                </div>
+              )}
+              {splitIndex === i && (
+                <div className="mt-1.5 border-t border-paper-line pt-1.5">
+                  <div className="mb-1 text-[11px] text-paper-muted">点选一行作为新章节的标题行：</div>
+                  <div className="grid max-h-48 gap-0.5 overflow-y-auto">
+                    {splitLines.map((line) => (
+                      <button
+                        key={line.start}
+                        className="truncate rounded px-1.5 py-1 text-left text-xs text-paper-muted hover:bg-paper-soft hover:text-paper-ink"
+                        title={line.text}
+                        onClick={() => {
+                          setDraftChapters((prev) => {
+                            const next = [...prev];
+                            next.splice(i + 1, 0, { title: line.text.slice(0, 40), startIndex: line.start });
+                            return next;
+                          });
+                          setSplitIndex(null);
+                        }}
+                      >
+                        {line.text}
+                      </button>
+                    ))}
+                    {splitLines.length === 0 && <div className="px-1.5 py-1 text-xs text-paper-muted">此章没有可拆分的正文行。</div>}
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+      <div className="flex flex-wrap items-center gap-2 border-t border-paper-line pt-2">
+        <Button variant="secondary" className="h-8 text-xs" disabled={savingOverrides} onClick={() => { setTocEditMode(false); setSplitIndex(null); setRenamingIndex(null); }}>
+          取消
+        </Button>
+        <Button className="h-8 text-xs" disabled={savingOverrides || draftChapters.length === 0} onClick={() => void persistTocOverrides(draftChapters)}>
+          保存并完成
+        </Button>
+        {tocOverrides && (
+          <Button variant="quiet" className="h-8 text-xs" disabled={savingOverrides} onClick={() => void persistTocOverrides(null)}>
+            恢复自动识别
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="reader-root grid h-full grid-rows-[60px_1fr] overflow-hidden paper-shell">
       <header className="paper-topbar flex items-center gap-3 px-5">
@@ -443,6 +795,10 @@ function TextReaderPage() {
             阅读进度：{progressPercent}% · 本书累计 {formatDuration(progress?.totalReadingTimeMs)}
           </div>
         </div>
+        <Button variant="quiet" onClick={() => void addBookmarkAtCurrent()}>
+          <Bookmark size={16} />
+          加书签
+        </Button>
         <Button variant="quiet" onClick={() => setTocCollapsed((value) => !value)}>
           <List size={16} />
           目录
@@ -589,6 +945,18 @@ function TextReaderPage() {
               >
                 <Quote size={14} />
               </button>
+              {isTxt && (
+                <button
+                  className="rounded px-2 py-1 hover:bg-stone-700"
+                  title="设为章节起点（目录编辑）"
+                  onClick={() => {
+                    addChapterStartFromSelection(selectionToolbar.charOffset);
+                    setSelectionToolbar(null);
+                  }}
+                >
+                  <Scissors size={14} />
+                </button>
+              )}
               <button
                 className="rounded px-2 py-1 hover:bg-stone-700"
                 title="关闭"
@@ -659,23 +1027,47 @@ function TextReaderPage() {
             </div>
           </ShellPanel>
         ) : (
-          <ShellPanel className="flex min-h-0 flex-col overflow-hidden border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
-            <div className="mb-3 flex items-center justify-between border-b border-paper-line pb-2">
-              <div className="text-sm font-semibold text-paper-ink">
-                {activeBook.format === "md" ? "Markdown 目录" : "章节目录"}
-              </div>
-              <Button variant="quiet" className="h-7 px-2 text-xs" onClick={() => setTocCollapsed(true)}>
-                收起
-              </Button>
-            </div>
-            <TocList
-              className="min-h-0 flex-1"
-              entries={tocEntries}
-              currentId={currentAnchorId}
-              onJump={jumpToTocEntry}
-              emptyText={activeBook.format === "md" ? "未检测到标题" : "未检测到章节"}
-            />
-          </ShellPanel>
+          <ReaderSidePanel
+            sidePanelTab={sidePanelTab}
+            onTabChange={setSidePanelTab}
+            onCollapse={() => setTocCollapsed(true)}
+            progressPercent={progressPercent}
+            tocTitle={isMd ? "Markdown 目录" : "章节目录"}
+            tocEntries={tocEntries}
+            currentTocId={currentAnchorId}
+            readIds={readIds}
+            tocSummary={tocSummary}
+            tocHeaderExtra={
+              isTxt && !tocEditMode && (tocEntries.length > 0 || tocOverrides) ? (
+                <div className="mb-2">
+                  <Button variant="secondary" className="h-7 text-xs" onClick={enterTocEditMode}>
+                    编辑章节
+                  </Button>
+                </div>
+              ) : undefined
+            }
+            tocBody={isTxt && tocEditMode ? tocEditBody : undefined}
+            onTocJump={jumpToTocEntry}
+            tocEmptyText={isMd ? "未检测到标题" : "未检测到章节"}
+            highlights={highlights}
+            onRemoveHighlight={(id) => {
+              setHighlights((prev) => prev.filter((h) => h.id !== id));
+              highlightsRef.current = highlightsRef.current.filter((h) => h.id !== id);
+              void deleteHighlight(id);
+            }}
+            onJumpToHighlight={jumpToHighlight}
+            onHighlightsChange={(next) => {
+              highlightsRef.current = next;
+              setHighlights(next);
+            }}
+            bookmarks={bookmarks}
+            onAddBookmark={() => void addBookmarkAtCurrent()}
+            onJumpToBookmark={jumpToBookmark}
+            onRemoveBookmark={async (id) => {
+              await removeBookmarkById(id);
+              setBookmarks((prev) => prev.filter((b) => b.id !== id));
+            }}
+          />
         )}
       </div>
       <ReaderSettingsDrawer
@@ -699,8 +1091,25 @@ function TextReaderPage() {
   );
 }
 
+// EPUB 阅读器连带 epubjs 体量很大，按 format 懒加载，TXT/MD 不再为其付出下载与解析成本。
+const EpubReaderPage = lazy(() =>
+  import("@/features/library/EpubReaderPage").then((m) => ({ default: m.EpubReaderPage }))
+);
+
 export function ReaderPage() {
   const activeBook = useLibraryStore((state) => state.activeBook);
-  if (activeBook?.format === "epub") return <EpubReaderPage />;
+  if (activeBook?.format === "epub") {
+    return (
+      <Suspense
+        fallback={
+          <ShellPanel className="grid h-full place-items-center border-0 text-sm text-paper-muted">
+            正在打开 EPUB...
+          </ShellPanel>
+        }
+      >
+        <EpubReaderPage />
+      </Suspense>
+    );
+  }
   return <TextReaderPage />;
 }
