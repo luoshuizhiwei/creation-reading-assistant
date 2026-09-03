@@ -276,6 +276,7 @@ function TextReaderPage() {
     return () => window.cancelAnimationFrame(frame);
   }, [updateCurrentAnchor, txtChapters, markdownHtml, tocCollapsed, activeBook?.id, settings?.fontSize, settings?.lineHeight, settings?.letterSpacing, settings?.paragraphSpacing, settings?.pageMargin, settings?.fontFamily]);
 
+  const activeTextJump = useLibraryStore((state) => state.activeTextJump);
   const { scheduleSave, flushProgress, getCurrentLocation } = useReaderProgress(scrollerRef, getTextAnchor);
   const { recordInteraction, endTracking } = useReadingSessionTracker(scrollerRef, getCurrentLocation);
 
@@ -436,6 +437,31 @@ function TextReaderPage() {
   useEffect(() => {
     if (activeBook?.id) loadAnnotations(activeBook.id);
   }, [activeBook?.id, loadAnnotations]);
+
+  // 搜索命中跳转：点搜索结果打开书后直接跳到命中处；显式跳转优先于位置恢复，
+  // 章节锚点可能晚于首帧渲染，带重试；只消费属于当前书的请求。
+  useEffect(() => {
+    if (!activeBook || !activeTextJump || activeTextJump.bookId !== activeBook.id) return;
+    didRestoreScrollRef.current = true;
+    let cancelled = false;
+    const tryJump = (attempt: number) => {
+      if (cancelled) return;
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+      const needsSpans = tocEntriesRef.current.length > 0;
+      const spans = needsSpans ? ensureSpansRef.current() : [];
+      if (needsSpans && spans.length === 0) {
+        if (attempt < 25) restoreTimerRef.current = window.setTimeout(() => tryJump(attempt + 1), 100);
+        return;
+      }
+      scrollToCharOffset(activeTextJump.charOffset);
+      useLibraryStore.setState({ activeTextJump: undefined });
+    };
+    restoreTimerRef.current = window.setTimeout(() => tryJump(0), 80);
+    return () => {
+      cancelled = true;
+    };
+  }, [activeBook?.id, activeTextJump, scrollToCharOffset]);
 
   // Click outside to close toolbar
   useEffect(() => {

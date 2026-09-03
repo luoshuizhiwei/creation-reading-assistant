@@ -176,6 +176,9 @@ export function useSearchActions() {
           useLibraryStore.getState().setActiveBook(payload.book, content, epubUrl, intent.epubHref);
           if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
           useLibraryStore.getState().setReaderSettings(payload.settings);
+          if (book.format !== "epub" && typeof intent.charOffset === "number") {
+            useLibraryStore.setState({ activeTextJump: { bookId: intent.bookId, charOffset: intent.charOffset } });
+          }
           useAppStore.getState().setScreen("reader");
           if (book.format === "epub" && !intent.epubHref) {
             showToast({

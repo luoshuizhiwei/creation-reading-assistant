@@ -15,6 +15,8 @@ export interface SearchNavigateIntent {
   cardId?: ID;
   bookId?: ID;
   epubHref?: string;
+  /** TXT/MD 命中位置：打开书后按章锚点跳转（配合阅读器 scrollToCharOffset） */
+  charOffset?: number;
   inspirationId?: ID;
   /** 收件箱结果携带的真实条目 ID；InboxPage 据此选中目标条目。 */
   inboxItemId?: ID;
@@ -49,6 +51,8 @@ export interface SearchQuery {
 export interface SearchTarget {
   bookId?: ID;
   epubHref?: string;
+  /** TXT/MD：正文首个命中的字符偏移；点击结果后跳到命中位置 */
+  charOffset?: number;
   inspirationId?: ID;
 }
 

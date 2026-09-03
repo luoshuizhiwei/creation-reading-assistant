@@ -178,7 +178,8 @@ export const librarySearchSource: SearchSource = {
       intent: {
         kind: "book" as const,
         bookId: result.target.bookId,
-        epubHref: result.target.epubHref
+        epubHref: result.target.epubHref,
+        charOffset: result.target.charOffset
       }
     }));
   }

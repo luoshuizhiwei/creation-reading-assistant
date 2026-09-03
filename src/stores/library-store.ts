@@ -8,6 +8,8 @@ interface LibraryState {
   activeContent: string;
   activeEpubUrl?: string;
   activeEpubTargetHref?: string;
+  /** TXT/MD 搜索命中跳转请求：仅当目标书打开时消费一次并清除 */
+  activeTextJump?: { bookId: string; charOffset: number };
   readerSettings?: ReaderSettings;
   activeSession?: ReadingSession;
   stats?: ReadingStatsSummary;

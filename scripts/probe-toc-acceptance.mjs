@@ -10,7 +10,10 @@ import { mkdtempSync, rmSync, readdirSync, statSync, existsSync, writeFileSync, 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 import { _electron as electron } from "playwright-core";
+
+const require = createRequire(import.meta.url);
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -106,7 +109,23 @@ function mdContent() {
   ].join("\n");
 }
 
-function seed() {
+function writeEpub(filesDir, outPath) {
+  const JSZip = require("jszip");
+  mkdirSync(filesDir, { recursive: true });
+  const titles = ["雨夜来信", "阁楼的锁", "旧运河"];
+  const zip = new JSZip();
+  zip.file("mimetype", "application/epub+zip", { compression: "STORE" });
+  zip.file("META-INF/container.xml", `<?xml version="1.0"?><container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container"><rootfiles><rootfile full-path="OEBPS/content.opf" media-type="application/oebps-package+xml"/></rootfiles></container>`);
+  zip.file("OEBPS/content.opf", `<?xml version="1.0" encoding="utf-8"?><package xmlns="http://www.idpf.org/2007/opf" version="3.0" unique-identifier="bid"><metadata xmlns:dc="http://purl.org/dc/elements/1.1/"><dc:identifier id="bid">urn:uuid:acc-epub</dc:identifier><dc:title>验收 EPUB 三章</dc:title><dc:creator>测试</dc:creator><dc:language>zh-CN</dc:language></metadata><manifest><item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>${titles.map((_, i) => `<item id="c${i + 1}" href="chapter${i + 1}.xhtml" media-type="application/xhtml+xml"/>`).join("")}</manifest><spine>${titles.map((_, i) => `<itemref idref="c${i + 1}"/>`).join("")}<itemref idref="nav"/></spine></package>`);
+  zip.file("OEBPS/nav.xhtml", `<?xml version="1.0"?><!DOCTYPE html><html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>目录</title></head><body><nav epub:type="toc"><ol>${titles.map((t, i) => `<li><a href="chapter${i + 1}.xhtml">${t}</a></li>`).join("")}</ol></nav></body></html>`);
+  titles.forEach((title, i) => {
+    const body = Array.from({ length: 10 }, (_, k) => `<p>${PARA}（EP${i + 1}-${k + 1}）</p>`).join("");
+    zip.file(`OEBPS/chapter${i + 1}.xhtml`, `<?xml version="1.0" encoding="utf-8"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>${title}</title></head><body><h1>${title}</h1>${body}</body></html>`);
+  });
+  return zip.generateAsync({ type: "nodebuffer", mimeType: "application/epub+zip" }).then((buf) => writeFileSync(outPath, buf));
+}
+
+async function seed() {
   const dataRoot = path.join(profileDir, "NovelWorkbench");
   const libraryRoot = path.join(dataRoot, "AppLibrary");
   mkdirSync(libraryRoot, { recursive: true });
@@ -121,6 +140,14 @@ function seed() {
   writeFileSync(books[1].filePath, editTxt(), "utf8");
   writeFileSync(books[2].filePath, plainTxt(), "utf8");
   writeFileSync(books[3].filePath, mdContent(), "utf8");
+  mkdirSync(path.join(libraryRoot, "files"), { recursive: true });
+  const epubPath = path.join(libraryRoot, "files", "acc-epub.epub");
+  await writeEpub(path.join(libraryRoot, "files"), epubPath);
+  books.push({ id: "acc-epub", title: "验收 EPUB 三章", filePath: epubPath, format: "epub", importedAt: now, updatedAt: now, size: 30000, epub: { toc: [
+    { id: "toc-1", label: "雨夜来信", href: "chapter1.xhtml", level: 1 },
+    { id: "toc-2", label: "阁楼的锁", href: "chapter2.xhtml", level: 1 },
+    { id: "toc-3", label: "旧运河", href: "chapter3.xhtml", level: 1 }
+  ] } });
   writeFileSync(path.join(libraryRoot, "library.json"), JSON.stringify({ books }), "utf8");
   writeFileSync(path.join(libraryRoot, "reading-progress.json"), JSON.stringify({ version: 2, updatedAt: now, items: [] }), "utf8");
   writeFileSync(path.join(libraryRoot, "reading-sessions.json"), JSON.stringify({ version: 1, updatedAt: now, sessions: [] }), "utf8");
@@ -147,7 +174,8 @@ async function openBook(page, title) {
   await page.locator(".desktop-sidebar button", { hasText: "资料阅读" }).first().click();
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.locator(".desktop-library-row", { hasText: title }).first().click();
-  await page.waitForSelector("article", { timeout: 20000 });
+  // TXT/MD 渲染为 <article>；EPUB 渲染在 epubjs 的 iframe 里
+  await page.waitForSelector(".reader-root article, .reader-root iframe", { timeout: 30000 });
   await page.waitForTimeout(600);
 }
 
@@ -337,6 +365,31 @@ try {
   }));
   check("A2.1 MD 重复标题 slug 唯一", mdDup.d1 && mdDup.d2, JSON.stringify(mdDup));
   await scrollToChapterTop(page, "发展", 150);
+  await leaveReader(page);
+
+  // ================= F：EPUB 面板回归（目录跳转 + 书签） =================
+  await openBook(page, "验收 EPUB 三章");
+  await page.waitForSelector("iframe", { timeout: 30000 });
+  await page.waitForTimeout(2500);
+  const epubToc = await page.evaluate(() => {
+    const rows = Array.from(document.querySelectorAll("[data-toc-row-id]")).map((r) => r.getAttribute("data-toc-row-id"));
+    return { rows, hasCollapse: Boolean(document.querySelector("button")) };
+  });
+  check("F1 EPUB 目录 Tab 渲染三个章节", epubToc.rows.includes("toc-1") && epubToc.rows.includes("toc-2") && epubToc.rows.includes("toc-3"), JSON.stringify(epubToc.rows));
+  await page.locator('[data-toc-row-id="toc-2"]').click();
+  await page.waitForTimeout(2500);
+  const epubPos = await page.evaluate(() => {
+    const currentRow = document.querySelector('[data-toc-row-id][aria-current="true"]');
+    const header = Array.from(document.querySelectorAll("div")).map((d) => d.textContent || "").find((t) => /已读 \d+\//.test(t));
+    return { currentId: currentRow?.getAttribute("data-toc-row-id"), summary: (header || "").match(/已读 \d+\/\d+/)?.[0] };
+  });
+  check("F2 点击目录跳转到第二章（当前章高亮 + 已读计数）", epubPos.currentId === "toc-2" && epubPos.summary === "已读 1/3", JSON.stringify(epubPos));
+  await page.locator("header button", { hasText: "书签" }).first().click();
+  await page.waitForTimeout(500);
+  await page.locator("button:has-text('书签')").nth(1).click();
+  await page.waitForTimeout(300);
+  const epubBookmarks = await page.evaluate(() => document.body.textContent.includes("在当前位置添加书签") && Array.from(document.querySelectorAll("button")).some((b) => /第二章|阁楼|/.test(b.textContent || "") && b.querySelector("svg.lucide-bookmark")));
+  check("F3 EPUB 书签加入面板", Boolean(epubBookmarks));
   await leaveReader(page);
 
   // ================= C：TXT 目录修正（单次会话内） =================
