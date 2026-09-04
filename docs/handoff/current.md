@@ -746,6 +746,14 @@ Novalist 调研与取舍仍记录在
 - **UI 原语落地推广第二批（Tabs 分段控制与业务 Select 迁移）**：
   - 将 `HistoryPage`、`OutlinePage`、`CardBoard`、`ReplacePanel`、`LibraryPage` 5 处手写切换器统一迁移至 `<Tabs variant="pill">` 原语。
   - 将 `InboxPage`、`CreateMilestoneDialog`、`CardsPage` 3 处核心业务表单的原生 `<select>` 统一迁移至 `<Select>` 原语。
+- **UI 原语落地推广第三批（复杂向导、卡片定义弹窗与进度对话框）**：
+  - 将 `CreateProjectWizard.tsx` 手写向导蒙层重构为 `<Dialog width="max-w-3xl">`，移除手写 Escape 监听器。
+  - 将 `CardTypeEditor.tsx` 与 `RelationTypeEditor.tsx` 手写蒙层重构为 `<Dialog width="max-w-2xl">`，字段类型与默认布尔值选择统一为 `<Select>` 原语。
+  - 将 `OperationProgressDialog.tsx` 重构为 `<Dialog width="max-w-md">`，不确定进度统一使用 `<Spinner>`。
+- **WritingDesk 核心编辑器组件轻量解耦与职责下沉**：
+  - 主组件 `WritingDesk.tsx` 从 953 行精简至 268 行（净减 685 行，降幅 72%），职责完全聚焦于全局状态流转与数据保护。
+  - 在 `src/features/creation/editor/desk/` 下沉拆分为 `WritingDeskHeader.tsx`、`WritingDeskOutlineSidebar.tsx` 与 `WritingDeskMargin.tsx` 3 个专注子组件。
+  - 外部 Props 契约与全部交互 100% 保持向后兼容，`editor/` 目录下全部 11 个测试套件 111 个用例全绿通过。
 - **阶段成果 Commit 固化**：
   - `2bbde5c`：`refactor(desktop): complete p1-p5 architecture, types modularization, chunk optimization and ui primitives batch 1`
   - `5030ff4`：`refactor(desktop): ui primitives batch 2 - migrate tabs and form selects`
@@ -753,5 +761,5 @@ Novalist 调研与取舍仍记录在
   - **三套 TypeScript 编译**：Renderer / Electron Main / Preload 全部 0 错误（`npm run build`）；
   - **单元与集成测试**：Vitest 80 passed / 1 skipped（共 783 个测试用例全部通过）；
   - **业务契约测试**：3 套契约校验脚本全部通过；
-  - **打包构建耗时**：`npm run build` 成功完成，耗时约 8.09s。
+  - **打包构建耗时**：`npm run build` 成功完成，耗时约 5.05s。
 

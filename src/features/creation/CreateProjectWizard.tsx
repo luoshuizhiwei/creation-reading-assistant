@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight, FilePlus2, X } from "lucide-react";
-import { Button, TextArea, TextInput } from "@/components/ui";
+import { Button, Dialog, TextArea, TextInput } from "@/components/ui";
 import {
   buildCreateInput,
   INITIAL_WIZARD_DRAFT,
@@ -47,14 +47,6 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
     if (step === 2) step2Ref.current?.focus();
   }, [open, step]);
 
-  useEffect(() => {
-    if (!open || submitting) return undefined;
-    const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [open, submitting, onClose]);
 
   if (!open) return null;
 
@@ -97,33 +89,44 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
   const titleError = step === 1 && titleTouched && !validation.ok ? validation.message : undefined;
 
   return (
-    <div
-      className="creation-wizard-overlay"
-      role="presentation"
-      onClick={() => {
-        if (!submitting) onClose();
-      }}
+    <Dialog
+      open={open}
+      title={
+        <div className="min-w-0">
+          <p className="desktop-card-label">New project</p>
+          <span id="creation-wizard-title">新建作品</span>
+        </div>
+      }
+      ariaLabel="新建作品"
+      onClose={submitting ? undefined : onClose}
+      width="max-w-3xl"
+      className="creation-wizard-dialog"
+      footer={
+        <>
+          <Button variant="quiet" onClick={onClose} disabled={submitting}>
+            取消
+          </Button>
+          {step > 0 && (
+            <Button variant="secondary" onClick={goBack} disabled={submitting}>
+              <ChevronLeft size={15} />
+              上一步
+            </Button>
+          )}
+          {step < 2 ? (
+            <Button onClick={goNext} disabled={nextDisabled}>
+              下一步
+              <ChevronRight size={15} />
+            </Button>
+          ) : (
+            <Button onClick={() => void submit()} disabled={nextDisabled || submitting}>
+              <FilePlus2 size={15} />
+              {submitting ? "正在创建…" : "创建项目"}
+            </Button>
+          )}
+        </>
+      }
     >
-      <section
-        className="creation-wizard motion-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="creation-wizard-title"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <header className="creation-wizard-head">
-          <div className="min-w-0">
-            <p className="desktop-card-label">New project</p>
-            <h2 id="creation-wizard-title" className="paper-title">
-              新建作品
-            </h2>
-          </div>
-          <button className="creation-wizard-close" onClick={onClose} disabled={submitting} aria-label="关闭新建向导">
-            <X size={17} />
-          </button>
-        </header>
-
-        <ol className="creation-wizard-steps" aria-label="新建作品步骤">
+      <ol className="creation-wizard-steps" aria-label="新建作品步骤">
           {STEP_LABELS.map((label, index) => (
             <li key={label} className={index === step ? "active" : index < step ? "done" : ""} aria-current={index === step ? "step" : undefined}>
               <span>{index + 1}</span>
@@ -311,30 +314,6 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
             </fieldset>
           )}
         </div>
-
-        <footer className="creation-wizard-foot">
-          <Button variant="quiet" onClick={onClose} disabled={submitting}>
-            取消
-          </Button>
-          {step > 0 && (
-            <Button variant="secondary" onClick={goBack} disabled={submitting}>
-              <ChevronLeft size={15} />
-              上一步
-            </Button>
-          )}
-          {step < 2 ? (
-            <Button onClick={goNext} disabled={nextDisabled}>
-              下一步
-              <ChevronRight size={15} />
-            </Button>
-          ) : (
-            <Button onClick={() => void submit()} disabled={nextDisabled || submitting}>
-              <FilePlus2 size={15} />
-              {submitting ? "正在创建…" : "创建项目"}
-            </Button>
-          )}
-        </footer>
-      </section>
-    </div>
+    </Dialog>
   );
 }

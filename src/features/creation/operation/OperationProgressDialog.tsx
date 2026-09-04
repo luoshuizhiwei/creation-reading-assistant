@@ -1,4 +1,5 @@
 import type { OperationKind, OperationPhase, OperationState, ResourceIntegrityReport } from "../../../types/operation";
+import { Dialog, Spinner } from "@/components/ui";
 import { ResourceIntegrityScanPanel } from "./ResourceIntegrityScanPanel";
 import "./operation.css";
 
@@ -53,29 +54,47 @@ export function OperationProgressDialog({
   const closeDisabled = !isTerminal;
 
   return (
-    <div className="history-modal-overlay" role="presentation" onClick={closeDisabled ? undefined : onClose}>
-      <div
-        className="history-modal operation-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label={`${KIND_TITLE[kind]}进度`}
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3>{KIND_TITLE[kind]}</h3>
-          <button
-            type="button"
-            className="history-modal-close"
-            onClick={onClose}
-            disabled={closeDisabled}
-            aria-label="关闭"
-            autoFocus
-          >
-            ×
-          </button>
-        </div>
-
-        <div className="history-modal-body">
+    <Dialog
+      open
+      title={KIND_TITLE[kind]}
+      ariaLabel={`${KIND_TITLE[kind]}进度`}
+      onClose={closeDisabled ? () => {} : onClose}
+      width="max-w-md"
+      className="operation-dialog"
+      footer={
+        !isTerminal ? (
+          <>
+            <button
+              type="button"
+              className="history-btn-cancel"
+              onClick={onClose}
+              disabled={closeDisabled}
+            >
+              关闭
+            </button>
+            <button
+              type="button"
+              className="history-btn-danger"
+              onClick={onCancel}
+              disabled={cancelDisabled}
+            >
+              {status === "cancelling" ? "正在取消…" : "取消"}
+            </button>
+          </>
+        ) : (
+          <>
+            {(status === "cancelled" || status === "failed") && kind !== "resource.scan" ? (
+              <button type="button" className="history-btn-cancel" onClick={onReset}>
+                重试
+              </button>
+            ) : null}
+            <button type="button" className="history-btn-confirm" onClick={onClose}>
+              关闭
+            </button>
+          </>
+        )
+      }
+    >
           {status === "running" || status === "cancelling" ? (
             <div className="operation-progress">
               <p className="operation-phase">{PHASE_LABEL[progress.phase] ?? progress.phase}</p>
@@ -94,7 +113,8 @@ export function OperationProgressDialog({
                   {(progress.bytesTotal / 1024 / 1024).toFixed(1)} MB
                 </p>
               ) : (
-                <p className="operation-indeterminate" aria-live="polite">
+                <p className="operation-indeterminate flex items-center gap-2" aria-live="polite">
+                  <Spinner size={14} label="处理中" />
                   正在处理，请稍候…
                 </p>
               )}
@@ -132,42 +152,6 @@ export function OperationProgressDialog({
               ) : null}
             </div>
           ) : null}
-        </div>
-
-        <div className="history-modal-foot">
-          {!isTerminal ? (
-            <>
-              <button
-                type="button"
-                className="history-btn-cancel"
-                onClick={onClose}
-                disabled={closeDisabled}
-              >
-                关闭
-              </button>
-              <button
-                type="button"
-                className="history-btn-danger"
-                onClick={onCancel}
-                disabled={cancelDisabled}
-              >
-                {status === "cancelling" ? "正在取消…" : "取消"}
-              </button>
-            </>
-          ) : (
-            <>
-              {(status === "cancelled" || status === "failed") && kind !== "resource.scan" ? (
-                <button type="button" className="history-btn-cancel" onClick={onReset}>
-                  重试
-                </button>
-              ) : null}
-              <button type="button" className="history-btn-confirm" onClick={onClose}>
-                关闭
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

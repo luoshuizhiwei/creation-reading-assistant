@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { ArrowDown, ArrowUp, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
+import { Dialog, Select } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CardFieldKind, CardFieldSchema, CardSummary, CardType, RelationType } from "@/types/creation";
@@ -249,14 +250,19 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
   };
 
   return (
-    <div className="cards-modal-overlay" role="dialog" aria-label="管理卡片类型">
-      <div className="cards-modal">
-        <header className="cards-modal-head">
-          <h3>管理卡片类型</h3>
-          <button type="button" className="cards-close" onClick={onClose} title="关闭"><X size={15} /></button>
-        </header>
-        <div className="cards-modal-body">
-          {cardTypes.length > 0 && (
+    <Dialog
+      open
+      title="管理卡片类型"
+      onClose={submitting ? undefined : onClose}
+      width="max-w-2xl"
+      footer={
+        <div className="cards-form-actions">
+          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建类型"}</button>
+          <button type="button" className="cards-cancel" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</button>
+        </div>
+      }
+    >
+      {cardTypes.length > 0 && (
             <section className="cards-type-list" aria-label="现有卡片类型">
               {cardTypes.map((type) => {
                 const impact = impactFor(type);
@@ -350,11 +356,11 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                   </div>
                   <div className="cards-field">
                     <label className="cards-field-label">类型</label>
-                    <select className="cards-input" value={field.kind} onChange={(e) => updateField(index, { kind: e.target.value as CardFieldKind })}>
+                    <Select className="cards-input" value={field.kind} onChange={(e) => updateField(index, { kind: e.target.value as CardFieldKind })}>
                       {FIELD_KINDS.map((kind) => (
                         <option key={kind.value} value={kind.value}>{kind.label}</option>
                       ))}
-                    </select>
+                    </Select>
                   </div>
                 </div>
                 {(field.kind === "select" || field.kind === "multiSelect") && (
@@ -381,10 +387,17 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
                   </div>
                 )}
                 {field.kind === "boolean" && (
-                  <label className="cards-field cards-field-inline">
-                    <input type="checkbox" checked={field.defaultBool} onChange={(e) => updateField(index, { defaultBool: e.target.checked })} />
-                    默认选中（true）
-                  </label>
+                  <div className="cards-field">
+                    <label className="cards-field-label">默认值</label>
+                    <Select
+                      className="cards-input"
+                      value={field.defaultBool ? "true" : "false"}
+                      onChange={(e) => updateField(index, { defaultBool: e.target.value === "true" })}
+                    >
+                      <option value="false">默认未选中（false）</option>
+                      <option value="true">默认选中（true）</option>
+                    </Select>
+                  </div>
                 )}
                 <label className="cards-field cards-field-inline">
                   <input type="checkbox" checked={field.required} onChange={(e) => updateField(index, { required: e.target.checked })} />
@@ -394,12 +407,6 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
             ))}
           </div>
           {error && <p className="cards-form-error" role="alert">{error}</p>}
-        </div>
-        <footer className="cards-form-actions cards-modal-foot">
-          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建类型"}</button>
-          <button type="button" className="cards-cancel" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</button>
-        </footer>
-      </div>
-    </div>
+    </Dialog>
   );
 }
