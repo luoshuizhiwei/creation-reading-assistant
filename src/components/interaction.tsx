@@ -8,7 +8,7 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode
 } from "react";
-import { AlertTriangle, CheckCircle2, Info, X, XCircle } from "lucide-react";
+import { AlertOctagon, AlertTriangle, CheckCircle2, HelpCircle, Info, X, XCircle } from "lucide-react";
 import { Button } from "@/components/ui";
 import { useUIStore, type ToastTone } from "@/stores/ui-store";
 
@@ -125,6 +125,7 @@ export function ConfirmDialog() {
 
   const danger = request.tone === "danger";
   const warning = request.tone === "warning";
+  const Icon = danger ? AlertOctagon : warning ? AlertTriangle : HelpCircle;
   return (
     <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={() => resolveConfirm(false)}>
       <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
@@ -132,7 +133,7 @@ export function ConfirmDialog() {
         <div className="p-5">
           <div className="flex items-start gap-3">
             <div className={`rounded-full p-2 ${danger ? "bg-red-50 text-red-700" : warning ? "bg-amber-50 text-amber-800" : "bg-copper/10 text-copper"}`}>
-              <AlertTriangle size={18} />
+              <Icon size={18} />
             </div>
             <div className="min-w-0 flex-1">
               <h2 id="confirm-dialog-title" className="paper-title text-lg font-semibold text-paper-ink">{request.title}</h2>

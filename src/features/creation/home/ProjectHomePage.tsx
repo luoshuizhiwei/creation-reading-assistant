@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { ArrowRight, BookOpen, FileUp, FolderInput, Inbox as InboxIcon, PenLine, Plus } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { Button } from "@/components/ui";
 import type { ProjectHomeEntry } from "@/types/creation";
 
 interface ProjectHomePageProps {
@@ -62,24 +63,24 @@ export function ProjectHomePage({
     <section className="desktop-page-scroll paper-shell">
       <div className="desktop-page-stack project-home">
         <div className="project-home-toolbar">
-          <div className="desktop-page-actions">
-            <button type="button" className="project-home-new" onClick={onCreateProject}>
+          <div className="desktop-page-actions flex flex-wrap items-center gap-2">
+            <Button onClick={onCreateProject}>
               <Plus size={16} />
               新建项目
-            </button>
-            <button type="button" className="desktop-home-inbox" onClick={onOpenInbox}>
+            </Button>
+            <Button variant="secondary" onClick={onOpenInbox}>
               <InboxIcon size={16} />
               待处理收件箱
               {pendingCount > 0 && <em className="desktop-home-inbox-count">{pendingCount}</em>}
-            </button>
-            <button type="button" className="desktop-home-inbox" onClick={onImportBundle}>
+            </Button>
+            <Button variant="secondary" onClick={onImportBundle}>
               <FolderInput size={16} />
               导入项目包
-            </button>
-            <button type="button" className="desktop-home-inbox" onClick={onImportDraft}>
+            </Button>
+            <Button variant="secondary" onClick={onImportDraft}>
               <FileUp size={16} />
               导入旧稿
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -90,15 +91,14 @@ export function ProjectHomePage({
           ) : entries.length === 0 ? (
             <div className="project-home-empty">
               <p className="stats-note">还没有创作项目。新建一个项目后，会自动生成第一章与默认场景，你可以直接开始写作。</p>
-              <div className="project-home-create-row">
-                <button type="button" className="project-home-create-first" onClick={onCreateProject}>
+              <div className="project-home-create-row flex items-center gap-2 mt-3">
+                <Button onClick={onCreateProject}>
                   <Plus size={15} />
                   新建第一个项目
-                </button>
+                </Button>
                 {onCreateDemoProject && (
-                  <button
-                    type="button"
-                    className="project-home-create-demo"
+                  <Button
+                    variant="secondary"
                     onClick={() => {
                       void onCreateDemoProject().then((projectId) => {
                         if (projectId) onOpenProject(projectId);
@@ -107,7 +107,7 @@ export function ProjectHomePage({
                   >
                     <BookOpen size={15} />
                     载入演示项目
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

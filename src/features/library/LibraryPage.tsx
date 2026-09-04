@@ -192,12 +192,14 @@ export function LibraryPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="筛选书名、作者或导入标签…"
+                aria-label="筛选书籍"
                 className="paper-input w-full pl-9 pr-8 text-sm"
               />
               {searchQuery && (
                 <button
                   className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-paper-muted hover:text-paper-ink"
                   onClick={() => setSearchQuery("")}
+                  aria-label="清空搜索"
                 >
                   <X size={14} />
                 </button>
@@ -210,8 +212,8 @@ export function LibraryPage() {
                 <span>筛选条件：</span>
                 {searchQuery && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-copper/30 bg-copper/10 px-2 py-0.5 text-copper">
-                    "{searchQuery}"
-                    <button onClick={() => setSearchQuery("")}><X size={12} /></button>
+                    “{searchQuery}”
+                    <button type="button" aria-label="清除搜索词" onClick={() => setSearchQuery("")}><X size={12} /></button>
                   </span>
                 )}
                 {formatFilter !== "all" && (
@@ -248,6 +250,7 @@ export function LibraryPage() {
                   const itemProgress = progress[book.id];
                   const percent = Math.round((itemProgress?.progressPercent ?? 0) * 100);
                   const sourcePath = book.originalPath ?? book.filePath;
+                  const displayPath = sourcePath ? sourcePath.split(/[/\\]/).pop() || sourcePath : "未知路径";
                   return (
                     <div
                       key={book.id}
@@ -280,8 +283,8 @@ export function LibraryPage() {
                           </div>
                         </div>
                       </div>
-                      <div className="library-path" title={sourcePath}>
-                        {sourcePath}
+                      <div className="library-path" title={`完整路径：${sourcePath}`}>
+                        {displayPath}
                       </div>
                       <div className="grid gap-1">
                         <div className="flex items-center justify-between text-xs text-paper-muted">

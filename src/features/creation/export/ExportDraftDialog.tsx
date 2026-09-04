@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { FileDown, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { FileDown } from "lucide-react";
+import { Button, Dialog, Spinner } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { DraftExportPreset } from "@/types/creation";
@@ -47,18 +47,22 @@ export function ExportDraftDialog({ projectId, projectTitle, onClose }: ExportDr
   };
 
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="导出成稿" aria-modal="true">
-      <div className="creation-search-shell migration-dialog" role="search">
-        <div className="creation-search-head">
-          <FileDown size={16} className="creation-search-head-icon" />
-          <span className="creation-proof-title">导出成稿</span>
-          <button type="button" className="creation-search-close" onClick={onClose} aria-label="关闭导出对话框">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="migration-body">
-          <p className="migration-note">
+    <Dialog
+      open={true}
+      title={<span className="flex items-center gap-2"><FileDown size={16} /> 导出成稿</span>}
+      ariaLabel="导出成稿"
+      onClose={exporting ? undefined : onClose}
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>取消</Button>
+          <Button onClick={() => void execute()} disabled={exporting}>
+            {exporting ? <><Spinner size={14} className="mr-1.5" /> 导出中…</> : "导出"}
+          </Button>
+        </>
+      }
+    >
+      <p className="migration-note">
             选择成稿预设：「{projectTitle}」将导出为新文件，不会改动项目内容。
           </p>
           <div className="export-preset-list">
@@ -82,14 +86,6 @@ export function ExportDraftDialog({ projectId, projectTitle, onClose }: ExportDr
               </label>
             ))}
           </div>
-          <div className="migration-actions">
-            <Button variant="secondary" onClick={onClose}>取消</Button>
-            <Button onClick={() => void execute()} disabled={exporting}>
-              {exporting ? <><Loader2 size={14} className="spin" /> 导出中…</> : "导出"}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

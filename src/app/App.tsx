@@ -1,7 +1,9 @@
 import { lazy, Suspense, useEffect, useState, type ReactNode } from "react";
 import { AlertCircle } from "lucide-react";
+import { Button, Dialog } from "@/components/ui";
 import { ConfirmDialog, PageTransition, ToastCenter } from "@/components/interaction";
 import { ScreenFallback } from "@/components/ScreenFallback";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
 import { setReaderExcerptDestination } from "@/features/library/excerpt-destination";
 import { createReaderExcerptDestination } from "@/features/library/excerpt-destination-impl";
@@ -74,30 +76,35 @@ function RecoveryPrompt({
   onDismiss: () => void;
 }) {
   return (
-    <div className="absolute inset-0 z-50 grid place-items-center bg-paper-ink/10 px-6 backdrop-blur-[1px]">
-      <section className="motion-dialog w-[min(520px,100%)] rounded-2xl border border-paper-line bg-paper-panel p-5 shadow-paper">
-        <div className="flex items-start gap-3">
-          <div className="rounded-full border border-copper/20 bg-copper/10 p-2 text-copper">
-            <AlertCircle size={18} />
-          </div>
-          <div className="min-w-0 flex-1">
-            <h2 className="paper-title text-base font-semibold">已恢复上次阅读会话</h2>
-            <p className="mt-2 text-sm leading-6 text-paper-muted">
-              检测到上次可能异常退出，已把 {info.recoveredSessionsCount} 个未结束阅读会话安全收尾。你可以直接回到书库继续阅读，
-              统计不会把离线时间误算进去。
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button className="rounded-md px-3 py-2 text-sm text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink" onClick={onDismiss}>
-                留在当前页
-              </button>
-              <button className="rounded-md bg-copper px-3 py-2 text-sm font-medium text-white shadow-lift hover:bg-copper-dark" onClick={onOpenLibrary}>
-                打开书库
-              </button>
-            </div>
-          </div>
-        </div>
-      </section>
-    </div>
+    <Dialog
+      open={true}
+      title={
+        <span className="flex items-center gap-2">
+          <span className="rounded-full border border-copper/20 bg-copper/10 p-1 text-copper">
+            <AlertCircle size={16} />
+          </span>
+          已恢复上次阅读会话
+        </span>
+      }
+      ariaLabel="已恢复上次阅读会话"
+      onClose={onDismiss}
+      width="max-w-[520px]"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onDismiss}>
+            留在当前页
+          </Button>
+          <Button onClick={onOpenLibrary}>
+            打开书库
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm leading-6 text-paper-muted">
+        检测到上次可能异常退出，已把 {info.recoveredSessionsCount} 个未结束阅读会话安全收尾。你可以直接回到书库继续阅读，
+        统计不会把离线时间误算进去。
+      </p>
+    </Dialog>
   );
 }
 
@@ -200,14 +207,18 @@ export default function App() {
         <RecoveryPrompt info={recoveryInfo} onOpenLibrary={openRecoveredLibrary} onDismiss={closeRecoveryPrompt} />
       )}
       {screen === "reader" ? (
-        <PageTransition screenKey={screen}>
-          <Suspense fallback={<ScreenFallback />}>{screenContent.reader}</Suspense>
-        </PageTransition>
+        <ErrorBoundary onReset={() => setScreen("library")}>
+          <PageTransition screenKey={screen}>
+            <Suspense fallback={<ScreenFallback />}>{screenContent.reader}</Suspense>
+          </PageTransition>
+        </ErrorBoundary>
       ) : (
         <DesktopFrame>
-          <PageTransition screenKey={screen}>
-            <Suspense fallback={<ScreenFallback />}>{screenContent[screen]}</Suspense>
-          </PageTransition>
+          <ErrorBoundary onReset={() => setScreen("projects")}>
+            <PageTransition screenKey={screen}>
+              <Suspense fallback={<ScreenFallback />}>{screenContent[screen]}</Suspense>
+            </PageTransition>
+          </ErrorBoundary>
         </DesktopFrame>
       )}
     </div>

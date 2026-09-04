@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import { Button, Dialog } from "@/components/ui";
 import "./encryption.css";
 
 export interface PassphraseDialogProps {
@@ -41,14 +42,42 @@ export function PassphraseDialog({
   };
 
   return (
-    <div className="pe-modal-backdrop" role="dialog" aria-modal="true" data-testid="passphrase-dialog">
-      <form className="pe-modal" onSubmit={handleSubmit}>
-        <h2 className="pe-title">{title}</h2>
+    <Dialog
+      open={open}
+      title={title}
+      dataTestId="passphrase-dialog"
+      onClose={busy ? undefined : onCancel}
+      width="max-w-md"
+      footer={
+        <>
+          {onCancel && (
+            <Button
+              type="button"
+              variant="secondary"
+              data-testid="pe-cancel"
+              disabled={busy}
+              onClick={onCancel}
+            >
+              取消
+            </Button>
+          )}
+          <Button
+            type="submit"
+            form="passphrase-form"
+            data-testid="pe-submit"
+            disabled={!canSubmit}
+          >
+            {confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <form id="passphrase-form" onSubmit={handleSubmit}>
         <p className="pe-warning" data-testid="pe-warning">
           忘记口令无法恢复。请务必牢记口令；系统不会保存口令，也无法帮你找回。
         </p>
 
-        <label className="pe-field">
+        <label className="pe-field mt-3 block">
           <span>口令</span>
           <input
             type="password"
@@ -61,7 +90,7 @@ export function PassphraseDialog({
           />
         </label>
 
-        <label className="pe-field">
+        <label className="pe-field mt-3 block">
           <span>确认口令</span>
           <input
             type="password"
@@ -75,12 +104,12 @@ export function PassphraseDialog({
         </label>
 
         {mismatch && (
-          <p className="pe-error" data-testid="pe-mismatch">
+          <p className="pe-error mt-2" data-testid="pe-mismatch">
             两次输入的口令不一致
           </p>
         )}
 
-        <label className="pe-ack">
+        <label className="pe-ack mt-4 flex items-center gap-2">
           <input
             type="checkbox"
             data-testid="pe-ack"
@@ -92,28 +121,11 @@ export function PassphraseDialog({
         </label>
 
         {error && (
-          <p className="pe-error" data-testid="pe-error">
+          <p className="pe-error mt-2" data-testid="pe-error">
             {error}
           </p>
         )}
-
-        <div className="pe-actions">
-          {onCancel && (
-            <button
-              type="button"
-              className="pe-btn pe-btn-secondary"
-              data-testid="pe-cancel"
-              disabled={busy}
-              onClick={onCancel}
-            >
-              取消
-            </button>
-          )}
-          <button type="submit" className="pe-btn pe-btn-primary" data-testid="pe-submit" disabled={!canSubmit}>
-            {confirmLabel}
-          </button>
-        </div>
       </form>
-    </div>
+    </Dialog>
   );
 }

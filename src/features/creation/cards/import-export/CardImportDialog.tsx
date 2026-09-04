@@ -5,8 +5,8 @@
  * → 确认应用（一次性 planId + 单事务，失败回滚零写入）。渲染端不接触文件路径。
  */
 import { useMemo, useState } from "react";
-import { FileUp, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { FileUp } from "lucide-react";
+import { Button, Dialog, Spinner } from "@/components/ui";
 import { useUIStore } from "@/stores/ui-store";
 import type {
   CardImportMapping,
@@ -118,18 +118,36 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
   const relationTypes = schema?.relationTypes ?? [];
 
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="导入卡片" aria-modal="true">
-      <div className="creation-search-shell migration-dialog" role="search">
-        <div className="creation-search-head">
-          <FileUp size={16} className="creation-search-head-icon" />
-          <span className="creation-proof-title">导入卡片（CSV / Markdown）</span>
-          <button type="button" className="creation-search-close" onClick={onClose} aria-label="关闭导入对话框">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="migration-body">
-          {phase === "choose" && <p className="migration-note">正在读取文件…</p>}
+    <Dialog
+      open={true}
+      title={<span className="flex items-center gap-2"><FileUp size={16} /> 导入卡片（CSV / Markdown）</span>}
+      ariaLabel="导入卡片"
+      onClose={busy ? undefined : onClose}
+      width="max-w-2xl"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>
+            {phase === "done" ? "完成" : "取消"}
+          </Button>
+          {phase === "mapping" && (
+            <Button onClick={() => void computePlan()} disabled={busy || !mapping || !mappingIsReady(mapping)}>
+              {busy ? <><Spinner size={14} className="mr-1.5" /> 生成计划中…</> : "预览计划"}
+            </Button>
+          )}
+          {phase === "plan" && summary && summary.errorCount === 0 && (
+            <Button onClick={() => void runApply()} disabled={busy}>
+              {busy ? <><Spinner size={14} className="mr-1.5" /> 导入中…</> : "确认导入"}
+            </Button>
+          )}
+          {phase === "plan" && (
+            <Button variant="quiet" onClick={() => setPhase("mapping")} disabled={busy}>
+              返回调整映射
+            </Button>
+          )}
+        </>
+      }
+    >
+      {phase === "choose" && <p className="migration-note">正在读取文件…</p>}
 
           {phase === "mapping" && preview && mapping && schema && (
             <MappingEditor
@@ -174,29 +192,7 @@ export function CardImportDialog({ projectId, onClose, onImported }: CardImportD
             </p>
           )}
 
-          <div className="migration-actions">
-            <Button variant="secondary" onClick={onClose}>
-              {phase === "done" ? "完成" : "取消"}
-            </Button>
-            {phase === "mapping" && (
-              <Button onClick={() => void computePlan()} disabled={busy || !mapping || !mappingIsReady(mapping)}>
-                {busy ? <><Loader2 size={14} className="spin" /> 生成计划中…</> : "预览计划"}
-              </Button>
-            )}
-            {phase === "plan" && summary && summary.errorCount === 0 && (
-              <Button onClick={() => void runApply()} disabled={busy}>
-                {busy ? <><Loader2 size={14} className="spin" /> 导入中…</> : "确认导入"}
-              </Button>
-            )}
-            {phase === "plan" && (
-              <Button variant="quiet" onClick={() => setPhase("mapping")} disabled={busy}>
-                返回调整映射
-              </Button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }
 

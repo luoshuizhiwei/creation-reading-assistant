@@ -29,7 +29,25 @@ export default defineConfig({
     plugins: [react()],
     build: {
       rollupOptions: {
-        input: "index.html"
+        input: "index.html",
+        output: {
+          manualChunks(id) {
+            if (id.includes("node_modules")) {
+              if (id.includes("@tiptap") || id.includes("prosemirror")) {
+                return "vendor-tiptap";
+              }
+              if (id.includes("epubjs")) {
+                return "vendor-epubjs";
+              }
+              if (id.includes("react") || id.includes("react-dom") || id.includes("scheduler")) {
+                return "vendor-react";
+              }
+              if (id.includes("zustand")) {
+                return "vendor-zustand";
+              }
+            }
+          }
+        }
       }
     }
   }

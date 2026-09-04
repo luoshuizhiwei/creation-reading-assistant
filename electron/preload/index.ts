@@ -160,6 +160,7 @@ const api: DesktopApi = {
     openEpub: (bookId: string) => invoke<ReaderEpubPayload>("reader:openEpub", bookId),
     saveProgress: (input: SaveProgressInput) => invoke<ReadingProgress>("reader:saveProgress", input),
     getProgress: (bookId: string) => invoke<ReadingProgress | undefined>("reader:getProgress", bookId),
+    getBatchProgress: (bookIds: string[]) => invoke<ReadingProgress[]>("reader:getBatchProgress", bookIds),
     saveEpubLocation: (input: SaveProgressInput) => invoke<ReadingProgress>("reader:saveEpubLocation", input),
     getEpubLocation: (bookId: string) => invoke<ReadingLocation | undefined>("reader:getEpubLocation", bookId),
     saveTxtTocOverrides: (input: { bookId: string; overrides: TxtTocOverrides | null }) =>

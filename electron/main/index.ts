@@ -2276,6 +2276,12 @@ async function getProgress(bookId: string): Promise<ReadingProgress | undefined>
   return (await readProgressList()).find((item) => item.bookId === bookId);
 }
 
+async function getBatchProgress(bookIds: string[]): Promise<ReadingProgress[]> {
+  const idSet = new Set(bookIds);
+  const list = await readProgressList();
+  return list.filter((item) => idSet.has(item.bookId));
+}
+
 async function totalReadingTimeForBook(bookId: string, sessions?: ReadingSession[]): Promise<number> {
   const source = sessions ?? (await readSessionList());
   return source.filter((session) => session.bookId === bookId).reduce((sum, session) => sum + Math.max(0, session.activeDurationMs), 0);
@@ -2687,7 +2693,7 @@ async function searchGlobal(query: SearchQuery): Promise<SearchResult[]> {
   const scopes = Array.isArray(query.scopes) && query.scopes.length > 0 ? query.scopes : ["library", "inspiration"];
   const limit = typeof query.limit === "number" ? Math.min(100, Math.max(1, query.limit)) : 50;
   const results: SearchResult[] = [];
-  const pushResult = (type: SearchResultType, title: string, metaText: string, content: string, sourcePath: string | undefined, target: SearchResult["target"]) => {
+  const pushResult = (type: SearchResultType, title: string, metaText: string, content: string, sourcePath: string | undefined, target: SearchResult["target"], charOffset?: number) => {
     const score = scoreFor(keyword, title, metaText, content);
     if (score <= 0) return;
     results.push({
@@ -2697,7 +2703,7 @@ async function searchGlobal(query: SearchQuery): Promise<SearchResult[]> {
       snippet: snippetFor(keyword, `${metaText}\n${content}`, title),
       score,
       sourcePath,
-      target
+      target: charOffset === undefined ? target : { ...target, charOffset }
     });
   };
   const pushScoredResult = (
@@ -2750,7 +2756,13 @@ async function searchGlobal(query: SearchQuery): Promise<SearchResult[]> {
       if (canReadBody) {
         content = await readTextFileIfWithinLimit(book.filePath);
       }
-      pushResult("book", book.title, `${book.format}\n${book.originalPath ?? ""}\n${book.filePath}`, content, book.originalPath ?? book.filePath, { bookId: book.id });
+      // 正文首个命中位置：供阅读器打开后直接跳到命中处（与 EPUB 的 epubHref 对等）
+      let charOffset: number | undefined;
+      if (content) {
+        const idx = content.toLowerCase().indexOf(keyword.toLowerCase());
+        if (idx >= 0) charOffset = idx;
+      }
+      pushResult("book", book.title, `${book.format}\n${book.originalPath ?? ""}\n${book.filePath}`, content, book.originalPath ?? book.filePath, { bookId: book.id }, charOffset);
     }
   }
 
@@ -3582,6 +3594,7 @@ function registerIpc(): void {
   ipcMain.handle("reader:openEpub", async (_event, bookId: string) => openEpub(bookId));
   ipcMain.handle("reader:saveProgress", async (_event, input: SaveProgressInput) => saveProgress(input));
   ipcMain.handle("reader:getProgress", async (_event, bookId: string) => getProgress(bookId));
+  ipcMain.handle("reader:getBatchProgress", async (_event, bookIds: string[]) => getBatchProgress(bookIds));
   ipcMain.handle("reader:saveEpubLocation", async (_event, input: SaveProgressInput) => saveEpubLocation(input));
   ipcMain.handle("reader:getEpubLocation", async (_event, bookId: string) => getEpubLocation(bookId));
   ipcMain.handle("reader:startSession", async (_event, input: StartReadingSessionInput) => startReadingSession(input));

@@ -704,3 +704,48 @@ Novalist 调研与取舍仍记录在
   （弱化+对勾+计数）、代码分包。**抓到并修复一个真 bug**：无章节 TXT 保存路径未写
   文本锚点（getTextAnchor 在无目录时提前返回），恢复退回原始像素导致排版变更后漂移
   ——现无章节书也写全局 charOffset 锚点。该探针留作阅读器回归工具（与 probe-round7/8 同位）。
+
+## 28. 2026-09-05 桌面端全方位架构解耦、类型模块化与构建瘦身交付记录
+
+本次交付覆盖桌面端渲染层架构解耦、IPC 与服务层收口、通用 UI 原语提取、类型系统领域模块化、状态与 Hook 领域拆分、IPC N+1 性能优化以及 Vite 构建分包优化，全流程零破坏性改动，保证 100% 向后兼容。
+
+- **P1-A 异步与错误处理统一**：
+  - 新建 `src/utils/async-action.ts`，导出 `executeAction<T>` 与 `executeBoolAction` 通用动作执行器，内置统一的 try-catch、状态反馈与通知通道。
+  - 全面清理 `useInspirationActions`、`useLibraryActions`、`useSettingsActions` 中分散复制的本地 `messageFromError` 实现，统一收敛至 `async-action.ts`。
+- **P1-B IPC 集中化与服务层收口**：
+  - `src/services/reader-service.ts` 补齐字体加载与阅读预设相关接口。
+  - 新建 `src/services/window-service.ts`，收敛窗口最大化/最小化/关闭/全屏等底层 IPC 调用。
+  - 彻底消除 `ReaderSection`、`ReaderSettingsPanel`、`excerpt-destination-impl`、`replace-service` 中分散直接访问 `window.electronAPI` 的反模式，统一经由 Service 层访问。
+- **P2-A & P2-B 通用 UI 原语与业务弹窗重构**：
+  - 在 `src/components/ui/` 新建 `<Dialog>`（可访问性与动画）、`<Tabs>`、`<Select>`、`<Spinner>` 基础原语组件，并通过 `src/components/ui.tsx` 集中导出。
+  - 重构 9 个业务弹窗以复用统一原语：`GoalEditorDialog`、`SessionEditDialog`、`PurgeTrashDialog`、`RestoreSnapshotDialog`、`CreateMilestoneDialog`、`CardExportDialog`、`CardImportDialog`、`ExportDraftDialog`、`ImportDraftDialog`，消除手写 Modal 样板代码与样式不一致。
+- **P5 阅读器逻辑解耦**：
+  - 提取 `src/features/reader/annotation-constants.ts` 与 `src/features/reader/useBookAnnotations.ts`，解耦标注核心数据流与生命周期管理。
+  - 统一 `ReaderSettingsDrawer`，将 `EpubSettingsDrawer` 改为委托代理模式，复用基础排版与主题设置抽屉，减少 50+ 行重复代码。
+- **P3-A Hook 领域拆分**：
+  - 原 1102 行的巨石 Hook `src/hooks/useCreationActions.ts` 按领域职责拆分为 `src/hooks/creation/` 目录下的 6 个子 Hook：
+    `useProjectActions`、`useOutlineActions`、`useCardActions`、`useInboxActions`、`useSceneEditorActions`、`useCreationOtherActions`。
+  - 原 `useCreationActions.ts` 重构为 100% 向后兼容的聚合 Composer，保留既有 API 签名，现有消费方无须感知内部拆解。
+- **P3-B Store 切片化**：
+  - `src/stores/creation-store.ts` 重构为 Zustand 标准切片（Slice）模式，拆分出 `project-slice.ts`、`card-slice.ts` 等领域切片，实现复杂状态逻辑的物理隔离，同时维持外层 Store 对外暴露的接口与订阅语义完全不变。
+- **P3-C N+1 IPC 性能修复**：
+  - 主进程与 preload 新增 `getBatchProgress` 接口，替代原有循环单本调用的旧链路。
+  - 将 `hydrateProgress` 由原有循环 N 次 IPC 往返 + N 次磁盘文件 I/O，重构为单次批量读取与反序列化，彻底消除书架冷启动与批量刷新时的 N+1 IPC 瓶颈。
+- **P4-B 消除 Replace 类型双重维护**：
+  - 重构 `src/features/creation/replace/types.ts`，彻底移除自维护的重复模型声明，改为直接复用 `@/types/creation` 的权威类型定义，消除了多源漂移风险。
+- **P4-A 类型系统模块化**：
+  - 原 1863 行的巨型单文件 `src/types/creation.ts` 按领域拆分为 `src/types/creation/` 下的 7 个细粒度子模块：
+    `primitives.ts`、`model.ts`、`command.ts`、`query.ts`、`event.ts`、`plan.ts`、`runtime.ts`，并通过 `index.ts` 汇聚。
+  - 根级 `src/types/creation.ts` 保留为 Barrel Re-export（`export * from './creation'`），对历史绝对路径（`@/types/creation`）及 Electron 主进程跨目录相对引用（`../../src/types/creation`）提供 100% 无缝兼容。
+- **Vite manualChunks 分包构建优化**：
+  - 在 `electron.vite.config.ts` 中配置函数式 `manualChunks` 分包策略，精准隔离重量级三方依赖（tiptap 编辑器生态、epubjs 阅读引擎、react 运行时生态、zustand 状态库）。
+  - 分包效果显著：
+    - `WritingDesk.js` 体积从 **754 kB** 降至 **101.8 kB**（体积下降 **-86.5%**）；
+    - `EpubReaderPage.js` 体积从 **910 kB** 降至 **46.3 kB**（体积下降 **-94.9%**）；
+    - 显著消除首次加载与懒加载时的解析卡顿。
+- **全量验证指标（实跑全部通过）**：
+  - **三套 TypeScript 编译**：Renderer / Electron Main / Preload 全部 0 错误（`npm run build`）；
+  - **单元与集成测试**：Vitest 80 passed / 1 skipped（共 783 个测试用例全部通过）；
+  - **业务契约测试**：3 套契约校验脚本全部通过；
+  - **打包构建耗时**：`npm run build` 成功完成，耗时约 6.57s。
+

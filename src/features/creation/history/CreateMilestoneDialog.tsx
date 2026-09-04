@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { Dialog } from "@/components/ui";
 import type {
   CardSummary,
   CreationProjectNavigation,
@@ -103,27 +104,39 @@ export function CreateMilestoneDialog({
   const isBusy = busy || submitting;
 
   return (
-    <div className="history-modal-overlay" onClick={isBusy ? undefined : onCancel}>
-      <div
-        className="history-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="创建命名里程碑"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3>创建命名里程碑</h3>
+    <Dialog
+      open={true}
+      title="创建命名里程碑"
+      onClose={isBusy ? undefined : onCancel}
+      width="max-w-md"
+      className="history-modal"
+      footer={
+        <>
           <button
             type="button"
-            className="history-modal-close"
+            className="history-btn-cancel"
             onClick={onCancel}
             disabled={isBusy}
-            aria-label="关闭"
           >
-            ×
+            取消
           </button>
-        </div>
-        <div className="history-modal-body">
+          <button
+            type="button"
+            className="history-btn-confirm"
+            onClick={() => void handleSubmit()}
+            disabled={!canSubmit}
+          >
+            {isBusy ? (
+              <>
+                <span className="history-busy" /> &nbsp;创建中…
+              </>
+            ) : (
+              "创建里程碑"
+            )}
+          </button>
+        </>
+      }
+    >
           <div className="history-field">
             <label htmlFor="history-subject-type">对象类型</label>
             <select
@@ -179,32 +192,6 @@ export function CreateMilestoneDialog({
           </div>
 
           {submitError && <p className="history-impact-error">{submitError}</p>}
-        </div>
-        <div className="history-modal-foot">
-          <button
-            type="button"
-            className="history-btn-cancel"
-            onClick={onCancel}
-            disabled={isBusy}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="history-btn-confirm"
-            onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
-          >
-            {isBusy ? (
-              <>
-                <span className="history-busy" /> &nbsp;创建中…
-              </>
-            ) : (
-              "创建里程碑"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

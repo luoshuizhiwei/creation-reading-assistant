@@ -5,8 +5,8 @@
  * 不导出内部 id、批注或不必要元数据，渲染端不持有文件路径能力。
  */
 import { useState } from "react";
-import { Download, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Download } from "lucide-react";
+import { Button, Dialog, Spinner } from "@/components/ui";
 import { useUIStore } from "@/stores/ui-store";
 import type { CardExportFilter } from "./card-import-export-types";
 import { exportCards } from "./card-import-export-client";
@@ -43,18 +43,22 @@ export function CardExportDialog({ projectId, filter, onClose }: CardExportDialo
   };
 
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="导出卡片" aria-modal="true">
-      <div className="creation-search-shell migration-dialog" role="search">
-        <div className="creation-search-head">
-          <Download size={16} className="creation-search-head-icon" />
-          <span className="creation-proof-title">导出卡片（CSV / Markdown）</span>
-          <button type="button" className="creation-search-close" onClick={onClose} aria-label="关闭导出对话框">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="migration-body">
-          <p className="migration-note">
+    <Dialog
+      open={true}
+      title={<span className="flex items-center gap-2"><Download size={16} /> 导出卡片（CSV / Markdown）</span>}
+      ariaLabel="导出卡片"
+      onClose={busy ? undefined : onClose}
+      width="max-w-md"
+      footer={
+        <>
+          <Button variant="secondary" onClick={onClose}>关闭</Button>
+          <Button onClick={() => void runExport()} disabled={busy}>
+            {busy ? <><Spinner size={14} className="mr-1.5" /> 导出中…</> : "选择保存位置并导出"}
+          </Button>
+        </>
+      }
+    >
+      <p className="migration-note">
             将导出当前筛选范围内的卡片（类型
             {filter.cardKind ? "已限定" : "全部"}、{filter.search ? "含搜索词" : "无搜索"}）。
             导出不含内部 id、批注与多余元数据；CSV 与 Markdown 使用对称字段。
@@ -84,14 +88,6 @@ export function CardExportDialog({ projectId, filter, onClose }: CardExportDialo
             <p className="migration-note">已写入 {written} 张卡片。</p>
           )}
 
-          <div className="migration-actions">
-            <Button variant="secondary" onClick={onClose}>关闭</Button>
-            <Button onClick={() => void runExport()} disabled={busy}>
-              {busy ? <><Loader2 size={14} className="spin" /> 导出中…</> : "选择保存位置并导出"}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

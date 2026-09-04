@@ -14,9 +14,19 @@ export interface ReaderSettingsDrawerProps {
   onClose(): void;
   onSettingsChange(next: ReaderSettings): void;
   onAfterChange(): void;
+  format?: "txt" | "md" | "epub";
+  subtitle?: string;
 }
 
-export function ReaderSettingsDrawer({ open, settings, onClose, onSettingsChange, onAfterChange }: ReaderSettingsDrawerProps) {
+export function ReaderSettingsDrawer({
+  open,
+  settings,
+  onClose,
+  onSettingsChange,
+  onAfterChange,
+  format = "txt",
+  subtitle = format === "epub" ? "EPUB 默认保留原书样式，需要统一排版时再切换。" : "调整字号、行距与背景，设置实时生效。"
+}: ReaderSettingsDrawerProps) {
   if (!open) return null;
   return (
     <div className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]" onMouseDown={onClose}>
@@ -27,7 +37,7 @@ export function ReaderSettingsDrawer({ open, settings, onClose, onSettingsChange
         <div className="mb-4 flex items-center justify-between">
           <div>
             <div className="paper-title text-lg font-semibold">阅读设置</div>
-            <div className="mt-1 text-xs text-paper-muted">调整字号、行距与背景，设置实时生效。</div>
+            <div className="mt-1 text-xs text-paper-muted">{subtitle}</div>
           </div>
           <button className="rounded-md p-2 text-paper-muted hover:bg-paper-soft hover:text-paper-ink" onClick={onClose}>
             <X size={17} />
@@ -35,7 +45,7 @@ export function ReaderSettingsDrawer({ open, settings, onClose, onSettingsChange
         </div>
         <ReaderSettingsPanel
           settings={settings}
-          format="txt"
+          format={format}
           onReset={async () => {
             const next = await resetReaderSettings();
             onSettingsChange(next.reader);

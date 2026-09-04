@@ -1,50 +1,29 @@
 /**
- * 替换计划 UI 的本地视图类型与服务接口（独立副本，不依赖主进程模块）。
- * 主进程 replace-plan.ts 的字段形状与此保持一致；公共 seam 接线后由 preload 返回同样结构。
+ * 替换计划 UI 视图类型与服务契约。
+ * 核心数据形状复用 @/types/creation，消除类型双存与维护漂移。
  */
+import type {
+  ReplaceApplyOutcome,
+  ReplaceHit,
+  ReplacePlan,
+  ReplacePlanMode,
+  ReplacePlanQuery as CanonicalReplacePlanQuery,
+  ReplacePlanSceneSummary,
+  ReplacePlanScope,
+  ReplaceTextRange
+} from "@/types/creation";
 
-export type ReplaceScope = "all" | "chapter" | "scene";
-export type ReplacePlanMode = "plain" | "regex";
+export type {
+  ReplaceHit,
+  ReplacePlanMode,
+  ReplacePlanSceneSummary,
+  ReplaceTextRange
+};
 
-export interface ReplaceTextRange {
-  start: number;
-  end: number;
-}
-
-export interface ReplaceHit {
-  hitId: string;
-  sceneId: string;
-  blockIndex: number;
-  range: ReplaceTextRange;
-  before: string;
-  after: string;
-  context: string;
-}
-
-export interface ReplacePlanSceneSummary {
-  sceneId: string;
-  chapterId: string;
-  chapterTitle: string;
-  title: string;
-  hitCount: number;
-}
-
-export interface ReplacePlanView {
-  planId: string;
-  projectId: string;
-  scope: ReplaceScope;
-  scopeId?: string;
-  find: string;
-  replaceWith: string;
-  mode: ReplacePlanMode;
-  scenes: ReplacePlanSceneSummary[];
-  hits: ReplaceHit[];
-  totalHits: number;
-  limit: number;
-  truncated: boolean;
-  sealedAt: string;
-  expiresAt: string;
-}
+export type ReplaceScope = ReplacePlanScope;
+export type ReplacePlanQuery = CanonicalReplacePlanQuery;
+export type ReplacePlanView = Omit<ReplacePlan, "seals">;
+export type ReplaceApplyResultView = ReplaceApplyOutcome;
 
 export type ReplacePlanPhase = "scanning" | "planning";
 
@@ -54,15 +33,6 @@ export interface ReplacePlanProgress {
   totalScenes: number;
   completedHits: number;
   totalHits: number;
-}
-
-export interface ReplaceApplyResultView {
-  planId: string;
-  sequence: number;
-  appliedHitCount: number;
-  modifiedSceneIds: string[];
-  snapshotIds: string[];
-  committedAt: string;
 }
 
 export type ReplaceErrorCode =
@@ -80,16 +50,6 @@ export type ReplaceErrorCode =
 export interface ReplaceErrorView {
   code: ReplaceErrorCode;
   message: string;
-}
-
-export interface ReplacePlanQuery {
-  projectId: string;
-  scope: ReplaceScope;
-  scopeId?: string;
-  find: string;
-  replaceWith: string;
-  mode: ReplacePlanMode;
-  limit?: number;
 }
 
 export interface ReplaceCreateHandlers {

@@ -21,16 +21,11 @@ import type { ExcerptResult, ExcerptTarget, BookmarkItem, HighlightColor, Highli
 import { readerBackgroundColor, readerTextColor } from "@/utils/format";
 import { getConverter } from "@/utils/text-conversion";
 
+import { HIGHLIGHT_COLOR_FILL } from "@/features/library/reader/annotation-constants";
+import { Spinner } from "@/components/ui";
+
 const EPUB_INITIAL_DISPLAY_TIMEOUT_MS = 8_000;
 const renditionRegisteredThemes = new WeakMap<Rendition, Set<string>>();
-
-const HIGHLIGHT_COLOR_FILL: Record<HighlightColor, string> = {
-  yellow: "rgba(255, 235, 59, 0.4)",
-  red: "rgba(244, 67, 54, 0.3)",
-  green: "rgba(76, 175, 80, 0.3)",
-  blue: "rgba(33, 150, 243, 0.3)",
-  purple: "rgba(156, 39, 176, 0.3)",
-};
 
 type SidePanelTab = "toc" | "highlights" | "bookmarks";
 
@@ -856,7 +851,11 @@ export function EpubReaderPage() {
 
       <div className={`grid min-h-0 ${tocCollapsed ? "grid-cols-[1fr_56px]" : "grid-cols-[1fr_320px]"}`}>
         <div ref={viewerContainerRef} className="relative min-h-0 overflow-hidden" onWheel={handleWheelPageTurn}>
-          {loading && <div className="absolute inset-0 z-10 grid place-items-center bg-paper-panel/80 text-sm text-paper-muted">正在打开 EPUB...</div>}
+          {loading && (
+            <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 bg-paper-panel/80 text-sm text-paper-muted">
+              <Spinner size={18} /> 正在打开 EPUB...
+            </div>
+          )}
           <EpubSelectionToolbar
             toolbar={selectionToolbar as SelectionToolbarState | null}
             toolbarOffset={toolbarOffsetRef.current}

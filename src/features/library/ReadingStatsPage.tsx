@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { BookOpen, CalendarDays, CalendarRange, ChevronLeft, ChevronRight, Clock3, Library, Minus, Sunrise, TrendingDown, TrendingUp } from "lucide-react";
-import { Button, EmptyState } from "@/components/ui";
+import { Button } from "@/components/ui";
 import { getReadingStats } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAppStore } from "@/stores/app-store";
@@ -194,9 +194,7 @@ export function ReadingStatsPage() {
         </section>
 
         {!stats ? (
-          <div className="desktop-panel-card desktop-empty-wrap">
-            <EmptyState title="正在读取统计" body="阅读会话保存在本地 JSON 中，统计会从会话日志即时聚合。" />
-          </div>
+          <ReadingStatsSkeleton />
         ) : (
           <div className="grid gap-5">
             {/* Period selector + nav */}
@@ -378,6 +376,89 @@ export function ReadingStatsPage() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function ReadingStatsSkeleton() {
+  return (
+    <div className="grid gap-5" aria-busy="true">
+      <span className="sr-only">正在读取统计…</span>
+      {/* Period selector skeleton */}
+      <div className="desktop-panel-card flex items-end justify-between gap-4 p-4">
+        <div>
+          <div className="h-7 w-48 animate-pulse rounded-md bg-paper-soft" />
+          <div className="mt-2 h-4 w-80 animate-pulse rounded-md bg-paper-soft/60" />
+        </div>
+        <div className="h-8 w-44 animate-pulse rounded-lg bg-paper-soft/60" />
+      </div>
+
+      {/* 5 stat cards skeleton */}
+      <section className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="stats-card reading-stat-tile motion-panel animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-3.5 w-3.5 rounded bg-paper-soft" />
+              <div className="h-3 w-16 rounded bg-paper-soft/60" />
+            </div>
+            <div className="mt-2 h-6 w-24 rounded bg-paper-soft" />
+          </div>
+        ))}
+      </section>
+
+      {/* Grid columns skeleton */}
+      <section className="desktop-stats-grid">
+        <div className="grid gap-5">
+          {/* By book card */}
+          <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+            <div className="mb-4 flex items-center justify-between">
+              <div className="h-5 w-24 animate-pulse rounded bg-paper-soft" />
+              <div className="h-3.5 w-20 animate-pulse rounded bg-paper-soft/60" />
+            </div>
+            <div className="grid gap-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex h-12 items-center justify-between rounded-lg border border-paper-line bg-paper-soft/40 px-3 animate-pulse">
+                  <div className="h-4 w-36 rounded bg-paper-soft" />
+                  <div className="h-4 w-16 rounded bg-paper-soft/60" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Rhythm chart card */}
+          <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+            <div className="mb-4 h-5 w-28 animate-pulse rounded bg-paper-soft" />
+            <div className="flex h-28 items-end gap-1.5 pt-4">
+              {[40, 65, 25, 80, 50, 95, 30, 60, 45, 70, 85, 35, 55, 90, 60].map((h, i) => (
+                <div
+                  key={i}
+                  className="flex-1 animate-pulse rounded-t bg-paper-soft/50"
+                  style={{ height: `${h}%` }}
+                />
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Sessions card */}
+        <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="h-4 w-4 rounded bg-paper-soft animate-pulse" />
+            <div className="h-5 w-24 rounded bg-paper-soft animate-pulse" />
+          </div>
+          <div className="grid gap-2">
+            {[0, 1, 2, 3].map((i) => (
+              <div key={i} className="rounded-lg border border-paper-line bg-paper-soft/40 p-3 animate-pulse">
+                <div className="flex justify-between">
+                  <div className="h-3.5 w-24 rounded bg-paper-soft/60" />
+                  <div className="h-3.5 w-14 rounded bg-paper-soft" />
+                </div>
+                <div className="mt-2 h-3 w-16 rounded bg-paper-soft/40" />
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
     </div>
   );
 }

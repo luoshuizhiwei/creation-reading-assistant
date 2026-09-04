@@ -24,6 +24,7 @@ vi.mock("@/services/reader-service", () => ({
   openEpub: vi.fn(),
   saveProgress: vi.fn(),
   getProgress: vi.fn(),
+  getBatchProgress: vi.fn().mockResolvedValue([]),
   saveEpubLocation: vi.fn(),
   getEpubLocation: vi.fn(),
   startSession: vi.fn(),

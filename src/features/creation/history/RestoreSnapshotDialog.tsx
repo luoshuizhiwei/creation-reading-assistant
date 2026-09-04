@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Dialog } from "@/components/ui";
 import type { SnapshotInfo, SnapshotPreviewView, SnapshotSubjectType } from "@/types/creation";
 import { type RestoreSnapshotConfirmResult } from "./history-models";
 
@@ -50,14 +51,6 @@ export function RestoreSnapshotDialog({
     setProtectedId(null);
   }, [snapshot.id]);
 
-  // 键盘可达性：恢复进行中不允许通过 Esc 关闭，避免中断原子操作。
-  useEffect(() => {
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape" && !busy) onCancel();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [busy, onCancel]);
 
   const handleConfirm = async () => {
     if (busy) return;
@@ -79,31 +72,49 @@ export function RestoreSnapshotDialog({
   };
 
   return (
-    <div
-      className="history-modal-overlay"
-      onClick={busy ? undefined : onCancel}
-    >
-      <div
-        className="history-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="从快照恢复确认"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3>从快照恢复确认</h3>
+    <Dialog
+      open={true}
+      title="从快照恢复确认"
+      onClose={busy ? undefined : onCancel}
+      width="max-w-2xl"
+      className="history-modal"
+      footer={
+        protectedId ? (
           <button
             type="button"
-            className="history-modal-close"
+            className="history-btn-confirm"
             onClick={onCancel}
-            disabled={busy}
-            aria-label="关闭"
-            autoFocus
           >
-            ×
+            关闭
           </button>
-        </div>
-        <div className="history-modal-body">
+        ) : (
+          <>
+            <button
+              type="button"
+              className="history-btn-cancel"
+              onClick={onCancel}
+              disabled={busy}
+            >
+              取消
+            </button>
+            <button
+              type="button"
+              className="history-btn-confirm"
+              onClick={() => void handleConfirm()}
+              disabled={busy || previewBusy || !preview || !preview.canRestore}
+            >
+              {busy ? (
+                <>
+                  <span className="history-busy" /> &nbsp;执行中…
+                </>
+              ) : (
+                "先保护再恢复"
+              )}
+            </button>
+          </>
+        )
+      }
+    >
           {protectedId && (
             <div className="history-restore-success" role="status" aria-live="polite">
               <p className="history-restore-success-title">已恢复到目标版本</p>
@@ -165,44 +176,6 @@ export function RestoreSnapshotDialog({
             若保护快照创建失败，恢复将中止，不会修改任何内容。
           </div>
           {error && <p className="history-impact-error">{error}</p>}
-        </div>
-        <div className="history-modal-foot">
-          {protectedId ? (
-            <button
-              type="button"
-              className="history-btn-confirm"
-              onClick={onCancel}
-            >
-              关闭
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                className="history-btn-cancel"
-                onClick={onCancel}
-                disabled={busy}
-              >
-                取消
-              </button>
-              <button
-                type="button"
-                className="history-btn-confirm"
-                onClick={() => void handleConfirm()}
-                disabled={busy || previewBusy || !preview || !preview.canRestore}
-              >
-                {busy ? (
-                  <>
-                    <span className="history-busy" /> &nbsp;执行中…
-                  </>
-                ) : (
-                  "先保护再恢复"
-                )}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

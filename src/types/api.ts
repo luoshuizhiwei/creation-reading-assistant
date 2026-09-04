@@ -149,6 +149,7 @@ export interface DesktopApi {
     openEpub: (bookId: string) => Promise<ReaderEpubPayload>;
     saveProgress: (input: SaveProgressInput) => Promise<ReadingProgress>;
     getProgress: (bookId: string) => Promise<ReadingProgress | undefined>;
+    getBatchProgress?: (bookIds: string[]) => Promise<ReadingProgress[]>;
     saveEpubLocation: (input: SaveProgressInput) => Promise<ReadingProgress>;
     getEpubLocation: (bookId: string) => Promise<ReadingLocation | undefined>;
     saveTxtTocOverrides: (input: { bookId: string; overrides: TxtTocOverrides | null }) => Promise<LibraryBook>;

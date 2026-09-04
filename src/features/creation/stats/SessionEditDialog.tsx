@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Edit3 } from "lucide-react";
-import { Button, TextInput } from "@/components/ui";
+import { Button, Dialog, TextInput } from "@/components/ui";
 import type { SessionEntry } from "@/types/creation";
 
 /** 会话修正载荷：局部更新，缺省字段保持不变。 */
@@ -86,21 +86,22 @@ export function SessionEditDialog({ open, session, onClose, onSave, busy, error 
   };
 
   return (
-    <div className="history-modal-overlay" role="presentation" onClick={onClose}>
-      <div
-        className="history-modal session-edit-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="修正写作会话"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3><Edit3 size={15} /> 修正写作会话</h3>
-          <button type="button" className="history-modal-close" onClick={onClose} disabled={submitting} aria-label="关闭">
-            ×
-          </button>
-        </div>
-        <div className="history-modal-body">
+    <Dialog
+      open={open}
+      title={<span className="flex items-center gap-1.5"><Edit3 size={15} /> 修正写作会话</span>}
+      ariaLabel="修正写作会话"
+      onClose={submitting ? undefined : onClose}
+      width="max-w-lg"
+      className="session-edit-dialog"
+      footer={
+        <>
+          <Button variant="quiet" onClick={onClose} disabled={submitting}>取消</Button>
+          <Button onClick={() => void handleSave()} disabled={submitting}>
+            {submitting ? "保存中…" : "保存修正"}
+          </Button>
+        </>
+      }
+    >
           <div className="creation-goals-grid">
             <label className="creation-field">
               <span>开始时间</span>
@@ -117,14 +118,6 @@ export function SessionEditDialog({ open, session, onClose, onSave, busy, error 
           </div>
           {validationMessage && <span className="creation-field-error">{validationMessage}</span>}
           {error && <span className="creation-field-error">{error}</span>}
-        </div>
-        <div className="history-modal-foot">
-          <Button variant="quiet" onClick={onClose} disabled={submitting}>取消</Button>
-          <Button onClick={() => void handleSave()} disabled={submitting}>
-            {submitting ? "保存中…" : "保存修正"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

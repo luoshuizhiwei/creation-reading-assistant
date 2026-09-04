@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { FileUp, FolderOpen, Loader2, X } from "lucide-react";
-import { Button } from "@/components/ui";
+import { FileUp, FolderOpen } from "lucide-react";
+import { Button, Dialog, Spinner } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { DraftImportPreview } from "@/types/creation";
@@ -57,31 +57,36 @@ export function ImportDraftDialog({ onClose, onImported }: ImportDraftDialogProp
   };
 
   return (
-    <div className="creation-search-overlay" role="dialog" aria-label="导入旧稿" aria-modal="true">
-      <div className="creation-search-shell migration-dialog" role="search">
-        <div className="creation-search-head">
-          <FileUp size={16} className="creation-search-head-icon" />
-          <span className="creation-proof-title">导入旧稿</span>
-          <button type="button" className="creation-search-close" onClick={onClose} aria-label="关闭导入对话框">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className="migration-body">
-          {!preview ? (
-            <>
-              <p className="migration-note">
-                支持 TXT、Markdown 与 DOCX 旧稿：自动识别章节结构（DOCX 按标题样式，TXT 按「第X章」，Markdown 按标题层级），先预览并调整卷章，确认后创建新项目（不会改动原文件，也不会覆盖已有项目）。
-              </p>
-              <div className="migration-actions">
-                <Button variant="secondary" onClick={onClose}>取消</Button>
-                <Button onClick={() => void chooseFile()}>
-                  <FolderOpen size={14} /> 选择文件
-                </Button>
-              </div>
-            </>
-          ) : editable ? (
-            <>
+    <Dialog
+      open={true}
+      title={<span className="flex items-center gap-2"><FileUp size={16} /> 导入旧稿</span>}
+      ariaLabel="导入旧稿"
+      onClose={importing ? undefined : onClose}
+      width="max-w-xl"
+      footer={
+        !preview ? (
+          <>
+            <Button variant="secondary" onClick={onClose}>取消</Button>
+            <Button onClick={() => void chooseFile()}>
+              <FolderOpen size={14} /> 选择文件
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="secondary" onClick={() => void chooseFile()}>重新选择</Button>
+            <Button onClick={() => void execute()} disabled={importing || !editable || !isEditablePreviewValid(editable)}>
+              {importing ? <><Spinner size={14} className="mr-1.5" /> 导入中…</> : "导入为新项目"}
+            </Button>
+          </>
+        )
+      }
+    >
+      {!preview ? (
+        <p className="migration-note">
+          支持 TXT、Markdown 与 DOCX 旧稿：自动识别章节结构（DOCX 按标题样式，TXT 按「第X章」，Markdown 按标题层级），先预览并调整卷章，确认后创建新项目（不会改动原文件，也不会覆盖已有项目）。
+        </p>
+      ) : editable ? (
+        <>
               <label className="creation-proof-banned">
                 <span>项目名称</span>
                 <input
@@ -141,16 +146,8 @@ export function ImportDraftDialog({ onClose, onImported }: ImportDraftDialogProp
                   </div>
                 ))}
               </div>
-              <div className="migration-actions">
-                <Button variant="secondary" onClick={() => void chooseFile()}>重新选择</Button>
-                <Button onClick={() => void execute()} disabled={importing || !isEditablePreviewValid(editable)}>
-                  {importing ? <><Loader2 size={14} className="spin" /> 导入中…</> : "导入为新项目"}
-                </Button>
-              </div>
-            </>
-          ) : null}
-        </div>
-      </div>
-    </div>
+        </>
+      ) : null}
+    </Dialog>
   );
 }

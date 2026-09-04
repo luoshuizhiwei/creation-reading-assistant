@@ -3,33 +3,36 @@ import { BookMarked, BookOpen, Copy, Inbox as InboxIcon, Minus, Search, Settings
 import { RingButton } from "@/components/interaction";
 import { useAppStore, type AppScreen } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
+import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
+import { useCreationActions } from "@/hooks/useCreationActions";
 import { APP_NAV_ITEMS } from "@/features/navigation/app-nav";
+import { closeWindow, minimizeWindow, onMaximizedChange, toggleMaximize } from "@/services/window-service";
 
 function WindowControls() {
   const [maximized, setMaximized] = useState(false);
   useEffect(() => {
-    const dispose = window.api?.window?.onMaximizedChange(setMaximized);
-    return () => dispose?.();
+    const dispose = onMaximizedChange(setMaximized);
+    return () => dispose();
   }, []);
   const controls = [
     {
       key: "minimize",
       label: "最小化窗口",
       Icon: Minus,
-      onClick: () => window.api?.window?.minimize()
+      onClick: minimizeWindow
     },
     {
       key: "maximize",
       label: maximized ? "还原窗口" : "最大化窗口",
       Icon: maximized ? Copy : Square,
-      onClick: () => window.api?.window?.toggleMaximize()
+      onClick: toggleMaximize
     },
     {
       key: "close",
       label: "关闭窗口",
       Icon: X,
-      onClick: () => window.api?.window?.close()
+      onClick: closeWindow
     }
   ];
   return (
@@ -42,6 +45,7 @@ function WindowControls() {
     </div>
   );
 }
+
 
 const navIcons: Record<string, typeof Settings> = {
   projects: BookMarked,
@@ -94,6 +98,14 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   const setScreen = useAppStore((state) => state.setScreen);
   const setSearchOpen = useSearchStore((state) => state.setOpen);
   const projects = useCreationStore((state) => state.projects);
+  const books = useLibraryStore((state) => state.books);
+  const [pendingInboxCount, setPendingInboxCount] = useState<number | undefined>();
+  const { loadInboxCount } = useCreationActions();
+
+  useEffect(() => {
+    void loadInboxCount().then((res) => setPendingInboxCount(res.pending)).catch(() => {});
+  }, [loadInboxCount, screen]);
+
   const workbenchActive = useCreationStore((state) => state.selectedId != null);
   const creationLeaveGuard = useCreationStore((state) => state.leaveGuard);
   const title = screenTitles[screen];
@@ -165,12 +177,20 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
           })}
         </nav>
 
-        <section className="desktop-sidebar-card" aria-label="本地项目数量">
-          <div className="desktop-card-label">本地书稿</div>
+        <section className="desktop-sidebar-card" aria-label="工作区状态概览">
+          <div className="desktop-card-label">工作台概览</div>
           <div className="desktop-sidebar-stats">
-            <span>
+            <span title={`创作项目：${projects.length} 个`}>
               <strong>{projects.length}</strong>
               <small>项目</small>
+            </span>
+            <span title={`收件箱待处理：${pendingInboxCount ?? 0} 条`}>
+              <strong>{pendingInboxCount ?? 0}</strong>
+              <small>待办</small>
+            </span>
+            <span title={`本地书库：${books.length} 册`}>
+              <strong>{books.length}</strong>
+              <small>藏书</small>
             </span>
           </div>
         </section>
@@ -180,7 +200,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         <header className="desktop-commandbar">
           <div className="min-w-0">
             <h1>{title.title}</h1>
-            <span>{title.body}</span>
+            <span title={title.body}>{title.body}</span>
           </div>
           <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索（Ctrl K）" onClick={() => setSearchOpen(true)}>
             <Search size={17} />

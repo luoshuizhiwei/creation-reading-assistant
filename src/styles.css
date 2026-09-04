@@ -1,4 +1,4 @@
-﻿@import "./styles/tokens.css";
+@import "./styles/tokens.css";
 
 @tailwind base;
 @tailwind components;
@@ -425,7 +425,7 @@ button:disabled {
 
 .desktop-workbench {
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr) 276px;
+  grid-template-columns: 236px minmax(0, 1fr);
   height: 100vh;
   min-height: 0;
   overflow: hidden;
@@ -433,6 +433,26 @@ button:disabled {
     linear-gradient(90deg, rgba(36, 27, 22, 0.035), transparent 18%),
     radial-gradient(circle at 8% 0%, rgba(138, 90, 43, 0.13), transparent 28%),
     linear-gradient(135deg, var(--paper-bg), var(--paper-soft));
+}
+
+.desktop-workbench:has(.desktop-sidebar--rail) {
+  grid-template-columns: 72px minmax(0, 1fr);
+}
+
+.desktop-sidebar--rail {
+  padding: 16px 8px !important;
+  align-items: center;
+}
+
+.desktop-sidebar--rail .desktop-brand span,
+.desktop-sidebar--rail .desktop-nav button span,
+.desktop-sidebar--rail .desktop-sidebar-card {
+  display: none !important;
+}
+
+.desktop-sidebar--rail .desktop-nav button {
+  justify-content: center !important;
+  padding: 10px !important;
 }
 
 .desktop-sidebar {
@@ -1421,7 +1441,7 @@ button:disabled {
   color: var(--paper-ink);
 }
 
-/* ===== 鍒涗綔椤圭洰锛氫功鑴婄储锟?+ 椤圭洰妗堝ご ===== */
+/* ===== 创作项目：书脊索引 + 项目案头 ===== */
 .creation-workbench {
   display: grid;
   grid-template-columns: minmax(320px, 400px) minmax(0, 1fr);

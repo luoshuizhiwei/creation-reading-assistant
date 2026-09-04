@@ -1,22 +1,18 @@
 import { useCallback } from "react";
 import { importBook, importEpub, listBooks, removeBook } from "@/services/library-service";
-import { getProgress, openBook, openEpub } from "@/services/reader-service";
+import { getBatchProgress, openBook, openEpub } from "@/services/reader-service";
 import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
-
-function messageFromError(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
-}
+import { executeAction } from "@/utils/async-action";
 
 async function hydrateProgress(bookIds: string[]) {
+  if (bookIds.length === 0) return;
   const setProgress = useLibraryStore.getState().setProgress;
-  await Promise.all(
-    bookIds.map(async (bookId) => {
-      const progress = await getProgress(bookId);
-      if (progress) setProgress(progress);
-    })
-  );
+  const list = await getBatchProgress(bookIds);
+  for (const progress of list) {
+    setProgress(progress);
+  }
 }
 
 export function useLibraryActions() {
@@ -30,44 +26,38 @@ export function useLibraryActions() {
   const showToast = useUIStore((state) => state.showToast);
 
   const refreshBooks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const books = await listBooks();
-      setBooks(books);
-      await hydrateProgress(books.map((book) => book.id));
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setLoading(false);
-    }
+    await executeAction(
+      async () => {
+        const books = await listBooks();
+        setBooks(books);
+        await hydrateProgress(books.map((book) => book.id));
+      },
+      { setLoading, setError }
+    );
   }, [setBooks, setError, setLoading]);
 
   const importBooks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const books = await importBook();
-      setBooks(books);
-      await hydrateProgress(books.map((book) => book.id));
-      showToast({ tone: "success", title: "导入完成", body: "书籍已加入本地书库，点击书卡即可开始阅读。" });
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setLoading(false);
-    }
+    await executeAction(
+      async () => {
+        const books = await importBook();
+        setBooks(books);
+        await hydrateProgress(books.map((book) => book.id));
+        showToast({ tone: "success", title: "导入完成", body: "书籍已加入本地书库，点击书卡即可开始阅读。" });
+      },
+      { setLoading, setError }
+    );
   }, [setBooks, setError, setLoading, showToast]);
 
   const importEpubBooks = useCallback(async () => {
-    setLoading(true);
-    try {
-      const books = await importEpub();
-      setBooks(books);
-      await hydrateProgress(books.map((book) => book.id));
-      showToast({ tone: "success", title: "EPUB 导入完成", body: "书籍已加入本地书库，阅读器会保留原书样式。" });
-    } catch (error) {
-      setError(messageFromError(error));
-    } finally {
-      setLoading(false);
-    }
+    await executeAction(
+      async () => {
+        const books = await importEpub();
+        setBooks(books);
+        await hydrateProgress(books.map((book) => book.id));
+        showToast({ tone: "success", title: "EPUB 导入完成", body: "书籍已加入本地书库，阅读器会保留原书样式。" });
+      },
+      { setLoading, setError }
+    );
   }, [setBooks, setError, setLoading, showToast]);
 
   const removeBookById = useCallback(
@@ -83,40 +73,35 @@ export function useLibraryActions() {
         });
         if (!confirmed) return;
       }
-      setLoading(true);
-      try {
-        const books = await removeBook(bookId);
-        setBooks(books);
-        await hydrateProgress(books.map((book) => book.id));
-        showToast({ tone: "success", title: "已从书库移除", body: "原始文件不会被删除。" });
-      } catch (error) {
-        setError(messageFromError(error));
-      } finally {
-        setLoading(false);
-      }
+      await executeAction(
+        async () => {
+          const books = await removeBook(bookId);
+          setBooks(books);
+          await hydrateProgress(books.map((book) => book.id));
+          showToast({ tone: "success", title: "已从书库移除", body: "原始文件不会被删除。" });
+        },
+        { setLoading, setError }
+      );
     },
     [confirmAction, setBooks, setError, setLoading, showToast]
   );
 
   const openReader = useCallback(
     async (bookId: string) => {
-      setLoading(true);
-      try {
-        const currentBook = useLibraryStore.getState().books.find((book) => book.id === bookId);
-        const payload = currentBook?.format === "epub" ? await openEpub(bookId) : await openBook(bookId);
-        setActiveBook(payload.book, "content" in payload ? payload.content : "", "epubUrl" in payload ? payload.epubUrl : undefined);
-        if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
-        setReaderSettings(payload.settings);
-        setScreen("reader");
-      } catch (error) {
-        setError(messageFromError(error));
-      } finally {
-        setLoading(false);
-      }
+      await executeAction(
+        async () => {
+          const currentBook = useLibraryStore.getState().books.find((book) => book.id === bookId);
+          const payload = currentBook?.format === "epub" ? await openEpub(bookId) : await openBook(bookId);
+          setActiveBook(payload.book, "content" in payload ? payload.content : "", "epubUrl" in payload ? payload.epubUrl : undefined);
+          if (payload.progress) useLibraryStore.getState().setProgress(payload.progress);
+          setReaderSettings(payload.settings);
+          setScreen("reader");
+        },
+        { setLoading, setError }
+      );
     },
     [setActiveBook, setError, setLoading, setReaderSettings, setScreen]
   );
 
   return { refreshBooks, importBooks, importEpubBooks, removeBookById, openReader };
 }
-

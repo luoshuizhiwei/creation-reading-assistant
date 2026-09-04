@@ -1,9 +1,9 @@
-/**
- * 替换计划服务：调用已接入公共 seam 的 IPC 通道
- * （window.api.creation.replacePlanCreate / replacePlanApply）。
- * 进度上报与运行时取消为后续迭代（通过操作控制器接线）的能力，当前 MVP 仅做基础接线。
+﻿/**
+ * 替换计划服务：通过 creation-service 调用 IPC（replacePlanCreate / replacePlanApply）。
+ * 保持 ReplacePlanService 接口作为 ReplacePanel 的依赖注入契约，
+ * 测试可注入 mock，生产自动使用 creation-service 实现。
  */
-import type { DesktopApi } from "@/types/api";
+import { replacePlanCreate, replacePlanApply } from "@/services/creation-service";
 import type {
   ReplaceApplyResultView,
   ReplaceErrorView,
@@ -22,14 +22,13 @@ export class ReplaceServiceError extends Error {
   }
 }
 
-export function createReplacePlanService(api: DesktopApi = window.api): ReplacePlanService {
-  const creation = api.creation;
+export function createReplacePlanService(): ReplacePlanService {
   return {
     async createPlan(query: ReplacePlanQuery): Promise<ReplacePlanView> {
-      return creation.replacePlanCreate(query);
+      return replacePlanCreate(query);
     },
     async applyPlan(planId: string, excludedHitIds: string[]): Promise<ReplaceApplyResultView> {
-      return creation.replacePlanApply({ planId, excludedHitIds });
+      return replacePlanApply({ planId, excludedHitIds });
     },
     cancel(): void {
       // 替换计划的运行时取消（通过操作控制器）为后续迭代能力；当前 IPC 不暴露取消。

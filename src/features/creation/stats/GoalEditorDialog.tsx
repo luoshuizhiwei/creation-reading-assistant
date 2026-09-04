@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Target } from "lucide-react";
-import { Button } from "@/components/ui";
-import { TextInput } from "@/components/ui";
+import { Button, Dialog, TextInput } from "@/components/ui";
 import type { CreationProjectSetup } from "@/types/creation";
 import { DEFAULT_WORD_METRIC, WORD_METRIC_LABELS, type WordMetric } from "./stats-calculator";
 
@@ -123,21 +122,22 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
   };
 
   return (
-    <div className="history-modal-overlay" role="presentation" onClick={onClose}>
-      <div
-        className="history-modal goal-editor-dialog"
-        role="dialog"
-        aria-modal="true"
-        aria-label="编辑创作目标"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3><Target size={15} /> 编辑创作目标</h3>
-          <button type="button" className="history-modal-close" onClick={onClose} disabled={submitting} aria-label="关闭">
-            ×
-          </button>
-        </div>
-        <div className="history-modal-body">
+    <Dialog
+      open={open}
+      title={<span className="flex items-center gap-1.5"><Target size={15} /> 编辑创作目标</span>}
+      ariaLabel="编辑创作目标"
+      onClose={submitting ? undefined : onClose}
+      width="max-w-xl"
+      className="goal-editor-dialog"
+      footer={
+        <>
+          <Button variant="quiet" onClick={onClose} disabled={submitting}>取消</Button>
+          <Button onClick={() => void handleSave()} disabled={submitting}>
+            {submitting ? "保存中…" : "保存目标"}
+          </Button>
+        </>
+      }
+    >
           <div className="creation-goals-grid">
             <label className="creation-field">
               <span>总字数 <em className="optional">可选</em></span>
@@ -206,14 +206,6 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
 
           {validationMessage && <span className="creation-field-error">{validationMessage}</span>}
           {error && <span className="creation-field-error">{error}</span>}
-        </div>
-        <div className="history-modal-foot">
-          <Button variant="quiet" onClick={onClose} disabled={submitting}>取消</Button>
-          <Button onClick={() => void handleSave()} disabled={submitting}>
-            {submitting ? "保存中…" : "保存目标"}
-          </Button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

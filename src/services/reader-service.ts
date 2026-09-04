@@ -5,6 +5,7 @@ import type {
   LibraryBook,
   ReaderBookPayload,
   ReaderEpubPayload,
+  ReaderPreset,
   ReaderSettings,
   ReadingLocation,
   ReadingProgress,
@@ -31,6 +32,15 @@ export async function saveProgress(input: SaveProgressInput): Promise<ReadingPro
 
 export async function getProgress(bookId: string): Promise<ReadingProgress | undefined> {
   return getDesktopApi().reader.getProgress(bookId);
+}
+
+export async function getBatchProgress(bookIds: string[]): Promise<ReadingProgress[]> {
+  const api = getDesktopApi();
+  if (typeof api?.reader?.getBatchProgress === "function") {
+    return api.reader.getBatchProgress(bookIds);
+  }
+  const results = await Promise.all(bookIds.map((id) => api.reader.getProgress(id)));
+  return results.filter((p): p is ReadingProgress => Boolean(p));
 }
 
 export async function saveEpubLocation(input: SaveProgressInput): Promise<ReadingProgress> {
@@ -75,4 +85,24 @@ export async function getReaderSettings(): Promise<ReaderSettings> {
 
 export async function updateReaderSettings(settings: Partial<ReaderSettings>): Promise<ReaderSettings> {
   return getDesktopApi().reader.updateSettings(settings);
+}
+
+/** 获取系统已安装字体列表（供字体选择器使用） */
+export async function getInstalledFonts(): Promise<string[]> {
+  return getDesktopApi().reader.getInstalledFonts();
+}
+
+/** 弹出系统文件对话框让用户选择字体文件 */
+export async function chooseFont(): Promise<{ fileName: string; filePath: string } | null> {
+  return getDesktopApi().reader.chooseFont();
+}
+
+/** 保存阅读器排版预设 */
+export async function savePreset(preset: ReaderPreset): Promise<ReaderPreset> {
+  return getDesktopApi().reader.savePreset(preset);
+}
+
+/** 删除阅读器排版预设 */
+export async function deletePreset(presetId: string): Promise<void> {
+  return getDesktopApi().reader.deletePreset(presetId);
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Dialog } from "@/components/ui";
 import type { TrashImpactView, TrashItem } from "@/types/creation";
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -50,30 +51,39 @@ export function PurgeTrashDialog({
   };
 
   return (
-    <div
-      className="history-modal-overlay"
-      onClick={busy ? undefined : onCancel}
-    >
-      <div
-        className="history-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label="永久删除确认"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="history-modal-head">
-          <h3>永久删除确认</h3>
+    <Dialog
+      open={true}
+      title="永久删除确认"
+      onClose={busy ? undefined : onCancel}
+      width="max-w-xl"
+      className="history-modal"
+      footer={
+        <>
           <button
             type="button"
-            className="history-modal-close"
+            className="history-btn-cancel"
             onClick={onCancel}
             disabled={busy}
-            aria-label="关闭"
           >
-            ×
+            取消
           </button>
-        </div>
-        <div className="history-modal-body">
+          <button
+            type="button"
+            className="history-btn-danger"
+            onClick={() => void handleConfirm()}
+            disabled={busy || impactBusy || !impact || confirmation !== item.title}
+          >
+            {busy ? (
+              <>
+                <span className="history-busy" /> &nbsp;删除中…
+              </>
+            ) : (
+              "确认永久删除"
+            )}
+          </button>
+        </>
+      }
+    >
           <dl className="history-impact-list">
             <div className="history-impact-row">
               <dt>实体类型</dt>
@@ -130,32 +140,6 @@ export function PurgeTrashDialog({
           </label>
 
           {error && <p className="history-impact-error">{error}</p>}
-        </div>
-        <div className="history-modal-foot">
-          <button
-            type="button"
-            className="history-btn-cancel"
-            onClick={onCancel}
-            disabled={busy}
-          >
-            取消
-          </button>
-          <button
-            type="button"
-            className="history-btn-danger"
-            onClick={() => void handleConfirm()}
-            disabled={busy || impactBusy || !impact || confirmation !== item.title}
-          >
-            {busy ? (
-              <>
-                <span className="history-busy" /> &nbsp;删除中…
-              </>
-            ) : (
-              "确认永久删除"
-            )}
-          </button>
-        </div>
-      </div>
-    </div>
+    </Dialog>
   );
 }

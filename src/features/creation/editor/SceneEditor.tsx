@@ -3,7 +3,7 @@ import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import type { JSONContent } from "@tiptap/core";
 import { redo, undo } from "@tiptap/pm/history";
 import { Bold, CheckCircle2, Focus, Italic, Loader2, Redo2, ScanLine, Sparkles, Undo2, XCircle } from "lucide-react";
-import { Button } from "@/components/ui";
+import { Button, Spinner } from "@/components/ui";
 import { PastePreviewDialog } from "@/features/creation/editor/PastePreviewDialog";
 import {
   createNovelEditorExtensions,
@@ -328,7 +328,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           <button className={`scene-tool ${focusMode ? "active" : ""}`} type="button" onClick={onToggleFocusMode} aria-label="专注模式" aria-pressed={focusMode}><Focus size={15} /></button>
         </span>
         <span className={`scene-save-status scene-save-status--${sessionState.status}`} aria-live="polite">
-          {sessionState.status === "saving" && <Loader2 size={13} className="scene-save-spin" />}
+          {sessionState.status === "saving" && <Spinner size={13} label="正文保存中" />}
           {sessionState.status === "saved" && <CheckCircle2 size={13} />}
           {(sessionState.status === "error" || sessionState.status === "conflict") && <XCircle size={13} />}
           {statusLabel[sessionState.status]}

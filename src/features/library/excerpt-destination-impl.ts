@@ -1,4 +1,4 @@
-import { getDesktopApi } from "@/services/ipc-client";
+import { listProjects, inboxCreate, runStructure } from "@/services/creation-service";
 import type { ExcerptResult, ExcerptSourceSnapshot, ReaderExcerptDestination } from "@/types/library";
 import {
   type ExcerptCommandExecutor,
@@ -25,17 +25,17 @@ import {
  * 把 getDesktopApi().creation 包装成 ExcerptCommandExecutor。
  * 这样共享深模块不直接依赖 preload IPC 形状，contract 也可以注入 workspace 实现。
  */
+/**
+ * 把 creation-service 包装成 ExcerptCommandExecutor。
+ * 这样共享深模块不直接依赖 preload IPC 形状，contract 也可以注入 workspace 实现。
+ */
 function createDesktopApiExecutor(): ExcerptCommandExecutor {
   return {
     async inboxCreate(command) {
-      const api = getDesktopApi().creation;
-      // desktopApi.inboxCreate 接收 Omit<InboxCreateCommand, "type">，我们透传全部字段
-      return api.inboxCreate(command);
+      return inboxCreate(command);
     },
     async cardCreate(command) {
-      const api = getDesktopApi().creation;
-      // runStructure 接收结构化命令，返回 StructureCommandResult（含 entityId）
-      return api.runStructure(command) as Promise<{ entityId?: string; commandType?: string; cardId?: string }>;
+      return runStructure(command) as Promise<{ entityId?: string; commandType?: string; cardId?: string }>;
     }
   };
 }
@@ -43,7 +43,7 @@ function createDesktopApiExecutor(): ExcerptCommandExecutor {
 export function createReaderExcerptDestination(): ReaderExcerptDestination {
   return {
     async listProjects() {
-      const projects = await getDesktopApi().creation.listProjects();
+      const projects = await listProjects();
       return projects.map((project) => ({ id: project.id, title: project.title }));
     },
 
