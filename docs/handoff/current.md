@@ -743,9 +743,15 @@ Novalist 调研与取舍仍记录在
     - `WritingDesk.js` 体积从 **754 kB** 降至 **101.8 kB**（体积下降 **-86.5%**）；
     - `EpubReaderPage.js` 体积从 **910 kB** 降至 **46.3 kB**（体积下降 **-94.9%**）；
     - 显著消除首次加载与懒加载时的解析卡顿。
+- **UI 原语落地推广第二批（Tabs 分段控制与业务 Select 迁移）**：
+  - 将 `HistoryPage`、`OutlinePage`、`CardBoard`、`ReplacePanel`、`LibraryPage` 5 处手写切换器统一迁移至 `<Tabs variant="pill">` 原语。
+  - 将 `InboxPage`、`CreateMilestoneDialog`、`CardsPage` 3 处核心业务表单的原生 `<select>` 统一迁移至 `<Select>` 原语。
+- **阶段成果 Commit 固化**：
+  - `2bbde5c`：`refactor(desktop): complete p1-p5 architecture, types modularization, chunk optimization and ui primitives batch 1`
+  - `5030ff4`：`refactor(desktop): ui primitives batch 2 - migrate tabs and form selects`
 - **全量验证指标（实跑全部通过）**：
   - **三套 TypeScript 编译**：Renderer / Electron Main / Preload 全部 0 错误（`npm run build`）；
   - **单元与集成测试**：Vitest 80 passed / 1 skipped（共 783 个测试用例全部通过）；
   - **业务契约测试**：3 套契约校验脚本全部通过；
-  - **打包构建耗时**：`npm run build` 成功完成，耗时约 6.57s。
+  - **打包构建耗时**：`npm run build` 成功完成，耗时约 8.09s。
 
