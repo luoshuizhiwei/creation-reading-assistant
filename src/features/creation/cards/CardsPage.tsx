@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Columns, Download, Flag, GitBranch, Globe2, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import { Select } from "@/components/ui";
 import { BoardView } from "@/features/creation/cards/BoardView";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
 import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor";
@@ -98,7 +99,7 @@ function FieldEditor({
       return (
         <div className="cards-field">
           {label}
-          <select
+          <Select
             className="cards-input"
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value)}
@@ -107,7 +108,7 @@ function FieldEditor({
             {schema.options?.map((option) => (
               <option key={option} value={option}>{option}</option>
             ))}
-          </select>
+          </Select>
         </div>
       );
     case "multiSelect":
@@ -141,7 +142,7 @@ function FieldEditor({
       return (
         <div className="cards-field">
           {label}
-          <select
+          <Select
             className="cards-input"
             value={typeof value === "string" ? value : ""}
             onChange={(event) => onChange(event.target.value || undefined)}
@@ -150,7 +151,7 @@ function FieldEditor({
             {allCards.map((card) => (
               <option key={card.id} value={card.id}>{card.title}</option>
             ))}
-          </select>
+          </Select>
         </div>
       );
     case "url":
@@ -515,7 +516,7 @@ export function CardsPage({ project }: CardsPageProps) {
       <div className="cards-form">
         <div className="cards-field">
           <label className="cards-field-label">类型</label>
-          <select
+          <Select
             className="cards-input"
             value={draft.kind}
             disabled={draft.id !== "new"}
@@ -524,7 +525,7 @@ export function CardsPage({ project }: CardsPageProps) {
             {cardTypes.map((type) => (
               <option key={type.id} value={type.kind}>{type.name}</option>
             ))}
-          </select>
+          </Select>
         </div>
         <div className="cards-field">
           <label className="cards-field-label">名称<span className="cards-required">*</span></label>
@@ -620,7 +621,7 @@ export function CardsPage({ project }: CardsPageProps) {
         </header>
         {showRelationForm && (
           <div className="cards-relation-form">
-            <select
+            <Select
               className="cards-input"
               value={relationTypeId}
               onChange={(event) => {
@@ -632,7 +633,7 @@ export function CardsPage({ project }: CardsPageProps) {
               {relationTypes.map((type) => (
                 <option key={type.id} value={type.id}>{type.forwardName}（反向：{type.reverseName}）</option>
               ))}
-            </select>
+            </Select>
             {relationTypeForForm && (
               <p className="cards-relation-semantic">
                 语义：<strong>{selectedCard.title}</strong> <em>{relationTypeForForm.forwardName}</em> → 目标卡片
@@ -644,7 +645,7 @@ export function CardsPage({ project }: CardsPageProps) {
                 当前卡片类型「{typeNameMap.get(selectedCard.kind) ?? selectedCard.kind}」不允许作为该关系的起点。
               </p>
             )}
-            <select
+            <Select
               className="cards-input"
               value={relationTargetId}
               disabled={!fromKindAllowed}
@@ -654,7 +655,7 @@ export function CardsPage({ project }: CardsPageProps) {
               {allowedTargets.map((card) => (
                 <option key={card.id} value={card.id}>{card.title}（{typeNameMap.get(card.kind) ?? card.kind}）</option>
               ))}
-            </select>
+            </Select>
             {relationTypeForForm && fromKindAllowed && allowedTargets.length === 0 && (
               <p className="cards-relations-empty">没有符合该关系终点类型约束的卡片。</p>
             )}
@@ -802,7 +803,7 @@ export function CardsPage({ project }: CardsPageProps) {
                 </button>
               </div>
               {view === "list" && (
-                <select
+                <Select
                   className="cards-input cards-kind-filter"
                   value={filterKind}
                   onChange={(event) => setFilterKind(event.target.value)}
@@ -812,7 +813,7 @@ export function CardsPage({ project }: CardsPageProps) {
                   {cardTypes.map((type) => (
                     <option key={type.id} value={type.kind}>{type.name}</option>
                   ))}
-                </select>
+                </Select>
               )}
             </>
           )}

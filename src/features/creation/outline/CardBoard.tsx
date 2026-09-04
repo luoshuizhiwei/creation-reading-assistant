@@ -1,5 +1,6 @@
-import  { useEffect, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, FileText, LayoutGrid, ListTree } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown, ChevronUp, FileText } from "lucide-react";
+import { Tabs } from "@/components/ui";
 import type {
   CreationOutlineChapter,
   CreationProjectOutline,
@@ -277,14 +278,16 @@ export function CardBoard({
     <div className="card-board">
       <div className="card-board-toolbar">
         <span className="outline-toolbar-label">卡片板</span>
-        <div className="card-board-mode" role="group" aria-label="分组方式">
-          <button type="button" className={mode === "chapter" ? "active" : ""} onClick={() => setMode("chapter")}>
-            <ListTree size={12} /> 按章节
-          </button>
-          <button type="button" className={mode === "status" ? "active" : ""} onClick={() => setMode("status")}>
-            <LayoutGrid size={12} /> 按状态
-          </button>
-        </div>
+        <Tabs<GroupMode>
+          variant="pill"
+          value={mode}
+          onChange={setMode}
+          items={[
+            { id: "chapter", label: "按章节" },
+            { id: "status", label: "按状态" }
+          ]}
+          ariaLabel="卡片板分组方式"
+        />
       </div>
       {error && (
         <div className="card-board-error" role="alert">

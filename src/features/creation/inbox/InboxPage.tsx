@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Check, Copy, Inbox as  Library, Lightbulb, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
+import { Select } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useAppStore } from "@/stores/app-store";
@@ -563,15 +564,14 @@ export function InboxPage({ projectId }: InboxPageProps) {
           {!projectId && projects.length > 0 && (
             <label className="inbox-target-project">
               <span>转为资料卡的目标项目</span>
-              <select
-                className="paper-input h-9"
+              <Select
                 value={targetProjectId || projects[0]?.id || ""}
                 onChange={(event) => setTargetProjectId(event.target.value)}
               >
                 {projects.map((project) => (
                   <option key={project.id} value={project.id}>{project.title}</option>
                 ))}
-              </select>
+              </Select>
             </label>
           )}
         </div>
@@ -697,24 +697,26 @@ export function InboxPage({ projectId }: InboxPageProps) {
                 <input className="paper-input h-9" value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} />
               </label>
               <div className="grid grid-cols-2 gap-3">
-                <label className="grid gap-1.5 text-sm text-paper-muted">
-                  <span className="font-medium text-paper-ink">类型</span>
-                  <select className="paper-input h-9" value={draft.type} onChange={(event) => updateDraft({ type: event.target.value })}>
-                    {(Object.keys(TYPE_LABELS) as InspirationType[]).map((value) => (
-                      <option key={value} value={value}>{TYPE_LABELS[value]}</option>
-                    ))}
-                    {!TYPE_LABELS[draft.type as InspirationType] && <option value={draft.type}>{draft.type}</option>}
-                  </select>
-                </label>
-                <label className="grid gap-1.5 text-sm text-paper-muted">
-                  <span className="font-medium text-paper-ink">状态</span>
-                  <select className="paper-input h-9" value={draft.status} onChange={(event) => updateDraft({ status: event.target.value })}>
-                    {(Object.keys(STATUS_LABELS) as InspirationStatus[]).map((value) => (
-                      <option key={value} value={value}>{STATUS_LABELS[value]}</option>
-                    ))}
-                    {!STATUS_LABELS[draft.status as InspirationStatus] && <option value={draft.status}>{draft.status}</option>}
-                  </select>
-                </label>
+                <Select
+                  label="类型"
+                  value={draft.type}
+                  onChange={(event) => updateDraft({ type: event.target.value })}
+                >
+                  {(Object.keys(TYPE_LABELS) as InspirationType[]).map((value) => (
+                    <option key={value} value={value}>{TYPE_LABELS[value]}</option>
+                  ))}
+                  {!TYPE_LABELS[draft.type as InspirationType] && <option value={draft.type}>{draft.type}</option>}
+                </Select>
+                <Select
+                  label="状态"
+                  value={draft.status}
+                  onChange={(event) => updateDraft({ status: event.target.value })}
+                >
+                  {(Object.keys(STATUS_LABELS) as InspirationStatus[]).map((value) => (
+                    <option key={value} value={value}>{STATUS_LABELS[value]}</option>
+                  ))}
+                  {!STATUS_LABELS[draft.status as InspirationStatus] && <option value={draft.status}>{draft.status}</option>}
+                </Select>
               </div>
               <label className="grid gap-1.5 text-sm text-paper-muted">
                 <span className="font-medium text-paper-ink">标签，逗号分隔</span>

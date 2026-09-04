@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BookOpen, Filter, Import, Search, Trash2, X } from "lucide-react";
-import { Button, EmptyState } from "@/components/ui";
+import { Button, EmptyState, Tabs } from "@/components/ui";
 import { useLibraryActions } from "@/hooks/useLibraryActions";
 import { useLibraryStore } from "@/stores/library-store";
 import { useAppStore } from "@/stores/app-store";
@@ -166,21 +166,18 @@ export function LibraryPage() {
                   )}
                 </div>
                 {/* Format filter chips */}
-                <div className="relative inline-flex items-center gap-1 rounded-lg border border-paper-line bg-paper-panel p-0.5">
-                  {(["all", "txt", "epub", "md"] as FormatFilter[]).map((f) => (
-                    <button
-                      key={f}
-                      className={`rounded-md px-2 py-1 text-[11px] font-medium transition ${
-                        formatFilter === f
-                          ? "bg-copper text-white shadow-lift"
-                          : "text-paper-muted hover:text-paper-ink"
-                      }`}
-                      onClick={() => setFormatFilter(f)}
-                    >
-                      {f === "all" ? "全部" : f.toUpperCase()}
-                    </button>
-                  ))}
-                </div>
+                <Tabs<FormatFilter>
+                  variant="pill"
+                  value={formatFilter}
+                  onChange={setFormatFilter}
+                  items={[
+                    { id: "all", label: "全部" },
+                    { id: "txt", label: "TXT" },
+                    { id: "epub", label: "EPUB" },
+                    { id: "md", label: "Markdown" }
+                  ]}
+                  ariaLabel="书籍格式筛选"
+                />
               </div>
             </div>
 

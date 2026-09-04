@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dialog } from "@/components/ui";
+import { Dialog, Select } from "@/components/ui";
 import type {
   CardSummary,
   CreationProjectNavigation,
@@ -137,43 +137,39 @@ export function CreateMilestoneDialog({
         </>
       }
     >
-          <div className="history-field">
-            <label htmlFor="history-subject-type">对象类型</label>
-            <select
-              id="history-subject-type"
-              value={subjectType}
-              onChange={(e) => setSubjectType(e.target.value as SnapshotSubjectType)}
+          <Select
+            id="history-subject-type"
+            label="对象类型"
+            value={subjectType}
+            onChange={(e) => setSubjectType(e.target.value as SnapshotSubjectType)}
+            disabled={isBusy}
+          >
+            <option value="volume">卷</option>
+            <option value="chapter">章</option>
+            <option value="scene">场景</option>
+            <option value="card">卡片</option>
+          </Select>
+
+          {objects.length === 0 ? (
+            <Select id="history-subject-id" label="选择对象" disabled>
+              <option value="">暂无可用的{ENTITY_LABEL[subjectType]}</option>
+            </Select>
+          ) : (
+            <Select
+              id="history-subject-id"
+              label="选择对象"
+              value={subjectId}
+              onChange={(e) => setSubjectId(e.target.value)}
               disabled={isBusy}
             >
-              <option value="volume">卷</option>
-              <option value="chapter">章</option>
-              <option value="scene">场景</option>
-              <option value="card">卡片</option>
-            </select>
-          </div>
-
-          <div className="history-field">
-            <label htmlFor="history-subject-id">选择{ENTITY_LABEL[subjectType]}</label>
-            {objects.length === 0 ? (
-              <select id="history-subject-id" disabled>
-                <option value="">暂无可用的{ENTITY_LABEL[subjectType]}</option>
-              </select>
-            ) : (
-              <select
-                id="history-subject-id"
-                value={subjectId}
-                onChange={(e) => setSubjectId(e.target.value)}
-                disabled={isBusy}
-              >
-                <option value="">请选择一个{ENTITY_LABEL[subjectType]}</option>
-                {objects.map((obj) => (
-                  <option key={obj.id} value={obj.id}>
-                    {obj.title}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
+              <option value="">请选择一个{ENTITY_LABEL[subjectType]}</option>
+              {objects.map((obj) => (
+                <option key={obj.id} value={obj.id}>
+                  {obj.title}
+                </option>
+              ))}
+            </Select>
+          )}
 
           <div className="history-field">
             <label htmlFor="history-reason">里程碑名称</label>

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Flag, RotateCcw, Trash2 } from "lucide-react";
+import { Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -219,26 +220,15 @@ export function HistoryPage({ project }: HistoryPageProps) {
   return (
     <section className="history-page" aria-label="历史与回收站">
       <div className="history-header-bar">
-        <div className="history-tabs" role="tablist" aria-label="历史视图">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "trash"}
-            className={tab === "trash" ? "active" : ""}
-            onClick={() => setTab("trash")}
-          >
-            回收站
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={tab === "snapshots"}
-            className={tab === "snapshots" ? "active" : ""}
-            onClick={() => setTab("snapshots")}
-          >
-            版本快照
-          </button>
-        </div>
+        <Tabs<"trash" | "snapshots">
+          value={tab}
+          onChange={setTab}
+          items={[
+            { id: "trash", label: "回收站" },
+            { id: "snapshots", label: "版本快照" }
+          ]}
+          ariaLabel="历史视图"
+        />
         {tab === "snapshots" && (
           <button
             type="button"

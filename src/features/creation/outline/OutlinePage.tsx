@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ListTree, LayoutGrid, Save, X } from "lucide-react";
+import { Save, X } from "lucide-react";
+import { Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
@@ -227,14 +228,16 @@ export function OutlinePage({ project }: OutlinePageProps) {
   return (
     <section className="outline-page" aria-label="大纲">
       <header className="outline-page-head">
-        <div className="creation-project-tabs" role="group" aria-label="大纲视图">
-          <button type="button" className={view === "tree" ? "active" : ""} onClick={() => setView("tree")}>
-            <ListTree size={13} /> 大纲树
-          </button>
-          <button type="button" className={view === "board" ? "active" : ""} onClick={() => setView("board")}>
-            <LayoutGrid size={13} /> 场景卡板
-          </button>
-        </div>
+        <Tabs<"tree" | "board">
+          variant="pill"
+          value={view}
+          onChange={setView}
+          items={[
+            { id: "tree", label: "大纲树" },
+            { id: "board", label: "场景卡板" }
+          ]}
+          ariaLabel="大纲视图切换"
+        />
         <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景可在右侧编辑任务卡。</p>
       </header>
       {lastProtectedApply && (

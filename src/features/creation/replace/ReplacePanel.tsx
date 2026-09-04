@@ -1,4 +1,5 @@
-import  { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
+import { Tabs } from "@/components/ui";
 import { ReplacePlanView } from "./ReplacePlanView";
 import { ReplaceProgressDialog } from "./ReplaceProgressDialog";
 import { createReplacePlanService } from "./replace-service";
@@ -213,24 +214,16 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
             onChange={(e) => setQuery((q) => ({ ...q, replaceWith: e.target.value }))}
           />
         </label>
-        <div className="replace-mode-toggle" role="group" aria-label="替换模式">
-          <button
-            type="button"
-            aria-pressed={query.mode === "plain"}
-            data-testid="replace-mode-plain"
-            onClick={() => setQuery((q) => ({ ...q, mode: "plain" }))}
-          >
-            普通文本
-          </button>
-          <button
-            type="button"
-            aria-pressed={query.mode === "regex"}
-            data-testid="replace-mode-regex"
-            onClick={() => setQuery((q) => ({ ...q, mode: "regex" }))}
-          >
-            正则
-          </button>
-        </div>
+        <Tabs<"plain" | "regex">
+          variant="pill"
+          value={query.mode}
+          onChange={(mode) => setQuery((q) => ({ ...q, mode }))}
+          items={[
+            { id: "plain", label: <span data-testid="replace-mode-plain">普通文本</span> },
+            { id: "regex", label: <span data-testid="replace-mode-regex">正则表达式</span> }
+          ]}
+          ariaLabel="替换模式"
+        />
         <button
           type="button"
           onClick={() => void handlePreview()}
