@@ -1,5 +1,18 @@
 import { useEffect, useMemo, useState } from "react";
-import { Columns, Download, Flag, GitBranch, Globe2, Layers, LayoutGrid, Pencil, Plus, Search, Trash2, Upload, X } from "lucide-react";
+import {
+  Columns,
+  Download,
+  Flag,
+  GitBranch,
+  Globe2,
+  Layers,
+  LayoutGrid,
+  Pencil,
+  Plus,
+  Search,
+  Trash2,
+  Upload
+} from "lucide-react";
 import { Select } from "@/components/ui";
 import { BoardView } from "@/features/creation/cards/BoardView";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
@@ -7,188 +20,22 @@ import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor
 import { BackgroundPage } from "@/features/creation/background/BackgroundPage";
 import { CardImportDialog } from "@/features/creation/cards/import-export/CardImportDialog";
 import { CardExportDialog } from "@/features/creation/cards/import-export/CardExportDialog";
+import { CardListSidebar } from "@/features/creation/cards/components/CardListSidebar";
+import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
+import { CardRelationsManager } from "@/features/creation/cards/components/CardRelationsManager";
+import { displayFieldValue } from "@/features/creation/cards/components/CardDynamicFields";
 import "./cards-local.css";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
 import type {
-  CardFieldSchema,
   CardSummary,
   CreationProjectSummary,
   ResourceInfo
 } from "@/types/creation";
 
-interface CardsPageProps {
+export interface CardsPageProps {
   project: CreationProjectSummary;
-}
-
-function parseList(value: string): string[] {
-  return value
-    .split(/[,，]/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function FieldEditor({
-  schema,
-  value,
-  onChange,
-  allCards
-}: {
-  schema: CardFieldSchema;
-  value: unknown;
-  onChange: (value: unknown) => void;
-  allCards: CardSummary[];
-}) {
-  const label = (
-    <label className="cards-field-label">
-      {schema.label}
-      {schema.required && <span className="cards-required">*</span>}
-    </label>
-  );
-  switch (schema.kind) {
-    case "multiline":
-      return (
-        <div className="cards-field">
-          {label}
-          <textarea
-            className="cards-input cards-textarea"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </div>
-      );
-    case "number":
-      return (
-        <div className="cards-field">
-          {label}
-          <input
-            className="cards-input"
-            type="number"
-            value={typeof value === "number" ? value : value === "" ? "" : String(value ?? "")}
-            onChange={(event) =>
-              onChange(event.target.value === "" ? undefined : Number(event.target.value))
-            }
-          />
-        </div>
-      );
-    case "date":
-      return (
-        <div className="cards-field">
-          {label}
-          <input
-            className="cards-input"
-            type="date"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </div>
-      );
-    case "boolean":
-      return (
-        <div className="cards-field cards-field-inline">
-          {label}
-          <input
-            type="checkbox"
-            checked={value === true}
-            onChange={(event) => onChange(event.target.checked)}
-          />
-        </div>
-      );
-    case "select":
-      return (
-        <div className="cards-field">
-          {label}
-          <Select
-            className="cards-input"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value)}
-          >
-            <option value="">（未选择）</option>
-            {schema.options?.map((option) => (
-              <option key={option} value={option}>{option}</option>
-            ))}
-          </Select>
-        </div>
-      );
-    case "multiSelect":
-      return (
-        <div className="cards-field">
-          {label}
-          <div className="cards-checkbox-group">
-            {schema.options?.map((option) => {
-              const current = Array.isArray(value) ? (value as string[]) : [];
-              const checked = current.includes(option);
-              return (
-                <label key={option} className="cards-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={(event) => {
-                      const next = new Set(current);
-                      if (event.target.checked) next.add(option);
-                      else next.delete(option);
-                      onChange([...next]);
-                    }}
-                  />
-                  {option}
-                </label>
-              );
-            })}
-          </div>
-        </div>
-      );
-    case "cardRef":
-      return (
-        <div className="cards-field">
-          {label}
-          <Select
-            className="cards-input"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value || undefined)}
-          >
-            <option value="">（未引用）</option>
-            {allCards.map((card) => (
-              <option key={card.id} value={card.id}>{card.title}</option>
-            ))}
-          </Select>
-        </div>
-      );
-    case "url":
-      return (
-        <div className="cards-field">
-          {label}
-          <input
-            className="cards-input"
-            type="text"
-            value={typeof value === "string" ? value : ""}
-            placeholder="https://"
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </div>
-      );
-    case "attachment":
-      return (
-        <div className="cards-field">
-          {label}
-          <p className="cards-attachment-note">
-            附件请在卡片「附件」区添加：按内容哈希去重、保存在项目工作区内，不占用该字段，也不会把绝对路径写入字段。
-          </p>
-        </div>
-      );
-    default:
-      return (
-        <div className="cards-field">
-          {label}
-          <input
-            className="cards-input"
-            type="text"
-            value={typeof value === "string" ? value : ""}
-            onChange={(event) => onChange(event.target.value)}
-          />
-        </div>
-      );
-  }
 }
 
 export function CardsPage({ project }: CardsPageProps) {
@@ -218,15 +65,10 @@ export function CardsPage({ project }: CardsPageProps) {
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<CardSummary | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [showRelationForm, setShowRelationForm] = useState(false);
-  const [relationTypeId, setRelationTypeId] = useState("");
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [confirmingResource, setConfirmingResource] = useState<string | null>(null);
-  const [relationTargetId, setRelationTargetId] = useState("");
-  const [relationNote, setRelationNote] = useState("");
   const [showCardTypeEditor, setShowCardTypeEditor] = useState(false);
   const [showRelationTypeEditor, setShowRelationTypeEditor] = useState(false);
-  const [confirmingRelationId, setConfirmingRelationId] = useState<string | null>(null);
   const [showMilestone, setShowMilestone] = useState(false);
   const [milestoneReason, setMilestoneReason] = useState("");
   const [milestoneBusy, setMilestoneBusy] = useState(false);
@@ -236,13 +78,9 @@ export function CardsPage({ project }: CardsPageProps) {
   useEffect(() => {
     setDraft(null);
     setConfirmDelete(false);
-    setShowRelationForm(false);
-    setRelationTargetId("");
-    setRelationTypeId("");
     setResources([]);
     setShowCardTypeEditor(false);
     setShowRelationTypeEditor(false);
-    setConfirmingRelationId(null);
     setShowMilestone(false);
     setMilestoneReason("");
   }, [project.id]);
@@ -290,25 +128,6 @@ export function CardsPage({ project }: CardsPageProps) {
     [cardTypes]
   );
   const relations = selectedCard ? cardRelations[selectedCard.id] : undefined;
-
-  // 建立关系时：按关系类型的起/终点类型约束过滤允许的目标，排除自身。
-  const relationTypeForForm = useMemo(
-    () => relationTypes.find((type) => type.id === relationTypeId),
-    [relationTypes, relationTypeId]
-  );
-  const fromKindAllowed = useMemo(() => {
-    if (!selectedCard || !relationTypeForForm) return true;
-    const { fromKinds } = relationTypeForForm;
-    return fromKinds.length === 0 || fromKinds.includes(selectedCard.kind);
-  }, [selectedCard, relationTypeForForm]);
-  const allowedTargets = useMemo(() => {
-    if (!selectedCard) return [];
-    const toKinds = relationTypeForForm?.toKinds ?? [];
-    return projectCards.filter(
-      (card) =>
-        card.id !== selectedCard.id && (toKinds.length === 0 || toKinds.includes(card.kind))
-    );
-  }, [projectCards, selectedCard, relationTypeForForm]);
 
   useEffect(() => {
     if (selectedCard) void loadCardRelations(project.id, selectedCard.id);
@@ -442,14 +261,37 @@ export function CardsPage({ project }: CardsPageProps) {
     }
   };
 
-  const removeRelation = async (relationId: string) => {
+  const handleCreateRelation = async (payload: {
+    relationTypeId: string;
+    targetCardId: string;
+    note?: string;
+  }): Promise<boolean> => {
+    if (!selectedCard) return false;
+    const ok = await runStructure({
+      type: "cardRelation.create",
+      projectId: project.id,
+      fromCardId: selectedCard.id,
+      toCardId: payload.targetCardId,
+      relationTypeId: payload.relationTypeId,
+      note: payload.note
+    });
+    if (ok) {
+      showToast({ tone: "success", title: "关系已建立" });
+      void loadCardRelations(project.id, selectedCard.id);
+      return true;
+    }
+    return false;
+  };
+
+  const handleRemoveRelation = async (relationId: string): Promise<boolean> => {
     const ok = await runStructure({ type: "cardRelation.delete", relationId });
     if (ok) {
       showToast({ tone: "success", title: "关系已删除" });
-      setConfirmingRelationId(null);
       if (selectedCard) void loadCardRelations(project.id, selectedCard.id);
+      return true;
     }
     // 失败时不重新加载：UI 仍保留原关系，不先从本地消失。
+    return false;
   };
 
   const createMilestone = async () => {
@@ -475,102 +317,15 @@ export function CardsPage({ project }: CardsPageProps) {
     }
   };
 
-  const createRelation = async () => {
-    if (!selectedCard || !relationTypeId || !fromKindAllowed) return;
-    if (!allowedTargets.some((card) => card.id === relationTargetId)) return;
-    const ok = await runStructure({
-      type: "cardRelation.create",
-      projectId: project.id,
-      fromCardId: selectedCard.id,
-      toCardId: relationTargetId,
-      relationTypeId,
-      note: relationNote || undefined
-    });
-    if (ok) {
-      showToast({ tone: "success", title: "关系已建立" });
-      setShowRelationForm(false);
-      setRelationTypeId("");
-      setRelationTargetId("");
-      setRelationNote("");
-      void loadCardRelations(project.id, selectedCard.id);
-    }
-  };
-
-  const displayFieldValue = (field: CardFieldSchema, value: unknown): string => {
-    if (value === undefined || value === null || value === "") return "—";
-    if (field.kind === "cardRef" && typeof value === "string") {
-      return projectCards.find((card) => card.id === value)?.title ?? value;
-    }
-    if (Array.isArray(value)) return value.join("、");
-    return String(value);
-  };
-
-  const draftFields = draft ? typeById.get(draft.kind)?.fields ?? [] : [];
-
   const detailPane = draft ? (
-    <div className="cards-detail-card">
-      <header className="cards-detail-head">
-        <h3>{draft.id === "new" ? "新建卡片" : "编辑卡片"}</h3>
-        <button type="button" className="cards-close" onClick={() => setDraft(null)} title="关闭"><X size={15} /></button>
-      </header>
-      <div className="cards-form">
-        <div className="cards-field">
-          <label className="cards-field-label">类型</label>
-          <Select
-            className="cards-input"
-            value={draft.kind}
-            disabled={draft.id !== "new"}
-            onChange={(event) => setDraft({ ...draft, kind: event.target.value, fields: {} })}
-          >
-            {cardTypes.map((type) => (
-              <option key={type.id} value={type.kind}>{type.name}</option>
-            ))}
-          </Select>
-        </div>
-        <div className="cards-field">
-          <label className="cards-field-label">名称<span className="cards-required">*</span></label>
-          <input
-            className="cards-input"
-            value={draft.title}
-            onChange={(event) => setDraft({ ...draft, title: event.target.value })}
-            placeholder="卡片主名称"
-          />
-        </div>
-        <div className="cards-field">
-          <label className="cards-field-label">别名</label>
-          <input
-            className="cards-input"
-            value={draft.aliases.join("，")}
-            onChange={(event) => setDraft({ ...draft, aliases: parseList(event.target.value) })}
-            placeholder="用逗号分隔多个别名"
-          />
-        </div>
-        {draftFields.map((field) => (
-          <FieldEditor
-            key={field.key}
-            schema={field}
-            value={draft.fields[field.key]}
-            onChange={(value) => setDraft({ ...draft, fields: { ...draft.fields, [field.key]: value } })}
-            allCards={projectCards}
-          />
-        ))}
-        <div className="cards-field">
-          <label className="cards-field-label">标签</label>
-          <input
-            className="cards-input"
-            value={draft.tags.join("，")}
-            onChange={(event) => setDraft({ ...draft, tags: parseList(event.target.value) })}
-            placeholder="用逗号分隔，如：主角，战斗"
-          />
-        </div>
-        <div className="cards-form-actions">
-          <button type="button" className="cards-save" onClick={() => void saveDraft()}>
-            {draft.id === "new" ? "创建卡片" : "保存修改"}
-          </button>
-          <button type="button" className="cards-cancel" onClick={() => setDraft(null)}>取消</button>
-        </div>
-      </div>
-    </div>
+    <CardEditorForm
+      draft={draft}
+      cardTypes={cardTypes}
+      projectCards={projectCards}
+      onChangeDraft={setDraft}
+      onSave={() => void saveDraft()}
+      onCancel={() => setDraft(null)}
+    />
   ) : selectedCard ? (
     <div className="cards-detail-card">
       <header className="cards-detail-head">
@@ -606,118 +361,21 @@ export function CardsPage({ project }: CardsPageProps) {
           {selectedType.fields.map((field) => (
             <div key={field.key} className="cards-field-row">
               <dt>{field.label}</dt>
-              <dd>{displayFieldValue(field, selectedCard.fields[field.key])}</dd>
+              <dd>{displayFieldValue(field, selectedCard.fields[field.key], projectCards)}</dd>
             </div>
           ))}
         </dl>
       )}
 
-      <section className="cards-relations">
-        <header className="cards-relations-head">
-          <h4>关系</h4>
-          <button type="button" onClick={() => setShowRelationForm((value) => !value)}>
-            <Plus size={13} /> 建立关系
-          </button>
-        </header>
-        {showRelationForm && (
-          <div className="cards-relation-form">
-            <Select
-              className="cards-input"
-              value={relationTypeId}
-              onChange={(event) => {
-                setRelationTypeId(event.target.value);
-                setRelationTargetId("");
-              }}
-            >
-              <option value="">选择关系类型</option>
-              {relationTypes.map((type) => (
-                <option key={type.id} value={type.id}>{type.forwardName}（反向：{type.reverseName}）</option>
-              ))}
-            </Select>
-            {relationTypeForForm && (
-              <p className="cards-relation-semantic">
-                语义：<strong>{selectedCard.title}</strong> <em>{relationTypeForForm.forwardName}</em> → 目标卡片
-                <small>（反向：{relationTypeForForm.reverseName}）</small>
-              </p>
-            )}
-            {relationTypeForForm && !fromKindAllowed && (
-              <p className="cards-form-error" role="alert">
-                当前卡片类型「{typeNameMap.get(selectedCard.kind) ?? selectedCard.kind}」不允许作为该关系的起点。
-              </p>
-            )}
-            <Select
-              className="cards-input"
-              value={relationTargetId}
-              disabled={!fromKindAllowed}
-              onChange={(event) => setRelationTargetId(event.target.value)}
-            >
-              <option value="">选择目标卡片</option>
-              {allowedTargets.map((card) => (
-                <option key={card.id} value={card.id}>{card.title}（{typeNameMap.get(card.kind) ?? card.kind}）</option>
-              ))}
-            </Select>
-            {relationTypeForForm && fromKindAllowed && allowedTargets.length === 0 && (
-              <p className="cards-relations-empty">没有符合该关系终点类型约束的卡片。</p>
-            )}
-            <input
-              className="cards-input"
-              value={relationNote}
-              onChange={(event) => setRelationNote(event.target.value)}
-              placeholder="关系说明（可选）"
-            />
-            <div className="cards-form-actions">
-              <button type="button" className="cards-save" onClick={() => void createRelation()}>建立</button>
-              <button type="button" className="cards-cancel" onClick={() => { setShowRelationForm(false); setRelationTypeId(""); setRelationTargetId(""); }}>取消</button>
-            </div>
-          </div>
-        )}
-        {relations && (relations.outgoing.length > 0 || relations.incoming.length > 0) ? (
-          <ul className="cards-relation-list">
-            {relations.outgoing.map((relation) => (
-              <li key={relation.id}>
-                <span>{selectedCard.title}</span>
-                <em>{relation.forwardName}</em>
-                <span>{projectCards.find((card) => card.id === relation.toCardId)?.title ?? relation.toCardId}</span>
-                {relation.note && <small>（{relation.note}）</small>}
-                <button
-                  type="button"
-                  className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
-                  onClick={() => {
-                    if (confirmingRelationId === relation.id) void removeRelation(relation.id);
-                    else setConfirmingRelationId(relation.id);
-                  }}
-                  title="删除关系"
-                >
-                  <Trash2 size={12} />
-                  {confirmingRelationId === relation.id ? "确认删除" : "删除"}
-                </button>
-              </li>
-            ))}
-            {relations.incoming.map((relation) => (
-              <li key={relation.id}>
-                <span>{projectCards.find((card) => card.id === relation.fromCardId)?.title ?? relation.fromCardId}</span>
-                <em>{relation.forwardName}</em>
-                <span>{selectedCard.title}</span>
-                {relation.note && <small>（{relation.note}）</small>}
-                <button
-                  type="button"
-                  className={`cards-relation-delete ${confirmingRelationId === relation.id ? "confirming" : ""}`}
-                  onClick={() => {
-                    if (confirmingRelationId === relation.id) void removeRelation(relation.id);
-                    else setConfirmingRelationId(relation.id);
-                  }}
-                  title="删除关系"
-                >
-                  <Trash2 size={12} />
-                  {confirmingRelationId === relation.id ? "确认删除" : "删除"}
-                </button>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="cards-relations-empty">暂无关系。</p>
-        )}
-      </section>
+      <CardRelationsManager
+        selectedCard={selectedCard}
+        projectCards={projectCards}
+        relationTypes={relationTypes}
+        relations={relations}
+        typeNameMap={typeNameMap}
+        onCreateRelation={handleCreateRelation}
+        onDeleteRelation={handleRemoveRelation}
+      />
 
       <section className="cards-relations">
         <header className="cards-relations-head">
@@ -875,28 +533,19 @@ export function CardsPage({ project }: CardsPageProps) {
         </div>
       ) : (
         <div className="cards-layout">
-          <aside className="cards-list-pane">
-            {cardsLoading ? (
-              <p className="cards-empty" role="status">正在读取卡片…</p>
-            ) : projectCards.length === 0 ? (
-              <p className="cards-empty">还没有卡片。点右上角「新建卡片」创建第一张。</p>
-            ) : (
-              projectCards.map((card) => (
-                <button
-                  type="button"
-                  key={card.id}
-                  className={`cards-list-item ${card.id === selectedCardId ? "active" : ""}`}
-                  onClick={() => selectCard(card.id)}
-                >
-                  <span className="cards-list-kind">{typeNameMap.get(card.kind) ?? card.kind}</span>
-                  <strong>{card.title}</strong>
-                  {card.tags.length > 0 && (
-                    <span className="cards-list-tags">{card.tags.map((tag) => `#${tag}`).join(" ")}</span>
-                  )}
-                </button>
-              ))
-            )}
-          </aside>
+          <CardListSidebar
+            cards={projectCards}
+            selectedCardId={selectedCardId}
+            cardsLoading={cardsLoading}
+            onSelectCard={(cardId) => selectCard(cardId)}
+            typeNameMap={typeNameMap}
+            cardTypes={cardTypes}
+            filterKind={filterKind}
+            onFilterKindChange={setFilterKind}
+            search={search}
+            onSearchChange={setSearch}
+            onNewCard={() => newCardInKind(filterKind)}
+          />
           <main className="cards-detail-pane">{detailPane}</main>
         </div>
       )}
@@ -938,3 +587,5 @@ export function CardsPage({ project }: CardsPageProps) {
     </section>
   );
 }
+
+export default CardsPage;

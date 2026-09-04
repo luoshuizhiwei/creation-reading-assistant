@@ -1,7 +1,10 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Settings, X } from "lucide-react";
+import { X } from "lucide-react";
 import DOMPurify from "dompurify";
 import { Button, EmptyState, ShellPanel, TextInput } from "@/components/ui";
+import { ReaderTopNav } from "./components/ReaderTopNav";
+import { ReaderBottomBar } from "./components/ReaderBottomBar";
+import { ReaderSearchOverlay } from "./components/ReaderSearchOverlay";
 import { ExcerptPicker } from "@/features/library/ExcerptPicker";
 import { ReaderSettingsDrawer } from "@/features/library/ReaderSettingsDrawer";
 import { ReaderSidePanel, type SidePanelTab } from "@/features/library/ReaderSidePanel";
@@ -21,7 +24,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useUIStore } from "@/stores/ui-store";
 import { useAppStore } from "@/stores/app-store";
 import type { BookmarkItem, ExcerptResult, ExcerptTarget, HighlightColor, HighlightItem } from "@/types/library";
-import { formatDuration, readerPaperClass, readerShellClass, readerTextColor } from "@/utils/format";
+import { readerPaperClass, readerShellClass, readerTextColor } from "@/utils/format";
 import { convertTextSync, getConverter } from "@/utils/text-conversion";
 import { renderMarkdownWithToc } from "@/features/library/toc/markdown-toc";
 import { computeAnchorScrollTop, computeTextAnchor, currentAnchorIdFromSpans, type AnchorSpan } from "@/features/library/toc/anchor";
@@ -109,10 +112,36 @@ interface DraftChapter {
   startIndex: number;
 }
 
-export function TxtMarkdownReader() {
-  const activeBook = useLibraryStore((state) => state.activeBook);
-  const content = useLibraryStore((state) => state.activeContent);
-  const progress = useLibraryStore((state) => (state.activeBook ? state.progress[state.activeBook.id] : undefined));
+export interface TxtMarkdownReaderProps {
+  bookId?: string;
+  title?: string;
+  content?: string;
+  format?: "txt" | "md";
+  author?: string;
+  onBack?: () => void;
+}
+
+export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
+  const storeActiveBook = useLibraryStore((state) => state.activeBook);
+  const storeContent = useLibraryStore((state) => state.activeContent);
+
+  const activeBook = useMemo(() => {
+    if (props?.bookId || props?.title || props?.format) {
+      return {
+        id: props.bookId ?? storeActiveBook?.id ?? "",
+        title: props.title ?? storeActiveBook?.title ?? "",
+        format: props.format ?? storeActiveBook?.format ?? "txt",
+        author: props.author ?? storeActiveBook?.author,
+        size: storeActiveBook?.size ?? 0,
+        text: storeActiveBook?.text,
+        ...storeActiveBook
+      };
+    }
+    return storeActiveBook;
+  }, [props?.bookId, props?.title, props?.format, props?.author, storeActiveBook]);
+
+  const content = props?.content !== undefined ? props.content : storeContent;
+  const progress = useLibraryStore((state) => (activeBook ? state.progress[activeBook.id] : undefined));
   const settings = useLibraryStore((state) => state.readerSettings);
   const setReaderSettings = useLibraryStore((state) => state.setReaderSettings);
   const setScreen = useAppStore((state) => state.setScreen);
@@ -127,6 +156,8 @@ export function TxtMarkdownReader() {
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [sidePanelTab, setSidePanelTab] = useState<SidePanelTab>("toc");
   const [currentAnchorId, setCurrentAnchorId] = useState<string | undefined>(undefined);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const [scrollMetrics, setScrollMetrics] = useState({ scrollTop: 0, scrollHeight: 1, clientHeight: 1 });
   const excerpt = useReaderExcerpt();
 
   // --- 目录编辑模式（TXT 手动修正章节表） ---
@@ -572,6 +603,16 @@ export function TxtMarkdownReader() {
   );
   const convertedMarkdownHtml = convertedMd.html;
 
+  const updateScrollMetrics = useCallback(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    setScrollMetrics({
+      scrollTop: scroller.scrollTop,
+      scrollHeight: scroller.scrollHeight,
+      clientHeight: scroller.clientHeight
+    });
+  }, []);
+
   const handleActivity = useCallback(() => {
     recordInteraction();
     scheduleSave();
@@ -580,7 +621,45 @@ export function TxtMarkdownReader() {
   const handleScrollActivity = useCallback(() => {
     handleActivity();
     updateCurrentAnchor();
-  }, [handleActivity, updateCurrentAnchor]);
+    updateScrollMetrics();
+  }, [handleActivity, updateCurrentAnchor, updateScrollMetrics]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(updateScrollMetrics, 100);
+    return () => window.clearTimeout(timer);
+  }, [content, updateScrollMetrics, settings?.fontSize, settings?.lineHeight]);
+
+  // --- 键盘快捷键监听：Ctrl+F 搜索、Escape 关闭浮层 ---
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "f") {
+        e.preventDefault();
+        setIsSearchOpen((prev) => !prev);
+        return;
+      }
+      if (e.key === "Escape") {
+        if (isSearchOpen) {
+          setIsSearchOpen(false);
+          return;
+        }
+        if (selectionToolbar?.visible) {
+          setSelectionToolbar(null);
+          setShowColorPicker(false);
+          return;
+        }
+        if (settingsDrawerOpen) {
+          setSettingsDrawerOpen(false);
+          return;
+        }
+        if (tocEditMode) {
+          setTocEditMode(false);
+          return;
+        }
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isSearchOpen, selectionToolbar?.visible, settingsDrawerOpen, tocEditMode]);
 
   const jumpToTocEntry = useCallback((id: string) => {
     document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -706,6 +785,44 @@ export function TxtMarkdownReader() {
 
   const currentTocIndex = currentAnchorId ? tocEntries.findIndex((entry) => entry.id === currentAnchorId) : -1;
   const tocSummary = currentTocIndex >= 0 ? `已读 ${currentTocIndex}/${tocEntries.length}` : undefined;
+  const currentChapterTitle = currentAnchorId
+    ? tocEntries.find((entry) => entry.id === currentAnchorId)?.label
+    : undefined;
+
+  const totalPages = Math.max(1, Math.ceil(scrollMetrics.scrollHeight / Math.max(scrollMetrics.clientHeight, 1)));
+  const currentPage = Math.min(
+    totalPages,
+    Math.max(
+      1,
+      Math.round(
+        (scrollMetrics.scrollTop / Math.max(scrollMetrics.scrollHeight - scrollMetrics.clientHeight, 1)) *
+          (totalPages - 1)
+      ) + 1
+    )
+  );
+
+  const handleSeekPercent = useCallback(
+    (percent: number) => {
+      const scroller = scrollerRef.current;
+      if (!scroller) return;
+      const maxScroll = scroller.scrollHeight - scroller.clientHeight;
+      if (maxScroll > 0) {
+        scroller.scrollTop = Math.round((percent / 100) * maxScroll);
+        handleScrollActivity();
+      }
+    },
+    [handleScrollActivity]
+  );
+
+  const handleBack = useCallback(async () => {
+    await flushProgress();
+    endTracking("leave-reader");
+    if (props?.onBack) {
+      props.onBack();
+    } else {
+      setScreen("library");
+    }
+  }, [flushProgress, endTracking, props?.onBack, setScreen]);
 
   const openExcerptFromSelection = () => {
     if (!selectionToolbar?.visible || !selectionToolbar.text.trim()) {
@@ -880,36 +997,29 @@ export function TxtMarkdownReader() {
 
   return (
     <div
-      className={`reader-host desktop-page-root grid grid-rows-[auto_minmax(0,1fr)] ${readerShellClass(settings.readerBackground)}`}
+      className={`reader-host desktop-page-root relative grid grid-rows-[auto_minmax(0,1fr)_auto] ${readerShellClass(settings.readerBackground)}`}
     >
-      <header className="reader-topbar flex items-center justify-between border-b border-paper-line/70 px-4 py-2 text-sm">
-        <div className="flex items-center gap-3">
-          <Button
-            variant="quiet"
-            aria-label="返回书库"
-            onClick={async () => {
-              await flushProgress();
-              endTracking("leave-reader");
-              setScreen("library");
-            }}
-          >
-            <ArrowLeft size={16} />
-            书库
-          </Button>
-          <div className="flex items-baseline gap-2">
-            <h1 className="text-base font-semibold text-paper-ink">{activeBook.title}</h1>
-            {activeBook.author && <span className="text-xs text-paper-muted">{activeBook.author}</span>}
-          </div>
-        </div>
+      <ReaderTopNav
+        title={activeBook.title}
+        author={activeBook.author}
+        currentChapterTitle={currentChapterTitle}
+        progressPercent={progressPercent}
+        totalReadingTimeMs={progress?.totalReadingTimeMs}
+        isTocOpen={!tocCollapsed}
+        isSearchOpen={isSearchOpen}
+        onBack={handleBack}
+        onToggleSearch={() => setIsSearchOpen((prev) => !prev)}
+        onToggleToc={() => setTocCollapsed((prev) => !prev)}
+        onOpenSettings={() => setSettingsDrawerOpen(true)}
+      />
 
-        <div className="flex items-center gap-3 text-xs text-paper-muted">
-          <span>{formatDuration(progress?.totalReadingTimeMs)}</span>
-          <span>{progressPercent}%</span>
-          <Button variant="quiet" aria-label="阅读设置" onClick={() => setSettingsDrawerOpen(true)}>
-            <Settings size={16} />
-          </Button>
-        </div>
-      </header>
+      {isSearchOpen && (
+        <ReaderSearchOverlay
+          content={convertedContent}
+          onJumpToOffset={scrollToCharOffset}
+          onClose={() => setIsSearchOpen(false)}
+        />
+      )}
 
       <div
         className={`reader-body grid min-h-0 ${
@@ -1087,6 +1197,15 @@ export function TxtMarkdownReader() {
           />
         )}
       </div>
+
+      <ReaderBottomBar
+        currentPage={currentPage}
+        totalPages={totalPages}
+        totalWords={content.length}
+        progressPercent={progressPercent}
+        totalReadingTimeMs={progress?.totalReadingTimeMs}
+        onSeekPercent={handleSeekPercent}
+      />
 
       <ReaderSettingsDrawer
         open={settingsDrawerOpen}

@@ -754,12 +754,17 @@ Novalist 调研与取舍仍记录在
   - 主组件 `WritingDesk.tsx` 从 953 行精简至 268 行（净减 685 行，降幅 72%），职责完全聚焦于全局状态流转与数据保护。
   - 在 `src/features/creation/editor/desk/` 下沉拆分为 `WritingDeskHeader.tsx`、`WritingDeskOutlineSidebar.tsx` 与 `WritingDeskMargin.tsx` 3 个专注子组件。
   - 外部 Props 契约与全部交互 100% 保持向后兼容，`editor/` 目录下全部 11 个测试套件 111 个用例全绿通过。
+- **渲染层巨石大组件全面解耦与下沉治理**：
+  - `CardsPage.tsx`：由 941 行瘦身至 559 行（-40.6%），下沉 `CardListSidebar`、`CardEditorForm`、`CardDynamicFields`、`CardRelationsManager` 4 个子组件，7 套件 31 项测试全部通过。
+  - `InboxPage.tsx`：由 834 行瘦身至 633 行，下沉 `InboxQuickInput`、`InboxItemList`、`InboxItemDetail`、`InboxConvertToCardDialog` 4 个子组件，4 套件 43 项测试全部通过。
+  - `TxtMarkdownReader.tsx`：全仓最大单文件（1111 行）成功解耦，下沉 `ReaderTopNav`、`ReaderBottomBar`、`ReaderSearchOverlay`，10 套件 187 项测试 + 3 项子组件测试全部通过。
 - **阶段成果 Commit 固化**：
   - `2bbde5c`：`refactor(desktop): complete p1-p5 architecture, types modularization, chunk optimization and ui primitives batch 1`
   - `5030ff4`：`refactor(desktop): ui primitives batch 2 - migrate tabs and form selects`
+  - `6cff238`：`refactor(desktop): ui primitives batch 3 and decouple WritingDesk into desk subcomponents`
 - **全量验证指标（实跑全部通过）**：
   - **三套 TypeScript 编译**：Renderer / Electron Main / Preload 全部 0 错误（`npm run build`）；
-  - **单元与集成测试**：Vitest 80 passed / 1 skipped（共 783 个测试用例全部通过）；
+  - **单元与集成测试**：Vitest 81 passed / 1 skipped（共 786 个测试用例全部通过）；
   - **业务契约测试**：3 套契约校验脚本全部通过；
-  - **打包构建耗时**：`npm run build` 成功完成，耗时约 5.05s。
+  - **打包构建耗时**：`npm run build` 成功完成，耗时约 5.32s。
 

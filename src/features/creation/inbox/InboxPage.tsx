@@ -1,83 +1,34 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Check, Copy, Inbox as  Library, Lightbulb, Plus, Save, Sparkles, Trash2, X } from "lucide-react";
-import { Select } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useAppStore } from "@/stores/app-store";
 import { useUIStore } from "@/stores/ui-store";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { resolveTargetProject } from "@/features/creation/inbox/inbox-target";
-import { AiSendConfirmDialog, rememberAiSendOptOut, shouldConfirmAiSend } from "@/features/creation/inbox/ai-send-confirm";
+import {
+  AiSendConfirmDialog,
+  rememberAiSendOptOut,
+  shouldConfirmAiSend
+} from "@/features/creation/inbox/ai-send-confirm";
 import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
 import type { InspirationStatus, InspirationType } from "@/types/inspiration";
 import type { InboxItem } from "@/types/creation";
+import {
+  InboxQuickInput,
+  InboxItemList,
+  InboxConvertToCardDialog,
+  AI_LABELS,
+  STATUS_FILTER_OPTIONS,
+  EMPTY_DRAFT,
+  parseList,
+  formatList,
+  newVariantId,
+  type InboxDraft,
+  type SaveStatus
+} from "./components";
 import "./inbox-local.css";
 
-const TYPE_LABELS: Record<InspirationType, string> = {
-  plot: "剧情点子",
-  character: "人设",
-  world: "世界观",
-  scene: "桥段",
-  line: "台词/金句",
-  trope: "套路",
-  conflict: "冲突点",
-  note: "札记"
-};
-
-const STATUS_LABELS: Record<InspirationStatus, string> = {
-  inbox: "待处理",
-  reviewing: "整理中",
-  usable: "可用",
-  polished: "已润色",
-  used: "已转卡片",
-  archived: "归档"
-};
-
-const AI_LABELS: Record<Exclude<AIRunAction, "consistency">, string> = {
-  polish: "润色",
-  expand: "扩写",
-  "platform-style": "平台风格化",
-  conflict: "生成冲突点",
-  humanize: "去 AI 味"
-};
-
-function parseList(value: string): string[] {
-  return value
-    .split(",")
-    .map((item) => item.trim())
-    .filter(Boolean);
-}
-
-function formatList(value: string[]): string {
-  return value.join(", ");
-}
-
-function newVariantId(): string {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") return `variant-${crypto.randomUUID()}`;
-  return `variant-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-interface InboxDraft {
-  title: string;
-  body: string;
-  type: string;
-  status: string;
-  tags: string;
-  platformTags: string;
-}
-
-const EMPTY_DRAFT: InboxDraft = {
-  title: "",
-  body: "",
-  type: "note",
-  status: "inbox",
-  tags: "",
-  platformTags: ""
-};
-
-type SaveStatus = "idle" | "unsaved" | "saving" | "saved";
-
-interface InboxPageProps {
+export interface InboxPageProps {
   /** 转资料卡的目标项目（可选；缺省用第一个项目并允许下拉切换）。 */
   projectId?: string;
 }
@@ -106,6 +57,9 @@ export function InboxPage({ projectId }: InboxPageProps) {
   const userEditedDraftRef = useRef(false);
   const autoSaveTimerRef = useRef<number | undefined>();
 
+  /** 弹窗转卡目标条目（支持显式弹窗模式） */
+  const [convertToCardDialogItem, setConvertToCardDialogItem] = useState<InboxItem | null>(null);
+
   /**
    * 分页状态（单一一致状态）：
    * - items：去重后的已加载条目（UI 显示的"已加载数量" = items.length）；
@@ -130,15 +84,6 @@ export function InboxPage({ projectId }: InboxPageProps) {
 
   /** 状态分组筛选：all = 全部；其余按 InspirationStatus 过滤已加载条目（纯前端过滤）。 */
   const [statusFilter, setStatusFilter] = useState<InspirationStatus | "all">("all");
-  const STATUS_FILTER_OPTIONS: Array<{ value: InspirationStatus | "all"; label: string }> = [
-    { value: "all", label: "全部" },
-    { value: "inbox", label: "待处理" },
-    { value: "reviewing", label: "整理中" },
-    { value: "usable", label: "可用" },
-    { value: "polished", label: "已润色" },
-    { value: "used", label: "已转卡片" },
-    { value: "archived", label: "归档" }
-  ];
   const filteredItems = useMemo(
     () => (statusFilter === "all" ? items : items.filter((item) => item.status === statusFilter)),
     [items, statusFilter]
@@ -310,7 +255,10 @@ export function InboxPage({ projectId }: InboxPageProps) {
   }, [selected]);
 
   const persistSelectedDraft = useCallback(
-    async (nextDraft: InboxDraft = draft, options: { toast?: boolean } = { toast: false }): Promise<{ ok: boolean; latestItem?: InboxItem }> => {
+    async (
+      nextDraft: InboxDraft = draft,
+      options: { toast?: boolean } = { toast: false }
+    ): Promise<{ ok: boolean; latestItem?: InboxItem }> => {
       if (!selected) return { ok: false };
       setSaveStatus("saving");
       const ok = await updateInbox({
@@ -382,6 +330,23 @@ export function InboxPage({ projectId }: InboxPageProps) {
       await refresh();
       setSelectedId(itemId);
       showToast({ tone: "success", title: "已新建想法", body: "先把想法放进来，之后再慢慢打磨。" });
+    }
+  };
+
+  const handleCreateQuick = async (title: string, kind: InspirationType = "note") => {
+    if (!title.trim()) return;
+    const itemId = await createInbox({
+      title: title.trim(),
+      body: "",
+      kind,
+      status: "inbox",
+      tags: [],
+      platformTags: []
+    });
+    if (itemId) {
+      await refresh();
+      setSelectedId(itemId);
+      showToast({ tone: "success", title: "已新建想法", body: "想法已快速记录至收件箱。" });
     }
   };
 
@@ -497,7 +462,11 @@ export function InboxPage({ projectId }: InboxPageProps) {
     const current = items.find((item) => item.id === selected.id);
     const variants = current ? current.variants : selected.variants;
     const next = variants.filter((variant) => variant.id !== variantId);
-    const ok = await updateInbox({ itemId: selected.id, baseRevision: current ? current.revision : selected.revision, variants: next });
+    const ok = await updateInbox({
+      itemId: selected.id,
+      baseRevision: current ? current.revision : selected.revision,
+      variants: next
+    });
     if (ok) {
       showToast({ tone: "info", title: "候选已移除" });
       await refresh();
@@ -533,10 +502,34 @@ export function InboxPage({ projectId }: InboxPageProps) {
     }
   };
 
-  const source = selected?.source as
-    | { bookTitle?: string; bookAuthor?: string; locationLabel?: string; chapterTitle?: string; progressPercent?: number; excerpt?: string; format?: string; createdAt?: string }
-    | null
-    | undefined;
+  const handleDialogConvertToCard = async (item: InboxItem, targetProjId: string) => {
+    if (!targetProjId || !projects.some((p) => p.id === targetProjId)) {
+      showToast({ tone: "warning", title: "还没有创作项目", body: "请先创建项目再转资料卡。" });
+      return;
+    }
+    if (convertingIdsRef.current.has(item.id)) return;
+    convertingIdsRef.current.add(item.id);
+    setConvertingIds(new Set(convertingIdsRef.current));
+    try {
+      const ok = await runStructure({
+        type: "inbox.convertToCard",
+        itemId: item.id,
+        baseRevision: item.revision,
+        projectId: targetProjId
+      });
+      if (!ok) {
+        showToast({ tone: "error", title: "转卡失败", body: `「${item.title}」仍保留在收件箱中，请处理错误后重试。` });
+        await refresh();
+        return;
+      }
+      showToast({ tone: "success", title: "已转为资料卡", body: `「${item.title}」已加入创作项目的资料卡。` });
+      setConvertToCardDialogItem(null);
+      await refresh();
+    } finally {
+      convertingIdsRef.current.delete(item.id);
+      setConvertingIds(new Set(convertingIdsRef.current));
+    }
+  };
 
   return (
     <section className="inbox-page" aria-label="全局收件箱">
@@ -545,7 +538,11 @@ export function InboxPage({ projectId }: InboxPageProps) {
           actionLabel={AI_LABELS[aiConfirm]}
           title={draft.title}
           content={draft.body || draft.title}
-          target={[aiSettings?.model, aiSettings?.baseUrl].filter((part) => typeof part === "string" && part.trim() !== "").join(" · ") || "你配置的 AI 服务"}
+          target={
+            [aiSettings?.model, aiSettings?.baseUrl]
+              .filter((part) => typeof part === "string" && part.trim() !== "")
+              .join(" · ") || "你配置的 AI 服务"
+          }
           busy={isAIRunning}
           onConfirm={(_finalContent, remember) => {
             if (remember) rememberAiSendOptOut();
@@ -556,30 +553,22 @@ export function InboxPage({ projectId }: InboxPageProps) {
           onCancel={() => setAiConfirm(null)}
         />
       )}
-      <section className="inbox-toolbar">
-        <div className="inbox-hero-actions">
-          <button type="button" className="inbox-inspiration-link" onClick={handleCreate}>
-            <Plus size={13} /> 新建想法
-          </button>
-          {!projectId && projects.length > 0 && (
-            <label className="inbox-target-project">
-              <span>转为资料卡的目标项目</span>
-              <Select
-                value={targetProjectId || projects[0]?.id || ""}
-                onChange={(event) => setTargetProjectId(event.target.value)}
-              >
-                {projects.map((project) => (
-                  <option key={project.id} value={project.id}>{project.title}</option>
-                ))}
-              </Select>
-            </label>
-          )}
-        </div>
-      </section>
+
+      <InboxQuickInput
+        projectId={projectId}
+        projects={projects}
+        targetProjectId={targetProjectId}
+        onTargetProjectChange={setTargetProjectId}
+        onCreateNew={handleCreate}
+        onQuickCreate={handleCreateQuick}
+      />
 
       <div className="inbox-filter-row" role="group" aria-label="按状态筛选收件箱">
         {STATUS_FILTER_OPTIONS.map((option) => {
-          const count = option.value === "all" ? items.length : items.filter((item) => item.status === option.value).length;
+          const count =
+            option.value === "all"
+              ? items.length
+              : items.filter((item) => item.status === option.value).length;
           const active = statusFilter === option.value;
           return (
             <button
@@ -596,238 +585,48 @@ export function InboxPage({ projectId }: InboxPageProps) {
         })}
       </div>
 
-      <div className="inbox-editor-grid">
-        <ul className="inbox-list">
-          {filteredItems.length === 0 ? (
-            <li className="stats-card"><p className="stats-note">{items.length === 0 ? "收件箱为空。点击「新建想法」开始收集，旧灵感迁移后也会出现在这里。" : "当前筛选下没有条目，切换筛选或新建想法。"}</p></li>
-          ) : (
-            filteredItems.map((item) => (
-              <li
-                key={item.id}
-                className={`stats-card inbox-item ${item.status === "used" ? "inbox-item--used" : ""} ${item.id === selectedId ? "inbox-item--selected" : ""}`}
-                onClick={() => setSelectedId(item.id)}
-              >
-                <span className="inbox-item-main">
-                  <span className="inbox-item-title">
-                    {item.title}
-                    {item.legacyId && <em>旧灵感</em>}
-                    {item.status === "used" && <em className="used">已转卡片</em>}
-                  </span>
-                  <span className="inbox-item-body">{item.body.length > 120 ? `${item.body.slice(0, 120)}…` : item.body}</span>
-                  <span className="inbox-item-meta">
-                    {item.tags.length > 0 && <>标签：{item.tags.join("，")}</>}
-                    {item.tags.length > 0 && " · "}
-                    AI 候选 {item.variants.length} 个
-                    {item.source && " · 有来源"}
-                    {item.updatedAt && ` · ${new Date(item.updatedAt).toLocaleDateString("zh-CN")}`}
-                  </span>
-                </span>
-                <span className="inbox-item-actions">
-                  {item.status !== "used" && (
-                    <button
-                      type="button"
-                      disabled={convertingIds.has(item.id)}
-                      onClick={(event) => {
-                        event.stopPropagation();
-                        void handleToCard(item);
-                      }}
-                    >
-                      <Library size={13} /> {convertingIds.has(item.id) ? "正在转卡…" : "转为资料卡"}
-                    </button>
-                  )}
-                  <button
-                    type="button"
-                    className={confirmingId === item.id ? "confirming" : ""}
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      if (confirmingId === item.id) void handleDelete(item.id);
-                      else setConfirmingId(item.id);
-                    }}
-                  >
-                    <Trash2 size={13} />
-                    {confirmingId === item.id ? "确认移出" : "移出"}
-                  </button>
-                </span>
-              </li>
-            ))
-          )}
-          {hasMore && (
-            <li className="stats-card inbox-load-more">
-              <button
-                type="button"
-                disabled={loadingMore}
-                onClick={() => void loadMore()}
-              >
-                {loadingMore ? "正在加载更多…" : "加载更多"}
-              </button>
-              <span className="stats-note">已加载 {items.length} 条</span>
-            </li>
-          )}
-          {!hasMore && items.length > 0 && (
-            <li className="stats-card inbox-load-more">
-              <span className="stats-note">已加载全部 {items.length} 条</span>
-            </li>
-          )}
-        </ul>
+      <InboxItemList
+        items={items}
+        filteredItems={filteredItems}
+        selectedId={selectedId}
+        onSelectId={setSelectedId}
+        confirmingId={confirmingId}
+        onConfirmDelete={setConfirmingId}
+        onDelete={handleDelete}
+        convertingIds={convertingIds}
+        onConvertToCard={handleToCard}
+        hasMore={hasMore}
+        loadingMore={loadingMore}
+        onLoadMore={() => void loadMore()}
+        selectedItem={selected}
+        draft={draft}
+        saveStatus={saveStatus}
+        onDraftChange={updateDraft}
+        onSaveDraft={() => void persistSelectedDraft(draft, { toast: true }).then((r) => r.ok)}
+        aiAvailable={aiAvailable}
+        aiSettings={aiSettings}
+        aiBusy={aiBusy}
+        isAIRunning={isAIRunning}
+        onRequestAI={requestAI}
+        onAdoptVariant={adoptVariant}
+        onCopyVariant={copyVariant}
+        onRemoveVariant={removeVariant}
+      />
 
-        {!selected ? (
-          <div className="stats-card inbox-detail-empty">
-            <p className="stats-note"><Lightbulb size={14} /> 从左侧选择一个条目查看与编辑，或新建一条想法。</p>
-          </div>
-        ) : (
-          <div className="stats-card inbox-detail">
-            <div className="inbox-detail-head">
-              <div>
-                <div className="desktop-card-label">Editor</div>
-                <h2 className="paper-title mt-1 text-xl font-semibold">条目正文</h2>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className={`inbox-save-status inbox-save-status--${saveStatus}`}>
-                  {saveStatus === "saving" ? "保存中…" : saveStatus === "saved" ? "已保存" : saveStatus === "unsaved" ? "未保存" : "只读"}
-                </span>
-                <button type="button" onClick={() => void persistSelectedDraft(draft, { toast: true }).then((r) => r.ok)} disabled={saveStatus === "saving"}>
-                  <Save size={15} /> 保存
-                </button>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <label className="grid gap-1.5 text-sm text-paper-muted">
-                <span className="font-medium text-paper-ink">标题</span>
-                <input className="paper-input h-9" value={draft.title} onChange={(event) => updateDraft({ title: event.target.value })} />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <Select
-                  label="类型"
-                  value={draft.type}
-                  onChange={(event) => updateDraft({ type: event.target.value })}
-                >
-                  {(Object.keys(TYPE_LABELS) as InspirationType[]).map((value) => (
-                    <option key={value} value={value}>{TYPE_LABELS[value]}</option>
-                  ))}
-                  {!TYPE_LABELS[draft.type as InspirationType] && <option value={draft.type}>{draft.type}</option>}
-                </Select>
-                <Select
-                  label="状态"
-                  value={draft.status}
-                  onChange={(event) => updateDraft({ status: event.target.value })}
-                >
-                  {(Object.keys(STATUS_LABELS) as InspirationStatus[]).map((value) => (
-                    <option key={value} value={value}>{STATUS_LABELS[value]}</option>
-                  ))}
-                  {!STATUS_LABELS[draft.status as InspirationStatus] && <option value={draft.status}>{draft.status}</option>}
-                </Select>
-              </div>
-              <label className="grid gap-1.5 text-sm text-paper-muted">
-                <span className="font-medium text-paper-ink">标签，逗号分隔</span>
-                <input className="paper-input h-9" value={draft.tags} onChange={(event) => updateDraft({ tags: event.target.value })} placeholder="修罗场, 系统流, 反差" />
-              </label>
-              <label className="grid gap-1.5 text-sm text-paper-muted">
-                <span className="font-medium text-paper-ink">平台标签，逗号分隔</span>
-                <input className="paper-input h-9" value={draft.platformTags} onChange={(event) => updateDraft({ platformTags: event.target.value })} placeholder="番茄, 起点, 刺猬猫" />
-              </label>
-            </div>
-
-            <label className="grid gap-1.5 text-sm text-paper-muted">
-              <span className="font-medium text-paper-ink">正文</span>
-              <textarea className="paper-input mt-2 min-h-[200px] resize-y" value={draft.body} onChange={(event) => updateDraft({ body: event.target.value })} />
-            </label>
-
-            {source && (
-              <div className="mt-3 rounded-xl border border-paper-line bg-paper-soft/45 p-4 text-sm text-paper-muted">
-                <div className="mb-2 flex items-center justify-between gap-3">
-                  <div className="font-semibold text-paper-ink">来源卡片</div>
-                  {source.format && <span className="paper-chip uppercase">{source.format}</span>}
-                </div>
-                <div className="grid gap-1.5 text-xs leading-5">
-                  <div>
-                    来源书籍：<span className="text-paper-ink">{source.bookTitle ?? source.bookAuthor ?? "未知书籍"}</span>
-                    {source.bookAuthor ? ` · 作者：${source.bookAuthor}` : ""}
-                  </div>
-                  <div>位置：{source.locationLabel ?? source.chapterTitle ?? (typeof source.progressPercent === "number" ? `${source.progressPercent.toFixed(1)}%` : "未记录")}</div>
-                  {source.excerpt && (
-                    <blockquote className="mt-2 rounded-lg border border-paper-line bg-paper-panel/75 p-3 text-paper-ink">
-                      <div className="mb-1 text-[11px] font-semibold text-paper-muted">来源摘录</div>
-                      <div className="whitespace-pre-wrap leading-6">{source.excerpt}</div>
-                    </blockquote>
-                  )}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-4 rounded-2xl border border-paper-line bg-paper-panel">
-              <div className="desktop-card-label">AI polish</div>
-              <h2 className="paper-title mt-1 text-lg font-semibold">AI 候选版本</h2>
-              {!aiAvailable ? (
-                <div className="mt-2 rounded-lg border border-paper-line bg-paper-soft/40 p-3 text-xs leading-6 text-paper-muted">
-                  {aiSettings?.enabled
-                    ? "已启用 AI 助手，但尚未配置 API Key。请先在设置中心保存 Key 后使用 AI 打磨；在此之前不会产生任何网络请求。"
-                    : "AI 助手未启用。开启并配置 Key 后，这里可以生成候选版本（不会自动覆盖正文）。"}
-                </div>
-              ) : (
-                <p className="mt-2 text-xs leading-5 text-paper-muted">所有输出都进入候选版本，不会覆盖正文；开启后正文会发送到你配置的 AI 服务。</p>
-              )}
-              {aiAvailable && (
-                <div className="mt-3 grid gap-2">
-                  {(Object.entries(AI_LABELS) as Array<[Exclude<AIRunAction, "consistency">, string]>).map(([action, label]) => (
-                    <button
-                      key={action}
-                      type="button"
-                      disabled={isAIRunning || Boolean(aiBusy)}
-                      onClick={() => requestAI(action)}
-                    >
-                      <Sparkles size={15} />
-                      {aiBusy === action ? "生成中..." : label}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-3 grid gap-3">
-                {selected.variants.length === 0 ? (
-                  <div className="rounded-lg border border-dashed border-paper-line p-4 text-sm text-paper-muted">
-                    还没有候选版本。{aiAvailable ? "点击上方按钮生成。" : "启用 AI 并配置 Key 后可生成。"}
-                  </div>
-                ) : (
-                  selected.variants.map((variant) => {
-                    const kind = String(variant.kind ?? "polish") as Exclude<AIRunAction, "consistency">;
-                    const model = typeof variant.model === "string" ? variant.model : "AI";
-                    const createdAt = typeof variant.createdAt === "string" ? new Date(variant.createdAt).toLocaleString("zh-CN") : "";
-                    const content = typeof variant.content === "string" ? variant.content : "";
-                    return (
-                      <article key={String(variant.id)} className="rounded-xl border border-paper-line bg-paper-soft/40 p-4">
-                        <div className="mb-2 flex items-start justify-between gap-2">
-                          <div className="text-xs font-medium text-copper">
-                            {AI_LABELS[kind] ?? kind} · {model}
-                            {createdAt && <span className="ml-2 text-paper-muted">{createdAt}</span>}
-                          </div>
-                          <button
-                            type="button"
-                            className="shrink-0 rounded-full p-0.5 text-paper-muted transition hover:bg-red-50 hover:text-red-700"
-                            title="移除候选"
-                            onClick={() => void removeVariant(String(variant.id))}
-                          >
-                            <X size={14} />
-                          </button>
-                        </div>
-                        <div className="line-clamp-[8] whitespace-pre-wrap text-sm leading-7 text-paper-ink">{content}</div>
-                        <div className="mt-3 flex gap-2">
-                          <button type="button" className="px-2 text-xs" onClick={() => void copyVariant(content)}>
-                            <Copy size={12} /> 复制
-                          </button>
-                          <button type="button" className="px-2 text-xs" onClick={() => void adoptVariant(variant)}>
-                            <Check size={12} /> 采纳为正文
-                          </button>
-                        </div>
-                      </article>
-                    );
-                  })
-                )}
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {convertToCardDialogItem && (
+        <InboxConvertToCardDialog
+          open={Boolean(convertToCardDialogItem)}
+          item={convertToCardDialogItem}
+          projects={projects}
+          targetProjectId={targetProjectId}
+          onTargetProjectChange={setTargetProjectId}
+          onConfirm={handleDialogConvertToCard}
+          onClose={() => setConvertToCardDialogItem(null)}
+          busy={convertingIds.has(convertToCardDialogItem.id)}
+        />
+      )}
     </section>
   );
 }
+
+export default InboxPage;
