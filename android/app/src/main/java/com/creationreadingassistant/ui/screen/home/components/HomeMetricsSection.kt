@@ -1,11 +1,14 @@
 package com.creationreadingassistant.ui.screen.home.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -13,10 +16,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.R
-import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
@@ -25,14 +29,10 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 /**
  * 本周概览指标组（首页第二块）。
  *
- * 视觉规格（2026-08-21 审美体检后修订）：
- * - 四个指标统一收进一张 [SectionCard]，与「累计阅读」「继续阅读」卡片同语言，
- *   不再裸摆在页面背景上（碎片感的来源）。
- * - 数字放大到 22sp Bold（统计大数用 Sans，不用展示衬线），label 降饱和；
- *   列间不设竖 divider，靠等宽留白分隔——更干净，微信读书式统计条。
+ * 纸墨微岛质感升级：
+ * - 4 列独立纸墨微岛（surfaceContainerLow + outlineVariant.copy(alpha = 0.35f)），
+ *   大字 Bold 高光，配次级说明文本；
  * - 数值仍走共享 rememberCountUp（reducedMotion 友好）。
- *
- * 只负责自己的布局：标题 + 指标卡。**不**嵌套外层 Scaffold。
  */
 @Composable
 fun HomeMetricsSection(
@@ -51,80 +51,105 @@ fun HomeMetricsSection(
                 .animateEnter(120, reducedMotion)
                 .testTag("metrics-title"),
         )
-        SectionCard(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .animateEnter(120, reducedMotion),
+                .animateEnter(120, reducedMotion)
+                .testTag("metrics-row"),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
+            GridStat(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp)
-                    .testTag("metrics-row"),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                GridStat(
-                    Modifier
-                        .weight(1f)
-                        .testTag("metric-week"),
-                    label = stringResource(R.string.home_this_week),
-                    value = rememberCountUp(thisWeekNew, reducedMotion).toString(),
-                )
-                GridStat(
-                    Modifier
-                        .weight(1f)
-                        .testTag("metric-reading"),
-                    label = stringResource(R.string.home_reading),
-                    value = rememberCountUp(readingCount, reducedMotion).toString(),
-                )
-                GridStat(
-                    Modifier
-                        .weight(1f)
-                        .testTag("metric-completed"),
-                    label = stringResource(R.string.home_finished),
-                    value = rememberCountUp(completedCount, reducedMotion).toString(),
-                )
-                val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), reducedMotion)
-                GridStat(
-                    Modifier
-                        .weight(1f)
-                        .testTag("metric-today"),
-                    label = if (dailyGoalMinutes > 0) {
-                        "今日 /${dailyGoalMinutes}分"
-                    } else {
-                        stringResource(R.string.home_today)
-                    },
-                    value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
-                )
-            }
+                    .weight(1f)
+                    .testTag("metric-week"),
+                label = stringResource(R.string.home_this_week),
+                value = rememberCountUp(thisWeekNew, reducedMotion).toString(),
+                subtext = "本周新读",
+            )
+            GridStat(
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("metric-reading"),
+                label = stringResource(R.string.home_reading),
+                value = rememberCountUp(readingCount, reducedMotion).toString(),
+                subtext = "在读书籍",
+            )
+            GridStat(
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("metric-completed"),
+                label = stringResource(R.string.home_finished),
+                value = rememberCountUp(completedCount, reducedMotion).toString(),
+                subtext = "翻越终章",
+            )
+            val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), reducedMotion)
+            GridStat(
+                modifier = Modifier
+                    .weight(1f)
+                    .testTag("metric-today"),
+                label = if (dailyGoalMinutes > 0) {
+                    "今日 /${dailyGoalMinutes}分"
+                } else {
+                    stringResource(R.string.home_today)
+                },
+                value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
+                subtext = if (dailyGoalMinutes > 0) "目标进度" else "今日沉浸",
+            )
         }
     }
 }
 
 @Composable
-private fun GridStat(modifier: Modifier, label: String, value: String) {
-    Column(
-        modifier = modifier.padding(horizontal = 4.dp, vertical = 6.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.spacedBy(2.dp),
+private fun GridStat(
+    modifier: Modifier,
+    label: String,
+    value: String,
+    subtext: String,
+) {
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
     ) {
-        Text(
-            value,
-            style = MaterialTheme.typography.titleLarge.copy(
-            fontSize = 22.sp,
-            lineHeight = 28.sp,
-        ),
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.onSurface,
-            maxLines = 1,
-        )
-        Text(
-            label,
-            style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-            textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-        )
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontSize = 17.sp,
+                    lineHeight = 21.sp,
+                ),
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+            Text(
+                text = subtext,
+                style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 

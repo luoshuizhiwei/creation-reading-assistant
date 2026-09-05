@@ -32,12 +32,12 @@ private val PaperInkGreen = Color(0xFF365C4A)
 private val PaperInkGreenContainer = Color(0xFFDCE8DF)
 private val PaperInkGreenOnContainer = Color(0xFF1D392B)
 
-// AMOLED 纯黑专用令牌：把暗色的"纸面"整层收敛到绝对黑，仅表面层级差保留极细层次
-private val AmoledBlack = Color(0xFF000000)
-private val AmoledNearBlack = Color(0xFF070807)
-private val AmoledSurfaceLow = Color(0xFF0B0C0B)
-private val AmoledSurface = Color(0xFF0F100F)
-private val AmoledSurfaceHigh = Color(0xFF161716)
+// AMOLED 纯黑专用令牌：5 级单调平滑递增色阶（0 / 7 / 11 / 18 / 27），解决卡片与弹窗压平问题
+private val AmoledBlack = Color(0xFF000000)          // Lowest / Background
+private val AmoledNearBlack = Color(0xFF070807)      // Low / Dim
+private val AmoledSurfaceLow = Color(0xFF0B0C0B)     // Container (激活原死令牌)
+private val AmoledSurfaceMid = Color(0xFF121312)     // High
+private val AmoledSurfaceHigh = Color(0xFF1B1C1B)    // Highest
 
 // 「清爽蓝」专用令牌：冷白底 + 平静蓝，微信读书 / 起点一类主流阅读 App 的观感。
 private val ClearBlue = Color(0xFF2762BF)
@@ -69,6 +69,32 @@ private val WarmApricotInk = Color(0xFF1E1A15)
 private val WarmApricotMuted = Color(0xFF5C5245)
 private val WarmApricotHairline = Color(0xFFD4C9BA)
 private val WarmApricotHairlineSoft = Color(0xFFE5DDD2)
+
+// 「黛檀」专用令牌（primary 声明在 AppPalette.DUSK_PLUM.accentLight/accentDark）
+private val DuskPlumContainer = Color(0xFFEEDDF5)
+private val DuskPlumOnContainer = Color(0xFF281332)
+private val DuskPlumBg = Color(0xFFF7F5F8)
+private val DuskPlumSurface = Color(0xFFFFFFFF)
+private val DuskPlumLow = Color(0xFFF5F0F7)
+private val DuskPlumMid = Color(0xFFEFE8F1)
+private val DuskPlumHigh = Color(0xFFE8E0EB)
+private val DuskPlumInk = Color(0xFF1E1A20)
+private val DuskPlumMuted = Color(0xFF4A444D)
+private val DuskPlumHairline = Color(0xFF7B747F)
+private val DuskPlumHairlineSoft = Color(0xFFCDC3D2)
+
+// 「松玉」专用令牌（primary 声明在 AppPalette.PINE_MIST.accentLight/accentDark）
+private val PineMistContainer = Color(0xFFD2E8E2)
+private val PineMistOnContainer = Color(0xFF10332B)
+private val PineMistBg = Color(0xFFF4F7F6)
+private val PineMistSurface = Color(0xFFFFFFFF)
+private val PineMistLow = Color(0xFFF0F5F3)
+private val PineMistMid = Color(0xFFE8EFEC)
+private val PineMistHigh = Color(0xFFDFE8E4)
+private val PineMistInk = Color(0xFF161E1C)
+private val PineMistMuted = Color(0xFF3F4946)
+private val PineMistHairline = Color(0xFF707B78)
+private val PineMistHairlineSoft = Color(0xFFBFCBC7)
 
 // 语义强调色（来自 md3-base.css）
 val AppSuccess = Color(0xFF4A6E3F)           // --md3-success
@@ -403,20 +429,181 @@ private val WarmApricotDarkColorScheme = darkColorScheme(
     onErrorContainer = Color(0xFFF9DEDC),
 )
 
+/** 「黛檀」浅色：紫檀晚霁，雅致高古。 */
+private val DuskPlumLightColorScheme = lightColorScheme(
+    primary = AppPalette.DUSK_PLUM.accentLight,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = DuskPlumContainer,
+    onPrimaryContainer = DuskPlumOnContainer,
+    secondary = AppPalette.DUSK_PLUM.accentLight,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = DuskPlumContainer,
+    onSecondaryContainer = DuskPlumOnContainer,
+    tertiary = AppPalette.DUSK_PLUM.accentLight,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = DuskPlumContainer,
+    onTertiaryContainer = DuskPlumOnContainer,
+    background = DuskPlumBg,
+    onBackground = DuskPlumInk,
+    surface = DuskPlumSurface,
+    onSurface = DuskPlumInk,
+    surfaceVariant = DuskPlumMid,
+    onSurfaceVariant = DuskPlumMuted,
+    surfaceTint = AppPalette.DUSK_PLUM.accentLight,
+    surfaceBright = DuskPlumSurface,
+    surfaceDim = DuskPlumHigh,
+    surfaceContainerLowest = DuskPlumSurface,
+    surfaceContainerLow = DuskPlumLow,
+    surfaceContainer = DuskPlumMid,
+    surfaceContainerHigh = DuskPlumHigh,
+    surfaceContainerHighest = Color(0xFFE0D8E4),
+    inverseSurface = Color(0xFF332F36),
+    inverseOnSurface = Color(0xFFF6F0F7),
+    inversePrimary = AppPalette.DUSK_PLUM.accentDark,
+    outline = DuskPlumHairline,
+    outlineVariant = DuskPlumHairlineSoft,
+    scrim = Color(0xFF000000),
+    error = Color(0xFFC2413B),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+/** 「黛檀」深色：沉稳古檀深调，弱光下优雅护眼。 */
+private val DuskPlumDarkColorScheme = darkColorScheme(
+    primary = AppPalette.DUSK_PLUM.accentDark,
+    onPrimary = Color(0xFF32203C),
+    primaryContainer = Color(0xFF473351),
+    onPrimaryContainer = DuskPlumContainer,
+    secondary = AppPalette.DUSK_PLUM.accentDark,
+    onSecondary = Color(0xFF32203C),
+    secondaryContainer = Color(0xFF473351),
+    onSecondaryContainer = DuskPlumContainer,
+    tertiary = AppPalette.DUSK_PLUM.accentDark,
+    onTertiary = Color(0xFF32203C),
+    tertiaryContainer = Color(0xFF473351),
+    onTertiaryContainer = DuskPlumContainer,
+    background = Color(0xFF141016),
+    onBackground = Color(0xFFEAE3EC),
+    surface = Color(0xFF1A151D),
+    onSurface = Color(0xFFEAE3EC),
+    surfaceVariant = Color(0xFF2B2330),
+    onSurfaceVariant = Color(0xFFB8ACBD),
+    surfaceTint = AppPalette.DUSK_PLUM.accentDark,
+    surfaceBright = Color(0xFF3B3340),
+    surfaceDim = Color(0xFF141016),
+    surfaceContainerLowest = Color(0xFF0F0B11),
+    surfaceContainerLow = Color(0xFF18131B),
+    surfaceContainer = Color(0xFF1E1822),
+    surfaceContainerHigh = Color(0xFF28212D),
+    surfaceContainerHighest = Color(0xFF332B39),
+    inverseSurface = Color(0xFFEAE3EC),
+    inverseOnSurface = Color(0xFF332F36),
+    inversePrimary = AppPalette.DUSK_PLUM.accentLight,
+    outline = Color(0xFF6B6070),
+    outlineVariant = Color(0xFF382F3E),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFE57373),
+    onError = Color(0xFF410E0B),
+    errorContainer = Color(0xFF5C1A14),
+    onErrorContainer = Color(0xFFF9DEDC),
+)
+
+/** 「松玉」浅色：古松冷玉，空灵深邃。 */
+private val PineMistLightColorScheme = lightColorScheme(
+    primary = AppPalette.PINE_MIST.accentLight,
+    onPrimary = Color(0xFFFFFFFF),
+    primaryContainer = PineMistContainer,
+    onPrimaryContainer = PineMistOnContainer,
+    secondary = AppPalette.PINE_MIST.accentLight,
+    onSecondary = Color(0xFFFFFFFF),
+    secondaryContainer = PineMistContainer,
+    onSecondaryContainer = PineMistOnContainer,
+    tertiary = AppPalette.PINE_MIST.accentLight,
+    onTertiary = Color(0xFFFFFFFF),
+    tertiaryContainer = PineMistContainer,
+    onTertiaryContainer = PineMistOnContainer,
+    background = PineMistBg,
+    onBackground = PineMistInk,
+    surface = PineMistSurface,
+    onSurface = PineMistInk,
+    surfaceVariant = PineMistMid,
+    onSurfaceVariant = PineMistMuted,
+    surfaceTint = AppPalette.PINE_MIST.accentLight,
+    surfaceBright = PineMistSurface,
+    surfaceDim = PineMistHigh,
+    surfaceContainerLowest = PineMistSurface,
+    surfaceContainerLow = PineMistLow,
+    surfaceContainer = PineMistMid,
+    surfaceContainerHigh = PineMistHigh,
+    surfaceContainerHighest = Color(0xFFD6E2DD),
+    inverseSurface = Color(0xFF2B3331),
+    inverseOnSurface = Color(0xFFEDF3F1),
+    inversePrimary = AppPalette.PINE_MIST.accentDark,
+    outline = PineMistHairline,
+    outlineVariant = PineMistHairlineSoft,
+    scrim = Color(0xFF000000),
+    error = Color(0xFFC2413B),
+    onError = Color(0xFFFFFFFF),
+    errorContainer = Color(0xFFF9DEDC),
+    onErrorContainer = Color(0xFF410E0B),
+)
+
+/** 「松玉」深色：幽深松林冷调，沉静致远。 */
+private val PineMistDarkColorScheme = darkColorScheme(
+    primary = AppPalette.PINE_MIST.accentDark,
+    onPrimary = Color(0xFF0C2B24),
+    primaryContainer = Color(0xFF1D453C),
+    onPrimaryContainer = PineMistContainer,
+    secondary = AppPalette.PINE_MIST.accentDark,
+    onSecondary = Color(0xFF0C2B24),
+    secondaryContainer = Color(0xFF1D453C),
+    onSecondaryContainer = PineMistContainer,
+    tertiary = AppPalette.PINE_MIST.accentDark,
+    onTertiary = Color(0xFF0C2B24),
+    tertiaryContainer = Color(0xFF1D453C),
+    onTertiaryContainer = PineMistContainer,
+    background = Color(0xFF0E1513),
+    onBackground = Color(0xFFE0E7E5),
+    surface = Color(0xFF141C1A),
+    onSurface = Color(0xFFE0E7E5),
+    surfaceVariant = Color(0xFF202A27),
+    onSurfaceVariant = Color(0xFFA5B2AF),
+    surfaceTint = AppPalette.PINE_MIST.accentDark,
+    surfaceBright = Color(0xFF323E3B),
+    surfaceDim = Color(0xFF0E1513),
+    surfaceContainerLowest = Color(0xFF09100E),
+    surfaceContainerLow = Color(0xFF121917),
+    surfaceContainer = Color(0xFF17201E),
+    surfaceContainerHigh = Color(0xFF212B28),
+    surfaceContainerHighest = Color(0xFF2C3734),
+    inverseSurface = Color(0xFFE0E7E5),
+    inverseOnSurface = Color(0xFF2B3331),
+    inversePrimary = AppPalette.PINE_MIST.accentLight,
+    outline = Color(0xFF5A6663),
+    outlineVariant = Color(0xFF2D3835),
+    scrim = Color(0xFF000000),
+    error = Color(0xFFE57373),
+    onError = Color(0xFF410E0B),
+    errorContainer = Color(0xFF5C1A14),
+    onErrorContainer = Color(0xFFF9DEDC),
+)
+
 /**
  * 把暗色方案转成 AMOLED 纯黑：只压暗容器色阶，主色/强调色/语义色全部保留，
  * 保证可读性和可交互元素的对比度。
  */
 private fun ColorScheme.asAmoledPureBlack(): ColorScheme = copy(
     background = AmoledBlack,
-    surface = AmoledSurface,
+    surface = AmoledBlack,
     surfaceBright = AmoledSurfaceHigh,
     surfaceDim = AmoledNearBlack,
     surfaceContainerLowest = AmoledBlack,
     surfaceContainerLow = AmoledNearBlack,
-    surfaceContainer = AmoledSurface,
-    surfaceContainerHigh = AmoledSurfaceHigh,
+    surfaceContainer = AmoledSurfaceLow,
+    surfaceContainerHigh = AmoledSurfaceMid,
     surfaceContainerHighest = AmoledSurfaceHigh,
+    outlineVariant = Color(0xFFFFFFFF).copy(alpha = 0.08f),
 )
 
 /** palette → scheme 映射（不依赖 Context，可单元测试）。仅供 [buildColorScheme] 内部调用 + 测试入口。 */
@@ -425,6 +612,8 @@ internal fun paletteScheme(palette: AppPalette, darkTheme: Boolean): ColorScheme
     AppPalette.CLEAR_BLUE -> if (darkTheme) ClearBlueDarkColorScheme else ClearBlueLightColorScheme
     AppPalette.SOFT_MIST -> if (darkTheme) SoftMistDarkColorScheme else SoftMistLightColorScheme
     AppPalette.WARM_APRICOT -> if (darkTheme) WarmApricotDarkColorScheme else WarmApricotLightColorScheme
+    AppPalette.DUSK_PLUM -> if (darkTheme) DuskPlumDarkColorScheme else DuskPlumLightColorScheme
+    AppPalette.PINE_MIST -> if (darkTheme) PineMistDarkColorScheme else PineMistLightColorScheme
 }
 
 @Composable

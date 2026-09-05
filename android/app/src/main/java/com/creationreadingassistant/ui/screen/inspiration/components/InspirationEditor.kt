@@ -1,5 +1,6 @@
 package com.creationreadingassistant.ui.screen.inspiration.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -14,25 +15,38 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.theme.PillShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
@@ -125,201 +139,296 @@ internal fun InspirationEditor(
         onAction(InspirationAction.EditorSaved(newId = id, wasNew = isNew))
     }
 
+    val textFieldColors = OutlinedTextFieldDefaults.colors(
+        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.5f),
+        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+    )
+
     Column(
         modifier = modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
             .animateEnter(reducedMotion = rememberReducedMotion())
             .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        FieldLabel("标题")
-        OutlinedTextField(
-            value = title,
-            onValueChange = { title = it },
-            placeholder = { Text("给这条灵感一个清楚的名字") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Column(modifier = Modifier.weight(1f)) {
-                FieldLabel("类型")
-                ExposedDropdownMenuBox(
-                    expanded = typeExpanded,
-                    onExpandedChange = { typeExpanded = it },
-                    modifier = Modifier.fillMaxWidth(),
+        // ── 1. 灵感主体卡片 ──
+        SectionCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    OutlinedTextField(
-                        value = getTypeLabel(type),
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    Icon(
+                        Icons.Outlined.Edit,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
                     )
-                    ExposedDropdownMenu(
-                        expanded = typeExpanded,
-                        onDismissRequest = { typeExpanded = false },
-                    ) {
-                        TYPE_OPTIONS.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = { type = value; typeExpanded = false },
-                            )
-                        }
-                    }
+                    Text(
+                        "灵感内容",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                FieldLabel("状态")
-                ExposedDropdownMenuBox(
-                    expanded = statusExpanded,
-                    onExpandedChange = { statusExpanded = it },
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("标题")
+                OutlinedTextField(
+                    value = title,
+                    onValueChange = { title = it },
+                    placeholder = { Text("给这条灵感一个清楚的名字") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
                     modifier = Modifier.fillMaxWidth(),
-                ) {
-                    OutlinedTextField(
-                        value = getStatusLabel(status),
-                        onValueChange = {},
-                        readOnly = true,
-                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
-                    )
-                    ExposedDropdownMenu(
-                        expanded = statusExpanded,
-                        onDismissRequest = { statusExpanded = false },
-                    ) {
-                        STATUS_OPTIONS.forEach { (value, label) ->
-                            DropdownMenuItem(
-                                text = { Text(label) },
-                                onClick = { status = value; statusExpanded = false },
-                            )
-                        }
-                    }
-                }
-            }
-        }
-        Spacer(Modifier.height(12.dp))
-
-        FieldLabel("正文")
-        OutlinedTextField(
-            value = body,
-            onValueChange = { body = it },
-            placeholder = { Text("写下设定、冲突、人物动作或可以继续发展的片段……") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(160.dp),
-            maxLines = 10,
-        )
-        Spacer(Modifier.height(12.dp))
-
-        FieldLabel("标签")
-        OutlinedTextField(
-            value = tagsInput,
-            onValueChange = { tagsInput = it },
-            placeholder = { Text("用逗号或空格分隔") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        val previewTags = parseTagInput(tagsInput)
-        if (previewTags.isNotEmpty()) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(top = 8.dp),
-            ) {
-                previewTags.forEach { tag ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = spec.pillShape,
-                    ) {
-                        Text(
-                            "#$tag",
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        )
-                    }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Text(
-            "来源（可选）",
-            style = MaterialTheme.typography.titleSmall,
-            modifier = Modifier.padding(bottom = 8.dp),
-        )
-        FieldLabel("来源书籍")
-        ExposedDropdownMenuBox(
-            expanded = bookExpanded,
-            onExpandedChange = { bookExpanded = it },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            OutlinedTextField(
-                value = selectedBook?.let {
-                    "《${it.title}》${it.author?.let { a -> a } ?: ""}"
-                } ?: "不关联书籍",
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bookExpanded) },
-                modifier = Modifier.menuAnchor().fillMaxWidth(),
-            )
-            ExposedDropdownMenu(
-                expanded = bookExpanded,
-                onDismissRequest = { bookExpanded = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("不关联书籍") },
-                    onClick = { sourceBookId = ""; bookExpanded = false },
                 )
-                books.forEach { book ->
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                "《${book.title}》${book.author?.let { " · $it" } ?: ""}",
+
+                Spacer(Modifier.height(12.dp))
+
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        FieldLabel("类型")
+                        ExposedDropdownMenuBox(
+                            expanded = typeExpanded,
+                            onExpandedChange = { typeExpanded = it },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            OutlinedTextField(
+                                value = getTypeLabel(type),
+                                onValueChange = {},
+                                readOnly = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = textFieldColors,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
                             )
-                        },
-                        onClick = { sourceBookId = book.id; bookExpanded = false },
-                    )
+                            ExposedDropdownMenu(
+                                expanded = typeExpanded,
+                                onDismissRequest = { typeExpanded = false },
+                            ) {
+                                TYPE_OPTIONS.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = { type = value; typeExpanded = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        FieldLabel("状态")
+                        ExposedDropdownMenuBox(
+                            expanded = statusExpanded,
+                            onExpandedChange = { statusExpanded = it },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            OutlinedTextField(
+                                value = getStatusLabel(status),
+                                onValueChange = {},
+                                readOnly = true,
+                                shape = RoundedCornerShape(12.dp),
+                                colors = textFieldColors,
+                                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
+                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                            )
+                            ExposedDropdownMenu(
+                                expanded = statusExpanded,
+                                onDismissRequest = { statusExpanded = false },
+                            ) {
+                                STATUS_OPTIONS.forEach { (value, label) ->
+                                    DropdownMenuItem(
+                                        text = { Text(label) },
+                                        onClick = { status = value; statusExpanded = false },
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("正文")
+                OutlinedTextField(
+                    value = body,
+                    onValueChange = { body = it },
+                    placeholder = { Text("写下设定、冲突、人物动作或可以继续发展的片段……") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(160.dp),
+                    maxLines = 10,
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("标签")
+                OutlinedTextField(
+                    value = tagsInput,
+                    onValueChange = { tagsInput = it },
+                    placeholder = { Text("用逗号或空格分隔多个标签") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                val previewTags = parseTagInput(tagsInput)
+                if (previewTags.isNotEmpty()) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier.padding(top = 8.dp),
+                    ) {
+                        previewTags.forEach { tag ->
+                            Surface(
+                                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f),
+                                shape = PillShape,
+                            ) {
+                                Text(
+                                    "#$tag",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                )
+                            }
+                        }
+                    }
                 }
             }
         }
-        Spacer(Modifier.height(12.dp))
-        FieldLabel("章节或位置")
-        OutlinedTextField(
-            value = sourceLocation,
-            onValueChange = { sourceLocation = it },
-            placeholder = { Text("例如：第 12 章 / 38.5%") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Spacer(Modifier.height(12.dp))
-        FieldLabel("原文摘录")
-        OutlinedTextField(
-            value = sourceExcerpt,
-            onValueChange = { sourceExcerpt = it },
-            placeholder = { Text("记录触发灵感的原文，不会混入正文") },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(120.dp),
-            maxLines = 8,
-        )
+
+        // ── 2. 来源与阅读出处（可选） ──
+        SectionCard(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.MenuBook,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        "来源出处（可选）",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("关联来源书籍")
+                ExposedDropdownMenuBox(
+                    expanded = bookExpanded,
+                    onExpandedChange = { bookExpanded = it },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    OutlinedTextField(
+                        value = selectedBook?.let {
+                            "《${it.title}》${it.author?.let { a -> " · $a" } ?: ""}"
+                        } ?: "不关联书籍",
+                        onValueChange = {},
+                        readOnly = true,
+                        shape = RoundedCornerShape(12.dp),
+                        colors = textFieldColors,
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bookExpanded) },
+                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                    )
+                    ExposedDropdownMenu(
+                        expanded = bookExpanded,
+                        onDismissRequest = { bookExpanded = false },
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("不关联书籍") },
+                            onClick = { sourceBookId = ""; bookExpanded = false },
+                        )
+                        books.forEach { book ->
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        "《${book.title}》${book.author?.let { " · $it" } ?: ""}",
+                                    )
+                                },
+                                onClick = { sourceBookId = book.id; bookExpanded = false },
+                            )
+                        }
+                    }
+                }
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("章节或阅读位置")
+                OutlinedTextField(
+                    value = sourceLocation,
+                    onValueChange = { sourceLocation = it },
+                    placeholder = { Text("例如：第 12 章 / 38.5%") },
+                    singleLine = true,
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+
+                Spacer(Modifier.height(12.dp))
+
+                FieldLabel("原文摘录")
+                OutlinedTextField(
+                    value = sourceExcerpt,
+                    onValueChange = { sourceExcerpt = it },
+                    placeholder = { Text("记录触发灵感的原文段落，独立保存不会混入正文") },
+                    shape = RoundedCornerShape(12.dp),
+                    colors = textFieldColors,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(110.dp),
+                    maxLines = 6,
+                )
+            }
+        }
 
         if (error.isNotBlank()) {
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
+                shape = RoundedCornerShape(10.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    error,
+                    color = MaterialTheme.colorScheme.onErrorContainer,
+                    style = MaterialTheme.typography.bodySmall.copy(fontWeight = FontWeight.Medium),
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(4.dp))
+
+        Button(
+            onClick = { save() },
+            shape = PillShape,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(48.dp),
+        ) {
+            Icon(
+                Icons.Outlined.Check,
+                contentDescription = null,
+                modifier = Modifier.size(18.dp),
+            )
+            Spacer(Modifier.width(6.dp))
             Text(
-                error,
-                color = MaterialTheme.colorScheme.error,
-                style = MaterialTheme.typography.bodySmall,
-                modifier = Modifier.padding(top = 12.dp),
+                if (existing != null) "保存修改" else "保存灵感",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold),
             )
         }
 
         Spacer(Modifier.height(16.dp))
-        Button(
-            onClick = { save() },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(if (existing != null) "保存修改" else "保存灵感")
-        }
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -327,7 +436,7 @@ internal fun InspirationEditor(
 private fun FieldLabel(text: String) {
     Text(
         text,
-        style = MaterialTheme.typography.labelMedium,
+        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
         color = MaterialTheme.colorScheme.onSurfaceVariant,
         modifier = Modifier.padding(bottom = 4.dp),
     )

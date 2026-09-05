@@ -51,6 +51,16 @@ interface BookDao {
     @Query("UPDATE books SET size = :size WHERE id = :id AND size <= 0")
     suspend fun updateSizeIfMissing(id: String, size: Int): Int
 
+    /** 封面补扫：正文可读但没有封面的 EPUB 书（导入早于封面提取功能的旧书记录）。 */
+    @Query(
+        "SELECT * FROM books " +
+            "WHERE deleted_at IS NULL AND LOWER(format) = 'epub' " +
+            "AND content_status = 'available' " +
+            "AND (cover_data_url IS NULL OR cover_data_url = '') " +
+            "AND local_content_path IS NOT NULL AND local_content_path != ''"
+    )
+    suspend fun getEpubBooksMissingCover(): List<BookEntity>
+
     @Query("UPDATE books SET deleted_at = :ts, updated_at = :ts WHERE id = :id")
     suspend fun softDelete(id: String, ts: String)
 

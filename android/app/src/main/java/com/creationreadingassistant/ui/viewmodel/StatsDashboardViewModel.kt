@@ -114,7 +114,8 @@ class StatsDashboardViewModel @Inject constructor(
         selection,
         goalProjection,
     ) { data, selected, goal ->
-        if (cachedTables !== data) {
+        val tablesChanged = cachedTables !== data
+        if (tablesChanged) {
             statsCache.clear()
             cachedTables = data
         }
@@ -128,6 +129,12 @@ class StatsDashboardViewModel @Inject constructor(
                 data.inspirations,
                 data.notes,
             )
+        }
+        // 热力图与周期无关：tables 未变时直接复用上次结果
+        val heatmap = if (!tablesChanged && cachedHeatmap != null) {
+            cachedHeatmap!!
+        } else {
+            buildHeatmap(data.sessions).also { cachedHeatmap = it }
         }
         // --- 派生标志（Screen 零计算策略） ---
         val title = periodTitle(selected.period, selected.anchor)
@@ -147,6 +154,7 @@ class StatsDashboardViewModel @Inject constructor(
             showGlobalEmpty = globalEmpty,
             showPeriodEmpty = periodEmpty,
             goal = goal,
+            heatmap = heatmap,
         )
     }
         .distinctUntilChanged()

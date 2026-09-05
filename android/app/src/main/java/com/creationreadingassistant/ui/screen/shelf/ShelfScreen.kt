@@ -31,6 +31,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
@@ -191,6 +192,14 @@ internal fun ShelfScreen(
                         expanded = state.showPageMenu,
                         onDismissRequest = { onAction(ShelfAction.ClosePageMenu) },
                     ) {
+                        DropdownMenuItem(
+                            text = { Text("书架整理") },
+                            onClick = {
+                                onAction(ShelfAction.ClosePageMenu)
+                                onAction(ShelfAction.OpenOrganizer)
+                            },
+                            leadingIcon = { Icon(imageVector = Icons.Outlined.Folder, contentDescription = null) },
+                        )
                         DropdownMenuItem(
                             text = { Text("批量选择") },
                             onClick = { onAction(ShelfAction.EnterSelection) },
@@ -367,7 +376,7 @@ private fun ShelfContent(
                     horizontal = adaptive.horizontalPadding,
                     vertical = layout.pageVertical,
                 ),
-                verticalArrangement = Arrangement.spacedBy(layout.contentGap),
+                verticalArrangement = Arrangement.spacedBy(if (state.viewMode == ShelfViewMode.LIST) 0.dp else layout.contentGap),
                 horizontalArrangement = Arrangement.spacedBy(layout.gridGap),
             ) {
                 if (state.selectionMode) {

@@ -1,88 +1,167 @@
 package com.creationreadingassistant.ui.screen.stats.components
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
-import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 private data class SummaryMetric(
     val icon: ImageVector,
-    val value: Int,
-    val format: (Int) -> String,
+    val formattedValue: String,
     val label: String,
+    val subtitle: String,
+    val iconTint: Color,
 )
 
+/**
+ * 4 项大盘指标微岛卡片化：
+ * - 采用 2x2 纸墨微岛卡片布局，大数字 Bold 高光，配 32dp 微彩底座小图标与次级说明文字；
+ * - 底部附带连续打卡轻量微胶囊，保持关键数据完整呈现。
+ */
 @Composable
 internal fun SummaryGroup(
     stats: StatsUi,
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val totalMinutes = (stats.totalReadingMs / 60000).toInt()
+    val animatedMinutes = rememberCountUp(totalMinutes, reducedMotion)
+    val animatedDays = rememberCountUp(stats.readingDays, reducedMotion)
+    val animatedBooks = rememberCountUp(stats.readBooks, reducedMotion)
+    val animatedCompleted = rememberCountUp(stats.completed, reducedMotion)
+
     val metrics = listOf(
         SummaryMetric(
-            Icons.Outlined.AccessTime,
-            (stats.totalReadingMs / 60000).toInt(),
-            { formatCompactDuration(it.toLong() * 60000) },
-            "阅读时长",
+            icon = Icons.Outlined.AccessTime,
+            formattedValue = formatCompactDuration(animatedMinutes.toLong() * 60000),
+            label = "阅读时长",
+            subtitle = "累计沉浸",
+            iconTint = Color(0xFFD97706), // 暖琥珀
         ),
-        SummaryMetric(Icons.Outlined.CalendarMonth, stats.readingDays, { "$it 天" }, "阅读天数"),
-        SummaryMetric(Icons.Outlined.Book, stats.readBooks, { "$it 本" }, "读过书籍"),
-        SummaryMetric(Icons.Outlined.CheckCircle, stats.completed, { "$it 本" }, "已读完"),
-        SummaryMetric(Icons.Outlined.BarChart, stats.streakCurrent, { "$it 天" }, "当前连续"),
-        SummaryMetric(Icons.Outlined.CalendarMonth, stats.streakLongest, { "$it 天" }, "最长连续"),
+        SummaryMetric(
+            icon = Icons.Outlined.CalendarMonth,
+            formattedValue = "$animatedDays 天",
+            label = "阅读天数",
+            subtitle = "开卷打卡",
+            iconTint = Color(0xFF2563EB), // 晴空蓝
+        ),
+        SummaryMetric(
+            icon = Icons.Outlined.Book,
+            formattedValue = "$animatedBooks 本",
+            label = "读过书籍",
+            subtitle = "阅读广度",
+            iconTint = Color(0xFF7C3AED), // 典雅紫
+        ),
+        SummaryMetric(
+            icon = Icons.Outlined.CheckCircle,
+            formattedValue = "$animatedCompleted 本",
+            label = "已读完",
+            subtitle = "翻越终章",
+            iconTint = Color(0xFF059669), // 自然翠绿
+        ),
     )
+
     SectionCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
             .testTag("stats-summary"),
-        contentPadding = 0.dp,
     ) {
-        metrics.chunked(2).forEachIndexed { rowIndex, rowItems ->
-            if (rowIndex > 0) {
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            }
-            Row(Modifier.fillMaxWidth()) {
-                rowItems.forEachIndexed { columnIndex, item ->
-                    if (columnIndex > 0) {
-                        VerticalDivider(
-                            modifier = Modifier.height(52.dp),
-                            color = MaterialTheme.colorScheme.outlineVariant,
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // 2x2 四大核心指标微岛卡片
+            metrics.chunked(2).forEach { rowItems ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    rowItems.forEach { item ->
+                        SummaryMicroCard(
+                            item = item,
+                            modifier = Modifier.weight(1f),
                         )
                     }
-                    SummaryMetricCell(
-                        item = item,
-                        modifier = Modifier.weight(1f),
-                        reducedMotion = reducedMotion,
-                    )
+                }
+            }
+
+            // 连续阅读微胶囊横条（当有连续天数数据时呈现）
+            if (stats.streakCurrent > 0 || stats.streakLongest > 0) {
+                Surface(
+                    shape = RoundedCornerShape(10.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(24.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFFEA580C).copy(alpha = 0.12f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(
+                                Icons.Outlined.LocalFireDepartment,
+                                contentDescription = null,
+                                tint = Color(0xFFEA580C),
+                                modifier = Modifier.size(15.dp),
+                            )
+                        }
+                        Text(
+                            text = "当前连续 ${stats.streakCurrent} 天",
+                            style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        Text(
+                            text = "·",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = "最长连续 ${stats.streakLongest} 天",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }
@@ -90,28 +169,68 @@ internal fun SummaryGroup(
 }
 
 @Composable
-private fun SummaryMetricCell(
+private fun SummaryMicroCard(
     item: SummaryMetric,
     modifier: Modifier = Modifier,
-    reducedMotion: Boolean = false,
 ) {
-    val layout = LocalLayoutTokens.current
-    Row(
-        modifier = modifier
-            .heightIn(min = 76.dp)
-            .padding(layout.compactCardPadding),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+    Surface(
+        modifier = modifier,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
     ) {
-        Icon(item.icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
-        androidx.compose.foundation.layout.Column {
-            val display = rememberCountUp(item.value, reducedMotion)
-            // 统计数字用展示衬线，做成可被记住的「纸墨签名」数字。
-            Text(item.format(display), style = MaterialTheme.typography.headlineSmall.copy(fontFamily = DisplayFontFamily))
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                // 32dp 微彩底座小图标
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(item.iconTint.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        item.icon,
+                        contentDescription = null,
+                        tint = item.iconTint,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+                Text(
+                    text = item.label,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
+
+            Spacer(Modifier.height(2.dp))
+
+            // 大数字 Bold 高光
             Text(
-                item.label,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                text = item.formattedValue,
+                style = MaterialTheme.typography.headlineSmall.copy(
+                    fontFamily = DisplayFontFamily,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+            )
+
+            // 次级说明文字
+            Text(
+                text = item.subtitle,
+                style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
             )
         }
     }

@@ -16,6 +16,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -253,25 +254,28 @@ internal fun ShelfRoute(
                 },
             )
         }
+
+        // ======= 批量操作栏（悬浮底部微岛，不遮挡顶部状态栏） =======
+        if (selectionMode) {
+            BatchActionBar(
+                selectedCount = selectedIds.size,
+                onAddToShelf = { batchSheet = BatchSheetKind.SHELF },
+                onSetCategory = { batchSheet = BatchSheetKind.CATEGORY },
+                onTag = { batchSheet = BatchSheetKind.TAG },
+                onDownload = { selectedIds.toSet().forEach { bid -> viewModel.downloadBookContent(bid) { showMessage(it) } } },
+                onClearCache = {
+                    val ids = selectedIds.toList()
+                    if (ids.isNotEmpty()) {
+                        viewModel.clearCacheForBooks(ids) { showMessage(it) }; exitSelection()
+                    } else showMessage("请先选择要清理缓存的书籍")
+                },
+                onDelete = { requestDelete(selectedIds.toList()) },
+                modifier = Modifier.align(Alignment.BottomCenter),
+            )
+        }
     }
 
     // ======= 各类底部弹层 / 对话框 =======
-    if (selectionMode) {
-        BatchActionBar(
-            selectedCount = selectedIds.size,
-            onAddToShelf = { batchSheet = BatchSheetKind.SHELF },
-            onSetCategory = { batchSheet = BatchSheetKind.CATEGORY },
-            onTag = { batchSheet = BatchSheetKind.TAG },
-            onDownload = { selectedIds.toSet().forEach { bid -> viewModel.downloadBookContent(bid) { showMessage(it) } } },
-            onClearCache = {
-                val ids = selectedIds.toList()
-                if (ids.isNotEmpty()) {
-                    viewModel.clearCacheForBooks(ids) { showMessage(it) }; exitSelection()
-                } else showMessage("请先选择要清理缓存的书籍")
-            },
-            onDelete = { requestDelete(selectedIds.toList()) },
-        )
-    }
     val detailBook = detailBookId?.let { bid -> books.find { it.id == bid } }
     val actionBook = actionBookId?.let { bid -> books.find { it.id == bid } }
     val selectedBookIds = selectedIds.toList()

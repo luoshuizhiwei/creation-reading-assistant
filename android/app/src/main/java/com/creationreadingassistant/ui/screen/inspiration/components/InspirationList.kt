@@ -19,9 +19,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.Lightbulb
+import androidx.compose.material.icons.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Tune
 import com.creationreadingassistant.ui.theme.AppIconSize
@@ -48,6 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBookmark
+import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -105,21 +112,23 @@ internal fun InspirationList(
     } else null
 
     Column(modifier = modifier.fillMaxSize().testTag("inspiration-list")) {
+        // 1. 类型筛选导轨 + 排序按钮
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(
                     horizontal = layout.pageHorizontal,
-                    vertical = layout.relatedGap,
+                    vertical = 6.dp,
                 ),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             Row(
                 modifier = Modifier
                     .weight(1f)
                     .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(7.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
                 SelectablePill(
                     text = "全部",
@@ -132,44 +141,21 @@ internal fun InspirationList(
                 availableTypes.forEach { (value, label) ->
                     val count = typeCounts[value] ?: 0
                     SelectablePill(
-                        text = "$label $count",
+                        text = if (count > 0) "$label $count" else label,
                         selected = typeFilter == value,
                         onClick = { onAction(InspirationAction.UpdateTypeFilter(value)) },
                     )
                 }
             }
-            // 状态筛选行（第二行）：按 STATUS_OPTIONS 中实际存在的状态过滤
-            if (availableStatuses.isNotEmpty()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = layout.pageHorizontal)
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(7.dp),
-                ) {
-                    SelectablePill(
-                        text = "全部状态",
-                        selected = statusFilter == "all",
-                        onClick = { onAction(InspirationAction.UpdateStatusFilter("all")) },
-                    )
-                    availableStatuses.forEach { (value, label) ->
-                        SelectablePill(
-                            text = "$label ${statusCounts[value] ?: 0}",
-                            selected = statusFilter == value,
-                            onClick = { onAction(InspirationAction.UpdateStatusFilter(value)) },
-                        )
-                    }
-                }
-            }
             Surface(
                 onClick = { onAction(InspirationAction.OpenSortSheet) },
                 shape = PillShape,
-                color = MaterialTheme.colorScheme.surfaceContainerLowest,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
                 contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
@@ -180,7 +166,33 @@ internal fun InspirationList(
                     )
                     Text(
                         SORT_OPTIONS.firstOrNull { it.first == sortMode }?.second ?: "最近更新",
-                        style = MaterialTheme.typography.labelMedium,
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    )
+                }
+            }
+        }
+
+        // 2. 状态筛选行：当有状态项时平滑展示在独立导轨中
+        if (availableStatuses.isNotEmpty()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.pageHorizontal, vertical = 4.dp)
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SelectablePill(
+                    text = "全部状态",
+                    selected = statusFilter == "all",
+                    onClick = { onAction(InspirationAction.UpdateStatusFilter("all")) },
+                )
+                availableStatuses.forEach { (value, label) ->
+                    val count = statusCounts[value] ?: 0
+                    SelectablePill(
+                        text = if (count > 0) "$label $count" else label,
+                        selected = statusFilter == value,
+                        onClick = { onAction(InspirationAction.UpdateStatusFilter(value)) },
                     )
                 }
             }
@@ -202,16 +214,28 @@ internal fun InspirationList(
             }
             FullEmptyState(
                 icon = {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    Box(
+                        modifier = Modifier
+                            .size(76.dp)
+                            .clip(RoundedCornerShape(22.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                        contentAlignment = Alignment.Center,
                     ) {
+                        Icon(
+                            Icons.Outlined.Lightbulb,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(38.dp),
+                        )
                         Icon(
                             Icons.Outlined.AutoAwesome,
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
+                            tint = Color(0xFFD97706),
+                            modifier = Modifier
+                                .size(18.dp)
+                                .align(Alignment.TopEnd)
+                                .padding(top = 8.dp, end = 8.dp),
                         )
-                        LineArtBookmark()
                     }
                 },
                 title = title,
@@ -230,8 +254,9 @@ internal fun InspirationList(
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(horizontal = layout.pageHorizontal),
-                verticalArrangement = Arrangement.spacedBy(0.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
+                item { Spacer(Modifier.height(2.dp)) }
                 itemsIndexed(filtered, key = { _, item -> item.id }) { index, item ->
                     InspirationRecordCard(
                         item = item,
@@ -241,7 +266,6 @@ internal fun InspirationList(
                         onMore = { onAction(InspirationAction.OpenItemActions(item.id)) },
                         entranceDelay = index * 40,
                     )
-                    if (index != filtered.lastIndex) SectionDivider()
                 }
                 item { Box(Modifier.fillMaxWidth().padding(bottom = 16.dp)) }
             }
@@ -259,108 +283,152 @@ private fun InspirationRecordCard(
     entranceDelay: Int = 0,
 ) {
     val spec = LocalComponentSpec.current
-    Column(
+    val accentColor = when (item.type) {
+        "setting" -> Color(0xFF7C3AED)
+        "plot" -> Color(0xFFD97706)
+        "excerpt" -> Color(0xFF059669)
+        else -> Color(0xFF2563EB)
+    }
+
+    SectionCard(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .padding(vertical = LocalLayoutTokens.current.contentGap)
             .animateEnter(delayMillis = entranceDelay, reducedMotion = rememberReducedMotion())
             .testTag("inspiration-card-${item.id}"),
+        onClick = onOpen,
     ) {
-        Row(
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                shape = PillShape,
-            ) {
-                Text(
-                    getTypeLabel(item.type),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSecondaryContainer,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                )
-            }
-            Text(
-                formatListTime(item.updated_at),
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.weight(1f),
-                textAlign = TextAlign.End,
-            )
-            IconButton(
-                onClick = onMore,
-                modifier = Modifier.size(LocalLayoutTokens.current.minimumTouchTarget),
-            ) {
-                Icon(
-                    Icons.Outlined.MoreHoriz,
-                    contentDescription = "更多操作",
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        Spacer(Modifier.height(6.dp))
-        Text(
-            item.title.ifBlank { "未命名灵感" },
-            style = MaterialTheme.typography.titleMedium.copy(
-                fontWeight = FontWeight.Bold,
-                letterSpacing = (-0.24).sp,
-            ),
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-        )
-        val summary = item.body.ifBlank { source?.excerpt ?: "还没有正文" }
-        Text(
-            summary,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.padding(top = 4.dp),
-        )
-        val hasSourceLine =
-            !source?.bookTitle.isNullOrBlank() ||
-                !source?.locationLabel.isNullOrBlank() ||
-                !source?.chapterTitle.isNullOrBlank()
-        if (hasSourceLine) {
+            // 顶行：类型微胶囊 + 更新时间 + 更多操作按钮
             Row(
-                modifier = Modifier.padding(top = 8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Icon(
-                    Icons.Outlined.Book,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                val locLabel = source?.locationLabel ?: source?.chapterTitle
-                Text(
-                    "来源：${source?.bookTitle?.let { "《$it》" } ?: "阅读记录"}${locLabel?.let { " · $it" } ?: ""}",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-        }
-        if (tags.isNotEmpty()) {
-            Row(
-                modifier = Modifier
-                    .padding(top = 8.dp)
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(5.dp),
-            ) {
-                tags.take(3).forEach { tag ->
-                    Surface(
-                        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        shape = spec.pillShape,
+                Surface(
+                    color = accentColor.copy(alpha = 0.12f),
+                    shape = PillShape,
+                    border = BorderStroke(0.5.dp, accentColor.copy(alpha = 0.25f)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        Text(
-                            tag,
-                            style = MaterialTheme.typography.labelSmall,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                                .background(accentColor),
                         )
+                        Text(
+                            getTypeLabel(item.type),
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = accentColor,
+                        )
+                    }
+                }
+                Text(
+                    formatListTime(item.updated_at),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.75f),
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.End,
+                )
+                IconButton(
+                    onClick = onMore,
+                    modifier = Modifier.size(28.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.MoreHoriz,
+                        contentDescription = "更多操作",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(18.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            // 标题
+            Text(
+                item.title.ifBlank { "未命名灵感" },
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = (-0.2).sp,
+                ),
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+            )
+
+            // 正文或摘录摘要
+            val summary = item.body.ifBlank { source?.excerpt ?: "还没有正文" }
+            Text(
+                summary,
+                style = MaterialTheme.typography.bodyMedium.copy(
+                    lineHeight = 20.sp,
+                ),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+
+            // 来源书籍微卡片
+            val hasSourceLine =
+                !source?.bookTitle.isNullOrBlank() ||
+                    !source?.locationLabel.isNullOrBlank() ||
+                    !source?.chapterTitle.isNullOrBlank()
+            if (hasSourceLine) {
+                Surface(
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier.padding(top = 10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(5.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.MenuBook,
+                            contentDescription = null,
+                            modifier = Modifier.size(13.dp),
+                            tint = MaterialTheme.colorScheme.primary,
+                        )
+                        val locLabel = source?.locationLabel ?: source?.chapterTitle
+                        Text(
+                            "来源：${source?.bookTitle?.let { "《$it》" } ?: "阅读足迹"}${locLabel?.let { " · $it" } ?: ""}",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                            color = MaterialTheme.colorScheme.primary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            // 标签列表
+            if (tags.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .padding(top = 10.dp)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    tags.take(4).forEach { tag ->
+                        Surface(
+                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f),
+                            shape = PillShape,
+                        ) {
+                            Text(
+                                "#$tag",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
+                        }
                     }
                 }
             }

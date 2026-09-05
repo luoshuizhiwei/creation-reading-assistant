@@ -39,6 +39,18 @@ enum class AppPalette(
         displayName = "暖杏",
         accentLight = Color(0xFF806245),
         accentDark = Color(0xFFD4B896),
+    ),
+    DUSK_PLUM(
+        storageId = "dusk_plum",
+        displayName = "黛檀",
+        accentLight = Color(0xFF5E4868),
+        accentDark = Color(0xFFD2BDDC),
+    ),
+    PINE_MIST(
+        storageId = "pine_mist",
+        displayName = "松玉",
+        accentLight = Color(0xFF2C5E53),
+        accentDark = Color(0xFF90C7BA),
     );
 
     companion object {

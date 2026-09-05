@@ -12,4 +12,12 @@ class AdaptiveNavigationPolicyTest {
         assertEquals(TopLevelNavigationMode.RAIL, topLevelNavigationMode(600.dp))
         assertEquals(TopLevelNavigationMode.RAIL, topLevelNavigationMode(1200.dp))
     }
+
+    @Test
+    fun `bottom bar tabs reserve the same icon slot when selection changes`() {
+        assertEquals(
+            bottomBarIconSlotHeight(selected = false),
+            bottomBarIconSlotHeight(selected = true),
+        )
+    }
 }

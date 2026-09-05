@@ -666,28 +666,13 @@ class ShelfImporter @Inject constructor(
     }
 
     /**
-     * 提取 EPUB 内嵌封面为 JPEG data URL：按最长边 [COVER_TARGET_EDGE_PX] 降采样后
-     * 重压缩，控制入库体积（书架封面显示尺寸远小于原图，无需保留全尺寸位图）。
-     * 必须在 IO 线程调用（zip + 位图解码）。
+     * 提取 EPUB 内嵌封面为 JPEG data URL（压缩实现内聚在 [com.creationreadingassistant.feature.reader.EpubParser.loadCoverDataUrl]，
+     * 与封面补扫共用同一口径）。必须在 IO 线程调用。
      */
     private fun extractEpubCoverDataUrl(book: com.creationreadingassistant.domain.model.EpubBook): String? {
         val entryPath = book.coverEntryPath ?: return null
-        val bytes = com.creationreadingassistant.feature.reader.EpubParser
-            .loadCoverBytes(book.cachedEpubPath, entryPath) ?: return null
-        val bmp = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size) ?: return null
-        val maxSide = maxOf(bmp.width, bmp.height)
-        var sample = 1
-        while (maxSide / (sample * 2) >= COVER_TARGET_EDGE_PX) sample *= 2
-        val scaled = if (sample > 1) {
-            android.graphics.Bitmap.createScaledBitmap(bmp, (bmp.width / sample).coerceAtLeast(1), (bmp.height / sample).coerceAtLeast(1), true)
-        } else {
-            bmp
-        }
-        val out = java.io.ByteArrayOutputStream()
-        scaled.compress(android.graphics.Bitmap.CompressFormat.JPEG, 82, out)
-        if (scaled !== bmp) bmp.recycle()
-        val b64 = android.util.Base64.encodeToString(out.toByteArray(), android.util.Base64.NO_WRAP)
-        return "data:image/jpeg;base64,$b64"
+        return com.creationreadingassistant.feature.reader.EpubParser
+            .loadCoverDataUrl(book.cachedEpubPath, entryPath, COVER_TARGET_EDGE_PX)
     }
 
     private data class ResolvedImport(

@@ -20,6 +20,22 @@ import coil.request.ImageRequest
 import coil.size.Precision
 
 /**
+ * 解析图片数据源：若为 data:image base64 字符串，解码为 ByteArray 供 Coil 原生高性能加载。
+ */
+internal fun resolveCoilImageData(data: Any?): Any? {
+    if (data is String && data.startsWith("data:image/", ignoreCase = true)) {
+        val base64Index = data.indexOf("base64,")
+        if (base64Index != -1) {
+            val base64Str = data.substring(base64Index + 7).trim()
+            return runCatching {
+                android.util.Base64.decode(base64Str, android.util.Base64.DEFAULT)
+            }.getOrNull()
+        }
+    }
+    return data
+}
+
+/**
  * 按最终布局尺寸请求图片，避免书架封面以原图尺寸解码。
  * 首次测量前保留父容器背景，测得尺寸后才开始请求。
  */
@@ -30,23 +46,28 @@ fun SizedAsyncImage(
     contentDescription: String?,
     modifier: Modifier = Modifier,
     contentScale: ContentScale = ContentScale.Crop,
+    onError: (() -> Unit)? = null,
 ) {
+    val resolvedData = remember(data) { resolveCoilImageData(data) }
     var targetSize by remember { mutableStateOf(IntSize.Zero) }
     Box(
         modifier = modifier.onSizeChanged {
             if (it.width > 0 && it.height > 0 && it != targetSize) targetSize = it
         },
     ) {
-        if (data != null && targetSize != IntSize.Zero) {
+        if (resolvedData != null && targetSize != IntSize.Zero) {
             val context = LocalContext.current
-            val request = remember(data, cacheKey, targetSize) {
+            val request = remember(resolvedData, cacheKey, targetSize) {
                 ImageRequest.Builder(context)
-                    .data(data)
+                    .data(resolvedData)
                     .size(targetSize.width, targetSize.height)
                     .precision(Precision.INEXACT)
                     .memoryCacheKey(cacheKey)
                     .diskCacheKey(cacheKey)
                     .crossfade(false)
+                    .listener(
+                        onError = { _, _ -> onError?.invoke() },
+                    )
                     .build()
             }
             AsyncImage(
@@ -54,6 +75,7 @@ fun SizedAsyncImage(
                 contentDescription = contentDescription,
                 modifier = Modifier.fillMaxSize(),
                 contentScale = contentScale,
+                onError = { onError?.invoke() },
             )
         }
     }

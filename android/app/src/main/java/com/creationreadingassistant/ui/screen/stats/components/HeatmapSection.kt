@@ -1,21 +1,24 @@
 package com.creationreadingassistant.ui.screen.stats.components
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -23,9 +26,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.R
 import com.creationreadingassistant.ui.components.SectionCard
@@ -34,15 +39,14 @@ import com.creationreadingassistant.ui.screen.stats.HeatmapCell
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-import java.time.DayOfWeek
 import java.time.LocalDate
-import java.time.format.TextStyle
-import java.util.Locale
 import kotlin.math.ceil
 
 /**
- * 年度阅读热力图：GitHub 贡献图风格。
- * 列 = 周（52~53 周），行 = 星期（周一 ~ 周日），方块颜色深浅表示当日阅读时长。
+ * 年度阅读热力图微岛：
+ * - 整年 365 天网状排布，圆角 2.5dp 方块；
+ * - 柔和递进的纸墨阶梯渐变色彩；
+ * - 顶部 32dp 微底座小图标与次级说明胶囊标签。
  */
 @Composable
 internal fun HeatmapSection(
@@ -67,18 +71,48 @@ internal fun HeatmapSection(
             .testTag("stats-heatmap"),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // 标题行
+            // 标题行：带 32dp 微彩底座与轻量胶囊摘要
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text("365 天阅读足迹", style = MaterialTheme.typography.titleMedium)
-                Text(
-                    if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs)}" else "近一年暂无阅读",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = scheme.onSurfaceVariant,
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(scheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.CalendarMonth,
+                            contentDescription = null,
+                            tint = scheme.primary,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                    Text(
+                        "365 天阅读足迹",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                    border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f)),
+                ) {
+                    Text(
+                        text = if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs)}" else "近一年暂无阅读",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = scheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    )
+                }
             }
 
             if (grid.isEmpty()) {
@@ -89,24 +123,52 @@ internal fun HeatmapSection(
                     modifier = Modifier.padding(vertical = layout.microGap),
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    // 月份标签行（与列对齐）
-                    MonthLabelRow(labels = monthLabels)
-
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                        verticalAlignment = Alignment.Top,
-                    ) {
-                        // 左侧星期标签（周一 / 周三 / 周五 / 周日）
-                        WeekdayLabelColumn()
-
-                        // 主体热力图网格：按列（周）排布，每列 7 格（周一~周日）
-                        HeatmapGrid(weeks = grid)
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val density = LocalDensity.current
+                    val cols = grid.size.coerceAtLeast(1)
+                    val gap = if (constraints.maxWidth / cols < with(density) { 7.dp.toPx() }) {
+                        1.dp
+                    } else {
+                        2.5.dp
                     }
+                    val gapPx = with(density) { gap.toPx() }
+                    val cellPx = (((constraints.maxWidth - (cols - 1) * gapPx) / cols)
+                        .coerceAtMost(with(density) { MAX_CELL_SIZE.toPx() }))
+                        .coerceAtLeast(1f)
+                    val cell = with(density) { cellPx.toDp() }
+                    val gridWidthPx = cols * cellPx + (cols - 1) * gapPx
+                    val centered = gridWidthPx < constraints.maxWidth - 1f
+                    val showWeekday = cell >= 8.dp
 
-                    // 图例：less → more
-                    LegendRow()
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        horizontalAlignment = if (centered) Alignment.CenterHorizontally else Alignment.Start,
+                    ) {
+                        // 月份标签行（与列对齐）
+                        MonthLabelRow(
+                            labels = monthLabels,
+                            cellSize = cell,
+                            gap = gap,
+                            leadingWidth = if (showWeekday) WEEKDAY_LABEL_WIDTH else 0.dp,
+                        )
+
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(gap),
+                            verticalAlignment = Alignment.Top,
+                        ) {
+                            // 左侧星期标签（周一 / 周三 / 周五 / 周日）：格子太小时省略
+                            if (showWeekday) {
+                                WeekdayLabelColumn(cellSize = cell)
+                            }
+
+                            // 主体热力图网格：按列（周）排布，每列 7 格（周一~周日）
+                            HeatmapGrid(weeks = grid, cellSize = cell, gap = gap)
+                        }
+                    }
                 }
+
+                // 图例：less → more 柔和阶梯
+                LegendRow()
             }
         }
     }
@@ -114,27 +176,18 @@ internal fun HeatmapSection(
 
 /* ========== 网格构建与二维化 ========== */
 
-/** 每周 7 格；每格 = [0,7) 对应 周一..周日。 */
 private data class HeatmapWeek(
-    /** 第一列（周一）对应的日期，用于列归属月份的判断。 */
     val anchorDate: LocalDate,
-    val cells: List<HeatmapCell?>, // 长度 = 7
+    val cells: List<HeatmapCell?>,
 )
 
-/**
- * 按 GitHub 风格二维化：把连续 365 天的平铺 cells 排列成
- * 「列 = 周（从左到右）、行 = 星期（从上到下，周一~周日）」的矩阵。
- * 第一年起始日之前的格子留空（渲染为透明占位）。
- */
 private fun arrangeHeatmapGrid(cells: List<HeatmapCell>): List<HeatmapWeek> {
     if (cells.isEmpty()) return emptyList()
-    // 找第一列（周一）作为起点，可能早于 cells 第一个日期
     val firstDate = cells.first().date
     val lastDate = cells.last().date
-    val firstDow = firstDate.dayOfWeek.value // 1=Mon..7=Sun
+    val firstDow = firstDate.dayOfWeek.value
     val gridStartDate = firstDate.minusDays((firstDow - 1).toLong())
 
-    // 构建日期 → cell 的快速索引
     val cellByDate = cells.associateBy { it.date }
     val totalDays = java.time.temporal.ChronoUnit.DAYS.between(gridStartDate, lastDate) + 1
     val totalWeeks = ceil(totalDays.toDouble() / 7.0).toInt()
@@ -154,7 +207,6 @@ private fun arrangeHeatmapGrid(cells: List<HeatmapCell>): List<HeatmapWeek> {
     return weeks
 }
 
-/** 为每一列（周）打一个月份标签，仅当该周对应月份变化时才显示，避免所有列都写字。 */
 private fun buildMonthColumnLabels(weeks: List<HeatmapWeek>): List<String?> {
     var lastMonth = -1
     return weeks.map { w ->
@@ -171,18 +223,27 @@ private fun buildMonthColumnLabels(weeks: List<HeatmapWeek>): List<String?> {
 /* ========== UI 子组件 ========== */
 
 @Composable
-private fun MonthLabelRow(labels: List<String?>) {
+private fun MonthLabelRow(
+    labels: List<String?>,
+    cellSize: Dp,
+    gap: Dp,
+    leadingWidth: Dp,
+) {
+    val density = LocalDensity.current
+    val minLabelSpanPx = with(density) { MIN_LABEL_SPAN.toPx() }
+    val stepPx = with(density) { (cellSize + gap).toPx() }
     Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(start = WEEKDAY_LABEL_WIDTH),
-        horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(gap),
     ) {
-        // 宽度占位：用等宽的 Box 对齐下面热力图的每一列
-        val cellW = Modifier.width(CELL_SIZE)
-        labels.forEach { label ->
-            Box(cellW) {
-                if (label != null) {
+        if (leadingWidth > 0.dp) {
+            Spacer(Modifier.width(leadingWidth))
+        }
+        var lastShownCol = Int.MIN_VALUE / 2
+        labels.forEachIndexed { col, label ->
+            Box(Modifier.width(cellSize)) {
+                if (label != null && (col - lastShownCol) * stepPx >= minLabelSpanPx) {
+                    lastShownCol = col
                     Text(
                         label,
                         style = MaterialTheme.typography.labelSmall,
@@ -196,7 +257,7 @@ private fun MonthLabelRow(labels: List<String?>) {
 }
 
 @Composable
-private fun WeekdayLabelColumn() {
+private fun WeekdayLabelColumn(cellSize: Dp) {
     Column(
         modifier = Modifier.width(WEEKDAY_LABEL_WIDTH).padding(top = 2.dp),
         verticalArrangement = Arrangement.spacedBy(CELL_GAP),
@@ -208,10 +269,9 @@ private fun WeekdayLabelColumn() {
             stringResource(R.string.heatmap_weekday_fri),
             stringResource(R.string.heatmap_weekday_sun),
         )
-        val showOn = setOf(0, 2, 4, 6) // 周一、周三、周五、周日对应的行下标
+        val showOn = setOf(0, 2, 4, 6)
         repeat(7) { row ->
-            val h = if (labels.size > showOn.indexOf(row)) CELL_SIZE else CELL_SIZE
-            Box(Modifier.height(h)) {
+            Box(Modifier.height(cellSize)) {
                 if (row in showOn) {
                     val idx = showOn.indexOf(row)
                     Text(
@@ -227,18 +287,17 @@ private fun WeekdayLabelColumn() {
 }
 
 @Composable
-private fun HeatmapGrid(weeks: List<HeatmapWeek>) {
-    // 一周 7 行，每列对应一周；逐周写，每周画 7 个 cell（从上到下 Mon..Sun）
+private fun HeatmapGrid(weeks: List<HeatmapWeek>, cellSize: Dp, gap: Dp) {
     Row(
-        horizontalArrangement = Arrangement.spacedBy(CELL_GAP),
+        horizontalArrangement = Arrangement.spacedBy(gap),
         verticalAlignment = Alignment.Top,
     ) {
         weeks.forEach { week ->
             Column(
-                verticalArrangement = Arrangement.spacedBy(CELL_GAP),
+                verticalArrangement = Arrangement.spacedBy(gap),
             ) {
                 week.cells.forEach { cell ->
-                    HeatmapCellBox(cell)
+                    HeatmapCellBox(cell, cellSize)
                 }
             }
         }
@@ -246,21 +305,19 @@ private fun HeatmapGrid(weeks: List<HeatmapWeek>) {
 }
 
 @Composable
-private fun HeatmapCellBox(cell: HeatmapCell?) {
+private fun HeatmapCellBox(cell: HeatmapCell?, cellSize: Dp) {
     val scheme = MaterialTheme.colorScheme
     val color = remember(cell) {
         when {
             cell == null -> Color.Transparent
-            cell.durationMs <= 0L -> scheme.surfaceVariant.copy(alpha = 0.35f)
+            cell.durationMs <= 0L -> scheme.surfaceContainerHighest.copy(alpha = 0.45f)
             else -> {
-                // 基于 primary 色 + alpha 梯度；0 时长已在上面分支
                 val i = cell.intensity.coerceIn(0f, 1f)
-                // 四档：0-0.12 很淡、0.12-0.35 淡、0.35-0.7 中、0.7+ 浓
                 val alpha = when {
-                    i <= 0.12f -> 0.22f
-                    i <= 0.35f -> 0.42f
-                    i <= 0.70f -> 0.68f
-                    else -> 0.92f
+                    i <= 0.15f -> 0.28f
+                    i <= 0.40f -> 0.50f
+                    i <= 0.75f -> 0.72f
+                    else -> 0.95f
                 }
                 scheme.primary.copy(alpha = alpha)
             }
@@ -269,9 +326,9 @@ private fun HeatmapCellBox(cell: HeatmapCell?) {
     val hasCell = cell != null
     Box(
         modifier = Modifier
-            .width(CELL_SIZE)
-            .height(CELL_SIZE)
-            .clip(CELL_SHAPE)
+            .width(cellSize)
+            .height(cellSize)
+            .clip(if (cellSize >= 6.dp) CELL_SHAPE else RoundedCornerShape(1.dp))
             .then(if (hasCell) Modifier.background(color) else Modifier),
     )
 }
@@ -280,7 +337,9 @@ private fun HeatmapCellBox(cell: HeatmapCell?) {
 private fun LegendRow() {
     val scheme = MaterialTheme.colorScheme
     Row(
-        modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp),
         horizontalArrangement = Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -290,16 +349,22 @@ private fun LegendRow() {
             color = scheme.onSurfaceVariant,
         )
         Spacer(Modifier.width(6.dp))
-        val alphas = listOf(0.22f, 0.42f, 0.68f, 0.92f)
-        alphas.forEachIndexed { i, a ->
+        val colors = listOf(
+            scheme.surfaceContainerHighest.copy(alpha = 0.45f),
+            scheme.primary.copy(alpha = 0.28f),
+            scheme.primary.copy(alpha = 0.50f),
+            scheme.primary.copy(alpha = 0.72f),
+            scheme.primary.copy(alpha = 0.95f),
+        )
+        colors.forEachIndexed { i, c ->
             Box(
                 modifier = Modifier
-                    .width(CELL_SIZE)
-                    .height(CELL_SIZE)
+                    .width(LEGEND_CELL_SIZE)
+                    .height(LEGEND_CELL_SIZE)
                     .clip(CELL_SHAPE)
-                    .background(if (i == 0) scheme.surfaceVariant.copy(alpha = 0.35f) else scheme.primary.copy(alpha = a)),
+                    .background(c),
             )
-            if (i < alphas.lastIndex) Spacer(Modifier.width(CELL_GAP))
+            if (i < colors.lastIndex) Spacer(Modifier.width(CELL_GAP))
         }
         Spacer(Modifier.width(6.dp))
         Text(
@@ -310,7 +375,9 @@ private fun LegendRow() {
     }
 }
 
-private val CELL_SIZE = 11.dp
-private val CELL_GAP = 2.5.dp
-private val CELL_SHAPE = RoundedCornerShape(2.dp)
+private val MAX_CELL_SIZE = 13.dp
+private val MIN_LABEL_SPAN = 22.dp
 private val WEEKDAY_LABEL_WIDTH = 18.dp
+private val LEGEND_CELL_SIZE = 10.dp
+private val CELL_GAP = 2.5.dp
+private val CELL_SHAPE = RoundedCornerShape(2.5.dp)

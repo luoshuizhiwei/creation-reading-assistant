@@ -44,6 +44,7 @@ class LibrarySortControlsTest {
                     name = "分类甲",
                     position = 0,
                     total = 3,
+                    themeColor = androidx.compose.ui.graphics.Color.Blue,
                     onMoveUp = {},
                     onMoveDown = { downCalls++ },
                 )

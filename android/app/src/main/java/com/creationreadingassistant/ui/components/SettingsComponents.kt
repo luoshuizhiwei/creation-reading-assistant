@@ -212,24 +212,65 @@ fun <T> SettingSegmentedRow(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-        SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            options.forEachIndexed { index, (value, label) ->
-                SegmentedButton(
-                    selected = selected == value,
-                    onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect(value) },
-                    enabled = enabled,
-                    shape = SegmentedButtonDefaults.itemShape(index, options.size),
-                    modifier = Modifier.weight(1f),
-                    icon = {},
-                    label = {
-                        Text(
-                            label,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            style = MaterialTheme.typography.labelMedium,
-                        )
-                    },
-                )
+        if (options.size <= 4) {
+            SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                options.forEachIndexed { index, (value, label) ->
+                    SegmentedButton(
+                        selected = selected == value,
+                        onClick = { haptic(HapticFeedbackType.TextHandleMove); onSelect(value) },
+                        enabled = enabled,
+                        shape = SegmentedButtonDefaults.itemShape(index, options.size),
+                        modifier = Modifier.weight(1f),
+                        icon = {},
+                        label = {
+                            Text(
+                                label,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        },
+                    )
+                }
+            }
+        } else {
+            androidx.compose.foundation.lazy.LazyRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(horizontal = 2.dp),
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                items(options.size) { index ->
+                    val (value, label) = options[index]
+                    val isSelected = selected == value
+                    androidx.compose.material3.FilterChip(
+                        selected = isSelected,
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            onSelect(value)
+                        },
+                        enabled = enabled,
+                        label = {
+                            Text(
+                                label,
+                                maxLines = 1,
+                                style = MaterialTheme.typography.labelMedium,
+                            )
+                        },
+                        shape = androidx.compose.foundation.shape.RoundedCornerShape(10.dp),
+                        colors = androidx.compose.material3.FilterChipDefaults.filterChipColors(
+                            selectedContainerColor = MaterialTheme.colorScheme.primary,
+                            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            labelColor = MaterialTheme.colorScheme.onSurface,
+                        ),
+                        border = androidx.compose.material3.FilterChipDefaults.filterChipBorder(
+                            enabled = enabled,
+                            selected = isSelected,
+                            borderColor = MaterialTheme.colorScheme.outlineVariant,
+                            selectedBorderColor = MaterialTheme.colorScheme.primary,
+                        ),
+                    )
+                }
             }
         }
     }

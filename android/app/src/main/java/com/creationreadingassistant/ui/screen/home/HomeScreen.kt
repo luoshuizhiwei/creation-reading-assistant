@@ -1,14 +1,25 @@
 package com.creationreadingassistant.ui.screen.home
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.composed
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -17,7 +28,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
@@ -33,7 +46,7 @@ import com.creationreadingassistant.ui.screen.home.components.HomeInspirationIte
 import com.creationreadingassistant.ui.screen.home.components.HomeMetricsSection
 import com.creationreadingassistant.ui.screen.home.components.HomeReadingArchiveSection
 import com.creationreadingassistant.ui.theme.ListSkeleton
-import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.components.SectionHeader
 
@@ -91,7 +104,7 @@ fun HomeScreen(
         ) {
             // —— 首屏骨架（Route 控制 showSkeleton）——
             if (state.showSkeleton) {
-                item(key = "skeleton") {
+                item(key = "skeleton", contentType = "skeleton") {
                     ListSkeleton(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -101,7 +114,7 @@ fun HomeScreen(
                     )
                 }
             } else {
-                item(key = "reading-archive") {
+                item(key = "reading-archive", contentType = "archive") {
                     HomeReadingArchiveSection(
                         totalReadingMs = state.totalReadingMs,
                         totalReadBooksCount = state.totalReadBooksCount,
@@ -110,7 +123,7 @@ fun HomeScreen(
                 }
 
                 // —— 2. 继续阅读 block（Section + 自己的 LazyRow）——
-                item(key = "continue-section") {
+                item(key = "continue-section", contentType = "continue") {
                     HomeContinueSection(
                         continueBooks = state.continueBooks,
                         progressById = state.progressById,
@@ -121,7 +134,7 @@ fun HomeScreen(
                 }
 
                 // —— 3. 本周概览指标组——
-                item(key = "metrics-section") {
+                item(key = "metrics-section", contentType = "metrics") {
                     HomeMetricsSection(
                         thisWeekNew = state.thisWeekNew,
                         readingCount = state.readingCount,
@@ -132,20 +145,22 @@ fun HomeScreen(
                 }
 
                 // —— 4. 最近灵感（直接 items 嵌入，不嵌套第二个 LazyColumn）——
-                item(key = "inspiration-header") {
+                item(key = "inspiration-header", contentType = "section-header") {
                     InspirationHeaderRow(
                         onSeeAll = { onAction(HomeAction.OpenRecentInspirations) },
+                        reducedMotion = reducedMotion,
                         isEmpty = state.recentInspirations.isEmpty(),
                     )
                 }
                 if (state.recentInspirations.isEmpty()) {
-                    item(key = "inspiration-empty") {
-                        EmptyInspirationHint()
+                    item(key = "inspiration-empty", contentType = "empty-hint") {
+                        EmptyInspirationHint(reducedMotion = reducedMotion)
                     }
                 } else {
                     items(
-                        state.recentInspirations,
+                        items = state.recentInspirations,
                         key = { "home-insp-${it.id}" },
+                        contentType = { "inspiration-item" },
                     ) { insp ->
                         HomeInspirationItem(
                             inspiration = insp,
@@ -156,7 +171,7 @@ fun HomeScreen(
                 }
 
                 // —— 5. 已阅读完成 block（Section + 自己的 LazyRow）——
-                item(key = "completed-section") {
+                item(key = "completed-section", contentType = "completed") {
                     HomeCompletedSection(
                         completedBooks = state.completedBooks,
                         progressById = state.progressById,
@@ -166,7 +181,7 @@ fun HomeScreen(
                 }
 
                 // 底部再多 1 个小 gap，避免最后一个 completed section 的 card 紧贴 App 导航栏
-                item(key = "home-bottom-spacer") {
+                item(key = "home-bottom-spacer", contentType = "spacer") {
                     Spacer(Modifier.height(layout.pageVertical))
                 }
             }
@@ -175,12 +190,15 @@ fun HomeScreen(
 }
 
 @Composable
-private fun InspirationHeaderRow(onSeeAll: () -> Unit, isEmpty: Boolean) {
-    val reducedMotion = rememberReducedMotion()
+private fun InspirationHeaderRow(
+    onSeeAll: () -> Unit,
+    reducedMotion: Boolean = false,
+    isEmpty: Boolean = false,
+) {
     SectionHeader(
         title = stringResource(R.string.home_recent_inspiration),
         modifier = Modifier
-            .animateEnter(180, reducedMotion)
+            .animateEnterOptimized(180, reducedMotion)
             .testTag("home-insp-header"),
         action = {
             TextButton(
@@ -199,12 +217,57 @@ private fun InspirationHeaderRow(onSeeAll: () -> Unit, isEmpty: Boolean) {
 }
 
 @Composable
-private fun EmptyInspirationHint() {
-    val reducedMotion = rememberReducedMotion()
+private fun EmptyInspirationHint(
+    reducedMotion: Boolean = false,
+) {
     com.creationreadingassistant.ui.components.SectionEmptyHint(
         text = "还没有灵感，阅读时选中文字即可保存为灵感。",
+        leadingIcon = {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .background(Color(0xFFD97706).copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Lightbulb,
+                    contentDescription = null,
+                    tint = Color(0xFFD97706),
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+        },
         modifier = Modifier
-            .animateEnter(180, reducedMotion)
+            .animateEnterOptimized(180, reducedMotion)
             .testTag("home-insp-empty"),
     )
+}
+
+/**
+ * 优化版入场错落动效：
+ * 将 progress.value 的读取完全下沉至 Draw Phase（graphicsLayer），
+ * 消除动效期间每一帧对 Composable 及其子树的重组（Recomposition）与重排（Re-layout）。
+ */
+private fun Modifier.animateEnterOptimized(
+    delayMillis: Int = 0,
+    reducedMotion: Boolean = false,
+): Modifier = composed {
+    if (reducedMotion) return@composed this
+    val progress = remember { Animatable(0f) }
+    LaunchedEffect(Unit) {
+        progress.animateTo(
+            1f,
+            animationSpec = tween(
+                durationMillis = MotionTokens.Base,
+                delayMillis = delayMillis,
+                easing = MotionTokens.StandardEasing,
+            ),
+        )
+    }
+    graphicsLayer {
+        val p = progress.value
+        alpha = p
+        translationY = (1f - p) * 10f
+    }
 }

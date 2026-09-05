@@ -1,10 +1,12 @@
 package com.creationreadingassistant.ui.navigation
 
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -52,13 +54,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.activity.compose.BackHandler
@@ -156,6 +158,14 @@ val TOP_LEVEL_ROUTES = listOf(
     TopLevelRoute.Profile,
 )
 
+/**
+ * Bottom-bar icons always reserve the indicator height. Without this, selecting a tab changes
+ * the column's measured height and makes its label move vertically.
+ */
+internal fun bottomBarIconSlotHeight(
+    @Suppress("UNUSED_PARAMETER") selected: Boolean,
+): Dp = 30.dp
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppNavigation() {
@@ -209,31 +219,43 @@ fun AppNavigation() {
                                 // 系统「减少动态效果」：开启时瞬切
                                 val reducedMotion = rememberReducedMotion()
                                 Column {
-                                    // 底部栏顶部一条 1dp 发丝线，让底栏与页面底分界分明（§2.2 / §3.2）
+                                    // 底部栏顶部发丝线（0.6dp outlineVariant 发丝描边 + 柔和微阴影），容器颜色采用微半透与发丝高光
                                     HorizontalDivider(
-                                        thickness = spec.dividerThickness,
-                                        color = MaterialTheme.colorScheme.outlineVariant,
+                                        thickness = 0.6.dp,
+                                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                                     )
-                                    Surface(color = MaterialTheme.colorScheme.surface) {
-                                        Column {
-                                            Row(
+                                    Surface(
+                                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.94f),
+                                        shadowElevation = 8.dp,
+                                    ) {
+                                        Box {
+                                            // 容器顶部发丝微高光
+                                            Box(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
-                                                    .height(64.dp),
-                                            ) {
-                                                BottomBarItems(
-                                                    navBackStackEntry = navBackStackEntry,
-                                                    navController = navController,
+                                                    .height(0.6.dp)
+                                                    .background(MaterialTheme.colorScheme.surfaceTint.copy(alpha = 0.08f)),
+                                            )
+                                            Column {
+                                                Row(
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(64.dp),
+                                                ) {
+                                                    BottomBarItems(
+                                                        navBackStackEntry = navBackStackEntry,
+                                                        navController = navController,
+                                                    )
+                                                }
+                                                Spacer(
+                                                    Modifier
+                                                        .fillMaxWidth()
+                                                        // 系统导航栏已由全局策略隐藏：底部只需避开手势区
+                                                        // （mandatorySystemGestures 恒定，不随 transient swipe 跳动，
+                                                        // 三键导航下为 0，不会留空白系统栏）。
+                                                        .windowInsetsBottomHeight(WindowInsets.mandatorySystemGestures),
                                                 )
                                             }
-                                            Spacer(
-                                                Modifier
-                                                    .fillMaxWidth()
-                                                    // 系统导航栏已由全局策略隐藏：底部只需避开手势区
-                                                    // （mandatorySystemGestures 恒定，不随 transient swipe 跳动，
-                                                    // 三键导航下为 0，不会留空白系统栏）。
-                                                    .windowInsetsBottomHeight(WindowInsets.mandatorySystemGestures),
-                                            )
                                         }
                                     }
                                 }
@@ -432,7 +454,7 @@ private fun AppNavHost(
     }
 }
 
-/** 底栏五个 Tab 的共享内容。选中态 = 图标背后展开淡色胶囊指示 + 主色过渡 + 选中轻弹。 */
+/** 底栏五个 Tab 的共享内容。选中态 = 图标背后展开淡色微光晕胶囊指示 + 主色过渡 + Spring 物理弹性动效。 */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RowScope.BottomBarItems(
@@ -443,36 +465,48 @@ fun RowScope.BottomBarItems(
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
 
+    // Spring 物理弹性动效：spring(dampingRatio = 0.72f, stiffness = 420f)
+    val springFloatSpec = if (reducedMotion) snap() else spring<Float>(dampingRatio = 0.72f, stiffness = 420f)
+
+    // 胶囊指示器样式与颜色预先计算，全 Tab 复用，避免每一帧或每个 Tab 重复创建对象
+    val capsuleShape = remember { RoundedCornerShape(999.dp) }
+    val indicatorBgColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.82f)
+    val indicatorBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)
+
     TOP_LEVEL_ROUTES.forEach { top ->
         val selected = current?.hierarchy?.any {
             it.route?.substringBefore('?') == top.route
         } == true
         val interactionSource = remember { MutableInteractionSource() }
         val pressed by interactionSource.collectIsPressedAsState()
-        val motionMs = if (reducedMotion) 0 else 90
-        val targetScale = if (pressed) 0.96f else 1f
+
+        // 按压时轻微弹性缩放（0.94f -> 1.0f），按压时产生丝滑触感
+        val targetScale = if (pressed) 0.94f else 1f
         val animatedScale by animateFloatAsState(
             targetValue = targetScale,
-            animationSpec = tween(motionMs),
-            label = "bottom-tab-press",
+            animationSpec = springFloatSpec,
+            label = "bottom-tab-press-scale",
         )
-        // 选中色过渡：避免瞬切带来的生硬感
+
+        // 选中色平滑过渡
         val tint by animateColorAsState(
             targetValue = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-            animationSpec = tween(if (reducedMotion) 0 else 180),
+            animationSpec = if (reducedMotion) snap() else tween(220),
             label = "bottom-tab-tint",
         )
-        // 选中胶囊指示：从 0 宽展开到包裹图标的胶囊，取消时收起
-        val indicatorWidth by animateDpAsState(
-            targetValue = if (selected) 56.dp else 0.dp,
-            animationSpec = tween(if (reducedMotion) 0 else 220),
-            label = "bottom-tab-indicator-w",
+
+        // 选中胶囊指示：固定 56.dp 宽容器，通过 graphicsLayer 进行弹性缩放控制，彻底消除动画期间的重新测量
+        val indicatorScale by animateFloatAsState(
+            targetValue = if (selected) 1f else 0f,
+            animationSpec = springFloatSpec,
+            label = "bottom-tab-indicator-scale",
         )
         val indicatorAlpha by animateFloatAsState(
             targetValue = if (selected) 1f else 0f,
-            animationSpec = tween(if (reducedMotion) 0 else 180),
-            label = "bottom-tab-indicator-a",
+            animationSpec = springFloatSpec,
+            label = "bottom-tab-indicator-alpha",
         )
+
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -487,23 +521,34 @@ fun RowScope.BottomBarItems(
                         navigateToTopLevel(navController, top.route)
                     },
                 )
-                .scale(animatedScale)
-                .alpha(if (pressed) 0.72f else 1f),
+                .graphicsLayer {
+                    scaleX = animatedScale
+                    scaleY = animatedScale
+                    alpha = if (pressed) 0.82f else 1f
+                },
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
         ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (indicatorAlpha > 0f) {
-                    Box(
-                        Modifier
-                            .width(indicatorWidth)
-                            .height(30.dp)
-                            .clip(RoundedCornerShape(999.dp))
-                            .background(
-                                MaterialTheme.colorScheme.primaryContainer.copy(alpha = indicatorAlpha),
-                            ),
-                    )
-                }
+            Box(
+                modifier = Modifier.height(bottomBarIconSlotHeight(selected)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Box(
+                    Modifier
+                        .width(56.dp)
+                        .height(30.dp)
+                        .graphicsLayer {
+                            scaleX = indicatorScale.coerceAtLeast(0f)
+                            alpha = indicatorAlpha.coerceIn(0f, 1f)
+                        }
+                        .clip(capsuleShape)
+                        .background(indicatorBgColor)
+                        .border(
+                            width = 0.6.dp,
+                            color = indicatorBorderColor,
+                            shape = capsuleShape,
+                        ),
+                )
                 Icon(
                     imageVector = top.icon,
                     contentDescription = null,
@@ -515,6 +560,7 @@ fun RowScope.BottomBarItems(
             Text(
                 text = stringResource(top.labelRes),
                 style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
                 color = tint,
                 maxLines = 1,
             )

@@ -1,41 +1,45 @@
 package com.creationreadingassistant.ui.screen.search
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.Book
+import androidx.compose.material.icons.outlined.AutoStories
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Highlight
+import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.SearchOff
-import com.creationreadingassistant.ui.theme.AppIconSize
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -44,35 +48,40 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
-import com.creationreadingassistant.data.local.entity.BookEntity
-import com.creationreadingassistant.data.local.entity.HighlightEntity
-import com.creationreadingassistant.data.local.entity.InspirationEntity
-import com.creationreadingassistant.data.local.entity.NoteEntity
-import com.creationreadingassistant.ui.viewmodel.SearchViewModel
+import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
-import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.components.SelectablePill
-import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
-import com.creationreadingassistant.ui.theme.animateEnter
-import com.creationreadingassistant.ui.theme.listItemEnter
+import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import com.creationreadingassistant.ui.viewmodel.SearchViewModel
+
+private val SearchBookColor = Color(0xFF7C3AED)
+private val SearchInspColor = Color(0xFFD97706)
+private val SearchNoteColor = Color(0xFF0284C7)
+private val SearchHighlightColor = Color(0xFF059669)
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
@@ -88,55 +97,114 @@ fun SearchScreen(
     var tab by remember { mutableStateOf("all") }
     val focusRequester = remember { FocusRequester() }
     val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
     LaunchedEffect(query) { viewModel.search(query) }
 
     val totalHits = results.books.size + results.inspirations.size + results.notes.size + results.highlights.size
 
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("搜索", style = MaterialTheme.typography.headlineLarge) },
-                navigationIcon = {
-                    IconButton(onClick = { navController.popBackStack() }) {
-                        Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
-                    }
-                },
-            )
+    AppScreenScaffold(
+        title = "全局搜索",
+        navigationIcon = {
+            IconButton(onClick = { navController.popBackStack() }) {
+                Icon(Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "返回")
+            }
         },
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+            // 顶部优雅搜索框
             OutlinedTextField(
                 value = query,
                 onValueChange = { query = it },
-                placeholder = { Text("搜索书籍、灵感、笔记、摘录") },
+                placeholder = { Text("搜索书籍、灵感、笔记、高亮") },
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(
                         horizontal = layout.pageHorizontal,
-                        vertical = layout.relatedGap,
+                        vertical = 6.dp,
                     )
                     .focusRequester(focusRequester),
                 singleLine = true,
-                shape = LocalComponentSpec.current.listItemShape,
-                leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+                shape = RoundedCornerShape(14.dp),
+                leadingIcon = {
+                    Icon(
+                        Icons.Outlined.Search,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                },
+                trailingIcon = {
+                    if (query.isNotEmpty()) {
+                        IconButton(onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            query = ""
+                        }) {
+                            Icon(
+                                Icons.Outlined.Close,
+                                contentDescription = "清除",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
+                },
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.5f),
+                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                ),
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) viewModel.addHistory(query) }),
             )
 
-            // Tab 分类：全部 / 书籍 / 灵感 / 笔记 / 高亮（SE5）—— 类型胶囊，对齐 web filter-chip 视觉
-            FlowRow(
-                Modifier.padding(horizontal = layout.pageHorizontal),
-                horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
-                verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
+            // Tab 筛选分类微胶囊轨
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = layout.pageHorizontal, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                SearchPill(selected = tab == "all", label = "全部", onClick = { tab = "all" })
-                SearchPill(selected = tab == "books", label = "书籍 (${results.books.size})", onClick = { tab = "books" })
-                SearchPill(selected = tab == "inspirations", label = "灵感 (${results.inspirations.size})", onClick = { tab = "inspirations" })
-                SearchPill(selected = tab == "notes", label = "笔记 (${results.notes.size})", onClick = { tab = "notes" })
-                SearchPill(selected = tab == "highlights", label = "高亮 (${results.highlights.size})", onClick = { tab = "highlights" })
+                CategoryFilterPill(
+                    label = "全部",
+                    count = totalHits,
+                    selected = tab == "all",
+                    activeColor = MaterialTheme.colorScheme.primary,
+                    onClick = { tab = "all" },
+                )
+                CategoryFilterPill(
+                    label = "书籍",
+                    count = results.books.size,
+                    selected = tab == "books",
+                    activeColor = SearchBookColor,
+                    onClick = { tab = "books" },
+                )
+                CategoryFilterPill(
+                    label = "灵感",
+                    count = results.inspirations.size,
+                    selected = tab == "inspirations",
+                    activeColor = SearchInspColor,
+                    onClick = { tab = "inspirations" },
+                )
+                CategoryFilterPill(
+                    label = "笔记",
+                    count = results.notes.size,
+                    selected = tab == "notes",
+                    activeColor = SearchNoteColor,
+                    onClick = { tab = "notes" },
+                )
+                CategoryFilterPill(
+                    label = "高亮",
+                    count = results.highlights.size,
+                    selected = tab == "highlights",
+                    activeColor = SearchHighlightColor,
+                    onClick = { tab = "highlights" },
+                )
             }
+
+            Spacer(Modifier.height(4.dp))
 
             when {
                 loading -> {
@@ -144,7 +212,7 @@ fun SearchScreen(
                 }
                 query.isBlank() -> {
                     if (history.isNotEmpty()) {
-                        // 搜索历史（SE2）
+                        // 搜索历史流
                         Column(
                             Modifier
                                 .fillMaxWidth()
@@ -158,37 +226,109 @@ fun SearchScreen(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                Text("搜索历史", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                TextButton(onClick = { viewModel.clearHistory() }) {
-                                    Text("清空")
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        Icons.Outlined.History,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(16.dp),
+                                    )
+                                    Spacer(Modifier.width(6.dp))
+                                    Text(
+                                        "搜索历史",
+                                        style = MaterialTheme.typography.titleSmall,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                                TextButton(onClick = {
+                                    haptic(HapticFeedbackType.LongPress)
+                                    viewModel.clearHistory()
+                                }) {
+                                    Text("清空", color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 }
                             }
                             FlowRow(
-                                Modifier.fillMaxWidth().padding(top = 8.dp),
+                                Modifier.fillMaxWidth().padding(top = 4.dp),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                                 verticalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
                                 history.forEach { term ->
-                                    SearchPill(
-                                        selected = false,
-                                        label = term,
+                                    Surface(
                                         onClick = {
+                                            haptic(HapticFeedbackType.TextHandleMove)
                                             query = term
                                             viewModel.addHistory(term)
                                         },
-                                    )
+                                        shape = PillShape,
+                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            Icon(
+                                                Icons.Outlined.History,
+                                                contentDescription = null,
+                                                modifier = Modifier.size(13.dp),
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                                            )
+                                            Spacer(Modifier.width(6.dp))
+                                            Text(
+                                                text = term,
+                                                style = MaterialTheme.typography.bodySmall,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
                     } else {
-                        EmptyHint(text = "输入关键词开始搜索")
+                        // 空历史探索引导微岛
+                        Box(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = layout.pageHorizontal),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(10.dp),
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(76.dp)
+                                        .clip(RoundedCornerShape(22.dp))
+                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Icon(
+                                        Icons.Outlined.Search,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.size(36.dp),
+                                    )
+                                }
+                                Text(
+                                    "搜索书库与灵感创作",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                )
+                                Text(
+                                    "支持按书名、作者、灵感片段、笔记正文或高亮划线快速检索",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
                     }
                 }
                 totalHits == 0 -> {
                     FullEmptyState(
                         icon = { LineArtBook(sizeDp = 72.dp) },
                         title = "未找到匹配结果",
-                        body = "换个关键词或清除筛选再试一次。",
+                        body = "未找到与「$query」相关的内容，换个关键词再试一次吧。",
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(layout.pageHorizontal),
@@ -199,9 +339,10 @@ fun SearchScreen(
                         if (tab == "all" || tab == "books") {
                             itemsIndexed(results.books, key = { _, book -> "book-${book.id}" }) { index, book ->
                                 SearchResultRow(
-                                    icon = Icons.Outlined.Book,
+                                    icon = Icons.Outlined.AutoStories,
                                     title = buildHighlighted(book.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "书籍",
+                                    typeColor = SearchBookColor,
                                     sourceLabel = null,
                                     reducedMotion = reducedMotion,
                                     entranceDelay = index * 40,
@@ -219,6 +360,7 @@ fun SearchScreen(
                                     icon = Icons.Outlined.Lightbulb,
                                     title = buildHighlighted(insp.title, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "灵感",
+                                    typeColor = SearchInspColor,
                                     sourceLabel = null,
                                     reducedMotion = reducedMotion,
                                     entranceDelay = index * 40,
@@ -237,6 +379,7 @@ fun SearchScreen(
                                     icon = Icons.Outlined.Description,
                                     title = buildHighlighted(note.title.ifBlank { note.body }, query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "笔记",
+                                    typeColor = SearchNoteColor,
                                     sourceLabel = source,
                                     reducedMotion = reducedMotion,
                                     entranceDelay = index * 40,
@@ -255,10 +398,11 @@ fun SearchScreen(
                                     icon = Icons.Outlined.Highlight,
                                     title = buildHighlighted(hl.text.take(40), query, MaterialTheme.colorScheme.primary),
                                     typeLabel = "高亮",
+                                    typeColor = SearchHighlightColor,
                                     sourceLabel = source,
                                     reducedMotion = reducedMotion,
                                     entranceDelay = index * 40,
-                                    snippet = (hl.note ?: "无备注").take(100),
+                                    snippet = (hl.note ?: "划线摘录").take(100),
                                     onClick = {
                                         viewModel.addHistory(query)
                                         navController.navigate("reader/${hl.book_id}?highlightId=${hl.id}")
@@ -274,33 +418,61 @@ fun SearchScreen(
 }
 
 @Composable
-private fun EmptyHint(text: String) {
-    Column(
-        Modifier.fillMaxSize(),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
+private fun CategoryFilterPill(
+    label: String,
+    count: Int,
+    selected: Boolean,
+    activeColor: Color,
+    onClick: () -> Unit,
+) {
+    val haptic = rememberHaptic(rememberReducedMotion())
+    Surface(
+        onClick = {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        shape = PillShape,
+        color = if (selected) activeColor.copy(alpha = 0.15f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+        border = if (selected) BorderStroke(1.dp, activeColor.copy(alpha = 0.4f)) else null,
     ) {
-        LineArtBook(modifier = Modifier.size(64.dp))
-        Text(text, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium,
+                color = if (selected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (count > 0) {
+                Spacer(Modifier.width(5.dp))
+                Box(
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(
+                            if (selected) activeColor.copy(alpha = 0.22f) else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.12f),
+                        )
+                        .padding(horizontal = 6.dp, vertical = 1.dp),
+                ) {
+                    Text(
+                        text = "$count",
+                        style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                        fontWeight = FontWeight.Bold,
+                        color = if (selected) activeColor else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
 
 @Composable
-private fun SearchPill(selected: Boolean, label: String, onClick: () -> Unit) {
-    // 触感已由 SelectablePill 内建，勿在此重复触发
-    SelectablePill(
-        text = label,
-        selected = selected,
-        onClick = onClick,
-        unselectedColor = MaterialTheme.colorScheme.surfaceContainerLowest,
-    )
-}
-
-@Composable
 private fun SearchResultRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    icon: ImageVector,
     title: AnnotatedString,
     typeLabel: String,
+    typeColor: Color,
     sourceLabel: String?,
     snippet: String,
     onClick: () -> Unit,
@@ -310,27 +482,58 @@ private fun SearchResultRow(
     val haptic = rememberHaptic(rememberReducedMotion())
     SectionCard(
         onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).animateEnter(delayMillis = entranceDelay, reducedMotion = reducedMotion),
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp)
+            .animateEnter(delayMillis = entranceDelay, reducedMotion = reducedMotion),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(icon, contentDescription = null, modifier = Modifier.size(AppIconSize.Medium), tint = MaterialTheme.colorScheme.primary)
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(typeColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    modifier = Modifier.size(20.dp),
+                    tint = typeColor,
+                )
+            }
             Spacer(Modifier.width(12.dp))
-            Column(Modifier.weight(1f)) {
-                Text(title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(
-                        typeLabel,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Bold,
-                    )
-                    sourceLabel?.let {
-                        Spacer(Modifier.width(6.dp))
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(4.dp))
+                            .background(typeColor.copy(alpha = 0.1f))
+                            .padding(horizontal = 6.dp, vertical = 1.dp),
+                    ) {
                         Text(
-                            it,
+                            text = typeLabel,
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp),
+                            color = typeColor,
+                            fontWeight = FontWeight.Bold,
+                        )
+                    }
+                    sourceLabel?.let {
+                        Text(
+                            text = it,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
@@ -340,10 +543,11 @@ private fun SearchResultRow(
                 }
                 if (snippet.isNotBlank()) {
                     Text(
-                        snippet,
+                        text = snippet,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
+                        lineHeight = 16.sp,
+                        maxLines = 2,
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
@@ -352,8 +556,8 @@ private fun SearchResultRow(
     }
 }
 
-/** 在文本中高亮匹配子串（SE3）。命中部分用 error 色加粗，复用主题色，不引入硬编码。 */
-private fun buildHighlighted(text: String, query: String, highlightColor: androidx.compose.ui.graphics.Color): AnnotatedString {
+/** 在文本中高亮匹配子串（SE3）。命中部分使用柔和底衬与主色加粗。 */
+private fun buildHighlighted(text: String, query: String, highlightColor: Color): AnnotatedString {
     val keyword = query.trim()
     if (keyword.isBlank()) return AnnotatedString(text)
     val lower = text.lowercase()
@@ -367,7 +571,13 @@ private fun buildHighlighted(text: String, query: String, highlightColor: androi
             break
         }
         if (found > index) builder.append(text.substring(index, found))
-        builder.pushStyle(SpanStyle(color = highlightColor, fontWeight = FontWeight.Bold))
+        builder.pushStyle(
+            SpanStyle(
+                color = highlightColor,
+                fontWeight = FontWeight.Bold,
+                background = highlightColor.copy(alpha = 0.14f),
+            ),
+        )
         builder.append(text.substring(found, (found + keyword.length).coerceAtMost(text.length)))
         builder.pop()
         index = found + keyword.length

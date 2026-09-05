@@ -1,6 +1,5 @@
 package com.creationreadingassistant.ui.components
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -10,9 +9,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -23,7 +25,6 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.BookEntity
-import com.creationreadingassistant.ui.theme.AppShapes
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.SealMark
 
@@ -31,72 +32,153 @@ import com.creationreadingassistant.ui.theme.SealMark
  * 低饱和多色占位封面色板（冻结规范 §8 书架：灰绿/陶土/石板蓝/藕灰/暖灰等互异低彩度色）。
  * 按书籍 id 稳定分配，每本书不同色，消灭「全部同一个灰蓝矩形」的单调观感。
  */
-private val CoverPalette = listOf(
-    Color(0xFF7E93AE), // 石板蓝
-    Color(0xFF9CAEA0), // 灰绿
-    Color(0xFFC08466), // 陶土
-    Color(0xFFA89AA2), // 藕灰
-    Color(0xFFB7A98F), // 暖灰
-    Color(0xFF8FA8C8), // 雾蓝
-    Color(0xFFAD8FA8), // 灰紫
-)
-
-private fun coverLuma(c: Color): Float = 0.299f * c.red + 0.587f * c.green + 0.114f * c.blue
+import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.sp
 
 /**
- * 无封面时的共享占位封面：多色低饱和渐变 + 衬线书名 + 格式标注。
- * 书架网格与首页「继续阅读 / 已读完」卡片统一消费，全站占位封面同一语言。
- * 深态整体降明度；文字色随封面明度取反保证可读。
+ * 现代高质感纯色书卷色板：雾蓝、鼠尾草绿、烟褐、灰青、暖灰棕、墨青、雾紫、铅灰。
+ * 自然雅致、低彩度、不古董沉闷，按书籍 id 稳定哈希分配。
+ */
+private val ModernCoverPalette = listOf(
+    Color(0xFF3F4F5E), // 雾蓝
+    Color(0xFF4A5B52), // 鼠尾草灰绿
+    Color(0xFF5E4E52), // 烟褐
+    Color(0xFF484A59), // 灰青
+    Color(0xFF5A5245), // 暖灰棕
+    Color(0xFF3E5459), // 墨青
+    Color(0xFF544A5E), // 雾紫
+    Color(0xFF424A52), // 铅灰
+)
+
+/**
+ * 左侧克制自然的实体书微阴影画笔（顶级常量，零 GC 分配）。
+ */
+private val CoverSpineShadowBrush = Brush.horizontalGradient(
+    listOf(
+        Color.Black.copy(alpha = 0.25f),
+        Color.Black.copy(alpha = 0.08f),
+        Color.Transparent,
+    ),
+)
+
+/**
+ * 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感（顶级常量，零 GC 分配）。
+ */
+private val CoverSheenBrush = Brush.linearGradient(
+    colorStops = arrayOf(
+        0.0f to Color.White.copy(alpha = 0.16f),
+        0.42f to Color.White.copy(alpha = 0.0f),
+    ),
+)
+
+/**
+ * 现代阅读器风格的默认书籍封面：
+ * 1. 自然低彩度书卷底版 + 柔和垂直微光；
+ * 2. 左侧细腻克制的实体书微阴影；
+ * 3. 干净大气的居中书名排版 + 真实作者名（若有）；
+ * 4. 彻底去除“典藏版/精排/经典巨献”等夸张文案与浮夸烫金装饰，清爽现代耐看；
+ * 5. 支持大封面（网格）与小封面（列表）自适应，小尺寸下自动精简与缩放，杜绝挤压截断。
  */
 @Composable
 fun MutedCoverFallback(
     book: BookEntity,
     modifier: Modifier = Modifier,
-    maxTitleChars: Int = 12,
+    maxTitleChars: Int = 20,
     showFormat: Boolean = true,
+    isCompact: Boolean = false,
 ) {
-    val scheme = MaterialTheme.colorScheme
-    val dark = coverLuma(scheme.surface) < 0.5f
-    // 高位混合后再取模：UUID 风格 id 低位相似时也能散到不同色，减少相邻书撞色
     val h = book.id.hashCode()
     val spread = ((h xor (h ushr 16)).toLong() and 0x7fffffffL).toInt()
-    val base = CoverPalette[spread % CoverPalette.size]
-    val top = if (dark) androidx.compose.ui.graphics.lerp(base, Color.Black, 0.42f) else androidx.compose.ui.graphics.lerp(base, Color.White, 0.14f)
-    val bottom = if (dark) androidx.compose.ui.graphics.lerp(base, Color.Black, 0.58f) else androidx.compose.ui.graphics.lerp(base, Color.Black, 0.14f)
-    val ink = if (coverLuma(if (dark) bottom else base) > 0.55f) Color(0xFF2A2E35) else Color(0xFFF5F3EE)
-    androidx.compose.foundation.layout.Column(
+    val base = ModernCoverPalette[spread % ModernCoverPalette.size]
+
+    val backgroundBrush = remember(book.id, base) {
+        val top = androidx.compose.ui.graphics.lerp(base, Color.White, 0.06f)
+        val bottom = androidx.compose.ui.graphics.lerp(base, Color.Black, 0.12f)
+        Brush.verticalGradient(listOf(top, bottom))
+    }
+
+    val spineWidth = if (isCompact) 4.dp else 6.dp
+    val horizontalStartPadding = if (isCompact) 6.dp else 12.dp
+    val horizontalEndPadding = if (isCompact) 4.dp else 10.dp
+    val verticalPadding = if (isCompact) 5.dp else 14.dp
+    val titleSize = if (isCompact) 9.5.sp else 13.sp
+    val titleLineHeight = if (isCompact) 12.sp else 17.sp
+    val maxLines = if (isCompact) 3 else 4
+
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(top, bottom)))
-            .padding(10.dp),
-        verticalArrangement = androidx.compose.foundation.layout.Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .background(backgroundBrush),
     ) {
-        // 书脊纹理：左缘 4dp，按书籍 id 稳定分配（布纹/皮纹/毛边/烫金/麻面）；
-        // 墨色按封面底色明度取反，保证可读。
-        SpineTexture(
-            kind = spineKindOf(book.id),
-            baseInk = if (coverLuma(base) > 0.5f) Color.Black.copy(alpha = 0.28f) else Color.White.copy(alpha = 0.30f),
+        // 1. 左侧克制自然的实体书微阴影
+        Box(
             modifier = Modifier
-                .align(Alignment.Start)
+                .align(Alignment.CenterStart)
                 .fillMaxHeight()
-                .width(4.dp),
+                .width(spineWidth)
+                .background(CoverSpineShadowBrush),
         )
-        Text(
-            book.title.take(maxTitleChars),
-            color = ink,
-            style = MaterialTheme.typography.titleSmall.copy(fontFamily = com.creationreadingassistant.ui.theme.DisplayFontFamily),
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
-            maxLines = 2,
-            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
-        )
-        if (showFormat) {
-            androidx.compose.foundation.layout.Spacer(Modifier.padding(top = 6.dp))
+
+        // 2. 右上角轻量格式标（极简克制，列表小尺寸不展示以释放书名空间）
+        if (showFormat && !isCompact) {
             Text(
-                book.format.uppercase(),
-                color = ink.copy(alpha = 0.72f),
-                style = MaterialTheme.typography.labelSmall,
+                text = book.format.uppercase(),
+                color = Color.White.copy(alpha = 0.40f),
+                fontSize = 8.sp,
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp,
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(top = 8.dp, end = 8.dp),
             )
+        }
+
+        // 3. 居中书名与作者
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(
+                    start = horizontalStartPadding,
+                    end = horizontalEndPadding,
+                    top = verticalPadding,
+                    bottom = verticalPadding,
+                ),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = book.title.take(maxTitleChars),
+                color = Color.White.copy(alpha = 0.95f),
+                fontSize = titleSize,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                lineHeight = titleLineHeight,
+                maxLines = maxLines,
+                overflow = TextOverflow.Ellipsis,
+                letterSpacing = if (isCompact) 0.sp else 0.3.sp,
+            )
+
+            val author = book.author?.trim()?.takeIf { it.isNotBlank() }
+            if (author != null && !isCompact) {
+                Spacer(Modifier.height(8.dp))
+                Text(
+                    text = author.take(12),
+                    color = Color.White.copy(alpha = 0.65f),
+                    fontSize = 9.sp,
+                    fontWeight = FontWeight.Normal,
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -115,7 +197,6 @@ fun MutedCoverFallback(
  * @param shape          封面圆角，默认 [LocalComponentSpec.listItemShape]（10dp），与全站列表项一致
  * @param percent        阅读进度；非 null 且 >=99.5f 时盖藏书印（仅书架需要，首页传 null）
  * @param sealSize       藏书印尺寸
- * @param showBadge      是否显示格式角标
  * @param showSheen      是否显示斜向实体书高光
  * @param fallback       无封面时的回退内容
  * @param overlay        覆盖在最上层的内容槽（如「已收藏」状态印章），由调用方自行定位
@@ -127,13 +208,13 @@ fun BookCover(
     shape: Shape = LocalComponentSpec.current.listItemShape,
     percent: Float? = null,
     sealSize: Dp = 22.dp,
-    showBadge: Boolean = true,
     showSheen: Boolean = true,
     fallback: @Composable BoxScope.() -> Unit,
     overlay: (@Composable BoxScope.() -> Unit)? = null,
 ) {
     val scheme = MaterialTheme.colorScheme
-    val hasImage = !book.cover_data_url.isNullOrBlank()
+    var imageLoadFailed by remember(book.id, book.updated_at, book.cover_data_url) { mutableStateOf(false) }
+    val hasImage = !book.cover_data_url.isNullOrBlank() && !imageLoadFailed
     Box(
         modifier = modifier
             .clip(shape)
@@ -147,30 +228,13 @@ fun BookCover(
                 contentDescription = "《${book.title}》封面",
                 modifier = Modifier.fillMaxSize(),
                 contentScale = ContentScale.Crop,
+                onError = { imageLoadFailed = true },
             )
         } else {
             fallback()
         }
-        if (showBadge) {
-            // 格式角标：随主题自适应。用 inverseSurface/inverseOnSurface 这对对比令牌，
-            // 亮色模式=深色底+浅字（与旧 Color.Black 等价），暗色模式=浅色底+深字，
-            // 彻底解决暗色下黑角标压在深色封面上"看不清"的问题。
-            Surface(
-                color = scheme.inverseSurface.copy(alpha = 0.8f),
-                border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.6f)),
-                shape = AppShapes.extraSmall,
-                modifier = Modifier
-                    .align(if (hasImage) Alignment.BottomEnd else Alignment.BottomStart)
-                    .padding(4.dp),
-            ) {
-                Text(
-                    book.format.uppercase(),
-                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = scheme.inverseOnSurface,
-                )
-            }
-        }
+        // 格式角标（TXT/EPUB）已移除：真机反馈角标压在小说封面上碍眼。
+        // 无封面回退态仍由 MutedCoverFallback 居中标注格式，那里不遮画。
         if (showSheen) {
             // 封面微高光：左上→右下极淡白色斜向光泽，强化实体书质感。
             // Color.White 在此是「光」的视觉语言（物理高光），不是 UI 主题色：
@@ -178,14 +242,7 @@ fun BookCover(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(
-                        Brush.linearGradient(
-                            colorStops = arrayOf(
-                                0.0f to Color.White.copy(alpha = 0.16f),
-                                0.42f to Color.White.copy(alpha = 0.0f),
-                            ),
-                        ),
-                    ),
+                    .background(CoverSheenBrush),
             )
         }
         if (percent != null && percent >= 99.5f) {

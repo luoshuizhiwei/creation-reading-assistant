@@ -223,8 +223,8 @@ internal fun InspirationScreen(
             SheetHandle()
             Text(
                 "排序方式",
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             )
             SORT_OPTIONS.forEachIndexed { index, (value, label) ->
                 SettingRow(
@@ -233,11 +233,16 @@ internal fun InspirationScreen(
                         Icon(
                             imageVector = if (value == "title") Icons.Outlined.SortByAlpha else Icons.Outlined.Tune,
                             contentDescription = null,
+                            tint = if (sortMode == value) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     },
                     trailing = {
                         if (sortMode == value) {
-                            Icon(Icons.Outlined.Check, contentDescription = null)
+                            Icon(
+                                Icons.Outlined.Check,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                            )
                         }
                     },
                     onClick = { onAction(InspirationAction.ChangeSort(value)) },
@@ -258,8 +263,10 @@ internal fun InspirationScreen(
             SheetHandle()
             Text(
                 actionSheetItem.title.ifBlank { "未命名灵感" },
-                style = MaterialTheme.typography.titleMedium,
-                modifier = Modifier.padding(16.dp),
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = androidx.compose.ui.text.font.FontWeight.Bold),
+                maxLines = 1,
+                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp),
             )
             val actionRows = buildList<Triple<androidx.compose.ui.graphics.vector.ImageVector, String, () -> Unit>> {
                 add(Triple(Icons.Outlined.AutoAwesome, "查看详情") {

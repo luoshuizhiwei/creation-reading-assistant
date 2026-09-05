@@ -356,6 +356,7 @@ fun SettingRow(
 fun SectionEmptyHint(
     text: String,
     modifier: Modifier = Modifier,
+    leadingIcon: (@Composable () -> Unit)? = null,
     actionText: String? = null,
     onAction: (() -> Unit)? = null,
 ) {
@@ -364,15 +365,17 @@ fun SectionEmptyHint(
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = LocalComponentSpec.current.listItemShape,
-        color = scheme.surfaceContainerLow.copy(alpha = 0.55f),
-        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.7f)),
+        color = scheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(0.5.dp, scheme.outlineVariant.copy(alpha = 0.5f)),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = layout.cardPadding, vertical = layout.relatedGap),
+                .padding(horizontal = layout.cardPadding, vertical = 11.dp),
             verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            leadingIcon?.invoke()
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,
@@ -422,12 +425,7 @@ fun FullEmptyState(
         verticalArrangement = Arrangement.Center,
     ) {
         Box(
-            modifier = Modifier
-                .background(
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    shape = LocalComponentSpec.current.pillShape,
-                )
-                .padding(layout.contentGap),
+            modifier = Modifier.padding(bottom = layout.relatedGap),
             contentAlignment = Alignment.Center,
         ) {
             icon()

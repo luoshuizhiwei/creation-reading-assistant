@@ -233,6 +233,7 @@ private fun handleProfileAction(
             }
         }
         is ProfileAction.OpenBook -> navController?.navigate("reader/${action.bookId}")
+        ProfileAction.OpenInspirations -> navController?.navigate("inspiration")
         ProfileAction.GoBack -> navController?.popBackStack()
         ProfileAction.ScanQr -> navController?.navigate("pairing")
 

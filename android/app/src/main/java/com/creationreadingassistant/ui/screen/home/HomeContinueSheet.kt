@@ -21,12 +21,22 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Book
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material3.Surface
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.components.MutedCoverFallback
 import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -124,6 +134,11 @@ fun HomeContinueSheet(
             }
     }
 
+    val hiddenBooks = remember(books, removedIds) {
+        if (removedIds.isEmpty()) emptyList()
+        else books.filter { it.id in removedIds.keys && isBookDisplayable(it) }
+    }
+
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -163,6 +178,7 @@ fun HomeContinueSheet(
             )
             else -> ListPage(
                 items = items,
+                hiddenBooks = hiddenBooks,
                 menuView = menuView,
                 manageMode = manageMode,
                 sortKey = sortKey,
@@ -189,6 +205,7 @@ fun HomeContinueSheet(
                 },
                 onAction = { actionBook = it },
                 onRemove = { viewModel.removeFromContinue(it.id) },
+                onRestore = { viewModel.clearContinueRemoval(it.id) },
                 onDismissMenu = { menuView = MenuView.NONE },
             )
         }
@@ -217,6 +234,7 @@ fun HomeContinueSheet(
 @Composable
 private fun ListPage(
     items: List<ContinueItem>,
+    hiddenBooks: List<BookEntity>,
     menuView: MenuView,
     manageMode: Boolean,
     sortKey: ContinueSortKey,
@@ -231,6 +249,7 @@ private fun ListPage(
     onOpenBook: (BookEntity) -> Unit,
     onAction: (BookEntity) -> Unit,
     onRemove: (BookEntity) -> Unit,
+    onRestore: (BookEntity) -> Unit,
     onDismissMenu: () -> Unit,
 ) {
     Box {
@@ -241,13 +260,17 @@ private fun ListPage(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Text("继续阅读", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = "继续阅读",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Bold,
+                )
                 IconButton(onClick = onMenuToggle) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "更多选项")
                 }
             }
             Spacer(Modifier.height(8.dp))
-            if (items.isEmpty()) {
+            if (items.isEmpty() && hiddenBooks.isEmpty()) {
                 EmptyContinueBody()
             } else {
                 LazyColumn(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -259,6 +282,32 @@ private fun ListPage(
                             onAction = { onAction(item.book) },
                             onRemove = { onRemove(item.book) },
                         )
+                    }
+
+                    // 已隐藏书籍列表微胶囊卡片与恢复按钮
+                    if (hiddenBooks.isNotEmpty()) {
+                        item(key = "hidden-books-header") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 14.dp, bottom = 2.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(
+                                    text = "已隐藏书籍 (${hiddenBooks.size})",
+                                    style = MaterialTheme.typography.titleSmall,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+                        items(hiddenBooks, key = { "hidden-${it.id}" }) { hiddenBook ->
+                            HiddenBookCapsuleCard(
+                                book = hiddenBook,
+                                onRestore = { onRestore(hiddenBook) },
+                            )
+                        }
                     }
                 }
             }
@@ -409,7 +458,7 @@ private fun ActionBookPage(
             Spacer(Modifier.width(48.dp))
         }
         Spacer(Modifier.height(16.dp))
-        ActionButton(icon = { Icon(Icons.Outlined.MenuBook, contentDescription = null) }, label = "查看详情", onClick = onShowDetail)
+        ActionButton(icon = { Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null) }, label = "查看详情", onClick = onShowDetail)
         ActionButton(icon = { Icon(Icons.Outlined.Check, contentDescription = null) }, label = "标记为已读完", onClick = onMarkRead)
         ActionButton(icon = { Icon(Icons.Outlined.Close, contentDescription = null) }, label = "从继续阅读移除", onClick = onRemoveFromContinue)
         ActionButton(icon = { Icon(Icons.Outlined.Archive, contentDescription = null) }, label = "搁置本书", onClick = onShelve)
@@ -431,16 +480,36 @@ private fun ActionButton(
     isDanger: Boolean = false,
     onClick: () -> Unit,
 ) {
-    ListItem(
-        modifier = Modifier.clickable(onClick = onClick),
-        leadingContent = icon,
-        headlineContent = {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
+        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 3.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(14.dp),
+        ) {
+            Box(
+                modifier = Modifier.size(24.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                icon()
+            }
             Text(
-                label,
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Medium,
                 color = if (isDanger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
             )
-        },
-    )
+        }
+    }
 }
 
 @Composable
@@ -451,10 +520,13 @@ private fun ContinueListItem(
     onAction: () -> Unit,
     onRemove: () -> Unit,
 ) {
-    SectionCard(
+    Surface(
         modifier = Modifier.fillMaxWidth(),
-        contentPadding = 0.dp,
-        onClick = if (!manageMode) onClick else null,
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        onClick = onClick,
+        enabled = !manageMode,
     ) {
         Row(
             modifier = Modifier
@@ -463,27 +535,75 @@ private fun ContinueListItem(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            // 复用共享 BookCover：消除 56dp Box + AsyncImage + 占位 Text 的手搓实现。
-            // 56dp 小尺寸下角标/高光会喧宾夺主，关闭 showBadge / showSheen。
-            // percent 传 null：本列表是"继续阅读"，不显示读完藏书印（已读完的书本就不在列表里）。
             BookCover(
                 book = item.book,
-                modifier = Modifier.size(56.dp),
-                showBadge = false,
-                showSheen = false,
+                modifier = Modifier
+                    .size(52.dp, 72.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .border(
+                        width = 0.8.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
+                        shape = RoundedCornerShape(8.dp),
+                    ),
+                shape = RoundedCornerShape(8.dp),
+                showSheen = true,
                 percent = null,
                 fallback = {
-                    Text(
-                        item.book.title.take(2),
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.primary,
+                    MutedCoverFallback(book = item.book, maxTitleChars = 6, showFormat = false)
+                },
+                overlay = {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .fillMaxHeight()
+                            .width(4.dp)
+                            .background(
+                                Brush.horizontalGradient(
+                                    listOf(
+                                        Color.Black.copy(alpha = 0.35f),
+                                        Color.Black.copy(alpha = 0.10f),
+                                        Color.Transparent,
+                                    ),
+                                ),
+                            ),
                     )
                 },
             )
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                Text(item.book.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyLarge)
-                Text(item.book.author ?: "作者未知", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(formatBookProgressForCard(item.progress), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = item.book.title,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                val author = item.book.author
+                if (!author.isNullOrBlank()) {
+                    Text(
+                        text = author,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                Surface(
+                    shape = RoundedCornerShape(6.dp),
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                ) {
+                    Text(
+                        text = formatBookProgressForCard(item.progress),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp,
+                        ),
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                    )
+                }
             }
             if (manageMode) {
                 IconButton(onClick = onRemove) {
@@ -492,6 +612,92 @@ private fun ContinueListItem(
             } else {
                 IconButton(onClick = onAction) {
                     Icon(Icons.Outlined.MoreVert, contentDescription = "操作")
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HiddenBookCapsuleCard(
+    book: BookEntity,
+    onRestore: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        shape = RoundedCornerShape(12.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLowest,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            BookCover(
+                book = book,
+                modifier = Modifier
+                    .size(38.dp, 52.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .border(
+                        width = 0.6.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        shape = RoundedCornerShape(6.dp),
+                    ),
+                shape = RoundedCornerShape(6.dp),
+                showSheen = false,
+                percent = null,
+                fallback = {
+                    Text(
+                        text = book.title.take(1),
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                },
+            )
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                Text(
+                    text = book.title,
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = "已从继续阅读隐藏",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                onClick = onRestore,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Text(
+                        text = "恢复",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
                 }
             }
         }
@@ -509,7 +715,7 @@ private fun EmptyContinueBody() {
             modifier = Modifier.size(64.dp).background(MaterialTheme.colorScheme.surfaceVariant, shape = CircleShape),
             contentAlignment = Alignment.Center,
         ) {
-            Icon(Icons.Outlined.MenuBook, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.AutoMirrored.Outlined.MenuBook, contentDescription = null, modifier = Modifier.size(32.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         Text("暂无可以继续阅读的书籍", style = MaterialTheme.typography.titleMedium)
         Text("开始阅读后，书籍会出现在这里", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

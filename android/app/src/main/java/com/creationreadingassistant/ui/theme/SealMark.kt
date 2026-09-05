@@ -48,7 +48,7 @@ fun SealMark(
     modifier: Modifier = Modifier,
     text: String = "读毕",
     size: Dp = 34.dp,
-    rotationDegrees: Float = -8f,
+    rotationDegrees: Float = -2f,
     animateStamp: Boolean = false,
 ) {
     val reducedMotion = rememberReducedMotion()
@@ -76,7 +76,9 @@ fun SealMark(
             .rotate(rotationDegrees)
             .alpha(alpha.value)
             .graphicsLayer { scaleX = scale.value; scaleY = scale.value }
-            .border(width = 1.5.dp, color = AppCinnabar, shape = RoundedCornerShape(2.dp))
+            .border(width = 1.2.dp, color = AppCinnabar, shape = RoundedCornerShape(2.dp))
+            .padding(1.8.dp)
+            .border(width = 0.6.dp, color = AppCinnabar.copy(alpha = 0.75f), shape = RoundedCornerShape(1.dp))
             .semantics { contentDescription = "已读完" },
         contentAlignment = Alignment.Center,
     ) {
@@ -86,8 +88,8 @@ fun SealMark(
             // 品牌白名单例外：藏书印是装饰性状态标记，允许使用 Serif（非正文/标题，不受「大标题四档」约束）
             fontFamily = FontFamily.Serif,
             fontWeight = FontWeight.Bold,
-            fontSize = (box * 0.34f).sp,
-            lineHeight = (box * 0.36f).sp,
+            fontSize = (box * 0.32f).sp,
+            lineHeight = (box * 0.34f).sp,
             letterSpacing = (-0.5).sp,
             textAlign = TextAlign.Center,
         )

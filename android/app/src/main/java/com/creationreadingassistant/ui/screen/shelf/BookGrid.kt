@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.screen.shelf
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -10,7 +11,6 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
@@ -22,18 +22,15 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.ui.platform.testTag
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.ExperimentalMaterialApi
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material.pullrefresh.PullRefreshDefaults
-import androidx.compose.material.pullrefresh.PullRefreshState
-import androidx.compose.material.pullrefresh.pullRefresh
-import androidx.compose.material.pullrefresh.rememberPullRefreshState
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.MoreHoriz
-import com.creationreadingassistant.ui.theme.AppIconSize
-import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import androidx.compose.material.pullrefresh.PullRefreshState
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -46,27 +43,46 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.StrokeCap
-import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.local.entity.BookEntity
-import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.MutedCoverFallback
-import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
-import com.creationreadingassistant.ui.theme.ProgressBarShape
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
-import com.creationreadingassistant.ui.viewmodel.ShelfBookItem
+
+/**
+ * 书架网格封面微书脊立体阴影画笔（顶级常量，零 GC 分配）。
+ */
+private val GridBookTileSpineShadowBrush = Brush.horizontalGradient(
+    colors = listOf(
+        Color.Black.copy(alpha = 0.22f),
+        Color.Black.copy(alpha = 0.08f),
+        Color.Transparent,
+    ),
+)
+
+/**
+ * 书架列表封面微书脊立体阴影画笔（顶级常量，零 GC 分配）。
+ */
+private val ListBookTileSpineShadowBrush = Brush.horizontalGradient(
+    colors = listOf(
+        Color.Black.copy(alpha = 0.20f),
+        Color.Black.copy(alpha = 0.05f),
+        Color.Transparent,
+    ),
+)
 
 // ===================== 多选栏 =====================
 @Composable
@@ -76,19 +92,63 @@ internal fun SelectionBar(
     onSelectAll: () -> Unit,
     onClear: () -> Unit,
 ) {
+    val haptic = rememberHaptic(rememberReducedMotion())
     Surface(
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.fillMaxWidth(),
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        shape = RoundedCornerShape(14.dp),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+        shadowElevation = 1.dp,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text("已选 $selectedCount 本", style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-            TextButton(onClick = onSelectAll, enabled = visibleCount > 0) { Text(if (visibleCount > 0) "全选($visibleCount)" else "全选") }
-            TextButton(onClick = onClear, enabled = selectedCount > 0) { Text("清空") }
+            // 28dp 微彩图标底座
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.CheckCircle,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(
+                "已选 $selectedCount 本",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onSelectAll()
+                },
+                enabled = visibleCount > 0,
+            ) {
+                Text(if (visibleCount > 0) "全选 ($visibleCount)" else "全选")
+            }
+            TextButton(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onClear()
+                },
+                enabled = selectedCount > 0,
+            ) {
+                Text("清空")
+            }
         }
     }
 }
@@ -113,10 +173,10 @@ internal fun StatusRail(
             .padding(horizontal = 16.dp, vertical = 4.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-            options.forEach { (value, label) ->
-                val active = statusFilter == value
-                SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
-            }
+        options.forEach { (value, label) ->
+            val active = statusFilter == value
+            SelectablePill(text = label, selected = active, onClick = { onSelect(value) })
+        }
     }
 }
 
@@ -139,7 +199,7 @@ internal fun ShelfRefreshIndicator(
         exit = fadeOut(),
     ) {
         Column(
-            horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
+            horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             val useIndeterminate = !reducedMotion && refreshing
             if (useIndeterminate) {
@@ -186,14 +246,15 @@ internal fun BookTile(
     modifier: Modifier = Modifier,
 ) {
     val readiness = book.readiness()
-    val spec = LocalComponentSpec.current
     val layout = LocalLayoutTokens.current
     val haptic = rememberHaptic(rememberReducedMotion())
     val onClick = {
         if (selectionMode) {
             haptic(HapticFeedbackType.TextHandleMove)
             onToggleSelected(book.id)
-        } else onOpenBook(book)
+        } else {
+            onOpenBook(book)
+        }
     }
     val tileModifier = modifier
         .fillMaxWidth()
@@ -214,136 +275,346 @@ internal fun BookTile(
             modifier = tileModifier,
             verticalArrangement = Arrangement.spacedBy(layout.relatedGap),
         ) {
-            Box(
+            // 书籍封面微岛：8dp 圆角、微边框、微书脊立体阴影、多选态流体边框
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow,
+                border = if (selectionMode && selected) {
+                    BorderStroke(2.dp, MaterialTheme.colorScheme.primary)
+                } else {
+                    BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                },
+                shadowElevation = 1.dp,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .aspectRatio(0.72f)
-                    .clip(spec.cardShape),
+                    .aspectRatio(0.72f),
             ) {
-                BookCover(book = book, percent = percent, modifier = Modifier.fillMaxSize(), sealSize = 30.dp, fallback = { ShelfCoverFallback(book) })
-                if (downloading) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        CircularProgressIndicator(modifier = Modifier.size(28.dp), strokeWidth = 2.dp)
-                    }
-                }
-                if (selectionMode) {
-                    Box(
-                        modifier = Modifier
-                            .padding(6.dp)
-                            .size(22.dp)
-                            .clip(PillShape)
-                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant)
-                            .align(Alignment.TopStart),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(AppIconSize.Compact))
-                    }
-                }
-                IconButton(
-                    onClick = { onToggleActions(book.id) },
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .size(layout.minimumTouchTarget),
-                ) {
-                    Icon(
-                        Icons.Outlined.MoreHoriz,
-                        contentDescription = "管理《${book.title}》",
-                        modifier = Modifier.size(AppIconSize.Small),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                Box(modifier = Modifier.fillMaxSize()) {
+                    BookCover(
+                        book = book,
+                        percent = percent,
+                        modifier = Modifier.fillMaxSize(),
+                        sealSize = 30.dp,
+                        fallback = { ShelfCoverFallback(book, isCompact = false) },
                     )
+
+                    // 微书脊立体阴影（书脊厚度暗部 + 装订折线反光）
+                    Box(
+                        modifier = Modifier
+                            .width(4.dp)
+                            .fillMaxHeight()
+                            .background(GridBookTileSpineShadowBrush),
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(start = 4.dp)
+                            .width(0.6.dp)
+                            .fillMaxHeight()
+                            .background(Color.White.copy(alpha = 0.18f)),
+                    )
+
+                    // 下载中遮罩
+                    if (downloading) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.40f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(28.dp),
+                                strokeWidth = 2.dp,
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        }
+                    }
+
+                    // 多选选择态高质感徽章
+                    if (selectionMode) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                            border = BorderStroke(
+                                1.dp,
+                                if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                            ),
+                            shadowElevation = 1.dp,
+                            modifier = Modifier
+                                .padding(6.dp)
+                                .size(24.dp)
+                                .align(Alignment.TopStart),
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
+                                if (selected) {
+                                    Icon(
+                                        Icons.Outlined.Check,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimary,
+                                        modifier = Modifier.size(14.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+
+                    // 右上角更多操作微岛按钮
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .combinedClickable(
+                                onClick = { onToggleActions(book.id) },
+                            ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.MoreHoriz,
+                                contentDescription = "管理《${book.title}》",
+                                modifier = Modifier.size(16.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    }
                 }
             }
+
+            // 书名
             Text(
                 text = book.title,
-                // 书名统一常规字重：titleSmall 默认 Medium 视觉偏粗，用户要求不加粗
-                style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Normal),
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Normal),
                 minLines = 2,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            val label = if (downloading) {
-                "下载中…"
-            } else if (readiness.tone == ReadinessTone.READY) {
-                "${percent.toInt()}%"
-            } else {
-                readiness.label
-            }
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
-            ) {
+
+            // 进度指示器与微胶囊
+            if (downloading) {
                 Text(
-                    text = label,
+                    text = "下载中…",
                     style = MaterialTheme.typography.labelSmall,
-                    color = toneColor(readiness.tone),
+                    color = MaterialTheme.colorScheme.primary,
                     maxLines = 1,
                 )
-                ProgressLine(percent = percent, modifier = Modifier.weight(1f))
+            } else if (readiness.tone == ReadinessTone.READY) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    // 百分比微胶囊标签
+                    Surface(
+                        shape = RoundedCornerShape(4.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
+                    ) {
+                        Text(
+                            text = if (percent >= 99.5f) "完" else "${percent.toInt()}%",
+                            style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                        )
+                    }
+                    ProgressLine(percent = percent, modifier = Modifier.weight(1f))
+                }
+            } else {
+                val tone = toneColor(readiness.tone)
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = tone.copy(alpha = 0.12f),
+                    border = BorderStroke(0.5.dp, tone.copy(alpha = 0.25f)),
+                ) {
+                    Text(
+                        text = readiness.label,
+                        style = MaterialTheme.typography.labelSmall,
+                        color = tone,
+                        maxLines = 1,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
+                    )
+                }
             }
         }
     } else {
-        SectionCard(
-            modifier = tileModifier,
-            contentPadding = layout.compactCardPadding,
-        ) {
+        // 现代纸墨微岛高密度列表项
+        Column(modifier = Modifier.fillMaxWidth()) {
             Row(
+                modifier = tileModifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 8.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box {
-                    BookCover(book = book, percent = percent, modifier = Modifier.size(56.dp, 78.dp), fallback = { ShelfCoverFallback(book) })
-                    if (downloading) {
+                // 1. 左侧小封面（48dp x 66dp，圆角 8dp，微书脊立体阴影）
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = if (selectionMode && selected) {
+                        BorderStroke(1.5.dp, MaterialTheme.colorScheme.primary)
+                    } else {
+                        BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f))
+                    },
+                    shadowElevation = 1.dp,
+                    modifier = Modifier.size(width = 48.dp, height = 66.dp),
+                ) {
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        BookCover(
+                            book = book,
+                            percent = percent,
+                            modifier = Modifier.fillMaxSize(),
+                            shape = RoundedCornerShape(8.dp),
+                            fallback = { ShelfCoverFallback(book, isCompact = true) },
+                        )
+                        // 微书脊阴影
                         Box(
                             modifier = Modifier
-                                .size(56.dp, 78.dp)
-                                .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.4f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                                .width(3.dp)
+                                .fillMaxHeight()
+                                .background(ListBookTileSpineShadowBrush),
+                        )
+                        if (downloading) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.40f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            }
                         }
                     }
                 }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column(modifier = Modifier.weight(1f)) {
+
+                Spacer(modifier = Modifier.width(14.dp))
+
+                // 2. 中间信息流：书名、作者与阅读进度、轻量格式与微进度条
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
                     Text(
-                        book.title,
-                        style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily, fontWeight = FontWeight.Normal),
+                        text = book.title,
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Normal),
+                        color = MaterialTheme.colorScheme.onSurface,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
-                    Text(book.author ?: "作者未知", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    ProgressLine(percent = percent)
-                }
-                if (selectionMode) {
-                    Box(
-                        modifier = Modifier
-                            .size(22.dp)
-                            .clip(PillShape)
-                            .background(if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant),
-                        contentAlignment = Alignment.Center,
+
+                    val authorStr = book.author?.trim()?.takeIf { it.isNotBlank() }
+                    val progressStr = if (downloading) {
+                        "下载中…"
+                    } else if (readiness.tone == ReadinessTone.READY) {
+                        if (percent >= 99.5f) "已读完" else if (percent > 0f) "已读 ${percent.toInt()}%" else "未读"
+                    } else {
+                        readiness.label
+                    }
+                    val subtitle = if (authorStr != null) "$authorStr · $progressStr" else progressStr
+
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(top = 2.dp),
                     ) {
-                        if (selected) Icon(Icons.Outlined.CheckCircle, contentDescription = null, tint = MaterialTheme.colorScheme.onPrimary, modifier = Modifier.size(AppIconSize.Compact))
+                        // 格式微胶囊
+                        Surface(
+                            shape = RoundedCornerShape(4.dp),
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
+                        ) {
+                            Text(
+                                text = book.format.uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
+                            )
+                        }
+
+                        if (percent > 0f && percent < 99.5f) {
+                            ProgressLine(
+                                percent = percent,
+                                modifier = Modifier
+                                    .width(72.dp)
+                                    .height(3.dp),
+                            )
+                        }
+                    }
+                }
+
+                // 3. 右侧操作区 / 多选勾选徽章
+                if (selectionMode) {
+                    Surface(
+                        shape = RoundedCornerShape(999.dp),
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surface.copy(alpha = 0.88f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                        ),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier
+                            .padding(start = 8.dp)
+                            .size(24.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            if (selected) {
+                                Icon(
+                                    Icons.Outlined.Check,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(14.dp),
+                                )
+                            }
+                        }
                     }
                 } else {
-                    IconButton(onClick = { onToggleActions(book.id) }) {
-                        Icon(Icons.Outlined.MoreHoriz, contentDescription = "管理《${book.title}》", modifier = Modifier.size(AppIconSize.Compact), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = MaterialTheme.colorScheme.surfaceContainerLow,
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .combinedClickable(
+                                onClick = { onToggleActions(book.id) },
+                            ),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(
+                                Icons.Outlined.MoreHoriz,
+                                contentDescription = "管理《${book.title}》",
+                                modifier = Modifier.size(18.dp),
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
+                            )
+                        }
                     }
                 }
             }
+
+            // 4. 底部分割线（内缩 66dp 与左侧封面避让对齐）
+            HorizontalDivider(
+                modifier = Modifier.padding(start = 66.dp),
+                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                thickness = 0.5.dp,
+            )
         }
     }
 }
 
 @Composable
-internal fun ShelfCoverFallback(book: BookEntity) {
-    // 统一委托共享多色占位封面（书架/首页同一语言）
-    MutedCoverFallback(book = book)
+internal fun ShelfCoverFallback(
+    book: BookEntity,
+    isCompact: Boolean = false,
+) {
+    MutedCoverFallback(book = book, isCompact = isCompact)
 }
 
 @Composable
@@ -355,15 +626,15 @@ internal fun ProgressLine(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(4.dp)
-            .clip(ProgressBarShape)
-            .background(MaterialTheme.colorScheme.surfaceVariant),
+            .height(3.dp)
+            .clip(RoundedCornerShape(1.5.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.50f)),
     ) {
         Box(
             modifier = Modifier
                 .fillMaxWidth(p / 100f)
-                .height(4.dp)
-                .clip(ProgressBarShape)
+                .fillMaxHeight()
+                .clip(RoundedCornerShape(1.5.dp))
                 .background(MaterialTheme.colorScheme.primary),
         )
     }

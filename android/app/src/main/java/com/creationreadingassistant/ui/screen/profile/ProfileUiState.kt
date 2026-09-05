@@ -131,6 +131,8 @@ internal sealed interface ProfileAction {
     // Navigation
     data class OpenSubPage(val page: ProfileSubPage) : ProfileAction
     data class OpenBook(val bookId: String) : ProfileAction
+    /** 跳底部导航的灵感中心 Tab（产品规划：阅读时记灵感用于创作，无独立笔记概念）。 */
+    data object OpenInspirations : ProfileAction
     data object GoBack : ProfileAction
 
     // Sync

@@ -1,7 +1,11 @@
 package com.creationreadingassistant.ui.screen.profile
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -9,6 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
@@ -20,7 +28,6 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Cloud
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
@@ -63,19 +70,58 @@ internal fun ProfileHomeScreen(
         modifier = Modifier.fillMaxSize(),
     ) {
         // 顶部同步状态卡（对应 ProfileHome 的 compact-profile-card + profile-grid）
+        // 点击进入「我的阅读」：像开源阅读一样按书查看累计阅读时长 / 进度 / 最近阅读。
         item(key = "header-card") {
-            SectionCard {
+            SectionCard(
+                onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Outlined.Book, contentDescription = null, modifier = Modifier.size(28.dp))
-                    Column(modifier = Modifier.padding(start = 12.dp)) {
-                        Text("创作阅读助手", style = MaterialTheme.typography.titleMedium)
-                        Text("本地优先", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Box(
+                        modifier = Modifier
+                            .size(48.dp)
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Book,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(26.dp),
+                        )
                     }
+                    Column(modifier = Modifier.padding(start = 14.dp).weight(1f)) {
+                        Text(
+                            "创作阅读助手",
+                            style = MaterialTheme.typography.titleMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = (-0.3).sp,
+                            ),
+                        )
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "本地优先 · 点击查看阅读档案",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                    Icon(
+                        Icons.Outlined.ChevronRight,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp),
+                    )
                 }
+
+                androidx.compose.material3.HorizontalDivider(
+                    modifier = Modifier.padding(vertical = 12.dp),
+                    thickness = 0.6.dp,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                )
+
                 Row(
                     modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
+                        .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
                     // count-up 滚动过程按最终值的单位档位（天/小时/分钟）格式化：
@@ -94,29 +140,73 @@ internal fun ProfileHomeScreen(
                         reducedMotion = reducedMotion,
                     )
                     HomeStat("累计读完", summary.completedBookCount, reducedMotion = reducedMotion)
-                    HomeStat("灵感数量", summary.inspirationCount, reducedMotion = reducedMotion)
+                    // 灵感数量可点直达灵感中心：显示了数量就要有对应的入口（同类反馈：灵感在哪）
+                    HomeStat(
+                        "灵感数量",
+                        summary.inspirationCount,
+                        reducedMotion = reducedMotion,
+                        onClick = { onAction(ProfileAction.OpenInspirations) },
+                    )
                 }
             }
         }
 
-        // 快捷导航磁贴
+        // 快捷导航磁贴（产品规划无独立笔记概念：原「笔记」磁贴改为灵感中心直达）
         item(key = "quick-tiles") {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                QuickTile(label = "同步", value = if (state.paired) "已连接电脑" else "从未同步", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
-                QuickTile(label = "笔记", value = "查看", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) })
+                QuickTile(
+                    icon = Icons.Outlined.Refresh,
+                    label = "局域网同步",
+                    value = if (state.paired) "已连接电脑" else "从未同步",
+                    iconTint = Color(0xFF1967D2),
+                    statusIndicator = {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(
+                                    if (state.paired) Color(0xFF10B981)
+                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)
+                                ),
+                        )
+                    },
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) },
+                )
+                QuickTile(
+                    icon = Icons.Outlined.AutoAwesome,
+                    label = "灵感工坊",
+                    value = if (summary.inspirationCount > 0) "已记录 ${summary.inspirationCount} 条" else "记录创作灵感",
+                    iconTint = MaterialTheme.colorScheme.primary,
+                    statusIndicator = {
+                        if (summary.inspirationCount > 0) {
+                            Text(
+                                "${summary.inspirationCount}",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp),
+                            )
+                        }
+                    },
+                    onClick = { onAction(ProfileAction.OpenInspirations) },
+                )
             }
         }
 
         // 阅读与外观
         item(key = "reading-appearance") {
             MenuGroup(title = "阅读与外观") {
-                MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
-                MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
-                MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
+                MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", iconTint = Color(0xFF6750A4), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
+                MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, iconTint = Color(0xFF00639B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
+                MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", iconTint = Color(0xFF006874), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
                 MenuItem(
                     Icons.Outlined.Flag,
                     "阅读目标",
                     if (state.goal.goalEnabled) "每天 ${state.goal.dailyMinutes} 分钟" else "设定每日目标与提醒",
+                    iconTint = Color(0xFF984715),
+                    showDivider = false,
                     onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.GOAL)) },
                 )
             }
@@ -125,36 +215,29 @@ internal fun ProfileHomeScreen(
         // 数据与存储
         item(key = "data-storage") {
             MenuGroup(title = "数据与存储") {
-                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入数据快照", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
+                MenuItem(Icons.Outlined.Storage, "存储管理", "导出 / 导入数据快照", iconTint = Color(0xFF4C626B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.STORAGE)) })
                 MenuItem(Icons.Outlined.Delete, "清理缓存", "清理阅读器正文缓存", danger = true, onClick = { onAction(ProfileAction.ClearReaderCache) })
-                MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
-                MenuItem(Icons.Outlined.Folder, "分类管理", "整理书籍分类", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
-                MenuItem(Icons.Outlined.Book, "书单管理", "自定义书单", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
-            }
-        }
-
-        // 我的书评与笔记
-        item(key = "notes") {
-            MenuGroup(title = "我的书评与笔记") {
-                MenuItem(Icons.Outlined.Description, "我的书评 / 笔记", "书签与读书笔记", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.NOTES)) })
+                MenuItem(Icons.Outlined.Sell, "标签管理", "书籍 / 灵感 / 笔记标签", iconTint = Color(0xFF5B5B7E), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.TAGS)) })
+                MenuItem(Icons.Outlined.Folder, "分类管理", "整理书籍分类", iconTint = Color(0xFF386568), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.CATEGORIES)) })
+                MenuItem(Icons.Outlined.Book, "书单管理", "自定义书单", iconTint = Color(0xFF6B5778), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SHELVES)) })
             }
         }
 
         // 同步与工具
         item(key = "sync-tools") {
             MenuGroup(title = "同步与工具") {
-                MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
-                MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
-                MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
+                MenuItem(Icons.Outlined.Refresh, "局域网同步", if (state.paired) "已连接电脑" else "从未同步", iconTint = Color(0xFF1967D2), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SYNC)) })
+                MenuItem(Icons.Outlined.Cloud, "WebDAV 设置", if (state.webDavConfigured) "已配置" else "未配置", iconTint = Color(0xFF0284C7), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.WEBDAV)) })
+                MenuItem(Icons.Outlined.AutoAwesome, "AI 助手", if (state.aiConfigured) "已配置 Key" else "未配置", iconTint = Color(0xFF7B1FA2), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.AI)) })
             }
         }
 
         // 帮助与关于
         item(key = "help-about") {
             MenuGroup(title = "帮助与关于") {
-                MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
-                MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
-                MenuItem(Icons.Outlined.Info, "关于", "版本与开源许可", onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
+                MenuItem(Icons.Outlined.BugReport, "日志与诊断", "运行环境与问题记录", iconTint = Color(0xFF4A6572), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.DIAGNOSTICS)) })
+                MenuItem(Icons.Outlined.Security, "隐私安全", "本地优先", iconTint = Color(0xFF2E7D32), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.PRIVACY)) })
+                MenuItem(Icons.Outlined.Info, "关于", "版本与开源许可", iconTint = Color(0xFF5E6266), showDivider = false, onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.ABOUT)) })
             }
         }
     }
@@ -163,8 +246,18 @@ internal fun ProfileHomeScreen(
 // ============================== 首页辅助组件 ==============================
 
 @Composable
-private fun HomeStat(label: String, value: Int, format: (Int) -> String = { "$it" }, reducedMotion: Boolean = false) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+private fun HomeStat(
+    label: String,
+    value: Int,
+    format: (Int) -> String = { "$it" },
+    reducedMotion: Boolean = false,
+    onClick: (() -> Unit)? = null,
+) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        // onClick 非空时该项自身可点（如灵感数量→灵感中心），内层点击优先于顶卡点击
+        modifier = if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+    ) {
         Box(contentAlignment = Alignment.Center) {
             val valueStyle = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
             // 隐形占位文本按最终值定宽：count-up 从 0 滚动时槽位宽度恒定，
@@ -191,21 +284,77 @@ private fun HomeStat(label: String, value: Int, format: (Int) -> String = { "$it
 }
 
 @Composable
-private fun RowScope.QuickTile(label: String, value: String, onClick: () -> Unit) {
+private fun RowScope.QuickTile(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    iconTint: Color,
+    statusIndicator: (@Composable () -> Unit)? = null,
+    onClick: () -> Unit,
+) {
     val haptic = rememberHaptic(rememberReducedMotion())
     SectionCard(
         modifier = Modifier.weight(1f),
         onClick = { haptic(HapticFeedbackType.TextHandleMove); onClick() },
     ) {
-        Text(label, style = MaterialTheme.typography.titleSmall)
-        Text(value, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(top = 4.dp))
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(iconTint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconTint,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            statusIndicator?.invoke()
+        }
+        Spacer(Modifier.height(10.dp))
+        Text(
+            label,
+            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+        Text(
+            value,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(top = 2.dp),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
 @Composable
 private fun MenuGroup(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.relatedGap)) {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.padding(horizontal = 4.dp),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(width = 3.dp, height = 12.dp)
+                    .clip(RoundedCornerShape(1.5.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.7f)),
+            )
+            Text(
+                title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         SectionCard(contentPadding = 0.dp, content = content)
     }
 }
@@ -216,26 +365,45 @@ private fun ColumnScope.MenuItem(
     label: String,
     desc: String? = null,
     danger: Boolean = false,
+    iconTint: Color? = null,
+    showDivider: Boolean = true,
     onClick: () -> Unit,
 ) {
-    // G 档：SettingRow 已内建触感，此处不再手动触发（防双振）
+    val actualTint = if (danger) MaterialTheme.colorScheme.error else (iconTint ?: MaterialTheme.colorScheme.primary)
     SettingRow(
         title = label,
         subtitle = desc,
         leading = {
-            Icon(
-                icon,
-                contentDescription = null,
-                tint = if (danger) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
-            )
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(actualTint.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = actualTint,
+                    modifier = Modifier.size(20.dp),
+                )
+            }
         },
         trailing = {
             Icon(
                 Icons.Outlined.ChevronRight,
                 contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                modifier = Modifier.size(20.dp),
             )
         },
         onClick = onClick,
     )
+    if (showDivider) {
+        androidx.compose.material3.HorizontalDivider(
+            modifier = Modifier.padding(start = 58.dp),
+            thickness = 0.6.dp,
+            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+        )
+    }
 }
