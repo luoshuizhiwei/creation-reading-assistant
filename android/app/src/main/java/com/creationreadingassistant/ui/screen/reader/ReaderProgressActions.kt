@@ -6,9 +6,11 @@ import androidx.compose.runtime.MutableState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
+import com.creationreadingassistant.feature.reader.locator.EpubProgressCalibration
 import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
@@ -138,6 +140,7 @@ internal fun persistCurrentProgress(
     markdownDocument: ReaderDocument?,
     txtStreamingDocument: PlainTextDocument?,
     plainContent: String,
+    epubDocument: EpubDocument? = null,
     onAction: (ReaderAction) -> Unit,
 ) {
     if (
@@ -172,8 +175,21 @@ internal fun persistCurrentProgress(
             chapterIndex
         }
         val globalOffset = chapterStartOffsets.getOrElse(currentChapter) { 0 } + chapterOffset
-        val totalChars = bookIndex?.totalChars?.coerceAtLeast(1) ?: 1
-        val percent = (globalOffset * 100f / totalChars).coerceIn(0f, 100f)
+        // P5 进度校准：百分比走真实字符口径（逐章实测回填），locator/absoluteOffset
+        // 仍保持估算混合空间不变，历史定位数据不受影响。无实测数据时与旧公式逐值一致。
+        val percent = epubDocument?.let { doc ->
+            EpubProgressCalibration.percentFor(
+                model = EpubProgressCalibration.Model(
+                    estimatedLengths = doc.estimatedChapterLengths(),
+                    measuredRealChars = doc.measuredChapterCharsSnapshot(),
+                ),
+                chapterIndex = currentChapter,
+                offsetInChapter = chapterOffset,
+            )
+        } ?: run {
+            val totalChars = bookIndex?.totalChars?.coerceAtLeast(1) ?: 1
+            (globalOffset * 100f / totalChars).coerceIn(0f, 100f)
+        }
         onAction(
             ReaderAction.SaveEpubProgress(
                 bookId = bid,
@@ -228,13 +244,29 @@ internal fun seekToPercent(
     goToChapter: (Int) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
     jumpToMarkdownOffset: (Int) -> Unit = {},
+    epubDocument: EpubDocument? = null,
 ) {
     val percent = p.coerceIn(0f, 100f)
     if (epubBook != null) {
         val total = bookIndex?.totalChars?.coerceAtLeast(0) ?: 0
         val targetOffset = (percent / 100f * total).toInt()
         if (pagerEngineOn) {
-            if (total > 0) pagedJumpRequest.value = targetOffset
+            // P5 校准：百分比是真实字符口径，换算回分页混合空间（估算章基址 + 章内真实偏移）；
+            // 无实测数据时校准比 r=1，与旧 est 空间公式逐值一致。
+            val calibrated = epubDocument?.let { doc ->
+                EpubProgressCalibration.mixedGlobalOffsetForPercent(
+                    model = EpubProgressCalibration.Model(
+                        estimatedLengths = doc.estimatedChapterLengths(),
+                        measuredRealChars = doc.measuredChapterCharsSnapshot(),
+                    ),
+                    percent = percent,
+                )
+            }
+            if (calibrated != null) {
+                pagedJumpRequest.value = calibrated
+            } else if (total > 0) {
+                pagedJumpRequest.value = targetOffset
+            }
         } else {
             val sz = epubBook.chapters.size
             val targetChapter = chapterIndexForBookOffset(

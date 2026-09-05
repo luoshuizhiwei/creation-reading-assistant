@@ -29,6 +29,13 @@ class EpubDocument(private val book: EpubBook) : ReaderDocument {
     // 漏掉它会让第 N 章之后的偏移全部少 N，历史高亮/笔记整体前移。
     private val estimatedLengths = book.chapters.map { it.estimatedTextLength }
 
+    /**
+     * P5 逐章实测回填：章节首次解析时记录真实字符数（与 EpubPageSource.chapterTextOf
+     * 同一口径：Text 块按 "\n" 连接）。存储坐标系不变，仅供进度校准
+     * （EpubProgressCalibration）使用；读得越多模型越准。
+     */
+    private val measuredRealChars = java.util.concurrent.ConcurrentHashMap<Int, Int>()
+
     override val chapters: List<DocChapter> =
         LegacyOffsetCodec.chapterStartOffsets(estimatedLengths).mapIndexed { i, start ->
             DocChapter(
@@ -44,14 +51,33 @@ class EpubDocument(private val book: EpubBook) : ReaderDocument {
 
     override fun blocks(chapterIndex: Int): List<DocBlock> {
         val chapter = book.chapters.getOrNull(chapterIndex) ?: return emptyList()
-        return cache.get(chapterIndex) {
+        return cache.get(chapterIndex) { index ->
             EpubParser.loadChapterBlocks(
                 chapter.cachedEpubPath,
                 chapter.entryPath,
                 chapter.chapterDir,
             ).map { it.toDocBlock() }
+                .also { blocks ->
+                    // 只在解析路径回填（缓存命中不走这里），O(章长) 一次
+                    var chars = 0
+                    var textBlocks = 0
+                    blocks.forEach { block ->
+                        if (block is DocBlock.Text) {
+                            chars += block.text.length
+                            textBlocks++
+                        }
+                    }
+                    if (textBlocks > 0) chars += textBlocks - 1
+                    measuredRealChars[index] = chars
+                }
         }
     }
+
+    /** 已实测章的真实字符数快照（章索引 → 真实字符数），供进度校准。 */
+    fun measuredChapterCharsSnapshot(): Map<Int, Int> = measuredRealChars.toMap()
+
+    /** 估算章长原始值（ZIP 条目字节数口径），供进度校准。 */
+    fun estimatedChapterLengths(): List<Int> = estimatedLengths
 
     override fun close() = cache.clear()
 

@@ -10,6 +10,7 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.EpubDocument
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
@@ -262,6 +263,7 @@ internal fun buildReaderNavActions(
     showTts: Boolean,
     autoPagingActiveState: MutableState<Boolean>,
     autoPagingSupported: Boolean,
+    epubDocument: EpubDocument? = null,
 ): ReaderNavActions {
     val showNoticeFn: (String) -> Unit = { msg ->
         scope.launch { snackbarHost.showSnackbar(msg) }
@@ -344,13 +346,13 @@ internal fun buildReaderNavActions(
                 progressSnapshot.pagedAbsOffset, pagedSource, progressSnapshot.chapterIndex,
                 epubListState, blockGlobalOffsets,
                 chapterBase, chapterBlocks, bookIndex, chapterStartOffsets, visiblePlainOffset,
-                markdownDocument, txtStreamingDocument, plainContent, onAction,
+                markdownDocument, txtStreamingDocument, plainContent, epubDocument, onAction,
             )
         },
         seekToPercent = { p ->
             seekToPercent(
                 p, epubBook, markdownDocument, pagerEngineOn, bookIndex, txtStreamingDocument, plainContent,
-                pagedJumpRequest, goToChapterFn, jumpToPlainOffsetFn, jumpToMarkdownOffsetFn,
+                pagedJumpRequest, goToChapterFn, jumpToPlainOffsetFn, jumpToMarkdownOffsetFn, epubDocument,
             )
         },
         seekToChapterPercent = { p ->

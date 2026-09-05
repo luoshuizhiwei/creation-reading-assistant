@@ -426,6 +426,7 @@ fun ReaderScreen(
         visiblePlainOffset, txtStreamingDocument, plainContent, txtChapters,
         txtChapterIndex, contentText, ttsResumeChapterState, ttsResumeOffsetState, bookTitle,
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
+        epubDocument,
     )
 
     LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {
