@@ -1,5 +1,9 @@
 # P1-ENCRYPTION-REPORT：项目包与完整备份的可选口令加密
 
+> **历史存档（2026-09-04 标注）**：本文为 2026-08 P1 轮次交付记录，结论仅对当时代码有效。
+> 桌面端此后已演进（清样工作台视觉重设计、创作雷达/AI 上下文包、阅读器升级），
+> 当前状态以 `docs/handoff/current.md` 为准。
+
 > 范围：实现“可选口令加密”深模块、合同与最小 UI，**不接公共 seam、不修改 operation coordinator**。
 > 与上一阶段 P1-F08 同理，加密深模块只通过 `EncryptionProgress` 接口对接 operation 进度/取消，
 > 由最终集成者在公共 seam 中接线（见文末 SEAM REQUEST）。

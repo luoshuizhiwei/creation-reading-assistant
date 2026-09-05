@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-08-14T08:31:10.529Z",
+  "generatedAt": "2026-09-03T16:44:09.071Z",
   "allPass": true,
   "items": [
     {
@@ -20,7 +20,7 @@
     {
       "name": "IPC 准备项目 B 独特章节名",
       "ok": true,
-      "detail": "{\"chapterId\":\"chapter-84be80e6-94c5-41ac-845a-1a2e2bc48c41\",\"chapterTitle\":\"项目B独特章节\",\"firstSceneId\":\"scene-5a9d5211-7475-418b-b535-501500f386f1\",\"firstSceneTitle\":\"默认场景\"}"
+      "detail": "{\"chapterId\":\"chapter-a71596ac-7d11-498a-a3a9-b910acf1e1f5\",\"chapterTitle\":\"项目B独特章节\",\"firstSceneId\":\"scene-9b15b0db-7a61-4b75-995d-7f7843f3ab10\",\"firstSceneTitle\":\"默认场景\"}"
     },
     {
       "name": "未预载项目章节跳转（真实 chapter 结果）",
@@ -35,7 +35,7 @@
     {
       "name": "跨项目卡片跳转（A→B）",
       "ok": true,
-      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"heroP\":\"管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。\",\"hasCardsDesc\":true,\"hasCardTitle\":true,\"activeCardTitle\":\"项目B独特角色卡\",\"detailTitle\":\"项目B独特角色卡\",\"cardContext\":\"移 项目列表 概览 写作 大纲 卡片 统计 版本历史Cards 看板 列表 背景设定 卡片类型 关系类型 新建卡片角色1项目B独特角色卡地点0暂无卡片组织0暂无卡片物品0暂无卡片世界规则0暂无卡片情节\"}"
+      "detail": "{\"overlayOpen\":false,\"heroH2\":\"测试项目B\",\"heroP\":\"管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。\",\"hasCardsDesc\":true,\"hasCardTitle\":true,\"activeCardTitle\":\"项目B独特角色卡\",\"detailTitle\":\"项目B独特角色卡\",\"cardContext\":\" 概览 写作 大纲 卡片 统计 版本历史Cards 看板 列表 背景设定 卡片类型 关系类型 导入 导出 新建卡片角色1项目B独特角色卡地点0暂无卡片组织0暂无卡片物品0暂无卡片世界规则0暂无卡片情节\"}"
     },
     {
       "name": "第 1050 条收件箱搜索",
@@ -50,12 +50,12 @@
     {
       "name": "摘录 IPC 持久化（收件箱 inbox.create）",
       "ok": true,
-      "detail": "itemId=inbox-46cf5744-2ce1-4108-b998-b0f9730a1e55"
+      "detail": "itemId=inbox-fc9c3152-aaa2-4e5d-943a-017555f6edc0"
     },
     {
       "name": "摘录 IPC 持久化（reference 资料卡 card.create）",
       "ok": true,
-      "detail": "entityId=card-96ddbb10-0b4d-4810-867a-059bb7572dbb"
+      "detail": "entityId=card-6ff750c5-e0e9-4d19-98b8-56fb000316d0"
     },
     {
       "name": "smoke 截图",

@@ -768,3 +768,42 @@ Novalist 调研与取舍仍记录在
   - **业务契约测试**：3 套契约校验脚本全部通过；
   - **打包构建耗时**：`npm run build` 成功完成，耗时约 5.32s。
 
+
+## 26. 2026-09-05 EPUB 阅读问题根因修复（真机实测定位）
+
+- **用户反馈**「EPUB 书籍阅读有问题」。真机实测（c49ac6cf，截屏 + uiautomator dump +
+  DataStore 二进制读取）定位根因：**设备存量设置 `epub_pager_engine_mode = "off"`**，
+  使所有 EPUB 永远落在 legacy 整章翻页分支（PagedEpubView）——点击边缘翻「章」而非翻「页」、
+  章内又可滚动、控件显示时顶栏盖住正文首行，体验支离破碎。
+- **修复**：新增一次性迁移 `migrateEpubEngineReenable`（ReaderDefaultsMigration.kt）：
+  存量 off → auto，marker `epub_engine_reenabled_v1` 幂等；迁移后用户手动改回 off 是
+  明确意愿不再打扰。auto 模式带健康自愈（连续 2 次崩溃自动停用引擎回退 legacy），风险可控。
+  KEY_EPUB_PAGER_ENGINE 定义收敛到迁移模块（消除双定义冲突）。
+- **坐标衔接验证**：legacy 块偏移（computeBlockGlobalOffsets）与新引擎页偏移同为
+  「块长+1 累加」口径，迁移后已有阅读进度无缝恢复（真机验证）。
+- **真机验收**：迁移生效（DataStore 复查 off→auto + marker）→ 重新进书出现
+  「分页正文已就绪」语义（新引擎接管，legacy 翻章图标消失）→ 右缘点击按页推进
+  （同章内页 1→页 2）→ 翻页自动隐藏菜单 → 页眉章名/电量正常。
+- 过程中顺带确认：书架封面两 bug（EPUB 内嵌封面不显示 / TXT 占位无书名）已由并行
+  agent 修复并在真机复核通过（EPUB 显示自带封面、TXT 占位带书名）。
+
+## 27. 2026-09-05 跨章回翻跳章首：二次根因（并行工作覆盖）+ 进度污染修复
+
+- **用户复报**「从一章的开头向前划，会直接跳转到前一章的开头」。排查发现两个叠加根因：
+  1. **并行 agent 工作覆盖了本会话早前的 syncPagedChapter / jumpToStart 接线**
+     （ReaderActions / ReaderLayerBuilders / ReaderScaffold / ReaderScreen 四文件被回退），
+     被动跨章同步重新走 goToChapter(jumpToStart=true) → 写 chapterStart 跳转请求 →
+     open(章首) 把已停在上一章末页的阅读器**立即拽回前一章开头**（用户所见主因）。
+     已全部重新接线（Builder/Scaffold/Screen/Actions 五处）。
+  2. **VM loadChapter 无条件以 offsetInChapter=0 保存 EPUB 进度**：被动同步也触发
+     LoadChapter → saveProgress(chapter=N-1, offset=0)，mergeReaderProgress 的 locator
+     无条件采信 incoming → 污染持久化进度（防抖正确保存 500ms 后才自愈；用户快速
+     退出即被污染，重进回到前一章开头）。修复：LoadChapter 增加 persistProgress 标志，
+     goToChapter 传 `jumpToStart || !pagerEngineOn`（被动同步不写章首进度；
+     legacy 滚动模式行为不变）。
+- **真机验收**：第10章章首向后划 → 落在第9章末页（页眉第9章/页脚100%/章末正文），
+  3 秒后复查位置稳定不被拽回；全部 JVM 单测通过（含新增 ViewModel 测试：
+  persistProgress=false 不写 locator、markRead 不受影响）。
+- **教训（并行 agent 纪律）**：多 agent 并行改同一模块时必须遵守 AGENTS.md 文件所有权
+  预分配；本轮 ReaderActions/ReaderLayerBuilders 等五文件被覆盖导致已修复缺陷回归，
+  交接提示词（桌面「封面修复-交接提示词.md」）未声明对 reader 导航链路的独占。

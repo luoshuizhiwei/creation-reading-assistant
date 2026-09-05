@@ -1,5 +1,9 @@
 # P1 历史 / 快照恢复 / 回收站影响 UI — 审查与收尾报告
 
+> **历史存档（2026-09-04 标注）**：本文为 2026-08 P1 轮次交付记录，结论仅对当时代码有效。
+> 桌面端此后已演进（清样工作台视觉重设计、创作雷达/AI 上下文包、阅读器升级），
+> 当前状态以 `docs/handoff/current.md` 为准。
+
 - 范围：`src/features/creation/history/**`（仅此目录，未触碰任何禁止路径）
 - 前置实现：本轮在 `history` 目录既有未提交半成品（前序 Agent）之上收尾，未重写软删除 / 恢复 / 30 天清理核心逻辑
 - 依赖的 Agent 1 接口：`previewSnapshot` / `restoreSnapshotWithProtection` / `loadTrashImpact`（已确认存在，tsc 0 errors，无接口阻塞）
