@@ -212,13 +212,10 @@ fun PagedReaderHost(
                 // Android 字体的实际 ascent 可能超出行框；给页内首行留出独立安全区，
                 // 否则首行会被 PageCanvas 顶边裁掉。该值进入 LayoutConfig，
                 // 分页、绘制和选区命中共用同一坐标。
-                // ReaderTopChrome 占用 64dp；有页眉时由「自适应页眉高度 + 间距 8dp +
-                // 正文安全区」共同避让，关闭页眉后补回缺少的页眉空间，避免首行被覆盖。
+                // 顶栏为悬浮层（显示时覆盖正文顶部），不再永久预留其高度。
                 val contentTopPaddingPx = with(density) {
                     pagedReaderContentTopPaddingDp(
                         fontSizeSp = fontSizeSp,
-                        headerVisible = showReaderInfo &&
-                            (headerLeft != HeaderFooterItem.NONE || headerRight != HeaderFooterItem.NONE),
                         fontScale = density.fontScale,
                     ).dp.toPx()
                 }

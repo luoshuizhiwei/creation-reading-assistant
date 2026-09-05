@@ -33,11 +33,21 @@ object TxtChapterDetector {
     /** 识别结果的平均章节长度低于此值，判定为误报风暴，整体作废。 */
     private const val MIN_AVERAGE_CHAPTER_CHARS = 300
 
+    /** 正文短于此值不启用自动嗅探：极短文本（样本/片段）目录没有意义。 */
+    private const val MIN_AUTO_SNIFF_TEXT_CHARS = 3000
+
+    /**
+     * builtin 兜底为「全文」后的自动嗅探顺序（晋江/豆瓣/盐选等编号样式小说）。
+     * 每个候选都要过与 builtin 相同的密度验证（≥3 章 + 平均章长 ≥ [MIN_AVERAGE_CHAPTER_CHARS]），
+     * 全部不过就维持「全文」——宁可没有目录，也不要错误的目录。
+     */
+    private val SNIFF_RULE_ORDER = listOf("num-dot", "cn-num-dot", "bracketed", "num-bare")
+
     /**
      * 数字：阿拉伯、全角、汉字小写（「两」也算，「第两百章」确有其写法；〇/○ 两种圈零都有人用）、
-     * 汉字大写（壹贰叁……，仿古文常见）。
+     * 汉字大写（壹贰叁……，仿古文常见）、廿/卅（章回体二十/三十的缩写）。
      */
-    private const val NUM = "[0-9０-９零〇○一二三四五六七八九十百千万两壹贰叁肆伍陆柒捌玖拾佰仟]"
+    private const val NUM = "[0-9０-９零〇○一二三四五六七八九十百千万两廿卅壹贰叁肆伍陆柒捌玖拾佰仟]"
 
     /** 行内空白。正则的 \s 不含全角空格（U+3000），必须显式列出。 */
     private const val WS = """[ \t　]"""
@@ -63,8 +73,10 @@ object TxtChapterDetector {
     private const val WEAK_UNIT = "[话話场場幕折]"
 
     private val PATTERNS: List<Regex> = listOf(
-        // 第X章 / 第 1 节 / 第一百二十三回 / 第壹卷 / 第３册，可带「正文」前缀或左括号前缀
-        Regex("""^$OPEN?$WS*(?:正文$WS{0,4})?第$WS*$NUM{1,12}$WS*$STRONG_UNIT[^\n]{0,30}$"""),
+        // 第X章 / 第 1 节 / 第一百二十三回 / 第壹卷 / 第３册，可带「正文」前缀或左括号前缀。
+        // 副标题负向断言：紧跟「之/的」的是正文指代（第两百章之后的内容 / 第三章的约定），
+        // 真实章节标题不会用「的/之」开头。
+        Regex("""^$OPEN?$WS*(?:正文$WS{0,4})?第$WS*$NUM{1,12}$WS*$STRONG_UNIT(?!$WS*[之的])[^\n]{0,30}$"""),
         // 第X话 / 第X场 / 第X幕 / 第X折：弱单位，副标题前必须有分隔符
         Regex("""^$OPEN?$WS*(?:正文$WS{0,4})?第$WS*$NUM{1,12}$WS*$WEAK_UNIT(?:$SEP[^\n]{0,30})?$"""),
         // 卷一 / 卷之十二 / 部X / 篇X / 册X 的省略写法
@@ -75,6 +87,11 @@ object TxtChapterDetector {
         // 「楔子」「序幕」是标题，「楔子钉进了木头缝里」「序幕拉开了」是正文。
         Regex(
             """^$OPEN?$WS*(?:序章|序言|序幕|自序|楔子|前言|引子|引言|后记|後記|後记|尾声|尾聲|终章|終章|终幕|終幕|番外篇|番外|外传|外傳|大结局|大結局|结局|結局|正文|序)(?:$WS*$NUM{1,8})?(?:$SEP[^\n]{0,30})?$"""
+        ),
+        // 平台专属章型（起点/刺猬猫/轻小说系），与上方具名同等弱单位待遇——
+        // 副标题前必须有分隔符：「最终话」「间章」是标题，「最终章节里」「间章的写法」是正文。
+        Regex(
+            """^$OPEN?$WS*(?:最终章|最終章|最终话|最終話|末章|末話|间章|間章|幕间|幕間|上架感言|完本感言|完结感言|新书感言)(?:$WS*$NUM{1,8})?(?:$SEP[^\n]{0,30})?$"""
         ),
         // Chapter 1 / CHAPTER IV
         Regex("""^chapter\s+[0-9ivxlcdm]{1,12}\b[^\n]{0,30}$""", RegexOption.IGNORE_CASE),
@@ -144,12 +161,39 @@ object TxtChapterDetector {
 
     /**
      * 用显式正则列表识别章节（RuleEngine 自定义规则并集入口）。
-     * [densityGuard] 控制是否启用「平均章节过短整体作废」。
+     * [densityGuard] 控制是否启用「平均章节过短整体作废」；builtin（guard=true）在
+     * 兜底成「全文」时还会自动嗅探编号样式候选（见 [sniffNumberedChapters]）。
      */
     fun detect(text: String, patterns: List<Regex>, densityGuard: Boolean): List<Chapter> =
         detect(text, { title -> patterns.any { it.matches(title) } }, densityGuard)
 
-    private fun detect(text: String, matcher: (String) -> Boolean, densityGuard: Boolean): List<Chapter> {
+    /**
+     * builtin 识别不出章编号形态时的兜底嗅探：许多小说目录是「1、标题」「一、标题」
+     * 「【1】标题」或纯数字行（晋江/豆瓣阅读/知乎盐选短篇常见）。按 [SNIFF_RULE_ORDER]
+     * 逐个候选尝试，取通过密度验证（≥3 章 + 平均章长达标）且章节数最多的结果；
+     * 全部不过返回 null，调用方维持「全文」。候选探测必须走 allowSniff=false 入口，
+     * 否则候选自身的兜底会再次触发嗅探，无限递归。
+     */
+    private fun sniffNumberedChapters(text: String): List<Chapter>? {
+        var best: List<Chapter>? = null
+        for (id in SNIFF_RULE_ORDER) {
+            val rule = rules.firstOrNull { it.id == id } ?: continue
+            val candidate = detect(
+                text,
+                { title -> rule.patterns.any { it.matches(title) } },
+                densityGuard = true,
+                allowSniff = false,
+            )
+            val valid = candidate.size >= 3 &&
+                text.length.toDouble() / candidate.size >= MIN_AVERAGE_CHAPTER_CHARS
+            if (valid && (best == null || candidate.size > best.size)) {
+                best = candidate
+            }
+        }
+        return best
+    }
+
+    private fun detect(text: String, matcher: (String) -> Boolean, densityGuard: Boolean, allowSniff: Boolean = true): List<Chapter> {
         if (text.isEmpty()) return listOf(Chapter("全文", 0, 0))
 
         val marks = ArrayList<Pair<Int, String>>() // (标题行起始偏移, 标题)
@@ -170,7 +214,9 @@ object TxtChapterDetector {
             i++
         }
 
-        if (marks.isEmpty()) return listOf(Chapter("全文", 0, n))
+        if (marks.isEmpty()) {
+            return if (allowSniff) fallbackOrSniff(text, n) else listOf(Chapter("全文", 0, n))
+        }
 
         val chapters = ArrayList<Chapter>(marks.size + 1)
         // 第一个标题之前若有内容（通常是书名页、简介），单独成章，否则会丢失
@@ -186,9 +232,21 @@ object TxtChapterDetector {
         // 平均值过小说明匹配到的多半是正文里的目录列表或诗歌，宁可没有目录。
         val average = n.toDouble() / chapters.size
         if (densityGuard && average < MIN_AVERAGE_CHAPTER_CHARS) {
-            return listOf(Chapter("全文", 0, n))
+            return fallbackOrSniff(text, n)
         }
         return chapters
+    }
+
+    /**
+     * builtin 识别失败（无任何标题命中 / 命中过密整体作废）的统一兜底：
+     * 正文足够长时先自动嗅探编号样式目录（晋江/豆瓣/盐选系的「1、」「一、」
+     * 「【1】」「纯数字」行），仍不成才退回「全文」单章。
+     */
+    private fun fallbackOrSniff(text: String, n: Int): List<Chapter> {
+        if (n >= MIN_AUTO_SNIFF_TEXT_CHARS) {
+            sniffNumberedChapters(text)?.let { return it }
+        }
+        return listOf(Chapter("全文", 0, n))
     }
 
     /** 单行是否构成章节标题。抽出来便于单测与复用。 */

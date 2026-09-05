@@ -62,6 +62,57 @@ class StructuredReplacementContractTest {
         assertNotEquals(sourceText.length, chapter.canonicalText.length)
     }
 
+    @Test
+    fun `empty rules on EPUB and Markdown keep respective unavailable reasons instead of NO_EFFECTIVE_RULES`() {
+        val epub = EpubChapterSource(
+            titles = listOf("ch"),
+            chapterStartOffsets = listOf(0),
+            totalChars = 50,
+            loadBlocks = { listOf(DocBlock.Text("body", isHeading = false)) },
+        )
+        val preparedEpub = preparePagedReplacement(epub, "epub", emptyList())
+        assertEquals(
+            "EPUB with empty rules must stay ESTIMATED_COORDINATES",
+            PagedReplacementAvailability.ESTIMATED_COORDINATES,
+            preparedEpub.availability,
+        )
+
+        val md = MarkdownChapterSource(MarkdownDocument("# Title\nBody"))
+        val preparedMd = preparePagedReplacement(md, "md", emptyList())
+        assertEquals(
+            "Markdown with empty rules must stay NON_SOURCE_COORDINATES",
+            PagedReplacementAvailability.NON_SOURCE_COORDINATES,
+            preparedMd.availability,
+        )
+    }
+
+    @Test
+    fun `incomplete scope or estimated lengths source falls back to unprojected delegate`() {
+        val estimatedSource = object : PagedChapterSource {
+            override val chapterCount: Int = 1
+            override val totalChars: Int = 100
+            override val replacementCoordinateSpace: ReplacementCoordinateSpace = ReplacementCoordinateSpace.SOURCE
+            override val chapterLengthsAreEstimated: Boolean = true
+            override fun chapterTitle(index: Int) = "Est"
+            override fun chapterStartAbs(index: Int) = 0
+            override fun loadChapter(index: Int) = PagedChapterContent("text", emptyList())
+        }
+        val prepEst = preparePagedReplacement(estimatedSource, "b1", listOf(removeBodyRule()))
+        assertEquals(PagedReplacementAvailability.ESTIMATED_COORDINATES, prepEst.availability)
+
+        val incompleteSource = object : PagedChapterSource {
+            override val chapterCount: Int = 1
+            override val totalChars: Int = 100
+            override val replacementCoordinateSpace: ReplacementCoordinateSpace = ReplacementCoordinateSpace.SOURCE
+            override val replaceProjectionScopeIsComplete: Boolean = false
+            override fun chapterTitle(index: Int) = "Inc"
+            override fun chapterStartAbs(index: Int) = 0
+            override fun loadChapter(index: Int) = PagedChapterContent("text", emptyList())
+        }
+        val prepInc = preparePagedReplacement(incompleteSource, "b2", listOf(removeBodyRule()))
+        assertEquals(PagedReplacementAvailability.INCOMPLETE_SCOPE, prepInc.availability)
+    }
+
     private fun removeBodyRule() = ReplaceRule(
         id = "replace-body",
         name = "remove body",

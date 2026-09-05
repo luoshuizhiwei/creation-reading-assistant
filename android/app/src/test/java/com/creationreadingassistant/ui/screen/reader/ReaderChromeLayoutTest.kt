@@ -19,9 +19,10 @@ class ReaderChromeLayoutTest {
     }
 
     @Test
-    fun `paged content restores the missing header reserve when quiet info is disabled`() {
-        assertEquals(32f, pagedReaderContentTopPaddingDp(fontSizeSp = 25f, headerVisible = true), 0.001f)
-        assertEquals(56f, pagedReaderContentTopPaddingDp(fontSizeSp = 25f, headerVisible = false), 0.001f)
+    fun `paged top padding is pure font safety with no chrome reserve`() {
+        // 顶栏为悬浮层，不再永久预留高度（此前 64dp 预留造成正文顶部约 1.5~2 行空白）；
+        // 绘制基线垂直居中已保证字形不越行顶，安全区只覆盖墨迹溢出（0.15×字号，2~6dp）
+        assertEquals(3.75f, pagedReaderContentTopPaddingDp(fontSizeSp = 25f), 0.001f)
     }
 
     @Test
@@ -42,28 +43,17 @@ class ReaderChromeLayoutTest {
     @Test
     fun `paged top safety follows the rendered font scale on accessibility sizes`() {
         assertEquals(
-            56f,
+            3.75f,
             pagedReaderContentTopPaddingDp(
                 fontSizeSp = 25f,
-                headerVisible = false,
                 fontScale = 1f,
             ),
             0.001f,
         )
         assertEquals(
-            56f,
+            6f,
             pagedReaderContentTopPaddingDp(
                 fontSizeSp = 25f,
-                headerVisible = false,
-                fontScale = 2f,
-            ),
-            0.001f,
-        )
-        assertEquals(
-            40f,
-            pagedReaderContentTopPaddingDp(
-                fontSizeSp = 25f,
-                headerVisible = true,
                 fontScale = 2f,
             ),
             0.001f,

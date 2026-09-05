@@ -2,6 +2,7 @@ package com.creationreadingassistant.data.settings
 
 import androidx.datastore.preferences.core.MutablePreferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
+import androidx.datastore.preferences.core.stringPreferencesKey
 
 /**
  * 一次性旧默认迁移模块（问题 1/4）。
@@ -14,6 +15,11 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
  *   幂等且并发原子。
  */
 internal val KEY_LEGACY_DEFAULTS_MIGRATED = booleanPreferencesKey("reader_legacy_defaults_migrated_v1")
+
+/** EPUB 分页引擎重启用迁移 marker：off→auto 只做一次，用户此后手动改回 off 不再打扰。 */
+internal val KEY_EPUB_ENGINE_REENABLED = booleanPreferencesKey("epub_engine_reenabled_v1")
+
+internal val KEY_EPUB_PAGER_ENGINE = stringPreferencesKey("epub_pager_engine_mode")
 
 /** 迁移特征值：仅当亮度仍是旧默认 100 时才收敛为 -1（跟随系统）。 */
 private const val LEGACY_DEFAULT_BRIGHTNESS = 100
@@ -44,4 +50,19 @@ internal fun migrateLegacyReaderDefaults(prefs: MutablePreferences) {
         prefs[KEY_IMMERSIVE] = true
     }
     prefs[KEY_LEGACY_DEFAULTS_MIGRATED] = true
+}
+
+/**
+ * EPUB 分页引擎重启用（一次性）：历史版本的 off 残留会让 EPUB 永远落在
+ * legacy 整章翻页分支——点击翻页直接跳章、章内又可滚动，真机观感即「EPUB 阅读有问题」。
+ * 分页引擎此后已经过多轮加固（引擎收口/翻页修复/章界导航修复），迁移为 auto；
+ * auto 模式自带健康自愈（连续 2 次崩溃自动停用引擎），风险可控。
+ * 用户迁移后手动改回 off 是明确意愿，marker 保证不再迁移。
+ */
+internal fun migrateEpubEngineReenable(prefs: MutablePreferences) {
+    if (prefs[KEY_EPUB_ENGINE_REENABLED] == true) return
+    if (prefs[KEY_EPUB_PAGER_ENGINE] == "off") {
+        prefs[KEY_EPUB_PAGER_ENGINE] = "auto"
+    }
+    prefs[KEY_EPUB_ENGINE_REENABLED] = true
 }

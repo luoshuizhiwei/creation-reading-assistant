@@ -1,6 +1,10 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -14,18 +18,21 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.ArrowDownward
 import androidx.compose.material.icons.outlined.ArrowUpward
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Gavel
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -36,9 +43,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.ReplacePreviewResult
 import com.creationreadingassistant.feature.reader.rules.ReplaceRule
@@ -51,7 +64,9 @@ import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
 import com.creationreadingassistant.feature.reader.rules.RuleValidationError
 import com.creationreadingassistant.feature.reader.rules.TocPreviewResult
 import com.creationreadingassistant.feature.reader.rules.TocRule
-import com.creationreadingassistant.ui.components.SettingRow
+import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.LineArtBook
+import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
 
@@ -248,7 +263,109 @@ internal fun RuleScope.ruleScopeLabel(): String = when (this) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Sheet
+// 微徽章与微底座组件
+// ─────────────────────────────────────────────────────────────────────────────
+
+@Composable
+private fun RuleScopeBadge(scope: RuleScope) {
+    val (bg, fg, label) = when (scope) {
+        RuleScope.PER_BOOK -> Triple(
+            Color(0xFF2E7D32).copy(alpha = 0.12f),
+            Color(0xFF2E7D32),
+            "本书",
+        )
+        RuleScope.GLOBAL -> Triple(
+            Color(0xFF6A1B9A).copy(alpha = 0.12f),
+            Color(0xFF6A1B9A),
+            "全局",
+        )
+    }
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = bg,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = fg,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun BuiltinBadge(isStandard: Boolean) {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.8f),
+    ) {
+        Text(
+            text = if (isStandard) "内置·标准" else "内置",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun CustomBadge() {
+    Surface(
+        shape = RoundedCornerShape(6.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.6f),
+    ) {
+        Text(
+            text = "自定义",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+        )
+    }
+}
+
+@Composable
+private fun RuleActionButton(
+    icon: ImageVector,
+    contentDescription: String,
+    onClick: () -> Unit,
+    enabled: Boolean = true,
+    isDestructive: Boolean = false,
+) {
+    val tint = when {
+        !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+        isDestructive -> MaterialTheme.colorScheme.error
+        else -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val bg = when {
+        !enabled -> Color.Transparent
+        isDestructive -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.35f)
+        else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
+    }
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = bg,
+        modifier = Modifier
+            .padding(start = 6.dp)
+            .size(32.dp),
+        onClick = onClick,
+        enabled = enabled,
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = contentDescription,
+                tint = tint,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Sheet 主入口与列表
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
@@ -357,15 +474,35 @@ private fun ColumnScope.RulesList(
     val layout = LocalLayoutTokens.current
     val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
     Column(Modifier.fillMaxWidth().weight(1f)) {
-        Row(
+        // 顶层 Tab 切换栏使用现代化圆润微胶囊导轨
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
+            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
-            horizontalArrangement = Arrangement.spacedBy(layout.relatedGap),
         ) {
-            OptionPill(selected = tab == RuleKind.TOC, label = "目录规则", onClick = { onTabChange(RuleKind.TOC) })
-            if (replacementAvailable) {
-                OptionPill(selected = tab == RuleKind.REPLACE, label = "替换净化", onClick = { onTabChange(RuleKind.REPLACE) })
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SelectablePill(
+                    selected = tab == RuleKind.TOC,
+                    text = "目录规则",
+                    onClick = { onTabChange(RuleKind.TOC) },
+                    modifier = Modifier.weight(1f),
+                )
+                if (replacementAvailable) {
+                    SelectablePill(
+                        selected = tab == RuleKind.REPLACE,
+                        text = "替换净化",
+                        onClick = { onTabChange(RuleKind.REPLACE) },
+                        modifier = Modifier.weight(1f),
+                    )
+                }
             }
         }
         if (replacementCapability is ReaderReplacementCapability.Unavailable) {
@@ -384,14 +521,16 @@ private fun ColumnScope.RulesList(
                 onEdit = onEditReplace,
             )
         }
+        // 底部新增规则按钮圆润微岛化
         Button(
             onClick = onAdd,
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
         ) {
             Icon(Icons.Outlined.Add, contentDescription = "新增规则", modifier = Modifier.size(18.dp))
-            Spacer(Modifier.width(layout.relatedGap))
+            Spacer(Modifier.width(8.dp))
             Text("新增规则")
         }
     }
@@ -400,21 +539,27 @@ private fun ColumnScope.RulesList(
 @Composable
 private fun ReplacementUnavailableNotice(message: String) {
     val layout = LocalLayoutTokens.current
-    Column(
+    Surface(
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
     ) {
-        Text(
-            text = "替换净化当前不可用",
-            style = MaterialTheme.typography.titleSmall,
-        )
-        Text(
-            text = message,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.padding(top = layout.microGap),
-        )
+        Column(modifier = Modifier.padding(14.dp)) {
+            Text(
+                text = "替换净化当前不可用",
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = layout.microGap),
+            )
+        }
     }
 }
 
@@ -433,16 +578,23 @@ private fun ColumnScope.TocRulesList(
     LazyColumn(
         modifier = Modifier.fillMaxWidth().weight(1f),
         contentPadding = PaddingValues(horizontal = layout.pageHorizontal, vertical = layout.microGap),
-        verticalArrangement = Arrangement.spacedBy(layout.microGap),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         if (customIds.isEmpty()) {
             item("custom_hint") {
-                Text(
-                    text = "暂无自定义目录规则。内置规则不可编辑，点击「新增规则」添加。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(vertical = layout.relatedGap),
-                )
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
+                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    modifier = Modifier.fillMaxWidth().padding(vertical = layout.microGap),
+                ) {
+                    Text(
+                        text = "暂无自定义目录规则。内置规则不可编辑，点击「新增规则」添加。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    )
+                }
             }
         }
         items(rules, key = { it.id }) { rule ->
@@ -491,7 +643,7 @@ private fun ColumnScope.ReplaceRulesList(
     LazyColumn(
         modifier = Modifier.fillMaxWidth().weight(1f),
         contentPadding = PaddingValues(horizontal = layout.pageHorizontal, vertical = layout.microGap),
-        verticalArrangement = Arrangement.spacedBy(layout.microGap),
+        verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         items(rules, key = { it.id }) { rule ->
             val index = customIds.indexOf(rule.id)
@@ -513,27 +665,15 @@ private fun ColumnScope.ReplaceRulesList(
 
 @Composable
 private fun ColumnScope.RuleEmptyState(title: String, body: String) {
-    val layout = LocalLayoutTokens.current
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .weight(1f)
-            .padding(horizontal = layout.pageHorizontal),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center,
-    ) {
-        Text(title, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(layout.relatedGap))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            textAlign = TextAlign.Center,
-        )
-    }
+    FullEmptyState(
+        modifier = Modifier.fillMaxWidth().weight(1f),
+        icon = { LineArtBook(sizeDp = 64.dp) },
+        title = title,
+        body = body,
+    )
 }
 
-/** 自定义规则行：开关 + 底部操作区（上移/下移/编辑/删除）。 */
+/** 自定义规则行：独立微岛卡片，配备 28dp 微彩底座 + 徽章 + 精致操作按钮组。 */
 @Composable
 private fun CustomRuleRow(
     name: String,
@@ -547,45 +687,154 @@ private fun CustomRuleRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
-    val layout = LocalLayoutTokens.current
-    Column(Modifier.fillMaxWidth()) {
-        SettingRow(
-            title = name,
-            subtitle = "${scope.ruleScopeLabel()} · 自定义",
-            trailing = { Switch(checked = enabled, onCheckedChange = onToggle) },
-        )
-        Row(
-            modifier = Modifier.fillMaxWidth().padding(end = layout.cardPadding),
-            horizontalArrangement = Arrangement.End,
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        shadowElevation = 0.5.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
         ) {
-            IconButton(onClick = onMoveUp, enabled = canMoveUp) {
-                Icon(Icons.Outlined.ArrowUpward, contentDescription = "上移")
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                // 28dp 独立微彩圆角底座（自定义规则：淡紫底座 + Gavel）
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF6750A4).copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Gavel,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp),
+                        tint = Color(0xFF6750A4),
+                    )
+                }
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = name,
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        CustomBadge()
+                        RuleScopeBadge(scope = scope)
+                    }
+                }
+                Switch(checked = enabled, onCheckedChange = onToggle)
             }
-            IconButton(onClick = onMoveDown, enabled = canMoveDown) {
-                Icon(Icons.Outlined.ArrowDownward, contentDescription = "下移")
-            }
-            IconButton(onClick = onEdit) {
-                Icon(Icons.Outlined.Edit, contentDescription = "编辑")
-            }
-            IconButton(onClick = onDelete) {
-                Icon(Icons.Outlined.Delete, contentDescription = "删除")
+            // 操作按钮组（上移、下移、编辑、删除）为紧凑精致的微胶囊/IconButton
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 10.dp),
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RuleActionButton(
+                    icon = Icons.Outlined.ArrowUpward,
+                    contentDescription = "上移",
+                    onClick = onMoveUp,
+                    enabled = canMoveUp,
+                )
+                RuleActionButton(
+                    icon = Icons.Outlined.ArrowDownward,
+                    contentDescription = "下移",
+                    onClick = onMoveDown,
+                    enabled = canMoveDown,
+                )
+                RuleActionButton(
+                    icon = Icons.Outlined.Edit,
+                    contentDescription = "编辑",
+                    onClick = onEdit,
+                )
+                RuleActionButton(
+                    icon = Icons.Outlined.Delete,
+                    contentDescription = "删除",
+                    onClick = onDelete,
+                    isDestructive = true,
+                )
             }
         }
     }
 }
 
-/** 内置规则行：标准内置开关禁用；宽松内置可启停（ToggleBuiltinToc）。 */
+/** 内置规则行：独立微岛卡片，配备 28dp 微彩底座 + 徽章。标准内置开关禁用；宽松内置可启停。 */
 @Composable
 private fun BuiltinRuleRow(rule: TocRule, onToggle: ((Boolean) -> Unit)?) {
-    SettingRow(
-        title = rule.name,
-        subtitle = buildString {
-            append(rule.scope.ruleScopeLabel())
-            append(" · 内置")
-            if (rule.id == BuiltinTocRules.STANDARD_ID) append(" · 标准")
-        },
-        trailing = { Switch(checked = rule.enabled, onCheckedChange = onToggle) },
-    )
+    val isStandard = rule.id == BuiltinTocRules.STANDARD_ID
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        shadowElevation = 0.5.dp,
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            // 28dp 独立微彩圆角底座（内置规则：墨青底座 + AutoStories）
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF00796B).copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AutoStories,
+                    contentDescription = null,
+                    modifier = Modifier.size(16.dp),
+                    tint = Color(0xFF00796B),
+                )
+            }
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                Text(
+                    text = rule.name,
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    BuiltinBadge(isStandard = isStandard)
+                    RuleScopeBadge(scope = rule.scope)
+                }
+            }
+            Switch(
+                checked = rule.enabled,
+                onCheckedChange = onToggle,
+                enabled = onToggle != null,
+            )
+        }
+    }
 }
 
 /** 最近 mutation 结果的简短反馈：错误用 error 色，其余用 primary 色。 */
@@ -634,6 +883,7 @@ private fun ColumnScope.RuleEditor(
             onValueChange = { onDraftChange(draft.copy(name = it)) },
             label = { Text("规则名称") },
             singleLine = true,
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
@@ -641,6 +891,7 @@ private fun ColumnScope.RuleEditor(
             onValueChange = { onDraftChange(draft.copy(pattern = it)) },
             label = { Text("正则表达式") },
             supportingText = { Text("示例：第[0-9]+章") },
+            shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth().padding(top = layout.relatedGap),
         )
         if (draft.kind == RuleKind.REPLACE) {
@@ -649,6 +900,7 @@ private fun ColumnScope.RuleEditor(
                 onValueChange = { onDraftChange(draft.copy(replacement = it)) },
                 label = { Text("替换文本") },
                 supportingText = { Text("留空表示删除命中文本") },
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth().padding(top = layout.relatedGap),
             )
         }
@@ -659,34 +911,53 @@ private fun ColumnScope.RuleEditor(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
             modifier = Modifier.padding(top = layout.contentGap, bottom = layout.relatedGap),
         )
-        Row(horizontalArrangement = Arrangement.spacedBy(layout.relatedGap)) {
-            OptionPill(
-                selected = draft.scope == RuleScope.PER_BOOK,
-                label = "本书",
-                onClick = { onDraftChange(draft.copy(scope = RuleScope.PER_BOOK)) },
-            )
-            OptionPill(
-                selected = draft.scope == RuleScope.GLOBAL,
-                label = "全局",
-                onClick = { onDraftChange(draft.copy(scope = RuleScope.GLOBAL)) },
-            )
+        // 作用域微胶囊单选导轨
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
+            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                SelectablePill(
+                    selected = draft.scope == RuleScope.PER_BOOK,
+                    text = "本书",
+                    onClick = { onDraftChange(draft.copy(scope = RuleScope.PER_BOOK)) },
+                    modifier = Modifier.weight(1f),
+                )
+                SelectablePill(
+                    selected = draft.scope == RuleScope.GLOBAL,
+                    text = "全局",
+                    onClick = { onDraftChange(draft.copy(scope = RuleScope.GLOBAL)) },
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         mutationResult?.let { MutationFeedbackRow(it) }
 
         EditorPreview(draft = draft, previewText = previewText, check = check)
 
+        // 底部保存主按钮圆润微岛化
         Button(
             onClick = onSave,
             enabled = saveEnabled,
-            modifier = Modifier.fillMaxWidth().padding(top = layout.contentGap),
+            shape = RoundedCornerShape(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(top = layout.contentGap),
         ) {
             Text(if (draft.id == null) "保存新增" else "保存修改")
         }
     }
 }
 
-/** 编辑器预览区：命中数 + 抽样/节选；正则问题显示中文错误。 */
+/** 编辑器预览区：独立微岛卡片，命中数使用翡翠绿微徽章胶囊，对比内容以等宽字体微岛呈现。 */
 @Composable
 private fun EditorPreview(
     draft: RuleEditorDraft,
@@ -694,61 +965,161 @@ private fun EditorPreview(
     check: RuleDraftCheck,
 ) {
     val layout = LocalLayoutTokens.current
-    Column(Modifier.fillMaxWidth().padding(top = layout.contentGap)) {
-        Text("预览", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(layout.microGap))
-        when {
-            draft.pattern.isBlank() ->
-                PreviewHint("请输入正则表达式后查看预览")
-            check is RuleDraftCheck.Invalid ->
-                check.errors.forEach { error ->
-                    Text(
-                        text = error.userMessage(),
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                        modifier = Modifier.padding(top = layout.microGap),
-                    )
-                }
-            previewText.isBlank() ->
-                PreviewHint("暂无预览文本，保存后可在阅读中生效。")
-            else ->
-                when (val preview = (check as RuleDraftCheck.Valid).preview) {
-                    is RuleDraftPreview.Toc -> {
-                        Text(
-                            text = "命中 ${preview.result.chapterCount} 章",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        preview.result.sampleTitles.forEach { title ->
-                            Text(
-                                text = title,
-                                style = MaterialTheme.typography.bodySmall,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.padding(top = layout.microGap),
-                            )
-                        }
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = layout.contentGap),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+        shadowElevation = 0.5.dp,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(14.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "预览",
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                if (check is RuleDraftCheck.Valid) {
+                    val count = when (val preview = check.preview) {
+                        is RuleDraftPreview.Toc -> preview.result.chapterCount
+                        is RuleDraftPreview.Replace -> preview.result.hitCount
                     }
-                    is RuleDraftPreview.Replace -> {
-                        val excerpts = remember(draft, preview.result) {
-                            replaceExcerpts(preview.result.before, preview.result.after, draft.pattern)
-                        }
+                    val countUnit = if (draft.kind == RuleKind.TOC) "章" else "处"
+                    // 命中数翡翠绿微徽章胶囊
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = Color(0xFF2E7D32).copy(alpha = 0.12f),
+                    ) {
                         Text(
-                            text = "命中 ${preview.result.hitCount} 处",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Text(
-                            text = "前：${excerpts.before}",
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.padding(top = layout.microGap),
-                        )
-                        Text(
-                            text = "后：${excerpts.after}",
-                            style = MaterialTheme.typography.bodySmall,
+                            text = "命中 $count $countUnit",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF2E7D32),
+                            fontWeight = FontWeight.SemiBold,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
                         )
                     }
                 }
+            }
+            Spacer(Modifier.height(8.dp))
+            when {
+                draft.pattern.isBlank() ->
+                    PreviewHint("请输入正则表达式后查看预览")
+                check is RuleDraftCheck.Invalid ->
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        check.errors.forEach { error ->
+                            Surface(
+                                shape = RoundedCornerShape(8.dp),
+                                color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(
+                                    text = error.userMessage(),
+                                    color = MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                previewText.isBlank() ->
+                    PreviewHint("暂无预览文本，保存后可在阅读中生效。")
+                else ->
+                    when (val preview = (check as RuleDraftCheck.Valid).preview) {
+                        is RuleDraftPreview.Toc -> {
+                            if (preview.result.sampleTitles.isEmpty()) {
+                                PreviewHint("未匹配到章节标题")
+                            } else {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    preview.result.sampleTitles.forEach { title ->
+                                        Surface(
+                                            shape = RoundedCornerShape(8.dp),
+                                            color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                                            modifier = Modifier.fillMaxWidth(),
+                                        ) {
+                                            Text(
+                                                text = title,
+                                                style = MaterialTheme.typography.bodySmall.copy(
+                                                    fontFamily = FontFamily.Monospace,
+                                                    fontSize = 12.sp,
+                                                ),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                        is RuleDraftPreview.Replace -> {
+                            val excerpts = remember(draft, preview.result) {
+                                replaceExcerpts(preview.result.before, preview.result.after, draft.pattern)
+                            }
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = "前：",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.outline,
+                                        )
+                                        Text(
+                                            text = excerpts.before,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 12.sp,
+                                            ),
+                                            modifier = Modifier.padding(top = 2.dp),
+                                        )
+                                    }
+                                }
+                                Surface(
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
+                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                                    modifier = Modifier.fillMaxWidth(),
+                                ) {
+                                    Column(modifier = Modifier.padding(10.dp)) {
+                                        Text(
+                                            text = "后：",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = MaterialTheme.colorScheme.primary,
+                                        )
+                                        Text(
+                                            text = excerpts.after,
+                                            style = MaterialTheme.typography.bodySmall.copy(
+                                                fontFamily = FontFamily.Monospace,
+                                                fontSize = 12.sp,
+                                            ),
+                                            modifier = Modifier.padding(top = 2.dp),
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+            }
         }
     }
 }

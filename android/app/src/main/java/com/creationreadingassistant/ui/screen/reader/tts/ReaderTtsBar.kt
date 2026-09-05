@@ -1,14 +1,27 @@
 package com.creationreadingassistant.ui.screen.reader.tts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Headphones
 import androidx.compose.material.icons.outlined.Pause
@@ -16,6 +29,7 @@ import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.Speed
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -25,6 +39,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -36,9 +51,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
@@ -46,6 +65,7 @@ import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.screen.reader.sheets.ReaderSheetScaffold
 
 @Composable
@@ -107,48 +127,211 @@ internal fun TtsBar(
 ) {
     val layout = LocalLayoutTokens.current
     var showSettings by remember { mutableStateOf(false) }
-    Row(
-        Modifier
+    val haptic = rememberHaptic(false)
+    val isPlaying = tts.status == "playing"
+
+    // 悬浮墨玉微岛（Floating Player Island）: 16dp 圆角、微阴影、纸墨半透底色
+    Surface(
+        modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = layout.relatedGap, vertical = layout.microGap),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 10.dp, vertical = 6.dp),
+        shape = RoundedCornerShape(16.dp),
+        color = paper.bg.copy(alpha = 0.95f),
+        border = BorderStroke(0.6.dp, paper.fg.copy(alpha = 0.14f)),
+        shadowElevation = 6.dp,
     ) {
-        Icon(
-            Icons.Outlined.Headphones,
-            contentDescription = null,
-            modifier = Modifier.padding(horizontal = layout.microGap),
-        )
-        Text(
-            "$chapterLabel · ${tts.progressPercent.toInt()}%",
-            style = MaterialTheme.typography.labelLarge,
-            maxLines = 1,
-            modifier = Modifier.weight(1f),
-        )
-        IconButton(onClick = tts::prev, enabled = tts.status != "idle") {
-            Icon(Icons.Outlined.SkipPrevious, contentDescription = "上一段")
-        }
-        IconButton(
-            onClick = {
-                when (tts.status) {
-                    "playing" -> tts.pause()
-                    "paused" -> tts.resume()
-                    else -> tts.resume()
-                }
-            },
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Icon(
-                if (tts.status == "playing") Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
-                contentDescription = if (tts.status == "playing") "暂停" else "播放",
+            // 纸墨微底座耳机图标
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    Icons.Outlined.Headphones,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+            Spacer(Modifier.width(8.dp))
+            Text(
+                text = "$chapterLabel · ${tts.progressPercent.toInt()}%",
+                style = MaterialTheme.typography.labelMedium,
+                fontWeight = FontWeight.SemiBold,
+                color = paper.fg,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f),
             )
-        }
-        IconButton(onClick = tts::next, enabled = tts.status != "idle") {
-            Icon(Icons.Outlined.SkipNext, contentDescription = "下一段")
-        }
-        IconButton(onClick = { showSettings = true }) {
-            Icon(Icons.Outlined.Settings, contentDescription = "朗读设置")
-        }
-        IconButton(onClick = onClose) {
-            Icon(Icons.Outlined.Close, contentDescription = "关闭朗读")
+            // 语速指示升级为带图标的独立微胶囊芯片，带触觉反馈
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    showSettings = true
+                },
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                modifier = Modifier.padding(end = 4.dp),
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.Speed,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(13.dp),
+                    )
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text = "${"%.1f".format(tts.pitch)}x",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+
+            // 上一段：36dp 紧凑触控微胶囊按钮
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    tts.prev()
+                },
+                enabled = tts.status != "idle",
+                shape = CircleShape,
+                color = Color.Transparent,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.SkipPrevious,
+                        contentDescription = "上一段",
+                        tint = if (tts.status != "idle") paper.fg else paper.fg.copy(alpha = 0.35f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // 播放/暂停大圆盘按钮：双层高光同心圆呼吸微底座（46dp 外层光晕 + 38dp 主色圆盘 + 阴影）
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier.padding(horizontal = 2.dp),
+            ) {
+                // 46dp 外层光晕呼吸微底座
+                Box(
+                    modifier = Modifier
+                        .size(46.dp)
+                        .clip(CircleShape)
+                        .background(
+                            MaterialTheme.colorScheme.primary.copy(
+                                alpha = if (isPlaying) 0.22f else 0.12f,
+                            ),
+                        )
+                        .border(
+                            0.6.dp,
+                            MaterialTheme.colorScheme.primary.copy(
+                                alpha = if (isPlaying) 0.38f else 0.18f,
+                            ),
+                            CircleShape,
+                        ),
+                )
+                // 38dp 主色圆盘 + 阴影
+                Surface(
+                    onClick = {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        when (tts.status) {
+                            "playing" -> tts.pause()
+                            "paused" -> tts.resume()
+                            else -> tts.resume()
+                        }
+                    },
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shadowElevation = 4.dp,
+                    modifier = Modifier.size(38.dp),
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                            contentDescription = if (isPlaying) "暂停" else "播放",
+                            modifier = Modifier.size(22.dp),
+                        )
+                    }
+                }
+            }
+
+            // 下一段：36dp 紧凑触控微胶囊按钮
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    tts.next()
+                },
+                enabled = tts.status != "idle",
+                shape = CircleShape,
+                color = Color.Transparent,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.SkipNext,
+                        contentDescription = "下一段",
+                        tint = if (tts.status != "idle") paper.fg else paper.fg.copy(alpha = 0.35f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // 设置：36dp 紧凑触控微胶囊按钮
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    showSettings = true
+                },
+                shape = CircleShape,
+                color = Color.Transparent,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.Settings,
+                        contentDescription = "朗读设置",
+                        tint = paper.fg.copy(alpha = 0.85f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
+
+            // 关闭：36dp 紧凑触控微胶囊按钮
+            Surface(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onClose()
+                },
+                shape = CircleShape,
+                color = Color.Transparent,
+                modifier = Modifier.size(36.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = "关闭朗读",
+                        tint = paper.fg.copy(alpha = 0.85f),
+                        modifier = Modifier.size(20.dp),
+                    )
+                }
+            }
         }
     }
     if (showSettings) {
@@ -175,102 +358,365 @@ internal fun TtsSettingsContent(
     onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int) -> Unit,
     onClose: () -> Unit,
 ) {
+    val haptic = rememberHaptic(false)
     fun persist() = onPersistTts(tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes)
+
     ReaderSheetScaffold(title = "朗读设置") {
-      Column(
-          Modifier
-              .fillMaxWidth()
-              .weight(1f)
-              .verticalScroll(rememberScrollState())
-              .padding(LocalLayoutTokens.current.cardPadding),
-      ) {
-        Text(
-            "使用设备内置的朗读声音。可在系统文字转语音设置中安装或切换声音。",
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.outline,
-            modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
-        )
-
-        SettingLabel("音调")
-        Slider(
-            value = tts.pitch,
-            onValueChange = { tts.updatePitch(it) },
-            onValueChangeFinished = { persist() },
-            valueRange = 0.5f..2f,
-            steps = 15,
-        )
-        Text("${"%.2f".format(tts.pitch)}x", style = MaterialTheme.typography.bodySmall)
-
-        SettingLabel("音量")
-        Slider(
-            value = tts.volume,
-            onValueChange = { tts.updateVolume(it) },
-            onValueChangeFinished = { persist() },
-            valueRange = 0f..1f,
-            steps = 10,
-        )
-        Text("${(tts.volume * 100).toInt()}%", style = MaterialTheme.typography.bodySmall)
-
-        val voices = tts.availableVoices
-            .filter { it.locale.language == "zh" }
-            .ifEmpty { tts.availableVoices }
-        var voiceMenu by remember { mutableStateOf(false) }
-        SettingLabel("声音")
-        OutlinedButton(onClick = { voiceMenu = true }, modifier = Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .verticalScroll(rememberScrollState())
+                .padding(LocalLayoutTokens.current.cardPadding),
+        ) {
             Text(
-                voices.firstOrNull { it.name == tts.voiceId }
-                    ?.let { "${it.name} (${it.locale})" } ?: "默认（系统）",
+                text = "使用设备内置的朗读声音。可在系统文字转语音设置中安装或切换声音。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.outline,
+                modifier = Modifier.padding(top = 4.dp, bottom = 8.dp),
             )
-        }
-        DropdownMenu(
-            expanded = voiceMenu,
-            onDismissRequest = { voiceMenu = false },
-            modifier = Modifier.fillMaxWidth(0.9f),
-        ) {
-            DropdownMenuItem(
-                text = { Text("默认（系统）") },
-                onClick = { tts.updateVoiceId(""); voiceMenu = false; persist() },
+
+            // 1. 语速与音调（暖橙底座 + Speed 图标 + 精准数值微胶囊指示与刻度标签）
+            SettingHeader(
+                title = "语速与音调",
+                badgeBg = Color(0xFFFFEDD5),
+                badgeIconTint = Color(0xFFEA580C),
+                badgeIcon = Icons.Outlined.Speed,
+                indicatorText = "${"%.2f".format(tts.pitch)}x",
+                indicatorColor = Color(0xFFEA580C),
             )
-            voices.forEach { v ->
-                DropdownMenuItem(
-                    text = { Text("${v.name} (${v.locale})") },
-                    onClick = { tts.updateVoiceId(v.name); voiceMenu = false; persist() },
+            // 语速微胶囊 Chip 预设行
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                listOf(0.8f, 1.0f, 1.25f, 1.5f, 2.0f).forEach { speedPreset ->
+                    val selected = kotlin.math.abs(tts.pitch - speedPreset) < 0.08f
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            tts.updatePitch(speedPreset)
+                            persist()
+                        },
+                        shape = CircleShape,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(32.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = "${speedPreset}x",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                            )
+                        }
+                    }
+                }
+            }
+            // 平滑微导轨滑块
+            Slider(
+                value = tts.pitch,
+                onValueChange = { tts.updatePitch(it) },
+                onValueChangeFinished = { persist() },
+                valueRange = 0.5f..2f,
+                steps = 15,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("0.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text("1.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text("1.5x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text("2.0x", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+
+            // 2. 音量（天蓝底座 + VolumeUp 图标 + 精准数值微胶囊指示与刻度标签）
+            SettingHeader(
+                title = "音量",
+                badgeBg = Color(0xFFE0F2FE),
+                badgeIconTint = Color(0xFF0284C7),
+                badgeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
+                indicatorText = "${(tts.volume * 100).toInt()}%",
+                indicatorColor = Color(0xFF0284C7),
+            )
+            Slider(
+                value = tts.volume,
+                onValueChange = { tts.updateVolume(it) },
+                onValueChangeFinished = { persist() },
+                valueRange = 0f..1f,
+                steps = 10,
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text("0%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text("50%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+                Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
+            }
+
+            // 3. 声音与音色（圆润微胶囊芯片单选导轨，带选中态高光微徽章）
+            val voices = tts.availableVoices
+                .filter { it.locale.language == "zh" }
+                .ifEmpty { tts.availableVoices }
+            var voiceMenu by remember { mutableStateOf(false) }
+            val currentVoiceLabel = voices.firstOrNull { it.name == tts.voiceId }?.let { "${it.name} (${it.locale})" } ?: "默认（系统）"
+
+            SettingHeader(
+                title = "声音与音色",
+                badgeBg = Color(0xFFF3E8FF),
+                badgeIconTint = Color(0xFF9333EA),
+                badgeIcon = Icons.Outlined.Headphones,
+                indicatorText = if (tts.voiceId.isBlank()) "默认" else tts.voiceId.take(8),
+                indicatorColor = Color(0xFF9333EA),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState())
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                val isDefault = tts.voiceId.isBlank()
+                VoiceMicroChip(
+                    label = "默认（系统）",
+                    selected = isDefault,
+                    onClick = {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        tts.updateVoiceId("")
+                        persist()
+                    },
                 )
+                voices.forEach { v ->
+                    val isSelected = tts.voiceId == v.name
+                    VoiceMicroChip(
+                        label = v.name,
+                        selected = isSelected,
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            tts.updateVoiceId(v.name)
+                            persist()
+                        },
+                    )
+                }
+            }
+            OutlinedButton(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    voiceMenu = true
+                },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            ) {
+                Text(currentVoiceLabel)
+            }
+            DropdownMenu(
+                expanded = voiceMenu,
+                onDismissRequest = { voiceMenu = false },
+                modifier = Modifier.fillMaxWidth(0.9f),
+            ) {
+                DropdownMenuItem(
+                    text = { Text("默认（系统）") },
+                    onClick = {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        tts.updateVoiceId("")
+                        voiceMenu = false
+                        persist()
+                    },
+                )
+                voices.forEach { v ->
+                    DropdownMenuItem(
+                        text = { Text("${v.name} (${v.locale})") },
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            tts.updateVoiceId(v.name)
+                            voiceMenu = false
+                            persist()
+                        },
+                    )
+                }
+            }
+
+            // 4. 定时停止（「关闭 / 15分 / 30分 / 60分 / 播完本章」圆润微胶囊导轨）
+            val stops = listOf(
+                0 to "关闭",
+                15 to "15分",
+                30 to "30分",
+                60 to "60分",
+                -1 to "播完本章",
+            )
+            val currentStopLabel = when (tts.timedStopMinutes) {
+                0 -> "已关闭"
+                -1 -> "播完本章"
+                else -> "${tts.timedStopMinutes}分钟"
+            }
+            SettingHeader(
+                title = "定时停止",
+                badgeBg = Color(0xFFDCFCE7),
+                badgeIconTint = Color(0xFF16A34A),
+                badgeIcon = Icons.Outlined.AccessTime,
+                indicatorText = currentStopLabel,
+                indicatorColor = Color(0xFF16A34A),
+            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                stops.forEach { (m, label) ->
+                    val selected = tts.timedStopMinutes == m
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            tts.setTimedStop(m)
+                            persist()
+                        },
+                        shape = CircleShape,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                        border = BorderStroke(
+                            1.dp,
+                            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                        ),
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1,
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onClose()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("完成")
             }
         }
-
-        val stops = listOf(0, 15, 30, 45, 60)
-        var stopMenu by remember { mutableStateOf(false) }
-        SettingLabel("定时停止")
-        OutlinedButton(onClick = { stopMenu = true }, modifier = Modifier.fillMaxWidth()) {
-            Text(if (tts.timedStopMinutes == 0) "关闭" else "${tts.timedStopMinutes} 分钟")
-        }
-        DropdownMenu(
-            expanded = stopMenu,
-            onDismissRequest = { stopMenu = false },
-            modifier = Modifier.fillMaxWidth(0.9f),
-        ) {
-            stops.forEach { m ->
-                DropdownMenuItem(
-                    text = { Text(if (m == 0) "关闭" else "$m 分钟") },
-                    onClick = { tts.setTimedStop(m); stopMenu = false; persist() },
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-        Button(onClick = onClose, modifier = Modifier.fillMaxWidth()) {
-            Text("完成")
-        }
-      }
     }
 }
 
+/** 带有 26dp 独立微彩底座与精准指示微胶囊的设置小标题 */
 @Composable
-private fun SettingLabel(text: String) {
-    Text(
-        text,
-        style = MaterialTheme.typography.labelMedium,
-        modifier = Modifier.padding(top = 12.dp, bottom = 4.dp),
-    )
+private fun SettingHeader(
+    title: String,
+    badgeBg: Color,
+    badgeIconTint: Color,
+    badgeIcon: ImageVector,
+    indicatorText: String? = null,
+    indicatorColor: Color = MaterialTheme.colorScheme.primary,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 16.dp, bottom = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 26dp 独立微彩底座
+        Box(
+            modifier = Modifier
+                .size(26.dp)
+                .clip(RoundedCornerShape(8.dp))
+                .background(badgeBg),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = badgeIcon,
+                contentDescription = null,
+                tint = badgeIconTint,
+                modifier = Modifier.size(15.dp),
+            )
+        }
+        Spacer(Modifier.width(8.dp))
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = FontWeight.SemiBold,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        if (indicatorText != null) {
+            Surface(
+                shape = CircleShape,
+                color = indicatorColor.copy(alpha = 0.10f),
+                border = BorderStroke(0.6.dp, indicatorColor.copy(alpha = 0.22f)),
+            ) {
+                Text(
+                    text = indicatorText,
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.Bold,
+                    color = indicatorColor,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                )
+            }
+        }
+    }
+}
+
+/** 发音人圆润微胶囊芯片单选，带选中态高光微徽章 */
+@Composable
+private fun VoiceMicroChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+        border = BorderStroke(
+            1.dp,
+            if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+        ),
+        modifier = Modifier.height(32.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(horizontal = 12.dp),
+        ) {
+            if (selected) {
+                // 选中态高光微徽章
+                Box(
+                    modifier = Modifier
+                        .size(6.dp)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.onPrimary),
+                )
+                Spacer(Modifier.width(6.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
+                color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface,
+            )
+        }
+    }
 }

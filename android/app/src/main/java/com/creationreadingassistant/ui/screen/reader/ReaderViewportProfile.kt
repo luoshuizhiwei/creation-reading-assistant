@@ -1,7 +1,6 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import com.creationreadingassistant.data.settings.ReaderSettings
-import com.creationreadingassistant.ui.layout.DefaultLayoutTokens
 
 /**
  * 阅读器视口的响应式尺度。
@@ -28,7 +27,6 @@ private const val MAX_READER_MARGIN_DP = 42f
 
 private const val PAGED_READER_HEADER_HEIGHT_DP = 24f
 private const val PAGED_READER_FOOTER_HEIGHT_DP = 28f
-private const val PAGED_READER_HEADER_GAP_DP = 8f
 private const val PAGED_READER_META_TEXT_SIZE_SP = 11f
 private const val PAGED_READER_META_LINE_HEIGHT_MULTIPLIER = 1.5f
 
@@ -62,9 +60,16 @@ internal fun ReaderSettings.forReaderViewport(widthDp: Float, heightDp: Float): 
     )
 }
 
-/** 分页宿主使用与正文字号同源的顶端安全区，避免首行在小屏/大字体时被裁切。 */
+/**
+ * 分页宿主使用与正文字号同源的顶端安全区，避免首行在小屏/大字体时被裁切。
+ *
+ * 历史值曾按 1.28×字号（24~40dp）预留，叠加页眉后正文顶部空出约一整行
+ * （真机反馈「像少了一行」）。而绘制基线是 top + (行高-字形高)/2 - ascent 的
+ * 垂直居中公式，字形按字体度量天然不会越过行顶；这里只需覆盖「墨迹超出字体
+ * 度量」的少量溢出（个别字形/组合符号），故收敛为 0.15×字号（2~6dp）。
+ */
 internal fun adaptiveReaderContentTopPaddingDp(fontSizeSp: Float): Float =
-    (fontSizeSp * 1.28f).coerceIn(24f, 40f)
+    (fontSizeSp * 0.15f).coerceIn(2f, 6f)
 
 /** 页眉/页脚的最小高度随系统字体放大，避免 11sp 元信息在无障碍字号下被裁切。 */
 internal fun pagedReaderHeaderHeightDp(fontScale: Float = 1f): Float =
@@ -82,18 +87,12 @@ internal fun pagedReaderFooterHeightDp(fontScale: Float = 1f): Float =
 /**
  * 计算新分页宿主的首行安全区。
  *
- * 分页宿主自身会绘制可选的 24dp 页眉，并在正文前留 8dp 间距；当页眉被用户关闭时，
- * 不能继续沿用“有页眉”的 32dp 假设，否则 ReaderTopChrome 显示时会覆盖首行。这里
- * 同时满足两条约束：字号需要的字形安全区，以及顶部覆盖栏扣除实际页眉/间距后的剩余区。
+ * 只为字体上溢预留（Android 字体实际 ascent 可能超出行框，不给安全区首行会被
+ * PageCanvas 顶边裁掉）。顶栏（ReaderTopChrome）为不透明纸色悬浮层，显示时直接
+ * 覆盖正文顶部（与主流阅读器一致），不再永久预留其高度——此前按 64dp 顶栏预留，
+ * 菜单收起后正文顶部留出约 1.5~2 行空白（真机反馈「像少了一行」）。
  */
 internal fun pagedReaderContentTopPaddingDp(
     fontSizeSp: Float,
-    headerVisible: Boolean,
     fontScale: Float = 1f,
-): Float {
-    val headerHeight = if (headerVisible) pagedReaderHeaderHeightDp(fontScale) else 0f
-    val overlayReserve = (
-        DefaultLayoutTokens.topBarHeight.value - headerHeight - PAGED_READER_HEADER_GAP_DP
-    ).coerceAtLeast(0f)
-    return maxOf(adaptiveReaderContentTopPaddingDp(fontSizeSp * fontScale.coerceAtLeast(1f)), overlayReserve)
-}
+): Float = adaptiveReaderContentTopPaddingDp(fontSizeSp * fontScale.coerceAtLeast(1f))

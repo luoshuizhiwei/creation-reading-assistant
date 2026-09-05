@@ -19,7 +19,8 @@ class TxtTocProfileTest {
         assertTrue(profile.matches("Chapter 7"))
         assertFalse("宽松形态不得被标准规则命中", profile.matches("1. 序幕"))
         assertTrue("纯标准应启用 density 保护", profile.densityGuard)
-        assertEquals("builtin", profile.key)
+        // builtin key 带版本戳：识别语义升级（新平台规则/自动嗅探）后旧缓存自动失效
+        assertEquals("builtin:s2", profile.key)
     }
 
     @Test

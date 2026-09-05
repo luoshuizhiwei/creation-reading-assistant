@@ -339,6 +339,29 @@ class ReaderViewModelTest {
     }
 
     @Test
+    fun `passive chapter sync with persistProgress=false does not overwrite epub locator`() = runTest {
+        // 分页引擎的被动跨章同步：真实落点可能是上一章末页，VM 不得写「章首」locator
+        // 覆盖真实位置（merge 无条件采信 incoming，真机反馈：退出重进回到前一章开头）。
+        val book = fakeEpubBook(chapterCount = 5)
+        val document = mockk<EpubDocument>(relaxed = true)
+        val content = fakeEpubContent(book = book, document = document)
+        val loadedBook = fakeLoadedBook(content = content)
+
+        coEvery { documentLoader.load("book-1") } returns loadedBook
+        every { document.blocks(any()) } returns listOf(DocBlock.Text("content"))
+
+        viewModel.onAction(ReaderAction.OpenBook("book-1"))
+        awaitIo()
+
+        viewModel.onAction(ReaderAction.LoadChapter("book-1", 2, persistProgress = false))
+        awaitIo()
+
+        coVerify(exactly = 0) { epubRepository.saveProgress(any(), any(), any(), any(), any()) }
+        // 章块加载与已读标记不受影响
+        coVerify(exactly = 1) { chapterReadRepository.markRead("book-1", 2) }
+    }
+
+    @Test
     fun `loadChapter marks successful epub and markdown arrivals as read`() = runTest {
         val epubDocument = mockk<EpubDocument>(relaxed = true)
         every { epubDocument.blocks(1) } returns listOf(DocBlock.Text("epub"))

@@ -62,7 +62,7 @@ private val KEY_AMOLED_PURE_BLACK = booleanPreferencesKey("appearance_amoled_pur
 // ---- Reader ----
 private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              // paged | scroll
 private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | auto | on
-private val KEY_EPUB_PAGER_ENGINE = stringPreferencesKey("epub_pager_engine_mode")
+// KEY_EPUB_PAGER_ENGINE 定义在 ReaderDefaultsMigration.kt（迁移与读写共用同一 key 实例）
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
 private val KEY_SCREEN_ORIENTATION = stringPreferencesKey("reader_screen_orientation")
@@ -94,6 +94,7 @@ private val KEY_EYE_FILTER_SCHEDULE = booleanPreferencesKey("reader_eye_filter_s
 private val KEY_EYE_FILTER_START = intPreferencesKey("reader_eye_filter_start")
 private val KEY_EYE_FILTER_END = intPreferencesKey("reader_eye_filter_end")
 private val KEY_EYE_FILTER_OLED = booleanPreferencesKey("reader_eye_filter_oled")
+private val KEY_EYE_FILTER_SYNC_PAPER = booleanPreferencesKey("reader_eye_filter_sync_paper")
 private val KEY_RHYTHM_ENABLED = booleanPreferencesKey("reader_rhythm_enabled")
 private val KEY_RHYTHM_MIN = intPreferencesKey("reader_rhythm_minutes")
 // TTS 高级（对照 web TTSSettings：pitch / volume / voiceId / 定时停止）
@@ -195,6 +196,7 @@ data class ReaderSettings(
     val eyeCareStartMinute: Int = 1320,
     val eyeCareEndMinute: Int = 420,
     val eyeCareOledBlackCompat: Boolean = true,
+    val eyeCareSyncPaperPreview: Boolean = true,
     val readingRhythmReminderEnabled: Boolean = true,
     val readingRhythmReminderMinutes: Int = 30,
     // TTS 高级
@@ -296,6 +298,7 @@ class SettingsStore @Inject constructor(
             eyeCareStartMinute = prefs[KEY_EYE_FILTER_START] ?: 1320,
             eyeCareEndMinute = prefs[KEY_EYE_FILTER_END] ?: 420,
             eyeCareOledBlackCompat = prefs[KEY_EYE_FILTER_OLED] ?: true,
+            eyeCareSyncPaperPreview = prefs[KEY_EYE_FILTER_SYNC_PAPER] ?: true,
             readingRhythmReminderEnabled = prefs[KEY_RHYTHM_ENABLED] ?: true,
             readingRhythmReminderMinutes = prefs[KEY_RHYTHM_MIN] ?: 30,
             ttsPitch = prefs[KEY_TTS_PITCH] ?: 1f,
@@ -424,6 +427,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_EYE_FILTER_START] = next.eyeCareStartMinute
             prefs[KEY_EYE_FILTER_END] = next.eyeCareEndMinute
             prefs[KEY_EYE_FILTER_OLED] = next.eyeCareOledBlackCompat
+            prefs[KEY_EYE_FILTER_SYNC_PAPER] = next.eyeCareSyncPaperPreview
             prefs[KEY_RHYTHM_ENABLED] = next.readingRhythmReminderEnabled
             prefs[KEY_RHYTHM_MIN] = next.readingRhythmReminderMinutes
             prefs[KEY_TTS_PITCH] = next.ttsPitch
@@ -445,6 +449,7 @@ class SettingsStore @Inject constructor(
     suspend fun migrateLegacyReaderDefaultsOnce() {
         ds.edit { prefs ->
             migrateLegacyReaderDefaults(prefs)
+            migrateEpubEngineReenable(prefs)
         }
     }
 

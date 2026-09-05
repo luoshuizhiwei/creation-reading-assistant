@@ -145,6 +145,14 @@ class EpubRepository @Inject constructor(
     private suspend fun persistOpenedBook(book: EpubBook, originalFileName: String?) {
         val now = Instant.now().toString()
         val existing = bookDao.getById(book.id)
+        val coverDataUrl = existing?.cover_data_url?.takeIf { it.isNotBlank() }
+            ?: book.coverEntryPath?.let { entry ->
+                withContext(ioDispatcher) {
+                    runCatching {
+                        EpubParser.loadCoverDataUrl(book.cachedEpubPath, entry)
+                    }.getOrNull()
+                }
+            }
         val record = mergeEpubBookRecord(
             existing = existing,
             parsed = book,
@@ -153,7 +161,13 @@ class EpubRepository @Inject constructor(
                 fileSize(book.cachedEpubPath)
             },
             now = now,
-        )
+        ).let { r ->
+            if (r.cover_data_url.isNullOrBlank() && !coverDataUrl.isNullOrBlank()) {
+                r.copy(cover_data_url = coverDataUrl)
+            } else {
+                r
+            }
+        }
         if (existing == null || bookDao.update(record) == 0) {
             bookDao.upsert(record)
         }
@@ -179,6 +193,34 @@ class EpubRepository @Inject constructor(
             }
         }
         repaired
+    }
+
+    /**
+     * 封面补扫：为「正文可读但没有封面」的 EPUB 书记录提取内嵌封面。
+     * 覆盖两类缺口：导入早于封面提取功能的旧书；导入时封面解析瞬时失败的书。
+     * 用户手动设置 / 同步来的封面优先（查询条件已排除非空 cover_data_url，不覆盖）。
+     * 返回补上的数量。进程级一次性调用（见 EpubSizeRepairTask），必须在 IO 线程。
+     */
+    suspend fun backfillMissingEpubCovers(): Int = withContext(ioDispatcher) {
+        var filled = 0
+        bookDao.getEpubBooksMissingCover().forEach { stored ->
+            val path = stored.local_content_path
+                ?.takeIf { it.isNotBlank() }
+                ?.removePrefix("file://")
+                ?.takeIf { File(it).isFile && File(it).length() > 0L }
+                ?: File(context.filesDir, "books/epub/${stored.id}.epub")
+                    .takeIf { it.isFile && it.length() > 0L }
+                    ?.absolutePath
+                ?: return@forEach
+            runCatching {
+                val entry = EpubParser.resolveCoverEntry(path) ?: return@forEach
+                val dataUrl = EpubParser.loadCoverDataUrl(path, entry) ?: return@forEach
+                // bump updated_at：封面渲染的 Coil cacheKey 含 updated_at，确保 UI 立即换图
+                bookDao.update(stored.copy(cover_data_url = dataUrl, updated_at = Instant.now().toString()))
+                filled++
+            }
+        }
+        filled
     }
 
     fun cached(bookId: String): EpubBook? = memoryCache[bookId]

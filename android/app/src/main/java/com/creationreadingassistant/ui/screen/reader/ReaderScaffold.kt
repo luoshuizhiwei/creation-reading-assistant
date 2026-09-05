@@ -185,6 +185,7 @@ internal fun ReaderScaffold(
     appDark: Boolean,
     activeReadingMs: Long,
     goToChapter: (Int) -> Unit,
+    syncPagedChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
     seekToPercent: (Float) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
@@ -430,6 +431,7 @@ internal fun ReaderScaffold(
                                 onPendingInitialPositionChange = { pendingInitialPosition = it },
                                 onAutoPagingActiveChange = { autoPagingActive = it },
                                 goToChapter = goToChapter,
+                                syncPagedChapter = syncPagedChapter,
                                 showNotice = showNotice,
                                 onSearchScrollFocusRequestConsumed = {
                                     holders.searchScrollFocusRequestState.value = null

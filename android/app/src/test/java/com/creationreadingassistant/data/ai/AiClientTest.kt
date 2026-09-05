@@ -16,6 +16,7 @@ import okhttp3.mockwebserver.MockResponse
 import okhttp3.mockwebserver.MockWebServer
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -104,6 +105,30 @@ class AiClientTest {
 
         val body = server.takeRequest().body.readUtf8()
         assertTrue(body.contains("\"stream\":false"))
+    }
+
+    @Test
+    fun `custom prompt is appended to system message for all calls`() = runTest {
+        server.enqueue(MockResponse().setBody(chatJson()).setResponseCode(200))
+        aiState.value = aiState.value.copy(prompt = "用轻松的语气说话")
+
+        val result = newClient().chat("你是一个阅读助手。", "总结这段")
+
+        assertTrue(result.isSuccess)
+        val body = server.takeRequest().body.readUtf8()
+        assertTrue("个性化提示词应进入 system 消息", body.contains("用户的个性化要求（请遵守）：用轻松的语气说话"))
+        assertTrue("原系统指令应保留", body.contains("你是一个阅读助手。"))
+    }
+
+    @Test
+    fun `blank custom prompt does not alter system message`() = runTest {
+        server.enqueue(MockResponse().setBody(chatJson()).setResponseCode(200))
+        aiState.value = aiState.value.copy(prompt = "   ")
+
+        newClient().chat("你是一个阅读助手。", "u")
+
+        val body = server.takeRequest().body.readUtf8()
+        assertFalse(body.contains("个性化要求"))
     }
 
     @Test

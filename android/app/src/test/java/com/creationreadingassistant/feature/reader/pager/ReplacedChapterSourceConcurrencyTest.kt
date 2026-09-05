@@ -10,7 +10,10 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -282,5 +285,150 @@ class ReplacedChapterSourceConcurrencyTest {
         assertTrue("每章至少投影一次，实际 ${scopeLoads.get()}", scopeLoads.get() >= 6)
         assertTrue(source.inspectionProjectionCacheSize() <= 3)
         assertNotNull(source.projectionForChapter(0))
+    }
+
+    @Test
+    fun `BoundedLruCache 容量为3访问第4项淘汰最久未用项且re-access刷新权重`() {
+        val cache = BoundedLruCache<Int, String>(maxSize = 3)
+        cache.put(1, "one")
+        cache.put(2, "two")
+        cache.put(3, "three")
+        assertEquals(3, cache.size)
+        assertEquals(listOf(1, 2, 3), cache.snapshotKeysForTest())
+
+        // 重新访问 1，访问序更新为 [2, 3, 1]
+        assertEquals("one", cache.get(1))
+        assertEquals(listOf(2, 3, 1), cache.snapshotKeysForTest())
+
+        // 插入第 4 项，必须淘汰最久未访问的 2
+        cache.put(4, "four")
+        assertEquals(3, cache.size)
+        assertEquals(listOf(3, 1, 4), cache.snapshotKeysForTest())
+        assertFalse("key 2 必须被逐出", cache.contains(2))
+        assertNull("get(2) 必须返回 null", cache.get(2))
+
+        // 重新访问 3，访问序更新为 [1, 4, 3]
+        assertEquals("three", cache.get(3))
+        assertEquals(listOf(1, 4, 3), cache.snapshotKeysForTest())
+
+        // 插入第 5 项，必须淘汰最久未访问的 1
+        cache.put(5, "five")
+        assertEquals(3, cache.size)
+        assertEquals(listOf(4, 3, 5), cache.snapshotKeysForTest())
+        assertFalse("key 1 必须被逐出", cache.contains(1))
+    }
+
+    @Test
+    fun `多线程并发混合读取同一章节整章投影只计算一次绝无竞态重复投影`() {
+        val loads = AtomicInteger()
+        val delegate = CountingDelegate("", 2, loads, delayMs = 60)
+        val source = ReplacedChapterSource(delegate, "book-c", listOf(replaceRule("广告")))
+
+        val threadCount = 12
+        val barrier = CyclicBarrier(threadCount)
+        val textResults = mutableListOf<String>()
+        val projectionResults = mutableListOf<BoundedReplaceResult.Exact?>()
+
+        val futures = (0 until threadCount).map { i ->
+            pool.submit {
+                barrier.await(10, TimeUnit.SECONDS)
+                when (i % 3) {
+                    0 -> {
+                        val t = source.loadChapterText(0)
+                        synchronized(textResults) { textResults.add(t) }
+                    }
+                    1 -> {
+                        val c = source.loadChapter(0)
+                        synchronized(textResults) { textResults.add(c.text) }
+                    }
+                    else -> {
+                        val p = source.projectionForChapter(0)
+                        synchronized(projectionResults) { projectionResults.add(p) }
+                    }
+                }
+            }
+        }
+        futures.forEach { it.get(30, TimeUnit.SECONDS) }
+
+        assertEquals("同一章节并发混合读取仅委托投影计算一次", 1, loads.get())
+        assertTrue("所有文本读取结果一致", textResults.all { it == textResults.first() })
+        val nonNullProjections = projectionResults.filterNotNull()
+        assertTrue("投影结果实例必须唯一同一引用", nonNullProjections.all { it === nonNullProjections.first() })
+    }
+
+    @Test
+    fun `条纹锁保证异章并发加载不阻塞且各自独立投影`() {
+        val chapter0Started = CountDownLatch(1)
+        val chapter0CanFinish = CountDownLatch(1)
+        val chapter1Done = CountDownLatch(1)
+
+        val delegate = object : PagedChapterSource {
+            override val chapterCount: Int = 2
+            override val totalChars: Int = 100
+            override val replaceProjectionScopeIsComplete: Boolean get() = true
+            override fun chapterTitle(index: Int) = "第${index + 1}章"
+            override fun chapterStartAbs(index: Int) = index * 50
+            override fun loadChapter(index: Int): PagedChapterContent {
+                return if (index == 0) {
+                    chapter0Started.countDown()
+                    chapter0CanFinish.await(10, TimeUnit.SECONDS)
+                    PagedChapterContent("章0广告文本", emptyList())
+                } else {
+                    PagedChapterContent("章1广告文本", emptyList())
+                }
+            }
+        }
+        val source = ReplacedChapterSource(delegate, "book-stripes", listOf(replaceRule("广告")))
+
+        // 线程 1 请求第 0 章（会被阻塞在 loadChapter 内）
+        val future0 = pool.submit<String> { source.loadChapterText(0) }
+        assertTrue("章 0 加载必须已启动", chapter0Started.await(5, TimeUnit.SECONDS))
+
+        // 线程 2 请求第 1 章（异章条纹锁不同，绝不应被线程 1 阻塞）
+        val future1 = pool.submit<String> {
+            val res = source.loadChapterText(1)
+            chapter1Done.countDown()
+            res
+        }
+
+        // 章 1 必须在章 0 释放之前就已经执行完毕！
+        val ch1FinishedEarly = chapter1Done.await(3, TimeUnit.SECONDS)
+        assertTrue("异章请求绝不应被其他章节条纹锁阻塞", ch1FinishedEarly)
+
+        // 释放章 0
+        chapter0CanFinish.countDown()
+        val text0 = future0.get(10, TimeUnit.SECONDS)
+        val text1 = future1.get(10, TimeUnit.SECONDS)
+
+        assertTrue(text0.contains("章0"))
+        assertTrue(text1.contains("章1"))
+    }
+
+    @Test
+    fun `高并发多线程跨多章节密集淘汰绝无死锁或容量泄漏`() {
+        val loads = AtomicInteger()
+        val delegate = CountingDelegate("", 10, loads, delayMs = 5)
+        val source = ReplacedChapterSource(delegate, "book-churn", listOf(replaceRule("广告")))
+
+        val threadCount = 12
+        val operationsPerThread = 40
+        val barrier = CyclicBarrier(threadCount)
+
+        val futures = (0 until threadCount).map { threadIdx ->
+            pool.submit {
+                barrier.await(10, TimeUnit.SECONDS)
+                for (op in 0 until operationsPerThread) {
+                    val ch = (threadIdx * 7 + op) % 10
+                    val text = source.loadChapterText(ch)
+                    assertTrue(text.isNotEmpty())
+                }
+            }
+        }
+        futures.forEach { it.get(20, TimeUnit.SECONDS) }
+
+        assertTrue(
+            "高频并发 LRU 淘汰后缓存容量恒 <= 3，实际=${source.inspectionCacheSize()}",
+            source.inspectionCacheSize() <= 3,
+        )
     }
 }

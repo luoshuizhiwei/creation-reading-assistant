@@ -2,11 +2,13 @@ package com.creationreadingassistant.ui.screen.reader.content
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -218,7 +220,15 @@ internal fun PagedEpubView(
                     ) {
                         if (canPrev) Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                     }
-                    Spacer(Modifier.weight(0.68f))
+                    Box(
+                        Modifier
+                            .weight(0.68f)
+                            .fillMaxHeight()
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                            ) { onToggleControls() },
+                    )
                     Box(
                         Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                         contentAlignment = Alignment.CenterEnd,
@@ -241,7 +251,15 @@ internal fun PagedEpubView(
                 ) {
                     if (canPrev) Icon(Icons.Outlined.KeyboardArrowUp, contentDescription = "上一章", tint = paperFg.copy(alpha = 0.3f))
                 }
-                Spacer(Modifier.weight(0.68f))
+                Box(
+                    Modifier
+                        .weight(0.68f)
+                        .fillMaxHeight()
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                        ) { onToggleControls() },
+                )
                 Box(
                     Modifier.weight(0.16f).fillMaxSize().clickable(enabled = canNext) { onNextHaptic() },
                     contentAlignment = Alignment.CenterEnd,

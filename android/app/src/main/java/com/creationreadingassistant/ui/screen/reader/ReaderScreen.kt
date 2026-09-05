@@ -559,6 +559,7 @@ fun ReaderScreen(
         appDark = appDark,
         activeReadingMs = activeReadingMs,
         goToChapter = nav.goToChapter,
+        syncPagedChapter = nav.syncPagedChapter,
         showNotice = nav.showNotice,
         seekToPercent = nav.seekToPercent,
         jumpToPlainOffset = nav.jumpToPlainOffset,

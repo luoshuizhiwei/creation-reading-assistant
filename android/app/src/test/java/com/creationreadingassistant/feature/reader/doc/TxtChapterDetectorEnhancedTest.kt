@@ -272,7 +272,9 @@ class TxtChapterDetectorEnhancedTest {
     }
 
     @Test
-    fun `bare numbered lines never become chapters`() {
+    fun `sparse numbered lines below sniff threshold still fall back to full text`() {
+        // 只有 2 个编号节（< 嗅探的 ≥3 章下限）且总量不足时不认目录——
+        // 晋江/盐选式的「1、」目录由自动嗅探在真正成规模时接管（见 AutoSniffTest）。
         val text = "1、开会时间与地点\n" + body(2000) + "\n2、参会人员名单\n" + body(2000)
         val chapters = TxtChapterDetector.detect(text)
         assertEquals(1, chapters.size)

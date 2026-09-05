@@ -22,7 +22,6 @@ class ReaderSelectionToolbarTest {
         onPickColor: (String) -> Unit = {},
         onAiExplain: () -> Unit = {},
         onInspiration: () -> Unit = {},
-        onNote: () -> Unit = {},
         onCopy: () -> Unit = {},
         onClear: () -> Unit = {},
         onSearch: () -> Unit = {},
@@ -37,7 +36,6 @@ class ReaderSelectionToolbarTest {
                     onPickColor = onPickColor,
                     onAiExplain = onAiExplain,
                     onInspiration = onInspiration,
-                    onNote = onNote,
                     onCopy = onCopy,
                     onClear = onClear,
                     onSearch = onSearch,
@@ -48,31 +46,29 @@ class ReaderSelectionToolbarTest {
 
     @Test
     fun primaryActions_areCompactAndSecondaryActionsStayInMoreMenu() {
-        var noteClicked = false
+        var inspirationClicked = false
         var copyClicked = false
         var searchClicked = false
         var clearClicked = false
         setToolbar(
-            onNote = { noteClicked = true },
+            onInspiration = { inspirationClicked = true },
             onCopy = { copyClicked = true },
             onSearch = { searchClicked = true },
             onClear = { clearClicked = true },
         )
 
         composeRule.onNodeWithText("高亮").assertIsDisplayed()
-        composeRule.onNodeWithText("笔记").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("记为灵感").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("复制").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("更多").assertIsDisplayed()
         composeRule.onNodeWithText("AI 解读").assertDoesNotExist()
-        composeRule.onNodeWithText("记为灵感").assertDoesNotExist()
         composeRule.onNodeWithText("搜索").assertDoesNotExist()
         composeRule.onNodeWithText("取消选择").assertDoesNotExist()
-        assertTrue(noteClicked)
+        assertTrue(inspirationClicked)
         assertTrue(copyClicked)
 
         composeRule.onNodeWithText("更多").performClick()
         composeRule.onNodeWithText("AI 解读").assertIsDisplayed()
-        composeRule.onNodeWithText("记为灵感").assertIsDisplayed()
         composeRule.onNodeWithText("搜索").assertIsDisplayed().performClick()
         assertTrue(searchClicked)
 

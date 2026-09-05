@@ -72,6 +72,11 @@ internal fun computeLocatorJson(
 /**
  * 跳转到指定章节。pagerEngineOn 时走翻页定位，否则只更新 chapterIndex + LoadChapter。
  * chapterIndex 写入已转换的 [chapterIndexState]。
+ *
+ * [jumpToStart] 仅对翻页引擎生效：主动跳转（目录点击）传 true 落在章首；
+ * **翻页跨章的被动章号同步必须传 false**——阅读器已把页面停在正确位置
+ * （上一章末页 / 下一章首页），若再写 jumpRequest 会被 open(章首) 拽回章首
+ * （真机反馈：章首往前翻直接跨章回到上一章第一页）。
  */
 internal fun goToChapter(
     i: Int,
@@ -84,6 +89,7 @@ internal fun goToChapter(
     tts: TtsController,
     onAction: (ReaderAction) -> Unit,
     bid: String,
+    jumpToStart: Boolean = true,
 ) {
     val maxIndex = when {
         epubBook != null -> epubBook.chapters.lastIndex
@@ -91,13 +97,17 @@ internal fun goToChapter(
         else -> return
     }
     val clamped = i.coerceIn(0, maxIndex)
-    if (pagerEngineOn) {
+    if (pagerEngineOn && jumpToStart) {
         pagedJumpRequest.value = chapterStartOffsets.getOrElse(clamped) { 0 }
     }
     chapterIndexState.value = clamped
     tts.stop()
-    // R6：章节块加载 + 进度保存统一由 ViewModel 处理
-    onAction(ReaderAction.LoadChapter(bid, clamped))
+    // R6：章节块加载 + 进度保存统一由 ViewModel 处理。
+    // persistProgress：被动跨章同步（jumpToStart=false，分页引擎已停在正确页位，
+    // 可能是上一章末页）不得让 VM 写「章首」进度覆盖真实位置（merge 无条件采信
+    // incoming locator；否则退出重进回到前一章开头）。分页模式的精确进度由
+    // 防抖保存落库。
+    onAction(ReaderAction.LoadChapter(bid, clamped, persistProgress = jumpToStart || !pagerEngineOn))
 }
 
 /** TXT 跳转统一入口：分页引擎开着走翻页定位，否则滚动列表。两条路都以全书字符偏移为准。 */
@@ -564,6 +574,7 @@ internal data class ReaderNavActions(
     val computeLocatorJson: () -> String?,
     val showNotice: (String) -> Unit,
     val goToChapter: (Int) -> Unit,
+    val syncPagedChapter: (Int) -> Unit,
     val jumpToPlainOffset: (Int) -> Unit,
     val persistCurrentProgress: () -> Unit,
     val seekToPercent: (Float) -> Unit,
@@ -626,6 +637,16 @@ internal fun buildReaderNavActions(
             pagedJumpRequest, chapterIndexState, tts, onAction, bid,
         )
     }
+    // 翻页跨章的被动章号同步：只更新 ViewModel 章状态（章号/TTS/章节块加载），
+    // 不写 jumpRequest、不写章首进度，避免把已停在正确页位（上一章末页）的
+    // 阅读器拽回章首。
+    val syncPagedChapterFn: (Int) -> Unit = { i ->
+        goToChapter(
+            i, epubBook, markdownDocument, pagerEngineOn, chapterStartOffsets,
+            pagedJumpRequest, chapterIndexState, tts, onAction, bid,
+            jumpToStart = false,
+        )
+    }
     val jumpToPlainOffsetFn: (Int) -> Unit = { offset ->
         jumpToPlainOffset(
             offset, pagerEngineOn, readingUnits, scope, plainListState, pagedJumpRequest,
@@ -676,6 +697,7 @@ internal fun buildReaderNavActions(
         },
         showNotice = showNoticeFn,
         goToChapter = goToChapterFn,
+        syncPagedChapter = syncPagedChapterFn,
         jumpToPlainOffset = jumpToPlainOffsetFn,
         persistCurrentProgress = {
             val progressSnapshot = currentReaderProgressSnapshot(

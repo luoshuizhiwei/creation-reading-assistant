@@ -263,7 +263,7 @@ class ReaderViewModel @Inject constructor(
             // 文档协调
             is ReaderAction.OpenBook -> openBook(action.bookId, force = false)
             is ReaderAction.Retry -> openBook(_uiState.value.requestedBookId, force = true)
-            is ReaderAction.LoadChapter -> loadChapter(action.bookId, action.chapterIndex)
+            is ReaderAction.LoadChapter -> loadChapter(action.bookId, action.chapterIndex, action.persistProgress)
             is ReaderAction.ScanTxtTocRule -> scanTxtTocRule(action.bookId, action.filePath, action.ruleId)
             is ReaderAction.RescanTxtToc -> rescanTxtToc(action.bookId, action.filePath, action.profileKeyHint)
             is ReaderAction.CancelTxtTocScan -> cancelTxtTocScan()
@@ -277,6 +277,10 @@ class ReaderViewModel @Inject constructor(
                 }
                 updateScreen {
                     readerChromeReducer(it.toReaderChromeState(), event).into(it)
+                        .copy(
+                            selectedText = if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) "" else it.selectedText,
+                            selectedRangeStart = if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) -1 else it.selectedRangeStart,
+                        )
                 }
             }
             is ReaderAction.PageTurn -> updateScreen {
@@ -537,7 +541,7 @@ class ReaderViewModel @Inject constructor(
     }
 
     // ── 章节加载 ─────────────────────────────────────────────
-    private fun loadChapter(bookId: String, chapterIndex: Int) {
+    private fun loadChapter(bookId: String, chapterIndex: Int, persistProgress: Boolean = true) {
         chapterLoadJob?.cancel()
         val gen = chapterLoadGeneration.incrementAndGet()
         _chapterLoadState.value = ChapterLoadResult.Loading(bookId, chapterIndex)
@@ -554,8 +558,12 @@ class ReaderViewModel @Inject constructor(
                 _chapterLoadState.value = ChapterLoadResult.Loaded(bookId, chapterIndex, blocks)
                 runCatching { chapterReadRepository.markRead(bookId, chapterIndex) }
                     .onFailure { AppLog.w("ReaderVM", "mark chapter read failed: ${it.message}") }
-                // 保存 epub 进度
-                if (book.content is ReaderLoadedContent.Epub) {
+                // 保存 epub 进度（章号即位置的 legacy 语义）。
+                // persistProgress=false：分页引擎的被动跨章同步——真实落点可能是上一章
+                // 末页而非章首，这里若写 offsetInChapter=0 的章首 locator（merge 无条件
+                // 采信 incoming）会在退出重进时把用户拽回前一章开头；精确进度由分页
+                // 侧的防抖保存落库。
+                if (persistProgress && book.content is ReaderLoadedContent.Epub) {
                     val epub = book.content
                     val percent = if (epub.book.chapters.isEmpty()) {
                         0f

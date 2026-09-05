@@ -120,4 +120,50 @@ class ReaderDefaultsMigrationTest {
         assertTrue(prefs[KEY_LEGACY_DEFAULTS_MIGRATED]!!)
         assertFalse(KEY_READER_BRIGHTNESS in prefs.asMap().keys)
     }
+
+    // ── EPUB 分页引擎重启用迁移（off → auto，一次性） ────────────────────
+
+    @Test
+    fun `epub 引擎 off 迁移为 auto 并写 marker`() {
+        val prefs = preferencesOf(KEY_EPUB_PAGER_ENGINE to "off").toMutablePreferences()
+
+        migrateEpubEngineReenable(prefs)
+
+        assertEquals("auto", prefs[KEY_EPUB_PAGER_ENGINE])
+        assertTrue(prefs[KEY_EPUB_ENGINE_REENABLED]!!)
+    }
+
+    @Test
+    fun `epub 引擎 auto 或 on 原样保留只写 marker`() {
+        val auto = preferencesOf(KEY_EPUB_PAGER_ENGINE to "auto").toMutablePreferences()
+        migrateEpubEngineReenable(auto)
+        assertEquals("auto", auto[KEY_EPUB_PAGER_ENGINE])
+        assertTrue(auto[KEY_EPUB_ENGINE_REENABLED]!!)
+
+        val on = preferencesOf(KEY_EPUB_PAGER_ENGINE to "on").toMutablePreferences()
+        migrateEpubEngineReenable(on)
+        assertEquals("on", on[KEY_EPUB_PAGER_ENGINE])
+    }
+
+    @Test
+    fun `epub 迁移 marker 已设置时幂等 用户手动改回 off 不被覆盖`() {
+        val prefs = preferencesOf(
+            KEY_EPUB_ENGINE_REENABLED to true,
+            KEY_EPUB_PAGER_ENGINE to "off",
+        ).toMutablePreferences()
+
+        migrateEpubEngineReenable(prefs)
+
+        assertEquals("off", prefs[KEY_EPUB_PAGER_ENGINE])
+    }
+
+    @Test
+    fun `epub 全新安装无该键只写 marker`() {
+        val prefs = preferencesOf().toMutablePreferences()
+
+        migrateEpubEngineReenable(prefs)
+
+        assertEquals(1, prefs.asMap().size)
+        assertTrue(prefs[KEY_EPUB_ENGINE_REENABLED]!!)
+    }
 }

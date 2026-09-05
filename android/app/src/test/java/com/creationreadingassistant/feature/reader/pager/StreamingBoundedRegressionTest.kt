@@ -53,11 +53,18 @@ class StreamingBoundedRegressionTest {
         val file = TestFileGenerator.generateLargeNoToc(size50MB).track()
         val src = buildStreamingSource(file)
         assertTrue("50MB noToc segments=" + src.chapterCount, src.chapterCount >= 100)
-        val first = src.loadChapter(0)
-        assertTrue(
-            "first segment length ${first.text.length} exceeds MAX_WINDOW_CHARS=${PlainTextDocument.MAX_WINDOW_CHARS}",
-            first.text.length <= PlainTextDocument.MAX_WINDOW_CHARS
-        )
+        var lastEnd = 0
+        for (i in 0 until src.chapterCount) {
+            val startAbs = src.chapterStartAbs(i)
+            assertEquals("seg $i start=$startAbs not after previous end=$lastEnd", lastEnd, startAbs)
+            val content = src.loadChapter(i)
+            assertTrue(
+                "seg $i length ${content.text.length} exceeds MAX_WINDOW_CHARS=${PlainTextDocument.MAX_WINDOW_CHARS}",
+                content.text.length in 1..PlainTextDocument.MAX_WINDOW_CHARS
+            )
+            lastEnd = startAbs + content.text.length
+        }
+        assertEquals("totalChars must match final segment end", src.totalChars, lastEnd)
     }
 
     @Test
@@ -127,6 +134,21 @@ class StreamingBoundedRegressionTest {
                 c.text.length in 1..PlainTextDocument.MAX_WINDOW_CHARS
             )
         }
+        var callCount = 0
+        val prepared = preparePagedReplacement(
+            delegate = src,
+            bookId = "test-book",
+            rules = listOf(replaceRule("测试", "替换")),
+            onUnsupportedTooLarge = { callCount++ },
+        )
+        val replacedSrc = prepared.source as ReplacedSegmentedChapterSource
+        for (i in 0 until src.chapterCount) {
+            val raw = src.loadChapter(i)
+            val replaced = replacedSrc.loadChapter(i)
+            assertEquals("seg $i text unchanged", raw.text, replaced.text)
+            assertNull("oversized chapter projection must be null", replacedSrc.projectionForChapter(i))
+        }
+        assertEquals("oversized callback fired exactly once", 1, callCount)
     }
 
     @Test
@@ -162,7 +184,7 @@ class StreamingBoundedRegressionTest {
         repeat(3) {
             for (i in 0 until src.chapterCount) prepared.source.loadChapter(i)
         }
-        assertTrue("oversized callback count=$callCount", callCount in 0..1)
+        assertEquals("oversized callback count must be exactly 1", 1, callCount)
     }
 
     @Test

@@ -28,11 +28,10 @@ class EpubSizeRepairTask @Inject constructor(
     fun startOnce() {
         if (!started.compareAndSet(false, true)) return
         applicationScope.launch {
-            try {
-                epubRepository.repairMissingLocalFileSizes()
-            } catch (e: Throwable) {
-                AppLog.w("EpubSizeRepair", "EPUB size repair failed: ${e.message}")
-            }
+            runCatching { epubRepository.repairMissingLocalFileSizes() }
+                .onFailure { AppLog.w("EpubSizeRepair", "EPUB size repair failed: ${it.message}") }
+            runCatching { epubRepository.backfillMissingEpubCovers() }
+                .onFailure { AppLog.w("EpubSizeRepair", "EPUB cover backfill failed: ${it.message}") }
         }
     }
 }

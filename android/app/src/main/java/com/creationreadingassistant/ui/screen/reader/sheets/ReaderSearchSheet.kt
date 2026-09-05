@@ -1,17 +1,26 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -21,31 +30,32 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBook
-import com.creationreadingassistant.ui.components.SectionDivider
-import com.creationreadingassistant.ui.theme.listItemEnter
-import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.screen.reader.BookSearchPhase
 import com.creationreadingassistant.ui.screen.reader.BookSearchSession
 import com.creationreadingassistant.ui.screen.reader.computeBookSearch
 import com.creationreadingassistant.ui.screen.reader.computeEpubSearch
 import com.creationreadingassistant.ui.screen.reader.computeStreamingTxtSearch
 import com.creationreadingassistant.ui.screen.reader.searchContextKeyOf
-import kotlinx.coroutines.Dispatchers
+import com.creationreadingassistant.ui.theme.listItemEnter
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -99,10 +109,12 @@ internal fun SearchSheet(
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val searchContextKey = searchContextKeyOf(document, txtDocument, plainContent)
+
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
         keyboardController?.show()
     }
+
     // 查询/文档变化 → 会话。面板重开（同一 query 且 COMPLETED/CANCELLED）不重启搜索，
     // 保留上一次的 query/results/current hit；取消只取消 searchJob，不再进入 LaunchedEffect key。
     LaunchedEffect(query, document, txtDocument, plainContent) {
@@ -156,97 +168,213 @@ internal fun SearchSheet(
             }
         }
     }
+
     ReaderSheetScaffold(title = "搜索本书") {
+        // 搜索输入框微岛化（圆角 16dp，输入微反馈，清除按钮）
         OutlinedTextField(
             value = query,
             onValueChange = onQueryChange,
             label = { Text("搜索本书") },
             placeholder = { Text("输入人名、设定或句子片段") },
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(20.dp),
+                )
+            },
+            trailingIcon = {
+                if (query.isNotEmpty()) {
+                    IconButton(onClick = { onQueryChange("") }) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "清空输入",
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            },
             singleLine = true,
+            shape = RoundedCornerShape(16.dp),
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp)
+                .padding(horizontal = 16.dp, vertical = 10.dp)
                 .focusRequester(focusRequester)
                 .testTag("reader-search-field"),
         )
+
         val phase = session.phase
         if (phase == BookSearchPhase.SEARCHING) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                Arrangement.SpaceBetween,
-                Alignment.CenterVertically,
+            // 搜索进度细腻微岛卡片，带已扫描页数微胶囊与取消微胶囊
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
+                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                shadowElevation = 0.5.dp,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
             ) {
-                val progress = session.progress
-                val total2 = progress.second
-                val progressText = if (total2 > 0) {
-                    "正在搜索… 已扫描 ${progress.first}/$total2"
-                } else {
-                    "正在搜索…"
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        val progress = session.progress
+                        val total2 = progress.second
+                        val progressText = if (total2 > 0) {
+                            "正在搜索… 已扫描 ${progress.first}/$total2"
+                        } else {
+                            "正在搜索…"
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.45f),
+                        ) {
+                            Text(
+                                text = progressText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSecondaryContainer,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                            )
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.25f),
+                            onClick = {
+                                session.cancel()
+                                searchJob?.cancel()
+                                searchJob = null
+                            },
+                        ) {
+                            Text(
+                                text = "取消",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.error,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                            )
+                        }
+                    }
+                    LinearProgressIndicator(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(4.dp)),
+                    )
                 }
+            }
+        } else if (phase == BookSearchPhase.CANCELLED && query.isNotBlank()) {
+            Surface(
+                shape = RoundedCornerShape(10.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+            ) {
                 Text(
-                    progressText,
+                    text = "搜索已取消。",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.outline,
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                 )
-                TextButton(
-                    onClick = {
-                        session.cancel()
-                        searchJob?.cancel()
-                        searchJob = null
-                    },
-                ) { Text("取消") }
             }
-            LinearProgressIndicator(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
-            )
-        } else if (phase == BookSearchPhase.CANCELLED && query.isNotBlank()) {
-            Text(
-                "搜索已取消。",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
         } else if (query.isNotBlank() && session.results.isNotEmpty()) {
-            Text(
-                "共 ${session.results.size} 处结果 · 最多显示前 80 条",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.outline,
+            Surface(
+                shape = RoundedCornerShape(8.dp),
+                color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-            )
-        }
-        if (query.isNotBlank() && session.results.isNotEmpty()) {
-            Row(
-                Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-                Arrangement.SpaceBetween,
-                Alignment.CenterVertically,
             ) {
-                TextButton(onClick = { session.previous() }) { Text("上一处") }
-                val current = session.currentIndex
                 Text(
-                    if (current >= 0) "当前位置 ${current + 1} / ${session.results.size}" else "共 ${session.results.size} 处",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.outline,
+                    text = "共 ${session.results.size} 处结果 · 最多显示前 80 条",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
                 )
-                TextButton(onClick = { session.next() }) { Text("下一处") }
             }
         }
+
+        // 结果导航悬浮微岛：圆角 24dp 悬浮导轨微胶囊，居中高光
+        if (query.isNotBlank() && session.results.isNotEmpty()) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(24.dp),
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
+                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                shadowElevation = 2.dp,
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(
+                        onClick = { session.previous() },
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text("上一处")
+                    }
+                    val current = session.currentIndex
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                    ) {
+                        Text(
+                            text = if (current >= 0) "当前位置 ${current + 1} / ${session.results.size}" else "共 ${session.results.size} 处",
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        )
+                    }
+                    TextButton(
+                        onClick = { session.next() },
+                        shape = RoundedCornerShape(16.dp),
+                    ) {
+                        Text("下一处")
+                    }
+                }
+            }
+        }
+
         when (searchSheetBodyState(query, phase, session.results.size)) {
             SearchSheetBodyState.PROMPT -> {
-                Column(
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
+                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
                 ) {
-                    Text(
-                        "输入关键词开始搜索",
-                        style = MaterialTheme.typography.titleSmall,
-                    )
-                    Text(
-                        "可搜索人名、设定或句子片段。",
-                        modifier = Modifier.padding(top = 4.dp),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.outline,
-                    )
+                    Column(
+                        modifier = Modifier.padding(14.dp),
+                    ) {
+                        Text(
+                            text = "输入关键词开始搜索",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Text(
+                            text = "可搜索人名、设定或句子片段。",
+                            modifier = Modifier.padding(top = 4.dp),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.outline,
+                        )
+                    }
                 }
             }
 
@@ -264,35 +392,68 @@ internal fun SearchSheet(
             }
 
             SearchSheetBodyState.RESULTS -> {
-                LazyColumn(Modifier.fillMaxWidth().weight(1f)) {
+                // 搜索结果列表项微岛化（12dp 圆角，发丝边框，点击波纹，紧凑微胶囊章节进度）
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth().weight(1f),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     itemsIndexed(session.results, key = { _, r -> r.occurrenceIndex }) { index, r ->
                         val isCurrent = index == session.currentIndex
-                        Column(
-                            Modifier
+                        val cardBg = if (isCurrent) {
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+                        } else {
+                            MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f)
+                        }
+                        val cardBorder = if (isCurrent) {
+                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                        } else {
+                            BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                        }
+                        Surface(
+                            shape = RoundedCornerShape(12.dp),
+                            color = cardBg,
+                            border = cardBorder,
+                            shadowElevation = if (isCurrent) 1.dp else 0.5.dp,
+                            modifier = Modifier
                                 .fillMaxWidth()
-                                .background(
-                                    if (isCurrent) {
-                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
-                                    } else {
-                                        Color.Transparent
-                                    },
-                                )
                                 .clickable {
                                     session.select(index)
                                     onResultSelected(index)
                                 }
                                 .semantics { this.selected = isCurrent }
                                 .testTag("search-result-$index")
-                                .padding(horizontal = 16.dp, vertical = 10.dp)
                                 .listItemEnter(index, reducedMotion),
                         ) {
-                            Text(r.snippet, style = MaterialTheme.typography.bodyMedium)
-                            Text(
-                                "${if (r.chapterIndex >= 0) r.chapterTitle else "全文"} · ${r.progressPercent.toInt()}%",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.outline,
-                            )
-                            SectionDivider(Modifier.padding(top = 8.dp))
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                            ) {
+                                Text(
+                                    text = r.snippet,
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                                Surface(
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = if (isCurrent) {
+                                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                                    } else {
+                                        MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.7f)
+                                    },
+                                    modifier = Modifier.padding(top = 8.dp),
+                                ) {
+                                    Text(
+                                        text = "${if (r.chapterIndex >= 0) r.chapterTitle else "全文"} · ${r.progressPercent.toInt()}%",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
+                                    )
+                                }
+                            }
                         }
                     }
                 }

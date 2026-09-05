@@ -376,4 +376,147 @@ class StreamingCompleteChapterSourceTest {
         assertEquals(PagedReplacementAvailability.INCOMPLETE_SCOPE, prepared.availability)
         assertSame(virtualUnitSource, prepared.source)
     }
+
+    @Test
+    fun `exact cross unit boundary and cyclic ring regex with textOffsetMap bidirectional roundtrip`() {
+        val file = File.createTempFile("test_cross_boundary_roundtrip_", ".txt")
+        tempFiles.add(file)
+
+        // ReadingUnitBuilder.MAX_UNIT_CHARS is 50,000.
+        // To split chapter 0 into multiple ReadingUnits, chapter 0 must exceed 50,000 chars.
+        val crossTokenPrefix = "<<<CROSS_UNIT_"
+        val crossTokenSuffix = "BOUNDARY_TOKEN>>>"
+        val crossToken = crossTokenPrefix + crossTokenSuffix
+        val ringPattern = "环形广告_"
+
+        val paddingBefore = buildString {
+            // ~49,990 chars before the boundary
+            var i = 0
+            while (length < 49_980) {
+                append("填充前缀正文$i ")
+                i++
+            }
+        }
+        val chapter1Header = "第一章 跨边界与环形正则\n"
+        val ch1Body = buildString {
+            append(paddingBefore)
+            append(crossTokenPrefix) // near unit boundary
+            append(crossTokenSuffix)
+            append("\n\n正文中间段落包含环形重复模式：\n")
+            repeat(10) { append(ringPattern) }
+            append("\n包含待删除标记：DELETE_ME_NOW\n")
+            for (i in 1..2500) {
+                append("填充后缀正文$i ")
+            }
+        }
+        val fullContent = "$chapter1Header$ch1Body\n\n第二章 后续章\n后续正文"
+        RandomAccessFile(file, "rw").use { it.write(fullContent.toByteArray(Charsets.UTF_8)) }
+
+        val index = TxtFileScanner.scan(file)
+        val streamingDoc = PlainTextDocument.fromFileIndex(file, index)
+        val ch0Units = streamingDoc.readingUnits.filter { it.chapterIndex == 0 }
+        assertTrue("第一章必须切为多个 reading units，实际=${ch0Units.size}", ch0Units.size >= 2)
+
+        val source = TxtChapterSource(streamingDoc)
+        val rules = listOf(
+            replaceRule(pattern = crossToken, replacement = "[跨单元净化]"),
+            replaceRule(pattern = ringPattern, replacement = "[环形替换]"),
+            replaceRule(pattern = "DELETE_ME_NOW", replacement = ""),
+        )
+        val prepared = preparePagedReplacement(source, "cross-roundtrip-book", rules)
+        assertEquals(PagedReplacementAvailability.APPLIED, prepared.availability)
+        val wrapped = prepared.source as ReplacedChapterSource
+
+        val dispText = wrapped.loadChapterText(0)
+        assertFalse("原跨单元 token 不应残存", dispText.contains(crossToken))
+        assertTrue("跨单元替换标记必须生效", dispText.contains("[跨单元净化]"))
+        assertFalse("原环形 pattern 不应残存", dispText.contains(ringPattern))
+        assertTrue("环形替换标记必须生效", dispText.contains("[环形替换]"))
+        assertFalse("待删除标记必须被删除", dispText.contains("DELETE_ME_NOW"))
+
+        val exactProjection = wrapped.projectionForChapter(0)
+        assertNotNull("投影必须为 Exact", exactProjection)
+        val offsetMap = exactProjection!!.projection.offsetMap
+        val rawChapterText = source.loadChapterText(0)
+
+        // 1. TextOffsetMap 单调性与 round trip floor 不变量
+        var prevSource = -1
+        for (d in 0..dispText.length) {
+            val s = offsetMap.toSource(d)
+            assertTrue("toSource 单调不减 d=$d", s >= prevSource)
+            prevSource = s
+            assertTrue("toSource 不越界 d=$d s=$s", s in 0..rawChapterText.length)
+            assertTrue("display round trip floor d=$d", offsetMap.toDisplay(s) <= d)
+        }
+
+        var prevDisplay = -1
+        for (s in 0..rawChapterText.length) {
+            val d = offsetMap.toDisplay(s)
+            assertTrue("toDisplay 单调不减 s=$s", d >= prevDisplay)
+            prevDisplay = d
+            assertTrue("toDisplay 不越界 s=$s d=$d", d in 0..dispText.length)
+            assertTrue("source round trip floor s=$s", offsetMap.toSource(d) <= s)
+        }
+
+        // 2. 未替换区域（如前缀和后缀）双向严格精确映射（0 漂移往返）
+        val prefixLen = chapter1Header.length + 1000
+        for (pos in 0 until prefixLen) {
+            assertEquals("prefix source->display->source exact at $pos", pos, offsetMap.toSource(offsetMap.toDisplay(pos)))
+            assertEquals("prefix display->source->display exact at $pos", pos, offsetMap.toDisplay(offsetMap.toSource(pos)))
+        }
+
+        // 3. 跨单元标记精确端点双向映射（source↔display 往返无偏移）
+        val crossTokenSourceStart = rawChapterText.indexOf(crossToken)
+        val markerDispStart = dispText.indexOf("[跨单元净化]")
+        assertEquals("跨单元起点 source->display 映射无偏移", markerDispStart, offsetMap.toDisplay(crossTokenSourceStart))
+        assertEquals("跨单元起点 display->source 映射无偏移", crossTokenSourceStart, offsetMap.toSource(markerDispStart))
+
+        // 4. 全局 source 坐标映射验证
+        val globalSourceIdx = exactProjection.localDisplayToGlobalSource(markerDispStart)
+        assertEquals(
+            "跨单元标记映射回全局 source 必须对齐原始 token 起点",
+            fullContent.indexOf(crossToken),
+            globalSourceIdx,
+        )
+    }
+
+    @Test
+    fun `LRU 3-chapter eviction and rule key change rejects stale projections`() {
+        val (streamingDoc, _, _) = createStreamingDoc(chapterCount = 5, charsPerChapterBody = 5000)
+        val source = TxtChapterSource(streamingDoc)
+        assertEquals(5, source.chapterCount)
+
+        val rulesV1 = listOf(replaceRule("广告", "[版本1]"))
+        val wrappedV1 = ReplacedChapterSource(source, "book-lru", rulesV1)
+
+        // 依次访问 0, 1, 2 章，填满容量为 3 的缓存
+        wrappedV1.loadChapterText(0)
+        wrappedV1.loadChapterText(1)
+        wrappedV1.loadChapterText(2)
+        assertEquals(3, wrappedV1.inspectionCacheSize())
+        assertEquals(listOf(0, 1, 2), wrappedV1.inspectionCacheKeysForTest())
+
+        // 访问第 0 章使之成为最近访问项，顺序变为 [1, 2, 0]
+        wrappedV1.loadChapterText(0)
+        assertEquals(listOf(1, 2, 0), wrappedV1.inspectionCacheKeysForTest())
+
+        // 访问第 3 章（第 4 个不同章节），必须淘汰最久未访问的第 1 章
+        wrappedV1.loadChapterText(3)
+        assertEquals(3, wrappedV1.inspectionCacheSize())
+        assertEquals(listOf(2, 0, 3), wrappedV1.inspectionCacheKeysForTest())
+        assertFalse("第 1 章必须已被 LRU 淘汰逐出缓存", wrappedV1.inspectionCacheKeysForTest().contains(1))
+
+        // 规则变更：规则 key 变化后，旧投影绝对不被复用
+        val rulesV2 = listOf(replaceRule("广告", "[版本2]"))
+        val preparedV2 = preparePagedReplacement(source, "book-lru", rulesV2)
+        val wrappedV2 = preparedV2.source as ReplacedChapterSource
+        assertFalse(
+            "规则变更后 profile key 必须不同",
+            wrappedV1.replaceProfileKey == wrappedV2.replaceProfileKey,
+        )
+
+        val textV2 = wrappedV2.loadChapterText(0)
+        assertTrue("新 source 必须产出版本2替换结果", textV2.contains("[版本2]"))
+        assertFalse("旧投影残留版本1绝不被复用", textV2.contains("[版本1]"))
+    }
 }

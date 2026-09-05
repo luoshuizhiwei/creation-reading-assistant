@@ -130,8 +130,17 @@ class AiClient(
             warnIfInsecureHttp(ai.baseUrl)
             val url = ai.baseUrl.trimEnd('/') + "/v1/chat/completions"
 
+            // 用户的个性化提示词（AI 设置页）是全局风格偏好：追加到所有 system 指令之后，
+            // 对阅读辅助 / AI 解读 / 灵感打磨 / 问答全部生效。
+            val customPrompt = ai.prompt.trim()
+            val effectiveSystem = if (customPrompt.isBlank()) {
+                systemPrompt
+            } else {
+                "$systemPrompt\n\n用户的个性化要求（请遵守）：$customPrompt"
+            }
+
             val messages = listOf(
-                ChatMessage("system", systemPrompt),
+                ChatMessage("system", effectiveSystem),
                 ChatMessage("user", userPrompt),
             )
             val body = ChatRequest(

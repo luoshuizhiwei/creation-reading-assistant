@@ -21,10 +21,11 @@ class TxtTocProfile(
          * 旧 ruleId 构造：标准四类恒参与，另取 [ruleId] 对应具名规则的模式。
          * density 语义与旧 API 完全一致——只有标准（builtin）启用
          * 「平均章节过短整体作废」，用户手选 / 未知 ruleId 一律视为背书、关闭兜底。
-         * key 即 ruleId 本身，保证旧扫描结果的 detectedRuleId 不变。
+         * builtin 的 key 带版本戳（"builtin:s2"）：识别语义升级（新平台规则 /
+         * 自动嗅探）后必须递增版本，旧磁盘索引与分页缓存才能失效重建。
          */
         fun fromRuleId(ruleId: String): TxtTocProfile = TxtTocProfile(
-            key = ruleId,
+            key = if (ruleId == "builtin") "builtin:s2" else ruleId,
             patterns = TxtChapterDetector.unionPatterns(listOf(ruleId)),
             densityGuard = ruleId == "builtin",
         )

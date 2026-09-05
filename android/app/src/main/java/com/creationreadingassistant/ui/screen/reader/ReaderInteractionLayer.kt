@@ -161,7 +161,7 @@ internal fun BoxScope.ReaderInteractionLayer(
     }
 
     AnimatedVisibility(
-        visible = state.controlsVisible,
+        visible = state.controlsVisible && state.selectedText.isBlank(),
         modifier = Modifier.align(Alignment.BottomCenter),
         enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { it / 4 }),
         exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { it / 4 }),
@@ -215,6 +215,7 @@ internal fun BoxScope.ReaderInteractionLayer(
     // 选中文字工具条（对照 web 选中工具栏）：带入场动效（尊重「减少动态效果」）
     AnimatedVisibility(
         visible = state.selectedText.isNotBlank(),
+        modifier = Modifier.align(Alignment.BottomCenter),
         enter = if (reducedMotion) fadeIn(tween(120)) else (slideInVertically(initialOffsetY = { it / 3 }) + fadeIn(tween(160))),
         exit = if (reducedMotion) fadeOut(tween(120)) else (slideOutVertically(targetOffsetY = { it / 3 }) + fadeOut(tween(120))),
     ) {
@@ -226,7 +227,6 @@ internal fun BoxScope.ReaderInteractionLayer(
             onPickColor = callbacks.onPickColor,
             onAiExplain = callbacks.onAiExplain,
             onInspiration = callbacks.onInspiration,
-            onNote = callbacks.onNote,
             onCopy = callbacks.onCopy,
             onSearch = callbacks.onSearch,
             onClear = callbacks.onClearSelection,

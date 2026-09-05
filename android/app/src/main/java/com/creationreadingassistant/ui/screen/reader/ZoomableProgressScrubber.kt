@@ -7,15 +7,21 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTransformGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +42,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInRoot
@@ -80,8 +87,9 @@ internal fun ZoomableProgressScrubber(
         if (!isDragging && abs(sliderValue - chapterProgress) > 0.5f) sliderValue = chapterProgress
     }
 
+    val showPreview = zoomed || isDragging
     val panelHeight by animateDpAsState(
-        targetValue = if (zoomed) 110.dp else 0.dp,
+        targetValue = if (showPreview) 110.dp else 0.dp,
         animationSpec = tween(MotionTokens.Base, easing = MotionTokens.StandardEasing),
         label = "zoom_panel",
     )
@@ -90,7 +98,7 @@ internal fun ZoomableProgressScrubber(
             .onGloballyPositioned { sliderRootY = it.positionInRoot().y },
     ) {
         AnimatedVisibility(
-            visible = zoomed,
+            visible = showPreview,
             enter = fadeIn(tween(MotionTokens.Fast)) + scaleIn(tween(MotionTokens.Fast)),
             exit = fadeOut(tween(MotionTokens.Fast)) + scaleOut(tween(MotionTokens.Fast)),
             modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth()
@@ -99,15 +107,28 @@ internal fun ZoomableProgressScrubber(
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 val progress = sliderValue.coerceIn(0f, 100f) / 100f
                 Surface(
-                    color = accentColor.copy(alpha = 0.10f), contentColor = accentColor,
-                    shape = RoundedCornerShape(10.dp), tonalElevation = 0.dp,
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
+                    contentColor = accentColor,
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    shadowElevation = 4.dp,
                 ) {
-                    Text(
-                        text = chapterProgressPreviewLabel(sliderValue),
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                    )
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .background(accentColor, shape = CircleShape),
+                        )
+                        Spacer(Modifier.width(6.dp))
+                        Text(
+                            text = chapterProgressPreviewLabel(sliderValue),
+                            style = MaterialTheme.typography.labelMedium,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Canvas(Modifier.fillMaxWidth().height(36.dp)) {
@@ -120,18 +141,43 @@ internal fun ZoomableProgressScrubber(
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
                     )
                     drawRoundRect(
-                        color = accentColor.copy(alpha = 0.72f),
+                        color = accentColor.copy(alpha = 0.78f),
                         topLeft = Offset(0f, top),
                         size = androidx.compose.ui.geometry.Size(size.width * progress, trackHeight),
                         cornerRadius = androidx.compose.ui.geometry.CornerRadius(trackHeight / 2f),
                     )
-                    val lineWidth = with(density) { 3.dp.toPx() }
+                    // Micro-ticks (微刻度) along the track
+                    val tickCount = 10
+                    val tickHeight = with(density) { 4.dp.toPx() }
+                    val tickTop = top + (trackHeight - tickHeight) / 2f
+                    val tickStroke = with(density) { 1.5.dp.toPx() }
+                    for (i in 1 until tickCount) {
+                        val tickFraction = i / tickCount.toFloat()
+                        val tickX = tickFraction * size.width
+                        val isPassed = tickFraction <= progress
+                        drawLine(
+                            color = if (isPassed) Color.White.copy(alpha = 0.7f) else accentColor.copy(alpha = 0.35f),
+                            start = Offset(tickX, tickTop),
+                            end = Offset(tickX, tickTop + tickHeight),
+                            strokeWidth = tickStroke,
+                            cap = StrokeCap.Round,
+                        )
+                    }
+                    val lineWidth = with(density) { 3.5.dp.toPx() }
                     val lineX = progress * size.width
                     drawLine(
+                        color = accentColor.copy(alpha = 0.40f),
+                        start = Offset(lineX, top - trackHeight * 0.8f),
+                        end = Offset(lineX, top + trackHeight * 1.8f),
+                        strokeWidth = lineWidth * 2f,
+                        cap = StrokeCap.Round,
+                    )
+                    drawLine(
                         color = Color.White,
-                        start = Offset(lineX, top - trackHeight),
-                        end = Offset(lineX, top + trackHeight * 2f),
+                        start = Offset(lineX, top - trackHeight * 0.7f),
+                        end = Offset(lineX, top + trackHeight * 1.7f),
                         strokeWidth = lineWidth,
+                        cap = StrokeCap.Round,
                     )
                 }
                 Spacer(Modifier.height(6.dp))
@@ -153,7 +199,7 @@ internal fun ZoomableProgressScrubber(
                         }
                     }
                 }
-                .run { if (zoomed) padding(top = panelHeight) else this },
+                .run { if (showPreview) padding(top = panelHeight) else this },
             colors = SliderDefaults.colors(
                 thumbColor = accentColor, activeTrackColor = accentColor,
                 inactiveTrackColor = accentColor.copy(alpha = if (zoomed) 0.12f else 0.20f),

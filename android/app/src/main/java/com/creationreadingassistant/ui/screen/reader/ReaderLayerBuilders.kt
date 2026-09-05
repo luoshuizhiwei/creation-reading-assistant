@@ -84,6 +84,7 @@ internal fun buildReaderContentHostCallbacks(
     onPendingInitialPositionChange: (Boolean) -> Unit,
     onAutoPagingActiveChange: (Boolean) -> Unit,
     goToChapter: (Int) -> Unit,
+    syncPagedChapter: (Int) -> Unit,
     showNotice: (String) -> Unit,
     onSearchScrollFocusRequestConsumed: () -> Unit,
     onPersistProgress: () -> Unit,
@@ -101,7 +102,9 @@ internal fun buildReaderContentHostCallbacks(
             lastPersistAt = now
             onPersistProgress()
         }
-        if (chapterToGo != null) goToChapter(chapterToGo)
+        // 被动跨章同步：只更新章状态，不写 jumpRequest / 章首进度，
+        // 避免把已停在正确页位（上一章末页）的阅读器拽回章首。
+        if (chapterToGo != null) syncPagedChapter(chapterToGo)
     },
     onToggleControls = { onAction(ReaderAction.ToggleControls()) },
     // 翻页后立即隐藏菜单：走状态机 PageTurn，与 autoHideSeconds 是否 0 无关。

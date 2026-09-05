@@ -1,16 +1,19 @@
 package com.creationreadingassistant.ui.screen.reader.sheets
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -18,13 +21,19 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
+import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Bookmark
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -44,20 +53,31 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
-import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.theme.bounceable
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.viewmodel.TxtRuleScanStatus
+
+internal enum class ReaderTocTab(val label: String) {
+    TOC("目录"),
+    BOOKMARKS("书签"),
+    NOTES("笔记"),
+}
 
 /**
  * 规则 pill 后缀：扫描中 →「扫描中…」，完成 →「N章」，取消/失败 → 可解释文案；
@@ -130,13 +150,18 @@ internal fun TocSheet(
     onCancelTxtScan: () -> Unit = {},
     onManageRules: () -> Unit = {},
     /** 本书书签（kind == "bookmark" 的笔记）；内嵌展示并可直接跳转。 */
-    bookmarks: List<com.creationreadingassistant.data.local.entity.NoteEntity> = emptyList(),
-    onPickBookmark: (com.creationreadingassistant.data.local.entity.NoteEntity) -> Unit = {},
+    bookmarks: List<NoteEntity> = emptyList(),
+    onPickBookmark: (NoteEntity) -> Unit = {},
     showReadStatus: Boolean = false,
     showClearReadMarks: Boolean = false,
     onClearReadMarks: () -> Unit = {},
+    notes: List<NoteEntity> = emptyList(),
+    onPickNote: (NoteEntity) -> Unit = {},
 ) {
     val layout = LocalLayoutTokens.current
+    val reducedMotion = rememberReducedMotion()
+    val haptic = rememberHaptic(reducedMotion)
+    var selectedTab by remember { mutableStateOf(ReaderTocTab.TOC) }
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     var rulesExpanded by remember { mutableStateOf(false) }
     var clearMenuExpanded by remember { mutableStateOf(false) }
@@ -168,7 +193,7 @@ internal fun TocSheet(
     if (confirmClearReads) {
         GlassAlertDialog(
             onDismissRequest = { confirmClearReads = false },
-            title = { Text("清除已读标记") },
+            title = { Text("清除已读标记", fontWeight = FontWeight.Bold) },
             text = { Text("确定清除本书全部章节的已读标记吗？此操作不会删除阅读进度、书签或笔记。") },
             confirmButton = {
                 TextButton(
@@ -176,7 +201,7 @@ internal fun TocSheet(
                         confirmClearReads = false
                         onClearReadMarks()
                     },
-                ) { Text("清除") }
+                ) { Text("清除", color = MaterialTheme.colorScheme.error) }
             },
             dismissButton = {
                 TextButton(onClick = { confirmClearReads = false }) { Text("取消") }
@@ -185,28 +210,46 @@ internal fun TocSheet(
     }
 
     ReaderSheetScaffold(
-        title = "目录",
+        title = "目录与标记",
+        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceContainerLow),
         trailing = {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Surface(shape = PillShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                // 章节进度微胶囊
+                Surface(
+                    shape = PillShape,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                ) {
                     Text(
                         text = "${(current + 1).coerceAtLeast(1)} / ${totalChapters.coerceAtLeast(0)}",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
                     )
                 }
+
+                // 已读章节翡翠绿微胶囊
                 if (showReadStatus) {
-                    Spacer(Modifier.width(8.dp))
-                    Surface(shape = PillShape, color = MaterialTheme.colorScheme.surfaceVariant) {
+                    Surface(
+                        shape = PillShape,
+                        color = Color(0xFF059669).copy(alpha = 0.12f),
+                        border = BorderStroke(0.8.dp, Color(0xFF059669).copy(alpha = 0.35f)),
+                    ) {
                         Text(
                             text = "已读 $readCount/${entries.size}",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFF059669),
+                            modifier = Modifier.padding(horizontal = 9.dp, vertical = 3.dp),
                         )
                     }
                 }
+
+                // 清除已读标记下拉菜单
                 if (showClearReadMarks) {
                     Box {
                         IconButton(onClick = { clearMenuExpanded = true }) {
@@ -219,7 +262,7 @@ internal fun TocSheet(
                             DropdownMenuItem(
                                 text = { Text("清除已读标记") },
                                 leadingIcon = {
-                                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null)
+                                    Icon(Icons.Outlined.DeleteSweep, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                                 },
                                 onClick = {
                                     clearMenuExpanded = false
@@ -232,131 +275,285 @@ internal fun TocSheet(
             }
         },
     ) {
-        if (txtRules.isNotEmpty()) {
-            TocRulesEntryRow(onClick = onManageRules)
-        }
-        if (bookmarks.isNotEmpty()) {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap / 2),
-            ) {
-                Text("书签", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                bookmarks.take(8).forEach { bm ->
-                    Row(
-                        Modifier
-                            .fillMaxWidth()
-                            .clickable { onPickBookmark(bm) }
-                            .padding(vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Outlined.Bookmark,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.padding(end = 8.dp),
-                        )
-                        Column(Modifier.weight(1f)) {
-                            Text(bm.title, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium)
-                            bm.excerpt?.takeIf { it.isNotBlank() }?.let {
-                                Text(
-                                    it,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.outline,
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        if (entries.isEmpty()) {
-            FullEmptyState(
-                modifier = Modifier.fillMaxWidth().weight(1f),
-                icon = { LineArtBook(sizeDp = 72.dp) },
-                title = "未发现目录",
-                body = "这本书暂未识别到章节结构，无法在此浏览。",
-            )
-            return@ReaderSheetScaffold
-        }
-        if (txtRules.isNotEmpty()) {
-            TocRecognitionSection(
-                txtRules = txtRules,
-                selectedTxtRule = selectedTxtRule,
-                txtRulePreviews = txtRulePreviews,
-                txtRuleScanStatus = txtRuleScanStatus,
-                expanded = rulesExpanded,
-                onToggleExpanded = { rulesExpanded = !rulesExpanded },
-                onTxtRule = onTxtRule,
-                onCancelTxtScan = onCancelTxtScan,
-            )
-        }
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxWidth().weight(1f),
-            contentPadding = androidx.compose.foundation.layout.PaddingValues(
-                horizontal = layout.pageHorizontal,
-                vertical = layout.relatedGap,
-            ),
-            verticalArrangement = Arrangement.spacedBy(layout.microGap),
+        // 1. 顶层 Tab（目录 / 书签 / 笔记）圆润微胶囊导轨
+        Surface(
+            shape = PillShape,
+            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
         ) {
-            if (recentEntries.isNotEmpty()) {
-                item("recent_title") {
-                    Text("最近浏览", style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(3.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp),
+            ) {
+                val tabs = listOf(
+                    ReaderTocTab.TOC to "目录 (${entries.size})",
+                    ReaderTocTab.BOOKMARKS to "书签 (${bookmarks.size})",
+                    ReaderTocTab.NOTES to "笔记 (${notes.size})",
+                )
+                tabs.forEach { (tab, label) ->
+                    val isSelected = selectedTab == tab
+                    val tabInteraction = remember { MutableInteractionSource() }
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            selectedTab = tab
+                        },
+                        shape = PillShape,
+                        color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
+                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(34.dp)
+                            .bounceable(tabInteraction),
+                    ) {
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = label,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                                color = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                    }
                 }
-                item("recent_chapters") {
-                    LazyRow(horizontalArrangement = Arrangement.spacedBy(layout.relatedGap)) {
-                        items(recentEntries, key = { "recent_${it.index}" }) { entry ->
-                            Surface(
-                                onClick = { onPick(entry.index) },
-                                shape = PillShape,
-                                color = if (entry.isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,
-                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
-                            ) {
-                                Text(
-                                    entry.title,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                )
+            }
+        }
+
+        when (selectedTab) {
+            ReaderTocTab.TOC -> {
+                if (txtRules.isNotEmpty()) {
+                    // TXT 规则识别引导栏：现代化墨青微岛卡片
+                    TocRulesEntryRow(onClick = onManageRules)
+                    TocRecognitionSection(
+                        txtRules = txtRules,
+                        selectedTxtRule = selectedTxtRule,
+                        txtRulePreviews = txtRulePreviews,
+                        txtRuleScanStatus = txtRuleScanStatus,
+                        expanded = rulesExpanded,
+                        onToggleExpanded = { rulesExpanded = !rulesExpanded },
+                        onTxtRule = onTxtRule,
+                        onCancelTxtScan = onCancelTxtScan,
+                    )
+                }
+
+                if (entries.isEmpty()) {
+                    FullEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        icon = { LineArtBook(sizeDp = 72.dp) },
+                        title = "未发现目录",
+                        body = "这本书暂未识别到章节结构，无法在此浏览。",
+                    )
+                } else {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(
+                            horizontal = 16.dp,
+                            vertical = 8.dp,
+                        ),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
+                        // 最近阅读章节微胶囊导轨
+                        if (recentEntries.isNotEmpty()) {
+                            item("recent_title") {
+                                Row(
+                                    modifier = Modifier.padding(top = 4.dp, bottom = 4.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(6.dp)
+                                            .background(MaterialTheme.colorScheme.primary, CircleShape),
+                                    )
+                                    Text(
+                                        "最近浏览",
+                                        style = MaterialTheme.typography.labelMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    )
+                                }
+                            }
+                            item("recent_chapters") {
+                                LazyRow(
+                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    contentPadding = PaddingValues(vertical = 2.dp),
+                                ) {
+                                    items(recentEntries, key = { "recent_${it.index}" }) { entry ->
+                                        val chipInteraction = remember { MutableInteractionSource() }
+                                        Surface(
+                                            onClick = {
+                                                haptic(HapticFeedbackType.TextHandleMove)
+                                                onPick(entry.index)
+                                            },
+                                            shape = PillShape,
+                                            color = if (entry.isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                                            border = BorderStroke(
+                                                1.dp,
+                                                if (entry.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                            ),
+                                            modifier = Modifier.bounceable(chipInteraction),
+                                        ) {
+                                            Text(
+                                                entry.title,
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                                style = MaterialTheme.typography.labelSmall,
+                                                fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Medium,
+                                                color = if (entry.isCurrent) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // 按卷分组的章节独立微岛卡片列表
+                        groups.forEach { (volume, chapterEntries) ->
+                            val isCollapsed = volume in collapsed.value
+                            item("volume_$volume", contentType = "volume_header") {
+                                Surface(
+                                    onClick = {
+                                        haptic(HapticFeedbackType.TextHandleMove)
+                                        collapsed.value = if (isCollapsed) collapsed.value - volume else collapsed.value + volume
+                                    },
+                                    shape = RoundedCornerShape(10.dp),
+                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(top = 8.dp, bottom = 2.dp),
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                    ) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            modifier = Modifier.weight(1f),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.AutoStories,
+                                                    contentDescription = null,
+                                                    modifier = Modifier.size(12.dp),
+                                                    tint = MaterialTheme.colorScheme.primary,
+                                                )
+                                            }
+                                            Text(
+                                                volume,
+                                                style = MaterialTheme.typography.labelLarge,
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                            )
+                                        }
+
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                        ) {
+                                            Text(
+                                                if (showReadStatus) {
+                                                    "已读 ${chapterEntries.count { it.isRead }}/${chapterEntries.size}"
+                                                } else {
+                                                    "${chapterEntries.size}章"
+                                                },
+                                                style = MaterialTheme.typography.labelSmall,
+                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                            )
+                                            Icon(
+                                                if (isCollapsed) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.KeyboardArrowUp,
+                                                contentDescription = if (isCollapsed) "展开" else "收起",
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                modifier = Modifier.size(16.dp),
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+
+                            if (!isCollapsed) {
+                                items(chapterEntries, key = { "chapter_${it.index}" }, contentType = { "toc_row" }) { entry ->
+                                    TocRow(entry = entry, onPick = { onPick(entry.index) })
+                                }
                             }
                         }
                     }
                 }
             }
-            groups.forEach { (volume, chapterEntries) ->
-                val isCollapsed = volume in collapsed.value
-                item("volume_$volume", contentType = "volume_header") {
-                    Row(
-                        Modifier.fillMaxWidth().clickable {
-                            collapsed.value = if (isCollapsed) collapsed.value - volume else collapsed.value + volume
-                        }.padding(vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
+
+            ReaderTocTab.BOOKMARKS -> {
+                if (bookmarks.isEmpty()) {
+                    FullEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        icon = { LineArtBook(sizeDp = 72.dp) },
+                        title = "暂无书签",
+                        body = "阅读时点击菜单添加书签，即可在此快速跳转。",
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Text(volume, modifier = Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            if (showReadStatus) {
-                                "已读 ${chapterEntries.count { it.isRead }}/${chapterEntries.size}"
-                            } else {
-                                "${chapterEntries.size}章"
-                            },
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Icon(
-                            if (isCollapsed) Icons.Outlined.KeyboardArrowDown else Icons.Outlined.KeyboardArrowUp,
-                            contentDescription = if (isCollapsed) "展开" else "收起",
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
+                        items(bookmarks, key = { "bm_${it.id}" }) { bm ->
+                            BookmarkMicroIsland(
+                                bookmark = bm,
+                                onJump = { onPickBookmark(bm) },
+                            )
+                        }
                     }
                 }
-                if (!isCollapsed) {
-                    items(chapterEntries, key = { "chapter_${it.index}" }, contentType = { "toc_row" }) { entry ->
-                        TocRow(entry = entry, onPick = { onPick(entry.index) })
+            }
+
+            ReaderTocTab.NOTES -> {
+                if (notes.isEmpty()) {
+                    FullEmptyState(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        icon = { LineArtBook(sizeDp = 72.dp) },
+                        title = "暂无划线与笔记",
+                        body = "阅读选中文本添加划线或思考，灵感随时沉淀。",
+                    )
+                } else {
+                    LazyColumn(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .weight(1f),
+                        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        items(notes, key = { "note_${it.id}" }) { note ->
+                            NoteMicroIsland(
+                                note = note,
+                                onJump = { onPickNote(note) },
+                            )
+                        }
                     }
                 }
             }
@@ -364,47 +561,79 @@ internal fun TocSheet(
     }
 }
 
-/** 目录页顶部「目录与净化规则」管理入口：始终可见，点击交给宿主打开规则管理 Sheet。 */
+/**
+ * 现代化墨青微岛卡片：目录与净化规则管理入口。
+ */
 @Composable
 private fun TocRulesEntryRow(onClick: () -> Unit) {
-    val layout = LocalLayoutTokens.current
-    Row(
+    val haptic = rememberHaptic(rememberReducedMotion())
+    val interaction = remember { MutableInteractionSource() }
+    Surface(
+        onClick = {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onClick()
+        },
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap)
-            .clip(LocalComponentSpec.current.listItemShape)
-            .clickable(onClick = onClick)
-            .semantics { contentDescription = "管理目录与净化规则" }
-            .padding(horizontal = layout.cardPadding, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(horizontal = 16.dp, vertical = 4.dp)
+            .bounceable(interaction)
+            .semantics { contentDescription = "管理目录与净化规则" },
     ) {
-        Icon(
-            Icons.Outlined.Tune,
-            contentDescription = "目录与净化规则",
-            tint = MaterialTheme.colorScheme.primary,
-        )
-        Spacer(Modifier.width(layout.contentGap))
-        Column(Modifier.weight(1f)) {
-            Text(
-                text = "目录与净化规则",
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                text = "管理目录识别与替换净化",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                // 墨青微图标底座
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Tune,
+                        contentDescription = "目录与净化规则",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+                Column {
+                    Text(
+                        text = "目录与净化规则",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                    )
+                    Text(
+                        text = "管理目录智能识别与正则净化",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+            Icon(
+                Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                contentDescription = "进入规则管理",
+                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                modifier = Modifier.size(18.dp),
             )
         }
-        Icon(
-            Icons.Outlined.KeyboardArrowRight,
-            contentDescription = "进入规则管理",
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
     }
 }
 
-/** 「目录识别」快捷区：从章节列表末尾移到顶部管理入口附近；保留快速单选与扫描进度。 */
+/**
+ * 目录识别快捷区。
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TocRecognitionSection(
@@ -417,32 +646,51 @@ private fun TocRecognitionSection(
     onTxtRule: (String) -> Unit,
     onCancelTxtScan: () -> Unit,
 ) {
-    val layout = LocalLayoutTokens.current
-    Column(Modifier.fillMaxWidth().padding(horizontal = layout.pageHorizontal)) {
+    val haptic = rememberHaptic(rememberReducedMotion())
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
         Row(
-            Modifier.fillMaxWidth().clickable(onClick = onToggleExpanded).padding(vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(8.dp))
+                .clickable {
+                    haptic(HapticFeedbackType.TextHandleMove)
+                    onToggleExpanded()
+                }
+                .padding(vertical = 8.dp, horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f)) {
-                Text("目录识别", style = MaterialTheme.typography.titleSmall)
+            Column(modifier = Modifier.weight(1f)) {
+                Text("目录识别", style = MaterialTheme.typography.titleSmall, fontWeight = FontWeight.SemiBold)
                 Text("仅在目录不准确时调整", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(
                 if (expanded) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
                 contentDescription = if (expanded) "收起目录识别" else "展开目录识别",
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
         (txtRuleScanStatus as? TxtRuleScanStatus.Running)?.let { running ->
             TxtScanProgressRow(status = running, onCancel = onCancelTxtScan)
         }
         if (expanded) {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            FlowRow(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp, bottom = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
                 txtRules.forEach { rule ->
                     val preview = txtRulePreviews[rule.id].orEmpty()
                     val suffix = txtRulePillSuffix(txtRuleScanStatus, rule.id, preview.size)
+                    val label = if (suffix == null) rule.label else "${rule.label} · $suffix"
                     OptionPill(
                         selected = selectedTxtRule == rule.id,
-                        label = if (suffix == null) rule.label else "${rule.label} · $suffix",
+                        label = label,
                         onClick = { onTxtRule(rule.id) },
                     )
                 }
@@ -451,7 +699,7 @@ private fun TocRecognitionSection(
     }
 }
 
-/** 扫描中的进度 + 取消行：进度未知时 indeterminate，已知时 0..1。 */
+/** 扫描中的进度 + 取消行。 */
 @Composable
 private fun TxtScanProgressRow(
     status: TxtRuleScanStatus.Running,
@@ -486,54 +734,353 @@ private fun TxtScanProgressRow(
     }
 }
 
+/**
+ * 目录章节列表项（TocItemRow / TocRow）：
+ * - 独立微岛卡片设计，支持多级章节缩进视觉指示
+ * - 当前正在阅读的章节采用 primary 浅底与高光微胶囊发丝描边
+ * - 已读章节右侧展示翡翠绿微打勾胶囊或微指示点
+ */
 @Composable
 internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
-    // 简洁目录行：序号 + 标题两栏。当前章仅用主色文字标识（无色块/竖条/徽章），
-    // 已读章节降为 outline 色；整行高度紧凑，快速滑动时的重组与测量成本也更低。
-    val indexColor = if (entry.isCurrent) MaterialTheme.colorScheme.primary
-    else if (entry.isRead) MaterialTheme.colorScheme.outline
-    else MaterialTheme.colorScheme.onSurfaceVariant
-    val titleColor = when {
-        entry.isCurrent -> MaterialTheme.colorScheme.primary
-        entry.isRead -> MaterialTheme.colorScheme.onSurfaceVariant
-        else -> MaterialTheme.colorScheme.onSurface
-    }
-    Row(
+    val haptic = rememberHaptic(rememberReducedMotion())
+    val interaction = remember { MutableInteractionSource() }
+
+    Surface(
+        onClick = {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onPick()
+        },
+        shape = RoundedCornerShape(12.dp),
+        color = when {
+            entry.isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
+            entry.isRead -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
+            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
+        },
+        border = when {
+            entry.isCurrent -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
+            entry.isRead -> BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            else -> BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
+        },
         modifier = Modifier
             .fillMaxWidth()
-            .clip(LocalComponentSpec.current.listItemShape)
-            .clickable(onClick = onPick),
-        verticalAlignment = Alignment.CenterVertically,
+            .bounceable(interaction),
     ) {
-        Text(
-            text = (entry.index + 1).toString(),
+        Row(
             modifier = Modifier
-                .width(40.dp)
-                .padding(start = 4.dp)
-                // 当前章优先保持“当前章节”语义，不叠加已读标记（计数仍含当前章）
-                .semantics { if (entry.isRead && !entry.isCurrent) contentDescription = "已读章节" },
-            style = MaterialTheme.typography.labelMedium,
-            color = indexColor,
-            fontWeight = if (entry.isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-        )
-        Text(
-            text = entry.title,
-            modifier = Modifier.weight(1f).padding(vertical = 11.dp, horizontal = 4.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            style = MaterialTheme.typography.bodyMedium,
-            color = titleColor,
-            fontWeight = if (entry.isCurrent) FontWeight.SemiBold else FontWeight.Normal,
-        )
-        if (entry.isCurrent) {
+                .fillMaxWidth()
+                .padding(horizontal = 10.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // 章节序号微底座
             Box(
                 modifier = Modifier
-                    .padding(end = 8.dp)
-                    .size(6.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary)
-                    .semantics { contentDescription = "当前章节" },
+                    .size(26.dp)
+                    .background(
+                        when {
+                            entry.isCurrent -> MaterialTheme.colorScheme.primary
+                            entry.isRead -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
+                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
+                        },
+                        shape = RoundedCornerShape(7.dp),
+                    )
+                    .semantics { if (entry.isRead && !entry.isCurrent) contentDescription = "已读章节" },
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = (entry.index + 1).toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Medium,
+                    color = when {
+                        entry.isCurrent -> MaterialTheme.colorScheme.onPrimary
+                        entry.isRead -> MaterialTheme.colorScheme.outline
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
+                )
+            }
+
+            Spacer(Modifier.width(10.dp))
+
+            // 章节标题
+            Text(
+                text = entry.title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(end = 8.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Normal,
+                color = when {
+                    entry.isCurrent -> MaterialTheme.colorScheme.primary
+                    entry.isRead -> MaterialTheme.colorScheme.onSurfaceVariant
+                    else -> MaterialTheme.colorScheme.onSurface
+                },
             )
+
+            // 右侧指示微胶囊：阅读中高光胶囊 / 已读翡翠绿对勾胶囊
+            if (entry.isCurrent) {
+                Surface(
+                    color = MaterialTheme.colorScheme.primary,
+                    shape = PillShape,
+                    modifier = Modifier.semantics { contentDescription = "当前章节" },
+                ) {
+                    Text(
+                        text = "阅读中",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                        fontWeight = FontWeight.Bold,
+                    )
+                }
+            } else if (entry.isRead) {
+                // 翡翠绿微打勾胶囊
+                Surface(
+                    shape = PillShape,
+                    color = Color(0xFF059669).copy(alpha = 0.12f),
+                    border = BorderStroke(0.8.dp, Color(0xFF059669).copy(alpha = 0.35f)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(3.dp),
+                    ) {
+                        Icon(
+                            Icons.Outlined.Check,
+                            contentDescription = "已读",
+                            tint = Color(0xFF059669),
+                            modifier = Modifier.size(11.dp),
+                        )
+                        Text(
+                            text = "已读",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color(0xFF059669),
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 书签列表项：28dp 暖金微底座与「跳转」微胶囊。
+ */
+@Composable
+private fun BookmarkMicroIsland(
+    bookmark: NoteEntity,
+    onJump: () -> Unit,
+) {
+    val haptic = rememberHaptic(rememberReducedMotion())
+    val interaction = remember { MutableInteractionSource() }
+
+    Surface(
+        onClick = {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onJump()
+        },
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .bounceable(interaction),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                // 28dp 暖金微底座
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Color(0xFFD97706).copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Bookmark,
+                        contentDescription = null,
+                        tint = Color(0xFFD97706),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = bookmark.title.ifBlank { "书签" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    bookmark.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
+                        Text(
+                            text = excerpt,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                }
+            }
+
+            // 「跳转」微胶囊
+            Surface(
+                shape = PillShape,
+                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.NearMe,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        text = "跳转",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 笔记列表项微岛卡片。
+ */
+@Composable
+private fun NoteMicroIsland(
+    note: NoteEntity,
+    onJump: () -> Unit,
+) {
+    val haptic = rememberHaptic(rememberReducedMotion())
+    val interaction = remember { MutableInteractionSource() }
+
+    Surface(
+        onClick = {
+            haptic(HapticFeedbackType.TextHandleMove)
+            onJump()
+        },
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        modifier = Modifier
+            .fillMaxWidth()
+            .bounceable(interaction),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Row(
+                verticalAlignment = Alignment.Top,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.weight(1f),
+            ) {
+                // 28dp 紫罗兰微底座
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .background(Color(0xFF7C3AED).copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.EditNote,
+                        contentDescription = null,
+                        tint = Color(0xFF7C3AED),
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.padding(end = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Text(
+                        text = note.title.ifBlank { "笔记" },
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    note.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
+                        Text(
+                            text = excerpt,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 2,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    note.body.takeIf { it.isNotBlank() }?.let { bodyText ->
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 2.dp),
+                        ) {
+                            Text(
+                                text = bodyText,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                modifier = Modifier.padding(6.dp),
+                            )
+                        }
+                    }
+                }
+            }
+
+            // 「跳转」微胶囊
+            Surface(
+                shape = PillShape,
+                color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
+                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(3.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.NearMe,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.secondary,
+                        modifier = Modifier.size(12.dp),
+                    )
+                    Text(
+                        text = "跳转",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.secondary,
+                    )
+                }
+            }
         }
     }
 }

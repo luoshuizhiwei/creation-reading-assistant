@@ -100,7 +100,17 @@ sealed interface ReaderAction {
     // ── 文档协调 ──
     data class OpenBook(val bookId: String) : ReaderAction
     data object Retry : ReaderAction
-    data class LoadChapter(val bookId: String, val chapterIndex: Int) : ReaderAction
+    data class LoadChapter(
+        val bookId: String,
+        val chapterIndex: Int,
+        /**
+         * 是否由 VM 顺带写「章节头」进度（legacy 模式位置=章号，写章首即真实位置）。
+         * 分页引擎的被动跨章同步必须传 false：真实落点可能是上一章末页，
+         * 写章首会把 locator 覆盖成 offset=0（merge 无条件采信 incoming），
+         * 退出重进即回到前一章开头（真机反馈）。
+         */
+        val persistProgress: Boolean = true,
+    ) : ReaderAction
     /**
      * 死路径（任务 #15 小清理）：生产代码零派发，TOC 规则切换已改走
      * [com.creationreadingassistant.ui.viewmodel.RuleCommand]（ExecuteRuleCommand）+
