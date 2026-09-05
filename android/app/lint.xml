@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  模块级 lint 配置。
+  只做「合理降级、保留前瞻」：
+  - 不删除 strings.xml 中定义但当前未被代码直接引用的通用/占位资源；
+  - 凡属于 common_*（通用UI词库）、ai_*（AI功能未来接入）、
+    dialog_/empty_/status_/toast_*（UI占位与备用文案）、
+    以及 reader/about/note 等未来特性资源的条目，由 warning 降级为 ignore，
+    避免每次 lint 刷出一堆噪音；
+  - 其余 lint 规则保持默认严格度不变，GradleDependency / ObsoleteLintCustomCheck
+    属于上游库问题，不在此处放宽。
+-->
+<lint>
+    <issue id="UnusedResources" severity="warning">
+        <!-- common_*：通用UI词库，跨页面后续接入统一复用 -->
+        <ignore regexp="R\.string\.common_confirm"/>
+        <ignore regexp="R\.string\.common_save"/>
+        <ignore regexp="R\.string\.common_import"/>
+        <ignore regexp="R\.string\.common_export"/>
+        <ignore regexp="R\.string\.common_restore"/>
+        <ignore regexp="R\.string\.common_reset"/>
+        <ignore regexp="R\.string\.common_settings"/>
+        <ignore regexp="R\.string\.common_more"/>
+        <ignore regexp="R\.string\.common_search"/>
+        <ignore regexp="R\.string\.common_time_unknown"/>
+        <ignore regexp="R\.string\.common_error_reader_load_failed"/>
+
+        <!-- AI 相关：未来 AI 面板/错误文案预占位 -->
+        <ignore regexp="R\.string\.ai_error_not_enabled"/>
+        <ignore regexp="R\.string\.ai_error_baseurl_empty"/>
+        <ignore regexp="R\.string\.ai_error_no_network"/>
+        <ignore regexp="R\.string\.ai_error_auth"/>
+        <ignore regexp="R\.string\.ai_error_rate_limit"/>
+        <ignore regexp="R\.string\.ai_error_server"/>
+        <ignore regexp="R\.string\.ai_error_generic"/>
+        <ignore regexp="R\.string\.ai_error_timeout"/>
+        <ignore regexp="R\.string\.ai_error_dns"/>
+        <ignore regexp="R\.string\.ai_error_connect"/>
+        <ignore regexp="R\.string\.ai_error_network"/>
+        <ignore regexp="R\.string\.ai_error_empty_response"/>
+        <ignore regexp="R\.string\.ai_warning_http_plaintext"/>
+
+        <!-- 对话框/空状态/状态标签/Toast 占位文案 -->
+        <ignore regexp="R\.string\.dialog_title_confirm_delete"/>
+        <ignore regexp="R\.string\.dialog_title_font_missing"/>
+        <ignore regexp="R\.string\.empty_no_reading_history"/>
+        <ignore regexp="R\.string\.status_sort_method"/>
+        <ignore regexp="R\.string\.status_reading_and_creation"/>
+        <ignore regexp="R\.string\.status_book_status"/>
+        <ignore regexp="R\.string\.status_cumulative_reading"/>
+        <ignore regexp="R\.string\.toast_sync_prefix"/>
+
+        <!-- 阅读器/笔记/关于 等未来特性预占位 -->
+        <ignore regexp="R\.string\.autohide_label_4s"/>
+        <ignore regexp="R\.string\.note_prefix_highlight"/>
+        <ignore regexp="R\.string\.about_check_checking"/>
+    </issue>
+</lint>

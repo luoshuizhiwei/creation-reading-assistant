@@ -75,7 +75,14 @@ try {
     }
 
     Invoke-Adb push $apkPath $remoteApk | Out-Host
-    Invoke-Adb shell am start -a android.intent.action.VIEW -d "file://$remoteApk" -t application/vnd.android.package-archive | Out-Host
+    # Some MIUI devices register a third-party browser as the default VIEW handler for APK files.
+    # Start the system installer explicitly so the confirmation loop below observes the same UI
+    # it is designed to drive, rather than waiting on an unrelated app's installation surface.
+    Invoke-Adb shell am start `
+        -n com.miui.packageinstaller/com.miui.packageInstaller.InstallStart `
+        -a android.intent.action.INSTALL_PACKAGE `
+        -d "file://$remoteApk" `
+        -t application/vnd.android.package-archive | Out-Host
 
     $deadline = (Get-Date).AddSeconds(90)
     while ((Get-Date) -lt $deadline) {
