@@ -18,7 +18,7 @@ import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.MarkdownDocument
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.ui.screen.reader.tts.TtsAutoNextChapterEffect
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.screen.reader.tts.TtsReaderSyncEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsResumeEffect
 import com.creationreadingassistant.ui.screen.reader.tts.TtsSettingsSyncEffect
@@ -89,7 +89,7 @@ internal fun ReaderSessionEffects(
     isTxt: Boolean,
     isChapterLoading: Boolean,
     searchSession: BookSearchSession,
-    tts: TtsController,
+    tts: TtsEngineHost,
     haptic: (HapticFeedbackType) -> Unit,
     scope: CoroutineScope,
     showNotice: (String) -> Unit,

@@ -15,7 +15,7 @@ import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsAvailability
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticeAction
 import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticePolicy
 import com.creationreadingassistant.ui.screen.reader.tts.TtsPlayResult
@@ -55,7 +55,7 @@ internal fun openTts(
     ttsResumeChapter: Int,
     chapterIndex: Int,
     ttsResumeOffset: Int,
-    tts: TtsController,
+    tts: TtsEngineHost,
     bookTitle: String,
     currentChapterTitle: String,
     context: Context,
@@ -109,7 +109,7 @@ internal fun openTts(
 internal fun handleChromeAction(
     action: ReaderChromeAction,
     showTts: Boolean,
-    tts: TtsController,
+    tts: TtsEngineHost,
     autoPagingActiveState: MutableState<Boolean>,
     autoPagingSupported: Boolean,
     onAction: (ReaderAction) -> Unit,
@@ -226,7 +226,7 @@ internal fun buildReaderNavActions(
     chapterStartOffsets: List<Int>,
     pagedJumpRequest: MutableState<Int?>,
     chapterIndexState: MutableIntState,
-    tts: TtsController,
+    tts: TtsEngineHost,
     onAction: (ReaderAction) -> Unit,
     onBack: () -> Unit,
     bid: String,

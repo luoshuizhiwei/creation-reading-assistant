@@ -21,7 +21,7 @@ import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.reader.rules.ReplaceRule
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
 
@@ -99,7 +99,7 @@ internal data class ReaderContentSourceState(
     val replaceRules: List<ReplaceRule>,
     val isTxt: Boolean,
     val showTts: Boolean,
-    val tts: TtsController,
+    val tts: TtsEngineHost,
     val highlights: List<HighlightEntity>,
     /** 搜索命中临时高亮（全书字符区间，含首不含尾）；null = 无当前命中。 */
     val searchHitRangeAbs: Pair<Int, Int>?,

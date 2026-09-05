@@ -10,20 +10,22 @@ import androidx.compose.runtime.setValue
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 /**
- * TTS 设置同步：首次将持久化的音调/音量/音色/定时停止载入控制器（仅一次，避免播放中回灌导致重读）。
+ * TTS 设置同步：首次将持久化的引擎/音调/音量/音色/定时停止载入控制器（仅一次，避免播放中回灌导致重读）。
  */
 @Composable
 internal fun TtsSettingsSyncEffect(
-    tts: TtsController,
+    tts: TtsEngineHost,
     readerSettings: ReaderSettings,
 ) {
     var ttsSynced by remember { mutableStateOf(false) }
     LaunchedEffect(readerSettings) {
         if (!ttsSynced) {
+            tts.switchEngine(TtsEngineId.fromKey(readerSettings.ttsEngine))
             tts.pitch = readerSettings.ttsPitch
             tts.volume = readerSettings.ttsVolume
             tts.voiceId = readerSettings.ttsVoiceId
@@ -38,7 +40,7 @@ internal fun TtsSettingsSyncEffect(
  */
 @Composable
 internal fun TtsResumeEffect(
-    tts: TtsController,
+    tts: TtsEngineHost,
     bookId: String,
     settingsStore: SettingsStore,
     isEpub: Boolean,
@@ -70,7 +72,7 @@ internal fun TtsResumeEffect(
  */
 @Composable
 internal fun TtsReaderSyncEffect(
-    tts: TtsController,
+    tts: TtsEngineHost,
     showTts: Boolean,
     isTxt: Boolean,
     isMarkdown: Boolean,
@@ -113,12 +115,12 @@ internal fun TtsReaderSyncEffect(
  * 章末自动接续（听书连续朗读）：末句播完且仍有后章时翻到下一章，章正文就绪后
  * 从头继续朗读；末章播完或朗读已关闭时不动作（保持「读完即停」）。
  *
- * 实现要点：[TtsController.onFinished] 只负责翻章；重播等 [contentReady] 变为
+ * 实现要点：[TtsEngineHost.onFinished] 只负责翻章；重播等 [contentReady] 变为
  * true（新章加载完成）再触发，避免对加载中的空文本发起朗读。
  */
 @Composable
 internal fun TtsAutoNextChapterEffect(
-    tts: TtsController,
+    tts: TtsEngineHost,
     showTts: Boolean,
     chapterIndex: Int,
     chapterCount: Int,

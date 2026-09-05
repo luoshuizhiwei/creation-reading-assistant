@@ -102,6 +102,7 @@ private val KEY_TTS_PITCH = floatPreferencesKey("tts_pitch")
 private val KEY_TTS_VOLUME = floatPreferencesKey("tts_volume")
 private val KEY_TTS_VOICE = stringPreferencesKey("tts_voice_id")
 private val KEY_TTS_TIMED_STOP = intPreferencesKey("tts_timed_stop_minutes")
+private val KEY_TTS_ENGINE = stringPreferencesKey("tts_engine")
 // TTS 跨会话续读：记录最近一次朗读的书 id 与句首偏移（R3）
 private val KEY_TTS_RESUME_BOOK = stringPreferencesKey("tts_resume_book")
 private val KEY_TTS_RESUME_OFFSET = intPreferencesKey("tts_resume_offset")
@@ -204,6 +205,8 @@ data class ReaderSettings(
     val ttsVolume: Float = 1f,
     val ttsVoiceId: String = "",
     val ttsTimedStopMinutes: Int = 0,
+    /** TTS 引擎："system" | "edge"（见 TtsEngineId.key）。 */
+    val ttsEngine: String = "system",
     // 页眉页脚：页眉显示书名、页脚显示章节+进度，避免章节名上下重复
     // （对照起点/番茄等主流：页眉信息栏、页脚进度栏）。
     val headerLeft: HeaderFooterItem = HeaderFooterItem.BOOK_NAME,
@@ -305,6 +308,7 @@ class SettingsStore @Inject constructor(
             ttsVolume = prefs[KEY_TTS_VOLUME] ?: 1f,
             ttsVoiceId = prefs[KEY_TTS_VOICE] ?: "",
             ttsTimedStopMinutes = prefs[KEY_TTS_TIMED_STOP] ?: 0,
+            ttsEngine = prefs[KEY_TTS_ENGINE] ?: "system",
             headerLeft = HeaderFooterItem.fromString(prefs[KEY_HEADER_LEFT] ?: HeaderFooterItem.BOOK_NAME.name),
             headerRight = HeaderFooterItem.fromString(prefs[KEY_HEADER_RIGHT] ?: HeaderFooterItem.NONE.name),
             footerLeft = HeaderFooterItem.fromString(prefs[KEY_FOOTER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
@@ -434,6 +438,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_TTS_VOLUME] = next.ttsVolume
             prefs[KEY_TTS_VOICE] = next.ttsVoiceId
             prefs[KEY_TTS_TIMED_STOP] = next.ttsTimedStopMinutes
+            prefs[KEY_TTS_ENGINE] = next.ttsEngine
             prefs[KEY_HEADER_LEFT] = next.headerLeft.name
             prefs[KEY_HEADER_RIGHT] = next.headerRight.name
             prefs[KEY_FOOTER_LEFT] = next.footerLeft.name

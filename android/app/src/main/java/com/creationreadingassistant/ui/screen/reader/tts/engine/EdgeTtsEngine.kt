@@ -90,6 +90,18 @@ internal class EdgeTtsEngine(
         statusHolder.notifyUnavailable("神经语音使用微软在线服务，需连接 Wi-Fi 或移动数据。")
     }
 
+    override fun reinitialize() {
+        if (fallbackActive) {
+            fallbackEngine?.reinitialize()
+            return
+        }
+        stop()
+        // 解除会话级 fallback 锁：重试 Edge（可能是临时无网，现在网络恢复了）
+        sessionFallbackLock = false
+        fallbackActive = false
+        statusHolder.reinitialize()
+    }
+
     // ── 播放控制 ─────────────────────────────────────────────
 
     override fun play(

@@ -29,6 +29,7 @@ internal class SystemTtsEngineWrapper(
     override val errorSeq: Int get() = delegate.errorSeq
     override fun consumeError(): String? = delegate.consumeError()?.message
     override fun notifyUnavailable() = delegate.notifyUnavailable()
+    override fun reinitialize() = delegate.reinitialize()
 
     override val voices: List<TtsVoiceDescriptor> by lazy {
         // 系统 Voice → TtsVoiceDescriptor 映射。注意系统 Voice 不保证 gender/quality 字段，

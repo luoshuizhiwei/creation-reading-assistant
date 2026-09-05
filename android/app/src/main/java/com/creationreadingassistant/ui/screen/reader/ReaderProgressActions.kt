@@ -11,7 +11,7 @@ import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.locator.LocatorBuilder
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
 import kotlinx.coroutines.CoroutineScope
@@ -56,7 +56,7 @@ internal fun goToChapter(
     chapterStartOffsets: List<Int>,
     pagedJumpRequest: MutableState<Int?>,
     chapterIndexState: MutableIntState,
-    tts: TtsController,
+    tts: TtsEngineHost,
     onAction: (ReaderAction) -> Unit,
     bid: String,
     jumpToStart: Boolean = true,

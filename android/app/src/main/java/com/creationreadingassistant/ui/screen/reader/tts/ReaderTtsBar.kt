@@ -67,11 +67,12 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.screen.reader.sheets.ReaderSheetScaffold
+import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
 
 @Composable
-internal fun rememberTts(): TtsController {
+internal fun rememberTts(): TtsEngineHost {
     val context = LocalContext.current
-    val controller = remember { TtsController(context) }
+    val controller = remember { TtsEngineHost(context, TtsEngineId.SYSTEM) }
     DisposableEffect(controller) { onDispose { controller.release() } }
     return controller
 }
@@ -120,9 +121,9 @@ internal fun buildSentenceHighlighted(
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun TtsBar(
     paper: ReaderPaperPalette,
-    tts: TtsController,
+    tts: TtsEngineHost,
     chapterLabel: String,
-    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int) -> Unit,
+    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
     onClose: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
@@ -354,12 +355,12 @@ internal fun TtsBar(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TtsSettingsContent(
-    tts: TtsController,
-    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int) -> Unit,
+    tts: TtsEngineHost,
+    onPersistTts: (pitch: Float, volume: Float, voiceId: String, timedStop: Int, engine: String) -> Unit,
     onClose: () -> Unit,
 ) {
     val haptic = rememberHaptic(false)
-    fun persist() = onPersistTts(tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes)
+    fun persist() = onPersistTts(tts.pitch, tts.volume, tts.voiceId, tts.timedStopMinutes, tts.engineId.key)
 
     ReaderSheetScaffold(title = "朗读设置") {
         Column(
@@ -468,9 +469,40 @@ internal fun TtsSettingsContent(
                 Text("100%", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.outline)
             }
 
+            // 2.5 朗读引擎（系统语音离线可用；神经语音需联网，失败自动回退系统）
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                TtsEngineId.entries.forEach { engine ->
+                    val selected = tts.engineId == engine
+                    Surface(
+                        onClick = {
+                            haptic(HapticFeedbackType.TextHandleMove)
+                            tts.switchEngine(engine)
+                            persist()
+                        },
+                        shape = CircleShape,
+                        color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Text(
+                            text = engine.displayLabel,
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (selected) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                        )
+                    }
+                }
+            }
+
             // 3. 声音与音色（圆润微胶囊芯片单选导轨，带选中态高光微徽章）
             val voices = tts.availableVoices
-                .filter { it.locale.language == "zh" }
+                .filter { it.locale.startsWith("zh") }
                 .ifEmpty { tts.availableVoices }
             var voiceMenu by remember { mutableStateOf(false) }
             val currentVoiceLabel = voices.firstOrNull { it.name == tts.voiceId }?.let { "${it.name} (${it.locale})" } ?: "默认（系统）"

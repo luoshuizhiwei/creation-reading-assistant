@@ -20,6 +20,16 @@ enum class TtsEngineId(val displayLabel: String) {
      * 合成失败时**自动回退**到 [SYSTEM]，无需用户手动切换。
      */
     EDGE("神经语音 · 需联网"),
+    ;
+
+    /** 持久化键（与 SettingsStore.KEY_TTS_ENGINE 配对）。 */
+    val key: String get() = name.lowercase()
+
+    companion object {
+        /** 从持久化键解析；未知值/空值一律回退 [SYSTEM]（本地优先）。 */
+        fun fromKey(raw: String?): TtsEngineId =
+            entries.firstOrNull { it.key == raw?.lowercase() } ?: SYSTEM
+    }
 }
 
 /**
@@ -72,6 +82,12 @@ interface TtsEngine : AutoCloseable {
      * 避免被动初始化失败打扰用户。
      */
     fun notifyUnavailable()
+
+    /**
+     * 显式重新初始化：init failure / 引擎不可用后的进程内恢复路径（不要求重启 App）。
+     * 默认无操作（[TtsEngineId.EDGE] 与 [TtsEngineId.SYSTEM] 各自覆写）。
+     */
+    fun reinitialize() {}
 
     // ── 播放控制 ─────────────────────────────────────────────
 

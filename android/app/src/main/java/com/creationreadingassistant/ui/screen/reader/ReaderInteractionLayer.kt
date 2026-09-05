@@ -26,7 +26,7 @@ import com.creationreadingassistant.ui.screen.reader.ReaderBottomActions
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderTopChrome
 import com.creationreadingassistant.ui.screen.reader.tts.TtsBar
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -69,7 +69,7 @@ internal data class ReaderInteractionLayerCallbacks(
     val onPrevChapter: () -> Unit,
     val onNextChapter: () -> Unit,
     val onAutoPageSpeedChange: (Int) -> Unit,
-    val onPersistTts: (Float, Float, String, Int) -> Unit,
+    val onPersistTts: (Float, Float, String, Int, String) -> Unit,
     val onCloseTts: () -> Unit,
     val onToggleColor: () -> Unit,
     val onPickColor: (String) -> Unit,
@@ -125,7 +125,7 @@ internal fun readerContentTopReserve(
 internal fun BoxScope.ReaderInteractionLayer(
     state: ReaderInteractionLayerState,
     callbacks: ReaderInteractionLayerCallbacks,
-    tts: TtsController,
+    tts: TtsEngineHost,
 ) {
     val reducedMotion = rememberReducedMotion()
 
@@ -182,7 +182,7 @@ internal fun BoxScope.ReaderInteractionLayer(
                     paper = state.paper,
                     tts = tts,
                     chapterLabel = state.currentChapterTitle.ifBlank { "正文" },
-                    onPersistTts = { p, v, id, t -> callbacks.onPersistTts(p, v, id, t) },
+                    onPersistTts = { p, v, id, t, e -> callbacks.onPersistTts(p, v, id, t, e) },
                 ) {
                     tts.stop()
                     callbacks.onCloseTts()

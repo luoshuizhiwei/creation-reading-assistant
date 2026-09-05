@@ -29,7 +29,7 @@ import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailab
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
@@ -184,7 +184,7 @@ internal fun buildReaderInteractionLayerState(
 internal fun buildReaderInteractionLayerCallbacks(
     chapterIndex: Int,
     settingsVm: SettingsViewModel,
-    tts: TtsController,
+    tts: TtsEngineHost,
     selectedText: String,
     selectedSourceLength: Int?,
     bid: String,
@@ -205,13 +205,14 @@ internal fun buildReaderInteractionLayerCallbacks(
     onPrevChapter = { goToChapter(chapterIndex - 1) },
     onNextChapter = { goToChapter(chapterIndex + 1) },
     onAutoPageSpeedChange = onAutoPageSpeedChange,
-    onPersistTts = { p, v, id, t ->
+    onPersistTts = { p, v, id, t, e ->
         settingsVm.updateReader {
             copy(
                 ttsPitch = p,
                 ttsVolume = v,
                 ttsVoiceId = id,
                 ttsTimedStopMinutes = t,
+                ttsEngine = e,
             )
         }
     },

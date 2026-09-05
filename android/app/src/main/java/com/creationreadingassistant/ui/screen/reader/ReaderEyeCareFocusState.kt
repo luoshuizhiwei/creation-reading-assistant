@@ -14,7 +14,7 @@ import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.eyecare.EyeCareSchedule
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 
 /**
@@ -58,7 +58,7 @@ internal fun rememberReaderEyeCareFocusState(
     readerSettings: ReaderSettings,
     paper: ReaderPaperPalette,
     showTts: Boolean,
-    tts: TtsController,
+    tts: TtsEngineHost,
     epubBook: EpubBook?,
     contentText: String,
     chapterStartOffsets: List<Int>,

@@ -48,7 +48,7 @@ import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
-import com.creationreadingassistant.ui.screen.reader.tts.TtsController
+import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderDocumentStatus
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
@@ -180,7 +180,7 @@ internal fun ReaderScaffold(
     searchHighlightBg: Color,
     epubBringRequester: BringIntoViewRequester,
     isTxt: Boolean,
-    tts: TtsController,
+    tts: TtsEngineHost,
     autoPagingPaused: Boolean,
     appDark: Boolean,
     activeReadingMs: Long,
