@@ -164,10 +164,13 @@ class ReplacedChapterSourceTest {
             PagedReplacementAvailability.NO_EFFECTIVE_RULES,
             preparePagedReplacement(completeTxt, "book-1", emptyList()).availability,
         )
+        // EPUB 空规则：结构保真投影路径已放开，delegate 原样透传（可管理、零开销）
+        val epubNoRules = preparePagedReplacement(estimatedEpub, "book-1", emptyList())
         assertEquals(
-            PagedReplacementAvailability.ESTIMATED_COORDINATES,
-            preparePagedReplacement(estimatedEpub, "book-1", emptyList()).availability,
+            PagedReplacementAvailability.NO_EFFECTIVE_RULES,
+            epubNoRules.availability,
         )
+        assertSame(estimatedEpub, epubNoRules.source)
         assertEquals(
             PagedReplacementAvailability.INCOMPLETE_SCOPE,
             preparePagedReplacement(incomplete, "book-1", emptyList()).availability,

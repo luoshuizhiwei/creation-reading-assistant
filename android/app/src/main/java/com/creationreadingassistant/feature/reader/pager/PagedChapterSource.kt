@@ -229,6 +229,10 @@ class EpubChapterSource(
     override val chapterLengthsAreEstimated: Boolean get() = true
     override fun chapterTitle(index: Int): String = titles.getOrNull(index) ?: ""
     override fun chapterStartAbs(index: Int): Int = chapterStartOffsets.getOrNull(index) ?: 0
+
+    /** 章级结构保真投影（[EpubReplaceProjector]）需要的原始 DocBlock 序列。 */
+    fun blocksOf(index: Int): List<DocBlock> = loadBlocks(index)
+
     override fun loadChapter(index: Int): PagedChapterContent {
         val blocks = loadBlocks(index)
         return PagedChapterContent(

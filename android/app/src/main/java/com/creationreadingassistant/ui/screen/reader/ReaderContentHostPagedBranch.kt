@@ -85,9 +85,11 @@ internal fun ReaderContentHostPagedBranch(
         },
         ttsRangeAbs = if (s.showTts && s.tts.status != "idle") {
             if (s.epubBook != null) {
-                val base = s.chapterStartOffsets.getOrElse(s.chapterIndex) { 0 }
-                (base + s.tts.currentSentenceRange.first) to
-                    (base + s.tts.currentSentenceRange.second)
+                // EPUB 分页：TTS 朗读 display 文本（净化投影活跃时），句偏移经章级
+                // 投影映射回全书 source（跟读高亮与续读持久化都是 source 口径）。
+                ttsSentenceGlobalSourceRange(
+                    pagedSource, s.chapterStartOffsets, s.chapterIndex, s.tts.currentSentenceRange,
+                )
             } else if (s.markdownDocument != null) {
                 // Markdown：tts.currentSentenceRange 是章内规范文本偏移，转全书偏移
                 val base = paging.pagedSource?.chapterStartAbs(s.chapterIndex) ?: 0

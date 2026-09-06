@@ -19,6 +19,7 @@ import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
+import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -46,6 +47,12 @@ internal data class ReaderProgressState(
     val epubListState: LazyListState,
     val visiblePlainOffset: Int,
     val contentText: String,
+    /**
+     * TTS 朗读文本：EPUB 分页 + 替换净化投影活跃时是当前章 display 文本（净化后），
+     * 其余路径与 [contentText] 相同（source 口径）。句偏移换算见
+     * [ttsSentenceGlobalSourceRange] / [ttsDisplayLocalToSourceLocal]。
+     */
+    val ttsContentText: String,
     val txtChapterIndex: Int,
     val chapterFade: Animatable<Float, AnimationVector1D>,
     val chapterFadeKey: Int,
@@ -102,6 +109,7 @@ internal fun rememberReaderProgress(
     notes: List<NoteEntity>,
     inspirationsCount: Int,
     bookIndex: BookIndex?,
+    pagedSource: PagedChapterSource? = null,
 ): ReaderProgressState {
     // 进度计算
     val epubPercent = if (epubBook != null) {
@@ -170,6 +178,22 @@ internal fun rememberReaderProgress(
             else -> plainContent
         }
     }
+
+    // EPUB 分页 + 替换净化投影活跃时的 TTS 朗读文本：经 pagedSource 取当前章 display
+    // 文本（净化后）。无投影（无规则/超大章）时 loadChapterText 即 source 文本，与
+    // contentText 同口径。IO 装载模式与上方流式 TXT 窗口一致。
+    val epubPagedTtsTextState = remember(epubBook) { mutableStateOf<String?>(null) }
+    LaunchedEffect(epubBook, pagerEngineOn, pagedSource, chapterIndex) {
+        if (epubBook != null && pagerEngineOn && pagedSource != null) {
+            val src = pagedSource
+            epubPagedTtsTextState.value = withContext(Dispatchers.IO) {
+                src.loadChapterText(chapterIndex)
+            }
+        } else {
+            epubPagedTtsTextState.value = null
+        }
+    }
+    val ttsContentText = epubPagedTtsTextState.value ?: contentText
 
     val epubListState = rememberLazyListState()
     // TXT 当前所在章：按当前可见偏移反查。必须放在 visiblePlainOffset 之后。
@@ -256,6 +280,7 @@ internal fun rememberReaderProgress(
         epubListState = epubListState,
         visiblePlainOffset = visiblePlainOffset,
         contentText = contentText,
+        ttsContentText = ttsContentText,
         txtChapterIndex = txtChapterIndex,
         chapterFade = chapterFade,
         chapterFadeKey = chapterFadeKey,

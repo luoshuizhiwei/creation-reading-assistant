@@ -381,6 +381,7 @@ fun ReaderScreen(
         notes = notes,
         inspirationsCount = inspirations.size,
         bookIndex = bookIndex,
+        pagedSource = pagedSource,
     )
     val plainListState = progressState.plainListState
     val epubListState = progressState.epubListState
@@ -427,6 +428,7 @@ fun ReaderScreen(
         txtChapterIndex, contentText, ttsResumeChapterState, ttsResumeOffsetState, bookTitle,
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
         epubDocument,
+        ttsContentText = progressState.ttsContentText,
     )
 
     LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {

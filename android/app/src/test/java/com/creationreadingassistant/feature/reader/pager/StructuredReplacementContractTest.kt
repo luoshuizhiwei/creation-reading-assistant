@@ -7,16 +7,18 @@ import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.feature.reader.rules.RuleScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
+import org.junit.Assert.assertSame
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * EPUB/Markdown replacement stays closed until rendering and persistence share source coordinates.
- * These tests intentionally describe the current boundary rather than approximating a projection.
+ * 结构化坐标契约：EPUB 分页路径经 EpubReplaceProjector 结构保真投影放开（章内真实
+ * 坐标 + 既有估算混合空间，持久化 locator 坐标系不变）；Markdown 渲染坐标仍保持关闭。
  */
 class StructuredReplacementContractTest {
 
     @Test
-    fun `EPUB source declares estimated coordinates and keeps extracted text unchanged`() {
+    fun `EPUB paged projection applies while keeping estimated declaration and mixed-space mapping`() {
         val source = EpubChapterSource(
             titles = listOf("chapter"),
             chapterStartOffsets = listOf(0),
@@ -31,9 +33,20 @@ class StructuredReplacementContractTest {
 
         val prepared = preparePagedReplacement(source, "epub", listOf(removeBodyRule()))
 
+        // 坐标声明不变：全书层仍是估算空间；投影映射是章内真实坐标（ChapterBlockOffsetMap）
         assertEquals(ReplacementCoordinateSpace.ESTIMATED, source.replacementCoordinateSpace)
-        assertEquals(PagedReplacementAvailability.ESTIMATED_COORDINATES, prepared.availability)
-        assertEquals("heading\nbody", prepared.source.loadChapterText(0))
+        assertEquals(PagedReplacementAvailability.APPLIED, prepared.availability)
+        assertTrue(prepared.source is EpubReplacedChapterSource)
+        assertEquals("heading\n", prepared.source.loadChapterText(0))
+
+        val projection = (prepared.source as ProjectedChapterSource).projectionForChapter(0)!!
+        // 「body」[8,12) 被删除：display 末位 8 回写 source 仍锚定删除起点
+        assertEquals(8, projection.localDisplayToGlobalSource(8))
+        assertEquals(0, projection.globalSourceToLocalDisplay(0))
+        assertEquals(8, projection.globalSourceToLocalDisplay(8))
+        assertEquals(8, projection.globalSourceToLocalDisplay(12))
+        // 图片/标题结构原样保留
+        assertEquals(1, prepared.source.loadChapter(0).blocks.size)
     }
 
     @Test
@@ -63,7 +76,7 @@ class StructuredReplacementContractTest {
     }
 
     @Test
-    fun `empty rules on EPUB and Markdown keep respective unavailable reasons instead of NO_EFFECTIVE_RULES`() {
+    fun `empty rules keep EPUB manageable and Markdown unavailable respectively`() {
         val epub = EpubChapterSource(
             titles = listOf("ch"),
             chapterStartOffsets = listOf(0),
@@ -72,10 +85,11 @@ class StructuredReplacementContractTest {
         )
         val preparedEpub = preparePagedReplacement(epub, "epub", emptyList())
         assertEquals(
-            "EPUB with empty rules must stay ESTIMATED_COORDINATES",
-            PagedReplacementAvailability.ESTIMATED_COORDINATES,
+            "EPUB 分页路径结构保真投影已放开：空规则 = 可管理（可新增规则）",
+            PagedReplacementAvailability.NO_EFFECTIVE_RULES,
             preparedEpub.availability,
         )
+        assertSame("空规则必须原样透传 delegate（零开销快路径）", epub, preparedEpub.source)
 
         val md = MarkdownChapterSource(MarkdownDocument("# Title\nBody"))
         val preparedMd = preparePagedReplacement(md, "md", emptyList())

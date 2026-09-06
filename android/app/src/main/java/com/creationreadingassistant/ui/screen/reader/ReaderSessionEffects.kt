@@ -193,6 +193,8 @@ internal fun ReaderSessionEffects(
         chapterIndex = chapterIndex,
         onResumeOffsetChanged = { ttsResumeOffsetState.intValue = it },
         onResumeChapterChanged = { ttsResumeChapterState.intValue = it },
+        pagerEngineOn = pagerEngineOn,
+        pagedSource = pagedSource,
     )
 
     // 听书连续朗读：EPUB / Markdown 按章接续（播放文本=章文本，翻章语义明确）。
@@ -369,5 +371,6 @@ internal fun ReaderSessionEffects(
         pagedJumpTo = { pagedJumpRequest.value = it },
         chapterStartOffsets = chapterStartOffsets,
         chapterIndex = chapterIndex,
+        pagedSource = pagedSource,
     )
 }

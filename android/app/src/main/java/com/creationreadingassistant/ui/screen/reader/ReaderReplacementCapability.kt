@@ -24,7 +24,7 @@ internal fun readerReplacementCapability(
         "当前阅读模式未启用新分页引擎，正文替换净化仅在可精确投影的翻页正文中生效，正文将保留原文。",
     )
     PagedReplacementAvailability.ESTIMATED_COORDINATES -> ReaderReplacementCapability.Unavailable(
-        "当前文档格式（EPUB/估算坐标）暂不支持正文替换净化，正文将保留原文。",
+        "当前文档使用估算章节坐标，暂不支持正文替换净化，正文将保留原文。",
     )
     PagedReplacementAvailability.NON_SOURCE_COORDINATES -> ReaderReplacementCapability.Unavailable(
         "当前 Markdown 正文使用渲染坐标，尚未形成完整 source 定位契约，正文将保留原文。",

@@ -60,6 +60,24 @@ fun preparePagedReplacement(
     maxSourceLength: Int = BoundedReplaceProjector.DEFAULT_MAX_SOURCE_CHARS,
     onUnsupportedTooLarge: (BoundedReplaceResult.UnsupportedTooLarge) -> Unit = {},
 ): PreparedPagedReplacement {
+    // EPUB 分页引擎路径：章内偏移是真实字符坐标（chapterTextOf 下标），全书层是
+    // 「估算章基址 + 章内真实偏移」的既有混合空间。结构保真投影（EpubReplaceProjector）
+    // 逐块投影后映射仍落在这个混合空间，持久化 locator 坐标系不变，因此可以放开；
+    // 滚动/legacy 路径由 effectiveReplacementAvailability 统一遮蔽为 PAGER_ENGINE_DISABLED。
+    if (delegate is EpubChapterSource) {
+        if (rules.none(ReplaceRule::enabled)) {
+            return PreparedPagedReplacement(delegate, PagedReplacementAvailability.NO_EFFECTIVE_RULES)
+        }
+        return PreparedPagedReplacement(
+            source = EpubReplacedChapterSource(
+                delegate = delegate,
+                bookId = bookId,
+                rules = rules,
+                onUnsupportedTooLarge = onUnsupportedTooLarge,
+            ),
+            availability = PagedReplacementAvailability.APPLIED,
+        )
+    }
     when (delegate.replacementCoordinateSpace) {
         ReplacementCoordinateSpace.ESTIMATED -> return PreparedPagedReplacement(
             delegate,
@@ -76,8 +94,9 @@ fun preparePagedReplacement(
         return PreparedPagedReplacement(delegate, PagedReplacementAvailability.ESTIMATED_COORDINATES)
     }
     // “没有规则”只有在 source 本身已经具备完整投影作用域时才代表“可新增规则”。
-    // EPUB/Markdown 等 source 即使当前规则为空，也必须保留各自的不可用原因，不能
+    // Markdown 等 source 即使当前规则为空，也必须保留各自的不可用原因，不能
     // 因为 UI 需要展示 TXT 的新增入口而误放开替换 tab。
+    // （EPUB 已在上方路由为结构保真投影：章内真实坐标 + 既有混合空间契约。）
     val projectionProvider = (delegate as? TxtChapterSource)?.asReplaceProjectionScopeProvider()
         ?: delegate as? ReplaceProjectionScopeProvider
     if (rules.none(ReplaceRule::enabled)) {

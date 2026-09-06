@@ -17,6 +17,7 @@ import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.TtsAvailability
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
+import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
 import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticeAction
 import com.creationreadingassistant.ui.screen.reader.tts.TtsNoticePolicy
 import com.creationreadingassistant.ui.screen.reader.tts.TtsPlayResult
@@ -62,6 +63,8 @@ internal fun openTts(
     context: Context,
     onShowTtsChange: (Boolean) -> Unit,
     showNotice: (String) -> Unit,
+    pagerEngineOn: Boolean = false,
+    pagedSource: PagedChapterSource? = null,
 ) {
     if (contentText.isBlank()) {
         showNotice("当前没有可朗读的文字。")
@@ -80,7 +83,32 @@ internal fun openTts(
         chapterIndex = chapterIndex,
         ttsResumeOffset = ttsResumeOffset,
     )
-    val result = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, resumeAt)
+    // EPUB 分页：续读偏移持久化是 source 章内口径，播放文本是 display 空间（净化投影
+    // 活跃时），播放前逆映射回 display；其余路径恒等。
+    val playStart = if (epubBook != null && pagerEngineOn) {
+        ttsSourceLocalToDisplayLocal(pagedSource, chapterIndex, resumeAt)
+    } else {
+        resumeAt
+    }
+    val result0 = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, playStart)
+    AppLog.debug("TtsOpen", "play#1 engine=${tts.engineId} avail=${tts.availability} result=$result0")
+    // 系统语音引擎不可用（ROM 缺失/损坏 TTS 引擎）时自动改用神经语音重试一次：
+    // 否则错误态够不到 TTS 栏里的引擎选择器，形成死锁。EDGE 失败会自行回退 SYSTEM
+    // 并给出明确错误；两端都坏时不循环（策略 EDGE -> null）。
+    var result: TtsPlayResult = result0
+    if (result0 is TtsPlayResult.Rejected &&
+        TtsNoticePolicy.shouldAutoSwitchOnReject(tts.availability)
+    ) {
+        val switched = TtsNoticePolicy.autoSwitchEngineOnUnavailable(tts.engineId)
+        if (switched != null) {
+            tts.switchEngine(switched)
+            result = tts.play(contentText, bookTitle, currentChapterTitle.ifBlank { "正文" }, playStart)
+            AppLog.debug("TtsOpen", "play#2 engine=$switched avail=${tts.availability} result=$result")
+            if (result is TtsPlayResult.Accepted) {
+                showNotice("系统语音引擎不可用，已改用${switched.displayLabel}朗读（需联网）。")
+            }
+        }
+    }
     if (result is TtsPlayResult.Rejected) {
         // 提示策略：被动 init failure 静默；用户主动打开听书且引擎不可用时恰好提示一次
         //（snackbar 带去设置）并进程内 reinitialize；未就绪显示可解释原因；主动错误不被吞。
@@ -264,6 +292,8 @@ internal fun buildReaderNavActions(
     autoPagingActiveState: MutableState<Boolean>,
     autoPagingSupported: Boolean,
     epubDocument: EpubDocument? = null,
+    /** TTS 朗读文本：EPUB 分页投影活跃时是 display 文本，其余与 [contentText] 相同。 */
+    ttsContentText: String = contentText,
 ): ReaderNavActions {
     val showNoticeFn: (String) -> Unit = { msg ->
         scope.launch { snackbarHost.showSnackbar(msg) }
@@ -320,10 +350,11 @@ internal fun buildReaderNavActions(
     }
     val openTtsFn: () -> Unit = {
         openTts(
-            contentText, epubBook, markdownDocument != null,
+            ttsContentText, epubBook, markdownDocument != null,
             ttsResumeChapterState.intValue, chapterIndex, ttsResumeOffsetState.intValue,
             tts, bookTitle, currentChapterTitle, context,
             onShowTtsChange = { onAction(ReaderAction.SetShowTts(it)) }, showNotice = showNoticeFn,
+            pagerEngineOn = pagerEngineOn, pagedSource = pagedSource,
         )
     }
     return ReaderNavActions(

@@ -149,6 +149,11 @@ internal fun TocSheet(
     onTxtRule: (String) -> Unit = {},
     onCancelTxtScan: () -> Unit = {},
     onManageRules: () -> Unit = {},
+    /**
+     * 无 TXT 章节识别规则时是否仍显示「替换净化」入口（EPUB 分页投影可用时为 true）。
+     * TXT 路径由 [txtRules] 非空驱动同一入口。
+     */
+    showReplacementRulesEntry: Boolean = false,
     /** 本书书签（kind == "bookmark" 的笔记）；内嵌展示并可直接跳转。 */
     bookmarks: List<NoteEntity> = emptyList(),
     onPickBookmark: (NoteEntity) -> Unit = {},
@@ -340,6 +345,13 @@ internal fun TocSheet(
                         onToggleExpanded = { rulesExpanded = !rulesExpanded },
                         onTxtRule = onTxtRule,
                         onCancelTxtScan = onCancelTxtScan,
+                    )
+                } else if (showReplacementRulesEntry) {
+                    // EPUB 分页净化：结构保真投影可用时的「替换净化」入口
+                    TocRulesEntryRow(
+                        onClick = onManageRules,
+                        title = "替换净化",
+                        subtitle = "管理正文替换净化规则",
                     )
                 }
 
@@ -565,7 +577,11 @@ internal fun TocSheet(
  * 现代化墨青微岛卡片：目录与净化规则管理入口。
  */
 @Composable
-private fun TocRulesEntryRow(onClick: () -> Unit) {
+private fun TocRulesEntryRow(
+    onClick: () -> Unit,
+    title: String = "目录与净化规则",
+    subtitle: String = "管理目录智能识别与正则净化",
+) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
     Surface(
@@ -609,13 +625,13 @@ private fun TocRulesEntryRow(onClick: () -> Unit) {
                 }
                 Column {
                     Text(
-                        text = "目录与净化规则",
+                        text = title,
                         style = MaterialTheme.typography.titleSmall,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
                     Text(
-                        text = "管理目录智能识别与正则净化",
+                        text = subtitle,
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )

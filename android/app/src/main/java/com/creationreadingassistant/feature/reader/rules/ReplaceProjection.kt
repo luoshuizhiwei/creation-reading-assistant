@@ -70,6 +70,24 @@ class ReplaceProjection private constructor(
                 profileKey = profileKey,
             )
         }
+
+        /**
+         * 内部装配入口：块级投影器（如 EPUB 的 [ChapterBlockOffsetMap]）已各自完成
+         * 正则投影与映射构建，这里只做值组装，不重新跑正则。仅限同模块 seam 使用。
+         */
+        internal fun ofParts(
+            sourceText: String,
+            displayText: String,
+            offsetMap: TextOffsetMap,
+            hitCount: Int,
+            profileKey: String,
+        ): ReplaceProjection = ReplaceProjection(
+            sourceText = sourceText,
+            displayText = displayText,
+            offsetMap = offsetMap,
+            hitCount = hitCount,
+            profileKey = profileKey,
+        )
     }
 }
 

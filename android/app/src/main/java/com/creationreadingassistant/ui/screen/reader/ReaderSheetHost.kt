@@ -203,6 +203,10 @@ internal fun ReaderSheetHost(
                         onTxtRule = sheetCallbacks.onTxtRule,
                         onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
                         onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
+                        // EPUB 分页净化投影可用时也提供「替换净化」入口（TXT 由 txtRules 驱动同一入口）
+                        showReplacementRulesEntry = !state.document.isTxt &&
+                            readerReplacementCapability(state.ui.replacementAvailability) ==
+                            ReaderReplacementCapability.Available,
                         showReadStatus = tocState.isChapteredDocument,
                         showClearReadMarks = tocState.isChapteredDocument,
                         onClearReadMarks = {

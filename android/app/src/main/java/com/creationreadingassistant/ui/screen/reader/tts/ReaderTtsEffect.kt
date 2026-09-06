@@ -10,7 +10,10 @@ import androidx.compose.runtime.setValue
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
+import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
+import com.creationreadingassistant.ui.screen.reader.ttsDisplayLocalToSourceLocal
+import com.creationreadingassistant.ui.screen.reader.ttsSentenceGlobalSourceRange
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
@@ -48,20 +51,30 @@ internal fun TtsResumeEffect(
     chapterIndex: Int,
     onResumeOffsetChanged: (Int) -> Unit,
     onResumeChapterChanged: (Int) -> Unit,
+    pagerEngineOn: Boolean = false,
+    pagedSource: PagedChapterSource? = null,
 ) {
     val bid = bookId
     // P1-B：长生命周期 onSentence 回调读取最新章号，跨章朗读不再保存旧章
     val currentChapterIndex by rememberUpdatedState(chapterIndex)
+    // EPUB 分页净化投影活跃时播放文本是 display 空间；续读持久化一律回写 source 口径
+    val latestPagerEngineOn by rememberUpdatedState(pagerEngineOn)
+    val latestPagedSource by rememberUpdatedState(pagedSource)
     LaunchedEffect(bid) {
         val r = runCatching { settingsStore.loadTtsResume() }.getOrNull()
         onResumeOffsetChanged(if (r?.bookId == bid) r.offset else 0)
         onResumeChapterChanged(if (r?.bookId == bid) r.chapterIndex else -1)
         tts.onSentence = { start, _ ->
-            onResumeOffsetChanged(start)
+            val persistOffset = if (isEpub && latestPagerEngineOn) {
+                ttsDisplayLocalToSourceLocal(latestPagedSource, currentChapterIndex, start)
+            } else {
+                start
+            }
+            onResumeOffsetChanged(persistOffset)
             val resumeChapter = ttsResumeChapterFor(isEpub, isMarkdown, currentChapterIndex)
             onResumeChapterChanged(resumeChapter)
             launch(Dispatchers.IO) {
-                runCatching { settingsStore.saveTtsResume(bid, resumeChapter, start) }
+                runCatching { settingsStore.saveTtsResume(bid, resumeChapter, persistOffset) }
             }
         }
     }
@@ -85,6 +98,7 @@ internal fun TtsReaderSyncEffect(
     pagedJumpTo: (Int) -> Unit,
     chapterStartOffsets: List<Int>,
     chapterIndex: Int,
+    pagedSource: PagedChapterSource? = null,
 ) {
     LaunchedEffect(tts.status, tts.currentSentenceRange) {
         if (showTts && tts.status != "idle") {
@@ -100,6 +114,7 @@ internal fun TtsReaderSyncEffect(
                 sentenceStart = start,
                 chapterStartOffsets = chapterStartOffsets,
                 chapterIndex = chapterIndex,
+                pagedSource = pagedSource,
             ) ?: return@LaunchedEffect
             if (isTxt) {
                 // 兼容旧路径：TXT 小文件/流式窗口统一经 jumpToPlainOffset（内部处理分页/滚动）
@@ -187,6 +202,7 @@ internal fun ttsFollowGlobalOffset(
     sentenceStart: Int,
     chapterStartOffsets: List<Int>,
     chapterIndex: Int,
+    pagedSource: PagedChapterSource? = null,
 ): Int? {
     if (isTxt && (plainContent.isNotEmpty() || txtStreamingDocument != null)) {
         val ttsTotalLen = txtStreamingDocument?.totalChars ?: plainContent.length
@@ -195,6 +211,12 @@ internal fun ttsFollowGlobalOffset(
         return if (globalStart in 0 until ttsTotalLen) globalStart else null
     }
     if (pagerEngineOn && (isEpub || isMarkdown)) {
+        if (isEpub) {
+            // EPUB 分页：句偏移在播放文本（display）空间，经章级投影映射回全书 source
+            return ttsSentenceGlobalSourceRange(
+                pagedSource, chapterStartOffsets, chapterIndex, sentenceStart to sentenceStart,
+            ).first
+        }
         return chapterStartOffsets.getOrElse(chapterIndex) { 0 } + sentenceStart
     }
     return null
