@@ -86,6 +86,10 @@ class EpubReplacedChapterSource(
             val cached = if (sourceText.length > maxSourceLength) {
                 // 超大章显式拒绝：整章保留原文（恒等映射），整书只提示一次
                 if (oversizedReported.compareAndSet(false, true)) {
+                    com.creationreadingassistant.feature.log.AppLog.debug(
+                        "EpubReplace",
+                        "当前章节过大，已保留原文，暂不执行替换净化。(chapter=$index len=${sourceText.length})",
+                    )
                     onUnsupportedTooLarge(
                         BoundedReplaceResult.UnsupportedTooLarge(sourceText.length, maxSourceLength),
                     )
