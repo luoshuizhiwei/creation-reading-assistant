@@ -90,6 +90,10 @@ internal class TtsAudioCache(
             final
         } catch (t: Throwable) {
             runCatching { target.delete() }
+            com.creationreadingassistant.feature.log.AppLog.debug(
+                "EdgeTtsCache",
+                "cache put failed: ${t.message ?: t::class.java.simpleName}",
+            )
             null
         }
     }

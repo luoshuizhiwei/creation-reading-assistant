@@ -43,4 +43,40 @@ class TtsNoticePolicyTest {
         assertEquals("朗读播放出错，请检查系统语音引擎。", holder.consumeError()?.message)
         assertTrue(holder.gatePlay() is TtsPlayResult.Accepted)
     }
+
+    // ── 引擎不可用时的自动切换（打破错误态够不到引擎选择器的死锁）──────────
+
+    @Test
+    fun `系统引擎不可用自动切换到神经语音`() {
+        assertEquals(
+            com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.EDGE,
+            TtsNoticePolicy.autoSwitchEngineOnUnavailable(
+                com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.SYSTEM,
+            ),
+        )
+    }
+
+    @Test
+    fun `神经语音不可用不再切换避免两端都坏时循环`() {
+        assertEquals(
+            null,
+            TtsNoticePolicy.autoSwitchEngineOnUnavailable(
+                com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId.EDGE,
+            ),
+        )
+    }
+
+    @Test
+    fun `自动切换仅在引擎判定不可用时触发`() {
+        assertTrue(
+            TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Unavailable),
+        )
+        assertTrue(
+            "初始化中不抢跑切换",
+            !TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Initializing),
+        )
+        assertTrue(
+            !TtsNoticePolicy.shouldAutoSwitchOnReject(TtsAvailability.Ready),
+        )
+    }
 }

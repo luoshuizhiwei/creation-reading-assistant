@@ -1,7 +1,11 @@
 package com.creationreadingassistant.ui.screen.reader.tts.engine
 
 import android.content.Context
+import android.os.Handler
+import android.os.Looper
+import java.util.concurrent.CountDownLatch
 import com.creationreadingassistant.ui.screen.reader.tts.TtsAvailability
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.ui.screen.reader.tts.TtsPlayResult
 import com.creationreadingassistant.ui.screen.reader.tts.TtsStatusHolder
 import com.creationreadingassistant.ui.screen.reader.tts.engine.edge.EdgeTtsCommunicator
@@ -379,6 +383,8 @@ internal class EdgeTtsEngine(
                 communicator.synthesizeToFile(req, dst)
             }
         } catch (t: Throwable) {
+            // 失败原因必须可见（403/超时/DNS 等），否则线上只剩"神经语音不可用"无法归因
+            AppLog.debug("EdgeTts", "synthesize failed: ${t.message}")
             null
         }
     }
@@ -453,8 +459,30 @@ internal class EdgeTtsEngine(
 
     private fun ensureFallbackEngine(): SystemTtsEngineWrapper {
         return fallbackEngine ?: synchronized(this) {
-            fallbackEngine ?: SystemTtsEngineWrapper(context).also { fallbackEngine = it }
+            fallbackEngine ?: createFallbackEngineOnMainThread().also { fallbackEngine = it }
         }
+    }
+
+    /**
+     * System 引擎包装器必须主线程构造：TtsController 内部的
+     * `MediaSession.setCallback` 会用 `Handler(Looper.myLooper())`，而回退可能由
+     * 合成 worker 协程触发——无 Looper 线程上构造直接 NPE 崩溃（真机已复现）。
+     * 仅在 worker 线程上阻塞等主线程完成构造；主线程调用路径直接同步创建。
+     */
+    private fun createFallbackEngineOnMainThread(): SystemTtsEngineWrapper {
+        if (Looper.myLooper() != null) return SystemTtsEngineWrapper(context)
+        val latch = CountDownLatch(1)
+        val mainHandler = Handler(Looper.getMainLooper())
+        var created: SystemTtsEngineWrapper? = null
+        mainHandler.post {
+            try {
+                created = SystemTtsEngineWrapper(context)
+            } finally {
+                latch.countDown()
+            }
+        }
+        latch.await()
+        return created ?: throw IllegalStateException("fallback TTS engine creation failed")
     }
 
     // 保存最近一次 play 参数，供播放中途 fallback 时使用
