@@ -53,6 +53,8 @@ internal data class ReaderProgressState(
      * [ttsSentenceGlobalSourceRange] / [ttsDisplayLocalToSourceLocal]。
      */
     val ttsContentText: String,
+    /** [ttsContentText] 已对齐当前章（听书自动接续重播的前置门槛）。 */
+    val ttsContentTextReady: Boolean,
     val txtChapterIndex: Int,
     val chapterFade: Animatable<Float, AnimationVector1D>,
     val chapterFadeKey: Int,
@@ -182,18 +184,28 @@ internal fun rememberReaderProgress(
     // EPUB 分页 + 替换净化投影活跃时的 TTS 朗读文本：经 pagedSource 取当前章 display
     // 文本（净化后）。无投影（无规则/超大章）时 loadChapterText 即 source 文本，与
     // contentText 同口径。IO 装载模式与上方流式 TXT 窗口一致。
-    val epubPagedTtsTextState = remember(epubBook) { mutableStateOf<String?>(null) }
+    // 状态携带「装载完成时的章号」：跨章瞬间旧文本是别章的 display 文本，
+    // 直接拿去重播会配合新章投影产生错误映射（跟读高亮/续读全错位），
+    // 因此 ttsContentTextReady 未对齐当前章前必须阻塞听书自动接续。
+    val epubPagedTtsTextState = remember(epubBook) {
+        mutableStateOf<Pair<Int, String>?>(null)
+    }
     LaunchedEffect(epubBook, pagerEngineOn, pagedSource, chapterIndex) {
         if (epubBook != null && pagerEngineOn && pagedSource != null) {
             val src = pagedSource
-            epubPagedTtsTextState.value = withContext(Dispatchers.IO) {
+            epubPagedTtsTextState.value = chapterIndex to withContext(Dispatchers.IO) {
                 src.loadChapterText(chapterIndex)
             }
         } else {
             epubPagedTtsTextState.value = null
         }
     }
-    val ttsContentText = epubPagedTtsTextState.value ?: contentText
+    val ttsContentText = ttsDisplayTextForChapter(
+        epubPagedTtsTextState.value, chapterIndex, contentText,
+    )
+    val ttsContentTextReady = ttsDisplayTextReadyForChapter(
+        epubPagedTtsTextState.value, chapterIndex,
+    )
 
     val epubListState = rememberLazyListState()
     // TXT 当前所在章：按当前可见偏移反查。必须放在 visiblePlainOffset 之后。
@@ -281,6 +293,7 @@ internal fun rememberReaderProgress(
         visiblePlainOffset = visiblePlainOffset,
         contentText = contentText,
         ttsContentText = ttsContentText,
+        ttsContentTextReady = ttsContentTextReady,
         txtChapterIndex = txtChapterIndex,
         chapterFade = chapterFade,
         chapterFadeKey = chapterFadeKey,
@@ -295,3 +308,14 @@ internal fun rememberReaderProgress(
         inspirationsCount = inspirationsCount,
     )
 }
+
+internal fun ttsDisplayTextForChapter(
+    loaded: Pair<Int, String>?,
+    chapterIndex: Int,
+    fallbackContentText: String,
+): String = if (loaded != null && loaded.first == chapterIndex) loaded.second else fallbackContentText
+
+internal fun ttsDisplayTextReadyForChapter(
+    loaded: Pair<Int, String>?,
+    chapterIndex: Int,
+): Boolean = loaded == null || loaded.first == chapterIndex

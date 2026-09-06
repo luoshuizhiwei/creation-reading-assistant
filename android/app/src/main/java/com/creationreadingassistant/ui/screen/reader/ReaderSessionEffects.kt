@@ -208,7 +208,7 @@ internal fun ReaderSessionEffects(
             markdownDocument != null -> markdownDocument.chapters.size
             else -> 0
         },
-        contentReady = contentText.isNotBlank() && !isChapterLoading,
+        contentReady = contentText.isNotBlank() && !isChapterLoading && progressState.ttsContentTextReady,
         goToChapter = goToChapter,
         replayTts = openTts,
     )
