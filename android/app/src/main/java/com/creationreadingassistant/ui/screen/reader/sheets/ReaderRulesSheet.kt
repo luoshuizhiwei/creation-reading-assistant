@@ -106,21 +106,23 @@ internal fun replaceDraft(rule: ReplaceRule): RuleEditorDraft = RuleEditorDraft(
 
 /**
  * 草稿 → 保存命令：TOC 转 [RuleCommand.SaveCustomToc]，REPLACE 转 [RuleCommand.SaveCustomReplace]；
- * 编辑时携带原 [id]。名称或正则为空时返回 null（UI 应禁用保存）。
+ * 编辑时携带原 [id]。正则为空时返回 null（UI 应禁用保存）；
+ * 名称留空时以正则表达式兜底，避免「保存按钮置灰却无解释」的静默失败。
  */
 internal fun RuleEditorDraft.toCommand(): RuleCommand? {
-    if (name.isBlank() || pattern.isBlank()) return null
+    if (pattern.isBlank()) return null
+    val resolvedName = name.trim().ifBlank { pattern.trim() }
     return when (kind) {
         RuleKind.TOC -> RuleCommand.SaveCustomToc(
             id = id,
-            name = name.trim(),
+            name = resolvedName,
             pattern = pattern,
             scope = scope,
             enabled = enabled,
         )
         RuleKind.REPLACE -> RuleCommand.SaveCustomReplace(
             id = id,
-            name = name.trim(),
+            name = resolvedName,
             pattern = pattern,
             replacement = replacement,
             scope = scope,
@@ -869,7 +871,7 @@ private fun ColumnScope.RuleEditor(
     val check = remember(draft, previewText, effectiveToc, effectiveReplace) {
         evaluateDraft(draft, effectiveToc, effectiveReplace, previewText)
     }
-    val saveEnabled = draft.name.isNotBlank() && draft.pattern.isNotBlank() && check is RuleDraftCheck.Valid
+    val saveEnabled = draft.pattern.isNotBlank() && check is RuleDraftCheck.Valid
 
     Column(
         modifier = Modifier
@@ -882,6 +884,7 @@ private fun ColumnScope.RuleEditor(
             value = draft.name,
             onValueChange = { onDraftChange(draft.copy(name = it)) },
             label = { Text("规则名称") },
+            supportingText = { Text("留空时以正则表达式命名") },
             singleLine = true,
             shape = RoundedCornerShape(14.dp),
             modifier = Modifier.fillMaxWidth(),

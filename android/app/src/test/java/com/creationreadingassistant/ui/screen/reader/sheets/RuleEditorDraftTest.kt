@@ -75,9 +75,38 @@ class RuleEditorDraftTest {
     }
 
     @Test
-    fun `blank name or pattern cannot convert`() {
-        assertNull(RuleEditorDraft(kind = RuleKind.TOC, name = "   ", pattern = "第[0-9]+章").toCommand())
+    fun `blank pattern cannot convert`() {
         assertNull(RuleEditorDraft(kind = RuleKind.TOC, name = "规则", pattern = "  ").toCommand())
+    }
+
+    @Test
+    fun `blank name falls back to pattern as rule name`() {
+        val command = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            name = "",
+            pattern = "广告",
+        ).toCommand()
+        assertEquals(
+            RuleCommand.SaveCustomReplace(
+                id = null,
+                name = "广告",
+                pattern = "广告",
+                replacement = "",
+                scope = RuleScope.PER_BOOK,
+                enabled = true,
+            ),
+            command,
+        )
+    }
+
+    @Test
+    fun `blank name trims whitespace-only input before fallback`() {
+        val command = RuleEditorDraft(
+            kind = RuleKind.TOC,
+            name = "   ",
+            pattern = "第[0-9]+章",
+        ).toCommand()
+        assertEquals("第[0-9]+章", (command as RuleCommand.SaveCustomToc).name)
     }
 
     // ── evaluateDraft：TOC 预览 ─────────────────────────────────────────
