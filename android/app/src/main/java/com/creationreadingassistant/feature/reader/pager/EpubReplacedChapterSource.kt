@@ -79,6 +79,10 @@ class EpubReplacedChapterSource(
             cache.get(index)?.let { return it }
             val docBlocks = delegate.blocksOf(index)
             val sourceText = EpubPageSource.chapterTextOf(docBlocks)
+            com.creationreadingassistant.feature.log.AppLog.debug(
+                "EpubReplace",
+                "chapter=$index sourceLen=${sourceText.length} max=$maxSourceLength",
+            )
             val cached = if (sourceText.length > maxSourceLength) {
                 // 超大章显式拒绝：整章保留原文（恒等映射），整书只提示一次
                 if (oversizedReported.compareAndSet(false, true)) {

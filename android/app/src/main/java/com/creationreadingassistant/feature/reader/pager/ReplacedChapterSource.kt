@@ -68,6 +68,10 @@ fun preparePagedReplacement(
         if (rules.none(ReplaceRule::enabled)) {
             return PreparedPagedReplacement(delegate, PagedReplacementAvailability.NO_EFFECTIVE_RULES)
         }
+        com.creationreadingassistant.feature.log.AppLog.debug(
+            "EpubReplace",
+            "prepare: wiring EpubReplacedChapterSource, rules=${rules.size}, book=$bookId",
+        )
         return PreparedPagedReplacement(
             source = EpubReplacedChapterSource(
                 delegate = delegate,
