@@ -427,11 +427,11 @@ export function CreationProjectsPage() {
                 </Button>
                 <Button className="project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
                   <FolderOutput size={16} />
-                  <span>导出项目包</span>
+                  <span>导出包</span>
                 </Button>
               <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
-                <span>导入项目包</span>
+                <span>导入包</span>
               </Button>
               <Button className="project-action project-action--utility" aria-label="导入旧稿" title="导入旧稿" variant="secondary" onClick={() => setImportOpen(true)}>
                 <FileUp size={16} />

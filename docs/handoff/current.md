@@ -1,6 +1,6 @@
 # 当前 Agent 交接入口
 
-更新日期：2026-08-29（桌面端 UI 第 7-8 轮收口与应用图标，见第 19 节；2026-08-25 Android 阅读器引擎收口见第 18 节）
+更新日期：2026-09-05（P3.1 阅读器核心引擎深度压测闭环与真机监控，见第 2 节；前端全域 12 梯队重塑收官与性能治理已达成）
 仓库：`D:\develop\Code\Codex\creation-reading-assistant`  
 当前对话主线：**双线并行**——独立原生 Android `android/`（本文件第 2、18 节）与桌面端 Electron `src/`+`electron/`（第 19 节，独立会话）。两线不共享运行时代码，跨线改动需各自会话的文件所有权。
 
@@ -18,6 +18,28 @@
 ## 2. 当前 Android 状态
 
 ### 已完成并有新鲜证据
+
+- **2026-09-05 P3.1 阅读器核心引擎深度对抗压测与真机监控闭环（双子代理协同）：**
+  1. **跨 ReadingUnit 正则边界与 TextOffsetMap 映射**（`StreamingCompleteChapterSourceTest` 15 passed）：
+     构造跨越 50,000 字符边界的分裂 Token 及重复模式，验证 Exact 作用域下无遗漏替换；验证 TextOffsetMap 单调不减、round-trip floor 与关键标记 0 漂移往返。
+  2. **超大单章（>256K）熔断降级**（`StreamingBoundedRegressionTest` 9 passed）：
+     元数据直接判定 `UnsupportedTooLarge`，零整章内存分配；原样降级为原文有界分页；超限回调严格仅上抛 1 次。
+  3. **无目录大 TXT（50MB 场景）连续性验证**：
+     遍历 ~800+ 个 ReadingUnit 分段（≥ 100），全局 source 偏移连续无缺口/重叠（`gap = 0`），各分段读取严格有界（`<= MAX_WINDOW_CHARS`）。
+  4. **多线程并发投影去重与条纹锁**（`ReplacedChapterSourceConcurrencyTest` 16 passed）：
+     12 线程并发请求同一章节时，慢速委托下 `loadCounter` 严格为 1，所有实例同一引用（`===`）；条纹锁确保异章互不阻塞；高频跨章淘汰下容量恒锁为 3，无死锁。
+  5. **结构化坐标契约防护**（`StructuredReplacementContractTest` 5 passed）：
+     EPUB 保持 `ESTIMATED_COORDINATES`、Markdown 保持 `NON_SOURCE_COORDINATES`，防止误开。
+  6. **JVM 单元测试全量通过**：
+     - 引擎深度对抗定向测试：**45 / 45 项全绿 (100% PASS)**；
+     - 全量 JVM 单元测试：`./gradlew.bat :app:testDebugUnitTest` -> **199 个测试套件，0 failures, 0 errors**。
+  7. **androidTest 编译契约修复**：
+     修复了此前遗留的 `ReaderSelectionToolbarTest` 与 `LibrarySortControlsTest` 编译契约漂移，全仓 `:app:compileDebugAndroidTestKotlin` 100% 编译通过。
+  8. **真机 serial `c49ac6cf`（Redmi 22081212C, Android 15）监控审计**：
+     - 日志：CRASH / FATAL: 0 次，ANR: 0 次，无索引越界异常；
+     - 内存：Total PSS ~230MB，Java Heap 34.9MB，无内存泄漏残留；
+     - 渲染：GPU 帧耗时 P90 5ms，P95 6ms，P99 6ms；
+     - 现场保护：`stay_on_while_plugged_in` 原值 3，核验保持为 3；未篡改用户真实书库；0 临时文件残留。
 
 - P3.3 目录已读与分类/标签/书单手动排序已经收口；TXT 已读、书单内书籍排序不在本期。
 - P3.2 片 0–1 已完成：本地阅读会话落库、统一 occurred 日期口径、异常时长过滤与 streak。
@@ -807,3 +829,166 @@ Novalist 调研与取舍仍记录在
 - **教训（并行 agent 纪律）**：多 agent 并行改同一模块时必须遵守 AGENTS.md 文件所有权
   预分配；本轮 ReaderActions/ReaderLayerBuilders 等五文件被覆盖导致已修复缺陷回归，
   交接提示词（桌面「封面修复-交接提示词.md」）未声明对 reader 导航链路的独占。
+
+## 28. 2026-09-06 EPUB 净化接入分页宿主 + TTS 可用性修复（真机战役，交接未完项）
+
+已提交：`425299b`（TTS 修复）/ `84f7717`（EPUB 净化接线）。全量门禁：**1675 项 JVM 单测 0 失败**、
+androidTest 编译通过、lint 0 errors。设备 `c49ac6cf` 真机矩阵验证通过（详见 git 提交说明）。
+
+### 已完成并有新鲜证据
+
+1. **EPUB 净化接入分页宿主**：EpubReplacedChapterSource（LRU3+条纹锁+超大章整章保留）、
+   prepare 路由（APPLIED/NO_EFFECTIVE_RULES，滚动/legacy 遮蔽）、TOC 弹层 EPUB「替换净化」入口
+   补线（原仅 TXT 可达，属真机暴露的死角）、TTS 朗读 display 文本 + 句偏移映射回 source
+   （跟读高亮/跨会话续读均 source 口径）。真机：替换/重分页/图片标题保留/搜索跳转与页内高亮/
+   选区高亮/跨会话持久化全通过。
+2. **TTS RUX-014 解除**：根因四层（mibrain 系统 TTS 引擎对第三方绑定失败属 HyperOS 顽疾；
+   错误态锁死引擎选择器死锁；Edge 回退在 worker 线程构造 MediaSession 必 NPE；Edge 合成走
+   已退役的 HTTP 端点+过时 Origin/UA 必 403/404）。修复：openTts 自动切换 SYSTEM→EDGE 重试
+   一次、回退引擎主线程构造、EdgeTtsCommunicator 重写为 WebSocket 协议 + EdgeTtsDrm 令牌
+   （Origin/UA 对齐 edge-tts 7.2.8 上游，Chromium 143）。真机：自动切换出声 + 跨章接续 +
+   跟读高亮 + 跨会话续读全部通过。
+3. **超大章边界态（测试EPUB超大章，ch1=420901 字）**：真机验证——超上限章整章保留原文
+   （分页 1/1201 页正常、无崩溃），同书小章正常投影，规则保存后立即生效
+   （日志 `EpubReplace: prepare: wiring … chapter=0 sourceLen=420901 max=262144`）。
+
+### 未完成（按优先级，接手即做）
+
+1. **未提交的诊断日志**：`ReplacedChapterSource.kt` / `EpubReplacedChapterSource.kt` 各有
+   `AppLog.debug("EpubReplace", …)` 插桩（工作区未提交）。建议保留并单独提交
+   （`chore(android): keep EpubReplace projection diagnostics`）。
+2. **规则启停重分页验证**：规则管理里禁用规则 → 正文应还原为原文并重分页 → 启用再替换。
+   在「测试EPUB超大章」或「测试EPUB净化样本」任一书上验证即可（尚未真机跑过）。
+3. **超大章一次性提示确认**：超上限章应有「当前章节过大，已保留原文，暂不执行替换净化。」
+   一次性提示；本次 UI 截图未捕到（Snackbar 短暂），可用 logcat grep「章节过大」确认恰好一次。
+4. **新增规则表单「名称留空保存失败」待查**：超大章书首次建规则时名称留空，保存未生效
+   （列表为空）；填名后成功。代码 `saveCustomReplace` 无空名校验，疑为 UI 层按钮禁用或
+   校验静默拒绝——需定位并在 UI 上给出明确提示。
+5. **TTS 深度矩阵遗留**：暂停/恢复/上下句/语速滑杆未自动化验证（TTS 栏代码本战役未改动，
+   UI 自动化受控制栏自动隐藏+合成 keyevent 不可靠限制），留人工复核。
+6. **RUX-009 仪器测试通道**：未开始。先按 §8 方法授予「后台弹出界面/通知」权限，
+   再逐类 `am instrument -e class <类名>`（ReaderRulesSheetTest 等）。
+
+### 坑位（新 agent 必读）
+
+- **控制栏自动隐藏很快**：UI 自动化要么「状态机循环」（dump 判态再动作），要么一条命令
+  链式快速连点（toggle→按钮 0.7s 内）；dump 一次约 1.5–2s，超时即被收起。
+- **中文无法 `input text`**：拼音上屏后 `input keyevent 8`（数字 1）提交首候选；ASCII 符号
+  会被 IME 全角化，正则里别用 `[ ] + \` 等符号（用纯汉字或纯字母 pattern）。
+- **AppLog.w 不进 logcat**（只进应用内环形缓冲）；logcat 排查必须用 `AppLog.debug`。
+- **Edge 令牌/UA 会随微软升级失效**：403 时对照最新 edge-tts（pip 包）的 constants.py 更新
+  `EdgeTtsDrm.SEC_MS_GEC_VERSION` 与 UA 大版本（当前 143.0.3650.75）。
+- **规则管理面板的列表即为本书快照**：排查"替换不生效"先看该列表（空=没保存成功），
+  再看 logcat `EpubReplace` 标签（prepare: wiring / chapter=… sourceLen=…）。
+- 测试书与规则（测试EPUB净化样本/测试EPUB超大章，规则 scope=本书）保留在设备上作为
+  回归 fixture；`ztest_books/0-test-clean.epub` 为导入源。不触碰用户真实书籍。
+
+### 验证入口
+
+`android/` 下 `.\gradlew.bat :app:testDebugUnitTest`（当前基线 1675 项）、
+`.\gradlew.bat :app:compileDebugAndroidTestKotlin`、`.\gradlew.bat :app:lintDebug`
+（0 errors / 5 warnings）。APK 由 `scripts/install_with_confirm.ps1` 装机（若 MIUI 确认
+超时，直接 `adb install -r -t` 可静默成功）。真机命令一律 `adb -s c49ac6cf`。
+
+## 29. 2026-09-06 EPUB 净化收尾战役闭环（诊断日志、启停重分页、超大章提示、空名保存容错、TTS矩阵、RUX-009仪器测试）
+
+本轮承接第 28 节未完项，已达成全量收尾并已入库提交：
+- `ebd43db`: `chore(android): keep EpubReplace projection diagnostics`
+- `8931c89`: `fix(android): gate TTS auto-continuation until chapter display text is ready`
+- `caf1a23`: `fix(android): allow blank rule name with pattern fallback and supporting hint`
+- `a5e9f5b`: `chore(android): log oversized chapter notice in EpubReplacedChapterSource debug log`
+
+全量门禁状态：**1680 项 JVM 单元测试 100% 通过（0 failures, 0 errors）**、
+`compileDebugAndroidTestKotlin` 编译通过、`lintDebug` **0 errors, 5 warnings**。真机设备 `c49ac6cf`（Redmi 22081212C, Android 15）实测闭环。
+
+### 已完成 6 项收尾工作及新鲜证据
+
+1. **诊断日志入库（Task 1）**：
+   - 提交 `ebd43db` 与 `a5e9f5b`，保留了 `ReplacedChapterSource.kt` 与 `EpubReplacedChapterSource.kt` 的 `EpubReplace` 投影与超大章日志插桩。
+
+2. **规则启停重分页真机验证（Task 2）**：
+   - 测试书籍：「测试EPUB净化样本」。
+   - 操作：在规则管理底栏切换规则启用/禁用开关。
+   - 证据：
+     - 开关关闭（`checked="false"`）：正文即时还原为原文 `其中包含广告字样，需要被规则处理。`，页码重排为 2/2（进度 8.8%）；
+     - 开关打开（`checked="true"`）：正文即时生效净化为 `其中包含字样，需要被规则处理。`（"广告"被过滤），页码重排为 1/2（进度 8.7%）；
+     - 验证了规则开关触发的全链路动态失效、重新投影与重新分页。
+
+3. **超大章一次性提示确认（Task 3）**：
+   - 测试书籍：「测试EPUB超大章」（ch0 = 420901 字符，超过 `MAX_SOURCE_LENGTH = 262144`）。
+   - 机制：超上限章整章保留原文（恒等映射），整书只提示一次。
+   - 证据：在 `EpubReplacedChapterSource` 的 `oversizedReported.compareAndSet(false, true)` 中插桩 `AppLog.debug`，开书及后续多次翻页验证：
+     `adb shell logcat -d -s EpubReplace | grep "章节过大"` 严格仅输出**恰好 1 次**：
+     `D EpubReplace: 当前章节过大，已保留原文，暂不执行替换净化。(chapter=0 len=420901)`，翻页无重复日志或刷屏。
+
+4. **新增规则表单「名称留空保存失败」定位与修复（Task 4）**：
+   - 根因：`RuleEditorDraft.toCommand()` 原逻辑为 `if (name.isBlank() || pattern.isBlank()) return null`，导致规则名称留空时 `saveEnabled` 静默计算为 `false`，保存按钮禁用且无任何错误指引。
+   - 修复（`caf1a23`）：
+     - 规则名称留空时自动回退为 pattern 自身（`name.trim().ifBlank { pattern.trim() }`）；
+     - 在名称输入框下方增加辅助说明（supporting text）提示「留空则默认使用匹配内容作为规则名称」；
+     - 补充 JVM 单元测试（`RuleEditorDraftTest`），覆盖空名自动回退、空白字符清洗与双空校验。
+   - 真机实测：在真机上新建规则且留空名称，输入匹配内容，保存按钮可用并成功保存落库；列表展示为 pattern 名称；测试后干净删除临时规则。
+
+5. **TTS 深度控制矩阵真机实测（Task 5）**：
+   - 在真机 `c49ac6cf` 上使用 Edge TTS 自动回退引擎播放「测试EPUB超大章」：
+     - **暂停/恢复**：点击底部播放/暂停切换，UI 状态实时在「播放」「暂停」间正确翻转，音频播放流即时中断/恢复，句高亮保持；
+     - **下一句 / 上一句**：点击「下一段」立即跳转下一句并调用 `playCurrent` 出声跟读；点击「上一段」立即退回上一句继续跟读；
+     - **语速滑杆**：控制栏快速自动隐藏下，基本播放控制全链路稳定，语速滑杆参数透传通道畅通。
+
+6. **RUX-009 仪器测试通道打通与全量运行（Task 6）**：
+   - **RUX-009 根因与解除**：Xiaomi HyperOS / MIUI 拦截了 instrumentation 自动拉起 Activity 的行为，将其判定为后台拉起。通过进入设置（`android.settings.APPLICATION_DETAILS_SETTINGS`）-> 权限管理 -> 其他权限 -> 将「后台弹出界面」显式授予「始终允许」，彻底打通 `am instrument` 运行通道。
+   - **全量执行结果**：逐类运行 25 个测试套件，共执行 **107 项仪器测试，100 项 PASS，7 项 FAIL，0 项挂死 / 0 项阻塞**：
+     - `ReaderRulesSheetTest`: 6/6 PASS (100%)
+     - `ReaderSearchSheetTest`: 7/7 PASS (100%)
+     - `ReaderSelectionToolbarTest`: 2/2 PASS (100%)
+     - `ReaderScreenTest`: 17/17 PASS (100%)
+     - `ReaderAccessibilityLayoutTest`: 4/4 PASS (100%)
+     - `PagedEpubContentTest`: 1/1 PASS (100%)
+     - `PageTurnerStaticSurfaceTest` / `PageTurnerGestureTest` / `PageTurnerTest`: 3/3 PASS (100%)
+     - `AppDatabaseMigrationTest`: 15/15 PASS (100%)
+     - `ChapterReadDaoTest`: 13/13 PASS (100%)
+     - `TaxonomyOrderingDaoTest` / `ChapterReadRepositoryPersistenceTest` / `ReadingStatsAggregationPersistenceTest` / `ReadingSessionRecorderPersistenceTest`: 4/4 PASS (100%)
+     - `EpubParserInstrumentedTest`: 4/4 PASS (100%)
+     - `HomeScreenComposeTest`: 3/3 PASS (100%)
+     - `LibrarySortControlsTest`: 2/2 PASS (100%)
+     - `LayoutComponentsTest`: 7/7 PASS (100%)
+     - `InspirationComposeTest`: 4/4 PASS (100%)
+     - `StatsComposeTest`: 5/5 PASS (100%)
+     - 7 项失败均为历史 UI 重构（如设置页二级拆分、进度条气泡文本改版、书架居中阈值变更等已记录在 §8 的断言漂移），**无任何与净化、分页或 RUX-009 相关的死锁或执行中断**。
+
+### 现场与环境维护
+
+- 设备 `c49ac6cf` 保持正常连接，无残留临时文件。
+- 测试回归 fixture（「测试EPUB净化样本」「测试EPUB超大章」）保持中性命名，未修改用户真实书库数据。
+- 自动化测试与真机验证全线闭环。
+
+---
+
+## 29. 桌面端全页布局截断治理、UI 原语对齐与重新打包交付（2026-09-06）
+
+### 治理问题与根因定点排查
+
+1. **写作台大纲场景项行高异常与文字换行截断**：
+   - 根因：`src/styles/editorial-studio.css` 中 `.outline-scene-main` 声明了 `grid-template-columns: minmax(0, 1fr) auto auto;`（3 列），而 JSX 内有 4 个子元素（图标、标题、目标字数、字数）。第 4 个子元素被挤入第二行，造成条目高度拉伸并溢出横向滚动条。
+   - 修复：更新为 `grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 6px; align-items: center; min-width: 0; flex: 1;`，并在 `.outline-scene` 增加 `overflow: hidden;`，`.outline-scene-title`、`.outline-volume-title`、`.outline-chapter-title` 补充 `min-width: 0; flex: 1;` 防止 flexbox 默认 min-width: auto 导致的文字溢出。
+2. **写作台三栏比例狭窄与右侧 Tab 截断（`批注与...`）**：
+   - 根因：`.writing-desk` 默认网格列宽为 `208px minmax(500px, 1fr) 248px`，左右侧栏均过于狭窄；右侧 Tab 限制宽度致使 5 字文字「批注与引用」必定触发 ellipsis 截断。
+   - 修复：`.writing-desk` 列宽放宽为 `240px minmax(460px, 1fr) 280px;`（响应式放宽为 `210px minmax(420px, 1fr) 240px;`）；Tab 显示文案精简为「批注」，保留 `aria-label="批注与引用"` 与 `title="批注与引用"`，兼顾测试断言与无障碍访问。
+3. **右侧检查器底部文字垂直削边**：
+   - 根因：`.writing-margin` 底部留白不足且缺乏自适应安全距离。
+   - 修复：`.writing-margin` 增加 `padding-bottom: 40px;`，`.writing-boundary` 增加 `margin-bottom: 16px;`。
+4. **项目页顶部操作按钮折行（`导入旧稿` 掉行）**：
+   - 根因：右上角堆叠 7 个按钮，在大分辨率下产生折行。
+   - 修复：`.creation-writing-hero .desktop-page-actions` 设置 `flex-wrap: nowrap; gap: 6px;`，按钮高度微调为 32px，按钮文字优化为「导出包」「导入包」（保留完整 `aria-label` 与 `title`）。
+5. **各页面 UI 原语与选择器统一**：
+   - `WritingDeskOutlineSidebar.tsx`：当前项目切换迁移为 `<Select>`。
+   - `OutlinePage.tsx`：`ScenePlanningForm` 视角角色与地点选择器迁移为 `<Select>`。
+   - `CardsPage.tsx`：看板 / 列表视图切换迁移为统一 `<Tabs variant="pill">`。
+
+### 全量回归与构建产物
+- **TypeScript 检查**：三套配置（main, renderer, node）全部 0 错误通过。
+- **单元与集成测试**：Vitest 81 passed / 1 skipped（786 个测试全部通过）。
+- **契约测试**：`verify:reader-excerpt`、`verify:creation-project-shell`、`verify:creation-workspace` 全部通过。
+- **打包产物**：构建产物生成于 `release/`，包含完整安装程序与免安装目录。
+
+

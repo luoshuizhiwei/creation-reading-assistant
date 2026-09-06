@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { X } from "lucide-react";
+import { Select } from "@/components/ui";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
 import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -97,16 +98,14 @@ export function WritingDeskOutlineSidebar({
 
   return (
     <aside className="writing-outline" aria-label="项目大纲">
-      <label className="writing-project-switcher">
-        <span>当前项目</span>
-        <select value={project.id} onChange={(event) => onSelectProject(event.target.value)}>
-          {projects.map((item) => (
-            <option key={item.id} value={item.id}>
-              {item.title}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="writing-project-switcher">
+        <Select
+          label="当前项目"
+          value={project.id}
+          onChange={(event) => onSelectProject(event.target.value)}
+          options={projects.map((item) => ({ value: item.id, label: item.title }))}
+        />
+      </div>
       <div className="writing-outline-view-switch" role="group" aria-label="大纲视图">
         <button
           type="button"

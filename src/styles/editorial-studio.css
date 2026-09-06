@@ -420,6 +420,20 @@ select:focus-visible,
   gap: 8px;
 }
 
+.creation-writing-hero .desktop-page-actions {
+  flex-wrap: nowrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.creation-writing-hero .desktop-page-actions button {
+  padding: 0 9px;
+  font-size: 12px;
+  min-height: 32px;
+  height: 32px;
+  white-space: nowrap;
+}
+
 /* 演示项目按钮与创建行布局。 */
 .project-home-create-row {
   display: flex;
@@ -755,7 +769,7 @@ select:focus-visible,
 
 .writing-desk {
   display: grid;
-  grid-template-columns: 208px minmax(500px, 1fr) 248px;
+  grid-template-columns: 240px minmax(460px, 1fr) 280px;
   height: 100%;
   min-height: 0;
   min-width: 0;
@@ -785,7 +799,7 @@ select:focus-visible,
   min-height: 0;
   overflow: auto;
   border-left: 1px solid var(--border-subtle);
-  padding: 16px 14px 28px;
+  padding: 16px 14px 40px;
 }
 
 .writing-project-switcher {
@@ -845,9 +859,13 @@ select:focus-visible,
 }
 
 .writing-manuscript-head span,
-.writing-margin dt,
+.writing-margin dt {
+  color: var(--text-muted);
+}
+
 .writing-boundary {
   color: var(--text-muted);
+  margin-bottom: 16px;
 }
 
 /* Segmented controls share one pill system. */
@@ -2381,7 +2399,7 @@ input[type="text"],
 
 @media (max-width: 1180px) {
   .writing-desk {
-    grid-template-columns: 178px minmax(440px, 1fr) 190px;
+    grid-template-columns: 210px minmax(420px, 1fr) 240px;
   }
 
   .cards-board-layout {
@@ -2877,8 +2895,8 @@ input[type="text"],
 .writing-margin-tabs button:not(.writing-margin-collapse) {
   flex: 1;
   min-width: 0;
-  padding: 4px 4px;
-  font-size: 11px;
+  padding: 4px 6px;
+  font-size: 11.5px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -3146,12 +3164,21 @@ input[type="text"],
   gap: 16px;
 }
 
-/* 大纲树表格化（§6.3）：行按「标题｜目标｜字数」三列对齐，细分隔线分行。 */
+/* 大纲树表格化（§6.3）：四列对齐「图标｜标题｜目标｜字数」，整行防溢出截断。 */
 .outline-scene-main {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  gap: 8px;
-  align-items: baseline;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  gap: 6px;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+.outline-scene-title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .outline-scene-goal {
@@ -3159,6 +3186,12 @@ input[type="text"],
   font-family: var(--font-data);
   font-size: 10.5px;
   white-space: nowrap;
+  justify-self: end;
+}
+
+.outline-word-count {
+  white-space: nowrap;
+  justify-self: end;
 }
 
 .outline-scene + .outline-scene {
@@ -3167,10 +3200,21 @@ input[type="text"],
 
 .outline-scene {
   border-radius: 0;
+  overflow: hidden;
+  min-width: 0;
 }
 
 .outline-scene.active {
   border-radius: 7px;
+}
+
+.outline-volume-title,
+.outline-chapter-title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .settings-forms {

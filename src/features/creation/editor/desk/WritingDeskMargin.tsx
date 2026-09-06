@@ -395,10 +395,12 @@ export function WritingDeskMargin({
             type="button"
             role="tab"
             aria-selected={marginTab === "notes"}
+            aria-label="批注与引用"
             className={marginTab === "notes" ? "active" : ""}
             onClick={() => setMarginTab("notes")}
+            title="批注与引用"
           >
-            批注与引用
+            批注
           </button>
         </div>
 

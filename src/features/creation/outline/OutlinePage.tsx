@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Save, X } from "lucide-react";
-import { Tabs } from "@/components/ui";
+import { Select, Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
@@ -47,10 +47,14 @@ function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id:
       <div className="scene-planning-grid">
         <label>
           <span>视角角色</span>
-          <select className={inputClass} value={planning.perspectiveCardId ?? ""} onChange={(event) => set({ perspectiveCardId: event.target.value || null })}>
-            <option value="">未设置</option>
-            {characterCards.map((card) => <option key={card.id} value={card.id}>{card.title}</option>)}
-          </select>
+          <Select
+            value={planning.perspectiveCardId ?? ""}
+            onChange={(event) => set({ perspectiveCardId: event.target.value || null })}
+            options={[
+              { value: "", label: "未设置" },
+              ...characterCards.map((card) => ({ value: card.id, label: card.title }))
+            ]}
+          />
         </label>
         <label>
           <span>时间 / 相对时间</span>
@@ -58,10 +62,14 @@ function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id:
         </label>
         <label>
           <span>地点（背景）</span>
-          <select className={inputClass} value={planning.locationCardId ?? ""} onChange={(event) => set({ locationCardId: event.target.value || null })}>
-            <option value="">未设置</option>
-            {locationCards.map((card) => <option key={card.id} value={card.id}>{card.title}</option>)}
-          </select>
+          <Select
+            value={planning.locationCardId ?? ""}
+            onChange={(event) => set({ locationCardId: event.target.value || null })}
+            options={[
+              { value: "", label: "未设置" },
+              ...locationCards.map((card) => ({ value: card.id, label: card.title }))
+            ]}
+          />
         </label>
         <label>
           <span>目标字数</span>

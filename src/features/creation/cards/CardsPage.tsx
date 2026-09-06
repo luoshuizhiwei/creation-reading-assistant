@@ -13,7 +13,7 @@ import {
   Trash2,
   Upload
 } from "lucide-react";
-import { Select } from "@/components/ui";
+import { Select, Tabs } from "@/components/ui";
 import { BoardView } from "@/features/creation/cards/BoardView";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
 import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor";
@@ -452,14 +452,16 @@ export function CardsPage({ project }: CardsPageProps) {
           <span className="desktop-card-label">Cards</span>
           {mode === "cards" && (
             <>
-              <div className="cards-view-switch" role="group" aria-label="卡片视图">
-                <button type="button" className={view === "board" ? "active" : ""} onClick={() => setView("board")}>
-                  <LayoutGrid size={13} /> 看板
-                </button>
-                <button type="button" className={view === "list" ? "active" : ""} onClick={() => setView("list")}>
-                  <Columns size={13} /> 列表
-                </button>
-              </div>
+              <Tabs<"board" | "list">
+                variant="pill"
+                value={view}
+                onChange={setView}
+                items={[
+                  { id: "board", label: <span className="inline-flex items-center gap-1.5"><LayoutGrid size={13} /> 看板</span> },
+                  { id: "list", label: <span className="inline-flex items-center gap-1.5"><Columns size={13} /> 列表</span> }
+                ]}
+                ariaLabel="卡片视图"
+              />
               {view === "list" && (
                 <Select
                   className="cards-input cards-kind-filter"
