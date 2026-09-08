@@ -89,6 +89,15 @@ class SettingsStoreTest {
     }
 
     @Test
+    fun `reader reveal page turn effect persists without compatibility downgrade`() = runTest {
+        store.reader.first()
+        store.updateReader { copy(pageTurnEffect = "reveal") }
+
+        val loaded = store.reader.first { it.pageTurnEffect == "reveal" }
+        assertEquals("reveal", loaded.pageTurnEffect)
+    }
+
+    @Test
     fun `custom font path round trip`() = runTest {
         store.reader.first()
         store.updateReader { copy(customFontPath = "/data/files/fonts/LXGWWenKai.otf") }

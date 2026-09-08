@@ -201,6 +201,7 @@ internal fun buildReaderInteractionLayerCallbacks(
 ): ReaderInteractionLayerCallbacks = ReaderInteractionLayerCallbacks(
     onOverflowExpandedChange = { onAction(ReaderAction.SetShowOverflow(it)) },
     onChromeAction = handleChromeAction,
+    onProgressScrubberInteractionStarted = { onAction(ReaderAction.ProgressScrubberInteractionStarted) },
     onSeekChapterPercent = { seekToChapterPercent(it) },
     onPrevChapter = { goToChapter(chapterIndex - 1) },
     onNextChapter = { goToChapter(chapterIndex + 1) },
@@ -492,5 +493,4 @@ internal fun buildReaderSheetHostCallbacks(
         id
     },
 )
-
 

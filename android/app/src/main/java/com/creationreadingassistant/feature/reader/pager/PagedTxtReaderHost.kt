@@ -1,5 +1,6 @@
 package com.creationreadingassistant.feature.reader.pager
 
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.text.TextPaint
 import androidx.compose.foundation.Canvas
@@ -93,6 +94,8 @@ fun PagedReaderHost(
     tapZoneMode: String,
     /** 翻页效果：none 直接切页；fade 柔和淡入（Crossfade 单页画布，无位移不残影）。 */
     pageTurnEffect: String,
+    /** 翻页动画基础时长（ms），由设置层注入；透传至 [PagedReaderPageSurface] → PageTurner(speed = ...)。 */
+    pageTurnSpeed: Float = PageTurnAnimConfig().speed,
     textColor: Color,
     initialOffset: Int,
     jumpRequest: MutableState<Int?>,
@@ -298,6 +301,7 @@ fun PagedReaderHost(
                     contentWidthDp = contentWidthDp,
                     autoPageIntervalMillis = autoPageIntervalMillis,
                     pageTurnEffect = pageTurnEffect,
+                    pageTurnSpeed = pageTurnSpeed,
                     pageSurface = pageSurface,
                     ttsRangeAbs = ttsRangeAbs,
                     ttsHighlightColor = ttsHighlightColor,
@@ -460,6 +464,19 @@ private fun PageCanvas(
         }
     }
 
+    // 复用 android Paint：代码块/面板底色(FILL)与分隔线(STROKE)——draw 路径零分配。
+    val fillPaint = remember { Paint().apply { style = Paint.Style.FILL; isAntiAlias = true } }
+    val rulePaint = remember { Paint().apply { style = Paint.Style.STROKE; strokeWidth = 2f; isAntiAlias = true } }
+    // 字体度量一次算好：避免每次绘制都 getFontMetrics() 分配 FontMetrics 对象。
+    val fm = remember(paint) { paint.fontMetrics }
+    // 逐行不变量预计算（baseline/boxH/top/basePaint/段偏移/markerWidth/标记位）：只在
+    // 页/字体/主题/布局变化时算一次，绘制期按索引取值发指令，杜绝逐帧 measureText、
+    // styleFor 与临时对象分配。坐标语义（clusterX/baseline/top/boxH 公式）与原实现逐位一致，
+    // 仅把计算时机从「每帧绘制」提前到「一次预计算」。
+    val plan = remember(page, paint, headingPaint, tablePaint, tableHeaderPaint, cfg, fm) {
+        PageDrawPlan.build(page, paint, headingPaint, tablePaint, tableHeaderPaint, cfg, fm)
+    }
+
     Canvas(modifier) {
         underlays.forEach { (color, rects) ->
             rects.forEach { r ->
@@ -472,10 +489,110 @@ private fun PageCanvas(
         }
         drawIntoCanvas { canvas ->
             val native = canvas.nativeCanvas
-            val fm = paint.fontMetrics
-            val glyphH = fm.descent - fm.ascent
+            val ascent = fm.ascent
+            val lines = page.lines
+            for (li in 0 until plan.count) {
+                val line = lines[li]
+                val top = plan.tops[li]
+                val boxH = plan.boxHeights[li]
+                val baseline = plan.baselines[li]
+                val basePaint = plan.paints[li]
 
-            page.lines.forEachIndexed { li, line ->
+                if (plan.codeBlock[li]) {
+                    fillPaint.color = paper.codeBlockBg.toArgb()
+                    native.drawRect(0f, top, cfg.contentWidthPx, top + boxH, fillPaint)
+                }
+                if (plan.panel[li]) {
+                    fillPaint.color =
+                        paper.fg.copy(alpha = if (plan.panelEmphasized[li]) 0.12f else 0.055f).toArgb()
+                    native.drawRect(0f, top, cfg.contentWidthPx, top + boxH, fillPaint)
+                }
+                if (plan.rule[li]) {
+                    rulePaint.color = paper.horizontalRule.toArgb()
+                    native.drawLine(0f, baseline, cfg.contentWidthPx, baseline, rulePaint)
+                    continue
+                }
+
+                val marker = line.listMarker
+                if (marker != null) {
+                    // marker 宽度已在 plan 预计算（一次 measureText），此处不再逐项测量。
+                    native.drawText(
+                        marker, 0, marker.length,
+                        line.clusterX.getOrElse(0) { 0f } - plan.markerWidths[li],
+                        baseline, basePaint,
+                    )
+                }
+
+                val paraOff = plan.paraOffs[li]
+                val clusterStyles = line.clusterStyles
+                for (j in 0 until line.clusterCount) {
+                    val s = paraOff + line.clusterStarts[j]
+                    val e = paraOff + line.clusterStarts[j + 1]
+                    if (e <= s || s < 0 || e > chapterText.length) continue
+                    val mask = clusterStyles?.getOrNull(j) ?: 0
+                    val p = if (mask == 0) basePaint else stylePaints[mask]
+                    native.drawText(chapterText, s, e, line.clusterX[j], baseline, p)
+                    if (mask and MarkdownStyleMap.STRIKETHROUGH != 0) {
+                        val left = line.clusterX[j]
+                        val right = line.clusterX[j + 1]
+                        native.drawLine(
+                            left, baseline + ascent * 0.35f,
+                            right, baseline + ascent * 0.35f,
+                            p,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 页内绘制不变量预计算结果：把逐行 baseline/boxH/top、basePaint 选择、段偏移、
+ * listMarker 宽度与各类标记位一次算好并缓存于数组，绘制期只按索引取值发指令，
+ * 避免每帧 measureText / styleFor / FontMetrics 分配。
+ *
+ * 坐标语义与 [PageCanvas] 原实现完全一致——baseline/boxH/top 的计算公式、clusterX 的
+ * 使用位置均未改动，只是把计算时机从「每帧绘制」提前到「一次预计算」。
+ */
+private class PageDrawPlan(
+    val count: Int,
+    val tops: FloatArray,
+    val boxHeights: FloatArray,
+    val baselines: FloatArray,
+    val paints: Array<TextPaint>,
+    val paraOffs: IntArray,
+    val markerWidths: FloatArray,
+    val codeBlock: BooleanArray,
+    val panel: BooleanArray,
+    val panelEmphasized: BooleanArray,
+    val rule: BooleanArray,
+) {
+    companion object {
+        fun build(
+            page: ChapterPaginator.Page,
+            paint: TextPaint,
+            headingPaint: TextPaint,
+            tablePaint: TextPaint,
+            tableHeaderPaint: TextPaint,
+            cfg: LayoutConfig,
+            fm: Paint.FontMetrics,
+        ): PageDrawPlan {
+            val lines = page.lines
+            val n = lines.size
+            val tops = FloatArray(n)
+            val boxHeights = FloatArray(n)
+            val baselines = FloatArray(n)
+            val paints = arrayOfNulls<TextPaint>(n)
+            val paraOffs = IntArray(n)
+            val markerWidths = FloatArray(n)
+            val codeBlock = BooleanArray(n)
+            val panel = BooleanArray(n)
+            val panelEmphasized = BooleanArray(n)
+            val rule = BooleanArray(n)
+            val glyphH = fm.descent - fm.ascent
+            for (li in 0 until n) {
+                val line = lines[li]
                 val paraOff = page.lineParaOffsets.getOrElse(li) { 0 }
                 val isHeading = line.role.isHeading()
                 val blockStyle = PagedMarkdownVisualPolicy.styleFor(line.role)
@@ -494,62 +611,31 @@ private fun PageCanvas(
                     else -> cfg.lineHeightPx
                 }
                 val top = page.lineTops.getOrElse(li) { 0f }
-                val baseline = top + (boxH - glyphH) / 2f - fm.ascent
-
-                if (line.role == BlockRole.CODE_BLOCK) {
-                    drawRect(
-                        color = paper.codeBlockBg,
-                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
-                        size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
-                    )
-                }
-
-                if (blockStyle.drawPanel) {
-                    drawRect(
-                        color = paper.fg.copy(alpha = if (blockStyle.emphasized) 0.12f else 0.055f),
-                        topLeft = androidx.compose.ui.geometry.Offset(0f, top),
-                        size = androidx.compose.ui.geometry.Size(cfg.contentWidthPx, boxH),
-                    )
-                }
-
-                if (line.role == BlockRole.HORIZONTAL_RULE) {
-                    drawLine(
-                        color = paper.horizontalRule,
-                        start = androidx.compose.ui.geometry.Offset(0f, baseline),
-                        end = androidx.compose.ui.geometry.Offset(cfg.contentWidthPx, baseline),
-                        strokeWidth = 2f,
-                    )
-                    return@forEachIndexed
-                }
-
-                line.listMarker?.let { marker ->
-                    val markerW = basePaint.measureText(marker)
-                    native.drawText(
-                        marker, 0, marker.length,
-                        line.clusterX.getOrElse(0) { 0f } - markerW,
-                        baseline, basePaint,
-                    )
-                }
-
-                val clusterStyles = line.clusterStyles
-                for (j in 0 until line.clusterCount) {
-                    val s = paraOff + line.clusterStarts[j]
-                    val e = paraOff + line.clusterStarts[j + 1]
-                    if (e <= s || s < 0 || e > chapterText.length) continue
-                    val mask = clusterStyles?.getOrNull(j) ?: 0
-                    val p = if (mask == 0) basePaint else stylePaints[mask]
-                    native.drawText(chapterText, s, e, line.clusterX[j], baseline, p)
-                    if (mask and MarkdownStyleMap.STRIKETHROUGH != 0) {
-                        val left = line.clusterX[j]
-                        val right = line.clusterX[j + 1]
-                        native.drawLine(
-                            left, baseline + fm.ascent * 0.35f,
-                            right, baseline + fm.ascent * 0.35f,
-                            p,
-                        )
-                    }
-                }
+                tops[li] = top
+                boxHeights[li] = boxH
+                baselines[li] = top + (boxH - glyphH) / 2f - fm.ascent
+                paints[li] = basePaint
+                paraOffs[li] = paraOff
+                markerWidths[li] = line.listMarker?.let { basePaint.measureText(it) } ?: 0f
+                codeBlock[li] = line.role == BlockRole.CODE_BLOCK
+                panel[li] = blockStyle.drawPanel
+                panelEmphasized[li] = blockStyle.emphasized
+                rule[li] = line.role == BlockRole.HORIZONTAL_RULE
             }
+            @Suppress("UNCHECKED_CAST")
+            return PageDrawPlan(
+                count = n,
+                tops = tops,
+                boxHeights = boxHeights,
+                baselines = baselines,
+                paints = paints as Array<TextPaint>,
+                paraOffs = paraOffs,
+                markerWidths = markerWidths,
+                codeBlock = codeBlock,
+                panel = panel,
+                panelEmphasized = panelEmphasized,
+                rule = rule,
+            )
         }
     }
 }

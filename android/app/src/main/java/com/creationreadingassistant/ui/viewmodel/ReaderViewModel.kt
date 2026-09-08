@@ -286,6 +286,12 @@ class ReaderViewModel @Inject constructor(
             is ReaderAction.PageTurn -> updateScreen {
                 readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.PageTurn).into(it)
             }
+            is ReaderAction.ProgressScrubberInteractionStarted -> updateScreen {
+                readerChromeReducer(
+                    it.toReaderChromeState(),
+                    ReaderChromeEvent.ProgressScrubberInteractionStarted,
+                ).into(it)
+            }
             is ReaderAction.AutoHideElapsed -> updateScreen {
                 readerChromeReducer(
                     it.toReaderChromeState(),

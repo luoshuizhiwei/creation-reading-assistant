@@ -52,6 +52,7 @@ internal fun ReaderPlatformEffects(
     controlsVisibleForAutoHide: Boolean,
     autoHideSeconds: Int,
     sheetOpenGuard: Boolean,
+    autoHideInteractionRevision: Long,
     onAutoHide: () -> Unit,        // called when auto-hide triggers
 ) {
     val context = LocalContext.current
@@ -136,7 +137,7 @@ internal fun ReaderPlatformEffects(
     }
 
     // ── 7. Menu auto-hide timer ────────────────────────────────────────────
-    LaunchedEffect(controlsVisibleForAutoHide, autoHideSeconds, sheetOpenGuard) {
+    LaunchedEffect(controlsVisibleForAutoHide, autoHideSeconds, sheetOpenGuard, autoHideInteractionRevision) {
         val secs = autoHideSeconds
         if (controlsVisibleForAutoHide && secs > 0 && !sheetOpenGuard) {
             delay(secs * 1000L)

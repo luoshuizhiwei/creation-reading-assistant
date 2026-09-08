@@ -12,6 +12,7 @@ class LegacyEpubPageTurnEffectTest {
         assertEquals(LegacyEpubPageTurnEffect.FADE, legacyEpubPageTurnEffect("fade"))
         assertEquals(LegacyEpubPageTurnEffect.SLIDE, legacyEpubPageTurnEffect("slide"))
         assertEquals(LegacyEpubPageTurnEffect.COVER, legacyEpubPageTurnEffect("cover"))
+        assertEquals(LegacyEpubPageTurnEffect.REVEAL, legacyEpubPageTurnEffect("reveal"))
     }
 
     @Test

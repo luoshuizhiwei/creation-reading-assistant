@@ -1,6 +1,9 @@
 package com.creationreadingassistant.feature.reader.pager
 
 import android.text.TextPaint
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.Box
@@ -12,16 +15,24 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.input.pointer.util.VelocityTracker
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.Density
@@ -32,7 +43,35 @@ import com.creationreadingassistant.feature.reader.layout.LayoutConfig
 import com.creationreadingassistant.feature.reader.layout.PageHitTest
 import com.creationreadingassistant.feature.reader.layout.pageAccessibleText
 import com.creationreadingassistant.ui.theme.ReaderPaperSurfaceSpec
+import com.creationreadingassistant.ui.theme.readerPaperSurface
+import kotlinx.coroutines.launch
 import kotlin.math.hypot
+
+/** 手动 `reveal` 不能交给仅支持自动揭页的 [PageTurner]，由外层保留相邻帧实现真实显露。 */
+internal enum class PagedReaderPageTurnRenderer { PAGE_TURNER, OUTER_REVEAL }
+
+internal fun pagedReaderPageTurnRenderer(
+    pageTurnEffect: String,
+    autoPageIntervalMillis: Long?,
+): PagedReaderPageTurnRenderer =
+    if (pageTurnEffect == "reveal" && autoPageIntervalMillis == null) {
+        PagedReaderPageTurnRenderer.OUTER_REVEAL
+    } else {
+        PagedReaderPageTurnRenderer.PAGE_TURNER
+    }
+
+/** 外层 reveal 的绘制不变量：目标页的纸面背景和正文必须在同一裁切层内。 */
+internal data class ManualRevealLayerPolicy(
+    val keepsCurrentFrameVisible: Boolean,
+    val clipsTargetPaperWithTargetContent: Boolean,
+    val commitsPageAfterReveal: Boolean,
+)
+
+internal fun manualRevealLayerPolicy(): ManualRevealLayerPolicy = ManualRevealLayerPolicy(
+    keepsCurrentFrameVisible = true,
+    clipsTargetPaperWithTargetContent = true,
+    commitsPageAfterReveal = true,
+)
 
 /**
  * 任务 #15 结构拆分：从 [PagedReaderHost] 抽出的页面渲染层
@@ -58,6 +97,8 @@ internal fun PagedReaderPageSurface(
     contentWidthDp: Dp,
     autoPageIntervalMillis: Long?,
     pageTurnEffect: String,
+    /** 翻页动画基础时长（ms），来自 ReaderSettings.pageTurnSpeed；仅作为 [PageTurner] 的 speed 入参。 */
+    pageTurnSpeed: Float,
     pageSurface: ReaderPaperSurfaceSpec,
     ttsRangeAbs: Pair<Int, Int>?,
     ttsHighlightColor: Color,
@@ -140,6 +181,46 @@ internal fun PagedReaderPageSurface(
         val tapZone by rememberUpdatedState(tapZoneMode)
         val handleHitRadiusPx = with(density) { 24.dp.toPx() }
         val contentInsetPx = with(density) { horizontalInsetDp.toPx() }
+        val pageTurnRenderer = pagedReaderPageTurnRenderer(pageTurnEffect, autoPageIntervalMillis)
+        val manualRevealProgress = remember { Animatable(0f) }
+        var manualRevealTarget by remember { mutableStateOf<PagedReaderController.ReaderPageFrame?>(null) }
+        var manualRevealDirection by remember { mutableStateOf(1) }
+        val manualRevealScope = rememberCoroutineScope()
+
+        fun requestManualReveal(direction: Int) {
+            if (direction == 0 || manualRevealTarget != null) return
+            val target = controller.frameAt(direction)
+            if (target == null) {
+                // 跨章相邻页尚未预排时沿用既有直接加载路径；不能以静默降级替代 reveal。
+                if (direction < 0) controller.prevPage() else controller.nextPage()
+                onGesturePageTurn()
+                return
+            }
+            manualRevealTarget = target
+            manualRevealDirection = direction
+            manualRevealScope.launch {
+                manualRevealProgress.snapTo(0f)
+                manualRevealProgress.animateTo(
+                    1f,
+                    tween(durationMillis = pageTurnSpeed.toInt().coerceIn(150, 800)),
+                )
+                selRange.value = null
+                if (direction < 0) controller.prevPage() else controller.nextPage()
+                onGesturePageTurn()
+                manualRevealTarget = null
+                manualRevealProgress.snapTo(0f)
+            }
+        }
+
+        LaunchedEffect(turnRequest.intValue, pageTurnRenderer) {
+            if (pageTurnRenderer != PagedReaderPageTurnRenderer.OUTER_REVEAL) return@LaunchedEffect
+            val direction = turnRequest.intValue
+            if (direction != 0) {
+                turnRequest.intValue = 0
+                requestManualReveal(direction)
+            }
+        }
+
         val gestures = Modifier
                 .pointerInput(controller) {
                     // 选区把手拖拽：down 命中把手圆点附近才接管（消费后续事件），
@@ -225,13 +306,21 @@ internal fun PagedReaderPageSurface(
                                 ) {
                                     ReaderTapAction.PREVIOUS_PAGE -> {
                                         stopAutoPaging()
-                                        onGesturePageTurn()
-                                        turnRequest.intValue = -1
+                                        if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+                                            requestManualReveal(-1)
+                                        } else {
+                                            onGesturePageTurn()
+                                            turnRequest.intValue = -1
+                                        }
                                     }
                                     ReaderTapAction.NEXT_PAGE -> {
                                         stopAutoPaging()
-                                        onGesturePageTurn()
-                                        turnRequest.intValue = 1
+                                        if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+                                            requestManualReveal(1)
+                                        } else {
+                                            onGesturePageTurn()
+                                            turnRequest.intValue = 1
+                                        }
                                     }
                                     ReaderTapAction.TOGGLE_CONTROLS -> {
                                         stopAutoPaging()
@@ -243,36 +332,43 @@ internal fun PagedReaderPageSurface(
                         },
                     )
                 }
+        val manualRevealDrag = if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+            Modifier.pointerInput(controller, manualRevealTarget) {
+                var dragTotal = 0f
+                var velocityTracker = VelocityTracker()
+                detectHorizontalDragGestures(
+                    onDragStart = {
+                        dragTotal = 0f
+                        velocityTracker = VelocityTracker()
+                    },
+                    onDragEnd = {
+                        val velocityX = velocityTracker.calculateVelocity().x
+                        val width = size.width.toFloat().coerceAtLeast(1f)
+                        val direction = when {
+                            dragTotal > width * 0.18f || velocityX > 400f -> -1
+                            dragTotal < -width * 0.18f || velocityX < -400f -> 1
+                            else -> 0
+                        }
+                        requestManualReveal(direction)
+                    },
+                ) { change, amount ->
+                    velocityTracker.addPosition(change.uptimeMillis, change.position)
+                    dragTotal += amount
+                    change.consume()
+                }
+            }
+        } else {
+            Modifier
+        }
+
         // 读取 revision 让相邻章预排完成后触发重组，跨章拖动立即拿到邻帧。
         @Suppress("UNUSED_VARIABLE")
         val cacheRevision = controller.cacheRevision
         val frame = controller.frameAt(0) ?: return
         val previous = controller.frameAt(-1)
         val next = controller.frameAt(1)
-        PageTurner(
-            currentFrame = frame,
-            previousFrame = previous,
-            nextFrame = next,
-            effect = if (autoPageIntervalMillis != null) "reveal" else pageTurnEffect,
-            turnRequest = turnRequest.intValue,
-            onTurnRequestConsumed = { turnRequest.intValue = 0 },
-            onPrevious = {
-                selRange.value = null
-                controller.prevPage()
-            },
-            onNext = {
-                selRange.value = null
-                controller.nextPage()
-            },
-            onPageTurned = onGesturePageTurn,
-            revealProgress = revealProgress,
-            revealDividerColor = MaterialTheme.colorScheme.primary,
-            pageSurface = pageSurface,
-            modifier = Modifier
-                .fillMaxSize()
-                .semantics { contentDescription = "分页正文已就绪" }
-                .then(gestures),
-        ) { rendered, isCurrent ->
+        @Composable
+        fun renderFrame(rendered: PagedReaderController.ReaderPageFrame, isCurrent: Boolean) {
             // 语义文本与绘制切片同源；非当前帧（动画过渡中的邻页）不暴露，
             // 避免 TalkBack 读到上一页 stale 文本或动画中间帧的重复正文。
             val accessibleText = remember(rendered.page, rendered.chapterText) {
@@ -299,6 +395,71 @@ internal fun PagedReaderPageSurface(
                     },
                     modifier = Modifier.fillMaxSize(),
                 )
+            }
+        }
+        if (pageTurnRenderer == PagedReaderPageTurnRenderer.OUTER_REVEAL) {
+            // 手动 reveal：先保留当前页，再从上（上一页则从下）裁切显露已预排的目标页；
+            // 动画结束才更新 controller，故不会把 reveal 转译成 PageTurner 的 none/fade/cover。
+            Box(
+                Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = "分页正文已就绪" }
+                    .then(gestures)
+                    .then(manualRevealDrag),
+            ) {
+                Box(Modifier.fillMaxSize().readerPaperSurface(pageSurface).clipToBounds()) {
+                    renderFrame(frame, true)
+                }
+                manualRevealTarget?.let { target ->
+                    // 关键层级：裁切必须包住目标纸面和正文。若先把 readerPaperSurface 放在
+                    // drawWithContent 外，它会作为不透明背景覆盖当前页，留下“上少量文字、下白纸”。
+                    Box(
+                        Modifier
+                            .fillMaxSize()
+                            .clipToBounds()
+                            .drawWithContent {
+                                val revealHeight = size.height * manualRevealProgress.value
+                                if (manualRevealDirection > 0) {
+                                    clipRect(bottom = revealHeight) { this@drawWithContent.drawContent() }
+                                } else {
+                                    clipRect(top = size.height - revealHeight) { this@drawWithContent.drawContent() }
+                                }
+                            },
+                    ) {
+                        Box(Modifier.fillMaxSize().readerPaperSurface(pageSurface)) {
+                            renderFrame(target, false)
+                        }
+                    }
+                }
+            }
+        } else {
+            PageTurner(
+                currentFrame = frame,
+                previousFrame = previous,
+                nextFrame = next,
+                effect = if (autoPageIntervalMillis != null) "reveal" else pageTurnEffect,
+                // 翻页速度由设置层注入；PageTurner 内部动画/位图预渲染逻辑保持不变。
+                speed = pageTurnSpeed,
+                turnRequest = turnRequest.intValue,
+                onTurnRequestConsumed = { turnRequest.intValue = 0 },
+                onPrevious = {
+                    selRange.value = null
+                    controller.prevPage()
+                },
+                onNext = {
+                    selRange.value = null
+                    controller.nextPage()
+                },
+                onPageTurned = onGesturePageTurn,
+                revealProgress = revealProgress,
+                revealDividerColor = MaterialTheme.colorScheme.primary,
+                pageSurface = pageSurface,
+                modifier = Modifier
+                    .fillMaxSize()
+                    .semantics { contentDescription = "分页正文已就绪" }
+                    .then(gestures),
+            ) { rendered, isCurrent ->
+                renderFrame(rendered, isCurrent)
             }
         }
     }

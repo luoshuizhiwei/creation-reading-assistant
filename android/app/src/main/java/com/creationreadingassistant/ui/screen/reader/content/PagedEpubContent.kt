@@ -33,7 +33,9 @@ import androidx.compose.animation.core.tween
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.ContentScale
@@ -63,12 +65,14 @@ internal enum class LegacyEpubPageTurnEffect {
     FADE,
     SLIDE,
     COVER,
+    REVEAL,
 }
 
 internal fun legacyEpubPageTurnEffect(value: String): LegacyEpubPageTurnEffect = when (value) {
     "fade" -> LegacyEpubPageTurnEffect.FADE
     "slide" -> LegacyEpubPageTurnEffect.SLIDE
     "cover" -> LegacyEpubPageTurnEffect.COVER
+    "reveal" -> LegacyEpubPageTurnEffect.REVEAL
     else -> LegacyEpubPageTurnEffect.NONE
 }
 
@@ -115,6 +119,7 @@ internal fun PagedEpubView(
     val reducedMotion = rememberReducedMotion()
     val contentAlpha = remember { Animatable(1f) }
     val contentOffset = remember { Animatable(0f) }
+    val contentRevealProgress = remember { Animatable(1f) }
     val configuredEffect = legacyEpubPageTurnEffect(pageTurnEffect)
     var contentWidthPx by remember { mutableStateOf(0f) }
     var previousChapter by remember { mutableStateOf(chapterIndex) }
@@ -125,6 +130,7 @@ internal fun PagedEpubView(
             previousChapter = chapterIndex
             contentAlpha.snapTo(1f)
             contentOffset.snapTo(0f)
+            contentRevealProgress.snapTo(1f)
             return@LaunchedEffect
         }
         val direction = when {
@@ -136,6 +142,7 @@ internal fun PagedEpubView(
         if (reducedMotion || direction == 0f || configuredEffect == LegacyEpubPageTurnEffect.NONE) {
             contentAlpha.snapTo(1f)
             contentOffset.snapTo(0f)
+            contentRevealProgress.snapTo(1f)
             return@LaunchedEffect
         }
         when (configuredEffect) {
@@ -152,6 +159,15 @@ internal fun PagedEpubView(
                 contentAlpha.snapTo(1f)
                 contentOffset.snapTo(direction)
                 contentOffset.animateTo(0f, tween(durationMillis = MotionTokens.Fast))
+            }
+
+            LegacyEpubPageTurnEffect.REVEAL -> {
+                // 旧 EPUB 宿主只保留一份章节 Composition；用从上向下的裁切显露新章，
+                // 不退化为 none/fade/cover，也不同时常驻新旧两章而放大大章峰值内存。
+                contentAlpha.snapTo(1f)
+                contentOffset.snapTo(0f)
+                contentRevealProgress.snapTo(0f)
+                contentRevealProgress.animateTo(1f, tween(durationMillis = MotionTokens.Fast))
             }
 
             LegacyEpubPageTurnEffect.NONE -> Unit
@@ -177,7 +193,18 @@ internal fun PagedEpubView(
                     alpha = contentAlpha.value
                     translationX = contentOffset.value * contentWidthPx
                     clip = configuredEffect == LegacyEpubPageTurnEffect.COVER
-                },
+                }
+                .then(
+                    if (configuredEffect == LegacyEpubPageTurnEffect.REVEAL) {
+                        Modifier.drawWithContent {
+                            clipRect(bottom = size.height * contentRevealProgress.value) {
+                                this@drawWithContent.drawContent()
+                            }
+                        }
+                    } else {
+                        Modifier
+                    },
+                ),
         ) {
             val content: @Composable () -> Unit = {
                 PagedChapterContent(

@@ -64,6 +64,7 @@ private val KEY_READER_MODE = stringPreferencesKey("reader_mode")              /
 private val KEY_PAGER_ENGINE = stringPreferencesKey("pager_engine_mode")       // off | auto | on
 // KEY_EPUB_PAGER_ENGINE 定义在 ReaderDefaultsMigration.kt（迁移与读写共用同一 key 实例）
 private val KEY_PAGE_TURN_EFFECT = stringPreferencesKey("reader_page_turn_effect")
+private val KEY_PAGE_TURN_SPEED = floatPreferencesKey("reader_page_turn_speed")
 private val KEY_TAP_ZONE_MODE = stringPreferencesKey("reader_tap_zone_mode")
 private val KEY_SCREEN_ORIENTATION = stringPreferencesKey("reader_screen_orientation")
 internal val KEY_FONT_SIZE = floatPreferencesKey("reader_font_size")
@@ -164,7 +165,14 @@ data class ReaderSettings(
      */
     val pagerEngineMode: String = "on",
     val epubPagerEngineMode: String = "auto",
-    val pageTurnEffect: String = "none",         // none | fade | slide | cover
+    val pageTurnEffect: String = "none",       // none | fade | slide | cover | reveal（默认 none：60Hz 设备上独立复验 slide 每帧需 GPU 合成 3 张全屏位图、帧时 25-34ms 超预算有顿挫，none 约 13ms 顺滑；产品决策改以 none 为出货默认，修复后的 slide 仍为可选项）
+    /**
+     * 翻页动画基础时长系数（ms）：单页满位移时的基础时长，实际时长 = speed × 剩余位移比例，
+     * 值越小翻页越快。默认对齐 PageTurnAnimConfig().speed（400f）。
+     * 由 PagedReaderPageSurface 透传给 PageTurner(speed = ...)，不触及 PageTurner 内部逻辑。
+     * 可调区间 150..800ms（设置面板滑块同区间）。
+     */
+    val pageTurnSpeed: Float = 400f,
     val tapZoneMode: String = "three-zone",      // three-zone | five-zone
     /** 屏幕方向锁定：system 跟随系统 | portrait 竖屏 | landscape 横屏（仅阅读器内生效）。 */
     val screenOrientation: String = "system",
@@ -272,6 +280,7 @@ class SettingsStore @Inject constructor(
                 "curl" -> "cover"
                 else -> effect
             },
+            pageTurnSpeed = (prefs[KEY_PAGE_TURN_SPEED] ?: 400f).coerceIn(150f, 800f),
             tapZoneMode = prefs[KEY_TAP_ZONE_MODE] ?: "three-zone",
             screenOrientation = prefs[KEY_SCREEN_ORIENTATION] ?: "system",
             fontSize = prefs[KEY_FONT_SIZE] ?: 25f,
@@ -400,6 +409,7 @@ class SettingsStore @Inject constructor(
             prefs[KEY_PAGER_ENGINE] = next.pagerEngineMode
             prefs[KEY_EPUB_PAGER_ENGINE] = next.epubPagerEngineMode
             prefs[KEY_PAGE_TURN_EFFECT] = next.pageTurnEffect
+            prefs[KEY_PAGE_TURN_SPEED] = next.pageTurnSpeed.coerceIn(150f, 800f)
             prefs[KEY_TAP_ZONE_MODE] = next.tapZoneMode
             prefs[KEY_SCREEN_ORIENTATION] = next.screenOrientation
             prefs[KEY_FONT_SIZE] = next.fontSize

@@ -73,6 +73,17 @@ class ReaderChromeReducerTest {
     }
 
     @Test
+    fun `progress scrubber interaction restarts auto hide without changing visible chrome`() {
+        val initial = ReaderChromeState(controlsVisible = true, autoHideInteractionRevision = 7L)
+
+        val state = readerChromeReducer(initial, ReaderChromeEvent.ProgressScrubberInteractionStarted)
+
+        assertTrue(state.controlsVisible)
+        assertFalse(state.sheetOpen)
+        assertTrue(state.autoHideInteractionRevision == 8L)
+    }
+
+    @Test
     fun `page turn still hides controls even while sheet is open`() {
         // 翻页隐藏语义不受 sheet 门控影响（与 AutoHideElapsed 不同）。
         val open = readerChromeReducer(ReaderChromeState(), ReaderChromeEvent.SheetOpen)

@@ -265,7 +265,7 @@ internal fun ReaderSettingsSubPage(
 
                     SettingSegmentedRow(
                         title = "翻页动画",
-                        options = listOf("none" to "无动画", "fade" to "淡入", "slide" to "平滑滑动", "cover" to "仿真覆盖"),
+                        options = listOf("none" to "无动画", "fade" to "淡入", "slide" to "平滑滑动", "cover" to "仿真覆盖", "reveal" to "揭示下一页"),
                         selected = settings.pageTurnEffect,
                         onSelect = { onAction(ProfileAction.UpdateReader { copy(pageTurnEffect = it) }) },
                     )

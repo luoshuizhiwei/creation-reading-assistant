@@ -1,11 +1,18 @@
 package com.creationreadingassistant.ui.theme
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.ProvidableCompositionLocal
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 
 /**
  * 阅读器独立纸张调色板（4 档 + 跟随外观映射）。
@@ -71,6 +78,17 @@ data class ReaderPaperPalette(
 
     /** 分隔线（horizontal rule）：fg @0.3（对齐 ReaderHelpers 分隔线 alpha）。 */
     val horizontalRule: Color get() = fg.copy(alpha = 0.3f)
+
+    // ── 阅读器 chrome / sheet 语义令牌（双轨关键：与外壳 ColorScheme 解耦，供 [ReaderPanelSurface] 等无装饰面板消费）──
+    // 全部为 Color / Dp 值类型的派生属性，不参与 data class 相等性判定，保持 Compose stable。
+    /** 面板投影高度：阅读器面板恒定 0dp —— 无装饰、无阴影，避免在翻页动画层侵蚀帧预算。 */
+    val panelElevation: Dp get() = 0.dp
+    /** chip / 分段选项底色：比 panel 深一档的 panelStrong。 */
+    val chipBg: Color get() = panelStrong
+    /** 发丝分割线色：outlineVariant（随纸变化）。 */
+    val divider: Color get() = outlineVariant
+    /** sheet 内区块底色：随纸 panel 纸面。 */
+    val sheetSectionBg: Color get() = panel
 
     private fun indexOf(color: String): Int = when (color) {
         "yellow" -> 0
@@ -287,5 +305,41 @@ fun ReaderPaperTheme(
             shapes = MaterialTheme.shapes,
             content = content,
         )
+    }
+}
+
+/**
+ * 阅读器专属「无装饰面板」薄封装（双轨关键）。
+ *
+ * 与外壳的 [com.creationreadingassistant.ui.components.SectionCard] 分道扬镳：后者叠加了
+ * 纸墨渐变（verticalGradient）+ 噪点（PaperNoise）+ 玻璃高光（GlassOverlays）三层装饰，
+ * 在阅读器翻页动画层会侵蚀帧预算；**阅读器路径禁止引用 SectionCard**。
+ *
+ * 本组件仅渲染：`Surface(shape, color = paper.panel, border = paper.outlineVariant)` —— 无任何
+ * 渐变 / 噪点 / 玻璃叠加层，恒定 [ReaderPaperPalette.panelElevation]（0dp）无阴影，
+ * 维持与外壳 ColorScheme 解耦（颜色只从 [LocalReaderPaperPalette] 取，不读 MaterialTheme.colorScheme）。
+ *
+ * @param shape 面板形状，默认取 [com.creationreadingassistant.ui.theme.ComponentSpec.floatingBarShape]
+ *              （阅读器底部 chrome / 悬浮条形状）；sheet 场景可传 sheetShape。
+ * @param content 面板内容（ColumnScope 插槽）。
+ */
+@Composable
+fun ReaderPanelSurface(
+    modifier: Modifier = Modifier,
+    shape: Shape = LocalComponentSpec.current.floatingBarShape,
+    content: @Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit,
+) {
+    val paper = LocalReaderPaperPalette.current
+    Surface(
+        modifier = modifier,
+        shape = shape,
+        color = paper.panel,
+        contentColor = paper.fg,
+        border = BorderStroke(0.5.dp, paper.outlineVariant),
+        shadowElevation = paper.panelElevation,
+        tonalElevation = paper.panelElevation,
+    ) {
+        // Material3 Surface 的 content 为 () -> Unit；此处包一层 Column 向调用方暴露 ColumnScope 插槽。
+        Column(content = content)
     }
 }

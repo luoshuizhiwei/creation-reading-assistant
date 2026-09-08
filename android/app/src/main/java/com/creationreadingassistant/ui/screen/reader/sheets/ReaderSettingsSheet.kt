@@ -11,6 +11,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -56,7 +57,6 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
@@ -78,6 +78,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -87,12 +88,15 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.settings.HeaderFooterItem
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.feature.reader.ReaderFontManager
+import com.creationreadingassistant.ui.components.HairlineDivider
+import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.SettingBrightnessRow
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.AUTO_HIDE_SECOND_OPTIONS
 import com.creationreadingassistant.ui.screen.reader.autoHideSecondsLabel
 import com.creationreadingassistant.ui.screen.reader.nearestAutoHideOption
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.bounceable
@@ -165,6 +169,7 @@ private fun SettingsRoot(
     onBookInfo: () -> Unit,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
@@ -196,10 +201,29 @@ private fun SettingsRoot(
                 MicroOptionPillRow(
                     title = "翻页效果",
                     icon = Icons.Outlined.Animation,
-                    options = listOf("none" to "无", "fade" to "平移", "slide" to "滑动", "cover" to "仿真"),
+                    options = listOf("none" to "无", "fade" to "平移", "slide" to "滑动", "cover" to "仿真", "reveal" to "揭示"),
                     selected = settings.pageTurnEffect,
-                    onSelect = { onSettingsChange(settings.copy(pageTurnEffect = it)) },
+                    onSelect = {
+                        onSettingsChange(settings.copy(pageTurnEffect = it))
+                    },
                     tint = Color(0xFF059669),
+                )
+                MicroSectionDivider()
+                // 翻页速度：绑定 ReaderSettings.pageTurnSpeed，经 PagedReaderPageSurface 透传给
+                // PageTurner(speed = ...)。它是单页满位移的基础时长（实际时长 = speed × 剩余
+                // 位移比例），值越小翻页越快，故左侧标「最快」、右侧标「最慢」。
+                MicroTrackSliderRow(
+                    icon = Icons.Outlined.Speed,
+                    title = "翻页速度",
+                    value = settings.pageTurnSpeed,
+                    valueLabel = "${settings.pageTurnSpeed.toInt()} ms",
+                    onValueChange = { onSettingsChange(settings.copy(pageTurnSpeed = it)) },
+                    valueRange = 150f..800f,
+                    steps = 12,
+                    minLabel = "最快",
+                    maxLabel = "最慢",
+                    tint = Color(0xFF059669),
+                    modifier = Modifier.testTag("reader-page-turn-speed"),
                 )
             }
         }
@@ -249,9 +273,9 @@ private fun SettingsRoot(
                     haptic(HapticFeedbackType.TextHandleMove)
                     onBookInfo()
                 },
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(spec.islandRadius),
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .bounceable(bookInfoInteraction),
@@ -267,19 +291,12 @@ private fun SettingsRoot(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(28.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Outlined.Info,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.primary,
-                            )
-                        }
+                        IconPedestal(
+                            icon = Icons.Outlined.Info,
+                            tint = MaterialTheme.colorScheme.primary,
+                            size = 28.dp,
+                            iconSize = 16.dp,
+                        )
                         Column {
                             Text(
                                 "查看书籍信息",
@@ -317,10 +334,11 @@ private fun MicroSettingsSection(
     description: String? = null,
     content: @Composable () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.28f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
@@ -335,19 +353,7 @@ private fun MicroSettingsSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(22.dp)
-                        .background(tint.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(13.dp),
-                        tint = tint,
-                    )
-                }
+                IconPedestal(icon = icon, tint = tint, size = 22.dp, iconSize = 13.dp)
                 Text(
                     text = title,
                     style = MaterialTheme.typography.titleSmall,
@@ -371,11 +377,9 @@ private fun MicroSettingsSection(
 
 @Composable
 private fun MicroSectionDivider() {
-    HorizontalDivider(
-        modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp),
-        thickness = 0.5.dp,
-        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-    )
+    // 微岛收敛：分割线统一委托 HairlineDivider（厚度取 ComponentSpec.dividerThickness、
+    // 颜色取 outlineVariant@hairlineAlpha），消灭本文件手写的 0.5dp 孤值。
+    HairlineDivider(modifier = Modifier.padding(horizontal = 14.dp, vertical = 4.dp))
 }
 
 /**
@@ -396,6 +400,7 @@ private fun MicroTrackSliderRow(
     modifier: Modifier = Modifier,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -410,19 +415,7 @@ private fun MicroTrackSliderRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(tint.copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = tint,
-                    )
-                }
+                IconPedestal(icon = icon, tint = tint, size = 26.dp, iconSize = 14.dp)
                 Text(
                     text = title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -435,7 +428,7 @@ private fun MicroTrackSliderRow(
             Surface(
                 shape = PillShape,
                 color = tint.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, tint.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.hairlineBorderWidth, tint.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Text(
                     text = valueLabel,
@@ -498,6 +491,7 @@ private fun <T> MicroOptionPillRow(
     subtitle: String? = null,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -513,19 +507,7 @@ private fun <T> MicroOptionPillRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(tint.copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = tint,
-                    )
-                }
+                IconPedestal(icon = icon, tint = tint, size = 26.dp, iconSize = 14.dp)
                 Text(
                     title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -546,7 +528,7 @@ private fun <T> MicroOptionPillRow(
         Surface(
             shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -565,7 +547,7 @@ private fun <T> MicroOptionPillRow(
                         },
                         shape = PillShape,
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
+                        border = if (isSelected) BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp)
@@ -599,6 +581,7 @@ private fun QuickFontSizeRow(
     onBoldChange: (Boolean) -> Unit,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -610,19 +593,12 @@ private fun QuickFontSizeRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Outlined.FormatSize,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
+            IconPedestal(
+                icon = Icons.Outlined.FormatSize,
+                tint = MaterialTheme.colorScheme.primary,
+                size = 26.dp,
+                iconSize = 14.dp,
+            )
             Column {
                 Text("字号大小", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
                 Text("${fontSize.toInt()} 号", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -641,9 +617,9 @@ private fun QuickFontSizeRow(
                     onFontSizeChange(next)
                 },
                 enabled = fontSize > 12f,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .size(width = 54.dp, height = 34.dp)
                     .bounceable(minusInteraction),
@@ -666,9 +642,9 @@ private fun QuickFontSizeRow(
                     onFontSizeChange(next)
                 },
                 enabled = fontSize < 40f,
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .size(width = 54.dp, height = 34.dp)
                     .bounceable(plusInteraction),
@@ -689,9 +665,9 @@ private fun QuickFontSizeRow(
                     haptic(HapticFeedbackType.TextHandleMove)
                     onBoldChange(!isBold)
                 },
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 color = if (isBold) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = BorderStroke(1.dp, if (isBold) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.borderWidth, if (isBold) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .size(width = 44.dp, height = 34.dp)
                     .bounceable(boldInteraction),
@@ -745,19 +721,7 @@ private fun MicroSettingsLinkRow(
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(tint.copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = tint,
-                    )
-                }
+                IconPedestal(icon = icon, tint = tint, size = 26.dp, iconSize = 14.dp)
                 Column {
                     Text(
                         title,
@@ -808,6 +772,7 @@ private fun MicroSettingsSwitchRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .clickable { onCheckedChange(!checked) }
             .padding(horizontal = 14.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -817,19 +782,7 @@ private fun MicroSettingsSwitchRow(
             horizontalArrangement = Arrangement.spacedBy(10.dp),
             modifier = Modifier.weight(1f),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(26.dp)
-                    .background(tint.copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(14.dp),
-                    tint = tint,
-                )
-            }
+            IconPedestal(icon = icon, tint = tint, size = 26.dp, iconSize = 14.dp)
             Column {
                 Text(
                     title,
@@ -863,6 +816,7 @@ private fun MicroFontPickerSection(
 ) {
     val context = LocalContext.current
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) {
             val path = ReaderFontManager.installFont(context, uri)
@@ -905,19 +859,12 @@ private fun MicroFontPickerSection(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .background(Color(0xFF0891B2).copy(alpha = 0.14f), shape = RoundedCornerShape(7.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Outlined.FontDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(14.dp),
-                        tint = Color(0xFF0891B2),
-                    )
-                }
+                IconPedestal(
+                    icon = Icons.Outlined.FontDownload,
+                    tint = Color(0xFF0891B2),
+                    size = 26.dp,
+                    iconSize = 14.dp,
+                )
                 Text(
                     "正文字体",
                     style = MaterialTheme.typography.bodyMedium,
@@ -930,7 +877,7 @@ private fun MicroFontPickerSection(
             Surface(
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Text(
                     text = if (custom.isBlank()) "跟随系统" else File(custom).name,
@@ -946,9 +893,9 @@ private fun MicroFontPickerSection(
 
         // 中文字体实时微岛样张预览
         Surface(
-            shape = RoundedCornerShape(12.dp),
+            shape = RoundedCornerShape(spec.hintRadius),
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Column(
@@ -1008,7 +955,7 @@ private fun MicroFontPickerSection(
                 },
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.1f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .weight(1f)
                     .height(34.dp)
@@ -1045,7 +992,7 @@ private fun MicroFontPickerSection(
                     },
                     shape = PillShape,
                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                    border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                     modifier = Modifier
                         .height(34.dp)
                         .bounceable(restoreInteraction),
@@ -1085,10 +1032,11 @@ private fun ReaderTypePreview(paper: ReaderPaperPalette, settings: ReaderSetting
         (size * 0.4f * settings.paragraphSpacing).sp.toDp()
     }
     val weight = if (settings.fontWeightBold) FontWeight.Bold else FontWeight.Normal
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = paper.bg,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(
@@ -1244,10 +1192,25 @@ private fun PagingSettings(settings: ReaderSettings, onChange: (ReaderSettings) 
             MicroOptionPillRow(
                 title = "翻页效果",
                 icon = Icons.Outlined.Animation,
-                options = listOf("none" to "无", "fade" to "平移", "slide" to "滑动", "cover" to "仿真"),
+                options = listOf("none" to "无", "fade" to "平移", "slide" to "滑动", "cover" to "仿真", "reveal" to "揭示"),
                 selected = settings.pageTurnEffect,
                 onSelect = { onChange(settings.copy(pageTurnEffect = it)) },
                 tint = Color(0xFF2563EB),
+            )
+            MicroSectionDivider()
+            // 翻页速度滑块（与快捷排版微岛同一设置项）：150..800ms，50ms 一档。
+            MicroTrackSliderRow(
+                icon = Icons.Outlined.Speed,
+                title = "翻页速度",
+                value = settings.pageTurnSpeed,
+                valueLabel = "${settings.pageTurnSpeed.toInt()} ms",
+                onValueChange = { onChange(settings.copy(pageTurnSpeed = it)) },
+                valueRange = 150f..800f,
+                steps = 12,
+                minLabel = "最快",
+                maxLabel = "最慢",
+                tint = Color(0xFF2563EB),
+                modifier = Modifier.testTag("reader-page-turn-speed-paging"),
             )
             MicroSectionDivider()
             MicroOptionPillRow(

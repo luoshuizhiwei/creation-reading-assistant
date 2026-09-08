@@ -137,6 +137,8 @@ sealed interface ReaderAction {
 
     // ── UI 状态变更 ──
     data class ToggleControls(val visible: Boolean? = null) : ReaderAction
+    /** 进度拖动开始：不改变 chrome 可见性，只重启自动隐藏倒计时。 */
+    data object ProgressScrubberInteractionStarted : ReaderAction
     /** 翻页后立即隐藏菜单（无论 autoHideSeconds 是否 0）；走 ReaderChromeReducer.PageTurn。 */
     data object PageTurn : ReaderAction
     /** 自动隐藏倒计时到点；走 ReaderChromeReducer.AutoHideElapsed，携带当时的秒数（0=不隐藏）。 */

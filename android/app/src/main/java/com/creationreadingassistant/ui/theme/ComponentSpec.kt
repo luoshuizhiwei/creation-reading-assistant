@@ -79,6 +79,20 @@ data class ComponentSpec(
     /** 区块卡片默认取哪个 surface 容器档 */
     val cardContainer: CardContainer,
 
+    // ── 微岛档位（MicroIsland 共享组件库消费；取现网最常见值，先做等价替换，一处调参全局生效）──
+    /** 岛屿卡片 / 中空岛容器圆角（消灭 12/14/16 混用） */
+    val islandRadius: Dp,
+    /** 底部悬浮 Dock 圆角 */
+    val dockRadius: Dp,
+    /** 图标微彩底座圆角（消灭 8/9/10 混用） */
+    val pedestalRadius: Dp,
+    /** 信息提示微岛 / 空态岛圆角 */
+    val hintRadius: Dp,
+    /** 发丝边框宽度（微岛边框，比 [borderWidth] 更细，消灭 0.5/0.6/0.8 混用） */
+    val hairlineBorderWidth: Dp,
+    /** 发丝边框 / 分割线透明度（消灭 0.28/0.32/0.35 混用） */
+    val hairlineAlpha: Float,
+
 )
 
 /** 卡片底色档位，映射到 MaterialTheme.colorScheme 的具体角色 */
@@ -135,6 +149,12 @@ val DefaultComponentSpec = ComponentSpec(
     borderSubtle = true,
     dividerThickness = 1.dp,
     cardContainer = CardContainer.Low,
+    islandRadius = 14.dp,
+    dockRadius = 18.dp,
+    pedestalRadius = 9.dp,
+    hintRadius = 12.dp,
+    hairlineBorderWidth = 0.6.dp,
+    hairlineAlpha = 0.35f,
 )
 
 /** CompositionLocal：当前组件级规格，默认 DEFAULT */

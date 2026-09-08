@@ -6,7 +6,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.mandatorySystemGestures
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -29,6 +27,7 @@ import com.creationreadingassistant.ui.screen.reader.tts.TtsBar
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPanelSurface
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
 /**
@@ -65,6 +64,7 @@ internal data class ReaderInteractionLayerState(
 internal data class ReaderInteractionLayerCallbacks(
     val onOverflowExpandedChange: (Boolean) -> Unit,
     val onChromeAction: (ReaderChromeAction) -> Unit,
+    val onProgressScrubberInteractionStarted: () -> Unit,
     val onSeekChapterPercent: (Float) -> Unit,
     val onPrevChapter: () -> Unit,
     val onNextChapter: () -> Unit,
@@ -166,16 +166,16 @@ internal fun BoxScope.ReaderInteractionLayer(
         enter = if (reducedMotion) fadeIn(tween(0)) else fadeIn(tween(160)) + slideInVertically(initialOffsetY = { it / 4 }),
         exit = if (reducedMotion) fadeOut(tween(0)) else fadeOut(tween(120)) + slideOutVertically(targetOffsetY = { it / 4 }),
     ) {
-        Surface(
+        // 微岛收敛：底部操作栏容器是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
+        //（随纸 panel 纸面 + 0.5dp 发丝边 + panelElevation 0dp）。原手写 panel@0.98 半透与 1dp 实边
+        // 收敛为共享面板材质，避免翻页动画期的 alpha 混合与额外描边重绘。
+        ReaderPanelSurface(
             modifier = Modifier
                 .padding(horizontal = 8.dp, vertical = 6.dp)
                 // 系统导航栏已隐藏：只避开底部手势区（恒定，不随 transient swipe 跳动，
                 // 三键导航下为 0，不产生空白系统栏）。
                 .windowInsetsPadding(WindowInsets.mandatorySystemGestures),
             shape = LocalComponentSpec.current.floatingBarShape,
-            color = state.paper.panel.copy(alpha = 0.98f),
-            contentColor = state.paper.fg,
-            border = BorderStroke(1.dp, state.paper.outlineVariant),
         ) {
             when (readerBottomChromeMode(state.showTts, state.autoPagingActive)) {
                 ReaderBottomChromeMode.TTS -> TtsBar(
@@ -198,6 +198,7 @@ internal fun BoxScope.ReaderInteractionLayer(
                 ReaderBottomChromeMode.NORMAL -> ReaderBottomActions(
                     onAction = callbacks.onChromeAction,
                     chapterProgress = state.chapterProgress,
+                    onProgressInteractionStarted = callbacks.onProgressScrubberInteractionStarted,
                     onSeekProgress = { callbacks.onSeekChapterPercent(it) },
                     onPreviousChapter = callbacks.onPrevChapter,
                     onNextChapter = callbacks.onNextChapter,

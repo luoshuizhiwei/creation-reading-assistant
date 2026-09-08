@@ -37,6 +37,7 @@ internal fun ReaderContentHostPagedBranch(
         chineseTypography = settings.readerSettings.chineseTypography,
         tapZoneMode = settings.readerSettings.tapZoneMode,
         pageTurnEffect = settings.readerSettings.pageTurnEffect,
+        pageTurnSpeed = settings.readerSettings.pageTurnSpeed,
         textColor = settings.paperFg,
         pageSurface = settings.paperSurface,
         headerLeft = settings.readerSettings.headerLeft,

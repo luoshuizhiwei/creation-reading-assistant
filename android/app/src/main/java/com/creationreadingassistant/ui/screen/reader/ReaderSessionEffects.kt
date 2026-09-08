@@ -258,6 +258,7 @@ internal fun ReaderSessionEffects(
         controlsVisibleForAutoHide = controlsVisible,
         autoHideSeconds = readerSettings.autoHideSeconds,
         sheetOpenGuard = sheetOpenGuard,
+        autoHideInteractionRevision = screenState.autoHideInteractionRevision,
         // 自动隐藏到点走状态机 AutoHideElapsed（与翻页隐藏同结果、不同事件语义）。
         onAutoHide = { onAction(ReaderAction.AutoHideElapsed(readerSettings.autoHideSeconds)) },
     )

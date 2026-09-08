@@ -23,6 +23,8 @@ enum class ReaderSheet {
  */
 data class ReaderScreenState(
     val controlsVisible: Boolean = true,
+    /** 每次进度拖动开始递增，用于重启 chrome 自动隐藏倒计时；不改变可见性。 */
+    val autoHideInteractionRevision: Long = 0L,
     val selectedText: String = "",
     val selectedRangeStart: Int = -1,
     val selectedGlobalOffset: Int = -1,

@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.ui.theme.AppTheme
 import com.creationreadingassistant.ui.theme.paperPalette
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -43,11 +44,11 @@ class ReaderSettingsSheetTest {
         renderSettings()
 
         val groups = listOf(
-            "排版" to "行文节奏",
-            "翻页与操作" to "按键与自动翻页",
+            "排版与版式" to "间距与版面",
+            "翻页与按键" to "自动翻页与按键",
             "显示与页眉页脚" to "屏幕显示",
-            "护眼与提醒" to "护眼滤镜",
-            "高级兼容" to "分页兼容",
+            "护眼与阅读提醒" to "护眼滤镜",
+            "排版引擎兼容" to "分页兼容模式",
         )
         groups.forEach { (entry, pageContent) ->
             scrollToText(entry)
@@ -59,7 +60,7 @@ class ReaderSettingsSheetTest {
                 .assertIsDisplayed()
                 .assertHasClickAction()
                 .performClick()
-            composeRule.onNodeWithText("快捷调整").assertIsDisplayed()
+            composeRule.onNodeWithText("快捷排版").assertIsDisplayed()
         }
     }
 
@@ -75,29 +76,35 @@ class ReaderSettingsSheetTest {
             ),
         )
 
-        scrollToText("翻页与操作")
-        composeRule.onNodeWithText("翻页与操作").performClick()
+        scrollToText("翻页与按键")
+        composeRule.onNodeWithText("翻页与按键").performClick()
+        composeRule.waitForIdle()
         composeRule.onAllNodesWithText("朗读时音量键仍翻页").assertCountEquals(0)
         scrollToText("音量键翻页")
         composeRule.onNodeWithText("音量键翻页").performClick()
+        composeRule.waitForIdle()
         scrollToText("朗读时音量键仍翻页")
         composeRule.onNodeWithText("朗读时音量键仍翻页").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("返回").performClick()
 
         scrollToText("显示与页眉页脚")
         composeRule.onNodeWithText("显示与页眉页脚").performClick()
+        composeRule.waitForIdle()
         composeRule.onAllNodesWithText("页眉左侧").assertCountEquals(0)
         scrollToText("显示安静阅读信息")
         composeRule.onNodeWithText("显示安静阅读信息").performClick()
+        composeRule.waitForIdle()
         scrollToText("页眉左侧")
         composeRule.onNodeWithText("页眉左侧").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("返回").performClick()
 
-        scrollToText("护眼与提醒")
-        composeRule.onNodeWithText("护眼与提醒").performClick()
+        scrollToText("护眼与阅读提醒")
+        composeRule.onNodeWithText("护眼与阅读提醒").performClick()
+        composeRule.waitForIdle()
         composeRule.onAllNodesWithText("色温").assertCountEquals(0)
         scrollToText("开启护眼滤镜")
         composeRule.onNodeWithText("开启护眼滤镜").performClick()
+        composeRule.waitForIdle()
         scrollToText("色温")
         composeRule.onNodeWithText("色温").assertIsDisplayed()
     }
@@ -107,15 +114,15 @@ class ReaderSettingsSheetTest {
         val visible = mutableStateOf(true)
         renderSettings(visible = visible)
 
-        scrollToText("高级兼容")
-        composeRule.onNodeWithText("高级兼容").performClick()
-        composeRule.onNodeWithText("分页兼容").assertIsDisplayed()
+        scrollToText("排版引擎兼容")
+        composeRule.onNodeWithText("排版引擎兼容").performClick()
+        composeRule.onNodeWithText("分页兼容模式").assertIsDisplayed()
         composeRule.runOnIdle { visible.value = false }
-        composeRule.onAllNodesWithText("分页兼容").assertCountEquals(0)
+        composeRule.onAllNodesWithText("分页兼容模式").assertCountEquals(0)
         composeRule.runOnIdle { visible.value = true }
 
-        composeRule.onNodeWithText("快捷调整").assertIsDisplayed()
-        composeRule.onAllNodesWithText("分页兼容").assertCountEquals(0)
+        composeRule.onNodeWithText("快捷排版").assertIsDisplayed()
+        composeRule.onAllNodesWithText("分页兼容模式").assertCountEquals(0)
     }
 
     @Test
@@ -145,14 +152,30 @@ class ReaderSettingsSheetTest {
 
         val rootBounds = composeRule.onNodeWithTag("settings-root").fetchSemanticsNode().boundsInRoot
         composeRule.onNodeWithText("阅读设置").assertIsDisplayed()
-        // 大字号下快捷调整可能在折叠线下方，先惰性滚动到位再断言
-        scrollToText("快捷调整")
-        composeRule.onNodeWithText("快捷调整").assertIsDisplayed()
-        scrollToText("高级兼容")
-        composeRule.onNodeWithText("高级兼容").assertIsDisplayed()
-        val advancedBounds = composeRule.onNodeWithText("高级兼容").fetchSemanticsNode().boundsInRoot
+        // 大字号下快捷排版可能在折叠线下方，先惰性滚动到位再断言
+        scrollToText("快捷排版")
+        composeRule.onNodeWithText("快捷排版").assertIsDisplayed()
+        scrollToText("排版引擎兼容")
+        composeRule.onNodeWithText("排版引擎兼容").assertIsDisplayed()
+        val advancedBounds = composeRule.onNodeWithText("排版引擎兼容").fetchSemanticsNode().boundsInRoot
         assertTrue(advancedBounds.left >= rootBounds.left)
         assertTrue(advancedBounds.right <= rootBounds.right)
+    }
+
+    @Test
+    fun revealIsSelectableFromBothReaderSettingsEntryPoints() {
+        var observed: ReaderSettings? = null
+        renderSettings(onSettingsChangeObserved = { observed = it })
+
+        scrollToText("揭示")
+        composeRule.onNodeWithText("揭示").performClick()
+        composeRule.runOnIdle { assertEquals("reveal", observed?.pageTurnEffect) }
+
+        scrollToText("翻页与按键")
+        composeRule.onNodeWithText("翻页与按键").performClick()
+        scrollToText("揭示")
+        composeRule.onNodeWithText("揭示").performClick()
+        composeRule.runOnIdle { assertEquals("reveal", observed?.pageTurnEffect) }
     }
 
     /**
@@ -171,6 +194,7 @@ class ReaderSettingsSheetTest {
         darkTheme: Boolean = false,
         initial: ReaderSettings = ReaderSettings(),
         visible: MutableState<Boolean> = mutableStateOf(true),
+        onSettingsChangeObserved: (ReaderSettings) -> Unit = {},
     ) {
         composeRule.setContent {
             var settings by remember { mutableStateOf(initial) }
@@ -186,7 +210,10 @@ class ReaderSettingsSheetTest {
                             SettingsSheet(
                                 paper = paperPalette(settings.background, darkTheme),
                                 settings = settings,
-                                onSettingsChange = { settings = it },
+                                onSettingsChange = {
+                                    settings = it
+                                    onSettingsChangeObserved(it)
+                                },
                                 onBookInfo = {},
                             )
                         }
