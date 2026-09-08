@@ -2,7 +2,6 @@ package com.creationreadingassistant.ui.components
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -58,8 +57,6 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
  *
  * 形状统一读 [com.creationreadingassistant.ui.theme.ComponentSpec.cardShape]
  * （Apple = squircle，DEFAULT/WEB = RoundedCornerShape），不再手写 `RoundedCornerShape(spec.cardRadius)`。
- *
- * 注意：SectionCard 是「非玻璃」卡片；Apple 下的毛玻璃近似由 [GlassCard]（基于 [GlassSurface]）提供。
  *
  * @param onClick 传入则卡片可点击（带 ripple），为 null 则静态
  */
@@ -141,33 +138,6 @@ fun SectionCard(
             GlassOverlays(shape = shape, palette = palette)
         }
     }
-}
-
-/**
- * Apple 毛玻璃近似卡片（frosted glass）。
- *
- * 委托 [GlassSurface] 实现：半透明表面（取 spec.cardContainer × spec.glassTint）+ 发丝边 +
- * 环境阴影 + 顶部 specular 高光层（仅 APPLE 且 [com.creationreadingassistant.ui.theme.LocalGlassPalette] 非 null 时）。
- *
- * 真背景模糊在 minSdk 24 上不可用（需 API 31+ 的 Window 模糊，仅 Dialog 容器启用）；
- * 卡片本身恒定不调用真模糊。
- *
- * @param onClick 传入则卡片可点击（带 ripple + 弹性按压），为 null 则静态
- */
-@Composable
-fun GlassCard(
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val spec = LocalComponentSpec.current
-    val layout = LocalLayoutTokens.current
-    GlassSurface(
-        modifier = modifier,
-        shape = spec.cardShape,
-        onClick = onClick,
-        content = content,
-    )
 }
 
 /**

@@ -25,7 +25,8 @@ object NotificationPermission {
         return checkPostNotificationsGranted(context)
     }
 
-    /** API 33+ 才引用该权限字段（lint InlinedApi 需版本守卫内联才能识别）。 */
+    /** API 33+ 才引用该权限字段；调用入口已在 [isGranted] 中完成版本守卫。 */
+    @Suppress("InlinedApi")
     private fun checkPostNotificationsGranted(context: Context): Boolean =
         ContextCompat.checkSelfPermission(
             context, Manifest.permission.POST_NOTIFICATIONS,

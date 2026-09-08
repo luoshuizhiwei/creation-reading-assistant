@@ -73,6 +73,7 @@ interface ReplaceProjectionScopeProvider {
 sealed class ReplaceProjectionScope {
     abstract val logicalChapterIndex: Int
 
+    @ConsistentCopyVisibility
     data class Exact internal constructor(
         override val logicalChapterIndex: Int,
         val firstSegmentIndex: Int,

@@ -13875,16 +13875,6 @@ HSPLcom/creationreadingassistant/ui/components/AppLayoutKt;->SectionHeader(Ljava
 Lcom/creationreadingassistant/ui/components/AppLayoutKt$$ExternalSyntheticLambda0;
 SPLcom/creationreadingassistant/ui/components/AppLayoutKt$$ExternalSyntheticLambda0;-><init>(Ljava/lang/String;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function3;II)V
 SPLcom/creationreadingassistant/ui/components/AppLayoutKt$$ExternalSyntheticLambda0;->invoke(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;
-Lcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;->$r8$lambda$lu2J4wqBj8eXi0XTxLUpgR1LsGk(FJLandroidx/compose/ui/graphics/drawscope/DrawScope;)Lkotlin/Unit;
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;-><clinit>()V
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;->BookmarkIndicator$lambda$2$lambda$1(FJLandroidx/compose/ui/graphics/drawscope/DrawScope;)Lkotlin/Unit;
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;->BookmarkIndicator(Landroidx/compose/ui/Modifier;ZLandroidx/compose/runtime/Composer;II)V
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;->bookmarkPath(FFF)Landroidx/compose/ui/graphics/Path;
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt;->getBookmarkIndicatorWidth()F
-Lcom/creationreadingassistant/ui/components/BookmarkIndicatorKt$$ExternalSyntheticLambda0;
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt$$ExternalSyntheticLambda0;-><init>(FJ)V
-SPLcom/creationreadingassistant/ui/components/BookmarkIndicatorKt$$ExternalSyntheticLambda0;->invoke(Ljava/lang/Object;)Ljava/lang/Object;
 Lcom/creationreadingassistant/ui/components/SharedComponentsKt;
 Lcom/creationreadingassistant/ui/components/SharedComponentsKt$$ExternalSyntheticLambda4;
 SPLcom/creationreadingassistant/ui/components/SharedComponentsKt$$ExternalSyntheticLambda4;-><init>(Ljava/lang/String;Landroidx/compose/ui/Modifier;Lkotlin/jvm/functions/Function0;II)V
@@ -14387,8 +14377,6 @@ Lcom/creationreadingassistant/ui/viewmodel/ShelfViewModel_HiltModules$KeyModule;
 SPLcom/creationreadingassistant/ui/viewmodel/ShelfViewModel_HiltModules$KeyModule;->provide()Z
 Lcom/creationreadingassistant/ui/viewmodel/StatsDashboardViewModel_HiltModules$KeyModule;
 SPLcom/creationreadingassistant/ui/viewmodel/StatsDashboardViewModel_HiltModules$KeyModule;->provide()Z
-Lcom/creationreadingassistant/ui/viewmodel/StatsViewModel_HiltModules$KeyModule;
-SPLcom/creationreadingassistant/ui/viewmodel/StatsViewModel_HiltModules$KeyModule;->provide()Z
 Lcom/creationreadingassistant/ui/viewmodel/TaxonomyViewModel_HiltModules$KeyModule;
 SPLcom/creationreadingassistant/ui/viewmodel/TaxonomyViewModel_HiltModules$KeyModule;->provide()Z
 Lcom/google/android/gms/common/internal/Preconditions;
