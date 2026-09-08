@@ -4,6 +4,9 @@
 > 审计者：小元宝（洛水之蔚的 WorkBuddy 助手）
 > 基线：`main` HEAD = `169577e`（`feat(android): strengthen reader navigation and scroll state`）
 > 授权范围：验证并提交「已完整接线、可独立验收」的 Android WIP；不碰桌面端/`archives`/根配置；不 push；不重写历史。
+>
+> **后续状态（2026-09-08）**：本文是 09-02 的历史 WIP 快照。用户随后授权死代码清理，表中未接线的
+> `SpineTexture.kt` 已删除；当前结论见 `docs/qa/android-structure-cleanup-2026-09-08.md`。
 
 ## 结论（TL;DR）
 

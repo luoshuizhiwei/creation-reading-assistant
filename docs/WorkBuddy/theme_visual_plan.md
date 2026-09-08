@@ -1,6 +1,9 @@
 # 创作阅读助手 · 主题系统视觉方案（实施稿 · 设计方向已冻结）
 
 > **状态说明**：架构条件**通过**；视觉规范**已通过**；**已实施并通过真机验收**（2026-07-28，小米真机 c49ac6cf，§9.1 截图矩阵与专项核对完成，截图存 `artifacts/screenshots/`）；**设计方向已冻结，仅可微调尺寸 Token**（书签 8×9→6×7、间距等），**不再调整整体设计方向**。
+> **代码映射说明（2026-09-08）**：本文 D 节的具体文件/符号是 2026-07 实施快照，不是当前源码清单；
+> 后续演进中未接线的 `ThemeSwitchButton`、`BookmarkIndicator` 等已作为死代码删除。视觉原则继续有效，
+> 当前实现位置以源码和 `docs/handoff/current.md` 为准，禁止据本文恢复已删除结构。
 >
 > **范围与基调**：外壳收敛为单套「清屏骨架（冷调低彩度纸白底 / 大留白 / 统一圆角 / 清晰层级）+ 墨笺书签特征（靛青主色 + 唯一书签形选中态）」，仅浅 / 深双模；阅读器独立 `ReaderPaperPalette`（白纸 / 暖纸 / 护眼 / 夜读 4 档）与外壳解耦；Apple 删除、清新并入默认并做兼容映射，旧用户配置不失效。
 >
@@ -484,7 +487,7 @@
 - **源文件**：
   - `app/src/main/java/com/creationreadingassistant/data/settings/SettingsStore.kt`
   - `app/src/main/java/com/creationreadingassistant/ui/theme/ReaderPaperPalette.kt`（**新建**）
-  - `app/src/main/java/com/creationreadingassistant/ui/screen/ReaderScreen.kt`
+  - `app/src/main/java/com/creationreadingassistant/ui/screen/reader/ReaderScreen.kt`
 - **依赖**：T1（palette 引用外壳 primary 即可，无需 T2 完成）。
 - **要点**：
   1. `SettingsStore.kt:98` `migrateReaderBg()` 由 7 档收敛为 4 档：`null/"paper"→"warm"`、`"plain"→"white"`、`"eye"→"green"`、`"warm-yellow"→"warm"`、`"green-bean"→"green"`、`"oled-black"→"night"`（其余 white/warm/green/night 直传）。

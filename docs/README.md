@@ -1,6 +1,6 @@
 # 文档索引
 
-更新日期：2026-08-21
+更新日期：2026-09-08
 
 本仓库包含桌面端、独立原生 Android（当前移动端主线 `android/`）。旧 Capacitor `mobile/` 产品线已于 2026-07-30 删除，其许可证与上游存档见 `archives/frozen-mobile/`；历史文档里提到的 `mobile/` 是指该已删除产品线，不能当作当前 `android/` 的实现依据。
 
@@ -18,6 +18,7 @@
 | [`testing/native-android-gap-audit-2026-07-29.md`](testing/native-android-gap-audit-2026-07-29.md) | 可直接分派给其他 agent 的缺口与验收标准；P0 已全部收口（2026-08-16），剩余为真机复核、EPUB 语料/基线、桌面门禁与同步冒烟 |
 | [`plans/legado-feature-backlog.md`](plans/legado-feature-backlog.md) | 阅读体验增强候选；不是已承诺路线图 |
 | [`plans/2026-08-16-android-followup-roadmap.md`](plans/2026-08-16-android-followup-roadmap.md) | 现行后续计划：收口与真机验证 → 首次发版 → 质量门禁 → 功能深化 |
+| [`qa/android-structure-cleanup-2026-09-08.md`](qa/android-structure-cleanup-2026-09-08.md) | 当前 Android 死代码清理证据、删除测试方法与剩余结构/API 债 |
 | [`plans/2026-08-16-reading-goal-streak-design.md`](plans/2026-08-16-reading-goal-streak-design.md) | P3.2 阅读目标 + 连续阅读 + 提醒设计（片 0–1 会话写入与统计口径统一已完成；片 2–3 待决策/实施） |
 | [`plans/2026-08-16-toc-read-mark-manual-sort-design.md`](plans/2026-08-16-toc-read-mark-manual-sort-design.md) | P3.3 目录已读标记 + 分类/标签/书单手动排序（已完成并真机验收） |
 | [`plans/replace-rules-render-integration-design.md`](plans/replace-rules-render-integration-design.md) | 替换净化规则接入正文渲染：小型 TXT + 新分页引擎及不支持路径能力边界已接线，流式/旧渲染及其他格式仍待实施与带书真机验收 |

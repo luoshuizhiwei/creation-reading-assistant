@@ -1,15 +1,19 @@
 # 当前 Agent 交接入口
 
-更新日期：2026-09-05（P3.1 阅读器核心引擎深度压测闭环与真机监控，见第 2 节；前端全域 12 梯队重塑收官与性能治理已达成）
+更新日期：2026-09-08（阅读器 T8、结构清理与本地提交已收口；P3.1 EPUB/分页净化与 TTS 见第 28–29 节）
 仓库：`D:\develop\Code\Codex\creation-reading-assistant`  
 当前对话主线：**双线并行**——独立原生 Android `android/`（本文件第 2、18 节）与桌面端 Electron `src/`+`electron/`（第 19 节，独立会话）。两线不共享运行时代码，跨线改动需各自会话的文件所有权。
 
+> **状态读取规则：** 第 1–3 节和“当前下一步（2026-09-08）”是活动结论；其余带日期的章节是历史证据。
+> 历史章节中的“下一刀”“待办”不构成当前指令；出现冲突时，采用日期更新的结论和当前工作树状态。
+
 ## 1. 接手前必须知道
 
-- 当前分支：`codex/workspace-backup-2026-08-20`；记录时 HEAD 为 `50674a9`。
-- 工作区不是干净基线：文件数量以接手时 `git status --short` 为准；
-  其中新增 `docs/handoff/current.md` 与 desktop 调研记录，其余主体是 Android reader、
-  阅读统计、章节已读/排序、替换净化与对应测试/文档。全部视为用户资产。
+- 2026-09-08 本轮代码提交后当前分支为 `main`、代码 HEAD 为 `bfe586b`；本文档同步将产生后续提交。
+  接手前仍须重新读取 `git status --short` 和 HEAD，不可把该快照当作恒定基线。
+- 工作区不是干净基线：Android reader/页面、测试、文档、诊断工件以及 desktop 改动共存，全部先视为
+  用户资产。WorkBuddy 已于 2026-09-08 完成 T8 只读 diff 清单；其记录的是清理前 273 项工作树快照，
+  不能直接覆盖到随后新增的 Android 死代码清理与文档改动。
 - 未经用户明确要求，不 stage、commit、push、reset、checkout、全仓格式化或清理这些改动。
 - desktop 与 Android 不共享运行时代码；当前任务不得顺手修改 `src/`、`electron/`。
 - 设备行为只用真实手机验证；先 `adb devices`，所有命令显式 `adb -s <serial>`。禁止 MuMu。
@@ -17,7 +21,20 @@
 
 ## 2. 当前 Android 状态
 
-### 已完成并有新鲜证据
+### 已完成记录（最新结论优先）
+
+- **2026-09-08 阅读器 T8（WorkBuddy 独立验收 PASS）：** 默认翻页「无」、滑动、揭页正反向的
+  连续帧、进度拖动预览/自动隐藏、目录/设置/规则/搜索与 14→15→14 边界均已由 WorkBuddy 实测。
+  其报告记录 74/74 定向 JVM、构建成功、20/20 定向真机 instrumentation 和录像工件
+  `.workbuddy/accept-20260908/`。该验收未修改源码、测试、脚本或 Git 状态。
+  已知非阻塞观察：揭页在松手后播放而非拖动中跟手；安装确认脚本仍会受 MIUI 弹窗超时影响，
+  不能将直接 `adb install` 的成功当作自动安装工作流恢复。
+
+- **2026-09-08 Android 结构清理：** 删除 9 个无生产调用的 Kotlin 文件、1 个只覆盖死 ViewModel 的
+  测试文件、5 个无调用局部组件，并同步移除 Baseline/Startup Profile 旧描述符，净减 1,767 行。
+  全量引用核对、删除编译测试和剩余结构/API 债见
+  `docs/qa/android-structure-cleanup-2026-09-08.md`。WorkBuddy 已独立复跑两道门禁并判定 PASS：
+  JVM 1694/1694、Lint 0 error/4 warnings、Debug APK 构建成功；本轮无预期视觉变化，未重复 T8 录像矩阵。
 
 - **2026-09-05 P3.1 阅读器核心引擎深度对抗压测与真机监控闭环（双子代理协同）：**
   1. **跨 ReadingUnit 正则边界与 TextOffsetMap 映射**（`StreamingCompleteChapterSourceTest` 15 passed）：
@@ -42,10 +59,13 @@
      - 现场保护：`stay_on_while_plugged_in` 原值 3，核验保持为 3；未篡改用户真实书库；0 临时文件残留。
 
 - P3.3 目录已读与分类/标签/书单手动排序已经收口；TXT 已读、书单内书籍排序不在本期。
-- P3.2 片 0–1 已完成：本地阅读会话落库、统一 occurred 日期口径、异常时长过滤与 streak。
-- P3.1 替换净化首期片 1–3 已接线：小型 TXT + 新分页引擎；source/display 双坐标、
-  分页缓存规则身份、高亮/TTS/搜索/选区映射已有自动测试。首期能力边界也已完成：
-  滚动/legacy/EPUB/Markdown 隐藏替换入口，展示保留原文的具体原因。
+- P3.2 片 0–1 已完成：本地阅读会话落库、统一 occurred 日期口径、异常时长过滤与 streak；
+  片 2–3 的目标进度环和每日提醒也已实施，当前只缺通知触发与重启恢复的真机证据。
+- **P3.1 当前状态：** 分页 TXT 和 EPUB 的替换净化已经收口；规则启停重分页、超大章降级提示、
+  source/display 映射与 TTS 证据以第 28–29 节为准。当前仍未实施的仅是 legacy/滚动路径投影接入，
+  以及 Markdown 的结构保真/源↔渲染映射契约；两者保持入口隐藏、正文原样显示。
+
+### P3.1 历史实现链（2026-08，仅作根因与测试参考）
 - **P3.1 流式大 TXT 完整逻辑章节 source 于 2026-08-20 首轮实现后因性能/内存三项回归暂未通过：**
   1) 无目录大 TXT（50MB）把整本退化为一个 `PagedChapterContent`，破坏有界首帧与内存设计；
   2) `ReplacedChapterSource` 的 `mutableMap<Int, CachedChapter>` 无容量上限；
@@ -101,30 +121,25 @@
 
 以上证据对应当前未提交工作区，任何后续代码修改后都必须重跑，不能继续引用旧绿灯。
 
-### 当前最安全的下一步
+### 当前下一步（2026-09-08）
 
-继续 P3.1，不跳到新功能：
-
-1. **带书真机矩阵仍待执行（高优先级）：** 在授权后导入中性测试 TXT，不要改用户真实书库；
-   小型 TXT + 无目录大 TXT（50MB）+ 超长单章（>256K）各自验证：
-   正文替换效果（跨原 ReadingUnit 匹配）、规则启停、重分页、搜索、高亮、选区、TTS、
-   超限提示一次性触发且不重复、持久化书签/进度不损坏 source 坐标。
-2. legacy/滚动路径：按
-   `docs/plans/replace-rules-render-integration-design.md §片 4 legacy/滚动路径`
-   单独切片，产出携带 display 文本 + source↔display 映射 + 原始全局偏移的投影结果，
-   逐项接入 chapterBlocks、blockGlobalOffsets、进度恢复、搜索跳转、高亮、选区、
-   TTS 句高亮、书签/锚点；必须先写映射和持久化坐标测试，不把 display 坐标写数据库。
-3. EPUB/Markdown：先分别评估 DOM/段落结构保真性与 Markdown 源↔渲染文本映射语义，
-   未出设计和测试契约前继续隐藏入口、正文原样显示。
-4. ReplacedChapterSource 在并发线程读取下的 putIfAbsent/重复投影竞态，可在 legacy 之前
-   用 8–12 条并发单元测试收紧，确保即便多线程同时请求同一章节，也只执行一次整章投影。
-
-### 已停放，除非用户重新确认
-
-- P3.2 片 2 `GoalStore` + 目标进度环、片 3 WorkManager 提醒：设计存在，但用户尚未确认
-  「每日阅读目标」仍是当前优先级。
-- 首次 Android 正式发布：发布链路已搭好，但签名 Secrets、首发 tag 和升级验证仍需用户操作。
-- A12 全量字符串资源化/无障碍、A7 同步冒烟、A9 EPUB 异常语料与性能基线仍是质量开放项。
+1. **本轮提交已收口，暂不新开实现：** T8 本体及 6 个编译闭包已提交为 `f65ee23`，结构清理已提交为
+   `bfe586b`，本文档单独同步；均只在本地，尚未 push。其他 Android 页面 WIP、desktop 改动和诊断工件
+   仍按用户资产保留，未混入本轮提交，也未擅自删除。
+2. **P3.1 剩余架构切片：** 以
+   `docs/plans/replace-rules-render-integration-design.md §片 4 legacy/滚动路径` 为唯一入口，先写
+   display 文本 + source↔display 映射 + 原始全局偏移及持久化坐标测试，再接入各消费点。禁止 display
+   坐标入库。分页 TXT 与 EPUB 的净化、规则启停/重分页、超大章和 TTS 证据已在第 28–29 节收口，不重复
+   作为当前 P3.1 待办。
+3. **Markdown 净化前置设计：** 单独明确源文本与渲染文本映射、结构保真和测试契约；契约完成前入口继续
+   隐藏、正文保留原文。
+4. **产品 UX：** 审查首页继续阅读、阅读历史、全局搜索在手机、平板和横屏下的信息架构；阅读设置继续
+   按渐进披露收口。
+5. **仍需设备证据：** P3.2 阅读目标提醒的通知实际触发和重启恢复。后续真机验收一律交由 WorkBuddy，
+   不由 Codex 自行执行。
+6. **质量与发布：** 修复 `install_with_confirm.ps1` 的 MIUI 超时（直接 adb 仅可作为诊断，不是成功替代）、
+   A7 同步冒烟、A9 EPUB 异常语料/性能、A12 字符串资源化/无障碍；正式发布仍需用户配置签名 Secrets、
+   授权 tag/push 和升级安装验证。
 
 ## 3. 权威文档顺序
 
@@ -211,7 +226,7 @@ Novalist 调研与取舍仍记录在
   剩余：真机通知触发/重启恢复验收；通知点击 V1 仅拉起应用（deep-link 进阅读器留作增强）。
 - **2026-08-22 阅读器质量收口（第一轮，未提交）**：针对 §8 的 17 项仪器失败——
   ① TOC 生产修复：当前章不叠加「已读章节」语义（计数仍含当前章）；② 书架×2 为**过期测试**
-  （搜索已于 08-05 迁独立 `shelf/search` 路由、ShelfHeader.kt 成死代码待清理）：重写为
+  （搜索已于 08-05 迁独立 `shelf/search` 路由；`ShelfHeader.kt` 死代码已于 2026-09-08 清理）：重写为
   「搜索图标派发 OpenSearch」+「刷新指示器不高于内容区顶」运行时相对断言；③
   ReaderSettingsSheetTest×5 与 StatsComposeTest UI×2 的根因是 **LazyColumn/PageLazyColumn
   折叠线外节点未组合**，统一改 `performScrollToNode`（容器侧惰性感知）；④ 结构自检×7
