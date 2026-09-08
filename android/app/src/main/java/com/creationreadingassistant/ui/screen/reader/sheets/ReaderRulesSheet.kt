@@ -69,6 +69,8 @@ import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 纯 JVM 可测的编辑/校验/预览逻辑（TDD seam）
@@ -336,6 +338,7 @@ private fun RuleActionButton(
     enabled: Boolean = true,
     isDestructive: Boolean = false,
 ) {
+    val spec = LocalComponentSpec.current
     val tint = when {
         !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
         isDestructive -> MaterialTheme.colorScheme.error
@@ -347,7 +350,7 @@ private fun RuleActionButton(
         else -> MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f)
     }
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = RoundedCornerShape(spec.pedestalRadius),
         color = bg,
         modifier = Modifier
             .padding(start = 6.dp)
@@ -474,13 +477,14 @@ private fun ColumnScope.RulesList(
     onEditReplace: (ReplaceRule) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
     Column(Modifier.fillMaxWidth().weight(1f)) {
         // 顶层 Tab 切换栏使用现代化圆润微胶囊导轨
         Surface(
-            shape = RoundedCornerShape(16.dp),
+            shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
-            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
@@ -526,7 +530,7 @@ private fun ColumnScope.RulesList(
         // 底部新增规则按钮圆润微岛化
         Button(
             onClick = onAdd,
-            shape = RoundedCornerShape(16.dp),
+            shape = PillShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
@@ -541,10 +545,11 @@ private fun ColumnScope.RulesList(
 @Composable
 private fun ReplacementUnavailableNotice(message: String) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = layout.pageHorizontal, vertical = layout.relatedGap),
@@ -572,6 +577,7 @@ private fun ColumnScope.TocRulesList(
     onEdit: (TocRule) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     if (rules.isEmpty()) {
         RuleEmptyState(title = "暂无目录规则", body = "点击「新增规则」添加自定义目录识别规则。")
         return
@@ -585,9 +591,9 @@ private fun ColumnScope.TocRulesList(
         if (customIds.isEmpty()) {
             item("custom_hint") {
                 Surface(
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f),
-                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                     modifier = Modifier.fillMaxWidth().padding(vertical = layout.microGap),
                 ) {
                     Text(
@@ -689,12 +695,12 @@ private fun CustomRuleRow(
     onMoveUp: () -> Unit,
     onMoveDown: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        shadowElevation = 0.5.dp,
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
     ) {
         Column(
             modifier = Modifier
@@ -710,7 +716,7 @@ private fun CustomRuleRow(
                 Box(
                     modifier = Modifier
                         .size(28.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(spec.pedestalRadius))
                         .background(Color(0xFF6750A4).copy(alpha = 0.12f)),
                     contentAlignment = Alignment.Center,
                 ) {
@@ -782,12 +788,12 @@ private fun CustomRuleRow(
 @Composable
 private fun BuiltinRuleRow(rule: TocRule, onToggle: ((Boolean) -> Unit)?) {
     val isStandard = rule.id == BuiltinTocRules.STANDARD_ID
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        shadowElevation = 0.5.dp,
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
     ) {
         Row(
             modifier = Modifier
@@ -800,7 +806,7 @@ private fun BuiltinRuleRow(rule: TocRule, onToggle: ((Boolean) -> Unit)?) {
             Box(
                 modifier = Modifier
                     .size(28.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
                     .background(Color(0xFF00796B).copy(alpha = 0.12f)),
                 contentAlignment = Alignment.Center,
             ) {
@@ -868,6 +874,7 @@ private fun ColumnScope.RuleEditor(
     onSave: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     val check = remember(draft, previewText, effectiveToc, effectiveReplace) {
         evaluateDraft(draft, effectiveToc, effectiveReplace, previewText)
     }
@@ -886,7 +893,7 @@ private fun ColumnScope.RuleEditor(
             label = { Text("规则名称") },
             supportingText = { Text("留空时以正则表达式命名") },
             singleLine = true,
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(spec.islandRadius),
             modifier = Modifier.fillMaxWidth(),
         )
         OutlinedTextField(
@@ -894,7 +901,7 @@ private fun ColumnScope.RuleEditor(
             onValueChange = { onDraftChange(draft.copy(pattern = it)) },
             label = { Text("正则表达式") },
             supportingText = { Text("示例：第[0-9]+章") },
-            shape = RoundedCornerShape(14.dp),
+            shape = RoundedCornerShape(spec.islandRadius),
             modifier = Modifier.fillMaxWidth().padding(top = layout.relatedGap),
         )
         if (draft.kind == RuleKind.REPLACE) {
@@ -903,7 +910,7 @@ private fun ColumnScope.RuleEditor(
                 onValueChange = { onDraftChange(draft.copy(replacement = it)) },
                 label = { Text("替换文本") },
                 supportingText = { Text("留空表示删除命中文本") },
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(spec.islandRadius),
                 modifier = Modifier.fillMaxWidth().padding(top = layout.relatedGap),
             )
         }
@@ -916,9 +923,9 @@ private fun ColumnScope.RuleEditor(
         )
         // 作用域微胶囊单选导轨
         Surface(
-            shape = RoundedCornerShape(14.dp),
+            shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
-            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             modifier = Modifier.fillMaxWidth(),
         ) {
             Row(
@@ -950,7 +957,7 @@ private fun ColumnScope.RuleEditor(
         Button(
             onClick = onSave,
             enabled = saveEnabled,
-            shape = RoundedCornerShape(16.dp),
+            shape = PillShape,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(top = layout.contentGap),
@@ -968,14 +975,14 @@ private fun EditorPreview(
     check: RuleDraftCheck,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = layout.contentGap),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-        shadowElevation = 0.5.dp,
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
     ) {
         Column(
             modifier = Modifier
@@ -1021,7 +1028,7 @@ private fun EditorPreview(
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         check.errors.forEach { error ->
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = RoundedCornerShape(spec.pedestalRadius),
                                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.4f),
                                 modifier = Modifier.fillMaxWidth(),
                             ) {
@@ -1048,7 +1055,7 @@ private fun EditorPreview(
                                 ) {
                                     preview.result.sampleTitles.forEach { title ->
                                         Surface(
-                                            shape = RoundedCornerShape(8.dp),
+                                            shape = RoundedCornerShape(spec.pedestalRadius),
                                             color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
                                             modifier = Modifier.fillMaxWidth(),
                                         ) {
@@ -1076,9 +1083,9 @@ private fun EditorPreview(
                                 verticalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(spec.pedestalRadius),
                                     color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
-                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f)),
+                                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {
@@ -1098,9 +1105,9 @@ private fun EditorPreview(
                                     }
                                 }
                                 Surface(
-                                    shape = RoundedCornerShape(8.dp),
+                                    shape = RoundedCornerShape(spec.pedestalRadius),
                                     color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.15f),
-                                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                                     modifier = Modifier.fillMaxWidth(),
                                 ) {
                                     Column(modifier = Modifier.padding(10.dp)) {

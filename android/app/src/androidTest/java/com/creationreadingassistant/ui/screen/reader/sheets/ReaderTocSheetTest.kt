@@ -33,7 +33,7 @@ class ReaderTocSheetTest {
                 }
             }
         }
-        composeRule.onNodeWithText("目录").assertIsDisplayed()
+        composeRule.onNodeWithText("目录与标记").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("当前章节").assertIsDisplayed()
         composeRule.onNodeWithText("最近浏览").assertIsDisplayed()
     }

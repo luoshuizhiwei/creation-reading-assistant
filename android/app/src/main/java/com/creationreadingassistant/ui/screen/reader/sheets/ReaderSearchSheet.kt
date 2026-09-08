@@ -52,6 +52,7 @@ import com.creationreadingassistant.ui.screen.reader.computeBookSearch
 import com.creationreadingassistant.ui.screen.reader.computeEpubSearch
 import com.creationreadingassistant.ui.screen.reader.computeStreamingTxtSearch
 import com.creationreadingassistant.ui.screen.reader.searchContextKeyOf
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlinx.coroutines.CancellationException
@@ -106,6 +107,9 @@ internal fun SearchSheet(
     val scope = rememberCoroutineScope()
     var searchJob by remember { mutableStateOf<Job?>(null) }
     val reducedMotion = rememberReducedMotion()
+    // 微岛收敛：本 sheet 覆盖在阅读页之上，卡片圆角/边框/阴影统一取 ComponentSpec 令牌，
+    // 与已收敛的 ReaderTocSheet/ReaderSettingsSheet 同源；reader surface 恒定零阴影、零装饰。
+    val spec = LocalComponentSpec.current
     val focusRequester = remember { FocusRequester() }
     val keyboardController = LocalSoftwareKeyboardController.current
     val searchContextKey = searchContextKeyOf(document, txtDocument, plainContent)
@@ -197,7 +201,7 @@ internal fun SearchSheet(
                 }
             },
             singleLine = true,
-            shape = RoundedCornerShape(16.dp),
+            shape = RoundedCornerShape(spec.islandRadius),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 10.dp)
@@ -209,10 +213,9 @@ internal fun SearchSheet(
         if (phase == BookSearchPhase.SEARCHING) {
             // 搜索进度细腻微岛卡片，带已扫描页数微胶囊与取消微胶囊
             Surface(
-                shape = RoundedCornerShape(14.dp),
+                shape = RoundedCornerShape(spec.islandRadius),
                 color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f),
-                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                shadowElevation = 0.5.dp,
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 4.dp),
@@ -274,7 +277,7 @@ internal fun SearchSheet(
             }
         } else if (phase == BookSearchPhase.CANCELLED && query.isNotBlank()) {
             Surface(
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
                 modifier = Modifier
                     .fillMaxWidth()
@@ -308,10 +311,9 @@ internal fun SearchSheet(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 16.dp, vertical = 6.dp),
-                shape = RoundedCornerShape(24.dp),
+                shape = RoundedCornerShape(spec.dockRadius),
                 color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.85f),
-                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
-                shadowElevation = 2.dp,
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Row(
                     modifier = Modifier
@@ -328,9 +330,9 @@ internal fun SearchSheet(
                     }
                     val current = session.currentIndex
                     Surface(
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(spec.hintRadius),
                         color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
+                        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                     ) {
                         Text(
                             text = if (current >= 0) "当前位置 ${current + 1} / ${session.results.size}" else "共 ${session.results.size} 处",
@@ -353,9 +355,9 @@ internal fun SearchSheet(
         when (searchSheetBodyState(query, phase, session.results.size)) {
             SearchSheetBodyState.PROMPT -> {
                 Surface(
-                    shape = RoundedCornerShape(14.dp),
+                    shape = RoundedCornerShape(spec.islandRadius),
                     color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.6f),
-                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -406,15 +408,14 @@ internal fun SearchSheet(
                             MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.7f)
                         }
                         val cardBorder = if (isCurrent) {
-                            BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.6f))
+                            BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha))
                         } else {
-                            BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                            BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha))
                         }
                         Surface(
-                            shape = RoundedCornerShape(12.dp),
+                            shape = RoundedCornerShape(spec.hintRadius),
                             color = cardBg,
                             border = cardBorder,
-                            shadowElevation = if (isCurrent) 1.dp else 0.5.dp,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {

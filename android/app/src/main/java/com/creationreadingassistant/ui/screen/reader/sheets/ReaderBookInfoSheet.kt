@@ -30,6 +30,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.WarningAmber
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -47,7 +48,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.screen.reader.formatDuration
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.PillShape
@@ -75,7 +75,9 @@ internal fun BookInfoSheet(
     val haptic = rememberHaptic(rememberReducedMotion())
 
     if (confirmDelete) {
-        GlassAlertDialog(
+        // G26：确认弹框同样去除 glassWindowBlur（反射整窗实时模糊），避免在 sheet 之上
+        // 再叠一层模糊 Dialog 与翻页争 GPU；除模糊外视觉/行为与普通 AlertDialog 一致。
+        AlertDialog(
             onDismissRequest = { confirmDelete = false },
             title = {
                 Row(

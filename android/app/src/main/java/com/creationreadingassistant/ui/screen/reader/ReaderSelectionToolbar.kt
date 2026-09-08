@@ -50,7 +50,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.screen.reader.sheets.HIGHLIGHT_COLORS
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPanelSurface
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 
 internal data class SelectionToolbarActionSpec(
@@ -95,12 +97,13 @@ internal fun SelectionToolbar(
     modifier: Modifier = Modifier,
 ) {
     var moreExpanded by remember { mutableStateOf(false) }
+    val spec = LocalComponentSpec.current
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.96f),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
-        shape = RoundedCornerShape(22.dp),
-        shadowElevation = 6.dp,
+    // 微岛收敛：选句工具条是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
+    //（随纸 panel 纸面 + 发丝边 + panelElevation 0dp）。原手写 22dp 圆角 / surfaceContainerHigh@0.96 /
+    // 6dp 阴影已移除——阴影在翻页与选区手柄重绘期额外侵蚀帧预算；圆角改取 dockRadius 令牌。
+    ReaderPanelSurface(
+        shape = RoundedCornerShape(spec.dockRadius),
         modifier = modifier
             .padding(horizontal = 8.dp, vertical = 6.dp)
             .widthIn(max = 560.dp)
@@ -174,7 +177,8 @@ internal fun SelectionToolbar(
                     Spacer(Modifier.width(8.dp))
                     Surface(
                         onClick = onToggleColor,
-                        shape = RoundedCornerShape(12.dp),
+                        // 微岛收敛：提示岛圆角统一走 hintRadius 令牌（原手写 12dp，取值不变）。
+                        shape = RoundedCornerShape(spec.hintRadius),
                         color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.6f),
                         modifier = Modifier.heightIn(min = 38.dp),
                     ) {
@@ -237,10 +241,12 @@ internal fun SelectionToolbar(
                         DropdownMenu(
                             expanded = moreExpanded,
                             onDismissRequest = { moreExpanded = false },
-                            shape = RoundedCornerShape(16.dp),
-                            containerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.98f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                            shadowElevation = 6.dp,
+                            // 微岛收敛：溢出菜单同样落在阅读页之上——圆角取 islandRadius 令牌、
+                            // 容器色改随纸 panel、发丝边走 hairline 令牌、阴影归零。
+                            shape = RoundedCornerShape(spec.islandRadius),
+                            containerColor = paper.panel,
+                            border = BorderStroke(spec.hairlineBorderWidth, paper.outlineVariant.copy(alpha = spec.hairlineAlpha)),
+                            shadowElevation = paper.panelElevation,
                         ) {
                             selectionMoreActions.forEach { action ->
                                 val (icon, tint) = when (action.id) {
@@ -291,7 +297,8 @@ private fun SelectionCapsuleAction(
 ) {
     Surface(
         onClick = onClick,
-        shape = RoundedCornerShape(14.dp),
+        // 微岛收敛：列表项 / 小卡圆角统一走 listItemRadius 令牌（原手写 14dp，取值不变）。
+        shape = RoundedCornerShape(LocalComponentSpec.current.listItemRadius),
         color = Color.Transparent,
         modifier = modifier.heightIn(min = 48.dp),
     ) {

@@ -35,6 +35,7 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
@@ -63,10 +64,11 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.FullEmptyState
-import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -166,6 +168,7 @@ internal fun TocSheet(
     val layout = LocalLayoutTokens.current
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
+    val spec = LocalComponentSpec.current
     var selectedTab by remember { mutableStateOf(ReaderTocTab.TOC) }
     val collapsed = remember { mutableStateOf<Set<String>>(emptySet()) }
     var rulesExpanded by remember { mutableStateOf(false) }
@@ -196,7 +199,9 @@ internal fun TocSheet(
     }
 
     if (confirmClearReads) {
-        GlassAlertDialog(
+        // G26：确认弹框去除 glassWindowBlur（反射整窗实时模糊），避免在目录 sheet 之上
+        // 再叠一层模糊 Dialog 与翻页争 GPU；除模糊外与普通 AlertDialog 一致。
+        AlertDialog(
             onDismissRequest = { confirmClearReads = false },
             title = { Text("清除已读标记", fontWeight = FontWeight.Bold) },
             text = { Text("确定清除本书全部章节的已读标记吗？此操作不会删除阅读进度、书签或笔记。") },
@@ -226,7 +231,7 @@ internal fun TocSheet(
                 Surface(
                     shape = PillShape,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                 ) {
                     Text(
                         text = "${(current + 1).coerceAtLeast(1)} / ${totalChapters.coerceAtLeast(0)}",
@@ -242,7 +247,7 @@ internal fun TocSheet(
                     Surface(
                         shape = PillShape,
                         color = Color(0xFF059669).copy(alpha = 0.12f),
-                        border = BorderStroke(0.8.dp, Color(0xFF059669).copy(alpha = 0.35f)),
+                        border = BorderStroke(spec.hairlineBorderWidth, Color(0xFF059669).copy(alpha = spec.hairlineAlpha)),
                     ) {
                         Text(
                             text = "已读 $readCount/${entries.size}",
@@ -284,7 +289,7 @@ internal fun TocSheet(
         Surface(
             shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 8.dp),
@@ -310,7 +315,7 @@ internal fun TocSheet(
                         },
                         shape = PillShape,
                         color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent,
-                        border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
+                        border = if (isSelected) BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)) else null,
                         modifier = Modifier
                             .weight(1f)
                             .height(34.dp)
@@ -412,8 +417,8 @@ internal fun TocSheet(
                                             shape = PillShape,
                                             color = if (entry.isCurrent) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                                             border = BorderStroke(
-                                                1.dp,
-                                                if (entry.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = 0.4f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                                spec.borderWidth,
+                                                if (entry.isCurrent) MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
                                             ),
                                             modifier = Modifier.bounceable(chipInteraction),
                                         ) {
@@ -441,7 +446,7 @@ internal fun TocSheet(
                                         haptic(HapticFeedbackType.TextHandleMove)
                                         collapsed.value = if (isCollapsed) collapsed.value - volume else collapsed.value + volume
                                     },
-                                    shape = RoundedCornerShape(10.dp),
+                                    shape = RoundedCornerShape(spec.hintRadius),
                                     color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
                                     modifier = Modifier
                                         .fillMaxWidth()
@@ -459,19 +464,12 @@ internal fun TocSheet(
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             modifier = Modifier.weight(1f),
                                         ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(20.dp)
-                                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp)),
-                                                contentAlignment = Alignment.Center,
-                                            ) {
-                                                Icon(
-                                                    Icons.Outlined.AutoStories,
-                                                    contentDescription = null,
-                                                    modifier = Modifier.size(12.dp),
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                )
-                                            }
+                                            IconPedestal(
+                                                icon = Icons.Outlined.AutoStories,
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                size = 20.dp,
+                                                iconSize = 12.dp,
+                                            )
                                             Text(
                                                 volume,
                                                 style = MaterialTheme.typography.labelLarge,
@@ -584,14 +582,15 @@ private fun TocRulesEntryRow(
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
+    val spec = LocalComponentSpec.current
     Surface(
         onClick = {
             haptic(HapticFeedbackType.TextHandleMove)
             onClick()
         },
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+        border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 4.dp)
@@ -609,20 +608,14 @@ private fun TocRulesEntryRow(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                // 墨青微图标底座
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Outlined.Tune,
-                        contentDescription = "目录与净化规则",
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
+                // 墨青微图标底座（微岛收敛：统一走 IconPedestal / pedestalRadius）
+                IconPedestal(
+                    icon = Icons.Outlined.Tune,
+                    tint = MaterialTheme.colorScheme.primary,
+                    size = 28.dp,
+                    iconSize = 16.dp,
+                    contentDescription = "目录与净化规则",
+                )
                 Column {
                     Text(
                         text = title,
@@ -663,6 +656,7 @@ private fun TocRecognitionSection(
     onCancelTxtScan: () -> Unit,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
+    val spec = LocalComponentSpec.current
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -671,7 +665,7 @@ private fun TocRecognitionSection(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(spec.hintRadius))
                 .clickable {
                     haptic(HapticFeedbackType.TextHandleMove)
                     onToggleExpanded()
@@ -760,22 +754,26 @@ private fun TxtScanProgressRow(
 internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
+    val spec = LocalComponentSpec.current
 
     Surface(
         onClick = {
             haptic(HapticFeedbackType.TextHandleMove)
             onPick()
         },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(spec.hintRadius),
         color = when {
             entry.isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
             entry.isRead -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
         },
+        // 微岛收敛：三档描边宽度取令牌（当前章 = borderWidth 强调、已读/未读 = hairlineBorderWidth 发丝），
+        // 但保留 0.35 / 0.25 / 0.18 的透明度分级——它是「当前 > 已读 > 未读」的语义强度阶梯，
+        // 若一并压平到 hairlineAlpha 会让未读行也浮出边框，丢失层次。
         border = when {
-            entry.isCurrent -> BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f))
-            entry.isRead -> BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-            else -> BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
+            entry.isCurrent -> BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha))
+            entry.isRead -> BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
+            else -> BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -797,7 +795,7 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                             entry.isRead -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
                             else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
                         },
-                        shape = RoundedCornerShape(7.dp),
+                        shape = RoundedCornerShape(spec.pedestalRadius),
                     )
                     .semantics { if (entry.isRead && !entry.isCurrent) contentDescription = "已读章节" },
                 contentAlignment = Alignment.Center,
@@ -853,7 +851,7 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                 Surface(
                     shape = PillShape,
                     color = Color(0xFF059669).copy(alpha = 0.12f),
-                    border = BorderStroke(0.8.dp, Color(0xFF059669).copy(alpha = 0.35f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, Color(0xFF059669).copy(alpha = spec.hairlineAlpha)),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -889,15 +887,16 @@ private fun BookmarkMicroIsland(
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
+    val spec = LocalComponentSpec.current
 
     Surface(
         onClick = {
             haptic(HapticFeedbackType.TextHandleMove)
             onJump()
         },
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier
             .fillMaxWidth()
             .bounceable(interaction),
@@ -914,20 +913,13 @@ private fun BookmarkMicroIsland(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                // 28dp 暖金微底座
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Color(0xFFD97706).copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Outlined.Bookmark,
-                        contentDescription = null,
-                        tint = Color(0xFFD97706),
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
+                // 28dp 暖金微底座（微岛收敛：统一走 IconPedestal / pedestalRadius）
+                IconPedestal(
+                    icon = Icons.Outlined.Bookmark,
+                    tint = Color(0xFFD97706),
+                    size = 28.dp,
+                    iconSize = 16.dp,
+                )
 
                 Column(
                     modifier = Modifier.padding(end = 8.dp),
@@ -957,7 +949,7 @@ private fun BookmarkMicroIsland(
             Surface(
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
@@ -992,15 +984,16 @@ private fun NoteMicroIsland(
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val interaction = remember { MutableInteractionSource() }
+    val spec = LocalComponentSpec.current
 
     Surface(
         onClick = {
             haptic(HapticFeedbackType.TextHandleMove)
             onJump()
         },
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f),
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         modifier = Modifier
             .fillMaxWidth()
             .bounceable(interaction),
@@ -1017,20 +1010,13 @@ private fun NoteMicroIsland(
                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f),
             ) {
-                // 28dp 紫罗兰微底座
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(Color(0xFF7C3AED).copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Outlined.EditNote,
-                        contentDescription = null,
-                        tint = Color(0xFF7C3AED),
-                        modifier = Modifier.size(16.dp),
-                    )
-                }
+                // 28dp 紫罗兰微底座（微岛收敛：统一走 IconPedestal / pedestalRadius）
+                IconPedestal(
+                    icon = Icons.Outlined.EditNote,
+                    tint = Color(0xFF7C3AED),
+                    size = 28.dp,
+                    iconSize = 16.dp,
+                )
 
                 Column(
                     modifier = Modifier.padding(end = 8.dp),
@@ -1055,7 +1041,7 @@ private fun NoteMicroIsland(
                     }
                     note.body.takeIf { it.isNotBlank() }?.let { bodyText ->
                         Surface(
-                            shape = RoundedCornerShape(6.dp),
+                            shape = RoundedCornerShape(spec.pedestalRadius),
                             color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -1076,7 +1062,7 @@ private fun NoteMicroIsland(
             Surface(
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.12f),
-                border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.35f)),
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.secondary.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Row(
                     modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),

@@ -37,6 +37,7 @@ import androidx.compose.material.icons.outlined.FormatQuote
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -62,7 +63,6 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.ui.components.FullEmptyState
-import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
@@ -134,7 +134,8 @@ internal fun NotesSheet(
     }
 
     if (editingNote != null) {
-        GlassAlertDialog(
+        // G26：笔记弹框去除 glassWindowBlur（反射整窗实时模糊），避免与翻页争 GPU。
+        AlertDialog(
             onDismissRequest = { editingNote = null },
             title = {
                 Row(
@@ -860,7 +861,9 @@ internal fun ReaderNoteDialog(
     onDismiss: () -> Unit,
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
-    GlassAlertDialog(
+    // G26：划线后的内联笔记弹框直接覆盖在阅读页上，帧预算最敏感；
+    // 去除 glassWindowBlur 的整窗实时模糊（除模糊外与普通 AlertDialog 一致）。
+    AlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Row(
