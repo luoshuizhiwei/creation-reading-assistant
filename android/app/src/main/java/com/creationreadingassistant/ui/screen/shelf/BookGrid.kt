@@ -27,12 +27,10 @@ import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckCircle
-import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.pullrefresh.PullRefreshState
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -262,6 +260,7 @@ internal fun BookTile(
         .semantics { contentDescription = "打开书籍" }
         .combinedClickable(
             onClick = onClick,
+            onLongClickLabel = "打开书籍操作",
             onLongClick = {
                 if (!selectionMode) {
                     haptic(HapticFeedbackType.LongPress)
@@ -357,29 +356,6 @@ internal fun BookTile(
                         }
                     }
 
-                    // 右上角更多操作微岛按钮
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.78f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .padding(4.dp)
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .combinedClickable(
-                                onClick = { onToggleActions(book.id) },
-                            ),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Outlined.MoreHoriz,
-                                contentDescription = "管理《${book.title}》",
-                                modifier = Modifier.size(16.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                        }
-                    }
                 }
             }
 
@@ -489,7 +465,7 @@ internal fun BookTile(
 
                 Spacer(modifier = Modifier.width(14.dp))
 
-                // 2. 中间信息流：书名、作者与阅读进度、轻量格式与微进度条
+                // 2. 中间信息流：书名、作者与阅读进度
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(3.dp),
@@ -520,37 +496,18 @@ internal fun BookTile(
                         overflow = TextOverflow.Ellipsis,
                     )
 
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(top = 2.dp),
-                    ) {
-                        // 格式微胶囊
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.20f)),
-                        ) {
-                            Text(
-                                text = book.format.uppercase(),
-                                style = MaterialTheme.typography.labelSmall.copy(fontSize = 9.sp),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
-                            )
-                        }
-
-                        if (percent > 0f && percent < 99.5f) {
-                            ProgressLine(
-                                percent = percent,
-                                modifier = Modifier
-                                    .width(72.dp)
-                                    .height(3.dp),
-                            )
-                        }
+                    if (percent > 0f && percent < 99.5f) {
+                        ProgressLine(
+                            percent = percent,
+                            modifier = Modifier
+                                .padding(top = 2.dp)
+                                .width(72.dp)
+                                .height(3.dp),
+                        )
                     }
                 }
 
-                // 3. 右侧操作区 / 多选勾选徽章
+                // 3. 多选勾选徽章；普通状态的书籍操作统一由长按整行打开。
                 if (selectionMode) {
                     Surface(
                         shape = RoundedCornerShape(999.dp),
@@ -573,27 +530,6 @@ internal fun BookTile(
                                     modifier = Modifier.size(14.dp),
                                 )
                             }
-                        }
-                    }
-                } else {
-                    Surface(
-                        shape = RoundedCornerShape(8.dp),
-                        color = MaterialTheme.colorScheme.surfaceContainerLow,
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .combinedClickable(
-                                onClick = { onToggleActions(book.id) },
-                            ),
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(
-                                Icons.Outlined.MoreHoriz,
-                                contentDescription = "管理《${book.title}》",
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.70f),
-                            )
                         }
                     }
                 }

@@ -44,11 +44,13 @@ class ReaderTocSheetTest {
             current = 4,
             recent = listOf(2),
             read = setOf(1, 4),
+            wordCountLabels = listOf("", "820字", "1.2万字", "", "约2.5万字"),
         )
         assertEquals(listOf(1, 2, 4), entries.map { it.index })
         assertEquals("第二卷", entries.last().volume)
         assertEquals(true, entries.last().isCurrent)
         assertEquals(listOf(true, false, true), entries.map { it.isRead })
+        assertEquals(listOf("820字", "1.2万字", "约2.5万字"), entries.map { it.wordCountLabel })
     }
 
     @Test fun epubReadMarksShowWholeBookAndVolumeCountsWithoutOverridingCurrentStyle() {

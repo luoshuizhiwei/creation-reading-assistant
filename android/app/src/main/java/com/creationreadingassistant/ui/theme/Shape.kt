@@ -23,6 +23,9 @@ val AppShapes = Shapes(
     extraLarge = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
 )
 
+/** 居中对话框四角圆角；与只圆顶部两角的底部弹层明确分离。 */
+val DialogShape = RoundedCornerShape(18.dp)
+
 /** 胶囊形。用于筛选 chip 与圆形按钮，替代散落各处的 RoundedCornerShape(999.dp)。 */
 val PillShape = RoundedCornerShape(percent = 50)
 

@@ -25,9 +25,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.Bookmark
-import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.DeleteSweep
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.KeyboardArrowDown
@@ -35,9 +33,9 @@ import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -64,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.AppAlertDialog
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -111,6 +110,7 @@ internal data class ReaderTocEntry(
     val isCurrent: Boolean,
     val isRecent: Boolean,
     val isRead: Boolean = false,
+    val wordCountLabel: String? = null,
 )
 
 internal fun readerTocEntries(
@@ -118,6 +118,7 @@ internal fun readerTocEntries(
     current: Int,
     recent: List<Int>,
     read: Set<Int> = emptySet(),
+    wordCountLabels: List<String> = emptyList(),
 ): List<ReaderTocEntry> {
     var volume = "正文"
     return titles.mapIndexedNotNull { index, title ->
@@ -132,6 +133,7 @@ internal fun readerTocEntries(
                 isCurrent = index == current,
                 isRecent = index in recent,
                 isRead = index in read,
+                wordCountLabel = wordCountLabels.getOrNull(index),
             )
         }
     }
@@ -201,7 +203,7 @@ internal fun TocSheet(
     if (confirmClearReads) {
         // G26：确认弹框去除 glassWindowBlur（反射整窗实时模糊），避免在目录 sheet 之上
         // 再叠一层模糊 Dialog 与翻页争 GPU；除模糊外与普通 AlertDialog 一致。
-        AlertDialog(
+        AppAlertDialog(
             onDismissRequest = { confirmClearReads = false },
             title = { Text("清除已读标记", fontWeight = FontWeight.Bold) },
             text = { Text("确定清除本书全部章节的已读标记吗？此操作不会删除阅读进度、书签或笔记。") },
@@ -301,9 +303,9 @@ internal fun TocSheet(
                 horizontalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 val tabs = listOf(
-                    ReaderTocTab.TOC to "目录 (${entries.size})",
-                    ReaderTocTab.BOOKMARKS to "书签 (${bookmarks.size})",
-                    ReaderTocTab.NOTES to "笔记 (${notes.size})",
+                    ReaderTocTab.TOC to "目录",
+                    ReaderTocTab.BOOKMARKS to "书签",
+                    ReaderTocTab.NOTES to "笔记",
                 )
                 tabs.forEach { (tab, label) ->
                     val isSelected = selectedTab == tab
@@ -379,7 +381,7 @@ internal fun TocSheet(
                             horizontal = 16.dp,
                             vertical = 8.dp,
                         ),
-                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
                         // 最近阅读章节微胶囊导轨
                         if (recentEntries.isNotEmpty()) {
@@ -437,7 +439,7 @@ internal fun TocSheet(
                             }
                         }
 
-                        // 按卷分组的章节独立微岛卡片列表
+                        // 卷名作为清晰的结构分隔；章节使用安静的阅读清单，不再逐项堆叠卡片。
                         groups.forEach { (volume, chapterEntries) ->
                             val isCollapsed = volume in collapsed.value
                             item("volume_$volume", contentType = "volume_header") {
@@ -446,37 +448,26 @@ internal fun TocSheet(
                                         haptic(HapticFeedbackType.TextHandleMove)
                                         collapsed.value = if (isCollapsed) collapsed.value - volume else collapsed.value + volume
                                     },
-                                    shape = RoundedCornerShape(spec.hintRadius),
-                                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+                                    shape = RoundedCornerShape(spec.listItemRadius),
+                                    color = Color.Transparent,
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .padding(top = 8.dp, bottom = 2.dp),
+                                        .padding(top = 12.dp),
                                 ) {
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .padding(horizontal = 12.dp, vertical = 8.dp),
+                                            .padding(horizontal = 4.dp, vertical = 10.dp),
                                         verticalAlignment = Alignment.CenterVertically,
                                         horizontalArrangement = Arrangement.SpaceBetween,
                                     ) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                        Text(
+                                            volume,
+                                            style = MaterialTheme.typography.labelLarge,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface,
                                             modifier = Modifier.weight(1f),
-                                        ) {
-                                            IconPedestal(
-                                                icon = Icons.Outlined.AutoStories,
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                size = 20.dp,
-                                                iconSize = 12.dp,
-                                            )
-                                            Text(
-                                                volume,
-                                                style = MaterialTheme.typography.labelLarge,
-                                                fontWeight = FontWeight.Bold,
-                                                color = MaterialTheme.colorScheme.onSurface,
-                                            )
-                                        }
+                                        )
 
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
@@ -500,6 +491,10 @@ internal fun TocSheet(
                                         }
                                     }
                                 }
+                                HorizontalDivider(
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.55f),
+                                    thickness = spec.hairlineBorderWidth,
+                                )
                             }
 
                             if (!isCollapsed) {
@@ -745,10 +740,8 @@ private fun TxtScanProgressRow(
 }
 
 /**
- * 目录章节列表项（TocItemRow / TocRow）：
- * - 独立微岛卡片设计，支持多级章节缩进视觉指示
- * - 当前正在阅读的章节采用 primary 浅底与高光微胶囊发丝描边
- * - 已读章节右侧展示翡翠绿微打勾胶囊或微指示点
+ * 目录章节阅读清单：章节顺序、标题和字数构成稳定三列；当前章以书签色竖线和浅底强调。
+ * 未读行保持透明，避免“每章一张卡片”的视觉噪音。
  */
 @Composable
 internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
@@ -761,19 +754,10 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
             haptic(HapticFeedbackType.TextHandleMove)
             onPick()
         },
-        shape = RoundedCornerShape(spec.hintRadius),
+        shape = RoundedCornerShape(spec.listItemRadius),
         color = when {
-            entry.isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f)
-            entry.isRead -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.22f)
-            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.12f)
-        },
-        // 微岛收敛：三档描边宽度取令牌（当前章 = borderWidth 强调、已读/未读 = hairlineBorderWidth 发丝），
-        // 但保留 0.35 / 0.25 / 0.18 的透明度分级——它是「当前 > 已读 > 未读」的语义强度阶梯，
-        // 若一并压平到 hairlineAlpha 会让未读行也浮出边框，丢失层次。
-        border = when {
-            entry.isCurrent -> BorderStroke(spec.borderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha))
-            entry.isRead -> BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f))
-            else -> BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.18f))
+            entry.isCurrent -> MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.32f)
+            else -> Color.Transparent
         },
         modifier = Modifier
             .fillMaxWidth()
@@ -782,45 +766,41 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 10.dp, vertical = 10.dp),
+                .padding(horizontal = 4.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 章节序号微底座
+            // 当前章书签线：全表只在一个位置使用强调色，形成纸质目录的定位锚点。
             Box(
                 modifier = Modifier
-                    .size(26.dp)
+                    .width(3.dp)
+                    .height(32.dp)
                     .background(
-                        when {
-                            entry.isCurrent -> MaterialTheme.colorScheme.primary
-                            entry.isRead -> MaterialTheme.colorScheme.outline.copy(alpha = 0.12f)
-                            else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f)
-                        },
-                        shape = RoundedCornerShape(spec.pedestalRadius),
-                    )
-                    .semantics { if (entry.isRead && !entry.isCurrent) contentDescription = "已读章节" },
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = (entry.index + 1).toString(),
-                    style = MaterialTheme.typography.labelSmall,
-                    fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Medium,
-                    color = when {
-                        entry.isCurrent -> MaterialTheme.colorScheme.onPrimary
-                        entry.isRead -> MaterialTheme.colorScheme.outline
-                        else -> MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                )
-            }
+                        if (entry.isCurrent) MaterialTheme.colorScheme.primary else Color.Transparent,
+                        PillShape,
+                    ),
+            )
 
-            Spacer(Modifier.width(10.dp))
+            Spacer(Modifier.width(9.dp))
+
+            Text(
+                text = (entry.index + 1).toString().padStart(2, '0'),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium,
+                color = if (entry.isCurrent) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.72f)
+                },
+                modifier = Modifier.width(34.dp),
+            )
 
             // 章节标题
             Text(
                 text = entry.title,
                 modifier = Modifier
                     .weight(1f)
-                    .padding(end = 8.dp),
-                maxLines = 1,
+                    .padding(end = 12.dp),
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 style = MaterialTheme.typography.bodyMedium,
                 fontWeight = if (entry.isCurrent) FontWeight.Bold else FontWeight.Normal,
@@ -831,50 +811,44 @@ internal fun TocRow(entry: ReaderTocEntry, onPick: () -> Unit) {
                 },
             )
 
-            // 右侧指示微胶囊：阅读中高光胶囊 / 已读翡翠绿对勾胶囊
-            if (entry.isCurrent) {
-                Surface(
-                    color = MaterialTheme.colorScheme.primary,
-                    shape = PillShape,
-                    modifier = Modifier.semantics { contentDescription = "当前章节" },
-                ) {
+            Column(
+                horizontalAlignment = Alignment.End,
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                modifier = Modifier.width(72.dp),
+            ) {
+                entry.wordCountLabel?.takeIf { it.isNotBlank() }?.let { wordCount ->
                     Text(
-                        text = "阅读中",
+                        text = wordCount,
                         style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onPrimary,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
                     )
                 }
-            } else if (entry.isRead) {
-                // 翡翠绿微打勾胶囊
-                Surface(
-                    shape = PillShape,
-                    color = Color(0xFF059669).copy(alpha = 0.12f),
-                    border = BorderStroke(spec.hairlineBorderWidth, Color(0xFF059669).copy(alpha = spec.hairlineAlpha)),
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(3.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.Check,
-                            contentDescription = "已读",
-                            tint = Color(0xFF059669),
-                            modifier = Modifier.size(11.dp),
-                        )
-                        Text(
-                            text = "已读",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = Color(0xFF059669),
-                            fontWeight = FontWeight.Medium,
-                        )
-                    }
+
+                when {
+                    entry.isCurrent -> Text(
+                        text = "阅读中",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.primary,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.semantics { contentDescription = "当前章节" },
+                    )
+                    entry.isRead -> Text(
+                        text = "已读",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = Color(0xFF059669),
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.semantics { contentDescription = "已读章节" },
+                    )
                 }
             }
         }
     }
+    HorizontalDivider(
+        modifier = Modifier.padding(start = 50.dp),
+        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.32f),
+        thickness = spec.hairlineBorderWidth,
+    )
 }
 
 /**

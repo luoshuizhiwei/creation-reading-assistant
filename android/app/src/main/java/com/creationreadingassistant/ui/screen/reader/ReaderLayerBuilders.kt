@@ -310,6 +310,13 @@ internal fun buildReaderSheetHostState(pagerReplacementAvailability: PagedReplac
         isTxt = isTxt,
         chapterStartOffsets = chapterStartOffsets,
         chapterTitles = chapterTitles,
+        chapterWordCountLabels = readerTocWordCountLabels(
+            when {
+                epubBook != null -> epubDocument?.chapters.orEmpty()
+                markdownDocument != null -> markdownDocument.chapters
+                else -> txtChapters
+            },
+        ),
         bookIndex = bookIndex,
         txtTocRuleId = txtTocRuleId,
         txtRulePreviews = txtRulePreviews,
@@ -493,4 +500,3 @@ internal fun buildReaderSheetHostCallbacks(
         id
     },
 )
-

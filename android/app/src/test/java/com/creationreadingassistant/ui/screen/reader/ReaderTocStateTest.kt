@@ -46,4 +46,17 @@ class ReaderTocStateTest {
 
         assertEquals(ReaderTocPickTarget.PlainOffset(120), target)
     }
+
+    @Test
+    fun `chapter word count labels preserve exact and estimated semantics`() {
+        val labels = readerTocWordCountLabels(
+            listOf(
+                DocChapter(0, "短章", 0, 842),
+                DocChapter(1, "长章", 843, 12_340),
+                DocChapter(2, "EPUB 估算章", 13_184, 25_000, charCountIsEstimated = true),
+            ),
+        )
+
+        assertEquals(listOf("842字", "1.2万字", "约2.5万字"), labels)
+    }
 }

@@ -92,7 +92,7 @@ fun MutedCoverFallback(
     book: BookEntity,
     modifier: Modifier = Modifier,
     maxTitleChars: Int = 20,
-    showFormat: Boolean = true,
+    @Suppress("UNUSED_PARAMETER") showFormat: Boolean = false,
     isCompact: Boolean = false,
 ) {
     val h = book.id.hashCode()
@@ -127,21 +127,7 @@ fun MutedCoverFallback(
                 .background(CoverSpineShadowBrush),
         )
 
-        // 2. 右上角轻量格式标（极简克制，列表小尺寸不展示以释放书名空间）
-        if (showFormat && !isCompact) {
-            Text(
-                text = book.format.uppercase(),
-                color = Color.White.copy(alpha = 0.40f),
-                fontSize = 8.sp,
-                fontWeight = FontWeight.Medium,
-                letterSpacing = 0.5.sp,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .padding(top = 8.dp, end = 8.dp),
-            )
-        }
-
-        // 3. 居中书名与作者
+        // 2. 居中书名与作者。文件格式属于详情元数据，不在封面上重复标注。
         Column(
             modifier = Modifier
                 .fillMaxSize()

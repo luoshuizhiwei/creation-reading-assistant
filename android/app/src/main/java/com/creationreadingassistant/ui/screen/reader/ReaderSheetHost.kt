@@ -55,6 +55,7 @@ internal data class ReaderSheetDocumentState(
     val isTxt: Boolean,
     val chapterStartOffsets: List<Int>,
     val chapterTitles: List<String>,
+    val chapterWordCountLabels: List<String>,
     val bookIndex: BookIndex?,
     val txtTocRuleId: String,
     val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
@@ -198,6 +199,7 @@ internal fun ReaderSheetHost(
                             current = tocState.current,
                             recent = state.ui.recentChapters,
                             read = if (tocState.isChapteredDocument) inputs.readChapters.toSet() else emptySet(),
+                            wordCountLabels = state.document.chapterWordCountLabels,
                         ),
                         current = tocState.current,
                         totalChapters = tocState.total,
@@ -421,6 +423,5 @@ internal fun ReaderSheetHost(
         }
     }
 }
-
 
 
