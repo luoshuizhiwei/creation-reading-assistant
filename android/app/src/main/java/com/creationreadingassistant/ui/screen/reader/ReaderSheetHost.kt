@@ -1,15 +1,19 @@
 package com.creationreadingassistant.ui.screen.reader
 
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
-import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
@@ -146,7 +150,14 @@ internal data class ReaderSheetHostCallbacks(
  *
  * 仅做路由分发与参数转发，不持有任何可变状态；所有展示数据来自 [state]，
  * 所有副作用通过 [sheetCallbacks] 上抛给 [ReaderScreen] 主函数。原逻辑 1:1 搬运自
- * ReaderScreen 主函数的 `sheet?.let { type -> GlassModalBottomSheet(...) { when (type) {...} } }` 块。
+ * ReaderScreen 主函数的 `sheet?.let { type -> ModalBottomSheet(...) { when (type) {...} } }` 块。
+ *
+ * G26：弹层容器由 `GlassModalBottomSheet` 改为普通 [ModalBottomSheet]。前者只是在后者上
+ * 叠加 `glassWindowBlur`（反射 `Window.setBlurBehindRadius`，API31+ 对整窗实时模糊），
+ * 弹层进/退场动画每帧都会让合成器重模糊，在 Redmi 上已实测造成 141ms 的 GPU 阻塞帧
+ * （见 results/shelf-sort-performance-report.md §7.2~§7.4，书架排序下拉已按同一模式整改）。
+ * 阅读器 sheet 直接覆盖在翻页帧路径之上，帧预算最敏感，故同样去除窗口模糊；
+ * 除模糊外弹层的形状/容器色/拖拽把手/交互行为完全一致。
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -163,12 +174,13 @@ internal fun ReaderSheetHost(
 ) {
     val bid = inputs.bookId ?: ""
     sheet?.let { type ->
-        GlassModalBottomSheet(
+        ModalBottomSheet(
             onDismissRequest = sheetCallbacks.onDismiss,
             sheetState = sheetState,
             containerColor = paper.bg,
             shape = LocalComponentSpec.current.sheetShape,
             dragHandle = { SheetHandle() },
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
             ReaderPaperTheme(paper) {
             when (type) {
@@ -319,16 +331,29 @@ internal fun ReaderSheetHost(
                     },
                 )
 
-                ReaderSheet.SETTINGS -> SettingsSheet(
-                    paper = paper,
-                    settings = state.ui.readerSettings,
-                    onSettingsChange = { updated ->
+                ReaderSheet.SETTINGS -> {
+                    // T16 P1 修复（「翻页效果」pill 行间歇吞点击）：自动翻页 / seek 期间 ReaderScreen
+                    // 每帧重组，ReaderSheetHost 因携带每帧重建的不稳定 state/callbacks 而无法被跳过，
+                    // 于是每帧都给 SettingsSheet 传入全新身份的 onSettingsChange / onBookInfo lambda，
+                    // 导致设置页（含 pill 行）每帧重组——pill 的命中节点在指针 down→up 之间被重建，
+                    // 手势被丢弃，表现为选中描边不动、底层值也不变（idle 时不 churn 故点击始终可靠）。
+                    // 修法：rememberUpdatedState 保证「始终调用最新实现」，remember 固化 lambda 身份，
+                    // 令 SettingsSheet 在 settings / paper 未变时可被 Compose 跳过，churn 期间 pill 节点保持稳定。
+                    val latestOnSettingsChange by rememberUpdatedState<(ReaderSettings) -> Unit>({ updated ->
                         // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复
                         sheetCallbacks.onPersistProgress()
                         settingsVm.updateReader { updated }
-                    },
-                    onBookInfo = sheetCallbacks.onOpenBookInfo,
-                )
+                    })
+                    val stableOnSettingsChange = remember { { updated: ReaderSettings -> latestOnSettingsChange(updated) } }
+                    val latestOnBookInfo by rememberUpdatedState(sheetCallbacks.onOpenBookInfo)
+                    val stableOnBookInfo = remember { { latestOnBookInfo() } }
+                    SettingsSheet(
+                        paper = paper,
+                        settings = state.ui.readerSettings,
+                        onSettingsChange = stableOnSettingsChange,
+                        onBookInfo = stableOnBookInfo,
+                    )
+                }
 
                 ReaderSheet.THEME -> ThemeSheet(
                     background = state.ui.readerSettings.background,
@@ -396,7 +421,6 @@ internal fun ReaderSheetHost(
         }
     }
 }
-
 
 
 

@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,6 +38,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -59,12 +61,13 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.GlassModalBottomSheet
+import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.SettingSegmentedRow
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
+import com.creationreadingassistant.ui.theme.ReaderPaperTheme
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.screen.reader.sheets.ReaderSheetScaffold
 import com.creationreadingassistant.ui.screen.reader.tts.engine.TtsEngineId
@@ -127,19 +130,24 @@ internal fun TtsBar(
     onClose: () -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     var showSettings by remember { mutableStateOf(false) }
     val haptic = rememberHaptic(false)
     val isPlaying = tts.status == "playing"
 
-    // 悬浮墨玉微岛（Floating Player Island）: 16dp 圆角、微阴影、纸墨半透底色
+    // 悬浮墨玉微岛（Floating Player Island）。微岛收敛：它是嵌在底部 chrome 面板（ReaderPanelSurface，
+    // paper.panel）**内部**的子岛，故保留比父面板更亮的 paper.bg 作为层级区分（改用 ReaderPanelSurface
+    // 会与父面板同色而失去层次）；但圆角 / 发丝边 / 阴影全部收敛到共享令牌：islandRadius +
+    // hairlineBorderWidth + hairlineAlpha + panelElevation(0dp)——原 6dp 阴影与 0.95 半透底色会在
+    // 朗读高亮逐帧重绘期额外侵蚀帧预算。
     Surface(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp),
-        color = paper.bg.copy(alpha = 0.95f),
-        border = BorderStroke(0.6.dp, paper.fg.copy(alpha = 0.14f)),
-        shadowElevation = 6.dp,
+        shape = RoundedCornerShape(spec.islandRadius),
+        color = paper.bg,
+        border = BorderStroke(spec.hairlineBorderWidth, paper.outlineVariant.copy(alpha = spec.hairlineAlpha)),
+        shadowElevation = paper.panelElevation,
     ) {
         Row(
             modifier = Modifier
@@ -147,21 +155,13 @@ internal fun TtsBar(
                 .padding(horizontal = 10.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 纸墨微底座耳机图标
-            Box(
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    Icons.Outlined.Headphones,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
+            // 纸墨微底座耳机图标：微岛收敛到 IconPedestal（pedestalRadius + hairline 令牌）。
+            IconPedestal(
+                icon = Icons.Outlined.Headphones,
+                tint = MaterialTheme.colorScheme.primary,
+                size = 34.dp,
+                iconSize = 18.dp,
+            )
             Spacer(Modifier.width(8.dp))
             Text(
                 text = "$chapterLabel · ${tts.progressPercent.toInt()}%",
@@ -180,7 +180,8 @@ internal fun TtsBar(
                 },
                 shape = CircleShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                // 微岛收敛：发丝边走 hairline 令牌（原手写 0.6dp / 0.25f）。
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                 modifier = Modifier.padding(end = 4.dp),
             ) {
                 Row(
@@ -240,7 +241,7 @@ internal fun TtsBar(
                             ),
                         )
                         .border(
-                            0.6.dp,
+                            spec.hairlineBorderWidth,
                             MaterialTheme.colorScheme.primary.copy(
                                 alpha = if (isPlaying) 0.38f else 0.18f,
                             ),
@@ -336,18 +337,27 @@ internal fun TtsBar(
         }
     }
     if (showSettings) {
-        GlassModalBottomSheet(
+        // G26：朗读设置弹层同样去除玻璃窗口模糊（GlassModalBottomSheet = ModalBottomSheet +
+        // glassWindowBlur）。朗读栏常驻在阅读页底部，弹层进/退场时的整窗实时模糊会直接与
+        // 翻页/朗读高亮争 GPU，已实测造成 141ms 阻塞帧（见 shelf-sort-performance-report.md §7）。
+        ModalBottomSheet(
             onDismissRequest = { showSettings = false },
             sheetState = rememberModalBottomSheetState(),
             containerColor = paper.bg,
             shape = LocalComponentSpec.current.sheetShape,
             dragHandle = { SheetHandle() },
+            contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
-            TtsSettingsContent(
-                tts = tts,
-                onPersistTts = onPersistTts,
-                onClose = { showSettings = false },
-            )
+            // 微岛收敛：朗读设置弹层内容此前未进入 ReaderPaperTheme，而 sheet 容器色已是 paper.bg——
+            // 深色外壳 + 亮纸时会出现「浅底浅字」对比度塌陷。与其他 reader sheet（ReaderSheetHost）
+            // 对齐，统一包一层 ReaderPaperTheme，让弹层内 Material 语义色随纸。
+            ReaderPaperTheme(paper) {
+                TtsSettingsContent(
+                    tts = tts,
+                    onPersistTts = onPersistTts,
+                    onClose = { showSettings = false },
+                )
+            }
         }
     }
 }
@@ -380,7 +390,6 @@ internal fun TtsSettingsContent(
             // 1. 语速与音调（暖橙底座 + Speed 图标 + 精准数值微胶囊指示与刻度标签）
             SettingHeader(
                 title = "语速与音调",
-                badgeBg = Color(0xFFFFEDD5),
                 badgeIconTint = Color(0xFFEA580C),
                 badgeIcon = Icons.Outlined.Speed,
                 indicatorText = "${"%.2f".format(tts.pitch)}x",
@@ -445,7 +454,6 @@ internal fun TtsSettingsContent(
             // 2. 音量（天蓝底座 + VolumeUp 图标 + 精准数值微胶囊指示与刻度标签）
             SettingHeader(
                 title = "音量",
-                badgeBg = Color(0xFFE0F2FE),
                 badgeIconTint = Color(0xFF0284C7),
                 badgeIcon = Icons.AutoMirrored.Outlined.VolumeUp,
                 indicatorText = "${(tts.volume * 100).toInt()}%",
@@ -509,7 +517,6 @@ internal fun TtsSettingsContent(
 
             SettingHeader(
                 title = "声音与音色",
-                badgeBg = Color(0xFFF3E8FF),
                 badgeIconTint = Color(0xFF9333EA),
                 badgeIcon = Icons.Outlined.Headphones,
                 indicatorText = if (tts.voiceId.isBlank()) "默认" else tts.voiceId.take(8),
@@ -598,7 +605,6 @@ internal fun TtsSettingsContent(
             }
             SettingHeader(
                 title = "定时停止",
-                badgeBg = Color(0xFFDCFCE7),
                 badgeIconTint = Color(0xFF16A34A),
                 badgeIcon = Icons.Outlined.AccessTime,
                 indicatorText = currentStopLabel,
@@ -659,33 +665,26 @@ internal fun TtsSettingsContent(
 @Composable
 private fun SettingHeader(
     title: String,
-    badgeBg: Color,
     badgeIconTint: Color,
     badgeIcon: ImageVector,
     indicatorText: String? = null,
     indicatorColor: Color = MaterialTheme.colorScheme.primary,
 ) {
+    val spec = LocalComponentSpec.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 16.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        // 26dp 独立微彩底座
-        Box(
-            modifier = Modifier
-                .size(26.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .background(badgeBg),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = badgeIcon,
-                contentDescription = null,
-                tint = badgeIconTint,
-                modifier = Modifier.size(15.dp),
-            )
-        }
+        // 26dp 独立微彩底座：微岛收敛到 IconPedestal（底座底色由 tint@0.14 派生，
+        // 圆角走 pedestalRadius、发丝边走 hairline 令牌），原手写 badgeBg 实色入参已移除。
+        IconPedestal(
+            icon = badgeIcon,
+            tint = badgeIconTint,
+            size = 26.dp,
+            iconSize = 15.dp,
+        )
         Spacer(Modifier.width(8.dp))
         Text(
             text = title,
@@ -698,7 +697,8 @@ private fun SettingHeader(
             Surface(
                 shape = CircleShape,
                 color = indicatorColor.copy(alpha = 0.10f),
-                border = BorderStroke(0.6.dp, indicatorColor.copy(alpha = 0.22f)),
+                // 微岛收敛：读数徽章发丝边走 hairline 令牌（原手写 0.6dp / 0.22f）。
+                border = BorderStroke(spec.hairlineBorderWidth, indicatorColor.copy(alpha = spec.hairlineAlpha)),
             ) {
                 Text(
                     text = indicatorText,

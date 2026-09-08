@@ -7,6 +7,7 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -25,10 +26,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Computer
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.ErrorOutline
@@ -56,8 +59,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -73,9 +79,12 @@ import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.layout.adaptivePageMetrics
 import com.creationreadingassistant.ui.theme.AppError
+import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.AppSuccess
 import com.creationreadingassistant.ui.theme.AppWarning
 import com.creationreadingassistant.ui.theme.PillShape
+import com.creationreadingassistant.ui.theme.rememberHaptic
+import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.viewmodel.ImportBatchUiState
 import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
@@ -84,10 +93,18 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val SourcePurple = Color(0xFF7C3AED)
-private val SourceBlue = Color(0xFF0284C7)
-private val SourceGreen = Color(0xFF059669)
-private val SourceAmber = Color(0xFFD97706)
+// 东方纸墨低饱和雅致格式色彩
+private val FormatEpubColor = Color(0xFF5E506B) // 黛紫
+private val FormatTxtColor = Color(0xFF385E69)  // 霁蓝 / 墨青
+private val FormatPdfColor = Color(0xFF8C5835)  // 赭石 / 暖褐
+private val FormatMdColor = Color(0xFF3B5E4B)   // 苍松 / 墨绿
+
+// 导入渠道专用微彩底座色（文件：墨青，文件夹：天蓝，电脑：淡紫）
+private val ChannelFileColor = Color(0xFF385E69)    // 墨青
+private val ChannelFolderColor = Color(0xFF2E6592)  // 天蓝
+private val ChannelDesktopColor = Color(0xFF6E5677) // 淡紫
+
+// 导入历史状态微彩
 private val SkipSlate = Color(0xFF5A6C7C) // 青灰跳过状态
 
 @Composable
@@ -130,12 +147,14 @@ internal fun ShelfImportRoute(
                     .fillMaxWidth()
                     .align(Alignment.TopCenter),
                 contentPadding = PaddingValues(
-                    horizontal = adaptive.horizontalPadding,
-                    vertical = LocalLayoutTokens.current.pageVertical,
+                    start = adaptive.horizontalPadding,
+                    end = adaptive.horizontalPadding,
+                    top = LocalLayoutTokens.current.pageVertical,
+                    bottom = LocalLayoutTokens.current.pageVertical + 24.dp,
                 ),
                 verticalArrangement = Arrangement.spacedBy(LocalLayoutTokens.current.contentGap),
             ) {
-                // 1. 导入渠道选择微岛卡片与格式微胶囊
+                // 1. 导入渠道选择微岛卡片与格式微胶囊（东方纸墨雅致低饱和色系 + 32dp 微彩底座）
                 item {
                     SectionCard(modifier = Modifier.fillMaxWidth()) {
                         Column {
@@ -148,38 +167,38 @@ internal fun ShelfImportRoute(
                                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                             ) {
                                 Text("支持格式", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                FormatCapsule("EPUB", SourcePurple)
-                                FormatCapsule("TXT", SourceBlue)
-                                FormatCapsule("PDF", SourceAmber)
-                                FormatCapsule("MD", SourceGreen)
+                                FormatCapsule("EPUB", FormatEpubColor)
+                                FormatCapsule("TXT", FormatTxtColor)
+                                FormatCapsule("PDF", FormatPdfColor)
+                                FormatCapsule("MD", FormatMdColor)
                             }
                             OrganizerDivider()
-                            ImportSourceRow(
+                            ImportChannelRow(
                                 icon = Icons.AutoMirrored.Outlined.InsertDriveFile,
                                 title = "选择文件",
                                 description = "一次选择一本或多本 EPUB、TXT、Markdown",
                                 enabled = !batch.isRunning,
-                                tint = SourcePurple,
+                                tint = ChannelFileColor,
                             ) {
                                 filePicker.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown"))
                             }
                             OrganizerDivider()
-                            ImportSourceRow(
+                            ImportChannelRow(
                                 icon = Icons.Outlined.FolderOpen,
                                 title = "选择文件夹",
                                 description = "扫描文件夹及其子文件夹中的支持格式",
                                 enabled = !batch.isRunning,
-                                tint = SourceBlue,
+                                tint = ChannelFolderColor,
                             ) {
                                 folderPicker.launch(null)
                             }
                             OrganizerDivider()
-                            ImportSourceRow(
+                            ImportChannelRow(
                                 icon = Icons.Outlined.Computer,
                                 title = "从电脑导入",
                                 description = "下载电脑端已同步的书籍正文",
                                 enabled = !batch.isRunning,
-                                tint = SourceGreen,
+                                tint = ChannelDesktopColor,
                             ) {
                                 showDesktopBooks = true
                             }
@@ -292,14 +311,9 @@ internal fun ShelfImportRoute(
                         }
                     }
                 } else {
-                    item {
+                    items(source.auxiliary.importHistory, key = { it.id }) { entry ->
                         SectionCard(modifier = Modifier.fillMaxWidth()) {
-                            Column {
-                                source.auxiliary.importHistory.forEachIndexed { index, entry ->
-                                    if (index > 0) OrganizerDivider()
-                                    ImportHistoryRow(entry)
-                                }
-                            }
+                            ImportHistoryRow(entry)
                         }
                     }
                 }
@@ -310,9 +324,9 @@ internal fun ShelfImportRoute(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clip(RoundedCornerShape(12.dp))
-                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f))
-                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.3f), RoundedCornerShape(12.dp))
-                            .padding(12.dp),
+                            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                            .border(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), RoundedCornerShape(12.dp))
+                            .padding(14.dp),
                     ) {
                         Row(verticalAlignment = Alignment.Top) {
                             Icon(
@@ -595,6 +609,58 @@ private fun ImportTaskRow(task: ImportTaskUi) {
     }
 }
 
+@Composable
+private fun ImportChannelRow(
+    icon: ImageVector,
+    title: String,
+    description: String,
+    enabled: Boolean = true,
+    tint: Color,
+    onClick: () -> Unit,
+) {
+    val haptic = rememberHaptic(rememberReducedMotion())
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .clickable(enabled = enabled) {
+                haptic(HapticFeedbackType.TextHandleMove)
+                onClick()
+            }
+            .alpha(if (enabled) 1f else 0.45f)
+            .padding(horizontal = 6.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        // 32dp 微彩底座（带 0.5dp 柔和发丝微边框）
+        Box(
+            modifier = Modifier
+                .size(32.dp)
+                .clip(RoundedCornerShape(9.dp))
+                .background(tint.copy(alpha = 0.12f))
+                .border(0.5.dp, tint.copy(alpha = 0.25f), RoundedCornerShape(9.dp)),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(17.dp))
+        }
+        Spacer(modifier = Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.SemiBold)
+            Spacer(Modifier.height(1.dp))
+            Text(
+                description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Icon(
+            Icons.Outlined.ChevronRight,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f),
+            modifier = Modifier.size(AppIconSize.Small),
+        )
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ImportHistoryRow(entry: ImportHistoryEntry) {
@@ -607,19 +673,34 @@ private fun ImportHistoryRow(entry: ImportHistoryEntry) {
         isSkip -> SkipSlate
         else -> AppError
     }
+    val statusLabel = when {
+        isSuccess -> "入库成功"
+        isDup -> "重复跳过"
+        isSkip -> "已跳过"
+        else -> "解析失败"
+    }
+
+    val formatColor = when (entry.format.uppercase()) {
+        "EPUB" -> FormatEpubColor
+        "TXT" -> FormatTxtColor
+        "PDF" -> FormatPdfColor
+        "MD", "MARKDOWN" -> FormatMdColor
+        else -> MaterialTheme.colorScheme.primary
+    }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 9.dp, horizontal = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
+            .padding(vertical = 4.dp, horizontal = 2.dp),
+        verticalAlignment = Alignment.Top,
     ) {
-        // 32dp 微彩底座
+        // 32dp 微彩底座（与状态微彩呼应）
         Box(
             modifier = Modifier
                 .size(32.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(statusColor.copy(alpha = 0.12f)),
+                .background(statusColor.copy(alpha = 0.12f))
+                .border(0.5.dp, statusColor.copy(alpha = 0.25f), RoundedCornerShape(9.dp)),
             contentAlignment = Alignment.Center,
         ) {
             Icon(
@@ -648,19 +729,30 @@ private fun ImportHistoryRow(entry: ImportHistoryEntry) {
                     modifier = Modifier.weight(1f),
                 )
                 Spacer(Modifier.width(8.dp))
-                Text(
-                    text = SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(entry.timestamp)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
-                )
+                // 精致圆润的状态微徽章（成功绿、失败红、跳过青灰、重复琥珀）
+                Box(
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(statusColor.copy(alpha = 0.12f))
+                        .border(0.5.dp, statusColor.copy(alpha = 0.35f), PillShape)
+                        .padding(horizontal = 7.dp, vertical = 2.dp),
+                ) {
+                    Text(
+                        text = statusLabel,
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.SemiBold,
+                        color = statusColor,
+                        fontSize = 11.sp,
+                    )
+                }
             }
-            Spacer(Modifier.height(3.dp))
+            Spacer(Modifier.height(4.dp))
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
                 verticalArrangement = Arrangement.spacedBy(3.dp),
             ) {
                 if (entry.format.isNotBlank()) {
-                    FormatCapsule(entry.format.uppercase())
+                    FormatCapsule(entry.format.uppercase(), formatColor)
                 }
                 if (entry.fileSize > 0) {
                     Text(
@@ -684,13 +776,6 @@ private fun ImportHistoryRow(entry: ImportHistoryEntry) {
                         )
                     }
                 }
-                if (entry.isDuplicate) {
-                    Text(
-                        text = "· 重复文件",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = AppWarning,
-                    )
-                }
                 if (!entry.bookTitle.isNullOrBlank()) {
                     Text(
                         text = "· 《${entry.bookTitle}》",
@@ -700,6 +785,12 @@ private fun ImportHistoryRow(entry: ImportHistoryEntry) {
                         overflow = TextOverflow.Ellipsis,
                     )
                 }
+                Text(
+                    text = "· " + SimpleDateFormat("MM-dd HH:mm", Locale.CHINA).format(Date(entry.timestamp)),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                    modifier = Modifier.padding(top = 1.dp),
+                )
             }
             if (!entry.error.isNullOrBlank()) {
                 Text(
@@ -708,7 +799,7 @@ private fun ImportHistoryRow(entry: ImportHistoryEntry) {
                     color = AppError,
                     maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(top = 2.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         }

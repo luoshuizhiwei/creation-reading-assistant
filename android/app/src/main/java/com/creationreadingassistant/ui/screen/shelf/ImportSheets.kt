@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.screen.shelf
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -14,6 +15,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -37,9 +39,11 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -54,10 +58,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -66,7 +72,6 @@ import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
-import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SheetHandle
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppIconSize
@@ -83,11 +88,20 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val FormatPurple = Color(0xFF7C3AED)
-private val FormatBlue = Color(0xFF0284C7)
-private val FormatAmber = Color(0xFFD97706)
-private val FormatGreen = Color(0xFF059669)
-private val SkipSlate = Color(0xFF5A6C7C) // 青灰跳过状态
+// 东方纸墨柔和低饱和配色
+private val FormatPurple = Color(0xFF6E5675) // 黛檀（EPUB）
+private val FormatBlue = Color(0xFF3F637D)   // 霁蓝（TXT）
+private val FormatAmber = Color(0xFF9E6532)  // 暖赭（PDF）
+private val FormatGreen = Color(0xFF3B6E55)  // 松竹（MD）
+private val SkipSlate = Color(0xFF5A6661)    // 砚墨跳过状态
+
+private fun formatColor(format: String): Color = when (format.uppercase()) {
+    "EPUB" -> FormatPurple
+    "TXT" -> FormatBlue
+    "PDF" -> FormatAmber
+    "MD", "MARKDOWN" -> FormatGreen
+    else -> Color(0xFF5A6661)
+}
 
 // ===================== 底部弹层：从电脑下载 =====================
 @OptIn(ExperimentalMaterial3Api::class)
@@ -100,8 +114,15 @@ internal fun DesktopBooksSheet(
     var books by remember { mutableStateOf<List<SyncContract.BookFileManifest>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
+    val haptic = rememberHaptic(rememberReducedMotion())
 
-    fun load() { scope.launch { loading = true; books = listBooks(); loading = false } }
+    fun load() {
+        scope.launch {
+            loading = true
+            books = listBooks()
+            loading = false
+        }
+    }
     LaunchedEffect(Unit) { load() }
 
     GlassModalBottomSheet(
@@ -110,65 +131,307 @@ internal fun DesktopBooksSheet(
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
     ) {
-        Column(modifier = Modifier.padding(16.dp).padding(bottom = 24.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text("从电脑导入", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
-                Spacer(modifier = Modifier.weight(1f))
-                IconButton(onClick = { load() }) { Icon(Icons.Outlined.Refresh, contentDescription = "刷新") }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            if (loading) {
-                CircularProgressIndicator(Modifier.align(Alignment.CenterHorizontally).padding(vertical = 24.dp))
-            } else if (books.isEmpty()) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth().padding(24.dp)) {
-                    LineArtBook(modifier = Modifier.size(44.dp))
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Text("暂无可下载书籍", style = MaterialTheme.typography.bodyMedium, fontWeight = FontWeight.Medium)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text("请确认电脑端已开启同步服务并有可下载的书籍正文。", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 18.dp, vertical = 8.dp)
+                .padding(bottom = 28.dp),
+        ) {
+            // 顶部标题微岛
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 14.dp),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(RoundedCornerShape(9.dp))
+                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Icon(
+                        Icons.Outlined.Folder,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp),
+                    )
                 }
-            } else {
-                SectionCard(modifier = Modifier.fillMaxWidth()) {
-                    Column {
-                        books.forEachIndexed { index, book ->
-                            if (index > 0) OrganizerDivider()
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("从电脑导入", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
+                    Text(
+                        "局域网快速同步正文",
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                // 刷新按钮微胶囊
+                Surface(
+                    onClick = {
+                        haptic(HapticFeedbackType.TextHandleMove)
+                        load()
+                    },
+                    shape = RoundedCornerShape(999.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLowest,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Icon(
+                            Icons.Outlined.Refresh,
+                            contentDescription = "刷新",
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(14.dp),
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "刷新",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium,
+                        )
+                    }
+                }
+            }
+
+            if (loading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(32.dp),
+                        strokeWidth = 2.5.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+            } else if (books.isEmpty()) {
+                // 空状态：精致东方纸墨微岛卡片（配网络连接状态微指示与重试引导）
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(24.dp),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(56.dp)
+                                .clip(RoundedCornerShape(16.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            LineArtBook(modifier = Modifier.size(36.dp))
+                        }
+                        Spacer(modifier = Modifier.height(14.dp))
+                        Text(
+                            "暂无可下载书籍",
+                            style = MaterialTheme.typography.titleSmall,
+                            fontWeight = FontWeight.SemiBold,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        // 网络连接状态微指示
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = Color(0xFFD97706).copy(alpha = 0.08f),
+                            border = BorderStroke(0.5.dp, Color(0xFFD97706).copy(alpha = 0.25f)),
+                        ) {
                             Row(
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(10.dp))
-                                    .clickable { onDownload(book.bookId) }
-                                    .padding(vertical = 10.dp, horizontal = 4.dp),
                             ) {
                                 Box(
                                     modifier = Modifier
-                                        .size(32.dp)
-                                        .clip(RoundedCornerShape(9.dp))
-                                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Icon(
-                                        Icons.Outlined.Download,
-                                        contentDescription = "下载",
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(17.dp),
-                                    )
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column(Modifier.weight(1f)) {
-                                    Text(book.fileName, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                                    Spacer(Modifier.height(3.dp))
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        FormatCapsule(book.format.uppercase())
-                                        Spacer(Modifier.width(6.dp))
-                                        Text(formatBytes(book.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    }
-                                }
-                                Icon(Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f), modifier = Modifier.size(AppIconSize.Small))
+                                        .size(6.dp)
+                                        .clip(RoundedCornerShape(999.dp))
+                                        .background(Color(0xFFD97706)),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "当前没有可用书籍",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = Color(0xFFD97706),
+                                    fontWeight = FontWeight.Medium,
+                                )
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            "可检查电脑端同步目录是否包含书籍，再重新探测。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 18.sp,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        // 重新探测重试引导微胶囊
+                        Surface(
+                            onClick = {
+                                haptic(HapticFeedbackType.TextHandleMove)
+                                load()
+                            },
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.primary,
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Refresh,
+                                    contentDescription = null,
+                                    tint = MaterialTheme.colorScheme.onPrimary,
+                                    modifier = Modifier.size(15.dp),
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    "重新探测连接",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.onPrimary,
+                                )
                             }
                         }
                     }
                 }
+            } else {
+                // 书籍列表：封面微缩占位图与下载状态高光指示
+                Surface(
+                    shape = RoundedCornerShape(14.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerLow,
+                    border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Column {
+                        books.forEachIndexed { index, book ->
+                            if (index > 0) {
+                                HorizontalDivider(
+                                    modifier = Modifier.padding(horizontal = 14.dp),
+                                    thickness = 0.5.dp,
+                                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                                )
+                            }
+                            DesktopBookRowItem(
+                                book = book,
+                                onDownload = {
+                                    haptic(HapticFeedbackType.TextHandleMove)
+                                    onDownload(book.bookId)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** 可下载书籍列表项：封面微缩占位图与下载状态高光指示 */
+@Composable
+private fun DesktopBookRowItem(
+    book: SyncContract.BookFileManifest,
+    onDownload: () -> Unit,
+) {
+    val fmtColor = formatColor(book.format)
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onDownload)
+            .padding(horizontal = 14.dp, vertical = 11.dp),
+    ) {
+        // 封面微缩占位图
+        Surface(
+            shape = RoundedCornerShape(5.dp),
+            color = fmtColor.copy(alpha = 0.12f),
+            border = BorderStroke(0.6.dp, fmtColor.copy(alpha = 0.30f)),
+            modifier = Modifier.size(width = 34.dp, height = 46.dp),
+        ) {
+            Box(modifier = Modifier.fillMaxSize()) {
+                // 书脊阴影
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .fillMaxHeight()
+                        .background(
+                            Brush.horizontalGradient(
+                                listOf(
+                                    Color.Black.copy(alpha = 0.18f),
+                                    Color.Transparent,
+                                ),
+                            ),
+                        ),
+                )
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = book.format.uppercase().take(4),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold,
+                        color = fmtColor,
+                        fontSize = 9.sp,
+                    )
+                }
+            }
+        }
+
+        Spacer(Modifier.width(12.dp))
+
+        Column(Modifier.weight(1f)) {
+            Text(
+                text = book.fileName,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                FormatCapsule(book.format.uppercase(), fmtColor)
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    formatBytes(book.size),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+
+        Spacer(Modifier.width(8.dp))
+
+        // 下载状态高光指示微胶囊
+        Surface(
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f)),
+        ) {
+            Row(
+                modifier = Modifier.padding(horizontal = 9.dp, vertical = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    Icons.Outlined.Download,
+                    contentDescription = "下载",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(14.dp),
+                )
+                Spacer(Modifier.width(4.dp))
+                Text(
+                    "下载",
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MaterialTheme.colorScheme.primary,
+                )
             }
         }
     }
@@ -191,7 +454,7 @@ internal fun ImportSourceSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp)
+                .padding(horizontal = 18.dp)
                 .padding(bottom = 28.dp),
         ) {
             Text("添加到书架", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold)
@@ -199,14 +462,14 @@ internal fun ImportSourceSheet(
                 "可以一次选择多本书，也可以扫描一个文件夹。应用具备后台导入管道。",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp, bottom = 10.dp),
+                modifier = Modifier.padding(top = 4.dp, bottom = 12.dp),
             )
 
-            // 格式微胶囊标签
+            // 格式微胶囊标签（东方纸墨柔和低饱和调色板）
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 12.dp),
+                    .padding(bottom = 14.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
@@ -580,7 +843,7 @@ internal fun ImportHistorySheet(
                                             verticalArrangement = Arrangement.spacedBy(2.dp),
                                         ) {
                                             if (entry.format.isNotBlank()) {
-                                                FormatCapsule(entry.format.uppercase())
+                                                FormatCapsule(entry.format.uppercase(), formatColor(entry.format))
                                             }
                                             if (entry.fileSize > 0) {
                                                 Text(formatBytes(entry.fileSize), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
