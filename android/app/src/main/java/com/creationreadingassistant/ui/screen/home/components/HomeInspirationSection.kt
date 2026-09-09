@@ -42,8 +42,10 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.R
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -87,20 +89,12 @@ fun HomeInspirationSection(
             SectionEmptyHint(
                 text = "还没有灵感，阅读时选中文字即可保存为灵感。",
                 leadingIcon = {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(6.dp))
-                            .background(Color(0xFFD97706).copy(alpha = 0.14f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Outlined.Lightbulb,
-                            contentDescription = null,
-                            tint = Color(0xFFD97706),
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
+                    IconPedestal(
+                        icon = Icons.Outlined.Lightbulb,
+                        tint = Color(0xFFD97706),
+                        size = 28.dp,
+                        iconSize = 16.dp,
+                    )
                 },
                 modifier = Modifier
                     .animateEnter(180, reducedMotion)
@@ -134,6 +128,7 @@ fun HomeInspirationItem(
 ) {
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
+    val spec = LocalComponentSpec.current
     val interactionSource = remember { MutableInteractionSource() }
 
     Surface(
@@ -142,9 +137,12 @@ fun HomeInspirationItem(
             onClick()
         },
         interactionSource = interactionSource,
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
         modifier = Modifier
             .fillMaxWidth()
             .animateEnter(enterDelayMs, reducedMotion)
@@ -167,11 +165,11 @@ fun HomeInspirationItem(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             verticalAlignment = Alignment.Top,
         ) {
-            // 暖金灵感微彩底座小图标
+            // 暖金灵感微彩底座小图标：圆角/发丝边框走令牌，渐变属专属艺术保留
             Box(
                 modifier = Modifier
                     .size(32.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
                     .background(
                         Brush.linearGradient(
                             listOf(
@@ -180,7 +178,11 @@ fun HomeInspirationItem(
                             ),
                         ),
                     )
-                    .border(0.6.dp, Color(0xFFD97706).copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
+                    .border(
+                        spec.hairlineBorderWidth,
+                        Color(0xFFD97706).copy(alpha = 0.25f),
+                        RoundedCornerShape(spec.pedestalRadius),
+                    ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(

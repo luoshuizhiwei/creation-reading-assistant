@@ -50,6 +50,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
@@ -67,7 +69,7 @@ import com.creationreadingassistant.ui.util.formatBookProgressForCard
  * - SectionHeader（标题 + 右侧"管理继续阅读"按钮）
  * - 空态或 LazyRow（横向 ContinueCard）
  *
- * **不**嵌套页面级 Scaffold/Card（卡片级 SectionCard 只包裹单条 ContinueCard）。
+ * **不**嵌套页面级 Scaffold/Card（微岛卡片容器只包裹单条 ContinueCard，圆角/发丝边框走 ComponentSpec 令牌）。
  */
 @Composable
 fun HomeContinueSection(
@@ -131,6 +133,7 @@ private fun ContinueCard(
     val pct = progress?.progress_percent ?: 0f
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
+    val spec = LocalComponentSpec.current
     val cardInteraction = remember { MutableInteractionSource() }
 
     Surface(
@@ -139,9 +142,12 @@ private fun ContinueCard(
             onClick()
         },
         interactionSource = cardInteraction,
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
         modifier = modifier
             .width(260.dp)
             .bounceable(cardInteraction)
@@ -154,18 +160,18 @@ private fun ContinueCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
-                // 左侧封面配 8dp 圆角、微细边框及立体书脊暗部渐变阴影（4dp 深度）
+                // 左侧封面圆角走 pedestalRadius 令牌、微细发丝边框及立体书脊暗部渐变阴影（4dp 深度）
                 BookCover(
                     book = book,
                     modifier = Modifier
                         .size(58.dp, 82.dp)
-                        .clip(RoundedCornerShape(8.dp))
+                        .clip(RoundedCornerShape(spec.pedestalRadius))
                         .border(
-                            width = 0.8.dp,
-                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                            shape = RoundedCornerShape(8.dp),
+                            width = spec.hairlineBorderWidth,
+                            color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                            shape = RoundedCornerShape(spec.pedestalRadius),
                         ),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(spec.pedestalRadius),
                     percent = null,
                     fallback = { MutedCoverFallback(book = book, maxTitleChars = 16, showFormat = false) },
                     overlay = {
@@ -211,7 +217,7 @@ private fun ContinueCard(
                     }
                     // 进度百分比微胶囊标签（0% 未读、45% 等）
                     Surface(
-                        shape = RoundedCornerShape(6.dp),
+                        shape = PillShape,
                         color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                     ) {
                         Text(
@@ -248,7 +254,7 @@ private fun ContinueCard(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(3.dp)
-                    .clip(RoundedCornerShape(1.5.dp))
+                    .clip(PillShape)
                     .testTag("continue-progress-${book.id}"),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceContainerHighest,

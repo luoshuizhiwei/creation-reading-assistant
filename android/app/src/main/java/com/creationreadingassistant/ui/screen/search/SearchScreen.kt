@@ -67,11 +67,13 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.ListSkeleton
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -90,6 +92,7 @@ fun SearchScreen(
     viewModel: SearchViewModel = hiltViewModel(),
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     var query by remember { mutableStateOf("") }
     val results by viewModel.results.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
@@ -126,7 +129,7 @@ fun SearchScreen(
                     )
                     .focusRequester(focusRequester),
                 singleLine = true,
-                shape = RoundedCornerShape(14.dp),
+                shape = spec.listItemShape,
                 leadingIcon = {
                     Icon(
                         Icons.Outlined.Search,
@@ -262,7 +265,7 @@ fun SearchScreen(
                                         },
                                         shape = PillShape,
                                         color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                                        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
                                     ) {
                                         Row(
                                             modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
@@ -491,20 +494,13 @@ private fun SearchResultRow(
             modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Box(
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(RoundedCornerShape(10.dp))
-                    .background(typeColor.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = typeColor,
-                )
-            }
+            // 图标底座收敛到共享 IconPedestal（pedestalRadius + 发丝边）
+            IconPedestal(
+                icon = icon,
+                tint = typeColor,
+                size = 40.dp,
+                iconSize = 20.dp,
+            )
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(
@@ -520,7 +516,7 @@ private fun SearchResultRow(
                 ) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(4.dp))
+                            .clip(PillShape)
                             .background(typeColor.copy(alpha = 0.1f))
                             .padding(horizontal = 6.dp, vertical = 1.dp),
                     ) {

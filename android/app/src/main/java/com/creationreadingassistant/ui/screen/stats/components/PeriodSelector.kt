@@ -34,6 +34,7 @@ import com.creationreadingassistant.ui.screen.stats.PERIOD_LABELS
 import com.creationreadingassistant.ui.screen.stats.StatsAction
 import com.creationreadingassistant.ui.screen.stats.StatsPeriod
 import com.creationreadingassistant.ui.screen.stats.StatsUiState
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -51,6 +52,7 @@ internal fun PeriodSelector(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -74,9 +76,16 @@ internal fun PeriodSelector(
             Surface(
                 onClick = { onAction(StatsAction.ShiftPeriod(-1)) },
                 enabled = state.period != StatsPeriod.TOTAL,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(spec.pedestalRadius),
                 color = if (state.period != StatsPeriod.TOTAL) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent,
-                border = if (state.period != StatsPeriod.TOTAL) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)) else null,
+                border = if (state.period != StatsPeriod.TOTAL) {
+                    BorderStroke(
+                        spec.hairlineBorderWidth,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                    )
+                } else {
+                    null
+                },
                 modifier = Modifier.size(32.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -98,9 +107,16 @@ internal fun PeriodSelector(
             Surface(
                 onClick = { onAction(StatsAction.ShiftPeriod(1)) },
                 enabled = state.nextEnabled,
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(spec.pedestalRadius),
                 color = if (state.nextEnabled) MaterialTheme.colorScheme.surfaceContainerLow else Color.Transparent,
-                border = if (state.nextEnabled) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)) else null,
+                border = if (state.nextEnabled) {
+                    BorderStroke(
+                        spec.hairlineBorderWidth,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                    )
+                } else {
+                    null
+                },
                 modifier = Modifier.size(32.dp),
             ) {
                 Box(contentAlignment = Alignment.Center) {
@@ -124,10 +140,14 @@ private fun StatsPeriodTabs(
     reducedMotion: Boolean = false,
 ) {
     val haptic = rememberHaptic(reducedMotion)
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
         modifier = Modifier.testTag("stats-period-tabs"),
     ) {
         Row(
@@ -157,10 +177,17 @@ private fun StatsPeriodTabs(
                         onSelect(p)
                     },
                     modifier = Modifier.weight(1f),
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     color = animatedBg,
                     contentColor = animatedContentColor,
-                    border = if (active) BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)) else null,
+                    border = if (active) {
+                        BorderStroke(
+                            spec.hairlineBorderWidth,
+                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        )
+                    } else {
+                        null
+                    },
                 ) {
                     Text(
                         text = label,

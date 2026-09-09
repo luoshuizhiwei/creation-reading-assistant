@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -47,6 +48,7 @@ fun HomeReadingArchiveSection(
     modifier: Modifier = Modifier,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
     val interactionSource = remember { MutableInteractionSource() }
@@ -66,9 +68,12 @@ fun HomeReadingArchiveSection(
                 },
             )
             .testTag("reading-archive-card"),
-        shape = RoundedCornerShape(16.dp),
+        shape = RoundedCornerShape(spec.islandRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
     ) {
         Box(
             modifier = Modifier
@@ -89,11 +94,11 @@ fun HomeReadingArchiveSection(
                 horizontalArrangement = Arrangement.spacedBy(layout.contentGap),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                // 36dp 暖琥珀微彩底座与渐变光泽
+                // 36dp 暖琥珀微彩底座与渐变光泽：圆角/发丝边框走令牌，渐变属专属艺术保留
                 Box(
                     modifier = Modifier
                         .size(36.dp)
-                        .clip(RoundedCornerShape(10.dp))
+                        .clip(RoundedCornerShape(spec.pedestalRadius))
                         .background(
                             Brush.linearGradient(
                                 listOf(
@@ -103,9 +108,9 @@ fun HomeReadingArchiveSection(
                             ),
                         )
                         .border(
-                            width = 0.8.dp,
-                            color = Color(0xFFD97706).copy(alpha = 0.30f),
-                            shape = RoundedCornerShape(10.dp),
+                            width = spec.hairlineBorderWidth,
+                            color = Color(0xFFD97706).copy(alpha = spec.hairlineAlpha),
+                            shape = RoundedCornerShape(spec.pedestalRadius),
                         ),
                     contentAlignment = Alignment.Center,
                 ) {

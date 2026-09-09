@@ -59,7 +59,9 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.screen.inspiration.InspirationAction
 import com.creationreadingassistant.ui.screen.inspiration.aiActionLabel
 import com.creationreadingassistant.ui.screen.inspiration.formatDetailTime
@@ -107,7 +109,7 @@ internal fun InspirationDetail(
             .padding(16.dp),
     ) {
         // ── 1. 核心灵感卡片 ──
-        SectionCard(modifier = Modifier.fillMaxWidth()) {
+        IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -117,7 +119,7 @@ internal fun InspirationDetail(
                     Surface(
                         color = accentColor.copy(alpha = 0.12f),
                         shape = PillShape,
-                        border = BorderStroke(0.5.dp, accentColor.copy(alpha = 0.25f)),
+                        border = BorderStroke(spec.hairlineBorderWidth, accentColor.copy(alpha = 0.25f)),
                     ) {
                         Row(
                             modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -127,7 +129,7 @@ internal fun InspirationDetail(
                             Box(
                                 modifier = Modifier
                                     .size(6.dp)
-                                    .clip(RoundedCornerShape(3.dp))
+                                    .clip(PillShape)
                                     .background(accentColor),
                             )
                             Text(
@@ -212,30 +214,19 @@ internal fun InspirationDetail(
         // ── 2. 来源书籍与阅读足迹微岛 ──
         if (source != null) {
             Spacer(Modifier.height(14.dp))
-            SectionCard(modifier = Modifier.fillMaxWidth()) {
+            IslandCard(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        Icon(
-                            Icons.Outlined.MenuBook,
-                            contentDescription = null,
-                            modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                        Text(
-                            "来源书籍与阅读足迹",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.primary,
-                        )
-                    }
+                    IslandSectionHeader(
+                        title = "来源书籍与阅读足迹",
+                        icon = Icons.Outlined.MenuBook,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
 
                     Spacer(Modifier.height(10.dp))
 
                     Surface(
                         onClick = { onAction(InspirationAction.OpenCurrentSource) },
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(spec.hintRadius),
                         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
@@ -246,20 +237,12 @@ internal fun InspirationDetail(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Box(
-                                modifier = Modifier
-                                    .size(36.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Book,
-                                    contentDescription = null,
-                                    tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(20.dp),
-                                )
-                            }
+                            IconPedestal(
+                                icon = Icons.Outlined.Book,
+                                tint = MaterialTheme.colorScheme.primary,
+                                size = 36.dp,
+                                iconSize = 20.dp,
+                            )
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     source.bookTitle?.let { "《$it》" } ?: "来源书籍已不可用",
@@ -317,9 +300,12 @@ internal fun InspirationDetail(
 
                     if (!source.excerpt.isNullOrBlank()) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = RoundedCornerShape(spec.hintRadius),
                             color = MaterialTheme.colorScheme.surfaceContainerLow,
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                            border = BorderStroke(
+                                spec.hairlineBorderWidth,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            ),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(top = 10.dp),
@@ -332,7 +318,7 @@ internal fun InspirationDetail(
                                     modifier = Modifier
                                         .width(3.dp)
                                         .height(18.dp)
-                                        .clip(RoundedCornerShape(1.5.dp))
+                                        .clip(PillShape)
                                         .background(MaterialTheme.colorScheme.primary),
                                 )
                                 Text(
@@ -352,40 +338,36 @@ internal fun InspirationDetail(
 
         // ── 3. AI 灵感工坊 ──
         Spacer(Modifier.height(14.dp))
-        SectionCard(modifier = Modifier.fillMaxWidth()) {
+        IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.AutoAwesome,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Text(
-                        "AI 灵感工坊",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                    )
-                    if (variants.isNotEmpty()) {
-                        Surface(
-                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            shape = PillShape,
+                IslandSectionHeader(
+                    title = "AI 灵感工坊",
+                    icon = Icons.Outlined.AutoAwesome,
+                    tint = MaterialTheme.colorScheme.primary,
+                    trailing = {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
-                            Text(
-                                "${variants.size} 个候选",
-                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
-                                color = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
-                            )
+                            if (variants.isNotEmpty()) {
+                                Surface(
+                                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                                    shape = PillShape,
+                                ) {
+                                    Text(
+                                        "${variants.size} 个候选",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.primary,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                                    )
+                                }
+                            }
+                            if (generatingAction != null) {
+                                CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
+                            }
                         }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    if (generatingAction != null) {
-                        CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
-                    }
-                }
+                    },
+                )
                 Text(
                     "AI 只生成辅助候选，不会自动覆盖正文。",
                     style = MaterialTheme.typography.bodySmall,
@@ -456,7 +438,7 @@ private fun VariantCard(
     onDelete: () -> Unit,
     onCopy: (String) -> Unit,
 ) {
-    SectionCard(
+    IslandCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 8.dp),

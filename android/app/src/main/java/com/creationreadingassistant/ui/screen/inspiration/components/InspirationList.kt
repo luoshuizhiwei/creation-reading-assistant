@@ -54,7 +54,7 @@ import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBookmark
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
@@ -94,6 +94,7 @@ internal fun InspirationList(
     modifier: Modifier = Modifier,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     val reducedMotion = rememberReducedMotion()
 
     val hasAny = items.isNotEmpty()
@@ -151,7 +152,10 @@ internal fun InspirationList(
                 onClick = { onAction(InspirationAction.OpenSortSheet) },
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
+                border = BorderStroke(
+                    spec.hairlineBorderWidth,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                ),
                 contentColor = MaterialTheme.colorScheme.primary,
             ) {
                 Row(
@@ -290,7 +294,7 @@ private fun InspirationRecordCard(
         else -> Color(0xFF2563EB)
     }
 
-    SectionCard(
+    IslandCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateEnter(delayMillis = entranceDelay, reducedMotion = rememberReducedMotion())
@@ -309,7 +313,7 @@ private fun InspirationRecordCard(
                 Surface(
                     color = accentColor.copy(alpha = 0.12f),
                     shape = PillShape,
-                    border = BorderStroke(0.5.dp, accentColor.copy(alpha = 0.25f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, accentColor.copy(alpha = 0.25f)),
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
@@ -319,7 +323,7 @@ private fun InspirationRecordCard(
                         Box(
                             modifier = Modifier
                                 .size(6.dp)
-                                .clip(RoundedCornerShape(3.dp))
+                                .clip(PillShape)
                                 .background(accentColor),
                         )
                         Text(
@@ -383,7 +387,7 @@ private fun InspirationRecordCard(
             if (hasSourceLine) {
                 Surface(
                     color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
-                    shape = RoundedCornerShape(8.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     modifier = Modifier.padding(top = 10.dp),
                 ) {
                     Row(

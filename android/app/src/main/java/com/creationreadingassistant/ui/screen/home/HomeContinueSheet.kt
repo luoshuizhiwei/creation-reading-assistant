@@ -69,6 +69,7 @@ import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.util.bookNotReadyLabel
 import com.creationreadingassistant.ui.util.formatBookProgressForCard
 import com.creationreadingassistant.ui.util.hasBookBeenRead
@@ -480,10 +481,11 @@ private fun ActionButton(
     isDanger: Boolean = false,
     onClick: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(spec.hintRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(0.8.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
         onClick = onClick,
         modifier = Modifier
             .fillMaxWidth()
@@ -520,11 +522,12 @@ private fun ContinueListItem(
     onAction: () -> Unit,
     onRemove: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha)),
         onClick = onClick,
         enabled = !manageMode,
     ) {
@@ -539,13 +542,13 @@ private fun ContinueListItem(
                 book = item.book,
                 modifier = Modifier
                     .size(52.dp, 72.dp)
-                    .clip(RoundedCornerShape(8.dp))
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
                     .border(
-                        width = 0.8.dp,
+                        width = spec.hairlineBorderWidth,
                         color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(spec.pedestalRadius),
                     ),
-                shape = RoundedCornerShape(8.dp),
+                shape = RoundedCornerShape(spec.pedestalRadius),
                 showSheen = true,
                 percent = null,
                 fallback = {
@@ -591,7 +594,7 @@ private fun ContinueListItem(
                     )
                 }
                 Surface(
-                    shape = RoundedCornerShape(6.dp),
+                    shape = spec.pillShape,
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                 ) {
                     Text(
@@ -624,10 +627,11 @@ private fun HiddenBookCapsuleCard(
     onRestore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(spec.hintRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
+        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.30f)),
         modifier = modifier.fillMaxWidth(),
     ) {
         Row(
@@ -641,13 +645,13 @@ private fun HiddenBookCapsuleCard(
                 book = book,
                 modifier = Modifier
                     .size(38.dp, 52.dp)
-                    .clip(RoundedCornerShape(6.dp))
+                    .clip(RoundedCornerShape(spec.pedestalRadius))
                     .border(
-                        width = 0.6.dp,
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
-                        shape = RoundedCornerShape(6.dp),
+                        width = spec.hairlineBorderWidth,
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                        shape = RoundedCornerShape(spec.pedestalRadius),
                     ),
-                shape = RoundedCornerShape(6.dp),
+                shape = RoundedCornerShape(spec.pedestalRadius),
                 showSheen = false,
                 percent = null,
                 fallback = {
@@ -676,9 +680,9 @@ private fun HiddenBookCapsuleCard(
                 )
             }
             Surface(
-                shape = RoundedCornerShape(8.dp),
+                shape = spec.pillShape,
                 color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                 onClick = onRestore,
             ) {
                 Row(

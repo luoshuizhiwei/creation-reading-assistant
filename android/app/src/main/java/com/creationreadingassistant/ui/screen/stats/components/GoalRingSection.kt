@@ -4,7 +4,6 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,7 +14,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.LocalFireDepartment
@@ -29,7 +27,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -40,8 +37,11 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlin.math.min
@@ -60,6 +60,7 @@ internal fun GoalRingSection(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     val scheme = MaterialTheme.colorScheme
     val goalMs = goalMinutes * 60_000L
     val rawFraction = if (goalMs > 0) todayMs.toFloat() / goalMs else 0f
@@ -74,7 +75,7 @@ internal fun GoalRingSection(
     val todayMinutes = (todayMs / 60000).toInt()
     val percentage = (fraction * 100).toInt()
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
@@ -152,9 +153,12 @@ internal fun GoalRingSection(
                     )
 
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = PillShape,
                         color = if (achieved) Color(0xFF059669).copy(alpha = 0.12f) else scheme.primary.copy(alpha = 0.12f),
-                        border = BorderStroke(1.dp, if (achieved) Color(0xFF059669).copy(alpha = 0.25f) else scheme.primary.copy(alpha = 0.25f)),
+                        border = BorderStroke(
+                            spec.hairlineBorderWidth,
+                            if (achieved) Color(0xFF059669).copy(alpha = 0.25f) else scheme.primary.copy(alpha = 0.25f),
+                        ),
                     ) {
                         Text(
                             text = if (achieved) "已完成" else "$percentage%",
@@ -193,30 +197,26 @@ private fun GoalBadgePill(
     iconTint: Color,
     text: String,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = PillShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 5.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(
-                modifier = Modifier
-                    .size(20.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(iconTint.copy(alpha = 0.12f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp),
-                    tint = iconTint,
-                )
-            }
+            IconPedestal(
+                icon = icon,
+                tint = iconTint,
+                size = 20.dp,
+                iconSize = 13.dp,
+            )
             Text(
                 text = text,
                 style = MaterialTheme.typography.bodySmall,

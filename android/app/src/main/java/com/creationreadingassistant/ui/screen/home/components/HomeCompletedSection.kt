@@ -52,6 +52,7 @@ import com.creationreadingassistant.ui.components.MutedCoverFallback
 import com.creationreadingassistant.ui.components.SectionEmptyHint
 import com.creationreadingassistant.ui.components.SectionHeader
 import com.creationreadingassistant.ui.theme.animateEnter
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -134,6 +135,7 @@ private fun CompletedCard(
 ) {
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
+    val spec = LocalComponentSpec.current
     val interactionSource = remember { MutableInteractionSource() }
 
     Column(
@@ -152,18 +154,18 @@ private fun CompletedCard(
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(6.dp),
     ) {
-        // 8dp 圆角立体书脊封面，右上角翡翠绿「已读完」微徽章 / SealMark 质感印章徽标
+        // 封面圆角走 pedestalRadius 令牌，右上角翡翠绿「已读完」微徽章 / SealMark 质感印章徽标
         BookCover(
             book = book,
             modifier = Modifier
                 .size(84.dp, 116.dp)
-                .clip(RoundedCornerShape(8.dp))
+                .clip(RoundedCornerShape(spec.pedestalRadius))
                 .border(
-                    width = 0.8.dp,
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.40f),
-                    shape = RoundedCornerShape(8.dp),
+                    width = spec.hairlineBorderWidth,
+                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                    shape = RoundedCornerShape(spec.pedestalRadius),
                 ),
-            shape = RoundedCornerShape(8.dp),
+            shape = RoundedCornerShape(spec.pedestalRadius),
             percent = null,
             fallback = { MutedCoverFallback(book = book, maxTitleChars = 8, showFormat = false) },
             overlay = {
@@ -191,7 +193,7 @@ private fun CompletedCard(
                         .clip(RoundedCornerShape(3.dp))
                         .background(Color(0xFF059669).copy(alpha = 0.18f))
                         .border(
-                            width = 0.8.dp,
+                            width = spec.hairlineBorderWidth,
                             color = Color(0xFF059669).copy(alpha = 0.85f),
                             shape = RoundedCornerShape(3.dp),
                         )

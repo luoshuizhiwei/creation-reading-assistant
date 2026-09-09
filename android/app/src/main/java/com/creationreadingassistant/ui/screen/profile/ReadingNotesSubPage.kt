@@ -2,7 +2,6 @@ package com.creationreadingassistant.ui.screen.profile
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -44,10 +43,12 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.components.MutedCoverFallback
 import com.creationreadingassistant.ui.components.PageLazyColumn
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import kotlin.math.roundToInt
@@ -136,19 +137,14 @@ private fun ReadingBookItem(
     onClick: () -> Unit,
 ) {
     val pct = (progress?.progress_percent ?: 0f).roundToInt().coerceIn(0, 100)
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+    val spec = LocalComponentSpec.current
+    IslandCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
+        contentPadding = 12.dp,
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
             Row(
@@ -212,9 +208,9 @@ private fun ReadingBookItem(
                     ) {
                         // 进度高亮微胶囊
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = spec.pillShape,
                             color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
-                            border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.3f)),
+                            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = spec.hairlineAlpha)),
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -241,9 +237,9 @@ private fun ReadingBookItem(
                         // 累计阅读时长暖琥珀微徽章
                         if (totalMs > 0L) {
                             Surface(
-                                shape = RoundedCornerShape(8.dp),
+                                shape = spec.pillShape,
                                 color = Color(0xFFF59E0B).copy(alpha = 0.12f),
-                                border = BorderStroke(0.6.dp, Color(0xFFF59E0B).copy(alpha = 0.35f)),
+                                border = BorderStroke(spec.hairlineBorderWidth, Color(0xFFF59E0B).copy(alpha = spec.hairlineAlpha)),
                             ) {
                                 Row(
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -316,19 +312,13 @@ private fun NoteItem(
     onClick: (() -> Unit)?,
 ) {
     val body = note.body.takeIf { it.isNotBlank() } ?: note.excerpt ?: ""
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(14.dp))
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(14.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.72f),
-        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+    val spec = LocalComponentSpec.current
+    IslandCard(
+        modifier = Modifier.fillMaxWidth(),
+        onClick = onClick,
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(14.dp),
+            modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
             // 左侧 3dp 典雅墨线竖标
@@ -372,9 +362,9 @@ private fun NoteItem(
                     val bookTitle = book?.title ?: (if (note.book_id != null) "关联书籍" else null)
                     if (bookTitle != null) {
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
+                            shape = spec.pillShape,
                             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.45f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
+                            border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.primary.copy(alpha = 0.25f)),
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -405,9 +395,9 @@ private fun NoteItem(
                 // 纸墨微光引言正文
                 if (body.isNotBlank()) {
                     Surface(
-                        shape = RoundedCornerShape(8.dp),
+                        shape = RoundedCornerShape(spec.hintRadius),
                         color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.35f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
+                        border = BorderStroke(spec.hairlineBorderWidth, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(

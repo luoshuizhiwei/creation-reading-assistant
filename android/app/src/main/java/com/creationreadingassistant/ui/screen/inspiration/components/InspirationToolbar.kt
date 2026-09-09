@@ -8,7 +8,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
@@ -17,6 +16,7 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
 import com.creationreadingassistant.ui.theme.AppIconSize
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -61,6 +61,8 @@ internal fun rememberListToolbar(
         title = "灵感",
         compact = searchOpen,
         titleContent = {
+            // 在 composable lambda 体内读令牌：搜索框圆角收敛到 listItemShape（14dp 等值）。
+            val spec = LocalComponentSpec.current
             if (searchOpen) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
@@ -102,7 +104,7 @@ internal fun rememberListToolbar(
                             }
                         },
                         singleLine = true,
-                        shape = RoundedCornerShape(14.dp),
+                        shape = spec.listItemShape,
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                             unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),

@@ -51,10 +51,13 @@ import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
+import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.PageLazyColumn
-import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.viewmodel.MyReadingFilter
 import com.creationreadingassistant.ui.viewmodel.MyReadingItem
 import com.creationreadingassistant.ui.viewmodel.MyReadingUiState
@@ -69,6 +72,7 @@ fun MyReadingScreen(
     modifier: Modifier = Modifier,
 ) {
     val layout = LocalLayoutTokens.current
+    val spec = LocalComponentSpec.current
     AppScreenScaffold(
         modifier = modifier.testTag("my-reading-screen"),
         title = "我的阅读",
@@ -124,7 +128,7 @@ fun MyReadingScreen(
                     },
                     placeholder = { Text("搜索 ${state.counts[MyReadingFilter.ALL] ?: 0} 本书") },
                     singleLine = true,
-                    shape = RoundedCornerShape(14.dp),
+                    shape = spec.listItemShape,
                     colors = OutlinedTextFieldDefaults.colors(
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.6f),
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.4f),
@@ -188,8 +192,9 @@ private fun ReadingFootprintOverview(
     val totalReadingMs = remember(state.months) {
         state.months.sumOf { month -> month.items.sumOf { it.readingTimeMs } }
     }
+    val spec = LocalComponentSpec.current
 
-    SectionCard(
+    IslandCard(
         modifier = modifier.fillMaxWidth(),
         contentPadding = 16.dp,
     ) {
@@ -202,20 +207,13 @@ private fun ReadingFootprintOverview(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
             ) {
-                Surface(
-                    modifier = Modifier.size(40.dp),
-                    shape = CircleShape,
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            Icons.Outlined.AutoStories,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp),
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        )
-                    }
-                }
+                // 图标底座收敛到共享 IconPedestal（pedestalRadius + 发丝边）
+                IconPedestal(
+                    icon = Icons.Outlined.AutoStories,
+                    tint = MaterialTheme.colorScheme.primary,
+                    size = 40.dp,
+                    iconSize = 20.dp,
+                )
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(
                         "阅读时光足迹",
@@ -230,7 +228,7 @@ private fun ReadingFootprintOverview(
                 }
             }
             Surface(
-                shape = RoundedCornerShape(12.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 color = MaterialTheme.colorScheme.surfaceContainerHighest,
             ) {
                 Row(
@@ -317,7 +315,7 @@ private fun ReadingFilterRail(state: MyReadingUiState, onAction: (MyReadingActio
             val count = state.counts[filter] ?: 0
             Surface(
                 onClick = { onAction(MyReadingAction.SelectFilter(filter)) },
-                shape = RoundedCornerShape(20.dp),
+                shape = PillShape,
                 color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.surfaceContainerLow,
                 border = if (selected) null else BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f)),
             ) {
@@ -360,7 +358,7 @@ private fun TimelineYearHeader(year: Int, totalBooks: Int, isFirst: Boolean) {
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         Surface(
-            shape = RoundedCornerShape(10.dp),
+            shape = PillShape,
             color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.6f),
         ) {
             Row(
@@ -417,7 +415,7 @@ private fun MonthHeader(month: Int, count: Int) {
         )
         Spacer(Modifier.width(8.dp))
         Surface(
-            shape = RoundedCornerShape(10.dp),
+            shape = PillShape,
             color = MaterialTheme.colorScheme.surfaceContainerHighest,
         ) {
             Text(
@@ -438,6 +436,7 @@ private fun TimelineBookRow(
     onOpen: () -> Unit,
     onManage: () -> Unit,
 ) {
+    val spec = LocalComponentSpec.current
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -481,8 +480,8 @@ private fun TimelineBookRow(
             }
         }
 
-        // 右侧阅读足迹卡片（消费统一 SectionCard）
-        SectionCard(
+        // 右侧阅读足迹卡片（消费统一 IslandCard，与微岛范式对齐）
+        IslandCard(
             modifier = Modifier
                 .weight(1f)
                 .combinedClickable(onClick = onOpen, onLongClick = onManage)
@@ -498,7 +497,7 @@ private fun TimelineBookRow(
                     book = item.book,
                     modifier = Modifier
                         .size(54.dp, 76.dp)
-                        .clip(RoundedCornerShape(8.dp)),
+                        .clip(RoundedCornerShape(spec.pedestalRadius)),
                     percent = null,
                     fallback = {
                         Text(
@@ -545,7 +544,7 @@ private fun TimelineBookRow(
                             color = MaterialTheme.colorScheme.outline,
                         )
                         Surface(
-                            shape = RoundedCornerShape(4.dp),
+                            shape = PillShape,
                             color = MaterialTheme.colorScheme.surfaceContainerHighest,
                         ) {
                             Text(
@@ -587,6 +586,7 @@ private fun TimelineBookRow(
 
 @Composable
 private fun ReadingStateBadge(item: MyReadingItem) {
+    val spec = LocalComponentSpec.current
     val (bg, fg, label) = when (item.state) {
         ReadingCompletionState.READING -> Triple(
             MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
@@ -605,7 +605,7 @@ private fun ReadingStateBadge(item: MyReadingItem) {
         )
     }
     Surface(
-        shape = RoundedCornerShape(6.dp),
+        shape = spec.pillShape,
         color = bg,
     ) {
         Text(

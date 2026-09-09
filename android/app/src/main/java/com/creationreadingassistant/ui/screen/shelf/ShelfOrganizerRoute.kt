@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -36,6 +37,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.DragHandle
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.Folder
+import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
@@ -100,8 +102,8 @@ internal fun ShelfOrganizerRoute(
         actions = { TextButton(onClick = viewModel::resetShelfFilters) { Text("清除筛选") } },
     ) { viewport ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(viewport),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp),
+            modifier = Modifier.fillMaxSize().padding(viewport).navigationBarsPadding(),
+            contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 36.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             // 1. 全屏批量管理入口微岛卡片
@@ -164,11 +166,11 @@ internal fun ShelfOrganizerRoute(
                         Spacer(Modifier.height(8.dp))
 
                         if (allShelves.isEmpty()) {
-                            Text(
-                                "暂无自定义书单，点击右上角新建书单",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                            OrganizerEmptyState(
+                                icon = Icons.Outlined.Folder,
+                                tint = TonePurple,
+                                title = "暂无自定义书单",
+                                subtitle = "点击右上角「+ 新建书单」按主题分类归纳藏书",
                             )
                         } else {
                             allShelves.forEachIndexed { index, shelf ->
@@ -258,11 +260,11 @@ internal fun ShelfOrganizerRoute(
                         Spacer(Modifier.height(8.dp))
 
                         if (allCategories.isEmpty()) {
-                            Text(
-                                "暂无分类，点击右上角新建分类",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                            OrganizerEmptyState(
+                                icon = Icons.Outlined.Category,
+                                tint = ToneBlue,
+                                title = "暂无分类",
+                                subtitle = "点击右上角「+ 新建分类」按文体或体裁组织书籍",
                             )
                         } else {
                             allCategories.forEachIndexed { index, category ->
@@ -352,11 +354,11 @@ internal fun ShelfOrganizerRoute(
                         Spacer(Modifier.height(10.dp))
 
                         if (allTags.isEmpty()) {
-                            Text(
-                                "暂无标签，点击右上角新建标签",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.padding(vertical = 12.dp, horizontal = 4.dp),
+                            OrganizerEmptyState(
+                                icon = Icons.AutoMirrored.Outlined.Label,
+                                tint = ToneAmber,
+                                title = "暂无标签",
+                                subtitle = "点击右上角「+ 新建标签」添加灵活的多维检索标记",
                             )
                         } else {
                             FlowRow(
@@ -371,16 +373,16 @@ internal fun ShelfOrganizerRoute(
                                             .clip(PillShape)
                                             .background(
                                                 if (isFilterSelected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.65f)
-                                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+                                                else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
                                             )
                                             .border(
                                                 0.5.dp,
-                                                if (isFilterSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.5f)
-                                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f),
+                                                if (isFilterSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.50f)
+                                                else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f),
                                                 PillShape,
                                             )
                                             .clickable { viewModel.toggleSelectedTag(tag.id) }
-                                            .padding(start = 10.dp, top = 5.dp, end = 6.dp, bottom = 5.dp),
+                                            .padding(start = 12.dp, top = 3.dp, end = 4.dp, bottom = 3.dp),
                                     ) {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             Text(
@@ -389,15 +391,21 @@ internal fun ShelfOrganizerRoute(
                                                 fontWeight = if (isFilterSelected) FontWeight.Bold else FontWeight.Medium,
                                                 color = if (isFilterSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
                                             )
-                                            Spacer(Modifier.width(6.dp))
-                                            Icon(
-                                                Icons.Outlined.Close,
-                                                contentDescription = "删除标签",
+                                            Spacer(Modifier.width(4.dp))
+                                            Box(
                                                 modifier = Modifier
-                                                    .size(14.dp)
+                                                    .size(24.dp)
+                                                    .clip(RoundedCornerShape(12.dp))
                                                     .clickable { itemToDelete = Triple("tag", tag.id, tag.name) },
-                                                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
-                                            )
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.Close,
+                                                    contentDescription = "删除标签",
+                                                    modifier = Modifier.size(13.dp),
+                                                    tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.65f),
+                                                )
+                                            }
                                         }
                                     }
                                 }
@@ -459,18 +467,40 @@ internal fun ShelfOrganizerRoute(
                 }
             }
 
+            // 6. 底部轻量微岛说明卡片（柔和底色、0.6dp 发丝描边、左侧信息微图标、12dp 圆角）
             item {
-                Text(
-                    "筛选仅在本次使用中保留；排序和自定义分类标签会长期保存。",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+                        .border(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f), RoundedCornerShape(12.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Text(
+                            "筛选仅在本次使用中保留；排序和自定义分类标签会长期保存。",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 18.sp,
+                        )
+                    }
+                }
             }
         }
     }
 
-    // 创建对话框
+    // 创建对话框（东方纸墨规范微岛输入框与胶囊按键）
     if (createKind != null) {
         val kindLabel = when (createKind) {
             "shelf" -> "新建书单"
@@ -485,12 +515,19 @@ internal fun ShelfOrganizerRoute(
                     OutlinedTextField(
                         value = newNameInput,
                         onValueChange = { newNameInput = it },
-                        placeholder = { Text("请输入名称") },
+                        placeholder = {
+                            Text(
+                                "请输入名称",
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.6f),
+                            )
+                        },
                         singleLine = true,
-                        shape = RoundedCornerShape(10.dp),
+                        shape = RoundedCornerShape(12.dp),
                         colors = OutlinedTextFieldDefaults.colors(
+                            focusedContainerColor = MaterialTheme.colorScheme.surface,
+                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                             focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.65f),
                         ),
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -510,13 +547,18 @@ internal fun ShelfOrganizerRoute(
                         createKind = null
                     },
                     shape = PillShape,
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                    ),
                 ) {
                     Text("创建")
                 }
             },
             dismissButton = {
-                TextButton(onClick = { createKind = null }) { Text("取消") }
+                TextButton(onClick = { createKind = null }) {
+                    Text("取消", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             },
         )
     }
@@ -618,6 +660,56 @@ private fun ActiveFilterMicroBadge(text: String) {
             .padding(horizontal = 6.dp, vertical = 2.dp),
     ) {
         Text(text, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+    }
+}
+
+// 分区空状态精致引导占位微岛卡片（微彩圆角底座与轻柔引导文案）
+@Composable
+private fun OrganizerEmptyState(
+    icon: ImageVector,
+    tint: Color,
+    title: String,
+    subtitle: String,
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(10.dp))
+            .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f))
+            .border(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), RoundedCornerShape(10.dp))
+            .padding(vertical = 14.dp, horizontal = 14.dp),
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(tint.copy(alpha = 0.12f))
+                    .border(0.5.dp, tint.copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(15.dp))
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodySmall,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(Modifier.height(1.dp))
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    lineHeight = 16.sp,
+                )
+            }
+        }
     }
 }
 

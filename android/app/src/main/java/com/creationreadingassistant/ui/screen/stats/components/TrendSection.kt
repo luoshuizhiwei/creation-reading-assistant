@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -36,11 +35,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.TrendItem
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.MotionTokens
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.time.LocalDate
@@ -59,57 +61,39 @@ internal fun TrendSection(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     val scheme = MaterialTheme.colorScheme
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
             .testTag("stats-trend"),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(scheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
+            // 标题行：收敛到共享 IslandSectionHeader（32dp IconPedestal 底座）+ 令牌化摘要胶囊
+            IslandSectionHeader(
+                title = "阅读趋势",
+                icon = Icons.Outlined.BarChart,
+                tint = scheme.primary,
+                trailing = {
+                    Surface(
+                        shape = PillShape,
+                        color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                        border = BorderStroke(
+                            spec.hairlineBorderWidth,
+                            scheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                        ),
                     ) {
-                        Icon(
-                            Icons.Outlined.BarChart,
-                            contentDescription = null,
-                            tint = scheme.primary,
-                            modifier = Modifier.size(18.dp),
+                        Text(
+                            text = if (stats.sessionCount > 0) "${stats.sessionCount} 次阅读" else "暂无数据",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
-                    Text(
-                        "阅读趋势",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
-                    border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f)),
-                ) {
-                    Text(
-                        text = if (stats.sessionCount > 0) "${stats.sessionCount} 次阅读" else "暂无数据",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
+                },
+            )
 
             TrendChart(stats.trend)
         }

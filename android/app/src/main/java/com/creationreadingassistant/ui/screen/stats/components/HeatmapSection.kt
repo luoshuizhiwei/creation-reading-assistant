@@ -11,12 +11,10 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.CalendarMonth
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -29,14 +27,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.R
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.HeatmapCell
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.time.LocalDate
@@ -54,6 +54,7 @@ internal fun HeatmapSection(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     val layout = LocalLayoutTokens.current
     val scheme = MaterialTheme.colorScheme
 
@@ -64,56 +65,36 @@ internal fun HeatmapSection(
     val grid = remember(heatmap) { arrangeHeatmapGrid(heatmap) }
     val monthLabels = remember(grid) { buildMonthColumnLabels(grid) }
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
             .testTag("stats-heatmap"),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            // 标题行：带 32dp 微彩底座与轻量胶囊摘要
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(scheme.primary.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
+            // 标题行：收敛到共享 IslandSectionHeader（32dp IconPedestal 底座）+ 轻量胶囊摘要
+            IslandSectionHeader(
+                title = "365 天阅读足迹",
+                icon = Icons.Outlined.CalendarMonth,
+                tint = scheme.primary,
+                trailing = {
+                    Surface(
+                        shape = PillShape,
+                        color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                        border = BorderStroke(
+                            spec.hairlineBorderWidth,
+                            scheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                        ),
                     ) {
-                        Icon(
-                            Icons.Outlined.CalendarMonth,
-                            contentDescription = null,
-                            tint = scheme.primary,
-                            modifier = Modifier.size(18.dp),
+                        Text(
+                            text = if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs)}" else "近一年暂无阅读",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
-                    Text(
-                        "365 天阅读足迹",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
-                    border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f)),
-                ) {
-                    Text(
-                        text = if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs)}" else "近一年暂无阅读",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
+                },
+            )
 
             if (grid.isEmpty()) {
                 Text(

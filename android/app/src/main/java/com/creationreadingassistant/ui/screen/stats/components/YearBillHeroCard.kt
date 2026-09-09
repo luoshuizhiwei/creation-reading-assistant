@@ -10,14 +10,11 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoStories
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.LocalFireDepartment
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -25,18 +22,19 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -115,7 +113,7 @@ internal fun YearBillHeroCard(
         ),
     )
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
@@ -141,20 +139,12 @@ internal fun YearBillHeroCard(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(7.dp))
-                            .background(Color.White.copy(alpha = 0.18f)),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Outlined.AutoStories,
-                            contentDescription = null,
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp),
-                        )
-                    }
+                    IconPedestal(
+                        icon = Icons.Outlined.AutoStories,
+                        tint = Color.White,
+                        size = 28.dp,
+                        iconSize = 16.dp,
+                    )
                     Text(
                         "$anchorYear 年度阅读报告",
                         color = Color.White,
@@ -204,11 +194,15 @@ private fun YearBillMicroCard(
     item: YearBillMetricItem,
     modifier: Modifier = Modifier,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -221,20 +215,10 @@ private fun YearBillMicroCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(item.iconTint.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = item.iconTint,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
+                IconPedestal(
+                    icon = item.icon,
+                    tint = item.iconTint,
+                )
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.labelMedium,

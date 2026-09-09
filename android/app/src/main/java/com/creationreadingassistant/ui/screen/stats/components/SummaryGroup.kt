@@ -1,16 +1,13 @@
 package com.creationreadingassistant.ui.screen.stats.components
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AccessTime
@@ -18,23 +15,23 @@ import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.LocalFireDepartment
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.screen.stats.StatsUi
 import com.creationreadingassistant.ui.screen.stats.formatCompactDuration
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -58,6 +55,7 @@ internal fun SummaryGroup(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     val totalMinutes = (stats.totalReadingMs / 60000).toInt()
     val animatedMinutes = rememberCountUp(totalMinutes, reducedMotion)
     val animatedDays = rememberCountUp(stats.readingDays, reducedMotion)
@@ -95,7 +93,7 @@ internal fun SummaryGroup(
         ),
     )
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
@@ -120,9 +118,12 @@ internal fun SummaryGroup(
             // 连续阅读微胶囊横条（当有连续天数数据时呈现）
             if (stats.streakCurrent > 0 || stats.streakLongest > 0) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                    border = BorderStroke(
+                        spec.hairlineBorderWidth,
+                        MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                    ),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(
@@ -132,20 +133,12 @@ internal fun SummaryGroup(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(24.dp)
-                                .clip(RoundedCornerShape(6.dp))
-                                .background(Color(0xFFEA580C).copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Icon(
-                                Icons.Outlined.LocalFireDepartment,
-                                contentDescription = null,
-                                tint = Color(0xFFEA580C),
-                                modifier = Modifier.size(15.dp),
-                            )
-                        }
+                        IconPedestal(
+                            icon = Icons.Outlined.LocalFireDepartment,
+                            tint = Color(0xFFEA580C),
+                            size = 24.dp,
+                            iconSize = 15.dp,
+                        )
                         Text(
                             text = "当前连续 ${stats.streakCurrent} 天",
                             style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
@@ -173,11 +166,15 @@ private fun SummaryMicroCard(
     item: SummaryMetric,
     modifier: Modifier = Modifier,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(14.dp),
+        shape = spec.listItemShape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
     ) {
         Column(
             modifier = Modifier
@@ -190,21 +187,11 @@ private fun SummaryMicroCard(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
             ) {
-                // 32dp 微彩底座小图标
-                Box(
-                    modifier = Modifier
-                        .size(32.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(item.iconTint.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        item.icon,
-                        contentDescription = null,
-                        tint = item.iconTint,
-                        modifier = Modifier.size(18.dp),
-                    )
-                }
+                // 32dp 微彩底座小图标：收敛到共享 IconPedestal（pedestalRadius + hairline 边框）
+                IconPedestal(
+                    icon = item.icon,
+                    tint = item.iconTint,
+                )
                 Text(
                     text = item.label,
                     style = MaterialTheme.typography.labelMedium,

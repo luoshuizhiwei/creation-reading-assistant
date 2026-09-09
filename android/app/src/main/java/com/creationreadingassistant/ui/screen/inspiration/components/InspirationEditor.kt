@@ -35,11 +35,11 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.theme.PillShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -155,24 +155,13 @@ internal fun InspirationEditor(
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
         // ── 1. 灵感主体卡片 ──
-        SectionCard(modifier = Modifier.fillMaxWidth()) {
+        IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.Edit,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        "灵感内容",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                IslandSectionHeader(
+                    title = "灵感内容",
+                    icon = Icons.Outlined.Edit,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
 
                 Spacer(Modifier.height(12.dp))
 
@@ -182,7 +171,7 @@ internal fun InspirationEditor(
                     onValueChange = { title = it },
                     placeholder = { Text("给这条灵感一个清楚的名字") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     colors = textFieldColors,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -201,7 +190,7 @@ internal fun InspirationEditor(
                                 value = getTypeLabel(type),
                                 onValueChange = {},
                                 readOnly = true,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(spec.hintRadius),
                                 colors = textFieldColors,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
@@ -230,7 +219,7 @@ internal fun InspirationEditor(
                                 value = getStatusLabel(status),
                                 onValueChange = {},
                                 readOnly = true,
-                                shape = RoundedCornerShape(12.dp),
+                                shape = RoundedCornerShape(spec.hintRadius),
                                 colors = textFieldColors,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
                                 modifier = Modifier.menuAnchor().fillMaxWidth(),
@@ -257,7 +246,7 @@ internal fun InspirationEditor(
                     value = body,
                     onValueChange = { body = it },
                     placeholder = { Text("写下设定、冲突、人物动作或可以继续发展的片段……") },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -273,7 +262,7 @@ internal fun InspirationEditor(
                     onValueChange = { tagsInput = it },
                     placeholder = { Text("用逗号或空格分隔多个标签") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     colors = textFieldColors,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -303,24 +292,13 @@ internal fun InspirationEditor(
         }
 
         // ── 2. 来源与阅读出处（可选） ──
-        SectionCard(modifier = Modifier.fillMaxWidth()) {
+        IslandCard(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    Icon(
-                        Icons.Outlined.MenuBook,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                    Text(
-                        "来源出处（可选）",
-                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.Bold),
-                        color = MaterialTheme.colorScheme.primary,
-                    )
-                }
+                IslandSectionHeader(
+                    title = "来源出处（可选）",
+                    icon = Icons.Outlined.MenuBook,
+                    tint = MaterialTheme.colorScheme.primary,
+                )
 
                 Spacer(Modifier.height(12.dp))
 
@@ -336,7 +314,7 @@ internal fun InspirationEditor(
                         } ?: "不关联书籍",
                         onValueChange = {},
                         readOnly = true,
-                        shape = RoundedCornerShape(12.dp),
+                        shape = RoundedCornerShape(spec.hintRadius),
                         colors = textFieldColors,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bookExpanded) },
                         modifier = Modifier.menuAnchor().fillMaxWidth(),
@@ -370,7 +348,7 @@ internal fun InspirationEditor(
                     onValueChange = { sourceLocation = it },
                     placeholder = { Text("例如：第 12 章 / 38.5%") },
                     singleLine = true,
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     colors = textFieldColors,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -382,7 +360,7 @@ internal fun InspirationEditor(
                     value = sourceExcerpt,
                     onValueChange = { sourceExcerpt = it },
                     placeholder = { Text("记录触发灵感的原文段落，独立保存不会混入正文") },
-                    shape = RoundedCornerShape(12.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     colors = textFieldColors,
                     modifier = Modifier
                         .fillMaxWidth()
@@ -395,7 +373,7 @@ internal fun InspirationEditor(
         if (error.isNotBlank()) {
             Surface(
                 color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
-                shape = RoundedCornerShape(10.dp),
+                shape = RoundedCornerShape(spec.hintRadius),
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(

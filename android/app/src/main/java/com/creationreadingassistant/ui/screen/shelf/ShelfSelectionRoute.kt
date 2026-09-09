@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -62,6 +63,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.ui.components.AppScreenScaffold
+import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SectionCard
@@ -77,6 +79,12 @@ private val TonePurple = Color(0xFF7C3AED)
 private val ToneBlue = Color(0xFF0284C7)
 private val ToneAmber = Color(0xFFD97706)
 private val ToneGreen = Color(0xFF059669)
+
+// 东方纸墨低饱和雅致格式色彩
+private val FormatEpubColor = Color(0xFF5E506B) // 黛紫
+private val FormatTxtColor = Color(0xFF385E69)  // 霁蓝 / 墨青
+private val FormatPdfColor = Color(0xFF8C5835)  // 赭石 / 暖褐
+private val FormatMdColor = Color(0xFF3B5E4B)   // 苍松 / 墨绿
 
 @Composable
 internal fun ShelfSelectionRoute(
@@ -166,14 +174,16 @@ internal fun ShelfSelectionRoute(
                 } else {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
+                        contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 116.dp),
                         verticalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
                         items(allBooks, key = { it.id }) { book ->
                             val isSelected = book.id in selectedIds
+                            val progress = progressFor(source.library.progressById, book.id)
                             BatchBookItemCard(
                                 book = book,
                                 isSelected = isSelected,
+                                progressPercent = progress,
                                 onToggle = {
                                     haptic(HapticFeedbackType.TextHandleMove)
                                     selectedIds = if (isSelected) selectedIds - book.id else selectedIds + book.id
@@ -183,15 +193,16 @@ internal fun ShelfSelectionRoute(
                     }
                 }
 
-                // 底部浮动批量操作栏微岛化（移入书单、设置分类、批量删除均配备 32dp 微彩底座图标与柔和层级）
+                // 底部浮动批量操作栏微岛化（东方纸墨悬浮微岛 Dock：实体微半透 0.96f surfaceContainer + 0.6dp 发丝微边框 + 8dp 柔和微阴影 + navigationBarsPadding）
                 Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerLow,
-                    shape = RoundedCornerShape(16.dp),
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
+                    color = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.96f),
+                    shape = RoundedCornerShape(18.dp),
+                    border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.70f)),
                     shadowElevation = 8.dp,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
                         .fillMaxWidth()
+                        .navigationBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                 ) {
                     Row(
@@ -474,11 +485,12 @@ internal fun ShelfSelectionRoute(
     }
 }
 
-// 批量模式书籍卡片（14dp 细腻圆角微岛卡片）
+// 批量模式书籍卡片（精致微岛化卡片，38dp x 52dp 书脊立体封面 + 32dp 选中微彩指示徽章 + 进度微胶囊）
 @Composable
 private fun BatchBookItemCard(
     book: BookEntity,
     isSelected: Boolean,
+    progressPercent: Float = 0f,
     onToggle: () -> Unit,
 ) {
     SectionCard(
@@ -491,7 +503,7 @@ private fun BatchBookItemCard(
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            // 选择状态指示徽章（32dp 微彩底座）
+            // 32dp 选中状态指示徽章（带柔和微彩高光与发丝微边框）
             Box(
                 modifier = Modifier
                     .size(32.dp)
@@ -499,17 +511,37 @@ private fun BatchBookItemCard(
                     .background(
                         if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
                         else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+                    )
+                    .border(
+                        0.5.dp,
+                        if (isSelected) MaterialTheme.colorScheme.primary.copy(alpha = 0.40f)
+                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f),
+                        RoundedCornerShape(9.dp),
                     ),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(
                     imageVector = if (isSelected) Icons.Outlined.CheckCircle else Icons.Outlined.RadioButtonUnchecked,
                     contentDescription = null,
-                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.4f),
+                    tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.45f),
                     modifier = Modifier.size(18.dp),
                 )
             }
+
             Spacer(Modifier.width(12.dp))
+
+            // 38dp x 52dp 书脊立体微阴影封面
+            BookCover(
+                book = book,
+                modifier = Modifier.size(width = 38.dp, height = 52.dp),
+                shape = RoundedCornerShape(6.dp),
+                percent = if (progressPercent >= 99.5f) progressPercent else null,
+                fallback = { ShelfCoverFallback(book, isCompact = true) },
+            )
+
+            Spacer(Modifier.width(12.dp))
+
+            // 书名、作者排版层次分明，若有进度附带优雅的进度微胶囊
             Column(Modifier.weight(1f)) {
                 Text(
                     text = book.title,
@@ -518,10 +550,20 @@ private fun BatchBookItemCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Spacer(Modifier.height(3.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Spacer(Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     if (book.format.isNotBlank()) {
-                        FormatCapsule(book.format.uppercase())
+                        val formatColor = when (book.format.uppercase()) {
+                            "EPUB" -> FormatEpubColor
+                            "TXT" -> FormatTxtColor
+                            "PDF" -> FormatPdfColor
+                            "MD", "MARKDOWN" -> FormatMdColor
+                            else -> MaterialTheme.colorScheme.primary
+                        }
+                        FormatCapsule(book.format.uppercase(), formatColor)
                         Spacer(Modifier.width(6.dp))
                     }
                     Text(
@@ -530,14 +572,33 @@ private fun BatchBookItemCard(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
+                    if (progressPercent > 0f) {
+                        Spacer(Modifier.width(6.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(PillShape)
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.10f))
+                                .border(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.30f), PillShape)
+                                .padding(horizontal = 6.dp, vertical = 1.5.dp),
+                        ) {
+                            Text(
+                                text = if (progressPercent >= 99.5f) "已读完" else "${progressPercent.toInt()}%",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Medium,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontSize = 10.sp,
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
 
-// 底部浮动微岛操作项（32dp 微彩底座图标与柔和层级）
+// 底部浮动微岛操作项（32dp 分色微彩底座图标与柔和层级，按压触觉反馈）
 @Composable
 private fun FloatingBatchActionItem(
     icon: ImageVector,
@@ -558,12 +619,17 @@ private fun FloatingBatchActionItem(
             .alpha(if (enabled) 1f else 0.38f)
             .padding(horizontal = 14.dp, vertical = 6.dp),
     ) {
-        // 32dp 微彩底座
+        // 32dp 分色微彩底座
         Box(
             modifier = Modifier
                 .size(32.dp)
                 .clip(RoundedCornerShape(9.dp))
-                .background(if (enabled) tint.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)),
+                .background(if (enabled) tint.copy(alpha = 0.14f) else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f))
+                .border(
+                    0.5.dp,
+                    if (enabled) tint.copy(alpha = 0.28f) else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
+                    RoundedCornerShape(9.dp),
+                ),
             contentAlignment = Alignment.Center,
         ) {
             Icon(

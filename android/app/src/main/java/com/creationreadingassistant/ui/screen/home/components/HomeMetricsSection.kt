@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.R
 import com.creationreadingassistant.ui.components.SectionHeader
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -107,11 +108,15 @@ private fun GridStat(
     value: String,
     subtext: String,
 ) {
+    val spec = LocalComponentSpec.current
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(spec.hintRadius),
         color = MaterialTheme.colorScheme.surfaceContainerLow,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        border = BorderStroke(
+            spec.hairlineBorderWidth,
+            MaterialTheme.colorScheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+        ),
     ) {
         Column(
             modifier = Modifier

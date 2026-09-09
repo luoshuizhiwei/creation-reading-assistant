@@ -30,8 +30,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.creationreadingassistant.ui.components.SectionCard
+import com.creationreadingassistant.ui.components.IslandCard
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.screen.stats.BookStatus
+import com.creationreadingassistant.ui.theme.LocalComponentSpec
+import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 
@@ -54,6 +57,7 @@ internal fun StatusSection(
     modifier: Modifier = Modifier,
 ) {
     val reducedMotion = rememberReducedMotion()
+    val spec = LocalComponentSpec.current
     val scheme = MaterialTheme.colorScheme
 
     val readingColor = scheme.primary
@@ -74,56 +78,36 @@ internal fun StatusSection(
         }
     }
 
-    SectionCard(
+    IslandCard(
         modifier = modifier
             .fillMaxWidth()
             .animateEnter(reducedMotion = reducedMotion)
             .testTag("stats-status"),
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            // 标题行
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(completedColor.copy(alpha = 0.12f)),
-                        contentAlignment = Alignment.Center,
+            // 标题行：收敛到共享 IslandSectionHeader（32dp IconPedestal 底座）+ 令牌化摘要胶囊
+            IslandSectionHeader(
+                title = "书籍状态",
+                icon = Icons.Outlined.CollectionsBookmark,
+                tint = completedColor,
+                trailing = {
+                    Surface(
+                        shape = PillShape,
+                        color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                        border = BorderStroke(
+                            spec.hairlineBorderWidth,
+                            scheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                        ),
                     ) {
-                        Icon(
-                            Icons.Outlined.CollectionsBookmark,
-                            contentDescription = null,
-                            tint = completedColor,
-                            modifier = Modifier.size(18.dp),
+                        Text(
+                            text = "共 ${status.total} 本",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = scheme.onSurfaceVariant,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
-                    Text(
-                        "书籍状态",
-                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    )
-                }
-
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = scheme.surfaceContainerHigh.copy(alpha = 0.45f),
-                    border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f)),
-                ) {
-                    Text(
-                        text = "共 ${status.total} 本",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = scheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                    )
-                }
-            }
+                },
+            )
 
             // 聚合水平切片分布条
             if (status.total > 0) {
@@ -131,7 +115,7 @@ internal fun StatusSection(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp))
+                        .clip(PillShape)
                         .background(scheme.surfaceContainerHighest.copy(alpha = 0.45f)),
                 ) {
                     items.forEach { item ->
@@ -155,9 +139,12 @@ internal fun StatusSection(
                 items.forEach { item ->
                     Surface(
                         modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
+                        shape = PillShape,
                         color = scheme.surfaceContainerLow,
-                        border = BorderStroke(1.dp, scheme.outlineVariant.copy(alpha = 0.35f)),
+                        border = BorderStroke(
+                            spec.hairlineBorderWidth,
+                            scheme.outlineVariant.copy(alpha = spec.hairlineAlpha),
+                        ),
                     ) {
                         Row(
                             modifier = Modifier
@@ -200,9 +187,9 @@ internal fun StatusSection(
 
             if (status.unreadable > 0) {
                 Surface(
-                    shape = RoundedCornerShape(10.dp),
+                    shape = RoundedCornerShape(spec.hintRadius),
                     color = scheme.errorContainer.copy(alpha = 0.25f),
-                    border = BorderStroke(1.dp, scheme.error.copy(alpha = 0.2f)),
+                    border = BorderStroke(spec.hairlineBorderWidth, scheme.error.copy(alpha = 0.2f)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Row(
@@ -254,7 +241,7 @@ private fun StatusBar(label: String, count: Int, total: Int, color: Color) {
             modifier = Modifier
                 .weight(1f)
                 .height(8.dp)
-                .clip(RoundedCornerShape(4.dp))
+                .clip(PillShape)
                 .background(MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.45f)),
         ) {
             if (fraction > 0f) {
@@ -262,7 +249,7 @@ private fun StatusBar(label: String, count: Int, total: Int, color: Color) {
                     modifier = Modifier
                         .fillMaxWidth(fraction = fraction)
                         .height(8.dp)
-                        .clip(RoundedCornerShape(4.dp))
+                        .clip(PillShape)
                         .background(color = color),
                 )
             }

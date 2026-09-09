@@ -22,13 +22,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.background
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontWeight
+import com.creationreadingassistant.ui.components.IslandSectionHeader
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.components.SettingRow
@@ -76,38 +72,30 @@ internal fun SubPageSectionTitle(
     trailing: @Composable (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
+    // 微岛化收敛：委托共享 IslandSectionHeader（32dp IconPedestal 底座 + pedestalRadius），
+    // 一处改动统一 13 个 profile 子页区块头；保持既有调用方签名兼容。
+    if (icon != null) {
+        IslandSectionHeader(
+            title = title,
+            icon = icon,
+            modifier = modifier,
+            tint = iconTint,
+            trailing = trailing,
+        )
+    } else {
+        // 无图标退化：纯标题 + trailing，间距仍走布局令牌节奏。
         Row(
+            modifier = modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            if (icon != null) {
-                Box(
-                    modifier = Modifier
-                        .size(26.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(iconTint.copy(alpha = 0.12f)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        icon,
-                        contentDescription = null,
-                        tint = iconTint,
-                        modifier = Modifier.size(15.dp),
-                    )
-                }
-            }
             Text(
                 title,
-                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurface,
             )
+            trailing?.invoke()
         }
-        trailing?.invoke()
     }
 }
 
