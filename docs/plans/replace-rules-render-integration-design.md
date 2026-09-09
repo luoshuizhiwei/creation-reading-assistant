@@ -1,8 +1,7 @@
 # 替换净化规则接入正文渲染 — 接线设计
 
-> 状态：**片 0–3 已通过 2026-08-21 回归修复验收（有界分页/作用域拆分、LRU 3-chapter 缓存、availability 真实化）；legacy/滚动实际投影仍待实施。**（2026-08-21 会话更新）
-> 当前生产范围：小型 TXT + 流式大 TXT（新分页引擎）；legacy/滚动、EPUB、Markdown 路径
-> 明确保留原文并显示不支持提示，不能把本切片表述为全格式完成。
+> 状态：**片 0–3 有历史证据；安全滚动 TXT 实现存在但最新真机复验 FAIL。**规则保存/预览不能证明正文替换。需以 `ScrollReplaceTrace` 定位组装、正文绑定和投影链；本设计中的“完成”仅是旧实现记录，不代表当前验收。EPUB 分页后续证据见交接第 28–29 节；Markdown 仍需结构映射契约。（2026-09-09 更正）
+> 当前生产范围：小型 TXT、流式大 TXT（新分页引擎）和具备 `ScrollingTxtChapterSource` 完整逻辑章作用域的滚动 TXT；不能把本切片表述为全格式完成。
 
 ## 1. 现状
 
@@ -23,7 +22,9 @@
 `PagedChapterSource.replaceProjectionScopeIsComplete` 在 TXT + 分页引擎路径置 true，
 `ReaderReplacementCapability` 从「hasStreamingDocument」判定改为「完整可投影章节 source」
 判定。因此现在 TXT（无论小文件还是流式大文件）在分页引擎路径下均通过能力判定，
-统一包装 `ReplacedChapterSource`；滚动、legacy、EPUB、Markdown 仍被明确挡在门外。
+统一包装 `ReplacedChapterSource`。安全的滚动 TXT 则由 `ScrollingTxtChapterSource` 按
+完整逻辑章投影、再按 `ReadingUnit` 有界渲染；真正 legacy/不完整作用域、EPUB、Markdown
+仍被明确挡在门外。
 
 2026-08-21 会话：三项回归修复（大文件性能 & 内存 & 能力判断虚假）：
 
@@ -65,10 +66,14 @@
    - `ReaderReplacementCapabilityTest`：消费 availability 真实路径 +
      isTxt/pagerEngineOn 派生兼容路径双入口；source 未构建/章节为空不显示可用。
 
-剩余缺口：legacy/滚动路径的 `chapterBlocks` / `blockGlobalOffsets` / 进度恢复 / 搜索 /
-高亮 / 选区 / TTS / 书签锚点仍未接入；EPUB 与 Markdown 需先出 DOM/结构保真设计与测试契约。
-规则面板已按当前格式、`replaceProjectionScopeIsComplete`、阅读模式和分页引擎能力隐藏替换入口，
-并明确提示保留原文，避免用户误以为规则已生效。
+2026-09-09 复核：安全的滚动 TXT 已由 `ReaderContentHostPlainTextBranch` 构造
+`ScrollingTxtChapterSource`，`preparePagedReplacement` 以完整逻辑章投影一次，
+`ScrollUnitProjection` 再把显示、选区、搜索、高亮与 TTS 的坐标映射回 source。该路径的
+`ScrollingTxtChapterSourceTest` 同时锁定跨 ReadingUnit 正则替换和双向映射。
+
+剩余缺口仅是**真正 legacy 或不完整投影**的 `chapterBlocks` / `blockGlobalOffsets` 路径，以及
+EPUB 与 Markdown 的结构保真设计与测试契约。规则面板直接消费实际渲染路径的
+`PagedReplacementAvailability`；不可证明完整 source 的路径必须隐藏替换入口并解释保留原文。
 
 ## 2. 核心难点：坐标双空间
 
@@ -181,12 +186,13 @@
 选区上报的 `+ chStart` 全部改经投影映射；页内文本本身即 display 文本，
 渲染无需变化。
 
-### 片 4 — legacy / 滚动路径（`ReaderDocumentLoader` 输出侧）
+### 片 4 — legacy / 滚动路径（原始规划，已按路径拆分）
 
-`chapterBlocks` 生成时应用同一投影并随块输出 `blockGlobalOffsets` 的映射版本；
-选区 / TTS / 搜索焦点消费点同片 3 处理。若决定首期不覆盖本路径，
-必须在设置与文档中**显式声明「净化仅在翻页引擎模式生效」**并在滚动模式下
-隐藏规则入口，避免「时灵时不灵」的静默不一致。
+安全的滚动 TXT 不再使用本段旧的 `chapterBlocks` 方案：它通过
+`ScrollingTxtChapterSource` 提供完整逻辑章 source，再用 `ScrollUnitProjection` 分发到有界
+`ReadingUnit`。选区 / TTS / 搜索 / 高亮均在该 projection 的 source 坐标中往返。
+`chapterBlocks` 的真正 legacy 或无法证明完整作用域的滚动路径仍不得近似包装，必须隐藏入口并
+解释保留原文，避免「时灵时不灵」的静默不一致。
 
 ### 2026-08-20 实施结果
 
@@ -198,8 +204,9 @@
   超过 256K 字符原样返回并只提示一次。
 - 片 2：完成。控制器读写 source 坐标，分页缓存自动拼接替换 profile key。
 - 片 3：完成。分页高亮/TTS 句高亮/搜索/选区统一映射；投影选区的 source 长度进入高亮 payload。
-- 片 4：首期能力边界完成。滚动/legacy/EPUB/Markdown 隐藏替换入口并解释保留原文；
-  legacy/滚动路径的实际正文投影仍未实施。
+- 片 4：安全滚动 TXT 实现存在，2026-09-09 真机 FAIL，尚未完成。`ScrollingTxtChapterSource` 设计上以完整逻辑章投影一次并按
+  `ReadingUnit` 渲染，跨单元替换及 source↔display 映射由 JVM 测试锁定；真正 legacy/
+  不完整作用域、EPUB、Markdown 继续隐藏入口并保留原文。
 - 流式 TXT：章级完整 source 完成。
 
 ### 规则变更触发重建

@@ -1,5 +1,7 @@
 # 向 legado 补齐功能的排序清单（backlog）
 
+> 2026-09-09：用户新增授权的八组功能需求与执行顺序见 `android-parallel-delivery-2026-09-09/README.md`。本文其余未被新需求覆盖的条目仍是候选；不可把新授权范围扩大为整份历史 backlog。繁体显示与 TTS 定时停止已有实现，应先核对入口/覆盖；安全滚动 TXT 替换仍待修复。
+
 > 2026-08-16 状态更新：已完成条目——内核主线 P4～P6；第一梯队 1（翻页动效，
 > curl 按决策映射为 cover）、2（音量键）、3（自动翻页/滚动）、4（护眼）、6（亮度）；
 > 第二梯队 8（字体导入）、9（内置 TXT 目录规则）、13（页眉页脚四槽）、
@@ -62,7 +64,7 @@ P6（排版收尾 + `pagerEngineMode` 灰度默认开）。这条线本身就是
 - **对阅读体验**：高。单手躺着看书的刚需，legado 用户迁移过来第一个找的就是它。
 - **抄什么**：legado 的按键防抖区分——按键取首（立即响应，600ms 内不重复）。
 - **工作量**：1–2 天（MainActivity 拦 KeyEvent 转发给阅读器 + 两个设置开关）。
-- **依赖模块**：`MainActivity`、`ui/screen/ReaderScreen.kt` 手势层、`SettingsStore`。
+- **依赖模块**：`MainActivity`、`ui/screen/reader/ReaderScreen.kt` 手势层、`SettingsStore`。
 
 ### 3. 自动翻页 / 自动滚动
 

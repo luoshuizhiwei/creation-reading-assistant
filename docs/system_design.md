@@ -81,7 +81,7 @@
 | `ui/theme/ComponentSpec.kt` | +4 实例 + `componentSpecForStyle` +4 分支 | **否（data class 不变）** |
 | `ui/components/ThemeSwitchButton.kt` | `displayName()` / `accentPreview()` +4 分支 | 否 |
 | `ui/navigation/AppNavigation.kt` | **无需改动**（新主题已命中 `else` 普通底栏 + Material 图标自动吃 `scheme.primary`）；仅做验证标注 | 否 |
-| `ui/screen/ReaderScreen.kt` | 仅 P1（水墨纸感背景覆盖）与 P2（翻页/做旧叠加）触及，且**只换皮不换引擎** | 否 |
+| `ui/screen/reader/ReaderScreen.kt` | 仅 P1（水墨纸感背景覆盖）与 P2（翻页/做旧叠加）触及，且**只换皮不换引擎** | 否 |
 
 ---
 
@@ -237,7 +237,7 @@ val CyberpunkGlassPalette = LiquidGlassPalette(
 - **验收**：印章按钮视觉/按压反馈正确；竖线分割出现于列表；两组件均消费 `LocalComponentSpec`，无硬编码圆角/描边。
 
 #### T07 · 水墨韵 P1 — BrushBorder(Ink) + InkDropIndication + BambooDivider + 阅读页纸感背景
-- **源文件**：`effects/BrushBorder.kt`、`effects/InkDropIndication.kt`、`effects/BambooDivider.kt`、`ui/screen/ReaderScreen.kt`（局部覆盖）
+- **源文件**：`effects/BrushBorder.kt`、`effects/InkDropIndication.kt`、`effects/BambooDivider.kt`、`ui/screen/reader/ReaderScreen.kt`（局部覆盖）
 - **依赖**：T02
 - **优先级**：P1
 - **内容**：`BrushBorder(Ink)` 包裹 `SectionCard` 呈毛笔手绘边；`InkDropIndication` 替换默认 ripple；`BambooDivider` 竹简纹路；**阅读页纸感背景**：仅覆盖 `ReaderScreen` 背景 `#F0E6D2`、正文 `#3B2F25`（PRD §4.1），**不动 EPUB 解析/懒加载/内存管理**。
@@ -253,7 +253,7 @@ val CyberpunkGlassPalette = LiquidGlassPalette(
 ### 5.3 波次 3（P2 深度观感）
 
 #### T09 · 国风 P2 — 阅读页翻页 + 做旧滤镜
-- **源文件**：`effects/PageFlipTransition.kt`、`effects/AgedPaperOverlay.kt`、`ui/screen/ReaderScreen.kt`（叠加）
+- **源文件**：`effects/PageFlipTransition.kt`、`effects/AgedPaperOverlay.kt`、`ui/screen/reader/ReaderScreen.kt`（叠加）
 - **依赖**：T06
 - **优先级**：P2
 - **内容**：`PageFlipTransition`（翻页过渡）+ `AgedPaperOverlay`（做旧滤镜），**仅作为独立叠加层作用于 ReaderScreen 阅读容器**；不碰解析/懒加载/内存管理。
