@@ -54,6 +54,8 @@ internal data class ReaderSelectionState(
 internal data class ReaderPagingState(
     val pagerEngineOn: Boolean,
     val pagedSource: PagedChapterSource?,
+    /** 滚动 TXT 正文与规则能力裁决共用的同一份投影 source。 */
+    val scrollProjectedSource: PagedChapterSource?,
     val pagedAbsOffset: Int,
     val pagedPercent: Float,
     val pendingInitialPosition: Boolean,

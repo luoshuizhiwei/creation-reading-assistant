@@ -379,6 +379,7 @@ internal fun ReaderScaffold(
                                 paging = ReaderPagingState(
                                     pagerEngineOn = pagerEngineOn,
                                     pagedSource = pagedSource,
+                                    scrollProjectedSource = pagerEngine.scrollProjectedSource,
                                     pagedAbsOffset = pagedAbsOffset,
                                     pagedPercent = pagedPercent,
                                     pendingInitialPosition = pendingInitialPosition,
@@ -449,6 +450,8 @@ internal fun ReaderScaffold(
                     controlsVisible = controlsVisible,
                     selectedText = selectedText,
                     showColorRow = showColorRow,
+                    canCreateReplaceRule = readerReplacementCapability(pagerEngine.replacementAvailability) is
+                        ReaderReplacementCapability.Available,
                     showTts = showTts,
                     showReaderOverflow = showReaderOverflow,
                     autoPagingActive = autoPagingActive,
@@ -476,6 +479,7 @@ internal fun ReaderScaffold(
                         selectedGlobalOffset >= 0 -> selectedSourceEnd - selectedGlobalOffset
                         else -> null
                     }?.takeIf { it >= 0 },
+                    context = context,
                     bid = bid,
                     currentChapterTitle = currentChapterTitle,
                     progressPercent = progressPercent,

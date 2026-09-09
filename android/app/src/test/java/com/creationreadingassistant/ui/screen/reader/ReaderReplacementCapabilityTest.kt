@@ -1,11 +1,54 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
+import com.creationreadingassistant.feature.reader.pager.loadScrollUnitContent
+import com.creationreadingassistant.feature.reader.rules.ReplaceRule
+import com.creationreadingassistant.feature.reader.rules.RuleScope
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ReaderReplacementCapabilityTest {
+
+    @Test
+    fun `scroll capability and rendered body share the prepared replacement source`() {
+        val rules = listOf(
+            ReplaceRule(
+                id = "replace-literal",
+                name = "replace-literal",
+                pattern = "before",
+                replacement = "after",
+                enabled = true,
+                position = 0,
+                scope = RuleScope.PER_BOOK,
+            ),
+        )
+        val units = listOf(
+            com.creationreadingassistant.feature.reader.doc.ReadingUnit(
+                unitIndex = 0,
+                chapterIndex = 0,
+                title = "测试 TXT",
+                charStart = 0,
+                charCount = "before body".length,
+            ),
+        )
+
+        val prepared = requireNotNull(
+            prepareScrollTxtReplacement(
+                bookId = "book-under-test",
+                streamingDocument = null,
+                plainContent = "before body",
+                readingUnits = units,
+                rules = rules,
+            ),
+        )
+
+        assertEquals(PagedReplacementAvailability.APPLIED, prepared.availability)
+        assertEquals(
+            "after body",
+            prepared.source.loadScrollUnitContent(units.single()).displayText,
+        )
+    }
 
     // ── 直接基于 PagedReplacementAvailability（生产推荐路径） ─
 

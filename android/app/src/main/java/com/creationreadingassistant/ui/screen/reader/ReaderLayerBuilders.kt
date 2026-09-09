@@ -133,6 +133,7 @@ internal fun buildReaderInteractionLayerState(
     controlsVisible: Boolean,
     selectedText: String,
     showColorRow: Boolean,
+    canCreateReplaceRule: Boolean,
     showTts: Boolean,
     showReaderOverflow: Boolean,
     autoPagingActive: Boolean,
@@ -152,6 +153,7 @@ internal fun buildReaderInteractionLayerState(
     controlsVisible = controlsVisible,
     selectedText = selectedText,
     showColorRow = showColorRow,
+    canCreateReplaceRule = canCreateReplaceRule,
     showTts = showTts,
     showReaderOverflow = showReaderOverflow,
     autoPagingActive = autoPagingActive,
@@ -187,6 +189,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     tts: TtsEngineHost,
     selectedText: String,
     selectedSourceLength: Int?,
+    context: Context,
     bid: String,
     currentChapterTitle: String,
     progressPercent: Float,
@@ -249,6 +252,19 @@ internal fun buildReaderInteractionLayerCallbacks(
     onInspiration = { onAction(ReaderAction.OpenSheet(ReaderSheet.INSPIRATION)) },
     onNote = { onAction(ReaderAction.SetNoteOpen(true)) },
     onCopy = { clipboard.setText(AnnotatedString(selectedText)); showNotice("已复制") },
+    onBrowser = {
+        if (context.openSelectionInBrowser(selectedText) == SelectionExternalLaunchResult.NO_HANDLER) {
+            showNotice("未找到可用浏览器")
+        }
+    },
+    onDictionary = {
+        when (context.openSelectionInDictionary(selectedText)) {
+            SelectionExternalLaunchResult.OPENED -> Unit
+            SelectionExternalLaunchResult.OPENED_WEB_FALLBACK -> showNotice("未找到词典应用，已用浏览器查询")
+            SelectionExternalLaunchResult.NO_HANDLER -> showNotice("未找到可用词典或浏览器")
+        }
+    },
+    onReplace = { onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
     onSearch = {
         readerSelectionSearchActions(selectedText).forEach(onAction)
     },

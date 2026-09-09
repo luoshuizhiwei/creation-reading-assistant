@@ -219,7 +219,8 @@ class LineComposerTest {
         val lines = layout(text, c)
         lines.dropLast(1).forEach { line ->
             if (line.overflowed || line.clusterCount < 2) return@forEach
-            // 相邻簇 x 之差减去其自然宽度即为该间隙的拉伸量
+            // 相邻簇 x 之差减去其自然宽度即为该间隙的拉伸量。
+            // 安全优先：不得为了贴齐右边界突破 1/3em 上限。
             for (i in 0 until line.clusterCount - 1) {
                 val gap = line.clusterX[i + 1] - line.clusterX[i]
                 assertTrue(

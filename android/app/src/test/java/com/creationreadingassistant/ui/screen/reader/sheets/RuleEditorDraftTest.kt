@@ -109,6 +109,17 @@ class RuleEditorDraftTest {
         assertEquals("第[0-9]+章", (command as RuleCommand.SaveCustomToc).name)
     }
 
+    @Test
+    fun `selection replacement draft treats selected text as a literal per-book pattern`() {
+        val draft = selectionReplaceDraft("  价格 (1+1) = 2?  ")!!
+
+        assertEquals(RuleKind.REPLACE, draft.kind)
+        assertEquals("替换选中文字", draft.name)
+        assertEquals(Regex.escape("价格 (1+1) = 2?"), draft.pattern)
+        assertEquals(RuleScope.PER_BOOK, draft.scope)
+        assertNull(selectionReplaceDraft("  \n  "))
+    }
+
     // ── evaluateDraft：TOC 预览 ─────────────────────────────────────────
 
     @Test

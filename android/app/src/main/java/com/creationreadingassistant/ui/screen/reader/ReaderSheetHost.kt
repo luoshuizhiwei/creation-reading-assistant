@@ -235,8 +235,12 @@ internal fun ReaderSheetHost(
                     previewText = state.document.contentText,
                     mutationResult = inputs.ruleMutationResult,
                     replacementCapability = readerReplacementCapability(state.ui.replacementAvailability),
+                    initialReplaceText = state.ui.selectedText.takeIf { it.isNotBlank() },
                     onCommand = { callbacks.onAction(ReaderAction.ExecuteRuleCommand(bid, it)) },
                     onBack = {
+                        if (state.ui.selectedText.isNotBlank()) {
+                            callbacks.onAction(ReaderAction.ClearSelection)
+                        }
                         callbacks.onAction(ReaderAction.ClearRuleMutationResult)
                         callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.TOC))
                     },
@@ -423,5 +427,4 @@ internal fun ReaderSheetHost(
         }
     }
 }
-
 

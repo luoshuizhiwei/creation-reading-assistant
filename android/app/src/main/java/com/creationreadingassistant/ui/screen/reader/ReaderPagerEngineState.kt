@@ -27,6 +27,8 @@ import com.creationreadingassistant.feature.reader.pager.MarkdownChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.feature.reader.pager.PagedReplacementAvailability
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
+import com.creationreadingassistant.feature.reader.pager.PreparedPagedReplacement
+import com.creationreadingassistant.feature.reader.pager.ScrollingTxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.preparePagedReplacement
 import com.creationreadingassistant.feature.reader.rules.ReplaceProfile
@@ -51,6 +53,11 @@ internal data class PagerEngineState(
     val txtChapters: List<DocChapter>,
     val txtRulePreviews: Map<String, List<TxtChapterDetector.Chapter>>,
     val pagedSource: PagedChapterSource?,
+    /**
+     * 滚动 TXT 正文实际消费的 source。它与 [replacementAvailability] 由同一份
+     * [PreparedPagedReplacement] 产生，禁止正文分支另行创建第二份投影源。
+     */
+    val scrollProjectedSource: PagedChapterSource?,
     val replacementAvailability: PagedReplacementAvailability,
     val replaceProjectionNotice: MutableState<String?>,
 )
@@ -67,6 +74,26 @@ internal fun effectiveReplacementAvailability(
     !pagerEngineOn && !scrollProjectionOn -> PagedReplacementAvailability.PAGER_ENGINE_DISABLED
     prepared != null -> prepared
     else -> PagedReplacementAvailability.SOURCE_UNAVAILABLE
+}
+
+/**
+ * 组装滚动 TXT 的唯一正文 source。规则入口的能力裁决与 [ReaderContentHostPlainTextBranch]
+ * 的正文显示必须复用此结果：若两边各自 prepare，会留下“菜单可用而正文仍是原文”的错误窗口。
+ */
+internal fun prepareScrollTxtReplacement(
+    bookId: String,
+    streamingDocument: PlainTextDocument?,
+    plainContent: String,
+    readingUnits: List<ReadingUnit>,
+    rules: List<ReplaceRule>,
+): PreparedPagedReplacement? {
+    if (bookId.isBlank() || readingUnits.isEmpty()) return null
+    val delegate = when {
+        streamingDocument != null -> ScrollingTxtChapterSource.fromDocument(streamingDocument)
+        plainContent.isNotEmpty() -> ScrollingTxtChapterSource.fromText(plainContent, readingUnits)
+        else -> return null
+    }
+    return preparePagedReplacement(delegate, bookId, rules)
 }
 
 /**
@@ -232,15 +259,54 @@ internal fun rememberPagerEngineState(
         }
     }
     val pagedSource = preparedPagedSource?.source
+    // 滚动模式不能复用 pagedSource：后者的 index 是逻辑章节，而滚动正文按
+    // ReadingUnit 索引。两者必须各有 source，但“能力裁决”和“实际渲染”只能
+    // 消费同一份滚动 source，避免 UI 声称可用而正文使用另一条原文链。
+    val scrollPreparedSource = remember(
+        pagerEngineOn,
+        epubBook,
+        markdownDocument,
+        bookId,
+        txtStreamingDocument,
+        plainContent,
+        txtChapters,
+        readingUnits,
+        replaceProfileKey,
+    ) {
+        if (pagerEngineOn || epubBook != null || markdownDocument != null || txtChapters.isEmpty()) {
+            null
+        } else {
+            prepareScrollTxtReplacement(
+                bookId = bookId,
+                streamingDocument = txtStreamingDocument,
+                plainContent = plainContent,
+                readingUnits = readingUnits,
+                rules = replaceRules,
+            )
+        }
+    }
+    val activePreparedSource = if (pagerEngineOn) preparedPagedSource else scrollPreparedSource
     // 没有 source 与“source 存在但没有生效规则”是两个不同状态：前者必须隐藏
     // 替换管理入口，后者要保留空列表和“新增规则”入口。
     val replacementAvailability = effectiveReplacementAvailability(
         pagerEngineOn = pagerEngineOn,
-        prepared = preparedPagedSource?.availability,
-        // 与 ReaderContentHost 的 TXT else 分支一致：只有有界 ReadingUnit 存在时，
-        // 滚动正文才会走完整逻辑章投影；空内容和非 TXT 继续维持不可用。
-        scrollProjectionOn = !pagerEngineOn && txtChapters.isNotEmpty() && readingUnits.isNotEmpty(),
+        prepared = activePreparedSource?.availability,
+        scrollProjectionOn = !pagerEngineOn && scrollPreparedSource != null,
     )
+    // 滚动 TXT 的替换此前出现过“规则已保存、预览命中、正文仍原文”的跨层故障。
+    // 仅 Debug logcat 记录无正文/无规则内容的边界信息，供真机一次定位 source
+    // 是未组装、被回退，还是进入单元投影后失效；不得把 profile/bookId/正文写入日志。
+    LaunchedEffect(scrollPreparedSource, replacementAvailability) {
+        if (!pagerEngineOn && epubBook == null && markdownDocument == null) {
+            AppLog.debug(
+                "ScrollReplaceTrace",
+                "assemble rules=${replaceRules.size}, units=${readingUnits.size}, " +
+                    "tocChapters=${txtChapters.size}, source=" +
+                    (scrollPreparedSource?.source?.javaClass?.simpleName ?: "none") +
+                    ", availability=$replacementAvailability",
+            )
+        }
+    }
 
     return PagerEngineState(
         pagerEngineOn = pagerEngineOn,
@@ -251,6 +317,7 @@ internal fun rememberPagerEngineState(
         txtChapters = txtChapters,
         txtRulePreviews = rulePreviews,
         pagedSource = pagedSource,
+        scrollProjectedSource = scrollPreparedSource?.source,
         replacementAvailability = replacementAvailability,
         replaceProjectionNotice = replaceProjectionNotice,
     )

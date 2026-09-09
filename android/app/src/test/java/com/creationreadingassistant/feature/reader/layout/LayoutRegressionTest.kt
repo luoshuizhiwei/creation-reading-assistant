@@ -382,4 +382,56 @@ class LayoutRegressionTest {
             }
         }
     }
+
+    // ── 13. 安全对齐边界：原子单元与间隙上限优先 ─────────────────────────
+
+    @Test
+    fun `residual space never splits paired punctuation`() {
+        // "——……" 只有两对原子单元和一个合法间隙。4.8em 宽时余量为 0.8em，
+        // 不能同时满足“精确贴右”与“每间隙 ≤ 1/3em”。安全策略是保留余白，
+        // 绝不能把余量均摊进两对标点内部。
+        val c = cfg(widthEm = 4.8f, indentEm = 0f)
+        val text = "——……中文"
+        val lines = layout(text, c)
+        val first = lines.first()
+        val clusters = clustersOf(text)
+
+        assertEquals("首行应在两对标点后断开", 4, first.clusterCount)
+        assertEquals("连续破折号内部不得被拉开", clusters.advance[0], first.clusterX[1] - first.clusterX[0], 0.01f)
+        assertEquals("连续省略号内部不得被拉开", clusters.advance[2], first.clusterX[3] - first.clusterX[2], 0.01f)
+        assertTrue("安全间隙不足时允许保留右侧余白", first.endX < c.contentWidthPx - LineComposer.EPS)
+    }
+
+    @Test
+    fun `short non tail lines are justified after min clusters reduction`() {
+        // minJustifyClusters 从 10 降到 4。
+        // 若行宽极窄（每行只有约 6 个汉字），非末行 clusterCount 介于 4 和 10 之间，
+        // 修复前跳过对齐，修复后应精确右对齐。
+        val c = cfg(widthEm = 6f, indentEm = 0f)  // 6em 宽，约 6 个汉字/行
+        val text = "这是一段文字用来验证短非末行的两端对齐效果是否正常工作。".repeat(6)
+        val lines = layout(text, c)
+        assertTrue("应排出至少 3 行", lines.size >= 3)
+        lines.dropLast(1).forEach { line ->
+            if (line.overflowed || line.clusterCount < 4) return@forEach
+            assertEquals(
+                "短非末行（clusterCount=${line.clusterCount}）行末笔尖应落在可用宽度上",
+                c.contentWidthPx,
+                line.endX,
+                0.05f,
+            )
+        }
+    }
+
+    @Test
+    fun `layout engine version invalidates v2 page boundaries`() {
+        val current = cfg()
+        val v2 = current.copy(engineVersion = 2)
+
+        assertTrue("本次排版算法版本必须高于 v2", LayoutConfig.ENGINE_VERSION >= 3)
+        assertNotEquals(
+            "排版算法升级后不得复用 v2 的分页缓存指纹",
+            v2.fingerprint,
+            current.fingerprint,
+        )
+    }
 }

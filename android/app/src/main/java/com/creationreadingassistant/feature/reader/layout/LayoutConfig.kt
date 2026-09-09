@@ -42,8 +42,8 @@ data class LayoutConfig(
     val maxSlackEm: Float = 2f,
     /** 单个间隙最多压缩多少 em（负值） */
     val minCompressPerGapEm: Float = -0.06f,
-    /** 少于这么多簇的行不做两端对齐 */
-    val minJustifyClusters: Int = 10,
+    /** 少于这么多簇的行不做两端对齐（4 簇以下行距离过短，对齐产生的间距变化反而扎眼） */
+    val minJustifyClusters: Int = 4,
 
     // ── 禁则 ────────────────────────────────────────────────────────────
     /** 一行至少要保留的簇数，防止回退把行掏空 */
@@ -96,7 +96,11 @@ data class LayoutConfig(
          * v2（2026-07-27）：对抗性复核修掉 12 处缺陷，行宽与断点均已改变 ——
          * 逃生分支不再多塞一簇、标点削宽按实测封顶、中西文间距不再进标点两侧、
          * 全角字母数字改判同类、扩展汉字按码位分类。
+         *
+         * v3（2026-09-09）：降低正文两端对齐阈值 10→4，
+         * 大字号/窄视口下短的常规中文非末行不再跳过对齐。原子单元完整性、
+         * 单间隙 1/3em 上限和 maxSlackEm 取舍保持不变。
          */
-        const val ENGINE_VERSION = 2
+        const val ENGINE_VERSION = 3
     }
 }

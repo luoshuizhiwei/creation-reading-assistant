@@ -38,12 +38,12 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentLoader
 import com.creationreadingassistant.feature.reader.pager.ScrollUnitContentState
 import com.creationreadingassistant.feature.reader.pager.ScrollingTxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.loadScrollUnitContent
-import com.creationreadingassistant.feature.reader.pager.preparePagedReplacement
 import com.creationreadingassistant.feature.reader.rules.ScrollUnitProjection
 import com.creationreadingassistant.ui.theme.ShimmerBlock
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
@@ -71,33 +71,33 @@ internal fun ReaderContentHostPlainTextBranch(
         (settings.readerSettings.fontSize * settings.readerSettings.lineHeight * 3).sp.toDp()
     }
     val scope = rememberCoroutineScope()
-    // 滚动 TXT 的显示文本必须来自完整逻辑章投影。ReadingUnit 仅作为有界渲染
-    // 单元，所有选择、搜索、高亮和 TTS 的持久化坐标都由 projection 映射回 source。
-    val scrollSource = remember(
-        s.bid,
+    // 滚动 TXT 的显示文本必须来自完整逻辑章投影。可用性裁决和 source 装配均在
+    // rememberPagerEngineState 完成；这里绝不再自行 prepare 第二份 wrapper。
+    // ReadingUnit 仅作为有界渲染单元，所有选择、搜索、高亮和 TTS 的持久化坐标
+    // 都由 projection 映射回 source。
+    val fallbackScrollSource = remember(
         txtDoc,
         s.plainContent,
         s.readingUnits,
-        s.replaceRules,
     ) {
-        val delegate = if (txtDoc != null) {
+        if (txtDoc != null) {
             ScrollingTxtChapterSource.fromDocument(txtDoc)
         } else {
             ScrollingTxtChapterSource.fromText(s.plainContent, s.readingUnits)
         }
-        if (s.bid.isBlank()) {
-            delegate
-        } else {
-            preparePagedReplacement(
-                delegate = delegate,
-                bookId = s.bid,
-                rules = s.replaceRules,
-            ).source
-        }
     }
+    val scrollSource = state.paging.scrollProjectedSource ?: fallbackScrollSource
     val unitContentLoader = remember { ScrollUnitContentLoader() }
     LaunchedEffect(scrollSource) {
         unitContentLoader.switchSource(scrollSource)
+        // 与 PagerEngineState 的 assemble trace 配对：这里只记录 source 是否真的被
+        // 正文绑定，不记录书名、规则或正文内容。
+        AppLog.debug(
+            "ScrollReplaceTrace",
+            "bind source=${scrollSource.javaClass.simpleName}, " +
+                "projected=${state.paging.scrollProjectedSource === scrollSource}, " +
+                "rules=${s.replaceRules.size}, units=${s.readingUnits.size}",
+        )
     }
     // 单次轻点手势仲裁门：readOnly 文本域观察器按下时 claim，父级抬起时
     // consumeClaimIfAny；正文轻点走子路径，父层只负责空白/边距，避免双切换。

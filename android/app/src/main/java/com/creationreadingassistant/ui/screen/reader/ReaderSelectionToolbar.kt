@@ -21,10 +21,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.BorderColor
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.FindReplace
+import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Lightbulb
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Search
@@ -60,18 +64,22 @@ internal data class SelectionToolbarActionSpec(
     val label: String,
 )
 
-// 产品规划：阅读 → 记灵感 → 创作，无独立笔记概念。「记为灵感」提为一级动作，
-// 原「笔记」动作从工具条移除（高亮颜色/书签/标注列表仍在「笔记与标注」弹层内保留）。
+// 高频动作固定为四个，避免在手机宽度上压缩触控目标。浏览器查询是用户要求的一键入口；
+// 灵感、批注、替换等上下文动作统一收进“更多”，后续可在这个动作清单上继续做显隐配置。
 internal val selectionPrimaryActions = listOf(
     SelectionToolbarActionSpec("highlight", "高亮"),
-    SelectionToolbarActionSpec("inspiration", "记为灵感"),
+    SelectionToolbarActionSpec("browser", "浏览器"),
     SelectionToolbarActionSpec("copy", "复制"),
     SelectionToolbarActionSpec("more", "更多"),
 )
 
 internal val selectionMoreActions = listOf(
+    SelectionToolbarActionSpec("dictionary", "字典"),
+    SelectionToolbarActionSpec("note", "添加批注"),
+    SelectionToolbarActionSpec("replace", "替换"),
+    SelectionToolbarActionSpec("search", "书内搜索"),
     SelectionToolbarActionSpec("ai", "AI 解读"),
-    SelectionToolbarActionSpec("search", "搜索"),
+    SelectionToolbarActionSpec("inspiration", "记为灵感"),
     SelectionToolbarActionSpec("cancel", "取消选择"),
 )
 
@@ -89,8 +97,13 @@ internal fun SelectionToolbar(
     showColorRow: Boolean,
     onToggleColor: () -> Unit,
     onPickColor: (String) -> Unit,
+    canCreateReplaceRule: Boolean,
+    onBrowser: () -> Unit,
+    onDictionary: () -> Unit,
+    onReplace: () -> Unit,
     onAiExplain: () -> Unit,
     onInspiration: () -> Unit,
+    onNote: () -> Unit,
     onCopy: () -> Unit,
     onClear: () -> Unit,
     onSearch: () -> Unit,
@@ -214,11 +227,11 @@ internal fun SelectionToolbar(
                         modifier = Modifier.weight(1f),
                     )
                     SelectionCapsuleAction(
-                        icon = Icons.Outlined.Lightbulb,
+                        icon = Icons.Outlined.Language,
                         label = selectionPrimaryActions[1].label,
-                        pedestalColor = Color(0xFF7E57C2).copy(alpha = 0.15f),
-                        iconTint = Color(0xFF5E35B1),
-                        onClick = onInspiration,
+                        pedestalColor = Color(0xFF00897B).copy(alpha = 0.14f),
+                        iconTint = Color(0xFF00796B),
+                        onClick = onBrowser,
                         modifier = Modifier.weight(1f),
                     )
                     SelectionCapsuleAction(
@@ -250,10 +263,15 @@ internal fun SelectionToolbar(
                         ) {
                             selectionMoreActions.forEach { action ->
                                 val (icon, tint) = when (action.id) {
+                                    "dictionary" -> Icons.AutoMirrored.Outlined.MenuBook to Color(0xFF6A1B9A)
+                                    "note" -> Icons.Outlined.EditNote to Color(0xFF5E35B1)
+                                    "replace" -> Icons.Outlined.FindReplace to Color(0xFFEF6C00)
                                     "ai" -> Icons.Outlined.AutoAwesome to Color(0xFF00897B)
                                     "search" -> Icons.Outlined.Search to Color(0xFF0288D1)
+                                    "inspiration" -> Icons.Outlined.Lightbulb to Color(0xFF7E57C2)
                                     else -> Icons.Outlined.Close to Color(0xFFE53935)
                                 }
+                                val enabled = action.id != "replace" || canCreateReplaceRule
                                 DropdownMenuItem(
                                     text = { Text(action.label, style = MaterialTheme.typography.bodyMedium) },
                                     leadingIcon = {
@@ -270,12 +288,16 @@ internal fun SelectionToolbar(
                                     onClick = {
                                         moreExpanded = false
                                         when (action.id) {
+                                            "dictionary" -> onDictionary()
+                                            "note" -> onNote()
+                                            "replace" -> onReplace()
                                             "ai" -> onAiExplain()
                                             "inspiration" -> onInspiration()
                                             "search" -> onSearch()
                                             "cancel" -> onClear()
                                         }
                                     },
+                                    enabled = enabled,
                                 )
                             }
                         }

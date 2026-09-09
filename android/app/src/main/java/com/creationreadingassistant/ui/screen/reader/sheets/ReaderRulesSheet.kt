@@ -107,6 +107,20 @@ internal fun replaceDraft(rule: ReplaceRule): RuleEditorDraft = RuleEditorDraft(
 )
 
 /**
+ * Build a safe per-book replacement draft from a text selection. The selection is a literal, not a
+ * regular expression supplied by the user, so quote every regex metacharacter before preview/save.
+ */
+internal fun selectionReplaceDraft(selectedText: String): RuleEditorDraft? {
+    val literal = selectedText.trim().takeIf { it.isNotEmpty() } ?: return null
+    return RuleEditorDraft(
+        kind = RuleKind.REPLACE,
+        name = "替换选中文字",
+        pattern = Regex.escape(literal),
+        scope = RuleScope.PER_BOOK,
+    )
+}
+
+/**
  * 草稿 → 保存命令：TOC 转 [RuleCommand.SaveCustomToc]，REPLACE 转 [RuleCommand.SaveCustomReplace]；
  * 编辑时携带原 [id]。正则为空时返回 null（UI 应禁用保存）；
  * 名称留空时以正则表达式兜底，避免「保存按钮置灰却无解释」的静默失败。
@@ -383,13 +397,23 @@ internal fun RulesSheet(
     previewText: String,
     mutationResult: RuleMutationResult?,
     replacementCapability: ReaderReplacementCapability,
+    initialReplaceText: String? = null,
     onCommand: (RuleCommand) -> Unit,
     onBack: () -> Unit,
 ) {
-    var tab by remember { mutableStateOf(RuleKind.TOC) }
-    var editing by remember { mutableStateOf<RuleEditorDraft?>(null) }
-    var saveEpoch by remember { mutableStateOf(0) }
     val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
+    val initialReplaceDraft = remember(initialReplaceText, replacementAvailable) {
+        initialReplaceText
+            ?.takeIf { replacementAvailable }
+            ?.let(::selectionReplaceDraft)
+    }
+    var tab by remember(initialReplaceText, replacementAvailable) {
+        mutableStateOf(if (initialReplaceDraft != null) RuleKind.REPLACE else RuleKind.TOC)
+    }
+    var editing by remember(initialReplaceText, replacementAvailable) {
+        mutableStateOf(initialReplaceDraft)
+    }
+    var saveEpoch by remember { mutableStateOf(0) }
     val visibleTab = if (replacementAvailable) tab else RuleKind.TOC
 
     LaunchedEffect(replacementCapability) {

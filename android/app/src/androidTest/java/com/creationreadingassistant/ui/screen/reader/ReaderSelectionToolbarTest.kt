@@ -20,8 +20,13 @@ class ReaderSelectionToolbarTest {
     private fun setToolbar(
         showColorRow: Boolean = false,
         onPickColor: (String) -> Unit = {},
+        canCreateReplaceRule: Boolean = true,
+        onBrowser: () -> Unit = {},
+        onDictionary: () -> Unit = {},
+        onReplace: () -> Unit = {},
         onAiExplain: () -> Unit = {},
         onInspiration: () -> Unit = {},
+        onNote: () -> Unit = {},
         onCopy: () -> Unit = {},
         onClear: () -> Unit = {},
         onSearch: () -> Unit = {},
@@ -34,8 +39,13 @@ class ReaderSelectionToolbarTest {
                     showColorRow = showColorRow,
                     onToggleColor = {},
                     onPickColor = onPickColor,
+                    canCreateReplaceRule = canCreateReplaceRule,
+                    onBrowser = onBrowser,
+                    onDictionary = onDictionary,
+                    onReplace = onReplace,
                     onAiExplain = onAiExplain,
                     onInspiration = onInspiration,
+                    onNote = onNote,
                     onCopy = onCopy,
                     onClear = onClear,
                     onSearch = onSearch,
@@ -46,30 +56,34 @@ class ReaderSelectionToolbarTest {
 
     @Test
     fun primaryActions_areCompactAndSecondaryActionsStayInMoreMenu() {
-        var inspirationClicked = false
+        var browserClicked = false
         var copyClicked = false
         var searchClicked = false
         var clearClicked = false
         setToolbar(
-            onInspiration = { inspirationClicked = true },
+            onBrowser = { browserClicked = true },
             onCopy = { copyClicked = true },
             onSearch = { searchClicked = true },
             onClear = { clearClicked = true },
         )
 
         composeRule.onNodeWithText("高亮").assertIsDisplayed()
-        composeRule.onNodeWithText("记为灵感").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("浏览器").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("复制").assertIsDisplayed().performClick()
         composeRule.onNodeWithText("更多").assertIsDisplayed()
         composeRule.onNodeWithText("AI 解读").assertDoesNotExist()
-        composeRule.onNodeWithText("搜索").assertDoesNotExist()
+        composeRule.onNodeWithText("字典").assertDoesNotExist()
+        composeRule.onNodeWithText("书内搜索").assertDoesNotExist()
         composeRule.onNodeWithText("取消选择").assertDoesNotExist()
-        assertTrue(inspirationClicked)
+        assertTrue(browserClicked)
         assertTrue(copyClicked)
 
         composeRule.onNodeWithText("更多").performClick()
+        composeRule.onNodeWithText("字典").assertIsDisplayed()
+        composeRule.onNodeWithText("添加批注").assertIsDisplayed()
+        composeRule.onNodeWithText("替换").assertIsDisplayed()
         composeRule.onNodeWithText("AI 解读").assertIsDisplayed()
-        composeRule.onNodeWithText("搜索").assertIsDisplayed().performClick()
+        composeRule.onNodeWithText("书内搜索").assertIsDisplayed().performClick()
         assertTrue(searchClicked)
 
         composeRule.onNodeWithText("更多").performClick()

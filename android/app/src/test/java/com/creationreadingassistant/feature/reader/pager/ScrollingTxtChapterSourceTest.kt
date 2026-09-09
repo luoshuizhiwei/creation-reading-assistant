@@ -42,6 +42,11 @@ class ScrollingTxtChapterSourceTest {
         val second = projected.loadScrollUnitContent(units[1])
 
         assertEquals("abQcd", first.displayText + second.displayText)
+        // 滚动正文虽按 ReadingUnit 渲染，替换与持久化坐标仍以整段逻辑章 source 为准。
+        assertEquals(102, first.localDisplayToGlobalSource(2))
+        assertEquals(103, first.localDisplayToGlobalSource(3))
+        assertEquals(2 to 3, first.globalSourceRangeToLocalDisplay(102, 105))
+        assertEquals(0 to 2, second.globalSourceRangeToLocalDisplay(105, 107))
         assertEquals("logical chapter must be read and projected only once", 1, chapterReads)
         assertTrue(delegate.scopeForSegment(0) is ReplaceProjectionScope.Exact)
     }
