@@ -1,10 +1,13 @@
 package com.creationreadingassistant.ui.screen.profile
 
+import android.content.Intent
 import android.net.Uri
 import com.creationreadingassistant.R
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -21,7 +24,12 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.feature.annotations.AnnotationActions
+import com.creationreadingassistant.feature.annotations.AnnotationEntry
+import com.creationreadingassistant.feature.annotations.LocalAnnotationActions
+import com.creationreadingassistant.feature.annotations.navigationTargetOrNull
 import com.creationreadingassistant.ui.components.GlassAlertDialog
+import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
 import com.creationreadingassistant.ui.screen.ProfileScreen
@@ -131,6 +139,104 @@ internal fun ProfileRoute(
     LaunchedEffect(bridgeStatus) { bridgeStatus?.let { showMsg(it) } }
     LaunchedEffect(zipStatus) { zipStatus?.let { showMsg(it) } }
 
+    // ---- R1 统一阅读笔记：动作桥（回源导航 / 删除撤销 / 编辑 / 改色 / 导出 / 分享）----
+
+    // SAF Markdown 导出：点击时固定导出内容，系统对话框返回 uri 后写出；用户取消不产生任何数据修改
+    var pendingAnnotationExport by remember { mutableStateOf<Pair<String, String>?>(null) }
+    val annotationExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown"),
+    ) { uri: Uri? ->
+        val pending = pendingAnnotationExport
+        pendingAnnotationExport = null
+        if (uri == null || pending == null) return@rememberLauncherForActivityResult
+        runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { os ->
+                os.write(pending.first.toByteArray(Charsets.UTF_8))
+            } ?: throw IllegalStateException("无法写入目标文件")
+        }.onSuccess {
+            scope.launch { snackbarHostState.showSnackbar("已导出阅读笔记") }
+        }.onFailure {
+            scope.launch { snackbarHostState.showSnackbar("导出失败：${it.message}") }
+        }
+    }
+
+    // 删除提示 Snackbar：可撤销消息带「撤销」动作，只恢复最近一次删除的那批
+    val annotationMsg by viewModel.annotationMsg.collectAsStateWithLifecycle()
+    LaunchedEffect(annotationMsg) {
+        val msg = annotationMsg ?: return@LaunchedEffect
+        if (msg.undoable) {
+            val result = snackbarHostState.showSnackbar(
+                msg.text,
+                actionLabel = "撤销",
+                duration = SnackbarDuration.Short,
+            )
+            if (result == SnackbarResult.ActionPerformed) viewModel.undoDeleteAnnotationEntries()
+        } else {
+            snackbarHostState.showSnackbar(msg.text)
+        }
+    }
+
+    val annotationActions = remember(navController) {
+        object : AnnotationActions {
+            override fun jumpToEntry(entry: AnnotationEntry) {
+                val nav = navController ?: return
+                val bookId = entry.bookId
+                if (bookId == null) {
+                    scope.launch { snackbarHostState.showSnackbar("该记录未关联书籍，无法跳转") }
+                    return
+                }
+                // R1-N1.1：类型化回源 —— 传递 URL 编码后的 typed stableId
+                // （highlight:{id}/note:{id}/bookmark:{id}），让 ReaderProgressEffects 按类型
+                // 精确匹配，避免同 rawId 跨表跳错；无 locator 的历史记录降级为只打开书籍，不伪造偏移
+                val target = entry.navigationTargetOrNull()
+                if (target != null) {
+                    nav.navigate("reader/$bookId?highlightId=${Uri.encode(target)}")
+                } else {
+                    nav.navigate("reader/$bookId")
+                }
+            }
+
+            // J1-I.2：临时查阅条目来源。只做导航 —— 走 sourceLocator + navigationMode=temporary，
+            // 不携带 highlightId/noteId；返回栈的推进留给 ReaderRoute 解析 navigationMode 时触发。
+            override fun inspectSourceTemporarily(entry: AnnotationEntry) {
+                val nav = navController ?: return
+                val route = readerTemporaryRouteForSource(
+                    bookId = entry.bookId,
+                    legacyOffset = entry.legacyOffset,
+                    chapterIndex = entry.chapterIndex,
+                    charOffset = entry.charOffset,
+                )
+                if (route == null) {
+                    scope.launch { snackbarHostState.showSnackbar("该记录没有可定位的原文位置") }
+                    return
+                }
+                nav.navigate(route)
+            }
+
+            override fun deleteEntries(entries: List<AnnotationEntry>) =
+                viewModel.deleteAnnotationEntries(entries)
+
+            override fun editAnnotation(entry: AnnotationEntry, newAnnotation: String) =
+                viewModel.editAnnotationEntry(entry, newAnnotation)
+
+            override fun changeHighlightColor(entry: AnnotationEntry, color: String) =
+                viewModel.changeAnnotationEntryColor(entry, color)
+
+            override fun exportMarkdown(markdown: String, suggestedFileName: String) {
+                pendingAnnotationExport = markdown to suggestedFileName
+                annotationExportLauncher.launch(suggestedFileName)
+            }
+
+            override fun shareMarkdown(markdown: String) {
+                val intent = Intent(Intent.ACTION_SEND).apply {
+                    type = "text/plain"
+                    putExtra(Intent.EXTRA_TITLE, "阅读笔记")
+                    putExtra(Intent.EXTRA_TEXT, markdown)
+                }
+                runCatching { context.startActivity(Intent.createChooser(intent, "分享阅读笔记")) }
+            }
+        }
+    }
     // ---- 构建 ProfileUiState ----
     val webDavConfigured = !webDavConfig?.url.isNullOrBlank()
     val paired = config != null
@@ -181,7 +287,10 @@ internal fun ProfileRoute(
     }
 
     // ---- 渲染 ----
-    CompositionLocalProvider(LocalProfileSnackbar provides snackbarHostState) {
+    CompositionLocalProvider(
+        LocalProfileSnackbar provides snackbarHostState,
+        LocalAnnotationActions provides annotationActions,
+    ) {
         ProfileScreen(
             state = uiState,
             onAction = handleAction,

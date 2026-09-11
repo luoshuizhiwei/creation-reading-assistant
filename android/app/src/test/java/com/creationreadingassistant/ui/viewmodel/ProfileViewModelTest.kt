@@ -6,11 +6,13 @@ import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
@@ -61,6 +63,7 @@ class ProfileViewModelTest {
     private val progressEntitiesCollected = AtomicBoolean(false)
     private val sessionEntitiesCollected = AtomicBoolean(false)
     private val noteEntitiesCollected = AtomicBoolean(false)
+    private val highlightEntitiesCollected = AtomicBoolean(false)
     private val cacheCollected = AtomicBoolean(false)
 
     private val sessionRows = MutableStateFlow<List<StatsSessionRow>>(emptyList())
@@ -84,6 +87,8 @@ class ProfileViewModelTest {
             flow<List<ReadingSessionEntity>> { emit(emptyList()) }.onStart { sessionEntitiesCollected.set(true) }
         every { bookRepository.observeNotes() } returns
             flow<List<NoteEntity>> { emit(emptyList()) }.onStart { noteEntitiesCollected.set(true) }
+        every { bookRepository.observeHighlights() } returns
+            flow<List<HighlightEntity>> { emit(emptyList()) }.onStart { highlightEntitiesCollected.set(true) }
         every { bookRepository.observeCachedCount() } returns
             flow { emit(0) }.onStart { cacheCollected.set(true) }
         every { bookRepository.observeCachedBytes() } returns
@@ -114,6 +119,7 @@ class ProfileViewModelTest {
             webDavBackup = mockk<WebDavBackup>(relaxed = true),
             aiClient = mockk<AiClient>(relaxed = true),
             bookRepository = bookRepository,
+            noteRepository = mockk<NoteRepository>(relaxed = true),
             statsRepository = statsRepository,
             goalStore = goalStore,
             goalScheduler = goalScheduler,
@@ -159,6 +165,7 @@ class ProfileViewModelTest {
         assertFalse("首页不得物化进度实体", progressEntitiesCollected.get())
         assertFalse("首页不得物化会话实体", sessionEntitiesCollected.get())
         assertFalse("首页不得物化笔记实体", noteEntitiesCollected.get())
+        assertFalse("首页不得物化高亮实体", highlightEntitiesCollected.get())
         assertFalse("首页不得触发缓存统计查询", cacheCollected.get())
     }
 

@@ -138,4 +138,23 @@ class SearchScrollFocusRequestTest {
         )
         assertNull(consumer.pendingRequest)
     }
+
+    @Test
+    fun `source navigation focus keeps the same identity guard without a search result id`() {
+        val sourceRequest = SearchScrollFocusRequest(
+            bookKey = "book-1",
+            chapterIndex = 2,
+            renderUnitIndex = 5,
+            origin = ReaderScrollFocusOrigin.SOURCE_NAVIGATION,
+        )
+        val consumer = SearchScrollFocusConsumer(sourceRequest)
+
+        assertEquals(-1, sourceRequest.resultIndex)
+        assertEquals(ReaderScrollFocusOrigin.SOURCE_NAVIGATION, sourceRequest.origin)
+        assertEquals(
+            SearchScrollFocusOutcome.Discarded,
+            consumer.consume(currentBookKey = "book-1", currentChapterIndex = 3, renderUnitsReady = true),
+        )
+        assertNull(consumer.pendingRequest)
+    }
 }

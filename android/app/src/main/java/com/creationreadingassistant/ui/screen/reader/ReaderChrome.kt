@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.SkipNext
 import androidx.compose.material.icons.outlined.SkipPrevious
+import androidx.compose.material.icons.outlined.SubdirectoryArrowLeft
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -73,6 +74,8 @@ internal sealed interface ReaderChromeAction {
     data object ToggleTts : ReaderChromeAction
     data class OpenSheet(val sheet: ReaderSheet) : ReaderChromeAction
     data object ToggleAutoPaging : ReaderChromeAction
+    /** 返回阅读处（临时查阅 LIFO 返回一层）。 */
+    data object ReturnToReading : ReaderChromeAction
 }
 
 internal enum class ReaderBottomChromeMode { NORMAL, AUTO_PAGING, TTS }
@@ -483,6 +486,10 @@ internal fun ReaderTopChrome(
     autoPagingActive: Boolean,
     onOverflowExpandedChange: (Boolean) -> Unit,
     onAction: (ReaderChromeAction) -> Unit,
+    /** 当前是否处于临时查阅模式。 */
+    temporaryInspection: Boolean = false,
+    /** 临时查阅协调器是否存在可返回目标。 */
+    hasReturnableTarget: Boolean = false,
 ) {
     val spec = LocalComponentSpec.current
     // 微岛收敛：顶栏是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
@@ -541,6 +548,23 @@ internal fun ReaderTopChrome(
             }
 
             Spacer(Modifier.width(8.dp))
+
+            // 临时查阅模式：显示"返回阅读处"按钮（仅当 hasReturnableTarget 为 true 时可见）
+            if (temporaryInspection && hasReturnableTarget) {
+                IconButton(
+                    onClick = { onAction(ReaderChromeAction.ReturnToReading) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    IconPedestal(
+                        icon = Icons.Outlined.SubdirectoryArrowLeft,
+                        tint = paper.accent,
+                        size = 34.dp,
+                        iconSize = 20.dp,
+                        contentDescription = "返回阅读处",
+                    )
+                }
+                Spacer(Modifier.width(4.dp))
+            }
 
             Box {
                 IconButton(

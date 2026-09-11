@@ -80,6 +80,11 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.feature.library.deletion.DeletionScope
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoViewModel
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmAction
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
 import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
@@ -263,8 +268,10 @@ fun HomeCompletedRoute(
     navController: NavHostController,
     archiveViewModel: HomeArchiveViewModel = hiltViewModel(),
     bookOps: BookOperationsViewModel = hiltViewModel(),
+    deletions: DeletionUndoViewModel = hiltViewModel(),
 ) {
     val state by archiveViewModel.uiState.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var query by rememberSaveable { mutableStateOf("") }
     var sort by rememberSaveable { mutableStateOf(CompletedArchiveSort.COMPLETED) }
     var managedBook by remember { mutableStateOf<BookEntity?>(null) }
@@ -327,11 +334,25 @@ fun HomeCompletedRoute(
     if (deleting != null) {
         GlassAlertDialog(
             onDismissRequest = { deletePrompt = null },
-            title = { Text("删除书籍？") },
-            text = { Text("本地正文、阅读进度、笔记和灵感关联数据会一并移除，删除后可随时从书架恢复。") },
+            title = {
+                Text(deletionConfirmTitle(context, DeletionScope.DELETE_BOOK))
+            },
+            text = {
+                Text(
+                    deletionConfirmBody(
+                        context = context,
+                        scope = DeletionScope.DELETE_BOOK,
+                        bookCount = 1,
+                        undoSeconds = deletions.undoWindowSeconds,
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(onClick = { deletePrompt = null; bookOps.deleteBook(deleting.id) }) {
-                    Text("删除", color = MaterialTheme.colorScheme.error)
+                    Text(
+                        deletionConfirmAction(context, DeletionScope.DELETE_BOOK),
+                        color = MaterialTheme.colorScheme.error,
+                    )
                 }
             },
             dismissButton = { TextButton(onClick = { deletePrompt = null }) { Text("取消") } },

@@ -18,6 +18,8 @@ import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.settings.ReaderSettings
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.annotations.AnnotationType
+import com.creationreadingassistant.feature.annotations.navigationTargetId
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -149,6 +151,8 @@ internal fun buildReaderInteractionLayerState(
     error: String?,
     readerSettings: ReaderSettings,
     paper: ReaderPaperPalette,
+    temporaryInspection: Boolean = false,
+    hasReturnableTarget: Boolean = false,
 ): ReaderInteractionLayerState = ReaderInteractionLayerState(
     controlsVisible = controlsVisible,
     selectedText = selectedText,
@@ -170,6 +174,8 @@ internal fun buildReaderInteractionLayerState(
     error = error,
     showProgressBar = readerSettings.showProgressBar,
     paper = paper,
+    temporaryInspection = temporaryInspection,
+    hasReturnableTarget = hasReturnableTarget,
 )
 
 /**
@@ -452,8 +458,9 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.CloseSheet)
     },
     onJumpToBookmark = { id ->
-        // 书签与高亮共用 SE4 的 locator 解析路径（pendingHighlightIdState 同时覆盖 notes）
-        onPendingHighlightIdChange(id)
+        // R1-N1.1：书内书签回源带 bookmark 类型，避免与同 rawId 的高亮/普通笔记串台；
+        // 无 locator 的历史书签仍由 SE4 按其 locator / progress 降级，不伪造偏移。
+        onPendingHighlightIdChange(navigationTargetId(AnnotationType.BOOKMARK, id))
         onAction(ReaderAction.CloseSheet)
     },
     // 书摘/笔记/书签/灵感的导出（SAF 写 .md + 分享）已内聚在 NotesSheet，

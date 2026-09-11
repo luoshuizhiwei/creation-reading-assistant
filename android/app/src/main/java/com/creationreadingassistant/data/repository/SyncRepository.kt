@@ -16,8 +16,10 @@ import com.creationreadingassistant.data.remote.SyncApiProvider
 import com.creationreadingassistant.data.remote.SyncConfigStore
 import com.creationreadingassistant.data.remote.SyncContract
 import com.creationreadingassistant.domain.model.SyncEnvelope
+import com.creationreadingassistant.feature.library.FormatClassifier
 import com.creationreadingassistant.feature.sync.SyncMergePolicy
 import android.content.Context
+import android.net.Uri
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
@@ -57,6 +59,13 @@ class SyncRepository @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
     private val json = Json { ignoreUnknownKeys = true; prettyPrint = false }
+
+    /**
+     * 测试 seam：JVM 单测里 `android.net.Uri.fromFile` 恒返回 null
+     * （`unitTests.isReturnDefaultValues = true`），注入受控映射以便验证闭环回写；
+     * 生产默认即 [android.net.Uri.fromFile] 的 toString。
+     */
+    internal var fileUri: (File) -> String = { file -> Uri.fromFile(file).toString() }
 
     data class PullResult(
         val books: Int,
@@ -357,29 +366,8 @@ class SyncRepository @Inject constructor(
             if (!resp.isSuccessful) error("下载失败：HTTP ${resp.code()}")
             val body = resp.body() ?: error("响应体为空")
             val book = bookDao.getById(bookId) ?: error("书籍不存在：$bookId")
-            val dir = File(context.cacheDir, "books/$bookId").apply { mkdirs() }
-            val file = File(dir, "content.${book.format}")
-            // 先写 .tmp 再 rename 原子落盘：中途中断不会留下半截坏文件。
-            val tmp = File(dir, file.name + ".tmp")
-            body.use { b ->
-                b.byteStream().use { input ->
-                    FileOutputStream(tmp).use { output -> input.copyTo(output) }
-                }
-            }
-            if (!tmp.renameTo(file)) {
-                tmp.delete()
-                error("写入磁盘失败：重命名目标文件失败")
-            }
-            val size = file.length().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-            val now = Instant.now().toString()
-            bookFileDao.upsert(
-                BookFileEntity(
-                    book_id = bookId, file_name = "content.${book.format}",
-                    format = book.format, size = size,
-                    local_uri = file.absolutePath, updated_at = now,
-                )
-            )
-            bookDao.upsert(book.copy(content_status = "available", size = size, updated_at = now))
+            val written = writeValidatedBookFile(book.id, book.format, fileName = null, body)
+            persistDownloadedContent(book, written, Instant.now().toString())
         }.onFailure { e ->
             // 下载失败标记 failed
             runCatching {
@@ -419,29 +407,8 @@ class SyncRepository @Inject constructor(
                 val resp = api.getBookFile(book.id)
                 if (!resp.isSuccessful) error("HTTP ${resp.code()}")
                 val body = resp.body() ?: error("响应体为空")
-                val dir = File(context.cacheDir, "books/${book.id}").apply { mkdirs() }
-                val file = File(dir, "content.${book.format}")
-                // 先写 .tmp 再 rename 原子落盘：中途中断不会留下半截坏文件。
-                val tmp = File(dir, file.name + ".tmp")
-                body.use { b ->
-                    b.byteStream().use { input ->
-                        FileOutputStream(tmp).use { output -> input.copyTo(output) }
-                    }
-                }
-                if (!tmp.renameTo(file)) {
-                    tmp.delete()
-                    error("写入磁盘失败：重命名目标文件失败")
-                }
-                val size = file.length().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
-                val now = Instant.now().toString()
-                bookFileDao.upsert(
-                    BookFileEntity(
-                        book_id = book.id, file_name = "content.${book.format}",
-                        format = book.format, size = size,
-                        local_uri = file.absolutePath, updated_at = now,
-                    )
-                )
-                bookDao.upsert(book.copy(content_status = "available", size = size, updated_at = now))
+                val written = writeValidatedBookFile(book.id, book.format, manifest[book.id]?.fileName, body)
+                persistDownloadedContent(book, written, Instant.now().toString())
             }
             if (r.isSuccess) {
                 success++
@@ -461,4 +428,102 @@ class SyncRepository @Inject constructor(
             api.manifest().bookFiles
         }.getOrDefault(emptyList())
     }
+
+    private data class DownloadedContent(val file: File, val format: String)
+
+    /**
+     * 把下载正文按「格式真源」落到 content.{真实格式}，导入与同步共用的 [FormatClassifier]
+     * 是同一套规则，禁止在下载路径上分叉。
+     *
+     * 只读前 4 字节做判定，绝不读完整文件；声称 epub 但正文非 ZIP，或无法识别格式时，
+     * 在创建任何临时文件之前就抛错，因此不会遗留 content.epub 之类错误扩展名的最终文件。
+     */
+    private fun writeValidatedBookFile(
+        bookId: String,
+        claimedFormat: String,
+        fileName: String?,
+        body: ResponseBody,
+    ): DownloadedContent {
+        val dir = File(context.cacheDir, "books/$bookId").apply { mkdirs() }
+        var result: DownloadedContent? = null
+        body.use { b ->
+            b.byteStream().use { input ->
+                val magic = ByteArray(FormatClassifier.EPUB_MAGIC.size)
+                var off = 0
+                while (off < magic.size) {
+                    val n = input.read(magic, off, magic.size - off)
+                    if (n < 0) break
+                    off += n
+                }
+                val firstBytes = if (off == magic.size) magic else magic.copyOf(off)
+                val format = when (val verdict = FormatClassifier.classify(claimedFormat, fileName, firstBytes)) {
+                    is FormatClassifier.Verdict.Accepted -> verdict.format
+                    is FormatClassifier.Verdict.Rejected -> error(verdict.reason)
+                }
+                val file = File(dir, "content.$format")
+                // 先写 .tmp 再 rename 原子落盘：中途中断不会留下半截坏文件。
+                val tmp = File(dir, file.name + ".tmp")
+                try {
+                    FileOutputStream(tmp).use { output ->
+                        output.write(firstBytes)
+                        input.copyTo(output)
+                    }
+                } catch (e: Throwable) {
+                    tmp.delete()
+                    throw e
+                }
+                if (!tmp.renameTo(file)) {
+                    tmp.delete()
+                    error("写入磁盘失败：重命名目标文件失败")
+                }
+                result = DownloadedContent(file, format)
+            }
+        }
+        return result ?: error("下载内容为空")
+    }
+
+    /**
+     * 校验并原子落盘成功后，闭环回写书籍与文件元数据（单本与批量共用，禁止分叉）。
+     *
+     * - BookEntity.format / local_uri / local_content_path 与实际写入文件一致，保证
+     *   [com.creationreadingassistant.ui.viewmodel.ReaderDocumentLoader] 按真实格式打开；
+     * - BookEntity.payload 的 format 更新为真实格式，保留其余未知字段；
+     * - BookFileEntity 的 format / 文件名 / local_uri 与实际写入文件一致。
+     */
+    private suspend fun persistDownloadedContent(
+        book: BookEntity,
+        written: DownloadedContent,
+        now: String,
+    ) {
+        val localUri = fileUri(written.file)
+        val size = written.file.length().coerceIn(0L, Int.MAX_VALUE.toLong()).toInt()
+        bookFileDao.upsert(
+            BookFileEntity(
+                book_id = book.id,
+                file_name = written.file.name,
+                format = written.format,
+                size = size,
+                local_uri = localUri,
+                updated_at = now,
+            ),
+        )
+        bookDao.upsert(
+            book.copy(
+                format = written.format,
+                size = size,
+                local_uri = localUri,
+                local_content_path = written.file.absolutePath,
+                content_status = "available",
+                updated_at = now,
+                payload = withPayloadFormat(book.payload, written.format),
+            ),
+        )
+    }
+
+    /** 将 payload 的 format 字段更新为真实格式，保留 payload 中其他未知字段。 */
+    private fun withPayloadFormat(payload: String?, format: String): String =
+        buildJsonObject {
+            toJsonObject(payload).forEach { (k, v) -> put(k, v) }
+            put("format", format)
+        }.toString()
 }

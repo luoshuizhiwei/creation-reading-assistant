@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  删除 / 撤销相关文案（R1 书籍删除与撤销完整性）。
+
+  三种作用范围必须在措辞上分得开：搁置只改阅读状态，移除正文只丢本地正文缓存，
+  删除整本资料才会连阅读数据与关联一起移除。清理缓存不得被说成备份或可靠恢复。
+-->
+<resources>
+
+    <!-- ── 撤销提示条 ─────────────────────────────────────── -->
+    <string name="deletion_undo_action">撤销</string>
+    <string name="deletion_undo_dismiss">关闭</string>
+    <string name="deletion_undo_bar_description">删除撤销提示</string>
+
+    <string name="deletion_undo_message">已删除 %1$d 本资料，可在 %2$d 秒内撤销</string>
+
+    <!-- ── 撤销结果 ───────────────────────────────────────── -->
+    <string name="deletion_undo_done">已撤销删除</string>
+    <string name="deletion_undo_skipped_newer">%1$d 项此后的改动未被覆盖</string>
+    <string name="deletion_undo_relations_missing">%1$d 个分类/标签/书单已不存在，未恢复这些关联</string>
+    <string name="deletion_undo_content_rebuild">正文缓存需重新打开书籍后重建</string>
+    <string name="deletion_undo_unavailable">撤销窗口已结束，本次删除无法恢复</string>
+    <string name="deletion_undo_failed">撤销失败：%1$s</string>
+    <string name="deletion_failed">删除失败，书架数据未变更</string>
+
+    <!-- ── 搁置（DeletionScope.SHELVE）────────────────────── -->
+    <string name="deletion_scope_shelve_title">搁置这本书？</string>
+    <string name="deletion_scope_shelve_body">只把阅读状态改为搁置。书籍资料、本地正文、阅读进度、阅读记录、笔记、高亮、分类标签书单关联和已读章节都会保留。</string>
+    <string name="deletion_scope_shelve_confirm">搁置</string>
+
+    <!-- ── 移除正文（DeletionScope.REMOVE_CONTENT）─────────── -->
+    <string name="deletion_scope_remove_content_title">移除本地正文？</string>
+    <string name="deletion_scope_remove_content_body">只释放本地正文缓存与文件关联，书架资料、阅读进度、笔记、高亮和全部关联都会保留。正文需要重新选择文件或重新下载。</string>
+    <string name="deletion_scope_remove_content_warning">清掉的正文不是备份，无法从本地还原原文件内容。</string>
+    <string name="deletion_scope_remove_content_confirm">移除正文</string>
+
+    <!-- ── 删除整本资料（DeletionScope.DELETE_BOOK）────────── -->
+    <string name="deletion_scope_delete_book_title">删除整本资料？</string>
+    <string name="deletion_scope_delete_book_body">书籍资料、阅读进度、阅读记录、笔记、高亮，以及分类、标签、书单关联和已读章节都会一并移除。</string>
+    <string name="deletion_scope_delete_book_batch_body">已选 %1$d 本书的资料、阅读进度、阅读记录、笔记、高亮，以及分类、标签、书单关联和已读章节都会一并移除。</string>
+    <string name="deletion_scope_delete_book_undo_note">可在 %1$d 秒内撤销；应用重启后不再提供撤销。</string>
+    <string name="deletion_scope_delete_book_inspiration_note">灵感不会被删除，与这本书的关联会保留，撤销后仍然指向这本书。</string>
+    <string name="deletion_scope_delete_book_confirm">删除</string>
+
+</resources>

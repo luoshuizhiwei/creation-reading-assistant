@@ -141,6 +141,10 @@ interface BookTagDao {
     @Query("SELECT * FROM book_tag")
     suspend fun getAllActive(): List<BookTagEntity>
 
+    /** 删除/撤销快照：连接表没有软删除列，只返回目标书籍的现存关联。 */
+    @Query("SELECT * FROM book_tag WHERE book_id IN (:bookIds)")
+    suspend fun getByBookIds(bookIds: Collection<String>): List<BookTagEntity>
+
     /** 备份恢复用：清空整张关联表后重建。 */
     @Query("DELETE FROM book_tag")
     suspend fun clearAll()
@@ -179,6 +183,10 @@ interface BookCategoryDao {
     @Query("SELECT * FROM book_category")
     suspend fun getAllActive(): List<BookCategoryEntity>
 
+    /** 删除/撤销快照：连接表没有软删除列，只返回目标书籍的现存关联。 */
+    @Query("SELECT * FROM book_category WHERE book_id IN (:bookIds)")
+    suspend fun getByBookIds(bookIds: Collection<String>): List<BookCategoryEntity>
+
     /** 备份恢复用：清空整张关联表后重建。 */
     @Query("DELETE FROM book_category")
     suspend fun clearAll()
@@ -209,6 +217,10 @@ interface ShelfBookDao {
 
     @Query("SELECT * FROM shelf_book")
     suspend fun getAllActive(): List<ShelfBookEntity>
+
+    /** 删除/撤销快照：连接表没有软删除列，只返回目标书籍的现存关联。 */
+    @Query("SELECT * FROM shelf_book WHERE book_id IN (:bookIds)")
+    suspend fun getByBookIds(bookIds: Collection<String>): List<ShelfBookEntity>
 
     /** 备份恢复用：清空整张关联表后重建。 */
     @Query("DELETE FROM shelf_book")

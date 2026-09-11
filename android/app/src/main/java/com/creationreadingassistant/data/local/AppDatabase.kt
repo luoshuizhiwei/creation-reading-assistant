@@ -28,6 +28,8 @@ import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
 import com.creationreadingassistant.data.local.dao.ChapterReadDao
+import com.creationreadingassistant.data.local.dao.SearchIndexCoverageDao
+import com.creationreadingassistant.data.local.dao.SearchIndexCoverageRow
 import com.creationreadingassistant.data.local.dao.SearchIndexStateDao
 import com.creationreadingassistant.data.local.dao.SearchIndexStateRow
 import com.creationreadingassistant.data.local.dao.SearchTermDao
@@ -61,7 +63,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 11
+const val APP_DATABASE_SCHEMA_VERSION = 12
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -86,6 +88,10 @@ const val APP_DATABASE_SCHEMA_VERSION = 11
  *    sort_order 列并统一 ORDER BY sort_order ASC, created_at ASC 兜底排序（片 3）
  *  - v10→v11：新增本地全文索引表 search_terms 与断点表 search_index_state；
  *    只新增派生数据，绝不修改书库、进度或阅读批注
+ *  - v11→v12：全文索引升级为「双文本基准 + 显式覆盖率」——search_terms 主键
+ *    增加 text_basis（SQLite 无法 ALTER 主键，故整表重建并原样搬迁既有行，
+ *    老行一律归入 original 基准）；新增 search_index_coverage 记录每本书在每种
+ *    基准上的覆盖完成度。同样只动派生索引表，不触碰书库/进度/批注。
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -103,6 +109,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 11
         ChapterReadEntity::class,
         SearchTermRow::class,
         SearchIndexStateRow::class,
+        SearchIndexCoverageRow::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -131,6 +138,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun chapterReadDao(): ChapterReadDao
     abstract fun searchTermDao(): SearchTermDao
     abstract fun searchIndexStateDao(): SearchIndexStateDao
+    abstract fun searchIndexCoverageDao(): SearchIndexCoverageDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -346,6 +354,75 @@ abstract class AppDatabase : RoomDatabase() {
                         "`last_scanned_chapter_index` INTEGER NOT NULL DEFAULT 0, " +
                         "`built_at` INTEGER NOT NULL DEFAULT 0, " +
                         "PRIMARY KEY(`id`))",
+                )
+            }
+        }
+
+        /**
+         * v11→v12：全文索引升级为「双文本基准 + 显式覆盖率」。
+         *
+         * 两步都是**派生数据**层面的改动，不触碰 books / reading_progress / highlights
+         * 等任何用户内容表：
+         *
+         * 1. `search_terms` 主键补 `text_basis`（`original` 原文 / `display` 替换显示文）。
+         *    SQLite 不支持 ALTER 主键，只能整表重建：建新表 → 原样搬迁 → 删旧表 → 改名 →
+         *    重建两个索引。v11 索引的就是原文，因此既有行一律标记为 `original`。
+         * 2. 新增 `search_index_coverage`（主键 `book_id` + `text_basis`），显式记录每本书在
+         *    每种基准上的覆盖完成度。历史行不存在不影响正确性 —— 首次重建索引时写入；
+         *    在写入之前，UI 只应认为「尚未得知覆盖情况」，不得据 format 推断为全量。
+         *
+         * 迁移里显式写死 `'original'` 字面量而**不是**引用 wire 常量：迁移是一段冻结的
+         * 历史，其行为必须在未来常量改名后依然与当初一致。
+         */
+        val MIGRATION_11_12 = object : Migration(11, 12) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+
+                // ── 1. search_terms 整表重建：主键补 text_basis ──
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `search_terms_new` (" +
+                        "`term` TEXT NOT NULL, " +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`chapter_index` INTEGER NOT NULL, " +
+                        "`text_basis` TEXT NOT NULL, " +
+                        "`hits` INTEGER NOT NULL DEFAULT 0, " +
+                        "`offsets` TEXT, " +
+                        "PRIMARY KEY(`term`, `book_id`, `chapter_index`, `text_basis`))",
+                )
+                db.execSQL(
+                    "INSERT INTO `search_terms_new` " +
+                        "(`term`, `book_id`, `chapter_index`, `text_basis`, `hits`, `offsets`) " +
+                        "SELECT `term`, `book_id`, `chapter_index`, 'original', `hits`, `offsets` " +
+                        "FROM `search_terms`",
+                )
+                db.execSQL("DROP TABLE `search_terms`")
+                db.execSQL("ALTER TABLE `search_terms_new` RENAME TO `search_terms`")
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_search_terms_term` " +
+                        "ON `search_terms` (`term`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_search_terms_book` " +
+                        "ON `search_terms` (`book_id`)",
+                )
+
+                // ── 2. search_index_coverage：每本书 × 每种基准的覆盖率 ──
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `search_index_coverage` (" +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`text_basis` TEXT NOT NULL, " +
+                        "`format` TEXT NOT NULL, " +
+                        "`coverage` TEXT NOT NULL, " +
+                        "`indexed_chapters` INTEGER NOT NULL DEFAULT 0, " +
+                        "`total_chapters` INTEGER NOT NULL DEFAULT 0, " +
+                        "`tokenizer_version` INTEGER NOT NULL DEFAULT 0, " +
+                        "`indexed_at` INTEGER NOT NULL DEFAULT 0, " +
+                        "`reason` TEXT, " +
+                        "PRIMARY KEY(`book_id`, `text_basis`))",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_search_index_coverage_coverage` " +
+                        "ON `search_index_coverage` (`coverage`)",
                 )
             }
         }

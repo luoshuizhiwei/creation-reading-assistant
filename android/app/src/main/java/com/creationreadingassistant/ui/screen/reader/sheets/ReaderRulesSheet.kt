@@ -69,6 +69,7 @@ import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
+import com.creationreadingassistant.ui.screen.reader.replacementRulesTabBodyNotice
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 
@@ -536,7 +537,10 @@ private fun ColumnScope.RulesList(
             }
         }
         if (replacementCapability is ReaderReplacementCapability.Unavailable) {
-            ReplacementUnavailableNotice(replacementCapability.message)
+            ReplacementCapabilityNotice(
+                title = "替换净化当前不可用",
+                message = replacementCapability.message,
+            )
         }
         mutationResult?.let { MutationFeedbackRow(it) }
         when (tab) {
@@ -545,11 +549,20 @@ private fun ColumnScope.RulesList(
                 onCommand = onCommand,
                 onEdit = onEditToc,
             )
-            RuleKind.REPLACE -> ReplaceRulesList(
-                rules = snapshot.replaceRules,
-                onCommand = onCommand,
-                onEdit = onEditReplace,
-            )
+            RuleKind.REPLACE -> {
+                replacementRulesTabBodyNotice(replacementCapability)
+                    ?.let { notice ->
+                        ReplacementCapabilityNotice(
+                            title = "替换净化状态说明",
+                            message = notice,
+                        )
+                    }
+                ReplaceRulesList(
+                    rules = snapshot.replaceRules,
+                    onCommand = onCommand,
+                    onEdit = onEditReplace,
+                )
+            }
         }
         // 底部新增规则按钮圆润微岛化
         Button(
@@ -567,7 +580,10 @@ private fun ColumnScope.RulesList(
 }
 
 @Composable
-private fun ReplacementUnavailableNotice(message: String) {
+private fun ReplacementCapabilityNotice(
+    title: String,
+    message: String,
+) {
     val layout = LocalLayoutTokens.current
     val spec = LocalComponentSpec.current
     Surface(
@@ -580,7 +596,7 @@ private fun ReplacementUnavailableNotice(message: String) {
     ) {
         Column(modifier = Modifier.padding(14.dp)) {
             Text(
-                text = "替换净化当前不可用",
+                text = title,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
             )
@@ -936,6 +952,16 @@ private fun ColumnScope.RuleEditor(
                 supportingText = { Text("留空表示删除命中文本") },
                 shape = RoundedCornerShape(spec.islandRadius),
                 modifier = Modifier.fillMaxWidth().padding(top = layout.relatedGap),
+            )
+            // 非行为性说明：规则正则默认**区分大小写**，而全文搜索的命中词按小写归一。
+            // 二者口径不同，故搜索词面与规则写法大小写不一致时，预览可能显示「命中 0 处」
+            // —— 这是自洽的（用户实际读到的文本也没被替换），不是缺陷；在此提示避免误判。
+            Text(
+                text = "规则区分大小写（正则默认），英文请按原文大小写填写；" +
+                    "全文搜索的命中词按小写归一，故搜索词面与规则写法不一致时可能显示「命中 0 处」。",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = layout.relatedGap),
             )
         }
 

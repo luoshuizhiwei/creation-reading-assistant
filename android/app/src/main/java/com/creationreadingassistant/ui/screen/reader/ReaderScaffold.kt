@@ -94,6 +94,10 @@ internal data class ReaderScreenMutableHolders(
     val pendingTxtRuleAnchorState: MutableState<PendingTxtRuleAnchor?>,
     val navFocusBlockIndexState: MutableState<Int?>,
     val pendingHighlightIdState: MutableState<String?>,
+    /** 路由传入的通用 source locator；一次性消费后清空，不与标注 ID 混用。 */
+    val pendingSourceLocatorJsonState: MutableState<String?>,
+    /** 跨章 source 跳转已主动请求的目标章，用于识别用户随后手动离章的 stale 请求。 */
+    val requestedSourceNavigationChapterState: MutableState<Int?>,
     /**
      * 搜索滚动聚焦的一次性请求（P1 修复）：与 navFocusBlockIndexState（SE4
      * 高亮/笔记恢复等非搜索用途）分离，按书 remember，切书自动清空；
@@ -107,7 +111,7 @@ internal data class ReaderScreenMutableHolders(
  * 内联的 `val xState = remember { ... }` 完全一致（key / 初始值 / 类型逐字保真）：
  * - runtimeError / pendingInitialPosition 以 `bookId` 为 remember key（与原文一致）；
  * - txtTocRuleId 以 `bid` 为 key，初始值来自 ViewModel 的 txtTocRuleIdFromVm；
- * - pendingHighlightId 初始值来自 inputs.highlightId。
+ * - pendingHighlightId / pendingSourceLocator 初始值来自对应路由参数。
  * B2：弹层/控件类 UI 状态（原 10 个 holder）已改由 VM screenState 唯一持有，此处移除。
  */
 @Composable
@@ -116,6 +120,7 @@ internal fun rememberReaderScreenMutableHolders(
     bid: String,
     txtTocRuleIdFromVm: String,
     highlightId: String?,
+    sourceLocatorJson: String?,
 ): ReaderScreenMutableHolders {
     val autoPagingActiveState = remember { mutableStateOf(false) }
     val runtimeErrorState = remember(bookId) { mutableStateOf<String?>(null) }
@@ -125,6 +130,8 @@ internal fun rememberReaderScreenMutableHolders(
     val pendingTxtRuleAnchorState = remember(bid) { mutableStateOf<PendingTxtRuleAnchor?>(null) }
     val navFocusBlockIndexState = remember { mutableStateOf<Int?>(null) }
     val pendingHighlightIdState = remember { mutableStateOf(highlightId) }
+    val pendingSourceLocatorJsonState = remember(bookId, sourceLocatorJson) { mutableStateOf(sourceLocatorJson) }
+    val requestedSourceNavigationChapterState = remember(bookId, sourceLocatorJson) { mutableStateOf<Int?>(null) }
     // P1：搜索滚动聚焦请求按书持有；切书自动清空，跨书残留由消费侧身份匹配兜底丢弃
     val searchScrollFocusRequestState = remember(bid) { mutableStateOf<SearchScrollFocusRequest?>(null) }
     return ReaderScreenMutableHolders(
@@ -135,6 +142,8 @@ internal fun rememberReaderScreenMutableHolders(
         pendingTxtRuleAnchorState = pendingTxtRuleAnchorState,
         navFocusBlockIndexState = navFocusBlockIndexState,
         pendingHighlightIdState = pendingHighlightIdState,
+        pendingSourceLocatorJsonState = pendingSourceLocatorJsonState,
+        requestedSourceNavigationChapterState = requestedSourceNavigationChapterState,
         searchScrollFocusRequestState = searchScrollFocusRequestState,
     )
 }
@@ -467,6 +476,8 @@ internal fun ReaderScaffold(
                     error = error,
                     readerSettings = readerSettings,
                     paper = paper,
+                    temporaryInspection = inputs.navigationMode == ReaderNavigationMode.TEMPORARY,
+                    hasReturnableTarget = callbacks.hasReturnableTarget,
                 ),
                 callbacks = buildReaderInteractionLayerCallbacks(
                     chapterIndex = chapterIndex,

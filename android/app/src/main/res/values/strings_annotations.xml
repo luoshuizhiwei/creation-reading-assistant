@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 「我的 → 阅读笔记」（R1-N1 统一阅读笔记）专用字符串。
+     本文件为 Trae 独占资源文件，公共文案请勿写入；locale 扩展时使用同名文件
+     values-<locale>/strings_annotations.xml。当前应用无既有 locale 目录，暂只提供默认值。 -->
+<resources>
+    <!-- 空态：区分「全库为空」与「筛选无结果」 -->
+    <string name="annotations_empty_no_records_title">还没有阅读笔记</string>
+    <string name="annotations_empty_no_records_body">在阅读页选中文字即可高亮、写批注或加书签，它们都会汇总到这里。</string>
+    <string name="annotations_empty_filtered_title">没有匹配的笔记</string>
+    <string name="annotations_empty_filtered_body">换个类型、书籍或关键词试试。</string>
+    <string name="annotations_empty_filtered_clear">清除筛选</string>
+
+    <!-- 筛选 -->
+    <string name="annotations_filter_all_types">全部</string>
+    <string name="annotations_type_highlight">书摘</string>
+    <string name="annotations_type_note">批注</string>
+    <string name="annotations_type_bookmark">书签</string>
+    <string name="annotations_filter_all_books">全部书籍</string>
+    <string name="annotations_filter_keyword_hint">搜索标题 / 摘录 / 批注</string>
+
+    <!-- 批量选择 -->
+    <string name="annotations_select_enter">选择</string>
+    <string name="annotations_select_exit">取消</string>
+    <string name="annotations_selected_count">已选 %1$d 条</string>
+    <string name="annotations_action_export">导出</string>
+    <string name="annotations_action_share">分享</string>
+    <string name="annotations_action_delete">删除</string>
+
+    <!-- 条目操作 -->
+    <string name="annotations_action_jump">定位</string>
+    <string name="annotations_action_jump_degraded">打开书籍</string>
+    <!-- J1-I.2：临时查阅来源（可回退的一次性查阅，仅对带有效 source locator 的条目显示） -->
+    <string name="annotations_action_temporary_inspect">临时查看来源</string>
+    <string name="annotations_action_edit">编辑批注</string>
+    <string name="annotations_badge_no_locator">无定位</string>
+    <string name="annotations_badge_no_book">未关联书籍</string>
+    <string name="annotations_chapter_fallback">未记录章节</string>
+
+    <!-- 编辑批注对话框 -->
+    <string name="annotations_edit_dialog_title">编辑批注</string>
+    <string name="annotations_edit_dialog_excerpt_prefix">摘录：</string>
+    <string name="annotations_edit_dialog_field_label">批注内容</string>
+    <string name="annotations_edit_dialog_save">保存</string>
+    <string name="annotations_edit_dialog_cancel">取消</string>
+</resources>

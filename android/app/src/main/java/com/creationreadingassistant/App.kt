@@ -5,6 +5,7 @@ import android.content.Context
 import android.os.Trace
 import android.util.Log
 import com.creationreadingassistant.data.repository.SearchIndexRepository
+import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.reader.EpubSizeRepairTask
 import dagger.hilt.EntryPoint
@@ -98,6 +99,15 @@ class App : Application() {
                 .scheduler()
                 .start()
         }
+        // 全文搜索索引（R2-S1）：注册一次性 + 每日周期 WorkManager 建索引任务。
+        // 修复：此前 SearchIndexScheduler 从未被任何生产代码调用，SearchIndexWorker 因此
+        // 从不入队，search_terms 恒为空 —— 全局搜索的「正文」通道始终没有数据可查，
+        // 界面会长期停在「全文索引尚未建立」。这里与 GoalScheduler 同款接线。
+        runCatching {
+            EntryPointAccessors.fromApplication(this, SearchIndexEntryPoint::class.java)
+                .searchIndexScheduler()
+                .start()
+        }
         trace("App", "onCreate end")
     }
 
@@ -129,4 +139,12 @@ internal interface EpubRepairEntryPoint {
 @InstallIn(SingletonComponent::class)
 interface SearchIndexEntryPoint {
     fun repository(): SearchIndexRepository
+
+    /**
+     * 方法名不能叫 `scheduler()`：Hilt 把同模块所有 `@EntryPoint` 合成到同一个
+     * `SingletonC` 组件类，而 [com.creationreadingassistant.feature.goal.GoalSchedulerEntryPoint]
+     * 已有同签名的 `scheduler()`（返回 `ReadingGoalScheduler`），Java 不允许同一个类里
+     * 出现「同名同参、仅返回类型不同」的两个方法 —— 会直接编译失败。
+     */
+    fun searchIndexScheduler(): SearchIndexScheduler
 }

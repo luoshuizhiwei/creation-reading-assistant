@@ -280,24 +280,25 @@ class ShelfImporter @Inject constructor(
         return try {
             val metadata = withContext(ioDispatcher) {
                 val fileName = uriFileName(uri)
-                val rawFormat = fileName.substringAfterLast('.', "").lowercase()
-                val format = if (rawFormat == "markdown") "md" else rawFormat
                 val size = uriSize(uri)
-                ImportCandidate(uri, fileName, format, size, contentHashOrNull(uri, size))
+                val verdict = FormatClassifier.classify(
+                    claimedFormat = null,
+                    fileName = fileName,
+                    firstBytes = readMagic(uri),
+                )
+                ImportCandidate(uri, fileName, size, contentHashOrNull(uri, size), verdict)
             }
-            if (metadata.format !in SUPPORTED_FORMATS) {
-                val reason = "不支持的格式"
-                updateTaskResult(taskId, metadata.fileName, "已跳过：$reason", "skipped")
-                recordImport(metadata.fileName, metadata.format, metadata.fileSize, "skipped", error = reason)
-                return ImportOutcome.Skipped
+            val format = when (val verdict = metadata.verdict) {
+                is FormatClassifier.Verdict.Accepted -> verdict.format
+                is FormatClassifier.Verdict.Rejected -> return rejectImport(metadata, verdict, taskId)
             }
 
-            val fingerprint = metadata.fingerprint
+            val fingerprint = metadata.fingerprint(format)
             val duplicate = fingerprint in batchFingerprints || booksProvider().any { book ->
                 book.local_uri == uri.toString() ||
                     (
                         metadata.fileSize > 0 &&
-                            book.format.lowercase() == metadata.format &&
+                            book.format.lowercase() == format &&
                             book.original_file_name.equals(metadata.fileName, ignoreCase = true) &&
                             book.size == metadata.fileSize
                         ) ||
@@ -314,7 +315,7 @@ class ShelfImporter @Inject constructor(
                 updateTaskResult(taskId, metadata.fileName, "已存在，未重复导入", "duplicate")
                 recordImport(
                     metadata.fileName,
-                    metadata.format,
+                    format,
                     metadata.fileSize,
                     status = "duplicate",
                     isDuplicate = true,
@@ -323,12 +324,12 @@ class ShelfImporter @Inject constructor(
             }
 
             val resolved = withContext(ioDispatcher) {
-                val book = when (metadata.format) {
+                val book = when (format) {
                     "epub" -> importEpub(uri, taskId)
-                    "txt", "md" -> importPlainText(uri, taskId, metadata.format)
-                    else -> error("不支持的格式：${metadata.format}")
+                    "txt", "md" -> importPlainText(uri, taskId, format)
+                    else -> error("不支持的格式：$format")
                 }
-                ResolvedImport(book, metadata.format, metadata.fileSize, metadata.fileName)
+                ResolvedImport(book, format, metadata.fileSize, metadata.fileName)
             }
             batchFingerprints += fingerprint
             metadata.contentHash?.let { batchFingerprints += "hash|$it" }
@@ -394,6 +395,28 @@ class ShelfImporter @Inject constructor(
                 status = status,
             )
         )
+    }
+
+    /**
+     * 分类器拒绝：无法识别归为「跳过」（沿用旧的不支持格式语义），
+     * 声称 EPUB 但正文非 ZIP 归为「失败」（格式错配，绝不进入 EPUB 解析）。
+     */
+    private suspend fun rejectImport(
+        metadata: ImportCandidate,
+        verdict: FormatClassifier.Verdict.Rejected,
+        taskId: String,
+    ): ImportOutcome {
+        return if (verdict.claimedFormat == null) {
+            val reason = "不支持的格式"
+            updateTaskResult(taskId, metadata.fileName, "已跳过：$reason", "skipped")
+            recordImport(metadata.fileName, "unknown", metadata.fileSize, "skipped", error = reason)
+            ImportOutcome.Skipped
+        } else {
+            val reason = verdict.reason
+            updateTaskResult(taskId, metadata.fileName, "导入失败：$reason", "error")
+            recordImport(metadata.fileName, verdict.claimedFormat, metadata.fileSize, "failed", error = reason)
+            ImportOutcome.Failed(metadata.fileName, reason)
+        }
     }
 
     private suspend fun importEpub(uri: Uri, taskId: String): BookEntity {
@@ -666,6 +689,26 @@ class ShelfImporter @Inject constructor(
     }
 
     /**
+     * 读取文件前 4 字节用于格式判定，绝不读完整文件。必须在 IO 线程调用。
+     * 无法打开（例如权限失效或测试桩未提供流）时返回空数组 —— 空数组不会被
+     * [FormatClassifier.isEpubZip] 判定为 EPUB，对 epub 声明即视为格式错配拒绝。
+     */
+    private fun readMagic(uri: Uri): ByteArray {
+        return runCatching {
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                val buf = ByteArray(FormatClassifier.EPUB_MAGIC.size)
+                var off = 0
+                while (off < buf.size) {
+                    val n = input.read(buf, off, buf.size - off)
+                    if (n < 0) break
+                    off += n
+                }
+                buf.copyOf(off)
+            } ?: ByteArray(0)
+        }.getOrDefault(ByteArray(0))
+    }
+
+    /**
      * 提取 EPUB 内嵌封面为 JPEG data URL（压缩实现内聚在 [com.creationreadingassistant.feature.reader.EpubParser.loadCoverDataUrl]，
      * 与封面补扫共用同一口径）。必须在 IO 线程调用。
      */
@@ -685,13 +728,13 @@ class ShelfImporter @Inject constructor(
     private data class ImportCandidate(
         val uri: Uri,
         val fileName: String,
-        val format: String,
         val fileSize: Int,
         /** 全量内容 MD5（≤32MB 时计算；超限为 null，查重回退文件名+大小）。 */
         val contentHash: String? = null,
+        val verdict: FormatClassifier.Verdict,
     ) {
-        val fingerprint: String
-            get() = "${format.lowercase()}|${fileName.lowercase()}|$fileSize"
+        fun fingerprint(format: String): String =
+            "${format.lowercase()}|${fileName.lowercase()}|$fileSize"
     }
 
     private sealed interface ImportOutcome {
@@ -708,7 +751,6 @@ class ShelfImporter @Inject constructor(
         /** 内容哈希的文件大小上限（字节）：超限不计算，避免超大文件双倍 IO。 */
         const val MAX_HASH_BYTES = 32 * 1024 * 1024
 
-        val SUPPORTED_FORMATS = setOf("epub", "txt", "md")
         val IMPORT_PHASES = listOf(
             "正在校验文件",
             "正在复制到应用",

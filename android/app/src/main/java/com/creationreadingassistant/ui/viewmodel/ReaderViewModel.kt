@@ -38,13 +38,21 @@ import com.creationreadingassistant.feature.reader.pager.PageIndexStore
 import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeEvent
 import com.creationreadingassistant.ui.screen.reader.into
 import com.creationreadingassistant.ui.screen.reader.readerChromeReducer
 import com.creationreadingassistant.ui.screen.reader.toReaderChromeState
+import com.creationreadingassistant.data.local.CoroutineScopeModule.ApplicationScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
+import com.creationreadingassistant.data.repository.SearchIndexRepository
+import com.creationreadingassistant.data.repository.SearchIndexScheduler
+import com.creationreadingassistant.feature.reader.rules.RuleDescriptor
+import com.creationreadingassistant.feature.reader.rules.RuleKind
+import com.creationreadingassistant.feature.reader.rules.RuleScope
+import kotlinx.coroutines.CoroutineScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.File
 import java.util.concurrent.atomic.AtomicInteger
@@ -80,6 +88,7 @@ class ReaderViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val taxonomyRepository: TaxonomyRepository,
     private val bookRepository: BookRepository,
+    private val deletions: BookDeletionCoordinator,
     private val chapterReadRepository: ChapterReadRepository,
     private val readingSessionRecorder: ReadingSessionRecorder,
     private val epubRepository: EpubRepository,
@@ -90,6 +99,9 @@ class ReaderViewModel @Inject constructor(
     val pageIndexManager: ReaderPageIndexManager,
     val aiClient: AiClient,
     private val rulesRepository: RulesRepository,
+    private val searchIndexRepository: SearchIndexRepository,
+    private val searchIndexScheduler: SearchIndexScheduler,
+    @ApplicationScope private val appScope: CoroutineScope,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
@@ -386,19 +398,26 @@ class ReaderViewModel @Inject constructor(
                     absoluteOffset = action.absoluteOffset,
                 )
             }
-            is ReaderAction.DeleteBook -> io { bookRepository.deleteBook(action.bookId) }
+            is ReaderAction.DeleteBook -> io { deletions.deleteBook(action.bookId) }
             is ReaderAction.ClearChapterReads -> io {
                 chapterReadRepository.clearForBook(action.bookId)
             }
 
             // 规则写入（RulesRepository；校验/迁移失败不落库，结果原样发布）
             is ReaderAction.ExecuteRuleCommand -> io {
+                // 受影响范围必须在 execute **之前**判定：删除类命令执行后规则行已不在。
+                val indexPlan = searchIndexRefreshPlan(action.command)
                 val result = rulesRepository.execute(action.bookId, action.command)
                 if (result is RuleMutationResult.Migrated) {
                     // 快速单选 / 迁移：同步旧单选显示 id，并发布结果供统一重扫策略消费
                     _txtTocRuleId.value = result.effectiveRuleId
                 }
                 _ruleMutationResult.value = result
+                if (indexPlan != null &&
+                    (result is RuleMutationResult.Success || result is RuleMutationResult.Saved)
+                ) {
+                    applySearchIndexRefresh(action.bookId, indexPlan)
+                }
             }
             is ReaderAction.ClearRuleMutationResult -> _ruleMutationResult.value = null
 
@@ -430,6 +449,63 @@ class ReaderViewModel @Inject constructor(
             }
             is ReaderAction.SaveTtsResume -> io {
                 settingsStore.saveTtsResume(action.bookId, action.chapterIndex, action.offset)
+            }
+        }
+    }
+
+    // ── 规则变更 → 搜索索引刷新（P1）────────────────────────────────────
+
+    /** 搜索结果刷新方案；[global] 表示该变更影响全库（GLOBAL 作用域）。 */
+    private data class SearchIndexRefreshPlan(val global: Boolean)
+
+    /**
+     * 判定一条规则命令是否需要刷新搜索索引、是否影响全库。
+     *
+     * 只有**替换（REPLACE）规则**会改变索引内容：搜索索引按内置 TOC 分章、按生效替换规则
+     * 投影显示文通道，故替换规则一变旧 display 行即失真；TOC 规则不参与索引分章，不影响索引。
+     *
+     * 必须在 [RulesRepository.execute] **之前**调用 —— 删除类命令执行后规则行已消失，
+     * 无从再查其类型 / 作用域。
+     */
+    private suspend fun searchIndexRefreshPlan(command: RuleCommand): SearchIndexRefreshPlan? =
+        when (command) {
+            is RuleCommand.SaveCustomReplace ->
+                SearchIndexRefreshPlan(global = command.scope == RuleScope.GLOBAL)
+            is RuleCommand.ToggleCustom -> replaceRulePlan(command.ruleId)
+            is RuleCommand.DeleteCustom -> replaceRulePlan(command.ruleId)
+            else -> null
+        }
+
+    private suspend fun replaceRulePlan(ruleId: String): SearchIndexRefreshPlan? {
+        val descriptor: RuleDescriptor = rulesRepository.describeRule(ruleId) ?: return null
+        return if (descriptor.kind == RuleKind.REPLACE) {
+            SearchIndexRefreshPlan(global = descriptor.scope == RuleScope.GLOBAL)
+        } else {
+            null
+        }
+    }
+
+    /**
+     * 执行索引刷新：PER_BOOK 立即重建当前书；GLOBAL 置脏 + 后台 worker 惰性重建全库。
+     *
+     * 一律放到应用级作用域，绝不在阅读器交互路径上同步重建
+     * （全库重建可达数十分钟 / 数 GB，见索引构建真机量化）。
+     */
+    private fun applySearchIndexRefresh(bookId: String, plan: SearchIndexRefreshPlan) {
+        appScope.launch {
+            runCatching {
+                if (plan.global) {
+                    searchIndexRepository.invalidateSweepForFullRebuild()
+                    searchIndexScheduler.enqueueOnce()
+                } else {
+                    searchIndexRepository.reindexBookById(bookId)
+                }
+            }.onFailure {
+                AppLog.e(
+                    "SearchIndex",
+                    "规则变更后刷新索引失败（book=${bookId.take(8)}，global=${plan.global}）：" +
+                        (it.message ?: it.javaClass.simpleName),
+                )
             }
         }
     }

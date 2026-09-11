@@ -20,6 +20,9 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.library.ShelfImporter
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoOffer
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoOutcome
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ShelfPrefs
 import com.creationreadingassistant.data.settings.ContinueReadingStore
@@ -32,6 +35,7 @@ import com.creationreadingassistant.ui.screen.shelf.ShelfStatusFilter
 import com.creationreadingassistant.ui.screen.shelf.ShelfViewMode
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -70,6 +74,7 @@ class ShelfViewModel @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     shelfImporter: ShelfImporter,
+    private val deletions: BookDeletionCoordinator? = null,
 ) : ViewModel() {
 
     val importer: ShelfImporter = shelfImporter
@@ -78,7 +83,15 @@ class ShelfViewModel @Inject constructor(
         context = context,
         repository = repository,
         continueReadingStore = continueReadingStore,
+        deletions = deletions,
     )
+
+    /** 会话内可撤销的删除提示；为空表示当前不该显示任何撤销入口。 */
+    val deletionUndoOffers: StateFlow<List<DeletionUndoOffer>> =
+        deletions?.offers ?: MutableStateFlow(emptyList())
+
+    /** 撤销窗口秒数，供确认框文案与实际凭证有效期保持同源。 */
+    val undoWindowSeconds: Int get() = deletions?.undoWindowSeconds ?: 0
 
     private val _session = MutableStateFlow(ShelfSessionState())
     internal val session: StateFlow<ShelfSessionState> = _session.asStateFlow()
@@ -281,7 +294,49 @@ class ShelfViewModel @Inject constructor(
         bookActions.deleteBook(id)
     }
 
-    /** 撤销删除：恢复书籍及其关联数据。 */
+    /**
+     * 批量删除：一次事务、一张撤销凭证。
+     *
+     * 入口提示「已删除 N 本」时撤销恢复的正是这 N 本；不用 `forEach { deleteBook(it) }`，
+     * 那会登记多张凭证，一次撤销只拿回其中一批。撤销提示本身由 [deletionUndoOffers] 驱动。
+     */
+    fun deleteBooks(ids: Collection<String>, onResult: (Boolean) -> Unit = {}) =
+        viewModelScope.launch {
+            // 不用 runCatching：它会把协程取消也吞成「删除失败」，让已取消的作用域继续跑。
+            val ok = try {
+                bookActions.deleteBooks(ids)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Throwable) {
+                false
+            }
+            onResult(ok)
+        }
+
+    /** 撤销一次删除；结果交由界面层转成文案，因为「恢复了多少」必须如实分项说明。 */
+    fun undoDeletion(credentialId: String, onResult: (DeletionUndoOutcome) -> Unit) =
+        viewModelScope.launch {
+            val outcome = bookActions.undoDeletion(credentialId)
+                ?: DeletionUndoOutcome.NOTHING_TO_UNDO
+            onResult(outcome)
+        }
+
+    /** 用户关闭撤销提示条：放弃撤销，不动数据。 */
+    fun dismissDeletionUndo(credentialId: String) {
+        bookActions.dismissDeletionUndo(credentialId)
+    }
+
+    /** 倒计时归零时清理凭证，避免提示条滞留在界面上。 */
+    fun pruneDeletionUndo() {
+        deletions?.prune()
+    }
+
+    /**
+     * 无凭证时的撤销兜底：按书籍行的删除时间戳恢复同批软删除的资料。
+     *
+     * 语义正确（不会复活本次操作之前就删掉的笔记/高亮），但分类、标签、书单、已读章节
+     * 在删除时是硬删除，这条路径带不回来；需要完整撤销请走 [undoDeletion]。
+     */
     fun restoreBook(id: String, onResult: ((String) -> Unit)? = null) = viewModelScope.launch {
         onResult?.invoke(bookActions.restoreBook(id))
     }

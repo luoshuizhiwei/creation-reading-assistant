@@ -38,6 +38,10 @@ interface ChapterReadDao {
     @Query("SELECT * FROM chapter_reads")
     suspend fun getAll(): List<ChapterReadEntity>
 
+    /** 删除/撤销快照：只读取目标书籍的已读章节，避免为一次操作扫描全表。 */
+    @Query("SELECT * FROM chapter_reads WHERE book_id IN (:bookIds)")
+    suspend fun getByBookIds(bookIds: Collection<String>): List<ChapterReadEntity>
+
     /** 备份恢复：清空后重建。 */
     @Query("DELETE FROM chapter_reads")
     suspend fun clearAll()

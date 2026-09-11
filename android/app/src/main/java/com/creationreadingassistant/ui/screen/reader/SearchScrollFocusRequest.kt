@@ -12,7 +12,10 @@ package com.creationreadingassistant.ui.screen.reader
  * - [chapterIndex]：目标章（手动切章后旧请求身份不匹配，不得滚动）；
  * - [renderUnitIndex]：滚动渲染单元/文本块索引（Markdown 渲染单元与 EPUB 块共用
  *   的 LazyColumn 项索引空间；null = 无可定位单元，安全 no-op）；
- * - [resultIndex]：搜索命中下标（目标/结果身份，发布方与消费者可核对）。
+ * - [resultIndex]：搜索命中下标（目标/结果身份，发布方与消费者可核对）；通用 source
+ *   导航不属于搜索结果，使用默认值 -1。
+ * - [origin]：请求来源。消费者只以书/章身份决定是否滚动，来源仅用于保持语义清楚，
+ *   避免把 source 路由误解为搜索状态。
  *
  * 由 [SearchHitNavigationExecutor] 在 stale guard 通过后发布，[ReaderContentHost]
  * 仅在当前书/章与请求一致时消费一次并滚动，消费后 ack 清除。
@@ -21,8 +24,15 @@ internal data class SearchScrollFocusRequest(
     val bookKey: String,
     val chapterIndex: Int,
     val renderUnitIndex: Int?,
-    val resultIndex: Int,
+    val resultIndex: Int = -1,
+    val origin: ReaderScrollFocusOrigin = ReaderScrollFocusOrigin.SEARCH,
 )
+
+/** 同一一次性 viewport-focus 通道的来源，不改变其书籍/章节 stale guard。 */
+internal enum class ReaderScrollFocusOrigin {
+    SEARCH,
+    SOURCE_NAVIGATION,
+}
 
 /**
  * 一次性聚焦请求的一次消费结果（纯 JVM seam，S2 验收 2 的加载/ack 语义）：

@@ -62,6 +62,41 @@ class NoteRepository @Inject constructor(
         noteDao.upsert(existing.copy(deleted_at = Instant.now().toString()))
     }
 
+    /**
+     * 撤销删除：恢复指定高亮 —— 仅清除该记录自身的 deleted_at。
+     * 记录不存在或本就未删除时为无操作；不复活此前其他已删除项。
+     */
+    suspend fun restoreHighlight(highlightId: String) {
+        val existing = highlightDao.getById(highlightId) ?: return
+        if (existing.deleted_at == null) return
+        highlightDao.upsert(
+            existing.copy(deleted_at = null, updated_at = Instant.now().toString(), revision = existing.revision + 1),
+        )
+    }
+
+    /**
+     * 撤销删除：恢复指定笔记 / 书签 —— 仅清除该记录自身的 deleted_at。
+     * 记录不存在或本就未删除时为无操作；不复活此前其他已删除项。
+     */
+    suspend fun restoreNote(noteId: String) {
+        val existing = noteDao.getById(noteId) ?: return
+        if (existing.deleted_at == null) return
+        noteDao.upsert(
+            existing.copy(deleted_at = null, updated_at = Instant.now().toString(), revision = existing.revision + 1),
+        )
+    }
+
+    /**
+     * 更新笔记批注正文（kind = note 的个人批注 / 无摘录时的全部内容）。
+     * copy 保留 locator_json / chapter_title / progress 等定位信息，只改 body。
+     */
+    suspend fun updateNoteBody(noteId: String, body: String) {
+        val existing = noteDao.getById(noteId) ?: return
+        noteDao.upsert(
+            existing.copy(body = body, updated_at = Instant.now().toString(), revision = existing.revision + 1),
+        )
+    }
+
     /** 新增书签（kind = bookmark 的笔记）。统一写入 v2 locator，使跳转与高亮共用解析路径。 */
     suspend fun addBookmark(
         bookId: String,

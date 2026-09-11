@@ -9,6 +9,7 @@ import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
@@ -24,6 +25,7 @@ import javax.inject.Inject
 class BookViewModel @Inject constructor(
     private val repository: BookRepository,
     private val continueStore: ContinueReadingStore,
+    private val deletions: BookDeletionCoordinator,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
 ) : ViewModel() {
 
@@ -49,7 +51,7 @@ class BookViewModel @Inject constructor(
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     fun deleteBook(id: String, onResult: (String) -> Unit = {}) = viewModelScope.launch {
-        runCatching { repository.deleteBook(id) }
+        runCatching { deletions.deleteBook(id) }
             .onSuccess { onResult("已删除") }
             .onFailure { onResult("删除失败：${it.message}") }
     }

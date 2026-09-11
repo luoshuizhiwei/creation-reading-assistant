@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import com.creationreadingassistant.feature.library.ShelfImporter
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ class BookOperationsViewModel @Inject constructor(
     private val syncRepository: SyncRepository,
     private val continueReadingStore: ContinueReadingStore,
     private val shelfImporter: ShelfImporter,
+    private val deletions: BookDeletionCoordinator,
 ) : ViewModel() {
 
     /**
@@ -42,6 +44,7 @@ class BookOperationsViewModel @Inject constructor(
         context = context,
         repository = repository,
         continueReadingStore = continueReadingStore,
+        deletions = deletions,
     )
 
     /** 防重复下载的进程内标记（与书架页行为一致）。 */

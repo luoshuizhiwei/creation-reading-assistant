@@ -1,6 +1,7 @@
 package com.creationreadingassistant.data.repository
 
 import android.content.Context
+import android.net.Uri
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
@@ -27,8 +28,10 @@ import io.mockk.verify
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import okhttp3.MediaType.Companion.toMediaType
@@ -68,6 +71,8 @@ class SyncRepositoryTest {
     private lateinit var context: Context
 
     private lateinit var repository: SyncRepository
+
+    private val json = Json { ignoreUnknownKeys = true }
 
     private val device = SyncContract.DeviceInfo(
         deviceId = "dev-1",
@@ -112,6 +117,8 @@ class SyncRepositoryTest {
             context = context,
             ioDispatcher = Dispatchers.Unconfined,
         )
+        // Uri.fromFile 在 JVM 单测恒返回 null，注入受控映射与生产行为等价。
+        repository.fileUri = { file -> "file://" + file.absolutePath }
     }
 
     private fun emptyManifest() = SyncContract.SyncManifest(
@@ -453,7 +460,9 @@ class SyncRepositoryTest {
         val fileSlot = slot<BookFileEntity>()
         coVerify(exactly = 1) { bookFileDao.upsert(capture(fileSlot)) }
         assertEquals("b1", fileSlot.captured.book_id)
-        assertEquals(file.absolutePath, fileSlot.captured.local_uri)
+        assertEquals("content.txt", fileSlot.captured.file_name)
+        assertEquals("txt", fileSlot.captured.format)
+        assertEquals("file://" + file.absolutePath, fileSlot.captured.local_uri)
         assertEquals("正文内容".toByteArray().size, fileSlot.captured.size)
 
         // 最后一次 book upsert 标记 available
@@ -574,5 +583,135 @@ class SyncRepositoryTest {
         assertEquals(0, result.failed)
         assertNull(result.failedItems.firstOrNull())
         coVerify(exactly = 0) { api.getBookFile(any()) }
+    }
+
+    // ── 格式真源：下载正文按实际内容落库 ──────────────────────────
+
+    @Test
+    fun `sync epub payload with zip body writes content epub`() = runTest {
+        val book = BookEntity(id = "b1", title = "书", format = "epub", updated_at = "2026-01-01T00:00:00Z")
+        coEvery { bookDao.getById("b1") } returns book
+        val zipBody = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + "epub-content".toByteArray()
+        coEvery { api.getBookFile("b1") } returns Response.success(
+            zipBody.toResponseBody("application/octet-stream".toMediaType()),
+        )
+
+        val result = repository.downloadBookContent("b1")
+
+        assertTrue(result.isSuccess)
+        val file = File(tempFolder.root, "books/b1/content.epub")
+        assertTrue(file.exists())
+        assertFalse(File(tempFolder.root, "books/b1/content.txt").exists())
+
+        val fileSlot = slot<BookFileEntity>()
+        coVerify(exactly = 1) { bookFileDao.upsert(capture(fileSlot)) }
+        assertEquals("epub", fileSlot.captured.format)
+    }
+
+    @Test
+    fun `sync epub payload with plain text body fails and leaves no epub file`() = runTest {
+        val book = BookEntity(id = "b1", title = "书", format = "epub", updated_at = "2026-01-01T00:00:00Z")
+        coEvery { bookDao.getById("b1") } returns book
+        coEvery { api.getBookFile("b1") } returns Response.success(
+            "这是普通文本不是 epub".toByteArray().toResponseBody("application/octet-stream".toMediaType()),
+        )
+
+        val error = runCatching { repository.downloadBookContent("b1") }.exceptionOrNull()
+
+        assertTrue(error!!.message!!.contains("EPUB"))
+        // 没有残留错误扩展名的最终文件，也没有半截 tmp
+        assertFalse(File(tempFolder.root, "books/b1/content.epub").exists())
+        assertFalse(File(tempFolder.root, "books/b1/content.epub.tmp").exists())
+        coVerify(exactly = 0) { bookFileDao.upsert(any()) }
+        coVerify { bookDao.upsert(withArg { assertEquals("failed", it.content_status) }) }
+    }
+
+    @Test
+    fun `sync txt claim with zip body updates both entities to epub`() = runTest {
+        val book = BookEntity(
+            id = "b1",
+            title = "书",
+            format = "txt",
+            updated_at = "2026-01-01T00:00:00Z",
+            payload = """{"title":"书","format":"txt","sourceBookId":"src-1","customField":123}""",
+        )
+        coEvery { bookDao.getById("b1") } returns book
+        val zipBody = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + "epub-content".toByteArray()
+        coEvery { api.getBookFile("b1") } returns Response.success(
+            zipBody.toResponseBody("application/octet-stream".toMediaType()),
+        )
+
+        val result = repository.downloadBookContent("b1")
+
+        assertTrue(result.isSuccess)
+        val epubFile = File(tempFolder.root, "books/b1/content.epub")
+        assertTrue(epubFile.exists())
+        assertFalse(File(tempFolder.root, "books/b1/content.txt").exists())
+        assertFalse(File(tempFolder.root, "books/b1/content.epub.tmp").exists())
+
+        // BookFileEntity 与实际写入文件一致
+        val fileSlot = slot<BookFileEntity>()
+        coVerify(exactly = 1) { bookFileDao.upsert(capture(fileSlot)) }
+        assertEquals("b1", fileSlot.captured.book_id)
+        assertEquals("epub", fileSlot.captured.format)
+        assertEquals("content.epub", fileSlot.captured.file_name)
+        assertEquals("file://" + epubFile.absolutePath, fileSlot.captured.local_uri)
+
+        // BookEntity 最后一次 available 写入：format/路径/状态全部闭环为 epub
+        val bookUpserts = mutableListOf<BookEntity>()
+        coVerify { bookDao.upsert(capture(bookUpserts)) }
+        val available = bookUpserts.last { it.content_status == "available" }
+        assertEquals("epub", available.format)
+        assertEquals("file://" + epubFile.absolutePath, available.local_uri)
+        assertEquals(epubFile.absolutePath, available.local_content_path)
+        assertEquals(epubFile.length().toInt(), available.size)
+
+        // payload format 更新为 epub，且保留其他字段
+        val payload = json.parseToJsonElement(available.payload!!).jsonObject
+        assertEquals("epub", payload["format"]?.jsonPrimitive?.content)
+        assertEquals("书", payload["title"]?.jsonPrimitive?.content)
+        assertEquals("src-1", payload["sourceBookId"]?.jsonPrimitive?.content)
+        assertEquals(123, payload["customField"]?.jsonPrimitive?.content?.toInt())
+    }
+
+    @Test
+    fun `downloadPendingBooks with zip body writes epub via shared persist logic`() = runTest {
+        val pending = BookEntity(
+            id = "p1", title = "待下载", format = "txt",
+            content_status = "missing", updated_at = "2026-01-01T00:00:00Z",
+            payload = """{"title":"待下载","format":"txt","keep":true}""",
+        )
+        every { bookDao.observeAllActive() } returns flowOf(listOf(pending))
+        coEvery { api.manifest() } returns emptyManifest().copy(
+            bookFiles = listOf(SyncContract.BookFileManifest("p1", "p1.txt", "txt", null, 9, 0)),
+        )
+        val zipBody = byteArrayOf(0x50, 0x4B, 0x03, 0x04) + "zip!".toByteArray()
+        coEvery { api.getBookFile("p1") } returns Response.success(
+            zipBody.toResponseBody("application/octet-stream".toMediaType()),
+        )
+
+        val result = repository.downloadPendingBooks()
+
+        assertEquals(1, result.success)
+        assertEquals(0, result.failed)
+        val epubFile = File(tempFolder.root, "books/p1/content.epub")
+        assertTrue(epubFile.exists())
+        assertFalse(File(tempFolder.root, "books/p1/content.txt").exists())
+
+        val fileSlot = slot<BookFileEntity>()
+        coVerify(exactly = 1) { bookFileDao.upsert(capture(fileSlot)) }
+        assertEquals("epub", fileSlot.captured.format)
+        assertEquals("content.epub", fileSlot.captured.file_name)
+        assertEquals("file://" + epubFile.absolutePath, fileSlot.captured.local_uri)
+
+        val bookUpserts = mutableListOf<BookEntity>()
+        coVerify { bookDao.upsert(capture(bookUpserts)) }
+        val available = bookUpserts.last { it.content_status == "available" }
+        assertEquals("epub", available.format)
+        assertEquals("file://" + epubFile.absolutePath, available.local_uri)
+        assertEquals(epubFile.absolutePath, available.local_content_path)
+        val payload = json.parseToJsonElement(available.payload!!).jsonObject
+        assertEquals("epub", payload["format"]?.jsonPrimitive?.content)
+        assertEquals(true, payload["keep"]?.jsonPrimitive?.content?.toBoolean())
     }
 }

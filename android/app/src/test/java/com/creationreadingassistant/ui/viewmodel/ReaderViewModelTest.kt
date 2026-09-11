@@ -7,6 +7,8 @@ import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.ChapterReadRepository
 import com.creationreadingassistant.data.repository.NoteRepository
+import com.creationreadingassistant.data.repository.SearchIndexRepository
+import com.creationreadingassistant.data.repository.SearchIndexScheduler
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.SettingsStore
 import com.creationreadingassistant.data.settings.TtsResume
@@ -27,6 +29,7 @@ import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
 import com.creationreadingassistant.feature.reader.session.ReadingActivity
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -34,6 +37,7 @@ import io.mockk.every
 import io.mockk.mockk
 import io.mockk.verify
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.asCoroutineDispatcher
@@ -74,6 +78,7 @@ class ReaderViewModelTest {
     private lateinit var noteRepository: NoteRepository
     private lateinit var taxonomyRepository: TaxonomyRepository
     private lateinit var bookRepository: BookRepository
+    private lateinit var deletions: BookDeletionCoordinator
     private lateinit var chapterReadRepository: ChapterReadRepository
     private lateinit var readingSessionRecorder: ReadingSessionRecorder
     private lateinit var epubRepository: EpubRepository
@@ -84,6 +89,9 @@ class ReaderViewModelTest {
     private lateinit var pageIndexManager: ReaderPageIndexManager
     private lateinit var aiClient: AiClient
     private lateinit var rulesRepository: RulesRepository
+    private lateinit var searchIndexRepository: SearchIndexRepository
+    private lateinit var searchIndexScheduler: SearchIndexScheduler
+    private lateinit var appScope: CoroutineScope
     private lateinit var ruleDao: InMemoryReaderTextRuleDao
 
     private lateinit var viewModel: ReaderViewModel
@@ -96,6 +104,7 @@ class ReaderViewModelTest {
         noteRepository = mockk(relaxed = true)
         taxonomyRepository = mockk(relaxed = true)
         bookRepository = mockk(relaxed = true)
+        deletions = mockk(relaxed = true)
         chapterReadRepository = mockk(relaxed = true)
         readingSessionRecorder = mockk(relaxed = true)
         epubRepository = mockk(relaxed = true)
@@ -108,6 +117,9 @@ class ReaderViewModelTest {
 
         ruleDao = InMemoryReaderTextRuleDao()
         rulesRepository = RulesRepository(ruleDao)
+        searchIndexRepository = mockk(relaxed = true)
+        searchIndexScheduler = mockk(relaxed = true)
+        appScope = CoroutineScope(testDispatcher)
 
         every { taxonomyRepository.observeCategories() } returns flowOf(emptyList())
         every { taxonomyRepository.observeTags() } returns flowOf(emptyList())
@@ -133,6 +145,7 @@ class ReaderViewModelTest {
             noteRepository = noteRepository,
             taxonomyRepository = taxonomyRepository,
             bookRepository = bookRepository,
+            deletions = deletions,
             chapterReadRepository = chapterReadRepository,
             readingSessionRecorder = readingSessionRecorder,
             epubRepository = epubRepository,
@@ -143,6 +156,9 @@ class ReaderViewModelTest {
             pageIndexManager = pageIndexManager,
             aiClient = aiClient,
             rulesRepository = rulesRepository,
+            searchIndexRepository = searchIndexRepository,
+            searchIndexScheduler = searchIndexScheduler,
+            appScope = appScope,
             ioDispatcher = ioDispatcher,
             defaultDispatcher = UnconfinedTestDispatcher(),
         )
@@ -161,6 +177,15 @@ class ReaderViewModelTest {
         verify(exactly = 1) {
             readingSessionRecorder.update(ReadingActivity("book-1", active = true, progressPercent = 42f))
         }
+    }
+
+    @Test
+    fun `delete book action uses the scoped deletion coordinator`() = runTest {
+        viewModel.onAction(ReaderAction.DeleteBook("book-1"))
+        advanceUntilIdle()
+
+        coVerify(exactly = 1) { deletions.deleteBook("book-1") }
+        coVerify(exactly = 0) { bookRepository.deleteBook(any()) }
     }
 
     // ── 辅助 ─────────────────────────────────────────────────────

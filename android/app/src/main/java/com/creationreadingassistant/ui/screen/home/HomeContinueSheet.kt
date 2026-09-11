@@ -58,12 +58,22 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
+import com.creationreadingassistant.feature.library.deletion.DeletionScope
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoBar
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoViewModel
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmAction
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
+import com.creationreadingassistant.feature.library.deletion.deletionUndoMessage
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
@@ -109,6 +119,7 @@ fun HomeContinueSheet(
     removedIds: Map<String, String>,
     viewModel: BookViewModel,
     onDismiss: () -> Unit,
+    deletions: DeletionUndoViewModel = hiltViewModel(),
 ) {
     val sheetState: SheetState = rememberModalBottomSheetState(skipPartiallyExpanded = false)
     var menuView by remember { mutableStateOf(MenuView.NONE) }
@@ -119,6 +130,8 @@ fun HomeContinueSheet(
     var deleteTarget by remember { mutableStateOf<BookEntity?>(null) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val deletionUndoOffers by deletions.offers.collectAsStateWithLifecycle()
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
 
@@ -211,21 +224,49 @@ fun HomeContinueSheet(
             )
         }
         SnackbarHost(snackbarHostState)
+        // ModalBottomSheet 在独立 Dialog 窗口中渲染；全局宿主位于其下方，
+        // 因此这里复用同一个凭证源提供可见的撤销入口，关掉面板后由全局宿主接管。
+        DeletionUndoBar(
+            offer = deletionUndoOffers.firstOrNull(),
+            onUndo = { id ->
+                deletions.undo(id) { outcome ->
+                    scope.launch { snackbarHostState.showSnackbar(deletionUndoMessage(context, outcome)) }
+                }
+            },
+            onDismiss = deletions::dismiss,
+            onExpired = deletions::prune,
+        )
     }
 
     val pendingDelete = deleteTarget
     if (pendingDelete != null) {
         GlassAlertDialog(
             onDismissRequest = { deleteTarget = null },
-            title = { Text("删除书籍") },
-            text = { Text("确定从书架删除《${pendingDelete.title}》吗？本地正文文件、阅读进度、书签和笔记会一并移除，删除后可随时从书架恢复。") },
+            title = {
+                Text(deletionConfirmTitle(context, DeletionScope.DELETE_BOOK))
+            },
+            text = {
+                Text(
+                    deletionConfirmBody(
+                        context = context,
+                        scope = DeletionScope.DELETE_BOOK,
+                        bookCount = 1,
+                        undoSeconds = deletions.undoWindowSeconds,
+                    ),
+                )
+            },
             confirmButton = {
                 TextButton(
                     onClick = {
                         viewModel.deleteBook(pendingDelete.id) {}
                         deleteTarget = null
                     },
-                ) { Text("删除", color = MaterialTheme.colorScheme.error) }
+                ) {
+                    Text(
+                        deletionConfirmAction(context, DeletionScope.DELETE_BOOK),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             },
             dismissButton = { TextButton(onClick = { deleteTarget = null }) { Text("取消") } },
         )

@@ -145,9 +145,11 @@ internal fun handleChromeAction(
     onBack: () -> Unit,
     openTts: () -> Unit,
     showNotice: (String) -> Unit,
+    onReturnToReading: () -> Unit = {},
 ) {
     when (action) {
         ReaderChromeAction.Back -> onBack()
+        ReaderChromeAction.ReturnToReading -> onReturnToReading()
         ReaderChromeAction.ToggleTts -> {
             if (showTts) {
                 tts.stop()
@@ -240,6 +242,7 @@ internal data class ReaderNavActions(
     val goToChapter: (Int) -> Unit,
     val syncPagedChapter: (Int) -> Unit,
     val jumpToPlainOffset: (Int) -> Unit,
+    val jumpToMarkdownOffset: (Int) -> Unit,
     val persistCurrentProgress: () -> Unit,
     val seekToPercent: (Float) -> Unit,
     val seekToChapterPercent: (Float) -> Unit,
@@ -294,6 +297,8 @@ internal fun buildReaderNavActions(
     epubDocument: EpubDocument? = null,
     /** TTS 朗读文本：EPUB 分页投影活跃时是 display 文本，其余与 [contentText] 相同。 */
     ttsContentText: String = contentText,
+    /** R2-J1.4：返回阅读处回调（临时查阅 LIFO 返回一层）。 */
+    onReturnToReading: () -> Unit = {},
 ): ReaderNavActions {
     val showNoticeFn: (String) -> Unit = { msg ->
         scope.launch { snackbarHost.showSnackbar(msg) }
@@ -367,6 +372,7 @@ internal fun buildReaderNavActions(
         goToChapter = goToChapterFn,
         syncPagedChapter = syncPagedChapterFn,
         jumpToPlainOffset = jumpToPlainOffsetFn,
+        jumpToMarkdownOffset = jumpToMarkdownOffsetFn,
         persistCurrentProgress = {
             val progressSnapshot = currentReaderProgressSnapshot(
                 pagedAbsOffsetState = pagedAbsOffsetState,

@@ -9,11 +9,15 @@ import com.creationreadingassistant.data.local.dao.StatsCreatedRow
 import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.remote.SyncConfigStore
+import com.creationreadingassistant.feature.annotations.AnnotationEntry
+import com.creationreadingassistant.feature.annotations.AnnotationType
 import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
@@ -91,6 +95,7 @@ data class ProfileLibraryState(
     val progressByBook: Map<String, ReadingProgressEntity> = emptyMap(),
     val readingDurationByBook: Map<String, Long> = emptyMap(),
     val notes: List<NoteEntity> = emptyList(),
+    val highlights: List<HighlightEntity> = emptyList(),
     val cachedCount: Int = 0,
     val cacheBytes: Long = 0L,
 )
@@ -113,6 +118,7 @@ private data class ProfileReadingArchive(
     val progressByBook: Map<String, ReadingProgressEntity>,
     val readingDurationByBook: Map<String, Long>,
     val notes: List<NoteEntity>,
+    val highlights: List<HighlightEntity>,
 )
 
 private data class ProfileCacheSummary(
@@ -136,6 +142,7 @@ class ProfileViewModel @Inject constructor(
     private val webDavBackup: WebDavBackup,
     private val aiClient: AiClient,
     private val bookRepository: BookRepository,
+    private val noteRepository: NoteRepository,
     private val statsRepository: StatsRepository,
     private val goalStore: com.creationreadingassistant.data.settings.GoalStore,
     private val goalScheduler: com.creationreadingassistant.feature.goal.ReadingGoalScheduler,
@@ -160,7 +167,8 @@ class ProfileViewModel @Inject constructor(
         bookRepository.observeProgress(),
         bookRepository.observeSessions(),
         bookRepository.observeNotes(),
-    ) { books, progress, sessions, notes ->
+        bookRepository.observeHighlights(),
+    ) { books, progress, sessions, notes, highlights ->
         ProfileReadingArchive(
             books = books,
             progressByBook = progress.associateBy { it.book_id },
@@ -168,6 +176,7 @@ class ProfileViewModel @Inject constructor(
                 .groupBy { it.book_id }
                 .mapValues { (_, values) -> values.sumOf { it.duration_ms } },
             notes = notes.sortedByDescending { it.created_at },
+            highlights = highlights,
         )
     }
         .distinctUntilChanged()
@@ -189,6 +198,7 @@ class ProfileViewModel @Inject constructor(
             progressByBook = archive.progressByBook,
             readingDurationByBook = archive.readingDurationByBook,
             notes = archive.notes,
+            highlights = archive.highlights,
             cachedCount = cache.count,
             cacheBytes = cache.bytes,
         )
@@ -225,6 +235,72 @@ class ProfileViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ProfileHomeSummary(),
         )
+
+    // ---- 阅读笔记（统一高亮 / 批注 / 书签）----
+
+    /** 一次性提示消息（id 单调递增，保证同文本连续两次也能触发 LaunchedEffect）。 */
+    data class AnnotationMessage(val id: Long, val text: String, val undoable: Boolean = false)
+
+    private val _annotationMsg = MutableStateFlow<AnnotationMessage?>(null)
+    val annotationMsg: StateFlow<AnnotationMessage?> = _annotationMsg.asStateFlow()
+    private var annotationMsgSeq = 0L
+
+    /** 最近一次删除的条目快照：撤销只恢复这一批（本次记录操作），不复活更早的已删项。 */
+    private val pendingUndoEntries = MutableStateFlow<List<AnnotationEntry>?>(null)
+
+    private fun emitAnnotationMsg(text: String, undoable: Boolean = false) {
+        _annotationMsg.value = AnnotationMessage(++annotationMsgSeq, text, undoable)
+    }
+
+    /** 批量软删除统一笔记条目（高亮 / 批注 / 书签），删除后可通过 [undoDeleteAnnotationEntries] 撤销。 */
+    fun deleteAnnotationEntries(entries: List<AnnotationEntry>) {
+        if (entries.isEmpty()) return
+        viewModelScope.launch(ioDispatcher) {
+            entries.forEach { entry ->
+                when (entry.type) {
+                    AnnotationType.HIGHLIGHT -> noteRepository.deleteHighlight(entry.rawId)
+                    AnnotationType.NOTE, AnnotationType.BOOKMARK -> noteRepository.deleteNote(entry.rawId)
+                }
+            }
+            pendingUndoEntries.value = entries
+            emitAnnotationMsg("已删除 ${entries.size} 条记录", undoable = true)
+        }
+    }
+
+    /** 撤销最近一次删除：只恢复该批条目（当前未删除的同 id 记录不会被改动）。 */
+    fun undoDeleteAnnotationEntries() {
+        val entries = pendingUndoEntries.value ?: return
+        viewModelScope.launch(ioDispatcher) {
+            entries.forEach { entry ->
+                when (entry.type) {
+                    AnnotationType.HIGHLIGHT -> noteRepository.restoreHighlight(entry.rawId)
+                    AnnotationType.NOTE, AnnotationType.BOOKMARK -> noteRepository.restoreNote(entry.rawId)
+                }
+            }
+            pendingUndoEntries.value = null
+            emitAnnotationMsg("已恢复 ${entries.size} 条记录")
+        }
+    }
+
+    /** 保存个人批注（高亮 note / 笔记 body）；仓储层 copy 保留既有定位信息。 */
+    fun editAnnotationEntry(entry: AnnotationEntry, newAnnotation: String) {
+        viewModelScope.launch(ioDispatcher) {
+            when (entry.type) {
+                AnnotationType.HIGHLIGHT -> noteRepository.updateHighlightNote(entry.rawId, newAnnotation)
+                AnnotationType.NOTE -> noteRepository.updateNoteBody(entry.rawId, newAnnotation)
+                AnnotationType.BOOKMARK -> Unit
+            }
+            emitAnnotationMsg("批注已保存")
+        }
+    }
+
+    /** 修改高亮颜色（仅高亮条目有效，改色不动定位信息）。 */
+    fun changeAnnotationEntryColor(entry: AnnotationEntry, color: String) {
+        viewModelScope.launch(ioDispatcher) {
+            noteRepository.updateHighlightColor(entry.rawId, color)
+            emitAnnotationMsg("高亮颜色已更新")
+        }
+    }
 
     // ---- JSON 桥接 ----
     private val _bridgeStatus = MutableStateFlow<String?>(null)

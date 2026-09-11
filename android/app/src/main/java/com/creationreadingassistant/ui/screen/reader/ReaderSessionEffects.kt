@@ -95,6 +95,7 @@ internal fun ReaderSessionEffects(
     showNotice: (String) -> Unit,
     goToChapter: (Int) -> Unit,
     jumpToPlainOffset: (Int) -> Unit,
+    jumpToMarkdownOffset: (Int) -> Unit,
     persistCurrentProgress: () -> Unit,
     openTts: () -> Unit,
 ) {
@@ -111,6 +112,8 @@ internal fun ReaderSessionEffects(
     val onAction = callbacks.onAction
     val anchorCacheStore = callbacks.anchorCacheStore
     val settingsStore = callbacks.settingsStore
+    // J1.2：临时查阅期间自动进度保存不得覆盖普通阅读进度，普通位置也不上报。
+    val temporaryInspection = inputs.navigationMode == ReaderNavigationMode.TEMPORARY
 
     val plainListState: LazyListState = progressState.plainListState
     val epubListState: LazyListState = progressState.epubListState
@@ -299,15 +302,23 @@ internal fun ReaderSessionEffects(
         pagedPercentState = pagerEngine.pagedPercentState,
         pendingInitialPositionState = holders.pendingInitialPositionState,
         pendingHighlightIdState = holders.pendingHighlightIdState,
+        pendingSourceLocatorJsonState = holders.pendingSourceLocatorJsonState,
+        requestedSourceNavigationChapterState = holders.requestedSourceNavigationChapterState,
         navFocusBlockIndexState = holders.navFocusBlockIndexState,
+        scrollFocusRequestState = holders.searchScrollFocusRequestState,
+        chapterIndexState = chapterIndexState,
         settingsRef = settingsRef,
         pagedJumpRequest = pagedJumpRequest,
         onAction = onAction,
         showNotice = showNotice,
         goToChapter = goToChapter,
         jumpToPlainOffset = jumpToPlainOffset,
+        jumpToMarkdownOffset = jumpToMarkdownOffset,
         onLoadChapterBlocks = onLoadChapterBlocks,
         onExtractChapterText = onExtractChapterText,
+        // R2-J1-I：透传 route 注入的真实 source 位置上报 seam（落到临时查阅协调器）。
+        onSourcePositionChanged = callbacks.onSourcePositionChanged,
+        temporaryInspection = temporaryInspection,
     )
 
     // ── 书内搜索：统一 target 消费（命中选择 / 上一处 / 下一处）──────────

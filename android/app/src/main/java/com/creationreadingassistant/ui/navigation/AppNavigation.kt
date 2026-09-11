@@ -9,6 +9,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.PaddingValues
@@ -43,6 +44,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationRail
 import androidx.compose.material3.NavigationRailItem
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.HorizontalDivider
@@ -51,6 +54,7 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
@@ -58,6 +62,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -76,7 +81,11 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.R
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoBar
+import com.creationreadingassistant.feature.library.deletion.DeletionUndoViewModel
+import com.creationreadingassistant.feature.library.deletion.deletionUndoMessage
 import com.creationreadingassistant.ui.screen.HomeScreen
 import com.creationreadingassistant.ui.screen.InspirationScreen
 import com.creationreadingassistant.ui.screen.profile.ProfileRoute
@@ -106,6 +115,7 @@ import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
+import kotlinx.coroutines.launch
 
 /**
  * 应用级外层"铬层"状态：由 [AppNavigation] 提供，页面壳层 [AppScreenScaffold] 读取。
@@ -170,6 +180,9 @@ internal fun bottomBarIconSlotHeight(
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
+    // R2-J1.3：临时查阅协调器挂在根导航作用域——hiltViewModel 在 NavHost 外的 Activity 作用域
+    // 持有唯一实例，跨 reader route 存活、进程重启即重置，不绑定单个 ReaderViewModel。
+    val temporaryNavigation: TemporaryReadingNavigationViewModel = hiltViewModel()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = navBackStackEntry?.destination?.route ?: TopLevelRoute.Home.route
     val routeBase = currentRoute.substringBefore('?')
@@ -279,6 +292,12 @@ fun AppNavigation() {
                             ) {
                                 AppNavHost(
                                     navController = navController,
+                                    temporaryNavigation = temporaryNavigation,
+                                )
+                                // 删除凭证归全应用共享：从阅读器、首页或归档删书后，即使
+                                // 已切换路由，仍能在同一个剩余时间窗内撤销。
+                                DeletionUndoHost(
+                                    modifier = Modifier.align(Alignment.BottomCenter),
                                 )
                             }
                         }
@@ -286,6 +305,41 @@ fun AppNavigation() {
                 }
             }
         }
+    }
+}
+
+/**
+ * 唯一的删除撤销宿主。页面只负责发起删除；提示条、过期清理与撤销结果统一在导航层处理，
+ * 这样不会因路由跳转丢掉反馈，也不会在书架/搜索/历史页叠出重复的同一张凭证。
+ */
+@Composable
+private fun DeletionUndoHost(
+    modifier: Modifier = Modifier,
+    deletions: DeletionUndoViewModel = hiltViewModel(),
+) {
+    val offers by deletions.offers.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.Bottom,
+    ) {
+        SnackbarHost(
+            hostState = snackbar,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        DeletionUndoBar(
+            offer = offers.firstOrNull(),
+            onUndo = { id ->
+                deletions.undo(id) { outcome ->
+                    scope.launch { snackbar.showSnackbar(deletionUndoMessage(context, outcome)) }
+                }
+            },
+            onDismiss = deletions::dismiss,
+            onExpired = deletions::prune,
+        )
     }
 }
 
@@ -336,6 +390,7 @@ private fun navigateToTopLevel(navController: NavHostController, route: String) 
 @Composable
 private fun AppNavHost(
     navController: NavHostController,
+    temporaryNavigation: TemporaryReadingNavigationViewModel,
 ) {
     // 注：navigation-compose 锁定 2.5.1，NavHost 级转场 API（2.7+）不可用；
     // 页面进入动效在 AppScreenScaffold 层统一实现（整页 fade + 轻微上浮）。
@@ -436,10 +491,20 @@ private fun AppNavHost(
             )
         }
         composable(
-            route = "reader/{bookId}?highlightId={highlightId}",
+            route = "reader/{bookId}?highlightId={highlightId}&sourceLocator={sourceLocator}&navigationMode={navigationMode}",
             arguments = listOf(
                 navArgument("bookId") { type = NavType.StringType },
                 navArgument("highlightId") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("sourceLocator") {
+                    type = NavType.StringType
+                    nullable = true
+                    defaultValue = null
+                },
+                navArgument("navigationMode") {
                     type = NavType.StringType
                     nullable = true
                     defaultValue = null
@@ -448,7 +513,16 @@ private fun AppNavHost(
         ) { backStackEntry ->
             val bookId = backStackEntry.arguments?.getString("bookId")
             val highlightId = backStackEntry.arguments?.getString("highlightId")
-            ReaderRoute(navController, bookId = bookId, highlightId = highlightId)
+            val sourceLocator = backStackEntry.arguments?.getString("sourceLocator")
+            val navigationMode = backStackEntry.arguments?.getString("navigationMode")
+            ReaderRoute(
+                navController,
+                bookId = bookId,
+                highlightId = highlightId,
+                sourceLocatorJson = sourceLocator,
+                navigationMode = readerNavigationMode(navigationMode),
+                temporaryNavigation = temporaryNavigation,
+            )
         }
         composable("search") { SearchScreen(navController) }
     }

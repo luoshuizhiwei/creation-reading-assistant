@@ -3,9 +3,9 @@ package com.creationreadingassistant.ui.screen.shelf
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -18,10 +18,16 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
+import com.creationreadingassistant.feature.library.deletion.DeletionScope
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmAction
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmBody
+import com.creationreadingassistant.feature.library.deletion.deletionConfirmTitle
+import com.creationreadingassistant.feature.library.deletion.deletionFailedMessage
 import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.ui.viewmodel.ShelfViewModel
@@ -49,6 +55,7 @@ internal fun ShelfRoute(
     val shelfBooks by viewModel.shelfBooks.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val session by viewModel.session.collectAsStateWithLifecycle()
+    val context = LocalContext.current
 
     val books = vmState.library.books
     val tags = vmState.library.tags
@@ -206,6 +213,7 @@ internal fun ShelfRoute(
                         restorePromptBookId = action.book.id
                     } else handleShelfAction(
                         action = action,
+                        context = context,
                         navController = navController,
                         snackbarHostState = snackbarHostState,
                         scope = scope,
@@ -255,7 +263,6 @@ internal fun ShelfRoute(
             )
         }
 
-        // ======= 批量操作栏（悬浮底部微岛，不遮挡顶部状态栏） =======
         if (selectionMode) {
             BatchActionBar(
                 selectedCount = selectedIds.size,
@@ -270,7 +277,9 @@ internal fun ShelfRoute(
                     } else showMessage("请先选择要清理缓存的书籍")
                 },
                 onDelete = { requestDelete(selectedIds.toList()) },
-                modifier = Modifier.align(Alignment.BottomCenter),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth(),
             )
         }
     }
@@ -469,11 +478,19 @@ internal fun ShelfRoute(
     if (delIds != null) {
         GlassAlertDialog(
             onDismissRequest = { confirmDeleteIds = null },
-            title = { androidx.compose.material3.Text(if (delIds.size > 1) "批量删除书籍" else "删除书籍") },
+            title = {
+                androidx.compose.material3.Text(
+                    deletionConfirmTitle(context, DeletionScope.DELETE_BOOK),
+                )
+            },
             text = {
                 androidx.compose.material3.Text(
-                    if (delIds.size > 1) "确定从书架删除选中的 ${delIds.size} 本书吗？本地正文与阅读数据会一并移除，删除后短时间内可在提示中撤销。"
-                    else "确定从书架删除这本书吗？本地正文与阅读数据会一并移除，删除后短时间内可在提示中撤销。"
+                    deletionConfirmBody(
+                        context = context,
+                        scope = DeletionScope.DELETE_BOOK,
+                        bookCount = delIds.size,
+                        undoSeconds = viewModel.undoWindowSeconds,
+                    ),
                 )
             },
             confirmButton = {
@@ -481,19 +498,17 @@ internal fun ShelfRoute(
                     onClick = {
                         val ids = delIds
                         confirmDeleteIds = null
-                        ids.forEach { viewModel.deleteBook(it) }
                         if (selectionMode) exitSelection()
-                        scope.launch {
-                            val result = snackbarHostState.showSnackbar(
-                                message = if (ids.size > 1) "已删除 ${ids.size} 本书" else "已删除该书",
-                                actionLabel = "撤销",
-                            )
-                            if (result == SnackbarResult.ActionPerformed) {
-                                ids.forEach { viewModel.restoreBook(it) { msg -> showMessage(msg) } }
-                            }
+                        // 整批走一次事务、一张凭证：撤销范围与这里提示的数量一致。
+                        viewModel.deleteBooks(ids) { ok ->
+                            if (!ok) showMessage(deletionFailedMessage(context))
                         }
                     },
-                ) { androidx.compose.material3.Text("删除") }
+                ) {
+                    androidx.compose.material3.Text(
+                        deletionConfirmAction(context, DeletionScope.DELETE_BOOK),
+                    )
+                }
             },
             dismissButton = {
                 androidx.compose.material3.TextButton(onClick = { confirmDeleteIds = null }) {
@@ -511,6 +526,7 @@ internal val LocalShelfSnackbar =
 @Suppress("LongParameterList")
 private fun handleShelfAction(
     action: ShelfAction,
+    context: android.content.Context,
     navController: NavHostController,
     snackbarHostState: SnackbarHostState,
     scope: kotlinx.coroutines.CoroutineScope,
@@ -684,9 +700,11 @@ private fun handleShelfAction(
 
         ShelfAction.CancelDeleteConfirm -> setConfirmDeleteIds(null)
         is ShelfAction.ConfirmDelete -> {
-            val ids = action.ids
             setConfirmDeleteIds(null)
-            ids.forEach { viewModel.deleteBook(it) }
+            // 与确认框同一条路径：整批一次事务、一张凭证，撤销范围等于提示的数量。
+            viewModel.deleteBooks(action.ids) { ok ->
+                if (!ok) showMessage(deletionFailedMessage(context))
+            }
         }
         is ShelfAction.ReselectFileResult -> viewModel.reselectFile(action.bookId, action.uri) { showMessage(it) }
         is ShelfAction.CoverChangeResult -> viewModel.updateBookCover(action.bookId, action.uri) { showMessage(it) }

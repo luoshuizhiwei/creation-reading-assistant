@@ -29,7 +29,7 @@ class ReaderRulesSheetTest {
     val composeRule = createComposeRule()
 
     private fun renderRulesSheet(
-        replacementCapability: ReaderReplacementCapability = ReaderReplacementCapability.Available,
+        replacementCapability: ReaderReplacementCapability = ReaderReplacementCapability.Available(),
     ) {
         composeRule.setContent {
             AppTheme(darkTheme = false) {

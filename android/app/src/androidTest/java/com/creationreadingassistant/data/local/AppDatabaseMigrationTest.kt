@@ -1284,6 +1284,215 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    // ─── 11 → 12：search_terms 主键补 text_basis + 新增覆盖率表 ──────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_11_to_12_rebuilds_search_terms_with_text_basis_and_adds_coverage() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 11)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-12-book', '迁移测试书', NULL, 'txt', 'sample.txt', 'hash-12', " +
+                "2048, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-05T00:00:00Z', NULL)",
+        )
+        // v11 的 search_terms 只有 5 列，没有 text_basis
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, hits, offsets) " +
+                "VALUES ('测试', 'migration-12-book', 0, 3, '0:2')",
+        )
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, hits, offsets) " +
+                "VALUES ('正文', 'migration-12-book', 1, 7, '12:2,45:2')",
+        )
+        db.execSQL(
+            "INSERT INTO search_index_state (id, tokenizer_version, last_scanned_book_id, " +
+                "last_scanned_chapter_index, built_at) VALUES (1, 2, 'migration-12-book', 0, 1)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 12, true, AppDatabase.MIGRATION_11_12,
+        )
+
+        // 1. 既有索引行原样保留，并统一归入 original 基准
+        val rowsCursor = db.query(
+            "SELECT term, chapter_index, hits, offsets FROM search_terms " +
+                "WHERE book_id = 'migration-12-book' AND text_basis = 'original' ORDER BY term ASC",
+        )
+        assertTrue("既有 search_terms 行应保留", rowsCursor.moveToFirst())
+        assertEquals("正文", rowsCursor.getString(0))
+        assertEquals(1, rowsCursor.getInt(1))
+        assertEquals(7, rowsCursor.getInt(2))
+        assertEquals("12:2,45:2", rowsCursor.getString(3))
+        assertTrue("第二行应保留", rowsCursor.moveToNext())
+        assertEquals("测试", rowsCursor.getString(0))
+        assertEquals(0, rowsCursor.getInt(1))
+        assertEquals(3, rowsCursor.getInt(2))
+        assertEquals("0:2", rowsCursor.getString(3))
+        rowsCursor.close()
+
+        // 2. 主键升级为 4 列：同 term / 同章、不同基准可以共存
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, text_basis, hits, offsets) " +
+                "VALUES ('测试', 'migration-12-book', 0, 'display', 1, NULL)",
+        )
+        val bothCursor = db.query(
+            "SELECT COUNT(*) FROM search_terms WHERE book_id = 'migration-12-book' " +
+                "AND term = '测试' AND chapter_index = 0",
+        )
+        assertTrue(bothCursor.moveToFirst())
+        assertEquals("同一 term 的两种基准应各占一行", 2, bothCursor.getInt(0))
+        bothCursor.close()
+
+        // 3. text_basis 确已进入复合主键（pk 序号 4）
+        val pkCursor = db.query("PRAGMA table_info('search_terms')")
+        val pkByName = mutableMapOf<String, Int>()
+        while (pkCursor.moveToNext()) {
+            pkByName[pkCursor.getString(pkCursor.getColumnIndexOrThrow("name"))] =
+                pkCursor.getInt(pkCursor.getColumnIndexOrThrow("pk"))
+        }
+        pkCursor.close()
+        assertEquals(1, pkByName["term"] ?: -1)
+        assertEquals(2, pkByName["book_id"] ?: -1)
+        assertEquals(3, pkByName["chapter_index"] ?: -1)
+        assertEquals("text_basis 应进入复合主键", 4, pkByName["text_basis"] ?: -1)
+
+        // 4. 覆盖率表存在，且 (book_id, text_basis) 两种基准可并存
+        db.execSQL(
+            "INSERT INTO search_index_coverage (book_id, text_basis, format, coverage, " +
+                "indexed_chapters, total_chapters, tokenizer_version, indexed_at, reason) " +
+                "VALUES ('migration-12-book', 'original', 'txt', 'full', 10, 10, 2, 1780000000000, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO search_index_coverage (book_id, text_basis, format, coverage, " +
+                "indexed_chapters, total_chapters, tokenizer_version, indexed_at, reason) " +
+                "VALUES ('migration-12-book', 'display', 'txt', 'pending', 0, 0, 2, 0, " +
+                "'display_channel_not_built')",
+        )
+        val coverageCursor = db.query(
+            "SELECT text_basis, coverage, indexed_chapters, reason FROM search_index_coverage " +
+                "WHERE book_id = 'migration-12-book' ORDER BY text_basis ASC",
+        )
+        assertTrue("覆盖率行应可读", coverageCursor.moveToFirst())
+        assertEquals("display", coverageCursor.getString(0))
+        assertEquals("pending", coverageCursor.getString(1))
+        assertEquals(0, coverageCursor.getInt(2))
+        assertEquals("display_channel_not_built", coverageCursor.getString(3))
+        assertTrue("原文基准行应存在", coverageCursor.moveToNext())
+        assertEquals("original", coverageCursor.getString(0))
+        assertEquals("full", coverageCursor.getString(1))
+        assertEquals(10, coverageCursor.getInt(2))
+        assertTrue(coverageCursor.isNull(3))
+        coverageCursor.close()
+
+        // 5. 书库数据不受影响（迁移只动派生索引表）
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-12-book'")
+        assertTrue("既有书库数据应保留", bookCursor.moveToFirst())
+        assertEquals("迁移测试书", bookCursor.getString(0))
+        bookCursor.close()
+
+        // 6. 三个索引都在
+        listOf(
+            "index_search_terms_term",
+            "index_search_terms_book",
+            "index_search_index_coverage_coverage",
+        ).forEach { name ->
+            val cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                arrayOf(name),
+            )
+            assertTrue("索引 $name 应存在", cursor.moveToFirst())
+            cursor.close()
+        }
+
+        db.close()
+    }
+
+    // ─── 1 → 12 完整链路 ────────────────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_1_to_12_full_chain() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 1)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain12-book', '全链路v12 TXT', '全链路作者', 'txt', 'chain12.txt', " +
+                "'hashchain12', 2048, '/uri/c12', '/content/c12', 'ready', NULL, " +
+                "'2026-09-06T00:00:00Z', 'device-12', '{}', 1, '2026-09-06T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, deleted_at) " +
+                "VALUES ('chain12-book', 12.5, '2026-09-07T00:00:00Z', 600000, 'in_progress', " +
+                "NULL, '{}', 1, 'device-12', '2026-09-07T00:00:00Z', NULL)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 12, true,
+            AppDatabase.MIGRATION_1_2,
+            AppDatabase.MIGRATION_2_3,
+            AppDatabase.MIGRATION_3_4,
+            AppDatabase.MIGRATION_4_5,
+            AppDatabase.MIGRATION_5_6,
+            AppDatabase.MIGRATION_6_7,
+            AppDatabase.MIGRATION_7_8,
+            AppDatabase.MIGRATION_8_9,
+            AppDatabase.MIGRATION_9_10,
+            AppDatabase.MIGRATION_10_11,
+            AppDatabase.MIGRATION_11_12,
+        )
+
+        val booksCursor = db.query("SELECT title, description FROM books WHERE id = 'chain12-book'")
+        assertTrue("books 数据应保留", booksCursor.moveToFirst())
+        assertEquals("全链路v12 TXT", booksCursor.getString(0))
+        assertTrue("description 应为 NULL", booksCursor.isNull(1))
+        booksCursor.close()
+
+        val progressCursor = db.query(
+            "SELECT progress_percent, completed_at FROM reading_progress WHERE book_id = 'chain12-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(12.5, progressCursor.getDouble(0), 0.001)
+        assertTrue("completed_at 应为 NULL", progressCursor.isNull(1))
+        progressCursor.close()
+
+        // 全链末端：search_terms 已是双基准主键
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, text_basis, hits, offsets) " +
+                "VALUES ('末端', 'chain12-book', 0, 'original', 1, NULL)",
+        )
+        val termCursor = db.query(
+            "SELECT COUNT(*) FROM search_terms WHERE book_id = 'chain12-book' AND text_basis = 'original'",
+        )
+        assertTrue(termCursor.moveToFirst())
+        assertEquals(1, termCursor.getInt(0))
+        termCursor.close()
+
+        // 三张搜索派生表都在
+        val tablesCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' " +
+                "AND name IN ('search_terms', 'search_index_state', 'search_index_coverage') ORDER BY name",
+        )
+        assertTrue("search_index_coverage 应存在", tablesCursor.moveToFirst())
+        assertEquals("search_index_coverage", tablesCursor.getString(0))
+        assertTrue(tablesCursor.moveToNext())
+        assertEquals("search_index_state", tablesCursor.getString(0))
+        assertTrue(tablesCursor.moveToNext())
+        assertEquals("search_terms", tablesCursor.getString(0))
+        tablesCursor.close()
+
+        db.close()
+    }
+
     private fun assertStableDenseOrder(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         table: String,

@@ -141,6 +141,7 @@ fun ReaderScreen(
     // ── 解构参数（B3 后仅保留主函数内实际消费的字段）──
     val bookId = inputs.bookId
     val highlightId = inputs.highlightId
+    val sourceLocatorJson = inputs.sourceLocatorJson
     val documentUiState = inputs.documentUiState
     val screenState = inputs.screenState
     val highlights = inputs.highlights
@@ -155,7 +156,13 @@ fun ReaderScreen(
     val anchorCacheStore = callbacks.anchorCacheStore
     val pagerHealth = callbacks.pagerHealthStore
     val context = LocalContext.current
-    val mutableHolders = rememberReaderScreenMutableHolders(bookId, bookId ?: "", txtTocRuleIdFromVm, highlightId)
+    val mutableHolders = rememberReaderScreenMutableHolders(
+        bookId = bookId,
+        bid = bookId ?: "",
+        txtTocRuleIdFromVm = txtTocRuleIdFromVm,
+        highlightId = highlightId,
+        sourceLocatorJson = sourceLocatorJson,
+    )
     val settingsVm: SettingsViewModel = hiltViewModel()
     val readerSettings by settingsVm.reader.collectAsStateWithLifecycle()
     // 外观模式（system/light/dark）用于「跟随外观」纸张映射：浅色外壳→白纸，深色外壳→夜读。
@@ -259,18 +266,25 @@ fun ReaderScreen(
     // 高亮颜色选择
     val showColorRow = screenState.showColorRow
 
-    // 返回键按“临时层级优先”处理：先关弹层/菜单/选区，再离开阅读器。
+    // J1.2：临时查阅期间离开/暂停阅读器不得把临时位置写回普通阅读进度。
+    val temporaryInspection = inputs.navigationMode == ReaderNavigationMode.TEMPORARY
+    val hasReturnableTarget = callbacks.hasReturnableTarget
+    val onTemporaryReturn = callbacks.onTemporaryReturn
+
+    // R2-J1.4：返回键按"临时层级优先"处理：先关弹层/菜单/选区，再处理临时返回，最后离开阅读器。
     // 这与正文导航解耦，避免误触返回直接丢失当前阅读上下文。
     // B2：所有写入改走 onAction（优先级分支与原逻辑逐一对应）：
     // 关弹层→CloseSheet；关笔记框→SetNoteOpen(false)；关更多菜单→SetShowOverflow(false)；
     // 清选区→ClearSelection（reducer 置 text=""、两偏移 -1、showColorRow=false，与原四行写入一致）；
     // 藏控件→ToggleControls(false)。
+    // J1.4：临时查阅且存在返回目标时，先关闭临时 UI，再触发 onTemporaryReturn（LIFO 返回一层）。
     BackHandler(
         enabled = sheet != null ||
             noteOpen ||
             showReaderOverflow ||
             selectedText.isNotBlank() ||
-            controlsVisible,
+            controlsVisible ||
+            (temporaryInspection && hasReturnableTarget),
     ) {
         when {
             sheet != null -> onAction(ReaderAction.CloseSheet)
@@ -278,6 +292,7 @@ fun ReaderScreen(
             showReaderOverflow -> onAction(ReaderAction.SetShowOverflow(false))
             selectedText.isNotBlank() -> onAction(ReaderAction.ClearSelection)
             controlsVisible -> onAction(ReaderAction.ToggleControls(false))
+            temporaryInspection && hasReturnableTarget -> onTemporaryReturn()
         }
     }
 
@@ -305,15 +320,22 @@ fun ReaderScreen(
     // Phase 7：纯计算派生状态抽到 reader/ReaderScreenDerivedState.kt，逐字保真。
     // readingUnits 的单一真相在文档构造层（fromFileIndex 构造时构建，首帧即就绪），
     // 组合层只读裁决（ReadingUnitsResolver），不再写回 txtStreamingDocument。
+    // R1-S1：txtChapters 上提至此先于 units 计算（小文件滚动 units 须按章对齐切块，
+    // 章节边界是切块输入）；pagerEngine 改为只读消费。
+    val tocProfile = inputs.ruleSnapshot.effectiveTocProfile
     val derived = rememberReaderDerivedState(
         bookIndex = bookIndex,
         markdownDocument = markdownDocument,
         txtStreamingDocument = txtStreamingDocument,
         plainContent = plainContent,
         txtStreamingFileIndex = txtStreamingFileIndex,
+        epubBook = epubBook,
+        tocProfile = tocProfile,
+        textContent = textContent,
     )
     val chapterStartOffsets = derived.chapterStartOffsets
     val readingUnits = derived.readingUnits
+    val txtChapters = derived.txtChapters
     // 暂时保留 plainChunks 用于进度/跳转兼容（Phase C 将完全替换）
     val plainChunks: List<PlainTextChunk> = remember(plainContent, readingUnits) {
         when {
@@ -344,17 +366,17 @@ fun ReaderScreen(
         error = error,
         textContent = textContent,
         plainContent = plainContent,
-        tocProfile = inputs.ruleSnapshot.effectiveTocProfile,
+        tocProfile = tocProfile,
         replaceRules = inputs.ruleSnapshot.effectiveReplace,
         txtStreamingDocument = txtStreamingDocument,
         readingUnits = readingUnits,
+        txtChapters = txtChapters,
     )
     val pagerEngineOn = pagerEngine.pagerEngineOn
     val pagedJumpRequest = pagerEngine.pagedJumpRequest
     val pagedHardwareTurnRequest = pagerEngine.pagedHardwareTurnRequest
     var pagedAbsOffset by pagerEngine.pagedAbsOffsetState
     var pagedPercent by pagerEngine.pagedPercentState
-    val txtChapters = pagerEngine.txtChapters
     val pagedSource = pagerEngine.pagedSource
 
     // Phase 5：进度计算抽到 reader/ReaderProgressComputations.kt，逐字保真。
@@ -429,7 +451,12 @@ fun ReaderScreen(
         currentChapterTitle, context, showTts, mutableHolders.autoPagingActiveState, autoPagingSupported,
         epubDocument,
         ttsContentText = progressState.ttsContentText,
+        onReturnToReading = onTemporaryReturn,
     )
+
+    val persistOnLeave: () -> Unit = {
+        if (!temporaryInspection) nav.persistCurrentProgress()
+    }
 
     LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {
         readerReplacementStartupNoticeIfNeeded(
@@ -499,7 +526,8 @@ fun ReaderScreen(
         showNotice = nav.showNotice,
         goToChapter = nav.goToChapter,
         jumpToPlainOffset = nav.jumpToPlainOffset,
-        persistCurrentProgress = nav.persistCurrentProgress,
+        jumpToMarkdownOffset = nav.jumpToMarkdownOffset,
+        persistCurrentProgress = persistOnLeave,
         openTts = nav.openTts,
     )
 
@@ -568,7 +596,7 @@ fun ReaderScreen(
         jumpToPlainOffset = nav.jumpToPlainOffset,
         handleChromeAction = nav.handleChromeAction,
         computeLocatorJson = nav.computeLocatorJson,
-        onPersistProgress = nav.persistCurrentProgress,
+        onPersistProgress = persistOnLeave,
         inputs = inputs,
         callbacks = callbacks,
         settingsVm = settingsVm,

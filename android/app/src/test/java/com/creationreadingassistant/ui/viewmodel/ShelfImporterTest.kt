@@ -1,4 +1,4 @@
-﻿package com.creationreadingassistant.ui.viewmodel
+package com.creationreadingassistant.ui.viewmodel
 
 import android.content.ContentResolver
 import android.content.Context
@@ -49,6 +49,9 @@ class ShelfImporterTest {
     val tempFolder = TemporaryFolder()
 
     private val io = Dispatchers.Unconfined
+
+    /** ZIP 本地文件头 `PK\x03\x04`，用于让 EPUB 用例通过格式真源校验。 */
+    private val epubZipMagic = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
 
     private lateinit var resolver: ContentResolver
     private lateinit var context: Context
@@ -198,6 +201,7 @@ class ShelfImporterTest {
     @Test
     fun `epub import creates book entry and book file record`() = runTest {
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("a.epub", 100L)
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(epubZipMagic) }
         every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
         coEvery { epubRepository.openEpub(any()) } returns EpubBook(
             id = "epub1",
@@ -225,6 +229,7 @@ class ShelfImporterTest {
     @Test
     fun `reimport of existing epub updates metadata instead of duplicating`() = runTest {
         every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("a.epub", 100L)
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream(epubZipMagic) }
         every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
         coEvery { epubRepository.openEpub(any()) } returns EpubBook(
             id = "epub1",
@@ -243,6 +248,25 @@ class ShelfImporterTest {
 
         assertEquals(1, importer.importBatch.value.succeeded)
         coVerify(exactly = 1) { bookDao.update(match { it.original_file_name == "a.epub" }) }
+    }
+
+    @Test
+    fun `epub named file with plain text content is rejected without parsing`() = runTest {
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("fake.epub", 100L)
+        every { resolver.openInputStream(any()) } answers { ByteArrayInputStream("这不是 ZIP 内容".toByteArray()) }
+        coEvery { historyStore.addEntry(any()) } returns Unit
+
+        importer.importFiles(listOf(uri("fake.epub")))
+
+        val batch = importer.importBatch.value
+        assertEquals(1, batch.failed)
+        assertEquals(0, batch.succeeded)
+        assertTrue(batch.failures.single().reason.contains("EPUB"))
+        // 绝不进入 EPUB 解析
+        coVerify(exactly = 0) { epubRepository.openEpub(any()) }
+        coVerify(exactly = 1) {
+            historyStore.addEntry(match { it.status == "failed" && it.format == "epub" })
+        }
     }
 
     @Test

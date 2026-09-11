@@ -72,6 +72,12 @@ sealed interface RuleMutationResult {
     data class Migrated(val effectiveRuleId: String, val legacyValue: String?) : RuleMutationResult
 }
 
+/** 规则的只读身份（类型 + 作用域），见 [RulesRepository.describeRule]。 */
+data class RuleDescriptor(
+    val kind: RuleKind,
+    val scope: RuleScope,
+)
+
 /**
  * 规则写入命令。调用方只与语义 id 交互，不接触 Room 行/绑定 id。
  * 内置规则无修改 pattern/name 或删除路径；标准内置不可启停。
@@ -154,6 +160,17 @@ class RulesRepository @Inject constructor(
         is RuleCommand.ReorderRules -> reorder(bookId, command)
         is RuleCommand.MigrateLegacyTocRule -> migrateLegacy(bookId, command.legacyRuleId)
         is RuleCommand.SelectSingleTocRule -> selectSingleTocRule(bookId, command.ruleId)
+    }
+
+    /**
+     * 只读：某条自定义规则的「类型 + 作用域」。供上层在规则变更**之前**判定
+     * 受影响范围（如「替换规则变更后要重建哪些书的搜索索引」——删除后行已不在，
+     * 必须在 execute 前查）。未知 id 返回 null。
+     */
+    suspend fun describeRule(ruleId: String): RuleDescriptor? {
+        val row = dao.getById(ruleId) ?: return null
+        val kind = RuleKind.entries.firstOrNull { it.name == row.kind } ?: return null
+        return RuleDescriptor(kind = kind, scope = scopeOf(row.scope))
     }
 
     // ── 快照组装 ────────────────────────────────────────────────────────

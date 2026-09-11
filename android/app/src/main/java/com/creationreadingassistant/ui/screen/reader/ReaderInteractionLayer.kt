@@ -55,6 +55,10 @@ internal data class ReaderInteractionLayerState(
     val error: String?,
     val showProgressBar: Boolean,
     val paper: ReaderPaperPalette,
+    /** 当前是否处于临时查阅模式（由 navigationMode=TEMPORARY 决定）。 */
+    val temporaryInspection: Boolean = false,
+    /** 临时查阅协调器是否存在可返回目标（临时返回栈非空）。 */
+    val hasReturnableTarget: Boolean = false,
 )
 
 /**
@@ -83,6 +87,8 @@ internal data class ReaderInteractionLayerCallbacks(
     val onCopy: () -> Unit,
     val onSearch: () -> Unit,
     val onClearSelection: () -> Unit,
+    /** 返回阅读处（临时查阅 LIFO 返回一层）。 */
+    val onReturnToReading: () -> Unit = {},
 )
 
 /** 顶部阅读器标题栏展示的文档格式标签。 */
@@ -161,6 +167,8 @@ internal fun BoxScope.ReaderInteractionLayer(
             autoPagingActive = state.autoPagingActive,
             onOverflowExpandedChange = callbacks.onOverflowExpandedChange,
             onAction = callbacks.onChromeAction,
+            temporaryInspection = state.temporaryInspection,
+            hasReturnableTarget = state.hasReturnableTarget,
         )
     }
 

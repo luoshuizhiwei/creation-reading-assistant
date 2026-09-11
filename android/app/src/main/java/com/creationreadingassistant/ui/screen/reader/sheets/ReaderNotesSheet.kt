@@ -61,6 +61,8 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.feature.annotations.groupByChapterInDocumentOrder
+import com.creationreadingassistant.feature.reader.locator.LocatorCodec
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBookmark
 import com.creationreadingassistant.ui.components.AppAlertDialog
@@ -366,12 +368,18 @@ internal fun NotesSheet(
         ) {
             // 高亮书摘列表
             if (highlights.isNotEmpty()) {
-                val grouped = highlights.groupBy { it.chapter_title ?: "" }.toSortedMap()
+                // 文档序分组（组内最小 chapterIndex 升序），替代中文标题字典序
+                val grouped = groupByChapterInDocumentOrder(
+                    highlights,
+                    chapterTitleOf = { it.chapter_title },
+                    chapterIndexOf = { LocatorCodec.decode(it.locator_json)?.chapterIndex },
+                    createdAtOf = { it.created_at },
+                )
                 grouped.forEach { (chapter, items) ->
                     item {
                         NotesSectionHeader(
                             icon = Icons.Outlined.FormatListBulleted,
-                            title = if (chapter.isBlank()) "未分类" else chapter,
+                            title = chapter?.takeIf { it.isNotBlank() } ?: "未分类",
                             count = items.size,
                             tint = MaterialTheme.colorScheme.primary,
                         )
@@ -995,8 +1003,13 @@ internal fun buildNotesExportMarkdown(
     if (highlights.isNotEmpty()) {
         appendLine("## 书摘（共 ${highlights.size} 条）")
         appendLine()
-        highlights.groupBy { it.chapter_title ?: "" }.toSortedMap().forEach { (chapter, items) ->
-            appendLine("### ${if (chapter.isBlank()) "未分类" else chapter}")
+        groupByChapterInDocumentOrder(
+            highlights,
+            chapterTitleOf = { it.chapter_title },
+            chapterIndexOf = { LocatorCodec.decode(it.locator_json)?.chapterIndex },
+            createdAtOf = { it.created_at },
+        ).forEach { (chapter, items) ->
+            appendLine("### ${chapter?.takeIf { it.isNotBlank() } ?: "未分类"}")
             appendLine()
             items.forEachIndexed { i, h ->
                 appendLine("${i + 1}. ${h.text}")

@@ -34,15 +34,33 @@ interface ProjectedChapterSource : PagedChapterSource {
 
 enum class PagedReplacementAvailability {
     NO_EFFECTIVE_RULES,
+    /** 装配期即可确认：正文的每个作用域都在投影上限内，确实逐章走精确投影。 */
     APPLIED,
+    /**
+     * 只有部分作用域可投影：可投影章按规则替换，其余章保留原文。
+     * 规则仍可管理，但禁止表述成「全书已替换」。
+     */
+    PARTIALLY_APPLIED,
     /** 当前阅读模式没有启用新分页引擎；正文 source 可能存在，但不会走投影渲染。 */
     PAGER_ENGINE_DISABLED,
     ESTIMATED_COORDINATES,
     /** 渲染文本不是持久化 source 字符空间，禁止用近似映射应用替换。 */
     NON_SOURCE_COORDINATES,
     INCOMPLETE_SCOPE,
+    /**
+     * 没有任何可投影作用域（典型：无目录整书坍缩成单一作用域且超过投影上限）。
+     * 正文必然保留原文，因此不得进入 [APPLIED]；规则仍可管理。
+     */
+    ALL_SCOPES_OVERSIZED,
     OVERSIZED_CURRENT_CHAPTER,
     SOURCE_UNAVAILABLE,
+}
+
+/** 装配期对「可投影作用域」的穷尽分类，只读坐标元数据，绝不加载整章正文。 */
+internal enum class PagedReplacementScopeVerdict {
+    ALL_EXACT,
+    MIXED,
+    NOTHING_EXACT,
 }
 
 data class PreparedPagedReplacement(
@@ -113,6 +131,10 @@ fun preparePagedReplacement(
     }
     // 旧路径：小文件 1:1 模式直接走 complete flag
     if (delegate.replaceProjectionScopeIsComplete) {
+        if (delegate.chapterCount == 0) {
+            return PreparedPagedReplacement(delegate, PagedReplacementAvailability.SOURCE_UNAVAILABLE)
+        }
+        val verdict = classifyChapterScopeSpans(delegate, maxSourceLength)
         return PreparedPagedReplacement(
             source = ReplacedChapterSource(
                 delegate = delegate,
@@ -121,13 +143,20 @@ fun preparePagedReplacement(
                 maxSourceLength = maxSourceLength,
                 onUnsupportedTooLarge = onUnsupportedTooLarge,
             ),
-            availability = PagedReplacementAvailability.APPLIED,
+            availability = availabilityFor(verdict),
         )
     }
     // 新路径：流式 segment 模式，必须提供 scope provider
     if (projectionProvider == null) {
         return PreparedPagedReplacement(delegate, PagedReplacementAvailability.INCOMPLETE_SCOPE)
     }
+    if (delegate.chapterCount == 0) {
+        return PreparedPagedReplacement(delegate, PagedReplacementAvailability.SOURCE_UNAVAILABLE)
+    }
+    val segmentedVerdict = classifyProviderScopes(projectionProvider, delegate.chapterCount)
+    // 一个作用域都投影不了时仍然包装：装饰器逐 segment 返回 delegate 原文、
+    // projectionForChapter 恒为 null，正文与恒等投影完全一致；降级由
+    // availability 表达，不靠换掉 source 对象来「表示」事实。
     return PreparedPagedReplacement(
         source = ReplacedSegmentedChapterSource(
             delegate = delegate,
@@ -137,8 +166,78 @@ fun preparePagedReplacement(
             maxSourceLength = maxSourceLength,
             onUnsupportedTooLarge = onUnsupportedTooLarge,
         ),
-        availability = PagedReplacementAvailability.APPLIED,
+        availability = availabilityFor(segmentedVerdict),
     )
+}
+
+/**
+ * 1:1 模式：分页单元即完整逻辑章，作用域长度可直接由坐标元数据算出。
+ *
+ * 前置条件是 [PagedChapterSource.chapterLengthsAreEstimated] 为 false
+ * （估算坐标在 [preparePagedReplacement] 上方已被拒绝），因此这里的区间长度就是
+ * [BoundedReplaceProjector] 将要看到的 scopeSource 长度，无需读入正文。
+ */
+private fun classifyChapterScopeSpans(
+    delegate: PagedChapterSource,
+    maxSourceLength: Int,
+): PagedReplacementScopeVerdict {
+    var hasExact = false
+    var hasDegraded = false
+    for (index in 0 until delegate.chapterCount) {
+        val start = delegate.chapterStartAbs(index)
+        val next = if (index + 1 < delegate.chapterCount) {
+            delegate.chapterStartAbs(index + 1)
+        } else {
+            delegate.totalChars
+        }
+        if ((next - start).coerceAtLeast(0) > maxSourceLength) hasDegraded = true else hasExact = true
+        if (hasExact && hasDegraded) return PagedReplacementScopeVerdict.MIXED
+    }
+    return verdictOf(hasExact, hasDegraded)
+}
+
+/**
+ * segment 模式：逐「逻辑章」询问 provider 的作用域类型。
+ *
+ * 只调用 [ReplaceProjectionScopeProvider.scopeForSegment] 读元数据，绝不触发
+ * [ReplaceProjectionScope.Exact.loadFullChapterText]——超限章在装配期就不得整章读入。
+ * 每章只问一次，且一旦出现「有可投影 + 有降级」即可判定 MIXED 并停止。
+ */
+private fun classifyProviderScopes(
+    provider: ReplaceProjectionScopeProvider,
+    segmentCount: Int,
+): PagedReplacementScopeVerdict {
+    var hasExact = false
+    var hasDegraded = false
+    val visitedChapters = HashSet<Int>()
+    for (segmentIndex in 0 until segmentCount) {
+        val scope = provider.scopeForSegment(segmentIndex)
+        if (!visitedChapters.add(scope.logicalChapterIndex)) continue
+        if (scope is ReplaceProjectionScope.Exact) hasExact = true else hasDegraded = true
+        if (hasExact && hasDegraded) return PagedReplacementScopeVerdict.MIXED
+    }
+    return verdictOf(hasExact, hasDegraded)
+}
+
+private fun verdictOf(
+    hasExact: Boolean,
+    hasDegraded: Boolean,
+): PagedReplacementScopeVerdict = when {
+    !hasExact -> PagedReplacementScopeVerdict.NOTHING_EXACT
+    hasDegraded -> PagedReplacementScopeVerdict.MIXED
+    else -> PagedReplacementScopeVerdict.ALL_EXACT
+}
+
+/**
+ * [PagedReplacementAvailability.APPLIED] 只允许在「全部作用域都能精确投影」时出现；
+ * 存在降级作用域时降格为 PARTIALLY_APPLIED，禁止宣称全书已替换。
+ */
+private fun availabilityFor(
+    verdict: PagedReplacementScopeVerdict,
+): PagedReplacementAvailability = when (verdict) {
+    PagedReplacementScopeVerdict.ALL_EXACT -> PagedReplacementAvailability.APPLIED
+    PagedReplacementScopeVerdict.MIXED -> PagedReplacementAvailability.PARTIALLY_APPLIED
+    PagedReplacementScopeVerdict.NOTHING_EXACT -> PagedReplacementAvailability.ALL_SCOPES_OVERSIZED
 }
 
 /**

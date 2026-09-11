@@ -6,6 +6,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
+import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -34,6 +35,7 @@ class BookViewModelTest {
 
     private lateinit var repository: BookRepository
     private lateinit var continueStore: ContinueReadingStore
+    private lateinit var deletions: BookDeletionCoordinator
 
     @Before
     fun setUp() {
@@ -47,6 +49,9 @@ class BookViewModelTest {
             every { removedIds } returns flowOf(emptyMap())
             coEvery { remove(any()) } returns Unit
             coEvery { clear(any()) } returns Unit
+        }
+        deletions = mockk {
+            coEvery { deleteBook(any()) } returns null
         }
     }
 
@@ -63,7 +68,7 @@ class BookViewModelTest {
         every { repository.observeBooks() } returns flowOf(books)
         every { repository.observeProgress() } returns flowOf(progressRows)
         every { repository.observeSessions() } returns flowOf(sessions)
-        return BookViewModel(repository, continueStore, Dispatchers.Unconfined)
+        return BookViewModel(repository, continueStore, deletions, Dispatchers.Unconfined)
     }
 
     @Test
@@ -75,12 +80,12 @@ class BookViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertEquals("已删除", result)
-        coVerify(exactly = 1) { repository.deleteBook("b1") }
+        coVerify(exactly = 1) { deletions.deleteBook("b1") }
     }
 
     @Test
     fun `deleteBook failure reports failure message`() = runTest(mainDispatcher.scheduler) {
-        coEvery { repository.deleteBook(any()) } throws IllegalStateException("boom")
+        coEvery { deletions.deleteBook(any()) } throws IllegalStateException("boom")
         val vm = createVm()
 
         var result: String? = null

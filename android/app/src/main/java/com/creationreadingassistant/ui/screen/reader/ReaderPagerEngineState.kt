@@ -31,6 +31,7 @@ import com.creationreadingassistant.feature.reader.pager.PreparedPagedReplacemen
 import com.creationreadingassistant.feature.reader.pager.ScrollingTxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.TxtChapterSource
 import com.creationreadingassistant.feature.reader.pager.preparePagedReplacement
+import com.creationreadingassistant.feature.reader.rules.BoundedReplaceResult
 import com.creationreadingassistant.feature.reader.rules.ReplaceProfile
 import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
@@ -86,6 +87,7 @@ internal fun prepareScrollTxtReplacement(
     plainContent: String,
     readingUnits: List<ReadingUnit>,
     rules: List<ReplaceRule>,
+    onUnsupportedTooLarge: (BoundedReplaceResult.UnsupportedTooLarge) -> Unit = {},
 ): PreparedPagedReplacement? {
     if (bookId.isBlank() || readingUnits.isEmpty()) return null
     val delegate = when {
@@ -93,7 +95,10 @@ internal fun prepareScrollTxtReplacement(
         plainContent.isNotEmpty() -> ScrollingTxtChapterSource.fromText(plainContent, readingUnits)
         else -> return null
     }
-    return preparePagedReplacement(delegate, bookId, rules)
+    // 超限降级在 source 层裁决（R1-S1）：无目录大书整本坍缩为单一作用域时，
+    // preparePagedReplacement 直接给出 ALL_SCOPES_OVERSIZED（正文必然原文，绝不标 APPLIED）；
+    // 只有部分作用域超限时才是 PARTIALLY_APPLIED，逐章回退仍经 onUnsupportedTooLarge 提示。
+    return preparePagedReplacement(delegate, bookId, rules, onUnsupportedTooLarge = onUnsupportedTooLarge)
 }
 
 /**
@@ -135,6 +140,12 @@ internal fun rememberPagerEngineState(
     replaceRules: List<ReplaceRule>,
     txtStreamingDocument: PlainTextDocument?,
     readingUnits: List<ReadingUnit>,
+    /**
+     * TXT 章节识别结果（R1-S1 上提至 [rememberReaderDerivedState]）：
+     * 小文件滚动 readingUnits 必须按真实逻辑章对齐切块，章节边界是切块输入，
+     * 必须先于 units 就绪；本函数只读消费，不再自行检测。
+     */
+    txtChapters: List<DocChapter>,
 ): PagerEngineState {
     // ── 自研分页引擎（pagerEngineMode=on 时 TXT/EPUB 都走真正的章内逐页翻页）──
     val configuredPagerMode = if (epubBook != null) {
@@ -164,29 +175,6 @@ internal fun rememberPagerEngineState(
     val pagedAbsOffsetState = remember { mutableIntStateOf(-1) }
     val pagedPercentState = remember { mutableFloatStateOf(0f) }
 
-    // TXT 章节识别：此前 TXT 完全没有章节概念，目录永远是「暂未识别到目录」。
-    // P0 优化：优先使用 ReaderDocumentLoader 在 IO 线程预检测的结果，避免阻塞主线程。
-    // P1-A：身份改为 TxtTocProfile.key —— 规则集合 / 顺序 / 内容变化后 key 变化，
-    // 旧预检测不匹配即回退同步检测（极少触发）。
-    val txtChapters = remember(plainContent, tocProfile.key, txtStreamingDocument, textContent) {
-        val streamDoc = txtStreamingDocument
-        if (epubBook == null && streamDoc != null) {
-            streamDoc.chapters
-        } else if (epubBook == null && plainContent.isNotBlank()) {
-            val preDetected = textContent?.preDetectedChapters
-            val preRule = textContent?.preDetectedRuleId
-            if (!preDetected.isNullOrEmpty() && preRule == tocProfile.key) {
-                // 快速路径：使用 IO 线程预检测结果，不阻塞主线程
-                preDetected
-            } else {
-                // Fallback：规则切换或预检测缺失，同步检测（极少触发）
-                AppLog.debug("TxtPerfSubTrace", "TxtChapterDetect: fallback=true, key=${tocProfile.key}, preRule=$preRule")
-                PlainTextDocument(plainContent, tocProfile).chapters
-            }
-        } else {
-            emptyList()
-        }
-    }
     val rulePreviews by produceState(
         initialValue = emptyMap<String, List<TxtChapterDetector.Chapter>>(),
         plainContent,
@@ -273,7 +261,12 @@ internal fun rememberPagerEngineState(
         readingUnits,
         replaceProfileKey,
     ) {
-        if (pagerEngineOn || epubBook != null || markdownDocument != null || txtChapters.isEmpty()) {
+        // R1-S1：去掉 txtChapters.isEmpty() 门。章节未识别不是「替换不可用」的依据：
+        // 无章小书以整书为完整作用域（fromText 的 chapterRanges[0] 覆盖全文，真实完整），
+        // 整书作用域超限时 preparePagedReplacement 给出 ALL_SCOPES_OVERSIZED——正文必然原文，
+        // 不再冒充 APPLIED；只有部分作用域超限才是 PARTIALLY_APPLIED，逐章回退仍提示「已保留原文」。
+        // 降级事实在 source 层诚实表达，不在组装层静默拒绝。
+        if (pagerEngineOn || epubBook != null || markdownDocument != null) {
             null
         } else {
             prepareScrollTxtReplacement(
@@ -282,6 +275,9 @@ internal fun rememberPagerEngineState(
                 plainContent = plainContent,
                 readingUnits = readingUnits,
                 rules = replaceRules,
+                onUnsupportedTooLarge = {
+                    replaceProjectionNotice.value = "当前章节过大，已保留原文，暂不执行替换净化。"
+                },
             )
         }
     }

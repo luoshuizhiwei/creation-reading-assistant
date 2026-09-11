@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.screen.reader
 
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
+import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.doc.LegacyOffsetCodec
 import com.creationreadingassistant.feature.reader.doc.ReadingUnit
 
@@ -93,6 +94,62 @@ internal fun chunkPlainText(
         start = end
     }
     return chunks
+}
+
+/**
+ * 小文件滚动 TXT 的章对齐读取单元（R1-S1）。
+ *
+ * 旧实现由 [chunkPlainText] 直接派生 unit 且 `chapterIndex` 恒为 0，使整本书坍缩为
+ * 单一投影作用域：书长超过投影上限（256K 字符）时所有 unit 的 scope 都被判
+ * UnsupportedTooLarge，正文永久降级原文，而替换能力裁决仍报 APPLIED ——
+ * 形成「菜单可用、规则可保存、预览命中、正文永不替换」的跨层缺陷。
+ *
+ * 章节识别成功且章节偏移从 0 起完整衔接覆盖全书时，按真实逻辑章切块
+ * （章内沿用 [chunkPlainText] 的有界切块，偏移平移到全书坐标系，unitIndex 重编）；
+ * 识别失败或章节边界不衔接时不重排，回退旧的全文切块行为——保持诚实降级，
+ * 不伪造完整逻辑章。
+ */
+internal fun buildChapterAlignedPlainUnits(
+    content: String,
+    chapters: List<DocChapter>,
+    targetChars: Int = PLAIN_TEXT_CHUNK_CHARS,
+): List<ReadingUnit> {
+    if (content.isEmpty()) return emptyList()
+    val usable = chapters
+        .filter { it.charCount > 0 }
+        .sortedBy { it.startOffset }
+        .takeIf { list ->
+            list.first().startOffset == 0 &&
+                list.zipWithNext().all { (a, b) -> a.startOffset + a.charCount == b.startOffset } &&
+                list.last().let { it.startOffset + it.charCount } == content.length
+        }
+    if (usable.isNullOrEmpty()) {
+        return chunkPlainText(content, targetChars).mapIndexed { i, chunk ->
+            ReadingUnit(
+                unitIndex = i,
+                chapterIndex = 0,
+                title = "全文",
+                charStart = chunk.startOffset,
+                charCount = chunk.text.length,
+            )
+        }
+    }
+    val units = ArrayList<ReadingUnit>()
+    var unitIndex = 0
+    for (chapter in usable) {
+        val chapterStart = chapter.startOffset
+        val chapterText = content.substring(chapterStart, chapterStart + chapter.charCount)
+        for (chunk in chunkPlainText(chapterText, targetChars)) {
+            units += ReadingUnit(
+                unitIndex = unitIndex++,
+                chapterIndex = chapter.index,
+                title = chapter.title,
+                charStart = chapterStart + chunk.startOffset,
+                charCount = chunk.text.length,
+            )
+        }
+    }
+    return units
 }
 
 internal fun chunkIndexForOffset(chunks: List<PlainTextChunk>, offset: Int): Int {

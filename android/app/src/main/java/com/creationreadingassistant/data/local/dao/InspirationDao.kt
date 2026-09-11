@@ -68,6 +68,10 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE book_id = :bookId AND deleted_at IS NULL ORDER BY created_at DESC")
     fun observeByBook(bookId: String): Flow<List<NoteEntity>>
 
+    /** 删除快照：只读取目标书籍仍活跃的笔记。 */
+    @Query("SELECT * FROM notes WHERE book_id IN (:bookIds) AND deleted_at IS NULL ORDER BY created_at DESC")
+    suspend fun getActiveByBookIds(bookIds: Collection<String>): List<NoteEntity>
+
     @Query("SELECT * FROM notes WHERE deleted_at IS NULL AND (title LIKE '%' || :q || '%' OR body LIKE '%' || :q || '%' OR excerpt LIKE '%' || :q || '%') ORDER BY created_at DESC LIMIT 20")
     suspend fun search(q: String): List<NoteEntity>
 
@@ -76,6 +80,10 @@ interface NoteDao {
 
     @Query("SELECT * FROM notes WHERE id = :id")
     suspend fun getById(id: String): NoteEntity?
+
+    /** 撤销冲突判断：按快照中的笔记 id 查询，保留软删除状态供调用者裁决。 */
+    @Query("SELECT * FROM notes WHERE id IN (:ids)")
+    suspend fun getByIds(ids: Collection<String>): List<NoteEntity>
 }
 
 @Dao
@@ -90,6 +98,10 @@ interface HighlightDao {
     @Query("SELECT * FROM highlights WHERE book_id = :bookId AND deleted_at IS NULL ORDER BY created_at DESC")
     fun observeByBook(bookId: String): Flow<List<HighlightEntity>>
 
+    /** 删除快照：只读取目标书籍仍活跃的高亮。 */
+    @Query("SELECT * FROM highlights WHERE book_id IN (:bookIds) AND deleted_at IS NULL ORDER BY created_at DESC")
+    suspend fun getActiveByBookIds(bookIds: Collection<String>): List<HighlightEntity>
+
     @Query("SELECT * FROM highlights WHERE deleted_at IS NULL ORDER BY created_at DESC")
     fun observeAllActive(): Flow<List<HighlightEntity>>
 
@@ -98,6 +110,10 @@ interface HighlightDao {
 
     @Query("SELECT * FROM highlights WHERE id = :id")
     suspend fun getById(id: String): HighlightEntity?
+
+    /** 撤销冲突判断：按快照中的高亮 id 查询，保留软删除状态供调用者裁决。 */
+    @Query("SELECT * FROM highlights WHERE id IN (:ids)")
+    suspend fun getByIds(ids: Collection<String>): List<HighlightEntity>
 
     /** 全局搜索：按高亮正文 text 与备注 note 模糊检索（对齐网页 highlightHaystacks）。 */
     @Query("SELECT * FROM highlights WHERE deleted_at IS NULL AND (text LIKE '%' || :q || '%' OR note LIKE '%' || :q || '%') ORDER BY created_at DESC LIMIT 20")

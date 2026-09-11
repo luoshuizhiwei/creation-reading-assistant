@@ -89,6 +89,7 @@ class BookRepositoryTest {
             bookCategoryDao = bookCategoryDao,
             shelfBookDao = shelfBookDao,
             chapterReadDao = chapterReadDao,
+            context = mockk(relaxed = true),
         )
     }
 
@@ -119,10 +120,10 @@ class BookRepositoryTest {
             ReadingProgressEntity(book_id = "b1", updated_at = "2026-01-01T00:00:00Z")
         every { sessionDao.observeByBook("b1") } returns
             flowOf(listOf(session("s1", "b1"), session("s2", "b1")))
-        every { noteDao.observeAllActive() } returns
-            flowOf(listOf(note("n1", "b1"), note("n2", "other")))
-        every { highlightDao.observeByBook("b1") } returns
-            flowOf(listOf(highlight("h1", "b1")))
+        coEvery { noteDao.getActiveByBookIds(listOf("b1")) } returns
+            listOf(note("n1", "b1"))
+        coEvery { highlightDao.getActiveByBookIds(listOf("b1")) } returns
+            listOf(highlight("h1", "b1"))
         coEvery { bookContentDao.getByBook("b1") } returns null
         coEvery { bookFileDao.getByBook("b1") } returns null
 

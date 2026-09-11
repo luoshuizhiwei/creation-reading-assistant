@@ -55,7 +55,7 @@ class ReaderReplacementCapabilityTest {
     @Test
     fun `availability APPLIED produces Available capability`() {
         val cap = readerReplacementCapability(PagedReplacementAvailability.APPLIED)
-        assertEquals(ReaderReplacementCapability.Available, cap)
+        assertEquals(ReaderReplacementCapability.Available(), cap)
     }
 
     @Test
@@ -114,7 +114,33 @@ class ReaderReplacementCapabilityTest {
     @Test
     fun `availability NO_EFFECTIVE_RULES keeps replacement management available`() {
         val cap = readerReplacementCapability(PagedReplacementAvailability.NO_EFFECTIVE_RULES)
-        assertEquals(ReaderReplacementCapability.Available, cap)
+        assertEquals(ReaderReplacementCapability.Available(), cap)
+    }
+
+    @Test
+    fun `all oversized scopes keep rules manageable with a persistent body notice`() {
+        val cap = readerReplacementCapability(PagedReplacementAvailability.ALL_SCOPES_OVERSIZED)
+
+        assertTrue(cap is ReaderReplacementCapability.Available)
+        assertEquals(
+            readerReplacementStartupNotice(PagedReplacementAvailability.ALL_SCOPES_OVERSIZED, pagerEngineOn = false),
+            (cap as ReaderReplacementCapability.Available).bodyNotice,
+        )
+        assertEquals(cap.bodyNotice, replacementRulesTabBodyNotice(cap))
+        assertTrue(cap.bodyNotice?.contains("不会对正文生效") == true)
+    }
+
+    @Test
+    fun `partial replacement keeps rules manageable with a persistent body notice`() {
+        val cap = readerReplacementCapability(PagedReplacementAvailability.PARTIALLY_APPLIED)
+
+        assertTrue(cap is ReaderReplacementCapability.Available)
+        assertEquals(
+            readerReplacementStartupNotice(PagedReplacementAvailability.PARTIALLY_APPLIED, pagerEngineOn = false),
+            (cap as ReaderReplacementCapability.Available).bodyNotice,
+        )
+        assertEquals(cap.bodyNotice, replacementRulesTabBodyNotice(cap))
+        assertTrue(cap.bodyNotice?.contains("部分章节") == true)
     }
 
     @Test
@@ -177,7 +203,7 @@ class ReaderReplacementCapabilityTest {
             pagerEngineOn = true,
             replaceProjectionScopeIsComplete = true,
         )
-        assertEquals(ReaderReplacementCapability.Available, capability)
+        assertEquals(ReaderReplacementCapability.Available(), capability)
     }
 
     @Test
@@ -213,7 +239,7 @@ class ReaderReplacementCapabilityTest {
             pagerEngineOn = true,
             replaceProjectionScopeIsComplete = true,
         )
-        assertEquals(ReaderReplacementCapability.Available, complete)
+        assertEquals(ReaderReplacementCapability.Available(), complete)
 
         val incomplete = readerReplacementCapability(
             isTxt = true,

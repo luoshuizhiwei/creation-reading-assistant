@@ -22,9 +22,11 @@ class NotesExportTest {
         text: String,
         chapter: String? = null,
         note: String? = null,
+        locatorJson: String? = null,
     ) = HighlightEntity(
         id = id, book_id = "b1", text = text, note = note,
-        chapter_title = chapter, created_at = "2026-08-01T00:00:00Z", updated_at = "2026-08-01T00:00:00Z",
+        chapter_title = chapter, locator_json = locatorJson,
+        created_at = "2026-08-01T00:00:00Z", updated_at = "2026-08-01T00:00:00Z",
     )
 
     private fun note(
@@ -48,9 +50,9 @@ class NotesExportTest {
         val md = buildNotesExportMarkdown(
             bookTitle = "测试书",
             highlights = listOf(
-                highlight("h1", "第一句", chapter = "第二章"),
-                highlight("h2", "第二句", chapter = "第一章"),
-                highlight("h3", "带批注的句子", chapter = "第一章", note = "这里写得好"),
+                highlight("h1", "第一句", chapter = "第二章", locatorJson = """{"v":2,"offset":100,"ci":1,"co":10}"""),
+                highlight("h2", "第二句", chapter = "第一章", locatorJson = """{"v":2,"offset":0,"ci":0,"co":5}"""),
+                highlight("h3", "带批注的句子", chapter = "第一章", note = "这里写得好", locatorJson = """{"v":2,"offset":10,"ci":0,"co":80}"""),
                 highlight("h4", "无章节的句子"),
             ),
             notes = listOf(
@@ -64,11 +66,13 @@ class NotesExportTest {
         assertTrue(md.startsWith("# 《测试书》阅读笔记"))
         assertTrue(md.contains("> 导出于 2026-08-16 09:30"))
 
-        // 书摘：计数 + 章节排序分组 + 批注缩进 + 空章节归「未分类」
+        // 书摘：计数 + 章节按文档序分组（locator ci 升序）+ 批注缩进 + 无 locator 归「未分类」殿后
         assertTrue(md.contains("## 书摘（共 4 条）"))
         val ch1 = md.indexOf("### 第一章")
         val ch2 = md.indexOf("### 第二章")
-        assertTrue(ch1 in 0 until ch2) // toSortedMap 保证章节排序稳定
+        val unclassified = md.indexOf("### 未分类")
+        assertTrue(ch1 in 0 until ch2) // ci=0 的第一章先于 ci=1 的第二章（非中文标题字典序）
+        assertTrue(ch2 in 0 until unclassified) // 无 locator 的章节组排最后
         assertTrue(md.contains("1. 第二句"))
         assertTrue(md.contains("2. 带批注的句子"))
         assertTrue(md.contains("   批注：这里写得好"))
