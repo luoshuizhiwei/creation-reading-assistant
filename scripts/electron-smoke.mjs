@@ -4,8 +4,9 @@
  * 覆盖（真实 Electron + 真实 IPC + UI 驱动）：
  * 1. 未预载项目章节跳转：搜索项目 B 的真实 chapter 结果 → 进入 B 的写作视图并定位首场景；
  * 2. 跨项目卡片跳转：搜索前明确切回项目 A，再点击项目 B 的卡片结果 → B 的 cards 视图；
- * 3. 第 1050 条收件箱搜索：1050 条条目中第 1050 条含独特词 → 搜索命中并深链选中；
- * 4. 摘录 IPC 持久化：直接调用 preload/IPC（inbox.create / card.create reference，
+ * 3. 全局卡片库：打开应用级入口，检索项目 B 的卡片并确认使用项目账册；
+ * 4. 第 1050 条收件箱搜索：1050 条条目中第 1050 条含独特词 → 搜索命中并深链选中；
+ * 5. 摘录 IPC 持久化：直接调用 preload/IPC（inbox.create / card.create reference，
  *    摘录命令结构）→ workspace 落库验证。
  *
  * 未覆盖（如实记录，不冒充）：
@@ -51,10 +52,9 @@ async function main() {
   await page.waitForTimeout(1200);
 
   // ---------- 1. UI 创建项目 A ----------
-  const createFirst = page.locator(".project-home-create-first").first();
-  if (await createFirst.isVisible()) await createFirst.click();
-  else await page.getByRole("button", { name: /新建项目/ }).first().click();
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
+  // 项目首页按 role/name 定位：工具栏「新建项目」；创建向导是 role=dialog，可访问名称「新建作品」。
+  await page.getByRole("button", { name: "新建项目" }).first().click();
+  await page.getByRole("dialog", { name: "新建作品" }).waitFor({ state: "visible", timeout: 15000 });
   await page.getByRole("button", { name: /下一步/ }).click();
   await page.waitForTimeout(200);
   await page.locator(".creation-field input").first().fill("测试项目A");
@@ -111,7 +111,35 @@ async function main() {
   await page.waitForTimeout(800);
   record("reload 后项目列表包含 A 与 B", await page.evaluate(() => (document.body.textContent ?? "").includes("测试项目B")), "首页显示项目 B");
 
-  // ---------- 3. 未预载项目章节跳转（真实 chapter 结果） ----------
+  // ---------- 3. 全局卡片库（应用级入口 + 字段检索 + 使用项目账册） ----------
+  await page.getByRole("button", { name: "卡片库" }).click();
+  await page.getByRole("region", { name: "全局卡片库" }).waitFor({ state: "visible", timeout: 15000 });
+  const globalSearch = page.getByPlaceholder("搜索名称、别名或字段");
+  await globalSearch.fill("项目B独特角色卡");
+  await page.waitForTimeout(450);
+  const globalCard = page.locator(".cards-list-item", { hasText: "项目B独特角色卡" }).first();
+  if (await globalCard.isVisible()) {
+    await globalCard.click();
+    const probe = await page.evaluate(() => {
+      const library = document.querySelector('[aria-label="全局卡片库"]');
+      const usage = document.querySelector('[aria-label="项目使用情况"]')?.textContent ?? "";
+      const title = document.querySelector(".global-card-library-detail h2")?.textContent ?? "";
+      return {
+        visible: Boolean(library),
+        title,
+        usage,
+        searchValue: document.querySelector('input[placeholder="搜索名称、别名或字段"]')?.value ?? ""
+      };
+    });
+    const ok = probe.visible && probe.title === "项目B独特角色卡" && probe.usage.includes("测试项目B") && probe.searchValue === "项目B独特角色卡";
+    record("全局卡片库检索与使用项目账册", ok, JSON.stringify(probe));
+  } else {
+    record("全局卡片库检索与使用项目账册", false, "全局库未命中项目 B 卡片");
+  }
+  await page.getByRole("button", { name: "项目", exact: true }).click();
+  await page.waitForSelector(".project-home-list", { timeout: 15000 });
+
+  // ---------- 4. 未预载项目章节跳转（真实 chapter 结果） ----------
   // 给 B 的第一章改名为独特标题，搜索命中 kind=chapter 结果后点击（不用 scene 结果冒充 chapter）。
   const chapterSetup = await page.evaluate(async () => {
     const api = window.api.creation;

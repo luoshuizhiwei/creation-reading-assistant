@@ -1,5 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { BookMarked, BookOpen, Copy, Inbox as InboxIcon, Minus, Search, Settings, Square, X } from "lucide-react";
+import { BookMarked, BookOpen, Copy, Inbox as InboxIcon, Layers3, Minus, Search, Settings, Square, X } from "lucide-react";
 import { RingButton } from "@/components/interaction";
 import { useAppStore, type AppScreen } from "@/stores/app-store";
 import { useCreationStore } from "@/stores/creation-store";
@@ -49,6 +49,7 @@ function WindowControls() {
 
 const navIcons: Record<string, typeof Settings> = {
   projects: BookMarked,
+  "card-library": Layers3,
   inbox: InboxIcon,
   library: BookOpen,
   "global-search": Search,
@@ -60,6 +61,11 @@ const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: st
     eyebrow: "Creation desk",
     title: "创作项目",
     body: "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统计与版本历史。"
+  },
+  "card-library": {
+    eyebrow: "World bible",
+    title: "全局卡片库",
+    body: "跨作品复用角色、地点、组织和世界观设定；查看它们正在服务的项目。"
   },
   inbox: {
     eyebrow: "Inbox",
@@ -96,6 +102,7 @@ const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: st
 export function DesktopFrame({ children }: { children: ReactNode }) {
   const screen = useAppStore((state) => state.screen);
   const setScreen = useAppStore((state) => state.setScreen);
+  const creationFocusMode = useAppStore((state) => state.creationFocusMode);
   const setSearchOpen = useSearchStore((state) => state.setOpen);
   const projects = useCreationStore((state) => state.projects);
   const books = useLibraryStore((state) => state.books);
@@ -116,8 +123,8 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   };
 
   return (
-    <div className="desktop-root paper-shell">
-      <header className="desktop-titlebar" aria-label="窗口标题栏">
+    <div className={`desktop-root paper-shell${creationFocusMode && screen === "projects" ? " desktop-root--focus" : ""}`}>
+      <header className="desktop-titlebar" aria-label="窗口标题栏" aria-hidden={creationFocusMode && screen === "projects"}>
         <div className="desktop-titlebar-title">
           <span className="desktop-titlebar-mark">阅</span>
           <span>创作阅读助手</span>
@@ -128,6 +135,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
       <aside
         className={`desktop-sidebar ${screen === "projects" && workbenchActive ? "desktop-sidebar--rail" : ""}`}
         aria-label="桌面端主导航"
+        aria-hidden={creationFocusMode && screen === "projects"}
       >
         <RingButton
           className="desktop-brand nav-spine-item"
@@ -196,18 +204,20 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
         </section>
       </aside>
 
-      <section className="desktop-stage">
-        <header className="desktop-commandbar">
-          <div className="min-w-0">
-            <h1>{title.title}</h1>
-            <span title={title.body}>{title.body}</span>
-          </div>
-          <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索（Ctrl K）" onClick={() => setSearchOpen(true)}>
-            <Search size={17} />
-            <span>搜索项目、收件箱、资料</span>
-            <kbd>Ctrl K</kbd>
-          </RingButton>
-        </header>
+      <section className={`desktop-stage${workbenchActive && screen === "projects" ? " desktop-stage--immersive" : ""}`}>
+        {(!workbenchActive || screen !== "projects") && (
+          <header className="desktop-commandbar">
+            <div className="min-w-0">
+              <h1>{title.title}</h1>
+              <span title={title.body}>{title.body}</span>
+            </div>
+            <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索（Ctrl K）" onClick={() => setSearchOpen(true)}>
+              <Search size={17} />
+              <span>搜索项目、收件箱、资料</span>
+              <kbd>Ctrl K</kbd>
+            </RingButton>
+          </header>
+        )}
         <div className="desktop-canvas">{children}</div>
       </section>
       </div>

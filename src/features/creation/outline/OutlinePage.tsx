@@ -1,26 +1,42 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Save, X } from "lucide-react";
+import { Download, Save, X } from "lucide-react";
 import { Select, Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
+import { useUIStore } from "@/stores/ui-store";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
 import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { findChapterLocation } from "@/features/creation/outline/outline-impact";
-import type { CreationProjectOutline, ScenePlanning, StructureApplyResult } from "@/types/creation";
+import type { CreationProjectOutline, ScenePlanning, SceneStatus, StructureApplyResult } from "@/types/creation";
 
 interface OutlinePageProps {
   project: { id: string; title: string; setup: { chapterWorkflow: string[] } };
 }
 
 /** 场景任务卡表单：视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数（蓝图 §5.3）。 */
-function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id: string; planning?: ScenePlanning } | null; onSaved(): void }) {
-  const { runStructure } = useCreationActions();
+const SCENE_STATUS_OPTIONS: Array<{ value: SceneStatus; label: string }> = [
+  { value: "planned", label: "待规划" },
+  { value: "drafting", label: "起草中" },
+  { value: "revising", label: "修订中" },
+  { value: "done", label: "已完成" }
+];
+
+function ScenePlanningForm({ scene, onSaved }: {
+  projectId: string;
+  scene: { id: string; revision: number; summary?: string; status?: SceneStatus; planning?: ScenePlanning } | null;
+  onSaved(): void;
+}) {
+  const { runStructure, loadScene } = useCreationActions();
   const cards = useCreationStore((state) => state.cards);
   const [planning, setPlanning] = useState<ScenePlanning>({});
+  const [summary, setSummary] = useState("");
+  const [status, setStatus] = useState<SceneStatus>("planned");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     setPlanning({ ...(scene?.planning ?? {}) });
+    setSummary(scene?.summary ?? "");
+    setStatus(scene?.status ?? "planned");
   }, [scene]);
 
   if (!scene) {
@@ -33,9 +49,17 @@ function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id:
 
   const save = async () => {
     setSaving(true);
-    const ok = await runStructure({ type: "scene.updatePlanning", sceneId: scene.id, planning });
+    const planningOk = await runStructure({ type: "scene.updatePlanning", sceneId: scene.id, planning });
+    const metaOk = planningOk && await runStructure({
+      type: "scene.updateMeta",
+      sceneId: scene.id,
+      baseRevision: scene.revision,
+      summary,
+      status
+    });
     setSaving(false);
-    if (ok) {
+    if (metaOk) {
+      await loadScene(scene.id);
       onSaved();
     }
   };
@@ -45,6 +69,15 @@ function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id:
   return (
     <div className="scene-planning-form">
       <div className="scene-planning-grid">
+        <label className="scene-planning-full">
+          <span>场景摘要</span>
+          <textarea className={inputClass} rows={3} maxLength={2000} value={summary} onChange={(event) => setSummary(event.target.value)} placeholder="这一场发生什么、推动了什么变化？" />
+        </label>
+        <label className="scene-planning-full">
+          <span>场景状态</span>
+          <Select value={status} onChange={(event) => setStatus(event.target.value as SceneStatus)} options={SCENE_STATUS_OPTIONS} />
+          <small className="scene-status-help">场景状态独立于左侧章节工作流状态。</small>
+        </label>
         <label>
           <span>视角角色</span>
           <Select
@@ -105,7 +138,7 @@ function ScenePlanningForm({ scene, onSaved }: { projectId: string; scene: { id:
       </div>
       <div className="scene-planning-actions">
         <button type="button" className="scene-planning-save" onClick={() => void save()} disabled={saving}>
-          <Save size={13} /> {saving ? "保存中…" : "保存任务卡"}
+          <Save size={13} /> {saving ? "保存中…" : "保存场景卡"}
         </button>
       </div>
     </div>
@@ -119,8 +152,10 @@ export function OutlinePage({ project }: OutlinePageProps) {
     runStructure,
     previewStructure,
     applyStructureWithProtection,
-    revertStructure
+    revertStructure,
+    exportDraft
   } = useCreationActions();
+  const showToast = useUIStore((state) => state.showToast);
   const outlines = useCreationStore((state) => state.outlines);
   const selectedSceneId = useCreationStore((state) => state.selectedSceneId);
   const selectScene = useCreationStore((state) => state.selectScene);
@@ -128,6 +163,7 @@ export function OutlinePage({ project }: OutlinePageProps) {
   const [lastProtectedApply, setLastProtectedApply] = useState<StructureApplyResult | null>(null);
   const [revertBusy, setRevertBusy] = useState(false);
   const [revertError, setRevertError] = useState<string | null>(null);
+  const [exportingOutline, setExportingOutline] = useState(false);
 
   useEffect(() => {
     void loadOutline(project.id);
@@ -144,6 +180,10 @@ export function OutlinePage({ project }: OutlinePageProps) {
         const scene = chapter.scenes.find((item) => item.id === selectedSceneId);
         if (scene) return scene;
       }
+    }
+    for (const chapter of outline.looseChapters ?? []) {
+      const scene = chapter.scenes.find((item) => item.id === selectedSceneId);
+      if (scene) return scene;
     }
     return null;
   }, [outline, selectedSceneId]);
@@ -233,6 +273,15 @@ export function OutlinePage({ project }: OutlinePageProps) {
     [runStructureForTree]
   );
 
+  const exportMarkdownOutline = useCallback(async () => {
+    setExportingOutline(true);
+    const result = await exportDraft(project.id, "outline-markdown");
+    setExportingOutline(false);
+    if (!result.canceled && result.filePath) {
+      showToast({ tone: "success", title: "Markdown 大纲已导出", body: result.filePath });
+    }
+  }, [exportDraft, project.id, showToast]);
+
   return (
     <section className="outline-page" aria-label="大纲">
       <header className="outline-page-head">
@@ -247,6 +296,10 @@ export function OutlinePage({ project }: OutlinePageProps) {
           ariaLabel="大纲视图切换"
         />
         <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景可在右侧编辑任务卡。</p>
+        <span className="outline-book-word-count">全书 {Number(outline?.wordCount ?? 0).toLocaleString("zh-CN")} 字</span>
+        <button type="button" className="outline-export-button" disabled={!outline || exportingOutline} onClick={() => void exportMarkdownOutline()}>
+          <Download size={14} /> {exportingOutline ? "导出中…" : "导出 Markdown 大纲"}
+        </button>
       </header>
       {lastProtectedApply && (
         <div className="outline-revert-bar" role="status">
@@ -300,7 +353,13 @@ export function OutlinePage({ project }: OutlinePageProps) {
           <h3>场景任务卡</h3>
           <ScenePlanningForm
             projectId={project.id}
-            scene={selectedScene ? { id: selectedScene.id, planning: selectedScene.planning } : null}
+            scene={selectedScene ? {
+              id: selectedScene.id,
+              revision: selectedScene.revision,
+              summary: selectedScene.summary,
+              status: selectedScene.status,
+              planning: selectedScene.planning
+            } : null}
             onSaved={refresh}
           />
           {selectedScene && (

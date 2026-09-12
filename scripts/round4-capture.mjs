@@ -110,14 +110,14 @@ async function captureSettings(page, name) {
   await shot(page, name);
 }
 
-/** 通过向导创建「测试项目」（无项目时走 create-first，否则走新建项目）。 */
+/** 通过向导创建「测试项目」（项目首页工具栏「新建项目」→ 向导三步）。 */
 async function createProject(page) {
   await goto(page, "项目");
-  await page.waitForSelector(".project-home-create-first, .desktop-page-actions", { timeout: 10000 });
-  const createFirst = page.locator(".project-home-create-first").first();
-  if (await createFirst.isVisible()) await createFirst.click();
-  else await page.getByRole("button", { name: /新建项目/ }).first().click();
-  await page.waitForSelector(".creation-wizard", { timeout: 15000 });
+  await page.waitForSelector(".project-home-toolbar", { timeout: 10000 });
+  // 项目首页统一用 role/name 定位：不再依赖 .project-home-create-first 空态按钮。
+  await page.getByRole("button", { name: "新建项目" }).first().click();
+  // 向导是 role=dialog，可访问名称「新建作品」（class 为 creation-wizard-dialog）。
+  await page.getByRole("dialog", { name: "新建作品" }).waitFor({ state: "visible", timeout: 15000 });
   await page.getByRole("button", { name: /下一步/ }).click();
   await page.waitForTimeout(250);
   await page.locator(".creation-field input").first().fill("测试项目");
@@ -153,7 +153,9 @@ async function captureReader(page, theme, format) {
   await goto(page, "资料阅读");
   await page.waitForSelector(".desktop-library-row", { timeout: 10000 });
   await page.locator(`.desktop-library-row[data-format="${format}"]`).first().click();
-  await page.waitForSelector("header.paper-topbar", { timeout: 20000 });
+  // 顶部栏按阅读器区分：TXT/Markdown 走 ReaderTopNav（header.reader-topbar），
+  // EPUB 走 EpubReaderToolbar（header.paper-topbar）。
+  await page.waitForSelector(format === "epub" ? "header.paper-topbar" : "header.reader-topbar", { timeout: 20000 });
   if (format === "epub") {
     await page.waitForSelector("iframe", { timeout: 30000 }).catch(() => {});
     await page.waitForTimeout(4000);
@@ -186,8 +188,8 @@ async function tourDialogs(page, theme) {
   await page.getByTestId("replace-panel-close").click();
   await page.waitForTimeout(400);
 
-  // 校对（该面板不响应 Escape，用其自带关闭按钮）
-  await page.getByRole("button", { name: /校对/ }).first().click();
+  // 校对（可见文案「校对」，可访问名称「本地校对」；该面板不响应 Escape，用其自带关闭按钮）
+  await page.getByRole("button", { name: "本地校对" }).first().click();
   await page.waitForTimeout(700);
   await shot(page, t("dialog-proof"));
   await page.getByRole("button", { name: "关闭校对" }).click();
@@ -241,8 +243,8 @@ async function main() {
     await tourView(page, "概览", ".overview-page", `1440x900-${theme}-overview`);
     await tourView(page, "写作", ".writing-desk", `1440x900-${theme}-writing`);
     await tourView(page, "大纲", ".outline-page", `1440x900-${theme}-outline`);
-    await tourView(page, "卡片", ".cards-page", `1440x900-${theme}-cards`);
-    await tourView(page, "统计", ".stats-page", `1440x900-${theme}-project-stats`);
+    await tourView(page, "设定卡", ".cards-page", `1440x900-${theme}-cards`);
+    await tourView(page, "写作统计", ".stats-page", `1440x900-${theme}-project-stats`);
     await tourView(page, "版本历史", ".history-page", `1440x900-${theme}-history`);
   };
 

@@ -227,6 +227,63 @@
   border-color: var(--accent, #3a6ea5);
 }
 
+.project-card-link-note,
+.project-card-link-empty {
+  margin: 0;
+  color: var(--paper-muted, var(--text-dim, #6b6b78));
+  font-size: 13px;
+  line-height: 1.6;
+}
+
+.project-card-link-filters {
+  display: flex;
+  gap: 8px;
+  margin: 14px 0 10px;
+}
+
+.project-card-link-filters .cards-search {
+  flex: 1;
+}
+
+.project-card-link-list {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.project-card-link-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--paper-line, var(--border, #d8d8e0));
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.project-card-link-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.project-card-link-list strong { color: var(--paper-ink, var(--text, #2a2a33)); }
+.project-card-link-list span { color: var(--paper-muted, var(--text-dim, #6b6b78)); font-size: 12px; }
+
+.project-card-link-status {
+  flex: 0 0 auto;
+  border-radius: 999px;
+  background: var(--paper-soft, #f4f4fa);
+  padding: 4px 8px;
+}
+
+@media (max-width: 560px) {
+  .project-card-link-filters { flex-direction: column; }
+  .project-card-link-list li { align-items: flex-start; flex-direction: column; }
+}
+
 .cards-milestone-form {
   margin: 8px 0;
 }
@@ -249,4 +306,310 @@
   background: #c0392b;
   color: #fff;
   border-color: #c0392b;
+}
+
+/* 全局卡片库：以世界观索引和作品使用账册区分于项目内的设定卡工作台。 */
+.global-card-library-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.global-card-library-heading p {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0;
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.global-card-library-layout {
+  grid-template-columns: minmax(250px, 0.72fr) minmax(0, 1.28fr);
+}
+
+.global-card-library-detail {
+  max-width: 760px;
+}
+
+.global-card-library-detail h2,
+.global-card-library-empty h2 {
+  margin: 2px 0 0;
+  color: var(--paper-ink);
+  font-family: var(--font-serif, Georgia, serif);
+  font-size: 24px;
+  font-weight: 650;
+}
+
+.global-card-library-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.global-card-library-edit:hover {
+  border-color: var(--studio-seal, var(--copper));
+  color: var(--studio-seal, var(--copper));
+}
+
+.global-card-library-delete,
+.global-card-library-trash {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.global-card-library-delete {
+  border-color: color-mix(in srgb, #b13a31 48%, var(--paper-line));
+  color: #a8322b;
+}
+
+.global-card-library-delete:hover {
+  border-color: #b13a31;
+  background: color-mix(in srgb, #b13a31 8%, var(--paper-panel));
+}
+
+.global-card-library-trash:hover {
+  border-color: var(--studio-seal, var(--copper));
+  color: var(--studio-seal, var(--copper));
+}
+
+.global-card-library-usage {
+  border-top: 1px solid var(--border-subtle, var(--paper-line));
+  border-bottom: 1px solid var(--border-subtle, var(--paper-line));
+  padding: 13px 0;
+}
+
+.global-card-library-usage header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--paper-ink);
+}
+
+.global-card-library-usage header span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.global-card-library-usage header strong {
+  min-width: 28px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--studio-seal, var(--copper)) 12%, transparent);
+  color: var(--studio-seal, var(--copper));
+  padding: 3px 8px;
+  text-align: center;
+  font-size: 12px;
+}
+
+.global-card-library-usage p,
+.global-card-library-policy {
+  margin: 9px 0 0;
+  color: var(--paper-muted);
+  font-size: 12px;
+  line-height: 1.65;
+}
+
+.global-card-library-assets {
+  border-bottom: 1px solid var(--border-subtle, var(--paper-line));
+  padding: 13px 0;
+}
+
+.global-card-library-assets header,
+.global-card-library-assets li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.global-card-library-assets header > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-ink);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.global-card-library-asset-actions { display: flex; gap: 6px; }
+
+.global-card-library-assets button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 7px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  padding: 5px 9px;
+  cursor: pointer;
+}
+
+.global-card-library-assets button.confirming {
+  border-color: #b13a31;
+  background: #b13a31;
+  color: #fff;
+}
+
+.global-card-library-assets > p {
+  margin: 9px 0 0;
+  color: var(--paper-muted);
+  font-size: 12px;
+}
+
+.global-card-library-assets ul {
+  display: grid;
+  gap: 7px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.global-card-library-assets li {
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  padding: 8px 9px;
+}
+
+.global-card-library-assets li > div { display: grid; gap: 2px; min-width: 0; }
+.global-card-library-assets li strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.global-card-library-assets li span { color: var(--paper-muted); font-size: 11px; }
+
+.global-card-library-usage ul {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.global-card-library-usage li {
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 4px 9px;
+  color: var(--paper-ink);
+  font-size: 12px;
+}
+
+.global-card-library-policy {
+  border-left: 2px solid var(--studio-seal, var(--copper));
+  padding-left: 9px;
+}
+
+.global-card-delete-impact,
+.global-card-trash-list {
+  margin: 12px 0;
+  padding: 0;
+  list-style: none;
+}
+
+.global-card-delete-impact {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 7px;
+}
+
+.global-card-delete-impact li {
+  border: 1px solid var(--paper-line);
+  border-radius: 8px;
+  background: var(--paper-soft, var(--surface-alt));
+  color: var(--paper-ink);
+  padding: 8px 10px;
+  font-size: 13px;
+}
+
+.global-card-trash-list {
+  display: grid;
+  gap: 8px;
+}
+
+.global-card-trash-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border: 1px solid var(--paper-line);
+  border-radius: 9px;
+  padding: 10px 12px;
+}
+
+.global-card-trash-list li > div {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.global-card-trash-list strong {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--paper-ink);
+}
+
+.global-card-trash-list span {
+  color: var(--paper-muted);
+  font-size: 11px;
+}
+
+.global-card-trash-list button {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 7px;
+  background: var(--paper-panel);
+  color: var(--paper-ink);
+  padding: 6px 9px;
+  cursor: pointer;
+}
+
+.global-card-library-empty {
+  align-content: center;
+  justify-items: start;
+  min-height: 300px;
+}
+
+.global-card-library-empty p {
+  max-width: 390px;
+  margin: 0;
+  color: var(--paper-muted);
+  line-height: 1.65;
+}
+
+@media (max-width: 900px) {
+  .global-card-library-toolbar {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .global-card-library-toolbar .cards-toolbar-right {
+    flex-wrap: wrap;
+  }
+
+  .global-card-library-layout {
+    grid-template-columns: minmax(220px, 0.7fr) minmax(0, 1.3fr);
+  }
+}
+
+@media (max-width: 560px) {
+  .global-card-delete-impact { grid-template-columns: 1fr; }
+  .global-card-trash-list li { align-items: flex-start; flex-direction: column; }
 }

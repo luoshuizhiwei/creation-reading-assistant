@@ -42,7 +42,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
   };
 
   const editType = (type: RelationType) => {
-    if (type.projectId === null) return;
+    if (type.builtIn) return;
     setEditingType(type);
     setForwardName(type.forwardName);
     setReverseName(type.reverseName);
@@ -55,7 +55,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
   const impactFor = (type: RelationType) => relations.filter((relation) => relation.relationTypeId === type.id).length;
 
   const deleteType = async (type: RelationType) => {
-    if (type.projectId === null || impactFor(type) > 0) return;
+    if (type.builtIn || impactFor(type) > 0) return;
     if (confirmingDeleteId !== type.id) {
       setConfirmingDeleteId(type.id);
       return;
@@ -141,7 +141,7 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
             <section className="cards-type-list" aria-label="现有关系类型">
               {relationTypes.map((type) => {
                 const impact = impactFor(type);
-                const builtin = type.projectId === null;
+                const builtin = type.builtIn;
                 return (
                   <article key={type.id} className="cards-type-list-item">
                     <div>

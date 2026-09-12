@@ -35,7 +35,7 @@ assertIncludes("src/features/library/ExcerptPicker.tsx", "全局收件箱", "Exc
 assertIncludes("src/features/library/ExcerptPicker.tsx", "项目资料卡", "ExcerptPicker must offer saving excerpts to a project card.");
 
 // 阅读端接入 ExcerptPicker（不再走"查看灵感"）。
-assertIncludes("src/features/library/ReaderPage.tsx", "ExcerptPicker", "Text/Markdown reader must integrate ExcerptPicker for excerpt destination.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "ExcerptPicker", "Text/Markdown reader must integrate ExcerptPicker for excerpt destination.");
 assertIncludes("src/features/library/EpubReaderPage.tsx", "ExcerptPicker", "EPUB reader must integrate ExcerptPicker for excerpt destination.");
 
 // 兼容跳转层：InspirationPage 已并入全局收件箱，不再是灵感管理主入口。

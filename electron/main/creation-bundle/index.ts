@@ -5,6 +5,7 @@ import { OperationCancelledError } from "../operation";
 import type { OperationController } from "../operation";
 import type {
   ProjectBundleData,
+  ProjectBundleCardResolution,
   ProjectBundleImportCommand,
   ProjectBundleImportResult,
   ProjectBundleResourceFile
@@ -52,6 +53,8 @@ export interface ImportProjectBundleOptions {
   bundleDirectory: string;
   /** 真正的 DB 导入命令（协调器 withWorkspace 包裹）。 */
   transact: (command: ProjectBundleImportCommand) => Promise<ProjectBundleImportResult>;
+  /** 经只读预检确认的稳定 ID 处理；文件路径与数据库映射必须共用。 */
+  cardResolutions?: ProjectBundleCardResolution[];
   /** 长任务协调器控制器：在可中断阶段检查取消并上报进度。 */
   operation?: OperationController;
 }
@@ -297,7 +300,7 @@ export async function exportProjectBundleDirectory(options: ExportProjectBundleO
  * DB 失败统一删除已落盘文件，保证零残留。
  */
 export async function importProjectBundleDirectory(options: ImportProjectBundleOptions): Promise<ProjectBundleImportResult> {
-  const { workspaceDirectory, bundleDirectory, transact, operation } = options;
+  const { workspaceDirectory, bundleDirectory, transact, operation, cardResolutions = [] } = options;
   operation?.setPhase("validating");
   let bundleRootInfo;
   try {
@@ -421,11 +424,16 @@ export async function importProjectBundleDirectory(options: ImportProjectBundleO
   }
 
   const targetProjectId = `project-${randomUUID()}`;
+  const cardResolutionMap = new Map(cardResolutions.map((resolution) => [resolution.cardId, resolution]));
   const resourceFiles: ProjectBundleResourceFile[] = resources.map((resource) => ({
     relativePath: resource.relativePath,
-    targetRelativePath: `resources/${targetProjectId}/${randomUUID()}-${safeBasename(resource.originalName ?? resource.relativePath)}`,
+    targetRelativePath: resource.ownerScope === "card" && resource.cardId
+      ? `resources/cards/${cardResolutionMap.get(resource.cardId)?.targetCardId ?? resource.cardId}/${randomUUID()}-${safeBasename(resource.originalName ?? resource.relativePath)}`
+      : `resources/${targetProjectId}/${randomUUID()}-${safeBasename(resource.originalName ?? resource.relativePath)}`,
     sha256: resource.sha256.toLowerCase(),
-    size: Number(resource.size)
+    size: Number(resource.size),
+    skip: resource.ownerScope === "card" && resource.cardId !== null &&
+      (cardResolutionMap.get(resource.cardId)?.action === "reuse" || cardResolutionMap.get(resource.cardId)?.action === "keep-local")
   }));
 
   const staging = path.join(workspaceDirectory, `.bundle-import-${randomUUID()}`);
@@ -445,6 +453,7 @@ export async function importProjectBundleDirectory(options: ImportProjectBundleO
     await mkdir(staging, { recursive: true });
     for (const file of resourceFiles) {
       operation?.throwIfCancelled();
+      if (file.skip) continue;
       const sourcePath = path.join(bundleDirectory, "resources", stripResourcesPrefix(file.relativePath));
       const stagedPath = path.join(staging, file.targetRelativePath);
       await mkdir(path.dirname(stagedPath), { recursive: true });
@@ -479,7 +488,8 @@ export async function importProjectBundleDirectory(options: ImportProjectBundleO
       type: "project.bundle.import",
       data,
       targetProjectId,
-      resourceFiles
+      resourceFiles,
+      cardResolutions
     });
   } catch (error) {
     await cleanupPlacedFiles();

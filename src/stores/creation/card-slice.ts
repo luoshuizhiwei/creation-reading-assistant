@@ -1,11 +1,12 @@
 import type { StateCreator } from "zustand";
-import type { CardRelation, CardSummary, CardType, RelationType } from "@/types/creation";
+import type { CardLinkResult, CardRelation, CardSummary, CardType, RelationType } from "@/types/creation";
 
 export interface CardSliceState {
   cardTypes: CardType[];
   relationTypes: RelationType[];
   cards: CardSummary[];
-  cardProjectId?: string;
+  /** null 表示全局卡片库；字符串表示项目关联视图。 */
+  cardProjectId: string | null | undefined;
   cardRelations: Record<string, { outgoing: CardRelation[]; incoming: CardRelation[] }>;
   selectedCardId?: string;
   cardsLoading: boolean;
@@ -13,16 +14,18 @@ export interface CardSliceState {
 
 export interface CardSliceActions {
   activateCardProject: (projectId: string) => void;
-  setCardTypes: (projectId: string, cardTypes: CardType[]) => void;
-  setRelationTypes: (projectId: string, relationTypes: RelationType[]) => void;
-  setCards: (projectId: string, cards: CardSummary[]) => void;
+  activateGlobalCards: () => void;
+  setCardTypes: (cardTypes: CardType[]) => void;
+  setRelationTypes: (relationTypes: RelationType[]) => void;
+  setCards: (projectId: string | null, cards: CardSummary[]) => void;
   setCardRelations: (
-    projectId: string,
+    projectId: string | null,
     cardId: string,
     relations: { outgoing: CardRelation[]; incoming: CardRelation[] }
   ) => void;
   selectCard: (cardId?: string) => void;
-  setCardsLoading: (projectId: string, cardsLoading: boolean) => void;
+  setCardsLoading: (projectId: string | null, cardsLoading: boolean) => void;
+  applyCardLinkResult: (result: CardLinkResult) => void;
 }
 
 export type CardSlice = CardSliceState & CardSliceActions;
@@ -46,18 +49,26 @@ export const createCardSlice: StateCreator<any, [], [], CardSlice> = (set) => ({
         ? state
         : {
             cardProjectId: projectId,
-            cardTypes: [],
-            relationTypes: [],
             cards: [],
             cardRelations: {},
             selectedCardId: undefined,
             cardsLoading: false
           }
     ),
-  setCardTypes: (projectId, cardTypes) =>
-    set((state: CardSliceState) => (state.cardProjectId === projectId ? { cardTypes } : state)),
-  setRelationTypes: (projectId, relationTypes) =>
-    set((state: CardSliceState) => (state.cardProjectId === projectId ? { relationTypes } : state)),
+  activateGlobalCards: () =>
+    set((state: CardSliceState) =>
+      state.cardProjectId === null
+        ? state
+        : {
+            cardProjectId: null,
+            cards: [],
+            cardRelations: {},
+            selectedCardId: undefined,
+            cardsLoading: false
+          }
+    ),
+  setCardTypes: (cardTypes) => set({ cardTypes }),
+  setRelationTypes: (relationTypes) => set({ relationTypes }),
   setCards: (projectId, cards) =>
     set((state: CardSliceState) => (state.cardProjectId === projectId ? { cards } : state)),
   setCardRelations: (projectId, cardId, relations) =>
@@ -68,5 +79,17 @@ export const createCardSlice: StateCreator<any, [], [], CardSlice> = (set) => ({
     ),
   selectCard: (selectedCardId) => set({ selectedCardId }),
   setCardsLoading: (projectId, cardsLoading) =>
-    set((state: CardSliceState) => (state.cardProjectId === projectId ? { cardsLoading } : state))
+    set((state: CardSliceState) => (state.cardProjectId === projectId ? { cardsLoading } : state)),
+  applyCardLinkResult: (result) =>
+    set((state: CardSliceState) => ({
+      cards: state.cards
+        .map((card) => {
+          if (card.id !== result.cardId) return card;
+          const linkedProjectIds = result.linked
+            ? [...new Set([...card.linkedProjectIds, result.projectId])].sort()
+            : card.linkedProjectIds.filter((projectId) => projectId !== result.projectId);
+          return { ...card, linkedProjectIds, usageCount: result.usageCount };
+        })
+        .filter((card) => state.cardProjectId === null || card.id !== result.cardId || result.linked)
+    }))
 });

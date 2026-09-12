@@ -13,7 +13,11 @@ import { registerCreationIpc } from "./creation-ipc";
 import { createOperationCoordinator } from "./operation/coordinator";
 import { registerOperationIpc, disposeAllOperations } from "./operation/ipc";
 import { BackupError, createBackupSnapshot, readBackupManifest, restoreBackupFromDirectory } from "./backup";
-import { openCreationWorkspace } from "./creation-workspace";
+import {
+  openCreationWorkspace,
+  type ProjectBundleData
+} from "./creation-workspace";
+import type { ProjectBundleCardResolution, ProjectBundleImportPreview } from "../../src/types/creation";
 import {
   AutoBackupError,
   assertSafeExistingBackupTarget,
@@ -3545,6 +3549,50 @@ function createWindow(): void {
   });
 }
 
+async function resolveBundleCardConflicts(
+  preview: ProjectBundleImportPreview
+): Promise<ProjectBundleCardResolution[] | null> {
+  const cardResolutions: ProjectBundleCardResolution[] = preview.identicalCardIds.map((cardId) => ({
+    cardId,
+    action: "reuse"
+  }));
+  for (const conflict of preview.conflicts) {
+    const buttons = conflict.localDeleted
+      ? ["取消导入", "导入副本"]
+      : ["取消导入", "保留本机", "导入副本"];
+    const detail = [
+      `稳定 ID：${conflict.cardId}`,
+      `本机：${conflict.localTitle}${conflict.localDeleted ? "（在回收站）" : ""}`,
+      `项目包：${conflict.importedTitle}`,
+      `差异：${conflict.differingFields.join("、") || "未知"}`,
+      "保留本机会让新项目关联现有卡片；导入副本会创建新稳定 ID 并重映射场景、关系、批注和附件。"
+    ].join("\n");
+    const options = {
+      type: "warning" as const,
+      buttons,
+      defaultId: 0,
+      cancelId: 0,
+      title: "全局卡片冲突",
+      message: `卡片“${conflict.importedTitle}”与本机内容不同。`,
+      detail
+    };
+    const choice = mainWindow
+      ? await dialog.showMessageBox(mainWindow, options)
+      : await dialog.showMessageBox(options);
+    if (choice.response === 0) return null;
+    if (!conflict.localDeleted && choice.response === 1) {
+      cardResolutions.push({ cardId: conflict.cardId, action: "keep-local" });
+    } else {
+      cardResolutions.push({
+        cardId: conflict.cardId,
+        action: "import-copy",
+        targetCardId: `card-${crypto.randomUUID()}`
+      });
+    }
+  }
+  return cardResolutions;
+}
+
 function registerIpc(): void {
   ipcMain.handle("window:minimize", () => {
     mainWindow?.minimize();
@@ -3731,6 +3779,7 @@ function registerIpc(): void {
   // 恢复后设置回写等主进程副作用收口到 index.ts，operation IPC 只负责调度 runner。
   registerOperationIpc(operationCoordinator, {
     resolveDataRoot: () => appDataRoot(),
+    resolveCreationWorkspaceRoot: () => path.join(appDataRoot(), "CreationWorkspace"),
     resolveLibraryRoot: () => appLibraryRoot(),
     appVersion: app.getVersion(),
     platform: process.platform,
@@ -3795,7 +3844,27 @@ function registerIpc(): void {
       writeRuntimeStateSync(true);
       await writeLog("warn", "Restore completed via operation.", { backupRoot });
     },
-    pickBundleImportDirectory: async () => chooseDirectory("选择项目包导入目录"),
+    prepareBundleImport: async () => {
+      const bundleDirectory = await chooseDirectory("选择项目包导入目录");
+      if (!bundleDirectory) return null;
+      let data: ProjectBundleData;
+      try {
+        data = JSON.parse(await readFile(path.join(bundleDirectory, "project.json"), "utf8")) as ProjectBundleData;
+      } catch {
+        throw new Error("项目包 project.json 无法解析。");
+      }
+      const workspaceDirectory = path.join(appDataRoot(), "CreationWorkspace");
+      const workspace = await openCreationWorkspace({ directory: workspaceDirectory });
+      let preview;
+      try {
+        preview = await workspace.previewProjectBundleImport(data);
+      } finally {
+        await workspace.close();
+      }
+      const cardResolutions = await resolveBundleCardConflicts(preview);
+      if (cardResolutions === null) return null;
+      return { workspaceDirectory, bundleDirectory, cardResolutions };
+    },
     prepareBackupExportEncrypted: async () => {
       const targetFile = await chooseSaveFile(
         "保存加密备份",
@@ -3822,11 +3891,12 @@ function registerIpc(): void {
       );
       if (!targetFile) return null;
       // 读取项目包导出数据需要打开工作区；读取完成后关闭，避免与后续文件复制冲突。
-      const workspace = await openCreationWorkspace({ directory: appDataRoot() });
+      const workspaceDirectory = path.join(appDataRoot(), "CreationWorkspace");
+      const workspace = await openCreationWorkspace({ directory: workspaceDirectory });
       try {
         const data = await workspace.read({ kind: "project.bundle.export", projectId });
         if (!data) return null;
-        return { workspaceDirectory: appDataRoot(), data, targetFile };
+        return { workspaceDirectory, data, targetFile };
       } finally {
         await workspace.close();
       }
@@ -3835,6 +3905,7 @@ function registerIpc(): void {
       const containerFile = await chooseEncryptedContainer("选择加密项目包容器", ["crbundle"]);
       return containerFile ? { containerFile } : null;
     },
+    resolveBundleCardConflicts,
     finalizeEncryptedBackupRestore: async () => {
       const restoredSettings = normalizeAppSettings(
         await readJson<unknown>(appSettingsPath(), defaultAppSettings()),
@@ -3855,11 +3926,12 @@ function registerIpc(): void {
       const targetDirectory = await chooseDirectory("选择项目包导出目录");
       if (!targetDirectory) return null;
       // 读取项目包导出数据需要打开工作区；读取完成后关闭，避免与后续文件复制冲突。
-      const workspace = await openCreationWorkspace({ directory: appDataRoot() });
+      const workspaceDirectory = path.join(appDataRoot(), "CreationWorkspace");
+      const workspace = await openCreationWorkspace({ directory: workspaceDirectory });
       try {
         const data = await workspace.read({ kind: "project.bundle.export", projectId });
         if (!data) return null;
-        return { workspaceDirectory: appDataRoot(), data, targetDirectory };
+        return { workspaceDirectory, data, targetDirectory };
       } finally {
         await workspace.close();
       }

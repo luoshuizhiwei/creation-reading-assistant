@@ -5,6 +5,7 @@ import { render, screen, cleanup, fireEvent, waitFor, act } from "@testing-libra
 import { WritingDesk } from "@/features/creation/editor/WritingDesk";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
+import { useAppStore } from "@/stores/app-store";
 import type { SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { Annotation, CreationProjectNavigation, CreationProjectSummary, SceneBodyView } from "@/types/creation";
 
@@ -23,6 +24,25 @@ const actions = vi.hoisted(() => ({
   loadCards: vi.fn(async () => undefined),
   loadCardTypes: vi.fn(async () => undefined),
   loadProjectExport: vi.fn(async () => undefined)
+}));
+
+const aiService = vi.hoisted(() => ({
+  getAISettings: vi.fn(async () => ({
+    provider: "openai-compatible" as const,
+    baseUrl: "https://example.invalid/v1",
+    model: "acceptance-model",
+    temperature: 0.2,
+    hasApiKey: true,
+    enabled: true
+  })),
+  runAIAction: vi.fn()
+}));
+
+const quickReferenceService = vi.hoisted(() => ({
+  cardsList: vi.fn(async () => []),
+  cardTypesList: vi.fn(async () => []),
+  cardRead: vi.fn(async () => null),
+  cardLink: vi.fn(async () => ({ linked: true }))
 }));
 
 vi.mock("@/hooks/useCreationActions", () => ({
@@ -45,7 +65,17 @@ vi.mock("@/hooks/useCreationActions", () => ({
 
 // reanchorAnnotation 在 WritingDesk 内就地包装自服务的 annotationReanchor（useCreationActions 未导出该函数）。
 vi.mock("@/services/creation-service", () => ({
-  annotationReanchor: actions.reanchorAnnotation
+  annotationReanchor: actions.reanchorAnnotation,
+  runStructure: actions.runStructure,
+  cardsList: quickReferenceService.cardsList,
+  cardTypesList: quickReferenceService.cardTypesList,
+  cardRead: quickReferenceService.cardRead,
+  cardLink: quickReferenceService.cardLink
+}));
+
+vi.mock("@/services/ai-service", () => ({
+  getAISettings: aiService.getAISettings,
+  runAIAction: aiService.runAIAction
 }));
 
 interface StubProps {
@@ -63,12 +93,13 @@ interface StubProps {
 
 const editorControl = vi.hoisted(() => ({
   selection: null as SceneSelection | null,
-  composing: false
+  composing: false,
+  focus: vi.fn()
 }));
 
 vi.mock("@/features/creation/editor/SceneEditor", async () => {
   const ReactActual = await vi.importActual<typeof import("react")>("react");
-  const Stub = ReactActual.forwardRef<{ isDirty: () => boolean; saveNow: () => Promise<boolean>; getSelection: () => SceneSelection | null; isComposing: () => boolean }, StubProps>(
+  const Stub = ReactActual.forwardRef<{ isDirty: () => boolean; saveNow: () => Promise<boolean>; getSelection: () => SceneSelection | null; isComposing: () => boolean; focus: () => void }, StubProps>(
     (props, ref) => {
       const [text, setText] = ReactActual.useState(() => props.view?.body.content?.[0]?.content?.[0]?.text ?? "");
       const dirty = ReactActual.useRef(false);
@@ -82,7 +113,8 @@ vi.mock("@/features/creation/editor/SceneEditor", async () => {
           return Boolean(ok);
         },
         getSelection: () => editorControl.selection ?? selectionRef.current,
-        isComposing: () => editorControl.composing
+        isComposing: () => editorControl.composing,
+        focus: editorControl.focus
       }));
       const reportSelection = (selection: SceneSelection | null) => {
         selectionRef.current = selection;
@@ -121,7 +153,12 @@ vi.mock("@/features/creation/editor/SceneEditor", async () => {
               selectedText: "选中文字",
               collapsed: false
             })
-        })
+        }),
+        ReactActual.createElement("button", {
+          "aria-label": "专注模式",
+          "aria-pressed": props.focusMode,
+          onClick: props.onToggleFocusMode
+        }, "专注")
       );
     }
   );
@@ -198,6 +235,7 @@ function resetStores(options: { cards?: unknown[]; sceneViews?: Record<string, S
     setLeaveGuard: vi.fn()
   });
   useUIStore.setState({ toasts: [], showToast: vi.fn() });
+  useAppStore.setState({ creationFocusMode: false });
 }
 
 beforeEach(() => {
@@ -219,6 +257,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   editorControl.selection = null;
   editorControl.composing = false;
+  editorControl.focus.mockClear();
   resetStores({ sceneViews: { "scene-a": viewOf("scene-a", "A 初稿") } });
   actions.loadScene.mockImplementation(async (id: string) => {
     const v = viewOf(id, `${id} 初稿`);
@@ -233,6 +272,45 @@ function mountDesk() {
   render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
   fireEvent.click(screen.getByRole("tab", { name: "批注与引用" }));
 }
+
+describe("WritingDesk 写作速查与场景 AI 入口", () => {
+  it("Ctrl+Shift+K 打开与关闭速查面板，关闭后焦点返回正文", async () => {
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    fireEvent.keyDown(window, { key: "K", ctrlKey: true, shiftKey: true });
+    expect(await screen.findByRole("complementary", { name: "写作速查" })).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "K", ctrlKey: true, shiftKey: true });
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "写作速查" })).toBeNull());
+    await waitFor(() => expect(editorControl.focus).toHaveBeenCalled());
+  });
+
+  it("从默认场景雷达点击润色时直接显示发送确认，并包含速查上下文分组能力", async () => {
+    resetStores({
+      cards: [card("c1", "p1", "苏青")],
+      sceneViews: { "scene-a": viewOf("scene-a", "正文") }
+    });
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    const polish = await screen.findByRole("button", { name: /润色场景/ });
+    await waitFor(() => expect((polish as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(polish);
+
+    expect(await screen.findByRole("dialog", { name: "AI 发送确认" })).toBeTruthy();
+    expect(screen.getByRole("list", { name: "将发送的内容分组" })).toBeTruthy();
+  });
+
+  it("专注模式提升到应用状态并由 Escape 退出后恢复正文焦点", async () => {
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "专注模式" }));
+    expect(useAppStore.getState().creationFocusMode).toBe(true);
+    expect(await screen.findByText("Esc 退出专注")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(useAppStore.getState().creationFocusMode).toBe(false);
+    await waitFor(() => expect(editorControl.focus).toHaveBeenCalled());
+  });
+});
 
 describe("WritingDesk 真实选区与 @ 卡片引用", () => {
   it("@ 触发打开当前项目卡片搜索；主名称命中", async () => {
@@ -492,5 +570,56 @@ describe("WritingDesk 真实选区与 @ 卡片引用", () => {
     expect(dialog.textContent).toContain("选中「保留选择」");
     expect(dialog.textContent).toContain("批注可能已被其他操作修改");
     expect(actions.loadAnnotations).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("场景雷达批注同步（外部编排在挂载后写入）", () => {
+  const foreshadowCard = {
+    id: "card-mystery",
+    projectId: "p1",
+    kind: "foreshadow",
+    title: "无名的借书卡",
+    aliases: [],
+    fields: { status: "未回收" },
+    tags: [],
+    createdAt: "",
+    updatedAt: "",
+    revision: 1
+  };
+
+  function foreshadowAnnotation(): Annotation {
+    return {
+      id: "a-foreshadow",
+      projectId: "p1",
+      sceneId: "scene-a",
+      cardId: "card-mystery",
+      anchor: { blockIndex: 0, textOffset: 0, textLength: 2 },
+      anchorInvalid: false,
+      note: "伏笔埋设：黑伞主人的身份线索。",
+      status: "open",
+      anchoredText: "正文",
+      revision: 1,
+      createdAt: "",
+      updatedAt: ""
+    };
+  }
+
+  it("workspace 提交（导航对象刷新）后重读当前场景批注，伏笔「未回收」chip 出现", async () => {
+    // 首读为空：演示项目先挂载写作台，批注随后才逐条提交落库。
+    actions.loadAnnotations.mockResolvedValueOnce([]);
+    resetStores({ cards: [foreshadowCard], sceneViews: { "scene-a": viewOf("scene-a", "正文") } });
+    render(<WritingDesk projects={[project]} project={project} navigation={navigation} onSelectProject={() => {}} />);
+
+    await waitFor(() => expect(actions.loadAnnotations).toHaveBeenCalledTimes(1));
+    expect(document.querySelector(".scene-radar-tag.foreshadow-open")).toBeNull();
+
+    // 外部编排完成批注提交；subscribeProject 会因该事件刷新项目导航对象。
+    actions.loadAnnotations.mockResolvedValue([foreshadowAnnotation()]);
+    await act(async () => {
+      useCreationStore.getState().setNavigation("p1", navigation);
+    });
+
+    await waitFor(() => expect(document.querySelector(".scene-radar-tag.foreshadow-open")).not.toBeNull());
+    expect(actions.loadAnnotations).toHaveBeenCalledTimes(2);
   });
 });

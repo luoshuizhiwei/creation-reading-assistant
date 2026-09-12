@@ -70,7 +70,7 @@ function makeCard(projectId: string, id: string, kind: string, title: string): C
 }
 
 function makeType(id: string, kind: string, name: string, fields: CardType["fields"]): CardType {
-  return { id, projectId: null, kind, name, fields, sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 };
+  return { id, projectId: null, builtIn: true, kind, name, fields, sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 };
 }
 
 const p1 = makeProject("p1", "项目A");
@@ -110,6 +110,7 @@ beforeEach(() => {
   vi.mocked(creationService.relationTypesList).mockReset();
   vi.mocked(creationService.cardRelations).mockReset();
   vi.mocked(creationService.resourceList).mockReset();
+  vi.mocked(creationService.detachResource).mockReset();
   vi.mocked(creationService.watchProject).mockReset();
   vi.mocked(creationService.runStructure).mockReset();
   vi.mocked(creationService.cardsList).mockResolvedValue([aCard]);
@@ -117,6 +118,7 @@ beforeEach(() => {
   vi.mocked(creationService.relationTypesList).mockResolvedValue([]);
   vi.mocked(creationService.cardRelations).mockResolvedValue({ outgoing: [], incoming: [] });
   vi.mocked(creationService.resourceList).mockResolvedValue([]);
+  vi.mocked(creationService.detachResource).mockResolvedValue(true);
   vi.mocked(creationService.watchProject).mockResolvedValue(() => {});
   vi.mocked(creationService.runStructure).mockResolvedValue(true);
 });
@@ -140,5 +142,27 @@ describe("附件字段不写入绝对路径", () => {
     const inputs = Array.from(container.querySelectorAll(".cards-form input")) as HTMLInputElement[];
     const suspicious = inputs.filter((input) => /[\\/]|[A-Za-z]:\\/.test(input.value));
     expect(suspicious).toHaveLength(0);
+  });
+
+  it("项目视图只展示全局资产来源，不提供移除入口", async () => {
+    vi.mocked(creationService.resourceList).mockResolvedValue([{
+      id: "global-cover",
+      projectId: null,
+      cardId: "card-a",
+      ownerScope: "card",
+      role: "cover",
+      relativePath: "resources/cards/card-a/cover.png",
+      sha256: "a".repeat(64),
+      size: 1024,
+      originalName: "cover.png",
+      createdAt: "2026-09-11T00:00:00.000Z"
+    }]);
+
+    render(<CardsPage project={p1} />);
+
+    expect(await screen.findByText("全局资产")).toBeDefined();
+    expect(screen.getByText("请在卡片库管理")).toBeDefined();
+    expect(screen.queryByRole("button", { name: /移除/ })).toBeNull();
+    expect(creationService.detachResource).not.toHaveBeenCalled();
   });
 });

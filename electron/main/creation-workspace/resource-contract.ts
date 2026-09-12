@@ -36,6 +36,8 @@ async function run(): Promise<void> {
     let projectId = "";
     let cardId = "";
     let resourceId = "";
+    let globalResourceId = "";
+    let coverResourceId = "";
     const payload = "附件内容";
     const sha256 = createHash("sha256").update(payload).digest("hex");
 
@@ -115,6 +117,44 @@ async function run(): Promise<void> {
       });
     });
 
+    await scenario("全局卡片附件不绑定项目，并投影到所有关联项目", async () => {
+      await withWorkspace(path.join(parent, "ws"), async (workspace) => {
+        const other = await workspace.transact({ type: "project.create", title: "共享目标" });
+        await workspace.transact({ type: "card.link", projectId: other.projectId, cardId });
+        const result = await workspace.transact({
+          type: "resource.attach",
+          cardId,
+          relativePath: `resources/cards/${cardId}/shared.txt`,
+          sha256,
+          size: Buffer.byteLength(payload),
+          originalName: "共享设定.txt"
+        });
+        globalResourceId = result.resourceId;
+        const global = (await workspace.read({ kind: "resource.list", cardId })) as ResourceInfo[];
+        assert.equal(global.length, 1);
+        assert.equal(global[0]!.projectId, null);
+        assert.equal(global[0]!.ownerScope, "card");
+        const originalProjection = (await workspace.read({ kind: "resource.list", projectId, cardId })) as ResourceInfo[];
+        const otherProjection = (await workspace.read({ kind: "resource.list", projectId: other.projectId, cardId })) as ResourceInfo[];
+        assert.equal(originalProjection.some((item) => item.id === globalResourceId), true);
+        assert.equal(otherProjection.some((item) => item.id === globalResourceId), true);
+        assert.equal(otherProjection.some((item) => item.id === resourceId), false, "其他项目不得读取原项目的旧附件");
+        const cover = await workspace.transact({
+          type: "resource.attach", cardId, role: "cover",
+          relativePath: `resources/cards/${cardId}/cover.png`, sha256, size: 1, originalName: "封面.png"
+        });
+        coverResourceId = cover.resourceId;
+        let duplicateCover: unknown;
+        try {
+          await workspace.transact({
+            type: "resource.attach", cardId, role: "cover",
+            relativePath: `resources/cards/${cardId}/cover-2.png`, sha256, size: 1
+          });
+        } catch (error) { duplicateCover = error; }
+        assert.equal((duplicateCover as CreationWorkspaceError).code, "conflict");
+      });
+    });
+
     await scenario("移除附件 + 跨项目卡片拒绝", async () => {
       await withWorkspace(path.join(parent, "ws"), async (workspace) => {
         const other = await workspace.transact({ type: "project.create", title: "另一项目" });
@@ -135,7 +175,8 @@ async function run(): Promise<void> {
         assert.equal((foreign as CreationWorkspaceError).code, "invalid-input");
         await workspace.transact({ type: "resource.detach", resourceId });
         const list = (await workspace.read({ kind: "resource.list", projectId })) as ResourceInfo[];
-        assert.equal(list.length, 0);
+        assert.equal(list.some((item) => item.id === resourceId), false);
+        assert.equal(list.some((item) => item.id === globalResourceId && item.ownerScope === "card"), true);
         let missing: unknown;
         try {
           await workspace.transact({ type: "resource.detach", resourceId });
@@ -143,6 +184,15 @@ async function run(): Promise<void> {
           missing = error;
         }
         assert.equal((missing as CreationWorkspaceError).code, "not-found");
+      });
+    });
+
+    await scenario("全局附件可独立移除", async () => {
+      await withWorkspace(path.join(parent, "ws"), async (workspace) => {
+        await workspace.transact({ type: "resource.detach", resourceId: globalResourceId });
+        await workspace.transact({ type: "resource.detach", resourceId: coverResourceId });
+        const list = (await workspace.read({ kind: "resource.list", cardId })) as ResourceInfo[];
+        assert.equal(list.length, 0);
       });
     });
 

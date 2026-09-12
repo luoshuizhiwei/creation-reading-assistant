@@ -1,4 +1,4 @@
-import { Radio } from "lucide-react";
+import { PanelRightOpen, Radio } from "lucide-react";
 import { useCreationStore } from "@/stores/creation-store";
 import type { CreationProjectSummary } from "@/types/creation";
 
@@ -8,6 +8,8 @@ export interface WritingDeskHeaderProps {
   selectedScene?: { title: string };
   project: CreationProjectSummary;
   onToggleEditMode: () => void;
+  quickReferenceOpen: boolean;
+  onToggleQuickReference: () => void;
 }
 
 export function WritingDeskHeader({
@@ -15,7 +17,9 @@ export function WritingDeskHeader({
   selectedChapter,
   selectedScene,
   project,
-  onToggleEditMode
+  onToggleEditMode,
+  quickReferenceOpen,
+  onToggleQuickReference
 }: WritingDeskHeaderProps) {
   const watchConnected = useCreationStore((state) => state.watchConnected);
 
@@ -38,6 +42,15 @@ export function WritingDeskHeader({
         <span>{subtitle}</span>
       </div>
       <div className="writing-head-actions">
+        <button
+          type="button"
+          className={`writing-quick-toggle ${quickReferenceOpen ? "active" : ""}`}
+          aria-pressed={quickReferenceOpen}
+          onClick={onToggleQuickReference}
+          title="打开写作速查（Ctrl+Shift+K）"
+        >
+          <PanelRightOpen size={14} /> 速查 <kbd>Ctrl⇧K</kbd>
+        </button>
         <div className="writing-mode-switch" role="group" aria-label="写作模式切换">
           <button
             type="button"

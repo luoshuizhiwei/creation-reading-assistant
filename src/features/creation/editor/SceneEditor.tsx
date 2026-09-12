@@ -19,6 +19,20 @@ import {
 import { resolveSceneSelection, shouldTriggerMention, type SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { CreationDocument, SceneBodyView, SceneSaveResponse } from "@/types/creation";
 
+type EditorView = Editor["view"];
+
+export function resolveTypewriterScrollTop(input: {
+  scrollTop: number;
+  cursorTop: number;
+  containerTop: number;
+  containerHeight: number;
+  scrollHeight: number;
+}): number {
+  const desired = input.scrollTop + input.cursorTop - input.containerTop - input.containerHeight / 2;
+  const maximum = Math.max(0, input.scrollHeight - input.containerHeight);
+  return Math.min(maximum, Math.max(0, desired));
+}
+
 const INITIAL_SESSION_STATE: SceneDocumentSessionState = {
   status: "idle",
   sceneId: null,
@@ -57,7 +71,7 @@ function countCharacters(document: CreationDocument): number {
 
 function updateCurrentBlock(editor: Editor, enabled: boolean): void {
   const host = editor.view.dom;
-  host.querySelectorAll(".is-current-line").forEach((element) => element.classList.remove("is-current-line"));
+  host.querySelectorAll(".is-current-line").forEach((element: Element) => element.classList.remove("is-current-line"));
   if (!enabled) return;
   const position = editor.view.domAtPos(editor.state.selection.from);
   const element = position.node.nodeType === Node.TEXT_NODE ? position.node.parentElement : (position.node as HTMLElement);
@@ -68,6 +82,8 @@ function updateCurrentBlock(editor: Editor, enabled: boolean): void {
 export interface SceneEditorHandle {
   saveNow(): Promise<boolean>;
   isDirty(): boolean;
+  /** 把键盘焦点还给正文，不改动当前选区或内容。 */
+  focus(): void;
   /** 只读选区：从 ProseMirror 真实位置解析；无有效编辑器时返回 null。 */
   getSelection(): SceneSelection | null;
   /** 是否仍在 IME 组合输入；外部命令必须在此期间停用。 */
@@ -84,6 +100,8 @@ interface SceneEditorProps {
   onSelectionChange?(selection: SceneSelection | null): void;
   /** 非 IME 状态下输入 @ 触发卡片引用命令；编辑器不把 @ 写入正文。 */
   onMentionTrigger?(selection: SceneSelection): void;
+  /** 场景目标字数；用于编辑区底部即时进度。 */
+  targetWords?: number | null;
   focusMode: boolean;
   onToggleFocusMode(): void;
   typewriter: boolean;
@@ -91,13 +109,14 @@ interface SceneEditorProps {
 }
 
 export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(function SceneEditor(
-  { view, onSave, onReloadScene, onStatsChange, onSelectionChange, onMentionTrigger, focusMode, onToggleFocusMode, typewriter, onToggleTypewriter },
+  { view, onSave, onReloadScene, onStatsChange, onSelectionChange, onMentionTrigger, targetWords, focusMode, onToggleFocusMode, typewriter, onToggleTypewriter },
   ref
 ) {
   const [sessionState, setSessionState] = useState(INITIAL_SESSION_STATE);
   const [lineFocus, setLineFocus] = useState(true);
   const [pastePreview, setPastePreview] = useState<{ text: string; reason: string | null }>();
   const [conflictDismissed, setConflictDismissed] = useState(false);
+  const [currentWords, setCurrentWords] = useState(0);
   const editorRef = useRef<Editor | null>(null);
   const sessionRef = useRef<SceneDocumentSession>();
   const onSaveRef = useRef(onSave);
@@ -144,7 +163,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           "aria-label": "场景正文编辑区",
           spellcheck: "false"
         },
-        handleKeyDown: (_view, event) => {
+        handleKeyDown: (_view: EditorView, event: KeyboardEvent) => {
           const modifier = event.ctrlKey || event.metaKey;
           if (modifier && event.key.toLowerCase() === "s") {
             event.preventDefault();
@@ -154,7 +173,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           if (modifier && event.shiftKey && event.key.toLowerCase() === "v") plainPasteRef.current = true;
           return false;
         },
-        handleTextInput: (_view, _from, _to, text) => {
+        handleTextInput: (_view: EditorView, _from: number, _to: number, text: string) => {
           // IME 组合输入期间按 @ 不触发引用面板，也不破坏组合输入。
           if (!shouldTriggerMention(text, composingRef.current)) return false;
           const activeEditor = editorRef.current;
@@ -165,7 +184,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
           // 阻止 @ 写入正文。
           return true;
         },
-        handlePaste: (_view, event) => {
+        handlePaste: (_view: EditorView, event: ClipboardEvent) => {
           const text = event.clipboardData?.getData("text/plain") ?? "";
           const html = event.clipboardData?.getData("text/html") ?? "";
           if (plainPasteRef.current) {
@@ -188,7 +207,9 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
         const json = activeEditor.getJSON();
         if (!validateCreationDocument(json)) return;
         session.edit(json);
-        onStatsChange?.(countCharacters(json));
+        const count = countCharacters(json);
+        setCurrentWords(count);
+        onStatsChange?.(count);
       },
       onSelectionUpdate: ({ editor: activeEditor }) => {
         updateCurrentBlock(activeEditor, lineFocusRef.current);
@@ -200,7 +221,15 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
         if (!(container instanceof HTMLElement)) return;
         const coordinates = activeEditor.view.coordsAtPos(activeEditor.state.selection.from);
         const bounds = container.getBoundingClientRect();
-        container.scrollTo({ top: container.scrollTop + coordinates.top - bounds.top - bounds.height / 2 });
+        container.scrollTo({
+          top: resolveTypewriterScrollTop({
+            scrollTop: container.scrollTop,
+            cursorTop: coordinates.top,
+            containerTop: bounds.top,
+            containerHeight: bounds.height,
+            scrollHeight: container.scrollHeight
+          })
+        });
       }
     },
     [sceneId]
@@ -214,14 +243,19 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   }, [editor]);
 
   useEffect(() => {
-    if (!editor || !view) return;
+    // 切场景时 useEditor 会先销毁旧实例再由 useSyncExternalStore 换入新实例：
+    // 本次 commit 里 editor 仍指向已销毁的旧实例（view 已随卸载置空），
+    // 对新实例的同步要等下一次渲染，因此这里必须跳过，否则旧实例的 commands 为 null 会抛错。
+    if (!editor || editor.isDestroyed || !view) return;
     const current = session.getState();
     if (current.sceneId === view.sceneId && current.revision === view.revision) return;
     if (current.sceneId === view.sceneId && current.dirty) return;
     const body = editableDocument(view.body);
     editor.commands.setContent(body as unknown as JSONContent, { emitUpdate: false });
     session.open({ sceneId: view.sceneId, revision: view.revision, body });
-    onStatsChange?.(countCharacters(body));
+    const count = countCharacters(body);
+    setCurrentWords(count);
+    onStatsChange?.(count);
     updateCurrentBlock(editor, lineFocus);
     onSelectionChangeRef.current?.(resolveSceneSelection(editor, view.sceneId));
   }, [editor, lineFocus, onStatsChange, session, view]);
@@ -263,6 +297,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
     () => ({
       saveNow: () => session.saveNow(),
       isDirty: () => session.getState().dirty,
+      focus: () => editorRef.current?.commands.focus(),
       getSelection: () => {
         const activeEditor = editorRef.current;
         if (!activeEditor || !sceneIdRef.current) return null;
@@ -276,7 +311,7 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   const reloadLatest = useCallback(async () => {
     if (!onReloadScene) return;
     const latest = await onReloadScene();
-    if (!latest || !editor) return;
+    if (!latest || !editor || editor.isDestroyed) return;
     const body = editableDocument(latest.body);
     editor.commands.setContent(body as unknown as JSONContent, { emitUpdate: false });
     session.open({ sceneId: latest.sceneId, revision: latest.revision, body });
@@ -347,6 +382,16 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
       {sessionState.status === "error" && <div className="scene-save-error" role="alert">{sessionState.error}</div>}
 
       <EditorContent editor={editor} />
+
+      <footer className="scene-target-progress" aria-label="场景目标进度">
+        <span>{currentWords.toLocaleString("zh-CN")} 字</span>
+        {targetWords ? (
+          <>
+            <div className="scene-target-track" aria-hidden="true"><span style={{ width: `${Math.min(100, (currentWords / targetWords) * 100)}%` }} /></div>
+            <span>目标 {targetWords.toLocaleString("zh-CN")} · {Math.round((currentWords / targetWords) * 100)}%</span>
+          </>
+        ) : <span>未设置目标</span>}
+      </footer>
 
       {pastePreview && (
         <PastePreviewDialog

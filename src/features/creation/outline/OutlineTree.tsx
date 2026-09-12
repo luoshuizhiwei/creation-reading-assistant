@@ -515,7 +515,10 @@ export function OutlineTree({
       <GripVertical size={12} className="outline-grip" />
       <button type="button" className="outline-scene-main" onClick={() => onSelectScene(scene.id)}>
         <FileText size={12} />
-        <span className="outline-scene-title">{scene.title}</span>
+        <span className="outline-scene-title" title={scene.summary || scene.title}>{scene.title}</span>
+        <small className={`outline-scene-status outline-scene-status--${scene.status ?? "planned"}`}>
+          {scene.status === "done" ? "完成" : scene.status === "revising" ? "修订" : scene.status === "drafting" ? "起草" : "规划"}
+        </small>
         <small className="outline-scene-goal">{scene.planning?.targetWords ? `目标 ${scene.planning.targetWords.toLocaleString("zh-CN")}` : ""}</small>
         <small className="outline-word-count">{scene.wordCount.toLocaleString("zh-CN")}字</small>
       </button>
@@ -549,6 +552,7 @@ export function OutlineTree({
           >
             {workflow.map((step) => <option key={step} value={step}>{step}</option>)}
           </select>
+          <small className="outline-chapter-words">{Number(chapter.wordCount ?? chapter.scenes.reduce((sum, scene) => sum + scene.wordCount, 0)).toLocaleString("zh-CN")}字</small>
           {chapterButtons(volume, chapter)}
         </div>
         {expanded && (
@@ -577,7 +581,7 @@ export function OutlineTree({
           {renderTitle({ kind: "volume", id: volume.id, title: volume.title }) ?? (
             <span className="outline-volume-title">{volume.title}</span>
           )}
-          <small className="outline-volume-count">{volume.chapters.length}章</small>
+          <small className="outline-volume-count">{volume.chapters.length}章 · {Number(volume.wordCount ?? volume.chapters.reduce((sum, chapter) => sum + chapter.scenes.reduce((sceneSum, scene) => sceneSum + scene.wordCount, 0), 0)).toLocaleString("zh-CN")}字</small>
           {volumeButtons(volume)}
         </div>
         {expanded && (

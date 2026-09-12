@@ -19,6 +19,7 @@ import { useUIStore } from "@/stores/ui-store";
 import type {
   Annotation,
   AnnotationReanchorCommand,
+  CardSummary,
   CreationProjectOutline,
   CreationProjectSummary,
   SceneBodyView
@@ -47,6 +48,8 @@ export interface WritingDeskMarginProps {
   focusMode: boolean;
   getActiveEditor: () => { isComposing(): boolean; getSelection(): SceneSelection | null } | null;
   onOpenOutline?: () => void;
+  /** 写作速查中显式打开、可在发送确认中排除的卡片。 */
+  quickReferenceCards?: CardSummary[];
 }
 
 export function WritingDeskMargin({
@@ -64,10 +67,19 @@ export function WritingDeskMargin({
   onToggleCollapse,
   focusMode,
   getActiveEditor,
-  onOpenOutline
+  onOpenOutline,
+  quickReferenceCards = []
 }: WritingDeskMarginProps) {
   const cardList = useCreationStore((state) => state.cards);
   const cardTypes = useCreationStore((state) => state.cardTypes);
+  /**
+   * 项目导航对象的引用变化等价于「该项目有一次已提交的 workspace 变更落库」：
+   * subscribeProject 的 handleEvent 对任何事件都会重取导航（setNavigation 写入新对象），
+   * 而批注本身没有独立于导航的 store 信号。把它作为重读当前场景批注的触发源，
+   * 避免「首屏读得太早 → 之后永不重读」：演示项目/导入/AI 等外部编排会在写作台
+   * 挂载之后才逐条提交批注，只依赖 selectedSceneId 变化会永久停在第 0 条。
+   */
+  const projectNavigation = useCreationStore((state) => state.navigations[project.id]);
   const showToast = useUIStore((state) => state.showToast);
 
   const {
@@ -137,7 +149,7 @@ export function WritingDeskMargin({
 
   useEffect(() => {
     void refreshAnnotations();
-  }, [refreshAnnotations]);
+  }, [refreshAnnotations, projectNavigation]);
 
   useEffect(() => {
     void loadCards({ projectId: project.id });
@@ -284,6 +296,7 @@ export function WritingDeskMargin({
       sceneBodyText: creationDocumentToPlainText(sceneView.body),
       planning: planning ?? null,
       cards: cardList.filter((card) => card.projectId === project.id && relevantIds.has(card.id)),
+      quickReferenceCards,
       cardTypes,
       annotations
     });
@@ -559,45 +572,6 @@ export function WritingDeskMargin({
                 onClose={onCloseReferencePicker}
               />
             )}
-            {aiPackDialog && (
-              <AiSendConfirmDialog
-                actionLabel={
-                  aiPackDialog.action === "polish"
-                    ? "润色场景"
-                    : aiPackDialog.action === "expand"
-                    ? "扩写场景"
-                    : "一致性检查"
-                }
-                title={selectedScene?.title ?? ""}
-                content=""
-                pack={aiPackDialog.pack}
-                target={
-                  [aiSettings?.model, aiSettings?.baseUrl]
-                    .filter((part) => typeof part === "string" && part.trim() !== "")
-                    .join(" · ") || "你配置的 AI 服务"
-                }
-                busy={aiBusy}
-                onConfirm={(finalContent, remember) => void confirmSceneAI(finalContent, remember)}
-                onCancel={() => setAiPackDialog(null)}
-              />
-            )}
-            {aiReport && (
-              <SceneAiReport
-                actionLabel="一致性检查"
-                content={aiReport.content}
-                model={aiReport.model}
-                onClose={() => setAiReport(null)}
-              />
-            )}
-            {aiCandidate && sceneView && (
-              <SceneCandidateReview
-                candidate={aiCandidate}
-                currentBodyText={creationDocumentToPlainText(sceneView.body)}
-                busy={aiBusy}
-                onAccept={(text) => void acceptSceneCandidate(text)}
-                onDiscard={() => setAiCandidate(null)}
-              />
-            )}
             {reanchorCandidate && (
               <div className="writing-reanchor-backdrop" role="presentation">
                 <section
@@ -638,6 +612,45 @@ export function WritingDeskMargin({
               </div>
             )}
           </div>
+        )}
+        {aiPackDialog && (
+          <AiSendConfirmDialog
+            actionLabel={
+              aiPackDialog.action === "polish"
+                ? "润色场景"
+                : aiPackDialog.action === "expand"
+                ? "扩写场景"
+                : "一致性检查"
+            }
+            title={selectedScene?.title ?? ""}
+            content=""
+            pack={aiPackDialog.pack}
+            target={
+              [aiSettings?.model, aiSettings?.baseUrl]
+                .filter((part) => typeof part === "string" && part.trim() !== "")
+                .join(" · ") || "你配置的 AI 服务"
+            }
+            busy={aiBusy}
+            onConfirm={(finalContent, remember) => void confirmSceneAI(finalContent, remember)}
+            onCancel={() => setAiPackDialog(null)}
+          />
+        )}
+        {aiReport && (
+          <SceneAiReport
+            actionLabel="一致性检查"
+            content={aiReport.content}
+            model={aiReport.model}
+            onClose={() => setAiReport(null)}
+          />
+        )}
+        {aiCandidate && sceneView && (
+          <SceneCandidateReview
+            candidate={aiCandidate}
+            currentBodyText={creationDocumentToPlainText(sceneView.body)}
+            busy={aiBusy}
+            onAccept={(text) => void acceptSceneCandidate(text)}
+            onDiscard={() => setAiCandidate(null)}
+          />
         )}
         <div className="writing-margin-rule" />
         <p className="writing-boundary">

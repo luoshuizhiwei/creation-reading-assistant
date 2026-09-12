@@ -19,8 +19,8 @@ function card(id: string, title: string, extra?: Partial<CardSummary>): CardSumm
 }
 
 const cardTypes: CardType[] = [
-  { id: "t-character", projectId: null, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 },
-  { id: "t-foreshadow", projectId: null, kind: "foreshadow", name: "伏笔线索", fields: [], sortOrder: 6, createdAt: "", updatedAt: "", revision: 1 }
+  { id: "t-character", projectId: null, builtIn: true, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 },
+  { id: "t-foreshadow", projectId: null, builtIn: true, kind: "foreshadow", name: "伏笔线索", fields: [], sortOrder: 6, createdAt: "", updatedAt: "", revision: 1 }
 ];
 
 function annotation(partial: Partial<Annotation> & { id: string }): Annotation {

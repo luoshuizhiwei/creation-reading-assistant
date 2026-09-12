@@ -4,10 +4,13 @@ import type {
   HistoryCommand,
   ProjectImportDraftCommand,
   SceneUpdatePlanningCommand,
+  SceneUpdateMetaCommand,
   InboxConvertToCardCommand,
   SceneUpdatePlanningResult,
+  SceneUpdateMetaResult,
   ProjectImportDraftResult,
   InboxConvertToCardResult,
+  CardLinkResult,
   CreationStructureResult
 } from "./command";
 
@@ -23,6 +26,7 @@ export type CreationRunCommand =
   | HistoryCommand
   | ProjectImportDraftCommand
   | SceneUpdatePlanningCommand
+  | SceneUpdateMetaCommand
   | InboxConvertToCardCommand;
 
 /** runStructure 的唯一运行时命令目录；Record 保证新增联合成员时必须同步白名单。 */
@@ -55,6 +59,8 @@ export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["typ
   "card.create": true,
   "card.update": true,
   "card.delete": true,
+  "card.link": true,
+  "card.unlink": true,
   "cardRelation.create": true,
   "cardRelation.delete": true,
   "trash.restore": true,
@@ -62,6 +68,7 @@ export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["typ
   "snapshot.create": true,
   "project.importDraft": true,
   "scene.updatePlanning": true,
+  "scene.updateMeta": true,
   "inbox.convertToCard": true
 };
 
@@ -73,8 +80,10 @@ type _RunStructureCommandTypes = StructureCommand["type"] | CardCommand["type"] 
 
 export type CreationRunResultOf<Command extends CreationRunCommand> =
   Command extends { type: "scene.updatePlanning" } ? SceneUpdatePlanningResult :
+  Command extends { type: "scene.updateMeta" } ? SceneUpdateMetaResult :
   Command extends { type: "project.importDraft" } ? ProjectImportDraftResult :
   Command extends { type: "inbox.convertToCard" } ? InboxConvertToCardResult :
+  Command extends { type: "card.link" | "card.unlink" } ? CardLinkResult :
   Command extends { type: _RunStructureCommandTypes } ? CreationStructureResult :
   never;
 

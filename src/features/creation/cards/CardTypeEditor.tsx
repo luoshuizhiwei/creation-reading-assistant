@@ -132,7 +132,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
   };
 
   const editType = (type: CardType) => {
-    if (type.projectId === null) return;
+    if (type.builtIn) return;
     setEditingType(type);
     setName(type.name);
     setFields(type.fields.map(fieldToDraft));
@@ -149,7 +149,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
 
   const deleteType = async (type: CardType) => {
     const impact = impactFor(type);
-    if (type.projectId === null || impact.cards > 0 || impact.relationTypes > 0) return;
+    if (type.builtIn || impact.cards > 0 || impact.relationTypes > 0) return;
     if (confirmingDeleteId !== type.id) {
       setConfirmingDeleteId(type.id);
       return;
@@ -266,7 +266,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
             <section className="cards-type-list" aria-label="现有卡片类型">
               {cardTypes.map((type) => {
                 const impact = impactFor(type);
-                const builtin = type.projectId === null;
+                const builtin = type.builtIn;
                 const blocked = impact.cards > 0 || impact.relationTypes > 0;
                 return (
                   <article key={type.id} className="cards-type-list-item">

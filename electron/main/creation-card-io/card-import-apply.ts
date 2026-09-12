@@ -61,6 +61,9 @@ export function applyCardImportPlan(
     const insertRelation = database.prepare(
       "INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
     );
+    const insertLink = database.prepare(
+      "INSERT INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)"
+    );
     const rowToId = new Map<number, string>();
     for (const card of plan.cards) {
       const id = `card-${randomUUID()}`;
@@ -77,6 +80,7 @@ export function applyCardImportPlan(
         iso,
         1
       );
+      insertLink.run(plan.projectId, id, iso);
       rowToId.set(card.rowIndex, id);
     }
     let appliedRelations = 0;
@@ -98,11 +102,11 @@ export function applyCardImportPlan(
   }
 }
 
-/** 从库读取导入所需的项目模式上下文（类型、关系类型、现有卡片引用）。 */
+/** 从库读取导入所需的全局模式与目标项目关联卡片上下文。 */
 export function readCardImportSchemaContext(database: Database, projectId: string): CardImportSchemaContext {
   const typeRows = database
-    .prepare("SELECT kind, name, fields_json FROM card_types WHERE project_id IS NULL OR project_id = ? ORDER BY (project_id IS NULL), sort_order, id")
-    .all(projectId) as Array<{ kind: string; name: string; fields_json: string }>;
+    .prepare("SELECT kind, name, fields_json FROM card_types ORDER BY is_builtin, sort_order, id")
+    .all() as Array<{ kind: string; name: string; fields_json: string }>;
   const typeByKind = new Map<string, CardImportTypeInfo>();
   for (const row of typeRows) {
     let fields: CardIoFieldSchema[] = [];
@@ -118,9 +122,9 @@ export function readCardImportSchemaContext(database: Database, projectId: strin
 
   const relRows = database
     .prepare(
-      "SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json FROM relation_types WHERE project_id IS NULL OR project_id = ?"
+      "SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json FROM relation_types"
     )
-    .all(projectId) as Array<{
+    .all() as Array<{
       id: string;
       name: string;
       forward_name: string;
@@ -138,7 +142,9 @@ export function readCardImportSchemaContext(database: Database, projectId: strin
   }));
 
   const cardRows = database
-    .prepare("SELECT id, title, aliases_json, kind FROM cards WHERE project_id = ? AND deleted_at IS NULL")
+    .prepare(`SELECT c.id, c.title, c.aliases_json, c.kind FROM cards c
+      JOIN project_card_links pcl ON pcl.card_id = c.id
+      WHERE pcl.project_id = ? AND c.deleted_at IS NULL`)
     .all(projectId) as Array<{ id: string; title: string; aliases_json: string; kind: string }>;
   const existingCards = cardRows.map((c) => ({
     id: c.id,
@@ -165,7 +171,7 @@ export function readCardsForExport(
   projectId: string,
   filter: CardExportFilter = {}
 ): CardExportRow[] {
-  const where: string[] = ["c.project_id = ?", "c.deleted_at IS NULL"];
+  const where: string[] = ["pcl.project_id = ?", "c.deleted_at IS NULL"];
   const params: unknown[] = [projectId];
   if (filter.cardKind) {
     where.push("c.kind = ?");
@@ -176,23 +182,26 @@ export function readCardsForExport(
     const like = `%${filter.search.replace(/[\\%_]/g, (m) => `\\${m}`)}%`;
     params.push(like, like, like, like);
   }
-  let sql = `SELECT c.id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json FROM cards c WHERE ${where.join(" AND ")} ORDER BY c.updated_at, c.id`;
+  let sql = `SELECT c.id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json FROM cards c
+    JOIN project_card_links pcl ON pcl.card_id = c.id WHERE ${where.join(" AND ")} ORDER BY c.updated_at, c.id`;
   if (filter.ids && filter.ids.length > 0) {
     const placeholders = filter.ids.map(() => "?").join(",");
-    sql = `SELECT c.id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json FROM cards c WHERE c.id IN (${placeholders}) AND c.project_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at, c.id`;
+    sql = `SELECT c.id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json FROM cards c
+      JOIN project_card_links pcl ON pcl.card_id = c.id
+      WHERE c.id IN (${placeholders}) AND pcl.project_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at, c.id`;
     params.length = 0;
     params.push(...filter.ids, projectId);
   }
 
   // 类型 kind -> 显示名；用于 kindLabel。
   const typeRows = database
-    .prepare("SELECT kind, name FROM card_types WHERE project_id IS NULL OR project_id = ? ORDER BY (project_id IS NULL), sort_order, id")
-    .all(projectId) as Array<{ kind: string; name: string }>;
+    .prepare("SELECT kind, name FROM card_types ORDER BY is_builtin, sort_order, id")
+    .all() as Array<{ kind: string; name: string }>;
   const kindToName = new Map<string, string>();
   for (const t of typeRows) kindToName.set(t.kind, t.name);
   const typeFieldsRows = database
-    .prepare("SELECT kind, fields_json FROM card_types WHERE project_id IS NULL OR project_id = ?")
-    .all(projectId) as Array<{ kind: string; fields_json: string }>;
+    .prepare("SELECT kind, fields_json FROM card_types")
+    .all() as Array<{ kind: string; fields_json: string }>;
   const typeFields = new Map<string, CardIoFieldSchema[]>();
   for (const t of typeFieldsRows) {
     try {
@@ -204,7 +213,8 @@ export function readCardsForExport(
 
   // id -> 标题，用于 cardRef 反查。
   const allCards = database
-    .prepare("SELECT id, title FROM cards WHERE project_id = ? AND deleted_at IS NULL")
+    .prepare(`SELECT c.id, c.title FROM cards c JOIN project_card_links pcl ON pcl.card_id = c.id
+      WHERE pcl.project_id = ? AND c.deleted_at IS NULL`)
     .all(projectId) as Array<{ id: string; title: string }>;
   const idToTitle = new Map<string, string>(allCards.map((c) => [c.id, c.title]));
 

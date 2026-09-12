@@ -28,6 +28,12 @@ const PRESET_OPTIONS: Array<{
     label: "标准审阅稿",
     extension: ".md",
     description: "Markdown 层级清晰（项目/卷/章/场景），作者按标注为「作者按」，引文与居中文本保留可读语义，不含引用与批注元数据。"
+  },
+  {
+    preset: "outline-markdown",
+    label: "Markdown 大纲",
+    extension: ".md",
+    description: "只导出卷、章、场景层级，以及摘要、场景状态、字数和目标，不包含正文。"
   }
 ];
 
@@ -42,15 +48,15 @@ export function ExportDraftDialog({ projectId, projectTitle, onClose }: ExportDr
     const result = await exportDraft(projectId, preset);
     setExporting(false);
     if (result.canceled || !result.filePath) return;
-    showToast({ tone: "success", title: "已导出成稿", body: result.filePath });
+    showToast({ tone: "success", title: "已导出文件", body: result.filePath });
     onClose();
   };
 
   return (
     <Dialog
       open={true}
-      title={<span className="flex items-center gap-2"><FileDown size={16} /> 导出成稿</span>}
-      ariaLabel="导出成稿"
+      title={<span className="flex items-center gap-2"><FileDown size={16} /> 导出作品</span>}
+      ariaLabel="导出作品"
       onClose={exporting ? undefined : onClose}
       width="max-w-md"
       footer={
@@ -63,7 +69,7 @@ export function ExportDraftDialog({ projectId, projectTitle, onClose }: ExportDr
       }
     >
       <p className="migration-note">
-            选择成稿预设：「{projectTitle}」将导出为新文件，不会改动项目内容。
+            选择导出格式：「{projectTitle}」将导出为新文件，不会改动项目内容。
           </p>
           <div className="export-preset-list">
             {PRESET_OPTIONS.map((option) => (

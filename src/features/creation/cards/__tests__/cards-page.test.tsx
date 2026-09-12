@@ -33,6 +33,8 @@ vi.mock("@/services/creation-service", () => ({
   trashList: vi.fn(),
   snapshotList: vi.fn(),
   cardRead: vi.fn(),
+  cardLink: vi.fn(),
+  cardUnlink: vi.fn(),
   cardTypesList: vi.fn(),
   relationTypesList: vi.fn(),
   cardRelations: vi.fn(),
@@ -158,6 +160,8 @@ beforeEach(() => {
   vi.mocked(creationService.cardTypesList).mockReset();
   vi.mocked(creationService.relationTypesList).mockReset();
   vi.mocked(creationService.cardRelations).mockReset();
+  vi.mocked(creationService.cardLink).mockReset();
+  vi.mocked(creationService.cardUnlink).mockReset();
   vi.mocked(creationService.resourceList).mockReset();
   vi.mocked(creationService.watchProject).mockReset();
   vi.mocked(creationService.runStructure).mockReset();

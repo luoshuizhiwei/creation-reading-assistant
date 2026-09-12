@@ -1,4 +1,5 @@
 import type { OperationKind, OperationPhase, OperationState, ResourceIntegrityReport } from "../../../types/operation";
+import type { ProjectBundleImportResult } from "../../../types/creation";
 import { Dialog, Spinner } from "@/components/ui";
 import { ResourceIntegrityScanPanel } from "./ResourceIntegrityScanPanel";
 import "./operation.css";
@@ -52,6 +53,9 @@ export function OperationProgressDialog({
 
   const cancelDisabled = status !== "running" || isCommitting;
   const closeDisabled = !isTerminal;
+  const bundleImportResult = (kind === "bundle.import" || kind === "bundle.import-encrypted") && status === "completed"
+    ? (state.result?.result as ProjectBundleImportResult | undefined)
+    : undefined;
 
   return (
     <Dialog
@@ -130,6 +134,19 @@ export function OperationProgressDialog({
                 <ResourceIntegrityScanPanel
                   report={(state.result?.result ?? null) as ResourceIntegrityReport | null}
                 />
+              ) : bundleImportResult ? (
+                <div className="bundle-import-result">
+                  <p>项目包已导入。卡片稳定 ID 处理结果：</p>
+                  <ul>
+                    {(bundleImportResult.cardMappings ?? []).map((mapping) => (
+                      <li key={mapping.sourceCardId}>
+                        <span>{mapping.sourceCardId}</span>
+                        <strong>{mapping.action === "created" ? "新建" : mapping.action === "reused" ? "同内容复用" : mapping.action === "kept-local" ? "保留本机" : "导入副本"}</strong>
+                        {mapping.sourceCardId !== mapping.targetCardId ? <code>→ {mapping.targetCardId}</code> : null}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : (
                 <p>操作已完成。{state.deferredCancel ? "（取消请求落在不可中断阶段，已在安全边界后完成，无法撤销。）" : ""}</p>
               )}

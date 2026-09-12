@@ -17,7 +17,8 @@ export interface ReadProjectOutlineQuery {
 
 export interface CardsListQuery {
   kind: "cards.list";
-  projectId: string;
+  /** 省略时读取全局卡片库；提供时只读取该项目已关联卡片。 */
+  projectId?: string;
   /** 按卡片类型 kind 筛选（内置或自定义）。 */
   cardKind?: string;
   /** 标题/别名子串搜索。 */
@@ -31,12 +32,14 @@ export interface CardReadQuery {
 
 export interface CardTypesListQuery {
   kind: "cardTypes.list";
-  projectId: string;
+  /** @deprecated v10 忽略该值；保留到旧调用点迁移完毕。 */
+  projectId?: string;
 }
 
 export interface RelationTypesListQuery {
   kind: "relationTypes.list";
-  projectId: string;
+  /** @deprecated v10 忽略该值；保留到旧调用点迁移完毕。 */
+  projectId?: string;
 }
 
 export interface CardRelationsQuery {
@@ -46,12 +49,14 @@ export interface CardRelationsQuery {
 
 export interface TrashListQuery {
   kind: "trash.list";
-  projectId: string;
+  /** 省略时只列出全局卡片回收站。 */
+  projectId?: string;
 }
 
 export interface TrashImpactQuery {
   kind: "trash.impact";
-  projectId: string;
+  /** 全局卡片影响预览不带 projectId。 */
+  projectId?: string;
   entity: TrashEntityKind;
   entityId: string;
 }
@@ -63,6 +68,9 @@ export interface TrashImpactView {
   childSceneCount: number;
   relatedCardCount: number;
   resourceCount: number;
+  linkedProjectCount?: number;
+  sceneReferenceCount?: number;
+  annotationCount?: number;
   approxChars: number;
   warnings: string[];
 }
@@ -90,7 +98,8 @@ export interface AnnotationListQuery {
 
 export interface ResourceListQuery {
   kind: "resource.list";
-  projectId: string;
+  /** 省略时 cardId 必填，只读取全局卡片资产。 */
+  projectId?: string;
   cardId?: string;
 }
 

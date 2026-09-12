@@ -21,8 +21,8 @@ assertIncludes("electron/main/index.ts", "storage:getLocations", "Main process m
 assertIncludes("src/types/api.ts", "chooseDataDirectory", "Renderer typed API must include data directory picker.");
 assertIncludes("src/types/api.ts", "chooseLibraryDirectory", "Renderer typed API must include library directory picker.");
 assertIncludes("src/services/settings-service.ts", "migrateDataDirectory", "Settings service must wrap data directory migration.");
-assertIncludes("src/features/settings/SettingsPage.tsx", "选择数据目录", "Settings UI must let users choose a data directory.");
-assertIncludes("src/features/settings/SettingsPage.tsx", "选择书籍目录", "Settings UI must let users choose a library directory.");
-assertIncludes("src/features/settings/SettingsPage.tsx", "旧目录不会自动删除", "Settings UI must explain migration is copy-only.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "选择数据目录", "Settings UI must let users choose a data directory.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "选择书籍目录", "Settings UI must let users choose a library directory.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "旧目录不会自动删除", "Settings UI must explain migration is copy-only.");
 
 console.log("[verify-portable-storage] Portable storage guards verified.");

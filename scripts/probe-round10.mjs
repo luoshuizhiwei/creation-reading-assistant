@@ -59,7 +59,7 @@ await page.waitForTimeout(600);
 // 1. 项目空态 → 载入演示项目
 await page.locator(".desktop-sidebar button", { hasText: "项目" }).first().click();
 await page.waitForTimeout(600);
-const demoBtn = page.locator(".project-home-create-demo");
+const demoBtn = page.getByRole("button", { name: "载入演示项目" });
 const demoVisible = await demoBtn.isVisible().catch(() => false);
 check("空态提供「载入演示项目」按钮", demoVisible);
 if (!demoVisible) {
@@ -68,18 +68,23 @@ if (!demoVisible) {
   process.exit(1);
 }
 await demoBtn.click();
-await page.waitForSelector(".overview-page", { timeout: 20000 });
-await page.waitForTimeout(800);
-check("一键创建并打开演示项目", true);
+// 演示项目创建后当前默认进入写作台（项目视图默认 view=writing），不再强制落概览页。
+await page.waitForSelector(".writing-desk", { timeout: 20000 });
+// 演示编排在写作台挂载之后才逐条提交正文/任务卡/批注：等雷达真正挂载，不做固定 sleep。
+await page.waitForSelector('[data-testid="scene-radar"]', { timeout: 20000 });
+check("一键创建并打开演示项目（默认落到写作台）", true);
 
 // 2. 写作台雷达
 await page.locator(".project-nav button", { hasText: "写作" }).first().click();
 await page.waitForSelector(".writing-desk", { timeout: 10000 });
-await page.waitForTimeout(600);
+await page.waitForSelector(".writing-outline .outline-scene-main", { timeout: 20000 });
 // store 没有默认选中场景：先点左树第一个场景，再读雷达。
 const firstScene = page.locator(".writing-outline .outline-scene-main").first();
 await firstScene.click().catch(() => {});
-await page.waitForTimeout(1200);
+// 伏笔 chip 是批注落库后才出现的状态条件：等 chip 本身，而不是等固定时长。
+await page
+  .waitForSelector('[data-testid="scene-radar"] .scene-radar-tag.foreshadow-open', { timeout: 15000 })
+  .catch(() => {});
 const radar = await page.evaluate(() => {
   const el = document.querySelector('[data-testid="scene-radar"]');
   return {
@@ -107,24 +112,25 @@ const aiRow = await page.evaluate(() => {
 });
 check("AI 助手行渲染且未启用时禁用", aiRow.exists && aiRow.allDisabled && (aiRow.hint ?? "").includes("AI"), JSON.stringify(aiRow));
 
-// 切到场景 3（已回收伏笔的批注所在场景）验证「已回收」chip（轮询等待 store 刷新）
+// 切到场景 3（已回收伏笔的批注所在场景）验证「已回收」chip：以 chip 出现为条件等待。
 await page.locator(".writing-outline .outline-scene-main").nth(2).click();
-let resolvedSeen = false;
-for (let attempt = 0; attempt < 10; attempt += 1) {
-  resolvedSeen = await page.evaluate(() => !!document.querySelector('[data-testid="scene-radar"] .scene-radar-tag.foreshadow-resolved'));
-  if (resolvedSeen) break;
-  await page.waitForTimeout(500);
-}
+const resolvedSeen = await page
+  .waitForSelector('[data-testid="scene-radar"] .scene-radar-tag.foreshadow-resolved', { timeout: 15000 })
+  .then(() => true)
+  .catch(() => false);
 check("伏笔「已回收」chip 置灰（场景3）", resolvedSeen);
 
 // 3. 大纲页任务卡已预填
 await page.locator(".project-nav button", { hasText: "大纲" }).first().click();
 await page.waitForSelector(".outline-page", { timeout: 10000 });
-await page.waitForTimeout(400);
+await page.waitForSelector(".outline-page .outline-scene-main", { timeout: 10000 });
 // 大纲页同样先选中场景，再读任务卡表单
 const outlineScene = page.locator(".outline-page .outline-scene-main").first();
 await outlineScene.click().catch(() => {});
-await page.waitForTimeout(700);
+// 任务卡表单要等场景 planning 载入后才有值：等「时间」字段落值，不做固定 sleep。
+await page
+  .waitForFunction(() => (document.querySelector(".scene-planning-form input")?.value ?? "") !== "", { timeout: 10000 })
+  .catch(() => {});
 const outlineState = await page.evaluate(() => {
   const form = document.querySelector(".scene-planning-form");
   return { formExists: !!form, time: form?.querySelector("input")?.value ?? null };
@@ -134,8 +140,9 @@ check("大纲任务卡已预填（时间字段）", outlineState.formExists && o
 
 // 4. 演示项目不出现在按钮所在空态（已有项目后按钮消失）
 await page.locator(".project-nav-back").click();
+await page.waitForSelector(".project-home-list", { timeout: 10000 });
 await page.waitForTimeout(700);
-const demoGone = !(await page.locator(".project-home-create-demo").isVisible().catch(() => false));
+const demoGone = !(await page.getByRole("button", { name: "载入演示项目" }).isVisible().catch(() => false));
 check("有项目后演示按钮不再出现", demoGone);
 
 await app.close();

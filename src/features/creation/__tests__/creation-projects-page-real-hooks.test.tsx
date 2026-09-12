@@ -123,7 +123,7 @@ beforeEach(() => {
   service.readProjectNavigation.mockResolvedValue(null);
   service.cardsList.mockResolvedValue([]);
   service.cardTypesList.mockResolvedValue([
-    { id: "type-character", projectId: null, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 }
+    { id: "type-character", projectId: null, builtIn: true, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 }
   ]);
   service.relationTypesList.mockResolvedValue([]);
   service.cardRelations.mockResolvedValue({ outgoing: [], incoming: [] });
@@ -193,9 +193,13 @@ describe("跨项目卡片导航（当前项目 A，搜索目标属于项目 B）
     // 真实 CardsPage 保持目标卡片 active，并显示对应详情。
     // CardsPage 现为 tab 级 lazy（Suspense），需等待动态 import 解析后再断言 DOM。
     await waitFor(() => {
-      expect(document.querySelector(".cards-board-card.active")?.textContent).toContain("角色 ca-p2-1");
-      expect(document.querySelector(".cards-detail-card h3")?.textContent).toBe("角色 ca-p2-1");
-    });
+      const activeCard = document.querySelector(".cards-board-card.active");
+      const detailTitle = document.querySelector(".cards-detail-card h3");
+      expect(activeCard).not.toBeNull();
+      expect(detailTitle).not.toBeNull();
+      expect(activeCard!.textContent).toContain("角色 ca-p2-1");
+      expect(detailTitle!.textContent).toBe("角色 ca-p2-1");
+    }, { timeout: 5_000 });
   });
 
   it("目标卡片不存在时提示且不选中（不伪装成功），请求被消费", async () => {

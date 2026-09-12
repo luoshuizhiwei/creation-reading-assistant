@@ -56,7 +56,10 @@ export type SnapshotSubjectType = "scene" | "card" | "chapter" | "volume";
 
 export type DraftImportFormat = "txt" | "markdown" | "docx";
 
-export type DraftExportPreset = "platform-plain" | "standard-review";
+export type DraftExportPreset = "platform-plain" | "standard-review" | "outline-markdown";
+
+/** 场景自己的创作进度；与项目自定义的章节工作流状态严格分离。 */
+export type SceneStatus = "planned" | "drafting" | "revising" | "done";
 
 export type CreationSearchScope = "scene" | "card" | "chapter" | "project";
 

@@ -71,6 +71,29 @@ describe("OperationProgressDialog", () => {
     expect(screen.getByText(/操作已完成/)).toBeTruthy();
   });
 
+  it("项目包导入完成态展示稳定 ID 映射（含加密项目包）", () => {
+    const state = makeState({
+      kind: "bundle.import-encrypted",
+      status: "completed",
+      result: {
+        status: "completed",
+        result: {
+          projectId: "project-imported",
+          counts: { volumes: 1, chapters: 1, scenes: 1, cards: 2, relations: 0, snapshots: 0, resources: 0, annotations: 0 },
+          cardMappings: [
+            { sourceCardId: "card-reused", targetCardId: "card-reused", action: "reused" },
+            { sourceCardId: "card-source", targetCardId: "card-copy", action: "copied" }
+          ]
+        }
+      }
+    });
+    render(<OperationProgressDialog state={state} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);
+    expect(screen.getByText(/卡片稳定 ID 处理结果/)).toBeTruthy();
+    expect(screen.getByText("同内容复用")).toBeTruthy();
+    expect(screen.getByText("导入副本")).toBeTruthy();
+    expect(screen.getByText(/card-copy/)).toBeTruthy();
+  });
+
   it("取消态显示已取消文案且无取消按钮（仅保留关闭）", () => {
     const state = makeState({ status: "cancelled" });
     render(<OperationProgressDialog state={state} isCommitting={false} onCancel={vi.fn()} onClose={vi.fn()} onReset={vi.fn()} />);

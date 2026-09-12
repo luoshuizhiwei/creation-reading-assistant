@@ -44,7 +44,9 @@ async function run(): Promise<void> {
         const card = await workspace.read({ kind: "card.read", cardId: result.cardId });
         assert.equal(card?.kind, "reference");
         assert.equal(card?.title, "灵感");
-        assert.equal(card?.projectId, project.projectId);
+        assert.equal(card?.projectId, null, "card.read 返回全局实体投影");
+        assert.deepEqual(card?.linkedProjectIds, [project.projectId]);
+        assert.equal(card?.usageCount, 1);
         const view = await workspace.read({ kind: "inbox.count" });
         assert.equal(view.total, 1);
         assert.equal(view.pending, 0);

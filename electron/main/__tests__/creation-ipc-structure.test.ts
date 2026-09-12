@@ -31,6 +31,7 @@ describe("creation structure IPC input validation", () => {
   const previewStructure = vi.fn(async () => ({ ok: true }));
   const applyStructure = vi.fn(async () => ({ ok: true }));
   const revertStructure = vi.fn(async () => ({ ok: true }));
+  const transact = vi.fn(async (command: unknown) => ({ command }));
 
   beforeEach(() => {
     electronMock.handlers.clear();
@@ -38,8 +39,9 @@ describe("creation structure IPC input validation", () => {
     previewStructure.mockClear();
     applyStructure.mockClear();
     revertStructure.mockClear();
+    transact.mockClear();
 
-    const workspace = { previewStructure, applyStructure, revertStructure };
+    const workspace = { previewStructure, applyStructure, revertStructure, transact };
     const coordinator = {
       withWorkspace: vi.fn(async (operation: (value: typeof workspace) => unknown) => operation(workspace))
     } as unknown as CreationCoordinator;
@@ -128,5 +130,33 @@ describe("creation structure IPC input validation", () => {
       code: "invalid-input"
     });
     expect(workspaceMethod).not.toHaveBeenCalled();
+  });
+
+  it("validates and forwards card link/unlink commands through the public IPC seam", async () => {
+    await invoke("creation:cardLink", { projectId: "project-1", cardId: "card-1" });
+    await invoke("creation:cardUnlink", { projectId: "project-1", cardId: "card-1" });
+
+    expect(transact).toHaveBeenNthCalledWith(1, {
+      type: "card.link",
+      projectId: "project-1",
+      cardId: "card-1"
+    });
+    expect(transact).toHaveBeenNthCalledWith(2, {
+      type: "card.unlink",
+      projectId: "project-1",
+      cardId: "card-1"
+    });
+  });
+
+  it.each([
+    [null],
+    [{ projectId: "", cardId: "card-1" }],
+    [{ projectId: "project-1", cardId: "   " }],
+    [{ projectId: 1, cardId: "card-1" }]
+  ])("rejects invalid card association input before entering the workspace: %j", async (input) => {
+    await expect(invoke("creation:cardLink", input)).rejects.toMatchObject<Partial<CreationWorkspaceError>>({
+      code: "invalid-input"
+    });
+    expect(transact).not.toHaveBeenCalled();
   });
 });

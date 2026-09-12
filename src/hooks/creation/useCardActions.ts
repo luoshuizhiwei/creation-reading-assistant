@@ -7,6 +7,8 @@ import {
   cardImportPlan,
   cardImportSchema,
   cardRead,
+  cardLink,
+  cardUnlink,
   cardRelations,
   cardsList,
   cardTypesList,
@@ -39,17 +41,20 @@ import { messageFromError } from "@/utils/format";
  * 每个 loadCards 调用递增并捕获当前 seq；只有响应到达时 seq 仍匹配才写 store。
  */
 let cardsLoadSeq = 0;
-let cardsLoadLastProjectId = "";
+let cardsLoadLastScope: string | null = null;
+let cardTypesLoadSeq = 0;
+let relationTypesLoadSeq = 0;
 
 export function useCardActions() {
   const setError = useAppStore((state) => state.setError);
 
   const loadCardTypes = useCallback(
-    async (projectId: string): Promise<void> => {
-      useCreationStore.getState().activateCardProject(projectId);
+    async (_projectId?: string): Promise<void> => {
+      const seq = ++cardTypesLoadSeq;
       await executeAction(
         async () => {
-          useCreationStore.getState().setCardTypes(projectId, await cardTypesList(projectId));
+          const result = await cardTypesList();
+          if (seq === cardTypesLoadSeq) useCreationStore.getState().setCardTypes(result);
         },
         { setError }
       );
@@ -58,11 +63,12 @@ export function useCardActions() {
   );
 
   const loadRelationTypes = useCallback(
-    async (projectId: string): Promise<void> => {
-      useCreationStore.getState().activateCardProject(projectId);
+    async (_projectId?: string): Promise<void> => {
+      const seq = ++relationTypesLoadSeq;
       await executeAction(
         async () => {
-          useCreationStore.getState().setRelationTypes(projectId, await relationTypesList(projectId));
+          const result = await relationTypesList();
+          if (seq === relationTypesLoadSeq) useCreationStore.getState().setRelationTypes(result);
         },
         { setError }
       );
@@ -72,14 +78,16 @@ export function useCardActions() {
 
   const loadCards = useCallback(
     async (query: Omit<CardsListQuery, "kind">): Promise<CardSummary[] | undefined> => {
-      useCreationStore.getState().activateCardProject(query.projectId);
-      useCreationStore.getState().setCardsLoading(query.projectId, true);
+      const scope = query.projectId ?? null;
+      if (query.projectId) useCreationStore.getState().activateCardProject(query.projectId);
+      else useCreationStore.getState().activateGlobalCards();
+      useCreationStore.getState().setCardsLoading(scope, true);
       const seq = ++cardsLoadSeq;
-      cardsLoadLastProjectId = query.projectId;
+      cardsLoadLastScope = scope;
       try {
         const result = await cardsList({ kind: "cards.list", ...query });
-        if (seq === cardsLoadSeq && query.projectId === cardsLoadLastProjectId) {
-          useCreationStore.getState().setCards(query.projectId, result);
+        if (seq === cardsLoadSeq && scope === cardsLoadLastScope) {
+          useCreationStore.getState().setCards(scope, result);
           return result;
         }
         // 请求已过期：旧项目响应不得覆盖新项目，也不得被当成当前结果消费。
@@ -88,16 +96,28 @@ export function useCardActions() {
         setError(messageFromError(error));
         return undefined;
       } finally {
-        if (seq === cardsLoadSeq && query.projectId === cardsLoadLastProjectId) {
-          useCreationStore.getState().setCardsLoading(query.projectId, false);
+        if (seq === cardsLoadSeq && scope === cardsLoadLastScope) {
+          useCreationStore.getState().setCardsLoading(scope, false);
         }
       }
     },
     [setError]
   );
 
+  /**
+   * 用于“关联全局卡片”选择器的只读查询。
+   * 不能复用 loadCards：它会切换 cards store 的当前作用域，令项目页被全局结果覆盖。
+   */
+  const listGlobalCards = useCallback(
+    async (query: Omit<CardsListQuery, "kind" | "projectId"> = {}): Promise<CardSummary[]> => {
+      const result = await executeAction(() => cardsList({ kind: "cards.list", ...query }), { setError });
+      return result ?? [];
+    },
+    [setError]
+  );
+
   const loadCardRelations = useCallback(
-    async (projectId: string, cardId: string): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> => {
+    async (projectId: string | null, cardId: string): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> => {
       const res = await executeAction(
         async () => {
           const relations = await cardRelations(cardId);
@@ -115,6 +135,24 @@ export function useCardActions() {
     async (cardId: string) => {
       const res = await executeAction(() => cardRead(cardId), { setError });
       return res ?? null;
+    },
+    [setError]
+  );
+
+  const linkCardToProject = useCallback(
+    async (projectId: string, cardId: string) => {
+      const result = await executeAction(() => cardLink(projectId, cardId), { setError });
+      if (result) useCreationStore.getState().applyCardLinkResult(result);
+      return result ?? null;
+    },
+    [setError]
+  );
+
+  const unlinkCardFromProject = useCallback(
+    async (projectId: string, cardId: string) => {
+      const result = await executeAction(() => cardUnlink(projectId, cardId), { setError });
+      if (result) useCreationStore.getState().applyCardLinkResult(result);
+      return result ?? null;
     },
     [setError]
   );
@@ -196,8 +234,11 @@ export function useCardActions() {
     loadCardTypes,
     loadRelationTypes,
     loadCards,
+    listGlobalCards,
     loadCardRelations,
     readCard,
+    linkCardToProject,
+    unlinkCardFromProject,
     updateCardType,
     deleteCardType,
     updateRelationType,

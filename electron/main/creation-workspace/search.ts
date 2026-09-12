@@ -82,16 +82,17 @@ export function createSearchModule(database: Database): SearchModule {
     const like = `%${escapeLike(keyword)}%`;
     const params: unknown[] = [like, like, like, like, like];
     let sql = `
-      SELECT c.id, c.project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json, c.content_json, c.updated_at,
+      SELECT c.id, pcl.project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json, c.content_json, c.updated_at,
              p.title AS project_title
       FROM cards c
-      JOIN projects p ON p.id = c.project_id
+      JOIN project_card_links pcl ON pcl.card_id = c.id
+      JOIN projects p ON p.id = pcl.project_id
       WHERE c.deleted_at IS NULL
         AND (c.title LIKE ? ESCAPE '\\' OR c.aliases_json LIKE ? ESCAPE '\\'
              OR c.fields_json LIKE ? ESCAPE '\\' OR c.tags_json LIKE ? ESCAPE '\\'
              OR c.content_json LIKE ? ESCAPE '\\')`;
     if (projectId) {
-      sql += " AND c.project_id = ?";
+      sql += " AND pcl.project_id = ?";
       params.push(projectId);
     }
     if (cardKinds.length > 0) {

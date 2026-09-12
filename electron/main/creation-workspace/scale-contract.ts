@@ -69,6 +69,9 @@ async function run(): Promise<void> {
       const insertCard = raw.database.prepare(
         "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
+      const insertCardLink = raw.database.prepare(
+        "INSERT INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)"
+      );
       const insertRelation = raw.database.prepare(
         "INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, created_at) VALUES (?, ?, ?, ?, ?, ?)"
       );
@@ -124,6 +127,7 @@ async function run(): Promise<void> {
           timestamp,
           timestamp
         );
+        insertCardLink.run(projectId, `card-scale-${index}`, timestamp);
       }
       for (let index = 0; index < RELATION_COUNT; index += 1) {
         const offset = index < CARD_COUNT ? 1 : 100;

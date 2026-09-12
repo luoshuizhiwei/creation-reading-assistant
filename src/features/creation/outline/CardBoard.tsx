@@ -38,6 +38,13 @@ interface CardBoardProps {
 
 type GroupMode = "chapter" | "status";
 
+const SCENE_STATUS_GROUPS = [
+  { value: "planned", label: "待规划" },
+  { value: "drafting", label: "起草中" },
+  { value: "revising", label: "修订中" },
+  { value: "done", label: "已完成" }
+] as const;
+
 function chapterKey(chapter: CreationOutlineChapter): string {
   return [chapter.displayNumber, chapter.title].filter(Boolean).join(" ");
 }
@@ -98,7 +105,7 @@ export function CardBoard({
 
   const flatChapters = outline.volumes.flatMap((volume) =>
     volume.chapters.map((chapter) => ({ volumeTitle: volume.title, chapter }))
-  );
+  ).concat((outline.looseChapters ?? []).map((chapter) => ({ volumeTitle: "未分卷", chapter })));
 
   const allScenes = flatChapters.flatMap(({ volumeTitle, chapter }) =>
     chapter.scenes.map((scene) => ({ volumeTitle, chapter, scene }))
@@ -106,9 +113,9 @@ export function CardBoard({
 
   const scenesByStatus = new Map<string, typeof allScenes>();
   for (const item of allScenes) {
-    const list = scenesByStatus.get(item.chapter.status) ?? [];
+    const list = scenesByStatus.get(item.scene.status ?? "planned") ?? [];
     list.push(item);
-    scenesByStatus.set(item.chapter.status, list);
+    scenesByStatus.set(item.scene.status ?? "planned", list);
   }
 
   const pendingCommand = (): ProtectedStructureCommand | null => {
@@ -215,12 +222,15 @@ export function CardBoard({
           <FileText size={13} />
           {item.scene.title}
         </span>
+        {item.scene.summary && <span className="card-board-card-summary">{item.scene.summary}</span>}
         <span className="card-board-card-meta">
           {chapterKey(item.chapter)}
           {item.volumeTitle && ` · ${item.volumeTitle}`}
           <em>{item.scene.wordCount.toLocaleString("zh-CN")}字</em>
         </span>
-        <span className="card-board-card-status">{item.chapter.status}</span>
+        <span className={`card-board-card-status card-board-card-status--${item.scene.status ?? "planned"}`}>
+          {SCENE_STATUS_GROUPS.find((entry) => entry.value === (item.scene.status ?? "planned"))?.label ?? "待规划"}
+        </span>
       </button>
       {renderSceneActions(item.chapter, item.scene.id)}
     </div>
@@ -357,13 +367,13 @@ export function CardBoard({
                 </div>
               </section>
             ))
-          : workflow.map((status) => {
-              const items = scenesByStatus.get(status) ?? [];
+          : SCENE_STATUS_GROUPS.map(({ value, label }) => {
+              const items = scenesByStatus.get(value) ?? [];
               if (items.length === 0) return null;
               return (
-                <section key={status} className="card-board-group">
+                <section key={value} className="card-board-group">
                   <header className="card-board-group-head">
-                    <span className="card-board-status-key">{status}</span>
+                    <span className="card-board-status-key">{label}</span>
                     <em>
                       {items.length}场景 ·{" "}
                       {items.reduce((sum, item) => sum + item.scene.wordCount, 0).toLocaleString("zh-CN")}字

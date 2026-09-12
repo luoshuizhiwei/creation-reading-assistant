@@ -3,12 +3,19 @@ import { createHash, randomUUID } from "node:crypto";
 import { mkdtemp, mkdir, readFile, readdir, rm, symlink, writeFile, lstat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { openCreationWorkspace, type CreationWorkspace } from "../creation-workspace";
+import { openCreationWorkspace, scanResourceConsistencyCore, type CreationWorkspace } from "../creation-workspace";
 import {
   exportProjectBundleDirectory,
   importProjectBundleDirectory,
   ProjectBundleError
 } from "./index";
+import {
+  assertV9AttachmentFiles,
+  seedV9Baseline,
+  V9_ATTACHMENT_A_CONTENT,
+  V9_BASELINE,
+  type V9Baseline
+} from "../creation-workspace/v9-baseline-fixture";
 import type { ProjectBundleData, ProjectBundleImportCommand, ProjectBundleImportResult } from "../../../src/types/creation";
 
 async function withWorkspace<T>(directory: string, fn: (workspace: CreationWorkspace) => Promise<T>): Promise<T> {
@@ -160,7 +167,13 @@ async function run(): Promise<void> {
     let sourceCardId = "";
     let sourceResourceRel = "";
     let sourceResourceSha = "";
+    let globalResourceRel = "";
+    let globalResourceSha = "";
+    let unrelatedGlobalSha = "";
     let traversalTransact: (command: ProjectBundleImportCommand) => Promise<ProjectBundleImportResult>;
+    /** v9 双项目基线（M0.2）：导出目录与基线 id，供后续导入场景复用。 */
+    let v9BundleDirectory = "";
+    let v9Baseline: V9Baseline | undefined;
 
     await scenario("带附件导出：staging→唯一目录、manifest 哈希一致", async () => {
       sourceWorkspaceDir = path.join(parent, "source-ws");
@@ -182,8 +195,32 @@ async function run(): Promise<void> {
           size: content.length,
           originalName: "材料.pdf"
         });
+        const globalContent = Buffer.from("全局卡片封面-20260911", "utf8");
+        globalResourceSha = sha256Buffer(globalContent);
+        globalResourceRel = `resources/cards/${card.entityId}/${randomUUID()}-封面.png`;
+        await mkdir(path.dirname(path.join(sourceWorkspaceDir, globalResourceRel)), { recursive: true });
+        await writeFile(path.join(sourceWorkspaceDir, globalResourceRel), globalContent);
+        await workspace.transact({
+          type: "resource.attach",
+          cardId: card.entityId,
+          role: "cover",
+          relativePath: globalResourceRel,
+          sha256: globalResourceSha,
+          size: globalContent.length,
+          originalName: "封面.png"
+        });
+        const unrelatedProject = await workspace.transact({ type: "project.create", title: "无关项目" });
+        const unrelatedCard = await workspace.transact({ type: "card.create", projectId: unrelatedProject.projectId, kind: "character", title: "无关角色" }) as { entityId: string };
+        const unrelatedContent = Buffer.from("不得进入目标项目包", "utf8");
+        unrelatedGlobalSha = sha256Buffer(unrelatedContent);
+        const unrelatedPath = `resources/cards/${unrelatedCard.entityId}/${randomUUID()}-private.bin`;
+        await mkdir(path.dirname(path.join(sourceWorkspaceDir, unrelatedPath)), { recursive: true });
+        await writeFile(path.join(sourceWorkspaceDir, unrelatedPath), unrelatedContent);
+        await workspace.transact({ type: "resource.attach", cardId: unrelatedCard.entityId, relativePath: unrelatedPath, sha256: unrelatedGlobalSha, size: unrelatedContent.length });
         exportedData = (await workspace.read({ kind: "project.bundle.export", projectId: created.projectId }))!;
-        assert.equal(exportedData.resources.length, 1);
+        assert.equal(exportedData.resources.length, 2);
+        assert.equal(exportedData.resources.some((resource) => resource.ownerScope === "card"), true);
+        assert.equal(JSON.stringify(exportedData).includes(unrelatedGlobalSha), false, "项目包不得携带未关联卡片的全局资产");
       });
       const exportParent = path.join(parent, "exports");
       await mkdir(exportParent, { recursive: true });
@@ -197,8 +234,10 @@ async function run(): Promise<void> {
       assert.equal(bundleFiles.includes("manifest.json"), true);
       assert.equal(bundleFiles.includes("project.json"), true);
       const bundleResourcePath = `resources/${sourceResourceRel.replace(/^resources\//, "")}`;
+      const globalBundleResourcePath = `resources/${globalResourceRel.replace(/^resources\//, "")}`;
       assert.equal(bundleFiles.includes(bundleResourcePath), true);
-      assert.equal(result.manifest.files.length, 2);
+      assert.equal(bundleFiles.includes(globalBundleResourcePath), true);
+      assert.equal(result.manifest.files.length, 3);
       assert.equal(result.manifest.formatVersion, 2);
       assert.equal(exportedData!.formatVersion, 2);
       assert.equal(exportedData!.annotations.length, 0);
@@ -216,7 +255,7 @@ async function run(): Promise<void> {
           bundleDirectory: exportedDirectory,
           transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
         });
-        assert.equal(result.counts.resources, 1);
+        assert.equal(result.counts.resources, 2);
         assert.equal(result.projectId.startsWith("project-"), true);
         const resources = (await workspace.read({ kind: "resource.list", projectId: result.projectId })) as Array<{
           relativePath: string;
@@ -224,19 +263,99 @@ async function run(): Promise<void> {
           size: number;
           cardId: string | null;
           originalName: string | null;
+          ownerScope?: "project" | "card";
+          role?: "attachment" | "cover";
         }>;
-        assert.equal(resources.length, 1);
-        assert.equal(resources[0]!.relativePath.startsWith(`resources/${result.projectId}/`), true);
-        assert.equal(resources[0]!.sha256, sourceResourceSha);
-        assert.equal(resources[0]!.cardId, sourceCardId);
-        assert.equal(resources[0]!.originalName, "材料.pdf");
-        const onDiskPath = path.join(targetDir, resources[0]!.relativePath);
+        assert.equal(resources.length, 2);
+        const projectResource = resources.find((resource) => resource.ownerScope === "project")!;
+        const globalResource = resources.find((resource) => resource.ownerScope === "card")!;
+        assert.equal(projectResource.relativePath.startsWith(`resources/${result.projectId}/`), true);
+        assert.equal(projectResource.sha256, sourceResourceSha);
+        assert.equal(projectResource.cardId, sourceCardId);
+        assert.equal(projectResource.originalName, "材料.pdf");
+        assert.equal(globalResource.relativePath.startsWith(`resources/cards/${sourceCardId}/`), true);
+        assert.equal(globalResource.sha256, globalResourceSha);
+        assert.equal(globalResource.originalName, "封面.png");
+        assert.equal(globalResource.role, "cover");
+        const onDiskPath = path.join(targetDir, projectResource.relativePath);
         const info = await lstat(onDiskPath);
         assert.equal(info.isFile(), true);
-        assert.equal(info.size, resources[0]!.size);
+        assert.equal(info.size, projectResource.size);
         assert.equal(await sha256File(onDiskPath), sourceResourceSha);
+        assert.equal(await sha256File(path.join(targetDir, globalResource.relativePath)), globalResourceSha);
         const integrity = await workspace.check();
         assert.equal(integrity.ok, true);
+      });
+    });
+
+    await scenario("稳定 ID 复用：本机相同全局附件不重复复制，项目附件仍正常导入", async () => {
+      const targetDir = path.join(parent, "target-card-reuse-files");
+      await withWorkspace(targetDir, async (workspace) => {
+        const seedData: ProjectBundleData = {
+          ...structuredClone(exportedData!),
+          project: { ...exportedData!.project, id: "project-local-reuse-seed" },
+          resources: [],
+          counts: { ...exportedData!.counts, resources: 0 }
+        };
+        await workspace.transact({ type: "project.bundle.import", data: seedData });
+        const localGlobalPath = `resources/cards/${sourceCardId}/local-cover.png`;
+        const globalBytes = await readFile(path.join(sourceWorkspaceDir, globalResourceRel));
+        await mkdir(path.dirname(path.join(targetDir, localGlobalPath)), { recursive: true });
+        await writeFile(path.join(targetDir, localGlobalPath), globalBytes);
+        await workspace.transact({
+          type: "resource.attach",
+          cardId: sourceCardId,
+          role: "cover",
+          relativePath: localGlobalPath,
+          sha256: globalResourceSha,
+          size: globalBytes.length,
+          originalName: "封面.png"
+        });
+
+        const result = await importProjectBundleDirectory({
+          workspaceDirectory: targetDir,
+          bundleDirectory: exportedDirectory,
+          cardResolutions: [{ cardId: sourceCardId, action: "reuse" }],
+          transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
+        });
+        assert.equal(result.cardMappings.find((item) => item.sourceCardId === sourceCardId)?.action, "reused");
+        assert.equal(result.counts.resources, 1, "复用卡片的全局附件不应重复入库，只新增项目附件");
+        const resources = await workspace.read({ kind: "resource.list", projectId: result.projectId });
+        const globalResources = resources.filter((resource) => resource.ownerScope === "card");
+        assert.equal(globalResources.length, 1);
+        assert.equal(globalResources[0]!.relativePath, localGlobalPath);
+        assert.equal(await sha256File(path.join(targetDir, localGlobalPath)), globalResourceSha);
+        const allFiles = await listRelativeFiles(targetDir);
+        assert.equal(allFiles.filter((file) => file.startsWith(`resources/cards/${sourceCardId}/`)).length, 1);
+      });
+    });
+
+    await scenario("稳定 ID 导入副本：全局附件复制到新卡目录，原卡与原文件不变", async () => {
+      const targetDir = path.join(parent, "target-card-copy-files");
+      await withWorkspace(targetDir, async (workspace) => {
+        const seedData: ProjectBundleData = {
+          ...structuredClone(exportedData!),
+          project: { ...exportedData!.project, id: "project-local-copy-seed" },
+          resources: [],
+          counts: { ...exportedData!.counts, resources: 0 }
+        };
+        await workspace.transact({ type: "project.bundle.import", data: seedData });
+        await workspace.transact({ type: "card.update", cardId: sourceCardId, title: "本机苏青", baseRevision: 1 });
+        const copiedCardId = "card-file-layer-import-copy";
+        const result = await importProjectBundleDirectory({
+          workspaceDirectory: targetDir,
+          bundleDirectory: exportedDirectory,
+          cardResolutions: [{ cardId: sourceCardId, action: "import-copy", targetCardId: copiedCardId }],
+          transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
+        });
+        assert.equal(result.cardMappings.find((item) => item.sourceCardId === sourceCardId)?.targetCardId, copiedCardId);
+        assert.equal((await workspace.read({ kind: "card.read", cardId: sourceCardId }))?.title, "本机苏青");
+        assert.equal((await workspace.read({ kind: "card.read", cardId: copiedCardId }))?.title, "苏青");
+        const resources = await workspace.read({ kind: "resource.list", projectId: result.projectId });
+        const copiedGlobal = resources.find((resource) => resource.ownerScope === "card" && resource.cardId === copiedCardId)!;
+        assert.equal(copiedGlobal.relativePath.startsWith(`resources/cards/${copiedCardId}/`), true);
+        assert.equal(await sha256File(path.join(targetDir, copiedGlobal.relativePath)), globalResourceSha);
+        assert.equal((await listRelativeFiles(targetDir)).some((file) => file.startsWith(`resources/cards/${sourceCardId}/`)), false);
       });
     });
 
@@ -798,6 +917,123 @@ async function run(): Promise<void> {
         assert.equal(files.some((file) => file.startsWith("resources/")), false);
         assert.equal(files.some((file) => file.startsWith(".bundle-import-")), false);
       });
+    });
+
+    await scenario("v9 基线（真实附件）：导出 A 仅含 A 的附件文件，B 的文件绝不进入导出目录", async () => {
+      const sourceWorkspace = path.join(parent, "v9-source-ws");
+      let exportedA: ProjectBundleData | undefined;
+      await withWorkspace(sourceWorkspace, async (workspace) => {
+        // A / B 各自写入确定性真实附件字节（resources/<projectId>/ 下）。
+        v9Baseline = await seedV9Baseline(workspace, { workspaceDirectory: sourceWorkspace });
+        exportedA = (await workspace.read({ kind: "project.bundle.export", projectId: v9Baseline.projectA }))!;
+      });
+      const baseline = v9Baseline!;
+
+      // 1) workspace 包数据只含 A 的资源元数据，不含 B 的任何标识。
+      assert.equal(exportedA!.counts.resources, 1);
+      assert.equal(exportedA!.resources.length, 1);
+      assert.equal(exportedA!.resources[0]!.relativePath, baseline.resourceRelativePath);
+      assert.equal(exportedA!.resources[0]!.sha256, baseline.resourceSha256);
+      assert.equal(exportedA!.resources[0]!.size, baseline.resourceSize);
+      const exportedJson = JSON.stringify(exportedA);
+      assert.equal(exportedJson.includes(baseline.resourceBRelativePath), false, "包数据不得含 B 的附件路径");
+      assert.equal(exportedJson.includes(baseline.resourceBSha256), false, "包数据不得含 B 的内容标识");
+      assert.equal(exportedJson.includes(baseline.resourceBId), false, "包数据不得含 B 的附件 ID");
+
+      // 2) 文件层导出：目录内只出现 A 的那一个附件文件。
+      const exportParent = path.join(parent, "exports-v9");
+      await mkdir(exportParent, { recursive: true });
+      const result = await exportProjectBundleDirectory({
+        workspaceDirectory: sourceWorkspace,
+        data: exportedA!,
+        targetDirectory: exportParent
+      });
+      v9BundleDirectory = result.directory;
+
+      const files = (await listRelativeFiles(v9BundleDirectory)).sort();
+      const expectedResourcePath = `resources/${baseline.resourceRelativePath.replace(/^resources\//, "")}`;
+      assert.deepEqual(
+        files.filter((file) => !file.startsWith("resources/")),
+        ["manifest.json", "project.json"]
+      );
+      assert.deepEqual(files.filter((file) => file.startsWith("resources/")), [expectedResourcePath]);
+      assert.equal(files.some((file) => file.includes("baseline-ref-b")), false, "B 的附件文件不得进入 A 的导出目录");
+      assert.equal(files.some((file) => file.includes(baseline.projectB)), false, "导出目录不得出现 B 的项目 ID");
+
+      // 3) manifest 中 A 附件的 size / sha256 与源文件实际字节一致。
+      const manifestEntry = result.manifest.files.find((file) => file.path === expectedResourcePath);
+      assert.equal(manifestEntry !== undefined, true, "manifest 必须列出 A 的附件");
+      assert.equal(manifestEntry!.sha256, baseline.resourceSha256);
+      assert.equal(manifestEntry!.size, baseline.resourceSize);
+      const exportedResourceFile = path.join(v9BundleDirectory, expectedResourcePath);
+      assert.equal((await lstat(exportedResourceFile)).size, baseline.resourceSize);
+      assert.equal(await sha256File(exportedResourceFile), baseline.resourceSha256);
+      // 导出出来的字节必须就是 A 的原始内容
+      assert.deepEqual(await readFile(exportedResourceFile), Buffer.from(V9_ATTACHMENT_A_CONTENT, "utf8"));
+
+      // 4) 导出目录内的 project.json 不得含 B 的项目 ID / 附件路径 / 内容标识。
+      const projectJsonText = await readFile(path.join(v9BundleDirectory, "project.json"), "utf8");
+      for (const marker of [
+        baseline.projectB,
+        baseline.resourceBRelativePath,
+        baseline.resourceBSha256,
+        baseline.resourceBId
+      ]) {
+        assert.equal(projectJsonText.includes(marker), false, `导出包 project.json 不得含 B 的标识：${marker}`);
+      }
+
+      // 5) 导出流程不得破坏源工作区里 A / B 两份附件。
+      await assertV9AttachmentFiles(sourceWorkspace, baseline);
+    });
+
+    await scenario("v9 基线（真实附件）：导入全新工作区后 A 的字节/哈希与资源记录正确、check 与扫描均通过", async () => {
+      const baseline = v9Baseline!;
+      const targetWorkspace = path.join(parent, "v9-target-ws");
+      await withWorkspace(targetWorkspace, async (workspace) => {
+        const result = await importProjectBundleDirectory({
+          workspaceDirectory: targetWorkspace,
+          bundleDirectory: v9BundleDirectory,
+          transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
+        });
+        assert.equal(result.counts.resources, 1, "导入应只带 A 的那一份附件");
+        assert.notEqual(result.projectId, baseline.projectA, "导入应生成新的项目 ID");
+
+        const resources = (await workspace.read({ kind: "resource.list", projectId: result.projectId })) as Array<{
+          relativePath: string;
+          sha256: string;
+          size: number;
+          cardId: string | null;
+          originalName: string | null;
+        }>;
+        assert.equal(resources.length, 1);
+        assert.equal(resources[0]!.relativePath.startsWith(`resources/${result.projectId}/`), true);
+        assert.equal(resources[0]!.sha256, baseline.resourceSha256, "导入后资源记录哈希必须与 A 一致");
+        assert.equal(resources[0]!.size, baseline.resourceSize);
+        assert.equal(resources[0]!.originalName, V9_BASELINE.resourceOriginalName);
+
+        // 文件实体：存在、大小与字节哈希与源 A 附件完全一致。
+        const onDisk = path.join(targetWorkspace, resources[0]!.relativePath);
+        const info = await lstat(onDisk);
+        assert.equal(info.isFile(), true);
+        assert.equal(info.size, baseline.resourceSize);
+        assert.equal(await sha256File(onDisk), baseline.resourceSha256);
+        assert.deepEqual(await readFile(onDisk), Buffer.from(V9_ATTACHMENT_A_CONTENT, "utf8"));
+
+        // B 的附件（文件与记录）绝不进入新工作区。
+        const resourceFiles = (await listRelativeFiles(targetWorkspace)).filter((file) => file.startsWith("resources/"));
+        assert.equal(resourceFiles.length, 1, "新工作区 resources/ 下只应有 A 的那一个附件文件");
+        assert.equal(resourceFiles.some((file) => file.includes("baseline-ref-b")), false);
+        assert.equal(resourceFiles.some((file) => file.includes(baseline.projectB)), false);
+
+        const integrity = await workspace.check();
+        assert.equal(integrity.ok, true, "导入后 workspace.check() 必须通过");
+      });
+
+      // 只读资源扫描：导入后的记录 ↔ 文件必须一致（零问题）。
+      const scan = await scanResourceConsistencyCore({ workspaceDirectory: targetWorkspace });
+      assert.equal(scan.issues.length, 0, `导入后应零问题，实际：${JSON.stringify(scan.issues)}`);
+      assert.equal(scan.scannedRecordCount >= 1, true);
+      assert.equal(scan.scannedFileCount >= 1, true);
     });
 
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);

@@ -5,6 +5,7 @@ import {
   Flag,
   GitBranch,
   Globe2,
+  Link2,
   Layers,
   LayoutGrid,
   Pencil,
@@ -13,7 +14,7 @@ import {
   Trash2,
   Upload
 } from "lucide-react";
-import { Select, Tabs } from "@/components/ui";
+import { Button, Dialog, Select, Tabs } from "@/components/ui";
 import { BoardView } from "@/features/creation/cards/BoardView";
 import { CardTypeEditor } from "@/features/creation/cards/CardTypeEditor";
 import { RelationTypeEditor } from "@/features/creation/cards/RelationTypeEditor";
@@ -23,6 +24,7 @@ import { CardExportDialog } from "@/features/creation/cards/import-export/CardEx
 import { CardListSidebar } from "@/features/creation/cards/components/CardListSidebar";
 import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
 import { CardRelationsManager } from "@/features/creation/cards/components/CardRelationsManager";
+import { ProjectCardLinkDialog } from "@/features/creation/cards/ProjectCardLinkDialog";
 import { displayFieldValue } from "@/features/creation/cards/components/CardDynamicFields";
 import "./cards-local.css";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -51,6 +53,8 @@ export function CardsPage({ project }: CardsPageProps) {
     loadRelationTypes,
     loadCards,
     loadCardRelations,
+    linkCardToProject,
+    unlinkCardFromProject,
     runStructure,
     subscribeProject,
     loadResources,
@@ -64,7 +68,9 @@ export function CardsPage({ project }: CardsPageProps) {
   const [filterKind, setFilterKind] = useState("");
   const [search, setSearch] = useState("");
   const [draft, setDraft] = useState<CardSummary | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [showLinkDialog, setShowLinkDialog] = useState(false);
+  const [showUnlinkDialog, setShowUnlinkDialog] = useState(false);
+  const [unlinking, setUnlinking] = useState(false);
   const [resources, setResources] = useState<ResourceInfo[]>([]);
   const [confirmingResource, setConfirmingResource] = useState<string | null>(null);
   const [showCardTypeEditor, setShowCardTypeEditor] = useState(false);
@@ -77,7 +83,8 @@ export function CardsPage({ project }: CardsPageProps) {
 
   useEffect(() => {
     setDraft(null);
-    setConfirmDelete(false);
+    setShowLinkDialog(false);
+    setShowUnlinkDialog(false);
     setResources([]);
     setShowCardTypeEditor(false);
     setShowRelationTypeEditor(false);
@@ -103,7 +110,7 @@ export function CardsPage({ project }: CardsPageProps) {
   }, [loadCards, project.id, filterKind, search, mode]);
 
   const projectCards = useMemo(
-    () => cards.filter((card) => card.projectId === project.id),
+    () => cards.filter((card) => card.linkedProjectIds?.includes(project.id) ?? card.projectId === project.id),
     [cards, project.id]
   );
 
@@ -168,6 +175,8 @@ export function CardsPage({ project }: CardsPageProps) {
     setDraft({
       id: "new",
       projectId: project.id,
+      linkedProjectIds: [project.id],
+      usageCount: 1,
       kind: kind || cardTypes[0]?.kind || "character",
       title: "",
       aliases: [],
@@ -250,15 +259,25 @@ export function CardsPage({ project }: CardsPageProps) {
     }
   };
 
-  const removeCard = async () => {
-    if (!selectedCard || !confirmDelete) return;
-    const ok = await runStructure({ type: "card.delete", cardId: selectedCard.id });
-    if (ok) {
-      showToast({ tone: "success", title: "卡片已删除" });
+  const unlinkSelectedCard = async () => {
+    if (!selectedCard) return;
+    setUnlinking(true);
+    const result = await unlinkCardFromProject(project.id, selectedCard.id);
+    setUnlinking(false);
+    if (result) {
+      showToast({ tone: "success", title: "已解除项目关联", body: "全局卡片仍保留在卡片库中。" });
       selectCard(undefined);
-      setConfirmDelete(false);
+      setShowUnlinkDialog(false);
       refreshCards();
     }
+  };
+
+  const linkGlobalCard = async (cardId: string): Promise<boolean> => {
+    const result = await linkCardToProject(project.id, cardId);
+    if (!result) return false;
+    showToast({ tone: "success", title: "已关联全局卡片", body: "该卡片将在当前项目中可用。" });
+    refreshCards();
+    return true;
   };
 
   const handleCreateRelation = async (payload: {
@@ -335,16 +354,8 @@ export function CardsPage({ project }: CardsPageProps) {
         </div>
         <div className="cards-detail-actions">
           <button type="button" onClick={() => setDraft(selectedCard)} title="编辑"><Pencil size={15} /></button>
-          <button
-            type="button"
-            className={confirmDelete ? "confirming" : ""}
-            onClick={() => {
-              if (confirmDelete) void removeCard();
-              else setConfirmDelete(true);
-            }}
-            title="删除卡片"
-          >
-            <Trash2 size={15} />
+          <button type="button" onClick={() => setShowUnlinkDialog(true)} title="解除项目关联（不删除全局卡片）">
+            <Link2 size={15} />
           </button>
         </div>
       </header>
@@ -391,9 +402,11 @@ export function CardsPage({ project }: CardsPageProps) {
             {resources.map((resource) => (
               <li key={resource.id}>
                 <span>{resource.originalName ?? resource.relativePath.split("/").pop()}</span>
-                <em>{(resource.size / 1024).toFixed(1)} KB</em>
+                <em>{resource.ownerScope === "card" ? "全局资产" : `${(resource.size / 1024).toFixed(1)} KB`}</em>
                 <small>{resource.sha256.slice(0, 12)}…</small>
-                <button
+                {resource.ownerScope === "card" ? (
+                  <small>请在卡片库管理</small>
+                ) : <button
                   type="button"
                   className={confirmingResource === resource.id ? "confirming" : ""}
                   onClick={() => {
@@ -407,7 +420,7 @@ export function CardsPage({ project }: CardsPageProps) {
                 >
                   <Trash2 size={12} />
                   {confirmingResource === resource.id ? "确认移除" : "移除"}
-                </button>
+                </button>}
               </li>
             ))}
           </ul>
@@ -441,7 +454,7 @@ export function CardsPage({ project }: CardsPageProps) {
   ) : (
     <div className="cards-detail-empty">
       <Layers size={28} />
-      <p>在左侧选择一张卡片查看详情，或新建一张。</p>
+      <p>在左侧选择一张已关联卡片查看详情，或关联、新建一张。</p>
     </div>
   );
 
@@ -449,7 +462,7 @@ export function CardsPage({ project }: CardsPageProps) {
     <section className="cards-page" aria-label="设定卡管理">
       <header className="cards-toolbar">
         <div className="cards-toolbar-left">
-          <span className="desktop-card-label">Cards</span>
+          <span className="desktop-card-label">关联卡片</span>
           {mode === "cards" && (
             <>
               <Tabs<"board" | "list">
@@ -508,8 +521,11 @@ export function CardsPage({ project }: CardsPageProps) {
             <button type="button" className="cards-manage" onClick={() => setShowExportDialog(true)}>
               <Download size={14} /> 导出
             </button>
+            <button type="button" className="cards-manage" onClick={() => setShowLinkDialog(true)}>
+              <Link2 size={14} /> 关联卡片
+            </button>
             <button type="button" className="cards-add" onClick={() => newCardInKind(filterKind)}>
-              <Plus size={15} /> 新建卡片
+              <Plus size={15} /> 新建并关联
             </button>
           </div>
         )}
@@ -586,6 +602,31 @@ export function CardsPage({ project }: CardsPageProps) {
           onClose={() => setShowExportDialog(false)}
         />
       )}
+      {showLinkDialog && (
+        <ProjectCardLinkDialog
+          projectId={project.id}
+          linkedCardIds={projectCards.map((card) => card.id)}
+          cardTypes={cardTypes}
+          onClose={() => setShowLinkDialog(false)}
+          onLink={linkGlobalCard}
+        />
+      )}
+      <Dialog
+        open={showUnlinkDialog}
+        title="解除项目关联"
+        ariaLabel="解除项目关联"
+        onClose={() => !unlinking && setShowUnlinkDialog(false)}
+        footer={(
+          <>
+            <Button type="button" variant="quiet" disabled={unlinking} onClick={() => setShowUnlinkDialog(false)}>取消</Button>
+            <Button type="button" disabled={unlinking} onClick={() => void unlinkSelectedCard()}>
+              {unlinking ? "解除中…" : "解除关联"}
+            </Button>
+          </>
+        )}
+      >
+        <p className="project-card-link-note">将解除“{selectedCard?.title || "该卡片"}”与当前项目的关联。全局卡片不会被删除，其他项目的关联也不受影响。</p>
+      </Dialog>
     </section>
   );
 }

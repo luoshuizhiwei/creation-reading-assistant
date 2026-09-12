@@ -13,6 +13,7 @@
   StructureCommand,
   UpdateSceneBodyResult,
   CardCommand,
+  CardLinkResult,
   CardReadQuery,
   CardRelation,
   CardRelationsQuery,
@@ -63,7 +64,10 @@
   ProjectImportDraftResult,
   SceneUpdatePlanningCommand,
   SceneUpdatePlanningResult,
+  SceneUpdateMetaCommand,
+  SceneUpdateMetaResult,
   ProjectBundleData,
+  ProjectBundleImportPreview,
   ProjectBundleExportQuery,
   ProjectBundleImportCommand,
   ProjectBundleImportResult,
@@ -158,6 +162,7 @@ export type {
   CardCommand,
   CardCreateCommand,
   CardDeleteCommand,
+  CardLinkResult,
   CardFieldKind,
   CardFieldSchema,
   CardReadQuery,
@@ -239,7 +244,10 @@ export type {
   ScenePlanning,
   SceneUpdatePlanningCommand,
   SceneUpdatePlanningResult,
+  SceneUpdateMetaCommand,
+  SceneUpdateMetaResult,
   ProjectBundleData,
+  ProjectBundleImportPreview,
   ProjectBundleExportQuery,
   ProjectBundleImportCommand,
   ProjectBundleImportResult,
@@ -264,6 +272,8 @@ export type {
   ProjectHomeQuery,
   ProjectHomeView
 } from "../../../src/types/creation";
+
+export type { SceneStatus } from "../../../src/types/creation";
 
 export type IntegritySectionName = "schema" | "relations" | "resources" | "indexes" | "snapshots";
 
@@ -394,7 +404,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | StructurePlanCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | SceneUpdateMetaCommand | StructurePlanCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -405,7 +415,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | InboxConvertToCardResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult | StructurePlanResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | CardLinkResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | InboxConvertToCardResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult | SceneUpdateMetaResult | StructurePlanResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -445,16 +455,19 @@ export interface CreationWorkspace {
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   transact(command: StructureCommand): Promise<CreationStructureResult>;
-  transact(command: CardCommand): Promise<CreationStructureResult>;
+  transact(command: CardCommand): Promise<CreationStructureResult | CardLinkResult>;
   transact(command: HistoryCommand): Promise<CreationStructureResult>;
   transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
   transact(command: InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand): Promise<InboxItemResult>;
   transact(command: ProjectImportDraftCommand): Promise<ProjectImportDraftResult>;
   transact(command: ProjectBundleImportCommand): Promise<ProjectBundleImportResult>;
+  /** 只读比较项目包卡片稳定 ID；不创建项目、不写文件。 */
+  previewProjectBundleImport(data: ProjectBundleData): Promise<ProjectBundleImportPreview>;
   transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand): Promise<AnnotationResult>;
   transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
+  transact(command: SceneUpdateMetaCommand): Promise<SceneUpdateMetaResult>;
   previewStructure(command: StructurePreviewCommand): Promise<StructurePreviewView>;
   applyStructure(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult>;
   revertStructure(command: StructureRevertCommand): Promise<StructureRevertResult>;
@@ -486,6 +499,12 @@ export interface CreationWorkspace {
 
 export interface OpenCreationWorkspaceOptions {
   directory: string;
+  /** 契约夹具专用：创建/升级到 v9 后暂停，生产调用不得设置。 */
+  testOnlyTargetSchemaVersion?: 9;
+  /** 契约夹具专用：注入 v9→v10 备份失败。 */
+  testOnlyFailV9ToV10Backup?: boolean;
+  /** 契约夹具专用：注入 v9→v10 事务中途失败。 */
+  testOnlyFailV9ToV10AfterLinkBackfill?: boolean;
 }
 
 export class CreationWorkspaceError extends Error {

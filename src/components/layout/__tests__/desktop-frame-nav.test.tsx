@@ -10,7 +10,7 @@ import { useCreationStore } from "@/stores/creation-store";
 import { useLibraryStore } from "@/stores/library-store";
 
 function resetStores(): void {
-  useAppStore.setState({ screen: "projects", previousScreen: undefined, errors: [] });
+  useAppStore.setState({ screen: "projects", previousScreen: undefined, errors: [], creationFocusMode: false });
   useSearchStore.setState({ open: false });
   useInspirationStore.setState({ items: [] });
   useCreationStore.setState({ projects: [], cards: [], selectedCardId: undefined });
@@ -30,11 +30,11 @@ beforeEach(() => resetStores());
 afterEach(() => cleanup());
 
 describe("DesktopFrame 应用级导航（真实渲染）", () => {
-  it("渲染恰好四个一级导航项，顺序正确；全局搜索由顶部搜索框与 Ctrl+K 承担，不再重复", () => {
+  it("渲染恰好五个一级导航项，顺序正确；全局搜索由顶部搜索框与 Ctrl+K 承担，不再重复", () => {
     render(<DesktopFrame><div data-testid="content" /></DesktopFrame>);
     const buttons = navButtons();
-    expect(buttons.length).toBe(4);
-    expect(buttons.map(labelOf)).toEqual(["项目", "收件箱", "书库", "设置"]);
+    expect(buttons.length).toBe(5);
+    expect(buttons.map(labelOf)).toEqual(["项目", "卡片库", "收件箱", "书库", "设置"]);
     expect(navButtons()[0].closest("nav")!.textContent).not.toContain("阅读统计");
     expect(navButtons()[0].closest("nav")!.textContent).not.toContain("全局搜索");
     expect(screen.getByRole("button", { name: /创作阅读助手/ })).toBeDefined();
@@ -78,6 +78,15 @@ describe("DesktopFrame 应用级导航（真实渲染）", () => {
       const name = button.getAttribute("aria-label") ?? button.textContent?.trim() ?? "";
       expect(name.length).toBeGreaterThan(0);
     }
+  });
+
+  it("写作专注状态在应用壳级隐藏标题栏与左导航", () => {
+    useCreationStore.setState({ selectedId: "project-1" });
+    useAppStore.setState({ creationFocusMode: true });
+    const { container } = render(<DesktopFrame><div>正文</div></DesktopFrame>);
+    expect(container.querySelector(".desktop-root")?.classList.contains("desktop-root--focus")).toBe(true);
+    expect(screen.queryByRole("navigation", { name: "一级导航" })).toBeNull();
+    expect(screen.queryByRole("banner", { name: "窗口标题栏" })).toBeNull();
   });
 
   it("键盘聚焦显示可见焦点环，鼠标按下聚焦不显示", () => {

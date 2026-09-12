@@ -72,13 +72,16 @@ export interface ResourceScanResult {
  * 仅做普通 SELECT，不开启事务、不改 schema、不写数据。
  */
 export function readResourceRecords(db: Database): ResourceRecord[] {
-  const rows = db
-    .prepare(
-      "SELECT id, project_id, card_id, relative_path, sha256, size, original_name, created_at FROM resources"
-    )
+  const hasGlobalResources = db.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'global_card_resources'").get() !== undefined;
+  const sql = hasGlobalResources
+    ? `SELECT id, project_id, card_id, relative_path, sha256, size, original_name, created_at FROM resources
+       UNION ALL
+       SELECT id, NULL AS project_id, card_id, relative_path, sha256, size, original_name, created_at FROM global_card_resources`
+    : "SELECT id, project_id, card_id, relative_path, sha256, size, original_name, created_at FROM resources";
+  const rows = db.prepare(sql)
     .all() as Array<{
     id: string;
-    project_id: string;
+    project_id: string | null;
     card_id: string | null;
     relative_path: string;
     sha256: string;

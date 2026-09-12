@@ -68,6 +68,7 @@ function makeProject(id: string, title: string): CreationProjectSummary {
 const magicType: CardType = {
   id: "t-magic",
   projectId: null,
+  builtIn: true,
   kind: "magic",
   name: "功法",
   fields: [

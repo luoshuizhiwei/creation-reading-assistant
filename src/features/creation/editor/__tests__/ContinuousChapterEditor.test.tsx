@@ -15,6 +15,7 @@ vi.mock("@/features/creation/editor/SceneEditor", async () => {
     onToggleFocusMode?: () => void;
     typewriter?: boolean;
     onToggleTypewriter?: () => void;
+    targetWords?: number | null;
   }
   const Stub = ReactActual.forwardRef<{ isDirty: () => boolean; saveNow: () => Promise<boolean> }, StubProps>(
     (props, ref) => {
@@ -31,7 +32,7 @@ vi.mock("@/features/creation/editor/SceneEditor", async () => {
       }), [text]);
       return ReactActual.createElement(
         "div",
-        { "data-testid": "scene-editor", "data-scene-id": props.view?.sceneId },
+        { "data-testid": "scene-editor", "data-scene-id": props.view?.sceneId, "data-target-words": props.targetWords ?? "" },
         ReactActual.createElement("textarea", {
           "aria-label": "正文",
           value: text,
@@ -68,6 +69,23 @@ function makeScenes() {
 afterEach(() => cleanup());
 
 describe("ContinuousChapterEditor 整章连续编辑", () => {
+  it("逐场景透传各自目标字数，连续模式不串用目标", () => {
+    render(
+      <ContinuousChapterEditor
+        chapterTitle="第一章"
+        scenes={makeScenes().map((scene, index) => ({ ...scene, targetWords: index === 0 ? 800 : 1600 }))}
+        onSave={async () => true}
+        focusMode={false}
+        onToggleFocusMode={() => {}}
+        typewriter={false}
+        onToggleTypewriter={() => {}}
+      />
+    );
+    const editors = screen.getAllByTestId("scene-editor");
+    expect(editors[0].getAttribute("data-target-words")).toBe("800");
+    expect(editors[1].getAttribute("data-target-words")).toBe("1600");
+  });
+
   it("两个场景按真实排序连续显示且均可编辑", () => {
     render(
       <ContinuousChapterEditor

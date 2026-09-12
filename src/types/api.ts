@@ -30,6 +30,7 @@ import type {
 import type {
   CardRelation,
   CardSummary,
+  CardLinkResult,
   CardType,
   CardsListQuery,
   CreateProjectInput,
@@ -199,7 +200,7 @@ export interface DesktopApi {
     structurePreview: (command: StructurePreviewCommand) => Promise<StructurePreviewView>;
     structureApply: (command: StructureApplyWithProtectionCommand) => Promise<StructureApplyResult>;
     structureRevert: (command: StructureRevertCommand) => Promise<StructureRevertResult>;
-    trashList: (projectId: string) => Promise<TrashItem[]>;
+    trashList: (projectId?: string) => Promise<TrashItem[]>;
     snapshotList: (query: SnapshotListQuery) => Promise<SnapshotInfo[]>;
     search: (query: CreationSearchQuery) => Promise<CreationSearchView>;
     replacePreview: (query: ReplacePreviewQuery) => Promise<ReplacePreviewView>;
@@ -221,7 +222,7 @@ export interface DesktopApi {
     snapshotRestoreWithProtection: (command: SnapshotRestoreWithProtectionCommand) => Promise<SnapshotRestoreWithProtectionResult>;
     trashImpact: (query: TrashImpactQuery) => Promise<TrashImpactView | null>;
     resourceList: (query: ResourceListQuery) => Promise<ResourceInfo[]>;
-    attachResource: (projectId: string, cardId?: string) => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
+    attachResource: (projectId: string | undefined, cardId?: string, role?: "attachment" | "cover") => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
     detachResource: (resourceId: string) => Promise<ResourceResult>;
     readProjectExport: (projectId: string) => Promise<ProjectExportView | null>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
@@ -234,8 +235,10 @@ export interface DesktopApi {
     exportDraft: (projectId: string, preset: DraftExportPreset) => Promise<{ canceled: boolean; filePath: string | null }>;
     cardsList: (query: CardsListQuery) => Promise<CardSummary[]>;
     cardRead: (cardId: string) => Promise<CardSummary | null>;
-    cardTypesList: (projectId: string) => Promise<CardType[]>;
-    relationTypesList: (projectId: string) => Promise<RelationType[]>;
+    cardTypesList: () => Promise<CardType[]>;
+    relationTypesList: () => Promise<RelationType[]>;
+    cardLink: (projectId: string, cardId: string) => Promise<CardLinkResult>;
+    cardUnlink: (projectId: string, cardId: string) => Promise<CardLinkResult>;
     cardRelations: (cardId: string) => Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
     readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
     updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;

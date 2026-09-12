@@ -294,6 +294,9 @@ export function createInboxModule(database: Database, host: InboxHost): InboxMod
           "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, 'reference', ?, '[]', ?, ?, '{}', ?, ?)"
         )
         .run(cardId, projectId, title, fieldsJson, JSON.stringify(tags), timestamp, timestamp);
+      database
+        .prepare("INSERT INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)")
+        .run(projectId, cardId, timestamp);
       host.touchProject(projectId, timestamp);
 
       const nextRevision = inboxRow.revision + 1;

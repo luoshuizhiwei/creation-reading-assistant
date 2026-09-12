@@ -192,6 +192,32 @@ async function run(): Promise<void> {
       const scene = outline.volumes[0]?.chapters[0]?.scenes[0];
       assert.equal(scene?.wordCount, 8);
       assert.equal(scene?.revision, 2);
+      assert.equal(outline.volumes[0]?.chapters[0]?.wordCount, 8);
+      assert.equal(outline.volumes[0]?.wordCount, 8);
+      assert.equal(outline.wordCount, 8);
+    });
+
+    await scenario("场景摘要/状态独立于章节状态并受 revision 保护", async () => {
+      const updated = await workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: created.sceneId,
+        baseRevision: 2,
+        summary: "主角在雨夜发现线索。",
+        status: "drafting"
+      });
+      assert.equal(updated.revision, 3);
+      const outline = (await workspace!.read({ kind: "project.outline", projectId: created.projectId }))!;
+      const chapter = outline.volumes[0]?.chapters[0];
+      assert.notEqual(chapter?.status, "drafting");
+      assert.equal(chapter?.scenes[0]?.status, "drafting");
+      assert.equal(chapter?.scenes[0]?.summary, "主角在雨夜发现线索。");
+      await expectWorkspaceError(() => workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: created.sceneId,
+        baseRevision: 2,
+        summary: "过期写入",
+        status: "done"
+      }), "revision-mismatch");
     });
 
     await scenario("卷/章/场景可改名（含 revision 校验）", async () => {
@@ -422,7 +448,7 @@ async function run(): Promise<void> {
         .run("scene-v2", "chapter-v2", "旧景", 0, '{"type":"doc","content":[]}', "2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z");
       raw.close();
 
-      const migrated = await openCreationWorkspace({ directory: v2Directory });
+      const migrated = await openCreationWorkspace({ directory: v2Directory, testOnlyTargetSchemaVersion: 9 });
       const outline = (await migrated.read({ kind: "project.outline", projectId: "project-v2" }))!;
       assert.equal(outline.volumes.length, 1);
       assert.equal(outline.volumes[0]?.title, "正文");

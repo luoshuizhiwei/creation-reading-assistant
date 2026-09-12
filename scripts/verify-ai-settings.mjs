@@ -15,9 +15,10 @@ const files = {
   api: read("src/types/api.ts"),
   preload: read("electron/preload/index.ts"),
   main: read("electron/main/index.ts"),
-  settingsPage: read("src/features/settings/SettingsPage.tsx"),
-  // 阶段 6：InspirationPage 降级为兼容跳转，AI 候选与 runAIAction 入口移至 InboxPage。
+  settingsPage: read("src/features/settings/sections/AISection.tsx"),
+  // 设置页和收件箱已拆成容器 + 子组件；静态门禁跟随真正承载文案/功能的叶组件。
   inboxPage: read("src/features/creation/inbox/InboxPage.tsx"),
+  inboxDetail: read("src/features/creation/inbox/components/InboxItemDetail.tsx"),
   service: read("src/services/ai-service.ts")
 };
 
@@ -33,7 +34,7 @@ const requiredSnippets = [
   [files.main, 'ipcMain.handle("ai:run"'],
   [files.settingsPage, "AI 助手"],
   [files.settingsPage, "API Key"],
-  [files.inboxPage, "AI 候选版本"],
+  [files.inboxDetail, "AI 候选版本"],
   [files.inboxPage, "runAIAction"],
   [files.service, "runAIAction"]
 ];

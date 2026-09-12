@@ -7,6 +7,7 @@ export interface ContinuousSceneRef {
   id: string;
   title: string;
   view: SceneBodyView | undefined;
+  targetWords?: number | null;
 }
 
 export interface ContinuousChapterEditorHandle {
@@ -14,6 +15,7 @@ export interface ContinuousChapterEditorHandle {
   saveAllDirty: () => Promise<boolean>;
   getSelection: () => SceneSelection | null;
   isComposing: () => boolean;
+  focus: () => void;
 }
 
 export interface ContinuousChapterEditorProps {
@@ -79,7 +81,11 @@ export const ContinuousChapterEditor = forwardRef<ContinuousChapterEditorHandle,
           return allOk;
         },
         getSelection: () => activeSceneId.current ? handles.current.get(activeSceneId.current)?.getSelection() ?? null : null,
-        isComposing: () => activeSceneId.current ? handles.current.get(activeSceneId.current)?.isComposing() ?? false : false
+        isComposing: () => activeSceneId.current ? handles.current.get(activeSceneId.current)?.isComposing() ?? false : false,
+        focus: () => {
+          const active = activeSceneId.current ? handles.current.get(activeSceneId.current) : undefined;
+          (active ?? handles.current.values().next().value)?.focus();
+        }
       }),
       []
     );
@@ -110,6 +116,7 @@ export const ContinuousChapterEditor = forwardRef<ContinuousChapterEditorHandle,
                   activeSceneId.current = selection.sceneId;
                   onMentionTrigger?.(selection);
                 }}
+                targetWords={scene.targetWords}
                 focusMode={focusMode}
                 onToggleFocusMode={onToggleFocusMode}
                 typewriter={typewriter}

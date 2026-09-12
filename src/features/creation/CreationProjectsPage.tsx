@@ -99,7 +99,7 @@ export function CreationProjectsPage() {
   const [migrationNotice, setMigrationNotice] = useState(false);
   const [importOpen, setImportOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
-  const [view, setView] = useState<ProjectView>("overview");
+  const [view, setView] = useState<ProjectView>("writing");
   /** 导入成功后递增，通知项目首页重新读取 project.home。 */
   const [homeRefreshKey, setHomeRefreshKey] = useState(0);
   const [creatingDemo, setCreatingDemo] = useState(false);
@@ -187,7 +187,7 @@ export function CreationProjectsPage() {
     ? navigation?.chapters.find((chapter) => chapter.scenes.some((scene) => scene.id === selectedScene.id))
     : undefined;
 
-  const openProject = (projectId: string, targetView: ProjectView = "overview") => {
+  const openProject = (projectId: string, targetView: ProjectView = "writing") => {
     setSelectedId(projectId);
     setView(targetView);
     if (!navigations[projectId]) void loadNavigation(projectId);
@@ -195,7 +195,7 @@ export function CreationProjectsPage() {
 
   const backToProjectHome = () => {
     setSelectedId(undefined);
-    setView("overview");
+    setView("writing");
   };
 
   const handleExport = async () => {
@@ -222,7 +222,10 @@ export function CreationProjectsPage() {
 
   // 导入完成后刷新项目列表与首页（替代旧 importBundle 的同步回调）。
   useEffect(() => {
-    if (operation.state?.status === "completed" && operation.state.kind === "bundle.import") {
+    if (
+      operation.state?.status === "completed" &&
+      (operation.state.kind === "bundle.import" || operation.state.kind === "bundle.import-encrypted")
+    ) {
       void loadProjects();
       setHomeRefreshKey((key) => key + 1);
     }
@@ -400,13 +403,13 @@ export function CreationProjectsPage() {
   }, [loadCards, loadNavigation, loadOutline, loadScene, navigations, projectNavigationRequests, selectCard, selectScene, selectedId, showToast]);
 
   return (
-    <div className="desktop-page-scroll paper-shell creation-writing-page">
-      <div className="desktop-page-stack creation-writing-stack">
+    <div className={`desktop-page-scroll paper-shell creation-writing-page ${selected ? "creation-writing-page--active" : ""}`}>
+      <div className={`desktop-page-stack creation-writing-stack ${selected ? "creation-writing-stack--active" : ""}`}>
         {selected ? (
           <section className="desktop-page-hero motion-panel creation-writing-hero">
-            <div>
-              <h2>{selected.title}</h2>
-              <p>{viewDescription(view)}</p>
+            <div className="creation-writing-hero-title-group">
+              <h2 className="creation-writing-hero-title">{selected.title}</h2>
+              <p className="creation-writing-hero-desc">{viewDescription(view)}</p>
             </div>
             <div className="desktop-page-actions">
                 <Button className="project-action project-action--primary" aria-label="搜索项目" title="搜索项目" onClick={openProjectSearch}>
@@ -523,7 +526,7 @@ export function CreationProjectsPage() {
           </section>
         ) : (
           <ProjectHomePage
-            onOpenProject={(projectId) => openProject(projectId, "overview")}
+            onOpenProject={(projectId) => openProject(projectId, "writing")}
             onContinueWriting={(projectId) => openProject(projectId, "writing")}
             onOpenInbox={() => useAppStore.getState().setScreen("inbox")}
             onCreateProject={() => setWizardOpen(true)}

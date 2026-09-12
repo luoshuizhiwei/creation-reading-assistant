@@ -11,6 +11,7 @@ import {
   type CreationStructureResult,
   type CreationWorkspace
 } from "./index";
+import { assertV9BaselineReadable, seedV9Baseline, type V9Baseline } from "./v9-baseline-fixture";
 
 async function run(): Promise<void> {
   const directory = await mkdtemp(path.join(os.tmpdir(), "creation-cards-"));
@@ -31,7 +32,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const initial = await workspace.check();
     assert.equal(initial.ok, true);
-    assert.equal(initial.schemaVersion, 9);
+    assert.equal(initial.schemaVersion, 11);
 
     await scenario("内置 8 类卡片与 4 种关系类型已 seed", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "测试项目" });
@@ -253,6 +254,25 @@ async function run(): Promise<void> {
       assert.equal(reverse.incoming.length, 0);
     });
 
+    await scenario("v9 基线夹具：双项目私域数据落盘后重开仍可读且 check 通过", async () => {
+      // 夹具在独立子目录里种入基线并**关闭**，再重新打开校验——
+      // 只有这样才真正锁定「迁移前落盘 → 迁移器读取」的路径，而非内存态。
+      const baselineDirectory = path.join(directory, "v9-baseline");
+      let baseline: V9Baseline | undefined;
+      const seeding = await openCreationWorkspace({ directory: baselineDirectory, testOnlyTargetSchemaVersion: 9 });
+      try {
+        baseline = await seedV9Baseline(seeding);
+      } finally {
+        await seeding.close();
+      }
+      const reopened = await openCreationWorkspace({ directory: baselineDirectory, testOnlyTargetSchemaVersion: 9 });
+      try {
+        await assertV9BaselineReadable(reopened, baseline!);
+      } finally {
+        await reopened.close();
+      }
+    });
+
     await scenario("v3→v4 迁移：卡片列升级与内置数据", async () => {
       const v3Directory = path.join(directory, "v3-legacy");
       await mkdir(v3Directory, { recursive: true });
@@ -284,7 +304,7 @@ async function run(): Promise<void> {
         .run("card-v3", "project-v3", "character", "旧卡", "2026-08-01T00:00:00.000Z", "2026-08-01T00:00:00.000Z");
       raw.close();
 
-      const migrated = await openCreationWorkspace({ directory: v3Directory });
+      const migrated = await openCreationWorkspace({ directory: v3Directory, testOnlyTargetSchemaVersion: 9 });
       const report = await migrated.check();
       assert.equal(report.schemaVersion, 9);
       const types = (await migrated.read({ kind: "cardTypes.list", projectId: "project-v3" }))!;

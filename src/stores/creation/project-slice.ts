@@ -144,7 +144,7 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   setSelectedId: (selectedId) =>
     set((state: ProjectSliceState & Partial<CardSliceState>) => {
       const resetCards =
-        state.cardProjectId && state.cardProjectId !== selectedId
+        state.cardProjectId !== undefined && state.cardProjectId !== selectedId
           ? {
               cardProjectId: undefined,
               cardTypes: [],

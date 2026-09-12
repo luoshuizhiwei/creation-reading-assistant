@@ -45,6 +45,10 @@
     "verify:creation-resource": "node scripts/verify-creation-resource.mjs",
     "verify:creation-scale": "node scripts/verify-creation-scale.mjs",
     "verify:creation-schema": "node scripts/verify-creation-schema.mjs",
+    "verify:global-card-migration": "node scripts/verify-global-card-migration.mjs",
+    "verify:global-card-library": "node scripts/verify-global-card-library.mjs",
+    "verify:writing-quick-reference": "vitest run src/features/creation/editor/__tests__/writing-quick-reference.test.tsx src/features/creation/ai/__tests__/build-ai-context.test.ts src/features/creation/editor/__tests__/writing-desk-reference.test.tsx --reporter=dot",
+    "verify:desktop-stage3": "vitest run src/features/creation/outline/__tests__/OutlinePage.test.tsx src/features/creation/outline/__tests__/CardBoard.test.tsx src/features/creation/editor/__tests__/writing-desk-reference.test.tsx src/features/creation/editor/__tests__/scene-editor-selection.test.tsx src/features/creation/editor/__tests__/ContinuousChapterEditor.test.tsx src/features/creation/editor/__tests__/scene-document-session.test.ts src/components/layout/__tests__/desktop-frame-nav.test.tsx --reporter=dot",
     "verify:creation-journey": "node scripts/verify-creation-journey.mjs",
     "verify:creation-edge": "node scripts/verify-creation-edge.mjs",
     "verify:creation-planning": "node scripts/verify-creation-planning.mjs",
@@ -60,6 +64,9 @@
     "verify:sync-conflicts": "node scripts/verify-sync-conflicts.mjs",
     "verify:release-readiness": "node scripts/verify-release-readiness.mjs",
     "verify:installer-release": "node scripts/verify-installer-release.mjs",
+    "verify:packaged-stage1": "node scripts/packaged-electron-acceptance.mjs",
+    "verify:packaged-stage2": "node scripts/packaged-writing-quick-reference-acceptance.mjs",
+    "verify:packaged-stage3": "node scripts/packaged-stage3-outline-focus-acceptance.mjs",
     "verify:beta": "node scripts/beta-check.mjs",
     "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",
     "release:clean-local": "node scripts/clean-local-release-artifacts.mjs",
@@ -72,9 +79,9 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@tiptap/core": "3.29.2",
-    "@tiptap/pm": "3.29.2",
-    "@tiptap/react": "3.29.2",
+    "@tiptap/core": "3.31.3",
+    "@tiptap/pm": "3.31.3",
+    "@tiptap/react": "3.31.3",
     "better-sqlite3": "12.4.1",
     "dompurify": "^3.4.13",
     "epubjs": "^0.3.93",
@@ -91,7 +98,10 @@
   },
   "overrides": {
     "epubjs": {
-      "@xmldom/xmldom": "^0.9.10"
+      "@xmldom/xmldom": "^0.9.12"
+    },
+    "mammoth": {
+      "@xmldom/xmldom": "^0.8.15"
     }
   },
   "devDependencies": {

@@ -63,9 +63,9 @@ assertIncludes("electron/main/index.ts", "x-sync-token", "Paired sync requests m
 assertIncludes("electron/main/index.ts", "syncAuthTokenHash", "Desktop sync state must store only a hash of the device authorization token.");
 assertIncludes("electron/main/index.ts", "requirePairedSyncDevice(request, response)", "Manifest, pull, push and book file endpoints must reject unpaired devices.");
 
-assertIncludes("src/features/settings/SettingsPage.tsx", "QRCode.toDataURL", "Settings page must render a real QR code for phone pairing.");
-assertIncludes("src/features/settings/SettingsPage.tsx", "pairing.pairingUrls.map", "Settings page must expose alternate LAN pairing URLs for multi-network PCs.");
-assertIncludes("src/features/settings/SettingsPage.tsx", "连接失败时试这些地址", "Settings page must explain alternate LAN pairing URLs to users.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "QRCode.toDataURL", "Settings page must render a real QR code for phone pairing.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "pairing.pairingUrls.map", "Settings page must expose alternate LAN pairing URLs for multi-network PCs.");
+assertIncludes("src/features/settings/sections/StorageSection.tsx", "连接失败时试这些地址", "Settings page must explain alternate LAN pairing URLs to users.");
 assertIncludes("src/types/sync.ts", "pairingUrls", "Pairing type must expose alternate LAN addresses.");
 assertIncludes("src/types/sync.ts", "qrPayloads", "Pairing type must expose all QR payload options.");
 

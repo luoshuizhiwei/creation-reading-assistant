@@ -112,6 +112,8 @@ function makeCard(projectId: string, id = `card-${projectId}`): CardSummary {
   return {
     id,
     projectId,
+    linkedProjectIds: [projectId],
+    usageCount: 1,
     kind: "character",
     title: `卡片 ${projectId}`,
     aliases: [],
@@ -326,12 +328,58 @@ describe("creation store", () => {
     expect(useCreationStore.getState().cards).toEqual([]);
   });
 
+  it("全局卡片库使用 null 作为明确作用域，并拒绝迟到的项目响应", () => {
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().activateGlobalCards();
+    const globalCard = { ...makeCard("a", "global-card"), projectId: null };
+    useCreationStore.getState().setCards("a", [makeCard("a")]);
+    useCreationStore.getState().setCards(null, [globalCard]);
+
+    expect(useCreationStore.getState().cardProjectId).toBeNull();
+    expect(useCreationStore.getState().cards).toEqual([globalCard]);
+  });
+
+  it("link/unlink 结果同步使用项目数，项目视图解除关联后移除卡片", () => {
+    const shared = { ...makeCard("a", "shared"), linkedProjectIds: ["a", "b"], usageCount: 2 };
+    useCreationStore.getState().activateCardProject("a");
+    useCreationStore.getState().setCards("a", [shared]);
+    useCreationStore.getState().applyCardLinkResult({
+      commandType: "card.unlink",
+      sequence: 3,
+      projectId: "a",
+      cardId: "shared",
+      entityId: "shared",
+      revision: 1,
+      updatedAt: "2026-09-11T00:00:00.000Z",
+      changed: true,
+      linked: false,
+      usageCount: 1
+    });
+    expect(useCreationStore.getState().cards).toEqual([]);
+
+    useCreationStore.getState().activateGlobalCards();
+    useCreationStore.getState().setCards(null, [shared]);
+    useCreationStore.getState().applyCardLinkResult({
+      commandType: "card.unlink",
+      sequence: 4,
+      projectId: "a",
+      cardId: "shared",
+      entityId: "shared",
+      revision: 1,
+      updatedAt: "2026-09-11T00:00:00.000Z",
+      changed: true,
+      linked: false,
+      usageCount: 1
+    });
+    expect(useCreationStore.getState().cards[0]).toMatchObject({ linkedProjectIds: ["b"], usageCount: 1 });
+  });
+
   it("setSelectedId 切换项目时立即清空卡片类型/关系类型/选中/加载标记", () => {
     useCreationStore.getState().setProjects([makeSummary({ id: "a" }), makeSummary({ id: "b" })]);
     useCreationStore.getState().setSelectedId("a");
     useCreationStore.getState().activateCardProject("a");
-    useCreationStore.getState().setCardTypes("a", [{ id: "t1", projectId: null, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 }]);
-    useCreationStore.getState().setRelationTypes("a", []);
+    useCreationStore.getState().setCardTypes([{ id: "t1", projectId: null, builtIn: true, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 }]);
+    useCreationStore.getState().setRelationTypes([]);
     useCreationStore.getState().setCards("a", [makeCard("a")]);
     useCreationStore.getState().selectCard("card-a");
     useCreationStore.getState().setCardsLoading("a", true);

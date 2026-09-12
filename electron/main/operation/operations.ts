@@ -12,7 +12,7 @@
  *   此处仅负责深模块之外的资源生命周期（如 import 时按需打开 / 关闭工作区）。
  */
 
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import type { OperationCoordinator } from "./coordinator";
@@ -43,7 +43,9 @@ import {
 import { openCreationWorkspace, type CreationWorkspace } from "../creation-workspace";
 import type {
   ProjectBundleData,
+  ProjectBundleCardResolution,
   ProjectBundleImportCommand,
+  ProjectBundleImportPreview,
   ProjectBundleImportResult
 } from "../../../src/types/creation";
 import { EncryptionError } from "../portable-encryption";
@@ -94,6 +96,7 @@ export function runBundleExport(
 export interface BundleImportRunOptions {
   workspaceDirectory: string;
   bundleDirectory: string;
+  cardResolutions?: ProjectBundleCardResolution[];
   /**
    * 真正的 DB 导入命令执行器（由已打开的工作区提供）。
    * 不传时本函数会按需打开并关闭工作区（finally 保证关闭，不泄漏连接）。
@@ -113,6 +116,7 @@ export function runBundleImport(
         return importProjectBundleDirectory({
           workspaceDirectory: options.workspaceDirectory,
           bundleDirectory: options.bundleDirectory,
+          cardResolutions: options.cardResolutions,
           operation: controller,
           transact: options.transact
         });
@@ -122,6 +126,7 @@ export function runBundleImport(
         return await importProjectBundleDirectory({
           workspaceDirectory: options.workspaceDirectory,
           bundleDirectory: options.bundleDirectory,
+          cardResolutions: options.cardResolutions,
           operation: controller,
           transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
         });
@@ -338,6 +343,8 @@ export interface EncryptedBundleImportOptions {
   workspaceDirectory: string;
   containerFile: string;
   passphrase: string;
+  /** 解密后基于只读预检收集冲突决策；返回 null 表示用户取消且必须零写入。 */
+  resolveCardResolutions?: (preview: ProjectBundleImportPreview) => Promise<ProjectBundleCardResolution[] | null>;
 }
 
 /** 加密项目包导入：解密到受控临时目录（完整性不通过则失败且不留半成品）→ 导入。 */
@@ -355,9 +362,23 @@ export function runBundleImportEncrypted(
           const base = recorder.maxBytes();
           const workspace = await openCreationWorkspace({ directory: options.workspaceDirectory });
           try {
+            let cardResolutions: ProjectBundleCardResolution[] | undefined;
+            if (options.resolveCardResolutions) {
+              let data: ProjectBundleData;
+              try {
+                data = JSON.parse(await readFile(path.join(stagingDir, "project.json"), "utf8")) as ProjectBundleData;
+              } catch {
+                throw new OperationError("invalid-input", "项目包 project.json 无法解析。");
+              }
+              const preview = await workspace.previewProjectBundleImport(data);
+              const resolved = await options.resolveCardResolutions(preview);
+              if (resolved === null) throw new OperationCancelledError("已取消项目包导入。");
+              cardResolutions = resolved;
+            }
             return await importProjectBundleDirectory({
               workspaceDirectory: options.workspaceDirectory,
               bundleDirectory: stagingDir,
+              cardResolutions,
               operation: offsetBytesBy(controller, base),
               transact: (command) => workspace.transact(command) as Promise<ProjectBundleImportResult>
             });

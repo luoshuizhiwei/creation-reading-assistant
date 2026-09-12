@@ -14,7 +14,7 @@ function assertIncludes(file, needle, message) {
 assertIncludes("package.json", "markdown-it", "Markdown reader must use a full Markdown renderer dependency.");
 assertIncludes("src/features/library/toc/markdown-toc.ts", "MarkdownIt", "Markdown reader must instantiate markdown-it.");
 assertIncludes("src/features/library/toc/markdown-toc.ts", "renderMarkdownWithToc", "Markdown reader must generate a table of contents from headings (token-stream aligned with rendered ids).");
-assertIncludes("src/features/library/ReaderPage.tsx", "reader-heading-scale", "Markdown headings must scale with reader font settings.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "reader-heading-scale", "Markdown headings must scale with reader font settings.");
 assertIncludes("electron/main/index.ts", "extractTextBookMetadata", "TXT/Markdown import must parse metadata such as author.");
 assertIncludes("electron/main/index.ts", "contentHash", "Book imports must calculate a content hash for duplicate detection.");
 assertIncludes("electron/main/index.ts", "duplicateIndex", "Book imports must label duplicate imports.");
@@ -32,25 +32,25 @@ assertIncludes("src/components/layout/DesktopFrame.tsx", "资料阅读", "App na
 assertIncludes("src/features/inspiration/InspirationPage.tsx", "灵感", "Inspiration center must remain reachable.");
 
 // TXT smart chapter splitting
-assertIncludes("src/features/library/ReaderPage.tsx", "splitTxtChapters", "TXT reader must provide smart chapter splitting by heading regex.");
-assertIncludes("src/features/library/ReaderPage.tsx", "chaptersFromOverrides", "TXT reader must apply user-corrected chapter tables (tocOverrides) over heuristics.");
-assertIncludes("src/features/library/ReaderPage.tsx", "txtChapters", "TXT reader must compute chapter list from content.");
-assertIncludes("src/features/library/ReaderPage.tsx", "tocEntries", "TXT/MD reader must derive TOC entries from split chapters / markdown headings.");
-assertIncludes("src/features/library/ReaderPage.tsx", "txt-chapter-", "TXT chapter headings must carry stable anchor ids for TOC jump.");
-assertIncludes("src/features/library/ReaderPage.tsx", "renderChapterParagraphs", "TXT chapter body must be rendered paragraph-by-paragraph.");
-assertIncludes("src/features/library/ReaderPage.tsx", "readerTextColor(settings.readerBackground)", "TXT chapter headings must follow reader text color setting.");
-assertIncludes("src/features/library/ReaderPage.tsx", "renderPlainText(convertedContent)", "TXT without detected chapters must fall back to plain paragraph rendering.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "splitTxtChapters", "TXT reader must provide smart chapter splitting by heading regex.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "chaptersFromOverrides", "TXT reader must apply user-corrected chapter tables (tocOverrides) over heuristics.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "txtChapters", "TXT reader must compute chapter list from content.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "tocEntries", "TXT/MD reader must derive TOC entries from split chapters / markdown headings.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "txt-chapter-", "TXT chapter headings must carry stable anchor ids for TOC jump.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "renderChapterParagraphs", "TXT chapter body must be rendered paragraph-by-paragraph.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "readerTextColor(settings.readerBackground)", "TXT chapter headings must follow reader text color setting.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "renderPlainText(convertedContent)", "TXT without detected chapters must fall back to plain paragraph rendering.");
 assertIncludes("src/features/library/toc/txt-chapters.ts", "P_REVERSED_VOLUME", "TXT chapter regex must match reversed volume format like 卷一/卷二.");
 assertIncludes("src/features/library/toc/txt-chapters.ts", "P_PLATFORM", "TXT chapter regex must cover platform-specific chapters (感言/间章/最终话).");
 assertIncludes("src/features/library/toc/txt-chapters.ts", "SNIFF_RULE_ORDER", "TXT chapter detection must auto-sniff numbered-style tocs (1、/一、/【1】).");
-assertIncludes("src/features/library/ReaderPage.tsx", "txtChapters.length <= 1", "TXT single-chapter detection must not trigger chapter split rendering.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "txtChapters.length <= 1", "TXT single-chapter detection must not trigger chapter split rendering.");
 
 // TOC upgrade 2026-09-03: TOC/settings separation + shared TOC interactions
-assertIncludes("src/features/library/ReaderPage.tsx", "ReaderSettingsDrawer", "TXT/MD reader settings must live in a drawer, not stacked with the TOC panel.");
-assertIncludes("src/features/library/ReaderPage.tsx", "tocCollapsed", "TXT/MD TOC sidebar must be collapsible like the EPUB one.");
-assertIncludes("src/features/library/ReaderPage.tsx", "ReaderSidePanel", "TXT/MD reader must use the shared side panel (toc/highlights/bookmarks).");
-assertIncludes("src/features/library/ReaderPage.tsx", "computeAnchorScrollTop", "TXT/MD progress restore must prefer chapter+char anchors over raw scrollTop.");
-assertIncludes("src/features/library/ReaderPage.tsx", "saveTxtTocOverrides", "TXT TOC corrections must persist via the reader:saveTxtTocOverrides IPC.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "ReaderSettingsDrawer", "TXT/MD reader settings must live in a drawer, not stacked with the TOC panel.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "tocCollapsed", "TXT/MD TOC sidebar must be collapsible like the EPUB one.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "ReaderSidePanel", "TXT/MD reader must use the shared side panel (toc/highlights/bookmarks).");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "computeAnchorScrollTop", "TXT/MD progress restore must prefer chapter+char anchors over raw scrollTop.");
+assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "saveTxtTocOverrides", "TXT TOC corrections must persist via the reader:saveTxtTocOverrides IPC.");
 assertIncludes("src/features/library/epub-reader/EpubSidePanel.tsx", "ReaderSidePanel", "EPUB side panel must delegate to the shared ReaderSidePanel.");
 assertIncludes("src/features/library/ReaderSidePanel.tsx", "TocList", "Shared side panel TOC must use the shared TocList (highlight/search/collapse).");
 assertIncludes("src/features/library/toc/current.ts", "findCurrentTocItem", "EPUB current TOC item must prefer exact href-with-fragment matching.");

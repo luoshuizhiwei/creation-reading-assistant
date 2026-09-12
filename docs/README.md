@@ -10,6 +10,8 @@
 |---|---|
 | [`../AGENTS.md`](../AGENTS.md) | 产品线边界、构建命令和真机验证约束 |
 | [`handoff/current.md`](handoff/current.md) | 当前 Agent 单一交接入口：活动主线、工作区边界、下一步、验证命令与 desktop 停放项 |
+| [`plans/2026-09-10-desktop-global-card-library-requirements.md`](plans/2026-09-10-desktop-global-card-library-requirements.md) | desktop 创作助手 v2.0 当前需求：全局世界观卡片库、写作速查、v9→v10 迁移、后续写作/AI/校对切片与待决策项 |
+| [`plans/2026-09-10-desktop-global-card-library-migration-preflight.md`](plans/2026-09-10-desktop-global-card-library-migration-preflight.md) | desktop v9→v10 全局卡片库的 M0.4 技术预检：已锁定基线与备份证据、迁移 Module seam 和必须确认的四项产品输入 |
 | [`plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md`](plans/2026-08-09-desktop-creation-workbench-phase-1-spec.md) | desktop 创作工作台第一阶段的正式功能规格、迁移要求、验收矩阵和实施切片 |
 | [`architecture/desktop-creation-current.md`](architecture/desktop-creation-current.md) | desktop 当前模块边界、SQLite/IPC 调用链、关键一致性规则与验证入口 |
 | [`architecture/desktop-creation-migration-audit-contract.md`](architecture/desktop-creation-migration-audit-contract.md) | desktop 旧数据只读审计、隐私边界与迁移分级 |

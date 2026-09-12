@@ -7,11 +7,13 @@ import type { SceneSelection } from "@/features/creation/editor/annotation-selec
 import { WritingDeskHeader } from "@/features/creation/editor/desk/WritingDeskHeader";
 import { WritingDeskOutlineSidebar } from "@/features/creation/editor/desk/WritingDeskOutlineSidebar";
 import { WritingDeskMargin } from "@/features/creation/editor/desk/WritingDeskMargin";
+import { WritingQuickReferencePanel } from "@/features/creation/editor/WritingQuickReferencePanel";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
+import { useAppStore } from "@/stores/app-store";
 import { useUIStore } from "@/stores/ui-store";
 import { createWritingSessionTracker, type SessionSettleReport, type WritingSessionTracker } from "@/features/creation/editor/writing-session-tracker";
-import type { CreationProjectNavigation, CreationProjectSummary } from "@/types/creation";
+import type { CardSummary, CreationProjectNavigation, CreationProjectSummary, ScenePlanning } from "@/types/creation";
 import "@/features/creation/editor/continuous-editor.css";
 import "@/features/creation/editor/writing-reference.css";
 
@@ -48,7 +50,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
   const editorRef = useRef<SceneEditorHandle>(null);
   const continuousRef = useRef<ContinuousChapterEditorHandle>(null);
 
-  const [focusMode, setFocusMode] = useState(() => window.matchMedia("(max-width: 920px)").matches);
+  const focusMode = useAppStore((state) => state.creationFocusMode);
+  const setFocusMode = useAppStore((state) => state.setCreationFocusMode);
   const [typewriter, setTypewriter] = useState(false);
   const [characterCount, setCharacterCount] = useState(0);
   const [editMode, setEditMode] = useState<EditMode>("scene");
@@ -59,6 +62,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
   const [marginCollapsed, setMarginCollapsed] = useState(
     () => typeof window !== "undefined" && window.matchMedia("(max-width: 1100px)").matches
   );
+  const [quickReferenceOpen, setQuickReferenceOpen] = useState(false);
+  const [quickReferenceContextCards, setQuickReferenceContextCards] = useState<CardSummary[]>([]);
 
   /**
    * 写作会话跟踪（独立 module）：仅在输入 / 有意义选择 / 结构操作时计时，
@@ -130,6 +135,14 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
     () => navigation.chapters.find((chapter) => chapter.scenes.some((scene) => scene.id === selectedSceneId)),
     [navigation, selectedSceneId]
   );
+  const selectedScenePlanning = useMemo<ScenePlanning | undefined>(() => {
+    if (!outline || !selectedSceneId) return undefined;
+    const chapters = [
+      ...(outline.volumes ?? []).flatMap((volume) => volume.chapters),
+      ...(outline.looseChapters ?? [])
+    ];
+    return chapters.flatMap((chapter) => chapter.scenes).find((scene) => scene.id === selectedSceneId)?.planning;
+  }, [outline, selectedSceneId]);
   const sceneView = selectedSceneId ? sceneViews[selectedSceneId] : undefined;
 
   // 连续模式：仅确保「当前章节」的场景正文已加载（不加载整项目正文）。
@@ -152,6 +165,40 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
   }, [loadOutline, project.id]);
 
   useEffect(() => subscribeProject(project.id), [project.id, subscribeProject]);
+
+  const restoreEditorFocus = useCallback(() => {
+    if (editMode === "continuous") continuousRef.current?.focus();
+    else editorRef.current?.focus();
+  }, [editMode]);
+
+  const toggleQuickReference = useCallback(() => {
+    setQuickReferenceOpen((current) => {
+      if (current) requestAnimationFrame(restoreEditorFocus);
+      return !current;
+    });
+  }, [restoreEditorFocus]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape" && focusMode) {
+        event.preventDefault();
+        setFocusMode(false);
+        requestAnimationFrame(restoreEditorFocus);
+        return;
+      }
+      if (!event.ctrlKey || !event.shiftKey || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      toggleQuickReference();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [focusMode, restoreEditorFocus, setFocusMode, toggleQuickReference]);
+
+  useEffect(() => () => setFocusMode(false), [setFocusMode]);
+
+  useEffect(() => {
+    setQuickReferenceContextCards([]);
+  }, [project.id]);
 
   const saveBeforeLeaving = useCallback(async (): Promise<boolean> => {
     if (editMode === "continuous") {
@@ -230,9 +277,11 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
     () => (editMode === "continuous" && selectedChapter ? selectedChapter.scenes.map((scene) => ({
       id: scene.id,
       title: scene.title || "默认场景",
-      view: sceneViews[scene.id]
+      view: sceneViews[scene.id],
+      targetWords: outline?.volumes.flatMap((volume) => volume.chapters).concat(outline?.looseChapters ?? [])
+        .flatMap((chapter) => chapter.scenes).find((item) => item.id === scene.id)?.planning?.targetWords
     })) : []),
-    [editMode, selectedChapter, sceneViews]
+    [editMode, outline, selectedChapter, sceneViews]
   );
 
   return (
@@ -257,6 +306,8 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
           selectedScene={selectedScene}
           project={project}
           onToggleEditMode={() => void toggleEditMode()}
+          quickReferenceOpen={quickReferenceOpen}
+          onToggleQuickReference={toggleQuickReference}
         />
 
         {abnormalExit && !recoveryNoticeDismissed && (
@@ -279,7 +330,7 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
                 onSelectionChange={handleSelectionChange}
                 onMentionTrigger={handleMentionTrigger}
                 focusMode={focusMode}
-                onToggleFocusMode={() => setFocusMode((value) => !value)}
+                onToggleFocusMode={() => setFocusMode(!focusMode)}
                 typewriter={typewriter}
                 onToggleTypewriter={() => setTypewriter((value) => !value)}
               />
@@ -295,8 +346,9 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
               onStatsChange={handleStatsChange}
               onSelectionChange={handleSelectionChange}
               onMentionTrigger={handleMentionTrigger}
+              targetWords={selectedScenePlanning?.targetWords}
               focusMode={focusMode}
-              onToggleFocusMode={() => setFocusMode((value) => !value)}
+              onToggleFocusMode={() => setFocusMode(!focusMode)}
               typewriter={typewriter}
               onToggleTypewriter={() => setTypewriter((value) => !value)}
             />
@@ -322,7 +374,28 @@ export function WritingDesk({ projects, project, navigation, onSelectProject, on
         focusMode={focusMode}
         getActiveEditor={getActiveEditor}
         onOpenOutline={onOpenOutline}
+        quickReferenceCards={quickReferenceContextCards}
       />
+      {!focusMode && (
+        <WritingQuickReferencePanel
+          open={quickReferenceOpen}
+          projectId={project.id}
+          selectedSceneId={selectedSceneId}
+          planning={selectedScenePlanning}
+          contextCards={quickReferenceContextCards}
+          onContextCardsChange={setQuickReferenceContextCards}
+          onPlanningSaved={async () => { await loadOutline(project.id); }}
+          onClose={() => setQuickReferenceOpen(false)}
+          onRestoreEditorFocus={restoreEditorFocus}
+        />
+      )}
+      {focusMode && (
+        <div className="writing-focus-status" role="status">
+          <span>{selectedScene?.title ?? selectedChapter?.title ?? "专注写作"}</span>
+          <span>{characterCount.toLocaleString("zh-CN")} 字</span>
+          <kbd>Esc 退出专注</kbd>
+        </div>
+      )}
     </section>
   );
 }

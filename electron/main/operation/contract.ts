@@ -705,15 +705,48 @@ async function run(): Promise<number> {
       // 正确口令：completed，资源记录入库。
       const rightTarget = path.join(parent, `right-${randomUUID()}`);
       const coordinatorRight = createOperationCoordinator();
+      let previewCalled = false;
       const rightHandle = runBundleImportEncrypted(
         coordinatorRight,
-        { workspaceDirectory: rightTarget, containerFile: targetFile, passphrase: "secret" },
+        {
+          workspaceDirectory: rightTarget,
+          containerFile: targetFile,
+          passphrase: "secret",
+          resolveCardResolutions: async (preview) => {
+            previewCalled = true;
+            assert.equal(preview.cardCount, source.exportedData.cards.length);
+            assert.equal(preview.conflicts.length, 0);
+            return [];
+          }
+        },
         (fn) => fn()
       );
       const rightRes = await rightHandle.done;
       assert.equal(rightRes.status, "completed");
+      assert.equal(previewCalled, true, "加密包也必须在数据库写入前执行稳定 ID 预检");
       const scan = await scanResourceConsistencyCore({ workspaceDirectory: rightTarget });
       assert.equal(scan.scannedRecordCount >= 1, true);
+
+      // 用户在解密后的冲突确认阶段取消：以 cancelled 收尾，目标工作区零项目/零附件。
+      const cancelledTarget = path.join(parent, `cancelled-${randomUUID()}`);
+      const coordinatorCancelled = createOperationCoordinator();
+      const cancelledHandle = runBundleImportEncrypted(
+        coordinatorCancelled,
+        {
+          workspaceDirectory: cancelledTarget,
+          containerFile: targetFile,
+          passphrase: "secret",
+          resolveCardResolutions: async () => null
+        },
+        (fn) => fn()
+      );
+      const cancelledResult = await cancelledHandle.done;
+      assert.equal(cancelledResult.status, "cancelled");
+      await withWorkspace(cancelledTarget, async (workspace) => {
+        assert.equal((await workspace.read({ kind: "projects.list" })).length, 0);
+      });
+      const cancelledFiles = await readdir(path.join(cancelledTarget, "resources"), { recursive: true }).catch(() => [] as string[]);
+      assert.equal(cancelledFiles.length, 0);
     });
 
     return tests;

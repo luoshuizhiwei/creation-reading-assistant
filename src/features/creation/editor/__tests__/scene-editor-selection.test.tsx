@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 import React from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { act, render, cleanup } from "@testing-library/react";
-import { SceneEditor, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
+import { act, render, cleanup, screen } from "@testing-library/react";
+import { SceneEditor, resolveTypewriterScrollTop, type SceneEditorHandle } from "@/features/creation/editor/SceneEditor";
 import { shouldTriggerMention, type SceneSelection } from "@/features/creation/editor/annotation-selection";
 import type { SceneBodyView } from "@/types/creation";
 
@@ -18,7 +18,25 @@ function viewOf(text: string): SceneBodyView {
   } as unknown as SceneBodyView;
 }
 
+function sceneOf(sceneId: string, text: string): SceneBodyView {
+  return { ...viewOf(text), sceneId, title: sceneId } as unknown as SceneBodyView;
+}
+
 const noop = () => undefined;
+
+describe("打字机滚动边界", () => {
+  it("光标位于首屏上方时不会产生负滚动位置", () => {
+    expect(resolveTypewriterScrollTop({ scrollTop: 0, cursorTop: 20, containerTop: 0, containerHeight: 600, scrollHeight: 2400 })).toBe(0);
+  });
+
+  it("正文中段将光标定位到可视区中心", () => {
+    expect(resolveTypewriterScrollTop({ scrollTop: 400, cursorTop: 500, containerTop: 100, containerHeight: 600, scrollHeight: 2400 })).toBe(500);
+  });
+
+  it("光标接近末尾时不会滚过正文底部", () => {
+    expect(resolveTypewriterScrollTop({ scrollTop: 1600, cursorTop: 900, containerTop: 100, containerHeight: 600, scrollHeight: 2000 })).toBe(1400);
+  });
+});
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -26,6 +44,25 @@ beforeEach(() => {
 afterEach(() => cleanup());
 
 describe("SceneEditor 真实选区暴露（Tiptap 渲染）", () => {
+  it("底部显示场景目标字数与即时完成比例", async () => {
+    await act(async () => {
+      render(
+        <SceneEditor
+          view={viewOf("测试正文")}
+          onSave={async () => undefined}
+          targetWords={8}
+          focusMode={false}
+          onToggleFocusMode={noop}
+          typewriter={false}
+          onToggleTypewriter={noop}
+        />
+      );
+    });
+    const progress = screen.getByLabelText("场景目标进度");
+    expect(progress.textContent).toContain("4 字");
+    expect(progress.textContent).toContain("目标 8 · 50%");
+  });
+
   it("onSelectionChange 上报真实选区（sceneId/块归属/折叠状态正确）", async () => {
     const onSelectionChange = vi.fn();
     await act(async () => {
@@ -142,5 +179,36 @@ describe("SceneEditor 外部命令的 IME 状态", () => {
       editor.dispatchEvent(new CompositionEvent("compositionend", { bubbles: true }));
     });
     expect(handle?.isComposing()).toBe(false);
+  });
+});
+
+describe("SceneEditor 切换场景（组件保持挂载）", () => {
+  /**
+   * 回归：写作台在两个「已缓存」场景之间切换时 SceneEditor 不会卸载，
+   * 只更换 view.sceneId。此时 useEditor 会销毁旧实例并换入新实例，
+   * 旧实例的 commands 已为 null——若同步 effect 仍按旧实例写正文会抛
+   * "Cannot read properties of null (reading 'commands')" 并让整个写作台白屏。
+   */
+  it("同实例内切换 sceneId 不抛错，并把正文同步到新场景", async () => {
+    const props = {
+      onSave: async () => undefined,
+      focusMode: false,
+      onToggleFocusMode: noop,
+      typewriter: false,
+      onToggleTypewriter: noop
+    };
+    let view!: ReturnType<typeof render>;
+    await act(async () => {
+      view = render(<SceneEditor view={sceneOf("scene-a", "第一场正文")} {...props} />);
+    });
+    await act(async () => {});
+    expect(view.container.querySelector(".scene-editor-content")?.textContent).toContain("第一场正文");
+
+    // 场景切换：SceneEditor 不卸载，只换 view.sceneId（工作台已缓存两场正文时即如此）
+    await act(async () => {
+      view.rerender(<SceneEditor view={sceneOf("scene-b", "第三场正文")} {...props} />);
+    });
+    await act(async () => {});
+    expect(view.container.querySelector(".scene-editor-content")?.textContent).toContain("第三场正文");
   });
 });

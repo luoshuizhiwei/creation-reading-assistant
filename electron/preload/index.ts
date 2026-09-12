@@ -32,6 +32,7 @@ import type {
 import type {
   CardRelation,
   CardSummary,
+  CardLinkResult,
   CardType,
   CardsListQuery,
   CreateProjectInput,
@@ -214,7 +215,7 @@ const api: DesktopApi = {
     structurePreview: (command: StructurePreviewCommand) => invoke<StructurePreviewView>("creation:structurePreview", command),
     structureApply: (command: StructureApplyWithProtectionCommand) => invoke<StructureApplyResult>("creation:structureApply", command),
     structureRevert: (command: StructureRevertCommand) => invoke<StructureRevertResult>("creation:structureRevert", command),
-    trashList: (projectId: string) => invoke<TrashItem[]>("creation:trashList", projectId),
+    trashList: (projectId?: string) => invoke<TrashItem[]>("creation:trashList", projectId),
     snapshotList: (query: SnapshotListQuery) => invoke<SnapshotInfo[]>("creation:snapshotList", query),
     search: (query: CreationSearchQuery) => invoke<CreationSearchView>("creation:search", query),
     replacePreview: (query: ReplacePreviewQuery) => invoke<ReplacePreviewView>("creation:replacePreview", query),
@@ -239,8 +240,8 @@ const api: DesktopApi = {
       invoke<SnapshotRestoreWithProtectionResult>("creation:snapshotRestoreWithProtection", command),
     trashImpact: (query: TrashImpactQuery) => invoke<TrashImpactView | null>("creation:trashImpact", query),
     resourceList: (query: ResourceListQuery) => invoke<ResourceInfo[]>("creation:resourceList", query),
-    attachResource: (projectId: string, cardId?: string) =>
-      invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId }),
+    attachResource: (projectId: string | undefined, cardId?: string, role?: "attachment" | "cover") =>
+      invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId, role }),
     detachResource: (resourceId: string) => invoke<ResourceResult>("creation:detachResource", { resourceId }),
     readProjectExport: (projectId: string) => invoke<ProjectExportView | null>("creation:readProjectExport", projectId),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
@@ -254,8 +255,12 @@ const api: DesktopApi = {
       invoke<{ canceled: boolean; filePath: string | null }>("creation:exportDraft", { projectId, preset }),
     cardsList: (query: CardsListQuery) => invoke<CardSummary[]>("creation:cardsList", query),
     cardRead: (cardId: string) => invoke<CardSummary | null>("creation:cardRead", cardId),
-    cardTypesList: (projectId: string) => invoke<CardType[]>("creation:cardTypesList", projectId),
-    relationTypesList: (projectId: string) => invoke<RelationType[]>("creation:relationTypesList", projectId),
+    cardTypesList: () => invoke<CardType[]>("creation:cardTypesList"),
+    relationTypesList: () => invoke<RelationType[]>("creation:relationTypesList"),
+    cardLink: (projectId: string, cardId: string) =>
+      invoke<CardLinkResult>("creation:cardLink", { projectId, cardId }),
+    cardUnlink: (projectId: string, cardId: string) =>
+      invoke<CardLinkResult>("creation:cardUnlink", { projectId, cardId }),
     cardRelations: (cardId: string) =>
       invoke<{ outgoing: CardRelation[]; incoming: CardRelation[] }>("creation:cardRelations", cardId),
     readSceneBody: (sceneId: string) => invoke<SceneBodyView | null>("creation:readSceneBody", sceneId),

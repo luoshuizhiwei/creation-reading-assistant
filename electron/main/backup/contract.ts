@@ -5,7 +5,13 @@ import { cp, mkdir, mkdtemp, readFile, readdir, rm, symlink, writeFile } from "n
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { openCreationWorkspace } from "../creation-workspace";
+import { openCreationWorkspace, scanResourceConsistencyCore } from "../creation-workspace";
+import {
+  assertV9AttachmentFiles,
+  assertV9BaselineReadable,
+  seedV9Baseline,
+  type V9Baseline
+} from "../creation-workspace/v9-baseline-fixture";
 import {
   BackupError,
   createBackupSnapshot,
@@ -747,6 +753,96 @@ async function run(): Promise<void> {
       check("S19 链接条目不会生成假成功备份", () => {
         assert.ok(caught instanceof BackupError);
         assert.equal(caught.code, "file-extra");
+      });
+    }
+
+    // ============ 场景 20：v9 双项目基线备份→恢复，SQLite + A/B 附件完整往返 ============
+    {
+      progress("S20");
+      const backupRoot = path.join(parent, "s20-backup");
+      const source = path.join(parent, "s20-source");
+      const sourceWorkspaceDirectory = path.join(source, "CreationWorkspace");
+      await makeAppDataFixture(source, false);
+
+      // v9 fixture 必须先正常关闭。close() 会执行 WAL checkpoint，迁移前的备份同样
+      // 应在写入排空后进行；本契约不伪造或复制一份活跃 WAL。
+      let baseline: V9Baseline | undefined;
+      const sourceWorkspace = await openCreationWorkspace({ directory: sourceWorkspaceDirectory, testOnlyTargetSchemaVersion: 9 });
+      try {
+        baseline = await seedV9Baseline(sourceWorkspace, { workspaceDirectory: sourceWorkspaceDirectory });
+      } finally {
+        await sourceWorkspace.close();
+      }
+      const v9 = baseline!;
+      await assertV9AttachmentFiles(sourceWorkspaceDirectory, v9);
+      const sourceScan = await scanResourceConsistencyCore({ workspaceDirectory: sourceWorkspaceDirectory });
+      assert.equal(sourceScan.issues.length, 0, `S20 源工作区资源应零问题：${JSON.stringify(sourceScan.issues)}`);
+
+      const manifest = await createBackupSnapshot({
+        backupRoot,
+        appDataDirectory: source,
+        appVersion: "0.0.0",
+        platform: "test",
+        arch: "test",
+        createdAt: "2026-01-01T00:00:00.000Z"
+      });
+      const backupHashBeforeRestore = await hashDir(backupRoot);
+      const resourceAPath = `CreationWorkspace/${v9.resourceRelativePath}`;
+      const resourceBPath = `CreationWorkspace/${v9.resourceBRelativePath}`;
+
+      check("S20 备份清单包含 v9 SQLite 与 A/B 附件的准确哈希", () => {
+        const byPath = new Map(manifest.files.map((entry) => [entry.path, entry] as const));
+        assert.ok(byPath.has("CreationWorkspace/workspace.sqlite"));
+        assert.deepEqual(byPath.get(resourceAPath), {
+          path: resourceAPath,
+          size: v9.resourceSize,
+          sha256: v9.resourceSha256
+        });
+        assert.deepEqual(byPath.get(resourceBPath), {
+          path: resourceBPath,
+          size: v9.resourceBSize,
+          sha256: v9.resourceBSha256
+        });
+      });
+
+      const currentRoot = path.join(parent, "s20-current");
+      await makeAppDataFixture(currentRoot);
+      await writeFile(path.join(currentRoot, "current-only-sentinel.txt"), "must-be-replaced", "utf8");
+      const restored = await callRestore({
+        backupRoot,
+        currentAppDataRoot: currentRoot,
+        currentLibraryRoot: path.join(currentRoot, "AppLibrary")
+      }) as { appDataRestored: boolean; checkpointPath?: string; sqliteUserVersions: number[] };
+      const restoredWorkspaceDirectory = path.join(currentRoot, "CreationWorkspace");
+
+      check("S20 恢复执行原子替换并保留恢复前检查点", async () => {
+        assert.equal(restored.appDataRestored, true);
+        assert.ok(restored.checkpointPath && existsSync(restored.checkpointPath));
+        assert.equal(existsSync(path.join(currentRoot, "current-only-sentinel.txt")), false);
+        assert.equal(restored.sqliteUserVersions.includes(9), true);
+      });
+      check("S20 恢复后的 v9 数据可重开、完整性与项目隔离不变", async () => {
+        const workspace = await openCreationWorkspace({ directory: restoredWorkspaceDirectory, testOnlyTargetSchemaVersion: 9 });
+        try {
+          await assertV9BaselineReadable(workspace, v9);
+        } finally {
+          await workspace.close();
+        }
+      });
+      check("S20 恢复后的 A/B 附件字节、大小和哈希保持准确", async () => {
+        await assertV9AttachmentFiles(restoredWorkspaceDirectory, v9);
+      });
+      check("S20 恢复后的资源扫描零问题且包含两条记录/文件", async () => {
+        const scan = await scanResourceConsistencyCore({ workspaceDirectory: restoredWorkspaceDirectory });
+        assert.equal(scan.issues.length, 0, `恢复后资源应零问题：${JSON.stringify(scan.issues)}`);
+        assert.equal(scan.scannedRecordCount >= 2, true);
+        assert.equal(scan.scannedFileCount >= 2, true);
+      });
+      check("S20 恢复不会改写备份目录或清单", async () => {
+        assert.equal(await hashDir(backupRoot), backupHashBeforeRestore);
+        const reread = await readBackupManifest(backupRoot);
+        assert.equal(reread.files.some((entry) => entry.path === resourceAPath && entry.sha256 === v9.resourceSha256), true);
+        assert.equal(reread.files.some((entry) => entry.path === resourceBPath && entry.sha256 === v9.resourceBSha256), true);
       });
     }
     await Promise.all(pendingChecks);

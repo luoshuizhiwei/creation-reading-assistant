@@ -2,6 +2,7 @@ import { getDesktopApi } from "@/services/ipc-client";
 import type {
   CardRelation,
   CardSummary,
+  CardLinkResult,
   CardType,
   CardsListQuery,
   CreateProjectInput,
@@ -133,7 +134,7 @@ export async function structureRevert(command: StructureRevertCommand): Promise<
   return getCreationApi().structureRevert(command);
 }
 
-export async function trashList(projectId: string): Promise<TrashItem[]> {
+export async function trashList(projectId?: string): Promise<TrashItem[]> {
   return getCreationApi().trashList(projectId);
 }
 
@@ -156,12 +157,20 @@ export async function cardRead(cardId: string): Promise<CardSummary | null> {
   return getCreationApi().cardRead(cardId);
 }
 
-export async function cardTypesList(projectId: string): Promise<CardType[]> {
-  return getCreationApi().cardTypesList(projectId);
+export async function cardTypesList(): Promise<CardType[]> {
+  return getCreationApi().cardTypesList();
 }
 
-export async function relationTypesList(projectId: string): Promise<RelationType[]> {
-  return getCreationApi().relationTypesList(projectId);
+export async function relationTypesList(): Promise<RelationType[]> {
+  return getCreationApi().relationTypesList();
+}
+
+export async function cardLink(projectId: string, cardId: string): Promise<CardLinkResult> {
+  return getCreationApi().cardLink(projectId, cardId);
+}
+
+export async function cardUnlink(projectId: string, cardId: string): Promise<CardLinkResult> {
+  return getCreationApi().cardUnlink(projectId, cardId);
 }
 
 export async function cardRelations(
@@ -270,10 +279,11 @@ export async function resourceList(query: ResourceListQuery): Promise<ResourceIn
 }
 
 export async function attachResource(
-  projectId: string,
-  cardId?: string
+  projectId: string | undefined,
+  cardId?: string,
+  role?: "attachment" | "cover"
 ): Promise<{ canceled: boolean; resource: ResourceResult | null }> {
-  return getCreationApi().attachResource(projectId, cardId);
+  return getCreationApi().attachResource(projectId, cardId, role);
 }
 
 export async function detachResource(resourceId: string): Promise<ResourceResult> {

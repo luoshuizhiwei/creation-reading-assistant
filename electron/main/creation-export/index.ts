@@ -8,7 +8,7 @@ import type {
 export type { DraftExportBuildResult, DraftExportPreset } from "../../../src/types/creation";
 
 /** 成稿导出预设白名单（主进程重校验用）。 */
-export const DRAFT_EXPORT_PRESETS: readonly DraftExportPreset[] = ["platform-plain", "standard-review"];
+export const DRAFT_EXPORT_PRESETS: readonly DraftExportPreset[] = ["platform-plain", "standard-review", "outline-markdown"];
 
 export function isDraftExportPreset(value: unknown): value is DraftExportPreset {
   return typeof value === "string" && (DRAFT_EXPORT_PRESETS as readonly string[]).includes(value);
@@ -34,6 +34,12 @@ export const DRAFT_EXPORT_PRESET_META: Record<DraftExportPreset, DraftExportPres
     extension: "md",
     label: "标准审阅稿",
     description: "Markdown 层级清晰（项目/卷/章/场景），作者按标注为「作者按」，引文与居中文本保留可读语义，不含引用与批注元数据。"
+  },
+  "outline-markdown": {
+    preset: "outline-markdown",
+    extension: "md",
+    label: "Markdown 大纲",
+    description: "仅导出卷、章、场景层级，以及场景摘要、状态、字数和目标，不包含正文。"
   }
 };
 
@@ -139,9 +145,36 @@ export function buildStandardReviewMarkdown(view: ProjectExportView): DraftExpor
   return { preset: "standard-review", extension: "md", text };
 }
 
+const SCENE_STATUS_LABELS: Record<string, string> = {
+  planned: "待规划",
+  drafting: "起草中",
+  revising: "修订中",
+  done: "已完成"
+};
+
+/** Markdown 大纲：只含结构与创作元数据，不泄漏正文。 */
+export function buildOutlineMarkdown(view: ProjectExportView): DraftExportBuildResult {
+  const lines: string[] = [`# ${view.title} · 大纲`, "", `> 全书 ${Number(view.wordCount ?? 0).toLocaleString("zh-CN")} 字`, ""];
+  for (const volume of view.volumes) {
+    lines.push(`## ${volume.title}（${Number(volume.wordCount ?? 0).toLocaleString("zh-CN")} 字）`, "");
+    for (const chapter of volume.chapters) {
+      const chapterStatus = chapter.status ? ` · 章节状态：${chapter.status}` : "";
+      lines.push(`### ${chapterHeading(chapter)}（${Number(chapter.wordCount ?? 0).toLocaleString("zh-CN")} 字${chapterStatus}）`, "");
+      for (const scene of chapter.scenes) {
+        const target = scene.targetWords ? ` / 目标 ${scene.targetWords.toLocaleString("zh-CN")} 字` : "";
+        lines.push(`- **${scene.title}** · ${SCENE_STATUS_LABELS[scene.status ?? "planned"] ?? "待规划"} · ${Number(scene.wordCount ?? 0).toLocaleString("zh-CN")} 字${target}`);
+        if (scene.summary) lines.push(`  - ${scene.summary.replace(/\r?\n/g, " ")}`);
+      }
+      lines.push("");
+    }
+  }
+  return { preset: "outline-markdown", extension: "md", text: `${lines.join("\n").replace(/\n{3,}/g, "\n\n").trim()}\n` };
+}
+
 /** 按预设构建成稿导出文本；preset 非法时返回 null（由调用方以 invalid-input 拒绝）。 */
 export function buildDraftExport(view: ProjectExportView, preset: unknown): DraftExportBuildResult | null {
   if (!isDraftExportPreset(preset)) return null;
+  if (preset === "outline-markdown") return buildOutlineMarkdown(view);
   if (preset === "standard-review") return buildStandardReviewMarkdown(view);
   return buildPlatformPlainText(view);
 }

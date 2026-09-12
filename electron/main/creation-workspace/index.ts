@@ -1,4 +1,4 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { mkdirSync, readFileSync, unlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
@@ -40,6 +40,7 @@ import {
   type CardCommand,
   type CardCreateCommand,
   type CardDeleteCommand,
+  type CardLinkResult,
   type CardFieldKind,
   type CardFieldSchema,
   type CardReadQuery,
@@ -112,6 +113,7 @@ import {
   type ProjectImportDraftCommand,
   type ProjectImportDraftResult,
   type ProjectBundleData,
+  type ProjectBundleImportPreview,
   type ProjectBundleExportQuery,
   type ProjectBundleImportCommand,
   type ProjectBundleImportResult,
@@ -129,8 +131,11 @@ import {
   type ResourceListQuery,
    type ResourceResult,
    type ScenePlanning,
+   type SceneStatus,
    type SceneUpdatePlanningCommand,
    type SceneUpdatePlanningResult,
+   type SceneUpdateMetaCommand,
+   type SceneUpdateMetaResult,
    type CreationRunCommand,
    type CreationRunResultOf,
    type InboxConvertToCardCommand,
@@ -144,6 +149,7 @@ import {
   type CreationWorkspaceListener,
   type OpenCreationWorkspaceOptions
 } from "./types";
+import type { ProjectBundleCardMapping, ProjectBundleCardResolution } from "../../../src/types/creation";
 import { countSceneBodyStats } from "./scene-stats";
 import { createStatsSessionsModule, type StatsSessionsModule } from "./stats-sessions";
 import { createSearchModule, type SearchModule } from "./search";
@@ -151,6 +157,14 @@ import { createInboxModule, type InboxModule } from "./inbox";
 import { createResourceModule, type ResourceModule } from "./resource";
 import { createAnnotationModule, type AnnotationModule } from "./annotation";
 import { createReplaceModule, type ReplaceModule } from "./replace";
+import {
+  createGlobalCardSchemaRepairBackup,
+  createV9MigrationBackup,
+  GLOBAL_CARD_SCHEMA_VERSION,
+  migrateGlobalCardsV9ToV10,
+  needsGlobalCardSchemaRepair,
+  repairGlobalCardSchemaV10
+} from "./global-card-migration";
 import { createStructureModule, type StructureModule, STRUCTURE_COMMAND_TYPES } from "./structure";
 import {
   extractSceneText,
@@ -191,11 +205,12 @@ import type {
   ReplacePlanStore
 } from "./replace-plan";
 
-const SCHEMA_VERSION = 9;
+const SCHEMA_VERSION = 11;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
 const SCENE_MARKS = new Set(["bold", "italic"]);
+const SCENE_STATUSES = new Set<SceneStatus>(["planned", "drafting", "revising", "done"]);
 const CARD_FIELD_KINDS = new Set<CardFieldKind>([
   "text",
   "multiline",
@@ -219,6 +234,8 @@ const CARD_COMMAND_TYPES = new Set<string>([
   "card.create",
   "card.update",
   "card.delete",
+  "card.link",
+  "card.unlink",
   "cardRelation.create",
   "cardRelation.delete"
 ]);
@@ -261,6 +278,7 @@ const REQUIRED_TABLES = [
   "card_types",
   "relation_types",
   "card_relations",
+  "project_card_links",
   "resources",
   "snapshots",
   "change_log",
@@ -280,6 +298,7 @@ const REQUIRED_INDEXES = [
   "idx_relation_types_project",
   "idx_card_relations_from",
   "idx_card_relations_to",
+  "idx_project_card_links_card",
   "idx_resources_project",
   "idx_snapshots_project_created",
   "idx_writing_sessions_project_started",
@@ -301,6 +320,114 @@ function isSafeBundleRelativePath(value: unknown): value is string {
   if (value.includes("..") || value.includes("\\") || value.includes(":")) return false;
   if (value.includes("\0")) return false;
   return true;
+}
+
+function canonicalJsonValue(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(canonicalJsonValue);
+  if (!isRecord(value)) return value;
+  return Object.fromEntries(
+    Object.keys(value).sort().map((key) => [key, canonicalJsonValue(value[key])])
+  );
+}
+
+function canonicalStoredJson(value: string): string {
+  try {
+    return JSON.stringify(canonicalJsonValue(JSON.parse(value)));
+  } catch {
+    return `!invalid:${value}`;
+  }
+}
+
+interface StoredBundleCardComparable {
+  id: string;
+  kind: string;
+  title: string;
+  aliases_json: string;
+  fields_json: string;
+  tags_json: string;
+  content_json: string;
+  deleted_at: string | null;
+}
+
+interface ComparableCardResource {
+  role: string;
+  sha256: string;
+  size: number;
+  originalName: string | null;
+}
+
+function cardResourceSignature(resources: ComparableCardResource[]): string {
+  return JSON.stringify(
+    resources
+      .map((resource) => ({
+        role: resource.role,
+        sha256: resource.sha256.toLowerCase(),
+        size: resource.size,
+        originalName: resource.originalName
+      }))
+      .sort((left, right) => JSON.stringify(left).localeCompare(JSON.stringify(right)))
+  );
+}
+
+function incomingCardResourceSignature(data: ProjectBundleData, cardId: string): string {
+  return cardResourceSignature(
+    (data.resources ?? [])
+      .filter((resource) => resource.ownerScope === "card" && resource.cardId === cardId)
+      .map((resource) => ({
+        role: resource.role ?? "attachment",
+        sha256: resource.sha256,
+        size: resource.size,
+        originalName: resource.originalName
+      }))
+  );
+}
+
+function bundleCardDifferences(
+  card: ProjectBundleData["cards"][number],
+  local: StoredBundleCardComparable,
+  incomingResourceSignature?: string,
+  localResourceSignature?: string
+): string[] {
+  const differences: string[] = [];
+  if (card.kind !== local.kind) differences.push("类型");
+  if (card.title !== local.title) differences.push("名称");
+  if (canonicalStoredJson(card.aliasesJson ?? "[]") !== canonicalStoredJson(local.aliases_json)) differences.push("别名");
+  if (canonicalStoredJson(card.fieldsJson ?? "{}") !== canonicalStoredJson(local.fields_json)) differences.push("字段");
+  if (canonicalStoredJson(card.tagsJson ?? "[]") !== canonicalStoredJson(local.tags_json)) differences.push("标签");
+  if (canonicalStoredJson(card.contentJson ?? "{}") !== canonicalStoredJson(local.content_json)) differences.push("内容快照");
+  if (incomingResourceSignature !== undefined && localResourceSignature !== undefined && incomingResourceSignature !== localResourceSignature) {
+    differences.push("全局附件");
+  }
+  return differences;
+}
+
+function remapPlanningCardIds(planningJson: string, cardIdMap: ReadonlyMap<string, string>): string {
+  let planning: ScenePlanning;
+  try {
+    planning = JSON.parse(planningJson || "{}") as ScenePlanning;
+  } catch {
+    throw new CreationWorkspaceError("invalid-input", "项目包场景任务卡数据无效。");
+  }
+  if (planning.perspectiveCardId) planning.perspectiveCardId = cardIdMap.get(planning.perspectiveCardId) ?? planning.perspectiveCardId;
+  if (planning.locationCardId) planning.locationCardId = cardIdMap.get(planning.locationCardId) ?? planning.locationCardId;
+  if (Array.isArray(planning.castCardIds)) {
+    planning.castCardIds = planning.castCardIds.map((cardId) => cardIdMap.get(cardId) ?? cardId);
+  }
+  return JSON.stringify(planning);
+}
+
+function remapJsonStableIds(value: string, idMap: ReadonlyMap<string, string>): string {
+  try {
+    const walk = (current: unknown): unknown => {
+      if (typeof current === "string") return idMap.get(current) ?? current;
+      if (Array.isArray(current)) return current.map(walk);
+      if (!isRecord(current)) return current;
+      return Object.fromEntries(Object.entries(current).map(([key, item]) => [key, walk(item)]));
+    };
+    return JSON.stringify(walk(JSON.parse(value || "{}")));
+  } catch {
+    return "{}";
+  }
 }
 
 function isValidSceneDocument(value: unknown): value is CreationDocument {
@@ -696,8 +823,14 @@ function purgeExpiredTrash(database: Database): void {
     .prepare("SELECT id FROM cards WHERE deleted_at IS NOT NULL AND deleted_at < ?")
     .all(cutoff) as Array<{ id: string }>;
   for (const card of cardRows) {
-    database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(card.id, card.id);
-    database.prepare("DELETE FROM cards WHERE id = ?").run(card.id);
+    database.exec("BEGIN IMMEDIATE");
+    try {
+      queueAndDeleteGlobalCard(database, card.id, new Date().toISOString());
+      database.exec("COMMIT");
+    } catch (error) {
+      database.exec("ROLLBACK");
+      throw error;
+    }
   }
 }
 
@@ -992,7 +1125,7 @@ function initializeSchema(database: Database): void {
       INSERT INTO scenes_fts(rowid, title, body_json) VALUES (new.rowid, new.title, new.body_json);
     END;
 
-    PRAGMA user_version = ${SCHEMA_VERSION};
+    PRAGMA user_version = 9;
     COMMIT;
   `);
   seedBuiltinCardData(database);
@@ -1275,6 +1408,103 @@ function migrateSchemaV8ToV9(database: Database): void {
     update.run(stats.han, stats.punct, stats.nonWhitespace, row.id);
   }
   database.exec("PRAGMA user_version = 9; COMMIT;");
+}
+
+/** v10→v11：场景摘要与场景状态独立持久化；章节 status 保持原工作流语义。 */
+function migrateSchemaV10ToV11(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    ALTER TABLE scenes ADD COLUMN summary TEXT NOT NULL DEFAULT '';
+    ALTER TABLE scenes ADD COLUMN scene_status TEXT NOT NULL DEFAULT 'planned';
+    PRAGMA user_version = 11;
+    COMMIT;
+  `);
+}
+
+/**
+ * M1-E：全局卡片资产是 v10 的向后兼容扩展。
+ * 旧 resources 表继续承载项目附件；新表不带 project 外键，删除项目不会级联删除共享资产。
+ */
+function ensureGlobalCardResourceSchema(database: Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS global_card_resources (
+      id TEXT PRIMARY KEY,
+      card_id TEXT NOT NULL REFERENCES cards(id) ON DELETE CASCADE,
+      relative_path TEXT NOT NULL UNIQUE,
+      sha256 TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      original_name TEXT,
+      role TEXT NOT NULL DEFAULT 'attachment' CHECK(role IN ('attachment', 'cover')),
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_global_card_resources_card ON global_card_resources(card_id);
+    CREATE TABLE IF NOT EXISTS global_card_trash_state (
+      card_id TEXT PRIMARY KEY REFERENCES cards(id) ON DELETE CASCADE,
+      linked_project_ids_json TEXT NOT NULL DEFAULT '[]',
+      deleted_at TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS global_card_resource_gc (
+      relative_path TEXT PRIMARY KEY,
+      queued_at TEXT NOT NULL
+    );
+  `);
+  const columns = database.prepare("PRAGMA table_info(global_card_resources)").all() as Array<{ name: string }>;
+  if (!columns.some((column) => column.name === "role")) {
+    database.exec("ALTER TABLE global_card_resources ADD COLUMN role TEXT NOT NULL DEFAULT 'attachment' CHECK(role IN ('attachment', 'cover'));");
+  }
+  database.exec("CREATE UNIQUE INDEX IF NOT EXISTS idx_global_card_resources_cover ON global_card_resources(card_id) WHERE role = 'cover';");
+}
+
+function removeCardFromPlanningJson(planningJson: string, cardId: string): string | null {
+  const planning = JSON.parse(planningJson) as ScenePlanning;
+  let changed = false;
+  if (planning.perspectiveCardId === cardId) {
+    delete planning.perspectiveCardId;
+    changed = true;
+  }
+  if (planning.locationCardId === cardId) {
+    delete planning.locationCardId;
+    changed = true;
+  }
+  if (Array.isArray(planning.castCardIds) && planning.castCardIds.includes(cardId)) {
+    planning.castCardIds = planning.castCardIds.filter((item) => item !== cardId);
+    changed = true;
+  }
+  return changed ? JSON.stringify(planning) : null;
+}
+
+function queueAndDeleteGlobalCard(database: Database, cardId: string, timestamp: string): void {
+  const resources = database
+    .prepare("SELECT relative_path FROM global_card_resources WHERE card_id = ?")
+    .all(cardId) as Array<{ relative_path: string }>;
+  const queue = database.prepare("INSERT OR IGNORE INTO global_card_resource_gc(relative_path, queued_at) VALUES (?, ?)");
+  for (const resource of resources) queue.run(resource.relative_path, timestamp);
+
+  const scenes = database.prepare("SELECT id, planning_json FROM scenes").all() as Array<{ id: string; planning_json: string }>;
+  const updateScene = database.prepare("UPDATE scenes SET planning_json = ?, updated_at = ?, revision = revision + 1 WHERE id = ?");
+  for (const scene of scenes) {
+    const updated = removeCardFromPlanningJson(scene.planning_json, cardId);
+    if (updated !== null) updateScene.run(updated, timestamp, scene.id);
+  }
+  database.prepare("UPDATE annotations SET card_id = NULL, updated_at = ?, revision = revision + 1 WHERE card_id = ?").run(timestamp, cardId);
+  database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(cardId, cardId);
+  database.prepare("DELETE FROM cards WHERE id = ?").run(cardId);
+}
+
+async function drainGlobalCardResourceGc(database: Database, workspaceDirectory: string): Promise<void> {
+  const rows = database.prepare("SELECT relative_path FROM global_card_resource_gc ORDER BY queued_at, relative_path").all() as Array<{ relative_path: string }>;
+  const workspaceRoot = path.resolve(workspaceDirectory);
+  for (const row of rows) {
+    const normalized = row.relative_path.replaceAll("\\", "/");
+    const target = path.resolve(workspaceRoot, normalized);
+    if (!normalized.startsWith("resources/cards/") || !target.startsWith(`${workspaceRoot}${path.sep}`)) continue;
+    try {
+      await rm(target, { force: true });
+      database.prepare("DELETE FROM global_card_resource_gc WHERE relative_path = ?").run(row.relative_path);
+    } catch {
+      // 保留队列项，下次打开工作区继续重试。
+    }
+  }
 }
 
 function defaultProjectSetup(): CreationProjectSetup {
@@ -1584,7 +1814,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       }
     }
     if (runtimeQuery.kind === "trash.impact") {
-      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+      if (runtimeQuery.projectId !== undefined && (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim())) {
         throw new CreationWorkspaceError("invalid-input", "回收站影响请求无效。");
       }
       const entity = runtimeQuery.entity;
@@ -1594,8 +1824,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       if (typeof runtimeQuery.entityId !== "string" || !runtimeQuery.entityId.trim()) {
         throw new CreationWorkspaceError("invalid-input", "回收站影响请求无效。");
       }
+      if (runtimeQuery.projectId === undefined && entity !== "card") {
+        throw new CreationWorkspaceError("invalid-input", "项目回收站影响请求必须提供作品 ID。");
+      }
       try {
-        return this.readTrashImpact(runtimeQuery.projectId, entity, runtimeQuery.entityId);
+        return this.readTrashImpact(
+          typeof runtimeQuery.projectId === "string" ? runtimeQuery.projectId : undefined,
+          entity,
+          runtimeQuery.entityId
+        );
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法读取回收站影响。");
@@ -1707,11 +1944,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     ) {
       try {
         if (runtimeQuery.kind === "cards.list") {
-          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+          if (
+            runtimeQuery.projectId !== undefined &&
+            (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim())
+          ) {
             throw new CreationWorkspaceError("invalid-input", "卡片读取请求无效。");
           }
           return this.listCards({
-            projectId: runtimeQuery.projectId,
+            projectId: typeof runtimeQuery.projectId === "string" ? runtimeQuery.projectId : undefined,
             cardKind:
               typeof runtimeQuery.cardKind === "string" && runtimeQuery.cardKind ? runtimeQuery.cardKind : undefined,
             search:
@@ -1721,22 +1961,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           });
         }
         if (runtimeQuery.kind === "cardTypes.list") {
-          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
-            throw new CreationWorkspaceError("invalid-input", "卡片类型读取请求无效。");
-          }
-          return this.listCardTypes(runtimeQuery.projectId);
+          return this.listCardTypes(typeof runtimeQuery.projectId === "string" ? runtimeQuery.projectId : undefined);
         }
         if (runtimeQuery.kind === "relationTypes.list") {
-          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
-            throw new CreationWorkspaceError("invalid-input", "关系类型读取请求无效。");
-          }
-          return this.listRelationTypes(runtimeQuery.projectId);
+          return this.listRelationTypes(typeof runtimeQuery.projectId === "string" ? runtimeQuery.projectId : undefined);
         }
         if (runtimeQuery.kind === "trash.list") {
-          if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+          if (runtimeQuery.projectId !== undefined && (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim())) {
             throw new CreationWorkspaceError("invalid-input", "回收站读取请求无效。");
           }
-          return this.trashList(runtimeQuery.projectId);
+          return this.trashList(typeof runtimeQuery.projectId === "string" ? runtimeQuery.projectId : undefined);
         }
         if (runtimeQuery.kind === "snapshot.list") {
           if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
@@ -1968,9 +2202,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       revision: number;
     }>;
 
+    const hasSceneMeta = Number(this.database.pragma("user_version", { simple: true })) >= 11;
     const sceneRows = this.database
       .prepare(
-        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.non_ws_count, s.planning_json, s.created_at, s.updated_at, s.revision
+        `SELECT s.id, s.chapter_id, s.title, s.sort_order, s.non_ws_count, s.planning_json,
+                ${hasSceneMeta ? "s.summary, s.scene_status" : "'' AS summary, 'planned' AS scene_status"},
+                s.created_at, s.updated_at, s.revision
          FROM scenes s JOIN chapters c ON c.id = s.chapter_id
          WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id`
       )
@@ -1981,6 +2218,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       sort_order: number;
       non_ws_count: number;
       planning_json: string;
+      summary: string;
+      scene_status: SceneStatus;
       created_at: string;
       updated_at: string;
       revision: number;
@@ -2000,6 +2239,19 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       else if (chapter.numbering_kind === "prologue") displayNumber = "序章";
       else if (chapter.numbering_kind === "extra") displayNumber = "番外";
       else if (chapter.numbering_kind === "custom") displayNumber = chapter.custom_number || null;
+      const scenes = (scenesByChapter.get(chapter.id) ?? []).map((scene) => ({
+        id: scene.id,
+        chapterId: scene.chapter_id,
+        title: scene.title,
+        sortOrder: scene.sort_order,
+        wordCount: scene.non_ws_count,
+        summary: scene.summary,
+        status: SCENE_STATUSES.has(scene.scene_status) ? scene.scene_status : "planned" as const,
+        planning: parseScenePlanning(scene.planning_json),
+        createdAt: scene.created_at,
+        updatedAt: scene.updated_at,
+        revision: scene.revision
+      }));
       return {
         id: chapter.id,
         volumeId: chapter.volume_id,
@@ -2009,20 +2261,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         numbering: chapter.numbering_kind,
         customNumber: chapter.custom_number,
         displayNumber,
+        wordCount: scenes.reduce((sum, scene) => sum + scene.wordCount, 0),
         createdAt: chapter.created_at,
         updatedAt: chapter.updated_at,
         revision: chapter.revision,
-        scenes: (scenesByChapter.get(chapter.id) ?? []).map((scene) => ({
-          id: scene.id,
-          chapterId: scene.chapter_id,
-          title: scene.title,
-          sortOrder: scene.sort_order,
-          wordCount: scene.non_ws_count,
-          planning: parseScenePlanning(scene.planning_json),
-          createdAt: scene.created_at,
-          updatedAt: scene.updated_at,
-          revision: scene.revision
-        }))
+        scenes
       };
     };
 
@@ -2044,6 +2287,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     for (const volume of volumeRows) {
       const chapterList = chaptersByVolume.get(volume.id) ?? [];
       let autoIndex = 0;
+      const chapters = chapterList.map((chapter) => {
+        if (chapter.numbering_kind === "auto") autoIndex += 1;
+        return buildChapter(chapter, autoIndex);
+      });
       volumes.push({
         id: volume.id,
         projectId: volume.project_id,
@@ -2052,10 +2299,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         createdAt: volume.created_at,
         updatedAt: volume.updated_at,
         revision: volume.revision,
-        chapters: chapterList.map((chapter) => {
-          if (chapter.numbering_kind === "auto") autoIndex += 1;
-          return buildChapter(chapter, autoIndex);
-        })
+        wordCount: chapters.reduce((sum, chapter) => sum + (chapter.wordCount ?? 0), 0),
+        chapters
       });
     }
 
@@ -2069,13 +2314,17 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         revision: project.revision
       },
       volumes,
-      looseChapters
+      looseChapters,
+      wordCount: volumes.reduce((sum, volume) => sum + (volume.wordCount ?? 0), 0) +
+        looseChapters.reduce((sum, chapter) => sum + (chapter.wordCount ?? 0), 0)
     };
   }
 
   private cardFromRow(row: {
     id: string;
-    project_id: string;
+    project_id: string | null;
+    linked_project_ids_json?: string;
+    usage_count?: number;
     kind: string;
     title: string;
     aliases_json: string;
@@ -2088,6 +2337,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return {
       id: row.id,
       projectId: row.project_id,
+      linkedProjectIds: row.linked_project_ids_json
+        ? (JSON.parse(row.linked_project_ids_json) as string[])
+        : row.project_id
+          ? [row.project_id]
+          : [],
+      usageCount: row.usage_count ?? (row.project_id ? 1 : 0),
       kind: row.kind,
       title: row.title,
       aliases: JSON.parse(row.aliases_json) as string[],
@@ -2099,15 +2354,25 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
-  private listCardTypes(projectId: string): CardType[] {
+  /** v9 基线夹具兼容；生产 v10 始终为 true。 */
+  private hasProjectCardLinks(): boolean {
+    return this.database
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_card_links'")
+      .get() !== undefined;
+  }
+
+  private listCardTypes(legacyProjectId?: string): CardType[] {
+    const builtInProjection = this.hasProjectCardLinks() ? "is_builtin" : "CASE WHEN project_id IS NULL THEN 1 ELSE 0 END";
+    const legacyFilter = !this.hasProjectCardLinks() && legacyProjectId ? " WHERE project_id IS NULL OR project_id = ?" : "";
     const rows = this.database
       .prepare(
-        `SELECT id, project_id, kind, name, fields_json, sort_order, created_at, updated_at, revision
-         FROM card_types WHERE project_id IS NULL OR project_id = ? ORDER BY sort_order, id`
+        `SELECT id, project_id, ${builtInProjection} AS is_builtin, kind, name, fields_json, sort_order, created_at, updated_at, revision
+         FROM card_types${legacyFilter} ORDER BY sort_order, id`
       )
-      .all(projectId) as Array<{
+      .all(...(legacyFilter ? [legacyProjectId] : [])) as Array<{
       id: string;
       project_id: string | null;
+      is_builtin: number;
       kind: string;
       name: string;
       fields_json: string;
@@ -2118,6 +2383,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }>;
     return rows.map((row) => ({
       id: row.id,
+      builtIn: row.is_builtin === 1,
       projectId: row.project_id,
       kind: row.kind,
       name: row.name,
@@ -2129,15 +2395,18 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }));
   }
 
-  private listRelationTypes(projectId: string): RelationType[] {
+  private listRelationTypes(legacyProjectId?: string): RelationType[] {
+    const builtInProjection = this.hasProjectCardLinks() ? "is_builtin" : "CASE WHEN project_id IS NULL THEN 1 ELSE 0 END";
+    const legacyFilter = !this.hasProjectCardLinks() && legacyProjectId ? " WHERE project_id IS NULL OR project_id = ?" : "";
     const rows = this.database
       .prepare(
-        `SELECT id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision
-         FROM relation_types WHERE project_id IS NULL OR project_id = ? ORDER BY created_at, id`
+        `SELECT id, project_id, ${builtInProjection} AS is_builtin, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision
+         FROM relation_types${legacyFilter} ORDER BY created_at, id`
       )
-      .all(projectId) as Array<{
+      .all(...(legacyFilter ? [legacyProjectId] : [])) as Array<{
       id: string;
       project_id: string | null;
+      is_builtin: number;
       name: string;
       forward_name: string;
       reverse_name: string;
@@ -2149,6 +2418,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }>;
     return rows.map((row) => ({
       id: row.id,
+      builtIn: row.is_builtin === 1,
       projectId: row.project_id,
       name: row.name,
       forwardName: row.forward_name,
@@ -2161,22 +2431,45 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }));
   }
 
-  private listCards(query: { projectId: string; cardKind?: string; search?: string }): CardSummary[] {
-    const params: unknown[] = [query.projectId];
-    let sql = `SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, created_at, updated_at, revision
-               FROM cards WHERE project_id = ? AND deleted_at IS NULL`;
+  private listCards(query: { projectId?: string; cardKind?: string; search?: string }): CardSummary[] {
+    const params: unknown[] = [];
+    let sql: string;
+    if (this.hasProjectCardLinks()) {
+      const projection = query.projectId ? "?" : "NULL";
+      if (query.projectId) params.push(query.projectId);
+      sql = `SELECT c.id, ${projection} AS project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json,
+          c.created_at, c.updated_at, c.revision,
+          COALESCE((SELECT json_group_array(project_id) FROM (
+            SELECT project_id FROM project_card_links WHERE card_id = c.id ORDER BY project_id
+          )), '[]') AS linked_project_ids_json,
+          (SELECT count(*) FROM project_card_links WHERE card_id = c.id) AS usage_count
+        FROM cards c WHERE c.deleted_at IS NULL`;
+      if (query.projectId) {
+        sql += " AND EXISTS (SELECT 1 FROM project_card_links pcl WHERE pcl.project_id = ? AND pcl.card_id = c.id)";
+        params.push(query.projectId);
+      }
+    } else {
+      sql = `SELECT c.id, c.project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json,
+        c.created_at, c.updated_at, c.revision FROM cards c WHERE c.deleted_at IS NULL`;
+      if (query.projectId) {
+        sql += " AND c.project_id = ?";
+        params.push(query.projectId);
+      }
+    }
     if (query.cardKind) {
-      sql += " AND kind = ?";
+      sql += " AND c.kind = ?";
       params.push(query.cardKind);
     }
     if (query.search) {
-      sql += " AND (title LIKE ? OR aliases_json LIKE ?)";
-      params.push(`%${query.search}%`, `%${query.search}%`);
+      sql += " AND (c.title LIKE ? OR c.aliases_json LIKE ? OR c.fields_json LIKE ?)";
+      params.push(`%${query.search}%`, `%${query.search}%`, `%${query.search}%`);
     }
-    sql += " ORDER BY updated_at DESC, id DESC";
+    sql += " ORDER BY c.updated_at DESC, c.id DESC";
     const rows = this.database.prepare(sql).all(...params) as Array<{
       id: string;
-      project_id: string;
+      project_id: string | null;
+      linked_project_ids_json?: string;
+      usage_count?: number;
       kind: string;
       title: string;
       aliases_json: string;
@@ -2427,12 +2720,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       }
       if (cardIds.size > 0) {
         const placeholders = [...cardIds].map(() => "?").join(", ");
-        const rows = this.database
-          .prepare(`SELECT id, project_id FROM cards WHERE id IN (${placeholders}) AND deleted_at IS NULL`)
-          .all(...cardIds) as Array<{ id: string; project_id: string }>;
-        if (rows.length !== cardIds.size) throw new CreationWorkspaceError("not-found", "引用的卡片不存在。");
-        for (const row of rows) {
-          if (row.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "引用的卡片不属于该作品。");
+        const existing = this.database
+          .prepare(`SELECT id FROM cards WHERE id IN (${placeholders}) AND deleted_at IS NULL`)
+          .all(...cardIds) as Array<{ id: string }>;
+        if (existing.length !== cardIds.size) throw new CreationWorkspaceError("not-found", "引用的卡片不存在。");
+        const ownershipSql = this.hasProjectCardLinks()
+          ? `SELECT card_id AS id FROM project_card_links WHERE card_id IN (${placeholders}) AND project_id = ?`
+          : `SELECT id FROM cards WHERE id IN (${placeholders}) AND project_id = ? AND deleted_at IS NULL`;
+        const linked = this.database.prepare(ownershipSql).all(...cardIds, projectId) as Array<{ id: string }>;
+        if (linked.length !== cardIds.size) {
+          throw new CreationWorkspaceError("invalid-input", "引用的卡片不属于该作品。");
         }
       }
       this.database
@@ -2461,20 +2758,80 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
   }
 
+  private runSceneUpdateMeta(command: SceneUpdateMetaCommand): SceneUpdateMetaResult {
+    const sceneId = validateId(command.sceneId, "场景");
+    const baseRevision = validateBaseRevision(command.baseRevision);
+    if (typeof command.summary !== "string" || command.summary.length > 2000) {
+      throw new CreationWorkspaceError("invalid-input", "场景摘要不能超过 2000 个字符。");
+    }
+    if (!SCENE_STATUSES.has(command.status)) {
+      throw new CreationWorkspaceError("invalid-input", "场景状态无效。");
+    }
+    const summary = command.summary.trim();
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      const scene = this.database
+        .prepare(`SELECT s.revision, c.project_id FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+          WHERE s.id = ? AND s.deleted_at IS NULL AND c.deleted_at IS NULL`)
+        .get(sceneId) as { revision: number; project_id: string } | undefined;
+      if (!scene) throw new CreationWorkspaceError("not-found", "场景不存在。");
+      if (scene.revision !== baseRevision) {
+        throw new CreationWorkspaceError("revision-mismatch", "场景已被更新，请重新读取后再保存摘要与状态。");
+      }
+      const revision = scene.revision + 1;
+      this.database.prepare(
+        "UPDATE scenes SET summary = ?, scene_status = ?, updated_at = ?, revision = ? WHERE id = ?"
+      ).run(summary, command.status, timestamp, revision, sceneId);
+      const logged = this.database.prepare(
+        "INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)"
+      ).run(scene.project_id, "scene.updateMeta", JSON.stringify([{ entity: "scene", id: sceneId, action: "updated", revision }]), timestamp);
+      this.database.exec("COMMIT");
+      this.emitCommitted({
+        kind: "committed",
+        sequence: Number(logged.lastInsertRowid),
+        projectId: scene.project_id,
+        commandType: "scene.updateMeta",
+        changes: [{ entity: "scene", id: sceneId, action: "updated", revision }]
+      });
+      return {
+        commandType: "scene.updateMeta",
+        sequence: Number(logged.lastInsertRowid),
+        projectId: scene.project_id,
+        sceneId,
+        revision,
+        updatedAt: timestamp
+      };
+    } catch (error) {
+      try { this.database.exec("ROLLBACK"); } catch { /* transaction may already be closed */ }
+      if (error instanceof CreationWorkspaceError) throw error;
+      throw new CreationWorkspaceError("integrity", "无法更新场景摘要与状态。");
+    }
+  }
+
   private runStatsView(projectId: string): ProjectStatsView | null {
     return this.statsSessions.runStatsView(projectId);
   }
 
   private readCard(cardId: string): CardSummary | null {
+    const sql = this.hasProjectCardLinks()
+      ? `SELECT c.id, NULL AS project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json,
+           c.created_at, c.updated_at, c.revision,
+           COALESCE((SELECT json_group_array(project_id) FROM (
+             SELECT project_id FROM project_card_links WHERE card_id = c.id ORDER BY project_id
+           )), '[]') AS linked_project_ids_json,
+           (SELECT count(*) FROM project_card_links WHERE card_id = c.id) AS usage_count
+         FROM cards c WHERE c.id = ? AND c.deleted_at IS NULL`
+      : `SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, created_at, updated_at, revision
+         FROM cards WHERE id = ? AND deleted_at IS NULL`;
     const row = this.database
-      .prepare(
-        `SELECT id, project_id, kind, title, aliases_json, fields_json, tags_json, created_at, updated_at, revision
-         FROM cards WHERE id = ? AND deleted_at IS NULL`
-      )
+      .prepare(sql)
       .get(cardId) as
       | {
           id: string;
-          project_id: string;
+          project_id: string | null;
+          linked_project_ids_json?: string;
+          usage_count?: number;
           kind: string;
           title: string;
           aliases_json: string;
@@ -2492,7 +2849,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private readCardRelations(cardId: string): { outgoing: CardRelation[]; incoming: CardRelation[] } {
     const mapRelation = (row: {
       id: string;
-      project_id: string;
+      project_id: string | null;
       from_card_id: string;
       to_card_id: string;
       relation_type: string;
@@ -2511,11 +2868,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     });
     const base = `
       SELECT r.id, r.project_id, r.from_card_id, r.to_card_id, r.relation_type, r.note, r.created_at, rt.forward_name
-      FROM card_relations r LEFT JOIN relation_types rt ON rt.id = r.relation_type`;
+      FROM card_relations r
+      JOIN cards source_card ON source_card.id = r.from_card_id AND source_card.deleted_at IS NULL
+      JOIN cards target_card ON target_card.id = r.to_card_id AND target_card.deleted_at IS NULL
+      LEFT JOIN relation_types rt ON rt.id = r.relation_type`;
     const outgoing = (
       this.database.prepare(`${base} WHERE r.from_card_id = ? ORDER BY r.created_at, r.id`).all(cardId) as Array<{
         id: string;
-        project_id: string;
+        project_id: string | null;
         from_card_id: string;
         to_card_id: string;
         relation_type: string;
@@ -2527,7 +2887,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const incoming = (
       this.database.prepare(`${base} WHERE r.to_card_id = ? ORDER BY r.created_at, r.id`).all(cardId) as Array<{
         id: string;
-        project_id: string;
+        project_id: string | null;
         from_card_id: string;
         to_card_id: string;
         relation_type: string;
@@ -2550,22 +2910,33 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       .all(projectId) as Array<{ id: string; title: string }>;
     const chapterRows = this.database
       .prepare(
-        `SELECT id, volume_id, title, numbering_kind, custom_number FROM chapters
+        `SELECT id, volume_id, title, status, numbering_kind, custom_number FROM chapters
          WHERE project_id = ? AND deleted_at IS NULL ORDER BY sort_order, id`
       )
       .all(projectId) as Array<{
       id: string;
       volume_id: string | null;
       title: string;
+      status: string;
       numbering_kind: ChapterNumberingKind;
       custom_number: string | null;
     }>;
     const sceneRows = this.database
       .prepare(
-        `SELECT s.id, s.chapter_id, s.title, s.body_json FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+        `SELECT s.id, s.chapter_id, s.title, s.body_json, s.non_ws_count, s.summary, s.scene_status, s.planning_json
+         FROM scenes s JOIN chapters c ON c.id = s.chapter_id
          WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id`
       )
-      .all(projectId) as Array<{ id: string; chapter_id: string; title: string; body_json: string }>;
+      .all(projectId) as Array<{
+        id: string;
+        chapter_id: string;
+        title: string;
+        body_json: string;
+        non_ws_count: number;
+        summary: string;
+        scene_status: SceneStatus;
+        planning_json: string;
+      }>;
 
     const scenesByChapter = new Map<string, ProjectExportScene[]>();
     for (const scene of sceneRows) {
@@ -2573,6 +2944,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       const entry: ProjectExportScene = {
         id: scene.id,
         title: scene.title,
+        summary: scene.summary,
+        status: SCENE_STATUSES.has(scene.scene_status) ? scene.scene_status : "planned",
+        wordCount: scene.non_ws_count,
+        targetWords: parseScenePlanning(scene.planning_json)?.targetWords,
         text: extractSceneText(scene.body_json),
         ...(includeBlocks ? { blocks: extractSceneBlocks(scene.body_json) } : {})
       };
@@ -2590,6 +2965,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         id: chapter.id,
         title: chapter.title,
         displayNumber,
+        status: chapter.status,
+        wordCount: (scenesByChapter.get(chapter.id) ?? []).reduce((sum, scene) => sum + (scene.wordCount ?? 0), 0),
         scenes: scenesByChapter.get(chapter.id) ?? []
       };
     };
@@ -2613,12 +2990,27 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         if (chapter.numbering_kind === "auto") autoIndex += 1;
         return buildChapter(chapter, autoIndex);
       });
-      return { id: volume.id, title: volume.title, chapters };
+      return {
+        id: volume.id,
+        title: volume.title,
+        wordCount: chapters.reduce((sum, chapter) => sum + (chapter.wordCount ?? 0), 0),
+        chapters
+      };
     });
     if (looseChapters.length > 0) {
-      volumes.push({ id: "loose", title: "未分卷", chapters: looseChapters });
+      volumes.push({
+        id: "loose",
+        title: "未分卷",
+        wordCount: looseChapters.reduce((sum, chapter) => sum + (chapter.wordCount ?? 0), 0),
+        chapters: looseChapters
+      });
     }
-    return { projectId: project.id, title: project.title, volumes };
+    return {
+      projectId: project.id,
+      title: project.title,
+      wordCount: volumes.reduce((sum, volume) => sum + (volume.wordCount ?? 0), 0),
+      volumes
+    };
   }
 
   private readSceneBody(sceneId: string): SceneBodyView | null {
@@ -2753,7 +3145,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   async transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
   async transact(command: StructureCommand): Promise<CreationStructureResult>;
-  async transact(command: CardCommand): Promise<CreationStructureResult>;
+  async transact(command: CardCommand): Promise<CreationStructureResult | CardLinkResult>;
   async transact(command: HistoryCommand): Promise<CreationStructureResult>;
   async transact(command: ReplaceApplyCommand): Promise<ReplaceApplyResult>;
   async transact(command: SessionReportCommand | SessionDeleteCommand): Promise<SessionReportResult>;
@@ -2763,6 +3155,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand): Promise<AnnotationResult>;
   async transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   async transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
+  async transact(command: SceneUpdateMetaCommand): Promise<SceneUpdateMetaResult>;
   async transact<Command extends CreationRunCommand>(command: Command): Promise<CreationRunResultOf<Command>>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
@@ -2828,6 +3221,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "scene.updatePlanning") {
       return this.runSceneUpdatePlanning(command as SceneUpdatePlanningCommand);
+    }
+    if (command.type === "scene.updateMeta") {
+      return this.runSceneUpdateMeta(command as SceneUpdateMetaCommand);
     }
     if (command.type === "inbox.convertToCard") {
       return this.runInboxConvertToCard(command as InboxConvertToCardCommand);
@@ -3068,7 +3464,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }>;
     const scenes = this.database
       .prepare(
-        "SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.planning_json, s.created_at, s.updated_at, s.revision FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id"
+        "SELECT s.id, s.chapter_id, s.title, s.sort_order, s.body_json, s.planning_json, s.summary, s.scene_status, s.created_at, s.updated_at, s.revision FROM scenes s JOIN chapters c ON c.id = s.chapter_id WHERE c.project_id = ? AND s.deleted_at IS NULL ORDER BY s.sort_order, s.id"
       )
       .all(projectId) as Array<{
       id: string;
@@ -3077,12 +3473,19 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       sort_order: number;
       body_json: string;
       planning_json: string;
+      summary: string;
+      scene_status: SceneStatus;
       created_at: string;
       updated_at: string;
       revision: number;
     }>;
     const cardTypes = this.database
-      .prepare("SELECT id, kind, name, fields_json, sort_order, created_at, updated_at, revision FROM card_types WHERE project_id = ? ORDER BY sort_order, id")
+      .prepare(`SELECT id, kind, name, fields_json, sort_order, created_at, updated_at, revision
+        FROM card_types
+        WHERE is_builtin = 0 AND kind IN (
+          SELECT c.kind FROM cards c JOIN project_card_links pcl ON pcl.card_id = c.id
+          WHERE pcl.project_id = ? AND c.deleted_at IS NULL
+        ) ORDER BY sort_order, id`)
       .all(projectId) as Array<{
       id: string;
       kind: string;
@@ -3094,8 +3497,13 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       revision: number;
     }>;
     const relationTypes = this.database
-      .prepare("SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision FROM relation_types WHERE project_id = ? ORDER BY id")
-      .all(projectId) as Array<{
+      .prepare(`SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision
+        FROM relation_types WHERE is_builtin = 0 AND id IN (
+          SELECT r.relation_type FROM card_relations r
+          JOIN project_card_links pf ON pf.card_id = r.from_card_id AND pf.project_id = ?
+          JOIN project_card_links pt ON pt.card_id = r.to_card_id AND pt.project_id = ?
+        ) ORDER BY id`)
+      .all(projectId, projectId) as Array<{
       id: string;
       name: string;
       forward_name: string;
@@ -3107,7 +3515,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       revision: number;
     }>;
     const cards = this.database
-      .prepare("SELECT id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at, revision FROM cards WHERE project_id = ? AND deleted_at IS NULL ORDER BY updated_at, id")
+      .prepare(`SELECT c.id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json, c.content_json, c.created_at, c.updated_at, c.revision
+        FROM cards c JOIN project_card_links pcl ON pcl.card_id = c.id
+        WHERE pcl.project_id = ? AND c.deleted_at IS NULL ORDER BY c.updated_at, c.id`)
       .all(projectId) as Array<{
       id: string;
       kind: string;
@@ -3121,8 +3531,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       revision: number;
     }>;
     const relations = this.database
-      .prepare("SELECT id, from_card_id, to_card_id, relation_type, note, created_at FROM card_relations WHERE project_id = ? ORDER BY id")
-      .all(projectId) as Array<{
+      .prepare(`SELECT r.id, r.from_card_id, r.to_card_id, r.relation_type, r.note, r.created_at
+        FROM card_relations r
+        JOIN project_card_links pf ON pf.card_id = r.from_card_id AND pf.project_id = ?
+        JOIN project_card_links pt ON pt.card_id = r.to_card_id AND pt.project_id = ?
+        ORDER BY r.id`)
+      .all(projectId, projectId) as Array<{
       id: string;
       from_card_id: string;
       to_card_id: string;
@@ -3140,10 +3554,21 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       created_at: string;
     }>;
     const resources = this.database
-      .prepare("SELECT id, card_id, relative_path, sha256, size, original_name, created_at FROM resources WHERE project_id = ? ORDER BY relative_path, id")
-      .all(projectId) as Array<{
+      .prepare(`SELECT r.id, r.card_id, 'project' AS owner_scope, r.relative_path, r.sha256, r.size, r.original_name, 'attachment' AS role, r.created_at
+        FROM resources r
+        WHERE r.project_id = ? OR (r.card_id IS NOT NULL AND EXISTS (
+          SELECT 1 FROM project_card_links pcl WHERE pcl.project_id = ? AND pcl.card_id = r.card_id
+        ))
+        UNION ALL
+        SELECT g.id, g.card_id, 'card' AS owner_scope, g.relative_path, g.sha256, g.size, g.original_name, g.role, g.created_at
+        FROM global_card_resources g JOIN project_card_links pcl ON pcl.card_id = g.card_id
+        WHERE pcl.project_id = ?
+        ORDER BY relative_path, id`)
+      .all(projectId, projectId, projectId) as Array<{
       id: string;
       card_id: string | null;
+      owner_scope: "project" | "card";
+      role: "attachment" | "cover";
       relative_path: string;
       sha256: string;
       size: number;
@@ -3193,6 +3618,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         sortOrder: row.sort_order,
         bodyJson: row.body_json,
         planningJson: row.planning_json,
+        summary: row.summary,
+        status: SCENE_STATUSES.has(row.scene_status) ? row.scene_status : "planned",
         createdAt: row.created_at,
         updatedAt: row.updated_at,
         revision: row.revision
@@ -3248,6 +3675,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       resources: resources.map((row) => ({
         id: row.id,
         cardId: row.card_id,
+        ownerScope: row.owner_scope,
+        role: row.role,
         relativePath: row.relative_path,
         sha256: row.sha256,
         size: row.size,
@@ -3303,11 +3732,67 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     };
   }
 
+  async previewProjectBundleImport(data: ProjectBundleData): Promise<ProjectBundleImportPreview> {
+    this.assertOpen();
+    if (!data || typeof data !== "object" || (data.formatVersion !== 1 && data.formatVersion !== 2)) {
+      throw new CreationWorkspaceError("invalid-input", "项目包格式无效或版本不受支持。");
+    }
+    const projectTitle = typeof data.project?.title === "string" ? data.project.title.trim() : "";
+    if (!projectTitle) throw new CreationWorkspaceError("invalid-input", "项目包缺少作品名称。");
+    const incomingIds = new Set<string>();
+    const identicalCardIds: string[] = [];
+    const conflicts: ProjectBundleImportPreview["conflicts"] = [];
+    const findCard = this.database.prepare(
+      "SELECT id, kind, title, aliases_json, fields_json, tags_json, content_json, deleted_at FROM cards WHERE id = ?"
+    );
+    const findCardResources = this.database.prepare(
+      "SELECT role, sha256, size, original_name FROM global_card_resources WHERE card_id = ? ORDER BY role, sha256, size, original_name"
+    );
+    for (const card of data.cards ?? []) {
+      if (typeof card.id !== "string" || !card.id.startsWith("card-") || incomingIds.has(card.id)) {
+        throw new CreationWorkspaceError("invalid-input", "项目包包含无效或重复卡片 ID。");
+      }
+      incomingIds.add(card.id);
+      const local = findCard.get(card.id) as StoredBundleCardComparable | undefined;
+      if (!local) continue;
+      const localResources = findCardResources.all(card.id) as Array<{
+        role: string;
+        sha256: string;
+        size: number;
+        original_name: string | null;
+      }>;
+      const differingFields = bundleCardDifferences(
+        card,
+        local,
+        incomingCardResourceSignature(data, card.id),
+        cardResourceSignature(localResources.map((resource) => ({
+          role: resource.role,
+          sha256: resource.sha256,
+          size: resource.size,
+          originalName: resource.original_name
+        })))
+      );
+      if (local.deleted_at === null && differingFields.length === 0) {
+        identicalCardIds.push(card.id);
+      } else {
+        conflicts.push({
+          cardId: card.id,
+          localTitle: local.title,
+          importedTitle: card.title,
+          localDeleted: local.deleted_at !== null,
+          differingFields: local.deleted_at !== null ? ["回收站状态", ...differingFields] : differingFields
+        });
+      }
+    }
+    return { projectTitle, cardCount: data.cards?.length ?? 0, identicalCardIds, conflicts };
+  }
+
   private importProjectBundle(command: ProjectBundleImportCommand): ProjectBundleImportResult {
     const runtimeCommand = command as unknown as {
       data?: unknown;
       targetProjectId?: unknown;
       resourceFiles?: unknown;
+      cardResolutions?: unknown;
     };
     const data = runtimeCommand.data as unknown as ProjectBundleData | null;
     if (!data || typeof data !== "object" || (data.formatVersion !== 1 && data.formatVersion !== 2)) {
@@ -3330,6 +3815,31 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const annotationsToImport = Array.isArray(annotationEntries)
       ? annotationEntries as ProjectBundleData["annotations"]
       : [];
+    const resolutionMap = new Map<string, ProjectBundleCardResolution>();
+    if (runtimeCommand.cardResolutions !== undefined) {
+      if (!Array.isArray(runtimeCommand.cardResolutions)) {
+        throw new CreationWorkspaceError("invalid-input", "项目包卡片冲突选择无效。");
+      }
+      for (const value of runtimeCommand.cardResolutions) {
+        if (!isRecord(value) || typeof value.cardId !== "string" || !value.cardId.startsWith("card-") ||
+          (value.action !== "reuse" && value.action !== "keep-local" && value.action !== "import-copy")) {
+          throw new CreationWorkspaceError("invalid-input", "项目包卡片冲突选择无效。");
+        }
+        if (resolutionMap.has(value.cardId)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包卡片冲突选择包含重复卡片。");
+        }
+        const targetCardId = value.targetCardId;
+        if (value.action === "import-copy" &&
+          (typeof targetCardId !== "string" || !targetCardId.startsWith("card-") || targetCardId.length > 128)) {
+          throw new CreationWorkspaceError("invalid-input", "导入副本缺少有效目标卡片 ID。");
+        }
+        resolutionMap.set(value.cardId, {
+          cardId: value.cardId,
+          action: value.action,
+          ...(typeof targetCardId === "string" ? { targetCardId } : {})
+        });
+      }
+    }
     try {
       this.database.exec("BEGIN IMMEDIATE");
       const existing = this.database.prepare("SELECT id FROM projects WHERE id = ?").get(projectId);
@@ -3338,27 +3848,117 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         .prepare("INSERT INTO projects(id, title, setup_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?)")
         .run(projectId, title, JSON.stringify(data.project.setup ?? defaultProjectSetup()), data.project.createdAt ?? timestamp, data.project.updatedAt ?? timestamp, data.project.revision ?? 1);
 
+      const incomingCardIds = new Set<string>();
+      const targetCardIds = new Set<string>();
+      const cardIdMap = new Map<string, string>();
+      const cardMappings: ProjectBundleCardMapping[] = [];
+      const cardsToInsert: Array<{ card: ProjectBundleData["cards"][number]; id: string }> = [];
+      const findStoredCard = this.database.prepare(
+        "SELECT id, kind, title, aliases_json, fields_json, tags_json, content_json, deleted_at FROM cards WHERE id = ?"
+      );
+      const findStoredCardResources = this.database.prepare(
+        "SELECT role, sha256, size, original_name FROM global_card_resources WHERE card_id = ? ORDER BY role, sha256, size, original_name"
+      );
+      for (const card of data.cards ?? []) {
+        if (typeof card.id !== "string" || !card.id.startsWith("card-") || incomingCardIds.has(card.id)) {
+          throw new CreationWorkspaceError("invalid-input", "项目包包含无效或重复卡片 ID。");
+        }
+        incomingCardIds.add(card.id);
+        const local = findStoredCard.get(card.id) as StoredBundleCardComparable | undefined;
+        const resolution = resolutionMap.get(card.id);
+        if (!local) {
+          if (resolution) throw new CreationWorkspaceError("invalid-input", `卡片 ${card.id} 不存在冲突，不应提供处理选择。`);
+          cardIdMap.set(card.id, card.id);
+          targetCardIds.add(card.id);
+          cardsToInsert.push({ card, id: card.id });
+          cardMappings.push({ sourceCardId: card.id, targetCardId: card.id, action: "created" });
+          continue;
+        }
+        const localResources = findStoredCardResources.all(card.id) as Array<{
+          role: string;
+          sha256: string;
+          size: number;
+          original_name: string | null;
+        }>;
+        const differences = bundleCardDifferences(
+          card,
+          local,
+          incomingCardResourceSignature(data, card.id),
+          cardResourceSignature(localResources.map((resource) => ({
+            role: resource.role,
+            sha256: resource.sha256,
+            size: resource.size,
+            originalName: resource.original_name
+          })))
+        );
+        if (local.deleted_at === null && differences.length === 0) {
+          if (resolution && resolution.action !== "reuse") {
+            throw new CreationWorkspaceError("invalid-input", `卡片 ${card.id} 与本机内容相同，只能直接复用。`);
+          }
+          cardIdMap.set(card.id, card.id);
+          targetCardIds.add(card.id);
+          cardMappings.push({ sourceCardId: card.id, targetCardId: card.id, action: "reused" });
+          continue;
+        }
+        if (!resolution || resolution.action === "reuse") {
+          throw new CreationWorkspaceError("conflict", `全局卡片 ${card.title}（${card.id}）与本机内容不同，必须明确选择保留本机或导入副本。`);
+        }
+        if (resolution.action === "keep-local") {
+          if (local.deleted_at !== null) {
+            throw new CreationWorkspaceError("conflict", `全局卡片 ${card.title} 在本机回收站中，只能导入副本或取消。`);
+          }
+          cardIdMap.set(card.id, card.id);
+          targetCardIds.add(card.id);
+          cardMappings.push({ sourceCardId: card.id, targetCardId: card.id, action: "kept-local" });
+          continue;
+        }
+        const copyId = resolution.targetCardId!;
+        if (targetCardIds.has(copyId) || this.database.prepare("SELECT 1 FROM cards WHERE id = ?").get(copyId)) {
+          throw new CreationWorkspaceError("conflict", `导入副本目标卡片 ID ${copyId} 已存在。`);
+        }
+        cardIdMap.set(card.id, copyId);
+        targetCardIds.add(copyId);
+        cardsToInsert.push({ card, id: copyId });
+        cardMappings.push({ sourceCardId: card.id, targetCardId: copyId, action: "copied" });
+      }
+      for (const cardId of resolutionMap.keys()) {
+        if (!incomingCardIds.has(cardId)) {
+          throw new CreationWorkspaceError("invalid-input", `冲突选择引用了项目包中不存在的卡片 ${cardId}。`);
+        }
+      }
+
       const insertVolume = this.database.prepare("INSERT INTO volumes(id, project_id, title, sort_order, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?)");
+      const volumeSourceIds = new Set<string>();
       const volumeIds = new Set<string>();
+      const volumeIdMap = new Map<string, string>();
       for (const volume of data.volumes ?? []) {
-        const id = typeof volume.id === "string" && volume.id.startsWith("volume-") ? volume.id : `volume-${randomUUID()}`;
-        if (volumeIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复卷 ID。");
+        const sourceId = typeof volume.id === "string" && volume.id.startsWith("volume-") ? volume.id : `volume-${randomUUID()}`;
+        if (volumeSourceIds.has(sourceId)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复卷 ID。");
+        volumeSourceIds.add(sourceId);
+        const id = this.database.prepare("SELECT 1 FROM volumes WHERE id = ?").get(sourceId) ? `volume-${randomUUID()}` : sourceId;
         volumeIds.add(id);
+        volumeIdMap.set(sourceId, id);
         insertVolume.run(id, projectId, volume.title, volume.sortOrder ?? 0, volume.createdAt ?? timestamp, volume.updatedAt ?? timestamp, volume.revision ?? 1);
       }
       if (volumeIds.size === 0) throw new CreationWorkspaceError("invalid-input", "项目包不包含任何卷。");
 
       const insertChapter = this.database.prepare("INSERT INTO chapters(id, project_id, volume_id, title, sort_order, status, numbering_kind, custom_number, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const chapterSourceIds = new Set<string>();
       const chapterIds = new Set<string>();
+      const chapterIdMap = new Map<string, string>();
       for (const chapter of data.chapters ?? []) {
-        const id = typeof chapter.id === "string" && chapter.id.startsWith("chapter-") ? chapter.id : `chapter-${randomUUID()}`;
-        if (chapterIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复章节 ID。");
+        const sourceId = typeof chapter.id === "string" && chapter.id.startsWith("chapter-") ? chapter.id : `chapter-${randomUUID()}`;
+        if (chapterSourceIds.has(sourceId)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复章节 ID。");
+        chapterSourceIds.add(sourceId);
+        const id = this.database.prepare("SELECT 1 FROM chapters WHERE id = ?").get(sourceId) ? `chapter-${randomUUID()}` : sourceId;
         chapterIds.add(id);
-        if (!volumeIds.has(chapter.volumeId ?? "")) throw new CreationWorkspaceError("invalid-input", "项目包章节引用了不存在的卷。");
+        chapterIdMap.set(sourceId, id);
+        const volumeId = chapter.volumeId ? volumeIdMap.get(chapter.volumeId) : undefined;
+        if (!volumeId) throw new CreationWorkspaceError("invalid-input", "项目包章节引用了不存在的卷。");
         insertChapter.run(
           id,
           projectId,
-          chapter.volumeId,
+          volumeId,
           chapter.title,
           chapter.sortOrder ?? 0,
           chapter.status ?? "",
@@ -3370,13 +3970,19 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         );
       }
 
-      const insertScene = this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, planning_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const insertScene = this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, planning_json, summary, scene_status, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const sceneSourceIds = new Set<string>();
       const sceneIds = new Set<string>();
+      const sceneIdMap = new Map<string, string>();
       for (const scene of data.scenes ?? []) {
-        const id = typeof scene.id === "string" && scene.id.startsWith("scene-") ? scene.id : `scene-${randomUUID()}`;
-        if (sceneIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复场景 ID。");
+        const sourceId = typeof scene.id === "string" && scene.id.startsWith("scene-") ? scene.id : `scene-${randomUUID()}`;
+        if (sceneSourceIds.has(sourceId)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复场景 ID。");
+        sceneSourceIds.add(sourceId);
+        const id = this.database.prepare("SELECT 1 FROM scenes WHERE id = ?").get(sourceId) ? `scene-${randomUUID()}` : sourceId;
         sceneIds.add(id);
-        if (!chapterIds.has(scene.chapterId)) throw new CreationWorkspaceError("invalid-input", "项目包场景引用了不存在的章节。");
+        sceneIdMap.set(sourceId, id);
+        const chapterId = chapterIdMap.get(scene.chapterId);
+        if (!chapterId) throw new CreationWorkspaceError("invalid-input", "项目包场景引用了不存在的章节。");
         let bodyJson = scene.bodyJson ?? '{"type":"doc","content":[]}';
         try {
           JSON.parse(bodyJson);
@@ -3384,48 +3990,104 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           bodyJson = '{"type":"doc","content":[]}';
         }
         const stats = countSceneBodyStats(bodyJson);
-        insertScene.run(id, scene.chapterId, scene.title, scene.sortOrder ?? 0, bodyJson, stats.han, stats.punct, stats.nonWhitespace, scene.planningJson ?? "{}", scene.createdAt ?? timestamp, scene.updatedAt ?? timestamp, scene.revision ?? 1);
+        const summary = typeof scene.summary === "string" ? scene.summary.trim() : "";
+        if (summary.length > 2000) throw new CreationWorkspaceError("invalid-input", "项目包场景摘要超过 2000 个字符。");
+        const sceneStatus = scene.status && SCENE_STATUSES.has(scene.status) ? scene.status : "planned";
+        insertScene.run(id, chapterId, scene.title, scene.sortOrder ?? 0, bodyJson, stats.han, stats.punct, stats.nonWhitespace, remapPlanningCardIds(scene.planningJson ?? "{}", cardIdMap), summary, sceneStatus, scene.createdAt ?? timestamp, scene.updatedAt ?? timestamp, scene.revision ?? 1);
       }
 
       const insertCardType = this.database.prepare("INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
       for (const cardType of data.cardTypes ?? []) {
         const id = typeof cardType.id === "string" && cardType.id.startsWith("card-type-") ? cardType.id : `card-type-${randomUUID()}`;
+        const existingType = this.database.prepare(
+          "SELECT id, kind, name, fields_json, sort_order FROM card_types WHERE id = ? OR kind = ? LIMIT 1"
+        ).get(id, cardType.kind) as { id: string; kind: string; name: string; fields_json: string; sort_order: number } | undefined;
+        if (existingType) {
+          const identical = existingType.kind === cardType.kind && existingType.name === cardType.name &&
+            canonicalStoredJson(existingType.fields_json) === canonicalStoredJson(cardType.fieldsJson ?? "[]") &&
+            existingType.sort_order === (cardType.sortOrder ?? 0);
+          if (!identical) throw new CreationWorkspaceError("conflict", `自定义卡片类型 ${cardType.name} 与本机定义不同，拒绝静默覆盖。`);
+          continue;
+        }
         insertCardType.run(id, projectId, cardType.kind, cardType.name, cardType.fieldsJson ?? "[]", cardType.sortOrder ?? 0, cardType.createdAt ?? timestamp, cardType.updatedAt ?? timestamp, cardType.revision ?? 1);
       }
 
       const insertRelationType = this.database.prepare("INSERT INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+      const relationTypeIdMap = new Map<string, string>();
       for (const relationType of data.relationTypes ?? []) {
         const id = typeof relationType.id === "string" && relationType.id.startsWith("relation-type-") ? relationType.id : `relation-type-${randomUUID()}`;
+        const existingType = this.database.prepare(
+          "SELECT id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json FROM relation_types WHERE id = ? OR name = ? LIMIT 1"
+        ).get(id, relationType.name) as {
+          id: string; name: string; forward_name: string; reverse_name: string; from_kinds_json: string; to_kinds_json: string;
+        } | undefined;
+        if (existingType) {
+          const identical = existingType.name === relationType.name && existingType.forward_name === relationType.forwardName &&
+            existingType.reverse_name === relationType.reverseName &&
+            canonicalStoredJson(existingType.from_kinds_json) === canonicalStoredJson(relationType.fromKindsJson ?? "[]") &&
+            canonicalStoredJson(existingType.to_kinds_json) === canonicalStoredJson(relationType.toKindsJson ?? "[]");
+          if (!identical) throw new CreationWorkspaceError("conflict", `自定义关系类型 ${relationType.name} 与本机定义不同，拒绝静默覆盖。`);
+          relationTypeIdMap.set(id, existingType.id);
+          continue;
+        }
         insertRelationType.run(id, projectId, relationType.name, relationType.forwardName, relationType.reverseName, relationType.fromKindsJson ?? "[]", relationType.toKindsJson ?? "[]", relationType.createdAt ?? timestamp, relationType.updatedAt ?? timestamp, relationType.revision ?? 1);
+        relationTypeIdMap.set(id, id);
       }
 
       const insertCard = this.database.prepare("INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-      const cardIds = new Set<string>();
-      for (const card of data.cards ?? []) {
-        const id = typeof card.id === "string" && card.id.startsWith("card-") ? card.id : `card-${randomUUID()}`;
-        if (cardIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复卡片 ID。");
-        cardIds.add(id);
+      for (const { card, id } of cardsToInsert) {
         insertCard.run(id, projectId, card.kind, card.title, card.aliasesJson ?? "[]", card.fieldsJson ?? "{}", card.tagsJson ?? "[]", card.contentJson ?? "{}", card.createdAt ?? timestamp, card.updatedAt ?? timestamp, card.revision ?? 1);
+      }
+      for (const card of data.cards ?? []) {
+        const id = cardIdMap.get(card.id)!;
+        this.database
+          .prepare("INSERT OR IGNORE INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)")
+          .run(projectId, id, card.createdAt ?? timestamp);
       }
 
       const insertRelation = this.database.prepare("INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)");
       for (const relation of data.relations ?? []) {
-        const id = typeof relation.id === "string" && relation.id.startsWith("relation-") ? relation.id : `relation-${randomUUID()}`;
-        if (!cardIds.has(relation.fromCardId) || !cardIds.has(relation.toCardId)) {
+        const sourceId = typeof relation.id === "string" && relation.id.startsWith("relation-") ? relation.id : `relation-${randomUUID()}`;
+        const fromCardId = cardIdMap.get(relation.fromCardId);
+        const toCardId = cardIdMap.get(relation.toCardId);
+        if (!fromCardId || !toCardId) {
           throw new CreationWorkspaceError("invalid-input", "项目包关系引用了不存在的卡片。");
         }
-        insertRelation.run(id, projectId, relation.fromCardId, relation.toCardId, relation.relationType, relation.note ?? null, relation.createdAt ?? timestamp);
+        const relationTypeId = relationTypeIdMap.get(relation.relationType) ?? relation.relationType;
+        const existingRelation = this.database.prepare(
+          "SELECT from_card_id, to_card_id, relation_type, note FROM card_relations WHERE id = ?"
+        ).get(sourceId) as { from_card_id: string; to_card_id: string; relation_type: string; note: string | null } | undefined;
+        if (existingRelation && existingRelation.from_card_id === fromCardId && existingRelation.to_card_id === toCardId &&
+          existingRelation.relation_type === relationTypeId && existingRelation.note === (relation.note ?? null)) {
+          continue;
+        }
+        const id = existingRelation ? `relation-${randomUUID()}` : sourceId;
+        insertRelation.run(id, projectId, fromCardId, toCardId, relationTypeId, relation.note ?? null, relation.createdAt ?? timestamp);
       }
 
       const insertSnapshot = this.database.prepare("INSERT INTO snapshots(id, project_id, subject_type, subject_id, payload_json, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+      const allIdMap = new Map<string, string>([
+        ...volumeIdMap,
+        ...chapterIdMap,
+        ...sceneIdMap,
+        ...cardIdMap
+      ]);
       for (const snapshot of data.snapshots ?? []) {
-        const id = typeof snapshot.id === "string" && snapshot.id.startsWith("snapshot-") ? snapshot.id : `snapshot-${randomUUID()}`;
-        insertSnapshot.run(id, projectId, snapshot.subjectType, snapshot.subjectId, snapshot.payloadJson ?? "{}", snapshot.createdAt ?? timestamp);
+        const sourceId = typeof snapshot.id === "string" && snapshot.id.startsWith("snapshot-") ? snapshot.id : `snapshot-${randomUUID()}`;
+        const id = this.database.prepare("SELECT 1 FROM snapshots WHERE id = ?").get(sourceId) ? `snapshot-${randomUUID()}` : sourceId;
+        insertSnapshot.run(
+          id,
+          projectId,
+          snapshot.subjectType,
+          allIdMap.get(snapshot.subjectId) ?? snapshot.subjectId,
+          remapJsonStableIds(snapshot.payloadJson ?? "{}", allIdMap),
+          snapshot.createdAt ?? timestamp
+        );
       }
 
       // 附件元数据：校验路径/哈希/大小/引用，并按资源文件映射写入新路径。
       const resourceFilesRaw = Array.isArray(runtimeCommand.resourceFiles) ? runtimeCommand.resourceFiles : undefined;
-      const resourceFileMap = new Map<string, { targetRelativePath: string; sha256: string; size: number }>();
+      const resourceFileMap = new Map<string, { targetRelativePath: string; sha256: string; size: number; skip: boolean }>();
       if (resourceFilesRaw) {
         const seenTargets = new Set<string>();
         for (const entry of resourceFilesRaw) {
@@ -3434,7 +4096,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
                 relativePath: entry.relativePath,
                 targetRelativePath: entry.targetRelativePath,
                 sha256: entry.sha256,
-                size: entry.size
+                size: entry.size,
+                skip: entry.skip
               }
             : null;
           if (
@@ -3445,18 +4108,20 @@ class SqliteCreationWorkspace implements CreationWorkspace {
             !/^[0-9a-f]{64}$/i.test(file.sha256) ||
             !Number.isInteger(file.size) ||
             Number(file.size) < 0 ||
-            Number(file.size) > 500 * 1024 * 1024
+            Number(file.size) > 500 * 1024 * 1024 ||
+            (file.skip !== undefined && typeof file.skip !== "boolean")
           ) {
             throw new CreationWorkspaceError("invalid-input", "项目包资源文件映射无效。");
           }
-          if (seenTargets.has(file.targetRelativePath)) {
+          if (file.skip !== true && seenTargets.has(file.targetRelativePath)) {
             throw new CreationWorkspaceError("invalid-input", "项目包资源文件映射包含重复目标路径。");
           }
-          seenTargets.add(file.targetRelativePath);
+          if (file.skip !== true) seenTargets.add(file.targetRelativePath);
           resourceFileMap.set(file.relativePath, {
             targetRelativePath: file.targetRelativePath,
             sha256: file.sha256.toLowerCase(),
-            size: Number(file.size)
+            size: Number(file.size),
+            skip: file.skip === true
           });
         }
         if (resourceFileMap.size !== (data.resources?.length ?? 0)) {
@@ -3467,12 +4132,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       const insertResource = this.database.prepare(
         "INSERT INTO resources(id, project_id, card_id, relative_path, sha256, size, original_name, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
       );
+      const insertGlobalResource = this.database.prepare(
+        "INSERT INTO global_card_resources(id, card_id, relative_path, sha256, size, original_name, role, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
+      );
+      const resourceSourceIds = new Set<string>();
       const resourceIds = new Set<string>();
       const resourceTargets = new Set<string>();
       for (const resource of data.resources ?? []) {
-        const id = typeof resource.id === "string" && resource.id.startsWith("resource-") ? resource.id : `resource-${randomUUID()}`;
-        if (resourceIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复附件 ID。");
-        resourceIds.add(id);
+        const sourceId = typeof resource.id === "string" && resource.id.startsWith("resource-") ? resource.id : `resource-${randomUUID()}`;
+        if (resourceSourceIds.has(sourceId)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复附件 ID。");
+        resourceSourceIds.add(sourceId);
         if (!isSafeBundleRelativePath(resource.relativePath)) {
           throw new CreationWorkspaceError("invalid-input", "项目包附件相对路径无效（禁止绝对路径/穿越）。");
         }
@@ -3482,10 +4151,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         if (!Number.isInteger(resource.size) || Number(resource.size) < 0 || Number(resource.size) > 500 * 1024 * 1024) {
           throw new CreationWorkspaceError("invalid-input", "项目包附件大小超出允许范围。");
         }
-        const cardId = resource.cardId === null || resource.cardId === undefined ? null : resource.cardId;
-        if (cardId !== null && !cardIds.has(cardId)) {
+        const sourceCardId = resource.cardId === null || resource.cardId === undefined ? null : resource.cardId;
+        if (sourceCardId !== null && !incomingCardIds.has(sourceCardId)) {
           throw new CreationWorkspaceError("invalid-input", "项目包附件引用了不存在的卡片。");
         }
+        const cardId = sourceCardId === null ? null : cardIdMap.get(sourceCardId) ?? null;
         const mapped = resourceFileMap.get(resource.relativePath);
         if (resourceFilesRaw) {
           if (!mapped) throw new CreationWorkspaceError("invalid-input", "项目包附件缺少文件落盘映射。");
@@ -3493,23 +4163,34 @@ class SqliteCreationWorkspace implements CreationWorkspace {
             throw new CreationWorkspaceError("invalid-input", "项目包附件文件映射与元数据不一致。");
           }
         }
+        const cardMapping = sourceCardId ? cardMappings.find((item) => item.sourceCardId === sourceCardId) : undefined;
+        const skipGlobalResource = resource.ownerScope === "card" &&
+          (cardMapping?.action === "reused" || cardMapping?.action === "kept-local");
+        if (resourceFilesRaw && mapped!.skip !== skipGlobalResource) {
+          throw new CreationWorkspaceError("invalid-input", "项目包附件跳过映射与卡片冲突选择不一致。");
+        }
+        if (skipGlobalResource) continue;
+        const existingResourceId = this.database.prepare(
+          "SELECT id FROM resources WHERE id = ? UNION ALL SELECT id FROM global_card_resources WHERE id = ? LIMIT 1"
+        ).get(sourceId, sourceId);
+        const id = existingResourceId ? `resource-${randomUUID()}` : sourceId;
+        resourceIds.add(id);
         const targetRelativePath = mapped?.targetRelativePath ?? resource.relativePath;
         if (resourceTargets.has(targetRelativePath)) {
           throw new CreationWorkspaceError("invalid-input", "项目包附件目标路径重复。");
         }
         resourceTargets.add(targetRelativePath);
-        insertResource.run(
-          id,
-          projectId,
-          cardId,
-          targetRelativePath,
-          resource.sha256.toLowerCase(),
-          Number(resource.size),
-          typeof resource.originalName === "string" && resource.originalName.trim()
-            ? resource.originalName.trim().slice(0, 255)
-            : null,
-          typeof resource.createdAt === "string" && resource.createdAt ? resource.createdAt : timestamp
-        );
+        const normalizedOriginalName = typeof resource.originalName === "string" && resource.originalName.trim()
+          ? resource.originalName.trim().slice(0, 255)
+          : null;
+        const createdAt = typeof resource.createdAt === "string" && resource.createdAt ? resource.createdAt : timestamp;
+        if (resource.ownerScope === "card") {
+          if (!cardId) throw new CreationWorkspaceError("invalid-input", "全局卡片附件缺少卡片引用。");
+          const role = resource.role === "cover" ? "cover" : "attachment";
+          insertGlobalResource.run(id, cardId, targetRelativePath, resource.sha256.toLowerCase(), Number(resource.size), normalizedOriginalName, role, createdAt);
+        } else {
+          insertResource.run(id, projectId, cardId, targetRelativePath, resource.sha256.toLowerCase(), Number(resource.size), normalizedOriginalName, createdAt);
+        }
       }
 
       // 批注（v2）：scene/card 引用必须落在本包导入的实体上；锚点形状/状态/版本非法或重复 ID 一律拒绝（单事务回滚，零写入）。
@@ -3517,18 +4198,23 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       const insertAnnotation = this.database.prepare(
         "INSERT INTO annotations(id, project_id, scene_id, card_id, anchor_json, note, status, revision, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
       );
+      const annotationSourceIds = new Set<string>();
       const annotationIds = new Set<string>();
       for (const annotation of annotationsToImport) {
-        const id = typeof annotation.id === "string" && annotation.id.startsWith("annotation-") ? annotation.id : `annotation-${randomUUID()}`;
-        if (annotationIds.has(id)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复批注 ID。");
+        const sourceId = typeof annotation.id === "string" && annotation.id.startsWith("annotation-") ? annotation.id : `annotation-${randomUUID()}`;
+        if (annotationSourceIds.has(sourceId)) throw new CreationWorkspaceError("invalid-input", "项目包包含重复批注 ID。");
+        annotationSourceIds.add(sourceId);
+        const id = this.database.prepare("SELECT 1 FROM annotations WHERE id = ?").get(sourceId) ? `annotation-${randomUUID()}` : sourceId;
         annotationIds.add(id);
-        if (!sceneIds.has(annotation.sceneId)) {
+        const sceneId = sceneIdMap.get(annotation.sceneId);
+        if (!sceneId) {
           throw new CreationWorkspaceError("invalid-input", "项目包批注引用了不存在的场景。");
         }
-        const cardId = annotation.cardId === null || annotation.cardId === undefined ? null : annotation.cardId;
-        if (cardId !== null && !cardIds.has(cardId)) {
+        const sourceCardId = annotation.cardId === null || annotation.cardId === undefined ? null : annotation.cardId;
+        if (sourceCardId !== null && !incomingCardIds.has(sourceCardId)) {
           throw new CreationWorkspaceError("invalid-input", "项目包批注引用了不存在的卡片。");
         }
+        const cardId = sourceCardId === null ? null : cardIdMap.get(sourceCardId) ?? null;
         const anchor = annotation.anchor;
         if (
           !anchor ||
@@ -3557,7 +4243,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         insertAnnotation.run(
           id,
           projectId,
-          annotation.sceneId,
+          sceneId,
           cardId,
           JSON.stringify(storedAnchor),
           typeof annotation.note === "string" && annotation.note ? annotation.note.slice(0, 20_000) : "",
@@ -3573,7 +4259,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         ...[...volumeIds].map((id) => ({ entity: "volume" as const, id, action: "created" as const, revision: 1 })),
         ...[...chapterIds].map((id) => ({ entity: "chapter" as const, id, action: "created" as const, revision: 1 })),
         ...[...sceneIds].map((id) => ({ entity: "scene" as const, id, action: "created" as const, revision: 1 })),
-        ...[...cardIds].map((id) => ({ entity: "card" as const, id, action: "created" as const, revision: 1 })),
+        ...cardsToInsert.map(({ id }) => ({ entity: "card" as const, id, action: "created" as const, revision: 1 })),
         ...[...resourceIds].map((id) => ({ entity: "resource" as const, id, action: "created" as const, revision: 1 })),
         ...[...annotationIds].map((id) => ({ entity: "annotation" as const, id, action: "created" as const, revision: 1 }))
       ];
@@ -3585,7 +4271,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         volumes: volumeIds.size,
         chapters: chapterIds.size,
         scenes: sceneIds.size,
-        cards: cardIds.size,
+        cards: incomingCardIds.size,
         relations: data.relations?.length ?? 0,
         snapshots: data.snapshots?.length ?? 0,
         resources: resourceIds.size,
@@ -3595,7 +4281,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         commandType: "project.bundle.import",
         sequence: Number(logged.lastInsertRowid),
         projectId,
-        counts
+        counts,
+        cardMappings
       };
       this.emitCommitted({
         kind: "committed",
@@ -3721,7 +4408,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private runStructureTransaction(
     commandType: string,
     op: (timestamp: string) => {
-      projectId: string;
+      projectId: string | null;
       entityId: string;
       revision: number;
       changes: CreationWorkspaceEvent["changes"];
@@ -3846,6 +4533,24 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     this.database.prepare("UPDATE projects SET updated_at = ? WHERE id = ?").run(timestamp, projectId);
   }
 
+  private linkedProjectIds(cardId: string): string[] {
+    if (!this.hasProjectCardLinks()) {
+      const row = this.database.prepare("SELECT project_id FROM cards WHERE id = ?").get(cardId) as
+        | { project_id: string | null }
+        | undefined;
+      return row?.project_id ? [row.project_id] : [];
+    }
+    return (
+      this.database
+        .prepare("SELECT project_id FROM project_card_links WHERE card_id = ? ORDER BY project_id")
+        .all(cardId) as Array<{ project_id: string }>
+    ).map((row) => row.project_id);
+  }
+
+  private touchLinkedProjects(cardId: string, timestamp: string): void {
+    for (const projectId of this.linkedProjectIds(cardId)) this.touchProject(projectId, timestamp);
+  }
+
   private readWorkflow(projectId: string): string[] {
     const project = this.database
       .prepare("SELECT setup_json FROM projects WHERE id = ?")
@@ -3854,7 +4559,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return parseStoredSetup(project.setup_json).chapterWorkflow;
   }
 
-  private executeCardCommand(command: CardCommand): CreationStructureResult { switch (command.type) {
+  private executeCardCommand(command: CardCommand): CreationStructureResult | CardLinkResult { switch (command.type) {
     case "cardType.create": return this.createCardType(command);
     case "cardType.update": return this.updateCardType(command);
     case "cardType.delete": return this.deleteCardType(command);
@@ -3864,12 +4569,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     case "card.create": return this.createCard(command);
     case "card.update": return this.updateCard(command);
     case "card.delete": return this.deleteCard(command);
+    case "card.link": return this.mutateCardLink(command.projectId, command.cardId, true);
+    case "card.unlink": return this.mutateCardLink(command.projectId, command.cardId, false);
     case "cardRelation.create": return this.createCardRelation(command);
     case "cardRelation.delete": return this.deleteCardRelation(command);
 } throw new CreationWorkspaceError("invalid-input", "不支持的卡片命令。"); }
   private requireCard(cardId: string): {
     id: string;
-    project_id: string;
+    project_id: string | null;
     kind: string;
     title: string;
     aliases: string[];
@@ -3884,7 +4591,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       .get(cardId) as
       | {
           id: string;
-          project_id: string;
+          project_id: string | null;
           kind: string;
           title: string;
           aliases_json: string;
@@ -3914,12 +4621,13 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return type;
   }
 
-  private resolveCardTypeFields(projectId: string, kind: string): CardFieldSchema[] {
+  private resolveCardTypeFields(_projectId: string, kind: string): CardFieldSchema[] {
+    const builtInOrder = this.hasProjectCardLinks() ? "is_builtin DESC" : "(project_id IS NULL) DESC";
     const type = this.database
       .prepare(
-        "SELECT fields_json FROM card_types WHERE (project_id IS NULL OR project_id = ?) AND kind = ? ORDER BY project_id DESC LIMIT 1"
+        `SELECT fields_json FROM card_types WHERE kind = ? ORDER BY ${builtInOrder}, id LIMIT 1`
       )
-      .get(projectId, kind) as { fields_json: string } | undefined;
+      .get(kind) as { fields_json: string } | undefined;
     if (!type) throw new CreationWorkspaceError("invalid-input", `卡片类型“${kind}”不存在。`);
     try {
       return JSON.parse(type.fields_json) as CardFieldSchema[];
@@ -3929,24 +4637,25 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private createCardType(command: CardTypeCreateCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const projectId = command.projectId === undefined ? null : validateId(command.projectId, "作品");
     const name = validateTitle(command.name, "卡片类型名");
     const fields = validateCardFieldSchemaList(command.fields);
     const kind = `custom-${randomUUID().slice(0, 8)}`;
     const typeId = `card-type-${randomUUID()}`;
     return this.runStructureTransaction("cardType.create", (timestamp) => {
-      this.requireProject(projectId);
+      if (projectId) this.requireProject(projectId);
       const maxOrder = this.database
-        .prepare("SELECT coalesce(max(sort_order), -1) AS m FROM card_types WHERE project_id = ?")
-        .get(projectId) as { m: number };
+        .prepare("SELECT coalesce(max(sort_order), -1) AS m FROM card_types")
+        .get() as { m: number };
+      const insertSql = this.hasProjectCardLinks()
+        ? "INSERT INTO card_types(id, project_id, is_builtin, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?)"
+        : "INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
       this.database
-        .prepare(
-          "INSERT INTO card_types(id, project_id, kind, name, fields_json, sort_order, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)"
-        )
+        .prepare(insertSql)
         .run(typeId, projectId, kind, name, JSON.stringify(fields), maxOrder.m + 1, timestamp, timestamp);
-      this.touchProject(projectId, timestamp);
+      if (projectId) this.touchProject(projectId, timestamp);
       return {
-        projectId,
+        projectId: null,
         entityId: typeId,
         revision: 1,
         changes: [{ entity: "cardType", id: typeId, action: "created", revision: 1 }]
@@ -3960,13 +4669,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     kind: string;
     name: string;
     fields_json: string;
+    is_builtin: number;
     revision: number;
-} { const type = this.database.prepare("SELECT id, project_id, kind, name, fields_json, revision FROM card_types WHERE id = ?").get(cardTypeId) as {
+} { const builtInProjection = this.hasProjectCardLinks() ? "is_builtin" : "CASE WHEN project_id IS NULL THEN 1 ELSE 0 END"; const type = this.database.prepare(`SELECT id, project_id, ${builtInProjection} AS is_builtin, kind, name, fields_json, revision FROM card_types WHERE id = ?`).get(cardTypeId) as {
     id: string;
     project_id: string | null;
     kind: string;
     name: string;
     fields_json: string;
+    is_builtin: number;
     revision: number;
 } | undefined; if (!type)
     throw new CreationWorkspaceError("not-found", "卡片类型不存在。"); return type; }
@@ -3978,7 +4689,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const baseRevision = validateBaseRevision(command.baseRevision);
     return this.runStructureTransaction("cardType.update", (timestamp) => {
         const type = this.requireCardTypeRow(cardTypeId);
-        if (type.project_id === null) {
+        if (type.is_builtin === 1) {
             throw new CreationWorkspaceError("conflict", "内置卡片类型为只读，不可修改。");
         }
         if (type.revision !== baseRevision) {
@@ -3998,7 +4709,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
                 throw new CreationWorkspaceError("invalid-input", `字段 key「${key}」不允许重命名或删除。`);
             }
         } // 新 schema 必须能验证现有卡片数据，禁止静默丢字段。
-        const cards = this.database.prepare("SELECT fields_json FROM cards WHERE project_id = ? AND kind = ? AND deleted_at IS NULL").all(type.project_id, type.kind) as Array<{
+        const cards = this.database.prepare("SELECT fields_json FROM cards WHERE kind = ? AND deleted_at IS NULL").all(type.kind) as Array<{
             fields_json: string;
         }>;
         for (const row of cards) {
@@ -4013,20 +4724,20 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         }
         const revision = type.revision + 1;
         this.database.prepare("UPDATE card_types SET name = ?, fields_json = ?, updated_at = ?, revision = ? WHERE id = ?").run(name, JSON.stringify(fields), timestamp, revision, cardTypeId);
-        this.touchProject(type.project_id, timestamp);
-        return { projectId: type.project_id, entityId: cardTypeId, revision, changes: [{ entity: "cardType", id: cardTypeId, action: "updated", revision }] };
+        if (type.project_id) this.touchProject(type.project_id, timestamp);
+        return { projectId: null, entityId: cardTypeId, revision, changes: [{ entity: "cardType", id: cardTypeId, action: "updated", revision }] };
     });
 }
 
-  private deleteCardType(command: CardTypeDeleteCommand): CreationStructureResult { const cardTypeId = validateId(command.cardTypeId, "卡片类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("cardType.delete", (timestamp) => { const type = this.requireCardTypeRow(cardTypeId); if (type.project_id === null) {
+  private deleteCardType(command: CardTypeDeleteCommand): CreationStructureResult { const cardTypeId = validateId(command.cardTypeId, "卡片类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("cardType.delete", (timestamp) => { const type = this.requireCardTypeRow(cardTypeId); if (type.is_builtin === 1) {
     throw new CreationWorkspaceError("conflict", "内置卡片类型为只读，不可删除。");
 } if (type.revision !== baseRevision) {
     throw new CreationWorkspaceError("revision-mismatch", "卡片类型已被更新，请重新读取后再操作。");
-} const used = this.database.prepare("SELECT count(*) AS count FROM cards WHERE project_id = ? AND kind = ? AND deleted_at IS NULL").get(type.project_id, type.kind) as {
+} const used = this.database.prepare("SELECT count(*) AS count FROM cards WHERE kind = ? AND deleted_at IS NULL").get(type.kind) as {
     count: number;
 }; if (used.count > 0) {
     throw new CreationWorkspaceError("conflict", "卡片类型仍被卡片使用，不可删除。");
-} this.database.prepare("DELETE FROM card_types WHERE id = ?").run(cardTypeId); this.touchProject(type.project_id, timestamp); return { projectId: type.project_id, entityId: cardTypeId, revision: type.revision + 1, changes: [{ entity: "cardType", id: cardTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
+} this.database.prepare("DELETE FROM card_types WHERE id = ?").run(cardTypeId); if (type.project_id) this.touchProject(type.project_id, timestamp); return { projectId: null, entityId: cardTypeId, revision: type.revision + 1, changes: [{ entity: "cardType", id: cardTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
 
   private requireRelationTypeRow(relationTypeId: string): {
     id: string;
@@ -4034,13 +4745,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     name: string;
     from_kinds_json: string;
     to_kinds_json: string;
+    is_builtin: number;
     revision: number;
-} { const type = this.database.prepare("SELECT id, project_id, name, from_kinds_json, to_kinds_json, revision FROM relation_types WHERE id = ?").get(relationTypeId) as {
+} { const builtInProjection = this.hasProjectCardLinks() ? "is_builtin" : "CASE WHEN project_id IS NULL THEN 1 ELSE 0 END"; const type = this.database.prepare(`SELECT id, project_id, ${builtInProjection} AS is_builtin, name, from_kinds_json, to_kinds_json, revision FROM relation_types WHERE id = ?`).get(relationTypeId) as {
     id: string;
     project_id: string | null;
     name: string;
     from_kinds_json: string;
     to_kinds_json: string;
+    is_builtin: number;
     revision: number;
 } | undefined; if (!type)
     throw new CreationWorkspaceError("not-found", "关系类型不存在。"); return type; }
@@ -4055,7 +4768,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const toKinds = command.toKinds === undefined ? undefined : validateStringList(command.toKinds, "终点卡片类型", 50);
     return this.runStructureTransaction("relationType.update", (timestamp) => {
         const type = this.requireRelationTypeRow(relationTypeId);
-        if (type.project_id === null) {
+        if (type.is_builtin === 1) {
             throw new CreationWorkspaceError("conflict", "内置关系类型为只读，不可修改。");
         }
         if (type.name !== stableName) {
@@ -4093,12 +4806,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
         }
         const revision = type.revision + 1;
         this.database.prepare("UPDATE relation_types SET forward_name = ?, reverse_name = ?, from_kinds_json = ?, to_kinds_json = ?, updated_at = ?, revision = ? WHERE id = ?").run(forwardName, reverseName, JSON.stringify(nextFrom), JSON.stringify(nextTo), timestamp, revision, relationTypeId);
-        this.touchProject(type.project_id, timestamp);
-        return { projectId: type.project_id, entityId: relationTypeId, revision, changes: [{ entity: "relationType", id: relationTypeId, action: "updated", revision }] };
+        if (type.project_id) this.touchProject(type.project_id, timestamp);
+        return { projectId: null, entityId: relationTypeId, revision, changes: [{ entity: "relationType", id: relationTypeId, action: "updated", revision }] };
     });
 }
 
-  private deleteRelationType(command: RelationTypeDeleteCommand): CreationStructureResult { const relationTypeId = validateId(command.relationTypeId, "关系类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("relationType.delete", (timestamp) => { const type = this.requireRelationTypeRow(relationTypeId); if (type.project_id === null) {
+  private deleteRelationType(command: RelationTypeDeleteCommand): CreationStructureResult { const relationTypeId = validateId(command.relationTypeId, "关系类型"); const baseRevision = validateBaseRevision(command.baseRevision); return this.runStructureTransaction("relationType.delete", (timestamp) => { const type = this.requireRelationTypeRow(relationTypeId); if (type.is_builtin === 1) {
     throw new CreationWorkspaceError("conflict", "内置关系类型为只读，不可删除。");
 } if (type.revision !== baseRevision) {
     throw new CreationWorkspaceError("revision-mismatch", "关系类型已被更新，请重新读取后再操作。");
@@ -4106,21 +4819,22 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     count: number;
 }; if (used.count > 0) {
     throw new CreationWorkspaceError("conflict", "关系类型仍被关系实例使用，不可删除。");
-} this.database.prepare("DELETE FROM relation_types WHERE id = ?").run(relationTypeId); this.touchProject(type.project_id, timestamp); return { projectId: type.project_id, entityId: relationTypeId, revision: type.revision + 1, changes: [{ entity: "relationType", id: relationTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
+} this.database.prepare("DELETE FROM relation_types WHERE id = ?").run(relationTypeId); if (type.project_id) this.touchProject(type.project_id, timestamp); return { projectId: null, entityId: relationTypeId, revision: type.revision + 1, changes: [{ entity: "relationType", id: relationTypeId, action: "deleted", revision: type.revision + 1 }] }; }); }
 
   private createRelationType(command: RelationTypeCreateCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const projectId = command.projectId === undefined ? null : validateId(command.projectId, "作品");
     const forwardName = validateTitle(command.forwardName, "关系名称", 50);
     const reverseName = validateTitle(command.reverseName, "反向关系名称", 50);
     const fromKinds = validateStringList(command.fromKinds, "起点卡片类型", 50);
     const toKinds = validateStringList(command.toKinds, "终点卡片类型", 50);
     const relationTypeId = `relation-type-${randomUUID()}`;
     return this.runStructureTransaction("relationType.create", (timestamp) => {
-      this.requireProject(projectId);
+      if (projectId) this.requireProject(projectId);
+      const insertSql = this.hasProjectCardLinks()
+        ? "INSERT INTO relation_types(id, project_id, is_builtin, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at) VALUES (?, ?, 0, ?, ?, ?, ?, ?, ?, ?)"
+        : "INSERT INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)";
       this.database
-        .prepare(
-          "INSERT INTO relation_types(id, project_id, name, forward_name, reverse_name, from_kinds_json, to_kinds_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)"
-        )
+        .prepare(insertSql)
         .run(
           relationTypeId,
           projectId,
@@ -4132,9 +4846,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           timestamp,
           timestamp
         );
-      this.touchProject(projectId, timestamp);
+      if (projectId) this.touchProject(projectId, timestamp);
       return {
-        projectId,
+        projectId: null,
         entityId: relationTypeId,
         revision: 1,
         changes: [{ entity: "relationType", id: relationTypeId, action: "created", revision: 1 }]
@@ -4143,7 +4857,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private createCard(command: CardCreateCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const projectId = command.projectId === undefined ? null : validateId(command.projectId, "作品");
     const kind = validateId(command.kind, "卡片类型");
     const title = validateTitle(command.title, "卡片名称");
     const aliases = validateStringList(command.aliases, "别名");
@@ -4160,15 +4874,20 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     const cardId = `card-${randomUUID()}`;
     return this.runStructureTransaction("card.create", (timestamp) => {
-      this.requireProject(projectId);
-      const typeFields = this.resolveCardTypeFields(projectId, kind);
+      if (projectId) this.requireProject(projectId);
+      const typeFields = this.resolveCardTypeFields(projectId ?? "", kind);
       const fields = validateCardFieldValues(command.fields ?? {}, typeFields);
       this.database
         .prepare(
           "INSERT INTO cards(id, project_id, kind, title, aliases_json, fields_json, tags_json, content_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
         )
         .run(cardId, projectId, kind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), contentJson, timestamp, timestamp);
-      this.touchProject(projectId, timestamp);
+      if (this.hasProjectCardLinks() && projectId) {
+        this.database
+          .prepare("INSERT INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)")
+          .run(projectId, cardId, timestamp);
+      }
+      if (projectId) this.touchProject(projectId, timestamp);
       return {
         projectId,
         entityId: cardId,
@@ -4189,9 +4908,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       const nextKind = command.kind === undefined ? card.kind : validateId(command.kind, "卡片类型");
       if (nextKind !== card.kind) {
         // 换类型：目标类型必须存在
-        this.resolveCardTypeFields(card.project_id, nextKind);
+        this.resolveCardTypeFields(card.project_id ?? "", nextKind);
       }
-      const schemas = this.resolveCardTypeFields(card.project_id, nextKind);
+      const schemas = this.resolveCardTypeFields(card.project_id ?? "", nextKind);
       let fields = card.fields;
       if (command.fields !== undefined) {
         fields = validateCardFieldValues(command.fields, schemas);
@@ -4214,9 +4933,9 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           "UPDATE cards SET kind = ?, title = ?, aliases_json = ?, fields_json = ?, tags_json = ?, updated_at = ?, revision = ? WHERE id = ?"
         )
         .run(nextKind, title, JSON.stringify(aliases), JSON.stringify(fields), JSON.stringify(tags), timestamp, revision, cardId);
-      this.touchProject(card.project_id, timestamp);
+      this.touchLinkedProjects(cardId, timestamp);
       return {
-        projectId: card.project_id,
+        projectId: null,
         entityId: cardId,
         revision,
         changes: [{ entity: "card", id: cardId, action: "updated", revision }]
@@ -4228,16 +4947,22 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     const cardId = validateId(command.cardId, "卡片");
     return this.runStructureTransaction("card.delete", (timestamp) => {
       const card = this.requireCard(cardId);
+      const linkedProjectIds = this.linkedProjectIds(cardId);
       const revision = card.revision + 1;
-      this.database
-        .prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?")
-        .run(cardId, cardId);
+      if (this.hasProjectCardLinks()) {
+        this.database
+          .prepare("INSERT OR REPLACE INTO global_card_trash_state(card_id, linked_project_ids_json, deleted_at) VALUES (?, ?, ?)")
+          .run(cardId, JSON.stringify(linkedProjectIds), timestamp);
+        this.database.prepare("DELETE FROM project_card_links WHERE card_id = ?").run(cardId);
+      } else {
+        this.database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(cardId, cardId);
+      }
       this.database
         .prepare("UPDATE cards SET deleted_at = ?, updated_at = ?, revision = ? WHERE id = ?")
         .run(timestamp, timestamp, revision, cardId);
-      this.touchProject(card.project_id, timestamp);
+      for (const projectId of linkedProjectIds) this.touchProject(projectId, timestamp);
       return {
-        projectId: card.project_id,
+        projectId: null,
         entityId: cardId,
         revision,
         changes: [{ entity: "card", id: cardId, action: "deleted", revision }]
@@ -4245,8 +4970,122 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     });
   }
 
+  private assertCardCanUnlink(projectId: string, cardId: string): void {
+    const annotationCount = (
+      this.database
+        .prepare("SELECT count(*) AS count FROM annotations WHERE project_id = ? AND card_id = ?")
+        .get(projectId, cardId) as { count: number }
+    ).count;
+    const resourceCount = (
+      this.database
+        .prepare("SELECT count(*) AS count FROM resources WHERE project_id = ? AND card_id = ?")
+        .get(projectId, cardId) as { count: number }
+    ).count;
+    const scenes = this.database
+      .prepare(`SELECT s.id, s.planning_json FROM scenes s
+        JOIN chapters c ON c.id = s.chapter_id
+        WHERE c.project_id = ? AND s.deleted_at IS NULL`)
+      .all(projectId) as Array<{ id: string; planning_json: string }>;
+    let planningCount = 0;
+    for (const scene of scenes) {
+      let planning: ScenePlanning;
+      try {
+        planning = JSON.parse(scene.planning_json) as ScenePlanning;
+      } catch {
+        throw new CreationWorkspaceError("integrity", `场景 ${scene.id} 的任务卡数据损坏。`);
+      }
+      const castCardIds = Array.isArray(planning.castCardIds)
+        ? planning.castCardIds.filter((value): value is string => typeof value === "string")
+        : [];
+      if (
+        planning.perspectiveCardId === cardId ||
+        planning.locationCardId === cardId ||
+        castCardIds.includes(cardId)
+      ) {
+        planningCount += 1;
+      }
+    }
+    if (annotationCount + resourceCount + planningCount > 0) {
+      throw new CreationWorkspaceError(
+        "conflict",
+        `卡片仍被当前作品使用：场景 ${planningCount}、批注 ${annotationCount}、附件 ${resourceCount}。`
+      );
+    }
+  }
+
+  private mutateCardLink(projectIdInput: string, cardIdInput: string, link: boolean): CardLinkResult {
+    const projectId = validateId(projectIdInput, "作品");
+    const cardId = validateId(cardIdInput, "卡片");
+    const commandType = link ? "card.link" : "card.unlink";
+    const timestamp = new Date().toISOString();
+    try {
+      this.database.exec("BEGIN IMMEDIATE");
+      this.requireProject(projectId);
+      this.requireCard(cardId);
+      const exists =
+        this.database
+          .prepare("SELECT 1 FROM project_card_links WHERE project_id = ? AND card_id = ?")
+          .get(projectId, cardId) !== undefined;
+      let changed = false;
+      if (link && !exists) {
+        this.database
+          .prepare("INSERT INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)")
+          .run(projectId, cardId, timestamp);
+        changed = true;
+      } else if (!link && exists) {
+        this.assertCardCanUnlink(projectId, cardId);
+        this.database
+          .prepare("DELETE FROM project_card_links WHERE project_id = ? AND card_id = ?")
+          .run(projectId, cardId);
+        changed = true;
+      }
+      const usageCount = (
+        this.database.prepare("SELECT count(*) AS count FROM project_card_links WHERE card_id = ?").get(cardId) as {
+          count: number;
+        }
+      ).count;
+      let sequence = -1;
+      if (changed) {
+        this.touchProject(projectId, timestamp);
+        const action = link ? "created" : "deleted";
+        const changes: CreationWorkspaceEvent["changes"] = [
+          { entity: "projectCardLink", id: `${projectId}:${cardId}`, action, revision: 1 }
+        ];
+        const logged = this.database
+          .prepare("INSERT INTO change_log(project_id, command_type, changes_json, committed_at) VALUES (?, ?, ?, ?)")
+          .run(projectId, commandType, JSON.stringify(changes), timestamp);
+        sequence = Number(logged.lastInsertRowid);
+        this.database.exec("COMMIT");
+        this.emitCommitted({ kind: "committed", sequence, projectId, commandType, changes });
+      } else {
+        this.database.exec("COMMIT");
+      }
+      return {
+        commandType,
+        sequence,
+        projectId,
+        cardId,
+        entityId: cardId,
+        revision: 1,
+        updatedAt: timestamp,
+        changed,
+        linked: link ? true : exists && !changed,
+        usageCount
+      };
+    } catch (error) {
+      try {
+        this.database.exec("ROLLBACK");
+      } catch {
+        // SQLite may already have rolled back.
+      }
+      if (error instanceof CreationWorkspaceError) throw error;
+      if (isConstraintError(error)) throw new CreationWorkspaceError("conflict", "卡片关联违反完整性约束。");
+      throw new CreationWorkspaceError("integrity", "无法更新项目卡片关联。");
+    }
+  }
+
   private createCardRelation(command: CardRelationCreateCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const projectId = command.projectId === undefined ? null : validateId(command.projectId, "作品");
     const fromCardId = validateId(command.fromCardId, "起点卡片");
     const toCardId = validateId(command.toCardId, "终点卡片");
     const relationTypeId = validateId(command.relationTypeId, "关系类型");
@@ -4254,10 +5093,19 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       command.note === undefined || command.note === null ? null : String(command.note).trim() || null;
     const relationId = `relation-${randomUUID()}`;
     return this.runStructureTransaction("cardRelation.create", (timestamp) => {
-      this.requireProject(projectId);
-      const from = this.requireCard(fromCardId);
-      const to = this.requireCard(toCardId);
-      if (from.project_id !== projectId || to.project_id !== projectId) {
+      if (projectId) this.requireProject(projectId);
+      this.requireCard(fromCardId);
+      this.requireCard(toCardId);
+      const linked = projectId && this.hasProjectCardLinks()
+        ? (this.database
+            .prepare("SELECT count(*) AS count FROM project_card_links WHERE project_id = ? AND card_id IN (?, ?)")
+            .get(projectId, fromCardId, toCardId) as { count: number })
+        : projectId
+          ? (this.database
+            .prepare("SELECT count(*) AS count FROM cards WHERE project_id = ? AND id IN (?, ?) AND deleted_at IS NULL")
+            .get(projectId, fromCardId, toCardId) as { count: number })
+          : { count: 2 };
+      if (projectId && linked.count !== 2) {
         throw new CreationWorkspaceError("invalid-input", "关系卡片必须属于同一作品。");
       }
       if (fromCardId === toCardId) {
@@ -4269,7 +5117,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           "INSERT INTO card_relations(id, project_id, from_card_id, to_card_id, relation_type, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)"
         )
         .run(relationId, projectId, fromCardId, toCardId, relationTypeId, note, timestamp);
-      this.touchProject(projectId, timestamp);
+      if (projectId) this.touchProject(projectId, timestamp);
       return {
         projectId,
         entityId: relationId,
@@ -4284,10 +5132,10 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return this.runStructureTransaction("cardRelation.delete", (timestamp) => {
       const relation = this.database
         .prepare("SELECT id, project_id FROM card_relations WHERE id = ?")
-        .get(relationId) as { id: string; project_id: string } | undefined;
+        .get(relationId) as { id: string; project_id: string | null } | undefined;
       if (!relation) throw new CreationWorkspaceError("not-found", "关系不存在。");
       this.database.prepare("DELETE FROM card_relations WHERE id = ?").run(relationId);
-      this.touchProject(relation.project_id, timestamp);
+      if (relation.project_id) this.touchProject(relation.project_id, timestamp);
       return {
         projectId: relation.project_id,
         entityId: relationId,
@@ -4309,7 +5157,20 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     throw new CreationWorkspaceError("invalid-input", "不支持的历史命令。");
   }
 
-  private trashList(projectId: string): TrashItem[] {
+  private trashList(projectId?: string): TrashItem[] {
+    if (!projectId) {
+      if (!this.hasProjectCardLinks()) return [];
+      return (this.database
+        .prepare("SELECT id, title, deleted_at, revision FROM cards WHERE deleted_at IS NOT NULL ORDER BY deleted_at DESC, id")
+        .all() as Array<{ id: string; title: string; deleted_at: string; revision: number }>).map((row) => ({
+          entity: "card" as const,
+          id: row.id,
+          projectId: null,
+          title: row.title,
+          deletedAt: row.deleted_at,
+          revision: row.revision
+        }));
+    }
     this.requireProject(projectId);
     const items: TrashItem[] = [];
     const volumes = this.database
@@ -4337,11 +5198,21 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     for (const row of scenes) {
       items.push({ entity: "scene", id: row.id, projectId, title: row.title, deletedAt: row.deleted_at, revision: row.revision });
     }
-    const cards = this.database
-      .prepare(
-        "SELECT id, title, deleted_at, revision FROM cards WHERE project_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC, id"
-      )
-      .all(projectId) as Array<{ id: string; title: string; deleted_at: string; revision: number }>;
+    const cards = this.hasProjectCardLinks()
+      ? (this.database.prepare(`SELECT c.id, c.title, c.deleted_at, c.revision, s.linked_project_ids_json
+          FROM cards c LEFT JOIN global_card_trash_state s ON s.card_id = c.id
+          WHERE c.deleted_at IS NOT NULL ORDER BY c.deleted_at DESC, c.id`).all() as Array<{
+            id: string; title: string; deleted_at: string; revision: number; linked_project_ids_json: string | null;
+          }>).filter((row) => {
+            try {
+              return row.linked_project_ids_json !== null && (JSON.parse(row.linked_project_ids_json) as unknown[]).includes(projectId);
+            } catch {
+              return false;
+            }
+          })
+      : this.database
+        .prepare("SELECT id, title, deleted_at, revision FROM cards WHERE project_id = ? AND deleted_at IS NOT NULL ORDER BY deleted_at DESC, id")
+        .all(projectId) as Array<{ id: string; title: string; deleted_at: string; revision: number }>;
     for (const row of cards) {
       items.push({ entity: "card", id: row.id, projectId, title: row.title, deletedAt: row.deleted_at, revision: row.revision });
     }
@@ -4350,9 +5221,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
 
   private findTrashEntity(
     entity: TrashEntityKind,
-    projectId: string,
+    projectId: string | undefined,
     entityId: string
   ): { title: string; revision: number } | undefined {
+    if (entity === "card" && this.hasProjectCardLinks()) {
+      return this.database
+        .prepare("SELECT title, revision FROM cards WHERE id = ? AND deleted_at IS NOT NULL")
+        .get(entityId) as { title: string; revision: number } | undefined;
+    }
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "项目回收站操作必须提供作品 ID。");
     if (entity === "volume") {
       const row = this.database
         .prepare("SELECT title, revision FROM volumes WHERE id = ? AND project_id = ? AND deleted_at IS NOT NULL")
@@ -4381,13 +5258,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private trashRestore(command: TrashRestoreCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const globalCard = command.entity === "card" && this.hasProjectCardLinks();
+    const projectId = globalCard
+      ? (command.projectId === undefined ? undefined : validateId(command.projectId, "作品"))
+      : validateId(command.projectId, "作品");
     if (!TRASH_ENTITY_KINDS.has(command.entity)) {
       throw new CreationWorkspaceError("invalid-input", "回收站实体类型无效。");
     }
     const entityId = validateId(command.entityId, "实体");
     return this.runStructureTransaction("trash.restore", (timestamp) => {
-      this.requireProject(projectId);
+      if (projectId) this.requireProject(projectId);
       const found = this.findTrashEntity(command.entity, projectId, entityId);
       if (!found) throw new CreationWorkspaceError("not-found", "回收站中不存在该实体。");
       if (command.entity === "volume") {
@@ -4417,13 +5297,29 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           .prepare("UPDATE scenes SET deleted_at = NULL, updated_at = ?, revision = revision + 1 WHERE id = ?")
           .run(timestamp, entityId);
       } else {
+        const state = this.hasProjectCardLinks()
+          ? this.database.prepare("SELECT linked_project_ids_json FROM global_card_trash_state WHERE card_id = ?")
+            .get(entityId) as { linked_project_ids_json: string } | undefined
+          : undefined;
+        const linkedProjectIds = state ? (JSON.parse(state.linked_project_ids_json) as string[]) : this.linkedProjectIds(entityId);
         this.database
           .prepare("UPDATE cards SET deleted_at = NULL, updated_at = ?, revision = revision + 1 WHERE id = ?")
           .run(timestamp, entityId);
+        if (this.hasProjectCardLinks()) {
+          const insertLink = this.database.prepare("INSERT OR IGNORE INTO project_card_links(project_id, card_id, linked_at) VALUES (?, ?, ?)");
+          for (const linkedProjectId of linkedProjectIds) {
+            const exists = this.database.prepare("SELECT 1 FROM projects WHERE id = ?").get(linkedProjectId);
+            if (exists) {
+              insertLink.run(linkedProjectId, entityId, timestamp);
+              this.touchProject(linkedProjectId, timestamp);
+            }
+          }
+          this.database.prepare("DELETE FROM global_card_trash_state WHERE card_id = ?").run(entityId);
+        }
       }
-      this.touchProject(projectId, timestamp);
+      if (projectId && !globalCard) this.touchProject(projectId, timestamp);
       return {
-        projectId,
+        projectId: globalCard ? null : projectId!,
         entityId,
         revision: found.revision + 1,
         changes: [{ entity: command.entity, id: entityId, action: "restored", revision: found.revision + 1 }]
@@ -4432,13 +5328,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   }
 
   private trashPurge(command: TrashPurgeCommand): CreationStructureResult {
-    const projectId = validateId(command.projectId, "作品");
+    const globalCard = command.entity === "card" && this.hasProjectCardLinks();
+    const projectId = globalCard
+      ? (command.projectId === undefined ? undefined : validateId(command.projectId, "作品"))
+      : validateId(command.projectId, "作品");
     if (!TRASH_ENTITY_KINDS.has(command.entity)) {
       throw new CreationWorkspaceError("invalid-input", "回收站实体类型无效。");
     }
     const entityId = validateId(command.entityId, "实体");
     return this.runStructureTransaction("trash.purge", (timestamp) => {
-      this.requireProject(projectId);
+      if (projectId) this.requireProject(projectId);
       const found = this.findTrashEntity(command.entity, projectId, entityId);
       if (!found) throw new CreationWorkspaceError("not-found", "回收站中不存在该实体。");
       if (command.entity === "volume") {
@@ -4454,12 +5353,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } else if (command.entity === "scene") {
         this.database.prepare("DELETE FROM scenes WHERE id = ?").run(entityId);
       } else {
-        this.database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(entityId, entityId);
-        this.database.prepare("DELETE FROM cards WHERE id = ?").run(entityId);
+        if (globalCard) queueAndDeleteGlobalCard(this.database, entityId, timestamp);
+        else {
+          this.database.prepare("DELETE FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").run(entityId, entityId);
+          this.database.prepare("DELETE FROM cards WHERE id = ?").run(entityId);
+        }
       }
-      this.touchProject(projectId, timestamp);
+      if (projectId && !globalCard) this.touchProject(projectId, timestamp);
       return {
-        projectId,
+        projectId: globalCard ? null : projectId!,
         entityId,
         revision: found.revision,
         changes: [{ entity: command.entity, id: entityId, action: "deleted", revision: found.revision }]
@@ -4575,8 +5477,11 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   /** 读取某对象当前状态为快照 payload（快照创建与保护快照共用）。对象不存在返回 null。 */
 
   private captureSubjectPayload(subjectType: SnapshotSubjectType, subjectId: string, reason: string): Record<string, unknown> | null { if (subjectType === "scene") {
-    const scene = this.database.prepare("SELECT body_json, revision, deleted_at FROM scenes WHERE id = ?").get(subjectId) as {
+    const scene = this.database.prepare("SELECT body_json, planning_json, summary, scene_status, revision, deleted_at FROM scenes WHERE id = ?").get(subjectId) as {
         body_json: string;
+        planning_json: string;
+        summary: string;
+        scene_status: string;
         revision: number;
         deleted_at: string | null;
     } | undefined;
@@ -4589,7 +5494,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     catch {
         throw new CreationWorkspaceError("integrity", "场景正文数据损坏。");
     }
-    return { reason, revision: scene.revision, body };
+    return {
+        reason,
+        revision: scene.revision,
+        body,
+        planningJson: scene.planning_json,
+        summary: scene.summary,
+        status: SCENE_STATUSES.has(scene.scene_status as SceneStatus) ? scene.scene_status : "planned"
+    };
 } if (subjectType === "card") {
     const card = this.database.prepare("SELECT title, aliases_json, fields_json, tags_json, revision, deleted_at FROM cards WHERE id = ?").get(subjectId) as {
         title: string;
@@ -4613,11 +5525,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     } | undefined;
     if (!chapter || chapter.deleted_at !== null)
         return null;
-    const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(subjectId) as Array<{
+    const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, planning_json, summary, scene_status, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(subjectId) as Array<{
         id: string;
         title: string;
         sort_order: number;
         body_json: string;
+        planning_json: string;
+        summary: string;
+        scene_status: string;
         revision: number;
     }>;
     return { reason, revision: chapter.revision, chapter: { title: chapter.title, status: chapter.status, numberingKind: chapter.numbering_kind, customNumber: chapter.custom_number, scenes } };
@@ -4633,11 +5548,14 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     numbering_kind: string;
     custom_number: string | null;
     revision: number;
-}>; const chaptersWithScenes = chapters.map((chapter) => { const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(chapter.id) as Array<{
+}>; const chaptersWithScenes = chapters.map((chapter) => { const scenes = this.database.prepare("SELECT id, title, sort_order, body_json, planning_json, summary, scene_status, revision FROM scenes WHERE chapter_id = ? AND deleted_at IS NULL ORDER BY sort_order, id").all(chapter.id) as Array<{
     id: string;
     title: string;
     sort_order: number;
     body_json: string;
+    planning_json: string;
+    summary: string;
+    scene_status: string;
     revision: number;
 }>; return { ...chapter, scenes }; }); return { reason, revision: volume.revision, volume: { title: volume.title, chapters: chaptersWithScenes } }; }
 
@@ -4857,7 +5775,10 @@ else {
         const body = payload.body as CreationDocument | undefined;
         if (!body)
             throw new CreationWorkspaceError("integrity", "快照正文数据缺失。");
-        const current = this.database.prepare("SELECT revision FROM scenes WHERE id = ?").get(subjectId) as {
+        const current = this.database.prepare("SELECT planning_json, summary, scene_status, revision FROM scenes WHERE id = ?").get(subjectId) as {
+            planning_json: string;
+            summary: string;
+            scene_status: string;
             revision: number;
         } | undefined;
         if (!current)
@@ -4865,7 +5786,12 @@ else {
         const revision = current.revision + 1;
         const bodyJson = JSON.stringify(body);
         const stats = countSceneBodyStats(bodyJson);
-        this.database.prepare("UPDATE scenes SET body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(bodyJson, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, subjectId);
+        const planningJson = typeof payload.planningJson === "string" ? payload.planningJson : current.planning_json;
+        const summary = typeof payload.summary === "string" ? payload.summary.slice(0, 2000) : current.summary;
+        const status = typeof payload.status === "string" && SCENE_STATUSES.has(payload.status as SceneStatus)
+            ? payload.status
+            : current.scene_status;
+        this.database.prepare("UPDATE scenes SET body_json = ?, planning_json = ?, summary = ?, scene_status = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(bodyJson, planningJson, summary, status, stats.han, stats.punct, stats.nonWhitespace, timestamp, revision, subjectId);
         return { revision, changes: [{ entity: "scene", id: subjectId, action: "restored", revision }] };
     }
     if (subjectType === "card") {
@@ -4897,6 +5823,9 @@ else {
                 title: string;
                 sort_order: number;
                 body_json: string;
+                planning_json?: string;
+                summary?: string;
+                scene_status?: string;
                 revision: number;
             }>;
         } | undefined;
@@ -4912,18 +5841,26 @@ else {
         const changes: CreationWorkspaceEvent["changes"] = [{ entity: "chapter", id: subjectId, action: "restored", revision }];
         for (const scene of chapter.scenes ?? []) {
             // 场景已移出本章：跳过，不覆盖其在其他章节的新内容。
-            const existing = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(scene.id) as {
+            const existing = this.database.prepare("SELECT chapter_id, planning_json, summary, scene_status FROM scenes WHERE id = ?").get(scene.id) as {
                 chapter_id: string;
+                planning_json: string;
+                summary: string;
+                scene_status: string;
             } | undefined;
             if (existing && existing.chapter_id !== subjectId)
                 continue;
             const sceneRevision = (scene.revision ?? 0) + 1;
             const stats = countSceneBodyStats(scene.body_json);
+            const planningJson = scene.planning_json ?? existing?.planning_json ?? "{}";
+            const summary = typeof scene.summary === "string" ? scene.summary.slice(0, 2000) : existing?.summary ?? "";
+            const status = typeof scene.scene_status === "string" && SCENE_STATUSES.has(scene.scene_status as SceneStatus)
+                ? scene.scene_status
+                : existing?.scene_status ?? "planned";
             if (existing) {
-                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
+                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, planning_json = ?, summary = ?, scene_status = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, planningJson, summary, status, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
             }
             else {
-                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, subjectId, scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
+                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, planning_json, summary, scene_status, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, subjectId, scene.title, scene.sort_order, scene.body_json, planningJson, summary, status, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
             }
             changes.push({ entity: "scene", id: scene.id, action: "restored", revision: sceneRevision });
         }
@@ -4943,6 +5880,9 @@ else {
                 title: string;
                 sort_order: number;
                 body_json: string;
+                planning_json?: string;
+                summary?: string;
+                scene_status?: string;
                 revision: number;
             }>;
         }>;
@@ -4978,17 +5918,25 @@ else {
         for (const scene of chapter.scenes ?? []) {
             const sceneRevision = (scene.revision ?? 0) + 1;
             // 场景已移出本章：跳过，不覆盖其在其他章节的新内容、不改归属。
-            const existingScene = this.database.prepare("SELECT chapter_id FROM scenes WHERE id = ?").get(scene.id) as {
+            const existingScene = this.database.prepare("SELECT chapter_id, planning_json, summary, scene_status FROM scenes WHERE id = ?").get(scene.id) as {
                 chapter_id: string;
+                planning_json: string;
+                summary: string;
+                scene_status: string;
             } | undefined;
             if (existingScene && existingScene.chapter_id !== chapter.id)
                 continue;
             const stats = countSceneBodyStats(scene.body_json);
+            const planningJson = scene.planning_json ?? existingScene?.planning_json ?? "{}";
+            const summary = typeof scene.summary === "string" ? scene.summary.slice(0, 2000) : existingScene?.summary ?? "";
+            const status = typeof scene.scene_status === "string" && SCENE_STATUSES.has(scene.scene_status as SceneStatus)
+                ? scene.scene_status
+                : existingScene?.scene_status ?? "planned";
             if (existingScene) {
-                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
+                this.database.prepare("UPDATE scenes SET title = ?, sort_order = ?, body_json = ?, planning_json = ?, summary = ?, scene_status = ?, han_count = ?, punct_count = ?, non_ws_count = ?, deleted_at = NULL, updated_at = ?, revision = ? WHERE id = ?").run(scene.title, scene.sort_order, scene.body_json, planningJson, summary, status, stats.han, stats.punct, stats.nonWhitespace, timestamp, sceneRevision, scene.id);
             }
             else {
-                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, chapter.id, scene.title, scene.sort_order, scene.body_json, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
+                this.database.prepare("INSERT INTO scenes(id, chapter_id, title, sort_order, body_json, planning_json, summary, scene_status, han_count, punct_count, non_ws_count, created_at, updated_at, revision) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)").run(scene.id, chapter.id, scene.title, scene.sort_order, scene.body_json, planningJson, summary, status, stats.han, stats.punct, stats.nonWhitespace, timestamp, timestamp, sceneRevision);
             }
             changes.push({ entity: "scene", id: scene.id, action: "restored", revision: sceneRevision });
         }
@@ -5034,9 +5982,13 @@ else {
             throw new CreationWorkspaceError("conflict", "快照恢复违反结构约束，未应用任何修改。");
         throw new CreationWorkspaceError("integrity", "无法安全恢复快照。");
     }
-} /** 回收站影响预览：对象不存在或不在回收站时返回稳定 not-found 错误。 */
+} /** 回收站影响预览；无 projectId 的 card 查询也可用于删除前影响确认。 */
 
-  private readTrashImpact(projectId: string, entity: TrashEntityKind, entityId: string): TrashImpactView { this.requireProject(projectId); const warnings: string[] = []; if (entity === "volume") {
+  private readTrashImpact(projectId: string | undefined, entity: TrashEntityKind, entityId: string): TrashImpactView {
+    if (projectId) this.requireProject(projectId);
+    if (!projectId && entity !== "card") throw new CreationWorkspaceError("invalid-input", "项目回收站影响请求必须提供作品 ID。");
+    const warnings: string[] = [];
+    if (entity === "volume") {
     const volume = this.database.prepare("SELECT title, deleted_at FROM volumes WHERE id = ? AND project_id = ?").get(entityId, projectId) as {
         title: string;
         deleted_at: string | null;
@@ -5078,16 +6030,59 @@ else {
     if (scene.deleted_at === null)
         throw new CreationWorkspaceError("conflict", "对象不在回收站。");
     return { title: scene.title, childVolumeCount: 0, childChapterCount: 0, childSceneCount: 0, relatedCardCount: 0, resourceCount: 0, approxChars: scene.non_ws_count, warnings };
-} const card = this.database.prepare("SELECT title, deleted_at FROM cards WHERE id = ? AND project_id = ?").get(entityId, projectId) as {
-    title: string;
-    deleted_at: string | null;
-} | undefined; if (!card)
-    throw new CreationWorkspaceError("not-found", "对象不存在。"); if (card.deleted_at === null)
-    throw new CreationWorkspaceError("conflict", "对象不在回收站。"); const relations = this.database.prepare("SELECT count(*) AS count FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").get(entityId, entityId) as {
-    count: number;
-}; const resources = this.database.prepare("SELECT count(*) AS count FROM resources WHERE card_id = ?").get(entityId) as {
-    count: number;
-}; return { title: card.title, childVolumeCount: 0, childChapterCount: 0, childSceneCount: 0, relatedCardCount: relations.count, resourceCount: resources.count, approxChars: 0, warnings }; }
+    }
+    const cardSql = this.hasProjectCardLinks()
+      ? "SELECT title, deleted_at FROM cards WHERE id = ?"
+      : "SELECT title, deleted_at FROM cards WHERE id = ? AND project_id = ?";
+    const card = this.database.prepare(cardSql).get(...(this.hasProjectCardLinks() ? [entityId] : [entityId, projectId])) as {
+      title: string;
+      deleted_at: string | null;
+    } | undefined;
+    if (!card) throw new CreationWorkspaceError("not-found", "对象不存在。");
+    if (projectId && card.deleted_at === null) throw new CreationWorkspaceError("conflict", "对象不在回收站。");
+
+    const relations = this.database.prepare("SELECT count(*) AS count FROM card_relations WHERE from_card_id = ? OR to_card_id = ?").get(entityId, entityId) as { count: number };
+    const projectResources = this.database.prepare("SELECT count(*) AS count FROM resources WHERE card_id = ?").get(entityId) as { count: number };
+    const globalResources = this.hasProjectCardLinks()
+      ? this.database.prepare("SELECT count(*) AS count FROM global_card_resources WHERE card_id = ?").get(entityId) as { count: number }
+      : { count: 0 };
+    const annotations = this.database.prepare("SELECT count(*) AS count FROM annotations WHERE card_id = ? AND deleted_at IS NULL").get(entityId) as { count: number };
+    const state = this.hasProjectCardLinks()
+      ? this.database.prepare("SELECT linked_project_ids_json FROM global_card_trash_state WHERE card_id = ?").get(entityId) as { linked_project_ids_json: string } | undefined
+      : undefined;
+    const linkedProjectIds = state ? (JSON.parse(state.linked_project_ids_json) as string[]) : this.linkedProjectIds(entityId);
+    const scenes = this.database.prepare("SELECT id, planning_json FROM scenes WHERE deleted_at IS NULL").all() as Array<{ id: string; planning_json: string }>;
+    let sceneReferenceCount = 0;
+    for (const scene of scenes) {
+      let planning: ScenePlanning;
+      try {
+        planning = JSON.parse(scene.planning_json) as ScenePlanning;
+      } catch {
+        throw new CreationWorkspaceError("integrity", `场景 ${scene.id} 的任务卡数据损坏。`);
+      }
+      if (
+        planning.perspectiveCardId === entityId ||
+        planning.locationCardId === entityId ||
+        (Array.isArray(planning.castCardIds) && planning.castCardIds.includes(entityId))
+      ) sceneReferenceCount += 1;
+    }
+    if (linkedProjectIds.length > 0) warnings.push(`将从 ${linkedProjectIds.length} 个项目移除关联。`);
+    if (relations.count > 0 || sceneReferenceCount > 0 || annotations.count > 0) warnings.push("关系、场景引用和批注会保留 30 天，恢复后继续可用。");
+    if (projectResources.count + globalResources.count > 0) warnings.push("附件会保留 30 天，到期后才永久删除。");
+    return {
+      title: card.title,
+      childVolumeCount: 0,
+      childChapterCount: 0,
+      childSceneCount: 0,
+      relatedCardCount: relations.count,
+      resourceCount: projectResources.count + globalResources.count,
+      linkedProjectCount: linkedProjectIds.length,
+      sceneReferenceCount,
+      annotationCount: annotations.count,
+      approxChars: 0,
+      warnings
+    };
+  }
   watch(scope: CreationWatchScope, listener: CreationWorkspaceListener): () => void {
     this.assertOpen();
     const runtimeScope = scope as unknown as { projectId?: unknown } | null;
@@ -5544,7 +6539,8 @@ else {
 
   private emitCommitted(event: CreationWorkspaceEvent): void {
     for (const { scope, listener } of this.watchers.values()) {
-      if (scope.projectId !== undefined && scope.projectId !== event.projectId) continue;
+      // projectId=null 表示全局实体发生变化，所有项目作用域都必须立即失效刷新。
+      if (scope.projectId !== undefined && event.projectId !== null && scope.projectId !== event.projectId) continue;
       try {
         listener(event);
       } catch {
@@ -5561,10 +6557,14 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
   let database: Database | undefined;
   try {
     await mkdir(options.directory, { recursive: true });
-    database = new Database(path.join(options.directory, "workspace.sqlite"));
-    database.pragma("journal_mode = WAL");
-    database.pragma("foreign_keys = ON");
-    database.pragma("synchronous = FULL");
+    const databasePath = path.join(options.directory, "workspace.sqlite");
+    const configureDatabase = (target: Database): void => {
+      target.pragma("journal_mode = WAL");
+      target.pragma("foreign_keys = ON");
+      target.pragma("synchronous = FULL");
+    };
+    database = new Database(databasePath);
+    configureDatabase(database);
     const existingVersion = Number(database.pragma("user_version", { simple: true }));
     if (existingVersion === 0) initializeSchema(database);
     else if (existingVersion === 1) {
@@ -5610,11 +6610,57 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV7ToV8(database);
       migrateSchemaV8ToV9(database);
     } else if (existingVersion === 8) migrateSchemaV8ToV9(database);
-    else if (existingVersion !== SCHEMA_VERSION) {
+    else if (existingVersion !== 9 && existingVersion !== GLOBAL_CARD_SCHEMA_VERSION && existingVersion !== SCHEMA_VERSION) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }
+
+    const versionAfterLegacyMigrations = Number(database.pragma("user_version", { simple: true }));
+    if (options.testOnlyTargetSchemaVersion === 9) {
+      if (versionAfterLegacyMigrations !== 9) {
+        throw new CreationWorkspaceError("integrity", "测试夹具只能停留在 schema v9。");
+      }
+    } else if (versionAfterLegacyMigrations === 9) {
+      // 新建空库不需要可恢复备份；任何既有库（含从 v1..v8 逐级升到 v9 的库）
+      // 都先 checkpoint/close，再创建带哈希清单的目录级快照，成功后才进入 v10 事务。
+      let backupRoot: string | null = null;
+      if (existingVersion !== 0) {
+        database.pragma("wal_checkpoint(TRUNCATE)");
+        database.close();
+        database = undefined;
+        const backup = await createV9MigrationBackup(options.directory, {
+          failBackup: options.testOnlyFailV9ToV10Backup === true
+        });
+        backupRoot = backup.backupRoot;
+        database = new Database(databasePath);
+        configureDatabase(database);
+      }
+      migrateGlobalCardsV9ToV10(database, backupRoot, {
+        failAfterLinkBackfill: options.testOnlyFailV9ToV10AfterLinkBackfill === true
+      });
+    }
+    if (
+      options.testOnlyTargetSchemaVersion !== 9 &&
+      Number(database.pragma("user_version", { simple: true })) === GLOBAL_CARD_SCHEMA_VERSION &&
+      needsGlobalCardSchemaRepair(database)
+    ) {
+      database.pragma("wal_checkpoint(TRUNCATE)");
+      database.close();
+      database = undefined;
+      const backup = await createGlobalCardSchemaRepairBackup(options.directory);
+      database = new Database(databasePath);
+      configureDatabase(database);
+      repairGlobalCardSchemaV10(database, backup.backupRoot);
+    }
+    if (
+      options.testOnlyTargetSchemaVersion !== 9 &&
+      Number(database.pragma("user_version", { simple: true })) === GLOBAL_CARD_SCHEMA_VERSION
+    ) {
+      migrateSchemaV10ToV11(database);
+    }
+    if (options.testOnlyTargetSchemaVersion !== 9) ensureGlobalCardResourceSchema(database);
     try {
       purgeExpiredTrash(database);
+      await drainGlobalCardResourceGc(database, options.directory);
     } catch {
       // 到期清理失败不应阻止工作区打开
     }

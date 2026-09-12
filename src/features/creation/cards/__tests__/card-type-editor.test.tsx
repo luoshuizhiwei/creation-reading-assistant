@@ -130,6 +130,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     const customType: CardType = {
       id: "type-magic",
       projectId: "p1",
+      builtIn: false,
       kind: "custom_magic",
       name: "功法",
       fields: [{ key: "grade", label: "品阶", kind: "text" }],
@@ -169,6 +170,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     const customType: CardType = {
       id: "type-unused",
       projectId: "p1",
+      builtIn: false,
       kind: "custom_unused",
       name: "未使用类型",
       fields: [],
@@ -196,6 +198,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
     const customType: CardType = {
       id: "type-used",
       projectId: "p1",
+      builtIn: false,
       kind: "custom_used",
       name: "被引用类型",
       fields: [],
@@ -204,12 +207,12 @@ describe("CardTypeEditor 自定义卡片类型", () => {
       updatedAt: "",
       revision: 2
     };
-    const builtinType = { ...customType, id: "type-builtin", projectId: null, kind: "character", name: "角色" };
+    const builtinType = { ...customType, id: "type-builtin", projectId: null, builtIn: true, kind: "character", name: "角色" };
     const card = {
       id: "card-1", projectId: "p1", kind: "custom_used", title: "卡片", aliases: [], fields: {}, tags: [], createdAt: "", updatedAt: "", revision: 1
     } satisfies CardSummary;
     const relationType = {
-      id: "rel-type", projectId: "p1", name: "rel", forwardName: "关联", reverseName: "被关联", fromKinds: ["custom_used"], toKinds: [], createdAt: "", updatedAt: "", revision: 1
+      id: "rel-type", projectId: "p1", builtIn: false, name: "rel", forwardName: "关联", reverseName: "被关联", fromKinds: ["custom_used"], toKinds: [], createdAt: "", updatedAt: "", revision: 1
     } satisfies RelationType;
     render(<CardTypeEditor projectId="p1" cardTypes={[customType, builtinType]} cards={[card]} relationTypes={[relationType]} onClose={() => {}} />);
 
@@ -223,7 +226,7 @@ describe("CardTypeEditor 自定义卡片类型", () => {
   it("更新失败时保留编辑内容与错误提示", async () => {
     actions.updateCardType.mockResolvedValue(false);
     const customType: CardType = {
-      id: "type-fail", projectId: "p1", kind: "custom_fail", name: "旧名称", fields: [], sortOrder: 8, createdAt: "", updatedAt: "", revision: 3
+      id: "type-fail", projectId: "p1", builtIn: false, kind: "custom_fail", name: "旧名称", fields: [], sortOrder: 8, createdAt: "", updatedAt: "", revision: 3
     };
     render(<CardTypeEditor projectId="p1" cardTypes={[customType]} cards={[]} relationTypes={[]} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "编辑旧名称" }));

@@ -33,7 +33,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const report = await workspace.check();
     assert.equal(report.ok, true);
-    assert.equal(report.schemaVersion, 9);
+    assert.equal(report.schemaVersion, 11);
 
     await scenario("准备项目：写入带汉字/标点/字母的正文", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "统计测试项目" });
@@ -272,12 +272,12 @@ async function run(): Promise<void> {
       assert.equal(checked.counts.sessions, 5);
     });
 
-    await scenario("新开数据库迁移到 v9 且会话表存在", async () => {
+    await scenario("重开数据库保持 v11 且会话表存在", async () => {
       await workspace!.close();
       workspace = await openCreationWorkspace({ directory });
       const checked = await workspace!.check();
       assert.equal(checked.ok, true);
-      assert.equal(checked.schemaVersion, 9);
+      assert.equal(checked.schemaVersion, 11);
       assert.equal(checked.counts.sessions, 5);
     });
 

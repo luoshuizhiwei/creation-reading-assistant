@@ -15,7 +15,11 @@
 import { ipcMain, type IpcMainInvokeEvent, type WebContents } from "electron";
 import type { OperationCoordinator } from "./coordinator";
 import type { OperationState as CoordinatorOperationState } from "./types";
-import type { ProjectBundleData } from "../../../src/types/creation";
+import type {
+  ProjectBundleCardResolution,
+  ProjectBundleData,
+  ProjectBundleImportPreview
+} from "../../../src/types/creation";
 import type { OperationState, OperationStartRequest } from "../../../src/types/operation";
 import {
   runBackupCreate,
@@ -33,6 +37,8 @@ import type { BackupManifest } from "../backup";
 /** index.ts 提供的编排原语，封装对话框 / 路径 / 设置回写等主进程副作用。 */
 export interface OperationOrchestrator {
   resolveDataRoot: () => string;
+  /** 创作工作区根目录（<dataRoot>/CreationWorkspace），与备份使用的数据根分开。 */
+  resolveCreationWorkspaceRoot: () => string;
   resolveLibraryRoot: () => string;
   appVersion: string;
   platform: string;
@@ -44,8 +50,8 @@ export interface OperationOrchestrator {
   prepareBackupRestore: () => Promise<{ backupRoot: string; manifest: BackupManifest } | null>;
   /** 恢复成功后回写存储设置并标记需重启。 */
   finalizeBackupRestore: (manifest: BackupManifest, backupRoot: string) => Promise<void>;
-  /** 选择项目包导入目录；取消返回 null。 */
-  pickBundleImportDirectory: () => Promise<string | null>;
+  /** 选择项目包并完成只读稳定 ID 冲突确认；取消返回 null。 */
+  prepareBundleImport: () => Promise<{ workspaceDirectory: string; bundleDirectory: string; cardResolutions: ProjectBundleCardResolution[] } | null>;
   /** 打开工作区读取导出数据并选择目标目录；取消返回 null。 */
   prepareBundleExport: (projectId: string) => Promise<{ workspaceDirectory: string; data: ProjectBundleData; targetDirectory: string } | null>;
   /** 选择加密备份容器保存路径（.crbackup）；返回目标文件、外置资料库标记与时间戳；取消返回 null。 */
@@ -56,6 +62,8 @@ export interface OperationOrchestrator {
   prepareBundleExportEncrypted: (projectId: string) => Promise<{ workspaceDirectory: string; data: ProjectBundleData; targetFile: string } | null>;
   /** 选择加密项目包容器文件（.crbundle）；取消返回 null。 */
   prepareBundleImportEncrypted: () => Promise<{ containerFile: string } | null>;
+  /** 加密包解密并只读预检后，逐项收集稳定 ID 处理；取消返回 null。 */
+  resolveBundleCardConflicts: (preview: ProjectBundleImportPreview) => Promise<ProjectBundleCardResolution[] | null>;
   /**
    * 关闭创作工作区连接后执行（保护正在使用的 appData / SQLite 不被破坏），
    * 由 index.ts 桥接到 creationCoordinator.withWorkspaceClosed。
@@ -142,11 +150,12 @@ export function registerOperationIpc(coordinator: OperationCoordinator, orchestr
         break;
       }
       case "bundle.import": {
-        const bundleDirectory = await orchestrator.pickBundleImportDirectory();
-        if (!bundleDirectory) return null;
+        const prepared = await orchestrator.prepareBundleImport();
+        if (!prepared) return null;
         started = runBundleImport(coordinator, {
-          workspaceDirectory: orchestrator.resolveDataRoot(),
-          bundleDirectory
+          workspaceDirectory: prepared.workspaceDirectory,
+          bundleDirectory: prepared.bundleDirectory,
+          cardResolutions: prepared.cardResolutions
         }, orchestrator.withWorkspaceClosed);
         break;
       }
@@ -197,16 +206,17 @@ export function registerOperationIpc(coordinator: OperationCoordinator, orchestr
         const prepared = await orchestrator.prepareBundleImportEncrypted();
         if (!prepared) return null;
         started = runBundleImportEncrypted(coordinator, {
-          workspaceDirectory: orchestrator.resolveDataRoot(),
+          workspaceDirectory: orchestrator.resolveCreationWorkspaceRoot(),
           containerFile: prepared.containerFile,
-          passphrase: request.passphrase
+          passphrase: request.passphrase,
+          resolveCardResolutions: orchestrator.resolveBundleCardConflicts
         }, orchestrator.withWorkspaceClosed);
         break;
       }
       case "resource.scan": {
         const result = coordinator.start("resource.scan", (controller) =>
           scanResourceConsistencyCore({
-            workspaceDirectory: orchestrator.resolveDataRoot(),
+            workspaceDirectory: orchestrator.resolveCreationWorkspaceRoot(),
             operation: controller
           })
         );

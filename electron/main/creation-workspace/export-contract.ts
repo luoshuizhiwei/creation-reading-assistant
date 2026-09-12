@@ -159,6 +159,38 @@ async function run(): Promise<void> {
       assert.equal(buildDraftExport(view, undefined), null);
     });
 
+    await scenario("Markdown 大纲导出包含汇总、摘要、场景状态和目标但不含正文", async () => {
+      const created = await workspace!.transact({ type: "project.create", title: "大纲导出" });
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: created.sceneId,
+        baseRevision: 1,
+        body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "不得进入大纲的正文。" }] }] }
+      });
+      await workspace!.transact({
+        type: "scene.updatePlanning",
+        sceneId: created.sceneId,
+        baseRevision: 2,
+        planning: { targetWords: 1200 }
+      });
+      await workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: created.sceneId,
+        baseRevision: 2,
+        summary: "雨夜线索推动主角改变计划。",
+        status: "drafting"
+      });
+      const view = (await workspace!.read({ kind: "project.export", projectId: created.projectId })) as ProjectExportView;
+      assert.equal(view.wordCount, 10, JSON.stringify(view));
+      assert.equal(view.volumes[0]?.wordCount, 10, JSON.stringify(view));
+      const outline = buildDraftExport(view, "outline-markdown");
+      assert.equal(outline?.text.includes("全书 10 字"), true, outline?.text);
+      assert.equal(outline?.text.includes("起草中"), true, outline?.text);
+      assert.equal(outline?.text.includes("雨夜线索推动主角改变计划。"), true, outline?.text);
+      assert.equal(outline?.text.includes("目标 1,200 字"), true, outline?.text);
+      assert.equal(outline?.text.includes("不得进入大纲的正文。"), false, outline?.text);
+    });
+
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
     await workspace?.close();

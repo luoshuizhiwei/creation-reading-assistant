@@ -170,13 +170,13 @@ const defaultSetup = {
 async function run(): Promise<void> {
   const base = await mkdtemp(path.join(os.tmpdir(), "creation-project-shell-"));
   try {
-    await test("v1 schema migrates atomically to v3 preserving data", async () => {
+    await test("v1 schema migrates atomically to v11 preserving data", async () => {
       const directory = path.join(base, "migrate-v1");
       await mkdir(directory, { recursive: true });
       createV1Workspace(directory);
       const workspace = await openCreationWorkspace({ directory });
       const report = await workspace.check();
-      assert.equal(report.schemaVersion, 9);
+      assert.equal(report.schemaVersion, 11);
       const list = (await workspace.read({ kind: "projects.list" })) as CreationProjectSummary[];
       assert.equal(list.length, 1);
       assert.equal(list[0].id, "project-v1");
@@ -190,7 +190,7 @@ async function run(): Promise<void> {
       assert.deepEqual(tree?.project.setup, defaultSetup);
       await workspace.close();
       const raw = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(raw.pragma("user_version", { simple: true })), 9);
+      assert.equal(Number(raw.pragma("user_version", { simple: true })), 11);
       const columns = raw.prepare("PRAGMA table_info(projects)").all() as Array<{ name: string }>;
       assert.equal(columns.some((column) => column.name === "setup_json"), true);
       raw.close();

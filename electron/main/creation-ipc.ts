@@ -7,6 +7,7 @@ import { isCreationRunCommandType } from "../../src/types/creation";
 import type {
   CardRelation,
   CardSummary,
+  CardLinkResult,
   CardType,
   CardsListQuery,
   CreateProjectInput,
@@ -282,9 +283,13 @@ function assertTrashImpactQuery(value: unknown): TrashImpactQuery {
   if (entity !== "volume" && entity !== "chapter" && entity !== "scene" && entity !== "card") {
     throw new CreationWorkspaceError("invalid-input", "回收站实体类型无效。");
   }
+  const projectId = query.projectId === undefined ? undefined : assertRequiredText(query.projectId, "作品 ID");
+  if (!projectId && entity !== "card") {
+    throw new CreationWorkspaceError("invalid-input", "项目回收站影响请求必须提供作品 ID。");
+  }
   return {
     kind: "trash.impact",
-    projectId: assertRequiredText(query.projectId, "作品 ID"),
+    projectId,
     entity,
     entityId: assertRequiredText(query.entityId, "实体 ID")
   };
@@ -410,15 +415,26 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "card.read", cardId }))
   );
 
-  ipcMain.handle("creation:cardTypesList", (_event, projectId: string) =>
-    coordinator.withWorkspace((workspace) => workspace.read({ kind: "cardTypes.list", projectId }) as Promise<CardType[]>)
+  ipcMain.handle("creation:cardTypesList", () =>
+    coordinator.withWorkspace((workspace) => workspace.read({ kind: "cardTypes.list" }) as Promise<CardType[]>)
   );
 
-  ipcMain.handle("creation:relationTypesList", (_event, projectId: string) =>
+  ipcMain.handle("creation:relationTypesList", () =>
     coordinator.withWorkspace(
-      (workspace) => workspace.read({ kind: "relationTypes.list", projectId }) as Promise<RelationType[]>
+      (workspace) => workspace.read({ kind: "relationTypes.list" }) as Promise<RelationType[]>
     )
   );
+
+  const runCardLink = (link: boolean, input: unknown): Promise<CardLinkResult> => {
+    const request = assertRecord(input, "卡片关联请求");
+    const projectId = assertRequiredText(request.projectId, "作品 ID");
+    const cardId = assertRequiredText(request.cardId, "卡片 ID");
+    return coordinator.withWorkspace(
+      (workspace) => workspace.transact({ type: link ? "card.link" : "card.unlink", projectId, cardId }) as Promise<CardLinkResult>
+    );
+  };
+  ipcMain.handle("creation:cardLink", (_event, input: unknown) => runCardLink(true, input));
+  ipcMain.handle("creation:cardUnlink", (_event, input: unknown) => runCardLink(false, input));
 
   ipcMain.handle("creation:cardRelations", (_event, cardId: string) =>
     coordinator.withWorkspace(
@@ -427,7 +443,7 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     )
   );
 
-  ipcMain.handle("creation:trashList", (_event, projectId: string) =>
+  ipcMain.handle("creation:trashList", (_event, projectId?: string) =>
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "trash.list", projectId }))
   );
 
@@ -539,14 +555,16 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     coordinator.withWorkspace((workspace) => workspace.read(query as ResourceListQuery) as Promise<ResourceInfo[]>)
   );
 
-  ipcMain.handle("creation:attachResource", async (event, input: { projectId?: unknown; cardId?: unknown }) => {
+  ipcMain.handle("creation:attachResource", async (event, input: { projectId?: unknown; cardId?: unknown; role?: unknown }) => {
     const projectId = typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
     const cardId = typeof input?.cardId === "string" && input.cardId.trim() ? input.cardId : undefined;
-    if (!projectId) throw new CreationWorkspaceError("invalid-input", "作品读取请求无效。");
+    const role = input?.role === "cover" ? "cover" : "attachment";
+    if (!projectId && !cardId) throw new CreationWorkspaceError("invalid-input", "附件必须归属作品或全局卡片。");
     const parent = BrowserWindow.fromWebContents(event.sender);
     const options = {
-      title: "选择附件",
-      properties: ["openFile" as const]
+      title: role === "cover" ? "选择卡片封面" : "选择附件",
+      properties: ["openFile" as const],
+      ...(role === "cover" ? { filters: [{ name: "图片", extensions: ["png", "jpg", "jpeg", "webp", "gif"] }] } : {})
     };
     const { canceled, filePaths } = parent ? await dialog.showOpenDialog(parent, options) : await dialog.showOpenDialog(options);
     if (canceled || filePaths.length === 0) return { canceled: true, resource: null };
@@ -558,7 +576,8 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     const buffer = await readFile(sourcePath);
     const sha256 = createHash("sha256").update(buffer).digest("hex");
     const fileName = path.basename(sourcePath);
-    const relativePath = `resources/${projectId}/${randomUUID()}-${fileName}`;
+    const ownerPath = projectId ? projectId : `cards/${cardId}`;
+    const relativePath = `resources/${ownerPath}/${randomUUID()}-${fileName}`;
     const targetPath = path.join(context.resolveDataRoot(), "CreationWorkspace", relativePath);
     await mkdir(path.dirname(targetPath), { recursive: true });
     await writeFile(targetPath, buffer);
@@ -566,8 +585,9 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
       const result = await coordinator.withWorkspace((workspace) =>
         workspace.transact({
           type: "resource.attach",
-          projectId,
+          projectId: projectId || undefined,
           cardId,
+          role,
           relativePath,
           sha256,
           size: buffer.length,
@@ -671,9 +691,10 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     const built = buildDraftExport(view, preset);
     if (!built) throw new CreationWorkspaceError("invalid-input", "导出预设无效。");
     const meta = DRAFT_EXPORT_PRESET_META[built.preset];
+    const isOutline = built.preset === "outline-markdown";
     const options = {
-      title: `导出成稿（${meta.label}）`,
-      defaultPath: `${view.title}.${built.extension}`,
+      title: isOutline ? "导出 Markdown 大纲" : `导出成稿（${meta.label}）`,
+      defaultPath: `${view.title}${isOutline ? "-大纲" : ""}.${built.extension}`,
       filters: [{ name: meta.extension === "md" ? "Markdown 文档" : "文本文件", extensions: [built.extension] }]
     };
     const parent = BrowserWindow.fromWebContents(event.sender);

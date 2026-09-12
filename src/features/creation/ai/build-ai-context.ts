@@ -8,7 +8,7 @@ import type { Annotation, CardSummary, CardType, ScenePlanning } from "@/types/c
  * 纯函数、无 IPC、无 AI 调用——调用方（确认对话框 / 写作台 AI 入口）只消费预览与合成结果。
  */
 
-export type AiContextGroupId = "body" | "planning" | "cards" | "annotations";
+export type AiContextGroupId = "body" | "planning" | "cards" | "quick-reference" | "annotations";
 
 export interface AiContextGroup {
   id: AiContextGroupId;
@@ -36,6 +36,8 @@ export interface AiContextPackInput {
   planning?: ScenePlanning | null;
   /** 与场景相关的卡片（任务卡引用 + 批注关联）。 */
   cards: CardSummary[];
+  /** 用户在写作速查中显式打开的卡片，单列成可排除上下文组。 */
+  quickReferenceCards?: CardSummary[];
   cardTypes?: CardType[];
   annotations: Annotation[];
 }
@@ -78,7 +80,7 @@ function annotationsText(annotations: Annotation[], cardTitleOf: (cardId: string
 }
 
 export function buildAiContextPack(input: AiContextPackInput): AiContextPack {
-  const { sceneTitle, sceneBodyText, planning, cards, cardTypes = [], annotations } = input;
+  const { sceneTitle, sceneBodyText, planning, cards, quickReferenceCards = [], cardTypes = [], annotations } = input;
   const titleOf = (cardId: string | null | undefined): string | null =>
     cardId ? cards.find((card) => card.id === cardId)?.title ?? "已删除卡片" : null;
   const typeNameOf = (kind: string): string => cardTypes.find((type) => type.kind === kind)?.name ?? kind;
@@ -97,7 +99,11 @@ export function buildAiContextPack(input: AiContextPackInput): AiContextPack {
     .filter(Boolean);
   push("body", `正文 · ${sceneTitle}`, bodyLines);
   if (planning) push("planning", "任务卡", planningText(planning, titleOf));
-  if (cards.length > 0) push("cards", "关联卡片", cardsText(cards, typeNameOf));
+  const explicitQuickCards = [...new Map(quickReferenceCards.map((card) => [card.id, card])).values()];
+  const explicitQuickIds = new Set(explicitQuickCards.map((card) => card.id));
+  const remainingRelatedCards = cards.filter((card) => !explicitQuickIds.has(card.id));
+  if (remainingRelatedCards.length > 0) push("cards", "关联卡片", cardsText(remainingRelatedCards, typeNameOf));
+  if (explicitQuickCards.length > 0) push("quick-reference", "写作速查卡片", cardsText(explicitQuickCards, typeNameOf));
   if (annotations.length > 0) push("annotations", "批注", annotationsText(annotations, titleOf));
 
   return {

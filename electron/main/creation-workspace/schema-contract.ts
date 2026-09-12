@@ -125,7 +125,7 @@ async function run(): Promise<void> {
       try {
         const report = await workspace.check();
         assert.equal(report.ok, true);
-        assert.equal(report.schemaVersion, 9);
+        assert.equal(report.schemaVersion, 11);
         const list = (await workspace.read({ kind: "projects.list" })) as Array<{ title: string }>;
         assert.equal(list.some((project) => project.title === "旧项目v1"), true);
         const tree = await workspace.read({ kind: "project.tree", projectId: "project-v1" });
@@ -141,10 +141,13 @@ async function run(): Promise<void> {
         await workspace.close();
       }
       const reopened = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(reopened.pragma("user_version", { simple: true })), 9);
+      assert.equal(Number(reopened.pragma("user_version", { simple: true })), 11);
+      const sceneColumns = new Set((reopened.prepare("PRAGMA table_info(scenes)").all() as Array<{ name: string }>).map((column) => column.name));
+      assert.equal(sceneColumns.has("summary"), true);
+      assert.equal(sceneColumns.has("scene_status"), true);
       const requiredTables = [
         "projects", "volumes", "chapters", "scenes", "cards", "card_types",
-        "relation_types", "card_relations", "resources", "snapshots", "change_log",
+        "relation_types", "card_relations", "project_card_links", "resources", "snapshots", "change_log",
         "writing_sessions", "inbox_items", "annotations", "scenes_fts"
       ];
       for (const table of requiredTables) {
@@ -154,6 +157,26 @@ async function run(): Promise<void> {
       const cardTypes = reopened.prepare("SELECT count(*) AS count FROM card_types").get() as { count: number };
       assert.equal(cardTypes.count, 8);
       reopened.close();
+    });
+
+    await scenario("v10 增量升级到 v11：既有场景获得安全默认摘要与场景状态", async () => {
+      const directory = path.join(parent, "v10-to-v11");
+      await mkdir(directory, { recursive: true });
+      const prepared = await openCreationWorkspace({ directory });
+      const created = await prepared.transact({ type: "project.create", title: "v10 项目" });
+      await prepared.close();
+      const raw = new Database(path.join(directory, "workspace.sqlite"));
+      raw.exec("ALTER TABLE scenes DROP COLUMN summary; ALTER TABLE scenes DROP COLUMN scene_status; PRAGMA user_version = 10;");
+      raw.close();
+
+      const migrated = await openCreationWorkspace({ directory });
+      const report = await migrated.check();
+      assert.equal(report.schemaVersion, 11);
+      const outline = await migrated.read({ kind: "project.outline", projectId: created.projectId });
+      const scene = outline?.volumes[0]?.chapters[0]?.scenes[0];
+      assert.equal(scene?.summary, "");
+      assert.equal(scene?.status, "planned");
+      await migrated.close();
     });
 
     await scenario("未知更高版本拒绝打开（禁止 destructive fallback）", async () => {
@@ -177,23 +200,21 @@ async function run(): Promise<void> {
       const raw = new Database(path.join(directory, "workspace.sqlite"));
       raw.exec("CREATE TABLE projects (id TEXT PRIMARY KEY); PRAGMA user_version = 4;");
       raw.close();
-      // v4 库缺 volumes/chapters/scenes 等表：打开可成功（迁移只补新表），但完整性检查必须暴露缺失
-      const workspace = await openCreationWorkspace({ directory }) as CreationWorkspace;
+      // v4 库缺 volumes/chapters/scenes/cards 等表：v10 激活前必须直接拒绝，
+      // 不能把残缺库标成最新版本或留下半张 project_card_links 表。
+      let error: unknown;
       try {
-        let exposed = false;
-        try {
-          const report = await workspace.check();
-          exposed = !report.ok && report.schema.issues.some((issue) => issue.code === "schema-table-missing");
-        } catch {
-          // check 对缺失表直接抛 integrity 同样视为暴露
-          exposed = true;
-        }
-        assert.equal(exposed, true);
-      } finally {
-        await workspace.close();
+        await openCreationWorkspace({ directory });
+      } catch (caught) {
+        error = caught;
       }
+      assert.equal((error as { code?: string }).code, "integrity");
       const after = new Database(path.join(directory, "workspace.sqlite"));
       assert.equal(Number(after.pragma("user_version", { simple: true })), 9);
+      assert.equal(
+        after.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'project_card_links'").get(),
+        undefined
+      );
       after.close();
     });
 

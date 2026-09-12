@@ -18,8 +18,8 @@ function card(id: string, title: string, kind = "character", fields: Record<stri
 }
 
 const cardTypes: CardType[] = [
-  { id: "t1", projectId: null, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 },
-  { id: "t2", projectId: null, kind: "foreshadow", name: "伏笔线索", fields: [], sortOrder: 6, createdAt: "", updatedAt: "", revision: 1 }
+  { id: "t1", projectId: null, builtIn: true, kind: "character", name: "角色", fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 },
+  { id: "t2", projectId: null, builtIn: true, kind: "foreshadow", name: "伏笔线索", fields: [], sortOrder: 6, createdAt: "", updatedAt: "", revision: 1 }
 ];
 
 function annotation(partial: Partial<Annotation> & { id: string; note: string }): Annotation {
@@ -114,5 +114,18 @@ describe("buildAiContextPack", () => {
     expect(planning.content).toContain("视角：已删除卡片");
     const cardsGroup = pack.groups.find((group) => group.id === "cards")!;
     expect(cardsGroup.content).toContain("【item】道具");
+  });
+
+  it("速查中显式打开的卡片始终形成独立可排除组，并从普通关联组去重", () => {
+    const pack = buildAiContextPack({
+      ...base,
+      quickReferenceCards: [base.cards[0], card("quick", "北关", "location")]
+    });
+    const quick = pack.groups.find((group) => group.id === "quick-reference")!;
+    expect(quick.label).toBe("写作速查卡片");
+    expect(quick.content).toContain("北关");
+    expect(quick.content).toContain("林晚");
+    expect(pack.groups.find((group) => group.id === "cards")!.content).not.toContain("林晚");
+    expect(pack.compose(new Set(["quick-reference"]))).not.toContain("北关");
   });
 });

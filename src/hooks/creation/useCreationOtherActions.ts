@@ -44,7 +44,7 @@ export function useCreationOtherActions() {
   const setError = useAppStore((state) => state.setError);
 
   const loadTrash = useCallback(
-    async (projectId: string) => {
+    async (projectId?: string) => {
       const res = await executeAction(() => trashList(projectId), { setError });
       return res ?? [];
     },
@@ -52,7 +52,7 @@ export function useCreationOtherActions() {
   );
 
   const restoreTrash = useCallback(
-    async (projectId: string, entity: TrashEntityKind, entityId: string): Promise<boolean> => {
+    async (projectId: string | undefined, entity: TrashEntityKind, entityId: string): Promise<boolean> => {
       return executeBoolAction(
         () => runStructureRequest({ type: "trash.restore", projectId, entity, entityId }),
         { setError }
@@ -62,7 +62,7 @@ export function useCreationOtherActions() {
   );
 
   const purgeTrash = useCallback(
-    async (projectId: string, entity: TrashEntityKind, entityId: string): Promise<boolean> => {
+    async (projectId: string | undefined, entity: TrashEntityKind, entityId: string): Promise<boolean> => {
       return executeBoolAction(
         () => runStructureRequest({ type: "trash.purge", projectId, entity, entityId }),
         { setError }
@@ -91,8 +91,8 @@ export function useCreationOtherActions() {
   );
 
   const attachResource = useCallback(
-    async (projectId: string, cardId?: string): Promise<{ canceled: boolean; resource: ResourceResult | null }> => {
-      const res = await executeAction(() => attachResourceRequest(projectId, cardId), { setError });
+    async (projectId: string | undefined, cardId?: string, role?: "attachment" | "cover"): Promise<{ canceled: boolean; resource: ResourceResult | null }> => {
+      const res = await executeAction(() => attachResourceRequest(projectId, cardId, role), { setError });
       return res ?? { canceled: true, resource: null };
     },
     [setError]

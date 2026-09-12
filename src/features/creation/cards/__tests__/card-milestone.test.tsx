@@ -70,7 +70,7 @@ function makeCard(projectId: string, id: string, kind: string, title: string): C
 }
 
 function makeType(id: string, kind: string, name: string): CardType {
-  return { id, projectId: null, kind, name, fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 };
+  return { id, projectId: null, builtIn: true, kind, name, fields: [], sortOrder: 0, createdAt: "", updatedAt: "", revision: 1 };
 }
 
 const p1 = makeProject("p1", "项目A");

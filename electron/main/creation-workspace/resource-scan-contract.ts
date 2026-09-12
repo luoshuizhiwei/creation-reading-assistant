@@ -14,11 +14,18 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { openCreationWorkspace, scanResourceConsistencyCore } from "./index";
+import {
+  assertV9AttachmentFiles,
+  assertV9BaselineReadable,
+  seedV9Baseline,
+  type V9Baseline
+} from "./v9-baseline-fixture";
 
-async function seedWorkspace(parent: string): Promise<{ workspaceDir: string; resourceRel: string; projectId: string }> {
+async function seedWorkspace(parent: string): Promise<{ workspaceDir: string; resourceRel: string; projectId: string; cardId: string }> {
   const workspaceDir = path.join(parent, `ws-${randomUUID()}`);
   let resourceRel = "";
   let projectId = "";
+  let cardId = "";
   const workspace = await openCreationWorkspace({ directory: workspaceDir });
   try {
     const created = (await workspace.transact({
@@ -33,6 +40,7 @@ async function seedWorkspace(parent: string): Promise<{ workspaceDir: string; re
       kind: "character",
       title: "角色"
     })) as { entityId: string };
+    cardId = card.entityId;
     const content = Buffer.from("资源-内容-20260814", "utf8");
     resourceRel = `resources/${created.projectId}/${randomUUID()}-材料.pdf`;
     await mkdir(path.dirname(path.join(workspaceDir, resourceRel)), { recursive: true });
@@ -49,7 +57,7 @@ async function seedWorkspace(parent: string): Promise<{ workspaceDir: string; re
   } finally {
     await workspace.close();
   }
-  return { workspaceDir, resourceRel, projectId };
+  return { workspaceDir, resourceRel, projectId, cardId };
 }
 
 function rawInsert(workspaceDir: string, row: { id: string; projectId: string; relativePath: string; sha256: string; size: number }): void {
@@ -104,6 +112,35 @@ async function run(): Promise<number> {
       assert.equal(result.issues.length, 0);
       assert.equal(result.scannedRecordCount >= 1, true);
       assert.equal(result.scannedFileCount >= 1, true);
+    });
+
+    await scenario("全局卡片资产参与物理文件一致性扫描", async () => {
+      const { workspaceDir, cardId } = await seedWorkspace(parent);
+      const content = Buffer.from("全局卡片封面-20260911", "utf8");
+      const globalRel = `resources/cards/${cardId}/${randomUUID()}-cover.png`;
+      await mkdir(path.dirname(path.join(workspaceDir, globalRel)), { recursive: true });
+      await writeFile(path.join(workspaceDir, globalRel), content);
+      const workspace = await openCreationWorkspace({ directory: workspaceDir });
+      try {
+        await workspace.transact({
+          type: "resource.attach",
+          cardId,
+          role: "cover",
+          relativePath: globalRel,
+          sha256: createHash("sha256").update(content).digest("hex"),
+          size: content.length,
+          originalName: "cover.png"
+        });
+      } finally {
+        await workspace.close();
+      }
+
+      const healthy = await scanResourceConsistencyCore({ workspaceDirectory: workspaceDir });
+      assert.equal(healthy.issues.length, 0);
+      assert.equal(healthy.scannedRecordCount >= 2, true);
+      await rm(path.join(workspaceDir, globalRel), { force: true });
+      const missing = await scanResourceConsistencyCore({ workspaceDirectory: workspaceDir });
+      assert.equal(missing.issues.some((issue) => issue.type === "file-missing" && issue.relativePath === globalRel), true);
     });
 
     await scenario("缺失文件：记录存在但文件缺失 → file-missing", async () => {
@@ -229,6 +266,37 @@ async function run(): Promise<number> {
         assert.equal(path.isAbsolute(issue.relativePath), false);
         assert.equal(issue.message.includes(workspaceDir), false);
       }
+    });
+
+    await scenario("v9 双项目基线：真实附件与 DB 记录完全一致 → 零问题；关闭重开后仍成立", async () => {
+      const workspaceDir = path.join(parent, `ws-v9-${randomUUID()}`);
+      let baseline: V9Baseline | undefined;
+      const seeding = await openCreationWorkspace({ directory: workspaceDir, testOnlyTargetSchemaVersion: 9 });
+      try {
+        // 夹具写入 A / B 各自的真实附件文件（仅限 resources/<projectId>/ 下）。
+        baseline = await seedV9Baseline(seeding, { workspaceDirectory: workspaceDir });
+      } finally {
+        await seeding.close();
+      }
+
+      const first = await scanResourceConsistencyCore({ workspaceDirectory: workspaceDir });
+      assert.equal(first.issues.length, 0, `双项目基线应零问题，实际：${JSON.stringify(first.issues)}`);
+      assert.equal(first.scannedRecordCount >= 2, true, "应至少扫描到 A / B 两条附件记录");
+      assert.equal(first.scannedFileCount >= 2, true, "应至少扫描到 A / B 两个附件文件");
+
+      // 关闭 → 重开：数据与文件都必须是落盘态，而非内存态。
+      const reopened = await openCreationWorkspace({ directory: workspaceDir, testOnlyTargetSchemaVersion: 9 });
+      try {
+        await assertV9BaselineReadable(reopened, baseline!);
+      } finally {
+        await reopened.close();
+      }
+      await assertV9AttachmentFiles(workspaceDir, baseline!);
+
+      const second = await scanResourceConsistencyCore({ workspaceDirectory: workspaceDir });
+      assert.equal(second.issues.length, 0, `重开后仍应零问题，实际：${JSON.stringify(second.issues)}`);
+      assert.equal(second.scannedRecordCount, first.scannedRecordCount);
+      assert.equal(second.scannedFileCount, first.scannedFileCount);
     });
 
     return tests;

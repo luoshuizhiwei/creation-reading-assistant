@@ -127,6 +127,21 @@ async function run(): Promise<void> {
         baseRevision: before!.revision,
         body: { type: "doc", content: [{ type: "paragraph", content: [{ type: "text", text: "修改后的稿子" }] }] }
       });
+      let sceneView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
+      await workspace!.transact({
+        type: "scene.updatePlanning",
+        sceneId: created.sceneId,
+        baseRevision: sceneView!.revision,
+        planning: { targetWords: 1200, goal: "完成初稿" }
+      });
+      sceneView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
+      await workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: created.sceneId,
+        baseRevision: sceneView!.revision,
+        summary: "命名快照中的场景摘要",
+        status: "drafting"
+      });
       await workspace!.transact({
         type: "snapshot.create",
         projectId: created.projectId,
@@ -150,6 +165,21 @@ async function run(): Promise<void> {
         baseRevision: after!.revision,
         body: { type: "doc", content: [] }
       });
+      sceneView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
+      await workspace!.transact({
+        type: "scene.updatePlanning",
+        sceneId: created.sceneId,
+        baseRevision: sceneView!.revision,
+        planning: { targetWords: 50, goal: "改坏后的规划" }
+      });
+      sceneView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
+      await workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: created.sceneId,
+        baseRevision: sceneView!.revision,
+        summary: "改坏后的摘要",
+        status: "done"
+      });
       await workspace!.restoreSnapshotWithProtection({
         type: "snapshot.restoreWithProtection",
         projectId: created.projectId,
@@ -158,6 +188,14 @@ async function run(): Promise<void> {
       });
       const bodyView = await workspace!.read({ kind: "scene.body", sceneId: created.sceneId });
       assert.equal(JSON.stringify(bodyView?.body).includes("修改后的稿子"), true);
+      const restoredOutline = await workspace!.read({ kind: "project.outline", projectId: created.projectId });
+      const restoredScene = restoredOutline?.volumes
+        .flatMap((volume) => volume.chapters.flatMap((chapter) => chapter.scenes))
+        .find((scene) => scene.id === created.sceneId);
+      assert.equal(restoredScene?.summary, "命名快照中的场景摘要");
+      assert.equal(restoredScene?.status, "drafting");
+      assert.equal(restoredScene?.planning?.targetWords, 1200);
+      assert.equal(restoredScene?.planning?.goal, "完成初稿");
     });
 
     await scenario("卡片命名快照：恢复标题与字段", async () => {

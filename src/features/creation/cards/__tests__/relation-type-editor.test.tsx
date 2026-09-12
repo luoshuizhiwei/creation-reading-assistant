@@ -75,6 +75,7 @@ function makeType(id: string, kind: string, name: string): CardType {
   return {
     id,
     projectId: null,
+    builtIn: true,
     kind,
     name,
     fields: [],
@@ -106,6 +107,7 @@ describe("RelationTypeEditor 自定义关系类型", () => {
     const customRelationType: RelationType = {
       id: "rt-custom",
       projectId: "p1",
+      builtIn: false,
       name: "rel-stable-key",
       forwardName: "师从",
       reverseName: "师父是",
@@ -142,7 +144,7 @@ describe("RelationTypeEditor 自定义关系类型", () => {
 
   it("无关系实例引用时需二次确认并携带 revision 删除", async () => {
     const customRelationType: RelationType = {
-      id: "rt-unused", projectId: "p1", name: "rel-unused", forwardName: "结识", reverseName: "被结识", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 5
+      id: "rt-unused", projectId: "p1", builtIn: false, name: "rel-unused", forwardName: "结识", reverseName: "被结识", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 5
     };
     render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} relationTypes={[customRelationType]} relations={[]} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "删除结识" }));
@@ -159,9 +161,9 @@ describe("RelationTypeEditor 自定义关系类型", () => {
 
   it("有关系实例引用时显示数量并禁用删除，内置类型不可编辑删除", () => {
     const customRelationType: RelationType = {
-      id: "rt-used", projectId: "p1", name: "rel-used", forwardName: "同行", reverseName: "同行", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 2
+      id: "rt-used", projectId: "p1", builtIn: false, name: "rel-used", forwardName: "同行", reverseName: "同行", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 2
     };
-    const builtinRelationType = { ...customRelationType, id: "rt-builtin", projectId: null, name: "knows", forwardName: "认识" };
+    const builtinRelationType = { ...customRelationType, id: "rt-builtin", projectId: null, builtIn: true, name: "knows", forwardName: "认识" };
     const relation = {
       id: "relation-1", projectId: "p1", fromCardId: "card-1", toCardId: "card-2", relationTypeId: "rt-used", forwardName: "同行", note: null, createdAt: ""
     } satisfies CardRelation;
@@ -177,7 +179,7 @@ describe("RelationTypeEditor 自定义关系类型", () => {
   it("更新失败时保留编辑器内容与错误", async () => {
     actions.updateRelationType.mockResolvedValue(false);
     const customRelationType: RelationType = {
-      id: "rt-fail", projectId: "p1", name: "rel-fail", forwardName: "旧正向", reverseName: "旧反向", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 2
+      id: "rt-fail", projectId: "p1", builtIn: false, name: "rel-fail", forwardName: "旧正向", reverseName: "旧反向", fromKinds: [], toKinds: [], createdAt: "", updatedAt: "", revision: 2
     };
     render(<RelationTypeEditor projectId="p1" cardTypes={cardTypes} relationTypes={[customRelationType]} relations={[]} onClose={() => {}} />);
     fireEvent.click(screen.getByRole("button", { name: "编辑旧正向" }));

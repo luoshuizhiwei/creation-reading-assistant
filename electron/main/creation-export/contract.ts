@@ -2,6 +2,7 @@ import { strict as assert } from "node:assert";
 import type { ProjectExportView } from "../../../src/types/creation";
 import {
   buildDraftExport,
+  buildOutlineMarkdown,
   buildPlatformPlainText,
   buildStandardReviewMarkdown,
   DRAFT_EXPORT_PRESET_META,
@@ -11,19 +12,27 @@ import {
 const VIEW: ProjectExportView = {
   projectId: "project-1",
   title: "测试作品",
+  wordCount: 18,
   volumes: [
     {
       id: "volume-1",
       title: "第一卷",
+      wordCount: 12,
       chapters: [
         {
           id: "chapter-1",
           title: "风起",
           displayNumber: "第1章",
+          status: "写作中",
+          wordCount: 12,
           scenes: [
             {
               id: "scene-1",
               title: "默认场景",
+              summary: "雨夜发现关键线索。",
+              status: "drafting",
+              wordCount: 12,
+              targetWords: 2000,
               text: "正文行一。\n\n正文行二。",
               blocks: [
                 { kind: "paragraph", text: "正文行一。" },
@@ -41,15 +50,20 @@ const VIEW: ProjectExportView = {
     {
       id: "volume-2",
       title: "第二卷",
+      wordCount: 6,
       chapters: [
         {
           id: "chapter-2",
           title: "夜行",
           displayNumber: null,
+          status: "待写",
+          wordCount: 6,
           scenes: [
             {
               id: "scene-2",
               title: "山道",
+              status: "planned",
+              wordCount: 6,
               text: "山道正文。",
               blocks: [{ kind: "paragraph", text: "山道正文。" }]
             }
@@ -113,6 +127,8 @@ async function run(): Promise<void> {
       assert.equal(plain?.extension, "txt");
       const review = buildDraftExport(VIEW, "standard-review");
       assert.equal(review?.extension, "md");
+      const outline = buildDraftExport(VIEW, "outline-markdown");
+      assert.equal(outline?.extension, "md");
       assert.equal(buildDraftExport(VIEW, "unknown-preset"), null);
       assert.equal(buildDraftExport(VIEW, undefined), null);
     });
@@ -120,10 +136,23 @@ async function run(): Promise<void> {
     await scenario("预设白名单与说明元数据", async () => {
       assert.equal(isDraftExportPreset("platform-plain"), true);
       assert.equal(isDraftExportPreset("standard-review"), true);
+      assert.equal(isDraftExportPreset("outline-markdown"), true);
       assert.equal(isDraftExportPreset("docx"), false);
       assert.equal(DRAFT_EXPORT_PRESET_META["platform-plain"].extension, "txt");
       assert.equal(DRAFT_EXPORT_PRESET_META["standard-review"].extension, "md");
+      assert.equal(DRAFT_EXPORT_PRESET_META["outline-markdown"].extension, "md");
       assert.equal(typeof DRAFT_EXPORT_PRESET_META["platform-plain"].description, "string");
+    });
+
+    await scenario("Markdown 大纲：包含汇总、双层状态、摘要与目标但不包含正文", async () => {
+      const result = buildOutlineMarkdown(VIEW);
+      assert.equal(result.text.includes("全书 18 字"), true);
+      assert.equal(result.text.includes("第一卷（12 字）"), true);
+      assert.equal(result.text.includes("章节状态：写作中"), true);
+      assert.equal(result.text.includes("起草中"), true);
+      assert.equal(result.text.includes("雨夜发现关键线索。"), true);
+      assert.equal(result.text.includes("目标 2,000 字"), true);
+      assert.equal(result.text.includes("正文行一。"), false);
     });
 
     await scenario("场景无 blocks 时回退 scene.text", async () => {

@@ -6,12 +6,19 @@ import type {
   TrashEntityKind,
   SnapshotSubjectType,
   ScenePlanning,
+  SceneStatus,
   CreationWorkspaceErrorCode,
   ReplacePlanScope,
   ReplacePlanMode,
   ReplaceScope
 } from "./primitives";
-import type { AnnotationAnchor, ProjectBundleData, ProjectBundleResourceFile } from "./model";
+import type {
+  AnnotationAnchor,
+  ProjectBundleCardMapping,
+  ProjectBundleCardResolution,
+  ProjectBundleData,
+  ProjectBundleResourceFile
+} from "./model";
 
 // ---------------------------------------------------------------------------
 // 场景正文保存
@@ -178,7 +185,8 @@ export interface ChaptersSetStatusCommand {
 export interface CreationStructureResult {
   commandType: string;
   sequence: number;
-  projectId: string;
+  /** 全局卡片库命令没有单一项目时为 null。 */
+  projectId: string | null;
   entityId: string;
   revision: number;
   updatedAt: string;
@@ -211,7 +219,8 @@ export type StructureCommand =
 
 export interface CardTypeCreateCommand {
   type: "cardType.create";
-  projectId: string;
+  /** 可选来源项目，仅用于刷新兼容 UI；类型本体始终是全局资产。 */
+  projectId?: string;
   name: string;
   fields: CardFieldSchema[];
 }
@@ -232,7 +241,8 @@ export interface CardTypeDeleteCommand {
 
 export interface RelationTypeCreateCommand {
   type: "relationType.create";
-  projectId: string;
+  /** 可选来源项目，仅用于刷新兼容 UI；关系类型本体始终是全局资产。 */
+  projectId?: string;
   forwardName: string;
   reverseName: string;
   fromKinds?: string[];
@@ -259,7 +269,8 @@ export interface RelationTypeDeleteCommand {
 
 export interface CardCreateCommand {
   type: "card.create";
-  projectId: string;
+  /** 提供时创建后立即关联项目；省略时只创建全局卡片。 */
+  projectId?: string;
   kind: string;
   title: string;
   aliases?: string[];
@@ -288,7 +299,8 @@ export interface CardDeleteCommand {
 
 export interface CardRelationCreateCommand {
   type: "cardRelation.create";
-  projectId: string;
+  /** 可选操作上下文；关系本体始终是全局资产。 */
+  projectId?: string;
   fromCardId: string;
   toCardId: string;
   relationTypeId: string;
@@ -298,6 +310,33 @@ export interface CardRelationCreateCommand {
 export interface CardRelationDeleteCommand {
   type: "cardRelation.delete";
   relationId: string;
+}
+
+export interface CardLinkCommand {
+  type: "card.link";
+  projectId: string;
+  cardId: string;
+}
+
+export interface CardUnlinkCommand {
+  type: "card.unlink";
+  projectId: string;
+  cardId: string;
+}
+
+export interface CardLinkResult {
+  commandType: "card.link" | "card.unlink";
+  sequence: number;
+  projectId: string;
+  cardId: string;
+  /** 兼容结构命令结果；等于 cardId。 */
+  entityId: string;
+  revision: number;
+  updatedAt: string;
+  /** 本次是否改变了关联记录；重复 link/unlink 为 false。 */
+  changed: boolean;
+  linked: boolean;
+  usageCount: number;
 }
 
 export type CardCommand =
@@ -310,6 +349,8 @@ export type CardCommand =
   | CardCreateCommand
   | CardUpdateCommand
   | CardDeleteCommand
+  | CardLinkCommand
+  | CardUnlinkCommand
   | CardRelationCreateCommand
   | CardRelationDeleteCommand;
 
@@ -319,14 +360,16 @@ export type CardCommand =
 
 export interface TrashRestoreCommand {
   type: "trash.restore";
-  projectId: string;
+  /** 全局卡片恢复不带 projectId。 */
+  projectId?: string;
   entity: TrashEntityKind;
   entityId: string;
 }
 
 export interface TrashPurgeCommand {
   type: "trash.purge";
-  projectId: string;
+  /** 全局卡片永久清理不带 projectId。 */
+  projectId?: string;
   entity: TrashEntityKind;
   entityId: string;
 }
@@ -405,6 +448,24 @@ export interface SceneUpdatePlanningResult {
   updatedAt: string;
 }
 
+/** 更新场景摘要与场景状态；独立于章节工作流状态。 */
+export interface SceneUpdateMetaCommand {
+  type: "scene.updateMeta";
+  sceneId: string;
+  baseRevision: number;
+  summary: string;
+  status: SceneStatus;
+}
+
+export interface SceneUpdateMetaResult {
+  commandType: "scene.updateMeta";
+  sequence: number;
+  projectId: string;
+  sceneId: string;
+  revision: number;
+  updatedAt: string;
+}
+
 // ---------------------------------------------------------------------------
 // 项目包导入
 // ---------------------------------------------------------------------------
@@ -416,6 +477,8 @@ export interface ProjectBundleImportCommand {
   targetProjectId?: string;
   /** 可选：资源文件落盘映射。提供时必须与 data.resources 一一对应（路径/哈希/大小均匹配）；缺省时按原 relativePath 登记（仅 DB 层导入）。 */
   resourceFiles?: ProjectBundleResourceFile[];
+  /** 对已存在的全局卡片稳定 ID 的显式处理；同内容可 reuse，异内容必须 keep-local 或 import-copy。 */
+  cardResolutions?: ProjectBundleCardResolution[];
 }
 
 export interface ProjectBundleImportResult {
@@ -423,6 +486,7 @@ export interface ProjectBundleImportResult {
   sequence: number;
   projectId: string;
   counts: ProjectBundleData["counts"];
+  cardMappings: ProjectBundleCardMapping[];
 }
 
 // ---------------------------------------------------------------------------
@@ -474,8 +538,11 @@ export interface AnnotationResult {
 
 export interface ResourceAttachCommand {
   type: "resource.attach";
-  projectId: string;
+  /** 省略时 cardId 必填，并登记为全局卡片资产。 */
+  projectId?: string;
   cardId?: string;
+  /** 仅全局卡片资产支持 cover；省略为 attachment。 */
+  role?: "attachment" | "cover";
   relativePath: string;
   sha256: string;
   size: number;

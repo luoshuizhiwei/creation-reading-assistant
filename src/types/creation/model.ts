@@ -6,6 +6,7 @@ import type {
   TrashEntityKind,
   SnapshotSubjectType,
   ScenePlanning,
+  SceneStatus,
   DraftImportFormat,
   DraftExportPreset
 } from "./primitives";
@@ -127,6 +128,10 @@ export interface CreationOutlineScene {
   sortOrder: number;
   /** 场景非空白正文字数（不含标点），供大纲与卡片板显示。 */
   wordCount: number;
+  /** v11 场景摘要；可选仅用于兼容旧 renderer 测试夹具，数据库读取始终提供。 */
+  summary?: string;
+  /** v11 场景状态；不得与 CreationOutlineChapter.status 混用。 */
+  status?: SceneStatus;
   /** 场景任务卡字段（视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数）。 */
   planning?: ScenePlanning;
   createdAt: string;
@@ -144,6 +149,8 @@ export interface CreationOutlineChapter {
   customNumber: string | null;
   /** 派生显示编号：auto 时按卷内顺序生成「第N章」，prologue/extra 为「序章」「番外」，custom 用 customNumber。 */
   displayNumber: string | null;
+  /** 由未删除场景 non_ws_count 实时汇总，不持久化冗余总数。 */
+  wordCount?: number;
   createdAt: string;
   updatedAt: string;
   revision: number;
@@ -158,6 +165,8 @@ export interface CreationOutlineVolume {
   createdAt: string;
   updatedAt: string;
   revision: number;
+  /** 由卷内章节实时汇总。 */
+  wordCount?: number;
   chapters: CreationOutlineChapter[];
 }
 
@@ -166,11 +175,15 @@ export interface CreationProjectOutline {
   volumes: CreationOutlineVolume[];
   /** 未分卷章节（无卷项目的兼容路径，正常迁移后为空）。 */
   looseChapters: CreationOutlineChapter[];
+  /** 全书实时汇总字数。 */
+  wordCount?: number;
 }
 
 export interface CardType {
   id: string;
-  /** null = 全局内置类型；非 null = 项目自定义。 */
+  /** 内置类型全局只读；自定义类型同样属于全局卡片库。 */
+  builtIn: boolean;
+  /** 仅用于兼容 v9 来源追踪，不代表类型归项目所有。 */
   projectId: string | null;
   kind: string;
   name: string;
@@ -183,6 +196,9 @@ export interface CardType {
 
 export interface RelationType {
   id: string;
+  /** 内置关系类型全局只读；自定义关系类型同样属于全局卡片库。 */
+  builtIn: boolean;
+  /** 仅用于兼容 v9 来源追踪，不代表关系类型归项目所有。 */
   projectId: string | null;
   name: string;
   forwardName: string;
@@ -196,7 +212,11 @@ export interface RelationType {
 
 export interface CardSummary {
   id: string;
-  projectId: string;
+  /** 当前项目投影；全局卡片库读取时为 null，不表示所有权。 */
+  projectId: string | null;
+  /** 当前关联此卡片的全部项目稳定 ID。 */
+  linkedProjectIds: string[];
+  usageCount: number;
   kind: string;
   title: string;
   aliases: string[];
@@ -209,7 +229,8 @@ export interface CardSummary {
 
 export interface CardRelation {
   id: string;
-  projectId: string;
+  /** v9 来源项目，仅作兼容追踪；关系本体是全局资产。 */
+  projectId: string | null;
   fromCardId: string;
   toCardId: string;
   relationTypeId: string;
@@ -221,7 +242,7 @@ export interface CardRelation {
 export interface TrashItem {
   entity: TrashEntityKind;
   id: string;
-  projectId: string;
+  projectId: string | null;
   title: string;
   deletedAt: string;
   revision: number;
@@ -285,8 +306,13 @@ export interface Annotation {
 
 export interface ResourceInfo {
   id: string;
-  projectId: string;
+  /** 旧项目附件所属项目；全局卡片资产为 null。 */
+  projectId: string | null;
   cardId: string | null;
+  /** project 为兼容项目附件，card 为全局卡片资产。 */
+  ownerScope?: "project" | "card";
+  /** 全局卡片资产角色；旧项目资源默认为 attachment。 */
+  role?: "attachment" | "cover";
   /** 工作区 resources 目录内的相对路径（项目包可移植）。 */
   relativePath: string;
   sha256: string;
@@ -321,6 +347,38 @@ export interface ProjectBundleResourceFile {
   targetRelativePath: string;
   sha256: string;
   size: number;
+  /** 复用本机全局卡片时不复制其包内全局资源。 */
+  skip?: boolean;
+}
+
+export type ProjectBundleCardResolutionAction = "reuse" | "keep-local" | "import-copy";
+
+export interface ProjectBundleCardResolution {
+  cardId: string;
+  action: ProjectBundleCardResolutionAction;
+  /** import-copy 时由主进程预先生成，文件层和数据库层共用。 */
+  targetCardId?: string;
+}
+
+export interface ProjectBundleCardConflict {
+  cardId: string;
+  localTitle: string;
+  importedTitle: string;
+  localDeleted: boolean;
+  differingFields: string[];
+}
+
+export interface ProjectBundleImportPreview {
+  projectTitle: string;
+  cardCount: number;
+  identicalCardIds: string[];
+  conflicts: ProjectBundleCardConflict[];
+}
+
+export interface ProjectBundleCardMapping {
+  sourceCardId: string;
+  targetCardId: string;
+  action: "created" | "reused" | "kept-local" | "copied";
 }
 
 export interface ProjectBundleData {
@@ -361,6 +419,10 @@ export interface ProjectBundleData {
     sortOrder: number;
     bodyJson: string;
     planningJson: string;
+    /** v11；可选以兼容 formatVersion=2 的既有项目包。 */
+    summary?: string;
+    /** v11；可选以兼容 formatVersion=2 的既有项目包。 */
+    status?: SceneStatus;
     createdAt: string;
     updatedAt: string;
     revision: number;
@@ -417,6 +479,9 @@ export interface ProjectBundleData {
   resources: Array<{
     id: string;
     cardId: string | null;
+    /** v2 兼容字段；card 表示来自全局卡片资产域。 */
+    ownerScope?: "project" | "card";
+    role?: "attachment" | "cover";
     /** 工作区 resources 目录内的相对路径（项目包内对应 resources/<去前缀路径>）。 */
     relativePath: string;
     sha256: string;
@@ -452,6 +517,10 @@ export interface ProjectBundleData {
 export interface ProjectExportScene {
   id: string;
   title: string;
+  summary?: string;
+  status?: SceneStatus;
+  wordCount?: number;
+  targetWords?: number | null;
   /** 场景正文纯文本（块间空行、场景分隔换行）。 */
   text: string;
   /** 最小块级视图（仅 kind + 文本，不包含 marks/完整 bodyJson），供审阅稿等需要区分块类型的导出使用。 */
@@ -468,18 +537,22 @@ export interface ProjectExportChapter {
   id: string;
   title: string;
   displayNumber: string | null;
+  status?: string;
+  wordCount?: number;
   scenes: ProjectExportScene[];
 }
 
 export interface ProjectExportVolume {
   id: string;
   title: string;
+  wordCount?: number;
   chapters: ProjectExportChapter[];
 }
 
 export interface ProjectExportView {
   projectId: string;
   title: string;
+  wordCount?: number;
   volumes: ProjectExportVolume[];
 }
 

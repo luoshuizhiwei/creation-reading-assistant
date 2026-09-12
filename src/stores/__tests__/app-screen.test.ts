@@ -6,9 +6,10 @@ describe("AppScreen 覆盖", () => {
     expect(APP_SCREENS).not.toContain("start");
   });
 
-  it("应用级屏幕恰好是可渲染的七项", () => {
+  it("应用级屏幕恰好是可渲染的八项", () => {
     expect([...APP_SCREENS]).toEqual([
       "projects",
+      "card-library",
       "inbox",
       "inspiration",
       "library",

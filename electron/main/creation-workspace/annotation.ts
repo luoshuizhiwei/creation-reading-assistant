@@ -72,6 +72,9 @@ export function resolveAnnotationAnchor(
 }
 
 export function createAnnotationModule(database: Database, host: AnnotationHost): AnnotationModule {
+  const hasProjectCardLinks = (): boolean =>
+    database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_card_links'").get() !== undefined;
+
   const runAnnotationList = (query: AnnotationListQuery): Annotation[] => {
     const projectId = validateId(query.projectId, "作品");
     host.requireProject(projectId);
@@ -168,10 +171,13 @@ export function createAnnotationModule(database: Database, host: AnnotationHost)
       if (scene.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "场景不属于该作品。");
       if (cardId) {
         const card = database
-          .prepare("SELECT project_id FROM cards WHERE id = ? AND deleted_at IS NULL")
-          .get(cardId) as { project_id: string } | undefined;
+          .prepare("SELECT id FROM cards WHERE id = ? AND deleted_at IS NULL")
+          .get(cardId) as { id: string } | undefined;
         if (!card) throw new CreationWorkspaceError("not-found", "关联卡片不存在。");
-        if (card.project_id !== projectId) throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
+        const linked = hasProjectCardLinks()
+          ? database.prepare("SELECT 1 FROM project_card_links WHERE project_id = ? AND card_id = ?").get(projectId, cardId)
+          : database.prepare("SELECT 1 FROM cards WHERE id = ? AND project_id = ?").get(cardId, projectId);
+        if (!linked) throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
       }
       const anchored = resolveAnnotationAnchor(scene.body_json, anchor);
       if (anchored.anchorInvalid) {
@@ -257,12 +263,17 @@ export function createAnnotationModule(database: Database, host: AnnotationHost)
       if (command.cardId !== undefined) {
         if (command.cardId !== null) {
           const card = database
-            .prepare("SELECT project_id FROM cards WHERE id = ? AND deleted_at IS NULL")
-            .get(command.cardId) as { project_id: string } | undefined;
+            .prepare("SELECT id FROM cards WHERE id = ? AND deleted_at IS NULL")
+            .get(command.cardId) as { id: string } | undefined;
           if (!card) throw new CreationWorkspaceError("not-found", "关联卡片不存在。");
-          if (card.project_id !== current.project_id) {
-            throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
-          }
+          const linked = hasProjectCardLinks()
+            ? database
+                .prepare("SELECT 1 FROM project_card_links WHERE project_id = ? AND card_id = ?")
+                .get(current.project_id, command.cardId)
+            : database
+                .prepare("SELECT 1 FROM cards WHERE id = ? AND project_id = ?")
+                .get(command.cardId, current.project_id);
+          if (!linked) throw new CreationWorkspaceError("invalid-input", "关联卡片不属于该作品。");
         }
         sets.push("card_id = ?");
         params.push(command.cardId);

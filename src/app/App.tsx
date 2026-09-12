@@ -32,6 +32,9 @@ import type { StartupRecoveryInfo } from "@/types/maintenance";
 const CreationProjectsPage = lazy(() =>
   import("@/features/creation/CreationProjectsPage").then((m) => ({ default: m.CreationProjectsPage }))
 );
+const GlobalCardLibraryPage = lazy(() =>
+  import("@/features/creation/cards/GlobalCardLibraryPage").then((m) => ({ default: m.GlobalCardLibraryPage }))
+);
 const InboxPage = lazy(() => import("@/features/creation/inbox/InboxPage").then((m) => ({ default: m.InboxPage })));
 const InspirationPage = lazy(() =>
   import("@/features/inspiration/InspirationPage").then((m) => ({ default: m.InspirationPage }))
@@ -58,6 +61,7 @@ function redactPaths(value: string): string {
  */
 export const screenContent: Record<AppScreen, ReactNode> = {
   projects: <CreationProjectsPage />,
+  "card-library": <GlobalCardLibraryPage />,
   inbox: <InboxPage />,
   inspiration: <InspirationPage />,
   library: <LibraryPage />,
