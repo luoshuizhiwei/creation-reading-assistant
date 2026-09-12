@@ -41,8 +41,12 @@ interface AiSendConfirmDialogProps {
   /** 目标提示：配置的 provider/model/baseUrl 摘要。 */
   target: string;
   busy: boolean;
-  /** pack 模式回传合成后的最终文本；单内容模式回传 null（调用方沿用 content）。 */
-  onConfirm(finalContent: string | null, remember: boolean): void;
+  /**
+   * pack 模式回传合成后的最终文本；单内容模式回传 null（调用方沿用 content）。
+   * 第三个参数回传被排除的组 id：调用方可据此同步「不发送的上下文」
+   * （如场景侧 sceneContext 必须跟随排除结果，避免排除了任务卡却仍把它写进提示词）。
+   */
+  onConfirm(finalContent: string | null, remember: boolean, excluded?: ReadonlySet<string>): void;
   onCancel(): void;
 }
 
@@ -67,7 +71,7 @@ export function AiSendConfirmDialog({
     if (pack) {
       const finalContent = pack.compose(excluded);
       if (finalContent.trim() === "") return; // 全部排除：不发送
-      onConfirm(finalContent, remember);
+      onConfirm(finalContent, remember, new Set(excluded));
       return;
     }
     onConfirm(null, remember);

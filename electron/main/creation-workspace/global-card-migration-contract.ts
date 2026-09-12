@@ -4,7 +4,7 @@ import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
 import { readBackupManifest } from "../backup";
-import { openCreationWorkspace, type CardSummary } from "./index";
+import { openCreationWorkspace, SCHEMA_VERSION, type CardSummary } from "./index";
 import {
   V9_MIGRATION_BACKUP_MARKER,
   V10_GLOBAL_CARD_REPAIR_BACKUP_MARKER
@@ -70,7 +70,7 @@ async function run(): Promise<void> {
       try {
         const report = await migrated.check();
         assert.equal(report.ok, true);
-        assert.equal(report.schemaVersion, 11);
+        assert.equal(report.schemaVersion, SCHEMA_VERSION);
         const cardsA = (await migrated.read({ kind: "cards.list", projectId: baseline.projectA })) as CardSummary[];
         const cardsB = (await migrated.read({ kind: "cards.list", projectId: baseline.projectB })) as CardSummary[];
         assert.equal(cardsA.some((card) => card.id === baseline.cardASkill && card.revision === V9_BASELINE.cardASkillRevision), true);
@@ -85,7 +85,7 @@ async function run(): Promise<void> {
       }
 
       const raw = new Database(path.join(directory, "workspace.sqlite"), { readonly: true });
-      assert.equal(Number(raw.pragma("user_version", { simple: true })), 11);
+      assert.equal(Number(raw.pragma("user_version", { simple: true })), SCHEMA_VERSION);
       const links = raw.prepare("SELECT project_id, card_id FROM project_card_links ORDER BY project_id, card_id").all() as Array<{
         project_id: string;
         card_id: string;
@@ -124,7 +124,7 @@ async function run(): Promise<void> {
       try {
         const report = await v10.check();
         assert.equal(report.ok, true);
-        assert.equal(report.schemaVersion, 11);
+        assert.equal(report.schemaVersion, SCHEMA_VERSION);
       } finally {
         await v10.close();
       }
@@ -198,7 +198,7 @@ async function run(): Promise<void> {
       failed.close();
       const retried = await openCreationWorkspace({ directory });
       try {
-        assert.equal((await retried.check()).schemaVersion, 11);
+        assert.equal((await retried.check()).schemaVersion, SCHEMA_VERSION);
       } finally {
         await retried.close();
       }

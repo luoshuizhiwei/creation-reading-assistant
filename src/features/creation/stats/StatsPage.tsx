@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { CalendarClock, Clock3, Edit3, Flame, Library, PencilLine, Target, Trash2 } from "lucide-react";
+import { CalendarClock, Clock3, Edit3, Flame, Layers, Library, PencilLine, Target, Trash2 } from "lucide-react";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CreationProjectSetup, ProjectHomeEntry, ProjectStatsView, ProjectUpdateGoalCommand, SessionEntry } from "@/types/creation";
+import { SCENE_STATUS_LABELS, SCENE_STATUS_ORDER, sceneStatusLabel } from "@/features/creation/scene-status";
 import { GoalEditorDialog, type GoalUpdatePatch } from "./GoalEditorDialog";
 import { SessionEditDialog, type SessionUpdatePatch } from "./SessionEditDialog";
 import {
@@ -11,6 +12,7 @@ import {
   computeGoalProgress,
   computeWeekSummary,
   DEFAULT_WORD_METRIC,
+  shouldShowDailyLabel,
   WORD_METRIC_LABELS,
   type WordMetric
 } from "./stats-calculator";
@@ -222,7 +224,21 @@ export function StatsPage({ projectId }: StatsPageProps) {
   }
 
   const maxDaily = Math.max(...stats.daily.map((item) => Math.abs(item.netChars)), 1);
-  const { sessionMinutes, revisionCount, snapshotCount, streakDays, chapterStatusCounts, daily } = stats;
+  const { sessionMinutes, revisionCount, snapshotCount, streakDays, chapterStatusCounts, sceneStatusCounts, daily } = stats;
+
+  // 场景状态分布：按固定顺序铺满四个状态（计数为 0 也保留，避免同一项目在不同时间点
+  // 出现行数跳变）；未知状态值追加在末尾并原样展示，使数据异常可见。
+  const sceneStatusRows = SCENE_STATUS_ORDER.map((value) => ({
+    key: value as string,
+    label: SCENE_STATUS_LABELS[value],
+    count: sceneStatusCounts.find((item) => item.status === value)?.count ?? 0
+  }));
+  for (const item of sceneStatusCounts) {
+    if (!(SCENE_STATUS_ORDER as string[]).includes(item.status)) {
+      sceneStatusRows.push({ key: item.status, label: sceneStatusLabel(item.status), count: item.count });
+    }
+  }
+  const sceneStatusTotal = sceneStatusCounts.reduce((sum, item) => sum + item.count, 0);
 
   return (
     <section className="stats-page" aria-label="创作统计">
@@ -248,21 +264,39 @@ export function StatsPage({ projectId }: StatsPageProps) {
             <div><dt>命名快照</dt><dd>{snapshotCount.toLocaleString("zh-CN")} 个</dd></div>
             <div><dt>章节状态</dt><dd>{chapterStatusCounts.map((item) => `${item.status || "未设置"} ${item.count}`).join("，") || "—"}</dd></div>
           </dl>
+          <p className="stats-note">章节状态是章节在项目工作流中的位置，与下面的场景状态是两种口径。</p>
+        </div>
+        <div className="stats-card stats-scene-status-card">
+          <h3><Layers size={15} /> 场景状态</h3>
+          {sceneStatusTotal > 0 ? (
+            <dl className="stats-words">
+              {sceneStatusRows.map((row) => (
+                <div key={row.key}>
+                  <dt>{row.label}</dt>
+                  <dd>{row.count.toLocaleString("zh-CN")} 场</dd>
+                </div>
+              ))}
+              <div><dt>合计</dt><dd>{sceneStatusTotal.toLocaleString("zh-CN")} 场</dd></div>
+            </dl>
+          ) : (
+            <p className="stats-note">还没有场景。建立大纲并填写场景任务卡后，这里会显示场景状态分布。</p>
+          )}
+          <p className="stats-note">场景状态取自场景任务卡，独立于章节工作流状态。</p>
         </div>
       </div>
 
       <div className="stats-card stats-daily-card">
-        <h3>最近 14 天净增字数与写作时长</h3>
+        <h3>最近 30 天净增字数与写作时长</h3>
         {daily.every((item) => item.netChars === 0) ? (
-          <p className="stats-note">最近 14 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
+          <p className="stats-note">最近 30 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
         ) : (
-          <div className="stats-daily" role="img" aria-label="最近十四天净增字数柱状图">
-            {daily.map((item) => {
+          <div className="stats-daily" role="img" aria-label="最近三十天净增字数柱状图">
+            {daily.map((item, index) => {
               const height = Math.max(2, Math.round((Math.abs(item.netChars) / maxDaily) * 100));
               return (
                 <div key={item.date} className="stats-daily-col" title={`${item.date}：净增 ${item.netChars} 字 · ${Math.round(item.activeSeconds / 60)} 分钟`}>
                   <span className="stats-daily-bar" style={{ height: `${height}%` }} />
-                  <span className="stats-daily-label">{item.date.slice(5)}</span>
+                  <span className="stats-daily-label">{shouldShowDailyLabel(index, daily.length) ? item.date.slice(5) : ""}</span>
                 </div>
               );
             })}

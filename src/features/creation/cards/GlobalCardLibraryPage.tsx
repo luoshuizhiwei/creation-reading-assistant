@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArchiveRestore, BookOpenCheck, Layers3, Paperclip, Pencil, Plus, Search, Trash2, UsersRound } from "lucide-react";
 import { Dialog, Select } from "@/components/ui";
 import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
+import { CardCoverImage } from "@/features/creation/cards/components/CardCoverImage";
 import { CardListSidebar } from "@/features/creation/cards/components/CardListSidebar";
 import { displayFieldValue } from "@/features/creation/cards/components/CardDynamicFields";
 import { useCreationActions } from "@/hooks/useCreationActions";
@@ -189,6 +190,8 @@ export function GlobalCardLibraryPage() {
           <Trash2 size={14} /> 删除全局卡片
         </button>
       </header>
+      {/* 封面在阶段 1 只做到数据层持久化，界面从未渲染；这里补上真实展示。 */}
+      <CardCoverImage cardId={selectedCard.id} resources={resources} title={selectedCard.title} />
       {selectedCard.aliases.length > 0 && <p className="cards-aliases">别名：{selectedCard.aliases.join("、")}</p>}
       {selectedCard.tags.length > 0 && <p className="cards-tags">{selectedCard.tags.map((tag) => `#${tag}`).join(" ")}</p>}
       {selectedType && selectedType.fields.length > 0 && (

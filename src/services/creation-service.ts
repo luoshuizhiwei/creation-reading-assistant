@@ -14,6 +14,8 @@ import type {
   CreationRunResultOf,
   CreationSearchQuery,
   CreationSearchView,
+  RelationGraphQuery,
+  RelationGraphView,
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
@@ -33,6 +35,11 @@ import type {
   UpdateSceneBodyInput,
   ProofQuery,
   ProofView,
+  ProofIgnoreCommand,
+  ProofIgnoreEntry,
+  ProofIgnoreListQuery,
+  ProofIgnoreResult,
+  ProofUnignoreCommand,
   InboxDeleteCommand,
   InboxItem,
   InboxItemResult,
@@ -62,6 +69,8 @@ import type {
   ResourceListQuery,
   ResourceResult,
   ProjectExportView,
+  ProjectPrintMode,
+  ProjectPrintResult,
   ProjectHomeView,
   StructurePreviewCommand,
   StructureApplyWithProtectionCommand,
@@ -173,6 +182,10 @@ export async function cardUnlink(projectId: string, cardId: string): Promise<Car
   return getCreationApi().cardUnlink(projectId, cardId);
 }
 
+export async function relationGraph(query: RelationGraphQuery): Promise<RelationGraphView> {
+  return getCreationApi().relationGraph(query);
+}
+
 export async function cardRelations(
   cardId: string
 ): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }> {
@@ -224,6 +237,22 @@ export async function sessionDelete(command: SessionDeleteCommand): Promise<Sess
 
 export async function proofQuery(query: ProofQuery): Promise<ProofView> {
   return getCreationApi().proofQuery(query);
+}
+
+export async function proofIgnoreList(query: ProofIgnoreListQuery): Promise<ProofIgnoreEntry[]> {
+  return getCreationApi().proofIgnoreList(query);
+}
+
+export async function proofIgnore(
+  command: Omit<ProofIgnoreCommand, "type">
+): Promise<ProofIgnoreResult> {
+  return getCreationApi().runStructure({ type: "proof.ignore", ...command });
+}
+
+export async function proofUnignore(
+  command: Omit<ProofUnignoreCommand, "type">
+): Promise<ProofIgnoreResult> {
+  return getCreationApi().runStructure({ type: "proof.unignore", ...command });
 }
 
 export async function importDraftPreview(): Promise<DraftImportPreview | null> {
@@ -292,6 +321,15 @@ export async function detachResource(resourceId: string): Promise<ResourceResult
 
 export async function projectExport(projectId: string): Promise<ProjectExportView | null> {
   return getCreationApi().readProjectExport(projectId);
+}
+
+/** 全书只读预览：与成稿导出同源，但固定要求块级视图以便按块类型排版。 */
+export async function projectPreview(projectId: string): Promise<ProjectExportView | null> {
+  return getCreationApi().readProjectPreview(projectId);
+}
+
+export async function printProject(projectId: string, mode: ProjectPrintMode): Promise<ProjectPrintResult> {
+  return getCreationApi().printProject(projectId, mode);
 }
 
 export async function migrationStatus(): Promise<LegacyMigrationStatus | null> {

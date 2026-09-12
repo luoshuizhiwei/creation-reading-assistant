@@ -1,5 +1,6 @@
 import { Plus, Search } from "lucide-react";
 import { Select } from "@/components/ui";
+import { CardCoverThumb } from "@/features/creation/cards/components/CardCoverThumb";
 import type { CardSummary, CardType } from "@/types/creation";
 
 export interface CardListSidebarProps {
@@ -79,11 +80,14 @@ export function CardListSidebar({
             className={`cards-list-item ${card.id === selectedCardId ? "active" : ""}`}
             onClick={() => onSelectCard(card.id)}
           >
-            <span className="cards-list-kind">{typeNameMap.get(card.kind) ?? card.kind}</span>
-            <strong>{card.title}</strong>
-            {card.tags.length > 0 && (
-              <span className="cards-list-tags">{card.tags.map((tag) => `#${tag}`).join(" ")}</span>
-            )}
+            <CardCoverThumb cardId={card.id} coverResourceId={card.coverResourceId} title={card.title} />
+            <span className="cards-list-main">
+              <span className="cards-list-kind">{typeNameMap.get(card.kind) ?? card.kind}</span>
+              <strong>{card.title}</strong>
+              {card.tags.length > 0 && (
+                <span className="cards-list-tags">{card.tags.map((tag) => `#${tag}`).join(" ")}</span>
+              )}
+            </span>
           </button>
         ))
       )}

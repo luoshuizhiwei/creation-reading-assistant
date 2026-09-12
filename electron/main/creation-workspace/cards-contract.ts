@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import {
   CreationWorkspaceError,
   openCreationWorkspace,
+  SCHEMA_VERSION,
   type CardSummary,
   type CreationStructureResult,
   type CreationWorkspace
@@ -32,7 +33,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const initial = await workspace.check();
     assert.equal(initial.ok, true);
-    assert.equal(initial.schemaVersion, 11);
+    assert.equal(initial.schemaVersion, SCHEMA_VERSION);
 
     await scenario("内置 8 类卡片与 4 种关系类型已 seed", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "测试项目" });

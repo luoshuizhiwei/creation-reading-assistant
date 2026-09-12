@@ -6,10 +6,13 @@ import type {
   SceneUpdatePlanningCommand,
   SceneUpdateMetaCommand,
   InboxConvertToCardCommand,
+  ProofIgnoreCommand,
+  ProofUnignoreCommand,
   SceneUpdatePlanningResult,
   SceneUpdateMetaResult,
   ProjectImportDraftResult,
   InboxConvertToCardResult,
+  ProofIgnoreResult,
   CardLinkResult,
   CreationStructureResult
 } from "./command";
@@ -18,6 +21,7 @@ import type {
  * runStructure 通道接受的命令联合。结果类型按命令 type 推导：
  * scene.updatePlanning → SceneUpdatePlanningResult；
  * project.importDraft → ProjectImportDraftResult；
+ * proof.ignore / proof.unignore → ProofIgnoreResult；
  * 其余结构/卡片/回收站命令 → CreationStructureResult。
  */
 export type CreationRunCommand =
@@ -27,7 +31,9 @@ export type CreationRunCommand =
   | ProjectImportDraftCommand
   | SceneUpdatePlanningCommand
   | SceneUpdateMetaCommand
-  | InboxConvertToCardCommand;
+  | InboxConvertToCardCommand
+  | ProofIgnoreCommand
+  | ProofUnignoreCommand;
 
 /** runStructure 的唯一运行时命令目录；Record 保证新增联合成员时必须同步白名单。 */
 export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["type"], true>> = {
@@ -69,7 +75,9 @@ export const CREATION_RUN_COMMAND_TYPES: Readonly<Record<CreationRunCommand["typ
   "project.importDraft": true,
   "scene.updatePlanning": true,
   "scene.updateMeta": true,
-  "inbox.convertToCard": true
+  "inbox.convertToCard": true,
+  "proof.ignore": true,
+  "proof.unignore": true
 };
 
 export function isCreationRunCommandType(value: unknown): value is CreationRunCommand["type"] {
@@ -83,6 +91,7 @@ export type CreationRunResultOf<Command extends CreationRunCommand> =
   Command extends { type: "scene.updateMeta" } ? SceneUpdateMetaResult :
   Command extends { type: "project.importDraft" } ? ProjectImportDraftResult :
   Command extends { type: "inbox.convertToCard" } ? InboxConvertToCardResult :
+  Command extends { type: "proof.ignore" | "proof.unignore" } ? ProofIgnoreResult :
   Command extends { type: "card.link" | "card.unlink" } ? CardLinkResult :
   Command extends { type: _RunStructureCommandTypes } ? CreationStructureResult :
   never;

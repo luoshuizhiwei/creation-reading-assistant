@@ -1,0 +1,219 @@
+/* 关系图（Stage 4-F）。 */
+.relation-graph {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 0;
+  height: 100%;
+}
+
+.relation-graph-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.relation-graph-search {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-surface);
+}
+
+.relation-graph-search input {
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-main);
+  font-size: 12px;
+  min-width: 150px;
+}
+
+.relation-graph-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.relation-graph-chip {
+  padding: 3px 9px;
+  border: 1px solid var(--border-strong);
+  border-radius: 999px;
+  background: var(--bg-surface);
+  color: var(--text-meta);
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.relation-graph-chip[aria-pressed="true"] {
+  border-color: var(--accent-spine);
+  color: var(--accent-spine);
+  background: var(--bg-raised, var(--bg-surface));
+}
+
+.relation-graph-zoom {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.relation-graph-zoom button {
+  min-width: 28px;
+  padding: 3px 7px;
+  border: 1px solid var(--border-strong);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.relation-graph-scope {
+  margin: 0;
+  color: var(--text-meta);
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.relation-graph-body {
+  display: flex;
+  gap: 12px;
+  min-height: 0;
+  flex: 1;
+}
+
+.relation-graph-canvas {
+  flex: 1;
+  min-width: 0;
+  min-height: 360px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: var(--bg-panel, transparent);
+}
+
+.relation-graph-node {
+  cursor: pointer;
+}
+
+.relation-graph-node circle {
+  fill: var(--bg-surface);
+  stroke: var(--border-strong);
+  stroke-width: 1.5;
+}
+
+.relation-graph-node.selected circle {
+  fill: var(--accent-spine);
+  stroke: var(--accent-spine);
+}
+
+.relation-graph-node:focus-visible circle {
+  stroke: var(--accent-spine);
+  stroke-width: 3;
+}
+
+.relation-graph-node text {
+  fill: var(--text-main);
+  font-size: 11px;
+  text-anchor: middle;
+  pointer-events: none;
+}
+
+.relation-graph-node.selected text {
+  fill: var(--accent-spine);
+  font-weight: 600;
+}
+
+.relation-graph-edge {
+  stroke: var(--border-strong);
+  stroke-width: 1.2;
+}
+
+.relation-graph-edge.active {
+  stroke: var(--accent-spine);
+  stroke-width: 2;
+}
+
+.relation-graph-edge-label {
+  fill: var(--text-meta);
+  font-size: 10px;
+  text-anchor: middle;
+  dominant-baseline: middle;
+}
+
+.relation-graph-summary {
+  width: 260px;
+  flex: 0 0 260px;
+  padding: 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: auto;
+}
+
+.relation-graph-summary h4 {
+  margin: 4px 0 6px;
+  font-size: 14px;
+}
+
+.relation-graph-summary-meta {
+  margin: 0 0 8px;
+  color: var(--text-meta);
+  font-size: 11px;
+  line-height: 1.7;
+}
+
+.relation-graph-summary-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.relation-graph-summary-list button {
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 7px;
+  background: var(--bg-surface);
+  color: var(--text-main);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.relation-graph-summary-list button:hover {
+  border-color: var(--accent-spine);
+  color: var(--accent-spine);
+}
+
+.relation-graph-empty,
+.relation-graph-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 240px;
+  color: var(--text-meta);
+  font-size: 12px;
+}
+
+.relation-graph-state--error {
+  color: var(--danger, #b42318);
+}
+
+/* 窄窗：摘要面板改为画布下方，避免把画布挤成一条缝。 */
+@media (max-width: 900px) {
+  .relation-graph-body {
+    flex-direction: column;
+  }
+  .relation-graph-summary {
+    width: auto;
+    flex: 0 0 auto;
+    max-height: 200px;
+  }
+}

@@ -340,6 +340,165 @@ async function run(): Promise<void> {
       }
     });
 
+    // ---- Stage 4-F：关系图（整图 / 项目引用投影 / 边界） ----
+    const graphProject = await workspace.transact({ type: "project.create", title: "关系图契约项目" });
+    const graphProjectId = graphProject.projectId;
+    const newCard = async (title: string): Promise<string> =>
+      (await workspace.transact({ type: "card.create", kind: "character", title })).entityId;
+    const graphA = await newCard("图节点甲");
+    const graphB = await newCard("图节点乙");
+    const graphOutside = await newCard("图节点丙（项目外）");
+    await workspace.transact({ type: "card.link", projectId: graphProjectId, cardId: graphA });
+    await workspace.transact({ type: "card.link", projectId: graphProjectId, cardId: graphB });
+    const relationTypes = await workspace.read({ kind: "relationTypes.list" });
+    const relationTypeId = relationTypes[0]!.id;
+    await workspace.transact({
+      type: "cardRelation.create",
+      fromCardId: graphA,
+      toCardId: graphB,
+      relationTypeId
+    });
+    await workspace.transact({
+      type: "cardRelation.create",
+      fromCardId: graphA,
+      toCardId: graphOutside,
+      relationTypeId
+    });
+
+    await scenario("关系图全局视角：卡片全部入图，关系两端都在节点集内", async () => {
+      const view = await workspace.read({ kind: "relationGraph.list" });
+      assert.equal(view.scope, "global");
+      assert.equal(view.projectId, null);
+      const ids = new Set(view.nodes.map((node) => node.cardId));
+      assert.ok(ids.has(graphA) && ids.has(graphB) && ids.has(graphOutside));
+      assert.equal(view.hiddenRelationCount, 0);
+      for (const edge of view.edges) {
+        assert.ok(ids.has(edge.fromCardId) && ids.has(edge.toCardId));
+      }
+      const degreeOfA = view.nodes.find((node) => node.cardId === graphA)?.degree;
+      assert.equal(degreeOfA, 2);
+    });
+
+    await scenario("关系图项目视角：只画已关联卡片，指向项目外的关系统计但不绘制", async () => {
+      const view = await workspace.read({ kind: "relationGraph.list", projectId: graphProjectId });
+      assert.equal(view.scope, "project");
+      assert.equal(view.projectId, graphProjectId);
+      const ids = new Set(view.nodes.map((node) => node.cardId));
+      assert.ok(ids.has(graphA) && ids.has(graphB));
+      assert.equal(ids.has(graphOutside), false, "项目视图不得把未关联的全局卡片拉进来");
+      assert.equal(view.edges.length, 1);
+      assert.equal(view.hiddenRelationCount, 1, "指向项目外卡片的关系必须显式报数");
+      assert.equal(view.edges.some((edge) => edge.toCardId === graphOutside), false);
+    });
+
+    await scenario("关系本体是全局资产：项目视图读取不新增也不复制关系", async () => {
+      const before = await workspace.read({ kind: "relationGraph.list" });
+      await workspace.read({ kind: "relationGraph.list", projectId: graphProjectId });
+      const after = await workspace.read({ kind: "relationGraph.list" });
+      assert.equal(after.edges.length, before.edges.length);
+      assert.deepEqual(
+        after.edges.map((edge) => edge.id).sort(),
+        before.edges.map((edge) => edge.id).sort()
+      );
+    });
+
+    await scenario("已删除卡片不进图，其关系也不绘制", async () => {
+      await workspace.transact({ type: "card.delete", cardId: graphOutside });
+      const view = await workspace.read({ kind: "relationGraph.list", projectId: graphProjectId });
+      const ids = new Set(view.nodes.map((node) => node.cardId));
+      assert.equal(ids.has(graphOutside), false);
+      assert.equal(view.edges.some((edge) => edge.toCardId === graphOutside), false);
+      assert.equal(view.hiddenRelationCount, 0, "对端卡片已删除的关系不应再计入隐藏数");
+    });
+
+    await scenario("节点上限生效：截断数与隐藏关系统计准确", async () => {
+      const all = await workspace.read({ kind: "cards.list" });
+      // 下限被夹到 20：越界值不得把图放大，也不得让调用方拿到比请求更多的节点。
+      const limited = await workspace.read({ kind: "relationGraph.list", limit: 2 });
+      assert.equal(limited.nodes.length, Math.min(all.length, 20));
+      assert.equal(limited.truncatedNodeCount, Math.max(0, all.length - 20));
+      const ids = new Set(limited.nodes.map((node) => node.cardId));
+      for (const edge of limited.edges) {
+        assert.ok(ids.has(edge.fromCardId) && ids.has(edge.toCardId));
+      }
+    });
+
+    await scenario("非法 projectId 被拒绝，不会退化成全图", async () => {
+      await assert.rejects(
+        () => workspace.read({ kind: "relationGraph.list", projectId: "   " }),
+        (error: unknown) => error instanceof CreationWorkspaceError && error.code === "invalid-input"
+      );
+    });
+
+    // ---- Stage 4-A 增强：列表封面缩略图 ----
+    // 卡片列表要显示封面缩略图，就必须让 cards.list 一次性带出封面资源 ID，
+    // 否则前端要为每张卡单独查一次资源（N+1）。以下场景锁住该契约。
+    await scenario("cards.list 一次性带出封面资源 ID（列表缩略图，避免 N+1）", async () => {
+      const withCover = await workspace.transact({
+        type: "card.create",
+        kind: "character",
+        title: "带封面的卡",
+        aliases: [],
+        tags: []
+      });
+      const withoutCover = await workspace.transact({
+        type: "card.create",
+        kind: "character",
+        title: "无封面的卡",
+        aliases: [],
+        tags: []
+      });
+      const coveredId = (withCover as { entityId?: string }).entityId ?? "";
+      const bareId = (withoutCover as { entityId?: string }).entityId ?? "";
+      assert.ok(coveredId.startsWith("card-"), `期望拿到卡片 ID，实际 ${coveredId}`);
+
+      // 直接落到 global_card_resources 表插入一条 role='cover' 的资源。
+      const database = new Database(path.join(directory, "workspace.sqlite"));
+      try {
+        database
+          .prepare(
+            `INSERT INTO global_card_resources (id, card_id, relative_path, sha256, size, original_name, role, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'cover', ?)`
+          )
+          .run(
+            "resource-cover-contract",
+            coveredId,
+            "resources/cards/cover-contract.png",
+            "c".repeat(64),
+            2048,
+            "封面.png",
+            "2026-09-12T00:00:00.000Z"
+          );
+        // 同一张卡再插一个附件，确认只有 cover 被挑出来。
+        database
+          .prepare(
+            `INSERT INTO global_card_resources (id, card_id, relative_path, sha256, size, original_name, role, created_at)
+             VALUES (?, ?, ?, ?, ?, ?, 'attachment', ?)`
+          )
+          .run(
+            "resource-attach-contract",
+            coveredId,
+            "resources/cards/attach-contract.txt",
+            "d".repeat(64),
+            128,
+            "设定.txt",
+            "2026-09-12T00:00:00.000Z"
+          );
+      } finally {
+        database.close();
+      }
+
+      const all = (await workspace.read({ kind: "cards.list" })) as CardSummary[];
+      const covered = all.find((item) => item.id === coveredId);
+      const bare = all.find((item) => item.id === bareId);
+      assert.ok(covered, "带封面的卡应出现在列表里");
+      assert.ok(bare, "无封面的卡应出现在列表里");
+      // 核心断言：cover 资源 ID 被挑出来，且不是附件。
+      assert.equal(covered.coverResourceId, "resource-cover-contract");
+      // 无封面时为 null（不是 undefined、不是空串），前端据此降级为占位。
+      assert.equal(bare.coverResourceId, null);
+    });
+
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
     const pendingLifecycleWorkspace = lifecycleWorkspace as CreationWorkspace | null;

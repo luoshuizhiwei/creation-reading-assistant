@@ -94,6 +94,21 @@ export function computeDailyActiveSeconds(stats: ProjectStatsView, now = new Dat
   return entry?.activeSeconds ?? 0;
 }
 
+/**
+ * 日趋势柱状图的日期标签抽稀。
+ *
+ * 窗口从 14 天扩到 30 天后，每列宽度约减半，10px 的 `MM-DD` 标签（`white-space: nowrap`）
+ * 在窄窗口下会溢出列盒并与相邻标签重叠。这里只在「每 5 天」与最后一列（今天）渲染标签；
+ * 每列的完整日期与数值仍由 `title` 提示给出，信息不丢失。
+ *
+ * 短窗口（≤16 列）保持逐列显示，与扩窗前 14 天的观感一致。
+ */
+export function shouldShowDailyLabel(index: number, total: number): boolean {
+  if (total <= 0) return false;
+  if (index === total - 1) return true;
+  return index % (total <= 16 ? 1 : 5) === 0;
+}
+
 /** 本周（本地周一 0 点起，含今天）净增字数与活动时长。 */
 export function computeWeekSummary(
   stats: ProjectStatsView,

@@ -1,7 +1,8 @@
 import { Library, Lightbulb, Trash2 } from "lucide-react";
 import { InboxItemDetail } from "./InboxItemDetail";
 import type { InboxItem } from "@/types/creation";
-import type { AIRunAction, AISettings } from "@/types/ai";
+import type { AISettings } from "@/types/ai";
+import type { InspirationVariantKind } from "@/types/inspiration";
 import type { InboxDraft, SaveStatus } from "./types";
 
 export interface InboxItemListProps {
@@ -28,9 +29,9 @@ export interface InboxItemListProps {
   // AI polish
   aiAvailable: boolean;
   aiSettings: AISettings | null;
-  aiBusy?: AIRunAction;
+  aiBusy?: InspirationVariantKind;
   isAIRunning: boolean;
-  onRequestAI: (action: Exclude<AIRunAction, "consistency">) => void;
+  onRequestAI: (action: InspirationVariantKind) => void;
   onAdoptVariant: (variant: Record<string, unknown>) => void;
   onCopyVariant: (content: string) => void;
   onRemoveVariant: (variantId: string) => void;

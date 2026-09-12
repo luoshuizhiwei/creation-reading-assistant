@@ -613,3 +613,46 @@
   .global-card-delete-impact { grid-template-columns: 1fr; }
   .global-card-trash-list li { align-items: flex-start; flex-direction: column; }
 }
+
+/* ----------------------------- 全局卡片封面 ----------------------------- */
+/* 封面字节由主进程的 creation-asset 只读协议提供；渲染进程只持有 URL。
+   容器固定为内容盒，加载/失败态用覆盖层呈现，避免封面出现时布局跳动。 */
+
+.global-card-cover {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 140px;
+  margin: 0 0 14px;
+  border: 1px solid var(--paper-line);
+  border-radius: 10px;
+  background: var(--paper-soft, rgba(0, 0, 0, 0.02));
+  overflow: hidden;
+}
+
+.global-card-cover-image {
+  display: block;
+  max-width: 100%;
+  max-height: 320px;
+  object-fit: contain;
+}
+
+.global-card-cover-status {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  color: var(--paper-muted);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: center;
+  background: var(--paper-soft, rgba(0, 0, 0, 0.02));
+}
+
+.global-card-cover--empty {
+  gap: 6px;
+  border-style: dashed;
+  color: var(--paper-muted);
+  font-size: 12px;
+}

@@ -2723,12 +2723,23 @@ input[type="text"],
 .outline-page-body {
   flex: 1;
   min-height: 320px;
+  /* 行高必须被容器高度约束。若留给隐式 auto 行，单行会被最高的场景任务卡
+     （851px）撑开，两列一起超出 overflow:hidden 的容器而被裁切；此时聚焦
+     侧栏输入框，浏览器会滚动整个 body 把大纲树推出可视区，只剩空白。 */
+  grid-template-rows: minmax(0, 1fr);
 }
 
 .outline-page-main,
 .outline-page-side {
   min-height: 0;
   overflow: auto;
+}
+
+/* 侧栏必须随行高收缩。styles.css 遗留的 align-self:start 会让场景任务卡保持内容
+   高度（851px）并溢出 overflow:hidden 的双栏容器；聚焦侧栏字段时浏览器会滚动整个
+   容器去露出焦点元素，把大纲树整块推出可视区。改为 stretch 后由侧栏自己内滚。 */
+.outline-page-side {
+  align-self: stretch;
 }
 
 /* 场景任务卡：出场卡片多选加高，不再截断候选行。 */
@@ -3082,6 +3093,15 @@ input[type="text"],
 
 .stats-page .stats-grid > *:first-child {
   border-left: 0;
+}
+
+/* 30 天趋势柱：标签已抽稀（每 5 天 + 今天），这里再兜底防止极窄窗口下
+   10px 的 MM-DD 标签溢出列盒、压到相邻列上。 */
+.stats-daily-label,
+.overview-daily-label {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* 卡片看板：直接铺满，去掉外层大面板容器与浮层卡。 */

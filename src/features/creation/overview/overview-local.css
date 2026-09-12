@@ -3,7 +3,7 @@
  *
  * 沿用 paper-ink 编辑工作室设计令牌（与 stats-page / history-page 同族），
  * 不复用 editorial-studio.css 的统计类，而是固定为概览仪表板结构：
- * hero 标题栏 → 4 张信息卡 → 14 天净增柱状图 → 最近编辑场景列表 → 操作行。
+ * hero 标题栏 → 信息卡（目标 / 时长 / 章节状态 / 待处理）→ 30 天净增柱状图 → 最近编辑场景列表 → 操作行。
  */
 
 .overview-page {

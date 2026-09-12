@@ -186,4 +186,43 @@ describe("GlobalCardLibraryPage", () => {
       entityId: "card-deleted"
     }));
   });
+
+  // 阶段 4-A：封面此前只做到数据层持久化，界面从不渲染。
+  it("卡片设置了封面时，详情区渲染指向只读资源协议的封面图", async () => {
+    loadResources.mockResolvedValue([{
+      id: "resource-cover",
+      projectId: null,
+      cardId: "card-global",
+      ownerScope: "card",
+      role: "cover",
+      relativePath: "resources/cards/card-global/cover.png",
+      sha256: "a".repeat(64),
+      size: 2048,
+      originalName: "封面.png",
+      createdAt: "2026-09-12T00:00:00.000Z"
+    }]);
+    render(<GlobalCardLibraryPage />);
+
+    const image = await screen.findByRole("img", { name: "林墨 封面" });
+    expect(image.getAttribute("src")).toBe("creation-asset://card/card-global/resource-cover");
+  });
+
+  it("卡片没有封面时详情区给出空态而不是空白", async () => {
+    loadResources.mockResolvedValue([{
+      id: "resource-note",
+      projectId: null,
+      cardId: "card-global",
+      ownerScope: "card",
+      role: "attachment",
+      relativePath: "resources/cards/card-global/note.txt",
+      sha256: "b".repeat(64),
+      size: 128,
+      originalName: "备注.txt",
+      createdAt: "2026-09-12T00:00:00.000Z"
+    }]);
+    render(<GlobalCardLibraryPage />);
+
+    expect(await screen.findByText("林墨 尚未设置封面")).toBeTruthy();
+    expect(screen.queryByRole("img", { name: "林墨 封面" })).toBeNull();
+  });
 });

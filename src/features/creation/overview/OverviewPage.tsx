@@ -9,6 +9,7 @@ import {
   computeGoalProgress,
   computeWeekSummary,
   DEFAULT_WORD_METRIC,
+  shouldShowDailyLabel,
   WORD_METRIC_LABELS
 } from "@/features/creation/stats/stats-calculator";
 import "./overview-local.css";
@@ -182,10 +183,10 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenInbox }: Over
       </div>
 
       <div className="stats-card overview-daily-card">
-        <h3><Flame size={15} /> 最近 14 天净增字数</h3>
+        <h3><Flame size={15} /> 最近 30 天净增字数</h3>
         {stats && stats.daily.some((item) => item.netChars !== 0) ? (
-          <div className="stats-daily overview-daily" role="img" aria-label="最近十四天净增字数柱状图">
-            {stats.daily.map((item) => {
+          <div className="stats-daily overview-daily" role="img" aria-label="最近三十天净增字数柱状图">
+            {stats.daily.map((item, index) => {
               const height = Math.max(2, Math.round((Math.abs(item.netChars) / maxDaily) * 100));
               const netClass = item.netChars >= 0 ? "gain" : "loss";
               return (
@@ -195,13 +196,15 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenInbox }: Over
                   title={`${item.date}：净增 ${item.netChars} 字 · ${Math.round(item.activeSeconds / 60)} 分钟`}
                 >
                   <span className="stats-daily-bar overview-daily-bar" style={{ height: `${height}%` }} />
-                  <span className="stats-daily-label overview-daily-label">{item.date.slice(5)}</span>
+                  <span className="stats-daily-label overview-daily-label">
+                    {shouldShowDailyLabel(index, stats.daily.length) ? item.date.slice(5) : ""}
+                  </span>
                 </div>
               );
             })}
           </div>
         ) : (
-          <p className="stats-note">最近 14 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
+          <p className="stats-note">最近 30 天还没有净增字数。在写作台输入或调整结构后，这里会按天记录变化。</p>
         )}
       </div>
 

@@ -16,7 +16,7 @@ interface SceneAiReportProps {
 export function SceneAiReport({ actionLabel, content, model, onClose }: SceneAiReportProps) {
   return (
     <div className="writing-reanchor-backdrop" role="presentation">
-      <section className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label="AI 一致性检查报告" data-testid="scene-ai-report">
+      <section className="writing-reanchor-dialog scene-candidate-dialog" role="dialog" aria-modal="true" aria-label={`AI ${actionLabel}报告`} data-testid="scene-ai-report">
         <p className="desktop-card-label">AI Report</p>
         <h4>
           <FileSearch size={14} /> {actionLabel}报告

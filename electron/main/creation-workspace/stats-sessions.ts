@@ -30,6 +30,9 @@ export interface StatsSessionsModule {
   runSessionList(projectId: string, limit: number): SessionEntry[];
 }
 
+/** 统计页每日趋势窗口（天，含今天）。需求为最近 30 天。 */
+export const STATS_DAILY_TREND_DAYS = 30;
+
 function validateId(value: unknown, label: string): string {
   if (typeof value !== "string" || !value.trim()) {
     throw new CreationWorkspaceError("invalid-input", `${label}标识无效。`);
@@ -179,7 +182,7 @@ export function createStatsSessionsModule(database: Database, host: StatsSession
       if (started >= startOfWeek) weekMinutes += row.active_seconds;
     }
     const daily: ProjectDailyStat[] = [];
-    for (let offset = 13; offset >= 0; offset -= 1) {
+    for (let offset = STATS_DAILY_TREND_DAYS - 1; offset >= 0; offset -= 1) {
       const date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - offset);
       const key = localDateKey(date);
       const entry = dailyMap.get(key);
@@ -208,6 +211,16 @@ export function createStatsSessionsModule(database: Database, host: StatsSession
         "SELECT status, count(*) AS count FROM chapters WHERE project_id = ? AND deleted_at IS NULL GROUP BY status"
       )
       .all(projectId) as Array<{ status: string; count: number }>;
+    // 场景状态分布必须取自 scenes.scene_status。它与 chapters.status 的章节工作流状态是两种
+    // 不同语义，不得复用章节状态，也不得由章节状态推导。
+    const sceneStatusRows = database
+      .prepare(
+        `SELECT s.scene_status AS status, count(*) AS count
+         FROM scenes s JOIN chapters c ON c.id = s.chapter_id
+         WHERE s.deleted_at IS NULL AND c.deleted_at IS NULL AND c.project_id = ?
+         GROUP BY s.scene_status`
+      )
+      .all(projectId) as Array<{ status: string; count: number }>;
     const snapshotRow = database
       .prepare("SELECT count(*) AS count FROM snapshots WHERE project_id = ?")
       .get(projectId) as { count: number };
@@ -223,6 +236,7 @@ export function createStatsSessionsModule(database: Database, host: StatsSession
       daily,
       revisionCount: revisionRow.count,
       chapterStatusCounts: statusRows.map((row) => ({ status: row.status, count: row.count })),
+      sceneStatusCounts: sceneStatusRows.map((row) => ({ status: row.status, count: row.count })),
       snapshotCount: snapshotRow.count,
       streakDays
     };

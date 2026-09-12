@@ -5,6 +5,13 @@ import { deriveSceneRadar } from "@/features/creation/editor/scene-radar";
 import { describeSelection, type SceneSelection } from "@/features/creation/editor/annotation-selection";
 import { CardReferencePicker } from "@/features/creation/editor/card-reference-picker";
 import { buildAiContextPack, type AiContextPack } from "@/features/creation/ai/build-ai-context";
+import {
+  SCENE_AI_ACTION_ORDER,
+  appendTextToSceneBody,
+  sceneAiActionLabel,
+  sceneAiAdoptMode,
+  sceneAiOutputKind
+} from "@/features/creation/ai/scene-ai-actions";
 import { SceneCandidateReview, type SceneCandidate } from "@/features/creation/ai/SceneCandidateReview";
 import { SceneAiReport } from "@/features/creation/ai/SceneAiReport";
 import { creationDocumentToPlainText } from "@/features/creation/ai/diff-paragraphs";
@@ -12,7 +19,13 @@ import { plainTextToCreationDocument } from "@/features/creation/editor/paste-cl
 import { AiSendConfirmDialog, rememberAiSendOptOut } from "@/features/creation/inbox/ai-send-confirm";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { annotationReanchor, runStructure as runStructureRequest } from "@/services/creation-service";
-import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
+import {
+  isAIAvailable,
+  type AIRunAction,
+  type AIRunSceneContext,
+  type AISettings,
+  type SceneAiAction
+} from "@/types/ai";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -30,6 +43,31 @@ type MarginTab = "radar" | "notes";
 interface ReanchorCandidate {
   annotation: Annotation;
   selection: SceneSelection;
+}
+
+/**
+ * 把上下文包里「未被排除」的分组收敛成场景上下文：
+ * 正文组不进 sceneContext（走 content 通道），任务卡/卡片/批注各自独立可选。
+ * 这样用户排除掉的内容不会换个名字又出现在提示词里。
+ */
+function buildSceneContext(
+  pack: AiContextPack,
+  excluded: ReadonlySet<string> | undefined,
+  sceneTitle: string
+): AIRunSceneContext {
+  const pick = (ids: readonly string[]): string | undefined => {
+    const parts = pack.groups
+      .filter((group) => ids.includes(group.id) && !excluded?.has(group.id))
+      .map((group) => group.content.trim())
+      .filter((part) => part !== "");
+    return parts.length > 0 ? parts.join("\n\n") : undefined;
+  };
+  return {
+    sceneTitle,
+    planningText: pick(["planning"]),
+    cardsText: pick(["cards", "quick-reference"]),
+    annotationsText: pick(["annotations"])
+  };
 }
 
 export interface WritingDeskMarginProps {
@@ -106,7 +144,7 @@ export function WritingDeskMargin({
   const [aiSettings, setAiSettings] = useState<AISettings | undefined>();
   const [aiPackDialog, setAiPackDialog] = useState<{ action: AIRunAction; pack: AiContextPack } | null>(null);
   const [aiCandidate, setAiCandidate] = useState<SceneCandidate | null>(null);
-  const [aiReport, setAiReport] = useState<{ content: string; model: string } | null>(null);
+  const [aiReport, setAiReport] = useState<{ content: string; model: string; actionLabel: string } | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
 
   useEffect(() => {
@@ -271,7 +309,7 @@ export function WritingDeskMargin({
     }
   };
 
-  const requestSceneAI = (action: AIRunAction) => {
+  const requestSceneAI = (action: SceneAiAction) => {
     if (!selectedScene || !aiReady) {
       showToast({
         tone: "warning",
@@ -303,7 +341,11 @@ export function WritingDeskMargin({
     setAiPackDialog({ action, pack });
   };
 
-  const confirmSceneAI = async (finalContent: string | null, remember: boolean): Promise<void> => {
+  const confirmSceneAI = async (
+    finalContent: string | null,
+    remember: boolean,
+    excluded?: ReadonlySet<string>
+  ): Promise<void> => {
     const dialog = aiPackDialog;
     if (!dialog || !selectedScene) return;
     if (remember) rememberAiSendOptOut();
@@ -312,11 +354,24 @@ export function WritingDeskMargin({
     if (content.trim() === "") return;
     setAiBusy(true);
     try {
-      const result = await runAIAction({ action: dialog.action, title: selectedScene.title, content });
-      if (dialog.action === "consistency") {
-        setAiReport({ content: result.content, model: result.model });
+      // 上下文边界：sceneContext 严格跟随用户在确认框中的排除结果，
+      // 被排除的组不会以「上下文」名义二次进入提示词。
+      const result = await runAIAction({
+        action: dialog.action,
+        title: selectedScene.title,
+        content,
+        sceneContext: buildSceneContext(dialog.pack, excluded, selectedScene.title)
+      });
+      const label = sceneAiActionLabel(dialog.action);
+      if (sceneAiOutputKind(dialog.action) === "report") {
+        setAiReport({ content: result.content, model: result.model, actionLabel: label });
       } else {
-        setAiCandidate({ action: dialog.action, content: result.content, model: result.model });
+        setAiCandidate({
+          action: dialog.action,
+          content: result.content,
+          model: result.model,
+          mode: sceneAiAdoptMode(dialog.action)
+        });
       }
     } catch (error) {
       showToast({
@@ -341,16 +396,25 @@ export function WritingDeskMargin({
         reason: "AI 候选采纳前保护快照"
       });
       if (!snapshotted) throw new Error("保护快照创建失败，已取消采纳。");
-      const saved = await saveSceneBody(
-        selectedSceneId,
-        sceneView.revision,
-        plainTextToCreationDocument(candidateText)
-      );
+      // 续写：在文档层追加，既有段落一个字节都不重排；其余动作：候选整篇替换。
+      const nextBody =
+        aiCandidate?.mode === "append"
+          ? appendTextToSceneBody(sceneView.body, candidateText)
+          : plainTextToCreationDocument(candidateText);
+      const saved = await saveSceneBody(selectedSceneId, sceneView.revision, nextBody);
       if (!saved?.ok) {
         throw new Error("body-save-failed");
       }
+      const label = sceneAiActionLabel(aiCandidate?.action ?? "");
+      const append = aiCandidate?.mode === "append";
       setAiCandidate(null);
-      showToast({ tone: "success", title: "已采纳 AI 候选", body: "采纳前已创建保护快照，可在版本历史找回原正文。" });
+      showToast({
+        tone: "success",
+        title: append ? `已追加${label}结果` : "已采纳 AI 候选",
+        body: append
+          ? "续写内容已追加到正文末尾，原文保留；采纳前已创建保护快照。"
+          : "采纳前已创建保护快照，可在版本历史找回原正文。"
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       showToast({
@@ -423,15 +487,17 @@ export function WritingDeskMargin({
             <div className="scene-radar-ai" data-testid="scene-ai-row">
               <p className="desktop-card-label">AI 助手</p>
               <div className="scene-radar-ai-buttons">
-                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("polish")}>
-                  <Sparkles size={13} /> 润色场景
-                </button>
-                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("expand")}>
-                  <Sparkles size={13} /> 扩写场景
-                </button>
-                <button type="button" disabled={!aiReady || aiBusy} onClick={() => requestSceneAI("consistency")}>
-                  <Sparkles size={13} /> 一致性检查
-                </button>
+                {SCENE_AI_ACTION_ORDER.map((action) => (
+                  <button
+                    key={action}
+                    type="button"
+                    data-testid={`scene-ai-${action}`}
+                    disabled={!aiReady || aiBusy}
+                    onClick={() => requestSceneAI(action)}
+                  >
+                    <Sparkles size={13} /> {sceneAiActionLabel(action)}
+                  </button>
+                ))}
               </div>
               {!aiReady && (
                 <p className="scene-radar-ai-hint">
@@ -615,13 +681,7 @@ export function WritingDeskMargin({
         )}
         {aiPackDialog && (
           <AiSendConfirmDialog
-            actionLabel={
-              aiPackDialog.action === "polish"
-                ? "润色场景"
-                : aiPackDialog.action === "expand"
-                ? "扩写场景"
-                : "一致性检查"
-            }
+            actionLabel={sceneAiActionLabel(aiPackDialog.action)}
             title={selectedScene?.title ?? ""}
             content=""
             pack={aiPackDialog.pack}
@@ -631,13 +691,13 @@ export function WritingDeskMargin({
                 .join(" · ") || "你配置的 AI 服务"
             }
             busy={aiBusy}
-            onConfirm={(finalContent, remember) => void confirmSceneAI(finalContent, remember)}
+            onConfirm={(finalContent, remember, excluded) => void confirmSceneAI(finalContent, remember, excluded)}
             onCancel={() => setAiPackDialog(null)}
           />
         )}
         {aiReport && (
           <SceneAiReport
-            actionLabel="一致性检查"
+            actionLabel={aiReport.actionLabel}
             content={aiReport.content}
             model={aiReport.model}
             onClose={() => setAiReport(null)}

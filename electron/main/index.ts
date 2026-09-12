@@ -8,8 +8,10 @@ import { createServer } from "node:http";
 import type { IncomingMessage, Server, ServerResponse } from "node:http";
 import { networkInterfaces } from "node:os";
 import { parseEpubFile } from "./epub-metadata";
+import { buildAIPrompt as buildAIPromptFromModule } from "./ai-prompt";
 import { createCreationCoordinator } from "./creation-coordinator";
 import { registerCreationIpc } from "./creation-ipc";
+import { registerCreationAssetProtocol } from "./creation-asset-protocol";
 import { createOperationCoordinator } from "./operation/coordinator";
 import { registerOperationIpc, disposeAllOperations } from "./operation/ipc";
 import { BackupError, createBackupSnapshot, readBackupManifest, restoreBackupFromDirectory } from "./backup";
@@ -18,6 +20,7 @@ import {
   type ProjectBundleData
 } from "./creation-workspace";
 import type { ProjectBundleCardResolution, ProjectBundleImportPreview } from "../../src/types/creation";
+import { CREATION_ASSET_SCHEME } from "../../src/types/creation";
 import {
   AutoBackupError,
   assertSafeExistingBackupTarget,
@@ -168,6 +171,16 @@ protocol.registerSchemesAsPrivileged([
       supportFetchAPI: true,
       corsEnabled: true,
       stream: true
+    }
+  },
+  {
+    // 创作工作区只读资源（全局卡片封面/附件）。只做 `<img>` 展示，因此不开放
+    // supportFetchAPI / corsEnabled / stream：渲染进程无法用 fetch 读字节，
+    // 也无法把这个来源当作可跨域读取的资源。
+    scheme: CREATION_ASSET_SCHEME,
+    privileges: {
+      standard: true,
+      secure: true
     }
   }
 ]);
@@ -1133,22 +1146,8 @@ async function updateAISettings(patch: AISettingsPatch): Promise<AISettings> {
 
 
 function buildAIPrompt(input: AIRunInput): string {
-  const title = input.title?.trim() ? `标题：${input.title.trim()}\n` : "";
-  const platform = input.platform?.trim() ? `目标平台/风格：${input.platform.trim()}\n` : "";
-  const content = requireString(input.content, "灵感内容");
-  const instruction =
-    input.action === "consistency"
-      ? "对下面的场景做一致性检查：只输出问题报告，不要改写正文。每条问题按「【类型】严重度(高/中/低) 位置/证据 → 建议」一行列出，类型限：事实矛盾、时间线冲突、人物设定冲突、称谓/地名不一致、伏笔未回收、逻辑漏洞；没有问题的方面不要罗列，结尾给一行「总体结论」。"
-      : input.action === "expand"
-      ? "把这条小说灵感扩展成可执行的剧情方案，保留钩子、冲突、角色动机和下一步写法。"
-      : input.action === "platform-style"
-        ? "按目标平台读者口味重写这条灵感，让它更像可直接拿去写正文前的桥段设计。"
-        : input.action === "conflict"
-          ? "基于这条灵感生成 5 个可写冲突点，每个包含触发条件、升级方式和可用爽点。"
-          : input.action === "humanize"
-            ? "去掉机械总结感和 AI 腔，把这条灵感润成更自然、更像作者自己随手写下但清楚可用的素材。"
-            : "润色这条小说灵感，让它更清晰、更有画面感，同时不要替作者写成长篇正文。";
-  return `${instruction}\n\n${platform}${title}原始灵感：\n${content}`;
+  // 委托给独立模块，便于纯函数测试；按 action 分派灵感 / 场景两套提示词。
+  return buildAIPromptFromModule(input);
 }
 
 async function runAIAction(input: AIRunInput): Promise<AIRunResult> {
@@ -3466,7 +3465,9 @@ function contentSecurityPolicy(): string {
     "default-src 'self'",
     scriptPolicy,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: novel-workbench-epub:",
+    // 注意：`img-src` 必须与 index.html 的 meta CSP 保持一致。两处 CSP 同时生效
+    // （CSP 取交集），只改一处会让 creation-asset 封面被静默拦截。
+    "img-src 'self' data: blob: novel-workbench-epub: creation-asset:",
     "font-src 'self' data: file:",
     connectPolicy,
     "frame-src 'self' novel-workbench-epub:",
@@ -3773,6 +3774,9 @@ function registerIpc(): void {
   registerCreationIpc(creationCoordinator, {
     resolveDataRoot: () => appDataRoot(),
     resolveLibraryRoot: () => appLibraryRoot()
+  });
+  registerCreationAssetProtocol(creationCoordinator, {
+    resolveDataRoot: () => appDataRoot()
   });
 
   // 长任务（备份 / 项目包 / 资源扫描）的编排：把目录选择、校验、外置资料库确认、

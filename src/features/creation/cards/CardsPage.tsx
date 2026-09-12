@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Columns,
   Download,
@@ -24,6 +24,7 @@ import { CardExportDialog } from "@/features/creation/cards/import-export/CardEx
 import { CardListSidebar } from "@/features/creation/cards/components/CardListSidebar";
 import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
 import { CardRelationsManager } from "@/features/creation/cards/components/CardRelationsManager";
+import { RelationGraphView } from "@/features/creation/cards/RelationGraphView";
 import { ProjectCardLinkDialog } from "@/features/creation/cards/ProjectCardLinkDialog";
 import { displayFieldValue } from "@/features/creation/cards/components/CardDynamicFields";
 import "./cards-local.css";
@@ -33,6 +34,7 @@ import { useUIStore } from "@/stores/ui-store";
 import type {
   CardSummary,
   CreationProjectSummary,
+  RelationGraphView as RelationGraphData,
   ResourceInfo
 } from "@/types/creation";
 
@@ -53,6 +55,7 @@ export function CardsPage({ project }: CardsPageProps) {
     loadRelationTypes,
     loadCards,
     loadCardRelations,
+    loadRelationGraph,
     linkCardToProject,
     unlinkCardFromProject,
     runStructure,
@@ -63,7 +66,7 @@ export function CardsPage({ project }: CardsPageProps) {
   } = useCreationActions();
   const showToast = useUIStore((state) => state.showToast);
 
-  const [view, setView] = useState<"board" | "list">("board");
+  const [view, setView] = useState<"board" | "list" | "graph">("board");
   const [mode, setMode] = useState<"cards" | "background">("cards");
   const [filterKind, setFilterKind] = useState("");
   const [search, setSearch] = useState("");
@@ -80,6 +83,9 @@ export function CardsPage({ project }: CardsPageProps) {
   const [milestoneBusy, setMilestoneBusy] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [showExportDialog, setShowExportDialog] = useState(false);
+  const [relationGraphData, setRelationGraphData] = useState<RelationGraphData | null>(null);
+  const [relationGraphLoading, setRelationGraphLoading] = useState(false);
+  const [relationGraphError, setRelationGraphError] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(null);
@@ -108,6 +114,36 @@ export function CardsPage({ project }: CardsPageProps) {
     if (mode !== "cards") return;
     void loadCards({ projectId: project.id, cardKind: filterKind || undefined, search: search || undefined });
   }, [loadCards, project.id, filterKind, search, mode]);
+
+  /**
+   * 关系图：只在切到该视图时加载。
+   * 传 projectId 得到「本项目已关联卡片的引用投影」——关系本体仍是全局资产，
+   * 指向项目外卡片的关系不绘制，但由视图显式报数。
+   */
+  const loadGraph = useCallback(async () => {
+    setRelationGraphLoading(true);
+    setRelationGraphError(null);
+    try {
+      const data = await loadRelationGraph({ kind: "relationGraph.list", projectId: project.id });
+      // 成功时一定返回视图对象（哪怕一张卡片都没有）；null 只可能是读取失败。
+      if (!data) {
+        setRelationGraphError("关系图读取失败，请重试。");
+        setRelationGraphData(null);
+        return;
+      }
+      setRelationGraphData(data);
+    } catch (loadError) {
+      setRelationGraphError(loadError instanceof Error ? loadError.message : "关系图读取失败。");
+      setRelationGraphData(null);
+    } finally {
+      setRelationGraphLoading(false);
+    }
+  }, [loadRelationGraph, project.id]);
+
+  useEffect(() => {
+    if (mode !== "cards" || view !== "graph") return;
+    void loadGraph();
+  }, [loadGraph, mode, view]);
 
   const projectCards = useMemo(
     () => cards.filter((card) => card.linkedProjectIds?.includes(project.id) ?? card.projectId === project.id),
@@ -465,13 +501,14 @@ export function CardsPage({ project }: CardsPageProps) {
           <span className="desktop-card-label">关联卡片</span>
           {mode === "cards" && (
             <>
-              <Tabs<"board" | "list">
+              <Tabs<"board" | "list" | "graph">
                 variant="pill"
                 value={view}
                 onChange={setView}
                 items={[
                   { id: "board", label: <span className="inline-flex items-center gap-1.5"><LayoutGrid size={13} /> 看板</span> },
-                  { id: "list", label: <span className="inline-flex items-center gap-1.5"><Columns size={13} /> 列表</span> }
+                  { id: "list", label: <span className="inline-flex items-center gap-1.5"><Columns size={13} /> 列表</span> },
+                  { id: "graph", label: <span className="inline-flex items-center gap-1.5"><GitBranch size={13} /> 关系图</span> }
                 ]}
                 ariaLabel="卡片视图"
               />
@@ -533,6 +570,15 @@ export function CardsPage({ project }: CardsPageProps) {
 
       {mode === "background" ? (
         <BackgroundPage projectId={project.id} />
+      ) : view === "graph" ? (
+        <RelationGraphView
+          graph={relationGraphData}
+          loading={relationGraphLoading}
+          error={relationGraphError}
+          titleOf={(cardId) => projectCards.find((card) => card.id === cardId)?.title ?? cardId}
+          onSelectCard={(cardId) => selectCard(cardId)}
+          onRetry={() => void loadGraph()}
+        />
       ) : cardsLoading && view === "board" ? (
         <p className="cards-empty" role="status">正在读取卡片…</p>
       ) : view === "board" ? (

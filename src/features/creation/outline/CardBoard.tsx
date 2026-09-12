@@ -13,6 +13,7 @@ import type {
 import { computeBatchStatusImpact, computeSceneMoveImpact } from "./outline-impact";
 import { reorderTarget } from "./outline-reorder";
 import { StructureImpactDialog } from "./StructureImpactDialog";
+import { SCENE_STATUS_OPTIONS } from "@/features/creation/scene-status";
 import "./outline-reorg.css";
 
 interface CardBoardProps {
@@ -37,13 +38,6 @@ interface CardBoardProps {
 }
 
 type GroupMode = "chapter" | "status";
-
-const SCENE_STATUS_GROUPS = [
-  { value: "planned", label: "待规划" },
-  { value: "drafting", label: "起草中" },
-  { value: "revising", label: "修订中" },
-  { value: "done", label: "已完成" }
-] as const;
 
 function chapterKey(chapter: CreationOutlineChapter): string {
   return [chapter.displayNumber, chapter.title].filter(Boolean).join(" ");
@@ -229,7 +223,7 @@ export function CardBoard({
           <em>{item.scene.wordCount.toLocaleString("zh-CN")}字</em>
         </span>
         <span className={`card-board-card-status card-board-card-status--${item.scene.status ?? "planned"}`}>
-          {SCENE_STATUS_GROUPS.find((entry) => entry.value === (item.scene.status ?? "planned"))?.label ?? "待规划"}
+          {SCENE_STATUS_OPTIONS.find((entry) => entry.value === (item.scene.status ?? "planned"))?.label ?? "待规划"}
         </span>
       </button>
       {renderSceneActions(item.chapter, item.scene.id)}
@@ -367,7 +361,7 @@ export function CardBoard({
                 </div>
               </section>
             ))
-          : SCENE_STATUS_GROUPS.map(({ value, label }) => {
+          : SCENE_STATUS_OPTIONS.map(({ value, label }) => {
               const items = scenesByStatus.get(value) ?? [];
               if (items.length === 0) return null;
               return (

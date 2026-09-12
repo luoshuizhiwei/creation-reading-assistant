@@ -7,6 +7,7 @@ import { useUIStore } from "@/stores/ui-store";
 import { CardBoard } from "@/features/creation/outline/CardBoard";
 import { OutlineTree } from "@/features/creation/outline/OutlineTree";
 import { findChapterLocation } from "@/features/creation/outline/outline-impact";
+import { SCENE_STATUS_OPTIONS } from "@/features/creation/scene-status";
 import type { CreationProjectOutline, ScenePlanning, SceneStatus, StructureApplyResult } from "@/types/creation";
 
 interface OutlinePageProps {
@@ -14,12 +15,6 @@ interface OutlinePageProps {
 }
 
 /** 场景任务卡表单：视角/时间/地点/出场/目标/冲突/结果/情绪/目标字数（蓝图 §5.3）。 */
-const SCENE_STATUS_OPTIONS: Array<{ value: SceneStatus; label: string }> = [
-  { value: "planned", label: "待规划" },
-  { value: "drafting", label: "起草中" },
-  { value: "revising", label: "修订中" },
-  { value: "done", label: "已完成" }
-];
 
 function ScenePlanningForm({ scene, onSaved }: {
   projectId: string;

@@ -6,6 +6,9 @@ import {
   annotationReanchor as annotationReanchorRequest,
   annotationUpdate as annotationUpdateRequest,
   proofQuery as proofQueryRequest,
+  proofIgnore as proofIgnoreRequest,
+  proofIgnoreList as proofIgnoreListRequest,
+  proofUnignore as proofUnignoreRequest,
   readSceneBody,
   snapshotList,
   snapshotPreview as snapshotPreviewRequest,
@@ -27,6 +30,10 @@ import type {
   CreationWorkspaceEvent,
   ProofQuery,
   ProofView,
+  ProofIgnoreCommand,
+  ProofIgnoreEntry,
+  ProofIgnoreResult,
+  ProofUnignoreCommand,
   SceneSaveResponse,
   SnapshotListQuery,
   SnapshotPreviewQuery,
@@ -175,12 +182,54 @@ export function useSceneEditorActions(options: UseSceneEditorActionsOptions = {}
       return (
         res ?? {
           projectId: query.projectId,
+          scanScope: {
+            kind: query.sceneId ? ("scene" as const) : ("project" as const),
+            label: query.sceneId ? "单场景扫描" : "全书扫描",
+            volumeCount: 0,
+            chapterCount: 0,
+            sceneCount: 0,
+            rules: query.rules ?? [],
+            bannedWords: query.bannedWords ?? [],
+            maxParagraphChars: query.maxParagraphChars ?? 500
+          },
           issues: [],
+          ignoredIssues: [],
           scannedScenes: 0,
           affectedScenes: 0,
-          total: 0
+          total: 0,
+          ignoredCount: 0,
+          rawTotal: 0,
+          truncated: false,
+          ignoredTruncated: false,
+          ignoreRecordCount: 0
         }
       );
+    },
+    [setError]
+  );
+
+  const loadProofIgnores = useCallback(
+    async (projectId: string): Promise<ProofIgnoreEntry[]> => {
+      const res = await executeAction(() => proofIgnoreListRequest({ kind: "proof.ignores", projectId }), {
+        setError
+      });
+      return res ?? [];
+    },
+    [setError]
+  );
+
+  const ignoreProofLocation = useCallback(
+    async (command: Omit<ProofIgnoreCommand, "type">): Promise<ProofIgnoreResult | null> => {
+      const res = await executeAction(() => proofIgnoreRequest(command), { setError });
+      return res ?? null;
+    },
+    [setError]
+  );
+
+  const unignoreProofLocation = useCallback(
+    async (command: Omit<ProofUnignoreCommand, "type">): Promise<ProofIgnoreResult | null> => {
+      const res = await executeAction(() => proofUnignoreRequest(command), { setError });
+      return res ?? null;
     },
     [setError]
   );
@@ -245,6 +294,9 @@ export function useSceneEditorActions(options: UseSceneEditorActionsOptions = {}
     restoreSnapshotWithProtection,
     runSnapshotRetention,
     runProof,
+    loadProofIgnores,
+    ignoreProofLocation,
+    unignoreProofLocation,
     loadAnnotations,
     createAnnotation,
     updateAnnotation,

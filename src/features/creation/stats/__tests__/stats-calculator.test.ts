@@ -8,6 +8,7 @@ import {
   computeWeekSummary,
   computeWeeklyUpdateDayTarget,
   localDateKey,
+  shouldShowDailyLabel,
   startOfLocalWeek,
   wordsForMetric
 } from "../stats-calculator";
@@ -155,5 +156,21 @@ describe("stats-calculator 目标日期与更新日", () => {
   it("无周目标或更新日：返回 null", () => {
     expect(computeWeeklyUpdateDayTarget(setupOf({ weeklyWordGoal: 100 }))).toBeNull();
     expect(computeWeeklyUpdateDayTarget(setupOf({ weeklyUpdateDays: [1] }))).toBeNull();
+  });
+});
+
+describe("shouldShowDailyLabel 30 天趋势标签抽稀", () => {
+  it("30 列时只保留每 5 天与最后一列（今天）", () => {
+    const visible = Array.from({ length: 30 }, (_, index) => index).filter((index) => shouldShowDailyLabel(index, 30));
+    expect(visible).toEqual([0, 5, 10, 15, 20, 25, 29]);
+  });
+
+  it("短窗口（≤16 列）保持逐列显示，与扩窗前的 14 天观感一致", () => {
+    const visible = Array.from({ length: 14 }, (_, index) => index).filter((index) => shouldShowDailyLabel(index, 14));
+    expect(visible).toEqual([...Array(14).keys()]);
+  });
+
+  it("空窗口不渲染任何标签", () => {
+    expect(shouldShowDailyLabel(0, 0)).toBe(false);
   });
 });

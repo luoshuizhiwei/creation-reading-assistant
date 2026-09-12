@@ -3,6 +3,7 @@ import { createDemoProject } from "@/features/creation/demo/create-demo-project"
 import {
   ArchiveRestore,
   BookMarked,
+  BookOpen,
   ChevronLeft,
   Download,
   FileUp,
@@ -34,6 +35,7 @@ const LazyMigrationDialog = lazy(() => import("@/features/creation/migration/Mig
 const LazyOutlinePage = lazy(() => import("@/features/creation/outline/OutlinePage").then((m) => ({ default: m.OutlinePage })));
 const LazyOverviewPage = lazy(() => import("@/features/creation/overview/OverviewPage").then((m) => ({ default: m.OverviewPage })));
 const LazyProofPanel = lazy(() => import("@/features/creation/proof/ProofPanel").then((m) => ({ default: m.ProofPanel })));
+const LazyPreviewPage = lazy(() => import("@/features/creation/preview/PreviewPage").then((m) => ({ default: m.PreviewPage })));
 const LazyStatsPage = lazy(() => import("@/features/creation/stats/StatsPage").then((m) => ({ default: m.StatsPage })));
 // 编辑器栈（prosemirror / tiptap）占项目屏闭包约 68%，但默认视图是 overview，
 // 写界面并非首屏必需。改为 lazy 拆出独立 chunk，并在浏览器空闲时预加载，
@@ -57,6 +59,7 @@ const PROJECT_NAV_ICONS: Record<ProjectView, typeof Layers> = {
   overview: LayoutDashboard,
   writing: PenLine,
   outline: ListTree,
+  preview: BookOpen,
   cards: Layers,
   stats: BookMarked,
   history: ArchiveRestore
@@ -70,6 +73,8 @@ function viewDescription(view: ProjectView): string {
       return "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。";
     case "outline":
       return "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。";
+    case "preview":
+      return "按卷、章、场景通读全书并可打印或导出打印版 PDF；本页只读，正文改动请回到写作台。";
     case "cards":
       return "管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。";
     case "stats":
@@ -492,6 +497,10 @@ export function CreationProjectsPage() {
               ) : view === "outline" ? (
                 <Suspense fallback={<ScreenFallback />}>
                   <LazyOutlinePage project={selected} />
+                </Suspense>
+              ) : view === "preview" ? (
+                <Suspense fallback={<ScreenFallback />}>
+                  <LazyPreviewPage projectId={selected.id} />
                 </Suspense>
               ) : view === "overview" ? (
                 <Suspense fallback={<ScreenFallback />}>

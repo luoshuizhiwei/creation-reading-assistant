@@ -10,7 +10,8 @@ import type {
   CreationWorkspaceErrorCode,
   ReplacePlanScope,
   ReplacePlanMode,
-  ReplaceScope
+  ReplaceScope,
+  ProofRule
 } from "./primitives";
 import type {
   AnnotationAnchor,
@@ -787,4 +788,45 @@ export interface ProjectUpdateGoalCommand {
   description?: string | null;
   genre?: string | null;
   weeklyUpdateDays?: number[];
+}
+
+// ---------------------------------------------------------------------------
+// 校对忽略命令（只写忽略记录，绝不修改正文）
+// ---------------------------------------------------------------------------
+
+/**
+ * 忽略一个**具体位置**的校对命中。
+ * 唯一键为（projectId, sceneId, rule, locationKey）：同文本在其它段落、
+ * 其它场景或其它项目的出现不受影响。重复忽略同一位置是幂等的。
+ */
+export interface ProofIgnoreCommand {
+  type: "proof.ignore";
+  projectId: string;
+  sceneId: string;
+  rule: ProofRule;
+  locationKey: string;
+  /** 命中文本快照，仅用于展示与排查；不参与匹配。 */
+  matchedText?: string;
+  note?: string;
+}
+
+/** 取消忽略：按记录 ID，或按（场景 + 规则 + 位置键）定位。 */
+export interface ProofUnignoreCommand {
+  type: "proof.unignore";
+  projectId: string;
+  ignoreId?: string;
+  sceneId?: string;
+  rule?: ProofRule;
+  locationKey?: string;
+}
+
+export interface ProofIgnoreResult {
+  commandType: "proof.ignore" | "proof.unignore";
+  sequence: number;
+  projectId: string;
+  /** 受影响（新增或删除）的忽略记录 ID。 */
+  ignoreIds: string[];
+  /** 实际删除的记录数；新增命令固定为 0。 */
+  removed: number;
+  updatedAt: string;
 }

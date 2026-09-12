@@ -225,6 +225,15 @@ export interface CardSummary {
   createdAt: string;
   updatedAt: string;
   revision: number;
+  /**
+   * 封面资源 ID（`global_card_resources.id`，`role = 'cover'`）；无封面时为 null。
+   *
+   * 用于在卡片列表/网格里直接拼出 `creation-asset://card/<id>/<resourceId>` 缩略图，
+   * 避免为每张卡片单独查一次资源（N+1）。数据库层已有
+   * `idx_global_card_resources_cover` 唯一索引，一张卡最多一个封面。
+   * 旧库（无 `global_card_resources` 表）恒为 null。
+   */
+  coverResourceId?: string | null;
 }
 
 export interface CardRelation {
@@ -579,6 +588,15 @@ export interface ProjectChapterStatusCount {
   count: number;
 }
 
+/**
+ * 场景状态分布。`status` 一律取自 `scenes.scene_status`，与 `chapters.status` 的章节工作流状态
+ * 是两种不同语义，不可互相复用或互相替代。
+ */
+export interface ProjectSceneStatusCount {
+  status: string;
+  count: number;
+}
+
 export interface ProjectStatsView {
   projectId: string;
   words: ProjectWordCounts;
@@ -588,11 +606,13 @@ export interface ProjectStatsView {
     week: number;
     total: number;
   };
-  /** 最近 14 天净增与活动时长（含今天）。 */
+  /** 最近 30 天净增与活动时长（含今天）。 */
   daily: ProjectDailyStat[];
   /** 场景正文修订次数（保存 + 查找替换）。 */
   revisionCount: number;
   chapterStatusCounts: ProjectChapterStatusCount[];
+  /** 场景状态分布，取自 `scenes.scene_status`；不含已删除场景与已删除章节下的场景。 */
+  sceneStatusCounts: ProjectSceneStatusCount[];
   /** 命名快照数（里程碑）。 */
   snapshotCount: number;
   /** 连续写作天数（按有会话记录的天数，含今天）。 */

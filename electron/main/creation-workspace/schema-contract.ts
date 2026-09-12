@@ -4,7 +4,7 @@ import { mkdir, mkdtemp } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { openCreationWorkspace, type CreationWorkspace } from "./index";
+import { openCreationWorkspace, SCHEMA_VERSION, type CreationWorkspace } from "./index";
 
 const V1_SCHEMA_SQL = `
 CREATE TABLE workspace_meta (key TEXT PRIMARY KEY, value TEXT NOT NULL);
@@ -125,7 +125,7 @@ async function run(): Promise<void> {
       try {
         const report = await workspace.check();
         assert.equal(report.ok, true);
-        assert.equal(report.schemaVersion, 11);
+        assert.equal(report.schemaVersion, SCHEMA_VERSION);
         const list = (await workspace.read({ kind: "projects.list" })) as Array<{ title: string }>;
         assert.equal(list.some((project) => project.title === "旧项目v1"), true);
         const tree = await workspace.read({ kind: "project.tree", projectId: "project-v1" });
@@ -141,7 +141,7 @@ async function run(): Promise<void> {
         await workspace.close();
       }
       const reopened = new Database(path.join(directory, "workspace.sqlite"));
-      assert.equal(Number(reopened.pragma("user_version", { simple: true })), 11);
+      assert.equal(Number(reopened.pragma("user_version", { simple: true })), SCHEMA_VERSION);
       const sceneColumns = new Set((reopened.prepare("PRAGMA table_info(scenes)").all() as Array<{ name: string }>).map((column) => column.name));
       assert.equal(sceneColumns.has("summary"), true);
       assert.equal(sceneColumns.has("scene_status"), true);
@@ -171,12 +171,54 @@ async function run(): Promise<void> {
 
       const migrated = await openCreationWorkspace({ directory });
       const report = await migrated.check();
-      assert.equal(report.schemaVersion, 11);
+      assert.equal(report.schemaVersion, SCHEMA_VERSION);
       const outline = await migrated.read({ kind: "project.outline", projectId: created.projectId });
       const scene = outline?.volumes[0]?.chapters[0]?.scenes[0];
       assert.equal(scene?.summary, "");
       assert.equal(scene?.status, "planned");
       await migrated.close();
+    });
+
+    await scenario("v11 增量升级到 v12：建校对忽略表且可重复打开（幂等）", async () => {
+      const directory = path.join(parent, "v11-to-v12");
+      await mkdir(directory, { recursive: true });
+      const prepared = await openCreationWorkspace({ directory });
+      const created = await prepared.transact({ type: "project.create", title: "v11 项目" });
+      await prepared.close();
+      const raw = new Database(path.join(directory, "workspace.sqlite"));
+      raw.exec("DROP TABLE IF EXISTS proof_ignores; PRAGMA user_version = 11;");
+      raw.close();
+
+      const migrated = await openCreationWorkspace({ directory });
+      const report = await migrated.check();
+      assert.equal(report.schemaVersion, SCHEMA_VERSION);
+      const created2 = await migrated.transact({
+        type: "proof.ignore",
+        projectId: created.projectId,
+        sceneId: created.sceneId,
+        rule: "repeatedChar",
+        locationKey: "repeatedChar#0#deadbeef",
+        matchedText: "他他他"
+      });
+      assert.equal(created2.ignoreIds.length, 1);
+      await migrated.close();
+
+      // 重复打开必须自愈到同一版本，且忽略记录不丢。
+      const reopened = await openCreationWorkspace({ directory });
+      const repopenedReport = await reopened.check();
+      assert.equal(repopenedReport.schemaVersion, 12);
+      const ignores = (await reopened.read({
+        kind: "proof.ignores",
+        projectId: created.projectId
+      })) as Array<{ locationKey: string; matchedText: string }>;
+      assert.equal(ignores.length, 1);
+      assert.equal(ignores[0]!.locationKey, "repeatedChar#0#deadbeef");
+      assert.equal(ignores[0]!.matchedText, "他他他");
+      await reopened.close();
+
+      const after = new Database(path.join(directory, "workspace.sqlite"));
+      assert.equal(Number(after.pragma("user_version", { simple: true })), SCHEMA_VERSION);
+      after.close();
     });
 
     await scenario("未知更高版本拒绝打开（禁止 destructive fallback）", async () => {

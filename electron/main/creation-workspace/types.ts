@@ -21,6 +21,8 @@
   CardType,
   CardTypesListQuery,
   CardsListQuery,
+  RelationGraphQuery,
+  RelationGraphView,
   RelationType,
   RelationTypesListQuery,
   HistoryCommand,
@@ -88,7 +90,12 @@
   InboxConvertToCardCommand,
   InboxConvertToCardResult,
   ProjectHomeQuery,
-  ProjectHomeView
+  ProjectHomeView,
+  ProofIgnoreCommand,
+  ProofIgnoreEntry,
+  ProofIgnoreListQuery,
+  ProofIgnoreResult,
+  ProofUnignoreCommand
 } from "../../../src/types/creation";
 
 import type {
@@ -178,6 +185,10 @@ export type {
   CardTypesListQuery,
   CardUpdateCommand,
   CardsListQuery,
+  RelationGraphEdge,
+  RelationGraphNode,
+  RelationGraphQuery,
+  RelationGraphView,
   RelationType,
   RelationTypeCreateCommand,
   RelationTypeUpdateCommand,
@@ -228,6 +239,13 @@ export type {
   ProofQuery,
   ProofRule,
   ProofView,
+  ProofLocation,
+  ProofScanScope,
+  ProofIgnoreCommand,
+  ProofIgnoreEntry,
+  ProofIgnoreListQuery,
+  ProofIgnoreResult,
+  ProofUnignoreCommand,
   InboxCreateCommand,
   InboxDeleteCommand,
   InboxItem,
@@ -342,6 +360,7 @@ export type CreationReadQuery =
   | CardTypesListQuery
   | RelationTypesListQuery
   | CardRelationsQuery
+  | RelationGraphQuery
   | TrashListQuery
   | SnapshotListQuery
   | SnapshotPreviewQuery
@@ -358,7 +377,8 @@ export type CreationReadQuery =
   | ProjectBundleExportQuery
   | AnnotationListQuery
   | ResourceListQuery
-  | ProjectHomeQuery;
+  | ProjectHomeQuery
+  | ProofIgnoreListQuery;
 export type CreationReadResult =
   | CreationProjectTree
   | CreationProjectNavigation
@@ -387,6 +407,8 @@ export type CreationReadResult =
   | Annotation[]
   | ResourceInfo[]
   | ProjectHomeView
+  | ProofIgnoreEntry[]
+  | RelationGraphView
   | null;
 
 export type CreateProjectSetupInput = Omit<CreateProjectInput, "title">;
@@ -404,7 +426,7 @@ export interface UpdateSceneBodyCommand {
   body: CreationDocument;
 }
 
-export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | SceneUpdateMetaCommand | StructurePlanCommand;
+export type CreationCommand = CreateProjectCommand | UpdateSceneBodyCommand | StructureCommand | CardCommand | HistoryCommand | ReplaceApplyCommand | SessionReportCommand | SessionDeleteCommand | InboxCreateCommand | InboxUpdateCommand | InboxDeleteCommand | InboxConvertToCardCommand | ProjectImportDraftCommand | ProjectBundleImportCommand | AnnotationCreateCommand | AnnotationUpdateCommand | AnnotationDeleteCommand | AnnotationReanchorCommand | ResourceAttachCommand | ResourceDetachCommand | SceneUpdatePlanningCommand | SceneUpdateMetaCommand | StructurePlanCommand | ProofIgnoreCommand | ProofUnignoreCommand;
 
 export interface CreateProjectResult {
   commandType: "project.create";
@@ -415,7 +437,7 @@ export interface CreateProjectResult {
   sceneId: string;
 }
 
-export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | CardLinkResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | InboxConvertToCardResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult | SceneUpdateMetaResult | StructurePlanResult;
+export type CreationTransactionResult = CreateProjectResult | UpdateSceneBodyResult | CreationStructureResult | CardLinkResult | ReplaceApplyResult | SessionReportResult | InboxItemResult | InboxConvertToCardResult | ProjectImportDraftResult | ProjectBundleImportResult | AnnotationResult | ResourceResult | SceneUpdatePlanningResult | SceneUpdateMetaResult | StructurePlanResult | ProofIgnoreResult;
 
 export interface CreationWatchScope {
   projectId?: string;
@@ -434,6 +456,7 @@ export interface CreationWorkspace {
   read(query: CardTypesListQuery): Promise<CardType[]>;
   read(query: RelationTypesListQuery): Promise<RelationType[]>;
   read(query: CardRelationsQuery): Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
+  read(query: RelationGraphQuery): Promise<RelationGraphView>;
   read(query: TrashListQuery): Promise<TrashItem[]>;
   read(query: SnapshotListQuery): Promise<SnapshotInfo[]>;
   read(query: SnapshotPreviewQuery): Promise<SnapshotPreviewView | null>;
@@ -451,6 +474,7 @@ export interface CreationWorkspace {
   read(query: AnnotationListQuery): Promise<Annotation[]>;
   read(query: ResourceListQuery): Promise<ResourceInfo[]>;
   read(query: ProjectHomeQuery): Promise<ProjectHomeView>;
+  read(query: ProofIgnoreListQuery): Promise<ProofIgnoreEntry[]>;
   read(query: CreationReadQuery): Promise<CreationReadResult>;
   transact(command: CreateProjectCommand): Promise<CreateProjectResult>;
   transact(command: UpdateSceneBodyCommand): Promise<UpdateSceneBodyResult>;
@@ -468,6 +492,7 @@ export interface CreationWorkspace {
   transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
   transact(command: SceneUpdateMetaCommand): Promise<SceneUpdateMetaResult>;
+  transact(command: ProofIgnoreCommand | ProofUnignoreCommand): Promise<ProofIgnoreResult>;
   previewStructure(command: StructurePreviewCommand): Promise<StructurePreviewView>;
   applyStructure(command: StructureApplyWithProtectionCommand): Promise<StructureApplyResult>;
   revertStructure(command: StructureRevertCommand): Promise<StructureRevertResult>;

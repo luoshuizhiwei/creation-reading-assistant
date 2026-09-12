@@ -5,3 +5,5 @@ export * from "./query";
 export * from "./event";
 export * from "./plan";
 export * from "./runtime";
+export * from "./asset-protocol";
+export * from "./preview";

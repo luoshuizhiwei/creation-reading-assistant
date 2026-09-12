@@ -76,7 +76,11 @@ export type ProofRule =
   | "bannedWord"
   | "mixedPunctuation"
   | "crutchWord"
-  | "paragraphStartRepeat";
+  | "paragraphStartRepeat"
+  /** 别名一致性：同一张卡片在全书被多种称呼指代，少数派称呼所在位置逐个提示。 */
+  | "aliasInconsistency"
+  /** 疑似错拼：与项目词表（卡片主名/别名）仅差一个字的词，按位置提示。 */
+  | "suspectedTypo";
 
 /**
  * 场景任务卡字段（蓝图 §5.3）。

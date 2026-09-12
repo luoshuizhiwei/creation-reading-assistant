@@ -2,8 +2,8 @@ import { Check, Copy, Save, Sparkles, X } from "lucide-react";
 import { Select } from "@/components/ui";
 import { AI_LABELS, STATUS_LABELS, TYPE_LABELS, type InboxDraft, type SaveStatus } from "./types";
 import type { InboxItem } from "@/types/creation";
-import type { AIRunAction, AISettings } from "@/types/ai";
-import type { InspirationStatus, InspirationType } from "@/types/inspiration";
+import type { AISettings } from "@/types/ai";
+import type { InspirationStatus, InspirationType, InspirationVariantKind } from "@/types/inspiration";
 
 export interface InboxItemDetailProps {
   item: InboxItem;
@@ -13,9 +13,9 @@ export interface InboxItemDetailProps {
   onSaveDraft: () => void;
   aiAvailable: boolean;
   aiSettings: AISettings | null;
-  aiBusy?: AIRunAction;
+  aiBusy?: InspirationVariantKind;
   isAIRunning: boolean;
-  onRequestAI: (action: Exclude<AIRunAction, "consistency">) => void;
+  onRequestAI: (action: InspirationVariantKind) => void;
   onAdoptVariant: (variant: Record<string, unknown>) => void;
   onCopyVariant: (content: string) => void;
   onRemoveVariant: (variantId: string) => void;
@@ -194,7 +194,7 @@ export function InboxItemDetail({
         {aiAvailable && (
           <div className="mt-3 grid gap-2">
             {(
-              Object.entries(AI_LABELS) as Array<[Exclude<AIRunAction, "consistency">, string]>
+              Object.entries(AI_LABELS) as Array<[InspirationVariantKind, string]>
             ).map(([action, label]) => (
               <button
                 key={action}
@@ -216,10 +216,7 @@ export function InboxItemDetail({
             </div>
           ) : (
             item.variants.map((variant) => {
-              const kind = String(variant.kind ?? "polish") as Exclude<
-                AIRunAction,
-                "consistency"
-              >;
+              const kind = String(variant.kind ?? "polish") as InspirationVariantKind;
               const model = typeof variant.model === "string" ? variant.model : "AI";
               const createdAt =
                 typeof variant.createdAt === "string"
@@ -233,7 +230,7 @@ export function InboxItemDetail({
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="text-xs font-medium text-copper">
-                      {AI_LABELS[kind] ?? kind} · {model}
+                      {AI_LABELS[kind]} · {model}
                       {createdAt && <span className="ml-2 text-paper-muted">{createdAt}</span>}
                     </div>
                     <button

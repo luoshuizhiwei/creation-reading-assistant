@@ -38,6 +38,7 @@ vi.mock("@/services/creation-service", () => ({
   cardTypesList: vi.fn(),
   relationTypesList: vi.fn(),
   cardRelations: vi.fn(),
+  relationGraph: vi.fn(),
   exportDraft: vi.fn(),
   importDraftPreview: vi.fn(),
   exportProjectBundle: vi.fn(),

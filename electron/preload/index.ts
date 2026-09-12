@@ -64,6 +64,8 @@ import type {
   UpdateSceneBodyInput,
   ProofQuery,
   ProofView,
+  ProofIgnoreListQuery,
+  ProofIgnoreEntry,
   InboxDeleteCommand,
   InboxItem,
   InboxItemResult,
@@ -94,6 +96,8 @@ import type {
   ResourceResult,
   ProjectExportView,
   ProjectHomeView,
+  ProjectPrintMode,
+  ProjectPrintResult,
   StructurePreviewCommand,
   StructureApplyWithProtectionCommand,
   StructureRevertCommand,
@@ -106,7 +110,9 @@ import type {
   SnapshotRetentionResult,
   ReplacePlanQuery,
   ReplacePlan,
-  ReplaceApplyOutcome
+  ReplaceApplyOutcome,
+  RelationGraphQuery,
+  RelationGraphView
 } from "../../src/types/creation";
 import type {
   CardExportFilter,
@@ -225,6 +231,8 @@ const api: DesktopApi = {
     sessionReport: (command: SessionReportCommand) => invoke<SessionReportResult>("creation:sessionReport", command),
     sessionDelete: (command: SessionDeleteCommand) => invoke<SessionReportResult>("creation:sessionDelete", command),
     proofQuery: (query: ProofQuery) => invoke<ProofView>("creation:proofQuery", query),
+    proofIgnoreList: (query: ProofIgnoreListQuery) =>
+      invoke<ProofIgnoreEntry[]>("creation:proofIgnoreList", query),
     importDraftPreview: () => invoke<DraftImportPreview | null>("creation:importDraftPreview"),
     exportProjectBundle: (projectId: string) =>
       invoke<{ canceled: boolean; directory: string | null }>("creation:exportProjectBundle", { projectId }),
@@ -244,6 +252,9 @@ const api: DesktopApi = {
       invoke<{ canceled: boolean; resource: ResourceResult | null }>("creation:attachResource", { projectId, cardId, role }),
     detachResource: (resourceId: string) => invoke<ResourceResult>("creation:detachResource", { resourceId }),
     readProjectExport: (projectId: string) => invoke<ProjectExportView | null>("creation:readProjectExport", projectId),
+    readProjectPreview: (projectId: string) => invoke<ProjectExportView | null>("creation:readProjectPreview", projectId),
+    printProject: (projectId: string, mode: ProjectPrintMode) =>
+      invoke<ProjectPrintResult>("creation:printProject", { projectId, mode }),
     migrationStatus: () => invoke<LegacyMigrationStatus | null>("creation:migrationStatus"),
     migrationRun: () => invoke<LegacyMigrationReport>("creation:migrationRun"),
     inboxList: (query: InboxListQuery) => invoke<InboxItem[]>("creation:inboxList", query),
@@ -263,6 +274,7 @@ const api: DesktopApi = {
       invoke<CardLinkResult>("creation:cardUnlink", { projectId, cardId }),
     cardRelations: (cardId: string) =>
       invoke<{ outgoing: CardRelation[]; incoming: CardRelation[] }>("creation:cardRelations", cardId),
+    relationGraph: (query: RelationGraphQuery) => invoke<RelationGraphView>("creation:relationGraph", query),
     readSceneBody: (sceneId: string) => invoke<SceneBodyView | null>("creation:readSceneBody", sceneId),
     updateSceneBody: (input: UpdateSceneBodyInput) => invoke<SceneSaveResponse>("creation:updateSceneBody", input),
     watchProject: async (projectId: string, listener: CreationProjectListener) => {

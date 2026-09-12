@@ -12,6 +12,7 @@ import {
   cardRelations,
   cardsList,
   cardTypesList,
+  relationGraph,
   relationTypesList,
   runStructure as runStructureRequest
 } from "@/services/creation-service";
@@ -31,7 +32,9 @@ import type {
   CardRelation,
   CardsListQuery,
   CardSummary,
-  CreationRunCommand
+  CreationRunCommand,
+  RelationGraphQuery,
+  RelationGraphView
 } from "@/types/creation";
 import { executeAction, executeBoolAction } from "@/utils/async-action";
 import { messageFromError } from "@/utils/format";
@@ -127,6 +130,15 @@ export function useCardActions() {
         { setError }
       );
       return res ?? { outgoing: [], incoming: [] };
+    },
+    [setError]
+  );
+
+  /** 关系图整图（Stage 4-F）：一次取回节点与连线，不写入 store（图是只读投影）。 */
+  const loadRelationGraph = useCallback(
+    async (query: RelationGraphQuery): Promise<RelationGraphView | null> => {
+      const res = await executeAction(() => relationGraph(query), { setError });
+      return res ?? null;
     },
     [setError]
   );
@@ -236,6 +248,7 @@ export function useCardActions() {
     loadCards,
     listGlobalCards,
     loadCardRelations,
+    loadRelationGraph,
     readCard,
     linkCardToProject,
     unlinkCardFromProject,

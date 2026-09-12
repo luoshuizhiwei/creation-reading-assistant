@@ -20,6 +20,8 @@ import type {
   CreationSearchQuery,
   CreationSearchView,
   ProjectExportView,
+  RelationGraphQuery,
+  RelationGraphView,
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
@@ -39,6 +41,8 @@ import type {
   ProtectedStructureCommand,
   ProofQuery,
   ProofView,
+  ProofIgnoreListQuery,
+  ProofIgnoreEntry,
   InboxDeleteCommand,
   InboxItem,
   InboxListQuery,
@@ -87,7 +91,8 @@ import type { CreationCoordinator } from "./creation-coordinator";
 import { getLegacyMigrationStatus, runLegacyMigration } from "./creation-migration";
 import { previewLegacyDraft } from "./creation-import";
 import { buildDraftExport, DRAFT_EXPORT_PRESET_META, isDraftExportPreset } from "./creation-export";
-import type { DraftExportPreset } from "../../src/types/creation";
+import { isProjectPrintMode, PRINT_PDF_OPTIONS } from "./creation-export/print";
+import type { DraftExportPreset, ProjectPrintMode, ProjectPrintResult } from "../../src/types/creation";
 
 function assertRunCommand(value: unknown): CreationRunCommand {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
@@ -443,6 +448,12 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
     )
   );
 
+  ipcMain.handle("creation:relationGraph", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as RelationGraphQuery) as Promise<RelationGraphView>
+    )
+  );
+
   ipcMain.handle("creation:trashList", (_event, projectId?: string) =>
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "trash.list", projectId }))
   );
@@ -493,6 +504,12 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
 
   ipcMain.handle("creation:proofQuery", (_event, query: unknown) =>
     coordinator.withWorkspace((workspace) => workspace.read(query as ProofQuery) as Promise<ProofView>)
+  );
+
+  ipcMain.handle("creation:proofIgnoreList", (_event, query: unknown) =>
+    coordinator.withWorkspace(
+      (workspace) => workspace.read(query as ProofIgnoreListQuery) as Promise<ProofIgnoreEntry[]>
+    )
   );
 
   ipcMain.handle("creation:inboxList", (_event, query: unknown) =>
@@ -675,6 +692,55 @@ export function registerCreationIpc(coordinator: CreationCoordinator, context: C
   ipcMain.handle("creation:readProjectExport", (_event, projectId: string) =>
     coordinator.withWorkspace((workspace) => workspace.read({ kind: "project.export", projectId }) as Promise<ProjectExportView | null>)
   );
+
+  // 全书只读预览：与成稿导出共用 `project.export` 读通道，只是固定要求块级视图。
+  // 不新增正文读源，也不放开 renderer 的文件系统能力。
+  ipcMain.handle("creation:readProjectPreview", (_event, projectId: unknown) => {
+    const id = typeof projectId === "string" && projectId.trim() ? projectId : "";
+    if (!id) throw new CreationWorkspaceError("invalid-input", "作品预览请求无效。");
+    return coordinator.withWorkspace((workspace) =>
+      workspace.read({ kind: "project.export", projectId: id, includeBlocks: true }) as Promise<ProjectExportView | null>
+    );
+  });
+
+  // 打印通道：主进程只校验作品与打印方式，实际排版复用 renderer 已渲染的通读页，
+  // 因此打印结果与屏幕预览一致，不存在第二套排版真源。
+  ipcMain.handle("creation:printProject", async (event, input: { projectId?: unknown; mode?: unknown }): Promise<ProjectPrintResult> => {
+    const projectId =
+      typeof input?.projectId === "string" && input.projectId.trim() ? input.projectId : "";
+    if (!projectId) throw new CreationWorkspaceError("invalid-input", "打印请求无效。");
+    if (!isProjectPrintMode(input?.mode)) throw new CreationWorkspaceError("invalid-input", "打印方式无效。");
+    const mode = input.mode as ProjectPrintMode;
+    const view = (await coordinator.withWorkspace((workspace) =>
+      workspace.read({ kind: "project.export", projectId, includeBlocks: true })
+    )) as ProjectExportView | null;
+    if (!view) throw new CreationWorkspaceError("not-found", "作品不存在。");
+
+    const target = BrowserWindow.fromWebContents(event.sender);
+    if (!target || target.isDestroyed()) {
+      return { canceled: false, filePath: null, failureReason: "找不到可打印的窗口。" };
+    }
+    const contents = target.webContents;
+
+    if (mode === "pdf") {
+      const { canceled, filePath } = await dialog.showSaveDialog(target, {
+        title: "导出打印版 PDF",
+        defaultPath: `${view.title}-打印版.pdf`,
+        filters: [{ name: "PDF 文档", extensions: ["pdf"] }]
+      });
+      if (canceled || !filePath) return { canceled: true, filePath: null };
+      const data = await contents.printToPDF(PRINT_PDF_OPTIONS);
+      await writeFile(filePath, data);
+      return { canceled: false, filePath };
+    }
+
+    return await new Promise<ProjectPrintResult>((resolve) => {
+      contents.print({ silent: false, printBackground: false }, (success, failureReason) => {
+        if (success) resolve({ canceled: false, filePath: null });
+        else resolve({ canceled: false, filePath: null, failureReason: failureReason || "打印未完成。" });
+      });
+    });
+  });
 
   ipcMain.handle("creation:exportDraft", async (event, input: { projectId?: unknown; preset?: unknown }) => {
     const projectId =

@@ -101,6 +101,16 @@ import {
   type ProofQuery,
   type ProofRule,
   type ProofView,
+  type ProofIgnoreCommand,
+  type ProofIgnoreEntry,
+  type ProofIgnoreListQuery,
+  type ProofIgnoreResult,
+  type ProofUnignoreCommand,
+  type ProofScanScope,
+  type RelationGraphEdge,
+  type RelationGraphNode,
+  type RelationGraphQuery,
+  type RelationGraphView,
   type InboxCreateCommand,
   type InboxDeleteCommand,
   type InboxItem,
@@ -170,6 +180,7 @@ import {
   extractSceneText,
   isConstraintError,
   isRecord,
+  parseJsonArray,
   validateBaseRevision,
   validateId,
   validateTitle
@@ -205,7 +216,10 @@ import type {
   ReplacePlanStore
 } from "./replace-plan";
 
-const SCHEMA_VERSION = 11;
+/** 当前 schema 版本；契约断言一律引用此常量，避免升版时漏改硬编码数字。 */
+export const SCHEMA_VERSION = 12;
+/** v11：场景摘要与场景状态独立持久化。保留为独立常量，避免迁移链出现「魔术版本号」。 */
+const SCENE_META_SCHEMA_VERSION = 11;
 
 const TARGET_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const SCENE_TEXT_BLOCKS = new Set(["paragraph", "quoteLetter", "centeredText", "authorNote"]);
@@ -256,8 +270,31 @@ const PROOF_RULES = new Set<ProofRule>([
   "bannedWord",
   "mixedPunctuation",
   "crutchWord",
-  "paragraphStartRepeat"
+  "paragraphStartRepeat",
+  "aliasInconsistency",
+  "suspectedTypo"
 ]);
+
+/** 规则级兜底说明：命中没有 detail 时用于分组消息。 */
+const PROOF_RULE_BASE_MESSAGE: Record<ProofRule, string> = {
+  repeatedChar: "存在连续重复字",
+  unbalancedPunctuation: "成对标点数量不等",
+  abnormalSpacing: "存在异常空格",
+  longParagraph: "存在超长段落",
+  bannedWord: "命中禁用词",
+  mixedPunctuation: "疑似中英标点混用",
+  crutchWord: "叙述词重复过多",
+  paragraphStartRepeat: "连续段落以同一字开头",
+  aliasInconsistency: "同一卡片出现多种称呼",
+  suspectedTypo: "疑似错拼"
+};
+
+function validateProofRule(value: unknown): ProofRule {
+  if (typeof value !== "string" || !PROOF_RULES.has(value as ProofRule)) {
+    throw new CreationWorkspaceError("invalid-input", "不支持的校对规则。");
+  }
+  return value as ProofRule;
+}
 const DEFAULT_MAX_PARAGRAPH_CHARS = 500;
 const PROOF_PAIR_PUNCTUATION: Array<[string, string]> = [
   ["「", "」"],
@@ -538,6 +575,115 @@ function parseScenePlanning(json: string): ScenePlanning | undefined {
   }
 }
 
+/**
+ * 校对单条命中。
+ * `detail` 是该位置的说明，同时作为「场景 × 规则」分组的消息基干：
+ * 同一分组内多条命中只保留首条的基干并追加「（共 N 处）」。
+ */
+interface ProofHit {
+  rule: ProofRule;
+  /** 段落序号（0 起）；-1 表示该规则以整场为粒度。 */
+  paragraphIndex: number;
+  /** 命中文本（规范化前）。 */
+  matchedText: string;
+  snippet: string | null;
+  detail: string;
+}
+
+type ProofHits = ProofHit[];
+
+/** 位置键使用的 32 位 FNV-1a 哈希；仅用于生成稳定短键，不承担安全职责。 */
+function fnv1a32(text: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < text.length; index += 1) {
+    hash ^= text.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/** 位置键的文本部分：去掉所有空白，避免排版微调导致键漂移。 */
+function normalizeProofText(text: string): string {
+  return text.replace(/\s+/g, "");
+}
+
+/** 关系图节点上限：默认 150，允许 20..400；越界或非法值回落到默认。 */
+function clampRelationGraphLimit(value: unknown): number {
+  const DEFAULT = 150;
+  const MIN = 20;
+  const MAX = 400;
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT;
+  return Math.min(MAX, Math.max(MIN, Math.floor(value)));
+}
+
+/**
+ * 卡片字段摘要：最多 3 项「键: 值」，供关系图节点悬浮/选中时快速辨认。
+ * 只取字符串类字段，避免把长文本或二进制字段塞进图。
+ */
+function cardFieldSummary(fields: Record<string, unknown> | undefined): string {
+  if (!fields) return "";
+  const entries = Object.entries(fields)
+    .filter(([, value]) => typeof value === "string" && value.trim() !== "")
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${String(value).trim()}`);
+  return entries.join("；");
+}
+
+/**
+ * 稳定位置键：`规则#段落序号#命中文本哈希`。
+ * 段落序号让同一文本在场景内的不同段落互不牵连；
+ * 忽略记录再叠加 project / scene 维度，因此跨项目、跨场景同样隔离。
+ */
+function proofLocationKey(rule: ProofRule, paragraphIndex: number, matchedText: string): string {
+  return `${rule}#${paragraphIndex}#${fnv1a32(normalizeProofText(matchedText))}`;
+}
+
+/** 生成上下文片段：命中前后各取若干字符。 */
+function proofSnippet(text: string, start: number, end: number): string {
+  const radius = 8;
+  const from = Math.max(0, start - radius);
+  const to = Math.min(text.length, end + radius * 2);
+  return `${from > 0 ? "…" : ""}${text.slice(from, to)}${to < text.length ? "…" : ""}`;
+}
+
+/** 非空子串出现次数（不重叠）。 */
+function countOccurrences(haystack: string, needle: string): number {
+  if (!needle) return 0;
+  let count = 0;
+  let index = haystack.indexOf(needle);
+  while (index >= 0) {
+    count += 1;
+    index = haystack.indexOf(needle, index + needle.length);
+  }
+  return count;
+}
+
+/** 把「段落用 \n 拼接后的偏移」映射回段落序号。 */
+function paragraphIndexAt(paragraphs: string[], offset: number): number {
+  let cursor = 0;
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const length = paragraphs[index]!.length;
+    if (offset <= cursor + length) return index;
+    cursor += length + 1;
+  }
+  return paragraphs.length - 1;
+}
+
+const HAN_CHARACTER_PATTERN = /\p{Script=Han}/u;
+const HAN_ONLY_PATTERN = /^[\p{Script=Han}]+$/u;
+/** 疑似错拼只比较 2..6 字的词条，避免长句掩码爆炸。 */
+const PROOF_TYPO_MAX_TERM_LENGTH = 6;
+/** 词条在全书出现次数低于该值时不作为错拼基准，抑制一次性噪声。 */
+const PROOF_TYPO_MIN_TERM_FREQUENCY = 2;
+
+/** 校对词表条目：一张卡片的主名与别名。 */
+interface ProofDictionaryEntry {
+  cardId: string;
+  title: string;
+  /** 主名 + 别名（去重、去空白、长度 ≥2）。 */
+  variants: string[];
+}
+
 /** 段落文本：把场景正文按块拆成段落（含 sceneBreak 分隔符）。 */
 function sceneParagraphs(bodyJson: string): string[] {
   let document: CreationDocument;
@@ -569,29 +715,34 @@ function sceneParagraphs(bodyJson: string): string[] {
 }
 
 /** 连续重复字：同一汉字连续出现 ≥3 次。 */
-function findRepeatedChars(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+function findRepeatedChars(paragraphs: string[], out: ProofHits): void {
   const repeated = /([\p{Script=Han}])\1{2,}/gu;
-  let match: RegExpExecArray | null;
-  while ((match = repeated.exec(text)) !== null) {
-    const radius = 8;
-    const start = Math.max(0, match.index - radius);
-    const end = Math.min(text.length, match.index + match[0].length + radius * 2);
-    out.push({
-      rule: "repeatedChar",
-      message: `连续重复字「${match[0].slice(0, 6)}」`,
-      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
-    });
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (!paragraph) continue;
+    repeated.lastIndex = 0;
+    let match: RegExpExecArray | null;
+    while ((match = repeated.exec(paragraph)) !== null) {
+      out.push({
+        rule: "repeatedChar",
+        paragraphIndex: index,
+        matchedText: match[0],
+        snippet: proofSnippet(paragraph, match.index, match.index + match[0].length),
+        detail: `连续重复字「${match[0].slice(0, 6)}」`
+      });
+    }
   }
 }
 
-/** 成对标点：括号/引号开闭数量不等。 */
-function findUnbalancedPunctuation(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+/** 成对标点：括号/引号开闭数量不等（按场景统计，定位到首次出现的段落）。 */
+function findUnbalancedPunctuation(paragraphs: string[], out: ProofHits): void {
+  const joined = paragraphs.join("\n");
   for (const [open, close] of PROOF_PAIR_PUNCTUATION) {
     let openCount = 0;
     let closeCount = 0;
     let firstIndex = -1;
-    for (let index = 0; index < text.length; index += 1) {
-      const character = text[index]!;
+    for (let index = 0; index < joined.length; index += 1) {
+      const character = joined[index]!;
       if (character === open) {
         if (firstIndex < 0) firstIndex = index;
         openCount += 1;
@@ -600,158 +751,141 @@ function findUnbalancedPunctuation(text: string, out: Array<{ rule: ProofRule; m
         closeCount += 1;
       }
     }
-    if (openCount === closeCount) continue;
-    const radius = 8;
-    const start = Math.max(0, firstIndex - radius);
-    const end = Math.min(text.length, firstIndex + radius * 2);
+    if (openCount === closeCount || firstIndex < 0) continue;
     out.push({
       rule: "unbalancedPunctuation",
-      message: `「${open}${close}」不配对（开 ${openCount} 个、闭 ${closeCount} 个）`,
-      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
+      paragraphIndex: paragraphIndexAt(paragraphs, firstIndex),
+      matchedText: `${open}${close}`,
+      snippet: proofSnippet(joined, firstIndex, firstIndex + 1),
+      detail: `「${open}${close}」不配对（开 ${openCount} 个、闭 ${closeCount} 个）`
     });
   }
 }
 
-/** 异常空格：段首半角空格、连续 2+ 全角空格、半角与全角空格混用。 */
-function findAbnormalSpacing(
-  paragraphs: string[],
-  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
-): void {
-  let leadingHalfWidth = 0;
-  let repeatedFullWidth = 0;
-  let mixedWidth = 0;
-  let mixedSnippet = "";
-  for (const paragraph of paragraphs) {
-    if (/^[ ]/.test(paragraph)) leadingHalfWidth += 1;
-    if (/　{2,}/u.test(paragraph)) repeatedFullWidth += 1;
-    if (/[ ]/.test(paragraph) && /　/.test(paragraph)) {
-      mixedWidth += 1;
-      if (!mixedSnippet) {
-        const index = Math.max(paragraph.indexOf(" "), paragraph.indexOf("　"));
-        mixedSnippet = paragraph.slice(Math.max(0, index - 6), index + 14);
-      }
-    }
-  }
-  if (leadingHalfWidth > 0) {
-    out.push({ rule: "abnormalSpacing", message: `${leadingHalfWidth} 个段落以半角空格开头`, snippet: null });
-  }
-  if (repeatedFullWidth > 0) {
-    out.push({
-      rule: "abnormalSpacing",
-      message: `${repeatedFullWidth} 个段落含连续两个以上全角空格`,
-      snippet: null
-    });
-  }
-  if (mixedWidth > 0) {
-    out.push({
-      rule: "abnormalSpacing",
-      message: `${mixedWidth} 个段落同时出现半角与全角空格`,
-      snippet: mixedSnippet ? `…${mixedSnippet}…` : null
-    });
-  }
-}
-
-/** 超长段落：单段字符数超过阈值。 */
-function findLongParagraphs(
-  paragraphs: string[],
-  maxChars: number,
-  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
-): void {
-  let count = 0;
-  let snippet: string | null = null;
-  for (const paragraph of paragraphs) {
-    if (paragraph.length > maxChars) {
-      count += 1;
-      if (!snippet) snippet = `…${paragraph.slice(0, 60)}…`;
-    }
-  }
-  if (count > 0) {
-    out.push({ rule: "longParagraph", message: `${count} 个段落超过 ${maxChars} 字符`, snippet });
-  }
-}
-
-/** 禁用词：子串命中。 */
-function findBannedWords(
-  text: string,
-  bannedWords: string[],
-  out: Array<{ rule: ProofRule; message: string; snippet: string | null }>
-): void {
-  for (const word of bannedWords) {
-    if (!word) continue;
-    let found = false;
-    let firstIndex = -1;
-    for (let index = 0; index < text.length; index += 1) {
-      if (text.startsWith(word, index)) {
-        if (firstIndex < 0) firstIndex = index;
-        found = true;
-        break;
-      }
-    }
-    if (!found) continue;
-    const radius = 8;
-    const start = Math.max(0, firstIndex - radius);
-    const end = Math.min(text.length, firstIndex + word.length + radius * 2);
-    out.push({
-      rule: "bannedWord",
-      message: `命中禁用词「${word}」`,
-      snippet: `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`
-    });
-  }
-}
-
-/** 中英混用标点：汉字紧邻半角标点（网页粘贴/输入法残留的高频问题）。 */
-function findMixedPunctuation(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
-  // 数字间的半角点（3.5、1,000）不算；只抓汉字直接贴半角标点。
-  const mixed = /[\p{Script=Han}][,.!?;:]|[,.!?;:][\p{Script=Han}]/gu;
-  let count = 0;
-  let firstSnippet: string | null = null;
-  let match: RegExpExecArray | null;
-  while ((match = mixed.exec(text)) !== null) {
-    count += 1;
-    if (!firstSnippet) {
-      const radius = 8;
-      const start = Math.max(0, match.index - radius);
-      const end = Math.min(text.length, match.index + match[0].length + radius * 2);
-      firstSnippet = `${start > 0 ? "…" : ""}${text.slice(start, end)}${end < text.length ? "…" : ""}`;
-    }
-  }
-  if (count > 0) {
-    out.push({
-      rule: "mixedPunctuation",
-      message: `${count} 处汉字紧邻半角标点（,.!?;:），疑似中英标点混用`,
-      snippet: firstSnippet
-    });
-  }
-}
-
-/** 口头禅：叙述类高频副词在单个场景内出现过多（每词 ≥3 次才提示，避免噪声）。 */
-const PROOF_CRUTCH_WORDS = ["突然", "顿时", "瞬间", "竟然", "居然", "仿佛", "似乎", "显然", "几乎", "一阵"];
-function findCrutchWords(text: string, out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
-  for (const word of PROOF_CRUTCH_WORDS) {
-    let count = 0;
-    let index = text.indexOf(word);
-    while (index >= 0) {
-      count += 1;
-      index = text.indexOf(word, index + word.length);
-    }
-    if (count >= 3) {
+/** 异常空格：段首半角空格、连续 2+ 全角空格、半角与全角空格混用（逐段定位）。 */
+function findAbnormalSpacing(paragraphs: string[], out: ProofHits): void {
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (!paragraph) continue;
+    if (/^[ ]/.test(paragraph)) {
       out.push({
-        rule: "crutchWord",
-        message: `「${word}」出现 ${count} 次，注意口头禅化`,
-        snippet: null
+        rule: "abnormalSpacing",
+        paragraphIndex: index,
+        matchedText: " ",
+        snippet: proofSnippet(paragraph, 0, 1),
+        detail: "段落以半角空格开头"
+      });
+    }
+    if (/　{2,}/u.test(paragraph)) {
+      const position = paragraph.search(/　{2,}/u);
+      out.push({
+        rule: "abnormalSpacing",
+        paragraphIndex: index,
+        matchedText: "　　",
+        snippet: proofSnippet(paragraph, position, position + 2),
+        detail: "段落含连续两个以上全角空格"
+      });
+    }
+    if (/[ ]/.test(paragraph) && /　/.test(paragraph)) {
+      const position = Math.min(
+        paragraph.indexOf(" ") >= 0 ? paragraph.indexOf(" ") : Number.MAX_SAFE_INTEGER,
+        paragraph.indexOf("　") >= 0 ? paragraph.indexOf("　") : Number.MAX_SAFE_INTEGER
+      );
+      out.push({
+        rule: "abnormalSpacing",
+        paragraphIndex: index,
+        matchedText: "　",
+        snippet: proofSnippet(paragraph, position, position + 1),
+        detail: "段落同时出现半角与全角空格"
       });
     }
   }
 }
 
+/** 超长段落：单段字符数超过阈值。 */
+function findLongParagraphs(paragraphs: string[], maxChars: number, out: ProofHits): void {
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (paragraph.length <= maxChars) continue;
+    out.push({
+      rule: "longParagraph",
+      paragraphIndex: index,
+      matchedText: paragraph.slice(0, 40),
+      snippet: `…${paragraph.slice(0, 60)}…`,
+      detail: `段落 ${paragraph.length} 字符，超过 ${maxChars} 字符`
+    });
+  }
+}
+
+/** 禁用词：子串命中。 */
+function findBannedWords(paragraphs: string[], bannedWords: string[], out: ProofHits): void {
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (!paragraph) continue;
+    for (const word of bannedWords) {
+      if (!word) continue;
+      const position = paragraph.indexOf(word);
+      if (position < 0) continue;
+      out.push({
+        rule: "bannedWord",
+        paragraphIndex: index,
+        matchedText: word,
+        snippet: proofSnippet(paragraph, position, position + word.length),
+        detail: `命中禁用词「${word}」`
+      });
+    }
+  }
+}
+
+/** 中英混用标点：汉字紧邻半角标点（网页粘贴/输入法残留的高频问题）。 */
+function findMixedPunctuation(paragraphs: string[], out: ProofHits): void {
+  // 数字间的半角点（3.5、1,000）不算；只抓汉字直接贴半角标点。
+  const mixed = /[\p{Script=Han}][,.!?;:]|[,.!?;:][\p{Script=Han}]/gu;
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (!paragraph) continue;
+    mixed.lastIndex = 0;
+    const seen = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = mixed.exec(paragraph)) !== null) {
+      if (seen.has(match[0])) continue;
+      seen.add(match[0]);
+      out.push({
+        rule: "mixedPunctuation",
+        paragraphIndex: index,
+        matchedText: match[0],
+        snippet: proofSnippet(paragraph, match.index, match.index + match[0].length),
+        detail: "汉字紧邻半角标点（,.!?;:），疑似中英标点混用"
+      });
+    }
+  }
+}
+
+/** 口头禅：叙述类高频副词在单个场景内出现过多（每词 ≥3 次才提示，避免噪声）。 */
+const PROOF_CRUTCH_WORDS = ["突然", "顿时", "瞬间", "竟然", "居然", "仿佛", "似乎", "显然", "几乎", "一阵"];
+function findCrutchWords(paragraphs: string[], out: ProofHits): void {
+  const joined = paragraphs.join("\n");
+  for (const word of PROOF_CRUTCH_WORDS) {
+    const count = countOccurrences(joined, word);
+    if (count < 3) continue;
+    const firstIndex = joined.indexOf(word);
+    out.push({
+      rule: "crutchWord",
+      // 口头禅是场景级判断，位置粒度定为「整场 + 该词」。
+      paragraphIndex: -1,
+      matchedText: word,
+      snippet: firstIndex >= 0 ? proofSnippet(joined, firstIndex, firstIndex + word.length) : null,
+      detail: `「${word}」出现 ${count} 次，注意口头禅化`
+    });
+  }
+}
+
 /** 连续段落同字开头：≥3 个连续非空段落首字相同（刻意排比可忽略）。 */
-function findParagraphStartRepeat(paragraphs: string[], out: Array<{ rule: ProofRule; message: string; snippet: string | null }>): void {
+function findParagraphStartRepeat(paragraphs: string[], out: ProofHits): void {
   const meaningful = paragraphs
     .map((paragraph) => paragraph.trim())
     .filter((paragraph) => paragraph.length > 0);
   let runStart = 0;
-  let count = 0;
-  let snippet: string | null = null;
   for (let index = 1; index <= meaningful.length; index += 1) {
     const sameHead =
       index < meaningful.length &&
@@ -759,19 +893,139 @@ function findParagraphStartRepeat(paragraphs: string[], out: Array<{ rule: Proof
     if (sameHead) continue;
     const runLength = index - runStart;
     if (runLength >= 3) {
-      count += 1;
-      if (!snippet) {
-        snippet = meaningful.slice(runStart, runStart + 2).map((paragraph) => paragraph.slice(0, 16)).join(" / ");
-      }
+      out.push({
+        rule: "paragraphStartRepeat",
+        paragraphIndex: runStart,
+        matchedText: meaningful[runStart]![0] ?? "",
+        snippet: meaningful.slice(runStart, runStart + 2).map((paragraph) => paragraph.slice(0, 16)).join(" / "),
+        detail: `${runLength} 处连续段落以同一字开头（如为刻意排比可忽略）`
+      });
     }
     runStart = index;
   }
-  if (count > 0) {
-    out.push({
-      rule: "paragraphStartRepeat",
-      message: `${count} 处连续段落以同一字开头（如为刻意排比可忽略）`,
-      snippet
-    });
+}
+
+/**
+ * 别名一致性：同一张卡片在全书被多种称呼指代时，逐个提示「少数派称呼」所在位置。
+ * 主导称呼按全书出现次数决定（并列时优先卡片主名），因此不会因为一次「全名 + 简称」
+ * 的正常写法就报警——只有相对罕见的称呼才需要作者确认。
+ */
+function findAliasInconsistency(
+  paragraphs: string[],
+  dictionary: ProofDictionaryEntry[],
+  variantFrequency: Map<string, number>,
+  out: ProofHits
+): void {
+  for (const entry of dictionary) {
+    if (entry.variants.length < 2) continue;
+    let dominant = entry.variants[0]!;
+    let dominantCount = -1;
+    for (const variant of entry.variants) {
+      const count = variantFrequency.get(variant) ?? 0;
+      if (count > dominantCount || (count === dominantCount && variant === entry.title)) {
+        dominant = variant;
+        dominantCount = count;
+      }
+    }
+    if (dominantCount <= 0) continue;
+    const minority = entry.variants.filter(
+      (variant) => variant !== dominant && (variantFrequency.get(variant) ?? 0) > 0
+    );
+    if (minority.length === 0) continue;
+    for (let index = 0; index < paragraphs.length; index += 1) {
+      const paragraph = paragraphs[index]!;
+      if (!paragraph) continue;
+      for (const variant of minority) {
+        const position = paragraph.indexOf(variant);
+        if (position < 0) continue;
+        out.push({
+          rule: "aliasInconsistency",
+          paragraphIndex: index,
+          matchedText: variant,
+          snippet: proofSnippet(paragraph, position, position + variant.length),
+          detail: `「${entry.title}」全书以「${dominant}」为主，此处用了「${variant}」`
+        });
+      }
+    }
+  }
+}
+
+/**
+ * 词表掩码索引：把每个词条的每个位置替换为通配符。
+ * 文本侧对每个窗口生成同构掩码键即可 O(1) 找到「只差一个字」的词条，
+ * 复杂度与词表规模无关（只与窗口长度相关）。
+ */
+function buildTypoMaskIndex(dictionary: ProofDictionaryEntry[]): Map<string, string[]> {
+  const index = new Map<string, string[]>();
+  for (const entry of dictionary) {
+    for (const variant of entry.variants) {
+      if (variant.length < 2 || variant.length > PROOF_TYPO_MAX_TERM_LENGTH) continue;
+      for (let position = 0; position < variant.length; position += 1) {
+        const key = `${variant.length}:${variant.slice(0, position)}*${variant.slice(position + 1)}`;
+        const bucket = index.get(key);
+        if (bucket) {
+          if (!bucket.includes(variant)) bucket.push(variant);
+        } else {
+          index.set(key, [variant]);
+        }
+      }
+    }
+  }
+  return index;
+}
+
+/**
+ * 疑似错拼：与项目词表（卡片主名/别名）仅差一个字的词，按位置提示。
+ * 词表自身的任意子串都视为合法（「洛水之蔚」里的「水之」不算错），
+ * 且基准词需在全书出现 ≥2 次，避免一次性噪声。
+ */
+function findSuspectedTypos(
+  paragraphs: string[],
+  vocabulary: Set<string>,
+  protectedSubstrings: Set<string>,
+  maskIndex: Map<string, string[]>,
+  variantFrequency: Map<string, number>,
+  out: ProofHits
+): void {
+  for (let index = 0; index < paragraphs.length; index += 1) {
+    const paragraph = paragraphs[index]!;
+    if (!paragraph) continue;
+    const reported = new Set<string>();
+    for (let start = 0; start < paragraph.length; start += 1) {
+      if (!HAN_CHARACTER_PATTERN.test(paragraph[start]!)) continue;
+      for (let length = 2; length <= PROOF_TYPO_MAX_TERM_LENGTH; length += 1) {
+        const end = start + length;
+        if (end > paragraph.length) break;
+        const candidate = paragraph.slice(start, end);
+        if (!HAN_ONLY_PATTERN.test(candidate)) break;
+        if (vocabulary.has(candidate) || protectedSubstrings.has(candidate)) continue;
+        let best = "";
+        let bestCount = 0;
+        for (let position = 0; position < length; position += 1) {
+          const key = `${length}:${candidate.slice(0, position)}*${candidate.slice(position + 1)}`;
+          const bucket = maskIndex.get(key);
+          if (!bucket) continue;
+          for (const term of bucket) {
+            if (term === candidate) continue;
+            const count = variantFrequency.get(term) ?? 0;
+            if (count > bestCount) {
+              best = term;
+              bestCount = count;
+            }
+          }
+        }
+        if (bestCount < PROOF_TYPO_MIN_TERM_FREQUENCY) continue;
+        if (reported.has(candidate)) continue;
+        reported.add(candidate);
+        out.push({
+          rule: "suspectedTypo",
+          paragraphIndex: index,
+          matchedText: candidate,
+          snippet: proofSnippet(paragraph, start, end),
+          detail: `疑似「${best}」的错拼（全书出现 ${bestCount} 次）`
+        });
+      }
+    }
   }
 }
 
@@ -1422,6 +1676,55 @@ function migrateSchemaV10ToV11(database: Database): void {
 }
 
 /**
+ * v11→v12：校对忽略记录持久化。
+ * 唯一键（project_id, scene_id, rule, location_key）保证「按位置忽略」，
+ * 同文本在其它段落 / 其它场景 / 其它项目的出现不受影响；不触碰任何正文表。
+ */
+function migrateSchemaV11ToV12(database: Database): void {
+  database.exec(`
+    BEGIN IMMEDIATE;
+    CREATE TABLE IF NOT EXISTS proof_ignores (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      scene_id TEXT NOT NULL,
+      rule TEXT NOT NULL,
+      location_key TEXT NOT NULL,
+      matched_text TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_proof_ignores_location
+      ON proof_ignores(project_id, scene_id, rule, location_key);
+    CREATE INDEX IF NOT EXISTS idx_proof_ignores_project ON proof_ignores(project_id);
+    PRAGMA user_version = 12;
+    COMMIT;
+  `);
+}
+
+/**
+ * 校对忽略表的幂等兜底。
+ * 与 global_card_resources 同样属于「向后兼容扩展表」：旧库迁移链已建表，
+ * 这里只负责让重复打开、异常中断后的重开都能自愈，不写 user_version。
+ */
+function ensureProofIgnoreSchema(database: Database): void {
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS proof_ignores (
+      id TEXT PRIMARY KEY,
+      project_id TEXT NOT NULL,
+      scene_id TEXT NOT NULL,
+      rule TEXT NOT NULL,
+      location_key TEXT NOT NULL,
+      matched_text TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS idx_proof_ignores_location
+      ON proof_ignores(project_id, scene_id, rule, location_key);
+    CREATE INDEX IF NOT EXISTS idx_proof_ignores_project ON proof_ignores(project_id);
+  `);
+}
+
+/**
  * M1-E：全局卡片资产是 v10 的向后兼容扩展。
  * 旧 resources 表继续承载项目附件；新表不带 project 外键，删除项目不会级联删除共享资产。
  */
@@ -1627,6 +1930,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private readonly annotation: AnnotationModule;
   private readonly replace: ReplaceModule;
   private readonly structure: StructureModule;
+  /** 表存在性的惰性缓存：同一个连接内 sqlite_master 不会变化，避免逐次查询。 */
+  private readonly tablePresence = new Map<string, boolean>();
 
   constructor(
     private readonly database: Database,
@@ -1700,6 +2005,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async read(query: StatsViewQuery): Promise<ProjectStatsView | null>;
   async read(query: SessionListQuery): Promise<SessionEntry[]>;
   async read(query: ProofQuery): Promise<ProofView>;
+  async read(query: ProofIgnoreListQuery): Promise<ProofIgnoreEntry[]>;
+  async read(query: RelationGraphQuery): Promise<RelationGraphView>;
   async read(query: InboxListQuery): Promise<InboxItem[]>;
   async read(query: InboxReadQuery): Promise<InboxItem | null>;
   async read(query: InboxCountQuery): Promise<InboxCountView>;
@@ -1781,6 +2088,17 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       } catch (error) {
         if (error instanceof CreationWorkspaceError) throw error;
         throw new CreationWorkspaceError("integrity", "无法执行本地校对。");
+      }
+    }
+    if (runtimeQuery.kind === "proof.ignores") {
+      if (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim()) {
+        throw new CreationWorkspaceError("invalid-input", "校对忽略记录请求无效。");
+      }
+      try {
+        return this.runProofIgnoreList(runtimeQuery.projectId);
+      } catch (error) {
+        if (error instanceof CreationWorkspaceError) throw error;
+        throw new CreationWorkspaceError("integrity", "无法读取校对忽略记录。");
       }
     }
     if (runtimeQuery.kind === "resource.list") {
@@ -1939,6 +2257,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       runtimeQuery.kind === "cardTypes.list" ||
       runtimeQuery.kind === "relationTypes.list" ||
       runtimeQuery.kind === "card.relations" ||
+      runtimeQuery.kind === "relationGraph.list" ||
       runtimeQuery.kind === "trash.list" ||
       runtimeQuery.kind === "snapshot.list"
     ) {
@@ -1993,6 +2312,15 @@ class SqliteCreationWorkspace implements CreationWorkspace {
             throw new CreationWorkspaceError("invalid-input", "卡片关系读取请求无效。");
           }
           return this.readCardRelations(runtimeQuery.cardId);
+        }
+        if (runtimeQuery.kind === "relationGraph.list") {
+          if (
+            runtimeQuery.projectId !== undefined &&
+            (typeof runtimeQuery.projectId !== "string" || !runtimeQuery.projectId.trim())
+          ) {
+            throw new CreationWorkspaceError("invalid-input", "关系图读取请求无效。");
+          }
+          return this.runRelationGraph(runtimeQuery as RelationGraphQuery);
         }
         if (typeof runtimeQuery.cardId !== "string" || !runtimeQuery.cardId.trim()) {
           throw new CreationWorkspaceError("invalid-input", "卡片读取请求无效。");
@@ -2333,6 +2661,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     created_at: string;
     updated_at: string;
     revision: number;
+    cover_resource_id?: string | null;
   }): CardSummary {
     return {
       id: row.id,
@@ -2350,7 +2679,8 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       tags: JSON.parse(row.tags_json) as string[],
       createdAt: row.created_at,
       updatedAt: row.updated_at,
-      revision: row.revision
+      revision: row.revision,
+      coverResourceId: row.cover_resource_id ?? null
     };
   }
 
@@ -2358,6 +2688,16 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private hasProjectCardLinks(): boolean {
     return this.database
       .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_card_links'")
+      .get() !== undefined;
+  }
+
+  /**
+   * 是否存在全局卡片资源表（v10+）。旧库（v9 及更早）没有该表，
+   * 此时 `CardSummary.coverResourceId` 恒为 null，列表缩略图降级为空态。
+   */
+  private hasGlobalCardResources(): boolean {
+    return this.database
+      .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'global_card_resources'")
       .get() !== undefined;
   }
 
@@ -2434,6 +2774,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   private listCards(query: { projectId?: string; cardKind?: string; search?: string }): CardSummary[] {
     const params: unknown[] = [];
     let sql: string;
+    // 封面资源 ID 随卡片一起查出，避免列表渲染时每张卡再查一次（N+1）。
+    // 数据库层 `idx_global_card_resources_cover` 保证一张卡最多一个封面，故无需排序。
+    const coverColumn = this.hasGlobalCardResources()
+      ? `,
+          (SELECT r.id FROM global_card_resources r WHERE r.card_id = c.id AND r.role = 'cover' LIMIT 1) AS cover_resource_id`
+      : "";
     if (this.hasProjectCardLinks()) {
       const projection = query.projectId ? "?" : "NULL";
       if (query.projectId) params.push(query.projectId);
@@ -2442,7 +2788,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
           COALESCE((SELECT json_group_array(project_id) FROM (
             SELECT project_id FROM project_card_links WHERE card_id = c.id ORDER BY project_id
           )), '[]') AS linked_project_ids_json,
-          (SELECT count(*) FROM project_card_links WHERE card_id = c.id) AS usage_count
+          (SELECT count(*) FROM project_card_links WHERE card_id = c.id) AS usage_count${coverColumn}
         FROM cards c WHERE c.deleted_at IS NULL`;
       if (query.projectId) {
         sql += " AND EXISTS (SELECT 1 FROM project_card_links pcl WHERE pcl.project_id = ? AND pcl.card_id = c.id)";
@@ -2450,7 +2796,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       }
     } else {
       sql = `SELECT c.id, c.project_id, c.kind, c.title, c.aliases_json, c.fields_json, c.tags_json,
-        c.created_at, c.updated_at, c.revision FROM cards c WHERE c.deleted_at IS NULL`;
+        c.created_at, c.updated_at, c.revision${coverColumn} FROM cards c WHERE c.deleted_at IS NULL`;
       if (query.projectId) {
         sql += " AND c.project_id = ?";
         params.push(query.projectId);
@@ -2478,6 +2824,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       created_at: string;
       updated_at: string;
       revision: number;
+      cover_resource_id?: string | null;
     }>;
     return rows.map((row) => this.cardFromRow(row));
   }
@@ -2546,58 +2893,420 @@ class SqliteCreationWorkspace implements CreationWorkspace {
       params.push(projectId);
     }
 
-    const issues: ProofIssue[] = [];
-    let scannedScenes = 0;
-    const affectedScenes = new Set<string>();
-    for (const row of this.database.prepare(sql).all(...params) as Array<{
+    const rows = this.database.prepare(sql).all(...params) as Array<{
       scene_id: string;
       chapter_id: string;
       scene_title: string;
       body_json: string;
       chapter_title: string;
-    }>) {
-      scannedScenes += 1;
-      const found: Array<{ rule: ProofRule; message: string; snippet: string | null }> = [];
-      const paragraphs = sceneParagraphs(row.body_json);
-      const plain = paragraphs.join("\n");
-      if (rules.includes("repeatedChar")) findRepeatedChars(plain, found);
-      if (rules.includes("unbalancedPunctuation")) findUnbalancedPunctuation(plain, found);
-      if (rules.includes("abnormalSpacing")) findAbnormalSpacing(paragraphs, found);
-      if (rules.includes("longParagraph")) findLongParagraphs(paragraphs, maxParagraphChars, found);
-      if (rules.includes("bannedWord") && bannedWords.length > 0) findBannedWords(plain, bannedWords, found);
-      if (rules.includes("mixedPunctuation")) findMixedPunctuation(plain, found);
-      if (rules.includes("crutchWord")) findCrutchWords(plain, found);
-      if (rules.includes("paragraphStartRepeat")) findParagraphStartRepeat(paragraphs, found);
-      if (found.length === 0) continue;
-      affectedScenes.add(row.scene_id);
-      const byRule = new Map<ProofRule, { message: string; snippet: string | null; count: number }>();
-      for (const item of found) {
-        const entry = byRule.get(item.rule) ?? { message: item.message, snippet: item.snippet, count: 0 };
-        entry.count += 1;
-        if (!entry.snippet && item.snippet) entry.snippet = item.snippet;
-        byRule.set(item.rule, entry);
+    }>;
+    const scannedScenes = rows.length;
+    const sceneParagraphsList = rows.map((row) => sceneParagraphs(row.body_json));
+    const bookText = sceneParagraphsList.map((paragraphs) => paragraphs.join("\n")).join("\n");
+
+    // 词表（主名 + 别名）与全书词频：别名一致性与疑似错拼共用。
+    const dictionary = rules.includes("aliasInconsistency") || rules.includes("suspectedTypo")
+      ? this.loadProofDictionary(projectId)
+      : [];
+    const variantFrequency = new Map<string, number>();
+    for (const entry of dictionary) {
+      for (const variant of entry.variants) {
+        if (variantFrequency.has(variant)) continue;
+        variantFrequency.set(variant, countOccurrences(bookText, variant));
       }
-      for (const [rule, entry] of byRule) {
-        issues.push({
-          sceneId: row.scene_id,
-          chapterId: row.chapter_id,
-          chapterTitle: row.chapter_title,
-          sceneTitle: row.scene_title,
-          rule,
-          message: entry.count > 1 ? `${entry.message}（共 ${entry.count} 处）` : entry.message,
-          snippet: entry.snippet,
-          count: entry.count
-        });
-      }
-      if (issues.length >= limit) break;
     }
+    const vocabulary = new Set<string>();
+    /** 词表自身的任意子串都是合法出现，「洛水之蔚」里的「水之」不算错拼。 */
+    const protectedSubstrings = new Set<string>();
+    let maskIndex = new Map<string, string[]>();
+    if (rules.includes("suspectedTypo")) {
+      for (const entry of dictionary) {
+        for (const variant of entry.variants) {
+          vocabulary.add(variant);
+          const maxLength = Math.min(variant.length, PROOF_TYPO_MAX_TERM_LENGTH);
+          for (let length = 2; length <= maxLength; length += 1) {
+            for (let start = 0; start + length <= variant.length; start += 1) {
+              protectedSubstrings.add(variant.slice(start, start + length));
+            }
+          }
+        }
+      }
+      maskIndex = buildTypoMaskIndex(dictionary);
+    }
+
+    // 持久化忽略：按「场景 + 规则 + 位置键」精确匹配，与其它位置/项目互不牵连。
+    const ignoreRows = this.loadProofIgnores(projectId);
+    const ignoreKeys = new Set(
+      ignoreRows.map((entry) => `${entry.sceneId}\u0000${entry.rule}\u0000${entry.locationKey}`)
+    );
+
+    const groups = new Map<string, ProofIssue>();
+    const order: string[] = [];
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index]!;
+      const paragraphs = sceneParagraphsList[index]!;
+      const hits: ProofHits = [];
+      if (rules.includes("repeatedChar")) findRepeatedChars(paragraphs, hits);
+      if (rules.includes("unbalancedPunctuation")) findUnbalancedPunctuation(paragraphs, hits);
+      if (rules.includes("abnormalSpacing")) findAbnormalSpacing(paragraphs, hits);
+      if (rules.includes("longParagraph")) findLongParagraphs(paragraphs, maxParagraphChars, hits);
+      if (rules.includes("bannedWord") && bannedWords.length > 0) findBannedWords(paragraphs, bannedWords, hits);
+      if (rules.includes("mixedPunctuation")) findMixedPunctuation(paragraphs, hits);
+      if (rules.includes("crutchWord")) findCrutchWords(paragraphs, hits);
+      if (rules.includes("paragraphStartRepeat")) findParagraphStartRepeat(paragraphs, hits);
+      if (rules.includes("aliasInconsistency") && dictionary.length > 0) {
+        findAliasInconsistency(paragraphs, dictionary, variantFrequency, hits);
+      }
+      if (rules.includes("suspectedTypo") && vocabulary.size > 0) {
+        findSuspectedTypos(paragraphs, vocabulary, protectedSubstrings, maskIndex, variantFrequency, hits);
+      }
+      if (hits.length === 0) continue;
+      for (const hit of hits) {
+        const locationKey = proofLocationKey(hit.rule, hit.paragraphIndex, hit.matchedText);
+        const ignored = ignoreKeys.has(`${row.scene_id}\u0000${hit.rule}\u0000${locationKey}`);
+        const groupKey = `${row.scene_id}\u0000${hit.rule}`;
+        let group = groups.get(groupKey);
+        if (!group) {
+          group = {
+            sceneId: row.scene_id,
+            chapterId: row.chapter_id,
+            chapterTitle: row.chapter_title,
+            sceneTitle: row.scene_title,
+            rule: hit.rule,
+            message: "",
+            snippet: null,
+            count: 0,
+            ignoredCount: 0,
+            locations: []
+          };
+          groups.set(groupKey, group);
+          order.push(groupKey);
+        }
+        group.locations.push({
+          locationKey,
+          paragraphIndex: hit.paragraphIndex,
+          matchedText: hit.matchedText,
+          snippet: hit.snippet,
+          detail: hit.detail,
+          ignored
+        });
+        if (ignored) group.ignoredCount += 1;
+        else group.count += 1;
+      }
+    }
+
+    // 汇总：分组内的位置按段落顺序稳定排序，消息基干取首个未忽略位置的说明。
+    const active: ProofIssue[] = [];
+    const ignoredOnly: ProofIssue[] = [];
+    const affectedScenes = new Set<string>();
+    let activeTotal = 0;
+    let ignoredTotal = 0;
+    for (const key of order) {
+      const group = groups.get(key)!;
+      group.locations.sort(
+        (left, right) =>
+          left.paragraphIndex - right.paragraphIndex ||
+          (left.matchedText < right.matchedText ? -1 : left.matchedText > right.matchedText ? 1 : 0) ||
+          (left.locationKey < right.locationKey ? -1 : left.locationKey > right.locationKey ? 1 : 0)
+      );
+      const activeLocations = group.locations.filter((location) => !location.ignored);
+      const baseDetail =
+        activeLocations[0]?.detail ?? group.locations[0]?.detail ?? PROOF_RULE_BASE_MESSAGE[group.rule];
+      group.message =
+        activeLocations.length > 1 ? `${baseDetail}（共 ${activeLocations.length} 处）` : baseDetail;
+      group.snippet = (activeLocations.find((location) => location.snippet) ?? group.locations[0])?.snippet ?? null;
+      ignoredTotal += group.ignoredCount;
+      if (activeLocations.length === 0) {
+        ignoredOnly.push(group);
+        continue;
+      }
+      active.push(group);
+      activeTotal += activeLocations.length;
+      affectedScenes.add(group.sceneId);
+    }
+
+    let volumeCount = 0;
+    let chapterCount = 1;
+    if (!query.sceneId) {
+      const counts = this.database
+        .prepare(
+          `SELECT
+             (SELECT count(*) FROM volumes WHERE project_id = ? AND deleted_at IS NULL) AS volume_count,
+             (SELECT count(*) FROM chapters WHERE project_id = ? AND deleted_at IS NULL) AS chapter_count`
+        )
+        .get(projectId, projectId) as { volume_count: number; chapter_count: number } | undefined;
+      volumeCount = counts?.volume_count ?? 0;
+      chapterCount = counts?.chapter_count ?? 0;
+    }
+    const scanScope: ProofScanScope = {
+      kind: query.sceneId ? "scene" : "project",
+      label: query.sceneId
+        ? `单场景扫描：${rows[0]?.chapter_title ?? "未命名章节"} · ${rows[0]?.scene_title ?? "未命名场景"}`
+        : `全书扫描：${volumeCount} 卷 / ${chapterCount} 章 / ${scannedScenes} 场景`,
+      volumeCount,
+      chapterCount,
+      sceneCount: scannedScenes,
+      rules,
+      bannedWords,
+      maxParagraphChars
+    };
+
     return {
       projectId,
-      issues,
+      scanScope,
+      issues: active.slice(0, limit),
+      ignoredIssues: query.includeIgnored === true ? ignoredOnly.slice(0, limit) : [],
       scannedScenes,
       affectedScenes: affectedScenes.size,
-      total: issues.length
+      total: activeTotal,
+      ignoredCount: ignoredTotal,
+      rawTotal: activeTotal + ignoredTotal,
+      truncated: active.length > limit,
+      ignoredTruncated: query.includeIgnored === true && ignoredOnly.length > limit,
+      ignoreRecordCount: ignoreRows.length
     };
+  }
+
+  private hasTable(name: string): boolean {
+    const cached = this.tablePresence.get(name);
+    if (cached !== undefined) return cached;
+    const found =
+      this.database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !== undefined;
+    this.tablePresence.set(name, found);
+    return found;
+  }
+
+  /** 项目内卡片词表（主名 + 别名），用于别名一致性与疑似错拼。 */
+  private loadProofDictionary(projectId: string): ProofDictionaryEntry[] {
+    const linked = this.hasTable("project_card_links");
+    const sql = linked
+      ? `SELECT c.id AS card_id, c.title, c.aliases_json
+         FROM cards c
+         WHERE c.deleted_at IS NULL AND (
+           c.project_id = ? OR
+           EXISTS (SELECT 1 FROM project_card_links l WHERE l.card_id = c.id AND l.project_id = ?)
+         )
+         ORDER BY c.id`
+      : `SELECT c.id AS card_id, c.title, c.aliases_json
+         FROM cards c
+         WHERE c.deleted_at IS NULL AND c.project_id = ?
+         ORDER BY c.id`;
+    const rows = (linked
+      ? this.database.prepare(sql).all(projectId, projectId)
+      : this.database.prepare(sql).all(projectId)) as Array<{
+      card_id: string;
+      title: string;
+      aliases_json: string;
+    }>;
+    const entries: ProofDictionaryEntry[] = [];
+    for (const row of rows) {
+      const variants: string[] = [];
+      const push = (value: unknown): void => {
+        if (typeof value !== "string") return;
+        const trimmed = value.trim();
+        if (trimmed.length < 2 || variants.includes(trimmed)) return;
+        variants.push(trimmed);
+      };
+      push(row.title);
+      for (const alias of parseJsonArray(row.aliases_json)) push(alias);
+      if (variants.length === 0) continue;
+      entries.push({ cardId: row.card_id, title: row.title, variants });
+    }
+    return entries;
+  }
+
+  /** 读取项目的持久化忽略记录（键为 scene + rule + locationKey）。 */
+  private loadProofIgnores(projectId: string): Array<{
+    id: string;
+    sceneId: string;
+    rule: string;
+    locationKey: string;
+  }> {
+    if (!this.hasTable("proof_ignores")) return [];
+    const rows = this.database
+      .prepare(
+        "SELECT id, scene_id, rule, location_key FROM proof_ignores WHERE project_id = ? ORDER BY created_at, id"
+      )
+      .all(projectId) as Array<{ id: string; scene_id: string; rule: string; location_key: string }>;
+    return rows.map((row) => ({
+      id: row.id,
+      sceneId: row.scene_id,
+      rule: row.rule,
+      locationKey: row.location_key
+    }));
+  }
+
+  private runProofIgnoreList(projectId: string): ProofIgnoreEntry[] {
+    const id = validateId(projectId, "作品");
+    this.requireProject(id);
+    if (!this.hasTable("proof_ignores")) return [];
+    const rows = this.database
+      .prepare(
+        `SELECT i.id, i.scene_id, i.rule, i.location_key, i.matched_text, i.note, i.created_at,
+                COALESCE(s.title, '') AS scene_title,
+                COALESCE(s.chapter_id, '') AS chapter_id,
+                COALESCE(c.title, '') AS chapter_title
+         FROM proof_ignores i
+         LEFT JOIN scenes s ON s.id = i.scene_id
+         LEFT JOIN chapters c ON c.id = s.chapter_id
+         WHERE i.project_id = ?
+         ORDER BY i.created_at, i.id`
+      )
+      .all(id) as Array<{
+      id: string;
+      scene_id: string;
+      rule: string;
+      location_key: string;
+      matched_text: string;
+      note: string;
+      created_at: string;
+      scene_title: string;
+      chapter_id: string;
+      chapter_title: string;
+    }>;
+    return rows.map((row) => ({
+      id: row.id,
+      projectId: id,
+      sceneId: row.scene_id,
+      sceneTitle: row.scene_title,
+      chapterId: row.chapter_id,
+      chapterTitle: row.chapter_title,
+      rule: PROOF_RULES.has(row.rule as ProofRule) ? (row.rule as ProofRule) : "repeatedChar",
+      locationKey: row.location_key,
+      matchedText: row.matched_text,
+      note: row.note,
+      createdAt: row.created_at
+    }));
+  }
+
+  /**
+   * 忽略一个具体位置的校对命中。
+   * 只写忽略记录：不修改正文、不推进场景 revision、不产生快照，
+   * 因此即使误操作也不会污染稿件历史。
+   */
+  private proofIgnore(command: ProofIgnoreCommand): ProofIgnoreResult {
+    const projectId = validateId(command.projectId, "作品");
+    this.requireProject(projectId);
+    const sceneId = validateId(command.sceneId, "场景");
+    const scene = this.requireScene(sceneId);
+    this.assertSameProject(projectId, scene.project_id, "场景");
+    const rule = validateProofRule(command.rule);
+    const locationKey = typeof command.locationKey === "string" ? command.locationKey.trim() : "";
+    if (!locationKey || locationKey.length > 200) {
+      throw new CreationWorkspaceError("invalid-input", "校对忽略位置无效。");
+    }
+    const matchedText = typeof command.matchedText === "string" ? command.matchedText.slice(0, 200) : "";
+    const note = typeof command.note === "string" ? command.note.slice(0, 200) : "";
+    this.ensureProofIgnoreTable();
+    const timestamp = new Date().toISOString();
+    const existing = this.database
+      .prepare(
+        "SELECT id FROM proof_ignores WHERE project_id = ? AND scene_id = ? AND rule = ? AND location_key = ?"
+      )
+      .get(projectId, sceneId, rule, locationKey) as { id: string } | undefined;
+    if (existing) {
+      // 幂等：重复忽略同一位置不产生新记录，也不刷新既有记录时间。
+      return {
+        commandType: "proof.ignore",
+        sequence: -1,
+        projectId,
+        ignoreIds: [existing.id],
+        removed: 0,
+        updatedAt: timestamp
+      };
+    }
+    const id = `proofIgnore-${randomUUID()}`;
+    this.database
+      .prepare(
+        `INSERT INTO proof_ignores (id, project_id, scene_id, rule, location_key, matched_text, note, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+      )
+      .run(id, projectId, sceneId, rule, locationKey, matchedText, note, timestamp);
+    this.emitCommitted({
+      kind: "committed",
+      sequence: -1,
+      projectId,
+      commandType: "proof.ignore",
+      changes: [{ entity: "proofIgnore", id, action: "created", revision: 0 }]
+    });
+    return {
+      commandType: "proof.ignore",
+      sequence: -1,
+      projectId,
+      ignoreIds: [id],
+      removed: 0,
+      updatedAt: timestamp
+    };
+  }
+
+  /** 取消忽略：按记录 ID，或按（场景 + 规则 + 位置键）定位。 */
+  private proofUnignore(command: ProofUnignoreCommand): ProofIgnoreResult {
+    const projectId = validateId(command.projectId, "作品");
+    this.requireProject(projectId);
+    let ids: string[] = [];
+    if (command.ignoreId !== undefined) {
+      const ignoreId = validateId(command.ignoreId, "忽略记录");
+      const row = this.database
+        .prepare("SELECT id FROM proof_ignores WHERE id = ? AND project_id = ?")
+        .get(ignoreId, projectId) as { id: string } | undefined;
+      if (!row) throw new CreationWorkspaceError("not-found", "忽略记录不存在。");
+      ids = [row.id];
+    } else {
+      if (command.sceneId === undefined || command.rule === undefined || command.locationKey === undefined) {
+        throw new CreationWorkspaceError("invalid-input", "取消忽略需要记录 ID，或场景 + 规则 + 位置键。");
+      }
+      const sceneId = validateId(command.sceneId, "场景");
+      const rule = validateProofRule(command.rule);
+      const locationKey = typeof command.locationKey === "string" ? command.locationKey.trim() : "";
+      if (!locationKey) throw new CreationWorkspaceError("invalid-input", "校对忽略位置无效。");
+      ids = (
+        this.database
+          .prepare(
+            "SELECT id FROM proof_ignores WHERE project_id = ? AND scene_id = ? AND rule = ? AND location_key = ?"
+          )
+          .all(projectId, sceneId, rule, locationKey) as Array<{ id: string }>
+      ).map((row) => row.id);
+    }
+    const remove = this.database.prepare("DELETE FROM proof_ignores WHERE id = ? AND project_id = ?");
+    let removed = 0;
+    for (const id of ids) removed += remove.run(id, projectId).changes;
+    const timestamp = new Date().toISOString();
+    this.emitCommitted({
+      kind: "committed",
+      sequence: -1,
+      projectId,
+      commandType: "proof.unignore",
+      changes: ids.map((id) => ({ entity: "proofIgnore", id, action: "deleted" as const, revision: 0 }))
+    });
+    return {
+      commandType: "proof.unignore",
+      sequence: -1,
+      projectId,
+      ignoreIds: ids,
+      removed,
+      updatedAt: timestamp
+    };
+  }
+
+  /** 兜底建表：让 v9 测试夹具等未走迁移链的连接也能安全读写忽略记录。 */
+  private ensureProofIgnoreTable(): void {
+    if (this.hasTable("proof_ignores")) return;
+    this.database.exec(`
+      CREATE TABLE IF NOT EXISTS proof_ignores (
+        id TEXT PRIMARY KEY,
+        project_id TEXT NOT NULL,
+        scene_id TEXT NOT NULL,
+        rule TEXT NOT NULL,
+        location_key TEXT NOT NULL,
+        matched_text TEXT NOT NULL DEFAULT '',
+        note TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_proof_ignores_location
+        ON proof_ignores(project_id, scene_id, rule, location_key);
+      CREATE INDEX IF NOT EXISTS idx_proof_ignores_project ON proof_ignores(project_id);
+    `);
+    this.tablePresence.set("proof_ignores", true);
   }
 
   private runInboxList(limit: number, offset: number): InboxItem[] {
@@ -2899,6 +3608,137 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     return { outgoing, incoming };
   }
 
+  /**
+   * 关系图整图（Stage 4-F）：一次性取回节点与连线，避免 UI 端按卡片逐个拉关系（N+1）。
+   *
+   * 边界：关系是**全局卡片资产**。给定 projectId 时不改变关系本身，只把节点收敛到
+   * 「该项目已关联卡片」——即引用投影。一端在项目外的关系**不绘制**，
+   * 但条数必须显式回传（hiddenRelationCount），避免用户以为关系丢了。
+   */
+  private runRelationGraph(query: RelationGraphQuery): RelationGraphView {
+    const scope: "global" | "project" =
+      typeof query.projectId === "string" && query.projectId.trim() !== "" ? "project" : "global";
+    const projectId = scope === "project" ? (query.projectId as string).trim() : null;
+    const limit = clampRelationGraphLimit(query.limit);
+
+    const cards = this.listCards(projectId ? { projectId } : {});
+    const candidateIds = new Set(cards.map((card) => card.id));
+
+    const rows = this.database
+      .prepare(
+        `SELECT r.id, r.from_card_id, r.to_card_id, r.relation_type, r.note,
+                rt.name AS relation_name, rt.forward_name, rt.reverse_name
+         FROM card_relations r
+         JOIN cards source_card ON source_card.id = r.from_card_id AND source_card.deleted_at IS NULL
+         JOIN cards target_card ON target_card.id = r.to_card_id AND target_card.deleted_at IS NULL
+         LEFT JOIN relation_types rt ON rt.id = r.relation_type
+         ORDER BY r.created_at, r.id`
+      )
+      .all() as Array<{
+      id: string;
+      from_card_id: string;
+      to_card_id: string;
+      relation_type: string;
+      note: string | null;
+      relation_name: string | null;
+      forward_name: string | null;
+      reverse_name: string | null;
+    }>;
+
+    const degree = new Map<string, number>();
+    const bump = (cardId: string): void => {
+      degree.set(cardId, (degree.get(cardId) ?? 0) + 1);
+    };
+    let hiddenRelationCount = 0;
+    const scopedRows: typeof rows = [];
+    for (const row of rows) {
+      const fromInside = candidateIds.has(row.from_card_id);
+      const toInside = candidateIds.has(row.to_card_id);
+      if (!fromInside && !toInside) continue; // 与本次范围无关，既不画也不计入
+      if (fromInside && toInside) {
+        scopedRows.push(row);
+        bump(row.from_card_id);
+        bump(row.to_card_id);
+      } else {
+        hiddenRelationCount += 1; // 一端在范围外：不绘制，但显式计数
+      }
+    }
+
+    // 节点上限：按度数降序保留（关系最密的卡片优先），保证截断可预期、可复现。
+    const ordered = [...cards].sort((a, b) => {
+      const delta = (degree.get(b.id) ?? 0) - (degree.get(a.id) ?? 0);
+      if (delta !== 0) return delta;
+      if (a.title !== b.title) return a.title < b.title ? -1 : 1;
+      return a.id < b.id ? -1 : 1;
+    });
+    const kept = ordered.slice(0, limit);
+    const keptIds = new Set(kept.map((card) => card.id));
+    const truncatedNodeCount = Math.max(0, ordered.length - kept.length);
+
+    // 指向被裁掉节点的关系同样不绘制：合并进 hiddenRelationCount（语义见类型注释）。
+    const edges: RelationGraphEdge[] = [];
+    for (const row of scopedRows) {
+      if (!keptIds.has(row.from_card_id) || !keptIds.has(row.to_card_id)) {
+        hiddenRelationCount += 1;
+        continue;
+      }
+      edges.push({
+        id: row.id,
+        fromCardId: row.from_card_id,
+        toCardId: row.to_card_id,
+        relationTypeId: row.relation_type,
+        relationName: row.relation_name ?? row.relation_type,
+        forwardName: row.forward_name ?? row.relation_type,
+        reverseName: row.reverse_name ?? row.forward_name ?? row.relation_type,
+        note: row.note
+      });
+    }
+
+    const typeNameOf = new Map(this.listCardTypes().map((type) => [type.kind, type.name]));
+    const nodes: RelationGraphNode[] = kept.map((card) => ({
+      cardId: card.id,
+      title: card.title,
+      kind: card.kind,
+      kindName: typeNameOf.get(card.kind) ?? card.kind,
+      aliases: [...card.aliases],
+      summary: cardFieldSummary(card.fields),
+      degree: degree.get(card.id) ?? 0
+    }));
+
+    const kindCounts = new Map<string, number>();
+    const relationCounts = new Map<string, number>();
+    for (const node of nodes) kindCounts.set(node.kind, (kindCounts.get(node.kind) ?? 0) + 1);
+    for (const edge of edges) relationCounts.set(edge.relationTypeId, (relationCounts.get(edge.relationTypeId) ?? 0) + 1);
+    const relationNameOf = new Map(
+      this.listRelationTypes().map((type) => [type.id, type] as const)
+    );
+
+    return {
+      scope,
+      projectId,
+      nodes,
+      edges,
+      kindFacets: [...kindCounts.entries()]
+        .map(([kind, count]) => ({ kind, name: typeNameOf.get(kind) ?? kind, count }))
+        .sort((a, b) => b.count - a.count || (a.kind < b.kind ? -1 : 1)),
+      relationFacets: [...relationCounts.entries()]
+        .map(([id, count]) => {
+          const type = relationNameOf.get(id);
+          return {
+            id,
+            name: type?.name ?? id,
+            forwardName: type?.forwardName ?? id,
+            reverseName: type?.reverseName ?? type?.forwardName ?? id,
+            count
+          };
+        })
+        .sort((a, b) => b.count - a.count || (a.id < b.id ? -1 : 1)),
+      truncatedNodeCount,
+      hiddenRelationCount,
+      isolatedNodeCount: nodes.filter((node) => node.degree === 0).length
+    };
+  }
+
   private readProjectExport(projectId: string, includeBlocks = false): ProjectExportView | null {
     const project = this.database
       .prepare("SELECT id, title FROM projects WHERE id = ?")
@@ -3156,6 +3996,7 @@ class SqliteCreationWorkspace implements CreationWorkspace {
   async transact(command: ResourceAttachCommand | ResourceDetachCommand): Promise<ResourceResult>;
   async transact(command: SceneUpdatePlanningCommand): Promise<SceneUpdatePlanningResult>;
   async transact(command: SceneUpdateMetaCommand): Promise<SceneUpdateMetaResult>;
+  async transact(command: ProofIgnoreCommand | ProofUnignoreCommand): Promise<ProofIgnoreResult>;
   async transact<Command extends CreationRunCommand>(command: Command): Promise<CreationRunResultOf<Command>>;
   async transact(command: CreationCommand): Promise<CreationTransactionResult> {
     this.assertOpen();
@@ -3224,6 +4065,12 @@ class SqliteCreationWorkspace implements CreationWorkspace {
     }
     if (command.type === "scene.updateMeta") {
       return this.runSceneUpdateMeta(command as SceneUpdateMetaCommand);
+    }
+    if (command.type === "proof.ignore") {
+      return this.proofIgnore(command as ProofIgnoreCommand);
+    }
+    if (command.type === "proof.unignore") {
+      return this.proofUnignore(command as ProofUnignoreCommand);
     }
     if (command.type === "inbox.convertToCard") {
       return this.runInboxConvertToCard(command as InboxConvertToCardCommand);
@@ -6610,7 +7457,12 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
       migrateSchemaV7ToV8(database);
       migrateSchemaV8ToV9(database);
     } else if (existingVersion === 8) migrateSchemaV8ToV9(database);
-    else if (existingVersion !== 9 && existingVersion !== GLOBAL_CARD_SCHEMA_VERSION && existingVersion !== SCHEMA_VERSION) {
+    else if (
+      existingVersion !== 9 &&
+      existingVersion !== GLOBAL_CARD_SCHEMA_VERSION &&
+      existingVersion !== SCENE_META_SCHEMA_VERSION &&
+      existingVersion !== SCHEMA_VERSION
+    ) {
       throw new CreationWorkspaceError("integrity", `不支持的创作工作区 schema 版本：${existingVersion}。`);
     }
 
@@ -6657,7 +7509,14 @@ export async function openCreationWorkspace(options: OpenCreationWorkspaceOption
     ) {
       migrateSchemaV10ToV11(database);
     }
+    if (
+      options.testOnlyTargetSchemaVersion !== 9 &&
+      Number(database.pragma("user_version", { simple: true })) === SCENE_META_SCHEMA_VERSION
+    ) {
+      migrateSchemaV11ToV12(database);
+    }
     if (options.testOnlyTargetSchemaVersion !== 9) ensureGlobalCardResourceSchema(database);
+    if (options.testOnlyTargetSchemaVersion !== 9) ensureProofIgnoreSchema(database);
     try {
       purgeExpiredTrash(database);
       await drainGlobalCardResourceGc(database, options.directory);

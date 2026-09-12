@@ -46,6 +46,8 @@ import type {
   RelationType,
   ReplaceApplyCommand,
   ReplaceApplyResult,
+  RelationGraphQuery,
+  RelationGraphView,
   ReplacePreviewQuery,
   ReplacePreviewView,
   SceneBodyView,
@@ -61,6 +63,8 @@ import type {
   UpdateSceneBodyInput,
   ProofQuery,
   ProofView,
+  ProofIgnoreListQuery,
+  ProofIgnoreEntry,
   InboxDeleteCommand,
   InboxItem,
   InboxItemResult,
@@ -90,6 +94,8 @@ import type {
   ResourceListQuery,
   ResourceResult,
   ProjectExportView,
+  ProjectPrintMode,
+  ProjectPrintResult,
   ProjectHomeView,
   StructurePreviewCommand,
   StructureApplyWithProtectionCommand,
@@ -210,6 +216,7 @@ export interface DesktopApi {
     sessionReport: (command: SessionReportCommand) => Promise<SessionReportResult>;
     sessionDelete: (command: SessionDeleteCommand) => Promise<SessionReportResult>;
     proofQuery: (query: ProofQuery) => Promise<ProofView>;
+    proofIgnoreList: (query: ProofIgnoreListQuery) => Promise<ProofIgnoreEntry[]>;
     importDraftPreview: () => Promise<DraftImportPreview | null>;
     exportProjectBundle: (projectId: string) => Promise<{ canceled: boolean; directory: string | null }>;
     importProjectBundle: () => Promise<{ canceled: boolean; result: ProjectBundleImportResult | null }>;
@@ -225,6 +232,8 @@ export interface DesktopApi {
     attachResource: (projectId: string | undefined, cardId?: string, role?: "attachment" | "cover") => Promise<{ canceled: boolean; resource: ResourceResult | null }>;
     detachResource: (resourceId: string) => Promise<ResourceResult>;
     readProjectExport: (projectId: string) => Promise<ProjectExportView | null>;
+    readProjectPreview: (projectId: string) => Promise<ProjectExportView | null>;
+    printProject: (projectId: string, mode: ProjectPrintMode) => Promise<ProjectPrintResult>;
     migrationStatus: () => Promise<LegacyMigrationStatus | null>;
     migrationRun: () => Promise<LegacyMigrationReport>;
     inboxList: (query: InboxListQuery) => Promise<InboxItem[]>;
@@ -240,6 +249,7 @@ export interface DesktopApi {
     cardLink: (projectId: string, cardId: string) => Promise<CardLinkResult>;
     cardUnlink: (projectId: string, cardId: string) => Promise<CardLinkResult>;
     cardRelations: (cardId: string) => Promise<{ outgoing: CardRelation[]; incoming: CardRelation[] }>;
+    relationGraph: (query: RelationGraphQuery) => Promise<RelationGraphView>;
     readSceneBody: (sceneId: string) => Promise<SceneBodyView | null>;
     updateSceneBody: (input: UpdateSceneBodyInput) => Promise<SceneSaveResponse>;
     watchProject: (projectId: string, listener: CreationProjectListener) => Promise<() => void>;

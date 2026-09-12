@@ -1,5 +1,4 @@
-import type { InspirationStatus, InspirationType } from "@/types/inspiration";
-import type { AIRunAction } from "@/types/ai";
+import type { InspirationStatus, InspirationType, InspirationVariantKind } from "@/types/inspiration";
 
 export const TYPE_LABELS: Record<InspirationType, string> = {
   plot: "剧情点子",
@@ -21,7 +20,8 @@ export const STATUS_LABELS: Record<InspirationStatus, string> = {
   archived: "归档"
 };
 
-export const AI_LABELS: Record<Exclude<AIRunAction, "consistency">, string> = {
+/** 收件箱只使用灵感侧动作，因此按 InspirationVariantKind 收口，不随场景动作扩张。 */
+export const AI_LABELS: Record<InspirationVariantKind, string> = {
   polish: "润色",
   expand: "扩写",
   "platform-style": "平台风格化",

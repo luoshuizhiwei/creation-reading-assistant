@@ -7,6 +7,7 @@ import Database from "better-sqlite3";
 import {
   CreationWorkspaceError,
   openCreationWorkspace,
+  SCHEMA_VERSION,
   type CreationWorkspace,
   type ProjectStatsView,
   type SessionEntry,
@@ -33,7 +34,7 @@ async function run(): Promise<void> {
     workspace = await openCreationWorkspace({ directory });
     const report = await workspace.check();
     assert.equal(report.ok, true);
-    assert.equal(report.schemaVersion, 11);
+    assert.equal(report.schemaVersion, SCHEMA_VERSION);
 
     await scenario("准备项目：写入带汉字/标点/字母的正文", async () => {
       const created = await workspace!.transact({ type: "project.create", title: "统计测试项目" });
@@ -68,6 +69,67 @@ async function run(): Promise<void> {
       assert.equal(stats.snapshotCount, 1);
       assert.equal(stats.streakDays, 0);
       assert.equal(stats.chapterStatusCounts.some((item) => item.status === "" && item.count === 1), true);
+    });
+
+    await scenario("统计窗口为最近 30 天且日期连续有序", async () => {
+      const stats = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      assert.equal(stats.daily.length, 30);
+      const today = new Date();
+      const keyOf = (date: Date): string =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      // 末项为今天，首项为今天往前 29 天的本地日期。
+      assert.equal(stats.daily[stats.daily.length - 1]!.date, keyOf(today));
+      assert.equal(stats.daily[0]!.date, keyOf(new Date(today.getFullYear(), today.getMonth(), today.getDate() - 29)));
+      // 严格递增且无重复：窗口不能出现重复日期或倒序。
+      const dates = stats.daily.map((item) => item.date);
+      assert.deepEqual(dates, [...dates].sort());
+      assert.equal(new Set(dates).size, 30);
+    });
+
+    await scenario("场景状态分布取自 scenes.scene_status，与章节工作流状态互不影响", async () => {
+      const outline = (await workspace!.read({ kind: "project.outline", projectId }))!;
+      const chapter = outline.volumes[0]!.chapters[0]!;
+      const firstScene = chapter.scenes[0]!;
+      // 场景状态独立推进到「修订中」。
+      await workspace!.transact({
+        type: "scene.updateMeta",
+        sceneId: firstScene.id,
+        baseRevision: firstScene.revision,
+        summary: "场景一摘要",
+        status: "revising"
+      });
+      // 同一章的工作流状态设为另一个口径的值「写作中」。
+      await workspace!.transact({
+        type: "chapter.setStatus",
+        chapterId: chapter.id,
+        status: "写作中",
+        baseRevision: chapter.revision
+      });
+      const stats = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      const sceneByStatus = new Map(stats.sceneStatusCounts.map((item) => [item.status, item.count]));
+      assert.equal(sceneByStatus.get("revising"), 1);
+      assert.equal(sceneByStatus.get("planned"), 1);
+      const chapterByStatus = new Map(stats.chapterStatusCounts.map((item) => [item.status, item.count]));
+      assert.equal(chapterByStatus.get("写作中"), 1);
+      // 两个口径不得互相渗透：章节状态里不出现场景状态值，场景状态里也不出现工作流状态值。
+      assert.equal(chapterByStatus.has("revising"), false);
+      assert.equal(sceneByStatus.has("写作中"), false);
+    });
+
+    await scenario("删除场景后不再计入场景状态分布", async () => {
+      const outline = (await workspace!.read({ kind: "project.outline", projectId }))!;
+      const secondScene = outline.volumes[0]!.chapters[0]!.scenes[1]!;
+      const before = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      const totalBefore = before.sceneStatusCounts.reduce((sum, item) => sum + item.count, 0);
+      assert.equal(totalBefore, 2);
+      await workspace!.transact({ type: "scene.delete", sceneId: secondScene.id });
+      const after = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      const totalAfter = after.sceneStatusCounts.reduce((sum, item) => sum + item.count, 0);
+      assert.equal(totalAfter, totalBefore - 1);
+      // 被删场景是「待规划」，其桶位随之清空。
+      const sceneByStatus = new Map(after.sceneStatusCounts.map((item) => [item.status, item.count]));
+      assert.equal(sceneByStatus.get("planned") ?? 0, 0);
+      assert.equal(sceneByStatus.get("revising"), 1);
     });
 
     await scenario("汇报会话：今日/本周/总量与每日净增", async () => {
@@ -277,7 +339,7 @@ async function run(): Promise<void> {
       workspace = await openCreationWorkspace({ directory });
       const checked = await workspace!.check();
       assert.equal(checked.ok, true);
-      assert.equal(checked.schemaVersion, 11);
+      assert.equal(checked.schemaVersion, SCHEMA_VERSION);
       assert.equal(checked.counts.sessions, 5);
     });
 

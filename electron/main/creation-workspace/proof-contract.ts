@@ -205,6 +205,410 @@ async function run(): Promise<void> {
       assert.equal(view.total, 0);
     });
 
+    // -----------------------------------------------------------------------
+    // 阶段 4-E：全书扫描范围、按位置持久化忽略、别名一致性、疑似错拼
+    // -----------------------------------------------------------------------
+
+    let repeatScene = "";
+    let projectB = "";
+    let sceneB2 = "";
+    await scenario("准备：同文本出现在两个段落 + 第二个隔离项目", async () => {
+      const extra = await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "重复字场景"
+      }) as { entityId: string };
+      repeatScene = extra.entityId;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: repeatScene,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "他他他站在门口。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "他他他也很惊讶。" }] }
+          ]
+        }
+      });
+      const createdB = await workspace!.transact({ type: "project.create", title: "校对隔离项目B" });
+      projectB = createdB.projectId;
+      sceneB2 = createdB.sceneId;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: sceneB2,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "他他他在项目B。" }] }]
+        }
+      });
+    });
+
+    await scenario("扫描范围与问题总数显式可见", async () => {
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(view.scanScope.kind, "project");
+      assert.equal(view.scanScope.label.includes("全书扫描"), true);
+      assert.equal(view.scanScope.sceneCount, view.scannedScenes);
+      assert.equal(view.scanScope.rules.includes("repeatedChar"), true);
+      // 场景 A 一处 + 重复字场景两处 = 3 处未忽略命中。
+      assert.equal(view.total, 3);
+      assert.equal(view.ignoredCount, 0);
+      assert.equal(view.rawTotal, 3);
+      assert.equal(view.truncated, false);
+      assert.equal(view.ignoreRecordCount, 0);
+    });
+
+    await scenario("按位置忽略：同场景另一段的相同文本不受影响", async () => {
+      const before = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      const group = before.issues.find((issue) => issue.sceneId === repeatScene)!;
+      assert.equal(group.count, 2);
+      assert.equal(group.locations.length, 2);
+      const first = group.locations[0]!;
+      const second = group.locations[1]!;
+      // 两段文本相同，但段落序号不同 → 位置键必须不同，否则会一起被忽略掉。
+      assert.equal(first.matchedText, second.matchedText);
+      assert.notEqual(first.locationKey, second.locationKey);
+
+      await workspace!.transact({
+        type: "proof.ignore",
+        projectId,
+        sceneId: repeatScene,
+        rule: "repeatedChar",
+        locationKey: first.locationKey,
+        matchedText: first.matchedText
+      });
+
+      const after = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(after.total, 2, "忽略一处后未忽略总数应减一");
+      assert.equal(after.ignoredCount, 1);
+      assert.equal(after.rawTotal, 3, "忽略不应改变原始问题总数");
+      assert.equal(after.ignoreRecordCount, 1);
+      const afterGroup = after.issues.find((issue) => issue.sceneId === repeatScene)!;
+      assert.equal(afterGroup.count, 1);
+      assert.equal(afterGroup.ignoredCount, 1);
+      // 分组内仍列出被忽略的位置，便于逐个取消忽略。
+      assert.equal(afterGroup.locations.length, 2);
+      assert.equal(afterGroup.locations.find((item) => item.ignored)?.locationKey, first.locationKey);
+      assert.equal(afterGroup.locations.filter((item) => !item.ignored)[0]!.locationKey, second.locationKey);
+    });
+
+    await scenario("忽略记录不跨项目、不跨场景污染", async () => {
+      const viewB = (await workspace!.read({
+        kind: "proof.query",
+        projectId: projectB,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(viewB.total, 1, "项目 B 的同文本不应受项目 A 的忽略影响");
+      assert.equal(viewB.ignoredCount, 0);
+      assert.equal(viewB.ignoreRecordCount, 0);
+
+      const viewA = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: sceneA,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(viewA.total, 1, "场景 A 的同文本不应受其它场景的忽略影响");
+      assert.equal(viewA.scanScope.kind, "scene");
+      assert.equal(viewA.scanScope.label.includes("单场景扫描"), true);
+    });
+
+    await scenario("忽略不触碰正文：body 与 revision 完全不变", async () => {
+      const bodyBefore = await workspace!.read({ kind: "scene.body", sceneId: repeatScene });
+      const bodyJsonBefore = JSON.stringify(bodyBefore?.body);
+      await workspace!.transact({
+        type: "proof.ignore",
+        projectId,
+        sceneId: repeatScene,
+        rule: "repeatedChar",
+        locationKey: "repeatedChar#0#nevermatches",
+        matchedText: "占位"
+      });
+      const bodyAfter = await workspace!.read({ kind: "scene.body", sceneId: repeatScene });
+      assert.equal(JSON.stringify(bodyAfter?.body), bodyJsonBefore, "忽略命令不得修改任何正文");
+    });
+
+    await scenario("重复忽略幂等，取消忽略后问题回归", async () => {
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      const group = view.issues.find((issue) => issue.sceneId === repeatScene)!;
+      const ignoredLocation = group.locations.find((item) => item.ignored)!;
+      const before = (await workspace!.read({ kind: "proof.ignores", projectId })) as Array<{ id: string }>;
+
+      const again = await workspace!.transact({
+        type: "proof.ignore",
+        projectId,
+        sceneId: repeatScene,
+        rule: group.rule,
+        locationKey: ignoredLocation.locationKey
+      });
+      const after = (await workspace!.read({ kind: "proof.ignores", projectId })) as Array<{ id: string }>;
+      assert.equal(after.length, before.length, "重复忽略同一位置不应新增记录");
+      assert.equal(again.removed, 0);
+
+      const listed = (await workspace!.read({ kind: "proof.ignores", projectId })) as Array<{
+        id: string;
+        sceneId: string;
+        rule: string;
+        locationKey: string;
+      }>;
+      const target = listed.find((entry) => entry.locationKey === ignoredLocation.locationKey)!;
+      const removed = await workspace!.transact({
+        type: "proof.unignore",
+        projectId,
+        ignoreId: target.id
+      });
+      assert.equal(removed.removed, 1);
+
+      const restored = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(restored.total, 3, "取消忽略后问题应回归");
+      assert.equal(restored.ignoredCount, 0);
+    });
+
+    await scenario("全部忽略后进入已忽略列表，includeIgnored 可查回", async () => {
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      const group = view.issues.find((issue) => issue.sceneId === repeatScene)!;
+      for (const location of group.locations) {
+        await workspace!.transact({
+          type: "proof.ignore",
+          projectId,
+          sceneId: repeatScene,
+          rule: "repeatedChar",
+          locationKey: location.locationKey,
+          matchedText: location.matchedText
+        });
+      }
+      const hidden = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"]
+      })) as ProofView;
+      assert.equal(hidden.issues.some((issue) => issue.sceneId === repeatScene), false);
+
+      const shown = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        rules: ["repeatedChar"],
+        includeIgnored: true
+      })) as ProofView;
+      const ignoredGroup = shown.ignoredIssues.find((issue) => issue.sceneId === repeatScene);
+      assert.ok(ignoredGroup, "全部忽略后应在 ignoredIssues 中可查回");
+      assert.equal(ignoredGroup!.count, 0);
+      assert.equal(ignoredGroup!.ignoredCount, 2);
+      assert.equal(shown.ignoredCount, 2);
+      assert.equal(shown.rawTotal, 3);
+
+      // 清理：恢复默认状态，避免影响后续场景。
+      for (const location of ignoredGroup!.locations) {
+        await workspace!.transact({
+          type: "proof.unignore",
+          projectId,
+          sceneId: repeatScene,
+          rule: "repeatedChar",
+          locationKey: location.locationKey
+        });
+      }
+    });
+
+    await scenario("无效忽略参数报 invalid-input / not-found", async () => {
+      let badRule: unknown;
+      try {
+        await workspace!.transact({
+          type: "proof.ignore",
+          projectId,
+          sceneId: repeatScene,
+          rule: "notARule" as never,
+          locationKey: "x"
+        });
+      } catch (error) {
+        badRule = error;
+      }
+      assert.equal((badRule as CreationWorkspaceError).code, "invalid-input");
+
+      let crossProject: unknown;
+      try {
+        await workspace!.transact({
+          type: "proof.ignore",
+          projectId: projectB,
+          sceneId: repeatScene,
+          rule: "repeatedChar",
+          locationKey: "x"
+        });
+      } catch (error) {
+        crossProject = error;
+      }
+      assert.equal((crossProject as CreationWorkspaceError).code, "invalid-input");
+
+      let missing: unknown;
+      try {
+        await workspace!.transact({
+          type: "proof.unignore",
+          projectId,
+          ignoreId: "proofIgnore-nope"
+        });
+      } catch (error) {
+        missing = error;
+      }
+      assert.equal((missing as CreationWorkspaceError).code, "not-found");
+    });
+
+    let aliasScene = "";
+    await scenario("别名一致性：全书少数派称呼逐个提示", async () => {
+      await workspace!.transact({
+        type: "card.create",
+        projectId,
+        kind: "character",
+        title: "洛水之蔚",
+        aliases: ["洛蔚"]
+      });
+      const extra = await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "别名场景"
+      }) as { entityId: string };
+      aliasScene = extra.entityId;
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: aliasScene,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "洛水之蔚站在河边。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "洛水之蔚望着对岸。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "洛蔚终于开口说话。" }] }
+          ]
+        }
+      });
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: aliasScene,
+        rules: ["aliasInconsistency"]
+      })) as ProofView;
+      assert.equal(view.total, 1, "只提示少数派称呼所在位置");
+      const issue = view.issues[0]!;
+      assert.equal(issue.rule, "aliasInconsistency");
+      assert.equal(issue.locations[0]!.matchedText, "洛蔚");
+      assert.equal(issue.locations[0]!.paragraphIndex, 2);
+      assert.equal(issue.message.includes("洛蔚"), true);
+    });
+
+    await scenario("别名一致：全书只有一种称呼时不报警", async () => {
+      const single = await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "单一称呼场景"
+      }) as { entityId: string };
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: single.entityId,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "慕辰走过来。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "慕辰点了点头。" }] }
+          ]
+        }
+      });
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: single.entityId,
+        rules: ["aliasInconsistency"]
+      })) as ProofView;
+      assert.equal(view.total, 0);
+    });
+
+    await scenario("疑似错拼：与词表仅差一个字的词按位置提示", async () => {
+      await workspace!.transact({
+        type: "card.create",
+        projectId,
+        kind: "character",
+        title: "慕辰",
+        aliases: []
+      });
+      const extra = await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "错拼场景"
+      }) as { entityId: string };
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: extra.entityId,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [
+            { type: "paragraph", content: [{ type: "text", text: "慕辰走过来。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "慕辰点了点头。" }] },
+            { type: "paragraph", content: [{ type: "text", text: "慕宸没有说话。" }] }
+          ]
+        }
+      });
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: extra.entityId,
+        rules: ["suspectedTypo"]
+      })) as ProofView;
+      assert.equal(view.total, 1);
+      const issue = view.issues[0]!;
+      assert.equal(issue.rule, "suspectedTypo");
+      assert.equal(issue.locations[0]!.matchedText, "慕宸");
+      assert.equal(issue.locations[0]!.paragraphIndex, 2);
+      assert.equal(issue.message.includes("慕辰"), true, "消息应指出疑似被写错的词条");
+    });
+
+    await scenario("疑似错拼：词表自身子串不算错拼", async () => {
+      const extra = await workspace!.transact({
+        type: "scene.create",
+        chapterId,
+        title: "词表子串场景"
+      }) as { entityId: string };
+      await workspace!.transact({
+        type: "scene.updateBody",
+        sceneId: extra.entityId,
+        baseRevision: 1,
+        body: {
+          type: "doc",
+          content: [{ type: "paragraph", content: [{ type: "text", text: "洛水之蔚走过来。" }] }]
+        }
+      });
+      const view = (await workspace!.read({
+        kind: "proof.query",
+        projectId,
+        sceneId: extra.entityId,
+        rules: ["suspectedTypo"]
+      })) as ProofView;
+      assert.equal(view.total, 0, "长名内部的二字片段不应被当成错拼");
+    });
+
     process.stdout.write(`${JSON.stringify({ allPass: true, tests })}\n`);
   } finally {
     await workspace?.close();

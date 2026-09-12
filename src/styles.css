@@ -3315,13 +3315,41 @@ button:disabled {
 
 .cards-list-item {
   display: grid;
-  gap: 2px;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: start;
+  gap: 8px;
   border: 1px solid transparent;
   border-radius: 10px;
   background: transparent;
   padding: 8px 10px;
   text-align: left;
   cursor: pointer;
+}
+
+/* 封面缩略图：固定方形，不撑开列表项高度。加载/失败都退化为占位图标，
+   不显示文字，避免密集列表里的视觉噪音。 */
+.card-cover-thumb {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  object-fit: cover;
+  background: color-mix(in srgb, var(--paper-line) 30%, transparent);
+  display: block;
+}
+
+.card-cover-thumb--empty {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--paper-muted);
+  opacity: 0.55;
+}
+
+.cards-list-main {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
 }
 
 .cards-list-item:hover {
@@ -4528,6 +4556,124 @@ button:disabled {
 .creation-proof-item-desc {
   color: var(--paper-muted);
   font-size: 11.5px;
+}
+
+/* 阶段 4-E：扫描范围 / 总数 / 按位置忽略 */
+
+.creation-proof-summary {
+  display: grid;
+  gap: 4px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--paper-line);
+  background: color-mix(in srgb, var(--copper) 5%, transparent);
+}
+
+.creation-proof-scope {
+  color: var(--paper-ink);
+  font-size: 12.5px;
+  font-weight: 650;
+}
+
+.creation-proof-totals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: baseline;
+  color: var(--paper-ink);
+  font-size: 12px;
+}
+
+.creation-proof-ignored-count,
+.creation-proof-truncated {
+  color: var(--paper-muted);
+  font-size: 11.5px;
+}
+
+.creation-proof-inline {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 10px;
+}
+
+.creation-proof-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--paper-muted);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.creation-proof-toggle input {
+  accent-color: var(--copper);
+}
+
+.creation-proof-locations {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+}
+
+.creation-proof-location {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--paper-ink) 4%, transparent);
+}
+
+.creation-proof-location-pos {
+  flex-shrink: 0;
+  color: var(--paper-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.creation-proof-location-text {
+  flex: 1;
+  min-width: 0;
+  color: var(--paper-ink);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.creation-proof-ignore {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border: 1px solid var(--paper-line);
+  border-radius: 999px;
+  padding: 3px 9px;
+  background: transparent;
+  color: var(--paper-muted);
+  font-size: 11.5px;
+  cursor: pointer;
+}
+
+.creation-proof-ignore:hover:not(:disabled) {
+  border-color: var(--copper);
+  color: var(--copper);
+}
+
+.creation-proof-ignore:disabled {
+  opacity: 0.55;
+  cursor: default;
+}
+
+.creation-proof-section-title {
+  margin: 10px 0 0;
+  color: var(--paper-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.creation-search-state--error {
+  color: #c0392b;
 }
 
 /* ---------------------------------------------------------------------------

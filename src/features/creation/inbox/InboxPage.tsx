@@ -10,8 +10,8 @@ import {
   rememberAiSendOptOut,
   shouldConfirmAiSend
 } from "@/features/creation/inbox/ai-send-confirm";
-import { isAIAvailable, type AIRunAction, type AISettings } from "@/types/ai";
-import type { InspirationStatus, InspirationType } from "@/types/inspiration";
+import { isAIAvailable, type AISettings } from "@/types/ai";
+import type { InspirationStatus, InspirationType, InspirationVariantKind } from "@/types/inspiration";
 import type { InboxItem } from "@/types/creation";
 import {
   InboxQuickInput,
@@ -48,7 +48,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
 
   const [aiSettings, setAISettings] = useState<AISettings | null>(null);
-  const [aiBusy, setAiBusy] = useState<AIRunAction | undefined>();
+  const [aiBusy, setAiBusy] = useState<InspirationVariantKind | undefined>();
   const [isAIRunning, setIsAIRunning] = useState(false);
 
   const [convertingIds, setConvertingIds] = useState<Set<string>>(() => new Set());
@@ -361,9 +361,9 @@ export function InboxPage({ projectId }: InboxPageProps) {
   };
 
   /** D-C2 lite：发送前确认门控。未勾选「记住选择」时，每次 AI 调用先展示将发送的内容。 */
-  const [aiConfirm, setAiConfirm] = useState<Exclude<AIRunAction, "consistency"> | null>(null);
+  const [aiConfirm, setAiConfirm] = useState<InspirationVariantKind | null>(null);
 
-  const requestAI = (action: Exclude<AIRunAction, "consistency">) => {
+  const requestAI = (action: InspirationVariantKind) => {
     if (!selected) return;
     if (!aiAvailable) return;
     if (!shouldConfirmAiSend()) {
@@ -373,7 +373,7 @@ export function InboxPage({ projectId }: InboxPageProps) {
     setAiConfirm(action);
   };
 
-  const runAI = async (action: Exclude<AIRunAction, "consistency">) => {
+  const runAI = async (action: InspirationVariantKind) => {
     if (!selected) return;
     if (!aiAvailable) return;
     if (isAIRunningRef.current) return;

@@ -1,0 +1,388 @@
+/* -----------------------------------------------------------------------
+ * 阶段 4-B：全书只读预览与打印版式。
+ *
+ * 本文件随 PreviewPage 的 lazy chunk 注入；打印规则放在这里而不是全局样式表，
+ * 是因为「打印版式」只在打开通读页时才有意义，避免给整个应用引入打印副作用。
+ * ----------------------------------------------------------------------- */
+
+.preview-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+  padding: 18px 22px 22px;
+  overflow: hidden;
+}
+
+.preview-page--failed,
+.preview-page--empty {
+  align-items: center;
+  justify-content: center;
+}
+
+.preview-failure,
+.preview-empty {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: center;
+  max-width: 420px;
+  padding: 26px 30px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-panel);
+  background: var(--surface-1);
+  text-align: center;
+}
+
+.preview-failure h2,
+.preview-empty h2 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 16px;
+  color: var(--text-primary);
+}
+
+.preview-failure p,
+.preview-empty p {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.preview-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+
+.preview-toolbar-meta {
+  min-width: 0;
+}
+
+.preview-toolbar-meta h2 {
+  margin: 0;
+  font-family: var(--font-ui);
+  font-size: 17px;
+  color: var(--text-primary);
+}
+
+.preview-toolbar-meta p {
+  margin: 3px 0 0;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.preview-toolbar-warn {
+  color: var(--warning);
+}
+
+.preview-toolbar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: flex-end;
+}
+
+.preview-jump {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+}
+
+.preview-jump select {
+  width: 200px;
+  max-width: 42vw;
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-control);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  font-family: var(--font-ui);
+  font-size: 12px;
+}
+
+.preview-jump select:focus-visible {
+  outline: 2px solid var(--action-primary);
+  outline-offset: 1px;
+}
+
+.preview-readonly-note {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 通读正文：独立的滚动容器，不依赖外壳滚动，打印时可整体展开。 */
+.preview-document {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 30px 34px 44px;
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-panel);
+  background: var(--surface-paper);
+}
+
+.preview-volume {
+  margin: 26px 0 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  letter-spacing: 0.24em;
+  color: var(--text-tertiary);
+}
+
+.preview-chapter + .preview-chapter {
+  margin-top: 34px;
+  padding-top: 26px;
+  border-top: 1px solid var(--separator-subtle);
+}
+
+.preview-chapter-heading {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  margin: 0 0 14px;
+  font-family: var(--font-ui);
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.preview-chapter-words {
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-tertiary);
+}
+
+.preview-scene + .preview-scene {
+  margin-top: 20px;
+}
+
+.preview-scene-mark {
+  margin-bottom: 6px;
+  font-family: var(--font-ui);
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--text-tertiary);
+}
+
+.preview-block {
+  margin: 0 0 12px;
+  font-family: var(--font-content);
+  font-size: 15px;
+  line-height: 1.95;
+  color: var(--text-primary);
+  text-indent: 2em;
+  overflow-wrap: anywhere;
+}
+
+.preview-block--letter {
+  margin: 0 0 14px;
+  padding: 10px 14px;
+  border-left: 3px solid var(--separator);
+  background: var(--surface-2);
+  text-indent: 0;
+  color: var(--text-secondary);
+}
+
+.preview-block--centered {
+  text-align: center;
+  text-indent: 0;
+  letter-spacing: 0.2em;
+}
+
+.preview-block--note {
+  margin: 0 0 14px;
+  padding: 8px 12px;
+  border: 1px dashed var(--separator);
+  border-radius: var(--radius-control);
+  font-family: var(--font-ui);
+  font-size: 12px;
+  line-height: 1.7;
+  text-indent: 0;
+  color: var(--text-secondary);
+}
+
+.preview-block--break {
+  width: 42%;
+  margin: 18px auto;
+  border: 0;
+  border-top: 1px solid var(--separator);
+}
+
+.preview-scene-empty {
+  margin: 0 0 12px;
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* 窄窗口：工具条纵向堆叠，正文留白收缩，跳转框不再抢占整行。 */
+@media (max-width: 900px) {
+  .preview-page {
+    padding: 12px 12px 16px;
+  }
+
+  .preview-toolbar {
+    align-items: stretch;
+  }
+
+  .preview-toolbar-actions {
+    align-items: center;
+  }
+
+  .preview-jump select {
+    width: 100%;
+    max-width: none;
+  }
+
+  .preview-document {
+    padding: 20px 16px 30px;
+  }
+}
+
+/* -----------------------------------------------------------------------
+ * 打印版式。
+ *
+ * 三个必须同时解决的问题：
+ *
+ * 1. 应用外壳是 `height: 100vh; overflow: hidden` 的网格，直接打印会被裁成一页，
+ *    因此要把从 #root 到正文容器的每一层还原成可自然分页的静态块。
+ *
+ * 2. Chromium 的分页算法遇到 `display: flex / grid` 的祖先时行为不可靠（实测行向 flex
+ *    祖先会把整棵子树压成不可分割的单块，强制分页被忽略、超出内容直接丢失）。应用外壳的
+ *    `.project-workbench` 与 `.creation-writing-stack` 都是 flex，必须还原为块级流。
+ *
+ * 3. 外壳在 `.creation-writing-page--active` 下有一组 `(0,2,0) !important` 的布局规则
+ *    （`.creation-writing-page--active .project-workbench { display: flex !important }` 等），
+ *    单类选择器压不过它们。因此这里对已知的外壳容器把类名重复一次，把特异性抬到 `(0,3,0)`，
+ *    让打印版式稳定生效，而不是依赖样式表插入顺序。
+ *
+ * 同时强制浅色墨色：应用当前是深色主题，照搬会得到大面积深底打印。
+ * ----------------------------------------------------------------------- */
+@media print {
+  @page {
+    size: A4;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    background: #ffffff !important;
+  }
+
+  /* 兜底：以后外壳再包新容器时，只要它没有 !important 布局规则，这一条就能覆盖。 */
+  body *:has(.preview-page) {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  /* 已知外壳链：抬特异性压过 (0,2,0) !important。 */
+  .creation-writing-page--active.creation-writing-page--active,
+  .creation-writing-stack--active.creation-writing-stack--active,
+  .creation-writing-page--active .project-workbench.project-workbench,
+  .creation-writing-page--active .project-workbench-main.project-workbench-main {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  /* 通读页自身与正文容器。 */
+  .preview-page,
+  .preview-document {
+    display: block !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: 0 !important;
+    overflow: visible !important;
+    position: static !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    background: #ffffff !important;
+    color: #111111 !important;
+  }
+
+  /* 需要隐藏的外壳 chrome：同样抬特异性，否则 hero/项目导航的 flex !important 会把它印出来。 */
+  .creation-writing-page--active .creation-writing-hero.creation-writing-hero,
+  .creation-writing-page--active .project-nav.project-nav,
+  .desktop-titlebar.desktop-titlebar,
+  .desktop-sidebar.desktop-sidebar,
+  .desktop-commandbar.desktop-commandbar,
+  .desktop-page-hero.desktop-page-hero,
+  .migration-banner.migration-banner,
+  .preview-toolbar.preview-toolbar,
+  .preview-readonly-note.preview-readonly-note,
+  .preview-scene-mark.preview-scene-mark,
+  .preview-chapter-words.preview-chapter-words {
+    display: none !important;
+  }
+
+  .preview-volume {
+    color: #555555 !important;
+    break-after: avoid;
+  }
+
+  .preview-chapter + .preview-chapter {
+    margin-top: 0 !important;
+    padding-top: 0 !important;
+    border-top: 0 !important;
+    break-before: page;
+  }
+
+  .preview-chapter-heading {
+    color: #111111 !important;
+    break-after: avoid;
+  }
+
+  .preview-block {
+    color: #111111 !important;
+    break-inside: avoid;
+  }
+
+  .preview-block--letter,
+  .preview-block--note {
+    border-color: #bbbbbb !important;
+    background: #f6f6f6 !important;
+    color: #333333 !important;
+  }
+
+  .preview-block--break {
+    border-top-color: #bbbbbb !important;
+  }
+
+  .preview-scene-empty {
+    color: #666666 !important;
+  }
+}
