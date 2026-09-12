@@ -1,6 +1,6 @@
 # desktop — 创作助手 v2.0：全局卡片库与写作体验需求
 
-状态：**P0、M0、阶段 1 与阶段 2（写作速查 + 打包验收）已完成；阶段 3 代码与开发门禁已完成，最终 Windows 打包视觉验收被 Electron 下载网络超时阻断；阶段 4 尚未开始。**
+状态：**P0、M0、阶段 1、阶段 2、阶段 3（大纲与沉浸写作 + 真实 Windows 打包验收）、阶段 4 全切片 + 集成收口均已完成；最终 Windows 打包产物为 `release-beta-stage4-final`。**
 日期：2026-09-10（2026-09-12 更新）
 适用产品线：Electron 桌面端（`src/`、`electron/`）
 来源：用户提供的《桌面端创作助手·需求规格说明书 v2.0》；本文同时记录 2026-09-10 的当前代码和隔离 Electron 功能核验，避免把“源码存在”或“旧脚本失败”误列为产品缺失。
@@ -157,11 +157,22 @@ M1-E 已将卡片封面和附件落入独立的 `global_card_resources`，文件
 
 ### 阶段 3：大纲与沉浸写作
 
-2026-09-12 进度：SQLite 已升级至 v11；场景摘要/场景状态、卷章全书实时字数、Markdown 大纲导出、写作目标进度和壳级专注模式（ESC 退出）均已实现。`npm run verify:desktop-stage3` 为 78/78，完整 desktop Beta 为 819 项通过（4 项历史 native ABI 跳过），`npm run build` 与生产依赖 audit 通过。最终包需在网络恢复后重新生成，并运行 `npm run verify:packaged-stage3`；此前 v4 截图发现专注模式 grid 高度缺陷，源码已修正，但修正后的 v5 包两次均在下载 Electron 时超时，不能以 v4 代替最终验收。
+2026-09-12 完成：SQLite 已升级至 v11；场景摘要/场景状态、卷章全书实时字数、Markdown 大纲导出、写作目标进度和壳级专注模式（ESC 退出）均已实现。开发门禁为 `npm run verify:desktop-stage3` 78/78、完整 desktop Beta 819 项通过（4 项历史 native ABI 条件跳过）、生产依赖 audit 0。真实打包验收已完成：在全新输出目录 `release-beta-stage3-final-v8/win-unpacked`（EXE 188,818,944 字节）上运行 `npm run verify:packaged-stage3`，18/18 通过；证据为 `output/playwright/packaged-stage3-log.json`、`packaged-stage3-outline.png`、`packaged-stage3-focus.png`。
 
-1. 为场景增加可编辑摘要与状态，并迁移/展示卷、章、全书字数；章节状态保留为兼容数据，不得与场景状态混淆。
-2. 添加 Markdown 大纲导出、写作区底部目标进度、壳级专注模式与 ESC 退出。
-3. 保留已经存在的打字机实现，补充边界滚动、IME 和连续章节编辑回归测试。
+打包验收期间修掉两个此前被自动化掩盖的真实缺陷：
+
+1. **专注模式 grid 高度坍塌**（v4 截图发现）：`.desktop-root.desktop-root--focus` 的 grid 行与 `.desktop-workbench` 高度/行位置已显式约束。
+2. **大纲页双栏被容器裁切、大纲树被推出可视区**（v8 截图发现）：`.outline-page-body` 未约束 grid 行高，且 `styles.css` 遗留的 `align-self: start` 让场景任务卡保持 851px 内容高度、溢出 `overflow: hidden` 的双栏容器。保存场景卡后聚焦侧栏字段时，浏览器会滚动整个容器 267px，导致大纲树、全书汇总、场景摘要与场景状态全部滚出可视区——而原有断言只检查 DOM 文本，无法发现该问题。修复为 `grid-template-rows: minmax(0, 1fr)` 加侧栏 `align-self: stretch`，并新增 3 项几何断言（关键元素必须落在双栏容器可视范围内、容器不得被整体滚动、侧栏必须内滚），验收项由 15 项增至 18 项。
+
+两项环境阻塞已解决，均不属产品代码缺陷：
+
+- **Electron 下载 `ETIMEDOUT 20.205.243.166:443`**：真实根因是 `@electron/get` 在缓存命中后仍会校验 `SHASUMS256.txt`，而该文件不在缓存内，于是回连 GitHub。改用 `ELECTRON_MIRROR=https://cdn.npmmirror.com/binaries/electron/` 与 `ELECTRON_CUSTOM_DIR={{ version }}`（并设 `ELECTRON_BUILDER_BINARIES_MIRROR`）后，首次下载 4–7 MB/s，后续打包直接命中缓存（`using cached artifact`）。
+- **打包应用启动即 `FATAL: GPU process isn't usable. Goodbye.`**：本机装有虚拟显示适配器（GameViewer Virtual Display Adapter），Chromium 独立 GPU 进程在其下以 `exit_code=1` 反复退出；`--disable-gpu` 无效（GPU 进程本身仍会启动），非沙箱环境同样复现，因此既不是沙箱也不是产品代码问题。验收脚本改传 `--in-process-gpu` 后即可在该环境完成真实打包验收，断言口径不变。
+
+1. **已完成：**为场景增加可编辑摘要与状态，并迁移/展示卷、章、全书字数；章节状态保留为兼容数据，不得与场景状态混淆。
+2. **已完成：**添加 Markdown 大纲导出、写作区底部目标进度、壳级专注模式与 ESC 退出。
+3. **已完成：**保留已经存在的打字机实现，补充边界滚动、IME 和连续章节编辑回归测试。
+4. **打包验收已完成：**`verify:packaged-stage3` 在隔离的真实 Windows 打包副本中 18/18 通过，覆盖大纲树与卷/章/全书字数汇总在可视区显示、场景摘要与场景状态独立保存、Markdown 大纲导出不含正文、写作区目标进度、壳级专注隐藏应用侧栏/项目头/项目导航/写作轨道、编辑器真实可用高度与正文可见、ESC 退出专注并保留打字机开关。其中 3 项为本次新增的几何断言，用于防止「元素存在于 DOM 但被滚出可视区」再次漏检。
 
 ### 阶段 4：深度功能
 
@@ -182,7 +193,7 @@ M1-E 已将卡片封面和附件落入独立的 `global_card_resources`，文件
 
 ## 7. 验证门禁
 
-在每个切片完成后至少执行对应契约；阶段 1 和最终集成还需运行：
+在每个切片完成后至少执行对应契约；阶段 1、阶段 4 与最终集成还需运行：
 
 ```powershell
 npm test
@@ -196,11 +207,43 @@ npm run verify:creation-bundle
 npm run verify:creation-p1-lifecycle
 npm run verify:writing-quick-reference
 npm run verify:packaged-stage2
+npm run verify:stage4-preview-print
+npm run verify:stage4-proof-ignore
+npm run verify:stage4-scene-ai
+npm run verify:stage4-scene-ai-acceptance
+npm run verify:stage4-relation-graph
+npm run verify:stage4-relation-graph-acceptance
+npm run verify:packaged-stage3
+npm run verify:packaged-stage4
+npm run dist:beta:stage4
 ```
 
-新增的 v10 迁移、全局卡片、项目关联、速查、全书预览、场景状态、AI 和校对门禁应加入 `verify:beta`。构建和契约通过不是最终替代品：还必须在真实 Windows 打包应用中覆盖“旧 v9 库升级、跨项目实时同步、项目内解除关联、全局删除确认、项目包导入冲突、速查面板连续写作”流程。
+新增的 v10 迁移、全局卡片、项目关联、速查、全书预览、场景状态、AI、校对、关系图与打包态 smoke 应加入 `verify:beta` 与打包门禁。构建和契约通过不是最终替代品：还必须在真实 Windows 打包应用中覆盖“旧 v9 库升级、跨项目实时同步、项目内解除关联、全局删除确认、项目包导入冲突、速查面板连续写作、Stage 3 大纲与壳级专注、Stage 4 全部特性入口与 IPC 可达”流程。
 
 阶段 2 收口证据：`verify:writing-quick-reference` 25/25（含失败草稿保留与重试）、编辑器门禁 118/118、完整 Beta 810/810、build 与生产依赖审计 0 均通过；另 4 项 legacy 测试因既有 Node/Electron `better-sqlite3` ABI 条件跳过。最终打包验收使用 `release-beta-stage2-final/win-unpacked`，原因是旧 `release-beta/win-unpacked/resources/app.asar` 被外部进程持续锁定，直接覆盖两次返回 `EBUSY`；独立输出目录的打包和 11 项验收均成功。
+
+阶段 3 收口证据：`release-beta-stage3-final-v8/win-unpacked/创作阅读助手.exe`（188,818,944 字节）；`verify:packaged-stage3` 18/18（含大纲可视几何、场景摘要/状态独立保存、Markdown 大纲导出不含正文、壳级专注、ESC 退出保留打字机）；`verify:beta -- --scope=desktop` All checks passed；`npm audit --omit=dev` 0 漏洞；`npx vitest run` 819 passed / 4 skipped。
+
+阶段 4 收口证据（2026-09-12）：
+
+| 切片 | 关键交付 | 真机验收 |
+|------|----------|---------|
+| 4-C 统计 | `daily`（30 天趋势）+ `sceneStatusCounts`（场景状态，源 `scenes.scene_status`），无独立字数真源 | 16/16 契约 + 验证 IPC 字段 |
+| 4-A 全局卡片封面 | 封面 = 挂在卡片上的资源（`role === "cover"`），经 `creation:resourceList` 读取，URL 由 `buildCardResourceUrl()` 生成 `creation-asset://card/<cardId>/<resourceId>`；主进程只读协议 + CSP 已放行 `creation-asset:`；`CardCoverImage` 覆盖详情区空/加载/失败三态；**列表缩略图**由 `CardSummary.coverResourceId`（SQL 子查询一次带出，避免 N+1）+ `CardCoverThumb` 实现 | 打包态 smoke 验证 `resourceList` 通道可达（13/13，含真实建卡）；列表缩略图真机 8/8（`naturalWidth: 1700` 证明字节真的加载成功）；契约 17/17 |
+| 4-B 全书预览与打印 | `creation:readProjectPreview` + `creation:printProject`（复用 renderer 通读页，不引入第二套排版真源） | Stage 3 打包态 18/18 |
+| 4-E 校对 | 位置级忽略（key=`rule#paragraphIndex#fnv1a32(normText)`）+ 别名一致性 + 疑似错拼；`scannedScenes`/`total`/`ignoredCount` 完整字段 | 真机 acceptance PASS |
+| 4-D AI 场景动作 | `continuation` / `condensing` / `character-consistency` 三个新动作，全部走候选/报告；正文修改走 `appendTextToSceneBody`（document 层追加，避免 plain-text 段落丢失） | 25/25 真机 + prompt 包含/排除正确 |
+| 4-F 关系图 | 整图查询（避免 N+1），按度数排序截断 + `hiddenRelationCount`；项目视图=引用投影；确定性按卡类型分簇环形布局；节点摘要 + 对端跳转 | 20/20 真机 + 16/16 契约 |
+
+收口门禁：`release-beta-stage4-final/win-unpacked/创作阅读助手.exe`（188,818,944 字节）；`verify:packaged-stage3` 在新打包二进制上 18/18 非回归；`verify:packaged-stage4` 12/12 覆盖 A/B/C/D/E/F 全部 IPC；`npx vitest run` 963 passed / 4 skipped；`npm run verify:beta -- --scope=desktop` All checks passed；`npm audit --omit=dev` 0 漏洞；截图 `output/playwright/stage4-{scene-ai,relation-graph,packaged}/`。
+
+打印链路专项（2026-09-12 补齐）：`verify:packaged-stage4b-print` 12/12，覆盖 asar 资源来源、`dialog.showSaveDialog` 打桩后 `printToPDF` 真实写出 402,151 字节 PDF（magic `%PDF-`）、以及主进程 spy 捕获 `webContents.print({ silent: false, printBackground: false })`。截图 `output/playwright/stage4-print-packaged/`。
+
+更正记录（2026-09-12）：Stage 4-A 曾被记为「`coverImagePath` 字段持久化」，该字段在代码库中并不存在，且打包态断言因卡片列表为空而提前返回、产生假阳性。真实机制已在上表中更正；打包态断言同时改为先建卡再验证 `resourceList` 通道（现为 13/13，含真实建卡步骤）。
+
+剩余/延后：无功能缺口。全部改动按约束暂留本地未提交，等用户授权。
+
+Stage 4-A 列表封面缩略图（2026-09-12 补齐）：需求原文「全局卡片画廊必须真正显示一套封面图片」此前只做到详情区，列表/网格无缩略图。现 `CardSummary.coverResourceId` 由 `listCards()` 的 SQL 子查询一次带出（避免 N+1），依赖已有唯一索引 `idx_global_card_resources_cover`；旧库无该表时恒 null 并降级占位。新组件 `CardCoverThumb`（40px 紧凑方形，失败退化为占位图标）接入 `CardListSidebar`。验证：组件测试 9 个、契约 17/17（新增「cards.list 一次性带出封面资源 ID」场景）、真机 `scripts/card-cover-acceptance.mjs` 8/8（`naturalWidth: 1700` 证明字节经只读协议真正加载成功，破图为 0）、`vitest` 972/4 skipped、`build` EXIT=0。
 
 ## 8. 粗略工期（按当前已核验基线重估）
 
