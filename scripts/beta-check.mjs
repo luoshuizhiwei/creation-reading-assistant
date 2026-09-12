@@ -44,8 +44,12 @@ const DESKTOP_SCRIPTS = [
   "verify:creation-cards",
   "verify:global-card-migration",
   "verify:global-card-library",
+  "verify:creation-asset-protocol",
+  "verify:creation-preview",
   "verify:writing-quick-reference",
   "verify:desktop-stage3",
+  "verify:stage4-scene-ai",
+  "verify:stage4-relation-graph",
   "verify:creation-history",
   "verify:creation-annotation",
   "verify:creation-p1-lifecycle",
@@ -461,8 +465,12 @@ runScoped("verify:creation-outline");
 runScoped("verify:creation-cards");
 runScoped("verify:global-card-migration");
 runScoped("verify:global-card-library");
+runScoped("verify:creation-asset-protocol");
+runScoped("verify:creation-preview");
 runScoped("verify:writing-quick-reference");
 runScoped("verify:desktop-stage3");
+runScoped("verify:stage4-scene-ai");
+runScoped("verify:stage4-relation-graph");
 runScoped("verify:creation-history");
 runScoped("verify:creation-annotation");
 runScoped("verify:creation-p1-lifecycle");

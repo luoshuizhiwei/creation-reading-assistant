@@ -35,6 +35,17 @@ function check(name, ok, detail = "") {
   if (!ok) throw new Error(`${name}: ${detail || "acceptance failed"}`);
 }
 
+/**
+ * 截图前等待绘制稳定。
+ * 应用壳为固定高度，fullPage 捕获与视口等价；但保存场景卡会触发一次大纲重取，
+ * 若在重取与合成中间态截图，会得到内容尚未绘制的空白区域。这里等待两帧绘制
+ * 再加短延迟，确保证据截图反映用户实际看到的界面。
+ */
+async function settlePaint(page, delay = 500) {
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+  await page.waitForTimeout(delay);
+}
+
 async function main() {
   check("打包可执行文件存在", existsSync(sourceExecutablePath), sourceExecutablePath);
   cpSync(packagedDirectory, isolatedPackagedDirectory, {
@@ -43,9 +54,15 @@ async function main() {
   });
   check("打包目录已复制到隔离沙箱", existsSync(executablePath), executablePath);
 
+  // 本机安装了虚拟显示适配器（GameViewer Virtual Display Adapter）。Chromium 的独立 GPU
+  // 进程在该适配器下初始化失败，以 exit_code=1 反复退出并抛出
+  // `FATAL:gpu_data_manager_impl_private.cc GPU process isn't usable. Goodbye.`，导致打包
+  // 应用启动即中止（--disable-gpu 无法规避，因为 GPU 进程本身仍会启动）。
+  // `--in-process-gpu` 将 GPU 线程放入浏览器进程内运行，从而可以在没有可用独立 GPU 进程的
+  // 环境中完成真实打包验收。该开关不改变 DOM/CSS 布局、IPC 或 SQLite 行为，验收断言口径不变。
   const app = await electron.launch({
     executablePath,
-    args: [`--user-data-dir=${roamingDirectory}`],
+    args: ["--in-process-gpu", `--user-data-dir=${roamingDirectory}`],
     cwd: path.dirname(executablePath),
     env: { ...process.env, APPDATA: roamingDirectory, LOCALAPPDATA: localDirectory }
   });
@@ -155,6 +172,52 @@ async function main() {
         if (element instanceof HTMLElement) element.scrollTop = 0;
       }
     });
+    // 只检查 DOM 文本会漏掉「元素存在但被滚出可视区」。这里以大纲双栏容器自身为参照，
+    // 确认大纲树、场景行、全书汇总、场景摘要与场景状态都真的落在可视范围内，
+    // 且容器没有被焦点滚动整体位移。
+    const outlineVisibility = await page.evaluate(() => {
+      const rectOf = (selector) => {
+        const element = document.querySelector(selector);
+        return element instanceof HTMLElement ? element.getBoundingClientRect() : null;
+      };
+      const within = (selector, referenceSelector) => {
+        const box = rectOf(selector);
+        const bounds = rectOf(referenceSelector);
+        if (!box || !bounds) return false;
+        return box.height > 0 && box.top >= bounds.top - 1 && box.bottom <= bounds.bottom + 1;
+      };
+      const body = document.querySelector(".outline-page-body");
+      const side = document.querySelector(".outline-page-side");
+      return {
+        bodyScrollTop: body instanceof HTMLElement ? body.scrollTop : -1,
+        // 大纲树与场景行必须落在大纲双栏容器内，而不是仅存在于 DOM。
+        treeVisible: within(".outline-tree", ".outline-page-body"),
+        sceneRowVisible: within(".outline-scene-main", ".outline-page-body"),
+        // 全书字数汇总位于页头，参照物是大纲页本身。
+        bookCountVisible: within(".outline-book-word-count", ".outline-page"),
+        summaryVisible: within(".outline-page-side textarea", ".outline-page-body"),
+        sceneStatusVisible: within(".outline-page-side select", ".outline-page-body"),
+        mainBounded: within(".outline-page-main", ".outline-page-body"),
+        sideBounded: within(".outline-page-side", ".outline-page-body"),
+        sideScrollable: side instanceof HTMLElement ? side.scrollHeight > side.clientHeight + 1 : false
+      };
+    });
+    check(
+      "大纲树与场景行在大纲双栏可视区域内且容器未被整体滚动",
+      outlineVisibility.bodyScrollTop === 0 && outlineVisibility.treeVisible && outlineVisibility.sceneRowVisible,
+      JSON.stringify(outlineVisibility)
+    );
+    check(
+      "全书字数汇总、场景摘要与场景状态均在可视区域内",
+      outlineVisibility.bookCountVisible && outlineVisibility.summaryVisible && outlineVisibility.sceneStatusVisible,
+      JSON.stringify(outlineVisibility)
+    );
+    check(
+      "大纲双栏被容器高度约束并各自内滚",
+      outlineVisibility.mainBounded && outlineVisibility.sideBounded && outlineVisibility.sideScrollable,
+      JSON.stringify(outlineVisibility)
+    );
+    await settlePaint(page);
     await page.screenshot({ path: path.join(evidenceDirectory, "packaged-stage3-outline.png"), fullPage: true });
     await page.getByRole("button", { name: "导出 Markdown 大纲" }).click();
     await page.getByText("Markdown 大纲已导出", { exact: true }).waitFor({ state: "visible", timeout: 10_000 });
@@ -242,6 +305,7 @@ async function main() {
       const scroll = document.querySelector(".writing-scroll");
       if (scroll instanceof HTMLElement) scroll.scrollTop = 0;
     });
+    await settlePaint(page, 300);
     await page.screenshot({ path: path.join(evidenceDirectory, "packaged-stage3-focus.png"), fullPage: true });
 
     await page.keyboard.press("Escape");
