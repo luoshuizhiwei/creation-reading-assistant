@@ -29,3 +29,4 @@ internal fun statusLabel(value: ShelfStatusFilter): String = when (value) {
     ShelfStatusFilter.UNREAD -> "未开始"
     ShelfStatusFilter.SHELVED -> "搁置"
 }
+internal const val SHELF_LIBRARY_ROUTE = "shelf/library"

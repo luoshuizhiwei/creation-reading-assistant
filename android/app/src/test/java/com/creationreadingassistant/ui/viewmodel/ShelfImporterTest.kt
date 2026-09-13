@@ -9,10 +9,16 @@ import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
+import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.domain.model.EpubBook
+import com.creationreadingassistant.feature.library.LibraryRootStore
+import com.creationreadingassistant.feature.library.LibrarySourceIndex
+import com.creationreadingassistant.feature.library.LibrarySourceRef
 import com.creationreadingassistant.feature.library.ShelfImporter
+import com.creationreadingassistant.feature.library.SourceFingerprint
 import com.creationreadingassistant.feature.reader.EpubRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -34,6 +40,7 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import io.mockk.unmockkStatic
 import java.io.ByteArrayInputStream
+import java.io.InputStream
 
 /**
  * ShelfImporter 导入管线状态机测试。
@@ -61,6 +68,8 @@ class ShelfImporterTest {
     private lateinit var repository: BookRepository
     private lateinit var epubRepository: EpubRepository
     private lateinit var historyStore: ImportHistoryStore
+    private lateinit var sourceIndex: LibrarySourceIndex
+    private lateinit var rootStore: LibraryRootStore
     private lateinit var shelfBooks: MutableStateFlow<List<BookEntity>>
     private lateinit var importer: ShelfImporter
 
@@ -82,6 +91,10 @@ class ShelfImporterTest {
         historyStore = mockk {
             every { entries } returns MutableStateFlow(emptyList())
         }
+        sourceIndex = mockk(relaxed = true)
+        rootStore = mockk {
+            coEvery { loadRoot() } returns null
+        }
         shelfBooks = MutableStateFlow(emptyList())
         importer = ShelfImporter(
             context = context,
@@ -91,6 +104,8 @@ class ShelfImporterTest {
             bookFileDao = bookFileDao,
             epubRepository = epubRepository,
             importHistoryStore = historyStore,
+            sourceIndex = sourceIndex,
+            rootStore = rootStore,
             ioDispatcher = io,
         )
         importer.booksProvider = { shelfBooks.value }
@@ -135,6 +150,8 @@ class ShelfImporterTest {
     private fun cursor(displayName: String, size: Long): Cursor = mockk {
         every { getColumnIndex(OpenableColumns.DISPLAY_NAME) } returns 0
         every { getColumnIndex(OpenableColumns.SIZE) } returns 1
+        every { getColumnIndex("last_modified") } returns 2
+        every { isNull(2) } returns true
         every { moveToFirst() } returns true
         every { getString(0) } returns displayName
         every { getLong(1) } returns size
@@ -434,6 +451,141 @@ class ShelfImporterTest {
         assertEquals("《书b1》正文已修复", msg)
         coVerify(exactly = 1) {
             historyStore.addEntry(match { it.status == "success" })
+        }
+    }
+
+    // ===== 来源引用（路线第 3 组） =====
+
+    @Test
+    fun `successful import records a source ref without fabricated root`() = runTest {
+        stubTxtContent("a.txt", "第一章 你好\n这是正文")
+
+        importer.importFiles(listOf(uri("a.txt")))
+
+        assertEquals(1, importer.importBatch.value.succeeded)
+        // JVM 环境无法解析文档 URI、也没有配置根目录：root_id/document_id 必须留空，
+        // 绝不允许为了「看起来有来源」而伪造归属。
+        coVerify(exactly = 1) {
+            sourceIndex.record(
+                match {
+                    it.format == "txt" &&
+                        it.display_name == "a.txt" &&
+                        it.root_id == null &&
+                        it.document_id == null &&
+                        it.provider_authority.isEmpty() &&
+                        it.availability == "available"
+                }
+            )
+        }
+    }
+
+    @Test
+    fun `duplicate import does not rewrite the source ref`() = runTest {
+        stubTxtContent("a.txt", "x")
+        shelfBooks.value = listOf(
+            book("b1", localUri = "content://books/a.txt", format = "txt", fileName = "a.txt", size = 1)
+        )
+
+        importer.importFiles(listOf(uri("a.txt")))
+
+        assertEquals(1, importer.importBatch.value.duplicates)
+        coVerify(exactly = 0) { sourceIndex.record(any()) }
+    }
+
+    @Test
+    fun `large file with live fingerprint ref is reported as duplicate`() = runTest {
+        val size = 33L * 1024 * 1024
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("big.txt", size)
+        every { resolver.openInputStream(any()) } answers { PatternStream(size) }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+        val chunkMd5 = SourceFingerprint.md5Hex(ByteArray(SourceFingerprint.CHUNK_BYTES) { 0x41 })
+        val fingerprint = SourceFingerprint.fromChunks(size, chunkMd5, chunkMd5)
+        coEvery { sourceIndex.getByFingerprint(fingerprint) } returns listOf(
+            LibrarySourceRef(
+                bookId = "b1",
+                rootId = null,
+                providerAuthority = "com.android.externalstorage.documents",
+                documentId = "primary:Elsewhere/big.txt",
+                displayName = "big.txt",
+                format = "txt",
+                sizeBytes = size,
+                lastModifiedMillis = null,
+                contentHash = null,
+                candidateFingerprint = fingerprint,
+                lastSeenAtMillis = 0L,
+                availability = LibrarySourceAvailability.AVAILABLE,
+            )
+        )
+        shelfBooks.value = listOf(book("b1", format = "txt", fileName = "原文件名.txt", size = 1))
+
+        importer.importFiles(listOf(uri("big.txt")))
+
+        val batch = importer.importBatch.value
+        assertEquals(1, batch.duplicates)
+        assertEquals(0, batch.succeeded)
+        // 重复导入不写引用，也不复制副本。
+        coVerify(exactly = 0) { sourceIndex.record(any()) }
+    }
+
+    @Test
+    fun `fingerprint of a removed book does not block reimport`() = runTest {
+        val size = 33L * 1024 * 1024
+        every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("big.txt", size)
+        every { resolver.openInputStream(any()) } answers { PatternStream(size) }
+        every { resolver.takePersistableUriPermission(any(), any()) } returns Unit
+        coEvery { bookDao.upsert(any()) } returns Unit
+        coEvery { bookContentDao.upsert(any()) } returns Unit
+        coEvery { bookFileDao.upsert(any()) } returns Unit
+        coEvery { historyStore.addEntry(any()) } returns Unit
+        val chunkMd5 = SourceFingerprint.md5Hex(ByteArray(SourceFingerprint.CHUNK_BYTES) { 0x41 })
+        val fingerprint = SourceFingerprint.fromChunks(size, chunkMd5, chunkMd5)
+        coEvery { sourceIndex.getByFingerprint(fingerprint) } returns listOf(
+            LibrarySourceRef(
+                bookId = "removed-book",
+                rootId = null,
+                providerAuthority = "com.android.externalstorage.documents",
+                documentId = "primary:Elsewhere/big.txt",
+                displayName = "big.txt",
+                format = "txt",
+                sizeBytes = size,
+                lastModifiedMillis = null,
+                contentHash = null,
+                candidateFingerprint = fingerprint,
+                lastSeenAtMillis = 0L,
+                availability = LibrarySourceAvailability.AVAILABLE,
+            )
+        )
+        shelfBooks.value = emptyList()
+
+        importer.importFiles(listOf(uri("big.txt")))
+
+        val batch = importer.importBatch.value
+        assertEquals(1, batch.succeeded)
+        assertEquals(0, batch.duplicates)
+    }
+
+    /** 定长 `A` 字节流：避免在 JVM 测试里分配 33 MB 数组，同时支持 skip 语义。 */
+    private class PatternStream(private val size: Long) : InputStream() {
+        private var pos = 0L
+
+        override fun read(): Int = if (pos >= size) -1 else {
+            pos++
+            0x41
+        }
+
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (pos >= size) return -1
+            val n = minOf(len.toLong(), size - pos).toInt()
+            java.util.Arrays.fill(b, off, off + n, 0x41)
+            pos += n
+            return n
+        }
+
+        override fun skip(n: Long): Long {
+            val skipped = minOf(n, size - pos).coerceAtLeast(0)
+            pos += skipped
+            return skipped
         }
     }
 }

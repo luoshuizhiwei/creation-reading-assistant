@@ -169,8 +169,17 @@ internal fun ShelfImportRoute(
                                 Text("支持格式", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                 FormatCapsule("EPUB", FormatEpubColor)
                                 FormatCapsule("TXT", FormatTxtColor)
-                                FormatCapsule("PDF", FormatPdfColor)
                                 FormatCapsule("MD", FormatMdColor)
+                            }
+                            OrganizerDivider()
+                            ImportChannelRow(
+                                icon = Icons.Outlined.FolderOpen,
+                                title = "我的书籍目录",
+                                description = "在 App 内浏览、智能识别并批量导入",
+                                enabled = !batch.isRunning,
+                                tint = ChannelFolderColor,
+                            ) {
+                                navController.navigate(SHELF_LIBRARY_ROUTE)
                             }
                             OrganizerDivider()
                             ImportChannelRow(

@@ -122,6 +122,8 @@ class ShelfViewModelTest {
             bookFileDao = bookFileDao,
             epubRepository = epubRepository,
             importHistoryStore = importHistoryStore,
+            sourceIndex = mockk(relaxed = true),
+            rootStore = mockk { coEvery { loadRoot() } returns null },
             ioDispatcher = Dispatchers.Unconfined,
         )
         return ShelfViewModel(

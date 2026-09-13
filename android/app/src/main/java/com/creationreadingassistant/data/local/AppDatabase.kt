@@ -35,6 +35,8 @@ import com.creationreadingassistant.data.local.dao.SearchIndexStateDao
 import com.creationreadingassistant.data.local.dao.SearchIndexStateRow
 import com.creationreadingassistant.data.local.dao.SearchTermDao
 import com.creationreadingassistant.data.local.dao.SearchTermRow
+import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
+import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookFileEntity
@@ -65,7 +67,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 13
+const val APP_DATABASE_SCHEMA_VERSION = 14
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -97,6 +99,10 @@ const val APP_DATABASE_SCHEMA_VERSION = 13
  *  - v12→v13：新增单处纠错记录表 reader_text_corrections（E2）。
  *    只建新表：纠错是投影层的覆盖叠加记录，撤销/恢复只翻 status，
  *    不触碰书库/进度/批注/规则表。
+ *  - v13→v14：新增来源引用表 library_source_refs（目录路线第 3 组）。
+ *    只建新表：记录书籍与授权来源文件的引用关系和观测状态，供目录页分层
+ *    判定（精确已入架 / 同内容 / 可能重复 / 内容有更新）提供比较基线。
+ *    该表不是正文事实源，来源不可用时阅读器仍只依赖内部稳定副本。
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -116,6 +122,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 13
         SearchTermRow::class,
         SearchIndexStateRow::class,
         SearchIndexCoverageRow::class,
+        LibrarySourceRefEntity::class,
     ],
     version = APP_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
@@ -146,6 +153,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun searchTermDao(): SearchTermDao
     abstract fun searchIndexStateDao(): SearchIndexStateDao
     abstract fun searchIndexCoverageDao(): SearchIndexCoverageDao
+    abstract fun librarySourceRefDao(): LibrarySourceRefDao
 
     companion object {
         const val DB_NAME = "creation_reading_assistant_native"
@@ -469,6 +477,57 @@ abstract class AppDatabase : RoomDatabase() {
                 )
             }
         }
+
+        /**
+         * v13→v14：新增来源引用表 library_source_refs（目录路线第 3 组）。
+         *
+         * 只建新表 + 索引，不 ALTER 任何既有表。建表语句必须与 Room 为
+         * [LibrarySourceRefEntity] 生成的完全一致（列顺序、NOT NULL、主键、外键、
+         * 索引名），否则迁移后的表结构校验会失败。
+         *
+         * 表随 books 行级联删除（外键 CASCADE），删除书架项不会留下悬挂引用，
+         * 也不会触碰来源目录里的任何原文件。
+         */
+        val MIGRATION_13_14 = object : Migration(13, 14) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `library_source_refs` (" +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`root_id` TEXT, " +
+                        "`provider_authority` TEXT NOT NULL, " +
+                        "`document_id` TEXT, " +
+                        "`display_name` TEXT NOT NULL, " +
+                        "`format` TEXT NOT NULL, " +
+                        "`size` INTEGER NOT NULL, " +
+                        "`last_modified` INTEGER, " +
+                        "`content_hash` TEXT, " +
+                        "`candidate_fingerprint` TEXT, " +
+                        "`last_seen_at` INTEGER NOT NULL, " +
+                        "`availability` TEXT NOT NULL, " +
+                        "PRIMARY KEY(`book_id`), " +
+                        "FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_library_source_refs_provider_authority_document_id` " +
+                        "ON `library_source_refs` (`provider_authority`, `document_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_library_source_refs_content_hash` " +
+                        "ON `library_source_refs` (`content_hash`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_library_source_refs_candidate_fingerprint` " +
+                        "ON `library_source_refs` (`candidate_fingerprint`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_library_source_refs_root_id` " +
+                        "ON `library_source_refs` (`root_id`)",
+                )
+            }
+        }
+
         /** v1→v2：为高亮表补 chapter_title / progress_percent 两列（非破坏迁移，保留既有数据）。 */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {

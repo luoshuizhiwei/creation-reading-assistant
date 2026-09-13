@@ -13,7 +13,8 @@ import org.junit.runner.RunWith
 import java.io.IOException
 
 /**
- * Room 迁移测试：覆盖全部迁移路径 1→2→3→4→5→6→7→8。
+ * Room 迁移测试：覆盖全部迁移路径 1→2→…→13→14（含 12→13 纠错表、
+ * 13→14 来源索引，以及 12→13→14 连续链路）。
  *
  * 使用 [MigrationTestHelper] 加载 schema JSON，逐步执行迁移 SQL 并校验表结构。
  * 每次迁移前插入测试数据，迁移后验证数据未丢失、新列/新表正确创建。
@@ -1493,6 +1494,298 @@ class AppDatabaseMigrationTest {
         db.close()
     }
 
+    // ─── 12 → 13：新增单处纠错记录表 ────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_12_to_13_adds_reader_text_corrections() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 12)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-13-book', '迁移测试书13', NULL, 'txt', 'sample13.txt', 'hash-13', " +
+                "2048, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-11T00:00:00Z', NULL)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 13, true, AppDatabase.MIGRATION_12_13,
+        )
+
+        // 1. 新表可写可读（含状态翻转语义依赖的列完整性）
+        db.execSQL(
+            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
+                "find_text, replace_text, status, created_at, updated_at) " +
+                "VALUES ('corr-m13', 'migration-13-book', 100, 104, '错字', '正字', 'ACTIVE', 1, 1)",
+        )
+        val rowCursor = db.query(
+            "SELECT source_start, source_end, find_text, replace_text, status " +
+                "FROM reader_text_corrections WHERE id = 'corr-m13'",
+        )
+        assertTrue("纠错记录应可读", rowCursor.moveToFirst())
+        assertEquals(100, rowCursor.getInt(0))
+        assertEquals(104, rowCursor.getInt(1))
+        assertEquals("错字", rowCursor.getString(2))
+        assertEquals("正字", rowCursor.getString(3))
+        assertEquals("ACTIVE", rowCursor.getString(4))
+        rowCursor.close()
+
+        // 2. 两个索引都在
+        listOf(
+            "index_reader_text_corrections_book_id",
+            "index_reader_text_corrections_status",
+        ).forEach { name ->
+            val cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                arrayOf(name),
+            )
+            assertTrue("索引 $name 应存在", cursor.moveToFirst())
+            cursor.close()
+        }
+
+        // 3. 既有数据不受影响（迁移只建新表）
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-13-book'")
+        assertTrue("既有书库数据应保留", bookCursor.moveToFirst())
+        assertEquals("迁移测试书13", bookCursor.getString(0))
+        bookCursor.close()
+
+        // 4. 外键 ON DELETE CASCADE：删书级联清理其纠错记录，且不误伤其他书的记录
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-13-book-2', '迁移测试书13b', NULL, 'epub', 'sample13b.epub', " +
+                "'hash-13b', 4096, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-11T01:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
+                "find_text, replace_text, status, created_at, updated_at) " +
+                "VALUES ('corr-m13-b', 'migration-13-book-2', 10, 12, '乙', 'B', 'UNDONE', 2, 2)",
+        )
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM books WHERE id = 'migration-13-book'")
+
+        val cascadeCursor = db.query(
+            "SELECT id, book_id FROM reader_text_corrections ORDER BY id ASC",
+        )
+        assertTrue("未被删除的书仍应保留其纠错记录", cascadeCursor.moveToFirst())
+        assertEquals("corr-m13-b", cascadeCursor.getString(0))
+        assertEquals("migration-13-book-2", cascadeCursor.getString(1))
+        assertTrue("被删除的书不应残留纠错记录", !cascadeCursor.moveToNext())
+        cascadeCursor.close()
+
+        db.close()
+    }
+
+    // ─── 13 → 14：新增来源引用表 library_source_refs ───────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_13_to_14_creates_library_source_refs() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 13)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-14-book', '迁移测试书14', NULL, 'txt', 'sample14.txt', 'hash-14', " +
+                "4096, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-12T00:00:00Z', NULL)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 14, true, AppDatabase.MIGRATION_13_14,
+        )
+
+        // 1. 新表可写可读：可空列（root_id/document_id/last_modified/hash/指纹）允许 NULL，
+        //    对应「系统选择器来源不伪造 rootId」的语义。
+        db.execSQL(
+            "INSERT INTO library_source_refs (book_id, root_id, provider_authority, document_id, " +
+                "display_name, format, size, last_modified, content_hash, candidate_fingerprint, " +
+                "last_seen_at, availability) " +
+                "VALUES ('migration-14-book', NULL, 'com.android.externalstorage.documents', " +
+                "'primary:Books/sample14.txt', 'sample14.txt', 'txt', 4096, 1757000000000, " +
+                "'hash-14', NULL, 1757000000000, 'available')",
+        )
+        val refCursor = db.query(
+            "SELECT root_id, document_id, display_name, format, size, availability " +
+                "FROM library_source_refs WHERE book_id = 'migration-14-book'",
+        )
+        assertTrue("来源引用应可读", refCursor.moveToFirst())
+        assertTrue("root_id 应可为 NULL（不伪造归属）", refCursor.isNull(0))
+        assertEquals("primary:Books/sample14.txt", refCursor.getString(1))
+        assertEquals("sample14.txt", refCursor.getString(2))
+        assertEquals("txt", refCursor.getString(3))
+        assertEquals(4096L, refCursor.getLong(4))
+        assertEquals("available", refCursor.getString(5))
+        refCursor.close()
+
+        // 2. 声明索引都在（名称必须与 Room 生成的完全一致）
+        listOf(
+            "index_library_source_refs_provider_authority_document_id",
+            "index_library_source_refs_content_hash",
+            "index_library_source_refs_candidate_fingerprint",
+            "index_library_source_refs_root_id",
+        ).forEach { name ->
+            val cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                arrayOf(name),
+            )
+            assertTrue("索引 $name 应存在", cursor.moveToFirst())
+            cursor.close()
+        }
+
+        // 3. 外键 CASCADE：删除书架项会一并移除来源引用（不触碰来源文件本身）
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM books WHERE id = 'migration-14-book'")
+        val orphanCursor = db.query("SELECT COUNT(*) FROM library_source_refs")
+        assertTrue(orphanCursor.moveToFirst())
+        assertEquals(0, orphanCursor.getInt(0))
+        orphanCursor.close()
+
+        // 4. 既有数据不受影响（迁移只建新表）
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-14-book-2', '迁移测试书14b', NULL, 'epub', 'sample14b.epub', 'hash-14b', " +
+                "8192, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-12T01:00:00Z', NULL)",
+        )
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-14-book-2'")
+        assertTrue("迁移后书库仍可写可读", bookCursor.moveToFirst())
+        assertEquals("迁移测试书14b", bookCursor.getString(0))
+        bookCursor.close()
+
+        db.close()
+    }
+
+    // ─── 12 → 13 → 14 连续链路（纠错表 + 来源索引共享同一 schema 顺序） ────
+
+    /**
+     * v13 同时承载 ReaderCorrection 纠错表与 R3 来源索引的前置 schema，
+     * 因此 12→13→14 必须作为**一条连续链路**验证：末端按 14.json 校验表结构，
+     * 且 v12 的书库/进度/批注数据在两段迁移后仍完好。
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate_12_to_14_full_chain_preserves_data_and_creates_both_tables() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 12)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain14-book', '连续链路14书', '作者14', 'epub', 'chain14.epub', " +
+                "'hash-chain14', 8192, '/uri/c14', '/content/c14', 'ready', NULL, NULL, " +
+                "'2026-09-13T00:00:00Z', 'device-1', '{}', 1, '2026-09-13T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, deleted_at) " +
+                "VALUES ('chain14-book', 66.0, '2026-09-13T01:00:00Z', 7200000, 'in_progress', " +
+                "'{\"chapter\":2}', '{}', 1, 'device-1', '2026-09-13T01:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, locator_json, payload, " +
+                "created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('chain14-hl', 'chain14-book', '连续链路高亮', NULL, 'yellow', " +
+                "'{\"cfi\":\"/6/2\"}', '{}', '2026-09-13T02:00:00Z', 'device-1', 1, " +
+                "'2026-09-13T02:00:00Z', NULL)",
+        )
+        db.close()
+
+        // 连续执行 12 → 13 → 14，末端按 14.json 校验表结构
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 14, true,
+            AppDatabase.MIGRATION_12_13,
+            AppDatabase.MIGRATION_13_14,
+        )
+
+        // 1. v12 既有数据在两段迁移后完好
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'chain14-book'")
+        assertTrue("books 数据应保留", bookCursor.moveToFirst())
+        assertEquals("连续链路14书", bookCursor.getString(0))
+        bookCursor.close()
+
+        val progressCursor = db.query(
+            "SELECT progress_percent FROM reading_progress WHERE book_id = 'chain14-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(66.0, progressCursor.getDouble(0), 0.001)
+        progressCursor.close()
+
+        val hlCursor = db.query("SELECT text FROM highlights WHERE id = 'chain14-hl'")
+        assertTrue("highlights 数据应保留", hlCursor.moveToFirst())
+        assertEquals("连续链路高亮", hlCursor.getString(0))
+        hlCursor.close()
+
+        // 2. v13 纠错表与 v14 来源索引表同时存在且可写可读
+        db.execSQL(
+            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
+                "find_text, replace_text, status, created_at, updated_at) " +
+                "VALUES ('corr-chain14', 'chain14-book', 300, 302, '错', '对', 'ACTIVE', 10, 10)",
+        )
+        db.execSQL(
+            "INSERT INTO library_source_refs (book_id, root_id, provider_authority, document_id, " +
+                "display_name, format, size, last_modified, content_hash, candidate_fingerprint, " +
+                "last_seen_at, availability) " +
+                "VALUES ('chain14-book', 'tree:root14', 'com.android.externalstorage.documents', " +
+                "'primary:Books/chain14.epub', 'chain14.epub', 'epub', 8192, 1757000000000, " +
+                "'hash-chain14', NULL, 1757000000000, 'available')",
+        )
+        val corrCursor = db.query(
+            "SELECT status FROM reader_text_corrections WHERE id = 'corr-chain14'",
+        )
+        assertTrue("v13 纠错表应可写可读", corrCursor.moveToFirst())
+        assertEquals("ACTIVE", corrCursor.getString(0))
+        corrCursor.close()
+        val refCursor = db.query(
+            "SELECT availability FROM library_source_refs WHERE book_id = 'chain14-book'",
+        )
+        assertTrue("v14 来源索引表应可写可读", refCursor.moveToFirst())
+        assertEquals("available", refCursor.getString(0))
+        refCursor.close()
+
+        // 3. 两张表的声明索引在连续链路末端都存在
+        listOf(
+            "index_reader_text_corrections_book_id",
+            "index_reader_text_corrections_status",
+            "index_library_source_refs_provider_authority_document_id",
+            "index_library_source_refs_content_hash",
+            "index_library_source_refs_candidate_fingerprint",
+            "index_library_source_refs_root_id",
+        ).forEach { name ->
+            val cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                arrayOf(name),
+            )
+            assertTrue("索引 $name 应在 12→13→14 链路末端存在", cursor.moveToFirst())
+            cursor.close()
+        }
+
+        // 4. 两表外键都随 books 级联删除
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM books WHERE id = 'chain14-book'")
+        val corrOrphan = db.query("SELECT COUNT(*) FROM reader_text_corrections")
+        assertTrue(corrOrphan.moveToFirst())
+        assertEquals(0, corrOrphan.getInt(0))
+        corrOrphan.close()
+        val refOrphan = db.query("SELECT COUNT(*) FROM library_source_refs")
+        assertTrue(refOrphan.moveToFirst())
+        assertEquals(0, refOrphan.getInt(0))
+        refOrphan.close()
+
+        db.close()
+    }
+
     private fun assertStableDenseOrder(
         db: androidx.sqlite.db.SupportSQLiteDatabase,
         table: String,
@@ -1721,94 +2014,6 @@ class AppDatabaseMigrationTest {
         )
         assertTrue("chapter_reads.book_id 索引应存在", chIdx.moveToFirst())
         chIdx.close()
-
-        db.close()
-    }
-
-    // ─── 12 → 13：新增单处纠错记录表 ────────────────────────────────────
-
-    @Test
-    @Throws(IOException::class)
-    fun migrate_12_to_13_adds_reader_text_corrections() {
-        var db = migrationTestHelper.createDatabase(TEST_DB, 12)
-
-        db.execSQL(
-            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
-                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
-                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
-                "VALUES ('migration-13-book', '迁移测试书13', NULL, 'txt', 'sample13.txt', 'hash-13', " +
-                "2048, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
-                "'2026-09-11T00:00:00Z', NULL)",
-        )
-        db.close()
-
-        db = migrationTestHelper.runMigrationsAndValidate(
-            TEST_DB, 13, true, AppDatabase.MIGRATION_12_13,
-        )
-
-        // 1. 新表可写可读（含状态翻转语义依赖的列完整性）
-        db.execSQL(
-            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
-                "find_text, replace_text, status, created_at, updated_at) " +
-                "VALUES ('corr-m13', 'migration-13-book', 100, 104, '错字', '正字', 'ACTIVE', 1, 1)",
-        )
-        val rowCursor = db.query(
-            "SELECT source_start, source_end, find_text, replace_text, status " +
-                "FROM reader_text_corrections WHERE id = 'corr-m13'",
-        )
-        assertTrue("纠错记录应可读", rowCursor.moveToFirst())
-        assertEquals(100, rowCursor.getInt(0))
-        assertEquals(104, rowCursor.getInt(1))
-        assertEquals("错字", rowCursor.getString(2))
-        assertEquals("正字", rowCursor.getString(3))
-        assertEquals("ACTIVE", rowCursor.getString(4))
-        rowCursor.close()
-
-        // 2. 两个索引都在
-        listOf(
-            "index_reader_text_corrections_book_id",
-            "index_reader_text_corrections_status",
-        ).forEach { name ->
-            val cursor = db.query(
-                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
-                arrayOf(name),
-            )
-            assertTrue("索引 $name 应存在", cursor.moveToFirst())
-            cursor.close()
-        }
-
-        // 3. 既有数据不受影响（迁移只建新表）
-        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-13-book'")
-        assertTrue("既有书库数据应保留", bookCursor.moveToFirst())
-        assertEquals("迁移测试书13", bookCursor.getString(0))
-        bookCursor.close()
-
-        // 4. 外键 ON DELETE CASCADE：删书级联清理其纠错记录，且不误伤其他书的记录
-        db.execSQL(
-            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
-                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
-                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
-                "VALUES ('migration-13-book-2', '迁移测试书13b', NULL, 'epub', 'sample13b.epub', " +
-                "'hash-13b', 4096, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
-                "'2026-09-11T01:00:00Z', NULL)",
-        )
-        db.execSQL(
-            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
-                "find_text, replace_text, status, created_at, updated_at) " +
-                "VALUES ('corr-m13-b', 'migration-13-book-2', 10, 12, '乙', 'B', 'UNDONE', 2, 2)",
-        )
-
-        db.execSQL("PRAGMA foreign_keys = ON")
-        db.execSQL("DELETE FROM books WHERE id = 'migration-13-book'")
-
-        val cascadeCursor = db.query(
-            "SELECT id, book_id FROM reader_text_corrections ORDER BY id ASC",
-        )
-        assertTrue("未被删除的书仍应保留其纠错记录", cascadeCursor.moveToFirst())
-        assertEquals("corr-m13-b", cascadeCursor.getString(0))
-        assertEquals("migration-13-book-2", cascadeCursor.getString(1))
-        assertTrue("被删除的书不应残留纠错记录", !cascadeCursor.moveToNext())
-        cascadeCursor.close()
 
         db.close()
     }

@@ -11,6 +11,8 @@ import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.entity.BookContentEntity
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookFileEntity
+import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
+import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
@@ -49,6 +51,8 @@ class ShelfImporter @Inject constructor(
     private val bookFileDao: BookFileDao,
     private val epubRepository: EpubRepository,
     private val importHistoryStore: ImportHistoryStore,
+    private val sourceIndex: LibrarySourceIndex,
+    private val rootStore: LibraryRootStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
 ) {
 
@@ -223,6 +227,10 @@ class ShelfImporter @Inject constructor(
         )
         _importBatch.value = state
         val batchFingerprints = mutableSetOf<String>()
+        // 每批只读一次根目录配置，用于判定导入来源是否落在授权树内（判定不了就留空，不伪造）。
+        val configuredRoot = withContext(ioDispatcher) {
+            runCatching { rootStore.loadRoot() }.getOrNull()
+        }
         for ((index, uri) in uris.withIndex()) {
             if (stopImportAfterCurrent) {
                 state = state.copy(
@@ -231,7 +239,7 @@ class ShelfImporter @Inject constructor(
                 )
                 break
             }
-            val outcome = importOne(uri, batchFingerprints)
+            val outcome = importOne(uri, batchFingerprints, configuredRoot)
             state = when (outcome) {
                 is ImportOutcome.Success -> state.copy(
                     completed = state.completed + 1,
@@ -271,6 +279,7 @@ class ShelfImporter @Inject constructor(
     private suspend fun importOne(
         uri: Uri,
         batchFingerprints: MutableSet<String>,
+        configuredRoot: LibraryRoot?,
     ): ImportOutcome {
         val quickName = uri.lastPathSegment?.substringAfterLast('/') ?: "unknown"
         val taskId = "imp-${UUID.randomUUID()}"
@@ -286,7 +295,21 @@ class ShelfImporter @Inject constructor(
                     fileName = fileName,
                     firstBytes = readMagic(uri),
                 )
-                ImportCandidate(uri, fileName, size, contentHashOrNull(uri, size), verdict)
+                // 超大文件（>32 MiB）不算全量哈希，改用「大小 + 首尾分块」候选指纹参与去重。
+                val fingerprint = if (SourceFingerprint.isLargeFile(size.toLong())) {
+                    SourceFingerprint.compute(context.contentResolver, uri, size.toLong())
+                } else {
+                    null
+                }
+                ImportCandidate(
+                    uri = uri,
+                    fileName = fileName,
+                    fileSize = size,
+                    contentHash = contentHashOrNull(uri, size),
+                    fingerprint = fingerprint,
+                    lastModified = uriLastModified(uri),
+                    verdict = verdict,
+                )
             }
             val format = when (val verdict = metadata.verdict) {
                 is FormatClassifier.Verdict.Accepted -> verdict.format
@@ -294,7 +317,15 @@ class ShelfImporter @Inject constructor(
             }
 
             val fingerprint = metadata.fingerprint(format)
-            val duplicate = fingerprint in batchFingerprints || booksProvider().any { book ->
+            // 候选指纹去重：同指纹的来源引用仍挂在书架在册书籍上时视为重复。
+            // 指纹只用于去重提示，不参与任何内容覆盖；删除书架项会级联清掉引用，
+            // 因此不会阻止用户重新导入已被移除的书。
+            val fingerprintDuplicate = metadata.fingerprint?.let { candidateFingerprint ->
+                sourceIndex.getByFingerprint(candidateFingerprint).any { ref ->
+                    booksProvider().any { book -> book.id == ref.bookId }
+                }
+            } == true
+            val duplicate = fingerprintDuplicate || fingerprint in batchFingerprints || booksProvider().any { book ->
                 book.local_uri == uri.toString() ||
                     (
                         metadata.fileSize > 0 &&
@@ -351,6 +382,7 @@ class ShelfImporter @Inject constructor(
                 "success",
                 bookTitle = resolved.book.title,
             )
+            recordSourceRef(uri, configuredRoot, metadata, format, resolved)
             ImportOutcome.Success
         } catch (e: Throwable) {
             val msg = e.message ?: "导入失败"
@@ -395,6 +427,41 @@ class ShelfImporter @Inject constructor(
                 status = status,
             )
         )
+    }
+
+    /**
+     * 导入成功后记录来源引用（路线 §4.5）。best-effort：来源索引不是阅读事实源，
+     * 写入失败只损失一次分层判定基线，绝不让刚完成的导入报错。
+     *
+     * rootId 只在能证明来源位于当前授权树内时写入（[sourceRootIdFor]）；系统选择器
+     * 选出的任意位置文件 root_id 为 null，绝不伪造归属。
+     */
+    private suspend fun recordSourceRef(
+        uri: Uri,
+        configuredRoot: LibraryRoot?,
+        metadata: ImportCandidate,
+        format: String,
+        resolved: ResolvedImport,
+    ) {
+        runCatching {
+            val key = sourceKeyOf(uri)
+            sourceIndex.record(
+                LibrarySourceRefEntity(
+                    book_id = resolved.book.id,
+                    root_id = sourceRootIdFor(uri, configuredRoot),
+                    provider_authority = key.authority.orEmpty(),
+                    document_id = key.documentId,
+                    display_name = metadata.fileName,
+                    format = format,
+                    size = metadata.fileSize.toLong(),
+                    last_modified = metadata.lastModified,
+                    content_hash = metadata.contentHash,
+                    candidate_fingerprint = metadata.fingerprint,
+                    last_seen_at = System.currentTimeMillis(),
+                    availability = LibrarySourceAvailability.AVAILABLE.storageValue,
+                )
+            )
+        }
     }
 
     /**
@@ -689,6 +756,23 @@ class ShelfImporter @Inject constructor(
     }
 
     /**
+     * 来源文件的最后修改时间（epoch millis），用于「内容有更新」的比较基线。
+     * provider 不提供该列（如部分网盘）或值为 0 时返回 null。
+     */
+    private fun uriLastModified(uri: Uri): Long? {
+        return runCatching {
+            context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                val idx = cursor.getColumnIndex("last_modified")
+                if (idx >= 0 && cursor.moveToFirst() && !cursor.isNull(idx)) {
+                    cursor.getLong(idx).takeIf { it > 0 }
+                } else {
+                    null
+                }
+            }
+        }.getOrNull()
+    }
+
+    /**
      * 读取文件前 4 字节用于格式判定，绝不读完整文件。必须在 IO 线程调用。
      * 无法打开（例如权限失效或测试桩未提供流）时返回空数组 —— 空数组不会被
      * [FormatClassifier.isEpubZip] 判定为 EPUB，对 epub 声明即视为格式错配拒绝。
@@ -729,8 +813,12 @@ class ShelfImporter @Inject constructor(
         val uri: Uri,
         val fileName: String,
         val fileSize: Int,
-        /** 全量内容 MD5（≤32MB 时计算；超限为 null，查重回退文件名+大小）。 */
+        /** 全量内容 MD5（≤32MB 时计算；超限为 null，查重回退文件名+大小/候选指纹）。 */
         val contentHash: String? = null,
+        /** 超大文件的「大小 + 首尾分块哈希」候选指纹；只用于去重，不是安全签名。 */
+        val fingerprint: String? = null,
+        /** 来源文件导入时的最后修改时间，作为「内容有更新」的比较基线。 */
+        val lastModified: Long? = null,
         val verdict: FormatClassifier.Verdict,
     ) {
         fun fingerprint(format: String): String =

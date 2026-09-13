@@ -24,7 +24,7 @@ data class BookSourceScanResult(
  */
 class SafBookSourceScanner(
     private val contentResolver: ContentResolver,
-    private val maxVisitedFiles: Int = 2_000,
+    private val maxVisitedEntries: Int = 2_000,
     private val maxBookFiles: Int = 500,
     private val maxDepth: Int = 16,
 ) {
@@ -33,7 +33,7 @@ class SafBookSourceScanner(
         val queue = ArrayDeque<Pair<String, Int>>()
         queue.add(rootId to 0)
         val books = mutableListOf<Uri>()
-        var visitedFiles = 0
+        var visitedEntries = 0
         var skippedFiles = 0
         var unreadableFolders = 0
         var truncated = false
@@ -69,6 +69,13 @@ class SafBookSourceScanner(
                 val mimeIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
                 while (it.moveToNext()) {
                     coroutineContext.ensureActive()
+                    // A deep tree made only of folders must not bypass the traversal budget.
+                    // Count every provider row before deciding whether it is a file or directory.
+                    if (visitedEntries >= maxVisitedEntries || books.size >= maxBookFiles) {
+                        truncated = true
+                        break
+                    }
+                    visitedEntries += 1
                     val documentId = if (idIndex >= 0) it.getString(idIndex) else continue
                     val name = if (nameIndex >= 0) it.getString(nameIndex).orEmpty() else ""
                     val mimeType = if (mimeIndex >= 0) it.getString(mimeIndex).orEmpty() else ""
@@ -77,12 +84,6 @@ class SafBookSourceScanner(
                             queue.add(documentId to depth + 1)
                         }
                         continue
-                    }
-
-                    visitedFiles += 1
-                    if (visitedFiles > maxVisitedFiles || books.size >= maxBookFiles) {
-                        truncated = true
-                        break
                     }
                     if (BookFileClassifier.isSupported(name, mimeType)) {
                         books += DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)

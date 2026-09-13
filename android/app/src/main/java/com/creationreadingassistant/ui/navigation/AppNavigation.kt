@@ -98,7 +98,9 @@ import com.creationreadingassistant.ui.screen.profile.QrPairingScreen
 import com.creationreadingassistant.ui.screen.reader.ReaderRoute
 import com.creationreadingassistant.ui.screen.search.SearchScreen
 import com.creationreadingassistant.ui.screen.ShelfScreen
+import com.creationreadingassistant.ui.screen.shelf.LibraryBrowserRoute
 import com.creationreadingassistant.ui.screen.shelf.SHELF_IMPORT_ROUTE
+import com.creationreadingassistant.ui.screen.shelf.SHELF_LIBRARY_ROUTE
 import com.creationreadingassistant.ui.screen.shelf.SHELF_ORGANIZER_ROUTE
 import com.creationreadingassistant.ui.screen.shelf.SHELF_SEARCH_ROUTE
 import com.creationreadingassistant.ui.screen.shelf.ShelfImportRoute
@@ -439,6 +441,17 @@ private fun AppNavHost(
             composable(SHELF_IMPORT_ROUTE) { backStackEntry ->
                 val graphEntry = remember(backStackEntry) { navController.getBackStackEntry("shelf-graph") }
                 ShelfImportRoute(navController, hiltViewModel(graphEntry))
+            }
+            composable(SHELF_LIBRARY_ROUTE) { backStackEntry ->
+                val graphEntry = remember(backStackEntry) { navController.getBackStackEntry("shelf-graph") }
+                // 目录浏览只读；批量加入书架仍交给 graph 作用域的 ShelfViewModel，
+                // 与导入页共享同一份导入队列与进度，避免出现第二个 ShelfImporter 实例。
+                val shelfVm: ShelfViewModel = hiltViewModel(graphEntry)
+                LibraryBrowserRoute(
+                    navController = navController,
+                    viewModel = hiltViewModel(),
+                    onImport = { uris, label -> shelfVm.importFiles(uris, label) },
+                )
             }
         }
         composable(
