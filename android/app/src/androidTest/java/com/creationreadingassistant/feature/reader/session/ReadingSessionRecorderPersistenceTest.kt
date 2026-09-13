@@ -61,6 +61,9 @@ class ReadingSessionRecorderPersistenceTest {
             bookCategoryDao = database.bookCategoryDao(),
             shelfBookDao = database.shelfBookDao(),
             chapterReadDao = database.chapterReadDao(),
+            // R2 checkpoint 给 BookRepository 增加了 @ApplicationContext context（必填），
+            // 两个 androidTest 调用点同步补齐（workbuddy-r3.md §5.2 门禁阻塞项）。
+            context = ApplicationProvider.getApplicationContext(),
         )
         val testScope = CoroutineScope(SupervisorJob() + Dispatchers.Unconfined)
         val clock = FakeClock()
