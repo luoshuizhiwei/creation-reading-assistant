@@ -7,6 +7,7 @@ import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
 import com.creationreadingassistant.feature.reader.rules.RuleScope
 import com.creationreadingassistant.feature.reader.rules.RuleValidationError
 import com.creationreadingassistant.feature.reader.rules.TocRule
+import com.creationreadingassistant.ui.screen.reader.ReaderReplacementCapability
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -264,5 +265,190 @@ class RuleEditorDraftTest {
         for (error in RuleValidationError.entries) {
             assertTrue(error.userMessage().isNotBlank())
         }
+    }
+
+    // ── E1 普通/高级双模式 ───────────────────────────────────────────────
+
+    @Test
+    fun `simple mode derives escaped pattern from plain find text`() {
+        val draft = RuleEditorDraft(kind = RuleKind.REPLACE, name = "r", replacement = "价格")
+            .withSimpleFind("价格 (1+1)")
+        assertEquals(Regex.escape("价格 (1+1)"), draft.resolvedPattern())
+        // 保存为规则时同样使用转义派生
+        val command = draft.toCommand()
+        assertTrue(command is RuleCommand.SaveCustomReplace)
+        assertEquals(Regex.escape("价格 (1+1)"), (command as RuleCommand.SaveCustomReplace).pattern)
+    }
+
+    @Test
+    fun `advanced mode keeps raw pattern untouched`() {
+        val draft = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            name = "r",
+            pattern = "第[0-9]+章",
+            simpleFind = "",
+            advanced = true,
+        )
+        assertEquals("第[0-9]+章", draft.resolvedPattern())
+    }
+
+    @Test
+    fun `simple mode with blank find text cannot save`() {
+        assertNull(
+            RuleEditorDraft(kind = RuleKind.REPLACE, name = "r", simpleFind = "  ").toCommand(),
+        )
+    }
+
+    @Test
+    fun `unescape only accepts pure literal escape output`() {
+        // 字面量规则（Regex.escape 产物）能回到普通模式
+        val literal = "价格 (1+1) = 2?"
+        assertEquals(literal, unescapeRegexEscapeOrNull(Regex.escape(literal)))
+        // 手写正则（含 \d 等元语法）拒绝回到普通模式
+        assertNull(unescapeRegexEscapeOrNull("第\\d+章"))
+        assertNull(unescapeRegexEscapeOrNull(""))
+    }
+
+    @Test
+    fun `editing existing literal rule reopens in simple mode`() {
+        val literal = "广告插入"
+        val draft = replaceDraft(
+            ReplaceRule(
+                id = "custom-replace-1",
+                name = "广告",
+                pattern = Regex.escape(literal),
+                replacement = "",
+                enabled = true,
+                position = 1,
+                scope = RuleScope.PER_BOOK,
+            ),
+        )
+        assertTrue(!draft.advanced)
+        assertEquals(literal, draft.simpleFind)
+
+        val regexDraft = replaceDraft(
+            ReplaceRule(
+                id = "custom-replace-2",
+                name = "数字",
+                pattern = "第\\d+章",
+                replacement = "",
+                enabled = true,
+                position = 2,
+                scope = RuleScope.PER_BOOK,
+            ),
+        )
+        assertTrue(regexDraft.advanced)
+        assertEquals("", regexDraft.simpleFind)
+    }
+
+    @Test
+    fun `simple mode evaluateDraft validates through escaped pattern`() {
+        // 普通模式用户输入「a*」这样的文本时按字面量处理：转义后合法且只匹配字面 a*
+        val check = evaluateDraft(
+            draft = RuleEditorDraft(kind = RuleKind.REPLACE, name = "r", replacement = "X")
+                .withSimpleFind("a*"),
+            effectiveToc = emptyList(),
+            effectiveReplace = emptyList(),
+            previewText = "value a* end",
+        )
+        assertTrue(check is RuleDraftCheck.Valid)
+        val result = (check as RuleDraftCheck.Valid).preview as RuleDraftPreview.Replace
+        assertEquals(1, result.result.hitCount)
+        assertEquals("value X end", result.result.after)
+    }
+
+    // ── E2 单处纠错 ─────────────────────────────────────────────────────
+
+    @Test
+    fun `selection draft defaults to single correction target`() {
+        val draft = selectionReplaceDraft("选中错字")!!
+        assertTrue(draft.saveAsCorrection)
+        assertEquals("选中错字", draft.simpleFind)
+    }
+
+    @Test
+    fun `correction draft converts to SaveSingleCorrection without coordinates`() {
+        val command = RuleEditorDraft(
+            kind = RuleKind.REPLACE,
+            simpleFind = "选中错字",
+            replacement = "改正字",
+            saveAsCorrection = true,
+        ).toCommand()
+        assertEquals(
+            RuleCommand.SaveSingleCorrection(
+                sourceStart = -1,
+                sourceEnd = -1,
+                findText = "选中错字",
+                replaceText = "改正字",
+            ),
+            command,
+        )
+    }
+
+    @Test
+    fun `correction draft with blank find cannot convert`() {
+        assertNull(
+            RuleEditorDraft(
+                kind = RuleKind.REPLACE,
+                simpleFind = " ",
+                replacement = "x",
+                saveAsCorrection = true,
+            ).toCommand(),
+        )
+    }
+
+    @Test
+    fun `correction draft previews find to replace pair with single hit`() {
+        val check = evaluateDraft(
+            draft = RuleEditorDraft(
+                kind = RuleKind.REPLACE,
+                simpleFind = "选中错字",
+                replacement = "改正字",
+                saveAsCorrection = true,
+            ),
+            effectiveToc = emptyList(),
+            effectiveReplace = emptyList(),
+            previewText = previewText,
+        )
+        assertTrue(check is RuleDraftCheck.Valid)
+        val result = (check as RuleDraftCheck.Valid).preview as RuleDraftPreview.Replace
+        assertEquals("选中错字", result.result.before)
+        assertEquals("改正字", result.result.after)
+        assertEquals(1, result.result.hitCount)
+    }
+
+    // ── R4 应用反馈分离 ─────────────────────────────────────────────────
+
+    @Test
+    fun `saved feedback separates save success from body application status`() {
+        val capability = ReaderReplacementCapability.Available()
+        assertEquals(
+            "已保存；正文将重新分页并应用",
+            RuleMutationResult.Saved("custom-replace-1").feedbackText(capability),
+        )
+        // 单处纠错的保存反馈
+        assertEquals(
+            "已保存单处纠错；正文将重新分页并应用",
+            RuleMutationResult.Saved("corr-1").feedbackText(capability),
+        )
+        // 降级状态：保存成功 ≠ 正文已应用
+        val degraded = ReaderReplacementCapability.Available(bodyNotice = "部分章节保留原文")
+        assertEquals(
+            "已保存；部分章节保留原文",
+            RuleMutationResult.Saved("custom-replace-1").feedbackText(degraded),
+        )
+        val unavailable = ReaderReplacementCapability.Unavailable("正文将保留原文")
+        assertEquals(
+            "已保存；正文将保留原文",
+            RuleMutationResult.Saved("custom-replace-1").feedbackText(unavailable),
+        )
+        // 无 capability 时保持旧行为
+        assertEquals("已保存", RuleMutationResult.Saved("custom-replace-1").feedbackText())
+    }
+
+    @Test
+    fun `not anchorable feedback surfaces reason as error`() {
+        val result = RuleMutationResult.NotAnchorable("当前没有可用的选区位置")
+        assertEquals("当前没有可用的选区位置", result.feedbackText())
     }
 }

@@ -41,6 +41,10 @@ data class ReplaceProfile(
          * 从生效规则构造稳定 key。规则顺序语义与 [RuleEngine.applyReplace]
          * 完全一致：过滤 enabled 后按 position 稳定升序（同 position 保留
          * 传入顺序），逐条以长度前缀编码全部执行语义字段再取 SHA-256。
+         *
+         * 锚定纠错（[ReplaceRule.anchor] 非空）额外编码锚点三字段——锚点区间
+         * 或校验文本变化必然改变 key（旧投影缓存/索引身份自动失效）。
+         * 无锚点规则的编码与历史版本逐字节一致，旧 key 不失效。
          */
         fun key(bookId: String, rules: List<ReplaceRule>): String {
             val effective = rules.filter { it.enabled }.sortedBy { it.position }
@@ -57,6 +61,11 @@ data class ReplaceProfile(
                     appendField("enabled", "1")
                     appendField("position", rule.position.toString())
                     appendField("scope", rule.scope.name)
+                    rule.anchor?.let { anchor ->
+                        appendField("anchorStart", anchor.sourceStart.toString())
+                        appendField("anchorEnd", anchor.sourceEnd.toString())
+                        appendField("anchorFind", anchor.findText)
+                    }
                     append(']')
                 }
             }

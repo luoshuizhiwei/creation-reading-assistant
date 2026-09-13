@@ -1,6 +1,8 @@
 package com.creationreadingassistant.feature.reader.rules
 
+import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
+import com.creationreadingassistant.data.local.entity.ReaderCorrectionEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -23,12 +25,14 @@ import org.junit.Test
 class RulesRepositoryTest {
 
     private lateinit var dao: FakeReaderTextRuleDao
+    private lateinit var correctionDao: FakeReaderCorrectionDao
     private lateinit var repo: RulesRepository
 
     @Before
     fun setUp() {
         dao = FakeReaderTextRuleDao()
-        repo = RulesRepository(dao)
+        correctionDao = FakeReaderCorrectionDao()
+        repo = RulesRepository(dao, correctionDao)
     }
 
     private fun entity(
@@ -56,6 +60,120 @@ class RulesRepositoryTest {
         created_at = 1L,
         updated_at = 1L,
     )
+
+    // ── E2 单处纠错 ─────────────────────────────────────────────────────
+
+    @Test
+    fun `save single correction stores record and appends anchored rule to effective replace`() = runTest {
+        val result = repo.execute(
+            "b1",
+            RuleCommand.SaveSingleCorrection(
+                sourceStart = 100,
+                sourceEnd = 104,
+                findText = "错字",
+                replaceText = "正字",
+            ),
+        )
+        assertTrue(result is RuleMutationResult.Saved)
+        val id = (result as RuleMutationResult.Saved).id
+        assertTrue(id.startsWith("corr-"))
+
+        val snap = repo.observe("b1").first()
+        assertEquals(1, snap.corrections.size)
+        val record = snap.corrections.single()
+        assertEquals(100, record.sourceStart)
+        assertEquals(104, record.sourceEnd)
+        assertEquals("错字", record.findText)
+        assertEquals("正字", record.replaceText)
+        assertTrue(record.active)
+
+        // 生效纠错以锚定规则追加：position 最大、id 前缀 correction:、pattern 为空
+        val anchored = snap.effectiveReplace.single()
+        assertEquals("correction:$id", anchored.id)
+        assertEquals("正字", anchored.replacement)
+        assertEquals(Int.MAX_VALUE, anchored.position)
+        assertEquals(100, anchored.anchor?.sourceStart)
+        assertEquals(104, anchored.anchor?.sourceEnd)
+        assertEquals("错字", anchored.anchor?.findText)
+        // 可管理规则列表不含纠错（纠错有自己的撤销语义）
+        assertTrue(snap.replaceRules.isEmpty())
+    }
+
+    @Test
+    fun `undo correction removes it from effective replace and restore brings it back`() = runTest {
+        val saved = repo.execute(
+            "b1",
+            RuleCommand.SaveSingleCorrection(sourceStart = 0, sourceEnd = 2, findText = "AB", replaceText = "X"),
+        ) as RuleMutationResult.Saved
+
+        assertTrue(repo.execute("b1", RuleCommand.UndoCorrection(saved.id)) is RuleMutationResult.Success)
+        var snap = repo.observe("b1").first()
+        assertTrue(snap.corrections.single().undone)
+        assertTrue("撤销后不再参与投影", snap.effectiveReplace.isEmpty())
+
+        assertTrue(repo.execute("b1", RuleCommand.RestoreCorrection(saved.id)) is RuleMutationResult.Success)
+        snap = repo.observe("b1").first()
+        assertTrue(snap.corrections.single().active)
+        assertEquals(1, snap.effectiveReplace.size)
+    }
+
+    @Test
+    fun `correction validation rejects invalid anchor and no-op replacement`() = runTest {
+        assertTrue(
+            repo.execute(
+                "b1",
+                RuleCommand.SaveSingleCorrection(sourceStart = -1, sourceEnd = 3, findText = "abc", replaceText = "x"),
+            ) is RuleMutationResult.NotAnchorable,
+        )
+        assertTrue(
+            repo.execute(
+                "b1",
+                RuleCommand.SaveSingleCorrection(sourceStart = 3, sourceEnd = 3, findText = "abc", replaceText = "x"),
+            ) is RuleMutationResult.NotAnchorable,
+        )
+        assertTrue(
+            repo.execute(
+                "b1",
+                RuleCommand.SaveSingleCorrection(sourceStart = 0, sourceEnd = 3, findText = "  ", replaceText = "x"),
+            ) is RuleMutationResult.NotAnchorable,
+        )
+        assertTrue(
+            repo.execute(
+                "b1",
+                RuleCommand.SaveSingleCorrection(sourceStart = 0, sourceEnd = 3, findText = "abc", replaceText = "abc"),
+            ) is RuleMutationResult.NotAnchorable,
+        )
+        // 校验失败不落库
+        assertTrue(repo.observe("b1").first().corrections.isEmpty())
+    }
+
+    @Test
+    fun `corrections are isolated per book`() = runTest {
+        repo.execute(
+            "b1",
+            RuleCommand.SaveSingleCorrection(sourceStart = 0, sourceEnd = 2, findText = "AB", replaceText = "X"),
+        )
+        val snapB1 = repo.observe("b1").first()
+        assertEquals(1, snapB1.corrections.size)
+        assertEquals(1, snapB1.effectiveReplace.size)
+
+        val snapB2 = repo.observe("b2").first()
+        assertTrue(snapB2.corrections.isEmpty())
+        assertTrue(snapB2.effectiveReplace.isEmpty())
+    }
+
+    @Test
+    fun `undo or restore unknown or foreign correction returns not found`() = runTest {
+        assertTrue(repo.execute("b1", RuleCommand.UndoCorrection("corr-missing")) is RuleMutationResult.NotFound)
+
+        val saved = repo.execute(
+            "b1",
+            RuleCommand.SaveSingleCorrection(sourceStart = 0, sourceEnd = 2, findText = "AB", replaceText = "X"),
+        ) as RuleMutationResult.Saved
+        // 他书的纠错不可被他书撤销/恢复
+        assertTrue(repo.execute("b2", RuleCommand.UndoCorrection(saved.id)) is RuleMutationResult.NotFound)
+        assertTrue(repo.execute("b2", RuleCommand.RestoreCorrection(saved.id)) is RuleMutationResult.NotFound)
+    }
 
     // ── 快照组装：标准恒开 + 宽松默认关 ──────────────────────────────────
 
@@ -345,4 +463,51 @@ private class FakeReaderTextRuleDao : ReaderTextRuleDao {
 
     private fun List<ReaderTextRuleEntity>.sortedByPosition(): List<ReaderTextRuleEntity> =
         sortedWith(compareBy<ReaderTextRuleEntity> { it.position }.thenBy { it.id })
+}
+
+/**
+ * 内存版 [ReaderCorrectionDao]：与 FakeReaderTextRuleDao 同款语义
+ * （observeForBook 按 source_start ASC、id ASC；updateStatus 返回 0/1）。
+ * internal 以便同模块其他测试（单一规则选择、DocumentLoader、ReaderViewModel）复用。
+ */
+internal class FakeReaderCorrectionDao : ReaderCorrectionDao {
+
+    private val state = MutableStateFlow<List<ReaderCorrectionEntity>>(emptyList())
+
+    override fun observeForBook(bookId: String): Flow<List<ReaderCorrectionEntity>> =
+        state.map { rows ->
+            rows.filter { it.book_id == bookId }
+                .sortedWith(compareBy<ReaderCorrectionEntity> { it.source_start }.thenBy { it.id })
+        }
+
+    override suspend fun listForBook(bookId: String): List<ReaderCorrectionEntity> =
+        observeForBook(bookId).first()
+
+    override suspend fun getById(id: String): ReaderCorrectionEntity? =
+        state.value.firstOrNull { it.id == id }
+
+    override suspend fun upsert(entity: ReaderCorrectionEntity) {
+        state.value = state.value.filterNot { it.id == entity.id } + entity
+    }
+
+    override suspend fun updateStatus(id: String, status: String, updatedAt: Long): Int {
+        val idx = state.value.indexOfFirst { it.id == id }
+        if (idx < 0) return 0
+        val rows = state.value.toMutableList()
+        rows[idx] = rows[idx].copy(status = status, updated_at = updatedAt)
+        state.value = rows
+        return 1
+    }
+
+    override suspend fun deleteById(id: String): Int {
+        val existing = state.value.firstOrNull { it.id == id } ?: return 0
+        state.value = state.value.filterNot { it.id == existing.id }
+        return 1
+    }
+
+    override suspend fun deleteForBook(bookId: String): Int {
+        val count = state.value.count { it.book_id == bookId }
+        state.value = state.value.filterNot { it.book_id == bookId }
+        return count
+    }
 }

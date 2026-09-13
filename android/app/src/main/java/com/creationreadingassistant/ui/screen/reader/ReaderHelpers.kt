@@ -55,6 +55,7 @@ internal fun buildInspirationPayload(
     tags: List<String> = emptyList(),
     categoryIds: List<String> = emptyList(),
     bookAuthor: String? = null,
+    locatorJson: String? = null,
 ): String {
     val payload = InspirationPayloadData(
         tags = tags,
@@ -67,6 +68,8 @@ internal fun buildInspirationPayload(
             locationLabel = null,
             progressPercent = if (progressPercent > 0f) progressPercent else null,
             excerpt = excerpt?.takeIf { it.isNotBlank() },
+            // R5-I2：与高亮/笔记同源的 locator JSON，灵感详情据此精确回源定位
+            locatorJson = locatorJson?.takeIf { it.isNotBlank() },
         ),
     )
     return Json.encodeToString(InspirationPayloadData.serializer(), payload)

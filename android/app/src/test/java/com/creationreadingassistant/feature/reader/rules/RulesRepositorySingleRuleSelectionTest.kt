@@ -26,7 +26,7 @@ class RulesRepositorySingleRuleSelectionTest {
     @Before
     fun setUp() {
         dao = InMemoryRuleDao()
-        repo = RulesRepository(dao)
+        repo = RulesRepository(dao, FakeReaderCorrectionDao())
     }
 
     private suspend fun enabledLooseIds(bookId: String): Set<String> =

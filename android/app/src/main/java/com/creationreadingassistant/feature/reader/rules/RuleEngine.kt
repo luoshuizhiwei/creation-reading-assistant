@@ -136,9 +136,16 @@ object RuleEngine {
      * 返回显示文本、串联的 display↔source 偏移映射与总命中数。
      *
      * 规则在保存前已经过校验；此处对可空匹配/无法编译的规则做防御性拦截。
+     *
+     * 锚定纠错（[ReplaceRule.anchor] 非空）**不在本函数应用**：它们由
+     * [ReplaceProjection.project] 在规则链之后按 source 精确区间叠加。
+     * 本函数对它们按 disabled 处理直接跳过，保证任何直接调用方（预览、
+     * 标题投影）都不会误把锚点当正则编译。
      */
     fun applyReplace(text: String, rules: List<ReplaceRule>): ReplaceResult {
-        val enabled = rules.filter { it.enabled }.sortedBy { it.position }
+        val enabled = rules
+            .filter { it.enabled && it.anchor == null }
+            .sortedBy { it.position }
         if (enabled.isEmpty()) {
             return ReplaceResult(text, TextOffsetMap.identity(text.length), 0)
         }

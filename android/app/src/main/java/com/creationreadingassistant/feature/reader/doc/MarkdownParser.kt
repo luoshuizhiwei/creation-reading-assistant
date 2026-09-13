@@ -234,7 +234,7 @@ object MarkdownParser {
             val items = collectListItems(node)
             val canonicalRange = itemsCanonicalRange(items.map { it.blocks })
             return MarkdownBlock.OrderedList(
-                startNumber = node.startNumber,
+                startNumber = node.markerStartNumber ?: 1,
                 items = items.map { it.blocks },
                 sourceRange = sourceRange,
                 canonicalRange = canonicalRange,

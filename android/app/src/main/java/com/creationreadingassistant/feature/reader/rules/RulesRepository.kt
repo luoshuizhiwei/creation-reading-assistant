@@ -1,15 +1,17 @@
 package com.creationreadingassistant.feature.reader.rules
 
+import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRulePositionUpdate
+import com.creationreadingassistant.data.local.entity.ReaderCorrectionEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.feature.reader.doc.TxtTocProfile
 import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.map
 
 /**
  * 当前书可管理的规则快照。
@@ -18,6 +20,10 @@ import kotlinx.coroutines.flow.map
  * 全局自定义 + 本书 PER_BOOK 自定义；别的书的 PER_BOOK 规则不出现），
  * [effectiveToc] / [effectiveReplace] 为过滤 enabled 后的生效列表。
  * 内置宽松规则对外始终使用 `num-dot` 等语义 id，Room 绑定行 id 为仓库私有。
+ *
+ * [corrections] 是本书单处纠错记录（E2，含已撤销历史）；生效中的纠错以锚定
+ * [ReplaceRule]（id 前缀 `correction:`，position = Int.MAX_VALUE）追加在
+ * [effectiveReplace] 之后——普通规则先应用、纠错按 source 锚点最后叠加。
  */
 data class RuleSnapshot(
     val bookId: String,
@@ -25,6 +31,7 @@ data class RuleSnapshot(
     val replaceRules: List<ReplaceRule>,
     val effectiveToc: List<TocRule>,
     val effectiveReplace: List<ReplaceRule>,
+    val corrections: List<CorrectionRecord> = emptyList(),
 ) {
     /**
      * 当前书 TXT 目录识别的执行快照（P1-A）：小文件目录构建与大文件流式扫描
@@ -58,6 +65,12 @@ sealed interface RuleMutationResult {
 
     /** 目标规则不存在或不属于当前书。 */
     data object NotFound : RuleMutationResult
+
+    /**
+     * 单处纠错没有可用的 source 锚点（E2）：调用方没有选区、或锚点区间非法。
+     * [reason] 为面向用户的说明，反馈行直接展示。
+     */
+    data class NotAnchorable(val reason: String) : RuleMutationResult
 
     /** 保存前校验或 id 冲突失败；[errors] 为空表示冲突类别未细分。 */
     data class Rejected(val errors: List<RuleValidationError>) : RuleMutationResult
@@ -132,6 +145,24 @@ sealed interface RuleCommand {
      * 调用方据此同步旧单选显示 id。Room 始终是目录状态的唯一来源。
      */
     data class SelectSingleTocRule(val ruleId: String) : RuleCommand
+
+    /**
+     * 保存单处纠错（E2）：只在 [sourceStart, sourceEnd) 这一处生效的覆盖修正。
+     * [findText] 是该区间保存时的 display 文本（用户所见），应用时做内容校验。
+     * 锚点是全书 source 坐标，由调用方（ReaderViewModel）从当前选区回查填入。
+     */
+    data class SaveSingleCorrection(
+        val sourceStart: Int,
+        val sourceEnd: Int,
+        val findText: String,
+        val replaceText: String,
+    ) : RuleCommand
+
+    /** 撤销单处纠错：记录保留为历史（可恢复），正文回落原文。 */
+    data class UndoCorrection(val correctionId: String) : RuleCommand
+
+    /** 恢复已撤销的单处纠错。 */
+    data class RestoreCorrection(val correctionId: String) : RuleCommand
 }
 
 /**
@@ -147,9 +178,12 @@ sealed interface RuleCommand {
 @Singleton
 class RulesRepository @Inject constructor(
     private val dao: ReaderTextRuleDao,
+    private val correctionDao: ReaderCorrectionDao,
 ) {
     fun observe(bookId: String): Flow<RuleSnapshot> =
-        dao.observeAll().map { rows -> buildSnapshot(bookId, rows) }
+        combine(dao.observeAll(), correctionDao.observeForBook(bookId)) { rows, corrections ->
+            buildSnapshot(bookId, rows, corrections)
+        }
 
     suspend fun execute(bookId: String, command: RuleCommand): RuleMutationResult = when (command) {
         is RuleCommand.SaveCustomToc -> saveCustomToc(bookId, command)
@@ -160,6 +194,9 @@ class RulesRepository @Inject constructor(
         is RuleCommand.ReorderRules -> reorder(bookId, command)
         is RuleCommand.MigrateLegacyTocRule -> migrateLegacy(bookId, command.legacyRuleId)
         is RuleCommand.SelectSingleTocRule -> selectSingleTocRule(bookId, command.ruleId)
+        is RuleCommand.SaveSingleCorrection -> saveSingleCorrection(bookId, command)
+        is RuleCommand.UndoCorrection -> undoCorrection(bookId, command.correctionId, undone = true)
+        is RuleCommand.RestoreCorrection -> undoCorrection(bookId, command.correctionId, undone = false)
     }
 
     /**
@@ -175,7 +212,11 @@ class RulesRepository @Inject constructor(
 
     // ── 快照组装 ────────────────────────────────────────────────────────
 
-    private fun buildSnapshot(bookId: String, rows: List<ReaderTextRuleEntity>): RuleSnapshot {
+    private fun buildSnapshot(
+        bookId: String,
+        rows: List<ReaderTextRuleEntity>,
+        correctionRows: List<ReaderCorrectionEntity>,
+    ): RuleSnapshot {
         val tocRows = rows.filter { it.kind == RuleKind.TOC.name }
         val replaceRows = rows.filter { it.kind == RuleKind.REPLACE.name }
 
@@ -195,12 +236,22 @@ class RulesRepository @Inject constructor(
             .map { it.toReplaceRule() }
             .sortedWith(compareBy<ReplaceRule> { it.position }.thenBy { it.id })
 
+        val corrections = correctionRows
+            .filter { it.book_id == bookId }
+            .map { it.toCorrectionRecord() }
+        // 生效纠错以锚定规则追加在普通规则之后（position = Int.MAX_VALUE）：
+        // 引擎先应用普通正则规则，再按 source 锚点逐条叠加纠错。
+        val anchoredCorrections = corrections
+            .filter { it.active }
+            .map { it.toAnchoredRule() }
+
         return RuleSnapshot(
             bookId = bookId,
             tocRules = tocRules,
             replaceRules = replaceRules,
             effectiveToc = tocRules.filter { it.enabled },
-            effectiveReplace = replaceRules.filter { it.enabled },
+            effectiveReplace = replaceRules.filter { it.enabled } + anchoredCorrections,
+            corrections = corrections,
         )
     }
 
@@ -226,6 +277,85 @@ class RulesRepository @Inject constructor(
         position = position,
         scope = scopeOf(scope),
     )
+
+    private fun ReaderCorrectionEntity.toCorrectionRecord() = CorrectionRecord(
+        id = id,
+        sourceStart = source_start,
+        sourceEnd = source_end,
+        findText = find_text,
+        replaceText = replace_text,
+        undone = status != ReaderCorrectionEntity.STATUS_ACTIVE,
+        createdAt = created_at,
+    )
+
+    /** 生效纠错 → 锚定规则（执行身份 id 与规则表 id 空间隔离，杜绝碰撞）。 */
+    private fun CorrectionRecord.toAnchoredRule() = ReplaceRule(
+        id = "$CORRECTION_RULE_ID_PREFIX$id",
+        name = "单处纠错",
+        pattern = "",
+        replacement = replaceText,
+        enabled = true,
+        position = Int.MAX_VALUE,
+        scope = RuleScope.PER_BOOK,
+        anchor = CorrectionAnchor(
+            sourceStart = sourceStart,
+            sourceEnd = sourceEnd,
+            findText = findText,
+        ),
+    )
+
+    // ── 单处纠错（E2）─────────────────────────────────────────────────
+
+    private suspend fun saveSingleCorrection(
+        bookId: String,
+        command: RuleCommand.SaveSingleCorrection,
+    ): RuleMutationResult {
+        if (command.sourceStart < 0 || command.sourceEnd <= command.sourceStart) {
+            return RuleMutationResult.NotAnchorable("纠错锚点区间无效，请重新在正文中选择文字")
+        }
+        val findText = command.findText
+        if (findText.isBlank()) {
+            return RuleMutationResult.NotAnchorable("纠错内容为空，请重新在正文中选择文字")
+        }
+        if (command.replaceText == findText) {
+            return RuleMutationResult.NotAnchorable("替换后的文字与原文相同，无需纠错")
+        }
+        val now = System.currentTimeMillis()
+        val id = "$CORRECTION_ID_PREFIX${UUID.randomUUID()}"
+        correctionDao.upsert(
+            ReaderCorrectionEntity(
+                id = id,
+                book_id = bookId,
+                source_start = command.sourceStart,
+                source_end = command.sourceEnd,
+                find_text = findText,
+                replace_text = command.replaceText,
+                status = ReaderCorrectionEntity.STATUS_ACTIVE,
+                created_at = now,
+                updated_at = now,
+            ),
+        )
+        return RuleMutationResult.Saved(id)
+    }
+
+    private suspend fun undoCorrection(
+        bookId: String,
+        correctionId: String,
+        undone: Boolean,
+    ): RuleMutationResult {
+        val row = correctionDao.getById(correctionId) ?: return RuleMutationResult.NotFound
+        if (row.book_id != bookId) return RuleMutationResult.NotFound
+        val target = if (undone) {
+            ReaderCorrectionEntity.STATUS_UNDONE
+        } else {
+            ReaderCorrectionEntity.STATUS_ACTIVE
+        }
+        return if (correctionDao.updateStatus(correctionId, target, System.currentTimeMillis()) == 1) {
+            RuleMutationResult.Success
+        } else {
+            RuleMutationResult.NotFound
+        }
+    }
 
     private fun scopeOf(value: String): RuleScope =
         RuleScope.entries.firstOrNull { it.name == value } ?: RuleScope.PER_BOOK
@@ -453,5 +583,7 @@ class RulesRepository @Inject constructor(
         const val BUILTIN_BINDING_PREFIX = "builtin:"
         const val CUSTOM_TOC_ID_PREFIX = "custom-toc-"
         const val CUSTOM_REPLACE_ID_PREFIX = "custom-replace-"
+        const val CORRECTION_ID_PREFIX = "corr-"
+        const val CORRECTION_RULE_ID_PREFIX = "correction:"
     }
 }

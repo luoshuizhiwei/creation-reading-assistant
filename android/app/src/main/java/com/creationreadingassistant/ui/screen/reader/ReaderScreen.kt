@@ -41,7 +41,6 @@ import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.drawWithContent
-import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -164,7 +163,22 @@ fun ReaderScreen(
         sourceLocatorJson = sourceLocatorJson,
     )
     val settingsVm: SettingsViewModel = hiltViewModel()
-    val readerSettings by settingsVm.reader.collectAsStateWithLifecycle()
+    // R3-P1：阅读器消费的是**有效设置**（全局叠加本书覆盖），不得直接消费全局 reader，
+    // 否则「本书覆盖」在渲染层完全不生效。全局值单独持有，供书内编辑路由做「还原全局原值」。
+    val globalReaderSettings by settingsVm.reader.collectAsStateWithLifecycle()
+    val bookReaderOverrides by remember(bookId) { settingsVm.overrides(bookId) }
+        .collectAsStateWithLifecycle(initialValue = emptyMap())
+    val readerSettings by remember(bookId) { settingsVm.effectiveReader(bookId) }
+        .collectAsStateWithLifecycle(initialValue = globalReaderSettings)
+    // 书内设置的修改作用范围（本书 / 全局），会话内保持，切书回到默认「本书」
+    var settingsScope by mutableHolders.settingsScopeState
+    // R3-X1：选区工具条动作配置（决定渲染哪些高频/溢出动作）
+    val selectionActions by settingsVm.selectionActions.collectAsStateWithLifecycle()
+    // R3-X1：AI 可用性门控源（未配置 Key 时「AI 解读」不进选区菜单）
+    val aiSettings by settingsVm.ai.collectAsStateWithLifecycle()
+    val aiConfigured = aiSettings.enabled && aiSettings.apiKey.isNotBlank()
+    // R3-X1：离线词典面板要查的词
+    var dictionaryWord by mutableHolders.dictionaryWordState
     // 外观模式（system/light/dark）用于「跟随外观」纸张映射：浅色外壳→白纸，深色外壳→夜读。
     val appearance by settingsVm.appearance.collectAsStateWithLifecycle()
     val appDark = when (appearance.themeMode) {
@@ -558,6 +572,19 @@ fun ReaderScreen(
         eyeFilterColor = eyeCareFocus.eyeFilterColor,
         paperTexture = appearance.paperTexture,
         readerSettings = readerSettings,
+        globalReaderSettings = globalReaderSettings,
+        bookReaderOverrides = bookReaderOverrides,
+        settingsScope = settingsScope,
+        onSettingsScopeChange = { settingsScope = it },
+        selectionActions = selectionActions,
+        /** R3-X1：AI 未配置时「AI 解读」不进选区菜单。 */
+        aiConfigured = aiConfigured,
+        dictionaryWord = dictionaryWord,
+        onOpenDictionary = { word ->
+            // 先记下要查的词再开面板：面板只读消费，不反向写选区状态
+            dictionaryWord = word
+            onAction(ReaderAction.OpenSheet(ReaderSheet.DICTIONARY))
+        },
         snackbarHost = snackbarHost,
         isLoading = isLoading,
         isChapterLoading = isChapterLoading,

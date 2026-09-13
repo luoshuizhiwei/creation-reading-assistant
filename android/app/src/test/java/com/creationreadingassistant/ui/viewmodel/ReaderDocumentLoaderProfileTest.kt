@@ -13,6 +13,7 @@ import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.RuleKind
 import com.creationreadingassistant.feature.reader.rules.RuleScope
+import com.creationreadingassistant.feature.reader.rules.FakeReaderCorrectionDao
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -80,7 +81,7 @@ class ReaderDocumentLoaderProfileTest {
             bookContentDao = bookContentDao,
             readingProgressDao = readingProgressDao,
             settingsStore = settingsStore,
-            rulesRepository = RulesRepository(ruleDao),
+            rulesRepository = RulesRepository(ruleDao, FakeReaderCorrectionDao()),
         )
     }
 

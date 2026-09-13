@@ -59,14 +59,55 @@ class ReplaceProjection private constructor(
          *
          * @param bookId 持久化书身份；当前 [ReplaceRule] 不携带 bookId，必须显式传入。
          */
-        fun project(sourceText: String, rules: List<ReplaceRule>, bookId: String): ReplaceProjection {
+        fun project(sourceText: String, rules: List<ReplaceRule>, bookId: String): ReplaceProjection =
+            projectScoped(sourceText, rules, bookId, scopeSourceBase = 0)
+
+        /**
+         * 作用域感知投影：与 [project] 相同，另接受锚定纠错的**全书 source 基址**。
+         *
+         * [scopeSourceBase] 是 `sourceText` 在全书 source 中的起点：整本小 TXT 传 0；
+         * 分章 TXT 传章起点；EPUB 单块传 `章估算基址 + 块章内偏移`。锚点区间先按基址
+         * 局部化，未完整落入本作用域的纠错在本作用域诚实跳过（不产生部分替换）。
+         *
+         * 应用顺序（E2 契约）：
+         * 1. 普通正则规则按既有链应用（[RuleEngine.applyReplace]）；
+         * 2. 锚定纠错按顺序叠加：锚点 source 区间经**当前累积映射**换算到 display 位置，
+         *    校验该处 display 文本仍等于 [CorrectionAnchor.findText]（用户所见），相等才
+         *    拼接 [ReplaceRule.replacement]；任何漂移（文件变更/删除坍缩/已被其他纠错
+         *    覆盖）都跳过该条，绝不近似替换。
+         * 纠错在规则之后应用：用户在「已替换显示文」上选字纠错，语义与所见一致；
+         * source 坐标始终权威，display 只是派生视图。
+         */
+        fun projectScoped(
+            sourceText: String,
+            rules: List<ReplaceRule>,
+            bookId: String,
+            scopeSourceBase: Int,
+        ): ReplaceProjection {
+            require(scopeSourceBase >= 0) { "scopeSourceBase 必须非负，收到 $scopeSourceBase" }
             val profileKey = ReplaceProfile.key(bookId, rules)
-            val result = RuleEngine.applyReplace(sourceText, rules)
-            return ReplaceProjection(
+            val base = RuleEngine.applyReplace(sourceText, rules)
+            val anchored = rules
+                .filter { it.enabled && it.anchor != null }
+                .sortedBy { it.position }
+            if (anchored.isEmpty()) {
+                return ReplaceProjection(
+                    sourceText = sourceText,
+                    displayText = base.displayText,
+                    offsetMap = base.offsetMap,
+                    hitCount = base.hitCount,
+                    profileKey = profileKey,
+                )
+            }
+            return overlayAnchored(
                 sourceText = sourceText,
-                displayText = result.displayText,
-                offsetMap = result.offsetMap,
-                hitCount = result.hitCount,
+                baseDisplay = base.displayText,
+                baseMap = base.offsetMap,
+                baseHitCount = base.hitCount,
+                corrections = anchored.mapNotNull { rule ->
+                    rule.anchor?.let { CorrectionSplice(rule.id, it, rule.replacement) }
+                },
+                scopeSourceBase = scopeSourceBase,
                 profileKey = profileKey,
             )
         }
@@ -88,6 +129,114 @@ class ReplaceProjection private constructor(
             hitCount = hitCount,
             profileKey = profileKey,
         )
+
+        /** 一条待叠加的锚定纠错（id 仅用于将来回执/诊断，不参与映射）。 */
+        private data class CorrectionSplice(
+            val ruleId: String,
+            val anchor: CorrectionAnchor,
+            val replacement: String,
+        )
+
+        /**
+         * floor 映射歧义回查窗口（chars）。变长规则（插入/删除/变长替换）使锚点
+         * 区间的 floor 端点存在 ±(累计长度差) 的边界歧义；窗口内按 findText 精确
+         * 匹配就近定位，内容校验始终严格。
+         */
+        private const val CORRECTION_LOCATE_WINDOW_CHARS = 16
+
+        /**
+         * 顺序叠加锚定纠错（纯函数）。
+         *
+         * 每条纠错都基于**当前累积态**（text + maps）判定与应用：
+         * - source 区间按基址局部化，越界/空区间跳过；
+         * - 区间经累积映射换算到当前 display（floor 语义）：floor 端点文本逐字等于
+         *   findText 时直接在该区间拼接；
+         * - floor 未命中（先前的变长规则使插入/删除边界产生 floor 歧义）时，在
+         *   [CORRECTION_LOCATE_WINDOW_CHARS] 有界窗口内按 findText **精确匹配**、
+         *   取距 floor 位置最近的出现——内容校验始终严格，窗口只消除映射边界歧义；
+         * - 窗口内也无精确匹配（文件变更/已被覆盖/内容漂移）则诚实跳过，绝不近似替换。
+         */
+        private fun overlayAnchored(
+            sourceText: String,
+            baseDisplay: String,
+            baseMap: TextOffsetMap,
+            baseHitCount: Int,
+            corrections: List<CorrectionSplice>,
+            scopeSourceBase: Int,
+            profileKey: String,
+        ): ReplaceProjection {
+            val maps = ArrayList<TextOffsetMap>(corrections.size + 1)
+            maps += baseMap
+            var currentDisplay = baseDisplay
+            var applied = 0
+            val sourceLength = sourceText.length
+            for (splice in corrections) {
+                val anchor = splice.anchor
+                val ls = anchor.sourceStart - scopeSourceBase
+                val le = anchor.sourceEnd - scopeSourceBase
+                if (ls < 0 || le > sourceLength || ls >= le) continue
+                val current = ChainedTextOffsetMap(maps)
+                val d0 = current.toDisplay(ls)
+                val d1 = current.toDisplay(le)
+                val findText = anchor.findText
+                var target = -1
+                if (d1 > d0 &&
+                    d1 <= currentDisplay.length &&
+                    currentDisplay.substring(d0, d1) == findText
+                ) {
+                    target = d0
+                } else {
+                    // floor 歧义回查：在有界窗口内找最近的一次精确出现
+                    val searchStart = (d0 - CORRECTION_LOCATE_WINDOW_CHARS).coerceAtLeast(0)
+                    val searchEnd = (d1 + CORRECTION_LOCATE_WINDOW_CHARS).coerceAtMost(currentDisplay.length)
+                    var idx = currentDisplay.indexOf(findText, searchStart)
+                    var bestDist = Int.MAX_VALUE
+                    while (idx >= 0 && idx + findText.length <= searchEnd) {
+                        val dist = kotlin.math.abs(idx - d0)
+                        if (dist < bestDist) {
+                            bestDist = dist
+                            target = idx
+                        }
+                        idx = currentDisplay.indexOf(findText, idx + 1)
+                    }
+                }
+                if (target < 0) continue
+                val dEnd = target + findText.length
+                val replacement = splice.replacement
+                val newDisplay = buildString(currentDisplay.length + replacement.length) {
+                    append(currentDisplay, 0, target)
+                    append(replacement)
+                    append(currentDisplay, dEnd, currentDisplay.length)
+                }
+                // 拼接段映射：currentDisplay(累积链 display 空间) → newDisplay。
+                // 控制点与 [RuleEngine.applySingle] 同构（对齐前缀对角 + 尾部跳变），
+                // 保证删除坍缩 / 插入平铺 / 等长替换的 floor 语义与既有映射一致。
+                val removed = dEnd - target
+                val aligned = minOf(replacement.length, removed)
+                val points = ArrayList<Pair<Int, Int>>(3)
+                points += target to target
+                if (replacement.isNotEmpty()) {
+                    points += (target + aligned) to (target + aligned)
+                }
+                if (replacement.length != removed) {
+                    points += (target + replacement.length) to dEnd
+                }
+                maps += TextOffsetMap.of(
+                    points = points,
+                    displayLength = newDisplay.length,
+                    sourceLength = currentDisplay.length,
+                )
+                currentDisplay = newDisplay
+                applied++
+            }
+            return ReplaceProjection(
+                sourceText = sourceText,
+                displayText = currentDisplay,
+                offsetMap = ChainedTextOffsetMap(maps),
+                hitCount = baseHitCount + applied,
+                profileKey = profileKey,
+            )
+        }
     }
 }
 

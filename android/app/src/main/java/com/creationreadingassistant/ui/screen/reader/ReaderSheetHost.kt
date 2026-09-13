@@ -8,7 +8,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import com.creationreadingassistant.data.settings.PerBookOverrides
+import com.creationreadingassistant.data.settings.ReaderOverrideKey
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.ReaderSettingsRouter
+import com.creationreadingassistant.data.settings.ReaderSettingsScope
+import com.creationreadingassistant.data.settings.ReadingPreset
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.PlainTextDocument
 import com.creationreadingassistant.feature.reader.doc.ReaderDocument
@@ -19,6 +24,7 @@ import com.creationreadingassistant.ui.screen.reader.ReaderSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiAssistSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.AiExplainSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.DictionarySheet
 import com.creationreadingassistant.ui.screen.reader.sheets.InspirationSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ProgressSheet
@@ -90,12 +96,21 @@ internal data class ReaderSheetStatsState(
  */
 internal data class ReaderSheetUiState(
     val selectedText: String,
+    /** **有效**阅读设置（全局叠加本书覆盖），阅读器与设置面板共同消费。 */
     val readerSettings: ReaderSettings,
     val pagerEngineOn: Boolean,
     val searchQuery: String,
     val recentChapters: List<Int>,
     val appDark: Boolean,
     val replacementAvailability: PagedReplacementAvailability = PagedReplacementAvailability.SOURCE_UNAVAILABLE,
+    /** R3-P1：**全局**阅读设置（不含本书覆盖），书内编辑路由需要它做「还原全局原值」。 */
+    val globalReaderSettings: ReaderSettings = ReaderSettings(),
+    /** R3-P1：本书显式覆盖项；用于标注设置面板里「哪一项来自本书」。 */
+    val bookReaderOverrides: PerBookOverrides = emptyMap(),
+    /** R3-P1：书内设置的修改作用范围（本书 / 全局）。 */
+    val settingsScope: ReaderSettingsScope = ReaderSettingsScope.BOOK,
+    /** R3-X1：离线词典面板要查的词。 */
+    val dictionaryWord: String = "",
 )
 
 /**
@@ -144,6 +159,8 @@ internal data class ReaderSheetHostCallbacks(
     val onSaveInspiration: (title: String, body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onCreateCategory: (String) -> String,
     val onCreateTag: (String) -> String,
+    /** R3-P1：切换书内设置的修改作用范围（本书 / 全局）。 */
+    val onSettingsScopeChange: (ReaderSettingsScope) -> Unit = {},
 )
 
 /**
@@ -174,6 +191,38 @@ internal fun ReaderSheetHost(
     sheetCallbacks: ReaderSheetHostCallbacks,
 ) {
     val bid = inputs.bookId ?: ""
+
+    /**
+     * R3-P1：书内编辑的唯一落盘入口。
+     *
+     * 设置面板操作的是**有效设置**（全局 + 本书覆盖），本次改动该落到哪一层由
+     * [ReaderSettingsRouter] 按用户选择的 [ReaderSettingsScope] 决定：
+     * 不可覆盖项永远进全局；「本书」范围下可覆盖项只写本书覆盖（绝不污染全局）。
+     */
+    val applyReaderEdit: (ReaderSettings) -> Unit = { updated ->
+        val plan = ReaderSettingsRouter.plan(
+            scope = state.ui.settingsScope,
+            global = state.ui.globalReaderSettings,
+            displayed = state.ui.readerSettings,
+            edited = updated,
+        )
+        if (plan.globalDiffersFrom(state.ui.globalReaderSettings)) {
+            settingsVm.updateReader { plan.global }
+        }
+        val hasBookScopedChange =
+            plan.overridesToSet.isNotEmpty() || plan.overridesToClear.isNotEmpty()
+        if (bid.isNotBlank()) {
+            plan.overridesToSet.forEach { (key, value) -> settingsVm.setOverride(bid, key, value) }
+            plan.overridesToClear.forEach { key -> settingsVm.clearOverride(bid, key) }
+        } else if (hasBookScopedChange && state.ui.settingsScope == ReaderSettingsScope.BOOK) {
+            // 「只改本书」但没有 bookId 时，覆盖项无处可写。以前这里是静默丢弃：用户看着
+            // 设置已经变了，重进面板又弹回原值，且没有任何解释。宁可明确说没保存，
+            // 也不要把一次未落盘的编辑伪装成成功。
+            // 作用范围＝全局时不提示：那部分改动已经写进全局设置，并没有丢。
+            sheetCallbacks.showNotice("无法确定当前书籍，本次「只改本书」的调整未保存")
+        }
+    }
+
     sheet?.let { type ->
         ModalBottomSheet(
             onDismissRequest = sheetCallbacks.onDismiss,
@@ -348,25 +397,64 @@ internal fun ReaderSheetHost(
                     val latestOnSettingsChange by rememberUpdatedState<(ReaderSettings) -> Unit>({ updated ->
                         // 设置变更会触发分页重排：先落库当前进度，避免按旧进度恢复
                         sheetCallbacks.onPersistProgress()
-                        settingsVm.updateReader { updated }
+                        // R3-P1：不再无条件写全局；按作用范围路由到全局 / 本书覆盖
+                        applyReaderEdit(updated)
                     })
                     val stableOnSettingsChange = remember { { updated: ReaderSettings -> latestOnSettingsChange(updated) } }
                     val latestOnBookInfo by rememberUpdatedState(sheetCallbacks.onOpenBookInfo)
                     val stableOnBookInfo = remember { { latestOnBookInfo() } }
+                    // R3-P1：本书覆盖操作回调。身份用 remember 固化，理由同上（避免 SettingsSheet
+                    // 因 lambda 每帧换新身份而无法被 Compose 跳过）。
+                    val latestClearOverride by rememberUpdatedState<(ReaderOverrideKey) -> Unit> { key ->
+                        settingsVm.clearOverride(bid, key)
+                    }
+                    val stableClearOverride = remember { { key: ReaderOverrideKey -> latestClearOverride(key) } }
+                    val latestClearAllOverrides by rememberUpdatedState<() -> Unit> { settingsVm.clearAllOverrides(bid) }
+                    val stableClearAllOverrides = remember { { latestClearAllOverrides() } }
+                    val latestApplyPreset by rememberUpdatedState<(ReadingPreset) -> Unit> { preset ->
+                        when (state.ui.settingsScope) {
+                            ReaderSettingsScope.BOOK -> settingsVm.applyPresetToBook(bid, preset)
+                            ReaderSettingsScope.GLOBAL -> settingsVm.applyPresetToGlobal(preset)
+                        }
+                    }
+                    val stableApplyPreset = remember { { preset: ReadingPreset -> latestApplyPreset(preset) } }
+                    val latestResetGlobalDefaults by rememberUpdatedState<() -> Unit> {
+                        settingsVm.resetGlobalReaderDefaults()
+                    }
+                    val stableResetGlobalDefaults = remember { { latestResetGlobalDefaults() } }
+                    val latestScopeChange by rememberUpdatedState<(ReaderSettingsScope) -> Unit> { scope ->
+                        sheetCallbacks.onSettingsScopeChange(scope)
+                    }
+                    val stableScopeChange = remember { { scope: ReaderSettingsScope -> latestScopeChange(scope) } }
                     SettingsSheet(
                         paper = paper,
                         settings = state.ui.readerSettings,
                         onSettingsChange = stableOnSettingsChange,
                         onBookInfo = stableOnBookInfo,
+                        scope = state.ui.settingsScope,
+                        onScopeChange = stableScopeChange,
+                        overrides = state.ui.bookReaderOverrides,
+                        globalSettings = state.ui.globalReaderSettings,
+                        onClearOverride = stableClearOverride,
+                        onClearAllOverrides = stableClearAllOverrides,
+                        onApplyPreset = stableApplyPreset,
+                        onResetGlobalDefaults = stableResetGlobalDefaults,
                     )
                 }
+
+                // R3-X1：离线词典查词面板（只在首选词典＝离线时由此入口打开）
+                ReaderSheet.DICTIONARY -> DictionarySheet(
+                    word = state.ui.dictionaryWord,
+                    onDismiss = sheetCallbacks.onDismiss,
+                )
 
                 ReaderSheet.THEME -> ThemeSheet(
                     background = state.ui.readerSettings.background,
                     appDark = state.ui.appDark,
                     onBackground = {
                         sheetCallbacks.onPersistProgress()
-                        settingsVm.updateReader { copy(background = it) }
+                        // R3-P1：纸张切换同样受作用范围约束，否则本书覆盖了纸张时这里点了没反应
+                        applyReaderEdit(state.ui.readerSettings.copy(background = it))
                     },
                 )
 

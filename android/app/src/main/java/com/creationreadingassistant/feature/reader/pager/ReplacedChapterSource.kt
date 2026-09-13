@@ -54,6 +54,13 @@ enum class PagedReplacementAvailability {
     ALL_SCOPES_OVERSIZED,
     OVERSIZED_CURRENT_CHAPTER,
     SOURCE_UNAVAILABLE,
+    /**
+     * EPUB 专有（R4 收窄）：部分章节的 ZIP 字节估算上界超过投影上限，真实字符
+     * 长度需解析该章后才能确认，且超出装配期验证预算。这些章节在载入前不能
+     * 宣称「已替换」也不能宣称「超限保留原文」；逐章渲染时仍按真实长度精确
+     * 裁决（未超限章照常替换）。规则仍可管理。
+     */
+    UNVERIFIED_CHAPTER_LENGTHS,
 }
 
 /** 装配期对「可投影作用域」的穷尽分类，只读坐标元数据，绝不加载整章正文。 */
@@ -61,6 +68,8 @@ internal enum class PagedReplacementScopeVerdict {
     ALL_EXACT,
     MIXED,
     NOTHING_EXACT,
+    /** 存在字节上界超限、但装配期预算内未能确认真实长度的章节。 */
+    HAS_UNVERIFIED,
 }
 
 data class PreparedPagedReplacement(
@@ -82,22 +91,30 @@ fun preparePagedReplacement(
     // 「估算章基址 + 章内真实偏移」的既有混合空间。结构保真投影（EpubReplaceProjector）
     // 逐块投影后映射仍落在这个混合空间，持久化 locator 坐标系不变，因此可以放开；
     // 滚动/legacy 路径由 effectiveReplacementAvailability 统一遮蔽为 PAGER_ENGINE_DISABLED。
+    //
+    // R4 收窄（原缺陷：EPUB 无条件 APPLIED）：章长只有 ZIP 字节估算上界
+    // （charLength <= byteBound，UTF-8 每字符至少 1 字节），据此做单向判定；
+    // 上界超限的候选章在装配期用真实块解析验证（预算内），预算外诚实降级为
+    // UNVERIFIED_CHAPTER_LENGTHS，不再宣称 APPLIED。
     if (delegate is EpubChapterSource) {
         if (rules.none(ReplaceRule::enabled)) {
             return PreparedPagedReplacement(delegate, PagedReplacementAvailability.NO_EFFECTIVE_RULES)
         }
+        val verdict = classifyEpubChapterScopes(delegate, maxSourceLength)
         com.creationreadingassistant.feature.log.AppLog.debug(
             "EpubReplace",
-            "prepare: wiring EpubReplacedChapterSource, rules=${rules.size}, book=$bookId",
+            "prepare: wiring EpubReplacedChapterSource, rules=${rules.size}, book=$bookId, verdict=$verdict",
         )
         return PreparedPagedReplacement(
             source = EpubReplacedChapterSource(
                 delegate = delegate,
                 bookId = bookId,
                 rules = rules,
+                // 与装配期分类使用同一上限：分类判「超限保留原文」的章，渲染层必须一致
+                maxSourceLength = maxSourceLength,
                 onUnsupportedTooLarge = onUnsupportedTooLarge,
             ),
-            availability = PagedReplacementAvailability.APPLIED,
+            availability = availabilityFor(verdict),
         )
     }
     when (delegate.replacementCoordinateSpace) {
@@ -193,7 +210,7 @@ private fun classifyChapterScopeSpans(
         if ((next - start).coerceAtLeast(0) > maxSourceLength) hasDegraded = true else hasExact = true
         if (hasExact && hasDegraded) return PagedReplacementScopeVerdict.MIXED
     }
-    return verdictOf(hasExact, hasDegraded)
+    return verdictOf(hasExact, hasDegraded, hasUnverified = false)
 }
 
 /**
@@ -216,13 +233,67 @@ private fun classifyProviderScopes(
         if (scope is ReplaceProjectionScope.Exact) hasExact = true else hasDegraded = true
         if (hasExact && hasDegraded) return PagedReplacementScopeVerdict.MIXED
     }
-    return verdictOf(hasExact, hasDegraded)
+    return verdictOf(hasExact, hasDegraded, hasUnverified = false)
 }
+
+/**
+ * EPUB 装配期分类（R4 收窄，缺陷「EPUB 无条件 APPLIED」）。
+ *
+ * EPUB 章长只有 ZIP 字节估算上界：`byteBound(i) = chapterStartAbs(i+1) - chapterStartAbs(i)`
+ * （末章用 totalChars 收尾）。UTF-8 每字符至少 1 字节，因此 `charLength <= byteBound`
+ * 恒成立，`byteBound <= maxSourceLength` 的章**保证**可精确投影（单向判定，无近似）。
+ * 上界超限的候选章必须解析真实块长度才能裁决；为不拖慢开书，装配期只验证预算内的
+ * 候选（[MAX_VERIFIED_EPUB_CHAPTERS] 章 / [EPUB_VERIFY_BYTE_BUDGET] 字节估算量级），
+ * 预算外归入 [PagedReplacementScopeVerdict.HAS_UNVERIFIED]，由渲染路径逐章精确裁决。
+ */
+private fun classifyEpubChapterScopes(
+    delegate: EpubChapterSource,
+    maxSourceLength: Int,
+): PagedReplacementScopeVerdict {
+    var hasExact = false
+    var hasDegraded = false
+    var hasUnverified = false
+    var verifiedChapters = 0
+    var verifiedByteBound = 0L
+    for (index in 0 until delegate.chapterCount) {
+        val start = delegate.chapterStartAbs(index)
+        val end = if (index + 1 < delegate.chapterCount) {
+            delegate.chapterStartAbs(index + 1)
+        } else {
+            delegate.totalChars
+        }
+        val byteBound = (end - start).coerceAtLeast(0)
+        if (byteBound <= maxSourceLength) {
+            // 字节上界未超限 ⇒ 字符长度必然未超限：无需解析，直接判 Exact。
+            hasExact = true
+            continue
+        }
+        if (verifiedChapters >= MAX_VERIFIED_EPUB_CHAPTERS || verifiedByteBound >= EPUB_VERIFY_BYTE_BUDGET) {
+            hasUnverified = true
+            continue
+        }
+        verifiedChapters++
+        verifiedByteBound += byteBound
+        val realLength = EpubPageSource.chapterTextOf(delegate.blocksOf(index)).length
+        if (realLength > maxSourceLength) hasDegraded = true else hasExact = true
+        if (hasExact && hasDegraded) return PagedReplacementScopeVerdict.MIXED
+    }
+    if (hasUnverified) return PagedReplacementScopeVerdict.HAS_UNVERIFIED
+    return verdictOf(hasExact, hasDegraded, hasUnverified = false)
+}
+
+/** 装配期最多解析验证的 EPUB 候选章数；超出部分诚实降级为 UNVERIFIED。 */
+private const val MAX_VERIFIED_EPUB_CHAPTERS = 16
+
+/** 装配期验证候选章的累计字节估算预算（字节量纲，与章基址同空间）。 */
+private const val EPUB_VERIFY_BYTE_BUDGET = 4L * 1024 * 1024
 
 private fun verdictOf(
     hasExact: Boolean,
     hasDegraded: Boolean,
+    hasUnverified: Boolean,
 ): PagedReplacementScopeVerdict = when {
+    hasUnverified -> PagedReplacementScopeVerdict.HAS_UNVERIFIED
     !hasExact -> PagedReplacementScopeVerdict.NOTHING_EXACT
     hasDegraded -> PagedReplacementScopeVerdict.MIXED
     else -> PagedReplacementScopeVerdict.ALL_EXACT
@@ -230,7 +301,8 @@ private fun verdictOf(
 
 /**
  * [PagedReplacementAvailability.APPLIED] 只允许在「全部作用域都能精确投影」时出现；
- * 存在降级作用域时降格为 PARTIALLY_APPLIED，禁止宣称全书已替换。
+ * 存在降级作用域时降格为 PARTIALLY_APPLIED，存在未验证作用域时降格为
+ * UNVERIFIED_CHAPTER_LENGTHS，禁止宣称全书已替换。
  */
 private fun availabilityFor(
     verdict: PagedReplacementScopeVerdict,
@@ -238,6 +310,7 @@ private fun availabilityFor(
     PagedReplacementScopeVerdict.ALL_EXACT -> PagedReplacementAvailability.APPLIED
     PagedReplacementScopeVerdict.MIXED -> PagedReplacementAvailability.PARTIALLY_APPLIED
     PagedReplacementScopeVerdict.NOTHING_EXACT -> PagedReplacementAvailability.ALL_SCOPES_OVERSIZED
+    PagedReplacementScopeVerdict.HAS_UNVERIFIED -> PagedReplacementAvailability.UNVERIFIED_CHAPTER_LENGTHS
 }
 
 /**

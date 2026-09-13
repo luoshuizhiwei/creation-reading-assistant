@@ -71,7 +71,12 @@ object BoundedReplaceProjector {
             // 先判上限再投影：超限 scope 不做任何（部分）替换。
             return BoundedReplaceResult.UnsupportedTooLarge(scopeSource.length, maxSourceLength)
         }
-        val projection = ReplaceProjection.project(scopeSource, rules, bookId)
+        val projection = ReplaceProjection.projectScoped(
+            sourceText = scopeSource,
+            rules = rules,
+            bookId = bookId,
+            scopeSourceBase = scopeSourceBase,
+        )
         return BoundedReplaceResult.Exact(projection, scopeSourceBase)
     }
 }

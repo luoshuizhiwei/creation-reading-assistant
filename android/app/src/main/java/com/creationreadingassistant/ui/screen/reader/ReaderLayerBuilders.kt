@@ -12,11 +12,15 @@ import androidx.compose.foundation.relocation.BringIntoViewRequester
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.Clipboard
+import com.creationreadingassistant.ui.util.copyText
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.settings.PerBookOverrides
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.ReaderSettingsScope
+import com.creationreadingassistant.data.settings.SelectionActionSettings
+import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.annotations.AnnotationType
 import com.creationreadingassistant.feature.annotations.navigationTargetId
@@ -153,11 +157,16 @@ internal fun buildReaderInteractionLayerState(
     paper: ReaderPaperPalette,
     temporaryInspection: Boolean = false,
     hasReturnableTarget: Boolean = false,
+    selectionActions: SelectionActionSettings = SelectionActionSettings(),
+    /** R3-X1：AI 是否已配置可用；未配置时「AI 解读」不会进入选区工具条。 */
+    aiConfigured: Boolean = true,
 ): ReaderInteractionLayerState = ReaderInteractionLayerState(
     controlsVisible = controlsVisible,
     selectedText = selectedText,
     showColorRow = showColorRow,
     canCreateReplaceRule = canCreateReplaceRule,
+    selectionActions = selectionActions,
+    aiConfigured = aiConfigured,
     showTts = showTts,
     showReaderOverflow = showReaderOverflow,
     autoPagingActive = autoPagingActive,
@@ -199,7 +208,7 @@ internal fun buildReaderInteractionLayerCallbacks(
     bid: String,
     currentChapterTitle: String,
     progressPercent: Float,
-    clipboard: ClipboardManager,
+    clipboard: Clipboard,
     onAction: (ReaderAction) -> Unit,
     handleChromeAction: (ReaderChromeAction) -> Unit,
     seekToChapterPercent: (Float) -> Unit,
@@ -207,6 +216,10 @@ internal fun buildReaderInteractionLayerCallbacks(
     onAutoPageSpeedChange: (Int) -> Unit,
     computeLocatorJson: () -> String?,
     showNotice: (String) -> Unit,
+    /** R3-X1：选区动作与查询目标配置（决定查询地址与「字典」动作的去向）。 */
+    selectionActions: SelectionActionSettings = SelectionActionSettings(),
+    /** R3-X1：首选词典＝离线时，用选中文字打开阅读器内词典面板。 */
+    onOpenDictionary: (String) -> Unit = {},
 ): ReaderInteractionLayerCallbacks = ReaderInteractionLayerCallbacks(
     onOverflowExpandedChange = { onAction(ReaderAction.SetShowOverflow(it)) },
     onChromeAction = handleChromeAction,
@@ -257,18 +270,22 @@ internal fun buildReaderInteractionLayerCallbacks(
     onAiExplain = { onAction(ReaderAction.OpenSheet(ReaderSheet.AI_EXPLAIN)) },
     onInspiration = { onAction(ReaderAction.OpenSheet(ReaderSheet.INSPIRATION)) },
     onNote = { onAction(ReaderAction.SetNoteOpen(true)) },
-    onCopy = { clipboard.setText(AnnotatedString(selectedText)); showNotice("已复制") },
+    onCopy = { clipboard.copyText(selectedText, label = "reader_selection"); showNotice("已复制") },
     onBrowser = {
-        if (context.openSelectionInBrowser(selectedText) == SelectionExternalLaunchResult.NO_HANDLER) {
-            showNotice("未找到可用浏览器")
-        }
+        context.executeSelectionBrowser(
+            selectedText = selectedText,
+            template = selectionActions.browserUrlTemplate,
+            showNotice = showNotice,
+        )
     },
     onDictionary = {
-        when (context.openSelectionInDictionary(selectedText)) {
-            SelectionExternalLaunchResult.OPENED -> Unit
-            SelectionExternalLaunchResult.OPENED_WEB_FALLBACK -> showNotice("未找到词典应用，已用浏览器查询")
-            SelectionExternalLaunchResult.NO_HANDLER -> showNotice("未找到可用词典或浏览器")
-        }
+        context.executeSelectionDictionary(
+            selectedText = selectedText,
+            mode = selectionActions.dictionaryMode,
+            template = selectionActions.dictionaryUrlTemplate,
+            onOpenOffline = onOpenDictionary,
+            showNotice = showNotice,
+        )
     },
     onReplace = { onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
     onSearch = {
@@ -316,6 +333,10 @@ internal fun buildReaderSheetHostState(pagerReplacementAvailability: PagedReplac
     txtRuleScanStatus: TxtRuleScanStatus?,
     recentChapters: SnapshotStateList<Int>,
     appDark: Boolean,
+    globalReaderSettings: ReaderSettings,
+    bookReaderOverrides: PerBookOverrides,
+    settingsScope: ReaderSettingsScope,
+    dictionaryWord: String,
 ): ReaderSheetHostState = ReaderSheetHostState(
     // B1 状态袋瘦身：按域组装 4 个分组对象，字段值与原平铺 1:1。
     document = ReaderSheetDocumentState(
@@ -367,6 +388,10 @@ internal fun buildReaderSheetHostState(pagerReplacementAvailability: PagedReplac
         recentChapters = recentChapters.toList(),
         appDark = appDark,
         replacementAvailability = pagerReplacementAvailability,
+        globalReaderSettings = globalReaderSettings,
+        bookReaderOverrides = bookReaderOverrides,
+        settingsScope = settingsScope,
+        dictionaryWord = dictionaryWord,
     ),
 )
 
@@ -414,6 +439,9 @@ internal fun buildReaderSheetHostCallbacks(
     onAction: (ReaderAction) -> Unit,
     onCancelTxtScan: () -> Unit,
     onPersistProgress: () -> Unit,
+    onSettingsScopeChange: (ReaderSettingsScope) -> Unit,
+    /** R5-I2：当前选区的 source locator（与高亮同源）；灵感/摘录落库据此携带精确回源坐标。 */
+    computeLocatorJson: () -> String? = { null },
 ): ReaderSheetHostCallbacks = ReaderSheetHostCallbacks(
     onDismiss = { onAction(ReaderAction.CloseSheet) },
     onOpenSettings = { onAction(ReaderAction.OpenSheet(ReaderSheet.SETTINGS)) },
@@ -467,6 +495,7 @@ internal fun buildReaderSheetHostCallbacks(
     // 不再经由回调上抛组装。
     onSaveAiExplainInspiration = { body, tags, categoryIds ->
         val snapshotText = selectedText
+        val locatorJson = computeLocatorJson()
         onAction(
             ReaderAction.SaveInspiration(
                 InspirationEntity(
@@ -476,7 +505,7 @@ internal fun buildReaderSheetHostCallbacks(
                     type = "note",
                     status = "inbox",
                     source_book_id = bid.ifBlank { null },
-                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor, locatorJson = locatorJson),
                     created_at = nowIso(),
                     device_id = null,
                     revision = 1,
@@ -490,6 +519,7 @@ internal fun buildReaderSheetHostCallbacks(
     },
     onSaveInspiration = { title, body, tags, categoryIds ->
         val snapshotText = selectedText
+        val locatorJson = computeLocatorJson()
         onAction(
             ReaderAction.SaveInspiration(
                 InspirationEntity(
@@ -499,7 +529,7 @@ internal fun buildReaderSheetHostCallbacks(
                     type = "note",
                     status = "inbox",
                     source_book_id = bid.ifBlank { null },
-                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor),
+                    payload = buildInspirationPayload(bid, bookTitle, currentChapterTitle, snapshotText, progressPercent, tags, categoryIds, bookAuthor = bookAuthor, locatorJson = locatorJson),
                     created_at = nowIso(),
                     device_id = null,
                     revision = 1,
@@ -522,4 +552,5 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.CreateTag(name))
         id
     },
+    onSettingsScopeChange = onSettingsScopeChange,
 )

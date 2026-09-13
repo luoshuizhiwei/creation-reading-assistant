@@ -48,17 +48,24 @@ object EpubReplaceProjector {
     /**
      * 逐块投影。[rules] 语义与 [RuleEngine.applyReplace] 一致；空规则时原样返回
      * （恒等映射），调用方可据此走无替换快路径。
+     *
+     * [anchorScopeBase] 是本**章**在全书 source（估算混合空间）中的基址，供单处
+     * 纠错锚点局部化：每个 Text 块的全局基址 = [anchorScopeBase] + 块章内偏移
+     * （与 [EpubPageSource.chapterTextOf] 的「Text 块按 \n 连接、图片不占字符」
+     * 口径一致）。跨块纠错因无法完整落入单块而在该块诚实跳过。
      */
     fun project(
         blocks: List<DocBlock>,
         rules: List<ReplaceRule>,
         bookId: String,
         maxBlockLength: Int = DEFAULT_MAX_BLOCK_CHARS,
+        anchorScopeBase: Int = 0,
     ): Result {
         require(rules.isNotEmpty()) { "空规则请走无替换路径，不要进入投影器" }
         val displayBlocks = ArrayList<DocBlock>(blocks.size)
         val projections = ArrayList<BlockProjection>(blocks.size)
         var hitCount = 0
+        var chapterLocalBase = 0
         blocks.forEach { block ->
             when (block) {
                 is DocBlock.Text -> {
@@ -67,7 +74,12 @@ object EpubReplaceProjector {
                         displayBlocks += block
                         projections += identityProjection(block.text)
                     } else {
-                        val projection = ReplaceProjection.project(block.text, rules, bookId)
+                        val projection = ReplaceProjection.projectScoped(
+                            sourceText = block.text,
+                            rules = rules,
+                            bookId = bookId,
+                            scopeSourceBase = anchorScopeBase + chapterLocalBase,
+                        )
                         displayBlocks += DocBlock.Text(projection.displayText, block.isHeading)
                         projections += BlockProjection(
                             sourceText = block.text,
@@ -76,6 +88,7 @@ object EpubReplaceProjector {
                         )
                         hitCount += projection.hitCount
                     }
+                    chapterLocalBase += block.text.length + 1 // 块间 "\n" 分隔位
                 }
 
                 is DocBlock.Image -> displayBlocks += block

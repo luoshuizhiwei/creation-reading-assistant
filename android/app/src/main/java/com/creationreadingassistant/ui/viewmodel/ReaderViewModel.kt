@@ -405,9 +405,40 @@ class ReaderViewModel @Inject constructor(
 
             // 规则写入（RulesRepository；校验/迁移失败不落库，结果原样发布）
             is ReaderAction.ExecuteRuleCommand -> io {
+                // 单处纠错（E2）：命令不带坐标，锚点在执行前从当前选区状态回查填充，
+                // 与 ReaderScaffold/ReaderProgressActions 的字段判别式保持一致
+                // （TXT 用 selectedRangeStart，EPUB 用 selectedGlobalOffset，终点统一 selectedSourceEnd）。
+                val command: RuleCommand? = when {
+                    action.command !is RuleCommand.SaveSingleCorrection -> action.command
+                    else -> {
+                        val anchor = currentSelectionSourceRange()
+                        val draft = action.command
+                        when {
+                            anchor == null -> {
+                                _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
+                                    "当前没有可用的选区位置，请先在正文中长按选中要纠错的文字",
+                                )
+                                null
+                            }
+                            draft.findText != _screenState.value.selectedText -> {
+                                _ruleMutationResult.value = RuleMutationResult.NotAnchorable(
+                                    "单处纠错只作用于当前选区文字；如需修改查找内容，请改用本书替换",
+                                )
+                                null
+                            }
+                            else -> RuleCommand.SaveSingleCorrection(
+                                sourceStart = anchor.first,
+                                sourceEnd = anchor.second,
+                                findText = draft.findText,
+                                replaceText = draft.replaceText,
+                            )
+                        }
+                    }
+                }
+                if (command == null) return@io
                 // 受影响范围必须在 execute **之前**判定：删除类命令执行后规则行已不在。
-                val indexPlan = searchIndexRefreshPlan(action.command)
-                val result = rulesRepository.execute(action.bookId, action.command)
+                val indexPlan = searchIndexRefreshPlan(command)
+                val result = rulesRepository.execute(action.bookId, command)
                 if (result is RuleMutationResult.Migrated) {
                     // 快速单选 / 迁移：同步旧单选显示 id，并发布结果供统一重扫策略消费
                     _txtTocRuleId.value = result.effectiveRuleId
@@ -473,8 +504,33 @@ class ReaderViewModel @Inject constructor(
                 SearchIndexRefreshPlan(global = command.scope == RuleScope.GLOBAL)
             is RuleCommand.ToggleCustom -> replaceRulePlan(command.ruleId)
             is RuleCommand.DeleteCustom -> replaceRulePlan(command.ruleId)
+            // 单处纠错只影响本书 display 文本：保存/撤销/恢复都重建本书索引。
+            is RuleCommand.SaveSingleCorrection,
+            is RuleCommand.UndoCorrection,
+            is RuleCommand.RestoreCorrection,
+            -> SearchIndexRefreshPlan(global = false)
             else -> null
         }
+
+    /**
+     * 当前选区的全书 source 半开区间；无可锚定选区返回 null。
+     *
+     * 分页投影路径两种来源：TXT 选区起点在 [ReaderScreenState.selectedRangeStart]，
+     * EPUB 选区起点在 [ReaderScreenState.selectedGlobalOffset]；终点统一在
+     * selectedSourceEnd（旧路径 -1 表示不可锚定）。判别式与
+     * ReaderScaffold / ReaderProgressActions 既有消费点一致。
+     */
+    private fun currentSelectionSourceRange(): Pair<Int, Int>? {
+        val state = _screenState.value
+        val end = state.selectedSourceEnd
+        if (end < 0) return null
+        val start = when {
+            state.selectedRangeStart >= 0 -> state.selectedRangeStart
+            state.selectedGlobalOffset >= 0 -> state.selectedGlobalOffset
+            else -> return null
+        }
+        return if (start in 0 until end) start to end else null
+    }
 
     private suspend fun replaceRulePlan(ruleId: String): SearchIndexRefreshPlan? {
         val descriptor: RuleDescriptor = rulesRepository.describeRule(ruleId) ?: return null

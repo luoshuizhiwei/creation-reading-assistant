@@ -192,79 +192,55 @@ class ReaderReplacementCapabilityTest {
         )
     }
 
-    // ── 兼容旧入口（带 isTxt / readerMode / pagerEngineOn 显式参数的派生版） ──
+    // ── 能力分类的穷尽性：防止新状态静默落到「可替换」 ──
 
+    /**
+     * 每一个 [PagedReplacementAvailability] 都必须被显式分类。
+     *
+     * 这是「不得伪装可用」的回归闸门：将来新增一个 availability 常量时，
+     * 本用例会因为期望表里查不到而失败，逼迫作者明确回答「正文到底能不能替换」，
+     * 而不是让它顺着兜底分支默认变成可用。
+     *
+     * 同时锁定另一半约束：诚实禁用的状态**必须**给出非空原因，
+     * 不允许出现「按钮灰着但不说为什么」。
+     */
     @Test
-    fun `small TXT with active paged engine can manage replacement rules via legacy entry`() {
-        val capability = readerReplacementCapability(
-            isTxt = true,
-            hasStreamingDocument = false,
-            readerMode = "paged",
-            pagerEngineOn = true,
-            replaceProjectionScopeIsComplete = true,
+    fun `every availability is explicitly classified as manageable or honestly disabled`() {
+        val manageable = setOf(
+            PagedReplacementAvailability.APPLIED,
+            PagedReplacementAvailability.NO_EFFECTIVE_RULES,
+            PagedReplacementAvailability.PARTIALLY_APPLIED,
+            PagedReplacementAvailability.ALL_SCOPES_OVERSIZED,
+            PagedReplacementAvailability.UNVERIFIED_CHAPTER_LENGTHS,
         )
-        assertEquals(ReaderReplacementCapability.Available(), capability)
-    }
+        val honestlyDisabled = setOf(
+            PagedReplacementAvailability.PAGER_ENGINE_DISABLED,
+            PagedReplacementAvailability.ESTIMATED_COORDINATES,
+            PagedReplacementAvailability.NON_SOURCE_COORDINATES,
+            PagedReplacementAvailability.INCOMPLETE_SCOPE,
+            PagedReplacementAvailability.OVERSIZED_CURRENT_CHAPTER,
+            PagedReplacementAvailability.SOURCE_UNAVAILABLE,
+        )
 
-    @Test
-    fun `scroll or legacy reader keeps source text and blocks replacement management via legacy entry`() {
-        val scroll = readerReplacementCapability(
-            isTxt = true,
-            hasStreamingDocument = false,
-            readerMode = "scroll",
-            pagerEngineOn = false,
+        assertEquals(
+            "新增 availability 必须显式分类，不能默认变成可用",
+            PagedReplacementAvailability.entries.toSet(),
+            manageable + honestlyDisabled,
         )
-        val legacyPaged = readerReplacementCapability(
-            isTxt = true,
-            hasStreamingDocument = false,
-            readerMode = "paged",
-            pagerEngineOn = false,
-        )
-        assertTrue(
-            "scroll must be Unavailable",
-            scroll is ReaderReplacementCapability.Unavailable
-        )
-        assertTrue(
-            "legacyPaged must be Unavailable",
-            legacyPaged is ReaderReplacementCapability.Unavailable
-        )
-    }
 
-    @Test
-    fun `complete-projection streaming available while incomplete scope stays blocked via legacy entry`() {
-        val complete = readerReplacementCapability(
-            isTxt = true,
-            hasStreamingDocument = true,
-            readerMode = "paged",
-            pagerEngineOn = true,
-            replaceProjectionScopeIsComplete = true,
-        )
-        assertEquals(ReaderReplacementCapability.Available(), complete)
-
-        val incomplete = readerReplacementCapability(
-            isTxt = true,
-            hasStreamingDocument = true,
-            readerMode = "paged",
-            pagerEngineOn = true,
-            replaceProjectionScopeIsComplete = false,
-        )
-        assertTrue(
-            "incomplete scope must be Unavailable",
-            incomplete is ReaderReplacementCapability.Unavailable
-        )
-    }
-
-    @Test
-    fun `EPUB and Markdown keep source text even in paged mode via legacy entry`() {
-        val capability = readerReplacementCapability(
-            isTxt = false,
-            hasStreamingDocument = false,
-            readerMode = "paged",
-            pagerEngineOn = true,
-        )
-        assertTrue(
-            "non-TXT must be Unavailable",
-            capability is ReaderReplacementCapability.Unavailable
-        )
+        manageable.forEach { availability ->
+            assertTrue(
+                "$availability 应允许管理规则",
+                readerReplacementCapability(availability) is ReaderReplacementCapability.Available,
+            )
+        }
+        honestlyDisabled.forEach { availability ->
+            val capability = readerReplacementCapability(availability)
+            assertTrue(
+                "$availability 必须诚实禁用并给出原因",
+                capability is ReaderReplacementCapability.Unavailable &&
+                    capability.message.isNotBlank(),
+            )
+        }
     }
 }

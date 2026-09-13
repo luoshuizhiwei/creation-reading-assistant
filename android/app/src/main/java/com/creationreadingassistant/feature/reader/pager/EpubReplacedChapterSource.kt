@@ -99,7 +99,12 @@ class EpubReplacedChapterSource(
                     projection = null,
                 )
             } else {
-                val result = EpubReplaceProjector.project(docBlocks, rules, bookId)
+                val result = EpubReplaceProjector.project(
+                    blocks = docBlocks,
+                    rules = rules,
+                    bookId = bookId,
+                    anchorScopeBase = delegate.chapterStartAbs(index),
+                )
                 val displayText = EpubPageSource.chapterTextOf(result.displayBlocks)
                 CachedChapter(
                     content = PagedChapterContent(displayText, EpubPageSource.layoutBlocksOf(result.displayBlocks)),

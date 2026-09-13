@@ -34,6 +34,10 @@ internal fun readerReplacementCapability(
     PagedReplacementAvailability.ALL_SCOPES_OVERSIZED -> ReaderReplacementCapability.Available(
         bodyNotice = readerReplacementAvailabilityNotice(availability),
     )
+    // EPUB 装配期未能验证全部候选章：规则仍可管理，正文逐章载入时精确裁决。
+    PagedReplacementAvailability.UNVERIFIED_CHAPTER_LENGTHS -> ReaderReplacementCapability.Available(
+        bodyNotice = readerReplacementAvailabilityNotice(availability),
+    )
     PagedReplacementAvailability.PAGER_ENGINE_DISABLED -> ReaderReplacementCapability.Unavailable(
         "当前阅读模式未启用新分页引擎，正文替换净化仅在可精确投影的翻页正文中生效，正文将保留原文。",
     )
@@ -69,6 +73,8 @@ private fun readerReplacementAvailabilityNotice(
         "本书正文没有可投影的作用域（整书超出替换净化可处理的长度上限），正文已保留原文；替换规则仍可继续管理，但不会对正文生效。"
     PagedReplacementAvailability.PARTIALLY_APPLIED ->
         "部分章节超出替换净化可处理的长度上限，这些章节已保留原文，其余章节按规则替换。"
+    PagedReplacementAvailability.UNVERIFIED_CHAPTER_LENGTHS ->
+        "本书部分章节较长，是否替换需等载入对应章节后确认；确认超限的章节将保留原文，其余章节按规则替换。"
     PagedReplacementAvailability.ESTIMATED_COORDINATES ->
         "当前文档格式暂不支持正文替换净化，正文已保留原文。"
     PagedReplacementAvailability.NON_SOURCE_COORDINATES ->
@@ -99,22 +105,10 @@ internal fun readerReplacementStartupNoticeIfNeeded(
     readerReplacementStartupNotice(availability, pagerEngineOn)
 }
 
-/**
- * 兼容旧调用点（单元测试还没有 PagerEngineState 的场景）：
- * 显式把「source 尚不可用 / isTxt=false / pagerEngineOff」情形转成对应 availability，
- * 避免逐处 if/else 蔓延。真实生产路径一律使用单参数 availability 版本。
- */
-internal fun readerReplacementCapability(
-    isTxt: Boolean,
-    hasStreamingDocument: Boolean,
-    readerMode: String,
-    pagerEngineOn: Boolean,
-    replaceProjectionScopeIsComplete: Boolean = false,
-): ReaderReplacementCapability {
-    if (!isTxt) return readerReplacementCapability(PagedReplacementAvailability.ESTIMATED_COORDINATES)
-    if (readerMode != "paged" || !pagerEngineOn) {
-        return readerReplacementCapability(PagedReplacementAvailability.PAGER_ENGINE_DISABLED)
-    }
-    if (!replaceProjectionScopeIsComplete) return readerReplacementCapability(PagedReplacementAvailability.INCOMPLETE_SCOPE)
-    return readerReplacementCapability(PagedReplacementAvailability.APPLIED)
-}
+// 已删除的历史兼容重载：`readerReplacementCapability(isTxt, hasStreamingDocument, readerMode,
+// pagerEngineOn, replaceProjectionScopeIsComplete)`。
+// 它按 UI 侧标志（isTxt / readerMode / 引擎开关）**反推**能力，且只能表达 4 种结果，
+// 无法表达 SOURCE_UNAVAILABLE / NON_SOURCE_COORDINATES / PARTIALLY_APPLIED /
+// ALL_SCOPES_OVERSIZED / OVERSIZED_CURRENT_CHAPTER / UNVERIFIED_CHAPTER_LENGTHS，
+// 正是「只因开关打开就宣称可替换」的来源。生产路径一律走单参数
+// [readerReplacementCapability]（消费真实 [PagedReplacementAvailability]）。

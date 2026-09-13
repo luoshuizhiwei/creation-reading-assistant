@@ -1,5 +1,6 @@
 package com.creationreadingassistant.feature.reader.pager
 
+import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
 import com.creationreadingassistant.feature.reader.layout.LayoutBlock
 import com.creationreadingassistant.feature.reader.rules.ReplaceProfile
@@ -186,4 +187,136 @@ class ReplacedChapterSourceTest {
         position = 0,
         scope = RuleScope.GLOBAL,
     )
+
+    // ── R4：单处纠错走 TXT 装配链 + EPUB 装配期可用性收窄 ────────────────
+
+    private fun correctionRule(
+        sourceStart: Int,
+        sourceEnd: Int,
+        findText: String,
+        replaceText: String,
+    ) = ReplaceRule(
+        id = "correction:c1",
+        name = "单处纠错",
+        pattern = "",
+        replacement = replaceText,
+        enabled = true,
+        position = Int.MAX_VALUE,
+        scope = RuleScope.PER_BOOK,
+        anchor = com.creationreadingassistant.feature.reader.rules.CorrectionAnchor(
+            sourceStart = sourceStart,
+            sourceEnd = sourceEnd,
+            findText = findText,
+        ),
+    )
+
+    private fun epubSource(
+        chapterStarts: List<Int>,
+        totalChars: Int,
+        chapterTexts: List<String>,
+    ) = EpubChapterSource(
+        titles = chapterTexts.mapIndexed { i, _ -> "第${i + 1}章" },
+        chapterStartOffsets = chapterStarts,
+        totalChars = totalChars,
+        loadBlocks = { index -> listOf(DocBlock.Text(chapterTexts[index], isHeading = false)) },
+    )
+
+    @Test
+    fun `txt decorator applies correction anchored in a later chapter via scoped base`() {
+        val sourceText = "第一章开头 第二章正文"
+        val secondStart = sourceText.indexOf("第二章")
+        val delegate = TxtChapterSource(
+            fullText = sourceText,
+            chapters = listOf(
+                DocChapter(0, "第一章", 0, secondStart),
+                DocChapter(1, "第二章", secondStart, sourceText.length - secondStart),
+            ),
+        )
+        // 锚点锚定第二章内的「章正文」，scopeSourceBase 由装配链传入章起点
+        val anchorStart = sourceText.indexOf("章正文")
+        val source = ReplacedChapterSource(
+            delegate = delegate,
+            bookId = "book-1",
+            rules = listOf(correctionRule(anchorStart, anchorStart + 3, "章正文", "章正文改")),
+        )
+
+        val second = source.loadChapter(1)
+        assertTrue("第二章正文应含纠错结果", second.text.contains("章正文改"))
+        val projection = source.projectionForChapter(1)
+        assertNotNull(projection)
+        // 持久化坐标仍是全书 source：display 反查回锚点起点
+        assertEquals(anchorStart, projection?.localDisplayToGlobalSource(second.text.indexOf("章正文改")))
+        // 未触及的第一章保持原样
+        assertEquals("第一章开头 ", source.loadChapter(0).text)
+    }
+
+    @Test
+    fun `epub availability stays applied when byte bound guarantees all chapters within limit`() {
+        val source = epubSource(
+            chapterStarts = listOf(0, 100, 200),
+            totalChars = 300,
+            chapterTexts = listOf("甲", "乙", "丙"),
+        )
+        val prepared = preparePagedReplacement(source, "epub", listOf(replaceRule("甲", "A")))
+        assertEquals(PagedReplacementAvailability.APPLIED, prepared.availability)
+    }
+
+    @Test
+    fun `epub availability degrades to oversized when verified chapter exceeds limit`() {
+        val longText = "字".repeat(300)
+        val source = epubSource(
+            chapterStarts = listOf(0, 100, 900),
+            totalChars = 1000,
+            chapterTexts = listOf("甲", longText, "丙"),
+        )
+        val prepared = preparePagedReplacement(source, "epub", listOf(replaceRule("甲", "A")))
+        // 章 1 的字节估算上界 800 > 默认上限不可行？此处显式传小上限验证分类逻辑
+        val preparedSmall = com.creationreadingassistant.feature.reader.pager.preparePagedReplacement(
+            delegate = source,
+            bookId = "epub",
+            rules = listOf(replaceRule("甲", "A")),
+            maxSourceLength = 256,
+        )
+        // 章 1 实际 300 字符 > 256、章 0/2 均 ≤ 256 → 混合降级
+        assertEquals(PagedReplacementAvailability.PARTIALLY_APPLIED, preparedSmall.availability)
+        // 渲染层仍精确：章 1 保留原文，章 0 正常替换
+        val projected = preparedSmall.source as ProjectedChapterSource
+        assertNull(projected.projectionForChapter(1))
+        assertNotNull(projected.projectionForChapter(0))
+    }
+
+    @Test
+    fun `epub availability degrades to all oversized when no chapter is projectable`() {
+        val longText = "字".repeat(400)
+        val source = epubSource(
+            chapterStarts = listOf(0, 900),
+            totalChars = 1800,
+            chapterTexts = listOf(longText, longText),
+        )
+        val prepared = preparePagedReplacement(
+            delegate = source,
+            bookId = "epub",
+            rules = listOf(replaceRule("甲", "A")),
+            maxSourceLength = 256,
+        )
+        assertEquals(PagedReplacementAvailability.ALL_SCOPES_OVERSIZED, prepared.availability)
+    }
+
+    @Test
+    fun `epub availability reports unverified when candidates exceed verify budget`() {
+        // 8 章全部字节上界超限且实际也超限：装配期验证预算（16 章）内可全验 → 不应出现 UNVERIFIED
+        // 构造 24 章 → 超出预算上限，剩余章节诚实降级
+        val longText = "字".repeat(300)
+        val chapterCount = 24
+        val starts = (0 until chapterCount).map { it * 900 }
+        val texts = (0 until chapterCount).map { longText }
+        val source = epubSource(starts, 900 * chapterCount, texts)
+        val prepared = preparePagedReplacement(
+            delegate = source,
+            bookId = "epub",
+            rules = listOf(replaceRule("甲", "A")),
+            maxSourceLength = 256,
+        )
+        assertEquals(PagedReplacementAvailability.UNVERIFIED_CHAPTER_LENGTHS, prepared.availability)
+    }
 }

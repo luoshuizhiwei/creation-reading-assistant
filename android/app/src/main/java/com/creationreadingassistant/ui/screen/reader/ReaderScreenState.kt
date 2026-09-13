@@ -13,6 +13,8 @@ enum class ReaderSheet {
     SEARCH,
     BOOK_INFO,
     THEME,
+    /** R3-X1：离线词典查词面板。 */
+    DICTIONARY,
 }
 
 /**

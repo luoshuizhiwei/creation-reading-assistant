@@ -25,6 +25,8 @@ import com.creationreadingassistant.ui.screen.reader.ReaderChromeAction
 import com.creationreadingassistant.ui.screen.reader.ReaderTopChrome
 import com.creationreadingassistant.ui.screen.reader.tts.TtsBar
 import com.creationreadingassistant.ui.screen.reader.tts.TtsEngineHost
+import com.creationreadingassistant.data.settings.SelectionActionSettings
+import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPanelSurface
@@ -55,6 +57,15 @@ internal data class ReaderInteractionLayerState(
     val error: String?,
     val showProgressBar: Boolean,
     val paper: ReaderPaperPalette,
+    /** R3-X1：选区工具条的动作配置（决定渲染哪些高频动作与溢出动作）。 */
+    val selectionActions: SelectionActionSettings = SelectionActionSettings(),
+    /**
+     * R3-X1：AI 是否已配置可用（启用 + 有 Key）。
+     *
+     * 默认 `true` 是为了让「不关心 AI 的调用方/测试」保持原有渲染；真实阅读器一定显式传入，
+     * 未配置时「AI 解读」不会出现在选区菜单里（门控不被绕过）。
+     */
+    val aiConfigured: Boolean = true,
     /** 当前是否处于临时查阅模式（由 navigationMode=TEMPORARY 决定）。 */
     val temporaryInspection: Boolean = false,
     /** 临时查阅协调器是否存在可返回目标（临时返回栈非空）。 */
@@ -237,6 +248,17 @@ internal fun BoxScope.ReaderInteractionLayer(
             selectedText = state.selectedText,
             showColorRow = state.showColorRow,
             canCreateReplaceRule = state.canCreateReplaceRule,
+            // R3-X1：动作清单来自配置 + 能力门控（未知 id 已在 store 出口被 sanitize 掉）
+            primaryActions = selectionToolbarActions(
+                settings = state.selectionActions,
+                canCreateReplaceRule = state.canCreateReplaceRule,
+                aiConfigured = state.aiConfigured,
+            ).first,
+            moreActions = selectionToolbarActions(
+                settings = state.selectionActions,
+                canCreateReplaceRule = state.canCreateReplaceRule,
+                aiConfigured = state.aiConfigured,
+            ).second,
             onToggleColor = callbacks.onToggleColor,
             onPickColor = callbacks.onPickColor,
             onBrowser = callbacks.onBrowser,

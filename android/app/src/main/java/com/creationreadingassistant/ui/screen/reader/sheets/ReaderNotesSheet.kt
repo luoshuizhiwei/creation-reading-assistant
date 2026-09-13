@@ -6,19 +6,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -29,20 +23,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkAdd
-import androidx.compose.material.icons.outlined.DeleteOutline
-import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.FormatListBulleted
-import androidx.compose.material.icons.outlined.FormatQuote
+import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.NearMe
 import androidx.compose.material.icons.outlined.Share
+import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,32 +40,26 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.feature.annotations.groupByChapterInDocumentOrder
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.ui.components.AppAlertDialog
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.LineArtBookmark
-import com.creationreadingassistant.ui.components.AppAlertDialog
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.bounceable
-import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 internal fun NotesSheet(
     paper: ReaderPaperPalette,
@@ -132,109 +116,41 @@ internal fun NotesSheet(
             putExtra(Intent.EXTRA_TITLE, "《${bookTitle}》阅读笔记")
             putExtra(Intent.EXTRA_TEXT, currentExportMarkdown())
         }
+        // 分享失败必须说出来：静默 no-op 会让用户以为「已经发出去了」。
+        // （用户在选择器里主动取消不会抛异常，因此这里只覆盖「没有可用目标」。）
         runCatching { context.startActivity(Intent.createChooser(intent, "分享阅读笔记")) }
+            .onFailure {
+                Toast.makeText(context, "没有可用的分享目标", Toast.LENGTH_SHORT).show()
+            }
     }
 
-    if (editingNote != null) {
-        // G26：笔记弹框去除 glassWindowBlur（反射整窗实时模糊），避免与翻页争 GPU。
-        AppAlertDialog(
-            onDismissRequest = { editingNote = null },
-            title = {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Icon(
-                            Icons.Outlined.EditNote,
-                            contentDescription = null,
-                            modifier = Modifier.size(15.dp),
-                            tint = MaterialTheme.colorScheme.primary,
-                        )
-                    }
-                    Text("编辑高亮笔记", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+    // R3-P1：删除高亮 / 笔记不可逆（高亮可能带着用户手写的批注），
+    // 因此先把「删除」变成一次请求，用户确认后才下发回调。回调签名与命令通道保持不变。
+    var pendingDelete by remember { mutableStateOf<NotesDeleteRequest?>(null) }
+    pendingDelete?.let { request ->
+        DeleteAnnotationConfirmDialog(
+            request = request,
+            onConfirm = {
+                pendingDelete = null
+                when (request) {
+                    is NotesDeleteRequest.Highlight -> onDeleteHighlight(request.entity)
+                    is NotesDeleteRequest.Note -> onDeleteNote(request.entity)
                 }
             },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    editingNote?.text?.takeIf { it.isNotBlank() }?.let { excerpt ->
-                        Surface(
-                            shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            modifier = Modifier.fillMaxWidth(),
-                        ) {
-                            Text(
-                                "摘录：${excerpt.take(60)}${if (excerpt.length > 60) "…" else ""}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.outline,
-                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                            )
-                        }
-                    }
-                    OutlinedTextField(
-                        value = noteDraft,
-                        onValueChange = { noteDraft = it },
-                        label = { Text("笔记内容") },
-                        shape = RoundedCornerShape(14.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = MaterialTheme.colorScheme.primary,
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                        ),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 100.dp),
-                    )
-                }
+            onDismiss = { pendingDelete = null },
+        )
+    }
+
+    editingNote?.let { note ->
+        HighlightNoteEditDialog(
+            highlight = note,
+            noteDraft = noteDraft,
+            onDraftChange = { noteDraft = it },
+            onSave = {
+                onEditHighlightNote(note, noteDraft)
+                editingNote = null
             },
-            confirmButton = {
-                val confirmInteraction = remember { MutableInteractionSource() }
-                Surface(
-                    onClick = {
-                        haptic(HapticFeedbackType.TextHandleMove)
-                        editingNote?.let { onEditHighlightNote(it, noteDraft) }
-                        editingNote = null
-                    },
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary,
-                    modifier = Modifier.bounceable(confirmInteraction),
-                ) {
-                    Text(
-                        "保存",
-                        style = MaterialTheme.typography.labelMedium,
-                        fontWeight = FontWeight.SemiBold,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
-            },
-            dismissButton = {
-                val cancelInteraction = remember { MutableInteractionSource() }
-                Surface(
-                    onClick = {
-                        haptic(HapticFeedbackType.TextHandleMove)
-                        editingNote = null
-                    },
-                    shape = PillShape,
-                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                    border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    modifier = Modifier.bounceable(cancelInteraction),
-                ) {
-                    Text(
-                        "取消",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
-                }
-            },
+            onDismiss = { editingNote = null },
         )
     }
 
@@ -378,188 +294,28 @@ internal fun NotesSheet(
                 grouped.forEach { (chapter, items) ->
                     item {
                         NotesSectionHeader(
-                            icon = Icons.Outlined.FormatListBulleted,
+                            icon = Icons.AutoMirrored.Outlined.FormatListBulleted,
                             title = chapter?.takeIf { it.isNotBlank() } ?: "未分类",
                             count = items.size,
                             tint = MaterialTheme.colorScheme.primary,
                         )
                     }
                     itemsIndexed(items, key = { _, h -> h.id }) { index, h ->
-                        Surface(
-                            shape = RoundedCornerShape(16.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 4.dp)
-                                .listItemEnter(index, reducedMotion),
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                            ) {
-                                // 顶部：20dp 双层高光同心圆 + 摘录正文 + 删除微操作
-                                Row(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    verticalAlignment = Alignment.Top,
-                                ) {
-                                    val solidColor = paper.highlightSolid(h.color ?: "yellow")
-                                    // 左侧 20dp 双层高光同心圆
-                                    Box(
-                                        modifier = Modifier
-                                            .padding(top = 2.dp)
-                                            .size(20.dp)
-                                            .background(solidColor.copy(alpha = 0.22f), CircleShape)
-                                            .border(1.dp, solidColor.copy(alpha = 0.5f), CircleShape),
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(9.dp)
-                                                .background(solidColor, CircleShape),
-                                        )
-                                    }
-
-                                    // 摘录正文排版典雅
-                                    Text(
-                                        text = h.text,
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier
-                                            .weight(1f)
-                                            .padding(horizontal = 8.dp),
-                                    )
-
-                                    // 删除按钮
-                                    Box(
-                                        modifier = Modifier
-                                            .size(26.dp)
-                                            .clip(CircleShape)
-                                            .clickable {
-                                                haptic(HapticFeedbackType.TextHandleMove)
-                                                onDeleteHighlight(h)
-                                            },
-                                        contentAlignment = Alignment.Center,
-                                    ) {
-                                        Icon(
-                                            Icons.Outlined.DeleteOutline,
-                                            contentDescription = "删除",
-                                            modifier = Modifier.size(16.dp),
-                                            tint = MaterialTheme.colorScheme.outline,
-                                        )
-                                    }
-                                }
-
-                                // 笔记气泡：纸墨微底座
-                                h.note?.takeIf { it.isNotBlank() }?.let { noteContent ->
-                                    Surface(
-                                        shape = RoundedCornerShape(10.dp),
-                                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(top = 8.dp, start = 28.dp, end = 2.dp),
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                                            verticalAlignment = Alignment.Top,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                        ) {
-                                            Icon(
-                                                Icons.Outlined.EditNote,
-                                                contentDescription = null,
-                                                modifier = Modifier
-                                                    .size(15.dp)
-                                                    .padding(top = 1.dp),
-                                                tint = MaterialTheme.colorScheme.primary,
-                                            )
-                                            Text(
-                                                noteContent,
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // 颜色切换圆点升级为发丝描边与双层光环的微胶囊网格
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 10.dp, start = 28.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    HIGHLIGHT_COLORS.forEach { c ->
-                                        val isSelected = h.color == c
-                                        val cColor = paper.highlightSolid(c)
-                                        Box(
-                                            modifier = Modifier
-                                                .size(22.dp)
-                                                .clip(CircleShape)
-                                                .clickable {
-                                                    haptic(HapticFeedbackType.TextHandleMove)
-                                                    onChangeHighlightColor(h, c)
-                                                }
-                                                .then(
-                                                    if (isSelected) {
-                                                        Modifier
-                                                            .background(cColor.copy(alpha = 0.25f), CircleShape)
-                                                            .border(1.5.dp, cColor, CircleShape)
-                                                    } else {
-                                                        Modifier.border(
-                                                            0.6.dp,
-                                                            MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
-                                                            CircleShape,
-                                                        )
-                                                    },
-                                                ),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(if (isSelected) 10.dp else 12.dp)
-                                                    .background(cColor, CircleShape),
-                                            )
-                                        }
-                                    }
-                                }
-
-                                // 操作按钮行微胶囊化
-                                FlowRow(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp, start = 28.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    NotesActionPill(
-                                        text = "跳转",
-                                        icon = Icons.Outlined.NearMe,
-                                        onClick = { onJumpToHighlight(h) },
-                                    )
-                                    NotesActionPill(
-                                        text = if (h.note.isNullOrBlank()) "加笔记" else "编辑笔记",
-                                        icon = Icons.Outlined.EditNote,
-                                        onClick = {
-                                            noteDraft = h.note ?: ""
-                                            editingNote = h
-                                        },
-                                    )
-                                    NotesActionPill(
-                                        text = "转笔记",
-                                        icon = Icons.Outlined.FormatQuote,
-                                        onClick = { onHighlightToNote(h) },
-                                    )
-                                    NotesActionPill(
-                                        text = "转灵感",
-                                        icon = Icons.Outlined.Lightbulb,
-                                        onClick = { onHighlightToInspiration(h) },
-                                    )
-                                }
-                            }
-                        }
+                        HighlightItemCard(
+                            paper = paper,
+                            highlight = h,
+                            index = index,
+                            reducedMotion = reducedMotion,
+                            onDelete = { pendingDelete = NotesDeleteRequest.Highlight(h) },
+                            onChangeColor = { c -> onChangeHighlightColor(h, c) },
+                            onJump = { onJumpToHighlight(h) },
+                            onEditNote = {
+                                noteDraft = h.note ?: ""
+                                editingNote = h
+                            },
+                            onConvertToNote = { onHighlightToNote(h) },
+                            onConvertToInspiration = { onHighlightToInspiration(h) },
+                        )
                     }
                 }
             }
@@ -575,96 +331,13 @@ internal fun NotesSheet(
                     )
                 }
                 itemsIndexed(notes, key = { _, n -> n.id }) { index, n ->
-                    val isBookmark = n.kind == "bookmark"
-                    val podColor = if (isBookmark) Color(0xFFD97706) else Color(0xFF2563EB)
-                    val podIcon = if (isBookmark) Icons.Outlined.Bookmark else Icons.Outlined.FormatQuote
-
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .listItemEnter(index, reducedMotion),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // 28dp 独立微彩圆角底座
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .background(podColor.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp))
-                                    .border(0.6.dp, podColor.copy(alpha = 0.35f), shape = RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    podIcon,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = podColor,
-                                )
-                            }
-
-                            // 典雅排版
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 10.dp),
-                            ) {
-                                Text(
-                                    text = n.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                n.excerpt?.takeIf { it.isNotBlank() }?.let { excerpt ->
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = excerpt,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-
-                            // 跳转微胶囊
-                            NotesActionPill(
-                                text = "跳转",
-                                icon = Icons.Outlined.NearMe,
-                                onClick = { onJumpToBookmark(n) },
-                            )
-
-                            Spacer(Modifier.width(6.dp))
-
-                            // 删除微操作
-                            Box(
-                                modifier = Modifier
-                                    .size(26.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        haptic(HapticFeedbackType.TextHandleMove)
-                                        onDeleteNote(n)
-                                    },
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.DeleteOutline,
-                                    contentDescription = "删除",
-                                    modifier = Modifier.size(16.dp),
-                                    tint = MaterialTheme.colorScheme.outline,
-                                )
-                            }
-                        }
-                    }
+                    NoteItemCard(
+                        note = n,
+                        index = index,
+                        reducedMotion = reducedMotion,
+                        onJump = { onJumpToBookmark(n) },
+                        onDelete = { pendingDelete = NotesDeleteRequest.Note(n) },
+                    )
                 }
             }
 
@@ -679,64 +352,11 @@ internal fun NotesSheet(
                     )
                 }
                 itemsIndexed(inspirations, key = { _, ins -> ins.id }) { index, ins ->
-                    val amberColor = Color(0xFFF59E0B)
-                    Surface(
-                        shape = RoundedCornerShape(16.dp),
-                        color = MaterialTheme.colorScheme.surface,
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp)
-                            .listItemEnter(index, reducedMotion),
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(12.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            // 28dp 暖琥珀底座 + Lightbulb
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .background(amberColor.copy(alpha = 0.14f), shape = RoundedCornerShape(8.dp))
-                                    .border(0.6.dp, amberColor.copy(alpha = 0.35f), shape = RoundedCornerShape(8.dp)),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Lightbulb,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(16.dp),
-                                    tint = amberColor,
-                                )
-                            }
-
-                            Column(
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(horizontal = 10.dp),
-                            ) {
-                                Text(
-                                    text = ins.title,
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                                if (ins.body.isNotBlank()) {
-                                    Spacer(Modifier.height(2.dp))
-                                    Text(
-                                        text = ins.body,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                        maxLines = 2,
-                                        overflow = TextOverflow.Ellipsis,
-                                    )
-                                }
-                            }
-                        }
-                    }
+                    InspirationItemCard(
+                        inspiration = ins,
+                        index = index,
+                        reducedMotion = reducedMotion,
+                    )
                 }
             }
 
@@ -758,299 +378,59 @@ internal fun NotesSheet(
     }
 }
 
-/**
- * 章节与类别分组标题：带 20dp 独立微图标底座与数量微胶囊。
- */
-@Composable
-private fun NotesSectionHeader(
-    icon: ImageVector,
-    title: String,
-    count: Int,
-    tint: Color = MaterialTheme.colorScheme.primary,
-) {
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(top = 14.dp, bottom = 6.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
-        Box(
-            modifier = Modifier
-                .size(20.dp)
-                .background(tint.copy(alpha = 0.12f), shape = RoundedCornerShape(6.dp)),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                icon,
-                contentDescription = null,
-                modifier = Modifier.size(12.dp),
-                tint = tint,
-            )
-        }
-        Text(
-            title,
-            style = MaterialTheme.typography.titleSmall,
-            fontWeight = FontWeight.SemiBold,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f, fill = false),
-        )
-        Surface(
-            shape = PillShape,
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-            border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-        ) {
-            Text(
-                "$count",
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.outline,
-                modifier = Modifier.padding(horizontal = 7.dp, vertical = 1.5.dp),
-            )
-        }
+/** 待确认的删除请求；确认之前不下发任何删除回调。 */
+private sealed interface NotesDeleteRequest {
+    val preview: String
+
+    data class Highlight(val entity: HighlightEntity) : NotesDeleteRequest {
+        override val preview: String get() = entity.text
+    }
+
+    data class Note(val entity: NoteEntity) : NotesDeleteRequest {
+        override val preview: String get() = entity.title
     }
 }
 
 /**
- * 操作微胶囊按钮（跳转、笔记、转笔记、转灵感等）。
+ * 删除高亮 / 笔记的二次确认。
+ *
+ * 必须展示**被删内容的摘录**：同一个列表里可能有几十条同类条目，
+ * 只说「确定删除吗？」用户无法确认自己点中的是哪一条。
  */
 @Composable
-private fun NotesActionPill(
-    text: String,
-    icon: ImageVector? = null,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val interaction = remember { MutableInteractionSource() }
-    val haptic = rememberHaptic(rememberReducedMotion())
-    Surface(
-        onClick = {
-            haptic(HapticFeedbackType.TextHandleMove)
-            onClick()
-        },
-        shape = PillShape,
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
-        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f)),
-        modifier = modifier.bounceable(interaction),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(3.dp),
-        ) {
-            if (icon != null) {
-                Icon(
-                    icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(12.dp),
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                text,
-                style = MaterialTheme.typography.labelSmall,
-                fontWeight = FontWeight.Medium,
-                color = MaterialTheme.colorScheme.primary,
-            )
-        }
-    }
-}
-
-/**
- * 内联笔记对话框（从 ReaderScreen 提取）。
- * 使用回调式 onSaveNote，不直接访问 DAO。全面微岛化升级。
- */
-@Composable
-internal fun ReaderNoteDialog(
-    selectedText: String,
-    noteBody: String,
-    onNoteBodyChange: (String) -> Unit,
-    onSave: () -> Unit,
+private fun DeleteAnnotationConfirmDialog(
+    request: NotesDeleteRequest,
+    onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
-    val haptic = rememberHaptic(rememberReducedMotion())
-    // G26：划线后的内联笔记弹框直接覆盖在阅读页上，帧预算最敏感；
-    // 去除 glassWindowBlur 的整窗实时模糊（除模糊外与普通 AlertDialog 一致）。
+    val label = when (request) {
+        is NotesDeleteRequest.Highlight -> "高亮"
+        is NotesDeleteRequest.Note -> "笔记"
+    }
     AppAlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(24.dp)
-                        .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.12f), CircleShape),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        Icons.Outlined.EditNote,
-                        contentDescription = null,
-                        modifier = Modifier.size(15.dp),
-                        tint = MaterialTheme.colorScheme.primary,
-                    )
-                }
-                Text("新建笔记", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
-            }
+            Text(
+                "删除这条$label？",
+                style = MaterialTheme.typography.titleMedium,
+                fontWeight = FontWeight.Bold,
+            )
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (selectedText.isNotBlank()) {
-                    Surface(
-                        shape = RoundedCornerShape(10.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
-                        border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            "摘录：${selectedText.take(60)}${if (selectedText.length > 60) "…" else ""}",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.outline,
-                            modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp),
-                        )
-                    }
-                }
-                OutlinedTextField(
-                    value = noteBody,
-                    onValueChange = onNoteBodyChange,
-                    label = { Text("笔记内容") },
-                    shape = RoundedCornerShape(14.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = MaterialTheme.colorScheme.primary,
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.2f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.15f),
-                    ),
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .heightIn(min = 100.dp),
-                )
-            }
+            Text(
+                "「${request.preview.ifBlank { "（无摘录）" }}」将被删除，且无法撤销。",
+                style = MaterialTheme.typography.bodyMedium,
+            )
         },
         confirmButton = {
-            val confirmInteraction = remember { MutableInteractionSource() }
-            Surface(
-                onClick = {
-                    haptic(HapticFeedbackType.TextHandleMove)
-                    onSave()
-                },
-                shape = PillShape,
-                color = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.bounceable(confirmInteraction),
-            ) {
-                Text(
-                    "保存",
-                    style = MaterialTheme.typography.labelMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+            Button(onClick = onConfirm) {
+                Text("删除")
             }
         },
         dismissButton = {
-            val cancelInteraction = remember { MutableInteractionSource() }
-            Surface(
-                onClick = {
-                    haptic(HapticFeedbackType.TextHandleMove)
-                    onDismiss()
-                },
-                shape = PillShape,
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                modifier = Modifier.bounceable(cancelInteraction),
-            ) {
-                Text(
-                    "取消",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                )
+            TextButton(onClick = onDismiss) {
+                Text("取消")
             }
         },
     )
-}
-
-
-// ============================== 导出 ==============================
-
-/** 导出时间戳格式（文件名与文档头共用，保持一致）。 */
-private val EXPORT_TIME_FORMAT: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-
-/** SAF 建议文件名：`《书名》笔记-yyyyMMdd-HHmm.md`，非法文件名字符替换为下划线。 */
-internal fun notesExportFileName(bookTitle: String, now: LocalDateTime): String {
-    val safeTitle = bookTitle.replace(Regex("""[\\/:*?"<>|]"""), "_").ifBlank { "未命名" }
-    val stamp = now.format(DateTimeFormatter.ofPattern("yyyyMMdd-HHmm"))
-    return "《${safeTitle}》笔记-$stamp.md"
-}
-
-/**
- * 组装全书阅读笔记的 Markdown 导出内容：书摘（按章节分组，含批注）、
- * 笔记、书签、灵感四节；空节整体省略。纯函数，JVM 单测锁定结构。
- */
-internal fun buildNotesExportMarkdown(
-    bookTitle: String,
-    highlights: List<HighlightEntity>,
-    notes: List<NoteEntity>,
-    inspirations: List<InspirationEntity>,
-    exportedAt: LocalDateTime,
-): String = buildString {
-    appendLine("# 《${bookTitle.ifBlank { "未命名" } }》阅读笔记")
-    appendLine()
-    appendLine("> 导出于 ${exportedAt.format(EXPORT_TIME_FORMAT)}")
-    appendLine()
-
-    if (highlights.isNotEmpty()) {
-        appendLine("## 书摘（共 ${highlights.size} 条）")
-        appendLine()
-        groupByChapterInDocumentOrder(
-            highlights,
-            chapterTitleOf = { it.chapter_title },
-            chapterIndexOf = { LocatorCodec.decode(it.locator_json)?.chapterIndex },
-            createdAtOf = { it.created_at },
-        ).forEach { (chapter, items) ->
-            appendLine("### ${chapter?.takeIf { it.isNotBlank() } ?: "未分类"}")
-            appendLine()
-            items.forEachIndexed { i, h ->
-                appendLine("${i + 1}. ${h.text}")
-                h.note?.takeIf { it.isNotBlank() }?.let { appendLine("   批注：$it") }
-            }
-            appendLine()
-        }
-    }
-
-    val plainNotes = notes.filter { it.kind != "bookmark" }
-    if (plainNotes.isNotEmpty()) {
-        appendLine("## 笔记（共 ${plainNotes.size} 条）")
-        appendLine()
-        plainNotes.forEach { n ->
-            appendLine("- **${n.title}**${if (n.body.isNotBlank()) "：${n.body}" else ""}")
-            n.excerpt?.takeIf { it.isNotBlank() }?.let { appendLine("  > 摘录：$it") }
-        }
-        appendLine()
-    }
-
-    val bookmarks = notes.filter { it.kind == "bookmark" }
-    if (bookmarks.isNotEmpty()) {
-        appendLine("## 书签（共 ${bookmarks.size} 条）")
-        appendLine()
-        bookmarks.forEach { b ->
-            appendLine("- ${b.title}")
-            b.excerpt?.takeIf { it.isNotBlank() }?.let { appendLine("  > ${it}") }
-        }
-        appendLine()
-    }
-
-    if (inspirations.isNotEmpty()) {
-        appendLine("## 灵感（共 ${inspirations.size} 条）")
-        appendLine()
-        inspirations.forEach { ins ->
-            appendLine("### ${ins.title}")
-            appendLine()
-            if (ins.body.isNotBlank()) {
-                appendLine(ins.body)
-                appendLine()
-            }
-        }
-    }
 }

@@ -26,6 +26,7 @@ import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RuleKind
 import com.creationreadingassistant.feature.reader.rules.RuleMutationResult
+import com.creationreadingassistant.feature.reader.rules.FakeReaderCorrectionDao
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import com.creationreadingassistant.feature.reader.session.ReadingSessionRecorder
 import com.creationreadingassistant.feature.reader.session.ReadingActivity
@@ -116,7 +117,7 @@ class ReaderViewModelTest {
         aiClient = mockk(relaxed = true)
 
         ruleDao = InMemoryReaderTextRuleDao()
-        rulesRepository = RulesRepository(ruleDao)
+        rulesRepository = RulesRepository(ruleDao, FakeReaderCorrectionDao())
         searchIndexRepository = mockk(relaxed = true)
         searchIndexScheduler = mockk(relaxed = true)
         appScope = CoroutineScope(testDispatcher)

@@ -10,10 +10,12 @@ import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -27,6 +29,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
@@ -120,6 +123,25 @@ fun <Frame : Any> PageTurner(
         var keyPrev by remember { mutableStateOf<Any?>(null) }
         // 落位提交覆盖层：滑入页位图盖在 live 静止页上 1~2 帧，遮住提交帧重渲染。
         var commitOverlay by remember { mutableStateOf<ImageBitmap?>(null) }
+        // 拟真立体光影：边缘投影与翻页微折痕渐变笔刷（remember 保证动画帧零分配）
+        val dropShadowBrush = remember {
+            Brush.horizontalGradient(
+                listOf(
+                    Color.Black.copy(alpha = 0.28f),
+                    Color.Black.copy(alpha = 0.10f),
+                    Color.Transparent,
+                ),
+            )
+        }
+        val creaseBrush = remember {
+            Brush.horizontalGradient(
+                listOf(
+                    Color.Transparent,
+                    Color.Black.copy(alpha = 0.04f),
+                    Color.Black.copy(alpha = 0.14f),
+                ),
+            )
+        }
         // 单次 record 门控：静止态每页只在帧身份变化后录 1 帧，避免空闲帧持续重录变重。
         var recCur by remember { mutableStateOf(true) }
         var recNext by remember { mutableStateOf(true) }
@@ -405,6 +427,7 @@ fun <Frame : Any> PageTurner(
                 } else if (dragBitmapsReady) {
                     if (isCover) {
                         // cover：当前页揭开、下层静止，需逐页独立变换。
+                        // 1. 底层下页（向左翻时揭开露出）
                         bmpNext?.let { bmp ->
                             Image(
                                 bitmap = bmp,
@@ -412,6 +435,7 @@ fun <Frame : Any> PageTurner(
                                 modifier = Modifier.fillMaxSize().graphicsLayer { translationX = nextTx() },
                             )
                         }
+                        // 2. 当前页（向左翻时平移揭开，向右翻时在底层静止）
                         bmpCurrent?.let { bmp ->
                             Image(
                                 bitmap = bmp,
@@ -419,6 +443,75 @@ fun <Frame : Any> PageTurner(
                                 modifier = Modifier.fillMaxSize().graphicsLayer { translationX = currentTx() },
                             )
                         }
+                        // 3. 向左翻页（dx.value < 0）：揭起页微折痕与落到底层的外投阴影
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(16.dp)
+                                .graphicsLayer {
+                                    translationX = width + dx.value - 16.dp.toPx()
+                                    alpha = if (nextFrame != null && dx.value < 0f) {
+                                        ((-dx.value) / (width * 0.08f)).coerceIn(0f, 1f)
+                                    } else {
+                                        0f
+                                    }
+                                }
+                                .background(creaseBrush),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(32.dp)
+                                .graphicsLayer {
+                                    translationX = width + dx.value
+                                    alpha = if (nextFrame != null && dx.value < 0f) {
+                                        ((-dx.value) / (width * 0.08f)).coerceIn(0f, 1f)
+                                    } else {
+                                        0f
+                                    }
+                                }
+                                .background(dropShadowBrush),
+                        )
+                        // 4. 上层上一页（向右翻时从左侧滑入覆盖当前页）
+                        bmpPrev?.let { bmp ->
+                            Image(
+                                bitmap = bmp,
+                                contentDescription = null,
+                                modifier = Modifier.fillMaxSize().graphicsLayer {
+                                    translationX = prevTx()
+                                    alpha = if (previousFrame != null && dx.value > 0f) 1f else 0f
+                                },
+                            )
+                        }
+                        // 5. 向右翻页（dx.value > 0）：覆盖页微折痕与落到当前页的外投阴影
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(16.dp)
+                                .graphicsLayer {
+                                    translationX = dx.value - 16.dp.toPx()
+                                    alpha = if (previousFrame != null && dx.value > 0f) {
+                                        (dx.value / (width * 0.08f)).coerceIn(0f, 1f)
+                                    } else {
+                                        0f
+                                    }
+                                }
+                                .background(creaseBrush),
+                        )
+                        Box(
+                            modifier = Modifier
+                                .fillMaxHeight()
+                                .width(32.dp)
+                                .graphicsLayer {
+                                    translationX = dx.value
+                                    alpha = if (previousFrame != null && dx.value > 0f) {
+                                        (dx.value / (width * 0.08f)).coerceIn(0f, 1f)
+                                    } else {
+                                        0f
+                                    }
+                                }
+                                .background(dropShadowBrush),
+                        )
                     } else {
                         // slide：prev/current/next 同速平移。每页位图用**各自 graphicsLayer**
                         // 在 draw 期求 translationX（base + dx.value），不使用 offset/布局修饰符 →

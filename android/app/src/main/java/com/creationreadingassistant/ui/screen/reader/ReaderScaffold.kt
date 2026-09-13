@@ -30,14 +30,17 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.BlendMode
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.ClipboardManager
-import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.Clipboard
+import androidx.compose.ui.platform.LocalClipboard
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
+import com.creationreadingassistant.data.settings.PerBookOverrides
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.ReaderSettingsScope
+import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.doc.DocBlock
 import com.creationreadingassistant.feature.reader.doc.DocChapter
@@ -104,6 +107,13 @@ internal data class ReaderScreenMutableHolders(
      * ReaderContentHost 消费后经回调 ack 清空。
      */
     val searchScrollFocusRequestState: MutableState<SearchScrollFocusRequest?>,
+    /**
+     * 书内设置面板的「修改作用范围」（R3-P1）：本书覆盖 / 全局。
+     * 属于会话 UI 偏好，按书 remember；切书回到默认「本书」。
+     */
+    val settingsScopeState: MutableState<ReaderSettingsScope>,
+    /** R3-X1：离线词典面板要查的词（打开面板前由选区动作写入）。 */
+    val dictionaryWordState: MutableState<String>,
 )
 
 /**
@@ -134,6 +144,10 @@ internal fun rememberReaderScreenMutableHolders(
     val requestedSourceNavigationChapterState = remember(bookId, sourceLocatorJson) { mutableStateOf<Int?>(null) }
     // P1：搜索滚动聚焦请求按书持有；切书自动清空，跨书残留由消费侧身份匹配兜底丢弃
     val searchScrollFocusRequestState = remember(bid) { mutableStateOf<SearchScrollFocusRequest?>(null) }
+    // R3-P1：书内设置的作用范围默认「本书」——书内调整天然针对当前这本，且面板顶部显式可见可切换
+    val settingsScopeState = remember(bid) { mutableStateOf(ReaderSettingsScope.BOOK) }
+    // R3-X1：离线查词的目标词；面板关闭后不必清（下次打开会被新选区覆盖）
+    val dictionaryWordState = remember(bid) { mutableStateOf("") }
     return ReaderScreenMutableHolders(
         autoPagingActiveState = autoPagingActiveState,
         runtimeErrorState = runtimeErrorState,
@@ -145,6 +159,8 @@ internal fun rememberReaderScreenMutableHolders(
         pendingSourceLocatorJsonState = pendingSourceLocatorJsonState,
         requestedSourceNavigationChapterState = requestedSourceNavigationChapterState,
         searchScrollFocusRequestState = searchScrollFocusRequestState,
+        settingsScopeState = settingsScopeState,
+        dictionaryWordState = dictionaryWordState,
     )
 }
 
@@ -161,7 +177,23 @@ internal fun ReaderScaffold(
     eyeCareActive: Boolean,
     eyeFilterColor: Color,
     paperTexture: Boolean,
+    /** 有效阅读设置（全局 + 本书覆盖）。 */
     readerSettings: ReaderSettings,
+    /** R3-P1：全局阅读设置（不含本书覆盖），书内编辑路由需要。 */
+    globalReaderSettings: ReaderSettings,
+    /** R3-P1：本书显式覆盖项。 */
+    bookReaderOverrides: PerBookOverrides,
+    /** R3-P1：书内设置的修改作用范围。 */
+    settingsScope: ReaderSettingsScope,
+    onSettingsScopeChange: (ReaderSettingsScope) -> Unit,
+    /** R3-X1：选区工具条动作配置。 */
+    selectionActions: SelectionActionSettings,
+    /** R3-X1：AI 是否已配置；未配置时「AI 解读」不进选区菜单。 */
+    aiConfigured: Boolean,
+    /** R3-X1：离线词典面板要查的词。 */
+    dictionaryWord: String,
+    /** R3-X1：以选中文字打开离线词典面板。 */
+    onOpenDictionary: (String) -> Unit,
     snackbarHost: SnackbarHostState,
     isLoading: Boolean,
     isChapterLoading: Boolean,
@@ -242,7 +274,7 @@ internal fun ReaderScaffold(
     // 现场从 inputs / callbacks / loadedBook 取的值（与原 ReaderScreen 局部取值一致）
     val context: Context = LocalContext.current
     val scope: CoroutineScope = rememberCoroutineScope()
-    val clipboard: ClipboardManager = LocalClipboardManager.current
+    val clipboard: Clipboard = LocalClipboard.current
     val onBack: () -> Unit = callbacks.onBack
     val onDocumentAction: (ReaderAction) -> Unit = callbacks.onDocumentAction
     val onAction: (ReaderAction) -> Unit = callbacks.onAction
@@ -478,6 +510,9 @@ internal fun ReaderScaffold(
                     paper = paper,
                     temporaryInspection = inputs.navigationMode == ReaderNavigationMode.TEMPORARY,
                     hasReturnableTarget = callbacks.hasReturnableTarget,
+                    selectionActions = selectionActions,
+                    // R3-X1 门控：未配置 AI 时「AI 解读」不进选区菜单（点进去只会撞提示）
+                    aiConfigured = aiConfigured,
                 ),
                 callbacks = buildReaderInteractionLayerCallbacks(
                     chapterIndex = chapterIndex,
@@ -506,6 +541,8 @@ internal fun ReaderScaffold(
                     },
                     computeLocatorJson = computeLocatorJson,
                     showNotice = showNotice,
+                    selectionActions = selectionActions,
+                    onOpenDictionary = onOpenDictionary,
                 ),
                 tts = tts,
             )
@@ -554,6 +591,10 @@ internal fun ReaderScaffold(
                     txtRuleScanStatus = inputs.txtRuleScanStatus,
                     recentChapters = recentChapters,
                     appDark = appDark,
+                    globalReaderSettings = globalReaderSettings,
+                    bookReaderOverrides = bookReaderOverrides,
+                    settingsScope = settingsScope,
+                    dictionaryWord = dictionaryWord,
                 ),
                 sheetCallbacks = buildReaderSheetHostCallbacks(
                     epubBook = epubBook,
@@ -572,6 +613,8 @@ internal fun ReaderScaffold(
                     bookAuthor = bookAuthor,
                     recentChapters = recentChapters,
                     pagedJumpRequest = pagedJumpRequest,
+                    // R5-I2：灵感/摘录落库携带与高亮同源的 source locator
+                    computeLocatorJson = computeLocatorJson,
                     onTxtTocRuleIdChange = { txtTocRuleId = it },
                     onPendingTxtRuleAnchorOffsetChange = { pendingTxtRuleAnchor = it },
                     onPendingHighlightIdChange = { pendingHighlightId = it },
@@ -582,6 +625,7 @@ internal fun ReaderScaffold(
                     onAction = onAction,
                     onCancelTxtScan = { onAction(ReaderAction.CancelTxtTocScan) },
                     onPersistProgress = onPersistProgress,
+                    onSettingsScopeChange = onSettingsScopeChange,
                 ),
             )
 

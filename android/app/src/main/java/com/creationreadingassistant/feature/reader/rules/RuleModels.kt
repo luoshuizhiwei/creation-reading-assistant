@@ -29,8 +29,52 @@ data class TocRule(
 )
 
 /**
+ * 单处纠错的 source 锚点（E2）。
+ *
+ * - [sourceStart]/[sourceEnd] 是**全书 source 坐标**（半开区间），来自选区经投影
+ *   映射回 source 的精确位置；与持久化批注同一坐标系，重分页/重启后仍然成立。
+ * - [findText] 是**保存时该区间在 display 空间的文本**（用户所见即所选）。
+ *   应用时先经偏移映射换算到当前 display 位置，再校验该处文本仍等于 [findText]：
+ *   不等（书文件变更、先前的纠错已覆盖该区间等漂移）则诚实跳过，绝不近似替换。
+ * - 锚定纠错**不参与正则匹配**：[ReplaceRule.pattern] 对它无意义，应用走
+ *   [ReplaceProjection] 的锚定覆盖叠加（在规则投影之后按精确区间拼接）。
+ */
+data class CorrectionAnchor(
+    val sourceStart: Int,
+    val sourceEnd: Int,
+    val findText: String,
+) {
+    init {
+        require(sourceStart >= 0) { "sourceStart 必须 >= 0" }
+        require(sourceEnd > sourceStart) { "sourceEnd 必须 > sourceStart（空区间不允许）" }
+    }
+}
+
+/**
+ * 单处纠错的用户可见记录（E2）：列表/撤销 UI 的展示模型。
+ * [id] 是存储层记录 id；参与投影的执行身份是 `correction:<id>` 的锚定 [ReplaceRule]。
+ */
+data class CorrectionRecord(
+    val id: String,
+    val sourceStart: Int,
+    val sourceEnd: Int,
+    val findText: String,
+    val replaceText: String,
+    /** true = 已撤销（保留为历史，可恢复）；false = 生效中。 */
+    val undone: Boolean,
+    val createdAt: Long,
+) {
+    /** 撤销后不再参与投影；恢复后重新生效。 */
+    val active: Boolean get() = !undone
+}
+
+/**
  * 替换规则：按 [position] 升序应用；[replacement] 为空表示删除命中文本。
  * 保存前经 [RuleEngine.validateReplaceRule] 校验（可编译、非空匹配、无灾难性回溯）。
+ *
+ * [anchor] 非空时本条是**单处纠错**（E2）：不做正则匹配，只在锚定区间生效；
+ * pattern 应为空串，[RuleEngine.applyReplace] 会把它交给
+ * [ReplaceProjection] 的锚定叠加通道。
  */
 data class ReplaceRule(
     val id: String,
@@ -40,6 +84,7 @@ data class ReplaceRule(
     val enabled: Boolean,
     val position: Int,
     val scope: RuleScope,
+    val anchor: CorrectionAnchor? = null,
 )
 
 /** 规则保存前校验失败的原因。 */

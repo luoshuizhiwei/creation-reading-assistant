@@ -53,6 +53,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import com.creationreadingassistant.data.settings.SelectionActionSettings
+import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.screen.reader.sheets.HIGHLIGHT_COLORS
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
@@ -64,13 +66,15 @@ internal data class SelectionToolbarActionSpec(
     val label: String,
 )
 
-// 高频动作固定为四个，避免在手机宽度上压缩触控目标。浏览器查询是用户要求的一键入口；
-// 灵感、批注、替换等上下文动作统一收进“更多”，后续可在这个动作清单上继续做显隐配置。
+/**
+ * 默认（未配置）的高频动作与「更多」动作。R3-X1 后工具条由
+ * [com.creationreadingassistant.data.settings.SelectionActionSettings] 驱动，
+ * 这两个常量只在没有任何配置时兜底，以及给测试/预览用。
+ */
 internal val selectionPrimaryActions = listOf(
     SelectionToolbarActionSpec("highlight", "高亮"),
     SelectionToolbarActionSpec("browser", "浏览器"),
     SelectionToolbarActionSpec("copy", "复制"),
-    SelectionToolbarActionSpec("more", "更多"),
 )
 
 internal val selectionMoreActions = listOf(
@@ -82,6 +86,39 @@ internal val selectionMoreActions = listOf(
     SelectionToolbarActionSpec("inspiration", "记为灵感"),
     SelectionToolbarActionSpec("cancel", "取消选择"),
 )
+
+/** 「更多」溢出按钮本身的文案；不是可配置动作（没有它就无法进入次级动作）。 */
+private const val OVERFLOW_LABEL = "更多"
+
+/**
+ * 把配置渲染成工具条实际要画的两个清单，并叠加**能力门控**（R3-X1 验收项「门控不被绕过」）。
+ *
+ * 门控规则：
+ * - 「替换」在 TXT 分页引擎不可用时**不出现** —— 一个点了没反应的槽位比没有这个槽位更糟；
+ * - 「AI 解读」未配置 Key 时**不出现** —— 否则用户点进去只会撞到「请先配置 AI」。
+ *
+ * 高频槽兜底：门控可能把用户配置的项全部摘掉（例如只选了「替换」+「AI 解读」），
+ * 此时回退到「定义顺序里第一个可用动作」，保证选区永远有可点入口。
+ */
+internal fun selectionToolbarActions(
+    settings: SelectionActionSettings,
+    canCreateReplaceRule: Boolean,
+    aiConfigured: Boolean,
+): Pair<List<SelectionToolbarActionSpec>, List<SelectionToolbarActionSpec>> {
+    fun allowed(id: String): Boolean = when (id) {
+        "replace" -> canCreateReplaceRule
+        "ai" -> aiConfigured
+        else -> true
+    }
+
+    val primaryDefs = SelectionActions.effectivePrimary(settings)
+        .filter { allowed(it.id) }
+        .take(SelectionActions.MAX_PRIMARY_SLOTS)
+        .ifEmpty { SelectionActions.pickableDefs().filter { allowed(it.id) }.take(1) }
+    val moreDefs = SelectionActions.effectiveMore(settings).filter { allowed(it.id) }
+    return primaryDefs.map { SelectionToolbarActionSpec(it.id, it.label) } to
+        moreDefs.map { SelectionToolbarActionSpec(it.id, it.label) }
+}
 
 /** Snapshot the selection before clearing it so the search field never receives an empty query. */
 internal fun readerSelectionSearchActions(selectedText: String): List<ReaderAction> = listOf(
@@ -98,6 +135,10 @@ internal fun SelectionToolbar(
     onToggleColor: () -> Unit,
     onPickColor: (String) -> Unit,
     canCreateReplaceRule: Boolean,
+    /** R3-X1：由用户配置驱动的高频动作（按序渲染，末尾永远追加「更多」）。 */
+    primaryActions: List<SelectionToolbarActionSpec> = selectionPrimaryActions,
+    /** R3-X1：由用户配置驱动的溢出菜单动作。 */
+    moreActions: List<SelectionToolbarActionSpec> = selectionMoreActions,
     onBrowser: () -> Unit,
     onDictionary: () -> Unit,
     onReplace: () -> Unit,
@@ -111,6 +152,24 @@ internal fun SelectionToolbar(
 ) {
     var moreExpanded by remember { mutableStateOf(false) }
     val spec = LocalComponentSpec.current
+
+    // 单一动作分发：高频槽与「更多」菜单共用同一份 id → 回调映射，
+    // 避免「同一个动作换个位置就接错回调」这类只在真机上才暴露的错。
+    val onActionClick: (String) -> Unit = { id ->
+        when (id) {
+            "highlight" -> onToggleColor()
+            "browser" -> onBrowser()
+            "copy" -> onCopy()
+            "dictionary" -> onDictionary()
+            "note" -> onNote()
+            "replace" -> onReplace()
+            "search" -> onSearch()
+            "ai" -> onAiExplain()
+            "inspiration" -> onInspiration()
+            "cancel" -> onClear()
+            else -> Unit
+        }
+    }
 
     // 微岛收敛：选句工具条是覆盖在阅读页之上的 reader 专属面板，统一走 ReaderPanelSurface
     //（随纸 panel 纸面 + 发丝边 + panelElevation 0dp）。原手写 22dp 圆角 / surfaceContainerHigh@0.96 /
@@ -218,34 +277,23 @@ internal fun SelectionToolbar(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    SelectionCapsuleAction(
-                        icon = Icons.Outlined.BorderColor,
-                        label = selectionPrimaryActions[0].label,
-                        pedestalColor = Color(0xFFF9A825).copy(alpha = 0.15f),
-                        iconTint = Color(0xFFF57F17),
-                        onClick = onToggleColor,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SelectionCapsuleAction(
-                        icon = Icons.Outlined.Language,
-                        label = selectionPrimaryActions[1].label,
-                        pedestalColor = Color(0xFF00897B).copy(alpha = 0.14f),
-                        iconTint = Color(0xFF00796B),
-                        onClick = onBrowser,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SelectionCapsuleAction(
-                        icon = Icons.Outlined.ContentCopy,
-                        label = selectionPrimaryActions[2].label,
-                        pedestalColor = Color(0xFF1E88E5).copy(alpha = 0.15f),
-                        iconTint = Color(0xFF1565C0),
-                        onClick = onCopy,
-                        modifier = Modifier.weight(1f),
-                    )
+                    // R3-X1：高频动作由配置驱动（定义顺序渲染），每项权重相同；
+                    // 末尾固定追加「更多」溢出按钮，保证次级动作永远可达。
+                    primaryActions.forEach { action ->
+                        val visual = selectionActionVisual(action.id)
+                        SelectionCapsuleAction(
+                            icon = visual.icon,
+                            label = action.label,
+                            pedestalColor = visual.pedestalColor,
+                            iconTint = visual.iconTint,
+                            onClick = { onActionClick(action.id) },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     Box(modifier = Modifier.weight(1f)) {
                         SelectionCapsuleAction(
                             icon = Icons.Outlined.MoreHoriz,
-                            label = selectionPrimaryActions[3].label,
+                            label = OVERFLOW_LABEL,
                             pedestalColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.10f),
                             iconTint = MaterialTheme.colorScheme.onSurfaceVariant,
                             onClick = { moreExpanded = true },
@@ -261,16 +309,8 @@ internal fun SelectionToolbar(
                             border = BorderStroke(spec.hairlineBorderWidth, paper.outlineVariant.copy(alpha = spec.hairlineAlpha)),
                             shadowElevation = paper.panelElevation,
                         ) {
-                            selectionMoreActions.forEach { action ->
-                                val (icon, tint) = when (action.id) {
-                                    "dictionary" -> Icons.AutoMirrored.Outlined.MenuBook to Color(0xFF6A1B9A)
-                                    "note" -> Icons.Outlined.EditNote to Color(0xFF5E35B1)
-                                    "replace" -> Icons.Outlined.FindReplace to Color(0xFFEF6C00)
-                                    "ai" -> Icons.Outlined.AutoAwesome to Color(0xFF00897B)
-                                    "search" -> Icons.Outlined.Search to Color(0xFF0288D1)
-                                    "inspiration" -> Icons.Outlined.Lightbulb to Color(0xFF7E57C2)
-                                    else -> Icons.Outlined.Close to Color(0xFFE53935)
-                                }
+                            moreActions.forEach { action ->
+                                val visual = selectionActionVisual(action.id)
                                 val enabled = action.id != "replace" || canCreateReplaceRule
                                 DropdownMenuItem(
                                     text = { Text(action.label, style = MaterialTheme.typography.bodyMedium) },
@@ -279,23 +319,20 @@ internal fun SelectionToolbar(
                                             modifier = Modifier
                                                 .size(28.dp)
                                                 .clip(CircleShape)
-                                                .background(tint.copy(alpha = 0.12f)),
+                                                .background(visual.iconTint.copy(alpha = 0.12f)),
                                             contentAlignment = Alignment.Center,
                                         ) {
-                                            Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+                                            Icon(
+                                                visual.icon,
+                                                contentDescription = null,
+                                                tint = visual.iconTint,
+                                                modifier = Modifier.size(16.dp),
+                                            )
                                         }
                                     },
                                     onClick = {
                                         moreExpanded = false
-                                        when (action.id) {
-                                            "dictionary" -> onDictionary()
-                                            "note" -> onNote()
-                                            "replace" -> onReplace()
-                                            "ai" -> onAiExplain()
-                                            "inspiration" -> onInspiration()
-                                            "search" -> onSearch()
-                                            "cancel" -> onClear()
-                                        }
+                                        onActionClick(action.id)
                                     },
                                     enabled = enabled,
                                 )
@@ -306,6 +343,87 @@ internal fun SelectionToolbar(
             }
         }
     }
+}
+
+/**
+ * 选区动作的视觉映射（R3-X1）。
+ *
+ * 覆盖**全部可配置动作**：高频槽现在允许任意非固定动作落位，如果这里只认
+ * 「高亮 / 浏览器 / 复制」，用户把「书内搜索」放到第一屏就会看到一个灰点。
+ * 未知 id（已被 [SelectionActions.sanitize] 挡在磁盘外侧）渲染成中性灰点。
+ */
+private data class PrimaryActionVisual(
+    val icon: ImageVector,
+    val pedestalColor: Color,
+    val iconTint: Color,
+)
+
+private fun selectionActionVisual(id: String): PrimaryActionVisual = when (id) {
+    "highlight" -> PrimaryActionVisual(
+        icon = Icons.Outlined.BorderColor,
+        pedestalColor = Color(0xFFF9A825).copy(alpha = 0.15f),
+        iconTint = Color(0xFFF57F17),
+    )
+
+    "browser" -> PrimaryActionVisual(
+        icon = Icons.Outlined.Language,
+        pedestalColor = Color(0xFF00897B).copy(alpha = 0.14f),
+        iconTint = Color(0xFF00796B),
+    )
+
+    "copy" -> PrimaryActionVisual(
+        icon = Icons.Outlined.ContentCopy,
+        pedestalColor = Color(0xFF1E88E5).copy(alpha = 0.15f),
+        iconTint = Color(0xFF1565C0),
+    )
+
+    "dictionary" -> PrimaryActionVisual(
+        icon = Icons.AutoMirrored.Outlined.MenuBook,
+        pedestalColor = Color(0xFF6A1B9A).copy(alpha = 0.12f),
+        iconTint = Color(0xFF6A1B9A),
+    )
+
+    "note" -> PrimaryActionVisual(
+        icon = Icons.Outlined.EditNote,
+        pedestalColor = Color(0xFF5E35B1).copy(alpha = 0.12f),
+        iconTint = Color(0xFF5E35B1),
+    )
+
+    "replace" -> PrimaryActionVisual(
+        icon = Icons.Outlined.FindReplace,
+        pedestalColor = Color(0xFFEF6C00).copy(alpha = 0.12f),
+        iconTint = Color(0xFFEF6C00),
+    )
+
+    "search" -> PrimaryActionVisual(
+        icon = Icons.Outlined.Search,
+        pedestalColor = Color(0xFF0288D1).copy(alpha = 0.12f),
+        iconTint = Color(0xFF0288D1),
+    )
+
+    "ai" -> PrimaryActionVisual(
+        icon = Icons.Outlined.AutoAwesome,
+        pedestalColor = Color(0xFF00897B).copy(alpha = 0.12f),
+        iconTint = Color(0xFF00897B),
+    )
+
+    "inspiration" -> PrimaryActionVisual(
+        icon = Icons.Outlined.Lightbulb,
+        pedestalColor = Color(0xFF7E57C2).copy(alpha = 0.12f),
+        iconTint = Color(0xFF7E57C2),
+    )
+
+    "cancel" -> PrimaryActionVisual(
+        icon = Icons.Outlined.Close,
+        pedestalColor = Color(0xFFE53935).copy(alpha = 0.12f),
+        iconTint = Color(0xFFE53935),
+    )
+
+    else -> PrimaryActionVisual(
+        icon = Icons.Outlined.MoreHoriz,
+        pedestalColor = Color(0x00000000),
+        iconTint = Color(0xFF9E9E9E),
+    )
 }
 
 @Composable

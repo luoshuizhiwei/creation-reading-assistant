@@ -51,8 +51,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboard
+import com.creationreadingassistant.ui.util.copyText
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -84,7 +84,7 @@ internal fun AiAssistSheet(
     var question by remember { mutableStateOf("") }
     var job by remember { mutableStateOf<Job?>(null) }
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
     val hasContext = contextText.isNotBlank()
     val reducedMotion = rememberReducedMotion()
     val haptic = rememberHaptic(reducedMotion)
@@ -547,7 +547,7 @@ internal fun AiAssistSheet(
                             Surface(
                                 onClick = {
                                     haptic(HapticFeedbackType.TextHandleMove)
-                                    clipboard.setText(AnnotatedString(result))
+                                    clipboard.copyText(result, scope, "ai_summary")
                                 },
                                 shape = PillShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -577,7 +577,7 @@ internal fun AiAssistSheet(
                             Surface(
                                 onClick = {
                                     haptic(HapticFeedbackType.TextHandleMove)
-                                    clipboard.setText(AnnotatedString("【AI伴读灵感】\n$result"))
+                                    clipboard.copyText("【AI伴读灵感】\n$result", scope, "ai_inspiration")
                                 },
                                 shape = PillShape,
                                 color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f),
@@ -608,7 +608,7 @@ internal fun AiAssistSheet(
                             Surface(
                                 onClick = {
                                     haptic(HapticFeedbackType.TextHandleMove)
-                                    clipboard.setText(AnnotatedString(result))
+                                    clipboard.copyText(result, scope, "ai_result")
                                 },
                                 shape = PillShape,
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),

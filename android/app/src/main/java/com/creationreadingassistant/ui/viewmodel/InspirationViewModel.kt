@@ -33,6 +33,12 @@ data class InspirationSourceInfo(
     val locationLabel: String? = null,
     val progressPercent: Float? = null,
     val excerpt: String? = null,
+    /**
+     * R5-I2：保存时的阅读器 source locator JSON（[LocatorCodec] 口径，与高亮/笔记同源）。
+     * 携带全局 source 坐标的摘录可在详情里「临时查阅原文」精确回到来源位置；
+     * null = 历史数据或无定位上下文，详情降级为「打开书籍」。
+     */
+    val locatorJson: String? = null,
 )
 
 /** 灵感 payload（tags + categoryIds + source），与原生 inspirations.payload 列对应。 */

@@ -112,4 +112,76 @@ class EpubReplaceProjectorTest {
         assertEquals(longText.length, map.displayLength)
         assertEquals((result.displayBlocks[0] as DocBlock.Text).text, longText)
     }
+
+    // ── E2 单处纠错（R4）：块内锚定 + 跨块诚实跳过 ──────────────────────
+
+    private fun correctionRule(
+        id: String,
+        sourceStart: Int,
+        sourceEnd: Int,
+        findText: String,
+        replaceText: String,
+    ) = ReplaceRule(
+        id = id, name = "单处纠错", pattern = "", replacement = replaceText,
+        enabled = true, position = Int.MAX_VALUE, scope = RuleScope.PER_BOOK,
+        anchor = CorrectionAnchor(sourceStart, sourceEnd, findText),
+    )
+
+    @Test
+    fun `anchor localized by chapter base applies inside a single block`() {
+        // 章内块序：block0 = 4 chars，分隔 1，block1 = 4 chars。
+        // 锚点为全书坐标：anchorScopeBase=100 → block1 全局基址 = 105，
+        // block1 章内 [1,3)「字段」对应全书 [106,108)。
+        val blocks = listOf(
+            DocBlock.Text("第一段落", isHeading = false),
+            DocBlock.Text("错字段落", isHeading = false),
+        )
+        val result = EpubReplaceProjector.project(
+            blocks,
+            listOf(correctionRule("correction:c1", sourceStart = 106, sourceEnd = 108, findText = "字段", replaceText = "字段正")),
+            "book1",
+            anchorScopeBase = 100,
+        )
+        // block1 章内 [1,3)「字段」命中并替换
+        assertEquals("第一段落", (result.displayBlocks[0] as DocBlock.Text).text)
+        assertEquals("错字段正落", (result.displayBlocks[1] as DocBlock.Text).text)
+        assertEquals(1, result.hitCount)
+        // 章级映射闭合
+        val map = result.chapterOffsetMap()
+        assertEquals(map.displayLength, map.toDisplay(map.sourceLength))
+        for (s in 0..map.sourceLength) {
+            assertTrue("roundtrip s=$s", map.toSource(map.toDisplay(s)) <= s)
+        }
+    }
+
+    @Test
+    fun `anchor spanning block boundary is skipped honestly`() {
+        // 「段第二段」跨块，锚定区间覆盖块间分隔位 → 无法完整落入单块 → 跳过
+        val blocks = listOf(
+            DocBlock.Text("甲 第一段", isHeading = false),
+            DocBlock.Text("第二段 乙", isHeading = false),
+        )
+        val result = EpubReplaceProjector.project(
+            blocks,
+            listOf(correctionRule("correction:c1", sourceStart = 0, sourceEnd = 9, findText = "甲 第一段第二段", replaceText = "X")),
+            "book1",
+            anchorScopeBase = 0,
+        )
+        assertEquals("甲 第一段", (result.displayBlocks[0] as DocBlock.Text).text)
+        assertEquals("第二段 乙", (result.displayBlocks[1] as DocBlock.Text).text)
+        assertEquals(0, result.hitCount)
+    }
+
+    @Test
+    fun `anchor outside chapter range never applies`() {
+        val blocks = listOf(DocBlock.Text("正文内容", isHeading = false))
+        val result = EpubReplaceProjector.project(
+            blocks,
+            listOf(correctionRule("correction:c1", sourceStart = 500, sourceEnd = 502, findText = "内容", replaceText = "X")),
+            "book1",
+            anchorScopeBase = 0,
+        )
+        assertEquals("正文内容", (result.displayBlocks[0] as DocBlock.Text).text)
+        assertEquals(0, result.hitCount)
+    }
 }
