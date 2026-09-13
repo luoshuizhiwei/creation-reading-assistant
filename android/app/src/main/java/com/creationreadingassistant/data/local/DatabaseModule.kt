@@ -14,6 +14,7 @@ import com.creationreadingassistant.data.local.dao.InspirationVariantDao
 import com.creationreadingassistant.data.local.dao.NoteDao
 import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
 import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
+import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
@@ -45,8 +46,9 @@ object DatabaseModule {
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase {
         // 必须在 build() 之前：build() 不打开库，但第一次查询就会触发 onUpgrade，
         // 所以下面的 snapshotIfUpgrading 会在升级前备份数据库快照。
-        // 迁移 1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9、9→10、10→11、11→12 均已定义；
-        // 测试覆盖：每段升级及 1→12 全链路；10→11 与 11→12 只新增/重建搜索派生表，保留既有数据。
+        // 迁移 1→2、2→3、3→4、4→5、5→6、6→7、7→8、8→9、9→10、10→11、11→12、12→13 均已定义；
+        // 测试覆盖：每段升级及 1→13 全链路；10→11 与 11→12 只新增/重建搜索派生表，
+        // 12→13 只新增纠错记录表，保留既有数据。
         // 迁移失败时应崩溃并报明确错误，而非静默擦除用户数据。
         DatabaseSafetyNet.snapshotIfUpgrading(context, AppDatabase.DB_NAME, AppDatabase.SCHEMA_VERSION)
         return Room.databaseBuilder(context, AppDatabase::class.java, AppDatabase.DB_NAME)
@@ -63,6 +65,7 @@ object DatabaseModule {
                 AppDatabase.MIGRATION_9_10,
                 AppDatabase.MIGRATION_10_11,
                 AppDatabase.MIGRATION_11_12,
+                AppDatabase.MIGRATION_12_13,
             )
             .build()
     }
@@ -86,6 +89,7 @@ object DatabaseModule {
     @Provides fun provideSyncStateDao(db: AppDatabase): SyncStateDao = db.syncStateDao()
     @Provides fun provideReaderPageIndexDao(db: AppDatabase): ReaderPageIndexDao = db.readerPageIndexDao()
     @Provides fun provideReaderAnchorCacheDao(db: AppDatabase): ReaderAnchorCacheDao = db.readerAnchorCacheDao()
+    @Provides fun provideReaderCorrectionDao(db: AppDatabase): ReaderCorrectionDao = db.readerCorrectionDao()
     @Provides fun provideReaderTextRuleDao(db: AppDatabase): ReaderTextRuleDao = db.readerTextRuleDao()
     @Provides fun provideChapterReadDao(db: AppDatabase): ChapterReadDao = db.chapterReadDao()
     @Provides fun provideSearchTermDao(db: AppDatabase): SearchTermDao = db.searchTermDao()

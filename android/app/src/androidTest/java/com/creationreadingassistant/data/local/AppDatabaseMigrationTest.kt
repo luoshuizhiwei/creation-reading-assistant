@@ -1724,4 +1724,92 @@ class AppDatabaseMigrationTest {
 
         db.close()
     }
+
+    // ─── 12 → 13：新增单处纠错记录表 ────────────────────────────────────
+
+    @Test
+    @Throws(IOException::class)
+    fun migrate_12_to_13_adds_reader_text_corrections() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 12)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-13-book', '迁移测试书13', NULL, 'txt', 'sample13.txt', 'hash-13', " +
+                "2048, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-11T00:00:00Z', NULL)",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 13, true, AppDatabase.MIGRATION_12_13,
+        )
+
+        // 1. 新表可写可读（含状态翻转语义依赖的列完整性）
+        db.execSQL(
+            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
+                "find_text, replace_text, status, created_at, updated_at) " +
+                "VALUES ('corr-m13', 'migration-13-book', 100, 104, '错字', '正字', 'ACTIVE', 1, 1)",
+        )
+        val rowCursor = db.query(
+            "SELECT source_start, source_end, find_text, replace_text, status " +
+                "FROM reader_text_corrections WHERE id = 'corr-m13'",
+        )
+        assertTrue("纠错记录应可读", rowCursor.moveToFirst())
+        assertEquals(100, rowCursor.getInt(0))
+        assertEquals(104, rowCursor.getInt(1))
+        assertEquals("错字", rowCursor.getString(2))
+        assertEquals("正字", rowCursor.getString(3))
+        assertEquals("ACTIVE", rowCursor.getString(4))
+        rowCursor.close()
+
+        // 2. 两个索引都在
+        listOf(
+            "index_reader_text_corrections_book_id",
+            "index_reader_text_corrections_status",
+        ).forEach { name ->
+            val cursor = db.query(
+                "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+                arrayOf(name),
+            )
+            assertTrue("索引 $name 应存在", cursor.moveToFirst())
+            cursor.close()
+        }
+
+        // 3. 既有数据不受影响（迁移只建新表）
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-13-book'")
+        assertTrue("既有书库数据应保留", bookCursor.moveToFirst())
+        assertEquals("迁移测试书13", bookCursor.getString(0))
+        bookCursor.close()
+
+        // 4. 外键 ON DELETE CASCADE：删书级联清理其纠错记录，且不误伤其他书的记录
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-13-book-2', '迁移测试书13b', NULL, 'epub', 'sample13b.epub', " +
+                "'hash-13b', 4096, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-11T01:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reader_text_corrections (id, book_id, source_start, source_end, " +
+                "find_text, replace_text, status, created_at, updated_at) " +
+                "VALUES ('corr-m13-b', 'migration-13-book-2', 10, 12, '乙', 'B', 'UNDONE', 2, 2)",
+        )
+
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM books WHERE id = 'migration-13-book'")
+
+        val cascadeCursor = db.query(
+            "SELECT id, book_id FROM reader_text_corrections ORDER BY id ASC",
+        )
+        assertTrue("未被删除的书仍应保留其纠错记录", cascadeCursor.moveToFirst())
+        assertEquals("corr-m13-b", cascadeCursor.getString(0))
+        assertEquals("migration-13-book-2", cascadeCursor.getString(1))
+        assertTrue("被删除的书不应残留纠错记录", !cascadeCursor.moveToNext())
+        cascadeCursor.close()
+
+        db.close()
+    }
 }

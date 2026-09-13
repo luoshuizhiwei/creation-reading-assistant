@@ -24,6 +24,7 @@ import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.SyncAccountDao
 import com.creationreadingassistant.data.local.dao.ReaderPageIndexDao
 import com.creationreadingassistant.data.local.dao.ReaderAnchorCacheDao
+import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
 import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.SyncStateDao
 import com.creationreadingassistant.data.local.dao.TagDao
@@ -51,6 +52,7 @@ import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.SyncAccountEntity
 import com.creationreadingassistant.data.local.entity.ReaderPageIndexEntity
 import com.creationreadingassistant.data.local.entity.ReaderAnchorCacheEntity
+import com.creationreadingassistant.data.local.entity.ReaderCorrectionEntity
 import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.local.entity.SyncStateEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
@@ -63,7 +65,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 12
+const val APP_DATABASE_SCHEMA_VERSION = 13
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -92,6 +94,9 @@ const val APP_DATABASE_SCHEMA_VERSION = 12
  *    增加 text_basis（SQLite 无法 ALTER 主键，故整表重建并原样搬迁既有行，
  *    老行一律归入 original 基准）；新增 search_index_coverage 记录每本书在每种
  *    基准上的覆盖完成度。同样只动派生索引表，不触碰书库/进度/批注。
+ *  - v12→v13：新增单处纠错记录表 reader_text_corrections（E2）。
+ *    只建新表：纠错是投影层的覆盖叠加记录，撤销/恢复只翻 status，
+ *    不触碰书库/进度/批注/规则表。
  * exportSchema = true：schema 导出到 app/schemas/，供 MigrationTestHelper 校验。
  */
 @Database(
@@ -105,6 +110,7 @@ const val APP_DATABASE_SCHEMA_VERSION = 12
         SyncAccountEntity::class, SyncStateEntity::class,
         ReaderPageIndexEntity::class,
         ReaderAnchorCacheEntity::class,
+        ReaderCorrectionEntity::class,
         ReaderTextRuleEntity::class,
         ChapterReadEntity::class,
         SearchTermRow::class,
@@ -134,6 +140,7 @@ abstract class AppDatabase : RoomDatabase() {
     abstract fun syncStateDao(): SyncStateDao
     abstract fun readerPageIndexDao(): ReaderPageIndexDao
     abstract fun readerAnchorCacheDao(): ReaderAnchorCacheDao
+    abstract fun readerCorrectionDao(): ReaderCorrectionDao
     abstract fun readerTextRuleDao(): ReaderTextRuleDao
     abstract fun chapterReadDao(): ChapterReadDao
     abstract fun searchTermDao(): SearchTermDao
@@ -427,6 +434,41 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * v12→v13：新增单处纠错记录表 reader_text_corrections（E2）。
+         *
+         * 只建新表 + 索引，不 ALTER 任何既有表。建表语句必须与 Room 为
+         * [ReaderCorrectionEntity] 生成的完全一致（列顺序、NOT NULL、主键、外键、
+         * 索引名），否则迁移后的表结构校验会失败。
+         */
+        val MIGRATION_12_13 = object : Migration(12, 13) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `reader_text_corrections` (" +
+                        "`id` TEXT NOT NULL, " +
+                        "`book_id` TEXT NOT NULL, " +
+                        "`source_start` INTEGER NOT NULL, " +
+                        "`source_end` INTEGER NOT NULL, " +
+                        "`find_text` TEXT NOT NULL, " +
+                        "`replace_text` TEXT NOT NULL, " +
+                        "`status` TEXT NOT NULL, " +
+                        "`created_at` INTEGER NOT NULL, " +
+                        "`updated_at` INTEGER NOT NULL, " +
+                        "PRIMARY KEY(`id`), " +
+                        "FOREIGN KEY(`book_id`) REFERENCES `books`(`id`) " +
+                        "ON UPDATE NO ACTION ON DELETE CASCADE)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_reader_text_corrections_book_id` " +
+                        "ON `reader_text_corrections` (`book_id`)",
+                )
+                db.execSQL(
+                    "CREATE INDEX IF NOT EXISTS `index_reader_text_corrections_status` " +
+                        "ON `reader_text_corrections` (`status`)",
+                )
+            }
+        }
         /** v1→v2：为高亮表补 chapter_title / progress_percent 两列（非破坏迁移，保留既有数据）。 */
         val MIGRATION_1_2 = object : Migration(1, 2) {
             override fun migrate(db: SupportSQLiteDatabase) {
