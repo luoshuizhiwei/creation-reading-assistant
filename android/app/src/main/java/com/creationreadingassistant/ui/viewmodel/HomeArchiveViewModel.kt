@@ -11,6 +11,9 @@ import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.InspirationRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +28,8 @@ data class CompletedArchiveItem(
 )
 
 data class HomeArchiveUiState(
-    val inspirations: List<InspirationEntity> = emptyList(),
-    val completedBooks: List<CompletedArchiveItem> = emptyList(),
+    val inspirations: ImmutableList<InspirationEntity> = persistentListOf(),
+    val completedBooks: ImmutableList<CompletedArchiveItem> = persistentListOf(),
     val isReady: Boolean = false,
 )
 
@@ -43,13 +46,13 @@ class HomeArchiveViewModel @Inject constructor(
     ) { books, progress, inspirations ->
         val progressByBook = progress.associateBy { it.book_id }
         HomeArchiveUiState(
-            inspirations = inspirations.sortedByDescending { it.updated_at },
+            inspirations = inspirations.sortedByDescending { it.updated_at }.toImmutableList(),
             completedBooks = books.mapNotNull { book ->
                 val itemProgress = progressByBook[book.id] ?: return@mapNotNull null
                 if (book.deleted_at == null &&
                     (itemProgress.readingState == ReadingCompletionState.FINISHED || itemProgress.progress_percent >= 99.5f)
                 ) CompletedArchiveItem(book, itemProgress) else null
-            }.sortedByDescending { it.progress.completed_at ?: 0L },
+            }.sortedByDescending { it.progress.completed_at ?: 0L }.toImmutableList(),
             isReady = true,
         )
     }

@@ -425,4 +425,71 @@ class InspirationViewModelTest {
 
         assertEquals("updated_desc", inspirationSortFlow.value)
     }
+
+    /**
+     * 回归：编辑保存不得清空详情页/合并流程维护的 payload 字段。
+     *
+     * 编辑器只拥有 tags / source；采用去向（R5-I1）、聚合摘录（R5-I2）与归档去向
+     * 必须从既有 payload 继承，否则「只改一个标题」会静默丢掉素材卡的摘录与采用记录。
+     */
+    @Test
+    fun `saveInspiration update preserves adoptions excerpts and archive target`() = runTest(mainDispatcher.scheduler) {
+        val existing = InspirationEntity(
+            id = "i9",
+            title = "素材卡",
+            body = "正文",
+            payload = Json.encodeToString(
+                InspirationPayloadData.serializer(),
+                InspirationPayloadData(
+                    tags = listOf("旧标签"),
+                    categoryIds = listOf("c1"),
+                    source = InspirationSourceInfo(bookId = "bk1", bookTitle = "来源书"),
+                    adoptions = listOf(
+                        InspirationAdoptionRecord(
+                            kind = InspirationAdoptionRecord.KIND_TEXT,
+                            value = "写进第三章",
+                            createdAt = "2026-07-01T10:00:00Z",
+                        ),
+                    ),
+                    excerpts = listOf(InspirationSourceInfo(bookId = "bk2", excerpt = "聚合摘录")),
+                    mergedInto = "card-1",
+                ),
+            ),
+            updated_at = "2026-07-01T10:00:00Z",
+            created_at = "2026-07-01T10:00:00Z",
+        )
+        val vm = createVm(inspirations = listOf(existing))
+        val job = launch { vm.itemsState.collect { } }
+        testScheduler.advanceUntilIdle()
+
+        vm.saveInspiration(
+            InspirationDraft(
+                id = "i9",
+                title = "改个标题",
+                body = "正文",
+                type = "note",
+                status = "inbox",
+                tags = listOf("新标签"),
+                source = null,
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        val saved = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationRepository.upsert(capture(saved)) }
+        val payload = Json.decodeFromString<InspirationPayloadData>(saved.captured.payload!!)
+        // 编辑器拥有的字段按草稿覆盖
+        assertEquals(listOf("新标签"), payload.tags)
+        assertNull(payload.source)
+        // 非编辑器字段必须原样继承
+        assertEquals(listOf("c1"), payload.categoryIds)
+        assertEquals(1, payload.adoptions.size)
+        assertEquals("写进第三章", payload.adoptions.single().value)
+        assertEquals(1, payload.excerpts.size)
+        assertEquals("聚合摘录", payload.excerpts.single().excerpt)
+        assertEquals("card-1", payload.mergedInto)
+
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
 }

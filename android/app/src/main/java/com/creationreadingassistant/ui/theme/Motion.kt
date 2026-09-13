@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import kotlin.math.roundToInt
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * 动效基础（A 档打磨 · 遵守 2026-07-28 冻结设计：不引入新颜色 / 字号 / 圆角 / 阴影）。
@@ -57,7 +59,6 @@ object MotionTokens {
     const val Base = 340      // 标准面板 / 卡片入场
     const val Slow = 650      // 数字滚动 / 强调过渡
     const val Shimmer = 1100
-    const val CountUpDelay = 120
 
     /** 标准过渡缓动：MD3 的 FastOutSlowIn（先冲后停）。入场/出场统一用这一条。 */
     val StandardEasing: Easing = FastOutSlowInEasing
@@ -180,27 +181,72 @@ fun Modifier.staggerEnter(
 ): Modifier = listItemEnter(index, reducedMotion)
 
 /**
+ * 进程内记录每个 count-up 数字「上次展示出来的值」。
+ *
+ * 存在的原因：切换底部 Tab 时 NavHost 会销毁该 destination，Compose 的 `remember` 状态随之丢失，
+ * 于是每次切回来数字都从 0 重新滚一遍——即使数值根本没变，还会先定住 120ms 再猛地跳到终值。
+ * 记住上次值之后，动画只表达「数值真的变了」这一件事：值没变就完全静止，值变了才平滑过渡。
+ *
+ * 只活在当前进程；杀进程后首屏会重新滚一次，这是有意的（新会话重新展示一次不算打扰）。
+ */
+private object CountUpMemory {
+    private val lastValues = ConcurrentHashMap<String, Int>()
+
+    fun read(key: String): Int? = lastValues[key]
+
+    fun write(key: String, value: Int) {
+        lastValues[key] = value
+    }
+}
+
+/**
+ * count-up 的起始值决策。
+ *
+ * 抽成纯函数是为了在 JVM 测试里锁定语义——它决定了「切页面回来数字到底动不动」：
+ * - 无障碍开启：直接等于目标值，永不滚动；
+ * - 首次见到（无记忆）：从 0 滚，保留首屏动感；
+ * - 有记忆：从上次展示值继续，于是「值没变」时起点即终点、一次动画都不会发生。
+ */
+internal fun countUpStartValue(remembered: Int?, target: Int, reducedMotion: Boolean): Float = when {
+    reducedMotion -> target.toFloat()
+    remembered == null -> 0f
+    else -> remembered.toFloat()
+}
+
+/**
  * 数字滚动（count-up）。返回随动画推进的整数，调用方负责格式化显示。
  *
- * @param target 目标值；变化时从上一个值平滑过渡到新值（如切换统计周期时重新滚动）。
- * @param reducedMotion 为 true 时直接落到目标值。
+ * @param target 目标值；变化时从当前值平滑过渡到新值（如切换统计周期时重新滚动）。
+ * @param key 同一数字的唯一标识，如 `stats.summary.minutes`。**必须给**：它是页面重建后恢复起始值的
+ *            依据，也保证不同位置的数字不互相串值；不给会让数字退化成「每次进入都从 0 重播」。
+ * @param reducedMotion 为 true 时直接落到目标值，不做任何滚动（无障碍口径，不因本改动改变）。
  */
 @Composable
-fun rememberCountUp(target: Int, reducedMotion: Boolean = false): Int {
-    val anim = remember { Animatable(if (reducedMotion) target.toFloat() else 0f) }
-    LaunchedEffect(target, reducedMotion) {
-        if (reducedMotion) {
-            anim.snapTo(target.toFloat())
-        } else {
-            anim.animateTo(
+fun rememberCountUp(
+    target: Int,
+    key: String,
+    reducedMotion: Boolean = false,
+): Int {
+    val startValue = countUpStartValue(CountUpMemory.read(key), target, reducedMotion)
+    val anim = remember(key) { Animatable(startValue) }
+    LaunchedEffect(key, target, reducedMotion) {
+        when {
+            reducedMotion -> anim.snapTo(target.toFloat())
+            // 与上次展示值相同则完全不动：切页面回来不该有无意义的重播。
+            anim.value == target.toFloat() -> Unit
+            else -> anim.animateTo(
                 target.toFloat(),
                 animationSpec = tween(
                     durationMillis = MotionTokens.Slow,
-                    delayMillis = MotionTokens.CountUpDelay,
                     easing = MotionTokens.StandardEasing,
                 ),
             )
         }
+        CountUpMemory.write(key, target)
+    }
+    // 动画没跑完就离开页面时记下中途值，下次从它继续，而不是退回 0 重新滚。
+    DisposableEffect(key) {
+        onDispose { CountUpMemory.write(key, anim.value.roundToInt()) }
     }
     return anim.value.roundToInt()
 }

@@ -57,10 +57,10 @@ internal fun SummaryGroup(
     val reducedMotion = rememberReducedMotion()
     val spec = LocalComponentSpec.current
     val totalMinutes = (stats.totalReadingMs / 60000).toInt()
-    val animatedMinutes = rememberCountUp(totalMinutes, reducedMotion)
-    val animatedDays = rememberCountUp(stats.readingDays, reducedMotion)
-    val animatedBooks = rememberCountUp(stats.readBooks, reducedMotion)
-    val animatedCompleted = rememberCountUp(stats.completed, reducedMotion)
+    val animatedMinutes = rememberCountUp(totalMinutes, "stats.summary.minutes", reducedMotion)
+    val animatedDays = rememberCountUp(stats.readingDays, "stats.summary.days", reducedMotion)
+    val animatedBooks = rememberCountUp(stats.readBooks, "stats.summary.books", reducedMotion)
+    val animatedCompleted = rememberCountUp(stats.completed, "stats.summary.completed", reducedMotion)
 
     val metrics = listOf(
         SummaryMetric(

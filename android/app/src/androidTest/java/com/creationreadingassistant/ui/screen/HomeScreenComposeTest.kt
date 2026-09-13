@@ -28,6 +28,8 @@ import com.creationreadingassistant.ui.screen.home.HomeAction
 import com.creationreadingassistant.ui.screen.home.HomeScreen
 import com.creationreadingassistant.ui.screen.home.HomeUiState
 import com.creationreadingassistant.ui.theme.AppTheme
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -97,9 +99,9 @@ class HomeScreenComposeTest {
         val longTitle = "红楼梦·脂砚斋重评石头记·庚辰本·全百二十回·曹雪芹著·高鹗续·脂砚斋评·绣像版·权威校注·人民文学出版社珍藏影印本·1982年版"
         val longBook = stubBook(id = "long-1", title = longTitle, author = "曹雪芹 / 高鹗")
         val state = HomeUiState.Empty.copy(
-            continueBooks = listOf(longBook),
-            completedBooks = listOf(longBook),
-            recentInspirations = listOf(
+            continueBooks = persistentListOf(longBook),
+            completedBooks = persistentListOf(longBook),
+            recentInspirations = persistentListOf(
                 stubInspiration(
                     id = "long-insp-1",
                     title = "关于《红楼梦》中林黛玉葬花辞的意象分析及其与王维山水诗意境的比较研究",
@@ -145,9 +147,9 @@ class HomeScreenComposeTest {
             stubInspiration(id = "many-insp-$i", title = "灵感 #$i", body = "身体内容 $i" + "x".repeat(100))
         }
         val state = HomeUiState.Empty.copy(
-            continueBooks = manyContinue,
-            completedBooks = manyCompleted,
-            recentInspirations = manyInsp,
+            continueBooks = manyContinue.toImmutableList(),
+            completedBooks = manyCompleted.toImmutableList(),
+            recentInspirations = manyInsp.toImmutableList(),
             thisWeekNew = 12,
             readingCount = 8,
             completedCount = 42,

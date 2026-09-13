@@ -34,10 +34,13 @@ import androidx.compose.material.icons.outlined.Error
 import androidx.compose.material.icons.outlined.Fingerprint
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.PhoneAndroid
+import androidx.compose.material.icons.outlined.Refresh
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.Translate
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -91,6 +94,8 @@ internal fun DiagnosticsSubPage(
     var selectedLevel by remember { mutableStateOf<String?>(null) }
     var selectedModule by remember { mutableStateOf<String?>(null) }
     var showClearConfirm by remember { mutableStateOf(false) }
+    // R6-B7：全库索引重建需要二次确认（会重置增量游标，后台分窗口重扫全书）
+    var showRebuildIndexConfirm by remember { mutableStateOf(false) }
 
     val modules = remember(logs) { logs.map { it.module }.distinct().sorted() }
     val filtered = remember(logs, selectedLevel, selectedModule) {
@@ -160,6 +165,16 @@ internal fun DiagnosticsSubPage(
                 TextButton(onClick = { showClearConfirm = false }) {
                     Text("取消")
                 }
+            },
+        )
+    }
+
+    if (showRebuildIndexConfirm) {
+        RebuildSearchIndexConfirmDialog(
+            onDismiss = { showRebuildIndexConfirm = false },
+            onConfirm = {
+                showRebuildIndexConfirm = false
+                onAction(ProfileAction.RebuildSearchIndex)
             },
         )
     }
@@ -242,6 +257,33 @@ internal fun DiagnosticsSubPage(
                                 modifier = Modifier.weight(1f),
                             )
                         }
+                    }
+                }
+            }
+        }
+
+        // 1.b 搜索索引维护（R6-B7）：rebuildAll 之前唯一的全库重建入口
+        item {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    SubPageSectionTitle(
+                        title = "搜索索引",
+                        icon = Icons.Outlined.Search,
+                        iconTint = Color(0xFF7C3AED),
+                    )
+                    Text(
+                        text = "搜索结果缺失、覆盖率状态异常或更换分词/规则后，可在此重建全库索引。" +
+                            "重建在后台分窗口进行，不阻塞使用。",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    OutlinedButton(
+                        onClick = { showRebuildIndexConfirm = true },
+                        modifier = Modifier.fillMaxWidth(),
+                    ) {
+                        Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(AppIconSize.Compact))
+                        Spacer(Modifier.width(8.dp))
+                        Text("重建搜索索引")
                     }
                 }
             }

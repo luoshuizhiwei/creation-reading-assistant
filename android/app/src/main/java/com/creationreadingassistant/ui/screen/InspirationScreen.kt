@@ -25,11 +25,13 @@ fun InspirationScreen(
     initialSelectedId: String? = null,
     modifier: Modifier = Modifier,
     onOpenBook: (String) -> Unit = {},
+    onOpenRoute: (String) -> Unit = {},
 ) {
     InspirationRoute(
         viewModel = viewModel,
         initialSelectedId = initialSelectedId,
         modifier = modifier,
         onOpenBook = onOpenBook,
+        onOpenRoute = onOpenRoute,
     )
 }

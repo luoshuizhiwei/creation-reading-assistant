@@ -31,6 +31,7 @@ import com.creationreadingassistant.ui.screen.profile.ProfileSubPage
 import com.creationreadingassistant.ui.screen.profile.ProfileUiState
 import com.creationreadingassistant.ui.screen.profile.ReadingNotesSubPage
 import com.creationreadingassistant.ui.screen.profile.ReaderSettingsSubPage
+import com.creationreadingassistant.ui.screen.profile.SelectionSubPage
 import com.creationreadingassistant.ui.screen.profile.StorageSubPage
 import com.creationreadingassistant.ui.screen.profile.SyncSubPage
 import com.creationreadingassistant.ui.screen.profile.WebDavSubPage
@@ -111,6 +112,7 @@ internal fun ProfileScreen(
             ProfileSubPage.WEBDAV -> WebDavSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.APPEARANCE -> AppearanceSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.READER -> ReaderSettingsSubPage(state, onAction, scaffoldPadding)
+            ProfileSubPage.SELECTION -> SelectionSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.GOAL -> GoalSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.AI -> AiSettingsSubPage(state, onAction, scaffoldPadding)
             ProfileSubPage.TAGS, ProfileSubPage.CATEGORIES, ProfileSubPage.SHELVES ->

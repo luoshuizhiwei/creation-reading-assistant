@@ -27,20 +27,24 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.Arrangement.spacedBy
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Link
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import com.creationreadingassistant.ui.theme.AppIconSize
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -59,6 +63,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
+import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.components.IconPedestal
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.IslandSectionHeader
@@ -71,6 +77,8 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.viewmodel.InspirationAdoptionRecord
+import com.creationreadingassistant.ui.viewmodel.InspirationPayloadData
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 
@@ -83,14 +91,17 @@ import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 internal fun InspirationDetail(
     entity: InspirationEntity,
     source: InspirationSourceInfo?,
+    payload: InspirationPayloadData?,
     tags: List<String>,
     viewModel: InspirationViewModel,
     onAction: (InspirationAction) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spec = LocalComponentSpec.current
-    val variants by viewModel.observeVariants(entity.id)
-        .collectAsStateWithLifecycle(initialValue = emptyList())
+    // observeVariants 每次调用都返回新 Flow；collectAsStateWithLifecycle 内部以 Flow 实例为
+    // produceState 的 key，直接在组合中调用会在每次重组时重新订阅。按 entity.id 记住同一实例。
+    val variantsFlow = remember(entity.id) { viewModel.observeVariants(entity.id) }
+    val variants by variantsFlow.collectAsStateWithLifecycle(initialValue = emptyList())
 
     var generatingAction by remember { mutableStateOf<String?>(null) }
 
@@ -218,7 +229,7 @@ internal fun InspirationDetail(
                 Column(modifier = Modifier.fillMaxWidth()) {
                     IslandSectionHeader(
                         title = "来源书籍与阅读足迹",
-                        icon = Icons.Outlined.MenuBook,
+                        icon = Icons.AutoMirrored.Outlined.MenuBook,
                         tint = MaterialTheme.colorScheme.primary,
                     )
 
@@ -332,9 +343,106 @@ internal fun InspirationDetail(
                             }
                         }
                     }
+
+                    // R5-I2：携带有效 source locator 的摘录可精确回源（临时查阅，返回不丢阅读位置）
+                    val locateRoute = inspirationLocateRoute(source.bookId, source.locatorJson)
+                    if (locateRoute != null) {
+                        FilledTonalButton(
+                            onClick = {
+                                onAction(
+                                    InspirationAction.InspectSourceLocator(
+                                        bookId = source.bookId ?: return@FilledTonalButton,
+                                        locatorJson = source.locatorJson ?: return@FilledTonalButton,
+                                    ),
+                                )
+                            },
+                            shape = PillShape,
+                            modifier = Modifier.padding(top = 10.dp),
+                        ) {
+                            Text("查阅原文位置", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
                 }
             }
         }
+
+        // ── 2.b 多摘录素材卡：聚合的各来源摘录（每条可独立回源）──
+        val aggregatedExcerpts = payload?.excerpts.orEmpty()
+        if (aggregatedExcerpts.isNotEmpty()) {
+            Spacer(Modifier.height(14.dp))
+            IslandCard(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    IslandSectionHeader(
+                        title = "聚合摘录 · ${aggregatedExcerpts.size} 条来源",
+                        icon = Icons.AutoMirrored.Outlined.MenuBook,
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    aggregatedExcerpts.forEach { excerpt ->
+                        Spacer(Modifier.height(10.dp))
+                        Surface(
+                            shape = RoundedCornerShape(spec.hintRadius),
+                            color = MaterialTheme.colorScheme.surfaceContainerLow,
+                            border = BorderStroke(
+                                spec.hairlineBorderWidth,
+                                MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            ),
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth().padding(10.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text(
+                                        listOfNotNull(
+                                            excerpt.bookTitle?.let { "《$it》" },
+                                            excerpt.chapterTitle,
+                                        ).joinToString(" · ").ifBlank { "来源快照" },
+                                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.weight(1f),
+                                        maxLines = 1,
+                                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                    )
+                                    if (inspirationLocateRoute(excerpt.bookId, excerpt.locatorJson) != null) {
+                                        TextButton(onClick = {
+                                            onAction(
+                                                InspirationAction.InspectSourceLocator(
+                                                    bookId = excerpt.bookId ?: return@TextButton,
+                                                    locatorJson = excerpt.locatorJson ?: return@TextButton,
+                                                ),
+                                            )
+                                        }) {
+                                            Text("定位", style = MaterialTheme.typography.labelSmall)
+                                        }
+                                    }
+                                }
+                                if (!excerpt.excerpt.isNullOrBlank()) {
+                                    Text(
+                                        excerpt.excerpt,
+                                        style = MaterialTheme.typography.bodySmall.copy(lineHeight = 20.sp),
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.padding(top = 4.dp),
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ── 2.c 采用去向（R5-I1：采用记录与原文摘录/用户想法/AI 内容分开）──
+        AdoptionSection(
+            adoptions = payload?.adoptions.orEmpty(),
+            onAdd = { kind, value, note ->
+                viewModel.addAdoption(entity.id, kind, value, note) { ok ->
+                    onAction(
+                        InspirationAction.ShowMessage(
+                            if (ok) "已记录采用去向，素材标记为已采用。" else "去向内容不能为空。",
+                        ),
+                    )
+                }
+            },
+            onDelete = { record -> viewModel.removeAdoption(entity.id, record) },
+        )
 
         // ── 3. AI 灵感工坊 ──
         Spacer(Modifier.height(14.dp))
@@ -523,3 +631,179 @@ private val defaultAiLabels: Map<String, String> = mapOf(
     "conflict" to "生成冲突",
     "humanize" to "去 AI 味",
 )
+
+/**
+ * R5-I2：灵感摘录的「临时查阅原文」route。
+ * 与「我的 → 阅读笔记」同判据（[readerTemporaryRouteForSource] 拒绝无全局偏移的 locator）；
+ * 无有效坐标返回 null，调用方据此隐藏入口，绝不伪造 offset=0 的假位置。
+ */
+private fun inspirationLocateRoute(bookId: String?, locatorJson: String?): String? {
+    if (bookId.isNullOrBlank() || locatorJson.isNullOrBlank()) return null
+    val locator = LocatorCodec.decode(locatorJson)
+    return readerTemporaryRouteForSource(
+        bookId = bookId,
+        legacyOffset = locator?.legacyOffset,
+        chapterIndex = locator?.chapterIndex,
+        charOffset = locator?.charOffset,
+    )
+}
+
+/**
+ * 采用去向区块（R5-I1）：文字/链接两类去向记录 + 新增对话框 + 删除。
+ * 记录只追加在 payload，不修改素材正文；首次采用把状态推进为「已采用」。
+ */
+@Composable
+private fun AdoptionSection(
+    adoptions: List<InspirationAdoptionRecord>,
+    onAdd: (kind: String, value: String, note: String?) -> Unit,
+    onDelete: (InspirationAdoptionRecord) -> Unit,
+) {
+    var showAddDialog by remember { mutableStateOf(false) }
+
+    Spacer(Modifier.height(14.dp))
+    IslandCard(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            IslandSectionHeader(
+                title = "采用去向",
+                icon = Icons.Outlined.Link,
+                tint = MaterialTheme.colorScheme.primary,
+                trailing = {
+                    TextButton(onClick = { showAddDialog = true }) {
+                        Icon(Icons.Outlined.Add, contentDescription = null, modifier = Modifier.size(14.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text("记录", style = MaterialTheme.typography.labelSmall)
+                    }
+                },
+            )
+            if (adoptions.isEmpty()) {
+                Text(
+                    "还没有采用记录。素材被写进正文或引用后，在这里记下文字或链接去向。",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            } else {
+                adoptions.forEach { record ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Surface(
+                            color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
+                            shape = PillShape,
+                        ) {
+                            Text(
+                                if (record.kind == InspirationAdoptionRecord.KIND_LINK) "链接" else "文字",
+                                style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                color = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.padding(horizontal = 7.dp, vertical = 2.dp),
+                            )
+                        }
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                record.value,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                            )
+                            if (!record.note.isNullOrBlank()) {
+                                Text(
+                                    record.note,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 1,
+                                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                )
+                            }
+                        }
+                        Text(
+                            formatDetailTime(record.createdAt),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+                        )
+                        TextButton(onClick = { onDelete(record) }) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription = "删除采用记录",
+                                tint = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(14.dp),
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showAddDialog) {
+        var kind by remember { mutableStateOf(InspirationAdoptionRecord.KIND_TEXT) }
+        var value by remember { mutableStateOf("") }
+        var note by remember { mutableStateOf("") }
+        AlertDialog(
+            onDismissRequest = { showAddDialog = false },
+            title = { Text("记录采用去向") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        listOf(
+                            InspirationAdoptionRecord.KIND_TEXT to "文字去向",
+                            InspirationAdoptionRecord.KIND_LINK to "链接去向",
+                        ).forEach { (k, label) ->
+                            Surface(
+                                color = if (kind == k) {
+                                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                                } else {
+                                    MaterialTheme.colorScheme.surfaceContainerLow
+                                },
+                                shape = PillShape,
+                                onClick = { kind = k },
+                            ) {
+                                Text(
+                                    label,
+                                    style = MaterialTheme.typography.labelMedium,
+                                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = value,
+                        onValueChange = { value = it },
+                        label = {
+                            Text(
+                                if (kind == InspirationAdoptionRecord.KIND_LINK) {
+                                    "链接（URL 或本地路径）"
+                                } else {
+                                    "文字去向（用在哪一章/哪个作品）"
+                                }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    OutlinedTextField(
+                        value = note,
+                        onValueChange = { note = it },
+                        label = { Text("备注（可选）") },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    enabled = value.isNotBlank(),
+                    onClick = {
+                        onAdd(kind, value, note)
+                        showAddDialog = false
+                    },
+                ) { Text("保存") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showAddDialog = false }) { Text("取消") }
+            },
+        )
+    }
+}

@@ -26,6 +26,7 @@ import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.FolderZip
 import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TextFields
 import androidx.compose.material.icons.outlined.Upload
@@ -85,6 +86,7 @@ internal fun StorageSubPage(
     val cachedCount = state.libraryState.cachedCount
     val cacheBytes = state.libraryState.cacheBytes
     val indexBytes = state.indexBytes
+    val indexProgress = state.searchIndexProgress
     val formatCounts = remember(books) { books.groupingBy { it.format }.eachCount() }
 
     // 计算字体目录存储占用
@@ -99,6 +101,8 @@ internal fun StorageSubPage(
 
     // 危险清理二次确认弹窗状态
     var showDangerDialog by remember { mutableStateOf(false) }
+    // 全库搜索索引重建同样会重置增量游标并后台重扫全书，与诊断页保持同一道二次确认
+    var showRebuildIndexConfirm by remember { mutableStateOf(false) }
 
     val cacheBudget = 100 * 1024 * 1024L
 
@@ -315,7 +319,94 @@ internal fun StorageSubPage(
             }
         }
 
-        // 3. 危险清理操作（清空所有离线书籍）采用深红危险告警微岛，配 GlassAlertDialog 二次确认
+        // 3. 全文搜索索引卡片：透明状态感知与全量重建
+        item(key = "storage-search-index-card") {
+            SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                    ) {
+                        Row(
+                            modifier = Modifier.weight(1f),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFBE185D).copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Search,
+                                    contentDescription = null,
+                                    tint = Color(0xFFBE185D),
+                                    modifier = Modifier.size(20.dp),
+                                )
+                            }
+                            Column {
+                                Text(
+                                    "全文搜索倒排索引",
+                                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                )
+                                val total = if (indexProgress.totalBooks > 0) indexProgress.totalBooks else totalBooks
+                                val indexed = indexProgress.indexedBooks
+                                val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
+                                Text(
+                                    if (indexProgress.isRunning) {
+                                        "后台构建中：$indexed / $total 本 ($pct%)"
+                                    } else {
+                                        "覆盖度：已索引 $indexed / $total 本"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                    color = if (indexProgress.isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
+                        }
+
+                        // 重建索引按钮（走二次确认，避免单击即重置全库索引游标）
+                        OutlinedButton(
+                            onClick = {
+                                haptic(HapticFeedbackType.TextHandleMove)
+                                showRebuildIndexConfirm = true
+                            },
+                            shape = PillShape,
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(34.dp),
+                        ) {
+                            Text("重建索引", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                        }
+                    }
+
+                    if (indexProgress.isRunning && indexProgress.totalBooks > 0) {
+                        LinearProgressIndicator(
+                            progress = { (indexProgress.indexedBooks.toFloat() / indexProgress.totalBooks).coerceIn(0f, 1f) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(4.dp)
+                                .clip(PillShape),
+                            color = Color(0xFFBE185D),
+                            trackColor = Color(0xFFBE185D).copy(alpha = 0.12f),
+                        )
+                    }
+
+                    Text(
+                        "用于全局正文搜索与精确跳转。若修改替换规则或发现搜索漏词，可重建索引；后台将分窗口扫描，不阻塞阅读。",
+                        style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
+
+        // 4. 危险清理操作（清空所有离线书籍）采用深红危险告警微岛，配 GlassAlertDialog 二次确认
         item(key = "storage-danger-zone-card") {
             Surface(
                 shape = RoundedCornerShape(14.dp),
@@ -552,6 +643,18 @@ internal fun StorageSubPage(
                 TextButton(onClick = { showDangerDialog = false }) {
                     Text("取消")
                 }
+            },
+        )
+    }
+
+    // 全文搜索索引重建二次确认：与「日志与诊断」共用同一组件，
+    // 保证同一破坏性动作在两个入口的文案与确认流始终一致。
+    if (showRebuildIndexConfirm) {
+        RebuildSearchIndexConfirmDialog(
+            onDismiss = { showRebuildIndexConfirm = false },
+            onConfirm = {
+                showRebuildIndexConfirm = false
+                onAction(ProfileAction.RebuildSearchIndex)
             },
         )
     }

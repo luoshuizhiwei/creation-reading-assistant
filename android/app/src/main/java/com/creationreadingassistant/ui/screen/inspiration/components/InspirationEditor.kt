@@ -23,12 +23,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -79,19 +80,23 @@ internal fun InspirationEditor(
     val spec = LocalComponentSpec.current
     val books by viewModel.books.collectAsStateWithLifecycle()
 
-    var title by remember { mutableStateOf(existing?.title ?: "") }
-    var body by remember { mutableStateOf(existing?.body ?: "") }
-    var type by remember { mutableStateOf(existing?.type ?: "note") }
-    var status by remember { mutableStateOf(existing?.status ?: "inbox") }
+    // 草稿生命周期绑定「正在编辑的条目」：existing 由 null 变为实体（列表晚于编辑器到达）
+    // 或切换到另一条时必须重新预填，否则会把空白/上一条内容存回去。
+    val editorKey = existing?.id ?: ""
+    var title by remember(editorKey) { mutableStateOf(existing?.title ?: "") }
+    var body by remember(editorKey) { mutableStateOf(existing?.body ?: "") }
+    var type by remember(editorKey) { mutableStateOf(existing?.type ?: "note") }
+    var status by remember(editorKey) { mutableStateOf(existing?.status ?: "inbox") }
     val src0 = existing?.let { viewModel.sourceOf(it) }
     val tags0 = existing?.let { viewModel.tagsOf(it) } ?: emptyList()
-    var tagsInput by remember { mutableStateOf(tags0.joinToString("，")) }
-    var sourceBookId by remember { mutableStateOf(src0?.bookId ?: "") }
-    var sourceLocation by remember { mutableStateOf(src0?.locationLabel ?: "") }
-    var sourceExcerpt by remember { mutableStateOf(src0?.excerpt ?: "") }
-    var error by remember { mutableStateOf("") }
+    var tagsInput by remember(editorKey) { mutableStateOf(tags0.joinToString("，")) }
+    var sourceBookId by remember(editorKey) { mutableStateOf(src0?.bookId ?: "") }
+    var sourceLocation by remember(editorKey) { mutableStateOf(src0?.locationLabel ?: "") }
+    var sourceExcerpt by remember(editorKey) { mutableStateOf(src0?.excerpt ?: "") }
+    var error by remember(editorKey) { mutableStateOf("") }
 
-    val initialSignature = remember {
+    // 脏判定基线必须随 editorKey 一起重置，否则切换条目后会把「新条目 vs 旧基线」误判为已修改。
+    val initialSignature = remember(editorKey) {
         listOf(title, body, type, status, tagsInput, sourceBookId, sourceLocation, sourceExcerpt)
             .joinToString("|")
     }
@@ -193,7 +198,7 @@ internal fun InspirationEditor(
                                 shape = RoundedCornerShape(spec.hintRadius),
                                 colors = textFieldColors,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = typeExpanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                             )
                             ExposedDropdownMenu(
                                 expanded = typeExpanded,
@@ -222,7 +227,7 @@ internal fun InspirationEditor(
                                 shape = RoundedCornerShape(spec.hintRadius),
                                 colors = textFieldColors,
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = statusExpanded) },
-                                modifier = Modifier.menuAnchor().fillMaxWidth(),
+                                modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                             )
                             ExposedDropdownMenu(
                                 expanded = statusExpanded,
@@ -296,7 +301,7 @@ internal fun InspirationEditor(
             Column(modifier = Modifier.fillMaxWidth()) {
                 IslandSectionHeader(
                     title = "来源出处（可选）",
-                    icon = Icons.Outlined.MenuBook,
+                    icon = Icons.AutoMirrored.Outlined.MenuBook,
                     tint = MaterialTheme.colorScheme.primary,
                 )
 
@@ -317,7 +322,7 @@ internal fun InspirationEditor(
                         shape = RoundedCornerShape(spec.hintRadius),
                         colors = textFieldColors,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = bookExpanded) },
-                        modifier = Modifier.menuAnchor().fillMaxWidth(),
+                        modifier = Modifier.menuAnchor(MenuAnchorType.PrimaryNotEditable).fillMaxWidth(),
                     )
                     ExposedDropdownMenu(
                         expanded = bookExpanded,

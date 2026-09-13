@@ -48,6 +48,27 @@ class SearchIndexScheduler @Inject constructor(
         )
     }
 
+    /**
+     * 立即唤起一次全库扫描任务（零延迟）。
+     *
+     * @param force 为 true 时使用 [ExistingWorkPolicy.REPLACE] 替换可能在跑或排队的任务，
+     *              用于用户显式点击「全量重建索引」；为 false 时使用 [ExistingWorkPolicy.KEEP]。
+     */
+    fun triggerNow(force: Boolean = false) {
+        val policy = if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
+        val oneTimeRequest = OneTimeWorkRequestBuilder<SearchIndexWorker>()
+            .setInitialDelay(0, TimeUnit.MILLISECONDS)
+            .setBackoffCriteria(BackoffPolicy.LINEAR, 10, TimeUnit.SECONDS)
+            .setConstraints(constraints())
+            .build()
+
+        WorkManager.getInstance(appContext).enqueueUniqueWork(
+            UNIQUE_ONCE_WORK,
+            policy,
+            oneTimeRequest,
+        )
+    }
+
     private fun enqueuePeriodic() {
         val periodicRequest = PeriodicWorkRequestBuilder<SearchIndexWorker>(
             24, TimeUnit.HOURS,

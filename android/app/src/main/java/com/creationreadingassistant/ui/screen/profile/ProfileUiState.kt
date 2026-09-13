@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import com.creationreadingassistant.data.settings.AISettings
 import com.creationreadingassistant.data.settings.AppearanceSettings
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.SelectionActionSettings
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
 import com.creationreadingassistant.ui.viewmodel.ProfileHomeSummary
@@ -16,6 +17,8 @@ import com.creationreadingassistant.ui.viewmodel.SyncResultDetail
 internal enum class ProfileSubPage {
     SYNC, WEBDAV, APPEARANCE, READER, AI, GOAL,
     TAGS, CATEGORIES, SHELVES, READING, NOTES,
+    /** R3-X1：选区工具条动作 / 查询目标 / 离线词库。 */
+    SELECTION,
     STORAGE, PRIVACY, ABOUT, DIAGNOSTICS
 }
 
@@ -58,6 +61,7 @@ internal fun subPageTitle(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.SHELVES -> "书单管理"
     ProfileSubPage.READING -> "我的阅读"
     ProfileSubPage.NOTES -> "我的书评 / 笔记"
+    ProfileSubPage.SELECTION -> "选区与查词"
     ProfileSubPage.STORAGE -> "存储管理"
     ProfileSubPage.PRIVACY -> "隐私安全"
     ProfileSubPage.ABOUT -> "关于"
@@ -77,6 +81,7 @@ internal fun subPageEyebrow(page: ProfileSubPage?): String = when (page) {
     ProfileSubPage.SHELVES -> "数据管理"
     ProfileSubPage.READING -> "阅读档案"
     ProfileSubPage.NOTES -> "阅读沉淀"
+    ProfileSubPage.SELECTION -> "阅读体验"
     ProfileSubPage.STORAGE -> "数据与存储"
     ProfileSubPage.PRIVACY -> "隐私安全"
     ProfileSubPage.ABOUT -> "关于"
@@ -99,6 +104,14 @@ internal data class GoalPageState(
     val todayMinutes: Int get() = (todayReadingMs / 60_000L).toInt()
 }
 
+/** 已安装离线词库的一行（R3-X1）。刻意不带 `File`：纯渲染层不该拿到文件句柄。 */
+@Immutable
+internal data class InstalledDictionaryRow(
+    val baseName: String,
+    val bookName: String,
+    val wordCount: Int,
+)
+
 internal data class ProfileUiState(
     val currentSubPage: ProfileSubPage? = null,
     val paired: Boolean = false,
@@ -115,6 +128,10 @@ internal data class ProfileUiState(
     val webDavBackups: List<WebDavBackup.BackupFile> = emptyList(),
     val appearance: AppearanceSettings = AppearanceSettings(),
     val reader: ReaderSettings = ReaderSettings(),
+    /** R3-X1：选区工具条动作 / 查询目标配置。 */
+    val selectionActions: SelectionActionSettings = SelectionActionSettings(),
+    /** R3-X1：已安装的离线词库（SAF 导入的 StarDict 词库）。 */
+    val dictionaries: List<InstalledDictionaryRow> = emptyList(),
     val ai: AISettings = AISettings(),
     /** 非加密 http AI 接口的一次性警示文案（null 表示无需警示）。 */
     val aiHttpWarning: String? = null,
@@ -123,6 +140,8 @@ internal data class ProfileUiState(
     val pendingDownloadCount: Int = 0,
     val indexBytes: Long = 0L,
     val goal: GoalPageState = GoalPageState(),
+    val searchIndexProgress: com.creationreadingassistant.data.repository.SearchIndexRepository.Progress =
+        com.creationreadingassistant.data.repository.SearchIndexRepository.Progress(0L, 0, false),
 )
 
 // ============================== Action ==============================
@@ -134,6 +153,9 @@ internal sealed interface ProfileAction {
     /** 跳底部导航的灵感中心 Tab（产品规划：阅读时记灵感用于创作，无独立笔记概念）。 */
     data object OpenInspirations : ProfileAction
     data object GoBack : ProfileAction
+
+    /** R6-B7：重置全库搜索索引进度并重新入队后台扫描（惰性、分窗口）。 */
+    data object RebuildSearchIndex : ProfileAction
 
     // Sync
     data class StartPairing(val rawQr: String) : ProfileAction
@@ -159,6 +181,16 @@ internal sealed interface ProfileAction {
     data object SaveAiKey : ProfileAction
     data object ClearAiKey : ProfileAction
     data class UpdateAiKeyDraft(val value: String) : ProfileAction
+
+    // Selection toolbar / dictionary (R3-X1)
+    data class TogglePrimarySelectionAction(val id: String, val enabled: Boolean) : ProfileAction
+    data class ToggleMoreSelectionAction(val id: String, val enabled: Boolean) : ProfileAction
+    data class SetBrowserUrlTemplate(val value: String) : ProfileAction
+    data class SetDictionaryUrlTemplate(val value: String) : ProfileAction
+    data class SetDictionaryMode(val mode: String) : ProfileAction
+    data object ResetSelectionActions : ProfileAction
+    data object ImportDictionary : ProfileAction
+    data class UninstallDictionary(val baseName: String) : ProfileAction
 
     // Reading goal (P3.2)
     data class UpdateGoalMinutes(val minutes: Int) : ProfileAction

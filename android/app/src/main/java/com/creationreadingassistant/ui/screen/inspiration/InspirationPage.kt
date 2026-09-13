@@ -110,6 +110,15 @@ internal sealed interface InspirationAction {
     data object OpenCurrentSource : InspirationAction
     data class RequestDelete(val inspirationId: String) : InspirationAction
 
+    /* R5-I2：来源精确定位（临时查阅，坐标由 payload 的 locator JSON 承载） */
+    data class InspectSourceLocator(
+        val bookId: String,
+        val locatorJson: String,
+    ) : InspirationAction
+
+    /* R5-I2：多摘录素材卡合并（列表多选后触发） */
+    data class MergeToMaterialCard(val ids: List<String>) : InspirationAction
+
     /* 删除确认弹层 */
     data object ConfirmDeleteNow : InspirationAction
     data object CancelDelete : InspirationAction

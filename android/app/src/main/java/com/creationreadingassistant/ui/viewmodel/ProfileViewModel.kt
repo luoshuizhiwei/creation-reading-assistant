@@ -144,6 +144,8 @@ class ProfileViewModel @Inject constructor(
     private val bookRepository: BookRepository,
     private val noteRepository: NoteRepository,
     private val statsRepository: StatsRepository,
+    private val searchIndexRepository: com.creationreadingassistant.data.repository.SearchIndexRepository,
+    private val searchIndexScheduler: com.creationreadingassistant.data.repository.SearchIndexScheduler,
     private val goalStore: com.creationreadingassistant.data.settings.GoalStore,
     private val goalScheduler: com.creationreadingassistant.feature.goal.ReadingGoalScheduler,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
@@ -235,6 +237,11 @@ class ProfileViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = ProfileHomeSummary(),
         )
+
+    /** 全库全文索引进度流。 */
+    val searchIndexProgress: StateFlow<com.creationreadingassistant.data.repository.SearchIndexRepository.Progress> =
+        runCatching { searchIndexRepository.progress }
+            .getOrDefault(MutableStateFlow(com.creationreadingassistant.data.repository.SearchIndexRepository.Progress(0L, 0, false)))
 
     // ---- 阅读笔记（统一高亮 / 批注 / 书签）----
 
@@ -452,6 +459,26 @@ class ProfileViewModel @Inject constructor(
     }
 
     // ---- 同步 ----
+    /**
+     * R6-B7：「修复搜索」入口。置脏增量扫描游标 + 重新入队一次性扫描作业——
+     * 重建由既有后台 worker 分预算窗口惰性完成，绝不在交互路径同步全库重建
+     * （全库可达数 GB / 数十分钟，见索引构建真机量化）。幂等，可重复触发。
+     */
+    fun rebuildSearchIndex(onDone: (String) -> Unit = {}) {
+        viewModelScope.launch(ioDispatcher) {
+            runCatching {
+                searchIndexRepository.invalidateSweepForFullRebuild()
+                searchIndexScheduler.triggerNow(force = true)
+            }.onSuccess {
+                AppLog.event("SearchIndex", "用户触发全库索引重建（置脏 + 立即唤起）")
+                onDone("已重置索引进度，后台将立即分批重建全库；期间搜索结果可能暂时不全。")
+            }.onFailure {
+                AppLog.e("SearchIndex", "重建搜索索引失败：${it.message}")
+                onDone("重建失败：${it.message ?: "未知错误"}")
+            }
+        }
+    }
+
     fun syncNow(autoDownloadBooks: Boolean = true) {
         viewModelScope.launch(ioDispatcher) {
             _syncing.value = true

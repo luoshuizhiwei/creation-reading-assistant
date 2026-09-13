@@ -65,7 +65,7 @@ fun HomeMetricsSection(
                     .weight(1f)
                     .testTag("metric-week"),
                 label = stringResource(R.string.home_this_week),
-                value = rememberCountUp(thisWeekNew, reducedMotion).toString(),
+                value = rememberCountUp(thisWeekNew, "home.metrics.week", reducedMotion).toString(),
                 subtext = "本周新读",
             )
             GridStat(
@@ -73,7 +73,7 @@ fun HomeMetricsSection(
                     .weight(1f)
                     .testTag("metric-reading"),
                 label = stringResource(R.string.home_reading),
-                value = rememberCountUp(readingCount, reducedMotion).toString(),
+                value = rememberCountUp(readingCount, "home.metrics.reading", reducedMotion).toString(),
                 subtext = "在读书籍",
             )
             GridStat(
@@ -81,10 +81,10 @@ fun HomeMetricsSection(
                     .weight(1f)
                     .testTag("metric-completed"),
                 label = stringResource(R.string.home_finished),
-                value = rememberCountUp(completedCount, reducedMotion).toString(),
+                value = rememberCountUp(completedCount, "home.metrics.completed", reducedMotion).toString(),
                 subtext = "翻越终章",
             )
-            val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), reducedMotion)
+            val minutesCountUp = rememberCountUp((todayReadingMs / 60000).toInt(), "home.metrics.today", reducedMotion)
             GridStat(
                 modifier = Modifier
                     .weight(1f)

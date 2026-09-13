@@ -121,6 +121,8 @@ class ProfileViewModelTest {
             bookRepository = bookRepository,
             noteRepository = mockk<NoteRepository>(relaxed = true),
             statsRepository = statsRepository,
+            searchIndexRepository = mockk<com.creationreadingassistant.data.repository.SearchIndexRepository>(relaxed = true),
+            searchIndexScheduler = mockk<com.creationreadingassistant.data.repository.SearchIndexScheduler>(relaxed = true),
             goalStore = goalStore,
             goalScheduler = goalScheduler,
             ioDispatcher = UnconfinedTestDispatcher(testScheduler),

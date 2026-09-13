@@ -36,6 +36,7 @@ import androidx.compose.material.icons.outlined.Security
 import androidx.compose.material.icons.outlined.Sell
 import androidx.compose.material.icons.outlined.Storage
 import androidx.compose.material.icons.outlined.TextFields
+import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -48,6 +49,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.creationreadingassistant.data.settings.SelectionActionSettings
+import com.creationreadingassistant.data.settings.SelectionActions
 import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SettingRow
@@ -138,14 +141,21 @@ internal fun ProfileHomeScreen(
                             }
                         },
                         reducedMotion = reducedMotion,
+                        countUpKey = "profile.home.duration",
                     )
-                    HomeStat("累计读完", summary.completedBookCount, reducedMotion = reducedMotion)
+                    HomeStat(
+                        "累计读完",
+                        summary.completedBookCount,
+                        reducedMotion = reducedMotion,
+                        countUpKey = "profile.home.completed",
+                    )
                     // 灵感数量可点直达灵感中心：显示了数量就要有对应的入口（同类反馈：灵感在哪）
                     HomeStat(
                         "灵感数量",
                         summary.inspirationCount,
                         reducedMotion = reducedMotion,
                         onClick = { onAction(ProfileAction.OpenInspirations) },
+                        countUpKey = "profile.home.inspirations",
                     )
                 }
             }
@@ -199,6 +209,13 @@ internal fun ProfileHomeScreen(
         item(key = "reading-appearance") {
             MenuGroup(title = "阅读与外观") {
                 MenuItem(Icons.Outlined.TextFields, "阅读设置", "字号、行距、主题、翻页模式", iconTint = Color(0xFF6750A4), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READER)) })
+                MenuItem(
+                    Icons.Outlined.TouchApp,
+                    "选区与查词",
+                    selectionSummary(state.selectionActions, state.dictionaries.size),
+                    iconTint = Color(0xFF00897B),
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.SELECTION)) },
+                )
                 MenuItem(Icons.Outlined.DarkMode, "应用外观", state.appThemeLabel, iconTint = Color(0xFF00639B), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.APPEARANCE)) })
                 MenuItem(Icons.AutoMirrored.Outlined.MenuBook, "我的阅读", "进度、时长、书籍状态", iconTint = Color(0xFF006874), onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) })
                 MenuItem(
@@ -245,6 +262,21 @@ internal fun ProfileHomeScreen(
 
 // ============================== 首页辅助组件 ==============================
 
+/**
+ * 「选区与查词」入口的副标题（R3-X1）。
+ *
+ * 只暴露**用户真正关心的状态**：第一屏放了几个动作、离线词库装了几部。
+ * 不写「已配置/未配置」这类没有信息量的字眼 —— 默认配置本来也是「已配置」。
+ */
+private fun selectionSummary(settings: SelectionActionSettings, dictionaryCount: Int): String {
+    val primaryCount = SelectionActions.effectivePrimary(settings).size
+    val dict = when (settings.dictionaryMode) {
+        SelectionActions.MODE_SYSTEM -> "系统词典"
+        SelectionActions.MODE_ONLINE -> "在线词典"
+        else -> if (dictionaryCount > 0) "离线词库 $dictionaryCount 部" else "离线词库待导入"
+    }
+    return "第一屏 $primaryCount 个动作 · $dict"
+}
 @Composable
 private fun HomeStat(
     label: String,
@@ -252,6 +284,11 @@ private fun HomeStat(
     format: (Int) -> String = { "$it" },
     reducedMotion: Boolean = false,
     onClick: (() -> Unit)? = null,
+    /**
+     * count-up 的跨重建记忆 key。默认取 [label] 保证不同卡片天然不同；
+     * 显式传入可以避免文案调整（含多语言）后 key 跟着变、导致数字又从 0 重播一次。
+     */
+    countUpKey: String = label,
 ) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -271,7 +308,7 @@ private fun HomeStat(
                 softWrap = false,
             )
             Text(
-                rememberCountUp(value, reducedMotion).let { format(it) },
+                rememberCountUp(value, countUpKey, reducedMotion).let { format(it) },
                 style = valueStyle,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,

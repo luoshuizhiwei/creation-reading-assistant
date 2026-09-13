@@ -22,6 +22,8 @@ import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.toImmutableList
 
 /** 灵感来源信息（原生无独立 source 表，随灵感存入 payload）。 */
 @Serializable
@@ -47,6 +49,12 @@ data class InspirationSourceInfo(
     val tags: List<String> = emptyList(),
     val categoryIds: List<String> = emptyList(),
     val source: InspirationSourceInfo? = null,
+    /** R5-I1：采用去向记录（文字/链接），与正文、AI 候选分开存放。 */
+    val adoptions: List<InspirationAdoptionRecord> = emptyList(),
+    /** R5-I2：多摘录素材卡聚合的各来源摘录（首来源另见 [source]）。 */
+    val excerpts: List<InspirationSourceInfo> = emptyList(),
+    /** 该条已被合并进的目标素材卡 id；非 null 表示原条目已归档待查。 */
+    val mergedInto: String? = null,
 )
 
 /** 编辑器产出的灵感草稿（id 为 null 表示新建）。 */
@@ -63,7 +71,9 @@ data class InspirationDraft(
 /** 灵感列表加载状态：由 repository flow 第一次真实 emission 驱动，Route 不再自行猜测 firstLoad。 */
 sealed interface InspirationItemsState {
     data object Loading : InspirationItemsState
-    data class Loaded(val items: List<InspirationEntity>) : InspirationItemsState
+    data class Loaded(val items: ImmutableList<InspirationEntity>) : InspirationItemsState {
+        constructor(items: List<InspirationEntity> = emptyList()) : this(items.toImmutableList())
+    }
 }
 
 @HiltViewModel
@@ -89,7 +99,7 @@ class InspirationViewModel @Inject constructor(
             if (_pendingSavedIds.value.isNotEmpty()) {
                 _pendingSavedIds.update { pending -> pending - list.mapTo(HashSet()) { it.id } }
             }
-            InspirationItemsState.Loaded(list)
+            InspirationItemsState.Loaded(list.toImmutableList())
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), InspirationItemsState.Loading)
 
@@ -181,6 +191,9 @@ class InspirationViewModel @Inject constructor(
 
     fun sourceOf(entity: InspirationEntity): InspirationSourceInfo? = parsePayload(entity).source
 
+    /** R5-I1/I2：详情页消费的完整 payload（采用去向 + 聚合摘录 + 来源定位）。 */
+    fun payloadFor(entity: InspirationEntity): InspirationPayloadData = parsePayload(entity)
+
     fun saveInspiration(draft: InspirationDraft) {
         val now = java.time.Instant.now().toString()
         val loadedItems = (itemsState.value as? InspirationItemsState.Loaded)?.items ?: emptyList()
@@ -189,7 +202,18 @@ class InspirationViewModel @Inject constructor(
         if (existing == null) {
             _pendingSavedIds.update { it + id }
         }
-        val payload = InspirationPayloadData(tags = draft.tags, source = draft.source)
+        // 编辑器只拥有 tags / source 两个字段；采用去向（R5-I1）、聚合摘录（R5-I2）与
+        // 归档去向由详情页与合并流程维护。编辑保存必须从既有 payload 继承这些字段，
+        // 否则「只改一个标题」会静默清空素材卡的摘录/采用记录。
+        val previous = existing?.let { parsePayload(it) }
+        val payload = InspirationPayloadData(
+            tags = draft.tags,
+            categoryIds = previous?.categoryIds ?: emptyList(),
+            source = draft.source,
+            adoptions = previous?.adoptions ?: emptyList(),
+            excerpts = previous?.excerpts ?: emptyList(),
+            mergedInto = previous?.mergedInto,
+        )
         val entity = InspirationEntity(
             id = id,
             title = draft.title.ifBlank { "未命名灵感" },
@@ -207,6 +231,128 @@ class InspirationViewModel @Inject constructor(
 
     fun deleteInspiration(id: String) {
         viewModelScope.launch { inspirationRepository.deleteInspiration(id) }
+    }
+
+    /** 当前列表条目的 payload 快照（不在列表中返回空 payload，操作幂等失败）。 */
+    private fun payloadOf(id: String): InspirationPayloadData? {
+        val loaded = itemsState.value as? InspirationItemsState.Loaded ?: return null
+        val entity = loaded.items.firstOrNull { it.id == id } ?: return null
+        return parsePayload(entity)
+    }
+
+    private fun upsertPayload(id: String, payload: InspirationPayloadData, status: String? = null) {
+        val loaded = itemsState.value as? InspirationItemsState.Loaded ?: return
+        val entity = loaded.items.firstOrNull { it.id == id } ?: return
+        val now = java.time.Instant.now().toString()
+        viewModelScope.launch {
+            inspirationRepository.upsert(
+                entity.copy(
+                    payload = JSON.encodeToString(InspirationPayloadData.serializer(), payload),
+                    status = status ?: entity.status,
+                    revision = entity.revision + 1,
+                    updated_at = now,
+                ),
+            )
+        }
+    }
+
+    /**
+     * R5-I1：记录一条采用去向（文字/链接）。首次采用会把状态推进为「已采用」；
+     * 校验失败（value 空白 / kind 非法）回调 false，不落库。
+     */
+    fun addAdoption(
+        inspirationId: String,
+        kind: String,
+        value: String,
+        note: String?,
+        onDone: (Boolean) -> Unit = {},
+    ) {
+        val payload = payloadOf(inspirationId) ?: run { onDone(false); return }
+        val entity = (itemsState.value as? InspirationItemsState.Loaded)?.items
+            ?.firstOrNull { it.id == inspirationId }
+        val record = InspirationAdoptionRecord(
+            kind = kind,
+            value = value.trim(),
+            note = note?.trim()?.takeIf { it.isNotEmpty() },
+            createdAt = java.time.Instant.now().toString(),
+        )
+        val (next, nextStatus) = payloadWithAdoption(payload, record, entity?.status ?: "inbox")
+            ?: run { onDone(false); return }
+        upsertPayload(inspirationId, next, nextStatus)
+        onDone(true)
+    }
+
+    /** 移除一条采用去向；状态不自动回退。 */
+    fun removeAdoption(inspirationId: String, record: InspirationAdoptionRecord) {
+        val payload = payloadOf(inspirationId) ?: return
+        upsertPayload(inspirationId, payloadWithoutAdoption(payload, record))
+    }
+
+    /**
+     * R5-I2：把多条素材聚合成一张**多摘录素材卡**。
+     *
+     * - 新卡状态「待整理」，正文按来源快照拼接，各条摘录的来源/locator 原样进入
+     *   `payload.excerpts`（来源定位逐条可用）；
+     * - 被聚合的原始条目**归档**（不删除）并在 payload 记 `mergedInto`，可从归档恢复；
+     * - 少于 2 条或列表未就绪时回调 false，不产生任何写入。
+     */
+    fun mergeIntoMaterialCard(ids: List<String>, onDone: (String?) -> Unit = {}) {
+        if (ids.size < 2) { onDone(null); return }
+        val loaded = itemsState.value as? InspirationItemsState.Loaded ?: run { onDone(null); return }
+        val entities = ids.mapNotNull { id -> loaded.items.firstOrNull { it.id == id } }
+        if (entities.size < 2) { onDone(null); return }
+
+        val now = java.time.Instant.now().toString()
+        val cardId = java.util.UUID.randomUUID().toString()
+        val payloads = entities.map { parsePayload(it) }
+        val cardPayload = mergedMaterialPayload(payloads, tags = emptyList(), categoryIds = emptyList())
+
+        val body = entities.joinToString("\n\n") { entity ->
+            val src = parsePayload(entity).source
+            val header = listOfNotNull(
+                src?.bookTitle?.let { "《$it》" },
+                src?.chapterTitle,
+            ).joinToString(" · ")
+            (if (header.isBlank()) "" else "$header\n") + entity.body.ifBlank { src?.excerpt.orEmpty() }
+        }
+        val firstTitle = entities.first().title.takeIf { it.isNotBlank() && it != "未命名灵感" }
+        val cardTitle = firstTitle ?: "素材卡 · ${entities.size} 条来源"
+
+        viewModelScope.launch {
+            inspirationRepository.upsert(
+                InspirationEntity(
+                    id = cardId,
+                    title = cardTitle,
+                    body = body,
+                    type = "note",
+                    status = "reviewing",
+                    source_book_id = entities.firstNotNullOfOrNull { it.source_book_id },
+                    payload = JSON.encodeToString(InspirationPayloadData.serializer(), cardPayload),
+                    created_at = now,
+                    device_id = null,
+                    revision = 1,
+                    updated_at = now,
+                    deleted_at = null,
+                ),
+            )
+            // 原始条目归档并记录去向，非破坏、可恢复
+            entities.forEach { entity ->
+                val p = parsePayload(entity)
+                inspirationRepository.upsert(
+                    entity.copy(
+                        status = "archived",
+                        payload = JSON.encodeToString(
+                            InspirationPayloadData.serializer(),
+                            p.copy(mergedInto = cardId),
+                        ),
+                        revision = entity.revision + 1,
+                        updated_at = now,
+                    ),
+                )
+            }
+            _pendingSavedIds.update { it + cardId }
+            onDone(cardId)
+        }
     }
 
     private fun parsePayload(json: String?): InspirationPayloadData {

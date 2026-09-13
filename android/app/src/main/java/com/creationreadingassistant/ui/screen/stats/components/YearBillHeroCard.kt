@@ -68,10 +68,10 @@ internal fun YearBillHeroCard(
     val hoursFloat = remember(stats.totalReadingMs) {
         stats.totalReadingMs.toFloat() / 3_600_000f
     }
-    val hours = rememberCountUp(hoursFloat.roundToInt(), reducedMotion)
-    val days = rememberCountUp(stats.readingDays, reducedMotion)
-    val longest = rememberCountUp(stats.streakLongest, reducedMotion)
-    val completed = rememberCountUp(stats.completed, reducedMotion)
+    val hours = rememberCountUp(hoursFloat.roundToInt(), "stats.yearbill.hours", reducedMotion)
+    val days = rememberCountUp(stats.readingDays, "stats.yearbill.days", reducedMotion)
+    val longest = rememberCountUp(stats.streakLongest, "stats.yearbill.longest", reducedMotion)
+    val completed = rememberCountUp(stats.completed, "stats.yearbill.completed", reducedMotion)
 
     val headline = remember(stats.totalReadingMs, stats.completed, stats.streakLongest, stats.readingDays) {
         buildYearHeadline(

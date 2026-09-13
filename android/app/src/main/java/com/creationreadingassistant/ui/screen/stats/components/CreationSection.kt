@@ -60,9 +60,9 @@ internal fun CreationSection(
     val scheme = MaterialTheme.colorScheme
 
     val totalCreations = stats.noteCount + stats.inspirationCount
-    val animatedNotes = rememberCountUp(stats.noteCount, reducedMotion)
-    val animatedInspirations = rememberCountUp(stats.inspirationCount, reducedMotion)
-    val animatedDays = rememberCountUp(stats.readingDays, reducedMotion)
+    val animatedNotes = rememberCountUp(stats.noteCount, "stats.creation.notes", reducedMotion)
+    val animatedInspirations = rememberCountUp(stats.inspirationCount, "stats.creation.inspirations", reducedMotion)
+    val animatedDays = rememberCountUp(stats.readingDays, "stats.creation.days", reducedMotion)
 
     val items = listOf(
         CreationMetricItem(

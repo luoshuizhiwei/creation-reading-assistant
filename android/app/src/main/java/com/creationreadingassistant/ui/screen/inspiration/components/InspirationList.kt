@@ -27,18 +27,23 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.Book
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.MoreHoriz
 import androidx.compose.material.icons.outlined.Tune
 import com.creationreadingassistant.ui.theme.AppIconSize
+import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.foundation.border
+import androidx.compose.material.icons.outlined.CheckCircle
+import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -69,6 +74,8 @@ import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
+import com.creationreadingassistant.ui.viewmodel.PIPELINE_STAGES
+import com.creationreadingassistant.ui.viewmodel.pipelineCounts
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
 
 /**
@@ -112,6 +119,17 @@ internal fun InspirationList(
         }
     } else null
 
+    // R5-I1：素材回顾多选（合并为素材卡）。选择态是列表本地瞬态，不进 UiState。
+    var selectMode by remember { mutableStateOf(false) }
+    val selectedIds = remember { mutableStateListOf<String>() }
+    fun toggleSelected(id: String) {
+        if (id in selectedIds) selectedIds.remove(id) else selectedIds.add(id)
+    }
+    // R5-I1：回顾管线阶段计数（未整理/待整理/已整理/已采用）
+    val pipelineCounts = remember(items) {
+        pipelineCounts(items.groupingBy { it.status ?: "inbox" }.eachCount().map { (k, v) -> k to v })
+    }
+
     Column(modifier = modifier.fillMaxSize().testTag("inspiration-list")) {
         // 1. 类型筛选导轨 + 排序按钮
         Row(
@@ -149,6 +167,39 @@ internal fun InspirationList(
                 }
             }
             Surface(
+                onClick = {
+                    selectMode = !selectMode
+                    selectedIds.clear()
+                },
+                shape = PillShape,
+                color = if (selectMode) {
+                    MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                } else {
+                    MaterialTheme.colorScheme.surfaceContainerLow
+                },
+                border = BorderStroke(
+                    spec.hairlineBorderWidth,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                ),
+                contentColor = MaterialTheme.colorScheme.primary,
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    Icon(
+                        Icons.Outlined.CheckCircle,
+                        contentDescription = null,
+                        modifier = Modifier.size(AppIconSize.Compact),
+                    )
+                    Text(
+                        if (selectMode) "退出多选" else "多选",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                    )
+                }
+            }
+            Surface(
                 onClick = { onAction(InspirationAction.OpenSortSheet) },
                 shape = PillShape,
                 color = MaterialTheme.colorScheme.surfaceContainerLow,
@@ -173,6 +224,31 @@ internal fun InspirationList(
                         style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
                     )
                 }
+            }
+        }
+
+        // 1.b 素材回顾管线：四阶段计数胶囊（点击即筛选）
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = layout.pageHorizontal, vertical = 2.dp)
+                .horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            PIPELINE_STAGES.forEach { (key, label) ->
+                val count = pipelineCounts[key] ?: 0
+                SelectablePill(
+                    text = "$label $count",
+                    selected = statusFilter == key,
+                    onClick = {
+                        onAction(
+                            InspirationAction.UpdateStatusFilter(
+                                if (statusFilter == key) "all" else key,
+                            ),
+                        )
+                    },
+                )
             }
         }
 
@@ -266,12 +342,60 @@ internal fun InspirationList(
                         item = item,
                         source = sourceOf(item),
                         tags = tagsOf(item),
-                        onOpen = { onAction(InspirationAction.OpenDetail(item.id)) },
+                        selected = selectMode && item.id in selectedIds,
+                        onOpen = {
+                            if (selectMode) toggleSelected(item.id)
+                            else onAction(InspirationAction.OpenDetail(item.id))
+                        },
                         onMore = { onAction(InspirationAction.OpenItemActions(item.id)) },
                         entranceDelay = index * 40,
                     )
                 }
                 item { Box(Modifier.fillMaxWidth().padding(bottom = 16.dp)) }
+            }
+        }
+
+        // R5-I2：多选底部操作条——把选中的多条素材合并为一张素材卡
+        if (selectMode) {
+            Surface(
+                shape = PillShape,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.95f),
+                border = BorderStroke(
+                    spec.hairlineBorderWidth,
+                    MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
+                ),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.pageHorizontal, vertical = 6.dp),
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    Text(
+                        "已选 ${selectedIds.size} 条",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(
+                        onClick = {
+                            selectMode = false
+                            selectedIds.clear()
+                        },
+                    ) { Text("取消", style = MaterialTheme.typography.labelSmall) }
+                    Button(
+                        enabled = selectedIds.size >= 2,
+                        shape = PillShape,
+                        onClick = {
+                            onAction(InspirationAction.MergeToMaterialCard(selectedIds.toList()))
+                            selectMode = false
+                            selectedIds.clear()
+                        },
+                    ) {
+                        Text("合并为素材卡", style = MaterialTheme.typography.labelSmall)
+                    }
+                }
             }
         }
     }
@@ -285,6 +409,7 @@ private fun InspirationRecordCard(
     onOpen: () -> Unit,
     onMore: () -> Unit,
     entranceDelay: Int = 0,
+    selected: Boolean = false,
 ) {
     val spec = LocalComponentSpec.current
     val accentColor = when (item.type) {
@@ -298,7 +423,18 @@ private fun InspirationRecordCard(
         modifier = Modifier
             .fillMaxWidth()
             .animateEnter(delayMillis = entranceDelay, reducedMotion = rememberReducedMotion())
-            .testTag("inspiration-card-${item.id}"),
+            .testTag("inspiration-card-${item.id}")
+            .then(
+                if (selected) {
+                    Modifier.border(
+                        width = 1.6.dp,
+                        color = MaterialTheme.colorScheme.primary,
+                        shape = RoundedCornerShape(18.dp),
+                    )
+                } else {
+                    Modifier
+                },
+            ),
         onClick = onOpen,
     ) {
         Column(
@@ -396,7 +532,7 @@ private fun InspirationRecordCard(
                         horizontalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
                         Icon(
-                            Icons.Outlined.MenuBook,
+                            Icons.AutoMirrored.Outlined.MenuBook,
                             contentDescription = null,
                             modifier = Modifier.size(13.dp),
                             tint = MaterialTheme.colorScheme.primary,

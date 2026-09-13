@@ -42,7 +42,7 @@ import kotlinx.coroutines.launch
  * - MainActivity 的 onHomeContentReady 回调（首屏骨架超时）
  *
  * ## 数据流
- * ViewModel.HomeUiState → 本 Route 合并纯 UI 状态（showSkeleton、isContinueSheetOpen）
+ * ViewModel.HomeUiState → 本 Route 合并纯 UI 状态（showSkeleton；sheet 开关只留在本层）
  *                      → com.creationreadingassistant.ui.screen.home.HomeUiState
  *                      → HomeScreen(uiState, onAction)（纯渲染）
  *
@@ -75,14 +75,12 @@ fun HomeRoute(
         if (data.isReady) (activity as? MainActivity)?.onHomeContentReady()
     }
 
-    // 把 ViewModel 源状态 + 纯 UI 状态 合并为纯 Screen 层的 HomeUiState
+    // 把 ViewModel 源状态 + 纯 UI 状态 合并为纯 Screen 层的 HomeUiState。
+    // 只搬运 Screen 真正渲染的字段：整库 books/sessions/removedIds 与 sheet 开关不下传，
+    // 避免重复状态与无谓重组（sheet 开关的唯一来源是本 Route 的 isContinueSheetOpen）。
     val uiState = HomeUiState(
         showSkeleton = showSkeleton,
-        isContinueSheetOpen = isContinueSheetOpen,
-        books = data.books,
         progressById = data.progressById,
-        sessionsByBook = data.sessionsByBook,
-        removedContinueIds = data.removedContinueIds,
         continueBooks = data.continueBooks,
         completedBooks = data.completedBooks,
         recentInspirations = data.recentInspirations,

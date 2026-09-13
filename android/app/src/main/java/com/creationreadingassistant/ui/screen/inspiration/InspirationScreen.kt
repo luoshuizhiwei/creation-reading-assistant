@@ -165,6 +165,7 @@ internal fun InspirationScreen(
                         InspirationDetail(
                             entity = selectedEntity,
                             source = sourceOf(selectedEntity),
+                            payload = viewModel.payloadFor(selectedEntity),
                             tags = tagsOf(selectedEntity),
                             viewModel = viewModel,
                             onAction = onAction,

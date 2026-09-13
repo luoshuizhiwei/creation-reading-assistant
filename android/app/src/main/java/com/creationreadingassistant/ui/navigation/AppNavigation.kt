@@ -468,6 +468,8 @@ private fun AppNavHost(
             InspirationScreen(
                 initialSelectedId = inspId,
                 onOpenBook = { bookId -> navController.navigate("reader/$bookId") },
+                // R5-I2：灵感摘录「查阅原文位置」走临时查阅 route（返回不丢阅读位置）
+                onOpenRoute = { route -> navController.navigate(route) },
             )
         }
         composable(TopLevelRoute.Stats.route) { StatsScreen() }

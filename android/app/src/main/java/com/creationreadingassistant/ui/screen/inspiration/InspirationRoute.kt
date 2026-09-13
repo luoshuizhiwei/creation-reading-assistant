@@ -9,11 +9,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalClipboardManager
-import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalClipboard
+import com.creationreadingassistant.ui.util.copyText
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.viewmodel.InspirationItemsState
 import com.creationreadingassistant.ui.viewmodel.InspirationSourceInfo
 import com.creationreadingassistant.ui.viewmodel.InspirationViewModel
@@ -25,6 +27,8 @@ internal fun InspirationRoute(
     viewModel: InspirationViewModel = hiltViewModel(),
     initialSelectedId: String? = null,
     onOpenBook: (String) -> Unit = {},
+    /** R5-I2：临时查阅/普通回源 route 直通导航（AppNavigation 提供 NavController）。 */
+    onOpenRoute: (String) -> Unit = {},
 ) {
     val itemsState by viewModel.itemsState.collectAsStateWithLifecycle()
     val pendingSavedIds by viewModel.pendingSavedIds.collectAsStateWithLifecycle()
@@ -34,7 +38,7 @@ internal fun InspirationRoute(
 
     val snackbarHostState = remember { androidx.compose.material3.SnackbarHostState() }
     val scope = rememberCoroutineScope()
-    val clipboard = LocalClipboardManager.current
+    val clipboard = LocalClipboard.current
 
     var state by remember {
         mutableStateOf(
@@ -101,7 +105,7 @@ internal fun InspirationRoute(
         val text = listOfNotNull(item.title, item.body, src?.excerpt)
             .filter { it.isNotBlank() }
             .joinToString("\n\n")
-        clipboard.setText(AnnotatedString(text))
+        clipboard.copyText(text, scope, "inspiration")
         message("灵感内容已复制。")
     }
 
@@ -222,6 +226,39 @@ internal fun InspirationRoute(
                 }
             }
 
+            is InspirationAction.InspectSourceLocator -> {
+                state = state.copy(sheet = InspirationSheet.None)
+                // 与「我的 → 阅读笔记」同一判据：route 构造成功才跳（无有效 source 坐标不伪造位置）
+                val locator = LocatorCodec.decode(action.locatorJson)
+                val route = readerTemporaryRouteForSource(
+                    bookId = action.bookId,
+                    legacyOffset = locator?.legacyOffset,
+                    chapterIndex = locator?.chapterIndex,
+                    charOffset = locator?.charOffset,
+                )
+                when {
+                    route == null -> {
+                        message("这条摘录没有可用的精确定位。")
+                        action.bookId.takeIf { books.any { b -> b.id == it } }?.let(onOpenBook)
+                    }
+                    books.none { it.id == action.bookId } ->
+                        message("来源书籍已删除，摘录内容仍保留。")
+                    else -> onOpenRoute(route)
+                }
+            }
+
+            is InspirationAction.MergeToMaterialCard -> {
+                state = state.copy(sheet = InspirationSheet.None)
+                viewModel.mergeIntoMaterialCard(action.ids) { cardId ->
+                    if (cardId == null) {
+                        message("至少选择两条素材才能合并。")
+                    } else {
+                        message("已合并为素材卡，原条目已归档。")
+                        state = state.copy(page = InspirationPage.Detail(cardId))
+                    }
+                }
+            }
+
             is InspirationAction.RequestDelete -> {
                 state = state.copy(
                     sheet = InspirationSheet.None,
@@ -276,7 +313,7 @@ internal fun InspirationRoute(
             }
 
             is InspirationAction.CopyVariantText -> {
-                clipboard.setText(AnnotatedString(action.text))
+                clipboard.copyText(action.text, scope, "inspiration_variant")
                 message("候选内容已复制。")
             }
 

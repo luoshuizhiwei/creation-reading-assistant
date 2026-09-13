@@ -24,6 +24,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavHostController
 import com.creationreadingassistant.data.settings.ReaderSettings
+import com.creationreadingassistant.data.settings.SelectionActionGroup
+import com.creationreadingassistant.data.settings.SelectionActionPreferences
 import com.creationreadingassistant.feature.annotations.AnnotationActions
 import com.creationreadingassistant.feature.annotations.AnnotationEntry
 import com.creationreadingassistant.feature.annotations.LocalAnnotationActions
@@ -32,6 +34,7 @@ import com.creationreadingassistant.ui.components.GlassAlertDialog
 import com.creationreadingassistant.ui.navigation.readerTemporaryRouteForSource
 import com.creationreadingassistant.ui.viewmodel.ProfileLibraryState
 import com.creationreadingassistant.ui.viewmodel.ProfileViewModel
+import com.creationreadingassistant.ui.viewmodel.DictionaryViewModel
 import com.creationreadingassistant.ui.screen.ProfileScreen
 import com.creationreadingassistant.ui.viewmodel.SettingsViewModel
 import com.creationreadingassistant.ui.viewmodel.TaxonomyViewModel
@@ -97,11 +100,35 @@ internal fun ProfileRoute(
     val goal by viewModel.goalState.collectAsStateWithLifecycle()
     val lastSyncResult by viewModel.lastSyncResult.collectAsStateWithLifecycle()
     val syncLogs by viewModel.syncLogs.collectAsStateWithLifecycle()
+    val searchIndexProgress by viewModel.searchIndexProgress.collectAsStateWithLifecycle()
 
     // ---- 设置状态收集 ----
     val appearance by settingsVm.appearance.collectAsStateWithLifecycle()
     val reader by settingsVm.reader.collectAsStateWithLifecycle()
     val ai by settingsVm.ai.collectAsStateWithLifecycle()
+    // ---- R3-X1：选区动作配置 + 离线词库 ----
+    // 只经 Reader 侧暴露的最小门面消费：Profile 拿不到 SelectionActionStore，也拿不到
+    // SettingsViewModel 上与选区无关的设置面，因此无从复制默认值 / sanitize / URL 校验 /
+    // 动作排序与过滤——那些裁决唯一地留在仓储里。
+    val selectionPrefs: SelectionActionPreferences = settingsVm.selectionActionPreferences
+    val selectionActions by selectionPrefs.settings.collectAsStateWithLifecycle()
+    // 词库面板用自己的 ViewModel：它与阅读器内的词典面板共享同一个 @Singleton 仓储，
+    // 因此在设置页导入/卸载后，阅读器内查词看到的是同一份词库。
+    val dictionaryVm: DictionaryViewModel = hiltViewModel()
+    val dictionaryState by dictionaryVm.state.collectAsStateWithLifecycle()
+    LaunchedEffect(subPage) {
+        if (subPage == ProfileSubPage.SELECTION) dictionaryVm.refreshInstalled()
+    }
+    val dictionaryMessage = dictionaryState.message
+    LaunchedEffect(dictionaryMessage) {
+        dictionaryMessage?.let {
+            snackbarHostState.showSnackbar(it)
+            dictionaryVm.consumeMessage()
+        }
+    }
+    val dictionaryImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? -> uri?.let { dictionaryVm.install(it) } }
 
     // ---- 本地 UI 状态 ----
     var confirmDialog by remember { mutableStateOf<ConfirmSpec?>(null) }
@@ -256,6 +283,10 @@ internal fun ProfileRoute(
         webDavBackups = webDavBackups,
         appearance = appearance,
         reader = reader,
+        selectionActions = selectionActions,
+        dictionaries = dictionaryState.installed.map {
+            InstalledDictionaryRow(it.baseName, it.bookName, it.wordCount)
+        },
         ai = ai,
         aiHttpWarning = aiHttpWarning,
         aiKeyDraft = aiKeyDraft,
@@ -263,6 +294,7 @@ internal fun ProfileRoute(
         goal = goal,
         pendingDownloadCount = books.count { !isBookDownloaded(it) },
         indexBytes = books.sumOf { it.size.toLong() },
+        searchIndexProgress = searchIndexProgress,
     )
 
     // ---- Action 处理器 ----
@@ -272,6 +304,7 @@ internal fun ProfileRoute(
             navController = navController,
             viewModel = viewModel,
             settingsVm = settingsVm,
+            selectionPrefs = selectionPrefs,
             context = context,
             scope = scope,
             snackbarHostState = snackbarHostState,
@@ -283,6 +316,8 @@ internal fun ProfileRoute(
             onAiKeyDraftChange = { aiKeyDraft = it },
             onConfirmDialogChange = { confirmDialog = it },
             showMsg = showMsg,
+            dictionaryVm = dictionaryVm,
+            dictionaryImportLauncher = dictionaryImportLauncher,
         )
     }
 
@@ -320,6 +355,7 @@ private fun handleProfileAction(
     navController: NavHostController?,
     viewModel: ProfileViewModel,
     settingsVm: SettingsViewModel,
+    selectionPrefs: SelectionActionPreferences,
     context: android.content.Context,
     scope: kotlinx.coroutines.CoroutineScope,
     snackbarHostState: SnackbarHostState,
@@ -331,6 +367,8 @@ private fun handleProfileAction(
     onAiKeyDraftChange: (String) -> Unit,
     onConfirmDialogChange: (ConfirmSpec?) -> Unit,
     showMsg: (String) -> Unit,
+    dictionaryVm: DictionaryViewModel,
+    dictionaryImportLauncher: androidx.activity.result.ActivityResultLauncher<Array<String>>,
 ) {
     when (action) {
         // ---- Navigation ----
@@ -352,6 +390,8 @@ private fun handleProfileAction(
         ProfileAction.Unpair -> viewModel.unpair()
         is ProfileAction.RetryItem -> viewModel.retryItem(action.item)
         ProfileAction.RetryFailed -> viewModel.retryFailed()
+        ProfileAction.RebuildSearchIndex ->
+            viewModel.rebuildSearchIndex { msg -> scope.launch { snackbarHostState.showSnackbar(msg) } }
 
         // ---- WebDAV ----
         is ProfileAction.SaveWebDav -> {
@@ -393,6 +433,31 @@ private fun handleProfileAction(
             showMsg("已清除 API Key")
         }
         is ProfileAction.UpdateAiKeyDraft -> onAiKeyDraftChange(action.value)
+
+        // ---- Selection toolbar / dictionary (R3-X1) ----
+        // 一对一委托给 Reader 的门面；槽位上下限、固定组不可隐藏、模板校验与模式白名单
+        // 全部由仓储裁决，这里不复述任何规则。
+        is ProfileAction.TogglePrimarySelectionAction ->
+            selectionPrefs.setActionEnabled(action.id, action.enabled, SelectionActionGroup.PRIMARY)
+        is ProfileAction.ToggleMoreSelectionAction ->
+            selectionPrefs.setActionEnabled(action.id, action.enabled, SelectionActionGroup.MORE)
+        is ProfileAction.SetBrowserUrlTemplate -> {
+            selectionPrefs.setBrowserUrlTemplate(action.value)
+            showMsg("浏览器查询地址已保存")
+        }
+        is ProfileAction.SetDictionaryUrlTemplate -> {
+            selectionPrefs.setDictionaryUrlTemplate(action.value)
+            showMsg("在线词典地址已保存")
+        }
+        is ProfileAction.SetDictionaryMode -> selectionPrefs.setDictionaryMode(action.mode)
+        ProfileAction.ResetSelectionActions -> {
+            selectionPrefs.resetToDefaults()
+            showMsg("已恢复选区默认设置")
+        }
+        ProfileAction.ImportDictionary -> dictionaryImportLauncher.launch(
+            arrayOf("application/zip", "application/octet-stream"),
+        )
+        is ProfileAction.UninstallDictionary -> dictionaryVm.uninstall(action.baseName)
 
         // ---- Reading goal ----
         is ProfileAction.UpdateGoalMinutes -> viewModel.setGoalMinutes(action.minutes)

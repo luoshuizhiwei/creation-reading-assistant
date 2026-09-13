@@ -15,11 +15,16 @@ import com.creationreadingassistant.data.repository.epochDayOf
 import com.creationreadingassistant.data.repository.startEpochSecondOf
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
+import com.creationreadingassistant.ui.util.hasBookBeenRead
+import com.creationreadingassistant.ui.util.isBookDisplayable
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
 import javax.inject.Inject
 import kotlin.math.exp
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
@@ -31,13 +36,13 @@ import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 
 data class HomeUiState(
-    val books: List<BookEntity> = emptyList(),
+    val books: ImmutableList<BookEntity> = persistentListOf(),
     val progressById: Map<String, ReadingProgressEntity> = emptyMap(),
     val sessionsByBook: Map<String, List<ReadingSessionEntity>> = emptyMap(),
     val removedContinueIds: Map<String, String> = emptyMap(),
-    val continueBooks: List<BookEntity> = emptyList(),
-    val completedBooks: List<BookEntity> = emptyList(),
-    val recentInspirations: List<InspirationEntity> = emptyList(),
+    val continueBooks: ImmutableList<BookEntity> = persistentListOf(),
+    val completedBooks: ImmutableList<BookEntity> = persistentListOf(),
+    val recentInspirations: ImmutableList<InspirationEntity> = persistentListOf(),
     val totalReadBooksCount: Int = 0,
     val thisWeekNew: Int = 0,
     val readingCount: Int = 0,
@@ -123,7 +128,7 @@ private fun buildHomeUiState(
         .asSequence()
         .filter { book ->
             val progress = progressById[book.id]
-            book.isDisplayable() &&
+            isBookDisplayable(book) &&
                 (progress?.completion_state == "finished" || (progress?.progress_percent ?: 0f) >= 99.5f)
         }
         .sortedWith { first, second ->
@@ -133,7 +138,7 @@ private fun buildHomeUiState(
         .toList()
 
     return HomeUiState(
-        books = input.books,
+        books = input.books.toImmutableList(),
         progressById = progressById,
         sessionsByBook = sessionsByBook,
         removedContinueIds = input.removedContinueIds,
@@ -142,15 +147,15 @@ private fun buildHomeUiState(
             progressById,
             sessionsByBook,
             input.removedContinueIds,
-        ),
-        completedBooks = completed,
-        recentInspirations = inspirations.sortedByDescending { it.updated_at }.take(5),
+        ).toImmutableList(),
+        completedBooks = completed.toImmutableList(),
+        recentInspirations = inspirations.sortedByDescending { it.updated_at }.take(5).toImmutableList(),
         totalReadBooksCount = input.books.count {
-            it.isDisplayable() && it.hasBeenRead(progressById[it.id], sessionsByBook[it.id])
+            isBookDisplayable(it) && hasBookBeenRead(it, progressById[it.id], sessionsByBook[it.id])
         },
         thisWeekNew = input.books.count { epochDayOf(it.imported_at) in weekStart..nowDay },
         readingCount = input.books.count {
-            it.isDisplayable() && progressById[it.id]?.completion_state == "reading"
+            isBookDisplayable(it) && progressById[it.id]?.completion_state == "reading"
         },
         totalReadingMs = totalReadingMs,
         todayReadingMs = todayReadingMs,
@@ -168,16 +173,6 @@ private fun completionTime(
         ?: runCatching { Instant.parse(progress?.updated_at ?: book.updated_at).toEpochMilli() }.getOrDefault(Long.MIN_VALUE)
 }
 
-private fun BookEntity.isDisplayable(): Boolean {
-    if (deleted_at != null || content_status in setOf("failed", "missing", "downloading")) return false
-    return size > 0 && (local_content_path != null || local_uri != null || content_hash != null)
-}
-
-private fun BookEntity.hasBeenRead(
-    progress: ReadingProgressEntity?,
-    sessions: List<ReadingSessionEntity>?,
-): Boolean = (progress?.progress_percent ?: 0f) > 0f || sessions?.isNotEmpty() == true
-
 private fun buildContinueBooks(
     books: List<BookEntity>,
     progressById: Map<String, ReadingProgressEntity>,
@@ -191,7 +186,7 @@ private fun buildContinueBooks(
     return books.mapNotNull { book ->
         val progress = progressById[book.id]
         val sessions = sessionsByBook[book.id]
-        if (!book.isDisplayable() || !book.hasBeenRead(progress, sessions)) return@mapNotNull null
+        if (!isBookDisplayable(book) || !hasBookBeenRead(book, progress, sessions)) return@mapNotNull null
         if (progress?.readingState == ReadingCompletionState.SHELVED) return@mapNotNull null
         if ((progress?.progress_percent ?: 0f) >= 99.5f) return@mapNotNull null
 
