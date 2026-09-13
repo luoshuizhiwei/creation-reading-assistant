@@ -23,10 +23,16 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -36,8 +42,10 @@ import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
+import com.creationreadingassistant.data.settings.SavedShelfFilter
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -59,16 +67,26 @@ internal fun FilterSheet(
     onToggleTag: (String) -> Unit,
     onSelectFormat: (String) -> Unit,
     onDismiss: () -> Unit,
+    /** L1：已保存的动态视图（筛选条件组合的快照）。 */
+    savedViews: List<SavedShelfFilter> = emptyList(),
+    /** L1：当前是否有筛选生效（决定保存入口可用性）。 */
+    canSaveCurrent: Boolean = false,
+    onSaveCurrent: (String) -> Unit = {},
+    onApplySaved: (SavedShelfFilter) -> Unit = {},
+    onDeleteSaved: (String) -> Unit = {},
 ) {
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // 与 BookDetailSheet 等其它 shelf 弹层同一宽度口径（平板/折叠屏居中，窄屏无影响）
+        sheetMaxWidth = LocalLayoutTokens.current.contentMaxWidth,
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                // 水平内边距走布局令牌（同一 shell 规则），不再各自写 18/20dp 魔数
+                .padding(horizontal = LocalLayoutTokens.current.pageHorizontal, vertical = 8.dp)
                 .padding(bottom = 28.dp)
                 .verticalScroll(rememberScrollState()),
         ) {
@@ -104,6 +122,85 @@ internal fun FilterSheet(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+            }
+
+            // 0. 动态视图（L1）：保存的筛选条件组合。与上方「书单」不同——
+            // 书单是静态书籍集合，动态视图是筛选条件快照，书架内容变化时结果自动跟着变。
+            var newViewName by remember { mutableStateOf("") }
+            Spacer(modifier = Modifier.height(4.dp))
+            FilterSectionHeader("动态视图（保存的筛选）", badge = if (savedViews.isEmpty()) null else "${savedViews.size}")
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedTextField(
+                    value = newViewName,
+                    onValueChange = { newViewName = it },
+                    placeholder = { Text("给当前筛选起个名字", style = MaterialTheme.typography.labelMedium) },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    textStyle = MaterialTheme.typography.labelMedium,
+                )
+                Surface(
+                    shape = RoundedCornerShape(999.dp),
+                    color = if (canSaveCurrent && newViewName.isNotBlank()) {
+                        MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f)
+                    } else {
+                        MaterialTheme.colorScheme.surfaceContainerLow
+                    },
+                    onClick = {
+                        if (canSaveCurrent && newViewName.isNotBlank()) {
+                            onSaveCurrent(newViewName.trim())
+                            newViewName = ""
+                        }
+                    },
+                ) {
+                    Text(
+                        "保存",
+                        style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = if (canSaveCurrent && newViewName.isNotBlank()) {
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                    )
+                }
+            }
+            if (savedViews.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                savedViews.forEach { view ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Surface(
+                            shape = RoundedCornerShape(999.dp),
+                            color = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f),
+                            onClick = { onApplySaved(view) },
+                            modifier = Modifier.weight(1f),
+                        ) {
+                            Text(
+                                view.name,
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Medium),
+                                color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                maxLines = 1,
+                                overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+                            )
+                        }
+                        TextButton(onClick = { onDeleteSaved(view.name) }) {
+                            Text("删除", style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.error)
+                        }
+                    }
+                }
+            } else {
+                Text(
+                    "把常用的筛选组合存成动态视图，下次一键套用。",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
 
             // 1. 格式

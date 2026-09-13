@@ -24,7 +24,9 @@ import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordin
 import com.creationreadingassistant.feature.library.deletion.DeletionUndoOffer
 import com.creationreadingassistant.feature.library.deletion.DeletionUndoOutcome
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
+import com.creationreadingassistant.data.settings.SavedShelfFilter
 import com.creationreadingassistant.data.settings.ShelfPrefs
+import com.creationreadingassistant.data.settings.ShelfSavedViewsStore
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.remote.SyncContract
@@ -70,6 +72,7 @@ class ShelfViewModel @Inject constructor(
     private val taxonomyRepository: TaxonomyRepository,
     private val syncRepository: SyncRepository,
     private val shelfPrefs: ShelfPrefs,
+    private val savedViewsStore: ShelfSavedViewsStore,
     private val continueReadingStore: ContinueReadingStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
@@ -130,6 +133,56 @@ class ShelfViewModel @Inject constructor(
     }
     internal fun clearSelectedTags() {
         _session.value = _session.value.copy(selectedTagIds = emptySet())
+    }
+
+    // ── L1 书架动态视图（保存的筛选条件组合）────────────────────────────
+
+    /** 已保存的动态视图（DataStore 持久化，跨会话可用）。 */
+    val savedFilters: StateFlow<List<SavedShelfFilter>> = savedViewsStore.savedFilters
+
+    /** 是否有任何筛选/搜索生效（决定「保存为动态视图」入口的可见性）。 */
+    fun hasActiveFilters(): Boolean {
+        val s = _session.value
+        return s.statusFilter != ShelfStatusFilter.ALL ||
+            s.formatFilter.isNotBlank() ||
+            s.selectedShelfId.isNotBlank() ||
+            s.selectedCategoryId.isNotBlank() ||
+            s.selectedTagIds.isNotEmpty() ||
+            _searchQuery.value.isNotBlank()
+    }
+
+    /** 把当前筛选组合保存为具名动态视图；同名覆盖。 */
+    fun saveCurrentFilter(name: String, onDone: (Boolean) -> Unit = {}) {
+        if (!hasActiveFilters()) { onDone(false); return }
+        val s = _session.value
+        val snapshot = SavedShelfFilter(
+            name = name,
+            statusFilter = s.statusFilter.name,
+            formatFilter = s.formatFilter,
+            selectedShelfId = s.selectedShelfId,
+            selectedCategoryId = s.selectedCategoryId,
+            selectedTagIds = s.selectedTagIds.toList(),
+            searchQuery = _searchQuery.value,
+            createdAt = java.time.Instant.now().toString(),
+        )
+        viewModelScope.launch { onDone(savedViewsStore.save(snapshot)) }
+    }
+
+    /** 套用一条动态视图：整体替换当前筛选与关键词（不是叠加）。 */
+    fun applySavedFilter(filter: SavedShelfFilter) {
+        _session.value = _session.value.copy(
+            statusFilter = ShelfStatusFilter.entries.firstOrNull { it.name == filter.statusFilter }
+                ?: ShelfStatusFilter.ALL,
+            formatFilter = filter.formatFilter,
+            selectedShelfId = filter.selectedShelfId,
+            selectedCategoryId = filter.selectedCategoryId,
+            selectedTagIds = filter.selectedTagIds.toSet(),
+        )
+        setSearchQuery(filter.searchQuery)
+    }
+
+    fun deleteSavedFilter(name: String) {
+        viewModelScope.launch { savedViewsStore.delete(name) }
     }
     internal fun setViewMode(value: ShelfViewMode) {
         _session.value = _session.value.copy(viewMode = value)

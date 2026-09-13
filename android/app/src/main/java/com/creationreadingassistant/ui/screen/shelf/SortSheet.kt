@@ -37,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.rememberHaptic
@@ -59,10 +60,14 @@ internal fun SortSheet(current: ShelfSortMode, onSelect: (ShelfSortMode) -> Unit
     // 140ms+ 的 GPU 阻塞掉帧，详见 results/shelf-sort-performance-report.md §7）。
     // 其余视觉/行为与普通 ModalBottomSheet 完全一致。
     val haptic = rememberHaptic(rememberReducedMotion())
+    val layout = LocalLayoutTokens.current
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // 这里刻意不用 GlassModalBottomSheet（见上方性能注释），但宽度与内边距仍与其余
+        // shelf 弹层统一：仅影响宽屏下的居中宽度，窄屏无差别。
+        sheetMaxWidth = layout.contentMaxWidth,
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
         containerColor = MaterialTheme.colorScheme.surface,
@@ -70,7 +75,8 @@ internal fun SortSheet(current: ShelfSortMode, onSelect: (ShelfSortMode) -> Unit
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 20.dp, vertical = 8.dp)
+                // 水平内边距走布局令牌（同一 shell 规则），不再写 20dp 魔数
+                .padding(horizontal = layout.pageHorizontal, vertical = 8.dp)
                 .padding(bottom = 28.dp),
         ) {
             Row(

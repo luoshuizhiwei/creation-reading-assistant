@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.Add
@@ -62,6 +63,7 @@ import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -283,17 +285,24 @@ internal fun BatchSheet(
     }
     var newName by remember { mutableStateOf("") }
     var showCreate by remember { mutableStateOf(false) }
+    val layout = LocalLayoutTokens.current
 
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // 与 BookDetailSheet / FilterSheet 等其它 shelf 弹层同一宽度口径（平板/折叠屏居中，窄屏无影响）
+        sheetMaxWidth = layout.contentMaxWidth,
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .padding(bottom = 28.dp),
+                // 水平内边距走布局令牌（同一 shell 规则），不再各自写 20dp 魔数
+                .padding(horizontal = layout.pageHorizontal, vertical = 8.dp)
+                .padding(bottom = 28.dp)
+                // 书单/分类/标签的数量由用户决定，普通 Column 不设上限也不滚动会把屏外条目
+                // 直接裁掉：既看不到也点不到（批量面板此前缺的正是这一层）。
+                .verticalScroll(rememberScrollState()),
         ) {
             // 顶部标题微岛
             Row(

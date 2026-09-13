@@ -116,6 +116,9 @@ internal fun ShelfRoute(
     var selectionMode by remember { mutableStateOf(false) }
     val selectedIds = remember { mutableStateListOf<String>() }
 
+    // ======= L1 动态视图：已保存的筛选组合 =======
+    val savedViews by viewModel.savedFilters.collectAsStateWithLifecycle()
+
     // ======= 分类学筛选：书单 / 分类 / 标签 =======
     val selectedShelfId = session.selectedShelfId
     val selectedCategoryId = session.selectedCategoryId
@@ -376,6 +379,20 @@ internal fun ShelfRoute(
             onToggleTag = viewModel::toggleSelectedTag,
             onSelectFormat = viewModel::setFormatFilter,
             onDismiss = { showFilterPanel = false },
+            // L1 动态视图：保存当前筛选组合 / 一键套用 / 删除
+            savedViews = savedViews,
+            canSaveCurrent = viewModel.hasActiveFilters(),
+            onSaveCurrent = { name ->
+                viewModel.saveCurrentFilter(name) { ok ->
+                    if (ok) showMessage("已保存动态视图「$name」。") else showMessage("保存失败：名称不能为空。")
+                }
+            },
+            onApplySaved = { view ->
+                viewModel.applySavedFilter(view)
+                showFilterPanel = false
+                showMessage("已套用动态视图「${view.name}」。")
+            },
+            onDeleteSaved = { name -> viewModel.deleteSavedFilter(name) },
         )
     }
     val restorePromptBook = restorePromptBookId?.let { id -> books.find { it.id == id } }
@@ -459,11 +476,18 @@ internal fun ShelfRoute(
     }
     if (showImportSource) {
         ImportSourceSheet(
+            onOpenLibrary = {
+                showImportSource = false
+                navController.navigate(SHELF_LIBRARY_ROUTE)
+            },
             onSelectFiles = {
                 showImportSource = false
                 importLauncher.launch(arrayOf("application/epub+zip", "text/plain", "text/markdown"))
             },
-            onSelectFolder = { showImportSource = false; importFolderLauncher.launch(null) },
+            onImportFromDesktop = {
+                showImportSource = false
+                showDesktopBooks = true
+            },
             onDismiss = { showImportSource = false },
         )
     }

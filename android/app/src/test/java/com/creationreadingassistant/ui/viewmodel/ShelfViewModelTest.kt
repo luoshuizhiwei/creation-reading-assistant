@@ -10,6 +10,7 @@ import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.settings.ImportHistoryStore
+import com.creationreadingassistant.data.settings.SavedShelfFilter
 import com.creationreadingassistant.data.settings.ShelfPrefs
 import com.creationreadingassistant.feature.library.ShelfImporter
 import com.creationreadingassistant.feature.reader.EpubRepository
@@ -57,6 +58,7 @@ class ShelfViewModelTest {
     private lateinit var epubRepository: EpubRepository
     private lateinit var importHistoryStore: ImportHistoryStore
     private lateinit var shelfPrefs: ShelfPrefs
+    private lateinit var savedViewsStore: com.creationreadingassistant.data.settings.ShelfSavedViewsStore
     private lateinit var continueReadingStore: ContinueReadingStore
     private lateinit var viewModeFlow: MutableStateFlow<String>
     private lateinit var sortModeFlow: MutableStateFlow<String>
@@ -85,6 +87,11 @@ class ShelfViewModelTest {
         importHistoryStore = mockk { every { entries } returns MutableStateFlow(emptyList()) }
         viewModeFlow = MutableStateFlow("grid")
         sortModeFlow = MutableStateFlow("recent")
+        savedViewsStore = mockk {
+            every { savedFilters } returns MutableStateFlow(emptyList())
+            coEvery { save(any()) } returns true
+            coEvery { delete(any()) } returns Unit
+        }
         shelfPrefs = mockk {
             every { viewMode } returns viewModeFlow
             every { sortMode } returns sortModeFlow
@@ -132,6 +139,7 @@ class ShelfViewModelTest {
             taxonomyRepository = taxonomyRepository,
             syncRepository = syncRepository,
             shelfPrefs = shelfPrefs,
+            savedViewsStore = savedViewsStore,
             continueReadingStore = continueReadingStore,
             ioDispatcher = Dispatchers.Unconfined,
             defaultDispatcher = Dispatchers.Unconfined,
@@ -321,5 +329,69 @@ class ShelfViewModelTest {
 
         assertEquals("已搁置，阅读记录仍会保留", shelveMsg)
         assertEquals("已恢复为在读", readingMsg)
+    }
+
+    // ── L1 动态视图 ─────────────────────────────────────────────────────
+
+    @Test
+    fun `apply saved filter replaces session filters and search query`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+        testScheduler.advanceUntilIdle()
+        vm.toggleSelectedTag("tag-old")
+        vm.setSearchQuery("旧关键词")
+
+        vm.applySavedFilter(
+            SavedShelfFilter(
+                name = "在读 EPUB",
+                statusFilter = "READING",
+                formatFilter = "epub",
+                selectedShelfId = "shelf-1",
+                selectedCategoryId = "",
+                selectedTagIds = listOf("tag-1", "tag-2"),
+                searchQuery = "新关键词",
+                createdAt = "2026-09-12T00:00:00Z",
+            ),
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(ShelfStatusFilter.READING, vm.session.value.statusFilter)
+        assertEquals("epub", vm.session.value.formatFilter)
+        assertEquals("shelf-1", vm.session.value.selectedShelfId)
+        assertEquals(setOf("tag-1", "tag-2"), vm.session.value.selectedTagIds)
+        assertEquals("新关键词", vm.searchQuery.value)
+    }
+
+    @Test
+    fun `save current filter persists via store and rejects when no filters active`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+        testScheduler.advanceUntilIdle()
+
+        var rejected: Boolean? = null
+        vm.saveCurrentFilter("空白") { rejected = it }
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, rejected)
+
+        vm.setFormatFilter("epub")
+        var saved: Boolean? = null
+        vm.saveCurrentFilter("EPUB 书架") { saved = it }
+        testScheduler.advanceUntilIdle()
+        assertEquals(true, saved)
+        coVerify {
+            savedViewsStore.save(
+                withArg {
+                    assertEquals("EPUB 书架", it.name)
+                    assertEquals("epub", it.formatFilter)
+                },
+            )
+        }
+    }
+
+    @Test
+    fun `hasActiveFilters reflects session and query`() = runTest(mainDispatcher.scheduler) {
+        val vm = createVm()
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, vm.hasActiveFilters())
+        vm.setStatusFilter(ShelfStatusFilter.READING)
+        assertEquals(true, vm.hasActiveFilters())
     }
 }

@@ -41,6 +41,23 @@ internal fun BookEntity.readiness(): BookReadiness {
     return BookReadiness("需下载正文", ReadinessTone.CLOUD)
 }
 
+/**
+ * 主行动按钮是否已经陈述了同一个就绪态 —— 供长按面板去重，避免同一事实并列两遍。
+ *
+ * `BookActionSheet` 的主行动按钮标题本身就表达了就绪态：
+ * `可离线阅读` → 「继续阅读」，`正文未在本机 / 需下载正文` → 「下载正文」。
+ * 此时再在元数据行并列一枚同义胶囊属重复陈述，故返回 true 时不显示胶囊。
+ *
+ * 关键例外：`CLOUD` 还包含 `正文下载中`。该状态下按钮说的是「下载正文」，
+ * 胶囊说的是「下载中」，**两者陈述不同**（一个是动作、一个是进行中的状态），
+ * 因此这种情形必须保留胶囊，不能一并去掉，否则「正在下载」这一事实会丢失。
+ *
+ * @param contentStatus [BookEntity.content_status] 原值，用于识别「下载中」这一 CLOUD 子态。
+ */
+internal fun readinessStatedByAction(readiness: BookReadiness, contentStatus: String?): Boolean =
+    readiness.tone == ReadinessTone.READY ||
+        (readiness.tone == ReadinessTone.CLOUD && contentStatus != "downloading")
+
 /** 向后兼容：返回 null 表示可读，非 null 为不可读原因提示（对齐 ui.util.bookNotReadyLabel 语义）。 */
 internal fun bookNotReadyLabel(book: BookEntity): String? = utilBookNotReadyLabel(book)
 

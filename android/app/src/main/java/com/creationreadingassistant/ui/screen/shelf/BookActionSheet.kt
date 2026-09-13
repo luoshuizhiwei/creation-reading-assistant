@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.ChevronRight
@@ -45,6 +47,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.GlassModalBottomSheet
 import com.creationreadingassistant.ui.components.SheetHandle
+import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.AppError
 import com.creationreadingassistant.ui.theme.AppIconSize
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
@@ -64,17 +67,24 @@ internal fun BookActionSheet(
 ) {
     val readiness = book.readiness()
     val percent = progressFor(progressById, book.id)
+    val layout = LocalLayoutTokens.current
 
     GlassModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        // 与 BookDetailSheet / FilterSheet 等其它 shelf 弹层同一宽度口径（平板/折叠屏居中，窄屏无影响）
+        sheetMaxWidth = layout.contentMaxWidth,
         shape = LocalComponentSpec.current.sheetShape,
         dragHandle = { SheetHandle() },
     ) {
         Column(
             modifier = Modifier
-                .padding(horizontal = 20.dp, vertical = 8.dp)
-                .padding(bottom = 28.dp),
+                // 水平内边距走布局令牌（同一 shell 规则），不再各自写 20dp 魔数
+                .padding(horizontal = layout.pageHorizontal, vertical = 8.dp)
+                .padding(bottom = 28.dp)
+                // 本面板共四层（元数据 / 主行动 / 管理 / 删除），大字号或小屏下可能超出可用高度；
+                // 缺滚动会让「删除书籍」落在屏外且无法触达。
+                .verticalScroll(rememberScrollState()),
         ) {
             // 书籍元数据微岛卡片
             Surface(
@@ -138,23 +148,28 @@ internal fun BookActionSheet(
                             overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(6.dp))
-                        // 准备度与格式微胶囊
+                        // 准备度与格式微胶囊。
+                        // 就绪态只在「下方主行动按钮没说同一件事」时才并列——按钮标题已表达
+                        // 可读（继续阅读）或需下载（下载正文），重复陈述只会挤占这一行的信息量。
+                        // 格式胶囊按契约保留：格式信息在此属低干扰呈现。
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            val tone = toneColor(readiness.tone)
-                            Surface(
-                                color = tone.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(4.dp),
-                                border = BorderStroke(0.5.dp, tone.copy(alpha = 0.25f)),
-                            ) {
-                                Text(
-                                    readiness.label,
-                                    color = tone,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
-                                )
+                            if (!readinessStatedByAction(readiness, book.content_status)) {
+                                val tone = toneColor(readiness.tone)
+                                Surface(
+                                    color = tone.copy(alpha = 0.12f),
+                                    shape = RoundedCornerShape(4.dp),
+                                    border = BorderStroke(0.5.dp, tone.copy(alpha = 0.25f)),
+                                ) {
+                                    Text(
+                                        readiness.label,
+                                        color = tone,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
+                                    )
+                                }
                             }
                             Surface(
                                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
@@ -229,7 +244,9 @@ internal fun BookActionSheet(
             ActionRow(
                 icon = Icons.Outlined.Delete,
                 title = "删除书籍",
-                subtitle = "同时移除本机正文和阅读数据",
+                // 与详情面板的删除入口共用同一常量：删除动作移除的是书籍资料与阅读数据，
+                // 磁盘上的内部正文副本由「移除正文」单独回收，这里不得声称已删「本机正文」。
+                subtitle = DELETE_BOOK_SELF_DESCRIPTION,
                 danger = true,
                 onClick = { onDelete(book.id) },
             )

@@ -11,7 +11,23 @@ import androidx.compose.runtime.Composable
 internal const val SHELF_ORGANIZER_ROUTE = "shelf/organizer"
 internal const val SHELF_SEARCH_ROUTE = "shelf/search"
 internal const val SHELF_IMPORT_ROUTE = "shelf/import"
+internal const val SHELF_LIBRARY_ROUTE = "shelf/library"
 internal const val SHELF_SELECTION_ROUTE = "shelf/organizer/select/{kind}"
+
+/**
+ * 「删除本书」的自述文案 —— [BookActionSheet]（长按面板）与 `BookDetailDeleteSection`
+ * （详情面板）**共用同一份**，避免同一事实在两处各写一遍后分叉。
+ *
+ * 口径严格对齐 `feature/library/deletion/DeletionCopy` 与 `strings_deletion.xml` 的
+ * `deletion_scope_delete_book_body`：「删除整本资料」移除的是书籍资料与阅读数据
+ * （DB 软删除 + 关联清理），磁盘上的内部正文副本由「移除正文」（REMOVE_CONTENT）单独回收，
+ * 删除动作自身不释放这部分空间。
+ *
+ * **不得**写成「同时移除本机正文和阅读数据」——那正是 `DeletionCopy.kt` 头注释警告的
+ * 「混着说」：会让用户以为删书即回收磁盘空间，从而对数据留存做出错误判断。
+ * 措辞边界由 `ShelfDeleteCopyConsistencyTest` 守住。
+ */
+internal const val DELETE_BOOK_SELF_DESCRIPTION = "移除书籍资料、进度、书签和笔记；不删除本地正文文件"
 
 @Composable
 internal fun BackButton(onClick: () -> Unit) {
@@ -29,4 +45,3 @@ internal fun statusLabel(value: ShelfStatusFilter): String = when (value) {
     ShelfStatusFilter.UNREAD -> "未开始"
     ShelfStatusFilter.SHELVED -> "搁置"
 }
-internal const val SHELF_LIBRARY_ROUTE = "shelf/library"
