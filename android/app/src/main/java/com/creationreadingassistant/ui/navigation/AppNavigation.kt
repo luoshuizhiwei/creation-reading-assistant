@@ -35,7 +35,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.BarChart
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Person
 import com.creationreadingassistant.ui.theme.AppIconSize
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -156,7 +156,7 @@ sealed class TopLevelRoute(
     val icon: ImageVector,
 ) {
     object Home : TopLevelRoute("home", R.string.nav_home, Icons.Outlined.Home)
-    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.Outlined.MenuBook)
+    object Shelf : TopLevelRoute("shelf", R.string.nav_shelf, Icons.AutoMirrored.Outlined.MenuBook)
     object Inspiration : TopLevelRoute("inspiration", R.string.nav_inspiration, Icons.Outlined.Lightbulb)
     object Stats : TopLevelRoute("stats", R.string.nav_stats, Icons.Outlined.BarChart)
     object Profile : TopLevelRoute("profile", R.string.nav_profile, Icons.Outlined.Person)

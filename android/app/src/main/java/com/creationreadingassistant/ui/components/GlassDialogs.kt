@@ -79,7 +79,7 @@ fun GlassModalBottomSheet(
     scrimColor: Color = BottomSheetDefaults.ScrimColor,
     dragHandle: @Composable (() -> Unit)? = { BottomSheetDefaults.DragHandle() },
     contentWindowInsets: @Composable () -> WindowInsets = { WindowInsets(0, 0, 0, 0) },
-    properties: androidx.compose.material3.ModalBottomSheetProperties = ModalBottomSheetDefaults.properties(),
+    properties: androidx.compose.material3.ModalBottomSheetProperties = ModalBottomSheetDefaults.properties,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     ModalBottomSheet(

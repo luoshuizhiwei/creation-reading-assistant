@@ -12,6 +12,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.ZoneId
 import javax.inject.Inject
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -41,14 +44,16 @@ data class MyReadingItem(
 data class MyReadingMonth(
     val year: Int,
     val month: Int,
-    val items: List<MyReadingItem>,
-)
+    val items: ImmutableList<MyReadingItem>,
+) {
+    constructor(year: Int, month: Int, items: List<MyReadingItem>) : this(year, month, items.toImmutableList())
+}
 
 data class MyReadingUiState(
     val query: String = "",
     val filter: MyReadingFilter = MyReadingFilter.ALL,
     val counts: Map<MyReadingFilter, Int> = MyReadingFilter.entries.associateWith { 0 },
-    val months: List<MyReadingMonth> = emptyList(),
+    val months: ImmutableList<MyReadingMonth> = persistentListOf(),
     val isReady: Boolean = false,
 )
 
@@ -169,9 +174,10 @@ internal fun buildMyReadingUiState(
         MyReadingMonth(
             year = key.first,
             month = key.second,
-            items = items.sortedByDescending(MyReadingItem::lastActivityAtMs),
+            items = items.sortedByDescending(MyReadingItem::lastActivityAtMs).toImmutableList(),
         )
     }.sortedWith(compareByDescending<MyReadingMonth> { it.year }.thenByDescending { it.month })
+        .toImmutableList()
 
     return MyReadingUiState(
         query = query,
