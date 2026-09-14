@@ -57,5 +57,28 @@ object SecurePrefs {
         null
     }
 
+    private const val PREFS_DEVICE_IDENTITY = "cra_device_identity"
+    private const val KEY_APP_INSTANCE_ID = "app_instance_id"
+
+    /**
+     * 获取或初始化应用级设备标识（UUID）。
+     * 避免直接读取系统底层 ANDROID_ID 带来硬件标识违规告警与隐私合规风险。
+     */
+    fun getOrCreateAppInstanceId(context: Context): String {
+        return runCatching {
+            val prefs = open(context, PREFS_DEVICE_IDENTITY)
+            val existing = prefs.getString(KEY_APP_INSTANCE_ID, null)
+            if (!existing.isNullOrBlank()) {
+                existing
+            } else {
+                val newId = "cra-" + java.util.UUID.randomUUID().toString()
+                prefs.edit().putString(KEY_APP_INSTANCE_ID, newId).apply()
+                newId
+            }
+        }.getOrElse {
+            "cra-fallback-device"
+        }
+    }
+
     private const val TAG = "SecurePrefs"
 }

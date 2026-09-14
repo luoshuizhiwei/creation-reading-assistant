@@ -226,6 +226,40 @@ class SyncRepositoryTest {
     }
 
     @Test
+    fun `inspiration payload with R5 fields passes through opaquely`() = runTest {
+        // R5 兼容契约：新字段（adoptions/excerpts/mergedInto/locatorJson）对同步信封是
+        // 不透明 JSON——applyInspiration 原样落库，不解析不丢字段；旧端读新 payload
+        // 靠 ignoreUnknownKeys 兼容。
+        val r5Payload = buildJsonObject {
+            put("title", "素材卡")
+            put("body", "合并正文")
+            put("type", "note")
+            put("status", "reviewing")
+            put("sourceBookId", "b1")
+            put("payloadExtra", "locatorJson")
+        }
+        coEvery { inspirationDao.getById(any()) } returns null
+        coEvery { api.pull(any()) } returns pullResponse(
+            inspirations = listOf(
+                SyncEnvelope(
+                    id = "i-r5", type = "inspiration", revision = 1, deviceId = "remote-dev",
+                    updatedAt = "2026-02-01T00:00:00Z", payload = r5Payload,
+                ),
+            ),
+        )
+
+        val result = repository.pull()
+
+        assertEquals(1, result.inspirations)
+        assertTrue(result.failedItems.isEmpty())
+        val slot = slot<InspirationEntity>()
+        coVerify(exactly = 1) { inspirationDao.upsert(capture(slot)) }
+        // 未知字段原样保留（不透明透传），新字段不会被丢弃
+        assertEquals(r5Payload, kotlinx.serialization.json.Json.parseToJsonElement(slot.captured.payload!!))
+        assertEquals("reviewing", slot.captured.status)
+    }
+
+    @Test
     fun `pull without pairing fails with clear message`() = runTest {
         every { apiProvider.current() } returns null
 

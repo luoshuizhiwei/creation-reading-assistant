@@ -2,7 +2,6 @@ package com.creationreadingassistant.feature.sync
 
 import android.content.Context
 import android.net.Uri
-import android.provider.Settings
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.dao.HighlightDao
@@ -29,6 +28,8 @@ import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfBookEntity
 import com.creationreadingassistant.data.local.entity.ShelfEntity
 import com.creationreadingassistant.data.local.entity.TagEntity
+import com.creationreadingassistant.data.remote.DeviceInfoProvider
+import com.creationreadingassistant.data.security.SecurePrefs
 import com.creationreadingassistant.domain.model.SyncEnvelope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
@@ -93,12 +94,12 @@ class JsonBridge @Inject constructor(
     private val shelfBookDao: ShelfBookDao,
     private val chapterReadDao: ChapterReadDao,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val deviceInfoProvider: DeviceInfoProvider? = null,
 ) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
     private fun deviceId(context: Context): String =
-        Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
-            ?: "unknown-device"
+        deviceInfoProvider?.provide()?.deviceId ?: SecurePrefs.getOrCreateAppInstanceId(context)
 
     private fun <T> envelope(type: String, entity: T, id: String, updatedAt: String, revision: Int, deletedAt: String?, deviceId: String): SyncEnvelope<T> =
         SyncEnvelope(id = id, type = type, revision = revision, deviceId = deviceId, updatedAt = updatedAt, deletedAt = deletedAt, payload = entity)
