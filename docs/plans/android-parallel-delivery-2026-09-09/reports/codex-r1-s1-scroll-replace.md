@@ -63,13 +63,36 @@
 
 ## 五、未覆盖项
 
-- **真机端到端验收未执行**（任务边界禁止）：修复未经过真机「保存后当前屏替换 / 滚离返回 / 重进 / 重启 / 禁用还原」验证。
-- 真机测试书 format=epub、id 前缀 `epub_`（1.8MB 伪装 EPUB 的 TXT）：其 plainContent 提取链路未深查；顶栏显示「EPUB · 第1章」标签与 TXT 正文不符，疑似导入 format 误判，**待确认**（不在本任务边界内）。
-- 高亮列表断链（notes tab 从不收录高亮、无 UI 删除入口）为已知独立缺陷，未处理。
+> **2026-09-11 状态更新**（WorkBuddy 在 `workbuddy-r1r2-closure.md` 中逐条核对，原文保留不删）：
+
+- ~~**真机端到端验收未执行**（任务边界禁止）~~ → **已执行并通过**：8 步复验 PASS，
+  含「保存后当前屏替换 / 滚离返回 / 重进 / force-stop 重启 / 删除规则还原」；`ScrollReplaceTrace` 三行断言齐全。
+  唯一未做子项：**替换后文字高亮跨章锚定**（正文替换已生效，但高亮锚定与坐标回归未实测）。
+- ~~真机测试书 format=epub … 疑似导入 format 误判，**待确认**~~ → **已确认并已修复**：
+  即 `R1R2-CLOSURE-AND-DEFECTS.md` B5。`feature/library/FormatClassifier.kt` 以首 4 字节 ZIP 魔数
+  （`PK\x03\x04`）做真源分类，导入（`ShelfImporter`）与同步（`SyncRepository.kt:459`）共用。
+  契约是**拒收**（宁可拒收可疑输入也不擅自改格式），不是降级为 txt；既有 DB 行不自动迁移。
+- ~~高亮列表断链 … 为已知独立缺陷，未处理~~ → **已闭环**（源码层，即 B1）：
+  `buildAnnotationEntries` 已合并 `highlights` + `notes`，删除 / 撤销 / 编辑 / 改色全部打通。
+  ⚠️ 但「我的」tab 的**笔记页 UI 入口**已被产品规划移除（原笔记磁贴改为灵感中心直达），
+  NOTES 路由 `profile/notes` 仍注册却无入口——用户可达性待 owner 决策，详见 `workbuddy-r1r2-closure.md` §A5。
 - 桌面端、N1/D1 模块、标注路由、删除撤销接线：按边界未触碰。
 - `SearchHighlightColorTest`、`AppPaletteTest` 等既有待补测试：与本题无关，未动。
 
 ## 六、给 WorkBuddy 的冻结后验收步骤
+
+> **⚠️ 步骤 3 的测试书已需更换（2026-09-11 更正，执行前必读）**
+>
+> 原步骤 3 指向 `epub_wqn5y3`（1.8MB、声称 EPUB 的 TXT）。B5 `FormatClassifier` 落地后该书：
+> ① 重新导入会被拒收；② 书架上既有行是 EPUB 格式，在「上下滚动」模式下取不到 `scrollPreparedSource`
+> → `scrollProjectionOn = false` → `effectiveReplacementAvailability` 返回 `PAGER_ENGINE_DISABLED`，
+> **替换菜单按设计置灰**，无法进入验收。这是正确行为，不是回归。
+>
+> **改为：使用一本真实 TXT 格式的样书**（顶栏显示「TXT · 第X章」），规则取该书中高频短语
+> （本轮复验用的是 `\Q----\E → TTEAM`，命中 2 处；命中数不必追求数百处，**能稳定判定即可**）。
+> 其余步骤（1 / 2 / 4-8）不变。
+>
+> **本步骤已于 2026-09-11 执行完毕，结论 PASS**，证据见 `workbuddy-r1r2-closure.md` §A1。
 
 1. **构建**：`.\gradlew.bat :app:assembleDebug --no-daemon`（PowerShell，`$env:GRADLE_USER_HOME="D:\develop\env\gradle"`；沙箱环境需禁用沙箱跑 gradle）。
 2. **安装**：`install_with_confirm.ps1` 优先，MIUI 超时则回退 `adb -s c49ac6cf install -r app/build/outputs/apk/debug/app-debug.apk`（如实记录安装方式）。

@@ -10,7 +10,7 @@
 - `android/`：独立原生 Android 阅读端，主线是中文阅读体验、流畅度和本地创作辅助。
 - `archives/frozen-mobile/`：已删除 Capacitor 产品线的只读历史存档，不接受功能修改。
 
-Android 任务的优先级仍是阅读体验与流畅度优先，再参考 `docs/legado-with-md3-analysis.md` 补齐能力。两端都坚持本地优先；不做登录、云服务或自建服务器。
+Android 任务的优先级仍是阅读体验与流畅度优先，再参考 `docs/research/legado-with-md3-analysis.md` 补齐能力。两端都坚持本地优先；不做登录、云服务或自建服务器。
 
 详细目录边界、构建命令和设备约束以 [AGENTS.md](AGENTS.md) 为准。
 

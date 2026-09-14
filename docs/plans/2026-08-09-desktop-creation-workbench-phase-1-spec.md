@@ -6,7 +6,7 @@
 目标平台：Windows 10/11 x64  
 阶段名称：可靠写作闭环
 
-> 本文取代 `docs/superpowers/specs/2026-06-29-inspiration-reading-workbench-design.md` 中“桌面端不承担正文写作”的产品决策。旧文档仅保留为历史快照，不再是实现依据。
+> 本文取代 `docs/archive/superpowers/specs/2026-06-29-inspiration-reading-workbench-design.md` 中“桌面端不承担正文写作”的产品决策。旧文档仅保留为历史快照，不再是实现依据。
 
 ## 1. 目的
 

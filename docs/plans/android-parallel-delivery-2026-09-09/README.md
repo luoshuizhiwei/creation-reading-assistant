@@ -28,6 +28,11 @@
 R2以后表格是负责人方向，不能当作文件写入授权；每轮先确认实际代码和共享seam，再给独占路径。
 首页/历史/灵感/统计等既有UI检查点在对应轮次一起回归，不重复造轮子。
 
+> **2026-09-12 追加路线**：应用内书籍目录与智能识别（独立于上表 R1–R6）见
+> [`../2026-09-12-android-library-folder-smart-recognition-roadmap.md`](../2026-09-12-android-library-folder-smart-recognition-roadmap.md)。
+> 第 1–2 组已由 WorkBuddy 接线完成（报告 `reports/workbuddy-r4-library-folder.md`）；
+> **第 3 组（来源索引与增量更新）交接包：`R4-ZCODE.md`**。
+
 ## 统一需求契约
 
 1. N1：高亮、批注、书签统一查询与操作；灵感独立但可关联。章节按真实顺序。没有locator的历史记录仍可管理，明确不能精确定位。

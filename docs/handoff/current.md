@@ -1,7 +1,52 @@
 # 当前 Agent 交接入口
 
+> **2026-09-13 应用内书籍目录路线 R3 已由 WorkBuddy 在真机独立验收 PASS（最新，优先于下文与 2026-09-09 结论）：**
+> 路线文档 [`docs/plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md`](plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md)。
+> 第 1–2 组（目录授权 / App 内浏览 / 智能识别最小闭环）已由 WorkBuddy 接线完成（报告
+> [`reports/workbuddy-r4-library-folder.md`](plans/android-parallel-delivery-2026-09-09/reports/workbuddy-r4-library-folder.md)）；
+> **第 3 组（来源索引与增量更新）已由 zcode 接线完成**（报告
+> [`reports/zcode-r4-library-source-index.md`](plans/android-parallel-delivery-2026-09-09/reports/zcode-r4-library-source-index.md)）：
+> Room v13→v14 新增 `library_source_refs`（迁移 + `app/schemas` 快照 + 迁移测试），
+> `ShelfImporter` 导入成功后落来源引用（系统选择器来源 rootId 留空不伪造），
+> `LibraryBrowserPolicy` 升级为方案 §5.6 四级判定（精确已在书架 / 内容有更新 / 指纹同内容 / 疑似），
+> 页签改名「已入架」，确认档浏览态单击打开书籍；>32 MiB 文件用「大小+首尾分块哈希」候选指纹（仅去重）；
+> 来源失效只在完整未截断扫描后判定，零新增轮询。
+> 实测门禁：`testDebugUnitTest` **253 套件 / 2238 tests / 0 fail / 0 err / 0 skip**（基线 250/2200）；
+> `compileDebugAndroidTestKotlin` PASS（13→14 迁移用例已编译，未在设备执行）；
+> `lintDebug` 0 errors / 4 warnings（均为既有告警）。
+> WorkBuddy 曾报告 `c49ac6cf` / HyperOS V816 的内部存储 SAF tree 返回 0 子项，因而把矩阵标为 BLOCKED；该结论**已被同机、同应用的 2026-09-13 复现推翻**。Codex 在不导入、不删除、不改动真实书籍的前提下验证：DocumentsUI 能列出用户授权目录的真实文件；直接授权该子目录后 App 随即列出同一批文件；恢复为上级 `reads` 根目录后进入该子目录，App 仍列出文件；冷启动和刷新后持久授权、面包屑位置与列表均保留，未见 FATAL/ANR。故不能把此 ROM 或该目录判为 SAF 枚举受限，也没有证据支持现在实现多文件回退 UI。
+>
+> **R3 集成审阅已完成（2026-09-13，同日晚于上段，报告 [`docs/plans/2026-09-13-android-r3-slice1-review.md`](plans/2026-09-13-android-r3-slice1-review.md)）：**
+> R3 可**有条件**进入候选独立提交。7 项已确认产品决定（保留 `OpenDocumentTree`、拒绝 `MANAGE_EXTERNAL_STORAGE`、
+> 无多文件回退、不伪造 rootId、>32 MiB 指纹与全量哈希语义分离、missing 仅完整未截断扫描后判定、删书不删来源）全部核实符合。
+> 提交拆分口径（要点，全文见报告）：
+> ① HEAD schema 止于 12.json，v12→v13（ReaderCorrection，Reader 切片前置）与 v13→v14（R3）交织在
+> `AppDatabase`/`DatabaseModule`/`AppDatabaseMigrationTest`/`13.json`，必须先落最小 v13 前置提交再落 R3，不可只挑 `MIGRATION_13_14`；
+> ② 6 个混合文件（上述三件套 + `AppNavigation.kt`/`ShelfRoute.kt`/`ShelfViewModelTest.kt`）须 hunk 级拆分；
+> ③ `ShelfViewModel.kt` 当前改动全部属 L1 动态视图（codex-r5），不进 R3；`ImportSourceSheet.kt` 属切片 4 拆分
+> （与 HEAD 版 `ImportSheets.kt` 重复声明），不进 R3；
+> ④ 新增待决议题：`JsonBridge` 备份导出未包含 `library_source_refs`，恢复后分层判定退化为弱判定，需产品侧显式接受或立项。
+> **当前处置：** 保留 `OpenDocumentTree` 与现有私有稳定副本架构，继续拒绝 `MANAGE_EXTERNAL_STORAGE`；撤销“此设备须双模式回退”的实施前提。WorkBuddy 已在同一真机以隔离目录完成 A–E：导入/已入架、来源内容更新、来源失效后内部副本可读、删书不删来源、>1,000 项与深层目录截断、取消扫描及清理恢复均通过；四道 Gradle 门禁均为 EXIT=0，未见 FATAL/ANR。R3 因此已关闭。若其他 ROM/路径将来复现“选择器非空而 App 空”，再以完整 URI/grant/query 证据单独立项，不能泛化本次旧报告。第 4 组（阅读器高价值优化）不在本轮。
+> **验收边界（2026-09-13 更正，取代此前“PATHEXT 环境导致脚本未跑通”的结论）：** `install_with_confirm.ps1` 的失败是**脚本自身两个真实缺陷**，已在 `c49ac6cf` 上修复并复现通过（`RESULT: CONFIRM_LOOP` / `SCRIPT_EXITCODE=0`）：
+> ① **PowerShell 5.1 的 STDERR 提升**：脚本第 14 行是 `$ErrorActionPreference='Stop'`，而 `adb push` 把成功摘要（`1 file pushed, 0 skipped…`）写到 **STDERR**；Stop 下这条 STDERR 被提升为终止性错误，被 `catch` 当成安装失败 → 直接走 direct-install 回退并 `exit 2`。修复：新增 `Invoke-AdbNative`，在内部把 EAP 临时降为 `Continue` 执行原生命令，只用 `$LASTEXITCODE` 判定成败。
+> ② **UI dump 编码损坏**：`adb exec-out cat` 返回原始 UTF-8 字节，PowerShell 按控制台代码页（zh-CN 为 CP936）解码 → 中文乱码并吞掉属性闭合引号，`[xml]` 每轮都抛“`com.miui.packageinstaller` 是一个意外标记”，被空 `catch {}` 静默吞掉 → 确认循环永远“看不见”安装器 UI → 超时回退。修复：改为 `adb pull` 到临时文件后用 `Get-Content -Raw -Encoding UTF8` 显式解码，并把解析失败计数 `$xmlParseErrors` 暴露到失败原因里（不再静默）。
+> 该结论由**显式把 `$env:PATHEXT` 恢复为 Windows 默认值后的受控对照**得出，`PATHEXT=.CPL` 只是本机 Agent 会话的环境特征，**不是**本脚本的缺陷证据（旧结论作废）。另发现书架删除仅软删除 DB、私有副本只由“移除正文”清除；这可能是为恢复/撤销保留内容的产品策略，尚未进行生命周期契约审计，不作为 R3 缺陷直接修改。
+> **纪律（写报告时不得违反）：** direct ADB `install -r` 只能标注为「功能回退（FALLBACK）」，任何情况下不得写成脚本 PASS；`SCRIPT_EXITCODE=0` 且 `RESULT: CONFIRM_LOOP` 才算自动安装路径成功。
+>
+> **2026-09-12 动效 API 变更（所有 agent 必读）：** `ui/theme/Motion.kt` 的
+> `rememberCountUp(target, reducedMotion)` 已改为 **`rememberCountUp(target, key: String, reducedMotion = false)`**，
+> `key` 是**必填第二参数**。它让数字跨页面重建记住上次展示值，消除「切底部 Tab 回来数字又从 0 滚一遍」。
+> 任何新增调用点**必须给唯一且稳定的 key**（如 `stats.summary.minutes`），否则编译不过；**不要改回旧签名**。
+> 同时删除了 `MotionTokens.CountUpDelay`（120ms 延迟正是「先定住再猛跳」的来源）。
+> 已改 15 处调用点（stats 11 / home 4 / profile 1，profile 的 `HomeStat` 新增 `countUpKey` 参数）。
+> ⚠️ 该改动**尚未编译验证**——zcode 正在占用构建，按用户要求并发期间不抢跑；待其空出后补验。
+> （2026-09-13 注：zcode 的门禁构建已结束，构建已空出，可补验。）
+
 > **2026-09-09 移动端活动结论（优先于下文历史状态）：** 用户已授权整理当前 Android 代码为本地开发检查点，暂不推送。
-> 安全滚动 TXT 替换的 WorkBuddy 复验为 FAIL：规则保存和预览正常，正文未实际替换；现有 `ScrollReplaceTrace` 用于继续定位，不代表修复完成。
+> ~~安全滚动 TXT 替换的 WorkBuddy 复验为 FAIL：规则保存和预览正常，正文未实际替换~~
+> **【2026-09-11 更新：该项已修复并真机复验 PASS，见第 31 节】**：根因为小文件滚动 `readingUnits` 的
+> `chapterIndex` 恒 0 导致整书坍缩为单一投影作用域、超过 256K 全部判 `UnsupportedTooLarge` 降级原文；
+> 修复后 8 步复验全过，`ScrollReplaceTrace` 三行断言齐全。旧结论已作废，**不要再按 FAIL 处理**。
 > 正文排版和其余页面检查点仍需按各自范围验收。新的需求、分工、所有权与执行入口见
 > `docs/plans/android-parallel-delivery-2026-09-09/README.md`。Trae、Qoder 独立工作树开发，Codex 集成，WorkBuddy 独占真机验收。
 
@@ -66,10 +111,7 @@
 - P3.3 目录已读与分类/标签/书单手动排序已经收口；TXT 已读、书单内书籍排序不在本期。
 - P3.2 片 0–1 已完成：本地阅读会话落库、统一 occurred 日期口径、异常时长过滤与 streak；
   片 2–3 的目标进度环和每日提醒也已实施，当前只缺通知触发与重启恢复的真机证据。
-- **P3.1 当前状态：** 分页 TXT、EPUB 有历史验收证据；安全滚动 TXT 尚未收口（2026-09-09 真机 FAIL）。其设计要求仅在
-  `ScrollingTxtChapterSource` 可证明完整逻辑章 source 时开放，按 `ReadingUnit` 有界渲染且坐标始终
-  映射回 source。规则启停重分页、超大章降级提示、source/display 映射与 TTS 证据以第 28–29 节为准。
-  真正 legacy/不完整滚动路径及 Markdown 的结构保真/源↔渲染映射契约仍未实施，保持入口隐藏、正文原样显示。
+- **P3.1 当前状态：** 分页 TXT、EPUB 与安全滚动 TXT 替换均已有闭环证据；2026-09-09 的滚动 TXT FAIL 已在 2026-09-11 修复并由 WorkBuddy 真机复验 PASS（见第 31 节）。其设计仍要求仅在 `ScrollingTxtChapterSource` 可证明完整逻辑章 source 时开放，按 `ReadingUnit` 有界渲染且坐标始终映射回 source。真正 legacy/不完整滚动路径及 Markdown 的结构保真/源↔渲染映射契约仍未实施，保持入口隐藏、正文原样显示。
 
 ### P3.1 历史实现链（2026-08，仅作根因与测试参考）
 - **P3.1 流式大 TXT 完整逻辑章节 source 于 2026-08-20 首轮实现后因性能/内存三项回归暂未通过：**
@@ -143,18 +185,23 @@
    按渐进披露收口。
 5. **仍需设备证据：** P3.2 阅读目标提醒的通知实际触发和重启恢复。后续真机验收一律交由 WorkBuddy，
    不由 Codex 自行执行。
-6. **质量与发布：** 修复 `install_with_confirm.ps1` 的 MIUI 超时（直接 adb 仅可作为诊断，不是成功替代）、
+6. **质量与发布：** ~~修复 `install_with_confirm.ps1` 的 MIUI 超时~~ **（2026-09-13 已修复，见文首“验收边界（2026-09-13 更正）”：根因是 PS5.1 STDERR 提升 + UI dump CP936/UTF-8 解码损坏，已在同一真机取得 `RESULT: CONFIRM_LOOP` / `SCRIPT_EXITCODE=0`；direct adb 仅可作为诊断/功能回退，不是成功替代）**、
    A7 同步冒烟、A9 EPUB 异常语料/性能、A12 字符串资源化/无障碍；正式发布仍需用户配置签名 Secrets、
    授权 tag/push 和升级安装验证。
+   **新增残留风险：** `:app:connectedDebugAndroidTest` 在红米/HyperOS 上会**卸载主应用且不自动恢复**
+   （2026-09-13 实测 17:41:06 `PACKAGE_REMOVED`，140 个接收者）。跑仪器测试前必须确认可重新安装，
+   跑完必须核对 `pm path` 并重装；不要用“设备上看不到应用”去反推包名或环境结论。
 
 ## 3. 权威文档顺序
 
 1. `AGENTS.md`：产品线、协作与真机红线。
 2. `docs/handoff/current.md`：当前任务入口与活动开放项。
-3. `docs/architecture/native-android-reader.md`：当前架构和已知边界。
-4. `docs/plans/replace-rules-render-integration-design.md`：当前 P3.1 详细 seam 与验收。
-5. `docs/plans/2026-08-16-android-followup-roadmap.md`：发布、质量和后续候选全景。
-6. `docs/plans/2026-08-16-reading-goal-streak-design.md`、
+3. `docs/plans/2026-09-13-android-wip-integration-plan.md`：当前 Android 未提交 WIP 的 seam、集成顺序与提交前证据。
+4. `docs/architecture/native-android-reader.md`：当前架构和已知边界。
+5. `docs/architecture/android-code-quality-and-evolution-guide.md`：原生 Android 代码质量、巨型组件解耦、Compose 性能与演进规范指南。
+6. `docs/plans/replace-rules-render-integration-design.md`：当前 P3.1 详细 seam 与验收。
+7. `docs/plans/2026-08-16-android-followup-roadmap.md`：发布、质量和后续候选全景。
+8. `docs/plans/2026-08-16-reading-goal-streak-design.md`、
    `docs/plans/2026-08-16-toc-read-mark-manual-sort-design.md`：P3.2/P3.3 状态。
 
 若历史报告与上述文档冲突，以上述顺序和实际源码为准；不要从旧 `mobile/` 文档恢复任务。
@@ -1013,3 +1060,105 @@ androidTest 编译通过、lint 0 errors。设备 `c49ac6cf` 真机矩阵验证�
 - **打包产物**：构建产物生成于 `release/`，包含完整安装程序与免安装目录。
 
 
+---
+
+## 30. 桌面端「以创作为核心」沉浸式工作台重构与体验升级（2026-09-06）
+
+### 用户诉求与设计导向
+- **定位确立**：明确本应用作为“阅读创作助手，重点在创作”的核心价值，消除由于通用仪表盘外框和层级嵌套对专注写作体验的干扰。
+- **核心痛点消除**：
+  1. **纵向多层挤压**：外层 `desktop-commandbar` + `creation-writing-hero` 占据大量纵向高度（~170px），使写作正文被严重压低，脱离黄金视觉重心。
+  2. **横向四栏挤压**：外侧一级导航 + 项目内二级导航（`project-nav` 140px 竖栏）+ 大纲树（240px）+ 正文 + 检查器（280px），导致中间写作区实际宽度严重缩水。
+  3. **视觉细节违和**：正文纸面上突兀截断在 56px 的红色垂线（稿纸红线裁切），以及大纲树/卡片板视图切换控件边框破损缺失。
+
+### 核心实施方案
+1. **工作区纵向直通（全屏高度工作室）**：
+   - `DesktopFrame.tsx`：当进入项目内部工作区（`workbenchActive && screen === "projects"`）时，自动隐藏外层顶栏 `desktop-commandbar`，释放 68px 纵向高度。
+   - `CreationProjectsPage.tsx` 与 `editorial-studio.css`：
+     - 外层容器 `.creation-writing-page--active` 边距清零（`padding: 0 !important; overflow: hidden !important; height: 100% !important;`）。
+     - `.creation-writing-hero` 压缩为 46px 的紧凑工坊控制条（`creation-writing-hero-title` 与 `creation-writing-hero-desc` 并排单行省略显示），既完整保留 DOM 文本与契约断言，又消除了巨型 Hero Banner 的垂直侵占。
+2. **二级导航横向胶囊化（释放 140px 宽度，正文铺满 760px~800px）**：
+   - 将原独占左侧 140px 竖向列的 `project-nav` 改写为顶部 40px 高度横排胶囊条（`.project-nav { flex-direction: row; ... }`）。
+   - 保留「返回项目列表」胶囊及全部子视图切换按钮（概览/写作/大纲/设定卡/统计/历史），使工作台横向可用宽度大幅提升，正文纸面恢复至舒适的 760px~800px 书籍排版黄金宽度。
+3. **创作细节精修**：
+   - 彻底移除正文纸面上硬编码 `left: 56px;` 的突兀红色垂直线（`.scene-editor::before, .writing-continuous::before { display: none; }`），呈现纯净护眼的专注纸面。
+   - 修复 `.writing-outline-view-switch`（大纲树 / 场景卡板切换器）胶囊药丸样式，补齐边框、圆角与高亮阴影。
+
+### 全量验证与交付
+- **TypeScript 检查**：三套配置（main, renderer, node）全部 0 错误通过。
+- **单元测试**：Vitest 81 passed / 1 skipped（786 个测试全部通过）。
+- **契约测试**：`verify:reader-excerpt`、`verify:creation-project-shell`、`verify:creation-workspace` 全部通过。
+- **打包产物**：构建并打包输出至 `release/`。
+
+---
+
+## 31. 2026-09-11 R1/R2 闭环与缺陷收口（WorkBuddy，与 R3 并行）
+
+> 来源：`docs/plans/android-parallel-delivery-2026-09-09/R1R2-CLOSURE-AND-DEFECTS.md`。
+> 完整证据见 `docs/plans/android-parallel-delivery-2026-09-09/reports/workbuddy-r1r2-closure.md`；
+> 四轮 R1 验收汇总已入仓为同目录 `workbuddy-r1.md`。
+> 纪律：只验不修（缺陷项先核对现状）；未 stage / commit / push；未触碰 R3 域文件；设备只用真机 `c49ac6cf`（无 MuMu）。
+
+### 31.1 安全滚动 TXT 替换（原最高优先缺口）——**PASS（强证据）**
+
+- 根因修复（2026-09-10，Codex）：`buildChapterAlignedPlainUnits` 做章对齐 unit，并移除
+  `txtChapters.isEmpty()` 门控；此前 `preparePagedReplacement` 对有规则的 segmented path 无条件返回
+  `APPLIED`，造成「能力裁决与实际投影能力脱节」。
+- 复验（2026-09-11）：**真实 TXT 样书**（原 1.8MB「声称 EPUB 的 TXT」已不可用，见 31.4），
+  规则 `\Q…\E → TTEAM`、本书 scope、命中 2 处。
+  保存后当前屏替换 ✓／滚离返回 ✓／重进 ✓／force-stop 冷启 ✓／**删除规则后正文还原原文** ✓。
+- `ScrollReplaceTrace` 三行齐全：`assemble … availability=APPLIED`、
+  `bind … projected=true`、`unit=0 exact=true, scopeHits=1, sourceChars=420, displayChars=393`。
+- **未覆盖**：替换后文字高亮跨章锚定、坐标回归（选区 / 书内搜索 / TTS / 进度恢复）、无章大书降级抽查。
+
+### 31.2 明确「不实施」清单（写死，避免长期悬空）
+
+| 项 | 结论 | 理由 |
+|---|---|---|
+| **R2-D2「正文移除 / 重新关联」中的「重新关联」** | **不实施** | 与已实施的 A（`REMOVE_CONTENT` 真删 `filesDir/books/<id>`）互斥：文件已真删，无法在不重新导入的前提下做内容哈希匹配；需求契约「重新关联必须校验内容，文件不同不得强套偏移」隐含「文件存在为前提」 |
+| **Markdown 结构保真 / 源↔渲染映射契约** | **不实施** | `EpubReplaceProjector.kt:82` 对 `DocBlock.Markdown` 直接 `IllegalStateException`；`ReaderReplacementCapability.kt:44/61/75` 一律 `NOT_APPLICABLE`；pre-Reader Phase 8 设计即如此 |
+| **真实 legacy 滚动路径** | **不实施** | 同上；第 28 节原有描述保持不变 |
+
+### 31.3 契约变更 / 产品决策（接手者须按新口径执行）
+
+- **B5 导入格式真源分类（已闭环，契约是「拒收」不是「降级」）**：
+  `feature/library/FormatClassifier.kt` 以首 4 字节 ZIP 魔数 `PK\x03\x04` 判定，
+  导入（`ShelfImporter`）与同步（`SyncRepository.kt:459`）共用同一 `classify(...)`。
+  「声称 EPUB 但正文非 ZIP」→ `Rejected("声明为 EPUB 但正文不是有效的 ZIP 文件", "epub")`，**不伪装成 txt**。
+  **既有 DB 行不自动迁移**（符合「不自动迁移 / 不清除设备数据」纪律）。
+- **B7 搜索索引遗留**：P0-b 架构已闭环（章节级续建 + `Result.retry()`），但
+  `incompleteBookIds()` / `rebuildAll()`（`SearchIndexRepository.kt:441/368`）**零 UI 调用方**——
+  用户侧「修复搜索」按钮缺失属**产品决策**，待 owner 定；建议入口 `我的 → 设置 → 修复搜索`（设页属 R3 域）。
+- **A5 / N1 笔记页入口缺失（新发现，需 owner 决策）**：`ProfileHomeScreen.kt:154` 已把
+  「笔记磁贴改为灵感中心直达」，NOTES 子路由 `profile/notes` 仍注册（`AppNavigation.kt:469`）但**无 UI 入口**，
+  导致 N1 笔记页无法完整真机验收。三选项：A 恢复磁贴／B 在灵感 tab 内加 NOTES 筛选／C 仅保留 deep link。
+- **B9 Robolectric**：未引入。`build.gradle.kts` 属集成者域，且会拖慢全量 JVM；留长期 TODO。
+
+### 31.4 已作废的旧结论（**不要再照做**）
+
+1. **1.8MB「声称 EPUB 的 TXT」样书不能再用于滚动替换复验**：① 重新导入会被 B5 拒收；
+   ② 既有行是 EPUB 格式，在「上下滚动」模式下取不到 `scrollPreparedSource`
+   → `scrollProjectionOn = false` → `effectiveReplacementAvailability` 返回 `PAGER_ENGINE_DISABLED`，
+   替换菜单**按设计置灰**（正确行为，非回归）。`codex-r1-s1-scroll-replace.md` §六 步骤 3 已就地更正为「改用真实 TXT 样书」。
+2. **验收 3 / 4 的 FAIL 是当时结论，不回溯改写**；修复与复验结论由 `workbuddy-r1.md` 的
+   「2026-09-11 复验补记」与 `workbuddy-r1r2-closure.md` §A1 承载，两处口径一致。
+3. 高亮列表断链（B1）**已闭环**：`buildAnnotationEntries` 合并 `highlights` + `notes`，删 / 撤销 / 编辑 / 改色全通。
+
+### 31.5 构建环境硬要求（接手者必读）
+
+- **多 Agent 并行时 `app/build/` 是共享可变状态**：本会话一次 `assembleDebug` 报 `BUILD SUCCESSFUL`
+  （EXIT=0，APK `1d958636…`），但 dex 内 `FormatClassifier` = 0。已排除 R8（`isMinifyEnabled` 只在
+  `benchmarkRelease`(:62) 与 `release`(:70) 开启，debug 无 mapping 输出）——真因是**另一路并发 Gradle
+  用 `mv …_stale_<ts>` 清陈旧产物时改写了构建目录**，增量 ASM transform 漏拷类。
+- **处置**：该包**未装机、不作任何结论依据**；A1 的 PASS 证据链只挂在 18:22 的 `b0bbaa0a…` 包上。
+- **给集成者**：在「所有切片落定 + 其他 Agent 停止在 `android/` 上跑 Gradle」的**独占窗口**里做
+  clean rebuild，并跑 `:app:testDebugUnitTest --tests "*FormatClassifierTest*"` 作为 B5 的权威结论。
+  在此之前，任何基于当前 `app/build/` 的 dex 符号结论都不可信。
+
+### 31.6 本轮未做（按优先级留给下一棒）
+
+1. A3 TTS 通知触发 + 重启恢复真机证据
+2. A4 临时查阅**多层 LIFO / 跨书**矩阵（单层已 PASS：搜索 → 命中 → 阅读器临时栈 → 系统 Back ×2 → 搜索页状态完整保留）
+3. A5 N1 笔记页完整视觉（阻塞于 31.3 的入口决策）
+4. 31.1 列出的 A1 残余子项
+5. B7 `#21` 旧锚点残留处理 + `rebuildAll()` UI 入口

@@ -8,7 +8,7 @@
 > 19（笔记/书签/灵感导出）。第 7/15 项已附核实标记。
 > 其余条目仍是候选 backlog，不代表已经承诺实施。
 
-> 2026-07-27 制定。依据：`docs/legado-with-md3-analysis.md`（上游 legado-with-MD3 全面分析）
+> 2026-07-27 制定。依据：`docs/research/legado-with-md3-analysis.md`（上游 legado-with-MD3 全面分析）
 > 与 `android/` 现状盘点。排序标准来自 CLAUDE.md：**是否让阅读体验更好或应用更流畅；
 > 不是的排后面。**
 >

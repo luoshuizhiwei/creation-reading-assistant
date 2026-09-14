@@ -1,9 +1,9 @@
 # 独立原生 Android 阅读器架构
 
-> 2026-09-09 状态更正：本文件混有早期架构快照，能力声明不能代替设备验收。安全滚动 TXT 的投影类和组装逻辑已存在，但最新 WorkBuddy 复验正文替换仍 FAIL，待追踪实际渲染消费链。EPUB 分页替换已有后续历史验收，不能继续按下文早期“EPUB 一律不可用”理解。活动任务见 `../plans/android-parallel-delivery-2026-09-09/README.md`。
+> 2026-09-14 状态更正：本文件混有早期架构快照，能力声明不能代替设备验收。~~安全滚动 TXT 替换复验 FAIL~~——该 2026-09-09 结论已被 2026-09-11 R1 闭环推翻：根因（小文件滚动 `chapterIndex` 恒 0 致整书坍缩、>256K 降级原文）修复后真机 8 步复验全过，见 `../handoff/current.md` §31.1。EPUB 分页替换已有后续历史验收。活动任务见 `../plans/android-parallel-delivery-2026-09-09/README.md`。
 
 状态：当前执行依据  
-更新日期：2026-08-21 会话（流式大 TXT 回归三件套修复：有界分页/作用域拆分、LRU 3-chapter 缓存、availability 真实化）
+更新日期：2026-09-14 会话（Room schema 现状对齐 v12–v14；补记 R3 应用内书籍目录与来源索引模块。注：v13/v14 及 R3、ReaderCorrection、词典、每书设置等均在工作区**未提交**，归属与拆分见 `../plans/2026-09-13-android-r3-slice1-review.md` 与 `../plans/2026-09-13-android-wip-integration-plan.md`）  
 范围：`android/`（Kotlin + Jetpack Compose + Room）
 
 ## 1. 运行边界
@@ -64,7 +64,9 @@ ReaderDocument
 - 书签、笔记、高亮、阅读灵感和书摘导出（SAF 写 `.md` + 系统分享，四类内容）。
 - 书内搜索（进度+取消）、全局搜索（含正文预览命中）、目录（卷分组/最近浏览/内嵌书签）、进度跳转（拖动百分比预览 + 精确输入）、自动翻页/滚动、音量键翻页、屏幕方向锁定。
 - 灵感中心：类型/状态筛选、排序、AI 变体、定位来源跳转。
-- 书架：格式/状态/书单/分类/标签多维筛选（标签多选）、批量管理、导入内容哈希查重、EPUB 内嵌封面提取。
+- 书架：格式/状态/书单/分类/标签多维筛选（标签多选）、批量管理、导入内容哈希查重、EPUB 内嵌封面提取、动态视图（保存的筛选组合，L1，工作区未提交）。
+- 应用内书籍目录（R3，工作区未提交、真机已验收）：SAF 授权单一根目录（`OpenDocumentTree` + 持久授权）后在 App 内逐目录浏览/搜索/排序，或智能识别批量导入；导入仍统一走 `ShelfImporter` 落私有稳定副本。详见 §6。
+- 词典查词（StarDict，工作区未提交，Reader 切片域）：见 `../plans/android-parallel-delivery-2026-09-09/reports/` 各切片报告。
 - 用户自配 OpenAI-compatible AI 阅读辅助（流式+取消+无网预检）；Key 单独加密保存，不进入同步和导出。
 - 阅读纸张与应用外观分离（色温滤镜/纸张纹理可调），最终视觉规范见 `docs/WorkBuddy/theme_visual_plan.md`。
 
@@ -73,14 +75,43 @@ ReaderDocument
 1. 大 TXT 流式已闭环（`TextStreamLoader` 5MB 阈值 + `TxtFileScanner` 索引 + 有界窗口读取），小文件路径保持整本解码。2026-08-16 复核：生产路径已无整文件 `readText()`（仅存崩溃日志/EPUB nav/整库导入/更新检查 4 处合理使用）；2026-08-21 会话关键修正：**分页单元与完整投影作用域拆开** — `TxtChapterSource.fromStreaming(doc, index)` 以 `ReadingUnit`（上限 PlainTextDocument.MAX_WINDOW_CHARS）作为分页 segment 输出，50MB 无目录 TXT 分段数≥100；新增 `ReplaceProjectionScopeProvider.scopeForSegment(segmentIndex)` 提供完整逻辑章投影的 Exact/UnsupportedTooLarge/Incomplete 判定；超过 256K 字符的逻辑章仅靠 TxtFileIndex 元数据在整章读取前被拦截，保留原文+一次性超限提示，不触发整章分配。不再用"逻辑章节计数 = chapterCount"或"整章 ByteArray"来实现替换，避免无目录大 TXT 退化为整本读取。
 2. AI 阅读辅助（A11）已闭环：`AiClient` 支持 SSE 流式（`chatStreaming`）与协程取消（`executeCancellable` + `invokeOnCancellation`），401/429/5xx/网络错误分类、错误消息不携带响应体（防 API Key 回显）、非加密 http 一次性警示（局域网白名单）；`AiClientTest` 16 个用例锁定。
 3. EPUB 全书搜索已有进度与取消 UI：`ReaderSearchLogic` 逐章流式检索带 `onProgress` 回调与 `yield()` 协作取消，`ReaderSearchSheet` 展示「已扫描 X/Y」进度条并可取消在途搜索。
-4. Room schema 已演进到 **v11**（真源常量 `APP_DATABASE_SCHEMA_VERSION = 11`，见 `data/local/AppDatabase.kt:64`）：外键索引（A8）保持完整；v9→v10 新增本地体验态表 `chapter_reads`，并为 tags/shelves 增加 `sort_order`。迁移会为分类/标签/书单旧数据生成稳定唯一序号，避免同值交换无效；9→10 与 1→10 全链迁移已在真实手机通过。**v10→v11 新增本地全文搜索的派生索引表 `search_terms`（分词/命中次数/可选短偏移，主键 term+book_id+chapter_index，另建 term、book_id 索引）与增量扫描断点表 `search_index_state`；两表均不持有用户正文，迁移仅 CREATE TABLE/INDEX，不触碰既有数据；已有单步测试 `migrate_10_to_11_adds_search_index_tables_without_touching_books`，1→11 全链测试待补。**`ChapterReadRepository` 负责 EPUB/Markdown 到达章幂等写入；首次打开和成功切章均接入，删书事务与 TOC 确认操作可按书清理。已读 Flow 进入阅读路由，TOC 展示非当前已读章弱化色与行尾点、分卷及全书计数；TXT 既不写入也不展示已读状态。分类、标签、书单管理页通过独立排序模式调用相邻交换，首尾操作禁用；书架筛选、Organizer 与 Selection 继续按 DAO Flow 顺序消费。
+4. Room schema 真源常量为 `APP_DATABASE_SCHEMA_VERSION`（`data/local/AppDatabase.kt`）。**HEAD 已提交到 v12**，工作区代码为 **v14**（v13/v14 未提交）：外键索引（A8）保持完整；v9→v10 新增本地体验态表 `chapter_reads`，并为 tags/shelves 增加 `sort_order`；v10→v11 新增本地全文搜索派生表 `search_terms` 与断点表 `search_index_state`（两表均不持有用户正文，迁移仅 CREATE TABLE/INDEX）；v11→v12（已提交）把 `search_terms` 重建为带 `text_basis` 的整表迁移并为 tags/shelves 保持稳定唯一序号，新增每书每基准覆盖度表 `search_index_coverage`，同样只动派生索引表；v12→v13（工作区，ReaderCorrection 前置）新增单处纠错记录表 `reader_text_corrections`（只建新表，撤销/恢复只翻 status）；v13→v14（工作区，R3）新增来源引用表 `library_source_refs`（见 §6）。12→13、13→14 与 12→13→14 连续链路均有迁移测试（androidTest，已过编译门禁；设备执行归 WorkBuddy）。`ChapterReadRepository` 负责 EPUB/Markdown 到达章幂等写入；首次打开和成功切章均接入，删书事务与 TOC 确认操作可按书清理。已读 Flow 进入阅读路由，TOC 展示非当前已读章弱化色与行尾点、分卷及全书计数；TXT 既不写入也不展示已读状态。分类、标签、书单管理页通过独立排序模式调用相邻交换，首尾操作禁用；书架筛选、Organizer 与 Selection 继续按 DAO Flow 顺序消费。
 5. 替换净化 P3.1 覆盖：小型 TXT + 流式大 TXT（分页引擎模式）以及安全滚动 TXT。ReaderReplacementCapability 直接消费 `ReaderPagerEngineState.replacementAvailability`（`PagedReplacementAvailability` 枚举：APPLIED/SOURCE_UNAVAILABLE/INCOMPLETE_SCOPE/ESTIMATED_COORDINATES/OVERSIZED_CURRENT_CHAPTER/NO_EFFECTIVE_RULES），不再自行猜测 `isTxt && pagerEngineOn`；安全滚动 TXT 只有在 `ScrollingTxtChapterSource` 能为当前 ReadingUnit 证明完整逻辑章时开放，真正 legacy/不完整、EPUB/Markdown、source 未构建、章节为空、当前章超限均返回对应原因。ReplacedChapterSource 缓存从无界 `mutableMap<Int, CachedChapter>` 改为 LRU 3-chapter 有界容量（当前章 + 前一章 + 后一章），访问第 4 章后 LRU 淘汰；规则 key 变化后不复用旧投影；`UnsupportedTooLarge` 不缓存整章文本；长耗时文件 IO 与正则投影在 synchronized 锁外执行，锁内只保护缓存读写。完整逻辑章≤256K 时跨原 ReadingUnit 的正则投影、source↔display 往返已在 JVM 闭环；EPUB/Markdown 结构保真替换、并发线程下的重复投影去重 putIfAbsent 收紧、带书真机矩阵仍是开放项。
 6. 自动化：2026-08-21 会话重跑全量门禁（旧 2026-08-20 数字作废）：定向 JVM 5 类 suites=5/tests=58/0 failures；全量 JVM `:app:testDebugUnitTest` suites=153/tests=1432/0 failures；`lintDebug`/`assembleDebug`/`compileDebugAndroidTestKotlin` 全通过。真机 serial `c49ac6cf`：Debug APK 安装、冷启动、FATAL/ANR 检查通过；ReaderRulesSheetTest Compose 6/6 实际通过（numtests=6, OK (6 tests)，MIUI 下测试 Activity 卡前台时以 MAIN+LAUNCHER+0x10008000 后台保活脚本拉前台）；带书矩阵仍待用户导入中性测试 TXT 后执行。`stay_on_while_plugged_in` 保持原值 7。
 7. 原生 Android 发布（P0-A3）已收口（2026-08-16）：`release.yml` 按 tag 前缀分流（`v*` 桌面端 / `android-v*` Android 签名 APK + GPL 源码包 + SHA-256），版本注入与签名兜底/CI 缺签名即失败已落在 `android/app/build.gradle.kts`；应用内「检查更新」按 `android-v` 前缀过滤 releases 列表并做语义化版本比较（`UpdateCheck` + JVM 单测）。首次发版前需按 `docs/release/ANDROID_RELEASE.md` §2.4 配置签名 Secrets。
 
 完整任务与验收见 `docs/testing/native-android-gap-audit-2026-07-29.md`。
+代码质量、巨型组件解耦与演进规范见 `docs/architecture/android-code-quality-and-evolution-guide.md`。
 
-## 6. 验证
+## 6. 应用内书籍目录与来源索引（R3，工作区未提交、真机已验收）
+
+> 需求与方案真源：`../plans/2026-09-12-android-library-folder-smart-recognition-roadmap.md`；
+> 集成边界与提交拆分：`../plans/2026-09-13-android-r3-slice1-review.md`。
+
+```text
+SAF 根目录授权（OpenDocumentTree + takePersistableUriPermission，单一根）
+        |
+   LibraryRootStore（DataStore：treeUri/显示名/上次目录/排序）
+        |
+   SafLibrarySource（单目录 ≤1000 项）          SmartBookRecognizer（事件流识别）
+        |                                              |  SafBookSourceScanner：全树遍历
+   LibraryBrowserViewModel —— 只读，不导入           |    ≤2000 项（文件+文件夹合计）/500 候选/16 层
+        | 勾选 URI 列表                               |  >32MiB 候选指纹（首尾各 256KiB MD5）
+        v                                              v
+   ShelfViewModel.importFiles（shelf-graph 作用域单实例）→ ShelfImporter（唯一写入方）
+        | 导入成功 best-effort 落来源引用
+        v
+   library_source_refs（Room v14，FK→books 级联，一书一条）
+```
+
+- **事实源分层**：`library_source_refs` 只存来源关系与观测状态，绝不替代正文事实源（`books`/私有副本）；来源失效后阅读不受影响。`size/last_modified/content_hash` 固定为导入基线，观测只刷 `last_seen_at/availability`。
+- **四级入架判定**（`LibraryBrowserPolicy`，纯函数）：① `authority+documentId` 精确命中→已入架（确认档，可单击打开书籍）；④ 同位置大小/时间变化→内容有更新；② >32MiB 候选指纹一致→同内容；③ 格式+名+大小→仅「疑似」。③④ 弱判定无 `bookId`、不跳过导入，最终去重仍由 `ShelfImporter` 裁决。
+- **不伪造归属**：`sourceRootIdFor` 仅在 authority 一致且 documentId 以树根为前缀并停在边界时写 `root_id`，系统选择器/不透明 provider 一律 null。
+- **失效判定边界**：仅完整未截断的识别扫描可把「同根、此前可见、本次未出现」的引用标 `missing`；单目录浏览只做观测刷新；取消扫描不形成完成结论；全链 `ensureActive`，零轮询。
+- **删除边界**：删书架记录随 FK 级联清引用，不触碰来源目录原文件。
+- 产品红线（已确认决定）：不申请 `MANAGE_EXTERNAL_STORAGE`；不做多文件选择回退；候选指纹只用于去重提示、不作安全签名。
+
+## 7. 验证
 
 ```powershell
 Set-Location android
