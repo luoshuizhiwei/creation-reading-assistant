@@ -1,6 +1,7 @@
 package com.creationreadingassistant.feature.search
 
 import com.creationreadingassistant.data.local.dao.SearchTermRow
+import com.creationreadingassistant.feature.reader.rules.ReplaceProjection
 import com.creationreadingassistant.feature.reader.rules.ReplaceRule
 import com.creationreadingassistant.feature.reader.rules.RuleEngine
 
@@ -67,6 +68,10 @@ object SearchTokenAggregator {
  *
  * 与原文通道一一对应：同一本书的原文单元与显示文单元共享 `chapterIndex`，
  * 区别只在于文本是否经过替换规则投影。
+ *
+ * [chapterSourceStart] 是 [body] 在全书 source 中的起始偏移（R4）：预览与元数据
+ * 单元传 0；逐章单元传该章的全书起点（TXT 为 detector 真实偏移，EPUB 为
+ * LegacyOffsetCodec 估算基址）。单处纠错锚点按它局部化后才能在索引侧应用。
  */
 data class IndexUnit(
     /** 索引口径章节号（0 = 元数据/预览，≥1 = 逐章正文），与原文通道一致。 */
@@ -77,6 +82,8 @@ data class IndexUnit(
     val body: String,
     /** 是否记录正文偏移（元数据命中为 false）。 */
     val withOffsets: Boolean,
+    /** [body] 在全书 source 中的起点（0 = 全书文本/预览）。 */
+    val chapterSourceStart: Int = 0,
 )
 
 /**
@@ -98,8 +105,12 @@ object DisplayChannelIndexer {
     /**
      * 把单个单元投影为显示文索引行。
      *
-     * 标题与正文分别投影（各自应用规则），再合并进同一份聚合；标题按
+     * 标题与正文分别投影，再合并进同一份聚合；标题按
      * [CHAPTER_TITLE_MULTIPLIER] 加权、不记偏移，正文记偏移。
+     * 正文走 [ReplaceProjection.projectScoped]（按 [IndexUnit.chapterSourceStart]
+     * 局部化单处纠错锚点）：普通正则规则与生效纠错都参与 display 文本，保证
+     * 搜索 display 基准与阅读器渲染一致（R4 一致性契约）。标题没有 source
+     * 锚点概念，只应用普通规则。
      */
     fun project(
         unit: IndexUnit,
@@ -108,9 +119,10 @@ object DisplayChannelIndexer {
         tokenizer: SearchTokenizer,
     ): List<SearchTermRow> {
         if (rules.isEmpty()) return emptyList()
+        val plainRules = rules.filter { it.anchor == null }
         val agg = HashMap<String, SearchTokenAggregator.AggregatedTerm>()
         if (unit.title.isNotBlank()) {
-            val displayTitle = RuleEngine.applyReplace(unit.title, rules).displayText
+            val displayTitle = RuleEngine.applyReplace(unit.title, plainRules).displayText
             SearchTokenAggregator.aggregateInto(
                 agg,
                 tokenizer.tokenizeDocument(displayTitle),
@@ -120,7 +132,12 @@ object DisplayChannelIndexer {
             )
         }
         if (unit.body.isNotBlank()) {
-            val displayBody = RuleEngine.applyReplace(unit.body, rules).displayText
+            val displayBody = ReplaceProjection.projectScoped(
+                sourceText = unit.body,
+                rules = rules,
+                bookId = bookId,
+                scopeSourceBase = unit.chapterSourceStart,
+            ).displayText
             SearchTokenAggregator.aggregateInto(
                 agg,
                 tokenizer.tokenizeDocument(displayBody),

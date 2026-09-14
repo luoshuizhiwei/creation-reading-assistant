@@ -107,12 +107,14 @@ class SearchIndexRepository @Inject constructor(
     private val coverageDao: SearchIndexCoverageDao,
     private val tokenizer: SearchTokenizer,
     private val rulesRepository: RulesRepository,
+    private val scheduler: SearchIndexScheduler? = null,
 ) {
 
     data class Progress(
         val indexedBooks: Long,
         val totalBooks: Int,
         val isRunning: Boolean,
+        val totalTerms: Long = 0L,
     )
 
     private val _progress = MutableStateFlow(Progress(0L, 0, false))
@@ -409,6 +411,38 @@ class SearchIndexRepository @Inject constructor(
 
     suspend fun countIndexedBooks(): Long = termDao.countIndexedBooks()
     suspend fun countTerms(): Long = termDao.countTerms()
+
+    /**
+     * 重置增量扫描游标，并通知调度器立即唤起后台 Worker 全量重建索引。
+     */
+    suspend fun triggerFullRebuildNow(overrideScheduler: SearchIndexScheduler? = null) {
+        invalidateSweepForFullRebuild()
+        val total = bookDao.countActive()
+        _progress.value = Progress(0L, total, isRunning = true, totalTerms = 0L)
+        (overrideScheduler ?: scheduler)?.triggerNow(force = true)
+    }
+
+    data class IndexStats(
+        val indexedBooks: Long,
+        val totalBooks: Int,
+        val totalTerms: Long,
+        val isRunning: Boolean,
+        val lastBuiltAt: Long,
+    )
+
+    suspend fun getIndexStats(): IndexStats = withContext(Dispatchers.IO) {
+        val indexedBooks = countIndexedBooksCheap()
+        val totalBooks = bookDao.countActive()
+        val totalTerms = countTerms()
+        val state = stateDao.get()
+        IndexStats(
+            indexedBooks = indexedBooks,
+            totalBooks = totalBooks,
+            totalTerms = totalTerms,
+            isRunning = _progress.value.isRunning,
+            lastBuiltAt = state?.built_at ?: 0L,
+        )
+    }
 
     /**
      * 读取单本书在每种文本基准上的索引覆盖状态。
@@ -1089,6 +1123,8 @@ class SearchIndexRepository @Inject constructor(
                                     title = slice.title,
                                     body = slice.body,
                                     withOffsets = true,
+                                    // slice.startOffset 是该章全书真实字符起点，与 resolve 侧同口径
+                                    chapterSourceStart = slice.startOffset,
                                 ),
                                 book.id,
                                 displayRules,
@@ -1146,6 +1182,12 @@ class SearchIndexRepository @Inject constructor(
                         var indexedChapters = 0
                         // 全书章节数 = 分章结果长度（全书口径，与续建起点无关，理由见 TXT 分支）
                         val totalChapters = chapters.size
+                        // 单处纠错锚点的全书基址表（估算量纲）：与阅读器 EpubDocument /
+                        // resolve 侧 LegacyOffsetCodec 完全同源（同输入同函数），保证
+                        // 索引侧与阅读器侧对同一锚点的局部化结果一致。
+                        val epubChapterStarts = LegacyOffsetCodec.chapterStartOffsets(
+                            chapters.map { it.estimatedTextLength },
+                        )
                         var anyTruncated = false
                         for ((chSeq, ch) in chapters.withIndex()) {
                             // chapter_index = chSeq + 1（1 基，与 TXT 逐章对齐；chapter 0 留作元数据）
@@ -1210,6 +1252,7 @@ class SearchIndexRepository @Inject constructor(
                                             title = ch.title,
                                             body = chapterText,
                                             withOffsets = true,
+                                            chapterSourceStart = epubChapterStarts.getOrNull(chSeq) ?: 0,
                                         ),
                                         book.id,
                                         displayRules,

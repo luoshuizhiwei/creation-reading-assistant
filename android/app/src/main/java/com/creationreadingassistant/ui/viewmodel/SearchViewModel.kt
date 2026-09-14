@@ -91,6 +91,11 @@ class SearchViewModel @Inject constructor(
     /** 搜索历史（SE2）。 */
     val history: StateFlow<List<String>> = historyStore.history
 
+    /** 全库全文索引构建状态与进度透明化流。 */
+    val indexProgress: StateFlow<SearchIndexRepository.Progress> =
+        runCatching { searchIndexRepository.progress }
+            .getOrDefault(MutableStateFlow(SearchIndexRepository.Progress(0L, 0, false)))
+
     private var searchJob: Job? = null
 
     /**
@@ -226,5 +231,14 @@ class SearchViewModel @Inject constructor(
     /** 清空搜索历史。 */
     fun clearHistory() {
         viewModelScope.launch { historyStore.clear() }
+    }
+
+    /** 触发全库全文索引重建（清空游标并立即唤起后台 Worker）。 */
+    fun triggerRebuildIndex() {
+        viewModelScope.launch(ioDispatcher) {
+            runCatching {
+                searchIndexRepository.triggerFullRebuildNow()
+            }
+        }
     }
 }

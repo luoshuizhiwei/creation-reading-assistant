@@ -214,4 +214,56 @@ class SearchOffsetResolverTest {
             ),
         )
     }
+
+    // ── R4：display 通道含单处纠错时的回放 ──────────────────────────────
+
+    private fun correction(patternStart: Int, patternEnd: Int, findText: String, replaceText: String) =
+        ReplaceRule(
+            id = "correction:c1",
+            name = "单处纠错",
+            pattern = "",
+            replacement = replaceText,
+            enabled = true,
+            position = Int.MAX_VALUE,
+            scope = RuleScope.PER_BOOK,
+            anchor = com.creationreadingassistant.feature.reader.rules.CorrectionAnchor(
+                sourceStart = patternStart,
+                sourceEnd = patternEnd,
+                findText = findText,
+            ),
+        )
+
+    @Test
+    fun `display hit inside applied correction maps back to exact source offset`() {
+        // 章原文 "ABC错字DEF"，章起点 1000；纠错锚定全书 [1003,1005)「错字→正字」。
+        // 索引侧 display = "ABC正字DEF"；命中「正」display 偏移 3 → source 3 → 全书 1003。
+        val result = SearchOffsetResolver.resolve(
+            charOffset = 3,
+            isPreviewHit = false,
+            isTxtLike = true,
+            isDisplayBasis = true,
+            readerChapterIndex = 7,
+            sourceText = "ABC错字DEF",
+            chapterStart = 1000,
+            effectiveRules = listOf(correction(1003, 1005, "错字", "正字")),
+        )
+        assertEquals(1003, result)
+    }
+
+    @Test
+    fun `drifted correction replay keeps identity mapping consistent with index side`() {
+        // 纠错 findText 与原文漂移时，索引侧跳过纠错（display=原文），
+        // resolve 侧同样跳过 → identity 映射，两侧口径一致。
+        val result = SearchOffsetResolver.resolve(
+            charOffset = 3,
+            isPreviewHit = false,
+            isTxtLike = true,
+            isDisplayBasis = true,
+            readerChapterIndex = 7,
+            sourceText = "ABC错字DEF",
+            chapterStart = 1000,
+            effectiveRules = listOf(correction(1003, 1005, "别的文本", "正字")),
+        )
+        assertEquals(1003, result)
+    }
 }

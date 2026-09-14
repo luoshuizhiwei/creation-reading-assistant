@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,11 +32,13 @@ import androidx.compose.material.icons.outlined.Highlight
 import androidx.compose.material.icons.outlined.History
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Lightbulb
-import androidx.compose.material.icons.outlined.MenuBook
+import androidx.compose.material.icons.automirrored.outlined.MenuBook
+import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -109,6 +112,7 @@ fun SearchScreen(
     val results by viewModel.results.collectAsStateWithLifecycle()
     val loading by viewModel.loading.collectAsStateWithLifecycle()
     val history by viewModel.history.collectAsStateWithLifecycle()
+    val indexProgress by viewModel.indexProgress.collectAsStateWithLifecycle()
     var tab by viewModel.tabState
     val focusRequester = remember { FocusRequester() }
     val reducedMotion = rememberReducedMotion()
@@ -196,6 +200,17 @@ fun SearchScreen(
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
                 keyboardActions = KeyboardActions(onSearch = { if (query.isNotBlank()) viewModel.addHistory(query) }),
             )
+
+            // 全库全文搜索索引状态透明感知胶囊
+            val showIndexCapsule = indexProgress.isRunning ||
+                (indexProgress.totalBooks > 0 && indexProgress.indexedBooks < indexProgress.totalBooks)
+            if (showIndexCapsule) {
+                SearchIndexProgressCapsule(
+                    progress = indexProgress,
+                    onRebuild = { viewModel.triggerRebuildIndex() },
+                    modifier = Modifier.padding(horizontal = layout.pageHorizontal, vertical = 2.dp),
+                )
+            }
 
             // Tab 筛选分类微胶囊轨
             Row(
@@ -427,7 +442,7 @@ fun SearchScreen(
                             ) { index, hit ->
                                 val bookTitle = results.bookTitles[hit.bookId]
                                 SearchResultRow(
-                                    icon = Icons.Outlined.MenuBook,
+                                    icon = Icons.AutoMirrored.Outlined.MenuBook,
                                     title = buildHighlighted(
                                         bookTitle ?: hit.bookId,
                                         query,
@@ -564,6 +579,84 @@ private fun SearchNoticeBanner(
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onTertiaryContainer,
             )
+        }
+    }
+}
+
+/**
+ * 全库全文索引进度胶囊：状态感知与手动唤起重建。
+ */
+@Composable
+private fun SearchIndexProgressCapsule(
+    progress: com.creationreadingassistant.data.repository.SearchIndexRepository.Progress,
+    onRebuild: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val isRunning = progress.isRunning
+    val total = progress.totalBooks
+    val indexed = progress.indexedBooks
+    val pct = if (total > 0) ((indexed.toFloat() / total) * 100f).toInt().coerceIn(0, 100) else 0
+
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(10.dp),
+        color = MaterialTheme.colorScheme.surfaceContainerHighest.copy(alpha = 0.5f),
+        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+    ) {
+        Column(
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Icon(
+                        Icons.Outlined.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(14.dp),
+                        tint = if (isRunning) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Text(
+                        text = if (isRunning) {
+                            "全文索引构建中：$indexed / $total 本 ($pct%)"
+                        } else {
+                            "全文索引待完成：已索引 $indexed / $total 本"
+                        },
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                if (!isRunning) {
+                    TextButton(
+                        onClick = onRebuild,
+                        contentPadding = PaddingValues(horizontal = 8.dp, vertical = 0.dp),
+                        modifier = Modifier.height(24.dp),
+                    ) {
+                        Text(
+                            text = "立即构建",
+                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                }
+            }
+            if (isRunning && total > 0) {
+                LinearProgressIndicator(
+                    progress = { (indexed.toFloat() / total).coerceIn(0f, 1f) },
+                    modifier = Modifier.fillMaxWidth().height(3.dp).clip(PillShape),
+                    color = MaterialTheme.colorScheme.primary,
+                    trackColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+                )
+            }
         }
     }
 }
