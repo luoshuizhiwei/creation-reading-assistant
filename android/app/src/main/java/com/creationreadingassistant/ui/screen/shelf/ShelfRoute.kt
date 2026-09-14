@@ -605,7 +605,7 @@ private fun handleShelfAction(
         ShelfAction.OpenSortSheet -> navController.navigate("shelf/organizer/select/sort")
         is ShelfAction.SelectSort -> { setSortMode(action.sort); setShowSortSheet(false) }
         ShelfAction.DismissSortSheet -> setShowSortSheet(false)
-        ShelfAction.OpenFilterPanel -> navController.navigate("shelf/organizer")
+        ShelfAction.OpenFilterPanel -> setShowFilterPanel(true)
         is ShelfAction.SelectShelf -> setSelectedShelfId(action.id)
         is ShelfAction.SelectCategory -> setSelectedCategoryId(action.id)
         is ShelfAction.SelectTag -> setSelectedTagId(action.id)

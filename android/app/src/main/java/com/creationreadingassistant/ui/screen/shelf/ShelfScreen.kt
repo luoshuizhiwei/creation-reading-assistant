@@ -507,7 +507,7 @@ private fun ShelfCompactToolbar(
             text = "${state.filtered.size} 本 · ${state.filterSummary} · $sortLabel",
             modifier = Modifier
                 .weight(1f)
-                .clickable { onAction(ShelfAction.OpenOrganizer) }
+                .clickable { onAction(ShelfAction.OpenFilterPanel) }
                 .testTag("shelf-filter-summary")
                 .padding(vertical = 12.dp),
             style = MaterialTheme.typography.bodyMedium,

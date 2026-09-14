@@ -112,6 +112,30 @@ internal fun LibraryBrowserRoute(
             }
         },
         snackbarHost = { SnackbarHost(snackbar) },
+        topBarSupportingContent = if (state.hasRoot) {
+            {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = LocalLayoutTokens.current.pageHorizontal, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SelectablePill(
+                        text = "当前目录",
+                        selected = mode == LibraryMode.BROWSER,
+                        onClick = { mode = LibraryMode.BROWSER },
+                    )
+                    SelectablePill(
+                        text = "智能识别",
+                        selected = mode == LibraryMode.RECOGNIZE,
+                        onClick = {
+                            mode = LibraryMode.RECOGNIZE
+                            if (!recognition.isRunning && !recognition.finished) viewModel.startRecognition()
+                        },
+                    )
+                }
+            }
+        } else null,
     ) { viewport ->
         BoxWithConstraints(modifier = Modifier.fillMaxSize().padding(viewport)) {
             val adaptive = adaptivePageMetrics(maxWidth, LocalLayoutTokens.current)
@@ -164,24 +188,6 @@ internal fun LibraryBrowserRoute(
                             crumbs = state.crumbs,
                             onCrumbClick = viewModel::navigateToCrumb,
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            SelectablePill(
-                                text = "当前目录",
-                                selected = mode == LibraryMode.BROWSER,
-                                onClick = { mode = LibraryMode.BROWSER },
-                            )
-                            SelectablePill(
-                                text = "智能识别",
-                                selected = mode == LibraryMode.RECOGNIZE,
-                                onClick = {
-                                    mode = LibraryMode.RECOGNIZE
-                                    if (!recognition.isRunning && !recognition.finished) viewModel.startRecognition()
-                                },
-                            )
-                        }
                     }
                 }
 

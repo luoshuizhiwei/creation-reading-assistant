@@ -1,13 +1,21 @@
 package com.creationreadingassistant.ui.screen.reader
 
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.SheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import com.creationreadingassistant.data.settings.PerBookOverrides
 import com.creationreadingassistant.data.settings.ReaderOverrideKey
 import com.creationreadingassistant.data.settings.ReaderSettings
@@ -229,7 +237,17 @@ internal fun ReaderSheetHost(
             sheetState = sheetState,
             containerColor = paper.bg,
             shape = LocalComponentSpec.current.sheetShape,
-            dragHandle = { SheetHandle() },
+            dragHandle = {
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SheetHandle()
+                    IconButton(
+                        onClick = sheetCallbacks.onDismiss,
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                    ) {
+                        Icon(Icons.Outlined.Close, contentDescription = "关闭当前工作表")
+                    }
+                }
+            },
             contentWindowInsets = { WindowInsets(0, 0, 0, 0) },
         ) {
             ReaderPaperTheme(paper) {
