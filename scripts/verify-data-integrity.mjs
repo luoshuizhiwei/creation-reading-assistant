@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -14,7 +15,7 @@ function fail(message) {
   process.exit(1);
 }
 
-const mainProcess = read("electron/main/index.ts");
+const mainProcess = readMainProcess();
 const backupModule = read("electron/main/backup/index.ts");
 const betaCheck = read("scripts/beta-check.mjs");
 

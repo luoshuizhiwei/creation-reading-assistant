@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -13,7 +14,8 @@ const files = {
   types: read("src/types/inspiration.ts"),
   api: read("src/types/api.ts"),
   preload: read("electron/preload/index.ts"),
-  main: read("electron/main/index.ts"),
+  // 主进程已按职责拆分为多模块（纯移动式重构），断言须覆盖整个模块集合。
+  main: readMainProcess(),
   page: read("src/features/inspiration/InspirationPage.tsx"),
   service: read("src/services/inspiration-service.ts"),
   store: read("src/stores/inspiration-store.ts")

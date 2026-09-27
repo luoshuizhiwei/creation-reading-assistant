@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -14,7 +15,8 @@ const files = {
   settings: read("src/types/settings.ts"),
   api: read("src/types/api.ts"),
   preload: read("electron/preload/index.ts"),
-  main: read("electron/main/index.ts"),
+  // AI 密钥与设置实现已按职责拆到 settings-store.ts，断言需覆盖整个主进程模块集合。
+  main: readMainProcess(),
   settingsPage: read("src/features/settings/sections/AISection.tsx"),
   // 设置页和收件箱已拆成容器 + 子组件；静态门禁跟随真正承载文案/功能的叶组件。
   inboxPage: read("src/features/creation/inbox/InboxPage.tsx"),

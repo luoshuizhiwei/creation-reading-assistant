@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 function read(path) {
   return readFileSync(path, "utf-8");
@@ -11,8 +12,16 @@ function assertIncludes(file, needle, message) {
   }
 }
 
-assertIncludes("electron/main/index.ts", "portableDataRoot", "Main process must prefer an install-adjacent portable data directory.");
-assertIncludes("electron/main/index.ts", "isDirectoryWritable", "Main process must verify install/data directory writability before use.");
+const mainProcess = readMainProcess();
+
+function assertMainIncludes(needle, message) {
+  if (!mainProcess.includes(needle)) {
+    throw new Error(`[verify-portable-storage] ${message}\nMissing ${JSON.stringify(needle)} in main process sources.`);
+  }
+}
+
+assertMainIncludes("portableDataRoot", "Main process must prefer an install-adjacent portable data directory.");
+assertMainIncludes("isDirectoryWritable", "Main process must verify install/data directory writability before use.");
 assertIncludes("electron/main/index.ts", "settings:chooseDataDirectory", "Main process must expose data directory picker IPC.");
 assertIncludes("electron/main/index.ts", "settings:chooseLibraryDirectory", "Main process must expose library directory picker IPC.");
 assertIncludes("electron/main/index.ts", "settings:migrateDataDirectory", "Main process must expose data directory migration IPC.");

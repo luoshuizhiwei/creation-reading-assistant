@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { readMainProcess, readSyncImplementation } from "./lib/main-process-sources.mjs";
 
 function read(path) {
   return readFileSync(path, "utf-8");
@@ -14,7 +15,11 @@ function assertIncludes(file, needle, message) {
   if (!content.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in ${file}`);
 }
 
-const main = read("electron/main/index.ts");
+const main = readMainProcess();
+
+function assertMainIncludes(needle, message) {
+  if (!main.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in main process sources.`);
+}
 
 for (const channel of [
   "sync:getStatus",
@@ -24,7 +29,7 @@ for (const channel of [
   "sync:listDevices",
   "sync:removeDevice"
 ]) {
-  assertIncludes("electron/main/index.ts", channel, `Main process must register ${channel}.`);
+  assertMainIncludes(channel, `Main process must register ${channel}.`);
   assertIncludes("electron/preload/index.ts", channel, `Preload must expose ${channel}.`);
   assertIncludes("src/types/api.ts", channel.replace("sync:", ""), `Renderer API must type ${channel}.`);
 }
@@ -36,7 +41,7 @@ for (const route of [
   "/sync/pair",
   "/sync/books/"
 ]) {
-  assertIncludes("electron/main/index.ts", route, `LAN sync server must handle ${route}.`);
+  assertMainIncludes(route, `LAN sync server must handle ${route}.`);
 }
 
 for (const required of [
@@ -53,15 +58,15 @@ for (const required of [
   "downloadBookChunk",
   "uploadBookFile"
 ]) {
-assertIncludes("electron/main/index.ts", required, `LAN sync server missing ${required}.`);
+assertMainIncludes(required, `LAN sync server missing ${required}.`);
 }
 
-assertIncludes("electron/main/index.ts", "PUT", "LAN sync server must accept a PUT upload for phone-imported book files.");
-assertIncludes("electron/main/index.ts", "writeUploadedBookFile", "LAN sync server must persist uploaded phone book files inside the desktop library directory.");
-assertIncludes("electron/main/index.ts", "X-Original-File-Name", "Book upload must preserve the original file name for library display.");
-assertIncludes("electron/main/index.ts", "x-sync-token", "Paired sync requests must include a per-device authorization token.");
-assertIncludes("electron/main/index.ts", "syncAuthTokenHash", "Desktop sync state must store only a hash of the device authorization token.");
-assertIncludes("electron/main/index.ts", "requirePairedSyncDevice(request, response)", "Manifest, pull, push and book file endpoints must reject unpaired devices.");
+assertMainIncludes("PUT", "LAN sync server must accept a PUT upload for phone-imported book files.");
+assertMainIncludes("writeUploadedBookFile", "LAN sync server must persist uploaded phone book files inside the desktop library directory.");
+assertMainIncludes("X-Original-File-Name", "Book upload must preserve the original file name for library display.");
+assertMainIncludes("x-sync-token", "Paired sync requests must include a per-device authorization token.");
+assertMainIncludes("syncAuthTokenHash", "Desktop sync state must store only a hash of the device authorization token.");
+assertMainIncludes("requirePairedSyncDevice(request, response)", "Manifest, pull, push and book file endpoints must reject unpaired devices.");
 
 assertIncludes("src/features/settings/sections/StorageSection.tsx", "QRCode.toDataURL", "Settings page must render a real QR code for phone pairing.");
 assertIncludes("src/features/settings/sections/StorageSection.tsx", "pairing.pairingUrls.map", "Settings page must expose alternate LAN pairing URLs for multi-network PCs.");
@@ -69,7 +74,8 @@ assertIncludes("src/features/settings/sections/StorageSection.tsx", "连接失�
 assertIncludes("src/types/sync.ts", "pairingUrls", "Pairing type must expose alternate LAN addresses.");
 assertIncludes("src/types/sync.ts", "qrPayloads", "Pairing type must expose all QR payload options.");
 
-if (main.includes("ai-secrets.json") && main.slice(main.indexOf("/sync/"), main.lastIndexOf("/sync/")).includes("ai-secrets")) {
+const syncImpl = readSyncImplementation();
+if (syncImpl.includes("aiSecretsPath") || syncImpl.includes("ai-secrets")) {
   fail("Sync HTTP handlers must never expose ai-secrets.json.");
 }
 

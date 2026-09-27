@@ -1,4 +1,7 @@
 import { readFileSync } from "node:fs";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
+
+const mainProcess = readMainProcess();
 
 function read(path) {
   return readFileSync(path, "utf-8");
@@ -11,13 +14,19 @@ function assertIncludes(file, needle, message) {
   }
 }
 
+function assertMainIncludes(needle, message) {
+  if (!mainProcess.includes(needle)) {
+    throw new Error(`[verify-reader-formats] ${message}\nMissing ${JSON.stringify(needle)} in main process sources.`);
+  }
+}
+
 assertIncludes("package.json", "markdown-it", "Markdown reader must use a full Markdown renderer dependency.");
 assertIncludes("src/features/library/toc/markdown-toc.ts", "MarkdownIt", "Markdown reader must instantiate markdown-it.");
 assertIncludes("src/features/library/toc/markdown-toc.ts", "renderMarkdownWithToc", "Markdown reader must generate a table of contents from headings (token-stream aligned with rendered ids).");
 assertIncludes("src/features/library/reader/TxtMarkdownReader.tsx", "reader-heading-scale", "Markdown headings must scale with reader font settings.");
-assertIncludes("electron/main/index.ts", "extractTextBookMetadata", "TXT/Markdown import must parse metadata such as author.");
-assertIncludes("electron/main/index.ts", "contentHash", "Book imports must calculate a content hash for duplicate detection.");
-assertIncludes("electron/main/index.ts", "duplicateIndex", "Book imports must label duplicate imports.");
+assertMainIncludes("extractTextBookMetadata", "TXT/Markdown import must parse metadata such as author.");
+assertMainIncludes("contentHash", "Book imports must calculate a content hash for duplicate detection.");
+assertMainIncludes("duplicateIndex", "Book imports must label duplicate imports.");
 assertIncludes("src/features/library/LibraryPage.tsx", "importLabel", "Library UI must display duplicate/import labels.");
 assertIncludes("src/features/library/LibraryPage.tsx", "role=\"button\"", "Library row/card must be directly clickable to read.");
 assertIncludes("src/features/library/EpubReaderPage.tsx", "onWheel", "EPUB reader must support mouse wheel page turning.");
@@ -58,6 +67,6 @@ assertIncludes("src/features/library/toc/current.ts", "findCurrentTocItem", "EPU
 // TOC read marks + progress anchoring (2026-09-03 evening)
 assertIncludes("src/features/library/toc/TocList.tsx", "readIds", "TOC rows must support derived read marks (dim + check for read chapters).");
 assertIncludes("src/features/library/toc/anchor.ts", "computeTextAnchor", "TXT/MD save must write char anchors (chapterRef + charOffset) alongside scrollTop.");
-assertIncludes("electron/main/index.ts", "normalizeTxtTocOverrides", "Library index must strictly normalize txt toc overrides so they survive reload/backup.");
+assertMainIncludes("normalizeTxtTocOverrides", "Library index must strictly normalize txt toc overrides so they survive reload/backup.");
 
 console.log("[verify-reader-formats] Reader format and search guards verified.");

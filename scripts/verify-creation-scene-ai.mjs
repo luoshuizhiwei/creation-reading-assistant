@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 /**
  * Stage 4-D 场景 AI 静态门禁：
@@ -20,7 +21,8 @@ function read(relativePath) {
 const files = {
   types: read("src/types/ai.ts"),
   prompt: read("electron/main/ai-prompt.ts"),
-  main: read("electron/main/index.ts"),
+  // AI 调用与提示词委托已按职责拆到 settings-store.ts，断言需覆盖整个主进程模块集合。
+  main: readMainProcess(),
   actions: read("src/features/creation/ai/scene-ai-actions.ts"),
   margin: read("src/features/creation/editor/desk/WritingDeskMargin.tsx"),
   candidate: read("src/features/creation/ai/SceneCandidateReview.tsx"),
@@ -50,7 +52,7 @@ requireSnippet("electron/main/ai-prompt.ts", files.prompt, 'case "continuation"'
 requireSnippet("electron/main/ai-prompt.ts", files.prompt, 'case "condensing"');
 requireSnippet("electron/main/ai-prompt.ts", files.prompt, 'case "character-consistency"');
 requireSnippet("electron/main/ai-prompt.ts", files.prompt, "isKnownAiAction");
-requireSnippet("electron/main/index.ts", files.main, "buildAIPromptFromModule");
+requireSnippet("主进程模块集合", files.main, "buildAIPromptFromModule");
 
 // 3. 动作语义：续写=追加、检查类=只读报告
 requireSnippet("scene-ai-actions.ts", files.actions, 'continuation: "续写场景"');

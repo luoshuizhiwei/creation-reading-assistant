@@ -1,4 +1,5 @@
 import { existsSync, readFileSync } from "node:fs";
+import { readMainProcess, readSyncImplementation } from "./lib/main-process-sources.mjs";
 
 function read(path) {
   return readFileSync(path, "utf-8");
@@ -14,6 +15,12 @@ function assertIncludes(file, needle, message) {
   if (!content.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in ${file}`);
 }
 
+const mainProcess = readMainProcess();
+
+function assertMainIncludes(needle, message) {
+  if (!mainProcess.includes(needle)) fail(`${message}\nMissing ${JSON.stringify(needle)} in main process sources.`);
+}
+
 if (!existsSync("src/types/sync.ts")) fail("src/types/sync.ts must define shared sync types.");
 
 for (const needle of ["DeviceInfo", "SyncEnvelope", "SyncManifest", "BookFileManifest", "SyncStatus", "PairingTokenResult"]) {
@@ -26,15 +33,14 @@ for (const file of ["src/types/inspiration.ts", "src/types/library.ts"]) {
   assertIncludes(file, "deletedAt", `${file} must carry tombstone metadata.`);
 }
 
-assertIncludes("electron/main/index.ts", "getOrCreateDeviceId", "Main process must have a stable desktop device id.");
-assertIncludes("electron/main/index.ts", "withSyncMetadata", "Main process must normalize legacy JSON with sync metadata.");
-assertIncludes("electron/main/index.ts", "revision:", "Main process must write revision values.");
-assertIncludes("electron/main/index.ts", "deviceId:", "Main process must write device ids.");
-assertIncludes("electron/main/index.ts", "deletedAt", "Main process must preserve tombstones.");
-assertIncludes("electron/main/index.ts", "buildSyncManifest", "Main process must build sync manifests.");
+assertMainIncludes("getOrCreateDeviceId", "Main process must have a stable desktop device id.");
+assertMainIncludes("withSyncMetadata", "Main process must normalize legacy JSON with sync metadata.");
+assertMainIncludes("revision:", "Main process must write revision values.");
+assertMainIncludes("deviceId:", "Main process must write device ids.");
+assertMainIncludes("deletedAt", "Main process must preserve tombstones.");
+assertMainIncludes("buildSyncManifest", "Main process must build sync manifests.");
 
-const main = read("electron/main/index.ts");
-const syncSection = main.slice(main.indexOf("buildSyncManifest"), main.indexOf("registerIpc"));
+const syncSection = readSyncImplementation();
 if (syncSection.includes("aiSecretsPath") || syncSection.includes("apiKeyEncrypted")) {
   fail("AI secrets must not be included in sync manifest or sync payload builders.");
 }

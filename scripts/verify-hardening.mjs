@@ -1,6 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readMainProcess } from "./lib/main-process-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -30,7 +31,7 @@ if (!indexHtml.includes("Content-Security-Policy")) {
   missing.push("Renderer index.html should define a Content Security Policy.");
 }
 
-const main = read("electron/main/index.ts");
+const main = readMainProcess();
 for (const snippet of [
   "session.defaultSession.webRequest.onHeadersReceived",
   "function contentSecurityPolicy",
@@ -41,7 +42,7 @@ for (const snippet of [
   "readJson backup parse failed",
   "process.exit(1)"
 ]) {
-  if (!main.includes(snippet)) missing.push(`electron/main/index.ts should include ${snippet}`);
+  if (!main.includes(snippet)) missing.push(`main process sources should include ${snippet}`);
 }
 
 const betaCheck = read("scripts/beta-check.mjs");
