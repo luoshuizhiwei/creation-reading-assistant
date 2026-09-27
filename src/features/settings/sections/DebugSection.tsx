@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { Download, RefreshCw } from "lucide-react";
-import { AnimatedPanel, InlineNotice } from "@/components/interaction";
+import { Download, RefreshCw, RotateCcw } from "lucide-react";
+import { InlineNotice } from "@/components/interaction";
 import { Button, Field, TextInput } from "@/components/ui";
 import { exportDebugInfo, openLogDirectory } from "@/services/maintenance-service";
 import { checkForAppUpdates, openAppUpdateDownload } from "@/services/updates-service";
 import type { AppSettings, SettingsSection } from "@/types/settings";
 import type { AppUpdateInfo } from "@/types/updates";
-import { Section } from "./SectionWrapper";
+import { SettingsGroup, SettingsShell } from "./SectionWrapper";
 
 interface DebugSectionProps {
   settings: AppSettings;
@@ -66,56 +66,64 @@ export function DebugSection({ settings, resetSection, showToast, setError }: De
   };
 
   return (
-    <>
-      <Section title="关于 / 调试" section="debug" onReset={resetSection}>
-        <Field label="应用版本">
-          <TextInput value={settings.debug.appVersion} readOnly />
-        </Field>
-        <Field label="数据目录">
-          <TextInput value={settings.debug.dataRoot} readOnly />
-        </Field>
-        <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3">
-          <div className="mb-3 text-sm font-semibold text-paper-ink">诊断工具</div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => void openLogDirectory()}>
-              打开日志目录
-            </Button>
-            <Button
-              variant="secondary"
-              onClick={() =>
-                void runMaintenance("导出调试信息", exportDebugInfo, (result) => {
-                  const debug = result as Awaited<ReturnType<typeof exportDebugInfo>>;
-                  return debug ? `调试信息已导出：${debug.outputRoot}` : "导出已取消";
-                })
-              }
-            >
-              导出调试信息
-            </Button>
+    <SettingsShell title="关于 / 调试">
+      <SettingsGroup title="应用信息">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div data-setting-id="debug.appVersion">
+            <Field label="应用版本">
+              <TextInput value={settings.debug.appVersion} readOnly />
+            </Field>
           </div>
-          {maintenanceMessage && (
-            <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
-              {maintenanceMessage}
+          <div data-setting-id="debug.dataRoot">
+            <Field label="数据目录">
+              <TextInput value={settings.debug.dataRoot} readOnly />
+            </Field>
+          </div>
+        </div>
+      </SettingsGroup>
+
+      <SettingsGroup title="诊断工具">
+        <div className="flex flex-wrap gap-2" data-setting-id="debug.diagnostics">
+          <Button variant="secondary" onClick={() => void openLogDirectory()}>
+            打开日志目录
+          </Button>
+          <Button
+            variant="secondary"
+            onClick={() =>
+              void runMaintenance("导出调试信息", exportDebugInfo, (result) => {
+                const debug = result as Awaited<ReturnType<typeof exportDebugInfo>>;
+                return debug ? `调试信息已导出：${debug.outputRoot}` : "导出已取消";
+              })
+            }
+          >
+            导出调试信息
+          </Button>
+        </div>
+        {maintenanceMessage && (
+          <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
+            {maintenanceMessage}
+          </InlineNotice>
+        )}
+      </SettingsGroup>
+
+      <SettingsGroup
+        title="应用更新"
+        description="检查 GitHub Release 上的最新桌面端和 Android 端版本。桌面端会打开新版安装包或 Release 页面；安装仍由 Windows 安装器确认完成。"
+        actions={
+          <Button variant="quiet" onClick={() => resetSection("debug")}>
+            <RotateCcw size={15} />
+            重置本分区
+          </Button>
+        }
+      >
+        <div data-setting-id="debug.update">
+          {updateInfo && (
+            <InlineNotice tone={updateInfo.hasUpdate ? "success" : "info"} className="mb-3 p-2 text-xs">
+              {updateInfo.hasUpdate
+                ? `发现 v${updateInfo.latestVersion}，当前版本 ${updateInfo.currentVersion}。${updateInfo.desktopAssetName ? `安装包：${updateInfo.desktopAssetName}` : "未找到独立安装包，将打开 Release 页面。"}`
+                : `当前版本 ${updateInfo.currentVersion} 已是最新。`}
             </InlineNotice>
           )}
-        </div>
-      </Section>
-
-      <AnimatedPanel className="rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
-        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-          <div>
-            <div className="desktop-card-label">Update</div>
-            <h2 className="text-sm font-semibold text-paper-ink">应用更新</h2>
-            <p className="mt-1 max-w-2xl text-xs leading-5 text-paper-muted">
-              检查 GitHub Release 上的最新桌面端和 Android 端版本。桌面端会打开新版安装包或 Release 页面；安装仍由 Windows 安装器确认完成。
-            </p>
-            {updateInfo && (
-              <InlineNotice tone={updateInfo.hasUpdate ? "success" : "info"} className="mt-3 p-2 text-xs">
-                {updateInfo.hasUpdate
-                  ? `发现 v${updateInfo.latestVersion}，当前版本 ${updateInfo.currentVersion}。${updateInfo.desktopAssetName ? `安装包：${updateInfo.desktopAssetName}` : "未找到独立安装包，将打开 Release 页面。"}`
-                  : `当前版本 ${updateInfo.currentVersion} 已是最新。`}
-              </InlineNotice>
-            )}
-          </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="secondary" disabled={updateBusy} onClick={() => void checkUpdates()}>
               <RefreshCw size={15} />
@@ -127,7 +135,7 @@ export function DebugSection({ settings, resetSection, showToast, setError }: De
             </Button>
           </div>
         </div>
-      </AnimatedPanel>
-    </>
+      </SettingsGroup>
+    </SettingsShell>
   );
 }

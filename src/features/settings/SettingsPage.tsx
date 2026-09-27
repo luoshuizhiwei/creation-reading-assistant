@@ -7,22 +7,25 @@ import { useAppStore } from "@/stores/app-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useUIStore } from "@/stores/ui-store";
 import type { SettingsSection } from "@/types/settings";
+import { SettingsSearch } from "./SettingsSearch";
 import { AISection } from "./sections/AISection";
 import { AppearanceSection } from "./sections/AppearanceSection";
 import { DebugSection } from "./sections/DebugSection";
 import { ReaderSection } from "./sections/ReaderSection";
+import { SETTINGS_SECTION_LABELS } from "./search-registry";
 import { StorageSection } from "./sections/StorageSection";
 
 const CATEGORIES: Array<[SettingsSection, string]> = [
-  ["appearance", "外观"],
-  ["reader", "阅读器"],
-  ["ai", "AI 助手"],
-  ["storage", "数据与存储"],
-  ["debug", "关于 / 调试"]
+  ["appearance", SETTINGS_SECTION_LABELS.appearance],
+  ["reader", SETTINGS_SECTION_LABELS.reader],
+  ["ai", SETTINGS_SECTION_LABELS.ai],
+  ["storage", SETTINGS_SECTION_LABELS.storage],
+  ["debug", SETTINGS_SECTION_LABELS.debug]
 ];
 
 export function SettingsPage() {
   const [activeCategory, setActiveCategory] = useState<SettingsSection>("appearance");
+  const [highlightId, setHighlightId] = useState<string>();
   const settings = useSettingsStore((state) => state.settings);
   const settingsLoading = useSettingsStore((state) => state.loading);
   const settingsError = useSettingsStore((state) => state.error);
@@ -35,6 +38,22 @@ export function SettingsPage() {
   useEffect(() => {
     void loadSettings();
   }, [loadSettings]);
+
+  // 搜索跳转：分区切换渲染完成后，滚动到目标控件并短暂高亮。
+  useEffect(() => {
+    if (!highlightId) return;
+    const element = document.querySelector(`[data-setting-id="${CSS.escape(highlightId)}"]`);
+    element?.scrollIntoView({ behavior: "smooth", block: "center" });
+    element?.classList.add("settings-search-hit");
+    const timer = window.setTimeout(() => {
+      element?.classList.remove("settings-search-hit");
+      setHighlightId(undefined);
+    }, 2200);
+    return () => {
+      window.clearTimeout(timer);
+      element?.classList.remove("settings-search-hit");
+    };
+  }, [highlightId, activeCategory]);
 
   if (!settings) {
     return (
@@ -61,6 +80,12 @@ export function SettingsPage() {
       <div className="desktop-page-stack">
         <div className="settings-layout">
           <nav className="settings-nav" aria-label="设置分类">
+            <SettingsSearch
+              onSelect={(entry) => {
+                setActiveCategory(entry.section);
+                setHighlightId(entry.id);
+              }}
+            />
             {CATEGORIES.map(([section, label]) => (
               <button
                 key={section}

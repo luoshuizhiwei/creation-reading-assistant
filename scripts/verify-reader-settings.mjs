@@ -20,10 +20,11 @@ assertIncludes("electron/main/index.ts", "settings:resetReaderSettings", "Main p
 assertIncludes("electron/preload/index.ts", "resetReaderSettings", "Preload API must expose reader reset without renderer internals.");
 assertIncludes("src/features/settings/sections/ReaderSection.tsx", "书籍背景", "Settings page must name book background separately from app theme.");
 assertIncludes("src/features/settings/sections/ReaderSection.tsx", "恢复阅读默认", "Settings page must include a reader-default reset action.");
-assertIncludes("src/features/settings/sections/ReaderSection.tsx", "高级阅读记录", "Tracking settings must be grouped as advanced reading records.");
-assertIncludes("src/features/settings/sections/ReaderSection.tsx", "多久没有翻页", "Idle pause setting must explain what it means in user language.");
-assertIncludes("src/features/library/ReaderSettingsPanel.tsx", "恢复默认", "Inline reader settings must include a reset button.");
-assertIncludes("src/features/library/ReaderSettingsPanel.tsx", "白纸", "Reader background presets must include white paper.");
-assertIncludes("src/features/library/ReaderSettingsPanel.tsx", "护眼", "Reader background presets must include eye-care background.");
+assertIncludes("src/features/settings/reader/ReaderTrackingControls.tsx", "高级计时", "Tracking settings must be grouped as advanced reading records.");
+assertIncludes("src/features/settings/reader/ReaderTrackingControls.tsx", "自动记录阅读会话", "Reading session tracking must remain toggleable.");
+assertIncludes("src/features/settings/reader/ReaderTrackingControls.tsx", "多久没有翻页", "Idle pause setting must explain what it means in user language.");
+assertIncludes("src/features/library/ReaderSettingsMorePanel.tsx", "恢复阅读默认", "Inline reader settings must include a reset button.");
+assertIncludes("src/features/settings/reader/reader-backgrounds.ts", "白纸", "Reader background presets must include white paper.");
+assertIncludes("src/features/settings/reader/reader-backgrounds.ts", "护眼", "Reader background presets must include eye-care background.");
 
 console.log("[verify-reader-settings] Reader settings and theme guards verified.");

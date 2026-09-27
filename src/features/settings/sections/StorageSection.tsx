@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { FolderOpen, QrCode, Smartphone, Wifi, WifiOff } from "lucide-react";
+import { FolderOpen, QrCode, RotateCcw, Smartphone, Wifi, WifiOff } from "lucide-react";
 import QRCode from "qrcode";
-import { AnimatedPanel, InlineNotice } from "@/components/interaction";
-import { Button, Field, TextInput } from "@/components/ui";
+import { InlineNotice } from "@/components/interaction";
+import { Button, Field, Switch, TextInput } from "@/components/ui";
 import { openDataDirectory, runAutoBackup } from "@/services/maintenance-service";
 import {
   chooseBackupDirectory,
@@ -16,7 +16,7 @@ import { createPairingToken, getSyncStatus, listSyncDevices, removeSyncDevice, s
 import type { AppSettings, AppSettingsPatch, SettingsSection, StorageLocations } from "@/types/settings";
 import type { DeviceInfo, PairingTokenResult, SyncStatus } from "@/types/sync";
 import type { UseOperationResult } from "@/hooks/useOperation";
-import { Section } from "./SectionWrapper";
+import { SettingsGroup, SettingsShell } from "./SectionWrapper";
 
 interface StorageSectionProps {
   settings: AppSettings;
@@ -233,117 +233,123 @@ export function StorageSection({
   };
 
   return (
-    <>
-      <Section title="数据与存储" section="storage" onReset={resetSection}>
-        <Field label="数据目录">
-          <TextInput value={settings.storage.dataDirectory} readOnly />
-        </Field>
-        <Field label="书库目录">
-          <TextInput value={settings.storage.libraryDirectory} readOnly />
-        </Field>
-        <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3 text-xs leading-6 text-paper-muted">
-          <div className="mb-1 text-sm font-semibold text-paper-ink">存储位置</div>
-          <div>当前模式：{settings.storage.storageMode === "portable" ? "便携目录" : settings.storage.storageMode === "custom" ? "自定义目录" : "系统回退目录"}</div>
-          <div>安装目录旁数据目录：{storageLocations?.portableDataDirectory ?? "读取中..."}</div>
-          <div>旧目录不会自动删除；迁移采用复制方式，确认新目录正常后你可以手动清理旧目录。</div>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => void chooseAndMigrateData()}>
-              <FolderOpen size={15} />
-              选择数据目录
-            </Button>
-            <Button variant="secondary" onClick={() => void chooseAndMigrateLibrary()}>
-              <FolderOpen size={15} />
-              选择书籍目录
-            </Button>
+    <SettingsShell title="数据与存储">
+      <SettingsGroup
+        title="存储位置"
+        description={`当前模式：${settings.storage.storageMode === "portable" ? "便携目录" : settings.storage.storageMode === "custom" ? "自定义目录" : "系统回退目录"}。迁移采用复制方式，旧目录不会自动删除，确认新目录正常后你可以手动清理。`}
+      >
+        <div className="grid gap-4 md:grid-cols-2">
+          <div data-setting-id="storage.dataDirectory">
+            <Field label="数据目录">
+              <TextInput value={settings.storage.dataDirectory} readOnly />
+            </Field>
           </div>
-          {storageMessage && (
-            <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
-              {storageMessage}
+          <div data-setting-id="storage.libraryDirectory">
+            <Field label="书库目录">
+              <TextInput value={settings.storage.libraryDirectory} readOnly />
+            </Field>
+          </div>
+        </div>
+        <div className="mt-3 text-xs leading-5 text-paper-muted">
+          安装目录旁数据目录：{storageLocations?.portableDataDirectory ?? "读取中..."}
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => void chooseAndMigrateData()}>
+            <FolderOpen size={15} />
+            选择数据目录
+          </Button>
+          <Button variant="secondary" onClick={() => void chooseAndMigrateLibrary()}>
+            <FolderOpen size={15} />
+            选择书籍目录
+          </Button>
+        </div>
+        {storageMessage && (
+          <InlineNotice tone="info" className="mt-3 break-all p-2 text-xs">
+            {storageMessage}
+          </InlineNotice>
+        )}
+      </SettingsGroup>
+
+      <SettingsGroup title="备份与恢复">
+        <div className="flex flex-wrap gap-2" data-setting-id="storage.backupActions">
+          <Button variant="secondary" onClick={() => void openDataDirectory()}>
+            打开数据目录
+          </Button>
+          <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleBackupCreate()}>
+            备份数据
+          </Button>
+          <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleBackupRestore()}>
+            恢复数据
+          </Button>
+          <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleResourceScan()}>
+            扫描资源完整性
+          </Button>
+        </div>
+        <div className="mt-4 rounded-md border border-paper-line bg-paper-panel/60 p-3" data-setting-id="storage.autoBackup">
+          <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
+          <div className="grid gap-1 text-xs leading-5 text-paper-muted">
+            <div>备份目录：{settings.storage.backupDirectory ?? "未配置"}</div>
+            <div>
+              最近成功：
+              {settings.storage.lastAutoBackupAt ? new Date(settings.storage.lastAutoBackupAt).toLocaleString() : "暂无"}
+            </div>
+            <div>
+              最近失败：
+              {settings.storage.lastAutoBackupFailedAt ? new Date(settings.storage.lastAutoBackupFailedAt).toLocaleString() : "暂无"}
+            </div>
+          </div>
+          {settings.storage.lastAutoBackupError && (
+            <InlineNotice tone="error" className="mt-2 break-all p-2 text-xs">
+              {settings.storage.lastAutoBackupError}
             </InlineNotice>
           )}
-        </div>
-        <div className="col-span-2 rounded-md border border-paper-line bg-paper-soft/45 p-3">
-          <div className="mb-3 text-sm font-semibold text-paper-ink">数据保护</div>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={() => void openDataDirectory()}>
-              打开数据目录
+          <div className="mt-3" data-setting-id="storage.autoBackupEnabled">
+            <Switch
+              checked={settings.storage.autoBackupEnabled === true}
+              disabled={!settings.storage.backupDirectory}
+              onChange={(checked) => {
+                if (!settings.storage.backupDirectory) {
+                  setError("请先选择自动备份目录。");
+                  return;
+                }
+                void patchSettings({ storage: { autoBackupEnabled: checked } });
+              }}
+              label="启用每日 / 升级前自动备份"
+              description="间隔至少 24 小时；升级下载前会立即备份。"
+            />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Button variant="secondary" onClick={() => void chooseAndSetBackupDirectory()}>
+              <FolderOpen size={15} />
+              选择备份目录
             </Button>
-            <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleBackupCreate()}>
-              备份数据
-            </Button>
-            <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleBackupRestore()}>
-              恢复数据
-            </Button>
-            <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleResourceScan()}>
-              扫描资源完整性
+            <Button
+              variant="secondary"
+              disabled={!settings.storage.backupDirectory || !settings.storage.autoBackupEnabled || backupBusy}
+              onClick={() => void runAutoBackupNow()}
+            >
+              {backupBusy ? "备份中..." : "立即备份"}
             </Button>
           </div>
-          <div className="mt-3 rounded-md border border-paper-line bg-paper-panel/60 p-3">
-            <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
-            <div className="grid gap-1 text-xs leading-5 text-paper-muted">
-              <div>备份目录：{settings.storage.backupDirectory ?? "未配置"}</div>
-              <div>
-                最近成功：
-                {settings.storage.lastAutoBackupAt ? new Date(settings.storage.lastAutoBackupAt).toLocaleString() : "暂无"}
-              </div>
-              <div>
-                最近失败：
-                {settings.storage.lastAutoBackupFailedAt ? new Date(settings.storage.lastAutoBackupFailedAt).toLocaleString() : "暂无"}
-              </div>
-            </div>
-            {settings.storage.lastAutoBackupError && (
-              <InlineNotice tone="error" className="mt-2 break-all p-2 text-xs">
-                {settings.storage.lastAutoBackupError}
-              </InlineNotice>
-            )}
-            <label className="mt-2 flex items-center gap-2 text-xs text-paper-muted">
-              <input
-                type="checkbox"
-                checked={settings.storage.autoBackupEnabled === true}
-                disabled={!settings.storage.backupDirectory}
-                onChange={(event) => {
-                  if (!settings.storage.backupDirectory) {
-                    setError("请先选择自动备份目录。");
-                    return;
-                  }
-                  void patchSettings({ storage: { autoBackupEnabled: event.target.checked } });
-                }}
-              />
-              启用每日 / 升级前自动备份（间隔至少 24 小时；升级下载前会立即备份）
-            </label>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Button variant="secondary" onClick={() => void chooseAndSetBackupDirectory()}>
-                <FolderOpen size={15} />
-                选择备份目录
-              </Button>
-              <Button
-                variant="secondary"
-                disabled={!settings.storage.backupDirectory || !settings.storage.autoBackupEnabled || backupBusy}
-                onClick={() => void runAutoBackupNow()}
-              >
-                {backupBusy ? "备份中..." : "立即备份"}
-              </Button>
-            </div>
-          </div>
         </div>
-      </Section>
+      </SettingsGroup>
 
-      {/* 手机同步面板 */}
-      <AnimatedPanel className="settings-wide rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
-        <div className="mb-4 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Smartphone size={17} className="text-copper" />
-            <h2 className="text-sm font-semibold text-paper-ink">手机同步</h2>
-          </div>
+      <SettingsGroup
+        title="手机同步"
+        className="settings-wide"
+        actions={
           <span className="inline-flex items-center gap-1 rounded-full border border-paper-line bg-paper-soft/50 px-2.5 py-1 text-xs text-paper-muted">
             {syncStatus?.running ? <Wifi size={13} /> : <WifiOff size={13} />}
             {syncStatus?.running ? "服务运行中" : "未开启"}
           </span>
-        </div>
-
-        <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]">
+        }
+      >
+        <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]" data-setting-id="storage.sync">
           <div className="rounded-xl border border-paper-line bg-paper-soft/35 p-3">
-            <div className="text-sm font-semibold text-paper-ink">局域网直连</div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-paper-ink">
+              <Smartphone size={15} className="text-copper" />
+              局域网直连
+            </div>
             <p className="mt-1 text-xs leading-5 text-paper-muted">
               电脑端作为同步主机，手机端扫码或输入配对地址后，同一 Wi‑Fi 下同步灵感、书库、阅读进度和阅读时长。AI Key 不会同步到手机。
             </p>
@@ -426,9 +432,10 @@ export function StorageSection({
             )}
           </div>
         </div>
+      </SettingsGroup>
 
-        <div className="mt-4 rounded-xl border border-paper-line bg-paper-soft/35 p-3">
-          <div className="mb-2 text-sm font-semibold text-paper-ink">已配对设备</div>
+      <SettingsGroup title="已配对设备">
+        <div data-setting-id="storage.syncDevices">
           {syncDevices.length === 0 ? (
             <p className="text-xs text-paper-muted">还没有手机设备完成配对。</p>
           ) : (
@@ -449,7 +456,14 @@ export function StorageSection({
             </div>
           )}
         </div>
-      </AnimatedPanel>
-    </>
+      </SettingsGroup>
+
+      <div className="flex justify-end">
+        <Button variant="quiet" onClick={() => resetSection("storage")}>
+          <RotateCcw size={15} />
+          重置本分区
+        </Button>
+      </div>
+    </SettingsShell>
   );
 }
