@@ -114,7 +114,7 @@ async function run(): Promise<void> {
       assert.equal(result.text.includes("#### 山道"), true);
       assert.equal(result.text.includes("> 作者按：这段是作者按，不进入发布稿。"), true);
       assert.equal(result.text.includes("> 此信为证。"), true);
-      assert.equal(result.text.includes("<center>居中铭文</center>"), true);
+      assert.equal(result.text.includes("**居中：** 居中铭文"), true);
       assert.equal(result.text.includes("* * *"), true);
       assert.equal(result.text.includes("#### 默认场景"), false);
       assert.equal(result.text.includes("card-"), false);

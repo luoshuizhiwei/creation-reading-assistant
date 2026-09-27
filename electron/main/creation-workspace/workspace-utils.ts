@@ -5,8 +5,10 @@
  * 命中上下文片段、卡片 JSON 纯文本收集，以及搜索域常量。
  */
 
-import type { CreationDocument, CreationSearchScope, ReplaceScope } from "../../../src/types/creation";
+import type { CreationDocument, CreationSearchScope, ReplaceScope, SceneStatus } from "../../../src/types/creation";
 import { CreationWorkspaceError } from "./types";
+
+export const SCENE_STATUSES = new Set<SceneStatus>(["planned", "drafting", "revising", "done"]);
 
 export const SEARCH_SCOPES = new Set<CreationSearchScope>(["scene", "card", "chapter", "project"]);
 export const DEFAULT_SEARCH_LIMIT = 50;
@@ -225,4 +227,50 @@ export function isConstraintError(error: unknown): boolean {
 export function resolveBeforeId(value: unknown, label: string): string | undefined {
   if (value === undefined || value === null) return undefined;
   return validateId(value, label);
+}
+/** 健康检查分区结果：issues 为空即 ok。 */
+export function createSection(issues: Array<{ code: string; message: string }>) {
+  return { ok: issues.length === 0, issues };
+}
+
+/** 关系图节点上限：默认 150，允许 20..400；越界或非法值回落到默认。 */
+export function clampRelationGraphLimit(value: unknown): number {
+  const DEFAULT = 150;
+  const MIN = 20;
+  const MAX = 400;
+  if (typeof value !== "number" || !Number.isFinite(value)) return DEFAULT;
+  return Math.min(MAX, Math.max(MIN, Math.floor(value)));
+}
+
+/**
+ * 卡片字段摘要：最多 3 项「键: 值」，供关系图节点悬浮/选中时快速辨认。
+ * 只取字符串类字段，避免把长文本或二进制字段塞进图。
+ */
+export function cardFieldSummary(fields: Record<string, unknown> | undefined): string {
+  if (!fields) return "";
+  const entries = Object.entries(fields)
+    .filter(([, value]) => typeof value === "string" && value.trim() !== "")
+    .slice(0, 3)
+    .map(([key, value]) => `${key}: ${String(value).trim()}`);
+  return entries.join("；");
+}
+
+/** 纯文本 → 场景 doc：空行分段，无空行时按行分段。 */
+export function plainTextToSceneDocument(text: string): CreationDocument {
+  const cleaned = text.replace(/\r\n/g, "\n").trim();
+  if (!cleaned) return { type: "doc", content: [] };
+  const blocks = cleaned.split(/\n{2,}/);
+  const content: CreationDocument["content"] = [];
+  for (const block of blocks) {
+    const lines = block.split("\n");
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (!trimmed) continue;
+      content.push({
+        type: "paragraph",
+        content: [{ type: "text", text: trimmed }]
+      });
+    }
+  }
+  return { type: "doc", content };
 }

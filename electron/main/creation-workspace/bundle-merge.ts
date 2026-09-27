@@ -5,7 +5,7 @@
  * 均为纯函数，不触库；导入应用（写库）仍由工作区类负责。
  */
 import path from "node:path";
-import type { CreationDocument, ProjectBundleData, ScenePlanning } from "./types";
+import type { CreationDocument, ProjectBundleData, ProjectExportBlock, ScenePlanning } from "./types";
 import { CreationWorkspaceError } from "./types";
 import { isRecord } from "./workspace-utils";
 
@@ -130,14 +130,14 @@ export function remapJsonStableIds(value: string, idMap: ReadonlyMap<string, str
 /**
  * 场景正文最小块视图（kind + 文本，不携带 marks/完整结构），供审阅稿导出使用。
  */
-export function extractSceneBlocks(bodyJson: string): ProjectExportBlockLite[] {
+export function extractSceneBlocks(bodyJson: string): ProjectExportBlock[] {
   let document: CreationDocument;
   try {
     document = JSON.parse(bodyJson) as CreationDocument;
   } catch {
     return [];
   }
-  const result: ProjectExportBlockLite[] = [];
+  const result: ProjectExportBlock[] = [];
   for (const block of document.content ?? []) {
     if (!isRecord(block)) continue;
     if (block.type === "sceneBreak") {
@@ -158,9 +158,6 @@ export function extractSceneBlocks(bodyJson: string): ProjectExportBlockLite[] {
   }
   return result;
 }
-
-/** 与 types.ProjectExportBlock 对齐的最小局部别名，避免在此重复 import 整个导出视图类型。 */
-type ProjectExportBlockLite = { kind: string; text: string };
 
 /**
  * 场景任务卡字段解析（planning_json），非法结构返回空对象。

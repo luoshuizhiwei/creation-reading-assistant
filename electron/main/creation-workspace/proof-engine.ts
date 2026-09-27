@@ -6,6 +6,7 @@
  * 规则的持久化/分组/忽略键拼装仍留在工作区类的 scanProof 方法里。
  */
 import type { CreationDocument, ProofRule } from "./types";
+import { CreationWorkspaceError } from "./types";
 import { isRecord } from "./workspace-utils";
 
 /**
@@ -449,3 +450,40 @@ export function findSuspectedTypos(
     }
   }
 }
+
+/** 全部校对规则（scanProof 的规则白名单与默认选择）。 */
+export const PROOF_RULES = new Set<ProofRule>([
+  "repeatedChar",
+  "unbalancedPunctuation",
+  "abnormalSpacing",
+  "longParagraph",
+  "bannedWord",
+  "mixedPunctuation",
+  "crutchWord",
+  "paragraphStartRepeat",
+  "aliasInconsistency",
+  "suspectedTypo"
+]);
+
+/** 规则级兜底说明：命中没有 detail 时用于分组消息。 */
+export const PROOF_RULE_BASE_MESSAGE: Record<ProofRule, string> = {
+  repeatedChar: "存在连续重复字",
+  unbalancedPunctuation: "成对标点数量不等",
+  abnormalSpacing: "存在异常空格",
+  longParagraph: "存在超长段落",
+  bannedWord: "命中禁用词",
+  mixedPunctuation: "疑似中英标点混用",
+  crutchWord: "叙述词重复过多",
+  paragraphStartRepeat: "连续段落以同一字开头",
+  aliasInconsistency: "同一卡片出现多种称呼",
+  suspectedTypo: "疑似错拼"
+};
+
+export function validateProofRule(value: unknown): ProofRule {
+  if (typeof value !== "string" || !PROOF_RULES.has(value as ProofRule)) {
+    throw new CreationWorkspaceError("invalid-input", "不支持的校对规则。");
+  }
+  return value as ProofRule;
+}
+
+export const DEFAULT_MAX_PARAGRAPH_CHARS = 500;

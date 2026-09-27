@@ -120,13 +120,15 @@ async function sha256FileStreaming(filePath: string): Promise<string> {
 /**
  * 递归遍历 resources/ 下的普通文件（相对路径以 resources/ 开头）。
  * 忽略点前缀条目（临时目录 .bundle-import-* / .creation-bundle-* 等），
- * 不穿越符号链接目录（避免越界 / 死循环）。symlink/junction 普通文件由调用方单独判定。
+ * 不穿越符号链接目录（避免越界 / 死循环）。符号链接一律收集到 symlinks
+ * 清单交由调用方报告；DB 记录中的 symlink/junction 由记录核对单独判定。
  */
 async function walkResourceFiles(
   root: string,
   relative: string,
   out: string[],
-  operation?: OperationController
+  operation?: OperationController,
+  symlinks?: string[]
 ): Promise<void> {
   let entries;
   try {
@@ -138,9 +140,12 @@ async function walkResourceFiles(
     operation?.throwIfCancelled();
     if (entry.name.startsWith(".")) continue;
     const child = relative ? `${relative}/${entry.name}` : entry.name;
-    if (entry.isSymbolicLink()) continue;
+    if (entry.isSymbolicLink()) {
+      symlinks?.push(`resources/${child}`);
+      continue;
+    }
     if (entry.isDirectory()) {
-      await walkResourceFiles(root, child, out, operation);
+      await walkResourceFiles(root, child, out, operation, symlinks);
     } else if (entry.isFile()) {
       out.push(`resources/${child}`);
     }
@@ -207,6 +212,8 @@ export async function scanResourceConsistencyCore(options: ScanResourceOptions):
 
   // 3) 逐记录核对文件存在性 / 大小 / 哈希 / 越界。
   const referencedFiles = new Set<string>();
+  // 记录侧已报过 symlink 问题的路径，文件树侧不再重复报告。
+  const reportedSymlinkPaths = new Set<string>();
   for (const rec of records) {
     operation?.throwIfCancelled();
     if (!isSafeRelativePath(rec.relativePath)) {
@@ -229,6 +236,7 @@ export async function scanResourceConsistencyCore(options: ScanResourceOptions):
     if (info.isSymbolicLink() || !info.isFile()) {
       const reason = info.isDirectory() ? "资源记录指向目录而非文件" : "资源文件为符号链接或非普通文件";
       issues.push({ type: "symlink-escape", resourceId: rec.id, relativePath: rec.relativePath, message: `${reason}，真实路径可能越界工作区。` });
+      if (info.isSymbolicLink()) reportedSymlinkPaths.add(rec.relativePath);
       continue;
     }
     // junction / reparse point 真实路径越界检测。
@@ -237,6 +245,7 @@ export async function scanResourceConsistencyCore(options: ScanResourceOptions):
       const rel = path.relative(workspaceDirectory, real);
       if (rel === "" || rel.startsWith("..") || path.isAbsolute(rel)) {
         issues.push({ type: "symlink-escape", resourceId: rec.id, relativePath: rec.relativePath, message: "资源文件真实路径越界工作区。" });
+        reportedSymlinkPaths.add(rec.relativePath);
         continue;
       }
     } catch {
@@ -258,8 +267,19 @@ export async function scanResourceConsistencyCore(options: ScanResourceOptions):
   }
 
   // 4) 遍历文件树，标记未被任何记录引用的文件（忽略点前缀临时目录）。
+  //    符号链接既不普通也不安全：单独报 symlink-escape，避免被静默忽略。
   const walkedFiles: string[] = [];
-  await walkResourceFiles(resourcesDir, "", walkedFiles, operation);
+  const walkedSymlinks: string[] = [];
+  await walkResourceFiles(resourcesDir, "", walkedFiles, operation, walkedSymlinks);
+  for (const relativePath of walkedSymlinks) {
+    operation?.throwIfCancelled();
+    if (reportedSymlinkPaths.has(relativePath)) continue;
+    issues.push({
+      type: "symlink-escape",
+      relativePath,
+      message: "资源目录中存在符号链接，真实路径可能越界工作区。"
+    });
+  }
   for (const relativePath of walkedFiles) {
     operation?.throwIfCancelled();
     referencedFiles.add(relativePath);
