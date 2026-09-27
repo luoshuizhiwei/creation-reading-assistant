@@ -108,15 +108,17 @@ export function ReaderTypographyControls({
       )}
 
       {visible.has("pageMargin") && (
-        <NumberStepper
-          label="页边距"
-          min={24}
-          max={120}
-          step={4}
-          unit="px"
-          value={settings.pageMargin}
-          onChange={(pageMargin) => onPatch({ pageMargin })}
-        />
+        <div data-setting-id="reader.pageMargin">
+          <NumberStepper
+            label="页边距"
+            min={24}
+            max={120}
+            step={4}
+            unit="px"
+            value={settings.pageMargin}
+            onChange={(pageMargin) => onPatch({ pageMargin })}
+          />
+        </div>
       )}
 
       {visible.has("fontFamily") && (

@@ -285,7 +285,7 @@ export function StorageSection({
             扫描资源完整性
           </Button>
         </div>
-        <div className="mt-4 rounded-md border border-paper-line bg-paper-panel/60 p-3" data-setting-id="storage.autoBackup">
+        <div className="mt-4 rounded-md border border-paper-line bg-paper-panel/60 p-3">
           <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
           <div className="grid gap-1 text-xs leading-5 text-paper-muted">
             <div>备份目录：{settings.storage.backupDirectory ?? "未配置"}</div>
