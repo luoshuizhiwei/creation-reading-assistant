@@ -51,6 +51,17 @@
   color: #e0917d;
 }
 
+.pe-description {
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 3px solid var(--studio-copper, #b4531f);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--studio-copper, #b4531f) 12%, var(--bg-surface, #fff));
+  color: var(--text-muted, #5a6270);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
 .pe-field {
   display: flex;
   flex-direction: column;

@@ -13,9 +13,11 @@ import {
   Layers,
   LayoutDashboard,
   ListTree,
+  Lock,
   PenLine,
   Replace,
   Search,
+  Unlock,
   X
 } from "lucide-react";
 import { Button } from "@/components/ui";
@@ -46,6 +48,7 @@ const LazyWritingDesk = lazy(() =>
 const preloadWritingDesk = () => import("@/features/creation/editor/WritingDesk");
 const LazyReplacePanel = lazy(() => import("@/features/creation/replace/ReplacePanel").then((m) => ({ default: m.ReplacePanel })));
 import { ProjectHomePage } from "@/features/creation/home/ProjectHomePage";
+import { PassphraseDialog } from "@/features/settings/encryption/PassphraseDialog";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useOperation } from "@/hooks/useOperation";
 import { OperationProgressDialog } from "@/features/creation/operation/OperationProgressDialog";
@@ -96,6 +99,7 @@ export function CreationProjectsPage() {
   const { loadProjects, loadNavigation, loadOutline, loadScene, loadCards, loadMigrationStatus, createProject, saveSceneBody } = useCreationActions();
   const operation = useOperation();
   const showToast = useUIStore((state) => state.showToast);
+  const confirmAction = useUIStore((state) => state.confirmAction);
   const [wizardOpen, setWizardOpen] = useState(false);
   const [replaceOpen, setReplaceOpen] = useState(false);
   const [proofOpen, setProofOpen] = useState(false);
@@ -108,6 +112,10 @@ export function CreationProjectsPage() {
   /** 导入成功后递增，通知项目首页重新读取 project.home。 */
   const [homeRefreshKey, setHomeRefreshKey] = useState(0);
   const [creatingDemo, setCreatingDemo] = useState(false);
+  // 加密项目包流程：null = 关闭；export = 设置口令；import = 输入解锁口令。
+  const [bundleEncryptFlow, setBundleEncryptFlow] = useState<"export" | "import" | null>(null);
+  const [bundleEncryptError, setBundleEncryptError] = useState("");
+  const [bundleEncryptBusy, setBundleEncryptBusy] = useState(false);
 
   /** 演示项目：一键载入预置正文/任务卡/卡片/伏笔的迷你项目（新用户引导）。 */
   const handleCreateDemoProject = useCallback(async (): Promise<string | undefined> => {
@@ -224,6 +232,46 @@ export function CreationProjectsPage() {
       showToast({ tone: "error", title: "导入项目包失败", body: error instanceof Error ? error.message : String(error) });
     }
   };
+
+  const startEncryptedBundle = useCallback(
+    async (passphrase: string) => {
+      if (!bundleEncryptFlow) return;
+      setBundleEncryptBusy(true);
+      setBundleEncryptError("");
+      try {
+        if (bundleEncryptFlow === "export") {
+          if (!selected) return;
+          await operation.start({ kind: "bundle.export-encrypted", projectId: selected.id, passphrase });
+        } else {
+          await operation.start({ kind: "bundle.import-encrypted", passphrase });
+        }
+        setBundleEncryptFlow(null);
+      } catch (error) {
+        setBundleEncryptError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setBundleEncryptBusy(false);
+      }
+    },
+    [bundleEncryptFlow, operation, selected]
+  );
+
+  const requestEncryptedBundleExport = useCallback(() => {
+    if (!selected) return;
+    setBundleEncryptError("");
+    setBundleEncryptFlow("export");
+  }, [selected]);
+
+  const requestEncryptedBundleImport = useCallback(async () => {
+    const confirmed = await confirmAction({
+      title: "导入加密项目包？",
+      body: "导入会把备份项目写入当前工作区；同名项目将进入冲突处理流程。",
+      confirmLabel: "选择项目包",
+      tone: "warning"
+    });
+    if (!confirmed) return;
+    setBundleEncryptError("");
+    setBundleEncryptFlow("import");
+  }, [confirmAction]);
 
   // 导入完成后刷新项目列表与首页（替代旧 importBundle 的同步回调）。
   useEffect(() => {
@@ -437,9 +485,17 @@ export function CreationProjectsPage() {
                   <FolderOutput size={16} />
                   <span>导出包</span>
                 </Button>
+              <Button className="project-action project-action--utility" aria-label="导出加密项目包" title="导出加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={requestEncryptedBundleExport}>
+                <Lock size={16} />
+                <span>加密导出</span>
+              </Button>
               <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
                 <span>导入包</span>
+              </Button>
+              <Button className="project-action project-action--utility" aria-label="导入加密项目包" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
+                <Unlock size={16} />
+                <span>加密导入</span>
               </Button>
               <Button className="project-action project-action--utility" aria-label="导入旧稿" title="导入旧稿" variant="secondary" onClick={() => setImportOpen(true)}>
                 <FileUp size={16} />
@@ -616,6 +672,26 @@ export function CreationProjectsPage() {
           onReset={operation.retry}
         />
       )}
+      <PassphraseDialog
+        open={bundleEncryptFlow !== null}
+        mode={bundleEncryptFlow === "import" ? "confirm" : "create"}
+        title={bundleEncryptFlow === "import" ? "输入加密项目包口令" : "设置加密项目包口令"}
+        confirmLabel={bundleEncryptFlow === "import" ? "开始导入" : "导出加密包"}
+        minLength={bundleEncryptFlow === "import" ? 0 : 8}
+        description={
+          bundleEncryptFlow === "import"
+            ? "请输入导出该加密项目包时设置的口令。口令错误时解密会失败，不会写入任何项目。"
+            : undefined
+        }
+        busy={bundleEncryptBusy}
+        error={bundleEncryptError}
+        onConfirm={(passphrase) => void startEncryptedBundle(passphrase)}
+        onCancel={() => {
+          if (bundleEncryptBusy) return;
+          setBundleEncryptFlow(null);
+          setBundleEncryptError("");
+        }}
+      />
     </div>
   );
 }

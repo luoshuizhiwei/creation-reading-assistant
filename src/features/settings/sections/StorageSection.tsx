@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
-import { FolderOpen, QrCode, RotateCcw, Smartphone, Wifi, WifiOff } from "lucide-react";
+import { FolderOpen, Lock, QrCode, RotateCcw, Smartphone, Unlock, Wifi, WifiOff } from "lucide-react";
 import QRCode from "qrcode";
 import { InlineNotice } from "@/components/interaction";
 import { Button, Field, Switch, TextInput } from "@/components/ui";
 import { openDataDirectory, runAutoBackup } from "@/services/maintenance-service";
+import { PassphraseDialog } from "@/features/settings/encryption/PassphraseDialog";
 import {
   chooseBackupDirectory,
   chooseDataDirectory,
@@ -42,6 +43,10 @@ export function StorageSection({
   const [storageMessage, setStorageMessage] = useState("");
   const [storageLocations, setStorageLocations] = useState<StorageLocations>();
   const [backupBusy, setBackupBusy] = useState(false);
+  // 加密备份流程：null = 关闭；export = 设置新口令；import = 输入解锁口令。
+  const [encryptedFlow, setEncryptedFlow] = useState<"export" | "import" | null>(null);
+  const [encryptedError, setEncryptedError] = useState("");
+  const [encryptedBusy, setEncryptedBusy] = useState(false);
 
   // 局域网同步状态
   const [syncStatus, setSyncStatus] = useState<SyncStatus>();
@@ -174,6 +179,60 @@ export function StorageSection({
     }
   }, [operation, showToast]);
 
+  const closeEncryptedFlow = useCallback(() => {
+    if (encryptedBusy) return;
+    setEncryptedFlow(null);
+    setEncryptedError("");
+  }, [encryptedBusy]);
+
+  // 导出：口令合格后才启动加密导出；文件保存对话框由主进程弹出，
+  // 用户取消时 IPC 返回 null（operation.start 正常结束、不进入运行态）。
+  const startEncryptedExport = useCallback(
+    async (passphrase: string) => {
+      setEncryptedBusy(true);
+      setEncryptedError("");
+      try {
+        await operation.start({ kind: "backup.export-encrypted", passphrase });
+        setEncryptedFlow(null);
+      } catch (error) {
+        setEncryptedError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setEncryptedBusy(false);
+      }
+    },
+    [operation]
+  );
+
+    // 导入：先做危险确认（恢复会覆盖当前数据），确认后才打开口令输入框。
+  const requestEncryptedImport = useCallback(async () => {
+    const confirmed = await confirmAction({
+      title: "从加密备份恢复？",
+      body: "导入将用备份内容覆盖当前数据，操作前建议先做一次普通备份。",
+      confirmLabel: "选择备份文件",
+      tone: "danger"
+    });
+    if (!confirmed) return;
+    setEncryptedError("");
+    setEncryptedFlow("import");
+  }, [confirmAction]);
+
+  const startEncryptedImport = useCallback(
+    async (passphrase: string) => {
+      setEncryptedBusy(true);
+      setEncryptedError("");
+      try {
+        await operation.start({ kind: "backup.import-encrypted", passphrase });
+        setEncryptedFlow(null);
+        showToast({ tone: "info", title: "加密备份恢复已启动", body: "完成后需要重启应用以加载恢复的数据。" });
+      } catch (error) {
+        setEncryptedError(error instanceof Error ? error.message : String(error));
+      } finally {
+        setEncryptedBusy(false);
+      }
+    },
+    [operation, showToast]
+  );
+
   const enableSync = async () => {
     setSyncMessage("正在开启手机同步服务...");
     try {
@@ -284,6 +343,26 @@ export function StorageSection({
           <Button variant="secondary" disabled={operation.isActive} onClick={() => void handleResourceScan()}>
             扫描资源完整性
           </Button>
+        </div>
+        <div className="mt-3 flex flex-wrap gap-2" data-setting-id="storage.encryptedBackupActions">
+          <Button
+            variant="secondary"
+            disabled={operation.isActive || encryptedFlow !== null}
+            onClick={() => {
+              setEncryptedError("");
+              setEncryptedFlow("export");
+            }}
+          >
+            <Lock size={15} />
+            导出加密备份
+          </Button>
+          <Button variant="secondary" disabled={operation.isActive || encryptedFlow !== null} onClick={() => void requestEncryptedImport()}>
+            <Unlock size={15} />
+            恢复加密备份
+          </Button>
+          <span className="self-center text-xs leading-5 text-paper-muted">
+            加密容器（.crbackup）使用 AES-256-GCM 与你的口令派生密钥打包，系统不保存口令；忘记口令无法恢复。
+          </span>
         </div>
         <div className="mt-4 rounded-md border border-paper-line bg-paper-panel/60 p-3">
           <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
@@ -464,6 +543,23 @@ export function StorageSection({
           重置本分区
         </Button>
       </div>
+
+      <PassphraseDialog
+        open={encryptedFlow !== null}
+        mode={encryptedFlow === "import" ? "confirm" : "create"}
+        title={encryptedFlow === "import" ? "输入加密备份口令" : "设置加密备份口令"}
+        confirmLabel={encryptedFlow === "import" ? "开始恢复" : "导出加密备份"}
+        minLength={encryptedFlow === "import" ? 0 : 8}
+        description={
+          encryptedFlow === "import"
+            ? "请输入创建该备份时设置的口令。口令错误时解密会失败，不会改动当前数据。"
+            : undefined
+        }
+        busy={encryptedBusy}
+        error={encryptedError}
+        onConfirm={(passphrase) => void (encryptedFlow === "import" ? startEncryptedImport(passphrase) : startEncryptedExport(passphrase))}
+        onCancel={closeEncryptedFlow}
+      />
     </SettingsShell>
   );
 }

@@ -46,6 +46,7 @@ export const SETTINGS_SEARCH_REGISTRY: SettingsSearchEntry[] = [
   { id: "storage.dataDirectory", section: "storage", group: "存储位置", label: "数据目录", keywords: "目录 路径 数据" },
   { id: "storage.libraryDirectory", section: "storage", group: "存储位置", label: "书库目录", keywords: "书籍目录 书库 路径" },
   { id: "storage.backupActions", section: "storage", group: "备份与恢复", label: "备份 / 恢复数据", keywords: "备份 恢复 扫描" },
+  { id: "storage.encryptedBackupActions", section: "storage", group: "备份与恢复", label: "加密备份", keywords: "加密 口令 密码 导出 恢复 crbackup 备份" },
   { id: "storage.autoBackupEnabled", section: "storage", group: "备份与恢复", label: "自动备份", keywords: "备份 自动" },
   { id: "storage.sync", section: "storage", group: "手机同步", label: "手机同步", keywords: "同步 局域网 配对 二维码 wifi" },
   { id: "storage.syncDevices", section: "storage", group: "已配对设备", label: "已配对设备", keywords: "设备 断开 手机" },
