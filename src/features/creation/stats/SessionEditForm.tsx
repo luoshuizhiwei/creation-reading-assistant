@@ -34,7 +34,7 @@ export interface SessionEditFormProps {
   error?: string | null;
 }
 
-export function SessionEditForm({ session, projectId, onCancel, onSave, error }: SessionEditFormProps) {
+export function SessionEditForm({ session, projectId, onCancel, onSave, busy, error }: SessionEditFormProps) {
   const [startedAt, setStartedAt] = useState(() => toLocalDateTimeInput(session.startedAt));
   const [activeSeconds, setActiveSeconds] = useState(() => String(session.activeSeconds));
   const [netChars, setNetChars] = useState(() => String(session.netChars));
@@ -55,14 +55,20 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, error }:
       sessionId: session.id,
       sceneId: session.sceneId ?? undefined,
       startedAt: iso,
-      activeSeconds: Number(activeSeconds),
-      netChars: Number(netChars)
+      // 清空输入框表示“不修改该项”，回落到会话原值；
+      // 若按 Number("")===0 处理，会把时长/字数误改为 0。
+      activeSeconds: activeSeconds.trim() ? Number(activeSeconds) : session.activeSeconds,
+      netChars: netChars.trim() ? Number(netChars) : session.netChars
     });
   }, [activeSeconds, netChars, projectId, session, startedAt]);
 
   const issues = validation.ok ? [] : validation.issues;
+  // 外部 busy（调用方正在写库）与内部 submitting 都要锁定表单，
+  // 否则保存期间仍可编辑/重复提交，revision 会被撞掉。
+  const blocked = submitting || busy === true;
 
   const handleSave = async () => {
+    if (blocked) return;
     if (!validation.ok) {
       // 校验失败：展示问题清单，不提交。
       setTouched(true);
@@ -81,6 +87,7 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, error }:
   return (
     <form
       className="session-edit-form"
+      data-testid="session-edit-form"
       onSubmit={(event) => {
         event.preventDefault();
         void handleSave();
@@ -90,15 +97,15 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, error }:
       <div className="creation-goals-grid">
         <label className="creation-field">
           <span>开始时间</span>
-          <input className="paper-input h-9" type="datetime-local" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} />
+          <input className="paper-input h-9" data-testid="session-edit-started-at" type="datetime-local" value={startedAt} disabled={blocked} onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label className="creation-field">
           <span>活动时长（秒）</span>
-          <input className="paper-input h-9" type="number" min={0} max={86400} step={1} inputMode="numeric" value={activeSeconds} onChange={(event) => setActiveSeconds(event.target.value)} />
+          <input className="paper-input h-9" data-testid="session-edit-active-seconds" type="number" min={0} max={86400} step={1} inputMode="numeric" value={activeSeconds} disabled={blocked} onChange={(event) => setActiveSeconds(event.target.value)} />
         </label>
         <label className="creation-field">
           <span>净增字数</span>
-          <input className="paper-input h-9" type="number" step={1} inputMode="numeric" value={netChars} onChange={(event) => setNetChars(event.target.value)} />
+          <input className="paper-input h-9" data-testid="session-edit-net-chars" type="number" step={1} inputMode="numeric" value={netChars} disabled={blocked} onChange={(event) => setNetChars(event.target.value)} />
         </label>
       </div>
 
@@ -112,9 +119,9 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, error }:
       {error ? <p className="session-edit-issues" role="alert">{error}</p> : null}
 
       <div className="session-edit-actions">
-        <Button variant="quiet" type="button" onClick={onCancel} disabled={submitting}>取消</Button>
-        <Button type="button" onClick={() => void handleSave()} disabled={submitting}>
-          {submitting ? "保存中…" : "保存修正"}
+        <Button variant="quiet" type="button" data-testid="session-edit-cancel" onClick={onCancel} disabled={blocked}>取消</Button>
+        <Button type="button" data-testid="session-edit-save" onClick={() => void handleSave()} disabled={blocked}>
+          {blocked ? "保存中…" : "保存修正"}
         </Button>
       </div>
     </form>

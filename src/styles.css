@@ -1985,6 +1985,42 @@ button:disabled {
   font-size: 12px;
 }
 
+/* 会话修正表单（SessionEditForm，弹窗与内嵌共用） */
+.session-edit-form h4 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin: 0 0 10px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--paper-ink, #26292f);
+}
+
+.session-edit-issues {
+  margin: 10px 0 0;
+  padding: 8px 10px 8px 24px;
+  border-left: 3px solid #b42318;
+  border-radius: 8px;
+  background: rgba(180, 35, 24, 0.07);
+  color: #b42318;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+:root[data-app-theme="dark"] .session-edit-issues {
+  color: #e0917d;
+  background: rgba(180, 35, 24, 0.16);
+}
+
+.session-edit-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--paper-line, #e4e2db);
+}
+
 .creation-goals-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

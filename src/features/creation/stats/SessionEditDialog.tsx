@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
 import { Edit3 } from "lucide-react";
-import { Button, Dialog, TextInput } from "@/components/ui";
+import { Dialog } from "@/components/ui";
 import type { SessionEntry } from "@/types/creation";
+import { SessionEditForm } from "./SessionEditForm";
+import type { SessionCorrectionDraft } from "./session-policy";
 
 /** 会话修正载荷：局部更新，缺省字段保持不变。 */
 export interface SessionUpdatePatch {
@@ -20,69 +21,29 @@ export interface SessionEditDialogProps {
   error?: string | null;
 }
 
-function toLocalInput(iso: string): string {
+/** datetime-local 只有分钟精度：按同一口径归一化基线，避免保存时误改秒数。 */
+function normalizeToMinutePrecision(iso: string): string {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return "";
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  if (Number.isNaN(date.getTime())) return iso;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate(), date.getHours(), date.getMinutes(), 0, 0).toISOString();
 }
 
-function toDraft(session: SessionEntry): { startedAt: string; activeSeconds: string; netChars: string } {
-  return {
-    startedAt: toLocalInput(session.startedAt),
-    activeSeconds: String(session.activeSeconds),
-    netChars: String(session.netChars)
-  };
-}
-
-function parseNumber(value: string): number | undefined {
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  const parsed = Number(trimmed);
-  if (!Number.isFinite(parsed)) return undefined;
-  return parsed;
-}
-
+/**
+ * 会话修正对话框：只是 SessionEditForm 的弹窗外壳。
+ *
+ * 校验、字段与提交流程全部由 SessionEditForm 承担（原先两处各写了一遍，
+ * 弹窗版还漏掉了 session-policy 的日期/时长一致性校验），这里仅负责
+ * Dialog 容器与把规范化草稿收敛成局部更新补丁。
+ */
 export function SessionEditDialog({ open, session, onClose, onSave, busy, error }: SessionEditDialogProps) {
-  const [draft, setDraft] = useState(() => toDraft(session));
-  const [validationMessage, setValidationMessage] = useState<string | null>(null);
-  const [saving, setSaving] = useState(false);
-
-  useEffect(() => {
-    if (open) setDraft(toDraft(session));
-  }, [open, session]);
-
   if (!open) return null;
 
-  const submitting = busy ?? saving;
-
-  const handleSave = async () => {
-    const activeSeconds = parseNumber(draft.activeSeconds);
-    if (draft.activeSeconds.trim() && activeSeconds === undefined) {
-      setValidationMessage("活动时长必须是数字。");
-      return;
-    }
-    const netChars = parseNumber(draft.netChars);
-    if (draft.netChars.trim() && netChars === undefined) {
-      setValidationMessage("净增字数必须是数字。");
-      return;
-    }
-    if (draft.startedAt.trim() && Number.isNaN(Date.parse(draft.startedAt))) {
-      setValidationMessage("开始时间格式无效。");
-      return;
-    }
-    setValidationMessage(null);
-    setSaving(true);
-    try {
-      const patch: SessionUpdatePatch = {};
-      if (draft.startedAt.trim()) patch.startedAt = new Date(draft.startedAt).toISOString();
-      if (activeSeconds !== undefined) patch.activeSeconds = Math.round(activeSeconds);
-      if (netChars !== undefined) patch.netChars = Math.round(netChars);
-      const ok = await onSave(patch);
-      if (ok) onClose();
-    } finally {
-      setSaving(false);
-    }
+  const handleSubmit = async (draft: SessionCorrectionDraft): Promise<boolean> => {
+    const patch: SessionUpdatePatch = {};
+    if (draft.startedAt !== normalizeToMinutePrecision(session.startedAt)) patch.startedAt = draft.startedAt;
+    if (draft.activeSeconds !== session.activeSeconds) patch.activeSeconds = draft.activeSeconds;
+    if (draft.netChars !== session.netChars) patch.netChars = draft.netChars;
+    return onSave(patch);
   };
 
   return (
@@ -90,34 +51,18 @@ export function SessionEditDialog({ open, session, onClose, onSave, busy, error 
       open={open}
       title={<span className="flex items-center gap-1.5"><Edit3 size={15} /> 修正写作会话</span>}
       ariaLabel="修正写作会话"
-      onClose={submitting ? undefined : onClose}
+      onClose={busy ? undefined : onClose}
       width="max-w-lg"
       className="session-edit-dialog"
-      footer={
-        <>
-          <Button variant="quiet" onClick={onClose} disabled={submitting}>取消</Button>
-          <Button onClick={() => void handleSave()} disabled={submitting}>
-            {submitting ? "保存中…" : "保存修正"}
-          </Button>
-        </>
-      }
     >
-          <div className="creation-goals-grid">
-            <label className="creation-field">
-              <span>开始时间</span>
-              <TextInput type="datetime-local" value={draft.startedAt} onChange={(event) => setDraft((current) => ({ ...current, startedAt: event.target.value }))} />
-            </label>
-            <label className="creation-field">
-              <span>活动时长（秒）</span>
-              <TextInput type="number" min={0} max={86400} step={1} inputMode="numeric" value={draft.activeSeconds} onChange={(event) => setDraft((current) => ({ ...current, activeSeconds: event.target.value }))} />
-            </label>
-            <label className="creation-field">
-              <span>净增字数</span>
-              <TextInput type="number" step={1} inputMode="numeric" value={draft.netChars} onChange={(event) => setDraft((current) => ({ ...current, netChars: event.target.value }))} />
-            </label>
-          </div>
-          {validationMessage && <span className="creation-field-error">{validationMessage}</span>}
-          {error && <span className="creation-field-error">{error}</span>}
+      <SessionEditForm
+        session={session}
+        projectId={session.projectId}
+        onCancel={onClose}
+        onSave={handleSubmit}
+        busy={busy}
+        error={error}
+      />
     </Dialog>
   );
 }
