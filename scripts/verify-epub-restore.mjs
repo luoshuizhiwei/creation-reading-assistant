@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { readReaderRenderers } from "./lib/renderer-sources.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.resolve(__dirname, "..");
@@ -14,7 +15,8 @@ function fail(message) {
   process.exit(1);
 }
 
-const reader = read("src/features/library/EpubReaderPage.tsx");
+// 恢复逻辑已拆分到 epub-reader/epub-engine.ts（纯移动），断言针对整个渲染层模块集合。
+const reader = readReaderRenderers();
 const betaCheck = read("scripts/beta-check.mjs");
 
 const requiredSnippets = [

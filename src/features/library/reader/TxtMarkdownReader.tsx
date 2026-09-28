@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
-import DOMPurify from "dompurify";
 import { Button, EmptyState, ShellPanel, TextInput } from "@/components/ui";
 import { ReaderTopNav } from "./components/ReaderTopNav";
 import { ReaderBottomBar } from "./components/ReaderBottomBar";
@@ -32,80 +31,12 @@ import type { TocEntry } from "@/features/library/toc/tree";
 import { chaptersFromOverrides, splitTxtChapters } from "@/features/library/toc/txt-chapters";
 import { ReaderSelectionToolbar, type SelectionToolbarState } from "./ReaderSelectionToolbar";
 import { HIGHLIGHT_MARK_STYLES } from "./annotation-constants";
-
-function sanitizeMarkdownHtml(html: string): string {
-  const clean = DOMPurify.sanitize(html, {
-    ALLOWED_TAGS: [
-      "a",
-      "blockquote",
-      "br",
-      "code",
-      "div",
-      "em",
-      "h1",
-      "h2",
-      "h3",
-      "h4",
-      "h5",
-      "h6",
-      "hr",
-      "li",
-      "ol",
-      "p",
-      "pre",
-      "s",
-      "span",
-      "strong",
-      "table",
-      "tbody",
-      "td",
-      "th",
-      "thead",
-      "tr",
-      "ul"
-    ],
-    ALLOWED_ATTR: ["href", "title", "target", "rel", "id", "class"],
-    ALLOW_DATA_ATTR: false,
-    FORBID_ATTR: ["style"],
-    ALLOWED_URI_REGEXP: /^(?:(?:(?:https?|mailto|file|ftp):)|#|\/)/i
-  });
-  return clean.replace(/<a\b([^>]*)>/gi, (match, attrs: string) => {
-    if (/\btarget=/i.test(attrs) && /\brel=/i.test(attrs)) return match;
-    const target = /\btarget=/i.test(attrs) ? "" : ' target="_blank"';
-    const rel = /\brel=/i.test(attrs) ? "" : ' rel="noopener noreferrer"';
-    return `<a${attrs}${target}${rel}>`;
-  });
-}
-
-function renderPlainText(content: string) {
-  return content.split(/\n{2,}/).map((paragraph, index) => (
-    <p key={index} className="mb-5 whitespace-pre-wrap">
-      {paragraph}
-    </p>
-  ));
-}
-
-function renderChapterParagraphs(text: string) {
-  return text.split(/\n{2,}/).map((paragraph, index) => (
-    <p key={index} className="mb-5 whitespace-pre-wrap">
-      {paragraph}
-    </p>
-  ));
-}
-
-function findCurrentHeadingAnchor(scroller: HTMLDivElement | null): { id: string; title: string } | undefined {
-  if (!scroller) return undefined;
-  const headings = Array.from(scroller.querySelectorAll<HTMLElement>("h1, h2, h3, h4, h5, h6"));
-  const containerTop = scroller.getBoundingClientRect().top;
-  let best: HTMLElement | null = null;
-  for (const h of headings) {
-    const offset = h.getBoundingClientRect().top - containerTop;
-    if (offset <= 20) best = h;
-    else break;
-  }
-  if (!best?.id) return undefined;
-  return { id: best.id, title: best.textContent?.trim() ?? "" };
-}
+import {
+  findCurrentHeadingAnchor,
+  renderChapterParagraphs,
+  renderPlainText,
+  sanitizeMarkdownHtml
+} from "./txt-markdown-render";
 
 interface DraftChapter {
   title: string;
