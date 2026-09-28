@@ -273,6 +273,12 @@ async function run(): Promise<void> {
       const lastSunday = new Date(monday);
       lastSunday.setDate(monday.getDate() - 1);
       const lastSundayStartedAt = new Date(lastSunday.getFullYear(), lastSunday.getMonth(), lastSunday.getDate(), 22, 0, 0).toISOString();
+      // 断言全部使用“写入前后差值”：若写成绝对值，本场景在周一执行时会失败——
+      // 周一的“昨天 22:00”恰好等于上个周日，而“本周周一 9:00”恰好是今天，
+      // 两段会话会被合并进同一个 daily 键，绝对值断言随之失真。
+      const before = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
+      const lastSundayKey = `${lastSunday.getFullYear()}-${String(lastSunday.getMonth() + 1).padStart(2, "0")}-${String(lastSunday.getDate()).padStart(2, "0")}`;
+      const sundayBefore = before.daily.find((item) => item.date === lastSundayKey)?.netChars ?? 0;
       await workspace!.transact({
         type: "session.report",
         projectId,
@@ -282,12 +288,15 @@ async function run(): Promise<void> {
       });
       const stats = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
       // 周日会话计入 daily 与 total，但不计入本周 minutes。
-      const lastSundayKey = `${lastSunday.getFullYear()}-${String(lastSunday.getMonth() + 1).padStart(2, "0")}-${String(lastSunday.getDate()).padStart(2, "0")}`;
       const sundayEntry = stats.daily.find((item) => item.date === lastSundayKey);
-      assert.equal(sundayEntry?.netChars, 500);
+      assert.equal((sundayEntry?.netChars ?? 0) - sundayBefore, 500);
+      assert.equal(stats.sessionMinutes.week, before.sessionMinutes.week);
+      assert.equal(stats.sessionMinutes.total, before.sessionMinutes.total + 60);
       const weekBefore = stats.sessionMinutes.week;
       // 本周内新增一段，确认周界为本地周一。
       const thisWeekStartedAt = new Date(monday.getFullYear(), monday.getMonth(), monday.getDate(), 9, 0, 0).toISOString();
+      const thisWeekKey = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
+      const thisWeekBefore = stats.daily.find((item) => item.date === thisWeekKey)?.activeSeconds ?? 0;
       await workspace!.transact({
         type: "session.report",
         projectId,
@@ -297,9 +306,8 @@ async function run(): Promise<void> {
       });
       const after = (await workspace!.read({ kind: "stats.view", projectId })) as ProjectStatsView;
       assert.equal(after.sessionMinutes.week, weekBefore + 10);
-      // 周日会话 + 本周会话分别落在正确的本地日期键上。
-      const thisWeekKey = `${monday.getFullYear()}-${String(monday.getMonth() + 1).padStart(2, "0")}-${String(monday.getDate()).padStart(2, "0")}`;
-      assert.equal(after.daily.find((item) => item.date === thisWeekKey)?.activeSeconds, 600);
+      // 周日会话 + 本周会话分别落在正确的本地日期键上（按差值断言，不依赖今天是周几）。
+      assert.equal((after.daily.find((item) => item.date === thisWeekKey)?.activeSeconds ?? 0) - thisWeekBefore, 600);
     });
 
     await scenario("跨午夜会话按开始时间归属本地日期，不按 UTC 截断", async () => {
