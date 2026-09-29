@@ -17,6 +17,7 @@ import { SceneAiReport } from "@/features/creation/ai/SceneAiReport";
 import { creationDocumentToPlainText } from "@/features/creation/ai/diff-paragraphs";
 import { plainTextToCreationDocument } from "@/features/creation/editor/paste-clean";
 import { AiSendConfirmDialog, rememberAiSendOptOut } from "@/features/creation/inbox/ai-send-confirm";
+import { Button } from "@/components/ui";
 import { getAISettings, runAIAction } from "@/services/ai-service";
 import { annotationReanchor, runStructure as runStructureRequest } from "@/services/creation-service";
 import {
@@ -488,15 +489,17 @@ export function WritingDeskMargin({
               <p className="desktop-card-label">AI 助手</p>
               <div className="scene-radar-ai-buttons">
                 {SCENE_AI_ACTION_ORDER.map((action) => (
-                  <button
+                  <Button
                     key={action}
-                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 whitespace-nowrap"
                     data-testid={`scene-ai-${action}`}
                     disabled={!aiReady || aiBusy}
                     onClick={() => requestSceneAI(action)}
                   >
                     <Sparkles size={13} /> {sceneAiActionLabel(action)}
-                  </button>
+                  </Button>
                 ))}
               </div>
               {!aiReady && (
@@ -535,12 +538,13 @@ export function WritingDeskMargin({
                   </span>
                   <span className="writing-annotation-actions">
                     {annotation.anchorInvalid && (
-                      <button type="button" onClick={() => beginReanchor(annotation)}>
+                      <Button size="sm" variant="outline" onClick={() => beginReanchor(annotation)}>
                         重新定位
-                      </button>
+                      </Button>
                     )}
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="outline"
                       onClick={() => {
                         void updateAnnotation({
                           annotationId: annotation.id,
@@ -550,10 +554,10 @@ export function WritingDeskMargin({
                       }}
                     >
                       {annotation.status === "resolved" ? "重开" : "解决"}
-                    </button>
-                    <button
-                      type="button"
-                      className={confirmingAnnotation === annotation.id ? "confirming" : ""}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant={confirmingAnnotation === annotation.id ? "danger-outline" : "outline"}
                       onClick={() => {
                         if (confirmingAnnotation === annotation.id) {
                           void deleteAnnotation({ annotationId: annotation.id }).then(() => refreshAnnotations());
@@ -565,7 +569,7 @@ export function WritingDeskMargin({
                     >
                       <Trash2 size={12} />
                       {confirmingAnnotation === annotation.id ? "确认" : "删除"}
-                    </button>
+                    </Button>
                   </span>
                 </li>
               ))}
@@ -596,9 +600,10 @@ export function WritingDeskMargin({
                     </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="writing-annotation-at"
+                <Button
+                  size="sm"
+                  variant="tonal"
+                  className="shrink-0 whitespace-nowrap"
                   onClick={() => {
                     if (selection) {
                       onOpenReferencePicker();
@@ -613,7 +618,7 @@ export function WritingDeskMargin({
                   title="在正文输入 @ 可直接打开卡片引用"
                 >
                   <AtSign size={13} /> @ 引用卡片
-                </button>
+                </Button>
               </div>
               <textarea
                 ref={annotationTextareaRef}
@@ -622,14 +627,14 @@ export function WritingDeskMargin({
                 value={annotationDraft}
                 onChange={(event) => setAnnotationDraft(event.target.value)}
               />
-              <button
-                type="button"
-                className="writing-annotation-add"
+              <Button
+                variant="tonal"
+                className="shrink-0 whitespace-nowrap"
                 onClick={() => void submitAnnotation()}
                 disabled={!annotationDraft.trim()}
               >
                 <MessageSquarePlus size={13} /> 添加批注
-              </button>
+              </Button>
             </div>
             {referencePickerOpen && (
               <CardReferencePicker
@@ -660,8 +665,9 @@ export function WritingDeskMargin({
                     </p>
                   )}
                   <div className="writing-reanchor-actions">
-                    <button
-                      type="button"
+                    <Button
+                      size="sm"
+                      variant="outline"
                       disabled={reanchorBusy}
                       onClick={() => {
                         setReanchorCandidate(null);
@@ -669,10 +675,10 @@ export function WritingDeskMargin({
                       }}
                     >
                       取消
-                    </button>
-                    <button type="button" disabled={reanchorBusy} onClick={() => void confirmReanchor()}>
+                    </Button>
+                    <Button size="sm" disabled={reanchorBusy} onClick={() => void confirmReanchor()}>
                       {reanchorBusy ? "提交中…" : "确认新锚点"}
-                    </button>
+                    </Button>
                   </div>
                 </section>
               </div>

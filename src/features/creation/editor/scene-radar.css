@@ -206,28 +206,9 @@
   gap: 8px;
 }
 
-.scene-radar-ai-buttons button {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 4px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  background: var(--bg-surface);
-  color: var(--text-main);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.scene-radar-ai-buttons button:hover:not(:disabled) {
-  border-color: var(--accent-spine);
-  color: var(--accent-spine);
-}
-
-.scene-radar-ai-buttons button:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
+/* AI 动作按钮已迁到共享 <Button>（第 6 步）：原先这三条后代规则同样会以
+   特异性 (0,1,1) 压掉组件样式，且本容器内已无裸 button，整组删除。
+   注意此 CSS 由 SceneRadar.tsx 引入、被 desk 边距栏复用，属跨目录借用。 */
 
 .scene-radar-ai-hint {
   margin: 0;

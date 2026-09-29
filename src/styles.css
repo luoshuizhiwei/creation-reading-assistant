@@ -5101,29 +5101,6 @@ button:disabled {
   gap: 5px;
 }
 
-.writing-annotation-actions button {
-  border: 1px solid var(--paper-line);
-  border-radius: 7px;
-  background: transparent;
-  color: var(--paper-muted);
-  font-size: 11px;
-  padding: 3px 8px;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 3px;
-}
-
-.writing-annotation-actions button:hover {
-  color: var(--copper);
-  border-color: var(--copper);
-}
-
-.writing-annotation-actions button.confirming {
-  color: #c0392b;
-  border-color: #c0392b;
-}
-
 .writing-annotation-empty {
   margin: 0;
   color: var(--paper-muted);
@@ -5134,26 +5111,6 @@ button:disabled {
 .writing-annotation-form {
   display: grid;
   gap: 6px;
-}
-
-.writing-annotation-add {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 4px;
-  border: 1px solid var(--copper);
-  border-radius: 8px;
-  background: color-mix(in srgb, var(--copper) 10%, var(--paper-panel));
-  color: var(--copper);
-  font-size: 12px;
-  font-weight: 650;
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.writing-annotation-add:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 /* ---------------------------------------------------------------------------
