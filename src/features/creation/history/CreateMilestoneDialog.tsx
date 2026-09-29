@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Dialog, Select } from "@/components/ui";
+import { Button, Dialog, Select } from "@/components/ui";
 import type {
   CardSummary,
   CreationProjectNavigation,
@@ -112,20 +112,10 @@ export function CreateMilestoneDialog({
       className="history-modal"
       footer={
         <>
-          <button
-            type="button"
-            className="history-btn-cancel"
-            onClick={onCancel}
-            disabled={isBusy}
-          >
+          <Button variant="outline" onClick={onCancel} disabled={isBusy}>
             取消
-          </button>
-          <button
-            type="button"
-            className="history-btn-confirm"
-            onClick={() => void handleSubmit()}
-            disabled={!canSubmit}
-          >
+          </Button>
+          <Button variant="primary" onClick={() => void handleSubmit()} disabled={!canSubmit}>
             {isBusy ? (
               <>
                 <span className="history-busy" /> &nbsp;创建中…
@@ -133,7 +123,7 @@ export function CreateMilestoneDialog({
             ) : (
               "创建里程碑"
             )}
-          </button>
+          </Button>
         </>
       }
     >

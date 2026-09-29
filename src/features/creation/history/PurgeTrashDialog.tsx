@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Dialog } from "@/components/ui";
+import { Button, Dialog } from "@/components/ui";
 import type { TrashImpactView, TrashItem } from "@/types/creation";
 
 const ENTITY_LABEL: Record<string, string> = {
@@ -59,17 +59,11 @@ export function PurgeTrashDialog({
       className="history-modal"
       footer={
         <>
-          <button
-            type="button"
-            className="history-btn-cancel"
-            onClick={onCancel}
-            disabled={busy}
-          >
+          <Button variant="outline" onClick={onCancel} disabled={busy}>
             取消
-          </button>
-          <button
-            type="button"
-            className="history-btn-danger"
+          </Button>
+          <Button
+            variant="danger-filled"
             onClick={() => void handleConfirm()}
             disabled={busy || impactBusy || !impact || confirmation !== item.title}
           >
@@ -80,7 +74,7 @@ export function PurgeTrashDialog({
             ) : (
               "确认永久删除"
             )}
-          </button>
+          </Button>
         </>
       }
     >

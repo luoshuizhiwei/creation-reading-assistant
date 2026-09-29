@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Dialog } from "@/components/ui";
+import { Button, Dialog } from "@/components/ui";
 import type { SnapshotInfo, SnapshotPreviewView, SnapshotSubjectType } from "@/types/creation";
 import { type RestoreSnapshotConfirmResult } from "./history-models";
 
@@ -80,26 +80,16 @@ export function RestoreSnapshotDialog({
       className="history-modal"
       footer={
         protectedId ? (
-          <button
-            type="button"
-            className="history-btn-confirm"
-            onClick={onCancel}
-          >
+          <Button variant="primary" onClick={onCancel}>
             关闭
-          </button>
+          </Button>
         ) : (
           <>
-            <button
-              type="button"
-              className="history-btn-cancel"
-              onClick={onCancel}
-              disabled={busy}
-            >
+            <Button variant="outline" onClick={onCancel} disabled={busy}>
               取消
-            </button>
-            <button
-              type="button"
-              className="history-btn-confirm"
+            </Button>
+            <Button
+              variant="primary"
               onClick={() => void handleConfirm()}
               disabled={busy || previewBusy || !preview || !preview.canRestore}
             >
@@ -110,7 +100,7 @@ export function RestoreSnapshotDialog({
               ) : (
                 "先保护再恢复"
               )}
-            </button>
+            </Button>
           </>
         )
       }

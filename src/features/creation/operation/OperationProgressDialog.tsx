@@ -1,6 +1,6 @@
 import type { OperationKind, OperationPhase, OperationState, ResourceIntegrityReport } from "../../../types/operation";
 import type { ProjectBundleImportResult } from "../../../types/creation";
-import { Dialog, Spinner } from "@/components/ui";
+import { Button, Dialog, Spinner } from "@/components/ui";
 import { ResourceIntegrityScanPanel } from "./ResourceIntegrityScanPanel";
 import "./operation.css";
 
@@ -68,33 +68,23 @@ export function OperationProgressDialog({
       footer={
         !isTerminal ? (
           <>
-            <button
-              type="button"
-              className="history-btn-cancel"
-              onClick={onClose}
-              disabled={closeDisabled}
-            >
+            <Button variant="outline" onClick={onClose} disabled={closeDisabled}>
               关闭
-            </button>
-            <button
-              type="button"
-              className="history-btn-danger"
-              onClick={onCancel}
-              disabled={cancelDisabled}
-            >
+            </Button>
+            <Button variant="danger-filled" onClick={onCancel} disabled={cancelDisabled}>
               {status === "cancelling" ? "正在取消…" : "取消"}
-            </button>
+            </Button>
           </>
         ) : (
           <>
             {(status === "cancelled" || status === "failed") && kind !== "resource.scan" ? (
-              <button type="button" className="history-btn-cancel" onClick={onReset}>
+              <Button variant="outline" onClick={onReset}>
                 重试
-              </button>
+              </Button>
             ) : null}
-            <button type="button" className="history-btn-confirm" onClick={onClose}>
+            <Button variant="primary" onClick={onClose}>
               关闭
-            </button>
+            </Button>
           </>
         )
       }

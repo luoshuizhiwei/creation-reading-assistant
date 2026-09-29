@@ -442,70 +442,12 @@
   font-weight: 400;
 }
 
-.history-modal-foot button {
-  padding: 7px 14px;
-  border-radius: 8px;
-  font-size: 13px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.15s;
-  border: 1px solid transparent;
-}
-
-.history-btn-cancel {
-  background: var(--bg-surface);
-  border-color: var(--border-subtle);
-  color: var(--text-muted);
-}
-
-.history-btn-cancel:hover:not(:disabled) {
-  border-color: var(--border-strong);
-  background: var(--bg-subtle);
-  color: var(--text-main);
-}
-
-.history-btn-cancel:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.history-btn-confirm {
-  background: var(--accent-spine);
-  border-color: var(--accent-spine);
-  color: #ffffff;
-}
-
-.history-btn-confirm:hover:not(:disabled) {
-  background: var(--copper-dark);
-  border-color: var(--copper-dark);
-}
-
-.history-btn-confirm:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.history-btn-danger {
-  background: #c0392b;
-  border-color: #c0392b;
-  color: #ffffff;
-}
-
-.history-btn-danger:hover:not(:disabled) {
-  background: #a5281b;
-  border-color: #a5281b;
-}
-
-.history-btn-danger:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* 对话框页脚按钮已迁到共享 <Button>（第 6 步）：
+   .history-modal-foot button 基规则与 .history-btn-cancel / -confirm / -danger
+   三套配色随之下线——它们只服务这 4 个对话框，且 -danger 硬编码 #c0392b，
+   正是第 7 步要换成 --proof-mark 的那一类。 */
 
 /* 键盘可达性：统一 focus-visible 焦点环 */
-.history-modal-close:focus-visible,
-.history-btn-cancel:focus-visible,
-.history-btn-confirm:focus-visible,
-.history-btn-danger:focus-visible,
 .history-item-actions button:not([data-variant]):focus-visible,
 .history-tabs button:focus-visible,
 .history-field select:focus-visible,
