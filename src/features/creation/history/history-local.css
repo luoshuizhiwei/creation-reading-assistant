@@ -15,30 +15,6 @@
   gap: 12px;
 }
 
-.history-create-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 7px 13px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--accent-spine) 40%, var(--border-subtle));
-  background: color-mix(in srgb, var(--accent-spine) 8%, var(--bg-surface));
-  color: var(--accent-spine);
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.15s;
-}
-
-.history-create-btn:hover {
-  background: color-mix(in srgb, var(--accent-spine) 14%, var(--bg-surface));
-}
-
-.history-create-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 .history-tabs {
   display: flex;
   gap: 4px;
@@ -180,7 +156,7 @@
   gap: 6px;
 }
 
-.history-item-actions button {
+.history-item-actions button:not([data-variant]) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -194,13 +170,13 @@
   transition: all 0.15s;
 }
 
-.history-item-actions button:hover {
+.history-item-actions button:not([data-variant]):hover {
   border-color: var(--border-strong);
   background: var(--bg-subtle);
   color: var(--text-main);
 }
 
-.history-item-actions button.confirming {
+.history-item-actions button:not([data-variant]).confirming {
   border-color: #c0392b;
   background: color-mix(in srgb, #c0392b 8%, var(--bg-surface));
   color: #c0392b;
@@ -530,9 +506,8 @@
 .history-btn-cancel:focus-visible,
 .history-btn-confirm:focus-visible,
 .history-btn-danger:focus-visible,
-.history-item-actions button:focus-visible,
+.history-item-actions button:not([data-variant]):focus-visible,
 .history-tabs button:focus-visible,
-.history-create-btn:focus-visible,
 .history-field select:focus-visible,
 .history-field input:focus-visible {
   outline: 2px solid var(--accent-spine);

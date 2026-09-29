@@ -3950,7 +3950,7 @@ button:disabled {
   gap: 4px;
 }
 
-.history-item-actions button {
+.history-item-actions button:not([data-variant]) {
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -3963,12 +3963,12 @@ button:disabled {
   cursor: pointer;
 }
 
-.history-item-actions button:hover {
+.history-item-actions button:not([data-variant]):hover {
   color: var(--copper);
   border-color: var(--copper);
 }
 
-.history-item-actions button.confirming {
+.history-item-actions button:not([data-variant]).confirming {
   color: #c0392b;
   border-color: #c0392b;
   background: color-mix(in srgb, #c0392b 8%, transparent);

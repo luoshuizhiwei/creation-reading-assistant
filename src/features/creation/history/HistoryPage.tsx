@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Flag, RotateCcw, Trash2 } from "lucide-react";
-import { Tabs } from "@/components/ui";
+import { Button, Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -230,15 +230,9 @@ export function HistoryPage({ project }: HistoryPageProps) {
           ariaLabel="历史视图"
         />
         {tab === "snapshots" && (
-          <button
-            type="button"
-            className="history-create-btn"
-            onClick={() => setShowCreateMilestone(true)}
-            disabled={!canCreateMilestone || creatingMilestone}
-            title="为场景或卡片创建命名里程碑快照"
-          >
+          <Button variant="tonal" onClick={() => setShowCreateMilestone(true)} disabled={!canCreateMilestone || creatingMilestone} title="为场景或卡片创建命名里程碑快照">
             <Flag size={14} /> 创建里程碑
-          </button>
+          </Button>
         )}
       </div>
 
@@ -258,17 +252,12 @@ export function HistoryPage({ project }: HistoryPageProps) {
                 <small>{new Date(item.deletedAt).toLocaleString("zh-CN")}</small>
                 <span className="history-item-subject"></span>
                 <div className="history-item-actions">
-                  <button type="button" onClick={() => void handleRestoreTrash(item)} title="恢复">
+                  <Button size="sm" variant="outline" onClick={() => void handleRestoreTrash(item)} title="恢复">
                     <RotateCcw size={14} /> 恢复
-                  </button>
-                  <button
-                    type="button"
-                    className="confirming"
-                    onClick={() => void handleOpenPurge(item)}
-                    title="永久删除"
-                  >
+                  </Button>
+                  <Button size="sm" variant="danger-outline" onClick={() => void handleOpenPurge(item)} title="永久删除">
                     <Trash2 size={14} /> 永久删除
-                  </button>
+                  </Button>
                 </div>
               </li>
             ))}
@@ -298,13 +287,9 @@ export function HistoryPage({ project }: HistoryPageProps) {
                   <small>{new Date(snapshot.createdAt).toLocaleString("zh-CN")}</small>
                   <span className="history-item-subject">对象：{subjectTitle}</span>
                   <div className="history-item-actions">
-                    <button
-                      type="button"
-                      onClick={() => void handleOpenRestore(snapshot)}
-                      title="从快照恢复（会先创建保护快照）"
-                    >
+                    <Button size="sm" variant="outline" onClick={() => void handleOpenRestore(snapshot)} title="从快照恢复（会先创建保护快照）">
                       <RotateCcw size={14} /> 恢复
-                    </button>
+                    </Button>
                   </div>
                 </div>
                 <span className="history-item-retention">{SNAPSHOT_RETENTION_HINT[category]}</span>
