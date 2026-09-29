@@ -670,9 +670,9 @@ export function OutlineTree({
     <div className="outline-tree">
       <div className="outline-toolbar">
         <span className="outline-toolbar-label">大纲</span>
-        <button type="button" className="outline-add-volume" onClick={() => void addVolume()}>
+        <Button variant="outline" size="sm" className="shrink-0" onClick={() => void addVolume()}>
           <Plus size={12} /> 新建卷
-        </button>
+        </Button>
       </div>
       <div className="outline-tree-scroll">
         {outline.volumes.map(renderVolume)}

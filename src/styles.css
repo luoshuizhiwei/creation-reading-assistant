@@ -2852,24 +2852,8 @@ button:disabled {
   text-transform: uppercase;
 }
 
-.outline-add-volume {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: var(--paper-panel);
-  color: var(--paper-muted);
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 8px;
-  cursor: pointer;
-}
-
-.outline-add-volume:hover {
-  color: var(--copper);
-  border-color: var(--copper);
-}
+/* 新建卷按钮已迁到共享 <Button variant="outline" size="sm">（第 6 步），
+   原 .outline-add-volume 两条规则随迁移下线（类名全仓零引用）。 */
 
 .outline-tree-scroll {
   min-height: 0;
