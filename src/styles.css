@@ -3310,25 +3310,6 @@ button:disabled {
   width: 180px;
 }
 
-.cards-add {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  height: 34px;
-  padding: 0 14px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--copper);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.cards-add:hover {
-  background: var(--copper-dark);
-}
-
 .cards-layout {
   display: grid;
   grid-template-columns: 260px minmax(0, 1fr);
@@ -3594,38 +3575,6 @@ button:disabled {
   display: flex;
   gap: 8px;
   margin-top: 4px;
-}
-
-.cards-save {
-  height: 34px;
-  padding: 0 16px;
-  border: 0;
-  border-radius: 9px;
-  background: var(--copper);
-  color: #fff;
-  font-size: 13px;
-  font-weight: 650;
-  cursor: pointer;
-}
-
-.cards-save:hover {
-  background: var(--copper-dark);
-}
-
-.cards-cancel {
-  height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--paper-line);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--paper-muted);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.cards-cancel:hover {
-  color: var(--paper-ink);
-  background: color-mix(in srgb, var(--paper-line) 18%, transparent);
 }
 
 .cards-relations {

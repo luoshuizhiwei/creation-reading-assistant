@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
-import { Select } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import type { CardRelation, CardSummary, RelationType } from "@/types/creation";
 
 export interface CardRelationsManagerProps {
@@ -144,12 +144,11 @@ export function CardRelationsManager({
             placeholder="关系说明（可选）"
           />
           <div className="cards-form-actions">
-            <button type="button" className="cards-save" onClick={() => void handleCreate()}>
+            <Button variant="primary" onClick={() => void handleCreate()}>
               建立
-            </button>
-            <button
-              type="button"
-              className="cards-cancel"
+            </Button>
+            <Button
+              variant="outline"
               onClick={() => {
                 setShowRelationForm(false);
                 setRelationTypeId("");
@@ -157,7 +156,7 @@ export function CardRelationsManager({
               }}
             >
               取消
-            </button>
+            </Button>
           </div>
         </div>
       )}

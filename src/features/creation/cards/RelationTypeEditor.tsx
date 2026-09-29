@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Pencil, Trash2 } from "lucide-react";
-import { Dialog } from "@/components/ui";
+import { Button, Dialog } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CardRelation, CardType, RelationType } from "@/types/creation";
@@ -132,8 +132,8 @@ export function RelationTypeEditor({ projectId, cardTypes, relationTypes = [], r
       width="max-w-2xl"
       footer={
         <div className="cards-form-actions">
-          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建关系类型"}</button>
-          <button type="button" className="cards-cancel" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</button>
+          <Button variant="primary" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建关系类型"}</Button>
+          <Button variant="outline" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</Button>
         </div>
       }
     >

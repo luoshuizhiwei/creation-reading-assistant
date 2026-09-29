@@ -1,5 +1,5 @@
 import { Plus, Search } from "lucide-react";
-import { Select } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { CardCoverThumb } from "@/features/creation/cards/components/CardCoverThumb";
 import type { CardSummary, CardType } from "@/types/creation";
 
@@ -62,9 +62,9 @@ export function CardListSidebar({
             </Select>
           )}
           {onNewCard && (
-            <button type="button" className="cards-add" onClick={onNewCard} style={{ justifyContent: "center" }}>
+            <Button onClick={onNewCard}>
               <Plus size={15} /> 新建卡片
-            </button>
+            </Button>
           )}
         </div>
       )}

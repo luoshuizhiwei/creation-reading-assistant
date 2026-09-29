@@ -1,6 +1,6 @@
 /* 卡片类型 / 关系类型编辑器与关系管理所需的最小样式。
-   复用全局 styles.css 中已有的 cards-* 基础类（cards-input、cards-save、cards-cancel 等），
-   此处只补充模态层与少量结构化样式。 */
+   按钮一律走共享 <Button>（cards-save / cards-cancel / cards-add 规则已随第 6 步迁移删除），
+   此处只保留输入控件与结构化样式。 */
 
 .cards-modal-overlay {
   position: fixed;

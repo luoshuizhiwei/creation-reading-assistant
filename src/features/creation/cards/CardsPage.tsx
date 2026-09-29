@@ -479,7 +479,6 @@ export function CardsPage({ project }: CardsPageProps) {
               placeholder="里程碑说明，例如：角色设定定稿 v1"
             />
             <div className="cards-form-actions">
-              {/* .cards-save / .cards-cancel 仍服务其它 4 个未迁移文件，规则保留；本页面用组件等价替换 */}
               <Button variant="primary" disabled={milestoneBusy} onClick={() => void createMilestone()}>保存里程碑</Button>
               <Button variant="outline" onClick={() => { setShowMilestone(false); setMilestoneReason(""); }}>取消</Button>
             </div>

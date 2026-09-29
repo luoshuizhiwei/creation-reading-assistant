@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { X } from "lucide-react";
-import { Select } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { CardDynamicFields } from "./CardDynamicFields";
 import type { CardSummary, CardType } from "@/types/creation";
 
@@ -92,12 +92,12 @@ export function CardEditorForm({
           />
         </div>
         <div className="cards-form-actions">
-          <button type="button" className="cards-save" onClick={() => void onSave()}>
+          <Button variant="primary" onClick={() => void onSave()}>
             {draft.id === "new" ? "创建卡片" : "保存修改"}
-          </button>
-          <button type="button" className="cards-cancel" onClick={onCancel}>
+          </Button>
+          <Button variant="outline" onClick={onCancel}>
             取消
-          </button>
+          </Button>
         </div>
       </div>
     </div>

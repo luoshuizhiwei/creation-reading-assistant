@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ArrowDown, ArrowUp, Pencil, Plus, Trash2 } from "lucide-react";
-import { Dialog, Select } from "@/components/ui";
+import { Button, Dialog, Select } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CardFieldKind, CardFieldSchema, CardSummary, CardType, RelationType } from "@/types/creation";
@@ -257,8 +257,8 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
       width="max-w-2xl"
       footer={
         <div className="cards-form-actions">
-          <button type="button" className="cards-save" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建类型"}</button>
-          <button type="button" className="cards-cancel" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</button>
+          <Button variant="primary" disabled={submitting} onClick={() => void submit()}>{editingType ? "保存修改" : "创建类型"}</Button>
+          <Button variant="outline" onClick={editingType ? resetDraft : onClose}>{editingType ? "取消编辑" : "取消"}</Button>
         </div>
       }
     >
@@ -316,7 +316,7 @@ export function CardTypeEditor({ projectId, cardTypes = [], cards = [], relation
           <div className="cards-fields-manager">
             <header className="cards-fields-manager-head">
               <h4>字段（{fields.length}）</h4>
-              <button type="button" className="cards-add" onClick={addField}><Plus size={13} /> 添加字段</button>
+              <Button className="shrink-0 whitespace-nowrap" onClick={addField}><Plus size={13} /> 添加字段</Button>
             </header>
             {fields.length === 0 && <p className="cards-relations-empty">还没有字段。可添加单行文本、数字、日期、单选、附件声明等。</p>}
             {fields.map((field, index) => (
