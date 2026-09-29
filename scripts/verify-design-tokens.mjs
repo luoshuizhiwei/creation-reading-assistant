@@ -1,5 +1,6 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
+import postcss from "postcss";
 
 /**
  * 设计令牌与按钮不变量守卫（重设计规格 §5 / §6 第 5 步）。
@@ -304,6 +305,195 @@ for (const [label, block, fgName, bgName, floor] of pendingPairs) {
   }
 }
 if (pending > 0) console.warn(`${TAG} 提示：${pending} 组文字对比度未达 AA，属 §6 第 7 步颜色收敛，需视觉确认后修改`);
+
+/* -------------------------------------------- 后代选择器 × 已迁移组件 冲突检测 */
+
+/**
+ * 规格 §6 第 6 步的专用守卫。
+ *
+ * 页面常用 `.history-item-actions button { … }` 这类后代选择器给按钮上样式。
+ * <Button> 渲染出来仍然是 <button>，会被同一条规则再次命中；而后代选择器的
+ * 特异性 (0,1,1) 高于 Tailwind 工具类 (0,1,0)，组件自带的焦点环与配色会被压掉。
+ * 这属于「测试全绿、界面坏掉」的静默失效——vitest 只看 DOM 与文案，不看层叠。
+ *
+ * 约定：<Button> 恒输出 data-variant，页面规则一律写成 button:not([data-variant])。
+ * 这里检查同一目录内「已使用 <Button> 的页面」是否还留着未排除的后代按钮规则。
+ * 用同目录作为「这份 CSS 属于这个页面」的判据（本仓惯例是 feature 局部 CSS
+ * 与页面同目录，如 HistoryPage.tsx / history-local.css）。跨目录借用样式的
+ * 情况（StatsPage 借全局 .history-item-actions）由全局样式表自身负责排除。
+ */
+function walk(dir, depth = 0) {
+  if (depth > 8) return [];
+  const out = [];
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, e.name);
+    if (e.isDirectory()) out.push(...walk(p, depth + 1));
+    else out.push(p);
+  }
+  return out;
+}
+
+const allSource = walk(path.join(root, "src"));
+const cssFiles = allSource.filter((p) => p.endsWith(".css"));
+const tsxByDir = {};
+for (const p of allSource.filter((x) => x.endsWith(".tsx"))) {
+  if (p.includes(`${path.sep}__tests__${path.sep}`)) continue;
+  if (/<Button[\s/>]/.test(stripComments(readFileSync(p, "utf8")))) (tsxByDir[path.dirname(p)] ??= []).push(p);
+}
+
+// 后代按钮规则：`.panel button` / `.actions > button` 这类命中裸 button 的选择器。
+// 用 postcss 解析而不是拼正则，避免在 :not([data-variant]) 这种带括号的选择器上
+// 做脆弱的字符串匹配。
+//
+// 判据有两层，缺一不可：
+//   ① button 的「直接父级类名」（TAIL）——不是选择器开头的类名。
+//      `.creation-writing-hero .desktop-page-actions button` 的泄漏来自后者，
+//      只看行首会整条漏掉。
+//   ② 该父级类名内部确实渲染过 <Button>——只看「类名在已迁移文件里出现过」会
+//      大量误报：`.history-tabs button` 服务的是共享 Tabs 内部的裸
+//      <button role="tab">，它们本来就不该被组件样式接管。
+const BUTTON_COMBINATOR = String.raw`(?:[ \t]*[>+~][ \t]*|[ \t]+)`;
+const TAIL_ANCHOR = new RegExp(String.raw`(?:^|[ \t>+~])\.([\w-]+)(?:\.[\w-]+)*` + BUTTON_COMBINATOR + String.raw`button\b`);
+
+/**
+ * 结构化解析 JSX，返回「内部真的渲染了 <Button> 的那些元素的类名集合」。
+ *
+ * 只用「类名在文件里出现过」当判据会大量误报：一条 `.foo button` 规则只有在
+ * foo 这个容器里确实出现了 <Button> 时才会压到组件样式。这里做一次带栈的
+ * 标签扫描：逐个元素记录它的类名与内部区间，再判断区间里有没有 <Button。
+ */
+function classesHostingButton(source) {
+  const tokens = new Set();
+  const src = source;
+  let i = 0;
+  /** 栈元素：{ name, classes, start } */
+  const stack = [];
+
+  const skipString = (from) => {
+    const q = src[from];
+    let j = from + 1;
+    while (j < src.length && src[j] !== q) j += src[j] === "\\" ? 2 : 1;
+    return j;
+  };
+
+  while (i < src.length) {
+    if (src[i] !== "<") {
+      i += 1;
+      continue;
+    }
+    if (src.startsWith("<!--", i)) {
+      i = src.indexOf("-->", i) + 3;
+      continue;
+    }
+    if (src.startsWith("</", i)) {
+      const gt = src.indexOf(">", i);
+      const name = src.slice(i + 2, gt).trim();
+      for (let k = stack.length - 1; k >= 0; k--) {
+        if (stack[k].name === name) {
+          const el = stack.splice(k)[0];
+          if (/<Button[\s/>]/.test(src.slice(el.start, gt))) for (const c of el.classes) tokens.add(c);
+          break;
+        }
+      }
+      i = gt + 1;
+      continue;
+    }
+    // 开标签：扫到配对的 >，尊重 {} 与字符串
+    let depth = 0;
+    let j = i + 1;
+    for (; j < src.length; j++) {
+      const c = src[j];
+      if (c === '"' || c === "'" || c === "`") {
+        j = skipString(j);
+        continue;
+      }
+      if (c === "{") depth++;
+      else if (c === "}") depth--;
+      else if (c === ">" && depth === 0) break;
+    }
+    const tag = src.slice(i, j + 1);
+    const name = (/^<([A-Za-z][\w.-]*)/.exec(tag) || [])[1] ?? "";
+    const cn = /className=(\{[\s\S]*?\}|"[^"]*"|'[^']*')/.exec(tag);
+    const classes = cn
+      ? cn[1]
+          .replace(/^\{|^\^|"|'|\}`/g, " ")
+          .replace(/\$\{[^}]*\}/g, " ")
+          .split(/[^A-Za-z0-9_-]+/)
+          .filter((x) => /^[a-z][\w-]*$/.test(x))
+      : [];
+    if (!tag.endsWith("/>")) stack.push({ name, classes, start: j + 1 });
+    i = j + 1;
+  }
+  return tokens;
+}
+
+const allMigrated = Object.values(tsxByDir).flat();
+const globalHostTokens = new Set();
+for (const p of allMigrated) for (const c of classesHostingButton(readFileSync(p, "utf8"))) globalHostTokens.add(c);
+
+// 全局样式表（main.tsx 里无条件加载，会漏到每个页面）与 feature 局部样式表同等对待
+const GLOBAL_SHEETS = ["src/styles.css", "src/styles/tokens.css", "src/styles/editorial-studio.css"].map((p) => path.join(root, p));
+
+/**
+ * 遗留债务冻结清单（棘轮）：<Button> 系统落地前，全局「按钮容器」类规则本来就在
+ * 用后代选择器接管页面里的按钮（.desktop-page-actions button 这一族）。给它们统一
+ * 加 :not([data-variant]) 会当场改掉 4 个尚未迁移页面的外观，违背「一页一提交、
+ * 每页零回归」的推进方式，所以先冻结为警告，迁移到哪个页面就把对应锚点删掉。
+ *
+ * 只有在清单之外的新增违规才会变红。
+ */
+const LEGACY_DESCENDANT_BUTTON = new Set([
+  "src/styles/editorial-studio.css :: desktop-page-actions",
+  "src/styles/editorial-studio.css :: history-page"
+]);
+
+// 排除判据必须是 :not([data-variant —— 带引号值的形式（:not([data-variant="quiet"])）
+// 也算已排除；把 ] 写进 needle 会一条都匹配不上，等于检查失效。
+const isExcluded = (sel) => sel.includes(":not([data-variant");
+
+let legacyHits = 0;
+const newHits = [];
+for (const cssFile of cssFiles) {
+  const dir = path.dirname(cssFile);
+  const isGlobal = GLOBAL_SHEETS.includes(cssFile);
+  const migrated = tsxByDir[dir];
+  // 局部样式表：只看同目录已迁移页面；全局样式表：任何已迁移页面都可能被命中
+  if (!isGlobal && !migrated) continue;
+  let scope;
+  if (isGlobal) {
+    scope = globalHostTokens;
+  } else {
+    scope = new Set();
+    for (const p of migrated) for (const c of classesHostingButton(readFileSync(p, "utf8"))) scope.add(c);
+  }
+  const rel = path.relative(root, cssFile).split(path.sep).join("/");
+  const ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+  ast.walkRules((rule) => {
+    for (const part of rule.selector.split(",")) {
+      const sel = part.trim();
+      const anchor = TAIL_ANCHOR.exec(sel);
+      if (!anchor) continue;
+      if (isExcluded(sel)) continue; // 已排除，安全
+      // 没有任何「内部渲染了 <Button> 的元素」带这个父级类名 → 规则碰不到迁移后的元素
+      if (!scope.has(anchor[1])) continue;
+      if (LEGACY_DESCENDANT_BUTTON.has(`${rel} :: ${anchor[1]}`)) legacyHits += 1;
+      else newHits.push(`${rel}: ${sel}`);
+    }
+  });
+}
+
+if (newHits.length > 0) {
+  fail(
+    `后代按钮规则未排除已迁移元素：${newHits.length} 条，这些类名内部渲染了 <Button>，` +
+      `组件样式会被后代选择器压掉（特异性 (0,1,1) 高于工具类 (0,1,0)）。` +
+      `请写成 button:not([data-variant])。命中：${newHits.slice(0, 4).join(" / ")}`
+  );
+}
+if (legacyHits > 0) {
+  console.log(
+    `${TAG} [第 6 步待迁移] 遗留按钮容器规则 ${legacyHits} 条仍在接管 <Button>（已冻结，迁移对应页面时收口）`
+  );
+}
 
 /* ------------------------------------------------------------------ 结论 */
 

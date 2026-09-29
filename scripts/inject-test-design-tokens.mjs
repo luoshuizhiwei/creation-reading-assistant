@@ -11,8 +11,13 @@ const files = [
   "src/styles/tokens.css",
   "src/components/ui.tsx",
   "tailwind.config.ts",
-  "src/styles/editorial-studio.css"
+  "src/styles/editorial-studio.css",
+  // 后代按钮规则用例改的这两份，必须一起备份：漏了就会把「故意改坏」的代码留在工作区。
+  "src/styles.css",
+  "src/features/creation/history/history-local.css"
 ];
+
+const backedUp = new Set(files);
 
 mkdirSync(backup, { recursive: true });
 for (const f of files) copyFileSync(path.join(root, f), path.join(backup, f.replace(/\//g, "__")));
@@ -40,6 +45,8 @@ for (const signal of ["SIGINT", "SIGTERM", "uncaughtException", "unhandledReject
 }
 
 function mutate(file, from, to) {
+  // 没进备份清单的文件一律拒绝改写：改坏了还原不了，等于往工作区里植入故意损坏的代码。
+  if (!backedUp.has(file)) throw new Error(`文件未备份，拒绝改写：${file}`);
   const p = path.join(root, file);
   const s = readFileSync(p, "utf8");
   if (!s.includes(from)) throw new Error(`needle not found in ${file}: ${from.slice(0, 60)}`);
@@ -74,6 +81,10 @@ const cases = [
   ["tonal 底色换成校样红", () => mutate("src/components/ui.tsx", "bg-[color:var(--action-tint)] text-copper", "bg-[color:var(--proof-tint)] text-copper"), /action-tint|校样红|proof-tint/],
   ["danger-filled 基础填充改用主操作色（hover 仍带 proof-mark，考验逐 variant 切片）", () => mutate("src/components/ui.tsx", '"danger-filled": "bg-[color:var(--proof-mark)]', '"danger-filled": "bg-copper'), /proof-mark|主操作色/],
   ["把带引号的 danger-outline 整条删除", () => mutate("src/components/ui.tsx", '"danger-outline":\n', '"gone-outline":\n'), /danger-outline|variant/],
+  ["删掉后代规则的 data-variant 排除（组件样式会被压掉）", () => mutate("src/features/creation/history/history-local.css", ".history-item-actions button:not([data-variant]) {", ".history-item-actions button {"), /后代按钮规则未排除/],
+  ["删掉全局 styles.css 里的同一排除（StatsPage 借用的那份）", () => mutate("src/styles.css", ".history-item-actions button:not([data-variant]) {", ".history-item-actions button {"), /后代按钮规则未排除|styles.css/],
+  ["新增一条清单外的后代按钮规则（棘轮必须变红，遗留冻结不能放过新违规）", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".history-item-actions button {\n  border-radius: 999px;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /后代按钮规则未排除/],
+  ["把违规规则藏到后代层级（父级类名在选择器中段，考验 TAIL 锚点）", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".desktop-page-stack .history-item-actions button {\n  border-radius: 999px;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /后代按钮规则未排除/],
   ["夜校前景改回白字（对比度 2.53）", () => mutate("src/styles/tokens.css", "  --fg-on-solid: #15181c;", "  --fg-on-solid: #ffffff;"), /夜校 primary 对比度/],
   ["晨校主色调浅到不合格", () => mutate("src/styles/tokens.css", "  --action-primary: #315f9b;", "  --action-primary: #a8c4e4;"), /晨校 primary 对比度/],
   ["正文色调到不可读", () => mutate("src/styles/tokens.css", "  --text-primary: #20242a;", "  --text-primary: #9aa2ac;"), /正文\/画布 对比度/]
