@@ -8,10 +8,13 @@ export const Button = forwardRef<HTMLButtonElement, ButtonHTMLAttributes<HTMLBut
   ...props
 }, ref) {
   const base =
-    "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-45 disabled:active:scale-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-copper/40";
+    "inline-flex h-9 items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-45 focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]";
   const variants = {
-    primary: "bg-copper text-white shadow-[0_6px_16px_rgba(184,64,26,0.22)] hover:-translate-y-0.5 hover:bg-copper-dark hover:shadow-lift",
-    secondary: "border border-paper-line bg-paper-panel text-paper-ink hover:-translate-y-0.5 hover:border-copper/50 hover:bg-paper-soft/60 hover:shadow-lift",
+    // D-1：主按钮阴影原为 rgba(184,64,26,.22)（旧铜色硬编码），与 bg-copper
+    // 实际解析到的印刷蓝无关，是主题迁移遗留。规格 §2.5 定为按钮一律无阴影，
+    // 反馈只靠颜色变化；hover 位移与 active 缩放同样移除（排版抖动来源）。
+    primary: "bg-copper text-white hover:bg-copper-dark",
+    secondary: "border border-paper-line bg-paper-panel text-paper-ink hover:border-copper/50 hover:bg-paper-soft/60",
     quiet: "text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink"
   };
   return (
