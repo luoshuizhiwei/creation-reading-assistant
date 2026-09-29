@@ -138,16 +138,28 @@ if (!/disabled:opacity-55/.test(uiTsx)) fail("disabled 透明度应统一为 .55
 // 必须逐个 variant 检查：如果只看 danger-outline 到 danger-filled 这一整段，
 // 把 danger-filled 换成 bg-copper 时 danger-outline 里的 --proof-mark 仍然存在，
 // 整段检查会照样通过（注入测试实测出来的盲区）。
+const VARIANT_NAMES = ["primary", "tonal", "outline", "ghost", "icon", "danger-outline", "danger-filled"];
+
+/**
+ * 取出某个 variant 的赋值文本（不含键名），切到下一个 variant 键或对象结束为止，
+ * 这样每个 variant 单独成段——整段检查会被相邻键里的同类令牌蒙混过关。
+ * 键名可能带引号（danger-outline 必须带），也可能是不带引号的简写（tonal）。
+ */
 function variantValue(name) {
-  const start = uiTsx.indexOf(`"${name}"`, variantsStart);
-  if (start < 0) return null;
-  // 切到下一个键或对象结束为止，这样每个 variant 单独成段
-  const rest = uiTsx.slice(start + name.length + 2);
-  const nextKey = rest.search(/\n\s*"(?:[a-z-]+|primary|tonal|outline|ghost|icon)":/);
-  const objectEnd = rest.search(/\n\s*\};/);
+  const keyRe = new RegExp(`^\\s*"?${name}"?\\s*:`, "m");
+  const m = keyRe.exec(uiTsx.slice(variantsStart));
+  if (!m) return null;
+  const from = variantsStart + m.index + m[0].length;
+  const rest = uiTsx.slice(from);
+  const nextKey = rest.search(new RegExp(`^\\s*"?(?:${VARIANT_NAMES.join("|")})"?\\s*:`, "m"));
+  const objectEnd = rest.search(/^\s*\};/m);
   const cuts = [nextKey, objectEnd].filter((i) => i > 0);
-  const end = cuts.length ? Math.min(...cuts) : rest.length;
-  return rest.slice(0, end);
+  return rest.slice(0, cuts.length ? Math.min(...cuts) : rest.length);
+}
+
+/** 只保留基础态，去掉 hover: 前缀的子句 */
+function baseOnly(value) {
+  return value.split(/\s+/).filter((t) => t && !t.startsWith("hover:")).join(" ");
 }
 
 for (const name of ["danger-outline", "danger-filled"]) {
@@ -158,9 +170,30 @@ for (const name of ["danger-outline", "danger-filled"]) {
   }
   // 只看基础态：hover 子句里也带 --proof-mark，若整段匹配，
   // 把基础填充换成 bg-copper 时守卫仍会通过（注入测试实测出来的第二个盲区）。
-  const base = value.split(/\s+/).filter((t) => t && !t.includes(":hover") && !t.startsWith("hover:")).join(" ");
+  const base = baseOnly(value);
   if (!/--proof-mark/.test(base)) fail(`${name} 的基础态必须使用 --proof-mark（校样红），不得复用主操作色：${base}`);
   if (/bg-copper(?!-soft)/.test(base)) fail(`${name} 不得用 bg-copper 作填充：危险操作要区别于主操作`);
+}
+
+/**
+ * tonal 是「主色的浅底」，必须取 --action-tint。
+ * 这里曾经踩过一次：写成 bg-copper-soft，而别名层把 --copper-soft 映射到
+ * --proof-tint（校样红的底），配上 text-copper（印刷蓝）就是红底蓝字。
+ * 对比度算出来 5.48:1 照样达标，肉眼在截图里也只觉得「底色偏粉」——
+ * 属于数字查不出、只有语义能查出的错误，所以按名字禁止。
+ */
+const tonalValue = variantValue("tonal");
+if (tonalValue === null) {
+  fail("找不到 Button 的 tonal variant 定义");
+} else {
+  const tonalBase = baseOnly(tonalValue);
+  if (!/--action-tint/.test(tonalBase)) fail(`tonal 的基础底色必须是 --action-tint（主色浅底）：${tonalBase}`);
+  if (/copper-soft|proof-tint/.test(tonalBase)) fail("tonal 底色取到了校样红一族（--copper-soft 别名 = --proof-tint），会是红底蓝字");
+}
+
+// 新组件代码一律不许再碰 --copper-soft 别名：它名字像主色，值是校样红。
+if (/copper-soft/.test(uiTsx)) {
+  fail("组件不应使用 copper-soft 别名：--copper-soft 在别名层映射到 --proof-tint（校样红），主色浅底请用 --action-tint");
 }
 
 // data-variant 保留调用方原值 + CSS 双排除：两者任一丢失都会让 quiet 首子按钮被套上主色渐变

@@ -63,7 +63,11 @@ export const Button = forwardRef<
 
   const variants: Record<ButtonVariant, string> = {
     primary: "bg-copper text-[color:var(--fg-on-solid)] hover:bg-copper-dark",
-    tonal: "bg-copper-soft text-copper hover:bg-[color-mix(in_srgb,var(--action-primary)_14%,var(--action-tint))]",
+    // 不能用 bg-copper-soft：别名层把 --copper-soft 映射到 --proof-tint（校样红的底），
+    // 配上 text-copper（印刷蓝）就是红底蓝字——和 D-1 同族的遗留别名陷阱。
+    // 主色底必须显式写 --action-tint。
+    tonal:
+      "bg-[color:var(--action-tint)] text-copper hover:bg-[color-mix(in_srgb,var(--action-primary)_14%,var(--action-tint))]",
     outline: "border border-paper-line bg-paper-panel text-paper-ink hover:border-copper/50 hover:bg-paper-soft/60",
     ghost: "text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink",
     icon: "p-0 text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink",
