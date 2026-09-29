@@ -149,15 +149,15 @@ export function ProjectHomePage({
                         )}
                       </span>
                     </button>
-                    <button
-                      type="button"
-                      className="project-home-continue"
+                    <Button
+                      variant="outline"
+                      className="shrink-0"
                       onClick={() => onContinueWriting(project.id)}
                       aria-label={`继续写作：${project.title}`}
                     >
                       <PenLine size={14} />
                       继续写作
-                    </button>
+                    </Button>
                     <ArrowRight size={16} className="project-home-arrow" />
                   </li>
                 );

@@ -5344,24 +5344,12 @@ button:disabled {
   font-size: 12px;
 }
 
-.project-home-continue {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  flex-shrink: 0;
-  border: 1px solid var(--copper);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--copper) 9%, var(--paper-panel));
-  color: var(--copper);
-  font-size: 12px;
-  font-weight: 650;
-  padding: 7px 12px;
-  cursor: pointer;
-}
-
-.project-home-continue:hover {
-  background: color-mix(in srgb, var(--copper) 16%, var(--paper-panel));
-}
+/* 「继续写作」已迁到共享 <Button variant="outline" size=md>（第 6 步）。
+   这两条规则其实一直是"写了但不生效"的：main.tsx 先 @/styles.css 再
+   @/styles/editorial-studio.css，两份各有一套同特异性 (0,1,0) 的 .project-home-continue，
+   后者胜出，所以渲染出来的是 editorial 那套（bg-surface 底 + text-muted 字 +
+   border-subtle 边），这里的 --copper 淡底蓝字从未生效。类名移除后两份一并下线。
+   flex-shrink:0 由组件侧的 shrink-0 承担。 */
 
 .project-home-arrow {
   color: var(--paper-muted);
