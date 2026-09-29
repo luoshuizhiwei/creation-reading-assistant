@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { RotateCcw, Search, ZoomIn, ZoomOut } from "lucide-react";
+import { Button } from "@/components/ui";
 import {
   EMPTY_RELATION_GRAPH_FILTERS,
   describeRelationGraphScope,
@@ -98,9 +99,9 @@ export function RelationGraphView({
           {error}
         </p>
         {onRetry && (
-          <button type="button" onClick={onRetry}>
+          <Button variant="outline" onClick={onRetry}>
             重试
-          </button>
+          </Button>
         )}
       </div>
     );
