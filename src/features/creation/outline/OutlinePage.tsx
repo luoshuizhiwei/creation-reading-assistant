@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Download, Save, X } from "lucide-react";
-import { Select, Tabs } from "@/components/ui";
+import { Button, Select, Tabs } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import { useUIStore } from "@/stores/ui-store";
@@ -132,9 +132,11 @@ function ScenePlanningForm({ scene, onSaved }: {
         ))}
       </div>
       <div className="scene-planning-actions">
-        <button type="button" className="scene-planning-save" onClick={() => void save()} disabled={saving}>
+        {/* 原本挂在「首子按钮 = 主色渐变」那条全局分组里，按规格 §3.1 归到实心 primary，
+            渐变与投影随该分组一起移除（D-1 无阴影） */}
+        <Button variant="primary" disabled={saving} onClick={() => void save()}>
           <Save size={13} /> {saving ? "保存中…" : "保存场景卡"}
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -292,9 +294,10 @@ export function OutlinePage({ project }: OutlinePageProps) {
         />
         <p className="outline-page-hint">树与卡片板共享同一数据与排序；选中场景可在右侧编辑任务卡。</p>
         <span className="outline-book-word-count">全书 {Number(outline?.wordCount ?? 0).toLocaleString("zh-CN")} 字</span>
-        <button type="button" className="outline-export-button" disabled={!outline || exportingOutline} onClick={() => void exportMarkdownOutline()}>
+        {/* 原本是描边表面按钮，按规格 §3.1 等价映射为 outline（不是 primary，避免抢走页面主操作权重） */}
+        <Button variant="outline" disabled={!outline || exportingOutline} className="whitespace-nowrap" onClick={() => void exportMarkdownOutline()}>
           <Download size={14} /> {exportingOutline ? "导出中…" : "导出 Markdown 大纲"}
-        </button>
+        </Button>
       </header>
       {lastProtectedApply && (
         <div className="outline-revert-bar" role="status">
@@ -357,10 +360,11 @@ export function OutlinePage({ project }: OutlinePageProps) {
             } : null}
             onSaved={refresh}
           />
+          {/* 原本是「无边框透明小文字」操作 → ghost；hover 底色是规格统一后的新增反馈 */}
           {selectedScene && (
-            <button type="button" className="scene-planning-clear" onClick={() => selectScene("")}>
+            <Button size="sm" variant="ghost" className="mt-2 px-0" onClick={() => selectScene("")}>
               <X size={12} /> 取消选择
-            </button>
+            </Button>
           )}
         </aside>
       </div>

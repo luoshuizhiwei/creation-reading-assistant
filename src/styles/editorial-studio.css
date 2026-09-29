@@ -505,8 +505,7 @@ select:focus-visible,
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
 .project-home-create-first,
 .cards-add,
-.cards-save,
-.scene-planning-save {
+.cards-save {
   border-color: color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth));
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth)));
   color: #fff;
@@ -515,8 +514,7 @@ select:focus-visible,
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover,
 .project-home-create-first:hover,
 .cards-add:hover,
-.cards-save:hover,
-.scene-planning-save:hover {
+.cards-save:hover {
   border-color: var(--copper-dark);
   background: var(--copper-dark);
   color: #fff;
@@ -2148,16 +2146,14 @@ select:focus-visible,
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
 .project-home-create-first,
 .cards-add,
-.cards-save,
-.scene-planning-save {
+.cards-save {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
 }
 
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):active,
 .project-home-create-first:active,
 .cards-add:active,
-.cards-save:active,
-.scene-planning-save:active {
+.cards-save:active {
   transform: translateY(0);
   box-shadow: inset 0 2px 4px rgba(15, 17, 22, 0.22);
 }
@@ -3348,17 +3344,6 @@ input[type="text"],
 }
 
 .outline-page-hint { flex: 1; }
-
-.outline-export-button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  white-space: nowrap;
-  padding: 7px 10px;
-  border: 1px solid var(--border-strong);
-  background: var(--bg-surface);
-  color: var(--text-main);
-}
 
 .scene-planning-form textarea.cards-input {
   min-height: 72px;
