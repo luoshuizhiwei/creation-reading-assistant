@@ -219,12 +219,14 @@ export function LibraryPage() {
                     <button type="button" aria-label="移除格式筛选" onClick={() => setFormatFilter("all")}><X size={12} /></button>
                   </span>
                 )}
-                <button
-                  className="ml-1 rounded-md px-2 py-0.5 text-paper-muted hover:bg-paper-soft/50"
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="ml-1"
                   onClick={() => { setSearchQuery(""); setFormatFilter("all"); }}
                 >
                   清除所有
-                </button>
+                </Button>
               </div>
             )}
 
