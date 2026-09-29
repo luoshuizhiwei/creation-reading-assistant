@@ -77,6 +77,8 @@
     "verify:stage4-relation-graph-acceptance": "node scripts/relation-graph-acceptance.mjs",
     "verify:packaged-stage4": "node scripts/packaged-stage4-acceptance.mjs",
     "verify:packaged-stage4b-print": "node scripts/packaged-stage4b-print-acceptance.mjs",
+    "verify:design-tokens": "node scripts/verify-design-tokens.mjs",
+    "inject:design-tokens": "node scripts/inject-test-design-tokens.mjs",
     "verify:beta": "node scripts/beta-check.mjs",
     "verify:beta:release": "node scripts/beta-check.mjs --require-artifact",
     "release:clean-local": "node scripts/clean-local-release-artifacts.mjs",

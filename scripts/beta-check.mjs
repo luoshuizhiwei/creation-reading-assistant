@@ -66,7 +66,8 @@ const DESKTOP_SCRIPTS = [
   "verify:creation-project-home",
   "verify:creation-migration",
   "verify:creation-search",
-  "verify:reader-excerpt"
+  "verify:reader-excerpt",
+  "verify:design-tokens"
 ];
 
 // Mobile/Capacitor verify scripts removed (P0-A2, 2026-07-29). mobile/ is frozen.
@@ -447,6 +448,7 @@ if (resolvedScope === "all" || resolvedScope === "desktop") {
 } else {
   console.log(`\n[beta-check] SKIP (scope=${resolvedScope}): renderer security & IPC checks`);
 }
+runScoped("verify:design-tokens");
 runScoped("verify:data-integrity");
 runScoped("verify:hardening");
 runScoped("verify:inspiration");
