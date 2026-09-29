@@ -568,7 +568,7 @@ export function WritingDeskMargin({
                       }}
                     >
                       <Trash2 size={12} />
-                      {confirmingAnnotation === annotation.id ? "确认" : "删除"}
+                      {confirmingAnnotation === annotation.id ? "删除批注" : "删除"}
                     </Button>
                   </span>
                 </li>

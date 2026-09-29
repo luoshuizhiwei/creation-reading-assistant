@@ -389,8 +389,8 @@ export function CardsPage({ project }: CardsPageProps) {
           <h3>{selectedCard.title}</h3>
         </div>
         <div className="cards-detail-actions">
-          <button type="button" onClick={() => setDraft(selectedCard)} title="编辑"><Pencil size={15} /></button>
-          <button type="button" onClick={() => setShowUnlinkDialog(true)} title="解除项目关联（不删除全局卡片）">
+          <button type="button" onClick={() => setDraft(selectedCard)} title="编辑" aria-label="编辑卡片"><Pencil size={15} /></button>
+          <button type="button" onClick={() => setShowUnlinkDialog(true)} title="解除项目关联（不删除全局卡片）" aria-label="解除项目关联">
             <Link2 size={15} />
           </button>
         </div>

@@ -38,7 +38,7 @@ export function CardEditorForm({
     <div className="cards-detail-card">
       <header className="cards-detail-head">
         <h3>{draft.id === "new" ? "新建卡片" : "编辑卡片"}</h3>
-        <button type="button" className="cards-close" onClick={onCancel} title="关闭">
+        <button type="button" className="cards-close" onClick={onCancel} title="关闭" aria-label="关闭卡片编辑">
           <X size={15} />
         </button>
       </header>

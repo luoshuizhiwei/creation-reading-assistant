@@ -216,7 +216,7 @@ export function LibraryPage() {
                 {formatFilter !== "all" && (
                   <span className="inline-flex items-center gap-1 rounded-full border border-moss/30 bg-moss/10 px-2 py-0.5 text-moss">
                     {formatFilter.toUpperCase()}
-                    <button onClick={() => setFormatFilter("all")}><X size={12} /></button>
+                    <button type="button" aria-label="移除格式筛选" onClick={() => setFormatFilter("all")}><X size={12} /></button>
                   </span>
                 )}
                 <button
