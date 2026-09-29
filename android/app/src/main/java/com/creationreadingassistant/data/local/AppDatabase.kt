@@ -67,7 +67,7 @@ import com.creationreadingassistant.data.local.entity.ChapterReadEntity
  * 提成顶层 const 而不是放进 companion，是因为注解参数必须是编译期常量，
  * 而在 `@Database` 上引用被注解类自己的嵌套常量会构成循环引用。
  */
-const val APP_DATABASE_SCHEMA_VERSION = 14
+const val APP_DATABASE_SCHEMA_VERSION = 15
 
 /**
  * 原生端 Room 数据库（v1）。
@@ -525,6 +525,25 @@ abstract class AppDatabase : RoomDatabase() {
                     "CREATE INDEX IF NOT EXISTS `index_library_source_refs_root_id` " +
                         "ON `library_source_refs` (`root_id`)",
                 )
+            }
+        }
+
+        /**
+         * v14→v15：删掉与主键前缀重复的 `index_search_terms_term`。
+         *
+         * `search_terms` 是四列复合主键 `(term, book_id, chapter_index, text_basis)`，
+         * SQLite 自动建的 `sqlite_autoindex_search_terms_1` 前缀就是 `term`；查询侧只有
+         * `term = ?` 与 `term = ? AND text_basis = ?` 两种形态，都被该 autoindex 覆盖
+         * （`text_basis` 是第 4 列，用不上范围条件）⇒ 独立索引只是把 term 又存了一份。
+         * 真机实测这部分占 ~25MB（用户那本 6.65MB 中文书对应 328MB 索引里）。
+         *
+         * 纯删索引，不触碰任何数据行，`search_terms` 表结构与查询行为完全不变。
+         * `index_search_terms_book` 必须保留（`distinctBookIds` 与按书删除靠它）。
+         */
+        val MIGRATION_14_15 = object : Migration(14, 15) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                dropPartialIndexes(db)
+                db.execSQL("DROP INDEX IF EXISTS `index_search_terms_term`")
             }
         }
 

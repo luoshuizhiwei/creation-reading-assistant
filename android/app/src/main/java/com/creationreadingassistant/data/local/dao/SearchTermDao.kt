@@ -79,7 +79,15 @@ interface SearchTermDao {
     tableName = "search_terms",
     primaryKeys = ["term", "book_id", "chapter_index", "text_basis"],
     indices = [
-        Index(value = ["term"], name = "index_search_terms_term"),
+        // 这里**故意不**为 `term` 单独建索引。
+        //
+        // 四列复合主键的首列就是 `term`，SQLite 会为它自动建 `sqlite_autoindex_search_terms_1`，
+        // 前缀恰好是 `term`；查询侧的 `term = ? AND text_basis = ?`
+        // （rowsByTermForBasis）能被该 autoindex 覆盖（`text_basis` 是第 4 列，本来也用不上范围条件）。
+        // ⇒ 原先的 `index_search_terms_term` 只是把 term 又存了一份，实测占 ~25MB
+        // （用户那本 6.65MB 中文书对应 328MB 索引里）。v15 迁移已 DROP。
+        //
+        // `index_search_terms_book` 必须保留：`distinctBookIds`、按书删除都靠它。
         Index(value = ["book_id"], name = "index_search_terms_book"),
     ],
 )

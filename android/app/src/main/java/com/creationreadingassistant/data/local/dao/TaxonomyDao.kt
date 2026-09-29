@@ -5,6 +5,7 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
+import androidx.room.Upsert
 import com.creationreadingassistant.data.local.entity.BookCategoryEntity
 import com.creationreadingassistant.data.local.entity.BookTagEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
@@ -15,7 +16,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface TagDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * 写入标签（存在则更新）。
+     *
+     * ⚠️ 必须是 `@Upsert`：`tags` 是 `book_tag`（CASCADE）的父表，而 Room 会打开
+     * `PRAGMA foreign_keys = ON`；REPLACE 的「先删后插」会把这枚标签与所有书籍的
+     * 关联一次性抹掉。详见 [BookDao.upsert]。
+     */
+    @Upsert
     suspend fun upsert(tag: TagEntity)
 
     @Query("SELECT * FROM tags WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
@@ -48,7 +56,8 @@ interface TagDao {
 
 @Dao
 interface CategoryDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /** 写入分类（存在则更新）；理由同 [TagDao.upsert]（`book_category` 会级联删除）。 */
+    @Upsert
     suspend fun upsert(category: CategoryEntity)
 
     @Query("SELECT * FROM categories WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")
@@ -84,7 +93,8 @@ interface CategoryDao {
 
 @Dao
 interface ShelfDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /** 写入书单（存在则更新）；理由同 [TagDao.upsert]（`shelf_book` 会级联删除）。 */
+    @Upsert
     suspend fun upsert(shelf: ShelfEntity)
 
     @Query("SELECT * FROM shelves WHERE deleted_at IS NULL ORDER BY sort_order ASC, created_at ASC")

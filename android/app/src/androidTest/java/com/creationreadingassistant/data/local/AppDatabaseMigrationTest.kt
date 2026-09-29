@@ -1,10 +1,15 @@
 package com.creationreadingassistant.data.local
 
+import android.content.Context
+import androidx.room.Room
 import androidx.room.testing.MigrationTestHelper
+import androidx.sqlite.db.SupportSQLiteDatabase
 import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -14,12 +19,14 @@ import java.io.IOException
 
 /**
  * Room 迁移测试：覆盖全部迁移路径 1→2→…→13→14（含 12→13 纠错表、
- * 13→14 来源索引，以及 12→13→14 连续链路）。
+ * 13→14 来源索引，以及 12→13→14 连续链路），并补齐 14→15（删冗余 term 索引）、
+ * 13→15 历史链，以及正式开库回调（部分索引重建）。
  *
  * 使用 [MigrationTestHelper] 加载 schema JSON，逐步执行迁移 SQL 并校验表结构。
  * 每次迁移前插入测试数据，迁移后验证数据未丢失、新列/新表正确创建。
  * 注：部分索引（含 v7 的 idx_sessions_created）由 CreateIndexCallback onOpen 重建，
- * 不在迁移内建，因此迁移测试只验表结构与数据，索引存在性由开库路径保证。
+ * 不在迁移内建，因此迁移测试只验表结构与数据，索引存在性由开库路径保证
+ * —— 而开库路径由 [openingDatabaseRebuildsPartialIndexesAndDoesNotResurrectTermIndex] 覆盖。
  */
 @Suppress("DEPRECATION")
 @RunWith(AndroidJUnit4::class)
@@ -27,6 +34,8 @@ class AppDatabaseMigrationTest {
 
     companion object {
         private const val TEST_DB = "migration-test"
+        /** 正式开库回调用例独立库名：与主应用库 `creation_reading_assistant_native` 无关。 */
+        private const val OPEN_CALLBACK_DB = "migration-open-callback-test"
     }
 
     @get:Rule
@@ -2016,5 +2025,316 @@ class AppDatabaseMigrationTest {
         chIdx.close()
 
         db.close()
+    }
+
+    // ─── 14 → 15：删掉与主键前缀重复的 index_search_terms_term ──────────
+
+    /**
+     * v14→v15 只做两件事：删掉手工部分索引（每个迁移的惯例首行），
+     * 再 DROP `index_search_terms_term`。这是纯 DDL，不碰任何数据行。
+     *
+     * 三条断言各自对应一个不同的回归面：
+     * - 冗余索引确实没了（本次变更本体）；
+     * - `index_search_terms_book` 还在（`distinctBookIds` 与按书删除依赖它，误删即功能退化）；
+     * - 数据与查询结果不受 DDL 影响。
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate_14_to_15_drops_redundant_term_index() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 14)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('migration-15-book', '迁移测试书15', NULL, 'txt', 'sample15.txt', 'hash-15', " +
+                "2048, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-20T00:00:00Z', NULL)",
+        )
+        // v14 的 search_terms 已是四列复合主键，term 前缀由 sqlite_autoindex 覆盖。
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, text_basis, hits, offsets) " +
+                "VALUES ('测试', 'migration-15-book', 0, 'original', 3, '0:2')",
+        )
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, text_basis, hits, offsets) " +
+                "VALUES ('正文', 'migration-15-book', 1, 'display', 7, '12:2,45:2')",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 15, true, AppDatabase.MIGRATION_14_15,
+        )
+
+        // 1. 冗余索引必须消失
+        assertFalse(
+            "index_search_terms_term 应已被 v14→v15 删除",
+            indexExists(db, "index_search_terms_term"),
+        )
+
+        // 2. 按书索引必须保留（distinctBookIds 与按书删除依赖它）
+        assertTrue(
+            "index_search_terms_book 必须保留",
+            indexExists(db, "index_search_terms_book"),
+        )
+
+        // 3. search_terms 逐行数据全等（纯 DDL 不得动任何行）
+        val rowsCursor = db.query(
+            "SELECT term, chapter_index, text_basis, hits, offsets FROM search_terms " +
+                "WHERE book_id = 'migration-15-book' ORDER BY term ASC",
+        )
+        assertTrue("search_terms 数据应保留", rowsCursor.moveToFirst())
+        assertEquals("正文", rowsCursor.getString(0))
+        assertEquals(1, rowsCursor.getInt(1))
+        assertEquals("display", rowsCursor.getString(2))
+        assertEquals(7, rowsCursor.getInt(3))
+        assertEquals("12:2,45:2", rowsCursor.getString(4))
+        assertTrue("第二行应保留", rowsCursor.moveToNext())
+        assertEquals("测试", rowsCursor.getString(0))
+        assertEquals(0, rowsCursor.getInt(1))
+        assertEquals("original", rowsCursor.getString(2))
+        assertEquals(3, rowsCursor.getInt(3))
+        assertEquals("0:2", rowsCursor.getString(4))
+        assertFalse("不应出现第三行", rowsCursor.moveToNext())
+        rowsCursor.close()
+
+        // 4. books 数据保留
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'migration-15-book'")
+        assertTrue("books 数据应保留", bookCursor.moveToFirst())
+        assertEquals("迁移测试书15", bookCursor.getString(0))
+        bookCursor.close()
+
+        // 5. 正确性回归：删索引后同一查询仍返回同一行。
+        //    注意这只证明「结果没变」，不证明 SQLite 走了哪个索引 —— 后者需 EXPLAIN QUERY PLAN。
+        val queryCursor = db.query(
+            "SELECT hits FROM search_terms WHERE term = ? AND text_basis = ?",
+            arrayOf("测试", "original"),
+        )
+        assertTrue("删除冗余索引后查询结果应不变", queryCursor.moveToFirst())
+        assertEquals(3, queryCursor.getInt(0))
+        queryCursor.close()
+
+        db.close()
+    }
+
+    // ─── 13 → 15 代表性历史链 ───────────────────────────────────────────
+
+    /**
+     * 代表性历史链：v13 直升 v15，跨过 13→14（新建 `library_source_refs`）与
+     * 14→15（删冗余 term 索引）两段。
+     *
+     * 断言刻意区分两类事实：
+     * - **旧数据保留**：v13 已有的 books / reading_progress / highlights 在两段迁移后仍在；
+     * - **新表建立**：`library_source_refs` 是 13→14 新建的，v13 阶段**不存在**该表，
+     *   因此这里既不向它插数据、也不断言它「存活」，只断言末端可写可读。
+     */
+    @Test
+    @Throws(IOException::class)
+    fun migrate_13_to_15_full_chain_keeps_old_data_and_creates_source_refs() {
+        var db = migrationTestHelper.createDatabase(TEST_DB, 13)
+
+        db.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('chain15-book', '连续链路15书', '作者15', 'epub', 'chain15.epub', " +
+                "'hash-chain15', 8192, '/uri/c15', '/content/c15', 'ready', NULL, NULL, " +
+                "'2026-09-20T00:00:00Z', 'device-15', '{}', 1, '2026-09-20T00:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO reading_progress (book_id, progress_percent, last_read_at, " +
+                "total_reading_time_ms, completion_state, current_location_json, payload, " +
+                "revision, device_id, updated_at, completed_at, deleted_at) " +
+                "VALUES ('chain15-book', 44.0, '2026-09-20T01:00:00Z', 3600000, 'in_progress', " +
+                "'{\"chapter\":4}', '{}', 1, 'device-15', '2026-09-20T01:00:00Z', NULL, NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO highlights (id, book_id, text, note, color, chapter_title, progress_percent, " +
+                "locator_json, payload, created_at, device_id, revision, updated_at, deleted_at) " +
+                "VALUES ('chain15-hl', 'chain15-book', '连续链路15高亮', NULL, 'yellow', " +
+                "'第四章', 44.0, '{\"cfi\":\"/4/2\"}', '{}', '2026-09-20T02:00:00Z', 'device-15', 1, " +
+                "'2026-09-20T02:00:00Z', NULL)",
+        )
+        db.execSQL(
+            "INSERT INTO search_terms (term, book_id, chapter_index, text_basis, hits, offsets) " +
+                "VALUES ('链路', 'chain15-book', 0, 'original', 5, '8:2')",
+        )
+        db.close()
+
+        db = migrationTestHelper.runMigrationsAndValidate(
+            TEST_DB, 15, true,
+            AppDatabase.MIGRATION_13_14,
+            AppDatabase.MIGRATION_14_15,
+        )
+
+        // 1. 旧数据保留（v13 阶段已存在的三张表）
+        val bookCursor = db.query("SELECT title FROM books WHERE id = 'chain15-book'")
+        assertTrue("books 数据应保留", bookCursor.moveToFirst())
+        assertEquals("连续链路15书", bookCursor.getString(0))
+        bookCursor.close()
+
+        val progressCursor = db.query(
+            "SELECT progress_percent, total_reading_time_ms FROM reading_progress " +
+                "WHERE book_id = 'chain15-book'",
+        )
+        assertTrue("reading_progress 数据应保留", progressCursor.moveToFirst())
+        assertEquals(44.0, progressCursor.getDouble(0), 0.001)
+        assertEquals(3_600_000L, progressCursor.getLong(1))
+        progressCursor.close()
+
+        val hlCursor = db.query("SELECT text, chapter_title FROM highlights WHERE id = 'chain15-hl'")
+        assertTrue("highlights 数据应保留", hlCursor.moveToFirst())
+        assertEquals("连续链路15高亮", hlCursor.getString(0))
+        assertEquals("第四章", hlCursor.getString(1))
+        hlCursor.close()
+
+        // 2. 新表建立：library_source_refs 由 13→14 新建，末端必须可写可读
+        val tableCursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='library_source_refs'",
+        )
+        assertTrue("library_source_refs 应在 13→15 末端存在", tableCursor.moveToFirst())
+        tableCursor.close()
+
+        db.execSQL(
+            "INSERT INTO library_source_refs (book_id, root_id, provider_authority, document_id, " +
+                "display_name, format, size, last_modified, content_hash, candidate_fingerprint, " +
+                "last_seen_at, availability) " +
+                "VALUES ('chain15-book', NULL, 'com.android.externalstorage.documents', " +
+                "'primary:Books/chain15.epub', 'chain15.epub', 'epub', 8192, 1757000000000, " +
+                "'hash-chain15', NULL, 1757000000000, 'available')",
+        )
+        val refCursor = db.query(
+            "SELECT display_name, availability FROM library_source_refs WHERE book_id = 'chain15-book'",
+        )
+        assertTrue("library_source_refs 应可写可读", refCursor.moveToFirst())
+        assertEquals("chain15.epub", refCursor.getString(0))
+        assertEquals("available", refCursor.getString(1))
+        refCursor.close()
+
+        // 3. search_terms 行保留，且末端冗余 term 索引已删
+        val termCursor = db.query(
+            "SELECT hits FROM search_terms WHERE book_id = 'chain15-book' AND text_basis = 'original'",
+        )
+        assertTrue("search_terms 数据应保留", termCursor.moveToFirst())
+        assertEquals(5, termCursor.getInt(0))
+        termCursor.close()
+
+        assertFalse(
+            "历史链末端不应残留 index_search_terms_term",
+            indexExists(db, "index_search_terms_term"),
+        )
+        assertTrue(
+            "index_search_terms_book 应在历史链末端保留",
+            indexExists(db, "index_search_terms_book"),
+        )
+
+        // 4. 新表外键 CASCADE 生效（MigrationTestHelper 的裸连接默认不开外键）
+        db.execSQL("PRAGMA foreign_keys = ON")
+        db.execSQL("DELETE FROM books WHERE id = 'chain15-book'")
+        val orphanCursor = db.query("SELECT COUNT(*) FROM library_source_refs")
+        assertTrue(orphanCursor.moveToFirst())
+        assertEquals("删书应级联清掉来源引用", 0, orphanCursor.getInt(0))
+        orphanCursor.close()
+
+        db.close()
+    }
+
+    // ─── 正式开库回调：部分索引重建且 term 索引不复活 ──────────────────
+
+    /**
+     * A/B 两类用例走 [MigrationTestHelper] 的裸连接，**不触发 onOpen**，
+     * 因此无法证明「部分索引在真实开库路径上被重建」与「term 索引不被回调复活」。
+     * 本例补上这一环：用与生产 `DatabaseModule` 同样的 builder 形态真开一次库。
+     *
+     * 库名独立于 [TEST_DB] 与主应用库 `creation_reading_assistant_native`，
+     * 且 [tearDownOpenCallbackDb] 在前后各删一次，不接触任何用户数据。
+     */
+    @Test
+    fun openingDatabaseRebuildsPartialIndexesAndDoesNotResurrectTermIndex() {
+        val context: Context = ApplicationProvider.getApplicationContext()
+        tearDownOpenCallbackDb(context)
+
+        // 先用 v14 fixture 铺一个待升级的库，再交给 Room 正式打开（触发 14→15 + onOpen）。
+        var seeded = migrationTestHelper.createDatabase(OPEN_CALLBACK_DB, 14)
+        seeded.execSQL(
+            "INSERT INTO books (id, title, author, format, original_file_name, content_hash, " +
+                "size, local_uri, local_content_path, content_status, cover_data_url, description, " +
+                "imported_at, device_id, payload, revision, updated_at, deleted_at) " +
+                "VALUES ('open-callback-book', '开库回调用书', NULL, 'txt', 'open.txt', 'hash-open', " +
+                "1024, NULL, NULL, 'available', NULL, NULL, NULL, 'device-1', '{}', 1, " +
+                "'2026-09-20T00:00:00Z', NULL)",
+        )
+        seeded.close()
+
+        val db = Room.databaseBuilder(context, AppDatabase::class.java, OPEN_CALLBACK_DB)
+            .addCallback(AppDatabase.CreateIndexCallback())
+            .addMigrations(
+                AppDatabase.MIGRATION_1_2,
+                AppDatabase.MIGRATION_2_3,
+                AppDatabase.MIGRATION_3_4,
+                AppDatabase.MIGRATION_4_5,
+                AppDatabase.MIGRATION_5_6,
+                AppDatabase.MIGRATION_6_7,
+                AppDatabase.MIGRATION_7_8,
+                AppDatabase.MIGRATION_8_9,
+                AppDatabase.MIGRATION_9_10,
+                AppDatabase.MIGRATION_10_11,
+                AppDatabase.MIGRATION_11_12,
+                AppDatabase.MIGRATION_12_13,
+                AppDatabase.MIGRATION_13_14,
+                AppDatabase.MIGRATION_14_15,
+            )
+            .build()
+
+        try {
+            // 触发开库：onUpgrade（14→15）与 CreateIndexCallback.onOpen 都在首次连接时发生。
+            val handle = db.openHelper.writableDatabase
+
+            // 1. 迁移确实跑到了 v15
+            val versionCursor = handle.query("PRAGMA user_version")
+            assertTrue(versionCursor.moveToFirst())
+            assertEquals("开库后应已升到 v15", 15, versionCursor.getInt(0))
+            versionCursor.close()
+
+            // 2. 数据保留
+            val bookCursor = handle.query("SELECT title FROM books WHERE id = 'open-callback-book'")
+            assertTrue("开库后书籍数据应保留", bookCursor.moveToFirst())
+            assertEquals("开库回调用书", bookCursor.getString(0))
+            bookCursor.close()
+
+            // 3. PARTIAL_INDEX_SQL 对应的手工部分索引全部在 onOpen 后重建
+            AppDatabase.PARTIAL_INDEX_NAMES.forEach { name ->
+                assertTrue(
+                    "部分索引 $name 应在 onOpen 后重建",
+                    indexExists(handle, name),
+                )
+            }
+
+            // 4. term 索引没有被回调复活（PARTIAL_INDEX_SQL 不含它）
+            assertFalse(
+                "onOpen 不应重新建出 index_search_terms_term",
+                indexExists(handle, "index_search_terms_term"),
+            )
+            assertTrue(
+                "index_search_terms_book 应保留",
+                indexExists(handle, "index_search_terms_book"),
+            )
+        } finally {
+            db.close()
+            tearDownOpenCallbackDb(context)
+        }
+    }
+
+    private fun tearDownOpenCallbackDb(context: Context) {
+        context.deleteDatabase(OPEN_CALLBACK_DB)
+    }
+
+    /** 查 sqlite_master 判断索引是否存在。exists 语义，不涉及索引是否被查询使用。 */
+    private fun indexExists(db: SupportSQLiteDatabase, name: String): Boolean {
+        val cursor = db.query(
+            "SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?",
+            arrayOf(name),
+        )
+        return cursor.use { it.moveToFirst() }
     }
 }

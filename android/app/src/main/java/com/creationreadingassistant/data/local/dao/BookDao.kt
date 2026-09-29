@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import androidx.room.Update
 import androidx.room.Transaction
 import com.creationreadingassistant.data.local.entity.BookContentEntity
@@ -13,18 +14,40 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface BookDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * 写入书籍记录（存在则更新，不存在则插入）。
+     *
+     * ⚠️ **必须是 `@Upsert`，绝不能用 `@Insert(onConflict = REPLACE)`。**
+     *
+     * SQLite 的 `INSERT OR REPLACE` 语义是「先 DELETE 冲突行、再 INSERT」，而 Room 在
+     * 打开数据库时会执行 `PRAGMA foreign_keys = ON`（见生成的 `AppDatabase_Impl`）。
+     * `books` 是 13 张子表的外键父表（reading_progress / reading_sessions / notes /
+     * highlights / book_content / book_files / book_tag / book_category / shelf_book /
+     * reader_text_corrections / reader_text_rules / library_source_refs 为 CASCADE，
+     * inspirations.source_book_id 为 SET NULL），因此一次 REPLACE 就会把这本书的
+     * **全部阅读进度、会话、笔记、高亮、正文缓存与来源引用物理删除**，且不可撤销。
+     *
+     * 真机实测（2026-09-17，设备上 319MB 库的副本）：对 1 本书执行一次
+     * `INSERT OR REPLACE INTO books ...`，`reading_sessions` 从 208 行降到 5 行、
+     * `reading_progress` 4 → 3、`library_source_refs` 4 → 3。用户可见表现是
+     * 「读了很久，退出后书、进度、灵感全没了」，而导入记录存在 DataStore 里所以还在。
+     *
+     * `@Upsert` 生成 `INSERT ... ON CONFLICT DO UPDATE`，不删行、不触发级联，
+     * 写入后的行内容与 REPLACE 完全一致（Room 的 upsert 会更新全部列）。
+     */
+    @Upsert
     suspend fun upsert(book: BookEntity)
 
     /**
      * 更新已存在的书籍记录。
      *
-     * 与 SQLite 的 REPLACE 不同，UPDATE 不会先删除旧行，因此不会触发 books 外键的级联删除。
+     * 与 REPLACE 不同，UPDATE 不会先删除旧行，因此不会触发 books 外键的级联删除。
      */
     @Update
     suspend fun update(book: BookEntity): Int
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /** 批量写入；理由同 [upsert]（REPLACE 会级联删除子表）。 */
+    @Upsert
     suspend fun upsertAll(books: List<BookEntity>)
 
     @Query("SELECT * FROM books WHERE deleted_at IS NULL ORDER BY updated_at DESC")

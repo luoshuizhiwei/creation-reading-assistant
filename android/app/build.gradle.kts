@@ -19,8 +19,12 @@ android {
 
         // 版本号可由 CI 注入（./gradlew assembleRelease -PcraVersionName=1.2.3 -PcraVersionCode=10203）；
         // 本地缺省值仅为开发占位，正式发布一律走 release.yml 的 android-v tag 流程。
-        versionCode = providers.gradleProperty("craVersionCode").orNull?.toInt() ?: 2
-        versionName = providers.gradleProperty("craVersionName").orNull ?: "0.5.0"
+        //
+        // 0.5.1(3)：数据丢失修复（父表 @Insert(REPLACE) → @Upsert，见 BookDao.upsert 注释）。
+        // 与 0.5.0(2) 的代码差异只在数据库写入层，界面完全一致，故必须靠版本号区分 ——
+        // 0.5.0(2) 在「我的 → 日志与诊断 → 应用版本」里显示为 0.5.0，本版显示 0.5.1。
+        versionCode = providers.gradleProperty("craVersionCode").orNull?.toInt() ?: 3
+        versionName = providers.gradleProperty("craVersionName").orNull ?: "0.5.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         vectorDrawables {

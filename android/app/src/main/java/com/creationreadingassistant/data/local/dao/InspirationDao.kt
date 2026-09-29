@@ -4,6 +4,7 @@ import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Upsert
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
 import com.creationreadingassistant.data.local.entity.InspirationVariantEntity
@@ -12,7 +13,15 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface InspirationDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * 写入灵感记录（存在则更新）。
+     *
+     * ⚠️ 必须是 `@Upsert`，不能用 `@Insert(onConflict = REPLACE)`：`inspirations` 是
+     * `inspiration_variants`（CASCADE）与 `notes`（SET NULL）的外键父表，而 Room 会
+     * 打开 `PRAGMA foreign_keys = ON`。REPLACE 的「先删后插」会把这条灵感的全部
+     * 变体正文物理删除、并把引用它的笔记来源置空。详见 [BookDao.upsert]。
+     */
+    @Upsert
     suspend fun upsert(inspiration: InspirationEntity)
 
     @Query("SELECT * FROM inspirations WHERE deleted_at IS NULL ORDER BY updated_at DESC")
