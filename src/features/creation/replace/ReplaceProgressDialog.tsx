@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import type { ReplaceApplyResultView, ReplaceErrorView, ReplacePlanProgress } from "./types";
 import { describeReplaceError } from "./types";
 
@@ -46,9 +47,9 @@ export function ReplaceProgressDialog({
             <p className="replace-error-code" data-testid="replace-error-code">
               代码：{error.code}
             </p>
-            <button type="button" onClick={onClose} data-testid="replace-error-close">
+            <Button variant="outline" size="sm" onClick={onClose} data-testid="replace-error-close">
               关闭
-            </button>
+            </Button>
           </div>
         ) : result ? (
           <div className="replace-progress-done" data-testid="replace-done">
@@ -56,9 +57,9 @@ export function ReplaceProgressDialog({
             <p data-testid="replace-done-detail">
               应用 {result.appliedHitCount} 处命中，影响 {result.modifiedSceneIds.length} 个场景（已创建保护快照与变更记录）。
             </p>
-            <button type="button" onClick={onClose} data-testid="replace-done-close">
+            <Button size="sm" onClick={onClose} data-testid="replace-done-close">
               完成
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="replace-progress-active">
@@ -75,14 +76,15 @@ export function ReplaceProgressDialog({
               </p>
             )}
             {!isApplying && (
-              <button
-                type="button"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={onCancel}
                 data-testid="replace-cancel"
                 aria-label="取消"
               >
                 取消
-              </button>
+              </Button>
             )}
             {isApplying && (
               <p className="replace-progress-locked" data-testid="replace-apply-locked">

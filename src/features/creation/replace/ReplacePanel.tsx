@@ -1,5 +1,5 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import { Tabs } from "@/components/ui";
+import { Button, Tabs } from "@/components/ui";
 import { ReplacePlanView } from "./ReplacePlanView";
 import { ReplaceProgressDialog } from "./ReplaceProgressDialog";
 import { createReplacePlanService } from "./replace-service";
@@ -188,9 +188,9 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
         <span className="replace-scope-label" data-testid="replace-scope">
           范围：{scopeLabel}
         </span>
-        <button type="button" className="replace-panel-close" onClick={onClose} aria-label="关闭" data-testid="replace-panel-close">
+        <Button variant="outline" onClick={onClose} aria-label="关闭" data-testid="replace-panel-close">
           关闭
-        </button>
+        </Button>
       </header>
 
       <div className="replace-query-form">
@@ -224,22 +224,17 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
           ]}
           ariaLabel="替换模式"
         />
-        <button
-          type="button"
-          onClick={() => void handlePreview()}
-          disabled={busy}
-          data-testid="replace-preview"
-        >
+        <Button onClick={() => void handlePreview()} disabled={busy} data-testid="replace-preview">
           预览替换
-        </button>
+        </Button>
       </div>
 
       {error && phase === "error" && (
         <div className="replace-error-banner" data-testid="replace-error-banner">
           <p>{error.message}</p>
-          <button type="button" onClick={handleReset} data-testid="replace-error-reset">
+          <Button variant="outline" size="sm" onClick={handleReset} data-testid="replace-error-reset">
             重新预览
-          </button>
+          </Button>
         </div>
       )}
 
@@ -252,17 +247,12 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
             onToggleScene={handleToggleScene}
           />
           <div className="replace-actions">
-            <button
-              type="button"
-              onClick={() => void handleApply()}
-              disabled={remaining === 0}
-              data-testid="replace-apply"
-            >
+            <Button onClick={() => void handleApply()} disabled={remaining === 0} data-testid="replace-apply">
               应用替换（{remaining} 处）
-            </button>
-            <button type="button" onClick={handleReset} data-testid="replace-replan">
+            </Button>
+            <Button variant="outline" onClick={handleReset} data-testid="replace-replan">
               重新预览
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -272,9 +262,9 @@ export function ReplacePanel({ projectId, chapterId, sceneId, onClose, service }
           <p>
             替换完成：应用 {result.appliedHitCount} 处命中，影响 {result.modifiedSceneIds.length} 个场景（已创建保护快照与变更记录）。
           </p>
-          <button type="button" onClick={handleReset} data-testid="replace-done-reset">
+          <Button variant="outline" size="sm" onClick={handleReset} data-testid="replace-done-reset">
             继续
-          </button>
+          </Button>
         </div>
       )}
 

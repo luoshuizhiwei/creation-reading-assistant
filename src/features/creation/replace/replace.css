@@ -61,30 +61,8 @@
   min-width: 200px;
 }
 
-.replace-mode-toggle {
-  display: inline-flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 9px;
-  background: var(--bg-subtle);
-}
-
-.replace-mode-toggle button {
-  padding: 6px 12px;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-muted);
-  cursor: pointer;
-}
-
-.replace-mode-toggle button[aria-pressed="true"] {
-  background: var(--bg-surface);
-  color: var(--text-main);
-  font-weight: 600;
-  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.12);
-}
+/* 「普通文本 / 正则」切换已由共享 <Tabs variant="pill"> 渲染，
+   原 .replace-mode-toggle 三块规则随第 6 步迁移下线（全仓零引用）。 */
 
 .replace-plan-view {
   display: flex;
@@ -158,42 +136,9 @@
   gap: 10px;
 }
 
-.replace-actions button,
-.replace-query-form button,
-.replace-panel-header button {
-  padding: 7px 14px;
-  border-radius: 8px;
-  border: 1px solid var(--accent-spine);
-  background: var(--accent-spine);
-  color: #fff;
-  cursor: pointer;
-  transition: background-color 150ms ease, border-color 150ms ease;
-}
-
-.replace-actions button:hover:not(:disabled),
-.replace-query-form button:hover,
-.replace-panel-header button:hover {
-  border-color: var(--copper-dark);
-  background: var(--copper-dark);
-}
-
-/* 关闭是次要动作：描边幽灵样式，不与「预览替换」争层级。 */
-.replace-panel-header .replace-panel-close {
-  border-color: var(--border-strong);
-  background: var(--bg-surface);
-  color: var(--text-muted);
-}
-
-.replace-panel-header .replace-panel-close:hover {
-  border-color: var(--accent-spine);
-  background: var(--bg-surface);
-  color: var(--accent-spine);
-}
-
-.replace-actions button:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+/* 按钮已迁到共享 <Button>（第 6 步）。原先这三条 grouped 后代规则把「预览替换」
+   涂成实心主色，顺带也压住了 <Tabs variant="pill"> 的胶囊标签样式（特异性 0,1,1 >
+   Tailwind 工具类 0,1,0）——删掉后 Tabs 恢复自身外观。 */
 
 .replace-progress-overlay {
   position: fixed;
