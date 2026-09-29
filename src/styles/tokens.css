@@ -32,6 +32,14 @@
   --font-content: "Source Han Serif SC", "Noto Serif SC", "Songti SC", SimSun, serif;
   --font-data: "Cascadia Mono", "JetBrains Mono", Consolas, monospace;
 
+  /* D-2 修复：editorial-studio.css 等 8 个文件共 46 处引用
+   * --font-sans / --font-serif / --font-mono，此前从未定义，
+   * 浏览器静默回退到默认字体（宋体出现 3 种写法、等宽 2 种写法）。
+   * 这里补别名层指向权威令牌，引用名不改。新代码用 --font-ui/-content/-data。 */
+  --font-sans: var(--font-ui);
+  --font-serif: var(--font-content);
+  --font-mono: var(--font-data);
+
   /* 圆角与阴影（规格 §3.4） */
   --radius-control: 5px;
   --radius-panel: 8px;

@@ -25,9 +25,13 @@ export default {
         }
       },
       fontFamily: {
-        sans: ["Inter", "'Noto Sans SC'", "'Microsoft YaHei'", "ui-sans-serif", "system-ui", "sans-serif"],
-        serif: ["'Noto Serif SC'", "'SimSun'", "ui-serif", "serif"],
-        mono: ["'JetBrains Mono'", "ui-monospace", "monospace"]
+        // 指向 styles/tokens.css 的权威令牌，避免这里另写一份字体栈。
+        // 原先硬写 "Inter"：包内不分发该字体（仓库无任何 woff/ttf，
+        // index.html CSP 的 font-src 只允许 'self' data: file:），
+        // Windows 上拿不到 Inter，实际静默回退——与 --font-ui 的栈不一致。
+        sans: ["var(--font-ui)"],
+        serif: ["var(--font-content)"],
+        mono: ["var(--font-data)"]
       },
       boxShadow: {
         paper: "0 18px 50px rgba(34, 38, 48, 0.1)",
