@@ -84,6 +84,27 @@ describe("Button 强调层级（规格 §2）", () => {
     expect(screen.getByTestId("l").className).toMatch(/\bh-10\b/);
   });
 
+  // 这条才是真正锁住分层修复的用例。只断言「px-* 存在」不够：base 里当时同时
+  // 写着 px-3，与尺寸层的 px-2 冲突，Tailwind 按值大小发射（px-2 在前、px-3 在后），
+  // 于是 sm 拿到的是 12px 内边距——两个类都「在」，实际生效的只有后者。
+  // 所以断言必须是：每个按钮的类串里只允许有一个内边距工具，且值归尺寸层。
+  it.each([
+    ["sm", "px-2.5"],
+    ["md", "px-3"],
+    ["lg", "px-4"]
+  ])("size=%s 只声明一个内边距工具且等于规格值 %s", (size, expected) => {
+    render(<Button size={size} data-testid={size}>x</Button>);
+    const cls = screen.getByTestId(size).className.split(/\s+/);
+    const paddings = cls.filter((c) => /^(!?p|px|py|pl|pr)-/.test(c));
+    expect(paddings).toEqual([expected]);
+  });
+
+  it("icon 变体只有 p-0，不得同时带 px-*", () => {
+    render(<Button variant="icon" aria-label="关闭">×</Button>);
+    const cls = screen.getByRole("button", { name: "关闭" }).className.split(/\s+/);
+    expect(cls.filter((c) => /^(!?p|px|py|pl|pr)-/.test(c))).toEqual(["p-0"]);
+  });
+
   it("icon 尺寸为正方形且带 aria-label", () => {
     render(
       <Button variant="icon" aria-label="关闭侧栏">

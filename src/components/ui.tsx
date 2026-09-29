@@ -47,16 +47,18 @@ export const Button = forwardRef<
   // Tailwind 会把它当成阴影颜色、只产出 --tw-shadow-color 而没有 box-shadow 声明，
   // 因此用任意属性形式。
   //
-  // 本步只做能力扩展：几何（h-9/rounded-lg/text-sm/gap-2/duration-150）保持与旧版一致，
-  // 刻度收敛到 --control-h-* / --radius-* / --text-13 / --sp-3 / --dur-1 排在 §6 第 8 步，
-  // 否则一次提交里既改能力又改视觉，截图无法归因。
+  // base 里绝不能放内边距：Tailwind 同类工具按「值从小到大」发射，
+  // px-3 排在 px-2 / p-0 之后，写进 base 就会压掉尺寸层与 icon 的 p-0
+  // （sm 实际拿到 12px 内边距，icon 按钮在 28×28 方框里只剩 4px 内容区）。
+  // 同一属性只允许一层拥有：内边距归 sizes，icon 由 variant 的 p-0 负责。
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-lg px-3 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]";
+    "inline-flex items-center justify-center gap-2 rounded-lg text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]";
 
   // md 暂留 36px：工具栏里按钮与 .paper-input（同为 h-9）并排，
   // 默认高度必须与输入框同一批收敛到 32px，否则错位（排在规格 §6 第 8 步）。
+  // 内边距按规格 §2.2：sm 10px / md 12px / lg 16px。
   const sizes: Record<ButtonSize, string> = {
-    sm: "h-7 px-2 text-xs",
+    sm: "h-7 px-2.5 text-xs",
     md: "h-9 px-3",
     lg: "h-10 px-4"
   };

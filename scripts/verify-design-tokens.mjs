@@ -135,6 +135,25 @@ for (const size of ["sm", "md", "lg"]) {
 if (!/loading/.test(uiTsx) || !/aria-busy/.test(uiTsx)) fail("Button 缺少 loading 态（须同时置 aria-busy）");
 if (!/disabled:opacity-55/.test(uiTsx)) fail("disabled 透明度应统一为 .55（旧代码有 0.45/0.5/0.4 三种）");
 
+// 分层所有权：同一属性只能有一层拥有。Tailwind 把同类工具按「值从小到大」发射，
+// 所以 base 里的 px-3 会盖掉尺寸层的 px-2.5 和 icon 的 p-0 —— 谁写在后面谁赢，
+// 与类名字符串顺序无关。内边距必须只属于 sizes / icon 层。
+const baseClassSource = /const base =\s*\n?\s*"([^"]+)"/.exec(uiTsx);
+if (!baseClassSource) fail("读不到 Button 的 base 类串，分层检查无法执行");
+else {
+  const padding = (baseClassSource[1].match(/(?:^|\s)(?:p|px|py|pl|pr)-[\w.]+/g) ?? []).map((s) => s.trim());
+  if (padding.length > 0) {
+    fail(`Button 的 base 不得包含内边距 ${padding.join(", ")}：Tailwind 按值大小发射同类工具，` +
+      `base 的 px-* 会压掉尺寸层（sm/lg）和 icon 的 p-0，导致 padding 静默失效`);
+  }
+}
+// 每一档尺寸必须自带水平内边距，否则该档就继承了「无内边距」
+for (const size of ["sm", "md", "lg"]) {
+  const entry = new RegExp(`"?${size}"?\\s*:\\s*"([^"]+)"`).exec(uiTsx);
+  if (!entry) fail(`读不到尺寸 ${size} 的类串`);
+  else if (!/(?:^|\s)px-/.test(entry[1])) fail(`尺寸 ${size} 必须自己声明 px-*（base 已不再兜底内边距）`);
+}
+
 // 危险色必须走 --proof-mark，不能复用主操作色。
 // 必须逐个 variant 检查：如果只看 danger-outline 到 danger-filled 这一整段，
 // 把 danger-filled 换成 bg-copper 时 danger-outline 里的 --proof-mark 仍然存在，
