@@ -1,4 +1,5 @@
 import { Library, Lightbulb, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui";
 import { InboxItemDetail } from "./InboxItemDetail";
 import type { InboxItem } from "@/types/creation";
 import type { AISettings } from "@/types/ai";
@@ -107,8 +108,9 @@ export function InboxItemList({
               </span>
               <span className="inbox-item-actions">
                 {item.status !== "used" && (
-                  <button
-                    type="button"
+                  <Button
+                    size="sm"
+                    variant="outline"
                     disabled={convertingIds.has(item.id)}
                     onClick={(event) => {
                       event.stopPropagation();
@@ -117,11 +119,11 @@ export function InboxItemList({
                   >
                     <Library size={13} />{" "}
                     {convertingIds.has(item.id) ? "正在转卡…" : "转为资料卡"}
-                  </button>
+                  </Button>
                 )}
-                <button
-                  type="button"
-                  className={confirmingId === item.id ? "confirming" : ""}
+                <Button
+                  size="sm"
+                  variant={confirmingId === item.id ? "danger-outline" : "outline"}
                   onClick={(event) => {
                     event.stopPropagation();
                     if (confirmingId === item.id) onDelete(item.id);
@@ -130,20 +132,21 @@ export function InboxItemList({
                 >
                   <Trash2 size={13} />
                   {confirmingId === item.id ? "确认移出" : "移出"}
-                </button>
+                </Button>
               </span>
             </li>
           ))
         )}
         {hasMore && (
           <li className="stats-card inbox-load-more">
-            <button
-              type="button"
+            <Button
+              size="sm"
+              variant="tonal"
               disabled={loadingMore}
               onClick={onLoadMore}
             >
               {loadingMore ? "正在加载更多…" : "加载更多"}
-            </button>
+            </Button>
             <span className="stats-note">已加载 {items.length} 条</span>
           </li>
         )}

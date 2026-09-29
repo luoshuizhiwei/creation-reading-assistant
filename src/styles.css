@@ -4911,30 +4911,9 @@ button:disabled {
   flex-shrink: 0;
 }
 
-.inbox-item-actions button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--paper-muted);
-  font-size: 12px;
-  padding: 5px 9px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.inbox-item-actions button:hover {
-  color: var(--copper);
-  border-color: var(--copper);
-}
-
-.inbox-item-actions button.confirming {
-  color: #c0392b;
-  border-color: #c0392b;
-  background: color-mix(in srgb, #c0392b 8%, transparent);
-}
+/* 行内按钮已迁到共享 <Button>（转为资料卡 -> outline，移出 -> outline / danger-outline），
+   这三条后代规则随之下线；.confirming 的 #c0392b 红边语义由 danger-outline 承担，
+   第 7 步的硬编码红色清单又少 3 处。容器规则 .inbox-item-actions 只留 flex 布局。 */
 
 .spin {
   animation: creation-spin 0.9s linear infinite;
@@ -5749,24 +5728,9 @@ button:disabled {
   font-size: 12px;
 }
 
-.inbox-inspiration-link {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  margin-top: 8px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--paper-muted);
-  font-size: 12px;
-  padding: 5px 10px;
-  cursor: pointer;
-}
-
-.inbox-inspiration-link:hover {
-  color: var(--copper);
-  border-color: var(--copper);
-}
+/* 「新建想法」已迁到共享 <Button variant="outline" size="sm">（第 6 步），
+   原 .inbox-inspiration-link 两条规则随迁移下线（类名全仓零引用），
+   margin-top 由 .inbox-hero-actions 的 flex gap 接管，不再需要。 */
 
 /* ---------------------------------------------------------------------------
  * 桌面工作台响应式收口

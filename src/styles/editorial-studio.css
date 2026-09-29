@@ -1397,8 +1397,9 @@ select:focus-visible,
   border-radius: 8px;
 }
 
-.inbox-item-actions button,
-.inbox-inspiration-link,
+/* 分组规则已瘦身：.inbox-item-actions button 与 .inbox-inspiration-link 随收件箱
+   迁移下线（前者容器内已全是 <Button>，组件自带圆角；后者类名零引用），
+   只剩 select 需要把圆角对齐到 8px。 */
 .inbox-target-project select {
   border-radius: 8px;
 }
@@ -1416,25 +1417,10 @@ select:focus-visible,
   background: transparent !important;
 }
 
-.inbox-load-more button {
-  border: 1px solid color-mix(in srgb, var(--accent-spine) 40%, var(--border-strong));
-  border-radius: 8px;
-  background: var(--bg-surface);
-  color: var(--accent-spine);
-  font-size: 12px;
-  font-weight: 650;
-  padding: 6px 13px;
-  cursor: pointer;
-}
-
-.inbox-load-more button:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.inbox-load-more button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
+/* 「加载更多」已迁到共享 <Button variant="tonal" size="sm">（第 6 步）：
+   原三条后代规则（基态 / hover / disabled）整组下线——容器内已无裸 button，
+   留着会用 (0,1,1) 压掉组件样式。disabled 的 0.55 透明度与组件的 .55 一致。
+   容器 .inbox-load-more 只保留虚线托盘布局。 */
 
 /* Save state reads as a status lamp beside the manuscript head. */
 .inbox-save-status {

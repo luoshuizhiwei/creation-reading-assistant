@@ -1,5 +1,6 @@
 import { useState, type FormEvent, type KeyboardEvent } from "react";
 import { Plus, Send } from "lucide-react";
+import { Button } from "@/components/ui";
 import { InboxTargetProjectSelect } from "./InboxConvertToCardDialog";
 import { TYPE_LABELS } from "./types";
 import type { CreationProjectSummary } from "@/types/creation";
@@ -99,9 +100,9 @@ export function InboxQuickInput({
       </div>
 
       <div className="inbox-hero-actions">
-        <button type="button" className="inbox-inspiration-link" onClick={onCreateNew}>
+        <Button variant="outline" size="sm" onClick={onCreateNew}>
           <Plus size={13} /> 新建想法
-        </button>
+        </Button>
         {!projectId && projects.length > 0 && (
           <InboxTargetProjectSelect
             projects={projects}
