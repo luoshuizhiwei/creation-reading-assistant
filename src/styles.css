@@ -3883,29 +3883,8 @@ button:disabled {
   gap: 4px;
 }
 
-.history-item-actions button:not([data-variant]) {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: transparent;
-  color: var(--paper-muted);
-  font-size: 12px;
-  padding: 5px 9px;
-  cursor: pointer;
-}
-
-.history-item-actions button:not([data-variant]):hover {
-  color: var(--copper);
-  border-color: var(--copper);
-}
-
-.history-item-actions button:not([data-variant]).confirming {
-  color: #c0392b;
-  border-color: #c0392b;
-  background: color-mix(in srgb, #c0392b 8%, transparent);
-}
+/* 行内操作按钮已全部迁到共享 <Button>（见 history-local.css 同族说明），
+   这份全局副本随之下线。类名 .history-item-actions 本身仍由两处容器使用，保留。 */
 
 /* ---------------------------------------------------------------------------
  * 鍒涗綔宸ヤ綔鍙帮細鎼滅储闈㈡澘锛堝垏锟?10b锟? * ------------------------------------------------------------------------- */

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, Clock3, Edit3, Flame, Layers, Library, PencilLine, Target, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useUIStore } from "@/stores/ui-store";
 import type { CreationProjectSetup, ProjectHomeEntry, ProjectStatsView, ProjectUpdateGoalCommand, SessionEntry } from "@/types/creation";
@@ -81,16 +82,17 @@ function GoalProgressCard({
       <h3>
         <Target size={15} /> 目标进度
         {setup ? (
-          <button
-            type="button"
-            className="stats-goal-edit"
+          <Button
+            variant="tonal"
+            size="sm"
+            className="shrink-0"
             onClick={() => {
               setGoalError(null);
               setGoalOpen(true);
             }}
           >
             <Edit3 size={13} /> 编辑目标
-          </button>
+          </Button>
         ) : null}
       </h3>
       <div className="stats-metric-switch" role="group" aria-label="字数指标预览">
@@ -320,9 +322,9 @@ export function StatsPage({ projectId }: StatsPageProps) {
                   </em>
                 </span>
                 <span className="history-item-actions">
-                  <button
-                    type="button"
-                    className="stats-session-edit"
+                  <Button
+                    size="sm"
+                    variant="outline"
                     onClick={() => {
                       setSessionError(null);
                       setEditingSession(session);
@@ -330,10 +332,10 @@ export function StatsPage({ projectId }: StatsPageProps) {
                   >
                     <Edit3 size={13} />
                     修正
-                  </button>
-                  <button
-                    type="button"
-                    className={confirmingId === session.id ? "confirming" : ""}
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant={confirmingId === session.id ? "danger-outline" : "outline"}
                     onClick={() => {
                       if (confirmingId === session.id) void handleDeleteSession(session.id);
                       else setConfirmingId(session.id);
@@ -341,7 +343,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
                   >
                     <Trash2 size={13} />
                     {confirmingId === session.id ? "确认删除" : "删除"}
-                  </button>
+                  </Button>
                 </span>
               </li>
             ))}

@@ -156,31 +156,9 @@
   gap: 6px;
 }
 
-.history-item-actions button:not([data-variant]) {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border-subtle);
-  background: transparent;
-  color: var(--text-muted);
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.history-item-actions button:not([data-variant]):hover {
-  border-color: var(--border-strong);
-  background: var(--bg-subtle);
-  color: var(--text-main);
-}
-
-.history-item-actions button:not([data-variant]).confirming {
-  border-color: #c0392b;
-  background: color-mix(in srgb, #c0392b 8%, var(--bg-surface));
-  color: #c0392b;
-}
+/* 行内操作按钮已全部迁到共享 <Button>（第 6 步：HistoryPage 4 处 + StatsPage 2 处，
+   后者借用本容器类名），原先这三条 :not([data-variant]) 排除规则的最后两个使用方
+   已消失，整组下线；.confirming 的红边语义由 danger-outline variant 承担。 */
 
 /* ---------- 模态通用 ---------- */
 
@@ -447,8 +425,9 @@
    三套配色随之下线——它们只服务这 4 个对话框，且 -danger 硬编码 #c0392b，
    正是第 7 步要换成 --proof-mark 的那一类。 */
 
-/* 键盘可达性：统一 focus-visible 焦点环 */
-.history-item-actions button:not([data-variant]):focus-visible,
+/* 键盘可达性：统一 focus-visible 焦点环
+   （.history-item-actions 的成员随行内按钮迁移一并删掉：容器内已无裸 <button>，
+   该成员永远不会再命中，留着只会被误读成"行内按钮还有裸的"） */
 .history-tabs button:focus-visible,
 .history-field select:focus-visible,
 .history-field input:focus-visible {

@@ -1896,25 +1896,16 @@ select:focus-visible,
   font-variant-numeric: tabular-nums;
 }
 
-/* Goal card: the edit action docks right of the section voice. */
-.stats-goal-edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  margin-left: auto;
-  border: 0;
-  border-radius: 6px;
-  background: transparent;
-  color: var(--accent-spine);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 3px 8px;
-  cursor: pointer;
-}
-
-.stats-goal-edit:hover {
-  background: var(--accent-hover);
-}
+/* Goal card: the edit action docks right of the section voice.
+   「编辑目标」已迁到共享 <Button variant="tonal" size="sm">（第 6 步），
+   原 .stats-goal-edit 两条规则随迁移下线（类名全仓零引用）。
+   variant 取 tonal 的依据：原规则是 --accent-spine 文字 + hover 得 --accent-hover
+   （= --action-tint）淡主色底，即"蓝字淡蓝底"，正是 tonal 的定义；若取 ghost，
+   文字会转灰而 <svg> 仍被 .stats-card h3 svg{color:--copper} 上成蓝色，图标与
+   文字割裂。
+   顺带一条事实：原来的 margin-left:auto 是空转的——父级 h3 是 inline-flex，
+   宽度由内容收缩决定，auto 边距没有可分配的剩余空间。所以迁移没有丢右靠效果，
+   按钮本来就紧跟标题。 */
 
 /* Cards toolbar holds one line of instruments; never squeeze to stack.
  * The row itself may wrap when the desk is narrow. */
