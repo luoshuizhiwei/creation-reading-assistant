@@ -442,9 +442,9 @@ export function CardsPage({ project }: CardsPageProps) {
                 <small>{resource.sha256.slice(0, 12)}…</small>
                 {resource.ownerScope === "card" ? (
                   <small>请在卡片库管理</small>
-                ) : <button
-                  type="button"
-                  className={confirmingResource === resource.id ? "confirming" : ""}
+                ) : <Button
+                  size="sm"
+                  variant={confirmingResource === resource.id ? "danger-filled" : "danger-outline"}
                   onClick={() => {
                     if (confirmingResource === resource.id) {
                       void handleDetach(resource);
@@ -456,7 +456,7 @@ export function CardsPage({ project }: CardsPageProps) {
                 >
                   <Trash2 size={12} />
                   {confirmingResource === resource.id ? "确认移除" : "移除"}
-                </button>}
+                </Button>}
               </li>
             ))}
           </ul>
@@ -479,8 +479,9 @@ export function CardsPage({ project }: CardsPageProps) {
               placeholder="里程碑说明，例如：角色设定定稿 v1"
             />
             <div className="cards-form-actions">
-              <button type="button" className="cards-save" disabled={milestoneBusy} onClick={() => void createMilestone()}>保存里程碑</button>
-              <button type="button" className="cards-cancel" onClick={() => { setShowMilestone(false); setMilestoneReason(""); }}>取消</button>
+              {/* .cards-save / .cards-cancel 仍服务其它 4 个未迁移文件，规则保留；本页面用组件等价替换 */}
+              <Button variant="primary" disabled={milestoneBusy} onClick={() => void createMilestone()}>保存里程碑</Button>
+              <Button variant="outline" onClick={() => { setShowMilestone(false); setMilestoneReason(""); }}>取消</Button>
             </div>
           </div>
         )}
@@ -546,24 +547,24 @@ export function CardsPage({ project }: CardsPageProps) {
                 placeholder="搜索名称或别名"
               />
             </span>
-            <button type="button" className="cards-manage" onClick={() => setShowCardTypeEditor(true)}>
+            <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowCardTypeEditor(true)}>
               <Layers size={14} /> 卡片类型
-            </button>
-            <button type="button" className="cards-manage" onClick={() => setShowRelationTypeEditor(true)}>
+            </Button>
+            <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowRelationTypeEditor(true)}>
               <GitBranch size={14} /> 关系类型
-            </button>
-            <button type="button" className="cards-manage" onClick={() => setShowImportDialog(true)}>
+            </Button>
+            <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowImportDialog(true)}>
               <Upload size={14} /> 导入
-            </button>
-            <button type="button" className="cards-manage" onClick={() => setShowExportDialog(true)}>
+            </Button>
+            <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowExportDialog(true)}>
               <Download size={14} /> 导出
-            </button>
-            <button type="button" className="cards-manage" onClick={() => setShowLinkDialog(true)}>
+            </Button>
+            <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setShowLinkDialog(true)}>
               <Link2 size={14} /> 关联卡片
-            </button>
-            <button type="button" className="cards-add" onClick={() => newCardInKind(filterKind)}>
+            </Button>
+            <Button className="shrink-0 whitespace-nowrap" onClick={() => newCardInKind(filterKind)}>
               <Plus size={15} /> 新建并关联
-            </button>
+            </Button>
           </div>
         )}
       </header>

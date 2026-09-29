@@ -210,23 +210,6 @@
   opacity: 0.8;
 }
 
-.cards-manage {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 5px 10px;
-  border: 1px solid var(--border, #d8d8e0);
-  border-radius: 6px;
-  background: var(--surface, #ffffff);
-  color: var(--text, #2a2a33);
-  font-size: 13px;
-  cursor: pointer;
-}
-
-.cards-manage:hover {
-  border-color: var(--accent, #3a6ea5);
-}
-
 .project-card-link-note,
 .project-card-link-empty {
   margin: 0;
