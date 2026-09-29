@@ -120,6 +120,12 @@
   --control-h-lg: 40px;
   --focus-ring: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--action-primary);
 
+  /* 实色色块（主操作、危险填充）上的前景色。不能写死 text-white：
+   * 暗色主题的 --action-primary 是浅蓝 #7fa5d9，白字压上去只有 2.53:1，
+   * 远低于 AA 的 4.5:1；改用深色墨后升到 7.03:1。
+   * --proof-mark 同理（2.96:1 → 6.01:1）。浅色主题仍是白字（6.48 / 5.21）。 */
+  --fg-on-solid: #ffffff;
+
   /* Tailwind alpha 通道 */
   --rgb-app: 236 239 242;
   --rgb-surface: 248 249 250;
@@ -148,6 +154,9 @@
   --proof-mark: #e07965;
   --proof-tint: #33221e;
   --info: #7fa5d9;
+
+  /* 夜校：主色/危险色都提亮了，色块上的前景必须反过来变深，否则白字不可读 */
+  --fg-on-solid: #15181c;
 
   --rgb-app: 21 24 28;
   --rgb-surface: 27 31 36;

@@ -502,7 +502,7 @@ select:focus-visible,
   box-shadow: 0 4px 12px rgba(34, 38, 48, 0.08);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]),
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
 .project-home-create-first,
 .cards-add,
 .cards-save,
@@ -512,7 +512,7 @@ select:focus-visible,
   color: #fff;
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):hover,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover,
 .project-home-create-first:hover,
 .cards-add:hover,
 .cards-save:hover,
@@ -2142,7 +2142,7 @@ select:focus-visible,
   box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]),
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
 .project-home-create-first,
 .cards-add,
 .cards-save,
@@ -2150,7 +2150,7 @@ select:focus-visible,
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):active,
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):active,
 .project-home-create-first:active,
 .cards-add:active,
 .cards-save:active,
