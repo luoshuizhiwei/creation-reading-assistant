@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArchiveRestore, BookOpenCheck, Layers3, Paperclip, Pencil, Plus, Search, Trash2, UsersRound } from "lucide-react";
-import { Dialog, Select } from "@/components/ui";
+import { Button, Dialog, Select } from "@/components/ui";
 import { CardEditorForm } from "@/features/creation/cards/components/CardEditorForm";
 import { CardCoverImage } from "@/features/creation/cards/components/CardCoverImage";
 import { CardListSidebar } from "@/features/creation/cards/components/CardListSidebar";
@@ -183,12 +183,12 @@ export function GlobalCardLibraryPage() {
           <span className="cards-detail-kind">{typeNameMap.get(selectedCard.kind) ?? selectedCard.kind}</span>
           <h2>{selectedCard.title}</h2>
         </div>
-        <button type="button" className="global-card-library-edit" onClick={() => setDraft(selectedCard)}>
+        <Button variant="outline" onClick={() => setDraft(selectedCard)}>
           <Pencil size={14} /> 编辑
-        </button>
-        <button type="button" className="global-card-library-delete" onClick={() => void openDeleteImpact()}>
+        </Button>
+        <Button variant="danger-outline" onClick={() => void openDeleteImpact()}>
           <Trash2 size={14} /> 删除全局卡片
-        </button>
+        </Button>
       </header>
       {/* 封面在阶段 1 只做到数据层持久化，界面从未渲染；这里补上真实展示。 */}
       <CardCoverImage cardId={selectedCard.id} resources={resources} title={selectedCard.title} />
@@ -221,16 +221,16 @@ export function GlobalCardLibraryPage() {
       </section>
       <section className="global-card-library-assets" aria-label="全局附件">
         <header><span><Paperclip size={15} /> 全局附件</span><div className="global-card-library-asset-actions">
-          {!resources.some((resource) => resource.role === "cover") && <button type="button" onClick={() => void addResource("cover")}><Plus size={13} /> 设置封面</button>}
-          <button type="button" onClick={() => void addResource()}><Plus size={13} /> 添加附件</button>
+          {!resources.some((resource) => resource.role === "cover") && <Button size="sm" variant="outline" onClick={() => void addResource("cover")}><Plus size={13} /> 设置封面</Button>}
+          <Button size="sm" variant="outline" onClick={() => void addResource()}><Plus size={13} /> 添加附件</Button>
         </div></header>
         {resources.length === 0 ? <p>暂无附件。文件归这张全局卡片所有，不依附于任何单一项目。</p> : (
           <ul>{resources.map((resource) => <li key={resource.id}>
             <div><strong>{resource.role === "cover" ? "封面 · " : ""}{resource.originalName ?? resource.relativePath.split("/").pop()}</strong><span>{(resource.size / 1024).toFixed(1)} KB · {resource.sha256.slice(0, 12)}…</span></div>
-            <button type="button" className={confirmingResource === resource.id ? "confirming" : ""} onClick={() => {
+            <Button size="sm" variant={confirmingResource === resource.id ? "danger-filled" : "danger-outline"} onClick={() => {
               if (confirmingResource === resource.id) void removeResource(resource);
               else setConfirmingResource(resource.id);
-            }}><Trash2 size={12} /> {confirmingResource === resource.id ? "确认移除" : "移除"}</button>
+            }}><Trash2 size={12} /> {confirmingResource === resource.id ? "确认移除" : "移除"}</Button>
           </li>)}</ul>
         )}
       </section>
@@ -241,9 +241,10 @@ export function GlobalCardLibraryPage() {
       <BookOpenCheck size={30} />
       <h2>从一张可复用的设定开始</h2>
       <p>卡片属于你的世界观，而不是某一个项目。选中卡片可查看它正在服务的作品。</p>
-      <button type="button" className="cards-add" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>
+      {/* 规格 §3.3：空状态主 CTA 用 lg */}
+      <Button size="lg" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>
         <Plus size={15} /> 新建全局卡片
-      </button>
+      </Button>
     </div>
   );
 
@@ -264,12 +265,12 @@ export function GlobalCardLibraryPage() {
             <Search size={14} />
             <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="搜索名称、别名或字段" />
           </label>
-          <button type="button" className="cards-add" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>
+          <Button className="shrink-0 whitespace-nowrap" onClick={() => setDraft(newGlobalCard(filterKind || cardTypes[0]?.kind || "character"))}>
             <Plus size={15} /> 新建全局卡片
-          </button>
-          <button type="button" className="global-card-library-trash" onClick={() => setTrashOpen(true)}>
+          </Button>
+          <Button className="shrink-0 whitespace-nowrap" variant="outline" onClick={() => setTrashOpen(true)}>
             <ArchiveRestore size={15} /> 回收站 {trashItems.length}
-          </button>
+          </Button>
         </div>
       </header>
       <div className="cards-layout global-card-library-layout">
@@ -296,8 +297,9 @@ export function GlobalCardLibraryPage() {
         onClose={() => setDeleteImpact(null)}
         footer={(
           <>
-            <button type="button" onClick={() => setDeleteImpact(null)}>取消</button>
-            <button type="button" className="global-card-library-delete" onClick={() => void deleteSelectedCard()}>移入回收站</button>
+            {/* 规格 §3.3 / §4：对话框页脚用 lg，取消在确认左边，破坏性操作仍放最右 */}
+            <Button size="lg" variant="ghost" onClick={() => setDeleteImpact(null)}>取消</Button>
+            <Button size="lg" variant="danger-outline" onClick={() => void deleteSelectedCard()}>移入回收站</Button>
           </>
         )}
       >
@@ -319,7 +321,8 @@ export function GlobalCardLibraryPage() {
             {trashItems.map((item) => (
               <li key={item.id}>
                 <div><strong>{item.title}</strong><span>{new Date(item.deletedAt).toLocaleString("zh-CN")} · 30 天内可恢复</span></div>
-                <button type="button" onClick={() => void restoreCard(item)}><ArchiveRestore size={13} /> 恢复</button>
+                {/* 行内右侧按钮不参与收缩，沿用被删除的 .global-card-trash-list button 的 flex: 0 0 auto */}
+                <Button size="sm" className="shrink-0" variant="outline" onClick={() => void restoreCard(item)}><ArchiveRestore size={13} /> 恢复</Button>
               </li>
             ))}
           </ul>

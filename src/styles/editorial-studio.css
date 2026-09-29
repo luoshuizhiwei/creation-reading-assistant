@@ -1232,12 +1232,15 @@ select:focus-visible,
   font-weight: 650;
 }
 
-.cards-toolbar button,
-.cards-detail-actions button,
-.cards-relations button,
-.cards-form-actions button,
-.outline-page button,
-.history-page button {
+/* 这些容器里的按钮有两种来源：页面手写的裸 <button>，以及共享 <Button>。
+   组件自带圆角与高度，后代选择器（特异性 (0,1,1)）会压掉它的工具类
+   （(0,1,0)），所以必须排除带 data-variant 的元素。 */
+.cards-toolbar button:not([data-variant]),
+.cards-detail-actions button:not([data-variant]),
+.cards-relations button:not([data-variant]),
+.cards-form-actions button:not([data-variant]),
+.outline-page button:not([data-variant]),
+.history-page button:not([data-variant]) {
   border-radius: 8px;
 }
 
@@ -1925,7 +1928,7 @@ select:focus-visible,
   flex-wrap: wrap;
 }
 
-.cards-toolbar button {
+.cards-toolbar button:not([data-variant]) {
   white-space: nowrap;
   flex-shrink: 0;
 }

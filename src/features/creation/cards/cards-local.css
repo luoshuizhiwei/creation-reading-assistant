@@ -340,52 +340,6 @@
   font-weight: 650;
 }
 
-.global-card-library-edit {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: var(--paper-panel);
-  color: var(--paper-ink);
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.global-card-library-edit:hover {
-  border-color: var(--studio-seal, var(--copper));
-  color: var(--studio-seal, var(--copper));
-}
-
-.global-card-library-delete,
-.global-card-library-trash {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border: 1px solid var(--paper-line);
-  border-radius: 8px;
-  background: var(--paper-panel);
-  color: var(--paper-ink);
-  padding: 6px 10px;
-  cursor: pointer;
-}
-
-.global-card-library-delete {
-  border-color: color-mix(in srgb, #b13a31 48%, var(--paper-line));
-  color: #a8322b;
-}
-
-.global-card-library-delete:hover {
-  border-color: #b13a31;
-  background: color-mix(in srgb, #b13a31 8%, var(--paper-panel));
-}
-
-.global-card-library-trash:hover {
-  border-color: var(--studio-seal, var(--copper));
-  color: var(--studio-seal, var(--copper));
-}
-
 .global-card-library-usage {
   border-top: 1px solid var(--border-subtle, var(--paper-line));
   border-bottom: 1px solid var(--border-subtle, var(--paper-line));
@@ -448,24 +402,6 @@
 }
 
 .global-card-library-asset-actions { display: flex; gap: 6px; }
-
-.global-card-library-assets button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--paper-line);
-  border-radius: 7px;
-  background: var(--paper-panel);
-  color: var(--paper-ink);
-  padding: 5px 9px;
-  cursor: pointer;
-}
-
-.global-card-library-assets button.confirming {
-  border-color: #b13a31;
-  background: #b13a31;
-  color: #fff;
-}
 
 .global-card-library-assets > p {
   margin: 9px 0 0;
@@ -566,19 +502,6 @@
 .global-card-trash-list span {
   color: var(--paper-muted);
   font-size: 11px;
-}
-
-.global-card-trash-list button {
-  display: inline-flex;
-  flex: 0 0 auto;
-  align-items: center;
-  gap: 4px;
-  border: 1px solid var(--paper-line);
-  border-radius: 7px;
-  background: var(--paper-panel);
-  color: var(--paper-ink);
-  padding: 6px 9px;
-  cursor: pointer;
 }
 
 .global-card-library-empty {

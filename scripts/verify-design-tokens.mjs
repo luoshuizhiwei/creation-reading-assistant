@@ -443,8 +443,7 @@ const GLOBAL_SHEETS = ["src/styles.css", "src/styles/tokens.css", "src/styles/ed
  * 只有在清单之外的新增违规才会变红。
  */
 const LEGACY_DESCENDANT_BUTTON = new Set([
-  "src/styles/editorial-studio.css :: desktop-page-actions",
-  "src/styles/editorial-studio.css :: history-page"
+  "src/styles/editorial-studio.css :: desktop-page-actions"
 ]);
 
 // 排除判据必须是 :not([data-variant —— 带引号值的形式（:not([data-variant="quiet"])）
