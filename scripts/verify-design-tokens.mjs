@@ -450,8 +450,8 @@ const allMigrated = Object.values(tsxByDir).flat();
 const globalHostTokens = new Set();
 for (const p of allMigrated) for (const c of classesHostingButton(readFileSync(p, "utf8"))) globalHostTokens.add(c);
 
-// 全局样式表（main.tsx 里无条件加载，会漏到每个页面）与 feature 局部样式表同等对待
-const GLOBAL_SHEETS = ["src/styles.css", "src/styles/tokens.css", "src/styles/editorial-studio.css"].map((p) => path.join(root, p));
+// 全局样式表（main.tsx 里无条件加载，会漏到每个页面）与 feature 局部样式表同等对待：
+// 见下面棘轮检查的说明，两者都用全量宿主类名做作用域。
 
 /**
  * 遗留债务冻结清单（棘轮）：<Button> 系统落地前，全局「按钮容器」类规则本来就在
@@ -471,19 +471,12 @@ const isExcluded = (sel) => sel.includes(":not([data-variant");
 
 let legacyHits = 0;
 const newHits = [];
+// 作用域一律用全量宿主类名，不再按「CSS 与页面同目录」判归属。
+// 本仓存在跨目录借用样式：scene-radar.css 由 editor/SceneRadar.tsx 引入，却被
+// editor/desk/WritingDeskMargin.tsx 复用。按同目录判归属会漏检这类规则，而它一旦
+// 命中已迁移页面，就会用 (0,1,1) 的特异性静默压掉组件自带的 (0,1,0) 样式——
+// vitest 全绿、界面却坏掉。宁可扩大检查面，也不能留这个盲区。
 for (const cssFile of cssFiles) {
-  const dir = path.dirname(cssFile);
-  const isGlobal = GLOBAL_SHEETS.includes(cssFile);
-  const migrated = tsxByDir[dir];
-  // 局部样式表：只看同目录已迁移页面；全局样式表：任何已迁移页面都可能被命中
-  if (!isGlobal && !migrated) continue;
-  let scope;
-  if (isGlobal) {
-    scope = globalHostTokens;
-  } else {
-    scope = new Set();
-    for (const p of migrated) for (const c of classesHostingButton(readFileSync(p, "utf8"))) scope.add(c);
-  }
   const rel = path.relative(root, cssFile).split(path.sep).join("/");
   const ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
   ast.walkRules((rule) => {
@@ -493,7 +486,7 @@ for (const cssFile of cssFiles) {
       if (!anchor) continue;
       if (isExcluded(sel)) continue; // 已排除，安全
       // 没有任何「内部渲染了 <Button> 的元素」带这个父级类名 → 规则碰不到迁移后的元素
-      if (!scope.has(anchor[1])) continue;
+      if (!globalHostTokens.has(anchor[1])) continue;
       if (LEGACY_DESCENDANT_BUTTON.has(`${rel} :: ${anchor[1]}`)) legacyHits += 1;
       else newHits.push(`${rel}: ${sel}`);
     }
