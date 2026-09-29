@@ -11,6 +11,9 @@ plugins {
 android {
     namespace = "com.creationreadingassistant"
     compileSdk = 35
+    // AGP only generates androidTest for one build type per invocation. Keep the
+    // normal debug test target unless an explicit offline QA-host build is requested.
+    testBuildType = providers.gradleProperty("craAndroidTestBuildType").orNull ?: "debug"
 
     defaultConfig {
         applicationId = "com.creationreadingassistant"
@@ -26,7 +29,7 @@ android {
         versionCode = providers.gradleProperty("craVersionCode").orNull?.toInt() ?: 3
         versionName = providers.gradleProperty("craVersionName").orNull ?: "0.5.1"
 
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.creationreadingassistant.testing.CraIsolatedTestRunner"
         vectorDrawables {
             useSupportLibrary = true
         }
@@ -98,6 +101,16 @@ android {
                 signingConfig = signingConfigs.getByName("debug")
                 logger.lifecycle("⚠️ 未配置正式签名，使用 debug 密钥兜底签名；产物仅可用于本地验证，绝不可发布！")
             }
+        }
+        create("qahost") {
+            // S04 沙箱测试宿主（docs/coordination/2026-09-25-s04-workmanager-nondestructive-alternatives.md §3）：
+            // 独立 applicationId 使 androidTest APK 的 targetPackage 指向 com.creationreadingassistant.qahost，
+            // instrumentation 内 WorkManagerInitializer 打开的是沙箱私有 workdb，不触碰正式包任务队列。
+            // initWith(debug) 只拷贝构建属性、不继承 debugImplementation 依赖 ——
+            // Compose 测试的 ComponentActivity test manifest 需在下方单独补 qahostImplementation。
+            initWith(getByName("debug"))
+            applicationIdSuffix = ".qahost"
+            signingConfig = signingConfigs.getByName("debug")
         }
     }
 
@@ -227,6 +240,9 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(libs.hilt.android.testing)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+    // qahost 变体与 debug 不共享 debugImplementation（initWith 不继承 configuration），
+    // 缺它则 Compose 测试无法在沙箱宿主内启动 ComponentActivity。
+    add("qahostImplementation", libs.androidx.compose.ui.test.manifest)
     baselineProfile(project(":benchmark"))
 }
 
