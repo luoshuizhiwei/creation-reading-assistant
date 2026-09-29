@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as ReactPointerEvent } from "react";
 import { BookOpenCheck, Link2, PanelRightClose, Search, Sparkles, Unlink2, UsersRound } from "lucide-react";
+import { Button } from "@/components/ui";
 import { CardDynamicFields } from "@/features/creation/cards/components/CardDynamicFields";
 import { parseList } from "@/features/creation/cards/components/CardEditorForm";
 import {
@@ -369,13 +370,13 @@ export function WritingQuickReferencePanel({
               <span>{statusText}</span>{saveError && <small>{saveError}</small>}
             </div>
             <div className="writing-quick-actions">
-              <button type="button" onClick={() => void linkToProject()} disabled={isLinked}><Link2 size={13} />{isLinked ? "已关联项目" : "关联到项目"}</button>
+              <Button size="sm" variant="outline" onClick={() => void linkToProject()} disabled={isLinked}><Link2 size={13} />{isLinked ? "已关联项目" : "关联到项目"}</Button>
               {draft.kind === "character" && (
-                <button type="button" onClick={() => void addToScene()} disabled={!isLinked || !selectedSceneId || isInScene}>
+                <Button size="sm" variant="outline" onClick={() => void addToScene()} disabled={!isLinked || !selectedSceneId || isInScene}>
                   <UsersRound size={13} />{isInScene ? "已在本场景" : "加入本场景"}
-                </button>
+                </Button>
               )}
-              <button type="button" onClick={() => void closePanel()}><BookOpenCheck size={13} />回到正文</button>
+              <Button size="sm" variant="outline" onClick={() => void closePanel()}><BookOpenCheck size={13} />回到正文</Button>
             </div>
           </section>
         ) : (

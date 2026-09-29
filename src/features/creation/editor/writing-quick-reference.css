@@ -155,8 +155,13 @@
 .writing-quick-save--error { color: var(--danger, #a33a33); }
 .writing-quick-save small { font-family: var(--font-sans); line-height: 1.45; }
 .writing-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; }
-.writing-quick-actions button { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--border-subtle); border-radius: 7px; background: var(--bg-subtle); color: var(--text-main); font-size: 10.5px; padding: 6px 8px; cursor: pointer; }
-.writing-quick-actions button:disabled { cursor: default; opacity: .5; }
+/* 三个动作（关联到项目 / 加入本场景 / 回到正文）已迁到共享 <Button variant="outline"
+   size="sm">（第 6 步），容器内已无裸 button，原 .writing-quick-actions button 与其
+   :disabled 两条后代规则整组下线。口径：原样式是 --border-subtle 边 + --bg-subtle 底
+   + --text-main 字，outline 用的是 --paper-line 边 + --paper-panel 底，两者同为"描边
+   弱填充"档，色差在 surface-2 与 surface 之间；更关键的是原规则没有定义 hover——
+   这三个按钮此前完全没有悬停反馈（违反 §2.3 五态），迁移后才有了 hover。
+   disabled 透明度 .5 -> 组件 .55，差半成，不单独保留。 */
 .writing-quick-detail--empty { display: grid; place-content: center; justify-items: center; color: var(--text-muted); text-align: center; }
 .writing-quick-detail--empty p { margin: 8px 0 2px; color: var(--text-main); font-family: var(--font-serif); font-size: 14px; }
 .writing-quick-detail--empty small { font-size: 10px; }
