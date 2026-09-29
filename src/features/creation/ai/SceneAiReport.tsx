@@ -1,4 +1,5 @@
 import { FileSearch, X } from "lucide-react";
+import { Button } from "@/components/ui";
 import "./scene-candidate.css";
 
 /**
@@ -34,9 +35,9 @@ export function SceneAiReport({ actionLabel, content, model, onClose }: SceneAiR
             ))}
         </div>
         <div className="writing-reanchor-actions">
-          <button type="button" onClick={onClose} data-testid="scene-ai-report-close">
+          <Button variant="outline" onClick={onClose} data-testid="scene-ai-report-close">
             <X size={13} /> 关闭报告
-          </button>
+          </Button>
         </div>
       </section>
     </div>

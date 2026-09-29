@@ -85,8 +85,6 @@
   line-height: 1.6;
 }
 
-.scene-candidate-accept {
-  border-color: var(--accent-spine) !important;
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), var(--accent-spine)) !important;
-  color: #fff !important;
-}
+/* 采纳按钮已迁到共享 <Button>（第 6 步）：原先这里是
+   border/background/color 三条 !important + 180deg 渐变，属 §2.5「按钮一律无阴影、
+   无渐变」点名要消灭的那一类。类名已从组件移除，data-testid 保留不变。 */

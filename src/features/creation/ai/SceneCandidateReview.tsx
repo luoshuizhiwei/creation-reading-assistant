@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import { Check, Sparkles, X } from "lucide-react";
+import { Button } from "@/components/ui";
 import { diffParagraphs, diffStats } from "@/features/creation/ai/diff-paragraphs";
 import { mergeSceneBody, sceneAiActionLabel, type SceneAiAdoptMode } from "@/features/creation/ai/scene-ai-actions";
 import "./scene-candidate.css";
@@ -74,12 +75,12 @@ export function SceneCandidateReview({ candidate, currentBodyText, busy, onAccep
         </div>
         <p className="scene-candidate-note">采纳前会自动创建保护快照；正文保存校验 revision，冲突时不会覆盖他人修改。</p>
         <div className="writing-reanchor-actions">
-          <button type="button" disabled={busy} onClick={onDiscard}>
+          <Button variant="outline" disabled={busy} onClick={onDiscard}>
             丢弃候选
-          </button>
-          <button type="button" className="scene-candidate-accept" disabled={busy} data-testid="scene-candidate-accept" onClick={() => onAccept(candidate.content)}>
+          </Button>
+          <Button disabled={busy} data-testid="scene-candidate-accept" onClick={() => onAccept(candidate.content)}>
             <Check size={13} /> {busy ? "保存中…" : adoptLabel}
-          </button>
+          </Button>
           <button type="button" aria-label="关闭候选评审" disabled={busy} onClick={onDiscard} className="scene-candidate-close">
             <X size={13} />
           </button>

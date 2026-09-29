@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Sparkles } from "lucide-react";
+import { Button } from "@/components/ui";
 import { countSignificantChars, estimatePackTokens } from "@/features/creation/ai/context-pack-format";
 
 export { countSignificantChars };
@@ -147,23 +148,16 @@ export function AiSendConfirmDialog({
               记住我的选择，之后不再询问
             </label>
             <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-md px-3 py-2 text-sm text-paper-muted hover:bg-paper-soft/70 hover:text-paper-ink"
-                onClick={onCancel}
-                disabled={busy}
-              >
+              <Button variant="ghost" onClick={onCancel} disabled={busy}>
                 取消
-              </button>
-              <button
-                type="button"
-                className="rounded-md bg-copper px-3 py-2 text-sm font-medium text-white shadow-lift hover:bg-copper-dark disabled:cursor-not-allowed disabled:opacity-45"
+              </Button>
+              <Button
                 data-testid="ai-send-confirm-go"
                 onClick={handleConfirm}
                 disabled={busy || (pack !== undefined && excluded.size === pack.groups.length)}
               >
                 {busy ? "生成中…" : "发送给 AI"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

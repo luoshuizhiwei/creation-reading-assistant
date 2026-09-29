@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Dialog, Select } from "@/components/ui";
+import { Button, Dialog, Select } from "@/components/ui";
 import { Library } from "lucide-react";
 import type { CreationProjectSummary, InboxItem } from "@/types/creation";
 import type { InspirationType } from "@/types/inspiration";
@@ -85,23 +85,13 @@ export function InboxConvertToCardDialog({
       dataTestId="inbox-convert-card-dialog"
       footer={
         <div className="flex items-center justify-end gap-2">
-          <button
-            type="button"
-            className="paper-button px-3 py-1.5 text-sm"
-            onClick={onClose}
-            disabled={busy}
-          >
+          <Button variant="outline" onClick={onClose} disabled={busy}>
             取消
-          </button>
-          <button
-            type="button"
-            className="paper-button-primary flex items-center gap-1.5 px-3 py-1.5 text-sm"
-            onClick={() => void handleConfirm()}
-            disabled={busy || projects.length === 0}
-          >
+          </Button>
+          <Button onClick={() => void handleConfirm()} disabled={busy || projects.length === 0}>
             <Library size={14} />
             {busy ? "正在转卡…" : "确认转卡"}
-          </button>
+          </Button>
         </div>
       }
     >
