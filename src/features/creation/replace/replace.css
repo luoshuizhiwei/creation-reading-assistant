@@ -118,7 +118,7 @@
 
 .replace-hit-before {
   text-decoration: line-through;
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 .replace-hit-after {

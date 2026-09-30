@@ -39,24 +39,23 @@
 .pe-warning {
   margin: 0;
   padding: 10px 12px;
-  border-left: 3px solid var(--studio-seal, #bc3f2b);
+  border-left: 3px solid var(--studio-seal);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--studio-seal-soft, #bc3f2b) 22%, var(--bg-surface, #fff));
-  color: #8a3a28;
+  background: color-mix(in srgb, var(--studio-seal-soft) 22%, var(--bg-surface, #fff));
+  color: var(--proof-mark);
   font-size: 13px;
   line-height: 1.55;
 }
 
-:root[data-app-theme="dark"] .pe-warning {
-  color: #e0917d;
-}
+/* 夜校不再单独覆写前景：--proof-mark 本身就是分主题的（晨校 #ad4436 / 夜校 #e07965），
+   * 旧的 #e0917d 是「令牌没分主题时代」的手工补丁，现在留着只会绕过令牌。 */
 
 .pe-description {
   margin: 0;
   padding: 10px 12px;
-  border-left: 3px solid var(--studio-copper, #b4531f);
+  border-left: 3px solid var(--studio-copper);
   border-radius: 8px;
-  background: color-mix(in srgb, var(--studio-copper, #b4531f) 12%, var(--bg-surface, #fff));
+  background: color-mix(in srgb, var(--studio-copper) 12%, var(--bg-surface, #fff));
   color: var(--text-muted, #5a6270);
   font-size: 13px;
   line-height: 1.55;
@@ -94,7 +93,7 @@
 
 .pe-error {
   margin: 0;
-  color: #c0392b;
+  color: var(--proof-mark);
   font-size: 12px;
 }
 

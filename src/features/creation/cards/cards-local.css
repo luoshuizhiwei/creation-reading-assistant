@@ -58,7 +58,7 @@
 
 .cards-form-error {
   margin: 10px 0 0;
-  color: #c0392b;
+  color: var(--proof-mark);
   font-size: 13px;
 }
 
@@ -103,9 +103,9 @@
 }
 
 .cards-icon-btn.confirming {
-  background: #c0392b;
-  color: #fff;
-  border-color: #c0392b;
+  background: var(--proof-mark);
+  color: var(--fg-on-solid);
+  border-color: var(--proof-mark);
 }
 
 .cards-fields-manager {
@@ -178,7 +178,7 @@
 }
 
 .cards-icon-btn.cards-danger {
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 .cards-attachment-note {
@@ -280,15 +280,15 @@
   border: 1px solid var(--border, #d8d8e0);
   border-radius: 6px;
   background: var(--surface, #ffffff);
-  color: #c0392b;
+  color: var(--proof-mark);
   font-size: 12px;
   cursor: pointer;
 }
 
 .cards-relation-delete.confirming {
-  background: #c0392b;
-  color: #fff;
-  border-color: #c0392b;
+  background: var(--proof-mark);
+  color: var(--fg-on-solid);
+  border-color: var(--proof-mark);
 }
 
 /* 全局卡片库：以世界观索引和作品使用账册区分于项目内的设定卡工作台。 */

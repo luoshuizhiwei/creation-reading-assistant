@@ -277,7 +277,7 @@
 
 .history-field-error {
   font-size: 12px;
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 /* ---------- 影响列表（恢复 / 永久删除） ---------- */
@@ -323,16 +323,16 @@
 .history-impact-danger {
   padding: 10px 12px;
   border-radius: 8px;
-  background: color-mix(in srgb, #c0392b 8%, var(--bg-surface));
-  color: #a5281b;
+  background: color-mix(in srgb, var(--proof-mark) 8%, var(--bg-surface));
+  color: var(--proof-mark);
   font-size: 13px;
   line-height: 1.5;
-  border: 1px solid color-mix(in srgb, #c0392b 26%, transparent);
+  border: 1px solid color-mix(in srgb, var(--proof-mark) 26%, transparent);
 }
 
 .history-impact-error {
   font-size: 13px;
-  color: #c0392b;
+  color: var(--proof-mark);
   line-height: 1.5;
 }
 
@@ -422,7 +422,7 @@
 
 /* 对话框页脚按钮已迁到共享 <Button>（第 6 步）：
    .history-modal-foot button 基规则与 .history-btn-cancel / -confirm / -danger
-   三套配色随之下线——它们只服务这 4 个对话框，且 -danger 硬编码 #c0392b，
+   三套配色随之下线——它们只服务这 4 个对话框，且 -danger 硬编码旧红，
    正是第 7 步要换成 --proof-mark 的那一类。 */
 
 /* 键盘可达性：统一 focus-visible 焦点环

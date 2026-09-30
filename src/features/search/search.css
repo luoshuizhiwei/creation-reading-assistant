@@ -127,10 +127,10 @@
   justify-content: center;
   gap: 6px;
   margin: 10px 8px 0;
-  border: 1px solid color-mix(in srgb, #c0392b 35%, var(--paper-line));
+  border: 1px solid color-mix(in srgb, var(--proof-mark) 35%, var(--paper-line));
   border-radius: 10px;
-  background: color-mix(in srgb, #c0392b 8%, var(--paper-panel));
-  color: #c0392b;
+  background: color-mix(in srgb, var(--proof-mark) 8%, var(--paper-panel));
+  color: var(--proof-mark);
   font-size: 12px;
   padding: 8px 10px;
 }

@@ -562,6 +562,94 @@ if (legacyHits > 0) {
   );
 }
 
+/* ------------------------------------------------- 第 7 步：硬编码校样红必须归零 */
+
+/**
+ * 规格 §6 第 7 步的验收口径是「grep 计数断言归零」。这里比 grep 严三点：
+ *   ① 注释不算违规（用 stripComments），但字面量一旦残留在代码里就红；
+ *   ② 同族旧红一起封：#b42318/#a5281b/#e0917d/#a33a33/#bc3f2b 与
+ *      rgba(180,35,24,…) 是同一支「校样红」在不同时期手抄出来的变体，
+ *      只封 #c0392b 的话，下一次就会有人从这些里挑一个抄；
+ *   ③ 封 var(--danger, …) / var(--studio-seal, #…) 这种「假令牌名 + 字面量兜底」：
+ *      --danger 全站从未定义过，实际渲染的一直是字面量，看起来走了令牌其实没有
+ *      ——这正是本轮要收的东西最隐蔽的形态（与 D-2 的未定义 --font-sans 同类）。
+ * 令牌自身的定义行（--proof-mark: #ad4436 等）不在此列，它们不在名单里。
+ */
+const LEGACY_RED_HEX = ["c0392b", "b42318", "a5281b", "e0917d", "a33a33", "8a3a28", "9f342d", "bc3f2b"];
+let legacyRed = 0;
+const redWhere = [];
+for (const cssFile of cssFiles) {
+  const rel = path.relative(root, cssFile).split(path.sep).join("/");
+  const src = stripComments(readFileSync(cssFile, "utf8"));
+  for (const m of src.matchAll(new RegExp(`#(?:${LEGACY_RED_HEX.join("|")})\\b`, "gi"))) {
+    legacyRed += 1;
+    redWhere.push(`${rel}:#${m[1]}`);
+  }
+  if (/rgba\(\s*180\s*,\s*35\s*,\s*24/i.test(src)) {
+    legacyRed += 1;
+    redWhere.push(`${rel}:rgba(180,35,24)`);
+  }
+  // 只报「引用了未定义令牌且带字面量兜底」的假令牌写法，定义行本身不算。
+  for (const m of src.matchAll(/var\(\s*(--(?:danger|studio-copper|studio-seal)(?:-soft)?)\s*,\s*#[0-9a-fA-F]{3,8}\s*\)/g)) {
+    legacyRed += 1;
+    redWhere.push(`${rel}:var(${m[1]},#字面量)`);
+  }
+}
+if (legacyRed > 0) {
+  fail(
+    `第 7 步未收口：仍有 ${legacyRed} 处硬编码校样红，应改用 var(--proof-mark) /` +
+      ` color-mix(in srgb, var(--proof-mark) N%, …)；实色红底上的文字用 var(--fg-on-solid)。` +
+      `命中：${redWhere.slice(0, 6).join(" / ")}`
+  );
+}
+
+/* ------------------------------------------------------ 主题色令牌成对性不变量 */
+
+/**
+ * 颜色类令牌必须在两个主题里各自定义。少一边不会报错，浏览器直接拿晨校的值画在
+ * 夜校底上——本仓实测：--success #3e7a5e 在晨校画布 4.38:1，压到夜校画布只剩 3.52:1，
+ * 越改越糊。第 7 步扫红时就撞见 --studio-copper 被引用两次却从未定义，全靠
+ * var(…, #b4531f) 的字面量在渲染，所以把这条钉成不变量。
+ * 名单取自令牌表本身（晨校有、夜校无的那些名字），只盯真正会分主题变的东西：
+ * 几何/动效/字体/层级这类天生两主题通用的，用 THEME_SHARED 明确豁免。
+ */
+const THEME_SHARED = /^--(sp-|radius-|shadow-|z-|dur-|ease-|leading-|text-\d|font-|control-h-|focus-ring)/;
+{
+  const definedIn = (block) => {
+    const out = new Map();
+    for (const m of block.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;]+);/g)) out.set(m[1], m[2].trim());
+    return out;
+  };
+  const lightDefs = definedIn(lightBlock);
+  const darkDefs = definedIn(darkBlock);
+  // 「颜色值」= 十六进制 / rgb / hsl 字面量开头的定义。指向别的令牌的别名（var(--x)）
+  // 跟着权威令牌走，不单独要求两主题各定义一次。
+  const isColorValue = (v) => /^(#[0-9a-fA-F]{3,8}\b|rgba?\(|hsla?\()/.test(v);
+  /**
+   * 棘轮：先冻结已知欠债，新增的立刻变红。--success / --warning 只有晨校值，
+   * 在夜校底上分别是 3.52 / 4.41:1（实测），属于同一步骤内要单独还的账——
+   * 它们不是校样红，不该混进「#c0392b 收口」这一个提交里改。还掉一个就从名单删一个。
+   */
+  const FROZEN_SOLO_THEME = new Set(["--success", "--warning"]);
+  const missing = [...lightDefs]
+    .filter(([, v]) => isColorValue(v))
+    .map(([n]) => n)
+    .filter((n) => !darkDefs.has(n) && !THEME_SHARED.test(n) && !FROZEN_SOLO_THEME.has(n));
+  const frozen = [...lightDefs]
+    .filter(([, v]) => isColorValue(v))
+    .map(([n]) => n)
+    .filter((n) => !darkDefs.has(n) && !THEME_SHARED.test(n) && FROZEN_SOLO_THEME.has(n));
+  if (frozen.length) {
+    console.log(`${TAG} [第 7 步待补] ${frozen.length} 个颜色令牌只有晨校值（已冻结）：${frozen.join("、")}`);
+  }
+  if (missing.length) {
+    fail(
+      `颜色令牌必须在夜校（data-app-theme="dark"）里也定义，否则深色主题会直接拿晨校值画在深色底上` +
+        `（对比度崩掉且不报错）。缺：${missing.join("、")}`
+    );
+  }
+}
+
 /* ------------------------------------------------------------------ 结论 */
 
 if (failures > 0) {

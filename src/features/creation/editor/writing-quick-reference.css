@@ -152,7 +152,7 @@
 .writing-quick-save { display: grid; gap: 2px; min-height: 28px; margin: 4px 0 8px; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
 .writing-quick-save--dirty { color: #84672f; }
 .writing-quick-save--saving { color: var(--accent-spine); }
-.writing-quick-save--error { color: var(--danger, #a33a33); }
+.writing-quick-save--error { color: var(--proof-mark); }
 .writing-quick-save small { font-family: var(--font-sans); line-height: 1.45; }
 .writing-quick-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 /* 三个动作（关联到项目 / 加入本场景 / 回到正文）已迁到共享 <Button variant="outline"

@@ -25,6 +25,13 @@
   --studio-paper-shadow: rgba(15, 20, 28, 0.08);
   --studio-seal: var(--proof-mark);
   --studio-seal-soft: var(--proof-tint);
+  /* --studio-copper 此前被引用却从未定义（第 7 步扫硬编码红时撞见）：
+   * encryption.css 的 .pe-description 一直靠 var(--studio-copper, #b4531f) 的字面量
+   * 回退在渲染，与 D-2 的未定义 --font-sans 是同一类缺陷——名字是假的，字面量是真的。
+   * 这里按它「实际渲染出来的那个颜色」定义，保持逐字节零视觉变化，而不是顺手指到
+   * --warning：#a8742c（琥珀）与 #b4531f（焦铜）是两个色相，指过去就是给一条在用的
+   * 边框换色。琥珀一族的颜色收敛不在本轮范围（本轮只收校样红），留待 §8 铺色时处理。 */
+  --studio-copper: #b4531f;
   --studio-jade: var(--action-primary);
   --studio-jade-soft: var(--action-tint);
   --studio-desk-toplight: rgba(255, 255, 255, 0);
@@ -1981,7 +1988,7 @@ button:disabled {
 }
 
 .creation-field-error {
-  color: #b42318;
+  color: var(--proof-mark);
   font-size: 12px;
 }
 
@@ -1999,17 +2006,18 @@ button:disabled {
 .session-edit-issues {
   margin: 10px 0 0;
   padding: 8px 10px 8px 24px;
-  border-left: 3px solid #b42318;
+  border-left: 3px solid var(--proof-mark);
   border-radius: 8px;
-  background: rgba(180, 35, 24, 0.07);
-  color: #b42318;
+  background: color-mix(in srgb, var(--proof-mark) 7%, transparent);
+  color: var(--proof-mark);
   font-size: 12px;
   line-height: 1.6;
 }
 
 :root[data-app-theme="dark"] .session-edit-issues {
-  color: #e0917d;
-  background: rgba(180, 35, 24, 0.16);
+  /* 前景跟着 --proof-mark 走（夜校自动提亮），这里只加深底：
+     旧 rgba(180,35,24,.16) 换成 12%——16% 配夜校校样红只剩 4.42:1，不到 AA。 */
+  background: color-mix(in srgb, var(--proof-mark) 12%, transparent);
 }
 
 .session-edit-actions {
@@ -2430,7 +2438,7 @@ button:disabled {
 .scene-save-status--error,
 .scene-save-status--conflict,
 .scene-save-error {
-  color: #b42318;
+  color: var(--proof-mark);
 }
 
 .scene-save-spin {
@@ -2445,9 +2453,9 @@ button:disabled {
 .scene-save-error {
   margin: 0 0 18px;
   padding: 12px 14px;
-  border: 1px solid color-mix(in srgb, #b42318 28%, var(--paper-line));
+  border: 1px solid color-mix(in srgb, var(--proof-mark) 28%, var(--paper-line));
   border-radius: 12px;
-  background: color-mix(in srgb, #b42318 7%, var(--paper-panel));
+  background: color-mix(in srgb, var(--proof-mark) 7%, var(--paper-panel));
   font-size: 12px;
 }
 
@@ -2986,8 +2994,8 @@ button:disabled {
 }
 
 .outline-node-actions button.confirming {
-  color: #c0392b;
-  background: color-mix(in srgb, #c0392b 12%, transparent);
+  color: var(--proof-mark);
+  background: color-mix(in srgb, var(--proof-mark) 12%, transparent);
 }
 
 .outline-move-select {
@@ -3438,8 +3446,8 @@ button:disabled {
 }
 
 .cards-detail-actions button.confirming {
-  color: #c0392b;
-  background: color-mix(in srgb, #c0392b 12%, transparent);
+  color: var(--proof-mark);
+  background: color-mix(in srgb, var(--proof-mark) 12%, transparent);
 }
 
 .cards-close {
@@ -3513,7 +3521,7 @@ button:disabled {
 }
 
 .cards-required {
-  color: #c0392b;
+  color: var(--proof-mark);
   margin-left: 2px;
 }
 
@@ -4384,7 +4392,7 @@ button:disabled {
 }
 
 .stats-session-main em.negative {
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 /* ---------------------------------------------------------------------------
@@ -4469,8 +4477,8 @@ button:disabled {
   align-self: flex-start;
   margin-top: 1px;
   border-radius: 999px;
-  background: color-mix(in srgb, #c0392b 10%, transparent);
-  color: #c0392b;
+  background: color-mix(in srgb, var(--proof-mark) 10%, transparent);
+  color: var(--proof-mark);
   font-size: 11px;
   font-weight: 700;
   padding: 2px 9px;
@@ -4621,7 +4629,7 @@ button:disabled {
 }
 
 .creation-search-state--error {
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 /* ---------------------------------------------------------------------------
@@ -4781,8 +4789,8 @@ button:disabled {
   margin: 0;
   padding: 9px 12px;
   border-radius: 9px;
-  background: color-mix(in srgb, #c0392b 8%, var(--paper-panel));
-  color: #c0392b;
+  background: color-mix(in srgb, var(--proof-mark) 8%, var(--paper-panel));
+  color: var(--proof-mark);
   font-size: 12.5px;
   line-height: 1.6;
 }
@@ -4837,8 +4845,8 @@ button:disabled {
   margin: 0;
   padding: 8px 12px;
   border-radius: 9px;
-  background: color-mix(in srgb, #c0392b 6%, var(--paper-panel));
-  color: #c0392b;
+  background: color-mix(in srgb, var(--proof-mark) 6%, var(--paper-panel));
+  color: var(--proof-mark);
   font-size: 12px;
   line-height: 1.7;
   list-style: none;
@@ -4912,7 +4920,7 @@ button:disabled {
 }
 
 /* 行内按钮已迁到共享 <Button>（转为资料卡 -> outline，移出 -> outline / danger-outline），
-   这三条后代规则随之下线；.confirming 的 #c0392b 红边语义由 danger-outline 承担，
+   这三条后代规则随之下线；.confirming 的旧硬编码红边语义由 danger-outline 承担，
    第 7 步的硬编码红色清单又少 3 处。容器规则 .inbox-item-actions 只留 flex 布局。 */
 
 .spin {
@@ -4967,7 +4975,7 @@ button:disabled {
 }
 
 .migration-error-inline {
-  color: #c0392b;
+  color: var(--proof-mark);
 }
 
 /* ---------------------------------------------------------------------------
@@ -4996,7 +5004,7 @@ button:disabled {
 }
 
 .writing-annotation.invalid {
-  border-color: #c0392b;
+  border-color: var(--proof-mark);
 }
 
 .writing-annotation.resolved {
@@ -5010,8 +5018,8 @@ button:disabled {
 
 .writing-annotation-relocate {
   border-radius: 999px;
-  background: color-mix(in srgb, #c0392b 12%, var(--paper-panel));
-  color: #c0392b;
+  background: color-mix(in srgb, var(--proof-mark) 12%, var(--paper-panel));
+  color: var(--proof-mark);
   font-size: 10.5px;
   font-style: normal;
   font-weight: 700;
@@ -5697,8 +5705,8 @@ button:disabled {
 }
 
 .background-detail-actions button.confirming {
-  color: #c0392b;
-  border-color: #c0392b;
+  color: var(--proof-mark);
+  border-color: var(--proof-mark);
 }
 
 .inbox-target-project {

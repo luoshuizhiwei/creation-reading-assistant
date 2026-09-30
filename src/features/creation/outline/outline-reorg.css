@@ -37,7 +37,7 @@
 
 .outline-impact-error {
   margin: 10px 0 0;
-  color: #c0392b;
+  color: var(--proof-mark);
   font-size: 13px;
 }
 
@@ -140,4 +140,4 @@
 .outline-revert-bar > span:first-child { margin-right: auto; }
 .outline-revert-bar button { border: 0; background: transparent; color: var(--accent-spine); font-weight: 600; cursor: pointer; }
 .outline-revert-bar button:disabled { cursor: wait; opacity: 0.55; }
-.outline-revert-error { color: #c0392b; }
+.outline-revert-error { color: var(--proof-mark); }
