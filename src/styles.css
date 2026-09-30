@@ -5211,23 +5211,16 @@ button:disabled {
   margin-top: 8px;
 }
 
-.overview-action {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid var(--copper);
-  border-radius: 9px;
-  background: color-mix(in srgb, var(--copper) 9%, var(--paper-panel));
-  color: var(--copper);
-  font-size: 13px;
-  font-weight: 650;
-  padding: 8px 14px;
-  cursor: pointer;
-}
-
-.overview-action:hover {
-  background: color-mix(in srgb, var(--copper) 16%, var(--paper-panel));
-}
+/* 第 6 步 page 22：.overview-action 一族随「打开收件箱」迁移下线。
+   这里是考古结论，不是"少删了一处保险"：本文件在 main.tsx 里先于
+   editorial-studio.css 加载（styles.css:4 → editorial-studio.css:5），而两份都带
+   `.overview-action`，特异性同为 (0,1,0) —— 后加载的那份逐条覆盖（display、align-items、
+   gap、border、radius、background、color、font-size、font-weight、padding 全都定义了），
+   所以这块"铜色描边 + 铜色淡底"的写法从未渲染过，界面一直是 editorial-studio 的灰色档；
+   本块唯一活下来的是 cursor:pointer，而组件已自带。与第 16 页 .project-home-continue
+   同一现象。hover 块同理被后面 (0,2,0) 的同名规则覆盖。
+   上面 .overview-actions（复数，容器）不动：它不属本族，且是另一段历史遗留，
+   留给各自的收口时机。 */
 
 /* ---------------------------------------------------------------------------
  * 创作工作台：项目首页（最近项目 + 待处理收件箱）

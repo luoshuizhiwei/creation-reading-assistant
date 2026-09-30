@@ -469,9 +469,20 @@ select:focus-visible,
 }
 
 /* One button system: quiet surface default, indigo primary. */
+/* 第 6 步 page 22：.overview-action（OverviewPage「打开收件箱」）已迁到共享
+   <Button variant="outline">，下面 5 个分组里它的成员行一并摘除。
+   注意本组其它成员 .desktop-home-inbox / .project-home-create-first /
+   .project-home-create-demo 在 TSX 里也已无使用者（只剩 desktop-home-inbox-count
+   是另一个类，另有自己的规则），但那属于第 8 步"解冻 .desktop-page-actions 一族"
+   的清单，不在本页收口范围内，这里只动自己那行。
+   口径：静息 --border-subtle 边 + --bg-surface 底 + --text-muted 字，hover 边转
+   accent 45% + 底转 --accent-hover(=--action-tint) —— 描边弱填充档，与第 17 页
+   .inbox-detail grid 族同一判定，取 outline。md 档（原 min-height:34px）保持默认。
+   两处随族消失的空规则：hover 的 translateY(-1px) 上浮被文件末尾 2804 行的
+   "卡片 hover 不再统一上浮"覆盖掉，从未生效；:active 的 translateY(0) 同理是抵消
+   位移的空操作。inset 高光阴影违反 §2.5。 */
 .desktop-page-actions button,
 .desktop-home-inbox,
-.overview-action,
 .project-home-create-first,
 .project-home-create-demo {
   display: inline-flex;
@@ -491,7 +502,6 @@ select:focus-visible,
 
 .desktop-page-actions button:hover,
 .desktop-home-inbox:hover,
-.overview-action:hover,
 .project-home-create-demo:hover {
   border-color: color-mix(in srgb, var(--accent-spine) 45%, var(--border-strong));
   background: var(--accent-hover);
@@ -2044,15 +2054,13 @@ select:focus-visible,
 /* Buttons are physical: a lit crown, a pressed state. */
 .desktop-page-actions button,
 .desktop-home-inbox,
-.overview-action,
 .project-home-create-first,
 .project-home-create-demo {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(34, 38, 48, 0.06);
 }
 
 .desktop-page-actions button:active,
-.desktop-home-inbox:active,
-.overview-action:active {
+.desktop-home-inbox:active {
   transform: translateY(0);
   box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
 }
@@ -2801,7 +2809,6 @@ input[type="text"],
 /* 卡片 hover 不再统一上浮（规格 §3.4）。 */
 .desktop-page-actions button:hover,
 .desktop-home-inbox:hover,
-.overview-action:hover,
 .project-home-create-demo:hover {
   transform: none;
   box-shadow: none;

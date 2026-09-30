@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarClock, Clock3, FileText, Flame, Inbox, Layers, PenLine, Target } from "lucide-react";
+import { Button } from "@/components/ui";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { useCreationStore } from "@/stores/creation-store";
 import type { CreationProjectSetup, InboxCountView, ProjectStatsView } from "@/types/creation";
@@ -178,7 +179,7 @@ export function OverviewPage({ projectId, onContinueWriting, onOpenInbox }: Over
           <h3><Inbox size={15} /> 待处理</h3>
           <p className="stats-streak">{inbox.pending}</p>
           <p className="stats-note">收件箱中 {inbox.pending.toLocaleString("zh-CN")} 条待处理（共 {inbox.total.toLocaleString("zh-CN")}）</p>
-          <button type="button" className="overview-action" onClick={onOpenInbox}>打开收件箱</button>
+          <Button className="mt-3" variant="outline" onClick={onOpenInbox}>打开收件箱</Button>
         </div>
       </div>
 
