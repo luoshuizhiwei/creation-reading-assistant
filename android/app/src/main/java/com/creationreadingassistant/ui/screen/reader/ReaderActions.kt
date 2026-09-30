@@ -238,6 +238,7 @@ internal fun saveReaderNote(
 @Suppress("LongParameterList")
 internal data class ReaderNavActions(
     val computeLocatorJson: () -> String?,
+    val computeLocatorJsonForSnapshot: (ReaderSelectionSnapshot?) -> String?,
     val showNotice: (String) -> Unit,
     val goToChapter: (Int) -> Unit,
     val syncPagedChapter: (Int) -> Unit,
@@ -368,6 +369,10 @@ internal fun buildReaderNavActions(
                 epubBook, selectedGlobalOffset, chapterStartOffsets, selectedText, selectedRangeStart,
             )
         },
+        computeLocatorJsonForSnapshot = { snapshot ->
+            computeLocatorJsonForSnapshot(epubBook, chapterStartOffsets, snapshot)
+        },
+
         showNotice = showNoticeFn,
         goToChapter = goToChapterFn,
         syncPagedChapter = syncPagedChapterFn,

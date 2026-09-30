@@ -48,6 +48,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.creationreadingassistant.ui.screen.reader.formatDuration
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import com.creationreadingassistant.ui.components.AppAlertDialog
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.PillShape
@@ -212,17 +214,19 @@ internal fun BookInfoSheet(
                 ) {
                     BookStatMicroIsland(
                         icon = Icons.Outlined.AccessTime,
-                        value = formatDuration(activeReadingMs),
+                        value = formatDuration(activeReadingMs, LocalDurationUnit.current),
                         label = "本次已读",
                         tint = Color(0xFFD97706),
                         modifier = Modifier.weight(1f),
+                        valueModifier = Modifier.durationUnitToggle(),
                     )
                     BookStatMicroIsland(
                         icon = Icons.Outlined.HourglassEmpty,
-                        value = formatDuration(savedReadingMs),
+                        value = formatDuration(savedReadingMs, LocalDurationUnit.current),
                         label = "累计阅读",
                         tint = Color(0xFF059669),
                         modifier = Modifier.weight(1f),
+                        valueModifier = Modifier.durationUnitToggle(),
                     )
                     BookStatMicroIsland(
                         icon = Icons.Outlined.AutoStories,
@@ -432,6 +436,8 @@ private fun BookStatMicroIsland(
     label: String,
     tint: Color,
     modifier: Modifier = Modifier,
+    /** 应用到数值文本自身；时长类数值传 [durationUnitToggle] 以支持长按切换单位。 */
+    valueModifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
@@ -462,6 +468,7 @@ private fun BookStatMicroIsland(
             Spacer(Modifier.height(6.dp))
             Text(
                 text = value,
+                modifier = valueModifier,
                 style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface,

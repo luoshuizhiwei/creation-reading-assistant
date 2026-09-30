@@ -114,13 +114,16 @@ class MyReadingViewModelTest {
     }
 
     @Test
-    fun `pure function marks near finished books and counts states`() {
+    fun `state column decides finished tab not stale percent`() {
+        // S05-① 契约：我的阅读的完成态以 completion_state 为权威。
+        // b1 = 真实读完（finished）；b5 = 取消读完后的残余 100%（reading）→ 必须留在「在读」。
         val state = buildMyReadingUiState(
-            books = listOf(book("b1"), book("b2"), book("b3"), book("b4")),
+            books = listOf(book("b1"), book("b2"), book("b3"), book("b4"), book("b5")),
             progress = listOf(
-                progress("b1", percent = 99.5f),
+                progress("b1", percent = 100f, state = "finished"),
                 progress("b2", percent = 10f, state = "shelved"),
                 progress("b3", percent = 30f),
+                progress("b5", percent = 100f),
             ),
             sessions = listOf(session("s1", "b4", "2026-08-01T12:00:00Z")),
             query = "",
@@ -132,10 +135,11 @@ class MyReadingViewModelTest {
         assertEquals(ReadingCompletionState.FINISHED, byId["b1"]!!.state)
         assertEquals(ReadingCompletionState.SHELVED, byId["b2"]!!.state)
         assertEquals(ReadingCompletionState.READING, byId["b3"]!!.state)
-        assertEquals(4, state.counts[MyReadingFilter.ALL])
+        assertEquals(ReadingCompletionState.READING, byId["b5"]!!.state)
+        assertEquals(5, state.counts[MyReadingFilter.ALL])
         assertEquals(1, state.counts[MyReadingFilter.FINISHED])
         assertEquals(1, state.counts[MyReadingFilter.SHELVED])
-        assertEquals(2, state.counts[MyReadingFilter.READING])
+        assertEquals(3, state.counts[MyReadingFilter.READING])
     }
 
     @Test

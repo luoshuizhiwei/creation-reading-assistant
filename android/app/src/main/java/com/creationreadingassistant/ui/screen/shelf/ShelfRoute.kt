@@ -37,6 +37,34 @@ import kotlinx.coroutines.launch
 
 /** 首屏骨架最小展示时长：避免数据秒回时骨架一闪而过。 */
 private const val SkeletonMinDisplayMillis = 350L
+/**
+ * S04：来源更新确认弹窗对「阅读进度」的说明。
+ *
+ * 旧文案是「同步后将重置章节与阅读进度」，与代码不符 —— 措辞边界由
+ * [ShelfSourceRefreshCopyTest] 钉住，改动前请先读那里的失败信息。
+ *
+ * 为什么「重置」不成立：替换链路
+ * （`ShelfImporter.refreshFromSource` → `repairFileTyped` → `reselectEpub` /
+ * `reselectPlainText`）**不写** `reading_progress`，且 `ReadingProgressDao` 根本没有
+ * delete / clear 方法，全仓也没有任何重置调用方 —— 不存在「重置」这个操作。
+ *
+ * 为什么也不能反过来写「进度完全不变」：正文换掉后，阅读器重新加载会按**新**内容夹取
+ * 旧坐标（EPUB 走 `coerceIn(0, chapters.lastIndex)`，TXT/MD 走
+ * `resolveImportedTextOffset`），闸门打开后夹取后的位置会被写回。真实契约是
+ * 「记录行保留、坐标按新正文重新映射」—— 两种说法都不实。
+ *
+ * 因此这里只陈述可确认的一半（不主动清除），再用「可能变化」覆盖不确定的重映射，
+ * 不做超出代码事实的承诺。
+ */
+internal const val SOURCE_REFRESH_PROGRESS_NOTE =
+    "同步不会主动清除已有阅读记录；但正文更新后章节会重新划分，阅读位置也可能随之变化。"
+
+/**
+ * 来源更新确认弹窗的正文。抽成纯函数以便定向测试：文案边界是这里唯一可判定的部分，
+ * 不需要 Compose 运行时。
+ */
+internal fun sourceRefreshConfirmBody(count: Int, titleText: String): String =
+    "检测到 ${count} 本书${titleText}的源文件已被修改，是否重新同步正文？$SOURCE_REFRESH_PROGRESS_NOTE"
 
 /**
  * Shelf 页 View 层：收集 ViewModel Flow、维护 Activity Launcher、Snackbar、导航、
@@ -164,6 +192,12 @@ internal fun ShelfRoute(
     val detailTagIds by taxonomyVm.observeTagIdsForBook(detailBookId ?: "")
         .collectAsStateWithLifecycle(initialValue = emptyList())
 
+    // ======= 来源内容更新标签（M-BUG-03）=======
+    val contentUpdatedBookIds by viewModel.contentUpdatedBookIds
+        .collectAsStateWithLifecycle(initialValue = emptySet())
+    val pendingSourceRefreshIds by viewModel.pendingSourceRefreshIds
+        .collectAsStateWithLifecycle(initialValue = null)
+
     // ======= 聚合：ShelfUiState =======
     val uiState = ShelfUiState(
         library = vmState.library,
@@ -171,6 +205,7 @@ internal fun ShelfRoute(
         auxiliary = vmState.auxiliary,
         shelfBooks = shelfBooks,
         isRefreshing = isRefreshing,
+        contentUpdatedBookIds = contentUpdatedBookIds,
         query = "",
         debouncedQuery = "",
         viewMode = viewMode,
@@ -195,6 +230,7 @@ internal fun ShelfRoute(
         detailBookId = detailBookId,
         actionBookId = actionBookId,
         confirmDeleteIds = confirmDeleteIds,
+        confirmSourceRefreshIds = pendingSourceRefreshIds,
     )
 
     fun enterSelection() { selectionMode = true; selectedIds.clear(); showPageMenu = false }
@@ -315,6 +351,12 @@ internal fun ShelfRoute(
             },
             onOpenDetail = { id -> actionBookId = null; detailBookId = id },
             onDelete = { id -> actionBookId = null; requestDelete(listOf(id)) },
+            onCancelFinished = { book ->
+                viewModel.restoreReading(book.id) { success, message ->
+                    if (success) actionBookId = null
+                    showMessage(message)
+                }
+            },
         )
     }
     if (detailBook != null) {
@@ -541,6 +583,37 @@ internal fun ShelfRoute(
             },
         )
     }
+    val refreshIds = pendingSourceRefreshIds
+    if (refreshIds != null) {
+        val count = refreshIds.size
+        val updatedTitles = refreshIds.mapNotNull { id -> books.find { it.id == id }?.title }
+        val titleText = if (updatedTitles.isNotEmpty()) {
+            "（${updatedTitles.joinToString("、")}）"
+        } else ""
+        GlassAlertDialog(
+            onDismissRequest = { viewModel.cancelSourceRefresh() },
+            title = { androidx.compose.material3.Text("同步源文件更新？") },
+            text = {
+                androidx.compose.material3.Text(
+                    sourceRefreshConfirmBody(count, titleText)
+                )
+            },
+            confirmButton = {
+                androidx.compose.material3.Button(
+                    onClick = {
+                        viewModel.confirmSourceRefresh(refreshIds) { showMessage(it) }
+                    },
+                ) {
+                    androidx.compose.material3.Text("重新同步")
+                }
+            },
+            dismissButton = {
+                androidx.compose.material3.TextButton(onClick = { viewModel.cancelSourceRefresh() }) {
+                    androidx.compose.material3.Text("取消")
+                }
+            },
+        )
+    }
 }
 
 internal val LocalShelfSnackbar =
@@ -730,10 +803,14 @@ private fun handleShelfAction(
                 if (!ok) showMessage(deletionFailedMessage(context))
             }
         }
+        ShelfAction.CancelSourceRefreshConfirm -> viewModel.cancelSourceRefresh()
+        is ShelfAction.ConfirmSourceRefresh -> viewModel.confirmSourceRefresh(action.bookIds) { showMessage(it) }
         is ShelfAction.ReselectFileResult -> viewModel.reselectFile(action.bookId, action.uri) { showMessage(it) }
         is ShelfAction.CoverChangeResult -> viewModel.updateBookCover(action.bookId, action.uri) { showMessage(it) }
 
-        ShelfAction.TriggerRefresh -> viewModel.refresh()
+        // 下拉刷新同时同步源文件更新（M-BUG-03 第二阶段）：结果通过 Snackbar 反馈，
+        // 「无更新」也必须有回执，否则用户无法区分「没更新」与「手势没生效」。
+        ShelfAction.TriggerRefresh -> viewModel.refresh { showMessage(it) }
         else -> Unit
     }
 }

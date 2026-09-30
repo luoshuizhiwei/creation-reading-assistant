@@ -3,6 +3,7 @@ package com.creationreadingassistant.feature.library
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import com.creationreadingassistant.data.local.dao.BookContentDao
@@ -14,6 +15,7 @@ import com.creationreadingassistant.data.local.entity.BookFileEntity
 import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
 import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.SearchIndexBookRefreshCoordinator
 import com.creationreadingassistant.data.settings.ImportHistoryEntry
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.feature.reader.EpubRepository
@@ -25,6 +27,7 @@ import com.creationreadingassistant.ui.viewmodel.ImportFailureUi
 import com.creationreadingassistant.ui.viewmodel.ImportTaskUi
 import com.creationreadingassistant.ui.viewmodel.markStopRequested
 import com.creationreadingassistant.ui.viewmodel.remainingImportCount
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -35,6 +38,25 @@ import java.time.Instant
 import java.util.UUID
 import javax.inject.Inject
 
+/**
+ * 「按已记录来源刷新正文」的结果（M-BUG-03 第二阶段）。
+ *
+ * 与 [ShelfImporter.repairFile] 返回的裸 String 不同，这里必须给出**可靠的成败信号**：
+ * 调用方要靠它决定是否撤掉书架上的「可更新」标签，而按消息文本前缀嗅探成败过于脆弱。
+ */
+sealed interface SourceRefreshResult {
+    /** 刷新成功，[message] 可直接展示给用户。 */
+    data class Success(val message: String) : SourceRefreshResult
+
+    /**
+     * 没有可用于刷新的来源引用：从未记录来源、引用缺 `document_id`、或无法构造文档 URI。
+     * 此时只能退回「重新定位文件」由用户重选一次。
+     */
+    data object NoSourceRef : SourceRefreshResult
+
+    /** 有来源引用但执行失败：持久授权失效、文件已删除、格式不符、写入异常等。 */
+    data class Failed(val message: String) : SourceRefreshResult
+}
 /**
  * 书架导入管线 —— 真实 SAF 导入（EPUB/TXT/MD）、文件夹扫描、修复缺失正文，
  * 以及导入任务队列 / 批量进度 / 导入历史的状态管理。
@@ -54,6 +76,7 @@ class ShelfImporter @Inject constructor(
     private val sourceIndex: LibrarySourceIndex,
     private val rootStore: LibraryRootStore,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
+    private val indexRefreshCoordinator: SearchIndexBookRefreshCoordinator,
 ) {
 
     /**
@@ -165,10 +188,69 @@ class ShelfImporter @Inject constructor(
         importHistoryStore.clear()
     }
 
-    /** 重新选择文件（修复缺失正文），返回给用户的结果消息。 */
-    suspend fun repairFile(bookId: String, uri: Uri): String {
+    /**
+     * 重新选择文件（修复缺失正文），返回给用户的结果消息。
+     *
+     * 保留裸 String 契约：既有调用点（书架长按菜单等）只把消息直接展示给用户，
+     * 不需要成败信号。需要类型化结果的场景请用 [refreshFromSource]。
+     */
+    suspend fun repairFile(bookId: String, uri: Uri): String = repairFileTyped(bookId, uri).message
+
+    /**
+     * 按 `library_source_refs` 已记录的来源引用直接刷新正文，**不经系统文件选择器**
+     * （M-BUG-03 第二阶段）。
+     *
+     * 解决的痛点：源文件在系统目录被改过之后，此前必须「长按书籍 → 重新定位文件」
+     * 手动把同一个文件再选一遍；本方法用已存的 `authority + document_id` 重建文档 URI
+     * （授权口径见 [sourceDocumentUriOf]），让「刷新」变成一次点击。
+     *
+     * 两条必须同时满足的约束：
+     * 1. **成败判定要可靠** —— 复用 [repairFileTyped] 的类型化结果，不嗅探消息文本；
+     * 2. **成功后必须重写来源基线** —— `library_source_refs` 的 `size` / `last_modified`
+     *    是「内容有更新」的比较基线，而修复路径本身**不写**它。不重写则下次进书架
+     *    [ShelfSourceUpdateChecker] 仍按旧基线报「可更新」，标签永远清不掉。
+     *
+     * 注意：本方法会**替换正文事实源**（内部稳定副本），因此章节索引与阅读坐标可能
+     * 随新内容变化而错位 —— 这是「刷新」的固有代价，由 UI 侧在调用前向用户说明。
+     */
+    suspend fun refreshFromSource(bookId: String): SourceRefreshResult {
+        val ref = try {
+            sourceIndex.snapshot().firstOrNull { it.bookId == bookId }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        } ?: return SourceRefreshResult.NoSourceRef
+        val root = try {
+            rootStore.loadRoot()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            null
+        }
+        val rootDocumentId = root?.treeUri?.let {
+            runCatching { DocumentsContract.getTreeDocumentId(it) }.getOrNull()
+        }
+        val uri = sourceDocumentUriOf(ref, root?.treeUri, rootDocumentId)
+            ?: return SourceRefreshResult.NoSourceRef
+        val outcome = repairFileTyped(bookId, uri)
+        if (!outcome.ok) return SourceRefreshResult.Failed(outcome.message)
+        refreshSourceBaseline(ref, uri)
+        // 正文替换成功后，异步重建该书的搜索索引（S04-2）。
+        // 不等待重建完成，不把索引失败改变本次刷新结果：
+        // 失败由 SearchIndexBookRefreshCoordinator 写入 AppLog 并静默吞掉。
+        indexRefreshCoordinator.request(bookId)
+        return SourceRefreshResult.Success(outcome.message)
+    }
+
+    /**
+     * [repairFile] 与 [refreshFromSource] 的共同实现 —— 修复路径的唯一入口。
+     *
+     * 内部用 [RepairOutcome] 传递类型化成败，对外的裸 String 契约由 [repairFile] 负责。
+     */
+    private suspend fun repairFileTyped(bookId: String, uri: Uri): RepairOutcome {
         val existing = withContext(ioDispatcher) { bookDao.getById(bookId) }
-        if (existing == null) return "书籍记录不存在"
+        if (existing == null) return RepairOutcome(false, "书籍记录不存在")
         val taskId = "repair-${UUID.randomUUID()}"
         _importTasks.value = (_importTasks.value + ImportTaskUi(taskId, "修复中", "开始修复", "processing"))
             .sortedByDescending { it.createdAt }
@@ -196,15 +278,173 @@ class ShelfImporter @Inject constructor(
                 if (it.id == taskId) it.copy(phase = "修复完成", status = "done", fileName = resolved.fileName) else it
             }
             recordImport(resolved.fileName, resolved.format, resolved.fileSize, "success", bookTitle = resolved.book.title)
-            "《${existing.title}》正文已修复"
+            RepairOutcome(true, "《${existing.title}》正文已修复")
+        } catch (e: CancellationException) {
+            // 取消不是失败：写入「修复失败」历史会制造假记录，且吞掉取消会破坏结构化并发
+            // （调用方的 scope 已经结束，这里再落库属于越权写入）。原样抛出，任务状态交给取消方清理。
+            throw e
         } catch (e: Throwable) {
             val msg = e.message ?: "修复失败"
             _importTasks.value = _importTasks.value.map {
                 if (it.id == taskId) it.copy(phase = "修复失败：$msg", status = "error") else it
             }
             recordImport("unknown", "unknown", 0, "failed", bookTitle = existing.title, error = msg)
-            "修复失败：$msg"
+            RepairOutcome(false, "修复失败：$msg")
         }
+    }
+
+    /**
+     * 刷新成功后就地推进来源基线（M-BUG-03 第二阶段，S04-3 / S04-4 修正）。
+     *
+     * 一行基线必须描述**同一次观测**，因此三个字段的回退口径各自明确：
+     * 1. `size` / `last_modified`（S04-4）：**逐字段**防护 —— provider 该字段观测不到就保留
+     *    旧观测值，绝不编造；provider 整体不可读（`querySourceMetadata` 返回 null）时整行不写。
+     * 2. `content_hash`（S04-3）：只允许三种取值 —— 大文件策略性 null、本次测得的新哈希、
+     *    小文件测不到时的「未知 null」。**不沿用旧哈希**：旧值对应的是刷新前的内容，
+     *    与新 size 同行即是自相矛盾的配对（详见下方分支注释与 `ShelfImporterTest` 两条用例）。
+     * 3. `candidate_fingerprint`：仅 >32 MiB 才计算，口径与 `LibraryBrowserPolicy` 的
+     *    SAME_CONTENT 判定一致。
+     */
+    private suspend fun refreshSourceBaseline(ref: LibrarySourceRef, uri: Uri) {
+        val observed = withContext(ioDispatcher) { querySourceMetadata(context.contentResolver, uri) }
+            ?: return
+        val newSize = observed.first ?: ref.sizeBytes
+        val newLastModified = observed.second ?: ref.lastModifiedMillis
+
+        val internalFile = findInternalFile(ref.bookId)
+        val isLarge = SourceFingerprint.isLargeFile(newSize)
+        val newFingerprint = if (isLarge) {
+            internalFile?.let { computeCandidateFingerprint(it) }
+                ?: SourceFingerprint.compute(context.contentResolver, uri, newSize)
+        } else {
+            null
+        }
+        val newContentHash = if (isLarge) {
+            // ① 大文件（>32 MiB）：**既定策略**不落全量哈希。null 表示「不适用」，不是失败。
+            null
+        } else {
+            // ② 小文件且本次**确实测得**：内部副本优先，失败再按来源 uri 重算。
+            // ③ 小文件但两处都测不到：**写 null 表示未知**。
+            //    绝不沿用 `ref.contentHash` —— 那是**上一个版本**的指纹，而同一行的 `size`
+            //    已被推进到本次观测值，「新 size + 旧哈希」是自相矛盾的配对，等于用旧内容的
+            //    哈希冒充新内容。未知就如实记为未知。
+            //    代价可接受：`library_source_refs.content_hash` 目前无任何读取方（去重读的是
+            //    `books.content_hash`，SAME_CONTENT 读的是 `candidate_fingerprint`），
+            //    而 books 侧的新哈希由 reselectPlainText 独立落库，不受此处影响。
+            internalFile?.let { runCatching { computeFileHash(it) }.getOrNull() }
+                ?: contentHashOrNull(uri, newSize.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt())
+        }
+
+        try {
+            sourceIndex.record(
+                LibrarySourceRefEntity(
+                    book_id = ref.bookId,
+                    root_id = ref.rootId,
+                    provider_authority = ref.providerAuthority,
+                    document_id = ref.documentId,
+                    display_name = ref.displayName,
+                    format = ref.format,
+                    size = newSize,
+                    last_modified = newLastModified,
+                    content_hash = newContentHash,
+                    candidate_fingerprint = newFingerprint,
+                    last_seen_at = System.currentTimeMillis(),
+                    availability = LibrarySourceAvailability.AVAILABLE.storageValue,
+                )
+            )
+        } catch (e: CancellationException) {
+            // record 是挂起调用：不能用 runCatching 包（会吞掉取消，使取消失效）。
+            throw e
+        } catch (_: Exception) {
+            // best-effort：基线写入失败只意味着「可更新」标签会继续显示（用户可再点一次），
+            // 不影响本次正文刷新的结果。
+        }
+    }
+
+    /**
+     * 查找已成功落盘的内部正文副本文件（S04-3）。
+     */
+    private suspend fun findInternalFile(bookId: String): java.io.File? = withContext(ioDispatcher) {
+        runCatching {
+            val book = bookDao.getById(bookId)
+            val path = book?.local_content_path
+            if (path != null) {
+                val file = java.io.File(path)
+                if (file.exists() && file.isFile) return@withContext file
+            }
+            val dir = java.io.File(context.filesDir, "books/$bookId")
+            if (dir.exists() && dir.isDirectory) {
+                val candidate = dir.listFiles()?.firstOrNull { it.isFile && !it.name.endsWith(".repairing") && !it.name.endsWith(".backup") }
+                if (candidate != null) return@withContext candidate
+            }
+            null
+        }.getOrNull()
+    }
+
+    /**
+     * 计算内部副本文件的全量 MD5（S04-3）。
+     *
+     * 语义与 [EpubRepository.computeFileHash] 对齐（两处阈值必须一致）：
+     * - 大文件（`len > MAX_HASH_BYTES`）：**既定策略**，返回 `null` 表示「不计算全量哈希」；
+     * - 小文件（`len <= MAX_HASH_BYTES`）：必须给出真实哈希。空文件或读取失败**抛出**，
+     *   绝不以 `null` 冒充「大文件策略值」—— 那会把一次 I/O 故障静默写成
+     *   「这本书没有内容哈希」，并让旧哈希被悄悄清除、调用方仍报成功。
+     */
+    internal fun computeFileHash(file: java.io.File): String? {
+        val len = file.length()
+        if (len > MAX_HASH_BYTES) return null
+        require(len > 0L) { "内部正文副本为空，无法计算内容哈希" }
+        val md = java.security.MessageDigest.getInstance("MD5")
+        file.inputStream().use { input ->
+            val buf = ByteArray(64 * 1024)
+            while (true) {
+                val n = input.read(buf)
+                if (n < 0) break
+                md.update(buf, 0, n)
+            }
+        }
+        return md.digest().joinToString("") { "%02x".format(it) }
+    }
+
+    /**
+     * 计算超大内部副本文件的「大小 + 首尾分块」候选指纹（S04-3）。
+     */
+    private fun computeCandidateFingerprint(file: java.io.File): String? {
+        val size = file.length()
+        if (!SourceFingerprint.isLargeFile(size)) return null
+        return runCatching {
+            val headMd5 = file.inputStream().use { input ->
+                val buf = ByteArray(SourceFingerprint.CHUNK_BYTES)
+                var read = 0
+                while (read < SourceFingerprint.CHUNK_BYTES) {
+                    val n = input.read(buf, read, SourceFingerprint.CHUNK_BYTES - read)
+                    if (n < 0) return@use null
+                    read += n
+                }
+                SourceFingerprint.md5Hex(buf)
+            } ?: return null
+            val tailMd5 = file.inputStream().use { input ->
+                var remaining = size - SourceFingerprint.CHUNK_BYTES
+                while (remaining > 0) {
+                    val skipped = input.skip(remaining)
+                    if (skipped > 0) {
+                        remaining -= skipped
+                    } else {
+                        if (input.read() < 0) return@use null
+                        remaining -= 1
+                    }
+                }
+                val buf = ByteArray(SourceFingerprint.CHUNK_BYTES)
+                var read = 0
+                while (read < SourceFingerprint.CHUNK_BYTES) {
+                    val n = input.read(buf, read, SourceFingerprint.CHUNK_BYTES - read)
+                    if (n < 0) return@use null
+                    read += n
+                }
+                SourceFingerprint.md5Hex(buf)
+            } ?: return null
+            SourceFingerprint.fromChunks(size, headMd5, tailMd5)
+        }.getOrNull()
     }
 
     private suspend fun runImportBatch(
@@ -808,6 +1048,9 @@ class ShelfImporter @Inject constructor(
         val fileSize: Int,
         val fileName: String,
     )
+
+    /** 修复路径的内部类型化结果；[message] 与 [repairFile] 的裸 String 契约逐字一致。 */
+    private data class RepairOutcome(val ok: Boolean, val message: String)
 
     private data class ImportCandidate(
         val uri: Uri,

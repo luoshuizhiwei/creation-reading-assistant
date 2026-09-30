@@ -5,10 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
-import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.InspirationRepository
+import com.creationreadingassistant.ui.util.isReadingFinished
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.collections.immutable.ImmutableList
@@ -49,9 +49,10 @@ class HomeArchiveViewModel @Inject constructor(
             inspirations = inspirations.sortedByDescending { it.updated_at }.toImmutableList(),
             completedBooks = books.mapNotNull { book ->
                 val itemProgress = progressByBook[book.id] ?: return@mapNotNull null
-                if (book.deleted_at == null &&
-                    (itemProgress.readingState == ReadingCompletionState.FINISHED || itemProgress.progress_percent >= 99.5f)
-                ) CompletedArchiveItem(book, itemProgress) else null
+                // S05-① 契约：归档「已完成」以显式状态为准，取消读完后的残余 100% 不归档
+                if (book.deleted_at == null && isReadingFinished(itemProgress)) {
+                    CompletedArchiveItem(book, itemProgress)
+                } else null
             }.sortedByDescending { it.progress.completed_at ?: 0L }.toImmutableList(),
             isReady = true,
         )

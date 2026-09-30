@@ -469,7 +469,11 @@ fun ReaderScreen(
     )
 
     val persistOnLeave: () -> Unit = {
-        if (!temporaryInspection) nav.persistCurrentProgress()
+        // S12：未换算 Legado marker 的保存保护——用户尚未改变阅读位置时，退出/暂停/
+        // 离开落库不得把 marker 覆盖为当前位置的原生 locator。武装与解除都在
+        // ReaderProgressEffects（依据 loader 的 unconvertedLegadoPosition 与位置变化），
+        // 这里只读注册表；该书换算成功或已是原生进度时未武装，行为与之前逐字一致。
+        if (!temporaryInspection && !LegadoMarkerSaveGuard.isArmed(bid)) nav.persistCurrentProgress()
     }
 
     LaunchedEffect(pagerEngine.replacementAvailability, pagerEngineOn, replacementStartupNoticeShown) {
@@ -547,15 +551,17 @@ fun ReaderScreen(
 
     // ── 笔记对话框（已提取到 ReaderNoteDialog）──────────────────────
     if (noteOpen) {
+        // S07-F2.4：笔记是长生命周期消费者 —— 显示与保存都读**打开时快照**。
+        val noteSelection = screenState.selectionSnapshot
         com.creationreadingassistant.ui.screen.reader.sheets.ReaderNoteDialog(
-            selectedText = selectedText,
+            selectedText = noteSelection?.text.orEmpty(),
             noteBody = noteBody,
             onNoteBodyChange = { onAction(ReaderAction.SetNoteBody(it)) },
             onSave = {
                 // B3：保存逻辑抽到 reader/ReaderActions.kt::saveReaderNote，逐字保真。
                 saveReaderNote(
-                    onAction, bid, selectedText, noteBody, currentChapterTitle,
-                    progressPercent, nav.computeLocatorJson(),
+                    onAction, bid, noteSelection?.text.orEmpty(), noteBody, currentChapterTitle,
+                    progressPercent, nav.computeLocatorJsonForSnapshot(noteSelection),
                 )
                 nav.showNotice("已保存笔记")
             },

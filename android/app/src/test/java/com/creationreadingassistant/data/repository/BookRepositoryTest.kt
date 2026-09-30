@@ -20,6 +20,8 @@ import com.creationreadingassistant.data.local.entity.NoteEntity
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
+import com.creationreadingassistant.feature.library.deletion.BookDeletionSnapshot
+import com.creationreadingassistant.feature.library.deletion.LiveRelationTargets
 import io.mockk.coEvery
 import io.mockk.coVerify
 import io.mockk.every
@@ -28,11 +30,17 @@ import io.mockk.slot
 import io.mockk.verify
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import com.creationreadingassistant.ui.screen.shelf.ShelfStatusFilter
+import com.creationreadingassistant.ui.screen.shelf.bookStatus
+import com.creationreadingassistant.ui.screen.shelf.isDisplayFinished
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
 
 /**
  * BookRepository 单测：
@@ -41,6 +49,13 @@ import org.junit.Test
  * - 状态变更 / 清缓存 / 基础信息更新等核心读写路径。
  */
 class BookRepositoryTest {
+
+    /**
+     * clearBookCache 的残留预检会真实读取 filesDir 下的目录；Context 不能用 relaxed mock
+     * （File(relaxed mock) 会因 mock 内部 path 字段为 null 而抛 NPE），必须给真实临时目录。
+     */
+    @get:Rule
+    val tmp = TemporaryFolder()
 
     private lateinit var bookDao: BookDao
     private lateinit var bookContentDao: BookContentDao
@@ -54,6 +69,8 @@ class BookRepositoryTest {
     private lateinit var bookCategoryDao: BookCategoryDao
     private lateinit var shelfBookDao: ShelfBookDao
     private lateinit var chapterReadDao: ChapterReadDao
+    private lateinit var searchIndexRepository: SearchIndexRepository
+    private lateinit var indexRefreshCoordinator: SearchIndexBookRefreshCoordinator
 
     private lateinit var repository: BookRepository
 
@@ -76,6 +93,8 @@ class BookRepositoryTest {
         bookCategoryDao = mockk(relaxed = true)
         shelfBookDao = mockk(relaxed = true)
         chapterReadDao = mockk(relaxed = true)
+        searchIndexRepository = mockk(relaxed = true)
+        indexRefreshCoordinator = mockk(relaxed = true)
         repository = BookRepository(
             bookDao = bookDao,
             bookContentDao = bookContentDao,
@@ -89,7 +108,11 @@ class BookRepositoryTest {
             bookCategoryDao = bookCategoryDao,
             shelfBookDao = shelfBookDao,
             chapterReadDao = chapterReadDao,
-            context = mockk(relaxed = true),
+            searchIndexRepository = searchIndexRepository,
+            indexRefreshCoordinator = indexRefreshCoordinator,
+            context = mockk {
+                every { filesDir } returns tmp.newFolder("files")
+            },
         )
     }
 
@@ -214,6 +237,119 @@ class BookRepositoryTest {
         coVerify(exactly = 0) { highlightDao.upsert(any()) }
     }
 
+    // ── S03-3：撤销删除接入异步索引协调器（解除同步阻塞） ───────
+
+    @Test
+    fun `restoreBook calls indexRefreshCoordinator request once on successful restore without synchronous reindex`() = runTest {
+        val deletedBook = BookEntity(
+            id = "b1",
+            title = "甲书",
+            format = "txt",
+            updated_at = "2026-01-01T00:00:00Z",
+            deleted_at = "2026-01-02T00:00:00Z",
+        )
+        coEvery { bookDao.getDeleted() } returns listOf(deletedBook)
+
+        repository.restoreBook("b1")
+
+        // 成功恢复后调用 indexRefreshCoordinator.request(bookId) 恰好 1 次
+        verify(exactly = 1) { indexRefreshCoordinator.request("b1") }
+        // 关键断言（解除同步阻塞）：不再同步等待或调用 searchIndexRepository.reindexBookById
+        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
+    }
+
+    @Test
+    fun `restoreBook does not call indexRefreshCoordinator request when book not found in deleted`() = runTest {
+        coEvery { bookDao.getDeleted() } returns emptyList()
+
+        repository.restoreBook("non_existing")
+
+        // 恢复失败时绝不提交重建请求
+        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
+        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
+    }
+
+    @Test
+    fun `restoreBook does not call indexRefreshCoordinator request when deleted_at is null`() = runTest {
+        val activeBook = BookEntity(
+            id = "b1",
+            title = "未被删除的书",
+            format = "txt",
+            updated_at = "2026-01-01T00:00:00Z",
+            deleted_at = null,
+        )
+        coEvery { bookDao.getDeleted() } returns listOf(activeBook)
+
+        repository.restoreBook("b1")
+
+        // 无有效删除时间戳时不提交重建请求
+        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
+        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
+    }
+
+    @Test
+    fun `restoreDeletion delegates to async coordinator and does not synchronously wait for reindex`() = runTest {
+        val stamp = "2026-01-02T00:00:00Z"
+        val snapshot = BookDeletionSnapshot(
+            bookId = "b1",
+            deletedAt = stamp,
+            book = BookEntity(id = "b1", title = "甲书", format = "txt", updated_at = "2026-01-01T00:00:00Z"),
+            progress = null,
+            sessions = emptyList(),
+            notes = emptyList(),
+            highlights = emptyList(),
+            file = null,
+            content = null,
+            contentPayloadRetained = false,
+            tagIds = emptyList(),
+            categoryIds = emptyList(),
+            shelfLinks = emptyList(),
+            chapterReads = emptyList(),
+        )
+        coEvery { bookDao.getDeleted() } returns listOf(
+            BookEntity(id = "b1", title = "甲书", format = "txt", updated_at = "2026-01-01T00:00:00Z", deleted_at = stamp),
+        )
+
+        val report = repository.restoreDeletion(snapshot, LiveRelationTargets.EMPTY)
+
+        assertTrue(report.restoredBook)
+        // 恢复成功时调用协调器恰好 1 次
+        verify(exactly = 1) { indexRefreshCoordinator.request("b1") }
+        // 关键断言（解除同步阻塞）：不再同步调用 searchIndexRepository.reindexBookById
+        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
+    }
+
+    @Test
+    fun `restoreDeletion does not call coordinator request when book is not restored`() = runTest {
+        val stamp = "2026-01-02T00:00:00Z"
+        val snapshot = BookDeletionSnapshot(
+            bookId = "b1",
+            deletedAt = stamp,
+            book = null,
+            progress = null,
+            sessions = emptyList(),
+            notes = emptyList(),
+            highlights = emptyList(),
+            file = null,
+            content = null,
+            contentPayloadRetained = false,
+            tagIds = emptyList(),
+            categoryIds = emptyList(),
+            shelfLinks = emptyList(),
+            chapterReads = emptyList(),
+        )
+        // 模拟未命中（库中无活跃书，也无已删书，且快照无书籍行）
+        coEvery { bookDao.getByIds(any()) } returns emptyList()
+        coEvery { bookDao.getDeleted() } returns emptyList()
+
+        val report = repository.restoreDeletion(snapshot, LiveRelationTargets.EMPTY)
+
+        assertFalse(report.restoredBook)
+        // 未恢复成功时绝不提交重建请求
+        verify(exactly = 0) { indexRefreshCoordinator.request(any()) }
+        coVerify(exactly = 0) { searchIndexRepository.reindexBookById(any()) }
+    }
+
     // ── 阅读进度 / 完成状态 ────────────────────────────────
 
     @Test
@@ -318,6 +454,196 @@ class BookRepositoryTest {
             })
         }
     }
+
+    // ── markFinished：用户显式「标记为已读完」 ────────────────
+
+    /**
+     * 核心语义：标记读完**不得**刷新 `last_read_at`。
+     *
+     * 旧实现走 `updateReadingProgress(100f, "finished")`，会把最近阅读时间改成当下，
+     * 于是一本从未打开过的书跳到「最近阅读」排序榜首——那是管理操作在伪造阅读行为。
+     */
+    @Test
+    fun `markFinished does not touch last_read_at`() = runTest {
+        coEvery { progressDao.getByBook("b1") } returns ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            last_read_at = "2026-01-02T00:00:00Z",
+            progress_percent = 30f,
+        )
+
+        repository.markFinished("b1")
+
+        coVerify(exactly = 1) {
+            progressDao.upsert(withArg {
+                assertEquals("2026-01-02T00:00:00Z", it.last_read_at)
+                assertEquals("finished", it.completion_state)
+            })
+        }
+    }
+
+    @Test
+    fun `markFinished raises percent to 100 and preserves location`() = runTest {
+        coEvery { progressDao.getByBook("b1") } returns ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            progress_percent = 30f,
+            current_location_json = """{"chapter":5}""",
+        )
+
+        repository.markFinished("b1")
+
+        coVerify(exactly = 1) {
+            progressDao.upsert(withArg {
+                assertEquals(100f, it.progress_percent)
+                // 位置保留：用户取消读完或回看时仍能从原处继续
+                assertEquals("""{"chapter":5}""", it.current_location_json)
+            })
+        }
+    }
+
+    @Test
+    fun `markFinished keeps first completed_at on repeat`() = runTest {
+        coEvery { progressDao.getByBook("b1") } returns ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            progress_percent = 100f, completion_state = "finished", completed_at = 777L,
+        )
+
+        repository.markFinished("b1")
+
+        coVerify(exactly = 1) {
+            progressDao.upsert(withArg { assertEquals(777L, it.completed_at) })
+        }
+    }
+
+    @Test
+    fun `markFinished stamps completed_at when absent`() = runTest {
+        coEvery { progressDao.getByBook("b1") } returns ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            progress_percent = 0f,
+        )
+
+        repository.markFinished("b1")
+
+        coVerify(exactly = 1) {
+            progressDao.upsert(withArg {
+                assertTrue(it.completed_at != null)
+                assertEquals("finished", it.completion_state)
+            })
+        }
+    }
+
+    @Test
+    fun `markFinished creates progress row for unknown book`() = runTest {
+        coEvery { progressDao.getByBook("new-book") } returns null
+
+        repository.markFinished("new-book")
+
+        coVerify(exactly = 1) {
+            progressDao.upsert(withArg {
+                assertEquals("new-book", it.book_id)
+                assertEquals("finished", it.completion_state)
+                assertEquals(100f, it.progress_percent)
+            })
+        }
+    }
+
+    // ── S05-①：标记读完 → 取消读完 / 恢复在读的行为矩阵 ──────
+    //
+    // 目标契约（2026-09-28 裁决）：取消后书架归入「在读」，真实阅读位置、时长等
+    // 已有字段分毫不动；`markFinished` 抬高的 100% 残余保留在库里（不伪造位置、
+    // 不改 99.4%），由下一次真实阅读的进度保存自愈；展示层不得再据残余判完成。
+
+    @Test
+    fun `cancel finished keeps location time and clears completion state`() = runTest {
+        val reading = ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            progress_percent = 30f, completion_state = "reading",
+            total_reading_time_ms = 654_321L,
+            current_location_json = """{"chapter":5}""",
+            last_read_at = "2026-01-02T00:00:00Z",
+        )
+        // 第 1 次读（markFinished）：原始在读行；第 2/3 次读（取消、重复取消）：读完后的形态
+        val afterFinish = reading.copy(
+            progress_percent = 100f,
+            completion_state = "finished",
+            completed_at = 1_700_000_000_000L,
+            updated_at = "2026-01-03T00:00:00Z",
+        )
+        coEvery { progressDao.getByBook("b1") } returnsMany listOf(reading, afterFinish)
+
+        repository.markFinished("b1")
+        repository.setReadingState("b1", ReadingCompletionState.READING)
+        // 重复操作：再次取消读完必须幂等，状态不漂移
+        repository.setReadingState("b1", ReadingCompletionState.READING)
+
+        val writes = mutableListOf<ReadingProgressEntity>()
+        coVerify(exactly = 3) { progressDao.upsert(capture(writes)) }
+
+        // 第一次取消的落库行：状态回在读、completed_at 清空，位置/时长/last_read_at 分毫不动
+        val cancelWrite = writes[1]
+        assertEquals("reading", cancelWrite.completion_state)
+        assertNull(cancelWrite.completed_at)
+        assertEquals("""{"chapter":5}""", cancelWrite.current_location_json)
+        assertEquals(654_321L, cancelWrite.total_reading_time_ms)
+        assertEquals("2026-01-02T00:00:00Z", cancelWrite.last_read_at)
+        // markFinished 抬高的 100% 残余保留（数据无损）；展示层不得据此判完成
+        assertEquals(100f, cancelWrite.progress_percent)
+        // S05-① 核心断言：数据库状态与书架分组、「完」标识一致
+        assertEquals(
+            ShelfStatusFilter.READING,
+            bookStatus(book(), cancelWrite.progress_percent, cancelWrite.completion_state),
+        )
+        assertFalse(isDisplayFinished(cancelWrite.progress_percent, cancelWrite.completion_state))
+        // 重复取消的落库行与第一次相同
+        assertEquals("reading", writes[2].completion_state)
+        assertNull(writes[2].completed_at)
+    }
+
+    @Test
+    fun `shelve finished book keeps percent and restore reading regroups`() = runTest {
+        val finished = ReadingProgressEntity(
+            book_id = "b1", updated_at = "2026-01-01T00:00:00Z",
+            progress_percent = 100f, completion_state = "finished", completed_at = 42L,
+            current_location_json = """{"ci":9,"co":500}""",
+            total_reading_time_ms = 1_000L,
+        )
+        coEvery { progressDao.getByBook("b1") } returns finished
+
+        repository.setReadingState("b1", ReadingCompletionState.SHELVED)
+        repository.setReadingState("b1", ReadingCompletionState.READING)
+
+        val writes = mutableListOf<ReadingProgressEntity>()
+        coVerify(exactly = 2) { progressDao.upsert(capture(writes)) }
+
+        // 搁置：优先于百分比，分组「搁置」、不盖「完」；进度与位置保留
+        val shelveWrite = writes[0]
+        assertEquals("shelved", shelveWrite.completion_state)
+        assertNull(shelveWrite.completed_at)
+        assertEquals(100f, shelveWrite.progress_percent)
+        assertEquals("""{"ci":9,"co":500}""", shelveWrite.current_location_json)
+        assertEquals(
+            ShelfStatusFilter.SHELVED,
+            bookStatus(book(), shelveWrite.progress_percent, shelveWrite.completion_state),
+        )
+        assertFalse(isDisplayFinished(shelveWrite.progress_percent, shelveWrite.completion_state))
+
+        // 恢复在读：分组回到「在读」，位置/时长不动
+        val restoreWrite = writes[1]
+        assertEquals("reading", restoreWrite.completion_state)
+        assertNull(restoreWrite.completed_at)
+        assertEquals("""{"ci":9,"co":500}""", restoreWrite.current_location_json)
+        assertEquals(1_000L, restoreWrite.total_reading_time_ms)
+        assertEquals(
+            ShelfStatusFilter.READING,
+            bookStatus(book(), restoreWrite.progress_percent, restoreWrite.completion_state),
+        )
+    }
+
+    /** 书架分组断言用的本地书夹具（bookStatus 的 book 参数当前不参与判定）。 */
+    private fun book() = BookEntity(
+        id = "b1", title = "书", format = "txt", size = 100,
+        content_status = "available", local_uri = "content://test/b1",
+        updated_at = "2026-01-01T00:00:00Z",
+    )
 
     // ── 清缓存 / 基础信息更新 ────────────────────────────────
 

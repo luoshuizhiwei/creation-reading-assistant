@@ -1,8 +1,24 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
-    <!-- Compose 接管 UI，这里仅作为启动前的窗口主题（无 ActionBar） -->
+    <!--
+        Compose 接管 UI 之前，系统画的那一帧启动窗口主题。
+
+        两套并存的原因：manifest 只能声明一个主题，而应用内深浅与系统深浅可以不一致
+        （典型：系统浅色 + 应用内设深色）。因此这里保留浅色默认值，另在
+        `values-night/` 提供系统深色时的变体，并由 MainActivity 在 super.onCreate 前
+        按启动镜像（用户真实选择）调用 setTheme 覆盖 —— 三条路径合起来保证首帧不闪色。
+    -->
     <style name="Theme.CreationReadingAssistant" parent="android:Theme.Material.Light.NoActionBar">
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
+        <item name="android:windowBackground">@color/boot_window_background</item>
+    </style>
+
+    <!-- 应用内设为深色时使用（由 MainActivity.applyBootWindowTheme 应用）。 -->
+    <style name="Theme.CreationReadingAssistant.Dark" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/boot_window_background_dark</item>
     </style>
 </resources>

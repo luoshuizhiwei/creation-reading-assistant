@@ -92,6 +92,7 @@ internal fun ProfileRoute(
     val webDavConfig by viewModel.webDavConfig.collectAsStateWithLifecycle()
     val webDavMsg by viewModel.webDavMsg.collectAsStateWithLifecycle()
     val webDavBackups by viewModel.webDavBackups.collectAsStateWithLifecycle()
+    val legadoBackups by viewModel.legadoBackups.collectAsStateWithLifecycle()
     val aiMsg by viewModel.aiMsg.collectAsStateWithLifecycle()
     val aiHttpWarning by viewModel.aiHttpWarning.collectAsStateWithLifecycle()
     val bridgeStatus by viewModel.bridgeStatus.collectAsStateWithLifecycle()
@@ -281,6 +282,7 @@ internal fun ProfileRoute(
         syncLogs = syncLogs,
         webDavConfig = webDavConfig,
         webDavBackups = webDavBackups,
+        legadoBackups = legadoBackups,
         appearance = appearance,
         reader = reader,
         selectionActions = selectionActions,
@@ -386,6 +388,14 @@ private fun handleProfileAction(
 
         // ---- Sync ----
         is ProfileAction.StartPairing -> viewModel.startPairing(action.rawQr)
+        ProfileAction.RefreshLegadoBackups -> viewModel.loadLegadoBackups()
+        is ProfileAction.ImportLegadoBackup -> onConfirmDialogChange(
+            ConfirmSpec(
+                title = "导入开源阅读记录",
+                message = "将只读取 ${action.filename} 内的 bookshelf.json，并只导入能以书名和作者唯一匹配到本地 EPUB 或纯文本书籍的阅读位置。不会导入书源、设置、书架分组或正文；本地已有更可靠位置的书，以及 Markdown 书，都会跳过。确认继续？",
+                onConfirm = { viewModel.importLegadoBackup(context, action.filename) },
+            )
+        )
         ProfileAction.SyncNow -> viewModel.syncNow()
         ProfileAction.Unpair -> viewModel.unpair()
         is ProfileAction.RetryItem -> viewModel.retryItem(action.item)

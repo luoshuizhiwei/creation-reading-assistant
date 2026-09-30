@@ -81,8 +81,16 @@ internal fun TocSheet(
     showReadStatus: Boolean = false,
     showClearReadMarks: Boolean = false,
     onClearReadMarks: () -> Unit = {},
-    notes: List<NoteEntity> = emptyList(),
-    onPickNote: (NoteEntity) -> Unit = {},
+    /**
+     * 笔记 Tab 的数据源：**高亮 + 非书签笔记**（A01）。
+     *
+     * 由生产宿主经 [tocNoteEntries] 计算后显式传入。刻意**不给默认值** —— 旧签名带
+     * `emptyList()` 默认值，宿主漏传时页面稳定显示「暂无划线与笔记」而不报错，
+     * 正是 A01 缺陷能长期存在的原因（见 `TocNotesWiringGuardTest`）。
+     */
+    notes: List<TocNoteEntry>,
+    /** 笔记 Tab 条目点击：按 [TocNoteEntry.navigationTarget] 走 typed 回源。 */
+    onPickNote: (TocNoteEntry) -> Unit,
 ) {
     val layout = LocalLayoutTokens.current
     val reducedMotion = rememberReducedMotion()
@@ -436,8 +444,8 @@ internal fun TocSheet(
 
             ReaderTocTab.NOTES -> {
                 NotesTabContent(
-                    notes = notes,
-                    onPickNote = onPickNote,
+                    entries = notes,
+                    onPick = onPickNote,
                     modifier = Modifier
                         .fillMaxWidth()
                         .weight(1f),

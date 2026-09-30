@@ -11,6 +11,7 @@ import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
@@ -200,9 +201,9 @@ class StatsRepository @Inject constructor(
         val recentBooks = progress.sortedByDescending { it.updated_at }.take(5).map {
             RecentBook(it.book_id, bookTitles[it.book_id] ?: "(未知)", it.progress_percent)
         }
-        val completedBookCount = progress.count {
-            it.completion_state == "finished" || it.progress_percent >= 99.5f
-        }
+        // S05-① 契约：完读数以显式状态为准（实体行，语义同下方的 isReadingFinishedRow）；
+        // 取消读完后的残余 100%（reading）不计入
+        val completedBookCount = progress.count { it.readingState == ReadingCompletionState.FINISHED }
 
         return Stats(
             totalSessions = validSessions.size,
@@ -219,3 +220,16 @@ class StatsRepository @Inject constructor(
         )
     }
 }
+
+/**
+ * S05-① 契约（2026-09-28 裁决）：统计侧的完成态判定以显式 `completion_state` 为权威
+ * （含历史值 `completed`），百分比不再推断完成。
+ *
+ * 背景：`markFinished` 会把 `progress_percent` 抬到 100，用户「取消读完」后该残余仍在
+ * 库里。本应用内所有写 `percent >= 99.5` 的路径都会同时写 `finished`（导入器钳制 99.4%、
+ * 同步不落远端百分比），因此「高百分比 + reading」只能来自用户的显式取消——完读计数、
+ * 统计分布必须按在读处理。与书架 `ShelfModels.bookStatus` 同口径。
+ * 供 [StatsRepository] 完读计数、`ProfileViewModel.homeSummary` 与统计页分布复用。
+ */
+internal fun StatsProgressRow.isReadingFinishedRow(): Boolean =
+    ReadingCompletionState.fromStorage(completion_state) == ReadingCompletionState.FINISHED

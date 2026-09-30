@@ -4,6 +4,7 @@ import android.content.ContentResolver
 import android.content.Context
 import android.database.Cursor
 import android.net.Uri
+import android.provider.DocumentsContract
 import android.provider.OpenableColumns
 import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
@@ -19,6 +20,7 @@ import com.creationreadingassistant.feature.library.LibrarySourceIndex
 import com.creationreadingassistant.feature.library.LibrarySourceRef
 import com.creationreadingassistant.feature.library.ShelfImporter
 import com.creationreadingassistant.feature.library.SourceFingerprint
+import com.creationreadingassistant.feature.library.SourceRefreshResult
 import com.creationreadingassistant.feature.reader.EpubRepository
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -107,6 +109,7 @@ class ShelfImporterTest {
             sourceIndex = sourceIndex,
             rootStore = rootStore,
             ioDispatcher = io,
+            indexRefreshCoordinator = mockk(relaxed = true),
         )
         importer.booksProvider = { shelfBooks.value }
     }
@@ -133,7 +136,7 @@ class ShelfImporterTest {
         updated_at = "2026-01-01T00:00:00Z",
     )
 
-    private fun uriMock(toStringValue: String, lastPath: String? = null): Uri {
+    private fun uriMock(toStringValue: String, lastPath: String? = toStringValue.substringAfterLast('/')): Uri {
         val u = mockk<Uri>()
         every { u.toString() } returns toStringValue
         if (lastPath != null) every { u.lastPathSegment } returns lastPath
@@ -151,6 +154,9 @@ class ShelfImporterTest {
         every { getColumnIndex(OpenableColumns.DISPLAY_NAME) } returns 0
         every { getColumnIndex(OpenableColumns.SIZE) } returns 1
         every { getColumnIndex("last_modified") } returns 2
+        // _size 列必须显式声明「非 null」：cursor 是**严格** mock，未 stub 的调用会抛
+        // MockKException 而不是返回默认值。来源基线推进用例会读 size（M-FEAT-02）。
+        every { isNull(1) } returns false
         every { isNull(2) } returns true
         every { moveToFirst() } returns true
         every { getString(0) } returns displayName
@@ -170,6 +176,27 @@ class ShelfImporterTest {
         coEvery { bookFileDao.upsert(any()) } returns Unit
         coEvery { historyStore.addEntry(any()) } returns Unit
     }
+
+    /** 构造一条来源引用；默认「无配置根 + 可定位 document id」即单文件选择场景。 */
+    private fun sourceRef(
+        bookId: String = "b1",
+        documentId: String? = "primary:Books/b.txt",
+        sizeBytes: Long = 10L,
+        lastModifiedMillis: Long? = null,
+    ): LibrarySourceRef = LibrarySourceRef(
+        bookId = bookId,
+        rootId = null,
+        providerAuthority = "com.android.externalstorage.documents",
+        documentId = documentId,
+        displayName = "b.txt",
+        format = "txt",
+        sizeBytes = sizeBytes,
+        lastModifiedMillis = lastModifiedMillis,
+        contentHash = null,
+        candidateFingerprint = null,
+        lastSeenAtMillis = 0L,
+        availability = LibrarySourceAvailability.AVAILABLE,
+    )
 
     @Test
     fun `txt import succeeds and updates batch task and history`() = runTest {
@@ -451,6 +478,74 @@ class ShelfImporterTest {
         assertEquals("《书b1》正文已修复", msg)
         coVerify(exactly = 1) {
             historyStore.addEntry(match { it.status == "success" })
+        }
+    }
+
+    // ===== 按来源一键刷新（M-BUG-03 第二阶段） =====
+
+    @Test
+    fun `refresh without a source ref reports no source`() = runTest {
+        coEvery { sourceIndex.snapshot() } returns emptyList()
+
+        val result = importer.refreshFromSource("b1")
+
+        assertEquals(SourceRefreshResult.NoSourceRef, result)
+        coVerify(exactly = 0) { sourceIndex.record(any()) }
+    }
+
+    @Test
+    fun `refresh without a locatable document id reports no source`() = runTest {
+        coEvery { sourceIndex.snapshot() } returns listOf(sourceRef(documentId = null))
+
+        val result = importer.refreshFromSource("b1")
+
+        assertEquals(SourceRefreshResult.NoSourceRef, result)
+        coVerify(exactly = 0) { sourceIndex.record(any()) }
+    }
+
+    @Test
+    fun `refresh advances the source baseline after a successful repair`() = runTest {
+        mockkStatic(DocumentsContract::class)
+        try {
+            every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
+            stubTxtContent("b.txt", "替换正文")
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "txt", fileName = "b.txt")
+            coEvery { bookDao.runInTransaction(any()) } returns Unit
+            // 基线停在导入时的旧观测值（1 字节）→ 检测层会持续报「可更新」。
+            coEvery { sourceIndex.snapshot() } returns listOf(
+                sourceRef(sizeBytes = 1L, lastModifiedMillis = 1_000L)
+            )
+
+            val result = importer.refreshFromSource("b1")
+
+            assertTrue("result=$result", result is SourceRefreshResult.Success)
+            // 关键不变量：成功后基线必须推进到本次观测值，否则「可更新」标签永远清不掉。
+            coVerify(exactly = 1) {
+                sourceIndex.record(match { it.book_id == "b1" && it.size == 12L })
+            }
+        } finally {
+            unmockkStatic(DocumentsContract::class)
+        }
+    }
+
+    @Test
+    fun `refresh failure keeps the old baseline`() = runTest {
+        mockkStatic(DocumentsContract::class)
+        try {
+            every { DocumentsContract.buildDocumentUri(any(), any()) } returns uriMock("content://source/doc")
+            // 原书是 EPUB，来源解析出的却是 TXT → 修复路径的格式一致性校验拒绝。
+            every { resolver.query(any(), any(), any(), any(), any()) } returns cursor("b.txt", 10L)
+            coEvery { bookDao.getById("b1") } returns book("b1", format = "epub", fileName = "a.epub")
+            coEvery { historyStore.addEntry(any()) } returns Unit
+            coEvery { sourceIndex.snapshot() } returns listOf(sourceRef())
+
+            val result = importer.refreshFromSource("b1")
+
+            assertTrue("result=$result", result is SourceRefreshResult.Failed)
+            // 失败不得写基线：写进去等于把「未刷新」谎报成「已是最新」。
+            coVerify(exactly = 0) { sourceIndex.record(any()) }
+        } finally {
+            unmockkStatic(DocumentsContract::class)
         }
     }
 

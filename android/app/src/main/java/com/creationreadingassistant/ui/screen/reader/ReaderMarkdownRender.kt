@@ -61,9 +61,13 @@ private fun buildMarkdownAnnotated(
     sentenceHighlightBg: Color = Color.Transparent,
     searchLocal: IntRange? = null,
     searchHighlightBg: Color = Color.Transparent,
+    persistentHighlights: List<MarkdownPersistentHighlights.HighlightSpan> = emptyList(),
+    highlightColors: (String) -> Color = { Color.Transparent },
 ): AnnotatedString {
     val fullText = prefix + text
-    if (spans.isEmpty() && ttsLocal == null && searchLocal == null) return AnnotatedString(fullText)
+    if (spans.isEmpty() && ttsLocal == null && searchLocal == null && persistentHighlights.isEmpty()) {
+        return AnnotatedString(fullText)
+    }
     val shift = prefix.length
     return AnnotatedString.Builder(fullText).apply {
         spans.forEach { span ->
@@ -128,6 +132,18 @@ private fun buildMarkdownAnnotated(
                 )
             }
         }
+        // 持久高亮叠加：与搜索/TTS 可重叠，但颜色与语义独立（不冒充搜索命中）。
+        persistentHighlights.forEach { span ->
+            val s = span.localRange.first.coerceIn(0, text.length)
+            val e = (span.localRange.last + 1).coerceIn(0, text.length)
+            if (e > s) {
+                addStyle(
+                    SpanStyle(background = highlightColors(span.colorKey)),
+                    shift + s,
+                    shift + e,
+                )
+            }
+        }
     }.toAnnotatedString()
 }
 
@@ -160,7 +176,7 @@ internal fun RenderMarkdownChapter(
     chapterBase: Int = 0,
     ttsSentenceRange: Pair<Int, Int>? = null,
     sentenceHighlightBg: Color = Color.Transparent,
-    onSelectBlock: ((String, Int) -> Unit)? = null,
+    @Suppress("DEPRECATION") onSelectBlock: ((String, Int) -> Unit)? = null,
     fontFamily: FontFamily = FontFamily.Default,
     searchHits: List<MarkdownScrollHit> = emptyList(),
     searchHighlightBg: Color = Color.Transparent,
@@ -179,6 +195,14 @@ internal fun RenderMarkdownChapter(
                 } else {
                     0.dp
                 }
+                // 遗留契约逐字保留：该路径（分页 EPUB 的防御性 Markdown 分支，不在 F3
+                // 范围内）原先回传「本章 blockGlobalOffset + 单元 canonical 起点」的
+                // canonical 全局偏移，这里按同一公式换算，不用新的源区间顶替它。
+                val unitGOff = if (blockGlobalOffset >= 0) {
+                    blockGlobalOffset + unit.canonicalRange.start
+                } else {
+                    -1
+                }
                 RenderMarkdownUnit(
                     unit = unit,
                     canonicalText = chapter.canonicalText,
@@ -189,11 +213,16 @@ internal fun RenderMarkdownChapter(
                     chapterBase = chapterBase,
                     ttsSentenceRange = ttsSentenceRange,
                     sentenceHighlightBg = sentenceHighlightBg,
-                    onSelectBlock = onSelectBlock,
+                    onSelectBlock = onSelectBlock?.let { legacy ->
+                        { text: String, _: IntRange -> legacy(text, unitGOff) }
+                    },
                     fontFamily = fontFamily,
                     searchHits = searchHits,
                     searchHighlightBg = searchHighlightBg,
                     topGap = topGap,
+                    // 遗留路径（分页 EPUB）不使用持久高亮投影，其块坐标也是全书
+                    // 全局基准（blockGlobalOffset 已是全书值）→ 基准为 0。
+                    blockGlobalBase = 0,
                 )
             }
         }
@@ -219,11 +248,20 @@ internal fun RenderMarkdownUnit(
     chapterBase: Int = 0,
     ttsSentenceRange: Pair<Int, Int>? = null,
     sentenceHighlightBg: Color = Color.Transparent,
-    onSelectBlock: ((String, Int) -> Unit)? = null,
+    // S07-F3：整块选择。回调收到「可见文本 + 该块真实源半开区间」这一同一映射结果，
+    // 不是只给文字或只给起点。单元不可整块选择时回调不会被调用（无 clickable）。
+    onSelectBlock: ((text: String, sourceRange: IntRange) -> Unit)? = null,
     fontFamily: FontFamily = FontFamily.Default,
     searchHits: List<MarkdownScrollHit> = emptyList(),
     searchHighlightBg: Color = Color.Transparent,
     topGap: Dp = 0.dp,
+    // F3.1：**必填**，不再有默认值 0。省略它正是「流式分章整体错位」的来源：
+    // 默认 0 会让 Streaming 章内局部坐标被当成全书坐标，且不报错、不崩溃、
+    // 全仓行为用例也照样绿（只有几何断言能发现）。
+    blockGlobalBase: Int,
+    // 持久高亮：单元内局部区间 + 颜色键。与搜索/TTS 高亮叠加但语义不互相冒充。
+    persistentHighlights: List<MarkdownPersistentHighlights.HighlightSpan> = emptyList(),
+    highlightColors: (String) -> Color = { Color.Transparent },
 ) {
     val gOff = if (blockGlobalOffset >= 0) blockGlobalOffset + unit.canonicalRange.start else -1
     val modifier = Modifier
@@ -233,6 +271,19 @@ internal fun RenderMarkdownUnit(
     val text = unitText(canonicalText, unit)
     val searchLocal = searchHits.firstOrNull { it.canonicalStart == unit.canonicalRange.first }?.localRange
     val ttsLocal = ttsLocalRange(ttsSentenceRange, gOff, chapterBase, text.length)
+
+    // 整块选择：只有可整块选择的单元才挂 clickable；区间由唯一映射给出（canonical 空间）。
+    val selectable = markdownUnitIsBlockSelectable(unit)
+    val blockCanonicalRange = if (selectable) {
+        markdownUnitCanonicalRange(unit, blockGlobalBase)
+    } else {
+        null
+    }
+    val selectModifier = when {
+        onSelectBlock == null -> Modifier
+        blockCanonicalRange == null -> Modifier
+        else -> Modifier.clickable { onSelectBlock(text, blockCanonicalRange) }
+    }
 
     when (val content = unit.content) {
         is MarkdownRenderContent.Heading -> {
@@ -244,14 +295,14 @@ internal fun RenderMarkdownUnit(
                     text, content.spans, fontSize, paperFg,
                     ttsLocal = ttsLocal, sentenceHighlightBg = sentenceHighlightBg,
                     searchLocal = searchLocal, searchHighlightBg = searchHighlightBg,
+                    persistentHighlights = persistentHighlights, highlightColors = highlightColors,
                 ),
                 fontSize = (fontSize * scale).sp,
                 fontWeight = FontWeight.Bold,
                 color = paperFg,
                 lineHeight = (fontSize * scale * lineHeight).sp,
                 fontFamily = fontFamily,
-                modifier = modifier.padding(vertical = 4.dp)
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(text, gOff) } else Modifier),
+                modifier = modifier.padding(vertical = 4.dp).then(selectModifier),
             )
         }
 
@@ -261,13 +312,13 @@ internal fun RenderMarkdownUnit(
                     text, content.spans, fontSize, paperFg,
                     ttsLocal = ttsLocal, sentenceHighlightBg = sentenceHighlightBg,
                     searchLocal = searchLocal, searchHighlightBg = searchHighlightBg,
+                    persistentHighlights = persistentHighlights, highlightColors = highlightColors,
                 ),
                 fontSize = fontSize.sp,
                 color = paperFg,
                 lineHeight = (fontSize * lineHeight).sp,
                 fontFamily = fontFamily,
-                modifier = modifier
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(text, gOff) } else Modifier),
+                modifier = modifier.then(selectModifier),
             )
         }
 
@@ -278,13 +329,13 @@ internal fun RenderMarkdownUnit(
                     prefix = content.marker,
                     ttsLocal = ttsLocal, sentenceHighlightBg = sentenceHighlightBg,
                     searchLocal = searchLocal, searchHighlightBg = searchHighlightBg,
+                    persistentHighlights = persistentHighlights, highlightColors = highlightColors,
                 ),
                 fontSize = fontSize.sp,
                 color = paperFg,
                 lineHeight = (fontSize * lineHeight).sp,
                 fontFamily = fontFamily,
-                modifier = modifier
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(text, gOff) } else Modifier),
+                modifier = modifier.then(selectModifier),
             )
         }
 
@@ -296,13 +347,13 @@ internal fun RenderMarkdownUnit(
                     prefix = marker,
                     ttsLocal = ttsLocal, sentenceHighlightBg = sentenceHighlightBg,
                     searchLocal = searchLocal, searchHighlightBg = searchHighlightBg,
+                    persistentHighlights = persistentHighlights, highlightColors = highlightColors,
                 ),
                 fontSize = fontSize.sp,
                 color = paperFg,
                 lineHeight = (fontSize * lineHeight).sp,
                 fontFamily = fontFamily,
-                modifier = modifier
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(text, gOff) } else Modifier),
+                modifier = modifier.then(selectModifier),
             )
         }
 
@@ -315,7 +366,7 @@ internal fun RenderMarkdownUnit(
                 modifier = modifier
                     .background(paperFg.copy(alpha = 0.06f))
                     .padding(8.dp)
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock(text, gOff) } else Modifier),
+                    .then(selectModifier),
             ) {
                 if (languageLabel != null) {
                     Text(
@@ -341,9 +392,7 @@ internal fun RenderMarkdownUnit(
         is MarkdownRenderContent.Table -> {
             val tableScroll = rememberScrollState()
             Column(
-                modifier = modifier
-                    .horizontalScroll(tableScroll)
-                    .then(if (onSelectBlock != null) Modifier.clickable { onSelectBlock("[Table]", gOff) } else Modifier),
+                modifier = modifier.horizontalScroll(tableScroll),
             ) {
                 // 表头
                 if (content.header.isNotEmpty()) {
@@ -352,6 +401,10 @@ internal fun RenderMarkdownUnit(
                             TableCellContent(
                                 cell, canonicalText, fontSize, lineHeight, paperFg, bold = true, fontFamily = fontFamily,
                                 searchHits = searchHits, searchHighlightBg = searchHighlightBg,
+                                persistentHighlights = persistentHighlights.filter {
+                                    it.cellCanonicalStart == cell.canonicalRange.first
+                                },
+                                highlightColors = highlightColors,
                             )
                         }
                     }
@@ -364,6 +417,10 @@ internal fun RenderMarkdownUnit(
                             TableCellContent(
                                 cell, canonicalText, fontSize, lineHeight, paperFg, bold = false, fontFamily = fontFamily,
                                 searchHits = searchHits, searchHighlightBg = searchHighlightBg,
+                                persistentHighlights = persistentHighlights.filter {
+                                    it.cellCanonicalStart == cell.canonicalRange.first
+                                },
+                                highlightColors = highlightColors,
                             )
                         }
                     }
@@ -420,6 +477,8 @@ private fun TableCellContent(
     fontFamily: FontFamily = FontFamily.Default,
     searchHits: List<MarkdownScrollHit> = emptyList(),
     searchHighlightBg: Color = Color.Transparent,
+    persistentHighlights: List<MarkdownPersistentHighlights.HighlightSpan> = emptyList(),
+    highlightColors: (String) -> Color = { Color.Transparent },
 ) {
     val textAlign = when (cell.alignment) {
         MarkdownRenderAlignment.LEFT -> TextAlign.Left
@@ -437,6 +496,7 @@ private fun TableCellContent(
         text = buildMarkdownAnnotated(
             cellText, cell.spans, fontSize, paperFg,
             searchLocal = searchLocal, searchHighlightBg = searchHighlightBg,
+            persistentHighlights = persistentHighlights, highlightColors = highlightColors,
         ),
         fontSize = (fontSize * 0.85).sp,
         fontWeight = if (bold) FontWeight.Bold else FontWeight.Normal,

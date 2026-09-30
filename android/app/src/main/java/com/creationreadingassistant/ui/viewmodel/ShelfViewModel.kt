@@ -19,7 +19,10 @@ import com.creationreadingassistant.data.local.entity.TagEntity
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
 import com.creationreadingassistant.feature.log.AppLog
+import com.creationreadingassistant.feature.library.LibrarySourceIndex
 import com.creationreadingassistant.feature.library.ShelfImporter
+import com.creationreadingassistant.feature.library.ShelfSourceUpdateChecker
+import com.creationreadingassistant.feature.library.SourceRefreshResult
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
 import com.creationreadingassistant.feature.library.deletion.DeletionUndoOffer
 import com.creationreadingassistant.feature.library.deletion.DeletionUndoOutcome
@@ -52,9 +55,84 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+// ===== 来源刷新汇总文案（S04，依据 2026-09-25 EPUB 残留 UI 流向审查 P2） =====
+
+/** 汇总里最多展开的书名数；其余折叠为「等 N 本」，避免批量失败把 Snackbar 撑爆。 */
+internal const val SOURCE_REFRESH_SUMMARY_MAX_TITLES = 3
+
+/** 非残留类单条原因的字符上限；超出截断加省略号（完整原因永远可在导入记录里看到）。 */
+internal const val SOURCE_REFRESH_REASON_MAX_CHARS = 60
+
+/** 单个书名在汇总里的字符上限；超出截断加省略号（书卡上本就展示完整书名）。 */
+internal const val SOURCE_REFRESH_TITLE_MAX_CHARS = 30
+
+/** 残留守卫消息的判定标记：EPUB（`EpubRepository`）与 TXT/MD（`ShelfImporter`）守卫共用同一句式。 */
+private const val SOURCE_REFRESH_RESIDUE_MARKER = "替换残留"
+
+/** 一本刷新失败的书的展示信息：书名 + 底层原因原文。 */
+internal data class SourceRefreshFailureUi(
+    val title: String,
+    val reason: String,
+)
+
+/** 通用截断：超出上限截断加省略号；不改变未超限的文本。 */
+private fun truncateForSummary(text: String, maxChars: Int): String =
+    if (text.length <= maxChars) text else text.take(maxChars) + "…"
+
+/**
+ * 压缩单条失败原因，供 Snackbar 汇总使用（纯函数）。
+ *
+ * - **残留场景必须语义完整**：短句保留「本次替换已停止」「残留备份已保留」
+ *   「重复重试不会自动恢复该备份」三个关键事实——这正是审查要求用户必须读到的部分；
+ *   被去掉的只有括号里的备份文件名与「旧正文若仍存在…」的中间从句。
+ *   **绝不**引导删书 / 清备份，也**绝不**宣称能自动恢复。
+ * - 其他原因截断到 [SOURCE_REFRESH_REASON_MAX_CHARS]；空原因显式写「原因未知」，
+ *   不产出「（原因：）」这种空括号。
+ */
+internal fun summarizeSourceRefreshFailureReason(reason: String): String {
+    if (reason.contains(SOURCE_REFRESH_RESIDUE_MARKER)) {
+        return "检测到未完成的替换残留，本次替换已停止；残留备份已保留，重复重试不会自动恢复该备份"
+    }
+    val trimmed = reason.trim()
+    if (trimmed.isEmpty()) return "原因未知"
+    return truncateForSummary(trimmed, SOURCE_REFRESH_REASON_MAX_CHARS)
+}
+
+/**
+ * 构建来源刷新（入口 B）的汇总文案（纯函数）。
+ *
+ * 产品口径：
+ * - 成功数如实统计（0 本也如实说「已同步 0 本」，绝不把失败报成成功）；
+ * - 失败必须带**首条原因**，不能再只报书名——残留场景用户必须看到「重试无效」；
+ * - 书名只展开前 [SOURCE_REFRESH_SUMMARY_MAX_TITLES] 个，多本失败折叠计数；
+ * - 原因只展开第一条；失败原因不止一种时提示「详见导入记录」，不逐条铺开；
+ * - 书名是书架既有展示信息（书卡上本来就显示），可进提示；书籍正文内容永不进提示。
+ */
+internal fun buildSourceRefreshSummary(
+    succeeded: Int,
+    unlocatable: Int,
+    failures: List<SourceRefreshFailureUi>,
+): String = buildString {
+    append("已同步 $succeeded 本书的源文件更新")
+    if (unlocatable > 0) append("；$unlocatable 本无法定位来源，请长按选择「重新定位文件」")
+    if (failures.isNotEmpty()) {
+        append("；${failures.size} 本刷新失败：")
+        val shown = failures.take(SOURCE_REFRESH_SUMMARY_MAX_TITLES)
+        append(shown.joinToString("、") { truncateForSummary(it.title, SOURCE_REFRESH_TITLE_MAX_CHARS) })
+        if (failures.size > shown.size) append(" 等 ${failures.size} 本")
+        append("（原因：")
+        append(summarizeSourceRefreshFailureReason(failures.first().reason))
+        append("）")
+        if (failures.map { it.reason }.distinct().size > 1) {
+            append("；其余失败原因详见导入记录")
+        }
+    }
+}
 
 /**
  * 书架页 ViewModel —— 仅依赖 Repository 层，不直接注入 DAO（APP_MODULE_PLAN §7.2）。
@@ -77,6 +155,8 @@ class ShelfViewModel @Inject constructor(
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     @DefaultDispatcher private val defaultDispatcher: CoroutineDispatcher,
     shelfImporter: ShelfImporter,
+    private val sourceIndex: LibrarySourceIndex,
+    private val sourceUpdateChecker: ShelfSourceUpdateChecker,
     private val deletions: BookDeletionCoordinator? = null,
 ) : ViewModel() {
 
@@ -515,18 +595,157 @@ class ShelfViewModel @Inject constructor(
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
-    fun refresh() {
+    // 来源更新前置确认状态（S04-1）：检测到有源文件变动的书籍列表；非 null 时提示用户确认是否覆盖正文
+    private val _pendingSourceRefreshIds = MutableStateFlow<List<String>?>(null)
+    val pendingSourceRefreshIds: StateFlow<List<String>?> = _pendingSourceRefreshIds.asStateFlow()
+
+    /**
+     * 下拉刷新。做三件事，全程保持刷新指示器可见：
+     * 1. 重采底层 Room 查询（让外部写入 / 同步落地后立即反映）；
+     * 2. 检测来源文件是否在系统目录被改过；
+     * 3. **前置一次性确认**：检测到有更新时不直接替换正文，而是进入待确认状态（[pendingSourceRefreshIds]），
+     *    待用户确认后才批量执行刷新，避免误刷新覆盖阅读进度（S04-1）。
+     *
+     * [onResult] 把结果交给 Snackbar。**无更新时也必须给出明确反馈**，否则用户无法
+     * 区分「确实没有更新」与「手势没生效 / 来源没记录」；有更新时由确认弹窗接管。
+     */
+    fun refresh(onResult: (String) -> Unit = {}) {
         if (_isRefreshing.value) return
         viewModelScope.launch {
             _isRefreshing.value = true
-            runCatching {
-                withContext(ioDispatcher) {
-                    repository.observeBooks().first()
-                    repository.observeProgress().first()
+            try {
+                runCatching {
+                    withContext(ioDispatcher) {
+                        repository.observeBooks().first()
+                        repository.observeProgress().first()
+                    }
                 }
+                delay(350) // 保证刷新反馈有最短可见时长
+                checkUpdatedSources(onResult)
+            } finally {
+                _isRefreshing.value = false
             }
-            delay(350) // 保证刷新反馈有最短可见时长
-            _isRefreshing.value = false
+        }
+    }
+
+    /**
+     * 检测来源文件是否有更新。无更新时直接给出 Snackbar 反馈；有更新时打「可更新」标并发出确认请求。
+     */
+    private suspend fun checkUpdatedSources(onResult: (String) -> Unit) {
+        val refs = try {
+            sourceIndex.snapshot()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            onResult("刷新失败：无法读取来源索引")
+            return
+        }
+        if (refs.isEmpty()) {
+            _contentUpdatedBookIds.value = emptySet()
+            _pendingSourceRefreshIds.value = null
+            onResult("没有可同步的来源记录（这些书是用系统选择器导入的，无法自动定位原文件）")
+            return
+        }
+        val updated = try {
+            sourceUpdateChecker.checkUpdated(refs)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            onResult("刷新失败：无法读取来源文件状态")
+            return
+        }
+        if (updated.isEmpty()) {
+            _contentUpdatedBookIds.value = emptySet()
+            _pendingSourceRefreshIds.value = null
+            onResult("书架已是最新，没有检测到源文件更新")
+            return
+        }
+        // 有源文件更新：打标并发出前置确认请求，绝不直接替换正文（S04-1）
+        _contentUpdatedBookIds.value = updated
+        _pendingSourceRefreshIds.value = updated.toList()
+    }
+
+    /**
+     * 用户确认后执行正文同步（S04-1）。
+     *
+     * 串行调用 [importer.refreshFromSource] 依次替换正文并推进基线，完成后给出汇总反馈。
+     * 汇总由 [buildSourceRefreshSummary] 构造：失败书名 + 首条原因（S04，残留场景
+     * 必须让用户读到「本次已停止、重试无效」，且多书失败时控制总长度）。
+     */
+    fun confirmSourceRefresh(
+        bookIds: Collection<String>? = null,
+        onResult: (String) -> Unit = {},
+    ) = viewModelScope.launch {
+        val targets = bookIds ?: _pendingSourceRefreshIds.value ?: return@launch
+        if (targets.isEmpty()) return@launch
+        _pendingSourceRefreshIds.value = null
+
+        val titleById = uiState.value.library.books.associate { it.id to it.title }
+        var succeeded = 0
+        var unlocatable = 0
+        // S04：失败不再只留书名——底层原因（如替换残留）必须随汇总带出，
+        // 否则用户只看到「N 本刷新失败」却不知道本次已停止、重试无效。
+        val failures = mutableListOf<SourceRefreshFailureUi>()
+        for (bookId in targets) {
+            when (val result = importer.refreshFromSource(bookId)) {
+                is SourceRefreshResult.Success -> succeeded++
+                SourceRefreshResult.NoSourceRef -> unlocatable++
+                is SourceRefreshResult.Failed -> failures += SourceRefreshFailureUi(
+                    title = titleById[bookId] ?: "未知书籍",
+                    reason = result.message,
+                )
+            }
+        }
+        refreshSourceUpdates()
+        onResult(buildSourceRefreshSummary(succeeded, unlocatable, failures))
+    }
+
+    /**
+     * 用户取消刷新确认：关闭确认状态，保持书卡角标不变，零本正文被替换（S04-1）。
+     */
+    fun cancelSourceRefresh() {
+        _pendingSourceRefreshIds.value = null
+    }
+
+    // ===== 来源内容更新自动检测（M-BUG-03）=====
+    // 「来源文件在系统目录被改过」的书，在书卡上打「可更新」标签。
+    // 只读 provider 的 size/last_modified 与导入基线比对，绝不回写基线、绝不改正文；
+    // 任何解析/授权失败都静默跳过（不误报）。失败不影响书架其余功能。
+    private val _contentUpdatedBookIds = MutableStateFlow<Set<String>>(emptySet())
+    val contentUpdatedBookIds: StateFlow<Set<String>> = _contentUpdatedBookIds.asStateFlow()
+    private var sourceUpdateJob: Job? = null
+
+    /**
+     * 进书架 / 下拉刷新时调用。逐本 stat 已记录的来源文档，结果只用于打标。
+     *
+     * 上一次检测未结束就再次触发时取消旧任务，避免堆叠 provider 查询。
+     *
+     * 这里刻意**不用 `runCatching`** 包住 suspend 调用：`runCatching` 会把
+     * `CancellationException` 一并吞掉，于是被取消的旧任务会在取消瞬间把结果写成空集，
+     * 有机会覆盖新任务刚写入的结果（并破坏结构化并发）。改为显式区分取消与真实失败。
+     */
+    fun refreshSourceUpdates() {
+        sourceUpdateJob?.cancel()
+        sourceUpdateJob = viewModelScope.launch {
+            val refs = try {
+                sourceIndex.snapshot()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                emptyList()
+            }
+            if (refs.isEmpty()) {
+                _contentUpdatedBookIds.value = emptySet()
+                return@launch
+            }
+            val updated = try {
+                sourceUpdateChecker.checkUpdated(refs)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                emptySet()
+            }
+            _contentUpdatedBookIds.value = updated
         }
     }
 
@@ -547,5 +766,9 @@ class ShelfViewModel @Inject constructor(
 
         // EPUB size 修复已收敛为进程级一次性任务（EpubSizeRepairTask，App.onCreate 启动），
         // 不再由每个 ShelfViewModel 实例 init 重复触发。
+
+        // 进书架即做一次来源内容更新检测（M-BUG-03）。只 stat 单文档、串行、失败静默，
+        // 不阻塞列表首帧（在独立协程里跑，结果到达后自然刷新标签）。
+        refreshSourceUpdates()
     }
 }

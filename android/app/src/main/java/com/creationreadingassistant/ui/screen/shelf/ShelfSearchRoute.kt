@@ -438,7 +438,11 @@ private fun SearchResultRow(
 ) {
     val haptic = rememberHaptic(rememberReducedMotion())
     val progressPercent = (progress?.progress_percent ?: 0f).coerceIn(0f, 100f)
-    val status = bookStatus(book, progressPercent)
+    // 必须把 completion_state 一并传入：只按进度判会把「手动标记读完但进度没到 99.5%」的书
+    // 显示成「在读」，与书架页的状态口径不一致。
+    val status = bookStatus(book, progressPercent, progress?.completion_state)
+    // S05-①：藏书印与书架分组同口径——取消读完后的残余 100% 不再盖「完」
+    val displayFinished = status == ShelfStatusFilter.COMPLETED
     val reason = when {
         book.title.lowercase().contains(query) -> "匹配书名"
         book.author.orEmpty().lowercase().contains(query) -> "匹配作者"
@@ -470,7 +474,7 @@ private fun SearchResultRow(
         ) {
             BookCover(
                 book = book,
-                percent = progressPercent,
+                percent = if (displayFinished) progressPercent else null,
                 modifier = Modifier
                     .size(50.dp, 72.dp)
                     .clip(RoundedCornerShape(8.dp)),

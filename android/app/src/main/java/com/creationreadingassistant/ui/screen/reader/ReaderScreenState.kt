@@ -18,6 +18,76 @@ enum class ReaderSheet {
 }
 
 /**
+ * 消费者快照（S07-F2.4）：文字与坐标的**不可变**对。坐标仍是 source 口径
+ * （与 [ReaderScreenState] 的活动选区字段同名同义），持久化契约不变。
+ */
+data class ReaderSelectionSnapshot(
+    val text: String,
+    val rangeStart: Int,
+    val globalOffset: Int,
+    val sourceEnd: Int,
+)
+
+/**
+ * 该 sheet 是否是「长生命周期选区消费者」（S07-F2.4）。
+ *
+ * 消费者 = 打开后会**持续**使用选区文字/坐标的弹层。它们必须在打开时拿到不可变快照，
+ * 否则正文活动选区被清理（TTS 滚动导致 ReadingUnit dispose）后会丢摘录、丢定位、丢草稿。
+ *
+ * 明确**不是**消费者的：
+ * - `SEARCH`：查询串在打开前已由 `SetSearchQuery` 快照进 `searchQuery`；
+ * - `DICTIONARY`：查词由 `dictionaryWord` 在打开前单独快照；
+ * - `NOTES` / `TOC` / `SETTINGS` / `PROGRESS` / `BOOK_INFO` / `THEME`：不读选区。
+ */
+internal fun ReaderSheet.consumesSelection(): Boolean = when (this) {
+    ReaderSheet.RULES,
+    ReaderSheet.AI_EXPLAIN,
+    ReaderSheet.INSPIRATION,
+    ReaderSheet.AI_ASSIST,
+    -> true
+
+    ReaderSheet.TOC,
+    ReaderSheet.NOTES,
+    ReaderSheet.SETTINGS,
+    ReaderSheet.PROGRESS,
+    ReaderSheet.SEARCH,
+    ReaderSheet.BOOK_INFO,
+    ReaderSheet.THEME,
+    ReaderSheet.DICTIONARY,
+    -> false
+}
+
+/**
+ * 原子捕获当前活动选区为消费者快照（S07-F2.4）。
+ *
+ * **无选区时写 null**，而不是保留上一轮快照 —— 这样从顶栏直接打开灵感等入口时，
+ * 仍然是「无摘录」语义，不会复用上一轮残留的选区（要求 9）。
+ */
+internal fun ReaderScreenState.withSelectionCaptured(): ReaderScreenState = copy(
+    selectionSnapshot = if (selectedText.isNotBlank()) {
+        ReaderSelectionSnapshot(
+            text = selectedText,
+            rangeStart = selectedRangeStart,
+            globalOffset = selectedGlobalOffset,
+            sourceEnd = selectedSourceEnd,
+        )
+    } else {
+        null
+    },
+)
+
+/** 释放消费者快照（关闭消费者 / 切到不消费选区的 sheet），避免下一次打开复用旧选区。 */
+internal fun ReaderScreenState.withSelectionSnapshotReleased(): ReaderScreenState =
+    copy(selectionSnapshot = null)
+
+/**
+ * 阅读页短生命周期 UI 状态（不可变 data class）。
+ *
+ * 所有变更通过 ReaderViewModel.onAction → _screenState.update { it.copy(...) } 驱动；
+ * ReaderScreen 通过 collectAsStateWithLifecycle 获取只读快照。
+ */
+
+/**
  * 阅读页短生命周期 UI 状态（不可变 data class）。
  *
  * 所有变更通过 ReaderViewModel.onAction → _screenState.update { it.copy(...) } 驱动；
@@ -39,4 +109,12 @@ data class ReaderScreenState(
     val noteOpen: Boolean = false,
     val noteBody: String = "",
     val showColorRow: Boolean = false,
+    /**
+     * 长生命周期选区消费者的不可变快照（S07-F2.4）。
+
+     * `null` = 当前没有消费者持有快照。仅在「从选区工具栏打开需要选区的 sheet/dialog」
+     * 时由 ViewModel 原子捕获；正文活动选区被清除**不影响**它。
+     * 关闭消费者、保存完成或切到不消费选区的 sheet 时释放为 null。
+     */
+    val selectionSnapshot: ReaderSelectionSnapshot? = null,
 )

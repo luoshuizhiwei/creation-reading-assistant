@@ -25,6 +25,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -39,6 +41,80 @@ import com.creationreadingassistant.ui.screen.reader.content.PagedEpubView
 import com.creationreadingassistant.ui.screen.reader.tts.buildSentenceHighlighted
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+
+/**
+ * S07-F3：非分页 / 旧 EPUB 滚动模式「整块选择」的源半开区间。
+ *
+ * 坐标链（从构建来源追到保存，不靠变量名推断）：
+ * `blockGlobalOffsets[i]` ← [computeBlockGlobalOffsets]（`ReaderTextIndex.kt:18`）
+ *   ← `LegacyOffsetCodec.blockOffsets(blocks.map { text.length }, chapterBase)`
+ *   = chapterBase + Σ(前面每个文本块 length + 1)；图片块记 -1。
+ * `ReaderDocument` 核心不变式（`ReaderDocument.kt:47`）：
+ *   text(i) == blocks(i).filterIsInstance<DocBlock.Text>().joinToString("\n") { it.text }
+ *
+ * 因此第 i 个文本块的半开源区间 = [gOff, gOff + block.text.length)。
+ * 终点**不含**块间 "\n"，恰好落在文本末字符之后，与 `epubChapterEndOffset`
+ * （`ReaderScrollPosition.kt:63`）既有口径 start + text.length 完全一致。
+ *
+ * 这个偏移空间是「旧版混合量纲」（章起点来自 ZIP 字节估算），但它**正是**
+ * `LocatorBuilder.forEpub` / `LocatorCodec` 保存与回读所用的同一空间，
+ * 因此起点可靠、可与既有历史高亮对齐。禁止把它改写成真实字符偏移。
+ */
+
+/** 文本块的源半开区间；坐标未知（gOff < 0）、空文本或空白文本返回 null。 */
+internal fun epubTextBlockSourceRange(block: DocBlock.Text, gOff: Int): IntRange? {
+    if (gOff < 0) return null
+    if (block.text.isBlank()) return null
+    val start = gOff
+    val end = gOff + block.text.length
+    return if (end > start) start until end else null
+}
+
+/**
+ * 任意块 → 源区间。图片等非文本块**恒为 null**：不得生成伪选区。
+ * 即使调用方误传非负 gOff 也不生成。
+ */
+internal fun epubBlockSourceRange(block: DocBlock, gOff: Int): IntRange? = when (block) {
+    is DocBlock.Text -> epubTextBlockSourceRange(block, gOff)
+    is DocBlock.Image -> null
+    is DocBlock.Markdown -> null
+}
+
+/**
+ * S07-F3.1 任务 C：非分页 / 旧 EPUB **持久高亮投影**的纯函数。
+ *
+ * 输入：文本块半开区间 `[blockStart, blockStart + blockLength)`（`epubTextBlockSourceRange`
+ * 的同源产物）与已保存高亮的 `(absStart, absLength)`。输出：**该块内的局部**半开区间。
+ *
+ * 硬约束：
+ * - **没有文本字段** —— 不可能做 selectedText 搜索 / indexOf / 首次匹配；
+ * - 重复段落靠各自 `gOff` 区分，绝不串块；
+ * - 跨两个文本块的高亮，两块各自渲染**自己的**交集（本函数一次只算一块）；
+ * - `gOff < 0`（坐标未知）、空文本、负长度、零长度、非法坐标一律 null；
+ * - 图片 / Markdown 等非文本块在本层之前就被 `epubBlockSourceRange` 挡掉（返回 null），
+ *   这里对 `blockLength <= 0` 再兜一层。
+ *
+ * 坐标空间：与 `epubTextBlockSourceRange` 完全相同（LegacyOffsetCodec 章起点 +
+ * Σ(前块 length + 1)），也是 `LocatorBuilder.forEpub` / `LocatorCodec` 的保存与回读空间。
+ */
+internal fun epubBlockHighlightLocalRange(
+    blockStart: Int,
+    blockLength: Int,
+    absStart: Int,
+    absLength: Int,
+): IntRange? {
+    if (blockStart < 0) return null
+    if (blockLength <= 0) return null
+    if (absStart < 0) return null
+    if (absLength <= 0) return null
+    val blockEnd = blockStart.toLong() + blockLength.toLong()
+    val absEnd = absStart.toLong() + absLength.toLong()
+    val start = maxOf(blockStart.toLong(), absStart.toLong())
+    val end = minOf(blockEnd, absEnd)
+    if (end <= start) return null
+    // 相对块起点的局部区间；转换后必然落在 [0, blockLength]，Long 已排除溢出
+    return (start - blockStart).toInt() until (end - blockStart).toInt()
+}
 
 /**
  * ReaderContentHost 分支 2：EPUB（epubBook != null）。
@@ -174,8 +250,46 @@ internal fun ReaderContentHostEpubBranch(
                                     searchBg = settings.searchHighlightBg,
                                 )
                             }
+                            // S07-F3.1 任务 C：非分页 EPUB 的持久高亮重新渲染。
+                            // 纯坐标求交（[epubBlockHighlightLocalRange]），无文本搜索；
+                            // 不可渲染（坐标未知 / 不在本块 / 非法）只跳过，不删不改数据库。
+                            //
+                            // 在 [buildSentenceHighlighted] 的**结果之上**叠一层，不改那个函数
+                            // （它属于 tts 包，不在本片允许清单内），因此 TTS 句高亮与搜索命中
+                            // 的既有行为完全不动。
+                            val blockHighlights = remember(gOff, block.text.length, s.highlights) {
+                                s.highlights.mapNotNull { h ->
+                                    val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
+                                    val length = highlightSourceLength(h.payload, h.text.length)
+                                    if (length <= 0) return@mapNotNull null
+                                    val local = epubBlockHighlightLocalRange(
+                                        blockStart = gOff,
+                                        blockLength = block.text.length,
+                                        absStart = start,
+                                        absLength = length,
+                                    ) ?: return@mapNotNull null
+                                    local to (h.color ?: "yellow")
+                                }
+                            }
+                            val text = remember(ann, blockHighlights, settings.paper) {
+                                if (blockHighlights.isEmpty()) {
+                                    ann
+                                } else {
+                                    AnnotatedString.Builder(ann).apply {
+                                        blockHighlights.forEach { (local, colorKey) ->
+                                            // 复用**纸张高亮色**，不复用 searchHighlightBg：
+                                            // 否则持久高亮会与搜索命中语义互相冒充。
+                                            addStyle(
+                                                SpanStyle(background = settings.paper.highlight(colorKey)),
+                                                local.first,
+                                                (local.last + 1).coerceAtMost(ann.length),
+                                            )
+                                        }
+                                    }.toAnnotatedString()
+                                }
+                            }
                             Text(
-                                text = ann,
+                                text = text,
                                 style = TextStyle(
                                     textAlign = TextAlign.Justify,
                                     lineHeight = (settings.readerSettings.fontSize * settings.readerSettings.lineHeight).sp,
@@ -194,8 +308,18 @@ internal fun ReaderContentHostEpubBranch(
                                             Modifier
                                         },
                                     )
+                                    // S07-F3：整块选择提交**同一映射结果**——
+                                    // 文字、起点、源终点三者同源。此前 sourceEnd 恒为 -1，
+                                    // 使高亮/笔记只能靠文本长度猜终点。
                                     .clickable {
-                                        callbacks.onSelect(block.text, gOff, -1, -1)
+                                        val range = epubTextBlockSourceRange(block, gOff)
+                                        if (range == null) {
+                                            // 坐标不可靠：不得发出可保存的伪坐标，
+                                            // 轻点回落到中央点击（唤出/隐藏控制栏）。
+                                            callbacks.onToggleControls()
+                                        } else {
+                                            callbacks.onSelect(block.text, range.first, -1, range.last + 1)
+                                        }
                                     },
                             )
                         }

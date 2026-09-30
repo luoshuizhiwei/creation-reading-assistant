@@ -5,8 +5,12 @@ import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.LocalIndication
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -43,6 +47,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -50,7 +55,56 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import java.time.LocalDate
+
+/**
+ * 时长 pill 的长按标签。两个消费端（会话时长 pill、已读书籍时长 pill）共用同一措辞，
+ * androidTest 也断言这同一个常量，避免测试与实现各写一份中文。
+ */
+internal const val DURATION_UNIT_PILL_LONG_PRESS_LABEL = "切换时长显示单位"
+
+/** S15-F3-B1：会话时长 pill 的稳定测试钩子（不依赖中文格式化文本定位）。 */
+internal const val SESSION_DURATION_PILL_TAG = "session-duration-pill"
+
+/** S15-F3-B1：会话详情展开内容；它的存在与否就是展开状态。 */
+internal const val SESSION_DETAIL_BODY_TAG = "session-detail-body"
+
+/**
+ * 时长 pill 的**单一手势契约**（S15-F3-B1/B2）。
+ *
+ * 为什么手势必须挂在 pill 容器而不是时长文本上：
+ * - 文本自己挂 `combinedClickable(onClick = {})`（原 `DurationText` 的做法）会把落在
+ *   文字上的普通点击**吞掉**，父行/父卡的点击收不到，于是"点文字不展开、点 pill 边距
+ *   才展开"；
+ * - 长按命中盒也只有文字那一小块，pill 的 padding 区域长按不生效。
+ *
+ * 现在整个可见 pill（图标 + 文字 + padding）只有这一个 `combinedClickable`：
+ * 普通点击转发调用方的业务动作（展开/收起、打开书籍），长按只切换时长单位，
+ * 且由 `combinedClickable` 保证长按之后不会再派发普通点击。
+ *
+ * 文本必须走公共 [com.creationreadingassistant.ui.util.formatDuration] 与
+ * [LocalDurationUnit]，不要在调用点复制格式化算法。
+ */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+internal fun Modifier.durationUnitPill(
+    tag: String,
+    onClick: () -> Unit,
+): Modifier {
+    val toggle = LocalDurationUnitToggle.current
+    return this
+        .testTag(tag)
+        .combinedClickable(
+            interactionSource = remember { MutableInteractionSource() },
+            indication = LocalIndication.current,
+            onLongClickLabel = DURATION_UNIT_PILL_LONG_PRESS_LABEL,
+            onClick = onClick,
+            onLongClick = toggle,
+        )
+}
 
 @Composable
 internal fun BookDetailStatsSection(
@@ -68,9 +122,13 @@ internal fun BookDetailStatsSection(
                 BookDetailStatCell(
                     icon = Icons.Outlined.AccessTime,
                     label = "总阅读时长",
-                    value = formatDuration(bookDetailReadingTimeMs(progress?.total_reading_time_ms ?: 0L, sessions)),
+                    value = formatDuration(
+                        bookDetailReadingTimeMs(progress?.total_reading_time_ms ?: 0L, sessions),
+                        LocalDurationUnit.current,
+                    ),
                     tint = Color(0xFFB45309),
                     modifier = Modifier.weight(1f),
+                    valueModifier = Modifier.durationUnitToggle(),
                 )
                 BookDetailStatCell(
                     icon = Icons.AutoMirrored.Outlined.TrendingUp,
@@ -258,9 +316,14 @@ private fun SessionMicroIsland(
                     shape = RoundedCornerShape(6.dp),
                     color = Color(0xFFB45309).copy(alpha = 0.08f),
                     border = BorderStroke(0.5.dp, Color(0xFFB45309).copy(alpha = 0.20f)),
+                    // 手势在 pill 容器上：点 pill = 与父行一致的展开/收起；长按 = 只切单位。
+                    modifier = Modifier.durationUnitPill(SESSION_DURATION_PILL_TAG) {
+                        itemExpanded = !itemExpanded
+                    },
                 ) {
+                    // 纯展示文本：不再自己挂 durationUnitToggle，否则又会吞掉 pill 的点击。
                     Text(
-                        text = formatDuration(session.duration_ms),
+                        text = formatDuration(session.duration_ms, LocalDurationUnit.current),
                         style = MaterialTheme.typography.labelSmall,
                         color = Color(0xFFB45309),
                         fontWeight = FontWeight.Medium,
@@ -302,7 +365,7 @@ private fun SessionMicroIsland(
                     border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f)),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    Column(modifier = Modifier.padding(8.dp)) {
+                    Column(modifier = Modifier.testTag(SESSION_DETAIL_BODY_TAG).padding(8.dp)) {
                         InfoRow("开始时间", (session.started_at ?: "-").take(19).replace("T", " "))
                         InfoRow("结束时间", (session.ended_at ?: "-").take(19).replace("T", " "))
                     }
@@ -387,6 +450,8 @@ private fun BookDetailStatCell(
     value: String,
     tint: Color,
     modifier: Modifier = Modifier,
+    /** 应用到数值文本自身；时长类数值传 [durationUnitToggle] 以支持长按切换单位。 */
+    valueModifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
@@ -411,6 +476,7 @@ private fun BookDetailStatCell(
             Column(modifier = Modifier.weight(1f, fill = false)) {
                 Text(
                     text = value,
+                    modifier = valueModifier,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,

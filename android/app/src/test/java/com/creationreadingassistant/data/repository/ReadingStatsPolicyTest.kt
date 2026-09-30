@@ -1,5 +1,6 @@
 package com.creationreadingassistant.data.repository
 
+import com.creationreadingassistant.data.local.dao.StatsProgressRow
 import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -44,5 +45,27 @@ class ReadingStatsPolicyTest {
         occurred_at = occurredAt,
         duration_ms = durationMs,
         progress_percent = null,
+    )
+
+    // ── S05-①：统计侧完成态判定（isReadingFinishedRow） ─────────
+
+    @Test
+    fun `finished row counting requires explicit state not stale percent`() {
+        val rows = listOf(
+            row("b1", percent = 100f, state = "finished"),   // 真实读完
+            row("b2", percent = 99.7f, state = "finished"),  // 真实读到末尾
+            row("b3", percent = 100f, state = "reading"),    // 取消读完后的残余 100%
+            row("b4", percent = 30f, state = "reading"),
+            row("b5", percent = 0f, state = "completed"),    // 历史值兼容
+        )
+
+        assertEquals(3, rows.count { it.isReadingFinishedRow() })
+        assertEquals(false, rows.first { it.book_id == "b3" }.isReadingFinishedRow())
+    }
+
+    private fun row(bookId: String, percent: Float, state: String) = StatsProgressRow(
+        book_id = bookId,
+        progress_percent = percent,
+        completion_state = state,
     )
 }

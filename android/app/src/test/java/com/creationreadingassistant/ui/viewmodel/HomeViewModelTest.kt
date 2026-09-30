@@ -225,7 +225,8 @@ class HomeViewModelTest {
             ),
             progress = listOf(
                 progress("b1", percent = 30f, lastReadAt = nowIso),
-                progress("b2", percent = 99.6f, lastReadAt = nowIso),
+                // S05-① 契约：继续阅读的「已完成」排除以显式状态为准（真实读完由数据层写 finished）
+                progress("b2", percent = 99.6f, completionState = "finished", lastReadAt = nowIso),
                 progress("b4", percent = 20f, completionState = "shelved", lastReadAt = nowIso),
                 progress("b5", percent = 10f, lastReadAt = nowIso),
             ),
@@ -234,6 +235,27 @@ class HomeViewModelTest {
         testScheduler.advanceUntilIdle()
 
         assertEquals(listOf("b1"), vm.uiState.value.continueBooks.map { it.id })
+
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `cancelled finished returns to continue and leaves completed`() = runTest(mainDispatcher.scheduler) {
+        // S05-① 判别用例：markFinished 把进度抬到 100 后用户取消读完
+        // （percent=100 残余 + completion_state=reading）→ 回到继续阅读、退出「最近读完」
+        val nowIso = ts(now)
+        val vm = createVm(
+            books = listOf(book("b1")),
+            progress = listOf(
+                progress("b1", percent = 100f, completionState = "reading", lastReadAt = nowIso),
+            ),
+        )
+        val job = launch { vm.uiState.collect { } }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("b1"), vm.uiState.value.continueBooks.map { it.id })
+        assertTrue(vm.uiState.value.completedBooks.isEmpty())
 
         job.cancel()
         testScheduler.advanceUntilIdle()

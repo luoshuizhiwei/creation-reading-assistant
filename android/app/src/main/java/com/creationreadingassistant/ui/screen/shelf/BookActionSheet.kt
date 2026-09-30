@@ -64,9 +64,13 @@ internal fun BookActionSheet(
     onRepair: (BookEntity) -> Unit,
     onOpenDetail: (String) -> Unit,
     onDelete: (String) -> Unit,
+    onCancelFinished: ((BookEntity) -> Unit)? = null,
 ) {
     val readiness = book.readiness()
     val percent = progressFor(progressById, book.id)
+    // 与书架筛选条共用 bookStatus 口径（S05-①：显式状态权威，取消读完后的残余 100%
+    // 不得再判成完成——否则面板与书架分组自相矛盾）。
+    val isFinished = isDisplayFinished(percent, progressById[book.id]?.completion_state)
     val layout = LocalLayoutTokens.current
 
     GlassModalBottomSheet(
@@ -107,7 +111,7 @@ internal fun BookActionSheet(
                         Box(modifier = Modifier.fillMaxSize()) {
                             BookCover(
                                 book = book,
-                                percent = percent,
+                                percent = if (isFinished) percent else null,
                                 modifier = Modifier.fillMaxSize(),
                                 fallback = { ShelfCoverFallback(book) },
                             )
@@ -239,6 +243,16 @@ internal fun BookActionSheet(
             }
 
             Spacer(modifier = Modifier.height(10.dp))
+
+            if (isFinished && onCancelFinished != null) {
+                ActionRow(
+                    icon = Icons.Outlined.Refresh,
+                    title = "取消读完",
+                    subtitle = "恢复在读，保留阅读位置和记录",
+                    onClick = { onCancelFinished(book) },
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+            }
 
             // 第三层：危险操作（柔和红调微岛）
             ActionRow(

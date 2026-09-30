@@ -184,6 +184,7 @@ internal fun ShelfSelectionRoute(
                                 book = book,
                                 isSelected = isSelected,
                                 progressPercent = progress,
+                                completionState = source.library.progressById[book.id]?.completion_state,
                                 onToggle = {
                                     haptic(HapticFeedbackType.TextHandleMove)
                                     selectedIds = if (isSelected) selectedIds - book.id else selectedIds + book.id
@@ -491,8 +492,12 @@ private fun BatchBookItemCard(
     book: BookEntity,
     isSelected: Boolean,
     progressPercent: Float = 0f,
+    /** 进度行 completion_state（S05-①）：「已读完」与藏书印由显式状态决定，残余 100% 不触发。 */
+    completionState: String? = null,
     onToggle: () -> Unit,
 ) {
+    // 与书架分组 bookStatus 同口径（S05-①）
+    val displayFinished = isDisplayFinished(progressPercent, completionState)
     SectionCard(
         modifier = Modifier.fillMaxWidth(),
         onClick = onToggle,
@@ -535,7 +540,7 @@ private fun BatchBookItemCard(
                 book = book,
                 modifier = Modifier.size(width = 38.dp, height = 52.dp),
                 shape = RoundedCornerShape(6.dp),
-                percent = if (progressPercent >= 99.5f) progressPercent else null,
+                percent = if (displayFinished) progressPercent else null,
                 fallback = { ShelfCoverFallback(book, isCompact = true) },
             )
 
@@ -584,7 +589,7 @@ private fun BatchBookItemCard(
                                 .padding(horizontal = 6.dp, vertical = 1.5.dp),
                         ) {
                             Text(
-                                text = if (progressPercent >= 99.5f) "已读完" else "${progressPercent.toInt()}%",
+                                text = if (displayFinished) "已读完" else "${progressPercent.toInt()}%",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Medium,
                                 color = MaterialTheme.colorScheme.primary,

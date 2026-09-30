@@ -39,6 +39,8 @@ import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.formatDuration
 
 @Composable
 fun HomeReadingArchiveSection(
@@ -131,7 +133,7 @@ fun HomeReadingArchiveSection(
                         fontWeight = FontWeight.SemiBold,
                     )
                     Text(
-                        text = "${formatArchiveDuration(totalReadingMs)} · $totalReadBooksCount 本",
+                        text = "${formatDuration(totalReadingMs, LocalDurationUnit.current)} · $totalReadBooksCount 本",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
@@ -153,18 +155,5 @@ fun HomeReadingArchiveSection(
                 }
             }
         }
-    }
-}
-
-internal fun formatArchiveDuration(durationMs: Long): String {
-    if (durationMs <= 0L) return "0 分钟"
-    // 与统计页/我的页/首页今日格保持一致：向下取整，避免 2.7 分钟被显示成 3 分钟。
-    val totalMinutes = (durationMs / 60_000L).toInt().coerceAtLeast(1)
-    val hours = totalMinutes / 60
-    val minutes = totalMinutes % 60
-    return when {
-        hours <= 0 -> "$minutes 分钟"
-        minutes == 0 -> "$hours 小时"
-        else -> "$hours 小时 $minutes 分钟"
     }
 }

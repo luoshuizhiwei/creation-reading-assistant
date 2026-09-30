@@ -6,6 +6,7 @@ import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.ui.util.hasBookBeenRead
 import com.creationreadingassistant.ui.util.isBookDisplayable
+import com.creationreadingassistant.ui.util.isReadingFinished
 import java.time.Instant
 
 internal enum class ContinueSortKey { RECENT, PROGRESS, CREATED, TITLE }
@@ -22,6 +23,8 @@ internal enum class MenuView { NONE, MORE, SORT }
 internal data class ContinueItem(
     val book: BookEntity,
     val progress: Float,
+    /** 进度行 completion_state（S05-①）：卡片文案据此避免把取消读完的残余 100% 标成「已读完」。 */
+    val completionState: String?,
     val lastReadAt: String?,
     val originalIndex: Int,
 )
@@ -43,7 +46,9 @@ internal fun buildContinueItems(
         if (!isBookDisplayable(book)) return@mapIndexedNotNull null
         if (!hasBookBeenRead(book, progress, sessions[book.id])) return@mapIndexedNotNull null
         if (progress?.readingState == ReadingCompletionState.SHELVED) return@mapIndexedNotNull null
-        if (pct >= 99.5f) return@mapIndexedNotNull null
+        // S05-① 契约：排除「已完成」以显式状态为准。markFinished 抬高的 100% 残余在
+        // 取消读完（state=reading）后不得再触发排除——用户要继续读的书必须回到这里。
+        if (isReadingFinished(progress)) return@mapIndexedNotNull null
         val removedAt = removedIds[book.id]
         if (removedAt != null) {
             val lastReadAt = lastReadAtFor(book, progress, sessions[book.id])
@@ -65,6 +70,7 @@ internal fun buildContinueItems(
         ContinueItem(
             book = book,
             progress = pct,
+            completionState = progress?.completion_state,
             lastReadAt = lastReadAt,
             originalIndex = index,
         )

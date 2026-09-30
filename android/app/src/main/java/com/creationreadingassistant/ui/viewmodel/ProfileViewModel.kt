@@ -19,6 +19,7 @@ import com.creationreadingassistant.feature.sync.PairingManager
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.NoteRepository
 import com.creationreadingassistant.data.repository.StatsRepository
+import com.creationreadingassistant.data.repository.isReadingFinishedRow
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.feature.sync.JsonBridge
 import com.creationreadingassistant.feature.sync.LocalZipBackup
@@ -134,6 +135,7 @@ private data class ProfileCacheSummary(
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val jsonBridge: JsonBridge,
+    private val legadoImporter: com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter,
     private val localZipBackup: LocalZipBackup,
     private val pairingManager: PairingManager,
     private val syncRepository: SyncRepository,
@@ -162,6 +164,7 @@ class ProfileViewModel @Inject constructor(
         webDavConfigStore = webDavConfigStore,
         webDavBackup = webDavBackup,
         jsonBridge = jsonBridge,
+        legadoImporter = legadoImporter,
     )
 
     private val readingArchive = combine(
@@ -226,7 +229,8 @@ class ProfileViewModel @Inject constructor(
     ) { sessions, progress, inspirations ->
         ProfileHomeSummary(
             totalDurationMs = sessions.sumOf { it.duration_ms },
-            completedBookCount = progress.count { it.completion_state == "finished" || it.progress_percent >= 99.5f },
+            // S05-① 契约：完读数以显式状态为准，取消读完后的残余 100% 不计入
+            completedBookCount = progress.count { it.isReadingFinishedRow() },
             inspirationCount = inspirations.size,
         )
     }
@@ -606,7 +610,46 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    private val _legadoBackups = MutableStateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>>(emptyList())
+    val legadoBackups: StateFlow<List<com.creationreadingassistant.feature.sync.WebDavBackup.BackupFile>> = _legadoBackups.asStateFlow()
+
+    /** 扫描 WebDAV 目录下的开源阅读备份（backup*.zip）；失败置空并提示。 */
+    fun loadLegadoBackups() {
+        viewModelScope.launch(ioDispatcher) {
+            when (val result = webDavManager.listLegadoBackups()) {
+                null -> Unit
+                else -> result
+                    .onSuccess { _legadoBackups.value = it }
+                    .onFailure { error ->
+                        _legadoBackups.value = emptyList()
+                        _webDavMsg.value = "扫描开源阅读备份失败：${error.message}"
+                    }
+            }
+        }
+    }
+
+    /**
+     * 导入选中的开源阅读备份。走生产确认流程（WebDavSubPage 的确认对话框）后到达这里；
+     * 内部经 [ProfileWebDavManager.importLegadoBackup] → DatabaseSafetyNet 快照 →
+     * LegadoReadingProgressImporter.importArchive（书名+作者唯一匹配、99.4% 上限）。
+     */
+    fun importLegadoBackup(context: Context, filename: String) {
+        viewModelScope.launch(ioDispatcher) {
+            _webDavMsg.value = null
+            webDavManager.importLegadoBackup(context, filename)
+                .onSuccess { report ->
+                    _webDavMsg.value = report.summary()
+                    AppLog.event("WebDAV", "开源阅读记录导入：${report.imported}/${report.scanned}")
+                }
+                .onFailure { error ->
+                    _webDavMsg.value = "开源阅读记录导入失败：${error.message}"
+                    AppLog.e("WebDAV", "开源阅读记录导入失败：${error.message}")
+                }
+        }
+    }
+
     fun clearWebDav() {
+        _legadoBackups.value = emptyList()
         webDavConfigStore.config = null
         _webDavConfig.value = null
         _webDavBackups.value = emptyList()

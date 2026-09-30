@@ -52,6 +52,9 @@ import com.creationreadingassistant.ui.components.AppScreenScaffold
 import com.creationreadingassistant.ui.components.BookCover
 import com.creationreadingassistant.ui.components.FullEmptyState
 import com.creationreadingassistant.ui.components.IconPedestal
+import com.creationreadingassistant.ui.util.DurationText
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.formatDuration
 import com.creationreadingassistant.ui.components.IslandCard
 import com.creationreadingassistant.ui.components.LineArtBook
 import com.creationreadingassistant.ui.components.PageLazyColumn
@@ -242,8 +245,8 @@ private fun ReadingFootprintOverview(
                         modifier = Modifier.size(13.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    Text(
-                        formatReadingTime(totalReadingMs),
+                    DurationText(
+                        ms = totalReadingMs,
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
@@ -484,7 +487,16 @@ private fun TimelineBookRow(
         IslandCard(
             modifier = Modifier
                 .weight(1f)
-                .combinedClickable(onClick = onOpen, onLongClick = onManage)
+                // 整行是这条记录**唯一**的手势层：普通点击打开书、长按打开管理操作。
+                // 行内时长文本刻意不带任何手势（见下方 reading-item-duration 标签）——
+                // 同一行不同区域长按执行不同动作在视觉上不可发现，而显示单位是全局偏好，
+                // 页首聚合时长与外观设置都能切换。两个 label 让读屏用户能预先知道有哪些动作。
+                .combinedClickable(
+                    onClickLabel = "打开书籍",
+                    onClick = onOpen,
+                    onLongClickLabel = "打开管理操作",
+                    onLongClick = onManage,
+                )
                 .testTag("reading-item-${item.book.id}"),
             contentPadding = 12.dp,
         ) {
@@ -561,17 +573,23 @@ private fun TimelineBookRow(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         ReadingStateBadge(item)
+                        // 纯展示：跟随全局单位，但不挂任何长按切换 Modifier（不用 DurationText，
+                        // 它内部会 combinedClickable）。格式化一律走公共 formatDuration，
+                        // 不在此复制任何取整/进位算法。
                         Text(
-                            text = formatReadingTime(item.readingTimeMs),
+                            text = formatDuration(item.readingTimeMs, LocalDurationUnit.current),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.testTag("reading-item-duration-${item.book.id}"),
                         )
                     }
                 }
 
                 IconButton(
                     onClick = onManage,
-                    modifier = Modifier.size(36.dp),
+                    modifier = Modifier
+                        .size(36.dp)
+                        .testTag("reading-item-manage-${item.book.id}"),
                 ) {
                     Icon(
                         Icons.Outlined.MoreHoriz,
@@ -621,12 +639,4 @@ private fun ReadingStateBadge(item: MyReadingItem) {
 private fun formatPercent(value: Float): String {
     val normalized = value.coerceIn(0f, 100f)
     return if (normalized >= 10f || normalized == 0f) "${normalized.roundToInt()}%" else "${"%.1f".format(normalized)}%"
-}
-
-private fun formatReadingTime(value: Long): String {
-    val minutes = (value.coerceAtLeast(0L) / 60_000.0).roundToInt()
-    if (minutes <= 0) return "不足 1 分钟"
-    val hours = minutes / 60
-    val rest = minutes % 60
-    return if (hours > 0) "${hours} 小时 ${rest} 分钟" else "$minutes 分钟"
 }

@@ -2,27 +2,33 @@ package com.creationreadingassistant.feature.sync
 
 import android.content.Context
 import android.net.Uri
+import com.creationreadingassistant.data.local.dao.BookCategoryDao
 import com.creationreadingassistant.data.local.dao.BookDao
+import com.creationreadingassistant.data.local.dao.BookTagDao
+import com.creationreadingassistant.data.local.dao.CategoryDao
 import com.creationreadingassistant.data.local.dao.ChapterReadDao
 import com.creationreadingassistant.data.local.dao.HighlightDao
 import com.creationreadingassistant.data.local.dao.InspirationDao
+import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
 import com.creationreadingassistant.data.local.dao.NoteDao
+import com.creationreadingassistant.data.local.dao.ReaderCorrectionDao
+import com.creationreadingassistant.data.local.dao.ReaderTextRuleDao
 import com.creationreadingassistant.data.local.dao.ReadingProgressDao
 import com.creationreadingassistant.data.local.dao.ReadingSessionDao
-import com.creationreadingassistant.data.local.dao.CategoryDao
+import com.creationreadingassistant.data.local.dao.ShelfBookDao
 import com.creationreadingassistant.data.local.dao.ShelfDao
 import com.creationreadingassistant.data.local.dao.TagDao
-import com.creationreadingassistant.data.local.dao.BookTagDao
-import com.creationreadingassistant.data.local.dao.BookCategoryDao
-import com.creationreadingassistant.data.local.dao.ShelfBookDao
-import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookCategoryEntity
+import com.creationreadingassistant.data.local.entity.BookEntity
 import com.creationreadingassistant.data.local.entity.BookTagEntity
 import com.creationreadingassistant.data.local.entity.CategoryEntity
 import com.creationreadingassistant.data.local.entity.ChapterReadEntity
 import com.creationreadingassistant.data.local.entity.HighlightEntity
 import com.creationreadingassistant.data.local.entity.InspirationEntity
+import com.creationreadingassistant.data.local.entity.LibrarySourceRefEntity
 import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.data.local.entity.ReaderCorrectionEntity
+import com.creationreadingassistant.data.local.entity.ReaderTextRuleEntity
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 import com.creationreadingassistant.data.local.entity.ShelfBookEntity
@@ -35,10 +41,155 @@ import com.creationreadingassistant.data.local.CoroutineScopeModule.IODispatcher
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import java.time.Instant
 import javax.inject.Inject
+
+/**
+ * 来源引用导出 DTO（对齐 LibrarySourceRefEntity 字段）。
+ */
+@Serializable
+data class SourceRefExport(
+    val book_id: String,
+    val root_id: String? = null,
+    val provider_authority: String,
+    val document_id: String? = null,
+    val display_name: String,
+    val format: String,
+    val size: Long,
+    val last_modified: Long? = null,
+    val content_hash: String? = null,
+    val candidate_fingerprint: String? = null,
+    val last_seen_at: Long,
+    val availability: String,
+) {
+    fun toEntity(): LibrarySourceRefEntity = LibrarySourceRefEntity(
+        book_id = book_id,
+        root_id = root_id,
+        provider_authority = provider_authority,
+        document_id = document_id,
+        display_name = display_name,
+        format = format,
+        size = size,
+        last_modified = last_modified,
+        content_hash = content_hash,
+        candidate_fingerprint = candidate_fingerprint,
+        last_seen_at = last_seen_at,
+        availability = availability,
+    )
+
+    companion object {
+        fun fromEntity(entity: LibrarySourceRefEntity): SourceRefExport = SourceRefExport(
+            book_id = entity.book_id,
+            root_id = entity.root_id,
+            provider_authority = entity.provider_authority,
+            document_id = entity.document_id,
+            display_name = entity.display_name,
+            format = entity.format,
+            size = entity.size,
+            last_modified = entity.last_modified,
+            content_hash = entity.content_hash,
+            candidate_fingerprint = entity.candidate_fingerprint,
+            last_seen_at = entity.last_seen_at,
+            availability = entity.availability,
+        )
+    }
+}
+
+/**
+ * 文本替换/净化规则导出 DTO（对齐 ReaderTextRuleEntity 字段）。
+ */
+@Serializable
+data class TextRuleExport(
+    val id: String,
+    val kind: String,
+    val name: String,
+    val pattern: String? = null,
+    val replacement: String,
+    val builtin: Boolean,
+    val enabled: Boolean,
+    val scope: String,
+    val book_id: String? = null,
+    val position: Int,
+    val created_at: Long,
+    val updated_at: Long,
+) {
+    fun toEntity(): ReaderTextRuleEntity = ReaderTextRuleEntity(
+        id = id,
+        kind = kind,
+        name = name,
+        pattern = pattern,
+        replacement = replacement,
+        builtin = builtin,
+        enabled = enabled,
+        scope = scope,
+        book_id = book_id,
+        position = position,
+        created_at = created_at,
+        updated_at = updated_at,
+    )
+
+    companion object {
+        fun fromEntity(entity: ReaderTextRuleEntity): TextRuleExport = TextRuleExport(
+            id = entity.id,
+            kind = entity.kind,
+            name = entity.name,
+            pattern = entity.pattern,
+            replacement = entity.replacement,
+            builtin = entity.builtin,
+            enabled = entity.enabled,
+            scope = entity.scope,
+            book_id = entity.book_id,
+            position = entity.position,
+            created_at = entity.created_at,
+            updated_at = entity.updated_at,
+        )
+    }
+}
+
+/**
+ * 正文纠错记录导出 DTO（对齐 ReaderCorrectionEntity 字段）。
+ */
+@Serializable
+data class CorrectionExport(
+    val id: String,
+    val book_id: String,
+    val source_start: Int,
+    val source_end: Int,
+    val find_text: String,
+    val replace_text: String,
+    val status: String,
+    val created_at: Long,
+    val updated_at: Long,
+) {
+    fun toEntity(): ReaderCorrectionEntity = ReaderCorrectionEntity(
+        id = id,
+        book_id = book_id,
+        source_start = source_start,
+        source_end = source_end,
+        find_text = find_text,
+        replace_text = replace_text,
+        status = status,
+        created_at = created_at,
+        updated_at = updated_at,
+    )
+
+    companion object {
+        fun fromEntity(entity: ReaderCorrectionEntity): CorrectionExport = CorrectionExport(
+            id = entity.id,
+            book_id = entity.book_id,
+            source_start = entity.source_start,
+            source_end = entity.source_end,
+            find_text = entity.find_text,
+            replace_text = entity.replace_text,
+            status = entity.status,
+            created_at = entity.created_at,
+            updated_at = entity.updated_at,
+        )
+    }
+}
 
 /**
  * 本地 JSON 导出/导入桥接（P1 的「手动同步」手段）。
@@ -72,12 +223,38 @@ data class LocalExport(
     val bookCategories: List<BookCategoryEntity> = emptyList(),
     val shelfBooks: List<ShelfBookEntity> = emptyList(),
     val chapterReads: List<ChapterReadEntity> = emptyList(),
+    // —— S04-5 / S14 补齐：来源引用与阅读器规则/纠错数据 ——
+    @SerialName("library_source_refs")
+    val librarySourceRefs: List<SourceRefExport> = emptyList(),
+    @SerialName("reader_text_rules")
+    val textRules: List<TextRuleExport> = emptyList(),
+    @SerialName("reader_text_corrections")
+    val textCorrections: List<CorrectionExport> = emptyList(),
 ) {
     companion object {
         /** 当前导出结构版本；导入侧拒绝不认识的版本，防止未来 schema 被按旧结构静默导入。 */
         const val CURRENT_SCHEMA_VERSION = 1
     }
 }
+
+/**
+ * 本地恢复（JSON / ZIP）导入的合并结果快照（S14，2026-09-28）。
+ *
+ * @param acceptedBookIds 本次事务中**实际被写入**的书籍 id（本地缺失或远端较新）。
+ * @param skippedBookContentPaths 因本地较新而被跳过的书籍行的 `books.local_content_path`
+ *   （绝对路径；该字段为 null 的行不在此列）。调用方（`LocalZipBackup`）据此把
+ *   「本地较新书籍的源文件」排除出文件覆盖集合——版本感知文件复制**只依据实际
+ *   DB 合并结果**，不以 ZIP 是否含该文件、也不以路径模式猜测书 id。
+ *
+ * 为什么用回调而不是改返回值：`importFromString` 的既有调用点（JSON 导入、WebDAV
+ * 恢复）与既有 mockk 桩都以 Unit 返回值为前提，带默认值的回调参数使全部既有调用
+ * 与测试桩零改动；ZIP 恢复是唯一需要结果的路径。回调在 DB 事务提交后调用一次，
+ * 且不得抛出异常（当前唯一调用方的实现是纯赋值）。
+ */
+data class ImportMergeResult(
+    val acceptedBookIds: Set<String> = emptySet(),
+    val skippedBookContentPaths: List<String> = emptyList(),
+)
 
 class JsonBridge @Inject constructor(
     private val bookDao: BookDao,
@@ -95,6 +272,9 @@ class JsonBridge @Inject constructor(
     private val chapterReadDao: ChapterReadDao,
     @IODispatcher private val ioDispatcher: CoroutineDispatcher,
     private val deviceInfoProvider: DeviceInfoProvider? = null,
+    private val sourceRefDao: LibrarySourceRefDao? = null,
+    private val textRuleDao: ReaderTextRuleDao? = null,
+    private val correctionDao: ReaderCorrectionDao? = null,
 ) {
     private val json = Json { prettyPrint = true; ignoreUnknownKeys = true }
 
@@ -134,6 +314,13 @@ class JsonBridge @Inject constructor(
         val shelves = shelfDao.getAllActive().map {
             envelope("shelf", it, it.id, it.updated_at, it.revision, it.deleted_at, dev)
         }
+        val sourceRefs = sourceRefDao?.getAll()?.map { SourceRefExport.fromEntity(it) } ?: emptyList()
+        val textRules = textRuleDao?.observeAll()?.first()?.map { TextRuleExport.fromEntity(it) } ?: emptyList()
+        val textCorrections = correctionDao?.let { dao ->
+            books.flatMap { bookEnv ->
+                dao.listForBook(bookEnv.payload.id).map { CorrectionExport.fromEntity(it) }
+            }
+        } ?: emptyList()
         return LocalExport(
             exportedAt = Instant.now().toString(),
             deviceId = dev,
@@ -150,6 +337,9 @@ class JsonBridge @Inject constructor(
             bookCategories = bookCategoryDao.getAllActive(),
             shelfBooks = shelfBookDao.getAllActive(),
             chapterReads = chapterReadDao.getAll(),
+            librarySourceRefs = sourceRefs,
+            textRules = textRules,
+            textCorrections = textCorrections,
         )
     }
 
@@ -180,13 +370,19 @@ class JsonBridge @Inject constructor(
      * 合并策略与局域网同步拉取共用 [SyncMergePolicy]，消除两条路径的策略分叉。
      * 每类数据先批量查询建 Map，循环内查 Map，消除逐条 getById 的 N+1。
      */
-    suspend fun importFromString(context: Context, text: String) = withContext(ioDispatcher) {
+    suspend fun importFromString(
+        context: Context,
+        text: String,
+        onMergeResult: (ImportMergeResult) -> Unit = {},
+    ) = withContext(ioDispatcher) {
         val export = json.decodeFromString<LocalExport>(text)
         // 未来 schema 演进时在这里按版本分派解析；未知版本宁可拒绝也不能静默按旧结构导入。
         if (export.schemaVersion != LocalExport.CURRENT_SCHEMA_VERSION) {
             error("备份格式版本不受支持（schemaVersion=${export.schemaVersion}，当前支持 ${LocalExport.CURRENT_SCHEMA_VERSION}），已拒绝导入")
         }
 
+        val acceptedBookIds = mutableSetOf<String>()
+        val skippedBookContentPaths = mutableListOf<String>()
         bookDao.runInTransaction {
             // 书籍：revision 高者胜；revision 相等时比较 updated_at
             val localBooks = batchLoad(export.books.map { it.payload.id }) { bookDao.getByIds(it) }
@@ -195,6 +391,10 @@ class JsonBridge @Inject constructor(
                 val local = localBooks[env.payload.id]
                 if (local == null || SyncMergePolicy.shouldAcceptRemote(env.revision, local.revision, env.updatedAt, local.updated_at)) {
                     bookDao.upsert(env.payload)
+                    acceptedBookIds += env.payload.id
+                } else {
+                    // 本地较新被跳过：记录其源文件路径，供文件恢复段排除覆盖（S14）。
+                    local.local_content_path?.let { skippedBookContentPaths += it }
                 }
             }
 
@@ -248,7 +448,49 @@ class JsonBridge @Inject constructor(
                 shelfBookDao.upsertAll(export.shelfBooks)
                 chapterReadDao.upsertAll(export.chapterReads)
             }
+
+            // —— S04-5 / S14 补齐：来源引用与阅读器规则/纠错数据（旧不覆新）——
+            sourceRefDao?.let { dao ->
+                if (export.librarySourceRefs.isNotEmpty()) {
+                    val localRefs = dao.getAll().associateBy { it.book_id }
+                    export.librarySourceRefs.forEach { item ->
+                        val local = localRefs[item.book_id]
+                        if (local == null || item.last_seen_at >= local.last_seen_at) {
+                            dao.upsert(item.toEntity())
+                        }
+                    }
+                }
+            }
+
+            textRuleDao?.let { dao ->
+                if (export.textRules.isNotEmpty()) {
+                    export.textRules.forEach { item ->
+                        val local = dao.getById(item.id)
+                        if (local == null || item.updated_at >= local.updated_at) {
+                            dao.upsert(item.toEntity())
+                        }
+                    }
+                }
+            }
+
+            correctionDao?.let { dao ->
+                if (export.textCorrections.isNotEmpty()) {
+                    export.textCorrections.forEach { item ->
+                        val local = dao.getById(item.id)
+                        if (local == null || item.updated_at >= local.updated_at) {
+                            dao.upsert(item.toEntity())
+                        }
+                    }
+                }
+            }
         }
+        // 事务已提交后才回报合并结果；快照反映的是落库后的真实状态（S14 文件保护）。
+        onMergeResult(
+            ImportMergeResult(
+                acceptedBookIds = acceptedBookIds,
+                skippedBookContentPaths = skippedBookContentPaths,
+            ),
+        )
     }
 
     /**

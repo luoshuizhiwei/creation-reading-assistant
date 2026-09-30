@@ -234,12 +234,136 @@ data class AISettings(
 
 data class TtsResume(val bookId: String, val chapterIndex: Int, val offset: Int)
 
+// ---- 启动同步镜像 ----
+//
+// 为什么需要：DataStore 是异步的，`appearance` / `reader` 两个 StateFlow 的首帧值只能是
+// 硬编码默认值（`themeMode = "system"`、`background = "follow"`）。冷启动（长时间后台后
+// 进程被杀再进应用）时，界面先用默认值画一帧「日间」，等 DataStore 读到真实的 `dark` /
+// `night` 后再切深色 —— 用户看到的就是「本来夜间 → 闪成日间 → 又回夜间」。
+//
+// 单事实源仍是 DataStore；这里只在**写入时**顺手镜像两个「首帧必须正确、否则会闪色」的
+// 字段到 SharedPreferences，启动时同步读回（SharedPreferences 已在 App.attachBaseContext
+// 预热，读取是内存命中）作为 StateFlow 的初始值。镜像缺失（首次安装/老版本升级）时
+// 回退默认值，与旧行为一致，不会更差。
+private const val BOOT_MIRROR_PREFS = "cra_boot_mirror"
+private const val MIRROR_THEME_MODE = "appearance_theme_mode"
+private const val MIRROR_READER_BACKGROUND = "reader_background"
+
+/**
+ * 启动同步镜像的读写入口。
+ *
+ * 为什么是顶层 object 而不是 [SettingsStore] 的私有成员：Activity 需要在
+ * `super.onCreate` **之前**（即 Hilt 注入之前）同步读到用户主题，用来覆盖启动窗口主题
+ * （见 `MainActivity.applyBootWindowTheme`）。读的是 SharedPreferences 内存缓存，
+ * 已在 `App.attachBaseContext` 预热，不构成主线程 I/O。
+ */
+/**
+ * 应用深浅色决议器（权威纯函数单例）。
+ *
+ * 统一管理应用内主题模式设置与设备系统当前深浅色状态的映射契约：
+ * 1. "dark" -> 恒为深色 (true)，无论设备系统状态；
+ * 2. "light" -> 恒为浅色 (false)，无论设备系统状态；
+ * 3. "system" (及任何未识别值) -> 严格跟随设备当前的系统深浅色状态 (isSystemDark)：
+ *    - 设备浅色 (isSystemDark = false) -> 浅色 (false)；
+ *    - 设备深色 (isSystemDark = true) -> 深色 (true)；
+ *    - 从显式模式切回 "system" 立即根据 isSystemDark 动态决议，绝不通过固定选择浅色或深色伪装跟随系统。
+ */
+object ThemeResolver {
+    fun resolveAppDarkTheme(themeMode: String, isSystemDark: Boolean): Boolean = when (themeMode) {
+        "dark" -> true
+        "light" -> false
+        else -> isSystemDark
+    }
+}
+
+/**
+ * 启动同步镜像的读写入口。
+ *
+ * 为什么是顶层 object 而不是 [SettingsStore] 的私有成员：Activity 需要在
+ * `super.onCreate` **之前**（即 Hilt 注入之前）同步读到用户主题，用来覆盖启动窗口主题
+ * （见 `MainActivity.applyBootWindowTheme`）。读的是 SharedPreferences 内存缓存，
+ * 已在 `App.attachBaseContext` 预热，不构成主线程 I/O。
+ */
+internal object BootMirror {
+    fun themeMode(context: Context): String =
+        prefs(context).getString(MIRROR_THEME_MODE, null) ?: "system"
+
+    /**
+     * 区分「用户明确选了 system」和「升级用户尚未有镜像」。两者读取时都回落为
+     * `system`，但只有后者需要在首次读到 DataStore 后补写镜像。
+     */
+    fun hasThemeMode(context: Context): Boolean =
+        prefs(context).contains(MIRROR_THEME_MODE)
+
+    fun readerBackground(context: Context): String =
+        prefs(context).getString(MIRROR_READER_BACKGROUND, null) ?: "follow"
+
+    fun setThemeMode(context: Context, themeMode: String) {
+        prefs(context).edit().putString(MIRROR_THEME_MODE, themeMode).apply()
+    }
+
+    fun setReaderBackground(context: Context, background: String) {
+        prefs(context).edit().putString(MIRROR_READER_BACKGROUND, background).apply()
+    }
+
+    private fun prefs(context: Context): SharedPreferences =
+        context.getSharedPreferences(BOOT_MIRROR_PREFS, Context.MODE_PRIVATE)
+
+    /**
+     * 将应用主题模式映射为 [android.app.UiModeManager] 的应用级夜间模式（API 31+）。
+     *
+     * 映射与重置契约：
+     * - "dark" -> [android.app.UiModeManager.MODE_NIGHT_YES]
+     * - "light" -> [android.app.UiModeManager.MODE_NIGHT_NO]
+     * - "system" (及其他) -> [android.app.UiModeManager.MODE_NIGHT_AUTO]
+     *
+     * 平台语义说明：
+     * Android 官方 SDK 文档将 MODE_NIGHT_AUTO 定义为根据当前时间和位置自动切换（TwilightTracker）。
+     * 在 AOSP 原生实现中，Google 并未提供独立的 clearApplicationNightMode 或 MODE_NIGHT_FOLLOW_SYSTEM 常量，
+     * 而是利用 UiModeManagerService 内部的 default 分支将非 YES/NO 的值统一映射为
+     * Configuration.UI_MODE_NIGHT_UNDEFINED，进而促使 PackageConfigPersister.removePackage 移除应用级持久化覆盖。
+     * 因此，MODE_NIGHT_AUTO 仅在从显式深浅色切回跟随系统时作为请求系统清除覆盖的信号；
+     * 当应用处于纯净默认跟随系统状态时，应用内部完全由 [ThemeResolver] 动态跟随设备，无需盲目向系统重复写入。
+     */
+    internal fun desiredNightMode(themeMode: String): Int = when (themeMode) {
+        "dark" -> android.app.UiModeManager.MODE_NIGHT_YES
+        "light" -> android.app.UiModeManager.MODE_NIGHT_NO
+        else -> android.app.UiModeManager.MODE_NIGHT_AUTO
+    }
+
+    /**
+     * 让系统按应用内主题解析本应用的资源（API 31+）。
+     *
+     * 为什么必须走系统而不是 `Activity.setTheme`：启动窗口由 system_server 在**应用进程
+     * 启动之前**按 manifest 主题创建，`onCreate` 里的 `setTheme` 只能改之后的内容，
+     * 改不到那一帧 —— 真机实测「应用内深色 + 系统浅色」时会先显示约 0.4 秒暖白启动窗口。
+     * `setApplicationNightMode` 把选择写进系统（持久），下次冷启动系统就能按深色解析
+     * 启动窗口资源，首帧即为正确颜色。
+     *
+     * 低版本无此能力：只保留 values-night（跟随系统）与 MainActivity 的 setTheme。
+     */
+    fun applyApplicationNightMode(context: Context, themeMode: String) {
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return
+        val desired = desiredNightMode(themeMode)
+        runCatching {
+            val manager = context.getSystemService(android.app.UiModeManager::class.java)
+                ?: return
+            // 没有 applicationNightMode 的 getter，直接设置；重复设置同值是幂等的。
+            manager.setApplicationNightMode(desired)
+        }
+    }
+}
+
+/** 应用设置持久层（DataStore Preferences，单事实源）。 */
 @Singleton
 class SettingsStore @Inject constructor(
     @ApplicationContext context: Context,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private val ds = context.dataStore
+
+    /** 供写入时更新启动镜像（读路径见 [BootMirror]）。 */
+    private val appContext: Context = context
 
     /** 暴露底层 DataStore（与生产读写同一实例），供迁移/集成测试预置旧值。 */
     internal val preferencesDataStore: DataStore<Preferences> get() = ds
@@ -261,6 +385,40 @@ class SettingsStore @Inject constructor(
         aiSecretsPrefs.edit().putString(KEY_AI_API_KEY_ENC, key).apply()
     }
 
+    // 首帧初始值取自启动同步镜像：冷启动时界面立刻是正确的深浅/纸色，
+    // 不会先用默认值画一帧「日间」再被 DataStore 的真实值纠正成「夜间」。
+    private val bootAppearance = AppearanceSettings(
+        themeMode = BootMirror.themeMode(appContext),
+    )
+
+    private fun mirrorBootTheme(themeMode: String) {
+        BootMirror.setThemeMode(appContext, themeMode)
+    }
+
+    /**
+     * DataStore 才是设置的单一事实源。启动镜像只为首帧服务，因此旧版本升级后，
+     * 第一次异步读到真实主题时要补齐镜像；同时更新 API 31+ 的应用级夜间配置，
+     * 使下一次由系统绘制的启动窗口也能使用真实主题。
+     */
+    private fun backfillBootThemeIfNeeded(themeMode: String) {
+        if (BootMirror.hasThemeMode(appContext) && BootMirror.themeMode(appContext) == themeMode) return
+        mirrorBootTheme(themeMode)
+        BootMirror.applyApplicationNightMode(appContext, themeMode)
+    }
+
+    private fun mirrorBootReaderBackground(background: String) {
+        BootMirror.setReaderBackground(appContext, background)
+    }
+
+    /**
+     * reader 首帧初始值：只覆盖 `background`（纸色），其余字段保持类型默认 ——
+     * 只有纸色会「首帧错色再纠正」，其余字段用默认值不会造成可见闪变，
+     * 也不值得为它们多维护一份镜像。
+     */
+    private val bootReader = ReaderSettings(
+        background = BootMirror.readerBackground(appContext),
+    )
+
     val appearance: StateFlow<AppearanceSettings> = ds.data.map { prefs ->
         AppearanceSettings(
             themeMode = prefs[KEY_THEME] ?: "system",
@@ -268,8 +426,10 @@ class SettingsStore @Inject constructor(
             paperTexture = prefs[KEY_PAPER_TEXTURE] ?: true,
             useDynamicColor = prefs[KEY_USE_DYNAMIC_COLOR] ?: false,
             amoledPureBlack = prefs[KEY_AMOLED_PURE_BLACK] ?: false,
-        )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), AppearanceSettings())
+        ).also { loaded ->
+            backfillBootThemeIfNeeded(loaded.themeMode)
+        }
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), bootAppearance)
 
     val reader: StateFlow<ReaderSettings> = ds.data.map { prefs ->
         ReaderSettings(
@@ -323,7 +483,7 @@ class SettingsStore @Inject constructor(
             footerLeft = HeaderFooterItem.fromString(prefs[KEY_FOOTER_LEFT] ?: HeaderFooterItem.CHAPTER_TITLE.name),
             footerRight = HeaderFooterItem.fromString(prefs[KEY_FOOTER_RIGHT] ?: HeaderFooterItem.PROGRESS.name),
         )
-    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), ReaderSettings())
+    }.stateIn(scope, SharingStarted.WhileSubscribed(5000), bootReader)
 
     val ai: StateFlow<AISettings> = ds.data.map { prefs ->
         AISettings(
@@ -393,6 +553,9 @@ class SettingsStore @Inject constructor(
 
     suspend fun updateAppearance(block: AppearanceSettings.() -> AppearanceSettings) {
         val next = appearance.value.block()
+        mirrorBootTheme(next.themeMode)
+        // 同步告知系统：下次冷启动的启动窗口要按这个深浅解析，否则会先闪一帧异色。
+        BootMirror.applyApplicationNightMode(appContext, next.themeMode)
         ds.edit { prefs ->
             prefs[KEY_THEME] = next.themeMode
             prefs[KEY_COLOR_PALETTE] = next.colorPalette
@@ -404,6 +567,7 @@ class SettingsStore @Inject constructor(
 
     suspend fun updateReader(block: ReaderSettings.() -> ReaderSettings) {
         val next = reader.value.block()
+        if (next.background != reader.value.background) mirrorBootReaderBackground(next.background)
         ds.edit { prefs ->
             prefs[KEY_READER_MODE] = next.readerMode
             prefs[KEY_PAGER_ENGINE] = next.pagerEngineMode

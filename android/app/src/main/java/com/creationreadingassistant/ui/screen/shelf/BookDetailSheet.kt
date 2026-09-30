@@ -82,6 +82,7 @@ internal fun BookDetailSheet(
                     book = book,
                     percent = percent,
                     readiness = readiness,
+                    completionState = progress?.completion_state,
                     onUpdateBook = onUpdateBook,
                     onChangeCover = onChangeCover,
                     onChangeTextCover = onChangeTextCover,

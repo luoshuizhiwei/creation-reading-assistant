@@ -13,7 +13,9 @@ import org.junit.Test
  * 背景：`HomeContinueSheet.kt` 拆分时把 `buildContinueItems` / `lastReadAtFor`
  * 整体搬到了 `HomeContinueModels.kt`（原文件 −516 行）。搬文件本身不是功能完成，
  * 这组用例把搬运后仍然必须成立的过滤契约逐条钉死：
- * 未读、已搁置、已接近读完、本机无正文的书都不应出现；
+ * 未读、已搁置、显式已完成的书都不应出现；
+ * S05-① 契约：取消读完后的残余 100%（completion_state=reading）不算完成，
+ * 必须回到继续阅读；
  * 「从继续阅读移除」的语义是**按最后阅读时间比较**，而不是无条件隐藏。
  */
 class HomeContinueModelsTest {
@@ -81,12 +83,20 @@ class HomeContinueModelsTest {
     }
 
     @Test
-    fun nearlyFinishedBookIsExcluded() {
+    fun finishedBookIsExcludedWhileCancelledFullPercentIsKept() {
         val b = book("b1")
-        val p99 = progress("b1", percent = 99.6f)
-        val p98 = progress("b1", percent = 98f)
-        assertTrue(idsOf(listOf(b), mapOf("b1" to p99)).isEmpty())
-        assertEquals(listOf("b1"), idsOf(listOf(b), mapOf("b1" to p98)))
+        // 真实读完（阅读器读到末尾时 mergeReaderProgress 已写 finished）→ 不出现在继续阅读
+        val finished = progress("b1", percent = 99.6f, completionState = "finished")
+        assertTrue(idsOf(listOf(b), mapOf("b1" to finished)).isEmpty())
+        // S05-① 判别用例：取消读完后的残余 100%（completion_state=reading）→ 必须回到继续阅读
+        val cancelled = progress("b1", percent = 100f, completionState = "reading")
+        assertEquals(listOf("b1"), idsOf(listOf(b), mapOf("b1" to cancelled)))
+        // 未到阈值的位置照常保留
+        assertEquals(listOf("b1"), idsOf(listOf(b), mapOf("b1" to progress("b1", percent = 98f))))
+        // 状态列随条目透传，卡片文案据此否决「已读完」
+        val item = buildContinueItems(listOf(b), mapOf("b1" to cancelled), emptyMap(), emptyMap()).single()
+        assertEquals("reading", item.completionState)
+        assertEquals(100f, item.progress)
     }
 
     @Test

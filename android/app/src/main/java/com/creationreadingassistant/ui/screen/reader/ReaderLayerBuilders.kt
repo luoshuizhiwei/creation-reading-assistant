@@ -481,21 +481,14 @@ internal fun buildReaderSheetHostCallbacks(
     },
     onCancelTxtScan = onCancelTxtScan,
     onPersistProgress = onPersistProgress,
-    onJumpToHighlight = { id ->
-        onPendingHighlightIdChange(id)
-        onAction(ReaderAction.CloseSheet)
-    },
-    onJumpToBookmark = { id ->
-        // R1-N1.1：书内书签回源带 bookmark 类型，避免与同 rawId 的高亮/普通笔记串台；
-        // 无 locator 的历史书签仍由 SE4 按其 locator / progress 降级，不伪造偏移。
-        onPendingHighlightIdChange(navigationTargetId(AnnotationType.BOOKMARK, id))
+    onJumpToTypedAnnotation = { typedTarget ->
+        onPendingHighlightIdChange(typedTarget)
         onAction(ReaderAction.CloseSheet)
     },
     // 书摘/笔记/书签/灵感的导出（SAF 写 .md + 分享）已内聚在 NotesSheet，
     // 不再经由回调上抛组装。
-    onSaveAiExplainInspiration = { body, tags, categoryIds ->
-        val snapshotText = selectedText
-        val locatorJson = computeLocatorJson()
+    onSaveAiExplainInspiration = { body, excerpt, locatorJson, tags, categoryIds ->
+        val snapshotText = excerpt
         onAction(
             ReaderAction.SaveInspiration(
                 InspirationEntity(
@@ -517,9 +510,8 @@ internal fun buildReaderSheetHostCallbacks(
         onAction(ReaderAction.CloseSheet)
         showNotice("已存入灵感")
     },
-    onSaveInspiration = { title, body, tags, categoryIds ->
-        val snapshotText = selectedText
-        val locatorJson = computeLocatorJson()
+    onSaveInspiration = { title, body, excerpt, locatorJson, tags, categoryIds ->
+        val snapshotText = excerpt
         onAction(
             ReaderAction.SaveInspiration(
                 InspirationEntity(

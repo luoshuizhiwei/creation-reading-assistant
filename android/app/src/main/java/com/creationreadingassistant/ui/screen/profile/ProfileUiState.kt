@@ -137,6 +137,8 @@ internal data class ProfileUiState(
     val aiHttpWarning: String? = null,
     val aiKeyDraft: String = "",
     val libraryState: ProfileLibraryState = ProfileLibraryState(),
+    /** WebDAV 目录下扫描到的开源阅读（Legado）备份列表（刷新动作填充）。 */
+    val legadoBackups: List<WebDavBackup.BackupFile> = emptyList(),
     val pendingDownloadCount: Int = 0,
     val indexBytes: Long = 0L,
     val goal: GoalPageState = GoalPageState(),
@@ -160,6 +162,10 @@ internal sealed interface ProfileAction {
     // Sync
     data class StartPairing(val rawQr: String) : ProfileAction
     data object SyncNow : ProfileAction
+    /** 扫描 WebDAV 目录下的开源阅读（Legado）备份（backup*.zip）。 */
+    data object RefreshLegadoBackups : ProfileAction
+    /** 导入选中的开源阅读备份（书名+作者唯一匹配才写进度；99.4% 上限保护）。 */
+    data class ImportLegadoBackup(val filename: String) : ProfileAction
     data object Unpair : ProfileAction
     data class RetryItem(val item: SyncFailedItem) : ProfileAction
     data object RetryFailed : ProfileAction

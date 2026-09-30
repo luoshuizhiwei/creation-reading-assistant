@@ -21,6 +21,8 @@ import com.creationreadingassistant.feature.reader.doc.TextStreamLoader
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.doc.TxtFileIndex
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
+import com.creationreadingassistant.feature.reader.locator.LegadoChapterPosition
+import com.creationreadingassistant.feature.reader.locator.LegadoProgressMarker
 import com.creationreadingassistant.feature.reader.rules.RuleCommand
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -193,17 +195,55 @@ class ReaderDocumentLoader @Inject constructor(
                     emptyList()
                 }
 
+                // ── S12-P2-2：流式大 TXT 的 Legado 位置换算章节源 ──
+                // TxtFileIndex 来自同一 [profile] 的**全文单遍扫描**（TxtFileScanner，
+                // detectedRuleId = profile.key），是完整逻辑章节边界（charStart/charCount
+                // 覆盖全书），与本书目录/阅读单元同源 —— 不是 ReadingUnit / 分页片段窗口。
+                // 仅当 ①规则身份匹配、②真实检测出多章（≥2；「全文」单章 = 没有任何可靠
+                // 边界）时才把 Legado 章号映射到该表；否则维持空表，marker 原样保留、
+                // 打开落书首，绝不凭不完整边界编造绝对位置。
+                val streamingFileIndex = result?.takeIf { it.isStreaming }?.fileIndex
+                val streamingChapters: List<DocChapter> = streamingFileIndex
+                    ?.takeIf { it.detectedRuleId == profile.key && it.chapters.size >= 2 }
+                    ?.chapters
+                    ?.map { entry ->
+                        DocChapter(
+                            index = entry.index,
+                            title = entry.title,
+                            startOffset = entry.charStart.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+                            charCount = entry.charCount.coerceIn(0L, Int.MAX_VALUE.toLong()).toInt(),
+                            charCountIsEstimated = false,
+                        )
+                    }
+                    ?: emptyList()
+                val conversionChapters = if (streamingDocument != null) streamingChapters else preDetected
+                val conversionTextLength = streamingFileIndex?.totalCharCount
+                    ?.coerceIn(0L, Int.MAX_VALUE.toLong())
+                    ?.toInt()
+                    ?: fullText.length
+                // S12-P2-2 用户提示接缝：存在 Legado 导入位置、但本次打开未能换算
+                // （流式目录兜底「全文」单章 / 章号越界 → 拿不到可靠边界）时非空。
+                // 数据标记保持原样（未被伪造成原生进度）；UI 层可据此提示
+                // 「导入的阅读位置暂未生效」（消费端见协调报告 SEAM REQUEST）。
+                val importedLegadoPosition = progress?.current_location_json
+                    ?.let { LegadoProgressMarker.decode(it) }
+                val legadoPositionConverted = importedLegadoPosition != null &&
+                    conversionChapters.getOrNull(importedLegadoPosition.chapterIndex) != null
+
                 ReaderLoadedContent.Text(
                     fullText = fullText,
                     streamingDocument = streamingDocument,
-                    fileIndex = result?.takeIf { it.isStreaming }?.fileIndex,
+                    fileIndex = streamingFileIndex,
                     sourceFile = result?.takeIf { it.isStreaming }?.sourceFile,
                     ownedTempFile = result?.takeIf { it.isStreaming }?.tempFile,
-                    initialAbsoluteOffset = parseStoredAbsoluteOffset(
-                        progress?.current_location_json,
+                    initialAbsoluteOffset = resolveImportedTextOffset(
+                        locationJson = progress?.current_location_json,
+                        chapters = conversionChapters,
+                        textLength = conversionTextLength,
                     ),
                     preDetectedChapters = preDetected,
                     preDetectedRuleId = profile.key,
+                    unconvertedLegadoPosition = importedLegadoPosition?.takeIf { !legadoPositionConverted },
                 )
             }
         }
@@ -276,6 +316,15 @@ sealed interface ReaderLoadedContent {
         val preDetectedChapters: List<DocChapter> = emptyList(),
         /** 预检测使用的规则 ID。ReaderScreen 规则不匹配时 fallback 到同步检测。 */
         val preDetectedRuleId: String = "builtin",
+        /**
+         * S12-P2-2 用户提示接缝（UI 消费端尚未接线，见协调报告 SEAM REQUEST）：
+         * 存在 Legado 导入位置、但本次打开**未能**换算（流式目录兜底「全文」单章 /
+         * 章号越界，即拿不到可靠章节边界）时非空，携带未换算的 marker 坐标。
+         * 此时 [initialAbsoluteOffset] 恒为 0（书首），数据标记原样保留；
+         * UI 层可据此提示「导入的阅读位置暂未生效，已从书首打开」。
+         * 换算成功、无导入位置或位置已是原生 locator 时为 null。
+         */
+        val unconvertedLegadoPosition: LegadoChapterPosition? = null,
     ) : ReaderLoadedContent {
         override fun release() {
             ownedTempFile?.delete()
@@ -298,6 +347,25 @@ internal fun parseStoredAbsoluteOffset(locationJson: String?): Int {
     val v2 = LocatorCodec.locatorFromProgress(locationJson)
     if (v2?.legacyOffset != null) return v2.legacyOffset.coerceAtLeast(0)
     return parseStoredOffset(locationJson).offset
+}
+
+/**
+ * 开源阅读的 TXT 进度是「章号 + 章内偏移」，不能直接当作本应用的全书偏移。
+ *
+ * [chapters] 必须是**完整逻辑章节边界**：小文件路径为 [TxtChapterDetector.detect]
+ * 的预检测结果；流式大文件路径为同一 profile 全文扫描的 [TxtFileIndex] 章节表
+ * （见调用处的身份与 ≥2 章门控）。任一路径拿不到可靠边界时返回 0（书首），
+ * Legado marker 原样保留在库里（不被伪造成已恢复的原生位置），由后续原生保存
+ * 在真正定位后才覆盖；EPUB 在 EpubRepository 读取 locator v2，不走本函数。
+ */
+internal fun resolveImportedTextOffset(
+    locationJson: String?,
+    chapters: List<DocChapter>,
+    textLength: Int,
+): Int {
+    val legado = LegadoProgressMarker.decode(locationJson) ?: return parseStoredAbsoluteOffset(locationJson)
+    val chapter = chapters.getOrNull(legado.chapterIndex) ?: return 0
+    return (chapter.startOffset + legado.charOffset).coerceIn(0, textLength.coerceAtLeast(0))
 }
 
 internal data class StoredOffset(

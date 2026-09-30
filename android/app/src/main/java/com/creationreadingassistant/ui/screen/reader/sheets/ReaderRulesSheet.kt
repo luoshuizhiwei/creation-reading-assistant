@@ -27,16 +27,17 @@ internal fun RulesSheet(
     onCommand: (RuleCommand) -> Unit,
     onBack: () -> Unit,
 ) {
+    val pinnedReplaceText = remember { initialReplaceText }
     val replacementAvailable = replacementCapability is ReaderReplacementCapability.Available
-    val initialReplaceDraft = remember(initialReplaceText, replacementAvailable) {
-        initialReplaceText
+    val initialReplaceDraft = remember(pinnedReplaceText, replacementAvailable) {
+        pinnedReplaceText
             ?.takeIf { replacementAvailable }
             ?.let(::selectionReplaceDraft)
     }
-    var tab by remember(initialReplaceText, replacementAvailable) {
+    var tab by remember(pinnedReplaceText, replacementAvailable) {
         mutableStateOf(if (initialReplaceDraft != null) RuleKind.REPLACE else RuleKind.TOC)
     }
-    var editing by remember(initialReplaceText, replacementAvailable) {
+    var editing by remember(pinnedReplaceText, replacementAvailable) {
         mutableStateOf(initialReplaceDraft)
     }
     var saveEpoch by remember { mutableStateOf(0) }
@@ -86,7 +87,7 @@ internal fun RulesSheet(
                 effectiveReplace = snapshot.effectiveReplace,
                 mutationResult = mutationResult,
                 replacementCapability = replacementCapability,
-                allowCorrection = initialReplaceText != null,
+                allowCorrection = pinnedReplaceText != null,
                 onSave = {
                     val command = currentDraft.toCommand()
                     if (command != null) {

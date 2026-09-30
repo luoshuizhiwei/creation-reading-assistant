@@ -1,7 +1,9 @@
 package com.creationreadingassistant.ui.screen.profile
 
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -46,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -58,7 +61,12 @@ import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberHaptic
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.DURATION_UNIT_TOGGLE_LABEL
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
+import com.creationreadingassistant.ui.util.formatDuration
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 internal fun ProfileHomeScreen(
     state: ProfileUiState,
@@ -68,6 +76,13 @@ internal fun ProfileHomeScreen(
     val reducedMotion = rememberReducedMotion()
     val summary = state.homeSummary
 
+    // 阅读时长按当前单位（天/小时/分钟）呈现，供顶部档案卡的统计行使用。
+    // S15-F1/F2：改用公共 formatter，不再本地重写 when 分支（本地版缺 ms<=0 保护，
+    // 且与公共策略分叉）。
+    val durationUnit = LocalDurationUnit.current
+    // 长按切换由档案卡统一承载（见下方 combinedClickable），子文本不再单独挂手势。
+    val toggleDurationUnit = LocalDurationUnitToggle.current
+
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
         modifier = Modifier.fillMaxSize(),
@@ -75,10 +90,23 @@ internal fun ProfileHomeScreen(
         // 顶部同步状态卡（对应 ProfileHome 的 compact-profile-card + profile-grid）
         // 点击进入「我的阅读」：像开源阅读一样按书查看累计阅读时长 / 进度 / 最近阅读。
         item(key = "header-card") {
+            // G6（行为保留版）：整卡是这块档案卡**唯一**的手势层——普通点击打开
+            // 「我的阅读」（保留改动前的整卡点击区域，含空白处），长按切换全局时长单位。
+            // 与 MyReadingScreen 的记录行同款：行内时长文本刻意不带任何手势——
+            // 空 onClick 的子节点会截获父级点击，父子两层重复挂切换会让读屏
+            // 在同一张卡里读到多个操作。两个 label 让读屏用户预先知道有哪些动作。
             SectionCard(
-                onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
+                modifier = Modifier.combinedClickable(
+                    onClickLabel = "查看阅读档案",
+                    onClick = { onAction(ProfileAction.OpenSubPage(ProfileSubPage.READING)) },
+                    onLongClickLabel = DURATION_UNIT_TOGGLE_LABEL,
+                    onLongClick = toggleDurationUnit,
+                ),
             ) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
                     Box(
                         modifier = Modifier
                             .size(48.dp)
@@ -127,19 +155,16 @@ internal fun ProfileHomeScreen(
                         .fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceEvenly,
                 ) {
-                    // count-up 滚动过程按最终值的单位档位（天/小时/分钟）格式化：
-                    // 若随过程值跨档（分钟→小时），字符串形状突变会让本列宽度跳动。
+                    // 列宽由**最终值**格式化后的隐形占位文本定宽（见 HomeStat），
+                    // 所以 count-up 过程里文本形状变化不会挤动相邻统计项。
                     val totalMinutes = (summary.totalDurationMs / 60000).toInt()
                     HomeStat(
                         "阅读时长",
                         totalMinutes,
-                        { v ->
-                            when {
-                                totalMinutes >= 1440 -> "${v / 1440} 天 ${(v % 1440) / 60} 小时"
-                                totalMinutes >= 60 -> "${v / 60} 小时 ${v % 60} 分钟"
-                                else -> "$v 分钟"
-                            }
-                        },
+                        // S15-F1/F2：走公共 formatter，跟随全局时长单位（小时/天），
+                        // 不再本地按 totalMinutes 重写 when 分支（本地版缺 ms<=0 保护且与公共策略分叉）。
+                        // 长按切换挂在卡片手势层（见上），时长文本本身不带任何手势。
+                        { v -> formatDuration(v * 60_000L, durationUnit) },
                         reducedMotion = reducedMotion,
                         countUpKey = "profile.home.duration",
                     )
@@ -299,6 +324,12 @@ private fun HomeStat(
             val valueStyle = MaterialTheme.typography.titleLarge.copy(fontSize = 22.sp, lineHeight = 28.sp)
             // 隐形占位文本按最终值定宽：count-up 从 0 滚动时槽位宽度恒定，
             // 相邻统计项不再被滚动过程挤来挤去（真机反馈）。
+            //
+            // 它是**纯装饰**：文字 `Color.Transparent` 不可见，只为测量占位，因此必须
+            // 退出无障碍语义树（[clearAndSetSemantics]）。否则它会带着与可见值**同文本
+            // 同坐标**的节点并入卡片合并语义：读屏在同一张卡里把同一个时长朗读两遍，
+            // 自动化也无法唯一定位可见值。清除语义只影响语义树，不改变测量与布局，
+            // count-up 动画与整卡手势都不受影响。
             Text(
                 format(value),
                 style = valueStyle,
@@ -306,6 +337,7 @@ private fun HomeStat(
                 color = Color.Transparent,
                 maxLines = 1,
                 softWrap = false,
+                modifier = Modifier.clearAndSetSemantics { },
             )
             Text(
                 rememberCountUp(value, countUpKey, reducedMotion).let { format(it) },

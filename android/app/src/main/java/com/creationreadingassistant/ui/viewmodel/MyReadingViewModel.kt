@@ -113,10 +113,10 @@ internal fun buildMyReadingUiState(
         if (book.deleted_at != null) return@mapNotNull null
         val bookProgress = progressByBook[book.id]
         val bookSessions = sessionsByBook[book.id].orEmpty()
-        val rawState = bookProgress?.readingState ?: ReadingCompletionState.READING
-        val state = if ((bookProgress?.progress_percent ?: 0f) >= 99.5f) {
-            ReadingCompletionState.FINISHED
-        } else rawState
+        // S05-① 契约：完成态以显式 completion_state 为权威。
+        // 旧实现用 percent>=99.5 把状态覆盖成 FINISHED——取消读完后的残余 100%
+        // 会把用户明确恢复的在读书强行归入「已读完」页签，已移除该覆盖。
+        val state = bookProgress?.readingState ?: ReadingCompletionState.READING
         val hasRecord = bookSessions.isNotEmpty() ||
             bookProgress?.last_read_at != null ||
             (bookProgress?.progress_percent ?: 0f) > 0f ||

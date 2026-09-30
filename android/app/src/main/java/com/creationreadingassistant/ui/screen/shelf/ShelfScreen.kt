@@ -445,6 +445,8 @@ private fun ShelfContent(
                         BookTile(
                             book = book,
                             percent = progressFor(state.library.progressById, book.id),
+                            // S05-①：完成标识（「完」徽章/藏书印/「已读完」）由显式状态决定
+                            completionState = state.library.progressById[book.id]?.completion_state,
                             viewMode = state.viewMode,
                             selectionMode = state.selectionMode,
                             selected = state.selectedIds.contains(book.id),
@@ -453,6 +455,8 @@ private fun ShelfContent(
                             onOpenBook = { onAction(ShelfAction.OpenBook(it)) },
                             onToggleActions = { onAction(ShelfAction.ToggleActions(it)) },
                             onToggleSelected = { onAction(ShelfAction.ToggleSelected(it)) },
+                            // M-BUG-03：来源文件在系统目录被改过 → 打「可更新」标签
+                            contentUpdated = item.bookId in state.contentUpdatedBookIds,
                         )
                     }
                     item(key = "shelf-count-footer", span = { GridItemSpan(maxLineSpan) }) {

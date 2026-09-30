@@ -93,13 +93,18 @@ class LibraryBrowserViewModel @Inject constructor(
         sourceRefs,
     ) { root, snapshot, books, refs ->
         val query = snapshot.query.trim()
+        // 搜索必须同时过滤文件夹与文件：只过滤文件会让搜「yellow」时仍列出所有
+        // 文件夹，用户看到的是「搜了没反应」。两边用同一匹配规则（忽略大小写包含）。
+        val matches: (LibraryEntry) -> Boolean = { entry ->
+            query.isEmpty() || entry.displayName.contains(query, ignoreCase = true)
+        }
         LibraryBrowserUiState(
             hasRoot = root != null,
             rootName = root?.displayName.orEmpty(),
             crumbs = snapshot.crumbs,
-            directories = snapshot.directories,
+            directories = snapshot.directories.filter(matches),
             files = snapshot.files
-                .filter { query.isEmpty() || it.displayName.contains(query, ignoreCase = true) }
+                .filter(matches)
                 .map { entry ->
                     LibraryFileRow(
                         entry = entry,
@@ -234,7 +239,14 @@ class LibraryBrowserViewModel @Inject constructor(
     }
 
     fun setQuery(value: String) {
-        core.update { it.copy(query = value) }
+        core.update { snapshot ->
+            // 搜索词改变会改变当前可见集合。旧选择即使暂时不可见也绝不能继续带入
+            // 导入：用户在一个结果集上做出的选择，只对那个结果集有效。
+            snapshot.copy(
+                query = value,
+                selection = if (snapshot.query.trim() == value.trim()) snapshot.selection else emptySet(),
+            )
+        }
     }
 
     fun setSortMode(mode: LibrarySortMode) {
@@ -258,12 +270,17 @@ class LibraryBrowserViewModel @Inject constructor(
     }
 
     fun selectAllVisible() {
-        core.update { it.copy(selection = it.files.map(LibraryEntry::documentId).toSet()) }
+        core.update { snapshot ->
+            // 直接覆盖而非合并，保证隐藏结果不会残留在导入选择中。
+            snapshot.copy(selection = snapshot.visibleFileDocumentIds())
+        }
     }
 
     fun invertSelection() {
         core.update { snapshot ->
-            val visible = snapshot.files.map(LibraryEntry::documentId).toSet()
+            val visible = snapshot.visibleFileDocumentIds()
+            // 反选的定义是「当前搜索结果内未选中的文件」。隐藏结果一律不保留，
+            // 避免搜索后一次反选把整目录交给导入器。
             snapshot.copy(selection = visible - snapshot.selection)
         }
     }
@@ -274,8 +291,9 @@ class LibraryBrowserViewModel @Inject constructor(
 
     /** URIs of the ticked files, ready to hand to the shelf importer. */
     fun selectedUris(): List<Uri> {
-        val selection = core.value.selection
-        return core.value.files.filter { it.documentId in selection }.map { it.uri }
+        val snapshot = core.value
+        val visible = snapshot.visibleFileDocumentIds()
+        return snapshot.files.filter { it.documentId in visible && it.documentId in snapshot.selection }.map { it.uri }
     }
 
     // ===== 智能识别 =====
@@ -376,6 +394,15 @@ class LibraryBrowserViewModel @Inject constructor(
     // ===== 内部 =====
 
     private fun currentDocumentId(): String? = core.value.crumbs.lastOrNull()?.documentId
+
+    /** Mirrors the query predicate used by [uiState]; selection must never use a broader set. */
+    private fun BrowserCore.visibleFileDocumentIds(): Set<String> {
+        val queryText = query.trim()
+        return files.asSequence()
+            .filter { entry -> queryText.isEmpty() || entry.displayName.contains(queryText, ignoreCase = true) }
+            .map(LibraryEntry::documentId)
+            .toSet()
+    }
 
     private suspend fun loadDirectory(documentId: String?) {
         val root = rootStore.root.value

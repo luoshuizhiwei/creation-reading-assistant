@@ -45,6 +45,8 @@ import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.listItemEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import com.creationreadingassistant.ui.util.formatDuration
 import kotlin.math.roundToInt
 
@@ -220,7 +222,8 @@ internal fun ReadingBookItem(
                                         tint = Color(0xFFD97706),
                                     )
                                     Text(
-                                        text = "累计 ${formatDuration(totalMs)}",
+                                        text = "累计 ${formatDuration(totalMs, LocalDurationUnit.current)}",
+                                        modifier = Modifier.durationUnitToggle(),
                                         style = MaterialTheme.typography.labelSmall.copy(
                                             fontWeight = FontWeight.Medium,
                                             fontSize = 11.sp,

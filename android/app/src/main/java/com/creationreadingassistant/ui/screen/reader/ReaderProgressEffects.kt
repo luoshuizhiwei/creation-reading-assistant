@@ -8,7 +8,11 @@ import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableLongState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.snapshots.SnapshotStateList
 import com.creationreadingassistant.data.local.entity.HighlightEntity
@@ -35,6 +39,7 @@ import com.creationreadingassistant.feature.reader.navigation.SourceNavigationTa
 import com.creationreadingassistant.feature.reader.pager.PagedChapterSource
 import com.creationreadingassistant.ui.viewmodel.ReaderAction
 import com.creationreadingassistant.ui.viewmodel.ReaderLoadedBook
+import com.creationreadingassistant.ui.viewmodel.ReaderLoadedContent
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.debounce
@@ -175,8 +180,61 @@ internal fun ReaderProgressEffects(
         }
     }
 
+    // ── S12：未换算 Legado marker 的保存保护 + 首开提示 ──────────────────────────
+    // seam 只在「marker 存在且本次打开未能换算」时非 null（见 ReaderDocumentLoader）。
+    // 武装后，两处 500ms 防抖与本文件内的保存判定都会被 [LegadoMarkerSaveGuard] 抑制，
+    // 直到用户真正改变阅读位置；退出/暂停落库由 ReaderScreen.persistOnLeave 读同一注册表。
+    // 换算成功（seam == null）的书永远不武装，全部既有保存路径逐字保持不变。
+    val unconvertedLegadoPosition = remember(loadedBook) {
+        (loadedBook?.content as? ReaderLoadedContent.Text)?.unconvertedLegadoPosition
+    }
+    LaunchedEffect(bid, unconvertedLegadoPosition) {
+        if (unconvertedLegadoPosition == null) {
+            LegadoMarkerSaveGuard.disarm(bid)
+        } else {
+            LegadoMarkerSaveGuard.arm(bid)
+        }
+    }
+    // 滚动↔分页切换改变位置身份量纲：重锚而非解除（切换本身不是用户移动）。
+    LaunchedEffect(bid, pagerEngineOn) {
+        LegadoMarkerSaveGuard.resetAnchor(bid)
+    }
+    // S12：分页路径的即时锚定——分页引擎首次上报的位置就是恢复落点（先于任何用户翻页），
+    // 用它锚定，使「首次防抖采样前移动」也能判为移动。已锚定会话不接受后续覆盖；
+    // 未武装书 no-op；临时查阅会话不锚定（查阅位置不是普通阅读锚点）。
+    LaunchedEffect(bid, pagerEngineOn, temporaryInspection) {
+        if (!pagerEngineOn || temporaryInspection) return@LaunchedEffect
+        snapshotFlow { pagedAbsOffsetState.intValue }.collect { off ->
+            if (off >= 0) LegadoMarkerSaveGuard.anchorAt(bid, off)
+        }
+    }
+    // S12：分页→滚动切换时的即时锚定（上一次停在分页、本次进入滚动，且初始定位已完成）：
+    // 立即以当前列表状态锚定，覆盖「切换后首次采样前移动」的窗口。首次组合不触发
+    // （避免把恢复前的 (0,0) 误锚）——初始恢复的锚定由恢复 effect 在 scrollToItem 后完成。
+    var previousPagerEngineOn by remember(bid) { mutableStateOf<Boolean?>(null) }
+    LaunchedEffect(bid, pagerEngineOn, temporaryInspection) {
+        val switchedIntoScroll = previousPagerEngineOn == true && !pagerEngineOn
+        previousPagerEngineOn = pagerEngineOn
+        if (switchedIntoScroll && !temporaryInspection && !pendingInitialPositionState.value) {
+            LegadoMarkerSaveGuard.anchorAt(
+                bid,
+                plainListState.firstVisibleItemIndex to plainListState.firstVisibleItemScrollOffset,
+            )
+        }
+    }
+    var legadoMarkerNoticeShown by remember(bid) { mutableStateOf(false) }
+    LaunchedEffect(bid, isLoading, error, unconvertedLegadoPosition) {
+        if (!legadoMarkerNoticeShown && unconvertedLegadoPosition != null && !isLoading && error == null) {
+            legadoMarkerNoticeShown = true
+            // 文案必须与真实行为一致：无法换算 = 目录不可用或章号越界；当前落点是
+            // 近似位置（导入百分比或书首）；保护期间 marker 不会被保存覆盖，用户
+            // 开始阅读（改变位置）后才按本书记录新进度。
+            showNotice("开源阅读导入的位置暂未能换算（本书目录不可用或章节越界），已按近似位置打开；开始阅读后将记录本书进度")
+        }
+    }
+
     // 纯文本分块滚动进度落库，500ms 防抖避免频繁写盘（分页引擎开启时由下面的翻页持久化接管）
-    LaunchedEffect(bid, epubBook, readingUnits, pagerEngineOn) {
+    LaunchedEffect(bid, epubBook, readingUnits, pagerEngineOn, temporaryInspection) {
         if (bid.isBlank() || epubBook != null || readingUnits.isEmpty() || pagerEngineOn) return@LaunchedEffect
         snapshotFlow {
             listOf(
@@ -188,6 +246,20 @@ internal fun ReaderProgressEffects(
         }
             .debounce(500)
             .collect { snapshot ->
+                // S12：未换算 Legado marker 的保存保护。必须在既有 pending 门控**之前**
+                // 判定——用户移动的观测依赖防抖快照，而武装期间 pending 门控本身也会
+                // 抑制保存；锚点只取「初始定位完成后」的第一个落点，恢复前的起点与
+                // 程序化恢复滚动都不会被误判为用户移动。位置是否可交给守卫由
+                // [legadoGuardObservation] 统一裁定（含临时查阅必须传 null）。
+                val guardDecision = LegadoMarkerSaveGuard.observe(
+                    bid,
+                    legadoGuardObservation(
+                        initialPositionPending = snapshot[3] == 1,
+                        temporaryInspection = temporaryInspection,
+                        position = snapshot[0] to snapshot[1],
+                    ),
+                )
+                if (guardDecision == true) return@collect
                 val initialPositionPending = snapshot[3] == 1
                 if (!canPersistNormalReadingProgress(initialPositionPending, temporaryInspection)) return@collect
                 val index = plainListState.firstVisibleItemIndex
@@ -231,7 +303,7 @@ internal fun ReaderProgressEffects(
     }
 
     // 翻页进度落库（分页引擎侧），与滚动侧同样 500ms 防抖、同一张表同一套字段
-    LaunchedEffect(bid, epubBook, pagerEngineOn, pagedSource) {
+    LaunchedEffect(bid, epubBook, pagerEngineOn, pagedSource, temporaryInspection) {
         if (bid.isBlank() || !pagerEngineOn) return@LaunchedEffect
         snapshotFlow {
             Triple(
@@ -242,6 +314,17 @@ internal fun ReaderProgressEffects(
         }
             .debounce(500)
             .collect { (off, pct, initialPositionPending) ->
+                // S12：未换算 Legado marker 的保存保护（分页路径，语义同滚动侧；
+                // 位置是否可交给守卫由 [legadoGuardObservation] 统一裁定）。
+                val guardDecision = LegadoMarkerSaveGuard.observe(
+                    bid,
+                    legadoGuardObservation(
+                        initialPositionPending = initialPositionPending,
+                        temporaryInspection = temporaryInspection,
+                        position = if (off < 0) null else off,
+                    ),
+                )
+                if (guardDecision == true) return@collect
                 if (off < 0 || !canPersistNormalReadingProgress(initialPositionPending, temporaryInspection)) return@collect
                 val source = pagedSource ?: return@collect
                 // R2-J1-I：分页路径同样上报精确 source 位置（EPUB 由 sourceNavigationTargetFor
@@ -283,6 +366,7 @@ internal fun ReaderProgressEffects(
         savedPlainOffset,
         savedPlainPercent,
         pagerEngineOn,
+        temporaryInspection,
         pendingInitialPositionState.value,
     ) {
         if (pendingInitialPositionState.value && epubBook == null && readingUnits.isNotEmpty() && !pagerEngineOn) {
@@ -297,6 +381,15 @@ internal fun ReaderProgressEffects(
                 0
             }
             plainListState.scrollToItem(unitIndexForOffset(readingUnits, targetOffset))
+            // S12：恢复完成即锚定（用真实列表状态，不依赖 500ms 防抖后的第一次
+            // observe）——用户在首次采样前移动时，第一次 observe 就能判为移动并放行
+            // 保存。临时查阅会话不锚定（查阅位置不是普通阅读锚点）；未武装书 no-op。
+            if (!temporaryInspection) {
+                LegadoMarkerSaveGuard.anchorAt(
+                    bid,
+                    plainListState.firstVisibleItemIndex to plainListState.firstVisibleItemScrollOffset,
+                )
+            }
             pendingInitialPositionState.value = false
         }
     }
@@ -426,7 +519,14 @@ internal fun ReaderProgressEffects(
     }
 
     // SE4：精确跳转 —— 打开阅读器并定位到该高亮/笔记所在位置（优先 locator_json 行内偏移，兜底 chapter_title / progress_percent）。
-    LaunchedEffect(bid, epubBook, plainContent, highlights, notes, pendingHighlightIdState.value) {
+    LaunchedEffect(
+        bid,
+        epubBook,
+        plainContent,
+        highlights,
+        notes,
+        pendingHighlightIdState.value,
+    ) {
         if (pendingSourceLocatorJsonState.value != null) return@LaunchedEffect
         val hid = pendingHighlightIdState.value ?: return@LaunchedEffect
         if (isLoading || error != null) return@LaunchedEffect
@@ -613,6 +713,126 @@ internal fun canPersistNormalReadingProgress(
     initialPositionPending: Boolean,
     temporaryInspection: Boolean,
 ): Boolean = !initialPositionPending && !temporaryInspection
+
+/**
+ * S12 流式 TXT marker 保存保护（单书会话判定状态机，纯 JVM 可测）。
+ *
+ * 背景：Legado 导入的 TXT 位置在「拿不到可靠章节边界」（流式目录兜底「全文」单章 /
+ * 章号越界）时无法换算，`ReaderLoadedContent.Text.unconvertedLegadoPosition` 非 null。
+ * 此时阅读器落在近似位置（导入百分比或书首），**任何**普通保存（500ms 防抖、退出落库）
+ * 都会把 marker 覆盖为当前近似位置的原生 locator——用户并没有真正选择过这个位置。
+ *
+ * 规则：打开时武装；第一次观测到「初始定位完成后的落点」记为锚点并继续抑制；
+ * 此后位置一旦偏离锚点（用户滚动 / 翻页 / 跳章 / 搜索跳转，含用户主动开启的自动翻页）
+ * 即解除保护，之后的保存走既有正常流程。仅关闭提示不算移动——本状态机只认位置变化。
+ *
+ * 位置以调用方给定的「定位身份」比较（滚动 = 列表 index+偏移对，分页 = 全书偏移）；
+ * null 表示该次快照尚不可定位（初始定位未完成 / 分页引擎未上报），按继续抑制处理，
+ * 且不捕获锚点——防止把恢复前的起点误当锚点、把程序化恢复滚动误判为用户移动。
+ */
+internal class LegadoMarkerSaveGuardSession {
+    internal var anchor: Any? = null
+    internal var anchorCaptured = false
+
+    /**
+     * @return true = 继续抑制普通保存（尚未锚定，或仍在恢复锚点上，或本次快照不可定位）；
+     *   false = 用户已改变阅读位置，解除保护并允许本次按正常流程保存。
+     */
+    fun observe(position: Any?): Boolean {
+        if (position == null) {
+            // 不可定位快照（初始定位未完成 / 临时查阅进行中）：既不锚定也不解除，
+            // 维持抑制——临时查阅里的位置变化不是普通阅读位置变化。
+            return true
+        }
+        if (!anchorCaptured) {
+            anchor = position
+            anchorCaptured = true
+            return true
+        }
+        return position == anchor
+    }
+}
+
+/**
+ * 单书会话注册表：ReaderProgressEffects（两处 500ms 防抖保存）写，
+ * ReaderScreen.persistOnLeave（退出/暂停/离开落库）读。进程内会话级状态，
+ * 只按 bookId 记录「是否存在未换算 marker 且用户尚未移动」；换算成功或原生进度
+ * 的书永远不会被武装，既有保存路径零变化。离开阅读器不主动清除——重新打开时
+ * 由 armed effect 依据最新 loader 产物重新武装或解除（marker 仍在库则保持保护，
+ * 已被原生进度覆盖则解除），陈旧条目只影响该书自己的退出保存且必被最新状态纠正。
+ */
+internal object LegadoMarkerSaveGuard {
+    private val sessions = HashMap<String, LegadoMarkerSaveGuardSession>()
+
+    @Synchronized
+    fun arm(bookId: String) {
+        if (bookId.isNotBlank()) sessions[bookId] = LegadoMarkerSaveGuardSession()
+    }
+
+    @Synchronized
+    fun disarm(bookId: String) {
+        sessions.remove(bookId)
+    }
+
+    @Synchronized
+    fun isArmed(bookId: String): Boolean = sessions.containsKey(bookId)
+
+    /**
+     * 初始定位完成后的**即时锚定**（恢复落点由恢复路径直接上报，不依赖 500ms 防抖后的
+     * 第一次 observe）：用户在首次防抖采样前移动时，第一次 observe 就能判为移动并放行
+     * 保存。仅对已武装且尚未锚定的会话生效；未武装书是 no-op（既有路径零变化），
+     * 迟到/重复的锚点请求不覆盖既有锚点，null 位置不锚定。
+     */
+    @Synchronized
+    fun anchorAt(bookId: String, position: Any?) {
+        val session = sessions[bookId] ?: return
+        if (!session.anchorCaptured && position != null) {
+            session.anchor = position
+            session.anchorCaptured = true
+        }
+    }
+
+    /**
+     * 清除锚点但保持武装：滚动↔分页切换会改变「定位身份」的量纲（列表 index+偏移 vs
+     * 全书偏移），切换本身不是用户移动——新渲染模式下的第一次落点重新锚定，继续抑制，
+     * 直到用户在新模式下真正改变位置。
+     */
+    @Synchronized
+    fun resetAnchor(bookId: String) {
+        sessions[bookId]?.let { session ->
+            session.anchor = null
+            session.anchorCaptured = false
+        }
+    }
+
+    /**
+     * 防抖收集器入口。返回 null = 该书未武装（调用方走既有门控，行为不变）；
+     * true = 继续抑制本次保存；false = 用户已移动，保护已解除，本次按正常流程保存。
+     * [position] 为 null 表示本次快照不可定位（初始定位未完成 / 引擎未上报）。
+     */
+    @Synchronized
+    fun observe(bookId: String, position: Any?): Boolean? {
+        val session = sessions[bookId] ?: return null
+        val keepSuppressing = session.observe(position)
+        if (!keepSuppressing) sessions.remove(bookId)
+        return keepSuppressing
+    }
+}
+
+/**
+ * S12 接线判定（纯函数，两处防抖 collect 共用）：决定本次快照的位置是否可作为
+ * 「普通阅读移动」交给 [LegadoMarkerSaveGuard]。
+ *
+ * - 初始定位未完成（[initialPositionPending]）→ null：恢复前的起点不是阅读位置；
+ * - **临时查阅进行中（[temporaryInspection]）→ null**：查阅里的导航不是普通阅读移动，
+ *   返回原锚点后 marker 必须仍受保护（本次集成复核修正的核心语义）；
+ * - 其余情况透传 [position]（不可定位时为 null）。
+ */
+internal fun legadoGuardObservation(
+    initialPositionPending: Boolean,
+    temporaryInspection: Boolean,
+    position: Any?,
+): Any? = if (initialPositionPending || temporaryInspection) null else position
 
 /**
  * R2-J1-I：可上报的普通阅读 source 目标。

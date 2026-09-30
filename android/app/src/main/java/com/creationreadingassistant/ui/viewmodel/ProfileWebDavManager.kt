@@ -4,6 +4,7 @@ import android.content.Context
 import com.creationreadingassistant.data.local.AppDatabase
 import com.creationreadingassistant.data.local.DatabaseSafetyNet
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
 
@@ -17,6 +18,7 @@ class ProfileWebDavManager(
     private val webDavConfigStore: WebDavConfigStore,
     private val webDavBackup: WebDavBackup,
     private val jsonBridge: JsonBridge,
+    private val legadoImporter: LegadoReadingProgressImporter,
 ) {
 
     /**
@@ -26,6 +28,12 @@ class ProfileWebDavManager(
     suspend fun listBackups(): Result<List<WebDavBackup.BackupFile>>? {
         val cfg = webDavConfigStore.config ?: return null
         return runCatching { webDavBackup.listBackups(cfg.url, cfg.user, cfg.pass).getOrThrow() }
+    }
+
+    /** 仅扫描当前 WebDAV 根目录的 Legado 自动备份（backup*.zip）。 */
+    suspend fun listLegadoBackups(): Result<List<WebDavBackup.BackupFile>>? {
+        val cfg = webDavConfigStore.config ?: return null
+        return runCatching { webDavBackup.listLegadoBackups(cfg.url, cfg.user, cfg.pass).getOrThrow() }
     }
 
     /** 全量备份：写「最新」固定名 + 带时间戳归档。成功消息「备份成功」。 */
@@ -39,8 +47,8 @@ class ProfileWebDavManager(
     }
 
     /** 连接测试。成功消息形如「WebDAV 连接成功（HTTP 200）」。 */
-    suspend fun test(): Result<String> = runCatching {
-        val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
+    suspend fun test(overrideConfig: WebDavConfigStore.Config? = null): Result<String> = runCatching {
+        val cfg = overrideConfig ?: webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
         "WebDAV ${webDavBackup.test(cfg.url, cfg.user, cfg.pass).getOrThrow()}"
     }
 
@@ -53,5 +61,29 @@ class ProfileWebDavManager(
         val json = webDavBackup.get(cfg.url, cfg.user, cfg.pass, filename).getOrThrow()
         jsonBridge.importFromString(context, json)
         "已从 WebDAV 恢复备份"
+    }
+
+    /**
+     * 导入开源阅读备份内的 bookshelf.json 进度。
+     *
+     * 与 [downloadRestore] 不同：不调用 JsonBridge、不读取书源/设置/正文，也不
+     * 创建本地书。只让 [LegadoReadingProgressImporter] 对已存在且唯一匹配的书写
+     * 入阅读进度；写入前仍保留数据库安全快照。
+     */
+    suspend fun importLegadoBackup(context: Context, filename: String): Result<LegadoReadingProgressImporter.Report> = runCatching {
+        val cfg = webDavConfigStore.config ?: throw IllegalStateException("请先填写 WebDAV 配置")
+        DatabaseSafetyNet.snapshotNow(context, AppDatabase.DB_NAME)
+        val zip = webDavBackup.getBytes(
+            url = cfg.url,
+            user = cfg.user,
+            pass = cfg.pass,
+            filename = filename,
+            maxBytes = MAX_LEGADO_BACKUP_BYTES,
+        ).getOrThrow()
+        legadoImporter.importArchive(zip)
+    }
+
+    private companion object {
+        const val MAX_LEGADO_BACKUP_BYTES = 64L * 1024L * 1024L
     }
 }

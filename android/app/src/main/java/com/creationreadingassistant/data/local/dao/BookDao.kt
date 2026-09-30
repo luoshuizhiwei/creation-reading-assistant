@@ -59,6 +59,27 @@ interface BookDao {
     @Query("SELECT * FROM books WHERE id = :id AND deleted_at IS NULL")
     suspend fun getById(id: String): BookEntity?
 
+    /**
+     * 仅供受控的跨阅读器进度导入做一次性唯一匹配。
+     *
+     * 不把模糊匹配下推到 SQLite：导入方需要先规范化书名/作者，并能显式识别
+     * 同名同作者的歧义项，避免把外部阅读位置写进错误书籍。
+     */
+    @Query("SELECT * FROM books WHERE deleted_at IS NULL")
+    suspend fun getAllActive(): List<BookEntity>
+
+    /**
+     * 活跃书 id 集合（只选 id 一列，不读整行实体）。
+     *
+     * 供搜索侧过滤「已删书的残留索引行」：`search_terms` 是派生数据，写入侧只保证
+     * **今后**删除的书不再留孤儿行；此前遗留的行仍会让已删书的正文命中冒进搜索结果，
+     * 而 [getByIds] 带 `deleted_at IS NULL` 拿不到书名 ⇒ 结果行退化成裸 bookId。
+     * 搜索必须以这张表为准判「这本书还在不在」。
+     */
+    @Query("SELECT id FROM books WHERE deleted_at IS NULL")
+    suspend fun activeIds(): List<String>
+
+
     /** 批量按 id 查询（调用方需保证 ids 非空），用于消除逐条 getById 的 N+1 查询。 */
     @Query("SELECT * FROM books WHERE id IN (:ids) AND deleted_at IS NULL")
     suspend fun getByIds(ids: Collection<String>): List<BookEntity>

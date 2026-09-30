@@ -39,6 +39,9 @@ import com.creationreadingassistant.feature.reader.pager.PagerHealthStore
 import com.creationreadingassistant.feature.reader.pager.ReaderPageIndexManager
 import com.creationreadingassistant.feature.log.AppLog
 import com.creationreadingassistant.feature.library.deletion.BookDeletionCoordinator
+import com.creationreadingassistant.ui.screen.reader.consumesSelection
+import com.creationreadingassistant.ui.screen.reader.withSelectionCaptured
+import com.creationreadingassistant.ui.screen.reader.withSelectionSnapshotReleased
 import com.creationreadingassistant.ui.screen.reader.ReaderScreenState
 import com.creationreadingassistant.ui.screen.reader.ReaderChromeEvent
 import com.creationreadingassistant.ui.screen.reader.into
@@ -81,6 +84,28 @@ import kotlinx.coroutines.launch
  * 文档加载 / 资源所有权 + 所有 DAO·Repository·Store 写入均经过此 ViewModel；
  * ReaderScreen 变为纯组合函数，只接收 State 和 onAction 回调。
  */
+/**
+ * 选区状态的唯一、完整清除器（S07-F2）。
+ *
+ * 五个字段必须**一起**复零，任一处单独清理都会留下不一致状态：
+ * - `selectedText` 是工具条可见性的唯一门控，清空会让工具条悬挂新页面/新章节上；
+ * - `selectedRangeStart`（TXT/滚动起点）与 `selectedGlobalOffset`（EPUB 分页起点）
+ *   是互斥的两种起点口径，只清其一会留下另一条路径的陈旧坐标；
+ * - `selectedSourceEnd` 是两端共用的开放终点，ReaderScaffold 的
+ *   `selectedSourceLength` 用它减去前面两个起点之一 —— 即清状态：算出跨字段错值；
+ * - `showColorRow` 是工具条的二级视图，遗漏会让下次长按直连落在色行而非动作行。
+ *
+ * 调用方（`ClearSelection` / `PageTurn` / `LoadChapter` / 中点动作收起）只表达
+ * 「选区已失效」这一个意图，字段清单只在本函数里维护。
+ */
+internal fun ReaderScreenState.withSelectionCleared(): ReaderScreenState = copy(
+    selectedText = "",
+    selectedRangeStart = -1,
+    selectedGlobalOffset = -1,
+    selectedSourceEnd = -1,
+    showColorRow = false,
+)
+
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 @HiltViewModel
 class ReaderViewModel @Inject constructor(
@@ -275,7 +300,13 @@ class ReaderViewModel @Inject constructor(
             // 文档协调
             is ReaderAction.OpenBook -> openBook(action.bookId, force = false)
             is ReaderAction.Retry -> openBook(_uiState.value.requestedBookId, force = true)
-            is ReaderAction.LoadChapter -> loadChapter(action.bookId, action.chapterIndex, action.persistProgress)
+            is ReaderAction.LoadChapter -> {
+                // S07-F2：章节身份变化 → 旧选区的章节/全书坐标全部失效。
+                // 目录选章、下一章/上一章、搜索跳转、高亮回源都走 goToChapter 落到这里，
+                // 因此清理只在这一处收口，调用方不需要各自记字段清单。
+                updateScreen { it.withSelectionCleared() }
+                loadChapter(action.bookId, action.chapterIndex, action.persistProgress)
+            }
             is ReaderAction.ScanTxtTocRule -> scanTxtTocRule(action.bookId, action.filePath, action.ruleId)
             is ReaderAction.RescanTxtToc -> rescanTxtToc(action.bookId, action.filePath, action.profileKeyHint)
             is ReaderAction.CancelTxtTocScan -> cancelTxtTocScan()
@@ -288,15 +319,26 @@ class ReaderViewModel @Inject constructor(
                     else -> ReaderChromeEvent.PageTurn
                 }
                 updateScreen {
-                    readerChromeReducer(it.toReaderChromeState(), event).into(it)
-                        .copy(
-                            selectedText = if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) "" else it.selectedText,
-                            selectedRangeStart = if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) -1 else it.selectedRangeStart,
-                        )
+                    val next = readerChromeReducer(it.toReaderChromeState(), event).into(it)
+                    // S07-F2：中点点击收起浮层时，若有选区则一并完整清除。
+                    // 旧实现只清 text 和 rangeStart，留了 globalOffset / sourceEnd /
+                    // showColorRow，形成跨字段的半清状态。
+                    if (event == ReaderChromeEvent.CenterTap && it.selectedText.isNotBlank()) {
+                        next.withSelectionCleared()
+                    } else {
+                        next
+                    }
                 }
             }
             is ReaderAction.PageTurn -> updateScreen {
-                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.PageTurn).into(it)
+                // S07-F2：页面身份变化 → 选区失效。落页翻页（PageTurner 的
+                // onPageTurned）、硬键翻页（ReaderSessionEffects 在消费成功后派发）、
+                // 软翻页与外部翻页请求都在交入页锁后走到这里；宿主晶的本地 selRange
+                // 由 selectionCleared 回流撤掉，但 VM 层的旧文本与旧坐标必须在这里清，
+                // 否则工具条会继续引用上一页的文本，保存高亮/笔记即落错位置。
+                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.PageTurn)
+                    .into(it)
+                    .withSelectionCleared()
             }
             is ReaderAction.ProgressScrubberInteractionStarted -> updateScreen {
                 readerChromeReducer(
@@ -311,12 +353,15 @@ class ReaderViewModel @Inject constructor(
                 ).into(it)
             }
             is ReaderAction.OpenSheet -> updateScreen {
-                readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetOpen).into(it)
+                val opened = readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetOpen).into(it)
                     .copy(sheet = action.sheet)
+                // S07-F2.4：打开消费选区的 sheet/dialog 时原子捕获快照；其余释放。
+                if (action.sheet.consumesSelection()) opened.withSelectionCaptured()
+                else opened.withSelectionSnapshotReleased()
             }
             is ReaderAction.CloseSheet -> updateScreen {
                 readerChromeReducer(it.toReaderChromeState(), ReaderChromeEvent.SheetClose).into(it)
-                    .copy(sheet = null)
+                    .copy(sheet = null).withSelectionSnapshotReleased()
             }
             is ReaderAction.SetSelectedText -> updateScreen {
                 it.copy(
@@ -327,18 +372,16 @@ class ReaderViewModel @Inject constructor(
                 )
             }
             is ReaderAction.ClearSelection -> updateScreen {
-                it.copy(
-                    selectedText = "",
-                    selectedRangeStart = -1,
-                    selectedGlobalOffset = -1,
-                    selectedSourceEnd = -1,
-                    showColorRow = false,
-                )
+                it.withSelectionCleared()
             }
             is ReaderAction.SetShowTts -> updateScreen { it.copy(showTts = action.show) }
             is ReaderAction.SetSearchQuery -> updateScreen { it.copy(searchQuery = action.query) }
             is ReaderAction.SetShowOverflow -> updateScreen { it.copy(showReaderOverflow = action.show) }
-            is ReaderAction.SetNoteOpen -> updateScreen { it.copy(noteOpen = action.open) }
+            is ReaderAction.SetNoteOpen -> updateScreen {
+                // S07-F2.4：笔记对话框打开时捕获快照，关闭时释放。
+                val next = if (action.open) it.withSelectionCaptured() else it.withSelectionSnapshotReleased()
+                next.copy(noteOpen = action.open)
+            }
             is ReaderAction.SetNoteBody -> updateScreen { it.copy(noteBody = action.body) }
             is ReaderAction.ToggleColorRow -> updateScreen { it.copy(showColorRow = !it.showColorRow) }
 

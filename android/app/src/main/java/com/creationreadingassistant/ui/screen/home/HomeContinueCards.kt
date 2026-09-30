@@ -124,7 +124,8 @@ internal fun ContinueListItem(
                     color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
                 ) {
                     Text(
-                        text = formatBookProgressForCard(item.progress),
+                        // S05-①：传入状态列——取消读完后的残余 100% 显示「100%」而非「已读完」
+                        text = formatBookProgressForCard(item.progress, item.completionState),
                         style = MaterialTheme.typography.labelSmall.copy(
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 11.sp,

@@ -233,16 +233,22 @@ internal fun ShelfRefreshIndicator(
 internal fun BookTile(
     book: BookEntity,
     percent: Float,
+    /** 进度行 completion_state（S05-①）：完成标识由显式状态决定，取消读完后的残余 100% 不触发。 */
+    completionState: String?,
     viewMode: ShelfViewMode,
     selectionMode: Boolean,
     selected: Boolean,
     actionsOpen: Boolean,
     downloading: Boolean,
+    /** M-BUG-03：来源文件在系统目录被改过，需要用户确认刷新。 */
+    contentUpdated: Boolean = false,
     onOpenBook: (BookEntity) -> Unit,
     onToggleActions: (String) -> Unit,
     onToggleSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    // 完成标识统一口径（与书架分组 bookStatus 一致）：显式 FINISHED 才显示「完」/「已读完」/藏书印。
+    val displayFinished = isDisplayFinished(percent, completionState)
     val readiness = book.readiness()
     val layout = LocalLayoutTokens.current
     val haptic = rememberHaptic(rememberReducedMotion())
@@ -291,7 +297,7 @@ internal fun BookTile(
                 Box(modifier = Modifier.fillMaxSize()) {
                     BookCover(
                         book = book,
-                        percent = percent,
+                        percent = if (displayFinished) percent else null,
                         modifier = Modifier.fillMaxSize(),
                         sealSize = 30.dp,
                         fallback = { ShelfCoverFallback(book, isCompact = false) },
@@ -356,6 +362,25 @@ internal fun BookTile(
                         }
                     }
 
+                    // 来源内容已更新徽章（M-BUG-03）：置于 TopEnd，与多选徽章（TopStart）不冲突。
+                    // 仅作提示，**不自动改正文** —— 正文事实源仍是内部稳定副本，是否刷新由用户决定。
+                    if (contentUpdated) {
+                        Surface(
+                            shape = RoundedCornerShape(6.dp),
+                            color = MaterialTheme.colorScheme.tertiaryContainer,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .padding(6.dp),
+                        ) {
+                            Text(
+                                text = "可更新",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onTertiaryContainer,
+                                modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp),
+                            )
+                        }
+                    }
+
                 }
             }
 
@@ -389,7 +414,7 @@ internal fun BookTile(
                         border = BorderStroke(0.5.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.22f)),
                     ) {
                         Text(
-                            text = if (percent >= 99.5f) "完" else "${percent.toInt()}%",
+                            text = if (displayFinished) "完" else "${percent.toInt()}%",
                             style = MaterialTheme.typography.labelSmall.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
                             color = MaterialTheme.colorScheme.primary,
                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp),
@@ -438,7 +463,7 @@ internal fun BookTile(
                     Box(modifier = Modifier.fillMaxSize()) {
                         BookCover(
                             book = book,
-                            percent = percent,
+                            percent = if (displayFinished) percent else null,
                             modifier = Modifier.fillMaxSize(),
                             shape = RoundedCornerShape(8.dp),
                             fallback = { ShelfCoverFallback(book, isCompact = true) },
@@ -459,6 +484,20 @@ internal fun BookTile(
                             ) {
                                 CircularProgressIndicator(modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             }
+                        }
+                        // 来源内容已更新（M-BUG-03）：列表封面仅 48dp 宽，用圆点提示，
+                        // 避免「可更新」文字挤压书脊与封面主体。
+                        if (contentUpdated) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(8.dp)
+                                    .background(
+                                        color = MaterialTheme.colorScheme.tertiary,
+                                        shape = RoundedCornerShape(999.dp),
+                                    ),
+                            )
                         }
                     }
                 }
@@ -482,7 +521,7 @@ internal fun BookTile(
                     val progressStr = if (downloading) {
                         "下载中…"
                     } else if (readiness.tone == ReadinessTone.READY) {
-                        if (percent >= 99.5f) "已读完" else if (percent > 0f) "已读 ${percent.toInt()}%" else "未读"
+                        if (displayFinished) "已读完" else if (percent > 0f) "已读 ${percent.toInt()}%" else "未读"
                     } else {
                         readiness.label
                     }
@@ -496,7 +535,7 @@ internal fun BookTile(
                         overflow = TextOverflow.Ellipsis,
                     )
 
-                    if (percent > 0f && percent < 99.5f) {
+                    if (percent > 0f && !displayFinished) {
                         ProgressLine(
                             percent = percent,
                             modifier = Modifier

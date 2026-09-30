@@ -84,6 +84,7 @@ internal fun WebDavSubPage(
     val initialUser = state.webDavConfig?.user ?: ""
     val initialPass = state.webDavConfig?.pass ?: ""
     val backups = state.webDavBackups
+    val legadoBackups = state.legadoBackups
     val hasSavedPass = initialPass.isNotBlank()
 
     var url by remember { mutableStateOf(initialUrl) }
@@ -573,5 +574,121 @@ internal fun WebDavSubPage(
                 }
             }
         }
+        // 4. 开源阅读兼容导入：与本应用 JSON 恢复严格分离，只读取 backup*.zip 的 bookshelf.json。
+        item(key = "legado-progress-import-card") {
+        SettingsAnchor("legado-progress-import-card") {
+                SectionCard(modifier = Modifier.animateEnter(reducedMotion = reducedMotion)) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                    ) {
+                        SubPageSectionTitle(
+                            title = "从开源阅读导入记录",
+                            icon = Icons.Outlined.SettingsBackupRestore,
+                            iconTint = WEBDAV_WARM_GOLD,
+                            trailing = {
+                                Surface(
+                                    shape = PillShape,
+                                    color = WEBDAV_WARM_GOLD.copy(alpha = 0.12f),
+                                    border = BorderStroke(0.6.dp, WEBDAV_WARM_GOLD.copy(alpha = 0.35f)),
+                                ) {
+                                    Text(
+                                        "${legadoBackups.size} 份备份",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.SemiBold),
+                                        color = WEBDAV_WARM_GOLD,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
+                                    )
+                                }
+                            },
+                        )
+                        Text(
+                            "兼容 HapeLee/legado-with-MD3 的 backup*.zip。仅从 bookshelf.json 读取章节位置，并只更新书名与作者唯一匹配的本地书；书源、设置、分组与正文不会导入。Markdown 因章节规则不同暂不支持导入，会如实计入跳过。",
+                            style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            lineHeight = 17.sp,
+                        )
+                        OutlinedButton(
+                            onClick = {
+                                haptic(HapticFeedbackType.TextHandleMove)
+                                onAction(ProfileAction.RefreshLegadoBackups)
+                            },
+                            enabled = url.isNotBlank(),
+                            shape = PillShape,
+                            modifier = Modifier.fillMaxWidth().height(40.dp),
+                        ) {
+                            Icon(Icons.Outlined.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("扫描开源阅读备份")
+                        }
+                        if (legadoBackups.isEmpty()) {
+                            Text(
+                                "扫描后会显示当前 WebDAV 目录下的 backup*.zip。若你的开源阅读配置了子目录，请将上方服务器地址填写到该子目录。",
+                                style = MaterialTheme.typography.bodySmall.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        } else {
+                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                                legadoBackups.take(15).forEach { file ->
+                                    Surface(
+                                        shape = RoundedCornerShape(12.dp),
+                                        color = MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.45f),
+                                        border = BorderStroke(0.6.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+                                        modifier = Modifier.fillMaxWidth(),
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                                        ) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(36.dp)
+                                                    .clip(RoundedCornerShape(8.dp))
+                                                    .background(WEBDAV_WARM_GOLD.copy(alpha = 0.12f)),
+                                                contentAlignment = Alignment.Center,
+                                            ) {
+                                                Icon(
+                                                    Icons.Outlined.FolderZip,
+                                                    contentDescription = null,
+                                                    tint = WEBDAV_WARM_GOLD,
+                                                    modifier = Modifier.size(18.dp),
+                                                )
+                                            }
+                                            Column(modifier = Modifier.weight(1f)) {
+                                                Text(
+                                                    file.name,
+                                                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.SemiBold),
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                                Text(
+                                                    "${formatBytes(file.size)} · ${file.lastModified}",
+                                                    style = MaterialTheme.typography.bodySmall.copy(fontSize = 10.sp),
+                                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis,
+                                                )
+                                            }
+                                            OutlinedButton(
+                                                onClick = {
+                                                    haptic(HapticFeedbackType.TextHandleMove)
+                                                    onAction(ProfileAction.ImportLegadoBackup(file.name))
+                                                },
+                                                shape = PillShape,
+                                                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp),
+                                                modifier = Modifier.height(32.dp),
+                                            ) {
+                                                Text("导入记录", style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.SemiBold))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 }
+

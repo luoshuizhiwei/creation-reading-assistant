@@ -56,6 +56,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.ui.screen.reader.formatDuration
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import com.creationreadingassistant.ui.theme.DisplayFontFamily
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.bounceable
@@ -167,7 +169,8 @@ internal fun ProgressSheet(
                                     tint = Color(0xFF059669),
                                 )
                                 Text(
-                                    text = "累计 ${formatDuration(savedBookReadingMs + activeReadingMs)}",
+                                    text = "累计 ${formatDuration(savedBookReadingMs + activeReadingMs, LocalDurationUnit.current)}",
+                                    modifier = Modifier.durationUnitToggle(),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.SemiBold,
                                     color = Color(0xFF059669),
@@ -241,7 +244,8 @@ internal fun ProgressSheet(
                                         tint = Color(0xFFD97706),
                                     )
                                     Text(
-                                        text = "本次已读 ${formatDuration(activeReadingMs)}",
+                                        text = "本次已读 ${formatDuration(activeReadingMs, LocalDurationUnit.current)}",
+                                        modifier = Modifier.durationUnitToggle(),
                                         style = MaterialTheme.typography.labelSmall,
                                         fontWeight = FontWeight.SemiBold,
                                         color = Color(0xFFD97706),
@@ -268,11 +272,16 @@ internal fun ProgressSheet(
                 )
                 ProgressStatMicroCard(
                     icon = Icons.Outlined.HourglassEmpty,
-                    value = if (estimatedRemainingMs > 0) formatDuration(estimatedRemainingMs) else "—",
+                    value = if (estimatedRemainingMs > 0) {
+                        formatDuration(estimatedRemainingMs, LocalDurationUnit.current)
+                    } else {
+                        "—"
+                    },
                     unit = "",
                     label = "预计读完",
                     tint = Color(0xFF059669),
                     modifier = Modifier.weight(1f),
+                    valueModifier = Modifier.durationUnitToggle(),
                 )
                 ProgressStatMicroCard(
                     icon = Icons.Outlined.Lightbulb,
@@ -578,6 +587,8 @@ private fun ProgressStatMicroCard(
     label: String,
     tint: Color,
     modifier: Modifier = Modifier,
+    /** 应用到数值文本自身；时长类数值传 [durationUnitToggle] 以支持长按切换单位。 */
+    valueModifier: Modifier = Modifier,
 ) {
     Surface(
         modifier = modifier,
@@ -612,6 +623,7 @@ private fun ProgressStatMicroCard(
             ) {
                 Text(
                     text = value,
+                    modifier = valueModifier,
                     style = MaterialTheme.typography.titleSmall.copy(fontFamily = DisplayFontFamily),
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,

@@ -42,6 +42,27 @@ internal fun computeLocatorJson(
 }
 
 /**
+ * 依据**消费者快照**生成 locator_json（S07-F2.4）。
+ *
+ * 与 [computeLocatorJson] 的区别只在数据来源：这里文字与坐标都取自同一个不可变快照，
+ * 因此正文活动选区被清理后仍能生成正确 locator。**禁止**混搭
+ * （文字取快照、坐标取实时状态）—— 那会写出文字与位置互相矛盾的记录。
+ */
+internal fun computeLocatorJsonForSnapshot(
+    epubBook: EpubBook?,
+    chapterStartOffsets: List<Int>,
+    snapshot: ReaderSelectionSnapshot?,
+): String? = snapshot?.let {
+    computeLocatorJson(
+        epubBook = epubBook,
+        selectedGlobalOffset = it.globalOffset,
+        chapterStartOffsets = chapterStartOffsets,
+        selectedText = it.text,
+        selectedRangeStart = it.rangeStart,
+    )
+}
+
+/**
  * 跳转到指定章节。pagerEngineOn 时走翻页定位，否则只更新 chapterIndex + LoadChapter。
  * chapterIndex 写入已转换的 [chapterIndexState]。
  *

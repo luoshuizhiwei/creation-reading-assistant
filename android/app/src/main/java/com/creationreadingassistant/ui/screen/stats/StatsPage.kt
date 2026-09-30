@@ -7,6 +7,9 @@ import com.creationreadingassistant.data.local.dao.StatsSessionRow
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.repository.computeReadingStreak
 import com.creationreadingassistant.data.repository.isValidReadingSessionDuration
+import com.creationreadingassistant.data.settings.DurationUnit
+import com.creationreadingassistant.ui.util.DurationStyle
+import com.creationreadingassistant.ui.util.formatDuration
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -172,17 +175,18 @@ internal fun buildHeatmap(
     return cells
 }
 
-internal fun formatCompactDuration(ms: Long): String {
-    if (ms <= 0) return "0 分钟"
-    val minutes = (ms / 60000).toInt()
-    if (minutes < 60) return "$minutes 分钟"
-    val hours = minutes / 60
-    val rem = minutes % 60
-    if (rem == 0) return "$hours 小时"
-    val tenths = round(rem / 60.0 * 10).toInt()
-    if (tenths >= 10) return "${hours + 1} 小时"
-    return "$hours.${tenths} 小时"
-}
+/**
+ * 统计页紧凑时长文本。
+ *
+ * S15-F1/F2：**不再自带舍入算法**，只转发公共 [formatDuration] 的紧凑样式。
+ * 旧实现把分钟余数换成小数小时（`"1.5 小时"`）并在十分位 ≥10 时进 1 小时，
+ * 与公共策略的「向下取整 + 保留分钟尾数」不同源，导致同一个数值在统计页
+ * 与其它页面显示不一致。收敛后阈值、舍入、不足一分钟策略都由公共实现产生。
+ */
+internal fun formatCompactDuration(
+    ms: Long,
+    unit: DurationUnit = DurationUnit.HOURS,
+): String = formatDuration(ms, unit, DurationStyle.COMPACT)
 
 /* ========== 日期范围/标题/当前周期判断/锚点偏移（放在这里，因为 ViewModel 输出 periodTitle 等需要） ========== */
 
@@ -286,7 +290,8 @@ internal fun computeStats(
     for (b in displayable) {
         val p = progressMap[b.id]
         val state = ReadingCompletionState.fromStorage(p?.completion_state)
-        val comp = state == ReadingCompletionState.FINISHED || (p?.progress_percent ?: 0f) >= 99.5f
+        // S05-① 契约：完成只认显式 finished——取消读完后的残余 100% 落入「在读」分布
+        val comp = state == ReadingCompletionState.FINISHED
         when {
             comp -> completed++
             state == ReadingCompletionState.SHELVED -> shelved++

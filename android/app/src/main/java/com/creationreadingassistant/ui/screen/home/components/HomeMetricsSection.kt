@@ -26,6 +26,10 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.DurationStyle
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
+import com.creationreadingassistant.ui.util.formatDuration
 
 /**
  * 本周概览指标组（首页第二块）。
@@ -94,8 +98,14 @@ fun HomeMetricsSection(
                 } else {
                     stringResource(R.string.home_today)
                 },
-                value = formatCompactDuration(minutesCountUp.toLong() * 60000L),
+                value = formatDuration(
+                    minutesCountUp.toLong() * 60000L,
+                    LocalDurationUnit.current,
+                    DurationStyle.COMPACT,
+                ),
                 subtext = if (dailyGoalMinutes > 0) "目标进度" else "今日沉浸",
+                // 本周概览内唯一的时长展示位 ⇒ 本区块只此一个切换入口。
+                valueModifier = Modifier.durationUnitToggle(),
             )
         }
     }
@@ -107,6 +117,8 @@ private fun GridStat(
     label: String,
     value: String,
     subtext: String,
+    /** 只作用于主值文本的附加修饰符；时长类数值传 [durationUnitToggle]。 */
+    valueModifier: Modifier = Modifier,
 ) {
     val spec = LocalComponentSpec.current
     Surface(
@@ -127,6 +139,7 @@ private fun GridStat(
         ) {
             Text(
                 text = value,
+                modifier = valueModifier,
                 style = MaterialTheme.typography.titleMedium.copy(
                     fontSize = 17.sp,
                     lineHeight = 21.sp,
@@ -156,13 +169,4 @@ private fun GridStat(
             )
         }
     }
-}
-
-private fun formatCompactDuration(ms: Long): String {
-    if (ms <= 0) return "0 分钟"
-    if (ms < 60_000) return "${kotlin.math.round(ms / 1000.0).toInt()} 秒"
-    val totalMinutes = kotlin.math.round(ms / 60_000.0).toInt()
-    val h = totalMinutes / 60
-    val m = totalMinutes % 60
-    return if (h > 0) "${h}h ${m}m" else "$m 分钟"
 }

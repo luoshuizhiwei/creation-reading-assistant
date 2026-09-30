@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import com.creationreadingassistant.feature.reader.doc.TxtChapterDetector
 import com.creationreadingassistant.feature.reader.rules.BuiltinTocRules
 import com.creationreadingassistant.feature.reader.rules.RuleSnapshot
@@ -77,7 +78,7 @@ class ReaderRulesSheetTest {
         composeRule.onNodeWithText("新增规则").performClick()
         composeRule.onNodeWithText("新增规则").assertIsDisplayed()
         composeRule.onNodeWithText("规则名称").assertIsDisplayed()
-        composeRule.onNodeWithText("正则表达式").assertIsDisplayed()
+        composeRule.onNodeWithText("章节模式正则").performScrollTo().assertIsDisplayed()
     }
 
     @Test
@@ -104,6 +105,10 @@ class ReaderRulesSheetTest {
                         onPick = {},
                         txtRules = TxtChapterDetector.rules,
                         onManageRules = { opened = true },
+                        // A01：TocSheet 的 notes/onPickNote 已改为必填（去掉默认空列表，
+                        // 防止生产宿主漏传时静默显示空态）。本用例不关心笔记 Tab，显式传空。
+                        notes = emptyList(),
+                        onPickNote = {},
                     )
                 }
             }
@@ -125,6 +130,9 @@ class ReaderRulesSheetTest {
                         current = 0,
                         totalChapters = 1,
                         onPick = {},
+                        // A01：同上，显式传空（本用例只验证规则入口的显隐）。
+                        notes = emptyList(),
+                        onPickNote = {},
                     )
                 }
             }

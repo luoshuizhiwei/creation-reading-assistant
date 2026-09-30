@@ -33,6 +33,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.creationreadingassistant.ui.components.IslandCard
@@ -45,6 +46,9 @@ import com.creationreadingassistant.ui.theme.MotionTokens
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.DurationStyle
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.formatDuration
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.max
@@ -155,10 +159,16 @@ private fun TrendChart(items: List<TrendItem>) {
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Bottom,
                 ) {
-                    // 柱顶数值：有阅读日显示分钟数，今日/峰值日高亮
+                    // 柱顶数值：有阅读日显示时长，今日/峰值日高亮。
+                    // 每格仅约 1/7~1/12 屏宽，用 TICK 形态（"45分"/"2时"/"1天"）；
+                    // 量级判定仍来自公共策略，不在本页自行换算或裁剪。
                     if (hasData) {
                         Text(
-                            text = "${item.durationMs / 60_000L}",
+                            text = formatDuration(
+                                item.durationMs,
+                                LocalDurationUnit.current,
+                                DurationStyle.TICK,
+                            ),
                             style = MaterialTheme.typography.labelSmall.copy(
                                 fontWeight = if (isToday || isPeak) FontWeight.Bold else FontWeight.Medium,
                                 fontSize = 10.sp,
@@ -168,6 +178,8 @@ private fun TrendChart(items: List<TrendItem>) {
                                 isPeak -> Color(0xFFD97706)
                                 else -> scheme.onSurface
                             },
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                         Spacer(modifier = Modifier.height(3.dp))
                     }

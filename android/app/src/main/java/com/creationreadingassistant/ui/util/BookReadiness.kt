@@ -1,6 +1,7 @@
 package com.creationreadingassistant.ui.util
 
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.ReadingCompletionState
 import com.creationreadingassistant.data.local.entity.ReadingProgressEntity
 import com.creationreadingassistant.data.local.entity.ReadingSessionEntity
 
@@ -55,16 +56,37 @@ fun hasBookBeenRead(
 }
 
 /**
+ * S05-① 契约（2026-09-28 裁决）的完成态判定：**显式 `completion_state` 权威，百分比不推断完成**。
+ *
+ * 背景：`markFinished` 会把 `progress_percent` 抬到 100，用户「取消读完」
+ * （`setReadingState(READING)`）后该残余仍在库里。本应用内所有写 `percent >= 99.5` 的
+ * 路径都会在同一行写 `finished`（`mergeReaderProgress` / `updateReadingProgress` /
+ * `markFinished`；Legado 导入器把外部估算钳制在 99.4%；同步不落远端百分比），因此
+ * 「高百分比 + reading」只能来自用户的显式取消——必须按在读处理。
+ *
+ * 与书架 `ShelfModels.bookStatus` / `isDisplayFinished` 同口径（该文件属书架窗口所有，
+ * 故在本文件提供同语义的跨页版本，供首页继续阅读 / 档案 / 我的阅读消费，
+ * 避免这些页面反向依赖书架包）。
+ */
+fun isReadingFinished(progress: ReadingProgressEntity?): Boolean =
+    progress?.readingState == ReadingCompletionState.FINISHED
+
+/**
  * 格式化阅读进度百分比为卡片显示文案。
  *
  * 原 HomeContinueSheet 内同名 `formatBookProgress` 与本函数逻辑完全一致，
  * 已统一为 `formatBookProgressForCard`，调用方请改用本函数名。
+ *
+ * S05-①：「已读完」文案要求显式 `finished`——调用方应传入进度行的
+ * `completion_state`（继续阅读列表里的书按构造都不是 finished，取消读完后的
+ * 残余 100% 由此显示为「100%」而不是「已读完」）。传 null 保持历史口径的
+ * 百分比判定仅适用于无进度行的场景（此时 percent 恒为 0，显示「未读」）。
  */
-fun formatBookProgressForCard(progress: Float): String {
+fun formatBookProgressForCard(progress: Float, completionState: String? = null): String {
     val normalized = progress.coerceIn(0f, 100f)
     return when {
         normalized <= 0.05f -> "未读"
-        normalized >= 99.5f -> "已读完"
+        normalized >= 99.5f && ReadingCompletionState.fromStorage(completionState) == ReadingCompletionState.FINISHED -> "已读完"
         normalized >= 10f -> "${normalized.toInt()}%"
         else -> "${"%.1f".format(normalized)}%"
     }

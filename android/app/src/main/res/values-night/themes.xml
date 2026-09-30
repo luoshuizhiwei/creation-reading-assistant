@@ -1,0 +1,16 @@
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!--
+        系统处于深色模式时的启动窗口主题。
+
+        覆盖的场景：应用内「跟随系统」+ 系统深色 —— 此时首帧就该是深色，
+        若仍用浅色父主题会先画一帧白色再被 Compose 深色主题覆盖（进应用时闪一下）。
+        应用内**单独**设深色而系统是浅色时，由 MainActivity.applyBootWindowTheme
+        在 super.onCreate 前 setTheme 覆盖，不依赖本文件。
+    -->
+    <style name="Theme.CreationReadingAssistant" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/boot_window_background_dark</item>
+    </style>
+</resources>

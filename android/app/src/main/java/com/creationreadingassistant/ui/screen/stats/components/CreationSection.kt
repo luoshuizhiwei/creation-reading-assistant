@@ -35,6 +35,8 @@ import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 
 private data class CreationMetricItem(
     val icon: ImageVector,
@@ -42,6 +44,13 @@ private data class CreationMetricItem(
     val value: String,
     val label: String,
     val subtitle: String,
+    /**
+     * 只作用于主值文本的附加修饰符；**仅时长指标**传 [durationUnitToggle]。
+     *
+     * 用 `Modifier` 而非布尔开关：调用方自己决定挂什么，本组件不替调用方猜测
+     * 哪个指标是时长（"42 篇"、"3 天" 这类计数挂上去是错的）。
+     */
+    val valueModifier: Modifier = Modifier,
 )
 
 /**
@@ -82,9 +91,11 @@ internal fun CreationSection(
         CreationMetricItem(
             icon = Icons.Outlined.AccessTime,
             iconTint = Color(0xFF059669), // 自然翠绿
-            value = formatCompactDuration(stats.totalReadingMs),
+            value = formatCompactDuration(stats.totalReadingMs, LocalDurationUnit.current),
             label = "沉浸时长",
             subtitle = "心流专注",
+            // 本组唯一的时长指标（笔记数/灵感数/天数都是整数计数）⇒ 只此一个入口。
+            valueModifier = Modifier.durationUnitToggle(),
         ),
         CreationMetricItem(
             icon = Icons.Outlined.CalendarMonth,
@@ -186,6 +197,7 @@ private fun CreationMicroCard(
 
             Text(
                 text = item.value,
+                modifier = item.valueModifier,
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.Bold,

@@ -17,6 +17,7 @@ import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.local.CoroutineScopeModule.DefaultDispatcher
 import com.creationreadingassistant.ui.util.hasBookBeenRead
 import com.creationreadingassistant.ui.util.isBookDisplayable
+import com.creationreadingassistant.ui.util.isReadingFinished
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.time.Instant
 import java.time.LocalDate
@@ -128,8 +129,8 @@ private fun buildHomeUiState(
         .asSequence()
         .filter { book ->
             val progress = progressById[book.id]
-            isBookDisplayable(book) &&
-                (progress?.completion_state == "finished" || (progress?.progress_percent ?: 0f) >= 99.5f)
+            // S05-① 契约：完成以显式 completion_state 为准，取消读完后的残余 100% 不算
+            isBookDisplayable(book) && isReadingFinished(progress)
         }
         .sortedWith { first, second ->
             completionTime(second, progressById).compareTo(completionTime(first, progressById))
@@ -188,7 +189,8 @@ private fun buildContinueBooks(
         val sessions = sessionsByBook[book.id]
         if (!isBookDisplayable(book) || !hasBookBeenRead(book, progress, sessions)) return@mapNotNull null
         if (progress?.readingState == ReadingCompletionState.SHELVED) return@mapNotNull null
-        if ((progress?.progress_percent ?: 0f) >= 99.5f) return@mapNotNull null
+        // S05-① 契约：排除「已完成」以显式状态为准；取消读完（残余 100% + reading）回到继续阅读
+        if (isReadingFinished(progress)) return@mapNotNull null
 
         val lastReadAt = progress?.last_read_at
             ?: sessions?.mapNotNull { it.ended_at ?: it.started_at }?.maxOrNull()

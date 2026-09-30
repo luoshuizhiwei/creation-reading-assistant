@@ -35,6 +35,10 @@ import com.creationreadingassistant.ui.screen.reader.sheets.BookInfoSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.DictionarySheet
 import com.creationreadingassistant.ui.screen.reader.sheets.InspirationSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.NotesSheet
+import com.creationreadingassistant.ui.screen.reader.sheets.noteNavigationTarget
+import com.creationreadingassistant.ui.screen.reader.sheets.highlightNavigationTarget
+import com.creationreadingassistant.ui.screen.reader.sheets.NOTE_KIND_BOOKMARK
+import com.creationreadingassistant.ui.screen.reader.sheets.tocNoteEntries
 import com.creationreadingassistant.ui.screen.reader.sheets.ProgressSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.RulesSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.SearchSheet
@@ -42,6 +46,10 @@ import com.creationreadingassistant.ui.screen.reader.sheets.SettingsSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.ThemeSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.TocSheet
 import com.creationreadingassistant.ui.screen.reader.sheets.readerTocEntries
+import com.creationreadingassistant.data.local.entity.HighlightEntity
+import com.creationreadingassistant.data.local.entity.NoteEntity
+import com.creationreadingassistant.feature.annotations.AnnotationType
+import com.creationreadingassistant.feature.annotations.navigationTargetId
 import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.ReaderPaperPalette
 import com.creationreadingassistant.ui.theme.ReaderPaperTheme
@@ -159,12 +167,12 @@ internal data class ReaderSheetHostCallbacks(
     val onPickChapter: (Int) -> Unit,
     val onTxtRule: (String) -> Unit,
     val onCancelTxtScan: () -> Unit,
-    val onJumpToHighlight: (String) -> Unit,
-    val onJumpToBookmark: (String) -> Unit,
-    val onSaveAiExplainInspiration: (body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
+    /** A01：标注回源统一收已带类型前缀的 typed 目标（highlight:/note:/bookmark:）。 */
+    val onJumpToTypedAnnotation: (String) -> Unit,
+    val onSaveAiExplainInspiration: (body: String, excerpt: String, locatorJson: String?, tags: List<String>, categoryIds: List<String>) -> Unit,
     /** 设置/主题变更前先持久化当前阅读进度（防重排回退到旧进度）。 */
     val onPersistProgress: () -> Unit,
-    val onSaveInspiration: (title: String, body: String, tags: List<String>, categoryIds: List<String>) -> Unit,
+    val onSaveInspiration: (title: String, body: String, excerpt: String, locatorJson: String?, tags: List<String>, categoryIds: List<String>) -> Unit,
     val onCreateCategory: (String) -> String,
     val onCreateTag: (String) -> String,
     /** R3-P1：切换书内设置的修改作用范围（本书 / 全局）。 */
@@ -199,6 +207,12 @@ internal fun ReaderSheetHost(
     sheetCallbacks: ReaderSheetHostCallbacks,
 ) {
     val bid = inputs.bookId ?: ""
+    val consumerSnapshot = inputs.screenState.selectionSnapshot
+    val snapshotLocator = {
+        computeLocatorJsonForSnapshot(
+            state.document.epubBook, state.document.chapterStartOffsets, consumerSnapshot,
+        )
+    }
 
     /**
      * R3-P1：书内编辑的唯一落盘入口。
@@ -279,8 +293,8 @@ internal fun ReaderSheetHost(
                             .orEmpty(),
                         txtRulePreviews = state.document.txtRulePreviews,
                         txtRuleScanStatus = state.document.txtRuleScanStatus?.takeIf { it.matchesSession(bid) },
-                        bookmarks = inputs.notes.filter { it.kind == "bookmark" },
-                        onPickBookmark = { bm -> sheetCallbacks.onJumpToBookmark(bm.id) },
+                        bookmarks = inputs.notes.filter { it.kind == NOTE_KIND_BOOKMARK },
+                        onPickBookmark = { bm -> sheetCallbacks.onJumpToTypedAnnotation(noteNavigationTarget(bm)) },
                         onTxtRule = sheetCallbacks.onTxtRule,
                         onCancelTxtScan = sheetCallbacks.onCancelTxtScan,
                         onManageRules = { callbacks.onAction(ReaderAction.OpenSheet(ReaderSheet.RULES)) },
@@ -294,6 +308,14 @@ internal fun ReaderSheetHost(
                             callbacks.onAction(ReaderAction.ClearChapterReads(bid))
                             sheetCallbacks.showNotice("已清除已读标记")
                         },
+                        // A01：笔记 Tab = 高亮 + 非书签笔记（来自既有 inputs 流，不新增查询）。
+                        notes = tocNoteEntries(
+                            highlights = inputs.highlights,
+                            notes = inputs.notes,
+                        ),
+                        onPickNote = { entry ->
+                            sheetCallbacks.onJumpToTypedAnnotation(entry.navigationTarget)
+                        },
                     )
                 }
 
@@ -302,10 +324,10 @@ internal fun ReaderSheetHost(
                     previewText = state.document.contentText,
                     mutationResult = inputs.ruleMutationResult,
                     replacementCapability = readerReplacementCapability(state.ui.replacementAvailability),
-                    initialReplaceText = state.ui.selectedText.takeIf { it.isNotBlank() },
+                    initialReplaceText = consumerSnapshot?.text?.takeIf { it.isNotBlank() },
                     onCommand = { callbacks.onAction(ReaderAction.ExecuteRuleCommand(bid, it)) },
                     onBack = {
-                        if (state.ui.selectedText.isNotBlank()) {
+                        if (consumerSnapshot != null) {
                             callbacks.onAction(ReaderAction.ClearSelection)
                         }
                         callbacks.onAction(ReaderAction.ClearRuleMutationResult)
@@ -366,41 +388,52 @@ internal fun ReaderSheetHost(
                         callbacks.onAction(ReaderAction.ConvertHighlightToInspiration(h.id))
                         sheetCallbacks.showNotice("已转为灵感")
                     },
-                    onJumpToHighlight = { h -> sheetCallbacks.onJumpToHighlight(h.id) },
-                    onJumpToBookmark = { n -> sheetCallbacks.onJumpToBookmark(n.id) },
+                    // S07：typed 回源——按注释类型分派 typed 目标，避免同 rawId 跨表跳错。
+                    // onJumpToHighlight 回调是 onPendingHighlightIdChange 的直通管道，
+                    // 传入 typed 目标（highlight:{id} / note:{id} / bookmark:{id}）即可正确路由。
+                    onJumpToHighlight = { h ->
+                        sheetCallbacks.onJumpToTypedAnnotation(highlightNavigationTarget(h))
+                    },
+                    onJumpToNote = { n ->
+                        sheetCallbacks.onJumpToTypedAnnotation(noteNavigationTarget(n))
+                    },
                 )
 
                 ReaderSheet.AI_ASSIST -> AiAssistSheet(
                     aiClient = callbacks.aiClient,
                     bookTitle = state.bookMeta.bookTitle,
                     chapterTitle = state.document.currentChapterTitle,
-                    contextText = state.ui.selectedText.ifBlank { state.document.contentText },
+                    contextText = consumerSnapshot?.text ?: state.document.contentText,
                 )
 
                 ReaderSheet.AI_EXPLAIN -> AiExplainSheet(
                     aiClient = callbacks.aiClient,
-                    selectedText = state.ui.selectedText,
+                    selectedText = consumerSnapshot?.text.orEmpty(),
                     bookTitle = state.bookMeta.bookTitle,
                     categories = inputs.categories,
                     tags = inputs.tags,
                     onCreateCategory = sheetCallbacks.onCreateCategory,
                     onCreateTag = sheetCallbacks.onCreateTag,
                     onSaveInspiration = { body, tags, categoryIds ->
-                        sheetCallbacks.onSaveAiExplainInspiration(body, tags, categoryIds)
+                        sheetCallbacks.onSaveAiExplainInspiration(
+                            body, consumerSnapshot?.text.orEmpty(), snapshotLocator(), tags, categoryIds,
+                        )
                     },
                 )
 
                 ReaderSheet.INSPIRATION -> InspirationSheet(
                     bookTitle = state.bookMeta.bookTitle,
                     chapterTitle = state.document.currentChapterTitle,
-                    excerpt = state.ui.selectedText,
+                    excerpt = consumerSnapshot?.text.orEmpty(),
                     progressPercent = state.stats.progressPercent,
                     categories = inputs.categories,
                     tags = inputs.tags,
                     onCreateCategory = sheetCallbacks.onCreateCategory,
                     onCreateTag = sheetCallbacks.onCreateTag,
                     onSave = { title, body, tags, categoryIds ->
-                        sheetCallbacks.onSaveInspiration(title, body, tags, categoryIds)
+                        sheetCallbacks.onSaveInspiration(
+                            title, body, consumerSnapshot?.text.orEmpty(), snapshotLocator(), tags, categoryIds,
+                        )
                     },
                 )
 
@@ -533,3 +566,29 @@ internal fun ReaderSheetHost(
         }
     }
 }
+
+// ── S07：typed 回源辅助（内联自 ReaderTocBookmarkList.kt，避免越界修改非所有文件）──
+
+/** 书签判定用的 kind 字面量。 */
+private const val NOTE_KIND_BOOKMARK = "bookmark"
+
+/**
+ * 高亮的 typed 回源目标：恒为 `highlight:{id}`。
+ *
+ * 为什么必须带类型：`resolveAnnotationTarget` 对裸 rawId 保留「先高亮、后笔记」的
+ * 旧兼容语义，而 highlights 与 notes 是两张表 —— 同一 rawId 跨表存在时会跳错表。
+ */
+private fun highlightNavigationTarget(highlight: HighlightEntity): String =
+    navigationTargetId(AnnotationType.HIGHLIGHT, highlight.id)
+
+/**
+ * 笔记类记录（含书签）的 typed 回源目标：`note:{id}` 或 `bookmark:{id}`。
+ *
+ * 书签也是 notes 表的一行，靠 `kind` 区分；类型由本函数单点判定，
+ * 避免调用方各自写 `if (kind == "bookmark")` 而漏掉一处。
+ */
+private fun noteNavigationTarget(note: NoteEntity): String =
+    navigationTargetId(
+        if (note.kind == NOTE_KIND_BOOKMARK) AnnotationType.BOOKMARK else AnnotationType.NOTE,
+        note.id,
+    )

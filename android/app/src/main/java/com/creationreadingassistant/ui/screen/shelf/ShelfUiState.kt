@@ -34,6 +34,12 @@ internal data class ShelfUiState(
     val auxiliary: com.creationreadingassistant.ui.viewmodel.ShelfAuxiliaryState = com.creationreadingassistant.ui.viewmodel.ShelfAuxiliaryState(),
     val shelfBooks: List<ShelfBookItem> = emptyList(),
     val isRefreshing: Boolean = false,
+    /**
+     * 来源文件在系统目录被改过、待用户确认后才刷新的 bookId 集合；
+     * 确认前仅在书卡打「可更新」标签，不改变正文；确认后将替换内部正文副本并推进来源基线。
+     */
+    val contentUpdatedBookIds: Set<String> = emptySet(),
+
 
     // ========= 视图 / 偏好（由 Route 初始化 + 持久化回写） =========
     val query: String = "",
@@ -69,6 +75,7 @@ internal data class ShelfUiState(
     val detailBookId: String? = null,
     val actionBookId: String? = null,
     val confirmDeleteIds: List<String>? = null,
+    val confirmSourceRefreshIds: List<String>? = null,
 ) {
     /** 筛选后的书（纯函数，放在 data class 里便于 Screen + 测试复用）。 */
     val filtered: List<ShelfBookItem> by lazy(LazyThreadSafetyMode.NONE) {

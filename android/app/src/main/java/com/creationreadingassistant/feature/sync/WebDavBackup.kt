@@ -12,6 +12,7 @@ import java.time.format.DateTimeFormatter
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import java.nio.charset.StandardCharsets
 
 /**
  * WebDAV 远程备份（P4，最简实现）。
@@ -176,8 +177,9 @@ class WebDavBackup @Inject constructor() {
 
     private val FILENAME_RE = Regex("[A-Za-z0-9._-]+")
 
-    private fun parsePropFind(xml: String, baseUrl: String): List<BackupFile> {
+    private fun parsePropFind(xml: String, baseUrl: String, extension: String = ".json"): List<BackupFile> {
         val factory = XmlPullParserFactory.newInstance()
+        factory.isNamespaceAware = true
         val parser = factory.newPullParser()
         parser.setInput(xml.reader())
         val files = mutableListOf<BackupFile>()
@@ -206,7 +208,7 @@ class WebDavBackup @Inject constructor() {
                         "response" -> {
                             inResponse = false
                             val fileName = displayName.ifBlank { href.substringAfterLast("/") }
-                            if (fileName.isNotBlank() && fileName.endsWith(".json", ignoreCase = true)) {
+                            if (fileName.isNotBlank() && fileName.endsWith(extension, ignoreCase = true)) {
                                 files.add(BackupFile(fileName, size, lastModified))
                             }
                         }
@@ -217,6 +219,94 @@ class WebDavBackup @Inject constructor() {
             eventType = parser.next()
         }
         return files
+    }
+
+    /**
+     * 开源阅读（Legado）备份是 ZIP 二进制，不能借用 [get] 的 UTF-8 文本路径。
+     * 按 Content-Length 与实际流式读取做上限校验，避免恶意或损坏条目撑爆内存。
+     */
+    suspend fun getBytes(
+        url: String,
+        user: String,
+        pass: String,
+        filename: String,
+        maxBytes: Long,
+    ): Result<ByteArray> = runCatching {
+        require(maxBytes > 0L) { "下载大小上限必须大于 0" }
+        requireSafeTarget(url)
+        requireSafeFilename(filename)
+        val target = resolveTarget(url, filename)
+        val request = Request.Builder()
+            .url(target)
+            .get()
+            .header("Authorization", basicAuth(user, pass))
+            .build()
+        client.newCall(request).execute().use { resp ->
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("WebDAV 返回 ${resp.code}: ${resp.body?.string()?.take(200)}")
+            }
+            val declared = resp.header("Content-Length")?.toLongOrNull()
+            if (declared != null && declared > maxBytes) {
+                throw IllegalStateException("备份体积 ${declared}B 超过上限 ${maxBytes}B")
+            }
+            val bytes = resp.body?.bytes() ?: ByteArray(0)
+            if (bytes.size > maxBytes) {
+                throw IllegalStateException("备份体积 ${bytes.size}B 超过上限 ${maxBytes}B")
+            }
+            bytes
+        }
+    }
+
+    /** 列出根目录的开源阅读自动备份归档（backup*.zip），不混入本应用 JSON 快照。 */
+    suspend fun listLegadoBackups(url: String, user: String, pass: String): Result<List<BackupFile>> = runCatching {
+        requireSafeTarget(url)
+        val target = if (url.endsWith("/")) url else "$url/"
+        val body = """<?xml version="1.0" encoding="utf-8"?>
+            |<D:propfind xmlns:D="DAV:">
+            |  <D:prop>
+            |    <D:displayname/>
+            |    <D:resourcetype/>
+            |    <D:getcontentlength/>
+            |    <D:getlastmodified/>
+            |  </D:prop>
+            |</D:propfind>
+        """.toRequestBody("text/xml".toMediaType())
+        val request = Request.Builder()
+            .url(target)
+            .method("PROPFIND", body)
+            .header("Authorization", basicAuth(user, pass))
+            .header("Depth", "1")
+            .build()
+        client.newCall(request).execute().use { resp ->
+            if (resp.code == 404) return@runCatching emptyList()
+            if (!resp.isSuccessful) {
+                throw IllegalStateException("PROPFIND 返回 ${resp.code}: ${resp.body?.string()?.take(200)}")
+            }
+            val xml = resp.body?.string() ?: throw IllegalStateException("空响应")
+            parsePropFind(xml, baseUrl = target, extension = ".zip")
+                .filter { it.name.startsWith("backup", ignoreCase = true) && it.name.endsWith(".zip", ignoreCase = true) }
+                .sortedWith(
+                    compareByDescending<BackupFile> { parseHttpDateMillis(it.lastModified) }
+                        .thenByDescending { it.lastModified },
+                )
+        }
+    }
+
+    private fun basicAuth(user: String, pass: String): String =
+        Credentials.basic(user, pass, StandardCharsets.UTF_8)
+
+    /**
+     * 允许的 HTTP 主机判定：
+     * 1. 私有 IPv4/IPv6、localhost、*.local
+     * 2. 局域网常见无点单段主机名（如 nas, openwrt, router, raspberrypi）
+     * 3. 局域网私有顶级域名（.lan, .home, .internal, .home.arpa）
+     */
+    private fun isPermittedHttpHost(host: String): Boolean {
+        if (PairingManager.isLanHost(host)) return true
+        if (!host.contains('.')) return true
+        val lower = host.lowercase()
+        return lower.endsWith(".lan") || lower.endsWith(".home") ||
+            lower.endsWith(".internal") || lower.endsWith(".home.arpa")
     }
 }
 

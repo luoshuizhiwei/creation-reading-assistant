@@ -57,12 +57,14 @@ internal fun ReaderContentHostMarkdownBranch(
         // 流式逐章解析为章内局部（base=章节全书起点）。
         val chapterLength = s.markdownDocument?.chapters?.getOrNull(s.chapterIndex)?.charCount ?: 0
         val blocksAreGlobal = (s.markdownDocument as? MarkdownDocument)?.isWholeDocumentParse == true
+        // 解析坐标 → 全书坐标的基准：整本解析 = 0（已是全局）；流式逐章 = chapterBase。
+        val blockGlobalBase = if (blocksAreGlobal) 0 else s.chapterBase
         val searchHits = s.searchHitRangeAbs?.let { abs ->
             markdownScrollSearchHits(
                 chapter = markdownBlock.chapter,
                 chapterBase = s.chapterBase,
                 chapterLength = chapterLength,
-                blockGlobalBase = if (blocksAreGlobal) 0 else s.chapterBase,
+                blockGlobalBase = blockGlobalBase,
                 target = SearchHitTarget(
                     bookKey = s.bid,
                     chapterIndex = s.chapterIndex,
@@ -81,6 +83,38 @@ internal fun ReaderContentHostMarkdownBranch(
         // 滚动，消费/丢弃后 ack 清除。
         val markdownUnits = remember(markdownBlock.chapter) {
             MarkdownRenderModel.flatten(markdownBlock.chapter)
+        }
+        // S07-F3 任务 C：持久高亮投影（须在 markdownUnits 之后）。
+        // 纯 source 坐标求交，不做文本搜索；不可渲染时只跳过，不删除、不改写数据库。
+        val chapterSpan = s.chapterBase until (s.chapterBase + chapterLength)
+        // S07-F3 任务 C：持久高亮投影（须在 markdownUnits 之后）。
+        // 纯 canonical 坐标求交，不做文本搜索；不可渲染时只跳过，不删除、不改写数据库。
+        //
+        // F3.1：SavedHighlight 不再携带 chapterIndex —— 生产路径没有真实章身份可填
+        // （LocatorBuilder.forPlain 恒写 ci = 0），旧的「拿当前章号包一层再按当前章号
+        // 过滤」判据恒成立。防串章改由 chapterSpan 几何求交承担（上游按 book_id 查询
+        // 才是第一道过滤）。
+        val persistentHighlights = remember(
+            markdownUnits, s.highlights, s.bid, chapterSpan, blockGlobalBase,
+        ) {
+            MarkdownPersistentHighlights.projectPersistentHighlights(
+                units = markdownUnits,
+                canonicalText = markdownBlock.chapter.canonicalText,
+                highlights = s.highlights.mapNotNull { h ->
+                    val start = parseLocatorOffset(h.locator_json) ?: return@mapNotNull null
+                    val length = highlightSourceLength(h.payload, h.text.length)
+                    if (length <= 0) return@mapNotNull null
+                    MarkdownPersistentHighlights.SavedHighlight(
+                        bookKey = s.bid,
+                        start = start,
+                        length = length,
+                        colorKey = h.color ?: "yellow",
+                    )
+                },
+                currentBookKey = s.bid,
+                chapterSpan = chapterSpan,
+                blockGlobalBase = blockGlobalBase,
+            )
         }
         LaunchedEffect(s.chapterIndex, s.searchScrollFocusRequest, markdownUnits) {
             val request = s.searchScrollFocusRequest ?: return@LaunchedEffect
@@ -127,6 +161,10 @@ internal fun ReaderContentHostMarkdownBranch(
                     } else {
                         0.dp
                     }
+                    // S07-F3：整块选择入口。本切片只做到「整块」，不是可拖动选词
+                    // （是**切片边界**，不是 Compose 平台上限 —— 详见
+                    // MarkdownScrollHighlight.kt 顶部说明）。
+                    val unitHighlights = persistentHighlights[MarkdownUnitVisualPolicy.unitKey(unit)].orEmpty()
                     RenderMarkdownUnit(
                         unit = unit,
                         canonicalText = markdownBlock.chapter.canonicalText,
@@ -137,6 +175,22 @@ internal fun ReaderContentHostMarkdownBranch(
                         searchHits = searchHits,
                         searchHighlightBg = settings.searchHighlightBg,
                         topGap = topGap,
+                        blockGlobalBase = blockGlobalBase,
+                        persistentHighlights = unitHighlights,
+                        highlightColors = { key -> settings.paper.highlight(key) },
+                        // S07-F3：整块选择入口。本切片只做到「整块」，不是可拖动选词
+                        // （详见 MarkdownScrollHighlight.kt 顶部的边界说明）。
+                        //
+                        // F3.1（Qoder P1-1）：四个参数槽位由生产唯一入口
+                        // [markdownBlockSelectionArgs] 产出，不再就地手写顺序。
+                        // F3 写成 `onSelect(text, range.first, -1, range.last + 1)`，
+                        // 把 canonical 起点放进了 `globalOffset` 槽，而
+                        // `computeLocatorJson` 在 `epubBook == null` 时**只读 rangeStart**，
+                        // 于是 Markdown 的 locator 恒为 null —— 持久高亮端到端不可达。
+                        onSelectBlock = { text, _ ->
+                            val args = markdownBlockSelectionArgs(text, unit, blockGlobalBase)
+                            if (args != null) callbacks.onSelect(args.text, args.globalOffset, args.rangeStart, args.sourceEnd)
+                        },
                     )
                 }
             }

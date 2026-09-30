@@ -82,18 +82,19 @@ class HomeArchiveViewModelTest {
     }
 
     @Test
-    fun `completed books include finished and near finished without progress excluded`() = runTest(mainDispatcher.scheduler) {
+    fun `completed books require explicit finished state`() = runTest(mainDispatcher.scheduler) {
         val vm = createVm(
             books = listOf(
                 book("b1"),                  // finished
-                book("b2"),                  // percent >= 99.5
+                book("b2"),                  // 真实读到末尾（数据层已写 finished）
                 book("b3"),                  // in reading -> excluded
                 book("b4"),                  // no progress -> excluded
                 book("b5", deletedAt = "2026-07-01T12:00:00Z"), // deleted finished -> excluded
             ),
             progress = listOf(
                 progress("b1", percent = 100f, state = "finished", completedAt = 2000L),
-                progress("b2", percent = 99.6f, state = "reading"),
+                // S05-① 契约：归档「已完成」以显式状态为准，高百分比不再是完成来源
+                progress("b2", percent = 99.6f, state = "finished", completedAt = 1000L),
                 progress("b3", percent = 30f, state = "reading"),
                 progress("b5", percent = 100f, state = "finished"),
             ),
@@ -104,6 +105,24 @@ class HomeArchiveViewModelTest {
         val ids = vm.uiState.value.completedBooks.map { it.book.id }
         assertEquals(listOf("b1", "b2"), ids)
         assertTrue(vm.uiState.value.isReady)
+
+        job.cancel()
+        testScheduler.advanceUntilIdle()
+    }
+
+    @Test
+    fun `cancelled finished is not archived as completed`() = runTest(mainDispatcher.scheduler) {
+        // S05-① 判别用例：取消读完后的残余 100%（state=reading）不得进入「已完成」归档
+        val vm = createVm(
+            books = listOf(book("b1")),
+            progress = listOf(
+                progress("b1", percent = 100f, state = "reading"),
+            ),
+        )
+        val job = launch { vm.uiState.collect { } }
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(vm.uiState.value.completedBooks.isEmpty())
 
         job.cancel()
         testScheduler.advanceUntilIdle()

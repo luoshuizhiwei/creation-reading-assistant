@@ -33,7 +33,10 @@ import com.creationreadingassistant.feature.search.SearchOffsets
 import com.creationreadingassistant.feature.search.SearchTextBasis
 import com.creationreadingassistant.feature.search.SearchTokenAggregator
 import com.creationreadingassistant.feature.search.RawTermMatch
+import com.creationreadingassistant.feature.search.SearchHitRanker
 import com.creationreadingassistant.feature.search.SearchTokenizer
+import com.creationreadingassistant.feature.search.TxtChapterSlice
+import com.creationreadingassistant.feature.search.TxtChapterSplitter
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -41,8 +44,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -119,6 +127,175 @@ class SearchIndexRepository @Inject constructor(
 
     private val _progress = MutableStateFlow(Progress(0L, 0, false))
     val progress: StateFlow<Progress> = _progress.asStateFlow()
+
+    /** 增量全库扫描与全量重建的互斥锁（S03-1） */
+    private val sweepLock = Mutex()
+
+    /** 全量重建串行化互斥锁，确保多次并发重建严格串行化执行（S03-1） */
+    private val rebuildLock = Mutex()
+
+    /**
+     * 全库扫描与重建的统一并发协调状态（S03-1 统一原子协议）。
+     * 将代次（generation）、活跃任务所有权（activeJobId）与重建接管标记（isRebuilding）
+     * 封装为一个不可变状态，通过 AtomicReference 的原子 CAS 驱动，消除「占权」与「读代次」之间的时序撕裂。
+     */
+    private data class SweepCoordinationState(
+        val generation: Long,
+        val activeJobId: Long?,
+        val isRebuilding: Boolean,
+    )
+
+    private val coordinationState = AtomicReference(
+        SweepCoordinationState(generation = 1L, activeJobId = null, isRebuilding = false)
+    )
+
+    /** 递增的任务 ID 发生器 */
+    private val jobIdSequence = AtomicLong(1L)
+    /** 活跃的单本书即时构建任务计数 */
+    private val singleBookRunningCount = AtomicInteger(0)
+
+    /** 仅供确定性并发测试注入的无锁协作拦截点（在短临界区完全释放后触发） */
+    internal var testHookAfterStep: (suspend (step: String) -> Unit)? = null
+
+    /** 仅供确定性并发测试注入的无锁写前拦截点（在短临界区之前调用） */
+    internal var testHookBeforeWrite: (suspend (point: String, bookId: String) -> Unit)? = null
+
+    /** 仅供确定性并发测试注入的无锁拦截点：扫描已占权、尚未读代次与执行后续工作 */
+    internal var testHookAfterAcquireOwnership: (suspend () -> Unit)? = null
+
+    /** 仅供确定性并发测试注入的无锁拦截点：重建已占权、尚未获取锁重置状态 */
+    internal var testHookBeforeRebuildReset: (suspend (rebuildJobId: Long) -> Unit)? = null
+
+    internal fun getCurrentGeneration(): Long = coordinationState.get().generation
+
+    /**
+     * 原子取得全库扫描执行权与当前代次（S03-1 统一原子协议）。
+     * 返回 Pair(myJobId, generation)；若已有任务在跑或正在全量重建则返回 null。
+     */
+    private fun tryAcquireIncrementalSweep(): Pair<Long, Long>? {
+        val myJobId = jobIdSequence.incrementAndGet()
+        while (true) {
+            val current = coordinationState.get()
+            if (current.activeJobId != null || current.isRebuilding) {
+                return null
+            }
+            val next = current.copy(activeJobId = myJobId)
+            if (coordinationState.compareAndSet(current, next)) {
+                return Pair(myJobId, next.generation)
+            }
+        }
+    }
+
+    /**
+     * 校验当前任务是否仍合法持有扫描所有权且代次未失效。
+     */
+    private fun isSweepActiveAndValid(myJobId: Long, myGeneration: Long): Boolean {
+        val current = coordinationState.get()
+        return current.activeJobId == myJobId && current.generation == myGeneration && !current.isRebuilding
+    }
+
+    /**
+     * 安全归还全库扫描执行权（防范抢占误释放）。
+     */
+    private fun releaseSweepOwnership(expectedJobId: Long): Boolean {
+        while (true) {
+            val current = coordinationState.get()
+            if (current.activeJobId == expectedJobId) {
+                val next = current.copy(activeJobId = null)
+                if (coordinationState.compareAndSet(current, next)) {
+                    return true
+                }
+            } else {
+                return false
+            }
+        }
+    }
+
+    private fun beginRebuild(rebuildJobId: Long): Long {
+        while (true) {
+            val current = coordinationState.get()
+            val oldGen = current.generation
+            val next = SweepCoordinationState(
+                generation = oldGen + 1,
+                activeJobId = rebuildJobId,
+                isRebuilding = true,
+            )
+            if (coordinationState.compareAndSet(current, next)) {
+                return oldGen
+            }
+        }
+    }
+
+    private fun rollbackRebuild(rebuildJobId: Long, rollbackGen: Long) {
+        while (true) {
+            val current = coordinationState.get()
+            if (current.activeJobId == rebuildJobId) {
+                val next = SweepCoordinationState(
+                    generation = rollbackGen,
+                    activeJobId = null,
+                    isRebuilding = false,
+                )
+                if (coordinationState.compareAndSet(current, next)) {
+                    return
+                }
+            } else {
+                return
+            }
+        }
+    }
+
+    private fun completeRebuild(rebuildJobId: Long) {
+        while (true) {
+            val current = coordinationState.get()
+            if (current.activeJobId == rebuildJobId) {
+                val next = current.copy(activeJobId = null, isRebuilding = false)
+                if (coordinationState.compareAndSet(current, next)) {
+                    return
+                }
+            } else {
+                return
+            }
+        }
+    }
+
+    private fun isAnyIndexingRunning(): Boolean {
+        val current = coordinationState.get()
+        return current.activeJobId != null || current.isRebuilding || singleBookRunningCount.get() > 0
+    }
+
+    private fun updateProgressRunningState(indexedBooks: Long? = null, totalBooks: Int? = null) {
+        val cur = _progress.value
+        _progress.value = Progress(
+            indexedBooks = indexedBooks ?: cur.indexedBooks,
+            totalBooks = totalBooks ?: cur.totalBooks,
+            isRunning = isAnyIndexingRunning(),
+            totalTerms = cur.totalTerms,
+        )
+    }
+
+    /**
+     * 仅当指定代次仍等于当前活跃代次时，才在短临界区内执行给定的挂起操作。
+     * 若代次已作废，直接返回 false，绝不执行任何 DAO 调用。
+     *
+     * @param expectedGeneration 全库扫描传入的任务代次；若为 null 则表示不受代次约束（如单本独立索引）
+     */
+    private suspend inline fun <T> runIfCurrentGeneration(
+        expectedGeneration: Long?,
+        crossinline action: suspend () -> T,
+    ): Boolean {
+        if (expectedGeneration == null) {
+            action()
+            return true
+        }
+        return sweepLock.withLock {
+            if (expectedGeneration == coordinationState.get().generation) {
+                action()
+                true
+            } else {
+                false
+            }
+        }
+    }
 
     companion object {
         /** 分词器规则版本：升级 tokenizer 时自增，仓储会触发全盘重建。 */
@@ -204,53 +381,12 @@ class SearchIndexRepository @Inject constructor(
         val advancedWithinBook: Boolean,
     )
 
-    /** 章节切片：切分后的一章正文标题+文本，供逐章索引用。 */
-    private data class TxtChapterSlice(
-        val logicalIndex: Int, // 逻辑章序，0 基
-        val title: String,
-        val body: String,
-        /**
-         * 该章在**全书文本**中的起始字符偏移。
-         *
-         * 索引侧的命中偏移是「章内」的，要把命中换算成 `ReaderLocator.legacyOffset`
-         * 就靠它（S1.4 精确跳转）。真实字符量纲，不是估算值。
-         */
-        val startOffset: Int = 0,
-        /** 该章正文是否因超过 [MAX_CHARS_PER_CHAPTER] 被截断（截断即意味着内容搜不全）。 */
-        val truncated: Boolean = false,
-    )
-
     /**
      * 用 [TxtChapterDetector] 把纯文本正文按逻辑章切分。
-     * 即使识别失败、densityGuard 作废、整段退化，也保证至少返回一片「全文」，
-     * 下游永远不会拿到空列表。
+     * 委托给纯算法组件 [TxtChapterSplitter.split]，确保纯粹字符串分章与边界保护。
      */
-    private fun splitTxtIntoChapters(fullText: String, tocRuleId: String?): List<TxtChapterSlice> {
-        val detected = TxtChapterDetector.detect(fullText, tocRuleId ?: "builtin")
-        if (detected.isEmpty()) {
-            return listOf(
-                TxtChapterSlice(
-                    logicalIndex = 0,
-                    title = "全文",
-                    body = fullText.take(MAX_CHARS_PER_CHAPTER),
-                    startOffset = 0,
-                    truncated = fullText.length > MAX_CHARS_PER_CHAPTER,
-                ),
-            )
-        }
-        return detected.mapIndexed { i, c ->
-            val endExclusive = (c.startOffset + c.charCount).coerceAtMost(fullText.length)
-            val safeStart = c.startOffset.coerceIn(0, fullText.length)
-            val bodyRaw = if (safeStart < endExclusive) fullText.substring(safeStart, endExclusive) else ""
-            TxtChapterSlice(
-                logicalIndex = i,
-                title = c.title,
-                body = bodyRaw.take(MAX_CHARS_PER_CHAPTER),
-                startOffset = safeStart,
-                truncated = bodyRaw.length > MAX_CHARS_PER_CHAPTER,
-            )
-        }
-    }
+    private fun splitTxtIntoChapters(fullText: String, tocRuleId: String?): List<TxtChapterSlice> =
+        TxtChapterSplitter.split(fullText, tocRuleId, MAX_CHARS_PER_CHAPTER)
 
     /**
      * 局部放开 StrictMode 的磁盘读/写/文件大小检测，用于仓储内部的磁盘读取。
@@ -305,43 +441,55 @@ class SearchIndexRepository @Inject constructor(
     suspend fun ensureIndexedIncremental(
         deadlineMs: Long = System.currentTimeMillis() + INDEX_BUILD_BUDGET_MS,
     ): IndexSweepResult {
-        // 已有扫描在跑：不并发，按「还有剩余」处理，让调用方稍后重试。
-        if (_progress.value.isRunning) return IndexSweepResult.PROGRESSED
-        val total = bookDao.countActive()
-        if (total == 0) {
-            _progress.value = Progress(0L, 0, false)
-            return IndexSweepResult.COMPLETED
-        }
-        val cur = stateDao.get()
-        // tokenizer 版本变更 → 先清旧索引再从头扫
-        if (cur != null && cur.tokenizer_version != TOKENIZER_VERSION) {
-            termDao.countIndexedBooks().let { n ->
-                if (n > 0) wipeAllTermsForAllBooks()
-            }
-        }
-        // observeAllActive 返回 Flow<List<BookEntity>>；首帧就是 DB 最新的活跃书架快照
-        val activeFlow: kotlinx.coroutines.flow.Flow<List<BookEntity>> = bookDao.observeAllActive()
-        val snapshotUnordered: List<BookEntity> = activeFlow.first()
-        val snapshot: List<BookEntity> = snapshotUnordered.sortedBy { b: BookEntity -> b.id }
-        val startState = cur?.takeIf { s -> s.tokenizer_version == TOKENIZER_VERSION }
-        val startBookId: String? = startState?.last_scanned_book_id
-        val matchIndex = snapshot.indexOfFirst { b: BookEntity -> b.id == startBookId }
-        // 章节级续建（§6.1）：锚点书的 last_scanned_chapter_index > 0 表示它**只建到该章**，
-        // 本次必须停在这本书上从下一章继续（startIdx = matchIndex，而不是 +1）。
-        val resumeChapter: Int = if (startBookId != null && matchIndex >= 0) {
-            (startState?.last_scanned_chapter_index ?: 0).coerceAtLeast(0)
-        } else {
-            0
-        }
-        val startIdx: Int = when {
-            startBookId == null -> 0
-            matchIndex < 0 -> 0
-            resumeChapter > 0 -> matchIndex // 该书未完成 → 停在它身上续建
-            else -> (matchIndex + 1).coerceIn(0, snapshot.size) // 已完成 → 下一本
-        }
-        _progress.value = Progress(countIndexedBooksCheap(), total, true)
+        // 原子取得全库扫描执行权与当前代次（S03-1 统一原子协议）
+        val acquired = tryAcquireIncrementalSweep() ?: return IndexSweepResult.PROGRESSED
+        val (myJobId, myGeneration) = acquired
+
         return try {
-            val outcome = processChunked(snapshot, startIdx, snapshot.size, deadlineMs, resumeChapter)
+            testHookAfterAcquireOwnership?.invoke()
+            if (!isSweepActiveAndValid(myJobId, myGeneration)) {
+                return IndexSweepResult.PROGRESSED
+            }
+            val total = bookDao.countActive()
+            if (total == 0) {
+                updateProgressRunningState(indexedBooks = 0L, totalBooks = 0)
+                return IndexSweepResult.COMPLETED
+            }
+            val cur = stateDao.get()
+            if (!isSweepActiveAndValid(myJobId, myGeneration)) {
+                return IndexSweepResult.PROGRESSED
+            }
+            // tokenizer 版本变更 → 先清旧索引再从头扫
+            if (cur != null && cur.tokenizer_version != TOKENIZER_VERSION) {
+                termDao.countIndexedBooks().let { n ->
+                    if (n > 0) wipeAllTermsForAllBooks(myGeneration)
+                }
+            }
+            if (!isSweepActiveAndValid(myJobId, myGeneration)) {
+                return IndexSweepResult.PROGRESSED
+            }
+            // observeAllActive 返回 Flow<List<BookEntity>>；首帧就是 DB 最新的活跃书架快照
+            val activeFlow: kotlinx.coroutines.flow.Flow<List<BookEntity>> = bookDao.observeAllActive()
+            val snapshotUnordered: List<BookEntity> = activeFlow.first()
+            val snapshot: List<BookEntity> = snapshotUnordered.sortedBy { b: BookEntity -> b.id }
+            val startState = cur?.takeIf { s -> s.tokenizer_version == TOKENIZER_VERSION }
+            val startBookId: String? = startState?.last_scanned_book_id
+            val matchIndex = snapshot.indexOfFirst { b: BookEntity -> b.id == startBookId }
+            // 章节级续建（§6.1）：锚点书的 last_scanned_chapter_index > 0 表示它**只建到该章**，
+            // 本次必须停在这本书上从下一章继续（startIdx = matchIndex，而不是 +1）。
+            val resumeChapter: Int = if (startBookId != null && matchIndex >= 0) {
+                (startState?.last_scanned_chapter_index ?: 0).coerceAtLeast(0)
+            } else {
+                0
+            }
+            val startIdx: Int = when {
+                startBookId == null -> 0
+                matchIndex < 0 -> 0
+                resumeChapter > 0 -> matchIndex // 该书未完成 → 停在它身上续建
+                else -> (matchIndex + 1).coerceIn(0, snapshot.size) // 已完成 → 下一本
+            }
+            updateProgressRunningState(indexedBooks = countIndexedBooksCheap(), totalBooks = total)
+            val outcome = processChunked(snapshot, startIdx, snapshot.size, deadlineMs, resumeChapter, myGeneration)
             indexSweepResult(
                 reached = outcome.reached,
                 from = startIdx,
@@ -349,35 +497,11 @@ class SearchIndexRepository @Inject constructor(
                 advancedWithinBook = outcome.advancedWithinBook,
             )
         } finally {
-            // ⚠️ 这个 finally 里**绝不能**出现 suspend 调用（哪怕是 `COUNT(...)`）。
-            //
-            // 被 JobScheduler 超时停止时，被停的是**作业**而不是进程：协程已处于取消态，
-            // 任何 suspend 调用都会立刻抛 CancellationException，于是赋值语句永远不生效，
-            // `isRunning` 就永久停在 true。此后每次 worker 启动都会被上面的守卫短路成
-            // 8 毫秒空转重试 —— 表现为「无写入、无日志、无失败、attempts 与退避却一直涨」
-            // 的无限重试。真机已复现：作业 #33 跑满 10 分钟被 `timeout` 停止，
-            // 紧接着的 #34 仅 8ms 就 `jobFinished`，且应用内诊断日志 0 条 ERROR。
-            _progress.value = _progress.value.copy(isRunning = false)
+            // 安全归还执行权：若当前仍是自己持有，归还并刷新 running 状态；
+            // 若已被重建或新作业替换，绝不把全局 isRunning 刷成 false（S03-1）
+            releaseSweepOwnership(myJobId)
+            updateProgressRunningState()
         }
-    }
-
-    /**
-     * 强制清库 + 从第 0 本重建，用于「修复搜索」兜底入口。
-     *
-     * 注意：本方法目前**没有任何调用方**（旧注释称「存储页/设置页调用」，实测为零）。
-     * 需要 UI 入口时再接；未扫完时调用方应继续重新入队。
-     */
-    suspend fun rebuildAll(): IndexSweepResult {
-        wipeAllTermsForAllBooks()
-        stateDao.set(
-            SearchIndexStateRow(
-                tokenizer_version = TOKENIZER_VERSION,
-                last_scanned_book_id = null,
-                last_scanned_chapter_index = 0,
-                built_at = 0,
-            ),
-        )
-        return ensureIndexedIncremental()
     }
 
     /**
@@ -392,6 +516,18 @@ class SearchIndexRepository @Inject constructor(
     }
 
     /**
+     * 删除单本书的全文索引（term 行 + coverage 行），供书籍删除链路清理孤儿行。
+     *
+     * 与 [indexOneBook] 内的 fresh 路径（先删该书行再重建）同一组 DAO 调用，区别是这里
+     * 只删不清、不触发重建 —— 书都删了，内容不要了，重建没有意义。调用方（[BookRepository]）
+     * 负责在事务内与软删除一并提交，保证原子性。
+     */
+    suspend fun deleteIndexForBook(bookId: String) {
+        termDao.deleteByBook(bookId)
+        coverageDao.deleteByBook(bookId)
+    }
+
+    /**
      * 影响全库的规则变更（GLOBAL 作用域）置脏：把增量扫描游标重置到起点，
      * 使下一次 worker 扫描**从第 0 本重建全库** —— 惰性、不阻塞调用方。
      *
@@ -399,71 +535,88 @@ class SearchIndexRepository @Inject constructor(
      * 就是重置它；重建由后台 [SearchIndexWorker] 跨多个作业窗口完成。
      */
     suspend fun invalidateSweepForFullRebuild() {
-        stateDao.set(
-            SearchIndexStateRow(
-                tokenizer_version = TOKENIZER_VERSION,
-                last_scanned_book_id = null,
-                last_scanned_chapter_index = 0,
-                built_at = 0,
-            ),
-        )
+        rebuildLock.withLock {
+            val rebuildJobId = jobIdSequence.incrementAndGet()
+            // 接管全库执行权与推进代次，阻止任何新扫描在重置完成前启动并读取旧游标
+            val oldGen = beginRebuild(rebuildJobId)
+            try {
+                testHookBeforeRebuildReset?.invoke(rebuildJobId)
+                sweepLock.withLock {
+                    stateDao.set(
+                        SearchIndexStateRow(
+                            tokenizer_version = TOKENIZER_VERSION,
+                            last_scanned_book_id = null,
+                            last_scanned_chapter_index = 0,
+                            built_at = 0,
+                        ),
+                    )
+                }
+            } catch (e: Throwable) {
+                // 失败恢复策略：回滚代次并释放接管锁，防止系统进入「新代次 + 旧游标」腐化状态
+                rollbackRebuild(rebuildJobId, oldGen)
+                updateProgressRunningState()
+                throw e
+            }
+            // 重置完成，释放执行权供后续新扫描使用
+            completeRebuild(rebuildJobId)
+            updateProgressRunningState()
+        }
     }
 
     suspend fun countIndexedBooks(): Long = termDao.countIndexedBooks()
-    suspend fun countTerms(): Long = termDao.countTerms()
 
     /**
-     * 重置增量扫描游标，并通知调度器立即唤起后台 Worker 全量重建索引。
+     * 重置增量扫描游标，回收孤儿索引行，并通知调度器立即唤起后台 Worker 全量重建索引。
+     *
+     * 两个「重建索引」用户入口都收敛到这里：搜索结果页的索引状态胶囊
+     * （`SearchViewModel.triggerRebuildIndex`）与「存储 / 日志与诊断」页的按钮
+     * （`ProfileViewModel.rebuildSearchIndex`）。
      */
     suspend fun triggerFullRebuildNow(overrideScheduler: SearchIndexScheduler? = null) {
+        purgeOrphanIndexRows()
         invalidateSweepForFullRebuild()
         val total = bookDao.countActive()
-        _progress.value = Progress(0L, total, isRunning = true, totalTerms = 0L)
+        _progress.value = Progress(0L, total, isRunning = isAnyIndexingRunning(), totalTerms = 0L)
         (overrideScheduler ?: scheduler)?.triggerNow(force = true)
     }
 
-    data class IndexStats(
-        val indexedBooks: Long,
-        val totalBooks: Int,
-        val totalTerms: Long,
-        val isRunning: Boolean,
-        val lastBuiltAt: Long,
-    )
-
-    suspend fun getIndexStats(): IndexStats = withContext(Dispatchers.IO) {
-        val indexedBooks = countIndexedBooksCheap()
-        val totalBooks = bookDao.countActive()
-        val totalTerms = countTerms()
-        val state = stateDao.get()
-        IndexStats(
-            indexedBooks = indexedBooks,
-            totalBooks = totalBooks,
-            totalTerms = totalTerms,
-            isRunning = _progress.value.isRunning,
-            lastBuiltAt = state?.built_at ?: 0L,
+    /**
+     * 回收「孤儿索引行」：`search_terms` / `search_index_coverage` 里出现的 book_id
+     * 已不在活跃书集合。
+     *
+     * 为什么需要它：写入侧（[com.creationreadingassistant.data.repository.BookRepository]
+     * 的删除链路 → [deleteIndexForBook]）只保证**今后**删除的书不再留孤儿行。修复上线前
+     * 已删的书留下的行不会自行消失 —— [ensureIndexedIncremental] 只遍历活跃书，永远回访
+     * 不到它们；[wipeAllTermsForAllBooks] 也帮不上忙 —— 它只在 tokenizer 版本变更时
+     * 才被调用（见 [ensureIndexedIncremental]），跟「书被删掉」这件事无关。
+     * ⇒ 这些行此前**没有任何用户可达的回收路径**（真机实测残留 13,953 行）。
+     *
+     * 挂在 [triggerFullRebuildNow] 里而不是每次后台扫描开头：孤儿清理只需在「确实删过书」
+     * 之后跑，而 book_id 枚举在千万行表上是一次索引扫描 —— 不该变成每次扫描的常态成本。
+     *
+     * 注意：删行**不会**缩小 DB 文件（释放的页进 freelist，不还给 OS），所以本方法的收益是
+     * 「数据卫生 + 与读取侧过滤互为双保险」，不是省空间。
+     *
+     * @return 实际回收的**书籍数**（不是删除的数据库行数）；0 表示没有孤儿。
+     */
+    internal suspend fun purgeOrphanIndexRows(): Int {
+        // 候选必须是两张表 book_id 的**并集**：只扫 search_terms 会漏掉「term 已空、
+        // 只剩 coverage 行」的已删书，那类孤儿 coverage 会永久残留。
+        val indexed = (termDao.distinctBookIds() + coverageDao.distinctBookIds()).toHashSet()
+        if (indexed.isEmpty()) return 0
+        val active = bookDao.activeIds().toHashSet()
+        val orphans = indexed.filterNot { it in active }
+        if (orphans.isEmpty()) return 0
+        for (bookId in orphans) {
+            termDao.deleteByBook(bookId)
+            coverageDao.deleteByBook(bookId)
+        }
+        AppLog.i(
+            "SearchIndex",
+            "已回收 ${orphans.size} 本已删书的残留索引行：${orphans.joinToString { it.take(8) }}",
         )
+        return orphans.size
     }
-
-    /**
-     * 读取单本书在每种文本基准上的索引覆盖状态。
-     *
-     * 搜索 UI 要回答「这条结果背后是不是全量」只能读这里 —— 不允许由 format、
-     * 命中数或章节数反推（README：「索引仓储不能据类名推断全覆盖」）。
-     */
-    suspend fun coverageOf(bookId: String): List<SearchIndexCoverageRow> =
-        coverageDao.rowsForBook(bookId)
-
-    /**
-     * 全库覆盖状态计数（按状态聚合）。
-     *
-     * 注意分母是「行」而非「书」：每本书在 `original` / `display` 两个基准上各占一行。
-     */
-    suspend fun coverageCountsByState(): Map<SearchCoverageState, Int> =
-        coverageDao.all()
-            .groupingBy { SearchCoverageState.fromWire(it.coverage) }
-            .eachCount()
-            .mapNotNull { (state, count) -> state?.let { it to count } }
-            .toMap()
 
     /**
      * 在指定基准上「仍有可索引内容未纳入」的书籍 id，供「续建 / 重试」入口使用。
@@ -491,22 +644,22 @@ class SearchIndexRepository @Inject constructor(
      * 由 [ShelfImporter] 在每本书 ImportOutcome.Success 后通过 ViewModel 回调触发。
      */
     suspend fun indexSingleBook(book: BookEntity) {
-        val total = bookDao.countActive().coerceAtLeast(1)
-        _progress.value = Progress(countIndexedBooksCheap(), total, true)
-        var finalCount = _progress.value.indexedBooks
+        singleBookRunningCount.incrementAndGet()
+        var total: Int? = null
+        var finalCount: Long? = null
         try {
+            total = bookDao.countActive().coerceAtLeast(1)
+            updateProgressRunningState(indexedBooks = countIndexedBooksCheap(), totalBooks = total)
             indexOneBook(
                 book = book,
                 startChapter = 0, // 导入成功后立即建索引：整本重建，不接续建断点
                 deadlineMs = System.currentTimeMillis() + INDEX_BUILD_BUDGET_MS,
+                generation = null, // 单本独立构建不受全库增量扫描代次约束
             )
             finalCount = countIndexedBooksCheap()
         } finally {
-            // 与 §6.5.1 同源的坑：finally 里**绝不能**出现 suspend 调用（这里原本是
-            // termDao.countIndexedBooks()）。取消态下它会立刻抛 CancellationException，
-            // 使 isRunning=false 永远不生效，此后所有扫描都被顶部守卫短路成空转。
-            // 计数一律在 try 内取好，finally 只做非 suspend 赋值。
-            _progress.value = Progress(finalCount, total, false)
+            singleBookRunningCount.decrementAndGet()
+            updateProgressRunningState(indexedBooks = finalCount, totalBooks = total)
         }
     }
 
@@ -564,29 +717,27 @@ class SearchIndexRepository @Inject constructor(
         }
         if (raw.isEmpty()) return@withContext emptyList()
 
+        // M-BUG-10 读取侧防御：命中必须属于**活跃书**，否则一律丢弃。
+        //
+        // 为什么光靠写入侧不够：`deleteIndexForBook` 只保证「今后」删除的书不再留孤儿行。
+        // 修复上线前已删的书（真机实测 `cra-update-fixture` 仍占 13,953 行）不会自行消失 ——
+        // `ensureIndexedIncremental` 只遍历活跃书，永远回访不到它们。这些残留行会命中，
+        // 而 `BookDao.getByIds` 带 `deleted_at IS NULL` 拿不到书名 ⇒ 结果行退化成裸 bookId
+        // （真机复现：搜 `cra` 出现标题为 `b6dd8663-…` 的结果行）。
+        //
+        // 过滤放在 groupBy 之前：这样 `limit` 截断的是「活跃书命中」而非被残留行挤占的名额。
+        val activeBookIds = bookDao.activeIds().toHashSet()
         val coverageByKey = coverageDao.all().associateBy { row -> row.book_id to row.text_basis }
-        raw.groupBy { it.bookId to it.textBasis }
-            .map { (key, matches) ->
-                val (bookId, basis) = key
-                val (chapterIndex, span) = SearchHitSelection.pickCoordinate(matches)
-                val coverage = coverageByKey[bookId to basis.wire]
-                SearchHit(
-                    bookId = bookId,
-                    score = SearchHitSelection.scoreOf(matches),
-                    textBasis = basis,
-                    indexChapterIndex = chapterIndex,
-                    charOffset = span?.start,
-                    matchLength = span?.length,
-                    coverage = coverage?.let { SearchCoverageState.fromWire(it.coverage) },
-                    coverageReason = coverage?.reason,
-                )
-            }
-            .sortedWith(
-                compareByDescending<SearchHit> { it.score }
-                    .thenBy { it.bookId }
-                    .thenBy { it.textBasis.wire },
-            )
-            .take(limit)
+        SearchHitRanker.rank(
+            rawMatches = raw,
+            activeBookIds = activeBookIds,
+            coverageProvider = { bookId, basisWire ->
+                coverageByKey[bookId to basisWire]?.let {
+                    SearchCoverageState.fromWire(it.coverage) to it.reason
+                }
+            },
+            limit = limit,
+        )
     }
 
     /**
@@ -807,14 +958,15 @@ class SearchIndexRepository @Inject constructor(
         return null
     }
 
-    private suspend fun wipeAllTermsForAllBooks() {
-        // MVP 没有整表 wipe DAO，逐个遍历已索引书籍删除（因为 deleteByBook 存在，且索引中书籍数有限）。
-        // 对于超大规模书架，下次可补 TRUNCATE 级整表清理接口。
-        val allTermBooks = distinctBookIdsInTerms()
-        for (bid in allTermBooks) termDao.deleteByBook(bid)
-        // 覆盖状态与分词结果同生共死：只清 search_terms 不清 coverage，
-        // 会让「重建未完成索引」误判已完成。这里直接整表清掉，重建时逐本重写。
-        coverageDao.deleteAll()
+    private suspend fun wipeAllTermsForAllBooks(generation: Long?) {
+        testHookBeforeWrite?.invoke("wipe_all_terms", "")
+        runIfCurrentGeneration(generation) {
+            val allTermBooks = distinctBookIdsInTerms()
+            for (bid in allTermBooks) termDao.deleteByBook(bid)
+            // 覆盖状态与分词结果同生共死：只清 search_terms 不清 coverage，
+            // 会让「重建未完成索引」误判已完成。这里直接整表清掉，重建时逐本重写。
+            coverageDao.deleteAll()
+        }
     }
 
     private suspend fun distinctBookIdsInTerms(): List<String> {
@@ -856,24 +1008,18 @@ class SearchIndexRepository @Inject constructor(
         until: Int,
         deadlineMs: Long,
         firstBookStartChapter: Int,
+        generation: Long? = null,
     ): SweepOutcome {
         var i = from
         var advancedWithinBook = false
         while (i < until) {
             if (System.currentTimeMillis() >= deadlineMs) break
+            if (generation != null && generation != coordinationState.get().generation) break
             val book = books[i]
             // 只有本轮的第一本书可能需要从章节断点续建；其余都从 0（整本）开始。
             val startChapter = if (i == from) firstBookStartChapter else 0
-            // 逐本隔离失败：单本抛异常**不得**中断整库扫描。
-            //
-            // 旧实现让异常一路冒到 worker，被记成一次作业失败并终止整轮 —— 只要书库里
-            // 存在一本解析/落库异常的书，全库索引就**永远建不完**，且用户侧看不到是哪一本。
-            // 真机实测：扫到第 22 本抛异常后整轮终止，其后 4 本再未被索引。
-            //
-            // ⚠️ CancellationException 必须继续上抛：它是「作业被系统停止」的正常信号，
-            // 不是单本失败，吞掉会让被取消的作业伪装成成功、还会掩盖真正的取消语义。
             val outcome: BookChapterOutcome? = try {
-                indexOneBook(book, startChapter, deadlineMs)
+                indexOneBook(book, startChapter, deadlineMs, generation = generation)
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (error: Throwable) {
@@ -884,45 +1030,58 @@ class SearchIndexRepository @Inject constructor(
                 )
                 null
             }
+            testHookAfterStep?.invoke("after_index_one_book_${book.id}")
+            if (generation != null && generation != coordinationState.get().generation) break
+
             when {
                 outcome == null -> {
-                    // 失败：仍落锚点（chapter=0 视为该书本轮结束），否则这本永远卡住游标。
-                    stateDao.set(
-                        SearchIndexStateRow(
-                            tokenizer_version = TOKENIZER_VERSION,
-                            last_scanned_book_id = book.id,
-                            last_scanned_chapter_index = 0,
-                            built_at = System.currentTimeMillis(),
-                        ),
-                    )
+                    // 失败：仍落锚点（chapter=0 视为该书本轮结束），受代次保护
+                    testHookBeforeWrite?.invoke("cursor", book.id)
+                    val updated = runIfCurrentGeneration(generation) {
+                        stateDao.set(
+                            SearchIndexStateRow(
+                                tokenizer_version = TOKENIZER_VERSION,
+                                last_scanned_book_id = book.id,
+                                last_scanned_chapter_index = 0,
+                                built_at = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                    if (!updated) break
                     i++
                 }
                 !outcome.completed -> {
-                    // 章节级续建（§6.1）：这本书只建了一部分就让出预算。落**章节锚点**并停在
-                    // 这本书上，下次从 lastChapter + 1 继续 —— 书级下标**不前进**，
-                    // 因此必须靠 advancedWithinBook 把「确实前进了」传给上层判定。
-                    stateDao.set(
-                        SearchIndexStateRow(
-                            tokenizer_version = TOKENIZER_VERSION,
-                            last_scanned_book_id = book.id,
-                            last_scanned_chapter_index = outcome.lastChapter,
-                            built_at = System.currentTimeMillis(),
-                        ),
-                    )
+                    // 章节级续建（§6.1）：受代次保护
+                    testHookBeforeWrite?.invoke("cursor", book.id)
+                    val updated = runIfCurrentGeneration(generation) {
+                        stateDao.set(
+                            SearchIndexStateRow(
+                                tokenizer_version = TOKENIZER_VERSION,
+                                last_scanned_book_id = book.id,
+                                last_scanned_chapter_index = outcome.lastChapter,
+                                built_at = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                    if (!updated) break
                     advancedWithinBook = outcome.lastChapter > startChapter
                     _progress.value = _progress.value.copy(indexedBooks = countIndexedBooksCheap())
                     break
                 }
                 else -> {
-                    // 整本完成：chapter=0 表示「该书已完整建完」，下次从它的下一本开始。
-                    stateDao.set(
-                        SearchIndexStateRow(
-                            tokenizer_version = TOKENIZER_VERSION,
-                            last_scanned_book_id = book.id,
-                            last_scanned_chapter_index = 0,
-                            built_at = System.currentTimeMillis(),
-                        ),
-                    )
+                    // 整本完成：受代次保护
+                    testHookBeforeWrite?.invoke("cursor", book.id)
+                    val updated = runIfCurrentGeneration(generation) {
+                        stateDao.set(
+                            SearchIndexStateRow(
+                                tokenizer_version = TOKENIZER_VERSION,
+                                last_scanned_book_id = book.id,
+                                last_scanned_chapter_index = 0,
+                                built_at = System.currentTimeMillis(),
+                            ),
+                        )
+                    }
+                    if (!updated) break
                     i++
                 }
             }
@@ -949,14 +1108,21 @@ class SearchIndexRepository @Inject constructor(
         book: BookEntity,
         startChapter: Int,
         deadlineMs: Long,
+        generation: Long? = null,
     ): BookChapterOutcome {
         // 章节级续建（§6.1）：startChapter > 0 表示上一窗口只建到该章，本次从它的下一章继续。
         // 此时**绝不能整删** —— 旧实现「先整删后重写」意味着单本超窗就整本白做，下次重来
         // 依然超窗，形成「这本书永远建不完」的死局（真机 #22 大 EPUB 即如此）。
         val fresh = startChapter <= 0
         if (fresh) {
-            termDao.deleteByBook(book.id)
-            coverageDao.deleteByBook(book.id)
+            testHookBeforeWrite?.invoke("initial_delete", book.id)
+            val deleted = runIfCurrentGeneration(generation) {
+                termDao.deleteByBook(book.id)
+                coverageDao.deleteByBook(book.id)
+            }
+            if (!deleted) {
+                return BookChapterOutcome(completed = false, lastChapter = startChapter)
+            }
         }
         val pending = ArrayList<SearchTermRow>(600)
         val basisWire = SearchTextBasis.ORIGINAL.wire
@@ -974,7 +1140,10 @@ class SearchIndexRepository @Inject constructor(
         suspend fun abandonDisplay() {
             if (displayFailed) return
             displayFailed = true
-            discardDisplayRows(book.id, pending)
+            testHookBeforeWrite?.invoke("discard_display", book.id)
+            runIfCurrentGeneration(generation) {
+                discardDisplayRows(book.id, pending)
+            }
         }
         /** 已完成的最大章节号（1 基）；续建时从断点起，建完一章前进一次。 */
         var lastChapter = startChapter
@@ -1087,7 +1256,11 @@ class SearchIndexRepository @Inject constructor(
                     val chapterIdx = 1 + slice.logicalIndex
                     // 章节级续建：已建过的章节直接跳过（它们的统计已在 base* 基线里，不重复计）。
                     if (chapterIdx <= startChapter) continue
-                    // 预算让出：检查放在**章节之间**。已建章节均已随 flush 落盘，断点有效。
+                    // 预算让出与代次失效检查：检查放在**章节之间**。已建章节均已随 flush 落盘，断点有效。
+                    if (generation != null && generation != coordinationState.get().generation) {
+                        interrupted = true
+                        break
+                    }
                     if (System.currentTimeMillis() >= deadlineMs) {
                         interrupted = true
                         break
@@ -1137,7 +1310,14 @@ class SearchIndexRepository @Inject constructor(
                     lastChapter = chapterIdx
                     // 分批落盘：让已建章节及时持久化，同时把内存占用压在单批规模。
                     if (pending.size >= UPSERT_BATCH_ROWS) {
-                        termDao.upsertAll(pending.toList())
+                        testHookBeforeWrite?.invoke("term_batch", book.id)
+                        val flushed = runIfCurrentGeneration(generation) {
+                            termDao.upsertAll(pending.toList())
+                        }
+                        if (!flushed) {
+                            pending.clear()
+                            return BookChapterOutcome(completed = false, lastChapter = lastChapter)
+                        }
                         pending.clear()
                     }
                 }
@@ -1197,7 +1377,11 @@ class SearchIndexRepository @Inject constructor(
                             // 跳过即把上一轮已完成的工作从本轮成本里彻底移除，这是超大 EPUB
                             // 能跨窗口最终建完的前提。
                             if (chapterIdx <= startChapter) continue
-                            // 预算让出：检查放在章节之间，已建章节均已随 flush 落盘。
+                            // 预算让出与代次失效检查：检查放在章节之间，已建章节均已随 flush 落盘。
+                            if (generation != null && generation != coordinationState.get().generation) {
+                                interrupted = true
+                                break
+                            }
                             if (System.currentTimeMillis() >= deadlineMs) {
                                 interrupted = true
                                 break
@@ -1265,7 +1449,14 @@ class SearchIndexRepository @Inject constructor(
                             lastChapter = chapterIdx
                             // 分批落盘。
                             if (pending.size >= UPSERT_BATCH_ROWS) {
-                                termDao.upsertAll(pending.toList())
+                                testHookBeforeWrite?.invoke("term_batch", book.id)
+                                val flushed = runIfCurrentGeneration(generation) {
+                                    termDao.upsertAll(pending.toList())
+                                }
+                                if (!flushed) {
+                                    pending.clear()
+                                    return BookChapterOutcome(completed = false, lastChapter = lastChapter)
+                                }
                                 pending.clear()
                             }
                         }
@@ -1395,38 +1586,52 @@ class SearchIndexRepository @Inject constructor(
         val now = System.currentTimeMillis()
         val formatWire = book.format.lowercase()
         val displayBuiltAt = if (displayState == SearchCoverageState.NOT_APPLICABLE || displayFailed) 0L else now
-        coverageDao.upsertAll(
-            listOf(
-                SearchIndexCoverageRow(
-                    book_id = book.id,
-                    text_basis = SearchTextBasis.ORIGINAL.wire,
-                    format = formatWire,
-                    coverage = originalState.wire,
-                    indexed_chapters = indexedChapters,
-                    total_chapters = totalChapters,
-                    tokenizer_version = TOKENIZER_VERSION,
-                    indexed_at = now,
-                    reason = originalReason,
+        testHookBeforeWrite?.invoke("coverage", book.id)
+        val coverageWritten = runIfCurrentGeneration(generation) {
+            coverageDao.upsertAll(
+                listOf(
+                    SearchIndexCoverageRow(
+                        book_id = book.id,
+                        text_basis = SearchTextBasis.ORIGINAL.wire,
+                        format = formatWire,
+                        coverage = originalState.wire,
+                        indexed_chapters = indexedChapters,
+                        total_chapters = totalChapters,
+                        tokenizer_version = TOKENIZER_VERSION,
+                        indexed_at = now,
+                        reason = originalReason,
+                    ),
+                    SearchIndexCoverageRow(
+                        book_id = book.id,
+                        text_basis = SearchTextBasis.DISPLAY.wire,
+                        format = formatWire,
+                        coverage = displayState.wire,
+                        indexed_chapters = displayIndexedChapters,
+                        total_chapters = totalChapters,
+                        tokenizer_version = TOKENIZER_VERSION,
+                        indexed_at = displayBuiltAt,
+                        reason = displayReason,
+                    ),
                 ),
-                SearchIndexCoverageRow(
-                    book_id = book.id,
-                    text_basis = SearchTextBasis.DISPLAY.wire,
-                    format = formatWire,
-                    coverage = displayState.wire,
-                    indexed_chapters = displayIndexedChapters,
-                    total_chapters = totalChapters,
-                    tokenizer_version = TOKENIZER_VERSION,
-                    indexed_at = displayBuiltAt,
-                    reason = displayReason,
-                ),
-            ),
-        )
+            )
+        }
+        if (!coverageWritten) {
+            pending.clear()
+            return BookChapterOutcome(completed = false, lastChapter = lastChapter)
+        }
 
         if (pending.isNotEmpty()) {
             var k = 0
             while (k < pending.size) {
                 val slice = pending.subList(k, (k + UPSERT_BATCH_ROWS).coerceAtMost(pending.size))
-                termDao.upsertAll(slice)
+                testHookBeforeWrite?.invoke("term_tail", book.id)
+                val termsWritten = runIfCurrentGeneration(generation) {
+                    termDao.upsertAll(slice)
+                }
+                if (!termsWritten) {
+                    pending.clear()
+                    return BookChapterOutcome(completed = false, lastChapter = lastChapter)
+                }
                 k += UPSERT_BATCH_ROWS
             }
         }

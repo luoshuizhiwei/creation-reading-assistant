@@ -1,5 +1,6 @@
 package com.creationreadingassistant.feature.library
 
+import android.content.ContentResolver
 import android.net.Uri
 import android.provider.DocumentsContract
 import com.creationreadingassistant.data.local.dao.LibrarySourceRefDao
@@ -43,6 +44,71 @@ fun sourceRootIdFor(uri: Uri, root: LibraryRoot?): String? {
     val rest = documentId.substring(treeDocumentId.length)
     return if (rest.startsWith("/")) treeDocumentId else null
 }
+
+/**
+ * 定位单条来源引用对应的文档 URI（M-BUG-03 的「更新检测」与「按来源刷新」共用）。
+ *
+ * 授权模型决定了两条路径，缺一不可：
+ * - `root_id` 与当前配置根的 tree document id 一致 → 走**树 URI**
+ *   （`buildDocumentUriUsingTree`，命中导入时取得的树级持久授权）；
+ * - 其余情况（单文件选择、配置根被更换/清除、根不可读）→ 退化为按
+ *   `authority + documentId` 构造文档 URI（命中单文件选择的 per-document 持久授权）。
+ *
+ * 只做构造，不校验可读性：授权缺失时后续 query 会抛 `SecurityException`，由
+ * [querySourceMetadata] 吞掉并让调用方跳过该书。`document_id` 为 null 时无法定位，
+ * 返回 null（这类引用只可能来自不透明 id 的 provider，不伪造替代路径）。
+ */
+internal fun sourceDocumentUriOf(
+    ref: LibrarySourceRef,
+    treeUri: Uri?,
+    rootDocumentId: String?,
+): Uri? {
+    val documentId = ref.documentId ?: return null
+    if (treeUri != null && ref.rootId != null && ref.rootId == rootDocumentId) {
+        return runCatching {
+            DocumentsContract.buildDocumentUriUsingTree(treeUri, documentId)
+        }.getOrNull()
+    }
+    return runCatching {
+        DocumentsContract.buildDocumentUri(ref.providerAuthority, documentId)
+    }.getOrNull()
+}
+
+/**
+ * 读取来源文档当前的 `size` / `last_modified` 观测值 —— **只 stat，不读内容**。
+ *
+ * 返回 null 表示**无法观测**（provider 不返回这些列、文档已删除、持久授权失效、
+ * provider 异常）。调用方一律按「跳过该书」处理：不得据此推断「未更新」，更不得
+ * 据此把引用标记为 missing —— 观测不到与不存在是两回事。
+ */
+internal fun querySourceMetadata(
+    resolver: ContentResolver,
+    uri: Uri,
+): Pair<Long?, Long?>? {
+    val cursor = runCatching { resolver.query(uri, SOURCE_METADATA_PROJECTION, null, null, null) }
+        .getOrNull() ?: return null
+    cursor.use {
+        if (!it.moveToFirst()) return null
+        val sizeIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+        val modifiedIndex = it.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+        val size = if (sizeIndex < 0 || it.isNull(sizeIndex)) {
+            null
+        } else {
+            it.getLong(sizeIndex).takeIf { value -> value >= 0 }
+        }
+        val modified = if (modifiedIndex < 0 || it.isNull(modifiedIndex)) {
+            null
+        } else {
+            it.getLong(modifiedIndex).takeIf { value -> value >= 0 }
+        }
+        return size to modified
+    }
+}
+
+private val SOURCE_METADATA_PROJECTION = arrayOf(
+    DocumentsContract.Document.COLUMN_SIZE,
+    DocumentsContract.Document.COLUMN_LAST_MODIFIED,
+)
 
 /** 来源引用的领域视图（与 Room 实体解耦，供 UI 与判定层消费）。 */
 data class LibrarySourceRef(

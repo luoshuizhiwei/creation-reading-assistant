@@ -10,6 +10,7 @@ import com.creationreadingassistant.data.local.dao.SearchTermDao
 import com.creationreadingassistant.data.local.dao.SearchTermRow
 import com.creationreadingassistant.data.repository.SearchIndexRepository
 import com.creationreadingassistant.feature.reader.rules.RulesRepository
+import io.mockk.coEvery
 import io.mockk.mockk
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -33,15 +34,15 @@ class SearchIndexRepositorySearchTest {
         val rows = mutableListOf<SearchTermRow>()
         override suspend fun upsertAll(rows: List<SearchTermRow>) { this.rows += rows }
         override suspend fun deleteByBook(bookId: String) { rows.removeIf { it.book_id == bookId } }
-        override suspend fun deleteByChapter(bookId: String, chapterIndex: Int) {
-            rows.removeIf { it.book_id == bookId && it.chapter_index == chapterIndex }
-        }
         override suspend fun deleteByBookAndBasis(bookId: String, textBasis: String) {
             rows.removeIf { it.book_id == bookId && it.text_basis == textBasis }
         }
+        override suspend fun deleteByChapter(bookId: String, chapterIndex: Int) {
+            rows.removeIf { it.book_id == bookId && it.chapter_index == chapterIndex }
+        }
         override suspend fun countTerms(): Long = rows.size.toLong()
-        override suspend fun countIndexedBooks(): Long = rows.map { it.book_id }.distinct().size.toLong()
         override suspend fun rowsByTerm(term: String): List<SearchTermRow> = rows.filter { it.term == term }
+        override suspend fun countIndexedBooks(): Long = rows.map { it.book_id }.distinct().size.toLong()
         override suspend fun rowsByTermForBasis(term: String, textBasis: String): List<SearchTermRow> =
             rows.filter { it.term == term && it.text_basis == textBasis }
         override suspend fun distinctBookIds(): List<String> = rows.map { it.book_id }.distinct()
@@ -64,6 +65,7 @@ class SearchIndexRepositorySearchTest {
         override suspend fun rowsByStates(states: List<String>): List<SearchIndexCoverageRow> =
             rows.filter { it.coverage in states }
         override suspend fun countByStates(states: List<String>): Long = rowsByStates(states).size.toLong()
+        override suspend fun distinctBookIds(): List<String> = rows.map { it.book_id }.distinct()
         override suspend fun deleteByBook(bookId: String) { rows.removeIf { it.book_id == bookId } }
         override suspend fun deleteAll() { rows.clear() }
     }
@@ -106,12 +108,18 @@ class SearchIndexRepositorySearchTest {
     private fun buildHarness(
         terms: List<SearchTermRow>,
         coverageRows: List<SearchIndexCoverageRow>,
+        activeBookIds: Set<String> = terms.map { it.book_id }.toSet(),
     ): Harness {
         val termDao = FakeSearchTermDao().apply { rows += terms }
         val coverageDao = FakeSearchIndexCoverageDao().apply { rows += coverageRows }
+        // `bookDao.activeIds()` 是搜索侧「只认活跃书」的判据来源（M-BUG-10 读取侧防御）。
+        // 默认把 term 表里出现过的书全部视为活跃 —— 既有用例的语义因此保持不变；
+        // 需要模拟「已删书残留」的用例显式传入更小的集合。
+        val bookDao = mockk<BookDao>(relaxed = true)
+        coEvery { bookDao.activeIds() } returns activeBookIds.toList()
         val repo = SearchIndexRepository(
             context = mockk<Context>(relaxed = true),
-            bookDao = mockk(relaxed = true),
+            bookDao = bookDao,
             bookContentDao = mockk(relaxed = true),
             termDao = termDao,
             stateDao = mockk(relaxed = true),
@@ -289,5 +297,209 @@ class SearchIndexRepositorySearchTest {
         repeat(3) { h.repo.discardDisplayRows("b1", pending) }
         // b1 种子里是 1 条 original + 1 条 display；反复调用只应减掉那 1 条 display。
         assertEquals(before - 1, h.termDao.rows.count { it.book_id == "b1" })
+    }
+
+    // ===== M-BUG-10 读取侧防御：已删书的残留索引行不得冒进搜索结果 =====
+
+    @Test
+    fun `searchContent drops hits whose book is no longer active`() = runTest {
+        // b3 已删（索引行还残留着），b1 / b2 / b4 仍活跃。
+        val h = buildHarness(seedTerms, seedCoverage, activeBookIds = setOf("b1", "b2", "b4"))
+        val hits = h.repo.searchContent("世界", bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY))
+
+        // b3 那条 hits=5（得分最高）必须消失，只剩 b1 的两条。
+        // 修复前它会出现在结果里，且因 BookDao.getByIds 带 deleted_at IS NULL 拿不到书名，
+        // 结果行退化成裸 bookId（真机复现：搜 `cra` 出现标题 `b6dd8663-…`）。
+        assertEquals(2, hits.size)
+        assertTrue(hits.none { it.bookId == "b3" })
+        assertTrue(hits.all { it.bookId == "b1" })
+    }
+
+    @Test
+    fun `searchContent returns nothing when no book is active`() = runTest {
+        val h = buildHarness(seedTerms, seedCoverage, activeBookIds = emptySet())
+        assertTrue(
+            h.repo.searchContent("世界", bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY))
+                .isEmpty(),
+        )
+    }
+
+    @Test
+    fun `searchContent limit applies to live hits rather than being consumed by orphan rows`() = runTest {
+        // 过滤必须发生在 take(limit) **之前**：b3 的残留行得分最高（hits=5），
+        // 若先截断再过滤，limit=2 会被 b3 占掉一个名额，活跃命中只剩 1 条。
+        val h = buildHarness(seedTerms, seedCoverage, activeBookIds = setOf("b1"))
+        val hits = h.repo.searchContent(
+            "世界",
+            bases = setOf(SearchTextBasis.ORIGINAL, SearchTextBasis.DISPLAY),
+            limit = 2,
+        )
+        assertEquals(2, hits.size)
+        assertTrue(hits.all { it.bookId == "b1" })
+    }
+
+    // ===== 孤儿索引行回收（挂在「重建索引」入口，见 triggerFullRebuildNow） =====
+
+    @Test
+    fun `purgeOrphanIndexRows removes only rows of inactive books`() = runTest {
+        val h = buildHarness(seedTerms, seedCoverage, activeBookIds = setOf("b1", "b2"))
+
+        val removed = h.repo.purgeOrphanIndexRows()
+
+        // b3、b4 都已删，各只剩 original 一行。
+        assertEquals(2, removed)
+        assertTrue(h.termDao.rows.none { it.book_id == "b3" || it.book_id == "b4" })
+        assertTrue(h.termDao.rows.any { it.book_id == "b1" })
+        assertTrue(h.termDao.rows.any { it.book_id == "b2" })
+        // coverage 必须与 term 同生共死：留着孤儿的 coverage 行会让「已索引本数」虚高
+        // （countIndexedBooksCheap 数的正是 coverage 里 original 基准的行数）。
+        assertTrue(h.coverageDao.rows.none { it.book_id == "b3" || it.book_id == "b4" })
+        assertTrue(h.coverageDao.rows.any { it.book_id == "b1" })
+    }
+
+    @Test
+    fun `purgeOrphanIndexRows is a no-op when every indexed book is active`() = runTest {
+        val h = buildHarness(seedTerms, seedCoverage)
+        val before = h.termDao.rows.size
+
+        assertEquals(0, h.repo.purgeOrphanIndexRows())
+
+        assertEquals(before, h.termDao.rows.size)
+        assertEquals(seedCoverage.size, h.coverageDao.rows.size)
+    }
+
+    // ===== coverage-only 孤儿（term 已空、只剩 coverage 行）=====
+
+    @Test
+    fun `purgeOrphanIndexRows reclaims a coverage-only orphan book`() = runTest {
+        // gone 已删，且**没有**任何 term 行 —— 只有 coverage 行。
+        // 修复前候选集合只来自 search_terms，这本书根本进不了候选，孤儿 coverage 永久残留。
+        val h = buildHarness(
+            terms = listOf(row("世界", "b1", 1, SearchTextBasis.ORIGINAL, hits = 2, offsets = "10:2")),
+            coverageRows = listOf(
+                coverage("b1", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("gone", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("gone", SearchTextBasis.DISPLAY, SearchCoverageState.FULL),
+            ),
+            activeBookIds = setOf("b1"),
+        )
+
+        val removed = h.repo.purgeOrphanIndexRows()
+
+        assertEquals("孤儿书按「本」计数，不是按行数", 1, removed)
+        assertTrue("孤儿 coverage 行必须被回收", h.coverageDao.rows.none { it.book_id == "gone" })
+        assertTrue("活跃书的 coverage 不得被动", h.coverageDao.rows.any { it.book_id == "b1" })
+        assertTrue("活跃书的 term 不得被动", h.termDao.rows.any { it.book_id == "b1" })
+    }
+
+    @Test
+    fun `purgeOrphanIndexRows keeps a coverage-only book that is still active`() = runTest {
+        // onlyCoverage 仍活跃，只是还没建出 term 行（例如刚标记 FULL 后 term 被清空）。
+        // 它必须在候选集合里出现（否则找不到），但**不得**被当成孤儿删掉。
+        val h = buildHarness(
+            terms = listOf(row("世界", "b1", 1, SearchTextBasis.ORIGINAL, hits = 2, offsets = "10:2")),
+            coverageRows = listOf(
+                coverage("b1", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("onlyCoverage", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+            ),
+            activeBookIds = setOf("b1", "onlyCoverage"),
+        )
+
+        assertEquals(0, h.repo.purgeOrphanIndexRows())
+
+        assertTrue(
+            "活跃书的 coverage 即使没有 term 行也必须保留",
+            h.coverageDao.rows.any { it.book_id == "onlyCoverage" },
+        )
+        assertEquals(2, h.coverageDao.rows.size)
+    }
+
+    @Test
+    fun `purgeOrphanIndexRows counts a book with both term and coverage rows once`() = runTest {
+        // 同一本孤儿书在两张表里都有行：只算**一本**，两类行全部删除。
+        val h = buildHarness(
+            terms = listOf(
+                row("世界", "b1", 1, SearchTextBasis.ORIGINAL, hits = 2, offsets = "10:2"),
+                row("甲", "gone", 1, SearchTextBasis.ORIGINAL, hits = 1),
+                row("甲", "gone", 1, SearchTextBasis.DISPLAY, hits = 1),
+            ),
+            coverageRows = listOf(
+                coverage("b1", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("gone", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("gone", SearchTextBasis.DISPLAY, SearchCoverageState.PARTIAL),
+            ),
+            activeBookIds = setOf("b1"),
+        )
+
+        assertEquals("一本书无论占多少行都只计一次", 1, h.repo.purgeOrphanIndexRows())
+
+        assertTrue(h.termDao.rows.none { it.book_id == "gone" })
+        assertTrue(h.coverageDao.rows.none { it.book_id == "gone" })
+        assertTrue(h.termDao.rows.any { it.book_id == "b1" })
+        assertTrue(h.coverageDao.rows.any { it.book_id == "b1" })
+    }
+
+    // ===== C01 恢复接口：incompleteBookIds（依赖 coverageDao.rowsByStates）=====
+
+    @Test
+    fun `incompleteBookIds returns only incomplete states on the requested basis`() = runTest {
+        val h = buildHarness(
+            terms = emptyList(),
+            coverageRows = listOf(
+                coverage("bFull", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("bPartial", SearchTextBasis.ORIGINAL, SearchCoverageState.PARTIAL),
+                coverage("bFailed", SearchTextBasis.ORIGINAL, SearchCoverageState.FAILED),
+                // display 基准上的 PARTIAL 不应出现在默认（original）结果里。
+                coverage("bPartial", SearchTextBasis.DISPLAY, SearchCoverageState.PARTIAL),
+                // NOT_APPLICABLE 由 SearchCoveragePolicy.isIncomplete 排除，不算未完成。
+                coverage("bNa", SearchTextBasis.ORIGINAL, SearchCoverageState.NOT_APPLICABLE),
+            ),
+            activeBookIds = setOf("bFull", "bPartial", "bFailed", "bNa"),
+        )
+
+        assertEquals(listOf("bFailed", "bPartial"), h.repo.incompleteBookIds())
+    }
+
+    @Test
+    fun `incompleteBookIds filters by basis and returns each book once sorted`() = runTest {
+        // b1 在两个基准上都未完成；b2 只在 display 基准上未完成（original 已 FULL）。
+        val h = buildHarness(
+            terms = emptyList(),
+            coverageRows = listOf(
+                coverage("b1", SearchTextBasis.ORIGINAL, SearchCoverageState.PARTIAL),
+                coverage("b1", SearchTextBasis.DISPLAY, SearchCoverageState.PREVIEW_ONLY),
+                coverage("b2", SearchTextBasis.ORIGINAL, SearchCoverageState.FULL),
+                coverage("b2", SearchTextBasis.DISPLAY, SearchCoverageState.PARTIAL),
+            ),
+            activeBookIds = setOf("b1", "b2"),
+        )
+
+        // 默认 original 基准：只有 b1（b2 的 original 是 FULL）。
+        assertEquals(listOf("b1"), h.repo.incompleteBookIds())
+        // display 基准：两本都未完成，且按 id 升序、每本只出现一次。
+        assertEquals(listOf("b1", "b2"), h.repo.incompleteBookIds(basis = SearchTextBasis.DISPLAY))
+    }
+
+    // ===== 「重建索引」入口不得把并发守卫置起（否则 worker 空转无限重试） =====
+
+    /**
+     * `ensureIndexedIncremental` 开头是并发守卫
+     * `if (_progress.value.isRunning) return IndexSweepResult.PROGRESSED`。
+     * 重建入口若抢先置 `isRunning = true`，worker 每次启动都会被守卫短路成
+     * 立即 PROGRESSED ⇒ `Result.retry()` 空转、退避间隔无限增长，索引**永远不会真的重建**，
+     * UI 永久停在「后台构建中：0 / N 本」。
+     *
+     * 真机已复现：RETRY 间隔 10s→20s→…→80s 递增，全程无写入、无日志。
+     */
+    @Test
+    fun `triggerFullRebuildNow must not leave the running guard set`() = runTest {
+        val h = buildHarness(seedTerms, seedCoverage)
+
+        h.repo.triggerFullRebuildNow()
+
+        assertFalse(
+            "重建入口不得把 isRunning 置 true —— 会让 worker 被并发守卫永久短路",
+            h.repo.progress.value.isRunning,
+        )
     }
 }

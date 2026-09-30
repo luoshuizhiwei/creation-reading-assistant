@@ -165,6 +165,8 @@ internal fun BookDetailHeaderSection(
     book: BookEntity,
     percent: Float,
     readiness: BookReadiness,
+    /** 进度行 completion_state（S05-①）：藏书印由显式状态决定，取消读完后的残余 100% 不触发。 */
+    completionState: String? = null,
     onUpdateBook: (String, String?, String?) -> Unit,
     onChangeCover: () -> Unit,
     onChangeTextCover: () -> Unit,
@@ -192,7 +194,7 @@ internal fun BookDetailHeaderSection(
                     Box(modifier = Modifier.fillMaxSize()) {
                         BookCover(
                             book = book,
-                            percent = percent,
+                            percent = if (isDisplayFinished(percent, completionState)) percent else null,
                             modifier = Modifier.fillMaxSize(),
                             fallback = { ShelfCoverFallback(book) },
                         )

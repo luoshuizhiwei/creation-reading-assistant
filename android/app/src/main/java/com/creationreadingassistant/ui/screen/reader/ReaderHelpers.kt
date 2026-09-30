@@ -3,6 +3,7 @@ package com.creationreadingassistant.ui.screen.reader
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.text.font.FontFamily
+import com.creationreadingassistant.data.settings.DurationUnit
 import com.creationreadingassistant.domain.model.EpubBook
 import com.creationreadingassistant.feature.reader.ReaderFontManager
 import com.creationreadingassistant.feature.reader.locator.LocatorCodec
@@ -41,9 +42,9 @@ internal fun progressToChapterIndex(book: EpubBook, progressPercent: Float?): In
     return ((progressPercent / 100f * size - 1).toInt()).coerceIn(0, size - 1)
 }
 
-/** 毫秒时长格式化（委托 ui/util 公共实现，输出「天/小时/分钟」统一格式）。 */
-internal fun formatDuration(ms: Long): String =
-    com.creationreadingassistant.ui.util.formatDuration(ms)
+/** 毫秒时长格式化（委托 ui/util 公共实现）。[unit] 默认小时，长按展示位可切到天。 */
+internal fun formatDuration(ms: Long, unit: DurationUnit = DurationUnit.HOURS): String =
+    com.creationreadingassistant.ui.util.formatDuration(ms, unit)
 
 /** 构造标准灵感 payload，确保 InspirationViewModel 能正确解析来源（全字段对齐网页 I5）。 */
 internal fun buildInspirationPayload(

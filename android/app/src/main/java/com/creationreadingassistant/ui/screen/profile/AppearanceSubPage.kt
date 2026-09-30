@@ -50,6 +50,9 @@ import com.creationreadingassistant.ui.components.PageLazyColumn
 import com.creationreadingassistant.ui.components.SectionCard
 import com.creationreadingassistant.ui.components.SectionDivider
 import com.creationreadingassistant.ui.components.SettingSwitchRow
+import com.creationreadingassistant.data.settings.DurationUnit
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.LocalDurationUnitToggle
 import com.creationreadingassistant.ui.theme.AppPalette
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.bounceable
@@ -73,6 +76,10 @@ internal fun AppearanceSubPage(
         "light" -> false
         else -> isSystemInDarkTheme()
     }
+    // 时长显示单位：与「在任意时长文本上长按」共用同一全局状态源（DurationPrefs）。
+    // 这里提供显式开关，是因为长按属于隐藏手势，用户不会自己发现。
+    val durationUnit = LocalDurationUnit.current
+    val toggleDurationUnit = LocalDurationUnitToggle.current
 
     PageLazyColumn(
         scaffoldPadding = scaffoldPadding,
@@ -127,6 +134,15 @@ internal fun AppearanceSubPage(
                         onCheckedChange = { checked ->
                             onAction(ProfileAction.UpdateAppearance { copy(paperTexture = checked) })
                         },
+                    )
+
+                    SectionDivider()
+
+                    SettingSwitchRow(
+                        title = "时长按「天」显示",
+                        subtitle = "关闭后按「小时」显示；长按时长文本可切换",
+                        checked = durationUnit == DurationUnit.DAYS,
+                        onCheckedChange = { toggleDurationUnit() },
                     )
                 }
             }

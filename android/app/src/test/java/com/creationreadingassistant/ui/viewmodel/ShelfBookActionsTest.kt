@@ -3,7 +3,9 @@ package com.creationreadingassistant.ui.viewmodel
 import android.content.Context
 import android.net.Uri
 import com.creationreadingassistant.data.local.entity.ReadingCompletionState
+import com.creationreadingassistant.data.repository.BookCacheClearOutcome
 import com.creationreadingassistant.data.repository.BookRepository
+import com.creationreadingassistant.data.repository.MidwayAbortCause
 import com.creationreadingassistant.data.settings.ContinueReadingStore
 import io.mockk.coEvery
 import io.mockk.coVerify
@@ -144,13 +146,94 @@ class ShelfBookActionsTest {
 
     @Test
     fun `clear cache returns count message`() = runTest {
-        coEvery { repository.clearBookCache(any()) } returns Unit
+        coEvery { repository.clearBookCache(any()) } returns BookCacheClearOutcome.Cleared
 
         val msg = actions.clearCacheForBooks(listOf("b1", "b2"))
 
         assertEquals("已清理 2 本书的本地正文缓存", msg)
         coVerify(exactly = 1) { repository.clearBookCache("b1") }
         coVerify(exactly = 1) { repository.clearBookCache("b2") }
+    }
+
+    @Test
+    fun `clear cache reports residue refusal without success wording when all refused`() = runTest {
+        coEvery { repository.clearBookCache("b1") } returns
+            BookCacheClearOutcome.RefusedResidue(residueCount = 2)
+
+        val msg = actions.clearCacheForBooks(listOf("b1"))
+
+        assertFalse(msg.contains("已清理"))
+        assertTrue(msg.contains("1 本检测到未完成替换的残留备份"))
+        assertTrue(msg.contains("整本保留"))
+        assertTrue(msg.contains("未删除也未自动恢复"))
+        coVerify(exactly = 1) { repository.clearBookCache("b1") }
+    }
+
+    @Test
+    fun `clear cache with mixed outcomes reports cleared and refused separately`() = runTest {
+        coEvery { repository.clearBookCache("clean") } returns BookCacheClearOutcome.Cleared
+        coEvery { repository.clearBookCache("residue") } returns
+            BookCacheClearOutcome.RefusedResidue(residueCount = 1)
+        coEvery { repository.clearBookCache("unsafe") } returns
+            BookCacheClearOutcome.RefusedUnsafeScan
+
+        val msg = actions.clearCacheForBooks(listOf("clean", "residue", "unsafe"))
+
+        assertTrue(msg.startsWith("已清理 1 本书的本地正文缓存"))
+        assertTrue(msg.contains("1 本检测到未完成替换的残留备份"))
+        assertTrue(msg.contains("1 本无法确认本地文件状态"))
+    }
+
+    @Test
+    fun `clear cache reports midway residue abort as partial execution`() = runTest {
+        coEvery { repository.clearBookCache("b1") } returns
+            BookCacheClearOutcome.AbortedMidway(MidwayAbortCause.RESIDUE_APPEARED)
+
+        val msg = actions.clearCacheForBooks(listOf("b1"))
+
+        assertFalse("部分执行不得报成功", msg.contains("已清理"))
+        assertTrue(msg.contains("清理中止"))
+        assertTrue(msg.contains("发现新的替换残留"))
+        assertTrue(msg.contains("备份与书架信息已保留"))
+        assertTrue(msg.contains("部分本地文件可能已被清理"))
+    }
+
+    @Test
+    fun `clear cache reports midway unreadable abort as partial execution`() = runTest {
+        coEvery { repository.clearBookCache("b1") } returns
+            BookCacheClearOutcome.AbortedMidway(MidwayAbortCause.LOCATION_UNREADABLE)
+
+        val msg = actions.clearCacheForBooks(listOf("b1"))
+
+        assertFalse("部分执行不得报成功", msg.contains("已清理"))
+        assertTrue(msg.contains("清理中止"))
+        assertTrue(msg.contains("变为不可读取"))
+        assertTrue(msg.contains("保守策略停止"))
+    }
+
+    @Test
+    fun `clear cache distinguishes remains from full clear in message`() = runTest {
+        coEvery { repository.clearBookCache("clean") } returns BookCacheClearOutcome.Cleared
+        coEvery { repository.clearBookCache("remains") } returns BookCacheClearOutcome.ClearedWithRemains
+
+        val msg = actions.clearCacheForBooks(listOf("clean", "remains"))
+
+        assertTrue(msg.contains("已清理 1 本书的本地正文缓存"))
+        assertTrue(msg.contains("1 本正文未删净"))
+        assertTrue(msg.contains("仍有正文文件留在本地"))
+        assertTrue(msg.contains("空间未完全释放"))
+        assertFalse("未删净不得与完整清理混同计数", msg.contains("已清理 2 本"))
+    }
+
+    @Test
+    fun `clear cache reports remains only without full-cleanup wording`() = runTest {
+        coEvery { repository.clearBookCache("b1") } returns BookCacheClearOutcome.ClearedWithRemains
+
+        val msg = actions.clearCacheForBooks(listOf("b1"))
+
+        assertFalse("全部未删净时不得使用完整清理的成功句式", msg.contains("已清理 1 本书的本地正文缓存"))
+        assertTrue(msg.contains("1 本正文未删净"))
+        assertTrue(msg.contains("书架与数据库状态已更新"))
     }
 
     @Test

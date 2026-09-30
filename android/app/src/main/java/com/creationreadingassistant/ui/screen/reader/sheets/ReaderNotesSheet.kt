@@ -75,7 +75,15 @@ internal fun NotesSheet(
     onHighlightToNote: (HighlightEntity) -> Unit,
     onHighlightToInspiration: (HighlightEntity) -> Unit,
     onJumpToHighlight: (HighlightEntity) -> Unit,
-    onJumpToBookmark: (NoteEntity) -> Unit,
+    /**
+     * S07：笔记 / 书摘跳转（按注释类型分派 typed 目标）。
+     *
+     * 笔记 / 书摘小节里两类记录混排（书摘是 notes 表里 `kind == "bookmark"` 的行），
+     * 因此跳转方按 [noteAnnotationType] 分派 typed 目标**，而不是粗整固定一个
+     * BOOKMARK 类型 —— 旧实现误把书摘也叫 `onJumpToBookmark`，同一 rawId 跨表存在时
+     * 会跳到错误记录。
+     */
+    onJumpToNote: (NoteEntity) -> Unit,
 ) {
     var editingNote by remember { mutableStateOf<HighlightEntity?>(null) }
     var noteDraft by remember { mutableStateOf("") }
@@ -335,7 +343,7 @@ internal fun NotesSheet(
                         note = n,
                         index = index,
                         reducedMotion = reducedMotion,
-                        onJump = { onJumpToBookmark(n) },
+                        onJump = { onJumpToNote(n) },
                         onDelete = { pendingDelete = NotesDeleteRequest.Note(n) },
                     )
                 }

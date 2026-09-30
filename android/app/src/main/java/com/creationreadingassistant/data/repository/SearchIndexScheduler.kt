@@ -52,9 +52,16 @@ class SearchIndexScheduler @Inject constructor(
      * 立即唤起一次全库扫描任务（零延迟）。
      *
      * @param force 为 true 时使用 [ExistingWorkPolicy.REPLACE] 替换可能在跑或排队的任务，
-     *              用于用户显式点击「全量重建索引」；为 false 时使用 [ExistingWorkPolicy.KEEP]。
+     *              用于「置脏后要求重扫」与用户显式点击「全量重建索引」。
+     *
+     * ⚠️ 本参数**刻意不给默认值**（2026-09-17）。`false` 走 [ExistingWorkPolicy.KEEP]：当唯一
+     * 任务名对应的 work 正处于 RUNNING 时，本次入队会被 WorkManager **静默丢弃**，而在跑的那个
+     * worker 会继续把 `last_scanned_book_id` 往前写、**覆盖掉**刚被重置的扫描游标 ⇒
+     * 「置脏后重扫」**根本不会发生**（真机复现：换了全局替换规则，旧规则下建的索引行一直生效）。
+     * 生产代码所有调用点都传 `true`，故去掉默认值不改变行为，只在编译期挡住「忘了传」的复现。
+     * 确实需要「不打断在跑扫描」的语义请用 [enqueueOnce]（它才是 KEEP + 10s 初始延迟）。
      */
-    fun triggerNow(force: Boolean = false) {
+    fun triggerNow(force: Boolean) {
         val policy = if (force) ExistingWorkPolicy.REPLACE else ExistingWorkPolicy.KEEP
         val oneTimeRequest = OneTimeWorkRequestBuilder<SearchIndexWorker>()
             .setInitialDelay(0, TimeUnit.MILLISECONDS)

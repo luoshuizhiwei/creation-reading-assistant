@@ -35,6 +35,8 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberCountUp
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 
 private data class SummaryMetric(
     val icon: ImageVector,
@@ -42,6 +44,13 @@ private data class SummaryMetric(
     val label: String,
     val subtitle: String,
     val iconTint: Color,
+    /**
+     * 只作用于主值文本的附加修饰符；**仅时长指标**传 [durationUnitToggle]。
+     *
+     * 用 `Modifier` 而非布尔开关：调用方自己决定挂什么，本组件不替调用方猜测
+     * 哪个指标是时长（"42 篇"、"3 天" 这类计数挂上去是错的）。
+     */
+    val valueModifier: Modifier = Modifier,
 )
 
 /**
@@ -65,10 +74,13 @@ internal fun SummaryGroup(
     val metrics = listOf(
         SummaryMetric(
             icon = Icons.Outlined.AccessTime,
-            formattedValue = formatCompactDuration(animatedMinutes.toLong() * 60000),
+            formattedValue = formatCompactDuration(animatedMinutes.toLong() * 60000, LocalDurationUnit.current),
             label = "阅读时长",
             subtitle = "累计沉浸",
             iconTint = Color(0xFFD97706), // 暖琥珀
+            // 阅读时长是本组唯一的时长展示位 ⇒ 本区块只此一个切换入口；
+            // 「阅读天数」是整数计数（不经过 formatter），不挂入口。
+            valueModifier = Modifier.durationUnitToggle(),
         ),
         SummaryMetric(
             icon = Icons.Outlined.CalendarMonth,
@@ -205,6 +217,7 @@ private fun SummaryMicroCard(
             // 大数字 Bold 高光
             Text(
                 text = item.formattedValue,
+                modifier = item.valueModifier,
                 style = MaterialTheme.typography.headlineSmall.copy(
                     fontFamily = DisplayFontFamily,
                     fontWeight = FontWeight.Bold,

@@ -5,6 +5,8 @@ import com.creationreadingassistant.data.local.dao.BookContentDao
 import com.creationreadingassistant.data.local.dao.BookDao
 import com.creationreadingassistant.data.local.dao.BookFileDao
 import com.creationreadingassistant.data.local.entity.BookEntity
+import com.creationreadingassistant.data.local.entity.LibrarySourceAvailability
+import com.creationreadingassistant.data.repository.BookCacheClearOutcome
 import com.creationreadingassistant.data.repository.BookRepository
 import com.creationreadingassistant.data.repository.SyncRepository
 import com.creationreadingassistant.data.repository.TaxonomyRepository
@@ -12,7 +14,11 @@ import com.creationreadingassistant.data.settings.ContinueReadingStore
 import com.creationreadingassistant.data.settings.ImportHistoryStore
 import com.creationreadingassistant.data.settings.SavedShelfFilter
 import com.creationreadingassistant.data.settings.ShelfPrefs
+import com.creationreadingassistant.feature.library.LibrarySourceIndex
+import com.creationreadingassistant.feature.library.LibrarySourceRef
 import com.creationreadingassistant.feature.library.ShelfImporter
+import com.creationreadingassistant.feature.library.ShelfSourceUpdateChecker
+import com.creationreadingassistant.feature.library.SourceRefreshResult
 import com.creationreadingassistant.feature.reader.EpubRepository
 import com.creationreadingassistant.ui.screen.shelf.ShelfSortMode
 import com.creationreadingassistant.ui.screen.shelf.ShelfStatusFilter
@@ -70,7 +76,9 @@ class ShelfViewModelTest {
         repository = mockk {
             coEvery { restoreBook(any()) } returns Unit
             coEvery { deleteBook(any()) } returns Unit
-            coEvery { clearBookCache(any()) } returns Unit
+            // SEAM（residue-safe-cleanup 窗口）：clearBookCache 返回类型由 Unit 改为
+            // BookCacheClearOutcome，此处仅为编译适配，无断言语义变化。
+            coEvery { clearBookCache(any()) } returns BookCacheClearOutcome.Cleared
             coEvery { updateBookInfo(any(), any(), any(), any()) } returns Unit
             coEvery { setReadingState(any(), any()) } returns Unit
         }
@@ -112,16 +120,27 @@ class ShelfViewModelTest {
         Dispatchers.resetMain()
     }
 
-    private fun createVm(books: List<BookEntity> = emptyList()): ShelfViewModel {
+    /**
+     * 构造 ViewModel。
+     *
+     * M-BUG-03 测试接缝：可注入来源索引 / 来源更新检测器 / 导入器替身；
+     * `sourceIndex` 与 `sourceUpdateChecker` 默认 relaxed mock，既有用例不受影响。
+     */
+    private fun createVm(
+        books: List<BookEntity> = emptyList(),
+        sourceIndex: LibrarySourceIndex = mockk(relaxed = true),
+        sourceUpdateChecker: ShelfSourceUpdateChecker = mockk(relaxed = true),
+        shelfImporter: ShelfImporter? = null,
+    ): ShelfViewModel {
         every { repository.observeBooks() } returns flowOf(books)
         every { repository.observeProgress() } returns flowOf(emptyList())
         every { repository.observeSessions() } returns flowOf(emptyList())
         every { repository.observeNotes() } returns flowOf(emptyList())
         every { repository.observeHighlights() } returns flowOf(emptyList())
         every { repository.observeInspirations() } returns flowOf(emptyList())
-        // 导入管线由 Hilt 注入；测试中用真实 ShelfImporter + mock DAO 构造，
-        // 仅作为 ViewModel 的依赖替身，本测试不断言其内部行为。
-        val importer = ShelfImporter(
+        // 导入管线由 Hilt 注入；测试中默认用真实 ShelfImporter + mock DAO 构造，
+        // 仅作为 ViewModel 的依赖替身，也支持传入外部 mock。
+        val importer = shelfImporter ?: ShelfImporter(
             context = context,
             repository = repository,
             bookDao = bookDao,
@@ -132,6 +151,7 @@ class ShelfViewModelTest {
             sourceIndex = mockk(relaxed = true),
             rootStore = mockk { coEvery { loadRoot() } returns null },
             ioDispatcher = Dispatchers.Unconfined,
+            indexRefreshCoordinator = mockk(relaxed = true),
         )
         return ShelfViewModel(
             context = context,
@@ -144,6 +164,9 @@ class ShelfViewModelTest {
             ioDispatcher = Dispatchers.Unconfined,
             defaultDispatcher = Dispatchers.Unconfined,
             shelfImporter = importer,
+            // M-BUG-03：来源内容更新检测属书架附加能力，默认用 relaxed 替身。
+            sourceIndex = sourceIndex,
+            sourceUpdateChecker = sourceUpdateChecker,
         )
     }
 
@@ -393,5 +416,200 @@ class ShelfViewModelTest {
         assertEquals(false, vm.hasActiveFilters())
         vm.setStatusFilter(ShelfStatusFilter.READING)
         assertEquals(true, vm.hasActiveFilters())
+    }
+    private fun sourceRef(bookId: String = "b1"): LibrarySourceRef = LibrarySourceRef(
+        bookId = bookId,
+        rootId = null,
+        providerAuthority = "com.android.externalstorage.documents",
+        documentId = "primary:Books/$bookId.txt",
+        displayName = "$bookId.txt",
+        format = "txt",
+        sizeBytes = 10L,
+        lastModifiedMillis = null,
+        contentHash = null,
+        candidateFingerprint = null,
+        lastSeenAtMillis = 0L,
+        availability = LibrarySourceAvailability.AVAILABLE,
+    )
+
+    // ===== S04-1：来源刷新前置一次性确认机制 =====
+
+    @Test
+    fun `refresh prompts confirmation when source updates detected without refreshing text`() = runTest(mainDispatcher.scheduler) {
+        val mockSourceIndex = mockk<LibrarySourceIndex>()
+        val mockChecker = mockk<ShelfSourceUpdateChecker>()
+        val mockImporter = mockk<ShelfImporter>(relaxed = true)
+
+        coEvery { mockSourceIndex.snapshot() } returns listOf(sourceRef("b1"))
+        coEvery { mockChecker.checkUpdated(any()) } returns setOf("b1")
+
+        val vm = createVm(
+            books = listOf(book("b1", "测试书")),
+            sourceIndex = mockSourceIndex,
+            sourceUpdateChecker = mockChecker,
+            shelfImporter = mockImporter,
+        )
+        testScheduler.advanceUntilIdle()
+
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+
+        // 触发确认请求状态
+        assertEquals(listOf("b1"), vm.pendingSourceRefreshIds.value)
+        assertEquals(setOf("b1"), vm.contentUpdatedBookIds.value)
+        // 关键不变量：未确认前，零本正文被替换
+        coVerify(exactly = 0) { mockImporter.refreshFromSource(any()) }
+    }
+
+    @Test
+    fun `cancelling source refresh clears confirmation without modifying text or updated badge`() = runTest(mainDispatcher.scheduler) {
+        val mockSourceIndex = mockk<LibrarySourceIndex>()
+        val mockChecker = mockk<ShelfSourceUpdateChecker>()
+        val mockImporter = mockk<ShelfImporter>(relaxed = true)
+
+        coEvery { mockSourceIndex.snapshot() } returns listOf(sourceRef("b1"))
+        coEvery { mockChecker.checkUpdated(any()) } returns setOf("b1")
+
+        val vm = createVm(
+            books = listOf(book("b1", "测试书")),
+            sourceIndex = mockSourceIndex,
+            sourceUpdateChecker = mockChecker,
+            shelfImporter = mockImporter,
+        )
+        testScheduler.advanceUntilIdle()
+
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("b1"), vm.pendingSourceRefreshIds.value)
+
+        // 用户取消确认
+        vm.cancelSourceRefresh()
+        testScheduler.advanceUntilIdle()
+
+        // 确认状态已关闭
+        assertEquals(null, vm.pendingSourceRefreshIds.value)
+        // 角标集合保持
+        assertEquals(setOf("b1"), vm.contentUpdatedBookIds.value)
+        // 正文依然 0 次替换
+        coVerify(exactly = 0) { mockImporter.refreshFromSource(any()) }
+    }
+
+    @Test
+    fun `confirming source refresh executes refresh on updated books and returns summary message`() = runTest(mainDispatcher.scheduler) {
+        val mockSourceIndex = mockk<LibrarySourceIndex>()
+        val mockChecker = mockk<ShelfSourceUpdateChecker>()
+        val mockImporter = mockk<ShelfImporter>(relaxed = true)
+
+        coEvery { mockSourceIndex.snapshot() } returns listOf(sourceRef("b1"), sourceRef("b2"))
+        coEvery { mockChecker.checkUpdated(any()) } returns setOf("b1", "b2")
+        coEvery { mockImporter.refreshFromSource("b1") } returns SourceRefreshResult.Success("《书1》已修复")
+        coEvery { mockImporter.refreshFromSource("b2") } returns SourceRefreshResult.Success("《书2》已修复")
+
+        val vm = createVm(
+            books = listOf(book("b1", "书1"), book("b2", "书2")),
+            sourceIndex = mockSourceIndex,
+            sourceUpdateChecker = mockChecker,
+            shelfImporter = mockImporter,
+        )
+        testScheduler.advanceUntilIdle()
+
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("b1", "b2"), vm.pendingSourceRefreshIds.value)
+
+        // 用户确认刷新
+        var summaryMessage: String? = null
+        vm.confirmSourceRefresh { summaryMessage = it }
+        testScheduler.advanceUntilIdle()
+
+        // 确认状态已清除
+        assertEquals(null, vm.pendingSourceRefreshIds.value)
+        // 对更新书籍依次执行刷新
+        coVerify(exactly = 1) { mockImporter.refreshFromSource("b1") }
+        coVerify(exactly = 1) { mockImporter.refreshFromSource("b2") }
+        // 给出汇总反馈
+        assertTrue(summaryMessage!!.contains("已同步 2 本书的源文件更新"))
+    }
+
+    @Test
+    fun `confirming source refresh keeps failure reason instead of dropping it`() = runTest(mainDispatcher.scheduler) {
+        // S04：审查 P2 指出 Failed(message) 的原因被丢弃，用户只看到「N 本刷新失败：书名」，
+        // 不知道替换残留导致「本次已停止、重试无效」。本用例钉住原因随汇总带出的接线。
+        val mockSourceIndex = mockk<LibrarySourceIndex>()
+        val mockChecker = mockk<ShelfSourceUpdateChecker>()
+        val mockImporter = mockk<ShelfImporter>(relaxed = true)
+        // uiState 的 combine 会订阅导入器暴露的三个 StateFlow；relaxed mock 的 StateFlow
+        // 会让 combine 永不发射，书名查找只能回退「未知书籍」。显式钉住真实空流。
+        every { mockImporter.importTasks } returns MutableStateFlow(emptyList())
+        every { mockImporter.importBatch } returns MutableStateFlow(ImportBatchUiState())
+        every { mockImporter.importHistory } returns MutableStateFlow(emptyList())
+
+        val residue = "修复失败：检测到未完成的替换残留（x.backup），本次替换已停止；" +
+            "旧正文若仍存在，则未被本次操作修改，残留备份已保留。重复重试不会自动恢复该备份"
+        coEvery { mockSourceIndex.snapshot() } returns listOf(sourceRef("b1"), sourceRef("b2"), sourceRef("b3"))
+        coEvery { mockChecker.checkUpdated(any()) } returns setOf("b1", "b2", "b3")
+        coEvery { mockImporter.refreshFromSource("b1") } returns SourceRefreshResult.Success("《书1》正文已修复")
+        coEvery { mockImporter.refreshFromSource("b2") } returns SourceRefreshResult.Failed(residue)
+        coEvery { mockImporter.refreshFromSource("b3") } returns SourceRefreshResult.Failed(residue)
+
+        val vm = createVm(
+            books = listOf(book("b1", "书1"), book("b2", "书2"), book("b3", "书3")),
+            sourceIndex = mockSourceIndex,
+            sourceUpdateChecker = mockChecker,
+            shelfImporter = mockImporter,
+        )
+        // uiState 是 WhileSubscribed(5s)：生产中书架 UI 恒订阅它，confirmSourceRefresh
+        // 才能从 uiState 拿到书名；测试必须复现同样的订阅态，否则书名回退成「未知书籍」。
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        testScheduler.advanceUntilIdle()
+
+        vm.refresh()
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("b1", "b2", "b3"), vm.pendingSourceRefreshIds.value)
+
+        var summaryMessage: String? = null
+        vm.confirmSourceRefresh { summaryMessage = it }
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(null, vm.pendingSourceRefreshIds.value)
+        val message = summaryMessage!!
+        assertTrue("成功数如实统计: $message", message.contains("已同步 1 本书的源文件更新"))
+        assertTrue("失败书名保留: $message", message.contains("2 本刷新失败：书2、书3"))
+        assertTrue("失败原因必须随汇总带出: $message", message.contains("本次替换已停止"))
+        assertTrue("「反复重试无效」语义必须在: $message", message.contains("重复重试不会自动恢复该备份"))
+        assertTrue("备份未被销毁的事实必须在: $message", message.contains("残留备份已保留"))
+        // 不得引导用户删书 / 清备份 / 宣称能自动恢复
+        assertFalse("不得引导删书: $message", message.contains("删除"))
+        assertFalse("不得引导清空备份: $message", message.contains("清空"))
+        assertFalse("不得宣称能恢复: $message", message.contains("可以恢复"))
+    }
+
+    @Test
+    fun `refresh without source updates completes directly with feedback and without confirmation`() = runTest(mainDispatcher.scheduler) {
+        val mockSourceIndex = mockk<LibrarySourceIndex>()
+        val mockChecker = mockk<ShelfSourceUpdateChecker>()
+        val mockImporter = mockk<ShelfImporter>(relaxed = true)
+
+        coEvery { mockSourceIndex.snapshot() } returns listOf(sourceRef("b1"))
+        coEvery { mockChecker.checkUpdated(any()) } returns emptySet()
+
+        val vm = createVm(
+            books = listOf(book("b1", "测试书")),
+            sourceIndex = mockSourceIndex,
+            sourceUpdateChecker = mockChecker,
+            shelfImporter = mockImporter,
+        )
+        testScheduler.advanceUntilIdle()
+
+        var feedbackMessage: String? = null
+        vm.refresh { feedbackMessage = it }
+        testScheduler.advanceUntilIdle()
+
+        // 不触发确认状态
+        assertEquals(null, vm.pendingSourceRefreshIds.value)
+        // 正文刷新未调用
+        coVerify(exactly = 0) { mockImporter.refreshFromSource(any()) }
+        // 给出即时反馈
+        assertEquals("书架已是最新，没有检测到源文件更新", feedbackMessage)
     }
 }

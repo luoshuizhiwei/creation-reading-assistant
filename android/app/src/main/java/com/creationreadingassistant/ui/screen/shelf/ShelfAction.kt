@@ -96,6 +96,10 @@ internal sealed interface ShelfAction {
     data object CancelDeleteConfirm : ShelfAction
     data class ConfirmDelete(val ids: List<String>) : ShelfAction
 
+    // ========= 来源更新确认弹层 =========
+    data object CancelSourceRefreshConfirm : ShelfAction
+    data class ConfirmSourceRefresh(val bookIds: List<String>) : ShelfAction
+
     // ========= launcher 回传：Route 自己处理 activity result =========
     /** 文件选择器回传；Screen 不持有 launcher，仅作为 action 预留接口（Route 内部直连 ActivityResultLauncher）。 */
     data class ReselectFileResult(val bookId: String, val uri: Uri) : ShelfAction

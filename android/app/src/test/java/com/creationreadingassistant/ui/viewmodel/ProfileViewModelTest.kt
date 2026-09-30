@@ -50,7 +50,7 @@ import org.junit.Test
  * ProfileViewModel 单测：
  * - 首页仅订阅 homeSummary（窄投影），不得触发子页专用实体流
  *   （书籍 / 进度 / 会话 / 笔记完整实体、缓存统计）的收集。
- * - homeSummary 聚合口径正确（时长求和 / finished 或 >=99.5 完读 / 灵感条数）。
+ * - homeSummary 聚合口径正确（时长求和 / 显式 finished 完读（S05-①：残余 100%+reading 不算）/ 灵感条数）。
  * - libraryState 在被订阅（子页打开）后才收集实体流。
  */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -111,6 +111,7 @@ class ProfileViewModelTest {
 
         vm = ProfileViewModel(
             jsonBridge = mockk<JsonBridge>(relaxed = true),
+            legadoImporter = mockk<com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter>(relaxed = true),
             localZipBackup = mockk<LocalZipBackup>(relaxed = true),
             pairingManager = mockk<PairingManager>(relaxed = true),
             syncRepository = mockk<SyncRepository>(relaxed = true),
@@ -150,8 +151,11 @@ class ProfileViewModelTest {
         )
         progressRows.value = listOf(
             StatsProgressRow(book_id = "b1", progress_percent = 100f, completion_state = "finished"),
-            StatsProgressRow(book_id = "b2", progress_percent = 99.7f, completion_state = "reading"),
+            // S05-① 契约：完读计数以显式状态为准——b2 为真实读到末尾（数据层写 finished）
+            StatsProgressRow(book_id = "b2", progress_percent = 99.7f, completion_state = "finished"),
             StatsProgressRow(book_id = "b3", progress_percent = 10f, completion_state = "reading"),
+            // 取消读完后的残余 100%（reading）不得计入完读数
+            StatsProgressRow(book_id = "b4", progress_percent = 100f, completion_state = "reading"),
         )
         inspirationRows.value = listOf(StatsCreatedRow("2026-01-01T00:00:00Z"))
 
@@ -159,7 +163,7 @@ class ProfileViewModelTest {
         val summary = awaitSummary { it.totalDurationMs > 0 }
 
         assertEquals(90_000L, summary.totalDurationMs)
-        assertEquals(2, summary.completedBookCount) // finished + >=99.5
+        assertEquals(2, summary.completedBookCount) // 仅显式 finished（残余 100% + reading 不算）
         assertEquals(1, summary.inspirationCount)
 
         // 首页不得触发子页专用加载

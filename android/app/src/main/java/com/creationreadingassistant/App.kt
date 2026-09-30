@@ -88,6 +88,17 @@ class App : Application() {
             throw t
         }
         AppLog.i("App", "应用启动")
+        // 让系统按应用内主题解析本应用资源（API 31+）：启动窗口由 system_server 在进程
+        // 启动前创建，只有把显式选择交给系统，冷启动首帧才是正确的深浅。老装机（镜像已有显式值但
+        // 尚未同步给系统）也在这里收敛。默认/跟随系统模式不主动向系统写入 MODE_NIGHT_AUTO，
+        // 避免在定制 ROM 上将干净的跟随系统状态污染为 AUTO 自动调度。失败静默 —— 最坏退回旧行为，不影响启动。
+        runCatching {
+            val mode = com.creationreadingassistant.data.settings.BootMirror.themeMode(this)
+            if (mode != "system") {
+                com.creationreadingassistant.data.settings.BootMirror
+                    .applyApplicationNightMode(this, mode)
+            }
+        }
         // EPUB size 修复：进程级一次性懒启动任务（替代此前每个 ShelfViewModel 实例
         // init 各自触发一次的重复执行）。
         EntryPointAccessors.fromApplication(this, EpubRepairEntryPoint::class.java)

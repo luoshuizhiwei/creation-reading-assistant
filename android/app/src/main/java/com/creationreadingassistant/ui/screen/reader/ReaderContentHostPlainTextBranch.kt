@@ -19,8 +19,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -47,6 +49,7 @@ import com.creationreadingassistant.feature.reader.pager.loadScrollUnitContent
 import com.creationreadingassistant.feature.reader.rules.ScrollUnitProjection
 import com.creationreadingassistant.ui.theme.ShimmerBlock
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.launch
 
 /**
@@ -102,6 +105,34 @@ internal fun ReaderContentHostPlainTextBranch(
     // 单次轻点手势仲裁门：readOnly 文本域观察器按下时 claim，父级抬起时
     // consumeClaimIfAny；正文轻点走子路径，父层只负责空白/边距，避免双切换。
     val tapGate = remember { ReaderTapToggleGate() }
+    // S07-F5 D-3: 可见性失效（宿主层统一判断）
+    val latestSelectedRangeStart by rememberUpdatedState(state.selection.selectedRangeStart)
+    val latestReadingUnits by rememberUpdatedState(s.readingUnits)
+    val latestClearSelection by rememberUpdatedState(callbacks.onSelect)
+    val invalidationGate = remember { ScrollSelectionInvalidationGate() }
+    LaunchedEffect(s.plainListState) {
+        val listState = s.plainListState
+        snapshotFlow {
+            ScrollViewportSnapshot(
+                visibleUnitIndices = listState.layoutInfo.visibleItemsInfo
+                    .mapNotNull { info -> latestReadingUnits.getOrNull(info.index)?.unitIndex }
+                    .toSet(),
+                initialized = listState.layoutInfo.totalItemsCount > 0,
+            )
+        }
+            .distinctUntilChanged()
+            .collect { viewport ->
+                val decision = scrollSelectionInvalidation(
+                    selectedRangeStart = latestSelectedRangeStart,
+                    readingUnits = latestReadingUnits,
+                    visibleUnitIndices = viewport.visibleUnitIndices,
+                    viewportInitialized = viewport.initialized,
+                )
+                if (invalidationGate.shouldDispatch(decision)) {
+                    latestClearSelection("", -1, -1, -1)
+                }
+            }
+    }
     // 中央点击统一唤出/隐藏（父级 tap observation，不 consume）：TXT 滚动分支的
     // 重试点击（UnitTextFailedItem）优先消费；readOnly 文本域内的中央短按由
     // 子观察器（readerTextFieldCenterTapToToggle）负责，父层保留空白/边距路径。
@@ -204,6 +235,60 @@ private fun UnitTextFailedItem(
 }
 
 /**
+ * 某个滚动 ReadingUnit 是否**拥有** VM 当前的选区（S07-F2.2）。
+ */
+internal fun readingUnitOwnsSelection(
+    selectedRangeStart: Int,
+    unitSourceStartAbs: Int,
+    unitSourceEndAbs: Int,
+): Boolean =
+    unitSourceEndAbs > unitSourceStartAbs &&
+        selectedRangeStart >= unitSourceStartAbs &&
+        selectedRangeStart < unitSourceEndAbs
+
+/** 单元离开组合时是否应请求清空 VM 选区（S07-F2.2）。 */
+internal fun readingUnitShouldClearOnDispose(ownsSelection: Boolean): Boolean = ownsSelection
+
+/** 拥有选区的单元当前是否仍在可见范围内。 */
+internal enum class ScrollSelectionInvalidation {
+    KEEP, CLEAR, UNDECIDABLE,
+}
+
+/** 滚动 TXT 活动选区的可见性失效判定（纯函数，宿主层统一判断）。 */
+internal fun scrollSelectionInvalidation(
+    selectedRangeStart: Int,
+    readingUnits: List<ReadingUnit>,
+    visibleUnitIndices: Set<Int>,
+    viewportInitialized: Boolean,
+): ScrollSelectionInvalidation {
+    if (selectedRangeStart < 0) return ScrollSelectionInvalidation.KEEP
+    if (!viewportInitialized) return ScrollSelectionInvalidation.UNDECIDABLE
+    val owner = readingUnits.firstOrNull { unit ->
+        unit.charCount > 0 &&
+            selectedRangeStart >= unit.charStart &&
+            selectedRangeStart < unit.charStart + unit.charCount
+    } ?: return ScrollSelectionInvalidation.CLEAR
+    return if (owner.unitIndex in visibleUnitIndices) ScrollSelectionInvalidation.KEEP
+    else ScrollSelectionInvalidation.CLEAR
+}
+
+/** 可见性失效的**去重门**：一次失效只派发一次清除。 */
+internal class ScrollSelectionInvalidationGate {
+    private var invalidated = false
+    fun shouldDispatch(decision: ScrollSelectionInvalidation): Boolean {
+        val dispatch = decision == ScrollSelectionInvalidation.CLEAR && !invalidated
+        invalidated = decision == ScrollSelectionInvalidation.CLEAR
+        return dispatch
+    }
+}
+
+/** 宿主层观测到的滚动视口快照。 */
+private data class ScrollViewportSnapshot(
+    val visibleUnitIndices: Set<Int>,
+    val initialized: Boolean,
+)
+
+/**
  * 滚动 TXT 单条 ReadingUnit 的纯渲染（TTS 高亮 + 选区 + BasicTextField）。
  * 文本和坐标映射由 [ScrollUnitContentLoader] 在 IO 线程加载。display 仅用于
  * 渲染；持久化定位始终映射回 source 全局坐标。
@@ -294,6 +379,23 @@ private fun ReaderUnitTextItem(
         }
     }
     var selection by remember(content.sourceStartAbs) { mutableStateOf(TextRange.Zero) }
+    // S07-F2.2: 单元被 LazyColumn 回收 / 身份替换时，若它**拥有** VM 当前选区，
+    // 必须请求清空——否则工具栏会继续引用不可见单元的选区文本。
+    val ownsCurrentSelection by rememberUpdatedState(
+        readingUnitOwnsSelection(
+            selectedRangeStart = selectionState.selectedRangeStart,
+            unitSourceStartAbs = content.sourceStartAbs,
+            unitSourceEndAbs = content.sourceEndAbs,
+        ),
+    )
+    val latestClearSelection by rememberUpdatedState(callbacks.onSelect)
+    DisposableEffect(content.sourceStartAbs) {
+        onDispose {
+            if (readingUnitShouldClearOnDispose(ownsCurrentSelection)) {
+                latestClearSelection("", -1, -1, -1)
+            }
+        }
+    }
     BasicTextField(
         value = TextFieldValue(annotatedString = annotated, selection = selection),
         onValueChange = { value ->
@@ -309,7 +411,13 @@ private fun ReaderUnitTextItem(
                     content.localDisplayToGlobalSource(selectionStart),
                     content.localDisplayToGlobalSource(selectionEnd),
                 )
-            } else if (selectionState.selectedRangeStart in content.sourceStartAbs until content.sourceEndAbs) {
+            } else if (
+                readingUnitOwnsSelection(
+                    selectedRangeStart = selectionState.selectedRangeStart,
+                    unitSourceStartAbs = content.sourceStartAbs,
+                    unitSourceEndAbs = content.sourceEndAbs,
+                )
+            ) {
                 callbacks.onSelect("", -1, -1, -1)
             }
         },

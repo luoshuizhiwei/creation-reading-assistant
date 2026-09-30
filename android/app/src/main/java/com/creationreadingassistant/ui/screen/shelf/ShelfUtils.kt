@@ -1,5 +1,7 @@
 package com.creationreadingassistant.ui.screen.shelf
 
+import com.creationreadingassistant.data.settings.DurationUnit
+
 /**
  * 将字节数格式化为 `KB` / `MB` 字符串（书架专用，size 为 Int）。
  *
@@ -12,9 +14,9 @@ internal fun formatBytes(size: Int): String {
     return if (kb < 1024) "%.1f KB".format(kb) else "%.2f MB".format(kb / 1024)
 }
 
-/** 将毫秒时长格式化为「X 天 Y 小时」/「X 小时 Y 分钟」/「Y 分钟」（委托 ui/util 公共实现）。 */
-internal fun formatDuration(ms: Long): String =
-    com.creationreadingassistant.ui.util.formatDuration(ms)
+/** 毫秒时长格式化（委托 ui/util 公共实现）。[unit] 默认小时，长按展示位可切到天。 */
+internal fun formatDuration(ms: Long, unit: DurationUnit = DurationUnit.HOURS): String =
+    com.creationreadingassistant.ui.util.formatDuration(ms, unit)
 
 /**
  * 生成文字封面 DataURL（SVG），对齐网页版 BookDetailSheet.generateTextCoverDataUrl。

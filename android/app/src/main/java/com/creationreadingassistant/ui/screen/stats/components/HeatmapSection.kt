@@ -39,6 +39,8 @@ import com.creationreadingassistant.ui.theme.LocalComponentSpec
 import com.creationreadingassistant.ui.theme.PillShape
 import com.creationreadingassistant.ui.theme.animateEnter
 import com.creationreadingassistant.ui.theme.rememberReducedMotion
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.durationUnitToggle
 import java.time.LocalDate
 import kotlin.math.ceil
 
@@ -87,10 +89,16 @@ internal fun HeatmapSection(
                         ),
                     ) {
                         Text(
-                            text = if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs)}" else "近一年暂无阅读",
+                            text = if (activeDays > 0) "$activeDays 天开卷 · ${formatCompactDuration(totalMs, LocalDurationUnit.current)}" else "近一年暂无阅读",
                             style = MaterialTheme.typography.labelSmall,
                             color = scheme.onSurfaceVariant,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                            // 整张热力图只有这一个汇总口径的时长入口。
+                            //
+                            // 365 个格子各自成为入口会让 TalkBack 在同屏读到 365 个
+                            // 同名操作，故单日格子刻意不挂；时长单位由本汇总胶囊统一切换。
+                            modifier = Modifier
+                                .durationUnitToggle()
+                                .padding(horizontal = 8.dp, vertical = 4.dp),
                         )
                     }
                 },

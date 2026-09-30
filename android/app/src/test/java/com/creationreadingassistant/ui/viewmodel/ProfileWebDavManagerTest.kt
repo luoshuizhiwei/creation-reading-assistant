@@ -2,6 +2,7 @@ package com.creationreadingassistant.ui.viewmodel
 
 import android.content.Context
 import com.creationreadingassistant.feature.sync.JsonBridge
+import com.creationreadingassistant.feature.sync.LegadoReadingProgressImporter
 import com.creationreadingassistant.feature.sync.WebDavBackup
 import com.creationreadingassistant.feature.sync.WebDavConfigStore
 import io.mockk.coEvery
@@ -17,14 +18,42 @@ import org.junit.Test
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class ProfileWebDavManagerTest {
 
+    @Test
+    fun `real namespaced WebDAV scan returns legado zip and keeps native json listing separate`() = runTest {
+        val server = okhttp3.mockwebserver.MockWebServer()
+        server.start()
+        try {
+            val xml = """
+                <D:multistatus xmlns:D="DAV:">
+                  <D:response><D:href>/dav/backup-controlled.zip</D:href><D:propstat><D:prop>
+                    <D:displayname>backup-controlled.zip</D:displayname><D:getcontentlength>123</D:getcontentlength>
+                  </D:prop></D:propstat></D:response>
+                  <D:response><D:href>/dav/cra-backup-latest.json</D:href><D:propstat><D:prop>
+                    <D:displayname>cra-backup-latest.json</D:displayname><D:getcontentlength>45</D:getcontentlength>
+                  </D:prop></D:propstat></D:response>
+                </D:multistatus>
+            """.trimIndent()
+            server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(207).setBody(xml))
+            server.enqueue(okhttp3.mockwebserver.MockResponse().setResponseCode(207).setBody(xml))
+            every { configStore.config } returns WebDavConfigStore.Config(server.url("/dav/").toString(), "qa", "qa")
+            val realBackup = WebDavBackup()
+            val realManager = ProfileWebDavManager(configStore, realBackup, jsonBridge, legadoImporter)
+            assertEquals(listOf("backup-controlled.zip"), realManager.listLegadoBackups()!!.getOrThrow().map { it.name })
+            assertEquals(listOf("cra-backup-latest.json"), realManager.listBackups()!!.getOrThrow().map { it.name })
+        } finally {
+            server.shutdown()
+        }
+    }
+
     private val configStore = mockk<WebDavConfigStore>(relaxed = true)
     private val webDavBackup = mockk<WebDavBackup>(relaxed = true)
     private val jsonBridge = mockk<JsonBridge>(relaxed = true)
+    private val legadoImporter = mockk<LegadoReadingProgressImporter>(relaxed = true)
     private val context = mockk<Context>(relaxed = true)
 
     private val cfg = WebDavConfigStore.Config("https://dav.example.com/dav", "user", "pass")
 
-    private fun manager() = ProfileWebDavManager(configStore, webDavBackup, jsonBridge)
+    private fun manager() = ProfileWebDavManager(configStore, webDavBackup, jsonBridge, legadoImporter)
 
     @Test
     fun `backup without config fails with guidance message`() = runTest {
@@ -79,6 +108,18 @@ class ProfileWebDavManagerTest {
         val result = manager().test()
 
         assertEquals("WebDAV 连接成功（HTTP 200）", result.getOrNull())
+    }
+
+    @Test
+    fun `test with overrideConfig uses overrideConfig instead of store`() = runTest {
+        every { configStore.config } returns null
+        val overrideCfg = WebDavConfigStore.Config("https://override.example.com/dav", "u2", "p2")
+        coEvery { webDavBackup.test(overrideCfg.url, overrideCfg.user, overrideCfg.pass) } returns Result.success("连接成功（HTTP 200）")
+
+        val result = manager().test(overrideCfg)
+
+        assertEquals("WebDAV 连接成功（HTTP 200）", result.getOrNull())
+        coVerify(exactly = 1) { webDavBackup.test("https://override.example.com/dav", "u2", "p2") }
     }
 
     @Test

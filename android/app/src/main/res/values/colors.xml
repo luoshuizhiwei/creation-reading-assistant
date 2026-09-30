@@ -1,2 +1,9 @@
 <resources>
+    <!--
+        启动窗口背景色：Compose 首帧之前的窗口底色。
+        必须与 Compose 侧主题的 surface 一致，否则冷启动会闪一帧异色
+        （浅色下白、深色下深灰；具体色值对齐 ui/theme 的浅/深 surface）。
+    -->
+    <color name="boot_window_background">#F6F2EA</color>
+    <color name="boot_window_background_dark">#1A1917</color>
 </resources>

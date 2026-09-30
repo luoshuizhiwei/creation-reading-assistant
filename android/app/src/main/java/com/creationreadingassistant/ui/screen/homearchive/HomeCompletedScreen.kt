@@ -67,6 +67,10 @@ import com.creationreadingassistant.ui.components.SelectablePill
 import com.creationreadingassistant.ui.layout.LocalLayoutTokens
 import com.creationreadingassistant.ui.screen.shelf.BookActionSheet
 import com.creationreadingassistant.ui.screen.shelf.bookNotReadyLabel
+import com.creationreadingassistant.ui.screen.shelf.durationUnitPill
+import com.creationreadingassistant.ui.util.DurationText
+import com.creationreadingassistant.ui.util.LocalDurationUnit
+import com.creationreadingassistant.ui.util.formatDuration
 import com.creationreadingassistant.ui.viewmodel.BookOperationsViewModel
 import com.creationreadingassistant.ui.viewmodel.CompletedArchiveItem
 import com.creationreadingassistant.ui.viewmodel.HomeArchiveViewModel
@@ -136,6 +140,12 @@ fun HomeCompletedRoute(
             },
             onOpenDetail = { id -> managedBook = null; navController.navigate("shelf/detail/$id") },
             onDelete = { managedBook = null; deletePrompt = managed },
+            onCancelFinished = { book ->
+                bookOps.restoreReading(book.id) { success, message ->
+                    if (success) managedBook = null
+                    else android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                }
+            },
         )
     }
     val deleting = deletePrompt
@@ -239,8 +249,8 @@ internal fun CompletedStatsIsland(
                             modifier = Modifier.size(13.dp),
                             tint = Color(0xFFD97706),
                         )
-                        Text(
-                            text = formatReadingTime(totalReadingTimeMs),
+                        DurationText(
+                            ms = totalReadingTimeMs,
                             style = MaterialTheme.typography.labelMedium,
                             fontWeight = FontWeight.SemiBold,
                             color = Color(0xFFD97706),
@@ -380,6 +390,9 @@ internal fun CompletedArchiveScreen(
     }
 }
 
+/** 已读书籍卡片时长 pill 的测试钩子。 */
+internal const val COMPLETED_DURATION_PILL_TAG = "completed-duration-pill"
+
 @Composable
 internal fun CompletedBookCard(
     item: CompletedArchiveItem,
@@ -500,6 +513,7 @@ internal fun CompletedBookCard(
                             shape = RoundedCornerShape(6.dp),
                             color = Color(0xFFF59E0B).copy(alpha = 0.14f),
                             border = BorderStroke(0.6.dp, Color(0xFFF59E0B).copy(alpha = 0.3f)),
+                            modifier = Modifier.durationUnitPill(COMPLETED_DURATION_PILL_TAG) { onOpen() },
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
@@ -513,7 +527,7 @@ internal fun CompletedBookCard(
                                     tint = Color(0xFFD97706),
                                 )
                                 Text(
-                                    text = formatReadingTime(item.progress.total_reading_time_ms),
+                                    text = formatDuration(item.progress.total_reading_time_ms, LocalDurationUnit.current),
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Medium,
                                     color = Color(0xFFD97706),

@@ -185,6 +185,16 @@ interface SearchIndexCoverageDao {
     @Query("SELECT COUNT(*) FROM search_index_coverage WHERE coverage IN (:states)")
     suspend fun countByStates(states: List<String>): Long
 
+    /**
+     * coverage 表里出现过的全部 book_id（去重、无序）。
+     *
+     * 孤儿回收必须同时枚举 `search_terms` 与 `search_index_coverage` 两张表的 book_id：
+     * 一本已删的书可能只剩下 coverage 行（`search_terms` 已空），只扫 term 表会漏掉它，
+     * 让孤儿 coverage 永久残留、并让「已索引书籍数量」虚高。
+     */
+    @Query("SELECT DISTINCT book_id FROM search_index_coverage")
+    suspend fun distinctBookIds(): List<String>
+
     @Query("DELETE FROM search_index_coverage WHERE book_id = :bookId")
     suspend fun deleteByBook(bookId: String)
 
