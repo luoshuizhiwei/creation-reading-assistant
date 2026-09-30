@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, FileText } from "lucide-react";
-import { Tabs } from "@/components/ui";
+import { Button, Tabs } from "@/components/ui";
 import type {
   CreationOutlineChapter,
   CreationProjectOutline,
@@ -312,9 +312,9 @@ export function CardBoard({
               </option>
             ))}
           </select>
-          <button type="button" disabled={!batchStatus} onClick={() => setPendingOp({ type: "batchStatus", status: batchStatus })}>
+          <Button size="sm" variant="tonal" disabled={!batchStatus} onClick={() => setPendingOp({ type: "batchStatus", status: batchStatus })}>
             应用
-          </button>
+          </Button>
         </div>
       )}
       <div className="card-board-scroll">
