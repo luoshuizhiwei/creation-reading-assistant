@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { ChevronLeft, Settings2, X } from "lucide-react";
+import { Button } from "@/components/ui";
 import { ReaderSettingsMorePanel } from "@/features/library/ReaderSettingsMorePanel";
 import { ReaderSettingsPanel } from "@/features/library/ReaderSettingsPanel";
 import { resetReaderSettings } from "@/services/settings-service";
@@ -82,14 +83,14 @@ export function ReaderSettingsDrawer({
                 onAfterChange();
               }}
             />
-            <button
-              type="button"
-              className="mt-5 flex w-full items-center justify-center gap-2 rounded-lg border border-paper-line bg-paper-soft/40 py-2 text-sm text-paper-muted transition hover:border-copper/50 hover:text-paper-ink"
+            <Button
+              variant="outline"
+              className="mt-5 w-full"
               onClick={() => setView("more")}
             >
               <Settings2 size={15} />
               更多设置
-            </button>
+            </Button>
           </>
         ) : (
           <ReaderSettingsMorePanel

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ShellPanel } from "@/components/ui";
+import { Button, ShellPanel } from "@/components/ui";
 import { ReaderSidePanel, type SidePanelTab } from "@/features/library/ReaderSidePanel";
 import type { BookmarkItem, EpubTocItem, HighlightItem } from "@/types/library";
 
@@ -59,9 +59,7 @@ export function EpubSidePanel({
     return (
       <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
         <div className="grid gap-3">
-          <button className="rounded-md border border-paper-line bg-paper-panel p-2 text-xs text-paper-muted hover:text-paper-ink" onClick={onExpand}>
-            目录
-          </button>
+          <Button variant="outline" size="sm" onClick={onExpand}>目录</Button>
           <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
         </div>
       </ShellPanel>
