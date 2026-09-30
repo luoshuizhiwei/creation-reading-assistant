@@ -830,15 +830,12 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                 <div className="flex items-center justify-between gap-1 text-xs">
                   <span className="truncate text-paper-ink font-medium">{ch.title}</span>
                   <div className="flex items-center gap-0.5 shrink-0">
-                    <button
-                      className="rounded px-1.5 py-0.5 text-paper-muted hover:bg-paper-soft hover:text-paper-ink"
-                      onClick={() => {
-                        setRenamingIndex(i);
-                        setRenameValue(ch.title);
-                      }}
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => {
+                      setRenamingIndex(i);
+                      setRenameValue(ch.title);
+                    }}>
                       重命名
-                    </button>
+                    </Button>
                     <button
                       className={`rounded px-1.5 py-0.5 ${splitIndex === i ? "bg-copper text-white" : "text-paper-muted hover:bg-paper-soft hover:text-paper-ink"}`}
                       onClick={() => setSplitIndex((cur) => (cur === i ? null : i))}
@@ -1075,12 +1072,9 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
         {tocCollapsed ? (
           <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
             <div className="grid gap-3">
-              <button
-                className="rounded-md border border-paper-line bg-paper-panel p-2 text-xs text-paper-muted hover:text-paper-ink"
-                onClick={() => setTocCollapsed(false)}
-              >
+              <Button variant="outline" size="sm" onClick={() => setTocCollapsed(false)}>
                 目录
-              </button>
+              </Button>
               <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
             </div>
           </ShellPanel>
