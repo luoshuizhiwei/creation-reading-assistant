@@ -1,5 +1,5 @@
 import { Check, Copy, Save, Sparkles, X } from "lucide-react";
-import { Select } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { AI_LABELS, STATUS_LABELS, TYPE_LABELS, type InboxDraft, type SaveStatus } from "./types";
 import type { InboxItem } from "@/types/creation";
 import type { AISettings } from "@/types/ai";
@@ -67,13 +67,14 @@ export function InboxItemDetail({
               ? "未保存"
               : "只读"}
           </span>
-          <button
-            type="button"
+          <Button
+            size="sm"
+            variant="tonal"
             onClick={onSaveDraft}
             disabled={saveStatus === "saving"}
           >
             <Save size={15} /> 保存
-          </button>
+          </Button>
         </div>
       </div>
 
@@ -196,15 +197,21 @@ export function InboxItemDetail({
             {(
               Object.entries(AI_LABELS) as Array<[InspirationVariantKind, string]>
             ).map(([action, label]) => (
-              <button
+              <Button
                 key={action}
-                type="button"
+                size="sm"
+                variant="outline"
+                // 左对齐：原 grid 族规则里有 justify-content:flex-start，容器仍用
+                // grid 撑满整行，所以文字必须回到左侧。`!` 不是多余的：Tailwind
+                // 同类工具按「值」排序发射，justify-start 排在组件 base 的
+                // justify-center 之前，不加 important 会被 base 压掉（实测发射顺序）。
+                className="!justify-start"
                 disabled={isAIRunning || Boolean(aiBusy)}
                 onClick={() => onRequestAI(action)}
               >
-                <Sparkles size={15} />
+                <Sparkles size={15} className="text-copper" />
                 {aiBusy === action ? "生成中..." : label}
-              </button>
+              </Button>
             ))}
           </div>
         )}
@@ -233,33 +240,27 @@ export function InboxItemDetail({
                       {AI_LABELS[kind]} · {model}
                       {createdAt && <span className="ml-2 text-paper-muted">{createdAt}</span>}
                     </div>
-                    <button
-                      type="button"
-                      className="shrink-0 rounded-full p-0.5 text-paper-muted transition hover:bg-red-50 hover:text-red-700"
+                    <Button
+                      variant="icon"
+                      size="sm"
+                      className="shrink-0"
                       title="移除候选"
+                      aria-label="移除候选"
                       onClick={() => void onRemoveVariant(String(variant.id))}
                     >
                       <X size={14} />
-                    </button>
+                    </Button>
                   </div>
                   <div className="line-clamp-[8] whitespace-pre-wrap text-sm leading-7 text-paper-ink">
                     {content}
                   </div>
                   <div className="mt-3 flex gap-2">
-                    <button
-                      type="button"
-                      className="px-2 text-xs"
-                      onClick={() => void onCopyVariant(content)}
-                    >
+                    <Button size="sm" variant="outline" onClick={() => void onCopyVariant(content)}>
                       <Copy size={12} /> 复制
-                    </button>
-                    <button
-                      type="button"
-                      className="px-2 text-xs"
-                      onClick={() => void onAdoptVariant(variant)}
-                    >
+                    </Button>
+                    <Button size="sm" variant="tonal" onClick={() => void onAdoptVariant(variant)}>
                       <Check size={12} /> 采纳为正文
-                    </button>
+                    </Button>
                   </div>
                 </article>
               );

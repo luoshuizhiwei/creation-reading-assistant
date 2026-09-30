@@ -1442,85 +1442,36 @@ select:focus-visible,
   background: color-mix(in srgb, #b9770e 15%, transparent);
 }
 
-.inbox-detail-head button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--accent-spine) 42%, var(--border-strong));
-  border-radius: 8px;
-  background: var(--bg-surface);
-  color: var(--accent-spine);
-  font-size: 12.5px;
-  font-weight: 650;
-  padding: 6px 13px;
-  cursor: pointer;
-  transition: background-color 140ms ease, box-shadow 140ms ease, transform 140ms ease;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.5);
-}
-
-.inbox-detail-head button:hover:not(:disabled) {
-  background: var(--accent-hover);
-}
-
-.inbox-detail-head button:active:not(:disabled) {
-  transform: translateY(0);
-  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
-}
-
-.inbox-detail-head button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-/* AI actions: a column of quiet instruments under the editor's note. */
-.inbox-detail div.mt-3.grid button,
-.inbox-detail div.mt-3.flex button {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 5px;
-  border: 1px solid var(--border-subtle);
-  border-radius: 8px;
-  background: var(--bg-surface);
-  color: var(--text-main);
-  font-size: 12px;
-  font-weight: 600;
-  padding: 7px 10px;
-  cursor: pointer;
-  transition: border-color 140ms ease, background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
-}
-
-.inbox-detail div.mt-3.grid button {
-  justify-content: flex-start;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.45);
-}
-
-.inbox-detail div.mt-3.grid button svg {
-  color: var(--accent-spine);
-}
-
-.inbox-detail div.mt-3.grid button:hover:not(:disabled),
-.inbox-detail div.mt-3.flex button:hover {
-  border-color: color-mix(in srgb, var(--accent-spine) 38%, var(--border-subtle));
-  background: var(--accent-hover);
-}
-
-.inbox-detail div.mt-3.grid button:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.inbox-detail div.mt-3.flex button:first-child svg {
-  color: var(--text-muted);
-}
-
-.inbox-detail div.mt-3.flex button:last-child {
-  color: var(--accent-spine);
-}
-
-.inbox-detail div.mt-3.flex button:last-child svg {
-  color: var(--accent-spine);
-}
+/* 第 6 步 page 17：InboxItemDetail 的 4 组动作（保存 / 5 个 AI 生成 / 复制 / 采纳为正文 /
+   移除候选）已迁到共享 <Button>，容器内再无裸 button，下面两族 14 条选择器（12 个规则块）
+   整组下线。
+   口径记录：
+   - .inbox-detail-head button（4 条）：--accent-spine(=--action-primary) 蓝字 +
+     --bg-surface 底 + hover 得 --accent-hover（别名实表里 --accent-hover: var(--action-tint)，
+     即 tonal 的静息底）。也就是说 hover 才出现的淡主色底，正是 tonal 的静息态；
+     取 tonal sm。「保存」是本视图唯一主操作，但它是"暂存草稿"而非"提交"，且同屏没有
+     其它实心按钮竞争，保持原来的淡底观感优先于升 primary。
+     去掉的 inset 高光违反 §2.5（按钮一律无阴影），active 的 translateY(0) 只是抵消
+     旧位移，也是空规则。
+   - .inbox-detail div.mt-3.grid / .flex button（9 条）：静息 --border-subtle 边 +
+     --bg-surface 底 + --text-main 字，hover 边转 accent 38% + 底转 --action-tint——
+     即描边弱填充档，取 outline sm；「采纳为正文」被 :last-child 单独上了 --accent-spine
+     蓝字，是这一行里唯一的确认动作，取 tonal sm（与 StatsPage/InboxItemList 的
+     "淡主色底=tonal"判定一致）。
+   - grid 族的 justify-content:flex-start：容器仍是 grid（要撑满整行的竖向排列），
+     所以组件加 !justify-start 把文字压回左侧。必须带 `!`：Tailwind 把同类工具按
+     「值」排序发射，justify-start 排在 base 的 justify-center 之前。
+   - grid 族的 button svg{color:--accent-spine}：规则下线后 Sparkles 会掉回继承色，
+     按仓内既有做法（InspirationPage / StorageSection / ExcerptPicker）在图标上显式
+     className="text-copper"。
+   - 「移除候选」的 × 原本是 B 桶裸图标，但它被 .inbox-detail div.mt-3.grid button
+     (0,3,2) 捕获，自带的 rounded-full / p-0.5 / hover:bg-red-50 三条工具类
+     (0,1,0~0,2,0) 全部被压掉——即此前它渲染成一个带边框的方块图标按钮，作者意图
+     从未生效。族规则下线后那些类会突然生效（圆形+红色 hover），等于换了一套外观；
+     因此一并迁到 variant="icon"（28×28、p-0、hover 得 --surface-2），并补 aria-label
+     「移除候选」满足 §2.1 对图标按钮的强制要求。红色 hover 不保留：§2.1 里红色只留给
+     真危险操作，而移除候选可撤销、且同族的「移出」早已统一为 danger-outline。
+   - disabled 透明度 .55 -> 组件 disabled:opacity-55，同值。 */
 
 /* --------------------------------------------------------------------------
  * Global search: a command tray over a dimmed study
