@@ -440,7 +440,14 @@ for (const p of allSource.filter((x) => x.endsWith(".tsx"))) {
 // 会把大量根本碰不到迁移元素的规则报成违规。直接父级才是「这条规则会压到谁」的
 // 准确判据，宿主类名也是按「该元素内部有 <Button>」记的，两者口径一致。
 const BUTTON_COMBINATOR = String.raw`(?:[ \t]*[>+~][ \t]*|[ \t]+)`;
-const BUTTON_PARENT = new RegExp(String.raw`([^\s>+~]+)` + BUTTON_COMBINATOR + String.raw`button\b`);
+/**
+ * 必须带 i 标志：HTML 里元素名匹配是大小写不敏感的，所以 CSS 选择器 `.x Button`
+ * 真的会命中 <button>。用 jsdom 实测过（`.foo BUTTON` 的 background 生效在
+ * <button> 上）。不带 i 就会整条漏掉——本仓 editorial-studio.css 的
+ * `.migration-banner Button` 正是这种写法，守卫一直看不见它，
+ * 于是它用 !important 把已迁移 <Button> 的 hover 底色钉死，也没人报。
+ */
+const BUTTON_PARENT = new RegExp(String.raw`([^\s>+~]+)` + BUTTON_COMBINATOR + String.raw`button\b`, "i");
 const CLASS_IN_COMPOUND = /\.[\w-]+/g;
 
 /**
@@ -534,9 +541,20 @@ const LEGACY_DESCENDANT_BUTTON = new Set([
   "src/styles/editorial-studio.css :: desktop-page-actions"
 ]);
 
-// 排除判据必须是 :not([data-variant —— 带引号值的形式（:not([data-variant="quiet"])）
-// 也算已排除；把 ] 写进 needle 会一条都匹配不上，等于检查失效。
-const isExcluded = (sel) => sel.includes(":not([data-variant");
+/**
+ * 只承认「裸排除」`:not([data-variant])`——它排除的是所有 <Button>。
+ *
+ * 这里原本写成 `:not([data-variant`，把带值的形式也算已排除，理由是「怕 needle
+ * 里的 ] 匹配不上导致检查失效」。那个担心是反的：带值排除恰恰不安全。
+ * `.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"])`
+ * 排掉了 quiet/ghost，却仍然命中首子是默认 primary 的 <Button>——ProjectHomePage
+ * 的「新建项目」正是这种按钮，它的底色/圆角/内边距一直被这条 (0,1,1) 规则压着。
+ * 按旧判据它算「已排除」，于是 12 条里只报 8 条，棘轮显示的债务比真实少 4 条，
+ * 而第 8 步「迁移对应页面时收口」正是照着这个数字排工期的。
+ * 改成精确串匹配后裸形式照样能匹配到（`.includes(":not([data-variant])")`），
+ * 不存在匹配不上的问题。
+ */
+const isExcluded = (sel) => sel.includes(":not([data-variant])");
 
 let legacyHits = 0;
 const newHits = [];

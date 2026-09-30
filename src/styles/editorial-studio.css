@@ -2830,10 +2830,19 @@ input[type="text"],
   background: var(--surface-1) !important;
 }
 
-.migration-banner Button {
-  background: var(--action-primary) !important;
-  border-color: var(--action-primary) !important;
-}
+/* 已删除 `.migration-banner Button { background/border-color: var(--action-primary) !important }`
+   （第 8 步批次 B）。两个理由：
+   1) 它本该被守卫看见却看不见——选择器写的是 PascalCase 的 `Button`，而 HTML 元素名
+      匹配大小写不敏感，`.x Button` 真的命中 <button>（jsdom 实测）。守卫的
+      BUTTON_PARENT 原本不带 i 标志，整条漏检，于是这条规则用 !important 把已迁移
+      <Button> 的状态钉死，长期没人报。
+   2) 它是零收益的伤害：横幅里唯一吃到它的是「查看迁移」，即默认 primary <Button>，
+      组件 rest 底色 = bg-copper = rgb(var(--rgb-accent)) = #315f9b / 夜校 #7fa5d9，
+      与 var(--action-primary) 两主题逐字节相同，rest 外观毫无变化；被 !important
+      压掉的却是 hover:bg-copper-dark（晨 #274d7e 8.57:1、夜 #94b4e0 8.36:1），
+      也就是「只把 hover 弄没，不带来任何视觉」。
+   旁边的关闭按钮 .migration-banner-dismiss 是裸 <button>，没有 data-variant，
+   本来就不吃这条，样式仍由 3102/3320 两处负责。 */
 
 /* 写作区背景扁平化：去掉纸面上方硬编码白辉光（规格：核心工作区无渐变）。 */
 .writing-scroll {
