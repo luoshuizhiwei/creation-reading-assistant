@@ -1,4 +1,5 @@
 import { Target } from "lucide-react";
+import { Button } from "@/components/ui";
 import type { SceneRadarData } from "@/features/creation/editor/scene-radar";
 import "@/features/creation/editor/scene-radar.css";
 
@@ -29,7 +30,7 @@ export function SceneRadar({ radar, onOpenOutline }: SceneRadarProps) {
         <div className="scene-radar-empty">
           <Target size={16} />
           <p>这个场景还没有任务卡。在大纲页记录视角、时间、地点、目标与冲突，写作时雷达会在这里汇总。</p>
-          <button type="button" onClick={onOpenOutline}>前往大纲填写</button>
+          <Button size="sm" variant="outline" onClick={onOpenOutline}>前往大纲填写</Button>
         </div>
       )}
 

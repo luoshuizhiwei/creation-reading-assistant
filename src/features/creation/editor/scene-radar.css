@@ -50,20 +50,15 @@
   color: var(--studio-seal);
 }
 
-.scene-radar-empty button {
-  padding: 4px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: 7px;
-  background: var(--bg-surface);
-  color: var(--text-main);
-  font-size: 12px;
-  cursor: pointer;
-}
-
-.scene-radar-empty button:hover {
-  border-color: var(--studio-seal);
-  color: var(--studio-seal);
-}
+/* 空态里的「前往大纲填写」已迁到共享 <Button size="sm" variant="outline">（第 6 步
+   page 18），本容器内已无裸 button，原 .scene-radar-empty button 与 :hover 两条后代
+   规则整组下线。口径：静息 --border-strong 边 + --bg-surface 底 + --text-main 字
+   = 中性描边档，正是 outline。
+   有一处可见变化，是刻意的：原 hover 把边框和文字换成 --studio-seal，而别名实表里
+   --studio-seal: var(--proof-mark) —— 一个"去填大纲"的引导按钮在悬停时变校样红。
+   §2.1 把红色限定为批注/校对/危险语义，这属于误用，迁移后回到 outline 的中性 hover。
+   上方 .scene-radar-empty svg{color:--studio-seal} 保留：它命中的是空态里的 Target
+   图标（印章红是"待办印记"的既有语义），不是按钮。 */
 
 .scene-radar-grid {
   display: grid;
