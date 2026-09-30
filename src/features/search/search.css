@@ -185,10 +185,10 @@
 }
 
 .uni-result-pending {
-  border: 1px solid color-mix(in srgb, #b9770e 45%, var(--paper-line));
+  border: 1px solid color-mix(in srgb, var(--warning) 45%, var(--paper-line));
   border-radius: 999px;
-  background: color-mix(in srgb, #b9770e 12%, var(--paper-panel));
-  color: #b9770e;
+  background: color-mix(in srgb, var(--warning) 10%, var(--paper-panel));
+  color: var(--warning);
   font-size: 10px;
   font-style: normal;
   font-weight: 700;

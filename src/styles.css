@@ -1880,7 +1880,10 @@ button:disabled {
 .creation-wizard-steps li.done span {
   border-color: var(--moss);
   background: var(--moss);
-  color: #fff;
+  /* 不能写死 #fff：夜校 --success 现在是浅绿 #7fb899，白字压上去只有 2.28:1。
+     这处原本靠「绿只有一支深色」才成立；令牌补齐两主题后必须跟着走 --fg-on-solid
+     （晨校 = #ffffff，逐字节零变化；夜校 = #15181c，7.82:1）。 */
+  color: var(--fg-on-solid);
 }
 
 .creation-wizard-body {

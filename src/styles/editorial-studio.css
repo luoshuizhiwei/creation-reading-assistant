@@ -52,7 +52,7 @@ select:focus-visible,
   --text-tertiary: var(--text-meta);
   --accent: var(--accent-spine);
   --accent-primary: var(--accent-spine);
-  --warning-text: #8a5a16;
+  --warning-text: var(--warning);
 }
 
 /* --------------------------------------------------------------------------
@@ -1448,8 +1448,8 @@ select:focus-visible,
 }
 
 .inbox-save-status--unsaved {
-  color: #8a5a16;
-  background: color-mix(in srgb, #b9770e 15%, transparent);
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 10%, transparent);
 }
 
 /* 第 6 步 page 17：InboxItemDetail 的 4 组动作（保存 / 5 个 AI 生成 / 复制 / 采纳为正文 /
@@ -3240,9 +3240,9 @@ input[type="text"],
 .outline-scene-status--drafting,
 .card-board-card-status--drafting { color: var(--action-primary); }
 .outline-scene-status--revising,
-.card-board-card-status--revising { color: var(--warning, #9a641c); }
+.card-board-card-status--revising { color: var(--warning); }
 .outline-scene-status--done,
-.card-board-card-status--done { color: var(--success, #2d7357); }
+.card-board-card-status--done { color: var(--success); }
 
 .outline-chapter-words,
 .outline-book-word-count {

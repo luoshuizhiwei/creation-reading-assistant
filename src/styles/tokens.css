@@ -33,8 +33,20 @@
   --proof-mark: #ad4436;
   --proof-tint: #f7e9e6;
   --info: #315f9b;
-  --success: #3e7a5e;
-  --warning: #a8742c;
+  /* --success / --warning 此前只有晨校值（第 7 步新增的「颜色令牌两主题必须成对」
+   * 不变量报出来的）。晨校值同时也在欠对比：
+   *   --success #3e7a5e 在画布上 4.38:1，压到 moss 12~14% 的浅绿底上只有 4.02~4.29，
+   *     而这类 tint 底正是「已保存 / 完成」状态条的写法 → 加深到 #356f53，
+   *     画布 5.13 / 面板 5.61 / moss-soft 5.00 / 14% tint 4.63，全部过 AA。
+   *   --warning #a8742c 当文字用时只有 3.50:1（.preview-toolbar-warn 就是正文），
+   *     而本仓其实早就选过一支警示文字色 #8a5a16（editorial-studio.css 定义了
+   *     --warning-text，另有 4 处直接手抄这个字面量），只是没接进令牌体系
+   *     （var(--warning-text) 引用数为 0）。令牌直接采纳它：画布 5.12 / 面板 5.60，
+   *     且那 4 处手抄值逐字节不变，晨校零视觉回归。
+   * --rgb-moss 是 Tailwind moss 一族（text-moss/bg-moss）的 alpha 孪生，
+   * 必须跟着改，否则 CSS 侧变深、Tailwind 侧还是旧绿（守卫的孪生不变量会红）。 */
+  --success: #356f53;
+  --warning: #8a5a16;
 
   /* 字体（规格 §3.2：界面一律无衬线；宋体只代表作品内容；数据用等宽） */
   --font-ui: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Noto Sans SC", system-ui, sans-serif;
@@ -144,7 +156,7 @@
   --rgb-ink: 32 36 42;
   --rgb-muted: 102 109 119;
   --rgb-accent: 49 95 155;
-  --rgb-moss: 62 122 94;
+  --rgb-moss: 53 111 83;
 }
 
 :root[data-app-theme="dark"] {
@@ -164,6 +176,13 @@
   --proof-mark: #e07965;
   --proof-tint: #33221e;
   --info: #7fa5d9;
+  /* 夜校必须自带这两个值——缺定义时 CSS 会静默沿用晨校值画到深色底上，
+   * 实测旧 #3e7a5e 在夜校画布只有 3.52:1（越描越糊），而 Tailwind 的 text-moss
+   * 走 --rgb-moss #7fb899 却有 7.82:1：同一个"成功绿"在同主题下两套真相，
+   * 差的正是「令牌只写了晨校」这一种缺陷。取 --rgb-moss 的既有暗色孪生，
+   * 让 CSS 与 Tailwind 两条路重新合流；警示琥珀提亮到 #bd8637（画布 5.62 / 面板 5.23）。 */
+  --success: #7fb899;
+  --warning: #bd8637;
 
   /* 夜校：主色/危险色都提亮了，色块上的前景必须反过来变深，否则白字不可读 */
   --fg-on-solid: #15181c;

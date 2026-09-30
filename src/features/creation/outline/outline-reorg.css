@@ -30,8 +30,8 @@
   margin: 10px 0 0;
   padding: 9px 12px;
   border-radius: 8px;
-  background: color-mix(in srgb, #b9770e 12%, var(--bg-surface));
-  color: #8a5a16;
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-surface));
+  color: var(--warning);
   font-size: 13px;
 }
 

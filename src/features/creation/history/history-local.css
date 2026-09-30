@@ -314,8 +314,8 @@
 .history-impact-notice {
   padding: 10px 12px;
   border-radius: 8px;
-  background: color-mix(in srgb, #b9770e 11%, var(--bg-surface));
-  color: #8a5a16;
+  background: color-mix(in srgb, var(--warning) 10%, var(--bg-surface));
+  color: var(--warning);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -393,7 +393,7 @@
 }
 
 .history-impact-warnings {
-  color: #8a5a16;
+  color: var(--warning);
 }
 
 .history-confirm-name {
