@@ -41,15 +41,16 @@ function stripComments(source) {
 }
 
 /**
- * 同上，但把注释里的字符换成空格、保留换行。
- * 需要 postcss 解析并拿「源文件行号」的场合必须用这个：stripComments 会把
- * 块注释里的换行一起吃掉，之后所有规则的 position.line 整体往上漂，
- * 而报错的价值全在行号能直接跳过去。
+ * 去注释但保住行号：块注释/行注释都换成等长空白。
+ * 注意行注释那条必须用 `[ \t]*` 而不是 `\s*`——\s 会吃掉换行，
+ * 于是「空行 + // 注释」这种写法里，空行的换行会被一起替换成空格，
+ * 行数直接缩水（实测 LibraryPage.tsx 少 3 行，报出来的行号比真实位置早 3 行）。
+ * 这个函数的全部意义就是让行号可跳转，漂了就等于没有。
  */
 function preserveNewlines(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
-    .replace(/^\s*\/\/.*$/gm, (m) => " ".repeat(m.length));
+    .replace(/^[ \t]*\/\/.*$/gm, (m) => " ".repeat(m.length));
 }
 
 const tokensCss = stripComments(read("src", "styles", "tokens.css"));
@@ -432,9 +433,11 @@ for (const p of allSource.filter((x) => x.endsWith(".tsx"))) {
 // 不是理论风险，是已经发生过的静默失效。
 // 修法：不再要求父级以 `.` 开头，改成取 button 前面那一段复合选择器，
 // 把里面所有类名都当候选锚点（div.mt-3.grid → mt-3 / grid）。
-// 实测口径差：放宽前命中 8 条（全是冻结的 .desktop-page-actions 一族），
-// 放宽后 18 条，新增 10 条全部落在 .inbox-detail div.mt-3.grid / .flex 这一族，
-// 也就是本次迁移下线的那批规则——放宽后零误报，且这批规则从此被盯住。
+// 实测口径差：这条注释原来写死了「放宽前 8 条 / 放宽后 18 组」，
+// 但那两个数字是当时判据（把带值排除 :not([data-variant="quiet"]) 也算已排除）下测的，
+// 批次 B-1 把排除判据收紧后它们就已经不成立了，而 8 这个数还被人拿去排过第 8 步的工期。
+// 结论：条数不在源码里写死，守卫每次运行都会打印真实冻结数（当前 12 条），
+// 需要数字的人看输出，不看注释。
 // 为什么只看「直接父级」而不看整条选择器的祖先类名：祖先链上常见 mt-3 / flex / grid
 // 这类工具类，任何已迁移文件只要某处 <Button> 放在 .mt-3 容器里就会命中，
 // 会把大量根本碰不到迁移元素的规则报成违规。直接父级才是「这条规则会压到谁」的
@@ -525,6 +528,23 @@ function classesHostingButton(source) {
 const allMigrated = Object.values(tsxByDir).flat();
 const globalHostTokens = new Set();
 for (const p of allMigrated) for (const c of classesHostingButton(readFileSync(p, "utf8"))) globalHostTokens.add(c);
+
+/**
+ * 已知盲区（批次 C 撞到，如实记录，不当场扩张判据）：
+ * classesHostingButton 只在「同一个文件」里做 JSX 栈扫描，所以它看不见跨文件的
+ * 组件边界。EpubReaderPage.tsx 自己一个 <Button> 都没有，但它渲染的
+ * <EpubSidePanel> 里有——于是 `reader-root` 不在宿主类名集合里，
+ * `.reader-root button { color: var(--text-main) }` 这条 (0,1,1) 规则一直躲着守卫，
+ * 把 EPUB 页里组件 primary 按钮的白字强制成晨校墨色（压 #315f9b 只有 2.41:1）。
+ * 本批是手工 + jsdom 加载真实产物才发现的。
+ * 为什么不直接把宿主判据放宽到「类名在全仓任意 tsx 里出现过」：当时实测命中 59 条
+ * 后代按钮规则（数字会随仓库变化，取当前判据重新数），绝大多数是 .desktop-nav /
+ * .project-nav 这类本来就该接管裸按钮的导航样式，属于误报——把警告变成噪音，
+ * 等于没有警告。真正的修法是解析 import 图、按组件边界递归求宿主类名闭包，
+ * 那是独立一轮的活。在此之前：给阅读器/浮层容器写后代按钮规则的人，
+ * 请另外用 jsdom 加载打包产物（out/renderer/assets/*.css）核对这些工具类
+ * 的 computed color / background 是不是自己写的那条，而不是只读源码就交差。
+ */
 
 // 全局样式表（main.tsx 里无条件加载，会漏到每个页面）与 feature 局部样式表同等对待：
 // 见下面棘轮检查的说明，两者都用全量宿主类名做作用域。
@@ -848,6 +868,109 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     fail(
       `TSX 里 bg-copper（随主题翻转的主色底）配了写死的 text-white，请改 ` +
         `text-[color:var(--fg-on-solid)]。命中 ${tsxOffenders.length} 处：${tsxOffenders.slice(0, 4).join(" / ")}`
+    );
+  }
+}
+
+/* -------------------------------------------- Tailwind 状态色类名必须归零（批次 C） */
+
+/**
+ * 第 7 步把「硬编码状态色」的 grep 计数做到归零，扫的是 CSS 里的十六进制字面量。
+ * 但同一件事在 TSX 里有一条完全绕开令牌的路：Tailwind 的默认调色板类名。
+ * bg-red-500 / text-amber-800 里没有 #，也没有 var()，所以第 7 步的守卫看不见它们——
+ * 批次 C 一查就是 15 处。它们的共同缺陷是「不随主题翻转」：夜校里那是把晨校的浅岛
+ * 原样画在深色画布上，实测 AISection 的说明文字 text-paper-muted 压 bg-amber-50/60
+ * 在夜校只有 1.14:1（整段不可读），ErrorBoundary 的详情条 3.14:1。
+ * 所以这里把 red/rose/orange/amber/yellow/green/emerald/teal/lime 这几支
+ * 「会被当成语义色用」的族钉成零命中；slate/gray/zinc/stone/neutral 是纯中性灰阶，
+ * 本仓用它做固定深色的划词工具条（bg-stone-800，白字 15.17:1 是正确答案），
+ * 不属于状态色，不封。
+ * 只扫非测试源码，且必须先剥注释——本文件里就有多处「引用旧写法」的注释，
+ * 不剥就会自己咬自己。
+ */
+{
+  /**
+   * 判据按「工具类」而不是子串，理由和批次 A 的 bg-copper 分支一样：
+   * 类名贴在引号/空格后面，子串正则要么漏（引号粘连）要么误报。
+   * 一条上可能挂任意 variant 前缀（hover:bg-red-50 / group-hover:text-amber-800），
+   * 所以只看冒号切出的最后一段，前面是什么前缀不影响判定；段尾允许 , ; ) 等
+   * 收尾标点（CSS 的 @apply 行就是这么写的）。
+   * 族名单只列「会被当成语义色用」的九支，中性灰阶（stone/slate/zinc…）不在内：
+   * bg-stone-800 那条划词工具条的白字 15.17:1 是正确答案，不该被误伤。
+   */
+  const STATE_FAMILIES = new Set(["red", "rose", "orange", "amber", "yellow", "green", "emerald", "teal", "lime"]);
+  const STATE_PREFIX = /^(?:bg|text|border|ring|fill|stroke|divide|outline|shadow|from|via|to)$/;
+  const isStatePaletteToken = (tok) => {
+    const last = tok.split(":").pop().replace(/[,;)\]]+$/, "");
+    const m = /^([a-z]+)-([a-z]+)-(\d{2,3})(?:\/\d+)?$/.exec(last);
+    return !!m && STATE_PREFIX.test(m[1]) && STATE_FAMILIES.has(m[2]);
+  };
+  const hits = [];
+  for (const p of allSource.filter((x) => /\.(tsx|ts|css)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    // 必须整篇剥注释再按行切（preserveNewlines 用空格占位，行号不漂）：
+    // 本批次留下的说明注释里写着「原先 bg-amber-50」这种旧类名，逐行 stripComments
+    // 对跨行的 {/* … */} 无效，守卫会把自己的说明文字报成违规。
+    preserveNewlines(readFileSync(p, "utf8"))
+      .split("\n")
+      .forEach((raw, i) => {
+        const tokens = raw.replace(/["'`{}()]/g, " ").split(/\s+/).filter(Boolean);
+        if (tokens.some(isStatePaletteToken)) hits.push(`${rel}:${i + 1}`);
+      });
+  }
+  if (hits.length) {
+    fail(
+      `Tailwind 状态色类名回来了：${hits.length} 处。这批颜色不随主题翻转（夜校会把晨校的` +
+        `浅岛画在深色底上）。危险/批注用 var(--proof-mark) / var(--proof-tint)，` +
+        `警示用 var(--warning) / var(--warning-tint)，成功用 var(--success) / bg-moss-soft；` +
+        `需要 alpha 就写 color-mix(in srgb, var(--x) N%, transparent)。` +
+        `命中：${hits.slice(0, 6).join(" / ")}`
+    );
+  }
+}
+
+/* ---------------------------- 浮层容器样式表不得用 background/color 遮蔽 tone 工具类 */
+
+/**
+ * 批次 C 找到的最贵的一条：ToastCenter 的四条 tone 类（bg-moss-soft / bg-amber-50 …）
+ * 全部是死的。editorial-studio.css 的 `.motion-toast { background; color; }` 与工具类
+ * 同为 (0,1,0)，而 main.tsx 先加载 styles.css（含 @tailwind utilities）再加载
+ * editorial-studio.css——后到的赢。于是四种提示在界面上从来没有颜色区别，
+ * 只有 border 生效（那条不在同一规则里）。这比"某处对比度不够"更隐蔽：
+ * 语义色令牌写全了、类名也挂上了，只是整族被一行老代码吃掉。
+ * 判据不能靠肉眼数偏移，所以钉成不变量：凡给「浮层容器」写 background / color
+ * 的样式表规则，如果同名工具类正被组件挂在 className 上，就是遮蔽。
+ * 这里取最小可执行形式：直接封 .motion-toast 这类容器规则声明 background/color，
+ * 因为它们唯一的作用就是压掉 tone 工具类。动画与阴影留着（那两个属性没有竞争者）。
+ */
+{
+  const TOAST_SURFACE = /\.motion-toast\b/;
+  const shadowed = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      if (!rule.selectors.some((s) => TOAST_SURFACE.test(s.replace(/\s+/g, " ").trim()))) return;
+      for (const decl of rule.nodes) {
+        if (decl.type !== "decl") continue;
+        const prop = decl.prop.toLowerCase();
+        if (prop === "background" || prop === "background-color" || prop === "color") {
+          shadowed.push(`${rel}: ${rule.selector.replace(/\s+/g, " ").trim()} { ${prop} }`);
+        }
+      }
+    });
+  }
+  if (shadowed.length) {
+    fail(
+      `.motion-toast 上又出现了 background/color 声明，它会把 ToastCenter 的 tone 工具类` +
+        `（bg-moss-soft / bg-[color:var(--warning-tint)] …）整族遮蔽——特异度相同而` +
+        `editorial-studio.css 在 utilities 之后加载，后到的赢。批次 C 之前四种提示` +
+        `从来没有颜色区别就是这个原因。tone 底色只写在 className 里。命中：${shadowed.slice(0, 3).join(" / ")}`
     );
   }
 }

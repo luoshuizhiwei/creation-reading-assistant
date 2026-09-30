@@ -279,7 +279,13 @@ button:disabled {
     background:
       radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.36), transparent 38%),
       linear-gradient(180deg, #faf0dc, #f0dfbe);
-    @apply border border-amber-200/60 shadow-paper;
+    /* 批次 C：原来这条是 `@apply border border-amber-200/60 shadow-paper`。
+     * 琥珀边框换成等值的显式声明（rgb(253 230 138 / .6) 就是 Tailwind
+     * amber-200 + /60 编译出来的那一条，逐字节零视觉变化），目的是让
+     * 「Tailwind 状态色类名」这一族在仓里彻底清零，守卫才能把它钉成不变量。
+     * 纸色本身仍按用户选的皮肤写死——那是「纸张颜色」这条轴，不跟应用主题走。 */
+    border: 1px solid rgb(253 230 138 / 0.6);
+    @apply shadow-paper;
   }
 
   .reader-bg-parchment {
@@ -293,7 +299,10 @@ button:disabled {
     background:
       radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.38), transparent 38%),
       linear-gradient(180deg, #d6f2d8, #c2e8c4);
-    @apply border border-green-300/50 shadow-paper;
+    /* 同上：`@apply border border-green-300/50` → 等值显式声明（Tailwind green-300
+     * = #86efac，/50 即 alpha .5），把「状态色族类名」在仓里清零，好让守卫钉死它。 */
+    border: 1px solid rgb(134 239 172 / 0.5);
+    @apply shadow-paper;
   }
 
   .reader-shell-white {

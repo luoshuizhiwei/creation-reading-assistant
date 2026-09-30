@@ -42,9 +42,16 @@ export class ErrorBoundary extends Component<Props, State> {
       }
 
       return (
+        // 批次 C：这块兜底页整体用 Tailwind 默认调色板的 red-100/200/500/600/700，
+        // 那批颜色不随主题翻转，夜校里等于把晨校的浅岛原样画在深色面板上。
+        // 实测最糟的是报错详情条：text-red-700 压在 bg-red-50/70 叠夜校面板上 3.14:1，
+        // 图标底 bg-red-100 + text-red-600 两主题都只有 3.95:1（12px 正文，AA 要 4.5）。
+        // 改走校样红令牌族：--proof-mark 压 --proof-tint 晨 4.85 / 夜 5.11。
+        // 边框不能写 border-[color:var(--proof-mark)]/30（Tailwind 无法给 var() 套 alpha
+        // 修饰符，整条声明会被静默丢弃），所以用 color-mix 混进 --separator。
         <div className="grid h-full place-items-center p-6 text-center paper-shell">
-          <div className="max-w-md rounded-2xl border border-red-200 bg-paper-panel p-6 shadow-paper">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600">
+          <div className="max-w-md rounded-2xl border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 shadow-paper">
+            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]">
               <AlertTriangle size={24} />
             </div>
             <h2 className="paper-title text-lg font-semibold text-paper-ink">页面发生意外错误</h2>
@@ -52,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
               组件渲染时发生异常，已自动拦截以保护你的写作与阅读数据。
             </p>
             {this.state.error?.message && (
-              <div className="mt-3 rounded-lg border border-red-100 bg-red-50/70 p-2.5 text-left font-mono text-xs text-red-700 break-all">
+              <div className="mt-3 rounded-lg border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-2.5 text-left font-mono text-xs text-[color:var(--proof-mark)] break-all">
                 {redactPaths(this.state.error.message)}
               </div>
             )}

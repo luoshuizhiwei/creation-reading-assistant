@@ -98,7 +98,7 @@ export function ReaderSearchOverlay({
         {!keyword.trim() ? (
           <span className="text-[11px] text-paper-muted">待输入</span>
         ) : matches.length === 0 ? (
-          <span className="text-[11px] text-red-500">无结果</span>
+          <span className="text-[11px] text-[color:var(--proof-mark)]">无结果</span>
         ) : (
           <span>
             {currentIndex + 1} / {matches.length}

@@ -308,7 +308,7 @@ export function LibraryPage() {
                           <BookOpen size={15} />
                         </Button>
                         <button
-                          className="grid h-9 w-9 place-items-center rounded-md text-paper-muted transition hover:bg-red-50 hover:text-red-700"
+                          className="grid h-9 w-9 place-items-center rounded-md text-paper-muted transition hover:bg-[color:var(--proof-tint)] hover:text-[color:var(--proof-mark)]"
                           title="移除"
                           aria-label="移除书籍"
                           onClick={(event) => {

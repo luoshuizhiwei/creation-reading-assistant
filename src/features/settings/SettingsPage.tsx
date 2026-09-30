@@ -59,8 +59,12 @@ export function SettingsPage() {
     return (
       <div className="desktop-panel-card desktop-empty-wrap h-full">
         <div className="grid h-full place-items-center text-sm text-paper-muted">
+          {/* 批次 C：与 ErrorBoundary 的兜底岛同一处收口。Tailwind 的 red-* 不随主题
+              翻转（夜校把晨校的浅岛原样画在深色面板上），换成 --proof-mark / --proof-tint
+              令牌族，岛内文字实算晨 4.85 / 夜 5.11。边框不能写 border-[color:var(--x)]/30
+              ——Tailwind 给 var() 套 alpha 修饰符时整条声明会被静默丢弃，所以用 color-mix。 */}
           {settingsError ? (
-            <div className="max-w-md rounded-2xl border border-red-200 bg-red-50/80 p-5 text-center text-red-700">
+            <div className="max-w-md rounded-2xl border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-5 text-center text-[color:var(--proof-mark)]">
               <div className="text-base font-semibold">设置读取失败</div>
               <p className="mt-2 text-sm leading-6">{settingsError}</p>
               <Button className="mt-4" disabled={settingsLoading} onClick={() => void loadSettings()}>

@@ -104,8 +104,11 @@ export function InboxConvertToCardDialog({
           )}
         </div>
 
+        {/* 批次 C：text-red-500(#ef4444) 压在面板上晨校只有 3.57:1（14px 正文，AA 要 4.5），
+            夜校也是同一支亮红、不跟主题走。这条是「前置条件不满足、无法继续」的阻断提示，
+            保留作者的红色语义，收到 --proof-mark（晨 5.45 / 夜 5.59）。 */}
         {projects.length === 0 ? (
-          <p className="text-sm text-red-500">
+          <p className="text-sm text-[color:var(--proof-mark)]">
             当前还没有创作项目，请先创建项目后再转为资料卡。
           </p>
         ) : (

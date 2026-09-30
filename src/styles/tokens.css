@@ -47,6 +47,18 @@
    * 必须跟着改，否则 CSS 侧变深、Tailwind 侧还是旧绿（守卫的孪生不变量会红）。 */
   --success: #356f53;
   --warning: #8a5a16;
+  /* 警示琥珀的岛底，与 --proof-tint 同一种做法（一整块浅色岛 + 同族文字，
+   * 而不是给文字换底色）。第 8 步批次 C 用它替换 TSX 里的 bg-amber-50：
+   * --warning 压在本色上 5.11:1，次级说明文字 --text-secondary 压上来 4.52:1，
+   * 与晨校画布/面板的亮度差 1.00/1.10，和 --proof-tint（1.02/1.12）同一档。 */
+  --warning-tint: #f6eedb;
+  /* 划词工具栏的「高亮」标记色。那条工具条的底是 bg-stone-800（固定深色、不随主题），
+   * 所以这里的值也必须固定；它取的是高亮色板里黄色那一支的原始值 #fde047
+   * （highlight-colors.ts / HIGHLIGHT_COLORS_TXT[0]），让「高亮」图标的颜色
+   * 和它按下后选中的色块是同一个颜色——原来写的是 Tailwind 的 text-yellow-400
+   * （#facc15，压上 #292524 有 9.91:1，够读，但和色块不是同一支颜色）。
+   * #fde047 在同一条工具条上 11.51:1。两主题同值，所以夜校那份也写死同一个。 */
+  --highlight-marker: #fde047;
 
   /* 字体（规格 §3.2：界面一律无衬线；宋体只代表作品内容；数据用等宽） */
   --font-ui: "Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", "Noto Sans SC", system-ui, sans-serif;
@@ -183,6 +195,13 @@
    * 让 CSS 与 Tailwind 两条路重新合流；警示琥珀提亮到 #bd8637（画布 5.62 / 面板 5.23）。 */
   --success: #7fb899;
   --warning: #bd8637;
+  /* 批次 C 新增的两支，夜校必须有值（成对性不变量会盯）。
+   * --warning-tint 取「把 --warning 提亮后的琥珀压进夜校面板」方向的深色岛：
+   * #2a2118 上 --warning(#bd8637) 4.99:1、次级文字 7.13:1，与画布亮度差 1.13，
+   * 和 --proof-tint 夜校（#33221e，5.11:1 / 差 1.18）同一档，岛的存在感一致。
+   * --highlight-marker 两主题同值：它只出现在固定深色的划词工具条上。 */
+  --warning-tint: #2a2118;
+  --highlight-marker: #fde047;
 
   /* 夜校：主色/危险色都提亮了，色块上的前景必须反过来变深，否则白字不可读 */
   --fg-on-solid: #15181c;

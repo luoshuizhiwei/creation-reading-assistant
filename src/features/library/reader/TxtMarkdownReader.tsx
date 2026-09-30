@@ -844,7 +844,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
                     </button>
                     {draftChapters.length > 1 && (
                       <button
-                        className="rounded px-1.5 py-0.5 text-red-500 hover:bg-red-50"
+                        className="rounded px-1.5 py-0.5 text-[color:var(--proof-mark)] hover:bg-[color:var(--proof-tint)]"
                         title="删除该章节起点"
                         onClick={() => {
                           setDraftChapters((prev) => prev.filter((_, idx) => idx !== i));

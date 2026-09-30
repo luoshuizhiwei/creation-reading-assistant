@@ -51,8 +51,17 @@ export function ReaderSelectionToolbar({
     >
       {/* Highlight with color picker */}
       <div className="relative">
+      {/* 批次 C 顺手清掉这里的一个假令牌：text-copper-300。
+          tailwind.config.ts 的 copper 只有 DEFAULT / soft / dark 三档，
+          copper-300 从未生成任何 CSS（用 tailwind CLI 实测：产物里没有这条规则），
+          于是它一直是「写了没用的类」，图标其实拿的是工具条的 text-white。
+          直接删掉，不改外观。
+          「高亮」图标的颜色从 Tailwind 的 text-yellow-400(#facc15) 收到
+          var(--highlight-marker)(#fde047)，与它点开后的第一个色块同色。
+          这条工具条的底是 bg-stone-800（固定深色、不随主题翻转），
+          所以 #fde047 压上去 11.51:1 是两主题共同的真相，白字同理保持 15.17:1。 */}
         <button
-          className="rounded px-2 py-1 hover:bg-stone-700 text-yellow-400"
+          className="rounded px-2 py-1 hover:bg-stone-700 text-[color:var(--highlight-marker)]"
           title="高亮"
           onClick={(e) => {
             e.stopPropagation();
@@ -84,7 +93,7 @@ export function ReaderSelectionToolbar({
       <button className="rounded px-2 py-1 hover:bg-stone-700" title="复制" onClick={() => void onCopy()}>
         <Copy size={14} />
       </button>
-      <button className="rounded px-2 py-1 hover:bg-stone-700 text-copper-300" title="摘录到资料" onClick={onExcerpt}>
+      <button className="rounded px-2 py-1 hover:bg-stone-700" title="摘录到资料" onClick={onExcerpt}>
         <Quote size={14} />
       </button>
       {isTxt && (

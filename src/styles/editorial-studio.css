@@ -1906,9 +1906,17 @@ select:focus-visible,
   border-color: var(--border-strong);
 }
 
-.reader-root button {
-  color: var(--text-main);
-}
+/* 批次 C 删掉 `.reader-root button { color: var(--text-main) }`。
+   它是 <Button> 系统之前给阅读器裸按钮统一前景的老写法，如今只剩破坏力：
+   (0,1,1) 高于组件与页面挂上的任何单条工具类 (0,1,0)，于是——
+   ① EPUB 阅读器里 <Button variant="primary"> 的白字被强制换成 --text-main，
+      晨校实算 #20242a 压 #315f9b 只剩 2.41:1（组件本意是 6.48）；
+   ② 本页自己的 text-paper-muted / 本批改上的 text-[color:var(--proof-mark)]
+      也一并失效，我差点据此交出一处「改了但画不出来」的假修复。
+   删掉后零视觉回归：带自身颜色的按钮恢复本意，没带颜色的走继承——
+   .reader-root 同时挂着 paper-shell（color = --rgb-ink），而 --rgb-ink 与
+   --text-primary 是守卫钉住的逐字节孪生，--text-main 正是 var(--text-primary)，
+   两条路本来就是同一个颜色。hover 态一直靠 (0,2,0) 赢过它，现在不用再靠运气。 */
 
 .desktop-inspiration-page {
   gap: 0;
@@ -1959,9 +1967,16 @@ select:focus-visible,
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
 }
 
+/* 批次 C 删掉了这里的 background / color 两条声明。它们和 ToastCenter 的
+ * tone 工具类（bg-moss-soft / bg-[color:var(--warning-tint)] …）特异度相同
+ * (0,1,0)，而本文件在 main.tsx 里排在 styles.css（含 @tailwind utilities）之后，
+ * 打包产物里这条规则在偏移 231867、工具类在 51218~51360——后到的赢，于是
+ * 四种 tone 的底和字从来没画出来过，toast 全部是中性布面，只有 border-color 生效。
+ * 用 jsdom 加载真实产物验证过：success toast 的 computed background 是透明、
+ * color 是 var(--studio-cloth-text)。动画与阴影留着，颜色交给 tone 类。
+ * 这条不变量已钉进 verify-design-tokens（.motion-toast 不得再声明 background/color），
+ * 因为它不是「写了没用的冗余」，而是会静默吃掉一整族语义色的遮蔽声明。 */
 .motion-toast {
-  background: var(--studio-cloth);
-  color: var(--studio-cloth-text);
   box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;
 }
 

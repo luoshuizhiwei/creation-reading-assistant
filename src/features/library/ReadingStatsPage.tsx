@@ -156,7 +156,7 @@ export function ReadingStatsPage() {
             const absDiff = diff < 0 ? -diff : diff;
             const pct = label === "天数" ? null : pctChange(currentVal, prevVal);
             if (prevVal <= 0 && currentVal <= 0) return null;
-            const trendClass = diff > 0 ? "text-moss" : diff < 0 ? "text-red-600" : "text-paper-muted opacity-50";
+            const trendClass = diff > 0 ? "text-moss" : diff < 0 ? "text-[color:var(--proof-mark)]" : "text-paper-muted opacity-50";
             const TrendIcon = diff > 0 ? TrendingUp : diff < 0 ? TrendingDown : Minus;
             const valueText =
               label === "天数"

@@ -147,7 +147,7 @@ export function ReaderSidePanel({
                     <span className="inline-block h-3 w-3 rounded-full" style={{ background: highlightHex(hl.color) }} />
                     {hl.chapterTitle && <span className="flex-1 truncate text-[11px] text-paper-muted">{hl.chapterTitle}</span>}
                     <button
-                      className={`rounded p-1 text-paper-muted transition hover:text-red-500 group-hover:opacity-100 ${highlightDelete.confirmingId === hl.id ? "opacity-100 bg-red-50 text-red-600" : "opacity-0"}`}
+                      className={`rounded p-1 text-paper-muted transition hover:text-[color:var(--proof-mark)] group-hover:opacity-100 ${highlightDelete.confirmingId === hl.id ? "opacity-100 bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]" : "opacity-0"}`}
                       onClick={() => {
                         if (highlightDelete.request(hl.id)) {
                           onRemoveHighlight(hl.id);
@@ -214,7 +214,7 @@ export function ReaderSidePanel({
                     </div>
                   </button>
                   <button
-                    className={`rounded p-1 text-paper-muted transition hover:text-red-500 group-hover:opacity-100 ${bookmarkDelete.confirmingId === bm.id ? "opacity-100 bg-red-50 text-red-600" : "opacity-0"}`}
+                    className={`rounded p-1 text-paper-muted transition hover:text-[color:var(--proof-mark)] group-hover:opacity-100 ${bookmarkDelete.confirmingId === bm.id ? "opacity-100 bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]" : "opacity-0"}`}
                     onClick={() => {
                       if (bookmarkDelete.request(bm.id)) {
                         onRemoveBookmark(bm.id);

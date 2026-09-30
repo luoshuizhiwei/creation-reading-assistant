@@ -101,8 +101,12 @@ export function AISection({
               已启用 AI 助手，但尚未配置 API Key。请先在下方保存 API Key 才能使用 AI 打磨；在此之前不会产生任何网络请求。
             </InlineNotice>
           )}
+          {/* 批次 C：琥珀一族从 Tailwind 默认调色板收进 --warning 令牌。
+              原先 bg-amber-50(#fffbeb) 是不随主题翻转的浅色岛——夜校里它压在一块
+              晨校纸上，正文 text-paper-muted(#a7afb9) 压上去只有 1.14:1，整段说明
+              文字在夜校等于看不见。改色后晨 4.68 / 夜 7.29。 */}
           {settings.ai.enabled && (
-            <div className="rounded-md border border-amber-200 bg-amber-50/60 p-3 text-xs leading-6 text-paper-muted">
+            <div className="rounded-md border border-[color:color-mix(in_srgb,var(--warning)_30%,var(--separator))] bg-[color:color-mix(in_srgb,var(--warning-tint)_60%,transparent)] p-3 text-xs leading-6 text-paper-muted">
               开启 AI 后，你输入的正文、灵感标题与平台标签会发送到你配置的 AI 服务（Base URL）。API Key 仅在主进程加密保存，前端不读取明文。
             </div>
           )}
