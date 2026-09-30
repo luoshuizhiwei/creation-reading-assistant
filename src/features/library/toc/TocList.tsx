@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronRight, Check, Search, X } from "lucide-react";
+import { Button } from "@/components/ui";
 import { buildTocTree, flattenVisibleTree, collectAncestorIds, collectParentIds, treeMaxDepth, type TocEntry } from "./tree";
 
 /**
@@ -127,12 +128,12 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
 
       {hasHierarchy && !searching && (
         <div className="flex items-center gap-2 text-xs text-paper-muted">
-          <button className="rounded px-1.5 py-0.5 hover:bg-paper-panel hover:text-paper-ink" onClick={() => setExpanded(new Set(collectParentIds(tree)))}>
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(new Set(collectParentIds(tree)))}>
             全部展开
-          </button>
-          <button className="rounded px-1.5 py-0.5 hover:bg-paper-panel hover:text-paper-ink" onClick={() => setExpanded(new Set())}>
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setExpanded(new Set())}>
             全部收起
-          </button>
+          </Button>
         </div>
       )}
 
