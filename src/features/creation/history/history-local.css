@@ -466,8 +466,10 @@
   display: inline-block;
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(255, 255, 255, 0.5);
-  border-top-color: #ffffff;
+  /* 旋转圈画在实心按钮里（primary / danger-filled），底色两主题相反：
+     晨校深底要白圈，夜校浅底要墨圈，所以不能写死 255,255,255。 */
+  border: 2px solid color-mix(in srgb, var(--fg-on-solid) 50%, transparent);
+  border-top-color: var(--fg-on-solid);
   border-radius: 50%;
   animation: history-spin 0.7s linear infinite;
 }

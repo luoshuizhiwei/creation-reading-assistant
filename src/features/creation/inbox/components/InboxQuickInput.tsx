@@ -88,7 +88,7 @@ export function InboxQuickInput({
               type="button"
               className={`rounded-full px-2 py-0.5 text-[11px] transition ${
                 selectedType === t
-                  ? "bg-copper text-white font-medium"
+                  ? "bg-copper text-[color:var(--fg-on-solid)] font-medium"
                   : "bg-paper-soft/60 text-paper-muted hover:bg-paper-soft hover:text-paper-ink"
               }`}
               onClick={() => setSelectedType(t)}

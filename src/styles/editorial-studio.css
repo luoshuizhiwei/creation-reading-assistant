@@ -123,9 +123,14 @@ select:focus-visible,
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.28);
   border-radius: 9px;
-  background: linear-gradient(160deg, color-mix(in srgb, var(--studio-seal) 82%, #fff), var(--studio-seal));
+  /* 这里原本有一条渐变底（seal 82% + #fff），它是死声明：文件末尾
+     `.desktop-titlebar-mark, .desktop-brand-mark { background: var(--action-primary) }`
+     同特异性后置覆盖，印章实际一直是纯色主操作底（晨 #315f9b / 夜 #7fa5d9）。
+     第 8 步批次 A 一度在这条死声明上做「渐变端点 82%→88% 救白字对比度」的校正，
+     那组数字对渲染毫无影响，故连声明一起删掉，不留「已修好」的假证据。
+     活下来的是下面的 color：底色随主题翻转，写死 #fff 在夜校只剩 2.53:1。 */
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--studio-cloth) 88%, transparent), inset 0 0 0 3px color-mix(in srgb, var(--studio-seal) 55%, transparent), 0 3px 10px rgba(0, 0, 0, 0.28);
-  color: #fff;
+  color: var(--fg-on-solid);
   font-family: var(--font-serif);
   font-size: 18px;
   font-weight: 700;
@@ -514,14 +519,14 @@ select:focus-visible,
 .project-home-create-first {
   border-color: color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth));
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth)));
-  color: #fff;
+  color: var(--fg-on-solid);
 }
 
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover,
 .project-home-create-first:hover {
   border-color: var(--copper-dark);
   background: var(--copper-dark);
-  color: #fff;
+  color: var(--fg-on-solid);
   box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);
 }
 
@@ -1546,7 +1551,7 @@ select:focus-visible,
 .uni-search-global.active {
   border-color: var(--accent-spine);
   background: var(--accent-spine);
-  color: #fff;
+  color: var(--fg-on-solid);
 }
 
 .uni-search-group li button {
@@ -1632,11 +1637,20 @@ select:focus-visible,
   color: var(--moss);
 }
 
-/* The book cover block: a small bound volume standing on the shelf row. */
-.library-cover-glyph {
-  font-family: var(--font-content);
-}
-
+/* The book cover block: a small bound volume standing on the shelf row.
+   第 8 步批次 A 收口：下面三条按格式上色的 .library-cover background
+   （txt=accent-spine / md=moss / epub=studio-seal）以及紧随其后的
+   `.library-cover-glyph { font-family: var(--font-serif) }` 全是死声明——
+   文件末尾「书封统一墨色系」块以同选择器 + !important 重画 background，
+   并同选择器覆盖 font-family，封面从来都是墨色渐变，格式配色从未渲染过。
+   批次 A 一度在 epub 那条死 background 上做渐变端点的对比度校正（把右段
+   从 `70% + var(--bg-app)` 改成 `70% + #000`，算出「晨 8.43 / 夜 4.83」），
+   那是拿死声明算数，故整族删除而不是留注释：留着的代价就是下一次再骗一个人。
+   仍然活着的：下面的 display/width/height/border-radius/box-shadow（墨色块
+   没有声明这些），以及 .library-cover-glyph 的 color:#fff ——
+   父级 `.library-cover { color: #f2f3f5 !important }` 管不到这个 span
+   （!important 只在同一元素的声明之间排序，子元素自己的声明照常生效），
+   而墨色底不随主题翻转，白字实测 8.91–15.02:1。 */
 .library-cover {
   display: grid;
   place-items: center;
@@ -1644,50 +1658,25 @@ select:focus-visible,
   height: 50px;
   flex-shrink: 0;
   border-radius: 4px 8px 8px 4px;
-  background:
-    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--accent-spine) 88%, #000) 0 5px,
-      color-mix(in srgb, var(--accent-spine) 74%, var(--bg-app)) 5px);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.28),
     0 2px 5px rgba(34, 38, 48, 0.18);
 }
 
-[data-format="md"] .library-cover-glyph {
-  font-family: var(--font-content);
-}
-
-.library-cover {
-  background:
-    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--moss) 82%, #000) 0 5px,
-      color-mix(in srgb, var(--moss) 68%, var(--bg-app)) 5px);
-}
-
-[data-format="epub"] .library-cover-glyph {
-  font-family: var(--font-content);
-}
-
-.library-cover {
-  background:
-    linear-gradient(105deg, transparent 0 5px, rgba(255, 255, 255, 0.35) 5px 7px, transparent 7px),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent 42%),
-    linear-gradient(90deg,
-      color-mix(in srgb, var(--studio-seal) 84%, #000) 0 5px,
-      color-mix(in srgb, var(--studio-seal) 70%, var(--bg-app)) 5px);
-}
-
 .library-cover-glyph {
+  /* 这条必须留着，而且是活的：父级 `.library-cover { color: #f2f3f5 !important }`
+     管不到本元素——!important 只在同一元素的声明之间排序，继承来的值永远输给
+     元素自己的声明。墨色底不随主题翻转，白字实测 8.91–15.02:1。 */
   color: #fff;
-  font-family: var(--font-serif);
   font-size: 15px;
   font-weight: 700;
   opacity: 0.94;
 }
+
+/* 已删除的重复/死声明：
+   - 三条 `[data-format=…] .library-cover-glyph { font-family: var(--font-content) }`
+     特异性虽高于末尾同名规则，值却完全相同，属重复，末尾那条统一负责；
+   - 原本这里的 `font-family: var(--font-serif)` 被末尾同名规则覆盖，从未生效。 */
 
 /* Reading progress: seal red in a pressed groove, matching the project shelf. */
 .library-progress-percent {
@@ -2331,8 +2320,11 @@ input[type="text"],
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.24);
   border-radius: 5px;
-  background: var(--studio-seal);
-  color: #fff;
+  /* 原本这里的 background: var(--studio-seal) 已删除：它被下面
+     `.desktop-titlebar-mark, .desktop-brand-mark { background: var(--action-primary) }`
+     同特异性后置覆盖，标题栏标记一直是主操作蓝底，不是校样红底。
+     留着就是让下一个人在死声明上算对比度。 */
+  color: var(--fg-on-solid);
   font-family: var(--font-serif);
   font-size: 10px;
   font-weight: 700;
@@ -2361,7 +2353,7 @@ input[type="text"],
 
 .desktop-window-control.close:hover {
   background: var(--studio-seal);
-  color: #fff;
+  color: var(--fg-on-solid);
 }
 
 .desktop-window-control:focus-visible {
@@ -2961,24 +2953,9 @@ input[type="text"],
   border-bottom: 1px solid var(--separator-subtle);
 }
 
-.project-home-new {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--action-primary);
-  border-radius: var(--radius-control);
-  background: var(--action-primary);
-  color: #fff;
-  font-size: 12.5px;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.project-home-new:hover {
-  background: var(--action-primary-hover);
-}
+/* 已下线（第 8 步批次 A）：`.project-home-new` / `:hover` 在全仓（含测试、e2e、
+   动态拼类名）零引用——项目首页的「新建」按钮早已是 <Button>（.project-home-create-first
+   一族，也在本文件的遗留按钮容器规则里排队）。留着只会让人以为它还是一条活的皮肤。 */
 
 /* 资料库：单行工具栏。 */
 .library-toolbar {

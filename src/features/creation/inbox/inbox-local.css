@@ -101,7 +101,7 @@
 .inbox-filter-chip.active {
   background: var(--copper, #8a5a2b);
   border-color: var(--copper, #8a5a2b);
-  color: #fff;
+  color: var(--fg-on-solid);
 }
 
 .inbox-filter-chip em {
@@ -115,7 +115,11 @@
 }
 
 .inbox-filter-chip.active em {
-  background: rgba(255, 255, 255, 0.22);
+  /* 原来叠 rgba(255,255,255,0.22)：底色 --copper 随主题翻转，晨校白字被这层白叠加
+     进一步冲淡，计数徽标只有 3.96:1（11px，须按 4.5 判）。改成叠 18% 黑后两主题
+     都过：晨校 白字/加深底 8.45，夜校 --fg-on-solid(#15181c)/加深底 4.83。
+     同一层黑色叠加在两主题里都成立，靠的是前景墨本身跟着翻转。 */
+  background: rgba(0, 0, 0, 0.18);
 }
 
 @media (max-width: 720px) {

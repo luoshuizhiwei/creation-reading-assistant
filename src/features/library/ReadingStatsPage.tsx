@@ -209,7 +209,7 @@ export function ReadingStatsPage() {
                     <button
                       key={r}
                       className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                        selectedRange === r ? "bg-copper text-white shadow-lift" : "text-paper-muted hover:text-paper-ink"
+                        selectedRange === r ? "bg-copper text-[color:var(--fg-on-solid)] shadow-lift" : "text-paper-muted hover:text-paper-ink"
                       }`}
                       onClick={() => changeRange(r)}
                     >

@@ -40,6 +40,18 @@ function stripComments(source) {
   return source.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
 }
 
+/**
+ * 同上，但把注释里的字符换成空格、保留换行。
+ * 需要 postcss 解析并拿「源文件行号」的场合必须用这个：stripComments 会把
+ * 块注释里的换行一起吃掉，之后所有规则的 position.line 整体往上漂，
+ * 而报错的价值全在行号能直接跳过去。
+ */
+function preserveNewlines(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, " "))
+    .replace(/^\s*\/\/.*$/gm, (m) => " ".repeat(m.length));
+}
+
 const tokensCss = stripComments(read("src", "styles", "tokens.css"));
 const uiTsx = stripComments(read("src", "components", "ui.tsx"));
 const tailwindConfig = stripComments(read("tailwind.config.ts"));
@@ -663,6 +675,161 @@ const THEME_SHARED = /^--(sp-|radius-|shadow-|z-|dur-|ease-|leading-|text-\d|fon
     fail(
       `颜色令牌必须在夜校（data-app-theme="dark"）里也定义，否则深色主题会直接拿晨校值画在深色底上` +
         `（对比度崩掉且不报错）。缺：${missing.join("、")}`
+    );
+  }
+}
+
+/* --------------------------------------- 写死白墨不能压在会随主题翻转的实色底上 */
+
+/**
+ * 第 8 步批次 A 立的不变量。写死 color:#fff 本身不算错——错的是「底色会随主题翻转，
+ * 而前景钉死白色」这一对组合：夜校把 --action-primary 提亮成 #7fa5d9、
+ * --proof-mark 提亮成 #e07965、--success 提亮成 #7fb899，白字压上去分别只剩
+ * 2.53 / 2.96 / 2.28:1。本仓曾有 14 处这种写法（第 7 步补夜校 --success 时
+ * 撞出其中一处：向导完成圆点从 5.06 掉到 2.28）。
+ * 判据必须成对看：只看「有没有 #fff」会漏，只看「底色令牌」会误报固定深色面
+ * （bg-stone-800 的浮层工具条白字 17.49:1，本来就该是白的）。
+ * 所以：同一条规则里既写死白墨、又把背景画成「两主题取值不同」的令牌色 → 红。
+ */
+const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
+{
+  /**
+   * 底色的真实值要把别名链算到底：本仓的别名层在 styles.css 的 `:root` 里
+   * （--copper: var(--action-primary)、--studio-seal: var(--proof-mark) …），
+   * 若只比对 tokens.css 里同名令牌的两侧取值，这批别名一律"看不见差异"，
+   * 守卫就会对最常见的写法放行。所以先收集全站 `:root` / `:root[dark]` 的
+   * 自定义属性定义，再逐层展开 var()。
+   */
+  const base = new Map();
+  const dark = new Map();
+  for (const cssFile of cssFiles) {
+    let ast;
+    try {
+      ast = postcss.parse(stripComments(readFileSync(cssFile, "utf8")), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      const sel = rule.selector.replace(/\s+/g, "");
+      const isBase = sel === ":root";
+      const isDark = sel === ':root[data-app-theme="dark"]';
+      if (!isBase && !isDark) return;
+      for (const decl of rule.nodes) {
+        if (decl.type !== "decl" || !decl.prop.startsWith("--")) continue;
+        (isDark ? dark : base).set(decl.prop, decl.value.trim());
+      }
+    });
+  }
+  const expand = (name, theme, depth = 0) => {
+    const raw = (theme === "dark" ? dark.get(name) : undefined) ?? base.get(name);
+    if (raw === undefined || depth > 6) return raw ?? null;
+    return raw.replace(/var\(\s*(--[a-z0-9-]+)\s*(?:,[^)]*)?\)/g, (_, inner) => expand(inner, theme, depth + 1) ?? "");
+  };
+  const flipsByTheme = (value) => {
+    const names = [...value.matchAll(/var\(\s*(--[a-z0-9-]+)/g)].map((m) => m[1]);
+    return names.some((n) => {
+      const l = expand(n, "light");
+      const d = expand(n, "dark");
+      return l !== null && d !== null && l !== d;
+    });
+  };
+  /**
+   * 判「会不会翻」还不够，还得判「这条声明到底生不生效」——批次 A 就栽过一次：
+   * .desktop-brand-mark 顶部把 color:#fff 与渐变底配在一起，看起来正是本条不变量
+   * 要抓的组合，可它的 background 在文件末尾被 `.desktop-titlebar-mark,
+   * .desktop-brand-mark { background: var(--action-primary) }` 同特异性后置覆盖了，
+   * 于是「把渐变端点从 82% 调到 88% 以救白字对比度」的那组数字算的是死声明，
+   * 对渲染结果毫无影响。守卫若继续只看规则内部，就会把这类假修复判成合规，
+   * 诱使人在死代码上返工。
+   *
+   * 因此不能按「规则」配对，要按「选择器 + 条件上下文」取每个属性的胜者再配对：
+   * 同一个 .x 的 color 可能来自第 10 行的规则、background 来自第 900 行的规则，
+   * 逐规则检查两边都看不见对方（真实漏报），反过来也可能把已被覆写的那条当数。
+   * 胜者口径：先比 !important、再比源序；`background` 简写与 `background-color`
+   * 归到同一个槽位，否则后写的 background-color 会压掉前面简写的底色却仍被算进来。
+   * 局限：只同选择器文本内比较，跨选择器（`.a .b` 覆盖 `.b`）与跨文件载入顺序
+   * 不建模——那需要完整的元素→选择器映射，代价远高于本条不变量的收益。
+   */
+  function effectiveInkBySelector(ast) {
+    const slots = new Map();
+    let rank = 0;
+    ast.walkRules((rule) => {
+      let p = rule.parent;
+      const at = [];
+      while (p && p.type !== "root") {
+        if (p.name) at.push(p.name === "media" ? `@media ${p.params}` : `@${p.name}`);
+        p = p.parent;
+      }
+      // 覆盖关系只在同一条件上下文内成立：@media 里的后置声明不算覆盖了外层，
+      // 否则 @media(max-width:920px) 的窄屏规则会把外层声明全判成死的。
+      const scope = at.reverse().join(" < ");
+      for (const selRaw of rule.selectors) {
+        const sel = selRaw.replace(/\s+/g, " ").trim();
+        for (const decl of rule.nodes) {
+          if (decl.type !== "decl") continue;
+          const prop = decl.prop.toLowerCase();
+          const slot = /^color$/.test(prop) ? "color" : /^(background|background-color)$/.test(prop) ? "background" : null;
+          if (!slot) continue;
+          const key = `${scope}|${sel}`;
+          const win = slots.get(key) ?? {};
+          const r = (decl.important ? 1 : 0) * 1e9 + rank++;
+          if (!win[slot] || win[slot].r < r) win[slot] = { r, value: decl.value.trim() };
+          slots.set(key, win);
+        }
+      }
+    });
+    return slots;
+  }
+
+  const offenders = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(preserveNewlines(readFileSync(cssFile, "utf8")), { from: cssFile });
+    } catch {
+      continue;
+    }
+    for (const [key, win] of effectiveInkBySelector(ast)) {
+      const sel = key.slice(key.indexOf("|") + 1);
+      if (win.color && WHITE_INK.test(win.color.value) && win.background && flipsByTheme(win.background.value)) {
+        offenders.push(`${rel}: ${sel.slice(0, 46)}`);
+      }
+    }
+  }
+  if (offenders.length) {
+    fail(
+      `写死白墨压在会随主题翻转的实色底上（夜校提亮底色后白字会掉到 AA 以下）。` +
+        `请改用 var(--fg-on-solid)。命中 ${offenders.length} 处：${offenders.slice(0, 4).join(" / ")}`
+    );
+  }
+
+  // 同一类缺陷在 TSX 里的写法：Tailwind 的 bg-copper（= --action-primary）配 text-white。
+  // 组件早已改成 text-[color:var(--fg-on-solid)]，但页面里的选中态 chip 是手拼类名，
+  // 第 8 步批次 A 就在这儿找到 4 处。固定深色面（bg-stone-800 的浮层工具条）不算：
+  // 那种底不随主题翻转，白字是对的，所以只盯 bg-copper 这一族。
+  const tsxOffenders = [];
+  for (const p of allSource.filter((x) => x.endsWith(".tsx") && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    // 逐行单独去注释，而不是整篇 stripComments 后再 split：
+    // 后者会把 /* … */ 里的换行一起吃掉，报出来的行号会往上漂（实测漂 3 行），
+    // 而这条不变量的全部价值就在于人能照着行号直接跳过去。
+    readFileSync(p, "utf8")
+      .split("\n")
+      .forEach((raw, i) => {
+        const line = stripComments(raw);
+        // 按「工具类」而不是子串判：直接搜 text-white 会被引号粘住漏报，
+        // 搜 bg-copper 又会把 bg-copper/5 这种半透明底（本来就该用主题墨）误判成实色底。
+        const tokens = line.replace(/["'`{}()]/g, " ").split(/\s+/).filter(Boolean);
+        if (tokens.includes("bg-copper") && tokens.includes("text-white")) {
+          tsxOffenders.push(`${rel}:${i + 1}`);
+        }
+      });
+  }
+  if (tsxOffenders.length) {
+    fail(
+      `TSX 里 bg-copper（随主题翻转的主色底）配了写死的 text-white，请改 ` +
+        `text-[color:var(--fg-on-solid)]。命中 ${tsxOffenders.length} 处：${tsxOffenders.slice(0, 4).join(" / ")}`
     );
   }
 }

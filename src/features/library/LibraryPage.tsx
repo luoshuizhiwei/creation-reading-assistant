@@ -155,7 +155,7 @@ export function LibraryPage() {
                         <button
                           key={mode}
                           className={`w-full rounded-md px-3 py-1.5 text-left text-sm transition ${
-                            sortMode === mode ? "bg-copper text-white" : "hover:bg-paper-soft/50"
+                            sortMode === mode ? "bg-copper text-[color:var(--fg-on-solid)]" : "hover:bg-paper-soft/50"
                           }`}
                           onClick={() => { setSortMode(mode); setShowSortDropdown(false); }}
                         >

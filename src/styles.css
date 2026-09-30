@@ -502,22 +502,13 @@ button:disabled {
   transform: scale(0.985);
 }
 
-.desktop-brand-mark {
-  display: grid;
-  width: 42px;
-  height: 42px;
-  place-items: center;
-  border: 1px solid color-mix(in srgb, var(--copper) 28%, var(--paper-line));
-  border-radius: 14px;
-  background:
-    linear-gradient(135deg, rgba(255, 255, 255, 0.36), transparent),
-    var(--copper);
-  color: white;
-  font-family: ui-serif, "Songti SC", "STSong", serif;
-  font-size: 20px;
-  font-weight: 700;
-  box-shadow: 0 10px 24px rgba(85, 53, 24, 0.14);
-}
+/* 已下线（第 8 步批次 A）：本块 12 条声明没有一条生效——全部被 editorial-studio.css
+   的同名规则逐条覆盖（同特异性、main.tsx 里后载入）：11 条对 11 条撞在
+   editorial-studio.css:118 的 `.desktop-brand-mark` 上，background 还要再被
+   其 2832 行的 `.desktop-titlebar-mark, .desktop-brand-mark` 覆盖一次。
+   留着它只会诱使人在死声明上做修改并误以为已经修好（本窗就踩了一次：
+   为救白字对比度把渐变端点从 82% 调到 88%，实际渲染毫无变化）。
+   生效的定义在 editorial-studio.css:118 + :2832。 */
 
 .desktop-brand strong,
 .desktop-brand small {
@@ -1874,7 +1865,8 @@ button:disabled {
 .creation-wizard-steps li.active span {
   border-color: var(--copper);
   background: var(--copper);
-  color: #fff;
+  /* --copper = --action-primary，夜校是浅蓝 #7fa5d9，写死 #fff 只有 2.53:1 */
+  color: var(--fg-on-solid);
 }
 
 .creation-wizard-steps li.done span {
@@ -5294,7 +5286,7 @@ button:disabled {
   font-style: normal;
   border-radius: 999px;
   background: var(--copper);
-  color: #fff;
+  color: var(--fg-on-solid);
   font-size: 11px;
   font-weight: 700;
   line-height: 1;

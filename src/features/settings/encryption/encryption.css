@@ -97,50 +97,8 @@
   font-size: 12px;
 }
 
-.pe-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 8px;
-}
-
-.pe-btn {
-  padding: 8px 16px;
-  border-radius: 8px;
-  border: 1px solid transparent;
-  font-size: 13.5px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 140ms ease, border-color 140ms ease;
-}
-
-.pe-btn-primary {
-  background: var(--accent-spine, #33538f);
-  color: #fff;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine, #33538f) 26%, transparent);
-}
-
-.pe-btn-primary:hover:not(:disabled) {
-  background: color-mix(in srgb, var(--accent-spine, #33538f) 88%, #000);
-}
-
-.pe-btn-primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-  box-shadow: none;
-}
-
-.pe-btn-secondary {
-  background: transparent;
-  border-color: var(--border-strong, #cbc8bf);
-  color: var(--text-muted, #646b77);
-}
-
-.pe-btn-secondary:hover:not(:disabled) {
-  color: var(--text-main, #1f2329);
-  border-color: var(--text-meta, #858b96);
-}
-
-.pe-btn-secondary:disabled {
-  cursor: not-allowed;
-  opacity: 0.6;
-}
+/* 已下线（第 8 步批次 A）：`.pe-actions` / `.pe-btn` / `.pe-btn-primary`(+hover/:disabled)
+   / `.pe-btn-secondary`(+hover/:disabled) 一族零引用。PassphraseDialog 的按钮走共享
+   <Button>（见 PassphraseDialog.tsx:81/91），pe-cancel、pe-submit、pe-confirm 只是
+   data-testid，不是类名。本文件其余 pe-* 规则（modal/title/warning/description/
+   field/input/ack/error）仍在用，保留。 */
