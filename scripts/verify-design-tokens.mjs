@@ -365,14 +365,29 @@ for (const p of allSource.filter((x) => x.endsWith(".tsx"))) {
 // 做脆弱的字符串匹配。
 //
 // 判据有两层，缺一不可：
-//   ① button 的「直接父级类名」（TAIL）——不是选择器开头的类名。
+//   ① button 的「直接父级复合选择器」（PARENT）——不是选择器开头的类名。
 //      `.creation-writing-hero .desktop-page-actions button` 的泄漏来自后者，
 //      只看行首会整条漏掉。
-//   ② 该父级类名内部确实渲染过 <Button>——只看「类名在已迁移文件里出现过」会
+//   ② 该父级里确实有「内部渲染过 <Button> 的类名」——只看「类名在已迁移文件里出现过」会
 //      大量误报：`.history-tabs button` 服务的是共享 Tabs 内部的裸
 //      <button role="tab">，它们本来就不该被组件样式接管。
+//
+// 盲区二（page 17 发现）：父级类名挂在类型选择器上时，`.inbox-detail div.mt-3.grid button`
+// 这种写法会被「必须以 . 开头」的锚点整条漏掉。该族规则当时正好压着 InboxItemDetail
+// 里的 4 组按钮，而它的图标 × 也被 (0,3,2) 捕获、自带工具类全部失效——即这条盲区
+// 不是理论风险，是已经发生过的静默失效。
+// 修法：不再要求父级以 `.` 开头，改成取 button 前面那一段复合选择器，
+// 把里面所有类名都当候选锚点（div.mt-3.grid → mt-3 / grid）。
+// 实测口径差：放宽前命中 8 条（全是冻结的 .desktop-page-actions 一族），
+// 放宽后 18 条，新增 10 条全部落在 .inbox-detail div.mt-3.grid / .flex 这一族，
+// 也就是本次迁移下线的那批规则——放宽后零误报，且这批规则从此被盯住。
+// 为什么只看「直接父级」而不看整条选择器的祖先类名：祖先链上常见 mt-3 / flex / grid
+// 这类工具类，任何已迁移文件只要某处 <Button> 放在 .mt-3 容器里就会命中，
+// 会把大量根本碰不到迁移元素的规则报成违规。直接父级才是「这条规则会压到谁」的
+// 准确判据，宿主类名也是按「该元素内部有 <Button>」记的，两者口径一致。
 const BUTTON_COMBINATOR = String.raw`(?:[ \t]*[>+~][ \t]*|[ \t]+)`;
-const TAIL_ANCHOR = new RegExp(String.raw`(?:^|[ \t>+~])\.([\w-]+)(?:\.[\w-]+)*` + BUTTON_COMBINATOR + String.raw`button\b`);
+const BUTTON_PARENT = new RegExp(String.raw`([^\s>+~]+)` + BUTTON_COMBINATOR + String.raw`button\b`);
+const CLASS_IN_COMPOUND = /\.[\w-]+/g;
 
 /**
  * 结构化解析 JSX，返回「内部真的渲染了 <Button> 的那些元素的类名集合」。
@@ -482,12 +497,15 @@ for (const cssFile of cssFiles) {
   ast.walkRules((rule) => {
     for (const part of rule.selector.split(",")) {
       const sel = part.trim();
-      const anchor = TAIL_ANCHOR.exec(sel);
-      if (!anchor) continue;
+      const parent = BUTTON_PARENT.exec(sel);
+      if (!parent) continue;
       if (isExcluded(sel)) continue; // 已排除，安全
-      // 没有任何「内部渲染了 <Button> 的元素」带这个父级类名 → 规则碰不到迁移后的元素
-      if (!globalHostTokens.has(anchor[1])) continue;
-      if (LEGACY_DESCENDANT_BUTTON.has(`${rel} :: ${anchor[1]}`)) legacyHits += 1;
+      // 直接父级复合选择器里的候选类名（div.mt-3.grid -> mt-3、grid）。
+      // 没有任何「内部渲染了 <Button> 的元素」带这些类名 → 规则碰不到迁移后的元素。
+      const candidates = parent[1].match(CLASS_IN_COMPOUND) ?? [];
+      const anchor = candidates.map((c) => c.slice(1)).find((c) => globalHostTokens.has(c));
+      if (!anchor) continue;
+      if (LEGACY_DESCENDANT_BUTTON.has(`${rel} :: ${anchor}`)) legacyHits += 1;
       else newHits.push(`${rel}: ${sel}`);
     }
   });
