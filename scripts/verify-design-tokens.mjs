@@ -259,6 +259,44 @@ function tokenValue(block, name) {
 const darkBlock = tokensCss.slice(tokensCss.indexOf(':root[data-app-theme="dark"]'));
 
 /**
+ * Tailwind 的 alpha 通道别名（--rgb-*）必须与它对应的语义十六进制令牌逐字节相等。
+ * 背景：tailwind.config.ts 把 text-paper-muted / bg-copper 等接到 rgb(var(--rgb-*) / alpha)，
+ * 而 --text-secondary 等走 CSS 变量直接引用。同一个颜色有两条来源，改一处忘另一处
+ * 就会静默分裂——本仓刚踩过：把 --text-secondary 从 #68707a 调到 #666d77（D-3），
+ * 若 --rgb-muted 不跟着改，全站 144 处 text-paper-muted 仍是旧的欠对比色，
+ * 而只有走 var(--text-muted) 的 52 处变了；对比度守卫拿的是十六进制令牌，
+ * 只会报"达标"，完全看不出 Tailwind 那条路还没改。这条不变量把两路钉在一起。
+ * 只列两主题都严格成对的名字（--rgb-moss↔--success 不是逐字节孪生，不纳入）。
+ */
+const RGB_TWINS = [
+  ["--rgb-app", "--app-bg"],
+  ["--rgb-surface", "--surface-1"],
+  ["--rgb-subtle", "--surface-2"],
+  ["--rgb-line", "--separator"],
+  ["--rgb-ink", "--text-primary"],
+  ["--rgb-muted", "--text-secondary"],
+  ["--rgb-accent", "--action-primary"]
+];
+
+function rgbTriplet(block, name) {
+  const m = new RegExp(`${name}:\\s*(\\d+)\\s+(\\d+)\\s+(\\d+)`).exec(block);
+  return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
+}
+
+for (const [theme, block] of [["晨校", lightBlock], ["夜校", darkBlock]]) {
+  for (const [rgbName, hexName] of RGB_TWINS) {
+    const tri = rgbTriplet(block, rgbName);
+    const hex = tokenValue(block, hexName);
+    if (!tri || !hex) continue; // 该主题没定义其一，交由令牌存在性检查负责
+    const fromHex = hexToRgb(hex);
+    if (!fromHex) continue;
+    if (tri.join(",") !== fromHex.join(",")) {
+      fail(`${theme} ${rgbName}=(${tri.join(" ")}) 与 ${hexName}=${hex}=(${fromHex.join(" ")}) 不一致：Tailwind alpha 别名与语义令牌分裂，改色必须两处同步`);
+    }
+  }
+}
+
+/**
  * 实色色块上的前景必须达到 AA 4.5:1（13px 按钮文字属普通字号）。
  * 这些是本轮建立的不变量，未达标即失败。
  */

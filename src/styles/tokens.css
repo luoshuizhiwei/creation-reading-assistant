@@ -12,8 +12,8 @@
   --surface-2: #f1f3f5;
   --surface-paper: #fefefc;
   --text-primary: #20242a;
-  --text-secondary: #68707a;
-  --text-tertiary: #8b939d;
+  --text-secondary: #666d77;
+  --text-tertiary: #808994;
   --separator: #ced3da;
   --separator-subtle: #e0e4e9;
 
@@ -132,7 +132,7 @@
   --rgb-subtle: 241 243 245;
   --rgb-line: 206 211 218;
   --rgb-ink: 32 36 42;
-  --rgb-muted: 104 112 122;
+  --rgb-muted: 102 109 119;
   --rgb-accent: 49 95 155;
   --rgb-moss: 62 122 94;
 }
