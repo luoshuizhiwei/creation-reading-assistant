@@ -1049,7 +1049,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/operation/operation.css": 4,
     "src/features/creation/outline/outline-reorg.css": 1,
     "src/features/creation/replace/replace.css": 5,
-    "src/features/inspiration/InspirationPage.tsx": 1,
     "src/features/library/ExcerptPicker.tsx": 5,
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/library/ReaderSidePanel.tsx": 4,
@@ -1062,8 +1061,8 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/library/toc/TocList.tsx": 2,
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 93,
-    "src/styles/editorial-studio.css": 32
+    "src/styles.css": 91,
+    "src/styles/editorial-studio.css": 31
   };
 
   const actual = {};
@@ -1172,6 +1171,74 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         `.motion-drawer 就是这样被一条 12px !important 统一吃掉的）。圆角请写在组件的 className 上；` +
         `确需按模式压平就用带前缀的选择器（如 .xxx-mode .migration-banner），不要用裸类名 + !important。` +
         `命中：${blanket.slice(0, 3).join(" / ")}`
+    );
+  }
+}
+
+/* ------------------------ 面板类名的 border-radius 不得有多条 !important 来源 */
+
+/**
+ * 批次 G 的教训，和上一条浮层 blanket 同族但形状不同（所以判据也必须不同）：
+ * editorial-studio.css 里曾有两条都带 !important 的面板规则（以下为批次 G 之前的历史状态）：
+ *   · blanket：`.stats-card, .desktop-panel-card, .paper-panel, .paper-panel-soft, …`
+ *          { border-radius: 12px !important }
+ *   · 家族规则：`.stats-card, .paper-panel, .settings-card, …`
+ *          { border-radius: var(--radius-panel) !important }——名单唯独漏了 .desktop-panel-card
+ * 两者特异度都是 (0,1,0)，同 !important 时后写的赢。结果是：家族规则覆盖到的 8 个成员
+ * 实渲 8px、blanket 对它们而言是**死代码**；而漏出家族名单的 .desktop-panel-card
+ * 被 blanket 吃掉——styles.css 给它的 20px 和 InspirationPage 自己挂的 rounded-2xl
+ * 全都画不出来（探针实测）。styles.css 里 .stats-card 另有一条同样从没画出来的 14px。
+ *
+ * 这就是「一个属性有多条 !important 来源」的危害：谁能赢完全由谁写在后面决定，
+ * 漏出某条名单的元素会静默掉到另一条上，改代码的人看不见自己在改什么。
+ * 批次 G 收口成：面板家族名单是这族类名圆角的唯一来源，且名单必须覆盖所有活成员。
+ *
+ * 判据：同一个「面板类名」在整个 src 的 CSS 里，被 !important 声明 border-radius 的
+ * 规则**至多一条**；且声明该属性的裸类名规则，其 !important 版本只能有一条。
+ * 命中多于一条即红——因为那意味着其中至少一条是死代码或等着吃掉别人。
+ *
+ * 不误伤的写法：非 !important 的自持圆角（各页面自己的面板规则）；带前缀的模式压平；
+ * 以及本批特意保留的网格 blanket（`.desktop-settings-grid > *` / `.desktop-stats-grid > *`
+ * 的 12px !important）——它带组合符，不是裸类名，且删掉它的 radius 会让 box-shadow
+ * 由圆变方，属阴影轴的另一批活。遗留：那两条 blanket 与面板家族名单不覆盖的容器。
+ */
+{
+  const PANEL_CLASSES = ["stats-card", "desktop-panel-card", "paper-panel", "paper-panel-soft", "settings-card", "stats-panel", "desktop-library-panel", "desktop-editor-card", "desktop-source-card", "desktop-ai-card"];
+  const isBarePanelSelector = (sel, cls) => {
+    const one = sel.replace(/\s+/g, " ").trim();
+    if (/[\s>+~]/.test(one)) return false; // 带祖先/组合符 → 模式压平，不算接管
+    const m = /^\.([a-zA-Z][\w-]*)(?![\w-])/.exec(one);
+    return !!m && m[1] === cls && !/[.:[(]/.test(one.slice(m[0].length));
+  };
+  const importantOwners = new Map(); // class -> [{loc}]
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      const owned = PANEL_CLASSES.filter((c) => rule.selectors.some((s) => isBarePanelSelector(s, c)));
+      if (!owned.length) return;
+      // 一条规则只记一次（同一条里 shorthand + 单角都带 !important 是同一来源，不是两条）
+      const vals = rule.nodes
+        .filter((decl) => decl.type === "decl" && /^border-radius(-[a-z-]+)?$/.test(decl.prop) && decl.important)
+        .map((decl) => `${decl.prop}: ${decl.value} !important`);
+      if (!vals.length) return;
+      for (const c of owned) {
+        if (!importantOwners.has(c)) importantOwners.set(c, []);
+        importantOwners.get(c).push(`${rel}:${rule.source.start.line} { ${vals.join("; ")} }`);
+      }
+    });
+  }
+  const dupes = [...importantOwners].filter(([, list]) => list.length > 1);
+  if (dupes.length) {
+    fail(
+      `面板类名的圆角又出现多条 !important 来源（同特异度靠加载顺序决胜负，漏出名单的元素会被另一条静默吃掉，批次 G 的 .desktop-panel-card 就是这样）：` +
+        dupes.map(([c, list]) => `.${c} ← ${list.join(" / ")}`).join("；") +
+        `。请合并成一条面板家族规则并让名单覆盖全部活成员。`
     );
   }
 }

@@ -806,7 +806,9 @@ button:disabled {
 
 .desktop-panel-card {
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 20px;
+  /* 批次 G：删掉这里的 border-radius: 20px。它从未画出来过——editorial-studio.css
+   * 的家族规则用同特异度 + !important 一直把它压成 var(--radius-panel)=8px
+   * （级联探针实测）。圆角只有一个来源，写在家族规则里。 */
   background: color-mix(in srgb, var(--paper-panel) 84%, transparent);
   box-shadow: 0 14px 34px rgba(64, 42, 26, 0.052);
 }
@@ -4257,7 +4259,8 @@ button:disabled {
 
 .stats-card {
   border: 1px solid var(--paper-line);
-  border-radius: 14px;
+  /* 批次 G：删掉这里的 border-radius: 14px，同 .desktop-panel-card 的 20px——
+   * 被 editorial-studio.css 的面板家族规则压制，从未画出来过。 */
   background: var(--paper-panel);
   padding: 14px 16px;
   box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);

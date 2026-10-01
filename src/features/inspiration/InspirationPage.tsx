@@ -15,7 +15,10 @@ export function InspirationPage() {
 
   return (
     <div className="desktop-inspiration-page paper-shell">
-      <div className="desktop-panel-card motion-panel rounded-2xl border border-paper-line bg-paper-panel p-6 shadow-paper">
+      {/* 批次 G：删掉 rounded-2xl——面板圆角由 editorial-studio.css 的家族规则
+          统一给（同特异度 + !important），写在 className 上画不出来，留在这里只会
+          让下一个人以为自己改动了圆角。 */}
+      <div className="desktop-panel-card motion-panel border border-paper-line bg-paper-panel p-6 shadow-paper">
         <div className="mb-3 flex items-center gap-2">
           <Lightbulb size={18} className="text-copper" />
           <h2 className="paper-title text-xl font-semibold">旧灵感中心已并入全局收件箱</h2>

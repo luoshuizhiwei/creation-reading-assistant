@@ -545,7 +545,13 @@ select:focus-visible,
 .desktop-source-card,
 .desktop-ai-card {
   border-color: var(--border-subtle) !important;
-  border-radius: 12px !important;
+  /* 批次 G：删掉这里的 border-radius: 12px !important。它对这份名单里的绝大多数成员
+   * 早就是死代码——本文件后面那条「面板家族」规则（.stats-card, .paper-panel, … 
+   * { border-radius: var(--radius-panel) !important }）用同特异度且写得更晚，一直在压着它
+   * （级联探针实测实渲 8px）。真正还在生效的只有当时不在家族名单里的 .desktop-panel-card
+   * ——它把 styles.css 的 20px 和 InspirationPage 自己挂的 rounded-2xl 一起吃掉，
+   * 以及已无 TSX 消费者的 .paper-panel-soft。
+   * 批次 G 把 .desktop-panel-card 归入家族名单，面板圆角自此只有一个来源。 */
   background: var(--bg-surface) !important;
   box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05) !important;
 }
@@ -2808,6 +2814,7 @@ input[type="text"],
 }
 
 .stats-card,
+.desktop-panel-card,
 .paper-panel,
 .settings-card,
 .stats-panel,
