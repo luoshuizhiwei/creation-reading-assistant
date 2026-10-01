@@ -31,7 +31,7 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <AnimatedPanel className={`rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift ${className}`}>
+    <AnimatedPanel className={`rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-4 shadow-lift ${className}`}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-paper-ink">{title}</h2>

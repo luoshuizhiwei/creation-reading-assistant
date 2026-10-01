@@ -40,7 +40,7 @@
   margin: 0;
   padding: 10px 12px;
   border-left: 3px solid var(--studio-seal);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--studio-seal-soft) 22%, var(--bg-surface, #fff));
   color: var(--proof-mark);
   font-size: 13px;
@@ -54,7 +54,7 @@
   margin: 0;
   padding: 10px 12px;
   border-left: 3px solid var(--studio-copper);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--studio-copper) 12%, var(--bg-surface, #fff));
   color: var(--text-muted, #5a6270);
   font-size: 13px;
@@ -71,7 +71,7 @@
 .pe-input {
   padding: 8px 11px;
   border: 1px solid var(--border-strong, #cbc8bf);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: var(--bg-surface, #fff);
   color: var(--text-main, #1f2329);
   font-size: 14px;

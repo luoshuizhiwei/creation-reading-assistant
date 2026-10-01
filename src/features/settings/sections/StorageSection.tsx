@@ -424,7 +424,7 @@ export function StorageSection({
         }
       >
         <div className="grid gap-4 md:grid-cols-[1.1fr_0.9fr]" data-setting-id="storage.sync">
-          <div className="rounded-xl border border-paper-line bg-paper-soft/35 p-3">
+          <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-soft/35 p-3">
             <div className="flex items-center gap-2 text-sm font-semibold text-paper-ink">
               <Smartphone size={15} className="text-copper" />
               局域网直连
@@ -456,20 +456,20 @@ export function StorageSection({
             )}
           </div>
 
-          <div className="rounded-xl border border-paper-line bg-paper-soft/35 p-3">
+          <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-soft/35 p-3">
             <div className="text-sm font-semibold text-paper-ink">配对信息</div>
             {pairing ? (
               <div className="mt-2 grid gap-2">
                 {pairingQrDataUrl ? (
-                  <div className="grid place-items-center rounded-xl border border-paper-line bg-white p-3">
+                  <div className="grid place-items-center rounded-[var(--radius-2)] border border-paper-line bg-white p-3">
                     <img src={pairingQrDataUrl} alt="手机同步配对二维码" className="h-48 w-48" />
                   </div>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-copper/40 bg-paper-panel p-2 text-xs text-paper-muted">
+                  <div className="rounded-[var(--radius-2)] border border-dashed border-copper/40 bg-paper-panel p-2 text-xs text-paper-muted">
                     二维码生成中；如果一直没有显示，请复制下面的配对 URL。
                   </div>
                 )}
-                <div className="rounded-lg border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold text-paper-ink">优先配对 URL</div>
                     <Button variant="quiet" onClick={() => void copyText(pairing.pairingUrl, "配对 URL")}>
@@ -479,7 +479,7 @@ export function StorageSection({
                   <div className="mt-1 break-all">{pairing.pairingUrl}</div>
                 </div>
                 {(pairing.pairingUrls ?? []).length > 1 && (
-                  <div className="rounded-lg border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                  <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
                     <div className="font-semibold text-paper-ink">连接失败时试这些地址</div>
                     <div className="mt-2 grid gap-1">
                       {pairing.pairingUrls.map((url) => (
@@ -495,7 +495,7 @@ export function StorageSection({
                     </div>
                   </div>
                 )}
-                <div className="rounded-lg border border-dashed border-copper/40 bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                <div className="rounded-[var(--radius-2)] border border-dashed border-copper/40 bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold text-paper-ink">二维码载荷</div>
                     <Button variant="quiet" onClick={() => void copyText(pairing.qrPayload, "二维码载荷")}>
@@ -520,7 +520,7 @@ export function StorageSection({
           ) : (
             <div className="grid gap-2">
               {syncDevices.map((device) => (
-                <div key={device.deviceId} className="flex items-center justify-between gap-3 rounded-lg border border-paper-line bg-paper-panel px-3 py-2">
+                <div key={device.deviceId} className="flex items-center justify-between gap-3 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel px-3 py-2">
                   <div className="min-w-0">
                     <div className="truncate text-sm font-medium text-paper-ink">{device.name}</div>
                     <div className="truncate text-xs text-paper-muted">

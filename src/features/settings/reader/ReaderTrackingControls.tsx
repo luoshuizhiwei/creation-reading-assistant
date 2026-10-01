@@ -26,7 +26,7 @@ export function ReaderTrackingControls({ tracking, onPatch }: ReaderTrackingCont
         />
       </div>
 
-      <div className="rounded-lg border border-paper-line bg-paper-soft/35">
+      <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-soft/35">
         <button
           type="button"
           className="flex w-full items-center justify-between gap-2 px-3 py-2 text-sm text-paper-ink"

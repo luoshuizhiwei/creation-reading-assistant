@@ -1030,12 +1030,12 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    * 数字由本文件自己扫出来的，改代码的人（和 AI）不需要重新数一遍。
    */
   const RADIUS_BUDGET = {
-    "src/components/ErrorBoundary.tsx": 2,
     "src/components/interaction.tsx": 3,
-    "src/components/ui.tsx": 1,
     "src/components/ui/Dialog.tsx": 1,
     "src/components/ui/FontPicker.tsx": 1,
     "src/components/ui/Tabs.tsx": 1,
+    "src/components/ErrorBoundary.tsx": 2,
+    "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
     "src/features/creation/cards/cards-local.css": 7,
     "src/features/creation/cards/relation-graph.css": 3,
@@ -1063,12 +1063,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
     "src/features/library/toc/TocList.tsx": 2,
     "src/features/search/search.css": 5,
-    "src/features/settings/SettingsPage.tsx": 1,
-    "src/features/settings/SettingsSearch.tsx": 1,
-    "src/features/settings/encryption/encryption.css": 4,
-    "src/features/settings/reader/ReaderTrackingControls.tsx": 1,
-    "src/features/settings/sections/SectionWrapper.tsx": 1,
-    "src/features/settings/sections/StorageSection.tsx": 8,
+    "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 94,
     "src/styles/editorial-studio.css": 34
   };
