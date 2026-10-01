@@ -975,6 +975,154 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   }
 }
 
+/* ------------------------------------------------ 规格 §5.2 圆角刻度棘轮（第 8 步） */
+
+/**
+ * 规格 §5.2 把圆角收成 3 + 1 档：--radius-1(4px) / --radius-2(6px) / --radius-3(10px)
+ * / --radius-full(999px)。令牌在批次 C 之前就定义好了，但 `tokens.css:84` 当时写着
+ * 「--radius-control / --radius-panel 留待刻度收敛步骤再指向 --radius-1/2」——
+ * 也就是这一步。实测离刻度的写法有 244 处、分布在 41 个文件里（25+ 种散写值），
+ * 一次全改属于「🔴 面广 → 分页面批次，每批截图确认」，所以这里先按第 6 步按钮棘轮的
+ * 同一手法把债务按文件冻结：
+ *   ① 新增任何一处离刻度圆角 → 立刻红（预算是按文件给的，别处不能替它挡）；
+ *   ② 某文件还掉了债却没把预算同步调低 → 也红。
+ * 第 ② 条不是为了为难人：这一轮我之前就把「放宽前 8 条 / 放宽后 18 条」这种数字
+ * 写在注释里过，结果判据一改数字就烂，还被人拿去排过工期。预算是数据、不是散文，
+ * 每次运行都跟真实计数对账，数字就不可能说谎。
+ *
+ * 三条排除，各有各的理由，都不算「放宽判据」：
+ *   · `var(--radius-*)`：跟着权威令牌走，正是我们要的方向（实测全仓 17 处别名消费者
+ *     只用到 --radius-control / --radius-panel 两个名字，没有第三种 var 写法）。
+ *   · `50%`：那是「画成圆形」的形状决定，不是圆角档位。非正方元素上 50% 是椭圆，
+ *     换成 999px 会变成圆角矩形——两者不等价，所以不并入刻度（实测仅 4 处）。
+ *   · 选择器里的 `.rounded-xl` 这类锚点：CSS 用类名去选中 TSX 挂上的工具类
+ *     （editorial-studio.css 的 `.inbox-detail > .rounded-xl`），圆角决定在 TSX 那侧，
+ *     在这里重复计数既冤枉合法写法又让预算虚高。用 postcss 解析而不是逐行正则，
+ *     正是为了让「声明/atrule」和「选择器」天然分开。
+ */
+{
+  const RADIUS_SCALE_PX = new Set([0, 4, 6, 10, 999]);
+  const SIDES = new Set(["t", "b", "l", "r", "tl", "tr", "bl", "br"]);
+  const TAILWIND_SIZE_PX = { sm: 2, md: 6, lg: 8, xl: 12, "2xl": 16, "3xl": 24 };
+  const ROUNDED_TOKEN = /\brounded(?:-[a-zA-Z0-9[\]()_.:-]*[a-zA-Z0-9\]])?/g;
+
+  /** 一个 rounded-* 工具类给出的角半径；null = 不判定（var/百分比/复合写法）。 */
+  const radiusCorners = (tok) => {
+    const body = tok.slice("rounded".length).replace(/^-/, "");
+    if (body === "") return [4]; // 裸 rounded = 0.25rem = 4px，正好是 --radius-1
+    if (body.startsWith("[")) {
+      const inner = body.slice(1, -1);
+      if (/var\(--radius/.test(inner) || inner.includes("%")) return null;
+      const nums = inner.match(/-?\d+(?:\.\d+)?/g);
+      return nums ? nums.map((n) => parseFloat(n)) : null;
+    }
+    if (body.endsWith("none") || body.endsWith("full")) return null; // 0 / 999px，都在刻度上
+    const size = body.split("-").filter((p) => !SIDES.has(p));
+    if (!size.length) return [4];
+    if (size.length > 1) return null; // 一侧一档，档位由下面 px 判定，这里不猜
+    const px = TAILWIND_SIZE_PX[size[0]];
+    return px === undefined ? null : [px];
+  };
+  const isOffScale = (corners) => !!corners && corners.some((v) => !RADIUS_SCALE_PX.has(Math.round(Math.abs(v))));
+
+  /**
+   * 冻结预算：还掉一页就把对应数字调低（或删成 0）。
+   * 数字由本文件自己扫出来的，改代码的人（和 AI）不需要重新数一遍。
+   */
+  const RADIUS_BUDGET = {
+    "src/components/ErrorBoundary.tsx": 2,
+    "src/components/interaction.tsx": 3,
+    "src/components/ui.tsx": 1,
+    "src/components/ui/Dialog.tsx": 1,
+    "src/components/ui/FontPicker.tsx": 1,
+    "src/components/ui/Tabs.tsx": 1,
+    "src/features/creation/ai/scene-candidate.css": 2,
+    "src/features/creation/cards/cards-local.css": 7,
+    "src/features/creation/cards/relation-graph.css": 3,
+    "src/features/creation/editor/scene-radar.css": 2,
+    "src/features/creation/editor/writing-quick-reference.css": 5,
+    "src/features/creation/editor/writing-reference.css": 4,
+    "src/features/creation/history/history-local.css": 6,
+    "src/features/creation/inbox/ai-send-confirm.tsx": 3,
+    "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx": 1,
+    "src/features/creation/inbox/components/InboxItemDetail.tsx": 6,
+    "src/features/creation/inbox/inbox-local.css": 1,
+    "src/features/creation/operation/operation.css": 4,
+    "src/features/creation/outline/OutlineTree.tsx": 1,
+    "src/features/creation/outline/outline-reorg.css": 1,
+    "src/features/creation/replace/replace.css": 5,
+    "src/features/inspiration/InspirationPage.tsx": 1,
+    "src/features/library/ExcerptPicker.tsx": 5,
+    "src/features/library/LibraryPage.tsx": 1,
+    "src/features/library/ReaderSidePanel.tsx": 4,
+    "src/features/library/ReadingStatsPage.tsx": 15,
+    "src/features/library/epub-reader/EpubSelectionToolbar.tsx": 2,
+    "src/features/library/reader/ReaderSelectionToolbar.tsx": 2,
+    "src/features/library/reader/TxtMarkdownReader.tsx": 1,
+    "src/features/library/reader/components/ReaderBottomBar.tsx": 1,
+    "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
+    "src/features/library/toc/TocList.tsx": 2,
+    "src/features/search/search.css": 5,
+    "src/features/settings/SettingsPage.tsx": 1,
+    "src/features/settings/SettingsSearch.tsx": 1,
+    "src/features/settings/encryption/encryption.css": 4,
+    "src/features/settings/reader/ReaderTrackingControls.tsx": 1,
+    "src/features/settings/sections/SectionWrapper.tsx": 1,
+    "src/features/settings/sections/StorageSection.tsx": 8,
+    "src/styles.css": 94,
+    "src/styles/editorial-studio.css": 34
+  };
+
+  const actual = {};
+  for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    const src = readFileSync(p, "utf8");
+    let n = 0;
+    if (rel.endsWith(".css")) {
+      let ast;
+      try {
+        ast = postcss.parse(src, { from: p });
+      } catch {
+        fail(`圆角棘轮：postcss 解析失败，${rel} 没被数到（漏数 = 这笔债务不再被盯住）`);
+        continue;
+      }
+      ast.walkDecls(/^border-radius/, (d) => {
+        const toks = d.value.replace("!important", "").trim().split(/\s+/);
+        if (toks.some((t) => /^-?\d/.test(t) && !t.includes("%") && !RADIUS_SCALE_PX.has(parseFloat(t)))) n += 1;
+      });
+      // @apply rounded-lg 编译出来就是一条 border-radius 声明，和 TSX 挂工具类等价，必须同判。
+      ast.walkAtRules("apply", (a) => {
+        for (const tok of a.params.match(ROUNDED_TOKEN) ?? []) if (isOffScale(radiusCorners(tok))) n += 1;
+      });
+    } else {
+      // TSX/TS 侧必须剥注释（同状态色类名那条的理由）：本仓库的说明注释里
+      // 会写「原来是 rounded-lg」这种旧类名，不剥就是守卫自己咬自己。
+      for (const raw of preserveNewlines(src).split("\n")) {
+        for (const tok of raw.match(ROUNDED_TOKEN) ?? []) if (isOffScale(radiusCorners(tok))) n += 1;
+      }
+    }
+    if (n) actual[rel] = n;
+  }
+
+  const over = Object.keys(actual).filter((f) => actual[f] > (RADIUS_BUDGET[f] ?? 0));
+  const stale = Object.keys(RADIUS_BUDGET).filter((f) => (RADIUS_BUDGET[f] ?? 0) > (actual[f] ?? 0));
+  if (over.length) {
+    fail(
+      `第 8 步圆角刻度：${over.length} 个文件的离刻度圆角比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${RADIUS_BUDGET[f] ?? 0})`).join("、")}。` +
+        `界面元素请用 --radius-1(4px) / --radius-2(6px) / --radius-3(10px) / --radius-full，` +
+        `或等价工具类 rounded / rounded-md / rounded-[10px] / rounded-full。`
+    );
+  }
+  if (stale.length) {
+    fail(
+      `第 8 步圆角刻度：${stale.length} 个文件已经还了债但预算没跟着降——${stale.slice(0, 5).map((f) => `${f}(${actual[f] ?? 0}→应为预算 ${RADIUS_BUDGET[f]})`).join("、")}。` +
+        `把 RADIUS_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一页）。`
+    );
+  }
+  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
+  console.log(`${TAG} [第 8 步待收敛] 圆角离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
 /* ------------------------------------------------------------------ 结论 */
 
 if (failures > 0) {

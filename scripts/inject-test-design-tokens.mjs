@@ -22,7 +22,11 @@ const files = [
   "src/features/creation/replace/replace.css",
   "src/features/search/search.css",
   // 第 8 步的 TSX 分支用例改这份：它是 4 处 bg-copper + text-[color:var(--fg-on-solid)] 之一。
-  "src/features/library/LibraryPage.tsx"
+  "src/features/library/LibraryPage.tsx",
+  // 圆角棘轮用例改这两份：一份是「已有预算的文件」（search.css，预算 5），
+  // 一份是「预算表里根本没有的文件」（settings-controls.css，视同 0）——
+  // 后者测的是新增债务落进零预算文件时会不会漏判。
+  "src/features/settings/settings-controls.css"
 ];
 
 const backedUp = new Set(files);
@@ -122,10 +126,18 @@ const cases = [
   ["批次 C 回归：TSX 里把危险底色写回 Tailwind 调色板（bg-red-500 不随主题翻转，第 7 步的 CSS hex 计数看不见类名）", () => mutate("src/features/library/LibraryPage.tsx", 'transition hover:bg-[color:var(--proof-tint)] hover:text-[color:var(--proof-mark)]"', 'transition hover:bg-red-500 hover:text-red-700"'), /状态色类名/],
   ["批次 C 回归：CSS 的 @apply 里藏 Tailwind 状态色类名，证明这条扫描不止管 TSX", () => mutate("src/styles.css", "border: 1px solid rgb(253 230 138 / 0.6);\n    @apply shadow-paper;", "border: 1px solid rgb(253 230 138 / 0.6);\n    @apply border-amber-200/60 shadow-paper;"), /状态色类名/],
   ["批次 C 回归：把 .motion-toast 的 background 加回来——它与 tone 工具类同特异度而加载更晚，会整族遮蔽四种提示的颜色（批次 C 用 jsdom 实测过的真实缺陷）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;", ".motion-toast {\n  background: var(--studio-cloth);\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;"), /motion-toast|遮蔽/],
-  ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/]
+  ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
+  // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
+  // 最后两条 expect 为 null，是「必须保持绿」的反向用例——判据过严同样是缺陷。
+  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（同串里再加 rounded-xl，计数 1→2 必须红）", () => mutate("src/features/library/LibraryPage.tsx", 'min-w-[160px] rounded-lg border', 'min-w-[160px] rounded-lg rounded-xl border'), /圆角刻度/],
+  ["圆角棘轮②：把离刻度值写进预算表里根本没有的文件（settings-controls.css 预算视同 0，4px→7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 7px;"), /圆角刻度/],
+  ["圆角棘轮③：还了债却不降预算（LibraryPage 的 rounded-lg→rounded 是合法收敛，但预算仍是 1，必须红并指名该文件）", () => mutate("src/features/library/LibraryPage.tsx", 'min-w-[160px] rounded-lg border', 'min-w-[160px] rounded border'), /预算没跟着降/],
+  ["圆角棘轮·反向①：说明注释里提到旧类名 rounded-xl 不算违规（不剥注释的话守卫会自己咬自己）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  {/* 这里原来是 rounded-xl，批次 D 收到 rounded-lg */}"), null],
+  ["圆角棘轮·反向②：50% 是形状决定不是圆角档位，写进规则里不该变红", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 50%;"), null]
 ];
 
 let bad = 0;
+let mustGreen = 0;
 for (const [label, apply, expect] of cases) {
   restore();
   let result;
@@ -135,6 +147,19 @@ for (const [label, apply, expect] of cases) {
   } catch (err) {
     console.log(`SKIP  ${label}\n      ${err.message}`);
     bad += 1;
+    continue;
+  }
+  // expect === null：这条测的是「不该变红」——防的是守卫过度灵敏把好写法判成违规。
+  // 误报的危害不比漏检小：警告一旦可以被正当写法触发，人就会开始绕过它。
+  if (expect === null) {
+    mustGreen += 1;
+    const green = result.code === 0;
+    console.log(`${green ? "OK   " : "FAIL "} ${label}`);
+    if (!green) {
+      console.log("       期望保持绿，实际红了：");
+      console.log(result.out.split("\n").filter((l) => l.includes("verify-design-tokens")).slice(0, 3).map((l) => "         " + l).join("\n"));
+      bad += 1;
+    }
     continue;
   }
   const red = result.code !== 0 && expect.test(result.out);
@@ -152,5 +177,5 @@ console.log(`\n还原后守卫: exit=${green.code} ${green.code === 0 ? "（绿�
 if (green.code !== 0) bad += 1;
 
 cleanup();
-console.log(`\n注入测试：${cases.length} 个用例，${bad === 0 ? "全部使守卫变红" : bad + " 个无效"}`);
+console.log(`\n注入测试：${cases.length} 个用例（其中 ${mustGreen} 条要求守卫保持绿），${bad === 0 ? "全部符合预期" : bad + " 个无效"}`);
 process.exit(bad === 0 ? 0 : 1);
