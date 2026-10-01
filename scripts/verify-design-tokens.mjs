@@ -1198,7 +1198,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/ReaderSidePanel.tsx": 2,
-    "src/features/library/ReadingStatsPage.tsx": 9,
     "src/features/library/epub-reader/EpubPageTurnButtons.tsx": 2,
     "src/features/library/epub-reader/EpubSelectionToolbar.tsx": 2,
     "src/features/library/reader/ReaderSelectionToolbar.tsx": 2,

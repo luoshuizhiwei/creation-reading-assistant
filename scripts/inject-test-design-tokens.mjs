@@ -30,8 +30,10 @@ const files = [
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
   "src/features/settings/settings-controls.css",
-  // 阴影棘轮的「还了债不降预算」用例改这份：它是阴影预算最高的文件（9 处）。
-  "src/features/library/ReadingStatsPage.tsx"
+  // 阴影棘轮的「还了债不降预算」用例改这份：它还有 2 处 shadow-lift（§2.5 裸按钮遗留，
+  // 留给 EPUB 页那一批）。选它而不是 ReadingStatsPage，是因为锚点串会被迁移掉——
+  // 本批就现场演示过一次：锚点没了，用例直接 SKIP（harness 把 SKIP 计为无效，不会静默失效）。
+  "src/features/library/epub-reader/EpubPageTurnButtons.tsx"
 ];
 
 const backedUp = new Set(files);
@@ -160,7 +162,7 @@ const cases = [
   ["阴影棘轮③：@apply 分支——@apply 里的 shadow-lift 编译后就是一条 box-shadow 声明，和 TSX 挂工具类等价，必须同判", () => mutate("src/styles.css", "@apply border border-paper-line bg-paper-panel shadow-lift;", "@apply border border-paper-line bg-paper-panel shadow-lift shadow-xl;"), /阴影刻度/],
   ["阴影棘轮·反向①：伏笔是本产品的业务词（foreshadow），text-shadow 是属性名——都在代码里而非注释里，前后断言必须挡住，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzProbe = \"foreshadow foreshadowResolved foreshadows text-shadow\";\n  void zzProbe;"), null],
   ["阴影棘轮·反向②：四种合法豁免——shadow-none / shadow-inner / 颜色档 shadow-white\\/20（只产 --tw-shadow-color）/ [box-shadow:var(--focus-ring)] 焦点环，都不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzExempt = \"shadow-none shadow-inner shadow-white/20 focus-visible:[box-shadow:var(--focus-ring)]\";\n  void zzExempt;"), null],
-  ["阴影棘轮·还债不降预算：ReadingStatsPage 把 shadow-lift 换成 shadow-none 是合法收敛，但预算仍是 9，必须红并指名该文件", () => mutate("src/features/library/ReadingStatsPage.tsx", "bg-paper-panel p-3 shadow-lift", "bg-paper-panel p-3 shadow-none"), /预算没跟着降/]
+  ["阴影棘轮·还债不降预算：EpubPageTurnButtons 把一处 shadow-lift 换成 shadow-none 是合法收敛（预算 2→1），但预算仍是 2，必须红并指名该文件", () => mutate("src/features/library/epub-reader/EpubPageTurnButtons.tsx", "bg-paper-panel/90 text-paper-muted shadow-lift", "bg-paper-panel/90 text-paper-muted shadow-none"), /预算没跟着降/]
 ];
 
 let bad = 0;

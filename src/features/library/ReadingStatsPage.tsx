@@ -148,7 +148,7 @@ export function ReadingStatsPage() {
       ["天数", periodInfo.current.days, periodInfo.previous.days],
     ];
     return (
-      <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-3 shadow-lift">
+      <div className="motion-panel rounded-xl bg-paper-panel p-3 [box-shadow:var(--shadow-1)]">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto">
           <span className="text-xs font-semibold text-paper-muted">较上一周期</span>
           {metrics.map(([label, currentVal, prevVal]) => {
@@ -209,7 +209,7 @@ export function ReadingStatsPage() {
                     <button
                       key={r}
                       className={`rounded-md px-3 py-1 text-xs font-medium transition ${
-                        selectedRange === r ? "bg-copper text-[color:var(--fg-on-solid)] shadow-lift" : "text-paper-muted hover:text-paper-ink"
+                        selectedRange === r ? "bg-copper text-[color:var(--fg-on-solid)]" : "text-paper-muted hover:text-paper-ink"
                       }`}
                       onClick={() => changeRange(r)}
                     >
@@ -271,7 +271,7 @@ export function ReadingStatsPage() {
 
             <section className="desktop-stats-grid">
               <div className="grid gap-5">
-                <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="paper-title text-base font-semibold">按书统计</h2>
                     <span className="text-xs text-paper-muted">平均单次 {formatDuration(stats.averageSessionDurationMs)}</span>
@@ -302,7 +302,7 @@ export function ReadingStatsPage() {
                   )}
                 </div>
 
-                <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <h2 className="paper-title mb-3 text-base font-semibold">最近阅读书籍</h2>
                   {stats.recentBooks.length === 0 ? (
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">打开并阅读书籍后会出现在这里。</div>
@@ -330,7 +330,7 @@ export function ReadingStatsPage() {
                   )}
                 </div>
 
-                <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <h2 className="paper-title mb-3 text-base font-semibold">近 30 天节律</h2>
                   <div className="stats-rhythm-chart">
                     {stats.daily.slice(-30).map((day) => (
@@ -345,7 +345,7 @@ export function ReadingStatsPage() {
                 </div>
               </div>
 
-              <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+              <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Clock3 size={16} />
                   <h2 className="paper-title text-base font-semibold">最近会话</h2>
@@ -410,7 +410,7 @@ function ReadingStatsSkeleton() {
       <section className="desktop-stats-grid">
         <div className="grid gap-5">
           {/* By book card */}
-          <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+          <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
             <div className="mb-4 flex items-center justify-between">
               <div className="h-5 w-24 animate-pulse rounded bg-paper-soft" />
               <div className="h-3.5 w-20 animate-pulse rounded bg-paper-soft/60" />
@@ -426,7 +426,7 @@ function ReadingStatsSkeleton() {
           </div>
 
           {/* Rhythm chart card */}
-          <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+          <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
             <div className="mb-4 h-5 w-28 animate-pulse rounded bg-paper-soft" />
             <div className="flex h-28 items-end gap-1.5 pt-4">
               {[40, 65, 25, 80, 50, 95, 30, 60, 45, 70, 85, 35, 55, 90, 60].map((h, i) => (
@@ -441,7 +441,7 @@ function ReadingStatsSkeleton() {
         </div>
 
         {/* Sessions card */}
-        <div className="motion-panel rounded-xl border border-paper-line bg-paper-panel p-4 shadow-lift">
+        <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
           <div className="mb-4 flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-paper-soft animate-pulse" />
             <div className="h-5 w-24 rounded bg-paper-soft animate-pulse" />
