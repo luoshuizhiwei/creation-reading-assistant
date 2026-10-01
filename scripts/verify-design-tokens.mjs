@@ -1115,6 +1115,163 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   console.log(`${TAG} [第 8 步待收敛] 圆角离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
 }
 
+/* ------------------------------------------------ 规格 §5.3 阴影刻度棘轮（第 8 步） */
+
+/**
+ * 和圆角棘轮同一批手法：先把债变成数据，再一页一页还。规格 §5.3 把阴影收成 4 级
+ * （--shadow-1 静止卡片 / --shadow-2 下拉菜单 / --shadow-3 对话框 / --shadow-4 拖拽幽灵），
+ * 实测 CSS 里曾有 63 个唯一 box-shadow 值，其中绝大多数是手抄的 rgba 组合。
+ *
+ * 与圆角不同，阴影不是「一个数字对不对」，所以判据形状也不同：
+ *   · CSS 侧：一条 box-shadow 声明，只要含**至少一个非 inset 层**又不走 var(--shadow-*)，
+ *     计一处债。全是 inset 的豁免——那 20 处是「inset 2px 0 0 var(--studio-seal)」这种
+ *     色条/内衬装饰（左侧书脊线），规格 §5.3 的四级是投影层级，压根不是给它们准备的；
+ *     把结构装饰逼成投影令牌才是判据的暴政。`none` 豁免。
+ *   · TSX 侧：Tailwind 的 shadow 工具类。刻度外的档（shadow-sm/md/lg/xl/2xl/3xl 和
+ *     仓库自定义的 shadow-paper/shadow-lift）都算债——paper/lift 是砚席主题早期手抄的
+ *     两档投影，正是 §5.3 要取代的东西。裸 `shadow` 默认档同样算。
+ *     shadow-none / shadow-inner 豁免（inner 与 CSS 侧 inset 同族）。
+ *     颜色工具类（shadow-copper-300 这类不存在的键）不判定：只产 --tw-shadow-color、
+ *     不改投影几何，管它是判据的傲慢。
+ *     [box-shadow:...] 任意属性形式：走 var(--shadow*)/--focus-ring 的豁免。
+ *     焦点环 [box-shadow:var(--focus-ring)] 就在这里——它不是阴影层级，是描边。
+ *   · 正则前置 (?<![A-Za-z0-9_-]) 挡 `foreshadow`：伏笔是本产品的业务词（17 处），
+ *     不是 shadow 工具类。这是判据最容易咬错的地方，故钉死。
+ *   · TSX 侧必须先过 preserveNewlines 剥注释（同圆角棘轮的理由：说明注释里会写
+ *     「不能写 shadow-[var(--focus-ring)]」这种旧类名，不剥就是守卫自己咬自己）。
+ */
+{
+  const THEME_SHADOW_KEYS = new Set(["", "sm", "md", "lg", "xl", "2xl", "3xl", "inner", "paper", "lift"]);
+  const SHADOW_TOKEN = /(?<![A-Za-z0-9_-])shadow(?:-\[[^\]]*\]|-[a-zA-Z0-9][a-zA-Z0-9_.:/-]*)?/g;
+  const ARBITRARY_BOX = /\[box-shadow:([^\]]*)\]/g;
+
+  /** 一个 shadow-* 工具类是否是刻度外的投影；false = 不判定（none/inner/颜色档/令牌）。 */
+  const tsxShadowDebt = (tok) => {
+    if (tok === "shadow") return true; // 裸 shadow = Tailwind 默认投影档
+    const m = /^shadow-(.+)$/.exec(tok);
+    if (!m) return false;
+    const body = m[1];
+    if (body.startsWith("[")) return !/^var\(--(shadow|focus)/.test(body.slice(1, -1).trim());
+    const key = body.split("-")[0];
+    if (!THEME_SHADOW_KEYS.has(key)) return false; // 颜色工具类：只改 --tw-shadow-color，不判
+    if (body === "none" || body === "inner") return false;
+    return true;
+  };
+
+  /** box-shadow 值按顶层逗号分层（括号内逗号不算分隔）。 */
+  const shadowLayers = (v) => {
+    const out = [];
+    let depth = 0;
+    let cur = "";
+    for (const ch of v) {
+      if (ch === "(") depth += 1;
+      if (ch === ")") depth -= 1;
+      if (ch === "," && depth === 0) {
+        out.push(cur.trim());
+        cur = "";
+      } else cur += ch;
+    }
+    if (cur.trim()) out.push(cur.trim());
+    return out;
+  };
+
+  /**
+   * 冻结预算。数字由本判据扫出（CSS 声明 + @apply 92 + TSX 32，合计 124，30 个文件），和圆角棘轮一样：
+   * 新债要红，还了债不降预算也要红。
+   */
+  const SHADOW_BUDGET = {
+    "src/components/ErrorBoundary.tsx": 1,
+    "src/components/interaction.tsx": 2,
+    "src/components/ui/Dialog.tsx": 1,
+    "src/components/ui/FontPicker.tsx": 1,
+    "src/components/ui/Tabs.tsx": 1,
+    "src/features/creation/cards/cards-local.css": 1,
+    "src/features/creation/editor/scene-radar.css": 1,
+    "src/features/creation/editor/writing-quick-reference.css": 1,
+    "src/features/creation/editor/writing-reference.css": 2,
+    "src/features/creation/history/history-local.css": 2,
+    "src/features/creation/inbox/ai-send-confirm.tsx": 1,
+    "src/features/creation/outline/OutlineTree.tsx": 1,
+    "src/features/creation/replace/replace.css": 2,
+    "src/features/inspiration/InspirationPage.tsx": 1,
+    "src/features/library/ExcerptPicker.tsx": 1,
+    "src/features/library/LibraryPage.tsx": 1,
+    "src/features/library/ReaderSettingsDrawer.tsx": 1,
+    "src/features/library/ReaderSidePanel.tsx": 2,
+    "src/features/library/ReadingStatsPage.tsx": 9,
+    "src/features/library/epub-reader/EpubPageTurnButtons.tsx": 2,
+    "src/features/library/epub-reader/EpubSelectionToolbar.tsx": 2,
+    "src/features/library/reader/ReaderSelectionToolbar.tsx": 2,
+    "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
+    "src/features/search/search.css": 1,
+    "src/features/settings/SettingsSearch.tsx": 1,
+    "src/features/settings/encryption/encryption.css": 2,
+    "src/features/settings/sections/SectionWrapper.tsx": 1,
+    "src/features/settings/settings-controls.css": 7,
+    "src/styles.css": 38,
+    "src/styles/editorial-studio.css": 35
+  };
+
+  const actual = {};
+  for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    const src = readFileSync(p, "utf8");
+    let n = 0;
+    if (rel.endsWith(".css")) {
+      let ast;
+      try {
+        ast = postcss.parse(src, { from: p });
+      } catch {
+        fail(`阴影棘轮：postcss 解析失败，${rel} 没被数到（漏数 = 这笔债务不再被盯住）`);
+        continue;
+      }
+      ast.walkDecls(/^box-shadow$/, (d) => {
+        const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
+        if (v === "none" || /^var\(--shadow/.test(v)) return;
+        // 只有「至少一个非 inset 层」才是投影；纯 inset 是色条/内衬装饰，§5.3 四级不针对它
+        if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return;
+        n += 1;
+      });
+      ast.walkAtRules("apply", (a) => {
+        for (const tok of a.params.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
+      });
+    } else {
+      // TSX/TS 侧剥注释后逐行扫（同圆角棘轮，防「不能写 shadow-[var(--focus-ring)]」
+      // 这类说明注释咬自己）
+      for (const line of preserveNewlines(src).split("\n")) {
+        for (const tok of line.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
+        // 必须用 exec 取捕获组：line.match(ARB) 带 /g 返回的是**整串数组**，
+        // 那种写法下 m[1] 是字符串的第 2 个字符 "["，豁免判断永远为真、永远误判
+        // ——焦点环 [box-shadow:var(--focus-ring)] 会被数成债（批次 I 实测踩过）。
+        ARBITRARY_BOX.lastIndex = 0;
+        let mm;
+        while ((mm = ARBITRARY_BOX.exec(line)) !== null) {
+          if (!/^var\(--(shadow|focus)/.test(mm[1].trim())) n += 1;
+        }
+      }
+    }
+    if (n) actual[rel] = (actual[rel] ?? 0) + n;
+  }
+
+  const over = Object.keys(actual).filter((f) => actual[f] > (SHADOW_BUDGET[f] ?? 0));
+  const stale = Object.keys(SHADOW_BUDGET).filter((f) => (SHADOW_BUDGET[f] ?? 0) > (actual[f] ?? 0));
+  if (over.length) {
+    fail(
+      `第 8 步阴影刻度：${over.length} 个文件的离刻度阴影比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SHADOW_BUDGET[f] ?? 0})`).join("、")}。` +
+        `投影请用 --shadow-1(静止卡片)/--shadow-2(菜单)/--shadow-3(对话框)/--shadow-4(拖拽/toast)，` +
+        `纯 inset 色条/内衬和 shadow-none/shadow-inner 不在此管。`
+    );
+  }
+  if (stale.length) {
+    fail(
+      `第 8 步阴影刻度：${stale.length} 个文件已经还了债但预算没跟着降——${stale.slice(0, 5).map((f) => `${f}(${actual[f] ?? 0}→应为预算 ${SHADOW_BUDGET[f]})`).join("、")}。` +
+        `把 SHADOW_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一页）。`
+    );
+  }
+  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
+  console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
 /* ---------------------------------- 浮层容器类名不得被裸选择器接管 border-radius */
 
 /**

@@ -21,12 +21,17 @@ const files = [
   // 第 7 步硬编码红的三条用例分别改这两份局部样式表。
   "src/features/creation/replace/replace.css",
   "src/features/search/search.css",
+  // 阴影棘轮的 CSS 侧用例改这份：它不在 SHADOW_BUDGET 里（预算视同 0），
+  // 测的是「新债落进零预算文件」。
+  "src/features/creation/inbox/inbox-local.css",
   // 第 8 步的 TSX 分支用例改这份：它是 4 处 bg-copper + text-[color:var(--fg-on-solid)] 之一。
   "src/features/library/LibraryPage.tsx",
-  // 圆角棘轮用例改这两份：一份是「已有预算的文件」（search.css，预算 5），
-  // 一份是「预算表里根本没有的文件」（settings-controls.css，视同 0）——
-  // 后者测的是新增债务落进零预算文件时会不会漏判。
-  "src/features/settings/settings-controls.css"
+  // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
+  // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
+  // ——后者测的是新增债务落进零预算文件时会不会漏判。
+  "src/features/settings/settings-controls.css",
+  // 阴影棘轮的「还了债不降预算」用例改这份：它是阴影预算最高的文件（9 处）。
+  "src/features/library/ReadingStatsPage.tsx"
 ];
 
 const backedUp = new Set(files);
@@ -147,7 +152,15 @@ const cases = [
   // 第 8 步批次 H：`X > *` 的 !important 非零圆角 blanket（往透明包装器刷弧度）。
   // 正向值用刻度上的 10px，让棘轮咬不到、只有网格不变量拦得住；反向证明 0 压平合法。
   ["批次 H 回归：加一条 `X > * { border-radius: 10px !important }` 网格 blanket（10px 在刻度上、棘轮咬不到，必须靠网格不变量拦住）", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".zz-grid-blanket > * {\n  border-radius: 10px !important;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /网格子元素刷非零圆角/],
-  ["批次 H 回归·反向：`X > * { border-radius: 0 !important }` 是压平（.stats-page .stats-grid > * 就这么用），不该变红", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".zz-grid-flatten > * {\n  border-radius: 0 !important;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), null]
+  ["批次 H 回归·反向：`X > * { border-radius: 0 !important }` 是压平（.stats-page .stats-grid > * 就这么用），不该变红", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".zz-grid-flatten > * {\n  border-radius: 0 !important;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), null],
+  // 第 8 步批次 I：阴影棘轮。这组测三件事——能不能咬新债（TSX 工具类 / CSS 声明 / @apply
+  // 三条入口各一条）、还了债不降预算会不会红、以及四种豁免会不会误伤。
+  ["阴影棘轮①：TSX 工具类新债——已有预算文件里同串再加一个 shadow-lift（1→2 必须红）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-lift p-1'), /阴影刻度/],
+  ["阴影棘轮②：CSS 声明新债——把字面投影写进阴影预算表里根本没有的文件（inbox-local.css 视同 0，必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", ".inbox-page {\n  display: flex;", ".inbox-page {\n  box-shadow: 0 10px 30px rgba(34, 38, 48, 0.05);\n  display: flex;"), /阴影刻度/],
+  ["阴影棘轮③：@apply 分支——@apply 里的 shadow-lift 编译后就是一条 box-shadow 声明，和 TSX 挂工具类等价，必须同判", () => mutate("src/styles.css", "@apply border border-paper-line bg-paper-panel shadow-lift;", "@apply border border-paper-line bg-paper-panel shadow-lift shadow-xl;"), /阴影刻度/],
+  ["阴影棘轮·反向①：伏笔是本产品的业务词（foreshadow），text-shadow 是属性名——都在代码里而非注释里，前后断言必须挡住，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzProbe = \"foreshadow foreshadowResolved foreshadows text-shadow\";\n  void zzProbe;"), null],
+  ["阴影棘轮·反向②：四种合法豁免——shadow-none / shadow-inner / 颜色档 shadow-white\\/20（只产 --tw-shadow-color）/ [box-shadow:var(--focus-ring)] 焦点环，都不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzExempt = \"shadow-none shadow-inner shadow-white/20 focus-visible:[box-shadow:var(--focus-ring)]\";\n  void zzExempt;"), null],
+  ["阴影棘轮·还债不降预算：ReadingStatsPage 把 shadow-lift 换成 shadow-none 是合法收敛，但预算仍是 9，必须红并指名该文件", () => mutate("src/features/library/ReadingStatsPage.tsx", "bg-paper-panel p-3 shadow-lift", "bg-paper-panel p-3 shadow-none"), /预算没跟着降/]
 ];
 
 let bad = 0;
