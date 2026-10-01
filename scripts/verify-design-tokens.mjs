@@ -1062,7 +1062,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 91,
-    "src/styles/editorial-studio.css": 31
+    "src/styles/editorial-studio.css": 30
   };
 
   const actual = {};
@@ -1239,6 +1239,57 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
       `面板类名的圆角又出现多条 !important 来源（同特异度靠加载顺序决胜负，漏出名单的元素会被另一条静默吃掉，批次 G 的 .desktop-panel-card 就是这样）：` +
         dupes.map(([c, list]) => `.${c} ← ${list.join(" / ")}`).join("；") +
         `。请合并成一条面板家族规则并让名单覆盖全部活成员。`
+    );
+  }
+}
+
+/* ---------------- 网格 blanket：`X > *` 不得用 !important 给透明包装器刷非零圆角 */
+
+/**
+ * 批次 H 的教训，是上一条「面板」不变量的另一种形状（所以判据也不同）：
+ * editorial-studio.css 曾有 `.desktop-settings-grid > *, .desktop-stats-grid > *
+ * { border-radius: 12px !important; box-shadow: … !important }`。
+ * 它和浮层/面板 blanket 的区别在于选择器是 `> *`——命中的是「某个容器的全部直接子元素」，
+ * 而这些子元素往往是 <div class="grid gap-5"> 这类**没有自身底色的透明布局包装器**。
+ * 给一块透明岛同时刷圆角 + 阴影，阴影会绕过圆角画成方盒子（12px 圆角在透明区上根本看不见，
+ * 只有那圈投影落在卡片之间的缝隙上）。批次 H 把这条 radius+shadow 成对退役。
+ *
+ * 判据：凡末段是 `… > *`（子组合到通配）的规则，若用 !important 声明了一个**非零**
+ * border-radius，变红。零值例外——`X > * { border-radius: 0 !important }` 是「压平」
+ * （如 `.stats-page .stats-grid > *`），把子元素刻意收成方角，不是往透明岛上刷弧度，
+ * 与 F/G 里「带模式前缀压平为 0」是同一族合法写法，不该误伤。
+ *
+ * 遗留：本判据只管 `> *`；`.desktop-settings-grid > *`（非 !important、var 值那条）
+ * 是设置页把卡片网格压成分区面板的自持规则，其 .desktop-settings-grid 已确认全仓无 TSX
+ * 消费者——整族死代码的清理留待设置页那一批，不在本判据射程内。
+ */
+{
+  const gridBlanket = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      const hit = rule.selectors.find((s) => />\s*\*/.test(s.replace(/\s+/g, " ")));
+      if (!hit) return;
+      for (const decl of rule.nodes) {
+        if (decl.type !== "decl" || !/^border-radius(-[a-z-]+)?$/.test(decl.prop) || !decl.important) continue;
+        // 0 是压平，合法；非零才是往透明包装器上刷弧度
+        if (/^0$/.test(decl.value.trim())) continue;
+        gridBlanket.push(`${rel}:${rule.source.start.line} «${hit.replace(/\s+/g, " ").trim()}» { ${decl.prop}: ${decl.value} !important }`);
+      }
+    });
+  }
+  if (gridBlanket.length) {
+    fail(
+      `又出现给网格子元素刷非零圆角的 !important blanket：${gridBlanket.length} 处。` +
+        `这类 ` + "`X > *`" + ` 命中的常是没有自身底色的透明布局包装器，圆角 + 阴影刷在透明岛上会画成方盒子` +
+        `（批次 H 删掉的 .desktop-stats-grid > * 就是这样）。圆角请交给真正的卡片自己声明；` +
+        `确需压平就用 border-radius: 0 !important。命中：${gridBlanket.slice(0, 3).join(" / ")}`
     );
   }
 }

@@ -1583,11 +1583,15 @@ select:focus-visible,
   align-items: start;
 }
 
-.desktop-settings-grid > *,
-.desktop-stats-grid > * {
-  border-radius: 12px !important;
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05) !important;
-}
+/* 批次 H：删掉这条网格 blanket
+ *   `.desktop-settings-grid > *, .desktop-stats-grid > *
+ *    { border-radius: 12px !important; box-shadow: … !important }`
+ * 取证：`.desktop-settings-grid` 全仓无 TSX 消费者（死类名，样式表里另有几条同样空转）；
+ * `.desktop-stats-grid > *` 的 `> *` 只罩住 ReadingStatsPage 的两个 <div class="grid gap-5">
+ * ——它们是透明布局包装器，没有自己的底色/描边。给一块透明岛刷 12px 圆角 + 阴影，
+ * 阴影会绕过圆角画成方盒子，这就是批次 G 记录的那对「radius 跟 shadow 必须成对处理」的遗留。
+ * 圆角 12px 也离刻度（规格 §5.2 无 12px 档）。真正的卡片自带 rounded-*，不受影响。
+ * 唯一可见变化：阅读统计页那两张面板内的「按书 / 按时长」列容器，方角阴影岛消失。 */
 
 .desktop-library-grid-head {
   background: var(--bg-subtle);
