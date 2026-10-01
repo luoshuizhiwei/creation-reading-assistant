@@ -1500,7 +1500,7 @@ select:focus-visible,
 .uni-search-shell {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--studio-cloth) 32%, var(--border-subtle));
-  border-radius: 14px;
+  border-radius: var(--radius-3);
   background: var(--studio-paper);
   box-shadow: 0 30px 90px color-mix(in srgb, var(--studio-cloth) 30%, transparent), 0 6px 20px rgba(15, 17, 22, 0.14);
 }
@@ -1954,13 +1954,19 @@ select:focus-visible,
  * Floating layers: dialogs, toasts, banners
  * ----------------------------------------------------------------------- */
 
-.migration-banner,
-.motion-dialog,
-.motion-toast,
-.motion-drawer,
-.confirm-dialog {
-  border-radius: 12px !important;
-}
+/* 批次 F：删掉了原来这条
+ * `.migration-banner, .motion-dialog, .motion-toast, .motion-drawer, .confirm-dialog
+ *  { border-radius: 12px !important }`。
+ * 它和批次 C 删掉的 .motion-toast background/color 是同一个形状的缺陷：
+ * !important 让浮层组件自己挂在 className 上的圆角工具类全部变成死声明——
+ * 确认框写着 rounded-2xl(16px)、toast 写着 rounded-xl(12px)，实际渲染的一直是
+ * 这条 12px（用打包产物逐条算级联验证过）。更糟的是 .motion-drawer 根本没有
+ * 自带圆角，全靠这条撑着：单独删掉它，阅读器设置抽屉会塌成直角。
+ * 所以本批是「删这条 + 五个浮层各自挂上刻度圆角」一起做完，缺一不可。
+ * 另外 .confirm-dialog 这个选择器是死的：组件用的是 motion-dialog，
+ * confirm-dialog 只作为 id（confirm-dialog-title / -message）存在。
+ * 不变量已钉进守卫：浮层容器类名上不得再出现 border-radius …!important。
+ */
 
 .motion-dialog,
 .confirm-dialog {

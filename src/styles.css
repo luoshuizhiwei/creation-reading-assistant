@@ -4735,7 +4735,7 @@ button:disabled {
   gap: 10px;
   padding: 10px 14px;
   border: 1px solid color-mix(in srgb, var(--copper) 30%, var(--paper-line));
-  border-radius: 12px;
+  border-radius: var(--radius-3);
   background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
   color: var(--paper-ink);
   font-size: 13px;

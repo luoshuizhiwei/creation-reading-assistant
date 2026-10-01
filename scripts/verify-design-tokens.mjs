@@ -1030,8 +1030,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    * 数字由本文件自己扫出来的，改代码的人（和 AI）不需要重新数一遍。
    */
   const RADIUS_BUDGET = {
-    "src/components/interaction.tsx": 3,
-    "src/components/ui/Dialog.tsx": 1,
+    "src/components/interaction.tsx": 1,
     "src/components/ui/FontPicker.tsx": 1,
     "src/components/ui/Tabs.tsx": 1,
     "src/components/ErrorBoundary.tsx": 2,
@@ -1043,12 +1042,11 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/editor/writing-quick-reference.css": 5,
     "src/features/creation/editor/writing-reference.css": 4,
     "src/features/creation/history/history-local.css": 6,
-    "src/features/creation/inbox/ai-send-confirm.tsx": 3,
+    "src/features/creation/inbox/ai-send-confirm.tsx": 2,
     "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx": 1,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 6,
     "src/features/creation/inbox/inbox-local.css": 1,
     "src/features/creation/operation/operation.css": 4,
-    "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/outline/outline-reorg.css": 1,
     "src/features/creation/replace/replace.css": 5,
     "src/features/inspiration/InspirationPage.tsx": 1,
@@ -1062,10 +1060,10 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/library/reader/components/ReaderBottomBar.tsx": 1,
     "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
     "src/features/library/toc/TocList.tsx": 2,
-    "src/features/search/search.css": 5,
+    "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 94,
-    "src/styles/editorial-studio.css": 34
+    "src/styles.css": 93,
+    "src/styles/editorial-studio.css": 32
   };
 
   const actual = {};
@@ -1116,6 +1114,66 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   }
   const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
   console.log(`${TAG} [第 8 步待收敛] 圆角离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
+/* ---------------------------------- 浮层容器类名不得被裸选择器接管 border-radius */
+
+/**
+ * 批次 F 的教训，和上面那条 .motion-toast background/color 不变量同族：
+ * editorial-studio.css 原先有一条
+ *   `.migration-banner, .motion-dialog, .motion-toast, .motion-drawer, .confirm-dialog
+ *    { border-radius: 12px !important }`
+ * !important 让它必然赢，组件自己挂在 className 上的 rounded-[var(--radius-*)]
+ * 一律画不出来（实测：确认框写 rounded-2xl、toast 写 rounded-xl，实际渲染的一直
+ * 是这条 12px）。而且 .motion-drawer 本来没有自带圆角、全靠这条撑着，所以它不能
+ * 只删不改——批次 F 是「删这条 + 每个浮层各自挂刻度圆角」一起做完的。
+ *
+ * 判据只封「一条裸浮层类名规则（无祖先/组合符/伪类）用 !important 声明 border-radius」，
+ * 也就是 blanket 的确切形状。以下两种合法写法不误伤：
+ *   · .migration-banner { border-radius: var(--radius-3) }（无 !important）：
+ *     该元素在 TSX 里不带任何 rounded 工具类，这条 CSS 是它圆角的唯一来源，
+ *     不是遮蔽，是「样式表自持」——和 motion-toast 那族「组件自带工具类」正好相反。
+ *   · .creation-writing-page--active .migration-banner { border-radius: 0 !important }：
+ *     带模式前缀，是专注模式刻意压平的显式决定，不是全局接管。
+ * 残余风险（本判据不覆盖，靠人工 + jsdom 核对）：裸浮层类名 + 非 !important 的
+ * border-radius，若写在 editorial-studio.css（utilities 之后加载）仍可能压掉组件工具类，
+ * 属同族缺陷——新增浮层自持规则前先照批次 C/E 的 jsdom 产物核对法验一遍。
+ */
+{
+  const OVERLAY_CLASSES = ["motion-toast", "motion-dialog", "motion-drawer", "motion-notice", "migration-banner", "confirm-dialog"];
+  const isBareOverlaySelector = (sel) => {
+    const one = sel.replace(/\s+/g, " ").trim();
+    if (/[\s>+~]/.test(one)) return false;
+    const m = /^\.([a-zA-Z][\w-]*)(?![\w-])/.exec(one);
+    return !!m && OVERLAY_CLASSES.includes(m[1]) && !/[.:[(]/.test(one.slice(m[0].length));
+  };
+  const blanket = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      if (!rule.selectors.some(isBareOverlaySelector)) return;
+      for (const decl of rule.nodes) {
+        if (decl.type === "decl" && /^border-radius(-[a-z-]+)?$/.test(decl.prop) && decl.important) {
+          blanket.push(`${rel}:${rule.source.start.line} ${rule.selector.replace(/\s+/g, " ").trim()} { ${decl.prop}: ${decl.value} !important }`);
+        }
+      }
+    });
+  }
+  if (blanket.length) {
+    fail(
+      `浮层容器的圆角又被一条 !important 全局接管了：${blanket.length} 处。这会让组件自己挂的 ` +
+        `rounded-[var(--radius-*)] 静默失效（批次 F 之前 .motion-toast / .motion-dialog / ` +
+        `.motion-drawer 就是这样被一条 12px !important 统一吃掉的）。圆角请写在组件的 className 上；` +
+        `确需按模式压平就用带前缀的选择器（如 .xxx-mode .migration-banner），不要用裸类名 + !important。` +
+        `命中：${blanket.slice(0, 3).join(" / ")}`
+    );
+  }
 }
 
 /* ------------------------------------------------------------------ 结论 */

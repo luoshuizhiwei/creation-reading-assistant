@@ -43,7 +43,7 @@ export function ReaderSettingsDrawer({
   return (
     <div className="absolute inset-0 z-30 bg-paper-ink/10 backdrop-blur-[1px]" onMouseDown={onClose}>
       <aside
-        className="motion-drawer absolute right-0 top-0 h-full w-[320px] overflow-auto border-l border-paper-line bg-paper-panel p-5 shadow-paper"
+        className="motion-drawer absolute right-0 top-0 h-full w-[320px] overflow-auto rounded-[var(--radius-3)] border-l border-paper-line bg-paper-panel p-5 shadow-paper"
         onMouseDown={(event) => event.stopPropagation()}
       >
         <div className="mb-4 flex items-center justify-between">

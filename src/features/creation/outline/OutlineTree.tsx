@@ -111,7 +111,7 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
   return (
     <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={onCancel}>
       <section
-        className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-2xl border border-paper-line bg-paper-panel shadow-paper"
+        className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-paper"
         role="dialog"
         aria-modal="true"
         aria-labelledby="outline-prompt-title"

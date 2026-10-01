@@ -92,7 +92,7 @@ export function Dialog({
       />
       <div
         ref={dialogRef}
-        className={`relative z-10 w-full ${width} rounded-xl border border-paper-line bg-paper-panel shadow-2xl ${className}`}
+        className={`relative z-10 w-full ${width} rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-2xl ${className}`}
         onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === "Escape") e.stopPropagation();
         }}
