@@ -167,7 +167,13 @@ const cases = [
   // 没有 box-shadow 声明——「改了画不出来」，且旧判据还给它记成功还债，所以单独 fail()。
   ["批次 K 回归：幻影写法 shadow-[var(--shadow-2)] 必须硬红（不进计数，因为它画的根本不是阴影）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-[var(--shadow-2)] p-1'), /幻影/],
   ["批次 K 回归·反向：属性形式 [box-shadow:var(--shadow-2)] 与其 hover: 变体是产物实测唯一能发射的任意值写法，既不被幻影判据咬、又走 var(--shadow) 豁免不计数，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzReal = \"[box-shadow:var(--shadow-2)] hover:[box-shadow:var(--shadow-2)]\";\n  void zzReal;"), null],
-  ["批次 K 回归：字面量任意值 shadow-[0_1px_0_rgba(...)] 确实发射投影（.paper-topbar 实测），所以不归幻影硬红管——但它是刻度外的手抄值，由棘轮计债（LibraryPage 预算 1，再加一处到 2 必须红，且红的是阴影刻度而非幻影）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-[0_1px_0_rgba(255,255,255,0.45)] p-1'), /阴影刻度/]
+  ["批次 K 回归：字面量任意值 shadow-[0_1px_0_rgba(...)] 确实发射投影（.paper-topbar 实测），所以不归幻影硬红管——但它是刻度外的手抄值，由棘轮计债（LibraryPage 预算 1，再加一处到 2 必须红，且红的是阴影刻度而非幻影）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-[0_1px_0_rgba(255,255,255,0.45)] p-1'), /阴影刻度/],
+  // 第 8 步批次 L：别名归位。圆角棘轮豁免 var(--radius-*)，债从 CSS 声明搬进令牌定义后
+  // 判据就瞎了——把 --radius-panel 改回 8px，面板家族整体无声改版、棘轮一个不响。
+  // 这两条测的是「映射钉得够不够死」：字面量要红，指错档也要红。
+  ["批次 L 回归：把 --radius-panel 改回字面量 8px（面板家族 9 个成员 + 预览区会整片变圆，而圆角棘轮看不见令牌里的值，必须靠别名映射拦住）", () => mutate("src/styles/tokens.css", "  --radius-panel: var(--radius-2);", "  --radius-panel: 8px;"), /别名归位|圆角刻度/],
+  ["批次 L 回归：别名指向错档（--radius-control → var(--radius-3)，控件从 4px 变 10px），证明钉的是精确映射而不是「只要不是字面量就行」", () => mutate("src/styles/tokens.css", "  --radius-control: var(--radius-1);", "  --radius-control: var(--radius-3);"), /别名归位|圆角刻度/],
+  ["批次 L 回归·反向：别名之间隔一个空格/换行仍是合法映射（棘轮与别名判据都不该因空白而红）", () => mutate("src/styles/tokens.css", "  --radius-panel: var(--radius-2);", "  --radius-panel:   var( --radius-2 );"), null]
 ];
 
 let bad = 0;

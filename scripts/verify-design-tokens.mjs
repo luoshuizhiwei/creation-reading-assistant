@@ -89,6 +89,16 @@ for (const [alias, authority] of [["--font-sans", "--font-ui"], ["--font-serif",
   if (!rule.test(lightBlock)) fail(`D-2 回归：${alias} 应定义为 var(${authority})，供 editorial-studio.css 等处的引用解析`);
 }
 
+// 批次 L（规格 §5.2「保留旧名做别名」）：圆角两个旧名同样被多张样式表引用，但它们
+// 多了一层 D-2 没有的风险——圆角棘轮豁免 var(--radius-*)，所以**把别名改回 5px / 8px
+// 时棘轮一个都不会响**（债从 CSS 声明搬进了令牌定义，判据看的是声明）。这两个值正是
+// 面板家族与 settings 控件的实际圆角，改回去等于一次无声的整页改版。故在此钉死映射：
+for (const [alias, authority] of [["--radius-control", "--radius-1"], ["--radius-panel", "--radius-2"]]) {
+  const rule = new RegExp(`${alias}:\\s*var\\(\\s*${authority}\\s*\\)`);
+  if (!rule.test(lightBlock))
+    fail(`第 8 步圆角刻度：${alias} 必须定义为 var(${authority})（规格 §5.2 的别名归位）。圆角棘轮看不见令牌里的值，这里不钉就等于没守。`);
+}
+
 /* ------------------------------------------------------- Tailwind 字体单一真相 */
 
 if (/\bInter\b/.test(tailwindConfig)) {
@@ -1061,8 +1071,8 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/library/toc/TocList.tsx": 2,
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 91,
-    "src/styles/editorial-studio.css": 30
+    "src/styles.css": 88,
+    "src/styles/editorial-studio.css": 29
   };
 
   const actual = {};

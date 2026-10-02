@@ -704,7 +704,9 @@ button:disabled {
   min-height: 42px;
   padding: 0 10px 0 13px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);
-  border-radius: 14px;
+  /* 批次 L：删掉 border-radius: 14px。editorial-studio.css 后面那条同特异度的
+   * `.desktop-search-command { border-radius: var(--radius-control) }` 写得更晚，
+   * 一直在压着它（级联探针实测）——这条从未画出来过。圆角只有一个来源。 */
   background: color-mix(in srgb, var(--paper-panel) 88%, var(--paper-soft));
   color: var(--paper-muted);
   text-align: left;
@@ -3400,7 +3402,9 @@ button:disabled {
   min-height: 0;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 14px;
+  /* 批次 L：删掉 border-radius: 14px——editorial-studio.css 的
+   * `.cards-detail-pane { border-radius: var(--radius-panel) }` 同特异度且更晚，
+   * 从未让它生效过。 */
   background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
   padding: 16px;
 }
@@ -4761,7 +4765,9 @@ button:disabled {
   width: 24px;
   height: 24px;
   border: 0;
-  border-radius: 6px;
+  /* 批次 L：删掉 border-radius: 6px——editorial-studio.css 有两条
+   * `.migration-banner-dismiss`（以及 `.migration-banner .migration-banner-dismiss`）
+   * 的 var(--radius-control) 都带 !important，同/更高特异度，这条从未生效。 */
   background: transparent;
   color: var(--paper-muted);
   cursor: pointer;
@@ -5280,7 +5286,9 @@ button:disabled {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
+  /* 批次 L：删掉 border-radius: 12px——editorial-studio.css 末尾的
+   * `.desktop-page-actions button, .desktop-home-inbox, … { border-radius: var(--radius-control) }`
+   * 同特异度且更晚（级联探针实测），这条从未画出来过。 */
   background: var(--paper-panel);
   color: var(--paper-muted);
   font-size: 13px;
@@ -5415,7 +5423,8 @@ button:disabled {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--copper);
-  border-radius: 10px;
+  /* 批次 L：删掉 border-radius: 10px，理由同 .desktop-home-inbox（被家族规则的
+   * var(--radius-control) 同特异度压制，从未生效）。 */
   background: color-mix(in srgb, var(--copper) 9%, var(--paper-panel));
   color: var(--copper);
   font-size: 13px;
