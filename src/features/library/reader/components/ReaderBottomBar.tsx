@@ -36,7 +36,7 @@ export function ReaderBottomBar({
           max={100}
           value={progressPercent}
           onChange={(e) => onSeekPercent?.(Number(e.target.value))}
-          className="h-1.5 w-full cursor-pointer accent-copper bg-paper-line/60 rounded-lg appearance-none"
+          className="h-1.5 w-full cursor-pointer accent-copper bg-paper-line/60 rounded-full appearance-none"
           aria-label="阅读进度跳转"
           title={`进度：${progressPercent}%`}
         />

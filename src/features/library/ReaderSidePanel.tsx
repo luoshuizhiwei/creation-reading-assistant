@@ -137,12 +137,12 @@ export function ReaderSidePanel({
         <div className="min-h-0 flex-1 overflow-y-auto">
           <div className="grid gap-2">
             {highlights.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
+              <div className="rounded-md border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
                 暂无高亮。在书中选中文字后点击“高亮”按钮即可添加。
               </div>
             ) : (
               highlights.map((hl) => (
-                <div key={hl.id} className="group rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
+                <div key={hl.id} className="group rounded-md border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <div className="mb-1.5 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 rounded-full" style={{ background: highlightHex(hl.color) }} />
                     {hl.chapterTitle && <span className="flex-1 truncate text-[11px] text-paper-muted">{hl.chapterTitle}</span>}
@@ -198,12 +198,12 @@ export function ReaderSidePanel({
               在当前位置添加书签
             </Button>
             {bookmarks.length === 0 ? (
-              <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
+              <div className="rounded-md border border-dashed border-paper-line bg-paper-panel/70 p-4 text-center text-sm text-paper-muted">
                 暂无书签。
               </div>
             ) : (
               bookmarks.map((bm) => (
-                <div key={bm.id} className="group flex items-center gap-2 rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
+                <div key={bm.id} className="group flex items-center gap-2 rounded-md border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <Bookmark size={14} className="shrink-0 text-copper/60" />
                   <button className="min-w-0 flex-1 text-left" onClick={() => onJumpToBookmark(bm)}>
                     <div className="truncate text-sm text-paper-ink hover:text-copper">{bm.label}</div>

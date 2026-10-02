@@ -148,7 +148,7 @@ export function ReadingStatsPage() {
       ["天数", periodInfo.current.days, periodInfo.previous.days],
     ];
     return (
-      <div className="motion-panel rounded-xl bg-paper-panel p-3 [box-shadow:var(--shadow-1)]">
+      <div className="motion-panel rounded-md bg-paper-panel p-3 [box-shadow:var(--shadow-1)]">
         <div className="flex flex-wrap items-center gap-x-6 gap-y-2 overflow-x-auto">
           <span className="text-xs font-semibold text-paper-muted">较上一周期</span>
           {metrics.map(([label, currentVal, prevVal]) => {
@@ -204,7 +204,7 @@ export function ReadingStatsPage() {
                 <p className="mt-1 text-sm text-paper-muted">统计只计算有效阅读会话，后台挂起和空闲时间不会膨胀数据。</p>
               </div>
               <div className="flex items-center gap-3">
-                <div className="range-tabs inline-flex rounded-lg border border-paper-line bg-paper-soft/50 p-1">
+                <div className="range-tabs inline-flex rounded-md border border-paper-line bg-paper-soft/50 p-1">
                   {(Object.keys(rangeLabels) as StatsRange[]).map((r) => (
                     <button
                       key={r}
@@ -271,7 +271,7 @@ export function ReadingStatsPage() {
 
             <section className="desktop-stats-grid">
               <div className="grid gap-5">
-                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+                <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <div className="mb-3 flex items-center justify-between">
                     <h2 className="paper-title text-base font-semibold">按书统计</h2>
                     <span className="text-xs text-paper-muted">平均单次 {formatDuration(stats.averageSessionDurationMs)}</span>
@@ -283,7 +283,7 @@ export function ReadingStatsPage() {
                       {stats.byBook.map((book) => {
                         const pct = Math.round((book.progressPercent ?? 0) * 100);
                         return (
-                          <div key={book.bookId} className="grid grid-cols-[1fr_110px_100px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
+                          <div key={book.bookId} className="grid grid-cols-[1fr_110px_100px] items-center gap-3 rounded-md border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                             <div className="min-w-0">
                               <div className="truncate font-medium text-paper-ink">{book.title}</div>
                               <div className="text-xs uppercase text-paper-muted">{book.format}</div>
@@ -302,7 +302,7 @@ export function ReadingStatsPage() {
                   )}
                 </div>
 
-                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+                <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <h2 className="paper-title mb-3 text-base font-semibold">最近阅读书籍</h2>
                   {stats.recentBooks.length === 0 ? (
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">打开并阅读书籍后会出现在这里。</div>
@@ -311,7 +311,7 @@ export function ReadingStatsPage() {
                       {stats.recentBooks.map((book) => {
                         const pct = Math.round(book.progressPercent * 100);
                         return (
-                          <div key={book.bookId} className="grid grid-cols-[1fr_100px_100px] items-center gap-3 rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
+                          <div key={book.bookId} className="grid grid-cols-[1fr_100px_100px] items-center gap-3 rounded-md border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                             <div className="min-w-0">
                               <div className="truncate font-medium text-paper-ink">{book.title}</div>
                               <div className="text-xs text-paper-muted">{formatDate(book.lastReadAt)}</div>
@@ -330,7 +330,7 @@ export function ReadingStatsPage() {
                   )}
                 </div>
 
-                <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+                <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                   <h2 className="paper-title mb-3 text-base font-semibold">近 30 天节律</h2>
                   <div className="stats-rhythm-chart">
                     {stats.daily.slice(-30).map((day) => (
@@ -345,7 +345,7 @@ export function ReadingStatsPage() {
                 </div>
               </div>
 
-              <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+              <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
                 <div className="mb-3 flex items-center gap-2">
                   <Clock3 size={16} />
                   <h2 className="paper-title text-base font-semibold">最近会话</h2>
@@ -355,7 +355,7 @@ export function ReadingStatsPage() {
                     <div className="rounded-md bg-paper-soft/60 p-5 text-sm text-paper-muted">阅读器产生有效时长后会出现在这里。</div>
                   ) : (
                     stats.recentSessions.map((session) => (
-                      <div key={session.id} className="rounded-lg border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
+                      <div key={session.id} className="rounded-md border border-paper-line bg-paper-soft/60 px-3 py-2 text-sm">
                         <div className="flex items-center justify-between gap-3">
                           <span className="text-paper-muted">{formatDate(session.startAt)}</span>
                           <span className="font-medium text-paper-ink">{formatDuration(session.activeDurationMs)}</span>
@@ -390,7 +390,7 @@ function ReadingStatsSkeleton() {
           <div className="h-7 w-48 animate-pulse rounded-md bg-paper-soft" />
           <div className="mt-2 h-4 w-80 animate-pulse rounded-md bg-paper-soft/60" />
         </div>
-        <div className="h-8 w-44 animate-pulse rounded-lg bg-paper-soft/60" />
+        <div className="h-8 w-44 animate-pulse rounded-md bg-paper-soft/60" />
       </div>
 
       {/* 5 stat cards skeleton */}
@@ -410,14 +410,14 @@ function ReadingStatsSkeleton() {
       <section className="desktop-stats-grid">
         <div className="grid gap-5">
           {/* By book card */}
-          <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+          <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
             <div className="mb-4 flex items-center justify-between">
               <div className="h-5 w-24 animate-pulse rounded bg-paper-soft" />
               <div className="h-3.5 w-20 animate-pulse rounded bg-paper-soft/60" />
             </div>
             <div className="grid gap-2">
               {[0, 1, 2].map((i) => (
-                <div key={i} className="flex h-12 items-center justify-between rounded-lg border border-paper-line bg-paper-soft/40 px-3 animate-pulse">
+                <div key={i} className="flex h-12 items-center justify-between rounded-md border border-paper-line bg-paper-soft/40 px-3 animate-pulse">
                   <div className="h-4 w-36 rounded bg-paper-soft" />
                   <div className="h-4 w-16 rounded bg-paper-soft/60" />
                 </div>
@@ -426,7 +426,7 @@ function ReadingStatsSkeleton() {
           </div>
 
           {/* Rhythm chart card */}
-          <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+          <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
             <div className="mb-4 h-5 w-28 animate-pulse rounded bg-paper-soft" />
             <div className="flex h-28 items-end gap-1.5 pt-4">
               {[40, 65, 25, 80, 50, 95, 30, 60, 45, 70, 85, 35, 55, 90, 60].map((h, i) => (
@@ -441,14 +441,14 @@ function ReadingStatsSkeleton() {
         </div>
 
         {/* Sessions card */}
-        <div className="motion-panel rounded-xl bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
+        <div className="motion-panel rounded-md bg-paper-panel p-4 [box-shadow:var(--shadow-1)]">
           <div className="mb-4 flex items-center gap-2">
             <div className="h-4 w-4 rounded bg-paper-soft animate-pulse" />
             <div className="h-5 w-24 rounded bg-paper-soft animate-pulse" />
           </div>
           <div className="grid gap-2">
             {[0, 1, 2, 3].map((i) => (
-              <div key={i} className="rounded-lg border border-paper-line bg-paper-soft/40 p-3 animate-pulse">
+              <div key={i} className="rounded-md border border-paper-line bg-paper-soft/40 p-3 animate-pulse">
                 <div className="flex justify-between">
                   <div className="h-3.5 w-24 rounded bg-paper-soft/60" />
                   <div className="h-3.5 w-14 rounded bg-paper-soft" />

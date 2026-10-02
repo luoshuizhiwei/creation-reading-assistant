@@ -44,7 +44,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-paper-ink/30 backdrop-blur-[1px]" onMouseDown={onClose}>
       <aside
-        className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-xl border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)]"
+        className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-label="资料摘录"
@@ -61,7 +61,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
 
         <div className="flex flex-col gap-4 overflow-auto px-5 py-4">
           {/* 来源信息 */}
-          <div className="rounded-lg border border-paper-line bg-paper-soft/50 px-3 py-2 text-xs leading-5 text-paper-muted">
+          <div className="rounded-md border border-paper-line bg-paper-soft/50 px-3 py-2 text-xs leading-5 text-paper-muted">
             <div className="font-medium text-paper-ink">{source.bookTitle}</div>
             <div className="mt-0.5">
               {source.format.toUpperCase()} · {source.locationLabel}
@@ -72,7 +72,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
           {/* 选文预览 */}
           <div>
             <div className="mb-1 text-xs font-medium text-paper-muted">选文预览</div>
-            <div className="max-h-40 overflow-auto rounded-lg border border-paper-line bg-white/60 px-3 py-2 text-sm leading-6 text-paper-ink">
+            <div className="max-h-40 overflow-auto rounded-md border border-paper-line bg-white/60 px-3 py-2 text-sm leading-6 text-paper-ink">
               {source.excerpt}
             </div>
           </div>
@@ -81,7 +81,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
           <div>
             <div className="mb-2 text-xs font-medium text-paper-muted">摘录到</div>
             <div className="flex flex-col gap-2">
-              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${targetKind === "inbox" ? "border-copper bg-copper/5 text-paper-ink" : "border-paper-line text-paper-muted hover:bg-paper-soft/50"}`}>
+              <label className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${targetKind === "inbox" ? "border-copper bg-copper/5 text-paper-ink" : "border-paper-line text-paper-muted hover:bg-paper-soft/50"}`}>
                 <input
                   type="radio"
                   name="excerpt-target"
@@ -92,7 +92,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
                 <InboxIcon size={15} />
                 <span>全局收件箱（保存完整选文和来源）</span>
               </label>
-              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-3 py-2 text-sm transition ${targetKind === "projectCard" ? "border-copper bg-copper/5 text-paper-ink" : "border-paper-line text-paper-muted hover:bg-paper-soft/50"}`}>
+              <label className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm transition ${targetKind === "projectCard" ? "border-copper bg-copper/5 text-paper-ink" : "border-paper-line text-paper-muted hover:bg-paper-soft/50"}`}>
                 <input
                   type="radio"
                   name="excerpt-target"

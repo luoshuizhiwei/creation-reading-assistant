@@ -1023,7 +1023,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
           )}
 
           <article
-            className={`mx-auto my-8 rounded-xl px-10 py-10 ${readerPaperClass(settings.readerBackground)} ${
+            className={`mx-auto my-8 rounded-[var(--radius-3)] px-10 py-10 ${readerPaperClass(settings.readerBackground)} ${
               activeBook.format === "md" ? "markdown-reader reader-heading-scale" : ""
             }`}
             style={useMemo(

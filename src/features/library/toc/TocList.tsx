@@ -93,7 +93,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
   };
 
   if (entries.length === 0) {
-    return <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">{emptyText}</div>;
+    return <div className="rounded-md border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">{emptyText}</div>;
   }
 
   const showSearch = !disableSearch && entries.length > 12;
@@ -168,7 +168,7 @@ export function TocList({ entries, currentId, onJump, emptyText, disableSearch, 
               ))}
             </div>
           ) : (
-            <div className="rounded-lg border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">没有匹配「{query.trim()}」的章节</div>
+            <div className="rounded-md border border-dashed border-paper-line bg-paper-panel/70 p-3 text-sm text-paper-muted">没有匹配「{query.trim()}」的章节</div>
           )
         ) : (
           rows && (

@@ -26,6 +26,11 @@ const files = [
   "src/features/creation/inbox/inbox-local.css",
   // 第 8 步的 TSX 分支用例改这份：它是 4 处 bg-copper + text-[color:var(--fg-on-solid)] 之一。
   "src/features/library/LibraryPage.tsx",
+  // 圆角棘轮的「新债 / 还债不降预算」两条用例原先也钉在 LibraryPage 的
+  // `min-w-[160px] rounded-lg border` 上。批次 M 把阅读器族整片圆角收上刻度，
+  // 那个锚点会被合法迁移掉——用例随即 SKIP、harness 计为无效（自愈设计，不静默失效）。
+  // 宿主换成 InboxItemDetail：它有 6 处离刻度圆角、且不属于本批 8 步的阴影/圆角迁移面。
+  "src/features/creation/inbox/components/InboxItemDetail.tsx",
   // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
@@ -136,11 +141,14 @@ const cases = [
   ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
   // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
   // 最后两条 expect 为 null，是「必须保持绿」的反向用例——判据过严同样是缺陷。
-  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（同串里再加 rounded-xl，计数 1→2 必须红）", () => mutate("src/features/library/LibraryPage.tsx", 'min-w-[160px] rounded-lg border', 'min-w-[160px] rounded-lg rounded-xl border'), /圆角刻度/],
+  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（同串里再加 rounded-2xl，计数 6→7 必须红）", () => mutate("src/features/creation/inbox/components/InboxItemDetail.tsx", "mt-3 rounded-xl border", "mt-3 rounded-xl rounded-2xl border"), /圆角刻度/],
   ["圆角棘轮②：把离刻度值写进预算表里根本没有的文件（settings-controls.css 预算视同 0，4px→7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 7px;"), /圆角刻度/],
-  ["圆角棘轮③：还了债却不降预算（LibraryPage 的 rounded-lg→rounded 是合法收敛，但预算仍是 1，必须红并指名该文件）", () => mutate("src/features/library/LibraryPage.tsx", 'min-w-[160px] rounded-lg border', 'min-w-[160px] rounded border'), /预算没跟着降/],
-  ["圆角棘轮·反向①：说明注释里提到旧类名 rounded-xl 不算违规（不剥注释的话守卫会自己咬自己）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  {/* 这里原来是 rounded-xl，批次 D 收到 rounded-lg */}"), null],
+  ["圆角棘轮③：还了债却不降预算（InboxItemDetail 的 rounded-xl→rounded 是合法收敛，但预算仍是 6，必须红并指名该文件）", () => mutate("src/features/creation/inbox/components/InboxItemDetail.tsx", "mt-3 rounded-xl border", "mt-3 rounded border"), /预算没跟着降/],
+  ["圆角棘轮·反向①：说明注释里提到旧类名 rounded-xl 不算违规（不剥注释的话守卫会自己咬自己）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  {/* 这里原来是 rounded-xl，批次 M 收到 rounded-md */}"), null],
   ["圆角棘轮·反向②：50% 是形状决定不是圆角档位，写进规则里不该变红", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 50%;"), null],
+  // 批次 M 把阅读器族整片收到刻度上，用的正是下面这三种写法。这条反向用例钉的是
+  // 「本批的迁移目标写法确实合法」——判据若把它们误伤，下一批就会退回去写 rounded-lg。
+  ["圆角棘轮·反向③：批次 M 的三种目标写法 rounded-md(6px) / rounded-[var(--radius-3)] / rounded-full 都在刻度上，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  // zz: rounded-md rounded-[var(--radius-3)] rounded-full"), null],
   // 第 8 步批次 F：那条把浮层圆角整体吃掉的 12px !important 已删，判据钉住它的「形状」。
   // ①故意用刻度上的 10px，让棘轮咬不到、只有浮层不变量能报警——否则这条用例测的是棘轮。
   ["批次 F 回归：把浮层圆角的 !important 全局接管加回来（裸类名 + !important，值 10px 在刻度上、棘轮咬不到，必须靠浮层不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;", ".motion-toast {\n  border-radius: 10px !important;\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;"), /浮层容器/],
