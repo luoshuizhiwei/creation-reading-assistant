@@ -142,7 +142,7 @@ export function ReaderSidePanel({
               </div>
             ) : (
               highlights.map((hl) => (
-                <div key={hl.id} className="group rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:shadow-lift">
+                <div key={hl.id} className="group rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <div className="mb-1.5 flex items-center gap-2">
                     <span className="inline-block h-3 w-3 rounded-full" style={{ background: highlightHex(hl.color) }} />
                     {hl.chapterTitle && <span className="flex-1 truncate text-[11px] text-paper-muted">{hl.chapterTitle}</span>}
@@ -203,7 +203,7 @@ export function ReaderSidePanel({
               </div>
             ) : (
               bookmarks.map((bm) => (
-                <div key={bm.id} className="group flex items-center gap-2 rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:shadow-lift">
+                <div key={bm.id} className="group flex items-center gap-2 rounded-lg border border-paper-line bg-paper-panel p-3 transition hover:[box-shadow:var(--shadow-2)]">
                   <Bookmark size={14} className="shrink-0 text-copper/60" />
                   <button className="min-w-0 flex-1 text-left" onClick={() => onJumpToBookmark(bm)}>
                     <div className="truncate text-sm text-paper-ink hover:text-copper">{bm.label}</div>

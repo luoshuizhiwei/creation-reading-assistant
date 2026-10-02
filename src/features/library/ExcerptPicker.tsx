@@ -44,7 +44,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-paper-ink/30 backdrop-blur-[1px]" onMouseDown={onClose}>
       <aside
-        className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-xl border border-paper-line bg-paper-panel shadow-paper"
+        className="motion-panel relative flex max-h-[80vh] w-[min(560px,calc(100%-32px))] flex-col overflow-hidden rounded-xl border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)]"
         onMouseDown={(event) => event.stopPropagation()}
         role="dialog"
         aria-label="资料摘录"

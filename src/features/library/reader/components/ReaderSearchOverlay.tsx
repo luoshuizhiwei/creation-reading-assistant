@@ -79,7 +79,7 @@ export function ReaderSearchOverlay({
     <div
       role="search"
       aria-label="全文检索"
-      className="absolute top-12 right-6 z-30 flex items-center gap-1.5 rounded-lg border border-paper-line bg-paper-panel/95 p-1.5 shadow-lift backdrop-blur-md"
+      className="absolute top-12 right-6 z-30 flex items-center gap-1.5 rounded-lg border border-paper-line bg-paper-panel/95 p-1.5 [box-shadow:var(--shadow-2)] backdrop-blur-md"
     >
       <div className="relative flex items-center">
         <Search size={14} className="absolute left-2.5 text-paper-muted pointer-events-none" />

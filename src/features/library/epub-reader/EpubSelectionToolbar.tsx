@@ -36,7 +36,7 @@ export function EpubSelectionToolbar({
   if (!toolbar?.visible) return null;
   return (
     <div
-      className="absolute z-50 flex items-center gap-0.5 rounded-lg bg-stone-800 px-2 py-1.5 text-sm text-white shadow-xl"
+      className="absolute z-50 flex items-center gap-0.5 rounded-lg bg-stone-800 px-2 py-1.5 text-sm text-white [box-shadow:var(--shadow-2)]"
       style={{ left: toolbar.x + toolbarOffset.x, top: toolbar.y + toolbarOffset.y, transform: "translate(-50%, -100%)" }}
       onMouseDown={(e) => e.stopPropagation()}
     >
@@ -69,7 +69,7 @@ export function EpubSelectionToolbar({
         </button>
         {showColorPicker && (
           <div
-            className="absolute top-full left-1/2 mt-1 flex -translate-x-1/2 gap-1 rounded-lg bg-stone-800 p-1.5 shadow-xl"
+            className="absolute top-full left-1/2 mt-1 flex -translate-x-1/2 gap-1 rounded-lg bg-stone-800 p-1.5 [box-shadow:var(--shadow-2)]"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {HIGHLIGHT_COLORS.map((c) => (

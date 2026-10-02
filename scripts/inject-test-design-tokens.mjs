@@ -29,11 +29,11 @@ const files = [
   // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
-  "src/features/settings/settings-controls.css",
-  // 阴影棘轮的「还了债不降预算」用例改这份：它还有 2 处 shadow-lift（§2.5 裸按钮遗留，
-  // 留给 EPUB 页那一批）。选它而不是 ReadingStatsPage，是因为锚点串会被迁移掉——
-  // 本批就现场演示过一次：锚点没了，用例直接 SKIP（harness 把 SKIP 计为无效，不会静默失效）。
-  "src/features/library/epub-reader/EpubPageTurnButtons.tsx"
+  "src/features/settings/settings-controls.css"
+  // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
+  // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
+  // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
+  // 已在清单里），不再为单个功能文件保留备份项。
 ];
 
 const backedUp = new Set(files);
@@ -162,7 +162,12 @@ const cases = [
   ["阴影棘轮③：@apply 分支——@apply 里的 shadow-lift 编译后就是一条 box-shadow 声明，和 TSX 挂工具类等价，必须同判", () => mutate("src/styles.css", "@apply border border-paper-line bg-paper-panel shadow-lift;", "@apply border border-paper-line bg-paper-panel shadow-lift shadow-xl;"), /阴影刻度/],
   ["阴影棘轮·反向①：伏笔是本产品的业务词（foreshadow），text-shadow 是属性名——都在代码里而非注释里，前后断言必须挡住，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzProbe = \"foreshadow foreshadowResolved foreshadows text-shadow\";\n  void zzProbe;"), null],
   ["阴影棘轮·反向②：四种合法豁免——shadow-none / shadow-inner / 颜色档 shadow-white\\/20（只产 --tw-shadow-color）/ [box-shadow:var(--focus-ring)] 焦点环，都不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzExempt = \"shadow-none shadow-inner shadow-white/20 focus-visible:[box-shadow:var(--focus-ring)]\";\n  void zzExempt;"), null],
-  ["阴影棘轮·还债不降预算：EpubPageTurnButtons 把一处 shadow-lift 换成 shadow-none 是合法收敛（预算 2→1），但预算仍是 2，必须红并指名该文件", () => mutate("src/features/library/epub-reader/EpubPageTurnButtons.tsx", "bg-paper-panel/90 text-paper-muted shadow-lift", "bg-paper-panel/90 text-paper-muted shadow-none"), /预算没跟着降/]
+  ["阴影棘轮·还债不降预算：LibraryPage 把 shadow-paper 换成真正发射的 [box-shadow:var(--shadow-1)] 是合法收敛（预算 1→0），但预算仍是 1，必须红并指名该文件", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel [box-shadow:var(--shadow-1)] p-1'), /预算没跟着降/],
+  // 第 8 步批次 K：幻影写法硬红。shadow-[var(--shadow-N)] 在产物里只产 --tw-shadow-color、
+  // 没有 box-shadow 声明——「改了画不出来」，且旧判据还给它记成功还债，所以单独 fail()。
+  ["批次 K 回归：幻影写法 shadow-[var(--shadow-2)] 必须硬红（不进计数，因为它画的根本不是阴影）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-[var(--shadow-2)] p-1'), /幻影/],
+  ["批次 K 回归·反向：属性形式 [box-shadow:var(--shadow-2)] 与其 hover: 变体是产物实测唯一能发射的任意值写法，既不被幻影判据咬、又走 var(--shadow) 豁免不计数，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzReal = \"[box-shadow:var(--shadow-2)] hover:[box-shadow:var(--shadow-2)]\";\n  void zzReal;"), null],
+  ["批次 K 回归：字面量任意值 shadow-[0_1px_0_rgba(...)] 确实发射投影（.paper-topbar 实测），所以不归幻影硬红管——但它是刻度外的手抄值，由棘轮计债（LibraryPage 预算 1，再加一处到 2 必须红，且红的是阴影刻度而非幻影）", () => mutate("src/features/library/LibraryPage.tsx", 'bg-paper-panel shadow-paper p-1', 'bg-paper-panel shadow-paper shadow-[0_1px_0_rgba(255,255,255,0.45)] p-1'), /阴影刻度/]
 ];
 
 let bad = 0;

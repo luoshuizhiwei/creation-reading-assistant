@@ -1133,8 +1133,19 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
  *     shadow-none / shadow-inner 豁免（inner 与 CSS 侧 inset 同族）。
  *     颜色工具类（shadow-copper-300 这类不存在的键）不判定：只产 --tw-shadow-color、
  *     不改投影几何，管它是判据的傲慢。
- *     [box-shadow:...] 任意属性形式：走 var(--shadow*)/--focus-ring 的豁免。
- *     焦点环 [box-shadow:var(--focus-ring)] 就在这里——它不是阴影层级，是描边。
+ *     ⚠ shadow-[var(--x)] / shadow-[#任意值] 一律算债（批次 K 收紧）：批次 I 原本豁免
+ *     「方括号里走 var(--shadow*)」，把它当成已经用上令牌。批次 K 在打包产物里实测：
+ *       .shadow-\[var\(--shadow-2\)\] { --tw-shadow-color: var(--shadow-2);
+ *                                       --tw-shadow: var(--tw-shadow-colored); }
+ *     ——**一条 box-shadow 都没有**。Tailwind 把方括号里的值当「阴影颜色」，投影几何不变，
+ *     界面画不出任何东西。豁免它等于给幻影写法发通行证：改的人看到棘轮计数下降，
+ *     以为还了债，实际界面纹丝不动（正是批次 E 那种「改了画不出来」，而且更隐蔽——
+ *     这次连守卫都替它背书）。唯一能真正发射阴影的任意值写法是属性形式
+ *     [box-shadow:var(--shadow-2)]，产物实测发射 box-shadow: var(--shadow-2)。
+ *     写法上的区别只有一个字符，界面结果差一条声明，所以这条必须钉住（见下面 phantom）。
+ *     [box-shadow:...] 任意属性形式：走 var(--shadow*)/--focus-ring 的豁免仍然成立——
+ *     焦点环 [box-shadow:var(--focus-ring)] 就在这里，它不是阴影层级，是描边，
+ *     且 button-variants.test.tsx 已断言 Button 用的就是这个形式。
  *   · 正则前置 (?<![A-Za-z0-9_-]) 挡 `foreshadow`：伏笔是本产品的业务词（17 处），
  *     不是 shadow 工具类。这是判据最容易咬错的地方，故钉死。
  *   · TSX 侧必须先过 preserveNewlines 剥注释（同圆角棘轮的理由：说明注释里会写
@@ -1144,6 +1155,13 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   const THEME_SHADOW_KEYS = new Set(["", "sm", "md", "lg", "xl", "2xl", "3xl", "inner", "paper", "lift"]);
   const SHADOW_TOKEN = /(?<![A-Za-z0-9_-])shadow(?:-\[[^\]]*\]|-[a-zA-Z0-9][a-zA-Z0-9_.:/-]*)?/g;
   const ARBITRARY_BOX = /\[box-shadow:([^\]]*)\]/g;
+  /**
+   * 幻影写法：方括号的**整个值**就是一个 var()，Tailwind 认不出投影几何，只会把它当
+   * 阴影颜色，产物里不发射 box-shadow（批次 K 实测，见上面注释）。
+   * 判窄不判宽：shadow-[0_1px_0_var(--x)] 这种「有几何、颜色走变量」的混合值
+   * 确实能发射，只被 tsxShadowDebt 计成债（绕过刻度），不进这条硬红。
+   */
+  const PHANTOM_SHADOW = /(?<![A-Za-z0-9_-])shadow-\[\s*var\(/;
 
   /** 一个 shadow-* 工具类是否是刻度外的投影；false = 不判定（none/inner/颜色档/令牌）。 */
   const tsxShadowDebt = (tok) => {
@@ -1151,7 +1169,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     const m = /^shadow-(.+)$/.exec(tok);
     if (!m) return false;
     const body = m[1];
-    if (body.startsWith("[")) return !/^var\(--(shadow|focus)/.test(body.slice(1, -1).trim());
+    if (body.startsWith("[")) return true; // 见下方判据注释：shadow-[var(...)] 是幻影写法
     const key = body.split("-")[0];
     if (!THEME_SHADOW_KEYS.has(key)) return false; // 颜色工具类：只改 --tw-shadow-color，不判
     if (body === "none" || body === "inner") return false;
@@ -1194,14 +1212,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/replace/replace.css": 2,
     "src/features/inspiration/InspirationPage.tsx": 1,
-    "src/features/library/ExcerptPicker.tsx": 1,
     "src/features/library/LibraryPage.tsx": 1,
-    "src/features/library/ReaderSettingsDrawer.tsx": 1,
-    "src/features/library/ReaderSidePanel.tsx": 2,
-    "src/features/library/epub-reader/EpubPageTurnButtons.tsx": 2,
-    "src/features/library/epub-reader/EpubSelectionToolbar.tsx": 2,
-    "src/features/library/reader/ReaderSelectionToolbar.tsx": 2,
-    "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
     "src/features/search/search.css": 1,
     "src/features/settings/SettingsSearch.tsx": 1,
     "src/features/settings/encryption/encryption.css": 2,
@@ -1232,12 +1243,20 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         n += 1;
       });
       ast.walkAtRules("apply", (a) => {
+        if (PHANTOM_SHADOW.test(a.params)) {
+          fail(`${rel} 里 @apply 写了 shadow-[var(...)] 幻影形式：Tailwind 产物实测只产 --tw-shadow-color、无 box-shadow 声明，界面画不出阴影但棘轮计数会降。改用 [box-shadow:var(--shadow-N)]。`);
+        }
         for (const tok of a.params.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
       });
     } else {
       // TSX/TS 侧剥注释后逐行扫（同圆角棘轮，防「不能写 shadow-[var(--focus-ring)]」
       // 这类说明注释咬自己）
       for (const line of preserveNewlines(src).split("\n")) {
+        // 幻影写法单独硬红：它不进计数（计了反而让「改前 1 处、改后 0 处」的
+        // 还债假象看起来正常），因为「改了画不出来」比数字超标更坏。
+        if (PHANTOM_SHADOW.test(line)) {
+          fail(`${rel} 里写了 shadow-[var(...)] 幻影形式：Tailwind 产物实测只产 --tw-shadow-color、无 box-shadow 声明，界面画不出阴影但棘轮计数会降。改用 [box-shadow:var(--shadow-N)]。`);
+        }
         for (const tok of line.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
         // 必须用 exec 取捕获组：line.match(ARB) 带 /g 返回的是**整串数组**，
         // 那种写法下 m[1] 是字符串的第 2 个字符 "["，豁免判断永远为真、永远误判
