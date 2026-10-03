@@ -181,7 +181,12 @@ const cases = [
   // 这两条测的是「映射钉得够不够死」：字面量要红，指错档也要红。
   ["批次 L 回归：把 --radius-panel 改回字面量 8px（面板家族 9 个成员 + 预览区会整片变圆，而圆角棘轮看不见令牌里的值，必须靠别名映射拦住）", () => mutate("src/styles/tokens.css", "  --radius-panel: var(--radius-2);", "  --radius-panel: 8px;"), /别名归位|圆角刻度/],
   ["批次 L 回归：别名指向错档（--radius-control → var(--radius-3)，控件从 4px 变 10px），证明钉的是精确映射而不是「只要不是字面量就行」", () => mutate("src/styles/tokens.css", "  --radius-control: var(--radius-1);", "  --radius-control: var(--radius-3);"), /别名归位|圆角刻度/],
-  ["批次 L 回归·反向：别名之间隔一个空格/换行仍是合法映射（棘轮与别名判据都不该因空白而红）", () => mutate("src/styles/tokens.css", "  --radius-panel: var(--radius-2);", "  --radius-panel:   var( --radius-2 );"), null]
+  ["批次 L 回归·反向：别名之间隔一个空格/换行仍是合法映射（棘轮与别名判据都不该因空白而红）", () => mutate("src/styles/tokens.css", "  --radius-panel: var(--radius-2);", "  --radius-panel:   var( --radius-2 );"), null],
+  // 第 8 步批次 N：styles.css 退役了 28 条从不渲染的死圆角，预算 88→60。
+  // 这两条测的是这次同步有没有把 styles.css 咬合力一起删掉：
+  // 拿批次 N 删过的同一个宿主、同一属性，离刻度值必须红、刻度值必须绿。
+  ["第 8 步批次 N 回归：把退役掉的死圆角以离刻度值写回 .creation-wizard（预算已降到 60，多一处必须红——否则这次退役等于给 styles.css 松了绑）", () => mutate("src/styles.css", ".creation-wizard {", ".creation-wizard {\n  border-radius: 22px;"), /圆角刻度/],
+  ["第 8 步批次 N 回归·反向：同一个宿主写刻度上的 6px 不该红（styles.css 还剩 60 处活债，棘轮数的是离刻度，不是禁止字面量）", () => mutate("src/styles.css", ".creation-wizard {\n", ".creation-wizard {\n  border-radius: 6px;\n"), null]
 ];
 
 let bad = 0;

@@ -725,7 +725,6 @@ button:disabled {
 
 .desktop-search-command kbd {
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  border-radius: 7px;
   padding: 2px 6px;
   background: color-mix(in srgb, var(--paper-soft) 64%, transparent);
   color: var(--paper-muted);
@@ -742,7 +741,6 @@ button:disabled {
 .desktop-canvas > .motion-page {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 72%, transparent);
-  border-radius: 24px;
   background: color-mix(in srgb, var(--paper-panel) 42%, transparent);
   box-shadow: 0 18px 44px rgba(64, 42, 26, 0.055);
 }
@@ -770,7 +768,6 @@ button:disabled {
   justify-content: space-between;
   gap: 18px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  border-radius: 22px;
   background:
     radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--copper) 12%, transparent), transparent 30%),
     color-mix(in srgb, var(--paper-panel) 70%, transparent);
@@ -921,7 +918,6 @@ button:disabled {
 .desktop-inspiration-card {
   width: 100%;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 16px;
   background: color-mix(in srgb, var(--paper-panel) 76%, transparent);
   padding: 12px;
   color: var(--paper-ink);
@@ -1812,7 +1808,6 @@ button:disabled {
   max-height: min(780px, calc(100vh - 48px));
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 22px;
   background: var(--paper-panel);
   box-shadow: 0 30px 80px rgba(43, 28, 16, 0.28);
 }
@@ -2147,7 +2142,6 @@ button:disabled {
   min-height: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 20px;
   background: var(--paper-panel);
   box-shadow: 0 22px 55px rgba(56, 38, 25, 0.1);
 }
@@ -2189,7 +2183,6 @@ button:disabled {
 .scene-block-select {
   min-width: 0;
   border: 1px solid var(--paper-line);
-  border-radius: 9px;
   background: var(--paper-panel);
   color: var(--paper-ink);
   outline: none;
@@ -2238,7 +2231,6 @@ button:disabled {
   align-items: center;
   gap: 7px;
   padding: 8px;
-  border-radius: 9px;
   background: transparent;
   font-size: 12px;
 }
@@ -2272,7 +2264,6 @@ button:disabled {
   align-items: center;
   gap: 7px;
   padding: 8px 9px;
-  border-radius: 9px;
   background: transparent;
   font-size: 12px;
 }
@@ -2822,7 +2813,6 @@ button:disabled {
 .writing-outline-view-switch button {
   height: 30px;
   border: 1px solid transparent;
-  border-radius: 8px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 12px;
@@ -3017,7 +3007,6 @@ button:disabled {
 
 .outline-scene {
   padding: 4px;
-  border-radius: 8px;
 }
 
 .outline-scene.active {
@@ -3538,7 +3527,6 @@ button:disabled {
 .cards-input {
   height: 34px;
   border: 1px solid var(--paper-line);
-  border-radius: 9px;
   background: var(--paper-panel);
   color: var(--paper-ink);
   font-size: 13px;
@@ -3700,7 +3688,6 @@ button:disabled {
   min-height: 0;
   overflow: auto;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 14px;
   background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
   padding: 12px;
 }
@@ -3717,7 +3704,6 @@ button:disabled {
   max-width: 280px;
   flex: 1;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  border-radius: 12px;
   background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
   align-self: stretch;
 }
@@ -3828,7 +3814,6 @@ button:disabled {
   gap: 4px;
   padding: 3px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
   background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
   align-self: flex-start;
 }
@@ -3837,7 +3822,6 @@ button:disabled {
   min-width: 72px;
   height: 30px;
   border: 0;
-  border-radius: 9px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 13px;
@@ -3856,7 +3840,6 @@ button:disabled {
   font-size: 13px;
   padding: 18px;
   border: 1px dashed color-mix(in srgb, var(--paper-line) 70%, transparent);
-  border-radius: 12px;
 }
 
 .history-list {
@@ -5009,7 +4992,6 @@ button:disabled {
 
 .writing-annotation {
   border: 1px solid var(--paper-line);
-  border-radius: 9px;
   padding: 8px 10px;
   background: var(--paper-panel);
   display: grid;
@@ -5171,7 +5153,6 @@ button:disabled {
   gap: 3px;
   padding: 10px;
   border: 1px solid var(--paper-line);
-  border-radius: 14px;
   background: var(--paper-panel);
   align-self: start;
   position: sticky;
@@ -5183,7 +5164,6 @@ button:disabled {
   align-items: center;
   gap: 8px;
   border: 0;
-  border-radius: 9px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 13px;
@@ -5258,7 +5238,6 @@ button:disabled {
   flex-wrap: wrap;
   padding: 13px 18px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  border-radius: 18px;
   background:
     radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--copper) 10%, transparent), transparent 30%),
     color-mix(in srgb, var(--paper-panel) 72%, transparent);
@@ -5325,7 +5304,6 @@ button:disabled {
   align-items: center;
   gap: 10px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
   background: var(--paper-panel);
   padding: 10px 12px;
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
@@ -5391,7 +5369,6 @@ button:disabled {
   flex: 1;
   min-width: 60px;
   height: 6px;
-  border-radius: 3px;
   background: color-mix(in srgb, var(--paper-line) 70%, transparent);
   overflow: hidden;
 }
@@ -5399,7 +5376,6 @@ button:disabled {
 .project-home-progressbar-fill {
   display: block;
   height: 100%;
-  border-radius: 3px;
   background: linear-gradient(90deg, var(--copper), color-mix(in srgb, var(--copper) 70%, var(--paper-ink)));
   transition: width 260ms ease;
 }
@@ -5442,7 +5418,6 @@ button:disabled {
   align-items: center;
   gap: 6px;
   border: 1px solid var(--paper-line);
-  border-radius: 9px;
   background: var(--paper-panel);
   color: var(--paper-muted);
   font-size: 12px;
@@ -5513,14 +5488,12 @@ button:disabled {
   min-height: 0;
   overflow: auto;
   border: 1px solid var(--paper-line);
-  border-radius: 14px;
   background: var(--paper-panel);
   padding: 10px;
 }
 
 .outline-page-side {
   border: 1px solid var(--paper-line);
-  border-radius: 14px;
   background: var(--paper-panel);
   padding: 14px;
   align-self: start;
@@ -5595,7 +5568,6 @@ button:disabled {
   gap: 6px;
   padding: 12px 14px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
   background: var(--paper-panel);
   text-align: left;
   cursor: pointer;

@@ -1061,7 +1061,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/replace/replace.css": 5,
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 88,
+    "src/styles.css": 60,
     "src/styles/editorial-studio.css": 29
   };
 
