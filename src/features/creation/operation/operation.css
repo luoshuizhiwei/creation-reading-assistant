@@ -85,7 +85,7 @@
   gap: 8px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-soft) 42%, transparent);
   font-size: 13px;
   line-height: 1.7;
@@ -118,7 +118,7 @@
   grid-template-columns: minmax(0, 1fr) auto;
   gap: 2px 10px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 74%, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   padding: 7px 9px;
   background: color-mix(in srgb, var(--paper-panel) 72%, transparent);
 }
@@ -224,7 +224,7 @@
   margin: 0;
   padding: 10px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
-  border-radius: 12px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-soft) 40%, transparent);
 }
 
@@ -278,7 +278,7 @@
   margin: 0;
   padding: 14px;
   border: 1px dashed color-mix(in srgb, var(--moss) 44%, var(--paper-line));
-  border-radius: 12px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--moss) 8%, transparent);
   color: color-mix(in srgb, var(--moss) 92%, var(--paper-ink));
   font-size: 13px;

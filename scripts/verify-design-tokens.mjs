@@ -1041,11 +1041,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    */
   const RADIUS_BUDGET = {
     "src/components/ui.tsx": 1,
-    "src/features/creation/ai/scene-candidate.css": 2,
-        "src/features/creation/cards/relation-graph.css": 3,
-    "src/features/creation/inbox/inbox-local.css": 1,
-    "src/features/creation/operation/operation.css": 4,
-    "src/features/creation/outline/outline-reorg.css": 1,
     "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 35,
     "src/styles/editorial-studio.css": 26

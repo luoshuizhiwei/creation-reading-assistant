@@ -59,7 +59,7 @@
   align-self: center;
   padding: 6px 10px;
   border: 1px solid var(--paper-line, transparent);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--bg-surface, transparent) 55%, transparent);
   font-size: 12px;
   color: var(--paper-muted, inherit);

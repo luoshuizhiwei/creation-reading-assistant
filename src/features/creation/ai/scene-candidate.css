@@ -24,7 +24,7 @@
   flex: 1;
   overflow: auto;
   border: 1px solid var(--border-subtle);
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--bg-subtle) 55%, var(--bg-app));
   padding: 8px;
 }
@@ -35,7 +35,7 @@
   align-items: baseline;
   margin: 0 0 6px;
   padding: 4px 8px;
-  border-radius: 7px;
+  border-radius: var(--radius-1);
   font-size: 12.5px;
   line-height: 1.7;
   color: var(--text-main);

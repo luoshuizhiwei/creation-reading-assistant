@@ -29,7 +29,7 @@
 .outline-impact-notice {
   margin: 10px 0 0;
   padding: 9px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--warning) 10%, var(--bg-surface));
   color: var(--warning);
   font-size: 13px;
