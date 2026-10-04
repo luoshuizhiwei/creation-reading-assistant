@@ -356,7 +356,6 @@ select:focus-visible,
 .desktop-search-command:hover {
   border-color: color-mix(in srgb, var(--accent-spine) 55%, var(--border-strong));
   background: var(--bg-surface);
-  box-shadow: 0 2px 8px rgba(34, 38, 48, 0.08);
   color: var(--text-main);
 }
 
@@ -781,7 +780,6 @@ select:focus-visible,
   border-left: 1px solid var(--border-subtle) !important;
   border-radius: var(--radius-1) !important;
   background: var(--bg-surface) !important;
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
 }
 
 .project-workbench-main {

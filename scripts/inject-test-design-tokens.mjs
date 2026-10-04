@@ -46,7 +46,10 @@ const files = [
   // 批次 S 的用例改这几份：history-local.css 刚退役那条 .history-modal 裸类名接管，
   // 用它测「接管加回来必须红 / 带模式前缀与非几何属性合法」；WritingDesk 是把
   // .writing-recovery-notice 当面板钩子传给 <InlineNotice> 的唯一宿主，用它测「钩子扫描退化」。
-  "src/features/creation/editor/WritingDesk.tsx"
+  "src/features/creation/editor/WritingDesk.tsx",
+  // 批次 AG 的「透镜退化」用例改这份：它是 .desktop-search-command 唯一的宿主（RingButton），
+  // 把该类名挪到非按钮元素上，用来测「登记的控件类名不再被认成纯按钮类名」必须红。
+  "src/components/layout/DesktopFrame.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -295,7 +298,18 @@ const cases = [
   ["第 8 步批次 AF·裂缝本体：按钮写 var(--shadow-1) 棘轮会豁免（计数降、看着像还了债），§2.5 判据必须不豁免令牌并红——这正是本批判据要堵的水下裂缝", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: var(--shadow-1);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), /按钮一律无阴影/],
   ["第 8 步批次 AF·反向：按钮上的纯描边焦点环 0 0 0 Npx 不该红（§2.3 的 focus-visible 机制，批次 AD 的豁免在本判据内同样成立）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: 0 0 0 2px var(--action-tint);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
   ["第 8 步批次 AF·反向：按钮上的纯 inset 色条不该红（与 .creation-spine 书脊线同族的结构装饰，§5.3 四级本就不针对它）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: inset 2px 0 0 var(--copper);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
-  ["第 8 步批次 AF·冻结自检：删掉 .desktop-page-actions 族里那条 hover 投影却不降 FROZEN_BUTTON_SHADOW_COUNT，必须红——冻结名单也是账，悄悄松绑比漏检更坏", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);\n", ""), /冻结计数对不上/]
+  ["第 8 步批次 AF·冻结自检：删掉 .desktop-page-actions 族里那条 hover 投影却不降 FROZEN_BUTTON_SHADOW_COUNT，必须红——冻结名单也是账，悄悄松绑比漏检更坏", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);\n", ""), /冻结计数对不上/],
+  // 第 8 步批次 AG：§2.5 的「类名型按钮」透镜。AF 只认裸 button 元素型选择器，
+  // 而本仓有一族按钮靠类名被 CSS 命中（选择器里没有 button 这个词）。
+  // 关键设计：角色是登记出来的数据，不从挂载元素猜——因为「整卡可点」也实现成 <button>
+  // （BackgroundPage / CardListSidebar），那是卡片、§5.3 明确给它留了静止阴影档；
+  // 拿「只挂在 button 上」当判据去删它的阴影，就是一次无声的界面改版。
+  ["第 8 步批次 AG 回归：把手抄投影写回类名型控件按钮 .project-nav-back（元素型判据看不见它，必须靠类名透镜咬住）", () => mutate("src/styles/editorial-studio.css", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n}", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);\n}"), /按钮一律无阴影/],
+  ["第 8 步批次 AG·裂缝在类名侧同样成立：控件按钮写 var(--shadow-1) 棘轮豁免（计数不动），§2.5 必须不豁免令牌并红", () => mutate("src/styles/editorial-studio.css", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n}", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n  box-shadow: var(--shadow-1);\n}"), /按钮一律无阴影/],
+  ["第 8 步批次 AG·台账正向：卡片角色（background-card 是「整卡可点」的 <button>）写 var(--shadow-1) 不该红——§5.3 给静止卡片留了档，误删就是无声改版", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".background-card {\n  box-shadow: var(--shadow-1);\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), null],
+  ["第 8 步批次 AG·台账的牙：新出现的纯按钮类名（cards-icon-btn）带投影却不在控件/卡片任一台账里，必须红——判据不替人猜角色", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".cards-icon-btn {\n  box-shadow: var(--shadow-1);\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /角色未登记/],
+  ["第 8 步批次 AG·透镜退化自检：把登记的控件类名挪到非按钮元素（挂载扫描不再认它为纯按钮类名），必须红——危险方向是静默放行", () => mutate("src/components/layout/DesktopFrame.tsx", '<RingButton className="desktop-search-command"', '<span className="desktop-search-command"'), /类名透镜退化/],
+  ["第 8 步批次 AG·反向：控件按钮上写纯描边焦点环不该红（§2.3 机制，元素型与类名型两侧豁免必须对称）", () => mutate("src/styles/editorial-studio.css", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n}", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n  box-shadow: 0 0 0 3px var(--action-tint);\n}"), null]
 ];
 
 let bad = 0;

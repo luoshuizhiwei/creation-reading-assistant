@@ -1224,7 +1224,7 @@ const isPureRingValue = (v) => {
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
     "src/styles.css": 21,
-    "src/styles/editorial-studio.css": 18
+    "src/styles/editorial-studio.css": 16
   };
 
   const actual = {};
@@ -1304,6 +1304,90 @@ const isPureRingValue = (v) => {
   console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
 }
 
+/* -------------------------------- 类名型按钮的角色台账（批次 AG 立，服务于 §2.5） */
+
+/**
+ * AF 把 §2.5 补进判据时只认「裸 button 元素型」选择器（`.x button`）。那只覆盖了一半：
+ * 本仓还有一族按钮是靠**类名**被 CSS 命中的（`<RingButton className="desktop-search-command">`
+ * 配 `.desktop-search-command:hover {}`），选择器里压根没有 button 这个词，元素型判据看不见它。
+ *
+ * 想补这条透镜，必须先解决一个反向风险：**不能靠挂载元素推角色**。
+ * 本仓有两种都写成 `<button>` 的东西：
+ *   · 控件按钮（顶部搜索、项目返回）——§2.5 要求它无阴影；
+ *   · 可点卡片（背景卡、卡片列表项）——它只是把「整卡可点」实现成语义正确的
+ *     `<button>`（里面装封面缩略图 + 标题 + 元信息，见 BackgroundPage / CardListSidebar）。
+ *     §5.3 明明白白给静止卡片留了 --shadow-1 这一档。
+ * 拿「只挂在 button 上」当判据去删后者的阴影，就是一次无声的界面改版——
+ * 而这正是这一轮反复立誓不做的事（宁可漏判，不可误删活的视觉）。
+ *
+ * 所以角色必须是**登记出来的数据**，不是猜出来的：
+ *   · CONTROL_BUTTON_CLASSES —— 判成控件：§2.5 生效，带投影层级 box-shadow 即红。
+ *   · CARD_BUTTON_CLASSES —— 判成卡片：§2.5 不适用，投影由 §5.3 刻度棘轮管着（照旧计债）。
+ *   · 两者都不在、却带着投影层级的纯按钮类名 —— 红，要求人先判角色再登记。
+ *     这一条是判据的全部价值所在：新出现一个类名按钮，不能被静默归进任何一边。
+ *
+ * 「纯按钮类名」的判据刻意取窄（宁漏不误判）：
+ *   · 只认 kebab 业务类名（含 -，且不是 Tailwind 工具类前缀）——active/confirm/csv 这类
+ *     状态词与模板三元分支值也会只挂在 button 上，拿它们当按钮类名会大面积误伤；
+ *   · 要求该类的**每一处**挂载都是按钮（button / RingButton / Button），混一处 div 就不判；
+ *   · RingButton 与 Button 都实测把 className 原样落在原生 <button> 上
+ *     （interaction.tsx 的 RingButton、ui.tsx 的 Button），所以算按钮。
+ *
+ * 挂载扫描与 classesHostingButton 不同源、也不同用途：那条找「内部渲染了 <Button> 的容器」，
+ * 本条找「这个类名挂在什么元素上」。两者都是 JSX 文本扫描，都受同一个跨文件组件边界盲区
+ * 限制（见上面批次 C 的记录），所以本条**只用于收窄判据**——判据错的方向只会是漏判，
+ * 不会是误删。
+ */
+const CONTROL_BUTTON_CLASSES = ["desktop-search-command", "project-nav-back"];
+const CARD_BUTTON_CLASSES = ["background-card", "cards-list-item"];
+
+const buttonClassMounts = (() => {
+  const TW_PREFIX = /^(bg|text|border|rounded|shadow|p|px|py|pt|pb|m|mx|my|mt|mb|w|h|flex|grid|gap|items|justify|font|leading|tracking|opacity|translate|scale|rotate|z|inset|top|bottom|left|right|size|min|max|overflow|whitespace|truncate|cursor|select|space|divide|ring|outline|from|to|via|animate|transition|duration|delay|ease|order|col|row|self|place|hidden|inline|block|absolute|relative|fixed|sticky|hover|focus|active|group|peer)(-|$)/;
+  const BUTTONISH = new Set(["button", "RingButton", "Button"]);
+  const mounts = new Map();
+  const skipString = (s, from) => {
+    const q = s[from];
+    let j = from + 1;
+    while (j < s.length && s[j] !== q) j += s[j] === "\\" ? 2 : 1;
+    return j;
+  };
+  for (const p of allSource.filter((x) => /\.tsx$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const src = stripComments(readFileSync(p, "utf8"));
+    for (let i = 0; i + 1 < src.length; i++) {
+      if (src[i] !== "<" || src[i + 1] === "/" || src[i + 1] === "!" || src[i + 1] === "?") continue;
+      const m = /^<([A-Za-z][\w.-]*)/.exec(src.slice(i, i + 40));
+      if (!m) continue;
+      let depth = 0;
+      let j = i + m[0].length;
+      for (; j < src.length; j++) {
+        const c = src[j];
+        if (c === '"' || c === "'" || c === "`") { j = skipString(src, j); continue; }
+        if (c === "{") depth += 1;
+        else if (c === "}") depth -= 1;
+        else if (c === ">" && depth === 0) break;
+      }
+      const open = src.slice(i, j + 1);
+      // 必须用非贪婪的 \{[\s\S]*?\}：本仓大量写法是
+      // className={`foo ${cond ? "bar" : ""}`}，若写成 \{[^{}]*\} 会被里面的 ${} 直接挡掉，
+      // 于是这些类名一个都扫不到——而本透镜错的方向是「静默放行」，最坏的那种。
+      for (const cm of open.matchAll(/className=(\{[\s\S]*?\}|"[^"]*"|'[^']*')/g)) {
+        const raw = cm[1].replace(/\$\{[^}]*\}/g, " ").replace(/["'`{}]/g, " ");
+        for (const c of raw.split(/[^A-Za-z0-9_-]+/)) {
+          if (!/^[a-z][a-z0-9_-]*$/.test(c) || !c.includes("-") || TW_PREFIX.test(c)) continue;
+          if (!mounts.has(c)) mounts.set(c, new Set());
+          mounts.get(c).add(m[1]);
+        }
+      }
+      i = j;
+    }
+  }
+  const pure = new Set();
+  for (const [c, tags] of mounts) {
+    if ([...tags].length && [...tags].every((t) => BUTTONISH.has(t))) pure.add(c);
+  }
+  return pure;
+})();
+
 /* ---------------------------------- 规格 §2.5 按钮一律无阴影（第 8 步批次 AF 立） */
 
 /**
@@ -1341,6 +1425,21 @@ const isPureRingValue = (v) => {
   const FROZEN_BUTTON_SHADOW_COUNT = 3;
   const offenders = [];
   const frozenHits = [];
+  const unregistered = [];
+  // 判据自检用的命中台账：登记过的类名必须真的被本透镜看见
+  const controlHits = new Set();
+  const cardHits = new Set();
+  const isProjection = (v) => {
+    if (v === "none") return false;
+    if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return false;
+    if (isPureRingValue(v)) return false;
+    return true;
+  };
+  /** 选择器末位复合里的业务类名——决定「这条规则直接给谁画投影」。 */
+  const lastCompoundClasses = (sel) => {
+    const last = sel.split(/[\s>+~]/).pop() || "";
+    return (last.match(/\.[A-Za-z][\w-]*/g) || []).map((x) => x.slice(1));
+  };
   for (const cssFile of cssFiles) {
     const rel = path.relative(root, cssFile).split(path.sep).join("/");
     let ast;
@@ -1350,20 +1449,64 @@ const isPureRingValue = (v) => {
       continue;
     }
     ast.walkRules((rule) => {
-      if (!rule.selectors.some((s) => BUTTON_ROLE.test(s.replace(/\s+/g, " ").trim()))) return;
+      const sels = rule.selectors.map((s) => s.replace(/\s+/g, " ").trim());
+      const elementRole = sels.some((s) => BUTTON_ROLE.test(s));
+      const classRole = [...new Set(sels.flatMap((s) => lastCompoundClasses(s)))].filter((c) => buttonClassMounts.has(c));
+      if (!elementRole && !classRole.length) return;
       rule.walkDecls(/^box-shadow$/, (d) => {
         const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
-        if (v === "none") return;
-        if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return;
-        if (isPureRingValue(v)) return;
+        if (!isProjection(v)) return;
         const sel = rule.selector.replace(/\s+/g, " ").trim();
+        for (const c of classRole) {
+          if (CONTROL_BUTTON_CLASSES.includes(c)) controlHits.add(c);
+          if (CARD_BUTTON_CLASSES.includes(c)) cardHits.add(c);
+        }
         if (FROZEN_BUTTON_SHADOW.some((f) => sel.includes(f))) {
           frozenHits.push(`${rel}:${d.source.start.line} ${sel}`);
           return;
         }
+        // 类名型按钮：卡片角色不归 §2.5 管（§5.3 给静止卡片留了档），控件角色才管。
+        // 两边都没登记的，要求先判角色——不能静默归进任何一边。
+        if (!elementRole && classRole.length) {
+          const asControl = classRole.filter((c) => CONTROL_BUTTON_CLASSES.includes(c));
+          const asCard = classRole.filter((c) => CARD_BUTTON_CLASSES.includes(c));
+          if (!asControl.length && !asCard.length) {
+            unregistered.push(`${rel}:${d.source.start.line} ${sel} { box-shadow: ${v} } [${classRole.join(",")}]`);
+            return;
+          }
+          if (asCard.length && !asControl.length) return;
+        }
         offenders.push(`${rel}:${d.source.start.line} ${sel} { box-shadow: ${v} }`);
       });
     });
+  }
+  // 透镜退化自检（不变量 #8 同族）：登记的类名若不再被认成纯按钮类名，说明
+  // 要么挂载被挪到非按钮元素上（角色变了，该从台账里删），要么扫描口径被动窄
+  // （危险方向：它会把手写的控件按钮投影静默放行）。
+  const blindControl = CONTROL_BUTTON_CLASSES.filter((c) => !buttonClassMounts.has(c));
+  if (blindControl.length) {
+    fail(
+      `第 8 步 §2.5 类名透镜退化：登记的控件按钮类名 ${blindControl.join("、")} 不再被认成「只挂在按钮上」——` +
+        `要么它已被挪用到非按钮元素（角色变了，请从 CONTROL_BUTTON_CLASSES 删掉并复核那处样式），` +
+        `要么挂载扫描口径被改窄（危险方向：会把控件按钮的投影静默放行）。`
+    );
+  }
+  const blindCard = CARD_BUTTON_CLASSES.filter((c) => !buttonClassMounts.has(c));
+  if (blindCard.length) {
+    fail(
+      `第 8 步 §2.5 卡片侧台账失配：登记的「按卡片算」类名 ${blindCard.length} 个已不再是纯按钮类名——${blindCard.join("、")}。` +
+        `这些类名的宿主不再是 button/RingButton/Button，请复核它现在挂在哪、并把它从 CARD_BUTTON_CLASSES 移到合适的一侧；` +
+        `留在台账里会让这条豁免继续挡掉本该由 §5.3 判定的东西。`
+    );
+  }
+  if (unregistered.length) {
+    fail(
+      `第 8 步 §2.5 角色未登记：${unregistered.length} 条规则的宿主是「只挂在按钮上的类名」，却带着投影层级 box-shadow，` +
+        `且不在控件/卡片任一台账里——${unregistered.slice(0, 3).join(" / ")}。` +
+        `请先判角色再登记：控件按钮（§2.5 一律无阴影）进 CONTROL_BUTTON_CLASSES 并删掉投影；` +
+        `可点卡片（§5.3 静止卡片有 --shadow-1）进 CARD_BUTTON_CLASSES。判据不替你猜——` +
+        `猜错的方向是「无声删掉活着的界面」。`
+    );
   }
   if (offenders.length) {
     fail(
@@ -1380,7 +1523,10 @@ const isPureRingValue = (v) => {
         `要么判据的按钮元素型或 inset/环豁免被动过。`
     );
   }
-  console.log(`${TAG} [第 8 步待收口] §2.5 按钮投影遗留 ${frozenHits.length} 条，全部属于 .desktop-page-actions 接管族（已冻结，迁移该页时随第 6 步清单一起删）`);
+  console.log(
+    `${TAG} [第 8 步待收口] §2.5 按钮投影遗留 ${frozenHits.length} 条，全部属于 .desktop-page-actions 接管族（已冻结，迁移该页时随第 6 步清单一起删）；` +
+      `类名型按钮台账：控件 ${CONTROL_BUTTON_CLASSES.length} 个（命中 ${controlHits.size}）、按卡片算 ${CARD_BUTTON_CLASSES.length} 个（命中 ${cardHits.size}）`
+  );
 }
 
 /* ------------------------------------ --shadow-1 的 hairline 不得与同规则 border 共存（第 8 步） */
