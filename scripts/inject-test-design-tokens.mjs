@@ -29,7 +29,7 @@ const files = [
   // 圆角棘轮的「新债 / 还债不降预算」两条用例原先也钉在 LibraryPage 的
   // `min-w-[160px] rounded-lg border` 上。批次 M 把阅读器族整片圆角收上刻度，
   // 那个锚点会被合法迁移掉——用例随即 SKIP、harness 计为无效（自愈设计，不静默失效）。
-  // 宿主换成 InboxItemDetail：它有 6 处离刻度圆角、且不属于本批 8 步的阴影/圆角迁移面。
+  // 宿主换成 InboxItemDetail：它至今还有离刻度圆角、且不属于本批 8 步的阴影/圆角迁移面。
   "src/features/creation/inbox/components/InboxItemDetail.tsx",
   // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）

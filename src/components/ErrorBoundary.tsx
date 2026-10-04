@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
         // 边框不能写 border-[color:var(--proof-mark)]/30（Tailwind 无法给 var() 套 alpha
         // 修饰符，整条声明会被静默丢弃），所以用 color-mix 混进 --separator。
         <div className="grid h-full place-items-center p-6 text-center paper-shell">
-          <div className="max-w-md rounded-2xl border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 shadow-paper">
+          <div className="max-w-md rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 shadow-paper">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]">
               <AlertTriangle size={24} />
             </div>
@@ -59,7 +59,7 @@ export class ErrorBoundary extends Component<Props, State> {
               组件渲染时发生异常，已自动拦截以保护你的写作与阅读数据。
             </p>
             {this.state.error?.message && (
-              <div className="mt-3 rounded-lg border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-2.5 text-left font-mono text-xs text-[color:var(--proof-mark)] break-all">
+              <div className="mt-3 rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-2.5 text-left font-mono text-xs text-[color:var(--proof-mark)] break-all">
                 {redactPaths(this.state.error.message)}
               </div>
             )}

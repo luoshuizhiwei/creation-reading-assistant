@@ -204,5 +204,5 @@ export function AnimatedPanel({ children, className = "", delay = 0 }: { childre
 }
 
 export function InlineNotice({ children, tone = "info", className = "" }: { children: ReactNode; tone?: ToastTone; className?: string }) {
-  return <div className={`motion-notice rounded-xl border p-3 text-sm leading-6 ${toastClass[tone]} ${className}`}>{children}</div>;
+  return <div className={`motion-notice rounded-md border p-3 text-sm leading-6 ${toastClass[tone]} ${className}`}>{children}</div>;
 }

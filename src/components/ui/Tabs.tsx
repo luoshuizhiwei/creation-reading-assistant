@@ -37,7 +37,7 @@ export function Tabs<T extends string = string>({
       aria-label={ariaLabel}
       className={`flex items-center gap-1 ${
         variant === "pill"
-          ? "rounded-lg bg-paper-soft p-1 border border-paper-line"
+          ? "rounded-md bg-paper-soft p-1 border border-paper-line"
           : "border-b border-paper-line"
       } ${className}`}
     >

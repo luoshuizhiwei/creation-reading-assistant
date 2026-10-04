@@ -96,7 +96,7 @@ export function InboxConvertToCardDialog({
       }
     >
       <div className="space-y-4">
-        <div className="rounded-lg border border-paper-line bg-paper-soft/40 p-3">
+        <div className="rounded-md border border-paper-line bg-paper-soft/40 p-3">
           <div className="text-xs font-semibold text-paper-muted">待转卡灵感条目</div>
           <div className="mt-1 font-medium text-paper-ink">{item.title}</div>
           {item.body && (

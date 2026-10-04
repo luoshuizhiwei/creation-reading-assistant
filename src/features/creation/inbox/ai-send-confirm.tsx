@@ -100,7 +100,7 @@ export function AiSendConfirmDialog({
                     return (
                       <li key={group.id}>
                         <label
-                          className={`flex items-start gap-2 rounded-lg border p-2 text-xs leading-5 ${
+                          className={`flex items-start gap-2 rounded-md border p-2 text-xs leading-5 ${
                             isExcluded ? "border-dashed border-paper-line text-paper-muted opacity-70" : "border-paper-line"
                           }`}
                         >
@@ -138,7 +138,7 @@ export function AiSendConfirmDialog({
                   将发送 <strong className="text-paper-ink">{countSignificantChars(content).toLocaleString("zh-CN")}</strong> 个非空白字符
                   {title.trim() ? `（标题：${title.trim()}）` : ""} 到 {target}。AI 返回的内容只会追加为候选版本，不会覆盖你的正文。
                 </p>
-                <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-lg border border-paper-line bg-paper-soft/60 p-3 text-xs leading-5 text-paper-ink">
+                <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-paper-line bg-paper-soft/60 p-3 text-xs leading-5 text-paper-ink">
 {content.trim().slice(0, PREVIEW_LIMIT) || "（正文为空，将只发送标题）"}
                 </pre>
               </>

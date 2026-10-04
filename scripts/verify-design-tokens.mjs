@@ -1040,10 +1040,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    * 数字由本文件自己扫出来的，改代码的人（和 AI）不需要重新数一遍。
    */
   const RADIUS_BUDGET = {
-    "src/components/interaction.tsx": 1,
-    "src/components/ui/FontPicker.tsx": 1,
-    "src/components/ui/Tabs.tsx": 1,
-    "src/components/ErrorBoundary.tsx": 2,
     "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
     "src/features/creation/cards/cards-local.css": 7,
@@ -1052,9 +1048,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/editor/writing-quick-reference.css": 5,
     "src/features/creation/editor/writing-reference.css": 4,
     "src/features/creation/history/history-local.css": 6,
-    "src/features/creation/inbox/ai-send-confirm.tsx": 2,
-    "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx": 1,
-    "src/features/creation/inbox/components/InboxItemDetail.tsx": 6,
+    "src/features/creation/inbox/components/InboxItemDetail.tsx": 4,
     "src/features/creation/inbox/inbox-local.css": 1,
     "src/features/creation/operation/operation.css": 4,
     "src/features/creation/outline/outline-reorg.css": 1,

@@ -110,7 +110,7 @@ export function FontPicker({
           id={listboxId}
           role="listbox"
           aria-label={label ?? "选择正文字体"}
-          className="absolute z-40 mt-1 max-h-72 w-full overflow-auto rounded-lg border border-paper-line bg-paper-panel py-1 shadow-lift"
+          className="absolute z-40 mt-1 max-h-72 w-full overflow-auto rounded-md border border-paper-line bg-paper-panel py-1 shadow-lift"
           onKeyDown={(event) => {
             if (event.key === "Escape") {
               setOpen(false);

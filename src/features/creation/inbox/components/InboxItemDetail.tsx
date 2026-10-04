@@ -182,7 +182,7 @@ export function InboxItemDetail({
         <div className="desktop-card-label">AI polish</div>
         <h2 className="paper-title mt-1 text-lg font-semibold">AI 候选版本</h2>
         {!aiAvailable ? (
-          <div className="mt-2 rounded-lg border border-paper-line bg-paper-soft/40 p-3 text-xs leading-6 text-paper-muted">
+          <div className="mt-2 rounded-md border border-paper-line bg-paper-soft/40 p-3 text-xs leading-6 text-paper-muted">
             {aiSettings?.enabled
               ? "已启用 AI 助手，但尚未配置 API Key。请先在设置中心保存 Key 后使用 AI 打磨；在此之前不会产生任何网络请求。"
               : "AI 助手未启用。开启并配置 Key 后，这里可以生成候选版本（不会自动覆盖正文）。"}
@@ -218,7 +218,7 @@ export function InboxItemDetail({
 
         <div className="mt-3 grid gap-3">
           {item.variants.length === 0 ? (
-            <div className="rounded-lg border border-dashed border-paper-line p-4 text-sm text-paper-muted">
+            <div className="rounded-md border border-dashed border-paper-line p-4 text-sm text-paper-muted">
               还没有候选版本。{aiAvailable ? "点击上方按钮生成。" : "启用 AI 并配置 Key 后可生成。"}
             </div>
           ) : (
