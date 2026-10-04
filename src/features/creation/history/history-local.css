@@ -173,16 +173,18 @@
   backdrop-filter: blur(3px);
 }
 
+/* 面板圆角与投影交给共享 <Dialog>（rounded-[var(--radius-3)] / shadow-2xl）。
+   这里原先那对 14px + 手抄重投影是一条裸类名接管：本文件是 HistoryPage 的懒加载
+   chunk，发射晚于 index CSS，同特异度下把组件自己挂在 className 上的刻度工具类整条
+   压掉——第 8 步批次 S 收口，判据见 verify-design-tokens.mjs 的「共享组件面板」不变量。 */
 .history-modal {
   width: min(520px, 100%);
   max-height: calc(100vh - 32px);
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  border-radius: 14px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
-  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.32), 0 4px 14px rgba(0, 0, 0, 0.12);
 }
 
 .history-modal-head {
@@ -253,7 +255,7 @@
 .history-field input[type="text"] {
   width: 100%;
   padding: 8px 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   border: 1px solid var(--border-strong);
   background: var(--bg-surface);
   color: var(--text-main);
@@ -313,7 +315,7 @@
 
 .history-impact-notice {
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--warning) 10%, var(--bg-surface));
   color: var(--warning);
   font-size: 13px;
@@ -322,7 +324,7 @@
 
 .history-impact-danger {
   padding: 10px 12px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 8%, var(--bg-surface));
   color: var(--proof-mark);
   font-size: 13px;
@@ -360,7 +362,7 @@
   grid-template-columns: minmax(90px, 0.55fr) minmax(0, 1fr) minmax(0, 1fr);
   gap: 8px;
   padding: 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: var(--bg-surface);
 }
 
@@ -407,7 +409,7 @@
   width: 100%;
   box-sizing: border-box;
   border: 1px solid var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   padding: 9px 10px;
   color: var(--text-main);
   background: var(--bg-surface);

@@ -42,7 +42,11 @@ const files = [
   "src/features/creation/editor/WritingQuickReferencePanel.tsx",
   // 批次 R 的用例改这份：它刚被整族收口（三本账同时降），用它证明幻影判据不只盯全局样式表，
   // 功能局部 CSS 里给画不出来的元素配新档位一样要红。
-  "src/features/creation/cards/cards-local.css"
+  "src/features/creation/cards/cards-local.css",
+  // 批次 S 的用例改这几份：history-local.css 刚退役那条 .history-modal 裸类名接管，
+  // 用它测「接管加回来必须红 / 带模式前缀与非几何属性合法」；WritingDesk 是把
+  // .writing-recovery-notice 当面板钩子传给 <InlineNotice> 的唯一宿主，用它测「钩子扫描退化」。
+  "src/features/creation/editor/WritingDesk.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -217,7 +221,18 @@ const cases = [
   // 退役里同时降，所以这两条测的是「幻影判据会不会只看全局样式表」——功能局部 CSS 里给画不出
   // 来的元素配档位，一样要红；写刻度值一样不该红（判据咬的是令牌债，不是「没宿主」本身）。
   ["批次 R 回归：在功能局部样式表里给查无宿主的类名新增离刻度圆角（.zz-cards-ghost 没有任何宿主，界面画不出来，但令牌债是真的）", () => mutate("src/features/creation/cards/cards-local.css", ".cards-hint {", ".zz-cards-ghost {\n  border-radius: 14px;\n}\n\n.cards-hint {"), /幻影选择器[\s\S]*新增了令牌债/],
-  ["批次 R 回归·反向：同一个幻影类名写刻度上的 6px 不该红（幻影判据管的是令牌债，孤儿 CSS 整族清理是另一笔账）", () => mutate("src/features/creation/cards/cards-local.css", ".cards-hint {", ".zz-cards-ghost {\n  border-radius: 6px;\n}\n\n.cards-hint {"), null]
+  ["批次 R 回归·反向：同一个幻影类名写刻度上的 6px 不该红（幻影判据管的是令牌债，孤儿 CSS 整族清理是另一笔账）", () => mutate("src/features/creation/cards/cards-local.css", ".cards-hint {", ".zz-cards-ghost {\n  border-radius: 6px;\n}\n\n.cards-hint {"), null],
+  // 第 8 步批次 S：两条「裸类名接管共享组件面板」已退役（.history-modal 的 14px + 手抄重投影、
+  // .writing-recovery-notice 的 8px + box-shadow:none）。这一族的价值恰恰在于它是同特异度比武，
+  // 局部 CSS 在懒加载 chunk 里发射更晚，所以组件挂的刻度工具类会被安静压掉——棘轮看不见
+  // （14px 虽是离刻度，但这条测的是判据能不能认出「接管」这个形状，值故意用刻度上的 10px）。
+  ["批次 S 回归：把 .history-modal 的裸类名接管加回来（值用刻度上的 10px 让棘轮咬不到，必须靠面板钩子不变量拦住；连 box-shadow 成对声明也一起测）", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n  width: min(520px, 100%);", ".history-modal {\n  border-radius: 10px;\n  box-shadow: none;\n  width: min(520px, 100%);"), /共享组件面板/],
+  ["批次 S 回归·反向①：带祖先前缀的覆盖是显式决定（模式压平），不是全局接管，不该变红", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n  width: min(520px, 100%);", ".desktop-root--focus .history-modal {\n  border-radius: 0;\n}\n\n.history-modal {\n  width: min(520px, 100%);"), null],
+  ["批次 S 回归·反向②：给面板钩子加非几何属性（padding）不该变红——判据只管圆角与投影这两条能被组件挂上的轴", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n  width: min(520px, 100%);", ".history-modal {\n  padding-left: 0;\n  width: min(520px, 100%);"), null],
+  ["批次 S 回归：钩子扫描退化——把面板钩子从字面量改成常量引用（完整类名不再出现在开标签上），自检必须红，否则下一批人会把接管当合法写法", () => {
+    mutate("src/features/creation/editor/WritingDesk.tsx", "<InlineNotice tone=\"warning\" className=\"writing-recovery-notice\">", "<InlineNotice tone=\"warning\" className={ZZ_NOTICE_PANEL}>");
+    mutate("src/features/creation/editor/WritingDesk.tsx", "export function WritingDesk(", "const ZZ_NOTICE_PANEL = \"writing-recovery-notice\";\n\nexport function WritingDesk(");
+  }, /钩子扫描退化/]
 ];
 
 let bad = 0;

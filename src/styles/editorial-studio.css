@@ -1129,9 +1129,11 @@ select:focus-visible,
   font-size: 10.5px;
 }
 
+/* 批次 S：.writing-recovery-notice 从这条里摘出去——它是共享 <InlineNotice> 的面板钩子
+   （组件根节点自己挂着 rounded-md），裸类名再声明一次就是同特异度的接管，
+   谁赢只看发射顺序。下面两个类名是「样式表自持」，TSX 侧没有任何 rounded 工具类，合法。 */
 .writing-annotation,
-.writing-annotation-form,
-.writing-recovery-notice {
+.writing-annotation-form {
   border-radius: 8px;
   box-shadow: none;
 }

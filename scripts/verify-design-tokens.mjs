@@ -1046,14 +1046,13 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/editor/scene-radar.css": 2,
     "src/features/creation/editor/writing-quick-reference.css": 5,
     "src/features/creation/editor/writing-reference.css": 4,
-    "src/features/creation/history/history-local.css": 6,
     "src/features/creation/inbox/inbox-local.css": 1,
     "src/features/creation/operation/operation.css": 4,
     "src/features/creation/outline/outline-reorg.css": 1,
     "src/features/creation/replace/replace.css": 5,
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 36,
+    "src/styles.css": 35,
     "src/styles/editorial-studio.css": 29
   };
 
@@ -1198,7 +1197,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         "src/features/creation/editor/scene-radar.css": 1,
     "src/features/creation/editor/writing-quick-reference.css": 1,
     "src/features/creation/editor/writing-reference.css": 2,
-    "src/features/creation/history/history-local.css": 2,
+    "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/ai-send-confirm.tsx": 1,
     "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/replace/replace.css": 2,
@@ -1670,6 +1669,118 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         `含 \`.rounded-*\` 锚点的规则会把组件 className 里选的档位整条压掉，` +
         `改类名的人看不见自己在改空气；圆角请交给元素自己声明。确需压平用 0，且删毯子时` +
         `必须连 box-shadow 一起核对前后两张胜者表。`
+    );
+  }
+}
+
+/* ---------- 共享组件面板钩子：裸类名规则不得给「传给 Dialog/InlineNotice 的类名」声明圆角/投影 */
+
+/**
+ * 批次 S 删掉两条同族接管（都夹带「改了画不出来」）：
+ *   · history-local.css `.history-modal { border-radius: 14px; box-shadow: 0 40px 120px… }`
+ *     —— .history-modal 是三个历史弹窗传给共享 <Dialog> 的面板钩子，组件根节点自己挂着
+ *     rounded-[var(--radius-3)] + shadow-2xl。两侧特异度同为 (0,1,0)，而 history-local.css
+ *     在 HistoryPage 的懒加载 chunk 里、发射晚于 index CSS——同特异度后来者赢，实渲的一直
+ *     是 14px 和那条手抄重投影，组件挂的刻度工具类整条被压掉。
+ *   · editorial-studio.css `.writing-recovery-notice { border-radius: 8px; box-shadow: none }`
+ *     —— .writing-recovery-notice 是 <InlineNotice>（根挂 rounded-md）的面板钩子，同形状。
+ *
+ * 这与浮层/面板/网格/工具类锚点四条都不同形：那四条的锚点在选择器里（祖先、`> *`、
+ * `.rounded-*`），这条的选择器就是一个裸类名——它之所以是接管，靠的是「这个类名是共享
+ * 组件的面板钩子、组件根已自带刻度工具类」这个跨文件事实，判据必须自己把事实拼出来：
+ *   ① 扫 TSX 里 `<Dialog` / `<InlineNotice` 开标签的**顶层** className/overlayClassName
+ *      字面量，得到面板钩子类名集合（深度扫描保证不会把 footer 里子元素的 className 误当钩子）；
+ *   ② src 任何 CSS 里，**整条选择器恰好等于 `.钩子名`** 的规则声明 border-radius /
+ *      box-shadow → 红。
+ * ②按属性一刀切（连 `box-shadow: none` 也拦），因为「压平」在裸钩子上的语义恰恰就是遮蔽：
+ * 组件此刻没挂该属性不代表以后不挂（motion-notice 正是批次 P 才挂上 rounded-md 的）。
+ * 确需覆盖请带模式前缀（`.some-mode .history-modal { … }`）或改组件本体。
+ *
+ * 合法不误伤：样式表自持的裸类名圆角（.writing-annotation——TSX 侧没有任何组件把这类
+ * 元素当面板钩子）不命中集合；非几何属性的裸钩子规则（padding/display）不受影响。
+ * 自检：钩子集合必须仍含那两个刚收口的类名——扫不出来就是判据退化（本文件改过 JSX
+ * 扫描形状的代价，批次 C 用 jsdom 才发现的那条就是这个盲区的存量版本）。
+ */
+{
+  const PANEL_HOOK_COMPONENTS = ["Dialog", "InlineNotice"];
+  const TW_UTILITY = /^(bg|text|border|rounded|shadow|p|px|py|pt|pb|m|mx|my|mt|mb|w|h|flex|grid|gap|items|justify|font|leading|tracking|opacity|translate|scale|rotate|z|inset|top|bottom|left|right|size|min|max|overflow|whitespace|truncate|cursor|select|space|divide|ring|outline|from|to|via|animate|transition|duration|delay|ease|order|col|row|self|place|hidden|inline|block|absolute|relative|fixed|sticky|hover|focus|active|group|peer)(-|$)/;
+  const hooks = new Map(); // class -> Set(host files)
+  for (const p of allSource.filter((x) => x.endsWith(".tsx") && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const s = readFileSync(p, "utf8");
+    for (const comp of PANEL_HOOK_COMPONENTS) {
+      let i = -1;
+      while ((i = s.indexOf(`<${comp}`, i + 1)) >= 0) {
+        // 开标签区间：按引号/括号深度找到顶层的 `>`
+        let j = i + comp.length + 1, depth = 0, str = null;
+        for (; j < s.length; j++) {
+          const c = s[j];
+          if (str) { if (c === str && s[j - 1] !== "\\") str = null; continue; }
+          if (c === '"' || c === "'" || c === "`") { str = c; continue; }
+          if (c === "{" || c === "(" || c === "[") depth += 1;
+          else if (c === "}" || c === ")" || c === "]") depth -= 1;
+          else if (c === ">" && depth === 0 && s[j - 1] !== "/") break;
+          else if (c === "/" && s[j + 1] === ">" && depth === 0) { j += 1; break; }
+        }
+        const region = s.slice(i, j);
+        // 顶层下标表：花括号深度为 0 的位置（footer={<Button className=…>} 里的不算）
+        let d2 = 0, s2 = null;
+        const top = new Set();
+        for (let k = 0; k < region.length; k++) {
+          const c = region[k];
+          if (s2) { if (c === s2 && region[k - 1] !== "\\") s2 = null; continue; }
+          if (c === '"' || c === "'" || c === "`") { s2 = c; continue; }
+          if (c === "{") d2 += 1;
+          else if (c === "}") d2 -= 1;
+          if (d2 === 0) top.add(k);
+        }
+        for (const m of region.matchAll(/(?:^|\s)(?:className|overlayClassName)\s*=\s*(?:"([^"]*)"|\{\s*["`]([^"`]*)["`]\s*\})/g)) {
+          if (!top.has(m.index + (/\s/.test(m[0][0]) ? 1 : 0))) continue;
+          for (const c of (m[1] || m[2] || "").trim().split(/\s+/)) {
+            if (!/^[a-z][a-z0-9-]*$/.test(c) || TW_UTILITY.test(c) || !c.includes("-")) continue;
+            if (!hooks.has(c)) hooks.set(c, new Set());
+            hooks.get(c).add(path.relative(root, p).split(path.sep).join("/"));
+          }
+        }
+      }
+    }
+  }
+  const HOOKS_MUST_BE_SEEN = ["history-modal", "writing-recovery-notice"];
+  const blindHooks = HOOKS_MUST_BE_SEEN.filter((c) => !hooks.has(c));
+  if (blindHooks.length) {
+    fail(
+      `共享组件面板钩子扫描退化：${blindHooks.join("、")} 不再被识别为 <Dialog>/<InlineNotice> 的 className 钩子。` +
+        `要么 JSX 扫描被改坏（判据失明 = 下一批人把接管当合法写法），要么钩子真的下线了（那请同步本清单）。`
+    );
+  }
+  const takeover = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      for (const sel of rule.selectors) {
+        const one = sel.replace(/\s+/g, " ").trim();
+        const m = /^\.([A-Za-z][\w-]*)$/.exec(one);
+        if (!m || !hooks.has(m[1])) continue;
+        for (const decl of rule.nodes) {
+          if (decl.type !== "decl" || !/^(border-radius|box-shadow)/.test(decl.prop)) continue;
+          takeover.push(`${rel}:${rule.source.start.line} .${m[1]} { ${decl.prop}: ${String(decl.value).replace(/\s+/g, " ").slice(0, 36)}${decl.important ? " !important" : ""} } ← 钩子: ${[...hooks.get(m[1])].join(",")}`);
+        }
+      }
+    });
+  }
+  if (takeover.length) {
+    fail(
+      `共享组件面板又被裸类名规则接管了圆角/投影（批次 S 的 .history-modal / .writing-recovery-notice 就是这个形状）：` +
+        `${takeover.length} 处 —— ${takeover.slice(0, 3).join(" / ")}。` +
+        `这些类名经顶层 className 传给 <Dialog>/<InlineNotice>，组件根已挂刻度工具类；` +
+        `同特异度 (0,1,0) 下胜负只看发射顺序（局部 CSS 常在懒加载 chunk 里更晚），` +
+        `组件的 rounded-[var(--radius-*)] 会被静默压成「改了画不出来」。请删掉这条声明，` +
+        `圆角/投影交给组件本体；确需按模式覆盖请带祖先前缀。`
     );
   }
 }
