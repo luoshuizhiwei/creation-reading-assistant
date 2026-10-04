@@ -97,7 +97,7 @@ select:focus-visible,
 .nav-spine-item {
   position: relative;
   border-left: 3px solid transparent !important;
-  border-radius: 9px !important;
+  border-radius: var(--radius-2) !important;
 }
 
 /* Brand: a carved seal stamp — 阅 in vermilion. */
@@ -122,7 +122,7 @@ select:focus-visible,
   flex-shrink: 0;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.28);
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   /* 这里原本有一条渐变底（seal 82% + #fff），它是死声明：文件末尾
      `.desktop-titlebar-mark, .desktop-brand-mark { background: var(--action-primary) }`
      同特异性后置覆盖，印章实际一直是纯色主操作底（晨 #315f9b / 夜 #7fa5d9）。
@@ -2330,7 +2330,7 @@ input[type="text"],
   height: 18px;
   place-items: center;
   border: 1px solid rgba(255, 255, 255, 0.24);
-  border-radius: 5px;
+  border-radius: var(--radius-1);
   /* 原本这里的 background: var(--studio-seal) 已删除：它被下面
      `.desktop-titlebar-mark, .desktop-brand-mark { background: var(--action-primary) }`
      同特异性后置覆盖，标题栏标记一直是主操作蓝底，不是校样红底。
