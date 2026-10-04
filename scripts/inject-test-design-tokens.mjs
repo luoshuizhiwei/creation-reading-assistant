@@ -39,7 +39,10 @@ const files = [
   // 「删掉幻影债务却忘了降第二本账」；WritingQuickReferencePanel 是唯一靠 BEM 动态前缀
   // 才活着的宿主，用它测「宿主判据退化」。styles.css 早已在清单里，不重复登记。
   "src/features/settings/encryption/encryption.css",
-  "src/features/creation/editor/WritingQuickReferencePanel.tsx"
+  "src/features/creation/editor/WritingQuickReferencePanel.tsx",
+  // 批次 R 的用例改这份：它刚被整族收口（三本账同时降），用它证明幻影判据不只盯全局样式表，
+  // 功能局部 CSS 里给画不出来的元素配新档位一样要红。
+  "src/features/creation/cards/cards-local.css"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -208,7 +211,13 @@ const cases = [
   // 棘轮咬不到，只有新加的「工具类锚点不变量」拦得住。反向两条证明合法写法不被误伤。
   ["批次 Q 回归：把删掉的 .inbox-detail 毯子原样加回来（含 .rounded-xl 锚点 + !important 10px，棘轮看不见，必须靠工具类锚点不变量拦住）", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl,\n.inbox-detail > .rounded-2xl,\n.inbox-detail blockquote,\n.inbox-detail article {\n  border-radius: 10px !important;\n  box-shadow: none !important;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), /接管了 TSX 自己挂的圆角工具类/],
   ["批次 Q 回归·反向①：含 .rounded-* 锚点但不带 !important 是正常层叠比武（决定权仍在元素自己那侧），不该变红", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl {\n  border-radius: 6px;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), null],
-  ["批次 Q 回归·反向②：锚点 + !important 但值是 0（刻意压平，与 F/G/H 的「压平为 0」同族合法），不该变红", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl {\n  border-radius: 0 !important;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), null]
+  ["批次 Q 回归·反向②：锚点 + !important 但值是 0（刻意压平，与 F/G/H 的「压平为 0」同族合法），不该变红", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl {\n  border-radius: 0 !important;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), null],
+  // 第 8 步批次 R：cards-local.css 整族收口——删掉查无宿主的 .cards-modal 家族（6 条规则），
+  // 并把 7 处活圆角（8/9px）与 1 处活投影一起归到刻度上。三本账（圆角、阴影、幻影）在同一次
+  // 退役里同时降，所以这两条测的是「幻影判据会不会只看全局样式表」——功能局部 CSS 里给画不出
+  // 来的元素配档位，一样要红；写刻度值一样不该红（判据咬的是令牌债，不是「没宿主」本身）。
+  ["批次 R 回归：在功能局部样式表里给查无宿主的类名新增离刻度圆角（.zz-cards-ghost 没有任何宿主，界面画不出来，但令牌债是真的）", () => mutate("src/features/creation/cards/cards-local.css", ".cards-hint {", ".zz-cards-ghost {\n  border-radius: 14px;\n}\n\n.cards-hint {"), /幻影选择器[\s\S]*新增了令牌债/],
+  ["批次 R 回归·反向：同一个幻影类名写刻度上的 6px 不该红（幻影判据管的是令牌债，孤儿 CSS 整族清理是另一笔账）", () => mutate("src/features/creation/cards/cards-local.css", ".cards-hint {", ".zz-cards-ghost {\n  border-radius: 6px;\n}\n\n.cards-hint {"), null]
 ];
 
 let bad = 0;

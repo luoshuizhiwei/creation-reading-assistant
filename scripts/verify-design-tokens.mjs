@@ -1042,8 +1042,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   const RADIUS_BUDGET = {
     "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
-    "src/features/creation/cards/cards-local.css": 7,
-    "src/features/creation/cards/relation-graph.css": 3,
+        "src/features/creation/cards/relation-graph.css": 3,
     "src/features/creation/editor/scene-radar.css": 2,
     "src/features/creation/editor/writing-quick-reference.css": 5,
     "src/features/creation/editor/writing-reference.css": 4,
@@ -1196,8 +1195,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/components/ui/Dialog.tsx": 1,
     "src/components/ui/FontPicker.tsx": 1,
     "src/components/ui/Tabs.tsx": 1,
-    "src/features/creation/cards/cards-local.css": 1,
-    "src/features/creation/editor/scene-radar.css": 1,
+        "src/features/creation/editor/scene-radar.css": 1,
     "src/features/creation/editor/writing-quick-reference.css": 1,
     "src/features/creation/editor/writing-reference.css": 2,
     "src/features/creation/history/history-local.css": 2,
@@ -1388,8 +1386,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    *   反过来，本表里的数字只能靠删规则还，没有迁移这条路。
    */
   const HOSTLESS_BUDGET = {
-    "src/features/creation/cards/cards-local.css": 1,
-    "src/features/settings/encryption/encryption.css": 2,
+        "src/features/settings/encryption/encryption.css": 2,
     "src/styles.css": 11,
     "src/styles/editorial-studio.css": 1
   };
