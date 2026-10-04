@@ -1902,7 +1902,7 @@ button:disabled {
   gap: 6px;
   padding: 14px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  border-radius: 14px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-panel) 76%, var(--paper-soft));
   cursor: pointer;
   transition: border-color 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
@@ -1989,7 +1989,7 @@ button:disabled {
   margin: 10px 0 0;
   padding: 8px 10px 8px 24px;
   border-left: 3px solid var(--proof-mark);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 7%, transparent);
   color: var(--proof-mark);
   font-size: 12px;
@@ -2110,7 +2110,7 @@ button:disabled {
   place-items: center;
   padding: 28px;
   border: 1px dashed var(--paper-line);
-  border-radius: 18px;
+  border-radius: var(--radius-2);
   color: var(--paper-muted);
   text-align: center;
 }
@@ -2380,7 +2380,7 @@ button:disabled {
   height: 30px;
   place-items: center;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--paper-muted);
 }
@@ -2431,7 +2431,7 @@ button:disabled {
   margin: 0 0 18px;
   padding: 12px 14px;
   border: 1px solid color-mix(in srgb, var(--proof-mark) 28%, var(--paper-line));
-  border-radius: 12px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 7%, var(--paper-panel));
   font-size: 12px;
 }
@@ -2471,7 +2471,7 @@ button:disabled {
 .scene-editor-content .author-note {
   margin: 0 0 1.1em;
   min-height: 1.9em;
-  border-radius: 7px;
+  border-radius: var(--radius-2);
   transition: opacity 160ms ease, background-color 160ms ease;
 }
 
@@ -2619,7 +2619,7 @@ button:disabled {
   overflow: auto;
   padding: 14px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
+  border-radius: var(--radius-2);
   background: var(--paper-soft);
   color: var(--paper-ink);
   font: 13px/1.75 "Noto Serif SC", "Songti SC", serif;
@@ -3879,7 +3879,7 @@ button:disabled {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--paper-line);
-  border-radius: 16px;
+  border-radius: var(--radius-3);
   background: var(--paper-panel);
   box-shadow: 0 18px 50px rgba(38, 26, 15, 0.28);
   overflow: hidden;
@@ -3919,7 +3919,7 @@ button:disabled {
   width: 28px;
   height: 28px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--paper-muted);
   cursor: pointer;
@@ -4541,7 +4541,7 @@ button:disabled {
   gap: 8px;
   flex-wrap: wrap;
   padding: 5px 8px;
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-ink) 4%, transparent);
 }
 
@@ -4624,7 +4624,7 @@ button:disabled {
   gap: 12px;
   padding: 9px 12px;
   border: 0;
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: transparent;
   color: var(--paper-ink);
   font-size: 13.5px;
@@ -4654,7 +4654,7 @@ button:disabled {
 .creation-palette-footer kbd {
   border: 1px solid var(--paper-line);
   border-bottom-width: 2px;
-  border-radius: 5px;
+  border-radius: var(--radius-1);
   background: var(--paper-panel);
   color: var(--paper-muted);
   font-family: inherit;
@@ -4753,7 +4753,7 @@ button:disabled {
   gap: 7px;
   margin: 0;
   padding: 9px 12px;
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 8%, var(--paper-panel));
   color: var(--proof-mark);
   font-size: 12.5px;
@@ -4809,7 +4809,7 @@ button:disabled {
 .migration-failures {
   margin: 0;
   padding: 8px 12px;
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 6%, var(--paper-panel));
   color: var(--proof-mark);
   font-size: 12px;

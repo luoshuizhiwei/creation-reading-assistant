@@ -245,7 +245,11 @@ const cases = [
   // 沿用批次 N 那对「退役同一宿主同一属性」的形状：正向证明这一页的阴影预算确实降到了
   // 新值（写回一条离刻度必须红），反向证明刻度写法仍合法（别把退役变成「禁止投影」）。
   ["第 8 步批次 X 回归：把退役掉的死投影以离刻度值写回 .stats-card（styles.css 阴影预算已降过一档，多一处必须红——否则退役等于给它松了绑）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);\n  border: 1px solid var(--paper-line);"), /阴影刻度/],
-  ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-1) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-1);\n  border: 1px solid var(--paper-line);"), null]
+  ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-1) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-1);\n  border: 1px solid var(--paper-line);"), null],
+  // 第 8 步批次 Y：创作流页面族 15 处活圆角归 §5.2 刻度（styles.css 35→21、editorial 26→25）。
+  // 正向证明这两页的圆角预算确实降到了新值（写回一条离刻度必须红），反向证明刻度写法仍合法。
+  ["第 8 步批次 Y 回归：把迁移掉的离刻度圆角写回 .creation-wizard（editorial 预算已降到新值，多一处必须红——否则迁移等于给这一页松了绑）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: 16px;"), /圆角刻度/],
+  ["第 8 步批次 Y 回归·反向：同一宿主写 var(--radius-3) 是合法收敛，不该变红", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-2);"), null]
 ];
 
 let bad = 0;

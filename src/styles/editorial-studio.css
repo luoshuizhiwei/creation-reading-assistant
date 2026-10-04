@@ -2261,7 +2261,7 @@ input[type="text"],
 }
 
 .creation-wizard {
-  border-radius: 16px;
+  border-radius: var(--radius-3);
   box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);
 }
 

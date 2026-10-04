@@ -1042,8 +1042,8 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   const RADIUS_BUDGET = {
     "src/components/ui.tsx": 1,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 35,
-    "src/styles/editorial-studio.css": 26
+    "src/styles.css": 21,
+    "src/styles/editorial-studio.css": 25
   };
 
   const actual = {};
