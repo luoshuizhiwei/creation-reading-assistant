@@ -1223,8 +1223,8 @@ const isPureRingValue = (v) => {
     "src/features/settings/encryption/encryption.css": 1,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
-    "src/styles.css": 23,
-    "src/styles/editorial-studio.css": 22
+    "src/styles.css": 21,
+    "src/styles/editorial-studio.css": 18
   };
 
   const actual = {};
@@ -1302,6 +1302,85 @@ const isPureRingValue = (v) => {
   }
   const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
   console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
+/* ---------------------------------- 规格 §2.5 按钮一律无阴影（第 8 步批次 AF 立） */
+
+/**
+ * 阴影棘轮有一道它自己看不见的水下裂缝：它豁免 var(--shadow-*)，因为「已经用上令牌」
+ * 等于还了债。可 §2.5 说的是另一件事——**按钮一律无阴影**，`box-shadow` 只用于浮起层。
+ * 于是把一个按钮的手抄投影「收敛」成 var(--shadow-1)，棘轮计数下降、守卫全绿，
+ * 界面上按钮却照样带投影：一次看起来像还债的改动，实际是把违规写法升级成了
+ * 看起来合规的违规写法。批次 AF 在产物胜者表里抓到这个形状正在发生
+ * （某个页签按钮的 active 态胜者值就是 var(--shadow-1)），所以这条判据必须
+ * **不豁免令牌**——它管的不是数值离不离刻度，而是这个元素该不该有投影。
+ *
+ * 「按钮角色」按 CSS 侧唯一可靠的信号认：选择器里出现裸 `button` 元素型
+ * （`(^|[\s>+~(])button(?![\w-])`）。为什么不用 .btn 类名猜：本仓的按钮在 JSX 里是
+ * `<button>` 元素（RingButton / 遗留容器规则接管的那一族），类名五花八门，
+ * 而 CSS 要命中它们必须写 button —— 元素型就是这个物理事实本身。
+ * `(?![\w-])` 挡 `buttons`，前缀组挡 `-button` 这种类名尾巴，别把 .foo-button 认成按钮元素。
+ *
+ * 豁免沿用它所属判据的同一条物理量口径（helper 复用棘轮那两个）：
+ *   · `none`（明确关掉投影，正是 §2.5 要的结果）
+ *   · 纯 inset（色条/内衬装饰，§5.3 四级本来就不针对它）
+ *   · 纯描边环 0 0 0 Npx（§2.3 的 focus-visible 机制，批次 AD 立的对称豁免）
+ * 唯一**不**豁免的是 var(--shadow-*)——那正是这道裂缝的入口。
+ *
+ * 冻结例外：`.desktop-page-actions button` 这一族。它是第 6 步遗留接管清单里
+ * 已登记的同一批宿主（见上面 LEGACY_DESCENDANT_BUTTON），带 inset 冠光 + 真投影，
+ * 收口它等于同时改掉 4 个未迁移页面的按钮外观，属于「迁移对应页面时收口」那一档，
+ * 不在本批范围内。数字由本判据扫出，还掉一处不降清单也要红。
+ */
+{
+  const BUTTON_ROLE = /(^|[\s>+~(])button(?![\w-])/;
+  const FROZEN_BUTTON_SHADOW = [".desktop-page-actions"];
+  // 数字由本判据扫出：这一族的声明形状是「hover 抬升 + 带 inset 冠光的组合投影」。
+  // 它们和第 6 步 LEGACY_DESCENDANT_BUTTON 登记的是同一批宿主，随该页迁移一起收口。
+  // 还掉一条却不降这个数字要红——逼着同一笔改动同时核对两本账，别让 §2.5 悄悄松绑。
+  const FROZEN_BUTTON_SHADOW_COUNT = 3;
+  const offenders = [];
+  const frozenHits = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      if (!rule.selectors.some((s) => BUTTON_ROLE.test(s.replace(/\s+/g, " ").trim()))) return;
+      rule.walkDecls(/^box-shadow$/, (d) => {
+        const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
+        if (v === "none") return;
+        if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return;
+        if (isPureRingValue(v)) return;
+        const sel = rule.selector.replace(/\s+/g, " ").trim();
+        if (FROZEN_BUTTON_SHADOW.some((f) => sel.includes(f))) {
+          frozenHits.push(`${rel}:${d.source.start.line} ${sel}`);
+          return;
+        }
+        offenders.push(`${rel}:${d.source.start.line} ${sel} { box-shadow: ${v} }`);
+      });
+    });
+  }
+  if (offenders.length) {
+    fail(
+      `规格 §2.5 按钮一律无阴影：${offenders.length} 条按钮角色规则仍带投影层级 box-shadow——${offenders.slice(0, 4).join(" / ")}。` +
+        `本判据**不豁免 var(--shadow-*)**：把按钮投影「收敛成令牌」只是把违规写得像合规，棘轮计数会降而界面纹丝不动。` +
+        `按钮的 active/selected 请用底色、边框、字重表达（§2.5 纯色彩反馈）；` +
+        `焦点环 0 0 0 Npx（§2.3）与纯 inset 色条不在本管。`
+    );
+  }
+  if (frozenHits.length !== FROZEN_BUTTON_SHADOW_COUNT) {
+    fail(
+      `规格 §2.5 冻结计数对不上：.desktop-page-actions 一族实测 ${frozenHits.length} 条、清单登记 ${FROZEN_BUTTON_SHADOW_COUNT} 条。` +
+        `${frozenHits.slice(0, 3).join(" / ")}。要么这族按钮随第 6 步迁移又还掉/新增了一条（同步本数字，并与 LEGACY_DESCENDANT_BUTTON 一起收口），` +
+        `要么判据的按钮元素型或 inset/环豁免被动过。`
+    );
+  }
+  console.log(`${TAG} [第 8 步待收口] §2.5 按钮投影遗留 ${frozenHits.length} 条，全部属于 .desktop-page-actions 接管族（已冻结，迁移该页时随第 6 步清单一起删）`);
 }
 
 /* ------------------------------------ --shadow-1 的 hairline 不得与同规则 border 共存（第 8 步） */
@@ -1476,7 +1555,7 @@ const isPureRingValue = (v) => {
    */
   const HOSTLESS_BUDGET = {
         "src/features/settings/encryption/encryption.css": 2,
-    "src/styles.css": 8,
+    "src/styles.css": 7,
     "src/styles/editorial-studio.css": 1
   };
 

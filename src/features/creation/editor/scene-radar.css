@@ -24,7 +24,6 @@
 .writing-margin-tabs button.active {
   background: var(--bg-surface);
   color: var(--text-main);
-  box-shadow: var(--shadow-1);
 }
 
 .scene-radar {

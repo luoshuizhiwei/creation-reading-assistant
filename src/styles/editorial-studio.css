@@ -770,7 +770,6 @@ select:focus-visible,
 .project-nav button.active {
   border-left-color: var(--studio-seal);
   background: var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.08);
   color: var(--text-main);
   font-weight: 650;
 }
@@ -1030,7 +1029,6 @@ select:focus-visible,
 .cards-view-switch button.active,
 .history-tabs button.active {
   background: var(--bg-surface);
-  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.12);
   color: var(--text-main);
 }
 
@@ -3523,7 +3521,6 @@ input[type="text"],
   background: var(--bg-surface) !important;
   color: var(--text-main) !important;
   border-color: var(--border-subtle) !important;
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.06) !important;
   font-weight: 650 !important;
 }
 
@@ -3570,6 +3567,5 @@ input[type="text"],
 .writing-outline-view-switch button.active {
   background: var(--bg-surface) !important;
   color: var(--text-main) !important;
-  box-shadow: 0 1px 3px rgba(34, 38, 48, 0.12) !important;
   font-weight: 600 !important;
 }

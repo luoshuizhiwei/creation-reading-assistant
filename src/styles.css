@@ -571,7 +571,6 @@ button:disabled {
     linear-gradient(135deg, color-mix(in srgb, var(--copper) 14%, transparent), transparent 64%),
     color-mix(in srgb, var(--paper-panel) 84%, var(--paper-soft));
   color: var(--paper-ink);
-  box-shadow: 0 10px 24px rgba(74, 48, 26, 0.08);
 }
 
 .desktop-nav svg {
@@ -3222,7 +3221,6 @@ button:disabled {
 .creation-project-tabs button.active {
   color: var(--paper-ink);
   background: var(--paper-panel);
-  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.08);
 }
 
 .cards-page {
