@@ -6,7 +6,7 @@
   margin-bottom: 14px;
   padding: 3px;
   border: 1px solid var(--border-subtle);
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--bg-subtle) 65%, transparent);
 }
 
@@ -14,7 +14,7 @@
   flex: 1;
   padding: 5px 8px;
   border: none;
-  border-radius: 7px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--text-meta);
   font-size: 12px;
@@ -24,7 +24,7 @@
 .writing-margin-tabs button.active {
   background: var(--bg-surface);
   color: var(--text-main);
-  box-shadow: 0 1px 3px rgba(15, 17, 22, 0.12);
+  box-shadow: var(--shadow-1);
 }
 
 .scene-radar {
