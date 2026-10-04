@@ -266,7 +266,15 @@ const cases = [
   // 第 8 步批次 AC：对话框/浮层/toast 档 7 条投影归 --shadow-3/--shadow-4（styles.css 29→26、
   // editorial 29→26、幻影账 9→8）。写回旧手抄值必须红，同宿主写刻度令牌不该红。
   ["第 8 步批次 AC 回归：把退役的手抄对话框投影写回 .creation-wizard（editorial 阴影预算已降到 26，多一处必须红）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);"), /阴影刻度/],
-  ["第 8 步批次 AC 回归·反向：同一宿主写 var(--shadow-4) 不该变红（刻度内换档是合法调整）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: var(--shadow-4);"), null]
+  ["第 8 步批次 AC 回归·反向：同一宿主写 var(--shadow-4) 不该变红（刻度内换档是合法调整）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: var(--shadow-4);"), null],
+  // 第 8 步批次 AD：判据修正，不动一行 CSS（两张胜者表逐字节相同）。
+  // §2.3 的描边式焦点环（0 0 0 Npx，偏移/模糊全 0）不是 §5.3 的投影层级；
+  // CSS 侧此前漏了这条豁免，TSX 侧的 var(--focus-*) 早就豁免了——两侧不对称。
+  ["第 8 步批次 AD·账本仍咬得住：删掉滑块拇指那条真投影（该文件唯一剩下的债，预算已降到 1），账本变小必须红——豁免环不等于对真投影放手", () => mutate("src/features/settings/settings-controls.css", "  box-shadow: 0 1px 4px rgba(15, 20, 28, 0.22);\n  transition: transform 120ms ease;", "  transition: transform 120ms ease;"), /阴影刻度/],
+  ["第 8 步批次 AD·反向：描边环换另一种合法写法（color-mix 上色）不该变红——豁免看的是几何形状，不是颜色来源", () => mutate("src/features/creation/history/history-local.css", "  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-spine) 16%, transparent);", "  box-shadow: 0 0 0 3px var(--action-tint);"), null],
+  ["第 8 步批次 AD·逃生舱：环与真投影混排必须红——豁免只认「所有非 inset 层都是环」，别借环的名义夹带投影", () => mutate("src/features/settings/settings-controls.css", ".paper-stepper:focus-within {\n  border-color: var(--action-primary);\n  box-shadow: 0 0 0 3px var(--action-tint);", ".paper-stepper:focus-within {\n  border-color: var(--action-primary);\n  box-shadow: 0 0 0 3px var(--action-tint), 0 12px 34px rgba(34, 38, 48, 0.06);"), /阴影刻度/],
+  ["第 8 步批次 AD·幻影写法仍硬管：Tailwind 方括号形式 shadow-[0_0_0_…] 不豁免（批次 K 实测只产 --tw-shadow-color、画不出来），加进 @apply 必须红", () => mutate("src/styles.css", ".paper-chip {\n    @apply inline-flex items-center rounded-full", ".paper-chip {\n    @apply focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] inline-flex items-center rounded-full"), /阴影刻度/],
+  ["第 8 步批次 AD·反向：同一族描边环写成属性形式 [box-shadow:0_0_0_…]（真的发射 box-shadow）不该变红——两侧对称才算修完（动 LibraryPage 的下拉，不碰 Button 的焦点环不变量）", () => mutate("src/features/library/LibraryPage.tsx", "bg-paper-panel shadow-paper p-1", "bg-paper-panel shadow-paper focus-within:[box-shadow:0_0_0_3px_rgba(138,90,43,0.08)] p-1"), null]
 ];
 
 let bad = 0;

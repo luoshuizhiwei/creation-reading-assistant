@@ -1097,6 +1097,55 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
 /* ------------------------------------------------ 规格 §5.3 阴影刻度棘轮（第 8 步） */
 
 /**
+ * ⚠ 以下两个 helper 是模块作用域，被「阴影棘轮」和「幻影选择器」两块判据共用：
+ * 同一个物理量在两副透镜（活债 / 无宿主债）下必须是同一个数，否则一处豁免了、
+ * 另一处还在计债，就会永远对不上账。
+ */
+
+/** box-shadow 值按顶层逗号分层（括号内逗号不算分隔）。 */
+const shadowLayers = (v) => {
+  const out = [];
+  let depth = 0;
+  let cur = "";
+  for (const ch of v) {
+    if (ch === "(") depth += 1;
+    if (ch === ")") depth -= 1;
+    if (ch === "," && depth === 0) {
+      out.push(cur.trim());
+      cur = "";
+    } else cur += ch;
+  }
+  if (cur.trim()) out.push(cur.trim());
+  return out;
+};
+
+/**
+ * 「描边式焦点环」判据（批次 AD）。
+ *
+ * §2.3 把 focus-visible 定义为 `box-shadow: 0 0 0 2px var(--surface-1), 0 0 0 4px var(--ring)`
+ * ——偏移量与模糊半径全为 0、只剩 spread 的环。它在物理上不是投影层级，而是**描边**：
+ * 用 box-shadow 只是为了不占布局、不吃 border 的合流。§5.3 那四级（shadow-1..4）
+ * 是浮起层级，压根不为环准备。
+ *
+ * 批次 G 给 CSS 侧开了 inset 豁免（纯 inset 是色条/内衬，同一条理由），
+ * 批次 I 给 TSX 侧豁免了 `[box-shadow:var(--focus-ring)]`——但 CSS 侧漏了
+ * 「0 0 0 Npx」这种环，于是一批合法焦点环一直躺在阴影账里冒充投影债。
+ * 判据的不对称比漏检更坏：它让人以为这些数字还得继续还，于是「还债」的正确方向
+ * （把环收进 --focus-ring 族）反而没人做。具体几处别写在这儿——那是会漂移的数，
+ * 要看在跑守卫时自己报的账。
+ *
+ * 只认**所有非 inset 层都是环**的值；环与真投影混排（`inset 0 1px 0 …, 0 12px 34px …`）
+ * 照旧计债，别把豁免撑成逃生舱。
+ * ⚠ 不作用于 shadow-[0_0_0_3px_…] 方括号工具类：批次 K 实测那种写法只产
+ * --tw-shadow-color、不发射 box-shadow（幻影），必须继续算债、继续硬红。
+ */
+const RING_LAYER = /^0 0 0 [0-9.]+px(?:\s|$)/;
+const isPureRingValue = (v) => {
+  const nonInset = shadowLayers(v).filter((L) => !/^inset\b/.test(L));
+  return nonInset.length > 0 && nonInset.every((L) => RING_LAYER.test(L));
+};
+
+/**
  * 和圆角棘轮同一批手法：先把债变成数据，再一页一页还。规格 §5.3 把阴影收成 4 级
  * （--shadow-1 静止卡片 / --shadow-2 下拉菜单 / --shadow-3 对话框 / --shadow-4 拖拽幽灵），
  * 实测 CSS 里曾有 63 个唯一 box-shadow 值，其中绝大多数是手抄的 rgba 组合。
@@ -1155,23 +1204,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     return true;
   };
 
-  /** box-shadow 值按顶层逗号分层（括号内逗号不算分隔）。 */
-  const shadowLayers = (v) => {
-    const out = [];
-    let depth = 0;
-    let cur = "";
-    for (const ch of v) {
-      if (ch === "(") depth += 1;
-      if (ch === ")") depth -= 1;
-      if (ch === "," && depth === 0) {
-        out.push(cur.trim());
-        cur = "";
-      } else cur += ch;
-    }
-    if (cur.trim()) out.push(cur.trim());
-    return out;
-  };
-
   /**
    * 冻结预算。数字由本判据扫出（CSS 声明 + @apply 92 + TSX 32，合计 124，30 个文件），和圆角棘轮一样：
    * 新债要红，还了债不降预算也要红。
@@ -1182,17 +1214,16 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/components/ui/Dialog.tsx": 1,
     "src/components/ui/FontPicker.tsx": 1,
     "src/components/ui/Tabs.tsx": 1,
-        "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/ai-send-confirm.tsx": 1,
     "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
     "src/features/inspiration/InspirationPage.tsx": 1,
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/settings/SettingsSearch.tsx": 1,
-    "src/features/settings/encryption/encryption.css": 2,
+    "src/features/settings/encryption/encryption.css": 1,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
-    "src/features/settings/settings-controls.css": 7,
-    "src/styles.css": 26,
+    "src/features/settings/settings-controls.css": 1,
+    "src/styles.css": 23,
     "src/styles/editorial-studio.css": 26
   };
 
@@ -1211,9 +1242,12 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
       }
       ast.walkDecls(/^box-shadow$/, (d) => {
         const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
-        if (v === "none" || /^var\(--shadow/.test(v)) return;
+        if (v === "none" || /^var\(--(shadow|focus)/.test(v)) return;
         // 只有「至少一个非 inset 层」才是投影；纯 inset 是色条/内衬装饰，§5.3 四级不针对它
         if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return;
+        // 批次 AD：纯描边环（0 0 0 Npx）同属「不是投影层级」——§2.3 的 focus-visible 机制，
+        // 和上面 var(--focus-*) 的豁免是同一件事的两种写法，两侧对称才算修完。
+        if (isPureRingValue(v)) return;
         n += 1;
       });
       ast.walkAtRules("apply", (a) => {
@@ -1238,7 +1272,13 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         ARBITRARY_BOX.lastIndex = 0;
         let mm;
         while ((mm = ARBITRARY_BOX.exec(line)) !== null) {
-          if (!/^var\(--(shadow|focus)/.test(mm[1].trim())) n += 1;
+          const bv = mm[1].trim();
+          if (/^var\(--(shadow|focus)/.test(bv)) continue;
+          // 属性形式会真的发射 box-shadow，所以 CSS 侧那条描边环豁免在这儿同样成立；
+          // 下划线是 Tailwind 的空格写法。⚠ 反过来说，方括号工具类 shadow-[0_0_0_…]
+          // 不豁免：批次 K 实测它只产 --tw-shadow-color，画不出来。
+          if (isPureRingValue(bv.replace(/_/g, " "))) continue;
+          n += 1;
         }
       }
     }
@@ -1251,7 +1291,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     fail(
       `第 8 步阴影刻度：${over.length} 个文件的离刻度阴影比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SHADOW_BUDGET[f] ?? 0})`).join("、")}。` +
         `投影请用 --shadow-1(静止卡片)/--shadow-2(菜单)/--shadow-3(对话框)/--shadow-4(拖拽/toast)，` +
-        `纯 inset 色条/内衬和 shadow-none/shadow-inner 不在此管。`
+        `纯 inset 色条/内衬、描边式焦点环（0 0 0 Npx，§2.3 的 focus-visible）和 shadow-none/shadow-inner 不在此管。`
     );
   }
   if (stale.length) {
@@ -1397,7 +1437,14 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
           const toks = d.value.replace("!important", "").trim().split(/\s+/);
           debt = toks.some((t) => /^-?\d/.test(t) && !t.includes("%") && !SCALE_PX.has(parseFloat(t)));
         } else if (/^box-shadow$/.test(d.prop)) {
-          debt = d.value !== "none" && !/var\(--(shadow|focus)/.test(d.value) && d.value.split(/,(?![^(]*\))/).some((L) => !/inset/.test(L));
+          const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
+          // ⚠ 与上面阴影棘轮共用同一组 helper（shadowLayers / isPureRingValue）：
+          // 同一个物理量在两副透镜下必须是同一个数。这里若各写各的层叠判断，
+          // 就会出现「棘轮豁免了、幻影账还计着」的对不上账——批次 AD 修的就是这种不对称。
+          if (v === "none" || /var\(--(shadow|focus)/.test(v)) debt = false;
+          else if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) debt = false;
+          else if (isPureRingValue(v)) debt = false;
+          else debt = true;
         }
         if (debt) hostlessActual[rel] = (hostlessActual[rel] ?? 0) + 1;
       }
