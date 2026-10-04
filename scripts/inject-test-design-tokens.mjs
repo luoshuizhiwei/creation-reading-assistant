@@ -232,7 +232,15 @@ const cases = [
   ["批次 S 回归：钩子扫描退化——把面板钩子从字面量改成常量引用（完整类名不再出现在开标签上），自检必须红，否则下一批人会把接管当合法写法", () => {
     mutate("src/features/creation/editor/WritingDesk.tsx", "<InlineNotice tone=\"warning\" className=\"writing-recovery-notice\">", "<InlineNotice tone=\"warning\" className={ZZ_NOTICE_PANEL}>");
     mutate("src/features/creation/editor/WritingDesk.tsx", "export function WritingDesk(", "const ZZ_NOTICE_PANEL = \"writing-recovery-notice\";\n\nexport function WritingDesk(");
-  }, /钩子扫描退化/]
+  }, /钩子扫描退化/],
+  // 第 8 步批次 V：全局搜索托盘那 5 条「特性页与主题样式表逐字同分支、值不同」的死声明已退役，
+  // 判据⑧钉住这个形状。它的致命方向和幻影判据一样是「看不见」，所以除了咬新分叉，还要
+  // 咬「两侧不再逐字可比」这种退化。正向用例故意用 var(--radius-*)：圆角棘轮对令牌写法豁免，
+  // 红了只可能是判据⑧，不会冒充棘轮。
+  ["批次 V 回归：把特性页与主题同分支的异值分叉加回来（search.css 给 .uni-search-group li button 写 --radius-3，主题那份是 --radius-2——同特异度只比发射顺序，特性页这条永远画不出来，却会被棘轮记成活债）", () => mutate("src/features/search/search.css", ".uni-search-group li button {\n  display: grid;", ".uni-search-group li button {\n  border-radius: var(--radius-3);\n  display: grid;"), /几何分支/],
+  ["批次 V 回归·反向①：与主题同分支同值是冗余不是分叉（var(--radius-2) 两边一致，谁赢都一样），不该变红", () => mutate("src/features/search/search.css", ".uni-search-group li button {\n  display: grid;", ".uni-search-group li button {\n  border-radius: var(--radius-2);\n  display: grid;"), null],
+  ["批次 V 回归·反向②：带模式前缀的覆盖是显式决定（分支文本不同，各管各的层叠），不该变红", () => mutate("src/features/search/search.css", ".uni-search-error {", ".desktop-root--focus .uni-search-error {\n  border-radius: 0;\n}\n\n.uni-search-error {"), null],
+  ["批次 V 回归：分支归一化退化——把主题那份的选择器加上祖先前缀，两侧不再逐字同现，自检必须红（否则真分叉会被安静放行）", () => mutate("src/styles/editorial-studio.css", ".uni-search-shell {\n  overflow: hidden;", ".uni-search-overlay .uni-search-shell {\n  overflow: hidden;"), /判据退化/]
 ];
 
 let bad = 0;

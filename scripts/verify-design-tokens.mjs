@@ -1046,10 +1046,9 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/inbox/inbox-local.css": 1,
     "src/features/creation/operation/operation.css": 4,
     "src/features/creation/outline/outline-reorg.css": 1,
-    "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 35,
-    "src/styles/editorial-studio.css": 29
+    "src/styles/editorial-studio.css": 26
   };
 
   const actual = {};
@@ -1196,13 +1195,12 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/replace/replace.css": 1,
     "src/features/inspiration/InspirationPage.tsx": 1,
     "src/features/library/LibraryPage.tsx": 1,
-    "src/features/search/search.css": 1,
     "src/features/settings/SettingsSearch.tsx": 1,
     "src/features/settings/encryption/encryption.css": 2,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 7,
     "src/styles.css": 38,
-    "src/styles/editorial-studio.css": 35
+    "src/styles/editorial-studio.css": 34
   };
 
   const actual = {};
@@ -1776,6 +1774,92 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         `圆角/投影交给组件本体；确需按模式覆盖请带祖先前缀。`
     );
   }
+}
+
+/* --- 同一条几何分支不得有两个不同取值的真源（批次 V） --- */
+
+/**
+ * 批次 V 查全局搜索托盘时撞上的形状，和前四条接管判据都不一样：
+ *   search.css 给 .uni-search-filters button 写 9px、给 .uni-search-group li button 写 11px，
+ *   editorial-studio.css 用**逐字相同的选择器分支**写 8px。两条分支同特异度，胜负只看
+ *   谁在这份产物 CSS 里发射得晚——而这两个文件都进 index*.css（main.tsx 全局引
+ *   editorial-studio.css），主题那份在后，于是特性页那 5 条声明一次都没画出来过。
+ *
+ * 危害不是「多一行死代码」，而是三件更贵的事同时发生：
+ *   ① 圆角/阴影棘轮把死值当活债计数：search.css 预算 4，看着像「还差 4 处」，
+ *      实际那 4 条里有 3 条渲染不出来，只有 .uni-search 命中的 3px 是真的。
+ *   ② 下一批人照刻度「迁移」这些值——改完胜者表一条都不动，还以为自己还了债；
+ *      更糟的是他可能顺手把主题那份也改了，于是**改死代码改出界面改版**。
+ *   ③ 真正的档位决定权在主题文件里，特性页的声明是纯粹的误导文档。
+ *
+ * 判据形状：一条几何分支（prop + @媒体上下文 + 选择器文本）在「全局主题样式表」与
+ * 非主题样式表里各有一个**不同取值**的声明 → 红。取值相同不报（那是冗余，不是分叉，
+ * 而本仓还有 3 处同值重复是同一个类名被两个不同页面共用，删哪边都是改版，另账处理）。
+ * 只管「主题 × 非主题」这一个方向：styles.css 与 editorial-studio.css 之间现存 16 处分叉，
+ * 那是主题层自己的历史账，混进来会让这条判据从第一天就靠预算放水、失去「零分叉」的咬合力。
+ */
+{
+  const THEME_SHEETS = new Set(["src/styles.css", "src/styles/editorial-studio.css"]);
+  const themeBranch = new Map(); // key -> [{rel, line, value, imp}]
+  const otherBranch = new Map();
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    if (rel.includes("__tests__")) continue;
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    const bucket = THEME_SHEETS.has(rel) ? themeBranch : otherBranch;
+    ast.walkRules((rule) => {
+      const media = [];
+      for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") media.push(p.params);
+      rule.walkDecls(/^(border-radius|box-shadow)/, (d) => {
+        for (const sel of rule.selectors) {
+          const one = sel.replace(/\s+/g, " ").trim();
+          const key = `${d.prop}\t${media.join("|")} :: ${one}`;
+          if (!bucket.has(key)) bucket.set(key, []);
+          bucket.get(key).push({ rel, line: rule.source?.start?.line ?? 0, value: d.value.replace(/\s+/g, " ").trim(), imp: !!d.important });
+        }
+      });
+    });
+  }
+
+  // 判据自检：这条判据唯一致命的错法是「看不见分叉」。批次 V 刚把 5 处分叉清零，
+  // 而清零后的产物里同值分支仍然存在（.uni-search-shell 的 var(--radius-3) 两边各一份），
+  // 用它证明「分支归一化 + 两侧都扫到」这两件事还在工作：扫不到就说明选择器/媒体
+  // 上下文的处理被改坏了，那时分叉会被安静放行。
+  const MUST_BE_SEEN = ["border-radius\t :: .uni-search-shell"];
+  const seen = MUST_BE_SEEN.filter((k) => themeBranch.has(k) && otherBranch.has(k));
+  if (seen.length !== MUST_BE_SEEN.length) {
+    fail(
+      `第 8 步几何分支判据退化：${MUST_BE_SEEN.filter((k) => !seen.includes(k)).join("、")} 本该在全局主题与特性样式表里各有一份，` +
+        `现在扫不到两侧同现。要么分支归一化被改坏（判据失明 = 分叉会被安静放行），` +
+        `要么这一族真的只剩一个主人了（那请同步本清单并确认胜者表没变）。`
+    );
+  }
+
+  const forks = [];
+  for (const [key, mine] of otherBranch) {
+    const theirs = themeBranch.get(key);
+    if (!theirs) continue;
+    for (const a of mine) {
+      for (const b of theirs) {
+        if (a.value === b.value) continue;
+        forks.push(`${key.replace("\t", " ")}：${a.rel}:${a.line} 写 ${a.value}${a.imp ? " !important" : ""}，但 ${b.rel}:${b.line} 写 ${b.value}${b.imp ? " !important" : ""}`);
+      }
+    }
+  }
+  if (forks.length) {
+    fail(
+      `第 8 步几何分支：${forks.length} 条圆角/投影分支有两个不同取值的真源——${forks.slice(0, 3).join("；")}。` +
+        `选择器逐字相同、特异度相同，谁生效只看谁在产物里发射得晚（批次 V 的 search.css 9px/11px 就是这么被 editorial-studio.css 的 8px 压死的：` +
+        `棘轮把它记成活债，改它界面却不动）。请只留一个主人：特性页要覆盖就带祖先前缀或用不同的类名，` +
+        `否则删掉不生效的那条，别让它继续冒充待收敛的债。`
+    );
+  }
+  console.log(`${TAG} [第 8 步几何分支] 主题样式表 × 特性样式表 同分支异值分叉 0 处`);
 }
 
 /* ------------------------------------------------------------------ 结论 */
