@@ -1976,7 +1976,7 @@ select:focus-visible,
 
 .motion-dialog,
 .confirm-dialog {
-  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.3), 0 4px 14px rgba(0, 0, 0, 0.12) !important;
+  box-shadow: var(--shadow-3) !important;
 }
 
 /* 批次 C 删掉了这里的 background / color 两条声明。它们和 ToastCenter 的
@@ -1989,7 +1989,7 @@ select:focus-visible,
  * 这条不变量已钉进 verify-design-tokens（.motion-toast 不得再声明 background/color），
  * 因为它不是「写了没用的冗余」，而是会静默吃掉一整族语义色的遮蔽声明。 */
 .motion-toast {
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;
+  box-shadow: var(--shadow-4) !important;
 }
 
 .migration-banner {
@@ -2262,7 +2262,7 @@ input[type="text"],
 
 .creation-wizard {
   border-radius: var(--radius-3);
-  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);
+  box-shadow: var(--shadow-3);
 }
 
 .creation-wizard-head h2 {

@@ -149,7 +149,7 @@ const cases = [
   // 吃掉一整族语义色」——那种缺陷 vitest 全绿、界面却坏掉，最贵。
   ["批次 C 回归：TSX 里把危险底色写回 Tailwind 调色板（bg-red-500 不随主题翻转，第 7 步的 CSS hex 计数看不见类名）", () => mutate("src/features/library/LibraryPage.tsx", 'transition hover:bg-[color:var(--proof-tint)] hover:text-[color:var(--proof-mark)]"', 'transition hover:bg-red-500 hover:text-red-700"'), /状态色类名/],
   ["批次 C 回归：CSS 的 @apply 里藏 Tailwind 状态色类名，证明这条扫描不止管 TSX", () => mutate("src/styles.css", "border: 1px solid rgb(253 230 138 / 0.6);\n    @apply shadow-paper;", "border: 1px solid rgb(253 230 138 / 0.6);\n    @apply border-amber-200/60 shadow-paper;"), /状态色类名/],
-  ["批次 C 回归：把 .motion-toast 的 background 加回来——它与 tone 工具类同特异度而加载更晚，会整族遮蔽四种提示的颜色（批次 C 用 jsdom 实测过的真实缺陷）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;", ".motion-toast {\n  background: var(--studio-cloth);\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;"), /motion-toast|遮蔽/],
+  ["批次 C 回归：把 .motion-toast 的 background 加回来——它与 tone 工具类同特异度而加载更晚，会整族遮蔽四种提示的颜色（批次 C 用 jsdom 实测过的真实缺陷）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".motion-toast {\n  background: var(--studio-cloth);\n  box-shadow: var(--shadow-4) !important;"), /motion-toast|遮蔽/],
   ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
   // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
   // 最后两条 expect 为 null，是「必须保持绿」的反向用例——判据过严同样是缺陷。
@@ -163,8 +163,8 @@ const cases = [
   ["圆角棘轮·反向③：批次 M 的三种目标写法 rounded-md(6px) / rounded-[var(--radius-3)] / rounded-full 都在刻度上，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  // zz: rounded-md rounded-[var(--radius-3)] rounded-full"), null],
   // 第 8 步批次 F：那条把浮层圆角整体吃掉的 12px !important 已删，判据钉住它的「形状」。
   // ①故意用刻度上的 10px，让棘轮咬不到、只有浮层不变量能报警——否则这条用例测的是棘轮。
-  ["批次 F 回归：把浮层圆角的 !important 全局接管加回来（裸类名 + !important，值 10px 在刻度上、棘轮咬不到，必须靠浮层不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;", ".motion-toast {\n  border-radius: 10px !important;\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;"), /浮层容器/],
-  ["批次 F 回归·反向①：带模式前缀的 !important 压平是显式决定（专注模式把横幅压成方角），不是全局接管，不该变红", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;", ".desktop-root--focus .motion-toast {\n  border-radius: 0 !important;\n}\n\n.motion-toast {\n  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.3) !important;"), null],
+  ["批次 F 回归：把浮层圆角的 !important 全局接管加回来（裸类名 + !important，值 10px 在刻度上、棘轮咬不到，必须靠浮层不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".motion-toast {\n  border-radius: 10px !important;\n  box-shadow: var(--shadow-4) !important;"), /浮层容器/],
+  ["批次 F 回归·反向①：带模式前缀的 !important 压平是显式决定（专注模式把横幅压成方角），不是全局接管，不该变红", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".desktop-root--focus .motion-toast {\n  border-radius: 0 !important;\n}\n\n.motion-toast {\n  box-shadow: var(--shadow-4) !important;"), null],
   ["批次 F 回归·反向②：裸类名 + 非 !important 的自持圆角（.migration-banner 在 TSX 里不带 rounded 工具类，这条 CSS 是它圆角的唯一来源）不该变红", () => mutate("src/styles.css", ".migration-banner {\n  display: flex;", ".migration-banner {\n  border-radius: 10px;\n  display: flex;"), null],
   // 第 8 步批次 G：面板家族曾有两条都带 !important 的规则互相压制（同特异度靠加载顺序赢）。
   // 判据管的是「同一面板类名的 !important 圆角来源至多一条」，所以正向用例必须造出第二条。
@@ -262,7 +262,11 @@ const cases = [
   // 第 8 步批次 AB：editorial-studio.css 容器/卡片/装饰族最后 10 处归刻度，
   // 两份主题样式表的圆角预算条目双双删除 —— 从此这两页任何离刻度圆角都是新增债，必须红。
   ["第 8 步批次 AB 回归：往已清零的 .project-workbench 写回离刻度圆角必须红（该文件预算条目已删除，零容忍生效）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: 12px;\n"), /圆角刻度/],
-  ["第 8 步批次 AB 回归·反向：同一宿主写 var(--radius-3) 不该变红（清零 ≠ 禁止圆角）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: var(--radius-3);\n"), null]
+  ["第 8 步批次 AB 回归·反向：同一宿主写 var(--radius-3) 不该变红（清零 ≠ 禁止圆角）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: var(--radius-3);\n"), null],
+  // 第 8 步批次 AC：对话框/浮层/toast 档 7 条投影归 --shadow-3/--shadow-4（styles.css 29→26、
+  // editorial 29→26、幻影账 9→8）。写回旧手抄值必须红，同宿主写刻度令牌不该红。
+  ["第 8 步批次 AC 回归：把退役的手抄对话框投影写回 .creation-wizard（editorial 阴影预算已降到 26，多一处必须红）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);"), /阴影刻度/],
+  ["第 8 步批次 AC 回归·反向：同一宿主写 var(--shadow-4) 不该变红（刻度内换档是合法调整）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: var(--shadow-4);"), null]
 ];
 
 let bad = 0;
