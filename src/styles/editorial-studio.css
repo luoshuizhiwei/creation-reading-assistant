@@ -728,10 +728,9 @@ select:focus-visible,
   flex: 1;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: var(--bg-surface);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
+  box-shadow: var(--shadow-1);
 }
 
 .project-nav {
@@ -1166,9 +1165,8 @@ select:focus-visible,
 .cards-board-layout,
 .outline-page-body {
   gap: 0;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
+  box-shadow: var(--shadow-1);
   overflow: hidden;
 }
 
@@ -1263,10 +1261,9 @@ select:focus-visible,
   min-height: 520px;
   max-height: calc(100vh - 270px);
   overflow: hidden;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: var(--studio-paper);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
+  box-shadow: var(--shadow-1);
 }
 
 .inbox-list {
@@ -1927,10 +1924,9 @@ select:focus-visible,
 .desktop-inspiration-page {
   gap: 0;
   padding: 0;
-  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-2);
   background: var(--bg-surface);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);
+  box-shadow: var(--shadow-1);
 }
 
 .desktop-inspiration-list,

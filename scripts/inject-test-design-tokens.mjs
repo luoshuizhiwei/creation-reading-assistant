@@ -245,7 +245,12 @@ const cases = [
   // 沿用批次 N 那对「退役同一宿主同一属性」的形状：正向证明这一页的阴影预算确实降到了
   // 新值（写回一条离刻度必须红），反向证明刻度写法仍合法（别把退役变成「禁止投影」）。
   ["第 8 步批次 X 回归：把退役掉的死投影以离刻度值写回 .stats-card（styles.css 阴影预算已降过一档，多一处必须红——否则退役等于给它松了绑）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);\n  border: 1px solid var(--paper-line);"), /阴影刻度/],
-  ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-1) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-1);\n  border: 1px solid var(--paper-line);"), null],
+  // ⚠ 反向锚点从 var(--shadow-1) 挪到 var(--shadow-2)：这条用例的本意是证明「退役死投影
+  // ≠ 禁止投影」，用哪个刻度档都能证。而批次 AE 立了 hairline 不变量——.stats-card 同规则
+  // 里有 border: 1px solid var(--paper-line)，再写 shadow-1 会把同色描边拼成 2px 双线，
+  // 正是该拦的写法（旧用例把它当合法放行，等于让判据替错误写法背书）。shadow-2 是纯投影档、
+  // 不含 0 0 0 1px 环，与 border 共存合法，用例语义原样保留。
+  ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-2) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影；选 shadow-2 而非 shadow-1 是因为这条规则同规则带 border，见上）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-2);\n  border: 1px solid var(--paper-line);"), null],
   // 第 8 步批次 Y：创作流页面族 15 处活圆角归 §5.2 刻度（styles.css 35→21、editorial 26→25）。
   // 正向证明这两页的圆角预算确实降到了新值（写回一条离刻度必须红），反向证明刻度写法仍合法。
   ["第 8 步批次 Y 回归：把迁移掉的离刻度圆角写回 .creation-wizard（editorial 预算已降到新值，多一处必须红——否则迁移等于给这一页松了绑）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: 16px;"), /圆角刻度/],
@@ -274,7 +279,15 @@ const cases = [
   ["第 8 步批次 AD·反向：描边环换另一种合法写法（color-mix 上色）不该变红——豁免看的是几何形状，不是颜色来源", () => mutate("src/features/creation/history/history-local.css", "  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-spine) 16%, transparent);", "  box-shadow: 0 0 0 3px var(--action-tint);"), null],
   ["第 8 步批次 AD·逃生舱：环与真投影混排必须红——豁免只认「所有非 inset 层都是环」，别借环的名义夹带投影", () => mutate("src/features/settings/settings-controls.css", ".paper-stepper:focus-within {\n  border-color: var(--action-primary);\n  box-shadow: 0 0 0 3px var(--action-tint);", ".paper-stepper:focus-within {\n  border-color: var(--action-primary);\n  box-shadow: 0 0 0 3px var(--action-tint), 0 12px 34px rgba(34, 38, 48, 0.06);"), /阴影刻度/],
   ["第 8 步批次 AD·幻影写法仍硬管：Tailwind 方括号形式 shadow-[0_0_0_…] 不豁免（批次 K 实测只产 --tw-shadow-color、画不出来），加进 @apply 必须红", () => mutate("src/styles.css", ".paper-chip {\n    @apply inline-flex items-center rounded-full", ".paper-chip {\n    @apply focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] inline-flex items-center rounded-full"), /阴影刻度/],
-  ["第 8 步批次 AD·反向：同一族描边环写成属性形式 [box-shadow:0_0_0_…]（真的发射 box-shadow）不该变红——两侧对称才算修完（动 LibraryPage 的下拉，不碰 Button 的焦点环不变量）", () => mutate("src/features/library/LibraryPage.tsx", "bg-paper-panel shadow-paper p-1", "bg-paper-panel shadow-paper focus-within:[box-shadow:0_0_0_3px_rgba(138,90,43,0.08)] p-1"), null]
+  ["第 8 步批次 AD·反向：同一族描边环写成属性形式 [box-shadow:0_0_0_…]（真的发射 box-shadow）不该变红——两侧对称才算修完（动 LibraryPage 的下拉，不碰 Button 的焦点环不变量）", () => mutate("src/features/library/LibraryPage.tsx", "bg-paper-panel shadow-paper p-1", "bg-paper-panel shadow-paper focus-within:[box-shadow:0_0_0_3px_rgba(138,90,43,0.08)] p-1"), null],
+  // 第 8 步批次 AE：4 条工作台级容器归 --shadow-1，同规则的 border 必须一起删——
+  // --shadow-1 自带 0 0 0 1px var(--separator-subtle) 的四周 hairline，而 --border-subtle
+  // 是它的别名（styles.css:18）。两条同色边并排 = 2px 双线。新立的 hairline 不变量盯住这点。
+  ["第 8 步批次 AE 回归：把退役的手抄投影写回 .project-workbench（editorial 阴影预算已降到 22，多一处必须红）", () => mutate("src/styles/editorial-studio.css", "  background: var(--bg-surface);\n  box-shadow: var(--shadow-1);\n}\n\n.project-nav {", "  background: var(--bg-surface);\n  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 12px 34px rgba(34, 38, 48, 0.06);\n}\n\n.project-nav {"), /阴影刻度/],
+  ["第 8 步批次 AE·hairline 不变量：给已归 var(--shadow-1) 的 .project-workbench 加回 border: 1px solid var(--border-subtle) 必须红（同色并排拼成 2px 双线边）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n  display: grid;\n", ".project-workbench {\n  border: 1px solid var(--border-subtle);\n  display: grid;\n"), /hairline 双拼/],
+  ["第 8 步批次 AE·hairline 不变量补侧向：只写 border-top 也红——环在四条边都在，任何一条边再叠 border 同样翻倍，别把侧描边当逃生舱", () => mutate("src/styles/editorial-studio.css", ".desktop-inspiration-page {\n  gap: 0;\n", ".desktop-inspiration-page {\n  border-top: 1px solid var(--border-subtle);\n  gap: 0;\n"), /hairline 双拼/],
+  ["第 8 步批次 AE·hairline 反向：border-color 不建几何（宽度为 0 时它是哑的），给同一 var(--shadow-1) 规则加 border-color 不该红——判据不能误伤合法上色", () => mutate("src/styles/editorial-studio.css", ".desktop-inspiration-page {\n  gap: 0;\n", ".desktop-inspiration-page {\n  border-color: var(--copper);\n  gap: 0;\n"), null],
+  ["第 8 步批次 AE·反向：同一宿主把 var(--shadow-1) 换成 var(--shadow-2) 不该红——刻度内换档是合法调整，shadow-2 不含 hairline 层所以没有双拼问题", () => mutate("src/styles/editorial-studio.css", "  background: var(--bg-surface);\n  box-shadow: var(--shadow-1);\n}\n\n.project-nav {", "  background: var(--bg-surface);\n  box-shadow: var(--shadow-2);\n}\n\n.project-nav {"), null]
 ];
 
 let bad = 0;

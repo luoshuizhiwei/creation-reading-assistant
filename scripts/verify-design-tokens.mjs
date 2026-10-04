@@ -1224,7 +1224,7 @@ const isPureRingValue = (v) => {
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
     "src/styles.css": 23,
-    "src/styles/editorial-studio.css": 26
+    "src/styles/editorial-studio.css": 22
   };
 
   const actual = {};
@@ -1302,6 +1302,72 @@ const isPureRingValue = (v) => {
   }
   const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
   console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
+/* ------------------------------------ --shadow-1 的 hairline 不得与同规则 border 共存（第 8 步） */
+
+/**
+ * 批次 AE 立的不变量。它不是审美条款，是几何条款，来自一次具体的迁移：
+ *
+ * §5.3 把 --shadow-1 定义为 `0 1px 2px rgba(15,20,28,.06), 0 0 0 1px var(--separator-subtle)`
+ * ——第二层是偏移/模糊全为 0、spread 1px 的**四周 hairline 描边**。所以「静止卡片有边框」
+ * 这件事在 --shadow-1 里已经包办了，不需要再写 border。
+ *
+ * 而 styles.css 把 --border-subtle 直接 alias 成 --separator-subtle（同一条线、同一个色）。
+ * 于是一条规则里同时写 `border: 1px solid var(--border-subtle)` 和 `box-shadow: var(--shadow-1)`
+ * 不是「更稳」，而是把同一条 1px 边**并排拼成 2px**：border 占盒子内侧 1px，
+ * box-shadow 的描边画在盒子外侧 1px，肉眼看到的是双线/厚边，且 padding 被 border 吃掉 1px。
+ * 这正是这一批 4 条工作台级容器（.project-workbench / .cards-board-layout+.outline-page-body /
+ * .inbox-editor-grid / .desktop-inspiration-page）的老写法——手抄投影 + 手抄 border，
+ * 归到 --shadow-1 时必须同时删掉那条 border，否则「用了令牌」反而比手抄更糟。
+ *
+ * ⚠ 判据只管 shadow-1，不管 shadow-2/3/4：那三级是纯投影（菜单/对话框/拖拽幽灵），
+ * 不含 0 0 0 1px 层，和 border 共存是正常设计（对话框就常有 border + 浮起阴影）。
+ * 所以这条不是「border 和 box-shadow 不能同时出现」，而是专门拦「hairline 双拼」。
+ *
+ * ⚠ 只管**同一条规则**内的共存。判跨规则的 border 需要完整的选择器→元素映射，
+ * 代价远高于收益（同族教训见批次 X：跨规则层叠推断不做）。
+ * 侧向描边（border-top / border-left 这类）**照样判**：它不是「不同向所以安全」——
+ * 环在四条边都存在，任何一条边上再写可见 border，就是那条边拼成 2px，和整圈双拼同一个病，
+ * 只是症状局部。真正放过的只有 border-color（宽度为 0 时它是哑的，不建几何）
+ * 和 0 / none / hidden 这些不画线的值。
+ */
+{
+  const COLLIDERS = [];
+  const BORDER_GEOM = /^(border|border-width|border-style|border-(top|right|bottom|left)(-(width|style))?)$/;
+  const INVISIBLE = /^(0(\s|px)?|none|hidden|initial)(\s|;|$)/;
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      let shadow = null;
+      const borders = [];
+      rule.each((n) => {
+        if (n.type !== "decl") return;
+        if (n.prop.toLowerCase() === "box-shadow") shadow = n.value;
+        const prop = n.prop.toLowerCase();
+        if (!BORDER_GEOM.test(prop)) return;
+        if (INVISIBLE.test(n.value.trim())) return;
+        borders.push(`${prop}: ${n.value.trim()}`);
+      });
+      if (shadow === null || !/var\(--shadow-1\b/.test(shadow)) return;
+      if (borders.length === 0) return;
+      COLLIDERS.push(`${rel}:${rule.source.start.line} ${rule.selector.replace(/\s+/g, " ").trim()} { ${borders.join("; ")} } + box-shadow: ${shadow.trim()}`);
+    });
+  }
+  if (COLLIDERS.length) {
+    fail(
+      `第 8 步 hairline 双拼：${COLLIDERS.length} 条规则在同一规则里把可见 border 和 var(--shadow-1) 叠在一起——` +
+        `--shadow-1 自带的 0 0 0 1px var(--separator-subtle) 与 border（--border-subtle 就是它的别名）` +
+        `一条画在盒内一条画在盒外，同色并排拼成 2px 双线边（只写某一侧也一样，那条边同样翻倍）。` +
+        `删掉 border，让 --shadow-1 单独包办边框。命中：${COLLIDERS.slice(0, 5).join(" / ")}`
+    );
+  }
 }
 
 /* ------------------------------------------------ 幻影选择器的令牌债冻结预算（第 8 步） */
