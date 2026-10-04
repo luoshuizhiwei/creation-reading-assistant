@@ -147,7 +147,7 @@ export function InboxItemDetail({
       </label>
 
       {source && (
-        <div className="mt-3 rounded-xl border border-paper-line bg-paper-soft/45 p-4 text-sm text-paper-muted">
+        <div className="mt-3 rounded-[var(--radius-2)] border border-paper-line bg-paper-soft/45 p-4 text-sm text-paper-muted">
           <div className="mb-2 flex items-center justify-between gap-3">
             <div className="font-semibold text-paper-ink">来源卡片</div>
             {source.format && <span className="paper-chip uppercase">{source.format}</span>}
@@ -169,7 +169,7 @@ export function InboxItemDetail({
                   : "未记录")}
             </div>
             {source.excerpt && (
-              <blockquote className="mt-2 rounded-lg border border-paper-line bg-paper-panel/75 p-3 text-paper-ink">
+              <blockquote className="mt-2 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel/75 p-3 text-paper-ink">
                 <div className="mb-1 text-[11px] font-semibold text-paper-muted">来源摘录</div>
                 <div className="whitespace-pre-wrap leading-6">{source.excerpt}</div>
               </blockquote>
@@ -178,7 +178,7 @@ export function InboxItemDetail({
         </div>
       )}
 
-      <div className="mt-4 rounded-2xl border border-paper-line bg-paper-panel">
+      <div className="mt-4 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel">
         <div className="desktop-card-label">AI polish</div>
         <h2 className="paper-title mt-1 text-lg font-semibold">AI 候选版本</h2>
         {!aiAvailable ? (
@@ -233,7 +233,7 @@ export function InboxItemDetail({
               return (
                 <article
                   key={String(variant.id)}
-                  className="rounded-xl border border-paper-line bg-paper-soft/40 p-4"
+                  className="rounded-[var(--radius-2)] border border-paper-line bg-paper-soft/40 p-4"
                 >
                   <div className="mb-2 flex items-start justify-between gap-2">
                     <div className="text-xs font-medium text-copper">

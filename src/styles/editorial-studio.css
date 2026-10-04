@@ -1380,14 +1380,6 @@ select:focus-visible,
   font-weight: 680;
 }
 
-.inbox-detail > .rounded-xl,
-.inbox-detail > .rounded-2xl,
-.inbox-detail blockquote,
-.inbox-detail article {
-  border-radius: 10px !important;
-  box-shadow: none !important;
-}
-
 /* AI digest reads as an editor's note pinned to the page. */
 .inbox-summary {
   padding: 15px 17px !important;

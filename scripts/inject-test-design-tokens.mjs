@@ -26,11 +26,11 @@ const files = [
   "src/features/creation/inbox/inbox-local.css",
   // 第 8 步的 TSX 分支用例改这份：它是 4 处 bg-copper + text-[color:var(--fg-on-solid)] 之一。
   "src/features/library/LibraryPage.tsx",
-  // 圆角棘轮的「新债 / 还债不降预算」两条用例原先也钉在 LibraryPage 的
+  // 圆角棘轮的「新债 / 还债不降预算」两条用例原先钉在 LibraryPage 的
   // `min-w-[160px] rounded-lg border` 上。批次 M 把阅读器族整片圆角收上刻度，
   // 那个锚点会被合法迁移掉——用例随即 SKIP、harness 计为无效（自愈设计，不静默失效）。
-  // 宿主换成 InboxItemDetail：它至今还有离刻度圆角、且不属于本批 8 步的阴影/圆角迁移面。
-  "src/features/creation/inbox/components/InboxItemDetail.tsx",
+  // 之后改钉 InboxItemDetail；批次 Q 把这最后一页的离刻度圆角也清空了，于是再改钉
+  // ui.tsx 的 Button base——它现在是圆角棘轮唯一还挂着活债的 TSX 宿主。
   // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
@@ -146,9 +146,9 @@ const cases = [
   ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
   // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
   // 最后两条 expect 为 null，是「必须保持绿」的反向用例——判据过严同样是缺陷。
-  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（同串里再加 rounded-2xl，计数 6→7 必须红）", () => mutate("src/features/creation/inbox/components/InboxItemDetail.tsx", "mt-3 rounded-xl border", "mt-3 rounded-xl rounded-2xl border"), /圆角刻度/],
+  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（Button base 的 rounded-lg 旁再挂 rounded-2xl，计数必须超预算）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-lg rounded-2xl text-sm'), /圆角刻度/],
   ["圆角棘轮②：把离刻度值写进预算表里根本没有的文件（settings-controls.css 预算视同 0，4px→7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 7px;"), /圆角刻度/],
-  ["圆角棘轮③：还了债却不降预算（InboxItemDetail 的 rounded-xl→rounded 是合法收敛，但预算仍是 6，必须红并指名该文件）", () => mutate("src/features/creation/inbox/components/InboxItemDetail.tsx", "mt-3 rounded-xl border", "mt-3 rounded border"), /预算没跟着降/],
+  ["圆角棘轮③：还了债却不降预算（Button base 的 rounded-lg→rounded-md 是合法收敛，但预算没跟着降，必须红并指名该文件）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-md text-sm'), /预算没跟着降/],
   ["圆角棘轮·反向①：说明注释里提到旧类名 rounded-xl 不算违规（不剥注释的话守卫会自己咬自己）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  {/* 这里原来是 rounded-xl，批次 M 收到 rounded-md */}"), null],
   ["圆角棘轮·反向②：50% 是形状决定不是圆角档位，写进规则里不该变红", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 50%;"), null],
   // 批次 M 把阅读器族整片收到刻度上，用的正是下面这三种写法。这条反向用例钉的是
@@ -199,7 +199,16 @@ const cases = [
   ["批次 O 回归②：删掉幻影规则里的离刻度圆角却不降幻影预算（.pe-modal 的 14px 删掉，HOSTLESS_BUDGET 仍是 2，必须红）", () => mutate("src/features/settings/encryption/encryption.css", "  border-radius: 14px;\n", ""), /幻影选择器[\s\S]*预算没跟着降/],
   ["批次 O 回归③：把幻影类名接上宿主却不降预算（桌面工作台真接回 .desktop-module-card 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"desktop-module-card\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
   ["批次 O 回归④：宿主判据退化——把 BEM 修饰类的动态前缀写法拆掉（`writing-quick-kind--${card.kind}` 退回裸类名），自检必须红，否则活 CSS 会被安静判死", () => mutate("src/features/creation/editor/WritingQuickReferencePanel.tsx", "writing-quick-kind writing-quick-kind--${card.kind}", "writing-quick-kind"), /宿主判据把/],
-  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 6px;\n  position: relative;"), null]
+  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 6px;\n  position: relative;"), null],
+  // 第 8 步批次 Q：删掉了 editorial-studio.css 里那条把 .inbox-detail 内四个元素整体
+  // 接管的毯子（`.inbox-detail > .rounded-xl, … blockquote, … article
+  // { border-radius: 10px !important; box-shadow: none !important }`）。它的形状和浮层/
+  // 面板/网格三条不变量都不同：选择器里含 `.rounded-*` 工具类锚点，也就是 CSS 选中组件
+  // 自己在 className 里挂的圆角类再压掉——圆角棘轮对这种锚点做了排除，所以 10px 在刻度上、
+  // 棘轮咬不到，只有新加的「工具类锚点不变量」拦得住。反向两条证明合法写法不被误伤。
+  ["批次 Q 回归：把删掉的 .inbox-detail 毯子原样加回来（含 .rounded-xl 锚点 + !important 10px，棘轮看不见，必须靠工具类锚点不变量拦住）", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl,\n.inbox-detail > .rounded-2xl,\n.inbox-detail blockquote,\n.inbox-detail article {\n  border-radius: 10px !important;\n  box-shadow: none !important;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), /接管了 TSX 自己挂的圆角工具类/],
+  ["批次 Q 回归·反向①：含 .rounded-* 锚点但不带 !important 是正常层叠比武（决定权仍在元素自己那侧），不该变红", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl {\n  border-radius: 6px;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), null],
+  ["批次 Q 回归·反向②：锚点 + !important 但值是 0（刻意压平，与 F/G/H 的「压平为 0」同族合法），不该变红", () => mutate("src/styles/editorial-studio.css", "/* AI digest reads as an editor's note pinned to the page. */", ".inbox-detail > .rounded-xl {\n  border-radius: 0 !important;\n}\n\n/* AI digest reads as an editor's note pinned to the page. */"), null]
 ];
 
 let bad = 0;

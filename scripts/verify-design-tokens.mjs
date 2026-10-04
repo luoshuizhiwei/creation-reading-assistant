@@ -1048,7 +1048,6 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/editor/writing-quick-reference.css": 5,
     "src/features/creation/editor/writing-reference.css": 4,
     "src/features/creation/history/history-local.css": 6,
-    "src/features/creation/inbox/components/InboxItemDetail.tsx": 4,
     "src/features/creation/inbox/inbox-local.css": 1,
     "src/features/creation/operation/operation.css": 4,
     "src/features/creation/outline/outline-reorg.css": 1,
@@ -1618,6 +1617,62 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
         `这类 ` + "`X > *`" + ` 命中的常是没有自身底色的透明布局包装器，圆角 + 阴影刷在透明岛上会画成方盒子` +
         `（批次 H 删掉的 .desktop-stats-grid > * 就是这样）。圆角请交给真正的卡片自己声明；` +
         `确需压平就用 border-radius: 0 !important。命中：${gridBlanket.slice(0, 3).join(" / ")}`
+    );
+  }
+}
+
+/* ------------ 工具类锚点：CSS 不得用 !important 覆盖 TSX 自己挂的 rounded-* 工具类 */
+
+/**
+ * 批次 Q 删掉的毯子长这样（editorial-studio.css 的历史状态）：
+ *   `.inbox-detail > .rounded-xl, .inbox-detail > .rounded-2xl,
+ *      .inbox-detail blockquote, .inbox-detail article
+ *    { border-radius: 10px !important; box-shadow: none !important }`
+ * 它和前面三条不变量（浮层裸类名 / 面板类名多来源 / `X > *` 网格）都不同形：
+ * 选择器里出现了 `.rounded-xl` 这种**Tailwind 工具类锚点**——也就是 CSS 跑去选中
+ * 「组件在 className 里自己挂的圆角类」，再用 !important 压掉它。危害有两层：
+ *   ① 刻度决定权本来在 TSX 那侧（圆角棘轮因此对这类锚点做了排除，见上面三条排除的
+ *      第三条）。毯子一盖，TSX 写 rounded-md 还是 rounded-2xl 都画不出来，改类名的人
+ *      看不见自己改的是空气——批次 P 之后剩下的 4 处就是这么被冻在原地的。
+ *   ② 它成对带 box-shadow: none，删掉 radius 而不核对 shadow，就会顺手把投影也放回
+ *      去（批次 H 的反向坑）。所以本批的前后证据是两张胜者表，不是一张。
+ *
+ * 判据：一条规则的任一选择器分支含 `.rounded-…` 工具类锚点，且该规则用 !important
+ * 声明非零 border-radius → 变红。合法写法不误伤：
+ *   · `X > * { border-radius: 0 !important }` / 锚点上的 0：那是刻意压平，与 F/G/H
+ *     里「带模式前缀压平为 0」同族，不是接管组件选的档位。
+ *   · 非 !important 的工具类锚点规则：决定权仍在层叠里正常比武，属既有合法写法。
+ * 残余（本判据不覆盖）：不含 `.rounded-` 锚点的纯元素选择器接管（`.foo article`、
+ * `.foo blockquote`）——批次 Q 前它确实和锚点写在同一条规则里，所以判据顺带把它算进
+ * 同一条规则的命中；若日后有人单开一条不带锚点的，仍需靠人工 + 胜者表核对。
+ */
+{
+  const UTILITY_ANCHOR = /\.rounded-[a-zA-Z0-9[\]-]+/;
+  const takeover = [];
+  for (const cssFile of cssFiles) {
+    const rel = path.relative(root, cssFile).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(cssFile, "utf8"), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkRules((rule) => {
+      if (!rule.selectors.some((s) => UTILITY_ANCHOR.test(s.replace(/\s+/g, " ")))) return;
+      for (const decl of rule.nodes) {
+        if (decl.type !== "decl" || !/^border-radius(-[a-z-]+)?$/.test(decl.prop) || !decl.important) continue;
+        if (/^0$/.test(decl.value.trim())) continue; // 压平合法
+        takeover.push(`${rel}:${rule.source.start.line} «${rule.selectors[0].replace(/\s+/g, " ").trim()}» { ${decl.prop}: ${decl.value} !important }`);
+      }
+    });
+  }
+  if (takeover.length) {
+    fail(
+      `CSS 又用 !important 接管了 TSX 自己挂的圆角工具类（批次 Q 删掉的 .inbox-detail 毯子就是这个形状）：` +
+        `${takeover.length} 处 —— ${takeover.slice(0, 3).join(" / ")}。` +
+        `含 \`.rounded-*\` 锚点的规则会把组件 className 里选的档位整条压掉，` +
+        `改类名的人看不见自己在改空气；圆角请交给元素自己声明。确需压平用 0，且删毯子时` +
+        `必须连 box-shadow 一起核对前后两张胜者表。`
     );
   }
 }
