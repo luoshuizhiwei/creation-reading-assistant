@@ -221,7 +221,7 @@ button:disabled {
   }
 
   .paper-input {
-    @apply rounded-lg border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted/55 focus:border-copper focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] focus:ring-1 focus:ring-copper/20;
+    @apply rounded-md border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted/55 focus:border-copper focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] focus:ring-1 focus:ring-copper/20;
   }
 
   .paper-chip {

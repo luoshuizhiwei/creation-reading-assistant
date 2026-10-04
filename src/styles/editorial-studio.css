@@ -755,7 +755,7 @@ select:focus-visible,
   padding: 7px 10px 7px 12px;
   border: 0;
   border-left: 3px solid transparent;
-  border-radius: 8px;
+  border-radius: var(--radius-1);
   background: transparent;
   color: var(--text-muted);
   font-size: 12.5px;
@@ -781,7 +781,7 @@ select:focus-visible,
   padding-left: 10px !important;
   border: 1px solid var(--border-subtle) !important;
   border-left: 1px solid var(--border-subtle) !important;
-  border-radius: 8px !important;
+  border-radius: var(--radius-1) !important;
   background: var(--bg-surface) !important;
   box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
 }
@@ -951,7 +951,7 @@ select:focus-visible,
 .paper-input,
 .cards-input {
   border-color: var(--border-strong);
-  border-radius: 8px;
+  border-radius: var(--radius-2);
   background: var(--bg-surface);
   color: var(--text-main);
   box-shadow: none;
@@ -964,7 +964,7 @@ select:focus-visible,
 .writing-chapter-button,
 .writing-scene-button,
 .outline-scene {
-  border-radius: 7px;
+  border-radius: var(--radius-1);
 }
 
 .writing-scene-button.active,
@@ -1015,7 +1015,7 @@ select:focus-visible,
   overflow: hidden;
   padding: 3px;
   border: 1px solid var(--border-subtle);
-  border-radius: 9px;
+  border-radius: var(--radius-2);
   background: var(--bg-subtle);
 }
 
@@ -1249,7 +1249,7 @@ select:focus-visible,
 .cards-form-actions button:not([data-variant]),
 .outline-page button:not([data-variant]),
 .history-page button:not([data-variant]) {
-  border-radius: 8px;
+  border-radius: var(--radius-1);
 }
 
 /* --------------------------------------------------------------------------
@@ -1400,14 +1400,14 @@ select:focus-visible,
 .settings-card input,
 .settings-card select,
 .settings-card textarea {
-  border-radius: 8px;
+  border-radius: var(--radius-2);
 }
 
 /* 分组规则已瘦身：.inbox-item-actions button 与 .inbox-inspiration-link 随收件箱
    迁移下线（前者容器内已全是 <Button>，组件自带圆角；后者类名零引用），
    只剩 select 需要把圆角对齐到 8px。 */
 .inbox-target-project select {
-  border-radius: 8px;
+  border-radius: var(--radius-2);
 }
 
 /* Load-more footer: a quiet tray edge at the end of the slush pile. */
@@ -1419,7 +1419,7 @@ select:focus-visible,
   margin: 8px;
   padding: 10px 14px !important;
   border: 1px dashed var(--border-strong) !important;
-  border-radius: 9px !important;
+  border-radius: var(--radius-2) !important;
   background: transparent !important;
 }
 
@@ -2919,7 +2919,7 @@ input[type="text"],
   width: 26px;
   height: 26px;
   border: 1px solid var(--separator);
-  border-radius: 5px;
+  border-radius: var(--radius-1);
   background: var(--surface-1);
   color: var(--text-secondary);
   font-size: 13px;
@@ -3309,7 +3309,7 @@ input[type="text"],
 }
 
 .outline-scene.active {
-  border-radius: 7px;
+  border-radius: var(--radius-1);
 }
 
 .outline-volume-title,
@@ -3548,7 +3548,7 @@ input[type="text"],
   margin: 8px 12px !important;
   padding: 3px !important;
   border: 1px solid var(--border-subtle) !important;
-  border-radius: 8px !important;
+  border-radius: var(--radius-2) !important;
   background: var(--bg-subtle) !important;
 }
 

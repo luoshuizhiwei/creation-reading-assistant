@@ -255,7 +255,10 @@ const cases = [
   ["第 8 步批次 Z 回归·反向：同一宿主写 var(--radius-1) 是合法收敛，不该变红", () => mutate("src/styles.css", "\n.desktop-nav button {\n  display: grid;", "\n.desktop-nav button {\n  border-radius: var(--radius-1);\n  display: grid;"), null],
   // 第 8 步批次 Z3：卡片柜/大纲行/统计/背景详情 14 处活圆角归刻度（styles.css 15→1，只剩 @apply）。
   ["第 8 步批次 Z3 回归：把迁移掉的离刻度圆角写回 .cards-search（styles.css 圆角预算已降到只剩 @apply 那一条，多一处必须红）", () => mutate("src/styles.css", ".cards-search {\n  display: inline-flex;", ".cards-search {\n  border-radius: 9px;\n  display: inline-flex;"), /圆角刻度/],
-  ["第 8 步批次 Z3 回归·反向：同一宿主写 var(--radius-2) 是合法收敛，不该变红", () => mutate("src/styles.css", ".cards-search {\n  display: inline-flex;", ".cards-search {\n  border-radius: var(--radius-1);\n  display: inline-flex;"), null]
+  ["第 8 步批次 Z3 回归·反向：同一宿主写 var(--radius-2) 是合法收敛，不该变红", () => mutate("src/styles.css", ".cards-search {\n  display: inline-flex;", ".cards-search {\n  border-radius: var(--radius-1);\n  display: inline-flex;"), null],
+  // 第 8 步批次 AA：工作台控件/输入/标签族 13 处活圆角归刻度，styles.css 圆角债清零。
+  ["第 8 步批次 AA 回归：把迁移掉的离刻度圆角写回 .cards-input（editorial 预算已降到 10，多一处必须红）", () => mutate("src/styles/editorial-studio.css", ".cards-input {\n  border-color: var(--border-strong);", ".cards-input {\n  border-radius: 8px;\n  border-color: var(--border-strong);"), /圆角刻度/],
+  ["第 8 步批次 AA 回归·反向：styles.css 侧 .paper-input 写成显式 rounded-[6px] 同为刻度写法，不该变红（这条 @apply 刚从压死声明转为胜者，别把合法写法一起锁死）", () => mutate("src/styles.css", "@apply rounded-md border border-paper-line", "@apply rounded-[6px] border border-paper-line"), null]
 ];
 
 let bad = 0;
