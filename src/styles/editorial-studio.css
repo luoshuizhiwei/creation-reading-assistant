@@ -501,7 +501,6 @@ select:focus-visible,
   /* 批次 L：删掉 border-radius: 8px——文件末尾「圆角收敛到规格值」那条用了**完全相同**
    * 的选择器名单 + var(--radius-control)，同特异度且更晚，这条从未画出来过。 */
   background: var(--bg-surface);
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);
   color: var(--text-muted);
   font-size: 12.5px;
   font-weight: 600;
@@ -515,7 +514,6 @@ select:focus-visible,
   background: var(--accent-hover);
   color: var(--text-main);
   transform: translateY(-1px);
-  box-shadow: 0 4px 12px rgba(34, 38, 48, 0.08);
 }
 
 .desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
@@ -556,7 +554,6 @@ select:focus-visible,
    * 以及已无 TSX 消费者的 .paper-panel-soft。
    * 批次 G 把 .desktop-panel-card 归入家族名单，面板圆角自此只有一个来源。 */
   background: var(--bg-surface) !important;
-  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.04), 0 10px 30px rgba(34, 38, 48, 0.05) !important;
 }
 
 .paper-panel-soft {
@@ -1054,7 +1051,6 @@ select:focus-visible,
   border: 1px solid color-mix(in srgb, var(--border-strong) 72%, transparent);
   border-radius: 4px;
   background: var(--studio-paper);
-  box-shadow: 0 24px 60px var(--studio-paper-shadow), 0 2px 6px rgba(34, 38, 48, 0.06);
 }
 
 /* Clean manuscript sheet without vertical ruler obstruction */
@@ -2039,22 +2035,6 @@ select:focus-visible,
     0 1px 2px rgba(34, 38, 48, 0.08),
     0 24px 60px var(--studio-paper-shadow),
     0 2px 6px rgba(34, 38, 48, 0.06);
-}
-
-/* Cards gain a hair of top light so they sit on, not stick to, the desk. */
-.stats-card,
-.desktop-panel-card,
-.paper-panel,
-.settings-card,
-.stats-panel,
-.desktop-library-panel,
-.desktop-editor-card,
-.desktop-source-card,
-.desktop-ai-card {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    0 1px 2px rgba(34, 38, 48, 0.04),
-    0 10px 30px rgba(34, 38, 48, 0.05) !important;
 }
 
 :root[data-app-theme="dark"] .stats-card,

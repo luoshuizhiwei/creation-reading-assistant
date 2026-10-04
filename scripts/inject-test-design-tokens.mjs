@@ -240,7 +240,12 @@ const cases = [
   ["批次 V 回归：把特性页与主题同分支的异值分叉加回来（search.css 给 .uni-search-group li button 写 --radius-3，主题那份是 --radius-2——同特异度只比发射顺序，特性页这条永远画不出来，却会被棘轮记成活债）", () => mutate("src/features/search/search.css", ".uni-search-group li button {\n  display: grid;", ".uni-search-group li button {\n  border-radius: var(--radius-3);\n  display: grid;"), /几何分支/],
   ["批次 V 回归·反向①：与主题同分支同值是冗余不是分叉（var(--radius-2) 两边一致，谁赢都一样），不该变红", () => mutate("src/features/search/search.css", ".uni-search-group li button {\n  display: grid;", ".uni-search-group li button {\n  border-radius: var(--radius-2);\n  display: grid;"), null],
   ["批次 V 回归·反向②：带模式前缀的覆盖是显式决定（分支文本不同，各管各的层叠），不该变红", () => mutate("src/features/search/search.css", ".uni-search-error {", ".desktop-root--focus .uni-search-error {\n  border-radius: 0;\n}\n\n.uni-search-error {"), null],
-  ["批次 V 回归：分支归一化退化——把主题那份的选择器加上祖先前缀，两侧不再逐字同现，自检必须红（否则真分叉会被安静放行）", () => mutate("src/styles/editorial-studio.css", ".uni-search-shell {\n  overflow: hidden;", ".uni-search-overlay .uni-search-shell {\n  overflow: hidden;"), /判据退化/]
+  ["批次 V 回归：分支归一化退化——把主题那份的选择器加上祖先前缀，两侧不再逐字同现，自检必须红（否则真分叉会被安静放行）", () => mutate("src/styles/editorial-studio.css", ".uni-search-shell {\n  overflow: hidden;", ".uni-search-overlay .uni-search-shell {\n  overflow: hidden;"), /判据退化/],
+  // 第 8 步批次 X：主题层自己压自己的 15 条离刻度投影声明已退役（每张胜者表逐字节不变）。
+  // 沿用批次 N 那对「退役同一宿主同一属性」的形状：正向证明这一页的阴影预算确实降到了
+  // 新值（写回一条离刻度必须红），反向证明刻度写法仍合法（别把退役变成「禁止投影」）。
+  ["第 8 步批次 X 回归：把退役掉的死投影以离刻度值写回 .stats-card（styles.css 阴影预算已降过一档，多一处必须红——否则退役等于给它松了绑）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);\n  border: 1px solid var(--paper-line);"), /阴影刻度/],
+  ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-1) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-1);\n  border: 1px solid var(--paper-line);"), null]
 ];
 
 let bad = 0;

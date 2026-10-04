@@ -742,7 +742,6 @@ button:disabled {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 72%, transparent);
   background: color-mix(in srgb, var(--paper-panel) 42%, transparent);
-  box-shadow: 0 18px 44px rgba(64, 42, 26, 0.055);
 }
 
 .desktop-canvas .motion-page > .paper-shell {
@@ -772,7 +771,6 @@ button:disabled {
     radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--copper) 12%, transparent), transparent 30%),
     color-mix(in srgb, var(--paper-panel) 70%, transparent);
   padding: 18px;
-  box-shadow: 0 14px 34px rgba(64, 42, 26, 0.055);
 }
 
 .desktop-page-hero h2,
@@ -809,7 +807,6 @@ button:disabled {
    * 的家族规则用同特异度 + !important 一直把它压成 var(--radius-panel)=8px
    * （级联探针实测）。圆角只有一个来源，写在家族规则里。 */
   background: color-mix(in srgb, var(--paper-panel) 84%, transparent);
-  box-shadow: 0 14px 34px rgba(64, 42, 26, 0.052);
 }
 
 .desktop-empty-wrap {
@@ -852,7 +849,6 @@ button:disabled {
 .desktop-library-row:hover {
   transform: translateY(-1px);
   background: color-mix(in srgb, var(--paper-soft) 32%, transparent);
-  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--copper) 56%, transparent);
 }
 
 .desktop-inspiration-page {
@@ -1793,7 +1789,6 @@ button:disabled {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
   background: var(--paper-panel);
-  box-shadow: 0 30px 80px rgba(43, 28, 16, 0.28);
 }
 
 .creation-wizard-head {
@@ -2127,7 +2122,6 @@ button:disabled {
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
   background: var(--paper-panel);
-  box-shadow: 0 22px 55px rgba(56, 38, 25, 0.1);
 }
 
 .writing-desk--focus {
@@ -3812,7 +3806,6 @@ button:disabled {
 .history-tabs button.active {
   color: var(--paper-ink);
   background: var(--paper-panel);
-  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.08);
 }
 
 .history-empty {
@@ -4227,7 +4220,6 @@ button:disabled {
    * 被 editorial-studio.css 的面板家族规则压制，从未画出来过。 */
   background: var(--paper-panel);
   padding: 14px 16px;
-  box-shadow: 0 1px 4px rgba(56, 38, 25, 0.06);
 }
 
 .stats-card h3 {
@@ -5217,7 +5209,6 @@ button:disabled {
   background:
     radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--copper) 10%, transparent), transparent 30%),
     color-mix(in srgb, var(--paper-panel) 72%, transparent);
-  box-shadow: 0 12px 28px rgba(64, 42, 26, 0.05);
 }
 
 .project-home-hero-copy {
@@ -5287,7 +5278,6 @@ button:disabled {
 
 .project-home-item:hover {
   border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line));
-  box-shadow: 0 8px 20px rgba(74, 48, 26, 0.08);
   transform: translateY(-1px);
 }
 

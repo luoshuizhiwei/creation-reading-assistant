@@ -1194,8 +1194,8 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/settings/encryption/encryption.css": 2,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 7,
-    "src/styles.css": 38,
-    "src/styles/editorial-studio.css": 34
+    "src/styles.css": 29,
+    "src/styles/editorial-studio.css": 29
   };
 
   const actual = {};
@@ -1372,7 +1372,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    */
   const HOSTLESS_BUDGET = {
         "src/features/settings/encryption/encryption.css": 2,
-    "src/styles.css": 11,
+    "src/styles.css": 9,
     "src/styles/editorial-studio.css": 1
   };
 
