@@ -34,7 +34,12 @@ const files = [
   // 圆角/阴影棘轮用例改这几份：「已有预算的文件」（LibraryPage：圆角 1 / 阴影 1）、
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
-  "src/features/settings/settings-controls.css"
+  "src/features/settings/settings-controls.css",
+  // 批次 O 的用例改这几份：encryption.css 的 .pe-modal 在「查无宿主」清单上，用它测
+  // 「删掉幻影债务却忘了降第二本账」；WritingQuickReferencePanel 是唯一靠 BEM 动态前缀
+  // 才活着的宿主，用它测「宿主判据退化」。styles.css 早已在清单里，不重复登记。
+  "src/features/settings/encryption/encryption.css",
+  "src/features/creation/editor/WritingQuickReferencePanel.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -186,7 +191,15 @@ const cases = [
   // 这两条测的是这次同步有没有把 styles.css 的咬合力一起删掉：
   // 拿批次 N 删过的同一个宿主、同一属性，离刻度值必须红、刻度值必须绿。
   ["第 8 步批次 N 回归：把退役掉的死圆角以离刻度值写回 .creation-wizard（这一页的预算已经降过一档，多一处必须红——否则这次退役等于给 styles.css 松了绑）", () => mutate("src/styles.css", ".creation-wizard {", ".creation-wizard {\n  border-radius: 22px;"), /圆角刻度/],
-  ["第 8 步批次 N 回归·反向：同一个宿主写刻度上的 6px 不该红（styles.css 还剩一批活债，棘轮数的是离刻度，不是禁止字面量）", () => mutate("src/styles.css", ".creation-wizard {\n", ".creation-wizard {\n  border-radius: 6px;\n"), null]
+  ["第 8 步批次 N 回归·反向：同一个宿主写刻度上的 6px 不该红（styles.css 还剩一批活债，棘轮数的是离刻度，不是禁止字面量）", () => mutate("src/styles.css", ".creation-wizard {\n", ".creation-wizard {\n  border-radius: 6px;\n"), null],
+  // 第 8 步批次 O：幻影选择器判据。它守的是「宿主不存在」这一类死法，方向性和前几条相反——
+  // 判据唯一致命的错法是「把活 CSS 判成幻影」（那样删除就是无声改版），
+  // 所以除了咬新债/咬不降预算，还要咬「判据自己退化」和证明「宿主靠动态拼接的活类不被误伤」。
+  ["批次 O 回归①：给查无宿主的 .desktop-module-card 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 14px;\n  position: relative;"), /新增了令牌债/],
+  ["批次 O 回归②：删掉幻影规则里的离刻度圆角却不降幻影预算（.pe-modal 的 14px 删掉，HOSTLESS_BUDGET 仍是 2，必须红）", () => mutate("src/features/settings/encryption/encryption.css", "  border-radius: 14px;\n", ""), /幻影选择器[\s\S]*预算没跟着降/],
+  ["批次 O 回归③：把幻影类名接上宿主却不降预算（桌面工作台真接回 .desktop-module-card 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"desktop-module-card\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
+  ["批次 O 回归④：宿主判据退化——把 BEM 修饰类的动态前缀写法拆掉（`writing-quick-kind--${card.kind}` 退回裸类名），自检必须红，否则活 CSS 会被安静判死", () => mutate("src/features/creation/editor/WritingQuickReferencePanel.tsx", "writing-quick-kind writing-quick-kind--${card.kind}", "writing-quick-kind"), /宿主判据把/],
+  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 6px;\n  position: relative;"), null]
 ];
 
 let bad = 0;

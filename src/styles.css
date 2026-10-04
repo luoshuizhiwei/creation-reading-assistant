@@ -1079,7 +1079,6 @@ button:disabled {
   min-height: 38px;
   padding: 0 10px;
   border: 0;
-  border-radius: 12px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 13px;
@@ -1108,7 +1107,6 @@ button:disabled {
   min-height: 210px;
   padding: 26px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 24px;
   background:
     radial-gradient(circle at 8% 12%, rgba(138, 90, 43, 0.15), transparent 30%),
     linear-gradient(135deg, color-mix(in srgb, var(--paper-panel) 92%, transparent), color-mix(in srgb, var(--paper-soft) 72%, transparent));
@@ -1152,7 +1150,6 @@ button:disabled {
   gap: 10px;
   padding: 16px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 22px;
   background: color-mix(in srgb, var(--paper-panel) 72%, transparent);
 }
 
@@ -1162,14 +1159,12 @@ button:disabled {
   inset: 11px -10px -10px 18px;
   z-index: -1;
   border: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
-  border-radius: 22px;
   background: color-mix(in srgb, var(--paper-soft) 60%, transparent);
 }
 
 .desktop-hero-stack span {
   display: block;
   border: 1px solid color-mix(in srgb, var(--paper-line) 76%, transparent);
-  border-radius: 15px;
   background: color-mix(in srgb, var(--paper-panel) 88%, transparent);
   padding: 13px 14px;
   color: var(--paper-ink);
@@ -1206,7 +1201,6 @@ button:disabled {
   overflow: hidden;
   padding: 22px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 24px;
   background: var(--paper-panel);
   color: var(--paper-ink);
   text-align: left;
@@ -1252,7 +1246,6 @@ button:disabled {
   height: 48px;
   place-items: center;
   border: 1px solid color-mix(in srgb, var(--paper-line) 76%, transparent);
-  border-radius: 17px;
   background: color-mix(in srgb, var(--paper-panel) 78%, white);
   color: var(--copper);
 }
@@ -1294,7 +1287,6 @@ button:disabled {
 .desktop-search-board,
 .desktop-workflow-card {
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 22px;
   background: color-mix(in srgb, var(--paper-panel) 88%, transparent);
   padding: 18px;
   box-shadow: 0 14px 34px rgba(64, 42, 26, 0.055);
@@ -1329,7 +1321,6 @@ button:disabled {
   margin-top: 14px;
   padding: 0 12px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 14px;
   background: color-mix(in srgb, var(--paper-bg) 45%, var(--paper-panel));
   color: var(--paper-muted);
 }
@@ -1352,7 +1343,6 @@ button:disabled {
 .desktop-search-results button,
 .desktop-search-empty {
   border: 1px solid color-mix(in srgb, var(--paper-line) 76%, transparent);
-  border-radius: 14px;
   background: color-mix(in srgb, var(--paper-soft) 48%, transparent);
   padding: 11px 12px;
   text-align: left;
@@ -1404,7 +1394,6 @@ button:disabled {
   display: grid;
   height: 42px;
   place-items: center;
-  border-radius: 14px;
   background: color-mix(in srgb, var(--copper) 12%, var(--paper-soft));
   color: var(--copper);
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
@@ -1437,7 +1426,6 @@ button:disabled {
   min-height: 46px;
   padding: 0 13px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 15px;
   background: color-mix(in srgb, var(--paper-panel) 82%, transparent);
   color: var(--paper-muted);
   text-align: left;
@@ -1460,7 +1448,6 @@ button:disabled {
 .creation-desk {
   min-width: 0;
   border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  border-radius: 20px;
   background: color-mix(in srgb, var(--paper-panel) 84%, transparent);
   box-shadow: 0 14px 34px rgba(64, 42, 26, 0.052);
   overflow: hidden;
@@ -1538,7 +1525,6 @@ button:disabled {
 .creation-spine {
   width: 14px;
   height: 40px;
-  border-radius: 5px;
   background:
     repeating-linear-gradient(90deg, rgba(255, 255, 255, 0.16) 0 1px, transparent 1px 4px),
     linear-gradient(180deg, var(--copper-soft), var(--copper));
@@ -1689,7 +1675,6 @@ button:disabled {
   gap: 3px;
   padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--paper-line) 72%, transparent);
-  border-radius: 12px;
   background: color-mix(in srgb, var(--paper-soft) 42%, transparent);
 }
 
@@ -1722,7 +1707,6 @@ button:disabled {
 
 .creation-chapter {
   border: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
-  border-radius: 12px;
   overflow: hidden;
   background: color-mix(in srgb, var(--paper-panel) 72%, transparent);
 }
@@ -2607,7 +2591,6 @@ button:disabled {
   max-height: min(720px, calc(100vh - 48px));
   overflow: hidden;
   border: 1px solid var(--paper-line);
-  border-radius: 20px;
   background: var(--paper-panel);
   box-shadow: 0 30px 80px rgba(43, 28, 16, 0.3);
   animation: dialog-pop 180ms ease-out both;
@@ -3094,7 +3077,6 @@ button:disabled {
 .card-board-mode {
   display: inline-flex;
   border: 1px solid var(--paper-line);
-  border-radius: 8px;
   overflow: hidden;
 }
 
@@ -3229,7 +3211,6 @@ button:disabled {
   align-self: flex-start;
   padding: 3px;
   border: 1px solid var(--paper-line);
-  border-radius: 12px;
   background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
 }
 
@@ -3237,7 +3218,6 @@ button:disabled {
   min-width: 68px;
   height: 30px;
   border: 0;
-  border-radius: 9px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 13px;
@@ -4048,7 +4028,6 @@ button:disabled {
   width: 26px;
   height: 26px;
   flex-shrink: 0;
-  border-radius: 8px;
   background: color-mix(in srgb, var(--copper) 10%, var(--paper-panel));
   color: var(--copper);
 }
@@ -4087,7 +4066,6 @@ button:disabled {
 .creation-search-mark {
   background: color-mix(in srgb, var(--copper) 22%, transparent);
   color: var(--paper-ink);
-  border-radius: 3px;
   padding: 0 1px;
 }
 
@@ -4136,7 +4114,6 @@ button:disabled {
 .creation-replace-summary {
   margin: 6px 8px 2px;
   padding: 8px 12px;
-  border-radius: 9px;
   background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
   border: 1px solid color-mix(in srgb, var(--copper) 22%, var(--paper-line));
   color: var(--paper-muted);
@@ -5072,7 +5049,6 @@ button:disabled {
   align-items: center;
   gap: 5px;
   border: 1px solid var(--paper-line);
-  border-radius: 8px;
   background: transparent;
   color: var(--paper-muted);
   font-size: 12px;

@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from "node:fs";
+import { readFileSync, readdirSync, existsSync } from "node:fs";
 import path from "node:path";
 import postcss from "postcss";
 
@@ -1061,7 +1061,7 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
     "src/features/creation/replace/replace.css": 5,
     "src/features/search/search.css": 4,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 60,
+    "src/styles.css": 36,
     "src/styles/editorial-studio.css": 29
   };
 
@@ -1288,6 +1288,165 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
   }
   const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
   console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+}
+
+/* ------------------------------------------------ 幻影选择器的令牌债冻结预算（第 8 步） */
+
+/**
+ * 批次 N 和 O 是同一族缺陷的两种死法，前面各自只收了其中一种：
+ *   · 批次 N 收的是「层叠上被压死」——宿主存在，但每条分支都输给更晚/更具体的规则。
+ *   · 批次 O 收的是「宿主根本不存在」——选择器里的业务类名在渲染侧查无落点，整条规则
+ *     一次都没画过。这类声明上面两条棘轮照样数它（它们不看宿主），所以光看「离刻度还剩
+ *     多少处」分不清哪些是真能还的：幻影债务不迁移就永远还不完，只能删。
+ * 判据要守的正是第二种，否则下一批人会继续给画不出来的元素设计令牌档位。
+ *
+ * 「宿主不存在」只能按谁能把类名挂上 DOM 来划定语料，两个方向都错过：
+ *   · 只看源码字符串会把 `writing-quick-kind--${card.kind}` 这种 BEM 修饰类判死——
+ *     完整串不在源码里（编译成 .concat 后才拼出来），所以必须额外收集「紧邻 ${ 的
+ *     类名片段」当动态前缀。
+ *   · 反过来把 electron/** 也当宿主语料，会把主进程拼的设备 ID / 记录 ID
+ *     （`desktop-${hash}`、`card-${uuid}`）当成类名落点，于是整族 desktop-* 全部误判成活。
+ *     主进程碰不到渲染 DOM，渲染侧语料只取 src/** + 根 index.html。
+ * 产物 JS 是最硬的一条证据（JSX 的 className 原样进 bundle），但守卫可能在未构建时运行，
+ * 所以产物只作补充证据、不作必要条件：out/ 存在就一起查，不存在就只按源码判。
+ *
+ * 判据形状沿用棘轮那套「先变成数据、再一页一页还」：
+ *   每条无宿主规则里的离刻度圆角 + 非 var 的投影声明，按文件冻结。
+ *   给幻影选择器新增令牌债要红；顺手删掉一块幻影 CSS 不降预算也要红。
+ * 这里的数字不是「还要还多少」，而是「允许界面外的 CSS 再胖多少」——真还法只有删规则。
+ */
+{
+  const hostFiles = allSource.filter((x) => /\.(tsx|ts|js|jsx|html|json)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`));
+  if (existsSync(path.join(root, "index.html"))) hostFiles.push(path.join(root, "index.html"));
+  const hostText = hostFiles.map((f) => readFileSync(f, "utf8")).join("\n");
+  const dynPrefix = new Set();
+  for (const f of hostFiles) {
+    if (!/\.[jt]sx?$/.test(f)) continue;
+    const t = readFileSync(f, "utf8");
+    for (const m of t.matchAll(/([A-Za-z][A-Za-z0-9_-]*)\$\{/g)) dynPrefix.add(m[1]);
+    for (const m of t.matchAll(/["'`]([A-Za-z][A-Za-z0-9_-]*-)["'`]\s*\+/g)) dynPrefix.add(m[1]);
+  }
+  const bundleText = (() => {
+    const dir = path.join(root, "out", "renderer");
+    if (!existsSync(dir)) return "";
+    return readdirSync(dir)
+      .filter((f) => f.endsWith(".html") || (f.endsWith(".js") && existsSync(path.join(dir, "assets", f))))
+      .map((f) => { try { return readFileSync(path.join(dir, f), "utf8"); } catch { return ""; } })
+      .join("\n") +
+      (existsSync(path.join(dir, "assets"))
+        ? readdirSync(path.join(dir, "assets")).filter((f) => f.endsWith(".js")).map((f) => readFileSync(path.join(dir, "assets", f), "utf8")).join("\n")
+        : "");
+  })();
+
+  const canRender = (cls) =>
+    hostText.includes(cls) || bundleText.includes(cls) || [...dynPrefix].some((p) => p.length >= 3 && cls.startsWith(p));
+
+  /**
+   * 判据自检：本判据唯一的致命方向是「把活 CSS 判成幻影」——那样删除是无声的界面改版。
+   * 所以钉一组已知必须由动态拼接才活着的类名：判据说它们查无宿主，就是判据自己退化了
+   * （例如有人把「紧邻 ${ 的类名片段」这条正则简化回「引号紧跟 ${」）。
+   * 这条清单同时是「孤儿 CSS 报警器」：产品真的把某个动态类名拆掉时，这里会变红，
+   * 提醒那一族规则现在没人渲染了——而不是让判据安静地把它们划进幻影预算。
+   */
+  const MUST_BE_LIVE = [
+    "writing-quick-kind--location",
+    "writing-quick-save--dirty",
+    "format-chip--epub",
+    "inbox-save-status--saving",
+    "card-board-card-status--planned",
+    "scene-save-status--saved",
+    "desktop-brand-mark"
+  ];
+  const blind = MUST_BE_LIVE.filter((c) => !canRender(c));
+  if (blind.length) {
+    fail(
+      `第 8 步幻影选择器：宿主判据把 ${blind.length} 个正在渲染的类名看成了死代码——${blind.join("、")}。` +
+        `这些类名靠动态拼接挂在 DOM 上（完整串不在源码里）。要么判据的动态前缀正则被改窄了（危险方向：会把活 CSS 判死），` +
+        `要么对应组件真的不再挂这个类名了（那这族 CSS 已成孤儿，请删掉并同步本清单）。`
+    );
+  }
+
+  // Tailwind 工具类不进这里判：它们由 utilities 层发射，宿主判定不适用。
+  const TW_PREFIX = /^(bg|text|border|rounded|shadow|p|px|py|pt|pb|m|mx|my|mt|mb|w|h|flex|grid|gap|items|justify|font|leading|tracking|opacity|translate|scale|rotate|z|inset|top|bottom|left|right|size|min|max|overflow|whitespace|truncate|cursor|select|space|divide|ring|outline|from|to|via|animate|transition|duration|delay|ease|order|col|row|self|place|hidden|inline|block|absolute|relative|fixed|sticky|hover|focus|active|group|peer)(-|$)/;
+
+  /** 只取选择器的「正向」类名：:not(.x) 里的 x 是被排除的，它的宿主在别处。 */
+  const positiveClasses = (sel) => {
+    let s = sel;
+    for (let g = 0; g < 40; g++) {
+      const i = s.indexOf(":not(");
+      if (i < 0) break;
+      let depth = 0;
+      let j = i + 4;
+      for (; j < s.length; j++) {
+        if (s[j] === "(") depth += 1;
+        else if (s[j] === ")") { depth -= 1; if (!depth) { j += 1; break; } }
+      }
+      s = s.slice(0, i) + "" + s.slice(j);
+    }
+    return [...new Set((s.match(/\.[A-Za-z_][A-Za-z0-9_-]*/g) || []).map((x) => x.slice(1)).filter((c) => !TW_PREFIX.test(c)))];
+  };
+
+  /**
+   * 冻结预算。数字由本判据扫出。
+   * ⚠ 这张表不是第三笔债，而是给上面两张棘轮的同一批数字加一个「宿主在哪」的透镜：
+   *   幻影声明照样计入 RADIUS_BUDGET / SHADOW_BUDGET（那两条判据不看宿主，这是刻意的——
+   *   一旦让棘轮也看宿主，判错方向的代价就从「多删一行死代码」变成「少盯住一处活债」）。
+   *   所以删掉一条幻影规则会同时降两处的数字，两边都要跟着改；
+   *   反过来，本表里的数字只能靠删规则还，没有迁移这条路。
+   */
+  const HOSTLESS_BUDGET = {
+    "src/features/creation/cards/cards-local.css": 1,
+    "src/features/settings/encryption/encryption.css": 2,
+    "src/styles.css": 11,
+    "src/styles/editorial-studio.css": 1
+  };
+
+  const hostlessActual = {};
+  let hostlessRules = 0;
+  const SCALE_PX = new Set([0, 4, 6, 10, 999]); // 与上面圆角棘轮同一条刻度（§5.2）
+  for (const p of cssFiles.filter((x) => !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    let ast;
+    try {
+      ast = postcss.parse(readFileSync(p, "utf8"), { from: p });
+    } catch {
+      continue;
+    }
+    ast.walkRules((r) => {
+      const per = r.selectors.map((s) => positiveClasses(s.replace(/\s+/g, " ").trim()));
+      if (!per.length || per.some((x) => !x.length)) return; // 有分支查不到业务类名 → 宿主可能来自工具类/元素选择器，不判
+      if (per.flat().some(canRender)) return;
+      hostlessRules += 1;
+      for (const d of r.nodes) {
+        if (d.type !== "decl") continue;
+        let debt = false;
+        if (/^border-radius/.test(d.prop)) {
+          const toks = d.value.replace("!important", "").trim().split(/\s+/);
+          debt = toks.some((t) => /^-?\d/.test(t) && !t.includes("%") && !SCALE_PX.has(parseFloat(t)));
+        } else if (/^box-shadow$/.test(d.prop)) {
+          debt = d.value !== "none" && !/var\(--(shadow|focus)/.test(d.value) && d.value.split(/,(?![^(]*\))/).some((L) => !/inset/.test(L));
+        }
+        if (debt) hostlessActual[rel] = (hostlessActual[rel] ?? 0) + 1;
+      }
+    });
+  }
+  const hlOver = Object.keys(hostlessActual).filter((f) => hostlessActual[f] > (HOSTLESS_BUDGET[f] ?? 0));
+  const hlStale = Object.keys(HOSTLESS_BUDGET).filter((f) => HOSTLESS_BUDGET[f] > (hostlessActual[f] ?? 0));
+  if (hlOver.length) {
+    fail(
+      `第 8 步幻影选择器：${hlOver.length} 个文件给画不出来的元素新增了令牌债——${hlOver.slice(0, 5).map((f) => `${f}(${hostlessActual[f]}/${HOSTLESS_BUDGET[f] ?? 0})`).join("、")}。` +
+        `这些选择器的类名在渲染侧（src/** 与根 index.html）和产物里都查无落点，界面永远不会渲染。` +
+        `要么这个类名是刚加进去、宿主还没接上（那请把宿主接上，本判据随即放过），要么就是死 CSS——删掉整条规则，别给它配令牌档位。`
+    );
+  }
+  if (hlStale.length) {
+    fail(
+      `第 8 步幻影选择器：${hlStale.length} 个文件删了幻影规则但预算没跟着降——${hlStale.slice(0, 5).map((f) => `${f}(${hostlessActual[f] ?? 0}→应为预算 ${HOSTLESS_BUDGET[f]})`).join("、")}。` +
+        `把 HOSTLESS_BUDGET 里对应数字改成当前计数。`
+    );
+  }
+  const hlTotal = Object.values(hostlessActual).reduce((a, b) => a + b, 0);
+  console.log(`${TAG} [第 8 步幻影选择器] 查无宿主的规则 ${hostlessRules} 条，其中令牌债 ${hlTotal} 处（${Object.keys(hostlessActual).length} 个文件，已冻结；真还法只有删规则）`);
 }
 
 /* ---------------------------------- 浮层容器类名不得被裸选择器接管 border-radius */
