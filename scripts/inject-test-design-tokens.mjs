@@ -205,11 +205,23 @@ const cases = [
   // 第 8 步批次 O：幻影选择器判据。它守的是「宿主不存在」这一类死法，方向性和前几条相反——
   // 判据唯一致命的错法是「把活 CSS 判成幻影」（那样删除就是无声改版），
   // 所以除了咬新债/咬不降预算，还要咬「判据自己退化」和证明「宿主靠动态拼接的活类不被误伤」。
-  ["批次 O 回归①：给查无宿主的 .desktop-module-card 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 14px;\n  position: relative;"), /新增了令牌债/],
+  // ⚠ 批次 AH 把 .desktop-module-card 整族删掉了（幻影判据的示范孤儿终于被真还），
+  // 这三条的锚点随之改钉到同一张表里同样查无宿主、但还活着的 .desktop-inspiration-card：
+  // 用例语义一字不动，只是换了个仍然存在的幻影宿主。
+  ["批次 O 回归①：给查无宿主的 .desktop-inspiration-card 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  border-radius: 14px;\n  width: 100%;"), /新增了令牌债/],
   ["批次 O 回归②：删掉幻影规则里的离刻度圆角却不降幻影预算（.pe-modal 的 14px 删掉，HOSTLESS_BUDGET 仍是 2，必须红）", () => mutate("src/features/settings/encryption/encryption.css", "  border-radius: 14px;\n", ""), /幻影选择器[\s\S]*预算没跟着降/],
-  ["批次 O 回归③：把幻影类名接上宿主却不降预算（桌面工作台真接回 .desktop-module-card 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"desktop-module-card\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
+  // ⚠ 批次 AH 后这条从「接回 desktop-module-card」改钉 pe-modal：styles.css 的幻影债已清零、
+  // 条目从表里删了，给它的旧孤儿类名接宿主不会动任何数字；pe-modal 是幻影账上仅剩的
+  // 带债宿主——接上它，encryption.css 的幻影债从 2 掉到 0，预算不降必须红。
+  ["批次 O 回归③：把幻影类名接上宿主却不降预算（真接回 .pe-modal 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"pe-modal\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
   ["批次 O 回归④：宿主判据退化——把 BEM 修饰类的动态前缀写法拆掉（`writing-quick-kind--${card.kind}` 退回裸类名），自检必须红，否则活 CSS 会被安静判死", () => mutate("src/features/creation/editor/WritingQuickReferencePanel.tsx", "writing-quick-kind writing-quick-kind--${card.kind}", "writing-quick-kind"), /宿主判据把/],
-  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-module-card {\n  position: relative;", ".desktop-module-card {\n  border-radius: 6px;\n  position: relative;"), null],
+  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  border-radius: 6px;\n  width: 100%;"), null],
+  // 第 8 步批次 AH：styles.css 桌面首页/创作索引遗留族整族下线（100 条幻影规则、
+  // 阴影账 21→14、幻影账 7→0 同提交清账）。下面两条证明这次退役没有给 styles.css 松绑：
+  // 把删掉的手抄投影写回仍然空转的规则、或把整族规则原样复活，两本账必须当场咬住。
+  ["第 8 步批次 AH 回归：把退役的手抄投影写回 .desktop-inspiration-card（styles.css 阴影预算已降到 14、幻影条目已删，多一处必须双红）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  width: 100%;"), /新增了令牌债/],
+  ["第 8 步批次 AH 回归②：把整族删掉的 .desktop-start-hero 原样复活（宿主依旧查无，孤儿 CSS 回来了照样被幻影判据咬）", () => mutate("src/styles.css", ".desktop-settings-grid {\n  display: grid;", ".desktop-start-hero {\n  box-shadow: 0 18px 48px rgba(71, 46, 27, 0.07);\n}\n\n.desktop-settings-grid {\n  display: grid;"), /新增了令牌债/],
+  ["第 8 步批次 AH·反向：幻影规则里写 var(--shadow-2) 不该红（幻影账管的是离刻度令牌债，删族不该变成「幻影规则禁止任何投影」）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: var(--shadow-2);\n  width: 100%;"), null],
   // 第 8 步批次 Q：删掉了 editorial-studio.css 里那条把 .inbox-detail 内四个元素整体
   // 接管的毯子（`.inbox-detail > .rounded-xl, … blockquote, … article
   // { border-radius: 10px !important; box-shadow: none !important }`）。它的形状和浮层/
@@ -297,7 +309,7 @@ const cases = [
   ["第 8 步批次 AF 回归：把退役的导航按钮投影写回 .desktop-nav button.active（styles.css 阴影预算已降到 21，§2.5 判据也必须咬住按钮角色）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: 0 10px 24px rgba(74, 48, 26, 0.08);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), /按钮一律无阴影/],
   ["第 8 步批次 AF·裂缝本体：按钮写 var(--shadow-1) 棘轮会豁免（计数降、看着像还了债），§2.5 判据必须不豁免令牌并红——这正是本批判据要堵的水下裂缝", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: var(--shadow-1);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), /按钮一律无阴影/],
   ["第 8 步批次 AF·反向：按钮上的纯描边焦点环 0 0 0 Npx 不该红（§2.3 的 focus-visible 机制，批次 AD 的豁免在本判据内同样成立）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: 0 0 0 2px var(--action-tint);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
-  ["第 8 步批次 AF·反向：按钮上的纯 inset 色条不该红（与 .creation-spine 书脊线同族的结构装饰，§5.3 四级本就不针对它）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: inset 2px 0 0 var(--copper);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
+  ["第 8 步批次 AF·反向：按钮上的纯 inset 色条不该红（与 .desktop-inspiration-card.active 那条 inset 3px 色条同族的结构装饰，§5.3 四级本就不针对它；批次 AH 删掉 .creation-spine 后换钉仍活着的这族）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: inset 2px 0 0 var(--copper);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
   ["第 8 步批次 AF·冻结自检：删掉 .desktop-page-actions 族里那条 hover 投影却不降 FROZEN_BUTTON_SHADOW_COUNT，必须红——冻结名单也是账，悄悄松绑比漏检更坏", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);\n", ""), /冻结计数对不上/],
   // 第 8 步批次 AG：§2.5 的「类名型按钮」透镜。AF 只认裸 button 元素型选择器，
   // 而本仓有一族按钮靠类名被 CSS 命中（选择器里没有 button 这个词）。

@@ -1223,7 +1223,7 @@ const isPureRingValue = (v) => {
     "src/features/settings/encryption/encryption.css": 1,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
-    "src/styles.css": 21,
+    "src/styles.css": 14,
     "src/styles/editorial-studio.css": 16
   };
 
@@ -1701,7 +1701,8 @@ const buttonClassMounts = (() => {
    */
   const HOSTLESS_BUDGET = {
         "src/features/settings/encryption/encryption.css": 2,
-    "src/styles.css": 7,
+    // 批次 AH 把 styles.css 桌面首页/创作索引遗留族的 7 处幻影债整族删干净，条目随之移除：
+    // 这份全局表里任何「查无宿主又离刻度」的声明从此都是新增债，直接红。
     "src/styles/editorial-studio.css": 1
   };
 
