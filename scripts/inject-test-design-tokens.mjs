@@ -126,7 +126,9 @@ const cases = [
   ["把违规规则藏到后代层级（父级类名在选择器中段，考验 TAIL 锚点）", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".desktop-page-stack .history-item-actions button {\n  border-radius: 999px;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /后代按钮规则未排除/],
   ["把已收口的 history-page 排除改回去（棘轮必须继续盯住它）", () => mutate("src/styles/editorial-studio.css", ".history-page button:not([data-variant]) {", ".history-page button {"), /后代按钮规则未排除/],
   ["跨目录借用样式：在 scene-radar.css 里加一条未排除的后代按钮规则（守卫原本按「同目录」判归属会漏检，desk 页面复用了它）", () => mutate("src/features/creation/editor/scene-radar.css", ".scene-radar-ai-buttons {\n  display: flex;", ".scene-radar-ai-buttons button {\n  border-radius: 999px;\n}\n\n.scene-radar-ai-buttons {\n  display: flex;"), /后代按钮规则未排除|scene-radar\.css/],
-  ["把 desktop-page-actions 分组规则的 :not 排除退回单排除（ProjectHomePage 首钮是默认 primary，会被淡底样式压回 (0,1,1)）", () => mutate("src/styles/editorial-studio.css", '.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),\n.project-home-create-first {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%', '.desktop-page-actions button:first-child:not([data-variant="ghost"]),\n.project-home-create-first {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%'), /后代按钮规则未排除|editorial-studio\.css/],
+  // ⚠ 批次 AI 把这条分组规则里的 .project-home-create-first 死分支摘掉了，规则从此只剩
+  // 一个选择器——needle 随之换成单选择器写法（测的还是同一条双排除不变量，不是死分支）。
+  ["把 desktop-page-actions 首钮规则的 :not 排除退回单排除（ProjectHomePage 首钮是默认 primary，会被淡底样式压回 (0,1,1)）", () => mutate("src/styles/editorial-studio.css", '.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%', '.desktop-page-actions button:first-child:not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%'), /后代按钮规则未排除|editorial-studio\.css/],
   ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-lg px-3 text-sm'), /base 不得包含内边距/],
   ["sm 档丢掉自带内边距（base 已不再兜底，会渲染成 0 内边距）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 text-xs"'), /尺寸 sm 必须自己声明/],
   ["夜校前景改回白字（对比度 2.53）", () => mutate("src/styles/tokens.css", "  --fg-on-solid: #15181c;", "  --fg-on-solid: #ffffff;"), /夜校 primary 对比度/],
@@ -171,7 +173,10 @@ const cases = [
   ["批次 F 回归·反向②：裸类名 + 非 !important 的自持圆角（.migration-banner 在 TSX 里不带 rounded 工具类，这条 CSS 是它圆角的唯一来源）不该变红", () => mutate("src/styles.css", ".migration-banner {\n  display: flex;", ".migration-banner {\n  border-radius: 10px;\n  display: flex;"), null],
   // 第 8 步批次 G：面板家族曾有两条都带 !important 的规则互相压制（同特异度靠加载顺序赢）。
   // 判据管的是「同一面板类名的 !important 圆角来源至多一条」，所以正向用例必须造出第二条。
-  ["批次 G 回归：把面板 blanket 的 !important 圆角加回来（值用刻度上的 10px，棘轮咬不到；此时同一面板类名出现第二条 !important 来源，必须靠不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".desktop-ai-card {\n  border-color: var(--border-subtle) !important;", ".desktop-ai-card {\n  border-color: var(--border-subtle) !important;\n  border-radius: 10px !important;"), /面板类名的圆角又出现多条/],
+  // ⚠ 批次 AI 把这条家族分组里的 .settings-card/.stats-panel/.desktop-editor-card/
+  // .desktop-source-card/.desktop-ai-card 死分支摘掉了，`.desktop-ai-card` 的裸类名规则随之消失
+  // ——needle 改钉幸存的 .desktop-library-panel，测的还是「同一面板类名第二条 !important 圆角来源」。
+  ["批次 G 回归：把面板 blanket 的 !important 圆角加回来（值用刻度上的 10px，棘轮咬不到；此时同一面板类名出现第二条 !important 来源，必须靠不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".desktop-library-panel {\n  border-color: var(--border-subtle) !important;", ".desktop-library-panel {\n  border-color: var(--border-subtle) !important;\n  border-radius: 10px !important;"), /面板类名的圆角又出现多条/],
   ["批次 G 回归·反向①：同一条规则里 shorthand + 单角都带 !important 是同一来源，不该算两条", () => mutate("src/styles/editorial-studio.css", "  border-radius: var(--radius-panel) !important;\n  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;", "  border-radius: var(--radius-panel) !important;\n  border-top-left-radius: 10px !important;\n  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;"), null],
   ["批次 G 回归·反向②：面板另有一条非 !important 的自持圆角（各页面自己的面板规则，与家族 !important 共存时胜者明确）不该变红", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  border: 1px solid var(--paper-line);\n  border-radius: 10px;"), null],
   // 第 8 步批次 H：`X > *` 的 !important 非零圆角 blanket（往透明包装器刷弧度）。
@@ -222,6 +227,14 @@ const cases = [
   ["第 8 步批次 AH 回归：把退役的手抄投影写回 .desktop-inspiration-card（styles.css 阴影预算已降到 14、幻影条目已删，多一处必须双红）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  width: 100%;"), /新增了令牌债/],
   ["第 8 步批次 AH 回归②：把整族删掉的 .desktop-start-hero 原样复活（宿主依旧查无，孤儿 CSS 回来了照样被幻影判据咬）", () => mutate("src/styles.css", ".desktop-settings-grid {\n  display: grid;", ".desktop-start-hero {\n  box-shadow: 0 18px 48px rgba(71, 46, 27, 0.07);\n}\n\n.desktop-settings-grid {\n  display: grid;"), /新增了令牌债/],
   ["第 8 步批次 AH·反向：幻影规则里写 var(--shadow-2) 不该红（幻影账管的是离刻度令牌债，删族不该变成「幻影规则禁止任何投影」）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: var(--shadow-2);\n  width: 100%;"), null],
+  // 第 8 步批次 AI：死分支判据。幻影账的口径是整条规则——`per.flat().some(canRender)` 一命中
+  // 活分支就整条放过，于是「组规则里藏一支查无宿主的分支」是幻影债唯一的隐身形状（本批摘掉 56 条）。
+  // ①用批次 AH 之后仍然在账上的真实形状复现（history-tabs 早已是 <Button>，focus 支躲进活组）；
+  // ②给活家族规则挂一支 AH 删过的孤儿类名，证明「复活孤儿并寄生在活规则里」这条新路一样被咬；
+  // 反向那条钉判据别过严：全是活分支的组规则不该红，否则下一批人会把组规则拆成单选择器绕开它。
+  ["第 8 步批次 AI 回归：把摘掉的 .history-tabs button:focus-visible 死分支接回活组（幻影账看整条规则会整条放过，死分支判据必须单独咬住）", () => mutate("src/features/creation/history/history-local.css", ".history-field select:focus-visible,\n.history-field input:focus-visible {", ".history-tabs button:focus-visible,\n.history-field select:focus-visible,\n.history-field input:focus-visible {"), /第 8 步死分支/],
+  ["第 8 步批次 AI 回归②：给活的面板家族规则挂一支 AH 已整族下线的 .desktop-start-hero（宿主依旧查无——孤儿复活时寄生在活分支后面，两本账都不露面，必须靠死分支判据拦住）", () => mutate("src/styles/editorial-studio.css", ".stats-card,\n.desktop-panel-card,\n.paper-panel,\n.desktop-library-panel {\n  border-radius: var(--radius-panel) !important;", ".stats-card,\n.desktop-panel-card,\n.paper-panel,\n.desktop-library-panel,\n.desktop-start-hero {\n  border-radius: var(--radius-panel) !important;"), /第 8 步死分支/],
+  ["第 8 步批次 AI·反向：给同一条活组再加一支宿主存在的分支（.library-toolbar 在 TSX 与产物里都有落点），全活不该红——判据过严会把组规则逼成单选择器", () => mutate("src/features/creation/history/history-local.css", ".history-field select:focus-visible,\n.history-field input:focus-visible {", ".history-field select:focus-visible,\n.history-field input:focus-visible,\n.library-toolbar input:focus-visible {"), null],
   // 第 8 步批次 Q：删掉了 editorial-studio.css 里那条把 .inbox-detail 内四个元素整体
   // 接管的毯子（`.inbox-detail > .rounded-xl, … blockquote, … article
   // { border-radius: 10px !important; box-shadow: none !important }`）。它的形状和浮层/

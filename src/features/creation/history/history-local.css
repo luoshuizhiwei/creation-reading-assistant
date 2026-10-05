@@ -429,8 +429,9 @@
 
 /* 键盘可达性：统一 focus-visible 焦点环
    （.history-item-actions 的成员随行内按钮迁移一并删掉：容器内已无裸 <button>，
-   该成员永远不会再命中，留着只会被误读成"行内按钮还有裸的"） */
-.history-tabs button:focus-visible,
+   该成员永远不会再命中，留着只会被误读成"行内按钮还有裸的"）
+   （批次 AI：.history-tabs button 同族——历史页 tabs 早已是 <Button>，这支死分支
+   躲在上面两个活分支后面，幻影账按整条规则看所以从没记过它，只删选择器行。） */
 .history-field select:focus-visible,
 .history-field input:focus-visible {
   outline: 2px solid var(--accent-spine);

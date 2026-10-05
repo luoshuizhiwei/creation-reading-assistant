@@ -190,7 +190,6 @@
   color: var(--accent-spine);
 }
 
-.relation-graph-empty,
 .relation-graph-state {
   display: flex;
   flex-direction: column;

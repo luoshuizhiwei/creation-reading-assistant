@@ -220,8 +220,7 @@ select:focus-visible,
   box-shadow: none;
 }
 
-.desktop-card-label,
-.paper-label {
+.desktop-card-label {
   color: var(--accent-spine);
   font-family: var(--font-sans);
   font-size: 11px;
@@ -230,8 +229,7 @@ select:focus-visible,
 }
 
 /* 页首大标题：衬线收字距，压住眉标后的第一眼层级。 */
-.desktop-page-hero h2,
-.project-home-hero h2 {
+.desktop-page-hero h2 {
   letter-spacing: -0.015em;
 }
 
@@ -409,8 +407,7 @@ select:focus-visible,
   margin: 0 auto;
 }
 
-.desktop-page-hero,
-.project-home-hero {
+.desktop-page-hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -432,8 +429,7 @@ select:focus-visible,
   letter-spacing: 0;
 }
 
-.desktop-page-hero p,
-.project-home-hero-copy {
+.desktop-page-hero p {
   max-width: 680px;
   margin: 6px 0 0;
   color: var(--text-muted);
@@ -484,13 +480,13 @@ select:focus-visible,
    口径：静息 --border-subtle 边 + --bg-surface 底 + --text-muted 字，hover 边转
    accent 45% + 底转 --accent-hover(=--action-tint) —— 描边弱填充档，与第 17 页
    .inbox-detail grid 族同一判定，取 outline。md 档（原 min-height:34px）保持默认。
-   两处随族消失的空规则：hover 的 translateY(-1px) 上浮被文件末尾 2804 行的
-   "卡片 hover 不再统一上浮"覆盖掉，从未生效；:active 的 translateY(0) 同理是抵消
-   位移的空操作。inset 高光阴影违反 §2.5。 */
+   两处随族消失的空规则：hover 的 translateY(-1px) 上浮被文件末尾「卡片 hover 不再
+   统一上浮」那条覆盖掉，从未生效；:active 的 translateY(0) 同理是抵消位移的空操作。
+   inset 高光阴影违反 §2.5。
+   批次 AI：本组及首钮 :not 组里的 .project-home-create-first 死分支已摘除——幻影透镜
+   看整条规则，活分支一命中就把死分支的令牌债一起放过了，所以只删选择器、不碰声明。 */
 .desktop-page-actions button,
-.desktop-home-inbox,
-.project-home-create-first,
-.project-home-create-demo {
+.desktop-home-inbox {
   display: inline-flex;
   align-items: center;
   gap: 6px;
@@ -507,23 +503,20 @@ select:focus-visible,
 }
 
 .desktop-page-actions button:hover,
-.desktop-home-inbox:hover,
-.project-home-create-demo:hover {
+.desktop-home-inbox:hover {
   border-color: color-mix(in srgb, var(--accent-spine) 45%, var(--border-strong));
   background: var(--accent-hover);
   color: var(--text-main);
   transform: translateY(-1px);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
-.project-home-create-first {
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {
   border-color: color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth));
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth)));
   color: var(--fg-on-solid);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover,
-.project-home-create-first:hover {
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover {
   border-color: var(--copper-dark);
   background: var(--copper-dark);
   color: var(--fg-on-solid);
@@ -537,13 +530,7 @@ select:focus-visible,
 .stats-card,
 .desktop-panel-card,
 .paper-panel,
-.paper-panel-soft,
-.settings-card,
-.stats-panel,
-.desktop-library-panel,
-.desktop-editor-card,
-.desktop-source-card,
-.desktop-ai-card {
+.desktop-library-panel {
   border-color: var(--border-subtle) !important;
   /* 批次 G：删掉这里的 border-radius: 12px !important。它对这份名单里的绝大多数成员
    * 早就是死代码——本文件后面那条「面板家族」规则（.stats-card, .paper-panel, … 
@@ -561,7 +548,6 @@ select:focus-visible,
 }
 
 .stats-card h3,
-.overview-project-title,
 .background-page-title {
   color: var(--text-main);
   font-family: var(--font-serif);
@@ -665,7 +651,6 @@ select:focus-visible,
 }
 
 .project-home-meta,
-.project-home-goal,
 .project-home-chars,
 .project-home-no-goal {
   color: var(--text-muted);
@@ -1004,8 +989,7 @@ select:focus-visible,
 /* Segmented controls share one pill system. */
 .writing-mode-switch,
 .writing-outline-view-switch,
-.cards-view-switch,
-.history-tabs {
+.cards-view-switch {
   display: inline-flex;
   gap: 2px;
   overflow: hidden;
@@ -1017,15 +1001,13 @@ select:focus-visible,
 
 .writing-mode-switch button,
 .writing-outline-view-switch button,
-.cards-view-switch button,
-.history-tabs button {
+.cards-view-switch button {
   border-radius: 6px;
 }
 
 .writing-mode-switch button.active,
 .writing-outline-view-switch button.active,
-.cards-view-switch button.active,
-.history-tabs button.active {
+.cards-view-switch button.active {
   background: var(--bg-surface);
   color: var(--text-main);
 }
@@ -1038,8 +1020,7 @@ select:focus-visible,
     var(--bg-app);
 }
 
-.scene-editor,
-.writing-continuous {
+.scene-editor {
   position: relative;
   max-width: none;
   margin: 0 auto;
@@ -1049,8 +1030,7 @@ select:focus-visible,
 }
 
 /* Clean manuscript sheet without vertical ruler obstruction */
-.scene-editor::before,
-.writing-continuous::before {
+.scene-editor::before {
   display: none;
 }
 
@@ -1193,8 +1173,7 @@ select:focus-visible,
   background: color-mix(in srgb, var(--bg-surface) 62%, var(--bg-subtle));
 }
 
-.cards-board-column > header,
-.cards-column-head {
+.cards-board-column > header {
   background: color-mix(in srgb, var(--bg-subtle) 82%, var(--studio-paper));
 }
 
@@ -1389,10 +1368,7 @@ select:focus-visible,
 
 .inbox-editor-grid textarea,
 .inbox-editor-grid input,
-.inbox-editor-grid select,
-.settings-card input,
-.settings-card select,
-.settings-card textarea {
+.inbox-editor-grid select {
   border-radius: var(--radius-2);
 }
 
@@ -2018,8 +1994,7 @@ select:focus-visible,
 }
 
 /* Sheets catch the lamp along their top edge and press a contact shadow. */
-.scene-editor,
-.writing-continuous {
+.scene-editor {
   background:
     linear-gradient(180deg, var(--studio-desk-toplight), transparent 240px),
     var(--studio-paper);
@@ -2032,12 +2007,7 @@ select:focus-visible,
 :root[data-app-theme="dark"] .stats-card,
 :root[data-app-theme="dark"] .desktop-panel-card,
 :root[data-app-theme="dark"] .paper-panel,
-:root[data-app-theme="dark"] .settings-card,
-:root[data-app-theme="dark"] .stats-panel,
-:root[data-app-theme="dark"] .desktop-library-panel,
-:root[data-app-theme="dark"] .desktop-editor-card,
-:root[data-app-theme="dark"] .desktop-source-card,
-:root[data-app-theme="dark"] .desktop-ai-card {
+:root[data-app-theme="dark"] .desktop-library-panel {
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.045),
     0 10px 30px rgba(0, 0, 0, 0.38) !important;
@@ -2045,9 +2015,7 @@ select:focus-visible,
 
 /* Buttons are physical: a lit crown, a pressed state. */
 .desktop-page-actions button,
-.desktop-home-inbox,
-.project-home-create-first,
-.project-home-create-demo {
+.desktop-home-inbox {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(34, 38, 48, 0.06);
 }
 
@@ -2057,13 +2025,11 @@ select:focus-visible,
   box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]),
-.project-home-create-first {
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
 }
 
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):active,
-.project-home-create-first:active {
+.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):active {
   transform: translateY(0);
   box-shadow: inset 0 2px 4px rgba(15, 17, 22, 0.22);
 }
@@ -2086,8 +2052,7 @@ input[type="text"],
 }
 
 /* Editorial measure for hero copy. */
-.desktop-page-hero p,
-.project-home-hero-copy {
+.desktop-page-hero p {
   max-width: 40em;
 }
 
@@ -2585,8 +2550,7 @@ input[type="text"],
     padding-left: 44px;
   }
 
-  .scene-editor::before,
-  .writing-continuous::before {
+  .scene-editor::before {
     left: 40px;
   }
 }
@@ -2744,8 +2708,7 @@ input[type="text"],
 }
 
 /* 页面 hero：去卡片化与衬线，标题=无衬线 600（规格 §3.3）。 */
-.desktop-page-hero,
-.project-home-hero {
+.desktop-page-hero {
   border: 0;
   border-bottom: 1px solid var(--separator-subtle);
   border-radius: 0;
@@ -2755,7 +2718,6 @@ input[type="text"],
 }
 
 .desktop-page-hero h2,
-.project-home-hero h2,
 .paper-title {
   font-family: var(--font-ui);
   font-weight: 600;
@@ -2767,8 +2729,7 @@ input[type="text"],
 }
 
 /* 眉标：次级文字小字距，不再是彩色装饰。 */
-.desktop-card-label,
-.paper-label {
+.desktop-card-label {
   color: var(--text-secondary);
   font-weight: 600;
   letter-spacing: 0.1em;
@@ -2783,29 +2744,21 @@ input[type="text"],
 
 /* 主按钮阴影中性化；圆角收敛到规格值。 */
 .desktop-page-actions button,
-.desktop-home-inbox,
-.project-home-create-first,
-.project-home-create-demo {
+.desktop-home-inbox {
   border-radius: var(--radius-control);
 }
 
 .stats-card,
 .desktop-panel-card,
 .paper-panel,
-.settings-card,
-.stats-panel,
-.desktop-library-panel,
-.desktop-editor-card,
-.desktop-source-card,
-.desktop-ai-card {
+.desktop-library-panel {
   border-radius: var(--radius-panel) !important;
   box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;
 }
 
 /* 卡片 hover 不再统一上浮（规格 §3.4）。 */
 .desktop-page-actions button:hover,
-.desktop-home-inbox:hover,
-.project-home-create-demo:hover {
+.desktop-home-inbox:hover {
   transform: none;
   box-shadow: none;
 }
@@ -2933,8 +2886,7 @@ input[type="text"],
   border-left-color: var(--separator);
 }
 
-.writing-annotation-meta,
-.writing-radar-note {
+.writing-annotation-meta {
   color: var(--text-secondary);
 }
 
@@ -2967,8 +2919,8 @@ input[type="text"],
 }
 
 /* 已下线（第 8 步批次 A）：`.project-home-new` / `:hover` 在全仓（含测试、e2e、
-   动态拼类名）零引用——项目首页的「新建」按钮早已是 <Button>（.project-home-create-first
-   一族，也在本文件的遗留按钮容器规则里排队）。留着只会让人以为它还是一条活的皮肤。 */
+   动态拼类名）零引用——项目首页的「新建」按钮早已是 <Button>。
+   （批次 AI 时本注释提到的 .project-home-create-first 死分支已从各组规则摘除。） */
 
 /* 资料库：单行工具栏。 */
 .library-toolbar {

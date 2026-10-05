@@ -1351,7 +1351,6 @@ button:disabled {
 }
 
 .creation-writing-loading,
-.creation-writing-empty,
 .scene-editor-placeholder {
   display: grid;
   min-height: 240px;
@@ -1838,9 +1837,7 @@ button:disabled {
   animation: dialog-pop 180ms ease-out both;
 }
 
-.paste-preview-head,
-.paste-preview-note,
-.paste-preview-actions {
+.paste-preview-note {
   padding-right: 20px;
   padding-left: 20px;
 }
@@ -4523,8 +4520,7 @@ button:disabled {
   font-weight: 700;
 }
 
-.project-home-meta,
-.project-home-goal {
+.project-home-meta {
   color: var(--paper-muted);
   font-size: 12px;
 }
