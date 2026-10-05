@@ -66,6 +66,10 @@ const files = [
   // 仍有活债、needle 唯一的最简 TSX 宿主；分区卡自己转而测本批新立的 TSX hairline 判据。
   "src/features/settings/sections/SectionWrapper.tsx",
   "src/components/ErrorBoundary.tsx",
+  // 批次 AP 的还债用例改这份：药丸 Tabs 那条 shadow-sm 按 §2.5 整条不画了，条目随之移除
+  // ——写回来必须红。⚠ 本仓 §2.5 判据只认 CSS 选择器里的按钮角色，TSX 侧的按钮投影
+  // 由阴影棘轮单独盯（预算条目 0），这颗牙测的就是那条账还咬着。
+  "src/components/ui/Tabs.tsx",
   // 批次 AN 的归级用例改这两份：Dialog / FontPicker 手上那条 Tailwind 刻度外档已按 §5.3
   // 换成属性形式令牌、预算条目随之移除——写回原工具类必须红，否则归级等于给这两处松绑。
   "src/components/ui/Dialog.tsx",
@@ -381,6 +385,12 @@ const cases = [
   ["第 8 步批次 AO·豁免②：border-[color:…] 只给已有的线上色、不建几何（与 CSS 侧只放过 border-color 同形），不该红", () => mutate("src/features/settings/sections/SectionWrapper.tsx", "rounded-[var(--radius-2)] bg-paper-panel p-4 [box-shadow:var(--shadow-1)]", "rounded-[var(--radius-2)] border-[color:var(--proof-mark)] bg-paper-panel p-4 [box-shadow:var(--shadow-1)]"), null],
   ["第 8 步批次 AO·豁免③：hover:border-2 带状态变体前缀，判它需要「哪个状态下同时生效」的映射，本判据保守不判——不该红（宁可漏判不误删）", () => mutate("src/features/settings/sections/SectionWrapper.tsx", "rounded-[var(--radius-2)] bg-paper-panel p-4 [box-shadow:var(--shadow-1)]", "rounded-[var(--radius-2)] hover:border-2 bg-paper-panel p-4 [box-shadow:var(--shadow-1)]"), null],
   ["第 8 步批次 AO·反向：同一串写 --shadow-2 加裸 border 不该红——shadow-2 是纯投影档不含环，边框仍需宿主供值；判据不能把 §5.3 另外三档的正常写法一起咬掉", () => mutate("src/features/settings/sections/SectionWrapper.tsx", "rounded-[var(--radius-2)] bg-paper-panel p-4 [box-shadow:var(--shadow-1)]", "rounded-[var(--radius-2)] border bg-paper-panel p-4 [box-shadow:var(--shadow-2)]"), null],
+  // 第 8 步批次 AP：药丸 Tabs 的投影按 §2.5 整条不画（不是换令牌——§2.5 判据连
+  // var(--shadow-*) 都不豁免，而本仓 §2.5 只认 CSS 选择器里的按钮角色，TSX 侧按钮
+  // 投影靠阴影棘轮按文件记账）。两条牙：写回来必须红；反向证明「无投影」是终态，
+  // 补个 shadow-none 之类的豁免写法也不该红——判据不该逼人把阴影换成阴影的否定式。
+  ["第 8 步批次 AP 回归：把药丸选中态那条 shadow-sm 写回（Tabs 预算条目已随 §2.5 还债移除，出现一处必须红）", () => mutate("src/components/ui/Tabs.tsx", '"bg-paper-panel text-copper font-semibold"', '"bg-paper-panel text-copper shadow-sm font-semibold"'), /阴影刻度/],
+  ["第 8 步批次 AP·反向：药丸写 shadow-none 不该红（棘轮本就豁免 none，§2.5 要的是「没有投影层级」而不是「不许出现 shadow 这个词」）", () => mutate("src/components/ui/Tabs.tsx", '"bg-paper-panel text-copper font-semibold"', '"bg-paper-panel text-copper shadow-none font-semibold"'), null],
   // 第 8 步批次 AF：§2.5「按钮一律无阴影」补进判据。阴影棘轮豁免 var(--shadow-*)，
   // 于是「把按钮手抄投影收敛成令牌」会让棘轮计数下降、守卫全绿，按钮却照样画着投影——
   // 判据自己看不见这类「把违规写得像合规」。§2.5 判据不豁免令牌，专门堵它。

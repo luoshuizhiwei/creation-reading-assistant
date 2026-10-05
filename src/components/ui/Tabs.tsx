@@ -54,8 +54,14 @@ export function Tabs<T extends string = string>({
             className={`${
               variant === "pill"
                 ? `px-3 py-1 text-xs font-medium rounded-md transition ${
+                    // 批次 AP：选中态原本挂 shadow-sm，按规格 §2.5「按钮一律无阴影」删掉。
+                    // 这个药丸是 <button role="tab">，§2.5 管的就是按钮角色——阴影棘轮豁免
+                    // 刻度内令牌，但 §2.5 连令牌也不豁免，所以还法只有「不画投影」这一条。
+                    // 选中态的辨识度交给纯色彩反馈（§2.1 指定的方向）：字色 copper 压 panel
+                    // 晨 6.15:1 / 夜 6.53:1，未选中 muted 压 soft 晨 4.70:1 / 夜 7.72:1，
+                    // 两者本身色差就大，外加 font-semibold 与 aria-selected。
                     active
-                      ? "bg-paper-panel text-copper shadow-sm font-semibold"
+                      ? "bg-paper-panel text-copper font-semibold"
                       : "text-paper-muted hover:text-paper-ink"
                   }`
                 : `px-3 py-2 text-sm font-medium transition border-b-2 -mb-px ${

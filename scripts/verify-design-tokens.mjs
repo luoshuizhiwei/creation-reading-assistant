@@ -1224,13 +1224,15 @@ const isPureRingValue = (v) => {
     // 不发射 box-shadow（批次 K 实测并钉成硬红），写它等于假装还债。
     // 刻意没动：Tabs 药丸的 shadow-sm 属「按钮一律无阴影」（§2.5）那条规矩的活，
     // 和静止卡片归级不是一件事，随按钮批收。
+    // 批次 AP：上面那条「随按钮批收」兑现了——药丸是 <button role="tab">，§2.5 说按钮
+    // 一律无阴影，所以它的还法不是换个令牌（§2.5 判据连 var(--shadow-*) 都不豁免），
+    // 而是整条不画。选中态辨识度实测交给纯色彩反馈。条目随债清零移除。
     // 批次 AO：SectionWrapper 的分区卡归入 --shadow-1，同串的 border border-paper-line
     // 一起撤（AE 的规矩：环包办边框；颜色等价靠 styles.css 里那条
     // `.desktop-canvas .border-paper-line` 与 --paper-line 的别名关系）。条目随债清零移除。
     // 仍不动：ErrorBoundary 那条是全屏故障卡，它的 border 走校样红令牌族（语义色），
     // --shadow-1 的环是 separator 中性色，撤边等于把「出错了」这层语义擦掉——
     // 要收它得先决定故障卡的红边由谁承担，另批处理。
-    "src/components/ui/Tabs.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
     "src/features/settings/encryption/encryption.css": 1,
