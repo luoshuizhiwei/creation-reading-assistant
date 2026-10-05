@@ -1223,7 +1223,11 @@ const isPureRingValue = (v) => {
     "src/features/settings/encryption/encryption.css": 1,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
-    "src/styles.css": 14,
+    // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
+    // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
+    // 余下 10 处全是阅读器外壳一族（7 个夜读皮肤 + paper-topbar + paper-input + .paper-panel），
+    // 随批次 AJ 写进规则的缓期批一起收。
+    "src/styles.css": 10,
     "src/styles/editorial-studio.css": 16
   };
 

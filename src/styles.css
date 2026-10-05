@@ -232,20 +232,10 @@ button:disabled {
     @apply inline-flex items-center rounded-full border border-moss/20 bg-moss-soft px-2.5 py-1 text-xs font-medium text-moss;
   }
 
-  .manuscript-paper {
-    background:
-      linear-gradient(90deg, rgba(138, 90, 43, 0.11) 0 1px, transparent 1px 100%),
-      linear-gradient(180deg, rgba(217, 201, 184, 0.22), rgba(255, 250, 242, 0.92));
-    background-size: 48px 100%, 100% 100%;
-    @apply border border-paper-line bg-paper-panel shadow-paper;
-  }
-
-  .reader-paper {
-    background:
-      radial-gradient(circle at 50% 0%, rgba(255, 255, 255, 0.42), transparent 38%),
-      linear-gradient(180deg, rgba(255, 250, 242, 0.98), rgba(250, 242, 232, 0.94));
-    @apply border border-paper-line bg-paper-panel shadow-paper;
-  }
+  /* 批次 AK 删除 .manuscript-paper / .reader-paper 两条幻影规则：宿主在全仓非 CSS
+   * 文件里零引用（TSX/TS/JSON/HTML/e2e/scripts 逐个查过），守卫宿主谓词同样判查无——
+   * 它们带着 shadow-paper 各计一处债，只能靠删规则还，没有迁移这条路（幻影账口径）。
+   * 真正在渲染的夜读皮肤是 reader-bg-* 一族，见下面仍在的 7 条。 */
 
   .reader-bg-white {
     background:
@@ -434,9 +424,8 @@ button:disabled {
     animation: paper-soft-in 180ms ease both;
   }
 
-  .reader-glassbar {
-    @apply border border-paper-line bg-paper-panel/86 shadow-paper backdrop-blur-md;
-  }
+  /* 批次 AK 删除 .reader-glassbar：同上一条幻影（全仓非 CSS 零引用、宿主谓词查无），
+   * 那条 shadow-paper 是它名下唯一的债，删规则即还。 */
 }
 
 .desktop-workbench {
@@ -597,7 +586,10 @@ button:disabled {
   border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--paper-panel) 78%, transparent);
-  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);
+  /* 批次 AK：退役这里的 box-shadow: 0 12px 30px rgba(59,39,24,0.055)。胜者表实测
+   * editorial-studio.css L214 的同特异度 box-shadow: none 加载更晚、一直压着它——
+   * 这条手抄投影从未画出一个像素（批次 N 那族「层叠上被压死」，不是宿主不存在）。
+   * border/background 保留：editorial 只覆盖 border-top 一侧，左右下三边仍由这里供值。 */
 }
 
 .desktop-sidebar-card {

@@ -327,6 +327,11 @@ const cases = [
   ["第 8 步批次 AJ 回归：把退役的手抄投影写回新家族半区（editorial 预算仍是 16——拆出去的那条留着手抄债——多一处必须红）", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1) !important;", "  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;"), /阴影刻度/],
   ["第 8 步批次 AJ·hairline：给归入 var(--shadow-1) !important 的新家族规则加回同规则 border——AE 的 hairline 不变量对 !important 版本同样成立，必须红", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1) !important;", "  border: 1px solid var(--border-subtle);\n  box-shadow: var(--shadow-1) !important;"), /hairline 双拼/],
   ["第 8 步批次 AJ·TSX 侧还债自检：把灵感页那条 shadow-paper 工具类写回（InspirationPage 预算条目已随本批移除，出现 1 处必须红——否则这次退役等于给该页松了绑）", () => mutate("src/features/inspiration/InspirationPage.tsx", '"desktop-panel-card motion-panel bg-paper-panel p-6"', '"desktop-panel-card motion-panel border border-paper-line bg-paper-panel p-6 shadow-paper"'), /阴影刻度/],
+  // 第 8 步批次 AK：styles.css 退役 4 处（1 处层叠压死的投影 + 3 条幻影规则整删）。
+  // 这三条测的是「退役有没有顺手把 styles.css 的咬合力一起删掉」，并证明合法写法不误伤。
+  ["第 8 步批次 AK 回归：把被压死的手抄投影写回 .desktop-sidebar-card（styles.css 预算已降到 10，多一处必须红——否则退役等于给该文件松绑）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);", ".desktop-sidebar-card {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);"), /阴影刻度/],
+  ["第 8 步批次 AK 回归②：把整条删掉的幻影 .reader-glassbar 原样复活（宿主依旧查无——它名下的 shadow-paper 债回来了，棘轮必须咬住）", () => mutate("src/styles.css", "  .motion-notice {\n    animation: paper-soft-in 180ms ease both;\n  }", "  .motion-notice {\n    animation: paper-soft-in 180ms ease both;\n  }\n\n  .reader-glassbar {\n    @apply border border-paper-line bg-paper-panel/86 shadow-paper backdrop-blur-md;\n  }"), /阴影刻度/],
+  ["第 8 步批次 AK·反向：给同一宿主写 var(--shadow-2) 不该红——刻度内换档是合法收敛，且 shadow-2 是纯投影档、与这条规则保留的 border 共存合法（AE 的 hairline 只管 shadow-1 的环）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);", ".desktop-sidebar-card {\n  box-shadow: var(--shadow-2);\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);"), null],
   // 第 8 步批次 AF：§2.5「按钮一律无阴影」补进判据。阴影棘轮豁免 var(--shadow-*)，
   // 于是「把按钮手抄投影收敛成令牌」会让棘轮计数下降、守卫全绿，按钮却照样画着投影——
   // 判据自己看不见这类「把违规写得像合规」。§2.5 判据不豁免令牌，专门堵它。
