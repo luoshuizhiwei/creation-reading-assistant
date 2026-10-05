@@ -1217,7 +1217,7 @@ const isPureRingValue = (v) => {
     "src/features/creation/inbox/ai-send-confirm.tsx": 1,
     "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
-    "src/features/inspiration/InspirationPage.tsx": 1,
+    // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/settings/SettingsSearch.tsx": 1,
     "src/features/settings/encryption/encryption.css": 1,

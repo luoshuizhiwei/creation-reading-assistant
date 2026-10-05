@@ -49,7 +49,10 @@ const files = [
   "src/features/creation/editor/WritingDesk.tsx",
   // 批次 AG 的「透镜退化」用例改这份：它是 .desktop-search-command 唯一的宿主（RingButton），
   // 把该类名挪到非按钮元素上，用来测「登记的控件类名不再被认成纯按钮类名」必须红。
-  "src/components/layout/DesktopFrame.tsx"
+  "src/components/layout/DesktopFrame.tsx",
+  // 批次 AJ 的还债用例改这份：灵感页那条 shadow-paper 工具类一直被面板家族 !important 压着
+  // （从没画出来过），随 .desktop-panel-card 归入 --shadow-1 一起删掉了——写回来必须红。
+  "src/features/inspiration/InspirationPage.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -233,7 +236,9 @@ const cases = [
   // ②给活家族规则挂一支 AH 删过的孤儿类名，证明「复活孤儿并寄生在活规则里」这条新路一样被咬；
   // 反向那条钉判据别过严：全是活分支的组规则不该红，否则下一批人会把组规则拆成单选择器绕开它。
   ["第 8 步批次 AI 回归：把摘掉的 .history-tabs button:focus-visible 死分支接回活组（幻影账看整条规则会整条放过，死分支判据必须单独咬住）", () => mutate("src/features/creation/history/history-local.css", ".history-field select:focus-visible,\n.history-field input:focus-visible {", ".history-tabs button:focus-visible,\n.history-field select:focus-visible,\n.history-field input:focus-visible {"), /第 8 步死分支/],
-  ["第 8 步批次 AI 回归②：给活的面板家族规则挂一支 AH 已整族下线的 .desktop-start-hero（宿主依旧查无——孤儿复活时寄生在活分支后面，两本账都不露面，必须靠死分支判据拦住）", () => mutate("src/styles/editorial-studio.css", ".stats-card,\n.desktop-panel-card,\n.paper-panel,\n.desktop-library-panel {\n  border-radius: var(--radius-panel) !important;", ".stats-card,\n.desktop-panel-card,\n.paper-panel,\n.desktop-library-panel,\n.desktop-start-hero {\n  border-radius: var(--radius-panel) !important;"), /第 8 步死分支/],
+  // ⚠ 批次 AJ 把这条家族规则按「能不能归 --shadow-1」拆成两半（.stats-card/.paper-panel 留手抄投影，
+  // .desktop-panel-card/.desktop-library-panel 归令牌），needle 随之改钉拆分后的新家族半区。
+  ["第 8 步批次 AI 回归②：给活的面板家族规则挂一支 AH 已整族下线的 .desktop-start-hero（宿主依旧查无——孤儿复活时寄生在活分支后面，两本账都不露面，必须靠死分支判据拦住）", () => mutate("src/styles/editorial-studio.css", ".desktop-panel-card,\n.desktop-library-panel {\n  border-radius: var(--radius-panel) !important;", ".desktop-panel-card,\n.desktop-library-panel,\n.desktop-start-hero {\n  border-radius: var(--radius-panel) !important;"), /第 8 步死分支/],
   ["第 8 步批次 AI·反向：给同一条活组再加一支宿主存在的分支（.library-toolbar 在 TSX 与产物里都有落点），全活不该红——判据过严会把组规则逼成单选择器", () => mutate("src/features/creation/history/history-local.css", ".history-field select:focus-visible,\n.history-field input:focus-visible {", ".history-field select:focus-visible,\n.history-field input:focus-visible,\n.library-toolbar input:focus-visible {"), null],
   // 第 8 步批次 Q：删掉了 editorial-studio.css 里那条把 .inbox-detail 内四个元素整体
   // 接管的毯子（`.inbox-detail > .rounded-xl, … blockquote, … article
@@ -316,6 +321,12 @@ const cases = [
   ["第 8 步批次 AE·hairline 不变量补侧向：只写 border-top 也红——环在四条边都在，任何一条边再叠 border 同样翻倍，别把侧描边当逃生舱", () => mutate("src/styles/editorial-studio.css", ".desktop-inspiration-page {\n  gap: 0;\n", ".desktop-inspiration-page {\n  border-top: 1px solid var(--border-subtle);\n  gap: 0;\n"), /hairline 双拼/],
   ["第 8 步批次 AE·hairline 反向：border-color 不建几何（宽度为 0 时它是哑的），给同一 var(--shadow-1) 规则加 border-color 不该红——判据不能误伤合法上色", () => mutate("src/styles/editorial-studio.css", ".desktop-inspiration-page {\n  gap: 0;\n", ".desktop-inspiration-page {\n  border-color: var(--copper);\n  gap: 0;\n"), null],
   ["第 8 步批次 AE·反向：同一宿主把 var(--shadow-1) 换成 var(--shadow-2) 不该红——刻度内换档是合法调整，shadow-2 不含 hairline 层所以没有双拼问题", () => mutate("src/styles/editorial-studio.css", "  background: var(--bg-surface);\n  box-shadow: var(--shadow-1);\n}\n\n.project-nav {", "  background: var(--bg-surface);\n  box-shadow: var(--shadow-2);\n}\n\n.project-nav {"), null],
+  // 第 8 步批次 AJ：面板家族里 .desktop-panel-card / .desktop-library-panel 归 --shadow-1，
+  // 三处边框来源（styles.css 的 1px solid、深色大投影盖掉浅环后补的 border、灵感页挂的
+  // border/shadow-paper 工具类）同批处理。下面三条分别测这三个来源各自的账有没有咬合。
+  ["第 8 步批次 AJ 回归：把退役的手抄投影写回新家族半区（editorial 预算仍是 16——拆出去的那条留着手抄债——多一处必须红）", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1) !important;", "  box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;"), /阴影刻度/],
+  ["第 8 步批次 AJ·hairline：给归入 var(--shadow-1) !important 的新家族规则加回同规则 border——AE 的 hairline 不变量对 !important 版本同样成立，必须红", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1) !important;", "  border: 1px solid var(--border-subtle);\n  box-shadow: var(--shadow-1) !important;"), /hairline 双拼/],
+  ["第 8 步批次 AJ·TSX 侧还债自检：把灵感页那条 shadow-paper 工具类写回（InspirationPage 预算条目已随本批移除，出现 1 处必须红——否则这次退役等于给该页松了绑）", () => mutate("src/features/inspiration/InspirationPage.tsx", '"desktop-panel-card motion-panel bg-paper-panel p-6"', '"desktop-panel-card motion-panel border border-paper-line bg-paper-panel p-6 shadow-paper"'), /阴影刻度/],
   // 第 8 步批次 AF：§2.5「按钮一律无阴影」补进判据。阴影棘轮豁免 var(--shadow-*)，
   // 于是「把按钮手抄投影收敛成令牌」会让棘轮计数下降、守卫全绿，按钮却照样画着投影——
   // 判据自己看不见这类「把违规写得像合规」。§2.5 判据不豁免令牌，专门堵它。

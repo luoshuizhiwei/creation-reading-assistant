@@ -538,7 +538,10 @@ select:focus-visible,
    * （级联探针实测实渲 8px）。真正还在生效的只有当时不在家族名单里的 .desktop-panel-card
    * ——它把 styles.css 的 20px 和 InspirationPage 自己挂的 rounded-2xl 一起吃掉，
    * 以及已无 TSX 消费者的 .paper-panel-soft。
-   * 批次 G 把 .desktop-panel-card 归入家族名单，面板圆角自此只有一个来源。 */
+   * 批次 G 把 .desktop-panel-card 归入家族名单，面板圆角自此只有一个来源。
+   * 批次 AJ：.desktop-panel-card / .desktop-library-panel 的 border 宽度来源（styles.css
+   * 那条 1px solid）已随归入 --shadow-1 一起退役，这里的 border-color 对它俩从此是哑的
+   * （宽度 0 时不建几何）——仍留在这份名单里，因为 background 四家都还要靠这条压住。 */
   background: var(--bg-surface) !important;
 }
 
@@ -2013,6 +2016,19 @@ select:focus-visible,
     0 10px 30px rgba(0, 0, 0, 0.38) !important;
 }
 
+/* 批次 AJ：浅色下 .desktop-panel-card / .desktop-library-panel 的边归 --shadow-1 的
+ * hairline 包办（styles.css 那条 1px solid 已退役）；深色下上面那条 !important 大投影
+ * 特异度更高（0,2,1 vs 0,1,0）、会把浅色的环整条盖掉——不补边等于夜校面板既没有环
+ * 也没有边。补的这条就是它们此前在夜校实渲的那条线（L531 的 border-color !important
+ * 早就把 82% color-mix 压成了 solid --border-subtle ≡ --separator-subtle），逐像素不变。
+ * ⚠ 名单刻意只含这两家：.stats-card / .paper-panel 各自的 1px 来源都还在 styles.css，
+ * 而 .paper-panel 的消费方里有靠 (0,1,0) 工具类 border-0 压掉组件层 .paper-panel
+ * 的无边阅读器面板——这条 (0,2,1) 的深色规则会把那种刻意豁免吃掉，无声改版。 */
+:root[data-app-theme="dark"] .desktop-panel-card,
+:root[data-app-theme="dark"] .desktop-library-panel {
+  border: 1px solid var(--separator-subtle);
+}
+
 /* Buttons are physical: a lit crown, a pressed state. */
 .desktop-page-actions button,
 .desktop-home-inbox {
@@ -2749,11 +2765,23 @@ input[type="text"],
 }
 
 .stats-card,
-.desktop-panel-card,
-.paper-panel,
-.desktop-library-panel {
+.paper-panel {
   border-radius: var(--radius-panel) !important;
   box-shadow: 0 1px 2px rgba(15, 20, 28, 0.04) !important;
+}
+
+/* 批次 AJ：面板家族里只有这两家能归 --shadow-1（AE 立的规矩：环包办边框，同元素的
+ * 可见 border 必须一起退役）。另两家留在上面那条手抄投影上，原因是「环取消不掉」：
+ *   · .stats-card 与 .inbox-item / .inbox-load-more 复合——收件箱行用
+ *     border: 0 !important + 只留底边、翻页条用虚线框，这些显式豁免只关得住 border，
+ *     关不住 --shadow-1 的 0 0 0 1px 环——每一行都会凭空多出一整圈盒框。
+ *   · .paper-panel 是共享 ShellPanel，阅读器 5 个消费方刻意挂 border-0 / border-y-0
+ *     border-r-0 要无边面板，同样的环躲不掉。
+ * 这两族各自的双拼账要随「收件箱列表版式」「阅读器外壳」批次一起收，不在本批。 */
+.desktop-panel-card,
+.desktop-library-panel {
+  border-radius: var(--radius-panel) !important;
+  box-shadow: var(--shadow-1) !important;
 }
 
 /* 卡片 hover 不再统一上浮（规格 §3.4）。 */
