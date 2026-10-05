@@ -31,7 +31,13 @@ export function SettingsGroup({
   className?: string;
 }) {
   return (
-    <AnimatedPanel className={`rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-4 shadow-lift ${className}`}>
+    // 批次 AO：静止分区卡归 §5.3 的 --shadow-1（房内先例见 ReadingStatsPage 那批
+    // motion-panel 卡，写法一致）。按批次 AE 立的规矩，--shadow-1 自带的
+    // 0 0 0 1px var(--separator-subtle) 环包办边框，同串的 border border-paper-line 必须
+    // 一起撤掉——留着就是同色并排拼成 2px 双线边。颜色等价已核：这些分区卡渲染在
+    // .desktop-canvas 里，那条 `.desktop-canvas .border-paper-line { border-color: var(--paper-line) }`
+    // 和 styles.css :41 的 --paper-line: var(--separator-subtle) 让两者本来就是同一条线。
+    <AnimatedPanel className={`rounded-[var(--radius-2)] bg-paper-panel p-4 [box-shadow:var(--shadow-1)] ${className}`}>
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-paper-ink">{title}</h2>

@@ -1222,14 +1222,18 @@ const isPureRingValue = (v) => {
     // （字体下拉、设置搜索下拉、书库排序下拉）。条目随债清零移除。
     // ⚠ 必须用属性形式：方括号工具类 shadow-[var(...)] 在产物里只产 --tw-shadow-color、
     // 不发射 box-shadow（批次 K 实测并钉成硬红），写它等于假装还债。
-    // 刻意没动：Tabs 药丸的 shadow-sm 与 SectionWrapper 的 shadow-lift 属「静止卡片」轴
-    // （归 --shadow-1 就要按 AE 的规矩撤掉它们的 border，是独立一次设计决定，另批处理）；
-    // ErrorBoundary 那条同理，它是全屏故障卡而非浮层。
+    // 刻意没动：Tabs 药丸的 shadow-sm 属「按钮一律无阴影」（§2.5）那条规矩的活，
+    // 和静止卡片归级不是一件事，随按钮批收。
+    // 批次 AO：SectionWrapper 的分区卡归入 --shadow-1，同串的 border border-paper-line
+    // 一起撤（AE 的规矩：环包办边框；颜色等价靠 styles.css 里那条
+    // `.desktop-canvas .border-paper-line` 与 --paper-line 的别名关系）。条目随债清零移除。
+    // 仍不动：ErrorBoundary 那条是全屏故障卡，它的 border 走校样红令牌族（语义色），
+    // --shadow-1 的环是 separator 中性色，撤边等于把「出错了」这层语义擦掉——
+    // 要收它得先决定故障卡的红边由谁承担，另批处理。
     "src/components/ui/Tabs.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
     "src/features/settings/encryption/encryption.css": 1,
-    "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,
     // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
     // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
@@ -1601,6 +1605,31 @@ const buttonClassMounts = (() => {
       if (borders.length === 0) return;
       COLLIDERS.push(`${rel}:${rule.source.start.line} ${rule.selector.replace(/\s+/g, " ").trim()} { ${borders.join("; ")} } + box-shadow: ${shadow.trim()}`);
     });
+  }
+  /* 批次 AO 补的 TSX/TS 侧同判据。不补就是本批判据的裂缝：CSS 侧管不到的那半边
+   * ——把静止卡收敛成 [box-shadow:var(--shadow-1)] 是棘轮豁免的合法写法（计数会降），
+   * 可同串里若还挂着 border 工具类，AE 说的 2px 双线边照样成立，判据却看不见。
+   * ⚠ 只判**无状态变体前缀**的裸宽度类（lookbehind 把 `:` `.` `/` `-` 都挡在外面）：
+   *   hover:border-x-2 这类跨状态的组合需要「哪个状态下同时生效」的映射，判它等于猜，
+   *   方向永远保守（宁可漏判不误删，同批次 X 的教训）。
+   * ⚠ border-0 一族不判（宽度归零，哑的）；border-<颜色> 一族不判（只 --tw-border-opacity
+   *   上色，不建几何）——两条豁免与 CSS 侧的 INVISIBLE / 只放过 border-color 完全同形。
+   * ⚠ 只认能真发射的属性形式 [box-shadow:var(--shadow-1)]：方括号工具类 shadow-[var(...)]
+   *   在产物里只产 --tw-shadow-color、压根没有 box-shadow 声明（批次 K 实测），
+   *   它自己另有硬红判据，这里不去重复判一个画不出阴影的东西。
+   */
+  const TSX_SHADOW1 = /(?<![:A-Za-z0-9_-])\[box-shadow:var\(--shadow-1\)\]/;
+  const TSX_BORDER_WIDTH = /(?<![A-Za-z0-9_:./-])border(?:-[trblxy])?(?:-0|-[248])?(?![\w[-])/g;
+  for (const p of allSource.filter((x) => /\.(tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    preserveNewlines(readFileSync(p, "utf8"))
+      .split("\n")
+      .forEach((line, i) => {
+        if (!TSX_SHADOW1.test(line)) return;
+        const bs = (line.match(TSX_BORDER_WIDTH) ?? []).filter((t) => !t.endsWith("-0"));
+        if (!bs.length) return;
+        COLLIDERS.push(`${rel}:${i + 1} 类名串 { ${bs.join(", ")} } + [box-shadow:var(--shadow-1)]`);
+      });
   }
   if (COLLIDERS.length) {
     fail(
