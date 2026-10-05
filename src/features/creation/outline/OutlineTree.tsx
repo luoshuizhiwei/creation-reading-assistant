@@ -111,7 +111,9 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
   return (
     <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={onCancel}>
       <section
-        className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-paper"
+        // 批次 AM：原本挂 shadow-paper——jsdom 读真实产物 computed 值实测带与不带都是
+        // var(--shadow-3)，家族 .motion-dialog 的 !important 一直压着它，零视觉。
+        className="motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="outline-prompt-title"

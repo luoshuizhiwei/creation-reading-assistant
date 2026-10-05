@@ -52,7 +52,13 @@ const files = [
   "src/components/layout/DesktopFrame.tsx",
   // 批次 AJ 的还债用例改这份：灵感页那条 shadow-paper 工具类一直被面板家族 !important 压着
   // （从没画出来过），随 .desktop-panel-card 归入 --shadow-1 一起删掉了——写回来必须红。
-  "src/features/inspiration/InspirationPage.tsx"
+  "src/features/inspiration/InspirationPage.tsx",
+  // 批次 AM 的还债用例改这三份：它们挂 motion-dialog / motion-toast，手上的 shadow-paper
+  // 一直被家族 var(--shadow-3) / var(--shadow-4) !important 压着（jsdom 读产物实测带与
+  // 不带同值），随本批删掉——写回来必须红，否则退役等于给这三个浮层松了绑。
+  "src/components/interaction.tsx",
+  "src/features/creation/inbox/ai-send-confirm.tsx",
+  "src/features/creation/outline/OutlineTree.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -338,6 +344,15 @@ const cases = [
   ["第 8 步批次 AL 回归：把退役的 shadow-lift 写回 .paper-panel（它一直被家族那条 !important 压着、从未渲染，但债是真的——写回来必须红）", () => mutate("src/styles.css", "@apply border border-paper-line bg-paper-panel;", "@apply border border-paper-line bg-paper-panel shadow-lift;"), /阴影刻度/],
   ["第 8 步批次 AL 回归②：把退役的任意值投影写回 .paper-topbar（同上，被两条 box-shadow: none 压死，但棘轮必须认这笔债）", () => mutate("src/styles.css", "@apply border-b border-paper-line bg-paper-panel/90 backdrop-blur-xl;", "@apply border-b border-paper-line bg-paper-panel/90 shadow-[0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-xl;"), /阴影刻度/],
   ["第 8 步批次 AL·反向：@apply 用属性形式 [box-shadow:var(--shadow-2)] 是**能真发射**的合法收敛写法，不该红——批次 K 钉的正是「方括号工具类只产 --tw-shadow-color、属性形式才产 box-shadow」这条区别，判据不能把自己的正解也咬掉", () => mutate("src/styles.css", "@apply border border-paper-line bg-paper-panel;", "@apply border border-paper-line bg-paper-panel [box-shadow:var(--shadow-2)];"), null],
+  // 第 8 步批次 AM：四个浮层宿主（ToastCenter / ConfirmDialog / ai-send-confirm / OutlineTree 的
+  // 重命名弹窗）手上的 shadow-paper 一直被家族 .motion-dialog / .motion-toast 的
+  // var(--shadow-3) / var(--shadow-4) !important 压着——jsdom 读真实产物 computed 值实测
+  // 带与不带同值，属零视觉退役，但债是真的，所以写回来必须红。第四条测 AE 的边界：
+  // 双拼规矩只管 --shadow-1 的 hairline 环，--shadow-3 是纯投影档，同规则配 border 合法。
+  ["第 8 步批次 AM 回归：把退役的 shadow-paper 写回 ToastCenter（motion-toast 预算条目已随退役移除，出现一处必须红）", () => mutate("src/components/interaction.tsx", "motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 ${toastClass[toast.tone]}", "motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 shadow-paper ${toastClass[toast.tone]}"), /阴影刻度/],
+  ["第 8 步批次 AM 回归②：把退役的 shadow-paper 写回 AI 发送确认弹窗（同上，条目已移除）", () => mutate("src/features/creation/inbox/ai-send-confirm.tsx", '"motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5"', '"motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5 shadow-paper"'), /阴影刻度/],
+  ["第 8 步批次 AM 回归③：把退役的 shadow-paper 写回大纲重命名弹窗（同上，条目已移除——三份宿主各自记账，缺一个就少一个锚）", () => mutate("src/features/creation/outline/OutlineTree.tsx", 'motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel"', 'motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-paper"'), /阴影刻度/],
+  ["第 8 步批次 AM·反向：给 .motion-dialog 那条 var(--shadow-3) !important 加同规则 border 不该红——AE 的 hairline 双拼只管 shadow-1 的 0 0 0 1px 环，shadow-3 是纯投影档、对话框带边框是正常设计", () => mutate("src/styles/editorial-studio.css", ".motion-dialog,\n.confirm-dialog {\n  box-shadow: var(--shadow-3) !important;", ".motion-dialog,\n.confirm-dialog {\n  border: 1px solid var(--border-subtle);\n  box-shadow: var(--shadow-3) !important;"), null],
   // 第 8 步批次 AF：§2.5「按钮一律无阴影」补进判据。阴影棘轮豁免 var(--shadow-*)，
   // 于是「把按钮手抄投影收敛成令牌」会让棘轮计数下降、守卫全绿，按钮却照样画着投影——
   // 判据自己看不见这类「把违规写得像合规」。§2.5 判据不豁免令牌，专门堵它。

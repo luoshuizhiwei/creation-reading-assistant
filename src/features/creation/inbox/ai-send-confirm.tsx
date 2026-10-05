@@ -80,7 +80,9 @@ export function AiSendConfirmDialog({
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-paper-ink/10 px-6 backdrop-blur-[1px]" role="presentation">
-      <section className="motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5 shadow-paper" role="dialog" aria-modal="true" aria-label="AI 发送确认" data-testid="ai-send-confirm">
+      {/* 批次 AM：原本挂 shadow-paper——jsdom 读真实产物 computed 值实测带与不带都是
+        * var(--shadow-3)，家族 .motion-dialog 的 !important 一直压着它，零视觉。 */}
+      <section className="motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5" role="dialog" aria-modal="true" aria-label="AI 发送确认" data-testid="ai-send-confirm">
         <div className="flex items-start gap-3">
           <div className="rounded-full border border-copper/20 bg-copper/10 p-2 text-copper">
             <Sparkles size={18} />

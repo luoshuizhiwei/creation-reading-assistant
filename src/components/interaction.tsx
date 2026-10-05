@@ -87,8 +87,12 @@ export function ToastCenter() {
     <div className="pointer-events-none absolute right-5 top-5 z-[70] grid w-[min(380px,calc(100vw-40px))] gap-2">
       {toasts.map((toast) => {
         const Icon = toastIcon[toast.tone];
+        // 批次 AM：这里原本挂 shadow-paper。jsdom 加载真实产物读 computed 值实测：
+        // 带它和不带它都是 var(--shadow-4)——editorial-studio.css 的 .motion-toast
+        // `box-shadow: var(--shadow-4) !important` 一直压着这条工具类（批次 N 那族层叠死），
+        // 它从未画出一个像素，只在全仓阴影台账里挂着一笔真债。投影交给家族令牌。
         return (
-          <article key={toast.id} className={`motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 shadow-paper ${toastClass[toast.tone]}`}>
+          <article key={toast.id} className={`motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 ${toastClass[toast.tone]}`}>
             <div className="flex items-start gap-3">
               <Icon className="mt-0.5 shrink-0" size={17} />
               <div className="min-w-0 flex-1">
@@ -150,7 +154,10 @@ export function ConfirmDialog() {
   const Icon = danger ? AlertOctagon : warning ? AlertTriangle : HelpCircle;
   return (
     <div className="absolute inset-0 z-[80] grid place-items-center bg-paper-ink/18 px-6 backdrop-blur-sm" onClick={() => resolveConfirm(false)}>
-      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-paper" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
+      {/* 批次 AM：原本挂 shadow-paper，同 ToastCenter 那条——jsdom 实测带与不带都是
+        * var(--shadow-3)（家族 .motion-dialog 的 !important 压着）。border 留着：
+        * --shadow-3 是纯投影档、不含 hairline 环，边框仍需这里供值（AE 只管 shadow-1）。 */}
+      <section className="motion-dialog w-[min(460px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel" role="dialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" onClick={(e) => e.stopPropagation()}>
         {/* 顶部 1px 状态条：实色底，走令牌族后晨/夜两边都过（红 5.45 / 5.59，
             琥珀 5.60 / 5.23 压在面板上）。原先的 bg-red-500(#ef4444) 在晨校面板只有
             3.57:1，且夜校还是同一支亮红——它不跟主题走。 */}

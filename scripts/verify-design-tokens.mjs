@@ -1210,12 +1210,16 @@ const isPureRingValue = (v) => {
    */
   const SHADOW_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
-    "src/components/interaction.tsx": 2,
+    // 批次 AM：这三份宿主都挂 motion-dialog / motion-toast，家族那条
+    // box-shadow: var(--shadow-3) / var(--shadow-4) !important 加载更晚且带 !important，
+    // 一直压着手上的 shadow-paper 工具类——jsdom 读真实产物 computed 值实测「带它」和
+    // 「不带它」完全同值，工具类从未画出一个像素，只挂着一笔真债。删工具类、留 border
+    // （--shadow-3/4 是纯投影档、不含 hairline 环，AE 的双拼规矩对它们不成立）。
+    // "src/components/interaction.tsx"、"src/features/creation/inbox/ai-send-confirm.tsx"、
+    // "src/features/creation/outline/OutlineTree.tsx" 三条随退役归零、条目移除。
     "src/components/ui/Dialog.tsx": 1,
     "src/components/ui/FontPicker.tsx": 1,
     "src/components/ui/Tabs.tsx": 1,
-    "src/features/creation/inbox/ai-send-confirm.tsx": 1,
-    "src/features/creation/outline/OutlineTree.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
     "src/features/library/LibraryPage.tsx": 1,
