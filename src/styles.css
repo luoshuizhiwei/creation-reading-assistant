@@ -196,16 +196,24 @@ button:disabled {
     @apply bg-paper-bg text-paper-ink;
   }
 
+  /* 批次 AL：这里原本 @apply shadow-lift。胜者表实测它从未生效——
+   * editorial-studio.css 的家族规则 `box-shadow: 0 1px 2px … !important` 加载更晚且带
+   * !important，一直压着这条手抄投影（批次 N 那族层叠死），删除零视觉。
+   * border/background 照旧：家族只管圆角和投影，1px 线仍由这里供值。 */
   .paper-panel {
-    @apply border border-paper-line bg-paper-panel shadow-lift;
+    @apply border border-paper-line bg-paper-panel;
   }
 
   .paper-panel-soft {
     @apply border border-paper-line bg-paper-soft/55;
   }
 
+  /* 批次 AL：这里原本 @apply shadow-[0 1px 0 rgba(255,255,255,0.45)]。同上一条层叠死：
+   * editorial-studio.css L1837 `.reader-root .paper-topbar`（0,2,0）和 L2755 `.paper-topbar`
+   * （0,1,0、加载更晚）都把 box-shadow: none 压在它上面，那条白色 1px 浮影从未画出像素。
+   * border-b / background / backdrop-blur 保留：这里仍是它们的值来源之一。 */
   .paper-topbar {
-    @apply border-b border-paper-line bg-paper-panel/90 shadow-[0_1px_0_rgba(255,255,255,0.45)] backdrop-blur-xl;
+    @apply border-b border-paper-line bg-paper-panel/90 backdrop-blur-xl;
   }
 
   .paper-label {

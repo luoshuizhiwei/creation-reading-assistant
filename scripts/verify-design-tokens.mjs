@@ -1225,9 +1225,14 @@ const isPureRingValue = (v) => {
     "src/features/settings/settings-controls.css": 1,
     // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
     // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
-    // 余下 10 处全是阅读器外壳一族（7 个夜读皮肤 + paper-topbar + paper-input + .paper-panel），
-    // 随批次 AJ 写进规则的缓期批一起收。
-    "src/styles.css": 10,
+    // 批次 AL：再退役 2 处，同一族「层叠压死」，胜者表实测从未画出一个像素——
+    //   .paper-panel 的 @apply shadow-lift（被家族那条 0 1px 2px !important 压着）、
+    //   .paper-topbar 的 @apply shadow-[0_1px_0_...]（被 .reader-root .paper-topbar 与
+    //   本文件 L2755 的 box-shadow: none 双重压着）。border/background 一律保留。
+    // 余下 8 处是 7 个夜读皮肤 + .paper-input:focus 的焦点柔光，都是**真在渲染**的值：
+    // 皮肤那条是纸面浮影（收它=可感知改版，另批处理），focus 那条是 3px 描边柔光 +
+    // ring-1 合成，属 §2.3 焦点机制而非 §5.3 投影层级。
+    "src/styles.css": 8,
     "src/styles/editorial-studio.css": 16
   };
 
