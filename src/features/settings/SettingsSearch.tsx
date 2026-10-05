@@ -73,7 +73,7 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
         />
       </div>
       {open && query.trim() !== "" && (
-        <div className="absolute left-2 right-2 top-full z-40 mt-1 overflow-hidden rounded-[var(--radius-2)] border border-paper-line bg-paper-panel py-1 shadow-lift">
+        <div className="absolute left-2 right-2 top-full z-40 mt-1 overflow-hidden rounded-[var(--radius-2)] border border-paper-line bg-paper-panel py-1 [box-shadow:var(--shadow-2)]">
           {results.length === 0 ? (
             <div className="px-3 py-2 text-xs text-paper-muted">没有找到相关设置项</div>
           ) : (

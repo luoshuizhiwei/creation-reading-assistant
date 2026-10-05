@@ -173,7 +173,8 @@
   backdrop-filter: blur(3px);
 }
 
-/* 面板圆角与投影交给共享 <Dialog>（rounded-[var(--radius-3)] / shadow-2xl）。
+/* 面板圆角与投影交给共享 <Dialog>（rounded-[var(--radius-3)] / [box-shadow:var(--shadow-3)]，
+   第 8 步批次 AN 把组件那条 Tailwind 刻度外档 shadow-2xl 收上了 §5.3 四级）。
    这里原先那对 14px + 手抄重投影是一条裸类名接管：本文件是 HistoryPage 的懒加载
    chunk，发射晚于 index CSS，同特异度下把组件自己挂在 className 上的刻度工具类整条
    压掉——第 8 步批次 S 收口，判据见 verify-design-tokens.mjs 的「共享组件面板」不变量。 */

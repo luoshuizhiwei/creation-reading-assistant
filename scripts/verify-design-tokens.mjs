@@ -1217,13 +1217,17 @@ const isPureRingValue = (v) => {
     // （--shadow-3/4 是纯投影档、不含 hairline 环，AE 的双拼规矩对它们不成立）。
     // "src/components/interaction.tsx"、"src/features/creation/inbox/ai-send-confirm.tsx"、
     // "src/features/creation/outline/OutlineTree.tsx" 三条随退役归零、条目移除。
-    "src/components/ui/Dialog.tsx": 1,
-    "src/components/ui/FontPicker.tsx": 1,
+    // 批次 AN：这四处是**真改版**——没有家族 !important 接管，手上那条就是实渲值，
+    // 按 §5.3 归级换成属性形式 [box-shadow:var(--shadow-3)]（对话框）/ var(--shadow-2)
+    // （字体下拉、设置搜索下拉、书库排序下拉）。条目随债清零移除。
+    // ⚠ 必须用属性形式：方括号工具类 shadow-[var(...)] 在产物里只产 --tw-shadow-color、
+    // 不发射 box-shadow（批次 K 实测并钉成硬红），写它等于假装还债。
+    // 刻意没动：Tabs 药丸的 shadow-sm 与 SectionWrapper 的 shadow-lift 属「静止卡片」轴
+    // （归 --shadow-1 就要按 AE 的规矩撤掉它们的 border，是独立一次设计决定，另批处理）；
+    // ErrorBoundary 那条同理，它是全屏故障卡而非浮层。
     "src/components/ui/Tabs.tsx": 1,
     "src/features/creation/replace/replace.css": 1,
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
-    "src/features/library/LibraryPage.tsx": 1,
-    "src/features/settings/SettingsSearch.tsx": 1,
     "src/features/settings/encryption/encryption.css": 1,
     "src/features/settings/sections/SectionWrapper.tsx": 1,
     "src/features/settings/settings-controls.css": 1,

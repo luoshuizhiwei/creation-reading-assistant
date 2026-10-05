@@ -90,9 +90,14 @@ export function Dialog({
         onClick={onClose}
         aria-hidden="true"
       />
+      {/* 批次 AN：原本挂 shadow-2xl（Tailwind 刻度外档，0 25px 50px -12px 黑 .25）。
+        * §5.3 把对话框定为 --shadow-3，这里改成属性形式 [box-shadow:var(--shadow-3)]——
+        * 只有属性形式才真发射 box-shadow，方括号工具类 shadow-[var(...)] 在产物里只产
+        * --tw-shadow-color（批次 K 实测并钉成硬红）。border 留着：--shadow-3 是纯投影档、
+        * 不含 hairline 环，AE 的双拼规矩不管它。本组件没有家族类接管，所以这是**真改版**。 */}
       <div
         ref={dialogRef}
-        className={`relative z-10 w-full ${width} rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-2xl ${className}`}
+        className={`relative z-10 w-full ${width} rounded-[var(--radius-3)] border border-paper-line bg-paper-panel [box-shadow:var(--shadow-3)] ${className}`}
         onKeyDown={(e: KeyboardEvent<HTMLDivElement>) => {
           if (e.key === "Escape") e.stopPropagation();
         }}

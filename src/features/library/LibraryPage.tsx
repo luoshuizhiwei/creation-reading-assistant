@@ -150,7 +150,7 @@ export function LibraryPage() {
                     {sortMode === "recent" ? "最近阅读" : sortMode === "title" ? "书名" : "阅读进度"}
                   </button>
                   {showSortDropdown && (
-                    <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-md border border-paper-line bg-paper-panel shadow-paper p-1">
+                    <div className="absolute right-0 top-full mt-1 z-20 min-w-[160px] rounded-md border border-paper-line bg-paper-panel [box-shadow:var(--shadow-2)] p-1">
                       {([["recent", "最近阅读"], ["title", "书名"], ["progress", "阅读进度"]] as [SortMode, string][]).map(([mode, label]) => (
                         <button
                           key={mode}
