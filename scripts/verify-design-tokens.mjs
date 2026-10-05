@@ -2250,13 +2250,26 @@ const hostPredicate = (() => {
  * 判据形状：一条几何分支（prop + @媒体上下文 + 选择器文本）在「全局主题样式表」与
  * 非主题样式表里各有一个**不同取值**的声明 → 红。取值相同不报（那是冗余，不是分叉，
  * 而本仓还有 3 处同值重复是同一个类名被两个不同页面共用，删哪边都是改版，另账处理）。
- * 只管「主题 × 非主题」这一个方向：styles.css 与 editorial-studio.css 之间现存 16 处分叉，
- * 那是主题层自己的历史账，混进来会让这条判据从第一天就靠预算放水、失去「零分叉」的咬合力。
+ *
+ * 两个方向，一条共同语义：只有「同特异度、靠发射顺序决胜」才算分叉。**一侧带 !important、
+ * 另一侧不带**的配对在批次 AQ 起明确豁免——胜者由 !important 单独定，不存在「谁发射得晚」
+ * 这件事，也就没有本批判据要防的那种假真源（批次 G 当年就是按这个理由放行
+ * 「面板家族 !important + 页面自持非 !important 圆角」这个形状的；两侧都带 !important
+ * 仍然比顺序，照旧算分叉）。
+ *
+ * 批次 AQ 起这条判据管**两个方向**。原先写明「只管主题 × 非主题」，理由是两份主题表
+ * 之间「现存 16 处分叉」，怕第一天就靠预算放水。这 16 当时是真的——按本判据的同一套
+ * 语义在批次 V 那份文件上复算得 16 条分支（逐对 23 对）。此后批次 W–AE 收掉 11 条，
+ * 批次 AQ 收掉最后 5 条（侧栏卡圆角、看板卡圆角、搜索命令钮内投影、灵感卡与场景按钮
+ * 的选中色条——五处全部经胜者表核实为「层叠上被压死」，删除零视觉）。分叉归零之后，
+ * 放水的前提消失了，方向就不再豁免：两边同现异值即红，预算 0。
  */
 {
   const THEME_SHEETS = new Set(["src/styles.css", "src/styles/editorial-studio.css"]);
   const themeBranch = new Map(); // key -> [{rel, line, value, imp}]
   const otherBranch = new Map();
+  const sheetBranch = new Map(); // rel -> key -> [{line, value, imp}]（仅两份主题表）
+  for (const rel of THEME_SHEETS) sheetBranch.set(rel, new Map());
   for (const cssFile of cssFiles) {
     const rel = path.relative(root, cssFile).split(path.sep).join("/");
     if (rel.includes("__tests__")) continue;
@@ -2267,6 +2280,7 @@ const hostPredicate = (() => {
       continue;
     }
     const bucket = THEME_SHEETS.has(rel) ? themeBranch : otherBranch;
+    const perSheet = sheetBranch.get(rel);
     ast.walkRules((rule) => {
       const media = [];
       for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") media.push(p.params);
@@ -2275,7 +2289,12 @@ const hostPredicate = (() => {
           const one = sel.replace(/\s+/g, " ").trim();
           const key = `${d.prop}\t${media.join("|")} :: ${one}`;
           if (!bucket.has(key)) bucket.set(key, []);
-          bucket.get(key).push({ rel, line: rule.source?.start?.line ?? 0, value: d.value.replace(/\s+/g, " ").trim(), imp: !!d.important });
+          const decl = { rel, line: rule.source?.start?.line ?? 0, value: d.value.replace(/\s+/g, " ").trim(), imp: !!d.important };
+          bucket.get(key).push(decl);
+          if (perSheet) {
+            if (!perSheet.has(key)) perSheet.set(key, []);
+            perSheet.get(key).push(decl);
+          }
         }
       });
     });
@@ -2302,6 +2321,7 @@ const hostPredicate = (() => {
     for (const a of mine) {
       for (const b of theirs) {
         if (a.value === b.value) continue;
+        if (a.imp !== b.imp) continue; // 一侧 !important → 胜者已定，见上方语义说明
         forks.push(`${key.replace("\t", " ")}：${a.rel}:${a.line} 写 ${a.value}${a.imp ? " !important" : ""}，但 ${b.rel}:${b.line} 写 ${b.value}${b.imp ? " !important" : ""}`);
       }
     }
@@ -2314,7 +2334,55 @@ const hostPredicate = (() => {
         `否则删掉不生效的那条，别让它继续冒充待收敛的债。`
     );
   }
-  console.log(`${TAG} [第 8 步几何分支] 主题样式表 × 特性样式表 同分支异值分叉 0 处`);
+
+  // 第二个方向（批次 AQ）：两份主题表之间同分支异值。判据语义与上面完全一致，
+  // 只是两侧都来自 THEME_SHEETS。清零前这个方向靠「历史账」豁免了 16 条，现在预算 0。
+  const themeForks = [];
+  {
+    const [stylesSheet, editorialSheet] = ["src/styles.css", "src/styles/editorial-studio.css"].map((rel) => sheetBranch.get(rel));
+    for (const [key, mine] of stylesSheet) {
+      const theirs = editorialSheet?.get(key);
+      if (!theirs) continue;
+      for (const a of mine) {
+        for (const b of theirs) {
+          if (a.value === b.value) continue;
+          if (a.imp !== b.imp) continue; // 一侧 !important → 胜者已定，见上方语义说明
+          themeForks.push(`${key.replace("\t", " ")}：${a.rel}:${a.line} 写 ${a.value}${a.imp ? " !important" : ""}，但 ${b.rel}:${b.line} 写 ${b.value}${b.imp ? " !important" : ""}`);
+        }
+      }
+    }
+  }
+  // 自检（同上一条的道理，但盯的是新方向）：这三条分支在两份主题表里**同值**共存，
+  // 是「两侧都扫到 + 同值不报」的活样本。扫不到两侧同现 = 新方向的桶挂了（分叉会
+  // 被安静放行）；一旦有人把某条改成异值，它会立刻以 themeForks 的形式变红。
+  const THEME_MUST_BE_SEEN = [
+    "border-radius\t :: .cards-view-switch",
+    "border-radius\t :: .desktop-home-inbox-count",
+    "border-radius\t :: ::-webkit-scrollbar-thumb"
+  ];
+  {
+    const [a, b] = ["src/styles.css", "src/styles/editorial-studio.css"].map((rel) => sheetBranch.get(rel));
+    const unseen = THEME_MUST_BE_SEEN.filter((k) => !(a?.has(k) && b?.has(k)));
+    if (unseen.length) {
+      fail(
+        `第 8 步几何分支（主题 × 主题）判据退化：${unseen.join("、")} 本该在两份主题表里各有一份同值声明，` +
+          `现在扫不到两侧同现。要么分支归一化/分桶被改坏（这个方向会失明，分叉被安静放行），` +
+          `要么这些分支真的只剩一个主人了（那请同步本清单并确认胜者表没变）。`
+      );
+    }
+  }
+  if (themeForks.length) {
+    fail(
+      `第 8 步几何分支（主题 × 主题）：${themeForks.length} 条圆角/投影分支在 styles.css 与 editorial-studio.css 里各有一个取值——${themeForks.slice(0, 3).join("；")}。` +
+        `两份主题表同特异度，胜负只看谁发射得晚（editorial-studio.css 在 main.tsx 里排在 styles.css 之后），` +
+        `于是前者那一条从未画出一个像素，却被圆角/阴影棘轮记成活债（批次 AQ 清掉的 5 处全是这个形状）。` +
+        `请只留一个主人：删掉不生效的那条并留注释写明胜者是谁。`
+    );
+  }
+  // 红了就别再打「0 处」——这条绿话和上面的红话同时出现，等于守卫自己撒谎。
+  if (!forks.length && !themeForks.length) {
+    console.log(`${TAG} [第 8 步几何分支] 主题样式表 × 特性样式表 同分支异值分叉 0 处；主题表 × 主题表 同分支异值分叉 0 处`);
+  }
 }
 
 /* ------------------------------------------------------------------ 结论 */

@@ -229,28 +229,38 @@ const cases = [
   // 第 8 步批次 N：styles.css 退役了一批从不渲染的死圆角，预算随之降了一截。
   // 这两条测的是这次同步有没有把 styles.css 的咬合力一起删掉：
   // 拿批次 N 删过的同一个宿主、同一属性，离刻度值必须红、刻度值必须绿。
-  ["第 8 步批次 N 回归：把退役掉的死圆角以离刻度值写回 .creation-wizard（这一页的预算已经降过一档，多一处必须红——否则这次退役等于给 styles.css 松了绑）", () => mutate("src/styles.css", ".creation-wizard {", ".creation-wizard {\n  border-radius: 22px;"), /圆角刻度/],
-  ["第 8 步批次 N 回归·反向：同一个宿主写刻度上的 6px 不该红（styles.css 还剩一批活债，棘轮数的是离刻度，不是禁止字面量）", () => mutate("src/styles.css", ".creation-wizard {\n", ".creation-wizard {\n  border-radius: 6px;\n"), null],
+  // 批次 AQ 起 .creation-wizard 的圆角真源在 editorial（var(--radius-3)，同特异度更晚），
+  // 在它身上写值必被压死 → 会同时惊动新补的「主题 × 主题」分叉判据，红因不再唯一。
+  // 这对牙挪到 .creation-step：宿主真实存在、全仓没有第二处几何声明，棘轮是唯一开口的判据。
+  ["第 8 步批次 N 回归：把退役掉的死圆角以离刻度值写回 .creation-step（这一页的预算已经降过一档，多一处必须红——否则这次退役等于给 styles.css 松了绑）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".creation-step {\n  border-radius: 22px;\n  margin: 0;"), /圆角刻度/],
+  ["第 8 步批次 N 回归·反向：同一个宿主写刻度上的 6px 不该红（styles.css 还剩一批活债，棘轮数的是离刻度，不是禁止字面量）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".creation-step {\n  border-radius: 6px;\n  margin: 0;"), null],
   // 第 8 步批次 O：幻影选择器判据。它守的是「宿主不存在」这一类死法，方向性和前几条相反——
   // 判据唯一致命的错法是「把活 CSS 判成幻影」（那样删除就是无声改版），
   // 所以除了咬新债/咬不降预算，还要咬「判据自己退化」和证明「宿主靠动态拼接的活类不被误伤」。
   // ⚠ 批次 AH 把 .desktop-module-card 整族删掉了（幻影判据的示范孤儿终于被真还），
   // 这三条的锚点随之改钉到同一张表里同样查无宿主、但还活着的 .desktop-inspiration-card：
   // 用例语义一字不动，只是换了个仍然存在的幻影宿主。
-  ["批次 O 回归①：给查无宿主的 .desktop-inspiration-card 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  border-radius: 14px;\n  width: 100%;"), /新增了令牌债/],
+  // 批次 AQ 之后 .desktop-inspiration-card 的两条几何分支真源全在 editorial（0 / none，
+  // 同特异度更晚），在它身上写值会先被「主题 × 主题」分叉判据拦下——这对幻影牙的红因
+  // 就不再是幻影判据了。挪到 .paste-preview-dialog：同样查无宿主（粘贴预览对话框在
+  // 迁移后的 TSX 里不再挂这个类名），且全仓没有第二处几何声明。
+  ["批次 O 回归①：给查无宿主的 .paste-preview-dialog 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  border-radius: 14px;\n  display: grid;"), /新增了令牌债/],
   ["批次 O 回归②：删掉幻影规则里的离刻度圆角却不降幻影预算（.pe-modal 的 14px 删掉，HOSTLESS_BUDGET 仍是 2，必须红）", () => mutate("src/features/settings/encryption/encryption.css", "  border-radius: 14px;\n", ""), /幻影选择器[\s\S]*预算没跟着降/],
   // ⚠ 批次 AH 后这条从「接回 desktop-module-card」改钉 pe-modal：styles.css 的幻影债已清零、
   // 条目从表里删了，给它的旧孤儿类名接宿主不会动任何数字；pe-modal 是幻影账上仅剩的
   // 带债宿主——接上它，encryption.css 的幻影债从 2 掉到 0，预算不降必须红。
   ["批次 O 回归③：把幻影类名接上宿主却不降预算（真接回 .pe-modal 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"pe-modal\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
   ["批次 O 回归④：宿主判据退化——把 BEM 修饰类的动态前缀写法拆掉（`writing-quick-kind--${card.kind}` 退回裸类名），自检必须红，否则活 CSS 会被安静判死", () => mutate("src/features/creation/editor/WritingQuickReferencePanel.tsx", "writing-quick-kind writing-quick-kind--${card.kind}", "writing-quick-kind"), /宿主判据把/],
-  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  border-radius: 6px;\n  width: 100%;"), null],
+  ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  border-radius: 6px;\n  display: grid;"), null],
   // 第 8 步批次 AH：styles.css 桌面首页/创作索引遗留族整族下线（100 条幻影规则、
   // 阴影账 21→14、幻影账 7→0 同提交清账）。下面两条证明这次退役没有给 styles.css 松绑：
   // 把删掉的手抄投影写回仍然空转的规则、或把整族规则原样复活，两本账必须当场咬住。
-  ["第 8 步批次 AH 回归：把退役的手抄投影写回 .desktop-inspiration-card（styles.css 阴影预算已降到 14、幻影条目已删，多一处必须双红）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  width: 100%;"), /新增了令牌债/],
+  // 这对牙原先钉在 .desktop-inspiration-card 上；批次 AQ 之后它的两条几何分支真源都在
+  // editorial（0 / none，同特异度更晚），往它身上写值会先被「主题 × 主题」分叉判据拦下。
+  // 挪到同样查无宿主、且全仓无第二处几何声明的 .paste-preview-dialog，双红语义原样保留。
+  ["第 8 步批次 AH 回归：把退役的手抄投影写回 .paste-preview-dialog（styles.css 阴影预算已降到 14、幻影条目已删，多一处必须双红）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  display: grid;"), /新增了令牌债/],
   ["第 8 步批次 AH 回归②：把整族删掉的 .desktop-start-hero 原样复活（宿主依旧查无，孤儿 CSS 回来了照样被幻影判据咬）", () => mutate("src/styles.css", ".desktop-settings-grid {\n  display: grid;", ".desktop-start-hero {\n  box-shadow: 0 18px 48px rgba(71, 46, 27, 0.07);\n}\n\n.desktop-settings-grid {\n  display: grid;"), /新增了令牌债/],
-  ["第 8 步批次 AH·反向：幻影规则里写 var(--shadow-2) 不该红（幻影账管的是离刻度令牌债，删族不该变成「幻影规则禁止任何投影」）", () => mutate("src/styles.css", ".desktop-inspiration-card {\n  width: 100%;", ".desktop-inspiration-card {\n  box-shadow: var(--shadow-2);\n  width: 100%;"), null],
+  ["第 8 步批次 AH·反向：幻影规则里写 var(--shadow-2) 不该红（幻影账管的是离刻度令牌债，删族不该变成「幻影规则禁止任何投影」）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  box-shadow: var(--shadow-2);\n  display: grid;"), null],
   // 第 8 步批次 AI：死分支判据。幻影账的口径是整条规则——`per.flat().some(canRender)` 一命中
   // 活分支就整条放过，于是「组规则里藏一支查无宿主的分支」是幻影债唯一的隐身形状（本批摘掉 56 条）。
   // ①用批次 AH 之后仍然在账上的真实形状复现（history-tabs 早已是 <Button>，focus 支躲进活组）；
@@ -295,6 +305,14 @@ const cases = [
   ["批次 V 回归·反向①：与主题同分支同值是冗余不是分叉（var(--radius-2) 两边一致，谁赢都一样），不该变红", () => mutate("src/features/search/search.css", ".uni-search-group li button {\n  display: grid;", ".uni-search-group li button {\n  border-radius: var(--radius-2);\n  display: grid;"), null],
   ["批次 V 回归·反向②：带模式前缀的覆盖是显式决定（分支文本不同，各管各的层叠），不该变红", () => mutate("src/features/search/search.css", ".uni-search-error {", ".desktop-root--focus .uni-search-error {\n  border-radius: 0;\n}\n\n.uni-search-error {"), null],
   ["批次 V 回归：分支归一化退化——把主题那份的选择器加上祖先前缀，两侧不再逐字同现，自检必须红（否则真分叉会被安静放行）", () => mutate("src/styles/editorial-studio.css", ".uni-search-shell {\n  overflow: hidden;", ".uni-search-overlay .uni-search-shell {\n  overflow: hidden;"), /判据退化/],
+  // 第 8 步批次 AQ：同一判据补上「主题表 × 主题表」方向（原先靠「历史账 16 条」豁免，
+  // AQ 清零后豁免的前提没了）。四颗牙对着新方向逐条打：正向 = 复活一处刚删的死声明，
+  // 反向两颗 = 证明同值冗余与模式前缀覆盖依旧合法（别把清零变成「styles.css 不许写几何」），
+  // 退化 = 把自检锚点的选择器改掉，证明这个方向失明时守卫自己先红。
+  ["批次 AQ 回归：把刚退役的侧栏卡圆角写回 styles.css（editorial 那份 border-radius: 0 同特异度更晚，它从未弯过一个角，却被圆角棘轮记成活债——现在这个方向零容忍）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-sidebar-card {\n  border-radius: var(--radius-2);\n  padding: 12px;\n}"), /几何分支/],
+  ["批次 AQ 回归·反向①：两份主题表同分支写同一个值是冗余不是分叉（谁赢都一样），不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-sidebar-card {\n  border-radius: 0;\n  padding: 12px;\n}"), null],
+  ["批次 AQ 回归·反向②：带模式前缀的覆盖分支文本不同、各管各的层叠，是显式决定，不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-root--focus .desktop-sidebar-card {\n  border-radius: 4px;\n}\n\n.desktop-sidebar-card {\n  padding: 12px;\n}"), null],
+  ["批次 AQ 回归·退化：把主题×主题自检锚点的一侧加上祖先前缀（.cards-view-switch 两边不再逐字同现），这个方向会失明、真分叉被安静放行，必须自己先红", () => mutate("src/styles/editorial-studio.css", ".writing-mode-switch,\n.writing-outline-view-switch,\n.cards-view-switch {", ".writing-mode-switch,\n.writing-outline-view-switch,\n.cards-page .cards-view-switch {"), /判据退化/],
   // 第 8 步批次 X：主题层自己压自己的 15 条离刻度投影声明已退役（每张胜者表逐字节不变）。
   // 沿用批次 N 那对「退役同一宿主同一属性」的形状：正向证明这一页的阴影预算确实降到了
   // 新值（写回一条离刻度必须红），反向证明刻度写法仍合法（别把退役变成「禁止投影」）。
@@ -352,7 +370,11 @@ const cases = [
   // 这三条测的是「退役有没有顺手把 styles.css 的咬合力一起删掉」，并证明合法写法不误伤。
   ["第 8 步批次 AK 回归：把被压死的手抄投影写回 .desktop-sidebar-card（styles.css 阴影预算已随退役批次下调，多一处必须红——否则退役等于给该文件松绑）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);", ".desktop-sidebar-card {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);"), /阴影刻度/],
   ["第 8 步批次 AK 回归②：把整条删掉的幻影 .reader-glassbar 原样复活（宿主依旧查无——它名下的 shadow-paper 债回来了，棘轮必须咬住）", () => mutate("src/styles.css", "  .motion-notice {\n    animation: paper-soft-in 180ms ease both;\n  }", "  .motion-notice {\n    animation: paper-soft-in 180ms ease both;\n  }\n\n  .reader-glassbar {\n    @apply border border-paper-line bg-paper-panel/86 shadow-paper backdrop-blur-md;\n  }"), /阴影刻度/],
-  ["第 8 步批次 AK·反向：给同一宿主写 var(--shadow-2) 不该红——刻度内换档是合法收敛，且 shadow-2 是纯投影档、与这条规则保留的 border 共存合法（AE 的 hairline 只管 shadow-1 的环）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);", ".desktop-sidebar-card {\n  box-shadow: var(--shadow-2);\n  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);"), null],
+  // 反向锚点原先与正向同宿主 .desktop-sidebar-card：批次 AQ 之后该分支的几何真源归
+  // editorial（radius 0 / shadow none），往 styles.css 写 shadow-2 会被「主题 × 主题」
+  // 分叉判据拦下——反向用例的意义是「合法写法不该红」，宿主不能再用了。挪到
+  // .creation-template-card：宿主真实、几何只有 styles.css 这一个主人、同规则带 1px border。
+  ["第 8 步批次 AK·反向：给 .creation-template-card 写 var(--shadow-2) 不该红——刻度内换档是合法收敛，且 shadow-2 是纯投影档、与这条规则保留的 border 共存合法（AE 的 hairline 只管 shadow-1 的环）", () => mutate("src/styles.css", ".creation-template-card {\n  display: grid;", ".creation-template-card {\n  box-shadow: var(--shadow-2);\n  display: grid;"), null],
   // 第 8 步批次 AL：styles.css 阅读器外壳族里两条「层叠压死」的 @apply 投影退役
   // （.paper-panel 的 shadow-lift、.paper-topbar 的 shadow-[0_1px_0_...]），border/background 都留着。
   // 这两条测的是退役后该文件的咬合力还在，第三条测 @apply 侧合法收敛写法不被误伤。

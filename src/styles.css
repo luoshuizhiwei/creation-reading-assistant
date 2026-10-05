@@ -592,7 +592,10 @@ button:disabled {
 
 .desktop-sidebar-card {
   border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);
-  border-radius: var(--radius-2);
+  /* 批次 AQ：删掉 border-radius: var(--radius-2)。editorial-studio.css L218 同特异度
+   * 且加载更晚的 `.desktop-sidebar-card { border-radius: 0 }` 一直压着它（胜者表实测
+   * 值为 0）——这条从未弯过一个角。主题×主题几何分叉第 2 批（批次 V 判据补方向）。
+   * border/background 保留：editorial 只覆盖 border-top 一侧，其余三边仍由这里供值。 */
   background: color-mix(in srgb, var(--paper-panel) 78%, transparent);
   /* 批次 AK：退役这里的 box-shadow: 0 12px 30px rgba(59,39,24,0.055)。胜者表实测
    * editorial-studio.css L214 的同特异度 box-shadow: none 加载更晚、一直压着它——
@@ -708,7 +711,10 @@ button:disabled {
   background: color-mix(in srgb, var(--paper-panel) 88%, var(--paper-soft));
   color: var(--paper-muted);
   text-align: left;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+  /* 批次 AQ：删掉 box-shadow: inset 0 1px 0 rgba(255,255,255,0.34)。
+   * editorial-studio.css L348 同特异度且加载更晚的
+   * `box-shadow: inset 0 1px 2px rgba(34,38,48,0.04)` 一直压着它（胜者表实测）——
+   * 这条白色上沿高光从未亮过一个像素。 */
 }
 
 .desktop-search-command:hover {
@@ -932,7 +938,11 @@ button:disabled {
 .desktop-inspiration-card.active {
   border-color: color-mix(in srgb, var(--copper) 55%, var(--paper-line));
   background: color-mix(in srgb, var(--copper) 9%, var(--paper-panel));
-  box-shadow: inset 3px 0 0 var(--copper);
+  /* 批次 AQ：删掉 box-shadow: inset 3px 0 0 var(--copper)。editorial-studio.css
+   * L1927 同特异度且加载更晚的 `inset 2px 0 0 var(--studio-seal)` 一直压着它
+   * （胜者表实测）——选中卡左侧那条色条一直是 seal 版本，铜色 3px 从未画出来。
+   * border-color/background 两行不动：本批评据只判 border-radius/box-shadow 两个
+   * 几何属性，它们不在判定范围内（宁可漏判不误删）。 */
 }
 
 .desktop-editor-card {
@@ -1505,7 +1515,10 @@ button:disabled {
 .writing-scene-button.active {
   background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
   color: var(--copper);
-  box-shadow: inset 2px 0 0 var(--copper);
+  /* 批次 AQ：删掉 box-shadow: inset 2px 0 0 var(--copper)。editorial-studio.css
+   * L954-956 的复合规则 `.writing-scene-button.active, .outline-scene.active` 同特异度
+   * 且加载更晚，给的是 `inset 2px 0 0 var(--studio-seal)`（胜者表实测）——宽度一样、
+   * 只有颜色从未生效。editorial 那条复合规则不能动：它同时喂着 .outline-scene.active。 */
 }
 
 .writing-scene-button span {
@@ -2958,7 +2971,11 @@ button:disabled {
   display: grid;
   gap: 3px;
   border: 1px solid var(--paper-line);
-  border-radius: 10px;
+  /* 批次 AQ：删掉 border-radius: 10px。editorial-studio.css 里同特异度且加载更晚的
+   * L1187（家族 var(--radius-2)）+ L3012（单条 4px）一直压着它，胜者表实测 4px——
+   * 10px 这个手抄值从未生效。删的只有本条 4 行规则里的这一行，
+   * editorial 的家族规则（.background-card/.cards-detail-card/.history-empty 还在吃它）
+   * 与本条其余声明都不动。 */
   background: var(--paper-panel);
   padding: 9px 10px;
   cursor: grab;
