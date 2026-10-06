@@ -965,20 +965,6 @@ button:disabled {
   gap: 16px;
 }
 
-.desktop-settings-grid {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 16px;
-}
-
-.desktop-settings-grid > * {
-  min-width: 0;
-}
-
-.desktop-settings-grid .settings-wide {
-  grid-column: 1 / -1;
-}
-
 .desktop-canvas .border-paper-line {
   border-color: var(--paper-line) !important;
 }
@@ -3329,11 +3315,6 @@ button:disabled {
   padding: 10px 16px 0;
 }
 
-.creation-replace-row .paper-input {
-  flex: 1;
-  min-width: 0;
-}
-
 .creation-replace-filters {
   justify-content: space-between;
 }
@@ -4461,10 +4442,6 @@ button:disabled {
   color: var(--paper-muted);
   font-size: 13px;
   line-height: 1.7;
-}
-
-.project-home-hero .desktop-page-actions {
-  margin: 0;
 }
 
 .project-home .stats-grid {

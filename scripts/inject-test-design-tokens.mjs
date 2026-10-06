@@ -35,10 +35,13 @@ const files = [
   // 「预算表里根本没有的文件」（settings-controls.css 圆角视同 0、inbox-local.css 阴影视同 0）
   // ——后者测的是新增债务落进零预算文件时会不会漏判。
   "src/features/settings/settings-controls.css",
-  // 批次 O 的用例改这几份：幻影账的债主两度易位——批次 AH 清掉 styles.css 的 7 处后
-  // 剩 encryption.css 的 .pe-modal（2 处），批次 AR 又把它整族下线，如今唯一带债的
-  // 孤儿是 editorial-studio.css 的 .desktop-settings-grid 开关岛（1 处，类名本身也
-  // 查无宿主）。②③两颗预算棘轮牙跟着挪到这座岛上。WritingQuickReferencePanel 是
+  // 批次 O 的用例改这几份：幻影账的债主三度易位——批次 AH 清掉 styles.css 的 7 处后
+  // 剩 encryption.css 的 .pe-modal（2 处），批次 AR 把它整族下线，债主换成
+  // editorial-studio.css 的 .desktop-settings-grid 开关岛（1 处），批次 AS 又连岛带
+  // 宿主一起删干净：HOSTLESS_BUDGET 从此是空表，幻影令牌债 0 处。所以这一族的新牙
+  // 不再需要"带债的孤儿"当锚点——任何一笔新幻影债落在空表上都是即时红。
+  // encryption.css 仍然备份：AR 那对复活/反向牙拿它当宿主（.pe-modal 回哪份文件
+  // 才不会被别的判据先咬，测的是这一族）。WritingQuickReferencePanel 是
   // 唯一靠 BEM 动态前缀才活着的宿主，用它测「宿主判据退化」。
   "src/features/settings/encryption/encryption.css",
   "src/features/creation/editor/WritingQuickReferencePanel.tsx",
@@ -247,14 +250,19 @@ const cases = [
   // 就不再是幻影判据了。挪到 .paste-preview-dialog：同样查无宿主（粘贴预览对话框在
   // 迁移后的 TSX 里不再挂这个类名），且全仓没有第二处几何声明。
   ["批次 O 回归①：给查无宿主的 .paste-preview-dialog 新增一处离刻度圆角（界面画不出来，令牌债却是真的，必须被幻影判据咬住）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  border-radius: 14px;\n  display: grid;"), /新增了令牌债/],
-  // 批次 AR 之后 .pe-modal 族整族下线，这两颗预算棘轮牙跟着债主挪到 editorial 的
-  // .desktop-settings-grid 开关岛（幻影账如今唯一带债的孤儿）。②删账不降预算必须红：
-  // 这条声明同时被阴影棘轮数着（那本判据刻意不看宿主），所以两本账一起开口——原牙钉在
-  // .pe-modal 时也是这个形状（圆角账 + 幻影账双开口），期望的正则只咬「幻影」那一本。
-  ["批次 O 回归②：删掉幻影规则里的离刻度投影却不降幻影预算（.desktop-settings-grid 开关岛那条手抄投影删掉，HOSTLESS_BUDGET 仍是 1，必须红）", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.28);\n", ""), /幻影选择器[\s\S]*预算没跟着降/],
-  // ③接宿主迁账：真给这座岛接上宿主时，这笔债从幻影表搬进活债表，两本账都得动；
-  // 只动一本（这里预算全不动）必须红。
-  ["批次 O 回归③：把幻影类名接上宿主却不降预算（真接回 .desktop-settings-grid 时，这笔债从幻影表移到活债表，两本账都要改）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzHost = \"desktop-settings-grid\";\n  void zzHost;"), /幻影选择器[\s\S]*预算没跟着降/],
+  // 批次 O 这两颗「预算 stale」牙的债主迁移史：.desktop-module-card（AH 删）→
+  // .pe-modal（AR 删）→ .desktop-settings-grid 开关岛（AS 删）。岛下线后
+  // HOSTLESS_BUDGET 是空表，「还了债不降预算」这条 stale 路径只有在有人重新登记
+  // 预算时才可达，原牙随锚点一起失效（harness 计为无效，不静默放过）。
+  // 顶上来的是 AS 真正修掉的盲区：旧幻影透镜 per.flat().some(canRender) 认
+  // 「整条规则里有一个活类名」就算整条活着，于是
+  //   `.desktop-settings-grid .settings-wide`（死祖先 + 活后代）
+  // 这种 CSS 上永远匹配不到任何元素的分支，在两本账里都不露面。新口径逐分支
+  // every(canRender)：一条规则只有存在「每个类名都能渲染」的分支才算活。
+  // ⚠ 正向那条用 styles.css 当宿主表：它不在 HOSTLESS_BUDGET 里（预算 0），
+  // 任何一笔幻影债落上去都是即时红——不需要再靠预算数字造 stale。
+  ["第 8 步批次 AS 回归：把「死祖先 + 活后代」的复合分支写回 styles.css（旧整条口径会因为 .settings-wide 活着而整条放过，新的逐分支口径必须当场咬住；同时证明开关岛下线没有给 styles.css 松绑）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".desktop-settings-grid .settings-wide {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n}\n\n.paste-preview-dialog {\n  display: grid;"), /新增了令牌债/],
+  ["第 8 步批次 AS·反向：活祖先 + 活后代的复合分支写刻度上的 6px 不该红（收紧只能把「匹配不出来」的分支判死，不能把正常嵌套选择器一起判死——否则下次再出现死祖先形状没人敢信这条透镜）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".desktop-page-scroll .settings-wide {\n  border-radius: 6px;\n}\n\n.paste-preview-dialog {\n  display: grid;"), null],
   ["批次 O 回归④：宿主判据退化——把 BEM 修饰类的动态前缀写法拆掉（`writing-quick-kind--${card.kind}` 退回裸类名），自检必须红，否则活 CSS 会被安静判死", () => mutate("src/features/creation/editor/WritingQuickReferencePanel.tsx", "writing-quick-kind writing-quick-kind--${card.kind}", "writing-quick-kind"), /宿主判据把/],
   ["批次 O 回归·反向：幻影规则里写刻度上的 6px 不该红（判据咬的是令牌债，不是「这条规则没宿主」这件事本身——整族孤儿 CSS 的清理是另一笔账）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  border-radius: 6px;\n  display: grid;"), null],
   // 第 8 步批次 AH：styles.css 桌面首页/创作索引遗留族整族下线（100 条幻影规则、
@@ -264,7 +272,10 @@ const cases = [
   // editorial（0 / none，同特异度更晚），往它身上写值会先被「主题 × 主题」分叉判据拦下。
   // 挪到同样查无宿主、且全仓无第二处几何声明的 .paste-preview-dialog，双红语义原样保留。
   ["第 8 步批次 AH 回归：把退役的手抄投影写回 .paste-preview-dialog（styles.css 阴影预算已降到 14、幻影条目已删，多一处必须双红）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n  display: grid;"), /新增了令牌债/],
-  ["第 8 步批次 AH 回归②：把整族删掉的 .desktop-start-hero 原样复活（宿主依旧查无，孤儿 CSS 回来了照样被幻影判据咬）", () => mutate("src/styles.css", ".desktop-settings-grid {\n  display: grid;", ".desktop-start-hero {\n  box-shadow: 0 18px 48px rgba(71, 46, 27, 0.07);\n}\n\n.desktop-settings-grid {\n  display: grid;"), /新增了令牌债/],
+  // 这颗牙原先拿 `.desktop-settings-grid { display: grid;` 当插入锚点——批次 AS 把
+  // 那座开关岛整族删了，锚点随之消失。换钉 .creation-step（活宿主、styles.css 里
+  // 唯一一处 margin: 0 的短锚），语义一字未动：复活整族孤儿规则照样要被咬。
+  ["第 8 步批次 AH 回归②：把整族删掉的 .desktop-start-hero 原样复活（宿主依旧查无，孤儿 CSS 回来了照样被幻影判据咬）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".desktop-start-hero {\n  box-shadow: 0 18px 48px rgba(71, 46, 27, 0.07);\n}\n\n.creation-step {\n  margin: 0;"), /新增了令牌债/],
   ["第 8 步批次 AH·反向：幻影规则里写 var(--shadow-2) 不该红（幻影账管的是离刻度令牌债，删族不该变成「幻影规则禁止任何投影」）", () => mutate("src/styles.css", ".paste-preview-dialog {\n  display: grid;", ".paste-preview-dialog {\n  box-shadow: var(--shadow-2);\n  display: grid;"), null],
   // 第 8 步批次 AR：口令弹窗的 .pe-modal 族三条整族下线（宿主谓词实测三个类名在源码与
   // 产物 JS 里都查无落点——它背着三本账：圆角 14px、手抄三层投影、幻影债 2 处，同提交清）。

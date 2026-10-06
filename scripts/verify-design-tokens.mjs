@@ -1248,7 +1248,10 @@ const isPureRingValue = (v) => {
     // 皮肤那条是纸面浮影（收它=可感知改版，另批处理），focus 那条是 3px 描边柔光 +
     // ring-1 合成，属 §2.3 焦点机制而非 §5.3 投影层级。
     "src/styles.css": 8,
-    "src/styles/editorial-studio.css": 16
+    // 批次 AS：settings-grid 开关岛整族下线，其中 L2371 那条
+    // box-shadow: 0 1px 2px rgba(34, 38, 48, 0.28) 是幻影账里最后一笔真债（岛查无宿主、
+    // 值又离刻度），随整族一起删除。16→15。
+    "src/styles/editorial-studio.css": 15
   };
 
   const actual = {};
@@ -1768,11 +1771,14 @@ const hostPredicate = (() => {
    *   反过来，本表里的数字只能靠删规则还，没有迁移这条路。
    */
   const HOSTLESS_BUDGET = {
+    // 债主迁移史：.pe-modal（批次 AR 删）→ .desktop-settings-grid 岛（批次 AS 删）→ 无。
     // 批次 AR：encryption.css 的 2 处随 .pe-modal 族整族下线（那族规则连宿主都没有，
     // 除了删规则没有第二条还法），条目移除。
+    // 批次 AS：editorial-studio.css 最后 1 处随 settings-grid 开关岛整族下线。
     // 批次 AH 把 styles.css 桌面首页/创作索引遗留族的 7 处幻影债整族删干净，条目随之移除：
     // 这份全局表里任何「查无宿主又离刻度」的声明从此都是新增债，直接红。
-    "src/styles/editorial-studio.css": 1
+    // 表空 = 幻影令牌债清零。任何文件新增一笔幻影债（或收紧透镜后暴露出旧债）都会
+    // 立刻命中 hlOver——预算 0 是最紧的形态，不需要再留任何条目。
   };
 
   const hostlessActual = {};
@@ -1789,7 +1795,21 @@ const hostPredicate = (() => {
     ast.walkRules((r) => {
       const per = r.selectors.map((s) => positiveClasses(s.replace(/\s+/g, " ").trim()));
       if (!per.length || per.some((x) => !x.length)) return; // 有分支查不到业务类名 → 宿主可能来自工具类/元素选择器，不判
-      if (per.flat().some(canRender)) return;
+      /**
+       * 批次 AS：口径从「整条规则」收到「逐分支」。
+       * 旧写法 per.flat().some(canRender)——任一活类名就整条放过，于是漏掉
+       * 「死祖先 + 活后代」的复合分支：`.desktop-settings-grid .settings-wide`
+       * 里 .settings-wide 还在别处活着，但这条分支的祖先查无宿主，
+       * CSS 上这条复合选择器永远匹配不到任何元素——它和整条死规则一样画不出像素。
+       * 新口径：一条规则只有存在「每个类名都能渲染」的分支才算活着。
+       * 收紧前先算了差集（/tmp/as-lensdelta.cjs）：146→153 条、新暴露 7 条，
+       * 逐条审计（/tmp/as-branchaudit.cjs）全部是布局属性（margin-top/display/
+       * grid-column/flex/min-width 一类），几何令牌债 = 0——
+       * 也就是说收紧本身不还债、不红，只是把形状钉进判据；债在下面三条
+       * 岛屿规则删除时一并归零（editorial L2371 那笔是真债，进 SHADOW_BUDGET）。
+       */
+      const branchAlive = (cs) => cs.every(canRender);
+      if (per.some(branchAlive)) return;
       hostlessRules += 1;
       for (const d of r.nodes) {
         if (d.type !== "decl") continue;
@@ -1833,7 +1853,8 @@ const hostPredicate = (() => {
 /* --------------------------- 第 8 步批次 AI：活规则里不许藏死选择器分支（零容忍） */
 
 /**
- * 上面那副幻影透镜的口径是「整条规则」：per.flat().some(canRender) 一命中就整条放过。
+ * 批次 AI 立这条判据时，上面那副幻影透镜的口径是「整条规则」：
+ * per.flat().some(canRender) 一命中就整条放过。
  * 于是有一类债它天生看不见——组选择器里死分支躲在活分支后面：
  *   `.desktop-page-actions button, .project-home-create-first { … }`
  * 前者还在渲染、后者早已零引用，整条被判「活着」，可它给一个画不出来的元素配着
@@ -1841,6 +1862,11 @@ const hostPredicate = (() => {
  * 实测本仓 4 份样式表里藏着 56 条这样的死分支（editorial 50 / styles.css 4 /
  * relation-graph 1 / history-local 1），其中 7 处带着离刻度投影——
  * 也就是说阴影账「editorial 16 处」里有 7 处的数字是真的，却有 7 处从来渲染不出来。
+ *
+ * ⚠ 批次 AS 把幻影透镜收到「逐分支」口径（存在一条全活分支才算规则活着），
+ * 两副透镜从此共用同一个「活」的定义——那条口径变更的注释在上面的 HOSTLESS 块里，
+ * 差集证据（新暴露 7 条、全部无几何债）也写在那里。这条判据的 dead 谓词同步改成
+ * every(canRender)，两边数字才是同一个物理量（批次 AD 立的对称规矩）。
  *
  * 修法与还法都只有「摘掉那条选择器」：分支死了、规则还活着，声明本身可能仍在给
  * 活分支供值，所以只删选择器行、不碰声明。
@@ -1870,7 +1896,10 @@ const hostPredicate = (() => {
       const brs = r.selectors.map((s) => s.replace(/\s+/g, " ").trim());
       const cls = brs.map((s) => positiveClasses(s));
       if (cls.some((c) => !c.length)) return; // 有分支查不到业务类名 → 整条不判（同幻影账）
-      const dead = brs.filter((s, i) => !cls[i].some(canRender));
+      // 批次 AS：与幻影账同步收到逐分支口径——分支「死」的定义是
+      // 没有一个组合能同时匹配（每个类名都能渲染才算活），死祖先+活后代
+      // 同样算死支。两副透镜共用同一个 canRender，也就必须共用同一个「活」的定义。
+      const dead = brs.filter((s, i) => !cls[i].every(canRender));
       if (!dead.length || dead.length === brs.length) return; // 全活 / 全死（全死归幻影账）
       const props = r.nodes.filter((n) => n.type === "decl").map((n) => n.prop);
       ghosts.push(`${rel}:${r.source.start.line} 死分支=${dead.join(" / ")}（同规则活分支 ${brs.length - dead.length} 个，属性 ${props.join(",")}）`);
