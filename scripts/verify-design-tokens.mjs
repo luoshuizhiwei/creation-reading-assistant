@@ -1041,7 +1041,8 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    */
   const RADIUS_BUDGET = {
     "src/components/ui.tsx": 1,
-    "src/features/settings/encryption/encryption.css": 1,
+    // 批次 AR：encryption.css 那条 14px 随 .pe-modal 族整族下线（查无宿主，从未渲染），
+    // 条目移除——从此这份表里任何「还了债不降预算」都要重新登记才能过关。
   };
 
   const actual = {};
@@ -1235,7 +1236,7 @@ const isPureRingValue = (v) => {
     // 要收它得先决定故障卡的红边由谁承担，另批处理。
     "src/features/creation/replace/replace.css": 1,
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
-    "src/features/settings/encryption/encryption.css": 1,
+    // 批次 AR：encryption.css 那条三层手抄投影随 .pe-modal 族整族下线（查无宿主），条目移除。
     "src/features/settings/settings-controls.css": 1,
     // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
     // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
@@ -1767,7 +1768,8 @@ const hostPredicate = (() => {
    *   反过来，本表里的数字只能靠删规则还，没有迁移这条路。
    */
   const HOSTLESS_BUDGET = {
-        "src/features/settings/encryption/encryption.css": 2,
+    // 批次 AR：encryption.css 的 2 处随 .pe-modal 族整族下线（那族规则连宿主都没有，
+    // 除了删规则没有第二条还法），条目移除。
     // 批次 AH 把 styles.css 桌面首页/创作索引遗留族的 7 处幻影债整族删干净，条目随之移除：
     // 这份全局表里任何「查无宿主又离刻度」的声明从此都是新增债，直接红。
     "src/styles/editorial-studio.css": 1
