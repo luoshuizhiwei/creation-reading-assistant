@@ -233,10 +233,6 @@ select:focus-visible,
   letter-spacing: -0.015em;
 }
 
-.paper-label {
-  color: var(--text-meta);
-}
-
 .desktop-sidebar-stats {
   display: block;
   margin-top: 8px;
@@ -466,10 +462,6 @@ select:focus-visible,
   gap: 10px;
 }
 
-.project-home-create-demo {
-  border-style: dashed;
-}
-
 /* One button system: quiet surface default, indigo primary. */
 /* 第 6 步 page 22：.overview-action（OverviewPage「打开收件箱」）已迁到共享
    <Button variant="outline">，下面 5 个分组里它的成员行一并摘除。
@@ -543,11 +535,6 @@ select:focus-visible,
    * 那条 1px solid）已随归入 --shadow-1 一起退役，这里的 border-color 对它俩从此是哑的
    * （宽度 0 时不建几何）——仍留在这份名单里，因为 background 四家都还要靠这条压住。 */
   background: var(--bg-surface) !important;
-}
-
-.paper-panel-soft {
-  background: var(--bg-subtle) !important;
-  box-shadow: none !important;
 }
 
 .stats-card h3,
@@ -1053,8 +1040,6 @@ select:focus-visible,
   line-height: 2;
 }
 
-
-
 .scene-editor-toolbar .scene-tool {
   color: color-mix(in srgb, var(--text-main) 78%, var(--text-muted));
 }
@@ -1352,20 +1337,10 @@ select:focus-visible,
 }
 
 /* AI digest reads as an editor's note pinned to the page. */
-.inbox-summary {
-  padding: 15px 17px !important;
-  border: 0 !important;
-  border-left: 3px solid var(--studio-seal) !important;
-  border-radius: 0 10px 10px 0 !important;
-  background: color-mix(in srgb, var(--studio-seal-soft) 72%, var(--bg-surface)) !important;
-}
-
-.inbox-summary h3 {
-  color: var(--text-main);
-  font-family: var(--font-serif);
-  font-size: 14px;
-  font-weight: 650;
-}
+/* 批次 AT 把这行注释原本罩着的 `.inbox-summary` / `.inbox-summary h3` 两条幻影规则
+ * 下线了（宿主类名全仓零引用，AI 摘要卡早已不渲染）。这行英文注释本身是批次 Q
+ * 三颗牙的 needle——牙锚在这族规则的旧注释上，注释随规则删除会把牙一起弄失效，
+ * 所以整行留作锚点墓碑，Q 牙继续钉在这里。 */
 
 .inbox-editor-grid textarea,
 .inbox-editor-grid input,
@@ -1897,29 +1872,6 @@ select:focus-visible,
   box-shadow: var(--shadow-1);
 }
 
-.desktop-inspiration-list,
-.desktop-inspiration-editor {
-  border-right: 1px solid var(--border-subtle);
-}
-
-.desktop-inspiration-card {
-  border: 0;
-  border-bottom: 1px solid var(--border-subtle);
-  border-radius: 0;
-  box-shadow: none;
-  transform: none;
-}
-
-.desktop-inspiration-card:hover {
-  transform: none;
-}
-
-.desktop-inspiration-card.active {
-  border-color: var(--border-subtle);
-  background: color-mix(in srgb, var(--accent-hover) 70%, var(--bg-surface));
-  box-shadow: inset 2px 0 0 var(--studio-seal);
-}
-
 /* --------------------------------------------------------------------------
  * Floating layers: dialogs, toasts, banners
  * ----------------------------------------------------------------------- */
@@ -2220,19 +2172,9 @@ input[type="text"],
   background-clip: padding-box;
 }
 
-/* The wizard joins the studio: dimmer cloth, softer geometry. */
-.creation-wizard-overlay {
-  background: color-mix(in srgb, var(--studio-cloth) 46%, transparent);
-  backdrop-filter: blur(4px);
-}
-
 .creation-wizard {
   border-radius: var(--radius-3);
   box-shadow: var(--shadow-3);
-}
-
-.creation-wizard-head h2 {
-  font-family: var(--font-serif);
 }
 
 /* --------------------------------------------------------------------------
@@ -2435,12 +2377,6 @@ input[type="text"],
     white-space: nowrap;
   }
 
-  .project-home-hero {
-    display: grid;
-    grid-template-columns: minmax(0, 1fr) auto;
-    align-items: start;
-  }
-
   .project-workbench {
     grid-template-columns: 108px minmax(0, 1fr);
   }
@@ -2525,7 +2461,6 @@ input[type="text"],
 }
 
 /* 工具栏停靠纸面顶部：不再作为浮层悬在空白纸中央。 */
-
 
 /* 大纲页：双栏各自内滚，树卡不再被任务卡拉出大空洞。 */
 .outline-page {
@@ -2940,15 +2875,6 @@ input[type="text"],
   font-family: var(--font-data);
 }
 
-/* 收件箱：状态点样式（列表内状态以点+文字表达）。 */
-.inbox-item-status-dot {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
-  border-radius: 999px;
-  background: var(--action-primary);
-}
-
 /* --------------------------------------------------------------------------
  * 清样工作台 — 细节打磨（2026-08-30）
  * ----------------------------------------------------------------------- */
@@ -3197,7 +3123,6 @@ input[type="text"],
   min-width: 0;
 }
 
-
 /* P7: 资料库进度格三列（百分比｜条｜时长）。 */
 .desktop-library-row div:has(> [role="progressbar"]) {
   display: grid;
@@ -3231,7 +3156,6 @@ input[type="text"],
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-
 
 /* 右栏内容防溢出（窗口右缘裁切保护）。 */
 .writing-margin {

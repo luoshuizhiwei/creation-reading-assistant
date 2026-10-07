@@ -61,13 +61,6 @@
   font-style: italic;
 }
 
-.operation-message {
-  margin: 0;
-  font-size: 12px;
-  color: var(--paper-muted);
-  line-height: 1.6;
-}
-
 .operation-commit-note {
   margin: 0;
   padding: 8px 10px;
