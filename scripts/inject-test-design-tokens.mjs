@@ -158,7 +158,7 @@ const cases = [
   // ⚠ 批次 AI 把这条分组规则里的 .project-home-create-first 死分支摘掉了，规则从此只剩
   // 一个选择器——needle 随之换成单选择器写法（测的还是同一条双排除不变量，不是死分支）。
   ["把 desktop-page-actions 首钮规则的 :not 排除退回单排除（ProjectHomePage 首钮是默认 primary，会被淡底样式压回 (0,1,1)）", () => mutate("src/styles/editorial-studio.css", '.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%', '.desktop-page-actions button:first-child:not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%'), /后代按钮规则未排除|editorial-studio\.css/],
-  ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-lg px-3 text-sm'), /base 不得包含内边距/],
+  ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] text-sm", "justify-center gap-2 rounded-[var(--radius-1)] px-3 text-sm"), /base 不得包含内边距/],
   ["sm 档丢掉自带内边距（base 已不再兜底，会渲染成 0 内边距）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 text-xs"'), /尺寸 sm 必须自己声明/],
   ["夜校前景改回白字（对比度 2.53）", () => mutate("src/styles/tokens.css", "  --fg-on-solid: #15181c;", "  --fg-on-solid: #ffffff;"), /夜校 primary 对比度/],
   ["晨校主色调浅到不合格", () => mutate("src/styles/tokens.css", "  --action-primary: #315f9b;", "  --action-primary: #a8c4e4;"), /晨校 primary 对比度/],
@@ -186,10 +186,13 @@ const cases = [
   ["批次 C 回归：把 .motion-toast 的 background 加回来——它与 tone 工具类同特异度而加载更晚，会整族遮蔽四种提示的颜色（批次 C 用 jsdom 实测过的真实缺陷）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".motion-toast {\n  background: var(--studio-cloth);\n  box-shadow: var(--shadow-4) !important;"), /motion-toast|遮蔽/],
   ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
   // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
-  // 最后两条 expect 为 null，是「必须保持绿」的反向用例——判据过严同样是缺陷。
-  ["圆角棘轮①：在已有预算的文件里多加一处离刻度（Button base 的 rounded-lg 旁再挂 rounded-2xl，计数必须超预算）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-lg rounded-2xl text-sm'), /圆角刻度/],
+  // expect 为 null 的是「必须保持绿」的反向用例——判据过严同样是缺陷。
+  ["圆角棘轮①：Button base 的圆角旁再挂一处离刻度（批次 AV 起预算表为空，rounded-2xl 一出现就必须红；这条测的是 TSX 侧，棘轮②测 CSS 侧）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] text-sm", "justify-center gap-2 rounded-[var(--radius-1)] rounded-2xl text-sm"), /圆角刻度/],
   ["圆角棘轮②：把离刻度值写进预算表里根本没有的文件（settings-controls.css 预算视同 0，4px→7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 7px;"), /圆角刻度/],
-  ["圆角棘轮③：还了债却不降预算（Button base 的 rounded-lg→rounded-md 是合法收敛，但预算没跟着降，必须红并指名该文件）", () => mutate("src/components/ui.tsx", 'justify-center gap-2 rounded-lg text-sm', 'justify-center gap-2 rounded-md text-sm'), /预算没跟着降/],
+  // 圆角棘轮③（还了债却不降预算）随批次 AV 退役：RADIUS_BUDGET 归零后表里没有条目，
+  // `budget > actual` 对一个不存在的预算恒不成立，这条用例永远 SKIP（needle 已经不在了），
+  // 硬留着只会变成「测不到任何东西还占一个名额」。stale 这条判据分支本身没有失去覆盖——
+  // 阴影台账还剩 26 处，下面那条「阴影棘轮·还债不降预算」照旧咬得住它。
   ["圆角棘轮·反向①：说明注释里提到旧类名 rounded-xl 不算违规（不剥注释的话守卫会自己咬自己）", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  {/* 这里原来是 rounded-xl，批次 M 收到 rounded-md */}"), null],
   ["圆角棘轮·反向②：50% 是形状决定不是圆角档位，写进规则里不该变红", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 50%;"), null],
   // 批次 M 把阅读器族整片收到刻度上，用的正是下面这三种写法。这条反向用例钉的是

@@ -1040,7 +1040,19 @@ const WHITE_INK = /^#(fff|ffffff|white)\b$/i;
    * 数字由本文件自己扫出来的，改代码的人（和 AI）不需要重新数一遍。
    */
   const RADIUS_BUDGET = {
-    "src/components/ui.tsx": 1,
+    // 批次 AV：最后一处离刻度归零——Button base 的 rounded-lg(8px，刻度上没有这一档) 改成
+    // rounded-[var(--radius-1)]（4px）。表空 = 两侧圆角零容忍，任何文件新增一处都红。
+    // ⚠ 清零后 stale 那条分支（还了债却不降预算）对圆角不再可达：表里没有条目，
+    //   actual 不可能小于一个不存在的预算。它对应的注入用例随本批退役（和批次 AS 退役
+    //   幻影预算的同类条目一样，留字在这里，别让下一批人以为那条判据坏了）。
+    // 目标写法刻意用 rounded-[var(--radius-1)] 而不是裸 rounded（两者同值、都上刻度）：
+    //   Tailwind 同类工具的发射顺序不是字母序，产物实测 .rounded → .rounded-2xl →
+    //   .rounded-[var(--radius-N)] → .rounded-full → -lg → -md → -none → -sm → -xl，
+    //   后者压前者。写裸 rounded 会让它成为所有变体里最弱的一条——正是要的效果；
+    //   而旧写法 rounded-lg 压在 -full / -[var(--radius-2|3)] 上面，静默吃掉消费方覆盖
+    //   （jsdom 实测 base+rounded-full = 0.5rem，不是 9999px）。
+    //   这条只是选写法的原因，棘轮看不见它（同值都在刻度上）；反向用例钉的是
+    //   「目标写法合法、不许误伤」，和批次 M 那条同一条规矩。
     // 批次 AR：encryption.css 那条 14px 随 .pe-modal 族整族下线（查无宿主，从未渲染），
     // 条目移除——从此这份表里任何「还了债不降预算」都要重新登记才能过关。
   };
