@@ -7,6 +7,7 @@ import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useCreationActions } from "@/hooks/useCreationActions";
 import { APP_NAV_ITEMS } from "@/features/navigation/app-nav";
+import { screenTip } from "@/features/navigation/registry";
 import { closeWindow, minimizeWindow, onMaximizedChange, toggleMaximize } from "@/services/window-service";
 
 function WindowControls() {
@@ -55,47 +56,20 @@ const navIcons: Record<string, typeof Settings> = {
   settings: Settings
 };
 
-const screenTitles: Record<AppScreen, { eyebrow: string; title: string; body: string }> = {
-  projects: {
-    eyebrow: "Creation desk",
-    title: "创作项目",
-    body: "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统计与版本历史。"
-  },
-  "card-library": {
-    eyebrow: "World bible",
-    title: "全局卡片库",
-    body: "跨作品复用角色、地点、组织和世界观设定；查看它们正在服务的项目。"
-  },
-  inbox: {
-    eyebrow: "Inbox",
-    title: "收件箱",
-    body: "旧灵感迁移与手动收集的内容；可转为创作项目的资料卡。"
-  },
-  inspiration: {
-    eyebrow: "Inspiration desk",
-    title: "灵感中心",
-    body: "旧数据兼容入口：阅读摘录、灵感花和 AI 候选版本。"
-  },
-  library: {
-    eyebrow: "Local library",
-    title: "书库",
-    body: "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。"
-  },
-  reader: {
-    eyebrow: "Reading desk",
-    title: "资料阅读",
-    body: "正文、目录、阅读设置和灵感摘录，专注阅读。"
-  },
-  stats: {
-    eyebrow: "Reading rhythm",
-    title: "阅读统计",
-    body: "查看阅读时长、书籍进度和节律总结。"
-  },
-  settings: {
-    eyebrow: "Preferences",
-    title: "设置",
-    body: "配置 AI、外观、阅读、同步与数据维护。"
-  }
+/**
+ * 页头只有标题留在这里；原先同表里的 body 一行（「这一页的规矩」）批次 AZ 起改由
+ * navigation registry 的 tip 供给——规格 §4.1 第 3 条要的是「一份真相」，页头那行
+ * 不该再有第二份文案。eyebrow 是既有字段，当前未被渲染，本批不动它（不在范围内）。
+ */
+const screenTitles: Record<AppScreen, { eyebrow: string; title: string }> = {
+  projects: { eyebrow: "Creation desk", title: "创作项目" },
+  "card-library": { eyebrow: "World bible", title: "全局卡片库" },
+  inbox: { eyebrow: "Inbox", title: "收件箱" },
+  inspiration: { eyebrow: "Inspiration desk", title: "灵感中心" },
+  library: { eyebrow: "Local library", title: "书库" },
+  reader: { eyebrow: "Reading desk", title: "资料阅读" },
+  stats: { eyebrow: "Reading rhythm", title: "阅读统计" },
+  settings: { eyebrow: "Preferences", title: "设置" }
 };
 
 export function DesktopFrame({ children }: { children: ReactNode }) {
@@ -115,6 +89,8 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
   const workbenchActive = useCreationStore((state) => state.selectedId != null);
   const creationLeaveGuard = useCreationStore((state) => state.leaveGuard);
   const title = screenTitles[screen];
+  // §4.1 第 2 条的落地：页头标题下那行「这一页的规矩」由注册表的 tip 供给。
+  const tip = screenTip(screen);
   const navigate = async (target: AppScreen) => {
     if (target === screen) return;
     if (screen === "projects" && creationLeaveGuard && !(await creationLeaveGuard())) return;
@@ -197,7 +173,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
           <header className="desktop-commandbar">
             <div className="min-w-0">
               <h1>{title.title}</h1>
-              <span title={title.body}>{title.body}</span>
+              <span title={tip}>{tip}</span>
             </div>
             <RingButton className="desktop-search-command" type="button" aria-label="打开全局搜索（Ctrl K）" onClick={() => setSearchOpen(true)}>
               <Search size={17} />

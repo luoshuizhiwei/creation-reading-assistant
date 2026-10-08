@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import { APP_NAV_ITEMS } from "../app-nav";
 import { PROJECT_NAV_ITEMS } from "../project-nav";
 import { SETTINGS_SEARCH_REGISTRY } from "@/features/settings/search-registry";
-import { NAV_REGISTRY, registryIssues, screenTip } from "../registry";
+import { APP_SCREENS, type AppScreen } from "@/stores/app-store";
+import type { ProjectView } from "../project-nav";
+import { NAV_REGISTRY, projectViewTip, registryIssues, screenTip } from "../registry";
 
 /**
  * 批次 AY：三份名单合并成一条注册表（规格 §4.1 第 3 条）。
@@ -16,6 +18,27 @@ import { NAV_REGISTRY, registryIssues, screenTip } from "../registry";
  * 要么有人**有意**改了导航/设置项的文案与分组——那必须在同一个提交里更新这些
  * 期望值，并在提交信息里写明改了哪个界面的哪句话。
  */
+
+const ORIGINAL_SCREEN_TIPS: Record<string, string> = {
+  projects: "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统计与版本历史。",
+  "card-library": "跨作品复用角色、地点、组织和世界观设定；查看它们正在服务的项目。",
+  inbox: "旧灵感迁移与手动收集的内容；可转为创作项目的资料卡。",
+  inspiration: "旧数据兼容入口：阅读摘录、灵感花和 AI 候选版本。",
+  library: "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。",
+  reader: "正文、目录、阅读设置和灵感摘录，专注阅读。",
+  stats: "查看阅读时长、书籍进度和节律总结。",
+  settings: "配置 AI、外观、阅读、同步与数据维护。"
+};
+
+const ORIGINAL_PROJECT_VIEW_TIPS: Record<string, string> = {
+  overview: "项目概览：写作目标、最近编辑与待处理事项。",
+  writing: "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。",
+  outline: "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。",
+  preview: "按卷、章、场景通读全书并可打印或导出打印版 PDF；本页只读，正文改动请回到写作台。",
+  cards: "管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。",
+  stats: "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。",
+  history: "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。"
+};
 
 const ORIGINAL_APP_NAV = [
   { kind: "screen", screen: "projects", label: "项目", hint: "写作" },
@@ -105,18 +128,48 @@ describe("派生视图与原三份名单逐字段相等（合并 = 零改动）"
   });
 });
 
-describe("提示位数据已登记（批次 AZ 才渲染，本批只验数据面）", () => {
+describe("提示位（§4.1 第 2 条）：批次 AY 登记，批次 AZ 起被页头渲染", () => {
   it("八个屏幕都有 tip", () => {
     const screens = NAV_REGISTRY.filter((e) => e.type === "screen");
     expect(screens.length).toBe(8);
     for (const e of screens) expect((e.tip ?? "").length).toBeGreaterThan(0);
   });
 
-  it("screenTip 按屏幕取到对应文案，未登记的取不到", () => {
-    expect(screenTip("inbox")).toBe(NAV_REGISTRY.find((e) => e.id === "screen:inbox")!.tip);
-    // 覆盖 APP_SCREENS 全集：每个屏幕都要有提示位，否则页头那行会空。
-    for (const s of ["projects", "card-library", "inbox", "inspiration", "library", "reader", "stats", "settings"] as const) {
-      expect(typeof screenTip(s)).toBe("string");
+  it("15 条 tip 与合并前界面上正在渲染的句子逐字节相同（本批零视觉的判据）", () => {
+    // 期望值抄自批次 AZ 之前的 git HEAD：页头那行来自 DesktopFrame 的 screenTitles.body，
+    // hero 那行来自 CreationProjectsPage 的 viewDescription switch。两处与注册表的 tip
+    // 是同一句话的两份拷贝，本批把渲染改到读注册表，同时**删掉那两份拷贝**——只有
+    // 逐字搬过去才谈得上零视觉。以后谁想改这些句子（例如换成「这一页的规矩」式写法），
+    // 这张表会红：那是一次界面文案改版，必须连这张表一起更新并在提交信息里写明改的是
+    // 哪一页的哪句话，而不是在一次「结构收口」里被夹带掉。
+    for (const [screen, expected] of Object.entries(ORIGINAL_SCREEN_TIPS)) {
+      expect(screenTip(screen as AppScreen)).toBe(expected);
     }
+    for (const [view, expected] of Object.entries(ORIGINAL_PROJECT_VIEW_TIPS)) {
+      expect(projectViewTip(view as ProjectView)).toBe(expected);
+    }
+    // 两张表覆盖注册表里全部 screen / project-view 条目，防「新增一条却没进锚点」。
+    expect(Object.keys(ORIGINAL_SCREEN_TIPS).length).toBe(NAV_REGISTRY.filter((e) => e.type === "screen").length);
+    expect(Object.keys(ORIGINAL_PROJECT_VIEW_TIPS).length).toBe(NAV_REGISTRY.filter((e) => e.type === "project-view").length);
+  });
+
+  it("screenTip 按屏幕取到对应文案，覆盖 APP_SCREENS 全集", () => {
+    expect(screenTip("inbox")).toBe(NAV_REGISTRY.find((e) => e.id === "screen:inbox")!.tip);
+    // 批次 AY 时 screenTip 返回 string | undefined（那时无读者，取不到无所谓）；
+    // 批次 AZ 起页头那行就是它的读者，取不到改成抛——空行是界面上的静默失效，
+    // 注册表说「一份真相」就得保证每个屏幕都有话可说。
+    for (const s of APP_SCREENS) expect(typeof screenTip(s)).toBe("string");
+  });
+
+  it("屏幕在表里没有 tip 时 screenTip 当场抛，不静默返回 undefined", () => {
+    // 临时摘掉 inbox 那条再取——必须在 try/finally 里恢复：本文件其余用例读的是同一份数组。
+    const idx = NAV_REGISTRY.findIndex((e) => e.id === "screen:inbox");
+    const [removed] = NAV_REGISTRY.splice(idx, 1);
+    try {
+      expect(() => screenTip("inbox")).toThrow(/screen:inbox|inbox/);
+    } finally {
+      NAV_REGISTRY.splice(idx, 0, removed);
+    }
+    expect(screenTip("inbox")).toBe(removed.tip);
   });
 });

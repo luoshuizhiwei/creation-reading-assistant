@@ -54,7 +54,15 @@ export interface NavEntry {
   hint?: string;
   /** 附加检索词（别名、英文、口语说法），空格分隔 */
   keywords?: string;
-  /** 页面提示位（§4.1 第 2 条）：「这一页的规矩」，批次 AZ 起渲染，本批纯数据 */
+  /**
+   * 页面提示位（§4.1 第 2 条）。批次 AY 登记、批次 AZ 起由页头渲染：screen 的喂
+   * DesktopFrame 页头标题下那行，project-view 的喂项目页 hero 那行小字。
+   * ⚠ 现在这 15 条句子是**合并前界面上正在显示的原话**（逐字节搬过来的），不是新写的
+   * 文案——批次 AZ 的前提是零视觉，改文字和改结构不能混在一个提交里。规格要的
+   * 「这一页的规矩」那种写法（讲边界与后果，例如「本地文件不上传；摘录落进收件箱，
+   * 不直接改稿」）已起草存在本文件注释外的批注里，要换得单独一批、在提交信息里
+   * 逐页写清楚换了哪句话，并同步 nav-registry.test.ts 里那两张锚点表。
+   */
   tip?: string;
   screen?: AppScreen;
   view?: ProjectView;
@@ -73,15 +81,15 @@ export const SETTINGS_SECTION_LABELS: Record<SettingsSection, string> = {
 /* ------------------------------------------------------------------ 应用级屏幕 */
 
 const SCREEN_ENTRIES: NavEntry[] = [
-  { id: "screen:projects", type: "screen", screen: "projects", group: "一级导航", label: "项目", hint: "写作", keywords: "创作 项目 书稿 章节 场景", tip: "一个项目一本书：大纲定顺序，写作台写正文，设定卡供背景。" },
-  { id: "screen:card-library", type: "screen", screen: "card-library", group: "一级导航", label: "卡片库", hint: "世界观", keywords: "卡片 角色 地点 组织 设定 世界观", tip: "卡片跨项目复用；改动只影响引用它的场景，不回写正文。" },
-  { id: "screen:inbox", type: "screen", screen: "inbox", group: "一级导航", label: "收件箱", hint: "待处理", keywords: "收件箱 灵感 摘录 待处理 转换", tip: "先收下再归类：转成资料卡时选定目标项目，转完自动出列。" },
-  { id: "screen:library", type: "screen", screen: "library", group: "一级导航", label: "书库", hint: "资料阅读", keywords: "书库 书籍 epub txt markdown 导入 摘录", tip: "本地文件不上传；阅读时的摘录落进收件箱，不直接改稿。" },
-  { id: "screen:settings", type: "screen", screen: "settings", group: "一级导航", label: "设置", hint: "偏好", keywords: "设置 偏好 主题 缩放 同步 备份 密钥", tip: "设置按分区保存；数据目录与密钥的改动只影响本机。" },
+  { id: "screen:projects", type: "screen", screen: "projects", group: "一级导航", label: "项目", hint: "写作", keywords: "创作 项目 书稿 章节 场景", tip: "管理作品项目；项目内包含概览、写作、大纲、卡片、背景设定、统计与版本历史。" },
+  { id: "screen:card-library", type: "screen", screen: "card-library", group: "一级导航", label: "卡片库", hint: "世界观", keywords: "卡片 角色 地点 组织 设定 世界观", tip: "跨作品复用角色、地点、组织和世界观设定；查看它们正在服务的项目。" },
+  { id: "screen:inbox", type: "screen", screen: "inbox", group: "一级导航", label: "收件箱", hint: "待处理", keywords: "收件箱 灵感 摘录 待处理 转换", tip: "旧灵感迁移与手动收集的内容；可转为创作项目的资料卡。" },
+  { id: "screen:library", type: "screen", screen: "library", group: "一级导航", label: "书库", hint: "资料阅读", keywords: "书库 书籍 epub txt markdown 导入 摘录", tip: "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。" },
+  { id: "screen:settings", type: "screen", screen: "settings", group: "一级导航", label: "设置", hint: "偏好", keywords: "设置 偏好 主题 缩放 同步 备份 密钥", tip: "配置 AI、外观、阅读、同步与数据维护。" },
   // 以下三个屏幕可达但不进左栏；登记在此是为了页面提示位与搜索检索词有同一份来源。
-  { id: "screen:inspiration", type: "screen", screen: "inspiration", group: "一级导航", label: "灵感中心", hint: "旧数据", keywords: "灵感 摘录 花 ai 候选", tip: "旧灵感数据的兼容入口；新项目请用收件箱。" },
-  { id: "screen:reader", type: "screen", screen: "reader", group: "一级导航", label: "资料阅读", hint: "正文", keywords: "阅读 正文 目录 摘录 字号 行距", tip: "阅读排版由本页设置覆盖全局值；摘录送收件箱。" },
-  { id: "screen:stats", type: "screen", screen: "stats", group: "一级导航", label: "阅读统计", hint: "节律", keywords: "统计 时长 进度 节律 阅读", tip: "统计只读本机阅读记录；清空数据会一起清掉。" }
+  { id: "screen:inspiration", type: "screen", screen: "inspiration", group: "一级导航", label: "灵感中心", hint: "旧数据", keywords: "灵感 摘录 花 ai 候选", tip: "旧数据兼容入口：阅读摘录、灵感花和 AI 候选版本。" },
+  { id: "screen:reader", type: "screen", screen: "reader", group: "一级导航", label: "资料阅读", hint: "正文", keywords: "阅读 正文 目录 摘录 字号 行距", tip: "正文、目录、阅读设置和灵感摘录，专注阅读。" },
+  { id: "screen:stats", type: "screen", screen: "stats", group: "一级导航", label: "阅读统计", hint: "节律", keywords: "统计 时长 进度 节律 阅读", tip: "查看阅读时长、书籍进度和节律总结。" }
 ];
 
 /**
@@ -93,13 +101,13 @@ const SIDEBAR_IDS = ["screen:projects", "screen:card-library", "screen:inbox", "
 /* ------------------------------------------------------------------ 项目内视图 */
 
 const PROJECT_VIEW_ENTRIES: NavEntry[] = [
-  { id: "project-view:overview", type: "project-view", view: "overview", group: "项目导航", label: "概览", hint: "进度", tip: "进度与字数从这里看，改正文要回写作台。" },
-  { id: "project-view:writing", type: "project-view", view: "writing", group: "项目导航", label: "写作", hint: "正文", tip: "正文只在写作台改；离开前有未保存提示。" },
-  { id: "project-view:outline", type: "project-view", view: "outline", group: "项目导航", label: "大纲", hint: "结构", tip: "大纲管顺序与任务卡板，不写正文。" },
-  { id: "project-view:preview", type: "project-view", view: "preview", group: "项目导航", label: "全书预览", hint: "通读", tip: "预览只读，可导出打印；编辑请回写作台。" },
-  { id: "project-view:cards", type: "project-view", view: "cards", group: "项目导航", label: "设定卡", hint: "本项目", tip: "项目内设定卡与全局卡片库同源，作用域不同。" },
-  { id: "project-view:stats", type: "project-view", view: "stats", group: "项目导航", label: "写作统计", hint: "本机", tip: "写作统计数本项目的字数与会话，与全局阅读统计分账。" },
-  { id: "project-view:history", type: "project-view", view: "history", group: "项目导航", label: "版本历史", hint: "快照", tip: "快照按留存策略分层；恢复只覆盖正文。" }
+  { id: "project-view:overview", type: "project-view", view: "overview", group: "项目导航", label: "概览", hint: "进度", tip: "项目概览：写作目标、最近编辑与待处理事项。" },
+  { id: "project-view:writing", type: "project-view", view: "writing", group: "项目导航", label: "写作", hint: "正文", tip: "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。" },
+  { id: "project-view:outline", type: "project-view", view: "outline", group: "项目导航", label: "大纲", hint: "结构", tip: "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。" },
+  { id: "project-view:preview", type: "project-view", view: "preview", group: "项目导航", label: "全书预览", hint: "通读", tip: "按卷、章、场景通读全书并可打印或导出打印版 PDF；本页只读，正文改动请回到写作台。" },
+  { id: "project-view:cards", type: "project-view", view: "cards", group: "项目导航", label: "设定卡", hint: "本项目", tip: "管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。" },
+  { id: "project-view:stats", type: "project-view", view: "stats", group: "项目导航", label: "写作统计", hint: "本机", tip: "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。" },
+  { id: "project-view:history", type: "project-view", view: "history", group: "项目导航", label: "版本历史", hint: "快照", tip: "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。" }
 ];
 
 /* ------------------------------------------------------------------ 设置项 */
@@ -251,14 +259,27 @@ export const projectViewEntries = (): ProjectViewEntry[] =>
 export const settingEntries = (): SettingEntry[] =>
   NAV_REGISTRY.filter((e): e is SettingEntry => e.type === "setting" && Boolean(e.section) && typeof e.keywords === "string");
 
-/** 页面提示位（§4.1 第 2 条）：按屏幕取「这一页的规矩」；未登记的屏幕返回 undefined。 */
-export function screenTip(screen: AppScreen): string | undefined {
-  return NAV_REGISTRY.find((e) => e.type === "screen" && e.screen === screen)?.tip;
+/**
+ * 页面提示位（§4.1 第 2 条）：批次 AZ 起由 DesktopFrame 的页头那行渲染。
+ * 取不到就抛，不返回 undefined——这条线现在是有真实读者的：一个屏幕在
+ * APP_SCREENS 里存在、在本表里没有 tip，界面上就是静默的空行（或者 undefined），
+ * 而注册表的意义正是「一份真相」，缺一项应当在开发期当场炸掉，和 mustFind 同一个道理。
+ */
+export function screenTip(screen: AppScreen): string {
+  const hit = NAV_REGISTRY.find((e) => e.type === "screen" && e.screen === screen);
+  if (!hit?.tip) throw new Error(`navigation registry：屏幕 ${screen} 没有登记 tip，页头提示位会空`);
+  return hit.tip;
 }
 
-/** 项目视图的提示位（批次 AZ 起在页头用）。 */
-export function projectViewTip(view: ProjectView): string | undefined {
-  return NAV_REGISTRY.find((e) => e.type === "project-view" && e.view === view)?.tip;
+/**
+ * 项目视图的提示位：批次 AZ 起由项目页 hero 那行小字渲染（原先那句住在
+ * CreationProjectsPage 的 viewDescription 里，与注册表是双写）。
+ * 与 screenTip 同样的理由：有真实读者了，取不到就抛，不静默给一个空行。
+ */
+export function projectViewTip(view: ProjectView): string {
+  const hit = NAV_REGISTRY.find((e) => e.type === "project-view" && e.view === view);
+  if (!hit?.tip) throw new Error(`navigation registry：项目视图 ${view} 没有登记 tip，hero 说明会空`);
+  return hit.tip;
 }
 
 export type { AppScreen, SettingsSection };

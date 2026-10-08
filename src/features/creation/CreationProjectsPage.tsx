@@ -57,6 +57,7 @@ import { useCreationStore } from "@/stores/creation-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useUIStore } from "@/stores/ui-store";
 import { PROJECT_NAV_ITEMS, type ProjectView } from "@/features/navigation/project-nav";
+import { projectViewTip } from "@/features/navigation/registry";
 
 const PROJECT_NAV_ICONS: Record<ProjectView, typeof Layers> = {
   overview: LayoutDashboard,
@@ -68,23 +69,14 @@ const PROJECT_NAV_ICONS: Record<ProjectView, typeof Layers> = {
   history: ArchiveRestore
 };
 
+/**
+ * 项目视图说明（hero 那行小字）。批次 AZ 起文案住在 navigation registry 的 tip 里，
+ * 这里只是取值——原先的 switch 表与注册表是同一句话的两份拷贝（双写），谁改了另一份
+ * 不会跟着变，而 §4.1 第 3 条要的是「一份真相」。搬动时逐条与 git HEAD 的原文做过
+ * 字节比对（见 nav-registry.test.ts 的说明），因此这行渲染出来的字一个都没变。
+ */
 function viewDescription(view: ProjectView): string {
-  switch (view) {
-    case "overview":
-      return "项目概览：写作目标、最近编辑与待处理事项。";
-    case "writing":
-      return "在场景中连续写作；卷章结构在大纲中管理，中文输入、撤销重做、粘贴清洗和自动保存都在本地完成。";
-    case "outline":
-      return "大纲树与场景任务卡板共享同一数据；任务卡记录视角、时间、地点、出场、目标、冲突、结果与情绪。";
-    case "preview":
-      return "按卷、章、场景通读全书并可打印或导出打印版 PDF；本页只读，正文改动请回到写作台。";
-    case "cards":
-      return "管理角色、地点、组织等创作卡片与它们之间的关系；背景设定作为卡片页的二级入口。";
-    case "stats":
-      return "项目字数、写作时长、连续写作与修订进度；会话只在输入时计时，不记录具体按键内容。";
-    case "history":
-      return "误删的内容可在这里恢复，或从命名快照回到某个版本；永久删除前请确认。";
-  }
+  return projectViewTip(view);
 }
 
 export function CreationProjectsPage() {

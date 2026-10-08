@@ -80,6 +80,27 @@ describe("DesktopFrame 应用级导航（真实渲染）", () => {
     }
   });
 
+  it("页头标题下那行「这一页的规矩」来自注册表 tip（批次 AZ：不再由 DesktopFrame 自带的第二份文案供给）", () => {
+    // 三个屏幕各验一次：左栏项、未进左栏的屏幕、以及 tip 与原 body 措辞不同的屏幕。
+    const cases: Array<["inbox" | "library" | "stats", string]> = [
+      ["inbox", "旧灵感迁移与手动收集的内容；可转为创作项目的资料卡。"],
+      ["library", "导入、筛选和打开本地 TXT / Markdown / EPUB，阅读时摘录到项目。"],
+      // stats 不在左栏（从书库页进入），正好验到「注册表里登记但侧栏不显示」的那三个屏幕。
+      ["stats", "查看阅读时长、书籍进度和节律总结。"]
+    ];
+    for (const [target, expected] of cases) {
+      useAppStore.setState({ screen: target });
+      const { unmount } = render(<DesktopFrame><div /></DesktopFrame>);
+      const line = document.querySelector(".desktop-commandbar > div > span");
+      expect(line?.textContent).toBe(expected);
+      expect(line?.getAttribute("title")).toBe(expected);
+      // 期望值不是从注册表现取的值复制的字符串，而是本批逐条抄下的文案：
+      // 注册表被改坏（漏字、换序、拿错 hint 当 tip）在这里红，而不是界面上静默变一句话。
+      unmount();
+      cleanup();
+    }
+  });
+
   it("写作专注状态在应用壳级隐藏标题栏与左导航", () => {
     useCreationStore.setState({ selectedId: "project-1" });
     useAppStore.setState({ creationFocusMode: true });
