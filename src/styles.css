@@ -602,7 +602,8 @@ button:disabled {
 
 .desktop-sidebar-stats strong {
   color: var(--paper-ink);
-  font-size: 19px;
+  /* 批次 BD-2：删掉这条字号。editorial-studio.css:251 的同特异度后置规则（20px）一直是胜者，
+     这条从未画出来过；留在账上就是让下一个人在死数值上算档位。 */
   line-height: 1.1;
 }
 
@@ -649,7 +650,7 @@ button:disabled {
   overflow: hidden;
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  font-size: 23px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:515 的 20px）。 */
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -755,7 +756,8 @@ button:disabled {
 .desktop-page-hero h2 {
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  font-size: 25px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2808 的 clamp(20px, 1.8vw, 23px)）。
+     clamp 里的数字不记账：流式排版语法，见判据①。 */
   font-weight: 740;
   letter-spacing: -0.045em;
   line-height: 1.1;
@@ -1454,7 +1456,8 @@ button:disabled {
   outline: none;
   color: var(--paper-ink);
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  font-size: 18px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1248 的 17px——稿纸那一族，
+     它和 line-height: 2 的节距耦合还在账上，见 LH_BUDGET）。 */
   line-height: 2;
   caret-color: var(--copper);
 }
@@ -1513,7 +1516,7 @@ button:disabled {
 .writing-margin h3 {
   margin: 4px 0 18px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  font-size: 18px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1266 的 14px）。 */
 }
 
 .writing-margin dl {
@@ -2870,7 +2873,7 @@ button:disabled {
 
 .stats-streak {
   margin: 0;
-  font-size: 30px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2746 的 22px）。 */
   font-weight: 800;
   color: var(--copper);
   font-variant-numeric: tabular-nums;
@@ -3449,7 +3452,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--paper-ink);
-  font-size: 13.5px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1480 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -3471,13 +3474,13 @@ button:disabled {
 
 .inbox-item-body {
   color: var(--paper-muted);
-  font-size: 12.5px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1487 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
   color: var(--paper-muted);
-  font-size: 11.5px;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1487 的 12px）。 */
 }
 
 .inbox-item-actions {

@@ -1592,10 +1592,17 @@ const isPureRingValue = (v) => {
 
   // 批次 BD-1：低于 §3.2 最小档（11px）的 9 / 10 / 10.5px 共 40 处一律上到 11px，
   // 本表 114→74。relation-graph / writing-reference / settings-controls.css / SettingsSearch
-  // 四份清零，条目删除（空表=新增即红）。剩下的 74 处全是 11.5 / 12.5 / 13.5 / 15 / 17 /
+  // 四份清零，条目删除（空表=新增即红）。剩下的值全是 11.5 / 12.5 / 13.5 / 14.5 / 15 / 17 /
   // 18 / 19 / 22 / 23 / 25 / 30 这种「比八档多一档」或「就近另一档」的值——它们往哪边取
   // 是口味决定（11.5→11 还是 12？15→14 还是 16？），不像本族这样只有一个合法方向。
   // 所以后续按页面分批做，每批的取值口径由那一页的版式角色定，不在这张表里预先许诺。
+  //
+  // 批次 BD-2：再从 74 里还掉 10 处，这 10 处**一个像素都没变**——它们是「记在账上却从未
+  // 画出来」的字号声明（同选择器文本、同特异度、在 bundle 里更靠后的规则才是胜者：
+  // styles.css 那 9 条被 editorial-studio.css 压住，search.css 那 1 条也被它压住）。
+  // 判据按「源码里的字面量」记账，看不见级联，所以死数值会一直占着预算、并且每批都要被
+  // 重新调查一遍。这批删的就是「谁赢」已经有胜者图能机械证明的那些。
+  // 剩下 64 处全是**活着的**离刻度字号——那才是真的需要一页一页定的部分。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1611,17 +1618,17 @@ const isPureRingValue = (v) => {
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/features/search/search.css": 1,
-    "src/styles.css": 33,
+    "src/styles.css": 24,
     "src/styles/editorial-studio.css": 20
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
-  // （styles.css:1458 被 editorial 同特异度压住字号与行高，editorial-studio.css:1249 是胜者）——
-  // 它们不是「多抄了一档」，而是和 background 里那条 34px 横线的节距**算出来的耦合**
-  // （17px × 2 = 34px 恰好一格），单改行高就会让横线漂到字腰上。§3.3 给稿纸定的是
-  // 16px / 1.85，要落它必须字号、行高、节距三件一起重算，所以这两处归下一批专门的
-  // 稿纸批次，不混进本批的「离刻度值就近收敛」。
+  // （styles.css 的 `.scene-editor-content` 与 editorial-studio.css 的同名规则；后者在
+  // bundle 里更靠后、是胜者，前者从未画出来——批次 BD-2 记下了这件事但**没有**顺手删，
+  // 理由见下）——它们不是「多抄了一档」，而是和 background 里那条 34px 横线的节距
+  // **算出来的耦合**（17px × 2 = 34px 恰好一格），单改行高就会让横线漂到字腰上。
+  // §3.3 给稿纸定的是 16px / 1.85，要落它必须字号、行高、节距三件一起重算，所以这两处
+  // 归下一批专门的稿纸批次，不混进「离刻度值就近收敛」，也不混进「删死声明」。
   const LH_BUDGET = {
     "src/styles.css": 1,
     "src/styles/editorial-studio.css": 1

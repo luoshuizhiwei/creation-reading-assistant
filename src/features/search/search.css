@@ -42,7 +42,8 @@
   border: 0;
   background: transparent;
   color: var(--paper-ink);
-  font-size: 15px;
+  /* 批次 BD-2：删掉这条字号。editorial-studio.css:1670 有同选择器同特异度的后置规则（14.5px），
+     本条从未画出来过——两份样式表都在 index CSS 里，级联只看先后。 */
   outline: none;
 }
 
