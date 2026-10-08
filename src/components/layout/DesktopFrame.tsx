@@ -52,7 +52,6 @@ const navIcons: Record<string, typeof Settings> = {
   "card-library": Layers3,
   inbox: InboxIcon,
   library: BookOpen,
-  "global-search": Search,
   settings: Settings
 };
 
@@ -152,18 +151,7 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
 
         <nav className="desktop-nav" aria-label="一级导航">
           {APP_NAV_ITEMS.map((item) => {
-            const Icon = navIcons[item.kind === "screen" ? item.screen : item.action] ?? Settings;
-            if (item.kind === "action") {
-              return (
-                <RingButton key={item.action} className="nav-spine-item" type="button" aria-label={item.label} onClick={() => setSearchOpen(true)}>
-                  <Icon size={18} />
-                  <span>
-                    <strong>{item.label}</strong>
-                    <small>{item.hint}</small>
-                  </span>
-                </RingButton>
-              );
-            }
+            const Icon = navIcons[item.screen] ?? Settings;
             const active = screen === item.screen;
             return (
               <RingButton
