@@ -1343,6 +1343,179 @@ const isPureRingValue = (v) => {
   console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
 }
 
+/* -------------------------------- 规格 §5.1 间距刻度棘轮（第 8 步批次 AW 立项） */
+
+/**
+ * §5.1 把间距定成 4px 基准的 11 档，令牌（--sp-0…--sp-11）早在批次 C 前就进了 tokens.css，
+ * 而且第 1 步的令牌存在性判据一直在断言这 12 个名字有定义。实测：全仓 `var(--sp-*)`
+ * 引用**零处**——令牌铺了没人用，散写的 gap/padding/margin 各数各的。这是规格开头那张
+ * 「间距 19 种 gap、无刻度表」的账，也是第 8 步「字号/间距/圆角按刻度收敛」三本里
+ * 唯一还没立判据的一本（圆角在批次 AV 清零，阴影台账 26 处仍冻结中）。
+ *
+ * 本批只立项、不还债：把当前实测值按文件冻结成预算，从此新增一处离刻度间距就红、
+ * 还掉一处不降预算也红。465 处 / 28 个文件的量级按「🔴 面广 → 分页面批次，每批截图确认」
+ * 排后续批次，一轮不现实，也不该由判据替人猜哪些能合并。
+ *
+ * 口径（三条排除都有实测依据，不是放宽判据）：
+ *   · `var(--sp-*)` / `var(--radius-*)` 之类引用令牌的写法不计数——那正是收敛的方向，
+ *     而且令牌值本身由 §5.1 定义，重复计数等于让同一笔债在两个地方各红一次。
+ *   · em / % / calc / auto / 负值一律跳过。em 是排版相对单位（首行缩进 `text-indent`
+ *     类写法本仓有 4 处，跟 4px 基准无关），% 与 auto 是布局语法；负值是光学位移
+ *     （实测全仓仅 1 处 `margin-top: -6px`，那是补偿描边宽度，不是档位选择）。
+ *   · 只认 px 与 rem 两种字面长度；rem 按 16px 基准折算（0.25rem 与 4px 是同一档的两种
+ *     写法，实测本仓 rem 间距仅 2 行、折算后都在刻度上）。⚠ 这条折算的前提是「根字号固定
+ *     16px」——桌面端没有任何代码改过 documentElement 的 font-size（实测零命中），
+ *     所以折算成立；将来若加用户可调 UI 缩放，rem 这一支要整族退出判据而不是继续折算。
+ *
+ * TSX 侧数的是 Tailwind 工具类（gap-N / p-N / m-N / space-x-N），步进 4px：
+ * gap-4 = 16px、gap-5 = 20px 都在刻度上；非整数档（-2.5 = 10px、-3.5 = 14px）和
+ * -px（=1px）离刻度。注意步进是 4px 不是 16px——第一版探针按 16px 折算，把
+ * ReadingStatsPage 的 gap-4/gap-5 全误报成债（26 处假账），实测产物 CSS 后改回。
+ * 两侧语料与圆角棘轮完全一致（src 下 .css/.tsx/.ts，排除 __tests__，先剥注释再逐行扫），
+ * 注释里写 `p-4` 这种字面串不会被计数——但 Tailwind 的 content 扫描不剥注释、会把它
+ * 发射进产物（批次 AV 实测），这条坑记在 ui.tsx 的注释里，不在这里重复。
+ *
+ * ⚠ 立项时撞出一处**规格自相冲突**，判据不替它选边：§2.2 把按钮 sm 档的水平内边距
+ * 定为 10px，而 §5.1 的 11 档里没有 10px（…8 / 12…）。实测 10px 是全仓最重的离刻度值
+ * ——gap 50 处 + padding 80 处 + margin 25 处 = 155 处，占这本账 465 处的三分之一。
+ * 所以这本账真正的第一件事不是「逐页收敛」，而是先由人定 10px 的去留：
+ *   · 若 §5.1 增补一档（10px），155 处债当场归零，代价是刻度从 11 档变 12 档；
+ *   · 若 §2.2 的 sm 内边距改 8 或 12px，则 155 处要逐页改版（可感知，需截图确认）。
+ * 在此之前 10px 一律按离刻度计数（保守方向：多算债不会导致误删，替设计提前追认才会），
+ * ui.tsx 那条预算 1 就是这场冲突的现场——它是 sizes.sm 的 px-2.5，不是谁写错了数字。
+ */
+{
+  const SP_SCALE_PX = new Set([0, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48]);
+  const SP_PROPS = /^(?:row-|column-)?(?:gap|padding|margin)(?:-(?:top|right|bottom|left|block|block-start|block-end|inline|inline-start|inline-end))?$/;
+  const SP_STEP = 4; // Tailwind 默认 spacing 步进：gap-4 = 16px
+  const SP_FRACTIONS = { "0.5": 2, "1.5": 6, "2.5": 10, "3.5": 14 };
+  const SP_UTILITY =
+    /(?:^|[\s"'`{,(])(?:[a-z-]+:)*(?:p|px|py|ps|pe|pt|pr|pb|pl|pi|m|mx|my|ms|me|mt|mr|mb|ml|mi|gap|gap-x|gap-y|space-x|space-y)-((?:\d+(?:\.\d+)?|px))(?=$|[\s"'`,{}():])/g;
+
+  /** 一个长度值折算成 px；null = 不判（var()/百分比/em/calc/auto/负值/非长度）。 */
+  const spLengthPx = (tok) => {
+    let m = /^(\d+(?:\.\d+)?)px$/.exec(tok);
+    if (m) return parseFloat(m[1]);
+    m = /^(\d+(?:\.\d+)?)rem$/.exec(tok);
+    if (m) return parseFloat(m[1]) * 16;
+    return null;
+  };
+  /** 一个 Tailwind 间距工具类给出的 px；null = 不判（任意值形式本仓实测零使用）。 */
+  const spUtilityPx = (body) => {
+    if (body === "px") return 1;
+    if (SP_FRACTIONS[body] !== undefined) return SP_FRACTIONS[body];
+    if (!/^\d+(?:\.\d+)?$/.test(body)) return null;
+    return parseFloat(body) * SP_STEP;
+  };
+
+  /**
+   * 立项账本，数字由本判据自己扫出（`node scripts/verify-design-tokens.mjs --show-spacing-ledger`
+   * 重算，别信任何注释里的静态数字）。⚠ 与圆角/阴影那两本不同，这本是**新增判据**，
+   * 表里的数字全是「当前实测散写值」，不是已经被追认的合法设计——下一批每收敛一个页面，
+   * 就要把对应条目的数字降到该页新实测值；整页收敛完就删条目。
+   * 之所以照登不误：本仓的规矩是「判据不能上线即红」，立项批必须先让全仓绿，
+   * 才谈得上后续批次的红是新增债。
+   */
+  const SPACING_BUDGET = {
+    "src/components/ErrorBoundary.tsx": 1,
+    "src/components/ui.tsx": 1,
+    "src/features/creation/ai/scene-candidate.css": 1,
+    "src/features/creation/cards/cards-local.css": 31,
+    "src/features/creation/cards/relation-graph.css": 5,
+    "src/features/creation/editor/continuous-editor.css": 3,
+    "src/features/creation/editor/scene-radar.css": 7,
+    "src/features/creation/editor/writing-quick-reference.css": 20,
+    "src/features/creation/editor/writing-reference.css": 9,
+    "src/features/creation/history/history-local.css": 16,
+    "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
+    "src/features/creation/inbox/inbox-local.css": 2,
+    "src/features/creation/operation/operation.css": 10,
+    "src/features/creation/outline/outline-reorg.css": 5,
+    "src/features/creation/overview/overview-local.css": 2,
+    "src/features/creation/preview/preview-local.css": 23,
+    "src/features/creation/replace/replace.css": 8,
+    "src/features/library/ExcerptPicker.tsx": 1,
+    "src/features/library/LibraryPage.tsx": 1,
+    "src/features/library/ReaderSidePanel.tsx": 3,
+    "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
+    "src/features/library/reader/components/ReaderTopNav.tsx": 1,
+    "src/features/library/toc/TocList.tsx": 1,
+    "src/features/search/search.css": 18,
+    "src/features/settings/encryption/encryption.css": 3,
+    "src/features/settings/sections/StorageSection.tsx": 1,
+    "src/styles.css": 196,
+    "src/styles/editorial-studio.css": 94
+  };
+
+  const actual = {};
+  const ledger = [];
+  for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    const src = readFileSync(p, "utf8");
+    let n = 0;
+    if (rel.endsWith(".css")) {
+      let ast;
+      try {
+        ast = postcss.parse(preserveNewlines(src), { from: p });
+      } catch {
+        fail(`间距棘轮：postcss 解析失败，${rel} 没被数到（漏数 = 这笔债务不再被盯住）`);
+        continue;
+      }
+      ast.walkDecls((d) => {
+        if (!SP_PROPS.test(d.prop)) return;
+        for (const t of d.value.replace("!important", "").trim().split(/\s+/)) {
+          const px = spLengthPx(t);
+          if (px !== null && !SP_SCALE_PX.has(px)) {
+            n += 1;
+            ledger.push(`${rel}:${d.source.start.line} ${d.prop}: ${t}`);
+          }
+        }
+      });
+      // @apply 编译出来就是一条声明，和 TSX 挂工具类同判（同圆角棘轮那条理由）。
+      ast.walkAtRules("apply", (a) => {
+        for (const m of a.params.matchAll(SP_UTILITY)) {
+          const px = spUtilityPx(m[1]);
+          if (px !== null && !SP_SCALE_PX.has(px)) {
+            n += 1;
+            ledger.push(`${rel}:${a.source.start.line} @apply …-${m[1]}`);
+          }
+        }
+      });
+    } else {
+      for (const line of preserveNewlines(src).split("\n")) {
+        for (const m of line.matchAll(SP_UTILITY)) {
+          const px = spUtilityPx(m[1]);
+          if (px !== null && !SP_SCALE_PX.has(px)) n += 1;
+        }
+      }
+    }
+    if (n) actual[rel] = n;
+  }
+
+  const over = Object.keys(actual).filter((f) => actual[f] > (SPACING_BUDGET[f] ?? 0));
+  const stale = Object.keys(SPACING_BUDGET).filter((f) => (SPACING_BUDGET[f] ?? 0) > (actual[f] ?? 0));
+  if (over.length) {
+    fail(
+      `第 8 步间距刻度：${over.length} 个文件的离刻度间距比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SPACING_BUDGET[f] ?? 0})`).join("、")}。` +
+        `间距请用 §5.1 的 11 档（--sp-0…--sp-11 = 0/2/4/6/8/12/16/20/24/32/40/48px），` +
+        `等价 Tailwind 写法是 gap-N/p-N/m-N 的 4px 步进（gap-4=16px、gap-5=20px）。` +
+        `em/%/calc/auto/负值是排版与布局语法，不在本判据管辖。`
+    );
+  }
+  if (stale.length) {
+    fail(
+      `第 8 步间距刻度：${stale.length} 个文件已经还了债但预算没跟着降——${stale.slice(0, 5).map((f) => `${f}(${actual[f] ?? 0}→应为预算 ${SPACING_BUDGET[f]})`).join("、")}。` +
+        `把 SPACING_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一页）。`
+    );
+  }
+  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
+  console.log(`${TAG} [第 8 步待收敛] 间距离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+  if (process.argv.includes("--show-spacing-ledger")) {
+    console.log(`${TAG} 间距账本 ${ledger.length} 行：`);
+    for (const l of ledger) console.log("    " + l);
+  }
+}
+
 /* -------------------------------- 类名型按钮的角色台账（批次 AG 立，服务于 §2.5） */
 
 /**

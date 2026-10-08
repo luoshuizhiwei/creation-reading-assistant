@@ -198,6 +198,18 @@ const cases = [
   // 批次 M 把阅读器族整片收到刻度上，用的正是下面这三种写法。这条反向用例钉的是
   // 「本批的迁移目标写法确实合法」——判据若把它们误伤，下一批就会退回去写 rounded-lg。
   ["圆角棘轮·反向③：批次 M 的三种目标写法 rounded-md(6px) / rounded-[var(--radius-3)] / rounded-full 都在刻度上，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  // zz: rounded-md rounded-[var(--radius-3)] rounded-full"), null],
+  // 第 8 步批次 AW（间距棘轮立项）：五颗牙测的是「这本新账能不能两头咬人」。
+  // 立项批的数字全部照登（465 处），所以正向用例必须造出**超出预算**的第 466 处，
+  // 而不是随便加一个离刻度值——落在预算内的新增会被判据放过，这是按文件冻结的代价，
+  // 也是它和「全仓一条总数」那种棘轮的差别（总数棘轮会被别处还的债挡刀）。
+  ["间距棘轮①：CSS 侧在零预算文件里新增一处离刻度 padding（settings-controls.css 不在 SPACING_BUDGET 里，预算视同 0，2px 6px→2px 7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 7px;"), /间距刻度/],
+  ["间距棘轮②：TSX 侧新增离刻度工具类（ui.tsx 预算 1 = sizes.sm 的 px-2.5（10px），再加一个 py-2.5 就是 2>1，必须红）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 px-2.5 py-2.5 text-xs"'), /间距刻度/],
+  ["间距棘轮③：还了债却不降预算（LibraryPage 预算 1 = 搜索框 pl-9(36px)，改成 pl-8(32px) 是合法收敛但预算没跟着降，必须红并指名该文件）", () => mutate("src/features/library/LibraryPage.tsx", 'className="paper-input w-full pl-9 pr-8 text-sm"', 'className="paper-input w-full pl-8 pr-8 text-sm"'), /预算没跟着降/],
+  // 反向三颗钉的是「别把合法写法咬进去」——判据过严的下一批人就会退回去散写数字，
+  // 那才是这本账真正的失败模式。
+  ["间距棘轮·反向①：rem 写法按 16px 基准折算后落在刻度上（padding: 2px 0.375rem = 2px 6px = --sp-1/--sp-3），不该被折算误伤成债", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 0.375rem;"), null],
+  ["间距棘轮·反向②：引用令牌的写法不在计数之列（padding-inline: var(--sp-6) 是收敛的目标形态，写它必须绿）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  padding-inline: var(--sp-6);"), null],
+  ["间距棘轮·反向③：em/%/auto/负值是排版与布局语法不是档位（padding: 1.5em / margin-top: -6px / auto 三行都不该红）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  margin-top: -6px;\n  padding-left: 1.5em;\n  margin-inline: auto;"), null],
   // 第 8 步批次 F：那条把浮层圆角整体吃掉的 12px !important 已删，判据钉住它的「形状」。
   // ①故意用刻度上的 10px，让棘轮咬不到、只有浮层不变量能报警——否则这条用例测的是棘轮。
   ["批次 F 回归：把浮层圆角的 !important 全局接管加回来（裸类名 + !important，值 10px 在刻度上、棘轮咬不到，必须靠浮层不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".motion-toast {\n  border-radius: 10px !important;\n  box-shadow: var(--shadow-4) !important;"), /浮层容器/],
