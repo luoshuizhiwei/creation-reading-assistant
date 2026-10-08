@@ -210,6 +210,21 @@ const cases = [
   ["间距棘轮·反向①：rem 写法按 16px 基准折算后落在刻度上（padding: 2px 0.375rem = 2px 6px = --sp-1/--sp-3），不该被折算误伤成债", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 0.375rem;"), null],
   ["间距棘轮·反向②：引用令牌的写法不在计数之列（padding-inline: var(--sp-6) 是收敛的目标形态，写它必须绿）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  padding-inline: var(--sp-6);"), null],
   ["间距棘轮·反向③：em/%/auto/负值是排版与布局语法不是档位（padding: 1.5em / margin-top: -6px / auto 三行都不该红）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  margin-top: -6px;\n  padding-left: 1.5em;\n  margin-inline: auto;"), null],
+  // 批次 AX 的牙（字号 / 行高比率 / 行高长度式，规格 §3.2）。三本账各自成牙：
+  // 同一处改动只能证明一本判据在咬，混在一颗牙里就分不清是哪本瞎了。
+  // 立项批的牙必须能造出「超出预算的第 N+1 处」——所以正牙一律落在**该本账预算为 0 的文件**
+  // （新增即红），或用**合法收敛不降预算**造 stale 红；两种形状都要有，缺一半就是半个判据。
+  ["排版棘轮·字号①：CSS 侧在字号零预算文件里新增一处离刻度 font-size（inbox-local.css 不在 FS_BUDGET 里、视同 0，11px→11.5px 必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", "  font-size: 11px;", "  font-size: 11.5px;"), /第 8 步字号：/],
+  ["排版棘轮·字号②：TSX 侧把刻度上的 text-sm(14) 换成 text-lg(18)（LibraryPage 字号预算 0，§3.2 八档里没有 18px，必须红）", () => mutate("src/features/library/LibraryPage.tsx", '<div className="text-sm text-paper-muted">正在加载书籍...</div>', '<div className="text-lg text-paper-muted">正在加载书籍...</div>'), /第 8 步字号：/],
+  ["排版棘轮·字号③：还了债却不降预算（scene-radar.css 预算 1 = .scene-radar-item dd 的 12.5px，改成 12px 是合法收敛但 FS_BUDGET 没跟着降，必须红）", () => mutate("src/features/creation/editor/scene-radar.css", "  font-size: 12.5px;", "  font-size: 12px;"), /FS_BUDGET 里对应数字/],
+  ["排版棘轮·行高比率①：新增一个八档之外的比率（history-local.css 不在 LH_BUDGET 里视同 0，1.5→1.65 必须红——1.65 正是本仓最常见的手抄多一档）", () => mutate("src/features/creation/history/history-local.css", "  font-size: 11.5px;\n  line-height: 1.5;", "  font-size: 11.5px;\n  line-height: 1.65;"), /第 8 步行高比率：/],
+  ["排版棘轮·行高比率②：还了债却不降预算（cards-local.css 预算 2，把 1.65 收成 §3.2 的 1.6 是正解，但 LH_BUDGET 没跟着降必须红）", () => mutate("src/features/creation/cards/cards-local.css", "  font-size: 12px;\n  line-height: 1.65;", "  font-size: 12px;\n  line-height: 1.6;"), /LH_BUDGET 里对应数字/],
+  ["排版棘轮·行高长度式①：leading-N 就是带单位的行高（产物实测 .leading-6{line-height:1.5rem}），LibraryPage 该行预算 0，加一个 leading-6 必须红", () => mutate("src/features/library/LibraryPage.tsx", '<div className="text-sm text-paper-muted">正在加载书籍...</div>', '<div className="text-sm leading-6 text-paper-muted">正在加载书籍...</div>'), /第 8 步行高长度式/],
+  ["排版棘轮·行高长度式②：还了债却不降预算（ui.tsx 预算 2 = TextArea 与 EmptyState 各一处 leading-6，摘掉 EmptyState 那处后 LHL_BUDGET 没跟着降必须红）", () => mutate("src/components/ui.tsx", "mt-2 text-sm leading-6 text-paper-muted", "mt-2 text-sm text-paper-muted"), /LHL_BUDGET 里对应数字/],
+  ["排版棘轮·反向①：引用令牌的写法是收敛目标形态（font-size: var(--text-13) 不该红——这本账数的是散写字面值，不是「有没有用令牌」）", () => mutate("src/features/settings/encryption/encryption.css", "  color: var(--text-muted, #5a6270);\n  font-size: 13px;", "  color: var(--text-muted, #5a6270);\n  font-size: var(--text-13);"), null],
+  ["排版棘轮·反向②：§3.3 的阅读器行高 1.9 与稿纸 1.85 在合法集内（search.css 行高比率预算 0，1.6→1.9 不该红——判据把规格另一处明文允许的值咬成债，逼人绕过判据）", () => mutate("src/features/search/search.css", "  line-height: 1.6;", "  line-height: 1.9;"), null],
+  ["排版棘轮·反向③：clamp() 是流式排版语法、不判（editorial-studio.css 那两处 clamp 里的 22/27/20/23 全都不是档位值，把它们逐个计数等于把「响应式」本身判成债）", () => mutate("src/styles/editorial-studio.css", "clamp(22px, 2vw, 27px)", "clamp(21px, 1.7vw, 26px)"), null],
+  ["排版棘轮·反向④：任意值 text-[13px] 落在刻度上就合法，leading-none 是无单位词形不是长度式（两处同挂在一个类串上，都不该红）", () => mutate("src/features/library/LibraryPage.tsx", '<div className="text-sm text-paper-muted">正在加载书籍...</div>', '<div className="text-[13px] leading-none text-paper-muted">正在加载书籍...</div>'), null],
   // 第 8 步批次 F：那条把浮层圆角整体吃掉的 12px !important 已删，判据钉住它的「形状」。
   // ①故意用刻度上的 10px，让棘轮咬不到、只有浮层不变量能报警——否则这条用例测的是棘轮。
   ["批次 F 回归：把浮层圆角的 !important 全局接管加回来（裸类名 + !important，值 10px 在刻度上、棘轮咬不到，必须靠浮层不变量拦住）", () => mutate("src/styles/editorial-studio.css", ".motion-toast {\n  box-shadow: var(--shadow-4) !important;", ".motion-toast {\n  border-radius: 10px !important;\n  box-shadow: var(--shadow-4) !important;"), /浮层容器/],

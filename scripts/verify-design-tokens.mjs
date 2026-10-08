@@ -1362,10 +1362,14 @@ const isPureRingValue = (v) => {
  *   · em / % / calc / auto / 负值一律跳过。em 是排版相对单位（首行缩进 `text-indent`
  *     类写法本仓有 4 处，跟 4px 基准无关），% 与 auto 是布局语法；负值是光学位移
  *     （实测全仓仅 1 处 `margin-top: -6px`，那是补偿描边宽度，不是档位选择）。
- *   · 只认 px 与 rem 两种字面长度；rem 按 16px 基准折算（0.25rem 与 4px 是同一档的两种
- *     写法，实测本仓 rem 间距仅 2 行、折算后都在刻度上）。⚠ 这条折算的前提是「根字号固定
- *     16px」——桌面端没有任何代码改过 documentElement 的 font-size（实测零命中），
- *     所以折算成立；将来若加用户可调 UI 缩放，rem 这一支要整族退出判据而不是继续折算。
+ *   · 只认 px 与 rem 两种字面长度；rem 按 16px **名义基准**折算（0.25rem 与 4px 是同一档
+ *     的两种写法，实测本仓 rem 间距仅 3 处、折算后都在刻度上）。⚠ 批次 AX 复核时纠正了
+ *     本批初版的一句错误前提：当时写「桌面端没有代码改根字号、实测零命中」，实际
+ *     App.tsx 的 applyTheme 一直在写 `root.style.fontSize = appFontScale×100%`（设置里
+ *     「应用字体缩放」滑杆 85%–140%，实测存在）。折算依旧成立、且理由要换：刻度本就定义
+ *     在 100% 基准上，rem 与基准同缩（用户放大界面时 rem 间距跟着放大，档位比例不变），
+ *     所以 rem 是**随缩放走的合法写法**；反倒是 px 字面值无视该设置、缩放时比例失真——
+ *     这条区别由批次 AX 的字号棘轮正面记账，本判据不在此展开。
  *
  * TSX 侧数的是 Tailwind 工具类（gap-N / p-N / m-N / space-x-N），步进 4px：
  * gap-4 = 16px、gap-5 = 20px 都在刻度上；非整数档（-2.5 = 10px、-3.5 = 14px）和
@@ -1513,6 +1517,223 @@ const isPureRingValue = (v) => {
   if (process.argv.includes("--show-spacing-ledger")) {
     console.log(`${TAG} 间距账本 ${ledger.length} 行：`);
     for (const l of ledger) console.log("    " + l);
+  }
+}
+
+/* -------------------------------- 规格 §3.2 排版刻度棘轮（第 8 步批次 AX 立项） */
+
+/**
+ * 第 8 步「字号/间距/圆角按刻度收敛」的最后一本：圆角（批次 AV 清零）、阴影（AM/AN 后
+ * 剩 26 处冻结）、间距（批次 AW 465 处冻结）之后，字号与行高一直没有判据——§3.2 的八档
+ * 令牌 --text-11…--text-32 与配套的 --leading-* 早在批次 C 就进了 tokens.css，第 1 步的
+ * 存在性判据也一直在断言这 16 个名字，但实测全仓 `var(--text-<档>)` / `var(--leading-*)`
+ * 引用**零处**（注意区分：--text-primary/secondary/tertiary 是颜色令牌，同名前缀不同族，
+ * 那 186 处引用是颜色，不是字号）。
+ *
+ * 三本账分开立，因为它们各自的「合法」边界不同：
+ *
+ * ① 字号（FS）：§3.2 定 11/12/13/14/16/20/24/32 八档，实测离刻度 114 处 / 21 文件。
+ *    值来源两侧都数：CSS 的 font-size 字面量（px 直接取、rem 按名义 16px 折算，见下），
+ *    以及 TSX/@apply 的 text-* 工具类（text-xs=12 在刻度上；text-lg=18 不在；任意值
+ *    text-[10.5px] 由 SettingsSearch 实际在用，按字面值判）。
+ *    ⚠ rem 折算在这里比间距那本更站不住，但仍按名义 16px 折：App.tsx 的 applyTheme 会
+ *    写 `root.style.fontSize = appFontScale×100%`（设置里「应用字体缩放」滑杆 0.85–1.4，
+ *    实测存在，批次 AX 复核时纠正了批次 AW 注释里「零命中」的错误声明）。也就是说
+ *    **text-[1rem] 这类写法在不同用户机器上是不同的像素值**，而档位表是像素定义的。
+ *    实测本仓 rem 字号仅 outline-reorg.css 一处 `font-size: 0.78rem`——按 16 折=12.48px
+ *    离刻度、按滑杆任何一档折也都不落在八档上，所以两种口径都得记它一笔，账不会因口径
+ *    漂移而漏。这里记的是「名义基准下的债」；滑杆让 px 字面量在缩放时比例失真，那是
+ *    「px 写法本身」的问题，不是某个数字离刻度，本判据不重复记账（见下方说明）。
+ *    §3.3 给阅读器正文定了 17px（可调 15–22）、稿纸 16px，但**不构成对本账这些字面值的
+ *    豁免**，理由要分开说清：阅读器正文那个 17px 与「15–22」是**用户设置**的取值区间，
+ *    经 inline style 落地（TxtMarkdownReader 的 style.fontSize、epub-engine 的
+ *    themes.override），根本不经过 CSS 字面量——所以「15–22 可调」不能拿来给散写的
+ *    `font-size: 15px` 发证。逐条核过落在这些数字上的选择器：.writing-manuscript-head h2
+ *    22 / .creation-step legend 15 / .scene-editor-content 18 / .library-cover-glyph 15
+ *    是标题、图例、正文容器与字形，稿纸按 §3.3 是 16px，18 与 15 都离刻度。唯一确实是
+ *    正文的是 .preview-block（15px，预览的书页正文，配套 line-height 1.95 也在 LH 账里）
+ *    ——可 §3.3 给正文的两个值就是 17 与 16，没有 15，所以它照记不误。
+ *    保守方向是债留在账上；由判据预先追认一批规格没给过的位置才是风险方向。
+ *
+ * ② 行高比率（LH）：§3.2 给的是八档**同名**行高（1.5/1.55/1.6/1.7/1.45/1.3/1.25/1.1），
+ *    §3.3 又另给 1.9（阅读器正文）与 1.85（稿纸）。两处并集当合法集，实测离刻度 17 处 /
+ *    6 文件——多数是 1.65/1.4/1.28 这种「比八档多一档」的手抄值。
+ *    ⚠ 这里刻意不判「行高是否跟字号配成同名一对」：本仓字号大量走继承与工具类，
+ *    判配对需要可靠的级联计算，文本扫描做不到，硬猜会把正常写法咬成债（宁可漏判）。
+ *
+ * ③ 长度式行高（LHL）：§3.2 明文「行高一律无单位，禁止 line-height: 24px 这类写法」，
+ *    理由是缩放时固定 px 会错位。这条本应零容忍——规格从未追认过任何带单位的行高，
+ *    不存在「当前设计就是这么定的」那种辩护。但实测存量并不为零：作者手写的带单位
+ *    行高 CSS 侧 0 处（规格这条在 CSS 里已经天然满足，值得如实记一句），而 Tailwind 的
+ *    leading-N 编译出来就是长度式行高（产物实测 .leading-5{line-height:1.25rem}），
+ *    TSX 里 43 处 / 22 文件。判据不能上线即红，所以这 43 处按文件冻结、新增即红；
+ *    还法是把 leading-N 换成无单位比率（§3.2 八档同名值），不是把数值改小。
+ *    leading-none（=1，无单位）与 tight/loose 等词形不算长度式，实测词形 0 处。
+ *    ⚠ 刻意**不**把 text-* 具名工具类自带的行高计进这本：产物实测 .text-sm 同时输出
+ *    font-size:.875rem 与 line-height:1.25rem（全仓 196 处 / 45 文件挂着具名 text-*），
+ *    但那行 rem 行高是工具类的附属产物、不是作者写的数值——要消掉它只能改字号选择本身，
+ *    而字号已经由①这本管着了。同一处挂两本账会让「还一笔债」变成两次改动的耦合，
+ *    也违反判据不重复计数的老规矩（同批次 AW 对 var(--radius-*) 的处理）。
+ *
+ * 台账由本判据自己扫出：`--show-type-ledger` 重算并逐行打印（文件:行 值）。
+ * 数字随还债下降，还完删条目——和间距那本同样的规矩。
+ */
+{
+  const FS_SCALE_PX = new Set([11, 12, 13, 14, 16, 20, 24, 32]);
+  const LH_ALLOWED = new Set(["1.1", "1.25", "1.3", "1.45", "1.5", "1.55", "1.6", "1.7", "1.85", "1.9"]); // §3.2 ∪ §3.3
+  const TW_FS = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, "2xl": 24, "3xl": 30, "4xl": 36, "5xl": 48, "6xl": 60, "7xl": 72, "8xl": 96, "9xl": 128 };
+  const FS_UTILITY =
+    /(?:^|[\s"'`{,(])(?:[a-z-]+:)*text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl|\[[\d.]+px\])(?=$|[\s"'`,{}():])/g;
+  const LH_UTILITY = /(?:^|[\s"'`{,(])(?:[a-z-]+:)*leading-(\d+(?:\.\d+)?)/g;
+
+  const FS_BUDGET = {
+    "src/components/ErrorBoundary.tsx": 1,
+    "src/components/interaction.tsx": 1,
+    "src/components/ui.tsx": 1,
+    "src/features/creation/ai/scene-candidate.css": 2,
+    "src/features/creation/cards/relation-graph.css": 1,
+    "src/features/creation/editor/scene-radar.css": 1,
+    "src/features/creation/editor/writing-quick-reference.css": 11,
+    "src/features/creation/editor/writing-reference.css": 1,
+    "src/features/creation/history/history-local.css": 2,
+    "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
+    "src/features/creation/outline/outline-reorg.css": 1,
+    "src/features/creation/overview/overview-local.css": 2,
+    "src/features/creation/preview/preview-local.css": 3,
+    "src/features/creation/replace/replace.css": 1,
+    "src/features/library/ReaderSettingsDrawer.tsx": 1,
+    "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
+    "src/features/search/search.css": 2,
+    "src/features/settings/SettingsSearch.tsx": 1,
+    "src/features/settings/settings-controls.css": 2,
+    "src/styles.css": 49,
+    "src/styles/editorial-studio.css": 29
+  };
+  const LH_BUDGET = {
+    "src/features/creation/cards/cards-local.css": 2,
+    "src/features/creation/editor/continuous-editor.css": 2,
+    "src/features/creation/preview/preview-local.css": 1,
+    "src/features/settings/settings-controls.css": 1,
+    "src/styles.css": 8,
+    "src/styles/editorial-studio.css": 3
+  };
+  const LHL_BUDGET = {
+    "src/app/App.tsx": 1,
+    "src/components/ErrorBoundary.tsx": 1,
+    "src/components/interaction.tsx": 3,
+    "src/components/ui.tsx": 2,
+    "src/components/ui/NumberStepper.tsx": 1,
+    "src/components/ui/Switch.tsx": 1,
+    "src/features/creation/inbox/ai-send-confirm.tsx": 4,
+    "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx": 1,
+    "src/features/creation/inbox/components/InboxItemDetail.tsx": 5,
+    "src/features/inspiration/InspirationPage.tsx": 1,
+    "src/features/library/ExcerptPicker.tsx": 2,
+    "src/features/library/ReaderSidePanel.tsx": 1,
+    "src/features/library/ReadingStatsPage.tsx": 1,
+    "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
+    "src/features/library/epub-reader/EpubSidePanel.tsx": 1,
+    "src/features/library/reader/TxtMarkdownReader.tsx": 2,
+    "src/features/settings/SettingsPage.tsx": 1,
+    "src/features/settings/reader/ReaderTrackingControls.tsx": 1,
+    "src/features/settings/sections/AISection.tsx": 2,
+    "src/features/settings/sections/SectionWrapper.tsx": 1,
+    "src/features/settings/sections/StorageSection.tsx": 9,
+    "src/styles.css": 1
+  };
+
+  const ledgers = { FS: [], LH: [], LHL: [] };
+  const actual = { FS: {}, LH: {}, LHL: {} };
+  const BUDGETS = { FS: FS_BUDGET, LH: LH_BUDGET, LHL: LHL_BUDGET };
+  const bump = (key, rel, line, what) => {
+    actual[key][rel] = (actual[key][rel] || 0) + 1;
+    ledgers[key].push(`${rel}:${line} ${what}`);
+  };
+
+  for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
+    const rel = path.relative(root, p).split(path.sep).join("/");
+    const stripped = preserveNewlines(readFileSync(p, "utf8"));
+    if (rel.endsWith(".css")) {
+      let ast;
+      try {
+        ast = postcss.parse(stripped, { from: p });
+      } catch {
+        fail(`排版棘轮：postcss 解析失败，${rel} 没被数到（漏数 = 这笔债务不再被盯住）`);
+        continue;
+      }
+      ast.walkDecls((d) => {
+        const ln = d.source.start.line;
+        const v = d.value.replace("!important", "").trim();
+        if (d.prop === "font-size") {
+          if (v.startsWith("var(") || /^clamp\(/.test(v)) return; // 令牌引用是收敛方向；clamp 是流式排版语法
+          let m = /^(\d+(?:\.\d+)?)px$/.exec(v);
+          let px = null;
+          if (m) px = parseFloat(m[1]);
+          else {
+            m = /^(\d+(?:\.\d+)?)rem$/.exec(v);
+            if (m) px = Math.round(parseFloat(m[1]) * 1600) / 100;
+          }
+          if (px === null) return; // em/% 等相对写法不判
+          if (!FS_SCALE_PX.has(px)) bump("FS", rel, ln, `font-size ${v}`);
+        } else if (d.prop === "line-height") {
+          if (v.startsWith("var(")) return;
+          if (/^[\d.]+$/.test(v)) {
+            if (!LH_ALLOWED.has(v)) bump("LH", rel, ln, `line-height ${v}`);
+          } else if (/(?:px|pt|rem|em|%)$/.test(v)) {
+            bump("LHL", rel, ln, `line-height ${v}`);
+          }
+        }
+      });
+      ast.walkAtRules("apply", (a) => {
+        const ln = a.source.start.line;
+        for (const m of a.params.matchAll(FS_UTILITY)) {
+          const body = m[1];
+          const px = body.startsWith("[") ? parseFloat(body.slice(1, -1)) : TW_FS[body];
+          if (px !== undefined && !FS_SCALE_PX.has(px)) bump("FS", rel, ln, `@apply text-${body}`);
+        }
+        for (const m of a.params.matchAll(LH_UTILITY)) bump("LHL", rel, ln, `@apply leading-${m[1]}`);
+      });
+    } else {
+      stripped.split("\n").forEach((L, i) => {
+        const ln = i + 1;
+        for (const m of L.matchAll(FS_UTILITY)) {
+          const body = m[1];
+          const px = body.startsWith("[") ? parseFloat(body.slice(1, -1)) : TW_FS[body];
+          if (px !== undefined && !FS_SCALE_PX.has(px)) bump("FS", rel, ln, `text-${body}`);
+        }
+        for (const m of L.matchAll(LH_UTILITY)) bump("LHL", rel, ln, `leading-${m[1]}`);
+      });
+    }
+  }
+
+  const NAMES = { FS: "字号", LH: "行高比率", LHL: "行高长度式（§3.2 禁止单位化行高）" };
+  for (const key of ["FS", "LH", "LHL"]) {
+    const over = Object.keys(actual[key]).filter((f) => actual[key][f] > (BUDGETS[key][f] ?? 0));
+    const stale = Object.keys(BUDGETS[key]).filter((f) => (BUDGETS[key][f] ?? 0) > (actual[key][f] ?? 0));
+    if (over.length) {
+      fail(
+        `第 8 步${NAMES[key]}：${over.length} 个文件比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[key][f]}/${BUDGETS[key][f] ?? 0})`).join("、")}。` +
+          (key === "FS"
+            ? `字号请用 §3.2 八档（--text-11/12/13/14/16/20/24/32）；§3.3 的阅读器正文 17px 由用户设置经 inline style 落地，不是 CSS 字面量的通行证。`
+            : key === "LH"
+              ? `行高比率请用 §3.2 的八档同名值（1.5/1.55/1.6/1.7/1.45/1.3/1.25/1.1）或 §3.3 的 1.85/1.9。`
+              : `§3.2 明令「行高一律无单位」：leading-N 与任何带 px/rem 的行高都在此记账（--show-type-ledger 看逐条）。`)
+      );
+    }
+    if (stale.length) {
+      fail(
+        `第 8 步${NAMES[key]}：${stale.length} 个文件已经还了债但预算没跟着降——${stale.slice(0, 5).map((f) => `${f}(${actual[key][f] ?? 0}→应为预算 ${BUDGETS[key][f]})`).join("、")}。` +
+          `把 ${key}_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一页）。`
+      );
+    }
+    const t = Object.values(actual[key]).reduce((a, b) => a + b, 0);
+    console.log(`${TAG} [第 8 步待收敛] ${NAMES[key]}离刻度 ${t} 处（${Object.keys(actual[key]).length} 个文件，已按文件冻结预算）`);
+  }
+  if (process.argv.includes("--show-type-ledger")) {
+    for (const key of ["FS", "LH", "LHL"]) {
+      console.log(`${TAG} ${NAMES[key]}账本 ${ledgers[key].length} 行：`);
+      for (const l of ledgers[key]) console.log("    " + l);
+    }
   }
 }
 
