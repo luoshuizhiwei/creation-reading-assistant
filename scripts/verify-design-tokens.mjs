@@ -1541,17 +1541,22 @@ const isPureRingValue = (v) => {
  *    写 `root.style.fontSize = appFontScale×100%`（设置里「应用字体缩放」滑杆 0.85–1.4，
  *    实测存在，批次 AX 复核时纠正了批次 AW 注释里「零命中」的错误声明）。也就是说
  *    **text-[1rem] 这类写法在不同用户机器上是不同的像素值**，而档位表是像素定义的。
- *    实测本仓 rem 字号仅 outline-reorg.css 一处 `font-size: 0.78rem`——按 16 折=12.48px
- *    离刻度、按滑杆任何一档折也都不落在八档上，所以两种口径都得记它一笔，账不会因口径
- *    漂移而漏。这里记的是「名义基准下的债」；滑杆让 px 字面量在缩放时比例失真，那是
- *    「px 写法本身」的问题，不是某个数字离刻度，本判据不重复记账（见下方说明）。
+ *    实测本仓 rem 字号仅 outline-reorg.css 一处，立项时是 `font-size: 0.78rem`——按 16
+ *    折=12.48px 离刻度、按滑杆任何一档折也都不落在八档上，所以两种口径都得记它一笔，
+ *    账不会因口径漂移而漏。批次 BD-3 把它收成 `0.75rem`（名义 12px，正落在 §3.2 的
+ *    12 档上）；**保留 rem 写法**——这条是大纲撤销条，随「应用字体缩放」滑杆走是它的
+ *    语义，换成 px 字面量反而无视滑杆。这里记的是「名义基准下的债」；滑杆让 px 字面量
+ *    在缩放时比例失真，那是「px 写法本身」的问题，不是某个数字离刻度，本判据不重复记账
+ *    （见下方说明）。
  *    §3.3 给阅读器正文定了 17px（可调 15–22）、稿纸 16px，但**不构成对本账这些字面值的
  *    豁免**，理由要分开说清：阅读器正文那个 17px 与「15–22」是**用户设置**的取值区间，
  *    经 inline style 落地（TxtMarkdownReader 的 style.fontSize、epub-engine 的
  *    themes.override），根本不经过 CSS 字面量——所以「15–22 可调」不能拿来给散写的
  *    `font-size: 15px` 发证。逐条核过落在这些数字上的选择器：.writing-manuscript-head h2
- *    22 / .creation-step legend 15 / .scene-editor-content 18 / .library-cover-glyph 15
- *    是标题、图例、正文容器与字形，稿纸按 §3.3 是 16px，18 与 15 都离刻度。唯一确实是
+ *    22 / .creation-step legend 15 / .library-cover-glyph 15 是标题、图例与字形；
+ *    .scene-editor-content 立项时主题表里还有一条 18px（批次 BD-2 已删——它从未画出来，
+ *    胜者是 editorial-studio.css 的 17px），稿纸按 §3.3 是 16px，18 与 15 都离刻度。
+ *    唯一确实是
  *    正文的是 .preview-block（15px，预览的书页正文，配套行高已随批次 BC 收成 §3.3 的 1.9）
  *    ——可 §3.3 给正文的两个值就是 17 与 16，没有 15，所以它照记不误。
  *    保守方向是债留在账上；由判据预先追认一批规格没给过的位置才是风险方向。
@@ -1603,6 +1608,19 @@ const isPureRingValue = (v) => {
   // 判据按「源码里的字面量」记账，看不见级联，所以死数值会一直占着预算、并且每批都要被
   // 重新调查一遍。这批删的就是「谁赢」已经有胜者图能机械证明的那些。
   // 剩下 64 处全是**活着的**离刻度字号——那才是真的需要一页一页定的部分。
+  //
+  // 批次 BD-3：从 64 里还掉 6 处，这一族的判据不需要任何口味——**离刻度值在八档上有
+  // 唯一严格最近档**，就近取整没有第二种合法答案（与 BD-1 同族逻辑，只是数值在刻度
+  // 中段而非下缘）：14.5→14 ×2（.desktop-brand strong / .uni-search-input，两处成对，
+  // 同一侧栏-搜索行的标题与输入框）、19→20 ×1（.reading-stat-value，配 700 字重与
+  // tabular-nums 的数字块，20 是 §3.2 现成的数字档）、17→16 ×2（.preview-toolbar-meta h2
+  // 与 .cards-detail-head h3，都是面板小标题，§3.2 里 h3 级给 16）、0.78rem→0.75rem ×1
+  // （名义 12px，见上方 ① 的 rem 说明；保留 rem 是为了跟随字体缩放滑杆）。
+  // 剩下的 11.5 / 12.5 / 13.5 / 15 / 18 / 22 / 23 / 25 / 30 全是**两侧等距或跨档**的值，
+  // 往哪边取仍是那一页版式角色的决定，按页面分批做。
+  // ⚠ 本批**排除** .scene-editor-content 的 17px：它和 line-height:2 与 background 里
+  // 34px 横线节距是算出来的耦合（17×2=34），单改字号就会让横线漂到字腰上——归稿纸批次
+  // 与那 2 处行高一起三件同算，不混进「严格最近档」。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1612,14 +1630,13 @@ const isPureRingValue = (v) => {
     "src/features/creation/editor/writing-quick-reference.css": 3,
     "src/features/creation/history/history-local.css": 2,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
-    "src/features/creation/outline/outline-reorg.css": 1,
     "src/features/creation/overview/overview-local.css": 1,
-    "src/features/creation/preview/preview-local.css": 3,
+    "src/features/creation/preview/preview-local.css": 2,
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/styles.css": 24,
-    "src/styles/editorial-studio.css": 20
+    "src/styles.css": 23,
+    "src/styles/editorial-studio.css": 17
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`

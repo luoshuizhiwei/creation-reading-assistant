@@ -134,7 +134,7 @@
   background: color-mix(in srgb, var(--accent-hover) 60%, transparent);
   padding: 0.5rem 0.75rem;
   color: var(--text-main);
-  font-size: 0.78rem;
+  font-size: 0.75rem;
 }
 
 .outline-revert-bar > span:first-child { margin-right: auto; }
