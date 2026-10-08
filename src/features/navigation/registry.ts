@@ -59,9 +59,10 @@ export interface NavEntry {
    * DesktopFrame 页头标题下那行，project-view 的喂项目页 hero 那行小字。
    * ⚠ 现在这 15 条句子是**合并前界面上正在显示的原话**（逐字节搬过来的），不是新写的
    * 文案——批次 AZ 的前提是零视觉，改文字和改结构不能混在一个提交里。规格要的
-   * 「这一页的规矩」那种写法（讲边界与后果，例如「本地文件不上传；摘录落进收件箱，
-   * 不直接改稿」）已起草存在本文件注释外的批注里，要换得单独一批、在提交信息里
-   * 逐页写清楚换了哪句话，并同步 nav-registry.test.ts 里那两张锚点表。
+   * 「这一页的规矩」那种写法（讲边界与后果，例如「本地文件不上传；阅读时的摘录落进
+   * 收件箱，不直接改稿」）已另起草，稿子在规格笔记同级的 tips-copy-draft.md（仓库外）。
+   * 要换得单独一批：在提交信息里逐页写清改了哪句话，并同步 nav-registry.test.ts 里
+   * ORIGINAL_SCREEN_TIPS / ORIGINAL_PROJECT_VIEW_TIPS 两张锚点表。
    */
   tip?: string;
   screen?: AppScreen;
