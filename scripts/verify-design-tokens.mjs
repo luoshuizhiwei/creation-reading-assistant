@@ -1551,13 +1551,16 @@ const isPureRingValue = (v) => {
  *    `font-size: 15px` 发证。逐条核过落在这些数字上的选择器：.writing-manuscript-head h2
  *    22 / .creation-step legend 15 / .scene-editor-content 18 / .library-cover-glyph 15
  *    是标题、图例、正文容器与字形，稿纸按 §3.3 是 16px，18 与 15 都离刻度。唯一确实是
- *    正文的是 .preview-block（15px，预览的书页正文，配套 line-height 1.95 也在 LH 账里）
+ *    正文的是 .preview-block（15px，预览的书页正文，配套行高已随批次 BC 收成 §3.3 的 1.9）
  *    ——可 §3.3 给正文的两个值就是 17 与 16，没有 15，所以它照记不误。
  *    保守方向是债留在账上；由判据预先追认一批规格没给过的位置才是风险方向。
  *
  * ② 行高比率（LH）：§3.2 给的是八档**同名**行高（1.5/1.55/1.6/1.7/1.45/1.3/1.25/1.1），
- *    §3.3 又另给 1.9（阅读器正文）与 1.85（稿纸）。两处并集当合法集，实测离刻度 17 处 /
- *    6 文件——多数是 1.65/1.4/1.28 这种「比八档多一档」的手抄值。
+ *    §3.3 又另给 1.9（阅读器正文）与 1.85（稿纸）。两处并集当合法集，立项时实测离刻度
+ *    17 处 / 6 文件——多数是 1.65/1.4/1.28 这种「比八档多一档」的手抄值。
+ *    批次 BC 还掉 15 处（就近取合法档，同值收敛不自创档位），剩 2 处是稿纸那一对
+ *    `line-height: 2`：它和 background 里 34px 横线的节距是算出来的耦合（17×2=34），
+ *    落 §3.3 的 16px / 1.85 必须字号、行高、节距三件一起重算，故留给专门的稿纸批次。
  *    ⚠ 这里刻意不判「行高是否跟字号配成同名一对」：本仓字号大量走继承与工具类，
  *    判配对需要可靠的级联计算，文本扫描做不到，硬猜会把正常写法咬成债（宁可漏判）。
  *
@@ -1609,13 +1612,16 @@ const isPureRingValue = (v) => {
     "src/styles.css": 49,
     "src/styles/editorial-studio.css": 29
   };
+  // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
+  // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
+  // （styles.css:1458 被 editorial 同特异度压住字号与行高，editorial-studio.css:1249 是胜者）——
+  // 它们不是「多抄了一档」，而是和 background 里那条 34px 横线的节距**算出来的耦合**
+  // （17px × 2 = 34px 恰好一格），单改行高就会让横线漂到字腰上。§3.3 给稿纸定的是
+  // 16px / 1.85，要落它必须字号、行高、节距三件一起重算，所以这两处归下一批专门的
+  // 稿纸批次，不混进本批的「离刻度值就近收敛」。
   const LH_BUDGET = {
-    "src/features/creation/cards/cards-local.css": 2,
-    "src/features/creation/editor/continuous-editor.css": 2,
-    "src/features/creation/preview/preview-local.css": 1,
-    "src/features/settings/settings-controls.css": 1,
-    "src/styles.css": 8,
-    "src/styles/editorial-studio.css": 3
+    "src/styles.css": 1,
+    "src/styles/editorial-studio.css": 1
   };
   const LHL_BUDGET = {
     "src/app/App.tsx": 1,

@@ -520,7 +520,7 @@ select:focus-visible,
   font-size: 20px;
   font-weight: 700;
   letter-spacing: 0.01em;
-  line-height: 1.2;
+  line-height: 1.25;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -2945,7 +2945,7 @@ input[type="text"],
   background: var(--surface-1);
   color: var(--text-secondary);
   font-size: 12px;
-  line-height: 1;
+  line-height: 1.1;
   cursor: pointer;
 }
 
