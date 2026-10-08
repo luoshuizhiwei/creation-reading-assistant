@@ -13,10 +13,12 @@ import {
 import { inspectScenePaste, plainTextToCreationDocument } from "@/features/creation/editor/paste-clean";
 import {
   createSceneDocumentSession,
+  SCENE_SAVE_STATUS_LABEL,
   type SceneDocumentSession,
   type SceneDocumentSessionState
 } from "@/features/creation/editor/scene-document-session";
 import { resolveSceneSelection, shouldTriggerMention, type SceneSelection } from "@/features/creation/editor/annotation-selection";
+import { useCreationStore } from "@/stores/creation-store";
 import type { CreationDocument, SceneBodyView, SceneSaveResponse } from "@/types/creation";
 
 type EditorView = Editor["view"];
@@ -43,15 +45,7 @@ const INITIAL_SESSION_STATE: SceneDocumentSessionState = {
   lastSavedAt: null
 };
 
-const statusLabel: Record<SceneDocumentSessionState["status"], string> = {
-  idle: "已保存",
-  composing: "正在输入",
-  dirty: "未保存",
-  saving: "正在保存",
-  saved: "已保存",
-  error: "保存失败",
-  conflict: "正文冲突"
-};
+const statusLabel = SCENE_SAVE_STATUS_LABEL;
 
 function editableDocument(body: CreationDocument): CreationDocument {
   return body.content.length > 0 && validateCreationDocument(body) ? body : emptyDocument();
@@ -120,7 +114,17 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   const editorRef = useRef<Editor | null>(null);
   const sessionRef = useRef<SceneDocumentSession>();
   const onSaveRef = useRef(onSave);
+  /**
+   * 会话状态能否落到本地 useState、能否发布进 creation store 的闸门（批次 BB）。
+   * 初值必须是 true：首次挂载时 open() 就发生在下面那条同步 effect 里，比这条闸门所在
+   * 的 effect 更早，晚一拍置 true 会让状态行停在 idle。
+   * 原先它只会被置 false，于是 React 18 StrictMode（src/app/main.tsx 开着）那次
+   * 「挂载→假卸载→再挂载」之后它永久停在 false，开发模式下状态行从此不再刷新；
+   * 现在每次挂载重新置 true，开发/生产看到的是同一套行为。
+   */
   const mountedRef = useRef(true);
+  /** 当前已发布进 store 的场景 ID；换场景或卸载时据此撤销那一条，不留孤儿状态位。 */
+  const reportedSceneIdRef = useRef<string | null>(null);
   const plainPasteRef = useRef(false);
   const typewriterRef = useRef(typewriter);
   const lineFocusRef = useRef(lineFocus);
@@ -135,6 +139,23 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   onMentionTriggerRef.current = onMentionTrigger;
   sceneIdRef.current = view?.sceneId;
 
+  /**
+   * 把一份会话状态发布进 creation store（批次 BB，dock 的保存状态就读它）。
+   * 归属由 reportedSceneIdRef 追踪：同一个实例换场景（写作台在两个已缓存场景之间切换
+   * 就是这样，组件不卸载）时必须先撤掉上一场那条，否则 dock 会把两场都算进「正在编辑」，
+   * 上一场最后一次读到的状态还会冒充当前场景。
+   * open 之前 sceneId 还没落地，报给谁都不对 —— 那份归属属于「没有在编辑」。
+   * 这里不另起事件总线，也不让 dock 反过来求值于编辑器句柄：store 是唯一的通道。
+   */
+  const publishSaveStatus = (state: SceneDocumentSessionState): void => {
+    if (state.sceneId === null) return;
+    const store = useCreationStore.getState();
+    const last = reportedSceneIdRef.current;
+    if (last !== null && last !== state.sceneId) store.clearSceneSaveStatus(last);
+    reportedSceneIdRef.current = state.sceneId;
+    store.reportSceneSaveStatus(state.sceneId, state.status);
+  };
+
   if (!sessionRef.current) {
     sessionRef.current = createSceneDocumentSession({
       save: async (input) =>
@@ -146,7 +167,12 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
       clearTimer: (timer) => window.clearTimeout(timer as number),
       now: () => Date.now(),
       onState: (state) => {
-        if (mountedRef.current) setSessionState(state);
+        // 卸载之后不报：切场景与离开写作台都是「先撤条目，再异步补一次落盘」，
+        // 若放行落盘带回的那两次回调（saving → saved），被撤掉的场景会带着一个
+        // 「正在保存」在 dock 上复活，再也下不去。
+        if (!mountedRef.current) return;
+        publishSaveStatus(state);
+        setSessionState(state);
       }
     });
   }
@@ -285,11 +311,29 @@ export const SceneEditor = forwardRef<SceneEditorHandle, SceneEditorProps>(funct
   }, [sessionState.status]);
 
   useEffect(() => {
+    // 批次 BB：卸载时先撤销自己那条，再补一次落盘。顺序不能颠倒——saveNow 成功后会话
+    // 还会回调两次状态（saving → saved），若那时仍允许发布，已经离开的场景会在 dock 上
+    // 留一个「正在保存」再也下不去。
+    mountedRef.current = true;
+    // 重新挂载时补一次发布：StrictMode 那次假卸载把条目撤掉了，会话本身的状态还在，
+    // 不补回来 dock 就哑在「未在编辑」。
+    publishSaveStatus(session.getState());
     return () => {
       mountedRef.current = false;
+      const left = reportedSceneIdRef.current ?? session.getState().sceneId;
+      if (left !== null) useCreationStore.getState().clearSceneSaveStatus(left);
+      reportedSceneIdRef.current = null;
       const finish = session.getState().dirty ? session.saveNow() : Promise.resolve(true);
-      void finish.finally(() => session.dispose());
+      // dispose 只在「真的没回来」时执行。StrictMode 的假卸载后紧接着会重挂载，
+      // 重挂载的 effect 是同步跑的，等这条 finally 落到微任务时 mountedRef 已经是 true；
+      // 当时无条件 dispose 会把会话永久打死（edit/saveNow 双双变哑，dev 下正文再也不自动保存）。
+      void finish.finally(() => {
+        if (mountedRef.current) return;
+        session.dispose();
+      });
     };
+    // publishSaveStatus 只读 ref 与 store（都是稳定引用），依赖只需 session。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session]);
 
   useImperativeHandle(

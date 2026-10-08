@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   createSceneDocumentSession,
-  SCENE_AUTOSAVE_DEBOUNCE_MS
+  mostAttentiveSceneSaveStatus,
+  SCENE_AUTOSAVE_DEBOUNCE_MS,
+  SCENE_SAVE_STATUS_ATTENTION,
+  SCENE_SAVE_STATUS_LABEL
 } from "@/features/creation/editor/scene-document-session";
 import type {
   SceneDocumentSession,
@@ -385,5 +388,56 @@ describe("多场景独立会话隔离（逐场景 / 整章连续共用同一套�
     expect(a.saves).toHaveLength(1);
     expect(a.saves[0].sceneId).toBe("scene-a");
     expect(b.session.getState().dirty).toBe(false);
+  });
+});
+
+describe("保存态的一处真相（批次 BB：编辑器行内与侧栏 dock 共读）", () => {
+  it("七种状态都有文案，且没有多出来的档位", () => {
+    expect(Object.keys(SCENE_SAVE_STATUS_LABEL).sort()).toEqual(
+      ["composing", "conflict", "dirty", "idle", "saved", "saving", "error"].sort()
+    );
+    // 文案本身被界面与测试同时断言（SceneEditor 的状态行、dock 的第五行）；
+    // 这里钉住逐档取值，改措辞必须连着改这两处判据，不能只改一处。
+    expect(SCENE_SAVE_STATUS_LABEL).toEqual({
+      idle: "已保存",
+      composing: "正在输入",
+      dirty: "未保存",
+      saving: "正在保存",
+      saved: "已保存",
+      error: "保存失败",
+      conflict: "正文冲突"
+    });
+  });
+
+  it("注意力次序覆盖全部七档，顺序是冲突 > 失败 > 未保存 > 输入中 > 保存中 > 已保存 > 空闲", () => {
+    expect([...SCENE_SAVE_STATUS_ATTENTION].sort()).toEqual(Object.keys(SCENE_SAVE_STATUS_LABEL).sort());
+    expect(SCENE_SAVE_STATUS_ATTENTION).toEqual([
+      "conflict",
+      "error",
+      "dirty",
+      "composing",
+      "saving",
+      "saved",
+      "idle"
+    ]);
+  });
+
+  it("mostAttentive 取最需要处理的那个，与插入顺序无关", () => {
+    expect(mostAttentiveSceneSaveStatus(["saved", "conflict", "dirty"])).toBe("conflict");
+    expect(mostAttentiveSceneSaveStatus(["conflict", "saved", "dirty"])).toBe("conflict");
+    expect(mostAttentiveSceneSaveStatus(["saved", "dirty", "saving"])).toBe("dirty");
+    expect(mostAttentiveSceneSaveStatus(["composing", "saving", "saved"])).toBe("composing");
+    expect(mostAttentiveSceneSaveStatus(["saved", "saving"])).toBe("saving");
+    expect(mostAttentiveSceneSaveStatus(["saved", "idle"])).toBe("saved");
+  });
+
+  it("一个状态都没有时返回 null（dock 据此显示「未在编辑」，而不是猜一个）", () => {
+    expect(mostAttentiveSceneSaveStatus([])).toBeNull();
+  });
+
+  it("未知取值不参与判断，也不会被当成一个状态位", () => {
+    // 判据宁可当作没这条：把一个它不认识的状态渲染成某种颜色/文案，比少显示一条更糟。
+    expect(mostAttentiveSceneSaveStatus(["saved", "not-a-status" as never])).toBe("saved");
+    expect(mostAttentiveSceneSaveStatus(["not-a-status" as never])).toBeNull();
   });
 });

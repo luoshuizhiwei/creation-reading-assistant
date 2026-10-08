@@ -322,3 +322,56 @@ class SceneDocumentSessionImpl implements SceneDocumentSession {
 export function createSceneDocumentSession(deps: SceneDocumentSessionDeps): SceneDocumentSession {
   return new SceneDocumentSessionImpl(deps);
 }
+
+/**
+ * 保存态的显示文案 —— 一处真相（规格 §4.1 第 3 条）。
+ * 原先这张表是 SceneEditor 的模块私有常量，dock 要显示同一个状态就只能再抄一份；
+ * 挪到这里是因为它只依赖状态类型、不带 React 依赖，应用壳 import 它不会把编辑器整族拖进来。
+ * 批次 BB 起：编辑器行内那一条与侧栏 dock 的「保存」行都读这张表。
+ */
+export const SCENE_SAVE_STATUS_LABEL: Record<SceneSessionStatus, string> = {
+  idle: "已保存",
+  composing: "正在输入",
+  dirty: "未保存",
+  saving: "正在保存",
+  saved: "已保存",
+  error: "保存失败",
+  conflict: "正文冲突"
+};
+
+/**
+ * 按「需要用户处理的紧急程度」从高到低排列。
+ * 整章连续模式一屏挂着 N 个场景编辑器，各自有独立会话，而 dock 只有一个状态位，
+ * 必须把 N 个状态收成 1 个：冲突与失败要先解决（正文还没落盘且不会自动重试），
+ * 其次是未保存的改动，再次是输入中 / 提交中，最后才是已保存。
+ * 这份次序不含颜色与措辞，只回答「该先让用户看见哪一个」。
+ */
+export const SCENE_SAVE_STATUS_ATTENTION: readonly SceneSessionStatus[] = [
+  "conflict",
+  "error",
+  "dirty",
+  "composing",
+  "saving",
+  "saved",
+  "idle"
+];
+
+/**
+ * 取最需要处理的那个状态；一个都没有（当前没有场景编辑器在管理正文）时返回 null。
+ * 未知状态不参与判断 —— 新增档位时上面的表必须一起补，那条完整性判据在测试里。
+ */
+export function mostAttentiveSceneSaveStatus(
+  statuses: Iterable<SceneSessionStatus>
+): SceneSessionStatus | null {
+  let winner: SceneSessionStatus | null = null;
+  let winnerRank = Number.POSITIVE_INFINITY;
+  for (const status of statuses) {
+    const rank = SCENE_SAVE_STATUS_ATTENTION.indexOf(status);
+    if (rank < 0) continue;
+    if (rank < winnerRank) {
+      winnerRank = rank;
+      winner = status;
+    }
+  }
+  return winner;
+}

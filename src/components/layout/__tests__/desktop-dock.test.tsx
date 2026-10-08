@@ -5,7 +5,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { DesktopDock } from "@/components/layout/DesktopDock";
 import { DesktopFrame } from "@/components/layout/DesktopFrame";
+import { SCENE_SAVE_STATUS_LABEL, type SceneSessionStatus } from "@/features/creation/editor/scene-document-session";
 import { useAppStore } from "@/stores/app-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { AppSettings, AppSettingsPatch } from "@/types/settings";
 
@@ -15,6 +17,9 @@ import type { AppSettings, AppSettingsPatch } from "@/types/settings";
  * 所以这里点出来的必须是**同一条写入通道、同一套取值范围**——如果 dock 自己存一套
  * 偏好、或把缩放范围记成另一组数字，它就是第二个设置页，§4.1 的「零层级可达」会
  * 变成「两处会不同步」。
+ *
+ * 第五行「保存状态」是批次 BB 补的，它读的是场景编辑器上报进 creation store 的那份信号；
+ * 这里把它当成契约的另一半来测：dock 不许自己猜、也不许另存一份状态。
  */
 
 const updateSettings = vi.fn();
@@ -75,6 +80,7 @@ beforeEach(() => {
   openDataDirectory.mockReset().mockResolvedValue(undefined);
   useSettingsStore.setState({ settings: fixture(), error: undefined, loading: false });
   useAppStore.setState({ screen: "projects", previousScreen: undefined, errors: [], creationFocusMode: false });
+  useCreationStore.setState({ sceneSaveStatuses: {} });
 });
 
 afterEach(() => cleanup());
@@ -84,16 +90,14 @@ function dotFor(label: string): HTMLButtonElement {
 }
 
 describe("DesktopDock 常驻工具坞", () => {
-  it("渲染四个入口：主题色点、缩放加减、数据目录、同步", () => {
+  it("渲染 §4.1 的五个入口：主题色点、缩放加减、保存状态、数据目录、同步", () => {
     render(<DesktopDock />);
     expect(screen.getByRole("group", { name: "应用主题" })).toBeDefined();
     expect(screen.getByRole("group", { name: "界面缩放" })).toBeDefined();
+    // 第五项「保存状态」在批次 BB 落地；BA 那批钉的是它缺席，这条换成钉它在场。
+    expect(screen.getByText("未在编辑")).toBeDefined();
     expect(screen.getByRole("button", { name: "打开数据目录：D:/data" })).toBeDefined();
     expect(screen.getByRole("button", { name: "同步设置" })).toBeDefined();
-    // §4.1 列的第五项「保存状态」这一批刻意没做：保存态还在 SceneEditor 的局部 state 里，
-    // 应用壳拿不到。这里钉住它缺席，是为了让下一批补上时**必须**改动本断言（而不是
-    // 悄悄多一个入口），也免得后人把「dock 只有四条」当成漏做。
-    expect(screen.queryByRole("button", { name: /保存状态/ })).toBeNull();
   });
 
   it("主题色点反映当前设置，点另一颗走 patchSettings 的同一条通道", async () => {
@@ -231,6 +235,49 @@ describe("DesktopDock 常驻工具坞", () => {
     const kids = [...sidebar!.children];
     expect(kids[kids.length - 1]).toBe(dock);
     expect(sidebar!.querySelector(".desktop-sidebar-card")).not.toBeNull();
+  });
+
+  it("保存状态读 store 里那份信号，不自己猜：七种状态逐一映射到界面文案", () => {
+    const statuses: SceneSessionStatus[] = ["idle", "composing", "dirty", "saving", "saved", "error", "conflict"];
+    for (const status of statuses) {
+      useCreationStore.setState({ sceneSaveStatuses: { "scene-a": status } });
+      const { unmount } = render(<DesktopDock />);
+      // 文案必须是 SCENE_SAVE_STATUS_LABEL 里那一句（编辑器行内读同一张表）；
+      // dock 自己另抄一份措辞的话，这两处会很快长回两份真相。
+      expect(screen.getByText(SCENE_SAVE_STATUS_LABEL[status])).toBeDefined();
+      expect(document.querySelector(".desktop-dock-status")?.className).toContain(`desktop-dock-status--${status}`);
+      unmount();
+      cleanup();
+    }
+  });
+
+  it("整章连续模式 N 个会话取「最需要处理的那一个」，而不是最后一个上报的", () => {
+    // 已保存的场景排在后面也不能盖住冲突：dock 只有一个状态位，它必须替用户挑事。
+    useCreationStore.setState({
+      sceneSaveStatuses: { "scene-a": "conflict", "scene-b": "saved", "scene-c": "saved" }
+    });
+    render(<DesktopDock />);
+    expect(screen.getByText("正文冲突")).toBeDefined();
+    cleanup();
+
+    useCreationStore.setState({ sceneSaveStatuses: { "scene-a": "saved", "scene-b": "dirty", "scene-c": "saving" } });
+    render(<DesktopDock />);
+    expect(screen.getByText("未保存")).toBeDefined();
+    cleanup();
+
+    useCreationStore.setState({ sceneSaveStatuses: { "scene-a": "saved", "scene-b": "saving" } });
+    render(<DesktopDock />);
+    expect(screen.getByText("正在保存")).toBeDefined();
+  });
+
+  it("没有任何场景在编辑时如实退回「未在编辑」，不冒充已保存", () => {
+    // 这条同时钉住两件事：store 表空 → 显示未在编辑；以及离开写作台后 dock 不会
+    // 把上一个项目的「已保存」继续挂着（编辑器卸载时撤销自己那条上报）。
+    useCreationStore.setState({ sceneSaveStatuses: { "scene-a": "saved" } });
+    render(<DesktopDock />);
+    expect(screen.getByText("已保存")).toBeDefined();
+    act(() => useCreationStore.setState({ sceneSaveStatuses: {} }));
+    expect(screen.getByText("未在编辑")).toBeDefined();
   });
 
   it("dock 不携带 data-setting-id：设置项锚点唯一性归设置页独占", () => {

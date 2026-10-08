@@ -355,6 +355,50 @@ select:focus-visible,
   text-align: center;
 }
 
+/* 第五项「保存状态」（批次 BB）：一盏小灯 + 一行字。灯用 currentColor，
+   所以每个状态只需要写一处 color，不必颜色和背景各写一遍。
+   颜色全走令牌（--success / --warning / --proof-mark / --accent-spine 都是两主题成对的），
+   不写 hex——第 7 步那本硬编码状态色账在这里同样成立。
+   字号 11px 在 §3.2 档位上，gap 4 在 §5.1 刻度上，圆角走 --radius-full，整段无投影、
+   无 line-height（同 .desktop-dock-step 的理由：盒子由定宽与 inline-flex 居中管，行高没活干）。 */
+.desktop-dock-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--studio-cloth-muted);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.desktop-dock-status-dot {
+  flex: 0 0 auto;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: currentColor;
+}
+
+.desktop-dock-status--saved {
+  color: var(--success);
+}
+
+.desktop-dock-status--composing,
+.desktop-dock-status--saving {
+  color: var(--accent-spine);
+}
+
+.desktop-dock-status--dirty {
+  color: var(--warning);
+}
+
+.desktop-dock-status--error,
+.desktop-dock-status--conflict {
+  color: var(--proof-mark);
+}
+
+/* --idle 与 --none 不写覆盖：dock 基色（--studio-cloth-muted）就是它们该有的样子——
+   空会话的「已保存」和「未在编辑」不该比次级说明文字更醒目。 */
+
 .desktop-dock-entry {
   display: inline-flex;
   align-items: center;
@@ -384,10 +428,10 @@ select:focus-visible,
 
 .desktop-sidebar--rail .desktop-dock-label,
 .desktop-sidebar--rail .desktop-dock-value,
+.desktop-sidebar--rail .desktop-dock-status-text,
 .desktop-sidebar--rail .desktop-dock-entry-text {
   display: none;
 }
-
 .desktop-sidebar--rail .desktop-dock-row {
   flex-wrap: wrap;
   justify-content: center;
@@ -404,6 +448,7 @@ select:focus-visible,
 @media (max-width: 1024px) {
   .desktop-dock-label,
   .desktop-dock-value,
+  .desktop-dock-status-text,
   .desktop-dock-entry-text {
     display: none;
   }

@@ -1,24 +1,29 @@
-import { FolderOpen, MonitorSmartphone, Palette, Smartphone } from "lucide-react";
+import { FolderOpen, MonitorSmartphone, Palette, Save, Smartphone } from "lucide-react";
 import { RingButton } from "@/components/interaction";
 import { useSettingsActions } from "@/hooks/useSettingsActions";
 import { openDataDirectory } from "@/services/maintenance-service";
+import {
+  mostAttentiveSceneSaveStatus,
+  SCENE_SAVE_STATUS_LABEL,
+  type SceneSessionStatus
+} from "@/features/creation/editor/scene-document-session";
 import { useAppStore } from "@/stores/app-store";
+import { useCreationStore } from "@/stores/creation-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { AppearanceSettings } from "@/types/settings";
 
 /**
- * 侧栏底部常驻 dock（规格 §4.1 第 1 条）：主题、界面缩放、数据路径、同步入口
+ * 侧栏底部常驻 dock（规格 §4.1 第 1 条）：主题、界面缩放、保存状态、数据路径、同步入口
  * 放在零层级可达的位置，主题切换不必进设置页。
- *
- * 五条里这一批只做四条。「保存状态」刻意缺席，原因记在这里免得被当成漏做：
- * 正文的保存态（已保存 / 未保存 / 正在保存 / 失败 / 冲突）现在是
- * SceneEditor 内部 useState 里的 session.status，既不在 store 也没有事件广播，
- * 应用壳拿不到它。dock 要显示的就得先把这个信号提升到 store —— 那是结构改动，
- * 不该夹在一批加界面的提交里。
  *
  * dock 与设置页读的是同一份 settings（useSettingsStore），写的是同一条
  * patchSettings → updateSettings 通道；不是 dock 自己存一套偏好。所以在这里
  * 换主题、改缩放，设置页「外观 › 主题与缩放」里的值同步变，反之也一样。
+ *
+ * 保存状态（第五项，批次 BB 补上）读 creation store 里的 sceneSaveStatuses ——
+ * 那是场景编辑器上报的同一份信号，不是 dock 自己猜的：编辑器行内那条状态与这里
+ * 必然同进同退。整章连续模式一屏 N 个场景会话，dock 只有一个状态位，取的是
+ * 「最需要处理的那一个」（次序见 scene-document-session 的 SCENE_SAVE_STATUS_ATTENTION）。
  *
  * ⚠ 类名新增不改名：desktop-sidebar / desktop-nav / nav-spine-item 等被断言的
  *   类名一个字没动，dock 是往侧栏末尾**追加**的一节（第 9 步的硬约束）。
@@ -38,13 +43,30 @@ const SCALE_STEP = 0.05;
 
 const clampScale = (value: number): number => Math.min(SCALE_MAX, Math.max(SCALE_MIN, Math.round(value * 100) / 100));
 
+/**
+ * 保存态那一行挂的修饰类。写成 7 条字面量而不是 `--${status}` 拼接：
+ * 守卫的「宿主谓词」按类名逐字查源码，拼接串只有撞上动态前缀才算活 ——
+ * 这里没必要赌那条豁免，字面量是最硬的证据。
+ */
+const STATUS_CLASS: Record<SceneSessionStatus, string> = {
+  idle: "desktop-dock-status--idle",
+  composing: "desktop-dock-status--composing",
+  dirty: "desktop-dock-status--dirty",
+  saving: "desktop-dock-status--saving",
+  saved: "desktop-dock-status--saved",
+  error: "desktop-dock-status--error",
+  conflict: "desktop-dock-status--conflict"
+};
+
 export function DesktopDock() {
   const settings = useSettingsStore((state) => state.settings);
   const setScreen = useAppStore((state) => state.setScreen);
+  const sceneSaveStatuses = useCreationStore((state) => state.sceneSaveStatuses);
   const { patchSettings } = useSettingsActions();
   const theme = settings?.appearance.theme ?? "system";
   const scale = settings?.appearance.appFontScale ?? 1;
   const dataDirectory = settings?.storage.dataDirectory ?? "";
+  const saveStatus = mostAttentiveSceneSaveStatus(Object.values(sceneSaveStatuses));
 
   const stepScale = (direction: -1 | 1) => {
     const next = clampScale(scale + direction * SCALE_STEP);
@@ -94,6 +116,25 @@ export function DesktopDock() {
           <RingButton type="button" className="desktop-dock-step" aria-label="放大界面" title="放大界面" onClick={() => stepScale(1)}>
             +
           </RingButton>
+        </span>
+      </div>
+
+      <div className="desktop-dock-row">
+        <span className="desktop-dock-label" title="正文保存状态（§4.1：与编辑器行内那条同一个信号）">
+          <Save size={12} aria-hidden="true" />
+          保存
+        </span>
+        {/* 刻意不做 aria-live：编辑器行内那条状态本来就是 live region，
+            这里再挂一层会在每次状态变化时重复播报同一句话。dock 的这盏灯是
+            「扫一眼」用的常驻读数，读屏用户到侧栏导航时能读到它，不打断输入。 */}
+        <span
+          className={`desktop-dock-status${saveStatus ? ` ${STATUS_CLASS[saveStatus]}` : " desktop-dock-status--none"}`}
+          title={saveStatus ? `正文保存状态：${SCENE_SAVE_STATUS_LABEL[saveStatus]}` : "正文保存状态：当前没有在编辑场景"}
+        >
+          <span className="desktop-dock-status-dot" aria-hidden="true" />
+          {/* 文案只有一处真相：SCENE_SAVE_STATUS_LABEL（编辑器行内那条读的就是它）。
+              「未在编辑」是 dock 独有的第 8 种取值，不进那张表，因为它不对应任何会话状态。 */}
+          <span className="desktop-dock-status-text">{saveStatus ? SCENE_SAVE_STATUS_LABEL[saveStatus] : "未在编辑"}</span>
         </span>
       </div>
 

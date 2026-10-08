@@ -137,6 +137,7 @@ beforeEach(() => {
     loading: false,
     watchConnected: false,
     leaveGuard: undefined,
+    sceneSaveStatuses: {},
     cardProjectId: undefined,
     cardTypes: [],
     relationTypes: [],
@@ -411,5 +412,37 @@ describe("creation store", () => {
       selectedCardId: undefined,
       cardsLoading: false
     });
+  });
+  it("场景保存态上报：同值不重复写，换状态才换新引用", () => {
+    // dock 靠订阅 sceneSaveStatuses 这个对象刷新。若同值上报也生成新对象，
+    // 输入期间每 800ms 的防抖、每次光标移动都可能白刷一遍侧栏。
+    const first = useCreationStore.getState().sceneSaveStatuses;
+    useCreationStore.getState().reportSceneSaveStatus("scene-1", "dirty");
+    const afterReport = useCreationStore.getState().sceneSaveStatuses;
+    expect(afterReport).not.toBe(first);
+    expect(afterReport).toEqual({ "scene-1": "dirty" });
+
+    useCreationStore.getState().reportSceneSaveStatus("scene-1", "dirty");
+    expect(useCreationStore.getState().sceneSaveStatuses).toBe(afterReport);
+
+    useCreationStore.getState().reportSceneSaveStatus("scene-1", "saving");
+    expect(useCreationStore.getState().sceneSaveStatuses).toEqual({ "scene-1": "saving" });
+  });
+
+  it("场景保存态撤销只摘掉自己那条，别的场景不受影响；未登记的 ID 不产生新对象", () => {
+    useCreationStore.getState().reportSceneSaveStatus("scene-1", "dirty");
+    useCreationStore.getState().reportSceneSaveStatus("scene-2", "saved");
+    const before = useCreationStore.getState().sceneSaveStatuses;
+
+    useCreationStore.getState().clearSceneSaveStatus("scene-1");
+    expect(useCreationStore.getState().sceneSaveStatuses).toEqual({ "scene-2": "saved" });
+
+    const after = useCreationStore.getState().sceneSaveStatuses;
+    useCreationStore.getState().clearSceneSaveStatus("scene-9");
+    expect(useCreationStore.getState().sceneSaveStatuses).toBe(after);
+
+    useCreationStore.getState().clearSceneSaveStatus("scene-2");
+    expect(useCreationStore.getState().sceneSaveStatuses).toEqual({});
+    expect(useCreationStore.getState().sceneSaveStatuses).not.toBe(before);
   });
 });

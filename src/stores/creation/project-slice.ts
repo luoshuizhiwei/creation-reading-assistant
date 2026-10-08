@@ -9,6 +9,7 @@ import type {
   SceneSaveResponse
 } from "@/types/creation";
 import type { ProjectNavigationRequest } from "@/features/navigation/project-navigation";
+import type { SceneSessionStatus } from "@/features/creation/editor/scene-document-session";
 import type { CardSliceState } from "./card-slice";
 
 export interface ProjectSliceState {
@@ -31,6 +32,17 @@ export interface ProjectSliceState {
   watchConnected: boolean;
   /** 写作台注册的离开守卫；用于在切换桌面模块前确认脏正文已提交。 */
   leaveGuard?: () => Promise<boolean>;
+  /**
+   * 正在编辑的场景各自的保存态，键为场景 ID（批次 BB，规格 §4.1 第 1 条 dock 第五项）。
+   *
+   * 这份表由场景编辑器在会话状态变化时上报、卸载时撤销：逐场景模式下一屏只有一个在编辑，
+   * 整章连续模式一屏有 N 个，dock 只有一个状态位，所以它读的是这张表里「最需要处理的那一个」
+   * （见 scene-document-session 的 SCENE_SAVE_STATUS_ATTENTION）。
+   * 之所以放进 store 而不是留在编辑器局部 state：应用壳（侧栏 dock）在编辑器之外，
+   * 拿不到组件内的 useState。离开写作台时编辑器卸载、条目撤销，dock 回到「未在编辑」，
+   * 不会把上一个项目的「已保存」继续挂在这儿。
+   */
+  sceneSaveStatuses: Record<string, SceneSessionStatus>;
   /**
    * 来自统一搜索/外部入口的项目导航请求；CreationProjectsPage 在挂载/selectedId
    * 切换后用 consumeProjectNavigation 消费一次，消费即清除，避免重复跳转。
@@ -59,6 +71,10 @@ export interface ProjectSliceActions {
   setLoading: (loading: boolean) => void;
   setWatchConnected: (watchConnected: boolean) => void;
   setLeaveGuard: (leaveGuard?: () => Promise<boolean>) => void;
+  /** 场景编辑器上报当前保存态；sceneId 由编辑器持有，同一场景只保留最新一次。 */
+  reportSceneSaveStatus: (sceneId: string, status: SceneSessionStatus) => void;
+  /** 场景编辑器卸载时撤销上报；表空 = 当前没有场景在编辑。 */
+  clearSceneSaveStatus: (sceneId: string) => void;
   requestProjectNavigation: (request: ProjectNavigationRequest) => void;
   consumeProjectNavigation: (projectId: string) => ProjectNavigationRequest | undefined;
   clearProjectNavigation: () => void;
@@ -120,6 +136,7 @@ export const initialProjectState: ProjectSliceState = {
   loading: false,
   watchConnected: false,
   leaveGuard: undefined,
+  sceneSaveStatuses: {},
   projectNavigationRequests: {},
   inboxSelectionRequest: undefined
 };
@@ -259,6 +276,17 @@ export const createProjectSlice: StateCreator<any, [], [], ProjectSlice> = (set,
   setLoading: (loading) => set({ loading }),
   setWatchConnected: (watchConnected) => set({ watchConnected }),
   setLeaveGuard: (leaveGuard) => set({ leaveGuard }),
+  reportSceneSaveStatus: (sceneId, status) =>
+    set((state: ProjectSliceState) =>
+      state.sceneSaveStatuses[sceneId] === status ? {} : { sceneSaveStatuses: { ...state.sceneSaveStatuses, [sceneId]: status } }
+    ),
+  clearSceneSaveStatus: (sceneId) =>
+    set((state: ProjectSliceState) => {
+      if (!(sceneId in state.sceneSaveStatuses)) return {};
+      const sceneSaveStatuses = { ...state.sceneSaveStatuses };
+      delete sceneSaveStatuses[sceneId];
+      return { sceneSaveStatuses };
+    }),
   requestProjectNavigation: (request) =>
     set((state: ProjectSliceState) => ({
       projectNavigationRequests: {
