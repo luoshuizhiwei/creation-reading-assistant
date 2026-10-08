@@ -92,7 +92,7 @@
 
 /* 分层留存说明：整宽提示，置于快照条目底部。 */
 .history-item-retention {
-  font-size: 11.5px;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--text-meta);
   border-top: 1px dashed var(--border-subtle);

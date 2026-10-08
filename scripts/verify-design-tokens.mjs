@@ -1621,21 +1621,41 @@ const isPureRingValue = (v) => {
   // ⚠ 本批**排除** .scene-editor-content 的 17px：它和 line-height:2 与 background 里
   // 34px 横线节距是算出来的耦合（17×2=34），单改字号就会让横线漂到字腰上——归稿纸批次
   // 与那 2 处行高一起三件同算，不混进「严格最近档」。
+  //
+  // 批次 BD-4：再从 58 里还掉 5 处。剩下的值**两侧等距**（11.5 在 11/12 正中、12.5 在
+  // 12/13 正中、13.5 在 13/14 正中），单看字号确实选不出方向——但 §3.2 那张表是
+  // **字号与行高同名配对**的（11↔1.5、12↔1.55、13↔1.6、14↔1.7、16↔1.45、20↔1.3、
+  // 24↔1.25、32↔1.1），所以一条规则里**同时写着八档行高**时，作者已经把角色说出来了，
+  // 只有字号手写成了半个档位。判据因此不看字号本身，而看「本条规则的无单位行高 == §3.2
+  // 某档的配对行高」且「该档与现值相差 ≤0.5px」——两个条件同时成立才算，方向唯一：
+  //   .scene-radar-item dd 12.5 + lh 1.6 → 13
+  //   .creation-proof-item-snippet 12.5 + lh 1.55 → 12
+  //   .migration-error 12.5 + lh 1.6 → 13
+  //   .history-item-retention 11.5 + lh 1.5 → 11
+  //   .background-card-fields em 11.5 + lh 1.5 → 11
+  // 反例照旧留账，防止这张表被读成「配对行高万能」：.migration-note 12.5 + lh 1.7（→14，
+  // 差 1.5px 超出半档）、.writing-annotation-empty 与 .scene-candidate-note 11.5 + lh 1.6
+  // （→13，差 1.5px）、.preview-block 15 + lh 1.9（1.9 是 §3.3 阅读行高、不在 §3.2 八档
+  // 配对表里）、.scene-candidate-line 12.5 + lh 1.7（差 1.5px）。这些仍是角色决定。
+  // 本批 5 处都是**当前胜者**（逐条对过字号胜者图），所以是真实的 ±0.5–1px 视觉变化。
+  // ⚠ 两条棘轮牙的锚点随本批搬家：字号③原钉 scene-radar.css 12.5px（债已还、needle 失效），
+  // 改钉 styles.css 那条唯一的 .creation-palette-command 13.5px；行高比率①原钉 history-local
+  // 的「11.5px + line-height: 1.5」，同一条 .history-item-retention 字号变 11px，needle 同步
+  // 重写。牙跟着债走——留在还掉的债上，这条就永远绿、永远不测任何东西。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
     "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
-    "src/features/creation/editor/scene-radar.css": 1,
     "src/features/creation/editor/writing-quick-reference.css": 3,
-    "src/features/creation/history/history-local.css": 2,
+    "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/styles.css": 23,
+    "src/styles.css": 20,
     "src/styles/editorial-studio.css": 17
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
