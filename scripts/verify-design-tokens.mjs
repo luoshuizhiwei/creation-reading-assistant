@@ -1642,6 +1642,29 @@ const isPureRingValue = (v) => {
   // 改钉 styles.css 那条唯一的 .creation-palette-command 13.5px；行高比率①原钉 history-local
   // 的「11.5px + line-height: 1.5」，同一条 .history-item-retention 字号变 11px，needle 同步
   // 重写。牙跟着债走——留在还掉的债上，这条就永远绿、永远不测任何东西。
+  //
+  // 批次 BD-5：再从 53 里还掉 6 处，这 6 处**全在同一个页面**（校对面板 .creation-proof-*，
+  // styles.css 一段连续规则），这是「按页面分批」的第一批。取值口径不再靠行高配对
+  // （BD-4 那条在本页只剩 .creation-proof-scope 也没配对上），而是 §3.2 表格的**用途列**
+  // 加上**本页已有的同角色邻居**——邻居必须是同页、已刻度上的具名值，不借跨页先例：
+  //   .creation-proof-item-meta    11.5→12  场景·章节名，§3.2「辅助说明」= 12
+  //   .creation-proof-item-desc    11.5→12  规则说明整句，同上
+  //   .creation-proof-ignore       11.5→12  chip 按钮，同页 .creation-proof-rules label(12)
+  //                                     是同一形态的 chip（999px 圆角 + 同款 padding），控件档
+  //   .creation-proof-ignored-count/truncated 11.5→11 「N 处已忽略」计数，§3.2「计数」= 11，
+  //                                     同页 .creation-proof-item-rule(11) 是紧邻的兄弟 chip
+  //   .creation-proof-section-title 11.5→11 「已忽略（N 组）」小标题，同页同类的
+  //                                     .creation-palette-group h3 与本仓 .desktop-card-label
+  //                                     都是 11 的微标签档，且这行本身带计数
+  //   .creation-proof-scope        12.5→13  摘要引导行（650 字重 + ink 主色），压在 12px 的
+  //                                     .creation-proof-totals 之上，必须比 totals 大才不塌成
+  //                                     同一级——13 正是 §3.2 的界面正文默认档
+  // 命令面板（.creation-palette-*）是另一页，本批不碰：那里 .creation-palette-group h3 11.5
+  // 与 .creation-palette-command 13.5 仍留账——⚠ 字号③那颗牙此刻钉的正是同文件唯一的
+  // 13.5px（command），本批一条都不碰它，动它就得再搬家。
+  // 页内相对关系核对：改后 13(scope) > 12(totals/snippet/label/location-text/desc/meta/ignore)
+  // > 11(item-rule/location-pos/section-title/ignored-count)，13px 的 message 与 14px 的 title
+  // 不动——层级仍单调，没有出现「小标题和正文同档」这种倒挂。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1655,7 +1678,7 @@ const isPureRingValue = (v) => {
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/styles.css": 20,
+    "src/styles.css": 14,
     "src/styles/editorial-studio.css": 17
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除

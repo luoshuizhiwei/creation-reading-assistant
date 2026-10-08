@@ -3070,7 +3070,7 @@ button:disabled {
 
 .creation-proof-item-meta {
   color: var(--paper-muted);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 .creation-proof-item-snippet {
@@ -3083,7 +3083,7 @@ button:disabled {
 
 .creation-proof-item-desc {
   color: var(--paper-muted);
-  font-size: 11.5px;
+  font-size: 12px;
 }
 
 /* 阶段 4-E：扫描范围 / 总数 / 按位置忽略 */
@@ -3098,7 +3098,7 @@ button:disabled {
 
 .creation-proof-scope {
   color: var(--paper-ink);
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 650;
 }
 
@@ -3114,7 +3114,7 @@ button:disabled {
 .creation-proof-ignored-count,
 .creation-proof-truncated {
   color: var(--paper-muted);
-  font-size: 11.5px;
+  font-size: 11px;
 }
 
 .creation-proof-inline {
@@ -3179,7 +3179,7 @@ button:disabled {
   padding: 3px 9px;
   background: transparent;
   color: var(--paper-muted);
-  font-size: 11.5px;
+  font-size: 12px;
   cursor: pointer;
 }
 
@@ -3196,7 +3196,7 @@ button:disabled {
 .creation-proof-section-title {
   margin: 10px 0 0;
   color: var(--paper-muted);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
 }
 
