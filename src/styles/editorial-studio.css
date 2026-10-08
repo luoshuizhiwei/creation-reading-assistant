@@ -74,7 +74,9 @@ select:focus-visible,
 .desktop-sidebar {
   position: relative;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  /* 批次 BA：末行之后追加 dock 一行（品牌 / 导航 / 状态卡 / dock）。隐式行也能排，
+     但把轨道写全才看得出 dock 是设计的一部分，而不是掉在栅格外的多余节点。 */
+  grid-template-rows: auto minmax(0, 1fr) auto auto;
   gap: 18px;
   min-height: 0;
   padding: 18px 12px 14px;
@@ -257,6 +259,165 @@ select:focus-visible,
 .desktop-sidebar-stats small {
   color: var(--studio-cloth-muted);
   font-size: 11.5px;
+}
+
+/* --------------------------------------------------------------------------
+ * 批次 BA：侧栏底部常驻 dock（规格 §4.1 第 1 条）
+ * 主题色点 / 界面缩放 / 数据目录 / 同步入口，零层级可达。
+ * 只在本表落样式：styles.css 里没有 .desktop-dock 的任何规则，主题表 × 主题表
+ * 的同分支异值分叉从源头上不存在（批次 V/AQ 那本账的成因就是两处各写一份）。
+ * 间距全部取 §5.1 刻度（12 / 8 / 6 / 4），字号 11 / 12 都在 §3.2 档位上，
+ * 圆角走 --radius-1 / --radius-full；整段不写 box-shadow——阴影账（批次 AC 起
+ * 冻结 26 处）不需要再添一笔，分隔靠 border-top 就够。
+ * ----------------------------------------------------------------------- */
+
+.desktop-dock {
+  display: grid;
+  gap: 6px;
+  margin: 0 2px;
+  padding: 8px 0 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.desktop-dock-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.desktop-dock-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 44px;
+  color: var(--studio-cloth-muted);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.desktop-dock-themes {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.desktop-dock-dot {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-full);
+  background: transparent;
+}
+
+.desktop-dock-dot.active {
+  border-color: var(--studio-seal);
+}
+
+.desktop-dock-swatch {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+}
+
+.desktop-dock-scale {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.desktop-dock-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-1);
+  color: var(--studio-cloth-text);
+  font-size: 12px;
+  /* 不写 line-height：盒子由 width/height 定死 20px，加减号靠 inline-flex 居中，
+     行高在这里没有活可干；而 §3.2 的比率档上没有 1 这一档，写了就是给棘轮添新债。 */
+  background: color-mix(in srgb, var(--bg-surface) 40%, transparent);
+}
+
+.desktop-dock-value {
+  min-width: 40px;
+  color: var(--studio-cloth-text);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.desktop-dock-entry {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 0 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-1);
+  color: var(--studio-cloth-muted);
+  font-size: 11px;
+  background: transparent;
+}
+
+.desktop-dock-entry:hover {
+  border-color: var(--border-subtle);
+  color: var(--studio-cloth-text);
+}
+
+/* 工作台内的轨栏（workbenchActive 时挂 --rail；专注模式是整条侧栏隐藏，轮不到这里）：
+   文字与数值让位，色点与加减号仍可直点。可用宽度只有 50px 上下（64 减两侧 padding），
+   一排三颗 20px 色点是 68px，必然溢出——所以这里不手工排竖列，而是让定宽小方块
+   flex-wrap 自己回绕：栏宽以后调了也不用回来改这串数字，更不该把侧栏撑宽
+   （撑宽是改布局，不是收图标）。 */
+.desktop-sidebar--rail .desktop-dock {
+  justify-items: center;
+}
+
+.desktop-sidebar--rail .desktop-dock-label,
+.desktop-sidebar--rail .desktop-dock-value,
+.desktop-sidebar--rail .desktop-dock-entry-text {
+  display: none;
+}
+
+.desktop-sidebar--rail .desktop-dock-row {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 4px;
+}
+
+.desktop-sidebar--rail .desktop-dock-themes {
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+/* ≤1024px 时侧栏被上面的规则压到 64px，与轨栏同一形状，处理方式也照搬：
+   让小块回绕，不撑宽。 */
+@media (max-width: 1024px) {
+  .desktop-dock-label,
+  .desktop-dock-value,
+  .desktop-dock-entry-text {
+    display: none;
+  }
+
+  .desktop-dock {
+    gap: 4px;
+  }
+
+  .desktop-dock-row,
+  .desktop-dock-themes {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 4px;
+  }
 }
 
 /* --------------------------------------------------------------------------

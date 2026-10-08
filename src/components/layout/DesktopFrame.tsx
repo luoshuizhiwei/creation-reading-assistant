@@ -6,6 +6,7 @@ import { useCreationStore } from "@/stores/creation-store";
 import { useLibraryStore } from "@/stores/library-store";
 import { useSearchStore } from "@/stores/search-store";
 import { useCreationActions } from "@/hooks/useCreationActions";
+import { DesktopDock } from "@/components/layout/DesktopDock";
 import { APP_NAV_ITEMS } from "@/features/navigation/app-nav";
 import { screenTip } from "@/features/navigation/registry";
 import { closeWindow, minimizeWindow, onMaximizedChange, toggleMaximize } from "@/services/window-service";
@@ -166,6 +167,8 @@ export function DesktopFrame({ children }: { children: ReactNode }) {
             </span>
           </div>
         </section>
+
+        <DesktopDock />
       </aside>
 
       <section className={`desktop-stage${workbenchActive && screen === "projects" ? " desktop-stage--immersive" : ""}`}>
