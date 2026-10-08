@@ -129,8 +129,8 @@
 .writing-quick-list strong,
 .writing-quick-list small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .writing-quick-list strong { font-size: 12px; }
-.writing-quick-list small { margin-top: 2px; color: var(--text-muted); font-size: 10px; }
-.writing-quick-list em { color: var(--text-meta); font-family: var(--font-mono); font-size: 10px; font-style: normal; }
+.writing-quick-list small { margin-top: 2px; color: var(--text-muted); font-size: 11px; }
+.writing-quick-list em { color: var(--text-meta); font-family: var(--font-mono); font-size: 11px; font-style: normal; }
 .writing-quick-kind { align-self: stretch; border-radius: 999px; background: var(--accent-spine); opacity: .64; }
 .writing-quick-kind--location { background: #3f7c68; }
 .writing-quick-kind--item { background: #9a7442; }
@@ -139,17 +139,17 @@
 
 .writing-quick-detail { min-height: 0; overflow: auto; padding: 12px; }
 .writing-quick-detail-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
-.writing-quick-detail-head > span { color: var(--text-muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
-.writing-quick-detail-head button { font-size: 10px; }
+.writing-quick-detail-head > span { color: var(--text-muted); font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+.writing-quick-detail-head button { font-size: 11px; }
 .writing-quick-detail-head button.active { color: var(--accent-spine); border-color: color-mix(in srgb, var(--accent-spine) 35%, var(--border-subtle)); }
 .writing-quick-field,
 .writing-quick-detail .cards-field { display: grid; gap: 4px; margin-bottom: 9px; }
 .writing-quick-field > span,
-.writing-quick-detail .cards-field-label { color: var(--text-muted); font-size: 10.5px; font-weight: 700; }
+.writing-quick-detail .cards-field-label { color: var(--text-muted); font-size: 11px; font-weight: 700; }
 .writing-quick-field input,
 .writing-quick-detail .cards-input { box-sizing: border-box; width: 100%; min-height: 31px; border: 1px solid var(--border-subtle); border-radius: var(--radius-2); background: var(--bg-surface); padding: 6px 8px; font-size: 11.5px; }
 .writing-quick-detail textarea.cards-input { min-height: 64px; resize: vertical; }
-.writing-quick-save { display: grid; gap: 2px; min-height: 28px; margin: 4px 0 8px; color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
+.writing-quick-save { display: grid; gap: 2px; min-height: 28px; margin: 4px 0 8px; color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 .writing-quick-save--dirty { color: var(--warning); }
 .writing-quick-save--saving { color: var(--accent-spine); }
 .writing-quick-save--error { color: var(--proof-mark); }
@@ -164,11 +164,11 @@
    disabled 透明度 .5 -> 组件 .55，差半成，不单独保留。 */
 .writing-quick-detail--empty { display: grid; place-content: center; justify-items: center; color: var(--text-muted); text-align: center; }
 .writing-quick-detail--empty p { margin: 8px 0 2px; color: var(--text-main); font-family: var(--font-serif); font-size: 14px; }
-.writing-quick-detail--empty small { font-size: 10px; }
+.writing-quick-detail--empty small { font-size: 11px; }
 
 .writing-quick-toggle { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--border-subtle); border-radius: var(--radius-1); background: var(--bg-subtle); color: var(--text-main); padding: 6px 9px; font-size: 11px; cursor: pointer; }
 .writing-quick-toggle.active { color: var(--accent-spine); border-color: color-mix(in srgb, var(--accent-spine) 32%, var(--border-subtle)); background: var(--accent-hover); }
-.writing-quick-toggle kbd { color: var(--text-muted); font-family: var(--font-mono); font-size: 9px; }
+.writing-quick-toggle kbd { color: var(--text-muted); font-family: var(--font-mono); font-size: 11px; }
 
 @media (max-width: 900px) {
   .writing-quick-reference { width: min(92vw, var(--quick-reference-width)); max-width: 92vw; }

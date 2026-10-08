@@ -184,7 +184,7 @@
   border-radius: 999px;
   background: color-mix(in srgb, var(--warning) 10%, var(--paper-panel));
   color: var(--warning);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
   padding: 1px 7px;

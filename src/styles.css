@@ -1406,7 +1406,7 @@ button:disabled {
   flex: 0 0 auto;
   padding: 0 5px;
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -1529,7 +1529,7 @@ button:disabled {
 
 .writing-margin dt {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -1816,7 +1816,7 @@ button:disabled {
 
 .outline-volume-count {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   margin-left: auto;
 }
 
@@ -1859,7 +1859,7 @@ button:disabled {
   border-radius: 6px;
   background: transparent;
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   padding: 1px 2px;
   cursor: pointer;
 }
@@ -1908,7 +1908,7 @@ button:disabled {
   border: 0;
   background: transparent;
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   cursor: pointer;
 }
 
@@ -1948,7 +1948,7 @@ button:disabled {
 
 .outline-word-count {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   margin-left: auto;
   flex-shrink: 0;
 }
@@ -2027,13 +2027,13 @@ button:disabled {
 
 .card-board-group-head small {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .card-board-group-head em {
   margin-left: auto;
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   font-style: normal;
 }
 
@@ -2076,7 +2076,7 @@ button:disabled {
   align-items: center;
   gap: 6px;
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .card-board-card-meta em {
@@ -2089,7 +2089,7 @@ button:disabled {
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper-line) 40%, transparent);
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   padding: 1px 7px;
 }
 
@@ -2230,14 +2230,14 @@ button:disabled {
 
 .cards-list-kind {
   color: var(--copper);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.06em;
 }
 
 .cards-list-tags {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -2916,7 +2916,7 @@ button:disabled {
 
 .stats-daily-label {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   white-space: nowrap;
 }
 
@@ -3264,7 +3264,7 @@ button:disabled {
   background: var(--paper-panel);
   color: var(--paper-muted);
   font-family: inherit;
-  font-size: 10.5px;
+  font-size: 11px;
   padding: 1px 5px;
 }
 
@@ -3458,7 +3458,7 @@ button:disabled {
   border-radius: 999px;
   background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
   color: var(--copper);
-  font-size: 10.5px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
   padding: 1px 8px;
@@ -3586,7 +3586,7 @@ button:disabled {
   border-radius: 999px;
   background: color-mix(in srgb, var(--proof-mark) 12%, var(--paper-panel));
   color: var(--proof-mark);
-  font-size: 10.5px;
+  font-size: 11px;
   font-style: normal;
   font-weight: 700;
   padding: 1px 8px;

@@ -1532,10 +1532,11 @@ const isPureRingValue = (v) => {
  *
  * 三本账分开立，因为它们各自的「合法」边界不同：
  *
- * ① 字号（FS）：§3.2 定 11/12/13/14/16/20/24/32 八档，实测离刻度 114 处 / 21 文件。
+ * ① 字号（FS）：§3.2 定 11/12/13/14/16/20/24/32 八档，立项时实测离刻度 114 处 / 21 文件
+ *    （批次 BD-1 已还掉其中 40 处，见下方 FS_BUDGET 的注释）。
  *    值来源两侧都数：CSS 的 font-size 字面量（px 直接取、rem 按名义 16px 折算，见下），
  *    以及 TSX/@apply 的 text-* 工具类（text-xs=12 在刻度上；text-lg=18 不在；任意值
- *    text-[10.5px] 由 SettingsSearch 实际在用，按字面值判）。
+ *    字号按字面值判——立项时 SettingsSearch 的 text-[10.5px] 就是这一类，BD-1 已上到 11px）。
  *    ⚠ rem 折算在这里比间距那本更站不住，但仍按名义 16px 折：App.tsx 的 applyTheme 会
  *    写 `root.style.fontSize = appFontScale×100%`（设置里「应用字体缩放」滑杆 0.85–1.4，
  *    实测存在，批次 AX 复核时纠正了批次 AW 注释里「零命中」的错误声明）。也就是说
@@ -1589,28 +1590,30 @@ const isPureRingValue = (v) => {
     /(?:^|[\s"'`{,(])(?:[a-z-]+:)*text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl|\[[\d.]+px\])(?=$|[\s"'`,{}():])/g;
   const LH_UTILITY = /(?:^|[\s"'`{,(])(?:[a-z-]+:)*leading-(\d+(?:\.\d+)?)/g;
 
+  // 批次 BD-1：低于 §3.2 最小档（11px）的 9 / 10 / 10.5px 共 40 处一律上到 11px，
+  // 本表 114→74。relation-graph / writing-reference / settings-controls.css / SettingsSearch
+  // 四份清零，条目删除（空表=新增即红）。剩下的 74 处全是 11.5 / 12.5 / 13.5 / 15 / 17 /
+  // 18 / 19 / 22 / 23 / 25 / 30 这种「比八档多一档」或「就近另一档」的值——它们往哪边取
+  // 是口味决定（11.5→11 还是 12？15→14 还是 16？），不像本族这样只有一个合法方向。
+  // 所以后续按页面分批做，每批的取值口径由那一页的版式角色定，不在这张表里预先许诺。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
     "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
-    "src/features/creation/cards/relation-graph.css": 1,
     "src/features/creation/editor/scene-radar.css": 1,
-    "src/features/creation/editor/writing-quick-reference.css": 11,
-    "src/features/creation/editor/writing-reference.css": 1,
+    "src/features/creation/editor/writing-quick-reference.css": 3,
     "src/features/creation/history/history-local.css": 2,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
     "src/features/creation/outline/outline-reorg.css": 1,
-    "src/features/creation/overview/overview-local.css": 2,
+    "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 3,
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/features/search/search.css": 2,
-    "src/features/settings/SettingsSearch.tsx": 1,
-    "src/features/settings/settings-controls.css": 2,
-    "src/styles.css": 49,
-    "src/styles/editorial-studio.css": 29
+    "src/features/search/search.css": 1,
+    "src/styles.css": 33,
+    "src/styles/editorial-studio.css": 20
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`

@@ -150,7 +150,7 @@ select:focus-visible,
 .desktop-brand small {
   margin-top: 3px;
   color: var(--studio-cloth-muted);
-  font-size: 10.5px;
+  font-size: 11px;
   letter-spacing: 0.05em;
 }
 
@@ -571,7 +571,7 @@ select:focus-visible,
   background: var(--bg-subtle);
   color: var(--text-meta);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 /* --------------------------------------------------------------------------
@@ -1292,7 +1292,7 @@ select:focus-visible,
 .writing-annotation-meta {
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 /* 批次 S：.writing-recovery-notice 从这条里摘出去——它是共享 <InlineNotice> 的面板钩子
@@ -1767,7 +1767,7 @@ select:focus-visible,
   place-items: center;
   min-width: 44px;
   border-radius: 6px;
-  font-size: 10.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -2454,7 +2454,7 @@ input[type="text"],
      留着就是让下一个人在死声明上算对比度。 */
   color: var(--fg-on-solid);
   font-family: var(--font-serif);
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -3110,7 +3110,7 @@ input[type="text"],
   background: var(--surface-1);
   color: var(--text-secondary);
   font-family: var(--font-data);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 /* 阅读进度：fill 一律印刷蓝（进度≠批注语义），行内紧凑。 */
@@ -3239,7 +3239,7 @@ input[type="text"],
 .card-board-card-status {
   white-space: nowrap;
   color: var(--text-muted);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .outline-scene-status--drafting,
@@ -3272,7 +3272,7 @@ input[type="text"],
 
 .scene-status-help {
   color: var(--text-tertiary);
-  font-size: 10.5px;
+  font-size: 11px;
 }
 
 .card-board-card-summary {
@@ -3295,7 +3295,7 @@ input[type="text"],
 .outline-scene-goal {
   color: var(--text-tertiary);
   font-family: var(--font-data);
-  font-size: 10.5px;
+  font-size: 11px;
   white-space: nowrap;
   justify-self: end;
 }

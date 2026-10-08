@@ -88,7 +88,7 @@ export function SettingsSearch({ onSelect }: SettingsSearchProps) {
                 onClick={() => choose(entry)}
               >
                 <span className="block font-medium text-paper-ink">{entry.label}</span>
-                <span className="mt-0.5 block text-[10.5px] text-paper-muted">
+                <span className="mt-0.5 block text-[11px] text-paper-muted">
                   {SETTINGS_SECTION_LABELS[entry.section]} › {entry.group}
                 </span>
               </button>

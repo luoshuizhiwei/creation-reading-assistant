@@ -178,7 +178,7 @@
 .overview-daily-label {
   display: block;
   margin-top: 4px;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--paper-muted, inherit);
   text-align: center;
 }

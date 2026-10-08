@@ -145,7 +145,7 @@
 
 .card-reference-item-main small {
   color: var(--paper-muted);
-  font-size: 10px;
+  font-size: 11px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
