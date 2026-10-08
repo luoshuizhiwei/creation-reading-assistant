@@ -1693,10 +1693,37 @@ const hostPredicate = (() => {
   const canRender = (cls) =>
     hostText.includes(cls) || bundleText.includes(cls) || [...dynPrefix].some((p) => p.length >= 3 && cls.startsWith(p));
 
-  // Tailwind 工具类不进这里判：它们由 utilities 层发射，宿主判定不适用。
-  const TW_PREFIX = /^(bg|text|border|rounded|shadow|p|px|py|pt|pb|m|mx|my|mt|mb|w|h|flex|grid|gap|items|justify|font|leading|tracking|opacity|translate|scale|rotate|z|inset|top|bottom|left|right|size|min|max|overflow|whitespace|truncate|cursor|select|space|divide|ring|outline|from|to|via|animate|transition|duration|delay|ease|order|col|row|self|place|hidden|inline|block|absolute|relative|fixed|sticky|hover|focus|active|group|peer)(-|$)/;
-
-  /** 只取选择器的「正向」类名：:not(.x) 里的 x 是被排除的，它的宿主在别处。 */
+  /**
+   * 只取选择器的「正向」类名：:not(.x) 里的 x 是被排除的，它的宿主在别处。
+   *
+   * 批次 AU：删掉了这里的 Tailwind 前缀滤网。旧写法把以 bg|text|outline|font…
+   * 开头的类名滤掉，本意是跳过工具类（「宿主」对它们不适用），但业务类名照样能撞
+   * 上这张表：.outline-scene / .outline-scene-meta / .font-mono / .bg-paper-bg
+   * 全是业务类名，被滤成空集后触发「这一支查不到业务类名 → 整条保守不判」的豁免，
+   * 而豁免是**整条规则连坐**的——editorial 那条
+   * `.writing-chapter-button, .writing-scene-button, .outline-scene` 里前两支
+   * 类名完好（writing- 不撞 w(-|$)），只因为第三支 .outline-scene 被吞，整条隐身，
+   * 两支真死的类名照样发射进产物。AT 挖出这个形状时，死分支账与幻影账同时失明。
+   *
+   * 不滤之后，「宿主查无」的判断对工具类同样成立，而且成立得更干净：TSX 的
+   * className 字面量写什么，hostText 里就是什么（.font-mono / .grid-cols-2 /
+   * .mt-3 实测都在宿主文本里，判活）；动态拼接的工具类走 dynPrefix，和
+   * MUST_BE_LIVE 那族 BEM 修饰类同一条路。只有「既不在源码、又不在产物 JS、
+   * 又不撞动态前缀」的类名会翻成死——那正是查无宿主本身，与它叫不叫工具类无关。
+   * 豁免仍然保留给**无类名分支**（button、.cards-toolbar button 这类元素选择器：
+   * 宿主可能来自任何地方，保守不判，方向不变）。
+   *
+   * 收紧前后差集都算过（/tmp 模拟脚本，两副透镜逐规则逐分支对比）：
+   *   · 滤空→回退判原始类名（第一层）：92 条规则转为可判、全部有活支兜底，
+   *     幻影账 0 新增；死分支账暴露 3 条混死支（editorial:935×2 / 2872×1），
+   *     属性 border-radius: var(--radius-1) / 纯 inset 描边 / font-family，
+   *     令牌债 = 0——三条随本批同提交摘支。
+   *   · 回退→彻底不滤（第二层）：全仓只差 1 条规则，styles.css:860
+   *     `.desktop-canvas .bg-paper-bg`——活祖先 + 被吞的死后代，正是混支形状，
+   *     background-color 无几何债，随本批整条删除。
+   * 真把活 CSS 判死的方向由 MUST_BE_LIVE 与 MUST_BE_SEEN 两份哨兵夹住：
+   * 前者守 canRender 变窄，后者守有人把前缀滤网加回来。
+   */
   const positiveClasses = (sel) => {
     let s = sel;
     for (let g = 0; g < 40; g++) {
@@ -1710,7 +1737,7 @@ const hostPredicate = (() => {
       }
       s = s.slice(0, i) + "" + s.slice(j);
     }
-    return [...new Set((s.match(/\.[A-Za-z_][A-Za-z0-9_-]*/g) || []).map((x) => x.slice(1)).filter((c) => !TW_PREFIX.test(c)))];
+    return [...new Set((s.match(/\.[A-Za-z_][A-Za-z0-9_-]*/g) || []).map((x) => x.slice(1)))];
   };
 
   return { canRender, positiveClasses };
@@ -1759,6 +1786,29 @@ const hostPredicate = (() => {
       `第 8 步幻影选择器：宿主判据把 ${blind.length} 个正在渲染的类名看成了死代码——${blind.join("、")}。` +
         `这些类名靠动态拼接挂在 DOM 上（完整串不在源码里）。要么判据的动态前缀正则被改窄了（危险方向：会把活 CSS 判死），` +
         `要么对应组件真的不再挂这个类名了（那这族 CSS 已成孤儿，请删掉并同步本清单）。`
+    );
+  }
+
+  /**
+   * 批次 AU 的退化哨兵：上面那份自检守的是 canRender 变窄，守不到 positiveClasses——
+   * 有人把前缀滤网加回来（哪怕只是悄悄补一行 `if (TW_PREFIX.test(c)) continue;`），
+   * 这三个业务类名会重新滤成空集，连带整条规则躲进保守豁免；两本账安静地少看一片 CSS，
+   * 而且少看的方向是「不再有新债被咬住」——正是最难事后发现的那类退化。
+   * 钉的三个类名都是**真活**的业务类名且以 TW 前缀开头（outline- / font-）：滤网回来
+   * 它们判空，但今天必须判出东西来。选活类名而不是已删的死类名（.outline-scene-meta、
+   * .bg-paper-bg 也撞前缀，但宿主已清零），是因为死类名会在下一批被顺手删干净，
+   * 导致这颗哨兵无故失效。
+   */
+  const MUST_BE_SEEN = ["outline-scene", "outline-page", "font-mono"];
+  const eaten = MUST_BE_SEEN.filter((c) => positiveClasses(`.${c}`).length === 0);
+  if (eaten.length) {
+    fail(
+      `第 8 步幻影选择器：positiveClasses 把 ${eaten.length} 个真实存在的业务类名滤成了空集——${eaten.join("、")}。` +
+        `它们以 Tailwind 工具类前缀开头（outline- / font-），却和 .card-board 一样是挂在 DOM 上的业务类名；` +
+        `批次 AU 的修法是把前缀滤网整个删掉（工具类的宿主照样在 hostText 的 className 字面量里，判活），` +
+        `所以这条红意味着滤网被加了回来。滤网回来后这些类名所在的整条规则会躲进` +
+        `「查不到业务类名 → 保守不判」的豁免——那是给 button 这类无类名分支留的，` +
+        `不是给业务类名留的后门；死分支和幻影债都会随它安静隐身。`
     );
   }
 

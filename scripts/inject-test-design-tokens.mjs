@@ -299,6 +299,26 @@ const cases = [
   // .desktop-panel-card/.desktop-library-panel 归令牌），needle 随之改钉拆分后的新家族半区。
   ["第 8 步批次 AI 回归②：给活的面板家族规则挂一支 AH 已整族下线的 .desktop-start-hero（宿主依旧查无——孤儿复活时寄生在活分支后面，两本账都不露面，必须靠死分支判据拦住）", () => mutate("src/styles/editorial-studio.css", ".desktop-panel-card,\n.desktop-library-panel {\n  border-radius: var(--radius-panel) !important;", ".desktop-panel-card,\n.desktop-library-panel,\n.desktop-start-hero {\n  border-radius: var(--radius-panel) !important;"), /第 8 步死分支/],
   ["第 8 步批次 AI·反向：给同一条活组再加一支宿主存在的分支（.library-toolbar 在 TSX 与产物里都有落点），全活不该红——判据过严会把组规则逼成单选择器", () => mutate("src/features/creation/history/history-local.css", ".history-field select:focus-visible,\n.history-field input:focus-visible {", ".history-field select:focus-visible,\n.history-field input:focus-visible,\n.library-toolbar input:focus-visible {"), null],
+  // 第 8 步批次 AU：positiveClasses 的 Tailwind 前缀滤网会把**业务类名**也滤成空集
+  // （.outline-scene / .outline-scene-meta / .font-mono 撞 outline- / font-），
+  // 于是「这一支查不到业务类名 → 整条保守不判」的豁免被连坐触发：AU 前
+  // `.writing-chapter-button, .writing-scene-button, .outline-scene` 整条隐身，
+  // 两支真死的类名照样发射进产物。修法 = 把前缀滤网整个删掉：工具类的宿主照样写在
+  // TSX 的 className 字面量里（hostText 判活），不需要一张表替它免检。
+  // 下面四颗牙：①复活本批摘掉的死支（寄生在曾被吞的活支后面，正是盲区形状）；
+  // ②给查无宿主的前缀类名配离刻度投影（幻影账此前对它完全失明——类名滤成空集就
+  // 躲过保守豁免；去滤网后这笔债必须当场红）；
+  // ③反向钉住「活前缀类名不许误判死」（判据过严会把 outline-* 一族业务类名
+  // 全判死，那才是无声改版的方向）；④反向钉住「孤儿前缀类名写刻度上的 6px 合法」
+  // （和 O·反/AH·反/AR·反同一条规矩——清的是令牌债，不是「没宿主」这件事本身）。
+  // ⚠ 守卫内 MUST_BE_SEEN 那条退化自检（有人把前缀滤网加回来时变红）
+  // 没有配套牙：它只能靠改守卫本身触发，而牙一律只动备份清单里的宿主文件——
+  // 往守卫里注改是自我指涉（AR 那轮就犯过一次并回退）。它的红因是手工实验验证的：
+  // 把滤网补回旧写法，守卫唯一红的就是 MUST_BE_SEEN，其余判据全部保持绿。
+  ["第 8 步批次 AU 回归①：把摘掉的 .writing-scene-button 死支接回 .outline-scene 活组（这支业务类名本身没撞前缀表，但同组的 .outline-scene 撞；AU 前整条被连坐豁免，两副透镜都看不见它）", () => mutate("src/styles/editorial-studio.css", ".outline-scene {\n  border-radius: var(--radius-1);", ".outline-scene,\n.writing-scene-button {\n  border-radius: var(--radius-1);"), /第 8 步死分支/],
+  ["第 8 步批次 AU 回归②：给查无宿主、且曾撞前缀表的 .outline-scene-meta 配一笔离刻度投影（幻影账此前对它整条失明——类名滤成空集就躲过保守豁免；去滤网后这笔债必须当场红）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".outline-scene-meta {\n  box-shadow: 0 12px 30px rgba(59, 39, 24, 0.055);\n}\n\n.creation-step {\n  margin: 0;"), /新增了令牌债/],
+  ["第 8 步批次 AU·反向③：活前缀类名 .outline-scene 单独写一条规则不该红（OutlineTree.tsx 就是宿主，去滤网只会把「既不在源码也不在产物又不撞动态前缀」的类名翻死；判据若把这个方向判严，outline-* 一族活 CSS 会集体被误杀）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".outline-scene {\n  background: red;\n}\n\n.creation-step {\n  margin: 0;"), null],
+  ["第 8 步批次 AU·反向④：孤儿前缀类名写刻度上的 6px 不该红（同 O·反/AH·反/AR·反那条规矩——幻影账数的是令牌债，AU 修的是「隐身」，不是给孤儿加禁令；条数本身也没钉零容忍）", () => mutate("src/styles.css", ".creation-step {\n  margin: 0;", ".outline-scene-meta {\n  border-radius: 6px;\n}\n\n.creation-step {\n  margin: 0;"), null],
   // 第 8 步批次 Q：删掉了 editorial-studio.css 里那条把 .inbox-detail 内四个元素整体
   // 接管的毯子（`.inbox-detail > .rounded-xl, … blockquote, … article
   // { border-radius: 10px !important; box-shadow: none !important }`）。它的形状和浮层/

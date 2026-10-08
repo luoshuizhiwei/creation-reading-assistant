@@ -932,13 +932,16 @@ select:focus-visible,
   padding: 8px;
 }
 
-.writing-chapter-button,
-.writing-scene-button,
+/* 批次 AU：.writing-chapter-button / .writing-scene-button 两支随同批摘除——
+ * 两个类名在渲染侧源码与产物 JS 里零落点。它们原先躲过判据的原因在同组的
+ * .outline-scene：业务类名以 Tailwind 前缀 outline- 开头，被 positiveClasses
+ * 的滤网滤成空集，触发「有分支查不到业务类名 → 整条保守不判」的豁免，整条规则
+ * 连坐隐身（AU 起 positiveClasses 不再滤前缀，业务类名一律判宿主，见守卫注释）。
+ * .outline-scene 仍活，声明原样留给它。 */
 .outline-scene {
   border-radius: var(--radius-1);
 }
 
-.writing-scene-button.active,
 .outline-scene.active {
   box-shadow: inset 2px 0 0 var(--studio-seal);
 }
@@ -2869,8 +2872,11 @@ input[type="text"],
 }
 
 /* 版本历史/大纲：数据用等宽（规格 §3.2）。 */
+/* 批次 AU 摘掉 `.outline-page .outline-scene-meta` 一支：.outline-page 活、
+ * .outline-scene-meta 全仓零落点——活祖先 + 死后代的复合分支照样永不匹配
+ * （AS 逐分支口径下判死）。另外两支 .history-page .font-mono / .stats-words dd
+ * 仍在渲染，声明不动。 */
 .history-page .font-mono,
-.outline-page .outline-scene-meta,
 .stats-words dd {
   font-family: var(--font-data);
 }

@@ -857,10 +857,6 @@ button:disabled {
   background-color: color-mix(in srgb, var(--paper-panel) 75%, transparent) !important;
 }
 
-.desktop-canvas .bg-paper-bg {
-  background-color: var(--paper-bg) !important;
-}
-
 .desktop-canvas .bg-paper-soft {
   background-color: var(--paper-soft) !important;
 }
