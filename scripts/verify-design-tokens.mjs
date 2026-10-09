@@ -1684,12 +1684,37 @@ const isPureRingValue = (v) => {
   // 同一条规则上「行高比率②」钉的是**另一半**（只动 line-height 1.85），两牙各测一本账：
   // 本批实测只动 font-size 17→16 时 FS_BUDGET 红而 LH_BUDGET 不动（反向也成立），
   // 所以两本判据仍是分开的，没有合并成一颗牙。稿纸批落地时两牙的 needle 同批失效、同批搬家。
+  //
+  // 批次 BD-7：再从 45 里还掉 2 处，第三个「一页一批」（写作速查面板
+  // .writing-quick-\*，writing-quick-reference.css 整页 + WritingQuickReferencePanel.tsx）：
+  //   .writing-quick-tabs button       11.5→11  页签是**可点控件**，同页同类控件
+  //                                          .writing-quick-toggle(11)、
+  //                                          .writing-quick-detail-head button(11)、
+  //                                          .writing-quick-toggle kbd(11) 全是 11；
+  //                                          §3.2「角标」之上没有第二档给小控件文字。
+  //   .writing-quick-field input /
+  //   .writing-quick-detail .cards-input
+  //                                    11.5→12  输入框里是**用户正在编辑的正文**，本页正文
+  //                                          具名档是 .writing-quick-list strong 的 12；
+  //                                          字段标签已经 11，输入若同为 11 就与标签糊成
+  //                                          一级（这条规则是双选择器，一次还掉两处预算）。
+  // 页内改后单调性：14(detail--empty p) > 12(list strong / 输入) > 11(页签·标签·控件·计数)。
+  // 原先 11.5 同时出现在「控件文字」和「可编辑正文」两种角色上，正是 §3.2 要取代的
+  // 「20+ 种字号」的病灶；现在两种角色各自落到具名档。
+  // ⚠ 本页**故意留下** .writing-quick-reference-head h3 的 18px：它不是本页能决定的——
+  // §3.2 的标题阶梯是 16(h4) / 20(h3) / 24(h2)，18 卡在 16 与 20 中间，而本仓还有一族
+  // 同角色面板头（replace.css .replace-panel-header h2 18、editorial-studio.css
+  // .desktop-brand-mark 18 ×2）要一起按「面板头」这一档定，跨页一次定完才不会出现
+  // 「两个面板的标题同级却不同档」。这批只收本页证据充分的 2 处，不做跨页许诺。
+  // ⚠ 本批不动任何棘轮牙的锚点：字号①钉 inbox-local、字号②钉 LibraryPage、字号③钉稿纸
+  // 17px、行高比率①钉 history-local 的 retention 行——都不在本页；wqr 里那条
+  // line-height: 1.45 是**刻度上**的值，不欠债也不当锚点。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
     "src/components/ui.tsx": 1,
     "src/features/creation/ai/scene-candidate.css": 2,
-    "src/features/creation/editor/writing-quick-reference.css": 3,
+    "src/features/creation/editor/writing-quick-reference.css": 1,
     "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
     "src/features/creation/overview/overview-local.css": 1,
