@@ -180,7 +180,7 @@ export function InboxItemDetail({
 
       <div className="mt-4 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel">
         <div className="desktop-card-label">AI polish</div>
-        <h2 className="paper-title mt-1 text-lg font-semibold">AI 候选版本</h2>
+        <h2 className="paper-title mt-1 text-base font-semibold">AI 候选版本</h2>
         {!aiAvailable ? (
           <div className="mt-2 rounded-md border border-paper-line bg-paper-soft/40 p-3 text-xs leading-6 text-paper-muted">
             {aiSettings?.enabled

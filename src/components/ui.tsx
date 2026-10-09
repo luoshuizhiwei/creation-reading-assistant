@@ -163,7 +163,7 @@ export function EmptyState({ title, body }: { title: string; body: string }) {
   return (
     <div className="grid h-full place-items-center px-8 py-10 text-center" role="status" aria-live="polite">
       <div className="max-w-sm">
-        <h2 className="paper-title text-lg font-semibold">{title}</h2>
+        <h2 className="paper-title text-base font-semibold">{title}</h2>
         <p className="mt-2 text-sm leading-6 text-paper-muted">{body}</p>
       </div>
     </div>

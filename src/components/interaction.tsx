@@ -168,7 +168,7 @@ export function ConfirmDialog() {
               <Icon size={18} />
             </div>
             <div className="min-w-0 flex-1">
-              <h2 id="confirm-dialog-title" className="paper-title text-lg font-semibold text-paper-ink">{request.title}</h2>
+              <h2 id="confirm-dialog-title" className="paper-title text-base font-semibold text-paper-ink">{request.title}</h2>
               <p id="confirm-dialog-message" className="mt-2 text-sm leading-6 text-paper-muted">{request.body}</p>
             </div>
           </div>

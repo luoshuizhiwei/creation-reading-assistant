@@ -1839,16 +1839,46 @@ const isPureRingValue = (v) => {
   // 那两行（inject:169 needle），与本批 :32 不同一条，改前改后逐字验证仍唯一命中。
   // ⚠ 另两笔仍在等人的账也不在本批：.overview-hero-title h2 22（流式 vs 写死的架构
   // 岔口，BD-10 已声明留给用户）与间距那 10px 冲突（465 处冻结中）。
+  //
+  // 批次 BD-12：再从 33 里还掉 6 处，收的是 BD-11 注释里预告的那一族——6 处
+  // `paper-title text-lg`（ErrorBoundary:57 / interaction:171 / ui:166 EmptyState /
+  // InboxItemDetail:183 / ReaderSettingsDrawer:62 / EpubEmptyState:14），text-lg =
+  // 1.125rem ≈ 名义 18px。⚠ **改法是把档换掉、不碰单位**：`text-lg` → `text-base`
+  // （1rem = 名义 16px），**保留 rem**，理由与 BD-3 给 outline-reorg 保 rem 是同一条——
+  // applyTheme 写 root.style.fontSize = appFontScale×100%（0.85–1.4），rem 写法本来
+  // 就跟着「界面缩放」滑杆走，换成 px 字面量等于把这六处从缩放里摘出去，那是行为变更、
+  // 不是还债。本账按名义值记，所以 1rem 是刻度上的 16，判据绿；滑杆失真由「px 写法
+  // 本身」那条已知问题承担，不重复记账。
+  // 为什么是 16 不是 20（这次不需要我挑边，是**作者自己的阶梯**替它投的票）：
+  //   同一族 `paper-title` 的尺寸声明实测只有三档——text-2xl ×2（LibraryPage:137、
+  //   ReadingStatsPage:203 的页面 h1）、text-xl ×2（InboxItemDetail:58「条目正文」
+  //   面板头、InspirationPage:28）、text-base ×7（Dialog:108、DialogTitle:135、
+  //   ai-send-confirm:91、OutlineTree:124、ExcerptPicker:55、LibraryPage:278 书名、
+  //   ReadingStatsPage 三个分区 h2）。**没有 18 这一档**，这 6 处是阶梯上的孤级。
+  //   逐处按同角色邻居定，六处都落到 16：
+  //   · 4 处对话框/确认标题（ErrorBoundary 故障卡、interaction 确认弹窗、
+  //     ui EmptyState、EpubEmptyState）——同族对话框标题 Dialog.tsx:108 与
+  //     DialogTitle:135、ai-send-confirm:91、OutlineTree:124、ExcerptPicker:55
+  //     **全是 text-base**，本仓唯一成规格的「弹窗标题」声明就是 16。
+  //   · ReaderSettingsDrawer:62（抽屉头）——它是 [box-shadow:var(--shadow-3)] 的
+  //     浮层抽屉，同角色 CSS 声明 .preview-empty h2 / .preview-failure h2 在
+  //     preview-local.css 里都是 16px，且 §4 的 56px page-header 才给 20，抽屉
+  //     头不是页面头。
+  //   · InboxItemDetail:183（「AI 候选版本」卡片内小节）——同一个组件 :58 那个
+  //     面板主标题已经写 text-xl(20)，小节若也 20 就与主标题同级；CSS 侧同角色
+  //     的 .cards-detail-head h3 在 BD-3 已定 16。
+  // 改后 `.paper-title` 的阶梯变成 24 / 20 / 16 三档，与 §3.2 的 16/20/24 完全重合，
+  // 孤级消失。
+  // ⚠ 本批**没有**动棘轮牙：6 个文件都在 inject 的备份清单里（ui.tsx、interaction.tsx、
+  // ErrorBoundary.tsx），它们的牙分别钉 Button variant 串、toast 容器类串、
+  // `bg-paper-panel p-6 shadow-paper`——没有一条含 text-lg；改前改后用脚本逐条数过
+  // 170 个 needle，除两条**本来就**是多命中（`.project-workbench {\n` 在文件里出现
+  // 3 次，needle 靠 mutate 的首次替换定位，与本批无关）外全部唯一命中，0 例外。
+  // 仍不动的两处 18px 见 BD-11（.desktop-brand-mark 字形 ×2），那是品牌族、不是标题族。
   const FS_BUDGET = {
-    "src/components/ErrorBoundary.tsx": 1,
-    "src/components/interaction.tsx": 1,
-    "src/components/ui.tsx": 1,
     "src/features/creation/history/history-local.css": 1,
-    "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
-    "src/features/library/ReaderSettingsDrawer.tsx": 1,
-    "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
     "src/styles.css": 12,
     "src/styles/editorial-studio.css": 11
   };

@@ -59,7 +59,7 @@ export function ReaderSettingsDrawer({
               </button>
             )}
             <div className="min-w-0">
-              <div className="paper-title text-lg font-semibold">{view === "main" ? "阅读设置" : "更多设置"}</div>
+              <div className="paper-title text-base font-semibold">{view === "main" ? "阅读设置" : "更多设置"}</div>
               {view === "main" && <div className="mt-1 truncate text-xs text-paper-muted">{subtitle}</div>}
             </div>
           </div>
