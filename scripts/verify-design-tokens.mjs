@@ -1948,6 +1948,56 @@ const isPureRingValue = (v) => {
   //                                   在这里改字号只会让一条本该消失的规则看起来
   //                                   「已合规」，反而把迁移的线索抹掉。故本批不碰，
   //                                   与阴影 BE/LEGACY 那批一起做。
+  //
+  // 批次 BD-15：再从 24 里还掉 3 处（styles.css 12→9），口径是**同页角色 +
+  // 已定档的同族邻居**，不用「就近」——11.5/12.5 这些值在两侧等距，就近选不出方向：
+  //   .scene-planning-grid label  11.5→12  场景任务卡里的**表单字段标签**
+  //                                   （「场景摘要」「场景状态」，OutlinePage.tsx:66-73）。
+  //                                   §3.2 用途列 12 =「标签、辅助说明」直接点名；
+  //                                   同族旁证 .cards-field-label=12、
+  //                                   .cards-field-row dt=12 / dd=13。⚠ 决定性的
+  //                                   一条是**相对关系**：这个表单的输入框用的就是
+  //                                   .cards-input(13)，标签必须比它低一档才成层级——
+  //                                   BD-7 在快查面板定下的正是同一条规矩
+  //                                   （.writing-quick-field > span=11 / input=12）。
+  //                                   11.5 让标签与输入只差 1.5px，实际糊在一起。
+  //   .writing-annotation-empty  11.5→12  批注列表为空时那**一句说明**
+  //                                   （WritingDeskMargin.tsx:518-520）。§3.2 用途列
+  //                                   12 =「辅助说明」；同页邻居 .writing-annotation
+  //                                   -note=12、-text=12、-meta=11、-relocate=11，
+  //                                   它是整句说明、不是计数，落 12。
+  //                                   ⚠ 这条是 BD-4 明文记下的**配对判据反例**
+  //                                   （11.5 + lh 1.6 按配对法该去 13，差 1.5px 超出
+  //                                   半档所以当时不收）。本批收它靠整页角色 + 用途列，
+  //                                   和 BD-8 收 scene-candidate 那两处同一口径：
+  //                                   两条判据给的答案不同（13 vs 12）、依据也不同，
+  //                                   别把这条读成「配对法后来也认 12」。
+  //   .outline-page-side h3  15→16  侧栏「场景任务卡」的面板头（OutlinePage.tsx:351，
+  //                                   上面还有 .desktop-card-label=11 的眉标）。
+  //                                   §3.2 用途列里 14 是「面板正文·设置项描述」
+  //                                   （正文角色），16 才是「小节标题 h4」；本条的
+  //                                   角色是标题。旁证 4 条同角色声明已在 16：
+  //                                   .cards-detail-head h3、.background-detail-head
+  //                                   h3（BD-3 的 17→16），.preview-toolbar-meta h2
+  //                                   （BD-11 的 18→16）与 .preview-empty/failure h2。
+  //                                   ⚠ 诚实记一笔反面证据：.writing-margin h3 是 14
+  //                                   （BD-14 刚确认过）。也就是本仓面板头目前同时
+  //                                   存在 14/15/16 三种值。本批按「用途列把标题归
+  //                                   16」+「16 旁证 4 条、14 只有 1 条」收这一处；
+  //                                   **面板头整族统一成 14 还是 16 是族问题**，
+  //                                   不由我在相邻两批里各挑一次边——那条 14 在刻度上
+  //                                   （不欠债，判据管不到它），要改只能整族一起改，
+  //                                   连同下面刻意不还的 15 一族归给「标题阶梯」那一批。
+  // ⚠ 本批刻意不还的 15px：styles.css 3 处（.creation-step legend:972、
+  //   .creation-search-input:2772、.stats-words dd:2869）+ editorial-studio.css 2 处
+  //   （.stats-card h3 与 .background-page-title 是**同一条规则** :750，动一处动两家；
+  //   .library-cover-glyph:1826 是字形不是标题）+ preview-local.css 2 处
+  //   （.preview-chapter-heading:153、.preview-block:178——§3.3 给正文的只有 17 与 16，
+  //   书页预览该按阅读器档还是按稿纸档是设计选择）。这些跨「标题阶梯」与「控件正文」
+  //   两族，单条收会把族打散，逐条就近又只在等距处失效——按族一起定。
+  // 本批不动棘轮牙：170 条 needle 逐条复验，非唯一的只有本批之前就已存在的
+  // `.project-workbench {\n`（文件里 3 次，靠首次替换定位）；稿纸 :1248 的
+  // 17px+lh:2 与反向③的 clamp(22px, 2vw, 27px) 一个字没动。
   // 本批不动棘轮牙：editorial-studio.css 里 47 条牙 needle 逐条复验，钉的是
   // .cards-toolbar/.history-page/.inbox-detail-head/.motion-toast/.desktop-panel-card/
   // .outline-scene/稿纸 17px+lh:2/clamp(22px,2vw,27px)/hero !important 族——
@@ -1955,7 +2005,7 @@ const isPureRingValue = (v) => {
   const FS_BUDGET = {
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
-    "src/styles.css": 12,
+    "src/styles.css": 9,
     "src/styles/editorial-studio.css": 9
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
