@@ -1998,6 +1998,36 @@ const isPureRingValue = (v) => {
   // 本批不动棘轮牙：170 条 needle 逐条复验，非唯一的只有本批之前就已存在的
   // `.project-workbench {\n`（文件里 3 次，靠首次替换定位）；稿纸 :1248 的
   // 17px+lh:2 与反向③的 clamp(22px, 2vw, 27px) 一个字没动。
+  //
+  // 批次 BD-16：再从 21 里还掉 2 处，两处是**同一道题**——「一行键值对里那个键」：
+  //   .stats-words dt           12.5→12  统计卡里「今日 / 本周 / 累计」这些**行标签**
+  //   .overview-status-name     12.5→12  章节状态分布条里每行的**状态名**
+  // 判据是同一条，两条都成立才收：
+  //   ① §3.2 用途列 12 =「标签、辅助说明、**表格次级列**」，这两处都是行标签；
+  //   ② 同族**并排的键**全在 12：.cards-field-row dt=12 / dd=13（同是 <dl> 键值行）、
+  //      .reading-stat-head=12、.stats-note=12、.overview-recent-chapter=12、
+  //      .overview-goal-numbers em=12；.overview-status-name 的**同行兄弟**
+  //      .overview-status-count 本来就是 12——同一行里「名字 12.5 + 数字 12」两种高度。
+  // 值的另一侧跟着各自页面的既有阶梯走，本批**没有**一起动：.stats-words dd=15（欠债、
+  // 归 15 一族）、.overview-status-bar / -count 不动。
+  // ⚠ 这两处都是**当前胜者**（对过字号胜者图），所以是真实的 0.5px 视觉变化。
+  // ⚠ 剩下的 19 处里 12.5px 还有 4 处，但都**不是**「行标签」这道题，拆开收会打散族：
+  //   .migration-note(:3351)        整句说明（配对法 →14 差 1.5px 不收；按角色 →12 又
+  //                                 要连 -error(13)/-head(14)/-failures(12) 一起重排
+  //                                 迁移弹窗阶梯）→ 归「弹窗正文」整族定。
+  //   .migration-report dl > div(:3399)  同一弹窗的明细行，与上一条互相牵连。
+  //   .import-volume-title(:3519)   卷标题（12.5 + weight 700，同页 li=12 / em=11），
+  //                                 它是**标题**不是标签，得按标题阶梯那批一起定。
+  //   .background-detail-fields > div(:4106)  背景详情行，dt/dd 都从这条继承，
+  //                                 改它等于同时改两家，同 :750 那条一个道理。
+  //   .desktop-search-command span(:564) / .desktop-page-actions button +
+  //   .desktop-home-inbox(:698)     **控件文字**：§3.2 说 13 =「控件与界面正文（默认）」，
+  //                                 可同族控件现在分着 11.5/12/12.5/13 四种，且 :698
+  //                                 就挂在 §2.5 冻结按钮族的规则上——「控件归 13」必须
+  //                                 整族收，和 hero !important 族一起处理才不自相矛盾。
+  // 本批同样不动棘轮牙锚点：稿纸 :1248 的 17px+lh:2、反向③ clamp(22px, 2vw, 27px)、
+  // 行高比率① history-local 的 11px+lh1.5 逐字复验均未动；170 条 needle 复验，
+  // 非唯一者仍只有先前就存在的 `.project-workbench {\n`（文件里 3 次）。
   // 本批不动棘轮牙：editorial-studio.css 里 47 条牙 needle 逐条复验，钉的是
   // .cards-toolbar/.history-page/.inbox-detail-head/.motion-toast/.desktop-panel-card/
   // .outline-scene/稿纸 17px+lh:2/clamp(22px,2vw,27px)/hero !important 族——
@@ -2005,8 +2035,8 @@ const isPureRingValue = (v) => {
   const FS_BUDGET = {
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
-    "src/styles.css": 9,
-    "src/styles/editorial-studio.css": 9
+    "src/styles.css": 8,
+    "src/styles/editorial-studio.css": 8
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`

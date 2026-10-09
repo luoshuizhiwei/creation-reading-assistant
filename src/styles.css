@@ -2860,7 +2860,7 @@ button:disabled {
 
 .stats-words dt {
   color: var(--paper-muted);
-  font-size: 12.5px;
+  font-size: 12px;
 }
 
 .stats-words dd {
