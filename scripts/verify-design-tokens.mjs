@@ -1794,16 +1794,59 @@ const isPureRingValue = (v) => {
   //   clamp(22px, 2vw, 27px)（:629，另一处 clamp，不是本批任何一条），本批一个字没碰。
   // 本批同样不动棘轮牙锚点：字号③/行高比率②钉稿纸 17px+lh:2（:1248，未动，改后逐字
   // 验证仍唯一命中）；行高比率①钉 history-local 的 11px+lh1.5（未动）。
+  //
+  // 批次 BD-11：再从 35 里还掉 2 处，口径是 BD-7 注释里挂的那笔跨页许诺——「面板头」
+  // 这一档一次定完。收的 2 处都是 18px，走的是**已定判据**（不是本批新发明的答案）：
+  //   .writing-quick-reference-head h3  18→16  BD-3 已对同角色规则定档：
+  //                                   .cards-detail-head h3（styles.css:2272）与
+  //                                   .preview-toolbar-meta h2（preview-local.css:66）
+  //                                   都是「17→16」——面板里的小标题，§3.2 对应
+  //                                   16「h4 小节」。本页正文具名档是 12（list
+  //                                   strong），16 与 12 差 4px，层级还够。
+  //   .replace-panel-header h2          18→16  同角色（浮动工具面板的头，不是页面标题）；
+  //                                   本页其余文字只有 13(label·scope) / 12(hit·meta)。
+  //                                   它是 position:fixed 的非模态浮层，不是 §4 那条
+  //                                   56px page-header（那里标题 20），也不是 §3.2 的
+  //                                   h2 分区档 24——取 BD-3 同档 16。
+  // 两处判据与 BD-3 完全同一条（同角色邻居已定档），所以本批不存在「16 还是 20
+  // 由我替设计挑边」的问题——邻居已经替它投过票了。
+  // ⚠ 剩下两处 18px **本批刻意不还，因为它们不是「面板头」这一道题**：
+  //   .desktop-brand-mark  18 ×2（editorial-studio.css:137 基础 + styles.css:4186
+  //                                   @media≤920）它是标题栏那颗 38×38 印章里的
+  //                                   「洛」字（font-serif + font-weight:700 + 固定
+  //                                   宽高 + place-items:center）。字号是**为那个盒子
+  //                                   选的**，不是标题阶梯上的一级：套 §3.2 的 16/20
+  //                                   分别会让字撑不满盒子或溢出盒子。两条规则
+  //                                   （基础与窄屏）同值也是「字形尺寸」而非「压缩档」
+  //                                   的证据（对比 BD-9 的 project-nav：那里窄屏比基础
+  //                                   低一档；这里窄屏与基础同值）。归品牌族单独定。
+  //   6 处 TSX `text-lg`     =1.125rem（ErrorBoundary:57 / interaction:171 /
+  //                                   ui:166 EmptyState / InboxItemDetail:183 /
+  //                                   ReaderSettingsDrawer:62 / EpubEmptyState:14，
+  //                                   全是 `paper-title text-lg font-semibold`）——
+  //                                   ⚠ 它不是 18px 字面量：Tailwind 的 lg 是 rem，
+  //                                   而 applyTheme 写 root.style.fontSize =
+  //                                   appFontScale×100%（0.85–1.4 滑杆），这六处**本来
+  //                                   就随界面缩放走**，换 px 字面量等于把它们从缩放里
+  //                                   摘出去（BD-3 给 outline-reorg 保 rem 同理）。
+  //                                   且六处跨 6 文件、角色各异（对话框标题、空状态、
+  //                                   抽屉标题），要按「弹窗/抽屉标题」一族定，且多半
+  //                                   保 rem 只换档（text-lg→text-xl=1.25rem=名义 20，
+  //                                   与 InboxItemDetail.tsx:58 那处作者自写 text-xl
+  //                                   同族）。留给那一批，不混进本批。
+  // 本批不动棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2（editorial-studio.css:1248）
+  // 没动；replace.css 里那颗第 7 步的牙钉的是 .replace-hit-before 的 line-through
+  // 那两行（inject:169 needle），与本批 :32 不同一条，改前改后逐字验证仍唯一命中。
+  // ⚠ 另两笔仍在等人的账也不在本批：.overview-hero-title h2 22（流式 vs 写死的架构
+  // 岔口，BD-10 已声明留给用户）与间距那 10px 冲突（465 处冻结中）。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
     "src/components/ui.tsx": 1,
-    "src/features/creation/editor/writing-quick-reference.css": 1,
     "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
-    "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
     "src/styles.css": 12,
