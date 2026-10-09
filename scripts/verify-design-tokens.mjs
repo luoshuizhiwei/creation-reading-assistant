@@ -1731,6 +1731,33 @@ const isPureRingValue = (v) => {
   // 两条判据给的答案不同、依据也不同，别把这条读成「配对法后来也认 13/12」。
   // 本批不动任何棘轮牙锚点（字号①②③、行高比率①②、行高长度式①②、间距正反牙都不在这页；
   // 这页的 lh 1.7 / 1.6 都是刻度上的值）。
+  //
+  // 批次 BD-9：再从 41 里还掉 3 处，第五个「一页一批」——项目列表 / 项目工作台导航
+  // （.project-nav \* 与 .project-home-chars，都在 editorial-studio.css，宿主
+  // CreationProjectsPage.tsx + ProjectHomePage.tsx 同一屏）：
+  //   .project-nav button      12.5→12  **同一批按钮**在写作页接管态里作者自己写的就是
+  //                                   12px !important（:3520，.creation-writing-page--active
+  //                                   .project-nav button:not(.project-nav-back)），
+  //                                   紧邻的同族返回键 .project-nav-back 也是 12
+  //                                   （styles.css:3866）。导航项彼此必须同档，
+  //                                   非接管态 12.5 / 接管态 12 是同一行字两种高度。
+  //   .project-nav button
+  //     @media (≤1024px)       11.5→11  窄屏这条是**压缩档**，语义是「比基础档低一档」；
+  //                                   基础档落到 12 之后，压缩档只能取 §3.2 的下一档 11。
+  //                                   （⚠ 这是本页唯一一处「靠相对关系而非绝对角色」定的
+  //                                   值——它成立的前提是基础档已定为 12，反过来若先动这条
+  //                                   就会定错。两处同批做，顺序不改变结果。）
+  //   .project-home-chars      11.5→11  项目卡上的字数（mono + tabular-nums），§3.2 明写
+  //                                   11 =「角标、计数、时间戳」；它和 .project-home-meta
+  //                                   (12)、.project-home-no-goal (12) 同组却是唯一的
+  //                                   半档值，progress 数字本就该比「更新于… · N 章」低一档。
+  // 页内改后：12(导航项·返回键·meta) > 11(窄屏导航·字数计数)；接管态与非接管态的导航文字
+  // 从此同档，只剩高度/padding 由接管态压缩。
+  // ⚠ editorial-studio.css 本批 17→14，剩下的 14 处大多是**跨页共用**的桌面壳层
+  // （侧栏、命令栏、hero、稿纸、批注边栏）——它们不属于「一屏一页」，要按 §4 的骨架
+  // 角色整族定，不能像前几批那样用同页邻居判。
+  // 本批不动任何棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2 在同文件 :1248，
+  // 本批一条都没碰那六行（改前改后逐字验证 needle 仍唯一命中）。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1744,7 +1771,7 @@ const isPureRingValue = (v) => {
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
     "src/styles.css": 12,
-    "src/styles/editorial-studio.css": 17
+    "src/styles/editorial-studio.css": 14
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
