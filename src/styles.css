@@ -3219,7 +3219,7 @@ button:disabled {
 
 .creation-palette-group h3 {
   margin: 10px 8px 4px;
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--paper-muted);
@@ -3236,7 +3236,7 @@ button:disabled {
   border-radius: var(--radius-2);
   background: transparent;
   color: var(--paper-ink);
-  font-size: 13.5px;
+  font-size: 13px;
   text-align: left;
   cursor: pointer;
 }

@@ -1665,6 +1665,25 @@ const isPureRingValue = (v) => {
   // 页内相对关系核对：改后 13(scope) > 12(totals/snippet/label/location-text/desc/meta/ignore)
   // > 11(item-rule/location-pos/section-title/ignored-count)，13px 的 message 与 14px 的 title
   // 不动——层级仍单调，没有出现「小标题和正文同档」这种倒挂。
+  //
+  // 批次 BD-6：再从 47 里还掉 2 处，仍按「一页一批」——命令面板（.creation-palette-\*，
+  // BD-5 刻意留给这一页的那处）：
+  //   .creation-palette-group h3  11.5→11  分组微标签。同页 .creation-palette-footer-keys
+  //                                      与两处 kbd **已经全是 11**，这行只差半档就与
+  //                                      同页同类同级；§3.2「角标」档就是 11。
+  //   .creation-palette-command   13.5→13  命令行文本本体（label + 快捷键），§3.2 明写
+  //                                      13 = 「控件与界面正文（默认）」，面板正文 14 是给
+  //                                      说明段落的，命令列表是可点控件里的正文，取 13。
+  // 页内改后：13(command) > 11(group h3 / footer / kbd)——命令文本仍明显高于分组标签，
+  // 层级不塌。⚠ 字号③那颗牙原本钉的就是本批这条唯一的 13.5px，债一还 needle 就查无此串
+  // （mutate() 抛错 → 记为 SKIP 且计入失败，所以不会安静失效，但也不会自己搬家）。牙这次
+  // 搬到**全本书里最慢还**的那笔：editorial-studio.css 稿纸 .scene-editor-content 的
+  // font-size: 17px。选它的理由是「不会再来一批顺手还掉」——17 虽是 §3.3 稿纸的目标邻近值，
+  // 却和同条的 line-height: 2 与 background 里 34px 横线节距算死（17×2=34），任何字号批
+  // 单独动它都会把横线挪到字腰上，只有专门的稿纸批能字号/行高/节距三件同算。
+  // 同一条规则上「行高比率②」钉的是**另一半**（只动 line-height 1.85），两牙各测一本账：
+  // 本批实测只动 font-size 17→16 时 FS_BUDGET 红而 LH_BUDGET 不动（反向也成立），
+  // 所以两本判据仍是分开的，没有合并成一颗牙。稿纸批落地时两牙的 needle 同批失效、同批搬家。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1678,7 +1697,7 @@ const isPureRingValue = (v) => {
     "src/features/creation/replace/replace.css": 1,
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/styles.css": 14,
+    "src/styles.css": 12,
     "src/styles/editorial-studio.css": 17
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
