@@ -1875,8 +1875,27 @@ const isPureRingValue = (v) => {
   // 170 个 needle，除两条**本来就**是多命中（`.project-workbench {\n` 在文件里出现
   // 3 次，needle 靠 mutate 的首次替换定位，与本批无关）外全部唯一命中，0 例外。
   // 仍不动的两处 18px 见 BD-11（.desktop-brand-mark 字形 ×2），那是品牌族、不是标题族。
+  //
+  // 批次 BD-13：再从 27 里还掉 1 处，历史页整页清零（条目随之删除，空表=新增即红）。
+  //   .snapshot-category-badge  11.5→11  快照的分类角标（自动 / 里程碑 / 保护），
+  //                                   三条判据同向：① §3.2 用途列 11 =「角标、计数、
+  //                                   时间戳」，这就是一个角标；② 全仓同角色声明实测
+  //                                   全是 11——.background-card-kind、
+  //                                   .cards-detail-kind、.cards-list-kind、
+  //                                   .desktop-card-label、.creation-proof-ignored-count
+  //                                   没有一个是 12，11.5 是这条族里唯一的半档；
+  //                                   ③ 结构上它**嵌在** .history-item-type(12) 里面
+  //                                   （HistoryPage.tsx:278→281），角标比宿主低一档才对，
+  //                                   11.5 与宿主只差 0.5px、实际糊在一起。
+  // 为什么不用「配对行高」判据：这条规则**没有** line-height（改前改后都是无行高声明），
+  // 所以 BD-4 那条「§3.2 尺寸↔具名行高互相配对」在这里不适用——本处的判据是用途列 +
+  // 同角色族 + 嵌套关系，三条同向，不存在挑边。
+  // ⚠ 本批**动了行高比率①那颗牙所在的文件**，但没动锚点本身：牙钉的是
+  // .history-item-retention 的 `font-size: 11px;\n  line-height: 1.5;`（:94-96），
+  // 本批改的是 :70 那条 badge。改完逐字复验：该两行组合在文件里仍**唯一**命中
+  // （badge 那条新写的 `  font-size: 11px;` 后面跟的是 font-weight，不构成 pair）。
+  // 另 8 条 history-local 的牙 needle 全部复验唯一，与本批那行不相交。
   const FS_BUDGET = {
-    "src/features/creation/history/history-local.css": 1,
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
     "src/styles.css": 12,
