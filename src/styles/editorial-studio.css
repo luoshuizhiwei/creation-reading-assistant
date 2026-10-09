@@ -1269,11 +1269,11 @@ select:focus-visible,
   font-size: 14px;
 }
 
-/* Margin rail reads at a glance: labels 11.5px sans, values tabular mono. */
+/* Margin rail reads at a glance: labels 11px sans, values tabular mono. */
 .writing-margin dt {
   color: var(--text-muted);
   font-family: var(--font-sans);
-  font-size: 11.5px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.03em;
   text-transform: none;
@@ -2993,7 +2993,7 @@ input[type="text"],
   flex: 1;
   min-width: 0;
   padding: 4px 6px;
-  font-size: 11.5px;
+  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

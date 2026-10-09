@@ -1895,11 +1895,68 @@ const isPureRingValue = (v) => {
   // 本批改的是 :70 那条 badge。改完逐字复验：该两行组合在文件里仍**唯一**命中
   // （badge 那条新写的 `  font-size: 11px;` 后面跟的是 font-weight，不构成 pair）。
   // 另 8 条 history-local 的牙 needle 全部复验唯一，与本批那行不相交。
+  //
+  // 批次 BD-14：再从 26 里还掉 2 处，口径回到 BD-5/BD-8 的**同页同角色邻居**，
+  // 这一页是写作页右边的信息栏（.writing-margin \*，宿主 WritingDeskMargin.tsx）。
+  // 选它的理由是：这两处的邻居**不是**跨页先例，而是同一块信息栏里并排写着的
+  // 「雷达面板」那一份——同一个 aside 的两个 tab，一份离刻度、一份在刻度上：
+  //   .writing-margin dt   11.5→11   信息栏的字段**标签**（dt），同一条规则里
+  //                                   值（.writing-margin dd）是 12px mono+tabular。
+  //                                   对照 scene-radar.css 那对**同名结构**：
+  //                                   .scene-radar-block dt=11 / dd=12
+  //                                   （:77/:104，宿主 SceneRadar.tsx 的 <dt><dd>），
+  //                                   还有 .scene-radar-item dt=11 / dd=13。
+  //                                   ⚠ 关键一条：本条规则**上面那行英文注释**原本
+  //                                   就写着 "labels 11.5px sans, values tabular mono"
+  //                                   ——作者知道自己写的是半档；本批把注释里的
+  //                                   11.5px 一起改成 11px，不留旧数字当假证据。
+  //   .writing-margin-tabs
+  //     button:not(.writing-margin-collapse)  11.5→11  它是页签（role="tablist" 里的
+  //                                   tab），基础档 .writing-margin-tabs button 就是
+  //                                   12px（scene-radar.css:20，同一条链上更早的规则），
+  //                                   这条 :not() 只是**压缩档**（padding 从 5px 8px
+  //                                   缩到 4px 6px + nowrap + ellipsis）。语义与 BD-9
+  //                                   的 project-nav 窄屏档完全一样：压缩档 = 比基础
+  //                                   档低一档 = §3.2 的 11。同族旁证：写作页另一个
+  //                                   页签条 .writing-quick-tabs button 在 BD-7 已定 11。
+  // 页内改后单调性：14(h3 标题) > 13(展开钮) > 12(值 dd·tab 基础档·收起钮) > 11(标签 dt
+  // ·压缩页签)。信息栏里「标签 < 值」这个关系从此成立，原先 11.5 与 12 只差半档、
+  // 标签和值实际糊在同一级。
+  // ⚠ editorial-studio.css 里原本有 **4** 处 11.5px（:261/:1276/:2996/:3455），本批只还
+  // 其中证据同向的 2 处，**另 2 处刻意不还**，理由各不相同：
+  //   .desktop-sidebar-stats small  11.5（:261）——它是侧栏底部「N 项目 / N 待办」
+  //                                   计数下面的**说明文字**（DesktopFrame.tsx:155-163
+  //                                   里 <strong>数字</strong><small>标签</small>）。
+  //                                   两处同角色邻居给出**相反**的答案：
+  //                                     · .reading-stat-head = 12（ReadingStatsPage
+  //                                       统计格的标签，BD-3 定的，同为「大数字下面/
+  //                                       上面的那行标签」）
+  //                                     · .desktop-dock-label / .desktop-nav small /
+  //                                       .desktop-card-label = 11（侧栏族自己的小字）
+  //                                   它挂在侧栏（支持 11）却是统计标签（支持 12），
+  //                                   两条同角色证据方向相反、且差整档——这是判据
+  //                                   该停手的地方，不是该挑边的地方。留给用户，
+  //                                   或与侧栏 dock 族一起整族定（§4.1 第 1 条）。
+  //   .creation-writing-page--active
+  //     .creation-writing-hero
+  //     .desktop-page-actions button  11.5px **!important**（:3455）——它属于写作页
+  //                                   接管态那族 !important 容器规则（同一族还挂着
+  //                                   height: 28px !important），也就是第 6 步
+  //                                   「遗留按钮容器规则 12 条」与 §2.5 按钮投影
+  //                                   冻结那两本账上的成员。这族的收法是**随页面
+  //                                   <Button> 迁移整条删除**，不是把半档挪到 11——
+  //                                   在这里改字号只会让一条本该消失的规则看起来
+  //                                   「已合规」，反而把迁移的线索抹掉。故本批不碰，
+  //                                   与阴影 BE/LEGACY 那批一起做。
+  // 本批不动棘轮牙：editorial-studio.css 里 47 条牙 needle 逐条复验，钉的是
+  // .cards-toolbar/.history-page/.inbox-detail-head/.motion-toast/.desktop-panel-card/
+  // .outline-scene/稿纸 17px+lh:2/clamp(22px,2vw,27px)/hero !important 族——
+  // 没有一条含 writing-margin；稿纸那条 :1248 逐字复验仍是唯一命中。
   const FS_BUDGET = {
     "src/features/creation/overview/overview-local.css": 1,
     "src/features/creation/preview/preview-local.css": 2,
     "src/styles.css": 12,
-    "src/styles/editorial-studio.css": 11
+    "src/styles/editorial-studio.css": 9
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
