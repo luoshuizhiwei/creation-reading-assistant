@@ -1637,6 +1637,10 @@ const isPureRingValue = (v) => {
   // 差 1.5px 超出半档）、.writing-annotation-empty 与 .scene-candidate-note 11.5 + lh 1.6
   // （→13，差 1.5px）、.preview-block 15 + lh 1.9（1.9 是 §3.3 阅读行高、不在 §3.2 八档
   // 配对表里）、.scene-candidate-line 12.5 + lh 1.7（差 1.5px）。这些仍是角色决定。
+  //   （批次 BD-8 后来按**整页角色**还掉了 scene-candidate 那两处——注意那不是配对判据
+  //     松了口：12.5+1.7 与 11.5+1.6 按配对法各该去 14/13，而按「本页 diff 正文 vs 本页
+  //     summary 辅助说明」的角色关系定的是 13/12，两条判据给出的答案不同、依据也不同。
+  //     留在账上的 .migration-note / .writing-annotation-empty / .preview-block 依旧欠着。）
   // 本批 5 处都是**当前胜者**（逐条对过字号胜者图），所以是真实的 ±0.5–1px 视觉变化。
   // ⚠ 两条棘轮牙的锚点随本批搬家：字号③原钉 scene-radar.css 12.5px（债已还、needle 失效），
   // 改钉 styles.css 那条唯一的 .creation-palette-command 13.5px；行高比率①原钉 history-local
@@ -1709,11 +1713,28 @@ const isPureRingValue = (v) => {
   // ⚠ 本批不动任何棘轮牙的锚点：字号①钉 inbox-local、字号②钉 LibraryPage、字号③钉稿纸
   // 17px、行高比率①钉 history-local 的 retention 行——都不在本页；wqr 里那条
   // line-height: 1.45 是**刻度上**的值，不欠债也不当锚点。
+  //
+  // 批次 BD-8：再从 43 里还掉 2 处，第四个「一页一批」，整页清零（AI 候选评审弹窗
+  // .scene-candidate-\*，scene-candidate.css + SceneCandidateReview.tsx；条目随之删除，
+  // 空表=新增即红。BD-4 曾把 scene-radar.css 清零，那是单值族顺手清完的，本批是
+  // **按页口径**清完的第一例）：
+  //   .scene-candidate-line  12.5→13   diff 里每一行是**被比较的正文本身**，§3.2 明写
+  //                                   13 =「控件与界面正文（默认）」；同页 summary 已经
+  //                                   是 12，正文若与它同档，「几段新增」的统计行和真正
+  //                                   的候选文字就糊成一级。
+  //   .scene-candidate-note  11.5→12   弹窗底部一句提示 = §3.2「辅助说明」，与同页
+  //                                   summary(12) 同角色同档。
+  // 页内改后单调性：13(diff 正文) > 12(summary·note) ——h4 标题无具名字号（走 UA 默认），
+  // 不参与本账，所以本页的级差只看这三行。
+  // ⚠ 这一页同时是 BD-4「配对行高」判据的**反例**（12.5+lh1.7、11.5+lh1.6 按配对法各该去
+  // 14/13，差 1.5px 超出半档、当时不收）。本批收它靠的是整页角色，不是把配对判据松口——
+  // 两条判据给的答案不同、依据也不同，别把这条读成「配对法后来也认 13/12」。
+  // 本批不动任何棘轮牙锚点（字号①②③、行高比率①②、行高长度式①②、间距正反牙都不在这页；
+  // 这页的 lh 1.7 / 1.6 都是刻度上的值）。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
     "src/components/ui.tsx": 1,
-    "src/features/creation/ai/scene-candidate.css": 2,
     "src/features/creation/editor/writing-quick-reference.css": 1,
     "src/features/creation/history/history-local.css": 1,
     "src/features/creation/inbox/components/InboxItemDetail.tsx": 1,
