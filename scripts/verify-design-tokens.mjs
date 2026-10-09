@@ -1758,6 +1758,42 @@ const isPureRingValue = (v) => {
   // 角色整族定，不能像前几批那样用同页邻居判。
   // 本批不动任何棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2 在同文件 :1248，
   // 本批一条都没碰那六行（改前改后逐字验证 needle 仍唯一命中）。
+  //
+  // 批次 BD-10：再从 38 里还掉 3 处，口径换成**同角色配对**（BD-9 注释预告过：壳层
+  // 不属于「一屏一页」，不能再拿同页邻居当证据）。这 3 处都是 22px，而 22 **正卡在
+  // §3.2 的 20 与 24 正中间**——严格最近档判据在这里失效（两侧等距），必须逐处找
+  // 「同一角色的另一处声明」替它投票，而且投票方必须是**作者自己写的意图**：
+  //   .writing-manuscript-head h2  22→20   主题表 styles.css:1297 对**完全同一个选择器**
+  //                                   写的就是 20px；22 是 editorial-studio.css 在后面
+  //                                   抬上去的。两表同选择器异值本来就该收口，取基础表
+  //                                   的原值，不是给稿纸页标题新发明一个档位。
+  //                                   ⚠ 这条与「稿纸正文 .scene-editor-content 17px」
+  //                                   无关——它没有 line-height/节距耦合（本条只有
+  //                                   font-size + letter-spacing），所以可以单独动。
+  //   .inbox-detail-head h2        22→20   该 h2 的 class 串里作者自己写了 text-xl，
+  //                                   Tailwind 的 xl 就是 20px（InboxItemDetail.tsx:58），
+  //                                   而 (0,1,1) 的 .inbox-detail-head h2 用 22 把它压住
+  //                                   了——规则与标记意图长期互相矛盾。按意图收，
+  //                                   且 20 正好是 §3.2 的 h3 页面标题档。
+  //   .stats-streak                22→20   它是**统计大数字**（OverviewPage 待处理数、
+  //                                   StatsPage 连续天数），同角色兄弟 .reading-stat-value
+  //                                   在 BD-3 已定 20、.desktop-sidebar-stats strong 也是
+  //                                   20。**注意证据来源**：§3.2 给 20 那档写的是「页面
+  //                                   标题 h3」，而 32 才是「仪表盘大数字」——这条不是
+  //                                   规格直接指认，是三处统计数字必须同档的配对证据
+  //                                   （留着 22 会让三个统计数字三种大小）。
+  // ⚠ **第 4 处 22px 刻意不还，因为它不是同一道题**：
+  //   .overview-hero-title h2  22（overview-local.css:28）与
+  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2809）
+  //   命中的是**同一个 h2**（OverviewPage 的 section 同时挂 desktop-page-hero 与
+  //   overview-hero-title）。这不是「22 离刻度、该去 20 还是 24」，而是**流式标题 vs
+  //   页面写死标题**的架构选择：收 20 就等于把 hero 标题改成固定值、让那条 clamp
+  //   在概览页失效；改 clamp 的中值又与「§3.2 是像素档位表」冲突。两种答案对应两种
+  //   设计意图，判据不能替人挑——留给用户（或与 §4 page-header 20px 一起整族定）。
+  //   另注：注入脚本「反向③」那颗牙钉的正是 editorial-studio.css 的
+  //   clamp(22px, 2vw, 27px)（:629，另一处 clamp，不是本批任何一条），本批一个字没碰。
+  // 本批同样不动棘轮牙锚点：字号③/行高比率②钉稿纸 17px+lh:2（:1248，未动，改后逐字
+  // 验证仍唯一命中）；行高比率①钉 history-local 的 11px+lh1.5（未动）。
   const FS_BUDGET = {
     "src/components/ErrorBoundary.tsx": 1,
     "src/components/interaction.tsx": 1,
@@ -1771,7 +1807,7 @@ const isPureRingValue = (v) => {
     "src/features/library/ReaderSettingsDrawer.tsx": 1,
     "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
     "src/styles.css": 12,
-    "src/styles/editorial-studio.css": 14
+    "src/styles/editorial-studio.css": 11
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`

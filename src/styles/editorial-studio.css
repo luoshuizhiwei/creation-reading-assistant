@@ -1171,7 +1171,7 @@ select:focus-visible,
 }
 
 .writing-manuscript-head h2 {
-  font-size: 22px;
+  font-size: 20px;
   letter-spacing: 0;
 }
 
@@ -1541,7 +1541,7 @@ select:focus-visible,
 
 .inbox-detail-head h2 {
   font-family: var(--font-serif);
-  font-size: 22px;
+  font-size: 20px;
   font-weight: 680;
 }
 
@@ -2744,7 +2744,7 @@ input[type="text"],
 }
 
 .stats-streak {
-  font-size: 22px;
+  font-size: 20px;
 }
 
 /* 目标进度条空槽弱化：0% 不再像加载中。 */
