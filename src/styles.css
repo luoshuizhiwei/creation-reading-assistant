@@ -480,11 +480,12 @@ button:disabled {
 
 /* 已下线（第 8 步批次 A）：本块 12 条声明没有一条生效——全部被 editorial-studio.css
    的同名规则逐条覆盖（同特异性、main.tsx 里后载入）：11 条对 11 条撞在
-   editorial-studio.css:118 的 `.desktop-brand-mark` 上，background 还要再被
-   其 2832 行的 `.desktop-titlebar-mark, .desktop-brand-mark` 覆盖一次。
+   editorial-studio.css:120 的 `.desktop-brand-mark` 上，background 还要再被
+   其 :2890 行的 `.desktop-titlebar-mark, .desktop-brand-mark` 覆盖一次。
+   （批次 BD-17 校正：这两处行号在批次 BD-2 之后就已经过期，本批补回实测值。）
    留着它只会诱使人在死声明上做修改并误以为已经修好（本窗就踩了一次：
    为救白字对比度把渐变端点从 82% 调到 88%，实际渲染毫无变化）。
-   生效的定义在 editorial-studio.css:118 + :2832。 */
+   生效的定义在 editorial-studio.css:120 + :2890。 */
 
 .desktop-brand strong,
 .desktop-brand small {
@@ -650,7 +651,7 @@ button:disabled {
   overflow: hidden;
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:515 的 20px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:520 的 20px）。 */
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -756,7 +757,7 @@ button:disabled {
 .desktop-page-hero h2 {
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2808 的 clamp(20px, 1.8vw, 23px)）。
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2838 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
   font-weight: 740;
   letter-spacing: -0.045em;
@@ -969,7 +970,15 @@ button:disabled {
 .creation-step legend {
   margin-bottom: 6px;
   color: var(--paper-ink);
-  font-size: 15px;
+  /* 批次 BD-17（标题阶梯）：15→16。向导里 <fieldset><legend> 是**分组小节标题**，
+   * §3.2 给「小节标题 h4」的正是 16 档；本仓同族面板头已在 16（胜者实测：
+   * 本文件 .cards-detail-head h3:2281 / .background-detail-head h3:4118、
+   * preview-local.css .preview-toolbar-meta h2、editorial-studio.css 的
+   * .writing-quick-reference-head h3 与 .replace-panel-header h2 都是 BD-3/BD-11 收的）。
+   * 本页其余只有 14（.creation-template-card strong）与 12（step-note·steps li·
+   * template span），16 > 14 > 12 与改前的 15 > 14 > 12 是同构的层级，只是档位归位。
+   * ⚠ 别把它压回 15：§3.2 八档里没有 15，它从来不是规格给任何角色的值。 */
+  font-size: 16px;
   font-weight: 700;
 }
 
@@ -1456,7 +1465,7 @@ button:disabled {
   outline: none;
   color: var(--paper-ink);
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1248 的 17px——稿纸那一族，
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1278 的 17px——稿纸那一族，
      它和 line-height: 2 的节距耦合还在账上，见 LH_BUDGET）。 */
   line-height: 2;
   caret-color: var(--copper);
@@ -1516,7 +1525,7 @@ button:disabled {
 .writing-margin h3 {
   margin: 4px 0 18px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1266 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1296 的 14px）。 */
 }
 
 .writing-margin dl {
@@ -2769,7 +2778,13 @@ button:disabled {
   outline: none;
   background: transparent;
   color: var(--paper-ink);
-  font-size: 15px;
+  /* 批次 BD-17：15→14。同角色邻居投票（BD-6 已定档）：全局搜索
+   * .uni-search-input 是 14，两处都是「对话框顶部的搜索输入框」（同一形态：
+   * 图标 + 输入 + 关闭 + 结果区）。本对话框的结果/状态文字是 13
+   * （.creation-search-state），输入框比它高一档正好压住「你在输入」这件事。
+   * ⚠ 不取 13：那会让输入框和自己的结果列表同尺寸，是本对话框现状的层级
+   * （输入 15 > 结果 13）的倒退，属于无声改版。 */
+  font-size: 14px;
 }
 
 .creation-search-input::placeholder {
@@ -2866,14 +2881,23 @@ button:disabled {
 .stats-words dd {
   margin: 0;
   color: var(--paper-ink);
-  font-size: 15px;
+  /* 批次 BD-17：15→12。这一行是 <dl> 的「标签 ⇄ 值」对，dt 已是 12，本条与它
+   * baseline 对齐（.stats-words > div 的 align-items: baseline）——同一行字两种
+   * 尺寸是 BD-9/BD-17 一直当判据用的坏味道。同族 dl 值全在 12/13：
+   * .writing-margin dd 12、.import-volume li 12、.migration-report dl > div（本批 12.5→12）。
+   * 强调靠 font-weight: 700 + tabular-nums + 墨色，不靠字号。
+   * ⚠ 为什么不取 BD-10 那条「统计大数字 = 20」：那三处（.reading-stat-value、
+   * .stats-streak、.desktop-sidebar-stats strong）都是**独立成块的大数字**，
+   * 而这里是密集小表的一行值；把它抬到 20 会把 4 行的卡片撑成另一种东西。
+   * 大数字档在本页另有其人：.stats-streak（同卡 20）。 */
+  font-size: 12px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
 
 .stats-streak {
   margin: 0;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2746 的 22px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2776 的 22px）。 */
   font-weight: 800;
   color: var(--copper);
   font-variant-numeric: tabular-nums;
@@ -3348,7 +3372,12 @@ button:disabled {
 .migration-note {
   margin: 0;
   color: var(--paper-muted);
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→13。同对话框邻居投票：容器 .migration-banner 13、
+   * 兄弟 .migration-error 13——一个弹窗里三段正文两种尺寸（12.5/13）是本条的债。
+   * §3.2 的 13 =「控件与界面正文（默认）」，说明段落取默认档；行高保持 1.7
+   * （在合法集，且 13 的同名配对是 1.6——配对这一题不在本批，见守卫②「刻意不判配对」）。
+   * ⚠ 这条同时服务 ExportDraftDialog 的说明行，改后两处一致，不新增分叉。 */
+  font-size: 13px;
   line-height: 1.7;
 }
 
@@ -3396,7 +3425,11 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→12，dl 行族一次定完（本批同判据还掉 .background-detail-fields > div、
+   * .import-volume-title）。§3.2 明写 12 =「标签、辅助说明、表格次级列」；
+   * 同族邻居 .bundle-import-result strong 12 / span 11、.import-volume li 12 早已在此。
+   * 本条是 dt+dd 共用的行字号（值侧 dd 只带 650 字重与 break-all），改后行内不倒置。 */
+  font-size: 12px;
 }
 
 .migration-report dt {
@@ -3452,7 +3485,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--paper-ink);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1480 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1510 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -3474,13 +3507,13 @@ button:disabled {
 
 .inbox-item-body {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1487 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1517 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1487 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1517 的 12px）。 */
 }
 
 .inbox-item-actions {
@@ -3516,7 +3549,12 @@ button:disabled {
 .import-volume-title {
   margin: 0 0 4px;
   color: var(--paper-ink);
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→12。宿主是旧稿导入弹窗里卷名那一行（<p> 内只有一个
+   * .paper-input，输入文字另有 0.875rem；本条管的是这一行的字号档与 700 字重），
+   * 它和下面的 .import-volume li 12 / li em 11 / .import-chapter-toggle 12 同卡，
+   * 全卡只有它是半档值。与同批的 .migration-report dl > div（它就在
+   * .migration-report 容器里）落到同一档 12。 */
+  font-size: 12px;
   font-weight: 700;
 }
 
@@ -4103,7 +4141,11 @@ button:disabled {
   display: flex;
   justify-content: space-between;
   gap: 10px;
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→12，与 .migration-report dl > div 同一条 dl 行判据
+   * （§3.2 12 = 标签·表格次级列）。本页其余：.background-detail-head h3 16、
+   * .background-card-title 14、.background-detail-actions button 12、
+   * .background-card-fields em 11——同卡的 dt/dd 行取 12 后，16 > 14 > 12 > 11 一档不差。 */
+  font-size: 12px;
 }
 
 .background-detail-fields dt {

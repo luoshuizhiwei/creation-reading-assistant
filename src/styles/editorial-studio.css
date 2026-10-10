@@ -258,7 +258,12 @@ select:focus-visible,
 
 .desktop-sidebar-stats small {
   color: var(--studio-cloth-muted);
-  font-size: 11.5px;
+  /* 批次 BD-17：11.5→11。判据「同族邻居已经替它投票」：本条是侧栏计数值
+   * （strong=20，BD-10 已定为统计大数字档）下面那行标签，而侧栏整族的标签
+   * 全是 11——.desktop-brand small、.desktop-nav small、.desktop-card-label、
+   * .desktop-dock-label 皆 11；§3.2 也明写 11 =「角标、计数、时间戳」。
+   * 11.5 是这块岛上唯一的半档值（同 BD-4 收 .history-item-retention 的情形）。 */
+  font-size: 11px;
 }
 
 /* --------------------------------------------------------------------------
@@ -561,7 +566,13 @@ select:focus-visible,
 
 .desktop-search-command span {
   margin: 0;
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→13。**同角色的另一处声明**投票：这条是命令面板行的主标签
+   * （RingButton 里 <span>搜索项目、收件箱、资料</span> + <kbd>），它的孪生兄弟
+   * .creation-palette-command 在 BD-6 已收 13（styles.css，同一形态：label + kbd 的
+   * 可点行），两个「按 Ctrl K 打开的搜索/命令行」长期 12.5 vs 13 两种高度。
+   * §3.2 的 13 也正是「控件与界面正文（默认）」——它挂在控件上。
+   * 同卡另两档不受影响：.desktop-search-command kbd 11、.desktop-commandbar h1 20。 */
+  font-size: 13px;
 }
 
 .desktop-search-command kbd {
@@ -695,7 +706,15 @@ select:focus-visible,
    * 的选择器名单 + var(--radius-control)，同特异度且更晚，这条从未画出来过。 */
   background: var(--bg-surface);
   color: var(--text-muted);
-  font-size: 12.5px;
+  /* 批次 BD-17：12.5→12，与 BD-9 收 .project-nav button 同一条判据——**同一批按钮
+   * 在写作页接管态里作者自己写的就是 12px**（本文件 .creation-writing-hero
+   * .desktop-page-actions button，字号 12 + 32px 高），而非接管态这里写 12.5，
+   * 等于同一行工具栏按钮两套字号。§3.2 的 12 档用途「标签」也容得下紧凑工具栏
+   * 按钮（字号胜者图里 18 条带 px 值的按钮类名分支中，12px 占 10 条，是最大簇）。
+   * ⚠ .desktop-home-inbox 在本仓 TSX 里已无使用者（只剩 .desktop-home-inbox-count
+   * 活着，11px），它与本条同规则；幻影判据按整条规则有活分支放行，这里照改不误——
+   * 整族孤儿 CSS 的清理是另一笔账（守卫注释里已挂）。 */
+  font-size: 12px;
   font-weight: 600;
   transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
 }
@@ -747,7 +766,18 @@ select:focus-visible,
 .background-page-title {
   color: var(--text-main);
   font-family: var(--font-serif);
-  font-size: 15px;
+  /* 批次 BD-17（标题阶梯）：15→16，收掉 BD-3/BD-11 挂了两批的「面板头」族。
+   * 同角色邻居全部已在 16（字号胜者图实测）：.cards-detail-head h3、
+   * .background-detail-head h3（字号在 styles.css:4121，本文件 :1436 只补字族与字重）、
+   * .preview-toolbar-meta h2（BD-3 收）、.writing-quick-reference-head h3（BD-11 收）、
+   * .replace-panel-header h2（BD-11 收）、.outline-page-side h3（BD-15 收）。
+   * §3.2 给 16 那行的用途就是「小节标题 h4」。
+   * 本条是**一条规则两个宿主**：概览页/统计页的卡片头 .stats-card h3 与背景设定页的
+   * 页标题 .background-page-title 长期共用 15；改后卡片头 16 与卡内 12(dt)/12(dd) 拉开。
+   * ⚠ 附带收口一件事：.background-page-title 在 styles.css:4030 自己写着 16px + 800，
+   * 却被本条（后置主题表，胜者 15）长期压着——本批改后两表同值 16，那处不再是哑的，
+   * 只剩字重还由本条决定。字面值仍留在 styles.css 那条上，不顺手删。 */
+  font-size: 16px;
   font-weight: 650;
   letter-spacing: 0.01em;
 }

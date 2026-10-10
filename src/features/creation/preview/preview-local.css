@@ -150,7 +150,17 @@
   align-items: baseline;
   margin: 0 0 14px;
   font-family: var(--font-ui);
-  font-size: 15px;
+  /* 批次 BD-17：15→16。两条 15 都不是「离刻度就近取一档」能定的，判据是同列结构：
+   * ① 本页标题 .preview-toolbar-meta h2 在 BD-3 已收 16，章节题（h3）若收 §3.2 给
+   *    h3 的 20 就会**大于本页标题**——那一档在这里不成立，上限就是 16。
+   * ② 本条与下面 .preview-block（书页正文）今天同为 15，标题只靠字体族（本条
+   *    font-ui，正文 font-content）与颜色分层，尺寸本来就不比正文大。正文这批改落
+   *    §3.3 书页那行的 16px（规格给正文的两个值就是 17 与 16，没有 15；17 属于
+   *    阅读器用户设置经 inline style 落地那条路，不是 CSS 字面量的通行证），
+   *    标题若收 14 就比自己的正文还小——层级倒置，属于无声改版。
+   * 取 16：与正文同尺寸、层级关系与现状完全一致，两笔债一起清。
+   * 同页另两档 .preview-volume / --note 12、.preview-chapter-words 11，不受影响。 */
+  font-size: 16px;
   color: var(--text-primary);
 }
 
@@ -175,7 +185,16 @@
 .preview-block {
   margin: 0 0 12px;
   font-family: var(--font-content);
-  font-size: 15px;
+  /* 批次 BD-17：15→16，书页正文落 §3.3「稿纸 / 编辑器」那行的 16px。这一页是
+   * 自己书稿的只读通读/打印版式（PreviewPage 页头明写「正文改动请回到写作台」），
+   * 内容是稿纸文本，不是 EPUB/TXT 阅读器——后者那行给的是 17px，而 §3.3 注释里
+   * 已经说清 17 与「15–22」是**用户设置**的取值区间、经 inline style 落地，
+   * 不能拿来给 CSS 字面量发证。16 也守住了上面 .preview-chapter-heading 的层级
+   * 判断（标题 16、正文 16，靠 family 分层，与现状同构）。
+   * ⚠ 行高 1.9 保持不动：它在合法集里（§3.2∪§3.3，见守卫 LH_ALLOWED），
+   * 本批只还字号这笔账。「16 该配 1.85（稿纸那行）还是 1.9（阅读器那行）」
+   * 是行高配对的另一道题，改了会动行距与整页高度，留给稿纸批一起算。 */
+  font-size: 16px;
   line-height: 1.9;
   color: var(--text-primary);
   text-indent: 2em;

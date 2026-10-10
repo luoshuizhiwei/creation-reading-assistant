@@ -1739,7 +1739,7 @@ const isPureRingValue = (v) => {
   //                                   12px !important（:3520，.creation-writing-page--active
   //                                   .project-nav button:not(.project-nav-back)），
   //                                   紧邻的同族返回键 .project-nav-back 也是 12
-  //                                   （styles.css:3866）。导航项彼此必须同档，
+  //                                   （styles.css:3904）。导航项彼此必须同档，
   //                                   非接管态 12.5 / 接管态 12 是同一行字两种高度。
   //   .project-nav button
   //     @media (≤1024px)       11.5→11  窄屏这条是**压缩档**，语义是「比基础档低一档」；
@@ -1763,7 +1763,7 @@ const isPureRingValue = (v) => {
   // 不属于「一屏一页」，不能再拿同页邻居当证据）。这 3 处都是 22px，而 22 **正卡在
   // §3.2 的 20 与 24 正中间**——严格最近档判据在这里失效（两侧等距），必须逐处找
   // 「同一角色的另一处声明」替它投票，而且投票方必须是**作者自己写的意图**：
-  //   .writing-manuscript-head h2  22→20   主题表 styles.css:1297 对**完全同一个选择器**
+  //   .writing-manuscript-head h2  22→20   主题表 styles.css:1306 对**完全同一个选择器**
   //                                   写的就是 20px；22 是 editorial-studio.css 在后面
   //                                   抬上去的。两表同选择器异值本来就该收口，取基础表
   //                                   的原值，不是给稿纸页标题新发明一个档位。
@@ -1783,13 +1783,15 @@ const isPureRingValue = (v) => {
   //                                   规格直接指认，是三处统计数字必须同档的配对证据
   //                                   （留着 22 会让三个统计数字三种大小）。
   // ⚠ **第 4 处 22px 刻意不还，因为它不是同一道题**：
-  //   .overview-hero-title h2  22（overview-local.css:28）与
-  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2809）
+  //   .overview-hero-title h2  22（overview-local.css:26 那条规则）与
+  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2839）
   //   命中的是**同一个 h2**（OverviewPage 的 section 同时挂 desktop-page-hero 与
   //   overview-hero-title）。这不是「22 离刻度、该去 20 还是 24」，而是**流式标题 vs
   //   页面写死标题**的架构选择：收 20 就等于把 hero 标题改成固定值、让那条 clamp
   //   在概览页失效；改 clamp 的中值又与「§3.2 是像素档位表」冲突。两种答案对应两种
   //   设计意图，判据不能替人挑——留给用户（或与 §4 page-header 20px 一起整族定）。
+  //   ✔ 后续：用户已授权由我拍板，**批次 BD-17 选了流式那一侧**（删掉局部那条
+  //   font-size: 22px，把字号交回 :2839 的 clamp），这笔账本批已清，见下方 BD-17 注。
   //   另注：注入脚本「反向③」那颗牙钉的正是 editorial-studio.css 的
   //   clamp(22px, 2vw, 27px)（:629，另一处 clamp，不是本批任何一条），本批一个字没碰。
   // 本批同样不动棘轮牙锚点：字号③/行高比率②钉稿纸 17px+lh:2（:1248，未动，改后逐字
@@ -1798,7 +1800,7 @@ const isPureRingValue = (v) => {
   // 批次 BD-11：再从 35 里还掉 2 处，口径是 BD-7 注释里挂的那笔跨页许诺——「面板头」
   // 这一档一次定完。收的 2 处都是 18px，走的是**已定判据**（不是本批新发明的答案）：
   //   .writing-quick-reference-head h3  18→16  BD-3 已对同角色规则定档：
-  //                                   .cards-detail-head h3（styles.css:2272）与
+  //                                   .cards-detail-head h3（styles.css:2281）与
   //                                   .preview-toolbar-meta h2（preview-local.css:66）
   //                                   都是「17→16」——面板里的小标题，§3.2 对应
   //                                   16「h4 小节」。本页正文具名档是 12（list
@@ -1811,7 +1813,7 @@ const isPureRingValue = (v) => {
   // 两处判据与 BD-3 完全同一条（同角色邻居已定档），所以本批不存在「16 还是 20
   // 由我替设计挑边」的问题——邻居已经替它投过票了。
   // ⚠ 剩下两处 18px **本批刻意不还，因为它们不是「面板头」这一道题**：
-  //   .desktop-brand-mark  18 ×2（editorial-studio.css:137 基础 + styles.css:4186
+  //   .desktop-brand-mark  18 ×2（editorial-studio.css:137 基础 + styles.css:4228
   //                                   @media≤920）它是标题栏那颗 38×38 印章里的
   //                                   「洛」字（font-serif + font-weight:700 + 固定
   //                                   宽高 + place-items:center）。字号是**为那个盒子
@@ -1834,7 +1836,7 @@ const isPureRingValue = (v) => {
   //                                   保 rem 只换档（text-lg→text-xl=1.25rem=名义 20，
   //                                   与 InboxItemDetail.tsx:58 那处作者自写 text-xl
   //                                   同族）。留给那一批，不混进本批。
-  // 本批不动棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2（editorial-studio.css:1248）
+  // 本批不动棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2（editorial-studio.css:1278）
   // 没动；replace.css 里那颗第 7 步的牙钉的是 .replace-hit-before 的 line-through
   // 那两行（inject:169 needle），与本批 :32 不同一条，改前改后逐字验证仍唯一命中。
   // ⚠ 另两笔仍在等人的账也不在本批：.overview-hero-title h2 22（流式 vs 写死的架构
@@ -2025,6 +2027,11 @@ const isPureRingValue = (v) => {
   //                                 可同族控件现在分着 11.5/12/12.5/13 四种，且 :698
   //                                 就挂在 §2.5 冻结按钮族的规则上——「控件归 13」必须
   //                                 整族收，和 hero !important 族一起处理才不自相矛盾。
+  //   ✔ 后续：上面这六处 12.5px 已随**批次 BD-17** 整族收口（dl 行→12、说明句→13、
+  //   命令面板行→13、工具栏按钮→12），只有 hero 接管态那条 11.5px !important 仍按
+  //   本注释的说法留给 LEGACY 迁移批。⚠ 这批注释里的 :NNNN 是**写下当时**的行号，
+  //   BD-17 往同文件插了多行说明后它们会漂；活引用（CSS 注释里指向当前胜者的那些）
+  //   已逐条按实测重编，历史注释不回写——回写就看不出当时盘点了什么。
   // 本批同样不动棘轮牙锚点：稿纸 :1248 的 17px+lh:2、反向③ clamp(22px, 2vw, 27px)、
   // 行高比率① history-local 的 11px+lh1.5 逐字复验均未动；170 条 needle 复验，
   // 非唯一者仍只有先前就存在的 `.project-workbench {\n`（文件里 3 次）。
@@ -2032,11 +2039,127 @@ const isPureRingValue = (v) => {
   // .cards-toolbar/.history-page/.inbox-detail-head/.motion-toast/.desktop-panel-card/
   // .outline-scene/稿纸 17px+lh:2/clamp(22px,2vw,27px)/hero !important 族——
   // 没有一条含 writing-margin；稿纸那条 :1248 逐字复验仍是唯一命中。
+  // 批次 BD-17：再从 19 里还掉 14 处（→ 5），这一批是 BD-11/BD-16 注释里挂着的
+  // **两族一次性定完**——「标题/面板头阶梯」与「控件·键值行正文」。用户已授权由我拍板
+  // （原文：把「标题阶梯 + 阴影分级」这两族的设计侧由我定并继续），所以本批的
+  // 判据优先级在这里写死，后面同族的新增债照这个次序核：
+  //   ① 作者自己的另一处声明（同一角色/同一元素的第二种写法）
+  //   ② 同角色邻居已在刻度上（胜者图实测，不是注释里的许诺）
+  //   ③ 压缩档 = 基础档低一档（等距值只能靠它）
+  //   ④ §3.2 用途列直接指认
+  //   ⑤ 同行/同列的相对结构（键值行里的值不能大于键、标题不能小于自己的正文）
+  // 严格「最近档」在 x.5 处失效（两侧等距），本批 12.5/11.5 全靠 ①②⑤ 投票。
+  //
+  // 【标题阶梯 → 16】§3.2 给 16 那行的用途是「小节标题 h4」，本仓面板头的胜者
+  //   早已全是 16（.cards-detail-head h3 / .background-detail-head h3 /
+  //   .preview-toolbar-meta h2 / .writing-quick-reference-head h3 /
+  //   .replace-panel-header h2 / .outline-page-side h3，BD-3/11/15 收），
+  //   剩这几处是漏网的：
+  //   .stats-card h3 + .background-page-title  15→16  **一条规则两个宿主**（:765），
+  //                                   概览/统计页卡片头 + 背景设定页标题。
+  //                                   ⚠ 附带收口一个陈旧事实：.background-page-title
+  //                                   在 styles.css:4030 自己就写着 16px，被这条
+  //                                   后置主题表的 15 长期压着——改后两表同值。
+  //   .creation-step legend           15→16  <fieldset><legend> 是分组小节标题；
+  //                                   本页 16 > 14(template strong) > 12(note/li/span)
+  //                                   与改前 15 > 14 > 12 同构，只是档位归位。
+  //   .preview-chapter-heading        15→16  判据是 ⑤：本页书页正文 .preview-block
+  //                                   本批落到 16，章节题若收 §3.2 给 h3 的 20 就
+  //                                   **大于本页标题** .preview-toolbar-meta h2(16)，
+  //                                   收 14 又**小于自己的正文**——两头都不行，
+  //                                   只有 16 与现状的层级关系同构（同尺寸、靠
+  //                                   font-family 与颜色分层）。
+  // 【书页正文 → 16】
+  //   .preview-block                  15→16  §3.3 给正文只有 17 与 16 两个值，没有 15；
+  //                                   17 属于「阅读器正文」那行，而 17 与「15–22」是
+  //                                   **用户设置**的取值区间、经 inline style 落地
+  //                                   （守卫说明①已把这条讲死：不能给 CSS 字面量发证）。
+  //                                   本页是自己书稿的只读通读/打印版式（页头明写
+  //                                   「正文改动请回到写作台」），取稿纸那行的 16。
+  //                                   ⚠ 行高 1.9 一个字没动：它在合法集里（§3.2∪§3.3，
+  //                                   LH_ALLOWED），而「16 配 1.85 还是 1.9」是行高
+  //                                   配对的另一道题，改了动整页行距——留给稿纸批。
+  // 【控件与键值行正文 → 12/13/14】
+  //   .desktop-page-actions button
+  //     + .desktop-home-inbox         12.5→12  判据是 ①：同一批按钮在写作页接管态里
+  //                                   作者自己写的就是 12px（本文件
+  //                                   .creation-writing-hero .desktop-page-actions
+  //                                   button，12 + 32px 高）。胜者图里 18 条带 px 值的
+  //                                   按钮类名分支，12px 占 10 条，是最大簇。
+  //                                   ⚠ .desktop-home-inbox 在 TSX 里已无使用者（只剩
+  //                                   -count=11 活着），幻影判据按「整条规则有活分支」
+  //                                   放行，所以这里照改；孤儿整族清理仍是另一笔账。
+  //   .desktop-search-command span    12.5→13  判据是 ①+②：它是「按 Ctrl K 打开的
+  //                                   可点行（label + kbd）」，孪生兄弟
+  //                                   .creation-palette-command 在 BD-6 已收 13，
+  //                                   两个搜索面板的行长长期 12.5 vs 13 两种高度；
+  //                                   §3.2 的 13 用途正是「控件与界面正文（默认）」。
+  //   .creation-search-input          15→14  判据是 ②：同角色（对话框顶部搜索框）
+  //                                   的 .uni-search-input 已在 14（BD-3 收）。
+  //                                   ⚠ 不取 13：本对话框结果区 .creation-search-state
+  //                                   是 13，输入框收到 13 就和自己的结果列表同尺寸，
+  //                                   是现状（输入 > 结果）的层级倒退。
+  //   .migration-note                 12.5→13  判据是 ②：同弹窗里 .migration-banner 13、
+  //                                   .migration-error 13——三段正文两种尺寸。
+  //                                   该条同时服务 ExportDraftDialog 的说明行。
+  //   .migration-report dl > div      12.5→12  §3.2 明写 12 =「标签、辅助说明、
+  //                                   **表格次级列**」；本条是 <dl> 键值行的行字号
+  //                                   （dt+dd 都从它继承）。
+  //   .background-detail-fields > div 12.5→12  同上，同族 dl 行；本页 16 > 14 > 12 > 11
+  //                                   一档不差。
+  //   .import-volume-title            12.5→12  同卡邻居 li=12 / em=11 / toggle=12，
+  //                                   全卡只有它半档；卷名文字本体在 .paper-input
+  //                                   （0.875rem）里，本条管这一行的档位与 700 字重。
+  //   .stats-words dd                 15→12  判据是 ⑤：与同行的 dt=12 baseline 对齐，
+  //                                   一行字两种尺寸；同族 dl 值全在 12/13
+  //                                   （.writing-margin dd 12、.cards-field-row dd 13、
+  //                                   .import-volume li 12）。强调交给
+  //                                   700 字重 + tabular-nums + 墨色。
+  //                                   ⚠ 为什么不套用 BD-10 的「统计大数字 = 20」：
+  //                                   那三处（.reading-stat-value / .stats-streak /
+  //                                   .desktop-sidebar-stats strong）都是**独立成块的
+  //                                   大数字**，这里是密集小表的一行值；抬到 20 会把
+  //                                   四行卡片撑成另一种东西，而大数字档在同卡另有其人
+  //                                   （.stats-streak=20）。
+  //   .desktop-sidebar-stats small    11.5→11  判据是 ②：侧栏整族的标签全是 11
+  //                                   （.desktop-brand small / .desktop-nav small /
+  //                                   .desktop-card-label / .desktop-dock-label），
+  //                                   §3.2 也给 11 =「角标、计数、时间戳」；
+  //                                   11.5 是这块岛上唯一的半档值。
+  // 页内结果（本批改动处）：概览/背景 16(标题) > 12(行)；向导 16(legend) > 14 > 12；
+  // 通读页 16(标题) = 16(正文，靠字族分层) > 12 > 11；命令面板 13 = 13；
+  // 侧栏 20(数字) > 11(标签)；工具栏按钮 12 = 12（接管态与非接管态同档）。
+  //
+  // ⚠ **本批刻意不还的 5 处，每一处都已经有名字、不是「还没想好」**：
+  //   .scene-editor-content 17（:1278）  稿纸批。17×line-height:2 = 34px 恰好是
+  //                                   background 里那条横线的节距，字号/行高/节距
+  //                                   三件必须一起重算；棘轮牙「字号③」「行高比率②」
+  //                                   钉的就是这六行，本批一个字没碰（改前改后逐字
+  //                                   复验仍唯一命中）。
+  //   hero 接管态 11.5px !important（:3485）  LEGACY 族。§2.5 那 3 条冻结按钮投影 +
+  //                                   第 6 步 12 条容器接管规则一起随「写作页迁移批」
+  //                                   删掉；给它换个刻度值等于让一条注定要删的规则
+  //                                   看起来已合规，是把债洗成账面干净。
+  //   .desktop-brand-mark 18 ×2（editorial:137 基础 + styles.css:4228 @media≤920）
+  //                                   品牌字形族，BD-11 已立案：38×38 印章里的「阅」
+  //                                   字，字号是为那个盒子选的；基础档与窄屏档**同值**
+  //                                   正是「字形尺寸」而非「压缩档」的证据
+  //                                   （对比 BD-9 的 project-nav：窄屏低一档）。
+  //   .library-cover-glyph 15（:1856）  同族：38×50 书脊块里的白字，且带作者明写的
+  //                                   「这条必须留着，而且是活的」。
+  //                                   ⚠ 后两处不是「懒得动」——把字形尺寸套进文本
+  //                                   阶梯会真的撑破/填不满盒子。它们要么随品牌批
+  //                                   一起定一个显式的字形档位约定，要么继续记账。
+  // 本批不动的其它棘轮牙：行高比率①（history-local 的 11px+lh1.5，未动该文件）、
+  // 反向③（clamp(22px, 2vw, 27px)，未动）、AH/AO/AS/AU/N/Z 那批钉在
+  // .creation-step {\n  margin: 0; 的锚点（改后复验仍唯一命中）；
+  // 171 条 needle 逐条复验，非唯一者仍只有先前就存在的 `.project-workbench {`（3 次）。
+  // ⚠ 本批插入的多行注释推移了行号，全仓所有 `xxx.css:NNNN` 形式的引用（19 处）
+  // 已用 difflib 逐条重映射核对；其中 styles.css 那段品牌注释里的 :118/:2832 是
+  // **本批之前就已过期**的旧引用，一并修正为实测的 :120/:2890 并在注释里声明。
   const FS_BUDGET = {
-    "src/features/creation/overview/overview-local.css": 1,
-    "src/features/creation/preview/preview-local.css": 2,
-    "src/styles.css": 8,
-    "src/styles/editorial-studio.css": 8
+    "src/styles.css": 1,
+    "src/styles/editorial-studio.css": 4
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
