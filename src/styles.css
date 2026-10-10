@@ -1479,9 +1479,14 @@ button:disabled {
   outline: none;
   color: var(--paper-ink);
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1278 的 17px——稿纸那一族，
-     它和 line-height: 2 的节距耦合还在账上，见 LH_BUDGET）。 */
-  line-height: 2;
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css 的 17px——稿纸那一族，
+     那个 17px 已在批次 BD-20 随三件同算收成 16px）。
+     批次 BD-20（稿纸批）：同一条上剩下的 `line-height: 2` 也删了，走的是 BD-2 那条
+     「级联已死」的路——同特异度 (0,1,0)、editorial-studio.css 在 main.tsx 里排在
+     styles.css 之后，产物实测这条从未画出一个像素（改前胜者 2、改后胜者 1.85，都是它）。
+     BD-2 当时**故意没删**它，因为它和 34px 节距是算死的一对，单删一行会让「稿纸批」
+     那笔账看起来已经清了；现在三件（字号/行高/节距）在胜者那条上一起重算完，
+     这笔死账跟着清掉，LH_BUDGET 里 styles.css 的条目随之移除（空表=新增即红）。 */
   caret-color: var(--copper);
 }
 
@@ -1490,7 +1495,13 @@ button:disabled {
 .scene-editor-content .centered-text,
 .scene-editor-content .author-note {
   margin: 0 0 1.1em;
-  min-height: 1.9em;
+  /* 批次 BD-20（稿纸批）：1.9em → 1.85em，跟着上面那对的节距同算，不是顺手改。
+     这条是**空行占一格**用的下限（作者意图 = 一行高）。改前 17×1.9=32.3px < 行盒 34px，
+     不生效；若留在 1.9em，16×1.9=30.4px 就**大于**新行盒 29.6px 而开始顶高每一段
+     （真机实测单段高 30.39 vs 29.59），于是每段落点比上一段多下移 0.8px，段内的行
+     与横线逐段错相——正是这族耦合要防的那类漂移。
+     取 1.85em = 29.6px 与行盒相等，恢复改前「下限等于一行、平时不生效」的关系。 */
+  min-height: 1.85em;
   border-radius: var(--radius-2);
   transition: opacity 160ms ease, background-color 160ms ease;
 }

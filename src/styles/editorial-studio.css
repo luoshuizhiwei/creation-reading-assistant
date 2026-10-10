@@ -1278,10 +1278,26 @@ select:focus-visible,
   max-width: 760px;
   margin-inline: auto;
   padding-inline: 32px;
+  /* 批次 BD-20（稿纸批）：§3.3 给稿纸那行定的是 16px / 1.85，而这三件是算死的耦合——
+     节距 = font-size × line-height，一条横线恰好一格。改前 17 / 2 / 34px（17×2=34），
+     改后 16 / 1.85 / 29.6px（16×1.85=29.6），gradient 两个停靠点按「节距−1px / 节距」写，
+     与改前同构。真机实测（Electron 33 加载本仓产物 + Range 量行盒）：改前每条文本行行盒
+     34px、横线每 34px 一条；改后行盒 29.6px、横线每 29.6px 一条——「段内一行一格」这个
+     作者定的不变量两边都成立，改的只是格的尺寸，不是格与行的关系。
+     ⚠ 两件事本批刻意**没有**顺手做，各自都有理由：
+     · 横线在行内的相位不去单独设计：它从来不是谁定的，而是这条乘积的副产物。真机同法
+       复测两版（同一 fixture、同一份产物 CSS、Range 量基线）：改前横线落在基线上方 4px，
+       改后 2px——都在拉丁下伸部（实测墨迹下沿 4px）那一带穿过，改后反而更贴基线。
+       §3.3 那行只给了字号 / 行高 / 行长三列，相位没人要过；把它精确挪到基线上是**另一件
+       设计决定**，不是还这笔账。
+     · max-width: 760px 留着（16px 下正文 696px = 43.5em，§3.3 那行要 42em = 672px 正文
+       = 736px 边框盒）：760 与 styles.css 窄屏那条 `width: min(760px, calc(100% - 30px))`
+       是作者自己写死的一对（判据优先级 ①），拆散它等于让正文比纸壳窄一截；而且收 24px 是真
+       重排（少 1.5 个汉字/行）。留给「行长 / measure 批」把 760 与那条 min(760,…) 一起定。 */
   background:
-    repeating-linear-gradient(to bottom, transparent 0, transparent 33px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 34px);
-  font-size: 17px;
-  line-height: 2;
+    repeating-linear-gradient(to bottom, transparent 0, transparent 28.6px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 29.6px);
+  font-size: 16px;
+  line-height: 1.85;
 }
 
 .scene-editor-toolbar .scene-tool {
