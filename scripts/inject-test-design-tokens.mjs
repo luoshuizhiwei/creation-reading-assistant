@@ -69,6 +69,11 @@ const files = [
   // 它是阴影台账上仍有活债（shadow-lift 1 处）的最简宿主，needle 只有一条。
   // 批次 AO 又把这批入口牙改钉 ErrorBoundary：分区卡归入 --shadow-1 后它才是台账上
   // 仍有活债、needle 唯一的最简 TSX 宿主；分区卡自己转而测本批新立的 TSX hairline 判据。
+  // ✔ 批次 BD-19：ErrorBoundary 那笔（shadow-paper）按 §5.3 归成 [box-shadow:var(--shadow-3)]，
+  // TSX 侧自此无债、条目移除——「已有预算文件里加新债」那颗牙没有 TSX 宿主可用了，
+  // 于是①／还债不降预算两颗改钉 CSS 侧（LibraryPage 的浮层串、夜读皮肤串，两者都在
+  // 备份清单里），K 幻影／K 字面量两颗留在 ErrorBoundary 的新串上（幻影判据与预算无关，
+  // 字面量那颗正好测「空表=新增即红」）。
   "src/features/settings/sections/SectionWrapper.tsx",
   "src/components/ErrorBoundary.tsx",
   // 批次 AP 的还债用例改这份：药丸 Tabs 那条 shadow-sm 按 §2.5 整条不画了，条目随之移除
@@ -244,17 +249,23 @@ const cases = [
   ["批次 H 回归·反向：`X > * { border-radius: 0 !important }` 是压平（.stats-page .stats-grid > * 就这么用），不该变红", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".zz-grid-flatten > * {\n  border-radius: 0 !important;\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), null],
   // 第 8 步批次 I：阴影棘轮。这组测三件事——能不能咬新债（TSX 工具类 / CSS 声明 / @apply
   // 三条入口各一条）、还了债不降预算会不会红、以及四种豁免会不会误伤。
-  ["阴影棘轮①：TSX 工具类新债——已有预算文件里同串再加一个 shadow-lift（宿主批次 AO 起改为 ErrorBoundary：它是阴影台账上仍有活债、且 needle 唯一的最简 TSX 宿主；再加一处必须红）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 shadow-paper", "bg-paper-panel p-6 shadow-paper shadow-lift"), /阴影刻度/],
+  ["阴影棘轮①：TSX 工具类新债——阴影台账上 TSX 侧条目已随批次 BD-19 清零，此刻**空表=新增即红**：给 LibraryPage 那个已归 var(--shadow-2) 的下拉再挂一个 shadow-lift 必须红（宿主变迁：批次 AO 起这批牙钉 ErrorBoundary，BD-19 还清它最后那笔后 TSX 侧无债，牙改回本仓唯一还挂着浮层工具类串的 LibraryPage——它同时在间距/状态色几组里当宿主，早已在备份清单里）", () => mutate("src/features/library/LibraryPage.tsx", "bg-paper-panel [box-shadow:var(--shadow-2)] p-1", "bg-paper-panel [box-shadow:var(--shadow-2)] p-1 shadow-lift"), /阴影刻度/],
   ["阴影棘轮②：CSS 声明新债——把字面投影写进阴影预算表里根本没有的文件（inbox-local.css 视同 0，必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", ".inbox-page {\n  display: flex;", ".inbox-page {\n  box-shadow: 0 10px 30px rgba(34, 38, 48, 0.05);\n  display: flex;"), /阴影刻度/],
   ["阴影棘轮③：@apply 分支——@apply 里的 shadow-lift 编译后就是一条 box-shadow 声明，和 TSX 挂工具类等价，必须同判（批次 AL 把 .paper-panel 那条压死的 shadow-lift 退役后，这颗牙挪到仍活着的夜读皮肤宿主上）", () => mutate("src/styles.css", "@apply border border-stone-800 text-stone-100 shadow-paper;", "@apply border border-stone-800 text-stone-100 shadow-paper shadow-lift;"), /阴影刻度/],
   ["阴影棘轮·反向①：伏笔是本产品的业务词（foreshadow），text-shadow 是属性名——都在代码里而非注释里，前后断言必须挡住，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzProbe = \"foreshadow foreshadowResolved foreshadows text-shadow\";\n  void zzProbe;"), null],
   ["阴影棘轮·反向②：四种合法豁免——shadow-none / shadow-inner / 颜色档 shadow-white\\/20（只产 --tw-shadow-color）/ [box-shadow:var(--focus-ring)] 焦点环，都不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzExempt = \"shadow-none shadow-inner shadow-white/20 focus-visible:[box-shadow:var(--focus-ring)]\";\n  void zzExempt;"), null],
-  ["阴影棘轮·还债不降预算：把 ErrorBoundary 的 shadow-paper 换成真正发射的 [box-shadow:var(--shadow-2)] 是合法收敛（债 1→0），但预算仍是 1，必须红并指名该文件（用 shadow-2 而非 shadow-1：这条串还挂着校样红 border，shadow-1 会同时踩批次 AO 新立的 TSX hairline 判据，红因就不纯了）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 shadow-paper", "bg-paper-panel p-6 [box-shadow:var(--shadow-2)]"), /预算没跟着降/],
+  ["阴影棘轮·还债不降预算：把夜读皮肤那条 shadow-paper 换成真正发射的 [box-shadow:var(--shadow-1)] 是棘轮认的合法收敛（债 7→6），但预算仍是 7，必须红并指名 styles.css（批次 BD-19 还清 ErrorBoundary 后 TSX 侧空表，这颗牙改钉仍活着债的皮肤宿主；夜读皮肤是台账上明写的「已判保留」族——保留的意思是**这一批不付**，不是禁止合法写法，所以拿它测「付了不降预算」正合适）", () => mutate("src/styles.css", "@apply border border-stone-800 text-stone-100 shadow-paper;", "@apply border border-stone-800 text-stone-100 [box-shadow:var(--shadow-1)];"), /预算没跟着降/],
   // 第 8 步批次 K：幻影写法硬红。shadow-[var(--shadow-N)] 在产物里只产 --tw-shadow-color、
   // 没有 box-shadow 声明——「改了画不出来」，且旧判据还给它记成功还债，所以单独 fail()。
-  ["批次 K 回归：幻影写法 shadow-[var(--shadow-2)] 必须硬红（不进计数，因为它画的根本不是阴影）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 shadow-paper", "bg-paper-panel p-6 shadow-paper shadow-[var(--shadow-2)]"), /幻影/],
+  ["批次 K 回归：幻影写法 shadow-[var(--shadow-2)] 必须硬红（不进计数，因为它画的根本不是阴影；宿主随批次 BD-19 搬家——ErrorBoundary 那条串归成 [box-shadow:var(--shadow-3)] 后旧 needle 消失，幻影判据与预算无关，钉在任何活着的 TSX 串上都测同一件事，这里选它本尊，备份清单照旧）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 [box-shadow:var(--shadow-3)]", "bg-paper-panel p-6 [box-shadow:var(--shadow-3)] shadow-[var(--shadow-2)]"), /幻影/],
   ["批次 K 回归·反向：属性形式 [box-shadow:var(--shadow-2)] 与其 hover: 变体是产物实测唯一能发射的任意值写法，既不被幻影判据咬、又走 var(--shadow) 豁免不计数，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzReal = \"[box-shadow:var(--shadow-2)] hover:[box-shadow:var(--shadow-2)]\";\n  void zzReal;"), null],
-  ["批次 K 回归：字面量任意值 shadow-[0_1px_0_rgba(...)] 确实发射投影（.paper-topbar 实测），所以不归幻影硬红管——但它是刻度外的手抄值，由棘轮计债（同宿主再加一处就超预算，红的是阴影刻度而非幻影）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 shadow-paper", "bg-paper-panel p-6 shadow-paper shadow-[0_1px_0_rgba(255,255,255,0.45)]"), /阴影刻度/],
+  ["批次 K 回归：字面量任意值 shadow-[0_1px_0_rgba(...)] 确实发射投影（.paper-topbar 实测），所以不归幻影硬红管——但它是刻度外的手抄值，由棘轮计债（宿主批次 BD-19 起换回 ErrorBoundary 的新串：它已还进 var(--shadow-3)、TSX 侧预算条目移除，空表上多一处任意值投影必须当场红，红的是阴影刻度而非幻影）", () => mutate("src/components/ErrorBoundary.tsx", "bg-paper-panel p-6 [box-shadow:var(--shadow-3)]", "bg-paper-panel p-6 [box-shadow:var(--shadow-3)] shadow-[0_1px_0_rgba(255,255,255,0.45)]"), /阴影刻度/],
+  // 第 8 步批次 BD-19（阴影分级）：五笔债分别走归级、删死声明、撤冠光、纯环豁免四条路，
+  // 下面四条测的就是「还掉的方向不能被写回去」——每一条都指名它当初为什么能清零。
+  ["批次 BD-19 回归：把 .replace-panel 那条 inset 冠光写回 var(--shadow-3) 前面（混排值整串不再命中 var(--shadow-*) 豁免，replace.css 预算条目已移除，多一处必须红——否则撤冠光等于给这个浮层松了绑）", () => mutate("src/features/creation/replace/replace.css", "  box-shadow: var(--shadow-3);\n}\n\n.replace-panel-header {", "  box-shadow:\n    inset 0 1px 0 rgba(255, 255, 255, 0.5),\n    var(--shadow-3);\n}\n\n.replace-panel-header {"), /阴影刻度/],
+  ["批次 BD-19 回归：把那条**层叠压死**的选中行投影写回 .inbox-item--selected（editorial 预算已降到 13，多一处必须红。它的价值在方向：退役判据认「从未渲染」这条理由，如果哪天有人觉得补回投影是免费的，账必须当场咬住——补回来不等于恢复原状，而是给选中行新画一圈浮起）", () => mutate("src/styles/editorial-studio.css", "  background: var(--studio-paper) !important;\n", "  background: var(--studio-paper) !important;\n  box-shadow: 0 4px 14px rgba(34, 38, 48, 0.07);\n"), /阴影刻度/],
+  ["批次 BD-19 回归·反向：焦点柔光现在写成显式声明，按批次 AD 的纯环豁免**不该计数**——把它换成一条真投影（带偏移与模糊的 0 6px 18px）才叫把豁免撑成逃生舱，styles.css 7→8 必须红。这条测的是「豁免认的是几何形状，不是宿主身份」：同一个 .paper-input:focus、同一个棕铜色，写成环就绿、写成投影就红", () => mutate("src/styles.css", "    box-shadow: 0 0 0 1px rgb(var(--rgb-accent) / 0.2), 0 0 0 3px rgba(138, 90, 43, 0.08);", "    box-shadow: 0 0 0 1px rgb(var(--rgb-accent) / 0.2), 0 6px 18px rgba(138, 90, 43, 0.08);"), /阴影刻度/],
+  ["批次 BD-19 回归·反向②：纯环声明换另一种合法上色（color-mix 混主色）不该变红——AD 说的豁免看的是几何形状，不是颜色来源（这条同时守住 .paper-input:focus 不会被「因为颜色是遗留棕铜」而误计成投影债）", () => mutate("src/styles.css", "    box-shadow: 0 0 0 1px rgb(var(--rgb-accent) / 0.2), 0 0 0 3px rgba(138, 90, 43, 0.08);", "    box-shadow: 0 0 0 1px color-mix(in srgb, var(--copper) 20%, transparent), 0 0 0 3px color-mix(in srgb, var(--copper) 8%, transparent);"), null],
   // 第 8 步批次 L：别名归位。圆角棘轮豁免 var(--radius-*)，债从 CSS 声明搬进令牌定义后
   // 判据就瞎了——把 --radius-panel 改回 8px，面板家族整体无声改版、棘轮一个不响。
   // 这两条测的是「映射钉得够不够死」：字面量要红，指错档也要红。

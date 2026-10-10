@@ -50,7 +50,18 @@ export class ErrorBoundary extends Component<Props, State> {
         // 边框不能写 border-[color:var(--proof-mark)]/30（Tailwind 无法给 var() 套 alpha
         // 修饰符，整条声明会被静默丢弃），所以用 color-mix 混进 --separator。
         <div className="grid h-full place-items-center p-6 text-center paper-shell">
-          <div className="max-w-md rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 shadow-paper">
+          {/* 批次 BD-19（阴影分级；守卫把这一笔的裁定权交给本批，SHADOW_BUDGET 注释里
+           * 记着原话「要收它得先决定故障卡的红边由谁承担」）：红边由 border 自己承担——
+           * 它走校样红令牌族，是「出错了」这层语义的唯一载体，不能撤；
+           * 因此静止卡档 --shadow-1 在这里用不了（它自带 0 0 0 1px separator 环，
+           * 会和这条边拼成批次 AE 说的 2px 双线）。投影归 --shadow-3：这张卡在结构上是
+           * 接管整个视图区域的兜底面板（max-w-md、居中、压在正文之上），§5.3 里为
+           * 「接管面板」准备的就是 3 档；原值 shadow-paper = `0 18px 50px rgba(34,38,48,.1)`
+           * 的第一层偏移/模糊（18px/50px）本来就落在 3 档（24px/64px）附近，观感连续；
+           * 2 档（0 4px 12px）是给菜单那种小控件的，48px 见方的卡用它只会看起来贴在地上。
+           * ⚠ 必须用属性形式：方括号工具类 shadow-[var(...)] 只产 --tw-shadow-color、
+           * 画不出阴影（批次 K 的幻影判据硬红它），写它等于假装还债。 */}
+          <div className="max-w-md rounded-md border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-paper-panel p-6 [box-shadow:var(--shadow-3)]">
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-[color:var(--proof-tint)] text-[color:var(--proof-mark)]">
               <AlertTriangle size={24} />
             </div>

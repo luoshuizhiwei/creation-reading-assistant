@@ -221,7 +221,21 @@ button:disabled {
   }
 
   .paper-input {
-    @apply rounded-md border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted/55 focus:border-copper focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] focus:ring-1 focus:ring-copper/20;
+    @apply rounded-md border border-paper-line bg-paper-panel px-3 text-sm text-paper-ink outline-none transition duration-150 placeholder:text-paper-muted/55 focus:border-copper;
+    /* 批次 BD-19：焦点柔光原先写成 @apply 里的
+     * `focus:shadow-[0_0_0_3px_rgba(138,90,43,0.08)] focus:ring-1 focus:ring-copper/20`，
+     * 编译产物实测是两层**同心描边环**（环 0 0 0 1px 主色 20% + 光 0 0 0 3px 棕 8%，
+     * 偏移层 0 0 #0000 不画东西）。环在 §5.3 里不是投影层级而是 §2.3 焦点机制——
+     * 批次 AD 为此立的纯环豁免看的是几何形状，所以写成下面的显式声明即可豁免；
+     * 而它**不该**写成方括号工具类：批次 K 实测 shadow-[0_0_0_…] 只产 --tw-shadow-color、
+     * 压根不发射 box-shadow（幻影）。逐像素等价靠把两层按原绘制顺序（环在上、光在下）
+     * 抄进同一条声明：产物里 ring 与 shadow 的相对顺序就是 box-shadow 的书写顺序。
+     * ⚠ rgba(138,90,43,.08) 是遗留棕铜色（同规格 §1 D-1 记的 184,64,26 一族），
+     * 本批只管阴影层级不动颜色——它属于颜色账，随配色批收。 */
+  }
+
+  .paper-input:focus {
+    box-shadow: 0 0 0 1px rgb(var(--rgb-accent) / 0.2), 0 0 0 3px rgba(138, 90, 43, 0.08);
   }
 
   .paper-chip {

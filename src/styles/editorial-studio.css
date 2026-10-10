@@ -1086,7 +1086,12 @@ select:focus-visible,
   background: color-mix(in srgb, var(--bg-surface) 88%, transparent);
   color: var(--text-muted);
   font-size: 11px;
-  box-shadow: 0 4px 16px rgba(20, 24, 32, 0.08);
+  /* 批次 BD-19（阴影分级）：原值 `0 4px 16px rgba(20, 24, 32, 0.08)`。这颗药丸是绝对定位、
+   * z-35 悬在稿台之上的浮层（还带 backdrop blur），§5.3 里对应的档就是 shadow-2
+   * 「下拉、菜单、popover」——同批次 AN 把三处下拉收进 shadow-2 是同一判定。
+   * 与 border 共存合法：shadow-2 是纯投影档、不含 hairline 环（AE 的双拼规矩只管 shadow-1）。
+   * 刻度替换的已知代价：模糊 16→12、alpha .08→.10，浮层观感轻微收紧，这正是刻度的目的。 */
+  box-shadow: var(--shadow-2);
   backdrop-filter: blur(10px);
 }
 
@@ -1500,7 +1505,15 @@ select:focus-visible,
 
 .inbox-item--selected {
   background: var(--studio-paper) !important;
-  box-shadow: 0 4px 14px rgba(34, 38, 48, 0.07);
+  /* 批次 BD-19（阴影分级）：这里原本写着 `box-shadow: 0 4px 14px rgba(34, 38, 48, 0.07)`，
+   * 是一条**从未画出像素的死声明**：jsdom 加载真实产物读 computed 值实测，选中行的胜者是
+   * 本文件末尾 `.stats-card, .paper-panel { box-shadow: … !important }` 那条——理由不是特异度，
+   * 是 !important 对非 !important 永远赢。而 .inbox-item--selected 在仓里唯一的挂载是
+   * InboxItemList.tsx:88 的 `stats-card inbox-item …`，每个宿主都自带 .stats-card，躲不开那条。
+   * 与批次 AK/AL 的「层叠压死」退役同口径：删声明、不迁移，选中态的真实信号一直是
+   * ::before 那道朱砂书脊 + 上面这条纸色底，投影从未参与。
+   * ⚠ 别把这条「补回 --shadow-N」：那等于给选中行凭空画出一圈从没存在过的浮起，
+   * 是改版不是还债；inject 里 BD-19 的写回用例咬的就是这个方向。 */
 }
 
 .inbox-item--selected::before {

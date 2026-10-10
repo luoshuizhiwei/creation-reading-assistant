@@ -1222,7 +1222,6 @@ const isPureRingValue = (v) => {
    * 新债要红，还了债不降预算也要红。
    */
   const SHADOW_BUDGET = {
-    "src/components/ErrorBoundary.tsx": 1,
     // 批次 AM：这三份宿主都挂 motion-dialog / motion-toast，家族那条
     // box-shadow: var(--shadow-3) / var(--shadow-4) !important 加载更晚且带 !important，
     // 一直压着手上的 shadow-paper 工具类——jsdom 读真实产物 computed 值实测「带它」和
@@ -1246,10 +1245,33 @@ const isPureRingValue = (v) => {
     // 仍不动：ErrorBoundary 那条是全屏故障卡，它的 border 走校样红令牌族（语义色），
     // --shadow-1 的环是 separator 中性色，撤边等于把「出错了」这层语义擦掉——
     // 要收它得先决定故障卡的红边由谁承担，另批处理。
-    "src/features/creation/replace/replace.css": 1,
+    // ✔ 后续（批次 BD-19，本批就是那个「另批」，守卫把裁定权交给了这一批）：
+    //   红边由 border 自己承担——校样红是「出错了」的唯一语义载体，不动；
+    //   投影归 --shadow-3。选档依据：这张卡在结构上是接管整个视图区域的兜底面板
+    //   （max-w-md、居中、压在正文之上），§5.3 里唯一为「接管面板」准备的档就是 3；
+    //   1 档带环、和保留的红边拼成 AE 说的 2px 双线，2 档（0 4px 12px）是给菜单那种
+    //   小控件的，48px 见方的卡用它会飘。原值 shadow-paper = 0 18px 50px rgba(34,38,48,.1)
+    //   的第一层偏移/模糊本来就落在 3 档附近，观感连续。
+    //   ⚠ 写法必须是属性形式 [box-shadow:var(--shadow-3)]：见上面批次 K 的幻影教训。
+    //   这笔清零后条目移除，TSX 侧台账自此为空表——钉在旧串上的四颗牙同批搬家，
+    //   见 inject 里「阴影棘轮①／还债不降预算／批次 K 回归」那几条的 BD-19 注释。
     // 批次 AJ：灵感页那条 shadow-paper 工具类随面板归入 --shadow-1 一起删除，条目移除。
     // 批次 AR：encryption.css 那条三层手抄投影随 .pe-modal 族整族下线（查无宿主），条目移除。
+    // ✔ 后续（批次 BD-19）：replace.css 条目随债清零移除。那条是「真投影 + inset 冠光」
+    //   的混排（inset 0 1px 0 rgba(255,255,255,.5), var(--shadow-3)），棘轮因此一直记它一笔债。
+    //   §5.3 四级全是外投层级，压根没有「内衬高光」这一档；这条白色冠光是拟物装饰，
+    //   同族先例是第 6 步 inbox 按钮的 inset 冠光与 §2.5 的去冠光裁定——整条下线，
+    //   面板本体早就写着 var(--shadow-3)（z-60 浮层、对话框量级，档位无需重判），
+    //   删掉混排前缀后整串命中 var(--shadow-*) 豁免。border 保留：3 档不含环，AE 管不到。
     "src/features/settings/settings-controls.css": 1,
+    // ✔ 后续（批次 BD-19 裁定，本批**保留**这一笔）：滑块拇指 `0 1px 4px rgba(15,20,28,.22)`
+    //   不归四级里的任何一档——1 档自带 0 0 0 1px 环，会和这条 2px solid --action-primary
+    //   拇指描边拼成 AE 说的双线（且 16px 的圆钮上一圈 separator 环毫无意义）；2 档是
+    //   0 4px 12px，比拇指本身还大，用它等于让一颗旋钮浮到半空。它的作用是「旋钮离开轨道」
+    //   的微接触影，性质同上面 C 族的材质厚度，待「控件触感和材质」专项一起判。
+    //   （另一层现实约束：批次 AD 那颗「删掉这条真投影必须红」的牙就钉在这两行串上，
+    //   付它得先把牙迁到别的活债宿主——本批 TSX 侧清零、CSS 侧还有 20 处，不缺锚点，
+    //   但那是「为了还债搬家」而不是「判完再还」，方向不对，随专项批一起做。）
     // 批次 AK：styles.css 退役 4 处——侧栏卡那条被 editorial 同特异度 none 压死的手抄投影（层叠死），
     // 加 manuscript-paper / reader-paper / reader-glassbar 三条幻影规则整条删除（宿主零引用）。
     // 批次 AL：再退役 2 处，同一族「层叠压死」，胜者表实测从未画出一个像素——
@@ -1259,11 +1281,62 @@ const isPureRingValue = (v) => {
     // 余下 8 处是 7 个夜读皮肤 + .paper-input:focus 的焦点柔光，都是**真在渲染**的值：
     // 皮肤那条是纸面浮影（收它=可感知改版，另批处理），focus 那条是 3px 描边柔光 +
     // ring-1 合成，属 §2.3 焦点机制而非 §5.3 投影层级。
-    "src/styles.css": 8,
+    // ✔ 后续（批次 BD-19）：上面那句「8 处」里的 focus 那条判对了性质、记错了账——
+    //   产物实测它的两层**全是 0 0 0 描边环**（0 0 0 1px 主色 20% 来自 ring-1，
+    //   0 0 0 3px 棕 8% 来自 shadow-[…]），批次 AD 的纯环豁免看的是几何形状，
+    //   所以写成显式 box-shadow 声明就依法豁免；原先它在 @apply 里被计成债，
+    //   恰恰是 AD 批评过的「判据不对称」的另一种表现。改法逐像素等价（环在上、光在下，
+    //   顺序照抄 Tailwind 自己拼 box-shadow 的顺序），零改版，8→7。
+    //   剩下的 7 处是 7 个夜读皮肤，仍按上面那条裁定保留：那条 `0 18px 50px rgba(34,38,48,.1)`
+    //   是整页纸浮在桌面上的影，归 1 档会同时踩三个坑（环与皮肤自带的 border 双拼、
+    //   24px 偏移撑不起整页、深色下纸色写死不归 --separator 管），归 2/3/4 档都是可感知改版。
+    //   「纸张浮影该有自己的档还是并入 1 档深色特例」是皮肤批的题，不在本批。
+    "src/styles.css": 7,
     // 批次 AS：settings-grid 开关岛整族下线，其中 L2371 那条
     // box-shadow: 0 1px 2px rgba(34, 38, 48, 0.28) 是幻影账里最后一笔真债（岛查无宿主、
     // 值又离刻度），随整族一起删除。16→15。
-    "src/styles/editorial-studio.css": 15
+    // ✔ 后续（批次 BD-19）：15→13，两笔，各走一条不同的合法还法——
+    //   · .writing-focus-status `0 4px 16px rgba(20,24,32,.08)` → var(--shadow-2)：
+    //     绝对定位、z-35、带 backdrop blur 的浮起药丸，§5.3 的 2 档原文正是「下拉、菜单、
+    //     popover」。与它的 border 共存合法（2 档纯投影、不含环）。刻度替换的已知代价：
+    //     模糊 16→12、alpha .08→.10，浮感收紧——这正是刻度的作用，不是事故。
+    //   · .inbox-item--selected `0 4px 14px rgba(34,38,48,.07)` **整条删除**（层叠压死）：
+    //     这个 modifier 全仓唯一挂载是 InboxItemList.tsx 的 `stats-card inbox-item …`，
+    //     而本文件末尾 .stats-card/.paper-panel 那条 !important 投影永远赢非 !important 的它
+    //     （jsdom 读真实产物 computed 值实测：选中行实渲就是那条 0 1px 2px .04，
+    //     带与不带这条 4px 14px 同值）。投影从未画出像素，选中态的真实信号一直是
+    //     ::before 那道朱砂书脊 + 纸色底。同 AK/AL 口径删声明、不迁移——
+    //     把它「补成 var(--shadow-N)」等于给选中行凭空画一圈从没存在过的浮起，是改版。
+    // ⚠ 本批同时把**剩下这 13 处为什么现在不能还**定成台账，免得下一轮当成「还没轮到」反复重判。
+    //   它们是已判不归级，各自的收口批次不同（数字按判据扫出的实测行号登记）：
+    //   A) 卡族双拼 2 处（:1415 四宿主手抄 + :1427 hover）：归 --shadow-1 的前提按 AE
+    //      是撤掉同元素的 border，可这些卡的边框还兼任 hover/.active 的**变色反馈**
+    //      （styles.css 里 .cards-board-card:hover/.active、.background-card:hover/.active
+    //      四条边色规则；editorial 的 .active 更用 border-left: 3px 画书脊）。撤边等于
+    //      把悬停与选中语义一起擦掉，必须先由「卡片描边批」决定反馈换成什么。
+    //   B) 环关不掉 2 处（:2878 .stats-card/.paper-panel 的 !important；:2211 深色四宿主）：
+    //      AJ 已写明原因——.stats-card 复合收件箱行与翻页条（它们的 border: 0 !important
+    //      只关得住 border，关不住 shadow-1 的环，每行会凭空多出一整圈盒框），
+    //      .paper-panel 有靠工具类 border-0 要无边面板的阅读器消费方，而 :2211 那条
+    //      (0,2,1) 的深色规则还会吃掉那层刻意豁免。随「收件箱列表版式」「阅读器外壳」批收。
+    //   C) 非 §5.3 层级 3 处：.desktop-brand-mark :134 的后层 `0 3px 10px rgba(0,0,0,.28)`
+    //      与 .library-cover :1859 的 `0 2px 5px rgba(34,38,48,.18)` 是**材质厚度**
+    //      （布面印章、书封实体，两者都还叠着 inset 冠光）；kbd :2253 的
+    //      `0 1px 0 var(--border-strong)` 是键帽台阶线——1px、零模糊，几何上是描边不是投影，
+    //      但 AD 的环判据按形状（0 0 0 Npx）放过不了它。三处待「材质/装饰」专项裁定。
+    //   D) 真改版候选 2 处：.desktop-commandbar :516（吸顶栏双层柔影，1 档撑不起横贯整行的
+    //      栏、2 档会让工具条看起来浮起来，层级归属需要视觉裁定）；
+    //      .desktop-home-inbox-count :927（朱砂计数徽标的**彩色光晕** `0 2px 6px color-mix(--studio-seal 35%)`，
+    //      四级里没有彩色列，归任何一档都等于擦掉那层强调色）。这两处不由判据猜。
+    //   E) 按钮族遗留 3 处（:740 hover 铜影、:2232 全族冠光组合、:2242 first-child 组合）：
+    //      归 §2.5「按钮一律无阴影」那条账，与 FROZEN_BUTTON_SHADOW_COUNT=3 登记的是同一批
+    //      宿主，随该页 LEGACY 迁移整族下线。**本批一条都不能动**：动了就是拿阴影批
+    //      改按钮外观，而且会让那个必须相等的冻结计数与判据同时失配。
+    //   F) 稿纸 1 处：.scene-editor :2201 的三层大投影（1px 接触 + 24px 60px
+    //      var(--studio-paper-shadow) 大 penumbra + 2px 6px 柔影）是整页稿纸压在桌面上的
+    //      纸张厚度，与 --studio-paper-shadow 令牌、稿纸 34px 节距是同一族耦合改动，
+    //      随专门的稿纸批一起算（那批本来就要同批动 FS③/LH② 两颗牙）。
+    "src/styles/editorial-studio.css": 13
   };
 
   const actual = {};
@@ -1350,7 +1423,9 @@ const isPureRingValue = (v) => {
  * 而且第 1 步的令牌存在性判据一直在断言这 12 个名字有定义。实测：全仓 `var(--sp-*)`
  * 引用**零处**——令牌铺了没人用，散写的 gap/padding/margin 各数各的。这是规格开头那张
  * 「间距 19 种 gap、无刻度表」的账，也是第 8 步「字号/间距/圆角按刻度收敛」三本里
- * 唯一还没立判据的一本（圆角在批次 AV 清零，阴影台账 26 处仍冻结中）。
+ * 唯一还没立判据的一本（圆角在批次 AV 清零；阴影那本在批次 BD-19 之后剩 21 处 / 3 个文件，
+ * 已经逐族判过「为什么现在不能还」，见 SHADOW_BUDGET 里 A–F 六个家族——它冻结着，但不再是
+ * 「还没轮到」）。
  *
  * 本批只立项、不还债：把当前实测值按文件冻结成预算，从此新增一处离刻度间距就红、
  * 还掉一处不降预算也红。465 处 / 28 个文件的量级按「🔴 面广 → 分页面批次，每批截图确认」

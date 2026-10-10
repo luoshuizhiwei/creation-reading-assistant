@@ -15,9 +15,13 @@
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-3);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.5),
-    var(--shadow-3);
+  /* 批次 BD-19（阴影分级）：原先是 `inset 0 1px 0 rgba(255,255,255,0.5), var(--shadow-3)`
+   * ——环外混排，棘轮计一笔债。§5.3 四级里没有「内衬高光」这一档（那四条全是外投层级），
+   * 这条白色 inset 是拟物冠光，同批下线的还有按钮的 inset 冠光（§2.5、第 6 步 inbox 注释）。
+   * 面板是 z-60 浮层、对话框量级 → 归 --shadow-3；border + 纯投影档共存合法（AE 的双拼
+   * 规矩只管 shadow-1 的环）。值整串变 var(--shadow-*) → 棘轮豁免，条目随债清零移除。
+   * jsdom 读产物实测改动前胜者就是这条混排值，改动只删去顶部 1px 冠光。 */
+  box-shadow: var(--shadow-3);
 }
 
 .replace-panel-header {
