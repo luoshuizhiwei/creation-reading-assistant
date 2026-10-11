@@ -3,6 +3,17 @@
   flex-direction: column;
   gap: 8px;
   width: 100%;
+  /* 批次 BD-22（measure 批）：**这条本批改过又改回来了，理由要留字**。
+   * 一度把它从 720 提到 736，依据是「同一个 .scene-editor-content 的正文上限现在是 42em /
+   * 736 边框盒，外壳 720 会把自己的正文挤成 41em」。真机（Electron 33 + 三层嵌套 DOM：
+   * .chapter-continuous-editor > .chapter-continuous-scene > .scene-editor > .scene-editor-content）
+   * 实测这个推理**不成立**：真正卡住行长的不是外壳，而是中间那条 .scene-editor 的
+   * `width: min(820px, calc(100% - 52px))`——它在外壳里再扣掉 52px 的桌面留白。
+   *   · 外壳 720 → 纸壳 668 → 正文 666 → 单行墨迹 592.02px = 37 个汉字
+   *   · 外壳 736 → 纸壳 684 → 正文 682 → 单行墨迹 608.02px = 38 个汉字
+   * 两档都没碰到 42em，736 只是一次「+16px 外壳 = +1 个字」的**无规格依据改版**。
+   * 所以按纪律退回原值 720：§3.3 的稿纸行在连续编辑态本来就还没落地，落它要动的是那条
+   * 52px 留白（或给这一层显式让路），属于写作页整族决定 → 记入「写作页 LEGACY 迁移批」。 */
   max-width: 720px;
   margin: 0 auto;
   padding: 24px 0 120px;

@@ -768,13 +768,13 @@ select:focus-visible,
   font-family: var(--font-serif);
   /* 批次 BD-17（标题阶梯）：15→16，收掉 BD-3/BD-11 挂了两批的「面板头」族。
    * 同角色邻居全部已在 16（字号胜者图实测）：.cards-detail-head h3、
-   * .background-detail-head h3（字号在 styles.css:4121，本文件 :1436 只补字族与字重）、
+   * .background-detail-head h3（字号在 styles.css:4160，本文件 :1477 只补字族与字重）、
    * .preview-toolbar-meta h2（BD-3 收）、.writing-quick-reference-head h3（BD-11 收）、
    * .replace-panel-header h2（BD-11 收）、.outline-page-side h3（BD-15 收）。
    * §3.2 给 16 那行的用途就是「小节标题 h4」。
    * 本条是**一条规则两个宿主**：概览页/统计页的卡片头 .stats-card h3 与背景设定页的
    * 页标题 .background-page-title 长期共用 15；改后卡片头 16 与卡内 12(dt)/12(dd) 拉开。
-   * ⚠ 附带收口一件事：.background-page-title 在 styles.css:4030 自己写着 16px + 800，
+   * ⚠ 附带收口一件事：.background-page-title 在 styles.css:4072 自己写着 16px + 800，
    * 却被本条（后置主题表，胜者 15）长期压着——本批改后两表同值 16，那处不再是哑的，
    * 只剩字重还由本条决定。字面值仍留在 styles.css 那条上，不顺手删。 */
   font-size: 16px;
@@ -1275,9 +1275,25 @@ select:focus-visible,
 }
 
 .scene-editor-content {
-  max-width: 760px;
+  max-width: calc(42em + 64px);
   margin-inline: auto;
   padding-inline: 32px;
+  /* 批次 BD-22（measure 批）：把 §3.3「稿纸 / 编辑器」那行**第四列**行长落地。
+     原来这条写 max-width: 760px，而 max-width 在 border-box（styles.css 全局 `* {}`）下
+     **含内边距**，所以正文只有 760−64 = 696px = 43.5em，比规格要的 42em 宽 24px。
+     现在写 calc(42em + 64px)：em 跟着本元素的 font-size（16px，BD-20 定的），
+     42em = 672px 正文 + 左右 32×2 = 736px 边框盒。用 calc 而不是直接写 736px，
+     是为了让「42 个汉字」这个规格值留在声明里——规格给的是 em，字面量会把理由丢掉。
+     ⚠ 真机实测（Electron 33 加载本仓产物 + Range 量整行墨迹，三层真 DOM 链
+     .writing-scroll > .scene-editor > .scene-editor-content）：改前 688.02px = 43 个
+     16px 汉字（可用宽 694/696，第 44 个字放不下），改后 672.02px = 正好 42 个——
+     **每行少一个字**。BD-20 那条注释按 24px÷16px 估的「少 1.5 个汉字」是宽度差、
+     不是换行差；换行只能整字发生，实测才是这个数。这是可感知重排，不是零视觉。
+     同批把 styles.css ≤1180 那条纸壳宽度一起改成 **738 而不是 736**：纸壳自己那圈
+     1px 实线（本文件 :1261）在 border-box 下吃掉 2px，写 736 时正文只剩 734、
+     整行掉回 41 字——窄屏反而比宽屏少一个字。738 − 2 = 736 才与宽屏同值。
+     宽屏那条 min(820px, …) 不动——纸壳比正文宽出的是看得见的纸边，本来就有意留。
+     这条同时兑现 BD-20 留在下面的那句「留给行长 / measure 批」。 */
   /* 批次 BD-20（稿纸批）：§3.3 给稿纸那行定的是 16px / 1.85，而这三件是算死的耦合——
      节距 = font-size × line-height，一条横线恰好一格。改前 17 / 2 / 34px（17×2=34），
      改后 16 / 1.85 / 29.6px（16×1.85=29.6），gradient 两个停靠点按「节距−1px / 节距」写，
@@ -1293,7 +1309,11 @@ select:focus-visible,
      · max-width: 760px 留着（16px 下正文 696px = 43.5em，§3.3 那行要 42em = 672px 正文
        = 736px 边框盒）：760 与 styles.css 窄屏那条 `width: min(760px, calc(100% - 30px))`
        是作者自己写死的一对（判据优先级 ①），拆散它等于让正文比纸壳窄一截；而且收 24px 是真
-       重排（少 1.5 个汉字/行）。留给「行长 / measure 批」把 760 与那条 min(760,…) 一起定。 */
+       重排（少 1.5 个汉字/行）。留给「行长 / measure 批」把 760 与那条 min(760,…) 一起定。
+       ✔ 后续（批次 BD-22 行长批落地）：两条**同批**一起改——正文 `calc(42em + 64px)` = 736 边框盒
+       （672 正文 + 32×2 内边距），窄屏那条纸壳改成 **738**（不是 736，纸壳那圈 1px 实线见本文件
+       :1261，border-box 下吃 2px，写 736 时正文只剩 734、整行掉回 41 字）。那条死对没拆散，
+       本条债清；相位那条仍按上面写的「另一件设计决定」不动。 */
   background:
     repeating-linear-gradient(to bottom, transparent 0, transparent 28.6px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 29.6px);
   font-size: 16px;

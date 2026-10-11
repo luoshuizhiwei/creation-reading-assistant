@@ -21,6 +21,9 @@ const files = [
   // 第 7 步硬编码红的三条用例分别改这两份局部样式表。
   "src/features/creation/replace/replace.css",
   "src/features/search/search.css",
+  // 批次 BD-22 的 MEASURE 牙改这几份：行长 42em 是三份文件几组声明的合力（正文 cap+内边距、
+  // 纸壳+边框补偿、通读页纸面+滚动条补偿），任何一处单独漂移都要当场红。
+  "src/features/creation/preview/preview-local.css",
   // 阴影棘轮的 CSS 侧用例改这份：它不在 SHADOW_BUDGET 里（预算视同 0），
   // 测的是「新债落进零预算文件」。
   "src/features/creation/inbox/inbox-local.css",
@@ -532,7 +535,20 @@ const cases = [
   ["第 8 步批次 AG·台账正向：卡片角色（background-card 是「整卡可点」的 <button>）写 var(--shadow-1) 不该红——§5.3 给静止卡片留了档，误删就是无声改版", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".background-card {\n  box-shadow: var(--shadow-1);\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), null],
   ["第 8 步批次 AG·台账的牙：新出现的纯按钮类名（cards-icon-btn）带投影却不在控件/卡片任一台账里，必须红——判据不替人猜角色", () => mutate("src/styles/editorial-studio.css", "/* Buttons are physical: a lit crown, a pressed state. */", ".cards-icon-btn {\n  box-shadow: var(--shadow-1);\n}\n\n/* Buttons are physical: a lit crown, a pressed state. */"), /角色未登记/],
   ["第 8 步批次 AG·透镜退化自检：把登记的控件类名挪到非按钮元素（挂载扫描不再认它为纯按钮类名），必须红——危险方向是静默放行", () => mutate("src/components/layout/DesktopFrame.tsx", '<RingButton className="desktop-search-command"', '<span className="desktop-search-command"'), /类名透镜退化/],
-  ["第 8 步批次 AG·反向：控件按钮上写纯描边焦点环不该红（§2.3 机制，元素型与类名型两侧豁免必须对称）", () => mutate("src/styles/editorial-studio.css", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n}", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n  box-shadow: 0 0 0 3px var(--action-tint);\n}"), null]
+  ["第 8 步批次 AG·反向：控件按钮上写纯描边焦点环不该红（§2.3 机制，元素型与类名型两侧豁免必须对称）", () => mutate("src/styles/editorial-studio.css", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n}", ".project-nav-back {\n  margin: 0 0 10px;\n  padding-left: 10px !important;\n  border: 1px solid var(--border-subtle) !important;\n  border-left: 1px solid var(--border-subtle) !important;\n  border-radius: var(--radius-1) !important;\n  background: var(--bg-surface) !important;\n  box-shadow: 0 0 0 3px var(--action-tint);\n}"), null],
+  // 批次 BD-22：MEASURE 不变量的牙。42em 行长由三份文件的几组声明合力成立，
+  // 每条牙只改**一处**——真实失效剧本正是「改了一个数字、忘了它的搭档」，vitest 与截图都看不见。
+  ["批次 BD-22 MEASURE①：稿纸正文 cap 的内边距补偿项 64→48（padding 仍是 32×2），正文会只剩 656px=41 字，必须红", () => mutate("src/styles/editorial-studio.css", "  max-width: calc(42em + 64px);", "  max-width: calc(42em + 48px);"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE①·搭档在另一侧：只把 padding-inline 32→34（cap 不动）同样要红——判据是关系式，两侧任一漂移都掉字", () => mutate("src/styles/editorial-studio.css", "  padding-inline: 32px;", "  padding-inline: 34px;"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE②：把 ≤1180 纸壳从 738 改回「看起来更整齐」的 736（本批纠正的那个错觉），正文被边框挤成 734，必须红", () => mutate("src/styles.css", "    width: min(738px, calc(100% - 30px));", "    width: min(736px, calc(100% - 30px));"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE②·宽屏那档同样在算：min(820px,…) 收到 700px 时纸壳内宽 698 < 正文边框盒 736，必须红（旧判据只管窄屏的话，宽屏就是盲区）", () => mutate("src/styles.css", "  width: min(820px, calc(100% - 52px));", "  width: min(700px, calc(100% - 52px));"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE③·跨文件：把 editorial 的 ::-webkit-scrollbar width 9→10（styles.css 那份本就被后置盖掉，胜者是 editorial），通读页那笔 +9px 补偿立刻漂，必须红", () => mutate("src/styles/editorial-studio.css", "  width: 9px;", "  width: 10px;"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE③·纸面 cap 少算一项：68+2+9 去掉 +9（滚动容器溢出时列被挤成 663px=41 字），必须红", () => mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 68px + 2px);"), /MEASURE 不变量：/],
+  ["批次 BD-22 MEASURE③·列自己那半：.preview-chapter 的 42em 写成 40em（规格值从声明里消失），必须红", () => mutate("src/features/creation/preview/preview-local.css", ".preview-chapter {\n  max-width: 42em;", ".preview-chapter {\n  max-width: 40em;"), /MEASURE 不变量：/],
+  // ⚠ 反向用例的取值刻意挑**同在刻度外/刻度内**的组合（34→36、16→12）：换成 40/10 这类
+  // 会挪动间距台账计数的值，先被间距棘轮咬红，就测不到「MEASURE 只咬挤字的方向」这件事了。
+  ["批次 BD-22 MEASURE·反向：≤900 档内边距 16→12（刻度内换刻度内），可用宽 751−24−2−9=696 更富余，不该红——判据只咬「挤掉字」的方向", () => mutate("src/features/creation/preview/preview-local.css", "    padding: 20px 16px 30px;", "    padding: 20px 12px 30px;"), null],
+  ["批次 BD-22 MEASURE·反向：两侧**一起**改（padding 34→36 同时补偿项 68→72）可用宽仍是 672，不该红——它守的是算术关系，不是三个数字本身", () => { mutate("src/features/creation/preview/preview-local.css", "  padding: 30px 34px 44px;", "  padding: 30px 36px 44px;"); mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 72px + 2px + 9px);"); }, null]
 ];
 
 let bad = 0;

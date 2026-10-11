@@ -124,10 +124,58 @@
   flex: 1;
   min-height: 0;
   overflow: auto;
+  /* 批次 BD-22（measure 批）：§3.3「稿纸 / 编辑器」那行的第四列行长（42em）在这里落地。
+   * 判据 ①（作者自己的其它声明）：BD-17 把 .preview-block 的字号定成稿纸行的 16、
+   * BD-20 把行高定成同一行的 1.85，两处都写明「这一页是稿纸文本、不是 EPUB 阅读器」——
+   * 既然前两列都按那一行走，行长没有理由留在规格外。
+   * 改前实测（Electron 33，视口 1360，真机三层 DOM preview-page > preview-document >
+   * preview-chapter > preview-block）：单行墨迹 1232.02px ≈ 77 个 16px 汉字，规格上限 42。
+   * ⚠ 这条注释里曾经写过「1360.02px ≈ 85 字」，那是**量错了**：当时 fixture 把
+   *   .preview-block 直接挂在 body 上，漏掉 .preview-page 的 22×2 内边距和本页的
+   *   1px 边框，多算一整档。真机链改对后重测才是下面这些数字。
+   * 本条只决定**纸面宽度**；真正把 §3.3 那一列钉住的是下面 .preview-chapter 的
+   * `max-width: 42em`——本元素的可用宽必须 ≥ 那 42em，否则列被纸面挤窄、规格落不了地。
+   * 所以要补偿回来的三项全在**别处**（border-box 全局生效，max-width 含以下全部）：
+   *   68 = padding-inline 34×2
+   *   2  = 下面那条 1px border ×2
+   *   9  = **纵向滚动条**——本元素是 overflow:auto 的滚动容器，全书正文必然溢出，
+   *        而 ::-webkit-scrollbar 的宽度在 editorial-studio.css:2442 被后置成 9px
+   *        （盖掉 styles.css:176 的 10px）。真机实测 offsetWidth → clientWidth 差的正是
+   *        2+9；少了这 9px，正文列只剩 663px → 整行掉到 41 个字。
+   * ⚠ 这三项任何一处改动，本条的加法就漂。漂了**不会**让行长掉：那 42em 由
+   *   .preview-chapter 自己声明，只有当纸面窄到装不下它时列才被压——那种情况下
+   *   守卫的 MEASURE 不变量按「本元素 max-width − padding − border − 滚动条 ≥ 42em」
+   *   实算，当场红（加法与滚动条宽度都是别处的声明，光看本文件读不出来，必须实算）。
+   * margin-inline: auto 让书页居中。窄屏 ≤900 那档把 padding 收成 16（见下面那条
+   * @media），纸面 cap 本身不随 padding 变（还是 751），可用宽 = 751 − 32 − 2 − 9 = 708
+   * > 672，列照样落地 42 字。打印那条把 padding/margin/border 一律清零、overflow 变
+   * visible（滚动条这项补偿自动消失），可用宽 = min(751, 整页宽) = 751 > 672——
+   * 两种状态都由 .preview-chapter 那条 42em 封顶，本条只保证「纸面窄到挤不动列」这件事
+   * 永远不发生。⚠ 措辞要老实：1360/880 两档是真机量的（列宽 672、墨迹 672.02），
+   * 打印那一态是**静态实算**的——Chromium 的打印布局没法在 fixture 里真跑，由守卫的
+   * MEASURE 不变量按三态各自的声明做算术（那三态的注释行号都指它）。 */
+  max-width: calc(42em + 68px + 2px + 9px);
+  margin-inline: auto;
   padding: 30px 34px 44px;
   border: 1px solid var(--separator);
   border-radius: var(--radius-panel);
   background: var(--surface-paper);
+}
+
+/* 批次 BD-22（measure 批）：§3.3「稿纸 / 编辑器」那行的 42em 落在这一个元素上——
+ * 它是本页正文列**真正**的宽度，em 相对本元素 font-size（本文件与 body 都没给
+ * .preview-chapter 设字号，继承根上的 16px；App.tsx 只动 <html> 的 font-size，
+ * 所以这一列跟着「界面缩放」滑杆走，与稿纸那条 .scene-editor-content 同理）。
+ * ⚠ 为什么写在列上而不是只写上面那条纸面 cap：纸面的 cap 要靠「减掉自己的
+ * padding + border + 滚动条」才能算出正文宽，那三项声明在别处（≤900 档改 padding、
+ * 打印改 padding/border、editorial 改滚动条宽），一处动就静默漂成 41 字。
+ * 列自己声明 42em 之后，纸面再宽也只让列封顶；纸面**太窄**装不下时列被压，
+ * 那是要红的那种错，交给守卫实算（见上一条注释末尾）。
+ * 真机实测（Electron 33，视口 1360 / 1100 / 880，三层真 DOM 链）：列宽 672、
+ * 单行整行墨迹 672.02px = 正好 42 个 16px 汉字；改前 1232.02px ≈ 77 字。 */
+.preview-chapter {
+  max-width: 42em;
+  margin-inline: auto;
 }
 
 .preview-volume {

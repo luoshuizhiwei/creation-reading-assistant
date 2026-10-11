@@ -1330,31 +1330,36 @@ const isPureRingValue = (v) => {
     // ⚠ 本批同时把**剩下这 13 处为什么现在不能还**定成台账，免得下一轮当成「还没轮到」反复重判。
     //   它们是已判不归级，各自的收口批次不同（数字按判据扫出的实测行号登记；
     //   ⚠ 批次 BD-20 往 editorial-studio.css 稿纸那条规则里插了 16 行注释，本表引用的行号
-    //   已按判据重扫逐条更新——这张表是**活引用**、不是历史，漂了就当场重编）：
-    //   A) 卡族双拼 2 处（:1431 四宿主手抄 + :1443 hover）：归 --shadow-1 的前提按 AE
+    //   已按判据重扫逐条更新——这张表是**活引用**、不是历史，漂了就当场重编。
+    //   ⚠ 批次 BD-22 又往同一条规则里净插了 20 行（行长那段实测注释）：本表 ≥1431 的 9 条整体 +20、
+    //   在稿纸那条之前的 4 条（:134/:516/:740/:927）不变——逐条按**内容**重扫回填。
+    //   ⚠ 这句 +20 是逐条按**内容**重扫得到的：本批先前写过一版「+13 / +11」的算术平移，
+    //   那是拿注释的半成品行数估的，13 条里 8 条搬错了位置。活引用只能按内容重扫——
+    //   「预测的数字不许写进注释」这条教训在本批出现了三次（行长墨迹、纸壳 738、这张表）。
+    //   A) 卡族双拼 2 处（:1451 四宿主手抄 + :1463 hover）：归 --shadow-1 的前提按 AE
     //      是撤掉同元素的 border，可这些卡的边框还兼任 hover/.active 的**变色反馈**
     //      （styles.css 里 .cards-board-card:hover/.active、.background-card:hover/.active
     //      四条边色规则；editorial 的 .active 更用 border-left: 3px 画书脊）。撤边等于
     //      把悬停与选中语义一起擦掉，必须先由「卡片描边批」决定反馈换成什么。
-    //   B) 环关不掉 2 处（:2894 .stats-card/.paper-panel 的 !important；:2227 深色四宿主）：
+    //   B) 环关不掉 2 处（:2914 .stats-card/.paper-panel 的 !important；:2247 深色四宿主）：
     //      AJ 已写明原因——.stats-card 复合收件箱行与翻页条（它们的 border: 0 !important
     //      只关得住 border，关不住 shadow-1 的环，每行会凭空多出一整圈盒框），
-    //      .paper-panel 有靠工具类 border-0 要无边面板的阅读器消费方，而 :2227 那条
+    //      .paper-panel 有靠工具类 border-0 要无边面板的阅读器消费方，而 :2247 那条
     //      (0,2,1) 的深色规则还会吃掉那层刻意豁免。随「收件箱列表版式」「阅读器外壳」批收。
     //   C) 非 §5.3 层级 3 处：.desktop-brand-mark :134 的后层 `0 3px 10px rgba(0,0,0,.28)`
-    //      与 .library-cover :1875 的 `0 2px 5px rgba(34,38,48,.18)` 是**材质厚度**
-    //      （布面印章、书封实体，两者都还叠着 inset 冠光）；kbd :2269 的
+    //      与 .library-cover :1895 的 `0 2px 5px rgba(34,38,48,.18)` 是**材质厚度**
+    //      （布面印章、书封实体，两者都还叠着 inset 冠光）；kbd :2289 的
     //      `0 1px 0 var(--border-strong)` 是键帽台阶线——1px、零模糊，几何上是描边不是投影，
     //      但 AD 的环判据按形状（0 0 0 Npx）放过不了它。三处待「材质/装饰」专项裁定。
     //   D) 真改版候选 2 处：.desktop-commandbar :516（吸顶栏双层柔影，1 档撑不起横贯整行的
     //      栏、2 档会让工具条看起来浮起来，层级归属需要视觉裁定）；
     //      .desktop-home-inbox-count :927（朱砂计数徽标的**彩色光晕** `0 2px 6px color-mix(--studio-seal 35%)`，
     //      四级里没有彩色列，归任何一档都等于擦掉那层强调色）。这两处不由判据猜。
-    //   E) 按钮族遗留 3 处（:740 hover 铜影、:2248 全族冠光组合、:2258 first-child 组合）：
+    //   E) 按钮族遗留 3 处（:740 hover 铜影、:2268 全族冠光组合、:2278 first-child 组合）：
     //      归 §2.5「按钮一律无阴影」那条账，与 FROZEN_BUTTON_SHADOW_COUNT=3 登记的是同一批
     //      宿主，随该页 LEGACY 迁移整族下线。**本批一条都不能动**：动了就是拿阴影批
     //      改按钮外观，而且会让那个必须相等的冻结计数与判据同时失配。
-    //   F) 稿纸 1 处：.scene-editor :2217 的三层大投影（1px 接触 + 24px 60px
+    //   F) 稿纸 1 处：.scene-editor :2237 的三层大投影（1px 接触 + 24px 60px
     //      var(--studio-paper-shadow) 大 penumbra + 2px 6px 柔影）是整页稿纸压在桌面上的
     //      纸张厚度，与 --studio-paper-shadow 令牌、稿纸 34px 节距是同一族耦合改动，
     //      随专门的稿纸批一起算（那批本来就要同批动 FS③/LH② 两颗牙）。
@@ -1458,7 +1463,8 @@ const isPureRingValue = (v) => {
  * 「还没轮到」）。
  *
  * 本批只立项、不还债：把当前实测值按文件冻结成预算，从此新增一处离刻度间距就红、
- * 还掉一处不降预算也红。465 处 / 28 个文件的量级按「🔴 面广 → 分页面批次，每批截图确认」
+ * 还掉一处不降预算也红。立项时 465 处 / 28 个文件（批次 BD-22 删掉 5 条级联已死的间距声明后
+ * 实测 460 处），量级按「🔴 面广 → 分页面批次，每批截图确认」
  * 排后续批次，一轮不现实，也不该由判据替人猜哪些能合并。
  *
  * 口径（三条排除都有实测依据，不是放宽判据）：
@@ -1552,7 +1558,7 @@ const isPureRingValue = (v) => {
     "src/features/search/search.css": 18,
     "src/features/settings/encryption/encryption.css": 3,
     "src/features/settings/sections/StorageSection.tsx": 1,
-    "src/styles.css": 196,
+    "src/styles.css": 191,
     "src/styles/editorial-studio.css": 94
   };
 
@@ -1842,10 +1848,10 @@ const isPureRingValue = (v) => {
   // （.project-nav \* 与 .project-home-chars，都在 editorial-studio.css，宿主
   // CreationProjectsPage.tsx + ProjectHomePage.tsx 同一屏）：
   //   .project-nav button      12.5→12  **同一批按钮**在写作页接管态里作者自己写的就是
-  //                                   12px !important（:3520，.creation-writing-page--active
+  //                                   12px !important（editorial-studio.css:3599，.creation-writing-page--active
   //                                   .project-nav button:not(.project-nav-back)），
   //                                   紧邻的同族返回键 .project-nav-back 也是 12
-  //                                   （styles.css:3904）。导航项彼此必须同档，
+  //                                   （styles.css:3943）。导航项彼此必须同档，
   //                                   非接管态 12.5 / 接管态 12 是同一行字两种高度。
   //   .project-nav button
   //     @media (≤1024px)       11.5→11  窄屏这条是**压缩档**，语义是「比基础档低一档」；
@@ -1869,7 +1875,7 @@ const isPureRingValue = (v) => {
   // 不属于「一屏一页」，不能再拿同页邻居当证据）。这 3 处都是 22px，而 22 **正卡在
   // §3.2 的 20 与 24 正中间**——严格最近档判据在这里失效（两侧等距），必须逐处找
   // 「同一角色的另一处声明」替它投票，而且投票方必须是**作者自己写的意图**：
-  //   .writing-manuscript-head h2  22→20   主题表 styles.css:1306 对**完全同一个选择器**
+  //   .writing-manuscript-head h2  22→20   主题表 styles.css:1320 对**完全同一个选择器**
   //                                   写的就是 20px；22 是 editorial-studio.css 在后面
   //                                   抬上去的。两表同选择器异值本来就该收口，取基础表
   //                                   的原值，不是给稿纸页标题新发明一个档位。
@@ -1890,7 +1896,7 @@ const isPureRingValue = (v) => {
   //                                   （留着 22 会让三个统计数字三种大小）。
   // ⚠ **第 4 处 22px 刻意不还，因为它不是同一道题**：
   //   .overview-hero-title h2  22（overview-local.css:26 那条规则）与
-  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2839）
+  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2888）
   //   命中的是**同一个 h2**（OverviewPage 的 section 同时挂 desktop-page-hero 与
   //   overview-hero-title）。这不是「22 离刻度、该去 20 还是 24」，而是**流式标题 vs
   //   页面写死标题**的架构选择：收 20 就等于把 hero 标题改成固定值、让那条 clamp
@@ -1906,7 +1912,7 @@ const isPureRingValue = (v) => {
   // 批次 BD-11：再从 35 里还掉 2 处，口径是 BD-7 注释里挂的那笔跨页许诺——「面板头」
   // 这一档一次定完。收的 2 处都是 18px，走的是**已定判据**（不是本批新发明的答案）：
   //   .writing-quick-reference-head h3  18→16  BD-3 已对同角色规则定档：
-  //                                   .cards-detail-head h3（styles.css:2281）与
+  //                                   .cards-detail-head h3（styles.css:2322）与
   //                                   .preview-toolbar-meta h2（preview-local.css:66）
   //                                   都是「17→16」——面板里的小标题，§3.2 对应
   //                                   16「h4 小节」。本页正文具名档是 12（list
@@ -1919,7 +1925,7 @@ const isPureRingValue = (v) => {
   // 两处判据与 BD-3 完全同一条（同角色邻居已定档），所以本批不存在「16 还是 20
   // 由我替设计挑边」的问题——邻居已经替它投过票了。
   // ⚠ 剩下两处 18px **本批刻意不还，因为它们不是「面板头」这一道题**：
-  //   .desktop-brand-mark  18 ×2（editorial-studio.css:137 基础 + styles.css:4228
+  //   .desktop-brand-mark  18 ×2（editorial-studio.css:137 基础 + styles.css:4267
   //                                   @media≤920）它是标题栏那颗 38×38 印章里的
   //                                   「洛」字（font-serif + font-weight:700 + 固定
   //                                   宽高 + place-items:center）。字号是**为那个盒子
@@ -2164,7 +2170,7 @@ const isPureRingValue = (v) => {
   //   .stats-card h3 + .background-page-title  15→16  **一条规则两个宿主**（:765），
   //                                   概览/统计页卡片头 + 背景设定页标题。
   //                                   ⚠ 附带收口一个陈旧事实：.background-page-title
-  //                                   在 styles.css:4030 自己就写着 16px，被这条
+  //                                   在 styles.css:4072 自己就写着 16px，被这条
   //                                   后置主题表的 15 长期压着——改后两表同值。
   //   .creation-step legend           15→16  <fieldset><legend> 是分组小节标题；
   //                                   本页 16 > 14(template strong) > 12(note/li/span)
@@ -2257,7 +2263,7 @@ const isPureRingValue = (v) => {
   //                                   第 6 步 12 条容器接管规则一起随「写作页迁移批」
   //                                   删掉；给它换个刻度值等于让一条注定要删的规则
   //                                   看起来已合规，是把债洗成账面干净。
-  //   .desktop-brand-mark 18 ×2（editorial:137 基础 + styles.css:4228 @media≤920）
+  //   .desktop-brand-mark 18 ×2（editorial:137 基础 + styles.css:4267 @media≤920）
   //                                   品牌字形族，BD-11 已立案：38×38 印章里的「阅」
   //                                   字，字号是为那个盒子选的；基础档与窄屏档**同值**
   //                                   正是「字形尺寸」而非「压缩档」的证据
@@ -2305,6 +2311,10 @@ const isPureRingValue = (v) => {
   //   · max-width: 760px 不动（16px 下正文 696px = 43.5em，§3.3 要 42em = 736px 边框盒）：
   //     它与 styles.css 窄屏那条 `width: min(760px, calc(100% - 30px))` 是作者自己写死的
   //     一对，且收 24px 是真重排（每行少约 1.5 个汉字）——留给「行长 / measure 批」同定。
+  //     ✔ 后续（批次 BD-22 落地）：两条**同批**一起改——正文 `calc(42em + 64px)` = 736 边框盒
+  //       （42em=672 正文 + 32×2 内边距），≤1180 那条纸壳写 738 而不是 736，因为纸壳自己那圈
+  //       1px 实线在 border-box 下吃 2px（editorial-studio.css:1261），736 只剩 734、掉回 41 字。
+  //       死对没拆散，本条债清。
   //   · 段间 margin 1.1em（=17.6px）与 hr 2.7em、.author-note 0.86em 一律不动：它们是 em
   //     写法、随字号自动缩放，且不在 §3.3 那一行里。唯一被动的 em 是 min-height 1.9em→1.85em
   //     ——它不是「顺手收敛」，而是 1.9em 在新行盒下**从不生效变成会顶高每段**（实测
@@ -3575,6 +3585,259 @@ const hostPredicate = (() => {
   // 红了就别再打「0 处」——这条绿话和上面的红话同时出现，等于守卫自己撒谎。
   if (!forks.length && !themeForks.length) {
     console.log(`${TAG} [第 8 步几何分支] 主题样式表 × 特性样式表 同分支异值分叉 0 处；主题表 × 主题表 同分支异值分叉 0 处`);
+  }
+}
+
+/* ------------------------------------------------------------------ 批次 BD-22：MEASURE 不变量 */
+
+/**
+ * §3.3「稿纸 / 编辑器」那行第四列给的是行长 **42em**。它不是某一条声明能独立成立的值：
+ * border-box 全局生效（styles.css `* { box-sizing: border-box }`），max-width **含**内边距
+ * 与边框，于是「正文一行的墨迹 = 42 个 16px 汉字」这条不变量横跨三份文件的几组声明——
+ *
+ *   ① 稿纸正文 editorial-studio.css `.scene-editor-content`：
+ *      `max-width: calc(42em + 64px)` 减自己的 `padding-inline: 32px`×2 = 672px = 正好 42em。
+ *      要求**恰好**：真机量过换行按整字发生（672.02px=42 字、688.02px=43 字、656.02px=41 字），
+ *      「多留半格」不是余量，是下一个字。
+ *   ② ≤1180 的纸壳 styles.css `.scene-editor` `width: min(738px, …)`：纸壳那圈 1px 实线
+ *      （editorial-studio.css `.scene-editor`）在 border-box 下吃 2px，738 − 2 = 736 才等于
+ *      ①的边框盒上限。写 736 的「作者写死的一对」正是 BD-22 纠正的错觉——那 2px 从来不是留白。
+ *      要求相等（死对不拆散）；宽屏 min(820px, …) 那档只要求 ≥（纸边是有意留的）。
+ *   ③ 通读页 preview-local.css：`.preview-document` 是**滚动容器**，纸面 cap 的补偿加法
+ *      （padding 34×2 + border 1×2 + 纵向滚动条 9）与 `.preview-chapter` 的 `max-width: 42em`
+ *      配对——纸面只保证「窄到挤不动列」永远不发生，列自己钉规格。滚动条宽度的胜者、
+ *      ≤900 档的 padding、打印档的清零**全在别的文件/别的分支**，光看本文件读不出这笔
+ *      加法，所以必须实算：对每个状态算「cap − padding − border − (滚动容器 ? 滚动条 : 0)」，
+ *      要求 ≥ 42em。
+ *
+ * 判据方向与失效剧本：①②改任何一个数字、③在别处动 padding/border/滚动条宽度而不挪补偿，
+ * 都会把 42 字挤成 41——那种错 vitest 全绿、截图也看不出（只差一个字/行），只有实算看得见。
+ * 结构性事实（选择器在哪份文件、main.tsx 的发射顺序、html/body 有没有 font-size）全部现读；
+ * 唯一允许的字面量是 em 基准 16（App.tsx 的 `root.style.fontSize = scale×100%`，未缩放时
+ * 100% = 浏览器默认 16px）——这条前提本身也有判据在守（见「em 基准」那条）。
+ */
+{
+  const EM = 16;
+  const MEASURE_EM = 42;
+  const MEASURE_PX = MEASURE_EM * EM; // 672
+  let mFails = 0;
+  const mfail = (m) => {
+    fail(`MEASURE 不变量：${m}`);
+    mFails += 1;
+  };
+
+  const STY = "src/styles.css";
+  const EDX = "src/styles/editorial-studio.css";
+  const PREV = "src/features/creation/preview/preview-local.css";
+  const asts = new Map();
+  const sheet = (rel) => {
+    if (!asts.has(rel)) asts.set(rel, postcss.parse(read(rel), { from: path.join(root, rel) }));
+    return asts.get(rel);
+  };
+
+  // 找「选择器 + 属性」的声明。mediaHas === null 只看非媒体内的顶层声明；给了字符串则
+  // 只看所在 @media 参数含该字符串的规则。返回按源码顺序，调用方取末位 = 发射胜者
+  // （同特异度靠顺序，见第 8 步几何分支一节）；!important 另判。
+  function finds(rel, selector, prop, mediaHas = null) {
+    const hits = [];
+    sheet(rel).walkRules((rule) => {
+      if (!rule.selectors.some((s) => s.replace(/\s+/g, " ").trim() === selector)) return;
+      const media = [];
+      for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") media.push(p.params);
+      if (mediaHas === null) {
+        if (media.length) return;
+      } else if (!media.some((m) => m.includes(mediaHas))) {
+        return;
+      }
+      rule.walkDecls(prop, (d) => hits.push({ value: d.value.trim(), important: !!d.important, line: rule.source?.start?.line ?? 0 }));
+    });
+    return hits;
+  }
+  // 该上下文里显式声明过就覆盖、没声明就沿用基表值——媒体查询正是这么工作的。
+  function pick(rel, selector, prop, mediaHas) {
+    const over = mediaHas ? finds(rel, selector, prop, mediaHas) : [];
+    const base = finds(rel, selector, prop, null);
+    const src = over.length ? over : base;
+    if (!src.length) return null;
+    const important = src.some((d) => d.important);
+    const pool = important ? src.filter((d) => d.important) : src;
+    return { value: pool[pool.length - 1].value, important };
+  }
+  const pxOnly = (v) => {
+    const m = v.match(/^-?[\d.]+px$/);
+    return m ? parseFloat(m[0]) : /^0$/.test(v) ? 0 : null;
+  };
+  // 只认本仓实际使用的写法；读不懂返回 null 让调用方红——判据退化成「看不见就当错」，
+  // 不会「看不见就放行」。乘除法 calc、分件 padding-left/right、逻辑物理混写都走这条路。
+  function calcParts(v) {
+    const lit = pxOnly(v);
+    if (lit !== null) return { em: 0, px: lit };
+    const plain = v.match(/^([\d.]+)em$/);
+    if (plain) return { em: parseFloat(plain[1]), px: 0 };
+    const m = v.match(/^calc\((.+)\)$/);
+    if (!m) return null;
+    let em = 0;
+    let px = 0;
+    for (const t of m[1].split("+").map((x) => x.trim())) {
+      const mm = t.match(/^([\d.]+)(em|px)$/);
+      if (!mm) return null;
+      if (mm[2] === "em") em += parseFloat(mm[1]);
+      else px += parseFloat(mm[1]);
+    }
+    return { em, px };
+  }
+  const asTotal = (c) => (c === null ? null : c.em * EM + c.px);
+  function horizontal(prop, value) {
+    const parts = value.split(/\s+/);
+    if (prop === "border") {
+      if (/^0(px)?$/.test(parts[0]) && parts.length === 1) return 0;
+      const m = value.match(/^([\d.]+)px\s+\S+\s/);
+      return m ? parseFloat(m[1]) : null;
+    }
+    if (prop === "padding-inline") return parts.length === 1 ? pxOnly(parts[0]) : null;
+    if (prop === "padding") {
+      if (parts.length === 1) return pxOnly(parts[0]);
+      if (parts.length >= 3) return pxOnly(parts[1]);
+    }
+    return null;
+  }
+
+  // —— ① 稿纸正文：cap 的 px 项必须**正好等于**自己的横向内边距，em 项必须是 42em。
+  const contentCap = finds(EDX, ".scene-editor-content", "max-width");
+  const contentPad = finds(EDX, ".scene-editor-content", "padding-inline");
+  if (!contentCap.length || !contentPad.length) {
+    mfail(`锚点缺失：editorial-studio.css 的 .scene-editor-content 读不到 max-width(${contentCap.length}) 或 padding-inline(${contentPad.length})——改名/挪家了请同步本判据，缺锚点不算通过`);
+  } else {
+    const cap = calcParts(contentCap[contentCap.length - 1].value);
+    const pad = horizontal("padding-inline", contentPad[contentPad.length - 1].value);
+    if (cap === null || pad === null) {
+      mfail(`稿纸正文那对声明写法超出本判据的读法（max-width: "${contentCap.at(-1).value}" / padding-inline: "${contentPad.at(-1).value}"）——判据宁可红不可盲`);
+    } else if (cap.em !== MEASURE_EM || cap.px !== pad * 2) {
+      mfail(`稿纸正文 ${contentCap.at(-1).value}（editorial-studio.css:${contentCap.at(-1).line}）应等于 ${MEASURE_EM}em + 自身横向内边距 ${pad}×2：em 项 ${cap.em}、px 项 ${cap.px}。正文 = ${asTotal(cap) - pad * 2}px，42em 是 ${MEASURE_PX}px——每行字数就是换行字数，±半格都不是余量`);
+    }
+  }
+
+  // —— ② 纸壳与正文是一对：≤1180 的 738 − 边框 2 = 736 = ①的边框盒；宽屏只要求 ≥。
+  const border = pick(EDX, ".scene-editor", "border", null);
+  const borderX = border === null ? null : horizontal("border", border.value);
+  const capBorderBox = contentCap.length ? asTotal(calcParts(contentCap.at(-1).value)) : null;
+  if (borderX === null || capBorderBox === null) {
+    mfail(`锚点缺失/写法读不懂：.scene-editor 的 border（editorial-studio.css）或 .scene-editor-content 的 max-width——②没法算`);
+  } else {
+    const shellPairs = [
+      ["≤1180", STY, "max-width: 1180px", "eq"],
+      ["宽屏", STY, null, "ge"],
+    ];
+    for (const [tag, rel, mediaHas, mode] of shellPairs) {
+      const w = pick(rel, ".scene-editor", "width", mediaHas);
+      const m = w && w.value.match(/^min\(([\d.]+)px,\s*calc\(/);
+      if (!m) {
+        mfail(`${tag}纸壳那条读不懂（width: "${w ? w.value : "缺失"}"，期望 min(NNNpx, calc(…))）：738 这个数就是②的全部含义，写法换了请同步判据`);
+        continue;
+      }
+      const inner = parseFloat(m[1]) - borderX * 2;
+      if (mode === "eq" && inner !== capBorderBox) {
+        mfail(`${tag}纸壳 ${m[1]} − 边框 ${borderX}×2 = ${inner}，而正文边框盒是 ${capBorderBox}——差的那 ${capBorderBox - inner}px 会把整行挤掉一个字（738 改回 736 正是这个形状：纸壳那圈 1px 实线不是留白）`);
+      }
+      if (mode === "ge" && inner < capBorderBox) {
+        mfail(`${tag}纸壳内宽 ${inner} < 正文边框盒 ${capBorderBox}：宽屏纸边被吃到比正文上限还窄，①的 42em 落不了地`);
+      }
+    }
+  }
+
+  // —— em 基准：本判据所有 16 都押在「html/body 没定过 font-size」上，这条前提自己也要守。
+  {
+    const setters = [];
+    for (const rel of [STY, EDX]) {
+      sheet(rel).walkRules((rule) => {
+        const norm = rule.selector.replace(/\s+/g, " ").trim();
+        if (norm !== "html" && norm !== "body" && norm !== "html, body, #root" && norm !== "html,body,#root") return;
+        const media = [];
+        for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") media.push(p.params);
+        if (media.length) return;
+        rule.walkDecls("font-size", (d) => setters.push(`${rel}:${d.source?.start?.line ?? 0} ${d.value}`));
+      });
+    }
+    if (setters.length) mfail(`em 基准不再是 16：${setters.join("、")} 给 html/body 定了 font-size（App.tsx 只动 <html> 的百分比），42em=${MEASURE_PX}px 这套实算全部作废，请连同三份注释一起重算`);
+  }
+
+  // —— 滚动条胜者：两份全局表按 main.tsx 的发射顺序取 `::-webkit-scrollbar` 的 width 末位。
+  function scrollbarPx() {
+    const mainSrc = read("src", "app", "main.tsx");
+    const specs = [STY, EDX].map((rel) => `import "${rel.replace("src/", "@/")}"`);
+    const idx = specs.map((s) => mainSrc.indexOf(s));
+    if (idx.some((i) => i < 0)) {
+      mfail(`锚点缺失：main.tsx 里读不到 ${specs.filter((s) => mainSrc.indexOf(s) < 0).join("、")} 的 import——滚动条胜者判定依赖发射顺序，顺序来源没了必须红`);
+      return null;
+    }
+    if (idx[1] < idx[0]) {
+      mfail(`前提漂移：main.tsx 里 editorial-studio.css 不再排在 styles.css 之后——9px 那份盖不掉 10px 了，③的补偿加法与第 8 步几何分支的胜者表都要重算`);
+      return null;
+    }
+    let last = null;
+    for (const rel of [STY, EDX]) {
+      const hits = finds(rel, "::-webkit-scrollbar", "width");
+      if (hits.length) last = { rel, value: hits[hits.length - 1].value };
+    }
+    if (!last) {
+      mfail("两份全局表都读不到 ::-webkit-scrollbar 的 width——③的滚动条补偿项失去了来源");
+      return null;
+    }
+    const v = pxOnly(last.value);
+    if (v === null) {
+      mfail(`::-webkit-scrollbar width 写法读不懂（${last.rel}: "${last.value}"）`);
+      return null;
+    }
+    return v;
+  }
+  const SB = scrollbarPx();
+
+  // —— ③ 通读页：列钉 42em，纸面在三态下都必须装得下列。
+  {
+    const docCapHits = finds(PREV, ".preview-document", "max-width");
+    const chapHits = finds(PREV, ".preview-chapter", "max-width");
+    if (!docCapHits.length || !chapHits.length) {
+      mfail(`锚点缺失：preview-local.css 读不到 .preview-document 的 max-width(${docCapHits.length}) 或 .preview-chapter 的 max-width(${chapHits.length})——42em 的落点没了`);
+    } else {
+      const chap = calcParts(chapHits[chapHits.length - 1].value);
+      if (chap === null || chap.em !== MEASURE_EM || chap.px !== 0) {
+        mfail(`.preview-chapter 应恰好是 ${MEASURE_EM}em 纯 em（读到 "${chapHits.at(-1).value}"）——规格值必须留在列自己的声明里，换成 px 字面量等于把 42 这个数字的理由丢掉`);
+      }
+      const baseCap = calcParts(docCapHits[docCapHits.length - 1].value);
+      const states = [
+        ["常态", null],
+        ["≤900", "max-width: 900px"],
+        ["打印", "print"],
+      ];
+      for (const [tag, mediaHas] of states) {
+        if (SB === null) break; // 已经红过了，不再逐态刷
+        const capHit = pick(PREV, ".preview-document", "max-width", mediaHas);
+        const padHit = pick(PREV, ".preview-document", "padding", mediaHas) ?? pick(PREV, ".preview-document", "padding-inline", mediaHas);
+        const bordHit = pick(PREV, ".preview-document", "border", mediaHas);
+        const ovfHit = pick(PREV, ".preview-document", "overflow", mediaHas);
+        const padProp = pick(PREV, ".preview-document", "padding-inline", mediaHas) ? "padding-inline" : "padding";
+        const cap = capHit ? asTotal(calcParts(capHit.value)) : null;
+        const pad = padHit ? horizontal(padProp, padHit.value) : null;
+        const bx = bordHit ? horizontal("border", bordHit.value) : null;
+        if (cap === null || pad === null || bx === null || !ovfHit) {
+          mfail(`通读页「${tag}」态读不懂（cap ${capHit?.value ?? "缺"} / padding ${padHit?.value ?? "缺"} / border ${bordHit?.value ?? "缺"} / overflow ${ovfHit?.value ?? "缺"}）——③的加法全靠这三态实读，判据宁可红不可盲`);
+          continue;
+        }
+        const scrolls = /auto|scroll/.test(ovfHit.value);
+        const avail = cap - pad * 2 - bx * 2 - (scrolls ? SB : 0);
+        if (avail < MEASURE_PX) {
+          mfail(`通读页「${tag}」态纸面可用宽 ${avail}px < 列的 42em(${MEASURE_PX}px)：列会被纸面挤窄、整行掉到 41 字。这笔加法的三项（padding ${pad}×2、border ${bx}×2、滚动条 ${scrolls ? `${SB}（胜者，见全局表 ::-webkit-scrollbar）` : "0（本态不滚动）"}）任何一处改动都要挪 .preview-document 的 cap——注释里写明的就是这个漂移`);
+        } else if (tag === "常态" && baseCap && Math.abs(avail - MEASURE_PX) > 24) {
+          // 常态还要求「别过度补偿」：cap 里 42em 之外只该是补偿项，多出一整档说明有人
+          // 挪了 padding 却忘了减回来——纸面会比正文宽出一截谁也没定的空白。
+          mfail(`通读页常态可用宽 ${avail}px 比 42em 多出 ${avail - MEASURE_PX}px（> 24px，一档换行都富余出来）：.preview-document 的补偿加法（cap ${baseCap.px}px）与真实 padding/border/滚动条不再逐项对应，请照实重写那条 calc`);
+        }
+      }
+    }
+  }
+
+  if (mFails === 0) {
+    console.log(`${TAG} [MEASURE 不变量] 稿纸 calc(42em+64px)−32×2=672、≤1180 纸壳 738−边框2=736、通读三态可用宽 ≥ 42em（滚动条按 main.tsx 发射顺序实读胜者）——实算通过`);
   }
 }
 

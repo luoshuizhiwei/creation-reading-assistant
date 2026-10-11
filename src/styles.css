@@ -495,11 +495,11 @@ button:disabled {
 /* 已下线（第 8 步批次 A）：本块 12 条声明没有一条生效——全部被 editorial-studio.css
    的同名规则逐条覆盖（同特异性、main.tsx 里后载入）：11 条对 11 条撞在
    editorial-studio.css:120 的 `.desktop-brand-mark` 上，background 还要再被
-   其 :2890 行的 `.desktop-titlebar-mark, .desktop-brand-mark` 覆盖一次。
+   其 :2939 行的 `.desktop-titlebar-mark, .desktop-brand-mark` 覆盖一次。
    （批次 BD-17 校正：这两处行号在批次 BD-2 之后就已经过期，本批补回实测值。）
    留着它只会诱使人在死声明上做修改并误以为已经修好（本窗就踩了一次：
    为救白字对比度把渐变端点从 82% 调到 88%，实际渲染毫无变化）。
-   生效的定义在 editorial-studio.css:120 + :2890。 */
+   生效的定义在 editorial-studio.css:120 + :2939。 */
 
 .desktop-brand strong,
 .desktop-brand small {
@@ -771,7 +771,7 @@ button:disabled {
 .desktop-page-hero h2 {
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2838 的 clamp(20px, 1.8vw, 23px)）。
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2888 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
   font-weight: 740;
   letter-spacing: -0.045em;
@@ -986,7 +986,7 @@ button:disabled {
   color: var(--paper-ink);
   /* 批次 BD-17（标题阶梯）：15→16。向导里 <fieldset><legend> 是**分组小节标题**，
    * §3.2 给「小节标题 h4」的正是 16 档；本仓同族面板头已在 16（胜者实测：
-   * 本文件 .cards-detail-head h3:2281 / .background-detail-head h3:4118、
+   * 本文件 .cards-detail-head h3:2322 / .background-detail-head h3:4160、
    * preview-local.css .preview-toolbar-meta h2、editorial-studio.css 的
    * .writing-quick-reference-head h3 与 .replace-panel-header h2 都是 BD-3/BD-11 收的）。
    * 本页其余只有 14（.creation-template-card strong）与 12（step-note·steps li·
@@ -1475,18 +1475,24 @@ button:disabled {
 
 .scene-editor-content {
   min-height: 520px;
-  padding: 16px 68px 40px;
-  outline: none;
-  color: var(--paper-ink);
-  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css 的 17px——稿纸那一族，
+  /* 批次 BD-2：删掉了这条上的字号声明，理由见 editorial-studio.css 那条胜者（稿纸那一族，
      那个 17px 已在批次 BD-20 随三件同算收成 16px）。
+     批次 BD-22（measure 批）：原来这条是 `padding: 16px 68px 40px`——同特异度 (0,1,0) 下
+     editorial-studio.css 的 `padding-inline: 32px` 后置恒赢，**68px 从没画出一个像素**，
+     而 16/40 是活的（没人后置覆盖 padding-block）。走 BD-2 的「级联已死」路：只拆死值、
+     不动活值——竖向照原样 16px/40px，横向交回胜者那条 32px。产物实测改前改后 computed
+     padding 完全相同（真机三档宽度 32px/32px，Electron 33），零像素变化、台账 −1 笔债。
      批次 BD-20（稿纸批）：同一条上剩下的 `line-height: 2` 也删了，走的是 BD-2 那条
      「级联已死」的路——同特异度 (0,1,0)、editorial-studio.css 在 main.tsx 里排在
      styles.css 之后，产物实测这条从未画出一个像素（改前胜者 2、改后胜者 1.85，都是它）。
      BD-2 当时**故意没删**它，因为它和 34px 节距是算死的一对，单删一行会让「稿纸批」
      那笔账看起来已经清了；现在三件（字号/行高/节距）在胜者那条上一起重算完，
      这笔死账跟着清掉，LH_BUDGET 里 styles.css 的条目随之移除（空表=新增即红）。 */
+  padding-top: 16px;
+  padding-bottom: 40px;
+  outline: none;
+  color: var(--paper-ink);
+  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
   caret-color: var(--copper);
 }
 
@@ -1550,7 +1556,7 @@ button:disabled {
 .writing-margin h3 {
   margin: 4px 0 18px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1296 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1340 的 14px）。 */
 }
 
 .writing-margin dl {
@@ -1669,13 +1675,19 @@ button:disabled {
   }
 
   .scene-editor {
-    width: min(760px, calc(100% - 30px));
+    /* 批次 BD-22（measure 批）：760 → 738。纸壳比正文宽出的那 2px **不是留白**，是 editorial-studio.css:1261
+       给 .scene-editor 自己那圈 1px 实线边框——border-box 全局生效，所以壳内可用宽 = 738 − 2 = 736，
+       正好等于 .scene-editor-content 的 max-width（42em + 32×2）。真机实测：写 736 时正文被挤成 734、
+       整行墨迹 656.02px = 41 个汉字，比宽屏那档少一字；写 738 后 ≤1180 与宽屏同为 672.02px = 42 字。
+       ⚠ 顺带纠正一处「作者写死的一对」的旧说法：改前 760/760 这对**从来没真的同宽过**
+       （壳 760 → 正文只有 758 → 694px 可用）。同值不等于同宽，边框那 2px 一直被人当成留白。 */
+    width: min(738px, calc(100% - 30px));
   }
 
-  .scene-editor-content {
-    padding-right: 42px;
-    padding-left: 42px;
-  }
+  /* 批次 BD-22：这里原本还有 `.scene-editor-content { padding-right: 42px; padding-left: 42px }`
+     ——同特异度 (0,1,0) 下 editorial-studio.css 后置的 `padding-inline: 32px` 恒赢，
+     媒体查询**不加特异度**，所以这两行从未画出一个像素（真机 ≤1180 实测 32/32）。
+     走 BD-2/BD-20 的「级联已死」路删除，间距台账 styles.css −2。 */
 }
 
 @media (max-width: 920px) {
@@ -1729,10 +1741,12 @@ button:disabled {
     margin-left: auto;
   }
 
-  .scene-editor-content {
-    padding-right: 28px;
-    padding-left: 28px;
-  }
+  /* 批次 BD-22：这里原本还有 `.scene-editor-content { padding-right: 28px; padding-left: 28px }`
+     ——与 ≤1180 那两行同一个死法（editorial-studio.css 后置的 `padding-inline: 32px` 恒赢，
+     媒体查询不加特异度），真机 ≤920 实测仍是 32/32。同批删除，间距台账再 −2。
+     ⚠ 这条死账的代价是**窄屏意图从未生效过**：作者写 42→28 是想在窄屏把纸边收掉，
+     实际一直是 32px。本批只删死声明、不擅自复活（复活=改版），窄屏纸边要不要真收到 28
+     归「写作页 LEGACY 迁移批」判——那批本来就要整族处理这份文件里的接管规则。 */
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -2922,7 +2936,7 @@ button:disabled {
 
 .stats-streak {
   margin: 0;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2776 的 22px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2826 的 20px——原 22 已在批次 BD-10 收口）。 */
   font-weight: 800;
   color: var(--copper);
   font-variant-numeric: tabular-nums;
@@ -3510,7 +3524,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--paper-ink);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1510 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1562 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -3532,13 +3546,13 @@ button:disabled {
 
 .inbox-item-body {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1517 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1569 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1517 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1569 的 12px）。 */
 }
 
 .inbox-item-actions {
@@ -3767,7 +3781,7 @@ button:disabled {
 
 /* 第 6 步 page 22：.overview-action 一族随「打开收件箱」迁移下线。
    这里是考古结论，不是"少删了一处保险"：本文件在 main.tsx 里先于
-   editorial-studio.css 加载（styles.css:4 → editorial-studio.css:5），而两份都带
+   editorial-studio.css 加载（app/main.tsx:4 → app/main.tsx:5），而两份都带
    `.overview-action`，特异性同为 (0,1,0) —— 后加载的那份逐条覆盖（display、align-items、
    gap、border、radius、background、color、font-size、font-weight、padding 全都定义了），
    所以这块"铜色描边 + 铜色淡底"的写法从未渲染过，界面一直是 editorial-studio 的灰色档；
