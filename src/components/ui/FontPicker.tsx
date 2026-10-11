@@ -82,7 +82,7 @@ export function FontPicker({
   const button = (
     <button
       type="button"
-      className="paper-input flex h-9 w-full items-center justify-between gap-2 px-3 text-sm"
+      className="paper-input flex h-8 w-full items-center justify-between gap-2 px-3 text-sm"
       aria-haspopup="listbox"
       aria-expanded={open}
       aria-controls={open ? listboxId : undefined}

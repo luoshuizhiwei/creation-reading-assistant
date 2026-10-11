@@ -97,15 +97,15 @@ export function SessionEditForm({ session, projectId, onCancel, onSave, busy, er
       <div className="creation-goals-grid">
         <label className="creation-field">
           <span>开始时间</span>
-          <input className="paper-input h-9" data-testid="session-edit-started-at" type="datetime-local" value={startedAt} disabled={blocked} onChange={(event) => setStartedAt(event.target.value)} />
+          <input className="paper-input h-8" data-testid="session-edit-started-at" type="datetime-local" value={startedAt} disabled={blocked} onChange={(event) => setStartedAt(event.target.value)} />
         </label>
         <label className="creation-field">
           <span>活动时长（秒）</span>
-          <input className="paper-input h-9" data-testid="session-edit-active-seconds" type="number" min={0} max={86400} step={1} inputMode="numeric" value={activeSeconds} disabled={blocked} onChange={(event) => setActiveSeconds(event.target.value)} />
+          <input className="paper-input h-8" data-testid="session-edit-active-seconds" type="number" min={0} max={86400} step={1} inputMode="numeric" value={activeSeconds} disabled={blocked} onChange={(event) => setActiveSeconds(event.target.value)} />
         </label>
         <label className="creation-field">
           <span>净增字数</span>
-          <input className="paper-input h-9" data-testid="session-edit-net-chars" type="number" step={1} inputMode="numeric" value={netChars} disabled={blocked} onChange={(event) => setNetChars(event.target.value)} />
+          <input className="paper-input h-8" data-testid="session-edit-net-chars" type="number" step={1} inputMode="numeric" value={netChars} disabled={blocked} onChange={(event) => setNetChars(event.target.value)} />
         </label>
       </div>
 

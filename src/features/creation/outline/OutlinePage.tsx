@@ -361,7 +361,8 @@ export function OutlinePage({ project }: OutlinePageProps) {
             onSaved={refresh}
           />
           {/* 原本是「无边框透明小文字」操作 → ghost；hover 底色是规格统一后的新增反馈。
-              px 必须用 ! 前缀：Tailwind 按值大小发射同类工具，px-0 排在尺寸层 px-2.5 之前，
+              px 必须用 ! 前缀：Tailwind 按类名字典序发射同类工具（批次 BD-21 纠正旧说法
+              「按值从小到大」，px-0 < px-2.5 这条巧合仍在），px-0 排在尺寸层 px-2.5 之前，
               不加 ! 就是一条永不生效的死声明。 */}
           {selectedScene && (
             <Button size="sm" variant="ghost" className="mt-2 !px-0" onClick={() => selectScene("")}>

@@ -90,7 +90,7 @@ export function ImportDraftDialog({ onClose, onImported }: ImportDraftDialogProp
               <label className="creation-proof-banned">
                 <span>项目名称</span>
                 <input
-                  className="paper-input h-9"
+                  className="paper-input h-8"
                   value={editable.projectTitle}
                   onChange={(event) => setEditable({ ...editable, projectTitle: event.target.value })}
                   placeholder={preview.projectTitle}

@@ -47,8 +47,9 @@ export const Button = forwardRef<
   // Tailwind 会把它当成阴影颜色、只产出 --tw-shadow-color 而没有 box-shadow 声明，
   // 因此用任意属性形式。
   //
-  // base 里绝不能放内边距：Tailwind 同类工具按「值从小到大」发射，
-  // px-3 排在 px-2 / p-0 之后，写进 base 就会压掉尺寸层与 icon 的 p-0
+  // base 里绝不能放内边距：Tailwind 同类工具按**类名字符串字典序**发射（批次 BD-21 纠正：
+  // 旧说法「按值从小到大」是巧合——px-2.5 / px-3 恰好值序=字序；同族露馅的是 px-10 排在
+  // px-2 之前）。px-3 排在 px-2.5 / p-0 之后，写进 base 就会压掉尺寸层与 icon 的 p-0
   // （sm 实际拿到 12px 内边距，icon 按钮在 28×28 方框里只剩 4px 内容区）。
   // 同一属性只允许一层拥有：内边距归 sizes，icon 由 variant 的 p-0 负责。
   //
@@ -59,28 +60,55 @@ export const Button = forwardRef<
   // 本来就是 4px——组件留在 8px 等于「同一控件两个圆角」，谁被接管规则盖到谁变，
   // 这正是第 8 步要收敛的形状，不是要保留的特征。
   // ⚠ 写法选任意值形式（引用令牌本身）而不是同值的裸 4px 档，两条实测出来的理由：
-  //   1) 圆角这一族的发射顺序既不是字母序、也不是上面内边距那条「值从小到大」的规律
-  //      （那是另一族工具的实测，别套用），产物实测（后者压前者）：裸档 → 16px 档 →
-  //      任意值档 → full → 8px → 6px → none → 2px → 12px。旧写法用的 8px 档排在 full
+  //   1) 产物实测的圆角族发射序（后者压前者）：裸档 → 16px 档 → 任意值档 → full → 8px →
+  //      6px → none → 2px → 12px。旧写法用的 8px 档排在 full
   //      与任意值档之后，会把消费方挂的圆角类静默压掉（jsdom 实测「base + 全圆角类」
   //      算出 0.5rem，不是 9999px）；任意值档发在 full/8px/6px/none/2px/12px 之前，
   //      base 只提供默认值，不与「同一属性只允许一层拥有」打架（只有裸档和 16px 档发在
   //      它之前、覆盖不掉，实测今天无人这么写）。
+  //      ✔ 批次 BD-21 复核：AV 当时把它写成「既不是字母序、也不是值从小到大」，前半句是
+  //      误判——AV 列的那串（裸档 → 2xl → 任意值 → full → 8px(md) → 6px → none → 2px(sm) →
+  //      12px(xl)）本来就是字母序，只是当时没认出来（圆角名与 px 值的对应见守卫的发射序列表）。
+  //      BD-21 之后仓里 lg/xl/sm/none 全无真实消费方，产物里只剩 裸档 → 三个任意值档 →
+  //      full → md 六个键，逐字重扫仍是字典序。结论不变，
+  //      判序的规律从此只有一条：按类名字符串排。
   //   2) 裸档是 0.25rem，值随根字号缩放；令牌形式跟着 --radius-1 走。
   //   ⚠ 任何 src/ 文件的注释里都不要写这类工具类的字面串：Tailwind 的 content 扫描
   //   不剥注释，写了就把没人用的工具类发射进产物（批次 AV 实测一次，胜者表当场多出新键）。
   //   （base 的圆角今天没有任何消费方覆盖：236 个 Button/RingButton 开标签里 0 个挂圆角类，
   //   所以第 1 条是「别把陷阱留在原地」，不是「正在修一个坏掉的界面」。）
+  // 批次 BD-21（§2.2 尺寸批）：base 里的「十四px 具名档」**删掉了**，字号交回尺寸层。
+  // 这不是整理，是这批唯一能让 md=13px 真正生效的写法，理由要写死在这里：
+  // Tailwind 同类工具的真实发射顺序是**按类名字符串排序**，不是按值大小——产物实测的
+  // 字序见守卫 verify-design-tokens.mjs「发射顺序」注（那边不在 Tailwind 扫描范围内，
+  // 可以照抄类名串；这里不能写，写了就是幻影工具类）。要点只有一个：任意值档
+  // （方括号那族）发在 md 要的 13 之前，具名「十四」档发在它之后，两边同挂时是 14 赢——
+  // 照直觉写「尺寸层覆盖 base」会得到一个静默失效的 13px，界面纹丝不动、
+  // 账面上却像已经收敛了。同一属性的所有权必须只有一层：字号归 sizes，base 不再参与。
+  // ⚠ 顺带纠正本文件与守卫里那句旧说法「按值从小到大发射」：结论（base 的内边距
+  //   会压掉尺寸层）仍然成立，但成立的真正原因是这三档的内边距恰好值序=字序；
+  //   换成「任意值 vs 具名档」就反过来了。守卫里已同步改。
   const base =
-    "inline-flex items-center justify-center gap-2 rounded-[var(--radius-1)] text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]";
+    "inline-flex items-center justify-center gap-2 rounded-[var(--radius-1)] font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-55 focus-visible:outline-none focus-visible:[box-shadow:var(--focus-ring)]";
 
-  // md 暂留 36px：工具栏里按钮与 .paper-input（同为 h-9）并排，
-  // 默认高度必须与输入框同一批收敛到 32px，否则错位（排在规格 §6 第 8 步）。
+  // 批次 BD-21：规格 §2.2 三档 28 / 32 / 40 落地，md 从 36px 收到 32px（默认档，
+  // 实测 182 个不写 size 的 <Button> 一起变矮 4px（RingButton 不吃 sizes，不在其内），
+  // 这是可感知改版、不是零视觉）。
+  // 上面那句「md 暂留 36px：与 .paper-input（同为 36 高）并排」的许诺由本批兑现：
+  // 配对输入框的 36 高也同批改 32，共 18 处（TextInput / Select / FontPicker 三个原语
+  // 内部各 1，消费方 paper-input 15 处），另加 LibraryPage 里与图标档并排的裸按钮 1 处
+  // （它不是输入框，但同排的 <Button> 图标档 36→32，不改就差 4px）。
+  // 两处 CSS 侧的 36 高同批收敛：settings-controls.css 的 .paper-stepper（与 FontPicker
+  // 同列同排）与 styles.css 的 .writing-project-switcher select（宿主就是 Select 组件）；
+  // editorial-studio.css @media(max-width:1024px) 里 .project-nav button 的
+  // min-height: 36px **不动**——那条规则基态是 38px，属遗留接管家族，单独收窄屏档会
+  // 自相矛盾，整族随「写作页 LEGACY 迁移批」判。
+  // 字号按 §2.2：sm 12 / md 13 / lg 14（原先三档全吃 base 的 14，sm 例外自带 12）。
   // 内边距按规格 §2.2：sm 10px / md 12px / lg 16px。
   const sizes: Record<ButtonSize, string> = {
     sm: "h-7 px-2.5 text-xs",
-    md: "h-9 px-3",
-    lg: "h-10 px-4"
+    md: "h-8 px-3 text-[13px]",
+    lg: "h-10 px-4 text-sm"
   };
 
   const variants: Record<ButtonVariant, string> = {
@@ -101,7 +129,20 @@ export const Button = forwardRef<
   };
 
   // 纯图标按钮不需要左右内边距，用正方形尺寸
-  const sizeClass = resolved === "icon" ? (size === "sm" ? "h-7 w-7" : size === "lg" ? "h-10 w-10" : "h-9 w-9") : sizes[size];
+  // 批次 BD-21：md 档跟着 36→32（方框边长同步收一档），否则同一工具栏里
+  // 文字按钮 32、图标按钮 36，比改之前更花。
+  // ⚠ 这一支必须**自带**字号：base 的十四px 档已交回尺寸层（见上面 BD-21 的发射顺序），
+  //   不写就会从父级继承（正文 14 / 其它档不一），等于把 icon 档的字号交给运气。
+  //   三档与 sizes 同名同值，改前 icon 三档吃的是 base 14 / 十二 / base 14，
+  //   现在 sm 12 不变、md 14→13（与 md 档同批）、lg 14 不变。
+  const sizeClass =
+    resolved === "icon"
+      ? size === "sm"
+        ? "h-7 w-7 text-xs"
+        : size === "lg"
+          ? "h-10 w-10 text-sm"
+          : "h-8 w-8 text-[13px]"
+      : sizes[size];
 
   return (
     <button
@@ -131,7 +172,7 @@ export const Button = forwardRef<
 export function TextInput({ className = "", ...props }: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
-      className={`paper-input h-9 ${className}`}
+      className={`paper-input h-8 ${className}`}
       {...props}
     />
   );

@@ -68,7 +68,7 @@ describe("Button 强调层级（规格 §2）", () => {
     expect(screen.getByTestId("d1").className).not.toMatch(/bg-\[color:var\(--proof-mark\)\]/);
   });
 
-  it("三档尺寸高度可辨（sm28 / md36 / lg40）", () => {
+  it("三档尺寸高度可辨（sm28 / md32 / lg40，规格 §2.2）", () => {
     render(
       <>
         <Button size="sm" data-testid="s">
@@ -79,13 +79,29 @@ describe("Button 强调层级（规格 §2）", () => {
       </>
     );
     expect(screen.getByTestId("s").className).toMatch(/\bh-7\b/);
-    // md 暂留 36px，与 .paper-input 同批收敛
-    expect(screen.getByTestId("m").className).toMatch(/\bh-9\b/);
+    // 批次 BD-21：md 从暂留的 36 收到 32，与配对输入框同批（当初绑在一起改的理由已兑）
+    expect(screen.getByTestId("m").className).toMatch(/\bh-8\b/);
     expect(screen.getByTestId("l").className).toMatch(/\bh-10\b/);
   });
 
+  // 字号归尺寸层（批次 BD-21）。这条锁的是**发射顺序**这个坑：Tailwind 同类工具按
+  // 类名字典序发射，任意值档（方括号那族）排在具名档之前，所以旧写法「base 兜 text-sm +
+  // 尺寸层写 13px 任意值」会让 14 静默赢掉 13——类串两边都在，界面却是 14。
+  // 断言必须是「这一档只有一个字号工具，且就是规格那一档」，而不是「存在某个字号」。
+  it.each([
+    ["sm", "text-xs"],
+    ["md", "text-[13px]"],
+    ["lg", "text-sm"]
+  ])("size=%s 只声明一个字号工具且等于规格值 %s", (size, expected) => {
+    render(<Button size={size} data-testid={size}>x</Button>);
+    const cls = screen.getByTestId(size).className.split(/\s+/);
+    const fonts = cls.filter((c) => /^text-(?:xs|sm|base|lg|xl|2xl|\[[0-9.]+(?:rem|px)\])$/.test(c));
+    expect(fonts).toEqual([expected]);
+  });
+
   // 这条才是真正锁住分层修复的用例。只断言「px-* 存在」不够：base 里当时同时
-  // 写着 px-3，与尺寸层的 px-2 冲突，Tailwind 按值大小发射（px-2 在前、px-3 在后），
+  // 写着 px-3，与尺寸层的 px-2 冲突，Tailwind 按类名字典序发射（px-2 在前、px-3 在后，
+  // 批次 BD-21 纠正旧说法「按值从小到大」——这对恰好值序=字序），
   // 于是 sm 拿到的是 12px 内边距——两个类都「在」，实际生效的只有后者。
   // 所以断言必须是：每个按钮的类串里只允许有一个内边距工具，且值归尺寸层。
   it.each([
@@ -112,9 +128,12 @@ describe("Button 强调层级（规格 §2）", () => {
       </Button>
     );
     const el = screen.getByRole("button", { name: "关闭侧栏" });
-    expect(el.className).toMatch(/\bh-9\b/);
-    expect(el.className).toMatch(/\bw-9\b/);
+    // 批次 BD-21：md 档图标按钮跟着 36→32（与同栏文字按钮同高），且必须自带字号——
+    // base 的字号已交回尺寸层，icon 分支不写就会去继承父级，等于把字号交给运气。
+    expect(el.className).toMatch(/\bh-8\b/);
+    expect(el.className).toMatch(/\bw-8\b/);
     expect(el.className).toMatch(/\bp-0\b/);
+    expect(el.className).toMatch(/text-\[13px\]/);
   });
 
   it("loading 置灰、aria-busy，且保留原文字撑宽度", () => {

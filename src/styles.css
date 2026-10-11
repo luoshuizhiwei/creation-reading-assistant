@@ -1270,7 +1270,7 @@ button:disabled {
 }
 
 .writing-project-switcher select {
-  height: 36px;
+  height: 32px; /* 批次 BD-21：36→32，宿主就是 Select 组件（ui/Select.tsx 已随本批吃 h-8），本条接管规则不得比组件高一档 */
   padding: 0 10px;
   font-size: 13px;
   font-weight: 650;

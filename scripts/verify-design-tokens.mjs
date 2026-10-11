@@ -158,16 +158,36 @@ for (const size of ["sm", "md", "lg"]) {
 if (!/loading/.test(uiTsx) || !/aria-busy/.test(uiTsx)) fail("Button 缺少 loading 态（须同时置 aria-busy）");
 if (!/disabled:opacity-55/.test(uiTsx)) fail("disabled 透明度应统一为 .55（旧代码有 0.45/0.5/0.4 三种）");
 
-// 分层所有权：同一属性只能有一层拥有。Tailwind 把同类工具按「值从小到大」发射，
-// 所以 base 里的 px-3 会盖掉尺寸层的 px-2.5 和 icon 的 p-0 —— 谁写在后面谁赢，
-// 与类名字符串顺序无关。内边距必须只属于 sizes / icon 层。
+// 分层所有权：同一属性只能有一层拥有。⚠ 批次 BD-21 纠正本文件与 ui.tsx 的旧说法
+// 「同类工具按值从小到大发射」——真实规律是**按类名字符串字典序**发射，与值大小无关，
+// 重扫产物实测的三族序列（后者压前者）：
+//   内边距 px-0 → px-0.5 → px-1.5 → px-10 → px-2 → px-2.5 → px-3 → px-4 → px-5 → px-6 → px-8
+//   高度   h-1 → h-10 → h-12 → h-28 → h-3 → h-4 → h-5 → h-6 → h-7 → h-8 → h-9
+//   字号   text-2xl → text-[任意值] → text-base → text-sm → text-xl → text-xs
+//   圆角   rounded → rounded-2xl → rounded-[任意值] → rounded-full → rounded-lg → rounded-md
+//          → rounded-none → rounded-sm → rounded-xl（与批次 AV 当年实测那条序逐位相同，
+//          它本来就是字典序，只是当时没认出规律）
+// 旧结论之所以一直「看起来对」：px-2.5 < px-3 < px-4 恰好值序=字序；露馅的是同族里的
+// 两位数档——px-10 排在 px-2 之前、h-10/h-12/h-28 排在 h-3 之前。字号族里方括号（0x5B）
+// 排在数字之后、小写字母之前，所以 text-[13px] 发在 text-sm **之前**——同挂时 14 赢 13。
+// 本条判据不受影响：base 的 px-* 仍发在尺寸层 px-2.5 之后，照样压掉它。
+// 受影响的是「谁该拥有字号」——base 兜一个 text-sm 就等于永远赢掉尺寸层的任意值档，
+// 所以 BD-21 把字号交回 sizes/icon 层，base 不再参与。内边距必须只属于 sizes / icon 层。
 const baseClassSource = /const base =\s*\n?\s*"([^"]+)"/.exec(uiTsx);
 if (!baseClassSource) fail("读不到 Button 的 base 类串，分层检查无法执行");
 else {
   const padding = (baseClassSource[1].match(/(?:^|\s)(?:p|px|py|pl|pr)-[\w.]+/g) ?? []).map((s) => s.trim());
   if (padding.length > 0) {
-    fail(`Button 的 base 不得包含内边距 ${padding.join(", ")}：Tailwind 按值大小发射同类工具，` +
+    fail(`Button 的 base 不得包含内边距 ${padding.join(", ")}：Tailwind 按类名字典序发射同类工具，` +
       `base 的 px-* 会压掉尺寸层（sm/lg）和 icon 的 p-0，导致 padding 静默失效`);
+  }
+  // 批次 BD-21 立的不变量，用一颗牙钉住（见上方发射顺序）：base 不得兜底字号。
+  // 写进 base 的那一档发在尺寸层的任意值档**之后**，谁都不知道自己最后吃到几 px，
+  // 而账面（类串里确实有 text-\[\d+px\]）看着像已经按 §2.2 分档了。
+  const baseFont = (baseClassSource[1].match(/(?:^|\s)text-[\w.[\]]+/g) ?? []).map((s) => s.trim());
+  if (baseFont.length > 0) {
+    fail(`Button 的 base 不得包含字号 ${baseFont.join(", ")}：§2.2 的三档字号归 sizes / icon 层，` +
+      `且 base 的具名档按字典序发在尺寸层任意值档之后，会静默压掉它（14 赢掉 13）`);
   }
 }
 // 每一档尺寸必须自带水平内边距，否则该档就继承了「无内边距」

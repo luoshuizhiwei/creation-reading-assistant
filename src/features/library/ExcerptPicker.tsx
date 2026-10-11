@@ -105,7 +105,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
               </label>
               {targetKind === "projectCard" && (
                 <select
-                  className="paper-input h-9 ml-7"
+                  className="paper-input h-8 ml-7"
                   value={projectId}
                   onChange={(event) => setProjectId(event.target.value)}
                   disabled={projects.length === 0}

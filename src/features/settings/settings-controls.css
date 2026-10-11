@@ -138,10 +138,16 @@
 
 /* ---- NumberStepper ---- */
 
+/* 批次 BD-21（§2.2 尺寸批）：36px → 32px。规格 §2.2 那句「现有 48px 和 46px 的高度
+ * 取消，归入 lg」管的就是这类中间档——36 不在三档（28/32/40）里，留着它等于第五种高度。
+ * 直接触发点是同页排版区的配对：FontPicker 的触发钮随本批吃到 32（paper-input h-8），
+ * 页边距 stepper 与它同列同排，不改就差 4px。内部 ± 按钮是 width:30px 的网格单元、
+ * 无固定高度（靠 align-items: stretch 撑满），所以只改这一处容器高度即可；
+ * 字号沿用 --text-13（§3.2 控件正文档），本批不动。 */
 .paper-stepper {
   display: inline-flex;
   align-items: stretch;
-  height: 36px;
+  height: 32px;
   border: 1px solid var(--separator-subtle);
   border-radius: var(--radius-control);
   background: var(--surface-1);

@@ -25,7 +25,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
     <div className="relative inline-flex items-center w-full">
       <select
         ref={ref}
-        className={`paper-input h-9 w-full appearance-none pr-8 text-sm ${className}`}
+        className={`paper-input h-8 w-full appearance-none pr-8 text-sm ${className}`}
         {...props}
       >
         {options

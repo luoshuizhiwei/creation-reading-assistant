@@ -82,7 +82,7 @@ export function InboxItemDetail({
         <label className="grid gap-1.5 text-sm text-paper-muted">
           <span className="font-medium text-paper-ink">标题</span>
           <input
-            className="paper-input h-9"
+            className="paper-input h-8"
             value={draft.title}
             onChange={(event) => onDraftChange({ title: event.target.value })}
           />
@@ -120,7 +120,7 @@ export function InboxItemDetail({
         <label className="grid gap-1.5 text-sm text-paper-muted">
           <span className="font-medium text-paper-ink">标签，逗号分隔</span>
           <input
-            className="paper-input h-9"
+            className="paper-input h-8"
             value={draft.tags}
             onChange={(event) => onDraftChange({ tags: event.target.value })}
             placeholder="修罗场, 系统流, 反差"
@@ -129,7 +129,7 @@ export function InboxItemDetail({
         <label className="grid gap-1.5 text-sm text-paper-muted">
           <span className="font-medium text-paper-ink">平台标签，逗号分隔</span>
           <input
-            className="paper-input h-9"
+            className="paper-input h-8"
             value={draft.platformTags}
             onChange={(event) => onDraftChange({ platformTags: event.target.value })}
             placeholder="番茄, 起点, 刺猬猫"

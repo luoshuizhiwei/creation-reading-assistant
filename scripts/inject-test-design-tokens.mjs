@@ -144,7 +144,7 @@ const cases = [
   ["焦点环退回会被 Tailwind 吃掉的写法", () => mutate("src/components/ui.tsx", "focus-visible:[box-shadow:var(--focus-ring)]", "shadow-[var(--focus-ring)]"), /Tailwind|焦点环/],
   ["对 var() 色值套 alpha（整条会被丢弃）", () => mutate("src/components/ui.tsx", "border-[color:color-mix(in_srgb,var(--proof-mark)_45%,transparent)]", "border-[color:var(--proof-mark)]/45"), /alpha/],
   ["少一个 variant（删 tonal）", () => mutate("src/components/ui.tsx", "    tonal:\n", "    // tonal 已删除\n    goneTonal:\n"), /缺少 variant|tonal/],
-  ["少一档尺寸（删 lg）", () => mutate("src/components/ui.tsx", "    lg: \"h-10 px-4\"", "    // lg 已删除"), /缺少尺寸/],
+  ["少一档尺寸（删 lg）", () => mutate("src/components/ui.tsx", "    lg: \"h-10 px-4 text-sm\"", "    // lg 已删除"), /缺少尺寸/],
   ["去掉 loading 的 aria-busy", () => mutate("src/components/ui.tsx", "aria-busy={loading || undefined}", "data-busy={loading || undefined}"), /loading 态/],
   ["disabled 透明度改成 0.45", () => mutate("src/components/ui.tsx", "disabled:opacity-55", "disabled:opacity-45"), /disabled 透明度/],
   ["danger 改用主操作色", () => mutate("src/components/ui.tsx", "bg-[color:var(--proof-mark)] text-[color:var(--fg-on-solid)]", "bg-copper text-[color:var(--fg-on-solid)]"), /proof-mark/],
@@ -163,7 +163,8 @@ const cases = [
   // ⚠ 批次 AI 把这条分组规则里的 .project-home-create-first 死分支摘掉了，规则从此只剩
   // 一个选择器——needle 随之换成单选择器写法（测的还是同一条双排除不变量，不是死分支）。
   ["把 desktop-page-actions 首钮规则的 :not 排除退回单排除（ProjectHomePage 首钮是默认 primary，会被淡底样式压回 (0,1,1)）", () => mutate("src/styles/editorial-studio.css", '.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%', '.desktop-page-actions button:first-child:not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%'), /后代按钮规则未排除|editorial-studio\.css/],
-  ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] text-sm", "justify-center gap-2 rounded-[var(--radius-1)] px-3 text-sm"), /base 不得包含内边距/],
+  ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] font-medium", "justify-center gap-2 rounded-[var(--radius-1)] px-3 font-medium"), /base 不得包含内边距/],
+  ["批次 BD-21 的牙：base 兜回字号（具名档按字典序发在尺寸层任意值档之后，14 会静默赢掉 md 的 13）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] font-medium", "justify-center gap-2 rounded-[var(--radius-1)] text-sm font-medium"), /base 不得包含字号/],
   ["sm 档丢掉自带内边距（base 已不再兜底，会渲染成 0 内边距）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 text-xs"'), /尺寸 sm 必须自己声明/],
   ["夜校前景改回白字（对比度 2.53）", () => mutate("src/styles/tokens.css", "  --fg-on-solid: #15181c;", "  --fg-on-solid: #ffffff;"), /夜校 primary 对比度/],
   ["晨校主色调浅到不合格", () => mutate("src/styles/tokens.css", "  --action-primary: #315f9b;", "  --action-primary: #a8c4e4;"), /晨校 primary 对比度/],
@@ -192,7 +193,7 @@ const cases = [
   ["批次 C 回归：--warning-tint 只写晨校值（成对性不变量必须管到新令牌，否则夜校把浅琥珀岛原样画在深色底上）", () => mutate("src/styles/tokens.css", "  --warning-tint: #2a2118;\n", ""), /颜色令牌必须在夜校/],
   // 第 8 步圆角棘轮：这五条测的是「棘轮能不能两头咬人」，以及「会不会咬到自己」。
   // expect 为 null 的是「必须保持绿」的反向用例——判据过严同样是缺陷。
-  ["圆角棘轮①：Button base 的圆角旁再挂一处离刻度（批次 AV 起预算表为空，rounded-2xl 一出现就必须红；这条测的是 TSX 侧，棘轮②测 CSS 侧）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] text-sm", "justify-center gap-2 rounded-[var(--radius-1)] rounded-2xl text-sm"), /圆角刻度/],
+  ["圆角棘轮①：Button base 的圆角旁再挂一处离刻度（批次 AV 起预算表为空，rounded-2xl 一出现就必须红；这条测的是 TSX 侧，棘轮②测 CSS 侧）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] font-medium", "justify-center gap-2 rounded-[var(--radius-1)] rounded-2xl font-medium"), /圆角刻度/],
   ["圆角棘轮②：把离刻度值写进预算表里根本没有的文件（settings-controls.css 预算视同 0，4px→7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  border-radius: 4px;", "  border-radius: 7px;"), /圆角刻度/],
   // 圆角棘轮③（还了债却不降预算）随批次 AV 退役：RADIUS_BUDGET 归零后表里没有条目，
   // `budget > actual` 对一个不存在的预算恒不成立，这条用例永远 SKIP（needle 已经不在了），

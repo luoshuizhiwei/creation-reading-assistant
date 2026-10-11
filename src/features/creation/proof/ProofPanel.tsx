@@ -210,7 +210,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
             <label className="creation-proof-banned">
               <span>禁用词（逗号或换行分隔）</span>
               <input
-                className="paper-input h-9"
+                className="paper-input h-8"
                 placeholder="例如：水字数、错别字词"
                 value={bannedWords}
                 onChange={(event) => setBannedWords(event.target.value)}
@@ -219,7 +219,7 @@ export function ProofPanel({ projectId, onClose }: ProofPanelProps) {
             <label className="creation-proof-banned">
               <span>超长段落阈值（100–5000 字）</span>
               <input
-                className="paper-input h-9"
+                className="paper-input h-8"
                 type="number"
                 min={100}
                 max={5000}

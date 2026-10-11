@@ -177,7 +177,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                   </span>
                   <input
                     ref={step1Ref}
-                    className="paper-input h-9"
+                    className="paper-input h-8"
                     value={draft.title}
                     maxLength={201}
                     placeholder="例如：测试项目"
@@ -225,7 +225,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                   <span>
                     总字数 <em className="optional">可选</em>
                   </span>
-                  <input ref={step2Ref} className="paper-input h-9" type="number" min={1} step={1} inputMode="numeric" value={draft.totalWordGoal} placeholder="例如：500000" onChange={(event) => setDraft((current) => ({ ...current, totalWordGoal: event.target.value }))} />
+                  <input ref={step2Ref} className="paper-input h-8" type="number" min={1} step={1} inputMode="numeric" value={draft.totalWordGoal} placeholder="例如：500000" onChange={(event) => setDraft((current) => ({ ...current, totalWordGoal: event.target.value }))} />
                 </label>
                 <label className="creation-field">
                   <span>
@@ -293,7 +293,7 @@ export function CreateProjectWizard({ open, onClose }: { open: boolean; onClose:
                 <div className="creation-workflow-add">
                   <input
                     ref={workflowInputRef}
-                    className="paper-input h-9"
+                    className="paper-input h-8"
                     value={workflowInput}
                     maxLength={20}
                     placeholder="添加自定义阶段，回车确认"

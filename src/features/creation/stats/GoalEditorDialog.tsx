@@ -141,7 +141,7 @@ export function GoalEditorDialog({ open, initial, onClose, onSave, busy, error, 
           <div className="creation-goals-grid">
             <label className="creation-field">
               <span>总字数 <em className="optional">可选</em></span>
-              <input className="paper-input h-9" type="number" min={0} step={1} inputMode="numeric" value={draft.totalWordGoal} onChange={(event) => setDraft((current) => ({ ...current, totalWordGoal: event.target.value }))} />
+              <input className="paper-input h-8" type="number" min={0} step={1} inputMode="numeric" value={draft.totalWordGoal} onChange={(event) => setDraft((current) => ({ ...current, totalWordGoal: event.target.value }))} />
             </label>
             <label className="creation-field">
               <span>每日目标 <em className="optional">可选</em></span>

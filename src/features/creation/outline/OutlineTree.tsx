@@ -124,7 +124,7 @@ function PromptDialog({ prompt, onCancel }: { prompt: PromptState; onCancel(): v
           <h2 id="outline-prompt-title" className="paper-title text-base font-semibold text-paper-ink">{prompt.title}</h2>
           <input
             ref={inputRef}
-            className="paper-input mt-3 h-9 w-full"
+            className="paper-input mt-3 h-8 w-full"
             defaultValue={prompt.defaultValue}
             onKeyDown={(event) => {
               if (event.key === "Enter") commit();
