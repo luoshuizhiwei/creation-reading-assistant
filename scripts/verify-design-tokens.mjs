@@ -1848,7 +1848,7 @@ const isPureRingValue = (v) => {
   // （.project-nav \* 与 .project-home-chars，都在 editorial-studio.css，宿主
   // CreationProjectsPage.tsx + ProjectHomePage.tsx 同一屏）：
   //   .project-nav button      12.5→12  **同一批按钮**在写作页接管态里作者自己写的就是
-  //                                   12px !important（editorial-studio.css:3599，.creation-writing-page--active
+  //                                   12px !important（editorial-studio.css:3641，.creation-writing-page--active
   //                                   .project-nav button:not(.project-nav-back)），
   //                                   紧邻的同族返回键 .project-nav-back 也是 12
   //                                   （styles.css:3943）。导航项彼此必须同档，
@@ -1896,7 +1896,7 @@ const isPureRingValue = (v) => {
   //                                   （留着 22 会让三个统计数字三种大小）。
   // ⚠ **第 4 处 22px 刻意不还，因为它不是同一道题**：
   //   .overview-hero-title h2  22（overview-local.css:26 那条规则）与
-  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2888）
+  //   .desktop-page-hero h2    clamp(20px, 1.8vw, 23px)（editorial-studio.css:2930）
   //   命中的是**同一个 h2**（OverviewPage 的 section 同时挂 desktop-page-hero 与
   //   overview-hero-title）。这不是「22 离刻度、该去 20 还是 24」，而是**流式标题 vs
   //   页面写死标题**的架构选择：收 20 就等于把 hero 标题改成固定值、让那条 clamp
@@ -1934,6 +1934,16 @@ const isPureRingValue = (v) => {
   //                                   （基础与窄屏）同值也是「字形尺寸」而非「压缩档」
   //                                   的证据（对比 BD-9 的 project-nav：那里窄屏比基础
   //                                   低一档；这里窄屏与基础同值）。归品牌族单独定。
+  //                                   ✔ 后续：批次 BD-23 品牌字形批按真机量兑现——那句
+  //                                   「20 会溢出盒子」实测是假的（20 的着墨 18×21，环内
+  //                                   净空 30×30），两处 18 同值收回八档 20；上面那两个
+  //                                   :NNN 是 BD-11 写下当时的行号，按规矩不回写，
+  //                                   当前行号以 `--show-type-ledger` 为准。
+  //                                   ⚠ 另订正一处**事实**错误（行号可以不回写，事实不行）：
+  //                                   印章里那个字是「阅」不是「洛」——DesktopFrame.tsx:122
+  //                                   `<span className="desktop-brand-mark">阅</span>`，
+  //                                   BD-11 写下当时也是同一个字（同一文件同一行，git 可查）。
+  //                                   它不影响任何判据，但下一批人会照着「洛」去找字。
   //   6 处 TSX `text-lg`     =1.125rem（ErrorBoundary:57 / interaction:171 /
   //                                   ui:166 EmptyState / InboxItemDetail:183 /
   //                                   ReaderSettingsDrawer:62 / EpubEmptyState:14，
@@ -1951,6 +1961,13 @@ const isPureRingValue = (v) => {
   // 本批不动棘轮牙锚点：字号③与行高比率②钉的稿纸 17px/lh:2（editorial-studio.css:1278）
   // 没动；replace.css 里那颗第 7 步的牙钉的是 .replace-hit-before 的 line-through
   // 那两行（inject:169 needle），与本批 :32 不同一条，改前改后逐字验证仍唯一命中。
+  //   ⚠ 上面这三处行号引用**在本批之后的批次里已各自失效**，批次 BD-23 复扫时逐条核实：
+  //   稿纸 :1278 的 17px/lh:2 已被 BD-20 三件同算还掉（16/1.85/29.6px）——行高比率②随
+  //   LH_BUDGET 清零退役，字号③先搬 .desktop-brand-mark 18px、又随 BD-23 搬到 hero
+  //   11.5px；`.replace-hit-before` 那颗牙现在在 inject **第 178 行**（当时是 169）；
+  //   「与本批 :32 不同一条」指的是 BD-17 当时备份清单里的圆角棘轮 needle，那份
+  //   清单早已随 BD-19/BD-21 的宿主变迁重排。按 BD-17 自己的规矩不回写历史批次的数字，
+  //   只在这里声明它过期——否则读者拿 :169 去找 line-through 那颗牙，找到的是无关条目。
   // ⚠ 另两笔仍在等人的账也不在本批：.overview-hero-title h2 22（流式 vs 写死的架构
   // 岔口，BD-10 已声明留给用户）与间距那 10px 冲突（465 处冻结中）。
   //
@@ -2268,8 +2285,15 @@ const isPureRingValue = (v) => {
   //                                   字，字号是为那个盒子选的；基础档与窄屏档**同值**
   //                                   正是「字形尺寸」而非「压缩档」的证据
   //                                   （对比 BD-9 的 project-nav：窄屏低一档）。
+  //                                   ✔ 后续：批次 BD-23 兑现（18→20 ×2，「溢出盒子」
+  //                                   实测为假），:137/:4267 是本表写下当时的行号，不回写。
   //   .library-cover-glyph 15（:1856）  同族：38×50 书脊块里的白字，且带作者明写的
   //                                   「这条必须留着，而且是活的」。
+  //                                   ✔ 后续：批次 BD-23 兑现（15→16）——判据是⑤同行
+  //                                   邻居书名 text-base=16，不是「同族都收 16」；
+  //                                   BD-17 自己对另外 5 处 15px 的拆分是 4→16 / 1→14 /
+  //                                   1→12，这条的邻居把它投进了 16 那一族。:1856 同上，
+  //                                   不回写行号。
   //                                   ⚠ 后两处不是「懒得动」——把字形尺寸套进文本
   //                                   阶梯会真的撑破/填不满盒子。它们要么随品牌批
   //                                   一起定一个显式的字形档位约定，要么继续记账。
@@ -2281,7 +2305,8 @@ const isPureRingValue = (v) => {
   // 已用 difflib 逐条重映射核对；其中 styles.css 那段品牌注释里的 :118/:2832 是
   // **本批之前就已过期**的旧引用，一并修正为实测的 :120/:2890 并在注释里声明。
   const FS_BUDGET = {
-    "src/styles.css": 1,
+    // 批次 BD-23（品牌字形批）：styles.css 那条是 @media≤920 的 .desktop-brand-mark 18px，
+    // 与基础档同值一起收到 20，条目清零后**删除**（空表 = 新增即红，比留一个 0 更诚实）。
     // 批次 BD-20（稿纸批）：4→3。还掉的正是 BD-17 那张「刻意不还」表里排在第一位的
     // .scene-editor-content 17px——它当时被三件耦合冻住，本批把 字号/行高/节距 一起
     // 重算（16 / 1.85 / 29.6px），债当场清。剩下 3 处仍是 BD-17 点名的两族：
@@ -2289,7 +2314,10 @@ const isPureRingValue = (v) => {
     // hero 接管态 11.5px !important（LEGACY 族，随写作页迁移整族删）。
     // ⚠ 那张表里的 :NNNN 是 BD-17 写下当时的行号，按该批自己的规矩不回写；
     //   当前行号唯一权威是 `node scripts/verify-design-tokens.mjs --show-type-ledger`。
-    "src/styles/editorial-studio.css": 3
+    // 批次 BD-23：3→1。品牌字形族那 2 处（18 + 15）按真机量收回八档（→20、→16），
+    // 剩下的 1 处是 hero 接管态 11.5px !important——它属于第 6 步那 12 条容器接管规则，
+    // 随「写作页迁移批」整族删除；给它换个刻度值等于把注定要删的规则洗成账面合规。
+    "src/styles/editorial-studio.css": 1
   };
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
@@ -2313,7 +2341,7 @@ const isPureRingValue = (v) => {
   //     一对，且收 24px 是真重排（每行少约 1.5 个汉字）——留给「行长 / measure 批」同定。
   //     ✔ 后续（批次 BD-22 落地）：两条**同批**一起改——正文 `calc(42em + 64px)` = 736 边框盒
   //       （42em=672 正文 + 32×2 内边距），≤1180 那条纸壳写 738 而不是 736，因为纸壳自己那圈
-  //       1px 实线在 border-box 下吃 2px（editorial-studio.css:1261），736 只剩 734、掉回 41 字。
+  //       1px 实线在 border-box 下吃 2px（editorial-studio.css:1288），736 只剩 734、掉回 41 字。
   //       死对没拆散，本条债清。
   //   · 段间 margin 1.1em（=17.6px）与 hr 2.7em、.author-note 0.86em 一律不动：它们是 em
   //     写法、随字号自动缩放，且不在 §3.3 那一行里。唯一被动的 em 是 min-height 1.9em→1.85em
@@ -3838,6 +3866,212 @@ const hostPredicate = (() => {
 
   if (mFails === 0) {
     console.log(`${TAG} [MEASURE 不变量] 稿纸 calc(42em+64px)−32×2=672、≤1180 纸壳 738−边框2=736、通读三态可用宽 ≥ 42em（滚动条按 main.tsx 发射顺序实读胜者）——实算通过`);
+  }
+}
+
+/* ------------------------------------------------------------------ 批次 BD-23：SEAL 不变量 */
+
+/**
+ * §3.2 那八档是给**文字**定的，仓里另有三处不是文字、是「方框里刻一个字的图形」：
+ *   .desktop-brand-mark   38×38 印章（editorial-studio.css 基础档 + styles.css @media≤920）
+ *   .desktop-titlebar-mark 18×18 同一枚印的小形态（editorial-studio.css）
+ *   .library-cover-glyph   38×50 书脊块里的白字（editorial-studio.css）
+ * BD-11/BD-17 两次把这四处冻成「品牌字形族」，冻的理由是「字号是为那个盒子选的，套 §3.2 的
+ * 16/20 会让字撑不满盒子或**溢出盒子**」。批次 BD-23 在最终产物上真机量过，那半句是错的
+ * ——20 从来没溢出过（着墨 18×21，环内净空 30×30）。既然「装不下」是假的，冻结前提就没了，
+ * 本批把三处离刻度值收回八档（18→20 ×2、15→16），并把「注释里许诺过的关系」里**唯一那条
+ * 不含口味**的做成判据：
+ *
+ *   ① 印章的两档必须同值。基础档与 ≤920 窄屏档同值不是巧合：窄屏那条只把「带文字的横排」
+ *      改成「居中方印」（重复同样的 38×38、只换圆角），它从来不是一档压缩（对比 BD-9 的
+ *      project-nav：那里窄屏比基础低一档）。改一处忘另一处 = 窄屏印面突然换尺寸。
+ *   ② 字号必须装得下盒子去掉边框与 inset 环之后的净空（inset spread 从内边框边向内画，
+ *      所以净空 = 宽 − 2×border − 2×最大 spread）。汉字 advance = 1em（这条与字体无关，
+ *      所有 CJK 字体都给 1em 方格），字号大于净空就是字压到环上。盒宽、边框、环宽**任何一处**
+ *      收窄而不挪字号，都会在这里红——这正是本批新造出来的风险：值已经落到刻度上，
+ *      下一批人最容易顺手挪的就是那只盒子。
+ *
+ * ⚠ 本判据刻意**不做**「两枚印字号占净空的比例要同族」那条。写它的时候觉得理所当然，
+ *   复看才发现它是循环论证：16 与 20 都装得下、都在八档上，唯一能把 16 判红的就是这条
+ *   比例带，而这条带宽是本批自己挑的——等于把「我选了 20」写成法律，下一批人带着新证据
+ *   改回 16 反而要先来拆判据。比例只作为**选档时的证据**留在两处声明的注释里
+ *   （titlebar 68.75% ↔ brand 66.67%，16 则 53.33%），这里把它当读数打印出来，不判红。
+ *   本仓这条错法不是第一次：BD-22 那三处「预测当实测」、批次 A 在死声明上算对比度，
+ *   都是同一个形状——先把结论写进判据，再让判据替结论背书。
+ *
+ * 判据方向与失效剧本：①②是跨文件/跨声明的算术，vitest 与截图都看不出（一次只差几 px），
+ * 靠的是现读声明。结构性事实（选择器在哪份文件、盒子多大、环多厚）全部现读，
+ * 判据读不懂就红（宁可红不可盲）。
+ * ⚠ 看不见的方向也要说清：本判据只认**裸 `.desktop-brand-mark` 选择器**的声明。若有人改用
+ *   带祖先前缀的选择器（如 `.desktop-sidebar--rail .desktop-brand-mark`）压小盒子，这里读不到
+ *   那个宽度，②就瞎——那种覆盖同时会被「第 8 步几何分支」那族判据盯住，不在此判据职责内。
+ */
+{
+  const STY = "src/styles.css";
+  const EDX = "src/styles/editorial-studio.css";
+  let sFails = 0;
+  const sfail = (m) => {
+    fail(`SEAL 不变量：${m}`);
+    sFails += 1;
+  };
+
+  const sealAsts = new Map();
+  const sealSheet = (rel) => {
+    if (!sealAsts.has(rel)) sealAsts.set(rel, postcss.parse(read(rel), { from: path.join(root, rel) }));
+    return sealAsts.get(rel);
+  };
+  // 返回**声明行**（不是规则起始行）——本仓 glyph/投影台账的口径，见 BD-22 的说明。
+  function sealFinds(rel, selector, prop, mediaHas = null) {
+    const hits = [];
+    sealSheet(rel).walkRules((rule) => {
+      if (!rule.selectors.some((s) => s.replace(/\s+/g, " ").trim() === selector)) return;
+      const media = [];
+      for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") media.push(p.params);
+      if (mediaHas === null) {
+        if (media.length) return;
+      } else if (!media.some((m) => m.includes(mediaHas))) {
+        return;
+      }
+      rule.walkDecls(prop, (d) => hits.push({ value: d.value.trim(), line: d.source?.start?.line ?? 0 }));
+    });
+    return hits;
+  }
+  const sealPx = (v) => {
+    const m = /^(-?[\d.]+)(px)?$/.exec((v || "").trim());
+    return m ? parseFloat(m[1]) : null;
+  };
+  const sealBorderX = (v) => {
+    const m = (v || "").match(/^([\d.]+)px\s+\S+/);
+    return m ? parseFloat(m[1]) : /^0(px)?$/.test((v || "").trim()) ? 0 : null;
+  };
+  // 逐层拆 box-shadow 的逗号（color-mix(...) 里的逗号不算分隔），取 inset 层的 spread。
+  function insetSpreads(value) {
+    const parts = [];
+    let depth = 0;
+    let cur = "";
+    for (const ch of value) {
+      if (ch === "(") depth += 1;
+      else if (ch === ")") depth -= 1;
+      if (ch === "," && depth === 0) {
+        parts.push(cur);
+        cur = "";
+        continue;
+      }
+      cur += ch;
+    }
+    parts.push(cur);
+    const out = [];
+    for (const raw of parts) {
+      const p = raw.trim();
+      if (!/(^|\s)inset(\s|$)/.test(p)) continue;
+      // 作者写法里 inset 在最前、四个长度在色值之前；长度可无单位（0）。
+      const nums = (p.match(/-?(?:\d+\.?\d*|\.\d+)(?:px)?/g) || []).map(parseFloat);
+      out.push(nums.length >= 4 ? nums[3] : 0);
+    }
+    return out;
+  }
+
+  const brandBase = {
+    fs: sealFinds(EDX, ".desktop-brand-mark", "font-size"),
+    w: sealFinds(EDX, ".desktop-brand-mark", "width"),
+    border: sealFinds(EDX, ".desktop-brand-mark", "border"),
+    shadow: sealFinds(EDX, ".desktop-brand-mark", "box-shadow"),
+  };
+  const brandNarrow = {
+    fs: sealFinds(STY, ".desktop-brand-mark", "font-size", "max-width: 920px"),
+    w: sealFinds(STY, ".desktop-brand-mark", "width", "max-width: 920px"),
+    border: sealFinds(STY, ".desktop-brand-mark", "border", "max-width: 920px"),
+    shadow: sealFinds(STY, ".desktop-brand-mark", "box-shadow", "max-width: 920px"),
+  };
+  const tb = {
+    fs: sealFinds(EDX, ".desktop-titlebar-mark", "font-size"),
+    w: sealFinds(EDX, ".desktop-titlebar-mark", "width"),
+    border: sealFinds(EDX, ".desktop-titlebar-mark", "border"),
+    shadow: sealFinds(EDX, ".desktop-titlebar-mark", "box-shadow"),
+  };
+  // 必需锚点：基础档的字号/盒宽，小印的字号/盒宽。边框与 box-shadow 允许缺席
+  // （缺席 = 没有那圈装饰，净空按盒宽算，下面的读法已覆盖）。
+  // 窄屏档的字号/盒宽**允许整条缺席**——那等于把 ≤920 的版式覆盖删掉、全部继承基础档，
+  // ①②照样成立；但「只读到一半」不行：那正是选择器或属性名写错的症状，而它和真删掉
+  // 表现一模一样，所以单独判。
+  const missing = [];
+  for (const [name, hit] of [
+    ["印章基础档.font-size", brandBase.fs],
+    ["印章基础档.width", brandBase.w],
+    ["小印 titlebar.font-size", tb.fs],
+    ["小印 titlebar.width", tb.w],
+  ]) {
+    if (!hit.length) missing.push(name);
+  }
+  if (brandNarrow.fs.length !== brandNarrow.w.length) {
+    sfail(`锚点漂移：≤920 那条 .desktop-brand-mark 里 font-size(${brandNarrow.fs.length} 条) 与 width(${brandNarrow.w.length} 条) 只读到一半（${STY}）。要么这条规则真的拆了（那就两份一起没了），要么选择器/属性名写错了——后者会让本判据安静地瞎掉`);
+  }
+  if (missing.length) {
+    sfail(`锚点缺失：${missing.join("、")} 读不到——印章一族的选择器/媒体分支挪家或改名了，请同步本判据（缺锚点不算通过）`);
+  } else {
+    // 窄屏态：两份声明都在就用它们，都不在就继承基础档（媒体查询正是这么工作的）。
+    const nFsd = brandNarrow.fs.at(-1);
+    const nWd = brandNarrow.w.at(-1);
+    const baseFs = parseFloat(brandBase.fs.at(-1).value);
+    const narrowFs = nFsd ? parseFloat(nFsd.value) : baseFs;
+    const narrowWhere = nFsd ? `${STY}:${nFsd.line}` : `${EDX}:${brandBase.fs.at(-1).line}（≤920 无覆盖，继承）`;
+
+    // —— ① 两档同值（窄屏若整条不再覆盖，就是继承基础档，同样算同值）
+    if (baseFs !== narrowFs) {
+      sfail(`①两档不同值：基础档 ${brandBase.fs.at(-1).value}（${EDX}:${brandBase.fs.at(-1).line}）vs 窄屏档 ${nFsd ? `${nFsd.value}（${STY}:${nFsd.line}）` : "无覆盖但盒宽仍在窄屏改过"}。窄屏那条不是压缩档（它只改版式、盒子宽高逐字重复基础档），要么一起改、要么删掉窄屏那条 font-size 让它继承基础档`);
+    }
+
+    // —— ② 字号 ≤ 环内净空（印章常态、印章 ≤920、小印）
+    // 每一态各算自己的四个量：窄屏那条若覆盖了 border/box-shadow，就得用覆盖值；
+    // 没覆盖就沿用基础档——媒体查询就是这么工作的（与 MEASURE 的 pick 同语义）。
+    const narrowOr = (narrowHit, baseHit) => (narrowHit ? narrowHit : baseHit);
+    const shadowOf = (hit) => (hit ? insetSpreads(hit.value) : []);
+    const bxOf = (hit) => (hit ? sealBorderX(hit.value) : 0);
+    const ringOf = (hit) => {
+      const s = shadowOf(hit);
+      return s.length ? Math.max(...s) : 0;
+    };
+    const baseBx = bxOf(brandBase.border.at(-1));
+    const baseRing = ringOf(brandBase.shadow.at(-1));
+    const narrowBx = bxOf(narrowOr(brandNarrow.border.at(-1), brandBase.border.at(-1)));
+    const narrowRing = ringOf(narrowOr(brandNarrow.shadow.at(-1), brandBase.shadow.at(-1)));
+    const tbBx = bxOf(tb.border.at(-1));
+    const tbRing = ringOf(tb.shadow.at(-1));
+    const tbFsRaw = parseFloat(tb.fs.at(-1).value);
+    const tbW = sealPx(tb.w.at(-1).value);
+    if (baseBx === null || narrowBx === null || tbBx === null || tbW === null) {
+      sfail(`②读不懂盒子的边框（印章 "${brandBase.border.at(-1)?.value ?? "无"}"、小印 "${tb.border.at(-1)?.value ?? "无"}"）——判据宁可红不可盲，写法换了请同步本判据`);
+    } else {
+      // [标签, 盒宽声明, 边框, 环, 字号, 字号声明出处]
+      const seals = [
+        ["印章常态", brandBase.w.at(-1), baseBx, baseRing, baseFs, `${EDX}:${brandBase.fs.at(-1).line}`],
+        ["印章≤920", narrowOr(nWd, brandBase.w.at(-1)), narrowBx, narrowRing, narrowFs, narrowWhere],
+        ["小印 titlebar", tb.w.at(-1), tbBx, tbRing, tbFsRaw, `${EDX}:${tb.fs.at(-1).line}`],
+      ];
+      // 净空按标签存，不用数组下标——上面某个态读不懂盒宽时会 continue，下标会整体错位。
+      const clearOf = {};
+      for (const [tag, wHit, b, r, fs, where] of seals) {
+        const w = sealPx(wHit.value);
+        if (w === null) {
+          sfail(`②读不懂${tag}的盒宽（"${wHit.value}" @${wHit.line}）——盒子的宽高写法换了请同步判据，读不懂不算通过`);
+          continue;
+        }
+        const clear = w - b * 2 - r * 2;
+        clearOf[tag] = clear;
+        if (fs > clear) {
+          sfail(`②${tag}装不下：字号 ${fs} > 环内净空 ${clear}（盒宽 ${w} − 边框 ${b}×2 − inset 环 ${r}×2，字号声明见 ${where}）。汉字的 advance 恒等于 1em（这条与装的是哪套 CJK 字体无关），字号一旦超过净空，墨迹就压到内环上——BD-11 当年那句「溢出盒子」说的就是这个形状，只是它当时是假的；把它变成真红的唯一合法路径是先改盒子，改完要连注释一起重看`);
+        }
+      }
+      // —— 比例只读数、不判红（理由见本节 ⚠ 那段：它是循环论证）。
+      if (sFails === 0) {
+        const clearBrand = clearOf["印章常态"];
+        const clearNarrow = clearOf["印章≤920"];
+        const clearTb = clearOf["小印 titlebar"];
+        console.log(
+          `${TAG} [SEAL 不变量] 印章 ${baseFs}px／≤920 ${narrowFs}px 同值，环内净空 常态 ${clearBrand}、≤920 ${clearNarrow}（边框 ${baseBx}、inset 环 ${baseRing}）；小印 ${tbFsRaw}px / 净空 ${clearTb} ——实算通过。字号占净空 印章 ${((baseFs / clearBrand) * 100).toFixed(2)}% ↔ 小印 ${((tbFsRaw / clearTb) * 100).toFixed(2)}%（BD-23 按这条投的档，**不判红**，见本节注释）`
+        );
+      }
+    }
   }
 }
 

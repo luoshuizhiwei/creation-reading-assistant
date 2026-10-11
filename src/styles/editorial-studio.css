@@ -134,7 +134,34 @@ select:focus-visible,
   box-shadow: inset 0 0 0 2px color-mix(in srgb, var(--studio-cloth) 88%, transparent), inset 0 0 0 3px color-mix(in srgb, var(--studio-seal) 55%, transparent), 0 3px 10px rgba(0, 0, 0, 0.28);
   color: var(--fg-on-solid);
   font-family: var(--font-serif);
-  font-size: 18px;
+  /* 批次 BD-23 品牌字形批：18 → 20（§3.2 在档）。BD-11 当年的冻结理由里写着
+     「套 16/20 分别会让字撑不满盒子或**溢出盒子**」，那半句是错的——20 从来没溢出过。
+     本批在最终产物上真机量过（fixture 直接 link 打包后的 index*.css，DPR=1，
+     Range 行盒 + canvas 逐像素双读）。⚠ 字体口径要说清：本仓没有 @font-face，
+     --font-content 那串在 Linux 上落到 fontconfig 给的 Noto Serif CJK SC（与
+     Source Han Serif 同一套字形的不同发行），macOS 走 Songti SC、Windows 走 SimSun——
+     所以下面「着墨几 px」是**这台沙箱那套字形的读数**，跨平台会变；只有「汉字 advance
+     = 1em」是全 CJK 字体共同的度量，守卫的 SEAL 不变量②也只押这一条。
+       · 盒子边框盒 38×38，1px 实线 + 两条 inset 环 2px/3px → 环内净空 30×30；
+       · 20px 的「阅」advance 20.00（=1em）、本沙箱字形着墨 18×21 → 净空每边余 5px；
+       · 同族参照 .desktop-titlebar-mark 18×18（净空 16×16）字号 11 = 净空的 68.75%。
+     选边过程要说老实：16 和 20 **都在 §3.2 八档上、都不溢出**，所以「严格最近档」(BD-3)
+     和「行高同名配对」(BD-4) 两条判据在这里都给不出唯一答案——18 正落在两档中间，
+     而这条规则没写 line-height（终产物实读：改前 18px 时行盒 27px、收到 20 后行盒 30px，
+     两个数都正好是字号×1.5，即从 html 那条 preflight 继承来的比率，**不是**作者显式配的，
+     所以拿不到「16↔1.45 / 20↔1.3」这一票——⚠ 这里一度只写「行盒 27px」，那是改前的读数，
+     挂着 20 的规则配一个 18 的数字，正是本仓反复犯的那类「注释里的数不对着终产物」）。
+     按 BD-17 写死的优先级只剩 ②⑤ 能投：
+       ④ §3.2 用途列没有「印章/图形标记」这一行 → 不投票（16 那行是小节标题、20 那行是
+          页面标题，这个字既不是标题也不是正文，它是**图形**）；
+       ⑤ 同族结构：.desktop-titlebar-mark 是同一枚印在小盒子里的形态（18×18，净空 16×16，
+          字号 11，占净空 68.75%）。同值比例对照下 16 只占 53.33%（印面空得像没盖章），
+          20 占 66.67%，与同族差 2.08 个百分点 → 投 20；
+       ② 同行邻居 .desktop-brand strong 是 14，16 只比它高 2px、印章压不住旁边的字 → 投 20。
+     取 20 的实际改动是着墨 17×19 → 18×21，净空两侧余量 6px → 5px（仍不碰 3px 环）。
+     ⚠ 两条规则同档是**判据**（下方 SEAL 不变量①：两档同值），不是巧合：改一处必红。
+     装得下是另一条（不变量②：字号 ≤ 盒宽 − 2×边框 − 2×inset 环）。 */
+  font-size: 20px;
   font-weight: 700;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);
 }
@@ -1902,7 +1929,22 @@ select:focus-visible,
      管不到本元素——!important 只在同一元素的声明之间排序，继承来的值永远输给
      元素自己的声明。墨色底不随主题翻转，白字实测 8.91–15.02:1。 */
   color: #fff;
-  font-size: 15px;
+  /* 批次 BD-23 品牌字形批：15 → 16（§3.2 在档）。15 落在 14/16 正中，「严格最近档」给不出
+     方向。⚠ 别拿「同族都收 16」当理由——BD-17 那批 6 处 15px 是按角色分着收的：
+     4 处进 16（.stats-card h3 + .background-page-title 同一条规则、.creation-step legend、
+     .preview-chapter-heading、.preview-block），1 处进 14（.creation-search-input 控件），
+     1 处进 12（.stats-words dd 键值行里的值）。所以这一处只能按角色自己定：
+       ⑤ 同行结构：这一行右侧书名是 text-base（产物实读 16px），墨色块里那个字就是这一行的
+          **图形题名**，与书名同档才读作「同一行的两个标题」；收 14 会低于行题名、
+          读成次要信息，收 12 就直接归进「值/元信息」那一档了（这一行的元信息确实是 12）。
+     真机量的余量（最终产物 + 本沙箱 fontconfig 落到的 Noto Serif CJK SC，DPR=1；字体口径
+     与跨平台风险见本文件 .desktop-brand-mark 那条注释）：盒子 38×50、无边框、
+     那条 inset 是 0 spread 的顶高光 → 净空就是 38×50；16px 时「书」「文」行盒宽 16.02、
+     「M」15.11，两侧各余 11px；行盒高 24px 对 50px 余 26px。
+     14 同样装得下（行盒 14×15、两侧各余 12）——本批收 16 靠的不是「14 装不下」，是角色归档。
+     ⚠ 作者那条「这条必须留着，而且是活的」说的是 color（父级 !important 管不到子元素），
+       本批一个字没动它；字号变了仍是活的，改前改后胜者表里 .library-cover-glyph 都只有一份。 */
+  font-size: 16px;
   font-weight: 700;
   opacity: 0.94;
 }

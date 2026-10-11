@@ -139,7 +139,7 @@
    *   68 = padding-inline 34×2
    *   2  = 下面那条 1px border ×2
    *   9  = **纵向滚动条**——本元素是 overflow:auto 的滚动容器，全书正文必然溢出，
-   *        而 ::-webkit-scrollbar 的宽度在 editorial-studio.css:2442 被后置成 9px
+   *        而 ::-webkit-scrollbar 的宽度在 editorial-studio.css:2484 被后置成 9px
    *        （盖掉 styles.css:176 的 10px）。真机实测 offsetWidth → clientWidth 差的正是
    *        2+9；少了这 9px，正文列只剩 663px → 整行掉到 41 个字。
    * ⚠ 这三项任何一处改动，本条的加法就漂。漂了**不会**让行长掉：那 42em 由

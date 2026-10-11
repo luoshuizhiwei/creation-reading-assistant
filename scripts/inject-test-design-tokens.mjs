@@ -225,7 +225,7 @@ const cases = [
   // （新增即红），或用**合法收敛不降预算**造 stale 红；两种形状都要有，缺一半就是半个判据。
   ["排版棘轮·字号①：CSS 侧在字号零预算文件里新增一处离刻度 font-size（inbox-local.css 不在 FS_BUDGET 里、视同 0，11px→11.5px 必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", "  font-size: 11px;", "  font-size: 11.5px;"), /第 8 步字号：/],
   ["排版棘轮·字号②：TSX 侧把刻度上的 text-sm(14) 换成 text-lg(18)（LibraryPage 字号预算 0，§3.2 八档里没有 18px，必须红）", () => mutate("src/features/library/LibraryPage.tsx", '<div className="text-sm text-paper-muted">正在加载书籍...</div>', '<div className="text-lg text-paper-muted">正在加载书籍...</div>'), /第 8 步字号：/],
-  ["排版棘轮·字号③：还了债却不降预算（批次 BD-6 还清命令面板那页、styles.css 预算 14→12，原先钉的 .creation-palette-command 13.5px 随之消失，牙搬到**最慢还**的那笔债：editorial-studio.css 稿纸 .scene-editor-content 的 font-size: 17px——它是 §3.3 稿纸 16px 的目标值，但被「17×line-height:2=34px 横线节距」的耦合冻结，任何字号批次都动不了它，只有专门的稿纸批能一起改三件，所以这颗牙在稿件批次之前不会失效。改法只动 font-size（17→16）、留着 line-height: 2，因此必须只有 FS_BUDGET 红、LH_BUDGET 不红——同一条规则上「行高比率②」钉的是另一半（只动 line-height），两处改动各证明一本判据在咬。⚠ 稿纸批落地时那三件一起重算，本牙与行高比率②的 needle 同批失效、同批搬家。✔ 批次 BD-20 稿纸批落地，needle 如预告失效，本牙搬到**下一笔最慢还**的债：editorial-studio.css .desktop-brand-mark 的 font-size: 18px——守卫 BD-11/BD-17 已把它连同 styles.css 窄屏那条 18px、.library-cover-glyph 15px 一起立案成「品牌字形族」，要等一个还没排期的品牌批显式定字形档位，所以短期内不会再有任何批次顺手还掉它。改法 18→16（刻度上的合法收敛）不降预算，必须红）", () => mutate("src/styles/editorial-studio.css", "  font-size: 18px;", "  font-size: 16px;"), /FS_BUDGET 里对应数字/],
+  ["排版棘轮·字号③：还了债却不降预算（这颗牙的历史就是本账的搬迁史：BD-6 还清命令面板那页后，它从 .creation-palette-command 13.5px 搬到稿纸 .scene-editor-content 17px；BD-20 稿纸批三件同算落地，needle 如预告失效，搬到 .desktop-brand-mark 18px；BD-23 品牌字形批把 18 收回 20，本牙再搬一次——搬去**下一笔最慢还**的债：editorial-studio.css hero 接管态的 `font-size: 11.5px !important`。它是第 6 步那 12 条容器接管规则的一员，守卫写明要随「写作页迁移批」整族删除，所以短期内没有任何字号批次会顺手还掉它。改法 11.5→11（刻度上的合法收敛）不降预算，必须红）", () => mutate("src/styles/editorial-studio.css", "  font-size: 11.5px !important;", "  font-size: 11px !important;"), /FS_BUDGET 里对应数字/],
   ["排版棘轮·行高比率①：新增一个八档之外的比率（history-local.css 不在 LH_BUDGET 里视同 0，1.5→1.65 必须红——1.65 正是本仓最常见的手抄多一档。⚠ 批次 BD-4 把这条锚点规则的字号从 11.5px 收到 11px（§3.2 同名配对 11↔1.5），needle 跟着新字号重写，锚的还是同一条 .history-item-retention）", () => mutate("src/features/creation/history/history-local.css", "  font-size: 11px;\n  line-height: 1.5;", "  font-size: 11px;\n  line-height: 1.65;"), /第 8 步行高比率：/],
   // 排版棘轮·行高比率②（还了债却不降预算）随批次 BD-20 退役：稿纸那一对 line-height: 2
   // 是这本账最后 2 处债，BD-20 把字号/行高/节距三件一起重算掉之后 LH_BUDGET 成为空表，
@@ -548,7 +548,19 @@ const cases = [
   // ⚠ 反向用例的取值刻意挑**同在刻度外/刻度内**的组合（34→36、16→12）：换成 40/10 这类
   // 会挪动间距台账计数的值，先被间距棘轮咬红，就测不到「MEASURE 只咬挤字的方向」这件事了。
   ["批次 BD-22 MEASURE·反向：≤900 档内边距 16→12（刻度内换刻度内），可用宽 751−24−2−9=696 更富余，不该红——判据只咬「挤掉字」的方向", () => mutate("src/features/creation/preview/preview-local.css", "    padding: 20px 16px 30px;", "    padding: 20px 12px 30px;"), null],
-  ["批次 BD-22 MEASURE·反向：两侧**一起**改（padding 34→36 同时补偿项 68→72）可用宽仍是 672，不该红——它守的是算术关系，不是三个数字本身", () => { mutate("src/features/creation/preview/preview-local.css", "  padding: 30px 34px 44px;", "  padding: 30px 36px 44px;"); mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 72px + 2px + 9px);"); }, null]
+  ["批次 BD-22 MEASURE·反向：两侧**一起**改（padding 34→36 同时补偿项 68→72）可用宽仍是 672，不该红——它守的是算术关系，不是三个数字本身", () => { mutate("src/features/creation/preview/preview-local.css", "  padding: 30px 34px 44px;", "  padding: 30px 36px 44px;"); mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 72px + 2px + 9px);"); }, null],
+  // 批次 BD-23：SEAL 不变量的牙。印章一族这四处刚被收回 §3.2 八档（18→20 ×2、15→16），
+  // 本批新造的风险不是「字号离刻度」（那本账已经绿了），而是**有人顺手挪那只盒子或那圈环**
+  // ——值在刻度上、盒子变小，字就压到内环上，而这在 vitest 与截图里都看不出来。
+  // 每颗牙同样只改一处：真实失效剧本就是「改了一个数字、忘了它的搭档」。
+  ["批次 BD-23 SEAL①：只把 ≤920 那条印章字号改成 16（基础档留 20）必须红——窄屏那条不是压缩档（盒子宽高逐字重复基础档），单边改等于窄屏印面突然换尺寸。⚠ 16 刻意是刻度上的值：字号棘轮咬不到它，红只能来自不变量", () => mutate("src/styles.css", "    font-size: 20px;", "    font-size: 16px;"), /SEAL 不变量：/],
+  ["批次 BD-23 SEAL①·半锚：把 ≤920 那条 font-size 整条删掉、盒宽留着，必须红——这条测的是判据自己的失明方向：删干净（字号与盒宽一起没）等于继承基础档，合法；只读到一半就是选择器或属性名写错的症状，而它与真删掉在①上表现一模一样，所以单独判（读不懂不许绿）", () => mutate("src/styles.css", "    font-size: 20px;\n", ""), /SEAL 不变量：/],
+  ["批次 BD-23 SEAL②：把印章盒子 38×38 缩成 26×26（字号 20 不动）必须红——净空 26−1×2−3×2=18 < 20，汉字 advance 恒等于 1em，字就压到内环上。这正是「值已经落进刻度、下一批人最顺手挪的是盒子」那条剧本", () => mutate("src/styles/editorial-studio.css", "  width: 38px;\n  height: 38px;", "  width: 26px;\n  height: 26px;"), /SEAL 不变量：/],
+  ["批次 BD-23 SEAL②·环也算：只把外圈 inset 环 3px 画粗到 9px（盒子与字号都不动）必须红——净空 38−1×2−9×2=18 < 20。印面的净空是三处声明算出来的，不是盒宽本身；⚠ 这条同时证明它没被阴影棘轮误伤：那条声明本来就带一层非 inset 投影、早就在账上，改 spread 不挪计数", () => mutate("src/styles/editorial-studio.css", "inset 0 0 0 3px", "inset 0 0 0 9px"), /SEAL 不变量：/],
+  // 反向两颗：证明判据咬的是**关系**，不是这三个数字本身——合法的同幅迁移不许红，
+  // 否则下一批人只会绕过判据（BD-22 已经把这条教训写进 MEASURE 的注释）。
+  ["批次 BD-23 SEAL·反向：盒子两侧一起放大 38→42（字号仍是 20）不该红——净空 34 ≥ 20，装得下的盒子改尺寸不是债。它守住「挪盒子必红」的过度灵敏版本：判据只咬挤字的方向", () => { mutate("src/styles/editorial-studio.css", "  width: 38px;\n  height: 38px;", "  width: 42px;\n  height: 42px;"); mutate("src/styles.css", "    width: 38px;\n    height: 38px;", "    width: 42px;\n    height: 42px;"); }, null],
+  ["批次 BD-23 SEAL·反向：两档**一起**降到 16 不该红——16 同样在八档上、同样装得下（净空 30），BD-23 选 20 靠的是同族比例与邻居层级这两条**不判红**的证据（见守卫本节 ⚠：把它们写成法律就是循环论证）。这条牙钉住的是：将来带新证据改回 16 的人，只需两边一起改，不必先拆判据", () => { mutate("src/styles/editorial-studio.css", "  font-size: 20px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);", "  font-size: 16px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);"); mutate("src/styles.css", "    font-size: 20px;", "    font-size: 16px;"); }, null]
 ];
 
 let bad = 0;

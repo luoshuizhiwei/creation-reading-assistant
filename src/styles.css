@@ -617,7 +617,7 @@ button:disabled {
 
 .desktop-sidebar-stats strong {
   color: var(--paper-ink);
-  /* 批次 BD-2：删掉这条字号。editorial-studio.css:251 的同特异度后置规则（20px）一直是胜者，
+  /* 批次 BD-2：删掉这条字号。editorial-studio.css:278 的同特异度后置规则（20px）一直是胜者，
      这条从未画出来过；留在账上就是让下一个人在死数值上算档位。 */
   line-height: 1.1;
 }
@@ -665,7 +665,7 @@ button:disabled {
   overflow: hidden;
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:520 的 20px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:547 的 20px）。 */
   font-weight: 700;
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -771,7 +771,7 @@ button:disabled {
 .desktop-page-hero h2 {
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2888 的 clamp(20px, 1.8vw, 23px)）。
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2930 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
   font-weight: 740;
   letter-spacing: -0.045em;
@@ -1556,7 +1556,7 @@ button:disabled {
 .writing-margin h3 {
   margin: 4px 0 18px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1340 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1367 的 14px）。 */
 }
 
 .writing-margin dl {
@@ -1675,7 +1675,7 @@ button:disabled {
   }
 
   .scene-editor {
-    /* 批次 BD-22（measure 批）：760 → 738。纸壳比正文宽出的那 2px **不是留白**，是 editorial-studio.css:1261
+    /* 批次 BD-22（measure 批）：760 → 738。纸壳比正文宽出的那 2px **不是留白**，是 editorial-studio.css:1288
        给 .scene-editor 自己那圈 1px 实线边框——border-box 全局生效，所以壳内可用宽 = 738 − 2 = 736，
        正好等于 .scene-editor-content 的 max-width（42em + 32×2）。真机实测：写 736 时正文被挤成 734、
        整行墨迹 656.02px = 41 个汉字，比宽屏那档少一字；写 738 后 ≤1180 与宽屏同为 672.02px = 42 字。
@@ -2936,7 +2936,7 @@ button:disabled {
 
 .stats-streak {
   margin: 0;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2826 的 20px——原 22 已在批次 BD-10 收口）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2868 的 20px——原 22 已在批次 BD-10 收口）。 */
   font-weight: 800;
   color: var(--copper);
   font-variant-numeric: tabular-nums;
@@ -3524,7 +3524,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--paper-ink);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1562 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1589 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -3546,13 +3546,13 @@ button:disabled {
 
 .inbox-item-body {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1569 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1596 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1569 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1596 的 12px）。 */
 }
 
 .inbox-item-actions {
@@ -4264,7 +4264,11 @@ button:disabled {
     width: 38px;
     height: 38px;
     border-radius: var(--radius-3);
-    font-size: 18px;
+    /* 批次 BD-23：与基础档 editorial-studio.css 同值收到 20。窄屏这条历来不是「压缩档」
+       （BD-11 就是拿「两条同值」当字形尺寸的证据的），盒子宽高在这儿**逐字重复**基础档的
+       38×38、只换圆角——它是把印章从「带文字的横排」改成「居中方印」的版式规则，不动尺寸。
+       同值现在是硬判据（守卫的 SEAL 不变量①：两档同值），单边改数字会当场红。 */
+    font-size: 20px;
   }
 
   .desktop-brand > span:last-child,
