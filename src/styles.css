@@ -2710,7 +2710,7 @@ button:disabled {
 }
 
 .history-empty {
-  color: var(--paper-muted);
+  /* BD-30 摘死色：color: var(--paper-muted) 从未渲染——「.history-empty」在 .history-* 的宿主页面被 history-local.css:21 同键更晚注入的一条整条压住（宿主只有 HistoryPage.tsx，而它自己就 import 了那份胜者表） */
   font-size: 13px;
   padding: 18px;
   border: 1px dashed color-mix(in srgb, var(--paper-line) 70%, transparent);
@@ -2728,14 +2728,14 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--paper-line);
+  /* BD-30 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.history-item」在宿主页面被 history-local.css:41 同键更晚注入的一条整条压住（同上；实测未挂载 lazy 块时本条会画，挂载后被顶掉——本仓再无别的宿主） */
   border-radius: 10px;
-  background: var(--paper-panel);
+  /* BD-30 摘死色：background: var(--paper-panel) 从未渲染——「.history-item」在宿主页面被 history-local.css:42 同键更晚注入的一条整条压住（同上） */
   padding: 10px 12px;
 }
 
 .history-item-type {
-  color: var(--copper);
+  /* BD-30 摘死色：color: var(--copper) 从未渲染——「.history-item-type」在宿主页面被 history-local.css:57 同键更晚注入的一条整条压住（同上） */
   font-size: 11px;
   font-weight: 700;
   min-width: 34px;
@@ -2743,11 +2743,11 @@ button:disabled {
 
 .history-item strong {
   font-size: 13px;
-  color: var(--paper-ink);
+  /* BD-30 摘死色：color: var(--paper-ink) 从未渲染——「.history-item strong」在宿主页面被 history-local.css:105 同键更晚注入的一条整条压住（同上） */
 }
 
 .history-item small {
-  color: var(--paper-muted);
+  /* BD-30 摘死色：color: var(--paper-muted) 从未渲染——「.history-item small」在宿主页面被 history-local.css:114 同键更晚注入的一条整条压住（A 侧探针实测：挂载前 rgb(102,109,119)＝本条，挂载后 rgb(128,137,148)＝胜者） */
   font-size: 11px;
   margin-left: auto;
   white-space: nowrap;

@@ -3977,64 +3977,157 @@ const hostPredicate = (() => {
   }
 }
 
-/* ------------------------ 颜色分支不得有两个真源（第 8 步批次 BD-29 立） */
+/* ------------------------ 颜色分支不得有两个真源（第 8 步批次 BD-29 立，BD-30 重写顺序真源） */
 
 /**
- * 上面那条只查 border-radius / box-shadow。同一形状的债在**颜色属性**上多了一个量级，
+ * 上面那条只查 border-radius / box-shadow。同一形状的债在**颜色属性**上多一个量级，
  * 却一直没人名下：批次 BD-29 动手前实测 styles.css 里有 96 条颜色声明（color 39、
  * background 38、border 13、border-color 6）被 editorial-studio.css 用逐字相同的选择器
  * 分支、同 @上下文、同 important 异值压着——一个像素都没画出来过，却被当作活样式传给
- * 每一批读源码的人。这批摘掉其中 95 条（另 1 条见下）。
+ * 每一批读源码的人。BD-29 摘掉其中 95 条 + 拆开 1 条半死的；批次 BD-30 再摘掉
+ * 「主题表 × 特性表」两向共 20 条 + 拆开 1 条（search.css 10 条、styles.css 历史页 6 条、
+ * editorial-studio.css 总览页 4 条），本判据由此**全站归零、不再有预算这一档**。
  *
  * 判据（与几何分支同源，语义抄规范，不是我发明的）：两条声明若
  *   选择器文本相同（⇒ 特异度必然相同）+ @规则上下文相同（⇒ 同激活同失效）
  *   + 属性文本相同（⇒ 覆盖完全相同的长写集合）+ important 状态相同，
  * 则**发射更晚的一条整条压住更早的那条**。与被压那条有没有元素命中、处于什么状态无关，
  * 所以 :hover、.active、::-webkit-scrollbar 这些截图 A/B 触发不了的分支同样判得动。
- * 发射顺序按 src/app/main.tsx 里 import 的行序实读（styles.css 先、editorial-studio.css 后），
- * 顺序前提漂了本判据必须红——它一旦反过来，「死侧」就会整体换位，摘行就成改版。
  *
- * ⚠ 三条判据收紧的地方，都是本批实测踩出来的，不是洁癖：
+ * ⚠⚠ 发射顺序的真源是 **main.tsx 的 import 图**，不是「文件叫主题表还是特性表」。
+ * 这条是 BD-30 修的，也是本批判据真正的收获。BD-29 那版把「特性局部表一律排在两份主题表
+ * 之后」当事实写进判据，实测是**错的**：search.css 经 App.tsx→SearchPanel 静态 import，
+ * 和 styles.css、editorial-studio.css 同进**一个主 bundle**，未压缩产物里各表的声明序列号
+ * 实测是 settings-controls.css 0..158 → search.css 159..285 → styles.css 299..2898 →
+ * editorial-studio.css 2950..4467（按「只属于这一张表的 选择器+属性+值 三元组」归属，
+ * 无倒序）。也就是说 search.css 比两份主题表都早一整层。于是 BD-29 的账里有 10 条
+ * 方向记反：真正的死侧在 search.css，主题侧那 10 条**一直在画**。
+ * 后果不是账目难看，是**下一批会删错东西**：照 BD-29 那份账还债，就把在画的声明删掉、
+ * 把从不渲染的留下，界面当场改版——而这正是本判据想防的东西，判据自己却犯了。
+ * 所以顺序现在由代码从 import 图走出来的，并且把「与产物相符」这条前提也验上（见自检①）：
+ *   · 从 src/app/main.tsx 出发顺静态 import 深度优先（含 "@/" 别名），得出 eager 发射序；
+ *   · 动态 import(() => …) 的模块自成一批记为 lazy，排在全部 eager 表之后——它是代码块，
+ *     CSS 由 vite 运行时注入 <head> 末尾（实测挂载历史页时 document.styleSheets 从 4 张
+ *     变 5 张、新增的就是 HistoryPage-*.css）；
+ *   · **lazy × lazy 不判**：两份块级表的相对顺序取决于用户先点进哪个界面，静态读不出来，
+ *     硬猜就会造出假死侧（实测本仓两块级表无同名类，暂时也没有可判对象）；
+ *   · 同一张表既被静态引又被动态引时按静态算（先到先得，实测 settings-controls.css 如此）。
+ *
+ * ⚠ 三条判据收紧的地方，都是实测踩出来的，不是洁癖：
  *  · **多选择器规则要逐个选择器判**：一条 `.a, .b { color: X }` 里 .a 被压死、.b 没人压，
- *    整条声明仍然是活的（删它 .b 就掉色）。批次 BD-29 唯一没摘的那条就是这个形状
- *    （styles.css 的 .background-card:hover / .active），处理办法是**拆选择器**：
- *    把活的那半边留下、死的那半边摘掉，两侧各得其所，而不是整条留着继续撒谎。
- *  · **值相同不算分叉**（那是冗余），同值共存还有 4 处（.project-nav button 的
- *    border/background 等），另账。
+ *    整条声明仍然是活的（删它 .b 就掉色）。两批各撞上一条，处理办法都是**拆选择器**：
+ *    BD-29 是 styles.css 的 .background-card:hover / .active，BD-30 是 search.css 的
+ *    .uni-search-group li button:hover / .active（:hover 的 background 被 editorial:1806
+ *    压死，.active 那半边没有胜者）。把活半边留下、死半边摘掉，而不是整条留着撒谎。
+ *  · **值相同不算分叉**（那是冗余），同值共存还剩 2 处（.project-nav button 的 border: 0
+ *    与 background: transparent），另账。
  *  · **一侧带 !important 不判**：胜者由 !important 单独定，与几何分支同一豁免理由。
+ *    ⚠ 这条在本仓不是纸面豁免：.stats-card / .desktop-panel-card 的 background 在
+ *    editorial-studio.css:770 带 !important、styles.css 那侧不带——同键异值确实存在，
+ *    但「谁发射得晚」这件事对它不成立，判成分叉就会逼人删掉该留的兜底。
  *
- * 为什么不复用 CSSOM 读值来判「死没死」：Chrome 对含 var() 的简写**不在解析期展开长写**，
+ * 为什么不用 CSSOM **规则层**读值判死没死：Chrome 对含 var() 的简写不在解析期展开长写，
  * 规则层 getPropertyValue("background-color") 拿到空串，`border: 0` 又被序列化成
- * `border-top: 0px; …` 碎片。本批判据第一版真跑了浏览器，就照这个形状误判出 14 条
- * 「胜者不存在」——其中一半正是最典型的胜者 `border: 0`。所以判据落在源码/产物的文本层，
- * 而**产物层**的核实另有其人：这批的验收是「删前删后两份构建产物逐子像素全等」
- * （晨校 4 张 + 夜校 4 张，共 0 差异），加上产物规则声明差集 −99/+0/0 重数变化。
+ * `border-top: 0px; …` 碎片。BD-29 第一版真跑了浏览器，照这个形状误判出 57 条「查无此规则」
+ * 再加 14 条「胜者不存在」。⚠ BD-30 补一句区分：**元素级** getComputedStyle 是另一回事，
+ * 读的是级联算完的最终值，能当证据（本批就用它实测了 lazy 注入前后：同一个
+ * .history-item small，挂载 history-local.css 前读 rgb(102,109,119)＝主题侧本条，
+ * 挂载后读 rgb(128,137,148)＝胜者）——但它证不了「谁压谁」：两侧同值时读数一样，
+ * 而且只看得见当前已挂载的页面。所以判据落在源码文本层 + import 图，产物与浏览器负责复核。
  *
- * 方向：主题表 × 主题表 = 零容忍（本批已归零）；主题表 × 特性局部表 = 现存 19 条，
- * 按文件冻结预算。后者这批不还的理由与批次 AQ 当年相反——不是怕放水，而是那 19 条里
- * editorial-studio.css 的 13 条属于统一搜索托盘/总览页，特性表（search.css、
- * overview-local.css、history-local.css）才是这些界面的现役主人，摘主题侧要连带核
- * 「主题侧那条是不是别页的兜底」，那是另一批的量级。先把账立住，别让它在没人管的
- * 状态下继续被读成活的。
+ * 归零之后自检不能再拿债当样本（BD-29 那版正是如此，债一还完探针就瞎）：
+ * 下面三条全部不依赖账上恰好有分叉。
  */
 {
   const relOf = (p) => path.relative(root, p).split(path.sep).join("/");
   const COLOR_PROP = /^(color|background|background-color|border-color|border-top-color|border-right-color|border-bottom-color|border-left-color|outline-color|fill|caret-color|text-decoration-color|border)$/i;
-  const THEME_ORDER = (() => {
-    const mainSrc = read("src", "app", "main.tsx");
-    const idx = ["src/styles.css", "src/styles/editorial-studio.css"].map((rel) => mainSrc.indexOf(`import "${rel.replace("src/", "@/")}"`));
-    if (idx.some((i) => i < 0)) return null;
-    return idx[0] < idx[1] ? idx : null;
+  const isFile = (p) => {
+    if (!existsSync(p)) return false;
+    try {
+      readdirSync(p);
+      return false; // 是目录
+    } catch {
+      return true;
+    }
+  };
+
+  /**
+   * 发射序：从 main.tsx 走 import 图（深度优先、子项按源码出现顺序）。
+   * 走不出那两行主题表就返回 null——前提没了必须红，不许退回「按文件名猜谁在后」。
+   */
+  const EMISSION = (() => {
+    const SRC = path.join(root, "src");
+    const resolveSpec = (spec, fromFile) => {
+      let base = null;
+      if (spec.startsWith("@/")) base = path.join(SRC, spec.slice(2));
+      else if (spec.startsWith("./") || spec.startsWith("../")) base = path.resolve(path.dirname(fromFile), spec);
+      if (!base) return null;
+      for (const cand of [base, base + ".tsx", base + ".ts", base + ".jsx", base + ".js", base + ".css", path.join(base, "index.tsx"), path.join(base, "index.ts")]) {
+        if (isFile(cand)) return cand;
+      }
+      return null;
+    };
+    const eager = [];
+    const lazy = new Set();
+    const visited = new Set();
+    const collectLazy = (f, seen) => {
+      if (!f || seen.has(f)) return;
+      seen.add(f);
+      if (f.endsWith(".css")) {
+        lazy.add(relOf(f));
+        return;
+      }
+      if (!/\.(tsx|ts|jsx|js)$/.test(f)) return;
+      const code = readFileSync(f, "utf8");
+      for (const m of code.matchAll(/["']([^"']+\.(?:css|ts|tsx|js|jsx))["']|["'](@\/[^"']+)["']|["'](\.[^"']+)["']/g)) {
+        const r = resolveSpec(m[1] || m[2] || m[3], f);
+        if (r) collectLazy(r, seen);
+      }
+    };
+    const walk = (file) => {
+      if (visited.has(file)) return;
+      visited.add(file);
+      if (file.endsWith(".css")) {
+        if (!eager.includes(relOf(file))) eager.push(relOf(file)); // 静态优先：先到先得
+        return;
+      }
+      if (!/\.(tsx|ts|jsx|js)$/.test(file)) return;
+      const code = readFileSync(file, "utf8");
+      const hits = [];
+      const RE = /\bimport\s+(?:type\s+)?(?:[\w{},*\s]+from\s*)?["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g;
+      for (const m of code.matchAll(RE)) {
+        const spec = m[1] || m[2];
+        const dyn = !m[1];
+        const r = resolveSpec(spec, file);
+        if (r) hits.push({ r, dyn, i: m.index });
+      }
+      hits.sort((a, b) => a.i - b.i);
+      for (const h of hits) {
+        if (h.dyn) collectLazy(h.r, new Set());
+        else walk(h.r);
+      }
+    };
+    walk(path.join(SRC, "app", "main.tsx"));
+    const THEME2 = ["src/styles.css", "src/styles/editorial-studio.css"];
+    const idx = THEME2.map((rel) => eager.indexOf(rel));
+    if (idx.some((i) => i < 0) || !(idx[0] < idx[1])) return null;
+    return { eager, lazy };
   })();
-  if (!THEME_ORDER) {
+
+  const deadBy = new Map();
+  const sheets = new Map();
+  if (!EMISSION) {
     fail(
-      `第 8 步颜色分支：读不到 src/app/main.tsx 里 styles.css → editorial-studio.css 的发射顺序——` +
-        `本判据的「谁压谁」全部建立在这条顺序上，前提没了就必须红（MEASURE 那条同样依赖它）。`
+      `第 8 步颜色分支：从 src/app/main.tsx 走不出可信的发射顺序（styles.css / editorial-studio.css 至少一份不在静态可达清单里，或两份的行序反了）——` +
+        `本判据的「谁压谁」整个建立在发射顺序上，前提没了就必须红，不许退回「按文件名猜谁在后」。` +
+        `BD-29 那版就是这么猜的（把特性表一律排到主题表之后），结果把 10 条在画的声明记成了死色，照那份账还债会直接改版。`
     );
   } else {
-    const THEME = ["src/styles.css", "src/styles/editorial-studio.css"];
-    // rel -> key -> [{line, value, imp, sel, sels}]
-    const sheets = new Map();
+    const rank = (rel) => {
+      const i = EMISSION.eager.indexOf(rel);
+      if (i >= 0) return i;
+      return EMISSION.lazy.has(rel) ? EMISSION.eager.length : null;
+    };
     for (const cssFile of cssFiles) {
       const rel = relOf(cssFile);
       if (rel.includes("__tests__")) continue;
@@ -4050,7 +4143,7 @@ const hostPredicate = (() => {
         for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") ctx.push(`@${p.name} ${p.params}`);
         const c = ctx.slice().reverse().join(" ").replace(/\s+/g, "");
         // @layer 里的声明与未分层声明不是「同键比顺序」的关系（分层永远输给未分层），
-        // 本判据的顺序模型覆盖不了它，遇到就跳过——当前三份主题表没有 @layer 颜色声明。
+        // 本判据的顺序模型覆盖不了它，遇到就跳过——当前全站 CSS 没有 @layer 颜色声明。
         if (/@layer/.test(c)) return;
         const sels = rule.selectors.map((s) => s.replace(/\s+/g, " ").trim());
         rule.walkDecls((d) => {
@@ -4065,26 +4158,21 @@ const hostPredicate = (() => {
       });
       sheets.set(rel, m);
     }
-    // 发射序：主题表按 main.tsx；特性局部表一律视为「在主题表之后」（各页 import 自己的
-    // css，随组件挂载注入，实测在主编排之后）；特性表之间不排序——两份局部表的相对
-    // 顺序静态读不出来，硬猜会造出假死侧，所以只做「主题侧被特性侧压」这一个方向。
-    const rank = (rel) => {
-      const t = THEME.indexOf(rel);
-      return t >= 0 ? t : THEME.length;
-    };
-    const deadBy = new Map(); // 死声明 -> 压住它的胜者列表
     for (const [rel, m] of sheets) {
+      const r0 = rank(rel);
+      if (r0 === null) continue;
       for (const [k, list] of m) {
         for (const a of list) {
-          const sels = a.sels;
-          let missing = false;
           const winners = [];
-          for (const s of sels) {
+          let missing = false;
+          for (const s of a.sels) {
             const kk = `${k.split("\t")[0]}\t${s}\t${k.split("\t")[2]}`;
             let covered = null;
             for (const [o, om] of sheets) {
               if (o === rel) continue;
-              if (rank(o) <= rank(rel)) continue; // 只认更晚发射的那一侧压住我
+              const r1 = rank(o);
+              if (r1 === null || r1 <= r0) continue; // 只认更晚发射的那一侧压住我
+              if (r0 >= EMISSION.eager.length && r1 >= EMISSION.eager.length) continue; // lazy × lazy 不可判
               const cand = (om.get(kk) || []).filter((x) => x.value !== a.value && x.imp === a.imp);
               if (cand.length) covered = cand[cand.length - 1];
             }
@@ -4092,80 +4180,79 @@ const hostPredicate = (() => {
             winners.push(`${s} ⇐ ${covered.rel}:${covered.line}`);
           }
           if (missing || !winners.length) continue;
-          deadBy.set(`${rel}:${a.line}:${a.prop}`, { a, winners, theme: THEME.includes(rel) });
+          const id = `${rel}:${a.line}:${a.prop}`;
+          if (!deadBy.has(id)) deadBy.set(id, { a, winners });
         }
       }
     }
-    // 方向一：两份主题表之间——零容忍。
-    const between = [...deadBy.values()].filter((x) => x.theme && x.winners.every((w) => THEME.some((t) => w.includes(`${t}:`))));
-    // 方向二：主题表被特性局部表压住——冻结预算（按文件计条数）。
-    const COLOR_FORK_BUDGET = {
-      // 统一搜索托盘 / 总览页 / 历史页的现役主人在特性表里，主题侧这 19 条从未胜出。
-      // 批次 BD-29 立账时冻结；还掉一处就把数字改成新计数，多出来一条就红。
-      "src/styles/editorial-studio.css": 13,
-      "src/styles.css": 6
-    };
-    const feat = new Map();
-    for (const x of deadBy.values()) {
-      if (!x.theme) continue;
-      if (x.winners.every((w) => THEME.some((t) => w.includes(`${t}:`)))) continue; // 已归方向一
-      feat.set(x.a.rel, (feat.get(x.a.rel) || 0) + 1);
-    }
-    const overF = [...feat.keys()].filter((f) => (feat.get(f) || 0) > (COLOR_FORK_BUDGET[f] ?? 0));
-    const staleF = Object.keys(COLOR_FORK_BUDGET).filter((f) => (COLOR_FORK_BUDGET[f] ?? 0) > (feat.get(f) ?? 0));
-    if (between.length) {
+    // 零容忍。原先的「按文件冻结预算」是 BD-29 的错处之一：它把**没核实的方向**写成合法
+    // 额度，于是记反的方向也被冻成了预算，看起来像待还的债，其实是判据在撒谎。
+    if (deadBy.size) {
+      const list = [...deadBy.values()].slice(0, 4).map((x) => `${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}} ⇐ ${x.winners.join("；")}`);
       fail(
-        `第 8 步颜色分支（主题表 × 主题表）：${between.length} 条颜色分支在 styles.css 与 editorial-studio.css 里各有一个取值——` +
-          `${between.slice(0, 3).map((x) => `${x.a.rel}:${x.a.line} {${x.a.prop}} ${x.a.value}；${x.winners.join("；")}`).join(" ｜ ")}。\n` +
-          `  两份主题表同特异度，胜负只看谁发射得晚，于是更早那条从未画出一个像素（批次 BD-29 摘掉的 95 条全是这个形状）。\n` +
-          `  要么删掉不生效那条并留注释写明胜者，要么让两条真正分工（不同选择器/不同属性）——别让它继续冒充活的。`
+        `第 8 步颜色分支：全站 ${deadBy.size} 条颜色声明在同键（同选择器文本 + 同 @上下文 + 同属性 + 同 important）上被发射更晚的一条整条压住，从未画出一个像素——${list.join(" ｜ ")}` +
+          `\n  发射顺序取自 main.tsx 的 import 图（${EMISSION.eager.length} 张静态表按行序 + ${EMISSION.lazy.size} 张块级表在其后）；批次 BD-29 摘 95 拆 1、BD-30 摘 20 拆 1 之后这里是零，没有预算档。` +
+          `\n  要么删掉不生效那条并留注释写明胜者（多选择器规则要拆开，别整条留着撒谎），要么让两条真正分工（不同选择器 / 不同属性 / 不同 important）。`
       );
     }
-    if (overF.length) {
-      fail(
-        `第 8 步颜色分支（主题表 × 特性表）：${overF.length} 个文件的死色比分冻结预算多——` +
-          `${overF.map((f) => `${f}(${feat.get(f)}/${COLOR_FORK_BUDGET[f] ?? 0})`).join("、")}。\n` +
-          `  新增一条主题表颜色声明被特性局部表同键压住 = 它从不渲染却会误导下一批人（批次 BD-29 的账就是这么清出来的）。` +
-          `确实要覆盖就换不同的选择器或删掉主题侧那条；还了债就把 COLOR_FORK_BUDGET 改成新计数。`
-      );
-    }
-    if (staleF.length) {
-      fail(
-        `第 8 步颜色分支（主题表 × 特性表）：${staleF.length} 个文件已经还了死色但预算没跟着降——` +
-          `${staleF.map((f) => `${f}(${feat.get(f) ?? 0}→应为预算 ${COLOR_FORK_BUDGET[f]})`).join("、")}。` +
-          `把 COLOR_FORK_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一处）。`
-      );
-    }
-    // 判据自检：这条判据唯一致命的错法是「看不见分叉」——归一化（选择器空白、@上下文、
-    // 属性大小写）一旦被改坏，死色会被安静放行。用账上真实存在的两个形状各验一次：
-    // ① 一条已被判死的分支必须仍能扫到两侧同现；② 一处同键同值的共存（.project-nav button
-    //    的 border）必须扫到两侧、且不得进死账（同值不是分叉）。
     {
-      // ⚠ 探针锚在「文件 + 选择器 + 属性」，刻意不锚行号：本批往上加的墓碑、别处任何
-      // 一行插入都会让行号漂移，一漂就把绿判成红。第一次踩到这件事的是 BD-28 环·反向②
-      // 那颗牙——它往 editorial-studio.css 顶部写注释，1736 于是变 1737，红在探针而不是
-      // 环上。判据强度一点没丢：选择器与属性名照样是归一化后的键，归一化被改坏仍扫不到。
-      const PROBE_DEAD = { rel: "src/styles/editorial-studio.css", sel: ".uni-search-overlay", prop: "background" }; // ← search.css:8
-      const PROBE_SAME = "\t.uni-search-shell\tbackground"; // 两份表同值共存，实测在
-      const probeDesc = `${PROBE_DEAD.rel} ${PROBE_DEAD.sel} {${PROBE_DEAD.prop}}`;
-      const probeHit = [...deadBy.values()].some((x) => x.a.rel === PROBE_DEAD.rel && x.a.prop === PROBE_DEAD.prop && x.a.sels.includes(PROBE_DEAD.sel));
-      if (!probeHit) {
+      // 判据自检三条，全部不依赖账上有债：
+      // ① 顺序模型必须与真实产物相符：search.css 与 editorial-studio.css 同进主 bundle，
+      //    而前者在 import 图里更靠前（这正是 BD-29 记反的那一对，现在是**核实过的前提**）。
+      //    自检不能读产物（守卫不依赖 out/，那里可能还没构建），改用「import 图里两份表都
+      //    静态可达且 App.tsx 先引 SearchPanel 后引主题样式」这条源码事实钉住。
+      // ② 归一化没坏：两份主题表现在仍共存的同键声明必须两侧都扫到——扫不到就是键被改坏，
+      //    而那时任何分叉都会被安静放行。
+      // ③ 反向：同键同值的共存不得进死账（冗余不是分叉，判红会逼人多删一条在画的）。
+      const rSearch = EMISSION.eager.indexOf("src/features/search/search.css");
+      const rEditorial = EMISSION.eager.indexOf("src/styles/editorial-studio.css");
+      const appSrc = read("src", "app", "App.tsx");
+      const iSearch = appSrc.indexOf('from "@/features/search/SearchPanel"');
+      const iStyles = EMISSION.eager.indexOf("src/styles.css");
+      // ⚠ 只验「search 在 editorial 之前」不够：BD-30 自己造的牙⑦（把 main.tsx 的
+      //   `import App` 挪到两份主题表之间）实测**还是绿的**——那条改动把 styles.css 从
+      //   rank2 顶到 rank0，死侧整体换位，而上面这两个关系依旧成立。所以这里把
+      //   产物实测过的那份完整清单钉死：改这个顺序当然允许，但必须连本判据的账一起重算。
+      const WANT_ORDER = [
+        "src/features/settings/settings-controls.css", // 产物 seq 0..158
+        "src/features/search/search.css", // 159..285
+        "src/styles.css", // 299..2898
+        "src/styles/editorial-studio.css", // 2950..4467
+      ];
+      const gotOrder = EMISSION.eager.join(" , ");
+      const wantOrder = WANT_ORDER.join(" , ");
+      if (gotOrder !== wantOrder) {
         fail(
-          `第 8 步颜色分支判据退化：${probeDesc} 本该被扫成「被特性表压死的主题侧死色」，现在扫不到。` +
-            `要么键归一化被改坏（分叉会被安静放行），要么这一族真的换了主人——那请连 COLOR_FORK_BUDGET 与本注释一起重算。`
+          `第 8 步颜色分支判据退化：import 图走出的发射顺序是 [${gotOrder}]，与构建产物实测的 [${wantOrder}] 不符。` +
+            `顺序一变「谁压谁」就整体换位（死侧换位 = 照旧账还债会把在画的声明删掉，BD-29 已经犯过一次）：` +
+            `要么这条 import 改动会真的改版，请回退；要么产物顺序确实跟着变了，请重新实测 index-*.css 的声明序列号区间并同步本清单。`
         );
       }
-      const sameSeen = (sheets.get("src/styles/editorial-studio.css")?.get(PROBE_SAME) || []).length > 0 && (sheets.get("src/features/search/search.css")?.get(PROBE_SAME) || []).length > 0;
-      if (!sameSeen) {
+      if (!(rSearch >= 0 && rEditorial > rSearch && iSearch >= 0 && iStyles >= 0)) {
         fail(
-          `第 8 步颜色分支判据退化：.uni-search-shell 的 background 本该在 editorial-studio.css 与 search.css 里各有一份同值声明，现在扫不到两侧同现——` +
-            `归一化或分桶被改坏，这一方向的同值/异值区分就不可信了。`
+          `第 8 步颜色分支判据退化：import 图算出的发射顺序里 search.css(rank${rSearch}) 不在 editorial-studio.css(rank${rEditorial}) 之前，` +
+            `或 App.tsx 里读不到 SearchPanel 的 import（index=${iSearch}）。这两份表同进一个主 bundle，未压缩产物实测 seq 159..285 对 2950..4467——` +
+            `顺序模型与产物不符时「谁压谁」整体不可信，本判据的所有判决作废。`
         );
+      }
+      const SAME_KEY = "\t.project-nav button\tborder"; // 两份主题表都还写着 border: 0（同值共存）
+      const aSide = sheets.get("src/styles.css")?.get(SAME_KEY) || [];
+      const bSide = sheets.get("src/styles/editorial-studio.css")?.get(SAME_KEY) || [];
+      if (!aSide.length || !bSide.length) {
+        fail(
+          `第 8 步颜色分支判据退化：.project-nav button 的 border 本该在两份主题表里各有一份同键声明，现在扫不到两侧同现（styles=${aSide.length}、editorial=${bSide.length}）——` +
+            `键归一化（选择器空白 / @上下文 / 属性大小写）被改坏的话，分叉会被安静放行。`
+        );
+      }
+      const leaked = [...deadBy.values()].some((x) => x.a.prop === "border" && x.a.sels.includes(".project-nav button") && x.a.value === bSide[0]?.value);
+      if (leaked) {
+        fail(`第 8 步颜色分支判据退化：.project-nav button 的 border 两侧**同值**（border: 0），同值重复是冗余不是分叉，却进了死账——判据过严就会逼人删掉在画的兜底。`);
       }
     }
-    if (!between.length && !overF.length && !staleF.length) {
-      const nf = [...feat.values()].reduce((a, b) => a + b, 0);
-      console.log(`${TAG} [第 8 步颜色分支] 主题表 × 主题表 死色 0 处（批次 BD-29 归零）；主题表 × 特性表 死色 ${nf} 条（已按文件冻结预算，还债请同步 COLOR_FORK_BUDGET）`);
+    if (!deadBy.size) {
+      console.log(
+        `${TAG} [第 8 步颜色分支] 全站同键异值死色 0 条（BD-29 摘 95 拆 1 + BD-30 摘 20 拆 1，预算档已取消）；发射顺序由 main.tsx import 图推出：静态 ${EMISSION.eager.length} 张按行序、块级 ${EMISSION.lazy.size} 张在其后`
+      );
     }
   }
 }

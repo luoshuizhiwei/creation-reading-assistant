@@ -2045,7 +2045,7 @@ select:focus-visible,
 }
 
 .overview-status-name {
-  color: var(--text-muted);
+  /* BD-30 摘死色：color: var(--text-muted) 从未渲染——「.overview-status-name」在宿主页面被 overview-local.css:121 同键更晚注入的一条整条压住（宿主只有 OverviewPage.tsx，它自己 import 了那份胜者表） */
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -2056,7 +2056,7 @@ select:focus-visible,
   display: block;
   height: 6px;
   border-radius: 999px;
-  background: color-mix(in srgb, var(--border-strong) 46%, transparent);
+  /* BD-30 摘死色：background: color-mix(in srgb, var(--border-strong) 46%, transparent) 从未渲染——「.overview-status-bar」在宿主页面被 overview-local.css:131 同键更晚注入的一条整条压住（同上） */
   box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
   overflow: hidden;
 }
@@ -2065,7 +2065,7 @@ select:focus-visible,
   display: block;
   height: 100%;
   border-radius: 999px;
-  background: linear-gradient(90deg, var(--accent-spine), color-mix(in srgb, var(--accent-spine) 58%, var(--studio-cloth)));
+  /* BD-30 摘死色：background: linear-gradient(90deg, var(--accent-spine), color-mix(in srg…（原值截断，全文见本仓 git 历史） 从未渲染——「.overview-status-bar-fill」在宿主页面被 overview-local.css:138 同键更晚注入的一条整条压住（同上） */
 }
 
 .overview-status-bar-fill--unset {
@@ -2073,7 +2073,7 @@ select:focus-visible,
 }
 
 .overview-status-count {
-  color: var(--text-main);
+  /* BD-30 摘死色：color: var(--text-main) 从未渲染——「.overview-status-count」在宿主页面被 overview-local.css:143 同键更晚注入的一条整条压住（同上） */
   font-family: var(--font-mono);
   font-size: 12px;
   font-weight: 650;

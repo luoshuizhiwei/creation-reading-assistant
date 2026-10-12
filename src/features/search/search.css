@@ -5,7 +5,7 @@
   inset: 0;
   z-index: 40;
   padding: 64px 24px 24px;
-  background: rgba(24, 20, 16, 0.18);
+  /* BD-30 摘死色：background: rgba(24, 20, 16, 0.18) 从未渲染——「.uni-search-overlay」在产物里被 editorial-studio.css:1736 同键更晚的一条整条压住（eager 发射序 search.css 第 2 份、editorial 第 4 份） */
   backdrop-filter: blur(10px);
   overflow: auto;
 }
@@ -18,9 +18,9 @@
   margin: 0 auto;
   max-width: 720px;
   overflow: hidden;
-  border: 1px solid var(--paper-line);
+  /* BD-30 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.uni-search-shell」在产物里被 editorial-studio.css:1742 同键更晚的一条整条压住（同上） */
   border-radius: var(--radius-3);
-  background: var(--paper-panel);
+  /* BD-30 摘死色：background: var(--paper-panel) 从未渲染——「.uni-search-shell」在产物里被 editorial-studio.css:1744 同键更晚的一条整条压住（同上） */
 }
 
 .uni-search-head {
@@ -33,14 +33,14 @@
 
 .uni-search-head-icon {
   flex-shrink: 0;
-  color: var(--copper);
+  /* BD-30 摘死色：color: var(--copper) 从未渲染——「.uni-search-head-icon」在产物里被 editorial-studio.css:1754 同键更晚的一条整条压住（同上） */
 }
 
 .uni-search-input {
   min-width: 0;
   flex: 1;
   border: 0;
-  background: transparent;
+  /* BD-30 摘死色：background: transparent 从未渲染——「.uni-search-input」在产物里被 editorial-studio.css:1780 同键更晚的一条整条压住（同上） */
   color: var(--paper-ink);
   /* 批次 BD-2：删掉这条字号。editorial-studio.css:1758 有同选择器同特异度的后置规则（原 14.5px，
      已在批次 BD-3 收 14；:1700 那个行号写下来时就已过期，批次 BD-22 按实测重编），
@@ -49,7 +49,7 @@
 }
 
 .uni-search-input::placeholder {
-  color: color-mix(in srgb, var(--paper-muted) 70%, transparent);
+  /* BD-30 摘死色：color: color-mix(in srgb, var(--paper-muted) 70%, transparent) 从未渲染——「.uni-search-input::placeholder」在产物里被 editorial-studio.css:1762 同键更晚的一条整条压住（同上） */
 }
 
 .uni-search-close {
@@ -101,9 +101,9 @@
 
 .uni-search-filters button.active,
 .uni-search-global.active {
-  border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line));
-  background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel));
-  color: var(--copper);
+  /* BD-30 摘死色：border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line)) 从未渲染——「.uni-search-filters button.active / .uni-search-global.active」在产物里被 editorial-studio.css:1795 同键更晚的一条整条压住（同上） */
+  /* BD-30 摘死色：background: color-mix(in srgb, var(--copper) 12%, var(--paper-panel)) 从未渲染——「.uni-search-filters button.active / .uni-search-global.active」在产物里被 editorial-studio.css:1796 同键更晚的一条整条压住（同上） */
+  /* BD-30 摘死色：color: var(--copper) 从未渲染——「.uni-search-filters button.active / .uni-search-global.active」在产物里被 editorial-studio.css:1797 同键更晚的一条整条压住（同上） */
 }
 
 .uni-search-results {
@@ -166,7 +166,7 @@
   cursor: pointer;
 }
 
-.uni-search-group li button:hover,
+.uni-search-group li button:hover { border-color: color-mix(in srgb, var(--copper) 26%, var(--paper-line)); } /* BD-30 拆分自「:hover, .active」那条 5 行规则：:hover 的 background 在产物里被 editorial-studio.css:1806 同键更晚的一条整条压住，摘的就是它；.active 那半边没有胜者、仍在画，所以拆两条而不是整条留着。 */
 .uni-search-group li button.active {
   border-color: color-mix(in srgb, var(--copper) 26%, var(--paper-line));
   background: color-mix(in srgb, var(--copper) 8%, var(--paper-panel));
@@ -203,7 +203,7 @@
 }
 
 .uni-result-origin {
-  color: color-mix(in srgb, var(--paper-muted) 78%, transparent);
+  /* BD-30 摘死色：color: color-mix(in srgb, var(--paper-muted) 78%, transparent) 从未渲染——「.uni-result-origin」在产物里被 editorial-studio.css:1811 同键更晚的一条整条压住（同上） */
   font-size: 11px;
 }
 
