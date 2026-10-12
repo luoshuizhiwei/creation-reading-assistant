@@ -772,6 +772,103 @@ const THEME_SHARED = /^--(sp-|radius-|shadow-|z-|dur-|ease-|leading-|text-\d|fon
   }
 }
 
+/* ------------------------------ 自定义属性引用环必须为零（第 8 步批次 BD-28 立） */
+
+/**
+ * BD-28 立的不变量：全站 CSS 里，自定义属性之间的 var() 引用不得成环。
+ *
+ * 这条是本批真正修掉的东西。形状长这样（都是历史别名层的产物，两处分居两个文件）：
+ *   src/styles.css:13                 --text-main:     var(--text-primary)
+ *   src/styles/editorial-studio.css:50（已删）--text-primary: var(--text-main)
+ * 两个名字都发在 :root 上，于是同一个元素同时持有这两条声明——按 CSS Variables 的
+ * 循环定义规则，环上每个属性在计算值阶段一律「guaranteed-invalid」，等价于没写；
+ * 于是 body { color: var(--paper-ink) }（--paper-ink 又正是 var(--text-primary)）
+ * 在算值时失败，元素回落到**初始黑 rgb(0,0,0)**，tokens.css 的 #20242a 从未生效。
+ *
+ * ⚠ 影响面实测比这句话小，别按「全站文字都是黑的」理解它（我第一版就是这么说过头了）：
+ *   同页开关环、逐索引对照的普查结果是 项目首页 6 个元素、写作稿纸 57、收件箱 5、
+ *   资料阅读 3 的解析色改变，另每屏 1 个 dock 深色样本块（background: var(--text-primary)
+ *   从透明画成设计墨）。稿纸正文本身幸存——它走 .paper-shell 的 rgb(var(--rgb-ink))
+ *   那条**字面量孪生**（--rgb-ink: 32 36 42 从不经过环），所以最显眼的那块文字一直是对的。
+ *   这恰好是 RGB_TWINS 那条不变量的另一面：一个字面量救活了另一条已经坏掉的路。
+ *
+ * 为什么前面那套对比度守卫（上面 hardPairs 一族）永远看不见它：那些断言用
+ * tokenValue() 拿**正则**从 tokens.css 里读十六进制字面量，读到的确实是 #20242a，
+ * 算出来 12.6:1 漂亮达标——它查的是「令牌定义得对不对」，从来没查「浏览器实际
+ * 把这个名字解析成了什么」。定义正确、解析坏掉，是这一类缺陷的定义性特征。
+ *
+ * 为什么只有晨校中枪：夜校有 :root[data-app-theme="dark"]（特异度 (0,2,0)）用
+ * **字面量**覆盖 --text-primary/--text-tertiary，把链从环上摘了出去。所以切到深色
+ * 一切正常、切到浅色才是黑的——「换个主题就好」正是这类缺陷最难被看见的形状。
+ *
+ * 判据口径（刻意比"当前是否在同一个元素上生效"更宽）：
+ *  · 不看选择器、不看覆盖顺序，把全站所有 --x: var(--y) 当作一张图，环上任何节点即红。
+ *    理由：被打断的那个主题只是侥幸，没被打断的那个已经在画错颜色；
+ *    用「可能有别处字面量盖住」当豁免条件，等于把这条重新降级成需要人工判断——
+ *    而"需要人工判断"正是本仓所有隐形缺陷的共同出身。
+ *  · 边只看 var(--name) 的第一个参数，带字面量回退的 var(--x, #fff) 同样算边——
+ *    成环时回退值也救不了（环上属性在计算值阶段无效，不是"取不到值"）。
+ *  · 用 postcss 解析 + 保留行号的去注释（preserveNewlines）：本批留下的两处断环
+ *    墓碑注释里原样抄着 --text-primary: var(--text-main) 这类字符串，
+ *    不剥注释就会让守卫自己咬自己（同文件顶部 stripComments 的注释讲的是一回事）。
+ *
+ * 全部新牙见 inject-test-design-tokens.mjs「批次 BD-28 环」一族：把环写回必须红，
+ * 合法的非环别名不许红。
+ */
+{
+  const relOf = (p) => path.relative(root, p).split(path.sep).join("/");
+  const edges = new Map(); // 属性名 -> Set(它引用的属性名)
+  const sites = new Map(); // 属性名 -> 声明处（file:line --a: var(--b)）
+  for (const cssFile of cssFiles) {
+    let ast;
+    try {
+      ast = postcss.parse(preserveNewlines(readFileSync(cssFile, "utf8")), { from: cssFile });
+    } catch {
+      continue;
+    }
+    ast.walkDecls(/^--/, (decl) => {
+      const value = decl.value.trim();
+      const refs = [...new Set((value.match(/var\(\s*(--[A-Za-z0-9-]+)/g) || []).map((m) => m.slice(4).trim()))];
+      if (!refs.length) return;
+      if (!edges.has(decl.prop)) edges.set(decl.prop, new Set());
+      if (!sites.has(decl.prop)) sites.set(decl.prop, []);
+      for (const r of refs) {
+        edges.get(decl.prop).add(r);
+        sites.get(decl.prop).push(`${relOf(cssFile)}:${decl.source?.start?.line ?? 0}  ${decl.prop}: ${value}`);
+      }
+    });
+  }
+  // 从 from 出发沿引用边走，能否回到 from —— 能就说明 from 在某个环上。
+  const closedPath = (from) => {
+    const stack = [[from, [from]]];
+    const seen = new Set();
+    while (stack.length) {
+      const [node, path_] = stack.pop();
+      for (const next of edges.get(node) || []) {
+        if (next === from) return [...path_, from];
+        if (seen.has(next)) continue;
+        seen.add(next);
+        stack.push([next, [...path_, next]]);
+      }
+    }
+    return null;
+  };
+  const onCycle = [...edges.keys()].map((n) => [n, closedPath(n)]).filter(([, p]) => p);
+  if (onCycle.length) {
+    const detail = onCycle
+      .map(([name, p]) => `${p.join(" → ")}【${(sites.get(name) || []).slice(0, 2).join(" ｜ ")}】`)
+      .join("；");
+    fail(
+      `自定义属性引用环 ${onCycle.length} 个节点：${detail.slice(0, 400)}。` +
+        `环上的令牌在计算值阶段一律 guaranteed-invalid（等价于没定义），消费它的 color/background ` +
+        `会静默回落到继承值——界面照常渲染、vitest 全绿、对比度断言（只读 tokens.css 字面量）也全绿。` +
+        `请只留一个主人：删掉别名其中一侧并留注释写明权威令牌在哪。`
+    );
+  } else {
+    console.log(`${TAG} [环不变量] 全站 ${edges.size} 个带 var() 引用的自定义属性，引用环 0 个——晨校墨色链 --text-main → --text-primary → #20242a 实算可达（BD-28 立）`);
+  }
+}
+
 /* --------------------------------------- 写死白墨不能压在会随主题翻转的实色底上 */
 
 /**

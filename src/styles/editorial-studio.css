@@ -47,9 +47,9 @@ select:focus-visible,
   --border: var(--border-subtle);
   --border-default: var(--border-subtle);
   --text: var(--text-main);
-  --text-primary: var(--text-main);
+  /* BD-28 断环：删去 --text-primary: var(--text-main)——styles.css:13 反向 --text-main: var(--text-primary)，晨校成环即解析为保证无效（空），body 的 color: var(--paper-ink) 随之失效、回落到初始黑 rgb(0,0,0)；夜校被 [data-app-theme="dark"] 的字面量打断才侥幸正常。实测影响面（同页开关环、逐索引对照）：项目首页 6 个元素、写作稿纸 57、收件箱 5、资料阅读 3 的解析色改变，另每屏 1 个 dock 深色样本块；稿纸正文本身幸存——它走 .paper-shell 的 rgb(var(--rgb-ink)) 那条字面量孪生，没经过环。 */
   --text-dim: var(--text-muted);
-  --text-tertiary: var(--text-meta);
+  /* BD-28 断环：删去 --text-tertiary: var(--text-meta)——styles.css:15 反向 --text-meta: var(--text-tertiary) 同样成环，晨校三级文字（角标/计数/时间戳）全部失效。桥接块其余 7 行无环，保留。 */
   --accent: var(--accent-spine);
   --accent-primary: var(--accent-spine);
   --warning-text: var(--warning);

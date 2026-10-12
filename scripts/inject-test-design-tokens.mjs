@@ -638,7 +638,18 @@ const cases = [
   // 反向两颗：证明判据咬的是**关系**，不是这三个数字本身——合法的同幅迁移不许红，
   // 否则下一批人只会绕过判据（BD-22 已经把这条教训写进 MEASURE 的注释）。
   ["批次 BD-23 SEAL·反向：盒子两侧一起放大 38→42（字号仍是 20）不该红——净空 34 ≥ 20，装得下的盒子改尺寸不是债。它守住「挪盒子必红」的过度灵敏版本：判据只咬挤字的方向", () => { mutate("src/styles/editorial-studio.css", "  width: 38px;\n  height: 38px;", "  width: 42px;\n  height: 42px;"); mutate("src/styles.css", "    width: 38px;\n    height: 38px;", "    width: 42px;\n    height: 42px;"); }, null],
-  ["批次 BD-23 SEAL·反向：两档**一起**降到 16 不该红——16 同样在八档上、同样装得下（净空 30），BD-23 选 20 靠的是同族比例与邻居层级这两条**不判红**的证据（见守卫本节 ⚠：把它们写成法律就是循环论证）。这条牙钉住的是：将来带新证据改回 16 的人，只需两边一起改，不必先拆判据", () => { mutate("src/styles/editorial-studio.css", "  font-size: 20px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);", "  font-size: 16px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);"); mutate("src/styles.css", "    font-size: 20px;", "    font-size: 16px;"); }, null]
+  ["批次 BD-23 SEAL·反向：两档**一起**降到 16 不该红——16 同样在八档上、同样装得下（净空 30），BD-23 选 20 靠的是同族比例与邻居层级这两条**不判红**的证据（见守卫本节 ⚠：把它们写成法律就是循环论证）。这条牙钉住的是：将来带新证据改回 16 的人，只需两边一起改，不必先拆判据", () => { mutate("src/styles/editorial-studio.css", "  font-size: 20px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);", "  font-size: 16px;\n  font-weight: 700;\n  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.22);"); mutate("src/styles.css", "    font-size: 20px;", "    font-size: 16px;"); }, null],
+  // 批次 BD-28：自定义属性引用环（守卫「环不变量」一节）。这批真正修掉的是
+  // styles.css:13 --text-main: var(--text-primary) ⇄ editorial-studio.css:50 --text-primary: var(--text-main)
+  // 这一对跨文件别名环——晨校因此全站正文渲染成继承黑 rgb(0,0,0)，而对比度断言只正则读
+  // tokens.css 的 #20242a 字面量，永远看不见。四颗正牙各挡一种复发形状，两颗反牙挡过严。
+  ["批次 BD-28 环①（原样复活）：把删掉的 editorial 桥接行 --text-primary: var(--text-main) 写回 :root（styles.css:13 那条反向别名还活着）——这就是本批修掉的那个环，必须红", () => mutate("src/styles/editorial-studio.css", "  --text: var(--text-main);", "  --text: var(--text-main);\n  --text-primary: var(--text-main);"), /自定义属性引用环/],
+  ["批次 BD-28 环②（新环，不是复活动作）：给桥接块里合法的 --text-dim: var(--text-muted) 补一条反向 --text-muted: var(--text-dim)。名字是新的、形状与①一模一样，必须红——判据盯的是「环」这个形状，不是那两个特定名字", () => mutate("src/styles/editorial-studio.css", "  --text-dim: var(--text-muted);", "  --text-dim: var(--text-muted);\n  --text-muted: var(--text-dim);"), /自定义属性引用环/],
+  ["批次 BD-28 环③（自环）：--zz-self: var(--zz-self) 一行就成环，必须红。这条测的是检测器最容易漏的形状——图上只有一条边、DFS 若从「长度 ≥2 的环」起步就放过它", () => mutate("src/styles/tokens.css", "  --text-secondary: #666d77;", "  --text-secondary: #666d77;\n  --zz-self: var(--zz-self);"), /自定义属性引用环/],
+  ["批次 BD-28 环④（跨文件成环）：环的两半分居 tokens.css 与 styles.css，证明检测器把全站 CSS 当一张图，而不是逐文件查（当年那两个名字也正是跨文件才成环的）", () => { mutate("src/styles/tokens.css", "  --text-secondary: #666d77;", "  --text-secondary: #666d77;\n  --zz-x: var(--zz-y);"); mutate("src/styles.css", "  --text-main: var(--text-primary);", "  --text-main: var(--text-primary);\n  --zz-y: var(--zz-x);"); }, /自定义属性引用环/],
+  // 反向两颗：判据过严的代价是下一批人直接绕过它（BD-22/BD-23 同一条教训）。
+  ["批次 BD-28 环·反向①：三跳合法别名链 --zz-a → --zz-b → --zz-c → 令牌，无环不该红——本仓别名层大量是这种形状（--copper → --action-primary），误伤等于把判据判死刑", () => mutate("src/styles/tokens.css", "  --text-secondary: #666d77;", "  --text-secondary: #666d77;\n  --zz-a: var(--zz-b);\n  --zz-b: var(--zz-c);\n  --zz-c: var(--app-bg);"), null],
+  ["批次 BD-28 环·反向②：把环的**文字**写进注释（本批两处断环墓碑就是这么写的：注释里原样抄着旧声明），不该红——守卫匹配的是声明，不剥注释就会自己咬自己", () => mutate("src/styles/editorial-studio.css", "  --text: var(--text-main);", "  /* 墓碑：--zz-p: var(--zz-q); --zz-q: var(--zz-p); */\n  --text: var(--text-main);"), null]
 ];
 
 let bad = 0;
