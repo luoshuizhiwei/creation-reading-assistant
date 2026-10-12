@@ -494,8 +494,13 @@ const cases = [
   ["第 8 步批次 X 回归·反向：同一宿主写 var(--shadow-2) 是合法收敛，不该变红（退役管的是「从不渲染的离刻度声明」，不是禁止投影；选 shadow-2 而非 shadow-1 是因为这条规则同规则带 border，见上）", () => mutate("src/styles.css", ".stats-card {\n  border: 1px solid var(--paper-line);", ".stats-card {\n  box-shadow: var(--shadow-2);\n  border: 1px solid var(--paper-line);"), null],
   // 第 8 步批次 Y：创作流页面族 15 处活圆角归 §5.2 刻度（styles.css 35→21、editorial 26→25）。
   // 正向证明这两页的圆角预算确实降到了新值（写回一条离刻度必须红），反向证明刻度写法仍合法。
-  ["第 8 步批次 Y 回归：把迁移掉的离刻度圆角写回 .creation-wizard（editorial 预算已降到新值，多一处必须红——否则迁移等于给这一页松了绑）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: 16px;"), /圆角刻度/],
-  ["第 8 步批次 Y 回归·反向：同一宿主写 var(--radius-3) 是合法收敛，不该变红", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-2);"), null],
+  // ⚠ 批次 BD-27 搬家：这对牙原本钉在 editorial 的 `.creation-wizard { border-radius: var(--radius-3)` 上，
+  // 而宿主判据收紧成词边界后实测该类名查无落点（向导真身是 Dialog 原语的 rounded-[var(--radius-3)]
+  // 工具类，src/components/ui/Dialog.tsx:100）——needle 挂在一个从未渲染的规则上，删规则即拆牙。
+  // 新宿主选 .inbox-editor-grid：活、规则头全文件唯一、radius+shadow 成对且在 editorial 独家
+  // （不撞「主题×特性」分叉透镜），这对牙测的形状原样不变——离刻度写回必红、刻度写法不红。
+  ["第 8 步批次 Y 回归：把迁移掉的离刻度圆角写回 .inbox-editor-grid（editorial 圆角预算空表=零容忍，多一处必须红——否则迁移等于给这一页松了绑）", () => mutate("src/styles/editorial-studio.css", "  border-radius: var(--radius-2);\n  background: var(--studio-paper);\n  box-shadow: var(--shadow-1);", "  border-radius: 16px;\n  background: var(--studio-paper);\n  box-shadow: var(--shadow-1);"), /圆角刻度/],
+  ["第 8 步批次 Y 回归·反向：同一宿主写 var(--radius-3) 是合法收敛，不该变红", () => mutate("src/styles/editorial-studio.css", "  border-radius: var(--radius-2);\n  background: var(--studio-paper);\n  box-shadow: var(--shadow-1);", "  border-radius: var(--radius-3);\n  background: var(--studio-paper);\n  box-shadow: var(--shadow-1);"), null],
   // 第 8 步批次 Z：桌面壳/导航族 9 处活圆角归刻度（styles.css 21→15、editorial 25→22）。
   ["第 8 步批次 Z 回归：把迁移掉的离刻度圆角写回 .desktop-nav button（styles.css 圆角预算已降到新值，多一处必须红）", () => mutate("src/styles.css", "\n.desktop-nav button {\n  display: grid;", "\n.desktop-nav button {\n  border-radius: 15px;\n  display: grid;"), /圆角刻度/],
   ["第 8 步批次 Z 回归·反向：同一宿主写 var(--radius-1) 是合法收敛，不该变红", () => mutate("src/styles.css", "\n.desktop-nav button {\n  display: grid;", "\n.desktop-nav button {\n  border-radius: var(--radius-1);\n  display: grid;"), null],
@@ -511,8 +516,8 @@ const cases = [
   ["第 8 步批次 AB 回归·反向：同一宿主写 var(--radius-3) 不该变红（清零 ≠ 禁止圆角）", () => mutate("src/styles/editorial-studio.css", ".project-workbench {\n", ".project-workbench {\n  border-radius: var(--radius-3);\n"), null],
   // 第 8 步批次 AC：对话框/浮层/toast 档 7 条投影归 --shadow-3/--shadow-4（styles.css 29→26、
   // editorial 29→26、幻影账 9→8）。写回旧手抄值必须红，同宿主写刻度令牌不该红。
-  ["第 8 步批次 AC 回归：把退役的手抄对话框投影写回 .creation-wizard（editorial 阴影预算已降到 26，多一处必须红）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);"), /阴影刻度/],
-  ["第 8 步批次 AC 回归·反向：同一宿主写 var(--shadow-4) 不该变红（刻度内换档是合法调整）", () => mutate("src/styles/editorial-studio.css", ".creation-wizard {\n  border-radius: var(--radius-3);", ".creation-wizard {\n  border-radius: var(--radius-3);\n  box-shadow: var(--shadow-4);"), null],
+  ["第 8 步批次 AC 回归：把退役的手抄对话框投影写回 .inbox-editor-grid（editorial 阴影预算 4，多一处必须红）——宿主原为 .creation-wizard，批次 BD-27 查明那条规则从未渲染，这对牙随规则一起搬家", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1);\n}\n\n.inbox-list {", "  box-shadow: 0 40px 120px rgba(0, 0, 0, 0.34), 0 6px 18px rgba(0, 0, 0, 0.14);\n}\n\n.inbox-list {"), /阴影刻度/],
+  ["第 8 步批次 AC 回归·反向：同一宿主写 var(--shadow-4) 不该变红（刻度内换档是合法调整）", () => mutate("src/styles/editorial-studio.css", "  box-shadow: var(--shadow-1);\n}\n\n.inbox-list {", "  box-shadow: var(--shadow-4);\n}\n\n.inbox-list {"), null],
   // 第 8 步批次 AD：判据修正，不动一行 CSS（两张胜者表逐字节相同）。
   // §2.3 的描边式焦点环（0 0 0 Npx，偏移/模糊全 0）不是 §5.3 的投影层级；
   // CSS 侧此前漏了这条豁免，TSX 侧的 var(--focus-*) 早就豁免了——两侧不对称。
@@ -558,7 +563,7 @@ const cases = [
   ["第 8 步批次 AM 回归：把退役的 shadow-paper 写回 ToastCenter（motion-toast 预算条目已随退役移除，出现一处必须红）", () => mutate("src/components/interaction.tsx", "motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 ${toastClass[toast.tone]}", "motion-toast pointer-events-auto rounded-[var(--radius-3)] border p-3 shadow-paper ${toastClass[toast.tone]}"), /阴影刻度/],
   ["第 8 步批次 AM 回归②：把退役的 shadow-paper 写回 AI 发送确认弹窗（同上，条目已移除）", () => mutate("src/features/creation/inbox/ai-send-confirm.tsx", '"motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5"', '"motion-dialog w-[min(560px,100%)] rounded-[var(--radius-3)] border border-paper-line bg-paper-panel p-5 shadow-paper"'), /阴影刻度/],
   ["第 8 步批次 AM 回归③：把退役的 shadow-paper 写回大纲重命名弹窗（同上，条目已移除——三份宿主各自记账，缺一个就少一个锚）", () => mutate("src/features/creation/outline/OutlineTree.tsx", 'motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel"', 'motion-dialog w-[min(420px,100%)] overflow-hidden rounded-[var(--radius-3)] border border-paper-line bg-paper-panel shadow-paper"'), /阴影刻度/],
-  ["第 8 步批次 AM·反向：给 .motion-dialog 那条 var(--shadow-3) !important 加同规则 border 不该红——AE 的 hairline 双拼只管 shadow-1 的 0 0 0 1px 环，shadow-3 是纯投影档、对话框带边框是正常设计", () => mutate("src/styles/editorial-studio.css", ".motion-dialog,\n.confirm-dialog {\n  box-shadow: var(--shadow-3) !important;", ".motion-dialog,\n.confirm-dialog {\n  border: 1px solid var(--border-subtle);\n  box-shadow: var(--shadow-3) !important;"), null],
+  ["第 8 步批次 AM·反向：给 .motion-dialog 那条 var(--shadow-3) !important 加同规则 border 不该红——AE 的 hairline 双拼只管 shadow-1 的 0 0 0 1px 环，shadow-3 是纯投影档、对话框带边框是正常设计（needle 里原本并列的 .confirm-dialog 死支已由批次 BD-27 摘掉，本条同步只剩活支）", () => mutate("src/styles/editorial-studio.css", ".motion-dialog {\n  box-shadow: var(--shadow-3) !important;\n}", ".motion-dialog {\n  border: 1px solid var(--border-subtle);\n  box-shadow: var(--shadow-3) !important;\n}"), null],
   // 第 8 步批次 AN：四处**真按 §5.3 归级**（Dialog 的 shadow-2xl→--shadow-3，FontPicker /
   // SettingsSearch / LibraryPage 的下拉 shadow-lift|shadow-paper→--shadow-2），一律用属性形式。
   // 下面测两件事：归级后原工具类写回来必须红（账还咬着），以及刻度外档清零后

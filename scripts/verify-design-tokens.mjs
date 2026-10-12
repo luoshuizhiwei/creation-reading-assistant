@@ -3074,8 +3074,28 @@ const hostPredicate = (() => {
         : "");
   })();
 
-  const canRender = (cls) =>
-    hostText.includes(cls) || bundleText.includes(cls) || [...dynPrefix].some((p) => p.length >= 3 && cls.startsWith(p));
+  /**
+   * 批次 BD-27：匹配口径从「子串」收紧为「词边界」。
+   *
+   * 子串口径有一个安静的钝点，BD-26 的墓碑里记过一半：`hostText.includes(cls)`
+   * 会把「作为别的类名前缀出现」当成宿主存在。实测撞上的两例——
+   *   · "desktop-home-inbox" 是 "desktop-home-inbox-count" 的前缀，
+   *     所以接管族里那个零使用者的 .desktop-home-inbox 从没被判成死支；
+   *   · "paper-muted" 是工具类 "text-paper-muted" 的子串，同理隐身。
+   * 收紧后类名必须作为完整 token 出现（前后不接 [A-Za-z0-9_-]）。动态前缀那条
+   * 出口保持原样（startsWith），因为 BEM 修饰的完整串本来就不在源码里。
+   *
+   * ⚠ 危险方向永远是「把活 CSS 判死」，所以收紧前先算了差集（/tmp/bd27-lens3.cjs，
+   * 逐字复刻两副透镜）：幻影账翻出 9 条规则、死分支账翻出 1 条支，
+   * 全部逐条人工核实（src 剥注释后无该 token、产物 JS 里也没有——JSX 的 className
+   * 原样进 bundle，这是比源码更强的证据），且 MUST_BE_LIVE 七颗哨兵在词边界下
+   * 全部仍判活。翻出来的 9 条本批一并删净，所以收紧与还债是同一批，不留红。
+   */
+  const clsTokenRe = (cls) => new RegExp(`(^|[^A-Za-z0-9_-])${cls.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_-])`);
+  const canRender = (cls) => {
+    const re = clsTokenRe(cls);
+    return re.test(hostText) || re.test(bundleText) || [...dynPrefix].some((p) => p.length >= 3 && cls.startsWith(p));
+  };
 
   /**
    * 只取选择器的「正向」类名：:not(.x) 里的 x 是被排除的，它的宿主在别处。

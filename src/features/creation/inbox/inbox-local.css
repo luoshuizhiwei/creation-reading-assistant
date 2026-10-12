@@ -15,13 +15,8 @@
 
 /* ----------------------------- hero ----------------------------- */
 
-.inbox-hero {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-  flex-wrap: wrap;
-}
+/* 批次 BD-27：删掉 `.inbox-hero`。TSX 里挂的是 .inbox-hero-actions（InboxQuickInput.tsx:102），
+   裸 .inbox-hero 查无宿主——子串口径一直把它当成 -actions 的宿主判活。下面两支兄弟规则是活的。 */
 
 .inbox-hero-actions {
   display: flex;
@@ -104,10 +99,6 @@
 }
 
 @media (max-width: 720px) {
-  .inbox-hero {
-    flex-direction: column;
-    align-items: stretch;
-  }
   .inbox-hero-actions {
     flex-direction: row;
     align-items: center;

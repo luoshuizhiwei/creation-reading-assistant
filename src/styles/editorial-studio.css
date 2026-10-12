@@ -734,6 +734,8 @@ select:focus-visible,
       "desktop-home-inbox-count" 的前缀，所以它从没被判成死支——这是子串口径的一个
       已知钝点，本批不动判据（把它收到词边界会让别的同族类名一起翻脸，方向不明），
       只把事实记在这里。
+      ↳ 批次 BD-27 兑现这笔账：判据收到词边界，差集先在 /tmp 算过再逐条人工核实，
+      .desktop-home-inbox 两支随 9 条幻影规则一起删净，「方向不明」变成了有账可依。
    ④ 「谁是主操作」这条语义随族回到 TSX：族里那条
       `.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"])`
       一直在替组件决定实心/浅底——它把行首那颗按成实心，同时把**声明了 primary 却不在
@@ -774,13 +776,13 @@ select:focus-visible,
   font-family: var(--font-serif);
   /* 批次 BD-17（标题阶梯）：15→16，收掉 BD-3/BD-11 挂了两批的「面板头」族。
    * 同角色邻居全部已在 16（字号胜者图实测）：.cards-detail-head h3、
-   * .background-detail-head h3（字号在 styles.css:4160，本文件 :1477 只补字族与字重）、
+   * .background-detail-head h3（字号在 styles.css:4130，本文件 :1485 只补字族与字重）、
    * .preview-toolbar-meta h2（BD-3 收）、.writing-quick-reference-head h3（BD-11 收）、
    * .replace-panel-header h2（BD-11 收）、.outline-page-side h3（BD-15 收）。
    * §3.2 给 16 那行的用途就是「小节标题 h4」。
    * 本条是**一条规则两个宿主**：概览页/统计页的卡片头 .stats-card h3 与背景设定页的
    * 页标题 .background-page-title 长期共用 15；改后卡片头 16 与卡内 12(dt)/12(dd) 拉开。
-   * ⚠ 附带收口一件事：.background-page-title 在 styles.css:4072 自己写着 16px + 800，
+   * ⚠ 附带收口一件事：.background-page-title 在 styles.css:4039 自己写着 16px + 800，
    * 却被本条（后置主题表，胜者 15）长期压着——本批改后两表同值 16，那处不再是哑的，
    * 只剩字重还由本条决定。字面值仍留在 styles.css 那条上，不顺手删。 */
   font-size: 16px;
@@ -1296,7 +1298,7 @@ select:focus-visible,
      **每行少一个字**。BD-20 那条注释按 24px÷16px 估的「少 1.5 个汉字」是宽度差、
      不是换行差；换行只能整字发生，实测才是这个数。这是可感知重排，不是零视觉。
      同批把 styles.css ≤1180 那条纸壳宽度一起改成 **738 而不是 736**：纸壳自己那圈
-     1px 实线（本文件 :1261）在 border-box 下吃掉 2px，写 736 时正文只剩 734、
+     1px 实线（本文件 :1269）在 border-box 下吃掉 2px，写 736 时正文只剩 734、
      整行掉回 41 字——窄屏反而比宽屏少一个字。738 − 2 = 736 才与宽屏同值。
      宽屏那条 min(820px, …) 不动——纸壳比正文宽出的是看得见的纸边，本来就有意留。
      这条同时兑现 BD-20 留在下面的那句「留给行长 / measure 批」。 */
@@ -1318,7 +1320,7 @@ select:focus-visible,
        重排（少 1.5 个汉字/行）。留给「行长 / measure 批」把 760 与那条 min(760,…) 一起定。
        ✔ 后续（批次 BD-22 行长批落地）：两条**同批**一起改——正文 `calc(42em + 64px)` = 736 边框盒
        （672 正文 + 32×2 内边距），窄屏那条纸壳改成 **738**（不是 736，纸壳那圈 1px 实线见本文件
-       :1261，border-box 下吃 2px，写 736 时正文只剩 734、整行掉回 41 字）。那条死对没拆散，
+       :1269，border-box 下吃 2px，写 736 时正文只剩 734、整行掉回 41 字）。那条死对没拆散，
        本条债清；相位那条仍按上面写的「另一件设计决定」不动。 */
   background:
     repeating-linear-gradient(to bottom, transparent 0, transparent 28.6px, color-mix(in srgb, var(--border-subtle) 30%, transparent) 29.6px);
@@ -2199,8 +2201,13 @@ select:focus-visible,
  * 不变量已钉进守卫：浮层容器类名上不得再出现 border-radius …!important。
  */
 
-.motion-dialog,
-.confirm-dialog {
+/* 批次 BD-27：摘掉本条规则里的 .confirm-dialog 死支——批次 F 的注释（上方 :2199）早就写明
+   组件用的是 motion-dialog，confirm-dialog 只作为 id 存在；子串口径把它判活是因为
+   `confirm-dialog-title/-message` 这两个 id 撞了前缀。声明一个字没动：
+   box-shadow 一直在为活支 .motion-dialog 供值，删的只是那条永不匹配的选择器。
+   守卫的死分支账（零容忍）从此不会因为这一支再红。 */
+
+.motion-dialog {
   box-shadow: var(--shadow-3) !important;
 }
 
@@ -2475,10 +2482,15 @@ input[type="text"],
   background-clip: padding-box;
 }
 
-.creation-wizard {
-  border-radius: var(--radius-3);
-  box-shadow: var(--shadow-3);
-}
+/* 批次 BD-27：这里原本挂着 `.creation-wizard { border-radius: var(--radius-3); box-shadow: var(--shadow-3) }`。
+   宿主判据收紧成词边界后暴露出它是幻影：向导对话框挂的是 .creation-wizard-dialog
+   （CreateProjectWizard.tsx:103），全仓没有任何元素挂裸 .creation-wizard，产物 JS 里也查无此串。
+   两条声明一个像素都没画过，所以删除是零像素改动。
+   ⚠ 批次 AQ 那句「.creation-wizard 的圆角真源在 editorial」记的就是这条规则——它当时就不存在
+   于渲染路径上；真源是共享 Dialog 原语底串里的 rounded-[var(--radius-3)] 工具类
+   （src/components/ui/Dialog.tsx:100，批次 AN 定的 --radius-3/--shadow-3 对话框档）。
+   本批把 inject 里以这条规则为 needle 的四颗牙搬到 .inbox-editor-grid（活宿主、radius+shadow
+   成对、规则头唯一），测的形状不变。 */
 
 /* --------------------------------------------------------------------------
  * Refinement layer III — the frame.
