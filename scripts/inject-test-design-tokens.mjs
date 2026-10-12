@@ -212,13 +212,29 @@ const cases = [
   // 而不是随便加一个离刻度值——落在预算内的新增会被判据放过，这是按文件冻结的代价，
   // 也是它和「全仓一条总数」那种棘轮的差别（总数棘轮会被别处还的债挡刀）。
   ["间距棘轮①：CSS 侧在零预算文件里新增一处离刻度 padding（settings-controls.css 不在 SPACING_BUDGET 里，预算视同 0，2px 6px→2px 7px 必须红）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 7px;"), /间距刻度/],
-  ["间距棘轮②：TSX 侧新增离刻度工具类（ui.tsx 预算 1 = sizes.sm 的 px-2.5（10px），再加一个 py-2.5 就是 2>1，必须红）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 px-2.5 py-2.5 text-xs"'), /间距刻度/],
+  // ⚠ 间距棘轮② 的锚点随批次 BD-25 搬家：原 needle 是 ui.tsx sizes.sm 的 px-2.5（=10px），
+  //   它曾是「§2.2 要 10px / §5.1 没这档」这场规格自相冲突的现场；用户裁定 §5.1 增补
+  //   --sp-12: 10px 之后，px-2.5 合规、ui.tsx 条目从 SPACING_BUDGET 移除——这颗牙的 needle
+  //   虽然还在源码里，但「再加一个 py-2.5 就是 2>1」这个算术前提已经塌了（两个都合法 → 0>0 恒假）。
+  //   留着它就是一颗永远测不到东西的假牙，比缺牙更坏。改钉仍有活债的 TSX 宿主：
+  //   LibraryPage 预算 1 = 搜索框 pl-9(36px)，再加一个 m-7(28px) 就是 2>1，必须红。
+  ["间距棘轮②（BD-25 搬家）：TSX 侧新增离刻度工具类（LibraryPage 预算 1 = pl-9(36px)，再加一个 m-7(28px) 就是 2>1，必须红）", () => mutate("src/features/library/LibraryPage.tsx", 'className="paper-input w-full pl-9 pr-8 text-sm"', 'className="paper-input w-full pl-9 pr-8 m-7 text-sm"'), /间距刻度/],
+  // ⚠ 这三颗锁牙刻意只动 tokens.css，不动判据自己：拿 mutate 改 verify-design-tokens.mjs
+  //   是自我指涉（被测脚本改的是它自己的合法集），而且它不在备份清单里、改坏了还原不了。
+  //   三颗盖住锁的三个失配形状：改值（①）、删档（②）、加野档（③）——
+  //   「谁单方面变了都算事故」这句锁词的两半（判据表多一档 / 令牌多一档）各有牙。
+  ["间距刻度·双向锁①（BD-25 新牙·只有令牌侧变）：把 --sp-12 的值从 10px 改成 7px——判据表里没有 7，令牌侧多出一档 → 锁必须红。这条守的是「往令牌塞一档野值就等于给全仓散写的 7px 发证」这条路（批次 L 的债从声明搬进定义、判据当场瞎掉）", () => mutate("src/styles/tokens.css", "  --sp-12: 10px;", "  --sp-12: 7px;"), /SP_SCALE_PX 与 tokens\.css/],
+  ["间距刻度·双向锁②（BD-25 新牙·少一档）：删掉 --sp-12 定义、判据表里还留着 10 → 锁必须红。这条守的是本批自己刚踩过的顺序问题：先改令牌再改表，漏一处就是 165 处当场全红；反过来说明加档/删档必须两处同改才走得动", () => mutate("src/styles/tokens.css", "  --sp-12: 10px; /* BD-25 裁定档；命名追加、不参与值序 */\n", ""), /SP_SCALE_PX 与 tokens\.css/],
+  ["间距刻度·双向锁③（BD-25 新牙·多一档）：往 tokens.css 塞一个判据表里没有的 --sp-13: 7px 必须红。这条守的是另一头的失败：合法集若纯派生自令牌，「往令牌加一档野值」就等于给全仓散写的 7px 发证（批次 L 的「债从声明搬进定义、判据当场瞎掉」）", () => mutate("src/styles/tokens.css", "  --sp-12: 10px;", "  --sp-13: 7px;\n  --sp-12: 10px;"), /SP_SCALE_PX 与 tokens\.css/],
   ["间距棘轮③：还了债却不降预算（LibraryPage 预算 1 = 搜索框 pl-9(36px)，改成 pl-8(32px) 是合法收敛但预算没跟着降，必须红并指名该文件）", () => mutate("src/features/library/LibraryPage.tsx", 'className="paper-input w-full pl-9 pr-8 text-sm"', 'className="paper-input w-full pl-8 pr-8 text-sm"'), /预算没跟着降/],
-  // 反向三颗钉的是「别把合法写法咬进去」——判据过严的下一批人就会退回去散写数字，
-  // 那才是这本账真正的失败模式。
+  // 反向三颗（AW 立项）钉的是「别把合法写法咬进去」——判据过严的下一批人就会退回去散写数字，
+  // 那才是这本账真正的失败模式。批次 BD-25 的裁定牙另加两颗排在它们后面（④⑤）：
+  // 一条裁定落地后必须有「新合法写法实测为绿」的牙，否则判据与设计的分歧只能靠人记住。
   ["间距棘轮·反向①：rem 写法按 16px 基准折算后落在刻度上（padding: 2px 0.375rem = 2px 6px = --sp-1/--sp-3），不该被折算误伤成债", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 0.375rem;"), null],
   ["间距棘轮·反向②：引用令牌的写法不在计数之列（padding-inline: var(--sp-6) 是收敛的目标形态，写它必须绿）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  padding-inline: var(--sp-6);"), null],
   ["间距棘轮·反向③：em/%/auto/负值是排版与布局语法不是档位（padding: 1.5em / margin-top: -6px / auto 三行都不该红）", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 6px;\n  margin-top: -6px;\n  padding-left: 1.5em;\n  margin-inline: auto;"), null],
+  ["间距棘轮·反向④（BD-25 裁定牙）：10px 现在是合法档位——同一条规则里 padding: 2px 10px 与 gap: 10px 两种 CSS 写法都不该红（裁定落地后还咬它，等于判据没跟上设计决定，会把人推回绕过判据）。工具类那一侧由⑤测", () => mutate("src/features/settings/settings-controls.css", "  padding: 2px 6px;", "  padding: 2px 10px;\n  gap: 10px;"), null],
+  ["间距棘轮·反向⑤（BD-25 裁定牙）：Tailwind 的 2.5 步进折算成 10px 后同样合法（sizes.sm 的 px-2.5 是这条裁定的原始起因，它必须不再计债）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 px-2.5 py-2.5 text-xs"'), null],
   // 批次 AX 的牙（字号 / 行高比率 / 行高长度式，规格 §3.2）。三本账各自成牙：
   // 同一处改动只能证明一本判据在咬，混在一颗牙里就分不清是哪本瞎了。
   // 立项批的牙必须能造出「超出预算的第 N+1 处」——所以正牙一律落在**该本账预算为 0 的文件**
@@ -285,6 +301,15 @@ const cases = [
   ["阴影棘轮①：TSX 工具类新债——阴影台账上 TSX 侧条目已随批次 BD-19 清零，此刻**空表=新增即红**：给 LibraryPage 那个已归 var(--shadow-2) 的下拉再挂一个 shadow-lift 必须红（宿主变迁：批次 AO 起这批牙钉 ErrorBoundary，BD-19 还清它最后那笔后 TSX 侧无债，牙改回本仓唯一还挂着浮层工具类串的 LibraryPage——它同时在间距/状态色几组里当宿主，早已在备份清单里）", () => mutate("src/features/library/LibraryPage.tsx", "bg-paper-panel [box-shadow:var(--shadow-2)] p-1", "bg-paper-panel [box-shadow:var(--shadow-2)] p-1 shadow-lift"), /阴影刻度/],
   ["阴影棘轮②：CSS 声明新债——把字面投影写进阴影预算表里根本没有的文件（inbox-local.css 视同 0，必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", ".inbox-page {\n  display: flex;", ".inbox-page {\n  box-shadow: 0 10px 30px rgba(34, 38, 48, 0.05);\n  display: flex;"), /阴影刻度/],
   ["阴影棘轮③：@apply 分支——@apply 里的 shadow-lift 编译后就是一条 box-shadow 声明，和 TSX 挂工具类等价，必须同判（批次 AL 把 .paper-panel 那条压死的 shadow-lift 退役后，这颗牙挪到仍活着的夜读皮肤宿主上）", () => mutate("src/styles.css", "@apply border border-stone-800 text-stone-100 shadow-paper;", "@apply border border-stone-800 text-stone-100 shadow-paper shadow-lift;"), /阴影刻度/],
+  // 批次 BD-25（用户第二项裁定「材质移出投影账」）的四颗牙：三红 + 一绿对照。
+  // DECOR_SHADOWS 的 key 是 文件+选择器+值串 三者全等（三者各自先做空白归一化），
+  // 所以「改一点值」「整条删掉」「把选择器扩到没登记的类」三种顺手写法都必须红——
+  // 这三条合起来才让那张登记表不至于变成一个可以躲进豁免的口袋；
+  // 第四颗是绿对照，它证明红来自内容失配，不是这张表按排版乱咬人。
+  ["阴影棘轮·材质登记①（BD-25）：把书封那条的投影值改强一档（0 2px 5px → 0 2px 9px）——三者全等失配，登记不再豁免，它重新被数成债，必须红。这条牙守的是「顺手把材质阴影改强一点就躲过了棘轮」。⚠ needle 是这条声明在源码里的**换行原样**（值串跨三行书写）：扁平成一行的写法源码里不存在，needle 找不到就 SKIP，而 SKIP 只是计为无效、不会假装通过——这批牙里最容易写错的就是这种假牙", () => mutate("src/styles/editorial-studio.css", "    inset 0 1px 0 rgba(255, 255, 255, 0.28),\n    0 2px 5px rgba(34, 38, 48, 0.18);", "    inset 0 1px 0 rgba(255, 255, 255, 0.28),\n    0 2px 9px rgba(34, 38, 48, 0.18);"), /材质\/装饰登记表有 1 条没在源码里扫到|第 8 步阴影刻度/],
+  ["阴影棘轮·材质登记②（BD-25）：整条删掉键帽那条台阶线声明（登记条目变成扫不到的僵尸 → 必须红）。删一条被豁免的声明比改一条更危险：它会让那张表悄悄变成「谁也不知道还剩下的空壳」", () => mutate("src/styles/editorial-studio.css", "\n  box-shadow: 0 1px 0 var(--border-strong);", ""), /材质\/装饰登记表有 1 条没在源码里扫到|第 8 步阴影刻度/],
+  ["阴影棘轮·材质登记③（BD-25）：把那条已登记的键帽规则的**选择器扩**到一个没登记的类（.stats-card，它是活的卡片宿主，InboxItemList 就在用）——选择器文本一变，登记条目扫不到（僵尸豁免红），同时这条真发射的 box-shadow 重新数成 editorial-studio.css 的债（7→8），两头都红。这条牙钉的是表的可扩展性边界：新增一族材质要人批并登记，判据不自动认同类", () => mutate("src/styles/editorial-studio.css", ".desktop-search-command kbd,\n.uni-search-shell kbd {", ".desktop-search-command kbd,\n.uni-search-shell kbd,\n.stats-card {"), /第 8 步阴影刻度/],
+  ["阴影棘轮·材质登记④（BD-25 反向）：把那条已登记的键帽声明的**选择器并成一行**（`.a kbd, .b kbd {`），值与结构一字不动——不该红。登记 key 比的是空白归一化后的字符串，换行与缩进不是设计事实。这条绿是①②③的对照组：它证明那三颗的红来自内容失配，不是这张表按排版乱咬；它同时也证明 ①③ 那两条 needle 是真的（同一处声明换个排版就还是扫得到）", () => mutate("src/styles/editorial-studio.css", ".desktop-search-command kbd,\n.uni-search-shell kbd {\n  box-shadow: 0 1px 0 var(--border-strong);\n}", ".desktop-search-command kbd, .uni-search-shell kbd {\n  box-shadow: 0 1px 0 var(--border-strong);\n}"), null],
   ["阴影棘轮·反向①：伏笔是本产品的业务词（foreshadow），text-shadow 是属性名——都在代码里而非注释里，前后断言必须挡住，不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzProbe = \"foreshadow foreshadowResolved foreshadows text-shadow\";\n  void zzProbe;"), null],
   ["阴影棘轮·反向②：四种合法豁免——shadow-none / shadow-inner / 颜色档 shadow-white\\/20（只产 --tw-shadow-color）/ [box-shadow:var(--focus-ring)] 焦点环，都不该变红", () => mutate("src/features/library/LibraryPage.tsx", "export function LibraryPage() {", "export function LibraryPage() {\n  const zzExempt = \"shadow-none shadow-inner shadow-white/20 focus-visible:[box-shadow:var(--focus-ring)]\";\n  void zzExempt;"), null],
   ["阴影棘轮·还债不降预算：把夜读皮肤那条 shadow-paper 换成真正发射的 [box-shadow:var(--shadow-1)] 是棘轮认的合法收敛（债 7→6），但预算仍是 7，必须红并指名 styles.css（批次 BD-19 还清 ErrorBoundary 后 TSX 侧空表，这颗牙改钉仍活着债的皮肤宿主；夜读皮肤是台账上明写的「已判保留」族——保留的意思是**这一批不付**，不是禁止合法写法，所以拿它测「付了不降预算」正合适）", () => mutate("src/styles.css", "@apply border border-stone-800 text-stone-100 shadow-paper;", "@apply border border-stone-800 text-stone-100 [box-shadow:var(--shadow-1)];"), /预算没跟着降/],

@@ -61,7 +61,7 @@ const editorialCss = stripComments(read("src", "styles", "editorial-studio.css")
 /* ---------------------------------------------------------------- 令牌定义 */
 
 const tokenGroups = {
-  "间距 §5.1": ["--sp-0", "--sp-1", "--sp-2", "--sp-3", "--sp-4", "--sp-5", "--sp-6", "--sp-7", "--sp-8", "--sp-9", "--sp-10", "--sp-11"],
+  "间距 §5.1": ["--sp-0", "--sp-1", "--sp-2", "--sp-3", "--sp-4", "--sp-5", "--sp-6", "--sp-7", "--sp-8", "--sp-9", "--sp-10", "--sp-11", "--sp-12"],
   "圆角 §5.2": ["--radius-1", "--radius-2", "--radius-3", "--radius-full"],
   "阴影 §5.3": ["--shadow-1", "--shadow-2", "--shadow-3", "--shadow-4"],
   "层级 §5.4": ["--z-dock", "--z-sticky", "--z-overlay", "--z-dialog", "--z-menu", "--z-toast"],
@@ -1351,10 +1351,13 @@ const isPureRingValue = (v) => {
     //      （布面印章、书封实体，两者都还叠着 inset 冠光）；kbd :2289 的
     //      `0 1px 0 var(--border-strong)` 是键帽台阶线——1px、零模糊，几何上是描边不是投影，
     //      但 AD 的环判据按形状（0 0 0 Npx）放过不了它。三处待「材质/装饰」专项裁定。
+    //   ✔ 后续（批次 BD-25 用户裁定落地）：这三处即裁定所说的「材质」——已按逐条登记
+    //     移出投影账（见下面 DECOR_SHADOWS），**一条像素都没改**，判的是归类不是取值。
     //   D) 真改版候选 2 处：.desktop-commandbar :516（吸顶栏双层柔影，1 档撑不起横贯整行的
     //      栏、2 档会让工具条看起来浮起来，层级归属需要视觉裁定）；
     //      .desktop-home-inbox-count :927（朱砂计数徽标的**彩色光晕** `0 2px 6px color-mix(--studio-seal 35%)`，
     //      四级里没有彩色列，归任何一档都等于擦掉那层强调色）。这两处不由判据猜。
+    //   ✔ 后续（批次 BD-25 用户裁定落地）：这两处与 C 族同批登记移出（徽标彩光 + 吸顶栏柔影）。
     //   E) 按钮族遗留 3 处（:740 hover 铜影、:2268 全族冠光组合、:2278 first-child 组合）：
     //      归 §2.5「按钮一律无阴影」那条账，与 FROZEN_BUTTON_SHADOW_COUNT=3 登记的是同一批
     //      宿主，随该页 LEGACY 迁移整族下线。**本批一条都不能动**：动了就是拿阴影批
@@ -1371,8 +1374,47 @@ const isPureRingValue = (v) => {
     //      令牌 --studio-paper-shadow（rgba(15,20,28,.08)），§5.3 四档里没有一档含它，
     //      归任何一档都等于换掉整页纸壳的投影颜色，那是「桌面材质族」的一次改版，不是
     //      阴影分级。所以它继续挂账，宿主批从「稿纸批」改名为「桌面材质 / 纸张族」。
-    "src/styles/editorial-studio.css": 13
+    //   ✔ 后续（批次 BD-25 用户裁定落地）：这条也登记移出——它就是「桌面材质族」里唯一
+    //     与纸张厚度有关的那一条，裁定把它和 C/D 两族一起判成「不是投影层级」。
+    //     ⚠ 移出**不等于**这笔账有了答案：它从此不进棘轮计数，也就再没有一处判据在盯它；
+    //     将来若有人动这条声明，只有 DECOR_SHADOWS 的失配硬红会响（值/选择器一改就红）。
+    "src/styles/editorial-studio.css": 7
   };
+
+  // 批次 BD-25（用户第二项裁定）：材质 / 装饰族**移出投影层级这本账**。
+  // 实测收口：登记 6 条（C 族 3 + D 族 2 + F 族 1，就是上面 A–F 家族注释里那三条 ✔ 后续），
+  // 全部在 editorial-studio.css 里，所以台账 21 处 → 15 处：该文件 13→7，
+  // settings-controls.css 的 1（滑块拇指，BD-19 裁定保留、不在本次 6 条内）与
+  // styles.css 的 7 一个都没动；文件数仍是 3。一次像素未改，改的只是归类。
+  // 裁定判的是**归类**，不是取值：这 6 条从没被要求归进 §5.3 四级，因为四级描述的是
+  // 「浮起多高」这个层级语义，而下面这些描述的是「这块布有多厚 / 这本封面是实体 /
+  // 键帽的台阶 / 朱砂自己发光」这类材质与光学。强归任何一档都是可感知改版
+  // （BD-19 的 A–F 家族注释里逐条记过为什么；C/D/F 三族就是这 6 条）。
+  //
+  // 判据形态照批次 AG 的按钮角色：**角色是登记出来的数据，不是形状猜出来的**。
+  // 三条硬规矩，缺一条这条豁免就变成洗债的口袋：
+  //   ① key = 文件 + 选择器文本 + 值串三者一起算。选择器或值一改，登记失配 →
+  //      这条重新被数成债 → 红。所以「顺手把这层阴影改强一点」躲不进豁免。
+  //   ② 未命中的条目当场红（僵尸豁免 = 有人删了材质却在别处新建同类却没登记）。
+  //   ③ 只收这 6 条、不允许通配与前缀匹配；新增一族材质要人批，不由判据自动认。
+  // ⚠ 与批次 AD 那两条豁免的区别要写清：那两条按**几何形状**豁免（纯 inset 不是层级、
+  //   0 0 0 Npx 是描边），形状判据可推广；本表按**逐条登记**豁免，因为「材质厚度」在
+  //   几何上就是一层真投影，形状判据分不开它——这也正是它必须带②的失配硬红的原因。
+  const DECOR_SHADOWS = {
+    // C 族·布面印章的后层托影（还叠着两圈 inset 环）：BD-23 品牌字形批量过这颗印的盒子几何。
+    "src/styles/editorial-studio.css|.desktop-brand-mark|inset 0 0 0 2px color-mix(in srgb, var(--studio-cloth) 88%, transparent), inset 0 0 0 3px color-mix(in srgb, var(--studio-seal) 55%, transparent), 0 3px 10px rgba(0, 0, 0, 0.28)": "印章布面的材质厚度（C 族）",
+    // C 族·书封实体：白冠光是纸面受光，0 2px 5px 是书的厚度，两者都不是「浮起层级」。
+    "src/styles/editorial-studio.css|.library-cover|inset 0 1px 0 rgba(255, 255, 255, 0.28), 0 2px 5px rgba(34, 38, 48, 0.18)": "书封厚度与受光（C 族）",
+    // C 族·键帽台阶线：1px、零模糊，几何上是描边，但 AD 的环判据按 0 0 0 Npx 放过不了它。
+    "src/styles/editorial-studio.css|.desktop-search-command kbd, .uni-search-shell kbd|0 1px 0 var(--border-strong)": "键帽台阶线（C 族）",
+    // D 族·吸顶栏双层柔影：横贯整行的栏，1 档撑不起、2 档会让工具条看起来浮起来。
+    "src/styles/editorial-studio.css|.desktop-commandbar|0 1px 3px rgba(34, 38, 48, 0.05), 0 6px 18px rgba(34, 38, 48, 0.04)": "吸顶栏的贴附柔影（D 族）",
+    // D 族·朱砂计数徽标的彩光：四级里没有彩色投影档，归任何一档都等于擦掉那层强调色。
+    "src/styles/editorial-studio.css|.desktop-home-inbox-count|0 2px 6px color-mix(in srgb, var(--studio-seal) 35%, transparent)": "徽标彩光（D 族）",
+    // F 族·稿纸纸张厚度：penumbra 走自己的令牌 --studio-paper-shadow，四档没有一档含它。
+    "src/styles/editorial-studio.css|.scene-editor|0 1px 2px rgba(34, 38, 48, 0.08), 0 24px 60px var(--studio-paper-shadow), 0 2px 6px rgba(34, 38, 48, 0.06)": "整页纸壳的纸张厚度（F 族）",
+  };
+  const decorHits = new Set();
 
   const actual = {};
   for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
@@ -1389,6 +1431,12 @@ const isPureRingValue = (v) => {
       }
       ast.walkDecls(/^box-shadow$/, (d) => {
         const v = d.value.replace("!important", "").replace(/\s+/g, " ").trim();
+        // 批次 BD-25 的材质 / 装饰登记：文件 + 选择器文本 + 值串三者全等才豁免。
+        const decorKey = `${rel}|${d.parent.selector.replace(/\s+/g, " ").trim()}|${v}`;
+        if (decorKey in DECOR_SHADOWS) {
+          decorHits.add(decorKey);
+          return;
+        }
         if (v === "none" || /^var\(--(shadow|focus)/.test(v)) return;
         // 只有「至少一个非 inset 层」才是投影；纯 inset 是色条/内衬装饰，§5.3 四级不针对它
         if (!shadowLayers(v).some((L) => !/^inset\b/.test(L))) return;
@@ -1432,6 +1480,16 @@ const isPureRingValue = (v) => {
     if (n) actual[rel] = (actual[rel] ?? 0) + n;
   }
 
+  // 登记表里的条目没被扫到 = 那条声明被改了或删了却没同步登记（僵尸豁免）。
+  const decorMiss = Object.keys(DECOR_SHADOWS).filter((k) => !decorHits.has(k));
+  if (decorMiss.length) {
+    fail(
+      `第 8 步阴影刻度：材质/装饰登记表里有 ${decorMiss.length} 条没在源码里扫到——` +
+        decorMiss.slice(0, 3).map((k) => `${k.split("|").slice(0, 2).join(" ")}（${DECOR_SHADOWS[k]}）`).join("、") +
+        `。要么那条声明改了值/换了选择器（登记按三者全等算，必须跟着重登），要么被删了（那就把条目一起删）。` +
+        `拿一条扫不到的豁免当豁免，等于给以后同类装饰开无登记的口子。`
+    );
+  }
   const over = Object.keys(actual).filter((f) => actual[f] > (SHADOW_BUDGET[f] ?? 0));
   const stale = Object.keys(SHADOW_BUDGET).filter((f) => (SHADOW_BUDGET[f] ?? 0) > (actual[f] ?? 0));
   if (over.length) {
@@ -1455,12 +1513,14 @@ const isPureRingValue = (v) => {
 
 /**
  * §5.1 把间距定成 4px 基准的 11 档，令牌（--sp-0…--sp-11）早在批次 C 前就进了 tokens.css，
- * 而且第 1 步的令牌存在性判据一直在断言这 12 个名字有定义。实测：全仓 `var(--sp-*)`
+ * 而且第 1 步的令牌存在性判据一直在断言这些名字有定义（批次 BD-25 裁定加档后是 13 个名字，
+ * 见下面 ③ 的 ✔ 后续：新增的 --sp-12 也已进存在性名单）。实测：全仓 `var(--sp-*)`
  * 引用**零处**——令牌铺了没人用，散写的 gap/padding/margin 各数各的。这是规格开头那张
  * 「间距 19 种 gap、无刻度表」的账，也是第 8 步「字号/间距/圆角按刻度收敛」三本里
  * 唯一还没立判据的一本（圆角在批次 AV 清零；阴影那本在批次 BD-19 之后剩 21 处 / 3 个文件，
  * 已经逐族判过「为什么现在不能还」，见 SHADOW_BUDGET 里 A–F 六个家族——它冻结着，但不再是
- * 「还没轮到」）。
+ * 「还没轮到」）。⚠ 这句「剩 21 处」是本段立项时的口径，批次 BD-25 把其中 6 条材质/装饰
+ * 声明登记移出投影账后实测 15 处 / 3 个文件（见上面阴影一节的 DECOR_SHADOWS 与本节末的账）。
  *
  * 本批只立项、不还债：把当前实测值按文件冻结成预算，从此新增一处离刻度间距就红、
  * 还掉一处不降预算也红。立项时 465 处 / 28 个文件（批次 BD-22 删掉 5 条级联已死的间距声明后
@@ -1491,16 +1551,56 @@ const isPureRingValue = (v) => {
  * 发射进产物（批次 AV 实测），这条坑记在 ui.tsx 的注释里，不在这里重复。
  *
  * ⚠ 立项时撞出一处**规格自相冲突**，判据不替它选边：§2.2 把按钮 sm 档的水平内边距
- * 定为 10px，而 §5.1 的 11 档里没有 10px（…8 / 12…）。实测 10px 是全仓最重的离刻度值
+ * 定为 10px，而 §5.1 当时那 11 档里没有 10px（…8 / 12…）。实测 10px 是全仓最重的离刻度值
  * ——gap 50 处 + padding 80 处 + margin 25 处 = 155 处，占这本账 465 处的三分之一。
  * 所以这本账真正的第一件事不是「逐页收敛」，而是先由人定 10px 的去留：
  *   · 若 §5.1 增补一档（10px），155 处债当场归零，代价是刻度从 11 档变 12 档；
  *   · 若 §2.2 的 sm 内边距改 8 或 12px，则 155 处要逐页改版（可感知，需截图确认）。
  * 在此之前 10px 一律按离刻度计数（保守方向：多算债不会导致误删，替设计提前追认才会），
  * ui.tsx 那条预算 1 就是这场冲突的现场——它是 sizes.sm 的 px-2.5，不是谁写错了数字。
+ *
+ * ✔ 后续（批次 BD-25，用户裁定落地）：选了上面第一条——**§5.1 增补 10px 一档**，
+ *   冲突以「10px 合法」收口。落地方式是令牌追加 `--sp-12: 10px`（**不插号重编号**：
+ *   --sp-0…--sp-11 的名字是规格 §5.1、design-sample 与本判据存在性断言的活引用，
+ *   插号会让 20/24/32/40/48 全体左移一格，等于用一次「加档」偷换 11 个既有令牌的
+ *   含义——那是改版。编号在本表从来只当名字、不当大小）。
+ *   裁定前重扫的本体实测（不是上面那组立项数字）：10px 字面值 157 处 + p-2.5 折算
+ *   8 处 = 165 处，占当时 460 处的 36%；加档后 460→295、文件 28→20。
+ *   ⚠ 上面「155 处 / 三分之一」是批次 AW 立项时的数，本批重扫得 157 / 36%：
+ *   中间隔着 BD-22 删的 5 条级联已死声明与 BD-24 的行高改动，计数会漂——按老规矩
+ *   不回写历史数字，只在此声明它过期。
+ *   ⚠ 这条裁定**没改一个像素**：它改的是「什么算合法」，不是界面。所以产物 maps
+ *   与赢家值探针必须逐字节不变——这是本批唯一的验收线，也是它和
+ *   「顺手把 10 收成 8」那条路的本质区别。
+ *   新牙：10px 从此必须**绿**（反向），且「拿 --sp-12 换掉一处 8px」这种把加档当成
+ *   改版工具用的写法不在本判据管辖（它改的是像素，归截图那条流程）。
  */
 {
-  const SP_SCALE_PX = new Set([0, 2, 4, 6, 8, 12, 16, 20, 24, 32, 40, 48]);
+  // ⚠ 批次 BD-25 给这张表加了一道双向锁，理由两种失败各占一边：
+  //   · 纯手抄（原样）：加一档要改两处，漏一处就出现「令牌有这档、判据不认」，
+  //     本批的 --sp-12 正是这个形状——先改令牌再忘改集合，165 处当场全红。
+  //   · 纯派生（从 tokens.css 扫出来当合法集）：往 tokens.css 塞一个 --sp-13: 7px
+  //     就等于给全仓散写的 7px 发证，债从声明搬进定义、判据当场瞎掉（批次 L 的原话）。
+  //   所以合法集仍是这份**显式表**，但下面加一条断言：表必须与 tokens.css 的 --sp-*
+  //   值集**完全相等**（多一档少一档都红）。这样加档必须两处同改、且改动是可见的，
+  //   漂移不再是静默的。
+  const SP_SCALE_PX = new Set([0, 2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48]);
+  {
+    const tokenSp = new Set(
+      [...lightBlock.matchAll(/--sp-\d+:\s*(\d+(?:\.\d+)?)px\b/g)].map((m) => parseFloat(m[1]))
+    );
+    // --sp-0: 0 没有 px 后缀，上面那条正则漏它；0 在表里，手工补齐再比
+    if (/--sp-0:\s*0\s*;/.test(lightBlock)) tokenSp.add(0);
+    const onlyTable = [...SP_SCALE_PX].filter((v) => !tokenSp.has(v));
+    const onlyToken = [...tokenSp].filter((v) => !SP_SCALE_PX.has(v));
+    if (onlyTable.length || onlyToken.length) {
+      fail(
+        `第 8 步间距刻度：SP_SCALE_PX 与 tokens.css 的 --sp-* 值集不一致——` +
+          `只在判据表里有 ${onlyTable.join("/") || "无"}；只在令牌里有 ${onlyToken.join("/") || "无"}。` +
+          `加档/删档必须两处同改（令牌是设计的事实，这张表是判据的合法集，谁单方面变了都算事故）。`
+      );
+    }
+  }
   const SP_PROPS = /^(?:row-|column-)?(?:gap|padding|margin)(?:-(?:top|right|bottom|left|block|block-start|block-end|inline|inline-start|inline-end))?$/;
   const SP_STEP = 4; // Tailwind 默认 spacing 步进：gap-4 = 16px
   const SP_FRACTIONS = { "0.5": 2, "1.5": 6, "2.5": 10, "3.5": 14 };
@@ -1531,35 +1631,39 @@ const isPureRingValue = (v) => {
    * 之所以照登不误：本仓的规矩是「判据不能上线即红」，立项批必须先让全仓绿，
    * 才谈得上后续批次的红是新增债。
    */
+  // 批次 BD-25（用户裁定落地）：10px 进刻度后，本表由判据本体重扫，460→295、28→20 文件。
+  //   本批复测过这条账的拆法（拿判据本体跑两遍，第二遍把 10 从 SP_SCALE_PX 里摘掉）：
+  //   消掉的 165 处 = CSS 字面 10px 157 处 + @apply …-2.5 1 处 + TSX 工具类 -2.5 7 处。
+  //   ⚠ 台账（--show-spacing-ledger）只登 CSS 侧，TSX 那 7 处只进计数不进台账，
+  //   所以 448 行台账 ≠ 460 处；拿台账去核对总数会对不上，别据此判判据漏数。
+  // 归零并**移除条目**的 8 份（空表 = 新增即红，比留 0 更诚实）：ErrorBoundary.tsx、ui.tsx、
+  // scene-candidate.css、inbox-local.css、overview-local.css、ReaderSidePanel.tsx、
+  // ReaderTopNav.tsx、StorageSection.tsx——它们原本的债就全是 10px/p-2.5 这一族，
+  // 裁定的意思是「这一族不再算债」，所以是合法化、不是还债；条目数字来自重扫，不来自减法。
+  // ⚠ ui.tsx 那条预算 1 是 sizes.sm 的 px-2.5，它曾是「规格自相冲突」的现场（见上面 ③ 的
+  //   立项文字）；裁定之后它合规、条目消失，钉在它上面的「间距棘轮②」随之失去锚点，
+  //   本批把它搬到仍有活债的 TSX 宿主（见 inject 脚本 BD-25 注释）。
   const SPACING_BUDGET = {
-    "src/components/ErrorBoundary.tsx": 1,
-    "src/components/ui.tsx": 1,
-    "src/features/creation/ai/scene-candidate.css": 1,
-    "src/features/creation/cards/cards-local.css": 31,
-    "src/features/creation/cards/relation-graph.css": 5,
-    "src/features/creation/editor/continuous-editor.css": 3,
-    "src/features/creation/editor/scene-radar.css": 7,
-    "src/features/creation/editor/writing-quick-reference.css": 20,
-    "src/features/creation/editor/writing-reference.css": 9,
-    "src/features/creation/history/history-local.css": 16,
+    "src/features/creation/cards/cards-local.css": 18,
+    "src/features/creation/cards/relation-graph.css": 4,
+    "src/features/creation/editor/continuous-editor.css": 2,
+    "src/features/creation/editor/scene-radar.css": 5,
+    "src/features/creation/editor/writing-quick-reference.css": 18,
+    "src/features/creation/editor/writing-reference.css": 7,
+    "src/features/creation/history/history-local.css": 9,
     "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
-    "src/features/creation/inbox/inbox-local.css": 2,
-    "src/features/creation/operation/operation.css": 10,
-    "src/features/creation/outline/outline-reorg.css": 5,
-    "src/features/creation/overview/overview-local.css": 2,
-    "src/features/creation/preview/preview-local.css": 23,
-    "src/features/creation/replace/replace.css": 8,
+    "src/features/creation/operation/operation.css": 4,
+    "src/features/creation/outline/outline-reorg.css": 3,
+    "src/features/creation/preview/preview-local.css": 19,
+    "src/features/creation/replace/replace.css": 3,
     "src/features/library/ExcerptPicker.tsx": 1,
     "src/features/library/LibraryPage.tsx": 1,
-    "src/features/library/ReaderSidePanel.tsx": 3,
     "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
-    "src/features/library/reader/components/ReaderTopNav.tsx": 1,
     "src/features/library/toc/TocList.tsx": 1,
-    "src/features/search/search.css": 18,
-    "src/features/settings/encryption/encryption.css": 3,
-    "src/features/settings/sections/StorageSection.tsx": 1,
-    "src/styles.css": 191,
-    "src/styles/editorial-studio.css": 94
+    "src/features/search/search.css": 10,
+    "src/features/settings/encryption/encryption.css": 1,
+    "src/styles.css": 119,
+    "src/styles/editorial-studio.css": 68
   };
 
   const actual = {};
@@ -1612,7 +1716,8 @@ const isPureRingValue = (v) => {
   if (over.length) {
     fail(
       `第 8 步间距刻度：${over.length} 个文件的离刻度间距比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SPACING_BUDGET[f] ?? 0})`).join("、")}。` +
-        `间距请用 §5.1 的 11 档（--sp-0…--sp-11 = 0/2/4/6/8/12/16/20/24/32/40/48px），` +
+        `间距请用 §5.1 的 13 档（--sp-0…--sp-12 = 0/2/4/6/8/10/12/16/20/24/32/40/48px，` +
+          `其中 10px 是批次 BD-25 由用户裁定增补的 --sp-12），` +
         `等价 Tailwind 写法是 gap-N/p-N/m-N 的 4px 步进（gap-4=16px、gap-5=20px）。` +
         `em/%/calc/auto/负值是排版与布局语法，不在本判据管辖。`
     );
