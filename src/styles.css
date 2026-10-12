@@ -178,17 +178,17 @@ button:disabled {
 }
 
 ::-webkit-scrollbar-track {
-  background: var(--paper-bg);
+  /* BD-29 摘死色：background: var(--paper-bg) 从未渲染——「::-webkit-scrollbar-track」 在产物里被 editorial-studio.css:2470 同键更晚的一条整条压住 */
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--paper-line);
-  border: 2px solid var(--paper-bg);
+  /* BD-29 摘死色：background: var(--paper-line) 从未渲染——「::-webkit-scrollbar-thumb」 在产物里被 editorial-studio.css:2476 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：border: 2px solid var(--paper-bg) 从未渲染——「::-webkit-scrollbar-thumb」 在产物里被 editorial-studio.css:2474 同键更晚的一条整条压住 */
   border-radius: 999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--paper-muted);
+  /* BD-29 摘死色：background: var(--paper-muted) 从未渲染——「::-webkit-scrollbar-thumb:hover」 在产物里被 editorial-studio.css:2481 同键更晚的一条整条压住 */
 }
 
 @layer components {
@@ -418,10 +418,10 @@ button:disabled {
   height: 100vh;
   min-height: 0;
   overflow: hidden;
-  background:
-    linear-gradient(90deg, rgba(36, 27, 22, 0.035), transparent 18%),
-    radial-gradient(circle at 8% 0%, rgba(138, 90, 43, 0.13), transparent 28%),
-    linear-gradient(135deg, var(--paper-bg), var(--paper-soft));
+  /* BD-29 摘死色：background: linear-gradient(90deg, rgba(36, 27, 22, 0.035), transparent …（原值截断，全文见本仓 git 历史） 从未渲染——「.desktop-workbench」 在产物里被 editorial-studio.css:68 同键更晚的一条整条压住 */
+
+
+
 }
 
 .desktop-workbench:has(.desktop-sidebar--rail) {
@@ -451,9 +451,9 @@ button:disabled {
   min-height: 0;
   padding: 18px 14px;
   border-right: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  background:
-    linear-gradient(180deg, rgba(255, 250, 242, 0.84), rgba(242, 228, 218, 0.72)),
-    var(--paper-panel);
+  /* BD-29 摘死色：background: linear-gradient(180deg, rgba(255, 250, 242, 0.84), rgba(242,…（原值截断，全文见本仓 git 历史） 从未渲染——「.desktop-sidebar」 在产物里被 editorial-studio.css:2887 同键更晚的一条整条压住 */
+
+
 }
 
 :root[data-app-theme="dark"] .desktop-sidebar {
@@ -505,7 +505,7 @@ button:disabled {
 
 .desktop-brand small {
   margin-top: 2px;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-brand small」 在产物里被 editorial-studio.css:179 同键更晚的一条整条压住 */
   font-size: 11px;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -549,7 +549,7 @@ button:disabled {
 
 .desktop-nav svg {
   justify-self: center;
-  color: var(--copper);
+  /* BD-29 摘死色：color: var(--copper) 从未渲染——「.desktop-nav svg」 在产物里被 editorial-studio.css:222 同键更晚的一条整条压住 */
 }
 
 .desktop-nav strong,
@@ -563,7 +563,7 @@ button:disabled {
 
 .desktop-nav small {
   margin-top: 1px;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-nav small」 在产物里被 editorial-studio.css:239 同键更晚的一条整条压住 */
   font-size: 11px;
 }
 
@@ -573,7 +573,7 @@ button:disabled {
    * 且加载更晚的 `.desktop-sidebar-card { border-radius: 0 }` 一直压着它（胜者表实测
    * 值为 0）——这条从未弯过一个角。主题×主题几何分叉第 2 批（批次 V 判据补方向）。
    * border/background 保留：editorial 只覆盖 border-top 一侧，其余三边仍由这里供值。 */
-  background: color-mix(in srgb, var(--paper-panel) 78%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 78%, transparent) 从未渲染——「.desktop-sidebar-card」 在产物里被 editorial-studio.css:248 同键更晚的一条整条压住 */
   /* 批次 AK：退役这里的 box-shadow: 0 12px 30px rgba(59,39,24,0.055)。胜者表实测
    * editorial-studio.css L214 的同特异度 box-shadow: none 加载更晚、一直压着它——
    * 这条手抄投影从未画出一个像素（批次 N 那族「层叠上被压死」，不是宿主不存在）。
@@ -585,7 +585,7 @@ button:disabled {
 }
 
 .desktop-card-label {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-card-label」 在产物里被 editorial-studio.css:2920 同键更晚的一条整条压住 */
   font-size: 11px;
   font-weight: 650;
   letter-spacing: 0.13em;
@@ -604,18 +604,18 @@ button:disabled {
   gap: 2px;
   padding: 10px;
   border-radius: var(--radius-2);
-  background: color-mix(in srgb, var(--paper-soft) 58%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 58%, transparent) 从未渲染——「.desktop-sidebar-stats span」 在产物里被 editorial-studio.css:275 同键更晚的一条整条压住 */
 }
 
 .desktop-sidebar-stats strong {
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-sidebar-stats strong」 在产物里被 editorial-studio.css:279 同键更晚的一条整条压住 */
   /* 批次 BD-2：删掉这条字号。editorial-studio.css:278 的同特异度后置规则（20px）一直是胜者，
      这条从未画出来过；留在账上就是让下一个人在死数值上算档位。 */
   line-height: 1.1;
 }
 
 .desktop-sidebar-stats small {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-sidebar-stats small」 在产物里被 editorial-studio.css:287 同键更晚的一条整条压住 */
   font-size: 11px;
 }
 
@@ -634,7 +634,7 @@ button:disabled {
   min-height: 76px;
   padding: 14px 22px;
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  background: color-mix(in srgb, var(--paper-panel) 74%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 74%, transparent) 从未渲染——「.desktop-commandbar」 在产物里被 editorial-studio.css:542 同键更晚的一条整条压住 */
   backdrop-filter: blur(18px);
 }
 
@@ -655,7 +655,7 @@ button:disabled {
 .desktop-commandbar h1 {
   margin-top: 2px;
   overflow: hidden;
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-commandbar h1」 在产物里被 editorial-studio.css:550 同键更晚的一条整条压住 */
   font-family: ui-serif, "Songti SC", "STSong", serif;
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:547 的 20px）。 */
   font-weight: 700;
@@ -682,12 +682,12 @@ button:disabled {
   gap: 9px;
   min-height: 42px;
   padding: 0 10px 0 13px;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 88%, transparent) 从未渲染——「.desktop-search-command」 在产物里被 editorial-studio.css:577 同键更晚的一条整条压住 */
   /* 批次 L：删掉 border-radius: 14px。editorial-studio.css 后面那条同特异度的
    * `.desktop-search-command { border-radius: var(--radius-control) }` 写得更晚，
    * 一直在压着它（级联探针实测）——这条从未画出来过。圆角只有一个来源。 */
-  background: color-mix(in srgb, var(--paper-panel) 88%, var(--paper-soft));
-  color: var(--paper-muted);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 88%, var(--paper-soft)) 从未渲染——「.desktop-search-command」 在产物里被 editorial-studio.css:581 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-search-command」 在产物里被 editorial-studio.css:583 同键更晚的一条整条压住 */
   text-align: left;
   /* 批次 AQ：删掉 box-shadow: inset 0 1px 0 rgba(255,255,255,0.34)。
    * editorial-studio.css L348 同特异度且加载更晚的
@@ -696,8 +696,8 @@ button:disabled {
 }
 
 .desktop-search-command:hover {
-  border-color: color-mix(in srgb, var(--copper) 35%, var(--paper-line));
-  color: var(--paper-ink);
+  /* BD-29 摘死色：border-color: color-mix(in srgb, var(--copper) 35%, var(--paper-line)) 从未渲染——「.desktop-search-command:hover」 在产物里被 editorial-studio.css:589 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-search-command:hover」 在产物里被 editorial-studio.css:591 同键更晚的一条整条压住 */
 }
 
 .desktop-search-command span {
@@ -706,10 +706,10 @@ button:disabled {
 }
 
 .desktop-search-command kbd {
-  border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent) 从未渲染——「.desktop-search-command kbd」 在产物里被 editorial-studio.css:607 同键更晚的一条整条压住 */
   padding: 2px 6px;
-  background: color-mix(in srgb, var(--paper-soft) 64%, transparent);
-  color: var(--paper-muted);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 64%, transparent) 从未渲染——「.desktop-search-command kbd」 在产物里被 editorial-studio.css:609 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-search-command kbd」 在产物里被 editorial-studio.css:610 同键更晚的一条整条压住 */
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
 }
@@ -722,8 +722,8 @@ button:disabled {
 
 .desktop-canvas > .motion-page {
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 72%, transparent);
-  background: color-mix(in srgb, var(--paper-panel) 42%, transparent);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 72%, transparent) 从未渲染——「.desktop-canvas > .motion-page」 在产物里被 editorial-studio.css:631 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 42%, transparent) 从未渲染——「.desktop-canvas > .motion-page」 在产物里被 editorial-studio.css:633 同键更晚的一条整条压住 */
 }
 
 .desktop-canvas .motion-page > .paper-shell {
@@ -748,10 +748,10 @@ button:disabled {
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  background:
-    radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--copper) 12%, transparent), transparent 30%),
-    color-mix(in srgb, var(--paper-panel) 70%, transparent);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent) 从未渲染——「.desktop-page-hero」 在产物里被 editorial-studio.css:2899 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--co…（原值截断，全文见本仓 git 历史） 从未渲染——「.desktop-page-hero」 在产物里被 editorial-studio.css:2902 同键更晚的一条整条压住 */
+
+
   padding: 18px;
 }
 
@@ -761,7 +761,7 @@ button:disabled {
 }
 
 .desktop-page-hero h2 {
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-page-hero h2」 在产物里被 editorial-studio.css:665 同键更晚的一条整条压住 */
   font-family: ui-serif, "Songti SC", "STSong", serif;
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2915 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
@@ -772,7 +772,7 @@ button:disabled {
 
 .desktop-page-hero p {
   margin-top: 7px;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-page-hero p」 在产物里被 editorial-studio.css:675 同键更晚的一条整条压住 */
   font-size: 13px;
   line-height: 1.7;
 }
@@ -817,8 +817,8 @@ button:disabled {
 
 .desktop-library-grid-head {
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  background: color-mix(in srgb, var(--paper-soft) 46%, transparent);
-  color: var(--paper-muted);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 46%, transparent) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1829 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1830 同键更晚的一条整条压住 */
   font-size: 12px;
   font-weight: 650;
   padding: 11px 14px;
@@ -836,7 +836,7 @@ button:disabled {
 
 .desktop-library-row:hover {
   transform: translateY(-1px);
-  background: color-mix(in srgb, var(--paper-soft) 32%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 32%, transparent) 从未渲染——「.desktop-library-row:hover」 在产物里被 editorial-studio.css:1847 同键更晚的一条整条压住 */
 }
 
 .desktop-inspiration-page {
@@ -1212,8 +1212,8 @@ button:disabled {
   grid-template-columns: 232px minmax(460px, 1fr) 250px;
   min-height: 0;
   overflow: hidden;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  background: var(--paper-panel);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.writing-desk」 在产物里被 editorial-studio.css:1022 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.writing-desk」 在产物里被 editorial-studio.css:1024 同键更晚的一条整条压住 */
 }
 
 .writing-desk--focus {
@@ -1228,7 +1228,7 @@ button:disabled {
 .writing-outline,
 .writing-margin {
   min-width: 0;
-  background: color-mix(in srgb, var(--paper-soft) 52%, var(--paper-panel));
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 52%, var(--paper-panel)) 从未渲染——2 个选择器（.writing-outline / .writing-margin）逐个 在产物里被 editorial-studio.css:1147 同键更晚的一条整条压住 */
 }
 
 .writing-outline {
@@ -1242,7 +1242,7 @@ button:disabled {
   gap: 7px;
   padding: 16px;
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-project-switcher」 在产物里被 editorial-studio.css:1165 同键更晚的一条整条压住 */
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
@@ -1253,8 +1253,8 @@ button:disabled {
 .scene-block-select {
   min-width: 0;
   border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
-  color: var(--paper-ink);
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——2 个选择器（.writing-project-switcher select / .scene-block-select）逐个 在产物里被 editorial-studio.css:1175 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——2 个选择器（.writing-project-switcher select / .scene-block-select）逐个 在产物里被 editorial-studio.css:1176 同键更晚的一条整条压住 */
   outline: none;
 }
 
@@ -1288,9 +1288,9 @@ button:disabled {
   grid-template-rows: auto auto minmax(0, 1fr);
   min-width: 0;
   min-height: 0;
-  background:
-    linear-gradient(90deg, transparent 0 47px, color-mix(in srgb, var(--copper) 10%, transparent) 47px 48px, transparent 48px),
-    var(--paper-panel);
+  /* BD-29 摘死色：background: linear-gradient(90deg, transparent 0 47px, color-mix(in srgb…（原值截断，全文见本仓 git 历史） 从未渲染——「.writing-manuscript」 在产物里被 editorial-studio.css:1199 同键更晚的一条整条压住 */
+
+
 }
 
 .writing-manuscript-head {
@@ -1300,7 +1300,7 @@ button:disabled {
   gap: 20px;
   padding: 15px 28px 13px;
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
-  background: color-mix(in srgb, var(--paper-panel) 94%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 94%, transparent) 从未渲染——「.writing-manuscript-head」 在产物里被 editorial-studio.css:1206 同键更晚的一条整条压住 */
 }
 
 .writing-manuscript-head h2 {
@@ -1311,7 +1311,7 @@ button:disabled {
 }
 
 .writing-manuscript-head span {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-manuscript-head span」 在产物里被 editorial-studio.css:1223 同键更晚的一条整条压住 */
   font-size: 11px;
 }
 
@@ -1320,7 +1320,7 @@ button:disabled {
   align-items: center;
   gap: 5px;
   flex: 0 0 auto;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-watch」 在产物里被 editorial-studio.css:1372 同键更晚的一条整条压住 */
   font-size: 11px;
 }
 
@@ -1419,7 +1419,7 @@ button:disabled {
   gap: 5px;
   flex: 0 0 auto;
   padding: 0 5px;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.scene-save-status」 在产物里被 editorial-studio.css:1372 同键更晚的一条整条压住 */
   font-size: 11px;
   white-space: nowrap;
 }
@@ -1560,7 +1560,7 @@ button:disabled {
 }
 
 .writing-margin dt {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-margin dt」 在产物里被 editorial-studio.css:1353 同键更晚的一条整条压住 */
   font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -1583,7 +1583,7 @@ button:disabled {
   align-items: flex-start;
   gap: 7px;
   margin: 0;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-boundary」 在产物里被 editorial-studio.css:1227 同键更晚的一条整条压住 */
   font-size: 11px;
   line-height: 1.7;
 }
@@ -1773,9 +1773,9 @@ button:disabled {
 }
 
 .writing-outline-view-switch button.active {
-  color: var(--copper);
+  /* BD-29 摘死色：color: var(--copper) 从未渲染——「.writing-outline-view-switch button.active」 在产物里被 editorial-studio.css:1254 同键更晚的一条整条压住 */
   border-color: color-mix(in srgb, var(--copper) 28%, transparent);
-  background: color-mix(in srgb, var(--copper) 8%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 8%, transparent) 从未渲染——「.writing-outline-view-switch button.active」 在产物里被 editorial-studio.css:1253 同键更晚的一条整条压住 */
 }
 
 .outline-loading {
@@ -2128,7 +2128,7 @@ button:disabled {
   align-self: flex-start;
   border-radius: 999px;
   background: color-mix(in srgb, var(--paper-line) 40%, transparent);
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.card-board-card-status」 在产物里被 editorial-studio.css:3350 同键更晚的一条整条压住 */
   font-size: 11px;
   padding: 1px 7px;
 }
@@ -2259,8 +2259,8 @@ button:disabled {
 }
 
 .cards-list-item.active {
-  border-color: color-mix(in srgb, var(--copper) 35%, transparent);
-  background: color-mix(in srgb, var(--copper) 8%, transparent);
+  /* BD-29 摘死色：border-color: color-mix(in srgb, var(--copper) 35%, transparent) 从未渲染——「.cards-list-item.active」 在产物里被 editorial-studio.css:1479 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 8%, transparent) 从未渲染——「.cards-list-item.active」 在产物里被 editorial-studio.css:1481 同键更晚的一条整条压住 */
 }
 
 .cards-list-item strong {
@@ -2286,11 +2286,11 @@ button:disabled {
 .cards-detail-pane {
   min-height: 0;
   overflow: auto;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.cards-detail-pane」 在产物里被 editorial-studio.css:3180 同键更晚的一条整条压住 */
   /* 批次 L：删掉 border-radius: 14px——editorial-studio.css 的
    * `.cards-detail-pane { border-radius: var(--radius-panel) }` 同特异度且更晚，
    * 从未让它生效过。 */
-  background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel)) 从未渲染——「.cards-detail-pane」 在产物里被 editorial-studio.css:3182 同键更晚的一条整条压住 */
   padding: 16px;
 }
 
@@ -2423,8 +2423,8 @@ button:disabled {
 .cards-input {
   height: 34px;
   border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
-  color: var(--paper-ink);
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.cards-input」 在产物里被 editorial-studio.css:1175 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.cards-input」 在产物里被 editorial-studio.css:1176 同键更晚的一条整条压住 */
   font-size: 13px;
   padding: 0 10px;
   outline: none;
@@ -2549,7 +2549,7 @@ button:disabled {
 /* 鍗＄墖鐪嬫澘锛堟寜绫诲瀷鍒嗗垪 + 鎷栨嫿锟?*/
 .cards-view-switch {
   display: inline-flex;
-  border: 1px solid var(--paper-line);
+  /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.cards-view-switch」 在产物里被 editorial-studio.css:1239 同键更晚的一条整条压住 */
   border-radius: var(--radius-2);
   overflow: hidden;
 }
@@ -2568,8 +2568,8 @@ button:disabled {
 }
 
 .cards-view-switch button.active {
-  color: var(--copper);
-  background: color-mix(in srgb, var(--copper) 9%, transparent);
+  /* BD-29 摘死色：color: var(--copper) 从未渲染——「.cards-view-switch button.active」 在产物里被 editorial-studio.css:1254 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 9%, transparent) 从未渲染——「.cards-view-switch button.active」 在产物里被 editorial-studio.css:1253 同键更晚的一条整条压住 */
 }
 
 .cards-board-layout {
@@ -2583,8 +2583,8 @@ button:disabled {
 .cards-board-pane {
   min-height: 0;
   overflow: auto;
-  border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
-  background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel));
+  /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.cards-board-pane」 在产物里被 editorial-studio.css:3174 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 30%, var(--paper-panel)) 从未渲染——「.cards-board-pane」 在产物里被 editorial-studio.css:3176 同键更晚的一条整条压住 */
   padding: 12px;
 }
 
@@ -2600,7 +2600,7 @@ button:disabled {
   max-width: 280px;
   flex: 1;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
-  background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel));
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel)) 从未渲染——「.cards-board-column」 在产物里被 editorial-studio.css:1447 同键更晚的一条整条压住 */
   align-self: stretch;
 }
 
@@ -2658,19 +2658,19 @@ button:disabled {
    * 10px 这个手抄值从未生效。删的只有本条 4 行规则里的这一行，
    * editorial 的家族规则（.background-card/.cards-detail-card/.history-empty 还在吃它）
    * 与本条其余声明都不动。 */
-  background: var(--paper-panel);
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.cards-board-card」 在产物里被 editorial-studio.css:1464 同键更晚的一条整条压住 */
   padding: 9px 10px;
   cursor: grab;
   transition: border-color 0.12s ease;
 }
 
 .cards-board-card:hover {
-  border-color: color-mix(in srgb, var(--copper) 40%, transparent);
+  /* BD-29 摘死色：border-color: color-mix(in srgb, var(--copper) 40%, transparent) 从未渲染——「.cards-board-card:hover」 在产物里被 editorial-studio.css:1469 同键更晚的一条整条压住 */
 }
 
 .cards-board-card.active {
-  border-color: var(--copper);
-  background: color-mix(in srgb, var(--copper) 7%, transparent);
+  /* BD-29 摘死色：border-color: var(--copper) 从未渲染——「.cards-board-card.active」 在产物里被 editorial-studio.css:1479 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 7%, transparent) 从未渲染——「.cards-board-card.active」 在产物里被 editorial-studio.css:1481 同键更晚的一条整条压住 */
 }
 
 .cards-board-card:active {
@@ -2881,11 +2881,11 @@ button:disabled {
   margin: 0 0 10px;
   font-size: 13px;
   font-weight: 700;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.stats-card h3」 在产物里被 editorial-studio.css:775 同键更晚的一条整条压住 */
 }
 
 .stats-card h3 svg {
-  color: var(--copper);
+  /* BD-29 摘死色：color: var(--copper) 从未渲染——「.stats-card h3 svg」 在产物里被 editorial-studio.css:794 同键更晚的一条整条压住 */
 }
 
 .stats-words {
@@ -3512,7 +3512,7 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.inbox-item-title」 在产物里被 editorial-studio.css:1568 同键更晚的一条整条压住 */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1570 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
@@ -3534,13 +3534,13 @@ button:disabled {
 }
 
 .inbox-item-body {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.inbox-item-body」 在产物里被 editorial-studio.css:1576 同键更晚的一条整条压住 */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1577 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.inbox-item-meta」 在产物里被 editorial-studio.css:1576 同键更晚的一条整条压住 */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1577 的 12px）。 */
 }
 
@@ -3672,7 +3672,7 @@ button:disabled {
 }
 
 .writing-annotation-meta {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-annotation-meta」 在产物里被 editorial-studio.css:3092 同键更晚的一条整条压住 */
   font-size: 11px;
 }
 
@@ -3718,8 +3718,8 @@ button:disabled {
   flex-direction: column;
   gap: 3px;
   padding: 10px;
-  border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
+  /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.project-nav」 在产物里被 editorial-studio.css:961 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.project-nav」 在产物里被 editorial-studio.css:964 同键更晚的一条整条压住 */
   align-self: start;
   position: sticky;
   top: 0;
@@ -3731,7 +3731,7 @@ button:disabled {
   gap: 8px;
   border: 0;
   background: transparent;
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-nav button」 在产物里被 editorial-studio.css:977 同键更晚的一条整条压住 */
   font-size: 13px;
   font-weight: 600;
   padding: 9px 12px;
@@ -3740,13 +3740,13 @@ button:disabled {
 }
 
 .project-nav button:hover {
-  color: var(--paper-ink);
-  background: var(--paper-soft);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.project-nav button:hover」 在产物里被 editorial-studio.css:985 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-soft) 从未渲染——「.project-nav button:hover」 在产物里被 editorial-studio.css:984 同键更晚的一条整条压住 */
 }
 
 .project-nav button.active {
-  color: var(--copper);
-  background: color-mix(in srgb, var(--copper) 10%, var(--paper-panel));
+  /* BD-29 摘死色：color: var(--copper) 从未渲染——「.project-nav button.active」 在产物里被 editorial-studio.css:991 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 10%, var(--paper-panel)) 从未渲染——「.project-nav button.active」 在产物里被 editorial-studio.css:990 同键更晚的一条整条压住 */
 }
 
 .project-workbench-main {
@@ -3795,7 +3795,7 @@ button:disabled {
 .desktop-home-inbox-count {
   font-style: normal;
   border-radius: 999px;
-  background: var(--copper);
+  /* BD-29 摘死色：background: var(--copper) 从未渲染——「.desktop-home-inbox-count」 在产物里被 editorial-studio.css:934 同键更晚的一条整条压住 */
   color: var(--fg-on-solid);
   font-size: 11px;
   font-weight: 700;
@@ -3814,14 +3814,14 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
-  border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
+  /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.project-home-item」 在产物里被 editorial-studio.css:828 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.project-home-item」 在产物里被 editorial-studio.css:831 同键更晚的一条整条压住 */
   padding: 10px 12px;
   transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
 }
 
 .project-home-item:hover {
-  border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line));
+  /* BD-29 摘死色：border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line)) 从未渲染——「.project-home-item:hover」 在产物里被 editorial-studio.css:869 同键更晚的一条整条压住 */
   transform: translateY(-1px);
 }
 
@@ -3837,13 +3837,13 @@ button:disabled {
 }
 
 .project-home-item-main strong {
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.project-home-item-main strong」 在产物里被 editorial-studio.css:880 同键更晚的一条整条压住 */
   font-size: 14px;
   font-weight: 700;
 }
 
 .project-home-meta {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-meta」 在产物里被 editorial-studio.css:890 同键更晚的一条整条压住 */
   font-size: 12px;
 }
 
@@ -3855,7 +3855,7 @@ button:disabled {
    flex-shrink:0 由组件侧的 shrink-0 承担。 */
 
 .project-home-arrow {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-arrow」 在产物里被 editorial-studio.css:913 同键更晚的一条整条压住 */
   flex-shrink: 0;
   opacity: 0.55;
 }
@@ -3868,7 +3868,7 @@ button:disabled {
 }
 
 .project-home-chars {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-chars」 在产物里被 editorial-studio.css:890 同键更晚的一条整条压住 */
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -3878,19 +3878,19 @@ button:disabled {
   flex: 1;
   min-width: 60px;
   height: 6px;
-  background: color-mix(in srgb, var(--paper-line) 70%, transparent);
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-line) 70%, transparent) 从未渲染——「.project-home-progressbar」 在产物里被 editorial-studio.css:903 同键更晚的一条整条压住 */
   overflow: hidden;
 }
 
 .project-home-progressbar-fill {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, var(--copper), color-mix(in srgb, var(--copper) 70%, var(--paper-ink)));
+  /* BD-29 摘死色：background: linear-gradient(90deg, var(--copper), color-mix(in srgb, var…（原值截断，全文见本仓 git 历史） 从未渲染——「.project-home-progressbar-fill」 在产物里被 editorial-studio.css:909 同键更晚的一条整条压住 */
   transition: width 260ms ease;
 }
 
 .project-home-no-goal {
-  color: var(--paper-muted);
+  /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-no-goal」 在产物里被 editorial-studio.css:890 同键更晚的一条整条压住 */
   font-size: 12px;
   opacity: 0.65;
 }
@@ -3977,14 +3977,14 @@ button:disabled {
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
+  /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.outline-page-main」 在产物里被 editorial-studio.css:1425 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.outline-page-main」 在产物里被 editorial-studio.css:1427 同键更晚的一条整条压住 */
   padding: 10px;
 }
 
 .outline-page-side {
-  border: 1px solid var(--paper-line);
-  background: var(--paper-panel);
+  /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1439 同键更晚的一条整条压住 */
+  /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1433 同键更晚的一条整条压住 */
   padding: 14px;
   align-self: start;
   max-height: calc(100vh - 260px);
@@ -4038,7 +4038,7 @@ button:disabled {
 
 .background-page-title {
   margin: 0;
-  color: var(--paper-ink);
+  /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.background-page-title」 在产物里被 editorial-studio.css:775 同键更晚的一条整条压住 */
   font-size: 16px;
   font-weight: 800;
   font-family: ui-serif, "Songti SC", "STSong", serif;
@@ -4063,13 +4063,13 @@ button:disabled {
   cursor: pointer;
 }
 
-.background-card:hover,
-.background-card.active {
+.background-card:hover {
+  /* BD-29 拆分自 `.background-card:hover, .background-card.active`：active 那半边被 editorial-studio.css:1479 同键压死（摘除见下一条规则里的墓碑），:hover 这半边在产物里没有任何胜者、仍在画，所以只把 :hover 留下。 */
   border-color: var(--copper);
 }
 
 .background-card.active {
-  background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
+  /* BD-29 摘死色：background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel)) 从未渲染——「.background-card.active」 在产物里被 editorial-studio.css:1481 同键更晚的一条整条压住 */
 }
 
 .background-card-kind {

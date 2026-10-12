@@ -86,7 +86,11 @@ const files = [
   // 批次 AN 的归级用例改这两份：Dialog / FontPicker 手上那条 Tailwind 刻度外档已按 §5.3
   // 换成属性形式令牌、预算条目随之移除——写回原工具类必须红，否则归级等于给这两处松绑。
   "src/components/ui/Dialog.tsx",
-  "src/components/ui/FontPicker.tsx"
+  "src/components/ui/FontPicker.tsx",
+  // 批次 BD-29 的发射顺序用例改这份：颜色分支判据的「谁压谁」整个建立在
+  // styles.css → editorial-studio.css 这条 import 顺序上，把它换序是这条判据
+  // 最根本的失效方向，所以 main.tsx 必须进备份清单（不在清单里的文件 mutate 会直接拒改）。
+  "src/app/main.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -649,7 +653,20 @@ const cases = [
   ["批次 BD-28 环④（跨文件成环）：环的两半分居 tokens.css 与 styles.css，证明检测器把全站 CSS 当一张图，而不是逐文件查（当年那两个名字也正是跨文件才成环的）", () => { mutate("src/styles/tokens.css", "  --text-secondary: #666d77;", "  --text-secondary: #666d77;\n  --zz-x: var(--zz-y);"); mutate("src/styles.css", "  --text-main: var(--text-primary);", "  --text-main: var(--text-primary);\n  --zz-y: var(--zz-x);"); }, /自定义属性引用环/],
   // 反向两颗：判据过严的代价是下一批人直接绕过它（BD-22/BD-23 同一条教训）。
   ["批次 BD-28 环·反向①：三跳合法别名链 --zz-a → --zz-b → --zz-c → 令牌，无环不该红——本仓别名层大量是这种形状（--copper → --action-primary），误伤等于把判据判死刑", () => mutate("src/styles/tokens.css", "  --text-secondary: #666d77;", "  --text-secondary: #666d77;\n  --zz-a: var(--zz-b);\n  --zz-b: var(--zz-c);\n  --zz-c: var(--app-bg);"), null],
-  ["批次 BD-28 环·反向②：把环的**文字**写进注释（本批两处断环墓碑就是这么写的：注释里原样抄着旧声明），不该红——守卫匹配的是声明，不剥注释就会自己咬自己", () => mutate("src/styles/editorial-studio.css", "  --text: var(--text-main);", "  /* 墓碑：--zz-p: var(--zz-q); --zz-q: var(--zz-p); */\n  --text: var(--text-main);"), null]
+  ["批次 BD-28 环·反向②：把环的**文字**写进注释（本批两处断环墓碑就是这么写的：注释里原样抄着旧声明），不该红——守卫匹配的是声明，不剥注释就会自己咬自己", () => mutate("src/styles/editorial-studio.css", "  --text: var(--text-main);", "  /* 墓碑：--zz-p: var(--zz-q); --zz-q: var(--zz-p); */\n  --text: var(--text-main);"), null],
+  // 批次 BD-29：颜色分支（守卫「颜色分支不得有两个真源」一节）。这批摘掉 styles.css 里
+  // 95 条被 editorial-studio.css 同键压死的颜色声明——一个像素没画过，却被每批读源码的人
+  // 当成活样式。几何那族（圆角/投影）批次 V/AQ 已有同名判据，颜色族一直没人管。
+  ["批次 BD-29 死色①（原样复活）：把摘掉的 .desktop-brand small 的 color 写回原位，editorial-studio.css:179 同键那条还在后面压着它，必须红——本批清掉的就是这个形状", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-brand small {\n  margin-top: 2px;\n  color: var(--paper-muted);"), /第 8 步颜色分支（主题表 × 主题表）/],
+  ["批次 BD-29 死色②（新宿主，不是复活动作）：给 .desktop-brand strong 补一条 color，editorial-studio.css:170 对同选择器早有异值——名字新、宿主新、形状与①一致，必须红。判据盯的是「同键异值 + 靠发射顺序决胜」这个形状，不是那 95 条特定声明", () => mutate("src/styles.css", ".desktop-brand strong {\n  font-size: 14px;", ".desktop-brand strong {\n  color: var(--paper-muted);\n  font-size: 14px;"), /第 8 步颜色分支（主题表 × 主题表）/],
+  ["批次 BD-29 死色③（新属性）：给 editorial 的 .uni-search-group h3 补一条 color，特性表 search.css:146 同键异值在更晚的 <link> 里压着它——主题表 × 特性表方向的预算必须从 13 涨到 14 并咬住，否则这条方向就是纸面判据", () => mutate("src/styles/editorial-studio.css", ".uni-search-group h3 {\n  font-family: var(--font-sans);", ".uni-search-group h3 {\n  color: var(--studio-cloth-muted);\n  font-family: var(--font-sans);"), /第 8 步颜色分支（主题表 × 特性表）/],
+  ["批次 BD-29 死色④（还债不降预算）：把 editorial-studio.css:1736 那条被 search.css 压死的 .uni-search-overlay background 真删掉是合法收敛（账 13→12），但 COLOR_FORK_BUDGET 还写 13 必须红——和圆角/阴影那三本一样的规矩：付了债不同步预算，下一批就不知道还能付", () => mutate("src/styles/editorial-studio.css", ".uni-search-overlay {\n  background: color-mix(in srgb, var(--studio-cloth) 52%, transparent);\n", ".uni-search-overlay {\n"), /COLOR_FORK_BUDGET/],
+  ["批次 BD-29 死色⑤（发射顺序前提）：把 main.tsx 里两份主题表的 import 换序——本判据的「谁压谁」整个建立在这条顺序上，顺序一反，死侧会整体换位、摘行即改版，必须红（MEASURE 那条同样依赖它，这里验的是颜色分支自己有没有守住前提）", () => mutate("src/app/main.tsx", 'import "@/styles.css";\nimport "@/styles/editorial-studio.css";', 'import "@/styles/editorial-studio.css";\nimport "@/styles.css";'), /第 8 步颜色分支/],
+  ["批次 BD-29 死色⑥（判据退化）：把 editorial:1736 那条死色的取值改成与 search.css:8 **完全相同**——同值不是分叉（那是冗余），于是本判据用来验自己没瞎的那条活样本从账上消失，必须以「判据退化」而不是「分叉」的形式红。这条测的是最阴的失效模式：归一化被改坏时分叉会被安静放行", () => mutate("src/styles/editorial-studio.css", "  background: color-mix(in srgb, var(--studio-cloth) 52%, transparent);\n  backdrop-filter: blur(7px) saturate(0.85);", "  background: rgba(24, 20, 16, 0.18);\n  backdrop-filter: blur(7px) saturate(0.85);"), /颜色分支判据退化/],
+  // 反向三颗：判据过严的代价和过松一样贵——它会把正当写法也判成违规，下一批人就开始绕过它。
+  ["批次 BD-29 死色·反向①：给 styles.css 的 .desktop-brand strong 写一条与 editorial-studio.css:170 **同值**的 color，不该红——同值重复是冗余不是分叉（本仓还有 4 处这个形状，删哪边都是改版），把它判红等于逼人多删一条", () => mutate("src/styles.css", ".desktop-brand strong {\n  font-size: 14px;", ".desktop-brand strong {\n  color: var(--studio-cloth-text);\n  font-size: 14px;"), null],
+  ["批次 BD-29 死色·反向②（本批唯一没摘的那条的形状）：一条双选择器规则里只压住一半——.desktop-nav button 在 editorial 里没有同键 color 对手、.desktop-brand small 有（:179），整条声明仍在画，**不该红**。BD-29 正是靠这条判断把 .background-card:hover/.active 拆开而不是整条留下；判据若按「任一选择器被压」就判死，下一批就会把在画的半边删掉（两个选择器都取真宿主，免得红在幻影判据上）", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-nav button,\n.desktop-brand small {\n  color: var(--paper-muted);\n}\n\n.desktop-brand small {\n  margin-top: 2px;"), null],
+  ["批次 BD-29 死色·反向③：!important 单独定胜者——在 styles.css 给 .desktop-brand small 写一条带 !important 的 color，editorial 那条同键不带，胜者就是它自己，不该红（与几何分支同一豁免：不存在「谁发射得晚」这件事）", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-brand small {\n  margin-top: 2px;\n  color: var(--paper-muted) !important;"), null]
 ];
 
 let bad = 0;
