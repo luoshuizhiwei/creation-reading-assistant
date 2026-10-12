@@ -259,12 +259,21 @@ if (/copper-soft/.test(uiTsx)) {
   fail("组件不应使用 copper-soft 别名：--copper-soft 在别名层映射到 --proof-tint（校样红），主色浅底请用 --action-tint");
 }
 
-// data-variant 保留调用方原值 + CSS 双排除：两者任一丢失都会让 quiet 首子按钮被套上主色渐变
+// data-variant 保留调用方原值。
+// ⚠ 批次 BD-26 改动本条的理由与措辞：原先这里除了断言 `data-variant={variant}`，还钉着
+// 一句「editorial-studio.css 的 quiet/ghost 双排除应为 4 处」，并把 `quietExclusions < 4`
+// 判红。那 4 处全部长在 `.desktop-page-actions button:first-child:not(…)` 这一族上，
+// 本批按第 6 步的收口清单把 12 条整族删除，双排除随之归零——继续要求 4 处等于要求
+// 「删掉的接管规则复活」。但断言本体一个字没动，因为它的理由换了一个、而且更硬：
+// button-variants.test.tsx:47 钉的是 **DOM 属性值**（quiet→"secondary" 原值、
+// primary→"primary"），第 6 步已收口的页面靠 `[data-variant]` 选择器做豁免
+// （`button:not([data-variant])` 一族，:1512 起）与测试可读的标记，输出归一后的
+// resolved 值会让这些消费方静默失配。也就是说：调用方原值这条不变量今天仍然活着，
+// 只是不再需要 CSS 里必须有 4 处副本来证明它。
+// 现在唯一的例外方向是「有人为了绕过 :not 排除而改 data-variant 的语义」，那由测试钉。
 if (!/data-variant=\{variant\}/.test(uiTsx)) {
-  fail("data-variant 必须输出调用方传入的原始值（editorial-studio.css 的 :not([data-variant=...]) 依赖它）");
+  fail("data-variant 必须输出调用方传入的原始值（第 6 步收口的 button:not([data-variant]) 排除与 button-variants 测试依赖它）");
 }
-const quietExclusions = (editorialCss.match(/:not\(\[data-variant="quiet"\]\):not\(\[data-variant="ghost"\]\)/g) ?? []).length;
-if (quietExclusions < 4) fail(`editorial-studio.css 的 quiet/ghost 双排除只剩 ${quietExclusions} 处，应为 4 处：ghost 别名会漏进主色渐变`);
 
 /* ------------------------------------------------------------ WCAG 对比度实算 */
 
@@ -586,10 +595,20 @@ for (const p of allMigrated) for (const c of classesHostingButton(readFileSync(p
  * 每页零回归」的推进方式，所以先冻结为警告，迁移到哪个页面就把对应锚点删掉。
  *
  * 只有在清单之外的新增违规才会变红。
+ *
+ * ✔ 批次 BD-26（写作页迁移批）：清单**清零并移除条目**。上面那句「迁移到哪个页面
+ *   就把对应锚点删掉」到今天为止全部兑现——唯一剩下的锚点 `editorial-studio.css ::
+ *   desktop-page-actions` 那 12 条按钮级规则随四个页面（写作页 hero / 项目首页 /
+ *   书库 / 阅读统计）一起交回共享 <Button>，删净并就地留墓碑。
+ *   空表不是「这条判据没用了」，恰恰相反：它是这条判据最紧的形态。从今天起任何
+ *   `.容器类 button { … }` 形式的接管规则（含把 .desktop-page-actions 一族写回来）
+ *   都落进 newHits → 硬红，不再有「已冻结」这层缓冲。inject 里 BD-26 新牙钉的就是
+ *   这个方向：把删掉的接管规则原样写回来，必须红。
+ *   ⚠ 清单里的锚点靠 CSS 选择器文本与 JSX 宿主类名两边对撞得到，本批同时确认过
+ *   这四个容器里 0 个裸 <button>（/tmp/bd26-hosts.cjs：JSX 栈扫描，只有 <Button>），
+ *   所以删除是「交回组件」而不是「同时改变未被接管的元素」。
  */
-const LEGACY_DESCENDANT_BUTTON = new Set([
-  "src/styles/editorial-studio.css :: desktop-page-actions"
-]);
+const LEGACY_DESCENDANT_BUTTON = new Set();
 
 /**
  * 只承认「裸排除」`:not([data-variant])`——它排除的是所有 <Button>。
@@ -643,6 +662,12 @@ if (newHits.length > 0) {
 if (legacyHits > 0) {
   console.log(
     `${TAG} [第 6 步待迁移] 遗留按钮容器规则 ${legacyHits} 条仍在接管 <Button>（已冻结，迁移对应页面时收口）`
+  );
+} else {
+  // 批次 BD-26：清单清零后这条判据进入「无缓冲」状态，打一行确认它还在跑，
+  // 而不是安静地什么都不说——判据沉默和判据通过长得很像，这里要能分辨。
+  console.log(
+    `${TAG} [第 6 步已收口] 遗留按钮容器接管规则 0 条（批次 BD-26 起 LEGACY 清单为空：再写回一条就是硬红，不再有「已冻结」这档）`
   );
 }
 
@@ -1378,7 +1403,15 @@ const isPureRingValue = (v) => {
     //     与纸张厚度有关的那一条，裁定把它和 C/D 两族一起判成「不是投影层级」。
     //     ⚠ 移出**不等于**这笔账有了答案：它从此不进棘轮计数，也就再没有一处判据在盯它；
     //     将来若有人动这条声明，只有 DECOR_SHADOWS 的失配硬红会响（值/选择器一改就红）。
-    "src/styles/editorial-studio.css": 7
+    // ✔ 后续（批次 BD-26 写作页迁移批）：E 族 3 处随第 6 步 12 条容器接管规则
+    //   **整族删除**，本文件 7→4。这里要把它和 C/D/F 那 6 处划清：那 6 处是
+    //   「判据归类判错了、重新归到材质族」，一条像素没改；E 族这 3 处是**真还债**
+    //   ——按钮从此不再画 hover 铜影与 inset 冠光，外观变了，所以它必须配一次
+    //   可感知改版验收（前后胜者图差集 + 截图 + 逐钮实测），不是又一次零像素批。
+    //   上面 BD-19 那句「本批一条都不能动」的理由（动了会让 FROZEN_BUTTON_SHADOW_COUNT
+    //   与判据同时失配）在 BD-26 是**同时兑现**的：删声明与降那个 3→0 在同一次提交里，
+    //   两本账一起对平，这也是当初把两个数字都钉成必须相等的原因。
+    "src/styles/editorial-studio.css": 4
   };
 
   // 批次 BD-25（用户第二项裁定）：材质 / 装饰族**移出投影层级这本账**。
@@ -1663,7 +1696,14 @@ const isPureRingValue = (v) => {
     "src/features/search/search.css": 10,
     "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 119,
-    "src/styles/editorial-studio.css": 68
+    // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
+    // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
+    // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
+    // .desktop-home-inbox` 的 `padding: 0 14px`（14px 离刻度）。组件侧接管为 §2.2 的
+    // 10px（sm）/ 12px（md），两档都在刻度上，所以这 2 处是真还债、不是重新归类。
+    // ⚠ 数字来自判据本体重扫（--show-spacing-ledger 本批实测 288 行台账 / 计数 293 处；
+    //   台账只登 CSS 侧，TSX 那几处只进计数不进台账，两个数天生不相等，别拿台账核总数）。
+    "src/styles/editorial-studio.css": 66
   };
 
   const actual = {};
@@ -2472,7 +2512,8 @@ const isPureRingValue = (v) => {
   // ⚠ 本批插入的多行注释推移了行号，全仓所有 `xxx.css:NNNN` 形式的引用（19 处）
   // 已用 difflib 逐条重映射核对；其中 styles.css 那段品牌注释里的 :118/:2832 是
   // **本批之前就已过期**的旧引用，一并修正为实测的 :120/:2890 并在注释里声明。
-  const FS_BUDGET = {
+  // 批次 BD-26：本表清零 → 空表对象。表体那条逐批搬迁史注释原样保留在下面。
+  const FS_BUDGET = {};
     // 批次 BD-23（品牌字形批）：styles.css 那条是 @media≤920 的 .desktop-brand-mark 18px，
     // 与基础档同值一起收到 20，条目清零后**删除**（空表 = 新增即红，比留一个 0 更诚实）。
     // 批次 BD-20（稿纸批）：4→3。还掉的正是 BD-17 那张「刻意不还」表里排在第一位的
@@ -2485,8 +2526,19 @@ const isPureRingValue = (v) => {
     // 批次 BD-23：3→1。品牌字形族那 2 处（18 + 15）按真机量收回八档（→20、→16），
     // 剩下的 1 处是 hero 接管态 11.5px !important——它属于第 6 步那 12 条容器接管规则，
     // 随「写作页迁移批」整族删除；给它换个刻度值等于把注定要删的规则洗成账面合规。
-    "src/styles/editorial-studio.css": 1
-  };
+    // ✔ 批次 BD-26（写作页迁移批）：上面那句许诺兑现，本表**清零并移除条目**（照
+    //   LH_BUDGET / LHL_BUDGET 的写法留空表 = 新增即红）。还法是关键：11.5 不是被
+    //   改成 12 或 11「收敛到刻度」，而是那条规则连同 !important 整条不存在了，
+    //   外观由 <Button size="sm"> 的 §2.2 档接管（28px / 12px / 10px）。
+    //   ⚠ 清零后 stale 分支（还了债却不降预算）对字号**不再可达**：没有条目，actual 不可能
+    //     小于一个不存在的预算。钉在它上面的那颗牙「排版棘轮·字号③」因此**退役**，
+    //     不是搬家——本账已经没有「活预算文件」可搬（照批次 AV 圆角、AS 幻影预算、
+    //     BD-20 行高比率② 的规矩，留字在此 + inject 里留字，别让下一批人以为那条判据坏了）。
+    //     这颗牙的历史就是本账的搬迁史：BD-6 从 .creation-palette-command 13.5px 搬到
+    //     稿纸 .scene-editor-content 17px，BD-20 搬到 .desktop-brand-mark 18px，BD-23 随
+    //     18→20 再搬到 hero 11.5px !important，本批 hero 随接管族整条下线 → 账清零。
+    //     「新增即红」那一半仍由「排版棘轮·字号①／②」守着（空表下任何一处离刻度字号
+    //     都是新增债），没有失守。
   // 批次 BC 还掉 15 处（17→2）：其余四份文件的行高比率债清零，条目随之删除
   // （空表 = 新增即红，比留一个 0 更诚实）。剩下的 2 处是稿纸那一对 `line-height: 2`
   // （styles.css 的 `.scene-editor-content` 与 editorial-studio.css 的同名规则；后者在
@@ -2758,14 +2810,28 @@ const buttonClassMounts = (() => {
  * 已登记的同一批宿主（见上面 LEGACY_DESCENDANT_BUTTON），带 inset 冠光 + 真投影，
  * 收口它等于同时改掉 4 个未迁移页面的按钮外观，属于「迁移对应页面时收口」那一档，
  * 不在本批范围内。数字由本判据扫出，还掉一处不降清单也要红。
+ *
+ * ✔ 批次 BD-26（写作页迁移批）：上面这档兑现完毕，豁免名单与数字**一起清零**。
+ *   那 3 条（首钮 hover 铜影 `0 5px 14px color-mix(--accent-spine 28%)`、全族
+ *   `inset 0 1px 0 rgba(255,255,255,.6) + 0 1px 2px`、首钮 `inset 0 1px 0 … .22 +
+ *   0 2px 6px color-mix 26%`）随 12 条接管规则整族删除，四条「物理感」:active 冠光
+ *   一并下线；组件侧 <Button> 的 base 从未带投影，交接后「按钮无阴影」是默认值而不是
+ *   豁免结果。
+ *   ⚠ 清零的写法选的是「名单留空 + 计数留 0」，不是「把这段判据删掉」：
+ *     · 名单空 → 这一族的任何投影直接落进 offenders，硬红（比原来的冻结更严）；
+ *     · 计数留 0 → 若有人把类名加回 FROZEN_BUTTON_SHADOW 想给按钮「开个例外」，
+ *       frozenHits 立刻变成 1 ≠ 0，同样红。批次 AF 立这条冻结自检时说的
+ *       「冻结名单也是账，悄悄松绑比漏检更坏」，清零之后依然是它自己在守。
+ *   钉在旧声明上的那颗 AF·冻结自检牙随之失去 needle，本批把它搬到仍然活着的
+ *   同类形状上（见 inject 里 BD-26 的注释与退役留字）。
  */
 {
   const BUTTON_ROLE = /(^|[\s>+~(])button(?![\w-])/;
-  const FROZEN_BUTTON_SHADOW = [".desktop-page-actions"];
-  // 数字由本判据扫出：这一族的声明形状是「hover 抬升 + 带 inset 冠光的组合投影」。
-  // 它们和第 6 步 LEGACY_DESCENDANT_BUTTON 登记的是同一批宿主，随该页迁移一起收口。
-  // 还掉一条却不降这个数字要红——逼着同一笔改动同时核对两本账，别让 §2.5 悄悄松绑。
-  const FROZEN_BUTTON_SHADOW_COUNT = 3;
+  const FROZEN_BUTTON_SHADOW = [];
+  // 数字由本判据扫出。批次 BD-26 起为 0：接管族整族下线，按钮投影不再有任何例外。
+  // 保留这条相等判据的理由见上面注释的 ⚠ 段。
+  const FROZEN_BUTTON_SHADOW_COUNT = 0;
+
   const offenders = [];
   const frozenHits = [];
   const unregistered = [];
@@ -2861,13 +2927,15 @@ const buttonClassMounts = (() => {
   }
   if (frozenHits.length !== FROZEN_BUTTON_SHADOW_COUNT) {
     fail(
-      `规格 §2.5 冻结计数对不上：.desktop-page-actions 一族实测 ${frozenHits.length} 条、清单登记 ${FROZEN_BUTTON_SHADOW_COUNT} 条。` +
-        `${frozenHits.slice(0, 3).join(" / ")}。要么这族按钮随第 6 步迁移又还掉/新增了一条（同步本数字，并与 LEGACY_DESCENDANT_BUTTON 一起收口），` +
-        `要么判据的按钮元素型或 inset/环豁免被动过。`
+      `规格 §2.5 冻结计数对不上：FROZEN_BUTTON_SHADOW 名单实测命中 ${frozenHits.length} 条、登记 ${FROZEN_BUTTON_SHADOW_COUNT} 条。` +
+        `${frozenHits.slice(0, 3).join(" / ")}。批次 BD-26 起两边都必须是 0——` +
+        `名单里出现类名意味着有人给某个按钮族开了 §2.5 例外（那正是「悄悄松绑」的形状），` +
+        `要么把投影按 §2.5 收掉、名单留空，要么就这笔例外走人工裁定并同步本数字；` +
+        `另一种可能是判据的按钮元素型或 inset/环豁免被动过。`
     );
   }
   console.log(
-    `${TAG} [第 8 步待收口] §2.5 按钮投影遗留 ${frozenHits.length} 条，全部属于 .desktop-page-actions 接管族（已冻结，迁移该页时随第 6 步清单一起删）；` +
+    `${TAG} [第 8 步已收口] §2.5 按钮投影遗留 ${frozenHits.length} 条（批次 BD-26 起 .desktop-page-actions 接管族整族下线，冻结名单与计数同为 0）；` +
       `类名型按钮台账：控件 ${CONTROL_BUTTON_CLASSES.length} 个（命中 ${controlHits.size}）、按卡片算 ${CARD_BUTTON_CLASSES.length} 个（命中 ${cardHits.size}）`
   );
 }

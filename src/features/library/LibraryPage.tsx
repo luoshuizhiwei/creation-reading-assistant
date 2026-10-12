@@ -106,7 +106,14 @@ export function LibraryPage() {
       <div className="desktop-page-stack">
         <div className="library-toolbar">
           <div className="desktop-page-actions">
-            <Button variant="secondary" onClick={importBooks}>
+            {/* 批次 BD-26：这一排原本是接管族 `.desktop-page-actions button` 的宿主。删掉的
+                族里有一条 `button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"])`
+                ——它不只改外观，还在**替组件决定 variant**：行首那颗被按成实心，其余按成
+                面板底。所以族一删，「谁是主操作」这件事必须由 TSX 自己说清楚，否则就是
+                可感知的降级（实测：族删除后本排首钮从实心变成描边）。这里把行首的
+                「导入 TXT/Markdown」显式定为 primary（规格 §2.1 一个视图主操作 ≤ 1），
+                其余两颗保持 secondary / quiet 不变。 */}
+            <Button onClick={importBooks}>
               <Import size={16} />
               导入 TXT/Markdown
             </Button>

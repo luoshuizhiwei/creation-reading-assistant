@@ -690,13 +690,15 @@ select:focus-visible,
   align-items: center;
 }
 
-.creation-writing-hero .desktop-page-actions button {
-  padding: 0 9px;
-  font-size: 12px;
-  min-height: 32px;
-  height: 32px;
-  white-space: nowrap;
-}
+/* 批次 BD-26 墓碑：这里原本是
+   `.creation-writing-hero .desktop-page-actions button { padding: 0 9px; font-size: 12px;
+   min-height: 32px; height: 32px; white-space: nowrap }`——第 6 步遗留「按钮容器接管」
+   12 条之一。写作页的 9 个按钮已全部是共享 <Button>，这 5 行声明由组件的 size 档
+   逐字接管：size="sm" = 28px 高 / 12px 字号 / 10px 内边距（规格 §2.2），
+   nowrap 由消费方挂 whitespace-nowrap（探针实测窄侧栏挤压带 1025–1180 里
+   不挂的话 9 个工具钮会被挤到各缺 1–3px——1140/1100/1060 依次 1/2/3px，文字贴盒），
+   而 md 档在同一段缺 1–4px。上面 :687 那条**容器**规则
+   （nowrap / 6px / align-items:center）不在 12 条之内，本批一个字没动。 */
 
 /* 演示项目按钮与创建行布局。 */
 .project-home-create-row {
@@ -707,65 +709,42 @@ select:focus-visible,
 }
 
 /* One button system: quiet surface default, indigo primary. */
-/* 第 6 步 page 22：.overview-action（OverviewPage「打开收件箱」）已迁到共享
-   <Button variant="outline">，下面 5 个分组里它的成员行一并摘除。
-   注意本组其它成员 .desktop-home-inbox / .project-home-create-first /
-   .project-home-create-demo 在 TSX 里也已无使用者（只剩 desktop-home-inbox-count
-   是另一个类，另有自己的规则），但那属于第 8 步"解冻 .desktop-page-actions 一族"
-   的清单，不在本页收口范围内，这里只动自己那行。
-   口径：静息 --border-subtle 边 + --bg-surface 底 + --text-muted 字，hover 边转
-   accent 45% + 底转 --accent-hover(=--action-tint) —— 描边弱填充档，与第 17 页
-   .inbox-detail grid 族同一判定，取 outline。md 档（原 min-height:34px）保持默认。
-   两处随族消失的空规则：hover 的 translateY(-1px) 上浮被文件末尾「卡片 hover 不再
-   统一上浮」那条覆盖掉，从未生效；:active 的 translateY(0) 同理是抵消位移的空操作。
-   inset 高光阴影违反 §2.5。
-   批次 AI：本组及首钮 :not 组里的 .project-home-create-first 死分支已摘除——幻影透镜
-   看整条规则，活分支一命中就把死分支的令牌债一起放过了，所以只删选择器、不碰声明。 */
-.desktop-page-actions button,
-.desktop-home-inbox {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  min-height: 34px;
-  padding: 0 14px;
-  border: 1px solid var(--border-subtle);
-  /* 批次 L：删掉 border-radius: 8px——文件末尾「圆角收敛到规格值」那条用了**完全相同**
-   * 的选择器名单 + var(--radius-control)，同特异度且更晚，这条从未画出来过。 */
-  background: var(--bg-surface);
-  color: var(--text-muted);
-  /* 批次 BD-17：12.5→12，与 BD-9 收 .project-nav button 同一条判据——**同一批按钮
-   * 在写作页接管态里作者自己写的就是 12px**（本文件 .creation-writing-hero
-   * .desktop-page-actions button，字号 12 + 32px 高），而非接管态这里写 12.5，
-   * 等于同一行工具栏按钮两套字号。§3.2 的 12 档用途「标签」也容得下紧凑工具栏
-   * 按钮（字号胜者图里 18 条带 px 值的按钮类名分支中，12px 占 10 条，是最大簇）。
-   * ⚠ .desktop-home-inbox 在本仓 TSX 里已无使用者（只剩 .desktop-home-inbox-count
-   * 活着，11px），它与本条同规则；幻影判据按整条规则有活分支放行，这里照改不误——
-   * 整族孤儿 CSS 的清理是另一笔账（守卫注释里已挂）。 */
-  font-size: 12px;
-  font-weight: 600;
-  transition: border-color 150ms ease, background-color 150ms ease, color 150ms ease, transform 150ms ease, box-shadow 150ms ease;
-}
-
-.desktop-page-actions button:hover,
-.desktop-home-inbox:hover {
-  border-color: color-mix(in srgb, var(--accent-spine) 45%, var(--border-strong));
-  background: var(--accent-hover);
-  color: var(--text-main);
-  transform: translateY(-1px);
-}
-
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {
-  border-color: color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth));
-  background: linear-gradient(180deg, color-mix(in srgb, var(--accent-spine) 88%, #fff 6%), color-mix(in srgb, var(--accent-spine) 92%, var(--studio-cloth)));
-  color: var(--fg-on-solid);
-}
-
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):hover {
-  border-color: var(--copper-dark);
-  background: var(--copper-dark);
-  color: var(--fg-on-solid);
-  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);
-}
+/* 批次 BD-26 墓碑（第 6 步遗留「按钮容器接管」整族下线，12 条按钮级规则一次删净）：
+   这里原本是
+     `.desktop-page-actions button, .desktop-home-inbox { display / align / gap:6px /
+      min-height:34px / padding:0 14px / border:1px solid --border-subtle /
+      background:--bg-surface / color:--text-muted / font-size:12px / font-weight:600 /
+      transition… }`
+   以及后面的 hover 组、首钮 :not 双排除组（含那条 0 5px 14px 铜影）、:2309 一族四条
+   「物理感」投影、:2949 的 border-radius、:2975 的 hover 复位、:3573 的 hero
+   `font-size: 11.5px !important`。四个页面（写作页 hero / 项目首页 / 书库 / 阅读统计）
+   的按钮已全部是共享 <Button>，尺寸/字号/内边距/圆角/边框/颜色由 §2.2 三档与 variant
+   接管：写作页 9 钮显式 size="sm" + whitespace-nowrap（28/12/10px，与 hero 原 28px 档
+   同值，探针实测 1025–1180 挤压带里 md 档会被挤缺 2–4px、sm 不带 nowrap 缺 1–3px），
+   其余三页吃默认 md（32/13/12px）。
+   随本族一起消失的三笔账，逐笔在此交代，别让下一批人去重找：
+   ① §2.5「按钮一律无阴影」的 FROZEN_BUTTON_SHADOW_COUNT=3 三条投影（hover 铜影、
+      全族 inset 冠光组合、首钮 inset+彩影组合）——它们本来就是登记为「随该页迁移
+      整族删除」，本批是兑现而不是松绑；组件侧 base 从无投影，交接后按钮天然无阴影。
+   ② 第 8 步字号账最后一笔债 hero 11.5px !important——它不是被「改成 12」洗成合规的，
+      是随规则一起不存在的（FS_BUDGET 条目本批移除，表空 = 新增即红）。
+   ③ 死同选择器 .desktop-home-inbox：TSX 里零使用者（产物 JS 只有 -count 那一个串，
+      :3804/:3824 与 -count 的孤儿账仍在 styles.css，另一笔账）。宿主判据一直用
+      `hostText.includes(cls)` 的子串匹配，"desktop-home-inbox" 恰好是
+      "desktop-home-inbox-count" 的前缀，所以它从没被判成死支——这是子串口径的一个
+      已知钝点，本批不动判据（把它收到词边界会让别的同族类名一起翻脸，方向不明），
+      只把事实记在这里。
+   ④ 「谁是主操作」这条语义随族回到 TSX：族里那条
+      `.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"])`
+      一直在替组件决定实心/浅底——它把行首那颗按成实心，同时把**声明了 primary 却不在
+      行首**的按钮按回浅底。写作页 hero 的 2/3/4 号（查找替换 / 校对 / 导出成稿）正是这种
+      「写了 primary 但被首钮规则压住」的按钮，族一删它们就集体变实心（9 个实心）。本批把
+      这三颗显式降为 secondary、把书库行首那颗显式定为 primary，保持每排「一个实心」。
+      ⚠ 这条只有真机截图看得出来：复刻 fixture 的 A 侧照抄旧 CSS，量不到 variant 归属变化。
+      探针全绿的批次仍然可以是坏的——这是本批记下的教训。
+   本族原来上面还挂着「第 6 步 page 22」那段注释（批次 AI 写的），它随本族一起被删，
+   所以这里改成引用而不是「上面那段」：那段里许诺「本组其它成员在 TSX 里也已无使用者
+   ……属于第 8 步解冻 .desktop-page-actions 一族的清单」——这个许诺由本批兑现。 */
 
 /* --------------------------------------------------------------------------
  * Panels: white sheets resting on the desk
@@ -2305,25 +2284,19 @@ select:focus-visible,
 }
 
 /* Buttons are physical: a lit crown, a pressed state. */
-.desktop-page-actions button,
-.desktop-home-inbox {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1px 2px rgba(34, 38, 48, 0.06);
-}
-
-.desktop-page-actions button:active,
-.desktop-home-inbox:active {
-  transform: translateY(0);
-  box-shadow: inset 0 1px 2px rgba(34, 38, 48, 0.1);
-}
-
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), 0 2px 6px color-mix(in srgb, var(--accent-spine) 26%, transparent);
-}
-
-.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]):active {
-  transform: translateY(0);
-  box-shadow: inset 0 2px 4px rgba(15, 17, 22, 0.22);
-}
+/* 批次 BD-26 墓碑：上面这句注释下面原本挂着 4 条「物理感」按钮规则，全部是第 6 步
+   遗留容器接管族（`.desktop-page-actions button, .desktop-home-inbox` 及其
+   :active / 首钮 :not 双排除 / 首钮 :active 四支）：
+     · 全族 `box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 1px 2px rgba(34,38,48,.06)`
+     :active `transform: translateY(0)` + `box-shadow: inset 0 1px 2px rgba(34,38,48,.1)`
+     首钮   `box-shadow: inset 0 1px 0 rgba(255,255,255,.22), 0 2px 6px color-mix(--accent-spine 26%)`
+     首钮:active `box-shadow: inset 0 2px 4px rgba(15,17,22,.22)`
+   ⚠ 本行注释刻意保留、逐字不动：批次 I/H/AG 的六颗判据牙拿它当插入锚点，
+   删掉注释会让那些牙集体 SKIP（SKIP 计为无效，不是通过）。
+   §2.5 的三条冻结投影随本族一起下线，组件侧 base 从未带投影——交接后无阴影是默认，
+   不是豁免；本族的豁免名单也一起删掉，所以「把投影写回 .desktop-page-actions button」
+   从今天起是 §2.5 offender，不再进冻结计数（见守卫 BD-26 注与 inject 的新牙）。
+   下面这条键帽规则与本族无关，照旧。 */
 
 /* Keycaps rise off the surface. */
 .desktop-search-command kbd,
@@ -2945,10 +2918,12 @@ input[type="text"],
 }
 
 /* 主按钮阴影中性化；圆角收敛到规格值。 */
-.desktop-page-actions button,
-.desktop-home-inbox {
-  border-radius: var(--radius-control);
-}
+/* 批次 BD-26 墓碑：这里原本是
+   `.desktop-page-actions button, .desktop-home-inbox { border-radius: var(--radius-control) }`
+   ——接管族里那条把按钮圆角按到 --radius-control 的规则。组件 base 早就写着同值的
+   rounded-[var(--radius-1)]（批次 AV 的理由：--radius-control 就是 --radius-1 的别名，
+   tokens.css:82），删它零像素变化：产物圆角胜者图里这一族的分支文本一起消失，值不变。
+   下面两条面板规则与本族无关，照旧。 */
 
 .stats-card,
 .paper-panel {
@@ -2971,11 +2946,12 @@ input[type="text"],
 }
 
 /* 卡片 hover 不再统一上浮（规格 §3.4）。 */
-.desktop-page-actions button:hover,
-.desktop-home-inbox:hover {
-  transform: none;
-  box-shadow: none;
-}
+/* 批次 BD-26 墓碑：这里原本是接管族最后一条
+   `.desktop-page-actions button:hover, .desktop-home-inbox:hover { transform: none; box-shadow: none }`。
+   它存在的唯一理由是**盖掉**同族前面那两条（hover 的 translateY(-1px) 与投影）——
+   那两条被本批删掉之后它就没有对手了，留着只会把「hover 复位」写成一条空规则。
+   上面那句注释是文件里「卡片 hover 不上浮」这条约定的第三处表述（另两处管卡片族），
+   所以留着；组件侧 §2.4 从来不做位移，交接后天然满足。 */
 
 /* 校样红只属于校样通道：品牌印章/标题栏标记/导航脊线回归印刷蓝或墨。 */
 .desktop-titlebar-mark,
@@ -3569,13 +3545,19 @@ input[type="text"],
   align-items: center !important;
 }
 
-.creation-writing-page--active .creation-writing-hero .desktop-page-actions button {
-  height: 28px !important;
-  min-height: 28px !important;
-  padding: 0 8px !important;
-  font-size: 11.5px !important;
-  white-space: nowrap !important;
-}
+/* 批次 BD-26 墓碑（第 12 条，也是全仓最后一笔字号债）：这里原本是
+   `.creation-writing-page--active .creation-writing-hero .desktop-page-actions button {
+     height:28px !important; min-height:28px !important; padding:0 8px !important;
+     font-size:11.5px !important; white-space:nowrap !important }`（这里刻意不按源码的
+     「冒号后带空格 + 每行一条」排版复述，避免给判据牙留一个假锚点：needle 形状的
+     字面量在注释里存在，牙就会咬到注释而不是代码）
+   守卫 FS_BUDGET 里那句「随写作页迁移批整族删除、不给它换刻度值」的许诺由本批兑现：
+   11.5 不是被改成 12「洗成账面合规」，而是这条规则连同 !important 一起不存在了。
+   组件侧同值接管：CreationProjectsPage 本排 9 钮显式 size="sm"（§2.2 = 28px 高 /
+   12px 字号 / 10px 内边距），nowrap 由消费方挂 whitespace-nowrap 承担（实测理由写
+   在那段 TSX 注释里）。上面 :3532 那条**容器**规则（nowrap / 6px / center）不在
+   12 条之内，保留；@media ≤1024 的 36px 图标折叠档同样保留，交接后实测盒子几何
+   与交接前逐钮相同（36×28）。 */
 
 /* 迁移横幅紧凑条 */
 .creation-writing-page--active .migration-banner {

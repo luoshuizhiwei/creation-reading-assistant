@@ -499,7 +499,7 @@ button:disabled {
    （批次 BD-17 校正：这两处行号在批次 BD-2 之后就已经过期，本批补回实测值。）
    留着它只会诱使人在死声明上做修改并误以为已经修好（本窗就踩了一次：
    为救白字对比度把渐变端点从 82% 调到 88%，实际渲染毫无变化）。
-   生效的定义在 editorial-studio.css:120 + :2939。 */
+   生效的定义在 editorial-studio.css:120 + :2957。 */
 
 .desktop-brand strong,
 .desktop-brand small {
@@ -771,7 +771,7 @@ button:disabled {
 .desktop-page-hero h2 {
   color: var(--paper-ink);
   font-family: ui-serif, "Songti SC", "STSong", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2930 的 clamp(20px, 1.8vw, 23px)）。
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2903 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
   font-weight: 740;
   letter-spacing: -0.045em;
@@ -1556,7 +1556,7 @@ button:disabled {
 .writing-margin h3 {
   margin: 4px 0 18px;
   font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1367 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1346 的 14px）。 */
 }
 
 .writing-margin dl {
@@ -1675,7 +1675,7 @@ button:disabled {
   }
 
   .scene-editor {
-    /* 批次 BD-22（measure 批）：760 → 738。纸壳比正文宽出的那 2px **不是留白**，是 editorial-studio.css:1288
+    /* 批次 BD-22（measure 批）：760 → 738。纸壳比正文宽出的那 2px **不是留白**，是 editorial-studio.css:1267
        给 .scene-editor 自己那圈 1px 实线边框——border-box 全局生效，所以壳内可用宽 = 738 − 2 = 736，
        正好等于 .scene-editor-content 的 max-width（42em + 32×2）。真机实测：写 736 时正文被挤成 734、
        整行墨迹 656.02px = 41 个汉字，比宽屏那档少一字；写 738 后 ≤1180 与宽屏同为 672.02px = 42 字。
@@ -2936,7 +2936,7 @@ button:disabled {
 
 .stats-streak {
   margin: 0;
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2868 的 20px——原 22 已在批次 BD-10 收口）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2841 的 20px——原 22 已在批次 BD-10 收口）。 */
   font-weight: 800;
   color: var(--copper);
   font-variant-numeric: tabular-nums;
@@ -3524,7 +3524,7 @@ button:disabled {
   align-items: center;
   gap: 8px;
   color: var(--paper-ink);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1589 的 14px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1568 的 14px）。 */
   font-weight: 700;
   flex-wrap: wrap;
 }
@@ -3546,13 +3546,13 @@ button:disabled {
 
 .inbox-item-body {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1596 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1575 的 12px）。 */
   line-height: 1.6;
 }
 
 .inbox-item-meta {
   color: var(--paper-muted);
-  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1596 的 12px）。 */
+  /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1575 的 12px）。 */
 }
 
 .inbox-item-actions {
@@ -3808,7 +3808,11 @@ button:disabled {
   border: 1px solid var(--paper-line);
   /* 批次 L：删掉 border-radius: 12px——editorial-studio.css 末尾的
    * `.desktop-page-actions button, .desktop-home-inbox, … { border-radius: var(--radius-control) }`
-   * 同特异度且更晚（级联探针实测），这条从未画出来过。 */
+   * 同特异度且更晚（级联探针实测），这条从未画出来过。
+   * ⚠ 批次 BD-26 改了前提：那条后置规则连同整个「按钮容器接管」族已被删除（见
+   * editorial-studio.css 同批墓碑），所以「写回来也不会生效」从今天起不再成立——
+   * 本类是接管族里唯一没有迁到共享 <Button> 的成员（TSX 里已无使用者，只有
+   * -count 活着），它现在画的就是本块自己的值。整族孤儿 CSS 的清理仍挂在守卫注释。 */
   background: var(--paper-panel);
   color: var(--paper-muted);
   font-size: 13px;

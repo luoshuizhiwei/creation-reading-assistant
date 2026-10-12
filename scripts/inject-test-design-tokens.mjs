@@ -152,7 +152,18 @@ const cases = [
   ["disabled 透明度改成 0.45", () => mutate("src/components/ui.tsx", "disabled:opacity-55", "disabled:opacity-45"), /disabled 透明度/],
   ["danger 改用主操作色", () => mutate("src/components/ui.tsx", "bg-[color:var(--proof-mark)] text-[color:var(--fg-on-solid)]", "bg-copper text-[color:var(--fg-on-solid)]"), /proof-mark/],
   ["data-variant 输出归一后的值（CSS 排除会失效）", () => mutate("src/components/ui.tsx", "data-variant={variant}", "data-variant={resolved}"), /data-variant/],
-  ["CSS 双排除退回单排除（ghost 漏进主色）", () => mutate("src/styles/editorial-studio.css", ':not([data-variant="quiet"]):not([data-variant="ghost"]):hover', ':not([data-variant="quiet"]):hover'), /双排除/],
+  // ⚠ 批次 BD-26 退役一颗牙，留字在此，别让下一批人以为那条判据坏了：
+  // 「CSS 双排除退回单排除」测的是守卫里 `quietExclusions < 4` 那条计数断言，而它数的
+  // 四处全部长在 `.desktop-page-actions button:first-child:not(…)` 这一族上。本批按
+  // 第 6 步的收口清单把 12 条整族删除，四处随之归零、断言本体也一起删掉了（守卫
+  // verify-design-tokens.mjs:259 段的 BD-26 注释记录了删除理由与替代判据）。
+  // 拿一条已经不存在的判据当牙，等于给自己发一张「通过」的空头支票——所以是删除，
+  // 不是改成「期望不红」：needle 已不在源码里，留着只会变成 SKIP，而 SKIP 计为无效。
+  // 同一风险方向（quiet/ghost 首子被套主色）现在由两道别的东西看着：
+  //   ① 上面那颗 `data-variant={variant}` 的牙（输出归一值必须红）——排除机制的另一半；
+  //   ② 本批新增的「接管规则不许复活」那颗牙：想给首子上主色就得先写回 .desktop-page-actions
+  //      button 那条规则，而写回它当场撞 LEGACY 空清单 → 硬红。
+  // 也就是说：断言删了，但它挡的那个失败形状没有变得无人看管。
   ["tonal 底色退回 copper-soft 别名（实为校样红）", () => mutate("src/components/ui.tsx", "bg-[color:var(--action-tint)] text-copper", "bg-copper-soft text-copper"), /copper-soft|action-tint/],
   ["tonal 底色换成校样红", () => mutate("src/components/ui.tsx", "bg-[color:var(--action-tint)] text-copper", "bg-[color:var(--proof-tint)] text-copper"), /action-tint|校样红|proof-tint/],
   ["danger-filled 基础填充改用主操作色（hover 仍带 proof-mark，考验逐 variant 切片）", () => mutate("src/components/ui.tsx", '"danger-filled": "bg-[color:var(--proof-mark)]', '"danger-filled": "bg-copper'), /proof-mark|主操作色/],
@@ -165,7 +176,11 @@ const cases = [
   ["跨目录借用样式：在 scene-radar.css 里加一条未排除的后代按钮规则（守卫原本按「同目录」判归属会漏检，desk 页面复用了它）", () => mutate("src/features/creation/editor/scene-radar.css", ".scene-radar-ai-buttons {\n  display: flex;", ".scene-radar-ai-buttons button {\n  border-radius: 999px;\n}\n\n.scene-radar-ai-buttons {\n  display: flex;"), /后代按钮规则未排除|scene-radar\.css/],
   // ⚠ 批次 AI 把这条分组规则里的 .project-home-create-first 死分支摘掉了，规则从此只剩
   // 一个选择器——needle 随之换成单选择器写法（测的还是同一条双排除不变量，不是死分支）。
-  ["把 desktop-page-actions 首钮规则的 :not 排除退回单排除（ProjectHomePage 首钮是默认 primary，会被淡底样式压回 (0,1,1)）", () => mutate("src/styles/editorial-studio.css", '.desktop-page-actions button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%', '.desktop-page-actions button:first-child:not([data-variant="ghost"]) {\n  border-color: color-mix(in srgb, var(--accent-spine) 92%'), /后代按钮规则未排除|editorial-studio\.css/],
+  // ✔ 批次 BD-26：这颗牙随宿主规则一起退役（上一行是批次 AI 的搬家记录，一并留在原位可读）。
+  //   它测的形状是「接管规则存在、但 :not 排除被削弱」；本批把那 12 条整族删除后，这个形状
+  //   在本仓已无实例可钉——留着只会 SKIP（needle 不在源码里），而 SKIP 计为无效、不是通过。
+  //   它守的方向由下面 BD-26·复活① 接替，而且接替后更严：旧牙只挡「排除写坏」，新牙直接挡
+  //   「规则本身写回来」。
   ["base 加回 px-3（会被 Tailwind 发射顺序压掉尺寸层与 icon 的 p-0）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] font-medium", "justify-center gap-2 rounded-[var(--radius-1)] px-3 font-medium"), /base 不得包含内边距/],
   ["批次 BD-21 的牙：base 兜回字号（具名档按字典序发在尺寸层任意值档之后，14 会静默赢掉 md 的 13）", () => mutate("src/components/ui.tsx", "justify-center gap-2 rounded-[var(--radius-1)] font-medium", "justify-center gap-2 rounded-[var(--radius-1)] text-sm font-medium"), /base 不得包含字号/],
   ["sm 档丢掉自带内边距（base 已不再兜底，会渲染成 0 内边距）", () => mutate("src/components/ui.tsx", 'sm: "h-7 px-2.5 text-xs"', 'sm: "h-7 text-xs"'), /尺寸 sm 必须自己声明/],
@@ -241,7 +256,14 @@ const cases = [
   // （新增即红），或用**合法收敛不降预算**造 stale 红；两种形状都要有，缺一半就是半个判据。
   ["排版棘轮·字号①：CSS 侧在字号零预算文件里新增一处离刻度 font-size（inbox-local.css 不在 FS_BUDGET 里、视同 0，11px→11.5px 必须红）", () => mutate("src/features/creation/inbox/inbox-local.css", "  font-size: 11px;", "  font-size: 11.5px;"), /第 8 步字号：/],
   ["排版棘轮·字号②：TSX 侧把刻度上的 text-sm(14) 换成 text-lg(18)（LibraryPage 字号预算 0，§3.2 八档里没有 18px，必须红）", () => mutate("src/features/library/LibraryPage.tsx", '<div className="text-sm text-paper-muted">正在加载书籍...</div>', '<div className="text-lg text-paper-muted">正在加载书籍...</div>'), /第 8 步字号：/],
-  ["排版棘轮·字号③：还了债却不降预算（这颗牙的历史就是本账的搬迁史：BD-6 还清命令面板那页后，它从 .creation-palette-command 13.5px 搬到稿纸 .scene-editor-content 17px；BD-20 稿纸批三件同算落地，needle 如预告失效，搬到 .desktop-brand-mark 18px；BD-23 品牌字形批把 18 收回 20，本牙再搬一次——搬去**下一笔最慢还**的债：editorial-studio.css hero 接管态的 `font-size: 11.5px !important`。它是第 6 步那 12 条容器接管规则的一员，守卫写明要随「写作页迁移批」整族删除，所以短期内没有任何字号批次会顺手还掉它。改法 11.5→11（刻度上的合法收敛）不降预算，必须红）", () => mutate("src/styles/editorial-studio.css", "  font-size: 11.5px !important;", "  font-size: 11px !important;"), /FS_BUDGET 里对应数字/],
+  // ⚠ 批次 BD-26：「排版棘轮·字号③」退役，留字在此。这颗牙的历史就是本账的搬迁史，
+  //   所以它的终点也写在搬迁史里：它测的是 stale 分支——「还了债却不降预算」。本批把最后一
+  //   笔字号债（editorial-studio.css hero 接管态的 font-size: 11.5px !important）随第 6 步 12 条
+  //   容器接管规则整族删除，FS_BUDGET 清空 → 表里没有条目，`budget > actual` 对一个不存在的
+  //   预算恒不成立，这条用例从此永远 SKIP（needle 已不在源码里）。与批次 AV 圆角③、AS 幻影
+  //   预算、BD-20 行高比率② 同类处理：删除 + 留字，别让下一批人以为那条判据坏了。
+  //   没有失守的部分：「新增即红」那一半仍由上面「排版棘轮·字号①／②」守着，空表下任何一处
+  //   离刻度字号都是新增债，正牙照咬。
   ["排版棘轮·行高比率①：新增一个八档之外的比率（history-local.css 不在 LH_BUDGET 里视同 0，1.5→1.65 必须红——1.65 正是本仓最常见的手抄多一档。⚠ 批次 BD-4 把这条锚点规则的字号从 11.5px 收到 11px（§3.2 同名配对 11↔1.5），needle 跟着新字号重写，锚的还是同一条 .history-item-retention）", () => mutate("src/features/creation/history/history-local.css", "  font-size: 11px;\n  line-height: 1.5;", "  font-size: 11px;\n  line-height: 1.65;"), /第 8 步行高比率：/],
   // 排版棘轮·行高比率②（还了债却不降预算）随批次 BD-20 退役：稿纸那一对 line-height: 2
   // 是这本账最后 2 处债，BD-20 把字号/行高/节距三件一起重算掉之后 LH_BUDGET 成为空表，
@@ -567,7 +589,15 @@ const cases = [
   ["第 8 步批次 AF·裂缝本体：按钮写 var(--shadow-1) 棘轮会豁免（计数降、看着像还了债），§2.5 判据必须不豁免令牌并红——这正是本批判据要堵的水下裂缝", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: var(--shadow-1);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), /按钮一律无阴影/],
   ["第 8 步批次 AF·反向：按钮上的纯描边焦点环 0 0 0 Npx 不该红（§2.3 的 focus-visible 机制，批次 AD 的豁免在本判据内同样成立）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: 0 0 0 2px var(--action-tint);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
   ["第 8 步批次 AF·反向：按钮上的纯 inset 色条不该红（与 .desktop-inspiration-card.active 那条 inset 3px 色条同族的结构装饰，§5.3 四级本就不针对它；批次 AH 删掉 .creation-spine 后换钉仍活着的这族）", () => mutate("src/styles.css", ".desktop-nav button.active {\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));", ".desktop-nav button.active {\n  box-shadow: inset 2px 0 0 var(--copper);\n  border-color: color-mix(in srgb, var(--copper) 24%, var(--paper-line));"), null],
-  ["第 8 步批次 AF·冻结自检：删掉 .desktop-page-actions 族里那条 hover 投影却不降 FROZEN_BUTTON_SHADOW_COUNT，必须红——冻结名单也是账，悄悄松绑比漏检更坏", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);\n", ""), /冻结计数对不上/],
+  // ⚠ 批次 BD-26：这颗牙的 needle 是 `.desktop-page-actions button:first-child…:hover` 里那条
+  //   box-shadow: 0 5px 14px color-mix(…28%)，它随 12 条接管规则整族删除，needle 已不在源码里
+  //   → 搬走。原牙钉的是「删掉族内一条投影却不降 FROZEN_BUTTON_SHADOW_COUNT 要红」，而本批把
+  //   那个数字**合法地**降到 0（名单与计数同时清零，理由见守卫 BD-26 注）。搬家的方向不是
+  //   「换个宿主继续测相等」：空名单下 frozenHits 恒为 0，那条相等判据已经不可达，拿不可达的
+  //   分支做牙就是假绿。所以换成两颗**可达且更严**的牙，挡的正是这条旧牙最怕的那件事——
+  //   把投影写回按钮、账面却全绿。两颗都用 :not([data-variant]) 之外的形状区分：
+  ["批次 BD-26·复活①（接管规则不许复活）：把删掉的 .desktop-page-actions button 原样写回一条（声明刻意只放 background，让红只能来自第 6 步判据本身）——LEGACY 清单已空，从此是硬红，不再有「已冻结」这档", () => mutate("src/styles/editorial-studio.css", "/* Keycaps rise off the surface. */", ".desktop-page-actions button {\n  background: var(--bg-surface);\n}\n\n/* Keycaps rise off the surface. */"), /后代按钮规则未排除/],
+  ["批次 BD-26·复活②（§2.5 冻结名单清零）：把族里那条 hover 铜影写回一条**带 :not([data-variant]) 排除**的规则——排除合法、第 6 步判据不咬，此时必须只剩 §2.5 咬住它。这条证明「豁免名单清空」真生效，而不是被别的红盖住", () => mutate("src/styles/editorial-studio.css", "/* Keycaps rise off the surface. */", ".desktop-page-actions button:not([data-variant]) {\n  box-shadow: 0 5px 14px color-mix(in srgb, var(--accent-spine) 28%, transparent);\n}\n\n/* Keycaps rise off the surface. */"), /按钮一律无阴影/],
   // 第 8 步批次 AG：§2.5 的「类名型按钮」透镜。AF 只认裸 button 元素型选择器，
   // 而本仓有一族按钮靠类名被 CSS 命中（选择器里没有 button 这个词）。
   // 关键设计：角色是登记出来的数据，不从挂载元素猜——因为「整卡可点」也实现成 <button>

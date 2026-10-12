@@ -456,40 +456,60 @@ export function CreationProjectsPage() {
               <h2 className="creation-writing-hero-title">{selected.title}</h2>
               <p className="creation-writing-hero-desc">{viewDescription(view)}</p>
             </div>
+            {/* 批次 BD-26：本排 9 个按钮原是第 6 步遗留「按钮容器接管」的宿主——CSS 用
+                `.desktop-page-actions button` 后代选择器把尺寸/字号/内边距/圆角/边框/投影
+                整族按在组件头上（含 hero 那条 font-size: 11.5px !important，全仓最后一笔
+                字号债）。本批把 12 条整族删除，外观交回共享 <Button>。
+                size="sm" 不是随手降档：规格 §2.2 的 sm 档 = 28px 高 / 12px 字号 / 10px 内边距，
+                与 hero 自己写了三年的那条 28px 量度同值，而 md（32/13/12）会把这条 46px
+                紧凑顶栏撑高 4px，并被窄侧栏挤压。
+                ⚠ whitespace-nowrap 是实测结论不是保险丝：1025–1180 这段没有 @media≤1024 的
+                图标折叠（editorial-studio.css 那条 36px 图标档），容器又是 flex-wrap:nowrap，
+                两侧同时挤压。逐按钮量「图标 16 + gap + 文字宽 vs 盒内可用宽」：sm 不挂 nowrap
+                时 9 个钮各缺 1–3px（文字贴盒边），挂 nowrap 全部 short=0。容器那条
+                nowrap/gap:6px/align-items:center 不在 12 条之内，本批一个字没动。
+                ⚠⚠ 本排「谁是主操作」从此由这里的 variant 明写，不再由 CSS 代劳：删掉的族里
+                那条 `button:first-child:not([data-variant="quiet"]):not([data-variant="ghost"])`
+                一直在替组件决定外观——它把行首那颗按成实心，同时把**声明了 primary 却不在
+                行首**的 2、3、4 号（查找替换 / 校对 / 导出成稿）按成浅底。交接后实心跟
+                data-variant 走，这三颗若留着默认 primary 就会集体变实心（9 个实心钮，实测
+                截图为证）。本批把它们显式降为 secondary，保持「一行一个实心」的原样。
+                这条只有真机截图能看出来：复刻 fixture 里 A 侧照抄旧 CSS，量不出 variant 归属
+                变化——探针全绿的批次仍然可以是坏的，这是本批记下的教训。 */}
             <div className="desktop-page-actions">
-                <Button className="project-action project-action--primary" aria-label="搜索项目" title="搜索项目" onClick={openProjectSearch}>
+                <Button size="sm" className="whitespace-nowrap project-action project-action--primary" aria-label="搜索项目" title="搜索项目" onClick={openProjectSearch}>
                   <Search size={16} />
                   <span>搜索</span>
                 </Button>
-                <Button className="project-action project-action--utility" aria-label="查找替换" title="查找替换" onClick={() => setReplaceOpen(true)}>
+                <Button size="sm" variant="secondary" className="whitespace-nowrap project-action project-action--utility" aria-label="查找替换" title="查找替换" onClick={() => setReplaceOpen(true)}>
                   <Replace size={16} />
                   <span>查找替换</span>
                 </Button>
-                <Button className="project-action project-action--utility" aria-label="本地校对" title="本地校对" onClick={() => setProofOpen(true)}>
+                <Button size="sm" variant="secondary" className="whitespace-nowrap project-action project-action--utility" aria-label="本地校对" title="本地校对" onClick={() => setProofOpen(true)}>
                   <FileWarning size={16} />
                   <span>校对</span>
                 </Button>
-                <Button className="project-action project-action--utility" aria-label="导出成稿" title="导出成稿" onClick={() => void handleExport()}>
+                <Button size="sm" variant="secondary" className="whitespace-nowrap project-action project-action--utility" aria-label="导出成稿" title="导出成稿" onClick={() => void handleExport()}>
                   <Download size={16} />
                   <span>导出成稿</span>
                 </Button>
-                <Button className="project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
+                <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导出项目包" title="导出项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleExportBundle()}>
                   <FolderOutput size={16} />
                   <span>导出包</span>
                 </Button>
-              <Button className="project-action project-action--utility" aria-label="导出加密项目包" title="导出加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={requestEncryptedBundleExport}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导出加密项目包" title="导出加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={requestEncryptedBundleExport}>
                 <Lock size={16} />
                 <span>加密导出</span>
               </Button>
-              <Button className="project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入项目包" title="导入项目包" variant="secondary" disabled={operation.isActive} onClick={() => void handleImportBundle()}>
                 <FolderInput size={16} />
                 <span>导入包</span>
               </Button>
-              <Button className="project-action project-action--utility" aria-label="导入加密项目包" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入加密项目包" title="导入加密项目包" variant="secondary" disabled={operation.isActive || bundleEncryptFlow !== null} onClick={() => void requestEncryptedBundleImport()}>
                 <Unlock size={16} />
                 <span>加密导入</span>
               </Button>
-              <Button className="project-action project-action--utility" aria-label="导入旧稿" title="导入旧稿" variant="secondary" onClick={() => setImportOpen(true)}>
+              <Button size="sm" className="whitespace-nowrap project-action project-action--utility" aria-label="导入旧稿" title="导入旧稿" variant="secondary" onClick={() => setImportOpen(true)}>
                 <FileUp size={16} />
                 <span>导入旧稿</span>
               </Button>
