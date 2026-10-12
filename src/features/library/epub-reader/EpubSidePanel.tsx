@@ -60,7 +60,7 @@ export function EpubSidePanel({
       <ShellPanel className="min-h-0 overflow-auto border-y-0 border-r-0 bg-paper-soft/45 p-4 shadow-none">
         <div className="grid gap-3">
           <Button variant="outline" size="sm" onClick={onExpand}>目录</Button>
-          <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
+          <div className="text-center text-[11px] leading-[var(--leading-11)] text-paper-muted">{progressPercent}%</div>
         </div>
       </ShellPanel>
     );

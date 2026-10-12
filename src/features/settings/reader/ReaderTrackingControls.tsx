@@ -41,7 +41,7 @@ export function ReaderTrackingControls({ tracking, onPatch }: ReaderTrackingCont
         </button>
         {showAdvanced && (
           <div className="grid gap-4 border-t border-paper-line px-3 py-3">
-            <p className="text-xs leading-5 text-paper-muted">
+            <p className="text-xs leading-[var(--leading-12)] text-paper-muted">
               下面这些秒数只控制阅读计时和位置保存：多久没有翻页会暂停计时、多久保存一次阅读位置、多久把会话时长写入本地文件。
             </p>
             <NumberStepper

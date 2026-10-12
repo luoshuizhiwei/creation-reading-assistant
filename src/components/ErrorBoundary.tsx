@@ -66,7 +66,7 @@ export class ErrorBoundary extends Component<Props, State> {
               <AlertTriangle size={24} />
             </div>
             <h2 className="paper-title text-base font-semibold text-paper-ink">页面发生意外错误</h2>
-            <p className="mt-2 text-xs leading-5 text-paper-muted">
+            <p className="mt-2 text-xs leading-[var(--leading-12)] text-paper-muted">
               组件渲染时发生异常，已自动拦截以保护你的写作与阅读数据。
             </p>
             {this.state.error?.message && (

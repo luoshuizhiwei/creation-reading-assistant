@@ -181,7 +181,7 @@ export function TextInput({ className = "", ...props }: InputHTMLAttributes<HTML
 export function TextArea({ className = "", ...props }: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
-      className={`paper-input px-3 py-2 leading-6 ${className}`}
+      className={`paper-input px-3 py-2 leading-[var(--leading-14)] ${className}`}
       {...props}
     />
   );
@@ -205,7 +205,7 @@ export function EmptyState({ title, body }: { title: string; body: string }) {
     <div className="grid h-full place-items-center px-8 py-10 text-center" role="status" aria-live="polite">
       <div className="max-w-sm">
         <h2 className="paper-title text-base font-semibold">{title}</h2>
-        <p className="mt-2 text-sm leading-6 text-paper-muted">{body}</p>
+        <p className="mt-2 text-sm leading-[var(--leading-14)] text-paper-muted">{body}</p>
       </div>
     </div>
   );

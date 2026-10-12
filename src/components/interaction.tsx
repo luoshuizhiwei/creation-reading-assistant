@@ -97,7 +97,7 @@ export function ToastCenter() {
               <Icon className="mt-0.5 shrink-0" size={17} />
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-semibold">{toast.title}</div>
-                {toast.body && <div className="mt-1 text-xs leading-5">{toast.body}</div>}
+                {toast.body && <div className="mt-1 text-xs leading-[var(--leading-12)]">{toast.body}</div>}
               </div>
               {/* 关闭键原来是 `opacity-70 hover:bg-white/35 hover:opacity-100`，两个毛病：
                   ① opacity-70 让图标在静止态和岛底混色，实算 14px 的 × 在警示/错误
@@ -169,7 +169,7 @@ export function ConfirmDialog() {
             </div>
             <div className="min-w-0 flex-1">
               <h2 id="confirm-dialog-title" className="paper-title text-base font-semibold text-paper-ink">{request.title}</h2>
-              <p id="confirm-dialog-message" className="mt-2 text-sm leading-6 text-paper-muted">{request.body}</p>
+              <p id="confirm-dialog-message" className="mt-2 text-sm leading-[var(--leading-14)] text-paper-muted">{request.body}</p>
             </div>
           </div>
           <div className="mt-5 flex justify-end gap-2">
@@ -211,5 +211,5 @@ export function AnimatedPanel({ children, className = "", delay = 0 }: { childre
 }
 
 export function InlineNotice({ children, tone = "info", className = "" }: { children: ReactNode; tone?: ToastTone; className?: string }) {
-  return <div className={`motion-notice rounded-md border p-3 text-sm leading-6 ${toastClass[tone]} ${className}`}>{children}</div>;
+  return <div className={`motion-notice rounded-md border p-3 text-sm leading-[var(--leading-14)] ${toastClass[tone]} ${className}`}>{children}</div>;
 }

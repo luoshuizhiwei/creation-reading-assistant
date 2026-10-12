@@ -384,7 +384,7 @@ button:disabled {
   }
 
   .library-path {
-    @apply truncate font-mono text-[13px] leading-5 text-paper-ink/70;
+    @apply truncate font-mono text-[13px] leading-[var(--leading-13)] text-paper-ink/70;
   }
 
   .motion-page {

@@ -22,7 +22,7 @@ export function Switch({ checked, onChange, label, description, disabled = false
     <div className={`flex items-center justify-between gap-3 ${className}`}>
       <label htmlFor={inputId} className="grid gap-0.5 text-sm text-paper-ink">
         <span>{label}</span>
-        {description && <span className="text-xs leading-5 text-paper-muted">{description}</span>}
+        {description && <span className="text-xs leading-[var(--leading-12)] text-paper-muted">{description}</span>}
       </label>
       <span className="relative inline-flex shrink-0">
         <input

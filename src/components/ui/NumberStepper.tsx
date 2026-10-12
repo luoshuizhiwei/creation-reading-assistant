@@ -106,7 +106,7 @@ export function NumberStepper({
     <div className={`grid gap-1.5 text-sm ${className}`}>
       <label htmlFor={inputId} className="grid gap-1">
         <span className="font-medium text-paper-ink">{label}</span>
-        {hint && <span className="text-xs leading-5 text-paper-muted">{hint}</span>}
+        {hint && <span className="text-xs leading-[var(--leading-12)] text-paper-muted">{hint}</span>}
       </label>
       {control}
     </div>

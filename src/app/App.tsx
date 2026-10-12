@@ -104,7 +104,7 @@ function RecoveryPrompt({
         </>
       }
     >
-      <p className="text-sm leading-6 text-paper-muted">
+      <p className="text-sm leading-[var(--leading-14)] text-paper-muted">
         检测到上次可能异常退出，已把 {info.recoveredSessionsCount} 个未结束阅读会话安全收尾。你可以直接回到书库继续阅读，
         统计不会把离线时间误算进去。
       </p>

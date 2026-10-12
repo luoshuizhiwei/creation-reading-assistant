@@ -1690,11 +1690,38 @@ const isPureRingValue = (v) => {
  *    TSX 里 43 处 / 22 文件。判据不能上线即红，所以这 43 处按文件冻结、新增即红；
  *    还法是把 leading-N 换成无单位比率（§3.2 八档同名值），不是把数值改小。
  *    leading-none（=1，无单位）与 tight/loose 等词形不算长度式，实测词形 0 处。
+ *    ✔ 批次 BD-24（本批）把这 43 处全部换成 leading-[var(--leading-K)]。产物实测该形式
+ *      发射的是真声明：.leading-\[var\(--leading-14\)\]{line-height: var(--leading-14)}，
+ *      与批次 K 的 shadow-[var(--shadow-N)] 幻影（只产 --tw-shadow-color）不同类，
+ *      所以这次还债是**真还**，不是把债搬进判据看不见的地方。代价如实记一句：它不是
+ *      把数值改小，而是改配对，**画面上 43/43 处像素都变了**（明细见提交信息）。
  *    ⚠ 刻意**不**把 text-* 具名工具类自带的行高计进这本：产物实测 .text-sm 同时输出
  *    font-size:.875rem 与 line-height:1.25rem（全仓 196 处 / 45 文件挂着具名 text-*），
  *    但那行 rem 行高是工具类的附属产物、不是作者写的数值——要消掉它只能改字号选择本身，
  *    而字号已经由①这本管着了。同一处挂两本账会让「还一笔债」变成两次改动的耦合，
  *    也违反判据不重复计数的老规矩（同批次 AW 对 var(--radius-*) 的处理）。
+ *
+ * ③b BD-24 还债时补上的盲区（这条是本批的全部技术风险所在）：
+ *    旧的 LH_UTILITY 只匹配 `leading-` 后面紧跟数字的形态，所以任意值方括号形式
+ *    ——leading-[24px]、leading-[1.5rem]、leading-[var(--leading-14)]——**一个都不数**。
+ *    立项时实测「CSS 侧 0 处」靠的是 postcss 读声明值，而 TSX 侧数的是 leading-N；
+ *    于是还完这 43 处之后，债一旦以 leading-[24px] 的形态重新出现，判据会当场瞎掉：
+ *    这正是批次 L 记过的那类失效（「债从 CSS 声明搬进令牌定义后判据就瞎了」）。
+ *    所以本批同时补下四条判据，缺一即等于把债搬进口袋：
+ *    · LH_UTILITY 扩到方括号形态，带长度单位的任意值照计 LHL（新增即红）；
+ *    · leading-[var(--leading-K)] 是唯一豁免形态，但**不白免**——同行扫到唯一的具名
+ *      text-* 时校验 K 与 §3.2 同名档（12↔1.55 等），不配即红。这条校验刻意只在
+ *      「同行恰好一个字号工具类」时生效：本仓字号大量走继承（实测 43 处里 41 处同行
+ *      有唯一 text-*，InboxItemDetail:174 与 ui.tsx:184 那 2 处走继承链，已由 Electron
+ *      产物探针实测各自 12/14），多字号与纯继承一律不猜——猜错就是把正常写法咬成债，
+ *      同②「不判配对」的老规矩。⚠ 诚实记下反向漏洞：拿 `leading-[var(--leading-16)]`
+ *      挂在 text-sm 上避开长度式这本账，只要同行有具名 text-* 就会被配对校验咬住；
+ *      但字号纯走继承时可绕开——这条豁免的代价留在此处，不假装它不存在。
+ *    · 纯数字任意值 leading-[1.7] 不计数、但红：它就是 §3.2 禁止的那件事换了个写法，
+ *      放过去等于给「无单位但不走令牌」开后门（八档同名值已经在令牌里，没有理由散写）。
+ *    · 方括号令牌形态的 K 不在 --leading-* 定义集内即红（未定义 var 浏览器静默回退，
+ *      与 D-2 那族同形态），并且「非 var 方括号形态」的写法在实仓当前为 0 处——
+ *      所以这条不需要预算，新增即红。
  *
  * 台账由本判据自己扫出：`--show-type-ledger` 重算并逐行打印（文件:行 值）。
  * 数字随还债下降，还完删条目——和间距那本同样的规矩。
@@ -1705,7 +1732,43 @@ const isPureRingValue = (v) => {
   const TW_FS = { xs: 12, sm: 14, base: 16, lg: 18, xl: 20, "2xl": 24, "3xl": 30, "4xl": 36, "5xl": 48, "6xl": 60, "7xl": 72, "8xl": 96, "9xl": 128 };
   const FS_UTILITY =
     /(?:^|[\s"'`{,(])(?:[a-z-]+:)*text-(xs|sm|base|lg|xl|2xl|3xl|4xl|5xl|6xl|7xl|8xl|9xl|\[[\d.]+px\])(?=$|[\s"'`,{}():])/g;
-  const LH_UTILITY = /(?:^|[\s"'`{,(])(?:[a-z-]+:)*leading-(\d+(?:\.\d+)?)/g;
+  const LH_UTILITY = /(?:^|[\s"'`{,(])(?:[a-z-]+:)*leading-(?:([0-9][\d.]*|\[[^\]]*\]))/g;
+
+  // BD-24：§3.2 的同名配对表（字号档 → 该档行高）。左边的键就是 --leading-* 的命名，
+  // 所以「K 与字号同不同名」是文本扫描能可靠判的事，而「继承链上字号是多少」不能——
+  // 后者留给探针，不在这条判据里猜。
+  const LH_PAIR = { 11: "1.5", 12: "1.55", 13: "1.6", 14: "1.7", 16: "1.45", 20: "1.3", 24: "1.25", 32: "1.1" };
+  // 同行唯一的具名/任意值字号工具类才拿来验配对；0 个（纯继承）与 ≥2 个（多档串）一律返回 null
+  const lineFsPx = (text) => {
+    const sizes = [...text.matchAll(FS_UTILITY)]
+      .map((m) => (m[1].startsWith("[") ? parseFloat(m[1].slice(1, -1)) : TW_FS[m[1]]))
+      .filter((v) => v !== undefined);
+    return sizes.length === 1 ? sizes[0] : null;
+  };
+  // 返回 true = 已就地判完（豁免或红），false = 交给调用方按 LHL 计数。
+  const leadingForm = (rel, ln, raw, text, where) => {
+    if (!raw.startsWith("[")) return false; // leading-N：长度式，照计
+    const body = raw.slice(1, -1);
+    const tk = /^var\(--leading-(\d+(?:\.\d+)?)\)$/.exec(body);
+    if (tk) {
+      const k = tk[1];
+      if (!(k in LH_PAIR)) {
+        fail(`第 8 步行高长度式：${rel}:${ln} ${where}leading-[var(--leading-${k})] 里的 ${k} 不是 §3.2 的八档之一（tokens.css 无此定义 → 浏览器静默回退到继承行高，看着走了令牌其实没走，同 D-2 那族形态）。`);
+        return true;
+      }
+      const fs = lineFsPx(text);
+      if (fs !== null && String(fs) !== k) {
+        fail(`第 8 步行高长度式：${rel}:${ln} ${where}leading-[var(--leading-${k})] 与同行字号 text-${fs}px 不同名（§3.2 给的是同名配对，12↔1.55、14↔1.7…）。要换档就整对换，别只动一半。`);
+        return true;
+      }
+      return true; // 同名（或字号走继承、本判据不猜）：合法形态，不计数
+    }
+    if (/^[\d.]+$/.test(body)) {
+      fail(`第 8 步行高长度式：${rel}:${ln} ${where}leading-[${body}] 是散写的无单位比率——§3.2 的八档同名值已经在 tokens.css 里，走 --leading-*，别在类名里再抄一份字面量（否则这八档的单一真相就散了）。`);
+      return true;
+    }
+    return false; // 带长度单位（px/rem/em/%/pt）与未知形态：按 LHL 计债，保守方向是债留在账上
+  };
 
   // 批次 BD-1：低于 §3.2 最小档（11px）的 9 / 10 / 10.5px 共 40 处一律上到 11px，
   // 本表 114→74。relation-graph / writing-reference / settings-controls.css / SettingsSearch
@@ -2351,30 +2414,20 @@ const isPureRingValue = (v) => {
   //   不可能小于一个不存在的预算。它对应的注入用例「行高比率②」随本批退役（同批次 AV
   //   圆角、AS 幻影预算的规矩，留字在此，别让下一批人以为那条判据坏了）。
   const LH_BUDGET = {};
-  const LHL_BUDGET = {
-    "src/app/App.tsx": 1,
-    "src/components/ErrorBoundary.tsx": 1,
-    "src/components/interaction.tsx": 3,
-    "src/components/ui.tsx": 2,
-    "src/components/ui/NumberStepper.tsx": 1,
-    "src/components/ui/Switch.tsx": 1,
-    "src/features/creation/inbox/ai-send-confirm.tsx": 4,
-    "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx": 1,
-    "src/features/creation/inbox/components/InboxItemDetail.tsx": 5,
-    "src/features/inspiration/InspirationPage.tsx": 1,
-    "src/features/library/ExcerptPicker.tsx": 2,
-    "src/features/library/ReaderSidePanel.tsx": 1,
-    "src/features/library/ReadingStatsPage.tsx": 1,
-    "src/features/library/epub-reader/EpubEmptyState.tsx": 1,
-    "src/features/library/epub-reader/EpubSidePanel.tsx": 1,
-    "src/features/library/reader/TxtMarkdownReader.tsx": 2,
-    "src/features/settings/SettingsPage.tsx": 1,
-    "src/features/settings/reader/ReaderTrackingControls.tsx": 1,
-    "src/features/settings/sections/AISection.tsx": 2,
-    "src/features/settings/sections/SectionWrapper.tsx": 1,
-    "src/features/settings/sections/StorageSection.tsx": 9,
-    "src/styles.css": 1
-  };
+  // 批次 BD-24（行高长度式批）：立项那 43 处 / 22 文件全部换成 leading-[var(--leading-K)]，
+  // 本表**清零并移除条目**（空表 = 新增即红）。还法照立项目录：不是把数值改小，而是把
+  // leading-N 换成 §3.2 的八档同名无单位比率——每处取的是**该元素实际生效字号**同名那一档，
+  // 生效字号由 Electron 产物探针逐处实测（43 处全部落在 11/12/13/14 四个刻度档上，
+  // 无一需要猜）。这条换法会改像素，明细见提交信息；它是「按规格收敛」，不是「顺手改版」，
+  // 区别在于规格只给一个合法方向（无单位），而档位的选取用了同名规则而非就近取整。
+  // ⚠ 同批必须补的判据（见上面 ③b）：leading-[...] 方括号形态原本是 LH_UTILITY 的盲区，
+  //   只换源码不补判据 = 把 43 处债从「看得见」搬进「看不见」，正是批次 L 记过的失效形态。
+  // ⚠ 本表清零后 stale 分支（还了债却不降预算）对长度式不再可达，对应的注入用例
+  //   「行高长度式②」随本批退役（needle 是 ui.tsx 那条 leading-6，已不存在）。同批次 AV
+  //   圆角、AS 幻影预算、BD-20 行高比率②的规矩，留字在此，别让下一批人以为那条判据坏了。
+  //   「新增即红」那一半仍有牙：长度式①（leading-6 落进零预算文件）＋本批新补的
+  //   方括号长度式／档位名／配对三颗，见 inject 脚本。
+  const LHL_BUDGET = {};
 
   const ledgers = { FS: [], LH: [], LHL: [] };
   const actual = { FS: {}, LH: {}, LHL: {} };
@@ -2410,7 +2463,19 @@ const isPureRingValue = (v) => {
           if (px === null) return; // em/% 等相对写法不判
           if (!FS_SCALE_PX.has(px)) bump("FS", rel, ln, `font-size ${v}`);
         } else if (d.prop === "line-height") {
-          if (v.startsWith("var(")) return;
+          if (v.startsWith("var(")) {
+            // BD-24 把这条原本无条件的豁免换成档位校验：批次 L 的教训是「豁免一种写法
+            // 等于把债搬进判据看不见的地方」。八档之外的 var（自创名字、写错档位、
+            // 带字面量兜底）一律红——实仓此刻 line-height: var(...) 为 0 处，所以这条
+            // 严格化不需要预算，也不会误伤任何现有写法。
+            const tk = /^var\(--leading-(\d+(?:\.\d+)?)\)$/.exec(v);
+            if (!tk) {
+              fail(`第 8 步行高长度式：${rel}:${ln} line-height: ${v} 不是 §3.2 八档令牌的引用形式（合法写法只有 line-height: var(--leading-11/12/13/14/16/20/24/32)）。自创名字或带字面量兜底会让这本账看不见实际行高。`);
+            } else if (!(tk[1] in LH_PAIR)) {
+              fail(`第 8 步行高长度式：${rel}:${ln} line-height: ${v} 里的 ${tk[1]} 不是 §3.2 的八档之一（tokens.css 无此定义 → 静默回退）。`);
+            }
+            return;
+          }
           if (/^[\d.]+$/.test(v)) {
             if (!LH_ALLOWED.has(v)) bump("LH", rel, ln, `line-height ${v}`);
           } else if (/(?:px|pt|rem|em|%)$/.test(v)) {
@@ -2425,7 +2490,10 @@ const isPureRingValue = (v) => {
           const px = body.startsWith("[") ? parseFloat(body.slice(1, -1)) : TW_FS[body];
           if (px !== undefined && !FS_SCALE_PX.has(px)) bump("FS", rel, ln, `@apply text-${body}`);
         }
-        for (const m of a.params.matchAll(LH_UTILITY)) bump("LHL", rel, ln, `@apply leading-${m[1]}`);
+        for (const m of a.params.matchAll(LH_UTILITY)) {
+          if (leadingForm(rel, ln, m[1], a.params, "@apply ")) continue;
+          bump("LHL", rel, ln, `@apply leading-${m[1]}`);
+        }
       });
     } else {
       stripped.split("\n").forEach((L, i) => {
@@ -2435,7 +2503,10 @@ const isPureRingValue = (v) => {
           const px = body.startsWith("[") ? parseFloat(body.slice(1, -1)) : TW_FS[body];
           if (px !== undefined && !FS_SCALE_PX.has(px)) bump("FS", rel, ln, `text-${body}`);
         }
-        for (const m of L.matchAll(LH_UTILITY)) bump("LHL", rel, ln, `leading-${m[1]}`);
+        for (const m of L.matchAll(LH_UTILITY)) {
+          if (leadingForm(rel, ln, m[1], L, "")) continue;
+          bump("LHL", rel, ln, `leading-${m[1]}`);
+        }
       });
     }
   }

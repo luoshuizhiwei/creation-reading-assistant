@@ -795,7 +795,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
 
   const tocEditBody = (
     <div className="flex min-h-0 flex-1 flex-col gap-2">
-      <div className="rounded-md border border-copper/30 bg-copper/5 p-2 text-xs leading-5 text-paper-muted">
+      <div className="rounded-md border border-copper/30 bg-copper/5 p-2 text-xs leading-[var(--leading-12)] text-paper-muted">
         修改后点「保存并完成」，全书目录、跳转与进度章节按新章节表生效；改动会随书籍保留。
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto pr-0.5">
@@ -1075,7 +1075,7 @@ export function TxtMarkdownReader(props?: TxtMarkdownReaderProps) {
               <Button variant="outline" size="sm" onClick={() => setTocCollapsed(false)}>
                 目录
               </Button>
-              <div className="text-center text-[11px] leading-5 text-paper-muted">{progressPercent}%</div>
+              <div className="text-center text-[11px] leading-[var(--leading-11)] text-paper-muted">{progressPercent}%</div>
             </div>
           </ShellPanel>
         ) : (

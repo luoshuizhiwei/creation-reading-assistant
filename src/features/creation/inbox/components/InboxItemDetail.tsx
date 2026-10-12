@@ -152,7 +152,7 @@ export function InboxItemDetail({
             <div className="font-semibold text-paper-ink">来源卡片</div>
             {source.format && <span className="paper-chip uppercase">{source.format}</span>}
           </div>
-          <div className="grid gap-1.5 text-xs leading-5">
+          <div className="grid gap-1.5 text-xs leading-[var(--leading-12)]">
             <div>
               来源书籍：
               <span className="text-paper-ink">
@@ -171,7 +171,7 @@ export function InboxItemDetail({
             {source.excerpt && (
               <blockquote className="mt-2 rounded-[var(--radius-2)] border border-paper-line bg-paper-panel/75 p-3 text-paper-ink">
                 <div className="mb-1 text-[11px] font-semibold text-paper-muted">来源摘录</div>
-                <div className="whitespace-pre-wrap leading-6">{source.excerpt}</div>
+                <div className="whitespace-pre-wrap leading-[var(--leading-12)]">{source.excerpt}</div>
               </blockquote>
             )}
           </div>
@@ -182,13 +182,13 @@ export function InboxItemDetail({
         <div className="desktop-card-label">AI polish</div>
         <h2 className="paper-title mt-1 text-base font-semibold">AI 候选版本</h2>
         {!aiAvailable ? (
-          <div className="mt-2 rounded-md border border-paper-line bg-paper-soft/40 p-3 text-xs leading-6 text-paper-muted">
+          <div className="mt-2 rounded-md border border-paper-line bg-paper-soft/40 p-3 text-xs leading-[var(--leading-12)] text-paper-muted">
             {aiSettings?.enabled
               ? "已启用 AI 助手，但尚未配置 API Key。请先在设置中心保存 Key 后使用 AI 打磨；在此之前不会产生任何网络请求。"
               : "AI 助手未启用。开启并配置 Key 后，这里可以生成候选版本（不会自动覆盖正文）。"}
           </div>
         ) : (
-          <p className="mt-2 text-xs leading-5 text-paper-muted">
+          <p className="mt-2 text-xs leading-[var(--leading-12)] text-paper-muted">
             所有输出都进入候选版本，不会覆盖正文；开启后正文会发送到你配置的 AI 服务。
           </p>
         )}
@@ -251,7 +251,7 @@ export function InboxItemDetail({
                       <X size={14} />
                     </Button>
                   </div>
-                  <div className="line-clamp-[8] whitespace-pre-wrap text-sm leading-7 text-paper-ink">
+                  <div className="line-clamp-[8] whitespace-pre-wrap text-sm leading-[var(--leading-14)] text-paper-ink">
                     {content}
                   </div>
                   <div className="mt-3 flex gap-2">

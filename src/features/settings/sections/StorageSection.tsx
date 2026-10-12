@@ -309,7 +309,7 @@ export function StorageSection({
             </Field>
           </div>
         </div>
-        <div className="mt-3 text-xs leading-5 text-paper-muted">
+        <div className="mt-3 text-xs leading-[var(--leading-12)] text-paper-muted">
           安装目录旁数据目录：{storageLocations?.portableDataDirectory ?? "读取中..."}
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -360,13 +360,13 @@ export function StorageSection({
             <Unlock size={15} />
             恢复加密备份
           </Button>
-          <span className="self-center text-xs leading-5 text-paper-muted">
+          <span className="self-center text-xs leading-[var(--leading-12)] text-paper-muted">
             加密容器（.crbackup）使用 AES-256-GCM 与你的口令派生密钥打包，系统不保存口令；忘记口令无法恢复。
           </span>
         </div>
         <div className="mt-4 rounded-md border border-paper-line bg-paper-panel/60 p-3">
           <div className="mb-2 text-xs font-semibold text-paper-ink">自动备份</div>
-          <div className="grid gap-1 text-xs leading-5 text-paper-muted">
+          <div className="grid gap-1 text-xs leading-[var(--leading-12)] text-paper-muted">
             <div>备份目录：{settings.storage.backupDirectory ?? "未配置"}</div>
             <div>
               最近成功：
@@ -429,7 +429,7 @@ export function StorageSection({
               <Smartphone size={15} className="text-copper" />
               局域网直连
             </div>
-            <p className="mt-1 text-xs leading-5 text-paper-muted">
+            <p className="mt-1 text-xs leading-[var(--leading-12)] text-paper-muted">
               电脑端作为同步主机，手机端扫码或输入配对地址后，同一 Wi‑Fi 下同步灵感、书库、阅读进度和阅读时长。AI Key 不会同步到手机。
             </p>
             <div className="mt-3 flex flex-wrap gap-2">
@@ -444,7 +444,7 @@ export function StorageSection({
                 生成二维码
               </Button>
             </div>
-            <div className="mt-3 grid gap-1 text-xs leading-5 text-paper-muted">
+            <div className="mt-3 grid gap-1 text-xs leading-[var(--leading-12)] text-paper-muted">
               <div>电脑设备 ID：{syncStatus?.device.deviceId ?? "读取中..."}</div>
               <div>监听端口：{syncStatus?.port ?? "未开启"}</div>
               <div>可用地址：{syncStatus?.addresses.join(" / ") || "未读取到局域网地址"}</div>
@@ -469,7 +469,7 @@ export function StorageSection({
                     二维码生成中；如果一直没有显示，请复制下面的配对 URL。
                   </div>
                 )}
-                <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-[var(--leading-12)] text-paper-muted">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold text-paper-ink">优先配对 URL</div>
                     <Button variant="quiet" onClick={() => void copyText(pairing.pairingUrl, "配对 URL")}>
@@ -479,7 +479,7 @@ export function StorageSection({
                   <div className="mt-1 break-all">{pairing.pairingUrl}</div>
                 </div>
                 {(pairing.pairingUrls ?? []).length > 1 && (
-                  <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                  <div className="rounded-[var(--radius-2)] border border-paper-line bg-paper-panel p-2 text-xs leading-[var(--leading-12)] text-paper-muted">
                     <div className="font-semibold text-paper-ink">连接失败时试这些地址</div>
                     <div className="mt-2 grid gap-1">
                       {pairing.pairingUrls.map((url) => (
@@ -495,7 +495,7 @@ export function StorageSection({
                     </div>
                   </div>
                 )}
-                <div className="rounded-[var(--radius-2)] border border-dashed border-copper/40 bg-paper-panel p-2 text-xs leading-5 text-paper-muted">
+                <div className="rounded-[var(--radius-2)] border border-dashed border-copper/40 bg-paper-panel p-2 text-xs leading-[var(--leading-12)] text-paper-muted">
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-semibold text-paper-ink">二维码载荷</div>
                     <Button variant="quiet" onClick={() => void copyText(pairing.qrPayload, "二维码载荷")}>
@@ -507,7 +507,7 @@ export function StorageSection({
                 <div className="text-xs text-paper-muted">过期时间：{new Date(pairing.expiresAt).toLocaleString()}</div>
               </div>
             ) : (
-              <p className="mt-2 text-xs leading-5 text-paper-muted">开启同步服务后生成一次性配对码。后续手机版会直接扫码读取这里的载荷。</p>
+              <p className="mt-2 text-xs leading-[var(--leading-12)] text-paper-muted">开启同步服务后生成一次性配对码。后续手机版会直接扫码读取这里的载荷。</p>
             )}
           </div>
         </div>

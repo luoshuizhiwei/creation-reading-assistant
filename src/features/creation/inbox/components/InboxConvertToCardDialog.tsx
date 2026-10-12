@@ -144,7 +144,7 @@ export function InboxConvertToCardDialog({
           </div>
         )}
 
-        <p className="text-xs leading-5 text-paper-muted">
+        <p className="text-xs leading-[var(--leading-12)] text-paper-muted">
           转为资料卡后，条目在收件箱中将标记为「已转卡片」，并原子写入指定创作项目的资料库中。
         </p>
       </div>

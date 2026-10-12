@@ -92,7 +92,7 @@ export function AISection({
             />
           </div>
           {!settings.ai.enabled && (
-            <div className="rounded-md border border-paper-line bg-paper-soft/45 p-3 text-xs leading-6 text-paper-muted">
+            <div className="rounded-md border border-paper-line bg-paper-soft/45 p-3 text-xs leading-[var(--leading-12)] text-paper-muted">
               AI 助手已关闭。开启后可用「润色 / 扩写 / 平台风格化」等本地灵感打磨，但开启前请先配置 API Key。
             </div>
           )}
@@ -106,7 +106,7 @@ export function AISection({
               晨校纸上，正文 text-paper-muted(#a7afb9) 压上去只有 1.14:1，整段说明
               文字在夜校等于看不见。改色后晨 4.68 / 夜 7.29。 */}
           {settings.ai.enabled && (
-            <div className="rounded-md border border-[color:color-mix(in_srgb,var(--warning)_30%,var(--separator))] bg-[color:color-mix(in_srgb,var(--warning-tint)_60%,transparent)] p-3 text-xs leading-6 text-paper-muted">
+            <div className="rounded-md border border-[color:color-mix(in_srgb,var(--warning)_30%,var(--separator))] bg-[color:color-mix(in_srgb,var(--warning-tint)_60%,transparent)] p-3 text-xs leading-[var(--leading-12)] text-paper-muted">
               开启 AI 后，你输入的正文、灵感标题与平台标签会发送到你配置的 AI 服务（Base URL）。API Key 仅在主进程加密保存，前端不读取明文。
             </div>
           )}

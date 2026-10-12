@@ -368,7 +368,7 @@ export function ReadingStatsPage() {
                     ))
                   )}
                 </div>
-                <div className="mt-4 rounded-md bg-paper-soft/60 px-3 py-2 text-xs leading-5 text-paper-muted">
+                <div className="mt-4 rounded-md bg-paper-soft/60 px-3 py-2 text-xs leading-[var(--leading-12)] text-paper-muted">
                   平均单次阅读：{formatDuration(stats.averageSessionDurationMs)}
                 </div>
               </div>

@@ -160,7 +160,7 @@ export function ReaderSidePanel({
                     </button>
                   </div>
                   <button
-                    className="w-full text-left text-sm leading-5 text-paper-ink hover:text-copper"
+                    className="w-full text-left text-sm leading-[var(--leading-14)] text-paper-ink hover:text-copper"
                     onClick={() => onJumpToHighlight(hl)}
                   >
                     <span className="line-clamp-3">{hl.text}</span>

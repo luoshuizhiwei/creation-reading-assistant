@@ -61,7 +61,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
 
         <div className="flex flex-col gap-4 overflow-auto px-5 py-4">
           {/* 来源信息 */}
-          <div className="rounded-md border border-paper-line bg-paper-soft/50 px-3 py-2 text-xs leading-5 text-paper-muted">
+          <div className="rounded-md border border-paper-line bg-paper-soft/50 px-3 py-2 text-xs leading-[var(--leading-12)] text-paper-muted">
             <div className="font-medium text-paper-ink">{source.bookTitle}</div>
             <div className="mt-0.5">
               {source.format.toUpperCase()} · {source.locationLabel}
@@ -72,7 +72,7 @@ export function ExcerptPicker({ source, projects, isSubmitting, onClose, onSubmi
           {/* 选文预览 */}
           <div>
             <div className="mb-1 text-xs font-medium text-paper-muted">选文预览</div>
-            <div className="max-h-40 overflow-auto rounded-md border border-paper-line bg-white/60 px-3 py-2 text-sm leading-6 text-paper-ink">
+            <div className="max-h-40 overflow-auto rounded-md border border-paper-line bg-white/60 px-3 py-2 text-sm leading-[var(--leading-14)] text-paper-ink">
               {source.excerpt}
             </div>
           </div>

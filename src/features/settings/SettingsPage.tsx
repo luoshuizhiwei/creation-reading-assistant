@@ -66,7 +66,7 @@ export function SettingsPage() {
           {settingsError ? (
             <div className="max-w-md rounded-[var(--radius-2)] border border-[color:color-mix(in_srgb,var(--proof-mark)_30%,var(--separator))] bg-[color:var(--proof-tint)] p-5 text-center text-[color:var(--proof-mark)]">
               <div className="text-base font-semibold">设置读取失败</div>
-              <p className="mt-2 text-sm leading-6">{settingsError}</p>
+              <p className="mt-2 text-sm leading-[var(--leading-14)]">{settingsError}</p>
               <Button className="mt-4" disabled={settingsLoading} onClick={() => void loadSettings()}>
                 {settingsLoading ? "正在重试..." : "重试读取设置"}
               </Button>

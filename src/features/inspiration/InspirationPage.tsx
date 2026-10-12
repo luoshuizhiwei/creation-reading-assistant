@@ -27,7 +27,7 @@ export function InspirationPage() {
           <Lightbulb size={18} className="text-copper" />
           <h2 className="paper-title text-xl font-semibold">旧灵感中心已并入全局收件箱</h2>
         </div>
-        <p className="text-sm leading-6 text-paper-muted">
+        <p className="text-sm leading-[var(--leading-14)] text-paper-muted">
           旧灵感数据已统一迁移到「全局收件箱」，作为唯一的想法收集入口。你可以在收件箱里新建想法、编辑、转资料卡、查看来源与 AI 候选，并继续沿用旧的灵感条目与候选版本。
         </p>
         <div className="mt-4 flex flex-wrap gap-2">

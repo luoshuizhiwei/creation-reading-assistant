@@ -91,7 +91,7 @@ export function AiSendConfirmDialog({
             <h2 className="paper-title text-base font-semibold">发送给 AI：{actionLabel}</h2>
             {pack ? (
               <>
-                <p className="mt-2 text-sm leading-6 text-paper-muted">
+                <p className="mt-2 text-sm leading-[var(--leading-14)] text-paper-muted">
                   将发送 <strong className="text-paper-ink">{packSummary.chars.toLocaleString("zh-CN")}</strong> 个非空白字符
                   （约 {packSummary.tokens.toLocaleString("zh-CN")} token）到 {target}。
                   可按组排除内容；结果只会进入候选版本，不会覆盖你的正文。
@@ -102,7 +102,7 @@ export function AiSendConfirmDialog({
                     return (
                       <li key={group.id}>
                         <label
-                          className={`flex items-start gap-2 rounded-md border p-2 text-xs leading-5 ${
+                          className={`flex items-start gap-2 rounded-md border p-2 text-xs leading-[var(--leading-12)] ${
                             isExcluded ? "border-dashed border-paper-line text-paper-muted opacity-70" : "border-paper-line"
                           }`}
                         >
@@ -136,11 +136,11 @@ export function AiSendConfirmDialog({
               </>
             ) : (
               <>
-                <p className="mt-2 text-sm leading-6 text-paper-muted">
+                <p className="mt-2 text-sm leading-[var(--leading-14)] text-paper-muted">
                   将发送 <strong className="text-paper-ink">{countSignificantChars(content).toLocaleString("zh-CN")}</strong> 个非空白字符
                   {title.trim() ? `（标题：${title.trim()}）` : ""} 到 {target}。AI 返回的内容只会追加为候选版本，不会覆盖你的正文。
                 </p>
-                <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-paper-line bg-paper-soft/60 p-3 text-xs leading-5 text-paper-ink">
+                <pre className="mt-3 max-h-32 overflow-auto whitespace-pre-wrap rounded-md border border-paper-line bg-paper-soft/60 p-3 text-xs leading-[var(--leading-12)] text-paper-ink">
 {content.trim().slice(0, PREVIEW_LIMIT) || "（正文为空，将只发送标题）"}
                 </pre>
               </>
