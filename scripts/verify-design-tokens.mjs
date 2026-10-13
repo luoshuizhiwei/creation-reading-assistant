@@ -3241,7 +3241,7 @@ const hostPredicate = (() => {
     return [...new Set((s.match(/\.[A-Za-z_][A-Za-z0-9_-]*/g) || []).map((x) => x.slice(1)))];
   };
 
-  return { canRender, positiveClasses };
+  return { canRender, positiveClasses, clsTokenRe };
 })();
 
 /* ------------------------------------------------ 幻影选择器的令牌债冻结预算（第 8 步） */
@@ -3977,9 +3977,26 @@ const hostPredicate = (() => {
   }
 }
 
-/* ------------------------ 颜色分支不得有两个真源（第 8 步批次 BD-29 立，BD-30 重写顺序真源） */
+/* ------- 同键异值不得有两个真源（第 8 步批次 BD-29 立，BD-30 重写顺序真源，BD-31 补挂载覆盖 + 扩到全属性） */
 
 /**
+ * 批次 BD-31 动的是这副透镜的**前提**，不是账目：本批一行 CSS 都没改（构建产物逐字节相同）。
+ * 两件：
+ *  ① 挂载覆盖前提。BD-30 shipped 的版本默认「块级胜者总会挂载」，这条不成立——块级表只在
+ *    宿主页面挂载时注入，而 .history-item-actions 由 HistoryPage.tsx **和** StatsPage.tsx
+ *    两处渲染，后者根本不引那份表，主题侧那条在统计页是唯一的、在画的声明。活体实验（两侧
+ *    各注入一条异值 color）证明旧判据会当场要求删掉它——照判决执行就是改版。BD-30 已摘的
+ *    20 条逐条复核过宿主，没有一条真被误删；坏的是判据。现在块级胜者必须先证「全部宿主
+ *    沿 import 链都挂得上」，证不了就不判，并把不判的条数与理由打进日志（静默豁免与失明
+ *    长得一样）。顺带收掉一处含糊：候选现在按发射序从晚到早试，块级盖不住时回落到更晚的
+ *    **静态**候选，而不是直接放弃判决。
+ *  ② 判据从颜色扩到全属性。同一个形状在 padding（22）、gap（17）、font-weight（12）、
+ *    display（10）、font-size（10）上一处不少，实测 130 条从未渲染的非颜色声明，BD-29/BD-30
+ *    的透镜看不见它们。颜色仍零容忍（已归零、还得起），其余本批不还——还它要逐页证
+ *    「每个宿主都挂得上胜者表」，一批做 130 条必然出错（BD-29 正是这么犯错的）——改为钉一份
+ *    逐条清单 DEAD_LEDGER（键含文件/@上下文/选择器表/属性/值，刻意不含行号），
+ *    账外新增要红、还了不改账也要红；重钉的唯一入口是 DESIGN_TOKEN_DUMP_DEAD=1。
+ *
  * 上面那条只查 border-radius / box-shadow。同一形状的债在**颜色属性**上多一个量级，
  * 却一直没人名下：批次 BD-29 动手前实测 styles.css 里有 96 条颜色声明（color 39、
  * background 38、border 13、border-color 6）被 editorial-studio.css 用逐字相同的选择器
@@ -4035,12 +4052,28 @@ const hostPredicate = (() => {
  * 挂载后读 rgb(128,137,148)＝胜者）——但它证不了「谁压谁」：两侧同值时读数一样，
  * 而且只看得见当前已挂载的页面。所以判据落在源码文本层 + import 图，产物与浏览器负责复核。
  *
+ * 判「死」的第三种证法（BD-31 加）：胜者在块级表时，还要证**全部宿主都挂得上那份表**——
+ * 块级表只在宿主页面挂载时注入，有宿主够不着它，那条被压的声明在它身上就是活的。
+ * 这一层是 BD-31 从自己的上一批里挖出来的洞，见下面 MOUNT 那份记录的活体实验。
+ *
  * 归零之后自检不能再拿债当样本（BD-29 那版正是如此，债一还完探针就瞎）：
  * 下面三条全部不依赖账上恰好有分叉。
  */
 {
+  // 挂载覆盖要找「渲染这个类名的模块」，用的正是幻影账 / 死分支账那位老熟人（批次 AD 立的
+  // 规矩：谁也不带副本）。clsTokenRe 在 BD-31 之前没进过这个块，本批补上。
+  const { positiveClasses, clsTokenRe } = hostPredicate;
   const relOf = (p) => path.relative(root, p).split(path.sep).join("/");
+  // 批次 BD-31：判据从「颜色」扩到**全属性**。同一个失效形状（同键异值、靠发射顺序决胜）
+  // 在 padding / gap / font-weight / display 上一处不少，而 BD-29/BD-30 的透镜只看颜色，
+  // 于是那 130 条从未渲染的声明照样躲在账外——扩族不是加需求，是把同一副眼镜擦干净。
+  // 颜色那一族仍**零容忍**（BD-29 95 + BD-30 20 已归零）；其余属性本批还来不及还，
+  // 改为钉死一份账（见 DEAD_LEDGER）：债只许降、不许升，降了不改账也红。
   const COLOR_PROP = /^(color|background|background-color|border-color|border-top-color|border-right-color|border-bottom-color|border-left-color|outline-color|fill|caret-color|text-decoration-color|border)$/i;
+  // 全属性的键只看「属性文本相同」，所以 `background` 与 `background-color`、`border` 与
+  // `border-color` 这种「后发射的简写确实会重置先发射的长写」的组合**不在本判决范围**
+  // ——那是漏报（方向安全），不是假账。带前导连字符的厂商属性同样先放过。
+  const ALL_PROP = /^(?!--)[a-z][a-z0-9-]*$/i;
   const isFile = (p) => {
     if (!existsSync(p)) return false;
     try {
@@ -4055,18 +4088,20 @@ const hostPredicate = (() => {
    * 发射序：从 main.tsx 走 import 图（深度优先、子项按源码出现顺序）。
    * 走不出那两行主题表就返回 null——前提没了必须红，不许退回「按文件名猜谁在后」。
    */
+  const SRC = path.join(root, "src");
+  // resolveSpec 提到本块作用域：发射序（EMISSION）与挂载覆盖（MOUNT）走的是同一张
+  // import 图，两处各写一份解析规则的话，两者对「这份 CSS 归哪个模块」就会分歧。
+  const resolveSpec = (spec, fromFile) => {
+    let base = null;
+    if (spec.startsWith("@/")) base = path.join(SRC, spec.slice(2));
+    else if (spec.startsWith("./") || spec.startsWith("../")) base = path.resolve(path.dirname(fromFile), spec);
+    if (!base) return null;
+    for (const cand of [base, base + ".tsx", base + ".ts", base + ".jsx", base + ".js", base + ".css", path.join(base, "index.tsx"), path.join(base, "index.ts")]) {
+      if (isFile(cand)) return cand;
+    }
+    return null;
+  };
   const EMISSION = (() => {
-    const SRC = path.join(root, "src");
-    const resolveSpec = (spec, fromFile) => {
-      let base = null;
-      if (spec.startsWith("@/")) base = path.join(SRC, spec.slice(2));
-      else if (spec.startsWith("./") || spec.startsWith("../")) base = path.resolve(path.dirname(fromFile), spec);
-      if (!base) return null;
-      for (const cand of [base, base + ".tsx", base + ".ts", base + ".jsx", base + ".js", base + ".css", path.join(base, "index.tsx"), path.join(base, "index.ts")]) {
-        if (isFile(cand)) return cand;
-      }
-      return null;
-    };
     const eager = [];
     const lazy = new Set();
     const visited = new Set();
@@ -4114,7 +4149,236 @@ const hostPredicate = (() => {
     return { eager, lazy };
   })();
 
+  /**
+   * 挂载覆盖（批次 BD-31 补的前提）：块级表只在宿主页面挂载时才注入。
+   * 若某个渲染该类名的模块沿 import 链**根本到不了**那份胜者表，那么在那个页面上，
+   * 被压的那条就是唯一的、在画的声明——判它死就是给「删掉一条活样式」开许可证。
+   * BD-30 shipped 的判据默认「lazy 胜者总会挂载」，这个前提在本批动手前的
+   * 活体注入实验里被打穿：给 styles.css 的 .history-item-actions 注入 color，
+   * history-local.css 同键那条在更晚的块级表里，判据当场要求删 styles.css 那条——
+   * 而 StatsPage.tsx 渲染这个类名却不 import history-local.css，那条在那个页面是活的。
+   * （BD-30 已摘的 20 条逐条复核过宿主，全部宿主只出现在挂载胜者表的页面里，
+   * 没有误删；坏的是判据，不是那批账。）
+   *
+   * 与发射序走**同一张 import 图**（同一个 resolveSpec，两处各写一份必分歧）：
+   * 节点 = src 下全部 .tsx/.ts/.jsx/.js（排除 __tests__），边 = 静态 + 动态 import；
+   * 某模块可达的 CSS 集合 = 它自己 import 的 + import 链上带进的。
+   * 类名宿主按词边界找（与 hostPredicate.canRender 同口径的 clsTokenRe），
+   * 用**未剥注释**的原文：宿主多算一个只是更保守（更可能不判），
+   * 少算一个才会把活声明判死——危险方向永远要往保守里错。
+   */
+  const MOUNT = (() => {
+    const RE = /\bimport\s+(?:type\s+)?(?:[\w{},*\s]+from\s*)?["']([^"']+)["']|\bimport\(\s*["']([^"']+)["']\s*\)/g;
+    const mods = [];
+    const collect = (dir) => {
+      for (const e of readdirSync(dir, { withFileTypes: true })) {
+        const p = path.join(dir, e.name);
+        if (e.isDirectory()) collect(p);
+        else if (/\.(tsx|ts|jsx|js)$/.test(p) && !p.includes(`${path.sep}__tests__${path.sep}`)) mods.push(p);
+      }
+    };
+    collect(SRC);
+    const edges = new Map();
+    const texts = new Map();
+    for (const f of mods) {
+      const code = readFileSync(f, "utf8");
+      texts.set(relOf(f), code);
+      const js = new Set();
+      const css = new Set();
+      for (const m of code.matchAll(RE)) {
+        const r = resolveSpec(m[1] || m[2], f);
+        if (!r) continue;
+        if (r.endsWith(".css")) css.add(r);
+        else if (/\.(tsx|ts|jsx|js)$/.test(r)) js.add(r);
+      }
+      edges.set(f, { js, css });
+    }
+    const cssOfModule = new Map();
+    for (const f of mods) {
+      const out = new Set();
+      const seen = new Set();
+      const stack = [f];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (seen.has(cur)) continue;
+        seen.add(cur);
+        const e = edges.get(cur);
+        if (!e) continue;
+        for (const c of e.css) out.add(relOf(c));
+        for (const j of e.js) stack.push(j);
+      }
+      cssOfModule.set(relOf(f), out);
+    }
+    /**
+     * 这个 lazy 胜者表能否覆盖该选择器的全部宿主。
+     * 返回 null = 覆盖成立（可以判死）；返回字符串 = 不判的**理由**，必须报出来——
+     * 豁免如果只体现为「账上少了几条」，半年后没人分得清这是判据准还是判据瞎。
+     */
+    const whyNotCovered = (sel, winnerRel) => {
+      const cls = positiveClasses(sel);
+      if (!cls.length) return "无类名分支，宿主无从登记"; // 裸元素选择器：宿主可能来自任何地方，保守不判
+      const hosts = [...new Set(cls.flatMap((c) => {
+        const re = clsTokenRe(c);
+        return [...texts.entries()].filter(([, t]) => re.test(t)).map(([k]) => k);
+      }))];
+      if (!hosts.length) return "查无宿主（幻影族另判）";
+      const bad = hosts.filter((h) => !(cssOfModule.get(h) || new Set()).has(winnerRel));
+      // 报告里只列前三个宿主：这条要进守卫的红话与绿话，全量清单会把关键部分顶出屏幕。
+      if (bad.length) return `${bad.length} 个宿主沿 import 链够不着胜者表：${bad.slice(0, 3).join("、")}${bad.length > 3 ? "…" : ""}`;
+      return null;
+    };
+    return { whyNotCovered, cssOfModule, moduleCount: mods.length };
+  })();
+  const { whyNotCovered } = MOUNT;
+
   const deadBy = new Map();
+  /**
+   * 非颜色死声明账（批次 BD-31 钉）。130 条，全部由本判据实测生成——重钉的唯一入口是
+   * `DESIGN_TOKEN_DUMP_DEAD=1 node scripts/verify-design-tokens.mjs`，不许手写：
+   * 手抄一遍就有两个真源，而这份账的全部意义是「与实测逐字相同」。
+   * 键 = 文件 ⑅ @上下文 ⑅ 选择器表 ⑅ 属性 ⑅ 值，刻意**不含行号**（上方加删一行不该让整本账
+   * 重钉），但含选择器表与值：拆了半条规则、改了值，键就变，账当场对不上——那正是要红的事。
+   * 每行注释里的行号只为方便跳转，不参与匹配。
+   *
+   * 这份账为什么本批不还：130 条要逐条判「删了会不会改版」，其中 padding / gap / font-size
+   * 这些几何与字号一族，删掉静态副本后**没挂上块级表的页面**会直接掉回更小的默认值——
+   * 也就是挂载覆盖那层前提在这里是双向的：判死要证「胜者总会挂载」，还债要证「每个宿主
+   * 都挂得上」。这需要逐页 A/B 截图与探针，一批做 130 条必然出错（BD-29 就是这么犯错的）。
+   * 所以本批把「看得见」立住（判据 + 账 + 牙），还债按文件分批排在后头（BD-32+）。
+   */
+  const DEAD_LEDGER = new Set([
+    "src/features/search/search.css\t\t.uni-search-overlay\tbackdrop-filter\tblur(10px)", // src/features/search/search.css:9 {backdrop-filter: blur(10px)} ⇐ .uni-search-overlay ⇐ src/styles/editorial-studio.css:1737
+    "src/features/search/search.css\t\t.uni-search-state\tpadding\t26px 12px", // src/features/search/search.css:117 {padding: 26px 12px} ⇐ .uni-search-state ⇐ src/styles/editorial-studio.css:2435
+    "src/features/search/search.css\t\t.uni-search-group h3\tfont-weight\t700", // src/features/search/search.css:148 {font-weight: 700} ⇐ .uni-search-group h3 ⇐ src/styles/editorial-studio.css:1773
+    "src/features/search/search.css\t\t.uni-search-group h3\tletter-spacing\t0.08em", // src/features/search/search.css:149 {letter-spacing: 0.08em} ⇐ .uni-search-group h3 ⇐ src/styles/editorial-studio.css:1774
+    "src/styles/editorial-studio.css\t\t.overview-status-list\tdisplay\tgrid", // src/styles/editorial-studio.css:2033 {display: grid} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:107
+    "src/styles/editorial-studio.css\t\t.overview-status-list\tgap\t9px", // src/styles/editorial-studio.css:2034 {gap: 9px} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:109
+    "src/styles/editorial-studio.css\t\t.overview-status-list\tmargin\t0", // src/styles/editorial-studio.css:2035 {margin: 0} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:105
+    "src/styles/editorial-studio.css\t\t.overview-status-list li\tgrid-template-columns\t76px minmax(0, 1fr) 30px", // src/styles/editorial-studio.css:2042 {grid-template-columns: 76px minmax(0, 1fr) 30px} ⇐ .overview-status-list li ⇐ src/features/creation/overview/overview-local.css:114
+    "src/styles/editorial-studio.css\t\t.overview-status-list li\tgap\t10px", // src/styles/editorial-studio.css:2044 {gap: 10px} ⇐ .overview-status-list li ⇐ src/features/creation/overview/overview-local.css:116
+    "src/styles/editorial-studio.css\t\t.overview-grid\tgrid-template-columns\trepeat(4, minmax(0, 1fr))", // src/styles/editorial-studio.css:2831 {grid-template-columns: repeat(4, minmax(0, 1fr))} ⇐ .overview-grid ⇐ src/features/creation/overview/overview-local.css:69
+    "src/styles.css\t\t::-webkit-scrollbar\twidth\t10px", // src/styles.css:176 {width: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2464
+    "src/styles.css\t\t::-webkit-scrollbar\theight\t10px", // src/styles.css:177 {height: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2465
+    "src/styles.css\t\t.desktop-workbench\tgrid-template-columns\t236px minmax(0, 1fr)", // src/styles.css:417 {grid-template-columns: 236px minmax(0, 1fr)} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:64
+    "src/styles.css\t\t.desktop-workbench\theight\t100vh", // src/styles.css:418 {height: 100vh} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:2512
+    "src/styles.css\t\t.desktop-sidebar\tgrid-template-rows\tauto minmax(0, 1fr) auto", // src/styles.css:449 {grid-template-rows: auto minmax(0, 1fr) auto} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:79
+    "src/styles.css\t\t.desktop-sidebar\tpadding\t18px 14px", // src/styles.css:452 {padding: 18px 14px} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:82
+    "src/styles.css\t\t.desktop-sidebar\tborder-right\t1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)", // src/styles.css:453 {border-right: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:83
+    "src/styles.css\t\t.desktop-brand small\tmargin-top\t2px", // src/styles.css:507 {margin-top: 2px} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:178
+    "src/styles.css\t\t.desktop-brand small\tletter-spacing\t0.06em", // src/styles.css:510 {letter-spacing: 0.06em} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:181
+    "src/styles.css\t\t.desktop-nav\tgap\t6px", // src/styles.css:517 {gap: 6px} ⇐ .desktop-nav ⇐ src/styles/editorial-studio.css:187
+    "src/styles.css\t\t.desktop-nav strong\tfont-size\t14px", // src/styles.css:561 {font-size: 14px} ⇐ .desktop-nav strong ⇐ src/styles/editorial-studio.css:232
+    "src/styles.css\t\t.desktop-nav small\tmargin-top\t1px", // src/styles.css:565 {margin-top: 1px} ⇐ .desktop-nav small ⇐ src/styles/editorial-studio.css:238
+    "src/styles.css\t\t.desktop-sidebar-card\tpadding\t12px", // src/styles.css:584 {padding: 12px} ⇐ .desktop-sidebar-card ⇐ src/styles/editorial-studio.css:245
+    "src/styles.css\t\t.desktop-card-label\tfont-weight\t650", // src/styles.css:590 {font-weight: 650} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:256
+    "src/styles.css\t\t.desktop-card-label\tletter-spacing\t0.13em", // src/styles.css:591 {letter-spacing: 0.13em} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:257
+    "src/styles.css\t\t.desktop-sidebar-stats\tdisplay\tgrid", // src/styles.css:596 {display: grid} ⇐ .desktop-sidebar-stats ⇐ src/styles/editorial-studio.css:266
+    "src/styles.css\t\t.desktop-sidebar-stats\tmargin-top\t10px", // src/styles.css:599 {margin-top: 10px} ⇐ .desktop-sidebar-stats ⇐ src/styles/editorial-studio.css:267
+    "src/styles.css\t\t.desktop-sidebar-stats span\tdisplay\tgrid", // src/styles.css:603 {display: grid} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:271
+    "src/styles.css\t\t.desktop-sidebar-stats span\tgap\t2px", // src/styles.css:604 {gap: 2px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:273
+    "src/styles.css\t\t.desktop-sidebar-stats span\tpadding\t10px", // src/styles.css:605 {padding: 10px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:274
+    "src/styles.css\t\t.desktop-commandbar\tgrid-template-columns\tminmax(0, 1fr) minmax(260px, 38%)", // src/styles.css:631 {grid-template-columns: minmax(0, 1fr) minmax(260px, 38%)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:536
+    "src/styles.css\t\t.desktop-commandbar\tgap\t18px", // src/styles.css:633 {gap: 18px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:538
+    "src/styles.css\t\t.desktop-commandbar\tmin-height\t76px", // src/styles.css:634 {min-height: 76px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:539
+    "src/styles.css\t\t.desktop-commandbar\tpadding\t14px 22px", // src/styles.css:635 {padding: 14px 22px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:540
+    "src/styles.css\t\t.desktop-commandbar\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)", // src/styles.css:636 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:541
+    "src/styles.css\t\t.desktop-commandbar\tbackdrop-filter\tblur(18px)", // src/styles.css:638 {backdrop-filter: blur(18px)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:544
+    "src/styles.css\t\t.desktop-commandbar h1\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:659 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:551
+    "src/styles.css\t\t.desktop-commandbar h1\tletter-spacing\t-0.04em", // src/styles.css:662 {letter-spacing: -0.04em} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:554
+    "src/styles.css\t\t.desktop-commandbar h1\tline-height\t1.1", // src/styles.css:663 {line-height: 1.1} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:555
+    "src/styles.css\t\t.desktop-search-command\tgap\t9px", // src/styles.css:682 {gap: 9px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:574
+    "src/styles.css\t\t.desktop-search-command\tmin-height\t42px", // src/styles.css:683 {min-height: 42px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:575
+    "src/styles.css\t\t.desktop-search-command\tpadding\t0 10px 0 13px", // src/styles.css:684 {padding: 0 10px 0 13px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:576
+    "src/styles.css\t\t.desktop-search-command kbd\tpadding\t2px 6px", // src/styles.css:710 {padding: 2px 6px} ⇐ .desktop-search-command kbd ⇐ src/styles/editorial-studio.css:606
+    "src/styles.css\t\t.desktop-search-command kbd\tfont-family\tui-monospace, SFMono-Regular, Consolas, monospace", // src/styles.css:714 {font-family: ui-monospace, SFMono-Regular, Consolas, monospace} ⇐ .desktop-search-command kbd ⇐ src/styles/editorial-studio.css:611
+    "src/styles.css\t\t.desktop-canvas\tpadding\t18px", // src/styles.css:720 {padding: 18px} ⇐ .desktop-canvas ⇐ src/styles/editorial-studio.css:622
+    "src/styles.css\t\t.desktop-page-scroll\tpadding\t4px", // src/styles.css:737 {padding: 4px} ⇐ .desktop-page-scroll ⇐ src/styles/editorial-studio.css:641
+    "src/styles.css\t\t.desktop-page-hero\talign-items\tflex-start", // src/styles.css:748 {align-items: flex-start} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:652
+    "src/styles.css\t\t.desktop-page-hero\tgap\t18px", // src/styles.css:750 {gap: 18px} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:654
+    "src/styles.css\t\t.desktop-page-hero\tpadding\t18px", // src/styles.css:755 {padding: 18px} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:655
+    "src/styles.css\t\t.desktop-page-hero h2\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:765 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:666
+    "src/styles.css\t\t.desktop-page-hero h2\tfont-weight\t740", // src/styles.css:768 {font-weight: 740} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:668
+    "src/styles.css\t\t.desktop-page-hero h2\tletter-spacing\t-0.045em", // src/styles.css:769 {letter-spacing: -0.045em} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:262
+    "src/styles.css\t\t.desktop-library-grid-head\tfont-size\t12px", // src/styles.css:822 {font-size: 12px} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1831
+    "src/styles.css\t\t.desktop-library-grid-head\tfont-weight\t650", // src/styles.css:823 {font-weight: 650} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1832
+    "src/styles.css\t\t.desktop-library-row\ttransition\ttransform 160ms ease, background-color 160ms ease, box-shadow 160ms ease", // src/styles.css:830 {transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease} ⇐ .desktop-library-row ⇐ src/styles/editorial-studio.css:1838
+    "src/styles.css\t\t.desktop-library-row:hover\ttransform\ttranslateY(-1px)", // src/styles.css:838 {transform: translateY(-1px)} ⇐ .desktop-library-row:hover ⇐ src/styles/editorial-studio.css:1846
+    "src/styles.css\t\t.desktop-inspiration-page\tgap\t14px", // src/styles.css:845 {gap: 14px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2179
+    "src/styles.css\t\t.desktop-inspiration-page\tpadding\t4px", // src/styles.css:848 {padding: 4px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2180
+    "src/styles.css\t\t.writing-desk\tgrid-template-columns\t232px minmax(460px, 1fr) 250px", // src/styles.css:1212 {grid-template-columns: 232px minmax(460px, 1fr) 250px} ⇐ .writing-desk ⇐ src/styles/editorial-studio.css:1017
+    "src/styles.css\t\t.writing-outline\tdisplay\tgrid", // src/styles.css:1235 {display: grid} ⇐ .writing-outline ⇐ src/styles/editorial-studio.css:2763
+    "src/styles.css\t\t.writing-outline\tborder-right\t1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)", // src/styles.css:1237 {border-right: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)} ⇐ .writing-outline ⇐ src/styles/editorial-studio.css:1151
+    "src/styles.css\t\t.writing-project-switcher\tpadding\t16px", // src/styles.css:1243 {padding: 16px} ⇐ .writing-project-switcher ⇐ src/styles/editorial-studio.css:1163
+    "src/styles.css\t\t.writing-project-switcher\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)", // src/styles.css:1244 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)} ⇐ .writing-project-switcher ⇐ src/styles/editorial-studio.css:1164
+    "src/styles.css\t\t.writing-outline-scroll\tpadding\t10px", // src/styles.css:1283 {padding: 10px} ⇐ .writing-outline-scroll ⇐ src/styles/editorial-studio.css:1181
+    "src/styles.css\t\t.writing-manuscript-head\tpadding\t15px 28px 13px", // src/styles.css:1301 {padding: 15px 28px 13px} ⇐ .writing-manuscript-head ⇐ src/styles/editorial-studio.css:1204
+    "src/styles.css\t\t.writing-manuscript-head\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)", // src/styles.css:1302 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)} ⇐ .writing-manuscript-head ⇐ src/styles/editorial-studio.css:1205
+    "src/styles.css\t\t.writing-manuscript-head h2\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1308 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .writing-manuscript-head h2 ⇐ src/styles/editorial-studio.css:1212
+    "src/styles.css\t\t.writing-manuscript-head h2\tfont-weight\t650", // src/styles.css:1310 {font-weight: 650} ⇐ .writing-manuscript-head h2 ⇐ src/styles/editorial-studio.css:1213
+    "src/styles.css\t\t.scene-editor-content\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1484 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .scene-editor-content ⇐ src/styles/editorial-studio.css:1282
+    "src/styles.css\t\t.writing-margin\tpadding\t20px 18px", // src/styles.css:1541 {padding: 20px 18px} ⇐ .writing-margin ⇐ src/styles/editorial-studio.css:1159
+    "src/styles.css\t\t.writing-margin\tborder-left\t1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)", // src/styles.css:1542 {border-left: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)} ⇐ .writing-margin ⇐ src/styles/editorial-studio.css:1158
+    "src/styles.css\t\t.writing-margin h3\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1547 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .writing-margin h3 ⇐ src/styles/editorial-studio.css:1212
+    "src/styles.css\t\t.writing-margin dt\tletter-spacing\t0.08em", // src/styles.css:1565 {letter-spacing: 0.08em} ⇐ .writing-margin dt ⇐ src/styles/editorial-studio.css:1357
+    "src/styles.css\t\t.writing-margin dt\ttext-transform\tuppercase", // src/styles.css:1566 {text-transform: uppercase} ⇐ .writing-margin dt ⇐ src/styles/editorial-studio.css:1358
+    "src/styles.css\t@media(max-width:1180px)\t.writing-desk\tgrid-template-columns\t194px minmax(0, 1fr)", // src/styles.css:1663 {grid-template-columns: 194px minmax(0, 1fr)} ⇐ .writing-desk ⇐ src/styles/editorial-studio.css:2604
+    "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\tanimation-duration\t1ms", // src/styles.css:1745 {animation-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2751
+    "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\ttransition-duration\t1ms", // src/styles.css:1747 {transition-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2753
+    "src/styles.css\t\t.writing-outline-view-switch\tdisplay\tgrid", // src/styles.css:1754 {display: grid} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1235
+    "src/styles.css\t\t.writing-outline-view-switch\tgap\t4px", // src/styles.css:1756 {gap: 4px} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1236
+    "src/styles.css\t\t.writing-outline-view-switch\tpadding\t10px 16px 0", // src/styles.css:1757 {padding: 10px 16px 0} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1238
+    "src/styles.css\t\t.outline-scene-main\tdisplay\tflex", // src/styles.css:1964 {display: flex} ⇐ .outline-scene-main ⇐ src/styles/editorial-studio.css:3339
+    "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
+    "src/styles.css\t\t.cards-board-layout\tgrid-template-columns\tminmax(0, 1fr) 360px", // src/styles.css:2577 {grid-template-columns: minmax(0, 1fr) 360px} ⇐ .cards-board-layout ⇐ src/styles/editorial-studio.css:2815
+    "src/styles.css\t\t.cards-board-layout\tgap\t12px", // src/styles.css:2578 {gap: 12px} ⇐ .cards-board-layout ⇐ src/styles/editorial-studio.css:1417
+    "src/styles.css\t\t.cards-board-column\tmin-width\t220px", // src/styles.css:2599 {min-width: 220px} ⇐ .cards-board-column ⇐ src/styles/editorial-studio.css:2825
+    "src/styles.css\t\t.cards-board-column\tmax-width\t280px", // src/styles.css:2600 {max-width: 280px} ⇐ .cards-board-column ⇐ src/styles/editorial-studio.css:2826
+    "src/styles.css\t\t.cards-board-card\ttransition\tborder-color 0.12s ease", // src/styles.css:2664 {transition: border-color 0.12s ease} ⇐ .cards-board-card ⇐ src/styles/editorial-studio.css:1465
+    "src/styles.css\t\t.history-page\tdisplay\tgrid", // src/styles.css:2706 {display: grid} ⇐ .history-page ⇐ src/features/creation/history/history-local.css:5
+    "src/styles.css\t\t.history-empty\tfont-size\t13px", // src/styles.css:2714 {font-size: 13px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:22
+    "src/styles.css\t\t.history-empty\tpadding\t18px", // src/styles.css:2715 {padding: 18px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:19
+    "src/styles.css\t\t.history-list\tdisplay\tgrid", // src/styles.css:2720 {display: grid} ⇐ .history-list ⇐ src/features/creation/history/history-local.css:30
+    "src/styles.css\t\t.history-list\tgap\t6px", // src/styles.css:2721 {gap: 6px} ⇐ .history-list ⇐ src/features/creation/history/history-local.css:32
+    "src/styles.css\t\t.history-item\tgap\t10px", // src/styles.css:2730 {gap: 10px} ⇐ .history-item ⇐ src/features/creation/history/history-local.css:38
+    "src/styles.css\t\t.history-item\tpadding\t10px 12px", // src/styles.css:2734 {padding: 10px 12px} ⇐ .history-item ⇐ src/features/creation/history/history-local.css:39
+    "src/styles.css\t\t.history-item-type\tfont-size\t11px", // src/styles.css:2739 {font-size: 11px} ⇐ .history-item-type ⇐ src/features/creation/history/history-local.css:58
+    "src/styles.css\t\t.history-item-type\tfont-weight\t700", // src/styles.css:2740 {font-weight: 700} ⇐ .history-item-type ⇐ src/features/creation/history/history-local.css:59
+    "src/styles.css\t\t.history-item strong\tfont-size\t13px", // src/styles.css:2745 {font-size: 13px} ⇐ .history-item strong ⇐ src/features/creation/history/history-local.css:104
+    "src/styles.css\t\t.history-item small\tfont-size\t11px", // src/styles.css:2751 {font-size: 11px} ⇐ .history-item small ⇐ src/features/creation/history/history-local.css:113
+    "src/styles.css\t\t.stats-card h3\tfont-size\t13px", // src/styles.css:2882 {font-size: 13px} ⇐ .stats-card h3 ⇐ src/styles/editorial-studio.css:788
+    "src/styles.css\t\t.stats-card h3\tfont-weight\t700", // src/styles.css:2883 {font-weight: 700} ⇐ .stats-card h3 ⇐ src/styles/editorial-studio.css:789
+    "src/styles.css\t\t.inbox-list\tdisplay\tgrid", // src/styles.css:3490 {display: grid} ⇐ .inbox-list ⇐ src/styles/editorial-studio.css:1519
+    "src/styles.css\t\t.inbox-item-title\tfont-weight\t700", // src/styles.css:3517 {font-weight: 700} ⇐ .inbox-item-title ⇐ src/styles/editorial-studio.css:1571
+    "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
+    "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
+    "src/styles.css\t\t.project-nav\tgap\t3px", // src/styles.css:3719 {gap: 3px} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:958
+    "src/styles.css\t\t.project-nav\tpadding\t10px", // src/styles.css:3720 {padding: 10px} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:960
+    "src/styles.css\t\t.project-nav\talign-self\tstart", // src/styles.css:3723 {align-self: start} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:959
+    "src/styles.css\t\t.project-nav\tposition\tsticky", // src/styles.css:3724 {position: sticky} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:955
+    "src/styles.css\t\t.project-nav button\tfont-size\t13px", // src/styles.css:3735 {font-size: 13px} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:978
+    "src/styles.css\t\t.project-nav button\tfont-weight\t600", // src/styles.css:3736 {font-weight: 600} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:979
+    "src/styles.css\t\t.project-nav button\tpadding\t9px 12px", // src/styles.css:3737 {padding: 9px 12px} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:972
+    "src/styles.css\t\t.project-home-list\tgap\t8px", // src/styles.css:3808 {gap: 8px} ⇐ .project-home-list ⇐ src/styles/editorial-studio.css:817
+    "src/styles.css\t\t.project-home-item\tgap\t10px", // src/styles.css:3816 {gap: 10px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:825
+    "src/styles.css\t\t.project-home-item\tpadding\t10px 12px", // src/styles.css:3819 {padding: 10px 12px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:827
+    "src/styles.css\t\t.project-home-item\ttransition\tborder-color 160ms ease, transform 160ms ease, box-shadow 160ms ease", // src/styles.css:3820 {transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:834
+    "src/styles.css\t\t.project-home-item:hover\ttransform\ttranslateY(-1px)", // src/styles.css:3825 {transform: translateY(-1px)} ⇐ .project-home-item:hover ⇐ src/styles/editorial-studio.css:872
+    "src/styles.css\t\t.project-home-item-main strong\tfont-size\t14px", // src/styles.css:3841 {font-size: 14px} ⇐ .project-home-item-main strong ⇐ src/styles/editorial-studio.css:882
+    "src/styles.css\t\t.project-home-item-main strong\tfont-weight\t700", // src/styles.css:3842 {font-weight: 700} ⇐ .project-home-item-main strong ⇐ src/styles/editorial-studio.css:883
+    "src/styles.css\t\t.project-home-arrow\topacity\t0.55", // src/styles.css:3860 {opacity: 0.55} ⇐ .project-home-arrow ⇐ src/styles/editorial-studio.css:914
+    "src/styles.css\t\t.project-home-chars\tfont-size\t12px", // src/styles.css:3872 {font-size: 12px} ⇐ .project-home-chars ⇐ src/styles/editorial-studio.css:896
+    "src/styles.css\t\t.project-home-empty\talign-items\tflex-start", // src/styles.css:3901 {align-items: flex-start} ⇐ .project-home-empty ⇐ src/styles/editorial-studio.css:2396
+    "src/styles.css\t\t.project-home-empty\tpadding\t16px 0", // src/styles.css:3903 {padding: 16px 0} ⇐ .project-home-empty ⇐ src/styles/editorial-studio.css:2398
+    "src/styles.css\t\t.outline-page-body\tmin-height\t0", // src/styles.css:3970 {min-height: 0} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:2788
+    "src/styles.css\t\t.outline-page-body\tgap\t12px", // src/styles.css:3973 {gap: 12px} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:1417
+    "src/styles.css\t\t.outline-page-side\talign-self\tstart", // src/styles.css:3989 {align-self: start} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:2805
+    "src/styles.css\t\t.outline-page-side\tmax-height\tcalc(100vh - 260px)", // src/styles.css:3990 {max-height: calc(100vh - 260px)} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:1438
+    "src/styles.css\t\t.outline-page-side\tposition\tsticky", // src/styles.css:3992 {position: sticky} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:1437
+    "src/styles.css\t\t.background-page-title\tfont-weight\t800", // src/styles.css:4043 {font-weight: 800} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:789
+    "src/styles.css\t\t.background-page-title\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:4044 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:776
+    "src/styles.css\t\t.background-detail-head h3\tfont-weight\t800", // src/styles.css:4131 {font-weight: 800} ⇐ .background-detail-head h3 ⇐ src/styles/editorial-studio.css:1487
+  ]); // TEMP-FILL
+  const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
   const sheets = new Map();
   if (!EMISSION) {
     fail(
@@ -4143,12 +4407,34 @@ const hostPredicate = (() => {
         for (let p = rule.parent; p && p.type !== "root"; p = p.parent) if (p.type === "atrule") ctx.push(`@${p.name} ${p.params}`);
         const c = ctx.slice().reverse().join(" ").replace(/\s+/g, "");
         // @layer 里的声明与未分层声明不是「同键比顺序」的关系（分层永远输给未分层），
-        // 本判据的顺序模型覆盖不了它，遇到就跳过——当前全站 CSS 没有 @layer 颜色声明。
+        // 本判据的顺序模型覆盖不了它，遇到就跳过——当前全站 CSS 有 42 条 @layer 声明，
+        // 全部集中在 styles.css 的 .prose 一族，没有一条参与过同键决胜。
         if (/@layer/.test(c)) return;
+        // @keyframes 的时间步与「发射顺序决胜」是两回事（同一动画里同名步进才比先后，
+        // 跨表的 @keyframes 同名整条被后者替换、不同名互不相干），本顺序模型覆盖不了，
+        // 保守不判。当前全站的 keyframes 都在两份主题表里同名成对，判了就是给自己造假账。
+        if (/@keyframes/.test(c)) return;
         const sels = rule.selectors.map((s) => s.replace(/\s+/g, " ").trim());
+        const selJoin = sels.join(",");
+        const nDecls = rule.nodes.filter((x) => x.type === "decl").length;
         rule.walkDecls((d) => {
-          if (d.prop.startsWith("--") || !COLOR_PROP.test(d.prop)) return;
-          const rec = { rel, line: d.source?.start?.line ?? 0, prop: d.prop.toLowerCase(), value: d.value.replace(/\s+/g, " ").trim(), imp: !!d.important, sels };
+          if (d.prop.startsWith("--") || !ALL_PROP.test(d.prop)) return;
+          const prop = d.prop.toLowerCase();
+          const value = d.value.replace(/\s+/g, " ").trim();
+          const rec = {
+            rel,
+            line: d.source?.start?.line ?? 0,
+            prop,
+            value,
+            imp: !!d.important,
+            sels,
+            // 账本键：不含行号。上方改一处行数不该让整本账重钉，
+            // 而它依赖的正是判据本身看的四件事 + 这条规则自己的形状（选择器表、声明条数）——
+            // 「拆了半条多选择器规则」「摘到规则只剩这一条」都会让键变，那正是要红的事。
+            key: `${rel}\t${c}\t${selJoin}\t${prop}\t${value}`,
+            nSels: sels.length,
+            nDecls,
+          };
           for (const s of sels) {
             const k = `${c}\t${s}\t${rec.prop}`;
             if (!m.has(k)) m.set(k, []);
@@ -4165,36 +4451,101 @@ const hostPredicate = (() => {
         for (const a of list) {
           const winners = [];
           let missing = false;
+          let uncovered = null;
           for (const s of a.sels) {
             const kk = `${k.split("\t")[0]}\t${s}\t${k.split("\t")[2]}`;
-            let covered = null;
+            const cands = [];
             for (const [o, om] of sheets) {
               if (o === rel) continue;
               const r1 = rank(o);
               if (r1 === null || r1 <= r0) continue; // 只认更晚发射的那一侧压住我
               if (r0 >= EMISSION.eager.length && r1 >= EMISSION.eager.length) continue; // lazy × lazy 不可判
-              const cand = (om.get(kk) || []).filter((x) => x.value !== a.value && x.imp === a.imp);
-              if (cand.length) covered = cand[cand.length - 1];
+              for (const x of om.get(kk) || []) {
+                if (x.value !== a.value && x.imp === a.imp) cands.push({ x, r1 });
+              }
             }
-            if (!covered) { missing = true; break; }
+            if (!cands.length) { missing = true; break; }
+            // 候选按发射序**从晚到早**试。块级胜者要先过「挂载覆盖」这层前提（块级表只在
+            // 宿主页面挂载时注入，有宿主够不着它，这条被压的声明在那个页面上就是活的，
+            // 不许判死，BD-31）；静态表发射时必然在场，不需要这层前提。所以块级盖不住时
+            // 回落到更晚的静态候选——「有没有一张总会发射的表整条压着它」才是死的充分条件。
+            // ⚠ BD-30 shipped 版在这里直接取 Map 序最后一个候选（既没按 rank 排、也不看覆盖），
+            // 本批连这处含糊一起收掉。
+            cands.sort((p, q) => q.r1 - p.r1);
+            let covered = null;
+            let why = null;
+            for (const c of cands) {
+              if (c.r1 >= EMISSION.eager.length) {
+                const w = whyNotCovered(s, c.x.rel);
+                if (w) { why = w; continue; }
+              }
+              covered = c.x;
+              break;
+            }
+            if (!covered) { uncovered = why; break; }
             winners.push(`${s} ⇐ ${covered.rel}:${covered.line}`);
           }
+          // 覆盖不成立要抢在 missing / !winners.length 之前入账：够不着胜者表时
+          // winners 本来就是空的，顺序写反它会被当成「没有胜者」悄悄溜走。
+          if (uncovered) {
+            const id = `${rel}:${a.line}:${a.prop}`;
+            if (!unjudgedBy.has(id)) unjudgedBy.set(id, { a, why: uncovered });
+            continue;
+          }
           if (missing || !winners.length) continue;
-          const id = `${rel}:${a.line}:${a.prop}`;
-          if (!deadBy.has(id)) deadBy.set(id, { a, winners });
+          if (!deadBy.has(a.key)) deadBy.set(a.key, { a, winners });
         }
       }
     }
-    // 零容忍。原先的「按文件冻结预算」是 BD-29 的错处之一：它把**没核实的方向**写成合法
-    // 额度，于是记反的方向也被冻成了预算，看起来像待还的债，其实是判据在撒谎。
-    if (deadBy.size) {
-      const list = [...deadBy.values()].slice(0, 4).map((x) => `${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}} ⇐ ${x.winners.join("；")}`);
+    // 零容忍只留给颜色那一族（BD-29 摘 95 拆 1 + BD-30 摘 20 拆 1，已经归零、还得起）。
+    // 其余属性的同键异值死账是 BD-31 扩族才第一次看见的 130 条，本批不还，改为**钉账**：
+    // 与 DEAD_LEDGER 逐条比，多一条（新增死声明）要红，少一条（还了没改账）也要红——
+    // 和几何分支、幻影账同一套手法，方向安全靠的是「账目必须与实测同步」，不是宽容。
+    const colorDead = [...deadBy.values()].filter((x) => COLOR_PROP.test(x.a.prop));
+    const otherDead = [...deadBy.values()].filter((x) => !COLOR_PROP.test(x.a.prop));
+    if (colorDead.length) {
+      const list = colorDead.slice(0, 4).map((x) => `${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}} ⇐ ${x.winners.join("；")}`);
       fail(
-        `第 8 步颜色分支：全站 ${deadBy.size} 条颜色声明在同键（同选择器文本 + 同 @上下文 + 同属性 + 同 important）上被发射更晚的一条整条压住，从未画出一个像素——${list.join(" ｜ ")}` +
-          `\n  发射顺序取自 main.tsx 的 import 图（${EMISSION.eager.length} 张静态表按行序 + ${EMISSION.lazy.size} 张块级表在其后）；批次 BD-29 摘 95 拆 1、BD-30 摘 20 拆 1 之后这里是零，没有预算档。` +
+        `第 8 步颜色分支：全站 ${colorDead.length} 条颜色声明在同键（同选择器文本 + 同 @上下文 + 同属性 + 同 important）上被发射更晚的一条整条压住，从未画出一个像素——${list.join(" ｜ ")}` +
+          `\n  发射顺序取自 main.tsx 的 import 图（${EMISSION.eager.length} 张静态表按行序 + ${EMISSION.lazy.size} 张块级表在其后）；块级胜者还要过「挂载覆盖」这层前提（BD-31），前提不成立的另列。` +
+          `\n  批次 BD-29 摘 95 拆 1、BD-30 摘 20 拆 1 之后这里是零，没有预算档。` +
           `\n  要么删掉不生效那条并留注释写明胜者（多选择器规则要拆开，别整条留着撒谎），要么让两条真正分工（不同选择器 / 不同属性 / 不同 important）。`
       );
     }
+    const ledgerMiss = otherDead.filter((x) => !DEAD_LEDGER.has(x.a.key));
+    const ledgerStale = [...DEAD_LEDGER].filter((k) => !deadBy.has(k));
+    // 重钉账本的唯一入口（DESIGN_TOKEN_DUMP_DEAD=1）：账由实测生成，不许手写——
+    // 手抄一遍就会有两个真源，而这份账的全部意义就是「与实测逐字相同」。
+    if (process.env.DESIGN_TOKEN_DUMP_DEAD === "1") {
+      const dump = otherDead.map((x) => `    ${JSON.stringify(x.a.key.replace(/\t/g, "\t"))}, // ${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}} ⇐ ${x.winners[0]}`);
+      console.log(`${TAG} [DESIGN_TOKEN_DUMP_DEAD] 非颜色死声明 ${otherDead.length} 条：\n${dump.join("\n")}`);
+    }
+    if (ledgerMiss.length || ledgerStale.length) {
+      const show = (x) => `${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}} ⇐ ${x.winners[0]}`;
+      const parts = [];
+      if (ledgerMiss.length) {
+        parts.push(
+          `新增 ${ledgerMiss.length} 条非颜色死声明不在账上（现存 ${otherDead.length} 条）——同键异值靠发射顺序决胜 = 更早那条永远不渲染：${ledgerMiss.slice(0, 4).map(show).join(" ｜ ")}` +
+            `\n  要么按判据给出的胜者摘掉它（留注释写明胜者，行式墓碑保住行号），要么让两条真正分工；确实判得对又本批还不完的，才允许进 DEAD_LEDGER，并把「为什么本批不还」写在那儿。`
+        );
+      }
+      if (ledgerStale.length) {
+        parts.push(
+          `账上 ${ledgerStale.length} 条已经扫不到了：${ledgerStale.slice(0, 4).map((k) => k.replace(/\t/g, " ⑅ ")).join(" ｜ ")}。` +
+            `\n  还了债就得把 DEAD_LEDGER 同步删掉——留在账上，下一批人照着它去找一笔已经不存在的债，还会顺手把「新增」当合法额度。`
+        );
+      }
+      fail(`第 8 步非颜色死声明账与实测不符（${parts.join("\n  ")}`);
+    }
+    if (unjudgedBy.size) {
+      const list = [...unjudgedBy.values()].slice(0, 6).map((x) => `${x.a.rel}:${x.a.line} {${x.a.prop}: ${x.a.value}}——${x.why}`);
+      console.log(`${TAG} [第 8 步挂载覆盖] ${unjudgedBy.size} 条同键异值声明**不判**（块级胜者未必挂得上）：${list.join(" ｜ ")}`);
+    }
+    // 上面 colorDead 那条就是零容忍本体。原先「deadBy.size 一律红」的写法在 BD-31 扩族后
+    // 会把 130 条非颜色债也按「颜色分支」报出来（红话撒谎），故拆成两支：颜色零容忍、
+    // 其余钉账。「按文件冻结预算」是 BD-29 的错处之一：它把**没核实的方向**写成合法额度，
+    // 于是记反的方向也被冻成了预算，看起来像待还的债，其实是判据在撒谎——钉的是**逐条清单**
+    // 而不是额度，就是为了不再犯同一个错。
     {
       // 判据自检三条，全部不依赖账上有债：
       // ① 顺序模型必须与真实产物相符：search.css 与 editorial-studio.css 同进主 bundle，
@@ -4248,10 +4599,37 @@ const hostPredicate = (() => {
       if (leaked) {
         fail(`第 8 步颜色分支判据退化：.project-nav button 的 border 两侧**同值**（border: 0），同值重复是冗余不是分叉，却进了死账——判据过严就会逼人删掉在画的兜底。`);
       }
+      // ④（批次 BD-31）挂载覆盖这层前提自己也要有哨兵，因为它天生的失效方向是
+      // 「把一切判成不可判」：那样死账归零、判据全绿，却什么都不再守——比误判更安静。
+      // 用一对真实宿主钉住它的两种结局，两者必须**同时**成立：
+      //   · .history-item small 的宿主只有 HistoryPage.tsx，而它自己 import 了那份胜者表
+      //     → 覆盖成立，这条要能判（styles.css:2751 的 font-size 就在 DEAD_LEDGER 上）；
+      //   · .history-item-actions 多一个宿主 StatsPage.tsx，它借这个类名却不挂那份表
+      //     → 覆盖不成立，这条必须不判（就是本块开头报出来的那 2 条）。
+      // 哪天 import 图、宿主谓词或 resolveSpec 被改坏，这两句会一起塌掉。
+      const LAZY_WINNER = "src/features/creation/history/history-local.css";
+      const covJudged = whyNotCovered(".history-item small", LAZY_WINNER);
+      const covSkipped = whyNotCovered(".history-item-actions", LAZY_WINNER);
+      if (covJudged !== null || covSkipped === null) {
+        fail(
+          `第 8 步颜色分支判据退化（挂载覆盖·BD-31）：` +
+            `「.history-item small → 覆盖成立（${covJudged === null ? "对" : covJudged}）」与` +
+            `「.history-item-actions → 覆盖不成立（${covSkipped === null ? "被误判成覆盖成立" : covSkipped}）」这两句现在不是**一同一异**。` +
+            `两个都成立说明覆盖前提塌成了整体豁免（判据瞎，账上从此不会再有 lazy 胜者），两个都不成立说明 import 图 / 宿主谓词被改坏（判据会把活 CSS 判死）。` +
+            `若产品真的把 StatsPage 那个类名摘掉、或让它也挂上这份表，那是合法的改版——请连 DEAD_LEDGER 与这两句哨兵一起重算。`
+        );
+      }
+      if (MOUNT.moduleCount < 50) {
+        fail(`第 8 步颜色分支判据退化（挂载覆盖·BD-31）：import 图只走到 ${MOUNT.moduleCount} 个模块，少于 src 下的实际量级——resolveSpec 或模块收集被改坏时，「宿主够不着胜者表」会变成常态，判据悄悄放弃全部判决。`);
+      }
     }
-    if (!deadBy.size) {
+    // 红了就别再打「0 条」——绿话与红话同时出现，等于守卫自己撒谎（几何分支那条老规矩）。
+    if (!colorDead.length && !ledgerMiss.length && !ledgerStale.length) {
       console.log(
         `${TAG} [第 8 步颜色分支] 全站同键异值死色 0 条（BD-29 摘 95 拆 1 + BD-30 摘 20 拆 1，预算档已取消）；发射顺序由 main.tsx import 图推出：静态 ${EMISSION.eager.length} 张按行序、块级 ${EMISSION.lazy.size} 张在其后`
+      );
+      console.log(
+        `${TAG} [第 8 步非颜色死声明] 同键异值 ${otherDead.length} 条已逐条钉账（BD-31 扩族首次实测，含 ${unjudgedBy.size} 条因挂载覆盖不成立而不判）；账与实测逐条比对，增删都要同步`
       );
     }
   }
