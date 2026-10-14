@@ -628,14 +628,14 @@ button:disabled {
 
 .desktop-commandbar {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 38%);
+  /* BD-33 摘死声明：grid-template-columns: minmax(0, 1fr) minmax(260px, 38%) 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:536 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   align-items: center;
-  gap: 18px;
-  min-height: 76px;
-  padding: 14px 22px;
-  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
+  /* BD-33 摘死声明：gap: 18px 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:538 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：min-height: 76px 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:539 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：padding: 14px 22px 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:540 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:541 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 74%, transparent) 从未渲染——「.desktop-commandbar」 在产物里被 editorial-studio.css:542 同键更晚的一条整条压住 */
-  backdrop-filter: blur(18px);
+  /* BD-33 摘死声明：backdrop-filter: blur(18px) 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css:544 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .desktop-commandbar p,
@@ -656,11 +656,11 @@ button:disabled {
   margin-top: 2px;
   overflow: hidden;
   /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-commandbar h1」 在产物里被 editorial-studio.css:550 同键更晚的一条整条压住 */
-  font-family: ui-serif, "Songti SC", "STSong", serif;
+  /* BD-33 摘死声明：font-family: ui-serif, "Songti SC", "STSong", serif 从未渲染——「.desktop-commandbar h1」被 src/styles/editorial-studio.css:551 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:547 的 20px）。 */
   font-weight: 700;
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+  /* BD-33 摘死声明：letter-spacing: -0.04em 从未渲染——「.desktop-commandbar h1」被 src/styles/editorial-studio.css:554 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：line-height: 1.1 从未渲染——「.desktop-commandbar h1」被 src/styles/editorial-studio.css:555 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -745,14 +745,14 @@ button:disabled {
 
 .desktop-page-hero {
   display: flex;
-  align-items: flex-start;
+  /* BD-33 摘死声明：align-items: flex-start 从未渲染——「.desktop-page-hero」被 src/styles/editorial-studio.css:652 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   justify-content: space-between;
-  gap: 18px;
+  /* BD-33 摘死声明：gap: 18px 从未渲染——「.desktop-page-hero」被 src/styles/editorial-studio.css:654 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent) 从未渲染——「.desktop-page-hero」 在产物里被 editorial-studio.css:2899 同键更晚的一条整条压住 */
   /* BD-29 摘死色：background: radial-gradient(circle at 2% 0%, color-mix(in srgb, var(--co…（原值截断，全文见本仓 git 历史） 从未渲染——「.desktop-page-hero」 在产物里被 editorial-studio.css:2902 同键更晚的一条整条压住 */
 
 
-  padding: 18px;
+  /* BD-33 摘死声明：padding: 18px 从未渲染——「.desktop-page-hero」被 src/styles/editorial-studio.css:655 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .desktop-page-hero h2,
@@ -762,11 +762,11 @@ button:disabled {
 
 .desktop-page-hero h2 {
   /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.desktop-page-hero h2」 在产物里被 editorial-studio.css:665 同键更晚的一条整条压住 */
-  font-family: ui-serif, "Songti SC", "STSong", serif;
+  /* BD-33 摘死声明：font-family: ui-serif, "Songti SC", "STSong", serif 从未渲染——「.desktop-page-hero h2」被 src/styles/editorial-studio.css:666 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:2915 的 clamp(20px, 1.8vw, 23px)）。
      clamp 里的数字不记账：流式排版语法，见判据①。 */
-  font-weight: 740;
-  letter-spacing: -0.045em;
+  /* BD-33 摘死声明：font-weight: 740 从未渲染——「.desktop-page-hero h2」被 src/styles/editorial-studio.css:668 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：letter-spacing: -0.045em 从未渲染——「.desktop-page-hero h2」被 src/styles/editorial-studio.css:262 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   line-height: 1.1;
 }
 
@@ -3716,12 +3716,12 @@ button:disabled {
 .project-nav {
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 10px;
+  /* BD-33 摘死声明：gap: 3px 从未渲染——「.project-nav」被 src/styles/editorial-studio.css:958 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：padding: 10px 从未渲染——「.project-nav」被 src/styles/editorial-studio.css:960 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.project-nav」 在产物里被 editorial-studio.css:961 同键更晚的一条整条压住 */
   /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.project-nav」 在产物里被 editorial-studio.css:964 同键更晚的一条整条压住 */
-  align-self: start;
-  position: sticky;
+  /* BD-33 摘死声明：align-self: start 从未渲染——「.project-nav」被 src/styles/editorial-studio.css:959 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：position: sticky 从未渲染——「.project-nav」被 src/styles/editorial-studio.css:955 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   top: 0;
 }
 
@@ -3732,9 +3732,9 @@ button:disabled {
   border: 0;
   background: transparent;
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-nav button」 在产物里被 editorial-studio.css:977 同键更晚的一条整条压住 */
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 12px;
+  /* BD-33 摘死声明：font-size: 13px 从未渲染——「.project-nav button」被 src/styles/editorial-studio.css:978 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：font-weight: 600 从未渲染——「.project-nav button」被 src/styles/editorial-studio.css:979 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-33 摘死声明：padding: 9px 12px 从未渲染——「.project-nav button」被 src/styles/editorial-studio.css:972 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   text-align: left;
   cursor: pointer;
 }

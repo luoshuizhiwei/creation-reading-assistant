@@ -1794,7 +1794,11 @@ const isPureRingValue = (v) => {
     // 是从不渲染的死声明，26px 又离刻度——一条墓碑同时还了两本账。
     "src/features/search/search.css": 9,
     "src/features/settings/encryption/encryption.css": 1,
-    "src/styles.css": 119,
+    // 批次 BD-33（还死声明账第二批，桌面壳三族）：119→112。摘掉的 22 条死声明里 7 处同时
+    // 离 §5.1 刻度（.desktop-commandbar gap:18px / padding:14px 22px、.desktop-page-hero
+    // gap:18px / padding:18px、.project-nav gap:3px / padding:10px / button padding:9px 12px）
+    // ——和 BD-32 那条 26px 一样，一条墓碑清两本账，这类条目仍排在还债队列最前。
+    "src/styles.css": 112,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4248,6 +4252,13 @@ const hostPredicate = (() => {
    * 也就是挂载覆盖那层前提在这里是双向的：判死要证「胜者总会挂载」，还债要证「每个宿主
    * 都挂得上」。这需要逐页 A/B 截图与探针，一批做 130 条必然出错（BD-29 就是这么犯错的）。
    * 所以本批把「看得见」立住（判据 + 账 + 牙），还债按文件分批排在后头（BD-32+）。
+   *
+   * 还债进度（数字都由重钉实测得到，不手填）：BD-31 立账 130 条 → BD-32 还 10 条
+   * （search.css 4 + editorial 6）→ BD-33 还 22 条（styles.css 桌面壳三族
+   * .desktop-commandbar / .desktop-page-hero / .project-nav，胜者全是静态表 editorial，
+   * 删除前提天然成立，是最安全的一族）→ 现存 98 条，仍全部在 src/styles.css，其中
+   * 11 条胜者是 history-local.css、1 条是 outline-reorg.css（块级胜者，还之前必须逐条
+   * 跑挂载覆盖的反方向），余下 86 条静态胜者可继续按族往下还。
    */
   const DEAD_LEDGER = new Set([
     "src/styles.css\t\t::-webkit-scrollbar\twidth\t10px", // src/styles.css:176 {width: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2464
@@ -4270,15 +4281,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.desktop-sidebar-stats span\tdisplay\tgrid", // src/styles.css:603 {display: grid} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:271
     "src/styles.css\t\t.desktop-sidebar-stats span\tgap\t2px", // src/styles.css:604 {gap: 2px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:273
     "src/styles.css\t\t.desktop-sidebar-stats span\tpadding\t10px", // src/styles.css:605 {padding: 10px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:274
-    "src/styles.css\t\t.desktop-commandbar\tgrid-template-columns\tminmax(0, 1fr) minmax(260px, 38%)", // src/styles.css:631 {grid-template-columns: minmax(0, 1fr) minmax(260px, 38%)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:536
-    "src/styles.css\t\t.desktop-commandbar\tgap\t18px", // src/styles.css:633 {gap: 18px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:538
-    "src/styles.css\t\t.desktop-commandbar\tmin-height\t76px", // src/styles.css:634 {min-height: 76px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:539
-    "src/styles.css\t\t.desktop-commandbar\tpadding\t14px 22px", // src/styles.css:635 {padding: 14px 22px} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:540
-    "src/styles.css\t\t.desktop-commandbar\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)", // src/styles.css:636 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:541
-    "src/styles.css\t\t.desktop-commandbar\tbackdrop-filter\tblur(18px)", // src/styles.css:638 {backdrop-filter: blur(18px)} ⇐ .desktop-commandbar ⇐ src/styles/editorial-studio.css:544
-    "src/styles.css\t\t.desktop-commandbar h1\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:659 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:551
-    "src/styles.css\t\t.desktop-commandbar h1\tletter-spacing\t-0.04em", // src/styles.css:662 {letter-spacing: -0.04em} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:554
-    "src/styles.css\t\t.desktop-commandbar h1\tline-height\t1.1", // src/styles.css:663 {line-height: 1.1} ⇐ .desktop-commandbar h1 ⇐ src/styles/editorial-studio.css:555
     "src/styles.css\t\t.desktop-search-command\tgap\t9px", // src/styles.css:682 {gap: 9px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:574
     "src/styles.css\t\t.desktop-search-command\tmin-height\t42px", // src/styles.css:683 {min-height: 42px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:575
     "src/styles.css\t\t.desktop-search-command\tpadding\t0 10px 0 13px", // src/styles.css:684 {padding: 0 10px 0 13px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:576
@@ -4286,12 +4288,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.desktop-search-command kbd\tfont-family\tui-monospace, SFMono-Regular, Consolas, monospace", // src/styles.css:714 {font-family: ui-monospace, SFMono-Regular, Consolas, monospace} ⇐ .desktop-search-command kbd ⇐ src/styles/editorial-studio.css:611
     "src/styles.css\t\t.desktop-canvas\tpadding\t18px", // src/styles.css:720 {padding: 18px} ⇐ .desktop-canvas ⇐ src/styles/editorial-studio.css:622
     "src/styles.css\t\t.desktop-page-scroll\tpadding\t4px", // src/styles.css:737 {padding: 4px} ⇐ .desktop-page-scroll ⇐ src/styles/editorial-studio.css:641
-    "src/styles.css\t\t.desktop-page-hero\talign-items\tflex-start", // src/styles.css:748 {align-items: flex-start} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:652
-    "src/styles.css\t\t.desktop-page-hero\tgap\t18px", // src/styles.css:750 {gap: 18px} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:654
-    "src/styles.css\t\t.desktop-page-hero\tpadding\t18px", // src/styles.css:755 {padding: 18px} ⇐ .desktop-page-hero ⇐ src/styles/editorial-studio.css:655
-    "src/styles.css\t\t.desktop-page-hero h2\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:765 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:666
-    "src/styles.css\t\t.desktop-page-hero h2\tfont-weight\t740", // src/styles.css:768 {font-weight: 740} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:668
-    "src/styles.css\t\t.desktop-page-hero h2\tletter-spacing\t-0.045em", // src/styles.css:769 {letter-spacing: -0.045em} ⇐ .desktop-page-hero h2 ⇐ src/styles/editorial-studio.css:262
     "src/styles.css\t\t.desktop-library-grid-head\tfont-size\t12px", // src/styles.css:822 {font-size: 12px} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1831
     "src/styles.css\t\t.desktop-library-grid-head\tfont-weight\t650", // src/styles.css:823 {font-weight: 650} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1832
     "src/styles.css\t\t.desktop-library-row\ttransition\ttransform 160ms ease, background-color 160ms ease, box-shadow 160ms ease", // src/styles.css:830 {transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease} ⇐ .desktop-library-row ⇐ src/styles/editorial-studio.css:1838
@@ -4344,13 +4340,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.inbox-item-title\tfont-weight\t700", // src/styles.css:3517 {font-weight: 700} ⇐ .inbox-item-title ⇐ src/styles/editorial-studio.css:1571
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
     "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
-    "src/styles.css\t\t.project-nav\tgap\t3px", // src/styles.css:3719 {gap: 3px} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:958
-    "src/styles.css\t\t.project-nav\tpadding\t10px", // src/styles.css:3720 {padding: 10px} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:960
-    "src/styles.css\t\t.project-nav\talign-self\tstart", // src/styles.css:3723 {align-self: start} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:959
-    "src/styles.css\t\t.project-nav\tposition\tsticky", // src/styles.css:3724 {position: sticky} ⇐ .project-nav ⇐ src/styles/editorial-studio.css:955
-    "src/styles.css\t\t.project-nav button\tfont-size\t13px", // src/styles.css:3735 {font-size: 13px} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:978
-    "src/styles.css\t\t.project-nav button\tfont-weight\t600", // src/styles.css:3736 {font-weight: 600} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:979
-    "src/styles.css\t\t.project-nav button\tpadding\t9px 12px", // src/styles.css:3737 {padding: 9px 12px} ⇐ .project-nav button ⇐ src/styles/editorial-studio.css:972
     "src/styles.css\t\t.project-home-list\tgap\t8px", // src/styles.css:3808 {gap: 8px} ⇐ .project-home-list ⇐ src/styles/editorial-studio.css:817
     "src/styles.css\t\t.project-home-item\tgap\t10px", // src/styles.css:3816 {gap: 10px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:825
     "src/styles.css\t\t.project-home-item\tpadding\t10px 12px", // src/styles.css:3819 {padding: 10px 12px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:827

@@ -687,6 +687,11 @@ const cases = [
   // ---- 批次 BD-32：还掉 DEAD_LEDGER 的 10 条（search.css 4 + editorial 6）之后补的牙 ----
   ["批次 BD-32 还债①（摘掉的死声明写回原位，必须红）：把本批摘掉的 editorial .overview-status-list 那条 display: grid 写回墓碑位置——胜者 overview-local.css:107 的 display: flex 仍在更晚的块级表里压着它，而这条已不在 120 条的账上。必须红，且红因是「账外新增」而不是「颜色分叉」。这颗牙守的是还债的方向：写回死声明 = 又造一条从未渲染的声明", () => mutate("src/styles/editorial-studio.css", ".overview-status-list {\n", ".overview-status-list {\n  display: grid;\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-32 还债·反向（同值共存不该红）：给刚还清的 editorial .overview-status-list 写一条 **gap: 6px**——它与胜者 overview-local.css:109 的 gap: 6px 同键同值。同值重复是冗余不是分叉（判红会逼人多删一条在画的），6px 又正好在 §5.1 刻度上（离刻度棘轮也不该跟着红），不该红。这颗牙是 BD-31 反向③在**非颜色族**的对应物", () => mutate("src/styles/editorial-studio.css", ".overview-status-list {\n", ".overview-status-list {\n  gap: 6px;\n"), null],
+  // ---- 批次 BD-33：还掉 styles.css 桌面壳三族 22 条之后补的牙 ----
+  // ⚠ 这两颗刻意钉在**规则名**（.desktop-commandbar { display: grid;）而不是任何一条具体声明上：
+  //   BD-32 的教训是牙钉在账上条目、还债当天就哑。规则名不属于账，除非有人删整条规则它才会消失。
+  ["批次 BD-33 还债②（本批摘掉的静态副本写回原位，必须红）：把 styles.css .desktop-commandbar 那条 gap: 18px 写回墓碑位置——胜者 editorial-studio.css:538 的 gap: 20px 是**更晚发射的静态表**，照样整条压住它，而这条已不在 98 条的账上。必须红，红因仍是「账外新增」。这颗牙与 BD-32 还债①同形，区别在胜者是静态表：静态胜者这一族占了账的绝大多数，它得有自己的哨兵", () => mutate("src/styles.css", ".desktop-commandbar {\n  display: grid;\n", ".desktop-commandbar {\n  display: grid;\n  gap: 18px;\n"), /非颜色死声明账与实测不符/],
+  ["批次 BD-33 还债·反向②（与静态胜者同值不该红）：给 styles.css .desktop-commandbar 写一条 **gap: 20px**——与胜者 editorial-studio.css:538 同键同值。同值是冗余不是分叉，20px 又正好在 §5.1 刻度上，两条棘轮都不该红。这颗牙守的是「还债不许顺手把冗余也判死」：判红等于逼人在两份静态表里删掉一条在画的声明", () => mutate("src/styles.css", ".desktop-commandbar {\n  display: grid;\n", ".desktop-commandbar {\n  display: grid;\n  gap: 20px;\n"), null],
 ];
 
 let bad = 0;
