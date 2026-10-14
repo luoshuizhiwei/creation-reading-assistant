@@ -135,8 +135,65 @@ function mutate(file, from, to) {
   writeFileSync(p, s.replace(from, to));
 }
 
-function runGuard() {
-  const r = spawnSync(process.execPath, [path.join(root, "scripts", "verify-design-tokens.mjs")], { encoding: "utf8" });
+/**
+ * 「死账」两颗牙的自动选锚（批次 BD-34 立）。
+ *
+ * 为什么要有这个：BD-32 那批把牙钉在 search.css 的一条死 padding 上，还掉之后 needle
+ * 消失、牙当场哑（SKIP 计无效，靠人重跑才发现）；BD-33 换了个锚，教训却只记在注释里。
+ * 只要锚是**手挑的某一条债**，每还一批债就要手工换一次锚——这不是牙在守规矩，是人在
+ * 伺候牙。改成运行时从守卫自己 dump 出来的实测清单里挑，锚就永远在账上（挑的就是账）。
+ *
+ * 挑锚条件（全部是「不满足就会把牙做成假牙」的方向）：
+ *  · 值含 px：这样才同时被离刻度棘轮看着，能顺手排除刻度债（改值会红两本账，归因不清）；
+ *  · 改完不撞上 §5.1 八档：两颗牙都把值改一档（③）或原地注释掉（④），③ 若正好落在刻度上
+ *    就会牵动间距预算，红因混进「预算没跟着降」；
+ *  · 该声明在源文件里**逐字唯一**：mutate 的 replace 只换第一处，不唯一就会改到别人身上；
+ *  · 所在规则只有 1 条声明：账本键含「规则形状」，摘掉唯一那条会让整条规则空掉，
+ *    判据可能改口成别的桶（红话就不是「账与实测不符」了）。
+ * 找不到合格锚就抛错——harness 记 SKIP（无效），比拿一条不合适的锚默默通过好。
+ */
+let anchorCache = null;
+function deadAnchor() {
+  if (anchorCache) return anchorCache;
+  const SP = new Set([0, 2, 4, 6, 8, 10, 12, 16, 20, 24, 32, 40, 48]);
+  const r = runGuard({ DESIGN_TOKEN_DUMP_DEAD: "1" });
+  if (!/DESIGN_TOKEN_DUMP_DEAD/.test(r.out)) throw new Error("守卫没吐出死声明清单（DESIGN_TOKEN_DUMP_DEAD 分支挂了？）");
+  const rows = [...r.out.matchAll(/^ {4}"((?:[^"\\]|\\.)*)", \/\/ (\S+?):(\d+) \{([^:]+): ([^}]*)\} ⇐/gm)];
+  const cands = [];
+  for (const [, , rel, ln, prop, value] of rows) {
+    if (!backedUp.has(rel)) continue; // 不在备份清单里的文件 mutate 会直接拒改，锚也不能选它
+    if (!/(^|\s)\d+px/.test(value)) continue; // 值要含 px（才谈得上「改一档」）
+    // 不碰别的棘轮：间距/字号那两本账各数各的，锚改值会同时红两本，归因不清
+    if (/^(?:row-|column-)?(?:gap|padding|margin)(?:-[a-z-]+)?$/.test(prop) || prop === "font-size") continue;
+    const src = readFileSync(path.join(root, rel), "utf8");
+    const line = src.split("\n")[Number(ln) - 1] || "";
+    const needle = `  ${prop}: ${value};`;
+    if (line.trim() !== needle.trim()) continue; // 实测行与账上逐字一致
+    if (src.split(needle).length !== 2) continue; // 全文件逐字唯一（mutate 只换第一处）
+    const at = src.indexOf(needle);
+    const open = src.lastIndexOf("{", at);
+    const close = src.indexOf("}", at);
+    if (open < 0 || close < 0) continue;
+    // 摘掉这一条之后规则不能变空：空规则会让判据改口成别的桶，红话就不是「账与实测不符」
+    const nDecls = src.slice(open + 1, close).split(";").filter((x) => x.trim() && !x.trim().startsWith("/*")).length;
+    if (nDecls < 2) continue;
+    const plus1 = value.replace(/(\d+)px/g, (m, d) => `${Number(d) + 1}px`);
+    if (plus1.match(/\d+(?=px)/g).some((d) => SP.has(Number(d)))) continue; // 改一档后不许落在八档上
+    cands.push({ rel, line: Number(ln), prop, value, needle, plus1 });
+  }
+  if (!cands.length) throw new Error("账上找不到合格的自动锚（条件太严还是账空了？）");
+  // 取最后一条：账本尾部是 styles.css 里较晚族的条目，通常不是本批正在还的那一族
+  anchorCache = cands[cands.length - 1];
+  console.log(`[inject-test] 死账牙的自动锚 = ${anchorCache.rel}:${anchorCache.line} {${anchorCache.prop}: ${anchorCache.value}}（账上 ${cands.length} 条候选里挑的）`);
+  return anchorCache;
+}
+
+
+function runGuard(env) {
+  const r = spawnSync(process.execPath, [path.join(root, "scripts", "verify-design-tokens.mjs")], {
+    encoding: "utf8",
+    env: env ? { ...process.env, ...env } : process.env,
+  });
   return { code: r.status, out: (r.stdout || "") + (r.stderr || "") };
 }
 
@@ -682,8 +739,8 @@ const cases = [
   // （不挂）两处渲染，所以主题侧那条在统计页是活的——判它死就是给「删掉一条活样式」开许可证。
   ["批次 BD-31 挂载覆盖①（BD-30 那个洞的形状，必须绿）：给 styles.css 的 .history-item-actions 注入一条 color，再给 history-local.css 同选择器注入异值那条。胜者在块级表，而 StatsPage.tsx 渲染这个类名却不沿 import 链挂得上那份表——被压那条在统计页是**唯一在画的**声明，判据必须闭嘴。这颗牙守「别把活 CSS 判死」：把覆盖前提删掉，它当场红", () => { mutate("src/styles.css", ".history-item-actions {\n  display: inline-flex;", ".history-item-actions {\n  color: rgb(11, 22, 33);\n  display: inline-flex;"); mutate("src/features/creation/history/history-local.css", ".history-item-actions {\n  display: flex;", ".history-item-actions {\n  color: rgb(44, 55, 66);\n  display: flex;"); }, null],
   ["批次 BD-31 挂载覆盖②（覆盖前提不是整体豁免·静态候选回落）：上面那对注入照做（块级胜者盖不住 StatsPage），再往 editorial-studio.css 追加一条同选择器异值 color——那是一张**总会发射**的静态表，它压得住，必须红。这颗牙守反方向：块级表盖不住时判据若直接放弃整条判决（而不是回落到更晚的静态候选），主题表之间的分叉就从此隐身。⚠ BD-31 原锚 editorial 的 .overview-grid grid-template-columns 是 BD-32 还掉的账上条目、已变墓碑，needle 消失即 SKIP 计为无效（自愈设计），本批改钉文件末那条与本判据无关的规则", () => { mutate("src/styles.css", ".history-item-actions {\n  display: inline-flex;", ".history-item-actions {\n  color: rgb(11, 22, 33);\n  display: inline-flex;"); mutate("src/features/creation/history/history-local.css", ".history-item-actions {\n  display: flex;", ".history-item-actions {\n  color: rgb(44, 55, 66);\n  display: flex;"); mutate("src/styles/editorial-studio.css", ".writing-outline-view-switch button.active {", ".history-item-actions {\n  color: rgb(55, 66, 77);\n}\n\n.writing-outline-view-switch button.active {"); }, /第 8 步颜色分支/],
-  ["批次 BD-31 死账③（账外新增要红；BD-32 起换锚）：把 styles.css 那条已在册的 .writing-margin dt letter-spacing 改成 0.09em——它仍被 editorial-studio.css 同键压着，但账本键含值，于是账上一条扫不到、实测多出一条账外的。必须红。这颗牙守「债只许按实测逐条记」：允许账外新增等于把 BD-29 那种按文件冻结的合法额度请回来。⚠ BD-31 原锚 search.css 的 .uni-search-state padding 在 BD-32 已还清、needle 随之消失——锚点没了就 SKIP 计为无效（自愈设计），换钉账上仍在的 styles.css 条目", () => mutate("src/styles.css", "  font-size: 11px;\n  letter-spacing: 0.08em;\n  text-transform: uppercase;", "  font-size: 11px;\n  letter-spacing: 0.09em;\n  text-transform: uppercase;"), /非颜色死声明账与实测不符/],
-  ["批次 BD-31 死账④（还了债不改账也要红；BD-32 起换锚）：把 styles.css 那条死 letter-spacing 原地换成等长注释——债真的没了（这条改动本身零像素），账上却还留着它。必须红，且红话是「账上 N 条已经扫不到了」。留在账上的死条目会让下一批人照一笔不存在的债去找，还会顺手把「账外新增」当合法额度", () => mutate("src/styles.css", "  font-size: 11px;\n  letter-spacing: 0.08em;\n  text-transform: uppercase;", "  font-size: 11px;\n  /* 验牙临时摘除：本条是被 editorial-studio.css 同键压死的死 letter-spacing */\n  text-transform: uppercase;"), /已经扫不到/],
+  ["批次 BD-31 死账③（账外新增要红；BD-34 起自动选锚）：把账上某条已在册的 px 声明改成 +1px——它仍被更晚那张表同键压着，但账本键含值，于是账上一条扫不到、实测多出一条账外的。必须红。这颗牙守「债只许按实测逐条记」：允许账外新增等于把 BD-29 那种按文件冻结的合法额度请回来。⚠ 锚不再手挑（BD-32/33 两批都因为手挑的锚被还掉而哑过一次、换过一次），改由 deadAnchor() 运行时从守卫实测清单里挑：值含 px、改一档不落八档、不碰间距/字号棘轮、全文件逐字唯一、摘掉不空规则、文件在备份清单。找不到就抛错记 SKIP", () => { const a = deadAnchor(); mutate(a.rel, a.needle, `  ${a.prop}: ${a.plus1};`); }, /非颜色死声明账与实测不符/],
+  ["批次 BD-31 死账④（还了债不改账也要红；BD-34 起自动选锚）：把同一条自动锚原地换成等长注释——债真的没了（这条改动本身零像素），账上却还留着它。必须红，且红话是「账上 N 条已经扫不到了」。留在账上的死条目会让下一批人照一笔不存在的债去找，还会顺手把「账外新增」当合法额度", () => { const a = deadAnchor(); mutate(a.rel, a.needle, `  /* 验牙临时摘除：本条是被更晚那张表同键压死的死 ${a.prop} */`); }, /已经扫不到/],
   // ---- 批次 BD-32：还掉 DEAD_LEDGER 的 10 条（search.css 4 + editorial 6）之后补的牙 ----
   ["批次 BD-32 还债①（摘掉的死声明写回原位，必须红）：把本批摘掉的 editorial .overview-status-list 那条 display: grid 写回墓碑位置——胜者 overview-local.css:107 的 display: flex 仍在更晚的块级表里压着它，而这条已不在 120 条的账上。必须红，且红因是「账外新增」而不是「颜色分叉」。这颗牙守的是还债的方向：写回死声明 = 又造一条从未渲染的声明", () => mutate("src/styles/editorial-studio.css", ".overview-status-list {\n", ".overview-status-list {\n  display: grid;\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-32 还债·反向（同值共存不该红）：给刚还清的 editorial .overview-status-list 写一条 **gap: 6px**——它与胜者 overview-local.css:109 的 gap: 6px 同键同值。同值重复是冗余不是分叉（判红会逼人多删一条在画的），6px 又正好在 §5.1 刻度上（离刻度棘轮也不该跟着红），不该红。这颗牙是 BD-31 反向③在**非颜色族**的对应物", () => mutate("src/styles/editorial-studio.css", ".overview-status-list {\n", ".overview-status-list {\n  gap: 6px;\n"), null],
@@ -692,6 +749,9 @@ const cases = [
   //   BD-32 的教训是牙钉在账上条目、还债当天就哑。规则名不属于账，除非有人删整条规则它才会消失。
   ["批次 BD-33 还债②（本批摘掉的静态副本写回原位，必须红）：把 styles.css .desktop-commandbar 那条 gap: 18px 写回墓碑位置——胜者 editorial-studio.css:538 的 gap: 20px 是**更晚发射的静态表**，照样整条压住它，而这条已不在 98 条的账上。必须红，红因仍是「账外新增」。这颗牙与 BD-32 还债①同形，区别在胜者是静态表：静态胜者这一族占了账的绝大多数，它得有自己的哨兵", () => mutate("src/styles.css", ".desktop-commandbar {\n  display: grid;\n", ".desktop-commandbar {\n  display: grid;\n  gap: 18px;\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-33 还债·反向②（与静态胜者同值不该红）：给 styles.css .desktop-commandbar 写一条 **gap: 20px**——与胜者 editorial-studio.css:538 同键同值。同值是冗余不是分叉，20px 又正好在 §5.1 刻度上，两条棘轮都不该红。这颗牙守的是「还债不许顺手把冗余也判死」：判红等于逼人在两份静态表里删掉一条在画的声明", () => mutate("src/styles.css", ".desktop-commandbar {\n  display: grid;\n", ".desktop-commandbar {\n  display: grid;\n  gap: 20px;\n"), null],
+  // ---- 批次 BD-34：还掉写作页 .writing* 七族 19 条之后补的牙（同样钉规则名，不钉声明） ----
+  ["批次 BD-34 还债③（写作页那一族也要有自己的哨兵）：把本批摘掉的 styles.css .writing-margin 那条 padding: 20px 18px 写回墓碑位置——胜者 editorial-studio.css:1159 在更晚发射的静态表里压着它，而这条已不在 79 条的账上。必须红，红因是「账外新增」。这颗与 BD-33 还债②同形，换的是族：证明那颗哨兵不是只对桌面壳生效。⚠ 锚带上了墓碑注释的头一截：`.writing-margin {` 在文件里有 4 处（还有 `.writing-desk--focus .writing-margin {` 与窄屏档），mutate 只换第一处，光用规则名会写到别的规则上、测的就不是这条了", () => mutate("src/styles.css", ".writing-margin {\n  /* BD-34 摘死声明：padding: 20px 18px", ".writing-margin {\n  padding: 20px 18px;\n  /* BD-34 摘死声明：padding: 20px 18px"), /非颜色死声明账与实测不符/],
+  ["批次 BD-34 还债·反向（与静态胜者同值冗余不该红）：给 styles.css .writing-project-switcher 写一条 **padding: 12px 12px 10px**——与胜者 editorial-studio.css:1163 同键同值。同值是冗余不是分叉（判红等于逼人在两份静态表里删掉一条在画的），而这三个数 12/12/10 全在 §5.1 八档上，间距棘轮也不该跟着红。这颗牙是 BD-33 反向②在写作页的对应物，换的是族。⚠ 值刻意选胜者的原值而不是随手一个 20px：随手写异值就变成「账外新增」，那是另一颗牙（还债③）测的方向", () => mutate("src/styles.css", ".writing-project-switcher {\n", ".writing-project-switcher {\n  padding: 12px 12px 10px;\n"), null],
 ];
 
 let bad = 0;

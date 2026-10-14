@@ -1209,7 +1209,7 @@ button:disabled {
 
 .writing-desk {
   display: grid;
-  grid-template-columns: 232px minmax(460px, 1fr) 250px;
+  /* BD-34 摘死声明：grid-template-columns: 232px minmax(460px, 1fr) 250px 从未渲染——「.writing-desk」被 src/styles/editorial-studio.css:1017 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   min-height: 0;
   overflow: hidden;
   /* BD-29 摘死色：border: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent) 从未渲染——「.writing-desk」 在产物里被 editorial-studio.css:1022 同键更晚的一条整条压住 */
@@ -1232,16 +1232,16 @@ button:disabled {
 }
 
 .writing-outline {
-  display: grid;
+  /* BD-34 摘死声明：display: grid 从未渲染——「.writing-outline」被 src/styles/editorial-studio.css:2763 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   grid-template-rows: auto minmax(0, 1fr);
-  border-right: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
+  /* BD-34 摘死声明：border-right: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent) 从未渲染——「.writing-outline」被 src/styles/editorial-studio.css:1151 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-project-switcher {
   display: grid;
   gap: 7px;
-  padding: 16px;
-  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
+  /* BD-34 摘死声明：padding: 16px 从未渲染——「.writing-project-switcher」被 src/styles/editorial-studio.css:1163 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-34 摘死声明：border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent) 从未渲染——「.writing-project-switcher」被 src/styles/editorial-studio.css:1164 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-project-switcher」 在产物里被 editorial-studio.css:1165 同键更晚的一条整条压住 */
   font-size: 11px;
   font-weight: 700;
@@ -1280,7 +1280,7 @@ button:disabled {
 }
 
 .writing-outline-scroll {
-  padding: 10px;
+  /* BD-34 摘死声明：padding: 10px 从未渲染——「.writing-outline-scroll」被 src/styles/editorial-studio.css:1181 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-manuscript {
@@ -1298,16 +1298,16 @@ button:disabled {
   align-items: center;
   justify-content: space-between;
   gap: 20px;
-  padding: 15px 28px 13px;
-  border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent);
+  /* BD-34 摘死声明：padding: 15px 28px 13px 从未渲染——「.writing-manuscript-head」被 src/styles/editorial-studio.css:1204 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-34 摘死声明：border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent) 从未渲染——「.writing-manuscript-head」被 src/styles/editorial-studio.css:1205 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-panel) 94%, transparent) 从未渲染——「.writing-manuscript-head」 在产物里被 editorial-studio.css:1206 同键更晚的一条整条压住 */
 }
 
 .writing-manuscript-head h2 {
   margin: 2px 0;
-  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  /* BD-34 摘死声明：font-family: Georgia, "Noto Serif SC", "Songti SC", serif 从未渲染——「.writing-manuscript-head h2」被 src/styles/editorial-studio.css:1212 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   font-size: 20px;
-  font-weight: 650;
+  /* BD-34 摘死声明：font-weight: 650 从未渲染——「.writing-manuscript-head h2」被 src/styles/editorial-studio.css:1213 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-manuscript-head span {
@@ -1538,13 +1538,13 @@ button:disabled {
 }
 
 .writing-margin {
-  padding: 20px 18px;
-  border-left: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent);
+  /* BD-34 摘死声明：padding: 20px 18px 从未渲染——「.writing-margin」被 src/styles/editorial-studio.css:1159 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-34 摘死声明：border-left: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent) 从未渲染——「.writing-margin」被 src/styles/editorial-studio.css:1158 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-margin h3 {
   margin: 4px 0 18px;
-  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  /* BD-34 摘死声明：font-family: Georgia, "Noto Serif SC", "Songti SC", serif 从未渲染——「.writing-margin h3」被 src/styles/editorial-studio.css:1212 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1348 的 14px）。 */
 }
 
@@ -1562,8 +1562,8 @@ button:disabled {
 .writing-margin dt {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.writing-margin dt」 在产物里被 editorial-studio.css:1353 同键更晚的一条整条压住 */
   font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  /* BD-34 摘死声明：letter-spacing: 0.08em 从未渲染——「.writing-margin dt」被 src/styles/editorial-studio.css:1357 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-34 摘死声明：text-transform: uppercase 从未渲染——「.writing-margin dt」被 src/styles/editorial-studio.css:1358 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-margin dd {
@@ -1660,7 +1660,7 @@ button:disabled {
   }
 
   .writing-desk {
-    grid-template-columns: 194px minmax(0, 1fr);
+    /* BD-34 摘死声明：grid-template-columns: 194px minmax(0, 1fr) 从未渲染——「.writing-desk」被 src/styles/editorial-studio.css:2604 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   }
 
   .scene-editor {
@@ -1751,10 +1751,10 @@ button:disabled {
 /* ---------------------------------------------------------------------------
  * 鍒涗綔宸ヤ綔鍙帮細澶х翰鏍戜笌鍗＄墖鏉匡紙鍒囩墖 6c锟? * ------------------------------------------------------------------------- */
 .writing-outline-view-switch {
-  display: grid;
+  /* BD-34 摘死声明：display: grid 从未渲染——「.writing-outline-view-switch」被 src/styles/editorial-studio.css:1235 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 10px 16px 0;
+  /* BD-34 摘死声明：gap: 4px 从未渲染——「.writing-outline-view-switch」被 src/styles/editorial-studio.css:1236 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-34 摘死声明：padding: 10px 16px 0 从未渲染——「.writing-outline-view-switch」被 src/styles/editorial-studio.css:1238 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .writing-outline-view-switch button {

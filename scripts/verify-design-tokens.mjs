@@ -1798,7 +1798,10 @@ const isPureRingValue = (v) => {
     // 离 §5.1 刻度（.desktop-commandbar gap:18px / padding:14px 22px、.desktop-page-hero
     // gap:18px / padding:18px、.project-nav gap:3px / padding:10px / button padding:9px 12px）
     // ——和 BD-32 那条 26px 一样，一条墓碑清两本账，这类条目仍排在还债队列最前。
-    "src/styles.css": 112,
+    // 批次 BD-34（还死声明账第三批，写作页 .writing* 七族）：112→108。这 4 处来自两条
+    // 死 padding：.writing-manuscript-head `padding: 15px 28px 13px`（三个数全离刻度）与
+    // .writing-margin `padding: 20px 18px`（18px 离刻度）。
+    "src/styles.css": 108,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4256,9 +4259,14 @@ const hostPredicate = (() => {
    * 还债进度（数字都由重钉实测得到，不手填）：BD-31 立账 130 条 → BD-32 还 10 条
    * （search.css 4 + editorial 6）→ BD-33 还 22 条（styles.css 桌面壳三族
    * .desktop-commandbar / .desktop-page-hero / .project-nav，胜者全是静态表 editorial，
-   * 删除前提天然成立，是最安全的一族）→ 现存 98 条，仍全部在 src/styles.css，其中
-   * 11 条胜者是 history-local.css、1 条是 outline-reorg.css（块级胜者，还之前必须逐条
-   * 跑挂载覆盖的反方向），余下 86 条静态胜者可继续按族往下还。
+   * 删除前提天然成立，是最安全的一族）→ BD-34 还 19 条（写作页 .writing* 七族，同样全是
+   * 静态胜者）→ 现存 79 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
+   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 67 条
+   * 静态胜者可继续按族往下还。
+   *
+   * BD-34 起「死账」那两颗牙不再手挑锚点，改由电池里的 deadAnchor() 从本清单实测结果里
+   * 自动选（值含 px、不碰间距/字号棘轮、逐字唯一、摘掉不空规则、文件在备份清单）——
+   * 前面三批每还一批就要手工换一次锚，那是人在伺候牙。
    */
   const DEAD_LEDGER = new Set([
     "src/styles.css\t\t::-webkit-scrollbar\twidth\t10px", // src/styles.css:176 {width: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2464
@@ -4294,28 +4302,9 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.desktop-library-row:hover\ttransform\ttranslateY(-1px)", // src/styles.css:838 {transform: translateY(-1px)} ⇐ .desktop-library-row:hover ⇐ src/styles/editorial-studio.css:1846
     "src/styles.css\t\t.desktop-inspiration-page\tgap\t14px", // src/styles.css:845 {gap: 14px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2179
     "src/styles.css\t\t.desktop-inspiration-page\tpadding\t4px", // src/styles.css:848 {padding: 4px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2180
-    "src/styles.css\t\t.writing-desk\tgrid-template-columns\t232px minmax(460px, 1fr) 250px", // src/styles.css:1212 {grid-template-columns: 232px minmax(460px, 1fr) 250px} ⇐ .writing-desk ⇐ src/styles/editorial-studio.css:1017
-    "src/styles.css\t\t.writing-outline\tdisplay\tgrid", // src/styles.css:1235 {display: grid} ⇐ .writing-outline ⇐ src/styles/editorial-studio.css:2763
-    "src/styles.css\t\t.writing-outline\tborder-right\t1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)", // src/styles.css:1237 {border-right: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)} ⇐ .writing-outline ⇐ src/styles/editorial-studio.css:1151
-    "src/styles.css\t\t.writing-project-switcher\tpadding\t16px", // src/styles.css:1243 {padding: 16px} ⇐ .writing-project-switcher ⇐ src/styles/editorial-studio.css:1163
-    "src/styles.css\t\t.writing-project-switcher\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)", // src/styles.css:1244 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)} ⇐ .writing-project-switcher ⇐ src/styles/editorial-studio.css:1164
-    "src/styles.css\t\t.writing-outline-scroll\tpadding\t10px", // src/styles.css:1283 {padding: 10px} ⇐ .writing-outline-scroll ⇐ src/styles/editorial-studio.css:1181
-    "src/styles.css\t\t.writing-manuscript-head\tpadding\t15px 28px 13px", // src/styles.css:1301 {padding: 15px 28px 13px} ⇐ .writing-manuscript-head ⇐ src/styles/editorial-studio.css:1204
-    "src/styles.css\t\t.writing-manuscript-head\tborder-bottom\t1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)", // src/styles.css:1302 {border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 70%, transparent)} ⇐ .writing-manuscript-head ⇐ src/styles/editorial-studio.css:1205
-    "src/styles.css\t\t.writing-manuscript-head h2\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1308 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .writing-manuscript-head h2 ⇐ src/styles/editorial-studio.css:1212
-    "src/styles.css\t\t.writing-manuscript-head h2\tfont-weight\t650", // src/styles.css:1310 {font-weight: 650} ⇐ .writing-manuscript-head h2 ⇐ src/styles/editorial-studio.css:1213
     "src/styles.css\t\t.scene-editor-content\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1484 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .scene-editor-content ⇐ src/styles/editorial-studio.css:1282
-    "src/styles.css\t\t.writing-margin\tpadding\t20px 18px", // src/styles.css:1541 {padding: 20px 18px} ⇐ .writing-margin ⇐ src/styles/editorial-studio.css:1159
-    "src/styles.css\t\t.writing-margin\tborder-left\t1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)", // src/styles.css:1542 {border-left: 1px solid color-mix(in srgb, var(--paper-line) 78%, transparent)} ⇐ .writing-margin ⇐ src/styles/editorial-studio.css:1158
-    "src/styles.css\t\t.writing-margin h3\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1547 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .writing-margin h3 ⇐ src/styles/editorial-studio.css:1212
-    "src/styles.css\t\t.writing-margin dt\tletter-spacing\t0.08em", // src/styles.css:1565 {letter-spacing: 0.08em} ⇐ .writing-margin dt ⇐ src/styles/editorial-studio.css:1357
-    "src/styles.css\t\t.writing-margin dt\ttext-transform\tuppercase", // src/styles.css:1566 {text-transform: uppercase} ⇐ .writing-margin dt ⇐ src/styles/editorial-studio.css:1358
-    "src/styles.css\t@media(max-width:1180px)\t.writing-desk\tgrid-template-columns\t194px minmax(0, 1fr)", // src/styles.css:1663 {grid-template-columns: 194px minmax(0, 1fr)} ⇐ .writing-desk ⇐ src/styles/editorial-studio.css:2604
     "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\tanimation-duration\t1ms", // src/styles.css:1745 {animation-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2751
     "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\ttransition-duration\t1ms", // src/styles.css:1747 {transition-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2753
-    "src/styles.css\t\t.writing-outline-view-switch\tdisplay\tgrid", // src/styles.css:1754 {display: grid} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1235
-    "src/styles.css\t\t.writing-outline-view-switch\tgap\t4px", // src/styles.css:1756 {gap: 4px} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1236
-    "src/styles.css\t\t.writing-outline-view-switch\tpadding\t10px 16px 0", // src/styles.css:1757 {padding: 10px 16px 0} ⇐ .writing-outline-view-switch ⇐ src/styles/editorial-studio.css:1238
     "src/styles.css\t\t.outline-scene-main\tdisplay\tflex", // src/styles.css:1964 {display: flex} ⇐ .outline-scene-main ⇐ src/styles/editorial-studio.css:3339
     "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
     "src/styles.css\t\t.cards-board-layout\tgrid-template-columns\tminmax(0, 1fr) 360px", // src/styles.css:2577 {grid-template-columns: minmax(0, 1fr) 360px} ⇐ .cards-board-layout ⇐ src/styles/editorial-studio.css:2815
