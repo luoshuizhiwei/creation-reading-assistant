@@ -1801,7 +1801,11 @@ const isPureRingValue = (v) => {
     // 批次 BD-34（还死声明账第三批，写作页 .writing* 七族）：112→108。这 4 处来自两条
     // 死 padding：.writing-manuscript-head `padding: 15px 28px 13px`（三个数全离刻度）与
     // .writing-margin `padding: 20px 18px`（18px 离刻度）。
-    "src/styles.css": 108,
+    // 批次 BD-35（还死声明账第四批，桌面壳零散六族）：108→102。这 6 处来自五条死声明：
+    // .desktop-sidebar `padding: 18px 14px`（两个数全离刻度）、.desktop-nav small
+    // `margin-top: 1px`、.desktop-search-command `gap: 9px`、同条 `padding: 0 10px 0 13px`
+    // 的 13px、.desktop-canvas `padding: 18px`。
+    "src/styles.css": 102,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4260,9 +4264,14 @@ const hostPredicate = (() => {
    * （search.css 4 + editorial 6）→ BD-33 还 22 条（styles.css 桌面壳三族
    * .desktop-commandbar / .desktop-page-hero / .project-nav，胜者全是静态表 editorial，
    * 删除前提天然成立，是最安全的一族）→ BD-34 还 19 条（写作页 .writing* 七族，同样全是
-   * 静态胜者）→ 现存 79 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
-   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 67 条
-   * 静态胜者可继续按族往下还。
+   * 静态胜者）→ BD-35 还 18 条（桌面壳零散六族：.desktop-sidebar 3、.desktop-nav 3、
+   * .desktop-sidebar-stats 5、.desktop-search-command 5、.desktop-canvas 1、
+   * .desktop-page-scroll 1）→ 现存 61 条，仍全部在 src/styles.css，其中 11 条胜者是
+   * history-local.css、1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的
+   * 反方向），余下 49 条静态胜者可继续按族往下还。⚠ BD-35 起新增一条固定动作：还债前
+   * 跑 /tmp/bd35-anchor-audit.cjs 查候选行与电池 needle 的重叠——本批的 507（.desktop-brand
+   * small margin-top，BD-29 死色①②反向②③的锚）与 584（.desktop-sidebar-card padding，
+   * AQ 三颗牙的锚）就是因此被绕开的；锚一旦随声明变墓碑，牙当场哑掉。
    *
    * BD-34 起「死账」那两颗牙不再手挑锚点，改由电池里的 deadAnchor() 从本清单实测结果里
    * 自动选（值含 px、不碰间距/字号棘轮、逐字唯一、摘掉不空规则、文件在备份清单）——
@@ -4273,29 +4282,11 @@ const hostPredicate = (() => {
     "src/styles.css\t\t::-webkit-scrollbar\theight\t10px", // src/styles.css:177 {height: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2465
     "src/styles.css\t\t.desktop-workbench\tgrid-template-columns\t236px minmax(0, 1fr)", // src/styles.css:417 {grid-template-columns: 236px minmax(0, 1fr)} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:64
     "src/styles.css\t\t.desktop-workbench\theight\t100vh", // src/styles.css:418 {height: 100vh} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:2512
-    "src/styles.css\t\t.desktop-sidebar\tgrid-template-rows\tauto minmax(0, 1fr) auto", // src/styles.css:449 {grid-template-rows: auto minmax(0, 1fr) auto} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:79
-    "src/styles.css\t\t.desktop-sidebar\tpadding\t18px 14px", // src/styles.css:452 {padding: 18px 14px} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:82
-    "src/styles.css\t\t.desktop-sidebar\tborder-right\t1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)", // src/styles.css:453 {border-right: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent)} ⇐ .desktop-sidebar ⇐ src/styles/editorial-studio.css:83
     "src/styles.css\t\t.desktop-brand small\tmargin-top\t2px", // src/styles.css:507 {margin-top: 2px} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:178
     "src/styles.css\t\t.desktop-brand small\tletter-spacing\t0.06em", // src/styles.css:510 {letter-spacing: 0.06em} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:181
-    "src/styles.css\t\t.desktop-nav\tgap\t6px", // src/styles.css:517 {gap: 6px} ⇐ .desktop-nav ⇐ src/styles/editorial-studio.css:187
-    "src/styles.css\t\t.desktop-nav strong\tfont-size\t14px", // src/styles.css:561 {font-size: 14px} ⇐ .desktop-nav strong ⇐ src/styles/editorial-studio.css:232
-    "src/styles.css\t\t.desktop-nav small\tmargin-top\t1px", // src/styles.css:565 {margin-top: 1px} ⇐ .desktop-nav small ⇐ src/styles/editorial-studio.css:238
     "src/styles.css\t\t.desktop-sidebar-card\tpadding\t12px", // src/styles.css:584 {padding: 12px} ⇐ .desktop-sidebar-card ⇐ src/styles/editorial-studio.css:245
     "src/styles.css\t\t.desktop-card-label\tfont-weight\t650", // src/styles.css:590 {font-weight: 650} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:256
     "src/styles.css\t\t.desktop-card-label\tletter-spacing\t0.13em", // src/styles.css:591 {letter-spacing: 0.13em} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:257
-    "src/styles.css\t\t.desktop-sidebar-stats\tdisplay\tgrid", // src/styles.css:596 {display: grid} ⇐ .desktop-sidebar-stats ⇐ src/styles/editorial-studio.css:266
-    "src/styles.css\t\t.desktop-sidebar-stats\tmargin-top\t10px", // src/styles.css:599 {margin-top: 10px} ⇐ .desktop-sidebar-stats ⇐ src/styles/editorial-studio.css:267
-    "src/styles.css\t\t.desktop-sidebar-stats span\tdisplay\tgrid", // src/styles.css:603 {display: grid} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:271
-    "src/styles.css\t\t.desktop-sidebar-stats span\tgap\t2px", // src/styles.css:604 {gap: 2px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:273
-    "src/styles.css\t\t.desktop-sidebar-stats span\tpadding\t10px", // src/styles.css:605 {padding: 10px} ⇐ .desktop-sidebar-stats span ⇐ src/styles/editorial-studio.css:274
-    "src/styles.css\t\t.desktop-search-command\tgap\t9px", // src/styles.css:682 {gap: 9px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:574
-    "src/styles.css\t\t.desktop-search-command\tmin-height\t42px", // src/styles.css:683 {min-height: 42px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:575
-    "src/styles.css\t\t.desktop-search-command\tpadding\t0 10px 0 13px", // src/styles.css:684 {padding: 0 10px 0 13px} ⇐ .desktop-search-command ⇐ src/styles/editorial-studio.css:576
-    "src/styles.css\t\t.desktop-search-command kbd\tpadding\t2px 6px", // src/styles.css:710 {padding: 2px 6px} ⇐ .desktop-search-command kbd ⇐ src/styles/editorial-studio.css:606
-    "src/styles.css\t\t.desktop-search-command kbd\tfont-family\tui-monospace, SFMono-Regular, Consolas, monospace", // src/styles.css:714 {font-family: ui-monospace, SFMono-Regular, Consolas, monospace} ⇐ .desktop-search-command kbd ⇐ src/styles/editorial-studio.css:611
-    "src/styles.css\t\t.desktop-canvas\tpadding\t18px", // src/styles.css:720 {padding: 18px} ⇐ .desktop-canvas ⇐ src/styles/editorial-studio.css:622
-    "src/styles.css\t\t.desktop-page-scroll\tpadding\t4px", // src/styles.css:737 {padding: 4px} ⇐ .desktop-page-scroll ⇐ src/styles/editorial-studio.css:641
     "src/styles.css\t\t.desktop-library-grid-head\tfont-size\t12px", // src/styles.css:822 {font-size: 12px} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1831
     "src/styles.css\t\t.desktop-library-grid-head\tfont-weight\t650", // src/styles.css:823 {font-weight: 650} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1832
     "src/styles.css\t\t.desktop-library-row\ttransition\ttransform 160ms ease, background-color 160ms ease, box-shadow 160ms ease", // src/styles.css:830 {transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease} ⇐ .desktop-library-row ⇐ src/styles/editorial-studio.css:1838

@@ -752,6 +752,12 @@ const cases = [
   // ---- 批次 BD-34：还掉写作页 .writing* 七族 19 条之后补的牙（同样钉规则名，不钉声明） ----
   ["批次 BD-34 还债③（写作页那一族也要有自己的哨兵）：把本批摘掉的 styles.css .writing-margin 那条 padding: 20px 18px 写回墓碑位置——胜者 editorial-studio.css:1159 在更晚发射的静态表里压着它，而这条已不在 79 条的账上。必须红，红因是「账外新增」。这颗与 BD-33 还债②同形，换的是族：证明那颗哨兵不是只对桌面壳生效。⚠ 锚带上了墓碑注释的头一截：`.writing-margin {` 在文件里有 4 处（还有 `.writing-desk--focus .writing-margin {` 与窄屏档），mutate 只换第一处，光用规则名会写到别的规则上、测的就不是这条了", () => mutate("src/styles.css", ".writing-margin {\n  /* BD-34 摘死声明：padding: 20px 18px", ".writing-margin {\n  padding: 20px 18px;\n  /* BD-34 摘死声明：padding: 20px 18px"), /非颜色死声明账与实测不符/],
   ["批次 BD-34 还债·反向（与静态胜者同值冗余不该红）：给 styles.css .writing-project-switcher 写一条 **padding: 12px 12px 10px**——与胜者 editorial-studio.css:1163 同键同值。同值是冗余不是分叉（判红等于逼人在两份静态表里删掉一条在画的），而这三个数 12/12/10 全在 §5.1 八档上，间距棘轮也不该跟着红。这颗牙是 BD-33 反向②在写作页的对应物，换的是族。⚠ 值刻意选胜者的原值而不是随手一个 20px：随手写异值就变成「账外新增」，那是另一颗牙（还债③）测的方向", () => mutate("src/styles.css", ".writing-project-switcher {\n", ".writing-project-switcher {\n  padding: 12px 12px 10px;\n"), null],
+  // ---- 批次 BD-35：还掉桌面壳零散六族 18 条之后补的牙 ----
+  // ⚠ 这批开始，还债前先跑锚冲突审计（见账本头注释）：styles.css 里 `.desktop-brand small {`、
+  // `.desktop-sidebar-card {` 两族的行 507/584 本身是 BD-29/AQ 那些牙的 needle，本批刻意避开、
+  // 一条没动。锚仍钉规则名 + 一条**在画的**声明（display: grid 不在账上），不钉任何债。
+  ["批次 BD-35 还债（桌面壳零散族也要有哨兵）：把本批摘掉的 styles.css .desktop-sidebar 那条 grid-template-rows: auto minmax(0, 1fr) auto 写回原位——胜者 editorial-studio.css:79 是 auto minmax(0, 1fr) auto **auto**（更晚发射的静态表整条压住它），而这条已不在 61 条的账上。必须红，红因是「账外新增」。这颗与 BD-33 还债②、BD-34 还债③同形，换的是族。⚠ grid-template-rows 不在间距棘轮的属性集里，红因不会串到预算上", () => mutate("src/styles.css", ".desktop-sidebar {\n  display: grid;\n", ".desktop-sidebar {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto;\n"), /非颜色死声明账与实测不符/],
+  ["批次 BD-35 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-sidebar 写 **grid-template-rows: auto minmax(0, 1fr) auto auto**——照抄胜者 editorial-studio.css:79 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。⚠ 这颗牙的值是**从胜者那一行读出来的**，不是手凑的：BD-34 第一稿随手写异值，把 must-green 做成了 must-red", () => mutate("src/styles.css", ".desktop-sidebar {\n  display: grid;\n", ".desktop-sidebar {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto auto;\n"), null],
 ];
 
 let bad = 0;
