@@ -764,6 +764,15 @@ const cases = [
   // 所以间距预算 102 不动（274 处不变）——「还死声明」与「还刻度债」是两本账，不是每条死声明都兼有。
   ["批次 BD-36 还债（项目首页那一族也要有哨兵）：把本批摘掉的 styles.css .project-home-list 那条 gap: 8px 写回原位——胜者 editorial-studio.css:817 是 gap: 0（更晚发射的静态表整条压住它），而这条已不在 50 条的账上。必须红，红因是「账外新增」。这颗与 BD-33/34/35 的同形牙换的是族。⚠ 8px 在八档上，所以红因只会来自账、不会来自间距预算——归因干净", () => mutate("src/styles.css", ".project-home-list {\n  display: grid;\n", ".project-home-list {\n  display: grid;\n  gap: 8px;\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-36 还债·反向（与静态胜者逐字同值不该红）：给 .project-home-list 写 **gap: 0**——照抄胜者 editorial-studio.css:817 的原值。同键同值是冗余不是分叉，0 也在 §5.1 刻度上，两本账都不该红。这颗牙顺带钉住一个容易被误判的形状：**把在画的 gap: 0 当成「一条可以顺手删掉的冗余」删掉**，项目列表就会掉回 gap: 8px 那条死副本曾经想要的间距", () => mutate("src/styles.css", ".project-home-list {\n  display: grid;\n", ".project-home-list {\n  display: grid;\n  gap: 0;\n"), null],
+  // ---- 批次 BD-37：改按**宿主页面**凑整屏（卡片板 5 + 大纲页 6 + 背景设定 3 = 14 条），补的牙 ----
+  // 本批锚冲突审计：摘之前 14 条候选 × 71 条 needle 零重叠，摘之后再跑一次仍零重叠。
+  // ⚠ 有一处要记下来：本批把 styles.css 第 3990 行那条 {max-height: calc(100vh - 260px)} 摘掉了，
+  // 而那正是 deadAnchor() 连续两批挑中的自动锚。审计的「覆盖行」口径看不到这点（needle 是运行时
+  // 生成的，不在源码里），靠的是摘完立刻重跑一次候选测试：合格候选 6→3（176、177、3710），
+  // 电池实跑自动挑中的是 3710 {grid-template-columns: 168px minmax(0, 1fr)}，仍然可用。
+  // 自动锚的意义就在这里——被还掉的锚会自动换，不用人重钉。
+  ["批次 BD-37 还债（卡片板那一族也要有哨兵）：把本批摘掉的 styles.css .cards-board-column 那条 min-width: 220px 写回墓碑位置——胜者 editorial-studio.css:2825 是 min-width: 196px（更晚发射的静态表整条压住它），而这条已不在 36 条的账上。必须红，红因是「账外新增」。⚠ 选 min-width 而不是本批别条：它不在间距棘轮的属性集里（SP_PROPS 只认 gap/padding/margin 族），红因不会串到预算上；而锚用「规则名 + 墓碑注释头」，因为这条规则的**全部**声明都被摘过，没有一条在画的声明可以当锚", () => mutate("src/styles.css", ".cards-board-column {\n  /* BD-37 摘死声明：min-width: 220px", ".cards-board-column {\n  min-width: 220px;\n  /* BD-37 摘死声明：min-width: 220px"), /非颜色死声明账与实测不符/],
+  ["批次 BD-37 还债·反向（与静态胜者逐字同值不该红）：给 .cards-board-column 写 **min-width: 196px**——照抄胜者 editorial-studio.css:2825 的原值。同键同值是冗余不是分叉，不该红。这颗牙的值同样是从胜者那一行读出来的（BD-34 那条教训之后已是第三次这么做）。⚠ 顺带钉住一个假红的形状：幻影选择器判据与死分支判据都不该因为这条冗余而红——.cards-board-column 有宿主、这条也匹配得上", () => mutate("src/styles.css", ".cards-board-column {\n  /* BD-37 摘死声明：min-width: 220px", ".cards-board-column {\n  min-width: 196px;\n  /* BD-37 摘死声明：min-width: 220px"), null],
 ];
 
 let bad = 0;

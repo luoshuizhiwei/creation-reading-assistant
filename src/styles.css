@@ -1961,7 +1961,7 @@ button:disabled {
 }
 
 .outline-scene-main {
-  display: flex;
+  /* BD-37 摘死声明：display: flex 从未渲染——「.outline-scene-main」被 src/styles/editorial-studio.css:3339 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   align-items: center;
   gap: 6px;
   min-width: 0;
@@ -2574,8 +2574,8 @@ button:disabled {
 
 .cards-board-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 360px;
-  gap: 12px;
+  /* BD-37 摘死声明：grid-template-columns: minmax(0, 1fr) 360px 从未渲染——「.cards-board-layout」被 src/styles/editorial-studio.css:2815 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-37 摘死声明：gap: 12px 从未渲染——「.cards-board-layout」被 src/styles/editorial-studio.css:1417 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   min-height: 0;
   overflow: hidden;
 }
@@ -2596,8 +2596,8 @@ button:disabled {
 }
 
 .cards-board-column {
-  min-width: 220px;
-  max-width: 280px;
+  /* BD-37 摘死声明：min-width: 220px 从未渲染——「.cards-board-column」被 src/styles/editorial-studio.css:2825 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-37 摘死声明：max-width: 280px 从未渲染——「.cards-board-column」被 src/styles/editorial-studio.css:2826 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   flex: 1;
   border: 1px solid color-mix(in srgb, var(--paper-line) 80%, transparent);
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 55%, var(--paper-panel)) 从未渲染——「.cards-board-column」 在产物里被 editorial-studio.css:1447 同键更晚的一条整条压住 */
@@ -2661,7 +2661,7 @@ button:disabled {
   /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.cards-board-card」 在产物里被 editorial-studio.css:1464 同键更晚的一条整条压住 */
   padding: 9px 10px;
   cursor: grab;
-  transition: border-color 0.12s ease;
+  /* BD-37 摘死声明：transition: border-color 0.12s ease 从未渲染——「.cards-board-card」被 src/styles/editorial-studio.css:1465 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .cards-board-card:hover {
@@ -3967,10 +3967,10 @@ button:disabled {
 
 .outline-page-body {
   flex: 1;
-  min-height: 0;
+  /* BD-37 摘死声明：min-height: 0 从未渲染——「.outline-page-body」被 src/styles/editorial-studio.css:2788 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   display: grid;
   grid-template-columns: minmax(0, 1fr) 300px;
-  gap: 12px;
+  /* BD-37 摘死声明：gap: 12px 从未渲染——「.outline-page-body」被 src/styles/editorial-studio.css:1417 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .outline-page-main {
@@ -3986,10 +3986,10 @@ button:disabled {
   /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1439 同键更晚的一条整条压住 */
   /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.outline-page-side」 在产物里被 editorial-studio.css:1433 同键更晚的一条整条压住 */
   padding: 14px;
-  align-self: start;
-  max-height: calc(100vh - 260px);
+  /* BD-37 摘死声明：align-self: start 从未渲染——「.outline-page-side」被 src/styles/editorial-studio.css:2805 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-37 摘死声明：max-height: calc(100vh - 260px) 从未渲染——「.outline-page-side」被 src/styles/editorial-studio.css:1438 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   overflow-y: auto;
-  position: sticky;
+  /* BD-37 摘死声明：position: sticky 从未渲染——「.outline-page-side」被 src/styles/editorial-studio.css:1437 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   top: 0;
 }
 
@@ -4040,8 +4040,8 @@ button:disabled {
   margin: 0;
   /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.background-page-title」 在产物里被 editorial-studio.css:775 同键更晚的一条整条压住 */
   font-size: 16px;
-  font-weight: 800;
-  font-family: ui-serif, "Songti SC", "STSong", serif;
+  /* BD-37 摘死声明：font-weight: 800 从未渲染——「.background-page-title」被 src/styles/editorial-studio.css:789 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-37 摘死声明：font-family: ui-serif, "Songti SC", "STSong", serif 从未渲染——「.background-page-title」被 src/styles/editorial-studio.css:776 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .background-grid {
@@ -4128,7 +4128,7 @@ button:disabled {
   margin: 0;
   color: var(--paper-ink);
   font-size: 16px;
-  font-weight: 800;
+  /* BD-37 摘死声明：font-weight: 800 从未渲染——「.background-detail-head h3」被 src/styles/editorial-studio.css:1487 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .background-detail-kind {

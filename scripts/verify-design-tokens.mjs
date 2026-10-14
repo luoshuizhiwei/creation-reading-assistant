@@ -4267,9 +4267,11 @@ const hostPredicate = (() => {
    * 静态胜者）→ BD-35 还 18 条（桌面壳零散六族：.desktop-sidebar 3、.desktop-nav 3、
    * .desktop-sidebar-stats 5、.desktop-search-command 5、.desktop-canvas 1、
    * .desktop-page-scroll 1）→ BD-36 还 11 条（项目首页 .project-home* 一族：-list 1、
-   * -item 3、-item:hover 1、-item-main strong 2、-arrow 1、-chars 1、-empty 2）→
-   * 现存 50 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
-   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 38 条
+   * -item 3、-item:hover 1、-item-main strong 2、-arrow 1、-chars 1、-empty 2）→ BD-37 还 14 条
+   * （改按**宿主页面**凑整屏，不再按族凑：卡片板 .cards-board* 5、大纲页 .outline-page* 5 +
+   * .outline-scene-main 1、背景设定 .background* 3）→
+   * 现存 36 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
+   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 24 条
    * 静态胜者可继续按族往下还。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
    * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
    * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
@@ -4300,13 +4302,7 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.scene-editor-content\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1484 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .scene-editor-content ⇐ src/styles/editorial-studio.css:1282
     "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\tanimation-duration\t1ms", // src/styles.css:1745 {animation-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2751
     "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\ttransition-duration\t1ms", // src/styles.css:1747 {transition-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2753
-    "src/styles.css\t\t.outline-scene-main\tdisplay\tflex", // src/styles.css:1964 {display: flex} ⇐ .outline-scene-main ⇐ src/styles/editorial-studio.css:3339
     "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
-    "src/styles.css\t\t.cards-board-layout\tgrid-template-columns\tminmax(0, 1fr) 360px", // src/styles.css:2577 {grid-template-columns: minmax(0, 1fr) 360px} ⇐ .cards-board-layout ⇐ src/styles/editorial-studio.css:2815
-    "src/styles.css\t\t.cards-board-layout\tgap\t12px", // src/styles.css:2578 {gap: 12px} ⇐ .cards-board-layout ⇐ src/styles/editorial-studio.css:1417
-    "src/styles.css\t\t.cards-board-column\tmin-width\t220px", // src/styles.css:2599 {min-width: 220px} ⇐ .cards-board-column ⇐ src/styles/editorial-studio.css:2825
-    "src/styles.css\t\t.cards-board-column\tmax-width\t280px", // src/styles.css:2600 {max-width: 280px} ⇐ .cards-board-column ⇐ src/styles/editorial-studio.css:2826
-    "src/styles.css\t\t.cards-board-card\ttransition\tborder-color 0.12s ease", // src/styles.css:2664 {transition: border-color 0.12s ease} ⇐ .cards-board-card ⇐ src/styles/editorial-studio.css:1465
     "src/styles.css\t\t.history-page\tdisplay\tgrid", // src/styles.css:2706 {display: grid} ⇐ .history-page ⇐ src/features/creation/history/history-local.css:5
     "src/styles.css\t\t.history-empty\tfont-size\t13px", // src/styles.css:2714 {font-size: 13px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:22
     "src/styles.css\t\t.history-empty\tpadding\t18px", // src/styles.css:2715 {padding: 18px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:19
@@ -4324,14 +4320,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.inbox-item-title\tfont-weight\t700", // src/styles.css:3517 {font-weight: 700} ⇐ .inbox-item-title ⇐ src/styles/editorial-studio.css:1571
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
     "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
-    "src/styles.css\t\t.outline-page-body\tmin-height\t0", // src/styles.css:3970 {min-height: 0} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:2788
-    "src/styles.css\t\t.outline-page-body\tgap\t12px", // src/styles.css:3973 {gap: 12px} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:1417
-    "src/styles.css\t\t.outline-page-side\talign-self\tstart", // src/styles.css:3989 {align-self: start} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:2805
-    "src/styles.css\t\t.outline-page-side\tmax-height\tcalc(100vh - 260px)", // src/styles.css:3990 {max-height: calc(100vh - 260px)} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:1438
-    "src/styles.css\t\t.outline-page-side\tposition\tsticky", // src/styles.css:3992 {position: sticky} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:1437
-    "src/styles.css\t\t.background-page-title\tfont-weight\t800", // src/styles.css:4043 {font-weight: 800} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:789
-    "src/styles.css\t\t.background-page-title\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:4044 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:776
-    "src/styles.css\t\t.background-detail-head h3\tfont-weight\t800", // src/styles.css:4131 {font-weight: 800} ⇐ .background-detail-head h3 ⇐ src/styles/editorial-studio.css:1487
   ]);
   const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
   const sheets = new Map();
