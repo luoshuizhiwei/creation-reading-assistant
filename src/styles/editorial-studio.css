@@ -2030,18 +2030,18 @@ select:focus-visible,
 
 /* Overview chapter-status rows: name · share bar · count on one line. */
 .overview-status-list {
-  display: grid;
-  gap: 9px;
-  margin: 0;
+  /* BD-32 摘死声明：display: grid 从未渲染——「.overview-status-list」被 src/features/creation/overview/overview-local.css:107 flex 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
+  /* BD-32 摘死声明：gap: 9px 从未渲染——「.overview-status-list」被 src/features/creation/overview/overview-local.css:109 6px 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
+  /* BD-32 摘死声明：margin: 0 从未渲染——「.overview-status-list」被 src/features/creation/overview/overview-local.css:105 6px 0 0 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
   padding: 0;
   list-style: none;
 }
 
 .overview-status-list li {
   display: grid;
-  grid-template-columns: 76px minmax(0, 1fr) 30px;
+  /* BD-32 摘死声明：grid-template-columns: 76px minmax(0, 1fr) 30px 从未渲染——「.overview-status-list li」被 src/features/creation/overview/overview-local.css:114 88px 1fr 32px 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
   align-items: center;
-  gap: 10px;
+  /* BD-32 摘死声明：gap: 10px 从未渲染——「.overview-status-list li」被 src/features/creation/overview/overview-local.css:116 8px 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
 }
 
 .overview-status-name {
@@ -2828,7 +2828,7 @@ input[type="text"],
 
 /* 概览指标行：固定 4 等宽 + 内容可断行，长文案不再把第 4 卡挤出视口。 */
 .overview-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  /* BD-32 摘死声明：grid-template-columns: repeat(4, minmax(0, 1fr)) 从未渲染——「.overview-grid」被 src/features/creation/overview/overview-local.css:69 repeat(auto-fit, minmax(220px, 1fr)) 同键整条压住（lazy 胜者：宿主只有 OverviewPage.tsx，而它自己 import 了这份表（BD-31 挂载覆盖前提实测成立）） */
 }
 
 .overview-grid > * {

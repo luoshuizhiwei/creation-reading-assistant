@@ -6,7 +6,7 @@
   z-index: 40;
   padding: 64px 24px 24px;
   /* BD-30 摘死色：background: rgba(24, 20, 16, 0.18) 从未渲染——「.uni-search-overlay」在产物里被 editorial-studio.css:1736 同键更晚的一条整条压住（eager 发射序 search.css 第 2 份、editorial 第 4 份） */
-  backdrop-filter: blur(10px);
+  /* BD-32 摘死声明：backdrop-filter: blur(10px) 从未渲染——「.uni-search-overlay」被 src/styles/editorial-studio.css:1737 blur(7px) saturate(0.85) 同键整条压住（发射序 eager：search.css 主 bundle 第 2 份、editorial 第 4 份，更晚者整条压住更早者） */
   overflow: auto;
 }
 
@@ -114,7 +114,7 @@
 
 .uni-search-state {
   margin: 0;
-  padding: 26px 12px;
+  /* BD-32 摘死声明：padding: 26px 12px 从未渲染——「.uni-search-state」被 src/styles/editorial-studio.css:2435 30px 12px 同键整条压住（发射序 eager：search.css 主 bundle 第 2 份、editorial 第 4 份，更晚者整条压住更早者） */
   text-align: center;
   color: var(--paper-muted);
   font-size: 13px;
@@ -145,8 +145,8 @@
   padding: 6px 10px 4px;
   color: var(--paper-muted);
   font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  /* BD-32 摘死声明：font-weight: 700 从未渲染——「.uni-search-group h3」被 src/styles/editorial-studio.css:1773 600 同键整条压住（发射序 eager：search.css 主 bundle 第 2 份、editorial 第 4 份，更晚者整条压住更早者） */
+  /* BD-32 摘死声明：letter-spacing: 0.08em 从未渲染——「.uni-search-group h3」被 src/styles/editorial-studio.css:1774 0.06em 同键整条压住（发射序 eager：search.css 主 bundle 第 2 份、editorial 第 4 份，更晚者整条压住更早者） */
 }
 
 .uni-search-group ul {

@@ -1790,7 +1790,9 @@ const isPureRingValue = (v) => {
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
     "src/features/library/toc/TocList.tsx": 1,
-    "src/features/search/search.css": 10,
+    // 批次 BD-32（还死声明账第一批）：10→9。摘掉的 .uni-search-state `padding: 26px 12px`
+    // 是从不渲染的死声明，26px 又离刻度——一条墓碑同时还了两本账。
+    "src/features/search/search.css": 9,
     "src/features/settings/encryption/encryption.css": 1,
     "src/styles.css": 119,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
@@ -1800,7 +1802,8 @@ const isPureRingValue = (v) => {
     // 10px（sm）/ 12px（md），两档都在刻度上，所以这 2 处是真还债、不是重新归类。
     // ⚠ 数字来自判据本体重扫（--show-spacing-ledger 本批实测 288 行台账 / 计数 293 处；
     //   台账只登 CSS 侧，TSX 那几处只进计数不进台账，两个数天生不相等，别拿台账核总数）。
-    "src/styles/editorial-studio.css": 66
+    // 批次 BD-32：66→65。摘掉的 .overview-status-list `gap: 9px` 是死声明，9px 离刻度。
+    "src/styles/editorial-studio.css": 65
   };
 
   const actual = {};
@@ -4247,16 +4250,6 @@ const hostPredicate = (() => {
    * 所以本批把「看得见」立住（判据 + 账 + 牙），还债按文件分批排在后头（BD-32+）。
    */
   const DEAD_LEDGER = new Set([
-    "src/features/search/search.css\t\t.uni-search-overlay\tbackdrop-filter\tblur(10px)", // src/features/search/search.css:9 {backdrop-filter: blur(10px)} ⇐ .uni-search-overlay ⇐ src/styles/editorial-studio.css:1737
-    "src/features/search/search.css\t\t.uni-search-state\tpadding\t26px 12px", // src/features/search/search.css:117 {padding: 26px 12px} ⇐ .uni-search-state ⇐ src/styles/editorial-studio.css:2435
-    "src/features/search/search.css\t\t.uni-search-group h3\tfont-weight\t700", // src/features/search/search.css:148 {font-weight: 700} ⇐ .uni-search-group h3 ⇐ src/styles/editorial-studio.css:1773
-    "src/features/search/search.css\t\t.uni-search-group h3\tletter-spacing\t0.08em", // src/features/search/search.css:149 {letter-spacing: 0.08em} ⇐ .uni-search-group h3 ⇐ src/styles/editorial-studio.css:1774
-    "src/styles/editorial-studio.css\t\t.overview-status-list\tdisplay\tgrid", // src/styles/editorial-studio.css:2033 {display: grid} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:107
-    "src/styles/editorial-studio.css\t\t.overview-status-list\tgap\t9px", // src/styles/editorial-studio.css:2034 {gap: 9px} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:109
-    "src/styles/editorial-studio.css\t\t.overview-status-list\tmargin\t0", // src/styles/editorial-studio.css:2035 {margin: 0} ⇐ .overview-status-list ⇐ src/features/creation/overview/overview-local.css:105
-    "src/styles/editorial-studio.css\t\t.overview-status-list li\tgrid-template-columns\t76px minmax(0, 1fr) 30px", // src/styles/editorial-studio.css:2042 {grid-template-columns: 76px minmax(0, 1fr) 30px} ⇐ .overview-status-list li ⇐ src/features/creation/overview/overview-local.css:114
-    "src/styles/editorial-studio.css\t\t.overview-status-list li\tgap\t10px", // src/styles/editorial-studio.css:2044 {gap: 10px} ⇐ .overview-status-list li ⇐ src/features/creation/overview/overview-local.css:116
-    "src/styles/editorial-studio.css\t\t.overview-grid\tgrid-template-columns\trepeat(4, minmax(0, 1fr))", // src/styles/editorial-studio.css:2831 {grid-template-columns: repeat(4, minmax(0, 1fr))} ⇐ .overview-grid ⇐ src/features/creation/overview/overview-local.css:69
     "src/styles.css\t\t::-webkit-scrollbar\twidth\t10px", // src/styles.css:176 {width: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2464
     "src/styles.css\t\t::-webkit-scrollbar\theight\t10px", // src/styles.css:177 {height: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2465
     "src/styles.css\t\t.desktop-workbench\tgrid-template-columns\t236px minmax(0, 1fr)", // src/styles.css:417 {grid-template-columns: 236px minmax(0, 1fr)} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:64
@@ -4377,7 +4370,7 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.background-page-title\tfont-weight\t800", // src/styles.css:4043 {font-weight: 800} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:789
     "src/styles.css\t\t.background-page-title\tfont-family\tui-serif, \"Songti SC\", \"STSong\", serif", // src/styles.css:4044 {font-family: ui-serif, "Songti SC", "STSong", serif} ⇐ .background-page-title ⇐ src/styles/editorial-studio.css:776
     "src/styles.css\t\t.background-detail-head h3\tfont-weight\t800", // src/styles.css:4131 {font-weight: 800} ⇐ .background-detail-head h3 ⇐ src/styles/editorial-studio.css:1487
-  ]); // TEMP-FILL
+  ]);
   const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
   const sheets = new Map();
   if (!EMISSION) {
