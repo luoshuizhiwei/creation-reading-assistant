@@ -3805,7 +3805,7 @@ button:disabled {
 
 .project-home-list {
   display: grid;
-  gap: 8px;
+  /* BD-36 摘死声明：gap: 8px 从未渲染——「.project-home-list」被 src/styles/editorial-studio.css:817 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   margin-top: 8px;
   list-style: none;
 }
@@ -3813,16 +3813,16 @@ button:disabled {
 .project-home-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* BD-36 摘死声明：gap: 10px 从未渲染——「.project-home-item」被 src/styles/editorial-studio.css:825 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.project-home-item」 在产物里被 editorial-studio.css:828 同键更晚的一条整条压住 */
   /* BD-29 摘死色：background: var(--paper-panel) 从未渲染——「.project-home-item」 在产物里被 editorial-studio.css:831 同键更晚的一条整条压住 */
-  padding: 10px 12px;
-  transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease;
+  /* BD-36 摘死声明：padding: 10px 12px 从未渲染——「.project-home-item」被 src/styles/editorial-studio.css:827 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-36 摘死声明：transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease 从未渲染——「.project-home-item」被 src/styles/editorial-studio.css:834 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .project-home-item:hover {
   /* BD-29 摘死色：border-color: color-mix(in srgb, var(--copper) 30%, var(--paper-line)) 从未渲染——「.project-home-item:hover」 在产物里被 editorial-studio.css:869 同键更晚的一条整条压住 */
-  transform: translateY(-1px);
+  /* BD-36 摘死声明：transform: translateY(-1px) 从未渲染——「.project-home-item:hover」被 src/styles/editorial-studio.css:872 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .project-home-item-main {
@@ -3838,8 +3838,8 @@ button:disabled {
 
 .project-home-item-main strong {
   /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.project-home-item-main strong」 在产物里被 editorial-studio.css:880 同键更晚的一条整条压住 */
-  font-size: 14px;
-  font-weight: 700;
+  /* BD-36 摘死声明：font-size: 14px 从未渲染——「.project-home-item-main strong」被 src/styles/editorial-studio.css:882 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-36 摘死声明：font-weight: 700 从未渲染——「.project-home-item-main strong」被 src/styles/editorial-studio.css:883 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .project-home-meta {
@@ -3857,7 +3857,7 @@ button:disabled {
 .project-home-arrow {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-arrow」 在产物里被 editorial-studio.css:913 同键更晚的一条整条压住 */
   flex-shrink: 0;
-  opacity: 0.55;
+  /* BD-36 摘死声明：opacity: 0.55 从未渲染——「.project-home-arrow」被 src/styles/editorial-studio.css:914 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .project-home-progress {
@@ -3869,7 +3869,7 @@ button:disabled {
 
 .project-home-chars {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.project-home-chars」 在产物里被 editorial-studio.css:890 同键更晚的一条整条压住 */
-  font-size: 12px;
+  /* BD-36 摘死声明：font-size: 12px 从未渲染——「.project-home-chars」被 src/styles/editorial-studio.css:896 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -3898,9 +3898,9 @@ button:disabled {
 .project-home-empty {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  /* BD-36 摘死声明：align-items: flex-start 从未渲染——「.project-home-empty」被 src/styles/editorial-studio.css:2396 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   gap: 10px;
-  padding: 16px 0;
+  /* BD-36 摘死声明：padding: 16px 0 从未渲染——「.project-home-empty」被 src/styles/editorial-studio.css:2398 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .project-nav-back {

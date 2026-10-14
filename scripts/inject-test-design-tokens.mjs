@@ -758,6 +758,12 @@ const cases = [
   // 一条没动。锚仍钉规则名 + 一条**在画的**声明（display: grid 不在账上），不钉任何债。
   ["批次 BD-35 还债（桌面壳零散族也要有哨兵）：把本批摘掉的 styles.css .desktop-sidebar 那条 grid-template-rows: auto minmax(0, 1fr) auto 写回原位——胜者 editorial-studio.css:79 是 auto minmax(0, 1fr) auto **auto**（更晚发射的静态表整条压住它），而这条已不在 61 条的账上。必须红，红因是「账外新增」。这颗与 BD-33 还债②、BD-34 还债③同形，换的是族。⚠ grid-template-rows 不在间距棘轮的属性集里，红因不会串到预算上", () => mutate("src/styles.css", ".desktop-sidebar {\n  display: grid;\n", ".desktop-sidebar {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto;\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-35 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-sidebar 写 **grid-template-rows: auto minmax(0, 1fr) auto auto**——照抄胜者 editorial-studio.css:79 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。⚠ 这颗牙的值是**从胜者那一行读出来的**，不是手凑的：BD-34 第一稿随手写异值，把 must-green 做成了 must-red", () => mutate("src/styles.css", ".desktop-sidebar {\n  display: grid;\n", ".desktop-sidebar {\n  display: grid;\n  grid-template-rows: auto minmax(0, 1fr) auto auto;\n"), null],
+  // ---- 批次 BD-36：还掉 .project-home* 一族 11 条之后补的牙 ----
+  // 还之前先跑锚冲突审计（BD-35 立的固定动作）：本批 11 条候选与电池 69 条 needle **零重叠**，
+  // 摘完再跑一次仍零重叠。另：这批摘掉的五条间距值 8/10/12/16/0 **全在 §5.1 八档上**，
+  // 所以间距预算 102 不动（274 处不变）——「还死声明」与「还刻度债」是两本账，不是每条死声明都兼有。
+  ["批次 BD-36 还债（项目首页那一族也要有哨兵）：把本批摘掉的 styles.css .project-home-list 那条 gap: 8px 写回原位——胜者 editorial-studio.css:817 是 gap: 0（更晚发射的静态表整条压住它），而这条已不在 50 条的账上。必须红，红因是「账外新增」。这颗与 BD-33/34/35 的同形牙换的是族。⚠ 8px 在八档上，所以红因只会来自账、不会来自间距预算——归因干净", () => mutate("src/styles.css", ".project-home-list {\n  display: grid;\n", ".project-home-list {\n  display: grid;\n  gap: 8px;\n"), /非颜色死声明账与实测不符/],
+  ["批次 BD-36 还债·反向（与静态胜者逐字同值不该红）：给 .project-home-list 写 **gap: 0**——照抄胜者 editorial-studio.css:817 的原值。同键同值是冗余不是分叉，0 也在 §5.1 刻度上，两本账都不该红。这颗牙顺带钉住一个容易被误判的形状：**把在画的 gap: 0 当成「一条可以顺手删掉的冗余」删掉**，项目列表就会掉回 gap: 8px 那条死副本曾经想要的间距", () => mutate("src/styles.css", ".project-home-list {\n  display: grid;\n", ".project-home-list {\n  display: grid;\n  gap: 0;\n"), null],
 ];
 
 let bad = 0;

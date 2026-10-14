@@ -4266,12 +4266,16 @@ const hostPredicate = (() => {
    * 删除前提天然成立，是最安全的一族）→ BD-34 还 19 条（写作页 .writing* 七族，同样全是
    * 静态胜者）→ BD-35 还 18 条（桌面壳零散六族：.desktop-sidebar 3、.desktop-nav 3、
    * .desktop-sidebar-stats 5、.desktop-search-command 5、.desktop-canvas 1、
-   * .desktop-page-scroll 1）→ 现存 61 条，仍全部在 src/styles.css，其中 11 条胜者是
-   * history-local.css、1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的
-   * 反方向），余下 49 条静态胜者可继续按族往下还。⚠ BD-35 起新增一条固定动作：还债前
-   * 跑 /tmp/bd35-anchor-audit.cjs 查候选行与电池 needle 的重叠——本批的 507（.desktop-brand
-   * small margin-top，BD-29 死色①②反向②③的锚）与 584（.desktop-sidebar-card padding，
-   * AQ 三颗牙的锚）就是因此被绕开的；锚一旦随声明变墓碑，牙当场哑掉。
+   * .desktop-page-scroll 1）→ BD-36 还 11 条（项目首页 .project-home* 一族：-list 1、
+   * -item 3、-item:hover 1、-item-main strong 2、-arrow 1、-chars 1、-empty 2）→
+   * 现存 50 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
+   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 38 条
+   * 静态胜者可继续按族往下还。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
+   * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
+   * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
+   * BD-29 死色①②反向②③ 的锚）与 584（.desktop-sidebar-card padding，AQ 三颗牙的锚）
+   * 就是因此绕开的；锚随声明一起变墓碑，牙当场哑掉。摘完还要再跑一次，用「全部 needle
+   * 仍命中且唯一」当没伤到既有牙的证据。
    *
    * BD-34 起「死账」那两颗牙不再手挑锚点，改由电池里的 deadAnchor() 从本清单实测结果里
    * 自动选（值含 px、不碰间距/字号棘轮、逐字唯一、摘掉不空规则、文件在备份清单）——
@@ -4320,17 +4324,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.inbox-item-title\tfont-weight\t700", // src/styles.css:3517 {font-weight: 700} ⇐ .inbox-item-title ⇐ src/styles/editorial-studio.css:1571
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
     "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
-    "src/styles.css\t\t.project-home-list\tgap\t8px", // src/styles.css:3808 {gap: 8px} ⇐ .project-home-list ⇐ src/styles/editorial-studio.css:817
-    "src/styles.css\t\t.project-home-item\tgap\t10px", // src/styles.css:3816 {gap: 10px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:825
-    "src/styles.css\t\t.project-home-item\tpadding\t10px 12px", // src/styles.css:3819 {padding: 10px 12px} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:827
-    "src/styles.css\t\t.project-home-item\ttransition\tborder-color 160ms ease, transform 160ms ease, box-shadow 160ms ease", // src/styles.css:3820 {transition: border-color 160ms ease, transform 160ms ease, box-shadow 160ms ease} ⇐ .project-home-item ⇐ src/styles/editorial-studio.css:834
-    "src/styles.css\t\t.project-home-item:hover\ttransform\ttranslateY(-1px)", // src/styles.css:3825 {transform: translateY(-1px)} ⇐ .project-home-item:hover ⇐ src/styles/editorial-studio.css:872
-    "src/styles.css\t\t.project-home-item-main strong\tfont-size\t14px", // src/styles.css:3841 {font-size: 14px} ⇐ .project-home-item-main strong ⇐ src/styles/editorial-studio.css:882
-    "src/styles.css\t\t.project-home-item-main strong\tfont-weight\t700", // src/styles.css:3842 {font-weight: 700} ⇐ .project-home-item-main strong ⇐ src/styles/editorial-studio.css:883
-    "src/styles.css\t\t.project-home-arrow\topacity\t0.55", // src/styles.css:3860 {opacity: 0.55} ⇐ .project-home-arrow ⇐ src/styles/editorial-studio.css:914
-    "src/styles.css\t\t.project-home-chars\tfont-size\t12px", // src/styles.css:3872 {font-size: 12px} ⇐ .project-home-chars ⇐ src/styles/editorial-studio.css:896
-    "src/styles.css\t\t.project-home-empty\talign-items\tflex-start", // src/styles.css:3901 {align-items: flex-start} ⇐ .project-home-empty ⇐ src/styles/editorial-studio.css:2396
-    "src/styles.css\t\t.project-home-empty\tpadding\t16px 0", // src/styles.css:3903 {padding: 16px 0} ⇐ .project-home-empty ⇐ src/styles/editorial-studio.css:2398
     "src/styles.css\t\t.outline-page-body\tmin-height\t0", // src/styles.css:3970 {min-height: 0} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:2788
     "src/styles.css\t\t.outline-page-body\tgap\t12px", // src/styles.css:3973 {gap: 12px} ⇐ .outline-page-body ⇐ src/styles/editorial-studio.css:1417
     "src/styles.css\t\t.outline-page-side\talign-self\tstart", // src/styles.css:3989 {align-self: start} ⇐ .outline-page-side ⇐ src/styles/editorial-studio.css:2805
