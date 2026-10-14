@@ -1805,7 +1805,7 @@ const isPureRingValue = (v) => {
     // .desktop-sidebar `padding: 18px 14px`（两个数全离刻度）、.desktop-nav small
     // `margin-top: 1px`、.desktop-search-command `gap: 9px`、同条 `padding: 0 10px 0 13px`
     // 的 13px、.desktop-canvas `padding: 18px`。
-    "src/styles.css": 102,
+    "src/styles.css": 101,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4269,10 +4269,20 @@ const hostPredicate = (() => {
    * .desktop-page-scroll 1）→ BD-36 还 11 条（项目首页 .project-home* 一族：-list 1、
    * -item 3、-item:hover 1、-item-main strong 2、-arrow 1、-chars 1、-empty 2）→ BD-37 还 14 条
    * （改按**宿主页面**凑整屏，不再按族凑：卡片板 .cards-board* 5、大纲页 .outline-page* 5 +
-   * .outline-scene-main 1、背景设定 .background* 3）→
-   * 现存 36 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
-   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 24 条
-   * 静态胜者可继续按族往下还。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
+   * .outline-scene-main 1、背景设定 .background* 3）→ BD-38 还 19 条（仍是按宿主页面凑：
+   * 桌面壳零散 ::-webkit-scrollbar 2、.desktop-workbench 2、.desktop-card-label 2、
+   * .desktop-library-grid-head 2、.desktop-library-row 1 + :hover 1、灵感页
+   * .desktop-inspiration-page 2、.scene-editor-content 1、reduced-motion 的 * 2、
+   * .stats-card h3 2、收件箱 .inbox-list 1 + .inbox-item-title 1。这批第一次连带还掉
+   * 一笔真的间距刻度债：灵感页那条 gap: 14px 不在 §5.1 八档上，styles.css 的预算因此
+   * 102→101、全站 274→273——BD-36/37 两批「全在档上所以预算不动」的反例就此补齐，
+   * 三批合起来才是这条耦合的完整形状：判据会自己红，数字跟着实测走）→
+   * 现存 17 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
+   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 5 条
+   * 静态胜者全是**绕不开的人工锚**：507/510（.desktop-brand small，BD-29 死色四颗牙的锚）
+   * 与 584（.desktop-sidebar-card，AQ 三颗牙的锚）被锚冲突审计拦下，3710/3711
+   * （.project-workbench）里 3710 正是 deadAnchor() 当前自动挑中的锚、3711 与它同规则。
+   * 这 5 条要么先重钉既有牙、要么等自动锚换人，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
    * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
    * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
    * BD-29 死色①②反向②③ 的锚）与 584（.desktop-sidebar-card padding，AQ 三颗牙的锚）
@@ -4284,24 +4294,9 @@ const hostPredicate = (() => {
    * 前面三批每还一批就要手工换一次锚，那是人在伺候牙。
    */
   const DEAD_LEDGER = new Set([
-    "src/styles.css\t\t::-webkit-scrollbar\twidth\t10px", // src/styles.css:176 {width: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2464
-    "src/styles.css\t\t::-webkit-scrollbar\theight\t10px", // src/styles.css:177 {height: 10px} ⇐ ::-webkit-scrollbar ⇐ src/styles/editorial-studio.css:2465
-    "src/styles.css\t\t.desktop-workbench\tgrid-template-columns\t236px minmax(0, 1fr)", // src/styles.css:417 {grid-template-columns: 236px minmax(0, 1fr)} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:64
-    "src/styles.css\t\t.desktop-workbench\theight\t100vh", // src/styles.css:418 {height: 100vh} ⇐ .desktop-workbench ⇐ src/styles/editorial-studio.css:2512
     "src/styles.css\t\t.desktop-brand small\tmargin-top\t2px", // src/styles.css:507 {margin-top: 2px} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:178
     "src/styles.css\t\t.desktop-brand small\tletter-spacing\t0.06em", // src/styles.css:510 {letter-spacing: 0.06em} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:181
     "src/styles.css\t\t.desktop-sidebar-card\tpadding\t12px", // src/styles.css:584 {padding: 12px} ⇐ .desktop-sidebar-card ⇐ src/styles/editorial-studio.css:245
-    "src/styles.css\t\t.desktop-card-label\tfont-weight\t650", // src/styles.css:590 {font-weight: 650} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:256
-    "src/styles.css\t\t.desktop-card-label\tletter-spacing\t0.13em", // src/styles.css:591 {letter-spacing: 0.13em} ⇐ .desktop-card-label ⇐ src/styles/editorial-studio.css:257
-    "src/styles.css\t\t.desktop-library-grid-head\tfont-size\t12px", // src/styles.css:822 {font-size: 12px} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1831
-    "src/styles.css\t\t.desktop-library-grid-head\tfont-weight\t650", // src/styles.css:823 {font-weight: 650} ⇐ .desktop-library-grid-head ⇐ src/styles/editorial-studio.css:1832
-    "src/styles.css\t\t.desktop-library-row\ttransition\ttransform 160ms ease, background-color 160ms ease, box-shadow 160ms ease", // src/styles.css:830 {transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease} ⇐ .desktop-library-row ⇐ src/styles/editorial-studio.css:1838
-    "src/styles.css\t\t.desktop-library-row:hover\ttransform\ttranslateY(-1px)", // src/styles.css:838 {transform: translateY(-1px)} ⇐ .desktop-library-row:hover ⇐ src/styles/editorial-studio.css:1846
-    "src/styles.css\t\t.desktop-inspiration-page\tgap\t14px", // src/styles.css:845 {gap: 14px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2179
-    "src/styles.css\t\t.desktop-inspiration-page\tpadding\t4px", // src/styles.css:848 {padding: 4px} ⇐ .desktop-inspiration-page ⇐ src/styles/editorial-studio.css:2180
-    "src/styles.css\t\t.scene-editor-content\tfont-family\tGeorgia, \"Noto Serif SC\", \"Songti SC\", serif", // src/styles.css:1484 {font-family: Georgia, "Noto Serif SC", "Songti SC", serif} ⇐ .scene-editor-content ⇐ src/styles/editorial-studio.css:1282
-    "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\tanimation-duration\t1ms", // src/styles.css:1745 {animation-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2751
-    "src/styles.css\t@media(prefers-reduced-motion:reduce)\t*,*::before,*::after\ttransition-duration\t1ms", // src/styles.css:1747 {transition-duration: 1ms} ⇐ * ⇐ src/styles/editorial-studio.css:2753
     "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
     "src/styles.css\t\t.history-page\tdisplay\tgrid", // src/styles.css:2706 {display: grid} ⇐ .history-page ⇐ src/features/creation/history/history-local.css:5
     "src/styles.css\t\t.history-empty\tfont-size\t13px", // src/styles.css:2714 {font-size: 13px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:22
@@ -4314,10 +4309,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.history-item-type\tfont-weight\t700", // src/styles.css:2740 {font-weight: 700} ⇐ .history-item-type ⇐ src/features/creation/history/history-local.css:59
     "src/styles.css\t\t.history-item strong\tfont-size\t13px", // src/styles.css:2745 {font-size: 13px} ⇐ .history-item strong ⇐ src/features/creation/history/history-local.css:104
     "src/styles.css\t\t.history-item small\tfont-size\t11px", // src/styles.css:2751 {font-size: 11px} ⇐ .history-item small ⇐ src/features/creation/history/history-local.css:113
-    "src/styles.css\t\t.stats-card h3\tfont-size\t13px", // src/styles.css:2882 {font-size: 13px} ⇐ .stats-card h3 ⇐ src/styles/editorial-studio.css:788
-    "src/styles.css\t\t.stats-card h3\tfont-weight\t700", // src/styles.css:2883 {font-weight: 700} ⇐ .stats-card h3 ⇐ src/styles/editorial-studio.css:789
-    "src/styles.css\t\t.inbox-list\tdisplay\tgrid", // src/styles.css:3490 {display: grid} ⇐ .inbox-list ⇐ src/styles/editorial-studio.css:1519
-    "src/styles.css\t\t.inbox-item-title\tfont-weight\t700", // src/styles.css:3517 {font-weight: 700} ⇐ .inbox-item-title ⇐ src/styles/editorial-studio.css:1571
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
     "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
   ]);

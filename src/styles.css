@@ -173,8 +173,8 @@ button:disabled {
 }
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  /* BD-38 摘死声明：width: 10px 从未渲染——「::-webkit-scrollbar」被 src/styles/editorial-studio.css:2464 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-38 摘死声明：height: 10px 从未渲染——「::-webkit-scrollbar」被 src/styles/editorial-studio.css:2465 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 ::-webkit-scrollbar-track {
@@ -414,8 +414,8 @@ button:disabled {
 
 .desktop-workbench {
   display: grid;
-  grid-template-columns: 236px minmax(0, 1fr);
-  height: 100vh;
+  /* BD-38 摘死声明：grid-template-columns: 236px minmax(0, 1fr) 从未渲染——「.desktop-workbench」被 src/styles/editorial-studio.css:64 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-38 摘死声明：height: 100vh 从未渲染——「.desktop-workbench」被 src/styles/editorial-studio.css:2512 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   min-height: 0;
   overflow: hidden;
   /* BD-29 摘死色：background: linear-gradient(90deg, rgba(36, 27, 22, 0.035), transparent …（原值截断，全文见本仓 git 历史） 从未渲染——「.desktop-workbench」 在产物里被 editorial-studio.css:68 同键更晚的一条整条压住 */
@@ -587,8 +587,8 @@ button:disabled {
 .desktop-card-label {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-card-label」 在产物里被 editorial-studio.css:2920 同键更晚的一条整条压住 */
   font-size: 11px;
-  font-weight: 650;
-  letter-spacing: 0.13em;
+  /* BD-38 摘死声明：font-weight: 650 从未渲染——「.desktop-card-label」被 src/styles/editorial-studio.css:256 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-38 摘死声明：letter-spacing: 0.13em 从未渲染——「.desktop-card-label」被 src/styles/editorial-studio.css:257 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   text-transform: uppercase;
 }
 
@@ -819,15 +819,15 @@ button:disabled {
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 82%, transparent);
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 46%, transparent) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1829 同键更晚的一条整条压住 */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1830 同键更晚的一条整条压住 */
-  font-size: 12px;
-  font-weight: 650;
+  /* BD-38 摘死声明：font-size: 12px 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1831 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-38 摘死声明：font-weight: 650 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1832 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   padding: 11px 14px;
 }
 
 .desktop-library-row {
   border-bottom: 1px solid color-mix(in srgb, var(--paper-line) 66%, transparent);
   padding: 14px;
-  transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease;
+  /* BD-38 摘死声明：transition: transform 160ms ease, background-color 160ms ease, box-shadow 160ms ease 从未渲染——「.desktop-library-row」被 src/styles/editorial-studio.css:1838 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .desktop-library-row:last-child {
@@ -835,17 +835,17 @@ button:disabled {
 }
 
 .desktop-library-row:hover {
-  transform: translateY(-1px);
+  /* BD-38 摘死声明：transform: translateY(-1px) 从未渲染——「.desktop-library-row:hover」被 src/styles/editorial-studio.css:1846 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：background: color-mix(in srgb, var(--paper-soft) 32%, transparent) 从未渲染——「.desktop-library-row:hover」 在产物里被 editorial-studio.css:1847 同键更晚的一条整条压住 */
 }
 
 .desktop-inspiration-page {
   display: grid;
   grid-template-columns: 300px minmax(360px, 1fr) 300px;
-  gap: 14px;
+  /* BD-38 摘死声明：gap: 14px 从未渲染——「.desktop-inspiration-page」被 src/styles/editorial-studio.css:2179 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   height: 100%;
   min-height: 0;
-  padding: 4px;
+  /* BD-38 摘死声明：padding: 4px 从未渲染——「.desktop-inspiration-page」被 src/styles/editorial-studio.css:2180 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .desktop-stats-grid {
@@ -1481,7 +1481,7 @@ button:disabled {
   padding-bottom: 40px;
   outline: none;
   color: var(--paper-ink);
-  font-family: Georgia, "Noto Serif SC", "Songti SC", serif;
+  /* BD-38 摘死声明：font-family: Georgia, "Noto Serif SC", "Songti SC", serif 从未渲染——「.scene-editor-content」被 src/styles/editorial-studio.css:1282 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   caret-color: var(--copper);
 }
 
@@ -1742,9 +1742,9 @@ button:disabled {
   *,
   *::before,
   *::after {
-    animation-duration: 1ms !important;
+    /* BD-38 摘死声明：animation-duration: 1ms !important 从未渲染——「*, *::before, *::after」被 src/styles/editorial-studio.css:2751 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
     scroll-behavior: auto !important;
-    transition-duration: 1ms !important;
+    /* BD-38 摘死声明：transition-duration: 1ms !important 从未渲染——「*, *::before, *::after」被 src/styles/editorial-studio.css:2753 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   }
 }
 
@@ -2879,8 +2879,8 @@ button:disabled {
   align-items: center;
   gap: 6px;
   margin: 0 0 10px;
-  font-size: 13px;
-  font-weight: 700;
+  /* BD-38 摘死声明：font-size: 13px 从未渲染——「.stats-card h3」被 src/styles/editorial-studio.css:788 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* BD-38 摘死声明：font-weight: 700 从未渲染——「.stats-card h3」被 src/styles/editorial-studio.css:789 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.stats-card h3」 在产物里被 editorial-studio.css:775 同键更晚的一条整条压住 */
 }
 
@@ -3487,7 +3487,7 @@ button:disabled {
   margin: 0;
   padding: 0;
   list-style: none;
-  display: grid;
+  /* BD-38 摘死声明：display: grid 从未渲染——「.inbox-list」被 src/styles/editorial-studio.css:1519 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   gap: 8px;
 }
 
@@ -3514,7 +3514,7 @@ button:disabled {
   gap: 8px;
   /* BD-29 摘死色：color: var(--paper-ink) 从未渲染——「.inbox-item-title」 在产物里被 editorial-studio.css:1568 同键更晚的一条整条压住 */
   /* 批次 BD-2：删掉这条字号，理由同上（胜者 editorial-studio.css:1570 的 14px）。 */
-  font-weight: 700;
+  /* BD-38 摘死声明：font-weight: 700 从未渲染——「.inbox-item-title」被 src/styles/editorial-studio.css:1571 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   flex-wrap: wrap;
 }
 

@@ -773,6 +773,17 @@ const cases = [
   // 自动锚的意义就在这里——被还掉的锚会自动换，不用人重钉。
   ["批次 BD-37 还债（卡片板那一族也要有哨兵）：把本批摘掉的 styles.css .cards-board-column 那条 min-width: 220px 写回墓碑位置——胜者 editorial-studio.css:2825 是 min-width: 196px（更晚发射的静态表整条压住它），而这条已不在 36 条的账上。必须红，红因是「账外新增」。⚠ 选 min-width 而不是本批别条：它不在间距棘轮的属性集里（SP_PROPS 只认 gap/padding/margin 族），红因不会串到预算上；而锚用「规则名 + 墓碑注释头」，因为这条规则的**全部**声明都被摘过，没有一条在画的声明可以当锚", () => mutate("src/styles.css", ".cards-board-column {\n  /* BD-37 摘死声明：min-width: 220px", ".cards-board-column {\n  min-width: 220px;\n  /* BD-37 摘死声明：min-width: 220px"), /非颜色死声明账与实测不符/],
   ["批次 BD-37 还债·反向（与静态胜者逐字同值不该红）：给 .cards-board-column 写 **min-width: 196px**——照抄胜者 editorial-studio.css:2825 的原值。同键同值是冗余不是分叉，不该红。这颗牙的值同样是从胜者那一行读出来的（BD-34 那条教训之后已是第三次这么做）。⚠ 顺带钉住一个假红的形状：幻影选择器判据与死分支判据都不该因为这条冗余而红——.cards-board-column 有宿主、这条也匹配得上", () => mutate("src/styles.css", ".cards-board-column {\n  /* BD-37 摘死声明：min-width: 220px", ".cards-board-column {\n  min-width: 196px;\n  /* BD-37 摘死声明：min-width: 220px"), null],
+  // ---- 批次 BD-38：还掉桌面壳/灵感页/统计/收件箱零散 19 条之后补的牙 ----
+  // 这批的锚冲突审计第一次**真的拦下了东西**：候选 24 条里 507/510（.desktop-brand small，
+  // BD-29 死色四颗牙的 needle）与 584（.desktop-sidebar-card，AQ 三颗牙）被 needle 覆盖，
+  // 3710/3711（.project-workbench）里 3710 是 deadAnchor() 当前自动挑中的锚、3711 与它同规则
+  // ——这 5 条本批刻意没动，账上就剩它们。摘完复跑：73 条 needle 全部仍命中且唯一。
+  // ⚠ 还有一处只有重跑候选测试才看得见：摘完之后 deadAnchor 的合格候选 3 → 1，只剩
+  // 3710 那一条。也就是说那颗自动锚现在**没有备胎**了——下一批若还掉 3710/3711 或账上再少
+  // 一条 px 声明，它就得抛错记 SKIP。这是判据变严的正常结果，但值得先记下来。
+  ["批次 BD-38 还债（桌面壳这一族也要有哨兵）：把本批摘掉的 styles.css .desktop-workbench 那条 grid-template-columns: 236px minmax(0, 1fr) 写回原位——胜者 editorial-studio.css:64 是 216px minmax(0, 1fr)（更晚发射的静态表整条压住它），而这条已不在 17 条的账上。必须红，红因是「账外新增」。⚠ 选 grid-template-columns 是因为它不在间距/字号棘轮的属性集里，红因不会串到预算上；锚仍钉「规则名 + 一条在画的声明（display: grid）」，不钉任何债", () => mutate("src/styles.css", ".desktop-workbench {\n  display: grid;\n", ".desktop-workbench {\n  display: grid;\n  grid-template-columns: 236px minmax(0, 1fr);\n"), /非颜色死声明账与实测不符/],
+  ["批次 BD-38 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-workbench 写 **grid-template-columns: 216px minmax(0, 1fr)**——照抄胜者 editorial-studio.css:64 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。这颗的值仍是从胜者那一行读出来的（BD-34 那条教训之后第五次这么做）。⚠ 顺带钉住一个本批真实发生过的形状：.desktop-workbench 的两条声明都被摘过，规则里只剩注释——多选择器规则拆半、规则被摘空都会改账本键，所以「摘到规则只剩注释」这件事本身是判据管得到的，别以为留注释就等于没动过", () => mutate("src/styles.css", ".desktop-workbench {\n  display: grid;\n", ".desktop-workbench {\n  display: grid;\n  grid-template-columns: 216px minmax(0, 1fr);\n"), null],
+
 ];
 
 let bad = 0;
