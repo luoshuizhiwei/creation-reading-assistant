@@ -1805,7 +1805,10 @@ const isPureRingValue = (v) => {
     // .desktop-sidebar `padding: 18px 14px`（两个数全离刻度）、.desktop-nav small
     // `margin-top: 1px`、.desktop-search-command `gap: 9px`、同条 `padding: 0 10px 0 13px`
     // 的 13px、.desktop-canvas `padding: 18px`。
-    "src/styles.css": 101,
+    // 批次 BD-39（还死声明账第八批）：101→100。这条来自 .project-workbench 的
+    // `gap: 14px`——14 不在 §5.1 八档上，摘掉死副本就是还一笔真的刻度债（全站同批
+    // 273→272）。同批另摘的 margin-top: 2px / padding: 12px 在档上，不连带。
+    "src/styles.css": 100,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4276,13 +4279,21 @@ const hostPredicate = (() => {
    * .stats-card h3 2、收件箱 .inbox-list 1 + .inbox-item-title 1。这批第一次连带还掉
    * 一笔真的间距刻度债：灵感页那条 gap: 14px 不在 §5.1 八档上，styles.css 的预算因此
    * 102→101、全站 274→273——BD-36/37 两批「全在档上所以预算不动」的反例就此补齐，
-   * 三批合起来才是这条耦合的完整形状：判据会自己红，数字跟着实测走）→
-   * 现存 17 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
-   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 5 条
-   * 静态胜者全是**绕不开的人工锚**：507/510（.desktop-brand small，BD-29 死色四颗牙的锚）
-   * 与 584（.desktop-sidebar-card，AQ 三颗牙的锚）被锚冲突审计拦下，3710/3711
-   * （.project-workbench）里 3710 正是 deadAnchor() 当前自动挑中的锚、3711 与它同规则。
-   * 这 5 条要么先重钉既有牙、要么等自动锚换人，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
+   * 三批合起来才是这条耦合的完整形状：判据会自己红，数字跟着实测走）→ BD-39 还 4 条
+   * （这是「人工锚批」：账上最后 5 条静态胜者里绕不开的那 4 条。动手前必须先重钉 6 颗
+   * 既有牙——L544/545/546（AQ 三颗，锚在 styles.css 第 584 行 .desktop-sidebar-card 的
+   * padding: 12px）与 L722/732/733（BD-29 死色，锚在第 507 行 .desktop-brand small 的
+   * margin-top: 2px），全部改钉「规则名 + 本批墓碑注释头」（BD-37 立的模式），插回的
+   * 声明一律放在注释头**之前**，否则落进注释里牙就哑了。510（letter-spacing）与 3711
+   * （.project-workbench gap: 14px）经审计没有牙钉着，可直接摘；3711 虽然与自动锚 3710
+   * 同规则，但 gap 属间距族、本就被 deadAnchor() 的候选条件排除，摘它不伤自动锚——这条
+   * 是摘完重跑候选测试实测确认的（合格候选仍 1 条 = 3710）。连带还掉第二笔真刻度债：
+   * 14px 离 §5.1 八档，styles.css 预算 101→100、全站 273→272）→
+   * 现存 13 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
+   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 1 条
+   * 3710（.project-workbench grid-template-columns: 168px minmax(0, 1fr)）是
+   * deadAnchor() 当前**唯一**合格自动锚——它要么等下一批重钉别的自动锚、要么连同这颗牙
+   * 一起退役，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
    * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
    * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
    * BD-29 死色①②反向②③ 的锚）与 584（.desktop-sidebar-card padding，AQ 三颗牙的锚）
@@ -4294,9 +4305,6 @@ const hostPredicate = (() => {
    * 前面三批每还一批就要手工换一次锚，那是人在伺候牙。
    */
   const DEAD_LEDGER = new Set([
-    "src/styles.css\t\t.desktop-brand small\tmargin-top\t2px", // src/styles.css:507 {margin-top: 2px} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:178
-    "src/styles.css\t\t.desktop-brand small\tletter-spacing\t0.06em", // src/styles.css:510 {letter-spacing: 0.06em} ⇐ .desktop-brand small ⇐ src/styles/editorial-studio.css:181
-    "src/styles.css\t\t.desktop-sidebar-card\tpadding\t12px", // src/styles.css:584 {padding: 12px} ⇐ .desktop-sidebar-card ⇐ src/styles/editorial-studio.css:245
     "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
     "src/styles.css\t\t.history-page\tdisplay\tgrid", // src/styles.css:2706 {display: grid} ⇐ .history-page ⇐ src/features/creation/history/history-local.css:5
     "src/styles.css\t\t.history-empty\tfont-size\t13px", // src/styles.css:2714 {font-size: 13px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:22
@@ -4310,7 +4318,6 @@ const hostPredicate = (() => {
     "src/styles.css\t\t.history-item strong\tfont-size\t13px", // src/styles.css:2745 {font-size: 13px} ⇐ .history-item strong ⇐ src/features/creation/history/history-local.css:104
     "src/styles.css\t\t.history-item small\tfont-size\t11px", // src/styles.css:2751 {font-size: 11px} ⇐ .history-item small ⇐ src/features/creation/history/history-local.css:113
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
-    "src/styles.css\t\t.project-workbench\tgap\t14px", // src/styles.css:3711 {gap: 14px} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:945
   ]);
   const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
   const sheets = new Map();

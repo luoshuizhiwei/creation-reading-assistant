@@ -504,10 +504,10 @@ button:disabled {
 }
 
 .desktop-brand small {
-  margin-top: 2px;
+  /* BD-39 摘死声明：margin-top: 2px 从未渲染——「.desktop-brand small」被 src/styles/editorial-studio.css:178 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-brand small」 在产物里被 editorial-studio.css:179 同键更晚的一条整条压住 */
   font-size: 11px;
-  letter-spacing: 0.06em;
+  /* BD-39 摘死声明：letter-spacing: 0.06em 从未渲染——「.desktop-brand small」被 src/styles/editorial-studio.css:181 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   text-transform: uppercase;
 }
 
@@ -581,7 +581,7 @@ button:disabled {
 }
 
 .desktop-sidebar-card {
-  padding: 12px;
+  /* BD-39 摘死声明：padding: 12px 从未渲染——「.desktop-sidebar-card」被 src/styles/editorial-studio.css:245 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
 }
 
 .desktop-card-label {
@@ -3708,7 +3708,7 @@ button:disabled {
 .project-workbench {
   display: grid;
   grid-template-columns: 168px minmax(0, 1fr);
-  gap: 14px;
+  /* BD-39 摘死声明：gap: 14px 从未渲染——「.project-workbench」被 src/styles/editorial-studio.css:945 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   min-height: 0;
   flex: 1;
 }

@@ -541,9 +541,9 @@ const cases = [
   // AQ 清零后豁免的前提没了）。四颗牙对着新方向逐条打：正向 = 复活一处刚删的死声明，
   // 反向两颗 = 证明同值冗余与模式前缀覆盖依旧合法（别把清零变成「styles.css 不许写几何」），
   // 退化 = 把自检锚点的选择器改掉，证明这个方向失明时守卫自己先红。
-  ["批次 AQ 回归：把刚退役的侧栏卡圆角写回 styles.css（editorial 那份 border-radius: 0 同特异度更晚，它从未弯过一个角，却被圆角棘轮记成活债——现在这个方向零容忍）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-sidebar-card {\n  border-radius: var(--radius-2);\n  padding: 12px;\n}"), /几何分支/],
-  ["批次 AQ 回归·反向①：两份主题表同分支写同一个值是冗余不是分叉（谁赢都一样），不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-sidebar-card {\n  border-radius: 0;\n  padding: 12px;\n}"), null],
-  ["批次 AQ 回归·反向②：带模式前缀的覆盖分支文本不同、各管各的层叠，是显式决定，不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  padding: 12px;\n}", ".desktop-root--focus .desktop-sidebar-card {\n  border-radius: 4px;\n}\n\n.desktop-sidebar-card {\n  padding: 12px;\n}"), null],
+  ["批次 AQ 回归：把刚退役的侧栏卡圆角写回 styles.css（editorial 那份 border-radius: 0 同特异度更晚，它从未弯过一个角，却被圆角棘轮记成活债——现在这个方向零容忍）", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  /* BD-39 摘死声明：padding: 12px", ".desktop-sidebar-card {\n  border-radius: var(--radius-2);\n  /* BD-39 摘死声明：padding: 12px"), /几何分支/],
+  ["批次 AQ 回归·反向①：两份主题表同分支写同一个值是冗余不是分叉（谁赢都一样），不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  /* BD-39 摘死声明：padding: 12px", ".desktop-sidebar-card {\n  border-radius: 0;\n  /* BD-39 摘死声明：padding: 12px"), null],
+  ["批次 AQ 回归·反向②：带模式前缀的覆盖分支文本不同、各管各的层叠，是显式决定，不该变红", () => mutate("src/styles.css", ".desktop-sidebar-card {\n  /* BD-39 摘死声明：padding: 12px", ".desktop-root--focus .desktop-sidebar-card {\n  border-radius: 4px;\n}\n\n.desktop-sidebar-card {\n  /* BD-39 摘死声明：padding: 12px"), null],
   ["批次 AQ 回归·退化：把主题×主题自检锚点的一侧加上祖先前缀（.cards-view-switch 两边不再逐字同现），这个方向会失明、真分叉被安静放行，必须自己先红", () => mutate("src/styles/editorial-studio.css", ".writing-mode-switch,\n.writing-outline-view-switch,\n.cards-view-switch {", ".writing-mode-switch,\n.writing-outline-view-switch,\n.cards-page .cards-view-switch {"), /判据退化/],
   // 第 8 步批次 X：主题层自己压自己的 15 条离刻度投影声明已退役（每张胜者表逐字节不变）。
   // 沿用批次 N 那对「退役同一宿主同一属性」的形状：正向证明这一页的阴影预算确实降到了
@@ -719,7 +719,7 @@ const cases = [
   // V/AQ 早有同名判据，颜色族一直没人管。
   // ⚠ BD-30 重钉了三颗原先钉在「预算档 / 方向措辞」上的牙（③④⑥），并按 BD-30 查出的
   // 真实方向改写——顺序真源是 main.tsx 的 import 图，不是「文件叫什么名字」。
-  ["批次 BD-29 死色①（原样复活）：把摘掉的 .desktop-brand small 的 color 写回原位，editorial-studio.css:179 同键那条还在后面压着它，必须红——BD-29 清掉的就是这个形状", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-brand small {\n  margin-top: 2px;\n  color: var(--paper-muted);"), /第 8 步颜色分支/],
+  ["批次 BD-29 死色①（原样复活）：把摘掉的 .desktop-brand small 的 color 写回原位，editorial-studio.css:179 同键那条还在后面压着它，必须红——BD-29 清掉的就是这个形状", () => mutate("src/styles.css", ".desktop-brand small {\n  /* BD-39 摘死声明：margin-top: 2px", ".desktop-brand small {\n  color: var(--paper-muted);\n  /* BD-39 摘死声明：margin-top: 2px"), /第 8 步颜色分支/],
   ["批次 BD-29 死色②（新宿主，不是复活动作）：给 .desktop-brand strong 补一条 color，editorial-studio.css:170 对同选择器早有异值——名字新、宿主新、形状与①一致，必须红。判据盯的是「同键异值 + 靠发射顺序决胜」这个形状，不是那 95 条特定声明", () => mutate("src/styles.css", ".desktop-brand strong {\n  font-size: 14px;", ".desktop-brand strong {\n  color: var(--paper-muted);\n  font-size: 14px;"), /第 8 步颜色分支/],
   ["批次 BD-29 死色③（方向反过来才对，BD-30 重钉）：给 editorial 的 .uni-search-group h3 补一条 color，search.css 同键异值——但 search.css 在 import 图里排第 2、editorial 第 4，所以**死的是 search.css 那条**，不是主题侧。必须红，且红名里点出的死侧是 search.css。这颗牙就是 BD-29 记反方向的那一处：原判据把它当成「主题侧被特性表压死」冻进预算，照那份账还债会删掉在画的声明", () => mutate("src/styles/editorial-studio.css", ".uni-search-group h3 {\n  font-family: var(--font-sans);", ".uni-search-group h3 {\n  color: var(--studio-cloth-muted);\n  font-family: var(--font-sans);"), /search\.css:\d+ \{color/],
   ["批次 BD-30 死色④（lazy 块方向）：把摘掉的 .history-item small 的 color 写回 styles.css，宿主页面挂载的 history-local.css 同键那条是**运行时注入**的、排在全部静态表之后，写回来立刻又被压死，必须红——这条测的是 BD-29 那版没有的方向：块级样式表与全局表之间也有一层顺序", () => mutate("src/styles.css", ".history-item small {\n", ".history-item small {\n  color: var(--paper-muted);\n"), /第 8 步颜色分支/],
@@ -729,8 +729,8 @@ const cases = [
   ["批次 BD-30 死色⑧（判据退化·归一化）：把 styles.css 里自检锚点 .project-nav button 的选择器改成 `.project-nav > button`——两侧同键声明的共存扫不到了，必须以「判据退化」而不是「分叉」的形式红。这条测最阴的失效模式：键归一化被改坏时，真正的分叉会被安静放行，而账上已经归零、没有任何债能提醒人", () => mutate("src/styles.css", ".project-nav button {\n  display: flex;", ".project-nav > button {\n  display: flex;"), /颜色分支判据退化/],
   // 反向四颗：判据过严的代价和过松一样贵——它会把正当写法也判成违规，下一批人就开始绕过它。
   ["批次 BD-29 死色·反向①：给 styles.css 的 .desktop-brand strong 写一条与 editorial-studio.css:170 **同值**的 color，不该红——同值重复是冗余不是分叉（本仓还有几处这个形状，删哪边都是改版），把它判红等于逼人多删一条", () => mutate("src/styles.css", ".desktop-brand strong {\n  font-size: 14px;", ".desktop-brand strong {\n  color: var(--studio-cloth-text);\n  font-size: 14px;"), null],
-  ["批次 BD-29 死色·反向②（两批各没摘的那条的形状）：一条双选择器规则里只压住一半——.desktop-nav button 在 editorial 里没有同键 color 对手、.desktop-brand small 有（:179），整条声明仍在画，**不该红**。两批正是靠这条判断把 .background-card:hover/.active 与 .uni-search-group li button:hover/.active 拆开而不是整条留下；判据若按「任一选择器被压」就判死，下一批就会把在画的半边删掉（两个选择器都取真宿主，免得红在幻影判据上）", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-nav button,\n.desktop-brand small {\n  color: var(--paper-muted);\n}\n\n.desktop-brand small {\n  margin-top: 2px;"), null],
-  ["批次 BD-29 死色·反向③：!important 单独定胜者——在 styles.css 给 .desktop-brand small 写一条带 !important 的 color，editorial 那条同键不带，胜者就是它自己，不该红（与几何分支同一豁免：不存在「谁发射得晚」这件事）。⚠ 这条在本仓不是纸面的：.stats-card 的 background 就是这个形状", () => mutate("src/styles.css", ".desktop-brand small {\n  margin-top: 2px;", ".desktop-brand small {\n  margin-top: 2px;\n  color: var(--paper-muted) !important;"), null],
+  ["批次 BD-29 死色·反向②（两批各没摘的那条的形状）：一条双选择器规则里只压住一半——.desktop-nav button 在 editorial 里没有同键 color 对手、.desktop-brand small 有（:179），整条声明仍在画，**不该红**。两批正是靠这条判断把 .background-card:hover/.active 与 .uni-search-group li button:hover/.active 拆开而不是整条留下；判据若按「任一选择器被压」就判死，下一批就会把在画的半边删掉（两个选择器都取真宿主，免得红在幻影判据上）", () => mutate("src/styles.css", ".desktop-brand small {\n  /* BD-39 摘死声明：margin-top: 2px", ".desktop-nav button,\n.desktop-brand small {\n  color: var(--paper-muted);\n}\n\n.desktop-brand small {\n  /* BD-39 摘死声明：margin-top: 2px"), null],
+  ["批次 BD-29 死色·反向③：!important 单独定胜者——在 styles.css 给 .desktop-brand small 写一条带 !important 的 color，editorial 那条同键不带，胜者就是它自己，不该红（与几何分支同一豁免：不存在「谁发射得晚」这件事）。⚠ 这条在本仓不是纸面的：.stats-card 的 background 就是这个形状", () => mutate("src/styles.css", ".desktop-brand small {\n  /* BD-39 摘死声明：margin-top: 2px", ".desktop-brand small {\n  color: var(--paper-muted) !important;\n  /* BD-39 摘死声明：margin-top: 2px"), null],
   ["批次 BD-30 死色·反向④（判据的边界·表内）：在 styles.css 里给 .outline-page-side h3 追加**第二条**同键异值 color（同表内后条压前条），不该红——同一张表内部的先后由这份表自己负责，那是重复声明、不是本判据防的「跨表没人管的分叉」。判据只比**不同文件**的表（代码里 `if (o === rel) continue`）；把它扩到表内会立刻把大量合法的「后条覆盖前条」判红，等于给判据判死刑", () => mutate("src/styles.css", ".outline-page-side h3 {", ".outline-page-side h3 {\n  color: rgb(1, 2, 3);\n}\n\n.outline-page-side h3 {"), null],
   ["批次 BD-30 死色·反向⑤（判据的边界·块级表之间）：给两块 lazy 块级表写同键异值的 color，不该红——往 history-local.css 的 .history-item-actions 加一条 color，再往 overview-local.css 追加一条同选择器异值的 color（锚在本表的 .overview-status-name 前）。两份块级表的相对顺序取决于用户先点进哪个界面（实测 16 张 lazy 表都排在全部静态表之后、彼此之间没有固定先后），静态读不出来，**不可判**就不许判：硬按「谁写在后面」排会造出假死侧，而假死侧正是 BD-29 记反方向那 10 条的病根。⚠ 第二条刻意复用另一块的真实类名：判据比的是选择器文本，宿主归哪块页面渲染不影响这块的顺序不可判性；两边都走令牌，免得红因落到别本账上", () => { mutate("src/features/creation/history/history-local.css", ".history-item-actions {\n  display: flex;", ".history-item-actions {\n  color: var(--copper);\n  display: flex;"); mutate("src/features/creation/overview/overview-local.css", ".overview-status-name {", ".history-item-actions {\n  color: var(--proof-mark);\n}\n\n.overview-status-name {"); }, null],
   // ---- 批次 BD-31：挂载覆盖前提 + 判据扩到全属性后钉的那份账 ----
@@ -783,6 +783,20 @@ const cases = [
   // 一条 px 声明，它就得抛错记 SKIP。这是判据变严的正常结果，但值得先记下来。
   ["批次 BD-38 还债（桌面壳这一族也要有哨兵）：把本批摘掉的 styles.css .desktop-workbench 那条 grid-template-columns: 236px minmax(0, 1fr) 写回原位——胜者 editorial-studio.css:64 是 216px minmax(0, 1fr)（更晚发射的静态表整条压住它），而这条已不在 17 条的账上。必须红，红因是「账外新增」。⚠ 选 grid-template-columns 是因为它不在间距/字号棘轮的属性集里，红因不会串到预算上；锚仍钉「规则名 + 一条在画的声明（display: grid）」，不钉任何债", () => mutate("src/styles.css", ".desktop-workbench {\n  display: grid;\n", ".desktop-workbench {\n  display: grid;\n  grid-template-columns: 236px minmax(0, 1fr);\n"), /非颜色死声明账与实测不符/],
   ["批次 BD-38 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-workbench 写 **grid-template-columns: 216px minmax(0, 1fr)**——照抄胜者 editorial-studio.css:64 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。这颗的值仍是从胜者那一行读出来的（BD-34 那条教训之后第五次这么做）。⚠ 顺带钉住一个本批真实发生过的形状：.desktop-workbench 的两条声明都被摘过，规则里只剩注释——多选择器规则拆半、规则被摘空都会改账本键，所以「摘到规则只剩注释」这件事本身是判据管得到的，别以为留注释就等于没动过", () => mutate("src/styles.css", ".desktop-workbench {\n  display: grid;\n", ".desktop-workbench {\n  display: grid;\n  grid-template-columns: 216px minmax(0, 1fr);\n"), null],
+
+  // ---- 批次 BD-39：人工锚批——还掉账上最后 4 条「绕不开的人工锚」静态胜者 ----
+  // 这批动手前必须先做重锚手术（BD-38 的账本头预告过）：6 颗既有牙钉在本批要摘的死行上——
+  // L544/545/546 钉 styles.css 第 584 行那条 `.desktop-sidebar-card` 的 padding: 12px（AQ 三颗），
+  // L722/732/733 钉第 507 行 `.desktop-brand small` 的 margin-top: 2px（BD-29 死色四颗里的三颗）。
+  // 全部改钉「规则名 + 本批墓碑注释头」（BD-37 立的模式），且插回的声明必须放在注释头
+  // **之前**——写在头之后会落进注释体内，牙当场哑掉（本批手术第一版就踩了这个，逐颗
+  // mutate→守卫→还原单测才抓住）。摘完复跑：75 条 needle 全部命中且唯一；6 颗重锚牙
+  // 逐颗单测方向不变（2 正 4 反）。另记两笔只有重跑才看得见的账：
+  // ① 3711（.project-workbench gap: 14px）虽与自动锚 3710 同规则，但 gap 属间距族、
+  //    本就被 deadAnchor() 的候选条件排除，摘它不伤自动锚——候选测试实测摘后仍 1 条 = 3710。
+  // ② 14px 离 §5.1 八档，这是 BD-38 之后第二笔连带的真刻度债（styles.css 101→100、全站 273→272）。
+  ["批次 BD-39 还债（人工锚批也要有哨兵）：把本批摘掉的 styles.css .desktop-brand small 那条 letter-spacing: 0.06em 写回墓碑位置——胜者 editorial-studio.css:181 是 letter-spacing: 0.05em（更晚发射的静态表整条压住它），而这条已不在 13 条的账上。必须红，红因是「账外新增」。⚠ 选 letter-spacing 是因为它既不在间距棘轮也不在字号棘轮的属性集里，红因不会串到预算上；锚用「规则名 + 本批墓碑注释头」，因为 :507 那条 margin-top 也摘了，这条规则里能当锚的只剩注释头", () => mutate("src/styles.css", "  /* BD-39 摘死声明：letter-spacing: 0.06em", "  letter-spacing: 0.06em;\n  /* BD-39 摘死声明：letter-spacing: 0.06em"), /非颜色死声明账与实测不符/],
+  ["批次 BD-39 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-brand small 写 **letter-spacing: 0.05em**——照抄胜者 editorial-studio.css:181 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。这颗的值仍是从胜者那一行读出来的（BD-34 那条教训之后第六次这么做）。⚠ 顺带钉住本批真实发生的形状：.desktop-sidebar-card 的第二条规则被摘到**只剩注释**（padding: 12px 是它唯一的声明）——摘空一条规则不会绊倒任何判据，判据数的是声明不是规则", () => mutate("src/styles.css", "  /* BD-39 摘死声明：letter-spacing: 0.06em", "  letter-spacing: 0.05em;\n  /* BD-39 摘死声明：letter-spacing: 0.06em"), null],
 
 ];
 
