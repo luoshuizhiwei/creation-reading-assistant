@@ -2083,7 +2083,7 @@ button:disabled {
 }
 
 .card-board-card {
-  display: grid;
+  /* BD-40 摘死声明：display: grid 从未渲染——「.card-board-card」被 src/features/creation/outline/outline-reorg.css:103 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   gap: 4px;
   border: 1px solid var(--paper-line);
   border-radius: 10px;
@@ -2703,7 +2703,7 @@ button:disabled {
 
 /* 鍥炴敹绔欎笌鐗堟湰蹇収 */
 .history-page {
-  display: grid;
+  /* BD-40 摘死声明：display: grid 从未渲染——「.history-page」被 src/features/creation/history/history-local.css:5 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   grid-template-rows: auto minmax(0, 1fr);
   gap: 12px;
   min-height: 0;
@@ -2711,14 +2711,14 @@ button:disabled {
 
 .history-empty {
   /* BD-30 摘死色：color: var(--paper-muted) 从未渲染——「.history-empty」在 .history-* 的宿主页面被 history-local.css:21 同键更晚注入的一条整条压住（宿主只有 HistoryPage.tsx，而它自己就 import 了那份胜者表） */
-  font-size: 13px;
-  padding: 18px;
+  /* BD-40 摘死声明：font-size: 13px 从未渲染——「.history-empty」被 src/features/creation/history/history-local.css:22 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
+  /* BD-40 摘死声明：padding: 18px 从未渲染——「.history-empty」被 src/features/creation/history/history-local.css:19 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   border: 1px dashed color-mix(in srgb, var(--paper-line) 70%, transparent);
 }
 
 .history-list {
-  display: grid;
-  gap: 6px;
+  /* BD-40 摘死声明：display: grid 从未渲染——「.history-list」被 src/features/creation/history/history-local.css:30 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
+  /* BD-40 摘死声明：gap: 6px 从未渲染——「.history-list」被 src/features/creation/history/history-local.css:32 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2727,28 +2727,28 @@ button:disabled {
 .history-item {
   display: flex;
   align-items: center;
-  gap: 10px;
+  /* BD-40 摘死声明：gap: 10px 从未渲染——「.history-item」被 src/features/creation/history/history-local.css:38 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   /* BD-30 摘死色：border: 1px solid var(--paper-line) 从未渲染——「.history-item」在宿主页面被 history-local.css:41 同键更晚注入的一条整条压住（同上；实测未挂载 lazy 块时本条会画，挂载后被顶掉——本仓再无别的宿主） */
   border-radius: 10px;
   /* BD-30 摘死色：background: var(--paper-panel) 从未渲染——「.history-item」在宿主页面被 history-local.css:42 同键更晚注入的一条整条压住（同上） */
-  padding: 10px 12px;
+  /* BD-40 摘死声明：padding: 10px 12px 从未渲染——「.history-item」被 src/features/creation/history/history-local.css:39 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
 }
 
 .history-item-type {
   /* BD-30 摘死色：color: var(--copper) 从未渲染——「.history-item-type」在宿主页面被 history-local.css:57 同键更晚注入的一条整条压住（同上） */
-  font-size: 11px;
-  font-weight: 700;
+  /* BD-40 摘死声明：font-size: 11px 从未渲染——「.history-item-type」被 src/features/creation/history/history-local.css:58 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
+  /* BD-40 摘死声明：font-weight: 700 从未渲染——「.history-item-type」被 src/features/creation/history/history-local.css:59 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   min-width: 34px;
 }
 
 .history-item strong {
-  font-size: 13px;
+  /* BD-40 摘死声明：font-size: 13px 从未渲染——「.history-item strong」被 src/features/creation/history/history-local.css:104 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   /* BD-30 摘死色：color: var(--paper-ink) 从未渲染——「.history-item strong」在宿主页面被 history-local.css:105 同键更晚注入的一条整条压住（同上） */
 }
 
 .history-item small {
   /* BD-30 摘死色：color: var(--paper-muted) 从未渲染——「.history-item small」在宿主页面被 history-local.css:114 同键更晚注入的一条整条压住（A 侧探针实测：挂载前 rgb(102,109,119)＝本条，挂载后 rgb(128,137,148)＝胜者） */
-  font-size: 11px;
+  /* BD-40 摘死声明：font-size: 11px 从未渲染——「.history-item small」被 src/features/creation/history/history-local.css:113 同键整条压住（胜者是块级表：宿主页面挂载时运行时注入、排在全部静态表之后；判死的前提「每个宿主都沿 import 链挂得上这张表」判据每条都查，本批摘除前又按同一张 import 图逐条复核过反方向，见账本头） */
   margin-left: auto;
   white-space: nowrap;
 }

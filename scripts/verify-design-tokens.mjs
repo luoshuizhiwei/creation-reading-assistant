@@ -1808,7 +1808,11 @@ const isPureRingValue = (v) => {
     // 批次 BD-39（还死声明账第八批）：101→100。这条来自 .project-workbench 的
     // `gap: 14px`——14 不在 §5.1 八档上，摘掉死副本就是还一笔真的刻度债（全站同批
     // 273→272）。同批另摘的 margin-top: 2px / padding: 12px 在档上，不连带。
-    "src/styles.css": 100,
+    // 批次 BD-40（还死声明账第九批，块级胜者十二族）：100→99。这 1 处来自 .history-empty
+    // 的 `padding: 18px`——18 不在 §5.1 八档上（胜者 history-local.css:19 是 32px 16px，
+    // 两个数也都不在档上，那是块级表自己的债，不在本文件账上）。同批另两条间距
+    // gap: 6px / gap: 10px / padding: 10px 12px 全在档上，不连带。全站同批 272→271。
+    "src/styles.css": 99,
     // 批次 BD-26（写作页迁移批）：68→66。这 2 处不是「收敛成令牌」还掉的，是随第 6 步
     // 12 条容器接管规则**一起删掉**的——`.creation-writing-hero .desktop-page-actions
     // button` 的 `padding: 0 9px`（9px 离刻度）与 `.desktop-page-actions button,
@@ -4288,12 +4292,18 @@ const hostPredicate = (() => {
    * （.project-workbench gap: 14px）经审计没有牙钉着，可直接摘；3711 虽然与自动锚 3710
    * 同规则，但 gap 属间距族、本就被 deadAnchor() 的候选条件排除，摘它不伤自动锚——这条
    * 是摘完重跑候选测试实测确认的（合格候选仍 1 条 = 3710）。连带还掉第二笔真刻度债：
-   * 14px 离 §5.1 八档，styles.css 预算 101→100、全站 273→272）→
-   * 现存 13 条，仍全部在 src/styles.css，其中 11 条胜者是 history-local.css、
-   * 1 条是 outline-reorg.css（块级胜者，还之前必须逐条跑挂载覆盖的反方向），余下 1 条
-   * 3710（.project-workbench grid-template-columns: 168px minmax(0, 1fr)）是
-   * deadAnchor() 当前**唯一**合格自动锚——它要么等下一批重钉别的自动锚、要么连同这颗牙
-   * 一起退役，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
+   * 14px 离 §5.1 八档，styles.css 预算 101→100、全站 273→272）→ BD-40 还 12 条
+   * （块级胜者批：11 条 history-local.css + 1 条 outline-reorg.css。这批走的是 BD-31 立账
+   * 注释里那条「还债要证每个宿主都挂得上」的反方向前提：摘之前按判据同一张 import 图
+   * 逐条复核宿主模块可达胜者表（.card-board-card 只有 CardBoard.tsx、.history* 只有
+   * HistoryPage.tsx——StatsPage.tsx 里那个 history-item-actions 是**另一个类名**，
+   * clsTokenRe 的负向断言把它排除掉，宿主集合是干净的），锚冲突审计 77 条 needle 零重叠。
+   * 连带还掉第三笔真刻度债：.history-empty 的 padding: 18px 离 §5.1 八档，
+   * styles.css 预算 100→99、全站 272→271；gap 6px / gap 10px / padding 10px 12px 在档上）→
+   * 现存 1 条：3710（.project-workbench grid-template-columns: 168px minmax(0, 1fr)，
+   * 胜者 editorial-studio.css:944 是 140px）是 deadAnchor() 当前**唯一**合格自动锚，
+   * 也是 BD-34 立账以来第一次账上只剩人工锚——它要么等下一批换锚（账上再还出别的 px 族
+   * 候选、或改 deadAnchor 的候选条件），要么连同这颗牙一起退役，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
    * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
    * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
    * BD-29 死色①②反向②③ 的锚）与 584（.desktop-sidebar-card padding，AQ 三颗牙的锚）
@@ -4305,18 +4315,6 @@ const hostPredicate = (() => {
    * 前面三批每还一批就要手工换一次锚，那是人在伺候牙。
    */
   const DEAD_LEDGER = new Set([
-    "src/styles.css\t\t.card-board-card\tdisplay\tgrid", // src/styles.css:2086 {display: grid} ⇐ .card-board-card ⇐ src/features/creation/outline/outline-reorg.css:103
-    "src/styles.css\t\t.history-page\tdisplay\tgrid", // src/styles.css:2706 {display: grid} ⇐ .history-page ⇐ src/features/creation/history/history-local.css:5
-    "src/styles.css\t\t.history-empty\tfont-size\t13px", // src/styles.css:2714 {font-size: 13px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:22
-    "src/styles.css\t\t.history-empty\tpadding\t18px", // src/styles.css:2715 {padding: 18px} ⇐ .history-empty ⇐ src/features/creation/history/history-local.css:19
-    "src/styles.css\t\t.history-list\tdisplay\tgrid", // src/styles.css:2720 {display: grid} ⇐ .history-list ⇐ src/features/creation/history/history-local.css:30
-    "src/styles.css\t\t.history-list\tgap\t6px", // src/styles.css:2721 {gap: 6px} ⇐ .history-list ⇐ src/features/creation/history/history-local.css:32
-    "src/styles.css\t\t.history-item\tgap\t10px", // src/styles.css:2730 {gap: 10px} ⇐ .history-item ⇐ src/features/creation/history/history-local.css:38
-    "src/styles.css\t\t.history-item\tpadding\t10px 12px", // src/styles.css:2734 {padding: 10px 12px} ⇐ .history-item ⇐ src/features/creation/history/history-local.css:39
-    "src/styles.css\t\t.history-item-type\tfont-size\t11px", // src/styles.css:2739 {font-size: 11px} ⇐ .history-item-type ⇐ src/features/creation/history/history-local.css:58
-    "src/styles.css\t\t.history-item-type\tfont-weight\t700", // src/styles.css:2740 {font-weight: 700} ⇐ .history-item-type ⇐ src/features/creation/history/history-local.css:59
-    "src/styles.css\t\t.history-item strong\tfont-size\t13px", // src/styles.css:2745 {font-size: 13px} ⇐ .history-item strong ⇐ src/features/creation/history/history-local.css:104
-    "src/styles.css\t\t.history-item small\tfont-size\t11px", // src/styles.css:2751 {font-size: 11px} ⇐ .history-item small ⇐ src/features/creation/history/history-local.css:113
     "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
   ]);
   const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
@@ -4544,7 +4542,8 @@ const hostPredicate = (() => {
       // 「把一切判成不可判」：那样死账归零、判据全绿，却什么都不再守——比误判更安静。
       // 用一对真实宿主钉住它的两种结局，两者必须**同时**成立：
       //   · .history-item small 的宿主只有 HistoryPage.tsx，而它自己 import 了那份胜者表
-      //     → 覆盖成立，这条要能判（styles.css:2751 的 font-size 就在 DEAD_LEDGER 上）；
+      //     → 覆盖成立，这条要能判（.history-item small 那条 font-size: 11px 曾挂在账上，
+      //       批次 BD-40 已把它摘成墓碑——哨兵钉的是「判得动」这件事，不是某一行）；
       //   · .history-item-actions 多一个宿主 StatsPage.tsx，它借这个类名却不挂那份表
       //     → 覆盖不成立，这条必须不判（就是本块开头报出来的那 2 条）。
       // 哪天 import 图、宿主谓词或 resolveSpec 被改坏，这两句会一起塌掉。

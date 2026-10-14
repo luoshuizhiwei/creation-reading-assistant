@@ -798,6 +798,20 @@ const cases = [
   ["批次 BD-39 还债（人工锚批也要有哨兵）：把本批摘掉的 styles.css .desktop-brand small 那条 letter-spacing: 0.06em 写回墓碑位置——胜者 editorial-studio.css:181 是 letter-spacing: 0.05em（更晚发射的静态表整条压住它），而这条已不在 13 条的账上。必须红，红因是「账外新增」。⚠ 选 letter-spacing 是因为它既不在间距棘轮也不在字号棘轮的属性集里，红因不会串到预算上；锚用「规则名 + 本批墓碑注释头」，因为 :507 那条 margin-top 也摘了，这条规则里能当锚的只剩注释头", () => mutate("src/styles.css", "  /* BD-39 摘死声明：letter-spacing: 0.06em", "  letter-spacing: 0.06em;\n  /* BD-39 摘死声明：letter-spacing: 0.06em"), /非颜色死声明账与实测不符/],
   ["批次 BD-39 还债·反向（与静态胜者逐字同值不该红）：给同一条 .desktop-brand small 写 **letter-spacing: 0.05em**——照抄胜者 editorial-studio.css:181 的原值。同键同值是冗余不是分叉，判红等于逼人在两份静态表里删掉一条在画的声明。这颗的值仍是从胜者那一行读出来的（BD-34 那条教训之后第六次这么做）。⚠ 顺带钉住本批真实发生的形状：.desktop-sidebar-card 的第二条规则被摘到**只剩注释**（padding: 12px 是它唯一的声明）——摘空一条规则不会绊倒任何判据，判据数的是声明不是规则", () => mutate("src/styles.css", "  /* BD-39 摘死声明：letter-spacing: 0.06em", "  letter-spacing: 0.05em;\n  /* BD-39 摘死声明：letter-spacing: 0.06em"), null],
 
+  // ---- 批次 BD-40：块级胜者批——还掉 11 条 history-local.css + 1 条 outline-reorg.css ----
+  // 这批的关键不是摘，是**先证反方向前提**：块级表只在宿主页面挂载时注入，判死要证
+  // 「每个宿主都挂得上胜者表」，还债就是同一层前提反过来用。摘之前按判据同一张 import
+  // 图逐条复核过：.card-board-card 的宿主只有 CardBoard.tsx（import outline-reorg.css）、
+  // .history-page/-empty/-list/-item/-item-type/-item strong/small 的宿主只有 HistoryPage.tsx
+  // （import history-local.css）。⚠ 这里有个差点踩空的形状：StatsPage.tsx 也渲染
+  // .history-item-actions，词面 grep 会把它算进 .history-item 的宿主——但判据用的是
+  // clsTokenRe（前后都有负向断言），history-item 后面紧跟 -a 就不匹配，那个类名是**另一个**
+  // 选择器。它正是 BD-30 那次「判据默认 lazy 胜者总会挂载」被打穿、把判据改错的现场，
+  // 所以这颗牙特意选 .card-board-card：宿主单一、够得着块级表，红因干净。
+  // 锚冲突审计：摘前摘后各跑一次，77 条 needle 与 12 条候选零重叠。
+  ["批次 BD-40 还债（块级胜者也要有哨兵）：把本批摘掉的 styles.css .card-board-card 那条 display: grid 写回墓碑位置——胜者 src/features/creation/outline/outline-reorg.css:103 是 display: flex（块级表在宿主挂载时运行时注入、排在全部静态表之后），而这条已不在 1 条的账上。必须红，红因是「账外新增」。⚠ 选 .card-board-card 是因为它的宿主只有 CardBoard.tsx 且该模块确实 import 了胜者表——挂载覆盖成立，判死才谈得上；换成 .history-item 就会撞上 StatsPage 那个词面陷阱（见上）。锚仍用「规则名 + 本批墓碑注释头」，display 不在间距/字号棘轮属性集里，红因不会串到预算", () => mutate("src/styles.css", ".card-board-card {\n  /* BD-40 摘死声明：display: grid", ".card-board-card {\n  display: grid;\n  /* BD-40 摘死声明：display: grid"), /非颜色死声明账与实测不符/],
+  ["批次 BD-40 还债·反向（与块级胜者逐字同值不该红）：给 .card-board-card 写 **display: flex**——照抄胜者 outline-reorg.css:103 的原值。同键同值是冗余不是分叉，判红等于逼人在静态表与块级表之间删掉一条在画的声明。这颗的值是从胜者那一行读出来的（BD-34 那条教训之后第七次这么做）。⚠ 它顺带钉住挂载覆盖前提的另一头：这条冗余写在这里判据不会红，因为「谁发射得晚」对同值没有意义——前提失效时判据是**放过**而不是误杀，这正是 BD-30 修完之后该有的形状", () => mutate("src/styles.css", ".card-board-card {\n  /* BD-40 摘死声明：display: grid", ".card-board-card {\n  display: flex;\n  /* BD-40 摘死声明：display: grid"), null],
+
 ];
 
 let bad = 0;
