@@ -4300,10 +4300,14 @@ const hostPredicate = (() => {
    * clsTokenRe 的负向断言把它排除掉，宿主集合是干净的），锚冲突审计 77 条 needle 零重叠。
    * 连带还掉第三笔真刻度债：.history-empty 的 padding: 18px 离 §5.1 八档，
    * styles.css 预算 100→99、全站 272→271；gap 6px / gap 10px / padding 10px 12px 在档上）→
-   * 现存 1 条：3710（.project-workbench grid-template-columns: 168px minmax(0, 1fr)，
-   * 胜者 editorial-studio.css:944 是 140px）是 deadAnchor() 当前**唯一**合格自动锚，
-   * 也是 BD-34 立账以来第一次账上只剩人工锚——它要么等下一批换锚（账上再还出别的 px 族
-   * 候选、或改 deadAnchor 的候选条件），要么连同这颗牙一起退役，不能直接摘。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
+   * BD-41 还最后 1 条（第 3710 行 .project-workbench grid-template-columns: 168px minmax(0, 1fr)，
+   * 胜者 editorial-studio.css:944 是 140px；168 与 140 都不在 §5.1 八档上、而
+   * grid-template-columns 不在间距棘轮的属性集里，所以本批**不连带**还刻度债）→
+   * **现存 0 条，账已清空**。清账的代价是先把两颗「死账」哨兵牙从债上解绑：它们原先由
+   * deadAnchor() 从本清单实测结果里自动挑锚（BD-34 立），前提就是「账上得一直留一条债」——
+   * BD-36/37 两批连着把锚所在行还掉、它自动换人，BD-40 之后账上只剩 3710 一条，那颗牙等于
+   * 把最后这笔债锁成了人质：判据明明能清零，却因为牙而不能还。这是「人在伺候牙」的最后一种
+   * 形状。现在 ③④ 各钉永久锚，账空也测得出方向（详见电池里 deadAnchor() 原位留下的注释）。⚠ BD-35 起新增一条固定动作：还债前跑锚冲突审计（脚本在
    * /tmp，每批按当批候选重建：把电池里全部 mutate("src/styles.css", …) 的 needle 解出来
    * 定位覆盖行，与本批候选取交集）——BD-35 的 507（.desktop-brand small margin-top，
    * BD-29 死色①②反向②③ 的锚）与 584（.desktop-sidebar-card padding，AQ 三颗牙的锚）
@@ -4315,7 +4319,6 @@ const hostPredicate = (() => {
    * 前面三批每还一批就要手工换一次锚，那是人在伺候牙。
    */
   const DEAD_LEDGER = new Set([
-    "src/styles.css\t\t.project-workbench\tgrid-template-columns\t168px minmax(0, 1fr)", // src/styles.css:3710 {grid-template-columns: 168px minmax(0, 1fr)} ⇐ .project-workbench ⇐ src/styles/editorial-studio.css:944
   ]);
   const unjudgedBy = new Map(); // 因挂载覆盖不成立（或判不动）而放过的，BD-31 起单独计数
   const sheets = new Map();

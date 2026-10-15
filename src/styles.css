@@ -3707,7 +3707,7 @@ button:disabled {
  * ------------------------------------------------------------------------- */
 .project-workbench {
   display: grid;
-  grid-template-columns: 168px minmax(0, 1fr);
+  /* BD-41 摘死声明：grid-template-columns: 168px minmax(0, 1fr) 从未渲染——「.project-workbench」被 src/styles/editorial-studio.css:944 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-39 摘死声明：gap: 14px 从未渲染——「.project-workbench」被 src/styles/editorial-studio.css:945 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   min-height: 0;
   flex: 1;
