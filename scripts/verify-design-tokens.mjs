@@ -433,7 +433,10 @@ if (pending > 0) console.warn(`${TAG} 提示：${pending} 组文字对比度未�
  * 这里检查同一目录内「已使用 <Button> 的页面」是否还留着未排除的后代按钮规则。
  * 用同目录作为「这份 CSS 属于这个页面」的判据（本仓惯例是 feature 局部 CSS
  * 与页面同目录，如 HistoryPage.tsx / history-local.css）。跨目录借用样式的
- * 情况（StatsPage 借全局 .history-item-actions）由全局样式表自身负责排除。
+ * 情况（原先 StatsPage 借全局 .history-item-actions）由全局样式表自身负责排除。
+ * ⚠ 批次 BD-42 起那个跨目录借用已经取消（统计页改用自己的 .stats-session-actions）：
+ * 借来的类名让统计页的钮间距随「这次会话里开没开过版本历史」在 4px/6px 之间漂，
+ * 实测过（同一元素、同一构造，仅导航顺序不同）。这条约定仍然适用于以后的跨目录借用。
  */
 function walk(dir, depth = 0) {
   if (depth > 8) return [];
@@ -4547,19 +4550,24 @@ const hostPredicate = (() => {
       //   · .history-item small 的宿主只有 HistoryPage.tsx，而它自己 import 了那份胜者表
       //     → 覆盖成立，这条要能判（.history-item small 那条 font-size: 11px 曾挂在账上，
       //       批次 BD-40 已把它摘成墓碑——哨兵钉的是「判得动」这件事，不是某一行）；
-      //   · .history-item-actions 多一个宿主 StatsPage.tsx，它借这个类名却不挂那份表
-      //     → 覆盖不成立，这条必须不判（就是本块开头报出来的那 2 条）。
+      //   · 批次 BD-42 起「覆盖不成立」那一半改钉 .history-modal：它由历史页的三个子对话框
+      //     （CreateMilestoneDialog / PurgeTrashDialog / RestoreSnapshotDialog）渲染，三个都
+      //     **不 import** 那份表——运行时表必然已注入（它们只在 HistoryPage 里出现），可 import 图
+      //     只沿模块往外找、够不着，判据就保守不判。这正好是这层前提的本意：证不了就别判死。
+      //     ⚠ 原先钉的是 .history-item-actions（宿主 StatsPage.tsx 借这个类名却不挂表）。批次
+      //     BD-42 把那次借用改成各自类名（借类名会让统计页的钮间距随「先看没看过历史页」在
+      //     4px/6px 之间漂，实测过），那条分叉就此合法消失——本句按 4562 行那句预告一起重算。
       // 哪天 import 图、宿主谓词或 resolveSpec 被改坏，这两句会一起塌掉。
       const LAZY_WINNER = "src/features/creation/history/history-local.css";
       const covJudged = whyNotCovered(".history-item small", LAZY_WINNER);
-      const covSkipped = whyNotCovered(".history-item-actions", LAZY_WINNER);
+      const covSkipped = whyNotCovered(".history-modal", LAZY_WINNER);
       if (covJudged !== null || covSkipped === null) {
         fail(
           `第 8 步颜色分支判据退化（挂载覆盖·BD-31）：` +
             `「.history-item small → 覆盖成立（${covJudged === null ? "对" : covJudged}）」与` +
-            `「.history-item-actions → 覆盖不成立（${covSkipped === null ? "被误判成覆盖成立" : covSkipped}）」这两句现在不是**一同一异**。` +
+            `「.history-modal → 覆盖不成立（${covSkipped === null ? "被误判成覆盖成立" : covSkipped}）」这两句现在不是**一同一异**。` +
             `两个都成立说明覆盖前提塌成了整体豁免（判据瞎，账上从此不会再有 lazy 胜者），两个都不成立说明 import 图 / 宿主谓词被改坏（判据会把活 CSS 判死）。` +
-            `若产品真的把 StatsPage 那个类名摘掉、或让它也挂上这份表，那是合法的改版——请连 DEAD_LEDGER 与这两句哨兵一起重算。`
+            `若产品真的让那三个子对话框也 import 这份表（或把类名改掉），那是合法的改版——请连同这两句哨兵一起重算（批次 BD-42 就是这么改的，改完哨兵当场红、按本句重锚）。`
         );
       }
       if (MOUNT.moduleCount < 50) {

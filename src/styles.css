@@ -2753,13 +2753,13 @@ button:disabled {
   white-space: nowrap;
 }
 
-.history-item-actions {
+.stats-session-actions {
   display: inline-flex;
   gap: 4px;
 }
 
-/* 行内操作按钮已全部迁到共享 <Button>（见 history-local.css 同族说明），
-   这份全局副本随之下线。类名 .history-item-actions 本身仍由两处容器使用，保留。 */
+/* BD-42 缺陷修复：这两行原先挂在借来的 .history-item-actions 上——统计页渲染那个类名，
+   却不沿 import 链挂得上历史页的块级表，于是进过一次版本历史再回统计页，钮间距就从 4px 变 6px（实测 4→6）。 */
 
 /* ---------------------------------------------------------------------------
  * 鍒涗綔宸ヤ綔鍙帮細鎼滅储闈㈡澘锛堝垏锟?10b锟? * ------------------------------------------------------------------------- */

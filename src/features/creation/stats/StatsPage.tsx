@@ -321,7 +321,7 @@ export function StatsPage({ projectId }: StatsPageProps) {
                     {session.netChars >= 0 ? "+" : ""}{session.netChars.toLocaleString("zh-CN")} 字
                   </em>
                 </span>
-                <span className="history-item-actions">
+                <span className="stats-session-actions">
                   <Button
                     size="sm"
                     variant="outline"
