@@ -1549,6 +1549,31 @@ const isPureRingValue = (v) => {
   };
   const decorHits = new Set();
 
+  /**
+   * 批次 BD-45·仓库自定义的 shadow 工具类几何（从 tailwind.config.ts 现读，不在守卫里抄一份）。
+   * 为什么要读它：下面那本值账把「这条债长什么样」钉成 key，而 shadow-paper 的**样子**住在
+   * 配置文件里——只 key 上令牌名的话，把 boxShadow.paper 从 0 18px 50px 改成 0 40px 120px
+   * 依旧全绿（实测：改配置 alpha .1→.45 守卫毫无反应）。读回来之后，改几何等于改了
+   * 名下全部 7 条 @apply 债的 key ⇒ 账外新增 + 账上扫不到 双向即时红。
+   * Tailwind 自带档（sm/md/lg/…）不在这里：实测 12 处债全是纸面自定义档或字面 CSS 值，
+   * 一个内置档都没用到，所以给它们记 `@default:<令牌>`，等真有用到再按 §5.3 归级。
+   */
+  const SHADOW_UTIL_GEOMETRY = (() => {
+    const m = /boxShadow:\s*\{([\s\S]*?)\}/.exec(tailwindConfig);
+    const out = {};
+    if (m) for (const e of m[1].matchAll(/(\w+):\s*"([^"]*)"/g)) out[e[1]] = e[2].replace(/\s+/g, " ").trim();
+    return out;
+  })();
+  const utilGeometry = (tok) => {
+    const key = /^shadow-(.+)$/.exec(tok)?.[1];
+    return key && SHADOW_UTIL_GEOMETRY[key] ? SHADOW_UTIL_GEOMETRY[key] : `@default:${tok}`;
+  };
+
+  // 值账：判据认定「一处债」的同一刻，把它解析后的几何值记一条 key。
+  // 用**多重集**（数组 + 排序后逐字比对）而不是 Set：同一文件里「同选择器同值」的两条
+  // 本来就该是两条债，Set 会把它们并成一条，于是「删掉其中一条」在值账上看不出来。
+  // 它不改变 n（计数口径一个字没动），只是把计数已经看过的事实留下来比对。
+  const debtVals = [];
   const actual = {};
   for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
     const rel = path.relative(root, p).split(path.sep).join("/");
@@ -1576,13 +1601,22 @@ const isPureRingValue = (v) => {
         // 批次 AD：纯描边环（0 0 0 Npx）同属「不是投影层级」——§2.3 的 focus-visible 机制，
         // 和上面 var(--focus-*) 的豁免是同一件事的两种写法，两侧对称才算修完。
         if (isPureRingValue(v)) return;
+        // BD-45 值账：CSS 字面声明的 key 用「文件 ⑉ 选择器文本 ⑉ 值串」。
+        // 同选择器同值的两条会记成两条一样的 key——多重集正是为了这件事（Set 会并成一条，
+        // 「删掉其中一条」就看不见了），下面的条数闸核的是「值账条数 == 计数总债数」。
+        debtVals.push(`${rel}\t${d.parent.selector.replace(/\s+/g, " ").trim()}\t${v}`);
         n += 1;
       });
       ast.walkAtRules("apply", (a) => {
         if (PHANTOM_SHADOW.test(a.params)) {
           fail(`${rel} 里 @apply 写了 shadow-[var(...)] 幻影形式：Tailwind 产物实测只产 --tw-shadow-color、无 box-shadow 声明，界面画不出阴影但棘轮计数会降。改用 [box-shadow:var(--shadow-N)]。`);
         }
-        for (const tok of a.params.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
+        for (const tok of a.params.match(SHADOW_TOKEN) ?? []) {
+          if (!tsxShadowDebt(tok)) continue;
+          // BD-45 值账：@apply 的债长什么样由工具类**解析后的几何**决定，令牌名本身不算信息
+          debtVals.push(`${rel}\t${a.parent.selector.replace(/\s+/g, " ").trim()}\t${utilGeometry(tok)}`);
+          n += 1;
+        }
       });
     } else {
       // TSX/TS 侧剥注释后逐行扫（同圆角棘轮，防「不能写 shadow-[var(--focus-ring)]」
@@ -1593,7 +1627,13 @@ const isPureRingValue = (v) => {
         if (PHANTOM_SHADOW.test(line)) {
           fail(`${rel} 里写了 shadow-[var(...)] 幻影形式：Tailwind 产物实测只产 --tw-shadow-color、无 box-shadow 声明，界面画不出阴影但棘轮计数会降。改用 [box-shadow:var(--shadow-N)]。`);
         }
-        for (const tok of line.match(SHADOW_TOKEN) ?? []) if (tsxShadowDebt(tok)) n += 1;
+        for (const tok of line.match(SHADOW_TOKEN) ?? []) {
+          if (!tsxShadowDebt(tok)) continue;
+          // TSX 侧没有「选择器文本」这个概念（工具类挂在 JSX 字符串里），key 记
+          // 「文件 ⑉ 令牌 ⑉ 解析后的几何」。同一文件同令牌的两处仍是两条，多重集分得开。
+          debtVals.push(`${rel}\t${tok}\t${utilGeometry(tok)}`);
+          n += 1;
+        }
         // 必须用 exec 取捕获组：line.match(ARB) 带 /g 返回的是**整串数组**，
         // 那种写法下 m[1] 是字符串的第 2 个字符 "["，豁免判断永远为真、永远误判
         // ——焦点环 [box-shadow:var(--focus-ring)] 会被数成债（批次 I 实测踩过）。
@@ -1606,6 +1646,9 @@ const isPureRingValue = (v) => {
           // 下划线是 Tailwind 的空格写法。⚠ 反过来说，方括号工具类 shadow-[0_0_0_…]
           // 不豁免：批次 K 实测它只产 --tw-shadow-color，画不出来。
           if (isPureRingValue(bv.replace(/_/g, " "))) continue;
+          // 属性形式带字面几何：值串归一化后直接进 key（下划线是 Tailwind 的空格写法，
+          // 归一成空格才能让 `shadow-[0_1px_2px_rgba(...)]` 与 CSS 里同值串可比）。
+          debtVals.push(`${rel}\t[box-shadow]\t${bv.replace(/_/g, " ").replace(/\s+/g, " ").trim()}`);
           n += 1;
         }
       }
@@ -1625,6 +1668,87 @@ const isPureRingValue = (v) => {
   }
   const over = Object.keys(actual).filter((f) => actual[f] > (SHADOW_BUDGET[f] ?? 0));
   const stale = Object.keys(SHADOW_BUDGET).filter((f) => (SHADOW_BUDGET[f] ?? 0) > (actual[f] ?? 0));
+
+  /* ---- 批次 BD-45·阴影**值**账（把计数棘轮的口径补成逐条相等）----
+   *
+   * 为什么要有这一本：SHADOW_BUDGET 数的是**每个文件几处债**，它只认数量。实测三种漂移
+   * 全都全绿（都是本批先跑再写牙的，不是推断）：
+   *   ① editorial-studio.css:1459 那条 `0 1px 2px rgba(34,38,48,.05)` 的 alpha 改成 .40
+   *      ——投影强了 8 倍，计数还是 4/4，守卫 EXIT=0；
+   *   ② styles.css:271 的 `@apply … shadow-paper` 换成 `shadow-lift`
+   *      ——两处几何不同（0 18px 50px ↔ 0 6px 18px），计数还是 7/7，EXIT=0；
+   *   ③ tailwind.config.ts 的 boxShadow.paper 从 `0 18px 50px rgba(34,38,48,.1)`
+   *      改成 alpha .45——**全部 7 条皮肤债同时改版**，守卫压根没读这个文件，EXIT=0。
+   * ③ 最坏：它是「一次改动、全站夜读皮肤改版、判据沉默」的形状。计数棘轮能防住「多加一处」
+   * 和「还了不降预算」，防不住「把已登记的那处改强/改弱/换成另一档」。这正是 BD-41 那句话在
+   * 新判据上的重演——判据退化最坏的形式不是错判，是什么都不表现。
+   *
+   * 判据形状：每认定一处债，就把它**解析后的几何值**记一条 key（多重集，见上面注释），
+   * 排序后与账逐字比对；另加一道条数闸——值账条数必须等于计数总债数，否则说明某条
+   * `n += 1` 加了而 key 没记（两条口径必须同源，同 BD-43 的 aMiss/aStale 双锁思路）。
+   * 只登记**离刻度的债**：走 var(--shadow-*) 的、纯 inset 的、描边环的、DECOR 登记的一律不进
+   * 这本账——那些已经有各自的口径（令牌唯一真相、§5.3 几何豁免、BD-25 三者全等登记）。
+   *
+   * 立场沿用 BD-25：只登记、不判死，也不许拿它当「这些值就该这样」的设计背书。
+   * 重钉的唯一入口是 DESIGN_TOKEN_DUMP_SHADOW_VALUES=1，不许手写。
+   */
+  const SHADOW_VALUE_LEDGER = [
+        "src/features/settings/settings-controls.css\t.paper-slider::-webkit-slider-thumb\t0 1px 4px rgba(15, 20, 28, 0.22)",
+        "src/styles.css\t.reader-bg-amber\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-beans\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-green\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-night\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-parchment\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-warm\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles.css\t.reader-bg-white\t0 18px 50px rgba(34, 38, 48, 0.1)",
+        "src/styles/editorial-studio.css\t.cards-board-card, .background-card, .cards-detail-card, .history-empty\t0 1px 2px rgba(34, 38, 48, 0.05)",
+        "src/styles/editorial-studio.css\t.cards-board-card:hover\t0 6px 16px rgba(34, 38, 48, 0.09)",
+        "src/styles/editorial-studio.css\t.stats-card, .paper-panel\t0 1px 2px rgba(15, 20, 28, 0.04)",
+        "src/styles/editorial-studio.css\t:root[data-app-theme=\"dark\"] .stats-card, :root[data-app-theme=\"dark\"] .desktop-panel-card, :root[data-app-theme=\"dark\"] .paper-panel, :root[data-app-theme=\"dark\"] .desktop-library-panel\tinset 0 1px 0 rgba(255, 255, 255, 0.045), 0 10px 30px rgba(0, 0, 0, 0.38)",
+  ].sort();
+  const measured = debtVals.slice().sort();
+  // 重钉账本的唯一入口（同 DEAD / ABSENCE 两本的手法）：账由实测生成，不许手写。
+  if (process.env.DESIGN_TOKEN_DUMP_SHADOW_VALUES === "1") {
+    console.log(`${TAG} [DESIGN_TOKEN_DUMP_SHADOW_VALUES] 阴影值账 ${measured.length} 条（逐字粘进 SHADOW_VALUE_LEDGER）：`);
+    for (const k of measured) console.log(`    ${JSON.stringify(k)},`);
+  }
+  const vMiss = measured.filter((k) => !SHADOW_VALUE_LEDGER.includes(k));
+  const vStale = SHADOW_VALUE_LEDGER.filter((k) => !measured.includes(k));
+  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
+  // 条数闸：值账与计数账必须同源同量。哪天新加一条 `n += 1` 忘了配 debtVals.push，
+  // 那条债就从值账上隐形了——这比少一个 key 严重得多，因为它让「这条债长什么样」无人认。
+  if (measured.length !== totalActual) {
+    fail(
+      `第 8 步阴影值账：计数账认出 ${totalActual} 处债，值账只记到 ${measured.length} 条——两条口径不同源。` +
+        `要么某处 ` + "`n += 1`" + ` 旁边漏了记值（那条债从此在值账上隐形），要么值账多记了不判债的分支。` +
+        `先核是哪一侧的分支数错了，别改数字凑平。`
+    );
+  }
+  if (vMiss.length || vStale.length) {
+    const parts = [];
+    if (vMiss.length) {
+      parts.push(
+        `新增 ${vMiss.length} 条不在账上（现存 ${SHADOW_VALUE_LEDGER.length} 条）：` +
+          vMiss.slice(0, 6).map((k) => k.replace(/\t/g, " ⑉ ")).join(" ｜ ")
+      );
+    }
+    if (vStale.length) {
+      parts.push(
+        `账上 ${vStale.length} 条已经扫不到：` + vStale.slice(0, 6).map((k) => k.replace(/\t/g, " ⑉ ")).join(" ｜ ")
+      );
+    }
+    fail(
+      `第 8 步阴影值账与实测不符（${parts.join("；")}）。\n` +
+        `  这条的语义是**几何漂移**而不是数量变化：同一处债换了值（改强、改弱、换成另一个自定义档、` +
+        `或 tailwind.config.ts 里 boxShadow 的几何被改）——文件计数一个字没动，界面上却改版了。\n` +
+        `  改法只有两种：\n` +
+        `  · 这处值漂移是本批有意的设计改动 ⇒ 重跑 DESIGN_TOKEN_DUMP_SHADOW_VALUES=1 拿新账整块粘回来，` +
+        `并在提交信息里写清是哪一页、观感怎么变（不许顺手「同步一下账」）。\n` +
+        `  · 不是有意的 ⇒ 把值改回去。特别注意 tailwind.config.ts 那一支：它一改就是名下**全部**债同时改版，` +
+        `本账把它的几何读回来当 key 的一部分，就是为了这件事。\n` +
+        `  ⚠ 别拿「计数没超预算」当理由：这本账就是为了让数量不变的改版也红。`
+    );
+  }
   if (over.length) {
     fail(
       `第 8 步阴影刻度：${over.length} 个文件的离刻度阴影比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SHADOW_BUDGET[f] ?? 0})`).join("、")}。` +
@@ -1638,8 +1762,7 @@ const isPureRingValue = (v) => {
         `把 SHADOW_BUDGET 里对应数字改成当前计数（这就是这一批还掉的量，提交信息里写清楚是哪一页）。`
     );
   }
-  const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
-  console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+  console.log(`${TAG} [第 8 步待收敛] 阴影离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算；值账 ${SHADOW_VALUE_LEDGER.length} 条逐条相等，BD-45）`);
 }
 
 /* -------------------------------- 规格 §5.1 间距刻度棘轮（第 8 步批次 AW 立项） */

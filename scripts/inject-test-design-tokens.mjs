@@ -806,6 +806,22 @@ const cases = [
   ["批次 BD-43 还了债不降预算（上一颗的对称面）：把同文件现存那条离刻度 `gap: 7px;`（:104）改成刻度上的 8px——离刻度从 18 掉到 17、缺席账一条不动，必须红，红因只能是「预算没跟着降」（实测全部失败项里就这一条），绝不许是缺席账。这颗和上一颗一起把「新判据上线不许把旧棘轮的咬合力吸走」钉死：两本账各数各的，谁也不许替谁沉默", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  gap: 7px;", "  gap: 8px;"), /预算没跟着降/],
   ["批次 BD-44·还债不许悄悄退化（本账的 aMiss 侧反向）：删掉 CardDynamicFields.tsx 里那条 `import \"@/features/creation/cards/cards-local.css\"`——它就是 BD-44 还掉那 8 条缺席的正解，删掉之后「写作台那条路整路不带表」立刻复活。必须红，实测**只有 1 项**失败、红因正是「新增 8 条…（现存 8 条）」那一行。⚠ 这颗和①②③不同：那三颗换过锚（钉在活债上的牙，还债当天就哑），这颗钉的是**修法本身**——它测的不是账，是「这条 import 还在不在」，所以债还得越干净它越有牙：注入后判据回到 BD-44 前的缺陷态，账空 ⇒ 8 条全是账外新增。它同时是「样式归组件自己带，单一真相」这个决定的执行机制——以后谁把这行当冗余删了，守卫当场叫", () => mutate("src/features/creation/cards/components/CardDynamicFields.tsx", "import \"@/features/creation/cards/cards-local.css\";\n", ""), /新增 8 条/],
 
+  // ---- 批次 BD-45：阴影**值**账（计数棘轮只会数数量，本批把口径补成逐条相等）----
+  // 立项依据是三种实测的「数量不变的改版」，本批之前全都全绿：
+  //   ① 已登记的债 alpha 改强 8 倍（.05→.40）：文件计数 4/4 不动 → EXIT=0；
+  //   ② @apply 的 shadow-paper 换成 shadow-lift：计数 7/7 不动 → EXIT=0；
+  //   ③ tailwind.config.ts 里 boxShadow.paper 的几何被改：**名下 7 条皮肤债同时改版**，
+  //      而守卫压根没读过这份配置 → EXIT=0。③ 最坏——它是「一次改动、全站夜读皮肤改版、
+  //      判据沉默」。下面五颗牙的形状全部先手工对守卫跑过：①②③④ 各自 HIT，⑤ 必须绿。
+  // 备份清单里这三份（editorial-studio.css:14 / tailwind.config.ts:13 /
+  // verify-design-tokens.mjs:100）早就在，本批不用补条目。
+  // 本批 +5 颗（⑤ 要绿）：电池 277 → 282 用例，必须绿 89 → 90。
+  ["批次 BD-45·值账还债不改账（aStale 侧）：往守卫自己的 SHADOW_VALUE_LEDGER 顶部塞一条幻影行（.bd45-phantom-host）——实测 12 条里没有它。必须红，红话是「账上 1 条已经扫不到」，实测**只有这一项**失败。手法同 BD-41 那两颗死账牙与 BD-43 的 ABSENCE 幻影牙：账由实测生成，改账不许绕过 dump 入口", () => mutate("scripts/verify-design-tokens.mjs", "  const SHADOW_VALUE_LEDGER = [\n", "  const SHADOW_VALUE_LEDGER = [\n        \"src/styles.css\\t.bd45-phantom-host\\t0 1px 2px rgba(9, 9, 9, 0.5)\", // 电池注入的幻影行，验完立刻还原\n"), /账上 1 条已经扫不到/],
+  ["批次 BD-45·几何漂移（计数抓不到的那一类，本批判据的正面）：把 editorial-studio.css:1459 那条已登记的卡族投影 alpha 从 .05 改成 .40——投影强了 8 倍，**文件计数一个字没动**（4/4），旧棘轮在本批之前是 EXIT=0 的。必须红，实测「新增 1 条不在账上（现存 12 条）」且只有这一项失败。这颗就是本批立项的理由本身", () => mutate("src/styles/editorial-studio.css", "  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.05);", "  box-shadow: 0 1px 2px rgba(34, 38, 48, 0.40);"), /新增 1 条不在账上/],
+  ["批次 BD-45·爆炸半径最大的一支：改 tailwind.config.ts 里 boxShadow.paper 的几何（alpha .1→.45）。它一处都不碰 CSS 文件，改的却是**全部 7 条夜读皮肤债**的实渲值——本批之前守卫压根没读这份配置，实测全绿。现在几何被读回来当 key 的一部分，必须红，实测「新增 7 条不在账上」。这颗同时钉住「令牌名不换、只改令牌内容」这种最隐蔽的改版", () => mutate("tailwind.config.ts", "paper: \"0 18px 50px rgba(34, 38, 48, 0.1)\",", "paper: \"0 18px 50px rgba(34, 38, 48, 0.45)\","), /新增 7 条不在账上/],
+  ["批次 BD-45·两条口径必须同源（值账自己的退化）：删掉 CSS 分支那行 debtVals.push（`n += 1` 留着）——计数照常、值账少记 4 条。必须红，而且实测**两项**一起咬：先「计数账认出 12 处债，值账只记到 8 条——两条口径不同源」，再「账上 4 条已经扫不到」。这道条数闸是本批判据的 BD-43 自检⑦ 那一档：以后谁新加一条判债分支忘了记账，那条债在值账上就隐形了，而那正是「不表现为任何东西」的退化形状", () => mutate("scripts/verify-design-tokens.mjs", "        debtVals.push(`${rel}\\t${d.parent.selector.replace(/\\s+/g, \" \").trim()}\\t${v}`);\n", ""), /两条口径不同源/],
+  ["批次 BD-45·反向（值账不许变成行序账）：把账里相邻两行（.reader-bg-amber / .reader-bg-beans）的顺序颠倒——两条都在实测里、一条不多一条不少。守卫必须保持**绿**：账与实测各自动 sort 后逐字比，本判据只核「集合相同」，不核「谁写在前面」。这颗防的是判据长出一条没人要的「行序约定」——重钉时 dump 顺序一变就逼人改源码，那属于判据自己给自己加戏", () => mutate("scripts/verify-design-tokens.mjs", "        \"src/styles.css\\t.reader-bg-amber\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n        \"src/styles.css\\t.reader-bg-beans\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n", "        \"src/styles.css\\t.reader-bg-beans\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n        \"src/styles.css\\t.reader-bg-amber\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n"), null],
+
 ];
 
 let bad = 0;
