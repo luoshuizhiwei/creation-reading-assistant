@@ -656,7 +656,7 @@ const cases = [
   // ⚠ 反向用例的取值刻意挑**同在刻度外/刻度内**的组合（34→36、16→12）：换成 40/10 这类
   // 会挪动间距台账计数的值，先被间距棘轮咬红，就测不到「MEASURE 只咬挤字的方向」这件事了。
   ["批次 BD-22 MEASURE·反向：≤900 档内边距 16→12（刻度内换刻度内），可用宽 751−24−2−9=696 更富余，不该红——判据只咬「挤掉字」的方向", () => mutate("src/features/creation/preview/preview-local.css", "    padding: 20px 16px 30px;", "    padding: 20px 12px 30px;"), null],
-  ["批次 BD-22 MEASURE·反向：两侧**一起**改（padding 34→36 同时补偿项 68→72）可用宽仍是 672，不该红——它守的是算术关系，不是三个数字本身", () => { mutate("src/features/creation/preview/preview-local.css", "  padding: 30px 34px 44px;", "  padding: 30px 36px 44px;"); mutate("src/features/creation/preview/preview-local.css", "  max-width: calc(42em + 68px + 2px + 9px);", "  max-width: calc(42em + 72px + 2px + 9px);"); }, null],
+  ["批次 BD-22 立、BD-46 换锚·MEASURE 反向：三处**一起**同挪（正文 padding-inline 32→40、cap 补偿 64→80、纸壳 738→754）——42em 仍是 42em，①②两条算术关系全保持，不该红。⚠ 这颗原先钉的是通读页 ③ 那对（preview padding 34→36 + 补偿 68→72），BD-46 的间距值账把那个形状咬红了，而且咬得对：34px 是**已登记的离刻度债**，改它就是像素漂移，值账上线后那个形状不再是「零像素合法迁移」的样本。判据不放宽，牙换锚——①②那对挪到刻度上的另一对（32/64 与 40/80 全在 §5.1 档上、738/754 不是间距属性），实测唯一变化的是 MEASURE 读的算术，间距/阴影两本账一个字不动，所以「守的是关系、不是三个数字」这条语义原样保住了。⚠ 同批实测的对照：只挪 padding 一侧（32→40、补偿留着 64）当场红在 MEASURE——半边挪不许绿，这条没有因为换锚变松", () => { mutate("src/styles/editorial-studio.css", "  padding-inline: 32px;", "  padding-inline: 40px;"); mutate("src/styles/editorial-studio.css", "  max-width: calc(42em + 64px);", "  max-width: calc(42em + 80px);"); mutate("src/styles.css", "min(738px,", "min(754px,"); }, null],
   // 批次 BD-23：SEAL 不变量的牙。印章一族这四处刚被收回 §3.2 八档（18→20 ×2、15→16），
   // 本批新造的风险不是「字号离刻度」（那本账已经绿了），而是**有人顺手挪那只盒子或那圈环**
   // ——值在刻度上、盒子变小，字就压到内环上，而这在 vitest 与截图里都看不出来。
@@ -821,6 +821,28 @@ const cases = [
   ["批次 BD-45·爆炸半径最大的一支：改 tailwind.config.ts 里 boxShadow.paper 的几何（alpha .1→.45）。它一处都不碰 CSS 文件，改的却是**全部 7 条夜读皮肤债**的实渲值——本批之前守卫压根没读这份配置，实测全绿。现在几何被读回来当 key 的一部分，必须红，实测「新增 7 条不在账上」。这颗同时钉住「令牌名不换、只改令牌内容」这种最隐蔽的改版", () => mutate("tailwind.config.ts", "paper: \"0 18px 50px rgba(34, 38, 48, 0.1)\",", "paper: \"0 18px 50px rgba(34, 38, 48, 0.45)\","), /新增 7 条不在账上/],
   ["批次 BD-45·两条口径必须同源（值账自己的退化）：删掉 CSS 分支那行 debtVals.push（`n += 1` 留着）——计数照常、值账少记 4 条。必须红，而且实测**两项**一起咬：先「计数账认出 12 处债，值账只记到 8 条——两条口径不同源」，再「账上 4 条已经扫不到」。这道条数闸是本批判据的 BD-43 自检⑦ 那一档：以后谁新加一条判债分支忘了记账，那条债在值账上就隐形了，而那正是「不表现为任何东西」的退化形状", () => mutate("scripts/verify-design-tokens.mjs", "        debtVals.push(`${rel}\\t${d.parent.selector.replace(/\\s+/g, \" \").trim()}\\t${v}`);\n", ""), /两条口径不同源/],
   ["批次 BD-45·反向（值账不许变成行序账）：把账里相邻两行（.reader-bg-amber / .reader-bg-beans）的顺序颠倒——两条都在实测里、一条不多一条不少。守卫必须保持**绿**：账与实测各自动 sort 后逐字比，本判据只核「集合相同」，不核「谁写在前面」。这颗防的是判据长出一条没人要的「行序约定」——重钉时 dump 顺序一变就逼人改源码，那属于判据自己给自己加戏", () => mutate("scripts/verify-design-tokens.mjs", "        \"src/styles.css\\t.reader-bg-amber\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n        \"src/styles.css\\t.reader-bg-beans\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n", "        \"src/styles.css\\t.reader-bg-beans\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n        \"src/styles.css\\t.reader-bg-amber\\t0 18px 50px rgba(34, 38, 48, 0.1)\",\n"), null],
+
+  // ---- 批次 BD-46：间距**值**账（BD-45 那套手法里唯一没被间距直接照搬的是账的形状）----
+  // 立项依据同样是实测的「数量不变的改版」，本批之前三种漂移在间距棘轮上全绿：
+  //   ① writing-quick-reference.css 的 `gap: 7px` → 15px：文件计数 18/18 不动 → EXIT=0；
+  //   ② 同一处 → 11px：同上 → EXIT=0；
+  //   ③ 反向对照：→ 8px（真还债）当场红——说明旧的计数账一直管用的是「数量」这一头，
+  //      而「这一处债长什么样」从头到尾没人认。
+  // ⚠ 形状没有照抄 BD-45 的逐声明账：间距债实测 271 处 / 20 文件，逐条钉进守卫会把判据
+  //   撑成没人读的文件；实测压缩成「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」是 136 桶。压缩后
+  //   判据与逐条账在「桶成员」「桶内计数」两个方向等价（下面 ②③ 两颗分别咬这两个方向），
+  //   多出来的性质是**换写法不换像素不再红**（⑦ 那颗必须绿是这条设计的验收，不是附赠）。
+  // 备份清单里这三份（writing-quick-reference.css:103 / LibraryPage.tsx:31 /
+  // verify-design-tokens.mjs:100）早就在，本批不用补条目。
+  // 本批 +8 颗（⑦⑧ 要绿）：电池 282 → 290 用例，必须绿 90 → 92。
+  ["批次 BD-46·还债不改账（aStale 侧）：往守卫自己的 SPACING_VALUE_LEDGER 顶部塞一条幻影桶（padding 99px）——实测 136 桶里没有它。必须红，红话是「账上 1 桶已经扫不到」，实测**只有这一项**失败。手法同 BD-45 阴影那颗与 BD-41/BD-43 的死账牙：账由实测生成（唯一入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1），改账不许绕过它", () => mutate("scripts/verify-design-tokens.mjs", "  const SPACING_VALUE_LEDGER = [\n", "  const SPACING_VALUE_LEDGER = [\n        \"src/styles.css\\tpadding\\t99px\\t1\", // 电池注入的幻影桶，验完立刻还原\n"), /账上 1 桶已经扫不到/],
+  ["批次 BD-46·像素漂移（计数抓不到的那一类，本批立项理由本身）：把 writing-quick-reference.css:104 那条已登记的 `gap: 7px` 改成 15px——间隙翻了 2 倍多，**文件计数一个字没动**（18/18），本批之前实测 EXIT=0。必须红，实测「新增 1 桶不在账上（现存 136 桶）」且只有这一项失败", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  gap: 7px;", "  gap: 15px;"), /新增 1 桶不在账上/],
+  ["批次 BD-46·总数也不变的桶漂移（值账独有价值，比计数账更窄的一格）：把 .writing-quick-list li 那条 `padding: 7px 15px` 改成 `7px 13px`——两条都离刻度，所以**文件计数 18/18、全站总数 271/271 全都不动**，BD-45 之前的判据连「有东西变了」都感觉不到。现在 15px 桶少一笔、13px 桶多一笔，必须红，实测**只有这一项**失败。这颗和上一颗分工不同：② 换的是值，这颗换的是**桶的精确组成**（直方图把计数写进 key，就是为了这里不脱敏）", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  padding: 7px 15px;", "  padding: 7px 13px;"), /间距值账与实测不符/],
+  ["批次 BD-46·属性漂移（同文件同像素换个属性也是改版）：把那条 `gap: 7px;` 写成 `padding: 7px;`——像素一个没变、总数没变，但 flex 子间距变成了内衬，版面必然重排。BD-46 裁定 key 用**原属性**而非家族归一（padding-top 不折成 padding），这颗就是那条裁定的验收：必须红。⚠ 实测报「新增 1 桶（padding 7px ⑉ 6）」+「账上 2 桶扫不到」——padding 7px 桶本来就在账上、只是计数被这一笔推进去，所以桶计数与桶成员同时漂，判据照样一次抓全", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  gap: 7px;", "  padding: 7px;"), /间距值账与实测不符/],
+  ["批次 BD-46·TSX 侧值漂移（工具类那一支不许只数不认值）：把 LibraryPage 那条 `pl-9`（36px，离刻度、已登记）改成 `pl-7`（28px，同样离刻度）——文件计数 1/1 不动、桶总数不动，只有缩进从 36px 变成 28px。本批之前实测 EXIT=0；现在必须红，实测「新增 1 桶不在账上」且只有这一项失败。这颗钉的是 key 里那个缩写属性名（pl 而非 padding-left）：工具类侧的属性口径与 CSS 侧不同，一旦哪天有人把它归一成 padding-left，这颗会红在「桶成员」上", () => mutate("src/features/library/LibraryPage.tsx", "paper-input w-full pl-9", "paper-input w-full pl-7"), /新增 1 桶不在账上/],
+  ["批次 BD-46·两条口径必须同源（值账自己的退化）：删掉 CSS 分支那行 spVal（`n += 1` 留着）——计数照常 271、值账只剩 TSX 那 5 处。必须红，而且实测**两项**一起咬：先「计数账认出 271 处债，值账只记到 5 处——两条口径不同源」，再「账上 131 桶已经扫不到」。这把尺子量的正是它自己：以后谁新加一条判债分支忘了记账，那笔债在值账上就隐形了，而「不表现为任何东西」是 BD-34/BD-43 反复付过学费的那类退化", () => mutate("scripts/verify-design-tokens.mjs", "            n += 1;\n            spVal(rel, d.prop, px);", "            n += 1;"), /两条口径不同源/],
+  ["批次 BD-46·反向（换写法不换像素必须保持绿，本批判据的形状不是「只准写 px」）：把 .writing-quick-list li > button 那条 `padding: 7px` 改成 `0.4375rem`——折算同为 7px、桶计数不变，守卫必须**绿**。⚠ 这颗不是「顺手不该红」：本仓 rem 折算是名义 16px 口径（见间距棘轮 ② 与字号账里 appFontScale 那段），判据拿折算后的 px 当 key 的一部分，才换来这一条零像素合法迁移不被咬。BD-45 那种带选择器/几何的逐条账同样绿，但**带行号的**逐条账会当场把它咬红——这颗就是当初没照抄那条形状的第二条理由", () => mutate("src/features/creation/editor/writing-quick-reference.css", "padding: 7px; cursor: pointer;", "padding: 0.4375rem; cursor: pointer;"), null],
+  ["批次 BD-46·反向（值账不许变成行序账，同 BD-45 那颗）：把账里相邻两桶（cards-local.css gap 3px ⑉ 5 / gap 7px ⑉ 2）顺序颠倒——两桶都在实测里、计数一字不差。守卫必须保持**绿**：dump 的输出顺序不是约定，重钉时顺序一变不许逼人改源码", () => mutate("scripts/verify-design-tokens.mjs", "        \"src/features/creation/cards/cards-local.css\\tgap\\t3px\\t5\",\n        \"src/features/creation/cards/cards-local.css\\tgap\\t7px\\t2\",\n", "        \"src/features/creation/cards/cards-local.css\\tgap\\t7px\\t2\",\n        \"src/features/creation/cards/cards-local.css\\tgap\\t3px\\t5\",\n"), null],
 
 ];
 

@@ -1952,6 +1952,32 @@ const isPureRingValue = (v) => {
 
   const actual = {};
   const ledger = [];
+  // BD-46 值账：直方图 key =「文件 ⑉ 属性(@apply/工具类另有写法) ⑉ 折算后的 px」，值 = 处数。
+  // 为什么不是 BD-45 那种逐声明一行账：这本账实测 266+5=271 条，逐条钉会把守卫撑成没人读的
+  // 文件——间距债的形状是「同一个散写值在一处文件里成簇出现」（实测 distinct 文件×属性×值
+  // 只有 136 个）。直方图照样抓得住本批实测的那两种漂移（7→15、7→11 都让桶的计数或成员变样），
+  // 而「桶的精确组成+每桶计数」与「逐条账」在这两个方向上判据等价；对**换写法不换像素**
+  // （7px ↔ 0.4375rem，折算同值）它保持绿——那是本仓认可的零像素合法迁移，逐条带行号的账
+  // 反而会把它咬红。行号不进 key 也是同一理由：往文件里加一行不该让后面全部债的 key 漂移。
+  const spValMap = new Map();
+  const spVal = (rel, prop, px) => {
+    const k = `${rel}\t${prop}\t${px}px`;
+    spValMap.set(k, (spValMap.get(k) || 0) + 1);
+  };
+  // 工具类侧的「属性」取类目前的这一段（gap-3 → gap、mx-7 → mx、hover:pt-3 → pt）：
+  // 同文件同像素的两个不同属性是两个桶——把 gap: 14 写成 padding: 14 是布局改动，该红。
+  // ⚠ BD-46 裁定：key 用**原属性**（padding-top 就是 padding-top），不用「家族归一」
+  //   （padding-top/padding-bottom → padding）。CSS 侧探针实测家族版 120 桶、原始版 131 桶
+  //   （+TSX 工具类 5 桶 = 本账 136），只差 11 行，但家族版会让「把同一笔 14px 债从
+  //   padding-top 挪到 padding-bottom」这种真布局改动保持绿——判据要抓的漂移里，
+  //   换方向和换数值同级。代价是简写拆长写（`padding: 14px 14px` 拆成四条边）会红；
+  //   那种写法在本仓实测零使用，且它同时改变每桶计数，按 BD-45 语义本来就该走
+  //   「有意改动 ⇒ 重 dump 重钉」的流程，不算误伤。
+  const spUtilityProp = (whole) => {
+    const s = whole.replace(/^[^a-z]+/, "").replace(/^[a-z-]+:/g, "");
+    const m = /^(?:gap-x|gap-y|space-x|space-y|px|py|ps|pe|pt|pr|pb|pl|pi|mx|my|ms|me|mt|mr|mb|ml|mi|p|m|gap)/.exec(s);
+    return m ? m[0] : s;
+  };
   for (const p of allSource.filter((x) => /\.(css|tsx|ts)$/.test(x) && !x.includes(`${path.sep}__tests__${path.sep}`))) {
     const rel = path.relative(root, p).split(path.sep).join("/");
     const src = readFileSync(p, "utf8");
@@ -1970,6 +1996,7 @@ const isPureRingValue = (v) => {
           const px = spLengthPx(t);
           if (px !== null && !SP_SCALE_PX.has(px)) {
             n += 1;
+            spVal(rel, d.prop, px);
             ledger.push(`${rel}:${d.source.start.line} ${d.prop}: ${t}`);
           }
         }
@@ -1980,6 +2007,7 @@ const isPureRingValue = (v) => {
           const px = spUtilityPx(m[1]);
           if (px !== null && !SP_SCALE_PX.has(px)) {
             n += 1;
+            spVal(rel, "@apply " + spUtilityProp(m[0]), px);
             ledger.push(`${rel}:${a.source.start.line} @apply …-${m[1]}`);
           }
         }
@@ -1988,7 +2016,10 @@ const isPureRingValue = (v) => {
       for (const line of preserveNewlines(src).split("\n")) {
         for (const m of line.matchAll(SP_UTILITY)) {
           const px = spUtilityPx(m[1]);
-          if (px !== null && !SP_SCALE_PX.has(px)) n += 1;
+          if (px !== null && !SP_SCALE_PX.has(px)) {
+            n += 1;
+            spVal(rel, spUtilityProp(m[0]), px);
+          }
         }
       }
     }
@@ -1997,6 +2028,207 @@ const isPureRingValue = (v) => {
 
   const over = Object.keys(actual).filter((f) => actual[f] > (SPACING_BUDGET[f] ?? 0));
   const stale = Object.keys(SPACING_BUDGET).filter((f) => (SPACING_BUDGET[f] ?? 0) > (actual[f] ?? 0));
+  // ── BD-46 值账（直方图版）：手法沿用 BD-45，形状按本账规模裁定。
+  // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
+  // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
+  // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=136、总处数=271 都来自 dump。
+  const SPACING_VALUE_LEDGER = [
+        "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
+        "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
+        "src/features/creation/cards/cards-local.css\tmargin\t14px\t2",
+        "src/features/creation/cards/cards-local.css\tmargin\t9px\t2",
+        "src/features/creation/cards/cards-local.css\tpadding\t13px\t2",
+        "src/features/creation/cards/cards-local.css\tpadding\t3px\t1",
+        "src/features/creation/cards/cards-local.css\tpadding\t9px\t3",
+        "src/features/creation/cards/cards-local.css\tpadding-left\t9px\t1",
+        "src/features/creation/cards/relation-graph.css\tpadding\t3px\t2",
+        "src/features/creation/cards/relation-graph.css\tpadding\t7px\t1",
+        "src/features/creation/cards/relation-graph.css\tpadding\t9px\t1",
+        "src/features/creation/editor/continuous-editor.css\tpadding\t120px\t1",
+        "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
+        "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",
+        "src/features/creation/editor/scene-radar.css\tgap\t5px\t1",
+        "src/features/creation/editor/scene-radar.css\tmargin-bottom\t14px\t1",
+        "src/features/creation/editor/scene-radar.css\tpadding\t3px\t1",
+        "src/features/creation/editor/scene-radar.css\tpadding\t5px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tgap\t5px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tgap\t7px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tmargin\t9px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tmargin-bottom\t9px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t11px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t14px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t15px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t18px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t5px\t1",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t7px\t5",
+        "src/features/creation/editor/writing-quick-reference.css\tpadding\t9px\t4",
+        "src/features/creation/editor/writing-reference.css\tgap\t1px\t1",
+        "src/features/creation/editor/writing-reference.css\tgap\t3px\t1",
+        "src/features/creation/editor/writing-reference.css\tmargin-top\t18px\t1",
+        "src/features/creation/editor/writing-reference.css\tpadding\t3px\t1",
+        "src/features/creation/editor/writing-reference.css\tpadding\t5px\t1",
+        "src/features/creation/editor/writing-reference.css\tpadding\t7px\t1",
+        "src/features/creation/editor/writing-reference.css\tpadding\t9px\t1",
+        "src/features/creation/history/history-local.css\tgap\t22px\t1",
+        "src/features/creation/history/history-local.css\tmargin-bottom\t3px\t1",
+        "src/features/creation/history/history-local.css\tpadding\t11px\t1",
+        "src/features/creation/history/history-local.css\tpadding\t14px\t2",
+        "src/features/creation/history/history-local.css\tpadding\t1px\t2",
+        "src/features/creation/history/history-local.css\tpadding\t7px\t1",
+        "src/features/creation/history/history-local.css\tpadding\t9px\t1",
+        "src/features/creation/inbox/components/InboxQuickInput.tsx\tpr\t56px\t1",
+        "src/features/creation/operation/operation.css\tpadding\t14px\t2",
+        "src/features/creation/operation/operation.css\tpadding\t7px\t1",
+        "src/features/creation/operation/operation.css\tpadding\t9px\t1",
+        "src/features/creation/outline/outline-reorg.css\tpadding\t3px\t2",
+        "src/features/creation/outline/outline-reorg.css\tpadding\t9px\t1",
+        "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
+        "src/features/creation/preview/preview-local.css\tmargin\t14px\t3",
+        "src/features/creation/preview/preview-local.css\tmargin\t18px\t1",
+        "src/features/creation/preview/preview-local.css\tmargin\t26px\t1",
+        "src/features/creation/preview/preview-local.css\tmargin\t3px\t1",
+        "src/features/creation/preview/preview-local.css\tmargin-top\t34px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding\t14px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding\t18px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding\t22px\t2",
+        "src/features/creation/preview/preview-local.css\tpadding\t26px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding\t30px\t3",
+        "src/features/creation/preview/preview-local.css\tpadding\t34px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding\t44px\t1",
+        "src/features/creation/preview/preview-local.css\tpadding-top\t26px\t1",
+        "src/features/creation/replace/replace.css\tpadding\t18px\t1",
+        "src/features/creation/replace/replace.css\tpadding\t22px\t1",
+        "src/features/creation/replace/replace.css\tpadding\t7px\t1",
+        "src/features/library/ExcerptPicker.tsx\tml\t28px\t1",
+        "src/features/library/LibraryPage.tsx\tpl\t36px\t1",
+        "src/features/library/reader/components/ReaderSearchOverlay.tsx\tpl\t28px\t1",
+        "src/features/library/toc/TocList.tsx\tpr\t28px\t1",
+        "src/features/search/search.css\tgap\t5px\t1",
+        "src/features/search/search.css\tgap\t7px\t1",
+        "src/features/search/search.css\tpadding\t14px\t1",
+        "src/features/search/search.css\tpadding\t1px\t2",
+        "src/features/search/search.css\tpadding\t5px\t2",
+        "src/features/search/search.css\tpadding\t64px\t1",
+        "src/features/search/search.css\tpadding\t7px\t1",
+        "src/features/settings/encryption/encryption.css\tpadding\t11px\t1",
+        "src/styles.css\tgap\t11px\t1",
+        "src/styles.css\tgap\t14px\t8",
+        "src/styles.css\tgap\t18px\t1",
+        "src/styles.css\tgap\t1px\t1",
+        "src/styles.css\tgap\t3px\t4",
+        "src/styles.css\tgap\t5px\t11",
+        "src/styles.css\tgap\t7px\t7",
+        "src/styles.css\tgap\t9px\t1",
+        "src/styles.css\tmargin\t18px\t2",
+        "src/styles.css\tmargin\t28px\t1",
+        "src/styles.css\tmargin-bottom\t14px\t1",
+        "src/styles.css\tmargin-top\t14px\t1",
+        "src/styles.css\tmargin-top\t1px\t1",
+        "src/styles.css\tmargin-top\t3px\t1",
+        "src/styles.css\tmargin-top\t7px\t1",
+        "src/styles.css\tpadding\t11px\t4",
+        "src/styles.css\tpadding\t14px\t15",
+        "src/styles.css\tpadding\t18px\t2",
+        "src/styles.css\tpadding\t1px\t5",
+        "src/styles.css\tpadding\t26px\t1",
+        "src/styles.css\tpadding\t28px\t1",
+        "src/styles.css\tpadding\t3px\t4",
+        "src/styles.css\tpadding\t5px\t7",
+        "src/styles.css\tpadding\t7px\t4",
+        "src/styles.css\tpadding\t96px\t1",
+        "src/styles.css\tpadding\t9px\t9",
+        "src/styles.css\tpadding-left\t18px\t1",
+        "src/styles.css\tpadding-left\t7px\t1",
+        "src/styles.css\tpadding-right\t18px\t1",
+        "src/styles.css\tpadding-right\t7px\t1",
+        "src/styles/editorial-studio.css\tgap\t11px\t1",
+        "src/styles/editorial-studio.css\tgap\t14px\t1",
+        "src/styles/editorial-studio.css\tgap\t18px\t2",
+        "src/styles/editorial-studio.css\tgap\t3px\t2",
+        "src/styles/editorial-studio.css\tgap\t5px\t1",
+        "src/styles/editorial-studio.css\tgap\t7px\t1",
+        "src/styles/editorial-studio.css\tmargin\t14px\t2",
+        "src/styles/editorial-studio.css\tmargin-top\t3px\t2",
+        "src/styles/editorial-studio.css\tmargin-top\t7px\t1",
+        "src/styles/editorial-studio.css\tpadding\t11px\t1",
+        "src/styles/editorial-studio.css\tpadding\t13px\t4",
+        "src/styles/editorial-studio.css\tpadding\t14px\t9",
+        "src/styles/editorial-studio.css\tpadding\t17px\t1",
+        "src/styles/editorial-studio.css\tpadding\t18px\t7",
+        "src/styles/editorial-studio.css\tpadding\t22px\t1",
+        "src/styles/editorial-studio.css\tpadding\t26px\t3",
+        "src/styles/editorial-studio.css\tpadding\t30px\t3",
+        "src/styles/editorial-studio.css\tpadding\t36px\t1",
+        "src/styles/editorial-studio.css\tpadding\t3px\t5",
+        "src/styles/editorial-studio.css\tpadding\t44px\t1",
+        "src/styles/editorial-studio.css\tpadding\t50px\t1",
+        "src/styles/editorial-studio.css\tpadding\t5px\t1",
+        "src/styles/editorial-studio.css\tpadding\t7px\t5",
+        "src/styles/editorial-studio.css\tpadding\t9px\t4",
+        "src/styles/editorial-studio.css\tpadding-bottom\t13px\t2",
+        "src/styles/editorial-studio.css\tpadding-left\t14px\t1",
+        "src/styles/editorial-studio.css\tpadding-left\t44px\t1",
+        "src/styles/editorial-studio.css\tpadding-top\t28px\t1",
+  ].sort();
+  {
+    const measuredSp = [...spValMap.entries()]
+      .map(([k, c]) => `${k}\t${c}`)
+      .sort();
+    const spHistTotal = [...spValMap.values()].reduce((a, b) => a + b, 0);
+    // 不叫 totalActual：外层那条计数行后面还要声明它，块里同名 const 会踩 TDZ。
+    const spCountTotal = Object.values(actual).reduce((a, b) => a + b, 0);
+    // 条数闸（BD-45 同款）：直方图总量必须等于计数账总量。哪天新增一条 `n += 1`
+    // 忘了配 spVal，那笔债就从值账隐形——这把尺子量的正是它自己。
+    if (spHistTotal !== spCountTotal) {
+      fail(
+        `第 8 步间距值账：计数账认出 ${spCountTotal} 处债，值账只记到 ${spHistTotal} 处——两条口径不同源。` +
+          `要么某处 ` + "`n += 1`" + ` 旁边漏了 spVal（那笔债从此在值账上隐形），要么值账多记了不判债的分支。` +
+          `先核是哪一侧的分支数错了，别改数字凑平。`
+      );
+    }
+    // 重钉账本的唯一入口：账由实测生成，不许手写。
+    if (process.env.DESIGN_TOKEN_DUMP_SPACING_VALUES === "1") {
+      console.log(`${TAG} [DESIGN_TOKEN_DUMP_SPACING_VALUES] 间距值账 ${measuredSp.length} 桶 / 共 ${spHistTotal} 处（逐字粘进 SPACING_VALUE_LEDGER）：`);
+      for (const k of measuredSp) console.log(`    ${JSON.stringify(k)},`);
+    }
+    // 空账 = 立项没钉（BD-43 手法：dump 跑完必须粘回来，否则这里红，不静默放过）。
+    if (SPACING_VALUE_LEDGER.length === 0 && process.env.DESIGN_TOKEN_DUMP_SPACING_VALUES !== "1") {
+      fail(
+        `第 8 步间距值账：账本空着，实测 ${measuredSp.length} 桶 / 共 ${spHistTotal} 处——` +
+          `钉账入口是 DESIGN_TOKEN_DUMP_SPACING_VALUES=1，跑一遍把输出整块粘进 SPACING_VALUE_LEDGER。` +
+          `空账不是「还没开始判」，是判据缝好没钉上，值漂移照样沉默。`
+      );
+    }
+    const pinnedSp = SPACING_VALUE_LEDGER.slice().sort();
+    const sMiss = measuredSp.filter((k) => !pinnedSp.includes(k));
+    const sStale = pinnedSp.filter((k) => !measuredSp.includes(k));
+    if (sMiss.length || sStale.length) {
+      const parts = [];
+      if (sMiss.length) {
+        parts.push(
+          `新增 ${sMiss.length} 桶不在账上（现存 ${pinnedSp.length} 桶）：` +
+            sMiss.slice(0, 6).map((k) => k.replace(/\t/g, " ⑉ ")).join(" ｜ ")
+        );
+      }
+      if (sStale.length) {
+        parts.push(
+          `账上 ${sStale.length} 桶已经扫不到：` + sStale.slice(0, 6).map((k) => k.replace(/\t/g, " ⑉ ")).join(" ｜ ")
+        );
+      }
+      fail(
+        `第 8 步间距值账与实测不符（${parts.join("；")}）。\n` +
+          `  这条的语义是**像素漂移或计数漂移**而不是文件级预算：同一处债换了值（7px→15px）、` +
+          `同一桶里多一笔少一笔、属性换了（gap→padding）——文件计数一个字没动，版面却变了。\n` +
+          `  改法只有两种：\n` +
+          `  · 这是本批有意的设计改动 ⇒ 重跑 DESIGN_TOKEN_DUMP_SPACING_VALUES=1 拿新账整块粘回来，` +
+          `并在提交信息里写清是哪一页、版面怎么变（不许顺手「同步一下账」）。\n` +
+          `  · 不是有意的 ⇒ 把值改回去。\n` +
+          `  ⚠ 别拿「计数没超预算」当理由：这本账就是为了让数量不变的改版也红（同 BD-45 阴影值账）。` +
+          `  ⚠ 折算后同像素的换写法（7px ↔ 0.4375rem）不红——那是本仓认可的零像素合法迁移。`
+      );
+    }
+  }
   if (over.length) {
     fail(
       `第 8 步间距刻度：${over.length} 个文件的离刻度间距比冻结预算多——${over.slice(0, 5).map((f) => `${f}(${actual[f]}/${SPACING_BUDGET[f] ?? 0})`).join("、")}。` +
@@ -2013,7 +2245,7 @@ const isPureRingValue = (v) => {
     );
   }
   const totalActual = Object.values(actual).reduce((a, b) => a + b, 0);
-  console.log(`${TAG} [第 8 步待收敛] 间距离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算）`);
+  console.log(`${TAG} [第 8 步待收敛] 间距离刻度 ${totalActual} 处（${Object.keys(actual).length} 个文件，已按文件冻结预算；值账 ${SPACING_VALUE_LEDGER.length} 桶逐桶相等，BD-46）`);
   if (process.argv.includes("--show-spacing-ledger")) {
     console.log(`${TAG} 间距账本 ${ledger.length} 行：`);
     for (const l of ledger) console.log("    " + l);
