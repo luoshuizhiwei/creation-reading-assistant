@@ -1901,7 +1901,11 @@ const isPureRingValue = (v) => {
   //   本批把它搬到仍有活债的 TSX 宿主（见 inject 脚本 BD-25 注释）。
   const SPACING_BUDGET = {
     "src/features/creation/cards/cards-local.css": 18,
-    "src/features/creation/cards/relation-graph.css": 4,
+    // 批次 BD-47（间距还债批·关系图）：条目 4→0 **整条移除**（空表=新增即红，比留 0 更诚实）。
+    // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
+    // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
+    // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump。
     "src/features/creation/editor/continuous-editor.css": 2,
     "src/features/creation/editor/scene-radar.css": 5,
     "src/features/creation/editor/writing-quick-reference.css": 18,
@@ -1953,8 +1957,8 @@ const isPureRingValue = (v) => {
   const actual = {};
   const ledger = [];
   // BD-46 值账：直方图 key =「文件 ⑉ 属性(@apply/工具类另有写法) ⑉ 折算后的 px」，值 = 处数。
-  // 为什么不是 BD-45 那种逐声明一行账：这本账实测 266+5=271 条，逐条钉会把守卫撑成没人读的
-  // 文件——间距债的形状是「同一个散写值在一处文件里成簇出现」（实测 distinct 文件×属性×值
+  // 为什么不是 BD-45 那种逐声明一行账：这本账在 BD-46 立项时实测 266+5=271 条，逐条钉会把守卫撑成没人读的
+  // 文件——间距债的形状是「同一个散写值在一处文件里成簇出现」（立项实测 distinct 文件×属性×值
   // 只有 136 个）。直方图照样抓得住本批实测的那两种漂移（7→15、7→11 都让桶的计数或成员变样），
   // 而「桶的精确组成+每桶计数」与「逐条账」在这两个方向上判据等价；对**换写法不换像素**
   // （7px ↔ 0.4375rem，折算同值）它保持绿——那是本仓认可的零像素合法迁移，逐条带行号的账
@@ -1968,7 +1972,7 @@ const isPureRingValue = (v) => {
   // 同文件同像素的两个不同属性是两个桶——把 gap: 14 写成 padding: 14 是布局改动，该红。
   // ⚠ BD-46 裁定：key 用**原属性**（padding-top 就是 padding-top），不用「家族归一」
   //   （padding-top/padding-bottom → padding）。CSS 侧探针实测家族版 120 桶、原始版 131 桶
-  //   （+TSX 工具类 5 桶 = 本账 136），只差 11 行，但家族版会让「把同一笔 14px 债从
+  //   （+TSX 工具类 5 桶 = 立项时本账 136），只差 11 行，但家族版会让「把同一笔 14px 债从
   //   padding-top 挪到 padding-bottom」这种真布局改动保持绿——判据要抓的漂移里，
   //   换方向和换数值同级。代价是简写拆长写（`padding: 14px 14px` 拆成四条边）会红；
   //   那种写法在本仓实测零使用，且它同时改变每桶计数，按 BD-45 语义本来就该走
@@ -2032,7 +2036,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=136、总处数=271 都来自 dump。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=133、总处数=267 都来自 dump（BD-47 还掉关系图 4 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2042,9 +2046,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/cards/cards-local.css\tpadding\t3px\t1",
         "src/features/creation/cards/cards-local.css\tpadding\t9px\t3",
         "src/features/creation/cards/cards-local.css\tpadding-left\t9px\t1",
-        "src/features/creation/cards/relation-graph.css\tpadding\t3px\t2",
-        "src/features/creation/cards/relation-graph.css\tpadding\t7px\t1",
-        "src/features/creation/cards/relation-graph.css\tpadding\t9px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t120px\t1",
         "src/features/creation/editor/continuous-editor.css\tpadding\t18px\t1",
         "src/features/creation/editor/scene-radar.css\tgap\t14px\t1",

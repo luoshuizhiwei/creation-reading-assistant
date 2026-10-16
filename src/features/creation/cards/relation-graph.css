@@ -40,7 +40,16 @@
 }
 
 .relation-graph-chip {
-  padding: 3px 9px;
+  /* 批次 BD-47（间距还债批·关系图）：原 `padding: 3px 9px` 两个数全离 §5.1 刻度。
+     就近上档 3→4、就近下档 9→8——与本仓已有的两枚 999px 药丸同值
+     （cards-local.css:215 .project-card-link-status、本文件 :21 .relation-graph-search
+     都是 4px 8px；那是 chip 类控件已有的刻度内档位，不是本批自创）。
+     实测观感（Electron 真渲探针）：chip 42×25 → 40×27（左右各 −1、上下各 +1），
+     下方内容整体下移 2px——本批唯一的外观变化，其余五屏截图逐字节全等。
+     ⚠ 全等的是截图不是探针：对照屏（全局卡片库）的离屏注入探针在 after 侧也读到
+     4px/8px——同会话里这张表已随设定卡页载入，注入的 markup 吃的是已载入的表。
+     截图里没有这些节点，像素不动；拿探针当「那张页面变了」的证据是错的口径。 */
+  padding: 4px 8px;
   border: 1px solid var(--border-strong);
   border-radius: 999px;
   background: var(--bg-surface);
@@ -62,7 +71,10 @@
 
 .relation-graph-zoom button {
   min-width: 28px;
-  padding: 3px 7px;
+  /* 批次 BD-47：同 chip 那条的理由，收成本文件 .relation-graph-search 已在用的
+     4px 8px（同文件同族控件取同值，不是新档）。min-width 28px 本来就是这条的
+     宽度真相（字形 7px + 16 + 边框 2 < 28），所以横向实测零变化。 */
+  padding: 4px 8px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-1);
   background: var(--bg-surface);
