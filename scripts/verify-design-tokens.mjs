@@ -4665,62 +4665,38 @@ const hostPredicate = (() => {
       // 账：宿主 ⑅ 块级表 ⑅ 选择器文本 ⑅ 属性 ⑅ @上下文。不含行号（同 DEAD_LEDGER 的理由）。
       // 重钉的唯一入口是 DESIGN_TOKEN_DUMP_ABSENCE=1，不许手写。
       //
-      // 现存 8 条全部是**同一条缺陷的 8 个属性**：CardDynamicFields.tsx 的附件说明行
-      // （:159-164 那个 <p className="cards-attachment-note">）样式只在 cards-local.css:137
-      // 声明，而这个共享组件有 3 条载入路，其中「写作台 → 速查面板」那条整路没人 import 过
-      // cards-local.css（WritingQuickReferencePanel.tsx:4 静态引它，自己却只带
-      // writing-quick-reference.css）。同一行 markup 外观因此取决于这次会话先点没点过设定卡：
-      //   先进设定卡再开速查面板 → 12px/18px 灰字、1px 虚线框、6px 圆角、8px 10px 内边距；
-      //   直接进写作台开速查面板        → 16px/24px 正文色、无边框无底色无内边距（整块裸奔）。
-      //   ⚠ 实测补一句（数值取自 /tmp/bd43-faithful-{A,B}.json，不是推的）：八条里**只有 margin
-      //     两侧都是 0px**——Tailwind preflight 那条 `p, ol, ul…{margin:0}` 已经把 <p> 的默认外边距
-      //     归零了，所以 cards-local 那条 margin: 0 是一条**冗余声明**，它缺席时画出来的一样。
-      //     两侧 noteRect 都是 319×72——**高度相等不是没漂**，两侧各是 3 行，只是行高一档之差
-      //     正好被内边距+边框补齐：A = 3×18 + 上下内边距 16 + 上下边框 2 = 72，B = 3×24 + 0 = 72。
-      //     ⚠ 这两式是**反推**（拿实测的 72 与实测的 18/24、16、2 凑出来的，两侧都正好整除、自洽），
-      //     行数没有单独量过；要说的是「相等的高度可以来自完全不同的算法」，别把它当反向证据。
-      //     确凿漂的是字号/行高/颜色/边框/底色/圆角六样（computed 值直接读到，A 有 B 无）。
-      //     登记 margin 那条仍然正确：判据说的是「这张表在那条路上不在场」这个事实——它是同一条
-      //     缺陷的 8 个声明之一，将来真修法（搬进静态表 / 配后代规则）要一起处理，不能只还六条。
-      // ⚠ 两侧都是**活着的**：设定卡页面上那 8 条就在画，所以它不是 DEAD_LEDGER 那种死声明，
-      // 本账也不能靠「删掉一条」来还——只能让两条真正分工，或把这份样式挪到那条路也带得动的地方。
-      // 为什么本批不还（照 BD-25 间距加档、BD-31 立账那两次的立场：判据先行、改版另批）：
-      //   · 最省事的「CardDynamicFields.tsx 自己 import cards-local.css」本批**实测跑过一遍**
-      //     （临时加那行 import、跑守卫、还原）：守卫只红两处，都是本账的 aStale + 自检⑤⑥
-      //     ——发射顺序**没动**（仍报「静态 4 张按行序、块级 16 张在其后」）。
-      //     ⚠ 我原先在这里写的是「会把这张表推进 main.tsx 的静态闭包、全局块级表从此排到它
-      //     后面、DEAD_LEDGER / WANT_ORDER 要一起重算」——**那是错的**，实测推翻：App.tsx 里
-      //     每个页面都是 lazy(() => import(...))，CardDynamicFields 经 GlobalCardLibraryPage
-      //     可达，而 GlobalCardLibraryPage **自己就是动态入口**，所以它下面的一切都不在
-      //     main.tsx 的静态闭包里。留这段是为了别再犯同一个想当然。
-      //     那条 import 真正的代价也比我说的小得多，逐个数过：cards-local 里整条只有一个裸类的
-      //     规则共 **37 条**，把类名拿去 cards 目录之外的每个 .ts/.tsx 里比对，**命中 0 条**——
-      //     写作台那条路上唯一会新落地的裸类就是 .cards-attachment-note 自己（正是要修的那条）。
-      //     ⚠ 有两个名字看着像冲突、其实不是：BackgroundPage.tsx:136 的 `confirming` 与 :83 的
-      //     `cards-search`，在 cards-local 里只出现在**复合/后代**选择器里
-      //     （:58 `.cards-icon-btn.confirming`、:241 `.cards-relation-delete.confirming`、
-      //     :180 `.project-card-link-filters .cards-search`），那个页面并没有带 cards-icon-btn /
-      //     cards-relation-delete / project-card-link-filters，所以两条都不落地。判据是判据、
-      //     词面 grep 不算数——这条跟 BD-40 那个 StatsPage 词面陷阱是同一课。
-      //     于是本批不还的**真实**理由只剩三条，都不是「改版风险大」：① 那 8 个属性从「裸奔」
-      //     变「有样式」本身是可感知改版，必须 A/B 截图核（截图规矩不因风险小而豁免）；
-      //     ② 那张 517 行的表会进 WritingDesk chunk 的 preload deps（产物实测现在不带）；
-      //     ③ 账要重钉、自检⑤ 的 k1 要重锚。
-      //   · 另一条路是给速查面板配后代规则：那张表**已经有**这一族
-      //     （writing-quick-reference.css:146-151 `.writing-quick-detail .cards-field /
-      //     -label / .cards-input / textarea.cards-input`），只补 .cards-attachment-note 一条，
-      //     不动 chunk 依赖、不牵动那 37 条裸规则。代价是这 8 个属性从此有**两份**真相，
-      //     而 BD-31 那条同键异值判据看不见跨作用域的重复（后代选择器不是同键）。
-      //     BD-44 两条都要试、按截图挑：先试 import（单一真相），像素意外就退回后代规则。
+      // **BD-44 还清：账 8 → 0。** 那 8 条是同一条缺陷的 8 个属性（原档全文见本仓库
+      // git blame / BD-43 提交说明）：CardDynamicFields.tsx 的附件说明行样式只在
+      // cards-local.css:137 声明，而这个共享组件的三条载入路里「写作台 → 速查面板」那条
+      // 整路没人 import 过那张表 ⇒ 同一行 markup 的外观取决于这次会话先点没点过设定卡
+      // （实测 A：12px/18px 灰字、1px dashed、6px 圆角、8px 10px；B：16px/24px 正文色、
+      //  无边框无底色无内边距）。修法是本批选的那条：**组件自己带上这张表**
+      // （CardDynamicFields.tsx 顶部 import cards-local.css），单一真相、不动发射顺序
+      // （仍静态 4 张 + 块级 16 张）、不进后代规则那份第二真相。
+      // 预检实测过这条路的代价：cards-local 全部 86 条选择器里，在写作台那条路的静态闭包
+      // 上「词面够得着」的只有 1 条，就是 .cards-attachment-note 本身——也就是说除了我们要
+      // 修的那一条，这张表落到写作台上不产生任何新作用面。像素按截图规矩另核（见提交说明）。
+      //
+      // 为什么这条账**清零之后**判据仍然不能撤：它测的是「载入路带不带表」这一维，与
+      // DEAD_LEDGER（同键异值）是两个口径，BD-43 立它就是因为同键异值看不见这一维。
+      // 清零后判据的活体证据改由 benign（判过但放过）名单提供，见下面自检⑤⑥。
+      //
+      // 原档留下的四条教训（跟这批的口径绑在一起，删了会被重新踩一遍）：
+      //   ① 八条里 margin 那条**两侧实测都是 0px**——Tailwind preflight 的
+      //     `… p, pre {margin:0}` 同值兜住了，所以 cards-local 那条 margin: 0 本身是冗余声明。
+      //     判据登记它仍然对（判的是「这张表在那条路上不在场」这个事实），但别把八条都说成「会漂」。
+      //   ② 两侧 noteRect 都是 319×72，**高度相等不是没漂**：A = 3×18 行高 + 内边距 16 + 边框 2，
+      //     B = 3×24。行高一档之差正好被内边距+边框补齐——相等的高度可以来自完全不同的算法。
+      //     （那两式是拿实测 72/18/24/16/2 反推的、两侧自洽，行数没单独量过。）
+      //   ③ 「把表 import 进来会牵连一堆裸类」这个担心，词面看着成立、判据上不成立：
+      //     BackgroundPage.tsx:136 的 `confirming`、:83 的 `cards-search` 在 cards-local 里只出现在
+      //     复合/后代选择器（`.cards-icon-btn.confirming` 等）里，那个页面不带那些祖先类 ⇒ 不落地。
+      //     与 BD-40 那个 StatsPage 词面陷阱同一课：**判据是判据，grep 不算数**。
+      //   ④ 我先前断言「组件自己 import 会把这张表推进 main.tsx 的静态闭包、发射顺序整体换位」
+      //     ——**错的**，实测推翻：App.tsx 每个页面都是 lazy()，GlobalCardLibraryPage 自己就是动态
+      //     入口，它下面的一切都不在 main.tsx 的静态闭包里。加那行 import 后守卫仍报「静态 4 张 /
+      //     块级 16 张」。想当然的爆炸半径不是不还债的理由，先跑一遍再写。
       const ABSENCE_LEDGER = new Set([
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tmargin\t—", // :138 margin: 0（⚠ 实测两侧都是 0px——Tailwind preflight 的 p{margin:0} 同值兜住了；登记它是因为「声明表在那条路上不在场」这个事实，不是因为它会漂）
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tfont-size\t—", // :139 12px（裸奔侧掉回 16px）
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tline-height\t—", // :140 1.5（裸奔侧 24px）
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tcolor\t—", // :141 --text-dim
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tbackground\t—", // :142 --surface-alt
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tborder\t—", // :143 1px dashed
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tborder-radius\t—", // :144 6px
-        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tpadding\t—", // :145 8px 10px
       ]);
       const { entryStatic, hostEntries } = MOUNT;
       // 裸类索引：cls -> Map(`${rel}\t${ctx}` -> Set(prop))，从已建好的 sheets 里取
@@ -4739,6 +4715,9 @@ const hostPredicate = (() => {
         }
       }
       const absence = new Map();
+      // 「判过但放过」的名单（每条路都带表 = 良性）。BD-44 还清账之后 absence 为空，
+      // 这一份就是判据仍在做功的活体证据；自检⑧ 钉它非空、且 .history-modal 那族在其中。
+      const benign = new Set();
       for (const [cls, per] of propsByBare) {
         const rels = [...new Set([...per.keys()].map((k) => k.split("\t")[0]))];
         if (!rels.some((r) => EMISSION.lazy.has(r))) continue; // 没有块级来源，谈不上挂载覆盖
@@ -4761,7 +4740,13 @@ const hostPredicate = (() => {
               // ⚠ 别改成「每条路都不带才报」：那恰好把漂移漏掉，只会剩「这行 markup 全仓
               // 都画不出来」这一族（另一回事，归 markup 批），漂移反而没人管了。
               const lacking = es.filter((e) => !declRels.some((r) => entryStatic.get(e).has(r)));
-              if (!lacking.length) continue; // 每条路都带表 ⇒ 任何会话里都在场
+              if (!lacking.length) {
+                // 每条路都带表 ⇒ 任何会话里都在场。记进「放过名单」：本批判据还清账之后 absence
+                // 恒为空，「判不出」与「判不动」在账面上长得一模一样，所以判据**确实在跑**这件事
+                // 需要一个正面的活体证据，不能只靠缺席条数。
+                benign.add(`${h}\t${rel}\t${"." + cls}\t${prop}\t${ctx || "—"}`);
+                continue;
+              }
               const key = `${h}\t${rel}\t${"." + cls}\t${prop}\t${ctx || "—"}`;
               if (!absence.has(key)) absence.set(key, { h, rel, cls, prop, ctx, declRels, es, lacking });
             }
@@ -4785,8 +4770,11 @@ const hostPredicate = (() => {
           parts.push(
             `新增 ${aMiss.length} 条「属性只在块级表声明、而有载入路载得起宿主却整条不带那张表」不在账上（现存 ${absence.size} 条）：${aMiss.slice(0, 3).map(show).join(" ｜ ")}` +
               `\n  这条的语义是**活缺陷**而不是死声明：属性在它自己的页面上在画，只有沿那条路渲染时整块缺席（外观随导航顺序变；BD-42 实测过 4px↔6px 的同形状漂移）。` +
-              `\n  要么让宿主自己 import 那张表（⚠ 那张表会进 main.tsx 的静态闭包、发射顺序整体换位，必须连 DEAD_LEDGER / WANT_ORDER / 本账一起重算），` +
-              `\n  要么把这条属性搬进静态表，要么把类名拆开各用各的（BD-42 的修法）。确实判得对又本批还不完的，才允许进账，并写明为什么本批不还。`
+              `\n  先查宿主在不在 main.tsx 的**静态**闭包里（第 8 步的 entryStatic 自己就能核，别猜）：` +
+              `\n  · 在 ⇒ 让宿主 import 那张表会把它变成静态表、发射顺序整体换位，必须连 DEAD_LEDGER / WANT_ORDER / 本账一起重算；` +
+              `\n  · 不在（宿主只经 lazy() 可达，BD-44 那支）⇒ import 不动顺序（实测仍「静态 4 张 / 块级 16 张」），` +
+              `代价只是那张表的裸类会在这条路上落地，用选择器可达性逐条数一遍。` +
+              `\n  其余两条路：把这条属性搬进静态表，或把类名拆开各用各的（BD-42 的修法）。确实判得对又本批还不完的，才允许进账，并写明为什么本批不还。`
           );
         if (aStale.length)
           parts.push(`账上 ${aStale.length} 条现在扫不到了（还了没改账，或那张表换了挂载路）：${aStale.slice(0, 3).map(show).join(" ｜ ")}`);
@@ -4804,19 +4792,32 @@ const hostPredicate = (() => {
       //     同样够不到那张表的 import 链（BD-31 的并集口径里它是不覆盖的），本判据按
       //     载入路判就必须放过——两个口径各自的用处正差在这一对上。
       {
-        const k1 = "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tfont-size\t—";
-        const k2 = "src/features/creation/history/CreateMilestoneDialog.tsx\tsrc/features/creation/history/history-local.css\t.history-modal\twidth\t—";
-        if (!absence.has(k1) || absence.has(k2)) {
+        // 自检⑤（BD-44 重锚）：BD-43 那版钉的是「.cards-attachment-note 判出缺席 / .history-modal
+        // 判良性」这一对**一判一跳**。本批把那条真缺陷合法还掉了，k1 从此不在缺席里——牙按设计
+        // 咬人（红话正是「判出缺席=false … 不是**一判一跳**」），现在换锚。
+        // ⚠ 不能再随便挑一条「判得出的缺席」顶上：账已清零，任何一条缺席都是**新缺陷**，
+        // 拿新缺陷当锚等于把人质锁进哨兵（BD-41 为这事把两颗死账牙从账上解绑，同一课）。
+        // 所以⑤ 改钉**良性那一侧**：.history-modal 这一族必须在「判过但放过」的名单里——
+        // 它同时钉住两个方向：豁免逻辑还在跑（没被改成「只要有一条不带就报」），
+        // 以及那条「按载入路判」的口径没漂回 BD-31 的并集口径（并集口径下 .history-modal 不覆盖）。
+        const benignKeys = [...benign];
+        const histRe = /\.history-modal\t/;
+        if (!benignKeys.some((k) => histRe.test(k))) {
           fail(
-            `第 8 步属性级挂载覆盖判据退化（BD-43 自检⑤⑥）：` +
-              `「.cards-attachment-note × cards-local.css 判出缺席=${absence.has(k1)}」与` +
-              `「.history-modal × history-local.css 判良性=${!absence.has(k2)}」现在不是**一判一跳**。` +
-              `两个都不判说明载入路枚举或静态闭包坏了（这条判据从此隐身）；两个都判说明「只要有一条路带表就放过」那层豁免塌了——` +
-              `本仓几十处「子组件的样式由挂载它的页面带进来」的良性形状会全被记成缺陷，等于把 BD-31 的「证不了就别判死」反着写。`
+            `第 8 步属性级挂载覆盖判据退化（BD-44 自检⑤）：.history-modal 一族不在「判过但放过」的名单里` +
+              `（名单现在 ${benign.size} 条）。这条判据的良性侧全靠「每条路都带表就放过」那层豁免撑着，` +
+              `豁免塌了会把本仓几十处「子组件的样式由挂载它的页面带进来」全记成缺陷（BD-43 实测饱和到 1576 条）；` +
+              `豁免整个没了则是口径漂回 BD-31 的并集口径。两种都是这条判据最危险的退化方向。`
           );
         }
+        // 自检⑥（BD-43 立、BD-44 收紧）：入口数量闸。<10 那条只能挡住「动态边解析彻底坏掉」，
+        // 挡不住账清零后「判据不再做功」这种静默失效，所以补一道**放过名单的下限**：
+        // 全站块级表的裸类属性 × 宿主 这个笛卡尔积本来就远大于 100，名单空掉意味着扫描本身断了。
         if (entryStatic.size < 10) {
           fail(`第 8 步属性级挂载覆盖判据退化（BD-43 自检⑥）：只枚举出 ${entryStatic.size} 个载入入口，少于 src 下 import() 的量级——动态边解析坏掉时「载得起它的路」会被算少，本判据整体失灵。`);
+        }
+        if (benign.size < 100) {
+          fail(`第 8 步属性级挂载覆盖判据退化（BD-44 自检⑥·加强）：「判过但放过」的名单只有 ${benign.size} 条，低于全站块级表裸属性 × 宿主 的量级下限 100——缺席账清零之后，这条名单是判据仍在做功的唯一活体证据；它掉下来说明扫描本身（sheets 索引 / 宿主发现 / 载入路枚举）断了，而不是债还干净了。`);
         }
         // 自检⑦（BD-43 补钉）：桶文件 re-export 边**必须算静态边**，而且这条要用图上的事实测，
         // 不能用判决结果测——实测踩过：把 sj.add(r) 那行删掉，本批 8 条一条不少、守卫全绿，
@@ -4841,7 +4842,7 @@ const hostPredicate = (() => {
       }
       if (!aMiss.length && !aStale.length) {
         console.log(
-          `${TAG} [第 8 步属性级挂载覆盖] ${absence.size} 条「属性只在块级表声明、而存在一条载得起宿主的载入路整条不带那张表」已逐条钉账（BD-43 立项：静态图证不了运行时组件树，先只登记不判死）；载入入口 ${entryStatic.size} 个、静态表 ${EMISSION.eager.length} 张、块级表 ${EMISSION.lazy.size} 张`
+          `${TAG} [第 8 步属性级挂载覆盖] 缺席 ${absence.size} 条${absence.size ? "已逐条钉账" : "（BD-44 还清账，判据不撤）"}；判过但放过 ${benign.size} 条（每条载入路都带表 = 良性，自检⑤⑥ 钉的就是这份名单还在动）；载入入口 ${entryStatic.size} 个、静态表 ${EMISSION.eager.length} 张、块级表 ${EMISSION.lazy.size} 张`
         );
       }
     }

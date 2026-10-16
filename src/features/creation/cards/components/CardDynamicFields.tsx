@@ -1,5 +1,10 @@
 import { Select } from "@/components/ui";
 import type { CardFieldSchema, CardSummary } from "@/types/creation";
+// 批次 BD-44：这张表原本只由 CardsPage / GlobalCardLibraryPage 两个页面带进来，
+// 而本组件还有第三条载入路（写作台 → 速查面板），那条路整路不带它 ⇒ 附件说明行的
+// 8 个属性在那条路上一个像素都不画，外观随导航顺序漂（守卫第 8 步属性级挂载覆盖，
+// 账见 verify-design-tokens.mjs 的 ABSENCE_LEDGER）。样式归组件自己带，单一真相。
+import "@/features/creation/cards/cards-local.css";
 
 export function displayFieldValue(
   field: CardFieldSchema,

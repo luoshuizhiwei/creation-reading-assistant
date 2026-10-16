@@ -100,7 +100,10 @@ const files = [
   "scripts/verify-design-tokens.mjs",
   // 批次 BD-43：属性级挂载覆盖那八颗牙里有两颗改这份表（新债超预算 / 还债不降预算），
   // 它原先不在备份清单里——mutate() 对未备份文件直接拒改，不补上那两颗当场 SKIP 计为无效。
-  "src/features/creation/editor/writing-quick-reference.css"
+  "src/features/creation/editor/writing-quick-reference.css",
+  // 批次 BD-44 的⑨号牙（还债不许悄悄退化）改这份：那条 import cards-local.css 就是
+  // 8 条缺席的正解，删掉它必须当场红——债还得掉，牙不能跟着哑。
+  "src/features/creation/cards/components/CardDynamicFields.tsx"
   // 阴影棘轮的「还了债不降预算」用例原先钉在 EpubPageTurnButtons 的 shadow-lift 上，
   // 批次 K 把那份债迁走就把锚点拆了——用例随即 SKIP、harness 计为无效，不会静默失效。
   // K 之后还债用例统一改钉 LibraryPage（它同时是圆角/状态色/棘轮多条用例的宿主，
@@ -781,22 +784,27 @@ const cases = [
   // 本批判据的形状是「属性只在块级表声明、而存在一条载得起宿主的载入路整条不带那张表」，
   // 账上 8 条全是 .cards-attachment-note 一族。它和 BD-31 那条并集口径是**两个口径**，
   // 区别恰好钉在 .history-modal 上（见下 ④／⑤ 两颗）——所以这颗新判据自己的退化也得有牙。
-  // 备份清单已覆盖这几份：WritingDesk.tsx（S 批）、cards-local.css（R 批）、
-  // history-local.css（BD-30 批）、writing-quick-reference.css（本批新加，⑦⑧ 两颗的宿主）、
-  // verify-design-tokens.mjs（BD-41 批，③④⑤ 三颗拿判据自己当宿主）。
-  // ⚠ 下面每一条的注入形状都在改牙之前**手工跑过一遍守卫**，红因与计数是实测值不是推断：
-  //   ① 失败 2 项（账不符 + 自检⑤⑥）② 新增 1 条 / 现存 9 条 ③ 新增 1576 条（饱和值）
-  //   ④ 断边本身**不表现为任何东西**——守卫全绿，只有配上自检⑦ 才红（失败 3 项全是⑦）
-  //   ⑤ 只枚举出 1 个载入入口 ⑥ exit=0 ⑦ 预算 18→19 超 ⑧ 只剩「预算没跟着降」一条红。
-  //   ④ 那颗是本批最贵的一课：判据退化最坏的形式不是错判，是什么都不表现，见它的正文。
-  ["批次 BD-43 还债不改账（本账的 aStale 侧）：给 WritingDesk.tsx 追加一条 import cards-local.css——那条「载得起宿主却不带表」的写作台路当场消失，判出缺席从 8 条变 0 条，账上 8 条全成死条目。必须红，且实测**同时**咬两处（失败 2 项）：「账上 8 条现在扫不到了」，以及自检⑤⑥那条一判一跳（k1 是账上唯一的条目，合法还债后判不出——这正是 BD-44 真还债时**必须重锚**的那颗，红话先把手续提示到位）。⚠ 另一条注入路（删掉 cards-local.css:137 那条规则）同样能让 k1 消失，但它连带动的是**在画的声明**，别的判据会先叫；这条不删任何声明，红因只在账上", () => mutate("src/features/creation/editor/WritingDesk.tsx", 'import "@/features/creation/editor/continuous-editor.css";', 'import "@/features/creation/editor/continuous-editor.css";\nimport "@/features/creation/cards/cards-local.css";'), /属性级挂载覆盖账与实测不符/],
-  ["批次 BD-43 账外新增（本账的 aMiss 侧）：往 cards-local.css 的 .cards-attachment-note 注入一条 text-decoration: underline——它同样只在这张块级表声明、同一条写作台路整条不带，于是第 9 条缺席落进账外（实测「新增 1 条…现存 9 条」）。⚠ 选 text-decoration 有三个理由：不在间距棘轮属性集（SP_PROPS 只认 gap/padding/margin 族）、不在颜色与死声明两本账的锚上（值不是颜色，也没有第二处同键声明）、它还是 underline 这种没人会「顺手合法写出来」的值——红因不会串到别的账", () => mutate("src/features/creation/cards/cards-local.css", ".cards-attachment-note {\n  margin: 0;\n", ".cards-attachment-note {\n  text-decoration: underline;\n  margin: 0;\n"), /属性级挂载覆盖账与实测不符/],
-  ["批次 BD-43 豁免塌了（误报侧最坏形状）：删掉「每条路都带表就放过」那行 continue——「存在一条不带表的路」当场变成「只要有一条不带就报」，本仓惯例（子组件的样式由挂载它的页面带进来）那几十处良性全被记成缺陷，实测饱和到 1576 条账外。必须红，且必须让自检⑤⑥一起咬住：.history-modal × history-local.css 本该判良性、此刻被判成缺陷。这颗守的方向不是漏检而是「把良性全报出来」——报出来的东西没人看，等于判据自己把自己淹死", () => mutate("scripts/verify-design-tokens.mjs", "              if (!lacking.length) continue; // 每条路都带表 ⇒ 任何会话里都在场\n", ""), /属性级挂载覆盖判据退化/],
+  // 备份清单已覆盖这几份：cards-local.css（R 批）、history-local.css（BD-30 批）、
+  // writing-quick-reference.css（本批新加，⑦⑧ 两颗的宿主）、verify-design-tokens.mjs
+  // （BD-41 批，①③④⑤ 四颗拿判据自己当宿主）。
+  // ⚠ BD-44 换过三颗锚（①②③）：BD-43 那版把它们钉在**账上那条活缺陷**上，而 BD-44 把缺陷
+  // 合法还掉了——钉在债上的牙，还债当天就哑（BD-41 为这件事把两颗死账牙从账上解绑，同一课）。
+  // 新形状仍然逐条手工预演过：① 账里塞幻影行 → 失败 1 项「账上 1 条现在扫不到了」；
+  // ② 单文件合成缺席 → 失败 1 项「新增 1 条…现存 1 条」，红因只在缺席账；
+  // ③ 豁免改成永不放行 → 缺席暴涨 1584 条 + 自检⑤ + 自检⑥·加强 双双红。
+  // BD-44 另加第九颗（还债不许悄悄退化）：钉的是**修法本身**而不是账——删掉宿主那条
+  // import 就回到缺陷态，实测只有 1 项失败、「新增 8 条…（现存 8 条）」。账还清了它
+  // 照样有牙，这正是①②③换锚时想要的性质；代价是它多备份了一个业务组件源文件。
+  // 本批合计 9 颗，电池 276 → 277 用例（必须绿 89 不变——第九颗要求红）。
+  ["批次 BD-43 立、BD-44 换锚·还债不改账（本账的 aStale 侧）：往守卫自己的 ABSENCE_LEDGER 里塞一条幻影行（bd44-phantom-host）——实测清单里没有它，账上却多了一条。必须红，红话是「账上 1 条现在扫不到了」，而且实测**只有这一项**失败（别的判据一概不跟着叫）。⚠ BD-43 原版这颗钉在「给 WritingDesk 加一条 import cards-local.css」上，那正好是 BD-44 的真修法，还完债账清空、这条注入就不再改变任何东西（牙哑）；现在改成直接改账，账空不空都测得出「账与实测必须逐字相同」这一头，同 BD-41 那两颗死账牙的手法", () => mutate("scripts/verify-design-tokens.mjs", "      const ABSENCE_LEDGER = new Set([\n      ]);", "      const ABSENCE_LEDGER = new Set([\n        \"src/styles.css\\t\\t.bd44-phantom-host\\tcolor\\t—\", // 电池注入的幻影行，验完立刻还原\n      ]);"), /账与实测不符/],
+  ["批次 BD-43 立、BD-44 换锚·账外新增（本账的 aMiss 侧）：往 writing-quick-reference.css 注入一条 `.cards-attachment-note { text-decoration: underline; }`。那张表只有 WritingDesk 一条载入路带，而宿主 CardDynamicFields.tsx 有三条路（CardsPage / GlobalCardLibraryPage 都不带这张表）⇒ 判出一条**新的**真缺席、账上没有。必须红，实测「新增 1 条…（现存 1 条）」且只有这一项失败。⚠ 这颗比 BD-43 原版（往 cards-local 加 text-decoration）更强：它还顺带证明本判据真的在查「哪些载入路带这张表」，而不是只会盯 BD-43 那一处；BD-44 还清账之后，这条正是「新缺陷落进零账 = 即时红」的证据，同 BD-25 之后那些空表预算的立场", () => mutate("src/features/creation/editor/writing-quick-reference.css", ".writing-quick-context {", ".cards-attachment-note { text-decoration: underline; }\n\n.writing-quick-context {"), /账与实测不符/],
+  ["批次 BD-43 立、BD-44 换锚·豁免塌了（误报侧最坏形状）：把「每条路都带表就放过」那行判据改成 `if (false)`——「存在一条不带表的路」当场变成「只要有一条不带就报」，本仓惯例（子组件的样式由挂载它的页面带进来）那几十处良性全被记成缺陷，实测缺席从 0 暴涨到 **1584 条**（账清零之后全是账外新增）。必须红，而且实测三处一起咬：账不符 + 自检⑤（.history-modal 不在「判过但放过」名单里了）+ 自检⑥·加强（那份名单归零）。这颗守的方向不是漏检而是「把良性全报出来」——报出来的东西没人看，等于判据自己把自己淹死", () => mutate("scripts/verify-design-tokens.mjs", "              if (!lacking.length) {\n", "              if (false) {\n"), /BD-44 自检⑤/],
   ["批次 BD-43 桶边断掉（**唯一一颗测「不表现为任何东西」的牙**）：删掉 RELRE 那条 `sj.add(r)`（桶文件的 `export * from` 不再算静态边）。⚠ 这颗的形状是先踩出来才写进牙的：断边之后本批 8 条一条不少、判决完全一样、守卫**全绿**——hostEntries 却从 231 个模块掉到 204 个（掉 27 个，全是只经 components/ui、stores/creation、inbox/components 三个桶文件被载起的模块），少掉那批宿主走的是 `if (!es.length) continue`「无人载得起 ⇒ 另判」那一支，判据对这 27 个模块整体闭嘴。所以这颗不能拿判决结果测，只能拿图上的事实测——自检⑦ 钉的正是三个「只能经桶边载起」的模块。必须红，三条各咬一次", () => mutate("scripts/verify-design-tokens.mjs", "        if (r && modSet.has(r)) sj.add(r);\n", ""), /BD-43 自检⑦/],
   ["批次 BD-43 动态边解析坏掉（入口枚举侧·自检⑥）：把「静态进 sj、动态进 dj」那行改成都进 sj——import() 目标从此不再算入口，载入入口只剩 main.tsx 一个（实测「只枚举出 1 个载入入口」），块级表被静态闭包全盘认下。这条坏掉时自检⑤⑥是**跟着一起瞎**的（k1、k2 都判不出来，两个都不判正是⑤⑥自己防的事），所以必须有独立的一道入口数量闸——判据退化不一定表现为错判，最坏的是不表现为任何东西，这就是 BD-34 那条教训在新判据上的重演", () => mutate("scripts/verify-design-tokens.mjs", "          (m[1] ? sj : dj).add(r);", "          sj.add(r);"), /BD-43 自检⑥/],
   ["批次 BD-43·反向（每条路都带表就是良性，不该红）：往 history-local.css 的 .history-modal 加一条 `caret-color: var(--text-muted);`——这条属性只在这张**块级表**声明、静态表里没有，按本批判据的形状它必须过「宿主有哪些载入路」这一关：三个对话框宿主只能经 HistoryPage 那条路进来，而 HistoryPage 自己 import 了这张表 ⇒ 每条路都带表 ⇒ 合法缺席为零、不许进账。守卫必须保持绿。这颗钉的是本判据与 BD-31 并集口径**唯一的分野**（那条口径下 .history-modal 是不覆盖的），口径要是漂回去，这颗当场红", () => mutate("src/features/creation/history/history-local.css", ".history-modal {\n", ".history-modal {\n  caret-color: var(--text-muted);\n"), null],
   ["批次 BD-43 新债落进有账文件（两本账不许互吞）：往 writing-quick-reference.css（间距预算 18 处那份）的 .writing-quick-context 注入一条 margin: 7px——7px 离刻度，预算 18→19 必须红，红因是 /间距刻度/ 那条超预算。⚠ 关键在「红因不许串」：这个文件同时是 BD-44 准备下手的宿主（那 8 条缺席的正解之一就在这张表里加后代规则），本批判据上线后旧棘轮的咬合力一点都不能少——缺席账把间距新债盖住，等于立一条新判据拆掉一条旧判据", () => mutate("src/features/creation/editor/writing-quick-reference.css", ".writing-quick-context {\n  display: flex;\n", ".writing-quick-context {\n  display: flex;\n  margin: 7px;\n"), /间距刻度/],
   ["批次 BD-43 还了债不降预算（上一颗的对称面）：把同文件现存那条离刻度 `gap: 7px;`（:104）改成刻度上的 8px——离刻度从 18 掉到 17、缺席账一条不动，必须红，红因只能是「预算没跟着降」（实测全部失败项里就这一条），绝不许是缺席账。这颗和上一颗一起把「新判据上线不许把旧棘轮的咬合力吸走」钉死：两本账各数各的，谁也不许替谁沉默", () => mutate("src/features/creation/editor/writing-quick-reference.css", "  gap: 7px;", "  gap: 8px;"), /预算没跟着降/],
+  ["批次 BD-44·还债不许悄悄退化（本账的 aMiss 侧反向）：删掉 CardDynamicFields.tsx 里那条 `import \"@/features/creation/cards/cards-local.css\"`——它就是 BD-44 还掉那 8 条缺席的正解，删掉之后「写作台那条路整路不带表」立刻复活。必须红，实测**只有 1 项**失败、红因正是「新增 8 条…（现存 8 条）」那一行。⚠ 这颗和①②③不同：那三颗换过锚（钉在活债上的牙，还债当天就哑），这颗钉的是**修法本身**——它测的不是账，是「这条 import 还在不在」，所以债还得越干净它越有牙：注入后判据回到 BD-44 前的缺陷态，账空 ⇒ 8 条全是账外新增。它同时是「样式归组件自己带，单一真相」这个决定的执行机制——以后谁把这行当冗余删了，守卫当场叫", () => mutate("src/features/creation/cards/components/CardDynamicFields.tsx", "import \"@/features/creation/cards/cards-local.css\";\n", ""), /新增 8 条/],
 
 ];
 
