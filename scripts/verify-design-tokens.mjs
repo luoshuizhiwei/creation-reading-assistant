@@ -4204,21 +4204,35 @@ const hostPredicate = (() => {
     collect(SRC);
     const edges = new Map();
     const texts = new Map();
+    // 批次 BD-43：同一份源码要再分一次「静态边 / 动态边」，因为发射顺序与「一条载得起宿主
+    // 的路带不带某张表」用的口径不同。⚠ 下面那个 js 一字未动（BD-31 的并集口径归它），
+    // 静态闭包另用 sj + 桶文件 re-export 边；re-export 不算边的话，components/index.ts 这种
+    // 桶文件下面的每个组件都会被判成「无人 import 的独立入口」，虚报缺席（实测踩过）。
+    const RELRE = /\bexport\s+(?:type\s+)?(?:[\w{},*\s]+from\s*)?["']([^"']+)["']/g;
+    const modSet = new Set(mods);
     for (const f of mods) {
       const code = readFileSync(f, "utf8");
       texts.set(relOf(f), code);
       const js = new Set();
+      const sj = new Set();
+      const dj = new Set();
       const css = new Set();
       for (const m of code.matchAll(RE)) {
         const r = resolveSpec(m[1] || m[2], f);
         if (!r) continue;
         if (r.endsWith(".css")) css.add(r);
-        else if (/\.(tsx|ts|jsx|js)$/.test(r)) js.add(r);
+        else if (/\.(tsx|ts|jsx|js)$/.test(r)) {
+          js.add(r);
+          (m[1] ? sj : dj).add(r);
+        }
       }
-      edges.set(f, { js, css });
+      for (const m of code.matchAll(RELRE)) {
+        const r = resolveSpec(m[1], f);
+        if (r && modSet.has(r)) sj.add(r);
+      }
+      edges.set(f, { js, css, sj, dj });
     }
-    const cssOfModule = new Map();
-    for (const f of mods) {
+    const cssOfModule = new Map();    for (const f of mods) {
       const out = new Set();
       const seen = new Set();
       const stack = [f];
@@ -4232,6 +4246,50 @@ const hostPredicate = (() => {
         for (const j of e.js) stack.push(j);
       }
       cssOfModule.set(relOf(f), out);
+    }
+    /**
+     * 批次 BD-43 的两份新数据（BD-31 那份 cssOfModule 一字未动）：
+     *   · entryStatic：每个「加载入口」的**静态闭包**（模块集 + CSS 集）。入口 = main.tsx
+     *     加上全部 import() 的目标——这是 Vite 的 chunk 边界，走哪个入口进来，那个入口的
+     *     静态闭包就必然在场（产物实测：每个动态 chunk 的 CSS 依赖打在它自己的 preload
+     *     deps 数组里）。闭包只走静态边 + 桶文件 re-export 边。
+     *   · hostEntries：某模块被哪些入口的静态闭包含住 = 「载得起它的路」有哪些。
+     */
+    const edgesRel = new Map();
+    for (const f of mods) {
+      const e = edges.get(f);
+      edgesRel.set(relOf(f), { sj: [...e.sj].map((x) => relOf(x)), dj: [...e.dj].map((x) => relOf(x)), css: [...e.css].map((x) => relOf(x)) });
+    }
+    const entryNames = new Set(["src/app/main.tsx"]);
+    for (const [, e] of edgesRel) for (const d of e.dj) if (edgesRel.has(d)) entryNames.add(d);
+    const entryStatic = new Map();
+    for (const e0 of entryNames) {
+      const ms = new Set(), cssSet = new Set(), stack = [e0];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (ms.has(cur)) continue;
+        ms.add(cur);
+        const e = edgesRel.get(cur);
+        if (!e) continue;
+        for (const c of e.css) cssSet.add(c);
+        for (const j of e.sj) if (!ms.has(j)) stack.push(j);
+      }
+      entryStatic.set(e0, cssSet);
+    }
+    const hostEntries = new Map();
+    for (const e0 of entryStatic.keys()) {
+      const mset = new Set();
+      const stack = [e0];
+      while (stack.length) {
+        const cur = stack.pop();
+        if (mset.has(cur)) continue;
+        mset.add(cur);
+        for (const j of edgesRel.get(cur)?.sj || []) if (!mset.has(j)) stack.push(j);
+      }
+      for (const m of mset) {
+        if (!hostEntries.has(m)) hostEntries.set(m, new Set());
+        hostEntries.get(m).add(e0);
+      }
     }
     /**
      * 这个 lazy 胜者表能否覆盖该选择器的全部宿主。
@@ -4251,7 +4309,7 @@ const hostPredicate = (() => {
       if (bad.length) return `${bad.length} 个宿主沿 import 链够不着胜者表：${bad.slice(0, 3).join("、")}${bad.length > 3 ? "…" : ""}`;
       return null;
     };
-    return { whyNotCovered, cssOfModule, moduleCount: mods.length };
+    return { whyNotCovered, cssOfModule, moduleCount: mods.length, entryStatic, hostEntries, texts };
   })();
   const { whyNotCovered } = MOUNT;
 
@@ -4572,6 +4630,219 @@ const hostPredicate = (() => {
       }
       if (MOUNT.moduleCount < 50) {
         fail(`第 8 步颜色分支判据退化（挂载覆盖·BD-31）：import 图只走到 ${MOUNT.moduleCount} 个模块，少于 src 下的实际量级——resolveSpec 或模块收集被改坏时，「宿主够不着胜者表」会变成常态，判据悄悄放弃全部判决。`);
+      }
+    }
+    /* ---------------- 第 8 步属性级挂载覆盖（批次 BD-43 立项） */
+    /**
+     * BD-42 修的那条缺陷为什么会被看见，纯属运气：styles.css 里恰好还有一条**同名同属性
+     * 异值**的声明，撞上「同键异值」才进了判决。同一个形状换个维度就完全隐身——
+     * 「这边有这个键、那边根本没有这个键」不构成同键，任何判据都不响。
+     *
+     * 本判据补的就是这一维：一个**裸类** c 的属性 p 只在块级表 T 里声明（任何静态表都没有 p），
+     * 而 c 有宿主 H——若**存在一条把 H 载起来的路，整条路上没人加载过任何一张声明 (c,p) 的表**，
+     * 那么走那条路渲染时 p 一个像素都不画。p 在别的页面上照常生效，所以这不是死声明：
+     * 是「外观取决于用户这次会话先点过什么」的活缺陷（BD-42 的 4px↔6px 就是这个）。
+     *
+     * 三条口径是这一批踩出来的，别再改回去：
+     *   ① 不能用「H 自己沿 import 往外走够不到 T」当缺席——本仓惯例是子组件的样式由挂载它的
+     *      页面 import（哨兵④ 的 .history-modal 正是这形状）。那么算是 564 条假账。
+     *   ② 不能用「T 的下游闭包」算覆盖——那算的是「谁会跟着 T 一起被载」，方向反了。
+     *   ③ 按**加载路**枚举：入口 = main.tsx + 全部 import() 的目标；入口 e 的**静态闭包**
+     *      （只走静态边 + 桶文件 re-export 边）= 走 e 进来必然在场的一切。这与构建产物实测一致：
+     *      Vite 把每个动态 chunk 的 CSS 依赖打进它自己的 preload deps 数组，逐条读产物
+     *      （__vite__mapDeps 的表 + 每个 lazy() 调用点的那串下标）实测：
+     *        GlobalCardLibraryPage → 带 cards-local-Cg3UUoe2.css
+     *        CardsPage            → 带（同上，另一处 lazy 点）
+     *        WritingDesk          → **不带**（它是 CreationProjectsPage chunk 内部再 lazy 的）
+     *        CreationProjectsPage → 也不带（本判据的三条路里没有它，别把这两个名字搞混）
+     *      判据算出「CardDynamicFields 有 3 条载入路、其中 WritingDesk 那条不带这张表」，
+     *      与产物逐字对得上——本判据唯一的账上条目就是这个差别。
+     *   失效方向：静态图证不了运行时的组件树，所以这条**只登记、不判死**（同 BD-25 那 6 条材质
+     *   登记的立场），且只在「一条带表的路都找不到」时才往宽里报——宁多登记一条良性，
+     *   也不能把活样式判成可删。多出来的那条用③的入口枚举兜住：任何一条路带表就不报。
+     */
+    {
+      // 账：宿主 ⑅ 块级表 ⑅ 选择器文本 ⑅ 属性 ⑅ @上下文。不含行号（同 DEAD_LEDGER 的理由）。
+      // 重钉的唯一入口是 DESIGN_TOKEN_DUMP_ABSENCE=1，不许手写。
+      //
+      // 现存 8 条全部是**同一条缺陷的 8 个属性**：CardDynamicFields.tsx 的附件说明行
+      // （:159-164 那个 <p className="cards-attachment-note">）样式只在 cards-local.css:137
+      // 声明，而这个共享组件有 3 条载入路，其中「写作台 → 速查面板」那条整路没人 import 过
+      // cards-local.css（WritingQuickReferencePanel.tsx:4 静态引它，自己却只带
+      // writing-quick-reference.css）。同一行 markup 外观因此取决于这次会话先点没点过设定卡：
+      //   先进设定卡再开速查面板 → 12px/18px 灰字、1px 虚线框、6px 圆角、8px 10px 内边距；
+      //   直接进写作台开速查面板        → 16px/24px 正文色、无边框无底色无内边距（整块裸奔）。
+      //   ⚠ 实测补一句（数值取自 /tmp/bd43-faithful-{A,B}.json，不是推的）：八条里**只有 margin
+      //     两侧都是 0px**——Tailwind preflight 那条 `p, ol, ul…{margin:0}` 已经把 <p> 的默认外边距
+      //     归零了，所以 cards-local 那条 margin: 0 是一条**冗余声明**，它缺席时画出来的一样。
+      //     两侧 noteRect 都是 319×72——**高度相等不是没漂**，两侧各是 3 行，只是行高一档之差
+      //     正好被内边距+边框补齐：A = 3×18 + 上下内边距 16 + 上下边框 2 = 72，B = 3×24 + 0 = 72。
+      //     ⚠ 这两式是**反推**（拿实测的 72 与实测的 18/24、16、2 凑出来的，两侧都正好整除、自洽），
+      //     行数没有单独量过；要说的是「相等的高度可以来自完全不同的算法」，别把它当反向证据。
+      //     确凿漂的是字号/行高/颜色/边框/底色/圆角六样（computed 值直接读到，A 有 B 无）。
+      //     登记 margin 那条仍然正确：判据说的是「这张表在那条路上不在场」这个事实——它是同一条
+      //     缺陷的 8 个声明之一，将来真修法（搬进静态表 / 配后代规则）要一起处理，不能只还六条。
+      // ⚠ 两侧都是**活着的**：设定卡页面上那 8 条就在画，所以它不是 DEAD_LEDGER 那种死声明，
+      // 本账也不能靠「删掉一条」来还——只能让两条真正分工，或把这份样式挪到那条路也带得动的地方。
+      // 为什么本批不还（照 BD-25 间距加档、BD-31 立账那两次的立场：判据先行、改版另批）：
+      //   · 最省事的「CardDynamicFields.tsx 自己 import cards-local.css」本批**实测跑过一遍**
+      //     （临时加那行 import、跑守卫、还原）：守卫只红两处，都是本账的 aStale + 自检⑤⑥
+      //     ——发射顺序**没动**（仍报「静态 4 张按行序、块级 16 张在其后」）。
+      //     ⚠ 我原先在这里写的是「会把这张表推进 main.tsx 的静态闭包、全局块级表从此排到它
+      //     后面、DEAD_LEDGER / WANT_ORDER 要一起重算」——**那是错的**，实测推翻：App.tsx 里
+      //     每个页面都是 lazy(() => import(...))，CardDynamicFields 经 GlobalCardLibraryPage
+      //     可达，而 GlobalCardLibraryPage **自己就是动态入口**，所以它下面的一切都不在
+      //     main.tsx 的静态闭包里。留这段是为了别再犯同一个想当然。
+      //     那条 import 真正的代价也比我说的小得多，逐个数过：cards-local 里整条只有一个裸类的
+      //     规则共 **37 条**，把类名拿去 cards 目录之外的每个 .ts/.tsx 里比对，**命中 0 条**——
+      //     写作台那条路上唯一会新落地的裸类就是 .cards-attachment-note 自己（正是要修的那条）。
+      //     ⚠ 有两个名字看着像冲突、其实不是：BackgroundPage.tsx:136 的 `confirming` 与 :83 的
+      //     `cards-search`，在 cards-local 里只出现在**复合/后代**选择器里
+      //     （:58 `.cards-icon-btn.confirming`、:241 `.cards-relation-delete.confirming`、
+      //     :180 `.project-card-link-filters .cards-search`），那个页面并没有带 cards-icon-btn /
+      //     cards-relation-delete / project-card-link-filters，所以两条都不落地。判据是判据、
+      //     词面 grep 不算数——这条跟 BD-40 那个 StatsPage 词面陷阱是同一课。
+      //     于是本批不还的**真实**理由只剩三条，都不是「改版风险大」：① 那 8 个属性从「裸奔」
+      //     变「有样式」本身是可感知改版，必须 A/B 截图核（截图规矩不因风险小而豁免）；
+      //     ② 那张 517 行的表会进 WritingDesk chunk 的 preload deps（产物实测现在不带）；
+      //     ③ 账要重钉、自检⑤ 的 k1 要重锚。
+      //   · 另一条路是给速查面板配后代规则：那张表**已经有**这一族
+      //     （writing-quick-reference.css:146-151 `.writing-quick-detail .cards-field /
+      //     -label / .cards-input / textarea.cards-input`），只补 .cards-attachment-note 一条，
+      //     不动 chunk 依赖、不牵动那 37 条裸规则。代价是这 8 个属性从此有**两份**真相，
+      //     而 BD-31 那条同键异值判据看不见跨作用域的重复（后代选择器不是同键）。
+      //     BD-44 两条都要试、按截图挑：先试 import（单一真相），像素意外就退回后代规则。
+      const ABSENCE_LEDGER = new Set([
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tmargin\t—", // :138 margin: 0（⚠ 实测两侧都是 0px——Tailwind preflight 的 p{margin:0} 同值兜住了；登记它是因为「声明表在那条路上不在场」这个事实，不是因为它会漂）
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tfont-size\t—", // :139 12px（裸奔侧掉回 16px）
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tline-height\t—", // :140 1.5（裸奔侧 24px）
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tcolor\t—", // :141 --text-dim
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tbackground\t—", // :142 --surface-alt
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tborder\t—", // :143 1px dashed
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tborder-radius\t—", // :144 6px
+        "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tpadding\t—", // :145 8px 10px
+      ]);
+      const { entryStatic, hostEntries } = MOUNT;
+      // 裸类索引：cls -> Map(`${rel}\t${ctx}` -> Set(prop))，从已建好的 sheets 里取
+      // （sheets 的键是 ctx ⑅ 选择器文本 ⑅ 属性；只收「选择器文本等于一个裸类」的那支）
+      const propsByBare = new Map();
+      for (const [rel, m] of sheets) {
+        for (const [k, list] of m) {
+          const [ctx, sel, prop] = k.split("\t");
+          if (!/^\.-?[_a-zA-Z][\w-]*$/.test(sel)) continue;
+          const cls = sel.slice(1);
+          if (!propsByBare.has(cls)) propsByBare.set(cls, new Map());
+          const per = propsByBare.get(cls);
+          const pk = `${rel}\t${ctx}`;
+          if (!per.has(pk)) per.set(pk, new Set());
+          per.get(pk).add(prop);
+        }
+      }
+      const absence = new Map();
+      for (const [cls, per] of propsByBare) {
+        const rels = [...new Set([...per.keys()].map((k) => k.split("\t")[0]))];
+        if (!rels.some((r) => EMISSION.lazy.has(r))) continue; // 没有块级来源，谈不上挂载覆盖
+        const eagerProps = new Set();
+        for (const [k, ps] of per) if (!EMISSION.lazy.has(k.split("\t")[0])) for (const p of ps) eagerProps.add(p);
+        const re = clsTokenRe(cls);
+        const hosts = [...new Set([...MOUNT.texts.entries()].filter(([, t]) => re.test(t)).map(([h]) => h))];
+        if (!hosts.length) continue; // 查无宿主 = 幻影族另判
+        for (const [k, ps] of per) {
+          const [rel, ctx] = k.split("\t");
+          if (!EMISSION.lazy.has(rel)) continue;
+          for (const prop of ps) {
+            if (eagerProps.has(prop)) continue; // 静态表也声明它 ⇒ 永远在场
+            const declRels = [...per.entries()].filter(([, s]) => s.has(prop)).map(([kk]) => kk.split("\t")[0]);
+            for (const h of hosts) {
+              const es = [...(hostEntries.get(h) || [])];
+              if (!es.length) continue; // 没有任何入口载得起它 ⇒ 孤儿模块，幻影族另判
+              // 缺陷 = 存在一条载得起宿主、整条却不带任何声明表的路（走那条路渲染时属性缺席，
+              // 也就是「同一元素、外观取决于先点过什么」——BD-42 的靶子就是这个漂移）。
+              // ⚠ 别改成「每条路都不带才报」：那恰好把漂移漏掉，只会剩「这行 markup 全仓
+              // 都画不出来」这一族（另一回事，归 markup 批），漂移反而没人管了。
+              const lacking = es.filter((e) => !declRels.some((r) => entryStatic.get(e).has(r)));
+              if (!lacking.length) continue; // 每条路都带表 ⇒ 任何会话里都在场
+              const key = `${h}\t${rel}\t${"." + cls}\t${prop}\t${ctx || "—"}`;
+              if (!absence.has(key)) absence.set(key, { h, rel, cls, prop, ctx, declRels, es, lacking });
+            }
+          }
+        }
+      }
+      const aMiss = [...absence.keys()].filter((k) => !ABSENCE_LEDGER.has(k));
+      const aStale = [...ABSENCE_LEDGER].filter((k) => !absence.has(k));
+      // 唯一允许的钉账入口（同 DEAD_LEDGER 那条纪律：账由实测生成，不许手写）
+      if (process.env.DESIGN_TOKEN_DUMP_ABSENCE === "1") {
+        for (const k of absence.keys()) {
+          const x = absence.get(k);
+          console.log(`    ${JSON.stringify(k)}, // ${x.h} ← ${x.rel} 的 .${x.cls} {${x.prop}} @${x.ctx || "根"}；${x.es.length} 条载入路里 ${x.lacking.length} 条不带`);
+        }
+        console.log(`${TAG} [DESIGN_TOKEN_DUMP_ABSENCE] 属性级挂载缺席 ${absence.size} 条（上面即账，逐字粘进 ABSENCE_LEDGER）`);
+      }
+      if (aMiss.length || aStale.length) {
+        const show = (k) => k.replace(/\t/g, " ⑅ ");
+        const parts = [];
+        if (aMiss.length)
+          parts.push(
+            `新增 ${aMiss.length} 条「属性只在块级表声明、而有载入路载得起宿主却整条不带那张表」不在账上（现存 ${absence.size} 条）：${aMiss.slice(0, 3).map(show).join(" ｜ ")}` +
+              `\n  这条的语义是**活缺陷**而不是死声明：属性在它自己的页面上在画，只有沿那条路渲染时整块缺席（外观随导航顺序变；BD-42 实测过 4px↔6px 的同形状漂移）。` +
+              `\n  要么让宿主自己 import 那张表（⚠ 那张表会进 main.tsx 的静态闭包、发射顺序整体换位，必须连 DEAD_LEDGER / WANT_ORDER / 本账一起重算），` +
+              `\n  要么把这条属性搬进静态表，要么把类名拆开各用各的（BD-42 的修法）。确实判得对又本批还不完的，才允许进账，并写明为什么本批不还。`
+          );
+        if (aStale.length)
+          parts.push(`账上 ${aStale.length} 条现在扫不到了（还了没改账，或那张表换了挂载路）：${aStale.slice(0, 3).map(show).join(" ｜ ")}`);
+        fail(`第 8 步属性级挂载覆盖账与实测不符（${parts.join("\n  ")}`);
+      }
+      // 判据自检⑤⑥：这条的失效方向是「把良性的父挂载全报成缺陷」，所以用一对真实宿主
+      // 钉住它的两种结局，必须**一判一跳**（和哨兵④同一手法、同一份 import 图）：
+      //   · .cards-attachment-note × cards-local.css：宿主 CardDynamicFields.tsx 被写作台
+      //     那条路静态带进来，而那条路上没有任何模块 import 过 cards-local.css
+      //     ⇒ 必须判出缺席（本账唯一的条目，运行时实测过：走写作台时那张表整张不在
+      //       document.styleSheets 里，note 的 8 个属性全部掉回默认值）。
+      //   · .history-modal × history-local.css：宿主是历史页的三个子对话框，它们只能经
+      //     HistoryPage 那条路进来，而 HistoryPage 自己 import 了那张表 ⇒ 必须判良性。
+      //     ⚠ 这条同时钉住「存在一条不带表的路」与「每条路都不带」的区别：对话框宿主
+      //     同样够不到那张表的 import 链（BD-31 的并集口径里它是不覆盖的），本判据按
+      //     载入路判就必须放过——两个口径各自的用处正差在这一对上。
+      {
+        const k1 = "src/features/creation/cards/components/CardDynamicFields.tsx\tsrc/features/creation/cards/cards-local.css\t.cards-attachment-note\tfont-size\t—";
+        const k2 = "src/features/creation/history/CreateMilestoneDialog.tsx\tsrc/features/creation/history/history-local.css\t.history-modal\twidth\t—";
+        if (!absence.has(k1) || absence.has(k2)) {
+          fail(
+            `第 8 步属性级挂载覆盖判据退化（BD-43 自检⑤⑥）：` +
+              `「.cards-attachment-note × cards-local.css 判出缺席=${absence.has(k1)}」与` +
+              `「.history-modal × history-local.css 判良性=${!absence.has(k2)}」现在不是**一判一跳**。` +
+              `两个都不判说明载入路枚举或静态闭包坏了（这条判据从此隐身）；两个都判说明「只要有一条路带表就放过」那层豁免塌了——` +
+              `本仓几十处「子组件的样式由挂载它的页面带进来」的良性形状会全被记成缺陷，等于把 BD-31 的「证不了就别判死」反着写。`
+          );
+        }
+        if (entryStatic.size < 10) {
+          fail(`第 8 步属性级挂载覆盖判据退化（BD-43 自检⑥）：只枚举出 ${entryStatic.size} 个载入入口，少于 src 下 import() 的量级——动态边解析坏掉时「载得起它的路」会被算少，本判据整体失灵。`);
+        }
+        // 自检⑦（BD-43 补钉）：桶文件 re-export 边**必须算静态边**，而且这条要用图上的事实测，
+        // 不能用判决结果测——实测踩过：把 sj.add(r) 那行删掉，本批 8 条一条不少、守卫全绿，
+        // hostEntries 却从 231 个模块掉到 204 个（掉 27）。少掉的那些宿主走的是 `if (!es.length) continue;`
+        // 「无人载得起 ⇒ 另判」那一支，等于判据对这 27 个模块当场闭嘴，而这正是本批判据唯一的失效方向。
+        // 所以钉三个**只能经桶文件被载起**的模块：桶边断掉它们就从 hostEntries 消失，红。
+        // ⚠ 这三条不是账、不随还债消失；若某批把某个模块改成被直接 import（桶边不再是它唯一的路），
+        //   这条不会红（我们只查「有没有路」），换锚时才需要动——换锚手续同 BD-42 那批的记录。
+        for (const barrelOnly of [
+          "src/features/creation/inbox/components/InboxConvertToCardDialog.tsx", // 经 inbox/components 的桶文件 re-export 载起
+          "src/components/ui/FontPicker.tsx", // 经 components/ui 的桶文件 re-export 载起
+          "src/stores/creation/card-slice.ts", // 经 stores/creation 的桶文件 re-export 载起
+        ]) {
+          if (!(hostEntries.get(barrelOnly)?.size || 0)) {
+            fail(
+              `第 8 步属性级挂载覆盖判据退化（BD-43 自检⑦）：${barrelOnly} 在 hostEntries 里查无载入路——` +
+                `它只能经桶文件的 \`export * from\` 被载起，说明 sj 那条「re-export 也算静态边」的边断了。` +
+                `这条断了不表现为错判，表现为「载得起宿主的路」被算少、\`if (!es.length) continue\` 把那批宿主整体放过（实测一次少 27 个模块）。`
+            );
+          }
+        }
+      }
+      if (!aMiss.length && !aStale.length) {
+        console.log(
+          `${TAG} [第 8 步属性级挂载覆盖] ${absence.size} 条「属性只在块级表声明、而存在一条载得起宿主的载入路整条不带那张表」已逐条钉账（BD-43 立项：静态图证不了运行时组件树，先只登记不判死）；载入入口 ${entryStatic.size} 个、静态表 ${EMISSION.eager.length} 张、块级表 ${EMISSION.lazy.size} 张`
+        );
       }
     }
     // 红了就别再打「0 条」——绿话与红话同时出现，等于守卫自己撒谎（几何分支那条老规矩）。
