@@ -7,7 +7,22 @@
   display: flex;
   flex-direction: column;
   gap: 12px;
-  padding: 18px;
+  /* 批次 BD-51（间距还债批·查找替换浮层）：18→16px。18 正卡在 §5.1 的 16 与 20 中间，
+   * 「就近」不裁决 ⇒ 按同角色先例投票：全站同为「position:fixed 浮层 + border + 投影 +
+   * 表面底色」的只有 src/styles.css 的 .background-detail，它就是 16px；
+   * .creation-search-overlay（同为 fixed 浮层）横向也是 16px。两张先例同档 ⇒ 收 16。
+   * 真宿主实渲（点开「查找替换」后用 !important 单变量覆盖，/tmp/bd51-probe2.json 与
+   * /tmp/bd51-probe3.json 两次复读一致）：整卡高 18px→185、16px→181、20px→189——
+   * 降 16 即 −4px。宿主 ReplacePanel.tsx 还用内联 style 把 max-height 压成
+   * calc(100vh − floatingTop − 20px)（内联胜过本条样式表值），面板本就是滚动容器，
+   * 内衬收紧不裁内容。
+   * ⚠ 本探针 v1 曾在未点开面板时读到 computed padding 0px——replace.css 是懒加载
+   * chunk，chunk 没载入时离屏注入的 computed 值全是假数。此后离屏读数一律先验
+   * chunk 已载入（本批以点开真宿主为准绳）。
+   * ⚠ A/B 截图里整卡终值是 185 → 183（−2），**不是**上面的 −4：上面是只改本条的
+   * 隔离读数，同批 C 的输入框又 +2（.replace-query-form 是 align-items:flex-end 的
+   * 换行 flex，行高由最高项决定）——合成终值 −4+2=−2，两个口径别混（BD-50 立的规矩）。 */
+  padding: 16px;
   width: min(600px, calc(100vw - 56px));
   max-height: calc(100vh - 132px);
   overflow: auto;
@@ -57,7 +72,16 @@
 }
 
 .replace-query-form input[type="text"] {
-  padding: 7px 10px;
+  /* 批次 BD-51（间距还债批·查找替换浮层）：7px 10px→8px 10px。7 正卡在 §5.1 的 6 与 8
+   * 中间，「就近」不裁决 ⇒ 同角色先例投票：src/features/creation/history/history-local.css
+   * 的 .history-field input[type="text"] 与本条同形（同为 border-strong + radius-2 +
+   * 表面底色的文本输入框；字号不同，本条继承 .replace-query-form label 的 13px，先例自带
+   * 14px），它就是 8px 10px；8px 10px 也是全仓「带边框 + 底色」块里最高频的一档（实测 13 处）。
+   * 真宿主实渲（点开面板后 !important 覆盖，/tmp/bd51-probe2.json）：命中高
+   * 7px 10px→35.5、6px 10px→33.5、8px 10px→37.5——收 8 即 +2px。输入框是点击命中区，
+   * 方向与 BD-49 一致（命中区可增大、不可缩水），所以这里不取 6。
+   * 6px 12px / 8px 12px 一并实测（33.5 / 37.5）：加横向不改高度，不构成第三条候选理由。 */
+  padding: 8px 10px;
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-2);
   background: var(--bg-surface);
@@ -153,11 +177,23 @@
 }
 
 .replace-progress-card {
+  /* 批次 BD-51（间距还债批·查找替换浮层）：22→20px。22 正卡在 §5.1 的 20 与 24 中间，
+   * 「就近」不裁决 ⇒ 同角色先例：「背衬居中 + border + radius-3 + shadow-3 的进度/确认卡」
+   * 全站只有一张在档——src/features/creation/editor/writing-reference.css 的
+   * .writing-reanchor-dialog = 20px（同为居中卡；.background-detail 的 16px 是贴边详情
+   * 面板，角色不同）。24px 一张都没有。
+   * ⚠ 这张卡只在替换运行中短暂挂载（ReplaceProgressDialog 的 open={busy}），真宿主抓不稳，
+   * 故用**离屏合成宿主** + !important 单变量覆盖，只取隔离增量（合成内容按组件的
+   * active 与 error 两个分支各做一遍，/tmp/bd51-probe3.json）：
+   *   active 形态 118 → 20px 时 114、24px 时 122；error 形态 136 → 132 / 140。
+   * 两形态增量同为 −4/+4，线性对称，绝对值随内容变、只有增量可比。
+   * 前提纪律：离屏读数只在 replace.css chunk **已载入**后可信（本页已点开「查找替换」，
+   * chunkCheck 实测 progressCard computed = 22px）——v1 探针在没载入的页上读到过 0px。 */
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-3);
   box-shadow: var(--shadow-3);
-  padding: 22px;
+  padding: 20px;
   min-width: 320px;
   text-align: center;
 }

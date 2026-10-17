@@ -43,7 +43,16 @@
 }
 
 .pe-input {
-  padding: 8px 11px;
+  /* 批次 BD-51（间距还债批·查找替换浮层 + 口令框）：8px 11px→8px 10px。11 正卡在
+   * §5.1 的 10 与 12 中间，「就近」不裁决 ⇒ 同角色先例：本仓同为「border-strong +
+   * radius-2 + 表面底色 + 14px 字号」的文本输入框是 src/features/creation/history/
+   * history-local.css 的 .history-field input[type="text"]，它就是 8px 10px；
+   * 8px 10px 同时是全仓「带边框 + 底色」块里最高频的一档（实测 13 处）。
+   * 真宿主实渲（设置→数据与存储→加密备份，口令框 .pe-input 在场，/tmp/bd51-probe2.json）：
+   * 命中高 8px 11px→39、8px 10px→39、8px 12px→39、6px 12px→35、10px 12px→43——
+   * **横向从 11 改 10 高度纹丝不动**（406px 宽的单行框，文字不贴边），零成本归位；
+   * 上下 8px 本来就落在刻度上，这一笔还掉的只有那个 11。 */
+  padding: 8px 10px;
   border: 1px solid var(--border-strong, #cbc8bf);
   border-radius: var(--radius-2);
   background: var(--bg-surface, #fff);

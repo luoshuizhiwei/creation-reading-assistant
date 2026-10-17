@@ -1905,7 +1905,7 @@ const isPureRingValue = (v) => {
     // .relation-graph-chip `padding: 3px 9px` 与 .relation-graph-zoom button `padding: 3px 7px`
     // 收成本文件 .relation-graph-search 已在用的 4px 8px——同族控件取同值，不是新造档。
     // 值账同批重钉：本文件 3 桶消失（padding 3px ⑉ 2、7px ⑉ 1、9px ⑉ 1——4 处债、
-    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处）。
+    // 3 个桶，3px 那桶本来就两笔）；全站 136 桶 → 133 桶、271 处 → 267 处，数字来自 dump（BD-48 之后是 131 桶 / 263 处，BD-49 之后是 124 桶 / 256 处，BD-50 之后是 121 桶 / 252 处，BD-51 之后是 117 桶 / 248 处）。
     "src/features/creation/editor/continuous-editor.css": 2,
     "src/features/creation/editor/scene-radar.css": 5,
     "src/features/creation/editor/writing-quick-reference.css": 18,
@@ -1935,7 +1935,13 @@ const isPureRingValue = (v) => {
     // 与 .outline-impact-notice 的 `padding: 9px 12px`——三处收 4px 8px / 10px 12px，
     // 档位由实渲高度探针 + 同角色邻居先例裁决（见 outline-reorg.css 的批注）。
     "src/features/creation/preview/preview-local.css": 19,
-    "src/features/creation/replace/replace.css": 3,
+    // 批次 BD-51（间距还债批·查找替换浮层 + 口令框）：条目 3→0 **整条移除**（空表=新增即红）。
+    //   .replace-panel padding 18→16（同角色 fixed 浮层只有 .background-detail 在档，它就是 16px）；
+    //   .replace-progress-card 22→20（同角色居中卡只有 .writing-reanchor-dialog 在档，20px）；
+    //   .replace-query-form input 7px 10px→8px 10px（同角色输入框 .history-field input 就是 8px 10px，
+    //   且命中区只增不减）。三处全是两档正中的平票 ⇒「就近」不裁决，判据与实渲读数在 replace.css 各条上方。
+    //   同批还掉 encryption.css 的 .pe-input 8px 11px→8px 10px（横向改档实测高度 39 不变，零成本归位）。
+    // 值账同批重钉：replace.css 3 桶 + encryption.css 1 桶全消失；全站 121 桶 → 117 桶、252 处 → 248 处，数字来自 dump。
     "src/features/library/ExcerptPicker.tsx": 1,
     "src/features/library/LibraryPage.tsx": 1,
     "src/features/library/reader/components/ReaderSearchOverlay.tsx": 1,
@@ -1943,7 +1949,8 @@ const isPureRingValue = (v) => {
     // 批次 BD-32（还死声明账第一批）：10→9。摘掉的 .uni-search-state `padding: 26px 12px`
     // 是从不渲染的死声明，26px 又离刻度——一条墓碑同时还了两本账。
     "src/features/search/search.css": 9,
-    "src/features/settings/encryption/encryption.css": 1,
+    // 批次 BD-51：encryption.css 条目 1→0 **整条移除**（.pe-input 8px 11px→8px 10px，判据见上方
+    // replace.css 的 BD-51 批注与 encryption.css 条内注释）。
     // 批次 BD-33（还死声明账第二批，桌面壳三族）：119→112。摘掉的 22 条死声明里 7 处同时
     // 离 §5.1 刻度（.desktop-commandbar gap:18px / padding:14px 22px、.desktop-page-hero
     // gap:18px / padding:18px、.project-nav gap:3px / padding:10px / button padding:9px 12px）
@@ -2063,7 +2070,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=121、总处数=252 都来自 dump（BD-50 还掉长任务对话框 4 处后）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=117、总处数=248 都来自 dump（BD-51 还掉查找替换浮层与口令框 4 处后）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2113,9 +2120,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/preview/preview-local.css\tpadding\t34px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t44px\t1",
         "src/features/creation/preview/preview-local.css\tpadding-top\t26px\t1",
-        "src/features/creation/replace/replace.css\tpadding\t18px\t1",
-        "src/features/creation/replace/replace.css\tpadding\t22px\t1",
-        "src/features/creation/replace/replace.css\tpadding\t7px\t1",
         "src/features/library/ExcerptPicker.tsx\tml\t28px\t1",
         "src/features/library/LibraryPage.tsx\tpl\t36px\t1",
         "src/features/library/reader/components/ReaderSearchOverlay.tsx\tpl\t28px\t1",
@@ -2127,7 +2131,6 @@ const isPureRingValue = (v) => {
         "src/features/search/search.css\tpadding\t5px\t2",
         "src/features/search/search.css\tpadding\t64px\t1",
         "src/features/search/search.css\tpadding\t7px\t1",
-        "src/features/settings/encryption/encryption.css\tpadding\t11px\t1",
         "src/styles.css\tgap\t11px\t1",
         "src/styles.css\tgap\t14px\t8",
         "src/styles.css\tgap\t18px\t1",
