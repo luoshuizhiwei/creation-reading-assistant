@@ -821,6 +821,15 @@ button:disabled {
   /* BD-29 摘死色：color: var(--paper-muted) 从未渲染——「.desktop-library-grid-head」 在产物里被 editorial-studio.css:1830 同键更晚的一条整条压住 */
   /* BD-38 摘死声明：font-size: 12px 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1831 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
   /* BD-38 摘死声明：font-weight: 650 从未渲染——「.desktop-library-grid-head」被 src/styles/editorial-studio.css:1832 同键整条压住（发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；两张都是静态表，胜者总会发射） */
+  /* 批次 BD-55 记档（padding 14px 左右档族·表头条）：这条 14 不动，不是漏判——
+   * ① 对齐绑定：它与 .desktop-library-row `padding: 14px`（四边档，BD-55 明示的
+   *   范围外成员）共用 .desktop-library-grid-head/.desktop-library-row 同一条
+   *   grid-template-columns 声明，表头与数据行的水平槽必须逐像素等值，单还一条
+   *   就是让列起点错开 2px；要动只能成对动，那归「padding 14px 四边档」批一起收。
+   * ② 零实拍：seed 书库为空态，LibraryPage.tsx 的书表容器（含本表头）在
+   *   filteredAndSorted.length===0 时整块不渲染——探针 3 三试 .desktop-library-grid-head
+   *   全 null（/tmp/bd55-probe3.json screens.library），连改动前的宿主都拍不到。
+   * 两条都在账上挂着：row 收档时本条同批同值。 */
   padding: 11px 14px;
 }
 
@@ -1458,7 +1467,14 @@ button:disabled {
 .scene-conflict-notice,
 .scene-save-error {
   margin: 0 0 18px;
-  padding: 12px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·告示条角色）：左右 14→12。
+   * 告示条族在档先例清一色 12：.history-impact-notice 10px 12px、
+   * .outline-impact-notice 10px 12px、.replace-error-banner/.replace-done-banner 10px 12px、
+   * 同页的 .migration-error 9px 12px。同页灯 .scene-save-status 是 `0 5px` 压缩档、
+   * 非同类（BD-54 判过），不投这一票。
+   * ⚠ 零实拍：探针 02c 里 conflict/save-error 都不渲染（常态不出现，要保存冲突
+   *   或失败才弹）——这条判据只有家族票，记在这里。 */
+  padding: 12px;
   border: 1px solid color-mix(in srgb, var(--proof-mark) 28%, var(--paper-line));
   border-radius: var(--radius-2);
   background: color-mix(in srgb, var(--proof-mark) 7%, var(--paper-panel));
@@ -3429,7 +3445,13 @@ button:disabled {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·横幅条角色）：左右 14→12。
+   * 直系同族全在 12：同页 .migration-error 9px 12px、.migration-failures 8px 12px、
+   * .replace-error-banner/.replace-done-banner 10px 12px（横幅词根逐字同族）。
+   * 实拍（探针 3 project-home）：基档在非 --active 宿主上活着，computed pl/pr=14、
+   * pt/pb=10、w 1084——改动前 14 确实在画。写作页那条 --active 覆盖（editorial 的
+   * `6px 16px !important`）左右已是 16 在档，不属本批。 */
+  padding: 10px 12px;
   border: 1px solid color-mix(in srgb, var(--copper) 30%, var(--paper-line));
   border-radius: var(--radius-3);
   background: color-mix(in srgb, var(--copper) 7%, var(--paper-panel));
@@ -4172,7 +4194,14 @@ button:disabled {
 .background-card {
   display: grid;
   gap: 6px;
-  padding: 12px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·卡 tile 角色）：左右 14→12。
+   * 同页同角色的卡族在档先例在 12：.project-card-link-list li 10px 12px、
+   * .global-card-trash-list li 10px 12px；卡片区里比它更紧的 .cards-board-card 9px 10px、
+   * .cards-list-item 8px 10px 用的是 10（钮形 tile）。14 夹在 12 与 16 中间、
+   * 「就近」不裁决 ⇒ 按这一条自己的家族（卡列表项）投 12，与本批其余行/条成员同向。
+   * 实拍（探针 03 背景子页）：pl/pr=14、pt/pb=12、w 234.39（auto-fill minmax(200px,1fr)
+   * 网格拉伸列，与 BD-54 的 .background-card-kind 同一枚宿主链）。 */
+  padding: 12px;
   border: 1px solid var(--paper-line);
   background: var(--paper-panel);
   text-align: left;
@@ -4407,7 +4436,15 @@ button:disabled {
   .desktop-commandbar {
     grid-template-columns: minmax(0, 1fr) auto;
     gap: 10px;
-    padding: 10px 14px;
+    /* 批次 BD-55（padding 14px 左右档族·死声明摘除）：本条 `padding: 10px 14px`
+     * 从未渲染——「.desktop-commandbar」被 src/styles/editorial-studio.css 的
+     * @media (max-width: 1024px) 条 `padding: 9px 16px` 同键整条压住
+     * （发射序 eager：styles.css 主 bundle 第 3 份、editorial 第 4 份，更晚者整条压住更早者；
+     * 两张都是静态表，(max-width:920px) 落进 (max-width:1024px) 区间内必然同时命中）。
+     * 实渲取证：窗口 900 与 860 两档 computed 都是 9px 16px
+     * （/tmp/bd55-probe.json 08b-窄窗900、/tmp/bd55-probe3.json commandbar@860）。
+     * 14 不在 §5.1 八档上，摘掉死副本同时还一笔刻度债（BD-39 同型）；
+     * 同条的 grid-template-columns/gap/min-height 不在那条覆盖里，照旧活着。 */
     min-height: 64px;
   }
 

@@ -1926,7 +1926,11 @@ const isPureRingValue = (v) => {
     //   不在本批顺手挑档。判据与两条读数（岛下块距 14 实测 = margin-bottom，
     //   覆盖 12/16/10 段距跟着走）都写在 scene-radar.css 各条上方。
     "src/features/creation/editor/scene-radar.css": 2,
-    "src/features/creation/editor/writing-quick-reference.css": 17,
+    "src/features/creation/editor/writing-quick-reference.css": 16,
+    // 批次 BD-55（padding 14px 左右档族·14 成员批，跨 5 文件）：17→16。本文件还 1 处：
+    //   .writing-quick-reference-head `11px 14px 9px 16px`→`11px 16px 9px 16px`
+    //   （右槽与左槽自己错位；头/面板档的在档先例全在 16，判据在该条上方。真宿主
+    //   实拍探针 02b：面板恒宽 320，pl 16 / pr 14）。
     // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：18→17。本文件还 1 处：
     //   .writing-quick-context `gap: 5px`→4px（裸的 11px 图标+文字状态标签族第四条，
     //   判据与票形见 styles.css .writing-watch 条上方；本文件头部按钮与 .writing-quick-field
@@ -1945,7 +1949,10 @@ const isPureRingValue = (v) => {
     // 批次 BD-52（行内徽标族整族还债，跨 3 文件）：本文件条目 9→6。还的是
     //   .snapshot-category-badge 1px 7px→2px 8px 与 .history-protection-id 1px 6px→2px 6px
     //   （共 3 处）；判据与实测在 history-local.css 各条上方。
-    "src/features/creation/history/history-local.css": 6,
+    // 批次 BD-55（padding 14px 左右档族）：条目 6→4。还 2 处：.history-item
+    //   `11px 14px`→11px 12px（行族票，零实拍如实记）与 .history-restore-success
+    //   `12px 14px`→12px（本来四边 12、只有左右写歪）；判据在各条上方。
+    "src/features/creation/history/history-local.css": 4,
     "src/features/creation/inbox/components/InboxQuickInput.tsx": 1,
     // 批次 BD-50（间距还债批·长任务对话框）：条目 4→0 **整条移除**（空表=新增即红）。
     // 三处规则、四处债（.bundle-import-result li 是 7px 与 9px 两个平票叠在一处）：
@@ -1959,7 +1966,10 @@ const isPureRingValue = (v) => {
     // 还的是 .outline-numbering-select / .card-board-move-select 的 `padding: 3px 8px`
     // 与 .outline-impact-notice 的 `padding: 9px 12px`——三处收 4px 8px / 10px 12px，
     // 档位由实渲高度探针 + 同角色邻居先例裁决（见 outline-reorg.css 的批注）。
-    "src/features/creation/preview/preview-local.css": 19,
+    // 批次 BD-55（padding 14px 左右档族）：条目 19→18。还 1 处：
+    //   .preview-block--letter `10px 14px`→10px 12px（直系双胞胎 .preview-block--note
+    //   就是 8px 12px；seed 里两种插块各 0 个 ⇒ 零实拍如实记在条上）。
+    "src/features/creation/preview/preview-local.css": 18,
     // 批次 BD-51（间距还债批·查找替换浮层 + 口令框）：条目 3→0 **整条移除**（空表=新增即红）。
     //   .replace-panel padding 18→16（同角色 fixed 浮层只有 .background-detail 在档，它就是 16px）；
     //   .replace-progress-card 22→20（同角色居中卡只有 .writing-reanchor-dialog 在档，20px）；
@@ -2010,7 +2020,16 @@ const isPureRingValue = (v) => {
     // 「行号不进 key」同样适用于注释）：.cards-board-column-head button、
     // .creation-proof-ignore、.desktop-home-inbox-count。值账实测该桶 4→3 而不是
     // 消失，正是这条作用域边界的证据（选择器前缀限定了改动范围）。
-    "src/styles.css": 84,
+    "src/styles.css": 80,
+    // 批次 BD-55（padding 14px 左右档族·styles.css 六条）：84→80。还 5 处 + 记档 1 + 摘死 1：
+    //   .scene-conflict-notice/.scene-save-error `12px 14px`→12px（告示条族票全在 12；
+    //   零实拍如实记）、.migration-banner `10px 14px`→10px 12px（横幅族票 + 探针 3
+    //   实拍基档 14 活着）、.background-card `12px 14px`→12px（卡列表项族票）、
+    //   @media 920 的 .desktop-commandbar `10px 14px` **整条摘除**——同键被 editorial
+    //   @1024 的 `9px 16px` 压死（探针实测 900/860 两档 computed 都是 9px 16px），
+    //   一条墓碑同时还一笔刻度债（BD-39 同型）；.desktop-library-grid-head `11px 14px`
+    //   记档不动（与同网格 .desktop-library-row 的四边 14 逐像素绑定，单动即列错位，
+    //   归「四边档」批成对收），.desktop-titlebar padding-left 14 记档在同值在 editorial。
     // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：94→84。本文件还 10 处（本族在
     //   styles.css 有 11 条，其中 .migration-report dl 普查后判为 dl 族「定档」问题、
     //   记档不动，见那条上方）：.creation-chip 与 .creation-proof-rules label
@@ -2053,7 +2072,17 @@ const isPureRingValue = (v) => {
     // 批次 BD-54（gap 5px 族整族清算，跨 3 文件）：63→62。本文件还 1 处：
     //   .inbox-save-status `gap: 5px`→4px（压缩档药丸灯，与 styles.css 的
     //   .creation-proof-ignore 3px 9px 逐字双胞胎 ⇒ 同值 4px；判据写在那条上方）。
-    "src/styles/editorial-studio.css": 62
+    // 批次 BD-55（padding 14px 左右档族·editorial 五条）：62→58。还 4 处：
+    //   .project-home > .stats-card > h3 `0 14px 13px`→0 16px 13px（宿主 .stats-card
+    //   自己就是 14px 16px，头档先例全 16）、.writing-margin `16px 14px 40px`→
+    //   padding:16px + padding-bottom:40px（面板档票 + 探针 02 岛内容整块跟槽走）、
+    //   .inbox-load-more `10px 14px !imp`→10px 12px !imp（托盘条票，探针 09 实拍
+    //   14 活着）、.reading-stat-tile `13px 14px !imp`→13px 16px !imp（每枚 tile
+    //   都同挂 .stats-card，16 是宿主自家左右档；探针 3 实拍 computed 全 13/14）。
+    //   .desktop-titlebar padding-left: 14px **记档不动**——标题栏的印与侧栏的印
+    //   同列（sidebar 12 + brand margin 2 = 14，探针 01 实拍 x=14 全等），动它就
+    //   把印章从整条左栏列线上扯下来；判据写在那条上方。
+    "src/styles/editorial-studio.css": 58
   };
 
   const actual = {};
@@ -2138,7 +2167,7 @@ const isPureRingValue = (v) => {
   // key =「文件 ⑉ 原属性 ⑉ 折算 px ⑉ 处数」，排序后与钉死的账**逐字全等**比对——
   // 每桶计数写进 key，所以桶成员变化和桶内计数变化都红（BD-45 是多重集逐条比对，
   // 这里是压缩后的等价判据：见上面「为什么不是逐声明一行账」）。
-  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=108、总处数=221 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方）。
+  // 唯一重钉入口 DESIGN_TOKEN_DUMP_SPACING_VALUES=1；行数=105、总处数=209 都来自 dump（BD-53 还掉分段岛 3px 族 + chip 行 5px 族 + 页签基础档共 6 处，BD-54 还掉 gap 5px 族 12 处 / 跨 3 文件——chip 内档两笔收 6、11px 图标微标签族四笔收 4、字段堆叠三笔收 4、压缩档灯一笔收 4、动作行一笔收 6、item-main 一笔收 2；styles.css 那条 gap 5px ⑉ 1 是 .migration-report dl 的记档动，见那条上方；BD-55 还掉 padding 14px 左右档族 12 处 / 跨 5 文件——16 档五笔（quick-reference-head、stats-card>h3、writing-margin、reading-stat-tile、@920 commandbar 死声明摘除）、12 档七笔（history-item、history-restore-success、preview-block--letter、scene notice、migration-banner、background-card、inbox-load-more），.desktop-library-grid-head 与 .desktop-titlebar 两条记档不动）。
   const SPACING_VALUE_LEDGER = [
         "src/features/creation/cards/cards-local.css\tgap\t3px\t5",
         "src/features/creation/cards/cards-local.css\tgap\t7px\t2",
@@ -2156,7 +2185,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/editor/writing-quick-reference.css\tmargin\t9px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tmargin-bottom\t9px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t11px\t1",
-        "src/features/creation/editor/writing-quick-reference.css\tpadding\t14px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t15px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t18px\t1",
         "src/features/creation/editor/writing-quick-reference.css\tpadding\t5px\t1",
@@ -2165,7 +2193,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/history/history-local.css\tgap\t22px\t1",
         "src/features/creation/history/history-local.css\tmargin-bottom\t3px\t1",
         "src/features/creation/history/history-local.css\tpadding\t11px\t1",
-        "src/features/creation/history/history-local.css\tpadding\t14px\t2",
         "src/features/creation/history/history-local.css\tpadding\t9px\t1",
         "src/features/creation/inbox/components/InboxQuickInput.tsx\tpr\t56px\t1",
         "src/features/creation/preview/preview-local.css\tgap\t3px\t1",
@@ -2174,7 +2201,6 @@ const isPureRingValue = (v) => {
         "src/features/creation/preview/preview-local.css\tmargin\t26px\t1",
         "src/features/creation/preview/preview-local.css\tmargin\t3px\t1",
         "src/features/creation/preview/preview-local.css\tmargin-top\t34px\t1",
-        "src/features/creation/preview/preview-local.css\tpadding\t14px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t18px\t1",
         "src/features/creation/preview/preview-local.css\tpadding\t22px\t2",
         "src/features/creation/preview/preview-local.css\tpadding\t26px\t1",
@@ -2207,7 +2233,7 @@ const isPureRingValue = (v) => {
         "src/styles.css\tmargin-top\t3px\t1",
         "src/styles.css\tmargin-top\t7px\t1",
         "src/styles.css\tpadding\t11px\t4",
-        "src/styles.css\tpadding\t14px\t15",
+        "src/styles.css\tpadding\t14px\t11",
         "src/styles.css\tpadding\t18px\t2",
         "src/styles.css\tpadding\t1px\t2",
         "src/styles.css\tpadding\t26px\t1",
@@ -2231,7 +2257,7 @@ const isPureRingValue = (v) => {
         "src/styles/editorial-studio.css\tmargin-top\t7px\t1",
         "src/styles/editorial-studio.css\tpadding\t11px\t1",
         "src/styles/editorial-studio.css\tpadding\t13px\t4",
-        "src/styles/editorial-studio.css\tpadding\t14px\t9",
+        "src/styles/editorial-studio.css\tpadding\t14px\t5",
         "src/styles/editorial-studio.css\tpadding\t17px\t1",
         "src/styles/editorial-studio.css\tpadding\t18px\t7",
         "src/styles/editorial-studio.css\tpadding\t22px\t1",

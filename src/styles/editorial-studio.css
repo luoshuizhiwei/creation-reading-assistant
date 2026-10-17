@@ -809,7 +809,18 @@ select:focus-visible,
 
 .project-home > .stats-card > h3 {
   margin: 0;
-  padding: 0 14px 13px;
+  /* 批次 BD-55（padding 14px 左右档族·面板头角色）：左右槽 14→16。
+   * 这个 h3 的宿主同时是 .stats-card——那条基础档的左右槽本来就是 16
+   * （styles.css `padding: 14px 16px`，实测 06 屏 pl/pr 16px）；本条把左右压成 14
+   * 是同族内部的自相矛盾。面板头角色的其余在档先例也全在 16：
+   * .uni-search-head 14px 16px、.creation-search-head 14px 16px、
+   * .desktop-commandbar 窄屏两档 12px 16px / 9px 16px。
+   * 实拍（1360 窗口，/tmp/bd55-probe2.json C-项目首页）：卡片 border-box 左缘 x=276、
+   * 卡片 pl 6px（!important 的 18px 6px 8px，非本批成员）⇒ h3 盒子 x=283；
+   * 标题文字距卡片 border-box 左缘 = 边框 1 + 卡片内衬 6 + h3 内衬 14 = 21px，收 16 后 23px。
+   * 列表行 .project-home-item 的标题距行左缘实测 50px（序号 ::after 在 left:16px）——
+   * 两列本来就不对齐，这一条不是对齐绑定条，收值不牵动别人。 */
+  padding: 0 16px 13px;
   border-bottom: 1px solid var(--border-subtle);
 }
 
@@ -1156,7 +1167,20 @@ select:focus-visible,
   min-height: 0;
   overflow: auto;
   border-left: 1px solid var(--border-subtle);
-  padding: 16px 14px 40px;
+  /* 批次 BD-55（padding 14px 左右档族·面板角色）：左右 14→16，上值 16 与下值 40 不动。
+   * 落点看角色：这块右栏是一块**面板**，而面板档的在档先例全在 16——
+   * .stats-card 14px 16px（探针 06 实测 pl/pr 16px）、.uni-search-head 14px 16px
+   * （探针 08 实测 16px）、.cards-detail-pane 16px、.history-page 16px；
+   * 12 那一侧的成员（.history-impact-notice、.creation-proof-item、
+   * .project-card-link-list li、.replace-error-banner）没有一条是面板，全是行/条。
+   * 结构证据（探针 02，1360 窗口）：面板 x=1080 w=280、内部 .scene-radar x=1095
+   * = 1080 + 左边框 1 + 内衬 14 ⇒ 岛内内容整块跟着这个槽走；
+   * 左邻 .writing-outline pl 0px（它靠自己的 .writing-project-switcher 12px 定位）
+   * ⇒ 两栏之间没有等宽对齐绑定，收 16 不牵动别人。
+   * ⚠ 拆成两条声明写（padding 简写 + padding-bottom）是为了让本条的 40 仍留在
+   *   上下档成员里，不被本批的水平槽范围吞掉。 */
+  padding: 16px;
+  padding-bottom: 40px;
 }
 
 .writing-project-switcher {
@@ -1664,7 +1688,14 @@ select:focus-visible,
   justify-content: space-between;
   gap: 10px;
   margin: 8px;
-  padding: 10px 14px !important;
+  /* 批次 BD-55（padding 14px 左右档族·条/托盘角色）：左右 14→12（!important 保留，
+   * 它压的是面板家族那条 blanket——去掉 !important 会当场漏出家族内衬，见本文件
+   * 批次 AJ 的「环取消不掉」记录）。角色票：这条是收件箱列表末尾的一**条**托盘，
+   * 同页直系 .inbox-item `13px 12px 13px 17px`（探针 09 实测 pr 12px）就在 12 上；
+   * 全站「条/行」支 .history-impact-notice、.creation-proof-item、
+   * .replace-error-banner 均 10px 12px。16 一侧全是头/面板角色，没有一条是条。
+   * 实拍（探针 09，两条速记后）：pl/pr=14、pt/pb=10、w 427.59——改动前活着。 */
+  padding: 10px 12px !important;
   border: 1px dashed var(--border-strong) !important;
   border-radius: var(--radius-2) !important;
   background: transparent !important;
@@ -1967,7 +1998,14 @@ select:focus-visible,
 
 /* Reading stat tiles carry the section voice like studio cards elsewhere. */
 .reading-stat-tile {
-  padding: 13px 14px !important;
+  /* 批次 BD-55（padding 14px 左右档族·卡角色）：左右 14→16（!important 保留——
+   * 它压的是 .stats-card `padding: 14px 16px` 的上下槽，本条把上/下按到 13）。
+   * 这条规则的宿主每一枚都同时挂 .stats-card（ReadingStatsPage.tsx
+   * `stats-card reading-stat-tile`，TSX 核实两处）——宿主自己的另一条档左右槽
+   * 本来就是 16；本条把左右按到 14 是同宿主自相矛盾。上值 13 是上下档成员，本批不动。
+   * 实拍（探针 3 stats 屏，四枚全同）：computed 13px 14px 13px 14px——改动前活着，
+   * 且证实 !imp 整条压住了 .stats-card 的 14px 16px。 */
+  padding: 13px 16px !important;
 }
 
 .reading-stat-head {
@@ -2536,6 +2574,16 @@ input[type="text"],
   justify-content: space-between;
   gap: 12px;
   position: relative;
+  /* 批次 BD-55 记档（padding 14px 左右档族·标题栏左内衬）：这条 14 不动，不是漏判——
+   * 它和左栏的「印章列」是逐像素绑定的：.desktop-sidebar `padding: 18px 12px 14px`
+   * + .desktop-brand.nav-spine-item 与 .desktop-nav button 的 `margin: 0 2px` 的 2px
+   * = 14，标题栏的印（.desktop-titlebar-mark x=14）与侧栏的印（.desktop-brand-mark
+   * x=14 = 侧栏 12 + 2 margin + 3px 透明左边框起点内）在实拍里同列——探针 01：
+   * titlebar pl=14、mark x=14、sidebar-card x=14、brand x=14（1360 窗全等）。
+   * 收 12 或 16 都会把这枚印从整条左栏的列线上扯下来，这是设计列不是内衬档。
+   * ⚠ 「14 = 12+2」的算式是几何巧合链（12 是侧栏档内值、2 是 margin 档内值），
+   *   但列线对齐本身是肉眼可见的绑定，四边批若要动 .desktop-sidebar 的 12，
+   *   本条必须同批核。 */
   padding-left: 14px;
   background:
     repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.02) 0 1px, transparent 1px 3px),

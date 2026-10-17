@@ -36,7 +36,17 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 11px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·行/条目角色）：左右 14→12。
+   * 在档先例清一色 12——本文件同页的 .history-impact-notice 与 .history-impact-danger
+   * 都是 `10px 12px`（BD-48 收的），全站其余「一行条目」.creation-proof-item 10px 12px、
+   * .project-card-link-list li 10px 12px、.replace-error-banner/.replace-done-banner
+   * 10px 12px。16 那一侧的成员全是头/面板角色（.uni-search-head、.stats-card、
+   * .desktop-commandbar 的窄屏档），没有一条是行——按「裁决落到这一条自己的家族」
+   * 的规矩，行族投 12。
+   * ⚠ 零实拍：seed 的版本历史页 0 条 .history-item（/tmp/bd55-probe2.json E-历史，
+   *   items 0 / empties 1——列表要有删除记录或快照才渲染），这条的判据只有家族票。
+   * 本文件页级留白另说：.history-page 16px、.history-empty 32px 16px 都是面板/空态角色。 */
+  padding: 11px 12px;
   border-radius: 10px;
   border: 1px solid var(--border-subtle);
   background: var(--bg-surface);
@@ -362,7 +372,11 @@
 .history-restore-success {
   display: grid;
   gap: 6px;
-  padding: 12px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·同文件同角色双胞胎）：12px 14px→12px。
+   * 这条本来四边都是 12，只有左右被写成 14——本文件最近的在档邻居
+   * .history-impact-list 与 .history-authoritative-preview 都是整条 12px，
+   * 与上面 .history-item 收后的值同档。收完之后这一页的条目层内衬只剩 12 一档。 */
+  padding: 12px;
   border-radius: 10px;
   border: 1px solid color-mix(in srgb, var(--moss) 36%, transparent);
   background: color-mix(in srgb, var(--moss) 10%, var(--bg-surface));

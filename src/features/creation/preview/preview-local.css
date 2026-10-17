@@ -260,7 +260,14 @@
 
 .preview-block--letter {
   margin: 0 0 14px;
-  padding: 10px 14px;
+  /* 批次 BD-55（padding 14px 左右档族·正文块角色）：左右 14→12。
+   * 直系双胞胎就在本文件下一条：.preview-block--note `padding: 8px 12px`——同一份
+   * 预览文档里的两种插块，只有 letter 的左右写成 14。票池里 12 那一侧全是「块/条」
+   * 角色（.history-impact-notice、.creation-proof-item、.project-card-link-list li
+   * 均 10px 12px），16 那一侧全是头/面板角色。
+   * ⚠ seed 全书预览页实测 letter 与 note 各 0 个（block-counts 见 /tmp/bd55-probe2.json，
+   *   8 个 preview-block 里没有这两种）——这条零实拍，判据只有家族票，记在这里。 */
+  padding: 10px 12px;
   border-left: 3px solid var(--separator);
   background: var(--surface-2);
   text-indent: 0;
